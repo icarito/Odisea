@@ -16,7 +16,7 @@ export const MemTimeline: React.FC<MemTimelineProps> = ({ data }) => {
 
   return (
     <div className="h-24 w-full relative">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <LineChart data={chartData}>
           <YAxis domain={[0, maxMem * 1.2]} hide />
           <Line

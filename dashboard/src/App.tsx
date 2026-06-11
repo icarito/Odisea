@@ -106,35 +106,36 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       .catch(() => setScenes([]));
   }, []);
 
+  // Normalizes a heartbeat to the flat shape the playback charts use.
+  // /api/ghosts returns flat SQLite rows (hb.fps, hb.pos_x, ...), while the
+  // runtime/JSONL format nests them under hb.player. Support both.
+  const normalizeHeartbeat = (hb: any) => {
+    const p = hb.player || {};
+    const pos = p.position;
+    return {
+      timestamp: hb.timestamp ?? 0,
+      fps: hb.fps ?? p.fps ?? 0,
+      memory_mb: hb.memory_mb ?? p.memory_mb ?? 0,
+      pos_x: hb.pos_x ?? pos?.[0] ?? 0,
+      pos_z: hb.pos_z ?? pos?.[2] ?? 0,
+    };
+  };
+
   const handleSelectHistorySession = async (session: any) => {
     setSelectedSession(session);
     setActiveTab('playback');
     try {
       const data = await getGhostData(session.player_id, session.session_id);
+      let rows: any[] = [];
       if (Array.isArray(data)) {
-        setPlaybackData(data.map((hb: any) => ({
-          timestamp: hb.timestamp,
-          fps: hb.player?.fps || 0,
-          memory_mb: hb.player?.memory_mb || 0,
-          pos_x: hb.player?.position?.[0] || 0,
-          pos_z: hb.player?.position?.[2] || 0
-        })));
+        rows = data;
       } else if (typeof data === 'string') {
-          const lines = data.split('\n').filter(l => l.trim());
-          const parsed = lines.map(l => {
-              const hb = JSON.parse(l);
-              return {
-                timestamp: hb.timestamp,
-                fps: hb.player?.fps || 0,
-                memory_mb: hb.player?.memory_mb || 0,
-                pos_x: hb.player?.position?.[0] || 0,
-                pos_z: hb.player?.position?.[2] || 0
-              };
-          });
-          setPlaybackData(parsed);
+        rows = data.split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
       }
+      setPlaybackData(rows.map(normalizeHeartbeat));
     } catch (e) {
       toast.error("Failed to load session data");
+      setPlaybackData([]);
     }
   };
 

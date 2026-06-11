@@ -13,7 +13,7 @@ export const FpsTimeline: React.FC<FpsTimelineProps> = ({ data }) => {
 
   return (
     <div className="h-24 w-full relative">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <LineChart data={chartData}>
           <YAxis domain={[0, 120]} hide />
           <ReferenceLine y={30} stroke="#f85149" strokeDasharray="3 3" opacity={0.3} />
