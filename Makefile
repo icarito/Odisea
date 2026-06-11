@@ -32,4 +32,11 @@ export: export-linux-arm64 export-pck
 
 all: render
 
-.PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web
+dashboard-dev-central:
+	@set -a; \
+	[ ! -f .env ] || . ./.env; \
+	set +a; \
+	cd dashboard; \
+	VITE_API_TARGET=https://odisea.educa.juegos pnpm run dev
+
+.PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central

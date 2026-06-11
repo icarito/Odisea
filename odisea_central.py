@@ -1072,18 +1072,22 @@ class OdiseaCentral:
         if guard is not None:
             return guard
 
+        include_server = request.query.get("include_server") in ("1", "true", "yes")
+
         query = """
         SELECT
             player_id,
             session_id,
+            COALESCE(NULLIF(MAX(platform), ''), 'unknown') as platform,
             MIN(timestamp) as start_time,
             MAX(timestamp) as end_time,
             MAX(timestamp) - MIN(timestamp) as duration,
-            COUNT(DISTINCT scene) as scenes_visited,
+            GROUP_CONCAT(DISTINCT scene) as scenes_visited,
             AVG(fps) as avg_fps,
             SUM(CASE WHEN fps < 30 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as low_fps_pct,
             AVG(memory_mb) as avg_mem
         FROM heartbeats
+        WHERE (? = 1 OR LOWER(COALESCE(platform, '')) != 'server')
         GROUP BY player_id, session_id
         ORDER BY start_time DESC
         LIMIT 200
@@ -1093,7 +1097,7 @@ class OdiseaCentral:
             conn = self._get_db()
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute(query)
+            cursor.execute(query, (1 if include_server else 0,))
             rows = [dict(row) for row in cursor.fetchall()]
             conn.close()
             return web.json_response(rows)

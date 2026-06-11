@@ -3,14 +3,15 @@ import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 
 export const HistoricalTable = ({ sessions, onSelectSession }: { sessions: any[], onSelectSession: (s: any) => void }) => {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
+  const [sortKey, setSortKey] = useState<'date' | 'fps'>('date');
 
   const sortedSessions = useMemo(() => {
     return [...sessions].sort((a, b) => {
-      const aTime = Number(a.start_time) || 0;
-      const bTime = Number(b.start_time) || 0;
-      return sortDir === 'desc' ? bTime - aTime : aTime - bTime;
+      const aValue = sortKey === 'date' ? Number(a.start_time) || 0 : Number(a.avg_fps) || 0;
+      const bValue = sortKey === 'date' ? Number(b.start_time) || 0 : Number(b.avg_fps) || 0;
+      return sortDir === 'desc' ? bValue - aValue : aValue - bValue;
     });
-  }, [sessions, sortDir]);
+  }, [sessions, sortDir, sortKey]);
 
   const formatDate = (ts: number) => {
     if (!ts) return 'Unknown date';
@@ -58,14 +59,24 @@ export const HistoricalTable = ({ sessions, onSelectSession }: { sessions: any[]
     <div className="mx-auto w-full max-w-[640px] font-mono">
       <div className="sticky top-0 z-10 flex items-center justify-between border-4 border-black bg-black px-3 py-2 text-[0.625rem] font-black uppercase text-accent">
         <span>Historical Sessions</span>
-        <button
-          type="button"
-          onClick={() => setSortDir(sortDir === 'desc' ? 'asc' : 'desc')}
-          className="flex items-center gap-1 text-accent"
-          aria-label="Toggle date sort order"
-        >
-          Date {sortDir === 'desc' ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSortKey(sortKey === 'date' ? 'fps' : 'date')}
+            className="text-accent"
+            aria-label="Toggle sort field"
+          >
+            {sortKey === 'date' ? 'Date' : 'FPS'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSortDir(sortDir === 'desc' ? 'asc' : 'desc')}
+            className="flex items-center gap-1 text-accent"
+            aria-label="Toggle sort order"
+          >
+            {sortDir === 'desc' ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
+        </div>
       </div>
 
       {sessions.length === 0 ? (

@@ -11,6 +11,7 @@ interface DashboardLayoutProps {
   playerCount: number;
   onPlayersClick: () => void;
   isSessionSelected: boolean;
+  headerControls?: React.ReactNode;
 }
 
 // Unified mobile-first layout: fixed header + fixed bottom nav, scrollable
@@ -24,6 +25,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   playerCount,
   onPlayersClick,
   isSessionSelected,
+  headerControls,
 }) => {
   const tabs = [
     { id: 'live', label: 'Live', icon: <Activity size={16} /> },
@@ -37,10 +39,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Fixed header */}
       <header className="shrink-0 flex items-center justify-between px-3 sm:px-4 py-2 border-b-4 border-black bg-bg-card z-30">
         <h1 className="text-accent font-black text-xs sm:text-base italic tracking-tighter">
-          ODISEA<span className="hidden sm:inline"> CENTRAL</span><span className="sm:hidden">·V2</span>
+          <button type="button" onClick={() => setActiveTab('live')} className="hover:text-text-primary">
+            ODISEA<span className="hidden sm:inline"> CENTRAL</span><span className="sm:hidden">·V2</span>
+          </button>
         </h1>
 
         <div className="flex items-center gap-2 sm:gap-4">
+          {headerControls}
+
           <span className="flex items-center gap-1.5 text-[0.625rem] uppercase font-bold">
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success shadow-[0_0_8px_rgba(63,185,80,0.5)]' : 'bg-danger'}`} />
             <span className={isConnected ? 'text-success' : 'text-danger'}>{isConnected ? 'on' : 'off'}</span>
