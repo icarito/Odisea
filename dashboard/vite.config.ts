@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => {
         '/status': apiTarget,
         '/health': apiTarget,
         '/sessions': apiTarget,
+        '/telemetry': apiTarget,
+        '/command': apiTarget,
+        '/api': apiTarget,
         '/ws': {
           target: wsTarget,
           ws: true,
