@@ -224,10 +224,12 @@ $GODOT_HEAD_INCLUDE
 				var isPck = resource.indexOf('.pck') !== -1;
 				var isWasm = resource.indexOf('.wasm') !== -1;
 
-				if (isPck || isWasm) {
-					var filename = resource.split('/').pop();
-					var remoteUrl = PAGES_BASE + "/" + filename;
-					var assetType = isPck ? "PCK" : "WASM";
+			if (isPck || isWasm) {
+				var filename = resource.split('/').pop();
+				var remoteUrl = isWasm
+					? PAGES_BASE + "/threads/" + filename
+					: PAGES_BASE + "/" + filename;
+				var assetType = isPck ? "PCK" : "WASM";
 
 					console.log("[" + assetType + "] Attempting GitHub Pages:", remoteUrl);
 					return originalFetch(remoteUrl, init).then(function(response) {
