@@ -38,6 +38,7 @@ CACHE_TTL = int(os.environ.get("CENTRAL_CACHE_TTL", 120))
 STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "true").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
 GHOSTS_MAX_BYTES = int(os.environ.get("CENTRAL_GHOSTS_MAX_BYTES", 1073741824))  # 1GB
+DB_PATH = os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db")
 STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 
 AUTH_MAX_FAILS = int(os.environ.get("CENTRAL_AUTH_MAX_FAILS", 8))
@@ -124,9 +125,11 @@ class OdiseaCentral:
         self.event_subscribers: Set[web.WebSocketResponse] = set()
         self.auth_fails: Dict[str, dict] = {}  # ip -> {"ts": [failure timestamps], "locked_until": float}
         self.metrics = MetricsCollector()
+        self.db_queue: asyncio.Queue = asyncio.Queue()
         self.ghost_rotation_counter: Dict[str, int] = {}  # pid -> count
         self.pending_commands: Dict[str, asyncio.Future] = {}  # command_id -> Future
         self.web_telemetry_rate: Dict[str, List[float]] = {}  # ip -> [request timestamps]
+        self.low_fps_sessions: Dict[str, float] = {}  # session_id -> start_time_of_low_fps
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
             os.makedirs(GHOSTS_DIR, exist_ok=True)
@@ -318,49 +321,116 @@ class OdiseaCentral:
         return web.json_response(sessions)
 
     async def handle_sessions_history(self, request):
+        """Historical session list from SQLite (Prompt 8)."""
         guard = self._auth_guard(request)
         if guard is not None:
             return guard
 
-        history = []
-        if os.path.exists(GHOSTS_DIR):
-            for pid in os.listdir(GHOSTS_DIR):
-                p_path = os.path.join(GHOSTS_DIR, pid)
-                if not os.path.isdir(p_path):
-                    continue
-                for sid_file in os.listdir(p_path):
-                    if not sid_file.endswith(".jsonl"):
-                        continue
-                    sid = sid_file[:-6]
-                    f_path = os.path.join(p_path, sid_file)
-                    try:
-                        stats = os.stat(f_path)
-                        history.append({
-                            "session_id": sid,
-                            "player_id": pid,
-                            "size_bytes": stats.st_size,
-                            "mtime": stats.st_mtime
-                        })
-                    except Exception:
-                        pass
-        history.sort(key=lambda x: x["mtime"], reverse=True)
-        return web.json_response(history)
+        query = """
+            SELECT
+                session_id,
+                player_id,
+                MIN(timestamp) as timestamp,
+                MAX(timestamp) - MIN(timestamp) as duration,
+                AVG(fps) as avg_fps,
+                MAX(memory_mb) as peak_mem,
+                COUNT(*) as frame_count
+            FROM heartbeats
+            GROUP BY session_id, player_id
+            ORDER BY timestamp DESC
+            LIMIT 100
+        """
+
+        try:
+            import sqlite3
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query)
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return web.json_response(rows)
+        except Exception as e:
+            logger.error(f"Sessions history error: {e}")
+            # Fallback to filesystem if DB fails
+            return web.json_response([])
 
     async def handle_ghosts(self, request):
+        """Historical query from SQLite backend (Prompt 6)."""
         guard = self._auth_guard(request)
         if guard is not None:
             return guard
 
-        pid = request.query.get("player_id")
-        sid = request.query.get("session_id")
-        if not pid or not sid:
-            return web.json_response({"error": "missing parameters"}, status=400)
+        scene = request.query.get("scene")
+        platform = request.query.get("platform")
+        since = request.query.get("since")
 
-        path = os.path.join(GHOSTS_DIR, pid, f"{sid}.jsonl")
-        if not os.path.exists(path):
-            return web.json_response({"error": "ghost not found"}, status=404)
+        query = "SELECT * FROM heartbeats WHERE 1=1"
+        params = []
+        if scene:
+            query += " AND scene = ?"
+            params.append(scene)
+        if platform:
+            query += " AND platform = ?"
+            params.append(platform)
+        if since:
+            query += " AND timestamp >= ?"
+            params.append(float(since))
 
-        return web.FileResponse(path)
+        query += " ORDER BY timestamp DESC LIMIT 2000"
+
+        try:
+            import sqlite3
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return web.json_response(rows)
+        except Exception as e:
+            logger.error(f"DB query error: {e}")
+            return web.json_response({"error": "db_error", "message": str(e)}, status=500)
+
+    async def handle_ghosts_heatmap(self, request):
+        """Aggregated heatmap query from SQLite (Prompt 6)."""
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        scene = request.query.get("scene")
+        if not scene:
+            return web.json_response({"error": "missing_scene"}, status=400)
+
+        res = float(request.query.get("resolution", 5))
+
+        # We group by rounding X and Z to the grid
+        query = """
+            SELECT
+                ROUND(pos_x / ?) * ? as cell_x,
+                ROUND(pos_z / ?) * ? as cell_z,
+                COUNT(*) as count,
+                SUM(CASE WHEN fps < 30 THEN 1 ELSE 0 END) as low_fps_count,
+                AVG(fps) as avg_fps,
+                AVG(memory_mb) as avg_mem
+            FROM heartbeats
+            WHERE scene = ?
+            GROUP BY cell_x, cell_z
+        """
+        params = [res, res, res, res, scene]
+
+        try:
+            import sqlite3
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return web.json_response(rows)
+        except Exception as e:
+            logger.error(f"Heatmap query error: {e}")
+            return web.json_response({"error": "db_error", "message": str(e)}, status=500)
 
     async def handle_download_session(self, request):
         guard = self._auth_guard(request)
@@ -442,7 +512,16 @@ class OdiseaCentral:
         peer_id = None
         authenticated = False
 
-        logger.info("New peer connection attempt.")
+        # Platform inference (Prompt 4)
+        platform_query = request.query.get("platform")
+        ua = request.headers.get("User-Agent", "")
+        inferred_platform = platform_query
+        if not inferred_platform:
+            # Simple heuristic: Mozilla-based and no major Desktop OS = likely HTML5/Mobile Browser
+            if "Mozilla" in ua and not any(os_name in ua for os_name in ["Windows", "Linux", "Macintosh"]):
+                inferred_platform = "HTML5"
+
+        logger.info(f"New peer connection attempt. Inferred Platform: {inferred_platform}")
 
         try:
             async for msg in ws:
@@ -499,6 +578,15 @@ class OdiseaCentral:
 
                         self.session_rate_limit[session_id] = now
 
+                        # Enrich with inferred platform if missing or unknown (Prompt 4)
+                        if inferred_platform:
+                            if "player" not in data:
+                                data["player"] = {}
+                            if data["player"].get("platform") in [None, "", "unknown"]:
+                                data["player"]["platform"] = inferred_platform
+                            if data.get("platform") in [None, "", "unknown"]:
+                                data["platform"] = inferred_platform
+
                         # Fusionar datos para manejar actualizaciones parciales (tiers) del cliente Godot
                         if player_id in self.heartbeats:
                             existing = self.heartbeats[player_id]
@@ -526,6 +614,28 @@ class OdiseaCentral:
 
                         if STORE_GHOSTS:
                             self._store_ghost(player_id, session_id, data)
+
+                        # Low FPS alerts (Prompt 9)
+                        player_data_fps = data.get("player", {}).get("fps", 60)
+                        if player_data_fps < 15:
+                            if session_id not in self.low_fps_sessions:
+                                self.low_fps_sessions[session_id] = now
+                            elif now - self.low_fps_sessions[session_id] > 5:
+                                # Persistent low FPS alert
+                                alert = {
+                                    "type": "alert",
+                                    "player_id": player_id,
+                                    "session_id": session_id,
+                                    "message": "Low FPS detected (>5s)",
+                                    "fps": player_data_fps,
+                                    "timestamp": now
+                                }
+                                for sub in self.event_subscribers:
+                                    try:
+                                        asyncio.create_task(sub.send_json(alert))
+                                    except Exception: pass
+                        else:
+                            self.low_fps_sessions.pop(session_id, None)
 
                         for sub in self.event_subscribers:
                             try:
@@ -593,7 +703,57 @@ class OdiseaCentral:
             self.event_subscribers.discard(ws)
         return ws
 
+    async def _db_worker(self):
+        """Background worker for SQLite writes (performance fix)."""
+        import sqlite3
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        while True:
+            try:
+                batch = []
+                # Wait for at least one item
+                batch.append(await self.db_queue.get())
+
+                # Try to drain more items if available
+                while not self.db_queue.empty() and len(batch) < 100:
+                    batch.append(self.db_queue.get_nowait())
+
+                for data in batch:
+                    player_data = data.get("player", {})
+                    pos = player_data.get("position", [0, 0, 0])
+                    platform = player_data.get("platform") or data.get("platform") or "unknown"
+
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO heartbeats (
+                            player_id, session_id, timestamp, scene, platform,
+                            fps, memory_mb, pos_x, pos_y, pos_z,
+                            engine_version, peer_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        data.get("player_id"),
+                        data.get("session_id"),
+                        data.get("timestamp"),
+                        player_data.get("scene"),
+                        platform,
+                        player_data.get("fps"),
+                        player_data.get("memory_mb"),
+                        pos[0], pos[1], pos[2],
+                        data.get("engine_version") or data.get("godot_version"),
+                        data.get("peer_id")
+                    ))
+
+                conn.commit()
+                for _ in batch:
+                    self.db_queue.task_done()
+            except Exception as e:
+                logger.error(f"DB worker error: {e}")
+                await asyncio.sleep(1)
+
     def _store_ghost(self, pid: str, sid: str, data: dict):
+        # Queue for SQLite in background (Prompt 6)
+        self.db_queue.put_nowait(data.copy())
+
         try:
             p_dir = os.path.join(GHOSTS_DIR, pid)
             os.makedirs(p_dir, exist_ok=True)
@@ -632,8 +792,11 @@ class OdiseaCentral:
             web.get('/status', self.handle_status),
             web.get('/sessions', self.handle_sessions),
             web.get('/sessions/history', self.handle_sessions_history),
+            web.get('/api/ghosts/sessions', self.handle_sessions_history),
             web.get('/sessions/{player_id}/{session_id}', self.handle_download_session),
             web.get('/ghosts', self.handle_ghosts),
+            web.get('/api/ghosts', self.handle_ghosts),
+            web.get('/api/ghosts/heatmap', self.handle_ghosts_heatmap),
             web.post('/command', self.handle_command),
             web.get('/health', self.handle_health),
             web.post('/telemetry', self.handle_web_telemetry),
@@ -654,6 +817,7 @@ class OdiseaCentral:
         logger.info(f"Odisea Central V2 running on port {CENTRAL_HTTP_PORT}")
 
         cleanup_task = asyncio.create_task(self._cleanup_loop())
+        db_worker_task = asyncio.create_task(self._db_worker())
 
         try:
             while True:

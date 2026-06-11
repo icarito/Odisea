@@ -1,17 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../api';
-
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { SessionTimeline } from './SessionTimeline';
 
 interface HistorySession {
   player_id: string;
   session_id: string;
   timestamp: number;
-  size_kb: number;
+  duration: number;
+  avg_fps: number;
+  peak_mem: number;
+  frame_count: number;
 }
 
 interface SessionDetail {
     events: { scene: string, zone: string, mode: string, timestamp: number }[];
+    chartData: { time: number, fps: number, mem: number }[];
     stats: {
         avgFps: number;
         peakMem: number;
@@ -59,9 +63,11 @@ export const SessionHistory: React.FC = () => {
 
         if (data.length > 0) {
             const events: any[] = [];
+            const chartData: any[] = [];
             let totalFps = 0;
             let fpsCount = 0;
             let peakMem = 0;
+            const firstTs = data[0]?.timestamp ?? 0;
 
             data.forEach((hb: any) => {
                 const p = hb.player || {};
@@ -87,14 +93,20 @@ export const SessionHistory: React.FC = () => {
                 if (typeof p.memory_mb === 'number' && p.memory_mb > peakMem) {
                     peakMem = p.memory_mb;
                 }
+
+                chartData.push({
+                    time: Math.round((hb.timestamp ?? 0) - firstTs),
+                    fps: p.fps ?? 0,
+                    mem: p.memory_mb ?? 0
+                });
             });
 
-            const firstTs = data[0]?.timestamp ?? 0;
             const lastTs = data[data.length - 1]?.timestamp ?? 0;
             const duration = Math.max(0, lastTs - firstTs);
 
             setDetail({
                 events,
+                chartData,
                 stats: {
                     avgFps: fpsCount > 0 ? Math.round(totalFps / fpsCount) : 0,
                     peakMem: Math.round(peakMem * 10) / 10,
@@ -162,6 +174,30 @@ export const SessionHistory: React.FC = () => {
                         <span className="text-text-muted uppercase font-bold">Timeline</span>
                         <SessionTimeline events={detail.events} />
                     </div>
+
+                    <div className="h-24 w-full mt-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={detail.chartData}>
+                                <Line type="monotone" dataKey="fps" stroke="#22c55e" dot={false} strokeWidth={2} />
+                                <Tooltip
+                                    contentStyle={{ background: '#13161c', border: '1px solid #232833', fontSize: '8px' }}
+                                    labelStyle={{ color: '#9ca3af' }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div className="h-24 w-full mt-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={detail.chartData}>
+                                <Area type="monotone" dataKey="mem" stroke="#eab308" fill="#eab308" fillOpacity={0.2} />
+                                <Tooltip
+                                    contentStyle={{ background: '#13161c', border: '1px solid #232833', fontSize: '8px' }}
+                                    labelStyle={{ color: '#9ca3af' }}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
                     <button
                         onClick={() => downloadSession(selectedSession.player_id, selectedSession.session_id)}
                         className="mt-2 w-full py-1.5 bg-accent text-bg-primary font-bold rounded hover:opacity-90"
@@ -184,11 +220,11 @@ export const SessionHistory: React.FC = () => {
         >
           <div className="flex justify-between items-center mb-1">
             <span className="text-accent font-bold">{s.player_id.slice(0, 8)}</span>
-            <span className="text-text-muted">{s.timestamp ? new Date(s.timestamp * 1000).toLocaleDateString() : "?"}</span>
+            <span className="text-text-muted">{s.timestamp ? new Date(s.timestamp * 1000).toLocaleString() : "?"}</span>
           </div>
           <div className="text-text-muted truncate mb-2">{s.session_id}</div>
           <div className="flex justify-between items-center">
-            <span className="text-text-muted">{s.size_kb} KB</span>
+            <span className="text-text-muted">{Math.round(s.duration)}s | {s.avg_fps ? Math.round(s.avg_fps) : "?"} FPS</span>
             <span className="text-accent opacity-0 group-hover:opacity-100 transition-opacity">VER DETALLE →</span>
           </div>
         </div>

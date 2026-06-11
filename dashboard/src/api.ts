@@ -36,6 +36,25 @@ export async function getWebTelemetry() {
   return response.json();
 }
 
+export async function getGhosts(scene?: string, platform?: string, since?: number) {
+  let url = "/api/ghosts?";
+  if (scene) url += `scene=${scene}&`;
+  if (platform) url += `platform=${platform}&`;
+  if (since) url += `since=${since}&`;
+  const response = await apiFetch(url);
+  return response.json();
+}
+
+export async function getHeatmap(scene: string, resolution: number = 5) {
+  const response = await apiFetch(`/api/ghosts/heatmap?scene=${scene}&resolution=${resolution}`);
+  return response.json();
+}
+
+export async function getSessionHistory() {
+  const response = await apiFetch("/sessions/history");
+  return response.json();
+}
+
 export async function sendCommand(playerId: string, action: string, args: any = {}) {
   const response = await apiFetch("/command", {
     method: "POST",

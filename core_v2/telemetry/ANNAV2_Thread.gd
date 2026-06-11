@@ -281,6 +281,10 @@ func _send_heartbeat(tier: int):
 
 	_heartbeat_counter += 1
 
+	var platform_name = OS.get_name()
+	if OS.has_feature("web"):
+		platform_name = "HTML5"
+
 	var msg = {
 		"schema_version": 1,
 		"type": "heartbeat",
@@ -288,8 +292,9 @@ func _send_heartbeat(tier: int):
 		"session_id": session_id,
 		"host": OS.get_name(),
 		"godot_version": Engine.get_version_info().string,
+		"engine_version": Engine.get_version_info().string,
 		"game_version": game_version,
-		"platform": OS.get_name(),
+		"platform": platform_name,
 		"timestamp": OS.get_unix_time()
 	}
 	
@@ -305,7 +310,8 @@ func _send_heartbeat(tier: int):
 		"mode": player_data.get("mode", "standard"),
 		"tick": player_data.get("tick", 0),
 		"memory_mb": player_data.get("memory_mb", 0.0),
-		"velocity": player_data.get("velocity", [0, 0, 0])
+		"velocity": player_data.get("velocity", [0, 0, 0]),
+		"platform": platform_name
 	}
 	
 	msg["player"] = player_msg

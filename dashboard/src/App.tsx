@@ -9,10 +9,14 @@ import { SessionTimeline } from './components/SessionTimeline';
 import { SessionHistory } from './components/SessionHistory';
 import { WebLoads } from './components/WebLoads';
 import { useTelemetry } from './hooks/useTelemetry';
+import { getHeatmap } from './api';
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history } = useTelemetry();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [heatmapData, setHeatmapData] = useState<any[] | undefined>();
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showLiveGhosts, setShowLiveGhosts] = useState(true);
 
   useEffect(() => {
     if (alerts.length > 0) {
@@ -39,6 +43,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const toggleCollapse = (section: string) => setCollapsed(prev => ({ ...prev, [section]: !prev[section] }));
 
   const pids = Object.keys(heartbeats);
+
+  useEffect(() => {
+    if (showHeatmap && manualScene) {
+      getHeatmap(manualScene).then(setHeatmapData).catch(console.error);
+    } else {
+      setHeatmapData(undefined);
+    }
+  }, [showHeatmap, manualScene]);
   const activeId = selectedPlayerId || pids[0];
   const activeHb = heartbeats[activeId];
   const activeHistory = history[activeId];
@@ -142,6 +154,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   wireframe={wireframe}
                   sceneName={manualScene || activeHb.player.scene || "Unknown"}
                   staleAge={staleAge}
+                  heatmapData={heatmapData}
+                  liveGhosts={showLiveGhosts ? Object.values(heartbeats).filter(h => h.player_id !== activeId) : []}
                 />
                 
                 {/* Viewport Overlays */}
@@ -178,6 +192,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     className={`px-3 py-1.5 rounded text-xs border ${wireframe ? 'bg-accent text-bg-primary border-accent' : 'bg-bg-card/80 border-border-custom'}`}
                   >
                     Wireframe
+                  </button>
+                  <button
+                    onClick={() => setShowHeatmap(!showHeatmap)}
+                    className={`px-3 py-1.5 rounded text-xs border ${showHeatmap ? 'bg-accent text-bg-primary border-accent' : 'bg-bg-card/80 border-border-custom'}`}
+                  >
+                    Heatmap
+                  </button>
+                  <button
+                    onClick={() => setShowLiveGhosts(!showLiveGhosts)}
+                    className={`px-3 py-1.5 rounded text-xs border ${showLiveGhosts ? 'bg-accent text-bg-primary border-accent' : 'bg-bg-card/80 border-border-custom'}`}
+                  >
+                    Live Ghosts
                   </button>
                 </div>
               </>
