@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import os
+import sqlite3
 import time
 import uuid
 import zlib
@@ -37,6 +38,7 @@ BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", DEV_DEFAULT_TOKEN)
 CACHE_TTL = int(os.environ.get("CENTRAL_CACHE_TTL", 120))
 STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "true").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
+SQLITE_DB = os.environ.get("CENTRAL_SQLITE_DB", "./data/ghosts.db")
 GHOSTS_MAX_BYTES = int(os.environ.get("CENTRAL_GHOSTS_MAX_BYTES", 1073741824))  # 1GB
 STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 
@@ -125,6 +127,8 @@ class OdiseaCentral:
         self.auth_fails: Dict[str, dict] = {}  # ip -> {"ts": [failure timestamps], "locked_until": float}
         self.metrics = MetricsCollector()
         self.ghost_rotation_counter: Dict[str, int] = {}  # pid -> count
+        self.low_fps_timers: Dict[str, float] = {}  # player_id -> timestamp when FPS first dropped < 15
+        self.last_alert_time: Dict[str, float] = {}  # player_id -> last alert timestamp
         self.pending_commands: Dict[str, asyncio.Future] = {}  # command_id -> Future
         self.web_telemetry_rate: Dict[str, List[float]] = {}  # ip -> [request timestamps]
 
@@ -499,6 +503,31 @@ class OdiseaCentral:
 
                         self.session_rate_limit[session_id] = now
 
+                        # Alerts and Real-time Broadcast
+                        p_data = data.get("player", {})
+                        fps = p_data.get("fps", 60)
+                        if fps < 15:
+                            if player_id not in self.low_fps_timers:
+                                self.low_fps_timers[player_id] = now
+                            elif now - self.low_fps_timers[player_id] > 5:
+                                # Throttle alerts: max 1 per 60s
+                                if now - self.last_alert_time.get(player_id, 0) > 60:
+                                    self.last_alert_time[player_id] = now
+                                    alert = {
+                                        "type": "alert",
+                                        "player_id": player_id,
+                                        "message": f"Low FPS detected: {fps} FPS",
+                                        "fps": fps,
+                                        "timestamp": now
+                                    }
+                                    for sub in self.event_subscribers:
+                                        try:
+                                            await sub.send_json(alert)
+                                        except Exception:
+                                            pass
+                        else:
+                            self.low_fps_timers.pop(player_id, None)
+
                         # Fusionar datos para manejar actualizaciones parciales (tiers) del cliente Godot
                         if player_id in self.heartbeats:
                             existing = self.heartbeats[player_id]
@@ -578,9 +607,14 @@ class OdiseaCentral:
                     pass
 
     async def handle_events_ws(self, request):
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
+        # Allow token in query param for WebSockets as browser API doesn't support headers
+        token = request.query.get("token")
+        if token == BRIDGE_TOKEN:
+            pass # Authorized
+        else:
+            guard = self._auth_guard(request)
+            if guard is not None:
+                return guard
 
         ws = web.WebSocketResponse(compress=True)
         await ws.prepare(request)
@@ -623,6 +657,164 @@ class OdiseaCentral:
             return web.FileResponse(index_path)
         return web.Response(text="<h1>Odisea Central</h1><p>Dashboard not built. Check /health for metrics.</p>", content_type="text/html")
 
+    # --- SQLite Helpers ---
+    def _get_db(self):
+        return sqlite3.connect(SQLITE_DB)
+
+    async def handle_api_ghosts(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        scene = request.query.get("scene")
+        since = request.query.get("since")
+        platform = request.query.get("platform")
+        player_id = request.query.get("player_id")
+        session_id = request.query.get("session_id")
+        limit = min(max(int(request.query.get("limit", 1000)), 1), 10000)
+
+        query = "SELECT * FROM heartbeats WHERE 1=1"
+        params = []
+        if scene:
+            query += " AND scene = ?"
+            params.append(scene)
+        if since:
+            query += " AND timestamp >= ?"
+            params.append(float(since))
+        if platform:
+            query += " AND platform = ?"
+            params.append(platform)
+        if player_id:
+            query += " AND player_id = ?"
+            params.append(player_id)
+        if session_id:
+            query += " AND session_id = ?"
+            params.append(session_id)
+
+        query += " ORDER BY timestamp ASC LIMIT ?"
+        params.append(limit)
+
+        try:
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return web.json_response(rows)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_api_ghosts_heatmap(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        scene = request.query.get("scene")
+        if not scene:
+            return web.json_response({"error": "missing_scene"}, status=400)
+
+        res = float(request.query.get("resolution", 5))
+        low_fps_threshold = 30.0
+
+        # Aggregate data by grid cell
+        query = """
+        SELECT
+            CAST(pos_x / ? AS INTEGER) * ? as grid_x,
+            CAST(pos_z / ? AS INTEGER) * ? as grid_z,
+            COUNT(*) as count,
+            SUM(CASE WHEN fps < ? THEN 1 ELSE 0 END) as low_fps_count,
+            AVG(fps) as avg_fps,
+            MIN(fps) as min_fps,
+            AVG(memory_mb) as avg_mem
+        FROM heartbeats
+        WHERE scene = ?
+        GROUP BY grid_x, grid_z
+        """
+        params = (res, res, res, res, low_fps_threshold, scene)
+
+        try:
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return web.json_response(rows)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_api_ghosts_sessions(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        query = """
+        SELECT
+            player_id,
+            session_id,
+            MIN(timestamp) as start_time,
+            MAX(timestamp) as end_time,
+            MAX(timestamp) - MIN(timestamp) as duration,
+            COUNT(DISTINCT scene) as scenes_visited,
+            AVG(fps) as avg_fps,
+            SUM(CASE WHEN fps < 30 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as low_fps_pct,
+            AVG(memory_mb) as avg_mem
+        FROM heartbeats
+        GROUP BY player_id, session_id
+        ORDER BY start_time DESC
+        LIMIT 200
+        """
+
+        try:
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query)
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return web.json_response(rows)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_api_ghosts_active(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        now = time.time()
+        active = []
+        for pid, hb in self.heartbeats.items():
+            last_seen = self.last_update.get(pid, 0)
+            if now - last_seen < 30:
+                p_data = hb.get("player", {})
+                pos = p_data.get("position", [0, 0, 0])
+                active.append({
+                    "player_id": pid,
+                    "session_id": hb.get("session_id"),
+                    "scene": p_data.get("scene"),
+                    "pos_x": pos[0],
+                    "pos_y": pos[1],
+                    "pos_z": pos[2],
+                    "fps": p_data.get("fps"),
+                    "last_seen": last_seen
+                })
+        return web.json_response(active)
+
+    async def _import_task(self):
+        while True:
+            try:
+                import subprocess
+                logger.info("Running periodic ghost import...")
+                result = subprocess.run(["python3", "scripts/import_ghosts_to_sqlite.py"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    logger.info("Periodic import finished successfully.")
+                else:
+                    logger.error(f"Periodic import failed: {result.stderr}")
+            except Exception as e:
+                logger.error(f"Error in import task: {e}")
+            await asyncio.sleep(300)
+
     async def run(self):
         app = web.Application()
         app.add_routes([
@@ -641,6 +833,12 @@ class OdiseaCentral:
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),
             web.options('/api/telemetry', self.handle_web_telemetry_options),
+
+            # SQLite Endpoints
+            web.get('/api/ghosts', self.handle_api_ghosts),
+            web.get('/api/ghosts/heatmap', self.handle_api_ghosts_heatmap),
+            web.get('/api/ghosts/sessions', self.handle_api_ghosts_sessions),
+            web.get('/api/ghosts/active', self.handle_api_ghosts_active),
         ])
 
         if os.path.exists(STATIC_DIR):
@@ -654,12 +852,14 @@ class OdiseaCentral:
         logger.info(f"Odisea Central V2 running on port {CENTRAL_HTTP_PORT}")
 
         cleanup_task = asyncio.create_task(self._cleanup_loop())
+        import_task = asyncio.create_task(self._import_task())
 
         try:
             while True:
                 await asyncio.sleep(3600)
         finally:
             cleanup_task.cancel()
+            import_task.cancel()
             await runner.cleanup()
 
 if __name__ == "__main__":

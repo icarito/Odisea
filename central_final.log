@@ -1,0 +1,5 @@
+2026-06-11 06:08:13,090 [WARNING] Using INSECURE dev default token. Set ODISEA_BRIDGE_TOKEN for production.
+2026-06-11 06:08:13,091 [INFO] Serving static assets from /app/dashboard/dist/assets
+2026-06-11 06:08:13,092 [INFO] Odisea Central V2 running on port 5003
+2026-06-11 06:08:13,092 [INFO] Running periodic ghost import...
+2026-06-11 06:08:13,251 [INFO] Periodic import finished successfully.
