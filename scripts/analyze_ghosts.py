@@ -21,6 +21,9 @@ import sys
 import os
 import json
 import glob
+import csv
+import argparse
+from datetime import datetime
 from collections import defaultdict, Counter
 from statistics import mean, median, stdev
 
@@ -279,32 +282,113 @@ def analyze(records, players, sessions):
     print(f"{'='*60}\n")
 
 
-def main():
-    if len(sys.argv) < 2:
-        ghosts_dir = "/home/ubuntu/anna-central/data/ghosts/"
-        print(f"  Usando directorio por defecto: {ghosts_dir}")
-        print(f"  Uso alternativo: python3 {sys.argv[0]} <ghosts_dir>")
-        print(f"  O con performance_log: python3 {sys.argv[0]} --perflog <path>")
-        print()
-    elif sys.argv[1] == "--perflog":
-        perf_log_path = sys.argv[2] if len(sys.argv) > 2 else None
-        if not perf_log_path:
-            print("  Uso: python3 analyze_ghosts.py --perflog <performance_log.json>")
-            sys.exit(1)
-        print(f"  Cargando performance log desde: {perf_log_path}")
-        records, players, sessions = load_performance_log(perf_log_path)
-        analyze(records, players, sessions)
+def generate_hotspot_mapping(records, output_file=None):
+    """
+    Groups heartbeats into 5m x 5m cells and analyzes performance (Prompt 2).
+    """
+    print(f"\n{'─'*60}")
+    print("  HOTSPOT MAPPING (5m x 5m cells)")
+    print(f"{'─'*60}")
+
+    hbs = [r for r in records if r.get("type") == "heartbeat" and "player" in r]
+    if not hbs:
+        print("  ⚠ No heartbeats found for mapping.")
         return
+
+    # scene -> (cell_x, cell_z) -> stats
+    grid = defaultdict(lambda: defaultdict(lambda: {"total": 0, "low": 0, "fps_sum": 0}))
+    CELL_SIZE = 5
+
+    for hb in hbs:
+        p = hb.get("player", {})
+        scene = p.get("scene", "unknown")
+        pos = p.get("position", [0, 0, 0])
+        fps = p.get("fps", 60)
+
+        cx = round(pos[0] / CELL_SIZE) * CELL_SIZE
+        cz = round(pos[2] / CELL_SIZE) * CELL_SIZE
+
+        cell = grid[scene][(cx, cz)]
+        cell["total"] += 1
+        if fps < 30:
+            cell["low"] += 1
+        cell["fps_sum"] += fps
+
+    hotspots_data = []
+    critical_hotspots = []
+
+    for scene, cells in grid.items():
+        for (cx, cz), stats in cells.items():
+            total = stats["total"]
+            low = stats["low"]
+            pct_low = (low / total) * 100
+            avg_fps = stats["fps_sum"] / total
+
+            entry = {
+                "scene": scene,
+                "cell_x": cx,
+                "cell_z": cz,
+                "total_frames": total,
+                "low_fps_frames": low,
+                "pct_low": round(pct_low, 2),
+                "avg_fps": round(avg_fps, 2)
+            }
+            hotspots_data.append(entry)
+
+            if pct_low > 50:
+                critical_hotspots.append(entry)
+
+    # 1. List critical hotspots
+    if critical_hotspots:
+        print(f"\n  🚨 HOTSPOTS CRÍTICOS (>50% frames < 30 FPS):")
+        print(f"  {'Escena':<20} {'Cell (X, Z)':<15} {'% Low':>8} {'Avg FPS':>8}")
+        for h in sorted(critical_hotspots, key=lambda x: x["pct_low"], reverse=True)[:15]:
+            print(f"  {h['scene']:<20} ({h['cell_x']:>4}, {h['cell_z']:>4}) {h['pct_low']:>7.1f}% {h['avg_fps']:>8.1f}")
     else:
-        ghosts_dir = sys.argv[1]
+        print("\n  ✅ No critical hotspots found.")
 
-    if not os.path.isdir(ghosts_dir):
-        print(f"  ❌ Directorio no encontrado: {ghosts_dir}")
-        sys.exit(1)
+    # 2. Export CSV
+    csv_filename = "hotspots.csv"
+    try:
+        with open(csv_filename, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=["scene", "cell_x", "cell_z", "total_frames", "low_fps_frames", "pct_low", "avg_fps"])
+            writer.writeheader()
+            writer.writerows(hotspots_data)
+        print(f"\n  💾 CSV exportado: {csv_filename}")
+    except Exception as e:
+        print(f"\n  ❌ Error exportando CSV: {e}")
 
-    print(f"  Cargando ghosts desde: {ghosts_dir}")
-    records, players, sessions = load_ghosts(ghosts_dir)
+    # 3. Export JSON
+    timestamp = int(datetime.now().timestamp())
+    json_filename = output_file if output_file else f"hotspots_{timestamp}.json"
+    try:
+        with open(json_filename, 'w') as f:
+            json.dump(hotspots_data, f, indent=2)
+        print(f"  💾 JSON exportado: {json_filename}")
+    except Exception as e:
+        print(f"  ❌ Error exportando JSON: {e}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Analyze Odisea ghost heartbeats.")
+    parser.add_argument("ghosts_dir", nargs="?", default="/home/ubuntu/anna-central/data/ghosts/", help="Directory containing ghost JSONL files.")
+    parser.add_argument("--perflog", help="Analyze a specific performance log JSON file.")
+    parser.add_argument("--output", "-o", help="Specific JSON output file for hotspots.")
+    args = parser.parse_args()
+
+    if args.perflog:
+        print(f"  Cargando performance log desde: {args.perflog}")
+        records, players, sessions = load_performance_log(args.perflog)
+    else:
+        ghosts_dir = args.ghosts_dir
+        if not os.path.isdir(ghosts_dir):
+            print(f"  ❌ Directorio no encontrado: {ghosts_dir}")
+            sys.exit(1)
+        print(f"  Cargando ghosts desde: {ghosts_dir}")
+        records, players, sessions = load_ghosts(ghosts_dir)
+
     analyze(records, players, sessions)
+    generate_hotspot_mapping(records, args.output)
 
 
 if __name__ == "__main__":

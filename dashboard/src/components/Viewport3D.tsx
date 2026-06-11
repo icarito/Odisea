@@ -1,7 +1,8 @@
 import React, { useRef, Suspense, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF } from '@react-three/drei';
+import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF, Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { Heatmap3D } from './Heatmap3D';
 
 // Godot and Three.js both use Y-up, -Z=forward coordinate systems.
 // Position data passes through directly — no axis conversion needed.
@@ -18,6 +19,8 @@ interface Viewport3DProps {
   wireframe: boolean;
   sceneName: string;
   staleAge: number;
+  heatmapData?: any[];
+  liveGhosts?: any[];
 }
 
 const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ sceneName, wireframe }) => {
@@ -72,25 +75,32 @@ class SceneErrorBoundary extends React.Component<{ children: React.ReactNode }, 
     }
 }
 
-const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, pitch: number, roll: number, staleAge: number }> = ({ position, yaw, pitch, roll, staleAge }) => {
+const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, pitch: number, roll: number, staleAge: number, label?: string, color?: string }> = ({ position, yaw, pitch, roll, staleAge, label, color = "#7fd1ff" }) => {
   const meshRef = useRef<THREE.Group>(null);
   const alpha = staleAge > 2 ? 0.3 : 1.0;
 
   return (
     <group position={new THREE.Vector3(...position)} rotation={[pitch, -yaw, roll, 'YXZ']} ref={meshRef}>
+      {label && (
+        <Html distanceFactor={10} position={[0, 1.5, 0]}>
+          <div className="bg-bg-card/80 text-white text-[8px] px-1 rounded whitespace-nowrap border border-border-custom">
+            {label}
+          </div>
+        </Html>
+      )}
       <mesh>
         <sphereGeometry args={[0.5, 16, 16]} />
-        <meshStandardMaterial color="#7fd1ff" transparent opacity={alpha} />
+        <meshStandardMaterial color={color} transparent opacity={alpha} />
       </mesh>
       <mesh position={[0, 0, -0.7]} rotation={[Math.PI / 2, 0, 0]}>
         <coneGeometry args={[0.2, 0.5, 8]} />
-        <meshStandardMaterial color="#7fd1ff" transparent opacity={alpha} />
+        <meshStandardMaterial color={color} transparent opacity={alpha} />
       </mesh>
     </group>
   );
 };
 
-export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge }) => {
+export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
 
@@ -125,6 +135,21 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
         </SceneErrorBoundary>
 
         <PlayerMarker position={position} yaw={yaw} pitch={pitch} roll={roll} staleAge={staleAge} />
+
+        {liveGhosts?.map(ghost => (
+          <PlayerMarker
+            key={ghost.player_id}
+            position={ghost.player?.position || [0,0,0]}
+            yaw={ghost.player?.yaw || 0}
+            pitch={ghost.player?.pitch || 0}
+            roll={ghost.player?.roll || 0}
+            staleAge={(Date.now() - (ghost.timestamp * 1000)) / 1000}
+            label={ghost.player_id.slice(0,8)}
+            color={ghost.player?.fps < 30 ? "#ef4444" : ghost.player?.fps < 45 ? "#eab308" : "#22c55e"}
+          />
+        ))}
+
+        {heatmapData && <Heatmap3D data={heatmapData} resolution={5} />}
 
         {trail.length > 1 && (
           <Line
