@@ -153,7 +153,9 @@ class OdiseaPeer:
     async def _central_session(self):
         """One connection lifetime to central: handshake, then pump messages."""
         assert self.http_session is not None
-        async with self.http_session.ws_connect(CENTRAL_WS_URL, heartbeat=20) as ws:
+        # compress=15 requests permessage-deflate; heartbeats are repetitive
+        # JSON so this cuts the upstream traffic ~70-80%.
+        async with self.http_session.ws_connect(CENTRAL_WS_URL, heartbeat=20, compress=15) as ws:
             self.central_ws = ws
             await ws.send_json({"type": "handshake", "peer_id": self.peer_id, "token": BRIDGE_TOKEN})
             logger.info("Connected to central %s", CENTRAL_WS_URL)
@@ -192,7 +194,9 @@ class OdiseaPeer:
 
     # ------------------------------------------------------------ game (Godot) WS
     async def handle_godot_client(self, request):
-        ws = web.WebSocketResponse(heartbeat=20)
+        # compress=True accepts permessage-deflate when the client offers it
+        # (browser WebSocket does; Godot 3 desktop WS client doesn't — both fine).
+        ws = web.WebSocketResponse(heartbeat=20, compress=True)
         await ws.prepare(request)
         self.godot_clients.append(ws)
         logger.info("Game connected via WS (%d total).", len(self.godot_clients))

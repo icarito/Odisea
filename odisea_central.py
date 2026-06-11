@@ -415,7 +415,8 @@ class OdiseaCentral:
             return web.json_response({"error": "relay_failed", "message": str(e)}, status=502)
 
     async def handle_ws(self, request):
-        ws = web.WebSocketResponse()
+        # compress=True accepts permessage-deflate when the peer/browser offers it
+        ws = web.WebSocketResponse(compress=True)
         await ws.prepare(request)
 
         peer_id = None
@@ -554,7 +555,7 @@ class OdiseaCentral:
         if guard is not None:
             return guard
 
-        ws = web.WebSocketResponse()
+        ws = web.WebSocketResponse(compress=True)
         await ws.prepare(request)
         self.event_subscribers.add(ws)
         try:
