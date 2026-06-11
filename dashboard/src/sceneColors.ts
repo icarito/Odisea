@@ -2,11 +2,9 @@
 // charts, and bird's-eye trail all agree on what color a scene is.
 
 const KNOWN: Record<string, string> = {
-  Dome_Crio: '#3fb950',     // green
+  Dome_Crio: '#3fb950',      // green
   OdiseaExterior: '#d29922', // amber
-  Exterior: '#d29922',
   ScaffoldOrbit: '#a371f7',  // purple
-  ZeroG: '#7fd1ff',          // cyan
   Unknown: '#6b7280',
   '?': '#6b7280',
 };

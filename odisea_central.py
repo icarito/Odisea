@@ -47,7 +47,7 @@ DB_PATH = os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db")
 STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 
 # Scenes always offered in dashboard dropdowns, even before any telemetry exists.
-DEFAULT_SCENES = [s for s in os.environ.get("CENTRAL_DEFAULT_SCENES", "Dome_Crio,Exterior,ZeroG").split(",") if s]
+DEFAULT_SCENES = [s for s in os.environ.get("CENTRAL_DEFAULT_SCENES", "Dome_Crio,OdiseaExterior,ScaffoldOrbit").split(",") if s]
 
 # Deploy webhook (GitHub push -> auto pull + redeploy).
 # Secret defaults to BRIDGE_TOKEN so there's nothing extra to configure, but can

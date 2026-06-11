@@ -1,4 +1,5 @@
 import React from 'react';
+import { sceneColor } from '../sceneColors';
 
 interface TimelineEvent {
   scene: string;
@@ -8,13 +9,6 @@ interface TimelineEvent {
 interface SessionTimelineProps {
   events: TimelineEvent[];
 }
-
-const SCENE_COLORS: Record<string, string> = {
-  'Dome_Crio': '#3fb950', // Success/Green
-  'Exterior': '#d29922',  // Warning/Yellow
-  'ZeroG': '#7fd1ff',     // Accent/Cyan
-  'Unknown': '#6b7280'    // Muted/Gray
-};
 
 export const SessionTimeline: React.FC<SessionTimelineProps> = ({ events }) => {
   if (events.length === 0) return null;
@@ -53,7 +47,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({ events }) => {
     <div className="w-full h-4 bg-bg-primary rounded-full overflow-hidden flex border border-border-custom relative group">
       {segments.map((s, i) => {
         const width = ((s.end - s.start) / finalDuration) * 100;
-        const color = SCENE_COLORS[s.scene] || SCENE_COLORS['Unknown'];
+        const color = sceneColor(s.scene);
         return (
           <div
             key={i}
