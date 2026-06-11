@@ -4,6 +4,7 @@ import {
   Tooltip, ResponsiveContainer, ReferenceArea,
 } from 'recharts';
 import { sceneColor } from '../sceneColors';
+import { RetroCard } from './retro';
 
 interface Heartbeat {
   timestamp: number;
@@ -38,8 +39,8 @@ const fmtDuration = (s: number) => {
 
 const Stat: React.FC<{ label: string; value: React.ReactNode; color?: string }> = ({ label, value, color }) => (
   <div className="flex flex-col">
-    <span className="text-[10px] uppercase text-[#666] font-bold">{label}</span>
-    <span className="text-sm font-mono" style={color ? { color } : undefined}>{value}</span>
+    <span className="text-[0.625rem] uppercase text-text-muted font-black tracking-widest">{label}</span>
+    <span className="text-sm font-mono font-bold" style={color ? { color } : undefined}>{value}</span>
   </div>
 );
 
@@ -153,9 +154,11 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
 
   if (chartData.length === 0) {
     return (
-      <div className="bg-[#161a22] p-8 rounded-lg border border-[#232833] text-center text-[#666] text-sm">
-        Sin datos de sesión para reproducir.
-      </div>
+      <RetroCard>
+        <div className="text-center text-text-muted italic py-8 text-xs">
+          SIN DATOS DE SESIÓN PARA REPRODUCIR
+        </div>
+      </RetroCard>
     );
   }
 
@@ -163,9 +166,9 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
     if (!active || !payload?.length) return null;
     const d = payload[0].payload;
     return (
-      <div className="bg-[#0c0e12] border border-[#232833] rounded px-3 py-2 text-[11px] font-mono">
-        <div className="font-bold mb-1" style={{ color: sceneColor(d.scene) }}>{d.scene}</div>
-        <div className="text-[#999]">t = {d.time}s</div>
+      <div className="bg-bg-primary border-2 border-black px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
+        <div className="font-black uppercase mb-1" style={{ color: sceneColor(d.scene) }}>{d.scene}</div>
+        <div className="text-text-muted">t = {d.time}s</div>
         <div style={{ color: '#7fd1ff' }}>FPS: {d.fps?.toFixed?.(0) ?? d.fps}</div>
         <div style={{ color: '#eab308' }}>Mem: {d.mem?.toFixed?.(1) ?? d.mem} MB</div>
       </div>
@@ -194,36 +197,36 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Session info card */}
-      <div className="bg-[#161a22] p-4 rounded-lg border border-[#232833] lg:col-span-2">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-          <h3 className="text-[#7fd1ff] text-xs font-bold uppercase">Session Info</h3>
-          <span className="text-[10px] font-mono text-[#666]">{session?.player_id}</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-          <Stat label="Platform" value={platform} />
-          <Stat label="Engine" value={engine} />
-          <Stat label="Duration" value={fmtDuration(stats.duration)} />
-          <Stat label="Avg FPS" value={stats.avgFps.toFixed(1)}
-            color={stats.avgFps > 55 ? '#3fb950' : stats.avgFps > 30 ? '#d29922' : '#f85149'} />
-          <Stat label="Min FPS" value={stats.minFps.toFixed(0)}
-            color={stats.minFps >= 30 ? '#3fb950' : '#f85149'} />
-          <Stat label="% Low FPS" value={`${stats.lowPct.toFixed(1)}%`}
-            color={stats.lowPct < 10 ? '#3fb950' : stats.lowPct < 30 ? '#d29922' : '#f85149'} />
-          <Stat label="Avg Mem" value={`${stats.avgMem.toFixed(0)} MB`} />
-        </div>
-        {/* Scene legend */}
-        <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-[#232833]">
-          {sceneOrder.map(s => (
-            <span key={s} className="flex items-center gap-1.5 text-[11px]">
-              <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: sceneColor(s) }} />
-              {s}
-            </span>
-          ))}
-        </div>
+      <div className="lg:col-span-2">
+        <RetroCard title="Session Info">
+          <div className="flex items-center justify-end -mt-2 mb-3">
+            <span className="text-[0.625rem] font-mono text-text-muted truncate">{session?.player_id}</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+            <Stat label="Platform" value={platform} />
+            <Stat label="Engine" value={engine} />
+            <Stat label="Duration" value={fmtDuration(stats.duration)} />
+            <Stat label="Avg FPS" value={stats.avgFps.toFixed(1)}
+              color={stats.avgFps > 55 ? '#3fb950' : stats.avgFps > 30 ? '#d29922' : '#f85149'} />
+            <Stat label="Min FPS" value={stats.minFps.toFixed(0)}
+              color={stats.minFps >= 30 ? '#3fb950' : '#f85149'} />
+            <Stat label="% Low FPS" value={`${stats.lowPct.toFixed(1)}%`}
+              color={stats.lowPct < 10 ? '#3fb950' : stats.lowPct < 30 ? '#d29922' : '#f85149'} />
+            <Stat label="Avg Mem" value={`${stats.avgMem.toFixed(0)} MB`} />
+          </div>
+          {/* Scene legend */}
+          <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t-2 border-black/20">
+            {sceneOrder.map(s => (
+              <span key={s} className="flex items-center gap-1.5 text-[0.625rem] font-mono uppercase">
+                <span className="w-3 h-3 border-2 border-black" style={{ backgroundColor: sceneColor(s) }} />
+                {s}
+              </span>
+            ))}
+          </div>
+        </RetroCard>
       </div>
 
-      <div className="bg-[#161a22] p-4 rounded-lg border border-[#232833]">
-        <h3 className="text-[#7fd1ff] text-xs font-bold mb-4 uppercase">FPS vs Time (s)</h3>
+      <RetroCard title="FPS vs Time (s)">
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <LineChart data={chartData} onMouseMove={onChartMove} onMouseLeave={onChartLeave}>
@@ -236,10 +239,9 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </RetroCard>
 
-      <div className="bg-[#161a22] p-4 rounded-lg border border-[#232833]">
-        <h3 className="text-[#7fd1ff] text-xs font-bold mb-4 uppercase">Memory (MB)</h3>
+      <RetroCard title="Memory (MB)">
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart data={chartData} onMouseMove={onChartMove} onMouseLeave={onChartLeave}>
@@ -252,18 +254,19 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </RetroCard>
 
-      <div className="bg-[#161a22] p-4 rounded-lg border border-[#232833] lg:col-span-2">
-        <h3 className="text-[#7fd1ff] text-xs font-bold mb-4 uppercase">Movement Trail (Bird's Eye)</h3>
-        <div className="flex justify-center bg-[#0c0e12] rounded border border-[#232833] p-2">
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={300}
-            className="max-w-full h-auto"
-          />
-        </div>
+      <div className="lg:col-span-2">
+        <RetroCard title="Movement Trail (Bird's Eye)">
+          <div className="flex justify-center bg-bg-primary border-2 border-black p-2">
+            <canvas
+              ref={canvasRef}
+              width={800}
+              height={300}
+              className="max-w-full h-auto"
+            />
+          </div>
+        </RetroCard>
       </div>
     </div>
   );

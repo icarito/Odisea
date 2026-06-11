@@ -10,6 +10,11 @@
   --success: #3fb950;
   --warning: #d29922;
   --danger: #f85149;
+
+  /* RetroUI Additions */
+  --retro-border-width: 4px;
+  --retro-shadow-offset: 4px;
+  --retro-font-mono: "Courier New", Courier, monospace;
 }
 
 @theme {
@@ -24,10 +29,73 @@
   --color-danger: var(--danger);
 
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Retro Utility Classes */
+  --shadow-retro: var(--retro-shadow-offset) var(--retro-shadow-offset) 0px 0px black;
+  --shadow-retro-hover: 6px 6px 0px 0px black;
+}
+
+@layer components {
+  .retro-btn {
+    @apply relative inline-block px-4 py-2 font-mono font-bold border-4 border-black cursor-pointer select-none shadow-retro transition-all duration-150 ease-out active:translate-x-0.5 active:translate-y-0.5 active:shadow-none;
+  }
+  .retro-btn-primary {
+    @apply bg-accent text-bg-primary hover:bg-accent/90;
+  }
+  .retro-btn-secondary {
+    @apply bg-bg-card text-text-primary hover:bg-bg-card/90 border-text-muted;
+  }
+  .retro-btn-danger {
+    @apply bg-danger text-black hover:bg-danger/90;
+  }
+
+  .retro-card {
+    @apply bg-bg-card border-4 border-black shadow-retro p-4;
+    /* Simulated double border effect using an after element if needed, 
+       but for now we'll use a single thick black border as seen in the reference */
+    position: relative;
+  }
+  .retro-card::after {
+    content: '';
+    @apply absolute inset-1 border-2 border-white/10 pointer-events-none;
+  }
+
+  .retro-input {
+    @apply w-full px-3 py-2 bg-bg-primary text-text-primary border-4 border-black focus:outline-none focus:border-accent placeholder:opacity-40 font-mono;
+  }
+
+  .retro-badge {
+    @apply inline-block px-2 py-0.5 bg-accent text-bg-primary border-2 border-black font-mono font-bold text-[0.625rem] uppercase shadow-[2px_2px_0px_0px_black];
+  }
+
+  .retro-tabs-container {
+    @apply flex gap-0 mb-0 w-full overflow-hidden;
+  }
+  .retro-tab-btn {
+    @apply flex-1 px-1 sm:px-3 py-1.5 sm:py-1 text-[0.625rem] font-black uppercase tracking-tight sm:tracking-widest border-2 sm:border-4 border-b-0 border-black transition-colors bg-bg-primary text-text-muted;
+  }
+  .retro-tab-btn-active {
+    @apply bg-bg-card text-accent border-b-bg-card;
+  }
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* CRT Scanline effect */
+.crt-effect::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+  z-index: 2;
+  background-size: 100% 4px, 3px 100%;
+  pointer-events: none;
 }

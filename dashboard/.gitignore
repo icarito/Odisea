@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# This project uses pnpm — keep npm/yarn lockfiles out to avoid divergence.
+package-lock.json
+yarn.lock
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

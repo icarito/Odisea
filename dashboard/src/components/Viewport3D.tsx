@@ -110,7 +110,7 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
     <group position={new THREE.Vector3(...position)} rotation={[pitch, -yaw, roll, 'YXZ']} ref={meshRef}>
       {label && (
         <Html distanceFactor={10} position={[0, 1.5, 0]}>
-          <div className="bg-bg-card/80 text-white text-[8px] px-1 rounded whitespace-nowrap border border-border-custom">
+          <div className="bg-bg-card/80 text-white text-[0.5rem] px-1 rounded whitespace-nowrap border border-border-custom">
             {label}
           </div>
         </Html>
@@ -205,12 +205,12 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
       </Canvas>
 
       <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
-        <div className="bg-bg-card/90 px-3 py-1.5 rounded text-[10px] border border-border-custom pointer-events-auto">
+        <div className="bg-bg-card/90 px-3 py-1.5 rounded text-[0.625rem] border border-border-custom pointer-events-auto">
             SCENE: <span className="text-accent font-bold">{sceneName || 'NONE'}</span>
         </div>
         <button
             onClick={resetView}
-            className="bg-bg-card/90 px-3 py-1.5 rounded text-[10px] border border-border-custom hover:bg-bg-primary pointer-events-auto text-left"
+            className="bg-bg-card/90 px-3 py-1.5 rounded text-[0.625rem] border border-border-custom hover:bg-bg-primary pointer-events-auto text-left"
         >
             RESET VIEW (CENITAL)
         </button>

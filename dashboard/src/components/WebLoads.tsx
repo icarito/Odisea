@@ -80,7 +80,7 @@ export function WebLoads() {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex text-[9px] uppercase text-text-muted font-bold px-2">
+      <div className="flex text-[0.5625rem] uppercase text-text-muted font-bold px-2">
         <span className="flex-1">Inicio</span>
         <span className="w-14 text-right" title="loader_start → engine_start">Engine</span>
         <span className="w-14 text-right" title="loader_start → player con control en la primera escena">Player</span>
@@ -88,7 +88,7 @@ export function WebLoads() {
       {loads.slice(0, 20).map(load => (
         <div
           key={load.sessionId}
-          className="flex items-center px-2 py-1 border border-border-custom bg-bg-card rounded text-[11px]"
+          className="flex items-center px-2 py-1 border border-border-custom bg-bg-card rounded text-[0.6875rem]"
           title={`${load.sessionId}\n${load.ua || ''}`}
         >
           <span className="flex-1 text-text-muted truncate">

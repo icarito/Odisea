@@ -120,7 +120,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName }) => {
       />
 
       <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
-        <div className="bg-[#161a22]/90 px-3 py-1.5 rounded text-[10px] border border-[#232833] text-white">
+        <div className="bg-[#161a22]/90 px-3 py-1.5 rounded text-[0.625rem] border border-[#232833] text-white">
           LIVE GHOSTS: <span className="text-[#7fd1ff] font-bold">{ghosts.filter(g => g.scene === sceneName || sceneName === "").length}</span>
         </div>
       </div>

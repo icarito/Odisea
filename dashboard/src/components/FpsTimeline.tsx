@@ -1,36 +1,43 @@
-import React from 'react';
-import { LineChart, Line, YAxis, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-interface FpsTimelineProps {
-  data: number[];
-}
-
-export const FpsTimeline: React.FC<FpsTimelineProps> = ({ data }) => {
-  const chartData = data.map((v, i) => ({ val: v, i }));
-
-  const lastVal = data.length > 0 ? data[data.length - 1] : 60;
-  const strokeColor = lastVal > 55 ? "#3fb950" : (lastVal > 30 ? "#d29922" : "#f85149");
-
+export const FpsTimeline = ({ data }: { data: any[] }) => {
   return (
-    <div className="h-24 w-full relative">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-        <LineChart data={chartData}>
-          <YAxis domain={[0, 120]} hide />
-          <ReferenceLine y={30} stroke="#f85149" strokeDasharray="3 3" opacity={0.3} />
-          <ReferenceLine y={60} stroke="#3fb950" strokeDasharray="3 3" opacity={0.3} />
-          <Line
-            type="monotone"
-            dataKey="val"
-            stroke={strokeColor}
-            strokeWidth={1.5}
-            dot={false}
+    <div className="@container flex-1 w-full min-h-[120px]">
+      <div className="hidden @[300px]:block mb-2 text-[0.625rem] text-text-muted uppercase font-bold tracking-widest">
+        Performance History
+      </div>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#232833" vertical={false} />
+          <XAxis hide dataKey="timestamp" />
+          <YAxis 
+            domain={[0, 70]} 
+            tick={{ fontSize: 9, fill: '#6b7280' }} 
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            contentStyle={{ 
+                backgroundColor: '#13161c', 
+                border: '4px solid #000', 
+                fontSize: '10px',
+                fontFamily: 'monospace',
+                borderRadius: '0px',
+                boxShadow: '4px 4px 0px 0px #000'
+            }}
+            itemStyle={{ color: '#7fd1ff' }}
+          />
+          <Area 
+            type="stepAfter" 
+            dataKey="value" 
+            stroke="#7fd1ff" 
+            strokeWidth={2}
+            fill="#7fd1ff" 
+            fillOpacity={0.1} 
             isAnimationActive={false}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
-      <div className="absolute top-0 right-0 text-[10px] font-bold" style={{ color: strokeColor }}>
-        {lastVal.toFixed(0)} FPS
-      </div>
     </div>
   );
 };

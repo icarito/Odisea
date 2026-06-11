@@ -48,7 +48,7 @@ const Cell: React.FC<{ cell: HeatmapCell; resolution: number }> = ({ cell, resol
       </mesh>
       {hovered && (
         <Html distanceFactor={15}>
-          <div className="bg-[#0c0e12]/95 border border-[#232833] p-2 rounded text-[10px] whitespace-nowrap pointer-events-none shadow-xl z-50 text-white">
+          <div className="bg-[#0c0e12]/95 border border-[#232833] p-2 rounded text-[0.625rem] whitespace-nowrap pointer-events-none shadow-xl z-50 text-white">
             <div className="font-bold text-[#7fd1ff] mb-1">
               GRID: {cell.grid_x}, {cell.grid_z}
             </div>

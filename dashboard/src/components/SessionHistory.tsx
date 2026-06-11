@@ -145,7 +145,7 @@ export const SessionHistory: React.FC = () => {
   return (
     <div className="flex flex-col gap-2 p-2">
       {selectedSession && (
-          <div className="mb-4 p-3 border border-accent bg-bg-card rounded text-[10px] flex flex-col gap-2">
+          <div className="mb-4 p-3 border border-accent bg-bg-card rounded text-[0.625rem] flex flex-col gap-2">
               <div className="flex justify-between items-center">
                   <span className="text-accent font-bold">DETALLE DE SESIÓN</span>
                   <button onClick={() => setSelectedSession(null)} className="text-text-muted hover:text-white">✕</button>
@@ -216,7 +216,7 @@ export const SessionHistory: React.FC = () => {
         <div
             key={s.session_id}
             onClick={() => viewSession(s)}
-            className="p-2 border border-border-custom bg-bg-card rounded text-[10px] group cursor-pointer hover:border-accent transition-colors"
+            className="p-2 border border-border-custom bg-bg-card rounded text-[0.625rem] group cursor-pointer hover:border-accent transition-colors"
         >
           <div className="flex justify-between items-center mb-1">
             <span className="text-accent font-bold">{s.player_id.slice(0, 8)}</span>
