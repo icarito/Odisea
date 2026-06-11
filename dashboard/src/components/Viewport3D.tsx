@@ -2,7 +2,34 @@ import React, { useRef, Suspense, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { Heatmap3D } from './Heatmap3D';
+
+// Inline heatmap overlay rendered as a group so it can nest inside this Canvas.
+// (The standalone Heatmap3D component owns its own Canvas and is used in the heatmap tab.)
+const HeatmapOverlay: React.FC<{ data: any[]; resolution: number }> = ({ data, resolution }) => {
+  return (
+    <group>
+      {data.map((cell, i) => {
+        const x = cell.grid_x ?? cell.cell_x ?? 0;
+        const z = cell.grid_z ?? cell.cell_z ?? 0;
+        const lowPct = cell.count ? (cell.low_fps_count / cell.count) * 100 : 0;
+        let color = '#22c55e';
+        if (lowPct >= 50) color = '#ef4444';
+        else if (lowPct >= 30) color = '#f97316';
+        else if (lowPct >= 10) color = '#eab308';
+        return (
+          <mesh
+            key={i}
+            position={[x + resolution / 2, 0.05, z + resolution / 2]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <planeGeometry args={[resolution * 0.95, resolution * 0.95]} />
+            <meshStandardMaterial color={color} transparent opacity={0.5} side={THREE.DoubleSide} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+};
 
 // Godot and Three.js both use Y-up, -Z=forward coordinate systems.
 // Position data passes through directly — no axis conversion needed.
@@ -149,7 +176,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
           />
         ))}
 
-        {heatmapData && <Heatmap3D data={heatmapData} resolution={5} />}
+        {heatmapData && <HeatmapOverlay data={heatmapData} resolution={5} />}
 
         {trail.length > 1 && (
           <Line

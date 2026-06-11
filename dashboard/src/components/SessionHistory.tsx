@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../api';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { LineChart, Line, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { SessionTimeline } from './SessionTimeline';
 
 interface HistorySession {

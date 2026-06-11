@@ -37,3 +37,7 @@ digest.txt
 
 # Environment secrets
 .env
+
+# Telemetry runtime artifacts (regenerated, not source)
+*.log
+data/ghosts.db

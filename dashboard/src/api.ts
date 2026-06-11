@@ -55,6 +55,26 @@ export async function getSessionHistory() {
   return response.json();
 }
 
+export async function getHistoricalSessions() {
+  const response = await apiFetch("/api/ghosts/sessions");
+  return response.json();
+}
+
+export async function getActiveGhosts() {
+  const response = await apiFetch("/api/ghosts/active");
+  return response.json();
+}
+
+export async function getGhostData(playerId: string, sessionId: string) {
+  const response = await apiFetch(`/api/ghosts?player_id=${playerId}&session_id=${sessionId}&limit=10000`);
+  return response.json();
+}
+
+export async function getScenes(): Promise<string[]> {
+  const response = await apiFetch("/api/scenes");
+  return response.json();
+}
+
 export async function sendCommand(playerId: string, action: string, args: any = {}) {
   const response = await apiFetch("/command", {
     method: "POST",
