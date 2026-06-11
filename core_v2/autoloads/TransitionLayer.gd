@@ -71,7 +71,7 @@ func _ready() -> void:
 	_loading_footer.anchor_right = 1.0
 	_loading_footer.anchor_bottom = 0.97
 	_loading_footer.add_color_override("font_color", Color("#445566"))
-	_loading_footer.text = "discord.gg/odisea\nodisea.educa.juegos"
+	_loading_footer.text = "icarito\nodisea.educa.juegos"
 	_loading_root.add_child(_loading_footer)
 
 	_fade_tween = Tween.new()
