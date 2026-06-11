@@ -14,8 +14,9 @@ interface SessionPlaybackProps {
 }
 
 export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats }) => {
-  const startTime = heartbeats[0]?.timestamp || 0;
-  const chartData = heartbeats.map(h => ({
+  const data = Array.isArray(heartbeats) ? heartbeats : [];
+  const startTime = data[0]?.timestamp || 0;
+  const chartData = data.map(h => ({
     time: Math.round(h.timestamp - startTime),
     fps: h.fps,
     mem: h.memory_mb
@@ -29,11 +30,11 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats }) 
     const { width, height } = canvas;
     ctx.clearRect(0, 0, width, height);
 
-    if (heartbeats.length < 2) return;
+    if (data.length < 2) return;
 
     // Find bounds
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-    heartbeats.forEach(h => {
+    data.forEach(h => {
       minX = Math.min(minX, h.pos_x); maxX = Math.max(maxX, h.pos_x);
       minZ = Math.min(minZ, h.pos_z); maxZ = Math.max(maxZ, h.pos_z);
     });
@@ -49,21 +50,29 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats }) 
     ctx.strokeStyle = '#7fd1ff';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(toX(heartbeats[0].pos_x), toZ(heartbeats[0].pos_z));
-    heartbeats.forEach(h => ctx.lineTo(toX(h.pos_x), toZ(h.pos_z)));
+    ctx.moveTo(toX(data[0].pos_x), toZ(data[0].pos_z));
+    data.forEach(h => ctx.lineTo(toX(h.pos_x), toZ(h.pos_z)));
     ctx.stroke();
 
     // Start/End points
-    ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(toX(heartbeats[0].pos_x), toZ(heartbeats[0].pos_z), 4, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(toX(heartbeats[heartbeats.length-1].pos_x), toZ(heartbeats[heartbeats.length-1].pos_z), 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(toX(data[0].pos_x), toZ(data[0].pos_z), 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(toX(data[data.length-1].pos_x), toZ(data[data.length-1].pos_z), 4, 0, Math.PI*2); ctx.fill();
   };
+
+  if (chartData.length === 0) {
+    return (
+      <div className="bg-[#161a22] p-8 rounded-lg border border-[#232833] text-center text-[#666] text-sm">
+        Sin datos de sesión para reproducir.
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div className="bg-[#161a22] p-4 rounded-lg border border-[#232833]">
         <h3 className="text-[#7fd1ff] text-xs font-bold mb-4 uppercase">FPS vs Time (s)</h3>
         <div className="h-48 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minHeight={0}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
               <XAxis dataKey="time" stroke="#666" fontSize={10} />
@@ -81,7 +90,7 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats }) 
       <div className="bg-[#161a22] p-4 rounded-lg border border-[#232833]">
         <h3 className="text-[#7fd1ff] text-xs font-bold mb-4 uppercase">Memory (MB)</h3>
         <div className="h-48 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minHeight={0}>
             <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
               <XAxis dataKey="time" stroke="#666" fontSize={10} />
