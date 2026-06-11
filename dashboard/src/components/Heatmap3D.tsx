@@ -89,7 +89,7 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution }) => {
         <ambientLight intensity={0.7} />
         <directionalLight position={[10, 50, 5]} intensity={1} />
 
-        {data.map((cell, idx) => (
+        {(Array.isArray(data) ? data : []).map((cell, idx) => (
           <Cell key={idx} cell={cell} resolution={resolution} />
         ))}
 

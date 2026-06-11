@@ -18,6 +18,7 @@ interface HistoricalTableProps {
 }
 
 export const HistoricalTable: React.FC<HistoricalTableProps> = ({ sessions, onSelectSession }) => {
+  const rows = Array.isArray(sessions) ? sessions : [];
   return (
     <div className="w-full overflow-x-auto bg-[#0c0e12] rounded-lg border border-[#232833]">
       <table className="w-full text-left text-xs">
@@ -34,7 +35,7 @@ export const HistoricalTable: React.FC<HistoricalTableProps> = ({ sessions, onSe
           </tr>
         </thead>
         <tbody className="text-white divide-y divide-[#232833]">
-          {sessions.map((s) => (
+          {rows.map((s) => (
             <tr key={s.session_id} className="hover:bg-[#1c212b] transition-colors">
               <td className="px-4 py-3 font-mono">{s.player_id.substring(0, 12)}...</td>
               <td className="px-4 py-3">{new Date(s.start_time * 1000).toLocaleString()}</td>

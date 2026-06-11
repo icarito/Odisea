@@ -32,7 +32,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [scenes, setScenes] = useState<string[]>([]);
 
   // History State
-  const [historicalSessions, setHistoricalSessions] = useState([]);
+  const [historicalSessions, setHistoricalSessions] = useState<any[]>([]);
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [playbackData, setPlaybackData] = useState<any[]>([]);
 
@@ -84,20 +84,26 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // Fetch Heatmap
   useEffect(() => {
     if (activeTab === 'heatmap') {
-      getHeatmap(heatmapScene, heatmapRes).then(setHeatmapData);
+      getHeatmap(heatmapScene, heatmapRes)
+        .then((d) => setHeatmapData(Array.isArray(d) ? d : []))
+        .catch(() => setHeatmapData([]));
     }
   }, [activeTab, heatmapScene, heatmapRes]);
 
   // Fetch History
   useEffect(() => {
     if (activeTab === 'history') {
-      getHistoricalSessions().then(setHistoricalSessions);
+      getHistoricalSessions()
+        .then((d) => setHistoricalSessions(Array.isArray(d) ? d : []))
+        .catch(() => setHistoricalSessions([]));
     }
   }, [activeTab]);
 
   // Fetch available scenes once
   useEffect(() => {
-    getScenes().then(setScenes).catch(console.error);
+    getScenes()
+      .then((d) => setScenes(Array.isArray(d) ? d : []))
+      .catch(() => setScenes([]));
   }, []);
 
   const handleSelectHistorySession = async (session: any) => {
