@@ -1,16 +1,18 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceArea,
 } from 'recharts';
 import { sceneColor } from '../sceneColors';
 import { RetroCard } from './retro';
+import { Viewport3D } from './Viewport3D';
 
 interface Heartbeat {
   timestamp: number;
   fps: number;
   memory_mb: number;
   pos_x: number;
+  pos_y: number;
   pos_z: number;
   scene?: string;
   platform?: string;
@@ -46,7 +48,6 @@ const Stat: React.FC<{ label: string; value: React.ReactNode; color?: string }> 
 
 export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, session }) => {
   const data = Array.isArray(heartbeats) ? heartbeats : [];
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const startTime = data[0]?.timestamp || 0;
 
@@ -97,61 +98,6 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
   const platform = data[0]?.platform || session?.platform || '?';
   const engine = data[0]?.engine_version || '?';
 
-  const renderTrail = (canvas: HTMLCanvasElement | null) => {
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const { width, height } = canvas;
-    ctx.clearRect(0, 0, width, height);
-    if (data.length < 2) return;
-
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-    data.forEach(h => {
-      minX = Math.min(minX, h.pos_x); maxX = Math.max(maxX, h.pos_x);
-      minZ = Math.min(minZ, h.pos_z); maxZ = Math.max(maxZ, h.pos_z);
-    });
-
-    const pad = 24;
-    const rangeX = (maxX - minX) || 1;
-    const rangeZ = (maxZ - minZ) || 1;
-    const scale = Math.min((width - pad * 2) / rangeX, (height - pad * 2) / rangeZ);
-    const toX = (x: number) => pad + (x - minX) * scale;
-    const toZ = (z: number) => pad + (z - minZ) * scale;
-
-    // One stroke per scene segment, colored by scene.
-    ctx.lineWidth = 2;
-    segments.forEach(seg => {
-      ctx.strokeStyle = sceneColor(seg.scene);
-      ctx.beginPath();
-      // include the previous point so segments connect visually
-      const from = Math.max(0, seg.startIdx - 1);
-      ctx.moveTo(toX(data[from].pos_x), toZ(data[from].pos_z));
-      for (let i = seg.startIdx; i <= seg.endIdx; i++) {
-        ctx.lineTo(toX(data[i].pos_x), toZ(data[i].pos_z));
-      }
-      ctx.stroke();
-    });
-
-    // Start (green) / End (red) markers.
-    ctx.fillStyle = '#22c55e';
-    ctx.beginPath(); ctx.arc(toX(data[0].pos_x), toZ(data[0].pos_z), 5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ef4444';
-    ctx.beginPath(); ctx.arc(toX(data[data.length - 1].pos_x), toZ(data[data.length - 1].pos_z), 5, 0, Math.PI * 2); ctx.fill();
-
-    // Synced hover marker from the charts.
-    if (hoverIdx != null && data[hoverIdx]) {
-      const h = data[hoverIdx];
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = sceneColor(h.scene);
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(toX(h.pos_x), toZ(h.pos_z), 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    }
-  };
-
-  // Redraw the canvas when hover or data changes (canvas ref callback only fires on mount).
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  useEffect(() => { renderTrail(canvasRef.current); });
-
   if (chartData.length === 0) {
     return (
       <RetroCard>
@@ -175,13 +121,6 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
     );
   };
 
-  // Sync hover index out of recharts to the trail.
-  const onChartMove = (state: any) => {
-    const i = state?.activePayload?.[0]?.payload?.idx;
-    setHoverIdx(typeof i === 'number' ? i : null);
-  };
-  const onChartLeave = () => setHoverIdx(null);
-
   const sceneBands = segments.map((seg, i) => (
     <ReferenceArea
       key={i}
@@ -194,8 +133,30 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
     />
   ));
 
+  const last = data[data.length - 1];
+  const trail = data.map((h): [number, number, number] => [
+    Number(h.pos_x) || 0,
+    Number(h.pos_y) || 0,
+    Number(h.pos_z) || 0,
+  ]);
+  const sceneName = session?.scene || last?.scene || '';
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="lg:col-span-2 h-96 min-h-[360px] overflow-hidden border-4 border-black shadow-retro">
+        <Viewport3D
+          position={[Number(last.pos_x) || 0, Number(last.pos_y) || 0, Number(last.pos_z) || 0]}
+          yaw={0}
+          pitch={0}
+          roll={0}
+          trail={trail}
+          follow={true}
+          wireframe={false}
+          sceneName={sceneName}
+          staleAge={0}
+        />
+      </div>
+
       {/* Session info card */}
       <div className="lg:col-span-2">
         <RetroCard title="Session Info">
@@ -229,7 +190,7 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
       <RetroCard title="FPS vs Time (s)">
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-            <LineChart data={chartData} onMouseMove={onChartMove} onMouseLeave={onChartLeave}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
               {sceneBands}
               <XAxis dataKey="time" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} />
@@ -244,7 +205,7 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
       <RetroCard title="Memory (MB)">
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-            <AreaChart data={chartData} onMouseMove={onChartMove} onMouseLeave={onChartLeave}>
+            <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
               {sceneBands}
               <XAxis dataKey="time" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} />
@@ -255,19 +216,6 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
           </ResponsiveContainer>
         </div>
       </RetroCard>
-
-      <div className="lg:col-span-2">
-        <RetroCard title="Movement Trail (Bird's Eye)">
-          <div className="flex justify-center bg-bg-primary border-2 border-black p-2">
-            <canvas
-              ref={canvasRef}
-              width={800}
-              height={300}
-              className="max-w-full h-auto"
-            />
-          </div>
-        </RetroCard>
-      </div>
     </div>
   );
 };
