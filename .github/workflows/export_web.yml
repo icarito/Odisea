@@ -39,7 +39,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-godot-
 
-      - name: Export to Web
+      - name: Export to Web (regular)
         id: export
         uses: firebelley/godot-export@v7.0.0
         with:
@@ -81,6 +81,24 @@ jobs:
 
       - name: Minimize Web export for GitHub Pages
         run: python3 scripts/minimize_html_export.py "${{ steps.export.outputs.build_directory }}"
+
+      # ── Threads WASM for Netlify fallback ──
+      - name: Export HTML5 Threads (WASM only, for Pages fallback)
+        run: |
+          TEMPLATE_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+          THREADS_ZIP="$TEMPLATE_DIR/webassembly_threads_release.zip"
+          mkdir -p /tmp/threads_wasm
+          unzip -o "$THREADS_ZIP" -d /tmp/threads_wasm/
+          THREADS_WASM=$(find /tmp/threads_wasm -name '*.wasm' | head -n1)
+          cp "$TEMPLATE_DIR/webassembly_release.wasm" "$TEMPLATE_DIR/webassembly_release.standard.bak"
+          cp "$THREADS_WASM" "$TEMPLATE_DIR/webassembly_release.wasm"
+
+          BUILD_DIR="${{ steps.export.outputs.build_directory }}"
+          godot3-server --no-window --export "HTML5 Threads" "$BUILD_DIR/index.html" --quiet 2>&1
+          # Keep only the threads .wasm, remove .html/.js (Pages uses the regular ones)
+          rm -f "$BUILD_DIR/index.html" "$BUILD_DIR/index.js" "$BUILD_DIR/index.offline.html" "$BUILD_DIR/index.audio.worklet.js" "$BUILD_DIR/index.service.worker.js" "$BUILD_DIR/index.worker.js"
+          echo "Threads WASM staged in Pages artifact:"
+          ls -la "$BUILD_DIR/"*.wasm*
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

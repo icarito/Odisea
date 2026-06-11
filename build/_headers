@@ -2,3 +2,14 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: credentialless
 
+/*.wasm
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.wasm.gz
+  Cache-Control: public, max-age=31536000, immutable
+  Content-Encoding: gzip
+
+/*.pck.gz
+  Cache-Control: public, max-age=31536000, immutable
+  Content-Encoding: gzip
+
