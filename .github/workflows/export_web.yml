@@ -20,22 +20,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── Shared setup: install Godot + templates once ──
   setup:
     if: |
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    outputs:
-      godot-dir: ${{ steps.paths.outputs.godot-dir }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Disable editor plugins
-        run: |
-          python3 scripts/disable_plugins.py
+        run: python3 scripts/disable_plugins.py
 
       - name: Cache Godot
         uses: actions/cache@v3
@@ -51,13 +46,11 @@ jobs:
             ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}-
             ${{ runner.os }}-godot-web-
 
-      - name: Install Godot binary + templates
-        id: paths
+      - name: Install Godot and templates
         run: |
           GODOT_DIR="$HOME/.local/bin"
           mkdir -p "$GODOT_DIR"
           echo "$GODOT_DIR" >> "$GITHUB_PATH"
-          echo "godot-dir=$GODOT_DIR" >> "$GITHUB_OUTPUT"
 
           if [ ! -f "$GODOT_DIR/godot3-server" ]; then
             curl -fSL -o /tmp/godot.zip \
@@ -78,16 +71,9 @@ jobs:
             fi
           fi
 
-          # Also extract threads WASM for later swap
-          if [ -f "$TPL_DIR/webassembly_threads_release.zip" ]; then
-            unzip -o "$TPL_DIR/webassembly_threads_release.zip" -d "$TPL_DIR/threads-wasm/"
-          fi
-
-          # Run import once (cached by .godot/)
           godot3-server --editor --quit --headless 2>&1 || true
           echo "Setup complete."
 
-  # ── Regular HTML5 export (for Pages) ──
   export-regular:
     needs: setup
     runs-on: ubuntu-latest
@@ -95,13 +81,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Disable editor plugins
-        run: |
-          python3 -c "
-import re
-with open('project.godot') as f: text = f.read()
-text = re.sub(r'enabled=PoolStringArray\([^)]+\)', 'enabled=PoolStringArray()', text)
-with open('project.godot', 'w') as f: f.write(text)
-"
+        run: python3 scripts/disable_plugins.py
 
       - name: Cache Godot
         uses: actions/cache@v3
@@ -147,7 +127,7 @@ with open('project.godot', 'w') as f: f.write(text)
             shopt -s dotglob; cp -a "$BUILD_DIR"/* pages_build/
           fi
           python3 scripts/minimize_html_export.py pages_build/
-          echo "Regular export collected:"
+          echo "Regular export collected."
           ls -la pages_build/
 
       - name: Upload regular artifact
@@ -157,7 +137,6 @@ with open('project.godot', 'w') as f: f.write(text)
           path: pages_build/
           retention-days: 1
 
-  # ── Threads HTML5 export (for Netlify + WASM fallback on Pages) ──
   export-threads:
     needs: setup
     runs-on: ubuntu-latest
@@ -181,29 +160,21 @@ with open('project.godot', 'w') as f: f.write(text)
             ${{ runner.os }}-godot-web-${{ hashFiles('**/project.godot') }}-
             ${{ runner.os }}-godot-web-
 
-      - name: Install Godot binary + templates
+      - name: Export HTML5 Threads
         run: |
           TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
           echo "Templates dir: $TPL_DIR"
-          ls -la "$TPL_DIR/"webassembly*.zip "$TPL_DIR/threads-wasm/"*.wasm 2>/dev/null || true
+          ls -la "$TPL_DIR/"webassembly*.zip 2>/dev/null || true
 
-          # If threads zip wasn't already extracted in setup, do it now
-          if [ ! -d "$TPL_DIR/threads-wasm" ] || [ ! -f "$TPL_DIR/threads-wasm/godot.wasm" ]; then
-            unzip -o "$TPL_DIR/webassembly_threads_release.zip" -d "$TPL_DIR/threads-wasm/"
-          fi
-
-          # Swap: replace standard zip with threads variant
           cp "$TPL_DIR/webassembly_release.zip" "$TPL_DIR/webassembly_release.standard.bak"
           cp "$TPL_DIR/webassembly_threads_release.zip" "$TPL_DIR/webassembly_release.zip"
           echo "Swapped webassembly_release.zip with threads variant"
 
-          # Export
           mkdir -p build_threads
           godot3-server --no-window --export "HTML5 Threads" build_threads/index.html --quiet 2>&1
           echo "Threads export:"
           ls -la build_threads/
 
-          # Restore standard zip
           cp "$TPL_DIR/webassembly_release.standard.bak" "$TPL_DIR/webassembly_release.zip"
 
       - name: Prepare Netlify deploy
@@ -216,7 +187,7 @@ with open('project.godot', 'w') as f: f.write(text)
           echo "Netlify build:"
           ls -la netlify_build/
 
-      - name: Upload threads artifact
+      - name: Upload Netlify artifact
         uses: actions/upload-artifact@v4
         with:
           name: netlify-build
@@ -230,7 +201,6 @@ with open('project.godot', 'w') as f: f.write(text)
           path: build_threads/index.wasm
           retention-days: 1
 
-  # ── Combine, stage, and deploy ──
   deploy:
     needs: [export-regular, export-threads]
     runs-on: ubuntu-latest
