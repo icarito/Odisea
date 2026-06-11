@@ -1,0 +1,263 @@
+name: Release Multiplataforma
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      sha: ${{ steps.get_sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: get_version
+        run: |
+          # Try to get version from project.godot
+          VERSION=$(grep "config/version" project.godot | cut -d"\"" -f2 || echo "")
+          if [ -z "$VERSION" ]; then
+            VERSION="v0.1.0+$(date +%Y%m%d)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - id: get_sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+  export:
+    needs: prep
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux_x64, linux_arm64, windows, macos, android, ios, html5, html5_threads]
+        include:
+          - platform: linux_x64
+            os: ubuntu-latest
+            preset: "Linux/X11 x86_64"
+            artifact_name: linux-x64
+          - platform: linux_arm64
+            os: ubuntu-latest
+            preset: "Linux/X11 ARM64"
+            artifact_name: linux-arm64
+          - platform: windows
+            os: ubuntu-latest
+            preset: "Windows Desktop"
+            artifact_name: windows
+          - platform: macos
+            os: macos-latest
+            preset: "macOS Universal"
+            artifact_name: macos
+          - platform: android
+            os: ubuntu-latest
+            preset: "Android"
+            artifact_name: android
+          - platform: ios
+            os: macos-latest
+            preset: "iOS"
+            artifact_name: ios
+          - platform: html5
+            os: ubuntu-latest
+            preset: "HTML5"
+            artifact_name: html5
+          - platform: html5_threads
+            os: ubuntu-latest
+            preset: "HTML5 Threads"
+            artifact_name: html5-threads
+
+    runs-on: ${{ matrix.os }}
+    # Skip iOS if certs are missing
+    if: matrix.platform != 'ios' || (secrets.IOS_CERT_P12_B64 != '' && secrets.IOS_PROVISION_B64 != '')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Disable editor plugins
+        run: python3 scripts/disable_plugins.py
+
+      - name: Cache Godot
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/godot
+            ~/.config/godot
+            ~/.local/share/godot
+            ~/Library/Application Support/Godot/templates
+            .godot/
+            .import/
+          key: ${{ runner.os }}-godot-all-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-all-${{ hashFiles('**/project.godot') }}-
+            ${{ runner.os }}-godot-all-
+
+      - name: Install Godot (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          GODOT_DIR="$HOME/.local/bin"
+          mkdir -p "$GODOT_DIR"
+          echo "$GODOT_DIR" >> "$GITHUB_PATH"
+          if [ ! -f "$GODOT_DIR/godot3-server" ]; then
+            curl -fSL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip"
+            unzip -o /tmp/godot.zip -d "$GODOT_DIR/"
+            chmod +x "$GODOT_DIR/Godot_v3.6.2-stable_linux_headless.64"
+            ln -sf "$GODOT_DIR/Godot_v3.6.2-stable_linux_headless.64" "$GODOT_DIR/godot3-server"
+          fi
+          echo "GODOT_BIN=godot3-server" >> $GITHUB_ENV
+
+      - name: Install Godot (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          GODOT_DIR="$HOME/.local/bin"
+          mkdir -p "$GODOT_DIR"
+          echo "$GODOT_DIR" >> "$GITHUB_PATH"
+          if [ ! -f "$GODOT_DIR/godot" ]; then
+            curl -fSL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_osx.universal.zip"
+            unzip -o /tmp/godot.zip -d /tmp/godot_extract
+            mv /tmp/godot_extract/Godot.app/Contents/MacOS/Godot "$GODOT_DIR/godot"
+            chmod +x "$GODOT_DIR/godot"
+          fi
+          echo "GODOT_BIN=godot" >> $GITHUB_ENV
+
+      - name: Install Templates
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
+          else
+            TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+          fi
+
+          if [ ! -f "$TPL_DIR/linux_x11_64_release" ]; then
+            mkdir -p "$TPL_DIR"
+            curl -fSL -o /tmp/tpz.zip "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_export_templates.tpz"
+            unzip -o /tmp/tpz.zip -d /tmp/tpz_extract/
+            if [ -d /tmp/tpz_extract/templates ]; then
+              cp -a /tmp/tpz_extract/templates/* "$TPL_DIR/"
+            fi
+          fi
+
+      - name: Android Keystore Setup
+        if: matrix.platform == 'android'
+        run: |
+          mkdir -p android
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_B64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 --decode > android/debug.keystore
+          else
+            # Fallback for debug builds if secret is missing
+            keytool -genkey -v -keystore android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: iOS Certificates Setup
+        if: matrix.platform == 'ios'
+        uses: apple-actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.IOS_CERT_P12_B64 }}
+          p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
+
+      - name: iOS Provisioning Setup
+        if: matrix.platform == 'ios'
+        uses: apple-actions/download-provisioning-profiles@v1
+        with:
+          bundle-id: '*'
+          profile-type: 'release'
+          provisioning-profiles-base64: ${{ secrets.IOS_PROVISION_B64 }}
+
+      - name: Export
+        run: |
+          # Import step
+          $GODOT_BIN --editor --quit --headless || true
+
+          TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+          [ "$RUNNER_OS" == "macOS" ] && TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
+
+          case "${{ matrix.platform }}" in
+            linux_x64) OUT="build/linux_x86_64/odisea.x86_64" ;;
+            linux_arm64) OUT="build/linux_arm64/odisea.arm64" ;;
+            windows) OUT="build/windows/odisea.exe" ;;
+            macos) OUT="build/macos/odisea.zip" ;;
+            android) OUT="build/android/odisea.apk" ;;
+            ios) OUT="build/ios/odisea.ipa" ;;
+            html5) OUT="build/web/index.html" ;;
+            html5_threads)
+              OUT="build/web_threads/index.html"
+              # Template swap for threads if needed
+              cp "$TPL_DIR/webassembly_release.zip" "$TPL_DIR/webassembly_release.standard.bak"
+              cp "$TPL_DIR/webassembly_threads_release.zip" "$TPL_DIR/webassembly_release.zip"
+              ;;
+          esac
+
+          mkdir -p $(dirname "$OUT")
+          $GODOT_BIN --no-window --export "${{ matrix.preset }}" "$OUT" --headless
+
+          # Restore template swap
+          if [ "${{ matrix.platform }}" == "html5_threads" ]; then
+            cp "$TPL_DIR/webassembly_release.standard.bak" "$TPL_DIR/webassembly_release.zip"
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
+          path: build/
+
+      - name: Build Failure Notification
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.sha;
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: sha });
+            if (prs.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prs.data[0].number,
+                body: `❌ Build failed for platform **${{ matrix.platform }}** (${{ matrix.os }}) on commit ${sha}.`
+              });
+            } else if (context.payload.issue) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: context.payload.issue.number,
+                body: `❌ Build failed for platform **${{ matrix.platform }}** (${{ matrix.os }}).`
+              });
+            }
+
+  release:
+    needs: [prep, export]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.prep.outputs.version }}
+          files: |
+            release_assets/**/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Discord Notification
+        if: success()
+        run: |
+          VERSION="${{ needs.prep.outputs.version }}"
+          REPO="${{ github.repository }}"
+          URL="https://github.com/$REPO/releases/tag/$VERSION"
+          MSG="🚀 **New Release available for $REPO: $VERSION**\nCheck it out at: $URL"
+          if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
+            curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$MSG\"}" "${{ secrets.DISCORD_WEBHOOK }}"
+          fi
