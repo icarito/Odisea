@@ -117,7 +117,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       fps: hb.fps ?? p.fps ?? 0,
       memory_mb: hb.memory_mb ?? p.memory_mb ?? 0,
       pos_x: hb.pos_x ?? pos?.[0] ?? 0,
+      pos_y: hb.pos_y ?? pos?.[1] ?? 0,
       pos_z: hb.pos_z ?? pos?.[2] ?? 0,
+      scene: hb.scene ?? p.scene ?? "?",
+      platform: hb.platform ?? p.platform ?? "?",
+      engine_version: hb.engine_version ?? hb.godot_version ?? p.engine_version ?? "?",
     };
   };
 
@@ -368,7 +372,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 BACK TO LIST
               </button>
             </div>
-            <SessionPlayback heartbeats={playbackData} />
+            <SessionPlayback heartbeats={playbackData} session={selectedSession} />
           </div>
         )}
       </main>
