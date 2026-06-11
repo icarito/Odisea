@@ -98,14 +98,14 @@ jobs:
 
       - name: Swap threads WASM template and export
         run: |
-          # The firebelley action already extracted templates - find where
+          # The firebelley action extracts templates - find them
           TPL_DIR=$(find "$HOME/.local/share/godot/templates" -maxdepth 2 -name "webassembly*.zip" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
           if [ -z "$TPL_DIR" ]; then
-            TPL_DIR=$(find "$HOME/.cache" /tmp -name "webassembly_release.wasm" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
+            TPL_DIR=$(find "$HOME/.cache" /tmp -name "webassembly_release.zip" 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || true)
           fi
           # Fallback: download and extract ourselves
           if [ -z "$TPL_DIR" ] || [ ! -f "$TPL_DIR/webassembly_threads_release.zip" ]; then
-            echo "Templates not found in expected location, downloading..."
+            echo "Templates not found, downloading..."
             TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
             mkdir -p "$TPL_DIR"
             curl -fSL -o /tmp/tpz.zip \
@@ -116,16 +116,16 @@ jobs:
             fi
           fi
           echo "Templates dir: $TPL_DIR"
+          ls -la "$TPL_DIR/"webassembly*.zip
 
-          # Extract threads WASM
-          THREADS_ZIP="$TPL_DIR/webassembly_threads_release.zip"
-          mkdir -p /tmp/threads_wasm
-          unzip -o "$THREADS_ZIP" -d /tmp/threads_wasm/
-          THREADS_WASM=$(find /tmp/threads_wasm -name '*.wasm' | head -n1)
-
-          # Swap template
-          cp "$TPL_DIR/webassembly_release.wasm" "$TPL_DIR/webassembly_release.standard.bak"
-          cp "$THREADS_WASM" "$TPL_DIR/webassembly_release.wasm"
+          # Godot reads the .zip directly for export templates. We swap the
+          # standard webassembly_release.zip with the threads version so the
+          # "HTML5 Threads" preset picks up the threaded runtime.
+          cp "$TPL_DIR/webassembly_release.zip" "$TPL_DIR/webassembly_release.standard.bak"
+          cp "$TPL_DIR/webassembly_threads_release.zip" "$TPL_DIR/webassembly_release.zip"
+          echo "Swapped webassembly_release.zip with threads variant"
+          echo "Standard size: $(stat -c%s "$TPL_DIR/webassembly_release.standard.bak")"
+          echo "Threads size:  $(stat -c%s "$TPL_DIR/webassembly_release.zip")"
 
           # Import + export threads
           godot3-server --editor --quit --headless 2>&1 || true
@@ -133,6 +133,9 @@ jobs:
           godot3-server --no-window --export "HTML5 Threads" build_threads/index.html --quiet 2>&1
           echo "Threads export:"
           ls -la build_threads/
+
+          # Restore standard zip for subsequent steps (if needed)
+          cp "$TPL_DIR/webassembly_release.standard.bak" "$TPL_DIR/webassembly_release.zip"
 
       # ── Stage threads WASM into Pages artifact (/threads/) ──
       - name: Stage threads WASM for Pages fallback
