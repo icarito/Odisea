@@ -230,6 +230,20 @@ jobs:
           path: release_assets
           merge-multiple: true
 
+      - name: Deduplicate odisea.pck for release
+        run: |
+          # merge-multiple downloads every platform artifact into release_assets/,
+          # producing duplicates of odisea.pck (one per platform). Remove
+          # all-but-one copy so the release upload doesn't collide.
+          PCK_FILES=( release_assets/**/odisea.pck )
+          if [ ${#PCK_FILES[@]} -gt 1 ]; then
+            echo "Found ${#PCK_FILES[@]} odisea.pck copies, keeping only the first"
+            for ((i=1; i<${#PCK_FILES[@]}; i++)); do
+              echo "Removing duplicate: ${PCK_FILES[$i]}"
+              rm -f "${PCK_FILES[$i]}"
+            done
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:

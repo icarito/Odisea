@@ -55,6 +55,22 @@
         ".md5"
       ],
       "reason": "Dome_Crio level references this texture; stale stex causes image size mismatch error in CI."
+    },
+    {
+      "path": "maps/Dome_Basementd.map.import",
+      "required_sidecars": [
+        ".md5",
+        ".tres"
+      ],
+      "reason": "Qodot .map artifact needed for Android export on cold CI checkouts."
+    },
+    {
+      "path": "maps/Dome_Crio.map.import",
+      "required_sidecars": [
+        ".md5",
+        ".tres"
+      ],
+      "reason": "Qodot .map artifact needed for Android export on cold CI checkouts."
     }
   ]
 }

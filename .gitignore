@@ -7,6 +7,11 @@ maps/autosave/
 export.cfg
 # .import folder contains imported assets (stex, etc) - generated but large
 .import/
+# Allow tracking of critical Qodot .map import artifacts for CI cold-export
+!.import/Dome_Basementd.map-0227e7997b1c53fa00871ef9e5b31a3f.md5
+!.import/Dome_Basementd.map-0227e7997b1c53fa00871ef9e5b31a3f.tres
+!.import/Dome_Crio.map-b44a1fe72e1267103d81347f8f56ed40.md5
+!.import/Dome_Crio.map-b44a1fe72e1267103d81347f8f56ed40.tres
 *.stex
 # Note: *.import files are now tracked for Colab compatibility
 
