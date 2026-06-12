@@ -41,9 +41,8 @@ BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", DEV_DEFAULT_TOKEN)
 CACHE_TTL = int(os.environ.get("CENTRAL_CACHE_TTL", 120))
 STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "true").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
-SQLITE_DB = os.environ.get("CENTRAL_SQLITE_DB", "./data/ghosts.db")
+SQLITE_DB = os.environ.get("CENTRAL_SQLITE_DB", os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db"))
 GHOSTS_MAX_BYTES = int(os.environ.get("CENTRAL_GHOSTS_MAX_BYTES", 1073741824))  # 1GB
-DB_PATH = os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db")
 STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 
 # Global, server-side telemetry filtering. The headless server peer is never a
@@ -371,83 +370,95 @@ class OdiseaCentral:
         sessions = list(set(hb.get("session_id") for hb in self.heartbeats.values() if hb.get("session_id")))
         return web.json_response(sessions)
 
-    async def handle_sessions_history(self, request):
-        """Historical session list from SQLite (Prompt 8)."""
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
-
-        query = f"""
-            SELECT
-                session_id,
-                player_id,
-                MIN(timestamp) as timestamp,
-                MAX(timestamp) - MIN(timestamp) as duration,
-                AVG(fps) as avg_fps,
-                MAX(memory_mb) as peak_mem,
-                COUNT(*) as frame_count,
-                MAX(platform) as platform,
-                GROUP_CONCAT(DISTINCT scene) as scenes_visited
-            FROM heartbeats
-            WHERE {_NOT_SERVER}
-            GROUP BY session_id, player_id
-            ORDER BY timestamp DESC
-            LIMIT 100
-        """
-
-        try:
-            import sqlite3
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute(query)
-            rows = [dict(row) for row in cursor.fetchall()]
-            conn.close()
-            return web.json_response(rows)
-        except Exception as e:
-            logger.error(f"Sessions history error: {e}")
-            # Fallback to filesystem if DB fails
-            return web.json_response([])
-
     async def handle_ghosts(self, request):
-        """Historical query from SQLite backend (Prompt 6)."""
+        """Historical query from SQLite backend with pagination."""
         guard = self._auth_guard(request)
         if guard is not None:
             return guard
 
         scene = request.query.get("scene")
-        platform = request.query.get("platform")
         since = request.query.get("since")
+        until = request.query.get("until")
+        platform = request.query.get("platform")
+        player_id = request.query.get("player_id")
+        session_id = request.query.get("session_id")
 
-        query = f"SELECT * FROM heartbeats WHERE {_NOT_SERVER} AND {_PAST_WARMUP}"
+        try:
+            limit = min(max(int(request.query.get("limit", 1000)), 1), 5000)
+        except ValueError:
+            limit = 1000
+
+        try:
+            offset = int(request.query.get("offset", 0))
+        except ValueError:
+            offset = 0
+
+        query = f"SELECT * FROM heartbeats WHERE {_NOT_SERVER}"
+        if not session_id:
+            query += f" AND {_PAST_WARMUP}"
         params = []
         if scene:
             query += " AND scene = ?"
             params.append(scene)
-        if platform:
-            query += " AND platform = ?"
-            params.append(platform)
         if since:
             query += " AND timestamp >= ?"
             params.append(float(since))
+        if until:
+            query += " AND timestamp <= ?"
+            params.append(float(until))
+        if platform:
+            query += " AND platform = ?"
+            params.append(platform)
+        if player_id:
+            query += " AND player_id = ?"
+            params.append(player_id)
+        if session_id:
+            query += " AND session_id = ?"
+            params.append(session_id)
 
-        query += " ORDER BY timestamp DESC LIMIT 2000"
+        query += " ORDER BY timestamp ASC LIMIT ? OFFSET ?"
+        params.append(limit + 1)
+        params.append(offset)
 
         try:
-            import sqlite3
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            rows = [dict(row) for row in cursor.fetchall()]
-            conn.close()
-            return web.json_response(rows)
+            def fetch():
+                conn = self._get_db()
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                rows = [dict(row) for row in cursor.fetchall()]
+                conn.close()
+                return rows
+
+            rows = await asyncio.wait_for(self._run_query(fetch), timeout=10.0)
+
+            has_more = len(rows) > limit
+            if has_more:
+                rows = rows[:limit]
+
+            next_offset = offset + len(rows) if has_more else None
+
+            return web.json_response({
+                "data": rows,
+                "next_offset": next_offset,
+                "meta": {
+                    "has_more": has_more,
+                    "count": len(rows),
+                    "limit": limit,
+                    "offset": offset
+                }
+            })
+        except asyncio.TimeoutError:
+            return web.json_response({
+                "data": [],
+                "meta": {"has_more": True, "error": "timeout"}
+            })
         except Exception as e:
-            logger.error(f"DB query error: {e}")
-            return web.json_response({"error": "db_error", "message": str(e)}, status=500)
+            logger.warning(f"{request.path}: query failed ({e})")
+            return web.json_response({"data": [], "meta": {"has_more": False, "error": str(e)}})
 
     async def handle_ghosts_heatmap(self, request):
-        """Aggregated heatmap query from SQLite (Prompt 6)."""
+        """Aggregated heatmap query from SQLite."""
         guard = self._auth_guard(request)
         if guard is not None:
             return guard
@@ -457,34 +468,39 @@ class OdiseaCentral:
             return web.json_response({"error": "missing_scene"}, status=400)
 
         res = float(request.query.get("resolution", 5))
+        low_fps_threshold = 30.0
 
-        # We group by rounding X and Z to the grid
+        # Aggregate data by grid cell
         query = """
-            SELECT
-                ROUND(pos_x / ?) * ? as cell_x,
-                ROUND(pos_z / ?) * ? as cell_z,
-                COUNT(*) as count,
-                SUM(CASE WHEN fps < 30 THEN 1 ELSE 0 END) as low_fps_count,
-                AVG(fps) as avg_fps,
-                AVG(memory_mb) as avg_mem
-            FROM heartbeats
-            WHERE scene = ?
-            GROUP BY cell_x, cell_z
-        """
-        params = [res, res, res, res, scene]
+        SELECT
+            CAST(pos_x / ? AS INTEGER) * ? as grid_x,
+            CAST(pos_z / ? AS INTEGER) * ? as grid_z,
+            COUNT(*) as count,
+            SUM(CASE WHEN fps < ? THEN 1 ELSE 0 END) as low_fps_count,
+            AVG(fps) as avg_fps,
+            MIN(fps) as min_fps,
+            AVG(memory_mb) as avg_mem
+        FROM heartbeats
+        WHERE scene = ? AND {not_server} AND {past_warmup}
+        GROUP BY grid_x, grid_z
+        """.format(not_server=_NOT_SERVER, past_warmup=_PAST_WARMUP)
+        params = (res, res, res, res, low_fps_threshold, scene)
 
         try:
-            import sqlite3
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            rows = [dict(row) for row in cursor.fetchall()]
-            conn.close()
+            def fetch():
+                conn = self._get_db()
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                rows = [dict(row) for row in cursor.fetchall()]
+                conn.close()
+                return rows
+
+            rows = await self._run_query(fetch)
             return web.json_response(rows)
         except Exception as e:
-            logger.error(f"Heatmap query error: {e}")
-            return web.json_response({"error": "db_error", "message": str(e)}, status=500)
+            logger.warning(f"{request.path}: query failed, returning [] ({e})")
+            return web.json_response([])
 
     async def handle_download_session(self, request):
         guard = self._auth_guard(request)
@@ -500,6 +516,196 @@ class OdiseaCentral:
                 "Content-Disposition": f'attachment; filename="{sid}.jsonl"'
             })
         return web.Response(status=404, text="Session not found")
+
+    async def handle_ghosts_sessions(self, request):
+        """Historical session list from SQLite."""
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        include_server = request.query.get("include_server") in ("1", "true", "yes")
+
+        query = """
+        SELECT
+            player_id,
+            session_id,
+            COALESCE(NULLIF(MAX(platform), ''), 'unknown') as platform,
+            MIN(timestamp) as start_time,
+            MAX(timestamp) as end_time,
+            MAX(timestamp) - MIN(timestamp) as duration,
+            GROUP_CONCAT(DISTINCT scene) as scenes_visited,
+            AVG(fps) as avg_fps,
+            SUM(CASE WHEN fps < 30 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as low_fps_pct,
+            AVG(memory_mb) as avg_mem
+        FROM heartbeats
+        WHERE (? = 1 OR {not_server})
+        GROUP BY player_id, session_id
+        ORDER BY start_time DESC
+        LIMIT 200
+        """.format(not_server=_NOT_SERVER)
+
+        try:
+            def fetch():
+                conn = self._get_db()
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute(query, (1 if include_server else 0,))
+                rows = [dict(row) for row in cursor.fetchall()]
+                conn.close()
+                return rows
+
+            rows = await self._run_query(fetch)
+            return web.json_response(rows)
+        except Exception as e:
+            logger.warning(f"{request.path}: query failed, returning [] ({e})")
+            return web.json_response([])
+
+    async def handle_ghosts_active(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        now = time.time()
+        active = []
+        for pid, hb in self.heartbeats.items():
+            last_seen = self.last_update.get(pid, 0)
+            if now - last_seen < 30:
+                p_data = hb.get("player", {})
+                pos = p_data.get("position", [0, 0, 0])
+                active.append({
+                    "player_id": pid,
+                    "session_id": hb.get("session_id"),
+                    "scene": p_data.get("scene"),
+                    "pos_x": pos[0],
+                    "pos_y": pos[1],
+                    "pos_z": pos[2],
+                    "fps": p_data.get("fps"),
+                    "last_seen": last_seen
+                })
+        return web.json_response(active)
+
+    async def handle_ghosts_stats(self, request):
+        """Aggregate Ghost stats per scene + headline metrics."""
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        try:
+            def fetch():
+                conn = self._get_db()
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # Per-scene stats as requested: total_ghosts, total_sessions, oldest_ts, newest_ts, memory_mb_avg
+                query_scenes = f"""
+                SELECT
+                    scene,
+                    COUNT(*) as total_ghosts,
+                    COUNT(DISTINCT session_id) as total_sessions,
+                    MIN(timestamp) as oldest_ts,
+                    MAX(timestamp) as newest_ts,
+                    AVG(memory_mb) as memory_mb_avg
+                FROM heartbeats
+                WHERE {_NOT_SERVER} AND {_PAST_WARMUP}
+                GROUP BY scene
+                """
+                cursor.execute(query_scenes)
+                scene_stats = [dict(row) for row in cursor.fetchall()]
+
+                # Headline stats for dashboard compatibility
+                now = time.time()
+                day, week, month = 86400, 604800, 2592000
+
+                cursor.execute(
+                    f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats WHERE {_NOT_SERVER}"
+                )
+                unique_total = cursor.fetchone()["n"] or 0
+
+                cursor.execute(
+                    f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
+                    f"WHERE {_NOT_SERVER} AND timestamp >= ?",
+                    (now - day,),
+                )
+                unique_day = cursor.fetchone()["n"] or 0
+
+                cursor.execute(
+                    f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
+                    f"WHERE {_NOT_SERVER} AND timestamp >= ?",
+                    (now - week,),
+                )
+                unique_week = cursor.fetchone()["n"] or 0
+
+                cursor.execute(
+                    f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
+                    f"WHERE {_NOT_SERVER} AND timestamp >= ?",
+                    (now - month,),
+                )
+                unique_month = cursor.fetchone()["n"] or 0
+
+                cursor.execute(
+                    f"SELECT MIN(timestamp) AS start, MAX(timestamp) AS end "
+                    f"FROM heartbeats WHERE {_NOT_SERVER} "
+                    f"GROUP BY player_id, session_id"
+                )
+                sessions_intervals = cursor.fetchall()
+
+                # Max concurrent
+                events = []
+                for row in sessions_intervals:
+                    s, e = row["start"], row["end"]
+                    if s is None or e is None: continue
+                    events.append((s, 1))
+                    events.append((e, -1))
+                events.sort(key=lambda ev: (ev[0], ev[1]))
+                cur_c = max_c = 0
+                for _, delta in events:
+                    cur_c += delta
+                    max_c = max(max_c, cur_c)
+
+                conn.close()
+
+                return {
+                    "scenes": scene_stats,
+                    "headline": {
+                        "unique_players_total": unique_total,
+                        "players_last_day": unique_day,
+                        "players_last_week": unique_week,
+                        "players_last_month": unique_month,
+                        "max_concurrent_players": max_c,
+                        "total_sessions": len(sessions_intervals),
+                    }
+                }
+
+            stats = await self._run_query(fetch)
+            return web.json_response(stats)
+        except Exception as e:
+            logger.warning(f"{request.path}: stats query failed ({e})")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_scenes(self, request):
+        """Distinct scene names seen in telemetry, for dashboard dropdowns."""
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        scenes = set(DEFAULT_SCENES)
+        try:
+            def fetch():
+                conn = self._get_db()
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT DISTINCT scene FROM heartbeats WHERE scene IS NOT NULL AND scene != ''"
+                )
+                s = [row[0] for row in cursor.fetchall()]
+                conn.close()
+                return s
+
+            db_scenes = await self._run_query(fetch)
+            for s in db_scenes:
+                scenes.add(s)
+        except Exception as e:
+            logger.warning(f"handle_scenes: DB query failed, using defaults ({e})")
+        return web.json_response(sorted(scenes))
 
     async def handle_command(self, request):
         guard = self._auth_guard(request)
@@ -879,8 +1085,7 @@ class OdiseaCentral:
 
     async def _db_worker(self):
         """Background worker for SQLite writes (performance fix)."""
-        import sqlite3
-        conn = sqlite3.connect(DB_PATH)
+        conn = self._get_db()
         cursor = conn.cursor()
 
         # Ensure the schema exists before any INSERT/SELECT. Without this, a
@@ -909,6 +1114,7 @@ class OdiseaCentral:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_timestamp ON heartbeats(timestamp);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_platform ON heartbeats(platform);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_session ON heartbeats(session_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_combined ON heartbeats(player_id, scene, timestamp);")
         conn.commit()
 
         while True:
@@ -1011,258 +1217,17 @@ class OdiseaCentral:
 
     # --- SQLite Helpers ---
     def _get_db(self):
-        return sqlite3.connect(SQLITE_DB)
-
-    async def handle_api_ghosts(self, request):
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
-
-        scene = request.query.get("scene")
-        since = request.query.get("since")
-        platform = request.query.get("platform")
-        player_id = request.query.get("player_id")
-        session_id = request.query.get("session_id")
-        limit = min(max(int(request.query.get("limit", 1000)), 1), 10000)
-
-        # Always exclude the headless server. Warmup is excluded for general
-        # queries, but NOT when fetching a specific session for playback — the
-        # player shows the full timeline (with a warmup band) and only excludes
-        # warmup from the aggregate stats client-side.
-        query = f"SELECT * FROM heartbeats WHERE {_NOT_SERVER}"
-        if not session_id:
-            query += f" AND {_PAST_WARMUP}"
-        params = []
-        if scene:
-            query += " AND scene = ?"
-            params.append(scene)
-        if since:
-            query += " AND timestamp >= ?"
-            params.append(float(since))
-        if platform:
-            query += " AND platform = ?"
-            params.append(platform)
-        if player_id:
-            query += " AND player_id = ?"
-            params.append(player_id)
-        if session_id:
-            query += " AND session_id = ?"
-            params.append(session_id)
-
-        query += " ORDER BY timestamp ASC LIMIT ?"
-        params.append(limit)
-
+        conn = sqlite3.connect(SQLITE_DB)
         try:
-            conn = self._get_db()
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            rows = [dict(row) for row in cursor.fetchall()]
-            conn.close()
-            return web.json_response(rows)
-        except Exception as e:
-            # Return an empty array (not an error object) so the dashboard,
-            # which maps over the response, degrades gracefully instead of
-            # crashing with "e.map is not a function".
-            logger.warning(f"{request.path}: query failed, returning [] ({e})")
-            return web.json_response([])
+            conn.execute("PRAGMA compression_level=3")
+        except sqlite3.OperationalError:
+            pass
+        return conn
 
-    async def handle_api_ghosts_heatmap(self, request):
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
+    async def _run_query(self, func, *args):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, func, *args)
 
-        scene = request.query.get("scene")
-        if not scene:
-            return web.json_response({"error": "missing_scene"}, status=400)
-
-        res = float(request.query.get("resolution", 5))
-        low_fps_threshold = 30.0
-
-        # Aggregate data by grid cell
-        query = """
-        SELECT
-            CAST(pos_x / ? AS INTEGER) * ? as grid_x,
-            CAST(pos_z / ? AS INTEGER) * ? as grid_z,
-            COUNT(*) as count,
-            SUM(CASE WHEN fps < ? THEN 1 ELSE 0 END) as low_fps_count,
-            AVG(fps) as avg_fps,
-            MIN(fps) as min_fps,
-            AVG(memory_mb) as avg_mem
-        FROM heartbeats
-        WHERE scene = ? AND {not_server} AND {past_warmup}
-        GROUP BY grid_x, grid_z
-        """.format(not_server=_NOT_SERVER, past_warmup=_PAST_WARMUP)
-        params = (res, res, res, res, low_fps_threshold, scene)
-
-        try:
-            conn = self._get_db()
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            rows = [dict(row) for row in cursor.fetchall()]
-            conn.close()
-            return web.json_response(rows)
-        except Exception as e:
-            # Return an empty array (not an error object) so the dashboard,
-            # which maps over the response, degrades gracefully instead of
-            # crashing with "e.map is not a function".
-            logger.warning(f"{request.path}: query failed, returning [] ({e})")
-            return web.json_response([])
-
-    async def handle_api_ghosts_sessions(self, request):
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
-
-        include_server = request.query.get("include_server") in ("1", "true", "yes")
-
-        query = """
-        SELECT
-            player_id,
-            session_id,
-            COALESCE(NULLIF(MAX(platform), ''), 'unknown') as platform,
-            MIN(timestamp) as start_time,
-            MAX(timestamp) as end_time,
-            MAX(timestamp) - MIN(timestamp) as duration,
-            GROUP_CONCAT(DISTINCT scene) as scenes_visited,
-            AVG(fps) as avg_fps,
-            SUM(CASE WHEN fps < 30 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as low_fps_pct,
-            AVG(memory_mb) as avg_mem
-        FROM heartbeats
-        WHERE (? = 1 OR LOWER(COALESCE(platform, '')) != 'server')
-        GROUP BY player_id, session_id
-        ORDER BY start_time DESC
-        LIMIT 200
-        """
-
-        try:
-            conn = self._get_db()
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute(query, (1 if include_server else 0,))
-            rows = [dict(row) for row in cursor.fetchall()]
-            conn.close()
-            return web.json_response(rows)
-        except Exception as e:
-            # Return an empty array (not an error object) so the dashboard,
-            # which maps over the response, degrades gracefully instead of
-            # crashing with "e.map is not a function".
-            logger.warning(f"{request.path}: query failed, returning [] ({e})")
-            return web.json_response([])
-
-    async def handle_api_ghosts_active(self, request):
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
-
-        now = time.time()
-        active = []
-        for pid, hb in self.heartbeats.items():
-            last_seen = self.last_update.get(pid, 0)
-            if now - last_seen < 30:
-                p_data = hb.get("player", {})
-                pos = p_data.get("position", [0, 0, 0])
-                active.append({
-                    "player_id": pid,
-                    "session_id": hb.get("session_id"),
-                    "scene": p_data.get("scene"),
-                    "pos_x": pos[0],
-                    "pos_y": pos[1],
-                    "pos_z": pos[2],
-                    "fps": p_data.get("fps"),
-                    "last_seen": last_seen
-                })
-        return web.json_response(active)
-
-    async def handle_api_scenes(self, request):
-        """Distinct scene names seen in telemetry, for dashboard dropdowns."""
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
-
-        # Known scenes always offered, even with an empty DB.
-        scenes = set(DEFAULT_SCENES)
-        try:
-            conn = self._get_db()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT DISTINCT scene FROM heartbeats WHERE scene IS NOT NULL AND scene != ''"
-            )
-            for (scene,) in cursor.fetchall():
-                scenes.add(scene)
-            conn.close()
-        except Exception as e:
-            logger.warning(f"handle_api_scenes: DB query failed, using defaults ({e})")
-        return web.json_response(sorted(scenes))
-
-    async def handle_api_ghosts_stats(self, request):
-        """Aggregate dashboard headline stats (excludes the server peer).
-
-        Returns unique players over rolling windows, max concurrent players
-        (from overlapping session intervals), and a couple of totals. Computed
-        in SQL/Python over the bounded session set; cheap enough for the
-        dashboard's once-per-load call.
-        """
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
-
-        now = time.time()
-        day, week, month = 86400, 604800, 2592000
-
-        try:
-            conn = self._get_db()
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-
-            def unique_players(since: float) -> int:
-                cursor.execute(
-                    f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
-                    f"WHERE {_NOT_SERVER} AND timestamp >= ?",
-                    (since,),
-                )
-                return cursor.fetchone()["n"] or 0
-
-            cursor.execute(
-                f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats WHERE {_NOT_SERVER}"
-            )
-            unique_total = cursor.fetchone()["n"] or 0
-
-            # Session intervals for the concurrency sweep-line.
-            cursor.execute(
-                f"SELECT MIN(timestamp) AS start, MAX(timestamp) AS end "
-                f"FROM heartbeats WHERE {_NOT_SERVER} "
-                f"GROUP BY player_id, session_id"
-            )
-            sessions = cursor.fetchall()
-            conn.close()
-
-            # Max concurrent = peak overlap of [start, end] intervals.
-            events = []
-            for row in sessions:
-                s, e = row["start"], row["end"]
-                if s is None or e is None:
-                    continue
-                events.append((s, 1))
-                events.append((e, -1))
-            events.sort(key=lambda ev: (ev[0], ev[1]))
-            cur_c = max_c = 0
-            for _, delta in events:
-                cur_c += delta
-                max_c = max(max_c, cur_c)
-
-            return web.json_response({
-                "unique_players_total": unique_total,
-                "players_last_day": unique_players(now - day),
-                "players_last_week": unique_players(now - week),
-                "players_last_month": unique_players(now - month),
-                "max_concurrent_players": max_c,
-                "total_sessions": len(sessions),
-            })
-        except Exception as e:
-            logger.warning(f"{request.path}: stats query failed, returning {{}} ({e})")
-            return web.json_response({})
 
     async def _import_task(self):
         while True:
@@ -1286,24 +1251,18 @@ class OdiseaCentral:
             web.get('/events', self.handle_events_ws),
             web.get('/status', self.handle_status),
             web.get('/sessions', self.handle_sessions),
-            web.get('/sessions/history', self.handle_sessions_history),
             web.get('/sessions/{player_id}/{session_id}', self.handle_download_session),
             web.get('/ghosts', self.handle_ghosts),
+            web.get('/ghosts/heatmap', self.handle_ghosts_heatmap),
+            web.get('/ghosts/sessions', self.handle_ghosts_sessions),
+            web.get('/ghosts/active', self.handle_ghosts_active),
+            web.get('/ghosts/stats', self.handle_ghosts_stats),
+            web.get('/scenes', self.handle_scenes),
             web.post('/command', self.handle_command),
             web.get('/health', self.handle_health),
             web.post('/telemetry', self.handle_web_telemetry),
-            web.post('/api/telemetry', self.handle_web_telemetry),
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),
-            web.options('/api/telemetry', self.handle_web_telemetry_options),
-
-            # SQLite Endpoints
-            web.get('/api/ghosts', self.handle_api_ghosts),
-            web.get('/api/ghosts/heatmap', self.handle_api_ghosts_heatmap),
-            web.get('/api/ghosts/sessions', self.handle_api_ghosts_sessions),
-            web.get('/api/ghosts/active', self.handle_api_ghosts_active),
-            web.get('/api/ghosts/stats', self.handle_api_ghosts_stats),
-            web.get('/api/scenes', self.handle_api_scenes),
 
             # CI/CD: GitHub push webhook -> pull + redeploy
             web.post('/webhook/deploy', self.handle_deploy_webhook),

@@ -37,46 +37,46 @@ export async function getWebTelemetry() {
 }
 
 export async function getGhosts(scene?: string, platform?: string, since?: number) {
-  let url = "/api/ghosts?";
+  let url = "/ghosts?";
   if (scene) url += `scene=${scene}&`;
   if (platform) url += `platform=${platform}&`;
   if (since) url += `since=${since}&`;
   const response = await apiFetch(url);
-  return response.json();
+  const json = await response.json();
+  return Array.isArray(json) ? json : (json.data || []);
 }
 
 export async function getHeatmap(scene: string, resolution: number = 5) {
-  const response = await apiFetch(`/api/ghosts/heatmap?scene=${scene}&resolution=${resolution}`);
-  return response.json();
-}
-
-export async function getSessionHistory() {
-  const response = await apiFetch("/sessions/history");
+  const response = await apiFetch(`/ghosts/heatmap?scene=${scene}&resolution=${resolution}`);
   return response.json();
 }
 
 export async function getHistoricalSessions() {
-  const response = await apiFetch("/api/ghosts/sessions");
+  const response = await apiFetch("/ghosts/sessions");
   return response.json();
 }
 
 export async function getActiveGhosts() {
-  const response = await apiFetch("/api/ghosts/active");
+  const response = await apiFetch("/ghosts/active");
   return response.json();
 }
 
 export async function getGhostStats() {
-  const response = await apiFetch("/api/ghosts/stats");
-  return response.json();
+  const response = await apiFetch("/ghosts/stats");
+  const json = await response.json();
+  // Return headline part for backward compatibility if needed,
+  // or the whole object if the dashboard expects it.
+  return json.headline || json;
 }
 
 export async function getGhostData(playerId: string, sessionId: string) {
-  const response = await apiFetch(`/api/ghosts?player_id=${playerId}&session_id=${sessionId}&limit=10000`);
-  return response.json();
+  const response = await apiFetch(`/ghosts?player_id=${playerId}&session_id=${sessionId}&limit=10000`);
+  const json = await response.json();
+  return Array.isArray(json) ? json : (json.data || []);
 }
 
 export async function getScenes(): Promise<string[]> {
-  const response = await apiFetch("/api/scenes");
+  const response = await apiFetch("/scenes");
   return response.json();
 }
 
