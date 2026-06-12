@@ -24,33 +24,53 @@ jobs:
   prep:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.get_version.outputs.version }}
-      sha: ${{ steps.get_sha.outputs.sha }}
+      version: ${{ steps.meta.outputs.version }}
+      sha: ${{ steps.meta.outputs.sha }}
+      channel: ${{ steps.meta.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
-      - id: get_version
+      - id: meta
         run: |
-          # Try to get version from project.godot
-          VERSION=$(grep "config/version" project.godot | cut -d"\"" -f2 || echo "")
+          SHA=$(git rev-parse --short HEAD)
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+
+          # Base version from project.godot
+          BASE_VERSION=$(grep "config/version" project.godot | cut -d"\"" -f2 || echo "0.1.0")
+
+          # Determine channel
+          CHANNEL="dev"
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            CHANNEL="nightly"
+          elif [ "${{ github.ref }}" = "refs/heads/release" ]; then
+            CHANNEL="release"
+          fi
+
+          # Manual overrides
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.publish_prerelease }}" = "true" ]; then
+              CHANNEL="nightly"
+            else
+              CHANNEL="release"
+            fi
+          fi
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+
+          # Construct version
+          VERSION="$BASE_VERSION"
+          if [ "$CHANNEL" = "nightly" ]; then
+            VERSION="$BASE_VERSION-nightly+$SHA"
+          fi
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
           fi
-          if [ -z "$VERSION" ]; then
-            VERSION="v0.1.0+$(date +%Y%m%d)"
-          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-      - id: get_sha
-        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
   export:
     needs: prep
     strategy:
       fail-fast: false
       matrix:
-        # Web is handled by export_web.yml (gzip + Netlify + Pages) and Android
-        # by export_android.yml (godot-ci container) — don't duplicate them here.
-        # macos temporarily disabled (export failing — to debug); re-add it to restore.
-        platform: [linux_x64, linux_arm64, windows, ios]
+        platform: [linux_x64, linux_arm64, windows, ios, android, html5]
         include:
           - platform: linux_x64
             os: ubuntu-latest
@@ -68,13 +88,18 @@ jobs:
             os: macos-latest
             preset: "iOS"
             artifact_name: ios
-          # macos: re-add to the platform list above and uncomment to restore.
-          # - platform: macos
-          #   os: macos-latest
-          #   preset: "macOS Universal"
-          #   artifact_name: macos
+          - platform: android
+            os: ubuntu-latest
+            preset: "Android"
+            artifact_name: android
+            container: barichello/godot-ci:3.6.2
+          - platform: html5
+            os: ubuntu-latest
+            preset: "HTML5 Threads"
+            artifact_name: html5
 
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
 
     steps:
       - name: Checkout
@@ -99,6 +124,18 @@ jobs:
       - name: Disable editor plugins
         run: python3 scripts/disable_plugins.py
 
+      - name: Inject build metadata
+        run: |
+          python3 scripts/inject_build_meta.py \
+            --token "${{ secrets.ODISEA_CENTRAL_INGEST_TOKEN }}" \
+            --commit "${{ github.sha }}" \
+            --build-id "${{ github.run_id }}" \
+            --channel "${{ needs.prep.outputs.channel }}" \
+            --version "${{ needs.prep.outputs.version }}" \
+            --official-host "odisea.educa.juegos" \
+            --out-js "build_meta.js" \
+            --out-json "build_meta.json"
+
       - name: Cache Godot
         uses: actions/cache@v3
         with:
@@ -115,7 +152,7 @@ jobs:
             ${{ runner.os }}-godot-all-
 
       - name: Install Godot (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.platform != 'android'
         run: |
           GODOT_DIR="$HOME/.local/bin"
           mkdir -p "$GODOT_DIR"
@@ -143,6 +180,7 @@ jobs:
           echo "GODOT_BIN=godot" >> $GITHUB_ENV
 
       - name: Install Templates
+        if: matrix.platform != 'android'
         run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
             TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
@@ -157,6 +195,12 @@ jobs:
             if [ -d /tmp/tpz_extract/templates ]; then
               cp -a /tmp/tpz_extract/templates/* "$TPL_DIR/"
             fi
+          fi
+
+          if [ "${{ matrix.platform }}" = "html5" ]; then
+            # The "HTML5 Threads" preset still reads the webassembly_release.zip slot
+            cp "$TPL_DIR/webassembly_release.zip" "$TPL_DIR/webassembly_release.standard.bak"
+            cp "$TPL_DIR/webassembly_threads_release.zip" "$TPL_DIR/webassembly_release.zip"
           fi
 
       - name: iOS Certificates Setup
@@ -174,11 +218,50 @@ jobs:
           profile-type: 'release'
           provisioning-profiles-base64: ${{ secrets.IOS_PROVISION_B64 }}
 
+      - name: Android Keystore Setup
+        if: matrix.platform == 'android'
+        run: |
+          mkdir -p android
+          keytool -genkey -v -keystore android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Android Templates Setup
+        if: matrix.platform == 'android'
+        run: |
+          set -e
+          DEST_NEW="$HOME/.local/share/godot/export_templates/3.6.2.stable"
+          DEST_OLD="$HOME/.local/share/godot/templates/3.6.2.stable"
+          mkdir -p "$DEST_NEW" "$DEST_OLD"
+          SRC=""
+          for c in /root/.local/share/godot/export_templates/3.6.2.stable \
+                   /root/.local/share/godot/templates/3.6.2.stable; do
+            [ -d "$c" ] && SRC="$c" && break
+          done
+          if [ -z "$SRC" ]; then echo "::error::No export templates found"; exit 1; fi
+          cp -a "$SRC"/. "$DEST_NEW"/
+          cp -a "$SRC"/. "$DEST_OLD"/
+
+      - name: Android Editor Settings
+        if: matrix.platform == 'android'
+        run: |
+          JDK_PATH="/usr/lib/jvm/java-11-openjdk-amd64"
+          if [ ! -d "$JDK_PATH" ]; then JDK_PATH="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"; fi
+          mkdir -p "$HOME/.config/godot"
+          {
+            echo '[gd_resource type="EditorSettings" format=2]'
+            echo
+            echo '[resource]'
+            echo "export/android/android_sdk_path = \"$ANDROID_HOME\""
+            echo "export/android/java_sdk_path = \"$JDK_PATH\""
+          } > "$HOME/.config/godot/editor_settings-3.tres"
+
       - name: Export
         if: steps.ios_gate.outputs.skip_ios != 'true'
         run: |
+          # Use 'godot' if 'godot3-server' is not set (container environment)
+          G_BIN="${GODOT_BIN:-godot}"
+
           # Import step
-          $GODOT_BIN --editor --quit --headless || true
+          $G_BIN --editor --quit --headless || true
 
           case "${{ matrix.platform }}" in
             linux_x64) OUT="build/linux_x86_64/odisea.x86_64" ;;
@@ -186,6 +269,8 @@ jobs:
             windows) OUT="build/windows/odisea.exe" ;;
             macos) OUT="build/macos/odisea.zip" ;;
             ios) OUT="build/ios/odisea.ipa" ;;
+            android) OUT="build/android/odisea.apk" ;;
+            html5) OUT="build/html5/index.html" ;;
           esac
 
           mkdir -p $(dirname "$OUT")
@@ -193,7 +278,12 @@ jobs:
           # Godot 3.6 headless --export returns a non-zero exit even on benign
           # import warnings, so don't let it abort the step; verify success by
           # checking the artifact was actually written instead.
-          $GODOT_BIN --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
+          # Use --export-debug for Android
+          if [ "${{ matrix.platform }}" = "android" ]; then
+            $G_BIN --no-window --export-debug "${{ matrix.preset }}" "$OUT" --headless || true
+          else
+            $G_BIN --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
+          fi
 
           if [ ! -s "$OUT" ]; then
             echo "::error::Export failed — no artifact produced at $OUT"
@@ -201,14 +291,76 @@ jobs:
           fi
           echo "Export OK: $OUT ($(du -h "$OUT" | cut -f1))"
 
+      - name: Android Sign and Validate
+        if: matrix.platform == 'android'
+        run: |
+          set -e
+          APK="build/android/odisea.apk"
+          UNSIGNED="build/android/odisea-unsigned.apk"
+          ALIGNED="build/android/odisea-aligned.apk"
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          mv "$APK" "$UNSIGNED"
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" sign --ks android/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out "$APK" "$ALIGNED"
+          rm -f "$UNSIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" verify "$APK"
+
+      - name: HTML5 Post-process
+        if: matrix.platform == 'html5'
+        run: |
+          python3 scripts/minimize_html_export.py build/html5/
+          cp build_meta.js build/html5/build_meta.js
+
+      - name: HTML5 Stage Netlify
+        if: matrix.platform == 'html5'
+        run: |
+          mkdir -p build/netlify
+          cp -a build/html5/* build/netlify/
+          rm -f build/netlify/*.pck build/netlify/*.pck.gz build/netlify/*.wasm build/netlify/*.wasm.gz
+          [ -f build/_headers ] && cp build/_headers build/netlify/_headers
+          PCK_BYTES=$(stat -c%s build/html5/index.pck)
+          WASM_BYTES=$(stat -c%s build/html5/index.wasm)
+          TOTAL=$((PCK_BYTES + WASM_BYTES))
+          sed -i "s/\$ODISEA_TOTAL_BYTES/${TOTAL}/g" build/netlify/index.html
+
+      - name: HTML5 Stage Pages
+        if: matrix.platform == 'html5'
+        run: |
+          mkdir -p build/pages/threads
+          cp build/html5/index.pck build/html5/index.pck.gz build/pages/
+          cp build/html5/index.wasm build/html5/index.wasm.gz build/pages/threads/
+
       - name: Package Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'
         run: |
-          PACKAGE="dist/${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}.zip"
+          VERSION="${{ needs.prep.outputs.version }}"
+          SHA="${{ needs.prep.outputs.sha }}"
+          PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION-$SHA.zip"
           mkdir -p dist
-          rm -f build/_headers
-          cd build
-          zip -r "../$PACKAGE" .
+
+          # For native platforms, include build_meta.json in the zip
+          if [ -f build_meta.json ]; then
+            case "${{ matrix.platform }}" in
+              linux_*) cp build_meta.json build/linux_*/ ;;
+              windows) cp build_meta.json build/windows/ ;;
+              android) cp build_meta.json build/android/ ;;
+              ios)     cp build_meta.json build/ios/ ;;
+              macos)   # macos zip is already built by export
+                       ;;
+            esac
+          fi
+
+          if [ "${{ matrix.platform }}" = "html5" ]; then
+            cd build/html5 && zip -r "../../$PACKAGE" .
+          elif [ "${{ matrix.platform }}" = "android" ]; then
+            cd build/android && zip -r "../../$PACKAGE" .
+          elif [ "${{ matrix.platform }}" = "ios" ]; then
+            cd build/ios && zip -r "../../$PACKAGE" .
+          elif [ "${{ matrix.platform }}" = "macos" ]; then
+             cp build/macos/odisea.zip "$PACKAGE"
+          else
+            cd build && zip -r "../$PACKAGE" . -x "netlify/*" -x "pages/*" -x "html5/*" -x "android/*" -x "ios/*"
+          fi
 
       - name: Upload Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'
@@ -216,6 +368,20 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
           path: dist/*.zip
+
+      - name: Upload Netlify artifact
+        if: matrix.platform == 'html5'
+        uses: actions/upload-artifact@v4
+        with:
+          name: netlify-build
+          path: build/netlify/
+          retention-days: 1
+
+      - name: Upload Pages artifact
+        if: matrix.platform == 'html5'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/pages
 
       - name: Build Failure Notification
         if: failure()
@@ -241,10 +407,46 @@ jobs:
               });
             }
 
+  deploy-web:
+    needs: [prep, export]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Netlify artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: netlify-build
+          path: netlify-build
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: netlify-build/
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from ${{ github.sha }}"
+          netlify-config-path: ./
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
   release:
     needs: [prep, export]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_prerelease == 'true')
+    if: github.ref == 'refs/heads/release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_prerelease == 'false')
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -260,9 +462,43 @@ jobs:
             release_assets/**/*
           generate_release_notes: true
           draft: false
-          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  nightly:
+    needs: [prep, export]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_prerelease == 'true')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: nightly_assets
+          merge-multiple: true
+
+      - name: Update Nightly Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="nightly"
+          # Delete existing tag and release if they exist
+          gh release delete "$TAG" --yes --cleanup-tag || true
+
+          # Generate detailed artifact list
+          echo "### Artifacts" > body.md
+          echo "| Artifact | Size |" >> body.md
+          echo "|---|---|" >> body.md
+          find nightly_assets -name "*.zip" -exec du -h {} + | awk '{n=split($2,a,"/"); print "| " a[n] " | " $1 " |"}' >> body.md
+          echo "" >> body.md
+          echo "Built from commit ${{ needs.prep.outputs.sha }} at $(date -u +'%Y-%m-%d %H:%M:%S') UTC." >> body.md
+          
+          # Create new release
+          gh release create "$TAG" \
+            --title "Nightly Tip" \
+            --notes-file body.md \
+            --prerelease \
+            nightly_assets/**/*
 
       - name: Discord Notification
         if: success()
