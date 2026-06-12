@@ -18,15 +18,8 @@ var _is_moving: bool = false
 var _target_extended: bool = false
 var _current_step: int = 0
 var _step_timer: float = 0.0
-# Target ~15s total for 30 steps as per user's prompt (30 steps * ~0.5s per step?)
-# Wait, user said: "30 pasos * ~0.016s = ~0.5s por step, total ~15s para extension completa"
-# 30 * 0.016 is 0.48s total.
-# "total ~15s para extension completa" suggests each step is 0.5s.
-# 30 steps * 0.5s = 15s.
-# 0.5s is roughly 30 frames at 60fps.
-# I will use a configurable step duration, or just follow the "total 15s" hint.
-# Let's assume step_duration = 0.5s.
-var _step_duration: float = 0.5
+# 30 steps at 60fps = ~0.5s total duration.
+var _step_duration: float = 1.0 / 60.0
 
 onready var _base: StaticBody = get_node_or_null("Base")
 onready var _arm: AnimatableBody = get_node_or_null("Base/Arm")
@@ -106,8 +99,9 @@ func extend():
 	_target_extended = true
 	_is_moving = true
 	_current_step = 0
-	_step_timer = _step_duration # Start first step immediately or after one duration?
-	# User says "cada step debe interpolar". I'll start at 0.
+	# Reactive: execute first step immediately
+	_step_timer = 0.0
+	_execute_step()
 
 func retract():
 	if not _is_extended or (_is_moving and not _target_extended):
@@ -115,7 +109,9 @@ func retract():
 	_target_extended = false
 	_is_moving = true
 	_current_step = 0
-	_step_timer = _step_duration
+	# Reactive: execute first step immediately
+	_step_timer = 0.0
+	_execute_step()
 
 func set_side(v):
 	side = v
@@ -153,22 +149,31 @@ func _update_layout():
 	var arm_mesh = _arm.get_node_or_null("MeshInstance")
 	var arm_col = _arm.get_node_or_null("CollisionShape")
 	if arm_mesh and arm_mesh.mesh is CubeMesh:
-		arm_mesh.mesh = arm_mesh.mesh.duplicate()
+		# Only duplicate if we are at runtime or if we haven't made it local yet
+		if not Engine.editor_hint or not arm_mesh.mesh.resource_local_to_scene:
+			arm_mesh.mesh = arm_mesh.mesh.duplicate()
+			if Engine.editor_hint: arm_mesh.mesh.resource_local_to_scene = true
 		arm_mesh.mesh.size.x = arm_length
 		arm_mesh.transform.origin.x = arm_length / 2.0
 	if arm_col and arm_col.shape is BoxShape:
-		arm_col.shape = arm_col.shape.duplicate()
+		if not Engine.editor_hint or not arm_col.shape.resource_local_to_scene:
+			arm_col.shape = arm_col.shape.duplicate()
+			if Engine.editor_hint: arm_col.shape.resource_local_to_scene = true
 		arm_col.shape.extents.x = arm_length / 2.0
 		arm_col.transform.origin.x = arm_length / 2.0
 
 	var plat_mesh = _platform.get_node_or_null("MeshInstance")
 	var plat_col = _platform.get_node_or_null("CollisionShape")
 	if plat_mesh and plat_mesh.mesh is CubeMesh:
-		plat_mesh.mesh = plat_mesh.mesh.duplicate()
+		if not Engine.editor_hint or not plat_mesh.mesh.resource_local_to_scene:
+			plat_mesh.mesh = plat_mesh.mesh.duplicate()
+			if Engine.editor_hint: plat_mesh.mesh.resource_local_to_scene = true
 		plat_mesh.mesh.size.x = arm_length
 		plat_mesh.transform.origin.x = arm_length / 2.0
 	if plat_col and plat_col.shape is BoxShape:
-		plat_col.shape = plat_col.shape.duplicate()
+		if not Engine.editor_hint or not plat_col.shape.resource_local_to_scene:
+			plat_col.shape = plat_col.shape.duplicate()
+			if Engine.editor_hint: plat_col.shape.resource_local_to_scene = true
 		plat_col.shape.extents.x = arm_length / 2.0
 		plat_col.transform.origin.x = arm_length / 2.0
 
