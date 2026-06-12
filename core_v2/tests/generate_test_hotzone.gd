@@ -1,17 +1,17 @@
-extends Node
+extends SceneTree
 
 # generate_test_hotzone.gd
 # Generates a dummy .bin file to test HotzonePlayer.
 
 const BINARY_MAGIC := 0x485a4e32
 
-func _ready():
+func _init():
 	var snapshot = {
 		"trigger": "manual",
 		"player_id": "test_player",
 		"session_id": "test_session",
 		"timestamp": OS.get_unix_time(),
-		"scene": "Dome_Crio",
+		"scene": "TestScene_v2",
 		"grid": [0, 0],
 		"frames": []
 	}
@@ -37,4 +37,4 @@ func _ready():
 	else:
 		printerr("Failed to generate test hotzone.")
 
-	get_tree().quit()
+	quit()

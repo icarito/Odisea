@@ -22,6 +22,7 @@ var playback_speed := 1.0
 var is_paused := true
 var player_node = null
 var initial_scene_path := ""
+var loaded_scene_node = null
 
 func _ready():
 	# Get replay file from command line
@@ -79,31 +80,41 @@ func _show_error(msg: String):
 
 func _prepare_scene():
 	var scene_name = replay_data.get("scene", "")
-	var scene_path = ""
-
-	match scene_name:
-		"Dome_Crio": scene_path = "res://core_v2/levels/Dome_Crio.tscn"
-		"OdiseaExterior": scene_path = "res://core_v2/levels/OdiseaExterior.tscn"
-		"ScaffoldOrbit": scene_path = "res://core_v2/levels/ScaffoldOrbit.tscn"
-		_:
-			if scene_name.find("/") != -1 or scene_name.ends_with(".tscn"):
-				scene_path = scene_name
-			else:
-				_show_error("Unrecognized scene: " + scene_name)
-				# TODO: Allow user to select scene?
-				return
+	var scene_path = _resolve_scene_path(scene_name)
+	if scene_path == "":
+		_show_error("Unrecognized scene: " + scene_name)
+		return
 
 	initial_scene_path = scene_path
-	print("[HotzonePlayer] Switching to scene: ", scene_path)
+	print("[HotzonePlayer] Loading scene: ", scene_path)
 
-	# Load scene
-	var err = get_tree().change_scene(scene_path)
-	if err != OK:
+	var packed = load(scene_path)
+	if not packed or not (packed is PackedScene):
 		_show_error("Failed to load scene: " + scene_path)
 		return
 
-	# Wait for scene to be ready
-	call_deferred("_start_replay")
+	loaded_scene_node = packed.instance()
+	call_deferred("_attach_loaded_scene")
+
+func _attach_loaded_scene():
+	get_tree().root.add_child(loaded_scene_node)
+	yield(get_tree(), "idle_frame")
+	_start_replay()
+
+func _resolve_scene_path(scene_name: String) -> String:
+	var known = {
+		"Dome_Crio": "res://core_v2/levels/interiors/Dome_Crio.tscn",
+		"OdiseaExterior": "res://core_v2/levels/OdiseaExterior.tscn",
+		"ScaffoldOrbit": "res://core_v2/components/ScaffoldOrbit.tscn",
+		"TestScene_v2": "res://core_v2/levels/TestScene_v2.tscn"
+	}
+	if known.has(scene_name):
+		return known[scene_name]
+	if scene_name.begins_with("res://") and ResourceLoader.exists(scene_name):
+		return scene_name
+	if scene_name.find("/") != -1 or scene_name.ends_with(".tscn"):
+		return scene_name if ResourceLoader.exists(scene_name) else ""
+	return ""
 
 func _start_replay():
 	# Find player
@@ -118,7 +129,7 @@ func _start_replay():
 	print("[HotzonePlayer] Player found. Initializing replay provider.")
 
 	# Setup InputProvider
-	if not "input_provider" in player_node:
+	if not ("input_provider" in player_node):
 		_show_error("Player node lacks input_provider.")
 		return
 
@@ -269,3 +280,7 @@ func _on_replay_finished():
 	is_paused = true
 	status_label.text = "Replay completo"
 	status_label.modulate = Color(1, 1, 0.3)
+
+func _exit_tree():
+	if is_instance_valid(loaded_scene_node):
+		loaded_scene_node.queue_free()
