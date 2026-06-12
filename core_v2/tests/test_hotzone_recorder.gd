@@ -14,20 +14,17 @@ func before_test():
 	recorder._test_fps = 60.0
 	add_child(recorder)
 	# Mock dependencies
-	recorder._anna_v2 = Node.new()
-	recorder._anna_v2.set("player_id", "test_player")
-	recorder._anna_v2.set("session_id", "test_session")
+	var anna_mock = Node.new()
+	anna_mock.set("player_id", "test_player")
+	anna_mock.set("session_id", "test_session")
+	recorder.add_child(anna_mock)
+	recorder._anna_v2 = anna_mock
 
 	# Disable real network
 	recorder.hotzone_enabled = true
 	recorder._is_web = false
-	if recorder._http_request:
-		recorder._http_request.queue_free()
-	recorder._http_request = Node.new() # Dummy
 
 func after_test():
-	if is_instance_valid(recorder._anna_v2):
-		recorder._anna_v2.free()
 	recorder.free()
 
 func test_ring_buffer_ordering():
@@ -107,6 +104,7 @@ func test_grid_deduplication():
 	# First capture at (0,0,0)
 	recorder._test_fps = 20.0
 	recorder.record_frame(input, 0.016)
+	yield(get_tree().create_timer(0.02), "timeout")
 	recorder._test_fps = 60.0
 	recorder.record_frame(input, 0.016)
 	assert_int(recorder._capture_count).is_equal(1)
@@ -115,6 +113,7 @@ func test_grid_deduplication():
 	recorder._last_hotzone_msec = 0 # reset cooldown
 	recorder._test_fps = 20.0
 	recorder.record_frame(input, 0.016)
+	yield(get_tree().create_timer(0.02), "timeout")
 	recorder._test_fps = 60.0
 	recorder.record_frame(input, 0.016)
 	# Should still be 1 because of dedup

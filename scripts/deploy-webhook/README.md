@@ -12,7 +12,8 @@ Lets a push to `main` on GitHub trigger a pull + redeploy on
 3. If it's a push to `main`, it spawns `~/odisea-deploy/deploy.sh` **detached**
    (so the deploy can restart central without killing the script).
 4. `deploy.sh` hard-resets a **dedicated clone** (not the interactive workspace)
-   to `origin/main` and runs `anna-central/deploy.sh`.
+   to `origin/main`, builds the dashboard, backs up and migrates SQLite, copies
+   `odisea_central.py` + dashboard assets, and restarts the service.
 
 ## Server setup (one time)
 
@@ -53,7 +54,22 @@ Set on the central process if defaults don't fit:
 | `DEPLOY_SCRIPT` | `~/odisea-deploy/deploy.sh` | script to run on push |
 | `DEPLOY_BRANCH` | `main` | branch whose pushes trigger deploy |
 
-And on `deploy.sh` itself: `REPO_DIR`, `REPO_URL`, `BRANCH`, `DEPLOY_CMD`.
+And on `deploy.sh` itself:
+
+| Var | Default | Meaning |
+| --- | --- | --- |
+| `REPO_DIR` | `~/odisea-deploy/Odisea` | dedicated deploy clone |
+| `REPO_URL` | `git@github.com:icarito/Odisea.git` | repo cloned on first run |
+| `BRANCH` | `main` | branch deployed by the script |
+| `DEPLOY_DIR` | `~/anna-central` | runtime directory |
+| `SERVICE` | `odisea-central.service` | systemd service to restart |
+| `DB_PATH` | `$DEPLOY_DIR/data/ghosts.db` | SQLite database to back up/migrate |
+| `BACKUP_DIR` | `$DEPLOY_DIR/data/backups` | SQLite backup destination |
+
+Before restarting the service, the script creates a SQLite backup using the
+SQLite backup API, runs idempotent schema setup for `hotzones`, and verifies
+`PRAGMA integrity_check` plus required columns. Any failure aborts the deploy
+before files are copied/restarted, leaving the backup in place.
 
 ## GitHub setup
 

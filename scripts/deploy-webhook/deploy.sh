@@ -21,6 +21,8 @@
 #   BRANCH      - branch to deploy       (default main)
 #   DEPLOY_DIR  - runtime dir            (default ~/anna-central)
 #   SERVICE     - systemd unit           (default odisea-central.service)
+#   DB_PATH     - central SQLite DB      (default $DEPLOY_DIR/data/ghosts.db)
+#   BACKUP_DIR  - SQLite backup dir      (default $DEPLOY_DIR/data/backups)
 
 set -euo pipefail
 
@@ -29,6 +31,8 @@ REPO_URL="${REPO_URL:-git@github.com:icarito/Odisea.git}"
 BRANCH="${BRANCH:-main}"
 DEPLOY_DIR="${DEPLOY_DIR:-$HOME/anna-central}"
 SERVICE="${SERVICE:-odisea-central.service}"
+DB_PATH="${DB_PATH:-${CENTRAL_SQLITE_DB:-$DEPLOY_DIR/data/ghosts.db}}"
+BACKUP_DIR="${BACKUP_DIR:-$DEPLOY_DIR/data/backups}"
 
 log() { echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"; }
 
@@ -70,6 +74,78 @@ fi
 log "using: $PNPM ($($PNPM --version 2>/dev/null || echo '?'))"
 $PNPM install --frozen-lockfile
 $PNPM run build
+
+log "backing up and migrating SQLite ($DB_PATH)"
+python3 - "$DB_PATH" "$BACKUP_DIR" <<'PY'
+import os
+import sqlite3
+import sys
+import time
+
+db_path = sys.argv[1]
+backup_dir = sys.argv[2]
+os.makedirs(os.path.dirname(db_path), exist_ok=True)
+os.makedirs(backup_dir, exist_ok=True)
+
+backup_path = ""
+
+try:
+    db_exists = os.path.exists(db_path)
+    conn = sqlite3.connect(db_path)
+
+    if db_exists:
+        backup_path = os.path.join(
+            backup_dir,
+            "ghosts_%s.db" % time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()),
+        )
+        backup = sqlite3.connect(backup_path)
+        conn.backup(backup)
+        backup.close()
+        if not os.path.exists(backup_path) or os.path.getsize(backup_path) <= 0:
+            raise RuntimeError("backup file was not created correctly")
+        print("SQLite backup:", backup_path)
+    else:
+        print("SQLite DB missing; creating fresh DB:", db_path)
+
+    integrity = conn.execute("PRAGMA integrity_check").fetchone()
+    if not integrity or integrity[0] != "ok":
+        raise RuntimeError("integrity_check failed: %r" % (integrity,))
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS hotzones (
+            id TEXT PRIMARY KEY,
+            player_id TEXT,
+            session_id TEXT,
+            timestamp REAL,
+            file_path TEXT,
+            trigger_type TEXT DEFAULT 'auto'
+        );
+        """
+    )
+    conn.commit()
+
+    cols = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(hotzones)").fetchall()
+    }
+    required = {"id", "player_id", "session_id", "timestamp", "file_path", "trigger_type"}
+    missing = sorted(required - cols)
+    if missing:
+        raise RuntimeError("hotzones schema missing columns: %s" % ", ".join(missing))
+
+    post_integrity = conn.execute("PRAGMA integrity_check").fetchone()
+    if not post_integrity or post_integrity[0] != "ok":
+        raise RuntimeError("post-migration integrity_check failed: %r" % (post_integrity,))
+
+    conn.close()
+    print("SQLite migration OK:", db_path)
+except Exception as exc:
+    print("SQLite migration FAILED:", exc, file=sys.stderr)
+    if backup_path:
+        print("Backup left untouched:", backup_path, file=sys.stderr)
+    sys.exit(1)
+PY
 
 log "deploying to $DEPLOY_DIR"
 mkdir -p "$DEPLOY_DIR/static"

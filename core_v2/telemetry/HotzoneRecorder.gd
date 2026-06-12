@@ -16,6 +16,8 @@ var hotzone_cooldown := 60.0
 var hotzone_max_captures_per_session := 5
 var hotzone_grid_size := 10.0
 var snapshot_interval := 100 # Frames between full snapshots in buffer
+var startup_grace_sec := 10.0
+var scene_grace_sec := 3.0
 
 # State
 var _is_testing := false
@@ -36,18 +38,27 @@ var _last_scene_name := ""
 var _is_web := false
 var _retry_timer := 0.0
 var _frames_since_snapshot := 0
+var _ready_msec := 0
+var _scene_changed_msec := 0
+var _save_thread: Thread = null
+var _save_thread_busy := false
+var _save_jobs := []
 
 func _ready():
+	_ready_msec = OS.get_ticks_msec()
+	_scene_changed_msec = _ready_msec
+	_retry_timer = hotzone_cooldown
 	_is_web = OS.has_feature("web")
 	_ensure_dir()
 	_setup_http()
 	call_deferred("_cache_anna_reference")
 	if _is_web:
 		_inject_worker()
-
-	# Opportunistic startup scan
-	call_deferred("_scan_pending_files")
 	print("[HotzoneRecorder] Initialized. Web: ", _is_web)
+
+func _exit_tree():
+	if _save_thread and _save_thread_busy:
+		_save_thread.wait_to_finish()
 
 func _cache_anna_reference():
 	if has_node("/root/ANNAV2"):
@@ -76,6 +87,8 @@ func record_frame(input, dt: float):
 
 	var fps = _test_fps if _is_testing else Performance.get_monitor(Performance.TIME_FPS)
 	var now = OS.get_ticks_msec()
+	var startup_grace_msec := int(startup_grace_sec * 1000.0)
+	var scene_grace_msec := int(scene_grace_sec * 1000.0)
 
 	var scene_name = ""
 	var pos = Vector3.ZERO
@@ -92,7 +105,16 @@ func record_frame(input, dt: float):
 			_is_in_hotzone = false
 			print("[HotzoneRecorder] Discarding hotzone due to scene change")
 		_last_scene_name = scene_name
+		_scene_changed_msec = now
 		_frames_since_snapshot = 0 # Force a snapshot on scene change
+
+	# Startup and scene-load frames are expected to be noisy and often stall the
+	# main thread. Do not record or diagnose them; hotzones are runtime evidence.
+	if not _is_testing:
+		if now - _ready_msec < startup_grace_msec:
+			return
+		if now - _scene_changed_msec < scene_grace_msec:
+			return
 
 	# Store frame in ring buffer
 	var frame_data = {
@@ -121,7 +143,7 @@ func record_frame(input, dt: float):
 	# Hotzone Detection Logic
 	if not _is_in_hotzone:
 		if fps < hotzone_fps_threshold and _capture_count < hotzone_max_captures_per_session:
-			if now - _last_hotzone_msec > hotzone_cooldown * 1000.0:
+			if _last_hotzone_msec <= 0 or now - _last_hotzone_msec > hotzone_cooldown * 1000.0:
 				_is_in_hotzone = true
 				_hotzone_start_msec = now
 				print("[HotzoneRecorder] Potential hotzone started at FPS ", fps)
@@ -206,32 +228,55 @@ func _trigger_capture(scene: String, pos: Vector3, trigger_type: String):
 		"magic": BINARY_MAGIC,
 		"version": SCHEMA_VERSION,
 		"trigger": trigger_type,
-		"player_id": _anna_v2.player_id if _anna_v2 else "unknown",
-		"session_id": _anna_v2.session_id if _anna_v2 else "unknown",
+		"player_id": _get_player_id(),
+		"session_id": _get_session_id(),
 		"timestamp": OS.get_unix_time(),
 		"scene": scene,
 		"grid": [int(floor(pos.x / hotzone_grid_size)), int(floor(pos.z / hotzone_grid_size))],
 		"frames": frames
 	}
 
-	var data_blob = var2bytes(snapshot)
-	var filename = "hotzone_%d.bin" % OS.get_unix_time()
+	_queue_snapshot_save(snapshot, trigger_type)
+
+func _queue_snapshot_save(snapshot: Dictionary, trigger_type: String) -> void:
+	if _is_testing:
+		return
+	_save_jobs.append({
+		"snapshot": snapshot,
+		"trigger": trigger_type
+	})
+	if not _save_thread_busy:
+		call_deferred("_start_next_save_job")
+
+func _start_next_save_job() -> void:
+	if _save_thread_busy or _save_jobs.empty():
+		return
+
+	var job = _save_jobs.pop_front()
+	_save_thread = Thread.new()
+	_save_thread_busy = true
+	var err = _save_thread.start(self, "_save_snapshot_worker", job)
+	if err != OK:
+		_save_thread_busy = false
+		printerr("[HotzoneRecorder] Failed to start save thread: ", err)
+
+func _save_snapshot_worker(job: Dictionary) -> Dictionary:
+	var dir = Directory.new()
+	if not dir.dir_exists(PENDING_DIR):
+		dir.make_dir_recursive(PENDING_DIR)
+
+	var filename = "hotzone_%d_%d.bin" % [OS.get_unix_time(), OS.get_ticks_usec()]
 	var filepath = PENDING_DIR + filename
+	var data_blob = var2bytes(job.get("snapshot", {}))
 
 	var f = File.new()
-	if f.open(filepath, File.WRITE) == OK:
-		# Bytes 0-3: magic "HZN2" (0x485a4e32) in Big Endian for easy detection
-		f.store_32(BINARY_MAGIC)
-		# Bytes 4+: var2bytes of Dictionary
-		f.store_buffer(data_blob)
-		f.close()
-		_enqueue_upload(filepath, trigger_type)
-		if trigger_type == "manual":
-			_show_feedback("Bug report enviado ✓")
-	else:
-		printerr("[HotzoneRecorder] Failed to save hotzone blob to ", filepath)
-		if trigger_type == "manual":
-			_show_feedback("Error al enviar — se reintentará", true)
+	if f.open(filepath, File.WRITE) != OK:
+		return {"ok": false, "path": filepath, "trigger": job.get("trigger", "auto")}
+
+	f.store_32(BINARY_MAGIC)
+	f.store_buffer(data_blob)
+	f.close()
+	return {"ok": true, "path": filepath, "trigger": job.get("trigger", "auto")}
 
 func _enqueue_upload(filepath: String, trigger_type: String = "auto"):
 	var already_in = false
@@ -283,11 +328,12 @@ func _process_upload_queue():
 		_upload_native(url, token, blob, trigger)
 
 func _get_upload_url() -> String:
-	var base = "wss://odisea.educa.juegos/ws" # Default
-	if _anna_v2 and _anna_v2._net_thread:
-		var peer_url = _anna_v2._net_thread._peer_url
-		if peer_url != "":
-			base = peer_url
+	var base = "wss://odisea.educa.juegos/ws" # Default central
+	var net_thread = _get_net_thread()
+	if net_thread:
+		var central_url = net_thread._central_url if "_central_url" in net_thread else ""
+		if central_url != "":
+			base = central_url
 
 	var url = base.replace("/ws", "/hotzone")
 	if url.begins_with("ws://"): url = url.replace("ws://", "http://")
@@ -295,9 +341,31 @@ func _get_upload_url() -> String:
 	return url
 
 func _get_token() -> String:
-	if _anna_v2 and _anna_v2._net_thread:
-		return _anna_v2._net_thread._bridge_token
+	var net_thread = _get_net_thread()
+	if net_thread and "_bridge_token" in net_thread:
+		return net_thread._bridge_token
 	return ""
+
+func _get_net_thread():
+	if _anna_v2 and "_net_thread" in _anna_v2:
+		return _anna_v2._net_thread
+	return null
+
+func _get_player_id() -> String:
+	if _anna_v2:
+		if "_player_id" in _anna_v2:
+			return String(_anna_v2._player_id)
+		if "player_id" in _anna_v2:
+			return String(_anna_v2.player_id)
+	return "unknown"
+
+func _get_session_id() -> String:
+	if _anna_v2:
+		if "_session_id" in _anna_v2:
+			return String(_anna_v2._session_id)
+		if "session_id" in _anna_v2:
+			return String(_anna_v2.session_id)
+	return "unknown"
 
 func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: String):
 	var headers = [
@@ -305,8 +373,8 @@ func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: St
 		"Content-Type: application/octet-stream"
 	]
 
-	var player_id = _anna_v2.player_id if _anna_v2 else "unknown"
-	var session_id = _anna_v2.session_id if _anna_v2 else "unknown"
+	var player_id = _get_player_id()
+	var session_id = _get_session_id()
 	headers.append("X-Player-ID: " + player_id)
 	headers.append("X-Session-ID: " + session_id)
 	headers.append("X-Trigger: " + trigger)
@@ -412,8 +480,8 @@ w.onmessage = function(ev) {
 	results[ev.data.id] = ev.data;
 };
 window.Hotzone_Worker_Bridge = {
-	upload: function(url, token, blob, id, headers) {
-		w.postMessage({url: url, token: token, blob: blob, id: id, headers: headers});
+		upload: function(url, token, b64, id, headers) {
+			w.postMessage({url: url, token: token, b64: b64, id: id, headers: headers});
 	},
 	poll: function(id) {
 		var res = results[id];
@@ -429,23 +497,34 @@ var _current_web_upload_id := ""
 func _upload_web(url: String, token: String, blob: PoolByteArray, _filepath: String, trigger: String):
 	_current_web_upload_id = str(OS.get_ticks_msec())
 	var js = Engine.get_singleton("JavaScript")
-	var player_id = _anna_v2.player_id if _anna_v2 else "unknown"
-	var session_id = _anna_v2.session_id if _anna_v2 else "unknown"
+	var player_id = _get_player_id()
+	var session_id = _get_session_id()
 	var b64 = Marshalls.raw_to_base64(blob)
 	js.eval("(function(){ " +
 		"var b64 = '" + b64 + "';" +
-		"var bin = atob(b64);" +
-		"var buf = new Uint8Array(bin.length);" +
-		"for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);" +
 		"var headers = {" +
 		"  'X-Player-ID': '" + player_id + "'," +
 		"  'X-Session-ID': '" + session_id + "'," +
 		"  'X-Trigger': '" + trigger + "'" +
 		"};" +
-		"Hotzone_Worker_Bridge.upload('" + url + "', '" + token + "', buf, '" + _current_web_upload_id + "', headers);" +
+		"Hotzone_Worker_Bridge.upload('" + url + "', '" + token + "', b64, '" + _current_web_upload_id + "', headers);" +
 		"})()")
 
 func _process(delta):
+	if _save_thread_busy and _save_thread and not _save_thread.is_active():
+		var result = _save_thread.wait_to_finish()
+		_save_thread_busy = false
+		if typeof(result) == TYPE_DICTIONARY and result.get("ok", false):
+			if not _is_testing:
+				_enqueue_upload(result.get("path", ""), result.get("trigger", "auto"))
+			if result.get("trigger", "auto") == "manual":
+				_show_feedback("Bug report guardado ✓")
+		else:
+			printerr("[HotzoneRecorder] Failed to save hotzone blob")
+			if typeof(result) == TYPE_DICTIONARY and result.get("trigger", "auto") == "manual":
+				_show_feedback("Error al guardar reporte", true)
+		call_deferred("_start_next_save_job")
+
 	if _is_web and _is_uploading and _current_web_upload_id != "":
 		var js = Engine.get_singleton("JavaScript")
 		var poll_res = js.eval("JSON.stringify(Hotzone_Worker_Bridge.poll('" + _current_web_upload_id + "'))")
