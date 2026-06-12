@@ -2269,6 +2269,7 @@ GravityWorld="*res://core_v2/systems/GravityWorld.gd"
 SceneLighting="*res://core_v2/autoloads/SceneLighting.gd"
 AirlockManager="*res://core_v2/autoloads/AirlockManager.gd"
 ANNAV2="*res://core_v2/telemetry/ANNAV2.gd"
+ProtocolManager="*res://core_v2/autoloads/ProtocolManager.gd"
 
 [debug]
 

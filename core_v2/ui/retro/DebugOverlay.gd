@@ -182,6 +182,7 @@ func _setup_system_menu() -> void:
 	_system_menu.add_item("New Terminal", 1)
 	_system_menu.add_item("Calculator", 4)
 	_system_menu.add_item("Node Scanner", 5)
+	_system_menu.add_item("System Status", 6)
 	_system_menu.add_separator()
 	_system_menu.add_item("Exit", 3)
 	_system_menu.connect("id_pressed", self , "_on_system_menu_pressed")
@@ -208,6 +209,8 @@ func _on_system_menu_pressed(id: int) -> void:
 			_open_calc()
 		5:
 			_open_nodescan()
+		6:
+			_open_status()
 
 func _open_new_terminal() -> void:
 	var w = RetroWindowScene.instance()
@@ -225,6 +228,26 @@ func _open_new_terminal() -> void:
 		for child in content.get_children():
 			child.queue_free()
 		content.add_child(OYSShellScene.instance())
+	w.show()
+	_focus_window(w)
+	_refresh_task_buttons()
+
+func _open_status() -> void:
+	var w = RetroWindowScene.instance()
+	w.window_title = "STATUS"
+	w.rect_size = Vector2(240, 320)
+	w.rect_position = Vector2(200, 200)
+	_window_area.add_child(w)
+	_windows.append(w)
+	w.connect("window_focused", self, "_on_window_focused")
+	w.connect("close_requested", self, "_on_window_closed")
+	w.connect("window_clicked", self, "_on_window_any_click")
+	var content = w.get_node_or_null("VBox/Content")
+	if content:
+		for child in content.get_children():
+			child.queue_free()
+		var app = load("res://core_v2/ui/retro/OysStatus.gd").new()
+		content.add_child(app)
 	w.show()
 	_focus_window(w)
 	_refresh_task_buttons()
