@@ -1,37 +1,57 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://core_v2/props/FireEmitter.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=2]
-[ext_resource path="res://assets/sfx/sfx100v2_loop_ambient_01.ogg" type="AudioStream" id=3]
 
-[sub_resource type="SphereShape" id=1]
-radius = 3.0
+[sub_resource type="CylinderShape" id=1]
+radius = 1.0
+height = 2.0
 
-[node name="FireEmitter" type="Spatial"]
+[sub_resource type="Gradient" id=2]
+offsets = PoolRealArray( 0, 0.2, 0.5, 0.8, 1 )
+colors = PoolColorArray( 1, 1, 0, 1, 1, 0.5, 0, 1, 1, 0, 0, 1, 0.2, 0.2, 0.2, 1, 0, 0, 0, 0 )
+
+[sub_resource type="GradientTexture" id=3]
+gradient = SubResource( 2 )
+
+[sub_resource type="Curve" id=4]
+_data = [ Vector2( 0, 0.2 ), 0.0, 0.0, 0, 0, Vector2( 0.2, 1 ), 0.0, 0.0, 0, 0, Vector2( 1, 0.5 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="CurveTexture" id=5]
+curve = SubResource( 4 )
+
+[sub_resource type="ParticlesMaterial" id=6]
+emission_shape = 1
+emission_sphere_radius = 0.5
+direction = Vector3( 0, 1, 0 )
+spread = 10.0
+gravity = Vector3( 0, 2, 0 )
+initial_velocity = 2.0
+angular_velocity = 40.0
+angular_velocity_random = 1.0
+scale_curve = SubResource( 5 )
+color_ramp = SubResource( 3 )
+
+[sub_resource type="SpatialMaterial" id=7]
+flags_unshaded = true
+vertex_color_use_as_albedo = true
+params_blend_mode = 1
+params_billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="PointMesh" id=8]
+material = SubResource( 7 )
+
+[node name="FireEmitter" type="Area"]
 script = ExtResource( 1 )
 
-[node name="GasParticleManager" type="Spatial" parent="."]
-script = ExtResource( 2 )
-pool_size = 64
-default_max_lifetime = 2.0
-default_base_scale = 1.5
-viscosity = 0.5
-buoyancy = 1.5
-decay_rate = 1.5
-default_color = Color( 1, 0.490196, 0.117647, 0.8 )
-ignition_color = Color( 0.996078, 0.988235, 0.941176, 0.8 )
-world_collision_mask = 255
-default_atlas_path = "res://assets/flipbook_particles/assets/fireballs/fireball_02/textures/fireball_02.png"
-
-[node name="DamageArea" type="Area" parent="."]
-collision_layer = 0
-collision_mask = 2
-
-[node name="CollisionShape" type="CollisionShape" parent="DamageArea"]
+[node name="CollisionShape" type="CollisionShape" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 shape = SubResource( 1 )
 
-[node name="FireSound" type="AudioStreamPlayer3D" parent="."]
-stream = ExtResource( 3 )
-unit_db = 10.0
-unit_size = 3.0
-max_distance = 40.0
+[node name="Particles" type="Particles" parent="."]
+amount = 50
+lifetime = 1.5
+process_material = SubResource( 6 )
+draw_pass_1 = SubResource( 8 )

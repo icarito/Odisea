@@ -1,144 +1,179 @@
-extends InteractableBaseV2
-class_name RetractableBridge
 tool
+extends Spatial
+class_name RetractableBridge
 
-# RetractableBridge.gd - Mechanical bridge with two-phase animation.
-# Inherits from InteractableBaseV2 for deterministic animation state.
+signal extended()
+signal retracted()
+signal extend_progress(ratio)
+signal retract_progress(ratio)
 
-export(bool) var starts_extended := false setget set_starts_extended
-export(float) var extend_duration := 1.5 setget set_extend_duration
-export(float, 2.0, 30.0) var bridge_length := 8.0 setget set_bridge_length
-export(float, 2.0, 10.0) var bridge_width := 3.0 setget set_bridge_width
+export(String, "left", "right") var side: String = "left" setget set_side
+export(float) var arm_length: float = 4.0 setget set_arm_length
+export(Vector2) var pivot_offset: Vector2 = Vector2.ZERO setget set_pivot_offset
+export(int) var extend_steps: int = 30
+export(int) var retract_steps: int = 20
 
-# Alias for compatibility with Batch 3 spec
-var extended: bool setget set_extended, get_extended
+var _is_extended: bool = false
+var _is_moving: bool = false
+var _target_extended: bool = false
+var _current_step: int = 0
+var _step_timer: float = 0.0
+# Target ~15s total for 30 steps as per user's prompt (30 steps * ~0.5s per step?)
+# Wait, user said: "30 pasos * ~0.016s = ~0.5s por step, total ~15s para extension completa"
+# 30 * 0.016 is 0.48s total.
+# "total ~15s para extension completa" suggests each step is 0.5s.
+# 30 steps * 0.5s = 15s.
+# 0.5s is roughly 30 frames at 60fps.
+# I will use a configurable step duration, or just follow the "total 15s" hint.
+# Let's assume step_duration = 0.5s.
+var _step_duration: float = 0.5
 
-onready var _arm_front: Spatial = get_node_or_null("ArmFront")
-onready var _arm_back: Spatial = get_node_or_null("ArmBack")
-onready var _platform: Spatial = get_node_or_null("Platform")
-onready var _deck_mesh_node: MeshInstance = get_node_or_null("Platform/DeckMesh")
-onready var _collision_node: CollisionShape = get_node_or_null("Platform/StaticBody/CollisionShape")
-onready var _rail_left: MeshInstance = get_node_or_null("RailLeft")
-onready var _rail_right: MeshInstance = get_node_or_null("RailRight")
+onready var _base: StaticBody = get_node_or_null("Base")
+onready var _arm: AnimatableBody = get_node_or_null("Base/Arm")
+onready var _platform: AnimatableBody = get_node_or_null("Base/Arm/Platform")
 
 func _ready():
-	# Sync initial settings
-	anim_duration = extend_duration
-	starts_active = starts_extended
-	._ready()
-	_rebuild()
+	_update_layout()
+	if not Engine.editor_hint:
+		set_physics_process(true)
 
-func set_starts_extended(v: bool):
-	starts_extended = v
-	starts_active = v
+func _physics_process(delta: float):
+	if Engine.editor_hint:
+		return
 
-func set_extend_duration(v: float):
-	extend_duration = v
-	anim_duration = v
+	if _is_moving:
+		_step_timer += delta
+		if _step_timer >= _step_duration:
+			_step_timer = 0.0
+			_execute_step()
 
-func set_extended(v: bool):
-	set_active(v)
+func _execute_step():
+	_current_step += 1
+	var total_steps = extend_steps if _target_extended else retract_steps
+	var ratio = float(_current_step) / float(total_steps)
 
-func get_extended() -> bool:
-	return is_active
+	if _target_extended:
+		# Extension: Arm rotates 0->90, Platform slides 0->arm_length in parallel
+		_update_transforms(ratio)
+		emit_signal("extend_progress", ratio)
+		if _current_step >= extend_steps:
+			_is_moving = false
+			_is_extended = true
+			emit_signal("extended")
+	else:
+		# Retraction: Platform retracts first, then arm.
+		# Prompt says: "Al llamar a retract(), se invierte: primero la plataforma se repliega completamente, luego el brazo vuelve a 0 grados."
+		# This means it's NOT parallel for retraction.
+		# Total retraction steps will be split.
+		var half_steps = total_steps / 2
+		if _current_step <= half_steps:
+			# Phase 1: Platform retracts
+			var p_ratio = 1.0 - (float(_current_step) / float(half_steps))
+			_update_platform(p_ratio)
+		else:
+			# Phase 2: Arm rotates back
+			var a_ratio = 1.0 - (float(_current_step - half_steps) / float(total_steps - half_steps))
+			_update_arm(a_ratio)
 
-func set_bridge_length(v: float):
-	bridge_length = v
-	_rebuild()
+		emit_signal("retract_progress", ratio)
+		if _current_step >= total_steps:
+			_is_moving = false
+			_is_extended = false
+			emit_signal("retracted")
 
-func set_bridge_width(v: float):
-	bridge_width = v
-	_rebuild()
+func _update_transforms(ratio: float):
+	_update_arm(ratio)
+	_update_platform(ratio)
 
-func _rebuild():
-	if not is_inside_tree(): return
+func _update_arm(ratio: float):
+	if not _arm: return
+	var angle = deg2rad(ratio * 90.0)
+	# Side affects axis direction.
+	# If side is left, pivot on left, rotates down/out.
+	# User: "Z positivo para left, Z negativo para right"
+	var z_sign = 1.0 if side == "left" else -1.0
+	_arm.rotation.z = angle * z_sign
 
-	var half_l = bridge_length * 0.5
-	var half_w = bridge_width * 0.5
-
-	# Arms at the ends, transverse
-	if _arm_front: _arm_front.translation = Vector3(0, 0, -half_l)
-	if _arm_back: _arm_back.translation = Vector3(0, 0, half_l)
-
-	if _arm_front and _arm_front.has_node("ArmMesh"):
-		var am = _arm_front.get_node("ArmMesh") as MeshInstance
-		if am.mesh is CylinderMesh:
-			if not am.mesh.resource_local_to_scene:
-				am.mesh = am.mesh.duplicate()
-			(am.mesh as CylinderMesh).height = bridge_width
-		am.translation = Vector3(0, half_w, 0)
-		am.rotation_degrees = Vector3(0, 0, 90)
-
-	if _arm_back and _arm_back.has_node("ArmMesh"):
-		var am = _arm_back.get_node("ArmMesh") as MeshInstance
-		if am.mesh is CylinderMesh:
-			if not am.mesh.resource_local_to_scene:
-				am.mesh = am.mesh.duplicate()
-			(am.mesh as CylinderMesh).height = bridge_width
-		am.translation = Vector3(0, half_w, 0)
-		am.rotation_degrees = Vector3(0, 0, 90)
-
-	if _deck_mesh_node and _deck_mesh_node.mesh is CubeMesh:
-		if not _deck_mesh_node.mesh.resource_local_to_scene:
-			_deck_mesh_node.mesh = _deck_mesh_node.mesh.duplicate()
-		(_deck_mesh_node.mesh as CubeMesh).size = Vector3(bridge_width, 0.2, bridge_length)
-
-	if _collision_node and _collision_node.shape is BoxShape:
-		if not _collision_node.shape.resource_local_to_scene:
-			_collision_node.shape = _collision_node.shape.duplicate()
-		(_collision_node.shape as BoxShape).extents = Vector3(half_w, 0.1, half_l)
-
-	if _rail_left:
-		_rail_left.translation = Vector3(-half_w, 0.1, 0)
-		if _rail_left.mesh is CubeMesh:
-			if not _rail_left.mesh.resource_local_to_scene:
-				_rail_left.mesh = _rail_left.mesh.duplicate()
-			(_rail_left.mesh as CubeMesh).size = Vector3(0.1, 0.1, bridge_length)
-	if _rail_right:
-		_rail_right.translation = Vector3(half_w, 0.1, 0)
-		if _rail_right.mesh is CubeMesh:
-			if not _rail_right.mesh.resource_local_to_scene:
-				_rail_right.mesh = _rail_right.mesh.duplicate()
-			(_rail_right.mesh as CubeMesh).size = Vector3(0.1, 0.1, bridge_length)
-
-	_update_visuals()
-
-func _update_visuals():
-	if not _arm_front or not _platform: return
-
-	# Phase 1: Arms (0.0 - 0.4)
-	var t_arms = clamp(anim_progress / 0.4, 0.0, 1.0)
-	var eased_arms = _ease_out(t_arms)
-	var arm_rot_offset = lerp(0.0, 90.0, eased_arms)
-
-	_arm_front.rotation_degrees.z = -arm_rot_offset
-	_arm_back.rotation_degrees.z = arm_rot_offset
-
-	# Phase 2: Platform (0.4 - 1.0)
-	var t_platform = clamp((anim_progress - 0.4) / 0.6, 0.0, 1.0)
-	var eased_platform = _ease_in_out(t_platform)
-
-	_platform.translation.z = lerp(-bridge_length, 0.0, eased_platform)
-	_platform.visible = (anim_progress > 0.35)
-
-	if _collision_node:
-		_collision_node.disabled = anim_progress < 0.95
-
-func toggle():
-	interact()
+func _update_platform(ratio: float):
+	if not _platform: return
+	# Platform slides along the arm. Assume arm X axis is the extension direction.
+	_platform.transform.origin.x = ratio * arm_length
 
 func extend():
-	set_active(true)
+	if _is_extended or (_is_moving and _target_extended):
+		return
+	_target_extended = true
+	_is_moving = true
+	_current_step = 0
+	_step_timer = _step_duration # Start first step immediately or after one duration?
+	# User says "cada step debe interpolar". I'll start at 0.
 
 func retract():
-	set_active(false)
+	if not _is_extended or (_is_moving and not _target_extended):
+		return
+	_target_extended = false
+	_is_moving = true
+	_current_step = 0
+	_step_timer = _step_duration
 
-func _on_animation_completed():
-	._on_animation_completed()
-	if anim_progress >= 1.0:
-		emit_signal("bridge_extended")
-	elif anim_progress <= 0.0:
-		emit_signal("bridge_retracted")
+func set_side(v):
+	side = v
+	if Engine.editor_hint: _update_layout()
 
-signal bridge_extended()
-signal bridge_retracted()
+func set_arm_length(v):
+	arm_length = v
+	if Engine.editor_hint: _update_layout()
+
+func set_pivot_offset(v):
+	pivot_offset = v
+	if Engine.editor_hint: _update_layout()
+
+func _update_layout():
+	_base = get_node_or_null("Base")
+	_arm = get_node_or_null("Base/Arm")
+	_platform = get_node_or_null("Base/Arm/Platform")
+
+	if not _base or not _arm or not _platform:
+		return
+
+	# Calculate pivot from edge of base
+	# Assuming Base is a cube at origin with some size.
+	# Let's assume base size is (2, 1, 2) for reference, but we should probably
+	# use the Mesh size if available, or just define it.
+	var base_mesh = _base.get_node_or_null("MeshInstance")
+	var base_half_width = 1.0
+	if base_mesh and base_mesh.mesh is CubeMesh:
+		base_half_width = base_mesh.mesh.size.x / 2.0
+
+	var pivot_x = -base_half_width if side == "left" else base_half_width
+	_arm.transform.origin = Vector3(pivot_x + pivot_offset.x, 0, pivot_offset.y)
+
+	# Update visual scales and offsets based on arm_length
+	var arm_mesh = _arm.get_node_or_null("MeshInstance")
+	var arm_col = _arm.get_node_or_null("CollisionShape")
+	if arm_mesh and arm_mesh.mesh is CubeMesh:
+		arm_mesh.mesh = arm_mesh.mesh.duplicate()
+		arm_mesh.mesh.size.x = arm_length
+		arm_mesh.transform.origin.x = arm_length / 2.0
+	if arm_col and arm_col.shape is BoxShape:
+		arm_col.shape = arm_col.shape.duplicate()
+		arm_col.shape.extents.x = arm_length / 2.0
+		arm_col.transform.origin.x = arm_length / 2.0
+
+	var plat_mesh = _platform.get_node_or_null("MeshInstance")
+	var plat_col = _platform.get_node_or_null("CollisionShape")
+	if plat_mesh and plat_mesh.mesh is CubeMesh:
+		plat_mesh.mesh = plat_mesh.mesh.duplicate()
+		plat_mesh.mesh.size.x = arm_length
+		plat_mesh.transform.origin.x = arm_length / 2.0
+	if plat_col and plat_col.shape is BoxShape:
+		plat_col.shape = plat_col.shape.duplicate()
+		plat_col.shape.extents.x = arm_length / 2.0
+		plat_col.transform.origin.x = arm_length / 2.0
+
+	if not _is_moving:
+		_update_transforms(1.0 if _is_extended else 0.0)
+
+func interact():
+	if _is_extended: retract()
+	else: extend()
