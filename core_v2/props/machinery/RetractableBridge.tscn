@@ -1,0 +1,54 @@
+[gd_scene load_steps=8 format=2]
+
+[ext_resource path="res://core_v2/props/machinery/RetractableBridge.gd" type="Script" id=1]
+
+[sub_resource type="CubeMesh" id=1]
+size = Vector3( 2, 0.5, 2 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 1, 0.25, 1 )
+
+[sub_resource type="CubeMesh" id=3]
+size = Vector3( 4, 0.2, 0.8 )
+
+[sub_resource type="BoxShape" id=4]
+extents = Vector3( 2, 0.1, 0.4 )
+
+[sub_resource type="CubeMesh" id=5]
+size = Vector3( 4, 0.1, 1 )
+
+[sub_resource type="BoxShape" id=6]
+extents = Vector3( 2, 0.05, 0.5 )
+
+[node name="RetractableBridge" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="Base" type="StaticBody" parent="."]
+
+[node name="MeshInstance" type="MeshInstance" parent="Base"]
+mesh = SubResource( 1 )
+
+[node name="CollisionShape" type="CollisionShape" parent="Base"]
+shape = SubResource( 2 )
+
+[node name="Arm" type="KinematicBody" parent="Base"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 0 )
+
+[node name="MeshInstance" type="MeshInstance" parent="Base/Arm"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, -0.1, 0 )
+mesh = SubResource( 3 )
+
+[node name="CollisionShape" type="CollisionShape" parent="Base/Arm"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, -0.1, 0 )
+shape = SubResource( 4 )
+
+[node name="Platform" type="KinematicBody" parent="Base/Arm"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0 )
+
+[node name="MeshInstance" type="MeshInstance" parent="Base/Arm/Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
+mesh = SubResource( 5 )
+
+[node name="CollisionShape" type="CollisionShape" parent="Base/Arm/Platform"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
+shape = SubResource( 6 )

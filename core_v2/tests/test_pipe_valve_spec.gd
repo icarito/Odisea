@@ -4,7 +4,7 @@ extends GdUnitTestSuite
 # TestSuite for PipeValve and Manometer integration
 
 const PipeValve = preload("res://core_v2/props/pipe/PipeValve.tscn")
-const Manometer = preload("res://core_v2/props/Manometer.tscn")
+const Manometer = preload("res://core_v2/props/controls/Manometer.tscn")
 
 func test_valve_manometer_integration() -> void:
 	var scene = Spatial.new()

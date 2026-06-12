@@ -119,6 +119,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/matchers/AnyClazzArgumentMatcher.gd"
 }, {
+"base": "Reference",
+"class": "AppRegistry",
+"language": "GDScript",
+"path": "res://core_v2/ui/retro/app_registry.gd"
+}, {
 "base": "Area",
 "class": "BGMZoneV2",
 "language": "GDScript",
@@ -207,7 +212,7 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "CircuitTestScene",
 "language": "GDScript",
-"path": "res://core_v2/props/CircuitTestScene.gd"
+"path": "res://core_v2/props/circuit/CircuitTestScene.gd"
 }, {
 "base": "Control",
 "class": "CircuitUINode",
@@ -307,7 +312,7 @@ _global_script_classes=[ {
 "base": "DualScalingObjectV2",
 "class": "ElevatorDoor",
 "language": "GDScript",
-"path": "res://core_v2/props/ElevatorDoor.gd"
+"path": "res://core_v2/props/doors/ElevatorDoor.gd"
 }, {
 "base": "PropBaseV2",
 "class": "ElevatorLogicInput",
@@ -334,10 +339,10 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/visual/FauxSkydomeParallaxShell.gd"
 }, {
-"base": "Spatial",
+"base": "Area",
 "class": "FireEmitter",
 "language": "GDScript",
-"path": "res://core_v2/props/FireEmitter.gd"
+"path": "res://core_v2/props/emitters/FireEmitter.gd"
 }, {
 "base": "PropBaseV2",
 "class": "FluorescentLight",
@@ -942,7 +947,7 @@ _global_script_classes=[ {
 "base": "PropBaseV2",
 "class": "IndustrialFan",
 "language": "GDScript",
-"path": "res://core_v2/props/IndustrialFan.gd"
+"path": "res://core_v2/props/machinery/IndustrialFan.gd"
 }, {
 "base": "Spatial",
 "class": "InfiniteScaffoldField",
@@ -997,7 +1002,7 @@ _global_script_classes=[ {
 "base": "PropBaseV2",
 "class": "LaserTripwire",
 "language": "GDScript",
-"path": "res://core_v2/props/LaserTripwire.gd"
+"path": "res://core_v2/props/decor/LaserTripwire.gd"
 }, {
 "base": "LiquidLayer",
 "class": "LavaLayer",
@@ -1007,12 +1012,12 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "LeakEmitter",
 "language": "GDScript",
-"path": "res://core_v2/props/LeakEmitter.gd"
+"path": "res://core_v2/props/emitters/LeakEmitter.gd"
 }, {
 "base": "InteractableBaseV2",
 "class": "LeverV2",
 "language": "GDScript",
-"path": "res://core_v2/props/LeverV2.gd"
+"path": "res://core_v2/props/controls/LeverV2.gd"
 }, {
 "base": "Area",
 "class": "LiquidLayer",
@@ -1047,7 +1052,7 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "Manometer",
 "language": "GDScript",
-"path": "res://core_v2/props/Manometer.gd"
+"path": "res://core_v2/props/controls/Manometer.gd"
 }, {
 "base": "CSGCombiner",
 "class": "MeshBuilder",
@@ -1195,6 +1200,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/ui/retro/OysCameras.gd"
 }, {
 "base": "VBoxContainer",
+"class": "OysStatus",
+"language": "GDScript",
+"path": "res://core_v2/ui/retro/OysStatus.gd"
+}, {
+"base": "VBoxContainer",
 "class": "OysTransit",
 "language": "GDScript",
 "path": "res://core_v2/ui/retro/OysTransit.gd"
@@ -1202,7 +1212,7 @@ _global_script_classes=[ {
 "base": "PropBaseV2",
 "class": "PedestalButton",
 "language": "GDScript",
-"path": "res://core_v2/props/PedestalButton.gd"
+"path": "res://core_v2/props/controls/PedestalButton.gd"
 }, {
 "base": "PhysicsEntity",
 "class": "PhysicsBall",
@@ -1454,10 +1464,10 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/core/Result.gd"
 }, {
-"base": "InteractableBaseV2",
+"base": "Spatial",
 "class": "RetractableBridge",
 "language": "GDScript",
-"path": "res://core_v2/props/RetractableBridge.gd"
+"path": "res://core_v2/props/machinery/RetractableBridge.gd"
 }, {
 "base": "PanelContainer",
 "class": "RetroWindow",
@@ -1632,7 +1642,7 @@ _global_script_classes=[ {
 "base": "PushableBoxV2",
 "class": "SteelPlate",
 "language": "GDScript",
-"path": "res://core_v2/props/SteelPlate.gd"
+"path": "res://core_v2/props/decor/SteelPlate.gd"
 }, {
 "base": "Fuzzer",
 "class": "StringFuzzer",
@@ -1847,7 +1857,7 @@ _global_script_classes=[ {
 "base": "Area",
 "class": "ZeroGravityZone",
 "language": "GDScript",
-"path": "res://core_v2/props/ZeroGravityZone.gd"
+"path": "res://core_v2/props/decor/ZeroGravityZone.gd"
 }, {
 "base": "Node",
 "class": "_TestCase",
@@ -1882,6 +1892,7 @@ _global_script_class_icons={
 "AnyArgumentMatcher": "",
 "AnyBuildInTypeArgumentMatcher": "",
 "AnyClazzArgumentMatcher": "",
+"AppRegistry": "",
 "BGMZoneV2": "",
 "BackForthMovement": "",
 "BaseZoneV2": "",
@@ -2097,6 +2108,7 @@ _global_script_class_icons={
 "Orbiter": "",
 "OysCalc": "",
 "OysCameras": "",
+"OysStatus": "",
 "OysTransit": "",
 "PedestalButton": "",
 "PhysicsBall": "",

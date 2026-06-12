@@ -12,18 +12,26 @@ const EXHIBIT_SCENE = preload("res://core_v2/tests/Exhibit.tscn")
 export(float) var grid_spacing := 12.0
 export(int) var columns := 5
 export(bool) var snap_to_floor := true
-export(bool) var sort_by_last_modified := true
 export(bool) var newest_first := true
-export(bool) var lazy_load_props := true
-export(int, 1, 64) var props_per_frame := 4
-export(bool) var exclude_player_actors_from_lazy_load := true
 export(bool) var run_in_editor := false
 export(bool) var preload_props_in_editor := false
-export(bool) var lazy_create_exhibits := true
+# Flat pagination: all props in one list, shown PAGE_SIZE at a time. Only the
+# current page is instanced; turning the page frees the previous props. Props
+# live in category subfolders on disk but folders no longer drive layout —
+# that's reserved for a richer arrangement later.
+export(int, 1, 32) var page_size := 5
+export(bool) var show_perf_stats := true
 export(bool) var editor_refresh_now := false setget _set_editor_refresh_now
 
 onready var exhibits_root = $Exhibits
-var _pending_prop_loads := []
+
+# Flat list of all prop entries, in the current sort order.
+var _entries := []
+var _current_page := 0
+var _page_label: Label = null
+# false = sort by modified time (newest first); true = alphabetical.
+# Toggled with the T key.
+var _alpha_mode := false
 
 func _ready():
 	if Engine.editor_hint:
@@ -38,59 +46,118 @@ func _ready():
 	print("TestScenePropZoo: Initialization complete.")
 
 func _scan_and_populate():
-	var prop_entries = _collect_prop_entries()
-	_pending_prop_loads.clear()
-	set_process(false)
+	_entries = _collect_prop_entries()
+	print("TestScenePropZoo: Found %d props." % _entries.size())
+	_sort_entries()
+	_current_page = 0
+	_show_page()
+
+# Orders the flat entry list by the active sort mode.
+func _sort_entries() -> void:
+	if _alpha_mode:
+		_entries.sort_custom(self, "_sort_props_alpha")
+	else:
+		_entries.sort_custom(self, "_sort_props_by_modified")
+
+func _page_count() -> int:
+	if _entries.empty():
+		return 1
+	return int(ceil(float(_entries.size()) / float(max(1, page_size))))
+
+# Frees the previous page and instances only the current page's props, so at
+# most page_size props are ever live.
+func _show_page() -> void:
 	_clear_exhibits()
-	print("TestScenePropZoo: Found %d props." % prop_entries.size())
 
-	for i in range(prop_entries.size()):
-		var relative_path = String(prop_entries[i]["relative_path"])
-		var camera_sensitive = bool(prop_entries[i].get("camera_sensitive", false))
-		var load_now = (not lazy_load_props) or (exclude_player_actors_from_lazy_load and camera_sensitive)
-		if load_now:
-			var exhibit = _create_exhibit_shell(relative_path, i)
-			_populate_exhibit_prop(exhibit, relative_path)
-		else:
-			if lazy_create_exhibits:
-				_pending_prop_loads.append({
-					"index": i,
-					"relative_path": relative_path,
-				})
-			else:
-				var exhibit = _create_exhibit_shell(relative_path, i)
-				_pending_prop_loads.append({
-					"exhibit": exhibit,
-					"index": i,
-					"relative_path": relative_path,
-				})
+	var pages = _page_count()
+	_current_page = int(clamp(_current_page, 0, pages - 1))
 
-	if lazy_load_props and not _pending_prop_loads.empty():
-		set_process(true)
-		print("TestScenePropZoo: Lazy loading queue started (%d props, %d per frame)." % [_pending_prop_loads.size(), props_per_frame])
+	var start = _current_page * page_size
+	var end = int(min(start + page_size, _entries.size()))
 
-func _process(_delta):
-	if _pending_prop_loads.empty():
-		set_process(false)
-		return
+	var sort_name = "A-Z" if _alpha_mode else "by date"
+	_update_page_label("Page %d/%d  (%s)  —  %d props" % [
+		_current_page + 1, pages, sort_name, _entries.size()])
+	print("TestScenePropZoo: Page %d/%d (%s), props %d-%d." % [
+		_current_page + 1, pages, sort_name, start + 1, end])
 
-	var batch_size = max(1, props_per_frame)
-	for _i in range(batch_size):
-		if _pending_prop_loads.empty():
-			break
-		var entry = _pending_prop_loads.pop_front()
-		var exhibit = entry.get("exhibit", null)
-		var index = int(entry.get("index", 0))
-		var relative_path = String(entry.get("relative_path", ""))
-		if (not exhibit or not is_instance_valid(exhibit)) and lazy_create_exhibits:
-			exhibit = _create_exhibit_shell(relative_path, index)
-		if not exhibit or not is_instance_valid(exhibit):
-			continue
+	# Index is local to the page so the grid always starts at the top-left.
+	var slot = 0
+	for i in range(start, end):
+		var relative_path = String(_entries[i]["relative_path"])
+		var exhibit = _create_exhibit_shell(relative_path, slot)
 		_populate_exhibit_prop(exhibit, relative_path)
+		slot += 1
 
-	if _pending_prop_loads.empty():
-		set_process(false)
-		print("TestScenePropZoo: Lazy loading queue finished.")
+func next_page() -> void:
+	if _current_page >= _page_count() - 1:
+		return
+	_current_page += 1
+	_show_page()
+
+func prev_page() -> void:
+	if _current_page <= 0:
+		return
+	_current_page -= 1
+	_show_page()
+
+func _input(event: InputEvent) -> void:
+	if Engine.editor_hint:
+		return
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if event.scancode == KEY_PAGEDOWN:
+		next_page()
+		get_tree().set_input_as_handled()
+	elif event.scancode == KEY_PAGEUP:
+		prev_page()
+		get_tree().set_input_as_handled()
+	# T toggles sort: by date <-> alphabetical. Keep the first prop of the
+	# current page in view so the toggle doesn't feel like it jumps away.
+	elif event.scancode == KEY_T:
+		_toggle_sort()
+		get_tree().set_input_as_handled()
+
+func _toggle_sort() -> void:
+	# Remember which prop is at the top of the page so we can land near it.
+	var anchor_path = ""
+	var top = _current_page * page_size
+	if top < _entries.size():
+		anchor_path = String(_entries[top]["relative_path"])
+
+	_alpha_mode = not _alpha_mode
+	_sort_entries()
+
+	# Re-center the page on the previously-top prop in the new ordering.
+	_current_page = 0
+	if anchor_path != "":
+		for i in range(_entries.size()):
+			if String(_entries[i]["relative_path"]) == anchor_path:
+				_current_page = i / page_size
+				break
+	print("TestScenePropZoo: sort=%s" % ("A-Z" if _alpha_mode else "by date"))
+	_show_page()
+
+func _ensure_page_label() -> void:
+	if _page_label and is_instance_valid(_page_label):
+		return
+	var layer = CanvasLayer.new()
+	layer.name = "PropZooUI"
+	add_child(layer)
+	_page_label = Label.new()
+	_page_label.name = "PageLabel"
+	_page_label.set_anchors_and_margins_preset(Control.PRESET_TOP_WIDE)
+	_page_label.margin_top = 8
+	_page_label.margin_left = 12
+	_page_label.align = Label.ALIGN_CENTER
+	layer.add_child(_page_label)
+
+func _update_page_label(text: String) -> void:
+	if Engine.editor_hint:
+		return
+	_ensure_page_label()
+	if _page_label and is_instance_valid(_page_label):
+		_page_label.text = "%s     ( PgUp / PgDn: page   |   T: sort )" % text
 
 func _set_editor_refresh_now(value: bool) -> void:
 	editor_refresh_now = false
@@ -102,14 +169,9 @@ func _set_editor_refresh_now(value: bool) -> void:
 		_scan_and_populate()
 
 func _collect_prop_entries() -> Array:
+	# Returns the unsorted entry list; ordering is applied by _sort_entries().
 	var prop_entries = []
 	_scan_dir_recursive(PROPS_DIR, prop_entries)
-
-	if sort_by_last_modified:
-		prop_entries.sort_custom(self, "_sort_props_by_modified")
-	else:
-		prop_entries.sort_custom(self, "_sort_props_alpha")
-
 	return prop_entries
 
 func _scan_dir_recursive(path: String, results: Array):
@@ -132,25 +194,10 @@ func _scan_dir_recursive(path: String, results: Array):
 			results.append({
 				"relative_path": relative_path,
 				"modified_time": int(mtime),
-				"camera_sensitive": _is_camera_sensitive_prop(full_path, relative_path),
 			})
 		file_name = dir.get_next()
-	
+
 	dir.list_dir_end()
-
-func _is_camera_sensitive_prop(full_path: String, relative_path: String) -> bool:
-	var rel = relative_path.to_lower()
-	if rel.find("pilot") != -1 or rel.find("programmer") != -1 or rel.find("player") != -1:
-		return true
-
-	var file = File.new()
-	if file.open(full_path, File.READ) != OK:
-		return false
-	var text = file.get_as_text()
-	file.close()
-	return text.find("res://core_v2/actors/Pilot_v2.tscn") != -1 \
-		or text.find("res://core_v2/actors/Programmer_v2.tscn") != -1 \
-		or text.find("groups=[\"player\"") != -1
 
 func _sort_props_alpha(a: Dictionary, b: Dictionary) -> bool:
 	return String(a["relative_path"]) < String(b["relative_path"])
@@ -170,8 +217,6 @@ func _get_file_mtime(path: String) -> int:
 func _clear_exhibits() -> void:
 	if not exhibits_root:
 		return
-	_pending_prop_loads.clear()
-	set_process(false)
 	for child in exhibits_root.get_children():
 		exhibits_root.remove_child(child)
 		child.free()
@@ -212,8 +257,9 @@ func _populate_exhibit_prop(exhibit: Node, relative_path: String) -> void:
 	if not exhibit or not is_instance_valid(exhibit):
 		return
 	
-	# Load and Instance Prop
+	# Load and Instance Prop (timed for the per-prop perf overlay).
 	var prop_path = PROPS_DIR + relative_path
+	var t_start = OS.get_ticks_usec()
 	var prop_res = load(prop_path)
 	if not prop_res:
 		printerr("TestScenePropZoo: Failed to load prop: %s" % prop_path)
@@ -225,8 +271,12 @@ func _populate_exhibit_prop(exhibit: Node, relative_path: String) -> void:
 		printerr("TestScenePropZoo: Exhibit without PropAnchor: %s" % relative_path)
 		return
 	anchor.add_child(prop)
+	var load_ms = (OS.get_ticks_usec() - t_start) / 1000.0
 	var display_name = relative_path.get_file().get_basename()
 	print("TestScenePropZoo: Added exhibit for %s" % display_name)
+
+	if show_perf_stats:
+		_annotate_perf_stats(exhibit, display_name, prop, load_ms)
 	
 	if snap_to_floor and prop is Spatial:
 		prop.transform.origin = Vector3.ZERO
@@ -308,6 +358,33 @@ func _find_interactables_recursive(node: Node, result: Array):
 		if child.has_method("set_active") or child.has_method("interact"):
 			result.append(child)
 		_find_interactables_recursive(child, result)
+
+# --- PER-PROP PERF OVERLAY ---
+
+# Appends a complexity readout to the exhibit's Label3D. Godot 3.6 has no
+# per-node draw-call counter, so we report the static cost drivers that matter
+# in GLES2: instance time and counts of nodes / meshes / lights / particles.
+func _annotate_perf_stats(exhibit: Node, display_name: String, prop: Node, load_ms: float) -> void:
+	var stats = {"nodes": 0, "meshes": 0, "lights": 0, "particles": 0}
+	_count_prop_complexity(prop, stats)
+
+	var label = exhibit.get_node_or_null("Floor/Label")
+	if label and "text" in label:
+		label.text = "%s\n%.1fms  N:%d  M:%d  L:%d  P:%d" % [
+			display_name, load_ms,
+			stats["nodes"], stats["meshes"], stats["lights"], stats["particles"]
+		]
+
+func _count_prop_complexity(node: Node, stats: Dictionary) -> void:
+	for child in node.get_children():
+		stats["nodes"] += 1
+		if child is MeshInstance:
+			stats["meshes"] += 1
+		elif child is Light:
+			stats["lights"] += 1
+		elif child is CPUParticles or child is Particles:
+			stats["particles"] += 1
+		_count_prop_complexity(child, stats)
 
 # --- Snap Helpers (Ported from PropStage) ---
 

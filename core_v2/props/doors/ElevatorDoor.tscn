@@ -1,6 +1,6 @@
 [gd_scene load_steps=16 format=2]
 
-[ext_resource path="res://core_v2/props/ElevatorDoor.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/doors/ElevatorDoor.gd" type="Script" id=1]
 [ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=2]
 [ext_resource path="res://assets/sfx/sfx100v2_misc_13.ogg" type="AudioStream" id=3]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=4]

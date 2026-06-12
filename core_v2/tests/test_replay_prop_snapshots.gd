@@ -1,7 +1,7 @@
 extends GdUnitTestSuite
 
-const ElevatorPropScene = preload("res://core_v2/props/ElevatorProp.tscn")
-const CriopodScene = preload("res://core_v2/props/Criopod_vert.tscn")
+const ElevatorPropScene = preload("res://core_v2/props/machinery/ElevatorProp.tscn")
+const CriopodScene = preload("res://core_v2/props/criopod/Criopod_vert.tscn")
 
 func _scene_host() -> Node:
 	return get_tree().current_scene if get_tree().current_scene else self

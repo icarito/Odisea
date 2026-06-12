@@ -1,0 +1,91 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/ui/overlays/ProtocolOverlay.gd" type="Script" id=1]
+
+[node name="ProtocolOverlay" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource( 1 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -300.0
+margin_top = -200.0
+margin_right = 300.0
+margin_bottom = 200.0
+color = Color( 0, 0, 0, 0.705882 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Margin" type="MarginContainer" parent="Background"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+custom_constants/margin_right = 20
+custom_constants/margin_top = 20
+custom_constants/margin_left = 20
+custom_constants/margin_bottom = 20
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="VBox" type="VBoxContainer" parent="Background/Margin"]
+margin_left = 20.0
+margin_top = 20.0
+margin_right = 580.0
+margin_bottom = 380.0
+custom_constants/separation = 15
+
+[node name="TitleLabel" type="Label" parent="Background/Margin/VBox"]
+margin_right = 560.0
+margin_bottom = 14.0
+text = "PROTOCOL TITLE"
+align = 1
+valign = 1
+
+[node name="IconRect" type="TextureRect" parent="Background/Margin/VBox"]
+margin_top = 29.0
+margin_right = 560.0
+margin_bottom = 29.0
+stretch_mode = 4
+
+[node name="BodyLabel" type="Label" parent="Background/Margin/VBox"]
+margin_top = 44.0
+margin_right = 560.0
+margin_bottom = 58.0
+text = "Protocol body text goes here. This can be multiple lines."
+align = 1
+valign = 1
+autowrap = true
+
+[node name="Spacer" type="Control" parent="Background/Margin/VBox"]
+margin_top = 73.0
+margin_right = 560.0
+margin_bottom = 323.0
+size_flags_vertical = 3
+
+[node name="HBox" type="HBoxContainer" parent="Background/Margin/VBox"]
+margin_top = 338.0
+margin_right = 560.0
+margin_bottom = 360.0
+custom_constants/separation = 20
+alignment = 1
+
+[node name="BtnClose" type="Button" parent="Background/Margin/VBox/HBox"]
+margin_left = 191.0
+margin_right = 265.0
+margin_bottom = 22.0
+text = "   CLOSE   "
+
+[node name="BtnNext" type="Button" parent="Background/Margin/VBox/HBox"]
+margin_left = 285.0
+margin_right = 368.0
+margin_bottom = 22.0
+text = "   NEXT   "

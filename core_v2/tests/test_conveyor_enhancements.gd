@@ -1,7 +1,7 @@
 extends GdUnitTestSuite
 
-const CONVEYOR_SCENE = preload("res://core_v2/props/Conveyor.tscn")
-const CARROUSEL_SCENE = preload("res://core_v2/props/ConveyorCarrousel.tscn")
+const CONVEYOR_SCENE = preload("res://core_v2/props/machinery/Conveyor.tscn")
+const CARROUSEL_SCENE = preload("res://core_v2/props/machinery/ConveyorCarrousel.tscn")
 
 func _spawn(scene: PackedScene) -> Node:
 	var host: Spatial = auto_free(Spatial.new())

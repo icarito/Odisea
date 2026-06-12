@@ -8,8 +8,8 @@ const CRITICAL_RESOURCES := [
 	"res://core_v2/actors/Pilot_v2.tscn",
 	"res://core_v2/actors/Programmer_v2.tscn",
 	# Stage-3 curriculum coverage (doors/sparks/HDR and BaseTerrace deps).
-	"res://core_v2/props/VerticalDoor.tscn",
-	"res://core_v2/props/SparkEmitterV2.tscn",
+	"res://core_v2/props/doors/VerticalDoor.tscn",
+	"res://core_v2/props/emitters/SparkEmitterV2.tscn",
 ]
 
 func _normalize_dep_path(dep: String) -> String:

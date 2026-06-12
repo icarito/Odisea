@@ -1,12 +1,12 @@
 [gd_scene load_steps=22 format=2]
 
 [ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/IrisDoorV2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/doors/IrisDoorV2.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/components/AirlockZoneV2.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/props/scifi_lights/SciFiWallSconceV2.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/props/scifi_lights/shaders/airlock_hull.shader" type="Shader" id=5]
 [ext_resource path="res://core_v2/props/scifi_lights/shaders/airlock_floor.shader" type="Shader" id=6]
-[ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=7]
 [ext_resource path="res://assets/sfx/steam hiss.wav" type="AudioStream" id=8]
 [ext_resource path="res://core_v2/components/AirlockTransitionFX.gd" type="Script" id=9]
 
