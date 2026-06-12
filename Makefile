@@ -68,9 +68,14 @@ deploy-dashboard:
 		'os.makedirs(os.path.dirname(db), exist_ok=True)' \
 		'conn = sqlite3.connect(db)' \
 		'conn.execute("""CREATE TABLE IF NOT EXISTS hotzones (id TEXT PRIMARY KEY, player_id TEXT, session_id TEXT, timestamp REAL, file_path TEXT, trigger_type TEXT DEFAULT '"'"'auto'"'"');""")' \
+		'conn.execute("""CREATE TABLE IF NOT EXISTS heartbeats (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id TEXT, session_id TEXT, timestamp REAL, scene TEXT, platform TEXT, fps REAL, memory_mb REAL, pos_x REAL, pos_y REAL, pos_z REAL, engine_version TEXT, game_version TEXT, git_commit TEXT, build_id TEXT, build_channel TEXT, official_host TEXT, peer_id TEXT, UNIQUE(player_id, session_id, timestamp));""")' \
+		'for c in ["game_version", "git_commit", "build_id", "build_channel", "official_host"]:' \
+		'    try: conn.execute("ALTER TABLE heartbeats ADD COLUMN %s TEXT" % c)' \
+		'    except sqlite3.OperationalError as e:' \
+		'        if "duplicate column name" not in str(e).lower(): raise' \
 		'conn.commit()' \
 		'conn.close()' \
-		'print("Migración hotzones OK:", db)' \
+		'print("Migración central OK:", db)' \
 		| ssh "$(DEPLOY_HOST)" python3 -
 	@echo "==> Desplegando odisea_central.py -> $(DEPLOY_HOST):$(DEPLOY_DIR) ..."
 	rsync -az odisea_central.py "$(DEPLOY_HOST):$(DEPLOY_DIR)/odisea_central.py"

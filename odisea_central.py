@@ -1255,10 +1255,27 @@ class OdiseaCentral:
                 pos_y REAL,
                 pos_z REAL,
                 engine_version TEXT,
+                game_version TEXT,
+                git_commit TEXT,
+                build_id TEXT,
+                build_channel TEXT,
+                official_host TEXT,
                 peer_id TEXT,
                 UNIQUE(player_id, session_id, timestamp)
             );
         """)
+        for column, coltype in (
+            ("game_version", "TEXT"),
+            ("git_commit", "TEXT"),
+            ("build_id", "TEXT"),
+            ("build_channel", "TEXT"),
+            ("official_host", "TEXT"),
+        ):
+            try:
+                cursor.execute(f"ALTER TABLE heartbeats ADD COLUMN {column} {coltype};")
+            except sqlite3.OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_scene ON heartbeats(scene);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_timestamp ON heartbeats(timestamp);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_platform ON heartbeats(platform);")
@@ -1285,8 +1302,9 @@ class OdiseaCentral:
                         INSERT OR IGNORE INTO heartbeats (
                             player_id, session_id, timestamp, scene, platform,
                             fps, memory_mb, pos_x, pos_y, pos_z,
-                            engine_version, peer_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            engine_version, game_version, git_commit, build_id,
+                            build_channel, official_host, peer_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         data.get("player_id"),
                         data.get("session_id"),
@@ -1297,6 +1315,11 @@ class OdiseaCentral:
                         player_data.get("memory_mb"),
                         pos[0], pos[1], pos[2],
                         data.get("engine_version") or data.get("godot_version"),
+                        data.get("game_version"),
+                        data.get("git_commit"),
+                        data.get("build_id"),
+                        data.get("build_channel"),
+                        data.get("official_host"),
                         data.get("peer_id")
                     ))
 

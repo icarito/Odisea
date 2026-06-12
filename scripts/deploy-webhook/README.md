@@ -67,9 +67,11 @@ And on `deploy.sh` itself:
 | `BACKUP_DIR` | `$DEPLOY_DIR/data/backups` | SQLite backup destination |
 
 Before restarting the service, the script creates a SQLite backup using the
-SQLite backup API, runs idempotent schema setup for `hotzones`, and verifies
-`PRAGMA integrity_check` plus required columns. Any failure aborts the deploy
-before files are copied/restarted, leaving the backup in place.
+SQLite backup API, runs idempotent schema setup for `hotzones` and heartbeat
+build metadata (`game_version`, `git_commit`, `build_id`, `build_channel`,
+`official_host`), and verifies `PRAGMA integrity_check` plus required columns.
+Any failure aborts the deploy before files are copied/restarted, leaving the
+backup in place.
 
 ## GitHub setup
 

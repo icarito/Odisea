@@ -123,6 +123,37 @@ try:
         );
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS heartbeats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id TEXT,
+            session_id TEXT,
+            timestamp REAL,
+            scene TEXT,
+            platform TEXT,
+            fps REAL,
+            memory_mb REAL,
+            pos_x REAL,
+            pos_y REAL,
+            pos_z REAL,
+            engine_version TEXT,
+            game_version TEXT,
+            git_commit TEXT,
+            build_id TEXT,
+            build_channel TEXT,
+            official_host TEXT,
+            peer_id TEXT,
+            UNIQUE(player_id, session_id, timestamp)
+        );
+        """
+    )
+    for column in ("game_version", "git_commit", "build_id", "build_channel", "official_host"):
+        try:
+            conn.execute("ALTER TABLE heartbeats ADD COLUMN %s TEXT" % column)
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower():
+                raise
     conn.commit()
 
     cols = {
@@ -133,6 +164,15 @@ try:
     missing = sorted(required - cols)
     if missing:
         raise RuntimeError("hotzones schema missing columns: %s" % ", ".join(missing))
+
+    hb_cols = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(heartbeats)").fetchall()
+    }
+    hb_required = {"game_version", "git_commit", "build_id", "build_channel", "official_host"}
+    hb_missing = sorted(hb_required - hb_cols)
+    if hb_missing:
+        raise RuntimeError("heartbeats schema missing columns: %s" % ", ".join(hb_missing))
 
     post_integrity = conn.execute("PRAGMA integrity_check").fetchone()
     if not post_integrity or post_integrity[0] != "ok":

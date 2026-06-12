@@ -18,6 +18,11 @@ var _central_enabled := true
 var player_id := ""
 var session_id := ""
 var game_version := "0.1.0"
+var git_commit := ""
+var build_id := ""
+var build_channel := "dev"
+var official_host := ""
+var official_build := false
 
 var _last_telemetry := {}
 var _heartbeat_counter := 0
@@ -37,6 +42,14 @@ func set_scheme(scheme: String):
 func update_heartbeat_params(interval_ms: int, tier: int):
 	_heartbeat_interval_ms = interval_ms
 	_throttle_tier = tier
+
+func set_build_info(info: Dictionary):
+	game_version = info.get("game_version", game_version)
+	git_commit = info.get("git_commit", "")
+	build_id = info.get("build_id", "")
+	build_channel = info.get("build_channel", "dev")
+	official_host = info.get("official_host", "")
+	official_build = info.get("official_build", false)
 
 func _init():
 	_bridge_token = OS.get_environment("ODISEA_BRIDGE_TOKEN")
@@ -244,7 +257,13 @@ func _send_handshake():
 		"type": "handshake",
 		"platform": platform,
 		"player_id": player_id,
-		"session_id": session_id
+		"session_id": session_id,
+		"game_version": game_version,
+		"git_commit": git_commit,
+		"build_id": build_id,
+		"build_channel": build_channel,
+		"official_host": official_host,
+		"official_build": official_build
 	}
 	if _bridge_token != "":
 		msg["token"] = _bridge_token
@@ -267,6 +286,11 @@ func _send_heartbeat(tier: int):
 		"godot_version": Engine.get_version_info().string,
 		"engine_version": Engine.get_version_info().string,
 		"game_version": game_version,
+		"git_commit": git_commit,
+		"build_id": build_id,
+		"build_channel": build_channel,
+		"official_host": official_host,
+		"official_build": official_build,
 		"platform": platform_name,
 		"timestamp": OS.get_unix_time()
 	}
