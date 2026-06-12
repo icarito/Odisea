@@ -1675,10 +1675,10 @@ __meta__ = {
 }
 
 [node name="SciFiWallSconceV3" parent="Airlock_North" index="12"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="SciFiWallSconceV2" parent="Airlock_North" index="13"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="AirlockZoneV2" parent="Airlock_North" index="16"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
@@ -1704,10 +1704,10 @@ __meta__ = {
 }
 
 [node name="SciFiWallSconceV3" parent="Airlock_South" index="12"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="SciFiWallSconceV2" parent="Airlock_South" index="13"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="AirlockZoneV2" parent="Airlock_South" index="16"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
@@ -1733,10 +1733,10 @@ __meta__ = {
 }
 
 [node name="SciFiWallSconceV3" parent="Airlock_East" index="12"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="SciFiWallSconceV2" parent="Airlock_East" index="13"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="AirlockZoneV2" parent="Airlock_East" index="16"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
@@ -1762,10 +1762,10 @@ __meta__ = {
 }
 
 [node name="SciFiWallSconceV3" parent="Airlock_West" index="12"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="SciFiWallSconceV2" parent="Airlock_West" index="13"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="AirlockZoneV2" parent="Airlock_West" index="16"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
@@ -1791,10 +1791,10 @@ __meta__ = {
 }
 
 [node name="SciFiWallSconceV3" parent="Airlock_Basement" index="12"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="SciFiWallSconceV2" parent="Airlock_Basement" index="13"]
-enable_shadows = true
+enable_shadows = false
 
 [node name="AirlockZoneV2" parent="Airlock_Basement" index="16"]
 target_scene = "res://core_v2/components/ScaffoldOrbit.tscn"
@@ -1808,7 +1808,7 @@ zone_dir = Vector3( 0, 0, 1 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 12, 0 )
 light_color = Color( 0.9, 0.95, 1, 1 )
 light_energy = 1.233
-shadow_enabled = true
+shadow_enabled = false
 omni_range = 30.0
 omni_attenuation = 0.812254
 
