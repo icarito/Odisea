@@ -70,6 +70,10 @@ func _setup_http():
 func record_frame(input, dt: float):
 	if not hotzone_enabled: return
 
+	# Skip during replay/recording to avoid recursive capture or interference
+	if SessionManager.is_recording or SessionManager.is_replaying:
+		return
+
 	var fps = _test_fps if _is_testing else Performance.get_monitor(Performance.TIME_FPS)
 	var now = OS.get_ticks_msec()
 
@@ -173,10 +177,30 @@ func _trigger_capture(scene: String, pos: Vector3, trigger_type: String):
 	print("[HotzoneRecorder] Triggering hotzone capture (type: %s) for %s" % [trigger_type, scene])
 
 	# Collect frames from ring buffer in order
-	var frames = []
 	var start_idx = (_head - _count + hotzone_buffer_frames) % hotzone_buffer_frames
+
+	# Find the first frame that has a snapshot to satisfy "snapshot del estado inicial"
+	var first_snapshot_offset = -1
 	for i in range(_count):
-		frames.append(_ring_buffer[(start_idx + i) % hotzone_buffer_frames])
+		if _ring_buffer[(start_idx + i) % hotzone_buffer_frames].has("snapshot"):
+			first_snapshot_offset = i
+			break
+
+	var frames = []
+	var export_start = start_idx
+	var export_count = _count
+
+	if first_snapshot_offset != -1:
+		export_start = (start_idx + first_snapshot_offset) % hotzone_buffer_frames
+		export_count = _count - first_snapshot_offset
+	else:
+		# Fallback: if no snapshot in buffer, force one now at the beginning if possible
+		# though we'd prefer having it from the history.
+		# Given snapshot_interval=100 and buffer=300, we should always have one.
+		pass
+
+	for i in range(export_count):
+		frames.append(_ring_buffer[(export_start + i) % hotzone_buffer_frames])
 
 	var snapshot = {
 		"magic": BINARY_MAGIC,
@@ -190,13 +214,16 @@ func _trigger_capture(scene: String, pos: Vector3, trigger_type: String):
 		"frames": frames
 	}
 
-	var blob = var2bytes(snapshot)
+	var data_blob = var2bytes(snapshot)
 	var filename = "hotzone_%d.bin" % OS.get_unix_time()
 	var filepath = PENDING_DIR + filename
 
 	var f = File.new()
 	if f.open(filepath, File.WRITE) == OK:
-		f.store_buffer(blob)
+		# Bytes 0-3: magic "HZN2" (0x485a4e32) in Big Endian for easy detection
+		f.store_32(BINARY_MAGIC)
+		# Bytes 4+: var2bytes of Dictionary
+		f.store_buffer(data_blob)
 		f.close()
 		_enqueue_upload(filepath, trigger_type)
 		if trigger_type == "manual":
@@ -207,7 +234,13 @@ func _trigger_capture(scene: String, pos: Vector3, trigger_type: String):
 			_show_feedback("Error al enviar — se reintentará", true)
 
 func _enqueue_upload(filepath: String, trigger_type: String = "auto"):
-	if not filepath in _upload_queue:
+	var already_in = false
+	for item in _upload_queue:
+		if item.path == filepath:
+			already_in = true
+			break
+
+	if not already_in:
 		_upload_queue.append({"path": filepath, "trigger": trigger_type})
 
 	if _upload_queue.size() > 3:
@@ -352,8 +385,6 @@ func _show_feedback(message: String, is_error: bool = false):
 	t.start()
 	yield(t, "timeout")
 
-	# Manual animation for fade (since I can't use Tween easily in this script without complex setup)
-	# For simplicity, just queue_free
 	canvas.queue_free()
 
 # --- HTML5 / Web Worker ---
