@@ -15,7 +15,7 @@ extents = Vector3( 100, 1, 100 )
 script = ExtResource( 3 )
 selected_spiral = 2
 selected_plate = 50
-dome_lod_overlay_max_instances = 32
+dome_lod_overlay_max_instances = 24
 dome_lod_camera_angle_threshold = 40.0
 
 [node name="WorldRotator" parent="." instance=ExtResource( 1 )]
@@ -56,29 +56,7 @@ camera_collision_mask = 1
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 695.641, 0 )
 light_color = Color( 1, 0.827451, 0.560784, 1 )
 light_energy = 0.8
-omni_range = 500.0
-omni_attenuation = 0.116629
-omni_shadow_mode = 0
-script = ExtResource( 6 )
-rotator_path = NodePath("../WorldRotator")
-plate_index = 90
-
-[node name="OmniLight4" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1148.64, 0 )
-light_color = Color( 1, 0.827451, 0.560784, 1 )
-light_energy = 0.8
-omni_range = 500.0
-omni_attenuation = 0.116629
-omni_shadow_mode = 0
-script = ExtResource( 6 )
-rotator_path = NodePath("../WorldRotator")
-plate_index = 90
-
-[node name="OmniLight5" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2015.64, 0 )
-light_color = Color( 1, 0.827451, 0.560784, 1 )
-light_energy = 0.8
-omni_range = 500.0
+omni_range = 200.0
 omni_attenuation = 0.116629
 omni_shadow_mode = 0
 script = ExtResource( 6 )
