@@ -107,6 +107,30 @@ jobs:
           fi
           echo "APK OK: $(du -h ports/Odisea.apk | cut -f1)"
 
+      - name: Sign APK
+        run: |
+          set -e
+          APK="ports/Odisea.apk"
+          UNSIGNED="ports/Odisea-unsigned.apk"
+          ALIGNED="ports/Odisea-aligned.apk"
+
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          ZIPALIGN="$BUILD_TOOLS/zipalign"
+          APKSIGNER="$BUILD_TOOLS/apksigner"
+
+          mv "$APK" "$UNSIGNED"
+          "$ZIPALIGN" -p -f 4 "$UNSIGNED" "$ALIGNED"
+          "$APKSIGNER" sign \
+            --ks android/debug.keystore \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$APK" \
+            "$ALIGNED"
+
+          rm -f "$UNSIGNED" "$ALIGNED"
+          echo "Signed APK OK: $(du -h "$APK" | cut -f1)"
+
       - name: Validate APK
         run: |
           set -e
