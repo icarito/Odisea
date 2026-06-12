@@ -43,22 +43,18 @@ jobs:
             os: ubuntu-latest
             preset: "Linux/X11 x86_64"
             artifact_name: linux-x64
-            artifact_path: build/linux_x86_64/*
           - platform: linux_arm64
             os: ubuntu-latest
             preset: "Linux/X11 ARM64"
             artifact_name: linux-arm64
-            artifact_path: build/linux_arm64/*
           - platform: windows
             os: ubuntu-latest
             preset: "Windows Desktop"
             artifact_name: windows
-            artifact_path: build/windows/*
           - platform: ios
             os: macos-latest
             preset: "iOS"
             artifact_name: ios
-            artifact_path: build/ios/*
           # macos: re-add to the platform list above and uncomment to restore.
           # - platform: macos
           #   os: macos-latest
@@ -192,12 +188,21 @@ jobs:
           fi
           echo "Export OK: $OUT ($(du -h "$OUT" | cut -f1))"
 
+      - name: Package Artifact
+        if: steps.ios_gate.outputs.skip_ios != 'true'
+        run: |
+          PACKAGE="dist/${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}.zip"
+          mkdir -p dist
+          rm -f build/_headers
+          cd build
+          zip -r "../$PACKAGE" .
+
       - name: Upload Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
-          path: ${{ matrix.artifact_path }}
+          path: dist/*.zip
 
       - name: Build Failure Notification
         if: failure()
@@ -233,20 +238,6 @@ jobs:
         with:
           path: release_assets
           merge-multiple: true
-
-      - name: Deduplicate odisea.pck for release
-        run: |
-          # merge-multiple downloads every platform artifact into release_assets/,
-          # producing duplicates of odisea.pck (one per platform). Remove
-          # all-but-one copy so the release upload doesn't collide.
-          PCK_FILES=( release_assets/**/odisea.pck )
-          if [ ${#PCK_FILES[@]} -gt 1 ]; then
-            echo "Found ${#PCK_FILES[@]} odisea.pck copies, keeping only the first"
-            for ((i=1; i<${#PCK_FILES[@]}; i++)); do
-              echo "Removing duplicate: ${PCK_FILES[$i]}"
-              rm -f "${PCK_FILES[$i]}"
-            done
-          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
