@@ -3,6 +3,7 @@ extends CanvasLayer
 const RetroWindowScene = preload("res://core_v2/ui/retro/RetroWindow.tscn")
 const OYSShellScene = preload("res://core_v2/ui/retro/OYSShell.tscn")
 const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
+const AppRegistry = preload("res://core_v2/ui/retro/app_registry.gd")
 const HeadingFont = preload("res://assets/fonts/Heading_Font.tres")
 
 export(Theme) var retro_theme
@@ -17,6 +18,7 @@ var _console = null
 var _terminal_count := 1
 var _system_menu: PopupMenu = null
 var _focused_window: RetroWindow = null
+var _menu_app_map := {}
 
 onready var _desktop: Control = $Desktop
 onready var _desktop_contents: Control = $Desktop/DesktopContents
@@ -180,9 +182,16 @@ func _setup_system_menu() -> void:
 	_system_menu.name = "SystemMenu"
 	_system_menu.theme = _desktop.theme
 	_system_menu.add_item("New Terminal", 1)
-	_system_menu.add_item("Calculator", 4)
-	_system_menu.add_item("Node Scanner", 5)
-	_system_menu.add_item("System Status", 6)
+	_system_menu.add_separator()
+
+	_menu_app_map.clear()
+	var next_id = 10
+	for app_id in AppRegistry.APPS:
+		var app_info = AppRegistry.APPS[app_id]
+		_system_menu.add_item(app_info.name, next_id)
+		_menu_app_map[next_id] = app_id
+		next_id += 1
+
 	_system_menu.add_separator()
 	_system_menu.add_item("Exit", 3)
 	_system_menu.connect("id_pressed", self , "_on_system_menu_pressed")
@@ -198,6 +207,10 @@ func _on_system_button_pressed() -> void:
 	_system_menu.popup()
 
 func _on_system_menu_pressed(id: int) -> void:
+	if _menu_app_map.has(id):
+		_open_app(_menu_app_map[id])
+		return
+
 	match id:
 		1:
 			_open_new_terminal()
@@ -205,12 +218,6 @@ func _on_system_menu_pressed(id: int) -> void:
 			_open_about_window()
 		3:
 			get_tree().quit()
-		4:
-			_open_calc()
-		5:
-			_open_nodescan()
-		6:
-			_open_status()
 
 func _open_new_terminal() -> void:
 	var w = RetroWindowScene.instance()
@@ -232,22 +239,37 @@ func _open_new_terminal() -> void:
 	_focus_window(w)
 	_refresh_task_buttons()
 
-func _open_status() -> void:
+func _open_app(app_id: String) -> void:
+	if not AppRegistry.APPS.has(app_id):
+		return
+
+	var app_info = AppRegistry.APPS[app_id]
 	var w = RetroWindowScene.instance()
-	w.window_title = "STATUS"
-	w.rect_size = Vector2(240, 320)
-	w.rect_position = Vector2(200, 200)
+	w.window_title = app_info.get("window_title", app_info.name.to_upper())
+
+	# Default sizes if not specified
+	var win_size = Vector2(300, 400)
+	match app_id:
+		"CALC": win_size = Vector2(200, 260)
+		"STATUS": win_size = Vector2(240, 320)
+
+	w.rect_size = win_size
+	w.rect_position = Vector2(100 + randi() % 200, 100 + randi() % 200)
+
 	_window_area.add_child(w)
 	_windows.append(w)
 	w.connect("window_focused", self, "_on_window_focused")
 	w.connect("close_requested", self, "_on_window_closed")
 	w.connect("window_clicked", self, "_on_window_any_click")
+
 	var content = w.get_node_or_null("VBox/Content")
 	if content:
 		for child in content.get_children():
 			child.queue_free()
-		var app = load("res://core_v2/ui/retro/OysStatus.gd").new()
-		content.add_child(app)
+		var app_script = load(app_info.script)
+		if app_script:
+			content.add_child(app_script.new())
+
 	w.show()
 	_focus_window(w)
 	_refresh_task_buttons()
@@ -274,43 +296,6 @@ func _open_about_window() -> void:
 	_focus_window(w)
 	_refresh_task_buttons()
 
-func _open_calc() -> void:
-	var w = RetroWindowScene.instance()
-	w.window_title = "OYS-CALC"
-	w.rect_size = Vector2(200, 260)
-	w.rect_position = Vector2(100, 100)
-	_window_area.add_child(w)
-	_windows.append(w)
-	w.connect("window_focused", self , "_on_window_focused")
-	w.connect("close_requested", self , "_on_window_closed")
-	w.connect("window_clicked", self , "_on_window_any_click")
-	var content = w.get_node_or_null("VBox/Content")
-	if content:
-		for child in content.get_children():
-			child.queue_free()
-		content.add_child(load("res://core_v2/ui/retro/OysCalc.gd").new())
-	w.show()
-	_focus_window(w)
-	_refresh_task_buttons()
-
-func _open_nodescan() -> void:
-	var w = RetroWindowScene.instance()
-	w.window_title = "NODE-SCAN"
-	w.rect_size = Vector2(300, 400)
-	w.rect_position = Vector2(350, 50)
-	_window_area.add_child(w)
-	_windows.append(w)
-	w.connect("window_focused", self , "_on_window_focused")
-	w.connect("close_requested", self , "_on_window_closed")
-	w.connect("window_clicked", self , "_on_window_any_click")
-	var content = w.get_node_or_null("VBox/Content")
-	if content:
-		for child in content.get_children():
-			child.queue_free()
-		content.add_child(load("res://core_v2/ui/retro/NodeScan.gd").new())
-	w.show()
-	_focus_window(w)
-	_refresh_task_buttons()
 
 func _update_clock_label() -> void:
 	var now = OS.get_datetime()
