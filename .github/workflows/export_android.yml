@@ -78,13 +78,13 @@ jobs:
           [ -d "$JDK_PATH" ] || { echo "::error::JDK path is invalid: $JDK_PATH"; exit 1; }
 
           mkdir -p "$HOME/.config/godot"
-          cat > "$HOME/.config/godot/editor_settings-3.tres" << EOF
-          [gd_resource type="EditorSettings" format=2]
-
-          [resource]
-          export/android/android_sdk_path = "$ANDROID_HOME"
-          export/android/java_sdk_path = "$JDK_PATH"
-          EOF
+          {
+            echo '[gd_resource type="EditorSettings" format=2]'
+            echo
+            echo '[resource]'
+            echo "export/android/android_sdk_path = \"$ANDROID_HOME\""
+            echo "export/android/java_sdk_path = \"$JDK_PATH\""
+          } > "$HOME/.config/godot/editor_settings-3.tres"
 
       - name: Export to Android
         run: |
@@ -105,6 +105,22 @@ jobs:
             exit 1
           fi
           echo "APK OK: $(du -h ports/Odisea.apk | cut -f1)"
+
+      - name: Validate APK
+        run: |
+          set -e
+          APK="ports/Odisea.apk"
+          unzip -t "$APK" >/dev/null
+
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          AAPT="$BUILD_TOOLS/aapt"
+          ZIPALIGN="$BUILD_TOOLS/zipalign"
+          APKSIGNER="$BUILD_TOOLS/apksigner"
+
+          "$ZIPALIGN" -c -p 4 "$APK"
+          "$APKSIGNER" verify --verbose "$APK"
+          "$AAPT" dump badging "$APK" | tee /tmp/odisea-apk-badging.txt
+          grep -q "package: name='org.odisea.game'" /tmp/odisea-apk-badging.txt
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
