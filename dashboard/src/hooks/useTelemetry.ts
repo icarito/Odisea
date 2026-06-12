@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getStatus, getHealth } from '../api';
 import type { HeartbeatMap, Alert } from '../types';
+import { saveSnapshot, getSnapshot } from '../lib/pushStorage';
 
 export const useTelemetry = () => {
   const [heartbeats, setHeartbeats] = useState<HeartbeatMap>({});
@@ -25,9 +26,16 @@ export const useTelemetry = () => {
   useEffect(() => {
     const poll = async () => {
       try {
-        const data: HeartbeatMap = await getStatus();
+        let data: HeartbeatMap;
+        try {
+          data = await getStatus();
+          await saveSnapshot('status', data);
+          setIsConnected(true);
+        } catch (e) {
+          data = await getSnapshot('status') || {};
+          setIsConnected(false);
+        }
         setHeartbeats(data);
-        setIsConnected(true);
 
         const now = Date.now();
         const newAlerts: Alert[] = [];
@@ -113,11 +121,17 @@ export const useTelemetry = () => {
            setAlerts(prev => [...newAlerts, ...prev].slice(0, 50));
         }
 
-        const health = await getHealth();
-        setPeersConnected(health.peers_connected ?? '?');
-        setHeartbeatRate(health.heartbeats_rate ?? '?');
+        try {
+          const health = await getHealth();
+          setPeersConnected(health.peers_connected ?? '?');
+          setHeartbeatRate(health.heartbeats_rate ?? '?');
+          await saveSnapshot('health', health);
+        } catch (e) {
+          const health = await getSnapshot('health') || {};
+          setPeersConnected(health.peers_connected ?? '?');
+          setHeartbeatRate(health.heartbeats_rate ?? '?');
+        }
       } catch (e) {
-        setIsConnected(false);
         console.error("Telemetry poll failed", e);
       }
     };

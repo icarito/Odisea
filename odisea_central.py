@@ -11,6 +11,7 @@ import time
 import uuid
 import zlib
 from typing import Dict, Any, List, Set, Optional
+from pywebpush import webpush, WebPushException
 
 from aiohttp import web, WSCloseCode
 
@@ -35,6 +36,11 @@ def inflate_ws_frame(data: bytes) -> Optional[bytes]:
 
 # --- Configuration ---
 CENTRAL_HTTP_PORT = int(os.environ.get("CENTRAL_HTTP_PORT", 5003))
+
+# PWA Push Notifications (FD-167)
+VAPID_PUBLIC_KEY = os.environ.get("ODISEA_VAPID_PUBLIC_KEY")
+VAPID_PRIVATE_KEY = os.environ.get("ODISEA_VAPID_PRIVATE_KEY")
+VAPID_CLAIMS = {"sub": "mailto:admin@odisea.dev"}
 DEV_DEFAULT_TOKEN = "odisea-dev-insecure"
 BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", DEV_DEFAULT_TOKEN)
 
@@ -168,6 +174,7 @@ class OdiseaCentral:
     def __init__(self):
         self.heartbeats: Dict[str, dict] = {}  # player_id -> heartbeat
         self.last_update: Dict[str, float] = {}  # player_id -> timestamp
+        self.last_known_hb: Dict[str, dict] = {}  # player_id -> last hb before disconnect
         self.session_rate_limit: Dict[str, float] = {}  # session_id -> last_heartbeat_time
         self.active_peers: Dict[web.WebSocketResponse, str] = {}  # ws -> peer_id
         self.peer_ws: Dict[str, web.WebSocketResponse] = {}  # peer_id -> ws
@@ -237,8 +244,14 @@ class OdiseaCentral:
                 now = time.time()
                 to_delete_hb = [pid for pid, last in self.last_update.items() if now - last > CACHE_TTL]
                 for pid in to_delete_hb:
-                    self.heartbeats.pop(pid, None)
+                    hb = self.heartbeats.pop(pid, None)
                     self.last_update.pop(pid, None)
+                    if hb:
+                        asyncio.create_task(self.send_push_to_all({
+                            "type": "disconnect",
+                            "playerId": pid,
+                            "message": f"Player {pid[:8]} disconnected (timeout)"
+                        }))
 
                 to_delete_auth = [ip for ip, entry in self.auth_fails.items()
                                  if entry.get("locked_until", 0) <= now and not any(now - t < AUTH_FAIL_WINDOW for t in entry.get("ts", []))]
@@ -353,6 +366,119 @@ class OdiseaCentral:
             "Access-Control-Allow-Methods": "POST, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type",
         })
+
+    async def handle_vapid_public_key(self, request):
+        """Returns the VAPID public key for frontend subscription."""
+        if not VAPID_PUBLIC_KEY:
+            return web.json_response({"error": "VAPID keys not configured"}, status=503)
+        return web.json_response({"publicKey": VAPID_PUBLIC_KEY})
+
+    async def handle_push_subscribe(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        try:
+            data = await request.json()
+            subscription = data.get("subscription")
+            player_id = data.get("player_id", "admin")
+            settings = data.get("settings", {})
+        except Exception:
+            return web.json_response({"error": "invalid_json"}, status=400)
+
+        if not subscription:
+            return web.json_response({"error": "missing_subscription"}, status=400)
+
+        try:
+            def save():
+                conn = self._get_db()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO push_subscriptions (subscription_json, player_id, settings_json, updated_at)
+                    VALUES (?, ?, ?, ?)
+                """, (json.dumps(subscription), player_id, json.dumps(settings), time.time()))
+                conn.commit()
+                conn.close()
+
+            await self._run_query(save)
+            logger.info(f"Push subscription saved for {player_id}")
+            return web.json_response({"ok": True})
+        except Exception as e:
+            logger.error(f"Failed to save push subscription: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_push_send(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        try:
+            payload = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid_json"}, status=400)
+
+        await self.send_push_to_all(payload)
+        return web.json_response({"ok": True})
+
+    async def send_push_to_all(self, payload: dict):
+        """Sends a push notification to all registered subscriptions."""
+        if not VAPID_PRIVATE_KEY:
+            logger.warning("Push notification skipped: VAPID_PRIVATE_KEY not set")
+            return
+
+        try:
+            def fetch_subs():
+                conn = self._get_db()
+                cursor = conn.cursor()
+                cursor.execute("SELECT subscription_json, settings_json FROM push_subscriptions")
+                subs = [(json.loads(row[0]), json.loads(row[1] or "{}")) for row in cursor.fetchall()]
+                conn.close()
+                return subs
+
+            subscriptions_with_settings = await self._run_query(fetch_subs)
+            if not subscriptions_with_settings:
+                return
+
+            msg_type = payload.get("type")
+            # Map payload type to settings key
+            event_key = "alert" if msg_type == "alert" else "disconnect" if msg_type == "disconnect" else "bridge" if msg_type == "bridge_status" else None
+            
+            logger.info(f"Sending push (type={msg_type}) to suitable subscribers")
+            
+            # Send pushes in parallel
+            tasks = []
+            for sub, settings in subscriptions_with_settings:
+                if event_key and not settings.get(event_key, True):
+                    continue
+                tasks.append(self._send_single_push(sub, payload))
+            
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+        except Exception as e:
+            logger.error(f"Error in send_push_to_all: {e}")
+
+    async def _send_single_push(self, subscription: dict, payload: dict):
+        try:
+            # webpush is synchronous, run in executor
+            await asyncio.get_running_loop().run_in_executor(None, lambda: webpush(
+                subscription_info=subscription,
+                data=json.dumps(payload),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims=VAPID_CLAIMS.copy()
+            ))
+        except WebPushException as ex:
+            logger.warning(f"WebPush error: {ex}")
+            # If 410 Gone, we should ideally remove the subscription
+            if ex.response is not None and ex.response.status_code == 410:
+                def remove_sub():
+                    conn = self._get_db()
+                    conn.execute("DELETE FROM push_subscriptions WHERE subscription_json = ?", (json.dumps(subscription),))
+                    conn.commit()
+                    conn.close()
+                await self._run_query(remove_sub)
+        except Exception as e:
+            logger.error(f"Unexpected error in _send_single_push: {e}")
 
     async def handle_status(self, request):
         guard = self._auth_guard(request)
@@ -1014,6 +1140,7 @@ class OdiseaCentral:
                                             await sub.send_json(alert)
                                         except Exception:
                                             pass
+                                    asyncio.create_task(self.send_push_to_all(alert))
                         else:
                             self.low_fps_timers.pop(player_id, None)
 
@@ -1037,6 +1164,7 @@ class OdiseaCentral:
                             self.heartbeats[player_id] = data.copy()
 
                         self.last_update[player_id] = now
+                        self.last_known_hb[player_id] = data.copy()
                         self.metrics.record_heartbeat(session_id)
 
                         if self.metrics.heartbeats_total % 100 == 0:
@@ -1071,6 +1199,7 @@ class OdiseaCentral:
                                     try:
                                         asyncio.create_task(sub.send_json(alert))
                                     except Exception: pass
+                                asyncio.create_task(self.send_push_to_all(alert))
                         else:
                             self.low_fps_sessions.pop(session_id, None)
 
@@ -1095,6 +1224,13 @@ class OdiseaCentral:
                 pid = self.active_peers.pop(ws)
                 if self.peer_ws.get(pid) == ws:
                     self.peer_ws.pop(pid, None)
+                
+                if pid:
+                    asyncio.create_task(self.send_push_to_all({
+                        "type": "disconnect",
+                        "playerId": pid,
+                        "message": f"Player {pid[:8]} disconnected"
+                    }))
             logger.info(f"Peer disconnected: {peer_id}")
 
         return ws
@@ -1281,6 +1417,16 @@ class OdiseaCentral:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_platform ON heartbeats(platform);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_session ON heartbeats(session_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_combined ON heartbeats(player_id, scene, timestamp);")
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subscription_json TEXT UNIQUE,
+                player_id TEXT,
+                settings_json TEXT,
+                updated_at REAL
+            );
+        """)
         conn.commit()
 
         while True:
@@ -1439,6 +1585,11 @@ class OdiseaCentral:
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),
 
+            # PWA Push Notifications
+            web.get('/push/key', self.handle_vapid_public_key),
+            web.post('/push/subscribe', self.handle_push_subscribe),
+            web.post('/push/send', self.handle_push_send),
+
             # CI/CD: GitHub push webhook -> pull + redeploy
             web.post('/webhook/deploy', self.handle_deploy_webhook),
 
@@ -1457,6 +1608,11 @@ class OdiseaCentral:
         site = web.TCPSite(runner, '0.0.0.0', CENTRAL_HTTP_PORT)
         await site.start()
         logger.info(f"Odisea Central V2 running on port {CENTRAL_HTTP_PORT}")
+        asyncio.create_task(self.send_push_to_all({
+            "type": "bridge_status",
+            "status": "online",
+            "message": "Odisea Central is online"
+        }))
 
         cleanup_task = asyncio.create_task(self._cleanup_loop())
         db_worker_task = asyncio.create_task(self._db_worker())
@@ -1466,6 +1622,11 @@ class OdiseaCentral:
             while True:
                 await asyncio.sleep(3600)
         finally:
+            await self.send_push_to_all({
+                "type": "bridge_status",
+                "status": "offline",
+                "message": "Odisea Central is going offline"
+            })
             cleanup_task.cancel()
             db_worker_task.cancel()
             import_task.cancel()
