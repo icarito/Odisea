@@ -1,6 +1,6 @@
 [gd_scene load_steps=8 format=2]
 
-[ext_resource path="res://core_v2/props/IndustrialFan.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/machinery/IndustrialFan.gd" type="Script" id=1]
 
 [sub_resource type="SpatialMaterial" id=4]
 albedo_color = Color( 0.7, 0.15, 0.15, 1 )

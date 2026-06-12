@@ -4,7 +4,7 @@ const AirlockZoneScript = preload("res://core_v2/components/AirlockZoneV2.gd")
 const AirlockControllerScript = preload("res://core_v2/components/AirlockControllerV2.gd")
 const AirlockManagerScript = preload("res://core_v2/autoloads/AirlockManager.gd")
 const WorldRotatorScript = preload("res://core_v2/systems/WorldRotator.gd")
-const AirlockChamberScene = preload("res://core_v2/props/AirlockChamber.tscn")
+const AirlockChamberScene = preload("res://core_v2/props/doors/AirlockChamber.tscn")
 
 class FakePlayer:
 	extends KinematicBody

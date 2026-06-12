@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=2]
 
 [ext_resource path="res://core_v2/components/MovingPlatformV2.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/PlasmaGenerator.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/props/emitters/PlasmaGenerator.gd" type="Script" id=2]
 
 [node name="PlasmaGenerator" type="Spatial"]
 script = ExtResource( 2 )

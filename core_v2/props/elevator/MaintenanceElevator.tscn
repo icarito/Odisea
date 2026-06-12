@@ -1,7 +1,7 @@
 [gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://core_v2/props/elevator/MaintenanceElevator.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/PedestalButton.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/controls/PedestalButton.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=3]
 [ext_resource path="res://assets/sfx/sfx100v2_loop_machine_02.ogg" type="AudioStream" id=5]
 [ext_resource path="res://assets/sfx/chime.wav" type="AudioStream" id=6]
