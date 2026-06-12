@@ -22,6 +22,7 @@ export(float, 10.0, 200.0) var collision_radius := 40.0  # chunks inside get phy
 export(bool) var use_multimesh_lod := true
 export(float, 0.0, 200.0) var full_detail_radius := 25.0
 export(float, 0.0, 300.0) var lod1_radius := 65.0
+export(float, 1.0, 3.0) var lod1_exit_multiplier := 1.5
 export(float, 0.0, 200.0) var full_detail_prefetch_radius := 40.0
 export(int, 0, 4) var max_full_detail_upgrades_per_frame := 1
 export(float, 0.2, 1.0) var lod_cell_scale := 1.0
@@ -31,6 +32,8 @@ export(bool) var lod_full_detail_ramps := true
 export(float, 0.02, 0.5) var lod_rail_thickness := 0.08
 export(float, 0.0, 3.0) var lod_rail_height := 1.1
 export(bool) var lod_supports_enabled := true
+export(bool) var lod_support_collision_enabled := true
+export(float, 0.0, 80.0) var lod_support_collision_radius := 20.0
 export(float, 0.04, 0.6) var lod_support_thickness := 0.16
 export(float, 0.0, 20.0) var min_support_spacing := 5.0
 export(int, 3, 12) var lod_tube_segments := 6
@@ -55,8 +58,16 @@ export(int) var global_seed := 42
 export(int, 1, 64) var instances_per_frame := 8
 export(int, 1, 16) var rebuilds_per_frame := 1
 export(int, 1, 8) var max_chunk_requests_per_frame := 1
+export(int, 1, 16) var max_collision_toggles_per_frame := 4
 export(int, 1, 32) var max_pending_generation_jobs := 4
 export(int, 0, 4) var prewarm_chunk_radius := 1
+export(float, 0.0, 10.0) var startup_stream_settle_seconds := 2.0
+export(float, 0.0, 10.0) var startup_collision_delay_seconds := 3.0
+export(int, 1, 8) var startup_chunk_requests_per_frame := 1
+export(int, 1, 8) var startup_pending_generation_jobs := 1
+export(int, 1, 16) var startup_collision_toggles_per_frame := 1
+export(bool) var defer_collision_while_airlock_suspended := true
+export(float, 0.0, 10.0) var post_airlock_collision_delay_seconds := 1.0
 export(NodePath) var player_path: NodePath
 export(bool) var debug_chunk_collision_overlay := false
 export(float, 0.01, 1.0) var debug_chunk_collision_height := 0.08
@@ -108,13 +119,19 @@ var _full_lod_cleanup_pending: Dictionary = {}
 var _mst_build_queue: Array = []  # [{key, grid_data}] waiting to be built, one per frame
 var _wfc_build_queue: Array = []  # same shape, for non-MST path — drains with frame budget
 var _chunk_collision_state: Dictionary = {}  # chunk_key -> bool, avoids per-frame child iteration
+var _chunk_collision_built_state: Dictionary = {}  # chunk_key -> bool, avoids building physics before needed
+var _chunk_support_collision_state: Dictionary = {}  # chunk_key -> bool, supports only near player
 var _last_player_chunk: Vector2 = Vector2(INF, INF)  # skip scan when player hasn't moved chunks
+var _fill_scan_pending := true
 var _last_chunk_mode_cache: Dictionary = {}  # key -> mode string, skip redundant _target_lod_mode
 var _chunk_node_pool: Array = []  # pre-allocated Spatial nodes, reused on load/unload
 var _threaded: ScaffoldWFCThreaded = null
 var _generator_ref = null
 var _wfc_module_ref = null  # WFCGenerator kept as asset library when use_mst_generator is true
 var _origin_initialized := false
+var _stream_started_msec := 0
+var _airlock_collision_gate_seen := false
+var _airlock_collision_resume_msec := -1
 var _lod_deck_mesh: Mesh = null
 var _lod_ramp_mesh: Mesh = null
 var _lod_rail_mesh: CubeMesh = null
@@ -135,6 +152,7 @@ var _lod2_deck_mesh: CubeMesh = null
 var _debug_chunk_collision_material: SpatialMaterial = null
 
 func _ready() -> void:
+	_stream_started_msec = OS.get_ticks_msec()
 	_build_lod_resources()
 
 	# Create the threaded worker first — it probes (actually spawns a thread, not just
@@ -188,6 +206,11 @@ func _process(_delta) -> void:
 	var player_chunk = _world_to_chunk(player_pos)
 
 	var scan_radius = _chunk_scan_radius()
+	var startup_settling := _is_startup_settling()
+	var collision_deferred := _is_collision_deferred()
+	var request_budget := startup_chunk_requests_per_frame if startup_settling else max_chunk_requests_per_frame
+	var pending_limit := startup_pending_generation_jobs if startup_settling else max_pending_generation_jobs
+	var active_prewarm_radius := 0 if startup_settling else prewarm_chunk_radius
 
 	# Drain WFC build queue with an 8ms budget — prevents multiple chunk arrivals
 	# in the same frame from stacking into a long spike.
@@ -206,7 +229,8 @@ func _process(_delta) -> void:
 	var chunk_moved = (player_chunk != _last_player_chunk)
 	if chunk_moved:
 		_last_player_chunk = player_chunk
-	var need_scan = chunk_moved or not _pending_chunks.empty()
+		_fill_scan_pending = true
+	var need_scan = chunk_moved or not _pending_chunks.empty() or _fill_scan_pending
 	if use_mst_generator:
 		# Drain build queue first, then only enqueue new grids if queue is empty
 		# This prevents unbounded queue growth and keeps frame time predictable
@@ -218,13 +242,15 @@ func _process(_delta) -> void:
 				if (OS.get_ticks_usec() - frame_start) / 1000.0 >= 8.0:
 					break
 		elif need_scan:
-			_request_needed_chunks(player_pos, player_chunk, scan_radius, max_chunk_requests_per_frame)
-			if prewarm_chunk_radius > 0:
-				_request_needed_chunks(player_pos, player_chunk, prewarm_chunk_radius, max_pending_generation_jobs, false)
+			var requested := _request_needed_chunks(player_pos, player_chunk, scan_radius, request_budget, true, pending_limit)
+			if active_prewarm_radius > 0:
+				requested += _request_needed_chunks(player_pos, player_chunk, active_prewarm_radius, max_pending_generation_jobs, false, pending_limit)
+			_fill_scan_pending = requested > 0 or not _pending_chunks.empty()
 	elif need_scan:
-		_request_needed_chunks(player_pos, player_chunk, scan_radius, max_chunk_requests_per_frame)
-		if prewarm_chunk_radius > 0:
-			_request_needed_chunks(player_pos, player_chunk, prewarm_chunk_radius, max_pending_generation_jobs, false)
+		var requested := _request_needed_chunks(player_pos, player_chunk, scan_radius, request_budget, true, pending_limit)
+		if active_prewarm_radius > 0:
+			requested += _request_needed_chunks(player_pos, player_chunk, active_prewarm_radius, max_pending_generation_jobs, false, pending_limit)
+		_fill_scan_pending = requested > 0 or not _pending_chunks.empty()
 
 	var local_player_pos = global_transform.affine_inverse().xform(player_pos)
 
@@ -251,6 +277,7 @@ func _process(_delta) -> void:
 				_unload_chunk(scored[i].key)
 
 	var upgrades_left = max_full_detail_upgrades_per_frame
+	var collision_toggles_left = startup_collision_toggles_per_frame if startup_settling else max_collision_toggles_per_frame
 	for key in _active_chunks.keys():
 		var world_center = _chunk_to_world_center(key)
 		var center_dist = player_pos.distance_to(world_center)
@@ -260,15 +287,23 @@ func _process(_delta) -> void:
 			_last_chunk_mode_cache.erase(key)
 		else:
 			var chunk_node = _active_chunks[key]
-			var want_collision = footprint_dist <= collision_radius
-			if _chunk_collision_state.get(key) != want_collision:
-				_set_chunk_collision(chunk_node, want_collision)
-				_chunk_collision_state[key] = want_collision
+			var want_collision = (not collision_deferred) and footprint_dist <= collision_radius
+			var want_support_collision = want_collision and _wants_support_collision(footprint_dist)
+			var collision_build_stale = want_collision and not bool(_chunk_collision_built_state.get(key, false))
+			var support_collision_stale = want_collision and bool(_chunk_support_collision_state.get(key, false)) != want_support_collision
+			if _chunk_collision_state.get(key) != want_collision or collision_build_stale or support_collision_stale:
+				if collision_toggles_left > 0:
+					if collision_build_stale:
+						_sync_lod_base_collision(key, true)
+						chunk_node = _active_chunks.get(key, chunk_node)
+					if support_collision_stale:
+						_sync_lod_support_collision(key, want_support_collision)
+						chunk_node = _active_chunks.get(key, chunk_node)
+					_set_chunk_collision(chunk_node, want_collision)
+					_chunk_collision_state[key] = want_collision
+					collision_toggles_left -= 1
 
 			var current_mode = _chunk_modes.get(key, "")
-			if not chunk_moved and _last_chunk_mode_cache.get(key, "") == current_mode:
-				continue
-
 			var target_mode = _target_lod_mode(footprint_dist, current_mode)
 			_last_chunk_mode_cache[key] = target_mode
 
@@ -295,8 +330,10 @@ func _sync_cylinder_terrace(player_pos: Vector3) -> void:
 func _target_lod_mode(footprint_dist: float, current_mode: String = "") -> String:
 	if not use_multimesh_lod:
 		return "full"
-	# Hysteresis: upgrade at the export radius, downgrade at +10% to avoid oscillation.
-	var lod1_out = lod1_radius * 1.10
+	# Hysteresis: upgrade at the export radius, downgrade later. LOD1 must stay
+	# sticky while the player can still inspect the scaffold; otherwise nearby
+	# chunks visibly compete between detailed and far representations.
+	var lod1_out = lod1_radius * lod1_exit_multiplier
 	var full_out = full_detail_radius * 1.10
 	var prefetch_out = full_detail_prefetch_radius * 1.10
 
@@ -336,22 +373,26 @@ func _switch_to_lod_mode(chunk_key: Vector2, mode: String) -> void:
 	_chunk_modes[chunk_key] = mode
 	_full_lod_cleanup_pending.erase(chunk_key)
 	_chunk_collision_state.erase(chunk_key)
+	_chunk_collision_built_state.erase(chunk_key)
+	_chunk_support_collision_state.erase(chunk_key)
 	_threaded.cancel_instancing_for(chunk_node)
 
-	_clear_chunk_visuals(chunk_node)
+	_clear_lod_children(chunk_node)
 
 	var grid_data = _chunk_grid_cache[chunk_key]
+	var player_pos = _get_player_position()
+	var footprint_dist = _distance_to_chunk_footprint(player_pos, chunk_key)
+	var build_collision = (not _is_collision_deferred()) and footprint_dist <= collision_radius
+	var build_support_collision = build_collision and _wants_support_collision(footprint_dist)
 	if mode == "lod1":
-		_build_lod1_chunk(chunk_node, grid_data, chunk_key)
+		_build_lod1_chunk(chunk_node, grid_data, chunk_key, build_collision, build_support_collision)
 	elif mode == "lod2":
-		_build_lod2_chunk(chunk_node, grid_data, chunk_key)
+		_build_lod2_chunk(chunk_node, grid_data, chunk_key, build_collision, build_support_collision)
 
-func _clear_chunk_visuals(chunk_node: Spatial) -> void:
+func _clear_lod_children(chunk_node: Spatial) -> void:
 	for child in chunk_node.get_children():
-		# Keep collision
-		if child.name == "LODCollision":
-			continue
-		child.queue_free()
+		if child.name.begins_with("LOD"):
+			_retire_lod_child(child)
 
 func _initialize_origin(player_pos: Vector3) -> void:
 	# Chunk (0,0) is anchored so its generated cell positions are centered on the
@@ -366,9 +407,10 @@ func _initialize_origin(player_pos: Vector3) -> void:
 	global_translation = flat_pos
 	_origin_initialized = true
 
-func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_radius: int, request_budget: int, respect_load_radius: bool = true) -> int:
+func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_radius: int, request_budget: int, respect_load_radius: bool = true, pending_limit: int = -1) -> int:
 	if request_budget <= 0:
 		return 0
+	var effective_pending_limit := max_pending_generation_jobs if pending_limit < 0 else pending_limit
 	var local_player_pos = global_transform.affine_inverse().xform(player_pos)
 	var candidates = []
 	var cx_min = int(player_chunk.x) - scan_radius
@@ -410,7 +452,7 @@ func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_rad
 	for item in candidates:
 		if requested >= request_budget:
 			break
-		if _pending_chunks.size() >= max_pending_generation_jobs:
+		if _pending_chunks.size() >= effective_pending_limit:
 			break
 		# Skip LOD2 candidates when the cap is full and this chunk is out of frustum
 		if use_frustum_cap and active_lod2 >= max_lod2_chunks:
@@ -421,6 +463,44 @@ func _request_needed_chunks(player_pos: Vector3, player_chunk: Vector2, scan_rad
 		_request_chunk(item.key)
 		requested += 1
 	return requested
+
+func _is_startup_settling() -> bool:
+	if startup_stream_settle_seconds <= 0.001:
+		return false
+	return float(OS.get_ticks_msec() - _stream_started_msec) * 0.001 < startup_stream_settle_seconds
+
+func _is_collision_deferred() -> bool:
+	var age_sec := float(OS.get_ticks_msec() - _stream_started_msec) * 0.001
+	if age_sec < startup_collision_delay_seconds:
+		return true
+	if not defer_collision_while_airlock_suspended:
+		return false
+	var suspended := _is_player_airlock_suspended()
+	if suspended:
+		_airlock_collision_gate_seen = true
+		_airlock_collision_resume_msec = -1
+		return true
+	if _airlock_collision_gate_seen:
+		if _airlock_collision_resume_msec < 0:
+			_airlock_collision_resume_msec = OS.get_ticks_msec()
+			return true
+		var resume_age := float(OS.get_ticks_msec() - _airlock_collision_resume_msec) * 0.001
+		return resume_age < post_airlock_collision_delay_seconds
+	return false
+
+func _is_player_airlock_suspended() -> bool:
+	var player = get_node_or_null(player_path) if (player_path and not player_path.is_empty()) else null
+	if player == null:
+		var players = get_tree().get_nodes_in_group("player")
+		if not players.empty():
+			player = players[0]
+	if player == null:
+		return false
+	return player.has_meta("airlock_tracking_suspended") \
+		and bool(player.get_meta("airlock_tracking_suspended"))
+
+func _wants_support_collision(footprint_dist: float) -> bool:
+	return lod_support_collision_enabled and footprint_dist <= lod_support_collision_radius
 
 func _sort_chunk_candidates(a: Dictionary, b: Dictionary) -> bool:
 	return a.dist < b.dist
@@ -477,13 +557,7 @@ func _world_to_chunk(world_pos: Vector3) -> Vector2:
 	var local_pos = global_transform.affine_inverse().xform(world_pos)
 	var chunk_world_w = _chunk_step_x()
 	var chunk_world_d = _chunk_step_z()
-	var flat_z: float
-	if cylinder_mode:
-		# Invert cylinder: world_z = R*sin(theta), flat_z = R*theta
-		var clamped: float = clamp(local_pos.z / cylinder_radius, -1.0, 1.0)
-		flat_z = cylinder_radius * asin(clamped)
-	else:
-		flat_z = local_pos.z
+	var flat_z: float = local_pos.z
 	return Vector2(
 		floor(local_pos.x / chunk_world_w),
 		floor(flat_z / chunk_world_d)
@@ -498,12 +572,10 @@ func _chunk_to_world_center(chunk_key: Vector2) -> Vector3:
 	var flat_z: float = chunk_key.y * chunk_world_d + cell_center_d
 	var local_center: Vector3
 	if cylinder_mode:
-		var theta: float = flat_z / cylinder_radius
-		local_center = Vector3(
-			flat_x,
-			cylinder_radius * (1.0 - cos(theta)),
-			cylinder_radius * sin(theta)
-		)
+		# Streaming decisions stay in flat chunk space. CylinderRotator owns the
+		# visual arc; mixing that curved frame into load/unload distances makes the
+		# stream request and evict the wrong chunks as the player advances.
+		local_center = Vector3(flat_x, 0.0, flat_z)
 	else:
 		local_center = Vector3(flat_x, 0.0, flat_z)
 	return global_transform.xform(local_center)
@@ -543,15 +615,10 @@ func _distance_to_chunk_footprint_local(local_pos: Vector3, chunk_key: Vector2) 
 	var closest_z: float
 	var pos_z: float
 	if cylinder_mode:
-		# In cylinder mode, compare arc positions (flat_z space) directly.
-		# The player's world Z maps back to flat_z via atan2 on the cylinder.
-		# For small angles, world_z ≈ flat_z, so use the cylinder arc center.
-		var chunk_center_z: float = origin.z + float(chunk_length - 1) * cell_size * 0.5
-		var chunk_arc_z: float = cylinder_radius * sin(chunk_center_z / cylinder_radius)
-		var half_arc: float = float(chunk_length) * cell_size * 0.5
-		# Player position in world Z (stream-local) — use raw local_pos.z as arc approx
+		var min_z = origin.z - cell_size * 0.5
+		var max_z = origin.z + (float(chunk_length) - 0.5) * cell_size
 		pos_z = local_pos.z
-		closest_z = clamp(pos_z, chunk_arc_z - half_arc, chunk_arc_z + half_arc)
+		closest_z = clamp(pos_z, min_z, max_z)
 	else:
 		var min_z = origin.z - cell_size * 0.5
 		var max_z = origin.z + (float(chunk_length) - 0.5) * cell_size
@@ -1049,6 +1116,7 @@ func _do_build_chunk(chunk_key, grid_data: Array) -> void:
 
 	var chunk_node: Spatial = Spatial.new()
 	chunk_node.name = "Chunk_%d_%d" % [int(chunk_key.x), int(chunk_key.y)]
+	chunk_node.add_to_group("no_occlusion")
 	add_child(chunk_node)
 	_active_chunks[chunk_key] = chunk_node
 	_chunk_grid_cache[chunk_key] = grid_data
@@ -1056,13 +1124,16 @@ func _do_build_chunk(chunk_key, grid_data: Array) -> void:
 	chunk_node.transform = _chunk_to_local_transform(chunk_key)
 	var player_pos = _get_player_position()
 	var footprint_dist = _distance_to_chunk_footprint(player_pos, chunk_key)
+	var collision_deferred := _is_collision_deferred()
+	var build_collision = (not collision_deferred) and footprint_dist <= collision_radius
+	var build_support_collision = build_collision and _wants_support_collision(footprint_dist)
 
 	var mode = _target_lod_mode(footprint_dist)
 	_chunk_modes[chunk_key] = mode
 
 	if mode == "full":
 		# Build LOD1 immediately as visual placeholder while assets stream in
-		_build_lod1_chunk(chunk_node, grid_data, chunk_key)
+		_build_lod1_chunk(chunk_node, grid_data, chunk_key, build_collision, build_support_collision)
 		_full_lod_cleanup_pending[chunk_key] = true
 		if use_mst_generator:
 			_ensure_wfc_module_ref()
@@ -1073,12 +1144,11 @@ func _do_build_chunk(chunk_key, grid_data: Array) -> void:
 			module_ref, Vector3.ZERO
 		)
 	elif mode == "lod1":
-		_build_lod1_chunk(chunk_node, grid_data, chunk_key)
+		_build_lod1_chunk(chunk_node, grid_data, chunk_key, build_collision, build_support_collision)
 	else:
-		var need_col = lod_collision_enabled and footprint_dist <= collision_radius
-		_build_lod2_chunk(chunk_node, grid_data, chunk_key, need_col)
+		_build_lod2_chunk(chunk_node, grid_data, chunk_key, build_collision, build_support_collision)
 
-	_set_chunk_collision(chunk_node, footprint_dist <= collision_radius)
+	_set_chunk_collision(chunk_node, (not collision_deferred) and footprint_dist <= collision_radius)
 
 func _on_chunk_failed(chunk_key) -> void:
 	_pending_chunks.erase(chunk_key)
@@ -1097,11 +1167,84 @@ func _set_chunk_collision(chunk_node: Spatial, enabled: bool) -> void:
 		if body and body is StaticBody:
 			body.collision_layer = layer
 			body.collision_mask = mask
-	if enabled:
+	if enabled and not chunk_node.is_in_group("no_occlusion"):
 		var dither = get_node_or_null("/root/PropDitherManager")
 		if dither and dither.has_method("refresh_occlusion_for_node"):
 			dither.call_deferred("refresh_occlusion_for_node", chunk_node)
 	_sync_chunk_collision_debug_overlay(chunk_node, enabled)
+
+func _sync_lod_base_collision(chunk_key: Vector2, enabled: bool) -> void:
+	if not _active_chunks.has(chunk_key) or not _chunk_grid_cache.has(chunk_key):
+		return
+	var chunk_node = _active_chunks[chunk_key]
+	if not is_instance_valid(chunk_node):
+		return
+	_remove_lod_base_collision(chunk_node)
+	if enabled:
+		_add_lod_collision(chunk_node, _base_collision_transforms_for_chunk(chunk_key))
+	_chunk_collision_built_state[chunk_key] = enabled
+
+func _remove_lod_base_collision(chunk_node: Spatial) -> void:
+	for child in chunk_node.get_children():
+		if child.name == "LODCollision" or child.name == "LODCollisionOther":
+			_retire_lod_child(child)
+
+func _base_collision_transforms_for_chunk(chunk_key: Vector2) -> Array:
+	var collision_shapes = []
+	if not lod_collision_enabled or not _chunk_grid_cache.has(chunk_key):
+		return collision_shapes
+	var grid_data = _chunk_grid_cache[chunk_key]
+	var mode = _chunk_modes.get(chunk_key, "")
+	var visual_sink = []
+	for y in range(chunk_length):
+		for x in range(chunk_height):
+			var state = grid_data[y * chunk_height + x]
+			var v = _state_variant(state)
+			if state == null or v == null or _variant_id(v) == "EMPTY":
+				continue
+			var scale_xz = cell_size * lod_cell_scale
+			var vid = _variant_id(v)
+			if vid == "S":
+				_append_lod_ramp_rails(visual_sink, collision_shapes, x, y, state, v)
+				collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
+			else:
+				if mode == "lod1":
+					_append_lod_rails(visual_sink, collision_shapes, x, y, state, v)
+				_append_lod_deck_collisions(collision_shapes, x, y, state, v, scale_xz)
+	return collision_shapes
+
+func _sync_lod_support_collision(chunk_key: Vector2, enabled: bool) -> void:
+	if not _active_chunks.has(chunk_key) or not _chunk_grid_cache.has(chunk_key):
+		return
+	var chunk_node = _active_chunks[chunk_key]
+	if not is_instance_valid(chunk_node):
+		return
+	_remove_lod_support_collision(chunk_node)
+	if enabled:
+		_add_lod_support_collision(chunk_node, _support_collision_transforms_for_chunk(chunk_key))
+	_chunk_support_collision_state[chunk_key] = enabled
+
+func _remove_lod_support_collision(chunk_node: Spatial) -> void:
+	for child in chunk_node.get_children():
+		if child.name == "LODSupportCollision":
+			_retire_lod_child(child)
+
+func _support_collision_transforms_for_chunk(chunk_key: Vector2) -> Array:
+	var support_collision = []
+	if not lod_supports_enabled or not _chunk_grid_cache.has(chunk_key):
+		return support_collision
+	var grid_data = _chunk_grid_cache[chunk_key]
+	var used_support_keys = {}
+	var used_support_points = []
+	var visual_sink = []
+	for y in range(chunk_length):
+		for x in range(chunk_height):
+			var state = grid_data[y * chunk_height + x]
+			var v = _state_variant(state)
+			if state == null or v == null or _variant_id(v) == "EMPTY":
+				continue
+			_append_lod_supports(visual_sink, support_collision, used_support_keys, used_support_points, chunk_key, x, y, state, v)
+	return support_collision
 
 func _sync_chunk_collision_debug_overlay(chunk_node: Spatial, enabled: bool) -> void:
 	if chunk_node == null or not is_instance_valid(chunk_node):
@@ -1144,7 +1287,7 @@ func _upgrade_chunk_to_full_detail(chunk_key: Vector2) -> void:
 	_full_lod_cleanup_pending[chunk_key] = true
 	# Ensure a LOD1 placeholder is visible while assets stream in
 	if prev_mode != "lod1":
-		_clear_chunk_visuals(chunk_node)
+		_clear_lod_children(chunk_node)
 		_build_lod1_chunk(chunk_node, _chunk_grid_cache[chunk_key], chunk_key)
 	if use_mst_generator:
 		_ensure_wfc_module_ref()
@@ -1155,7 +1298,21 @@ func _upgrade_chunk_to_full_detail(chunk_key: Vector2) -> void:
 		module_ref, Vector3.ZERO
 	)
 
-func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2) -> void:
+func _rebuild_lod_chunk(chunk_key: Vector2, build_collision: bool, build_support_collision: bool) -> void:
+	if not _active_chunks.has(chunk_key) or not _chunk_grid_cache.has(chunk_key):
+		return
+	var chunk_node = _active_chunks[chunk_key]
+	if not is_instance_valid(chunk_node):
+		return
+	_threaded.cancel_instancing_for(chunk_node)
+	_clear_lod_children(chunk_node)
+	var mode = _chunk_modes.get(chunk_key, "")
+	if mode == "lod1":
+		_build_lod1_chunk(chunk_node, _chunk_grid_cache[chunk_key], chunk_key, build_collision, build_support_collision)
+	elif mode == "lod2":
+		_build_lod2_chunk(chunk_node, _chunk_grid_cache[chunk_key], chunk_key, build_collision, build_support_collision)
+
+func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2, build_collision: bool = true, build_support_collision: bool = false) -> void:
 	var deck_transforms = []
 	var ramp_transforms = []
 	var rail_transforms = []
@@ -1175,14 +1332,14 @@ func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 				_instance_lod_full_detail_cell(chunk_node, x, y, state, v)
 			elif vid == "S":
 				ramp_transforms.append(_lod_ramp_transform(x, y, state, v, scale_xz))
-				_append_lod_ramp_rails(rail_transforms, collision_shapes if lod_collision_enabled else null, x, y, state, v)
+				_append_lod_ramp_rails(rail_transforms, collision_shapes if build_collision else null, x, y, state, v)
 			else:
 				var height_center = _lod_height_center_offset(v)
 				_append_lod_decks(deck_transforms, x, y, state, v, scale_xz, height_center)
-				_append_lod_rails(rail_transforms, collision_shapes if lod_collision_enabled else null, x, y, state, v)
+				_append_lod_rails(rail_transforms, collision_shapes if build_collision else null, x, y, state, v)
 			if lod_supports_enabled:
-				_append_lod_supports(support_transforms, collision_shapes if lod_collision_enabled else null, used_support_keys, used_support_points, chunk_key, x, y, state, v)
-			if lod_collision_enabled:
+				_append_lod_supports(support_transforms, null, used_support_keys, used_support_points, chunk_key, x, y, state, v)
+			if build_collision:
 				if vid == "S":
 					collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
 				else:
@@ -1192,8 +1349,12 @@ func _build_lod1_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 	_add_lod_multimesh(chunk_node, "LOD1Rails", _lod1_tube_mesh, rail_transforms, _lod_rail_material)
 	_add_lod_multimesh(chunk_node, "LOD1Supports", _lod1_tube_mesh, support_transforms, _lod_material)
 	_add_lod_collision(chunk_node, collision_shapes)
+	_chunk_collision_built_state[chunk_key] = build_collision
+	_chunk_support_collision_state[chunk_key] = false
+	if build_collision and build_support_collision:
+		_sync_lod_support_collision(chunk_key, true)
 
-func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2, build_collision: bool = true) -> void:
+func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2, build_collision: bool = true, build_support_collision: bool = false) -> void:
 	var deck_transforms = []
 	var ramp_transforms = []
 	var rail_transforms = []
@@ -1216,7 +1377,7 @@ func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 				var height_center = _lod_height_center_offset(v)
 				_append_lod_decks(deck_transforms, x, y, state, v, scale_xz, height_center)
 			if lod_supports_enabled:
-				_append_lod_supports(support_transforms, collision_shapes if build_collision else null, used_support_keys, used_support_points, chunk_key, x, y, state, v)
+				_append_lod_supports(support_transforms, null, used_support_keys, used_support_points, chunk_key, x, y, state, v)
 			if build_collision:
 				if vid == "S":
 					collision_shapes.append(_lod_ramp_collision_transform(x, y, state, v))
@@ -1228,6 +1389,10 @@ func _build_lod2_chunk(chunk_node: Spatial, grid_data: Array, chunk_key: Vector2
 	_add_lod_multimesh(chunk_node, "LOD2Supports", _lod1_tube_mesh, support_transforms, _lod2_material)
 	if build_collision:
 		_add_lod_collision(chunk_node, collision_shapes)
+	_chunk_collision_built_state[chunk_key] = build_collision
+	_chunk_support_collision_state[chunk_key] = false
+	if build_collision and build_support_collision:
+		_sync_lod_support_collision(chunk_key, true)
 
 func _lod_deck_transform(x: int, y: int, state, v, size: Vector3, y_offset: float) -> Transform:
 	var xf = Transform()
@@ -1560,17 +1725,10 @@ func _append_lod_rail_segment(out: Array, collision_out, a: Vector3, b: Vector3)
 		_tube_between_transform(a, top_a),
 		_tube_between_transform(b, top_b),
 	]
-	var collision = [
-		_box_between_transform(top_a, top_b, lod_rail_thickness),
-		_box_between_transform(mid_a, mid_b, lod_rail_thickness),
-		_vertical_box_transform(a, lod_rail_height, lod_rail_thickness),
-		_vertical_box_transform(b, lod_rail_height, lod_rail_thickness),
-	]
 	for xf in visual:
 		out.append(xf)
 	if collision_out != null:
-		for col in collision:
-			collision_out.append(_collision_box_from_transform(col))
+		collision_out.append(_rail_panel_collision(a, b))
 
 func _corner_height(heights: Array, x_sign: float, z_sign: float) -> float:
 	if heights.size() < 4:
@@ -1763,6 +1921,22 @@ func _collision_box_from_transform(xf: Transform) -> Dictionary:
 		"extents": Vector3(sx, sy, sz) * 0.5
 	}
 
+func _rail_panel_collision(a: Vector3, b: Vector3) -> Dictionary:
+	var delta = b - a
+	var flat_delta = Vector3(delta.x, 0.0, delta.z)
+	var length = flat_delta.length()
+	if length <= 0.001:
+		return _collision_box_from_transform(_vertical_box_transform(a, lod_rail_height, lod_rail_thickness))
+	var x_axis = flat_delta / length
+	var z_axis = x_axis.cross(Vector3.UP).normalized()
+	var basis = Basis(x_axis, Vector3.UP, z_axis)
+	var height = lod_rail_height + abs(delta.y)
+	var center = (a + b) * 0.5 + Vector3.UP * (height * 0.5)
+	return {
+		"transform": Transform(basis, center),
+		"extents": Vector3(length * 0.5, height * 0.5, lod_rail_thickness * 0.5)
+	}
+
 func _box_between_transform(start: Vector3, end: Vector3, thickness: float) -> Transform:
 	var delta = end - start
 	var length = delta.length()
@@ -1842,7 +2016,16 @@ func _cleanup_finished_full_detail_lods() -> void:
 func _remove_lod_children(chunk_node: Spatial) -> void:
 	for child in chunk_node.get_children():
 		if child.name.begins_with("LOD"):
-			child.queue_free()
+			_retire_lod_child(child)
+
+func _retire_lod_child(child: Node) -> void:
+	if child is Spatial:
+		(child as Spatial).visible = false
+	if child is CollisionObject:
+		var co := child as CollisionObject
+		co.collision_layer = 0
+		co.collision_mask = 0
+	child.queue_free()
 
 func _add_lod_collision(chunk_node: Spatial, transforms: Array) -> void:
 	if transforms.empty():
@@ -1851,6 +2034,7 @@ func _add_lod_collision(chunk_node: Spatial, transforms: Array) -> void:
 	# hears metal steps on scaffold without overriding sounds from floor below.
 	var surface_body = StaticBody.new()
 	surface_body.name = "LODCollision"
+	surface_body.add_to_group("no_occlusion")
 	surface_body.collision_layer = PROP_COLLISION_LAYER
 	surface_body.collision_mask = 0
 	var footstep_surface = Spatial.new()
@@ -1860,6 +2044,7 @@ func _add_lod_collision(chunk_node: Spatial, transforms: Array) -> void:
 	surface_body.add_child(footstep_surface)
 	var other_body = StaticBody.new()
 	other_body.name = "LODCollisionOther"
+	other_body.add_to_group("no_occlusion")
 	other_body.collision_layer = PROP_COLLISION_LAYER
 	other_body.collision_mask = 0
 	var surface_count := 0
@@ -1882,6 +2067,26 @@ func _add_lod_collision(chunk_node: Spatial, transforms: Array) -> void:
 		chunk_node.add_child(surface_body)
 	if other_count > 0:
 		chunk_node.add_child(other_body)
+
+func _add_lod_support_collision(chunk_node: Spatial, transforms: Array) -> void:
+	if transforms.empty():
+		return
+	var body = StaticBody.new()
+	body.name = "LODSupportCollision"
+	body.add_to_group("no_occlusion")
+	body.collision_layer = PROP_COLLISION_LAYER
+	body.collision_mask = PROP_COLLISION_MASK
+	var count := 0
+	for spec in transforms:
+		var shape = BoxShape.new()
+		shape.extents = spec.get("extents", Vector3(0.5, 0.5, 0.5)) if typeof(spec) == TYPE_DICTIONARY else Vector3(0.5, 0.5, 0.5)
+		var col = CollisionShape.new()
+		col.name = "LODSupportCollision_%d" % count
+		col.shape = shape
+		col.transform = spec.get("transform", Transform()) if typeof(spec) == TYPE_DICTIONARY else spec
+		body.add_child(col)
+		count += 1
+	chunk_node.add_child(body)
 
 func _lane_width() -> float:
 	return clamp(cell_size * 0.32, 2.5, 4.5)
@@ -2008,6 +2213,7 @@ func _add_lod_multimesh(chunk_node: Spatial, node_name: String, mesh: Mesh, tran
 	mm.set_as_bulk_array(buf)
 	var inst = MultiMeshInstance.new()
 	inst.name = node_name
+	inst.add_to_group("no_occlusion")
 	inst.layers = PROP_VISUAL_LAYER
 	inst.multimesh = mm
 	inst.material_override = _lod_material if material == null else material
@@ -2069,6 +2275,8 @@ func _unload_chunk(chunk_key: Vector2) -> void:
 	_chunk_expected_full_count.erase(chunk_key)
 	_full_lod_cleanup_pending.erase(chunk_key)
 	_chunk_collision_state.erase(chunk_key)
+	_chunk_collision_built_state.erase(chunk_key)
+	_chunk_support_collision_state.erase(chunk_key)
 	_last_chunk_mode_cache.erase(chunk_key)
 	_threaded.cancel_instancing_for(node)
 	node.queue_free()
