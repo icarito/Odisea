@@ -8,6 +8,7 @@ dependencies = []
 addopts = "-v"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
+asyncio_mode = "auto"
 markers = [
     "oys: Odyssey Script Tests",
     "odisea_gdunit: Tests executed by the gdunit-compatible pytest runner.",

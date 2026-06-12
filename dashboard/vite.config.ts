@@ -16,6 +16,9 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         registerType: 'autoUpdate',
         // We register the SW ourselves in main.tsx so we can auto-reload the
         // page when a new version activates.

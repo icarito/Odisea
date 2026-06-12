@@ -94,3 +94,34 @@ export async function sendCommand(playerId: string, action: string, args: any = 
   });
   return response.json();
 }
+
+export async function getVapidKey() {
+  const response = await apiFetch("/push/key");
+  return response.json();
+}
+
+export async function subscribePush(subscription: any, settings: any = {}) {
+  const response = await apiFetch("/push/subscribe", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      subscription,
+      player_id: "admin",
+      settings,
+    }),
+  });
+  return response.json();
+}
+
+export async function sendPush(payload: any) {
+  const response = await apiFetch("/push/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return response.json();
+}

@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import { LoginScreen } from './components/LoginScreen';
+import { NotificationSettings } from './components/NotificationSettings';
 import { Viewport3D } from './components/Viewport3D';
 import { Heatmap3D } from './components/Heatmap3D';
 import { LiveMap } from './components/LiveMap';
@@ -35,7 +36,7 @@ import {
   sessionDuration,
   isUsefulSceneName,
 } from './lib/filters';
-import { Maximize2, X, SlidersHorizontal, ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
+import { Maximize2, X, SlidersHorizontal, ChevronUp, ChevronDown, RotateCcw, WifiOff } from 'lucide-react';
 
 type Tab = 'live' | 'heatmap' | 'history';
 
@@ -355,6 +356,12 @@ const HomeStats = ({ sessions, serverStats }: { sessions: any[]; serverStats?: G
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
+      {!navigator.onLine && (
+        <div className="flex items-center gap-2 border-2 border-black bg-danger px-4 py-2 font-black uppercase text-black shadow-[4px_4px_0px_0px_black]">
+          <WifiOff size={20} />
+          <span>Modo Offline — Mostrando datos de la última sesión</span>
+        </div>
+      )}
       {/* Performance / usage headline stats share one compact card. */}
       <RetroCard>
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
@@ -1107,6 +1114,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 </div>
                 {/* Bottom stripe: info cards (historical summary) */}
                 <div className="min-h-0 flex-1 overflow-y-auto">
+                  <div className="p-4 sm:p-6 pb-0">
+                    <NotificationSettings />
+                  </div>
                   <HomeStats sessions={filteredDashboardSessions} serverStats={serverStats} />
                 </div>
               </div>
