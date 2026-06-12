@@ -130,9 +130,9 @@ func _process(_delta):
 			"node_count": node_count
 		})
 
-	# 2. Lag Spike Detection
-	if _last_fps - fps > LAG_SPIKE_THRESHOLD_FPS:
-		_report_lag_spike(fps, _last_fps, process_time, physics_time, draw_calls, objects_in_frame, vertices_in_frame, node_count, frame_gap_ms)
+	# 2. Lag Spike Detection (Legacy automatic path disabled in favor of HotzoneRecorder)
+	# if _last_fps - fps > LAG_SPIKE_THRESHOLD_FPS:
+	# 	_report_lag_spike(fps, _last_fps, process_time, physics_time, draw_calls, objects_in_frame, vertices_in_frame, node_count, frame_gap_ms)
 	_last_fps = fps
 
 	# 2.5. Register metrics with ANNAV2 telemetry (appear in central dashboard heartbeats)
@@ -401,22 +401,12 @@ func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, objects_in_f
 		"heavy_nodes": _get_top_heavy_nodes()
 	}
 
-	_save_report_throttled(report, now_msec)
+	# _save_report_throttled(report, now_msec)
 
 	if _anna_v2:
 		_anna_v2.register_telemetry_dict({
-			"last_lag_spike": {
-				"fps": fps,
-				"drop": drop,
-				"process_time_ms": report["process_time_ms"],
-				"physics_time_ms": report["physics_time_ms"],
-				"draw_calls": report["draw_calls"],
-				"objects_in_frame": report["objects_in_frame"],
-				"vertices_in_frame": report["vertices_in_frame"],
-				"node_count": report["node_count"],
-				"scene": report["scene"],
-				"timestamp": report["timestamp"]
-			}
+			# Legacy automatic last_lag_spike telemetry disabled
+			# "last_lag_spike": { ... }
 		})
 
 func _should_log_lag_spike(now_msec: int, drop: float) -> bool:
