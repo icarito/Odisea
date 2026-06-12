@@ -513,6 +513,7 @@ class OdiseaCentral:
 
         player_id = request.headers.get("X-Player-ID")
         session_id = request.headers.get("X-Session-ID")
+        trigger = request.headers.get("X-Trigger", "auto")
         if not player_id or not session_id:
             return web.json_response({"error": "missing_metadata_headers"}, status=400)
 
@@ -547,9 +548,9 @@ class OdiseaCentral:
                 conn = self._get_db()
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO hotzones (id, player_id, session_id, timestamp, file_path)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (hotzone_id, player_id, session_id, time.time(), fpath))
+                    INSERT INTO hotzones (id, player_id, session_id, timestamp, file_path, trigger_type)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (hotzone_id, player_id, session_id, time.time(), fpath, trigger))
                 conn.commit()
                 conn.close()
 
@@ -1236,7 +1237,8 @@ class OdiseaCentral:
                 player_id TEXT,
                 session_id TEXT,
                 timestamp REAL,
-                file_path TEXT
+                file_path TEXT,
+                trigger_type TEXT DEFAULT 'auto'
             );
         """)
         cursor.execute("""

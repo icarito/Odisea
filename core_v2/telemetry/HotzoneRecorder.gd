@@ -15,6 +15,7 @@ var hotzone_min_duration := 5.0
 var hotzone_cooldown := 60.0
 var hotzone_max_captures_per_session := 5
 var hotzone_grid_size := 10.0
+var snapshot_interval := 100 # Frames between full snapshots in buffer
 
 # State
 var _is_testing := false
@@ -34,6 +35,7 @@ var _anna_v2: Node = null
 var _last_scene_name := ""
 var _is_web := false
 var _retry_timer := 0.0
+var _frames_since_snapshot := 0
 
 func _ready():
 	_is_web = OS.has_feature("web")
@@ -86,6 +88,7 @@ func record_frame(input, dt: float):
 			_is_in_hotzone = false
 			print("[HotzoneRecorder] Discarding hotzone due to scene change")
 		_last_scene_name = scene_name
+		_frames_since_snapshot = 0 # Force a snapshot on scene change
 
 	# Store frame in ring buffer
 	var frame_data = {
@@ -95,6 +98,13 @@ func record_frame(input, dt: float):
 		"fps": fps,
 		"t": now
 	}
+
+	# Periodically include a full snapshot
+	if _frames_since_snapshot <= 0 or _frames_since_snapshot >= snapshot_interval:
+		if is_instance_valid(player) and player.has_method("get_full_snapshot"):
+			frame_data["snapshot"] = player.get_full_snapshot()
+			_frames_since_snapshot = 0
+	_frames_since_snapshot += 1
 
 	if _ring_buffer.size() < hotzone_buffer_frames:
 		_ring_buffer.append(frame_data)
@@ -117,7 +127,7 @@ func record_frame(input, dt: float):
 			# FPS recovered! Check duration
 			var duration = (now - _hotzone_start_msec) / 1000.0
 			if duration >= hotzone_min_duration:
-				_trigger_capture(scene_name, pos)
+				_trigger_capture(scene_name, pos, "auto")
 
 			_is_in_hotzone = false
 			_last_hotzone_msec = now
@@ -127,19 +137,40 @@ func record_frame(input, dt: float):
 			_last_hotzone_msec = now
 			print("[HotzoneRecorder] Hotzone timed out (sustained low FPS > 30s)")
 
-func _trigger_capture(scene: String, pos: Vector3):
-	var gx = int(floor(pos.x / hotzone_grid_size))
-	var gz = int(floor(pos.z / hotzone_grid_size))
-	var key = "%s:%d:%d" % [scene, gx, gz]
+func _unhandled_input(event):
+	var manual = false
+	if event is InputEventKey and event.pressed:
+		if event.control and event.shift and event.scancode == KEY_BACKSPACE:
+			manual = true
 
-	if _dedup_table.has(key):
-		print("[HotzoneRecorder] Skipping capture: grid cell already recorded this session")
-		return
+	if not manual and event.is_action_pressed("hotzone_manual_capture"):
+		manual = true
 
-	_dedup_table[key] = OS.get_unix_time()
+	if manual:
+		var scene_name = ""
+		var pos = Vector3.ZERO
+		var player = SessionManager.player
+		if is_instance_valid(player):
+			pos = player.global_transform.origin
+			if get_tree().current_scene:
+				scene_name = get_tree().current_scene.filename.get_file().get_basename()
+
+		_trigger_capture(scene_name, pos, "manual")
+
+func _trigger_capture(scene: String, pos: Vector3, trigger_type: String):
+	if trigger_type == "auto":
+		var gx = int(floor(pos.x / hotzone_grid_size))
+		var gz = int(floor(pos.z / hotzone_grid_size))
+		var key = "%s:%d:%d" % [scene, gx, gz]
+
+		if _dedup_table.has(key):
+			print("[HotzoneRecorder] Skipping capture: grid cell already recorded this session")
+			return
+
+		_dedup_table[key] = OS.get_unix_time()
+
 	_capture_count += 1
-
-	print("[HotzoneRecorder] Triggering hotzone capture for ", key)
+	print("[HotzoneRecorder] Triggering hotzone capture (type: %s) for %s" % [trigger_type, scene])
 
 	# Collect frames from ring buffer in order
 	var frames = []
@@ -150,11 +181,12 @@ func _trigger_capture(scene: String, pos: Vector3):
 	var snapshot = {
 		"magic": BINARY_MAGIC,
 		"version": SCHEMA_VERSION,
+		"trigger": trigger_type,
 		"player_id": _anna_v2.player_id if _anna_v2 else "unknown",
 		"session_id": _anna_v2.session_id if _anna_v2 else "unknown",
 		"timestamp": OS.get_unix_time(),
 		"scene": scene,
-		"grid": [gx, gz],
+		"grid": [int(floor(pos.x / hotzone_grid_size)), int(floor(pos.z / hotzone_grid_size))],
 		"frames": frames
 	}
 
@@ -166,18 +198,21 @@ func _trigger_capture(scene: String, pos: Vector3):
 	if f.open(filepath, File.WRITE) == OK:
 		f.store_buffer(blob)
 		f.close()
-		_enqueue_upload(filepath)
+		_enqueue_upload(filepath, trigger_type)
+		if trigger_type == "manual":
+			_show_feedback("Bug report enviado ✓")
 	else:
 		printerr("[HotzoneRecorder] Failed to save hotzone blob to ", filepath)
+		if trigger_type == "manual":
+			_show_feedback("Error al enviar — se reintentará", true)
 
-func _enqueue_upload(filepath: String):
+func _enqueue_upload(filepath: String, trigger_type: String = "auto"):
 	if not filepath in _upload_queue:
-		_upload_queue.append(filepath)
+		_upload_queue.append({"path": filepath, "trigger": trigger_type})
 
-	# Max 2 waiting captures in memory queue
-	if _upload_queue.size() > 3: # 1 active + 2 waiting
-		var dropped = _upload_queue.pop_at(1) # Drop the one after current active
-		print("[HotzoneRecorder] Memory queue full, deferring ", dropped)
+	if _upload_queue.size() > 3:
+		var dropped = _upload_queue.pop_at(1)
+		print("[HotzoneRecorder] Memory queue full, deferring ", dropped.path)
 
 	if not _is_uploading:
 		call_deferred("_process_upload_queue")
@@ -186,7 +221,10 @@ func _process_upload_queue():
 	if _is_uploading or _upload_queue.empty():
 		return
 
-	var filepath = _upload_queue[0]
+	var item = _upload_queue[0]
+	var filepath = item.path
+	var trigger = item.trigger
+
 	var f = File.new()
 	if not f.file_exists(filepath):
 		_upload_queue.pop_front()
@@ -207,9 +245,9 @@ func _process_upload_queue():
 	var token = _get_token()
 
 	if _is_web:
-		_upload_web(url, token, blob, filepath)
+		_upload_web(url, token, blob, filepath, trigger)
 	else:
-		_upload_native(url, token, blob)
+		_upload_native(url, token, blob, trigger)
 
 func _get_upload_url() -> String:
 	var base = "wss://odisea.educa.juegos/ws" # Default
@@ -218,7 +256,6 @@ func _get_upload_url() -> String:
 		if peer_url != "":
 			base = peer_url
 
-	# Convert ws/wss to http/https and point to /hotzone
 	var url = base.replace("/ws", "/hotzone")
 	if url.begins_with("ws://"): url = url.replace("ws://", "http://")
 	if url.begins_with("wss://"): url = url.replace("wss://", "https://")
@@ -229,7 +266,7 @@ func _get_token() -> String:
 		return _anna_v2._net_thread._bridge_token
 	return ""
 
-func _upload_native(url: String, token: String, blob: PoolByteArray):
+func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: String):
 	var headers = [
 		"Authorization: Bearer " + token,
 		"Content-Type: application/octet-stream"
@@ -239,6 +276,7 @@ func _upload_native(url: String, token: String, blob: PoolByteArray):
 	var session_id = _anna_v2.session_id if _anna_v2 else "unknown"
 	headers.append("X-Player-ID: " + player_id)
 	headers.append("X-Session-ID: " + session_id)
+	headers.append("X-Trigger: " + trigger)
 
 	var err = _http_request.request_raw(url, headers, true, HTTPClient.METHOD_POST, blob)
 	if err != OK:
@@ -250,22 +288,18 @@ func _on_upload_completed(_result, response_code, _headers, _body):
 	_is_uploading = false
 	if response_code == 200 or response_code == 201:
 		print("[HotzoneRecorder] Upload successful")
-		var filepath = _upload_queue.pop_front()
+		var item = _upload_queue.pop_front()
 		var dir = Directory.new()
-		dir.remove(filepath)
+		dir.remove(item.path)
 
-		# Success! Try next in queue or scan for more offline files
-		_retry_timer = 5.0 # Quick retry for next pending
+		_retry_timer = 5.0
 		call_deferred("_process_upload_queue")
 	else:
 		printerr("[HotzoneRecorder] Upload failed with code ", response_code)
 		_on_upload_error()
 
 func _on_upload_error():
-	# On failure, move to end of queue or just leave for retry cycle
-	var failed_path = _upload_queue.pop_front()
-	# Don't pop it permanently, but don't keep it at front to block others
-	# Actually, for now let's just wait for the cooldown scan to re-add it.
+	var _failed_item = _upload_queue.pop_front()
 	_retry_timer = hotzone_cooldown
 
 func _scan_pending_files():
@@ -276,21 +310,57 @@ func _scan_pending_files():
 		while file_name != "":
 			if not dir.current_is_dir() and file_name.ends_with(".bin"):
 				var full_path = PENDING_DIR + file_name
-				if not full_path in _upload_queue:
-					_upload_queue.append(full_path)
-					if _upload_queue.size() >= 5: break # Don't flood memory queue
+				var already_in = false
+				for item in _upload_queue:
+					if item.path == full_path:
+						already_in = true
+						break
+				if not already_in:
+					_upload_queue.append({"path": full_path, "trigger": "unknown"})
+					if _upload_queue.size() >= 5: break
 			file_name = dir.get_next()
 		dir.list_dir_end()
 
 	if not _is_uploading and not _upload_queue.empty():
 		_process_upload_queue()
 
+func _show_feedback(message: String, is_error: bool = false):
+	var canvas = CanvasLayer.new()
+	canvas.layer = 100
+	get_tree().root.add_child(canvas)
+
+	var label = Label.new()
+	label.text = message
+	label.align = Label.ALIGN_RIGHT
+	label.valign = Label.VALIGN_TOP
+	label.set_anchors_and_margins_preset(Control.PRESET_TOP_RIGHT)
+	label.margin_top = 20
+	label.margin_right = -20
+
+	if is_error:
+		label.modulate = Color(1, 0.3, 0.3)
+	else:
+		label.modulate = Color(0.3, 1, 0.3)
+
+	canvas.add_child(label)
+
+	# Simple fade out
+	var t = Timer.new()
+	t.wait_time = 3.0
+	t.one_shot = true
+	canvas.add_child(t)
+	t.start()
+	yield(t, "timeout")
+
+	# Manual animation for fade (since I can't use Tween easily in this script without complex setup)
+	# For simplicity, just queue_free
+	canvas.queue_free()
+
 # --- HTML5 / Web Worker ---
 
 func _inject_worker():
 	if not Engine.has_singleton("JavaScript"): return
 
-	# Load worker code from file or use a fallback
 	var worker_code = ""
 	var f = File.new()
 	if f.file_exists("res://core_v2/telemetry/html/hotzone_worker.js"):
@@ -298,7 +368,6 @@ func _inject_worker():
 		worker_code = f.get_as_text().replace("\"", "\\\"").replace("\n", "\\n")
 		f.close()
 	else:
-		# Minimal fallback if file missing
 		worker_code = "self.onmessage=async function(e){ var {url,token,blob,id,headers}=e.data; try { var fetchHeaders={'Authorization':'Bearer '+token,'Content-Type':'application/octet-stream'}; if(headers)Object.assign(fetchHeaders,headers); var resp=await fetch(url,{method:'POST',headers:fetchHeaders,body:blob}); self.postMessage({id:id,ok:resp.ok,status:resp.status}); } catch(err){ self.postMessage({id:id,ok:false,error:err.message}); } };"
 
 	Engine.get_singleton("JavaScript").eval("""
@@ -326,7 +395,7 @@ window.Hotzone_Worker_Bridge = {
 
 var _current_web_upload_id := ""
 
-func _upload_web(url: String, token: String, blob: PoolByteArray, _filepath: String):
+func _upload_web(url: String, token: String, blob: PoolByteArray, _filepath: String, trigger: String):
 	_current_web_upload_id = str(OS.get_ticks_msec())
 	var js = Engine.get_singleton("JavaScript")
 	var player_id = _anna_v2.player_id if _anna_v2 else "unknown"
@@ -339,7 +408,8 @@ func _upload_web(url: String, token: String, blob: PoolByteArray, _filepath: Str
 		"for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);" +
 		"var headers = {" +
 		"  'X-Player-ID': '" + player_id + "'," +
-		"  'X-Session-ID': '" + session_id + "'" +
+		"  'X-Session-ID': '" + session_id + "'," +
+		"  'X-Trigger': '" + trigger + "'" +
 		"};" +
 		"Hotzone_Worker_Bridge.upload('" + url + "', '" + token + "', buf, '" + _current_web_upload_id + "', headers);" +
 		"})()")
@@ -365,9 +435,9 @@ func _on_web_upload_completed(res):
 	var ok = res.get("ok")
 	if ok:
 		print("[HotzoneRecorder] Web upload successful")
-		var filepath = _upload_queue.pop_front()
+		var item = _upload_queue.pop_front()
 		var dir = Directory.new()
-		dir.remove(filepath)
+		dir.remove(item.path)
 		_retry_timer = 5.0
 	else:
 		printerr("[HotzoneRecorder] Web upload failed: ", res.get("error", "unknown error"), " Status: ", res.get("status"))
