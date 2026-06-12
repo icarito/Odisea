@@ -8,8 +8,9 @@ export const KNOWN_PLATFORMS = ['server', 'android', 'linux', 'windows', 'macos'
 
 // First seconds of every session (scene load, GC, chunk streaming) skew FPS and
 // memory. We strip this window from per-heartbeat stats so the runtime data
-// reflects steady-state behavior, not warmup.
-export const WARMUP_SECONDS = 10;
+// reflects steady-state behavior, not warmup. Bumped 10 -> 13 because 10s still
+// caught the tail of scene bootup.
+export const WARMUP_SECONDS = 13;
 
 export const normalizePlatform = (value: any): string | null => {
   if (typeof value !== 'string' || value.trim() === '') return null;
@@ -31,6 +32,17 @@ export const isDashboardSession = (session: any): boolean => {
   const platform = getPlatform(session);
   const avgFps = Number(session?.avg_fps) || 0;
   return platform !== 'server' && avgFps <= 65;
+};
+
+// Session length in seconds. Prefer the persisted `duration`; fall back to
+// end_time - start_time when only timestamps are present.
+export const sessionDuration = (session: any): number => {
+  const duration = Number(session?.duration);
+  if (Number.isFinite(duration) && duration > 0) return duration;
+  const start = Number(session?.start_time);
+  const end = Number(session?.end_time);
+  if (Number.isFinite(start) && Number.isFinite(end) && end > start) return end - start;
+  return 0;
 };
 
 export const sessionScenes = (session: any): string[] => {

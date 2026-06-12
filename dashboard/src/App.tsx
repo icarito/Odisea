@@ -20,7 +20,7 @@ import { HistoricalTable } from './components/HistoricalTable';
 import { SessionPlayback } from './components/SessionPlayback';
 import { DashboardLayout } from './components/DashboardLayout';
 import { PlayerBottomSheet } from './components/PlayerBottomSheet';
-import { FiltersDrawer } from './components/FiltersDrawer';
+import { FiltersDrawer, FiltersSidebar } from './components/FiltersDrawer';
 import { LiveCombinedChart } from './components/LiveCombinedChart';
 import { RetroCard, RetroButton } from './components/retro';
 import { useTelemetry } from './hooks/useTelemetry';
@@ -32,6 +32,7 @@ import {
   getPlatform,
   isDashboardSession,
   sessionScenes,
+  sessionDuration,
   isUsefulSceneName,
 } from './lib/filters';
 import { Maximize2, X, SlidersHorizontal, ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
@@ -412,6 +413,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const activeTab = layout.activeTab as Tab;
   const setActiveTab = (t: Tab) => updateLayout({ activeTab: t });
 
+  // Desktop docked filters sidebar collapsed state + History min-duration
+  // filter, both persisted across reloads.
+  const filtersCollapsed = layout.filtersCollapsed;
+  const setFiltersCollapsed = (v: boolean) => updateLayout({ filtersCollapsed: v });
+  const minDuration = layout.historyMinDuration;
+  const setMinDuration = (seconds: number) => updateLayout({ historyMinDuration: seconds });
+
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [heatmapData, setHeatmapData] = useState<any[] | undefined>();
   const [showLiveGhosts, setShowLiveGhosts] = useState(true);
@@ -462,6 +470,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const resetFilters = () => {
     setSelectedPlatforms(new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server')));
     setSelectedSceneFilter('all');
+    setMinDuration(0);
   };
   const [lastLivePlayerCount, setLastLivePlayerCount] = useState(0);
   const alertToastTimes = useRef<Map<string, number>>(new Map());
@@ -752,8 +761,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       // Drop persisted rows that are still live (avoid duplicate of the same session).
       ...historicalSessions.filter((s) => !liveIds.has(s.session_id)),
     ];
-    return merged.filter((session) => platformAllowed(session) && sceneAllowed(session));
-  }, [historicalSessions, liveSessionRows, selectedPlatforms, selectedSceneFilter]);
+    // Min-duration excludes very short (bootup-only) sessions, but live rows
+    // (still in flight, duration 0) are always kept.
+    return merged.filter((session) => (
+      platformAllowed(session)
+      && sceneAllowed(session)
+      && (session.live || minDuration <= 0 || sessionDuration(session) >= minDuration)
+    ));
+  }, [historicalSessions, liveSessionRows, selectedPlatforms, selectedSceneFilter, minDuration]);
 
   const filteredDashboardSessions = useMemo(() => (
     filteredHistoricalSessions.filter(isDashboardSession)
@@ -796,7 +811,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const activeFilterCount =
     (selectedSceneFilter !== 'all' ? 1 : 0) +
-    (KNOWN_PLATFORMS.filter((p) => p !== 'server').length - [...selectedPlatforms].filter((p) => p !== 'server').length > 0 ? 1 : 0);
+    (KNOWN_PLATFORMS.filter((p) => p !== 'server').length - [...selectedPlatforms].filter((p) => p !== 'server').length > 0 ? 1 : 0) +
+    (minDuration > 0 ? 1 : 0);
 
   const playerCountLabel = pids.length > 0
     ? `${pids.length} ${pids.length === 1 ? 'player' : 'players'}`
@@ -864,7 +880,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       headerControls={
         <div className="flex shrink-0 items-center gap-1.5">
           <button
-            onClick={() => setShowFilters(true)}
+            onClick={() => {
+              // Mobile: open the slide-in overlay. Desktop (xl+): toggle the
+              // docked sidebar. One handler — the overlay is xl:hidden and the
+              // sidebar hidden below xl, so each viewport reacts to the right one.
+              setShowFilters(true);
+              setFiltersCollapsed(!filtersCollapsed);
+            }}
             className="flex shrink-0 items-center gap-1.5 border-2 border-black bg-bg-primary px-2.5 py-1.5 text-[0.625rem] font-black uppercase hover:bg-accent hover:text-black"
             title="Filtros"
           >
@@ -918,6 +940,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         scenes={availableSceneFilters}
         selectedScene={selectedSceneFilter}
         onSelectScene={setSelectedSceneFilter}
+        minDuration={minDuration}
+        onSetMinDuration={setMinDuration}
         onReset={resetFilters}
       />
 
@@ -956,6 +980,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
       )}
       
+      {/* Content + docked desktop filters sidebar. The content column scrolls;
+          the sidebar is a fixed-width docked column on xl+ (overlay on mobile). */}
+      <div className="flex h-full min-h-0">
+        <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
       {activeTab === 'live' && (
         <div className="flex flex-col h-full min-h-0">
           {/* View area fills all remaining space; the view switcher now lives in
@@ -1271,6 +1299,22 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
       )}
+        </div>
+
+        <FiltersSidebar
+          collapsed={filtersCollapsed}
+          onToggleCollapsed={() => setFiltersCollapsed(!filtersCollapsed)}
+          platforms={availablePlatforms}
+          selectedPlatforms={selectedPlatforms}
+          onTogglePlatform={togglePlatform}
+          scenes={availableSceneFilters}
+          selectedScene={selectedSceneFilter}
+          onSelectScene={setSelectedSceneFilter}
+          minDuration={minDuration}
+          onSetMinDuration={setMinDuration}
+          onReset={resetFilters}
+        />
+      </div>
     </DashboardLayout>
   );
 }
