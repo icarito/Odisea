@@ -13,6 +13,7 @@ var _net_thread
 var _is_web_thread := false  # true when using ANNAV2_Thread_Web (worker-backed)
 var _player_id := ""
 var _session_id := ""
+var _build_info := {}
 
 # --- Local telemetry capture (bridge-independent; ON by default) ---
 var _capture_enabled := true
@@ -68,6 +69,9 @@ func _ready():
 		_net_thread.set_scheme(scheme_override)
 	if _get_url_param("nocentral") in ["1", "true", "yes", "on"]:
 		_net_thread._central_enabled = false
+	_build_info = _load_build_info()
+	if _net_thread.has_method("set_build_info"):
+		_net_thread.set_build_info(_build_info)
 	# HTML5 desde HTTPS: usar wss:// automáticamente (el central ya tiene TLS)
 	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
 		var js = Engine.get_singleton("JavaScript")
@@ -75,7 +79,7 @@ func _ready():
 		if proto == "https:":
 			_net_thread.set_scheme("wss")
 
-	_net_thread.start(_command_queue, _player_id, _session_id, GAME_VERSION)
+	_net_thread.start(_command_queue, _player_id, _session_id, _build_info.get("game_version", GAME_VERSION))
 	_init_capture_from_env()
 	print("[ANNAV2] Initialized. PlayerID: ", _player_id, " SessionID: ", _session_id)
 
@@ -464,7 +468,11 @@ func dump_telemetry_json(path := "") -> String:
 	var payload = {
 		"player_id": _player_id,
 		"session_id": _session_id,
-		"game_version": GAME_VERSION,
+		"game_version": _build_info.get("game_version", GAME_VERSION),
+		"git_commit": _build_info.get("git_commit", ""),
+		"build_id": _build_info.get("build_id", ""),
+		"build_channel": _build_info.get("build_channel", ""),
+		"official_host": _build_info.get("official_host", ""),
 		"godot_version": Engine.get_version_info().string,
 		"captured_at": OS.get_unix_time(),
 		"frame_count": _capture_count,
@@ -533,3 +541,46 @@ func _get_url_param(param_name: String) -> String:
 	var js = Engine.get_singleton("JavaScript")
 	var res = js.eval("new URLSearchParams(window.location.search).get('" + param_name + "')")
 	return str(res) if res != null else ""
+
+func _load_build_info() -> Dictionary:
+	var game_version = OS.get_environment("ODISEA_GAME_VERSION")
+	if game_version == "":
+		game_version = _get_url_param("game_version")
+	if game_version == "":
+		game_version = GAME_VERSION
+
+	var git_commit = OS.get_environment("ODISEA_GIT_COMMIT")
+	if git_commit == "":
+		git_commit = OS.get_environment("GITHUB_SHA")
+	if git_commit == "":
+		git_commit = _get_url_param("git_commit")
+	if git_commit == "":
+		git_commit = _get_url_param("commit")
+
+	var build_id = OS.get_environment("ODISEA_BUILD_ID")
+	if build_id == "":
+		build_id = OS.get_environment("GITHUB_RUN_ID")
+	if build_id == "":
+		build_id = _get_url_param("build_id")
+
+	var build_channel = OS.get_environment("ODISEA_BUILD_CHANNEL")
+	if build_channel == "":
+		build_channel = _get_url_param("build_channel")
+	if build_channel == "":
+		build_channel = "dev"
+
+	var official_host = OS.get_environment("ODISEA_OFFICIAL_HOST")
+	if official_host == "":
+		official_host = _get_url_param("official_host")
+	if official_host == "" and OS.has_feature("web") and Engine.has_singleton("JavaScript"):
+		var js = Engine.get_singleton("JavaScript")
+		official_host = str(js.eval("window.location.hostname || ''"))
+
+	return {
+		"game_version": game_version,
+		"git_commit": git_commit,
+		"build_id": build_id,
+		"build_channel": build_channel,
+		"official_host": official_host,
+		"official_build": official_host != "" or build_channel in ["nightly", "tip", "release"]
+	}

@@ -2561,13 +2561,17 @@ func _physics_process(_delta):
 			if sm.is_replaying and not external_input_provided:
 				return
 
+	var input = null
 	if external_input_provided and external_input:
 		external_input_provided = false
-		var input = external_input
-		step(FIXED_DT, input)
+		input = external_input
 	else:
-		var input = input_provider.get_input()
-		step(FIXED_DT, input)
+		input = input_provider.get_input()
+
+	if HotzoneRecorder:
+		HotzoneRecorder.record_frame(input, FIXED_DT)
+
+	step(FIXED_DT, input)
 
 func set_external_velocity(v: Vector3) -> void:
 	if is_instance_valid(movement_logic):

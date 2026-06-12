@@ -43,12 +43,42 @@ dashboard-dev:
 # vive el servicio bridge (odisea-central). No depende del git del server.
 # El central sirve los estáticos desde static/dashboard.
 DEPLOY_HOST   ?= ubuntu@odisea.educa.juegos
-DEPLOY_STATIC ?= /home/ubuntu/anna-central/static/dashboard
+DEPLOY_DIR    ?= /home/ubuntu/anna-central
+DEPLOY_STATIC ?= $(DEPLOY_DIR)/static/dashboard
+DEPLOY_DB     ?= $(DEPLOY_DIR)/data/ghosts.db
+DEPLOY_BACKUP_DIR ?= $(DEPLOY_DIR)/data/backups
 DEPLOY_SERVICE ?= odisea-central.service
 
 deploy-dashboard:
 	@echo "==> Construyendo dashboard..."
 	cd dashboard && pnpm install --frozen-lockfile && pnpm run build
+	@echo "==> Preparando backup/migración SQLite en $(DEPLOY_HOST):$(DEPLOY_DB) ..."
+	ssh "$(DEPLOY_HOST)" 'set -e; \
+		mkdir -p "$(DEPLOY_BACKUP_DIR)"; \
+		if [ -f "$(DEPLOY_DB)" ]; then \
+			backup="$(DEPLOY_BACKUP_DIR)/ghosts_$$(date -u +%Y%m%dT%H%M%SZ).db"; \
+			cp "$(DEPLOY_DB)" "$$backup"; \
+			echo "Backup SQLite: $$backup"; \
+		else \
+			echo "SQLite no existe aún: $(DEPLOY_DB)"; \
+		fi'
+	printf '%s\n' \
+		'import os, sqlite3' \
+		'db = "$(DEPLOY_DB)"' \
+		'os.makedirs(os.path.dirname(db), exist_ok=True)' \
+		'conn = sqlite3.connect(db)' \
+		'conn.execute("""CREATE TABLE IF NOT EXISTS hotzones (id TEXT PRIMARY KEY, player_id TEXT, session_id TEXT, timestamp REAL, file_path TEXT, trigger_type TEXT DEFAULT '"'"'auto'"'"');""")' \
+		'conn.execute("""CREATE TABLE IF NOT EXISTS heartbeats (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id TEXT, session_id TEXT, timestamp REAL, scene TEXT, platform TEXT, fps REAL, memory_mb REAL, pos_x REAL, pos_y REAL, pos_z REAL, engine_version TEXT, game_version TEXT, git_commit TEXT, build_id TEXT, build_channel TEXT, official_host TEXT, peer_id TEXT, UNIQUE(player_id, session_id, timestamp));""")' \
+		'for c in ["game_version", "git_commit", "build_id", "build_channel", "official_host"]:' \
+		'    try: conn.execute("ALTER TABLE heartbeats ADD COLUMN %s TEXT" % c)' \
+		'    except sqlite3.OperationalError as e:' \
+		'        if "duplicate column name" not in str(e).lower(): raise' \
+		'conn.commit()' \
+		'conn.close()' \
+		'print("Migración central OK:", db)' \
+		| ssh "$(DEPLOY_HOST)" python3 -
+	@echo "==> Desplegando odisea_central.py -> $(DEPLOY_HOST):$(DEPLOY_DIR) ..."
+	rsync -az odisea_central.py "$(DEPLOY_HOST):$(DEPLOY_DIR)/odisea_central.py"
 	@echo "==> Sincronizando dist/ -> $(DEPLOY_HOST):$(DEPLOY_STATIC) ..."
 	rsync -az --delete dashboard/dist/ "$(DEPLOY_HOST):$(DEPLOY_STATIC)/"
 	@echo "==> Reiniciando $(DEPLOY_SERVICE)..."

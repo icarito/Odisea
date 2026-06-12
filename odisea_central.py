@@ -42,6 +42,7 @@ CACHE_TTL = int(os.environ.get("CENTRAL_CACHE_TTL", 120))
 STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "true").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
 SQLITE_DB = os.environ.get("CENTRAL_SQLITE_DB", os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db"))
+HOTZONES_DIR = os.environ.get("CENTRAL_HOTZONES_DIR", "./data/hotzones")
 GHOSTS_MAX_BYTES = int(os.environ.get("CENTRAL_GHOSTS_MAX_BYTES", 1073741824))  # 1GB
 STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 
@@ -184,6 +185,9 @@ class OdiseaCentral:
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
             os.makedirs(GHOSTS_DIR, exist_ok=True)
             logger.info(f"Created ghosts directory: {GHOSTS_DIR}")
+        if not os.path.exists(HOTZONES_DIR):
+            os.makedirs(HOTZONES_DIR, exist_ok=True)
+            logger.info(f"Created hotzones directory: {HOTZONES_DIR}")
 
     # --- Auth Logic ---
     def _is_authorized(self, request):
@@ -501,6 +505,107 @@ class OdiseaCentral:
         except Exception as e:
             logger.warning(f"{request.path}: query failed, returning [] ({e})")
             return web.json_response([])
+
+    async def handle_hotzone_upload(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        player_id = request.headers.get("X-Player-ID")
+        session_id = request.headers.get("X-Session-ID")
+        trigger = request.headers.get("X-Trigger", "auto")
+        if not player_id or not session_id:
+            return web.json_response({"error": "missing_metadata_headers"}, status=400)
+
+        # Basic security: sanitize IDs
+        player_id = "".join(c for c in player_id if c.isalnum() or c in "-_")[:64]
+        session_id = "".join(c for c in session_id if c.isalnum() or c in "-_")[:64]
+
+        try:
+            body = await request.read()
+            if len(body) < 32:
+                return web.json_response({"error": "payload_too_small"}, status=400)
+            if len(body) > 10 * 1024 * 1024: # 10MB cap
+                return web.json_response({"error": "payload_too_large"}, status=413)
+
+            # Godot var2bytes format: [4 bytes length] [blob]
+            # The blob for a dictionary starts with a type byte and then data.
+            # We don't want to deeply parse Godot binary here to stay decoupled,
+            # but we can look for the HZN2 magic if it was serialized as part of the dict.
+            # In var2bytes(dict), the magic is just data.
+
+            p_dir = os.path.join(HOTZONES_DIR, player_id)
+            os.makedirs(p_dir, exist_ok=True)
+
+            hotzone_id = str(uuid.uuid4())
+            fpath = os.path.join(p_dir, f"{hotzone_id}.bin")
+
+            with open(fpath, "wb") as f:
+                f.write(body)
+
+            # Record in SQLite
+            def record():
+                conn = self._get_db()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO hotzones (id, player_id, session_id, timestamp, file_path, trigger_type)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (hotzone_id, player_id, session_id, time.time(), fpath, trigger))
+                conn.commit()
+                conn.close()
+
+            await self._run_query(record)
+
+            logger.info(f"Hotzone uploaded: {hotzone_id} for player {player_id}")
+            return web.json_response({"ok": True, "id": hotzone_id}, status=201)
+
+        except Exception as e:
+            logger.error(f"Hotzone upload failed: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_hotzones_list(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        try:
+            def fetch():
+                conn = self._get_db()
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM hotzones ORDER BY timestamp DESC LIMIT 100")
+                rows = [dict(row) for row in cursor.fetchall()]
+                conn.close()
+                return rows
+
+            rows = await self._run_query(fetch)
+            return web.json_response(rows)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_hotzone_download(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        hz_id = request.match_info.get('id')
+        try:
+            def fetch():
+                conn = self._get_db()
+                cursor = conn.cursor()
+                cursor.execute("SELECT file_path FROM hotzones WHERE id = ?", (hz_id,))
+                row = cursor.fetchone()
+                conn.close()
+                return row[0] if row else None
+
+            fpath = await self._run_query(fetch)
+            if fpath and os.path.exists(fpath):
+                return web.FileResponse(fpath, headers={
+                    "Content-Disposition": f'attachment; filename="hotzone_{hz_id}.bin"'
+                })
+            return web.Response(status=404, text="Hotzone not found")
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
 
     async def handle_download_session(self, request):
         guard = self._auth_guard(request)
@@ -1127,6 +1232,16 @@ class OdiseaCentral:
         # query return {"error": "no such table"}, which the dashboard then
         # tries to .map() over and crashes.
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS hotzones (
+                id TEXT PRIMARY KEY,
+                player_id TEXT,
+                session_id TEXT,
+                timestamp REAL,
+                file_path TEXT,
+                trigger_type TEXT DEFAULT 'auto'
+            );
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS heartbeats (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 player_id TEXT,
@@ -1140,10 +1255,27 @@ class OdiseaCentral:
                 pos_y REAL,
                 pos_z REAL,
                 engine_version TEXT,
+                game_version TEXT,
+                git_commit TEXT,
+                build_id TEXT,
+                build_channel TEXT,
+                official_host TEXT,
                 peer_id TEXT,
                 UNIQUE(player_id, session_id, timestamp)
             );
         """)
+        for column, coltype in (
+            ("game_version", "TEXT"),
+            ("git_commit", "TEXT"),
+            ("build_id", "TEXT"),
+            ("build_channel", "TEXT"),
+            ("official_host", "TEXT"),
+        ):
+            try:
+                cursor.execute(f"ALTER TABLE heartbeats ADD COLUMN {column} {coltype};")
+            except sqlite3.OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_scene ON heartbeats(scene);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_timestamp ON heartbeats(timestamp);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_platform ON heartbeats(platform);")
@@ -1170,8 +1302,9 @@ class OdiseaCentral:
                         INSERT OR IGNORE INTO heartbeats (
                             player_id, session_id, timestamp, scene, platform,
                             fps, memory_mb, pos_x, pos_y, pos_z,
-                            engine_version, peer_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            engine_version, game_version, git_commit, build_id,
+                            build_channel, official_host, peer_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         data.get("player_id"),
                         data.get("session_id"),
@@ -1182,6 +1315,11 @@ class OdiseaCentral:
                         player_data.get("memory_mb"),
                         pos[0], pos[1], pos[2],
                         data.get("engine_version") or data.get("godot_version"),
+                        data.get("game_version"),
+                        data.get("git_commit"),
+                        data.get("build_id"),
+                        data.get("build_channel"),
+                        data.get("official_host"),
                         data.get("peer_id")
                     ))
 
@@ -1292,6 +1430,9 @@ class OdiseaCentral:
             web.get('/ghosts/active', self.handle_ghosts_active),
             web.get('/ghosts/stats', self.handle_ghosts_stats),
             web.get('/scenes', self.handle_scenes),
+            web.post('/hotzone', self.handle_hotzone_upload),
+            web.get('/hotzones', self.handle_hotzones_list),
+            web.get('/hotzones/{id}/download', self.handle_hotzone_download),
             web.post('/command', self.handle_command),
             web.get('/health', self.handle_health),
             web.post('/telemetry', self.handle_web_telemetry),
