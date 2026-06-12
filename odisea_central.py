@@ -642,6 +642,34 @@ class OdiseaCentral:
                 )
                 unique_month = cursor.fetchone()["n"] or 0
 
+                # Previous-window counts (the equally-sized window just before the
+                # current one) so the dashboard can show a delta/trend per card.
+                def unique_between(start, end):
+                    cursor.execute(
+                        f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
+                        f"WHERE {_NOT_SERVER} AND timestamp >= ? AND timestamp < ?",
+                        (start, end),
+                    )
+                    return cursor.fetchone()["n"] or 0
+
+                prev_day = unique_between(now - 2 * day, now - day)
+                prev_week = unique_between(now - 2 * week, now - week)
+                prev_month = unique_between(now - 2 * month, now - month)
+
+                # Daily unique-player series for the last 30 days, for sparklines.
+                # Bucketed by UTC day; gaps are filled with 0 below so the chart
+                # has one point per day regardless of activity.
+                cursor.execute(
+                    f"SELECT CAST((timestamp) / ? AS INTEGER) AS day_idx, "
+                    f"COUNT(DISTINCT player_id) AS n FROM heartbeats "
+                    f"WHERE {_NOT_SERVER} AND timestamp >= ? GROUP BY day_idx",
+                    (day, now - month),
+                )
+                by_day = {int(r["day_idx"]): (r["n"] or 0) for r in cursor.fetchall()}
+                first_idx = int((now - month) / day)
+                last_idx = int(now / day)
+                daily_players = [by_day.get(i, 0) for i in range(first_idx, last_idx + 1)]
+
                 cursor.execute(
                     f"SELECT MIN(timestamp) AS start, MAX(timestamp) AS end "
                     f"FROM heartbeats WHERE {_NOT_SERVER} "
@@ -671,6 +699,12 @@ class OdiseaCentral:
                         "players_last_day": unique_day,
                         "players_last_week": unique_week,
                         "players_last_month": unique_month,
+                        # Previous equally-sized window, for trend/delta display.
+                        "players_prev_day": prev_day,
+                        "players_prev_week": prev_week,
+                        "players_prev_month": prev_month,
+                        # Daily unique players over the last 30d (sparkline).
+                        "players_daily": daily_players,
                         "max_concurrent_players": max_c,
                         "total_sessions": len(sessions_intervals),
                     }

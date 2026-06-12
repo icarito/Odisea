@@ -255,8 +255,61 @@ type GhostStats = {
   players_last_day?: number;
   players_last_week?: number;
   players_last_month?: number;
+  // Previous equally-sized window, for trend/delta display.
+  players_prev_day?: number;
+  players_prev_week?: number;
+  players_prev_month?: number;
+  // Daily unique players over the last 30d (sparkline).
+  players_daily?: number[];
   max_concurrent_players?: number;
   total_sessions?: number;
+};
+
+// One player-activity card: count + delta vs the previous equal window + a
+// sparkline of the daily series. Delta and sparkline are optional so the card
+// degrades gracefully against older backends that don't send them.
+const PlayerStatCard = ({
+  label, value, prev, series,
+}: {
+  label: string;
+  value?: number;
+  prev?: number;
+  series?: number[];
+}) => {
+  const num = (v: any): v is number => typeof v === 'number' && Number.isFinite(v);
+  const hasValue = num(value);
+  const hasDelta = hasValue && num(prev);
+  // Percent change vs previous window; when prev is 0 we show the raw count as a
+  // "new" gain rather than a divide-by-zero.
+  const deltaPct = hasDelta && prev! > 0 ? ((value! - prev!) / prev!) * 100 : null;
+  const deltaUp = hasDelta ? value! >= prev! : false;
+  const sparkData = (series || []).map((n, i) => ({ i, n }));
+
+  return (
+    <div className="flex flex-col gap-1 border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xl font-black tracking-tighter sm:text-2xl">
+          {hasValue ? value : '—'}
+        </span>
+        {hasDelta && (
+          <span className={`text-[0.625rem] font-black ${deltaUp ? 'text-success' : 'text-danger'}`}>
+            {deltaUp ? '▲' : '▼'}
+            {deltaPct !== null ? `${Math.abs(deltaPct).toFixed(0)}%` : `${value! - prev!}`}
+          </span>
+        )}
+      </div>
+      <div className="text-[0.5625rem] font-black uppercase text-text-muted">{label}</div>
+      {sparkData.length > 1 && (
+        <div className="mt-1 h-8">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <LineChart data={sparkData}>
+              <Line type="monotone" dataKey="n" stroke="#7fd1ff" dot={false} strokeWidth={1.5} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const HomeStats = ({ sessions, serverStats }: { sessions: any[]; serverStats?: GhostStats }) => {
@@ -280,9 +333,9 @@ const HomeStats = ({ sessions, serverStats }: { sessions: any[]; serverStats?: G
     return { avgFps, avgMem, totalDuration, lowPct, lastSession };
   }, [cleanSessions]);
 
-  // Flat list of headline stats; FPS, Memory and Sessions share one compact grid
-  // instead of three separate cards. Player-count stats from the server are
-  // appended only when present (the endpoint may return {} on an empty DB).
+  // Performance/usage headline stats (derived from the filtered session list)
+  // share one compact grid. Player-count stats from the server now live in their
+  // own "Players" section below (see PlayerStatCard).
   const num = (v: any): v is number => typeof v === 'number' && Number.isFinite(v);
   const statCells: Array<{ label: string; value: string; color?: string }> = [
     { label: 'Avg FPS', value: stats.avgFps.toFixed(1), color: fpsColor(stats.avgFps) },
@@ -291,16 +344,18 @@ const HomeStats = ({ sessions, serverStats }: { sessions: any[]; serverStats?: G
     { label: 'Play Time', value: formatPlayTime(stats.totalDuration) },
     { label: '% Low FPS', value: `${stats.lowPct.toFixed(1)}%`, color: fpsColor(100 - stats.lowPct) },
     { label: 'Scenes', value: new Set(cleanSessions.flatMap(sessionScenes)).size.toString() },
-    ...(num(serverStats?.unique_players_total) ? [{ label: 'Unique Players', value: String(serverStats!.unique_players_total) }] : []),
-    ...(num(serverStats?.max_concurrent_players) ? [{ label: 'Max Concurrent', value: String(serverStats!.max_concurrent_players) }] : []),
-    ...(num(serverStats?.players_last_day) ? [{ label: 'Players 24h', value: String(serverStats!.players_last_day) }] : []),
-    ...(num(serverStats?.players_last_week) ? [{ label: 'Players 7d', value: String(serverStats!.players_last_week) }] : []),
-    ...(num(serverStats?.players_last_month) ? [{ label: 'Players 30d', value: String(serverStats!.players_last_month) }] : []),
   ];
+
+  // Show the Players section only when the server reported player metrics (the
+  // endpoint may return {} on an empty DB).
+  const hasPlayerStats = num(serverStats?.unique_players_total)
+    || num(serverStats?.players_last_day)
+    || num(serverStats?.players_last_week)
+    || num(serverStats?.players_last_month);
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
-      {/* Headline stats share one compact card. */}
+      {/* Performance / usage headline stats share one compact card. */}
       <RetroCard>
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
           {statCells.map((card) => (
@@ -313,6 +368,35 @@ const HomeStats = ({ sessions, serverStats }: { sessions: any[]; serverStats?: G
           ))}
         </div>
       </RetroCard>
+
+      {/* Players section: time-windowed unique-player cards with trend + spark. */}
+      {hasPlayerStats && (
+        <div className="flex flex-col gap-2">
+          <div className="text-[0.625rem] font-black uppercase tracking-widest text-accent">Players</div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <PlayerStatCard
+              label="24h"
+              value={serverStats?.players_last_day}
+              prev={serverStats?.players_prev_day}
+              series={serverStats?.players_daily?.slice(-2)}
+            />
+            <PlayerStatCard
+              label="7 días"
+              value={serverStats?.players_last_week}
+              prev={serverStats?.players_prev_week}
+              series={serverStats?.players_daily?.slice(-7)}
+            />
+            <PlayerStatCard
+              label="30 días"
+              value={serverStats?.players_last_month}
+              prev={serverStats?.players_prev_month}
+              series={serverStats?.players_daily}
+            />
+            <PlayerStatCard label="Total únicos" value={serverStats?.unique_players_total} />
+            <PlayerStatCard label="Max concurrentes" value={serverStats?.max_concurrent_players} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
