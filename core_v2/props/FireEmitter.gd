@@ -16,6 +16,7 @@ onready var _particles: Particles = get_node_or_null("Particles")
 onready var _collision_shape: CollisionShape = get_node_or_null("CollisionShape")
 
 func _ready():
+	add_to_group("replay_sync")
 	connect("body_entered", self, "_on_body_entered")
 	connect("body_exited", self, "_on_body_exited")
 
@@ -75,3 +76,19 @@ func deactivate():
 
 func toggle():
 	set_active(!is_active)
+
+# --- SNAPSHOT SYSTEM ---
+
+func get_snapshot() -> Dictionary:
+	return {
+		"is_active": is_active,
+		"tick_timer": _tick_timer
+	}
+
+func restore_snapshot(data: Dictionary):
+	is_active = data.get("is_active", true)
+	_tick_timer = data.get("tick_timer", 0.0)
+
+	_set_visuals_active(is_active)
+	if _collision_shape:
+		_collision_shape.disabled = not is_active

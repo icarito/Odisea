@@ -33,6 +33,7 @@ onready var _arm: AnimatableBody = get_node_or_null("Base/Arm")
 onready var _platform: AnimatableBody = get_node_or_null("Base/Arm/Platform")
 
 func _ready():
+	add_to_group("replay_sync")
 	_update_layout()
 	if not Engine.editor_hint:
 		set_physics_process(true)
@@ -177,3 +178,44 @@ func _update_layout():
 func interact():
 	if _is_extended: retract()
 	else: extend()
+
+# --- SNAPSHOT SYSTEM ---
+
+func get_snapshot() -> Dictionary:
+	return {
+		"target_extended": _target_extended,
+		"is_extended": _is_extended,
+		"is_moving": _is_moving,
+		"current_step": _current_step,
+		"step_timer": _step_timer
+	}
+
+func restore_snapshot(data: Dictionary):
+	_target_extended = data.get("target_extended", false)
+	_is_extended = data.get("is_extended", false)
+	_is_moving = data.get("is_moving", false)
+	_current_step = data.get("current_step", 0)
+	_step_timer = data.get("step_timer", 0.0)
+
+	_update_layout()
+
+	# Explicitly update visuals based on current state
+	if not _is_moving:
+		_update_transforms(1.0 if _is_extended else 0.0)
+	else:
+		# If moving, we need to manually call the appropriate update logic
+		# for the current step to restore visuals mid-animation.
+		var total_steps = extend_steps if _target_extended else retract_steps
+		var ratio = float(_current_step) / float(total_steps)
+		if _target_extended:
+			_update_transforms(ratio)
+		else:
+			var half_steps = total_steps / 2
+			if _current_step <= half_steps:
+				var p_ratio = 1.0 - (float(_current_step) / float(half_steps))
+				_update_platform(p_ratio)
+				_update_arm(1.0) # Arm should be fully extended during platform retraction
+			else:
+				var a_ratio = 1.0 - (float(_current_step - half_steps) / float(total_steps - half_steps))
+				_update_arm(a_ratio)
+				_update_platform(0.0) # Platform should be retracted during arm rotation
