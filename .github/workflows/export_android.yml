@@ -93,15 +93,16 @@ jobs:
           # All Qodot .map import artifacts are tracked in git, so the
           # .import/ cache is ready on checkout. Run a quick editor pass
           # to flush any remaining import queues before exporting.
-          timeout 120 godot --no-window --editor --quit --path . 2>&1 || true
+          timeout 900 godot --no-window --editor --quit --path .
 
           # Debug export uses keystore/debug from export_presets.cfg
           # (res://android/debug.keystore, generated above). The release
           # keystore isn't configured, so a release export would fail signing.
-          godot --no-window --export-debug "Android" ports/Odisea.apk 2>&1 || true
+          godot --verbose --no-window --export-debug "Android" ports/Odisea.apk 2>&1 | tee /tmp/odisea-android-export.log
 
           if [ ! -s ports/Odisea.apk ]; then
             echo "::error::Android export produced no APK"
+            tail -n 200 /tmp/odisea-android-export.log || true
             exit 1
           fi
           echo "APK OK: $(du -h ports/Odisea.apk | cut -f1)"
