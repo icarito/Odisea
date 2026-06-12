@@ -22,8 +22,8 @@ var _step_timer: float = 0.0
 var _step_duration: float = 1.0 / 60.0
 
 onready var _base: StaticBody = get_node_or_null("Base")
-onready var _arm: AnimatableBody = get_node_or_null("Base/Arm")
-onready var _platform: AnimatableBody = get_node_or_null("Base/Arm/Platform")
+onready var _arm: KinematicBody = get_node_or_null("Base/Arm")
+onready var _platform: KinematicBody = get_node_or_null("Base/Arm/Platform")
 
 func _ready():
 	add_to_group("replay_sync")

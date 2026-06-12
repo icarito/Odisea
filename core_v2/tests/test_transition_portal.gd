@@ -49,7 +49,7 @@ func test_transition_portal_scene_loads() -> void:
 func test_vertical_transition_scenes_load() -> void:
 	assert_object(load("res://core_v2/levels/Interior_A.tscn")).is_not_null()
 	assert_object(load("res://core_v2/levels/Terrace_A.tscn")).is_not_null()
-	assert_object(load("res://core_v2/props/AirlockContainerChamber.tscn")).is_not_null()
+	assert_object(load("res://core_v2/props/doors/AirlockContainerChamber.tscn")).is_not_null()
 
 func test_transition_params_include_spawn_snapshot_and_restore_input_state() -> void:
 	var portal = auto_free(TransitionPortalScript.new())

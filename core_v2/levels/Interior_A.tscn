@@ -1,14 +1,14 @@
 [gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
-[ext_resource path="res://core_v2/props/AirlockChamber.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=4]
 [ext_resource path="res://scenes/common/space_environment/Environment_InteriorLab.tres" type="Environment" id=5]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=6]
-[ext_resource path="res://core_v2/props/TableTerminal.tscn" type="PackedScene" id=7]
-[ext_resource path="res://core_v2/props/SciFiHangingLightV2.tscn" type="PackedScene" id=8]
+[ext_resource path="res://core_v2/props/controls/TableTerminal.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/lights/SciFiHangingLightV2.tscn" type="PackedScene" id=8]
 [ext_resource path="res://core_v2/props/scifi_lights/SciFiPathMarkerV2.tscn" type="PackedScene" id=9]
-[ext_resource path="res://core_v2/props/EmergencyBeaconV2.tscn" type="PackedScene" id=10]
+[ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=10]
 
 [sub_resource type="SpatialMaterial" id=2]
 albedo_color = Color( 0.08, 0.1, 0.12, 1 )

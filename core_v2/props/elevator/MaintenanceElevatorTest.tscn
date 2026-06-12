@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=2]
 
 [ext_resource path="res://core_v2/props/elevator/MaintenanceElevator.tscn" type="PackedScene" id=1]
-[ext_resource path="res://core_v2/props/FloorHatch.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/doors/FloorHatch.tscn" type="PackedScene" id=2]
 
 [node name="MaintenanceElevatorTest" instance=ExtResource( 1 )]
 travel_height = 2.2

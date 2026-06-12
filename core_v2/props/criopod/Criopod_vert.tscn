@@ -6,8 +6,8 @@
 [ext_resource path="res://core_v2/components/RotatingObjectV2.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=6]
 [ext_resource path="res://assets/sfx/steam hiss.wav" type="AudioStream" id=7]
-[ext_resource path="res://core_v2/props/LeakEmitter.tscn" type="PackedScene" id=8]
-[ext_resource path="res://core_v2/props/SparkEmitterV2.tscn" type="PackedScene" id=9]
+[ext_resource path="res://core_v2/props/emitters/LeakEmitter.tscn" type="PackedScene" id=8]
+[ext_resource path="res://core_v2/props/emitters/SparkEmitterV2.tscn" type="PackedScene" id=9]
 
 [sub_resource type="SpatialMaterial" id=29]
 resource_name = "DisplayCase_2_mat"

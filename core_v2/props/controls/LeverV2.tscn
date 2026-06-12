@@ -1,6 +1,6 @@
 [gd_scene load_steps=9 format=2]
 
-[ext_resource path="res://core_v2/props/LeverV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/controls/LeverV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/components/ForwardInteract.gd" type="Script" id=3]
 

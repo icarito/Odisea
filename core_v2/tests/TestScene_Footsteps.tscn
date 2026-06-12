@@ -8,7 +8,7 @@
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_grass.tres" type="Resource" id=6]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=7]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=8]
-[ext_resource path="res://core_v2/props/HelmetHUD.tscn" type="PackedScene" id=9]
+[ext_resource path="res://core_v2/props/decor/HelmetHUD.tscn" type="PackedScene" id=9]
 
 [sub_resource type="CubeMesh" id=6]
 size = Vector3( 4, 0.2, 4 )

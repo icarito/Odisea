@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
 
-const HoloTerminalScene = preload("res://core_v2/props/HoloTerminalV2.tscn")
+const HoloTerminalScene = preload("res://core_v2/props/controls/HoloTerminalV2.tscn")
 const DebugOverlayScene = preload("res://core_v2/ui/retro/DebugOverlay.tscn")
 const OYSShellScene = preload("res://core_v2/ui/retro/OYSShell.tscn")
 const OYSConsole = preload("res://core_v2/ui/retro/OYS_Console.gd")

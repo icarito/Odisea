@@ -1,7 +1,7 @@
 [gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/IrisDoorV2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/doors/IrisDoorV2.tscn" type="PackedScene" id=2]
 
 [sub_resource type="SpatialMaterial" id=1]
 albedo_color = Color( 0.24, 0.28, 0.3, 1 )

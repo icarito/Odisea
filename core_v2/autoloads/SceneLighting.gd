@@ -10,13 +10,44 @@ extends Node
 #   AirlockTransitionFX._apply_brightness() → SceneLighting.set_brightness(t)
 #   AirlockTransitionFX._restore_lights()   → SceneLighting.restore_brightness()
 
+const ANDROID_ENV_PATH := "res://android_env.tres"
+
 var _entries: Array = []  # [{ node, type, base_value, ?environment }]
 var _current_t: float = 1.0
 
 func _ready() -> void:
+	# On Android, use a lighter environment config to avoid visual artifacts
+	# and reduce GPU load (lower glow quality, fewer glow levels, reduced intensity).
+	if OS.has_feature("Android"):
+		_apply_android_environment_override()
 	var sm := get_node_or_null("/root/SceneManager")
 	if sm and sm.has_signal("scene_ready"):
 		sm.connect("scene_ready", self, "_on_scene_ready")
+
+func _apply_android_environment_override() -> void:
+	var android_env = load(ANDROID_ENV_PATH)
+	if android_env == null or not (android_env is Environment):
+		push_warning("[SceneLighting] Could not load Android env override: " + ANDROID_ENV_PATH)
+		return
+	# Override the project's default environment
+	ProjectSettings.set_setting("rendering/environment/default_environment", ANDROID_ENV_PATH)
+	# Apply immediately if there's a WorldEnvironment node already
+	var world_env: WorldEnvironment = _find_world_environment(get_tree().root)
+	if world_env:
+		world_env.environment = android_env
+		print("[SceneLighting] Applied Android-optimized environment override")
+
+func _find_world_environment(root: Node) -> WorldEnvironment:
+	var stack: Array = [root]
+	while not stack.empty():
+		var node: Node = stack.pop_back()
+		if not is_instance_valid(node):
+			continue
+		if node is WorldEnvironment:
+			return node as WorldEnvironment
+		for child in node.get_children():
+			stack.push_back(child)
+	return null
 
 func _on_scene_ready(_path, _scene_root, _params) -> void:
 	refresh()

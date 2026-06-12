@@ -2,10 +2,10 @@
 
 [ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=2]
-[ext_resource path="res://core_v2/props/CircuitCable.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/props/circuit/CircuitCable.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/props/CircuitExampleProp.gd" type="Script" id=4]
-[ext_resource path="res://core_v2/props/Lever.tscn" type="PackedScene" id=5]
-[ext_resource path="res://core_v2/props/SciFiHangingLightV2.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/props/controls/Lever.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/props/lights/SciFiHangingLightV2.tscn" type="PackedScene" id=6]
 
 [sub_resource type="Resource" id=1]
 script = ExtResource( 2 )

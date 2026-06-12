@@ -1,6 +1,6 @@
 [gd_scene load_steps=8 format=2]
 
-[ext_resource path="res://core_v2/props/RetractableBridge.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/machinery/RetractableBridge.gd" type="Script" id=1]
 
 [sub_resource type="CubeMesh" id=1]
 size = Vector3( 2, 0.5, 2 )
@@ -31,7 +31,7 @@ mesh = SubResource( 1 )
 [node name="CollisionShape" type="CollisionShape" parent="Base"]
 shape = SubResource( 2 )
 
-[node name="Arm" type="AnimatableBody" parent="Base"]
+[node name="Arm" type="KinematicBody" parent="Base"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 0 )
 
 [node name="MeshInstance" type="MeshInstance" parent="Base/Arm"]
@@ -42,7 +42,7 @@ mesh = SubResource( 3 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, -0.1, 0 )
 shape = SubResource( 4 )
 
-[node name="Platform" type="AnimatableBody" parent="Base/Arm"]
+[node name="Platform" type="KinematicBody" parent="Base/Arm"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0 )
 
 [node name="MeshInstance" type="MeshInstance" parent="Base/Arm/Platform"]
