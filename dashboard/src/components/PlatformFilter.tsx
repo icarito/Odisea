@@ -1,7 +1,7 @@
 import type React from 'react';
 import { ChevronDown, Monitor, Server, Smartphone } from 'lucide-react';
 
-const PLATFORM_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+export const PLATFORM_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   server: { label: 'Server', color: 'bg-red-500', icon: <Server size={12} /> },
   android: { label: 'Android', color: 'bg-green-500', icon: <Smartphone size={12} /> },
   linux: { label: 'Linux', color: 'bg-yellow-500', icon: <Monitor size={12} /> },

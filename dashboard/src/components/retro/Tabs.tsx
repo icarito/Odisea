@@ -26,8 +26,8 @@ export const RetroTabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange, c
             activeTab === tab.id ? 'retro-tab-btn-active' : ''
           } ${tab.disabled ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
         >
-          <div className="scale-75 sm:scale-100">{tab.icon}</div>
-          <span className="text-[0.4375rem] sm:text-[0.625rem] leading-none">{tab.label}</span>
+          <div>{tab.icon}</div>
+          <span className="text-[0.5625rem] sm:text-[0.625rem] leading-none">{tab.label}</span>
         </button>
       ))}
     </div>

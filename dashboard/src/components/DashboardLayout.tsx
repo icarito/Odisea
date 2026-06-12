@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Map, Clock, Play, Users, LogOut } from 'lucide-react';
+import { Activity, Map, Clock, Users, LogOut } from 'lucide-react';
 import { RetroTabs } from './retro';
 
 interface DashboardLayoutProps {
@@ -11,8 +11,10 @@ interface DashboardLayoutProps {
   playerCount: number;
   playerCountLabel?: string;
   onPlayersClick: () => void;
-  isSessionSelected: boolean;
   headerControls?: React.ReactNode;
+  // Optional second-level bar rendered just above the bottom nav (e.g. the
+  // Live-tab view switcher). Hidden when not provided.
+  secondaryNav?: React.ReactNode;
 }
 
 // Unified mobile-first layout: fixed header + fixed bottom nav, scrollable
@@ -26,14 +28,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   playerCount,
   playerCountLabel,
   onPlayersClick,
-  isSessionSelected,
   headerControls,
+  secondaryNav,
 }) => {
   const tabs = [
-    { id: 'live', label: 'Live', icon: <Activity size={16} /> },
-    { id: 'heatmap', label: 'Heatmap', icon: <Map size={16} /> },
-    { id: 'history', label: 'History', icon: <Clock size={16} /> },
-    { id: 'playback', label: 'Playback', icon: <Play size={16} />, disabled: !isSessionSelected },
+    { id: 'live', label: 'Live', icon: <Activity size={24} /> },
+    { id: 'heatmap', label: 'Heatmap', icon: <Map size={24} /> },
+    { id: 'history', label: 'History', icon: <Clock size={24} /> },
   ];
 
   return (
@@ -77,6 +78,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         {children}
       </main>
+
+      {/* Optional second-level bar (e.g. Live view switcher) */}
+      {secondaryNav && (
+        <div className="shrink-0 border-t-2 border-black bg-bg-card/80 z-30">
+          {secondaryNav}
+        </div>
+      )}
 
       {/* Fixed bottom nav */}
       <nav className="shrink-0 border-t-4 border-black bg-bg-card z-30">

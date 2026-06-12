@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiTarget = env.VITE_API_TARGET || 'http://localhost:5003'
+  const apiTarget = env.VITE_API_TARGET || 'http://localhost:4999'
   const wsTarget = apiTarget.replace('http', 'ws')
   const apiProxy = {
     target: apiTarget,

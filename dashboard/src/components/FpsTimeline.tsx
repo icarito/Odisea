@@ -1,11 +1,8 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-export const FpsTimeline = ({ data }: { data: any[] }) => {
+export const FpsTimeline = ({ data }: { data: { timestamp: number; value: number }[] }) => {
   return (
-    <div className="@container flex-1 w-full min-h-[120px]">
-      <div className="hidden @[300px]:block mb-2 text-[0.625rem] text-text-muted uppercase font-bold tracking-widest">
-        Performance History
-      </div>
+    <div className="flex-1 w-full min-h-[120px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#232833" vertical={false} />

@@ -32,11 +32,27 @@ export: export-linux-arm64 export-pck
 
 all: render
 
-dashboard-dev-central:
+dashboard-dev:
 	@set -a; \
 	[ ! -f .env ] || . ./.env; \
 	set +a; \
 	cd dashboard; \
 	VITE_API_TARGET=https://odisea.educa.juegos pnpm run dev
 
-.PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central
+# Build local del dashboard y copia directa por ssh/rsync al servidor donde
+# vive el servicio bridge (odisea-central). No depende del git del server.
+# El central sirve los estáticos desde static/dashboard.
+DEPLOY_HOST   ?= ubuntu@odisea.educa.juegos
+DEPLOY_STATIC ?= /home/ubuntu/anna-central/static/dashboard
+DEPLOY_SERVICE ?= odisea-central.service
+
+deploy-dashboard:
+	@echo "==> Construyendo dashboard..."
+	cd dashboard && pnpm install --frozen-lockfile && pnpm run build
+	@echo "==> Sincronizando dist/ -> $(DEPLOY_HOST):$(DEPLOY_STATIC) ..."
+	rsync -az --delete dashboard/dist/ "$(DEPLOY_HOST):$(DEPLOY_STATIC)/"
+	@echo "==> Reiniciando $(DEPLOY_SERVICE)..."
+	ssh "$(DEPLOY_HOST)" 'sudo systemctl restart $(DEPLOY_SERVICE) && sleep 2 && systemctl is-active --quiet $(DEPLOY_SERVICE) && echo "OK: servicio activo" || (echo "!! servicio no activo" && sudo journalctl -u $(DEPLOY_SERVICE) -n 20 --no-pager && exit 1)'
+	@echo "==> Dashboard desplegado: https://odisea.educa.juegos/"
+
+.PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard

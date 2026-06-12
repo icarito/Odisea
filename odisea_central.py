@@ -46,6 +46,27 @@ GHOSTS_MAX_BYTES = int(os.environ.get("CENTRAL_GHOSTS_MAX_BYTES", 1073741824))  
 DB_PATH = os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db")
 STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 
+# Global, server-side telemetry filtering. The headless server peer is never a
+# real client, and the first seconds of every session (scene load, GC, chunk
+# streaming) skew FPS/memory — both are excluded here so every dashboard
+# consumer sees clean runtime data without re-filtering. Mirrors the frontend
+# WARMUP_SECONDS in dashboard/src/lib/filters.ts.
+WARMUP_SECONDS = int(os.environ.get("CENTRAL_WARMUP_SECONDS", 10))
+
+# SQL fragment: exclude the headless server peer (case-insensitive).
+_NOT_SERVER = "LOWER(COALESCE(platform,'')) != 'server'"
+
+# SQL fragment: exclude warmup heartbeats — keep only rows at least
+# WARMUP_SECONDS after their session's first sample. Correlated subquery keyed
+# on (player_id, session_id); fine for the bounded LIMIT reads below.
+_PAST_WARMUP = (
+    "timestamp >= ("
+    " SELECT MIN(h2.timestamp) FROM heartbeats h2"
+    " WHERE h2.session_id = heartbeats.session_id"
+    " AND h2.player_id = heartbeats.player_id"
+    f") + {WARMUP_SECONDS}"
+)
+
 # Scenes always offered in dashboard dropdowns, even before any telemetry exists.
 DEFAULT_SCENES = [s for s in os.environ.get("CENTRAL_DEFAULT_SCENES", "Dome_Crio,OdiseaExterior,ScaffoldOrbit").split(",") if s]
 
@@ -356,7 +377,7 @@ class OdiseaCentral:
         if guard is not None:
             return guard
 
-        query = """
+        query = f"""
             SELECT
                 session_id,
                 player_id,
@@ -364,8 +385,11 @@ class OdiseaCentral:
                 MAX(timestamp) - MIN(timestamp) as duration,
                 AVG(fps) as avg_fps,
                 MAX(memory_mb) as peak_mem,
-                COUNT(*) as frame_count
+                COUNT(*) as frame_count,
+                MAX(platform) as platform,
+                GROUP_CONCAT(DISTINCT scene) as scenes_visited
             FROM heartbeats
+            WHERE {_NOT_SERVER}
             GROUP BY session_id, player_id
             ORDER BY timestamp DESC
             LIMIT 100
@@ -395,7 +419,7 @@ class OdiseaCentral:
         platform = request.query.get("platform")
         since = request.query.get("since")
 
-        query = "SELECT * FROM heartbeats WHERE 1=1"
+        query = f"SELECT * FROM heartbeats WHERE {_NOT_SERVER} AND {_PAST_WARMUP}"
         params = []
         if scene:
             query += " AND scene = ?"
@@ -1001,7 +1025,13 @@ class OdiseaCentral:
         session_id = request.query.get("session_id")
         limit = min(max(int(request.query.get("limit", 1000)), 1), 10000)
 
-        query = "SELECT * FROM heartbeats WHERE 1=1"
+        # Always exclude the headless server. Warmup is excluded for general
+        # queries, but NOT when fetching a specific session for playback — the
+        # player shows the full timeline (with a warmup band) and only excludes
+        # warmup from the aggregate stats client-side.
+        query = f"SELECT * FROM heartbeats WHERE {_NOT_SERVER}"
+        if not session_id:
+            query += f" AND {_PAST_WARMUP}"
         params = []
         if scene:
             query += " AND scene = ?"
@@ -1060,9 +1090,9 @@ class OdiseaCentral:
             MIN(fps) as min_fps,
             AVG(memory_mb) as avg_mem
         FROM heartbeats
-        WHERE scene = ?
+        WHERE scene = ? AND {not_server} AND {past_warmup}
         GROUP BY grid_x, grid_z
-        """
+        """.format(not_server=_NOT_SERVER, past_warmup=_PAST_WARMUP)
         params = (res, res, res, res, low_fps_threshold, scene)
 
         try:
@@ -1166,6 +1196,74 @@ class OdiseaCentral:
             logger.warning(f"handle_api_scenes: DB query failed, using defaults ({e})")
         return web.json_response(sorted(scenes))
 
+    async def handle_api_ghosts_stats(self, request):
+        """Aggregate dashboard headline stats (excludes the server peer).
+
+        Returns unique players over rolling windows, max concurrent players
+        (from overlapping session intervals), and a couple of totals. Computed
+        in SQL/Python over the bounded session set; cheap enough for the
+        dashboard's once-per-load call.
+        """
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        now = time.time()
+        day, week, month = 86400, 604800, 2592000
+
+        try:
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            def unique_players(since: float) -> int:
+                cursor.execute(
+                    f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
+                    f"WHERE {_NOT_SERVER} AND timestamp >= ?",
+                    (since,),
+                )
+                return cursor.fetchone()["n"] or 0
+
+            cursor.execute(
+                f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats WHERE {_NOT_SERVER}"
+            )
+            unique_total = cursor.fetchone()["n"] or 0
+
+            # Session intervals for the concurrency sweep-line.
+            cursor.execute(
+                f"SELECT MIN(timestamp) AS start, MAX(timestamp) AS end "
+                f"FROM heartbeats WHERE {_NOT_SERVER} "
+                f"GROUP BY player_id, session_id"
+            )
+            sessions = cursor.fetchall()
+            conn.close()
+
+            # Max concurrent = peak overlap of [start, end] intervals.
+            events = []
+            for row in sessions:
+                s, e = row["start"], row["end"]
+                if s is None or e is None:
+                    continue
+                events.append((s, 1))
+                events.append((e, -1))
+            events.sort(key=lambda ev: (ev[0], ev[1]))
+            cur_c = max_c = 0
+            for _, delta in events:
+                cur_c += delta
+                max_c = max(max_c, cur_c)
+
+            return web.json_response({
+                "unique_players_total": unique_total,
+                "players_last_day": unique_players(now - day),
+                "players_last_week": unique_players(now - week),
+                "players_last_month": unique_players(now - month),
+                "max_concurrent_players": max_c,
+                "total_sessions": len(sessions),
+            })
+        except Exception as e:
+            logger.warning(f"{request.path}: stats query failed, returning {{}} ({e})")
+            return web.json_response({})
+
     async def _import_task(self):
         while True:
             try:
@@ -1204,6 +1302,7 @@ class OdiseaCentral:
             web.get('/api/ghosts/heatmap', self.handle_api_ghosts_heatmap),
             web.get('/api/ghosts/sessions', self.handle_api_ghosts_sessions),
             web.get('/api/ghosts/active', self.handle_api_ghosts_active),
+            web.get('/api/ghosts/stats', self.handle_api_ghosts_stats),
             web.get('/api/scenes', self.handle_api_scenes),
 
             # CI/CD: GitHub push webhook -> pull + redeploy

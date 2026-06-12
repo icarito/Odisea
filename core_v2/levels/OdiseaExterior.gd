@@ -16,7 +16,7 @@ export(float, 0.0, 180.0) var dome_lod_frustum_half_fov_deg := 180.0 if OS.has_f
 export(float, 1.0, 32.0) var dome_lod_backface_penalty := 8.0
 export(bool) var dome_lod_camera_update_enabled := not OS.has_feature("HTML5")
 export(float, 1.0, 90.0) var dome_lod_camera_angle_threshold := 20.0
-export(int, 4, 64) var exterior_collision_pool_size := 4
+export(int, 4, 64) var exterior_collision_pool_size := 6
 export(int, 1, 30) var exterior_collision_update_interval := 20
 export(int, 1, 30) var exterior_target_plate_query_interval := 6
 

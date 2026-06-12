@@ -72,10 +72,22 @@
     @apply flex gap-0 mb-0 w-full overflow-hidden;
   }
   .retro-tab-btn {
-    @apply flex-1 px-1 sm:px-3 py-1.5 sm:py-1 text-[0.625rem] font-black uppercase tracking-tight sm:tracking-widest border-2 sm:border-4 border-b-0 border-black transition-colors bg-bg-primary text-text-muted;
+    @apply flex-1 px-1 sm:px-3 py-3 sm:py-2.5 min-h-[4rem] sm:min-h-[3rem] text-[0.625rem] font-black uppercase tracking-tight sm:tracking-widest border-2 sm:border-4 border-b-0 border-black transition-colors bg-bg-primary text-text-muted;
   }
   .retro-tab-btn-active {
     @apply bg-bg-card text-accent border-b-bg-card;
+  }
+
+  /* Secondary tab bars (view switcher, stripe tabs, 3D control rows). Sized to
+     match the bottom nav so they read as real, tappable tabs. */
+  .subtab-btn {
+    @apply flex-1 px-2 py-3 min-h-[3rem] text-[0.6875rem] font-black uppercase tracking-tight border-r-2 border-black last:border-r-0 transition-colors bg-bg-primary text-text-muted;
+  }
+  .subtab-btn-active {
+    @apply bg-accent text-black;
+  }
+  .subtab-btn:disabled {
+    @apply opacity-30 cursor-not-allowed;
   }
 }
 

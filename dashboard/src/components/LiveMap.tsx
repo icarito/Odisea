@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Plus, Minus, Crosshair, HelpCircle, LocateFixed } from 'lucide-react';
 
 interface ActiveGhost {
   player_id: string;
@@ -18,6 +19,8 @@ interface LiveMapProps {
   ghosts: ActiveGhost[];
   sceneName: string;
   onSelectGhost?: (playerId: string) => void;
+  // The active player the camera follows (when follow is on).
+  activePlayerId?: string;
 }
 
 type HitGhost = { ghost: ActiveGhost; x: number; y: number; dist: number };
@@ -25,26 +28,40 @@ type HitGhost = { ghost: ActiveGhost; x: number; y: number; dist: number };
 const fpsColor = (fps: number) => (fps < 30 ? '#ef4444' : fps < 45 ? '#eab308' : '#22c55e');
 const TRAIL_LIMIT = 90;
 
-// Birdseye map with wheel/pinch zoom and drag pan. Renders on a rAF loop so it
-// tracks incoming heartbeats in real time. World units -> pixels via `scale`,
-// recentred by `offset` (pan).
-export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGhost }) => {
+// Birdseye map. Two modes:
+//  - single-scene (sceneName !== ''): a top-down world view. The grid is drawn
+//    in world space (so it scrolls under the player), and the camera follows the
+//    active player until the user pans.
+//  - multi-plane (sceneName === ''): each scene rendered as an isometric plane,
+//    stacked vertically. A global zoom scales/spreads all planes; zooming over
+//    one plane focuses just that plane.
+export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGhost, activePlayerId }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  // Camera: world->screen = center + offset + worldPos * (baseScale * zoom)
+  // Single-scene camera: world->screen = center + offset + worldPos*(baseScale*zoom).
   const camRef = useRef({ zoom: 1, offsetX: 0, offsetY: 0 });
+  // Multi-plane global zoom (spreads + scales every plane together).
+  const globalZoomRef = useRef(1);
+  // Per-plane focus camera (zoom + local pan inside that plane).
+  const planeCamsRef = useRef<Record<string, { zoom: number; offsetX: number; offsetY: number }>>({});
+  // Vertical scroll for the stacked planes in multi-plane mode.
+  const stackOffsetRef = useRef(0);
+  // Camera follows the active player until the user pans (then released).
+  const followRef = useRef(true);
+
   const [, forceTick] = useState(0); // re-render for the live counter
+  const [showHelp, setShowHelp] = useState(false);
   const [hover, setHover] = useState<{ ghost: ActiveGhost; x: number; y: number } | null>(null);
   const trailsRef = useRef<Record<string, { scene: string; x: number; y: number; z: number }[]>>({});
-  const planeCamsRef = useRef<Record<string, { zoom: number; offsetX: number; offsetY: number }>>({});
 
-  // Keep latest props in refs so the rAF loop reads fresh values without
-  // re-subscribing.
+  // Keep latest props in refs so the rAF loop reads fresh values.
   const ghostsRef = useRef(ghosts);
   const sceneRef = useRef(sceneName);
+  const activeIdRef = useRef(activePlayerId);
   ghostsRef.current = ghosts;
   sceneRef.current = sceneName;
+  activeIdRef.current = activePlayerId;
 
   const visible = ghosts.filter(g => sceneName === '' || g.scene === sceneName);
 
@@ -90,14 +107,17 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
     return planeCamsRef.current[scene];
   };
 
+  // Plane geometry scales with the global zoom and stacks vertically with extra
+  // spacing so each plane is large and legible (uses more of the screen).
   const planeGeometry = (scene: string, width: number, height: number) => {
     const layers = sceneLayers();
     const layerIndex = Math.max(0, layers.indexOf(scene));
-    const depth = layerIndex - (layers.length - 1) / 2;
+    const gz = globalZoomRef.current;
+    const spacing = 300 * gz;
     const centerX = width / 2;
-    const centerY = height / 2 + depth * 250;
-    const halfW = Math.min(380, Math.max(240, width * 0.34));
-    const halfD = 118;
+    const centerY = height / 2 + layerIndex * spacing + stackOffsetRef.current;
+    const halfW = Math.min(560, Math.max(280, width * 0.42)) * gz;
+    const halfD = 150 * gz;
     return {
       centerX,
       centerY,
@@ -144,7 +164,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
     const center = sceneCentroid(layerName);
     const localX = ghost.pos_x - center.x;
     const localZ = ghost.pos_z - center.z;
-    const planeZoom = Math.min(2.2, Math.max(0.65, cam.zoom));
+    const planeZoom = Math.min(2.4, Math.max(0.65, cam.zoom)) * globalZoomRef.current;
     const p = planeGeometry(layerName, width, height);
     const layerTop = p.centerY - p.halfD;
     const isoX = (localX - localZ) * planeZoom * 1.15 + cam.offsetX;
@@ -166,11 +186,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
     let best: HitGhost | null = null;
     visible.forEach((ghost) => {
       const projected = projectGhost(ghost, rect.width, rect.height);
-      const sx = projected.x;
-      const sy = projected.y;
-      const dist = Math.hypot(sx - x, sy - y);
+      const dist = Math.hypot(projected.x - x, projected.y - y);
       if (dist <= 14 && (!best || dist < best.dist)) {
-        best = { ghost, x: sx, y: sy, dist };
+        best = { ghost, x: projected.x, y: projected.y, dist };
       }
     });
     return best;
@@ -183,7 +201,6 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (canvas && ctx) {
-        // Match the backing store to the displayed size (crisp on HiDPI).
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
         const w = Math.max(1, Math.round(rect.width));
@@ -195,8 +212,20 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, w, h);
 
+        // Single-scene: keep the camera centred on the active player when
+        // follow is on (the world grid then scrolls under the player).
+        if (sceneRef.current !== '' && followRef.current) {
+          const active = ghostsRef.current.find(g => g.player_id === activeIdRef.current)
+            || ghostsRef.current.find(g => g.scene === sceneRef.current);
+          if (active) {
+            const scale = 2 * camRef.current.zoom;
+            camRef.current.offsetX = -active.pos_x * scale;
+            camRef.current.offsetY = -active.pos_z * scale;
+          }
+        }
+
         const cam = camRef.current;
-        const baseScale = 2; // 1 world unit = 2px at zoom 1
+        const baseScale = 2;
         const scale = baseScale * cam.zoom;
         const cx = w / 2 + cam.offsetX;
         const cy = h / 2 + cam.offsetY;
@@ -207,9 +236,12 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
           const layers = sceneLayers();
           layers.forEach((layer, i) => {
             const p = planeGeometry(layer, w, h);
-            const planeZoom = Math.min(2.2, Math.max(0.65, planeCam(layer).zoom));
             const contentCam = planeCam(layer);
+            const planeZoom = Math.min(2.4, Math.max(0.65, contentCam.zoom)) * globalZoomRef.current;
             const { centerX, centerY, halfW, halfD, corners } = p;
+            // Cull planes fully off-screen (stacking can scroll them away).
+            if (centerY + halfD < -20 || centerY - halfD > h + 20) return;
+
             ctx.fillStyle = i % 2 === 0 ? 'rgba(19,22,28,0.82)' : 'rgba(12,14,18,0.82)';
             ctx.strokeStyle = '#2a3140';
             ctx.lineWidth = 2;
@@ -247,30 +279,27 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
             ctx.restore();
 
             ctx.fillStyle = '#7fd1ff';
-            ctx.font = 'bold 11px monospace';
+            ctx.font = 'bold 12px monospace';
             ctx.fillText(layer, corners[3][0] + 8, corners[3][1] - 8);
           });
         }
 
-        // Grid (in world space, so it pans/zooms with the map). In multi-scene
-        // mode each plane has its own grid, so the global grid is hidden.
-        const gridWorld = 10; // 10 units between lines
+        // World-space grid (single-scene). Drawn in world coords so it scrolls
+        // under the player as the camera follows — a real spatial reference.
+        const gridWorld = 10;
         const gridPx = gridWorld * scale;
         if (sceneRef.current !== '' && gridPx > 6) {
           ctx.strokeStyle = '#1c2230';
           ctx.lineWidth = 1;
-          const startX = cx % gridPx;
-          const startY = cy % gridPx;
+          const startX = ((cx % gridPx) + gridPx) % gridPx;
+          const startY = ((cy % gridPx) + gridPx) % gridPx;
           for (let x = startX; x < w; x += gridPx) {
             ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
           }
           for (let y = startY; y < h; y += gridPx) {
             ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
           }
-        }
-
-        if (sceneRef.current !== '') {
-          // Origin crosshair.
+          // World origin crosshair, so the grid's reference point is visible.
           ctx.strokeStyle = '#2a3140';
           ctx.setLineDash([4, 4]);
           ctx.beginPath();
@@ -280,7 +309,6 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
           ctx.setLineDash([]);
         }
 
-        // Player points.
         const list = ghostsRef.current.filter(
           g => sceneRef.current === '' || g.scene === sceneRef.current
         );
@@ -307,11 +335,19 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
           const sx = projected.x;
           const sz = projected.y;
           const color = fpsColor(g.fps);
+          const isActive = g.player_id === activeIdRef.current;
+          if (isActive) {
+            ctx.strokeStyle = '#7fd1ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sx, sz, 11, 0, Math.PI * 2);
+            ctx.stroke();
+          }
           ctx.shadowBlur = 8;
           ctx.shadowColor = color;
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(sx, sz, 6, 0, Math.PI * 2);
+          ctx.arc(sx, sz, isActive ? 7 : 6, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
           ctx.fillStyle = '#d7dbe0';
@@ -325,22 +361,35 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // Zoom clamps per mode.
+  const clampGlobal = (z: number) => Math.min(2.6, Math.max(0.5, z));
+  const clampPlane = (z: number) => Math.min(2.4, Math.max(0.65, z));
+  const clampSingle = (z: number) => Math.min(8, Math.max(0.25, z));
+
   // --- wheel zoom ---
+  // In multi-plane mode: over a plane -> focus that plane; over empty space ->
+  // global zoom (scales/spreads all planes). In single-scene -> free zoom.
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    const plane = hitPlane(e.clientX, e.clientY);
-    const cam = sceneRef.current === '' && plane ? planeCam(plane) : camRef.current;
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    cam.zoom = sceneRef.current === ''
-      ? Math.min(2.2, Math.max(0.65, cam.zoom * factor))
-      : Math.min(8, Math.max(0.25, cam.zoom * factor));
+    if (sceneRef.current === '') {
+      const plane = hitPlane(e.clientX, e.clientY);
+      if (plane) {
+        const cam = planeCam(plane);
+        cam.zoom = clampPlane(cam.zoom * factor);
+      } else {
+        globalZoomRef.current = clampGlobal(globalZoomRef.current * factor);
+      }
+    } else {
+      camRef.current.zoom = clampSingle(camRef.current.zoom * factor);
+    }
     forceTick(t => t + 1);
   }, []);
 
-  // --- drag pan (mouse + single touch) + pinch zoom (two touches) ---
+  // --- drag pan + pinch zoom ---
   const drag = useRef<{ x: number; y: number; plane: string | null } | null>(null);
   const dragMoved = useRef(false);
-  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  const pinch = useRef<{ dist: number; zoom: number; mode: 'plane' | 'global' | 'single'; cam?: any } | null>(null);
 
   const onPointerDown = (e: React.PointerEvent) => {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -354,9 +403,21 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
     const dx = e.clientX - drag.current.x;
     const dy = e.clientY - drag.current.y;
     if (Math.hypot(dx, dy) > 3) dragMoved.current = true;
-    const cam = sceneRef.current === '' && drag.current.plane ? planeCam(drag.current.plane) : camRef.current;
-    cam.offsetX += dx;
-    cam.offsetY += dy;
+    if (sceneRef.current === '') {
+      if (drag.current.plane) {
+        const cam = planeCam(drag.current.plane);
+        cam.offsetX += dx;
+        cam.offsetY += dy;
+      } else {
+        // Empty space -> scroll the whole plane stack vertically.
+        stackOffsetRef.current += dy;
+      }
+    } else {
+      // Panning releases follow so the user can look around freely.
+      followRef.current = false;
+      camRef.current.offsetX += dx;
+      camRef.current.offsetY += dy;
+    }
     drag.current = { ...drag.current, x: e.clientX, y: e.clientY };
   };
   const onPointerUp = () => {
@@ -370,18 +431,36 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
 
   const touchDist = (t: React.TouchList) =>
     Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  const touchMid = (t: React.TouchList) => ({
+    x: (t[0].clientX + t[1].clientX) / 2,
+    y: (t[0].clientY + t[1].clientY) / 2,
+  });
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       drag.current = null;
-      pinch.current = { dist: touchDist(e.touches), zoom: camRef.current.zoom };
+      const mid = touchMid(e.touches);
+      if (sceneRef.current === '') {
+        const plane = hitPlane(mid.x, mid.y);
+        if (plane) {
+          const cam = planeCam(plane);
+          pinch.current = { dist: touchDist(e.touches), zoom: cam.zoom, mode: 'plane', cam };
+        } else {
+          pinch.current = { dist: touchDist(e.touches), zoom: globalZoomRef.current, mode: 'global' };
+        }
+      } else {
+        pinch.current = { dist: touchDist(e.touches), zoom: camRef.current.zoom, mode: 'single' };
+      }
     }
   };
   const onTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 2 && pinch.current) {
       e.preventDefault();
       const ratio = touchDist(e.touches) / pinch.current.dist;
-      camRef.current.zoom = Math.min(8, Math.max(0.25, pinch.current.zoom * ratio));
+      const target = pinch.current.zoom * ratio;
+      if (pinch.current.mode === 'plane') pinch.current.cam.zoom = clampPlane(target);
+      else if (pinch.current.mode === 'global') globalZoomRef.current = clampGlobal(target);
+      else camRef.current.zoom = clampSingle(target);
       forceTick(t => t + 1);
     }
   };
@@ -389,9 +468,27 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
     if (e.touches.length < 2) pinch.current = null;
   };
 
+  // +/- buttons: global zoom in multi-plane mode, free zoom in single-scene.
+  const zoomBy = (factor: number) => {
+    if (sceneRef.current === '') {
+      globalZoomRef.current = clampGlobal(globalZoomRef.current * factor);
+    } else {
+      camRef.current.zoom = clampSingle(camRef.current.zoom * factor);
+    }
+    forceTick(t => t + 1);
+  };
+
   const resetView = () => {
     camRef.current = { zoom: 1, offsetX: 0, offsetY: 0 };
     planeCamsRef.current = {};
+    globalZoomRef.current = 1;
+    stackOffsetRef.current = 0;
+    followRef.current = true;
+    forceTick(t => t + 1);
+  };
+
+  const recenterFollow = () => {
+    followRef.current = true;
     forceTick(t => t + 1);
   };
 
@@ -414,16 +511,55 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
         LIVE: <span className="text-accent font-bold">{visible.length}</span>
       </div>
 
-      <button
-        onClick={resetView}
-        className="absolute top-3 right-3 bg-bg-card/90 px-2 py-1 border-2 border-black text-[0.625rem] font-mono uppercase font-bold hover:bg-accent hover:text-black"
-      >
-        Reset
-      </button>
-
-      <div className="absolute bottom-3 left-3 pointer-events-none text-[0.5rem] font-mono text-text-muted uppercase">
-        Scroll/pinch = zoom · drag = pan · click player = follow 3D
+      <div className="absolute bottom-3 right-3 flex flex-col gap-2">
+        <button
+          onClick={() => zoomBy(1.25)}
+          className="flex h-10 w-10 items-center justify-center border-2 border-black bg-bg-card/90 hover:bg-accent hover:text-black"
+          aria-label="Zoom in"
+        >
+          <Plus size={18} />
+        </button>
+        <button
+          onClick={() => zoomBy(1 / 1.25)}
+          className="flex h-10 w-10 items-center justify-center border-2 border-black bg-bg-card/90 hover:bg-accent hover:text-black"
+          aria-label="Zoom out"
+        >
+          <Minus size={18} />
+        </button>
+        {sceneName !== '' && (
+          <button
+            onClick={recenterFollow}
+            className={`flex h-10 w-10 items-center justify-center border-2 border-black ${followRef.current ? 'bg-accent text-black' : 'bg-bg-card/90'} hover:bg-accent hover:text-black`}
+            aria-label="Follow player"
+            title="Seguir al player"
+          >
+            <LocateFixed size={18} />
+          </button>
+        )}
+        <button
+          onClick={resetView}
+          className="flex h-10 w-10 items-center justify-center border-2 border-black bg-bg-card/90 hover:bg-accent hover:text-black"
+          aria-label="Recenter"
+          title="Reset view"
+        >
+          <Crosshair size={18} />
+        </button>
+        <button
+          onClick={() => setShowHelp((v) => !v)}
+          className={`flex h-10 w-10 items-center justify-center border-2 border-black ${showHelp ? 'bg-accent text-black' : 'bg-bg-card/90'} hover:bg-accent hover:text-black`}
+          aria-label="Help"
+        >
+          <HelpCircle size={18} />
+        </button>
       </div>
+
+      {showHelp && (
+        <div className="absolute bottom-3 left-3 max-w-[60%] border-2 border-black bg-bg-card/95 px-2 py-1.5 text-[0.5625rem] font-mono uppercase leading-relaxed text-text-muted shadow-[2px_2px_0px_0px_black]">
+          {sceneName === ''
+            ? 'Scroll/pinch sobre plano = enfocar · sobre vacío = zoom global · arrastra = mover · tap player = detalle'
+            : 'Scroll/pinch = zoom · arrastra = soltar follow · botón mira = re-seguir · tap player = detalle'}
+        </div>
+      )}
 
       {hover && (
         <div

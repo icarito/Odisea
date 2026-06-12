@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import {
   Bar,
@@ -20,37 +20,29 @@ import { HistoricalTable } from './components/HistoricalTable';
 import { SessionPlayback } from './components/SessionPlayback';
 import { DashboardLayout } from './components/DashboardLayout';
 import { PlayerBottomSheet } from './components/PlayerBottomSheet';
-import { PlatformFilter } from './components/PlatformFilter';
-import { RetroCard, RetroButton, RetroSelect } from './components/retro';
+import { FiltersDrawer } from './components/FiltersDrawer';
+import { LiveCombinedChart } from './components/LiveCombinedChart';
+import { RetroCard, RetroButton } from './components/retro';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
-import { getHeatmap, getHistoricalSessions, getGhostData, getScenes } from './api';
-import { Maximize2, Play, X } from 'lucide-react';
+import { getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats } from './api';
+import {
+  KNOWN_PLATFORMS,
+  getPlatform,
+  isDashboardSession,
+  sessionScenes,
+  isUsefulSceneName,
+} from './lib/filters';
+import { Maximize2, X, SlidersHorizontal, ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
 
-type Tab = 'live' | 'heatmap' | 'history' | 'playback';
-
-const KNOWN_PLATFORMS = ['server', 'android', 'linux', 'windows', 'macos', 'web'];
+type Tab = 'live' | 'heatmap' | 'history';
 
 type GitCommit = {
   sha: string;
   date: string;
   message: string;
 };
-
-const normalizePlatform = (value: any): string | null => {
-  if (typeof value !== 'string' || value.trim() === '') return null;
-  const normalized = value.trim().toLowerCase();
-  if (['html5', 'webgl', 'browser'].includes(normalized)) return 'web';
-  if (['darwin', 'osx', 'mac'].includes(normalized)) return 'macos';
-  if (['win', 'win32', 'win64'].includes(normalized)) return 'windows';
-  if (['x11', 'linuxbsd', 'linux_x11'].includes(normalized)) return 'linux';
-  return normalized;
-};
-
-const getPlatform = (item: any): string | null => (
-  normalizePlatform(item?.platform ?? item?.player?.platform)
-);
 
 const formatDateTime = (timestampSeconds: number) => {
   if (!timestampSeconds) return 'No data';
@@ -79,60 +71,12 @@ const fpsColor = (fps: number) => {
   return '#f85149';
 };
 
-const isDashboardSession = (session: any) => {
-  const platform = getPlatform(session);
-  const avgFps = Number(session?.avg_fps) || 0;
-  return platform !== 'server' && avgFps <= 65;
-};
-
-const sessionScenes = (session: any): string[] => {
-  if (Array.isArray(session?.scenes_visited)) return session.scenes_visited.filter(Boolean);
-  if (typeof session?.scenes_visited === 'string') {
-    return session.scenes_visited.split(',').map((s: string) => s.trim()).filter(Boolean);
-  }
-  return session?.scene ? [session.scene] : [];
-};
-
-const isUsefulSceneName = (scene: any): scene is string => {
-  if (typeof scene !== 'string') return false;
-  const normalized = scene.trim().toLowerCase();
-  return Boolean(normalized) && !['?', 'unknown', 'desconocida', 'desconocido', 'undefined', 'null'].includes(normalized);
-};
-
-const HomeStats = ({ sessions, commits }: { sessions: any[]; commits: GitCommit[] }) => {
-  const cleanSessions = useMemo(() => (
-    sessions.filter(isDashboardSession)
-  ), [sessions]);
-
-  const stats = useMemo(() => {
-    const fpsValues = cleanSessions.map((s) => Number(s.avg_fps)).filter((n) => Number.isFinite(n));
-    const totalDuration = cleanSessions.reduce((sum, s) => sum + (Number(s.duration) || 0), 0);
-    const avgFps = fpsValues.reduce((sum, fps) => sum + fps, 0) / (fpsValues.length || 1);
-    const lowPct = cleanSessions.length
-      ? cleanSessions.filter((s) => (Number(s.avg_fps) || 0) < 30).length * 100 / cleanSessions.length
-      : 0;
-    const lastSession = cleanSessions.reduce((latest, s) => {
-      const ts = Number(s.start_time) || 0;
-      return ts > latest ? ts : latest;
-    }, 0);
-    return { avgFps, totalDuration, lowPct, lastSession };
-  }, [cleanSessions]);
-
-  const fpsSeries = useMemo(() => (
-    [...cleanSessions]
-      .filter((s) => Number(s.start_time) > 0)
-      .sort((a, b) => Number(a.start_time) - Number(b.start_time))
-      .map((s) => ({
-        timestamp: Number(s.start_time),
-        date: new Date(Number(s.start_time) * 1000).toISOString().slice(0, 10),
-        label: formatDateTime(Number(s.start_time)),
-        avg_fps: Number(s.avg_fps) || 0,
-      }))
-  ), [cleanSessions]);
-
+// Standalone "Sessions per day" bar chart, shown in the Live top stripe when no
+// player is live. Reused from the HomeStats aggregation logic.
+const SessionsPerDayChart = ({ sessions }: { sessions: any[] }) => {
   const sessionsByDay = useMemo(() => {
     const grouped = new Map<string, number>();
-    cleanSessions.forEach((s) => {
+    sessions.filter(isDashboardSession).forEach((s) => {
       const ts = Number(s.start_time) || 0;
       if (!ts) return;
       const day = new Date(ts * 1000).toISOString().slice(0, 10);
@@ -141,55 +85,80 @@ const HomeStats = ({ sessions, commits }: { sessions: any[]; commits: GitCommit[
     return Array.from(grouped.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, count]) => ({ date, count }));
-  }, [cleanSessions]);
+  }, [sessions]);
+
+  const tooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
+        <div className="font-black text-accent">{d.date}</div>
+        <div>Sessions: {d.count}</div>
+      </div>
+    );
+  };
+
+  if (sessionsByDay.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-xs italic text-text-muted">
+        No session history yet
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+      <BarChart data={sessionsByDay}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
+        <XAxis dataKey="date" stroke="#666" fontSize={10} tickFormatter={(v) => String(v).slice(5)} />
+        <YAxis stroke="#666" fontSize={10} allowDecimals={false} />
+        <Tooltip content={tooltip} />
+        <Bar dataKey="count" fill="#7fd1ff" isAnimationActive={false} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
+// Compact label/value cell for the collapsible 3D info panel.
+const Info = ({ label, value }: { label: string; value: ReactNode }) => (
+  <div className="flex flex-col">
+    <span className="text-[0.5rem] uppercase text-text-muted">{label}</span>
+    <span className="truncate text-[0.625rem]">{value}</span>
+  </div>
+);
+
+// Historical avg-FPS-per-session line with git commit markers — useful to spot
+// which commit moved performance. Standalone so it can live in the Live top
+// stripe. Includes a version-metadata overlay (latest commits in range).
+const CommitsFpsChart = ({ sessions, commits }: { sessions: any[]; commits: GitCommit[] }) => {
+  const fpsSeries = useMemo(() => (
+    sessions
+      .filter(isDashboardSession)
+      .filter((s) => Number(s.start_time) > 0)
+      .sort((a, b) => Number(a.start_time) - Number(b.start_time))
+      .map((s) => ({
+        timestamp: Number(s.start_time),
+        label: formatDateTime(Number(s.start_time)),
+        avg_fps: Number(s.avg_fps) || 0,
+      }))
+  ), [sessions]);
 
   const commitLines = useMemo(() => {
     if (fpsSeries.length === 0) return [];
     const minTs = fpsSeries[0].timestamp;
     const maxTs = fpsSeries[fpsSeries.length - 1].timestamp;
     return commits
-      .map((commit) => ({
-        ...commit,
-        timestamp: Math.floor(new Date(commit.date).getTime() / 1000),
-      }))
+      .map((commit) => ({ ...commit, timestamp: Math.floor(new Date(commit.date).getTime() / 1000) }))
       .filter((commit) => commit.timestamp >= minTs && commit.timestamp <= maxTs);
   }, [commits, fpsSeries]);
 
-  const statCards: Array<Array<{ label: string; value: string; color?: string }>> = [
-    [
-      { label: 'Total Sessions', value: cleanSessions.length.toString() },
-      { label: 'Total Play Time', value: formatPlayTime(stats.totalDuration) },
-    ],
-    [
-      { label: 'Avg FPS Global', value: stats.avgFps.toFixed(1), color: fpsColor(stats.avgFps) },
-      { label: '% Low FPS', value: `${stats.lowPct.toFixed(1)}%`, color: fpsColor(100 - stats.lowPct) },
-    ],
-    [
-      { label: 'Last Session', value: formatDateTime(stats.lastSession) },
-      { label: 'Scenes', value: new Set(cleanSessions.flatMap(sessionScenes)).size.toString() },
-    ],
-  ];
-
-  const fpsTimelineTooltip = ({ active, payload }: any) => {
+  const tooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     const d = payload[0].payload;
     return (
       <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
         <div className="font-black text-accent">{d.label}</div>
-        <div className="text-text-muted">Range: session start time</div>
         <div>Avg FPS: {d.avg_fps.toFixed(1)}</div>
-      </div>
-    );
-  };
-
-  const sessionsPerDayTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
-        <div className="font-black text-accent">{d.date}</div>
-        <div className="text-text-muted">Range: calendar day</div>
-        <div>Sessions: {d.count}</div>
       </div>
     );
   };
@@ -202,76 +171,147 @@ const HomeStats = ({ sessions, commits }: { sessions: any[]; commits: GitCommit[
     return (
       <g>
         <title>{`${date} · ${commit.message} · ${shortSha}`}</title>
-        <text
-          x={x + 4}
-          y={y + 12}
-          fill="#d29922"
-          fontSize={9}
-          transform={`rotate(90 ${x + 4} ${y + 12})`}
-        >
+        <text x={x + 4} y={y + 12} fill="#d29922" fontSize={9} transform={`rotate(90 ${x + 4} ${y + 12})`}>
           {shortSha}
         </text>
       </g>
     );
   };
 
+  // Commits in range, newest first, for the version selector.
+  const rangeCommits = useMemo(
+    () => [...commitLines].sort((a, b) => b.timestamp - a.timestamp),
+    [commitLines],
+  );
+
+  // Selected version (defaults to the newest). Drives the highlighted marker on
+  // the chart and the commit-message panel below the selector.
+  const [selectedSha, setSelectedSha] = useState<string | null>(null);
+  // Default to the newest commit in range; user moves the selection by clicking
+  // the chart (the cursor picks the nearest commit marker).
+  const selected = rangeCommits.find((c) => c.sha === selectedSha) || rangeCommits[0] || null;
+
+  // Clicking the chart selects the commit nearest to the clicked time.
+  const onChartClick = (e: any) => {
+    const t = e?.activeLabel;
+    if (typeof t !== 'number' || commitLines.length === 0) return;
+    const nearest = commitLines.reduce((best, c) =>
+      Math.abs(c.timestamp - t) < Math.abs(best.timestamp - t) ? c : best
+    );
+    setSelectedSha(nearest.sha);
+  };
+
+  if (fpsSeries.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-xs italic text-text-muted">
+        No session history yet
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full w-full">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+        <LineChart data={fpsSeries} margin={{ top: 4, right: 8, bottom: 0, left: -8 }} onClick={onChartClick}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
+          <XAxis dataKey="timestamp" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
+          <YAxis stroke="#666" fontSize={10} domain={[0, 'auto']} width={28} />
+          <Tooltip content={tooltip} />
+          {commitLines.map((commit) => {
+            const isSel = selected?.sha === commit.sha;
+            return (
+              <ReferenceLine
+                key={commit.sha}
+                x={commit.timestamp}
+                stroke={isSel ? '#f85149' : '#d29922'}
+                strokeWidth={isSel ? 2 : 1}
+                strokeDasharray={isSel ? undefined : '3 3'}
+                label={renderCommitLabel(commit)}
+              />
+            );
+          })}
+          <Line type="monotone" dataKey="avg_fps" stroke="#7fd1ff" dot={{ r: 3 }} strokeWidth={2} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+
+      {/* Selected version metadata — moves with the chart cursor (click to pick
+          the nearest commit). */}
+      {selected && (
+        <div className="pointer-events-none absolute left-2 top-2 max-w-[70%] border-2 border-black bg-bg-card/90 px-2 py-1.5 text-[0.5625rem] font-mono shadow-[2px_2px_0px_0px_black]">
+          <div className="mb-0.5 font-black uppercase tracking-widest text-[#d29922]">
+            Versión · <span className="text-[#f85149]">{selected.sha.slice(0, 7)}</span> · {new Date(selected.date).toISOString().slice(0, 10)}
+          </div>
+          <div className="whitespace-pre-wrap break-words text-text-primary">{selected.message.split('\n')[0]}</div>
+          <div className="mt-1 text-text-muted/70">Click en el chart para elegir versión</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+type GhostStats = {
+  unique_players_total?: number;
+  players_last_day?: number;
+  players_last_week?: number;
+  players_last_month?: number;
+  max_concurrent_players?: number;
+  total_sessions?: number;
+};
+
+const HomeStats = ({ sessions, serverStats }: { sessions: any[]; serverStats?: GhostStats }) => {
+  const cleanSessions = useMemo(() => (
+    sessions.filter(isDashboardSession)
+  ), [sessions]);
+
+  const stats = useMemo(() => {
+    const fpsValues = cleanSessions.map((s) => Number(s.avg_fps)).filter((n) => Number.isFinite(n));
+    const memValues = cleanSessions.map((s) => Number(s.avg_mem)).filter((n) => Number.isFinite(n) && n > 0);
+    const totalDuration = cleanSessions.reduce((sum, s) => sum + (Number(s.duration) || 0), 0);
+    const avgFps = fpsValues.reduce((sum, fps) => sum + fps, 0) / (fpsValues.length || 1);
+    const avgMem = memValues.length ? memValues.reduce((sum, m) => sum + m, 0) / memValues.length : 0;
+    const lowPct = cleanSessions.length
+      ? cleanSessions.filter((s) => (Number(s.avg_fps) || 0) < 30).length * 100 / cleanSessions.length
+      : 0;
+    const lastSession = cleanSessions.reduce((latest, s) => {
+      const ts = Number(s.start_time) || 0;
+      return ts > latest ? ts : latest;
+    }, 0);
+    return { avgFps, avgMem, totalDuration, lowPct, lastSession };
+  }, [cleanSessions]);
+
+  // Flat list of headline stats; FPS, Memory and Sessions share one compact grid
+  // instead of three separate cards. Player-count stats from the server are
+  // appended only when present (the endpoint may return {} on an empty DB).
+  const num = (v: any): v is number => typeof v === 'number' && Number.isFinite(v);
+  const statCells: Array<{ label: string; value: string; color?: string }> = [
+    { label: 'Avg FPS', value: stats.avgFps.toFixed(1), color: fpsColor(stats.avgFps) },
+    { label: 'Avg Memory', value: stats.avgMem > 0 ? `${stats.avgMem.toFixed(0)} MB` : '—' },
+    { label: 'Sessions', value: cleanSessions.length.toString() },
+    { label: 'Play Time', value: formatPlayTime(stats.totalDuration) },
+    { label: '% Low FPS', value: `${stats.lowPct.toFixed(1)}%`, color: fpsColor(100 - stats.lowPct) },
+    { label: 'Scenes', value: new Set(cleanSessions.flatMap(sessionScenes)).size.toString() },
+    ...(num(serverStats?.unique_players_total) ? [{ label: 'Unique Players', value: String(serverStats!.unique_players_total) }] : []),
+    ...(num(serverStats?.max_concurrent_players) ? [{ label: 'Max Concurrent', value: String(serverStats!.max_concurrent_players) }] : []),
+    ...(num(serverStats?.players_last_day) ? [{ label: 'Players 24h', value: String(serverStats!.players_last_day) }] : []),
+    ...(num(serverStats?.players_last_week) ? [{ label: 'Players 7d', value: String(serverStats!.players_last_week) }] : []),
+    ...(num(serverStats?.players_last_month) ? [{ label: 'Players 30d', value: String(serverStats!.players_last_month) }] : []),
+  ];
+
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {statCards.map((row) => (
-          <RetroCard key={row.map((card) => card.label).join('-')}>
-            <div className="grid grid-cols-2 gap-4">
-              {row.map((card) => (
-                <div key={card.label} className="min-w-0">
-                  <div className="truncate text-xl font-black tracking-tighter sm:text-2xl" style={card.color ? { color: card.color } : undefined}>
-                    {card.value}
-                  </div>
-                  <div className="mt-1 text-[0.625rem] font-black uppercase text-text-muted">{card.label}</div>
-                </div>
-              ))}
+      {/* Headline stats share one compact card. */}
+      <RetroCard>
+        <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
+          {statCells.map((card) => (
+            <div key={card.label} className="min-w-0">
+              <div className="truncate text-lg font-black tracking-tighter sm:text-2xl" style={card.color ? { color: card.color } : undefined}>
+                {card.value}
+              </div>
+              <div className="mt-1 text-[0.5625rem] font-black uppercase text-text-muted">{card.label}</div>
             </div>
-          </RetroCard>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        <RetroCard title="FPS Over Time" className="xl:col-span-3">
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <LineChart data={fpsSeries}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
-                <XAxis dataKey="timestamp" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
-                <YAxis stroke="#666" fontSize={10} domain={[0, 'auto']} />
-                <Tooltip content={fpsTimelineTooltip} />
-                {commitLines.map((commit) => (
-                  <ReferenceLine
-                    key={commit.sha}
-                    x={commit.timestamp}
-                    stroke="#d29922"
-                    strokeDasharray="3 3"
-                    label={renderCommitLabel(commit)}
-                  />
-                ))}
-                <Line type="monotone" dataKey="avg_fps" stroke="#7fd1ff" dot={{ r: 3 }} strokeWidth={2} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </RetroCard>
-
-        <RetroCard title="Sessions Per Day" className="xl:col-span-2">
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <BarChart data={sessionsByDay}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
-                <XAxis dataKey="date" stroke="#666" fontSize={10} tickFormatter={(v) => String(v).slice(5)} />
-                <YAxis stroke="#666" fontSize={10} allowDecimals={false} />
-                <Tooltip content={sessionsPerDayTooltip} />
-                <Bar dataKey="count" fill="#7fd1ff" isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </RetroCard>
-      </div>
+          ))}
+        </div>
+      </RetroCard>
     </div>
   );
 };
@@ -374,7 +414,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [heatmapData, setHeatmapData] = useState<any[] | undefined>();
-  const [showHeatmap, setShowHeatmap] = useState(false);
   const [showLiveGhosts, setShowLiveGhosts] = useState(true);
 
   // Live tab view toggle: dashboard, 2D birdseye map, or 3D perspective.
@@ -384,10 +423,25 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [fs3d, setFs3d] = useState(false);
   // Player list bottom sheet (opened from the header counter).
   const [showPlayerSheet, setShowPlayerSheet] = useState(false);
+  // Live FPS/memory charts overlay over the 3D view.
+  const [showLiveCharts, setShowLiveCharts] = useState(true);
+  // Selected ghost in birdseye -> floating detail card with live charts.
+  const [birdseyeDetailId, setBirdseyeDetailId] = useState<string | null>(null);
+  // Filters side drawer (platform + scene).
+  const [showFilters, setShowFilters] = useState(false);
+  // Collapsible extra-info panel under the 3D view.
+  const [show3dInfo, setShow3dInfo] = useState(false);
+  // Top-stripe inner tab on the Dashboard view (live combined chart vs sessions).
+  const [dashStripeTab, setDashStripeTab] = useState<'live' | 'sessions' | 'versions'>('live');
+
+  // Playback loading flag (history -> playback fetch).
+  const [playbackLoading, setPlaybackLoading] = useState(false);
 
   // Heatmap State
   const [heatmapRes, setHeatmapRes] = useState(5);
   const [heatmapMobileView, setHeatmapMobileView] = useState<'scenes' | 'map'>('scenes');
+  // History tab mobile pane toggle (session list vs playback), mirrors heatmap.
+  const [historyMobileView, setHistoryMobileView] = useState<'list' | 'player'>('list');
 
   // Available scenes (fetched from backend, not hardcoded)
   const [scenes, setScenes] = useState<string[]>([]);
@@ -397,10 +451,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [playbackData, setPlaybackData] = useState<any[]>([]);
   const [commits, setCommits] = useState<GitCommit[]>([]);
+  const [serverStats, setServerStats] = useState<GhostStats>({});
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(
     () => new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server'))
   );
   const [selectedSceneFilter, setSelectedSceneFilter] = useState('all');
+
+  // Restore the default filters: all scenes, every platform except the headless
+  // server.
+  const resetFilters = () => {
+    setSelectedPlatforms(new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server')));
+    setSelectedSceneFilter('all');
+  };
   const [lastLivePlayerCount, setLastLivePlayerCount] = useState(0);
   const alertToastTimes = useRef<Map<string, number>>(new Map());
 
@@ -437,13 +499,35 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       const lastToast = alertToastTimes.current.get(key) || 0;
       if (now - lastToast < 60000) return;
       alertToastTimes.current.set(key, now);
+
+      // Enrich the alert with whatever runtime context we have: prefer the
+      // alert payload, fall back to the player's current heartbeat.
+      const liveHb: any = heartbeats[playerId];
+      const ctxScene = lastMessage.scene ?? lastMessage.player?.scene ?? liveHb?.player?.scene;
+      const ctxPlatform = alertPlatform ?? getPlatform(liveHb);
+      const ctxFps = lastMessage.fps ?? lastMessage.player?.fps ?? liveHb?.player?.fps;
+      const ctxMem = lastMessage.memory_mb ?? lastMessage.player?.memory_mb ?? liveHb?.player?.memory_mb;
+      const ctxParts = [
+        ctxScene ? `scene ${ctxScene}` : null,
+        ctxPlatform ? ctxPlatform : null,
+        typeof ctxFps === 'number' ? `${Math.round(ctxFps)} fps` : null,
+        typeof ctxMem === 'number' && ctxMem > 0 ? `${ctxMem.toFixed(0)} MB` : null,
+      ].filter(Boolean);
+
       toast.custom((t) => (
         <div className={`${t.visible ? 'opacity-100' : 'opacity-0'} border-4 border-black bg-bg-card p-3 font-mono text-xs text-text-primary shadow-[4px_4px_0px_0px_black] transition-opacity`}>
           <div className="flex items-start gap-3">
             <span className="text-base">🔥</span>
             <div className="min-w-0 flex-1">
-              <div className="font-black uppercase text-accent">Performance alert</div>
+              <div className="font-black uppercase text-accent">
+                Performance alert{alertType && alertType !== 'alert' ? ` · ${alertType}` : ''}
+              </div>
               <div className="mt-1 text-text-muted">{lastMessage.message}</div>
+              {ctxParts.length > 0 && (
+                <div className="mt-1 text-[0.625rem] uppercase tracking-wide text-text-muted/80">
+                  {ctxParts.join(' · ')}
+                </div>
+              )}
               <div className="mt-3 flex gap-2">
                 {playerId !== 'unknown' && (
                   <button
@@ -473,7 +557,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
       ), { duration: 8000 });
     }
-  }, [lastMessage, setActiveTab]);
+  }, [lastMessage, setActiveTab, heartbeats]);
 
   useEffect(() => {
     const active = Object.entries(heartbeats).filter(([, hb]: [string, any]) => {
@@ -518,11 +602,24 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       .catch(() => setScenes([]));
   }, []);
 
+  // Keep the historical list live: refetch periodically so sessions that have
+  // been persisted to SQLite appear without a manual reload. (Sessions still in
+  // flight are injected from heartbeats in liveHistoricalSessions below.)
   useEffect(() => {
-    getHistoricalSessions()
-      .then((d) => setHistoricalSessions(Array.isArray(d) ? d : []))
-      .catch(() => setHistoricalSessions([]));
+    const loadSessions = () => {
+      getHistoricalSessions()
+        .then((d) => setHistoricalSessions(Array.isArray(d) ? d : []))
+        .catch(() => {});
+      getGhostStats()
+        .then((d) => setServerStats(d && typeof d === 'object' ? d : {}))
+        .catch(() => {});
+    };
+    loadSessions();
+    const interval = setInterval(loadSessions, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
+  useEffect(() => {
     fetch('https://api.github.com/repos/icarito/Odisea/commits?per_page=40')
       .then((response) => response.ok ? response.json() : [])
       .then((data) => {
@@ -560,7 +657,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const handleSelectHistorySession = async (session: any) => {
     setSelectedSession(session);
-    setActiveTab('playback');
+    setHistoryMobileView('player');
+    setPlaybackData([]);
+    setPlaybackLoading(true);
     try {
       const data = await getGhostData(session.player_id, session.session_id);
       let rows: any[] = [];
@@ -573,11 +672,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     } catch (e) {
       toast.error("Failed to load session data");
       setPlaybackData([]);
+    } finally {
+      setPlaybackLoading(false);
     }
   };
 
   const [followPlayer, setFollowPlayer] = useState(true);
-  const [wireframe, setWireframe] = useState(false);
 
   const availablePlatforms = useMemo(() => {
     return KNOWN_PLATFORMS;
@@ -621,9 +721,39 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     Object.fromEntries(Object.entries(heartbeats).filter(([, hb]) => platformAllowed(hb) && sceneAllowed(hb)))
   ), [heartbeats, selectedPlatforms, selectedSceneFilter]);
 
-  const filteredHistoricalSessions = useMemo(() => (
-    historicalSessions.filter((session) => platformAllowed(session) && sceneAllowed(session))
-  ), [historicalSessions, selectedPlatforms, selectedSceneFilter]);
+  // Synthetic session rows for sessions currently in flight (from live
+  // heartbeats), so a new session shows in History immediately — before the
+  // periodic SQLite import persists it. Shaped like the /api/ghosts/sessions
+  // rows the table expects.
+  const liveSessionRows = useMemo(() => (
+    Object.entries(heartbeats)
+      .filter(([, hb]: [string, any]) => getPlatform(hb) !== 'server')
+      .map(([pid, hb]: [string, any]) => {
+        const p = hb.player || {};
+        return {
+          player_id: pid,
+          session_id: hb.session_id,
+          platform: getPlatform(hb) || 'unknown',
+          start_time: hb.session_start ?? hb.timestamp,
+          duration: 0,
+          scenes_visited: p.scene ? [p.scene] : [],
+          scene: p.scene,
+          avg_fps: p.fps ?? 0,
+          avg_mem: p.memory_mb ?? 0,
+          live: true,
+        };
+      })
+  ), [heartbeats]);
+
+  const filteredHistoricalSessions = useMemo(() => {
+    const liveIds = new Set(liveSessionRows.map((s) => s.session_id).filter(Boolean));
+    const merged = [
+      ...liveSessionRows,
+      // Drop persisted rows that are still live (avoid duplicate of the same session).
+      ...historicalSessions.filter((s) => !liveIds.has(s.session_id)),
+    ];
+    return merged.filter((session) => platformAllowed(session) && sceneAllowed(session));
+  }, [historicalSessions, liveSessionRows, selectedPlatforms, selectedSceneFilter]);
 
   const filteredDashboardSessions = useMemo(() => (
     filteredHistoricalSessions.filter(isDashboardSession)
@@ -653,11 +783,20 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   };
 
   const pids = Object.keys(filteredHeartbeats);
-  const unfilteredLiveCount = Object.keys(heartbeats).length;
+  const hasLive = pids.length > 0;
 
   useEffect(() => {
     if (pids.length > 0) setLastLivePlayerCount(pids.length);
   }, [pids.length]);
+
+  // Birdseye/3D require a live player; fall back to Dashboard when none.
+  useEffect(() => {
+    if (!hasLive && liveView !== 'dashboard') setLiveView('dashboard');
+  }, [hasLive, liveView]);
+
+  const activeFilterCount =
+    (selectedSceneFilter !== 'all' ? 1 : 0) +
+    (KNOWN_PLATFORMS.filter((p) => p !== 'server').length - [...selectedPlatforms].filter((p) => p !== 'server').length > 0 ? 1 : 0);
 
   const playerCountLabel = pids.length > 0
     ? `${pids.length} ${pids.length === 1 ? 'player' : 'players'}`
@@ -673,14 +812,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     ? (activeHb?.player?.scene || '')
     : selectedSceneFilter;
   const birdseyeSceneName = selectedSceneFilter === 'all' ? '' : selectedSceneFilter;
-
-  useEffect(() => {
-    if (showHeatmap && liveSceneName) {
-      getHeatmap(liveSceneName).then(setHeatmapData).catch(console.error);
-    } else {
-      setHeatmapData(undefined);
-    }
-  }, [showHeatmap, liveSceneName]);
 
   const safePos = (p: any): [number, number, number] => {
     if (Array.isArray(p) && p.length >= 3) {
@@ -702,10 +833,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       roll={activeHb ? Number(activeHb.player.roll) || 0 : 0}
       trail={activeHistory?.trail || []}
       follow={followPlayer}
-      wireframe={wireframe}
+      wireframe={false}
       sceneName={liveSceneName}
       staleAge={staleAge}
-      heatmapData={showHeatmap ? heatmapData : undefined}
       liveGhosts={liveGhostMarkers}
       hud={activeHb ? {
         fps: activeHb.player?.fps,
@@ -731,29 +861,65 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       playerCount={pids.length}
       playerCountLabel={playerCountLabel}
       onPlayersClick={() => setShowPlayerSheet(true)}
-      isSessionSelected={!!selectedSession}
       headerControls={
-        <div className="flex max-w-[52vw] items-center gap-2 sm:max-w-none">
-          <div className="w-32 shrink-0">
-            <RetroSelect
-              value={selectedSceneFilter}
-              onChange={(event) => setSelectedSceneFilter(event.target.value)}
-              className="py-1 px-2 text-[0.625rem]"
-              title="Filter scene"
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            onClick={() => setShowFilters(true)}
+            className="flex shrink-0 items-center gap-1.5 border-2 border-black bg-bg-primary px-2.5 py-1.5 text-[0.625rem] font-black uppercase hover:bg-accent hover:text-black"
+            title="Filtros"
+          >
+            <SlidersHorizontal size={14} />
+            <span className="hidden sm:inline">Filtros</span>
+            {activeFilterCount > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center bg-accent px-1 text-[0.5625rem] text-black">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          {activeFilterCount > 0 && (
+            <button
+              onClick={resetFilters}
+              className="flex shrink-0 items-center justify-center border-2 border-black bg-bg-primary p-1.5 hover:bg-danger hover:text-black"
+              title="Reset filtros"
+              aria-label="Reset filtros"
             >
-              <option value="all">All scenes</option>
-              {availableSceneFilters.map((scene) => <option key={scene} value={scene}>{scene}</option>)}
-            </RetroSelect>
-          </div>
-          <PlatformFilter
-            platforms={availablePlatforms}
-            selected={selectedPlatforms}
-            onToggle={togglePlatform}
-          />
+              <RotateCcw size={14} />
+            </button>
+          )}
         </div>
       }
+      secondaryNav={activeTab === 'live' ? (
+        <div className="flex">
+          {([
+            { id: 'dashboard', label: 'Dashboard', enabled: true },
+            { id: 'birdseye', label: 'Birdseye', enabled: hasLive },
+            { id: '3d', label: '3D', enabled: hasLive },
+          ] as const).map((v) => (
+            <button
+              key={v.id}
+              onClick={() => v.enabled && setLiveView(v.id)}
+              disabled={!v.enabled}
+              className={`subtab-btn ${liveView === v.id ? 'subtab-btn-active' : ''}`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      ) : undefined}
     >
       <Toaster position="bottom-right" />
+
+      <FiltersDrawer
+        open={showFilters}
+        onClose={() => setShowFilters(false)}
+        platforms={availablePlatforms}
+        selectedPlatforms={selectedPlatforms}
+        onTogglePlatform={togglePlatform}
+        scenes={availableSceneFilters}
+        selectedScene={selectedSceneFilter}
+        onSelectScene={setSelectedSceneFilter}
+        onReset={resetFilters}
+      />
 
       <PlayerBottomSheet
         open={showPlayerSheet}
@@ -779,87 +945,161 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           >
             <X size={24} />
           </button>
-          <div className="flex-1 min-h-0">{viewport3D}</div>
+          <div className="relative flex-1 min-h-0">
+            {viewport3D}
+            {showLiveCharts && activeHistory && (
+              <div className="absolute top-3 left-3 z-10 h-28 w-72 max-w-[60vw] border-2 border-black bg-bg-card/90 p-2 shadow-[3px_3px_0px_0px_black]">
+                <LiveCombinedChart history={activeHistory} />
+              </div>
+            )}
+          </div>
         </div>
       )}
       
       {activeTab === 'live' && (
         <div className="flex flex-col h-full min-h-0">
-          {/* Toolbar: dashboard / Birdseye / 3D + view-specific controls */}
-          <div className="shrink-0 flex flex-wrap items-center gap-2 p-2 border-b-2 border-black bg-bg-card/60">
-            <div className="flex border-2 border-black">
-              <button
-                onClick={() => setLiveView('dashboard')}
-                className={`px-3 py-1 text-[0.625rem] font-black uppercase ${liveView === 'dashboard' ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted'}`}
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => setLiveView('birdseye')}
-                className={`border-l-2 border-black px-3 py-1 text-[0.625rem] font-black uppercase ${liveView === 'birdseye' ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted'}`}
-              >
-                Birdseye
-              </button>
-              <button
-                onClick={() => setLiveView('3d')}
-                className={`px-3 py-1 text-[0.625rem] font-black uppercase border-l-2 border-black ${liveView === '3d' ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted'}`}
-              >
-                3D
-              </button>
-            </div>
-
-            {liveView === '3d' && (
-              <div className="flex gap-1 flex-wrap">
-                <RetroButton variant={followPlayer ? 'primary' : 'secondary'} onClick={() => setFollowPlayer(!followPlayer)} className="py-1 px-2 text-[0.625rem]">FOLLOW</RetroButton>
-                <RetroButton variant={wireframe ? 'primary' : 'secondary'} onClick={() => setWireframe(!wireframe)} className="py-1 px-2 text-[0.625rem]">MESH</RetroButton>
-                <RetroButton variant={showHeatmap ? 'primary' : 'secondary'} onClick={() => setShowHeatmap(!showHeatmap)} className="py-1 px-2 text-[0.625rem]">HEAT</RetroButton>
-                <RetroButton variant={showLiveGhosts ? 'primary' : 'secondary'} onClick={() => setShowLiveGhosts(!showLiveGhosts)} className="py-1 px-2 text-[0.625rem]">PEERS</RetroButton>
-                <RetroButton variant="secondary" onClick={() => setFs3d(true)} className="py-1 px-2" title="Fullscreen 3D"><Maximize2 size={14} /></RetroButton>
-              </div>
-            )}
-          </div>
-
-          {/* View area fills all remaining space (no fixed heights). */}
+          {/* View area fills all remaining space; the view switcher now lives in
+              the secondary nav above the bottom bar. */}
           <div className="flex-1 min-h-0 relative">
-            {liveView === 'dashboard' || pids.length === 0 && unfilteredLiveCount === 0 ? (
-              <HomeStats sessions={filteredDashboardSessions} commits={commits} />
-            ) : pids.length === 0 && unfilteredLiveCount > 0 ? (
-              <div className="flex h-full items-center justify-center p-6">
-                <RetroCard>
-                  <div className="max-w-sm text-center">
-                    <div className="text-sm font-black uppercase text-accent">Live session hidden by filters</div>
-                    <div className="mt-2 text-xs text-text-muted">
-                      {unfilteredLiveCount} active heartbeat{unfilteredLiveCount === 1 ? '' : 's'} detected, but none match the current scene/platform filters.
-                    </div>
-                    <RetroButton
-                      variant="primary"
-                      onClick={() => {
-                        setSelectedSceneFilter('all');
-                        setSelectedPlatforms(new Set(KNOWN_PLATFORMS));
-                      }}
-                      className="mt-4 px-3 py-2 text-xs"
-                    >
-                      SHOW ALL LIVE
-                    </RetroButton>
+            {liveView === 'dashboard' ? (
+              /* Stripe layout: charts on top, info cards below. */
+              <div className="flex h-full min-h-0 flex-col">
+                {/* Top stripe: live combined FPS/Memory chart, else Sessions/day */}
+                <div className="flex min-h-0 flex-[1.1] flex-col border-b-2 border-black bg-bg-card/40">
+                  <div className="flex shrink-0">
+                    {(activeHistory
+                      ? ([['live', 'FPS / Memoria'], ['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
+                      : ([['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
+                    ).map(([id, label]) => {
+                      const effectiveTab = activeHistory ? dashStripeTab : (dashStripeTab === 'live' ? 'sessions' : dashStripeTab);
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => setDashStripeTab(id)}
+                          className={`subtab-btn ${effectiveTab === id ? 'subtab-btn-active' : ''}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
-                </RetroCard>
+                  <div className="min-h-0 flex-1 p-3">
+                    {activeHistory && dashStripeTab === 'live' ? (
+                      <LiveCombinedChart history={activeHistory} />
+                    ) : dashStripeTab === 'versions' ? (
+                      <CommitsFpsChart sessions={filteredDashboardSessions} commits={commits} />
+                    ) : (
+                      <SessionsPerDayChart sessions={filteredDashboardSessions} />
+                    )}
+                  </div>
+                </div>
+                {/* Bottom stripe: info cards (historical summary) */}
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <HomeStats sessions={filteredDashboardSessions} serverStats={serverStats} />
+                </div>
               </div>
             ) : !activeHb ? (
               <div className="flex h-full items-center justify-center p-6 text-center text-sm italic text-text-muted">
                 No active player. Open Dashboard or adjust filters.
               </div>
             ) : liveView === '3d' ? (
-              <div className="absolute inset-0">{viewport3D}</div>
+              <div className="flex h-full min-h-0 flex-col">
+                {/* 3D-only control bar */}
+                <div className="shrink-0 flex flex-wrap items-center gap-1 p-2 border-b-2 border-black bg-bg-card/60">
+                  <RetroButton variant={followPlayer ? 'primary' : 'secondary'} onClick={() => setFollowPlayer(!followPlayer)} className="py-1 px-2 text-[0.625rem]">FOLLOW</RetroButton>
+                  <RetroButton variant={showLiveGhosts ? 'primary' : 'secondary'} onClick={() => setShowLiveGhosts(!showLiveGhosts)} className="py-1 px-2 text-[0.625rem]">PEERS</RetroButton>
+                  <RetroButton variant={showLiveCharts ? 'primary' : 'secondary'} onClick={() => setShowLiveCharts(!showLiveCharts)} className="py-1 px-2 text-[0.625rem]">CHARTS</RetroButton>
+                  <RetroButton variant="secondary" onClick={() => setFs3d(true)} className="py-1 px-2" title="Fullscreen 3D"><Maximize2 size={14} /></RetroButton>
+                </div>
+                <div className="relative flex-1 min-h-0">
+                  {viewport3D}
+                  {/* Live chart overlay, top-left so it never covers the HUD
+                      (which sits bottom-right inside Viewport3D). */}
+                  {showLiveCharts && activeHistory && (
+                    <div className="absolute top-3 left-3 z-10 h-28 w-64 max-w-[60vw] border-2 border-black bg-bg-card/90 p-2 shadow-[3px_3px_0px_0px_black] backdrop-blur-sm">
+                      <LiveCombinedChart history={activeHistory} />
+                    </div>
+                  )}
+                </div>
+                {/* Collapsible extra player info */}
+                <div className="shrink-0 border-t-2 border-black bg-bg-card/80">
+                  <button
+                    onClick={() => setShow3dInfo((v) => !v)}
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-[0.625rem] font-black uppercase text-text-muted hover:text-text-primary"
+                  >
+                    <span>Detalle del player</span>
+                    {show3dInfo ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  </button>
+                  {show3dInfo && activeHb && (
+                    <div className="grid grid-cols-3 gap-2 px-3 pb-3 text-[0.625rem] font-mono sm:grid-cols-6">
+                      <Info label="Session" value={activeHb.session_id?.slice(0, 8) || '-'} />
+                      <Info label="Platform" value={getPlatform(activeHb) || '-'} />
+                      <Info label="Mode" value={activeHb.player?.mode || '-'} />
+                      <Info label="Tick" value={activeHb.player?.tick ?? '-'} />
+                      <Info label="Peers" value={pids.length} />
+                      <Info label="Latency" value={`${staleAge.toFixed(1)}s`} />
+                    </div>
+                  )}
+                </div>
+              </div>
             ) : (
-              <LiveMap
-                ghosts={liveGhosts}
-                sceneName={birdseyeSceneName}
-                onSelectGhost={(pid) => {
-                  setSelectedPlayerId(pid);
-                  setLiveView('3d');
-                  setFollowPlayer(true);
-                }}
-              />
+              <>
+                <LiveMap
+                  ghosts={liveGhosts}
+                  sceneName={birdseyeSceneName}
+                  activePlayerId={activeId}
+                  onSelectGhost={(pid) => setBirdseyeDetailId(pid)}
+                />
+
+                {/* Live chart overlay for the active player — shown by default
+                    (top-left), like the 3D view. Hidden if charts are toggled
+                    off or there's no history yet. */}
+                {showLiveCharts && activeHistory && !birdseyeDetailId && (
+                  <div className="absolute top-3 left-3 z-10 h-28 w-60 max-w-[55vw] border-2 border-black bg-bg-card/90 p-2 shadow-[3px_3px_0px_0px_black] backdrop-blur-sm">
+                    <div className="mb-1 truncate text-[0.5625rem] font-black uppercase text-accent">{activeId?.slice(0, 12)}</div>
+                    <div className="h-[calc(100%-1rem)]">
+                      <LiveCombinedChart history={activeHistory} />
+                    </div>
+                  </div>
+                )}
+
+                {birdseyeDetailId && (() => {
+                  const hb = filteredHeartbeats[birdseyeDetailId];
+                  const hist = history[birdseyeDetailId];
+                  return (
+                    <div className="absolute right-3 top-3 z-20 w-64 max-w-[80vw] border-2 border-black bg-bg-card/95 p-3 shadow-[3px_3px_0px_0px_black]">
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-black text-accent">{birdseyeDetailId.slice(0, 12)}</div>
+                          <div className="truncate text-[0.625rem] text-text-muted">{hb?.player?.scene || 'scene —'}</div>
+                        </div>
+                        <button
+                          onClick={() => setBirdseyeDetailId(null)}
+                          className="shrink-0 border-2 border-black bg-bg-primary px-1.5 py-0.5 text-[0.625rem] font-black hover:bg-danger hover:text-black"
+                          aria-label="Close"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                      <div className="h-28">
+                        <LiveCombinedChart history={hist} />
+                      </div>
+                      <RetroButton
+                        variant="primary"
+                        onClick={() => {
+                          setSelectedPlayerId(birdseyeDetailId);
+                          setBirdseyeDetailId(null);
+                          setLiveView('3d');
+                          setFollowPlayer(true);
+                        }}
+                        className="mt-2 w-full py-1 text-[0.625rem]"
+                      >
+                        Ver 3D
+                      </RetroButton>
+                    </div>
+                  );
+                })()}
+              </>
             )}
           </div>
         </div>
@@ -871,7 +1111,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <button
               type="button"
               onClick={() => setHeatmapMobileView('scenes')}
-              className={`flex-1 px-3 py-2 text-[0.625rem] font-black uppercase ${heatmapMobileView === 'scenes' ? 'bg-accent text-black' : 'bg-bg-card text-text-muted'}`}
+              className={`subtab-btn ${heatmapMobileView === 'scenes' ? 'subtab-btn-active' : ''}`}
             >
               Escenas
             </button>
@@ -879,7 +1119,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               type="button"
               onClick={() => setHeatmapMobileView('map')}
               disabled={!heatmapTargetScene}
-              className={`flex-1 border-l-2 border-black px-3 py-2 text-[0.625rem] font-black uppercase disabled:cursor-not-allowed disabled:opacity-40 ${heatmapMobileView === 'map' ? 'bg-accent text-black' : 'bg-bg-card text-text-muted'}`}
+              className={`subtab-btn ${heatmapMobileView === 'map' ? 'subtab-btn-active' : ''}`}
             >
               Mapa
             </button>
@@ -972,31 +1212,63 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       )}
 
       {activeTab === 'history' && (
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
-          <RetroCard title="HISTORICAL ARCHIVE">
-             <HistoricalTable sessions={filteredHistoricalSessions} onSelectSession={handleSelectHistorySession} />
-          </RetroCard>
-        </div>
-      )}
-
-      {activeTab === 'playback' && (
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto flex flex-col gap-6">
-          <div className="flex justify-between items-center bg-bg-card border-4 border-black p-4 shadow-retro">
-            <div>
-              <h2 className="text-sm font-black text-accent uppercase tracking-tighter flex items-center gap-2">
-                <Play size={16} /> PLAYBACK MODULE
-              </h2>
-              <div className="text-[0.625rem] text-text-muted font-mono mt-1 opacity-50">{selectedSession?.session_id}</div>
-            </div>
-            <RetroButton
-              variant="secondary"
-              onClick={() => setActiveTab('history')}
-              className="py-1 px-4 text-xs"
+        <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
+          {/* Mobile pane toggle: session list vs playback. */}
+          <div className="flex border-2 border-black xl:hidden">
+            <button
+              type="button"
+              onClick={() => setHistoryMobileView('list')}
+              className={`subtab-btn ${historyMobileView === 'list' ? 'subtab-btn-active' : ''}`}
             >
-              EXIT
-            </RetroButton>
+              Sesiones
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryMobileView('player')}
+              disabled={!selectedSession}
+              className={`subtab-btn ${historyMobileView === 'player' ? 'subtab-btn-active' : ''}`}
+            >
+              Reproducción
+            </button>
           </div>
-          <SessionPlayback heartbeats={playbackData} session={selectedSession} />
+
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[360px_minmax(0,1fr)]">
+            {/* Left: live session list sidebar */}
+            <RetroCard title="Sesiones" className={`min-h-0 overflow-hidden ${historyMobileView === 'player' ? 'hidden xl:block' : ''}`}>
+              <div className="h-full overflow-y-auto">
+                <HistoricalTable
+                  sessions={filteredHistoricalSessions}
+                  onSelectSession={handleSelectHistorySession}
+                  selectedSessionId={selectedSession?.session_id}
+                />
+              </div>
+            </RetroCard>
+
+            {/* Right: playback */}
+            <div className={`min-h-0 overflow-y-auto ${historyMobileView === 'list' ? 'hidden xl:block' : ''}`}>
+              {!selectedSession ? (
+                <div className="flex h-full items-center justify-center p-6 text-center">
+                  <RetroCard>
+                    <div className="max-w-sm">
+                      <div className="text-sm font-black uppercase text-accent">Selecciona una sesión</div>
+                      <div className="mt-2 text-xs text-text-muted">
+                        Elige una sesión de la lista para reproducirla. Las sesiones en vivo aparecen arriba marcadas LIVE.
+                      </div>
+                    </div>
+                  </RetroCard>
+                </div>
+              ) : playbackLoading ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-text-muted">
+                    <span className="h-4 w-4 animate-spin border-2 border-text-muted border-t-accent rounded-full" />
+                    Loading session…
+                  </div>
+                </div>
+              ) : (
+                <SessionPlayback heartbeats={playbackData} session={selectedSession} />
+              )}
+            </div>
+          </div>
         </div>
       )}
     </DashboardLayout>

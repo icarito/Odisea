@@ -65,6 +65,11 @@ export async function getActiveGhosts() {
   return response.json();
 }
 
+export async function getGhostStats() {
+  const response = await apiFetch("/api/ghosts/stats");
+  return response.json();
+}
+
 export async function getGhostData(playerId: string, sessionId: string) {
   const response = await apiFetch(`/api/ghosts?player_id=${playerId}&session_id=${sessionId}&limit=10000`);
   return response.json();

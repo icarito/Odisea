@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
+import { PLATFORM_META } from './PlatformFilter';
+import { getPlatform } from '../lib/filters';
 
-export const HistoricalTable = ({ sessions, onSelectSession }: { sessions: any[], onSelectSession: (s: any) => void }) => {
+export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null }) => {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [sortKey, setSortKey] = useState<'date' | 'fps'>('date');
 
   const sortedSessions = useMemo(() => {
     return [...sessions].sort((a, b) => {
+      // Live sessions always pinned to the top, regardless of sort field.
+      if (!!a.live !== !!b.live) return a.live ? -1 : 1;
       const aValue = sortKey === 'date' ? Number(a.start_time) || 0 : Number(a.avg_fps) || 0;
       const bValue = sortKey === 'date' ? Number(b.start_time) || 0 : Number(b.avg_fps) || 0;
       return sortDir === 'desc' ? bValue - aValue : aValue - bValue;
@@ -56,7 +60,7 @@ export const HistoricalTable = ({ sessions, onSelectSession }: { sessions: any[]
   };
 
   return (
-    <div className="mx-auto w-full max-w-[640px] font-mono">
+    <div className="w-full font-mono">
       <div className="sticky top-0 z-10 flex items-center justify-between border-4 border-black bg-black px-3 py-2 text-[0.625rem] font-black uppercase text-accent">
         <span>Historical Sessions</span>
         <div className="flex items-center gap-2">
@@ -89,20 +93,41 @@ export const HistoricalTable = ({ sessions, onSelectSession }: { sessions: any[]
             const avgFps = Number(s.avg_fps) || 0;
             const tone = perfTone(avgFps);
             const scenesVisited = sceneCount(s.scenes_visited);
+            const isSelected = selectedSessionId && s.session_id === selectedSessionId;
             return (
               <button
                 key={`${s.session_id || 'session'}-${idx}`}
                 type="button"
                 onClick={() => onSelectSession(s)}
-                className="flex w-full items-center gap-3 border-2 border-black bg-bg-card p-3 text-left shadow-[2px_2px_0px_0px_black] transition-colors hover:bg-accent/5 sm:p-4"
+                className={`flex w-full items-center gap-3 border-2 p-3 text-left shadow-[2px_2px_0px_0px_black] transition-colors sm:p-4 ${
+                  isSelected ? 'border-accent bg-accent/10' : 'border-black bg-bg-card hover:bg-accent/5'
+                }`}
               >
-                <span className={`h-4 w-4 shrink-0 rounded-full border-2 border-black ${tone.dot}`} />
+                {s.live ? (
+                  <span className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-success shadow-[0_0_8px_rgba(63,185,80,0.6)]" title="Live" />
+                ) : (
+                  <span className={`h-4 w-4 shrink-0 rounded-full border-2 border-black ${tone.dot}`} />
+                )}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-black text-text-primary sm:text-sm">
-                    {formatDate(Number(s.start_time) || 0)}
+                  <span className="flex items-center gap-2 truncate text-xs font-black text-text-primary sm:text-sm">
+                    {s.live && <span className="shrink-0 bg-success px-1 text-[0.5rem] font-black uppercase text-black">Live</span>}
+                    <span className="truncate">{s.live ? 'En curso' : formatDate(Number(s.start_time) || 0)}</span>
                   </span>
-                  <span className="mt-1 block truncate text-[0.625rem] text-text-muted">
-                    {formatDuration(Number(s.duration) || 0)} · {scenesVisited} scenes visited
+                  <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.625rem] text-text-muted">
+                    {(() => {
+                      const plat = getPlatform(s);
+                      const meta = plat ? PLATFORM_META[plat] : undefined;
+                      return (
+                        <span className="inline-flex items-center gap-1 uppercase">
+                          {meta?.icon}
+                          {meta?.label || plat || 'unknown'}
+                        </span>
+                      );
+                    })()}
+                    <span className="text-text-muted/60">·</span>
+                    <span>{formatDuration(Number(s.duration) || 0)} played</span>
+                    <span className="text-text-muted/60">·</span>
+                    <span>{scenesVisited} scenes</span>
                   </span>
                 </span>
                 <span className={`shrink-0 border-2 px-2 py-1 text-[0.625rem] font-black ${tone.badge}`}>
