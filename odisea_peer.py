@@ -79,6 +79,8 @@ MDNS_ENABLED = os.environ.get("PEER_NO_MDNS", "").lower() not in ("1", "true", "
 RECONNECT_MIN = 1.0
 RECONNECT_MAX = 30.0
 
+PEER_BUFFER_SIZE = int(os.environ.get("PEER_BUFFER_SIZE", 36000))
+
 # Logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger("odisea_peer")
@@ -104,6 +106,9 @@ class OdiseaPeer:
 
         self.heartbeats: Dict[str, dict] = {}          # player_id -> last heartbeat
         self.last_seen: Dict[str, float] = {}          # player_id -> monotonic-ish wall time
+        self.local_buffer: List[dict] = []             # circular buffer of all heartbeats
+        self.buffer_idx = 0
+        self.central_cache: Dict[str, dict] = {}       # key -> {"expires": float, "data": dict}
 
         self.http_session: Optional[ClientSession] = None
         self.central_ws: Optional[ClientWebSocketResponse] = None
@@ -260,6 +265,14 @@ class OdiseaPeer:
             if not player_id:
                 return
             data["peer_id"] = self.peer_id
+
+            # Update circular buffer
+            if len(self.local_buffer) < PEER_BUFFER_SIZE:
+                self.local_buffer.append(data)
+            else:
+                self.local_buffer[self.buffer_idx] = data
+                self.buffer_idx = (self.buffer_idx + 1) % PEER_BUFFER_SIZE
+
             self.heartbeats[player_id] = data
             self.last_seen[player_id] = time.time()
             self.player_ws[player_id] = ws  # learn which game owns this player
@@ -473,6 +486,97 @@ class OdiseaPeer:
                 {"error": "not_found", "player_id": player_id}, status=404)
         return web.json_response(hbs)
 
+    async def handle_local_status(self, request):
+        return web.json_response({
+            "buffer_usage": len(self.local_buffer),
+            "buffer_capacity": PEER_BUFFER_SIZE,
+            "central_connected": self.central_ws is not None and not self.central_ws.closed,
+            "central_url": CENTRAL_WS_URL,
+        })
+
+    async def handle_local_ghosts(self, request):
+        """Read heartbeats from local buffer, fallback to central."""
+        player_id = request.query.get("player_id")
+        scene = request.query.get("scene")
+        since = request.query.get("since")
+        until = request.query.get("until")
+
+        try:
+            limit = min(max(int(request.query.get("limit", 1000)), 1), 5000)
+        except ValueError:
+            limit = 1000
+
+        since_ts = float(since) if since else None
+        until_ts = float(until) if until else None
+
+        # Filter from local buffer
+        results = []
+
+        # Local buffer is circular: [ oldest -> newest -> empty/wrapped ]
+        # Chronological order is buffer[buffer_idx:] + buffer[:buffer_idx]
+        # We want newest to oldest for diagnostics
+        if len(self.local_buffer) < PEER_BUFFER_SIZE:
+            ordered_buffer = self.local_buffer
+        else:
+            ordered_buffer = self.local_buffer[self.buffer_idx:] + self.local_buffer[:self.buffer_idx]
+
+        for hb in reversed(ordered_buffer):
+            if player_id and hb.get("player_id") != player_id:
+                continue
+            if scene and hb.get("player", {}).get("scene") != scene:
+                continue
+            ts = hb.get("timestamp", 0)
+            if since_ts and ts < since_ts:
+                continue
+            if until_ts and ts > until_ts:
+                continue
+            results.append(hb)
+            if len(results) >= limit:
+                break
+
+        # If we have enough data (or didn't ask for a specific player/scene that might be in central)
+        # we return it. If it's empty and we have player_id, we try central.
+        if results or not CENTRAL_ENABLED or not player_id:
+            return web.json_response({
+                "data": results,
+                "meta": {"source": "local", "count": len(results)}
+            })
+
+        # Fallback to Central
+        cache_key = f"{player_id}:{scene}:{since}:{until}:{limit}"
+        now = time.time()
+        cached = self.central_cache.get(cache_key)
+        if cached and cached["expires"] > now:
+            return web.json_response(cached["data"])
+
+        central_http_url = CENTRAL_WS_URL.replace("ws://", "http://").replace("wss://", "https://").replace("/ws", "/ghosts")
+        params = {k: v for k, v in request.query.items() if k != "offset"}
+
+        try:
+            async with self.http_session.get(central_http_url, params=params,
+                                            headers={"Authorization": f"Bearer {BRIDGE_TOKEN}"},
+                                            timeout=5.0) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    self.central_cache[cache_key] = {
+                        "expires": now + 30,
+                        "data": data
+                    }
+                    # Cleanup old cache entries
+                    self.central_cache = {k: v for k, v in self.central_cache.items() if v["expires"] > now}
+                    return web.json_response(data)
+                else:
+                    return web.json_response({
+                        "error": "central_error",
+                        "status": resp.status,
+                        "message": await resp.text()
+                    }, status=resp.status)
+        except Exception as e:
+            return web.json_response({
+                "error": "central_unavailable",
+                "message": str(e)
+            }, status=503)
+
     async def handle_sessions(self, request):
         sessions = sorted({hb.get("session_id") for hb in self._live_heartbeats().values()
                            if hb.get("session_id")})
@@ -572,6 +676,8 @@ class OdiseaPeer:
             web.get('/', self.handle_index),
             web.get('/health', self.handle_health),
             web.get('/status', self.handle_status),
+            web.get('/local/status', self.handle_local_status),
+            web.get('/local/ghosts', self.handle_local_ghosts),
             web.get('/sessions', self.handle_sessions),
             web.get('/peers', self.handle_peers),
             web.get('/events', self.handle_events),
