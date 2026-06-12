@@ -7,6 +7,10 @@ export interface LayoutState {
   activeTab: string;
   sidebarCollapsed: boolean;
   accelerometerEnabled: boolean;
+  // Desktop filters sidebar collapsed state (docked column on xl+).
+  filtersCollapsed: boolean;
+  // History min-duration filter (seconds); excludes shorter sessions.
+  historyMinDuration: number;
 }
 
 const DEFAULT_STATE: LayoutState = {
@@ -14,6 +18,8 @@ const DEFAULT_STATE: LayoutState = {
   activeTab: 'live',
   sidebarCollapsed: false,
   accelerometerEnabled: false,
+  filtersCollapsed: false,
+  historyMinDuration: 0,
 };
 
 export function useLayoutPersistence() {
