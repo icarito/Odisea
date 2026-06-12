@@ -2,25 +2,18 @@ name: Exportar APK (Android)
 
 on:
   push:
-    branches: [ "main" ]
-    # Only rebuild the APK when game content/config changes — not on
-    # dashboard/docs/CI-only edits.
-    paths:
-      - 'core_v2/**'
-      - 'models/**'
-      - 'assets/**'
-      - 'scenes/**'
-      - 'shaders/**'
-      - 'textures/**'
-      - 'project.godot'
-      - 'export_presets.cfg'
-      - '.github/workflows/export_android.yml'
+    branches: [ "main", "release" ]
   workflow_dispatch:
     inputs:
       version:
         description: 'Version tag (opcional, ej: v1.0.0)'
         required: false
         type: string
+      publish_prerelease:
+        description: 'Publish a GitHub pre-release from this manual build'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -34,6 +27,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - id: get_version
+        run: |
+          VERSION=$(grep "config/version" project.godot | cut -d"\"" -f2 || echo "")
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION="v0.1.0+$(date +%Y%m%d)"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Generate Debug Keystore
         run: |
@@ -155,9 +159,10 @@ jobs:
 
       - name: Release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.ref == 'refs/heads/release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_prerelease == 'true')
         with:
+          tag_name: ${{ steps.get_version.outputs.version }}
           files: ports/Odisea.apk
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
