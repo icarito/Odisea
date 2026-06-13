@@ -384,7 +384,9 @@ jobs:
           if [ "${{ matrix.platform }}" = "html5" ]; then
             cd build/html5 && zip -r "../../$PACKAGE" .
           elif [ "${{ matrix.platform }}" = "android" ]; then
-            cd build/android && zip -r "../../$PACKAGE" .
+            # APK se sube sin comprimir (ya es un zip firmado)
+            PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION-$SHA.apk"
+            cp build/android/Odisea-Tech-Demo.apk "$PACKAGE"
           elif [ "${{ matrix.platform }}" = "ios" ]; then
             cd build/ios && zip -r "../../$PACKAGE" .
           elif [ "${{ matrix.platform }}" = "macos" ]; then
@@ -398,7 +400,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*.apk
 
       - name: Upload Netlify artifact
         if: matrix.platform == 'html5'
@@ -528,7 +532,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="nightly"
-          mapfile -t RELEASE_FILES < <(find nightly_assets -type f -name "*.zip" -print | sort)
+          mapfile -t RELEASE_FILES < <(find nightly_assets -type f -name "*.zip" -o -name "*.apk" -print | sort)
           if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
             echo "::error::No release zip artifacts found in nightly_assets"
             find nightly_assets -maxdepth 3 -type f -print || true
