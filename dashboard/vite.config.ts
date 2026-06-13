@@ -80,8 +80,12 @@ export default defineConfig(({ mode }) => {
           target: wsTarget,
           changeOrigin: true,
           ws: true,
-        }
-      }
-    }
-  }
+        },
+        '/push': {
+          target: apiTarget,
+          changeOrigin: true,
+        },
+      },
+    },
+  };
 })
