@@ -41,7 +41,7 @@ import {
   sessionDuration,
   isUsefulSceneName,
 } from './lib/filters';
-import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff } from 'lucide-react';
+import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download } from 'lucide-react';
 
 type Tab = 'live' | 'heatmap' | 'history' | 'mapa';
 
@@ -143,8 +143,15 @@ const countryFlag = (countryCode?: string | null): string => {
   return Array.from(code).map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
 };
 
-const HistoryOverview = ({ sessions }: { sessions: any[] }) => {
+const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void }) => {
   const cleanSessions = useMemo(() => sessions.filter(isDashboardSession), [sessions]);
+  // Map player_id -> display name from the (already tag-enriched) session rows,
+  // so the hotzone list can show a friendly label instead of the raw id.
+  const nameByPlayer = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const s of sessions) if (s.player_id && s.display_name) m[s.player_id] = s.display_name;
+    return m;
+  }, [sessions]);
 
   const fpsSeries = useMemo(() => (
     cleanSessions
@@ -277,6 +284,39 @@ const HistoryOverview = ({ sessions }: { sessions: any[] }) => {
           </div>
         </RetroCard>
       </div>
+
+      {/* Hotzone captures — performance ghosts uploaded by the game, newest first. */}
+      <RetroCard title={`Capturas hotzone${hotzones && hotzones.length ? ` (${hotzones.length})` : ''}`}>
+        <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
+          {!hotzones || hotzones.length === 0 ? (
+            <div className="text-xs italic text-text-muted">Sin capturas de hotzone</div>
+          ) : hotzones.map((hz) => {
+            const name = nameByPlayer[hz.player_id] || String(hz.player_id || '').slice(0, 8);
+            const when = hz.timestamp ? formatDateTime(Number(hz.timestamp)) : '';
+            return (
+              <div key={hz.id} className="flex items-center justify-between gap-3 border-2 border-black bg-bg-primary px-3 py-2">
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-black text-accent">{name}</div>
+                  <div className="text-[0.625rem] text-text-muted">
+                    {when}{hz.trigger_type ? ` · ${hz.trigger_type}` : ''}
+                  </div>
+                </div>
+                {onDownloadHotzone && (
+                  <button
+                    type="button"
+                    onClick={() => onDownloadHotzone(hz.id, name)}
+                    className="shrink-0 border-2 border-accent bg-accent/10 p-1.5 text-accent hover:bg-accent hover:text-black"
+                    title="Descargar captura"
+                    aria-label="Descargar captura hotzone"
+                  >
+                    <Download size={14} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </RetroCard>
     </div>
   );
 };
@@ -1563,32 +1603,45 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       playerCountLabel={playerCountLabel}
       onPlayersClick={() => setShowPlayerSheet(true)}
       activePlayerMeta={activeHb ? (
-        <button
-          type="button"
-          onClick={() => { setActiveTab('live'); setLiveView('3d'); }}
-          title="Player activo — ver en 3D"
-          className="hidden min-w-0 items-center gap-2 border-2 border-black bg-bg-primary px-2 py-1 text-[0.625rem] font-bold hover:bg-accent/10 md:flex"
-        >
-          {activeHb.color && (
-            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: activeHb.color }} />
+        <div className="hidden min-w-0 items-center gap-2 border-2 border-black bg-bg-primary px-2 py-1 text-[0.625rem] font-bold md:flex">
+          <button
+            type="button"
+            onClick={() => { setActiveTab('live'); setLiveView('3d'); }}
+            title="Player activo — ver en 3D"
+            className="flex min-w-0 items-center gap-2 hover:text-accent"
+          >
+            {activeHb.color && (
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: activeHb.color }} />
+            )}
+            <span className="max-w-[120px] truncate">{activeLabel}</span>
+            <span className="text-text-muted/60">·</span>
+            <span className="max-w-[90px] truncate text-accent">{activeHb.player?.scene || '—'}</span>
+            <span className="text-text-muted/60">·</span>
+            <span style={{ color: fpsColor(Number(activeHb.player?.fps) || 0) }}>
+              {Math.round(Number(activeHb.player?.fps) || 0)} FPS
+            </span>
+            {activeHb.player?.memory_mb != null && (
+              <>
+                <span className="text-text-muted/60">·</span>
+                <span className="text-text-muted">{Math.round(Number(activeHb.player.memory_mb))} MB</span>
+              </>
+            )}
+            {activeHb.player?.focused === false && (
+              <span className="uppercase text-text-muted/80" title="En segundo plano">bg</span>
+            )}
+          </button>
+          {selectedPlayerId && (
+            <button
+              type="button"
+              onClick={() => setSelectedPlayerId(null)}
+              title="Deseleccionar player"
+              aria-label="Deseleccionar player"
+              className="shrink-0 text-text-muted hover:text-danger"
+            >
+              <X size={12} />
+            </button>
           )}
-          <span className="max-w-[120px] truncate">{activeLabel}</span>
-          <span className="text-text-muted/60">·</span>
-          <span className="max-w-[90px] truncate text-accent">{activeHb.player?.scene || '—'}</span>
-          <span className="text-text-muted/60">·</span>
-          <span style={{ color: fpsColor(Number(activeHb.player?.fps) || 0) }}>
-            {Math.round(Number(activeHb.player?.fps) || 0)} FPS
-          </span>
-          {activeHb.player?.memory_mb != null && (
-            <>
-              <span className="text-text-muted/60">·</span>
-              <span className="text-text-muted">{Math.round(Number(activeHb.player.memory_mb))} MB</span>
-            </>
-          )}
-          {activeHb.player?.focused === false && (
-            <span className="uppercase text-text-muted/80" title="En segundo plano">bg</span>
-          )}
-        </button>
+        </div>
       ) : undefined}
       showSettings={showSettings}
       onToggleSettings={() => setShowSettings(!showSettings)}
@@ -2104,7 +2157,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className={`min-h-0 overflow-y-auto ${historyMobileView === 'list' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
-                  <HistoryOverview sessions={filteredHistoricalSessions} />
+                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">

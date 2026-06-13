@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Plus, Minus, Crosshair, HelpCircle, LocateFixed } from 'lucide-react';
+import { useSceneGeometry } from '../hooks/useSceneGeometry';
 
 interface ActiveGhost {
   player_id: string;
@@ -40,6 +41,7 @@ const TRAIL_LIMIT = 90;
 export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGhost, activePlayerId }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const { geometry } = useSceneGeometry(sceneName);
 
   // Single-scene camera: world->screen = center + offset + worldPos*(baseScale*zoom).
   const camRef = useRef({ zoom: 1, offsetX: 0, offsetY: 0 });
@@ -314,6 +316,43 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
         const list = ghostsRef.current.filter(
           g => sceneRef.current === '' || g.scene === sceneRef.current
         );
+
+        // --- Scene Geometry (Birdseye top-down projection) ---
+        if (sceneRef.current !== '' && geometry) {
+          ctx.save();
+          // Draw point cloud (contorno de geometria)
+          ctx.fillStyle = 'rgba(127, 209, 255, 0.12)';
+          geometry.points.forEach(p => {
+            var sx = toX(p[0]);
+            var sz = toZ(p[2]);
+            ctx.fillRect(sx - 1, sz - 1, 2, 2);
+          });
+
+          // Draw zones as wireframe rects
+          ctx.strokeStyle = 'rgba(49, 130, 206, 0.35)';
+          ctx.lineWidth = 1;
+          geometry.zones.forEach(z => {
+            var x1 = toX(z.bounds.min[0]);
+            var z1 = toZ(z.bounds.min[2]);
+            var x2 = toX(z.bounds.max[0]);
+            var z2 = toZ(z.bounds.max[2]);
+            ctx.strokeRect(x1, z1, x2 - x1, z2 - z1);
+            ctx.fillStyle = 'rgba(49, 130, 206, 0.04)';
+            ctx.fillRect(x1, z1, x2 - x1, z2 - z1);
+          });
+
+          // Draw props as dots
+          geometry.props.forEach(p => {
+            var sx = toX(p.position[0]);
+            var sz = toZ(p.position[2]);
+            var isInteractable = p.tags.includes('interactable');
+            ctx.fillStyle = isInteractable ? '#ed8936' : '#718096';
+            ctx.beginPath();
+            ctx.arc(sx, sz, 2, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.restore();
+        }
 
         list.forEach(g => {
           const trail = trailsRef.current[g.player_id] || [];

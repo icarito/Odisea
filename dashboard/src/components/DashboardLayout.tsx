@@ -26,6 +26,7 @@ interface DashboardLayoutProps {
     git_commit?: string;
     build_id?: string;
     build_channel?: string;
+    timestamp?: number;
   };
   // Optional second-level bar rendered just above the bottom nav (e.g. the
   // Live-tab view switcher). Hidden when not provided.
@@ -54,6 +55,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   secondaryNav,
 }) => {
   const publishedLabel = buildLabel(latestPublished);
+  // Date of the currently published build, shown next to the version so "which
+  // version" reads as a human date, not just a hash.
+  const publishedDate = latestPublished?.timestamp
+    ? new Date(latestPublished.timestamp * 1000).toLocaleDateString('es', { day: '2-digit', month: 'short' })
+    : '';
   const tabs = [
     { id: 'live', label: 'Live', icon: <Activity size={24} /> },
     { id: 'mapa', label: 'Globe', icon: <Globe size={24} /> },
@@ -72,7 +78,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <span className="ml-2 align-middle text-[0.5rem] font-bold not-italic tracking-normal text-text-muted">
             dash {dashboardVersion || 'dev'}
             {publishedLabel ? (
-              <> · pub {publishedLabel}</>
+              <> · pub {publishedLabel}{publishedDate ? ` (${publishedDate})` : ''}</>
             ) : null}
           </span>
         </h1>
