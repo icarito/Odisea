@@ -5,6 +5,7 @@ import { Starfield } from './Starfield';
 import { Atmosphere } from './Atmosphere';
 import { GridLines } from './GridLines';
 import { GlobeSphere } from './GlobeSphere';
+import { CountryBorders } from './CountryBorders';
 import { OrbitalParticles } from './OrbitalParticles';
 import { GeoDots } from './GeoDots';
 import { useGlobeAnimation } from './useGlobeAnimation';
@@ -38,6 +39,7 @@ const GlobeScene: React.FC<Globe3DProps> = ({ players }) => {
 
       <group ref={groupRef}>
         <GlobeSphere isMobile={isMobile} />
+        <CountryBorders />
         <GridLines />
         <GeoDots players={players} />
         {!isMobile && <OrbitalParticles />}
