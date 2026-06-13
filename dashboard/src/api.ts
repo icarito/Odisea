@@ -125,3 +125,25 @@ export async function sendPush(payload: any) {
   });
   return response.json();
 }
+
+// Player tag endpoints
+export async function getPlayerTags() {
+  const response = await apiFetch("/api/player-tags");
+  return response.json();
+}
+
+export async function postPlayerTag(tag: { player_id: string; display_name: string; notes?: string; color?: string }) {
+  const response = await apiFetch("/api/player-tags", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(tag),
+  });
+  return response.json();
+}
+
+export async function deletePlayerTag(playerId: string) {
+  const response = await apiFetch(`/api/player-tags/${encodeURIComponent(playerId)}`, {
+    method: "DELETE",
+  });
+  return response.json();
+}

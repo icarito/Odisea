@@ -44,3 +44,4 @@ digest.txt
 # Telemetry runtime artifacts (regenerated, not source)
 *.log
 data/ghosts.db
+.venv/

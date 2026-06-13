@@ -40,19 +40,25 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
+  const data = event.notification?.data || {};
+  const playerId = data.playerId || data.player_id || '';
+  const sessionId = data.sessionId || data.session_id || '';
+  const params = new URLSearchParams();
+  if (playerId) params.set('player', String(playerId));
+  if (sessionId) params.set('session', String(sessionId));
+  const qs = params.toString();
+  const targetUrl = qs ? `/?${qs}` : '/';
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList: any) => {
-      if (clientList.length > 0) {
-        let client = clientList[0];
-        for (let i = 0; i < clientList.length; i++) {
-          if (clientList[i].focused) {
-            client = clientList[i];
-            break;
-          }
+      // Try to focus an existing window and navigate it to the target URL
+      for (const client of clientList) {
+        if ('navigate' in client) {
+          (client as any).navigate(targetUrl);
+          return client.focus();
         }
-        return client.focus();
       }
-      return self.clients.openWindow('/');
+      return self.clients.openWindow(targetUrl);
     })
   );
 });
