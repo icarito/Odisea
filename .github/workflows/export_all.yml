@@ -34,8 +34,12 @@ jobs:
           SHA=$(git rev-parse --short HEAD)
           echo "sha=$SHA" >> $GITHUB_OUTPUT
 
-          # Base version from project.godot
-          BASE_VERSION=$(grep "config/version" project.godot | cut -d"\"" -f2 || echo "0.1.0")
+          # Base version from project.godot. Some dev builds do not define it,
+          # so keep releases moving with an explicit canary placeholder.
+          BASE_VERSION=$(grep -E "^application/config/version=" project.godot | head -n 1 | cut -d"\"" -f2 || true)
+          if [ -z "$BASE_VERSION" ]; then
+            BASE_VERSION="0.1.0-canary"
+          fi
 
           # Determine channel
           CHANNEL="dev"
