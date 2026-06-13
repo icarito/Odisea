@@ -39,7 +39,7 @@ import {
   sessionDuration,
   isUsefulSceneName,
 } from './lib/filters';
-import { Maximize2, X, SlidersHorizontal, ChevronUp, ChevronDown, RotateCcw, WifiOff } from 'lucide-react';
+import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff } from 'lucide-react';
 
 type Tab = 'live' | 'heatmap' | 'history' | 'mapa';
 
@@ -685,8 +685,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [birdseyeDetailId, setBirdseyeDetailId] = useState<string | null>(null);
   // Filters side drawer (platform + scene).
   const [showFilters, setShowFilters] = useState(false);
-  // Collapsible extra-info panel under the 3D view.
-  const [show3dInfo, setShow3dInfo] = useState(false);
   // Top-stripe inner tab on the Dashboard view (live combined chart vs sessions).
   const [dashStripeTab, setDashStripeTab] = useState<'live' | 'sessions' | 'versions'>('live');
 
@@ -1054,6 +1052,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     filteredHistoricalSessions.filter(isDashboardSession)
   ), [filteredHistoricalSessions]);
 
+  // Aggregate stats for the heatmap landing panel (shown instead of a bare
+  // "select a scene" prompt). Reuses the already-filtered dashboard sessions.
+  const heatmapSummary = useMemo(() => {
+    const sessions = filteredDashboardSessions;
+    const totalSessions = sessions.length;
+    const totalPlaySeconds = sessions.reduce((sum, s) => sum + sessionDuration(s), 0);
+    const fpsValues = sessions.map((s) => Number(s.avg_fps)).filter(Number.isFinite);
+    const avgFps = fpsValues.reduce((sum, f) => sum + f, 0) / (fpsValues.length || 1);
+    const livePlayers = sessions.filter((s) => s.live).length;
+    const topScenes = [...sceneFilterOptions].slice(0, 5);
+    return { totalSessions, totalPlaySeconds, avgFps, livePlayers, sceneCount: sceneFilterOptions.length, topScenes };
+  }, [filteredDashboardSessions, sceneFilterOptions]);
+
   const filteredGeoPlayers = useMemo(() => {
     const allowedPlayers = new Set(filteredDashboardSessions.map((session) => session.player_id).filter(Boolean));
     return geoPlayers.filter((player) => (
@@ -1095,6 +1106,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const pids = Object.keys(filteredHeartbeats);
   const hasLive = pids.length > 0;
+  // Peers = other live players besides the active one. Drives the PEERS toggle's
+  // enabled state (no peers → nothing to show, so the button reads disabled).
+  const otherPeerCount = Math.max(0, pids.length - 1);
 
   useEffect(() => {
     if (pids.length > 0) setLastLivePlayerCount(pids.length);
@@ -1123,6 +1137,17 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const focusedGeo = useMemo(() => (
     focusPlayerId ? geoPlayers.find((player) => player.player_id === focusPlayerId) : undefined
   ), [focusPlayerId, geoPlayers]);
+  // player_id -> {city, country} so player lists can show location instead of
+  // the raw id. Geo data only lives on geoPlayers, not on the heartbeat.
+  const geoByPlayer = useMemo(() => {
+    const map: Record<string, { city?: string; country?: string; country_code?: string }> = {};
+    for (const g of geoPlayers) {
+      if (g.player_id && !map[g.player_id]) {
+        map[g.player_id] = { city: g.city, country: g.country, country_code: g.country_code };
+      }
+    }
+    return map;
+  }, [geoPlayers]);
   const staleAge = activeHb ? (activeHb.timestamp ? (Date.now() - activeHb.timestamp * 1000) / 1000 : 0) : 0;
   const liveSceneName = selectedSceneFilter === 'all'
     ? (activeHb?.player?.scene || '')
@@ -1273,6 +1298,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         open={showPlayerSheet}
         onClose={() => setShowPlayerSheet(false)}
         players={Object.values(filteredHeartbeats)}
+        geoByPlayer={geoByPlayer}
         activeId={activeId}
         onSelect={(pid) => {
           setSelectedPlayerId(pid);
@@ -1361,40 +1387,39 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 {/* 3D-only control bar */}
                 <div className="shrink-0 flex flex-wrap items-center gap-1 p-2 border-b-2 border-black bg-bg-card/60">
                   <RetroButton variant={followPlayer ? 'primary' : 'secondary'} onClick={() => setFollowPlayer(!followPlayer)} className="py-1 px-2 text-[0.625rem]">FOLLOW</RetroButton>
-                  <RetroButton variant={showLiveGhosts ? 'primary' : 'secondary'} onClick={() => setShowLiveGhosts(!showLiveGhosts)} className="py-1 px-2 text-[0.625rem]">PEERS</RetroButton>
+                  <RetroButton
+                    variant={showLiveGhosts && otherPeerCount > 0 ? 'primary' : 'secondary'}
+                    onClick={() => otherPeerCount > 0 && setShowLiveGhosts(!showLiveGhosts)}
+                    disabled={otherPeerCount === 0}
+                    title={otherPeerCount === 0 ? 'No other peers online' : `${otherPeerCount} peer(s) online`}
+                    className={`py-1 px-2 text-[0.625rem] ${otherPeerCount === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    PEERS{otherPeerCount > 0 ? ` ${otherPeerCount}` : ''}
+                  </RetroButton>
                   <RetroButton variant={showLiveCharts ? 'primary' : 'secondary'} onClick={() => setShowLiveCharts(!showLiveCharts)} className="py-1 px-2 text-[0.625rem]">CHARTS</RetroButton>
                   <RetroButton variant="secondary" onClick={() => setFs3d(true)} className="py-1 px-2" title="Fullscreen 3D"><Maximize2 size={14} /></RetroButton>
                 </div>
                 <div className="relative flex-1 min-h-0">
                   {viewport3D}
-                  {/* Live chart overlay, top-left so it never covers the HUD
-                      (which sits bottom-right inside Viewport3D). */}
-                  {showLiveCharts && activeHistory && (
-                    <div className="absolute top-3 left-3 z-10 h-28 w-64 max-w-[60vw] border-2 border-black bg-bg-card/90 p-2 shadow-[3px_3px_0px_0px_black] backdrop-blur-sm">
-                      <LiveCombinedChart history={activeHistory} />
-                    </div>
-                  )}
                 </div>
-                {/* Collapsible extra player info */}
-                <div className="shrink-0 border-t-2 border-black bg-bg-card/80">
-                  <button
-                    onClick={() => setShow3dInfo((v) => !v)}
-                    className="flex w-full items-center justify-between px-3 py-1.5 text-[0.625rem] font-black uppercase text-text-muted hover:text-text-primary"
-                  >
-                    <span>Detalle del player</span>
-                    {show3dInfo ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                  </button>
-                  {show3dInfo && activeHb && (
-                    <div className="grid grid-cols-3 gap-2 px-3 pb-3 text-[0.625rem] font-mono sm:grid-cols-6">
-                      <Info label="Session" value={activeHb.session_id?.slice(0, 8) || '-'} />
+                {/* Bottom panel: large live FPS+RAM chart plus an explicit metric
+                    strip. Replaces the old redundant accordion — RAM is now a
+                    first-class readout instead of hidden in the chart's right axis. */}
+                {showLiveCharts && (
+                  <div className="shrink-0 border-t-2 border-black bg-bg-card/80">
+                    <div className="grid grid-cols-2 gap-2 px-3 pt-2 text-[0.625rem] font-mono sm:grid-cols-4 lg:grid-cols-6">
+                      <Info label="FPS" value={Math.round(activeHb?.player?.fps ?? 0)} />
+                      <Info label="RAM" value={activeHb?.player?.memory_mb != null ? `${Math.round(activeHb.player.memory_mb)} MB` : '—'} />
+                      <Info label="Scene" value={activeHb?.player?.scene || '-'} />
                       <Info label="Platform" value={getPlatform(activeHb) || '-'} />
-                      <Info label="Mode" value={activeHb.player?.mode || '-'} />
-                      <Info label="Tick" value={activeHb.player?.tick ?? '-'} />
-                      <Info label="Peers" value={pids.length} />
+                      <Info label="Peers" value={otherPeerCount} />
                       <Info label="Latency" value={`${staleAge.toFixed(1)}s`} />
                     </div>
-                  )}
-                </div>
+                    <div className="h-40 px-2 pb-2 pt-1">
+                      <LiveCombinedChart history={activeHistory} />
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -1493,10 +1518,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <button
               type="button"
               onClick={() => setHeatmapMobileView('map')}
-              disabled={!heatmapTargetScene}
               className={`subtab-btn ${heatmapMobileView === 'map' ? 'subtab-btn-active' : ''}`}
             >
-              Mapa
+              {heatmapTargetScene ? 'Mapa' : 'Stats'}
             </button>
           </div>
 
@@ -1515,15 +1539,59 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
           <div className={`min-h-0 relative border-4 border-black shadow-retro overflow-hidden ${heatmapMobileView === 'scenes' ? 'hidden xl:block' : ''}`}>
             {!heatmapTargetScene ? (
-              <div className="flex h-full items-center justify-center bg-bg-primary p-6 text-center">
-                <RetroCard>
-                  <div className="max-w-sm">
-                    <div className="text-sm font-black uppercase text-accent">Select a scene</div>
-                    <div className="mt-2 text-xs text-text-muted">
-                      Heatmap needs one concrete scene. Pick a SceneCard or use the global scene filter.
+              <div className="h-full overflow-y-auto bg-bg-primary p-4">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+                    <div className="text-[0.625rem] font-black uppercase text-text-muted">Sessions</div>
+                    <div className="text-2xl font-black text-accent">{heatmapSummary.totalSessions}</div>
+                    {heatmapSummary.livePlayers > 0 && (
+                      <div className="text-[0.625rem] font-black uppercase text-success">{heatmapSummary.livePlayers} live</div>
+                    )}
+                  </div>
+                  <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+                    <div className="text-[0.625rem] font-black uppercase text-text-muted">Play time</div>
+                    <div className="text-2xl font-black text-text-primary">{formatPlayTime(heatmapSummary.totalPlaySeconds)}</div>
+                  </div>
+                  <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+                    <div className="text-[0.625rem] font-black uppercase text-text-muted">Avg FPS</div>
+                    <div className="text-2xl font-black" style={{ color: fpsColor(heatmapSummary.avgFps) }}>
+                      {heatmapSummary.avgFps.toFixed(1)}
                     </div>
                   </div>
-                </RetroCard>
+                  <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+                    <div className="text-[0.625rem] font-black uppercase text-text-muted">Scenes</div>
+                    <div className="text-2xl font-black text-text-primary">{heatmapSummary.sceneCount}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 border-2 border-black bg-bg-card shadow-[2px_2px_0px_0px_black]">
+                  <div className="border-b-2 border-black px-3 py-2 text-[0.625rem] font-black uppercase text-text-muted">
+                    Top scenes
+                  </div>
+                  {heatmapSummary.topScenes.length === 0 ? (
+                    <div className="px-3 py-4 text-center text-xs text-text-muted">No scene data yet.</div>
+                  ) : (
+                    heatmapSummary.topScenes.map((opt) => (
+                      <button
+                        key={opt.scene}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSceneFilter(opt.scene);
+                          setHeatmapMobileView('map');
+                        }}
+                        className="flex w-full items-center justify-between gap-3 border-b border-black/40 px-3 py-2 text-left last:border-b-0 hover:bg-accent/5"
+                      >
+                        <span className="min-w-0 truncate text-xs font-black text-accent">{opt.scene}</span>
+                        <span className="shrink-0 text-[0.625rem] font-black uppercase text-text-muted">
+                          {opt.sessions} sessions · {formatPlayTime(opt.playTime)}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                  <div className="px-3 py-2 text-[0.5625rem] text-text-muted">
+                    Pick a scene to open its heatmap.
+                  </div>
+                </div>
               </div>
             ) : (
             <>
@@ -1571,7 +1639,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   Cambiar escena
                 </RetroButton>
               </div>
-              <div className="hidden grid-cols-2 gap-2 text-[0.5rem] font-bold uppercase sm:grid lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 text-[0.5rem] font-bold uppercase sm:grid-cols-4">
                 <div className="flex items-center gap-1"><div className="h-2 w-2 bg-green-500" /> Low</div>
                 <div className="flex items-center gap-1"><div className="h-2 w-2 bg-yellow-500" /> Med</div>
                 <div className="flex items-center gap-1"><div className="h-2 w-2 bg-orange-500" /> High</div>

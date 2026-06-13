@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
 import { getPlatform } from '../lib/filters';
@@ -7,6 +7,14 @@ import { buildLabel } from '../lib/buildLabels';
 export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null }) => {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [sortKey, setSortKey] = useState<'date' | 'fps'>('date');
+  // Ticks every second so live-session uptime counts up in real time.
+  const [nowSec, setNowSec] = useState(() => Date.now() / 1000);
+  useEffect(() => {
+    const hasLive = sessions.some((s) => s.live);
+    if (!hasLive) return;
+    const id = setInterval(() => setNowSec(Date.now() / 1000), 1000);
+    return () => clearInterval(id);
+  }, [sessions]);
 
   const sortedSessions = useMemo(() => {
     return [...sessions].sort((a, b) => {
@@ -142,7 +150,13 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
                       );
                     })()}
                     <span className="text-text-muted/60">·</span>
-                    <span>{formatDuration(Number(s.duration) || 0)} played</span>
+                    {s.live ? (
+                      <span className="text-success">
+                        {formatDuration(Math.max(0, nowSec - (Number(s.start_time) || nowSec)))} uptime
+                      </span>
+                    ) : (
+                      <span>{formatDuration(Number(s.duration) || 0)} played</span>
+                    )}
                     <span className="text-text-muted/60">·</span>
                     <span>{scenesVisited} scenes</span>
                     {location && (

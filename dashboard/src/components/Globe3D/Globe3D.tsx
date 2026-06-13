@@ -31,6 +31,12 @@ const STATUS_COLOR: Record<GeoPlayer['status'], string> = {
   old: '#8b949e',
 };
 
+const STATUS_LABEL: Record<GeoPlayer['status'], string> = {
+  connected: 'en línea',
+  recent: 'reciente',
+  old: 'inactivo',
+};
+
 const STATUS_RANK: Record<GeoPlayer['status'], number> = {
   connected: 2,
   recent: 1,
@@ -86,10 +92,56 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [countries, setCountries] = useState<object[]>([]);
   const [selected, setSelected] = useState<GroupedPlayer | null>(null);
+  const [camDistance, setCamDistance] = useState(600);
+  // When on, the camera re-centers on the latest activity as it moves around.
+  // On by default so a new player is framed automatically.
+  const [followActivity, setFollowActivity] = useState(true);
 
   const isMobile = size.width > 0 && size.width < 768;
 
   const points = useMemo(() => groupPlayers(players), [players]);
+
+  // Most "recent" group: prefer live (connected) over recent over old; break
+  // ties by how many players sit there. Used to center the camera on landing.
+  const latestGroup = useMemo(() => {
+    let best: GroupedPlayer | null = null;
+    for (const g of points) {
+      if (!best
+        || STATUS_RANK[g.status] > STATUS_RANK[best.status]
+        || (STATUS_RANK[g.status] === STATUS_RANK[best.status] && g.count > best.count)) {
+        best = g;
+      }
+    }
+    return best;
+  }, [points]);
+
+  // Center the globe on the latest players the first time we have both a globe
+  // instance and at least one point. Runs once per "had no center yet" → keeps
+  // auto-rotation afterwards and never fights the user's manual navigation.
+  const centeredRef = useRef(false);
+  useEffect(() => {
+    const g = globeRef.current;
+    if (!g || !latestGroup) return;
+    // Center once on first load, and keep re-centering while "follow" is on.
+    if (centeredRef.current && !followActivity) return;
+    const firstCenter = !centeredRef.current;
+    centeredRef.current = true;
+    // Follow zooms in closer to frame the activity; the initial one-shot center
+    // (follow off) keeps a wider establishing view.
+    const altitude = followActivity ? 0.9 : (firstCenter ? 2.2 : 0.9);
+    g.pointOfView(
+      { lat: latestGroup.latitude, lng: latestGroup.longitude, altitude },
+      1200,
+    );
+  }, [latestGroup, size.width, followActivity]);
+
+  // Following disables auto-rotation so the camera holds on the activity.
+  useEffect(() => {
+    const g = globeRef.current;
+    if (!g) return;
+    const controls = g.controls();
+    if (followActivity) controls.autoRotate = false;
+  }, [followActivity]);
 
   // Responsive sizing. The container is absolute inset-0, so the parent's box is
   // the source of truth; measure that. First measure is deferred to the next
@@ -135,17 +187,37 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
     const g = globeRef.current;
     if (!g) return;
     const controls = g.controls();
-    controls.autoRotate = true;
+    // Don't auto-rotate while following — the camera should hold on the activity.
+    controls.autoRotate = !followActivity;
     controls.autoRotateSpeed = 0.4;
     controls.enablePan = false;
-    controls.minDistance = 180;
+    // Allow zooming in much closer (street-ish) while keeping a sane far bound.
+    controls.minDistance = 110;
     controls.maxDistance = 600;
+    // Track camera distance so markers can shrink and reveal more detail when
+    // the user zooms in. react-globe.gl's camera lives on the same controls.
+    const onChange = () => {
+      const cam: any = (controls as any).object;
+      if (cam?.position) setCamDistance(cam.position.length());
+    };
+    controls.addEventListener('change', onChange);
+    onChange();
     const stop = () => {
       controls.autoRotate = false;
     };
     controls.addEventListener('start', stop);
-    return () => controls.removeEventListener('start', stop);
+    return () => {
+      controls.removeEventListener('start', stop);
+      controls.removeEventListener('change', onChange);
+    };
   }, [size.width]);
+
+  // 0 (far) → 1 (close): drives marker shrink + extra label detail when zoomed in.
+  const zoomFactor = useMemo(() => {
+    const t = (600 - camDistance) / (600 - 110);
+    return Math.max(0, Math.min(1, t));
+  }, [camDistance]);
+  const isClose = zoomFactor > 0.55;
 
   const handlePointClick = (obj: object) => {
     const p = obj as GroupedPlayer;
@@ -188,19 +260,41 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
           pointLng="longitude"
           pointColor={(d) => (d as GroupedPlayer).color || STATUS_COLOR[(d as GroupedPlayer).status]}
           pointAltitude={(d) => 0.01 + Math.min((d as GroupedPlayer).count * 0.01, 0.12)}
-          pointRadius={(d) =>
-            (isMobile ? 0.45 : 0.28) + Math.min((d as GroupedPlayer).count * 0.05, 0.5)
-          }
+          pointRadius={(d) => {
+            // Shrink markers as the camera gets closer so dense clusters separate
+            // and don't smother the map at street-level zoom.
+            const shrink = 1 - zoomFactor * 0.6;
+            return ((isMobile ? 0.45 : 0.28) + Math.min((d as GroupedPlayer).count * 0.05, 0.5)) * shrink;
+          }}
           pointsMerge={false}
           pointLabel={(d) => {
             const p = d as GroupedPlayer;
             const historical = p.historical ? `<br/><span style="color:#8b949e">${p.hits} hits historicos</span>` : '';
-            const names = p.names.length ? `<br/><span style="color:#7fd1ff">${escapeHtml(p.names.slice(0, 3).join(', '))}</span>` : '';
-            return `<div style="background:rgba(0,0,0,.8);border:1px solid #3fb950;padding:6px 8px;border-radius:4px;font-size:11px;white-space:nowrap"><b>${escapeHtml(p.city)}, ${escapeHtml(p.country)}</b><br/>${p.count} punto${p.count !== 1 ? 's' : ''}${names}${historical}</div>`;
+            // When zoomed in, surface more names and the player count breakdown.
+            const nameLimit = isClose ? 8 : 3;
+            const names = p.names.length ? `<br/><span style="color:#7fd1ff">${escapeHtml(p.names.slice(0, nameLimit).join(', '))}${p.names.length > nameLimit ? ` +${p.names.length - nameLimit}` : ''}</span>` : '';
+            const detail = isClose
+              ? `<br/><span style="color:#8b949e">${p.player_count || p.count} jugador${(p.player_count || p.count) !== 1 ? 'es' : ''} · ${STATUS_LABEL[p.status]}</span>`
+              : '';
+            return `<div style="background:rgba(0,0,0,.8);border:1px solid #3fb950;padding:6px 8px;border-radius:4px;font-size:11px;white-space:nowrap"><b>${escapeHtml(p.city)}, ${escapeHtml(p.country)}</b><br/>${p.count} punto${p.count !== 1 ? 's' : ''}${names}${detail}${historical}</div>`;
           }}
           onPointClick={handlePointClick}
         />
       )}
+
+      {/* Follow-activity toggle — re-centers the camera on the latest players. */}
+      <button
+        type="button"
+        onClick={() => setFollowActivity((v) => !v)}
+        className={`absolute top-3 right-3 z-10 border-2 px-2.5 py-1 text-[0.625rem] font-black uppercase tracking-wide shadow-[2px_2px_0px_0px_black] transition-colors ${
+          followActivity
+            ? 'border-accent bg-accent text-black'
+            : 'border-black bg-bg-card/90 text-text-muted hover:text-text-primary'
+        }`}
+        title="Centrar la cámara en la actividad más reciente"
+      >
+        Follow
+      </button>
 
       {/* Mobile info overlay — first tap selects, second navigates */}
       {selected && (

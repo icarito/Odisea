@@ -5,9 +5,17 @@ interface PlayerBottomSheetProps {
   open: boolean;
   onClose: () => void;
   players: any[];            // heartbeat objects
+  geoByPlayer?: Record<string, { city?: string; country?: string; country_code?: string }>;
   activeId?: string | null;
   onSelect: (playerId: string) => void;
 }
+
+// "City, Country" when known; gracefully drops missing halves.
+const formatLocation = (geo?: { city?: string; country?: string }): string => {
+  if (!geo) return '';
+  const parts = [geo.city, geo.country].filter((s) => s && s !== 'unknown');
+  return parts.join(', ');
+};
 
 const fpsColor = (f: number): 'success' | 'warning' | 'danger' =>
   f > 45 ? 'success' : f > 30 ? 'warning' : 'danger';
@@ -16,7 +24,7 @@ const fpsColor = (f: number): 'success' | 'warning' | 'danger' =>
 // scroll, a drag handle, and drag-down-to-close. Compact rows: FPS, scene,
 // time since last seen.
 export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
-  open, onClose, players, activeId, onSelect,
+  open, onClose, players, geoByPlayer, activeId, onSelect,
 }) => {
   const [dragY, setDragY] = useState(0);
   const startY = useRef<number | null>(null);
@@ -68,7 +76,11 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
             const stale = hb.timestamp ? (now - hb.timestamp * 1000) / 1000 : 0;
             const isActive = hb.player_id === activeId;
             const official = hb.intake_mode === 'admin' || hb.intake_mode === 'ingest';
-            const label = hb.display_name || hb.player_id;
+            const location = formatLocation(geoByPlayer?.[hb.player_id]);
+            // Prefer tag name, then location, and only fall back to the raw id
+            // when we have neither a name nor a known location.
+            const label = hb.display_name || location || hb.player_id;
+            const showId = !hb.display_name && !location;
             return (
               <button
                 key={hb.player_id}
@@ -77,8 +89,16 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
                   ${isActive ? 'border-accent bg-accent/10' : 'border-black bg-bg-primary'}`}
               >
                 <div className="min-w-0">
-                  <div className="text-xs font-bold truncate">{label}</div>
-                  {hb.display_name && (
+                  <div className="text-xs font-bold truncate flex items-center gap-1.5">
+                    {hb.color && (
+                      <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hb.color }} />
+                    )}
+                    <span className="truncate">{label}</span>
+                  </div>
+                  {hb.display_name && location && (
+                    <div className="text-[0.5625rem] text-text-muted truncate">{location}</div>
+                  )}
+                  {showId && (
                     <div className="text-[0.5625rem] text-text-muted truncate font-mono">{hb.player_id}</div>
                   )}
                   <div className="text-[0.625rem] text-text-muted flex gap-3 mt-0.5">
