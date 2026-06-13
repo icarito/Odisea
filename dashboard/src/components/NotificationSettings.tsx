@@ -4,7 +4,7 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 import { Bell, BellOff, Settings2 } from 'lucide-react';
 
 export const NotificationSettings: React.FC = () => {
-  const { subscription, isSupported, subscribe, unsubscribe } = usePushNotifications();
+  const { subscription, isSupported, isSubscribing, subscribe, unsubscribe } = usePushNotifications();
   const [enabledEvents, setEnabledEvents] = useState({
     disconnect: true,
     bridge: true,
@@ -58,8 +58,8 @@ export const NotificationSettings: React.FC = () => {
               DESACTIVAR
             </RetroButton>
           ) : (
-            <RetroButton variant="primary" onClick={() => subscribe(enabledEvents)} className="px-3 py-1 text-[0.625rem]">
-              ACTIVAR
+            <RetroButton variant="primary" disabled={isSubscribing} onClick={() => subscribe(enabledEvents)} className="px-3 py-1 text-[0.625rem]">
+              {isSubscribing ? '...' : 'ACTIVAR'}
             </RetroButton>
           )}
         </div>
