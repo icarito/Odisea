@@ -10,7 +10,7 @@ const BridgeScript = preload("res://docs/features/archive/SGCPlatformBridge.gd")
 
 func test_marker_at_theta0_has_up_equal_global_up() -> void:
 	# At flat_z=0, theta=0: surface normal should be (0,1,0) — identity, no rotation needed.
-	var bridge: SGCPlatformBridge = auto_free(BridgeScript.new())
+	var _bridge: SGCPlatformBridge = auto_free(BridgeScript.new())
 	var theta: float = 0.0
 	var up := Vector3(0.0, cos(theta), -sin(theta))
 	assert_float(up.dot(Vector3.UP)).is_greater_equal(0.999)

@@ -133,6 +133,7 @@ func _toggle_sort() -> void:
 	if anchor_path != "":
 		for i in range(_entries.size()):
 			if String(_entries[i]["relative_path"]) == anchor_path:
+				# warning-ignore:INTEGER_DIVISION
 				_current_page = int(i / page_size)
 				break
 	print("TestScenePropZoo: sort=%s" % ("A-Z" if _alpha_mode else "by date"))

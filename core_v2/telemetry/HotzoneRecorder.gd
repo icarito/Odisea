@@ -43,18 +43,34 @@ var _scene_changed_msec := 0
 var _save_thread: Thread = null
 var _save_thread_busy := false
 var _save_jobs := []
+var _disabled := false
 
 func _ready():
 	_ready_msec = OS.get_ticks_msec()
 	_scene_changed_msec = _ready_msec
 	_retry_timer = hotzone_cooldown
 	_is_web = OS.has_feature("web")
+	_disabled = _is_disabled_for_current_run()
+	if _disabled:
+		hotzone_enabled = false
+		set_process_unhandled_input(false)
+		print("[HotzoneRecorder] Disabled for this run")
+		return
 	_ensure_dir()
 	_setup_http()
 	call_deferred("_cache_anna_reference")
 	if _is_web:
 		_inject_worker()
 	print("[HotzoneRecorder] Initialized. Web: ", _is_web)
+
+func _is_disabled_for_current_run() -> bool:
+	if _is_testing:
+		return false
+	var hard_disable = OS.get_environment("ODISEA_DISABLE_HOTZONES").to_lower()
+	if hard_disable in ["1", "true", "yes", "on"]:
+		return true
+	var enable = OS.get_environment("ODISEA_ENABLE_HOTZONES").to_lower()
+	return not (enable in ["1", "true", "yes", "on"])
 
 func _exit_tree():
 	if _save_thread and _save_thread_busy:
@@ -79,6 +95,7 @@ func _setup_http():
 	_http_request.connect("request_completed", self, "_on_upload_completed")
 
 func record_frame(input, dt: float):
+	if _disabled: return
 	if not hotzone_enabled: return
 
 	# Skip during replay/recording to avoid recursive capture or interference
