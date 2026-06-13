@@ -676,12 +676,6 @@ func _resolve_anna_runtime_config() -> Dictionary:
 		config["reason"] = "%s=%s" % [ANNA_ENABLED_ENV, env_enabled]
 		config["source"] = "env"
 		return config
-	if _is_vscode_remote_debug_session():
-		config["enabled"] = true
-		config["port"] = OS.get_environment(ANNA_PORT_ENV).strip_edges()
-		config["reason"] = "VSCode remote-debug auto-detect"
-		config["source"] = "vscode"
-		return config
 	var switch_cfg = _load_switch_anna_config()
 	if bool(switch_cfg.get("enabled", false)):
 		config["enabled"] = true

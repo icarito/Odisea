@@ -17,6 +17,8 @@ const REPORT_WRITE_INTERVAL_HYPER_LOW_SEC := 20.0
 const REPORT_DROP_BYPASS_DELTA := 12.0
 const DETAILED_NODE_PROFILING_ENV := "ODISEA_DETAILED_NODE_PROFILING"
 const PROFILING_LOG_INTERVAL_FRAMES := 60
+const METRIC_SAMPLE_INTERVAL_MS := 250
+const STARTUP_WARNING_GRACE_MS := 5000
 
 # --- Debug Flags ---
 var debug_freeze_logic := false setget set_debug_freeze_logic
@@ -52,11 +54,14 @@ var _detailed_node_profiling_enabled := false
 var _profiling_enabled := false
 var _profiling_stats := {} # { name: { sum_usec, count } }
 var _anna_v2: Node = null
+var _last_metric_sample_msec := 0
+var _ready_msec := 0
 
 # --- Signals ---
 signal lag_spike_detected(fps, drop)
 
 func _ready():
+	_ready_msec = OS.get_ticks_msec()
 	pause_mode = Node.PAUSE_MODE_PROCESS # Always run, even when tree is paused
 	_suppress_runtime_logs = _is_test_environment()
 	_detailed_node_profiling_enabled = OS.get_environment(DETAILED_NODE_PROFILING_ENV).to_lower() in ["1", "true", "yes", "on"]
@@ -101,6 +106,12 @@ func _process(_delta):
 			if _profiling_enabled: profiling_end("PerformanceMonitor")
 			return
 
+	var now_msec := OS.get_ticks_msec()
+	if now_msec - _last_metric_sample_msec < METRIC_SAMPLE_INTERVAL_MS:
+		if _profiling_enabled: profiling_end("PerformanceMonitor")
+		return
+	_last_metric_sample_msec = now_msec
+
 	var now_usec := OS.get_ticks_usec()
 	_frame_start_time = now_usec
 	var frame_gap_ms := 0.0
@@ -135,20 +146,9 @@ func _process(_delta):
 	# 	_report_lag_spike(fps, _last_fps, process_time, physics_time, draw_calls, objects_in_frame, vertices_in_frame, node_count, frame_gap_ms)
 	_last_fps = fps
 
-	# 2.5. Register metrics with ANNAV2 telemetry (appear in central dashboard heartbeats)
-	if _anna_v2 == null and Engine.has_singleton("ANNAV2"):
-		_anna_v2 = Engine.get_singleton("ANNAV2")
-	if _anna_v2:
-		_anna_v2.register_telemetry_dict({
-			"draw_calls": draw_calls,
-			"objects_in_frame": objects_in_frame,
-			"vertices_in_frame": vertices_in_frame,
-			"node_count": node_count,
-			"memory_mb": Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
-		})
-
 	# 3. CPU Budget Check (throttled)
-	if process_time > (CPU_BUDGET_MS * LOG_TRIGGER_PERCENT * 0.001):
+	var startup_grace_active := now_msec - _ready_msec < STARTUP_WARNING_GRACE_MS
+	if not startup_grace_active and process_time > (CPU_BUDGET_MS * LOG_TRIGGER_PERCENT * 0.001):
 		if not _suppress_runtime_logs:
 			var current_time = OS.get_ticks_msec()
 			if current_time - _last_cpu_warning_time > (CPU_WARNING_INTERVAL_SEC * 1000.0):

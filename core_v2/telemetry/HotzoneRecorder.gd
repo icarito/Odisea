@@ -43,19 +43,14 @@ var _scene_changed_msec := 0
 var _save_thread: Thread = null
 var _save_thread_busy := false
 var _save_jobs := []
-var _disabled := false
 
 func _ready():
 	_ready_msec = OS.get_ticks_msec()
 	_scene_changed_msec = _ready_msec
 	_retry_timer = hotzone_cooldown
 	_is_web = OS.has_feature("web")
-	_disabled = _is_disabled_for_current_run()
-	if _disabled:
+	if _is_disabled_for_current_run():
 		hotzone_enabled = false
-		set_process_unhandled_input(false)
-		print("[HotzoneRecorder] Disabled for this run")
-		return
 	_ensure_dir()
 	_setup_http()
 	call_deferred("_cache_anna_reference")
@@ -67,10 +62,7 @@ func _is_disabled_for_current_run() -> bool:
 	if _is_testing:
 		return false
 	var hard_disable = OS.get_environment("ODISEA_DISABLE_HOTZONES").to_lower()
-	if hard_disable in ["1", "true", "yes", "on"]:
-		return true
-	var enable = OS.get_environment("ODISEA_ENABLE_HOTZONES").to_lower()
-	return not (enable in ["1", "true", "yes", "on"])
+	return hard_disable in ["1", "true", "yes", "on"]
 
 func _exit_tree():
 	if _save_thread and _save_thread_busy:
@@ -95,7 +87,6 @@ func _setup_http():
 	_http_request.connect("request_completed", self, "_on_upload_completed")
 
 func record_frame(input, dt: float):
-	if _disabled: return
 	if not hotzone_enabled: return
 
 	# Skip during replay/recording to avoid recursive capture or interference
@@ -106,6 +97,16 @@ func record_frame(input, dt: float):
 	var now = OS.get_ticks_msec()
 	var startup_grace_msec := int(startup_grace_sec * 1000.0)
 	var scene_grace_msec := int(scene_grace_sec * 1000.0)
+
+	# Fast path: healthy runtime frames should not touch scene/player state or
+	# allocate frame dictionaries. Hotzones are diagnostics for sustained low FPS.
+	if not _is_testing and not _is_in_hotzone:
+		if now - _ready_msec < startup_grace_msec:
+			return
+		if now - _scene_changed_msec < scene_grace_msec:
+			return
+		if fps >= hotzone_fps_threshold:
+			return
 
 	var scene_name = ""
 	var pos = Vector3.ZERO
@@ -133,7 +134,40 @@ func record_frame(input, dt: float):
 		if now - _scene_changed_msec < scene_grace_msec:
 			return
 
-	# Store frame in ring buffer
+	# Hotzone Detection Logic
+	if not _is_in_hotzone:
+		if fps < hotzone_fps_threshold and _capture_count < hotzone_max_captures_per_session:
+			if _last_hotzone_msec <= 0 or now - _last_hotzone_msec > hotzone_cooldown * 1000.0:
+				_is_in_hotzone = true
+				_hotzone_start_msec = now
+				_reset_ring_buffer()
+				print("[HotzoneRecorder] Potential hotzone started at FPS ", fps)
+	else:
+		# Already in hotzone
+		if fps >= hotzone_fps_threshold:
+			# FPS recovered! Check duration
+			var duration = (now - _hotzone_start_msec) / 1000.0
+			if duration >= hotzone_min_duration:
+				_trigger_capture(scene_name, pos, "auto")
+
+			_is_in_hotzone = false
+			_last_hotzone_msec = now
+		elif (now - _hotzone_start_msec) > 30000: # Max 30s hotzone
+			# Give up if it stays low for too long, might be a permanent stall
+			_is_in_hotzone = false
+			_last_hotzone_msec = now
+			print("[HotzoneRecorder] Hotzone timed out (sustained low FPS > 30s)")
+
+	if _is_testing or _is_in_hotzone:
+		_store_frame(input, dt, fps, now, pos, player)
+
+func _reset_ring_buffer() -> void:
+	_ring_buffer.clear()
+	_head = 0
+	_count = 0
+	_frames_since_snapshot = 0
+
+func _store_frame(input, dt: float, fps: float, now: int, pos: Vector3, player: Node) -> void:
 	var frame_data = {
 		"input": input.to_dict() if input and input.has_method("to_dict") else {},
 		"dt": dt,
@@ -157,36 +191,13 @@ func record_frame(input, dt: float):
 	_head = (_head + 1) % hotzone_buffer_frames
 	_count = min(_count + 1, hotzone_buffer_frames)
 
-	# Hotzone Detection Logic
-	if not _is_in_hotzone:
-		if fps < hotzone_fps_threshold and _capture_count < hotzone_max_captures_per_session:
-			if _last_hotzone_msec <= 0 or now - _last_hotzone_msec > hotzone_cooldown * 1000.0:
-				_is_in_hotzone = true
-				_hotzone_start_msec = now
-				print("[HotzoneRecorder] Potential hotzone started at FPS ", fps)
-	else:
-		# Already in hotzone
-		if fps >= hotzone_fps_threshold:
-			# FPS recovered! Check duration
-			var duration = (now - _hotzone_start_msec) / 1000.0
-			if duration >= hotzone_min_duration:
-				_trigger_capture(scene_name, pos, "auto")
-
-			_is_in_hotzone = false
-			_last_hotzone_msec = now
-		elif (now - _hotzone_start_msec) > 30000: # Max 30s hotzone
-			# Give up if it stays low for too long, might be a permanent stall
-			_is_in_hotzone = false
-			_last_hotzone_msec = now
-			print("[HotzoneRecorder] Hotzone timed out (sustained low FPS > 30s)")
-
 func _unhandled_input(event):
 	var manual = false
 	if event is InputEventKey and event.pressed:
 		if event.control and event.shift and event.scancode == KEY_BACKSPACE:
 			manual = true
 
-	if not manual and event.is_action_pressed("hotzone_manual_capture"):
+	if not manual and InputMap.has_action("hotzone_manual_capture") and event.is_action_pressed("hotzone_manual_capture"):
 		manual = true
 
 	if manual:

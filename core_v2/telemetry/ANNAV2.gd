@@ -15,8 +15,8 @@ var _player_id := ""
 var _session_id := ""
 var _build_info := {}
 
-# --- Local telemetry capture (bridge-independent; ON by default) ---
-var _capture_enabled := true
+# --- Local telemetry capture (bridge-independent; opt-in for analysis runs) ---
+var _capture_enabled := false
 # Ring buffer: fixed-size array written via a circular head index. Writes are O(1)
 # (no O(n) pop_front shift), so capture cost stays flat regardless of session length.
 var _capture_buffer := []
@@ -30,8 +30,10 @@ var _custom_points := {}
 # Telemetry is gathered at most every TELEMETRY_INTERVAL_MS (decoupled from frame rate).
 # The network thread only sends at 10Hz anyway, so gathering at 60Hz was wasted main-thread
 # work. Lower the interval for finer local capture; raise it to reduce ANNA's per-frame cost.
-var TELEMETRY_INTERVAL_MS := 50 # ~20Hz
+var TELEMETRY_INTERVAL_MS := 100 # 10Hz
 var _last_telemetry_ms := 0
+var _perf_monitor: Node = null
+var _perf_profiling_enabled := false
 
 func _ready():
 	# Optimization for HTML5/Weak hardware
@@ -81,6 +83,8 @@ func _ready():
 
 	_net_thread.start(_command_queue, _player_id, _session_id, _build_info.get("game_version", GAME_VERSION))
 	_init_capture_from_env()
+	_perf_monitor = get_node_or_null("/root/PerformanceMonitor")
+	_perf_profiling_enabled = _perf_monitor and "_profiling_enabled" in _perf_monitor and _perf_monitor._profiling_enabled
 	print("[ANNAV2] Initialized. PlayerID: ", _player_id, " SessionID: ", _session_id)
 
 func _init_capture_from_env():
@@ -103,8 +107,8 @@ func _exit_tree():
 		_net_thread.stop()
 
 func _process(_delta):
-	var pm = get_node_or_null("/root/PerformanceMonitor")
-	if pm and pm.has_method("profiling_start"): pm.profiling_start("ANNAV2")
+	if _perf_profiling_enabled:
+		_perf_monitor.profiling_start("ANNAV2")
 
 	if _is_web_thread:
 		_net_thread._main_thread_tick()
@@ -118,15 +122,15 @@ func _process(_delta):
 	for cmd in commands:
 		call_deferred("_execute_command", cmd)
 
-	if pm and pm.has_method("profiling_end"): pm.profiling_end("ANNAV2")
+	if _perf_profiling_enabled:
+		_perf_monitor.profiling_end("ANNAV2")
 
 func _update_telemetry():
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	
-	# Forzamos tier 3 siempre para garantizar que el dashboard de observabilidad 
-	# reciba todos los datos (posicion, escena, modo, etc.) sin importar los FPS.
-	# El throttling por FPS causaba que se dejaran de enviar datos criticos cuando el juego bajaba de 30 FPS.
-	var interval_ms = 100
+	# Keep full telemetry payloads, but do not force a faster network heartbeat
+	# than the main-thread gather cadence.
+	var interval_ms = TELEMETRY_INTERVAL_MS
 	var tier = 3
 		
 	_net_thread.update_heartbeat_params(interval_ms, tier)
