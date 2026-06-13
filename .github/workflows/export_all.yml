@@ -441,8 +441,10 @@ jobs:
   deploy-web:
     needs: [prep, export]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    if: ${{ always() && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') }}
     permissions:
+      contents: read
+      deployments: write
       pages: write
       id-token: write
     environment:
@@ -457,6 +459,15 @@ jobs:
         with:
           name: netlify-build
           path: netlify-build
+
+      - name: Validate Netlify artifact
+        run: |
+          test -s netlify-build/index.html || { echo "::error::Missing Netlify index.html"; exit 1; }
+          test -s netlify-build/index.js || { echo "::error::Missing Netlify Godot loader"; exit 1; }
+          if find netlify-build -maxdepth 1 \( -name "*.pck" -o -name "*.pck.gz" -o -name "*.wasm" -o -name "*.wasm.gz" \) | grep -q .; then
+            echo "::error::Netlify artifact contains heavy Godot assets that should be served from GitHub Pages"
+            exit 1
+          fi
 
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3
@@ -502,6 +513,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_prerelease == 'true')
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -510,17 +524,26 @@ jobs:
 
       - name: Update Nightly Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           TAG="nightly"
+          mapfile -t RELEASE_FILES < <(find nightly_assets -type f -name "*.zip" -print | sort)
+          if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
+            echo "::error::No release zip artifacts found in nightly_assets"
+            find nightly_assets -maxdepth 3 -type f -print || true
+            exit 1
+          fi
+
           # Delete existing tag and release if they exist
           gh release delete "$TAG" --yes --cleanup-tag || true
+          git push origin ":refs/tags/$TAG" || true
 
           # Generate detailed artifact list
           echo "### Artifacts" > body.md
           echo "| Artifact | Size |" >> body.md
           echo "|---|---|" >> body.md
-          find nightly_assets -name "*.zip" -exec du -h {} + | awk '{n=split($2,a,"/"); print "| " a[n] " | " $1 " |"}' >> body.md
+          du -h "${RELEASE_FILES[@]}" | awk '{n=split($2,a,"/"); print "| " a[n] " | " $1 " |"}' >> body.md
           echo "" >> body.md
           echo "Built from commit ${{ needs.prep.outputs.sha }} at $(date -u +'%Y-%m-%d %H:%M:%S') UTC." >> body.md
           
@@ -529,14 +552,15 @@ jobs:
             --title "Nightly Tip" \
             --notes-file body.md \
             --prerelease \
-            nightly_assets/**/*
+            --target "${{ github.sha }}" \
+            "${RELEASE_FILES[@]}"
 
       - name: Discord Notification
         if: success()
         run: |
           VERSION="${{ needs.prep.outputs.version }}"
           REPO="${{ github.repository }}"
-          URL="https://github.com/$REPO/releases/tag/$VERSION"
+          URL="https://github.com/$REPO/releases/tag/nightly"
           MSG="🚀 **New Release available for $REPO: $VERSION**\nCheck it out at: $URL"
           if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
             curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$MSG\"}" "${{ secrets.DISCORD_WEBHOOK }}"
