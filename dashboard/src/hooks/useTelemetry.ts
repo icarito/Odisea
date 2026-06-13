@@ -3,6 +3,25 @@ import { getStatus, getHealth } from '../api';
 import type { HeartbeatMap, Alert } from '../types';
 import { saveSnapshot, getSnapshot } from '../lib/pushStorage';
 
+// Live telemetry is delivered by the central over WebSocket (/events): it pushes
+// each heartbeat as it arrives, so the dashboard no longer polls /status every
+// second (which, over the ~0.5-1.5s round-trip to the server, made the UI lag).
+// We seed the map once with a GET, then keep it live from the WS stream. /health
+// is still polled, but slowly (it's a small aggregate, not per-frame data).
+
+const HEALTH_POLL_MS = 15000;
+// Drop a player from the live map this long after its last heartbeat. The WS
+// stream only adds players, so staleness is detected by a periodic sweep.
+const STALE_AFTER_MS = 12000;
+const SWEEP_MS = 2000;
+
+const wsBaseFromApiTarget = () => {
+  const apiTarget = import.meta.env.VITE_API_TARGET;
+  if (apiTarget) return apiTarget.replace(/^http/, 'ws').replace(/\/$/, '');
+  return `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+};
+const EVENTS_WS_URL = `${wsBaseFromApiTarget()}/events`;
+
 export const useTelemetry = () => {
   const [heartbeats, setHeartbeats] = useState<HeartbeatMap>({});
   const [peersConnected, setPeersConnected] = useState<number | string>('?');
@@ -12,8 +31,10 @@ export const useTelemetry = () => {
   const [health, setHealth] = useState<any>({});
   const disconnectedPids = useRef<Set<string>>(new Set());
   const playerLabels = useRef<Record<string, string>>({});
-  const pollCount = useRef(0);
-  const GHOST_STORE_INTERVAL = 10; // Only write to history every N polls
+  // Wall-clock ms of the last heartbeat seen per player, for the stale sweep.
+  const lastSeenMs = useRef<Record<string, number>>({});
+  const ghostTick = useRef<Record<string, number>>({});
+  const GHOST_STORE_EVERY = 10; // sample fps/mem into history every N heartbeats
   const historyRef = useRef<Record<string, {
     fps: number[],
     memory: number[],
@@ -25,126 +46,163 @@ export const useTelemetry = () => {
     events: { scene: string, zone: string, mode: string, timestamp: number }[]
   }>>({});
 
+  // Fold a single heartbeat into the per-player history (fps/mem buffers, trail,
+  // scene/zone/mode events). Shared by the WS path and the initial GET seed.
+  const ingestHeartbeat = (pid: string, hb: any) => {
+    const now = Date.now();
+    lastSeenMs.current[pid] = now;
+    playerLabels.current[pid] = hb.display_name || pid;
+    disconnectedPids.current.delete(pid);
+
+    if (!historyRef.current[pid]) {
+      historyRef.current[pid] = {
+        fps: [], memory: [], trail: [], lastPos: null,
+        lastTick: 0, lastMoveTime: now, lastScene: '', events: [],
+      };
+    }
+    const hist = historyRef.current[pid];
+
+    ghostTick.current[pid] = (ghostTick.current[pid] || 0) + 1;
+    if (ghostTick.current[pid] % GHOST_STORE_EVERY === 0) {
+      hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
+      hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
+    }
+
+    const lastEvent = hist.events[hist.events.length - 1];
+    const scene = hb.player?.scene ?? '';
+    const zone = hb.player?.zone ?? '';
+    const mode = hb.player?.mode ?? '';
+    if (!lastEvent || lastEvent.scene !== scene || lastEvent.zone !== zone || lastEvent.mode !== mode) {
+      hist.events = [...hist.events, { scene, zone, mode, timestamp: now / 1000 }];
+    }
+
+    // Clear the trail on scene change (new session / teleport).
+    if (scene !== hist.lastScene) {
+      hist.trail = [];
+      hist.lastScene = scene;
+    }
+
+    const rawPos = hb.player?.position;
+    if (Array.isArray(rawPos) && rawPos.length >= 3) {
+      const pos: [number, number, number] = [Number(rawPos[0]), Number(rawPos[1]), Number(rawPos[2])];
+      hist.trail = [...hist.trail, pos].slice(-600);
+      hist.lastPos = pos;
+      hist.lastMoveTime = now;
+    }
+  };
+
+  // --- Heartbeats over WebSocket (push) ---
   useEffect(() => {
-    const poll = async () => {
+    let disposed = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+
+    // Seed the map once so the view isn't empty until the first WS frame. Also
+    // serves as the offline fallback (cached snapshot when the GET fails).
+    (async () => {
       try {
-        let data: HeartbeatMap;
-        try {
-          data = await getStatus();
-          await saveSnapshot('status', data);
-          setIsConnected(true);
-        } catch (e) {
-          data = await getSnapshot('status') || {};
-          setIsConnected(false);
-        }
+        const data: HeartbeatMap = await getStatus();
+        if (disposed) return;
+        await saveSnapshot('status', data);
+        Object.entries(data).forEach(([pid, hb]) => ingestHeartbeat(pid, hb));
         setHeartbeats(data);
+      } catch {
+        const cached = (await getSnapshot('status')) || {};
+        if (!disposed) setHeartbeats(cached);
+      }
+    })();
 
-        const now = Date.now();
-        const newAlerts: Alert[] = [];
-        pollCount.current++;
-        const shouldWriteGhost = pollCount.current % GHOST_STORE_INTERVAL === 0;
+    const connect = () => {
+      if (disposed) return;
+      const token = localStorage.getItem('odisea_token');
+      if (!token) return;
+      socket = new WebSocket(`${EVENTS_WS_URL}?token=${token}`);
 
-        Object.entries(data).forEach(([pid, hb]) => {
-          playerLabels.current[pid] = hb.display_name || pid;
-          if (!historyRef.current[pid]) {
-            historyRef.current[pid] = {
-                fps: [],
-                memory: [],
-                trail: [],
-                lastPos: null,
-                lastTick: 0,
-                lastMoveTime: now,
-                lastScene: '',
-                events: []
-            };
-          }
-          const hist = historyRef.current[pid];
+      socket.onopen = () => { if (!disposed) setIsConnected(true); };
 
-          // FPS & Memory History (handle incomplete heartbeats) — throttle to ghost store interval
-          if (shouldWriteGhost) {
-            hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
-            hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
-          }
-
-          // Events (Scene/Zone/Mode change)
-          const lastEvent = hist.events[hist.events.length - 1];
-          const scene = hb.player?.scene ?? '';
-          const zone = hb.player?.zone ?? '';
-          const mode = hb.player?.mode ?? '';
-          
-          if (!lastEvent ||
-              lastEvent.scene !== scene ||
-              lastEvent.zone !== zone ||
-              lastEvent.mode !== mode) {
-            hist.events = [...hist.events, {
-                scene: scene,
-                zone: zone,
-                mode: mode,
-                timestamp: now / 1000
-            }];
-          }
-
-          // Trail — every heartbeat, no throttle, no distance threshold.
-          // Clear trail when scene changes (new session / teleport) to avoid
-          // a long line crossing the entire level geometry.
-          const currentScene = hb.player?.scene ?? '';
-          if (currentScene !== hist.lastScene) {
-            hist.trail = [];
-            hist.lastScene = currentScene;
-          }
-
-          const rawPos = hb.player?.position;
-          if (Array.isArray(rawPos) && rawPos.length >= 3) {
-            const pos: [number, number, number] = [Number(rawPos[0]), Number(rawPos[1]), Number(rawPos[2])];
-            hist.trail = [...hist.trail, pos].slice(-600);
-            hist.lastPos = pos;
-            hist.lastMoveTime = now;
-          }
-
-          // Alerts: solo desconexiones y errores del backend.
-          // Alertas de low FPS, memory spike y softlock eliminadas para reducir ruido.
-        });
-
-        // Disconnect check (evitar bucle infinito marcando los ya procesados)
-        Object.keys(historyRef.current).forEach(pid => {
-          if (!data[pid] && !disconnectedPids.current.has(pid)) {
-            disconnectedPids.current.add(pid);
-            const label = playerLabels.current[pid] || pid;
-            newAlerts.push({
-              id: `${pid}-disconnect-${now}`,
-              type: 'disconnect',
-              message: `${label} disconnected`,
-              timestamp: now,
-              playerId: pid
-            });
-            // No borramos de historyRef para mantener los gráficos congelados
-          }
-        });
-
-        if (newAlerts.length > 0) {
-           setAlerts(prev => [...newAlerts, ...prev].slice(0, 50));
+      socket.onmessage = (event) => {
+        let msg: any;
+        try { msg = JSON.parse(event.data); } catch { return; }
+        // Alerts are handled by useWebSocket; here we only fold in heartbeats.
+        // A heartbeat carries a player_id and a nested player object.
+        if (msg && msg.type !== 'alert' && msg.player_id && msg.player) {
+          ingestHeartbeat(msg.player_id, msg);
+          setHeartbeats((prev) => ({ ...prev, [msg.player_id]: msg }));
         }
+      };
 
-        try {
-          const health = await getHealth();
-          setHealth(health);
-          setPeersConnected(health.peers_connected ?? '?');
-          setHeartbeatRate(health.heartbeats_rate ?? '?');
-          await saveSnapshot('health', health);
-        } catch (e) {
-          const health = await getSnapshot('health') || {};
-          setHealth(health);
-          setPeersConnected(health.peers_connected ?? '?');
-          setHeartbeatRate(health.heartbeats_rate ?? '?');
+      socket.onclose = () => {
+        if (disposed) return;
+        setIsConnected(false);
+        reconnectTimer = window.setTimeout(connect, 3000);
+      };
+      socket.onerror = () => { socket?.close(); };
+    };
+    connect();
+
+    return () => {
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (socket) { socket.onclose = null; socket.close(); }
+    };
+  }, []);
+
+  // --- Stale sweep: prune players whose last heartbeat is too old, and raise a
+  // single disconnect alert for each. Replaces the poll's map-diff logic. ---
+  useEffect(() => {
+    const sweep = () => {
+      const now = Date.now();
+      const stale: string[] = [];
+      for (const pid of Object.keys(lastSeenMs.current)) {
+        if (now - lastSeenMs.current[pid] > STALE_AFTER_MS) stale.push(pid);
+      }
+      if (stale.length === 0) return;
+
+      const newAlerts: Alert[] = [];
+      for (const pid of stale) {
+        if (!disconnectedPids.current.has(pid)) {
+          disconnectedPids.current.add(pid);
+          newAlerts.push({
+            id: `${pid}-disconnect-${now}`,
+            type: 'disconnect',
+            message: `${playerLabels.current[pid] || pid} disconnected`,
+            timestamp: now,
+            playerId: pid,
+          });
         }
-      } catch (e) {
-        console.error("Telemetry poll failed", e);
+        delete lastSeenMs.current[pid];
+      }
+      if (newAlerts.length) setAlerts((prev) => [...newAlerts, ...prev].slice(0, 50));
+      // Remove stale players from the live map (history is kept frozen).
+      setHeartbeats((prev) => {
+        const next = { ...prev };
+        for (const pid of stale) delete next[pid];
+        return next;
+      });
+    };
+    const id = setInterval(sweep, SWEEP_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  // --- Health: slow poll (small aggregate, not per-frame). ---
+  useEffect(() => {
+    const loadHealth = async () => {
+      try {
+        const h = await getHealth();
+        setHealth(h);
+        setPeersConnected(h.peers_connected ?? '?');
+        setHeartbeatRate(h.heartbeats_rate ?? '?');
+        await saveSnapshot('health', h);
+      } catch {
+        const cached = (await getSnapshot('health')) || {};
+        setHealth(cached);
+        setPeersConnected(cached.peers_connected ?? '?');
+        setHeartbeatRate(cached.heartbeats_rate ?? '?');
       }
     };
-
-    poll();
-    const interval = setInterval(poll, 1000);
-    return () => clearInterval(interval);
+    loadHealth();
+    const id = setInterval(loadHealth, HEALTH_POLL_MS);
+    return () => clearInterval(id);
   }, []);
 
   return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history: historyRef.current, health };
