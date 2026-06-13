@@ -7,9 +7,9 @@ import { saveSnapshot, getSnapshot } from '../lib/pushStorage';
 // each heartbeat as it arrives, so the dashboard no longer polls /status every
 // second (which, over the ~0.5-1.5s round-trip to the server, made the UI lag).
 // We seed the map once with a GET, then keep it live from the WS stream. /health
-// is still polled, but slowly (it's a small aggregate, not per-frame data).
+// is polled separately because it carries deploy/version metadata.
 
-const HEALTH_POLL_MS = 15000;
+const HEALTH_POLL_MS = 5000;
 // Drop a player from the live map this long after its last heartbeat. The WS
 // stream only adds players, so staleness is detected by a periodic sweep.
 const STALE_AFTER_MS = 12000;
