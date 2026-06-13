@@ -226,7 +226,7 @@ func _step_climbing(dt: float, input: Vector2, pos: Vector3, crouch_pressed: boo
 	anim_progress = fposmod(anim_progress + move_vec.length() * 0.5, 1.0)
 	return next_pos
 
-func _step_hanging(dt: float, input: Vector2, pos: Vector3, crouch_just_pressed: bool) -> Vector3:
+func _step_hanging(dt: float, input: Vector2, pos: Vector3, crouch_pressed: bool) -> Vector3:
 	# Ledge Traversal: Constrained to ledge tangent
 	var tangent = ledge_normal.cross(Vector3.UP).normalized()
 	_hang_crouch_drop_grace_left = max(0.0, _hang_crouch_drop_grace_left - dt)
@@ -240,7 +240,7 @@ func _step_hanging(dt: float, input: Vector2, pos: Vector3, crouch_just_pressed:
 	_hang_attach_target = hang_origin + tangent * hang_lateral_offset
 	var next_pos = _hang_attach_target
 
-	if input.y > 0.5 or (crouch_just_pressed and _hang_crouch_drop_grace_left <= 0.0):
+	if input.y > 0.5 or (crouch_pressed and _hang_crouch_drop_grace_left <= 0.0):
 		exit()
 		anim_progress = 0.0
 		return next_pos

@@ -383,7 +383,7 @@ func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, objects_in_f
 		_last_lag_log_time_msec = now_msec
 	emit_signal("lag_spike_detected", fps, drop)
 
-	var report = {
+	var _report = {
 		"schema_version": 1,
 		"timestamp": OS.get_unix_time(),
 		"fps": fps,

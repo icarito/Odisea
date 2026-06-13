@@ -61,11 +61,11 @@ func _update_visual_feedback():
 	# The circuit manager will call set_active on the Light when XOR output changes
 	pass
 
-func _get_switch_material(is_on: bool) -> SpatialMaterial:
+func _get_switch_material(_is_on: bool) -> SpatialMaterial:
 	# Levers handle their own visuals
 	return null
 
-func _get_light_material(is_on: bool) -> SpatialMaterial:
+func _get_light_material(_is_on: bool) -> SpatialMaterial:
 	# SciFiHangingLightV2 handles its own visuals
 	return null
 

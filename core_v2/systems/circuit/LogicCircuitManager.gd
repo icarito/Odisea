@@ -448,11 +448,6 @@ func _spawn_cable() -> CircuitCable:
             if script_res and script_res is Script:
                 c = script_res.new()
 
-    if not c:
-        c = Spatial.new()
-
-    add_child(c)
-    return c
     # Preferred: try to instantiate from the GDScript class (most robust in headless/test env)
     if not c:
         var script_path = "res://core_v2/systems/circuit/CircuitCable.gd"

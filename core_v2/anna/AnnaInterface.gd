@@ -326,7 +326,7 @@ func _ready():
 	_rl_legacy_fast_mode = OS.get_environment("ANNA_RL_LEGACY_FAST_MODE").to_lower() in ["1", "true", "yes", "on"]
 	var rl_max_steps_env = OS.get_environment("ANNA_RL_MAX_STEPS")
 	if rl_max_steps_env.is_valid_integer():
-		_rl_max_episode_steps = max(100, int(rl_max_steps_env))
+		_rl_max_episode_steps = int(max(100, int(rl_max_steps_env)))
 	_rl_base_max_episode_steps = _rl_max_episode_steps
 	var rl_time_penalty_env = OS.get_environment("ANNA_RL_TIME_PENALTY")
 	if rl_time_penalty_env.is_valid_float():
@@ -1098,14 +1098,14 @@ func get_rl_observation() -> Dictionary:
 
 	if not is_instance_valid(player) or not player is Spatial:
 		# Fallback/Fail state
-		for i in range(13): obs_vector.append(0.0)
+		for _i in range(13): obs_vector.append(0.0)
 		return {"obs": obs_vector, "reward": 0.0, "done": true, "done_reason": "invalid_player"}
 	if _rl_legacy_fast_mode:
 		return _get_rl_observation_legacy_fast(player as Spatial)
 	if not is_instance_valid(_rl_raycast_root):
 		_setup_rl_sensors()
 	if not is_instance_valid(_rl_raycast_root) or _rl_rays.size() == 0:
-		for i in range(13): obs_vector.append(0.0)
+		for _i in range(13): obs_vector.append(0.0)
 		return {"obs": obs_vector, "reward": 0.0, "done": true, "done_reason": "missing_rl_sensors"}
 
 	# 1. Update Sensors
@@ -1603,7 +1603,7 @@ func reset_simulation() -> void:
 			yaw_override = float(yaw_value)
 		var max_steps_value = episode_override.get("max_steps", null)
 		if max_steps_value != null and typeof(max_steps_value) in [TYPE_INT, TYPE_REAL]:
-			_rl_max_episode_steps = max(100, int(max_steps_value))
+			_rl_max_episode_steps = int(max(100, int(max_steps_value)))
 		var door_required_value = episode_override.get("door_required", null)
 		if door_required_value != null and typeof(door_required_value) == TYPE_BOOL:
 			episode_requires_interactable_open = episode_requires_interactable_open and bool(door_required_value)
@@ -2119,7 +2119,7 @@ func apply_rl_action(action_idx: int) -> void:
 		if abs(preferred_side_assist) > 0.1 and sign(move_vec.x) != preferred_side_assist:
 			move_vec.x = preferred_side_assist * abs(move_vec.x)
 			_rl_strafe_commit_side = preferred_side_assist
-			_rl_strafe_commit_remaining = max(_rl_strafe_commit_remaining, 3)
+			_rl_strafe_commit_remaining = int(max(_rl_strafe_commit_remaining, 3))
 	if action_idx == 0 and _rl_action0_backstep_enabled:
 		var backstep_context = front_obstacle_for_recovery < (RL_OBSTACLE_AHEAD_DIST * 1.1) or _hazard_contact_frames > 0 or _wall_stuck_frames > 0
 		if backstep_context:
@@ -2140,7 +2140,7 @@ func apply_rl_action(action_idx: int) -> void:
 		move_vec.y = _rl_stuck_recovery_backoff
 		sprint_pressed = false
 		_rl_strafe_commit_side = strafe_sign
-		_rl_strafe_commit_remaining = max(_rl_strafe_commit_remaining, _rl_strafe_commit_frames)
+		_rl_strafe_commit_remaining = int(max(_rl_strafe_commit_remaining, _rl_strafe_commit_frames))
 		if _rl_stuck_recovery_jump_period > 0 and _wall_stuck_frames > 0 and int(_wall_stuck_frames) % _rl_stuck_recovery_jump_period == 0:
 			jump_pressed = true
 
@@ -2174,7 +2174,7 @@ func apply_rl_action(action_idx: int) -> void:
 	if jump_pressed:
 		if not jump_hold_active:
 			_jump_cooldown_frames = RL_SMART_JUMP_MIN_COOLDOWN
-			_rl_jump_hold_frames = max(0, int(_rl_jump_hold_input_frames))
+			_rl_jump_hold_frames = int(max(0, int(_rl_jump_hold_input_frames)))
 
 	# Contextual interact:
 	# Reuse "steer-only" action as explicit interaction, and auto-assist when a door-like
@@ -2785,11 +2785,11 @@ func _get_collisions() -> Array:
 	if not is_instance_valid(player):
 		# Return max range if no player
 		var fallback = []
-		for i in range(SENSOR_RAY_COUNT): fallback.append(SENSOR_RANGE)
+		for _i in range(SENSOR_RAY_COUNT): fallback.append(SENSOR_RANGE)
 		return fallback
 	if not player is Spatial:
 		var fallback = []
-		for i in range(SENSOR_RAY_COUNT): fallback.append(SENSOR_RANGE)
+		for _i in range(SENSOR_RAY_COUNT): fallback.append(SENSOR_RANGE)
 		return fallback
 
 	# Teleport sensor to player eye level

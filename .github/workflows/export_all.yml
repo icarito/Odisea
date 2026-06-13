@@ -168,7 +168,7 @@ jobs:
             --out-json "build_meta.json"
 
       - name: Cache Godot
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/godot
@@ -243,11 +243,11 @@ jobs:
 
       - name: iOS Provisioning Setup
         if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
-        uses: apple-actions/download-provisioning-profiles@v1
-        with:
-          bundle-id: '*'
-          profile-type: 'release'
-          provisioning-profiles-base64: ${{ secrets.IOS_PROVISION_B64 }}
+        env:
+          IOS_PROVISION_B64: ${{ secrets.IOS_PROVISION_B64 }}
+        run: |
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "$IOS_PROVISION_B64" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/odisea.mobileprovision"
 
       - name: Android Keystore Setup
         if: matrix.platform == 'android'
@@ -416,7 +416,7 @@ jobs:
 
       - name: Build Failure Notification
         if: failure()
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -497,7 +497,7 @@ jobs:
           merge-multiple: true
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prep.outputs.version }}
           files: |

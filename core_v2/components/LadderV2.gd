@@ -46,7 +46,7 @@ func interact():
 	# Standard interaction can also trigger climbing if needed
 	pass
 
-func set_highlighted(active: bool, color: Color = Color.cyan):
+func set_highlighted(_active: bool, _color: Color = Color.cyan):
 	# Visual feedback for interaction range
 	pass
 
@@ -58,7 +58,7 @@ func get_climb_anchor() -> Vector3:
 	return global_transform.origin - forward * attach_depth
 
 func get_climb_hand_targets(world_y: float, progress: float, requested_half_width: float = 0.36) -> Dictionary:
-	var right_dir = global_transform.basis.x.normalized()
+	var _right_dir = global_transform.basis.x.normalized()
 	var grip_half_width = min(max(0.12, requested_half_width), max(0.16, hand_grip_half_width))
 	var hand_center_local_y = clamp(_world_y_to_local(world_y), -climb_half_height + 0.25, climb_half_height - 0.25)
 	var cycle = fposmod(progress, 1.0)

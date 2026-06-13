@@ -1202,7 +1202,7 @@ func _stop_footstep_audio_if_playing() -> void:
 # Suppress animation updates for N physics frames — use on scene transitions
 # to prevent fall/jump poses from flickering during the loading gap.
 func freeze(frames: int = 4) -> void:
-	_transition_freeze_frames = max(_transition_freeze_frames, frames)
+	_transition_freeze_frames = int(max(_transition_freeze_frames, frames))
 	_transition_freeze_until_grounded = true
 	airborne_time = float(0)
 

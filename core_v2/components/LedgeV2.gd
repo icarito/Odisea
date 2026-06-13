@@ -25,7 +25,7 @@ func _refresh_preview() -> void:
 	_ensure_body_collision()
 	_build_visual()
 
-func set_highlighted(active: bool, color: Color = Color.cyan):
+func set_highlighted(_active: bool, _color: Color = Color.cyan):
 	pass
 
 func get_hang_half_width() -> float:

@@ -499,7 +499,7 @@ func _tick_dome_assignment_cache_build() -> void:
 		_cache_build_apply_selection_deferred = false
 		_assign_plate_content()
 
-func _sync_plate_window_for_selection(force: bool = false) -> void:
+func _sync_plate_window_for_selection(_force: bool = false) -> void:
 	if not _plate_content_stream:
 		return
 	if not _dome_assignment_cache_ready and _dome_assignment_cache.empty():
@@ -1357,31 +1357,9 @@ func _reset_camera_roll() -> void:
 func _setup_dome_facade_cursors() -> void:
 	# FD-041 no usa cursor full-detail separado: PlateContentStream maneja FULL
 	# alrededor del player y TerraceSpiral maneja LOD para el resto.
+	# (La instanciación legacy de DomeFacadeCursor fue retirada; ver historial git.)
 	_apply_lod_hide_for_full_detail_keys(_last_full_detail_keys)
-	return
-	var seen_paths := {}
-	var dome_registry: Node = _get_dome_registry()
-	if not dome_registry:
-		return
-	for dome_id in dome_registry.get_all_dome_ids():
-		var info: Dictionary = dome_registry.get_dome(dome_id)
-		var path := String(info.get("facade_scene", "")).strip_edges()
-		if path == "" or seen_paths.has(path):
-			continue
-		if not ResourceLoader.exists(path):
-			continue
-		var packed = load(path)
-		if not (packed is PackedScene):
-			continue
-		var cursor: Spatial = (packed as PackedScene).instance()
-		cursor.name = "DomeFacadeCursor_%s" % path.get_file().get_basename()
-		# Aparcar fuera del mundo hasta que se seleccione un plate con domo
-		cursor.global_transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
-		add_child(cursor)
-		_dome_facade_cursors[path] = cursor
-		seen_paths[path] = true
-	_sync_dome_facade_cursor()
-	_apply_lod_hide_for_selection(selected_spiral, selected_plate)
+	_sync_dome_facade_cursor()  # mantiene aparcados los cursores legacy si existieran
 
 func _sync_dome_facade_cursor() -> void:
 	# FD-041 exterior uses only two visual representations:

@@ -105,7 +105,6 @@ func _get_active_input_provider():
 	if not ("input_provider" in player):
 		return null
 	return player.input_provider
-	return null
 
 func is_mobile() -> bool:
 	return _is_mobile

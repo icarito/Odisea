@@ -126,7 +126,7 @@ func is_player_within_hud_radius() -> bool:
 	var dist = _terminal.global_transform.origin.distance_to((player as Spatial).global_transform.origin) if _terminal else 0.0
 	return dist <= hud_interaction_radius
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if not attach_to_active_camera:
 		return
 	if not _terminal or not ("is_active" in _terminal and _terminal.is_active):

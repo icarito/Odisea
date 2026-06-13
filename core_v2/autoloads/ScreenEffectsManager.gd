@@ -12,7 +12,7 @@ func show_script_cinematic_bars(immediate: bool = false) -> void:
 	_set_script_cinematic_visible(true, immediate)
 
 func hide_script_cinematic_bars(immediate: bool = false) -> void:
-	_script_cinematic_depth = max(0, _script_cinematic_depth - 1)
+	_script_cinematic_depth = int(max(0, _script_cinematic_depth - 1))
 	_set_script_cinematic_visible(_script_cinematic_depth > 0, immediate)
 
 func begin_death_cover(params: Dictionary = {}):

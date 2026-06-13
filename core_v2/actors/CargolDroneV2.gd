@@ -13,8 +13,6 @@ export(float) var max_lift_capacity := 500.0 # Mass limit for cargo
 
 # --- SIGNALS ---
 signal obstacle_detected(normal, distance)
-signal cargo_lost
-signal low_battery_threshold
 signal goal_reached
 
 # --- STATE VARIABLES (Snapshotted) ---
@@ -104,7 +102,7 @@ func set_velocity(vector: Vector3) -> void:
 	_is_following_target = false
 
 func follow_target(target: Node, distance: float = 3.0) -> void:
-	"""Enter follow-target mode. The drone will continuously track the target."""
+	# Enter follow-target mode. The drone will continuously track the target.
 	if not target or not is_instance_valid(target):
 		printerr("[Cargol] follow_target: Invalid target")
 		return
@@ -118,7 +116,7 @@ func follow_target(target: Node, distance: float = 3.0) -> void:
 	print("[Cargol] Following target: ", target.name, " at distance ", distance)
 
 func return_to(position: Vector3) -> void:
-	"""Clear follow state and move to a specific position (home)."""
+	# Clear follow state and move to a specific position (home).
 	_is_following_target = false
 	_follow_target = null
 	_update_led(Color(0.2, 1.0, 0.4)) # Green LED = returning
@@ -361,7 +359,7 @@ func _on_oys_registry_reset() -> void:
 # --- VISUAL FEEDBACK ---
 
 func _update_led(color: Color) -> void:
-	"""Update the drone's mesh color to indicate current mode."""
+	# Update the drone's mesh color to indicate current mode.
 	var mesh = get_node_or_null("MeshInstance")
 	if mesh and mesh is MeshInstance:
 		var mat = mesh.get_surface_material(0)

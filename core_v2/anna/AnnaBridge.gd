@@ -92,7 +92,7 @@ func _ready():
 			_rl_profile_file_path = profile_file_env
 		var profile_every_env = OS.get_environment("ANNA_RL_PROFILE_EVERY")
 		if profile_every_env.is_valid_integer():
-			_rl_profile_every_steps = max(50, int(profile_every_env))
+			_rl_profile_every_steps = int(max(50, int(profile_every_env)))
 		print("[ANNA] RL Lock-Step Mode Enabled")
 		OS.set_use_vsync(false)
 		var disable_idle_sleep_env = OS.get_environment("ANNA_RL_DISABLE_CPU_SLEEP").to_lower()
@@ -140,21 +140,21 @@ func _ready():
 		])
 		var read_timeout_env = OS.get_environment("ANNA_RL_READ_TIMEOUT_MS")
 		if read_timeout_env.is_valid_integer():
-			_rl_read_timeout_ms = max(1000, int(read_timeout_env))
+			_rl_read_timeout_ms = int(max(1000, int(read_timeout_env)))
 		var poll_sleep_env = OS.get_environment("ANNA_RL_POLL_SLEEP_USEC")
 		if poll_sleep_env.is_valid_integer():
-			_rl_poll_sleep_usec = max(0, int(poll_sleep_env))
+			_rl_poll_sleep_usec = int(max(0, int(poll_sleep_env)))
 		elif disable_idle_sleep_env in ["1", "true", "yes", "on"]:
 			_rl_poll_sleep_usec = 0
 		var blocking_poll_env = OS.get_environment("ANNA_RL_BLOCKING_POLL_USEC")
 		if blocking_poll_env.is_valid_integer():
-			_rl_blocking_poll_usec = max(0, int(blocking_poll_env))
+			_rl_blocking_poll_usec = int(max(0, int(blocking_poll_env)))
 		var exit_on_disconnect_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT").to_lower()
 		if exit_on_disconnect_env in ["0", "false", "no", "off"]:
 			_rl_exit_on_disconnect = false
 		var exit_grace_env = OS.get_environment("ANNA_RL_EXIT_ON_DISCONNECT_GRACE_MS")
 		if exit_grace_env.is_valid_integer():
-			_rl_exit_disconnect_grace_ms = max(0, int(exit_grace_env))
+			_rl_exit_disconnect_grace_ms = int(max(0, int(exit_grace_env)))
 		print("[ANNA] RL poll sleep=%dus timeout=%dms" % [_rl_poll_sleep_usec, _rl_read_timeout_ms])
 		print("[ANNA] RL sync mode=%s" % ["blocking" if _rl_blocking_sync else "nonblocking"])
 		if _rl_blocking_sync:
@@ -238,7 +238,7 @@ func _handle_peer(peer: StreamPeerTCP):
 	var peer_is_mcp := bool(_mcp_peers.get(pid, false))
 	var bytes = peer.get_available_bytes()
 	if bytes > 0:
-		var chunk = peer.get_utf8_string(min(bytes, MAX_READ_BYTES_PER_TICK))
+		var chunk = peer.get_utf8_string(int(min(bytes, MAX_READ_BYTES_PER_TICK)))
 		if not _peer_buffers.has(pid):
 			_peer_buffers[pid] = ""
 		_peer_buffers[pid] += chunk
@@ -368,7 +368,7 @@ func _read_json_message_blocking(peer: StreamPeerTCP):
 
 		var bytes = peer.get_available_bytes()
 		if bytes > 0:
-			var chunk = peer.get_utf8_string(min(bytes, MAX_READ_BYTES_PER_TICK))
+			var chunk = peer.get_utf8_string(int(min(bytes, MAX_READ_BYTES_PER_TICK)))
 			_peer_buffers[pid] += chunk
 		elif _rl_blocking_poll_usec > 0:
 			OS.delay_usec(_rl_blocking_poll_usec)
@@ -532,7 +532,7 @@ func _try_read_json_message_nonblocking(peer: StreamPeerTCP):
 
 	var bytes = peer.get_available_bytes()
 	if bytes > 0:
-		var chunk = peer.get_utf8_string(min(bytes, MAX_READ_BYTES_PER_TICK))
+		var chunk = peer.get_utf8_string(int(min(bytes, MAX_READ_BYTES_PER_TICK)))
 		_peer_buffers[pid] += chunk
 
 	if not "\n" in _peer_buffers[pid]:

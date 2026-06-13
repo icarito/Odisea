@@ -1036,7 +1036,7 @@ func _update_input_fsm(dt: float):
 		if _latch_timer <= 0.0:
 			_release_latch("timeout")
 
-func _release_latch(reason: String):
+func _release_latch(_reason: String):
 	if _input_state != InputState.INPUT_LATCHED: return
 	_input_state = InputState.INPUT_DIRECT
 	latch_active = false

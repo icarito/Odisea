@@ -93,7 +93,7 @@ func _update_attachment() -> void:
 	var plate_count: int = _rotator.get_plate_count(spiral) if _rotator.has_method("get_plate_count") else 0
 	if plate_count <= 0:
 		return
-	target_plate = clamp(target_plate, 0, plate_count - 1)
+	target_plate = int(clamp(target_plate, 0, plate_count - 1))
 
 	var plate_canonical: Transform = _rotator.get_plate_canonical_transform(spiral, target_plate)
 	var offset_basis := Basis(

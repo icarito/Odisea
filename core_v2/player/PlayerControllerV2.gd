@@ -436,7 +436,7 @@ func _sync_movement_state_after_traversal(horizontal_velocity: Vector3 = Vector3
 	movement_logic.horizontal_velocity = Vector3(horizontal_velocity.x, 0.0, horizontal_velocity.z)
 	movement_logic.wish_direction = Vector3.ZERO
 
-func _begin_post_traversal_strafe_latch(surface_normal: Vector3, exit_input: Vector2) -> void:
+func _begin_post_traversal_strafe_latch(surface_normal: Vector3, _exit_input: Vector2) -> void:
 	var face_dir = surface_normal.normalized() if surface_normal.length_squared() > 0.001 else Vector3.ZERO
 	if face_dir != Vector3.ZERO:
 		_traversal_exit_yaw_target = atan2(-face_dir.x, -face_dir.z)
@@ -1291,7 +1291,7 @@ func _update_input_edge_state(input: InputDataV2) -> void:
 	_jump_was_pressed = input.jump
 	_crouch_was_pressed = input.crouch
 
-func _should_auto_hang_ledge(best_target: Node, input: InputDataV2) -> bool:
+func _should_auto_hang_ledge(best_target: Node, _input: InputDataV2) -> bool:
 	if not best_target or _ledge_regrab_cooldown > 0.0:
 		return false
 	var max_rising_velocity := traversal_logic.ledge_auto_hang_max_rising_velocity if traversal_logic else 0.05
