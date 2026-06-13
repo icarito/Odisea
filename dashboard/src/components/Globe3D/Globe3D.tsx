@@ -105,7 +105,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
   // When on, the camera re-centers on the latest activity as it moves around.
   // On by default so a new player is framed automatically.
   const [followActivity, setFollowActivity] = useState(true);
-  const [showTopCountries, setShowTopCountries] = useState(false);
+  const [showTopCountries, setShowTopCountries] = useState(true);
 
   const isMobile = size.width > 0 && size.width < 768;
 

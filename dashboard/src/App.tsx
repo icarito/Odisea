@@ -1091,6 +1091,26 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     );
   }, [health?.latest_published?.git_commit, commits]);
 
+  // Detect a new dashboard deploy the moment it lands: /health.dashboard_version
+  // changes on every deploy and we poll it every second. When it differs from the
+  // version this tab loaded with, kick the service worker to fetch the new build
+  // immediately (→ skipWaiting/clients.claim → controllerchange → reload). This is
+  // what makes updates near-instant instead of waiting for the 30-min SW poll.
+  const loadedDashboardVersion = useRef<string | null>(null);
+  useEffect(() => {
+    const ver: string | undefined = health?.dashboard_version;
+    if (!ver) return;
+    if (loadedDashboardVersion.current === null) {
+      loadedDashboardVersion.current = ver; // seed with the version we booted on
+      return;
+    }
+    if (loadedDashboardVersion.current === ver) return;
+    // New deploy detected — force the SW to check for the new precache now.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {});
+    }
+  }, [health?.dashboard_version]);
+
   // Normalizes a heartbeat to the flat shape the playback charts use.
   // /api/ghosts returns flat SQLite rows (hb.fps, hb.pos_x, ...), while the
   // runtime/JSONL format nests them under hb.player. Support both.

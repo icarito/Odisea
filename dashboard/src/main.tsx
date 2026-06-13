@@ -48,15 +48,19 @@ if (isPWA) {
 
 // Register the service worker and auto-reload when a new version takes over.
 // With registerType 'autoUpdate' the new SW skips waiting and claims clients;
-// `controllerchange` then fires once. A toast shown here would be wiped by the
+// `controllerchange` then fires. A toast shown here would be wiped by the
 // immediate reload, so instead we set a flag and toast *after* the reload, once
-// the app has mounted (see UPDATED_FLAG below). The `refreshing` guard prevents
-// a reload loop.
+// the app has mounted (see UPDATED_FLAG below).
 const UPDATED_FLAG = 'odisea_dashboard_updated'
 if ('serviceWorker' in navigator) {
+  // Whether this page is already controlled by a SW at load time. On the very
+  // first visit there is no controller yet, so the controllerchange fired by the
+  // initial clients.claim() is NOT an update — reloading then would be a spurious
+  // refresh. Only reload when an existing controller is replaced by a new one.
+  const hadController = !!navigator.serviceWorker.controller
   let refreshing = false
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing) return
+    if (refreshing || !hadController) return
     refreshing = true
     try { sessionStorage.setItem(UPDATED_FLAG, '1') } catch { /* ignore */ }
     window.location.reload()
