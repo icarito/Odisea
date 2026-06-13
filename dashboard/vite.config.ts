@@ -24,6 +24,12 @@ export default defineConfig(({ mode }) => {
         // page when a new version activates.
         injectRegister: null,
         includeAssets: ['favicon.svg', 'icons.svg'],
+        injectManifest: {
+          // The globe (three.js + globe.gl) pushes the main chunk past the 2 MiB
+          // default precache cap. Raise it so the app shell precaches fully.
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        },
         manifest: {
           name: 'Odisea Central',
           short_name: 'Odisea',
