@@ -1658,7 +1658,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             displayName={filteredHeartbeats[focusPlayerId]?.display_name || focusedGeo?.display_name}
             country={focusedGeo?.country}
             countryCode={focusedGeo?.country_code}
-            onClear={() => { setFocusPlayerId(null); setShowTagEditor(false); }}
+            onClear={() => {
+              setFocusPlayerId(null);
+              setSelectedPlayerId(null);
+              setFollowPlayer(false);
+              setShowTagEditor(false);
+            }}
             onTagClick={() => setShowTagEditor(!showTagEditor)}
           />
         ) : undefined
