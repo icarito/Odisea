@@ -38,3 +38,17 @@ export interface Alert {
   timestamp: number;
   playerId: string;
 }
+
+export interface GeoPlayer {
+  player_id: string;
+  session_id: string;
+  last_seen: number;
+  country: string;
+  country_code: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  display_name?: string;
+  color?: string;
+  status: 'connected' | 'recent' | 'old';
+}
