@@ -1226,7 +1226,7 @@ class OdiseaCentral:
                 # Confirmed player-linked rows written by the live WS path.
                 cursor.execute("""
                     SELECT ip_hash, player_id, country, country_code, region, city,
-                           latitude, longitude, last_seen, hits
+                           latitude, longitude, last_seen, hits, source
                     FROM geo_ips
                     WHERE latitude IS NOT NULL
                       AND longitude IS NOT NULL
@@ -1261,6 +1261,7 @@ class OdiseaCentral:
                 conn.close()
 
         try:
+            await self._run_query(self._unlink_weak_historical_geo_rows)
             await self._run_query(self._link_unassigned_geo_rows)
             rows, historical_rows = await self._run_query(fetch)
         except Exception as e:
@@ -1273,7 +1274,7 @@ class OdiseaCentral:
         for row in rows:
             age = now - float(row.get("last_seen") or 0)
             status = "connected" if age <= 120 else ("recent" if age <= 3600 else "old")
-            tag = tags.get(row.get("player_id")) or {}
+            tag = (tags.get(row.get("player_id")) or {}) if row.get("source") == "live_ws" else {}
             players.append({
                 "player_id": row.get("player_id") or f"geo:{row['ip_hash']}",
                 "session_id": "live_ws",
@@ -1439,10 +1440,58 @@ class OdiseaCentral:
         ]
         if len({row["player_id"] for row in prefix_matches}) == 1:
             return prefix_matches[0]["player_id"]
-        distinct_players = {row["player_id"] for row in candidates if row.get("player_id")}
-        if len(distinct_players) == 1:
-            return next(iter(distinct_players))
         return None
+
+    def _unlink_weak_historical_geo_rows(self) -> int:
+        """Undo historical access-log links that were only time-window guesses.
+        Strong links are those whose player_id/session_id embeds the geo first_seen
+        timestamp prefix; anything else should stay unassigned and untagged."""
+        if not os.path.exists(GEO_SQLITE_DB):
+            return 0
+        conn = sqlite3.connect(GEO_SQLITE_DB)
+        conn.row_factory = sqlite3.Row
+        try:
+            self._ensure_geo_schema(conn)
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT ip_hash, player_id, first_seen
+                FROM geo_ips
+                WHERE COALESCE(player_id, '') != ''
+                  AND COALESCE(source, '') != 'live_ws'
+                  AND first_seen IS NOT NULL
+                """
+            )
+            rows = cursor.fetchall()
+            unlinked = 0
+            for row in rows:
+                prefix = str(int(float(row["first_seen"] or 0)))
+                player_id = str(row["player_id"] or "")
+                if player_id.startswith(prefix):
+                    continue
+                if self._player_has_session_prefix(player_id, prefix):
+                    continue
+                cursor.execute("UPDATE geo_ips SET player_id = NULL WHERE ip_hash = ?", (row["ip_hash"],))
+                unlinked += cursor.rowcount
+            if unlinked:
+                conn.commit()
+                logger.info("Unlinked %s weak historical geo rows", unlinked)
+            return unlinked
+        finally:
+            conn.close()
+
+    def _player_has_session_prefix(self, player_id: str, prefix: str) -> bool:
+        if not player_id or not prefix:
+            return False
+        conn = self._get_db()
+        try:
+            row = conn.execute(
+                "SELECT 1 FROM heartbeats WHERE player_id = ? AND session_id LIKE ? LIMIT 1",
+                (player_id, prefix + "%"),
+            ).fetchone()
+            return row is not None
+        finally:
+            conn.close()
 
     def _link_unassigned_geo_rows(self) -> int:
         """Backfill geo rows imported from access logs with the most likely

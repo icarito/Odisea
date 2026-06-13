@@ -70,7 +70,7 @@ function groupPlayers(players: GeoPlayer[]): GroupedPlayer[] {
     }
     const g = groups[key];
     g.count++;
-    if (p.display_name) g.names.push(p.display_name);
+    if (p.display_name && !g.names.includes(p.display_name)) g.names.push(p.display_name);
     if (!g.color && p.color) g.color = p.color;
     g.historical = g.historical || Boolean(p.historical);
     g.hits += Number(p.hits || 0);
