@@ -1153,6 +1153,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       sceneName={liveSceneName}
       staleAge={staleAge}
       liveGhosts={liveGhostMarkers}
+      label={activeHb ? (activeHb.display_name || activeId?.slice(0, 8)) : undefined}
+      color={activeHb?.color || undefined}
       hud={activeHb ? {
         fps: activeHb.player?.fps,
         scene: activeHb.player?.scene,

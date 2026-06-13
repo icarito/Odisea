@@ -48,6 +48,10 @@ interface Viewport3DProps {
   staleAge: number;
   heatmapData?: any[];
   liveGhosts?: any[];
+  // Tag/name + color for the active (followed) player marker, so it shows its
+  // label and custom color in 3D just like the ghost markers do.
+  label?: string;
+  color?: string;
   // Optional compact HUD overlaid in the corner (fps + position), used in the
   // full-space mobile/fullscreen view so the data doesn't steal canvas space.
   hud?: {
@@ -142,7 +146,7 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
   );
 };
 
-export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, hud }) => {
+export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, label, color, hud }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
 
@@ -176,7 +180,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
             </Suspense>
         </SceneErrorBoundary>
 
-        <PlayerMarker position={position} yaw={yaw} pitch={pitch} roll={roll} staleAge={staleAge} />
+        <PlayerMarker position={position} yaw={yaw} pitch={pitch} roll={roll} staleAge={staleAge} label={label} color={color} />
 
         {liveGhosts?.map(ghost => (
           <PlayerMarker
