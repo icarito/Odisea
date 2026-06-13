@@ -39,10 +39,16 @@ export default defineConfig(({ mode }) => {
             { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
+        // With injectManifest strategy, precache options go under `injectManifest`.
+        // globe.gl bundles Three.js internally, making the main chunk ~3MB;
+        // raise the SW precache limit so the build doesn't fail.
+        injectManifest: {
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        },
         workbox: {
           // Precache the app shell only. Live data (API + sockets) must always
           // hit the network so the dashboard never shows stale telemetry.
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
           navigateFallback: '/index.html',
           // Never let the SW intercept these — they're dynamic/auth'd.
           navigateFallbackDenylist: [

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe3D } from './Globe3D/Globe3D';
+import { GlobeGL } from './GlobeGL';
 import type { GeoPlayer } from '../types';
 
 interface GlobeViewProps {
@@ -28,7 +28,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({ players }) => {
       </div>
 
       <div className="flex-1 border-4 border-black bg-black/40 relative overflow-hidden min-h-0">
-        <Globe3D players={players} />
+        <GlobeGL players={players} />
       </div>
     </div>
   );
