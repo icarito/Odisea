@@ -58,6 +58,7 @@ const DASHBOARD_BUILD_VERSION = (
   || ''
 ).slice(0, 12);
 const DEFAULT_HISTORY_MIN_DURATION = 13;
+const DASHBOARD_UPDATED_FLAG = 'odisea_dashboard_updated';
 
 const formatDateTime = (timestampSeconds: number) => {
   if (!timestampSeconds) return 'No data';
@@ -1147,12 +1148,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     });
   }, [health?.latest_published?.git_commit, commits]);
 
-  // Detect a new dashboard deploy the moment it lands: /health.dashboard_version
-  // changes on every deploy and we poll it every second. When it differs from the
-  // version this tab loaded with, kick the service worker to fetch the new build
-  // immediately (→ skipWaiting/clients.claim → controllerchange → reload). This is
-  // what makes updates near-instant instead of waiting for the 30-min SW poll.
+  // Detect a new dashboard deploy from /health.dashboard_version. Ask the SW to
+  // update, but also reload as a fallback if controllerchange doesn't fire.
   const loadedDashboardVersion = useRef<string | null>(null);
+  const dashboardReloadScheduled = useRef(false);
   useEffect(() => {
     const ver: string | undefined = health?.dashboard_version;
     if (!ver) return;
@@ -1161,10 +1160,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       return;
     }
     if (loadedDashboardVersion.current === ver) return;
-    // New deploy detected — force the SW to check for the new precache now.
+    if (dashboardReloadScheduled.current) return;
+    dashboardReloadScheduled.current = true;
+
+    try { sessionStorage.setItem(DASHBOARD_UPDATED_FLAG, '1'); } catch { /* ignore */ }
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {});
     }
+    window.setTimeout(() => window.location.reload(), 1800);
   }, [health?.dashboard_version]);
 
   // Post-reload announcement: main.tsx sets this sessionStorage flag right before
@@ -1173,9 +1177,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // it. Runs once on mount.
   useEffect(() => {
     try {
-      // Keep this key in sync with UPDATED_FLAG in main.tsx.
-      if (sessionStorage.getItem('odisea_dashboard_updated')) {
-        sessionStorage.removeItem('odisea_dashboard_updated');
+      if (sessionStorage.getItem(DASHBOARD_UPDATED_FLAG)) {
+        sessionStorage.removeItem(DASHBOARD_UPDATED_FLAG);
         notify.success('Dashboard actualizado a la última versión', {
           important: true,
           data: { tag: 'dashboard-update' },
