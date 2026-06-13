@@ -22,6 +22,7 @@ interface FiltersContentProps {
   platforms: string[];
   selectedPlatforms: Set<string>;
   onTogglePlatform: (platform: string) => void;
+  platformCounts?: Record<string, number>;
   scenes: SceneFilterOption[];
   selectedScene: string;
   onSelectScene: (scene: string) => void;
@@ -36,7 +37,7 @@ interface FiltersContentProps {
 // The actual filter controls, shared by the mobile overlay drawer and the
 // desktop docked sidebar.
 const FiltersContent: React.FC<FiltersContentProps> = ({
-  platforms, selectedPlatforms, onTogglePlatform,
+  platforms, selectedPlatforms, onTogglePlatform, platformCounts,
   scenes, selectedScene, onSelectScene,
   countries, selectedCountry, onSelectCountry,
   minDuration, onSetMinDuration, onReset,
@@ -97,7 +98,10 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
                   />
                   <span className={`h-3 w-3 border border-black ${meta.color}`} />
                   {meta.icon}
-                  <span>{meta.label}</span>
+                  <span className="flex-1">{meta.label}</span>
+                  <span className="shrink-0 tabular-nums text-[0.625rem] font-bold normal-case text-text-muted">
+                    {platformCounts?.[platform] ?? 0}
+                  </span>
                 </label>
               );
             })}

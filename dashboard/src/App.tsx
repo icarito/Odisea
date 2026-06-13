@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
+import { notify } from './lib/notify';
 import {
   Bar,
   BarChart,
@@ -940,7 +941,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       ].filter(Boolean);
 
       toast.custom((t) => (
-        <div className={`${t.visible ? 'opacity-100' : 'opacity-0'} border-4 border-black bg-bg-card p-3 font-mono text-xs text-text-primary shadow-[4px_4px_0px_0px_black] transition-opacity`}>
+        <div className={`${t.visible ? 'opacity-100' : 'opacity-0'} border-4 border-accent bg-bg-card p-3 font-mono text-xs text-text-primary shadow-[4px_4px_0px_0px_black] transition-opacity max-w-sm`}>
           <div className="flex items-start gap-3">
             <span className="text-base">🔥</span>
             <div className="min-w-0 flex-1">
@@ -1085,10 +1086,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     lastPublishedCommit.current = sha;
     const channel = String(published?.build_channel || 'build');
     const msg = commits.find((c) => c.sha.startsWith(sha) || sha.startsWith(c.sha))?.message?.split('\n')[0];
-    toast.success(
-      `Nuevo ${channel} publicado · ${sha.slice(0, 7)}${msg ? `\n${msg}` : ''}`,
-      { duration: 8000, icon: '🚀' },
-    );
+    notify.success(`Nuevo ${channel} publicado · ${sha.slice(0, 7)}`, {
+      description: msg || undefined,
+      important: true,
+      data: { tag: `published-${sha.slice(0, 7)}` },
+    });
   }, [health?.latest_published?.git_commit, commits]);
 
   // Detect a new dashboard deploy the moment it lands: /health.dashboard_version
@@ -1110,6 +1112,23 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {});
     }
   }, [health?.dashboard_version]);
+
+  // Post-reload announcement: main.tsx sets this sessionStorage flag right before
+  // it reloads onto a new SW. We fire the toast from here (inside React) so the
+  // <Toaster> is guaranteed mounted — emitting it from main.tsx before mount drops
+  // it. Runs once on mount.
+  useEffect(() => {
+    try {
+      // Keep this key in sync with UPDATED_FLAG in main.tsx.
+      if (sessionStorage.getItem('odisea_dashboard_updated')) {
+        sessionStorage.removeItem('odisea_dashboard_updated');
+        notify.success('Dashboard actualizado a la última versión', {
+          important: true,
+          data: { tag: 'dashboard-update' },
+        });
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   // Normalizes a heartbeat to the flat shape the playback charts use.
   // /api/ghosts returns flat SQLite rows (hb.fps, hb.pos_x, ...), while the
@@ -1145,7 +1164,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       }
       setPlaybackData(rows.map(normalizeHeartbeat));
     } catch (e) {
-      toast.error("Failed to load session data");
+      notify.error("Failed to load session data");
       setPlaybackData([]);
     } finally {
       setPlaybackLoading(false);
@@ -1157,22 +1176,28 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // Platforms ordered by popularity (session count, desc). Counts across the
   // current session set; platforms with no sessions keep their known order at the
   // tail so they're still selectable.
-  const availablePlatforms = useMemo(() => {
-    const counts = new Map<string, number>();
+  // Session counts per platform (history + live), and the platform list ordered
+  // by that popularity. The counts also feed the filter UI badges.
+  const platformCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
     const tally = (rows: any[]) => {
       for (const r of rows) {
         const p = getPlatform(r);
-        if (p) counts.set(p, (counts.get(p) || 0) + 1);
+        if (p) counts[p] = (counts[p] || 0) + 1;
       }
     };
     tally(historicalSessions);
     tally(Object.values(heartbeats));
-    return [...KNOWN_PLATFORMS].sort((a, b) => {
-      const diff = (counts.get(b) || 0) - (counts.get(a) || 0);
+    return counts;
+  }, [historicalSessions, heartbeats]);
+
+  const availablePlatforms = useMemo(() => (
+    [...KNOWN_PLATFORMS].sort((a, b) => {
+      const diff = (platformCounts[b] || 0) - (platformCounts[a] || 0);
       if (diff !== 0) return diff;
       return KNOWN_PLATFORMS.indexOf(a) - KNOWN_PLATFORMS.indexOf(b);
-    });
-  }, [historicalSessions, heartbeats]);
+    })
+  ), [platformCounts]);
 
   const availableSceneFilters = useMemo(() => {
     const found = new Set<string>();
@@ -1625,6 +1650,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         platforms={availablePlatforms}
         selectedPlatforms={selectedPlatforms}
         onTogglePlatform={togglePlatform}
+        platformCounts={platformCounts}
         scenes={sceneFilterOptions}
         selectedScene={selectedSceneFilter}
         onSelectScene={setSelectedSceneFilter}
@@ -2065,6 +2091,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           platforms={availablePlatforms}
           selectedPlatforms={selectedPlatforms}
           onTogglePlatform={togglePlatform}
+          platformCounts={platformCounts}
           scenes={sceneFilterOptions}
           selectedScene={selectedSceneFilter}
           onSelectScene={setSelectedSceneFilter}

@@ -3,6 +3,20 @@ name: Release Multiplataforma
 on:
   push:
     branches: [ "main", "release" ]
+    paths-ignore:
+      - 'dashboard/**'
+      - 'docs/**'
+      - '.githooks/**'
+      - 'ci/**'
+      - 'scripts/check_*.py'
+      - 'scripts/godot_import_smoke.sh'
+      - 'scripts/install_git_hooks.sh'
+      - 'scripts/analyze_ghosts.py'
+      - 'scripts/check_regression.py'
+      - 'tests/test_export_presets.py'
+      - 'tests/ci_resource_smoke*.gd'
+      - '*.md'
+      - 'AGENTS.md'
   workflow_dispatch:
     inputs:
       publish_prerelease:
