@@ -11,7 +11,12 @@ interface PlayerTag {
   color?: string;
 }
 
-export const PlayerTagEditor: React.FC = () => {
+interface PlayerTagEditorProps {
+  playerId?: string | null;
+  onSaved?: () => void;
+}
+
+export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSaved }) => {
   const [tags, setTags] = useState<PlayerTag[]>([]);
   const [editing, setEditing] = useState<Partial<PlayerTag> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,6 +36,12 @@ export const PlayerTagEditor: React.FC = () => {
     loadTags();
   }, []);
 
+  useEffect(() => {
+    if (!playerId || loading || editing) return;
+    const existing = tags.find((tag) => tag.player_id === playerId);
+    setEditing(existing || { player_id: playerId, color: '#7fd1ff' });
+  }, [playerId, loading, tags, editing]);
+
   const handleSave = async () => {
     if (!editing?.player_id || !editing?.display_name) {
       toast.error("Player ID y Nombre son requeridos");
@@ -41,6 +52,7 @@ export const PlayerTagEditor: React.FC = () => {
       toast.success("Tag guardado");
       setEditing(null);
       loadTags();
+      onSaved?.();
     } catch (e) {
       toast.error("Error guardando tag");
     }

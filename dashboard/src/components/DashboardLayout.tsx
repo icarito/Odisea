@@ -16,6 +16,12 @@ interface DashboardLayoutProps {
   playerFocus?: React.ReactNode;
   showSettings?: boolean;
   onToggleSettings?: () => void;
+  dashboardVersion?: string;
+  latestPublished?: {
+    game_version?: string;
+    git_commit?: string;
+    build_channel?: string;
+  };
   // Optional second-level bar rendered just above the bottom nav (e.g. the
   // Live-tab view switcher). Hidden when not provided.
   secondaryNav?: React.ReactNode;
@@ -37,6 +43,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   playerFocus,
   showSettings,
   onToggleSettings,
+  dashboardVersion,
+  latestPublished,
   secondaryNav,
 }) => {
   const tabs = [
@@ -54,6 +62,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <button type="button" onClick={() => setActiveTab('live')} className="hover:text-text-primary">
             <span className="block sm:inline">ODISEA</span>
           </button>
+          <span className="ml-2 align-middle text-[0.5rem] font-bold not-italic tracking-normal text-text-muted">
+            dash {dashboardVersion || 'dev'}
+            {latestPublished?.game_version ? (
+              <> · pub {latestPublished.game_version}{latestPublished.git_commit ? `@${latestPublished.git_commit.slice(0, 7)}` : ''}</>
+            ) : null}
+          </span>
         </h1>
 
         <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end sm:gap-4">

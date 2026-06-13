@@ -9,6 +9,7 @@ export const useTelemetry = () => {
   const [heartbeatRate, setHeartbeatRate] = useState<number | string>('?');
   const [isConnected, setIsConnected] = useState(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [health, setHealth] = useState<any>({});
   const disconnectedPids = useRef<Set<string>>(new Set());
   const pollCount = useRef(0);
   const GHOST_STORE_INTERVAL = 10; // Only write to history every N polls
@@ -123,11 +124,13 @@ export const useTelemetry = () => {
 
         try {
           const health = await getHealth();
+          setHealth(health);
           setPeersConnected(health.peers_connected ?? '?');
           setHeartbeatRate(health.heartbeats_rate ?? '?');
           await saveSnapshot('health', health);
         } catch (e) {
           const health = await getSnapshot('health') || {};
+          setHealth(health);
           setPeersConnected(health.peers_connected ?? '?');
           setHeartbeatRate(health.heartbeats_rate ?? '?');
         }
@@ -141,5 +144,5 @@ export const useTelemetry = () => {
     return () => clearInterval(interval);
   }, []);
 
-  return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history: historyRef.current };
+  return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history: historyRef.current, health };
 };

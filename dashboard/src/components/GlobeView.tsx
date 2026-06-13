@@ -4,9 +4,10 @@ import type { GeoPlayer } from '../types';
 
 interface GlobeViewProps {
   players: GeoPlayer[];
+  onSelectPlayer?: (playerId: string) => void;
 }
 
-export const GlobeView: React.FC<GlobeViewProps> = ({ players }) => {
+export const GlobeView: React.FC<GlobeViewProps> = ({ players, onSelectPlayer }) => {
   return (
     <div className="h-full w-full bg-[#0d1117] flex flex-col p-4">
       <div className="mb-4 flex items-center justify-between shrink-0">
@@ -28,7 +29,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({ players }) => {
       </div>
 
       <div className="flex-1 border-4 border-black bg-black/40 relative overflow-hidden min-h-0">
-        <Globe3D players={players} />
+        <Globe3D players={players} onSelectPlayer={onSelectPlayer} />
       </div>
     </div>
   );

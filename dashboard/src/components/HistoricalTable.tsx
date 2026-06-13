@@ -94,6 +94,8 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
             const tone = perfTone(avgFps);
             const scenesVisited = sceneCount(s.scenes_visited);
             const isSelected = selectedSessionId && s.session_id === selectedSessionId;
+            const official = s.intake_mode === 'admin' || s.intake_mode === 'ingest';
+            const commit = typeof s.git_commit === 'string' ? s.git_commit.slice(0, 7) : '';
             return (
               <button
                 key={`${s.session_id || 'session'}-${idx}`}
@@ -128,6 +130,14 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
                     <span>{formatDuration(Number(s.duration) || 0)} played</span>
                     <span className="text-text-muted/60">·</span>
                     <span>{scenesVisited} scenes</span>
+                    <span className="text-text-muted/60">·</span>
+                    <span className={official ? 'text-success' : 'text-warning'}>{official ? 'official' : 'canary'}</span>
+                    {s.game_version && s.game_version !== 'unknown' && (
+                      <>
+                        <span className="text-text-muted/60">·</span>
+                        <span>{s.game_version}{commit ? `@${commit}` : ''}</span>
+                      </>
+                    )}
                   </span>
                 </span>
                 <span className={`shrink-0 border-2 px-2 py-1 text-[0.625rem] font-black ${tone.badge}`}>

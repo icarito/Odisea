@@ -25,6 +25,12 @@ export interface Heartbeat {
   platform: string;
   godot_version: string;
   game_version: string;
+  git_commit?: string;
+  build_id?: string;
+  build_channel?: string;
+  official_host?: string;
+  official_build?: boolean;
+  intake_mode?: 'admin' | 'ingest' | 'telemetry';
   player: PlayerState;
   timestamp: number;
 }

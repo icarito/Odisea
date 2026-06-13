@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import {
   Bar,
@@ -48,6 +48,12 @@ type GitCommit = {
   date: string;
   message: string;
 };
+
+const DASHBOARD_BUILD_VERSION = (
+  import.meta.env.VITE_DASHBOARD_VERSION
+  || import.meta.env.VITE_GIT_COMMIT
+  || ''
+).slice(0, 12);
 
 const formatDateTime = (timestampSeconds: number) => {
   if (!timestampSeconds) return 'No data';
@@ -500,7 +506,7 @@ const SceneIndex = ({
 };
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
-  const { heartbeats, isConnected, alerts, history } = useTelemetry();
+  const { heartbeats, isConnected, alerts, history, health } = useTelemetry();
   const { lastMessage } = useWebSocket();
   const { layout, updateLayout } = useLayoutPersistence();
   
@@ -567,6 +573,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [serverStats, setServerStats] = useState<GhostStats>({});
   const [geoPlayers, setGeoPlayers] = useState<any[]>([]);
+  const loadGeoPlayers = useCallback(() => {
+    getGeoPlayers()
+      .then(setGeoPlayers)
+      .catch(() => setGeoPlayers([]));
+  }, []);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(
     () => new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server'))
   );
@@ -696,7 +707,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         fps: p.fps,
         memory_mb: p.memory_mb,
         mode: p.mode,
-        last_seen: hb.timestamp
+        last_seen: hb.timestamp,
+        intake_mode: hb.intake_mode,
+        game_version: hb.game_version,
+        git_commit: hb.git_commit,
+        build_channel: hb.build_channel,
+        official_build: hb.official_build,
       };
     });
     setLiveGhosts(active);
@@ -897,10 +913,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     if (activeTab !== 'mapa') return;
-    getGeoPlayers()
-      .then(setGeoPlayers)
-      .catch(() => setGeoPlayers([]));
-  }, [activeTab]);
+    loadGeoPlayers();
+    const interval = setInterval(loadGeoPlayers, 30000);
+    return () => clearInterval(interval);
+  }, [activeTab, loadGeoPlayers]);
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) => {
@@ -1007,6 +1023,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           />
         ) : undefined
       }
+      dashboardVersion={DASHBOARD_BUILD_VERSION || health?.dashboard_version}
+      latestPublished={health?.latest_published}
       headerControls={
         <div className="flex shrink-0 items-center gap-1.5">
           <button
@@ -1267,8 +1285,17 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       {activeTab === 'mapa' && (
         <div className="flex h-full flex-col">
-          {focusPlayerId && showTagEditor && <PlayerTagEditor />}
-          <GlobeView players={geoPlayers} />
+          {focusPlayerId && showTagEditor && (
+            <PlayerTagEditor playerId={focusPlayerId} onSaved={loadGeoPlayers} />
+          )}
+          <GlobeView
+            players={geoPlayers}
+            onSelectPlayer={(playerId) => {
+              setFocusPlayerId(playerId);
+              setShowTagEditor(true);
+              window.history.replaceState(null, '', `?player=${encodeURIComponent(playerId)}`);
+            }}
+          />
         </div>
       )}
 

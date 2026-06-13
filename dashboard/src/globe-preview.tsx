@@ -1,4 +1,3 @@
-import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Globe3D } from './components/Globe3D/Globe3D';
 import type { GeoPlayer } from './types';

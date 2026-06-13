@@ -6,6 +6,7 @@ import type { GeoPlayer } from '../../types';
 
 interface Globe3DProps {
   players: GeoPlayer[];
+  onSelectPlayer?: (playerId: string) => void;
 }
 
 interface GroupedPlayer {
@@ -57,7 +58,7 @@ function groupPlayers(players: GeoPlayer[]): GroupedPlayer[] {
   return Object.values(groups);
 }
 
-export const Globe3D: React.FC<Globe3DProps> = ({ players }) => {
+export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -128,7 +129,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players }) => {
     const p = obj as GroupedPlayer;
     if (isMobile) {
       if (selected?.key === p.key) {
-        if (p.player_id) window.location.search = `?player=${p.player_id}`;
+        if (p.player_id) onSelectPlayer?.(p.player_id);
       } else {
         setSelected(p);
         globeRef.current?.pointOfView(
@@ -137,15 +138,12 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players }) => {
         );
       }
     } else if (p.player_id) {
-      window.location.search = `?player=${p.player_id}`;
+      onSelectPlayer?.(p.player_id);
     }
   };
 
   return (
     <div ref={containerRef} className="absolute inset-0 h-full w-full bg-[#080a0f]">
-      <div style={{ position: 'absolute', top: 4, left: 4, zIndex: 50, color: '#3fb950', font: '11px monospace', background: '#000a', padding: '2px 6px' }}>
-        DEBUG size: {size.width}×{size.height} · countries: {countries.length} · points: {points.length}
-      </div>
       {size.width > 0 && size.height > 0 && (
         <Globe
           ref={globeRef}
@@ -195,7 +193,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players }) => {
             {selected.player_id && (
               <button
                 onClick={() => {
-                  window.location.search = `?player=${selected.player_id}`;
+                  onSelectPlayer?.(selected.player_id);
                 }}
                 className="text-xs bg-accent/20 border border-accent/40 text-accent px-3 py-1.5 rounded font-bold"
               >

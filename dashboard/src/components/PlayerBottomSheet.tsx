@@ -67,6 +67,7 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
             const fps = Math.round(p.fps || 0);
             const stale = hb.timestamp ? (now - hb.timestamp * 1000) / 1000 : 0;
             const isActive = hb.player_id === activeId;
+            const official = hb.intake_mode === 'admin' || hb.intake_mode === 'ingest';
             return (
               <button
                 key={hb.player_id}
@@ -78,6 +79,7 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
                   <div className="text-xs font-bold truncate">{hb.player_id}</div>
                   <div className="text-[0.625rem] text-text-muted flex gap-3 mt-0.5">
                     <span className="text-accent truncate max-w-[110px]">{p.scene || 'unknown'}</span>
+                    <span className={official ? 'text-success' : 'text-warning'}>{official ? 'official' : 'canary'}</span>
                     <span>{stale.toFixed(1)}s ago</span>
                   </div>
                 </div>

@@ -12,6 +12,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ hb, isActive, onClick, s
   const p = hb.player || {};
   const isStale = staleAge > 5;
   const fps = p.fps || 0;
+  const official = hb.intake_mode === 'admin' || hb.intake_mode === 'ingest';
   
   const getFpsColor = (f: number) => {
     if (f > 45) return 'success';
@@ -43,6 +44,12 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ hb, isActive, onClick, s
         <RetroBadge color={getFpsColor(fps)} className="scale-90 origin-left @[200px]:origin-right mt-1 @[200px]:mt-0 self-start @[200px]:self-auto">
           {fps} FPS
         </RetroBadge>
+      </div>
+
+      <div className={`mb-2 inline-flex border border-black px-1.5 py-0.5 text-[0.5rem] font-black uppercase ${
+        official ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
+      }`}>
+        {official ? 'official' : 'canary'}
       </div>
 
       <div className="grid grid-cols-2 gap-2 mt-1">

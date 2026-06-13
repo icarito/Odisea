@@ -50,6 +50,7 @@ STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "true").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
 SQLITE_DB = os.environ.get("CENTRAL_SQLITE_DB", os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db"))
 GEO_SQLITE_DB = os.environ.get("CENTRAL_GEO_DB", "./data/geo_tags.db")
+DASHBOARD_VERSION = os.environ.get("ODISEA_DASHBOARD_VERSION", os.environ.get("GITHUB_SHA", ""))[:12] or "dev"
 # Salt for hashing client IPs before they touch disk. MUST match the salt used
 # by scripts/import_nginx_geo.py (ODISEA_GEO_HASH_SALT) so live-recorded hashes
 # line up with any backfilled rows. No raw IP is ever persisted.
@@ -408,6 +409,8 @@ class MetricsCollector:
         return {
             "ok": True,
             "mode": "central",
+            "dashboard_version": DASHBOARD_VERSION,
+            "latest_published": central._latest_published_build(),
             "started_at": self.started_at.isoformat(),
             "uptime_seconds": int(uptime),
             "peers_connected": len(central.active_peers),
@@ -1116,7 +1119,12 @@ class OdiseaCentral:
             GROUP_CONCAT(DISTINCT scene) as scenes_visited,
             AVG(fps) as avg_fps,
             SUM(CASE WHEN fps < 30 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as low_fps_pct,
-            AVG(memory_mb) as avg_mem
+            AVG(memory_mb) as avg_mem,
+            COALESCE(NULLIF(MAX(game_version), ''), 'unknown') as game_version,
+            COALESCE(NULLIF(MAX(git_commit), ''), '') as git_commit,
+            COALESCE(NULLIF(MAX(build_channel), ''), '') as build_channel,
+            MAX(COALESCE(official_build, 0)) as official_build,
+            COALESCE(NULLIF(MAX(intake_mode), ''), 'telemetry') as intake_mode
         FROM heartbeats
         WHERE {visible}
         GROUP BY player_id, session_id
@@ -1652,6 +1660,7 @@ class OdiseaCentral:
                             data,
                             inferred_platform=inferred_platform,
                             client_ip=self._client_ip(request),
+                            intake_mode=self._token_mode(data.get("token")) if data.get("token") else mode,
                         )
 
                     elif msg_type == "command_response":
@@ -1680,12 +1689,14 @@ class OdiseaCentral:
 
         return ws
 
-    async def _process_heartbeat(self, data: dict, inferred_platform: str = "", client_ip: str = ""):
+    async def _process_heartbeat(self, data: dict, inferred_platform: str = "", client_ip: str = "", intake_mode: str = "telemetry"):
         player_id = data.get("player_id")
         session_id = data.get("session_id")
 
         if not player_id or not session_id:
             return
+
+        data["intake_mode"] = intake_mode if intake_mode in ("admin", "ingest", "telemetry") else "telemetry"
 
         now = time.time()
         last_time = self.session_rate_limit.get(session_id, 0)
@@ -1947,6 +1958,8 @@ class OdiseaCentral:
                 build_id TEXT,
                 build_channel TEXT,
                 official_host TEXT,
+                official_build INTEGER,
+                intake_mode TEXT,
                 peer_id TEXT,
                 UNIQUE(player_id, session_id, timestamp)
             );
@@ -1957,6 +1970,8 @@ class OdiseaCentral:
             ("build_id", "TEXT"),
             ("build_channel", "TEXT"),
             ("official_host", "TEXT"),
+            ("official_build", "INTEGER"),
+            ("intake_mode", "TEXT"),
         ):
             try:
                 cursor.execute(f"ALTER TABLE heartbeats ADD COLUMN {column} {coltype};")
@@ -2018,8 +2033,9 @@ class OdiseaCentral:
                             player_id, session_id, timestamp, scene, platform,
                             fps, memory_mb, pos_x, pos_y, pos_z,
                             engine_version, game_version, git_commit, build_id,
-                            build_channel, official_host, peer_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            build_channel, official_host, official_build,
+                            intake_mode, peer_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         data.get("player_id"),
                         data.get("session_id"),
@@ -2035,6 +2051,8 @@ class OdiseaCentral:
                         data.get("build_id"),
                         data.get("build_channel"),
                         data.get("official_host"),
+                        1 if data.get("official_build") else 0,
+                        data.get("intake_mode", "telemetry"),
                         data.get("peer_id")
                     ))
 
@@ -2044,6 +2062,28 @@ class OdiseaCentral:
             except Exception as e:
                 logger.error(f"DB worker error: {e}")
                 await asyncio.sleep(1)
+
+    def _latest_published_build(self) -> dict:
+        """Latest heartbeat carrying official build metadata for dashboard display."""
+        try:
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT game_version, git_commit, build_id, build_channel,
+                       official_host, timestamp
+                FROM heartbeats
+                WHERE COALESCE(official_build, 0) = 1
+                   OR COALESCE(build_channel, '') IN ('nightly', 'tip', 'release')
+                   OR COALESCE(official_host, '') != ''
+                ORDER BY timestamp DESC
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+            conn.close()
+            return dict(row) if row else {}
+        except Exception:
+            return {}
 
     def _store_ghost(self, pid: str, sid: str, data: dict):
         # Queue for SQLite in background (Prompt 6)
