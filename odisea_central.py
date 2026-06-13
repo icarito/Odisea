@@ -274,11 +274,8 @@ class OdiseaCentral:
                     hb = self.heartbeats.pop(pid, None)
                     self.last_update.pop(pid, None)
                     if hb:
-                        asyncio.create_task(self.send_push_to_all({
-                            "type": "disconnect",
-                            "playerId": pid,
-                            "message": f"Player {pid[:8]} disconnected (timeout)"
-                        }))
+                        pass  # Disconnect push suppressed (too noisy from heartbeat timeouts)
+                        # Only WebSocket-level disconnects trigger push (see _process_ws_message finally block)
 
                 to_delete_auth = [ip for ip, entry in self.auth_fails.items()
                                  if entry.get("locked_until", 0) <= now and not any(now - t < AUTH_FAIL_WINDOW for t in entry.get("ts", []))]
@@ -458,12 +455,12 @@ class OdiseaCentral:
         cooldowns = {"disconnect": 300, "alert": 300, "bridge_status": 600, "low_fps": 300}
         now = time.time()
         if msg_type in cooldowns:
-            key = f"push_cooldown_{msg_type}"
-            if hasattr(self, 'push_cooldowns') and key in self.push_cooldowns:
-                if now - self.push_cooldowns[key] < cooldowns[msg_type]:
-                    return
             if not hasattr(self, 'push_cooldowns'):
                 self.push_cooldowns = {}
+            key = f"push_cooldown_{msg_type}"
+            last = self.push_cooldowns.get(key, 0)
+            if now - last < cooldowns[msg_type]:
+                return
             self.push_cooldowns[key] = now
 
         try:
@@ -1648,11 +1645,6 @@ class OdiseaCentral:
         site = web.TCPSite(runner, '0.0.0.0', CENTRAL_HTTP_PORT)
         await site.start()
         logger.info(f"Odisea Central V2 running on port {CENTRAL_HTTP_PORT}")
-        asyncio.create_task(self.send_push_to_all({
-            "type": "bridge_status",
-            "status": "online",
-            "message": "Odisea Central is online"
-        }))
 
         cleanup_task = asyncio.create_task(self._cleanup_loop())
         db_worker_task = asyncio.create_task(self._db_worker())
@@ -1662,11 +1654,7 @@ class OdiseaCentral:
             while True:
                 await asyncio.sleep(3600)
         finally:
-            await self.send_push_to_all({
-                "type": "bridge_status",
-                "status": "offline",
-                "message": "Odisea Central is going offline"
-            })
+            logger.info("Odisea Central shutting down")
             cleanup_task.cancel()
             db_worker_task.cancel()
             import_task.cancel()
