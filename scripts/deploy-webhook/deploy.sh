@@ -54,6 +54,7 @@ git checkout -q "$BRANCH" 2>/dev/null || git checkout -q -b "$BRANCH" "origin/$B
 git reset --hard "origin/$BRANCH"
 
 NEW_SHA="$(git rev-parse --short HEAD)"
+FULL_SHA="$(git rev-parse HEAD)"
 log "now at $NEW_SHA"
 
 log "building dashboard (pnpm)"
@@ -73,6 +74,8 @@ else
 fi
 log "using: $PNPM ($($PNPM --version 2>/dev/null || echo '?'))"
 $PNPM install --frozen-lockfile
+VITE_DASHBOARD_VERSION="$NEW_SHA" \
+VITE_GIT_COMMIT="$FULL_SHA" \
 $PNPM run build
 
 log "backing up and migrating SQLite ($DB_PATH)"
@@ -143,17 +146,37 @@ try:
             build_id TEXT,
             build_channel TEXT,
             official_host TEXT,
+            official_build INTEGER,
+            intake_mode TEXT,
             peer_id TEXT,
             UNIQUE(player_id, session_id, timestamp)
         );
         """
     )
-    for column in ("game_version", "git_commit", "build_id", "build_channel", "official_host"):
+    for column, coltype in (
+        ("game_version", "TEXT"),
+        ("git_commit", "TEXT"),
+        ("build_id", "TEXT"),
+        ("build_channel", "TEXT"),
+        ("official_host", "TEXT"),
+        ("official_build", "INTEGER"),
+        ("intake_mode", "TEXT"),
+    ):
         try:
-            conn.execute("ALTER TABLE heartbeats ADD COLUMN %s TEXT" % column)
+            conn.execute("ALTER TABLE heartbeats ADD COLUMN %s %s" % (column, coltype))
         except sqlite3.OperationalError as exc:
             if "duplicate column name" not in str(exc).lower():
                 raise
+    conn.execute("UPDATE heartbeats SET intake_mode='telemetry' WHERE intake_mode IS NULL OR intake_mode=''")
+    conn.execute(
+        """
+        UPDATE heartbeats
+           SET official_build=1
+         WHERE COALESCE(official_build, 0)=0
+           AND (COALESCE(official_host, '') != ''
+                OR COALESCE(build_channel, '') IN ('nightly', 'tip', 'release'))
+        """
+    )
     conn.commit()
 
     cols = {
@@ -169,7 +192,10 @@ try:
         row[1]
         for row in conn.execute("PRAGMA table_info(heartbeats)").fetchall()
     }
-    hb_required = {"game_version", "git_commit", "build_id", "build_channel", "official_host"}
+    hb_required = {
+        "game_version", "git_commit", "build_id", "build_channel",
+        "official_host", "official_build", "intake_mode",
+    }
     hb_missing = sorted(hb_required - hb_cols)
     if hb_missing:
         raise RuntimeError("heartbeats schema missing columns: %s" % ", ".join(hb_missing))
@@ -196,6 +222,15 @@ cp "$REPO_DIR/scripts/import_nginx_geo.py" "$DEPLOY_DIR/scripts/import_nginx_geo
 chmod +x "$DEPLOY_DIR/scripts/import_nginx_geo.py"
 rm -rf "$DEPLOY_DIR/static/dashboard"
 cp -r "$REPO_DIR/dashboard/dist" "$DEPLOY_DIR/static/dashboard"
+
+log "writing systemd build metadata"
+sudo mkdir -p "/etc/systemd/system/${SERVICE}.d"
+sudo tee "/etc/systemd/system/${SERVICE}.d/version.conf" >/dev/null <<EOF
+[Service]
+Environment=ODISEA_DASHBOARD_VERSION=$NEW_SHA
+Environment=GITHUB_SHA=$FULL_SHA
+EOF
+sudo systemctl daemon-reload
 
 log "restarting $SERVICE"
 sudo systemctl restart "$SERVICE"

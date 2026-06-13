@@ -32,6 +32,19 @@ function installDashboardOrientationLock() {
 
 installDashboardOrientationLock()
 
+// PWA detection — add .pwa-mode class when running as standalone
+const isPWA = window.matchMedia('(display-mode: standalone)').matches
+if (isPWA) {
+  document.body.classList.add('pwa-mode')
+  // Keep the back button from exiting the PWA on the home screen
+  window.history.pushState({ noBackExitsApp: true }, '')
+  window.addEventListener('popstate', (event) => {
+    if (event.state && (event.state as any).noBackExitsApp) {
+      window.history.pushState({ noBackExitsApp: true }, '')
+    }
+  })
+}
+
 // Register the service worker and auto-reload when a new version takes over.
 // With registerType 'autoUpdate' the new SW skips waiting and claims clients;
 // `controllerchange` then fires once, and we reload to pick up the new assets.
