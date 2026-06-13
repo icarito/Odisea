@@ -80,27 +80,39 @@ jobs:
             os: ubuntu-latest
             preset: "Linux/X11 x86_64"
             artifact_name: linux-x64
+            outfile: "Odisea-Tech-Demo.x86_64"
+            outdir: "Odisea-Tech-Demo-Linux"
           - platform: linux_arm64
             os: ubuntu-latest
             preset: "Linux/X11 ARM64"
             artifact_name: linux-arm64
+            outfile: "Odisea-Tech-Demo.arm64"
+            outdir: "Odisea-Tech-Demo-Linux-ARM64"
           - platform: windows
             os: ubuntu-latest
             preset: "Windows Desktop"
             artifact_name: windows
+            outfile: "Odisea-Tech-Demo.exe"
+            outdir: "Odisea-Tech-Demo-Windows"
           - platform: ios
             os: macos-latest
             preset: "iOS"
             artifact_name: ios
+            outfile: "Odisea-Tech-Demo.ipa"
+            outdir: "Odisea-Tech-Demo-iOS"
           - platform: android
             os: ubuntu-latest
             preset: "Android"
             artifact_name: android
             container: barichello/godot-ci:3.6.2
+            outfile: "Odisea-Tech-Demo.apk"
+            outdir: "Odisea-Tech-Demo-Android"
           - platform: html5
             os: ubuntu-latest
             preset: "HTML5 Threads"
             artifact_name: html5
+            outfile: "index.html"
+            outdir: "Odisea-Tech-Demo-Web"
 
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -295,13 +307,13 @@ jobs:
           $G_BIN --editor --quit --headless || true
 
           case "${{ matrix.platform }}" in
-            linux_x64) OUT="build/linux_x86_64/odisea.x86_64" ;;
-            linux_arm64) OUT="build/linux_arm64/odisea.arm64" ;;
-            windows) OUT="build/windows/odisea.exe" ;;
-            macos) OUT="build/macos/odisea.zip" ;;
-            ios) OUT="build/ios/odisea.ipa" ;;
-            android) OUT="build/android/odisea.apk" ;;
-            html5) OUT="build/html5/index.html" ;;
+            linux_x64) OUT="build/linux_x86_64/${{ matrix.outfile }}" ;;
+            linux_arm64) OUT="build/linux_arm64/${{ matrix.outfile }}" ;;
+            windows) OUT="build/windows/${{ matrix.outfile }}" ;;
+            macos) OUT="build/macos/${{ matrix.outfile }}" ;;
+            ios) OUT="build/ios/${{ matrix.outfile }}" ;;
+            android) OUT="build/android/${{ matrix.outfile }}" ;;
+            html5) OUT="build/html5/${{ matrix.outfile }}" ;;
           esac
 
           mkdir -p $(dirname "$OUT")
@@ -326,9 +338,9 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           set -e
-          APK="build/android/odisea.apk"
-          UNSIGNED="build/android/odisea-unsigned.apk"
-          ALIGNED="build/android/odisea-aligned.apk"
+          APK="build/android/Odisea-Tech-Demo.apk"
+          UNSIGNED="build/android/Odisea-Tech-Demo-unsigned.apk"
+          ALIGNED="build/android/Odisea-Tech-Demo-aligned.apk"
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           mv "$APK" "$UNSIGNED"
           "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
@@ -366,7 +378,8 @@ jobs:
         run: |
           VERSION="${{ needs.prep.outputs.version }}"
           SHA="${{ needs.prep.outputs.sha }}"
-          PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION-$SHA.zip"
+          ARTIFACT_BASE="${{ matrix.outdir }}"
+          PACKAGE="dist/$ARTIFACT_BASE-$VERSION-$SHA.zip"
           mkdir -p dist
 
           # For native platforms, include build_meta.json in the zip
@@ -384,11 +397,9 @@ jobs:
           if [ "${{ matrix.platform }}" = "html5" ]; then
             cd build/html5 && zip -r "../../$PACKAGE" .
           elif [ "${{ matrix.platform }}" = "android" ]; then
-            cd build/android && zip -r "../../$PACKAGE" .
+            cd build/android && mv * ../ && cd .. && rm -rf android && zip -r "../$PACKAGE" .
           elif [ "${{ matrix.platform }}" = "ios" ]; then
             cd build/ios && zip -r "../../$PACKAGE" .
-          elif [ "${{ matrix.platform }}" = "macos" ]; then
-             cp build/macos/odisea.zip "$PACKAGE"
           else
             cd build && zip -r "../$PACKAGE" . -x "netlify/*" -x "pages/*" -x "html5/*" -x "android/*" -x "ios/*"
           fi
