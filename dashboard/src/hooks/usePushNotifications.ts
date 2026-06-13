@@ -21,11 +21,18 @@ export function usePushNotifications() {
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [isSupported, setIsSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [vapidKey, setVapidKey] = useState<string | null>(null);
+  const [isSubscribing, setIsSubscribing] = useState(false);
 
   useEffect(() => {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true);
       setPermission(Notification.permission);
+      
+      // Pre-fetch VAPID key so subscribe() doesn't break the user gesture chain
+      getVapidKey().then(({ publicKey }: any) => {
+        if (publicKey) setVapidKey(publicKey);
+      }).catch(() => {});
       
       navigator.serviceWorker.ready.then(registration => {
         registration.pushManager.getSubscription().then(sub => {
@@ -36,12 +43,26 @@ export function usePushNotifications() {
   }, []);
 
   const subscribe = async (settings: any = {}) => {
+    if (isSubscribing) return;
+    
+    // Permission must be requested FIRST to preserve user gesture
+    if (Notification.permission !== 'granted') {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      if (result !== 'granted') {
+        toast.error("Permiso de notificaciones denegado");
+        return;
+      }
+    }
+    
+    setIsSubscribing(true);
     try {
       const reg = await navigator.serviceWorker.ready;
       
-      const { publicKey } = await getVapidKey();
+      const publicKey = vapidKey;
       if (!publicKey) throw new Error("No VAPID public key received from server");
 
+      // Called immediately after user gesture — no await between click and subscribe
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey)
@@ -54,6 +75,8 @@ export function usePushNotifications() {
     } catch (e) {
       console.error("Failed to subscribe to push notifications", e);
       toast.error("Error al activar notificaciones");
+    } finally {
+      setIsSubscribing(false);
     }
   };
 
