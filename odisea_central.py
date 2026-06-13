@@ -448,10 +448,23 @@ class OdiseaCentral:
         return web.json_response({"ok": True})
 
     async def send_push_to_all(self, payload: dict):
-        """Sends a push notification to all registered subscriptions."""
+        """Sends a push notification to all registered subscriptions, with cooldown per event type."""
         if not VAPID_PRIVATE_KEY:
             logger.warning("Push notification skipped: VAPID_PRIVATE_KEY not set")
             return
+
+        msg_type = payload.get("type", "")
+        # Cooldown per event type to prevent spam (seconds)
+        cooldowns = {"disconnect": 300, "alert": 300, "bridge_status": 600, "low_fps": 300}
+        now = time.time()
+        if msg_type in cooldowns:
+            key = f"push_cooldown_{msg_type}"
+            if hasattr(self, 'push_cooldowns') and key in self.push_cooldowns:
+                if now - self.push_cooldowns[key] < cooldowns[msg_type]:
+                    return
+            if not hasattr(self, 'push_cooldowns'):
+                self.push_cooldowns = {}
+            self.push_cooldowns[key] = now
 
         try:
             def fetch_subs():
