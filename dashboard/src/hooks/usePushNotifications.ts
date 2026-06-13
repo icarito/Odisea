@@ -91,5 +91,5 @@ export function usePushNotifications() {
     }
   };
 
-  return { subscription, isSupported, permission, subscribe, unsubscribe };
+  return { subscription, isSupported, permission, isSubscribing, subscribe, unsubscribe };
 }
