@@ -66,7 +66,27 @@ Componente visual en una pestaña del dashboard que muestra un mapamundi wirefra
   - Color del dot: verde = conectado, gris = última hora, rojo = >1h sin conexión
   - Animación sutil de pulso para jugadores activos
 
-### D. Pestañas del dashboard
+### D. Notificaciones con deep-link al player
+
+Cuando el usuario toca una notificación push en Android:
+- El service worker abre `/?player=<player_id>&session=<session_id>`
+- El dashboard detecta los query params y activa **modo live** enfocado en ese player:
+  - Filtra la tabla de ghosts a ese player_id
+  - Muestra un badge/pill con el player_id en la parte superior
+  - Ofrece botón **"Tag this player"** que abre el editor de tags inline (sin cambiar de pestaña)
+- Los tags se guardan inmediatamente vía `POST /api/player-tags`
+
+El payload del push se modifica para incluir `player_id`, `session_id`, y `url`:
+```json
+{
+  "type": "disconnect",
+  "playerId": "1780893709-177616192",
+  "sessionId": "abc123",
+  "message": "Player ABC123 disconnected"
+}
+```
+
+### E. Pestañas del dashboard
 
 Refactorizar la navegación del dashboard para soportar pestañas:
 
@@ -74,9 +94,10 @@ Refactorizar la navegación del dashboard para soportar pestañas:
 |---|---|
 | **Home** | Telemetría live, ghost table, alerts, status (lo actual) |
 | **Mapa** | Globe heatmap geo-IP |
-| **Config** | NotificationSettings + player tags UI |
 
-La navegación se implementa como tabs superiores, estilo retro-terminal.
+La configuración (NotificationSettings + player tags) va detrás de un **ícono de ruedita/engranaje** en el header superior derecho del dashboard. Al clickearlo abre un panel lateral o modal con las opciones de configuración, sin cambiar de pestaña.
+
+La navegación de pestañas se implementa como tabs superiores, estilo retro-terminal.
 
 ### Considered Options
 
@@ -89,12 +110,14 @@ La navegación se implementa como tabs superiores, estilo retro-terminal.
 
 ### Nuevos
 - `dashboard/src/components/GlobeView.tsx` — Componente del mapamundi con dots
-- `dashboard/src/components/PlayerTagEditor.tsx` — UI para asignar nombres/tags a players
+- `dashboard/src/components/PlayerTagEditor.tsx` — UI inline para asignar nombres/tags a players
+- `dashboard/src/components/PlayerFocus.tsx` — Badge/pill + filtro live cuando se deep-linkea a un player
 - `dashboard/src/components/DashboardTabs.tsx` — Navegación por pestañas
 - `scripts/download_geolite2.py` — Script para descargar y actualizar la DB GeoLite2
 
 ### Modificados
-- `dashboard/src/App.tsx` — Integrar DashboardTabs, mover NotificationSettings a pestaña Config
+- `dashboard/src/App.tsx` — Integrar DashboardTabs, detectar query params `?player=` para deep-link, mover NotificationSettings a pestaña Config
+- `dashboard/src/sw.ts` — Modificar `notificationclick` para abrir `/?player=<id>&session=<id>`
 - `dashboard/package.json` — Agregar `react-simple-maps` y `d3-geo`
 - `odisea_central.py` — Agregar:
   - Proceso asíncrono de geo-tagging (usa `geoip2` Python library)
@@ -112,9 +135,12 @@ La navegación se implementa como tabs superiores, estilo retro-terminal.
 
 ## Verification
 
-1. Dashboard muestra 3 pestañas: Home, Mapa, Config
+1. Dashboard muestra 2 pestañas (Home, Mapa) + ícono ruedita en el header
 2. Pestaña Mapa muestra dots en países donde hay jugadores conectados
 3. Asignar un tag a un player → el nombre aparece en el mapa y en la tabla de ghosts
 4. Reiniciar central → los tags persisten (SQLite)
 5. El proceso de geo-tagging corre cada 15 min sin afectar heartbeats
 6. `react-simple-maps` no rompe el build de Vite
+7. Tocar una notificación push en Android → abre el dashboard con `?player=<id>` → muestra el player enfocado en modo live
+8. Desde el modo live enfocado, botón "Tag this player" abre editor inline y guarda el tag
+9. Ícono ruedita en el header abre panel de configuración (notificaciones + tags)
