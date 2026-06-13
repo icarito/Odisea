@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { SceneGeometry } from './SceneGeometry';
-import { useSceneGeometry } from '../hooks/useSceneGeometry';
+import { useSceneGeometryStream } from '../hooks/useSceneGeometry';
 import { formatFpsLabel } from '../lib/filters';
 
 // Inline heatmap overlay rendered as a group so it can nest inside this Canvas.
@@ -152,9 +152,9 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
 export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, label, color, hud }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
-  const { geometry, loading: geometryLoading, error: geometryError } = useSceneGeometry(sceneName);
+  const { geometry, loading: geometryLoading, error: geometryError } = useSceneGeometryStream(sceneName, position);
   const geometrySummary = geometry
-    ? `${geometry.metadata?.point_count ?? geometry.points?.length ?? 0} pts · ${geometry.zones?.length ?? 0} zones · ${geometry.props?.length ?? 0} props`
+    ? `${geometry.points?.length ?? 0}/${geometry.stream?.total_points ?? geometry.metadata?.point_count ?? 0} pts · r${geometry.stream?.radius ?? 0}`
     : geometryLoading
       ? 'loading geometry'
       : geometryError

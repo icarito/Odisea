@@ -463,6 +463,7 @@ class OdiseaCentral:
         self.low_fps_sessions: Dict[str, float] = {}  # session_id -> start_time_of_low_fps
         self.geo_recorded_sessions: Set[str] = set()  # session_ids already geo-recorded this run
         self.geo_pending_lookup: Dict[str, str] = {}  # ip_hash -> raw IP awaiting geolocation (memory-only)
+        self.scene_geometry_cache: Dict[str, dict] = {}  # scene -> {"mtime": float, "data": dict}
         self.milestone_checker = MilestoneDetector(self)
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
@@ -1028,6 +1029,108 @@ class OdiseaCentral:
         except Exception as e:
             logger.warning(f"{request.path}: query failed, returning [] ({e})")
             return web.json_response([])
+
+    def _load_scene_geometry(self, scene: str) -> Optional[dict]:
+        if not scene or "/" in scene or "\\" in scene or ".." in scene:
+            return None
+        path = os.path.join(STATIC_DIR, "scene-data", f"{scene}.json")
+        if not os.path.isfile(path):
+            return None
+        mtime = os.path.getmtime(path)
+        cached = self.scene_geometry_cache.get(scene)
+        if cached and cached.get("mtime") == mtime:
+            return cached.get("data")
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        self.scene_geometry_cache[scene] = {"mtime": mtime, "data": data}
+        return data
+
+    async def handle_scene_geometry_stream(self, request):
+        """Return a nearest-first slice of scene geometry around a player.
+
+        The full JSON remains available as /scene-data/<scene>.json for global
+        maps. The 3D live viewport uses this endpoint so large scenes don't
+        transfer or render the whole point cloud on every session.
+        """
+        scene = request.match_info.get("scene", "")
+        try:
+            center = (
+                float(request.query.get("x", "0")),
+                float(request.query.get("y", "0")),
+                float(request.query.get("z", "0")),
+            )
+            radius = max(1.0, min(float(request.query.get("radius", "80")), 500.0))
+            limit = max(100, min(int(request.query.get("limit", "12000")), 50000))
+        except ValueError:
+            return web.json_response({"error": "bad_query"}, status=400)
+
+        data = self._load_scene_geometry(scene)
+        if data is None:
+            return web.json_response({"error": "scene_not_found"}, status=404)
+
+        cx, cy, cz = center
+        radius_sq = radius * radius
+
+        def dist_sq(pos):
+            try:
+                dx = float(pos[0]) - cx
+                dy = float(pos[1]) - cy
+                dz = float(pos[2]) - cz
+                return dx * dx + dy * dy + dz * dz
+            except (TypeError, ValueError, IndexError):
+                return None
+
+        ranked_points = []
+        for point in data.get("points", []):
+            d2 = dist_sq(point)
+            if d2 is not None and d2 <= radius_sq:
+                ranked_points.append((d2, point))
+        ranked_points.sort(key=lambda item: item[0])
+        selected_points = [point for _, point in ranked_points[:limit]]
+
+        def near_item(item):
+            d2 = dist_sq(item.get("position"))
+            if d2 is not None:
+                return d2 <= radius_sq
+            bounds = item.get("bounds") or {}
+            bmin = bounds.get("min")
+            bmax = bounds.get("max")
+            if not bmin or not bmax:
+                return False
+            nearest = (
+                min(max(cx, float(bmin[0])), float(bmax[0])),
+                min(max(cy, float(bmin[1])), float(bmax[1])),
+                min(max(cz, float(bmin[2])), float(bmax[2])),
+            )
+            return dist_sq(nearest) <= radius_sq
+
+        zones = [zone for zone in data.get("zones", []) if near_item(zone)]
+        props = [prop for prop in data.get("props", []) if near_item(prop)]
+        metadata = dict(data.get("metadata") or {})
+        metadata.update({
+            "point_count": len(selected_points),
+            "zone_count": len(zones),
+            "prop_count": len(props),
+            "total_point_count": len(data.get("points", [])),
+        })
+
+        return web.json_response({
+            "scene": data.get("scene", scene),
+            "version": data.get("version", 1),
+            "bounds": data.get("bounds", {"min": [0, 0, 0], "max": [0, 0, 0]}),
+            "points": selected_points,
+            "zones": zones,
+            "props": props,
+            "metadata": metadata,
+            "stream": {
+                "center": [cx, cy, cz],
+                "radius": radius,
+                "limit": limit,
+                "returned_points": len(selected_points),
+                "total_points": len(data.get("points", [])),
+                "truncated": len(ranked_points) > limit,
+            },
+        })
 
     async def handle_hotzone_upload(self, request):
         guard = self._auth_guard(request, scope="ingest")
@@ -2719,6 +2822,7 @@ class OdiseaCentral:
             web.get('/health', self.handle_health),
             web.get('/api/milestones', self.handle_milestones),
             web.get('/api/milestones/achieved', self.handle_milestones_achieved),
+            web.get('/api/scene-data/{scene}', self.handle_scene_geometry_stream),
             web.get('/api/geo-players', self.handle_geo_players),
             web.get('/api/player-tags', self.handle_player_tags_list),
             web.post('/api/player-tags', self.handle_player_tag_upsert),
