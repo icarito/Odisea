@@ -25,10 +25,18 @@ export default defineConfig(({ mode }) => {
         injectRegister: null,
         includeAssets: ['favicon.svg', 'icons.svg'],
         injectManifest: {
-          // The globe (three.js + globe.gl) pushes the main chunk past the 2 MiB
-          // default precache cap. Raise it so the app shell precaches fully.
+          // Precache only the app shell. Lazy 3D/globe/replay chunks stay
+          // network-on-demand, otherwise every deploy forces a multi-MB download
+          // before the dashboard feels ready.
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+          globPatterns: [
+            'index.html',
+            'manifest.webmanifest',
+            'assets/index-*.js',
+            'assets/index-*.css',
+            'assets/workbox-window*.js',
+            '*.{svg,png,ico}',
+          ],
         },
         manifest: {
           name: 'Odisea Central',
@@ -48,7 +56,14 @@ export default defineConfig(({ mode }) => {
         workbox: {
           // Precache the app shell only. Live data (API + sockets) must always
           // hit the network so the dashboard never shows stale telemetry.
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+          globPatterns: [
+            'index.html',
+            'manifest.webmanifest',
+            'assets/index-*.js',
+            'assets/index-*.css',
+            'assets/workbox-window*.js',
+            '*.{svg,png,ico}',
+          ],
           navigateFallback: '/index.html',
           // Never let the SW intercept these — they're dynamic/auth'd.
           navigateFallbackDenylist: [

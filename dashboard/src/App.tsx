@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { notify } from './lib/notify';
 import {
@@ -16,17 +16,13 @@ import {
 } from 'recharts';
 import { LoginScreen } from './components/LoginScreen';
 import { NotificationSettings } from './components/NotificationSettings';
-import { Viewport3D } from './components/Viewport3D';
-import { Heatmap3D } from './components/Heatmap3D';
 import { LiveMap } from './components/LiveMap';
 import { HistoricalTable } from './components/HistoricalTable';
-import { SessionPlayback } from './components/SessionPlayback';
 import { DashboardLayout } from './components/DashboardLayout';
 import { PlayerBottomSheet } from './components/PlayerBottomSheet';
 import { FiltersDrawer, FiltersSidebar, type SceneFilterOption, type CountryFilterOption } from './components/FiltersDrawer';
 import { LiveCombinedChart } from './components/LiveCombinedChart';
 import { RetroCard, RetroButton } from './components/retro';
-import { GlobeView } from './components/GlobeView';
 import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
@@ -59,6 +55,17 @@ const DASHBOARD_BUILD_VERSION = (
 ).slice(0, 12);
 const DEFAULT_HISTORY_MIN_DURATION = 13;
 const DASHBOARD_UPDATED_FLAG = 'odisea_dashboard_updated';
+
+const Viewport3D = lazy(() => import('./components/Viewport3D').then((module) => ({ default: module.Viewport3D })));
+const Heatmap3D = lazy(() => import('./components/Heatmap3D').then((module) => ({ default: module.Heatmap3D })));
+const GlobeView = lazy(() => import('./components/GlobeView').then((module) => ({ default: module.GlobeView })));
+const SessionPlayback = lazy(() => import('./components/SessionPlayback').then((module) => ({ default: module.SessionPlayback })));
+
+const LazyPanelFallback = ({ label = 'Cargando vista…' }: { label?: string }) => (
+  <div className="flex h-full min-h-0 items-center justify-center bg-bg-primary text-[0.625rem] font-black uppercase tracking-widest text-text-muted">
+    {label}
+  </div>
+);
 
 const formatDateTime = (timestampSeconds: number) => {
   if (!timestampSeconds) return 'No data';
@@ -1522,7 +1529,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       ? `${lastLivePlayerCount} last live`
       : `${filteredDashboardSessions.length} sessions`;
 
-  const activeId = selectedPlayerId && filteredHeartbeats[selectedPlayerId] ? selectedPlayerId : pids[0];
+  const explicitActiveId = selectedPlayerId && filteredHeartbeats[selectedPlayerId] ? selectedPlayerId : null;
+  const activeId = explicitActiveId || pids[0];
   const activeHb = filteredHeartbeats[activeId];
   const activeLabel = activeHb?.display_name || activeId;
   const activeHistory = history[activeId];
@@ -1566,35 +1574,48 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     ? Object.values(filteredHeartbeats).filter((h: any) => h.player_id !== activeId)
     : [];
 
+  const clearPlayerSelection = () => {
+    setSelectedPlayerId(null);
+    setFocusPlayerId(null);
+    setFollowPlayer(false);
+    setShowTagEditor(false);
+    setBirdseyeDetailId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('player');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  };
+
   // The 3D viewport element, reused inline and inside the fullscreen overlay.
   const viewport3D = (
-    <Viewport3D
-      position={activeHb ? safePos(activeHb.player.position) : [0, 0, 0]}
-      yaw={activeHb ? Number(activeHb.player.yaw) || 0 : 0}
-      pitch={activeHb ? Number(activeHb.player.pitch) || 0 : 0}
-      roll={activeHb ? Number(activeHb.player.roll) || 0 : 0}
-      trail={activeHistory?.trail || []}
-      follow={followPlayer}
-      wireframe={false}
-      sceneName={liveSceneName}
-      staleAge={staleAge}
-      liveGhosts={liveGhostMarkers}
-      label={activeHb ? (activeHb.display_name || activeId?.slice(0, 8)) : undefined}
-      color={activeHb?.color || undefined}
-      hud={activeHb ? {
-        fps: activeHb.player?.fps,
-        scene: activeHb.player?.scene,
-        playerId: activeId,
-        displayName: activeHb.display_name,
-        sessionId: activeHb.session_id,
-        platform: getPlatform(activeHb) || undefined,
-        memoryMb: activeHb.player?.memory_mb,
-        mode: activeHb.player?.mode,
-        tick: activeHb.player?.tick,
-        peers: pids.length,
-        staleAge,
-      } : null}
-    />
+    <Suspense fallback={<LazyPanelFallback label="Cargando 3D…" />}>
+      <Viewport3D
+        position={activeHb ? safePos(activeHb.player.position) : [0, 0, 0]}
+        yaw={activeHb ? Number(activeHb.player.yaw) || 0 : 0}
+        pitch={activeHb ? Number(activeHb.player.pitch) || 0 : 0}
+        roll={activeHb ? Number(activeHb.player.roll) || 0 : 0}
+        trail={activeHistory?.trail || []}
+        follow={followPlayer}
+        wireframe={false}
+        sceneName={liveSceneName}
+        staleAge={staleAge}
+        liveGhosts={liveGhostMarkers}
+        label={activeHb ? (activeHb.display_name || activeId?.slice(0, 8)) : undefined}
+        color={activeHb?.color || undefined}
+        hud={activeHb ? {
+          fps: activeHb.player?.fps,
+          scene: activeHb.player?.scene,
+          playerId: activeId,
+          displayName: activeHb.display_name,
+          sessionId: activeHb.session_id,
+          platform: getPlatform(activeHb) || undefined,
+          memoryMb: activeHb.player?.memory_mb,
+          mode: activeHb.player?.mode,
+          tick: activeHb.player?.tick,
+          peers: pids.length,
+          staleAge,
+        } : null}
+      />
+    </Suspense>
   );
 
   return (
@@ -1634,10 +1655,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <span className="uppercase text-text-muted/80" title="En segundo plano">bg</span>
             )}
           </button>
-          {selectedPlayerId && (
+          {explicitActiveId && (
             <button
               type="button"
-              onClick={() => setSelectedPlayerId(null)}
+              onClick={clearPlayerSelection}
               title="Deseleccionar player"
               aria-label="Deseleccionar player"
               className="shrink-0 text-text-muted hover:text-danger"
@@ -1661,12 +1682,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             displayName={filteredHeartbeats[focusPlayerId]?.display_name || focusedGeo?.display_name}
             country={focusedGeo?.country}
             countryCode={focusedGeo?.country_code}
-            onClear={() => {
-              setFocusPlayerId(null);
-              setSelectedPlayerId(null);
-              setFollowPlayer(false);
-              setShowTagEditor(false);
-            }}
+            onClear={clearPlayerSelection}
             onTagClick={() => setShowTagEditor(!showTagEditor)}
           />
         ) : undefined
@@ -1766,7 +1782,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         players={Object.values(filteredHeartbeats)}
         geoByPlayer={geoByPlayer}
         history={history}
-        activeId={activeId}
+        activeId={explicitActiveId}
         onSelect={(pid) => {
           setSelectedPlayerId(pid);
           setActiveTab('live');
@@ -1967,14 +1983,16 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               onClose={() => setShowTagEditor(false)}
             />
           )}
-          <GlobeView
-            players={filteredGeoPlayers}
-            onSelectPlayer={(playerId) => {
-              setFocusPlayerId(playerId);
-              setShowTagEditor(true);
-              window.history.replaceState(null, '', `?player=${encodeURIComponent(playerId)}`);
-            }}
-          />
+          <Suspense fallback={<LazyPanelFallback label="Cargando mapa…" />}>
+            <GlobeView
+              players={filteredGeoPlayers}
+              onSelectPlayer={(playerId) => {
+                setFocusPlayerId(playerId);
+                setShowTagEditor(true);
+                window.history.replaceState(null, '', `?player=${encodeURIComponent(playerId)}`);
+              }}
+            />
+          </Suspense>
         </div>
       )}
 
@@ -2119,7 +2137,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <div className="flex items-center gap-1"><div className="h-2 w-2 bg-red-500" /> Crit</div>
               </div>
             </div>
-            <Heatmap3D data={filteredHeatmapData} resolution={heatmapRes} />
+            <Suspense fallback={<LazyPanelFallback label="Cargando heatmap…" />}>
+              <Heatmap3D data={filteredHeatmapData} resolution={heatmapRes} />
+            </Suspense>
             </>
             )}
           </div>
@@ -2177,7 +2197,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   </div>
                 </div>
               ) : (
-                <SessionPlayback heartbeats={playbackData} session={selectedSession} />
+                <Suspense fallback={<LazyPanelFallback label="Cargando replay…" />}>
+                  <SessionPlayback heartbeats={playbackData} session={selectedSession} />
+                </Suspense>
               )}
             </div>
           </div>
