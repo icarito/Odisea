@@ -21,6 +21,9 @@ interface DashboardLayoutProps {
   showSettings?: boolean;
   onToggleSettings?: () => void;
   dashboardVersion?: string;
+  // Unix seconds when the deployed dashboard was last written (index.html mtime),
+  // from /health. Shown as a date next to the dashboard version.
+  dashboardDeployedAt?: number | null;
   latestPublished?: {
     game_version?: string;
     git_commit?: string;
@@ -51,15 +54,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   showSettings,
   onToggleSettings,
   dashboardVersion,
+  dashboardDeployedAt,
   latestPublished,
   secondaryNav,
 }) => {
   const publishedLabel = buildLabel(latestPublished);
-  // Date of the currently published build, shown next to the version so "which
+  const fmtDate = (sec?: number | null) => (
+    sec ? new Date(sec * 1000).toLocaleDateString('es', { day: '2-digit', month: 'short' }) : ''
+  );
+  // Deploy date of this dashboard build, shown next to its version so "which
   // version" reads as a human date, not just a hash.
-  const publishedDate = latestPublished?.timestamp
-    ? new Date(latestPublished.timestamp * 1000).toLocaleDateString('es', { day: '2-digit', month: 'short' })
-    : '';
+  const dashDate = fmtDate(dashboardDeployedAt);
+  const publishedDate = fmtDate(latestPublished?.timestamp);
   const tabs = [
     { id: 'live', label: 'Live', icon: <Activity size={24} /> },
     { id: 'mapa', label: 'Globe', icon: <Globe size={24} /> },
@@ -76,7 +82,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <span className="block sm:inline">ODISEA</span>
           </button>
           <span className="ml-2 align-middle text-[0.5rem] font-bold not-italic tracking-normal text-text-muted">
-            dash {dashboardVersion || 'dev'}
+            dash {dashboardVersion || 'dev'}{dashDate ? ` (${dashDate})` : ''}
             {publishedLabel ? (
               <> · pub {publishedLabel}{publishedDate ? ` (${publishedDate})` : ''}</>
             ) : null}

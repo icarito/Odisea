@@ -1663,6 +1663,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         ) : undefined
       }
       dashboardVersion={DASHBOARD_BUILD_VERSION || health?.dashboard_version}
+      dashboardDeployedAt={health?.dashboard_deployed_at}
       latestPublished={health?.latest_published}
       headerControls={
         <div className="flex shrink-0 items-center gap-1.5">

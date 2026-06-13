@@ -412,10 +412,21 @@ class MetricsCollector:
         except ImportError:
             pass
 
+        # When the deployed dashboard was last written (index.html mtime). Lets the
+        # header show a real deploy date next to the dashboard version.
+        dashboard_deployed_at = None
+        try:
+            index_path = os.path.join(STATIC_DIR, "index.html")
+            if os.path.exists(index_path):
+                dashboard_deployed_at = os.path.getmtime(index_path)
+        except OSError:
+            pass
+
         return {
             "ok": True,
             "mode": "central",
             "dashboard_version": DASHBOARD_VERSION,
+            "dashboard_deployed_at": dashboard_deployed_at,
             "latest_published": central._latest_published_build(),
             "started_at": self.started_at.isoformat(),
             "uptime_seconds": int(uptime),
