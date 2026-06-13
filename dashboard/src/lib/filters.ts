@@ -31,11 +31,17 @@ export const getPlatform = (item: any): string | null => (
 export const isDashboardSession = (session: any): boolean => {
   const platform = getPlatform(session);
   const avgFps = Number(session?.avg_fps) || 0;
+  if (platform === 'server' || avgFps > 65) return false;
+  // Live sessions (still in flight) are kept regardless of scene: a player who
+  // just spawned may still be in `boot` or report an empty scene for a tick, and
+  // dropping them here would make them vanish from the live globe. The
+  // useful-scene gate only excludes historical/bootup-only sessions.
+  if (session?.live) return true;
   const scenes = sessionScenes(session).filter((scene) => {
     const normalized = scene.trim().toLowerCase();
     return isUsefulSceneName(scene) && normalized !== 'boot';
   });
-  return platform !== 'server' && avgFps <= 65 && scenes.length > 0;
+  return scenes.length > 0;
 };
 
 // Session length in seconds. Prefer the persisted `duration`; fall back to
