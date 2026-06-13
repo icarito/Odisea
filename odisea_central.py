@@ -63,6 +63,22 @@ WARMUP_SECONDS = int(os.environ.get("CENTRAL_WARMUP_SECONDS", 10))
 # SQL fragment: exclude the headless server peer (case-insensitive).
 _NOT_SERVER = "LOWER(COALESCE(platform,'')) != 'server'"
 
+# SQL fragment: exclude automated test telemetry by default. Test runners do
+# not consistently report platform=server, so use the persisted identifiers and
+# scene metadata that survives JSONL imports into SQLite.
+_NOT_TEST_TELEMETRY = """
+NOT (
+    LOWER(COALESCE(platform,'')) IN ('test', 'tests')
+    OR SUBSTR(LOWER(COALESCE(player_id,'')), 1, 5) IN ('test-', 'test_')
+    OR SUBSTR(LOWER(COALESCE(player_id,'')), 1, 10) IN ('ratelimit-', 'ratelimit_')
+    OR SUBSTR(LOWER(COALESCE(session_id,'')), 1, 5) IN ('test-', 'test_')
+    OR SUBSTR(LOWER(COALESCE(session_id,'')), 1, 10) IN ('ratelimit-', 'ratelimit_')
+    OR LOWER(COALESCE(scene,'')) LIKE 'res://%/tests/%'
+    OR LOWER(COALESCE(scene,'')) LIKE 'res://tests/%'
+    OR LOWER(COALESCE(scene,'')) LIKE 'test%'
+)
+"""
+
 # SQL fragment: exclude warmup heartbeats — keep only rows at least
 # WARMUP_SECONDS after their session's first sample. Correlated subquery keyed
 # on (player_id, session_id); fine for the bounded LIMIT reads below.
@@ -251,6 +267,44 @@ class OdiseaCentral:
         if fwd:
             return fwd.split(",")[0].strip()
         return request.remote or "unknown"
+
+    def _include_flag(self, request, name: str) -> bool:
+        return request.query.get(name, "").lower() in ("1", "true", "yes", "on")
+
+    def _visibility_sql(self, include_server: bool = False, include_tests: bool = False) -> str:
+        parts = []
+        if not include_server:
+            parts.append(_NOT_SERVER)
+        if not include_tests:
+            parts.append(_NOT_TEST_TELEMETRY)
+        return " AND ".join(parts) if parts else "1 = 1"
+
+    def _is_test_telemetry(self, hb: dict) -> bool:
+        player_data = hb.get("player", {}) if isinstance(hb.get("player"), dict) else {}
+        values = {
+            "platform": str(player_data.get("platform") or hb.get("platform") or "").lower(),
+            "build_channel": str(hb.get("build_channel") or "").lower(),
+            "player_id": str(hb.get("player_id") or "").lower(),
+            "session_id": str(hb.get("session_id") or "").lower(),
+            "scene": str(player_data.get("scene") or hb.get("scene") or "").lower(),
+        }
+        if values["platform"] in ("test", "tests") or values["build_channel"] in ("test", "tests", "ci"):
+            return True
+        for key in ("player_id", "session_id"):
+            value = values[key]
+            if value.startswith(("test-", "test_", "ratelimit-", "ratelimit_")):
+                return True
+        scene = values["scene"]
+        return scene.startswith("test") or scene.startswith("res://tests/") or "/tests/" in scene
+
+    def _is_visible_telemetry(self, hb: dict, include_server: bool = False, include_tests: bool = False) -> bool:
+        player_data = hb.get("player", {}) if isinstance(hb.get("player"), dict) else {}
+        platform = str(player_data.get("platform") or hb.get("platform") or "").lower()
+        if not include_server and platform == "server":
+            return False
+        if not include_tests and self._is_test_telemetry(hb):
+            return False
+        return True
 
     def _is_locked(self, ip: str, now: float) -> bool:
         entry = self.auth_fails.get(ip)
@@ -523,18 +577,32 @@ class OdiseaCentral:
             return guard
 
         player_id = request.query.get("player_id")
+        include_server = self._include_flag(request, "include_server")
+        include_tests = self._include_flag(request, "include_tests")
         self.metrics.record_cache_lookup(player_id in self.heartbeats if player_id else True)
 
         if player_id:
             hb = self.heartbeats.get(player_id)
-            return web.json_response(hb) if hb else web.json_response({"error": "not_found"}, status=404)
-        return web.json_response(self.heartbeats)
+            if hb and self._is_visible_telemetry(hb, include_server, include_tests):
+                return web.json_response(hb)
+            return web.json_response({"error": "not_found"}, status=404)
+
+        visible = {
+            pid: hb for pid, hb in self.heartbeats.items()
+            if self._is_visible_telemetry(hb, include_server, include_tests)
+        }
+        return web.json_response(visible)
 
     async def handle_sessions(self, request):
         guard = self._auth_guard(request)
         if guard is not None:
             return guard
-        sessions = list(set(hb.get("session_id") for hb in self.heartbeats.values() if hb.get("session_id")))
+        include_server = self._include_flag(request, "include_server")
+        include_tests = self._include_flag(request, "include_tests")
+        sessions = list(set(
+            hb.get("session_id") for hb in self.heartbeats.values()
+            if hb.get("session_id") and self._is_visible_telemetry(hb, include_server, include_tests)
+        ))
         return web.json_response(sessions)
 
     async def handle_ghosts(self, request):
@@ -549,6 +617,8 @@ class OdiseaCentral:
         platform = request.query.get("platform")
         player_id = request.query.get("player_id")
         session_id = request.query.get("session_id")
+        include_server = self._include_flag(request, "include_server")
+        include_tests = self._include_flag(request, "include_tests")
 
         try:
             limit = min(max(int(request.query.get("limit", 1000)), 1), 5000)
@@ -560,7 +630,7 @@ class OdiseaCentral:
         except ValueError:
             offset = 0
 
-        query = f"SELECT * FROM heartbeats WHERE {_NOT_SERVER}"
+        query = f"SELECT * FROM heartbeats WHERE {self._visibility_sql(include_server, include_tests)}"
         if not session_id:
             query += f" AND {_PAST_WARMUP}"
         params = []
@@ -634,6 +704,8 @@ class OdiseaCentral:
         if not scene:
             return web.json_response({"error": "missing_scene"}, status=400)
 
+        include_server = self._include_flag(request, "include_server")
+        include_tests = self._include_flag(request, "include_tests")
         res = float(request.query.get("resolution", 5))
         low_fps_threshold = 30.0
 
@@ -648,9 +720,9 @@ class OdiseaCentral:
             MIN(fps) as min_fps,
             AVG(memory_mb) as avg_mem
         FROM heartbeats
-        WHERE scene = ? AND {not_server} AND {past_warmup}
+        WHERE scene = ? AND {visible} AND {past_warmup}
         GROUP BY grid_x, grid_z
-        """.format(not_server=_NOT_SERVER, past_warmup=_PAST_WARMUP)
+        """.format(visible=self._visibility_sql(include_server, include_tests), past_warmup=_PAST_WARMUP)
         params = (res, res, res, res, low_fps_threshold, scene)
 
         try:
@@ -791,7 +863,8 @@ class OdiseaCentral:
         if guard is not None:
             return guard
 
-        include_server = request.query.get("include_server") in ("1", "true", "yes")
+        include_server = self._include_flag(request, "include_server")
+        include_tests = self._include_flag(request, "include_tests")
 
         query = """
         SELECT
@@ -806,18 +879,18 @@ class OdiseaCentral:
             SUM(CASE WHEN fps < 30 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as low_fps_pct,
             AVG(memory_mb) as avg_mem
         FROM heartbeats
-        WHERE (? = 1 OR {not_server})
+        WHERE {visible}
         GROUP BY player_id, session_id
         ORDER BY start_time DESC
         LIMIT 200
-        """.format(not_server=_NOT_SERVER)
+        """.format(visible=self._visibility_sql(include_server, include_tests))
 
         try:
             def fetch():
                 conn = self._get_db()
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
-                cursor.execute(query, (1 if include_server else 0,))
+                cursor.execute(query)
                 rows = [dict(row) for row in cursor.fetchall()]
                 conn.close()
                 return rows
@@ -833,9 +906,13 @@ class OdiseaCentral:
         if guard is not None:
             return guard
 
+        include_server = self._include_flag(request, "include_server")
+        include_tests = self._include_flag(request, "include_tests")
         now = time.time()
         active = []
         for pid, hb in self.heartbeats.items():
+            if not self._is_visible_telemetry(hb, include_server, include_tests):
+                continue
             last_seen = self.last_update.get(pid, 0)
             if now - last_seen < 30:
                 p_data = hb.get("player", {})
@@ -858,6 +935,10 @@ class OdiseaCentral:
         if guard is not None:
             return guard
 
+        include_server = self._include_flag(request, "include_server")
+        include_tests = self._include_flag(request, "include_tests")
+        visible_sql = self._visibility_sql(include_server, include_tests)
+
         try:
             def fetch():
                 conn = self._get_db()
@@ -874,7 +955,7 @@ class OdiseaCentral:
                     MAX(timestamp) as newest_ts,
                     AVG(memory_mb) as memory_mb_avg
                 FROM heartbeats
-                WHERE {_NOT_SERVER} AND {_PAST_WARMUP}
+                WHERE {visible_sql} AND {_PAST_WARMUP}
                 GROUP BY scene
                 """
                 cursor.execute(query_scenes)
@@ -885,27 +966,27 @@ class OdiseaCentral:
                 day, week, month = 86400, 604800, 2592000
 
                 cursor.execute(
-                    f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats WHERE {_NOT_SERVER}"
+                    f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats WHERE {visible_sql}"
                 )
                 unique_total = cursor.fetchone()["n"] or 0
 
                 cursor.execute(
                     f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
-                    f"WHERE {_NOT_SERVER} AND timestamp >= ?",
+                    f"WHERE {visible_sql} AND timestamp >= ?",
                     (now - day,),
                 )
                 unique_day = cursor.fetchone()["n"] or 0
 
                 cursor.execute(
                     f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
-                    f"WHERE {_NOT_SERVER} AND timestamp >= ?",
+                    f"WHERE {visible_sql} AND timestamp >= ?",
                     (now - week,),
                 )
                 unique_week = cursor.fetchone()["n"] or 0
 
                 cursor.execute(
                     f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
-                    f"WHERE {_NOT_SERVER} AND timestamp >= ?",
+                    f"WHERE {visible_sql} AND timestamp >= ?",
                     (now - month,),
                 )
                 unique_month = cursor.fetchone()["n"] or 0
@@ -915,7 +996,7 @@ class OdiseaCentral:
                 def unique_between(start, end):
                     cursor.execute(
                         f"SELECT COUNT(DISTINCT player_id) AS n FROM heartbeats "
-                        f"WHERE {_NOT_SERVER} AND timestamp >= ? AND timestamp < ?",
+                        f"WHERE {visible_sql} AND timestamp >= ? AND timestamp < ?",
                         (start, end),
                     )
                     return cursor.fetchone()["n"] or 0
@@ -930,7 +1011,7 @@ class OdiseaCentral:
                 cursor.execute(
                     f"SELECT CAST((timestamp) / ? AS INTEGER) AS day_idx, "
                     f"COUNT(DISTINCT player_id) AS n FROM heartbeats "
-                    f"WHERE {_NOT_SERVER} AND timestamp >= ? GROUP BY day_idx",
+                    f"WHERE {visible_sql} AND timestamp >= ? GROUP BY day_idx",
                     (day, now - month),
                 )
                 by_day = {int(r["day_idx"]): (r["n"] or 0) for r in cursor.fetchall()}
@@ -940,7 +1021,7 @@ class OdiseaCentral:
 
                 cursor.execute(
                     f"SELECT MIN(timestamp) AS start, MAX(timestamp) AS end "
-                    f"FROM heartbeats WHERE {_NOT_SERVER} "
+                    f"FROM heartbeats WHERE {visible_sql} "
                     f"GROUP BY player_id, session_id"
                 )
                 sessions_intervals = cursor.fetchall()
@@ -991,12 +1072,15 @@ class OdiseaCentral:
             return guard
 
         scenes = set(DEFAULT_SCENES)
+        include_server = self._include_flag(request, "include_server")
+        include_tests = self._include_flag(request, "include_tests")
+        visible_sql = self._visibility_sql(include_server, include_tests)
         try:
             def fetch():
                 conn = self._get_db()
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT DISTINCT scene FROM heartbeats WHERE scene IS NOT NULL AND scene != ''"
+                    f"SELECT DISTINCT scene FROM heartbeats WHERE scene IS NOT NULL AND scene != '' AND {visible_sql}"
                 )
                 s = [row[0] for row in cursor.fetchall()]
                 conn.close()
@@ -1152,7 +1236,8 @@ class OdiseaCentral:
                         p_data = data.get("player", {})
                         fps = p_data.get("fps", 60)
                         platform = (p_data.get("platform") or data.get("platform") or "").lower()
-                        if platform == "server":
+                        is_test_telemetry = self._is_test_telemetry(data)
+                        if platform == "server" or is_test_telemetry:
                             self.low_fps_timers.pop(player_id, None)
                         elif fps < 15:
                             if player_id not in self.low_fps_timers:
@@ -1213,7 +1298,7 @@ class OdiseaCentral:
                         player_data_fps = data.get("player", {}).get("fps", 60)
                         player_data = data.get("player", {})
                         platform = (player_data.get("platform") or data.get("platform") or "").lower()
-                        if platform == "server":
+                        if platform == "server" or is_test_telemetry:
                             self.low_fps_sessions.pop(session_id, None)
                         elif player_data_fps < 15:
                             if session_id not in self.low_fps_sessions:
@@ -1239,11 +1324,12 @@ class OdiseaCentral:
                         else:
                             self.low_fps_sessions.pop(session_id, None)
 
-                        for sub in self.event_subscribers:
-                            try:
-                                await sub.send_json(data)
-                            except Exception:
-                                pass
+                        if self._is_visible_telemetry(data):
+                            for sub in self.event_subscribers:
+                                try:
+                                    await sub.send_json(data)
+                                except Exception:
+                                    pass
 
                     elif msg_type == "command_response":
                         cmd_id = data.get("id")
@@ -1290,11 +1376,12 @@ class OdiseaCentral:
             if STORE_GHOSTS:
                 self._store_ghost(pid, sid, data)
 
-            for sub in self.event_subscribers:
-                try:
-                    await sub.send_json(data)
-                except Exception:
-                    pass
+            if self._is_visible_telemetry(data):
+                for sub in self.event_subscribers:
+                    try:
+                        await sub.send_json(data)
+                    except Exception:
+                        pass
 
     async def handle_events_ws(self, request):
         # Allow token in query param for WebSockets as browser API doesn't support headers

@@ -30,4 +30,8 @@ echo "Running: $OYS_FILE"
 echo "Scene: $SCENE"
 echo "---"
 
+# OYS runs are automated tests/diagnostics; keep them out of central telemetry
+# even when they load real gameplay scenes such as Dome_Crio.
+export ANNA_V2_NO_CENTRAL=1
+
 $GODOT_BIN --scene "$SCENE" --replay "$OYS_FILE"
