@@ -50,6 +50,10 @@ STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "true").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
 SQLITE_DB = os.environ.get("CENTRAL_SQLITE_DB", os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db"))
 GEO_SQLITE_DB = os.environ.get("CENTRAL_GEO_DB", "./data/geo_tags.db")
+# Salt for hashing client IPs before they touch disk. MUST match the salt used
+# by scripts/import_nginx_geo.py (ODISEA_GEO_HASH_SALT) so live-recorded hashes
+# line up with any backfilled rows. No raw IP is ever persisted.
+GEO_HASH_SALT = os.environ.get("ODISEA_GEO_HASH_SALT", "odisea-public-geo-v1")
 HOTZONES_DIR = os.environ.get("CENTRAL_HOTZONES_DIR", "./data/hotzones")
 GHOSTS_MAX_BYTES = int(os.environ.get("CENTRAL_GHOSTS_MAX_BYTES", 1073741824))  # 1GB
 STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
@@ -437,6 +441,8 @@ class OdiseaCentral:
         self.pending_commands: Dict[str, asyncio.Future] = {}  # command_id -> Future
         self.web_telemetry_rate: Dict[str, List[float]] = {}  # ip -> [request timestamps]
         self.low_fps_sessions: Dict[str, float] = {}  # session_id -> start_time_of_low_fps
+        self.geo_recorded_sessions: Set[str] = set()  # session_ids already geo-recorded this run
+        self.geo_pending_lookup: Dict[str, str] = {}  # ip_hash -> raw IP awaiting geolocation (memory-only)
         self.milestone_checker = MilestoneDetector(self)
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
@@ -1180,12 +1186,18 @@ class OdiseaCentral:
             conn.row_factory = sqlite3.Row
             try:
                 cursor = conn.cursor()
+                # Only confirmed real players: rows carrying a player_id (written
+                # by the live WS path) that have been geolocated. This excludes
+                # dashboard viewers, /ws probes, and any nginx-derived row that
+                # never tied to an actual telemetry session.
                 cursor.execute("""
-                    SELECT ip_hash, country, country_code, region, city,
+                    SELECT ip_hash, player_id, country, country_code, region, city,
                            latitude, longitude, last_seen, hits
                     FROM geo_ips
                     WHERE latitude IS NOT NULL
                       AND longitude IS NOT NULL
+                      AND player_id IS NOT NULL
+                      AND player_id != ''
                     ORDER BY last_seen DESC
                     LIMIT 500
                 """)
@@ -1199,13 +1211,16 @@ class OdiseaCentral:
             logger.warning(f"{request.path}: geo query failed, returning [] ({e})")
             return web.json_response([])
 
+        tags = await self._run_query(self._fetch_player_tags)
+
         players = []
         for row in rows:
             age = now - float(row.get("last_seen") or 0)
             status = "connected" if age <= 120 else ("recent" if age <= 3600 else "old")
+            tag = tags.get(row.get("player_id")) or {}
             players.append({
-                "player_id": f"geo:{row['ip_hash']}",
-                "session_id": "nginx_access_log",
+                "player_id": row.get("player_id") or f"geo:{row['ip_hash']}",
+                "session_id": "live_ws",
                 "last_seen": row.get("last_seen"),
                 "country": row.get("country") or "Unknown",
                 "country_code": row.get("country_code") or "",
@@ -1213,12 +1228,112 @@ class OdiseaCentral:
                 "city": row.get("city") or "Unknown",
                 "latitude": row.get("latitude"),
                 "longitude": row.get("longitude"),
-                "display_name": None,
-                "color": None,
+                "display_name": tag.get("display_name"),
+                "color": tag.get("color"),
                 "status": status,
                 "hits": row.get("hits") or 0,
             })
         return web.json_response(players)
+
+    # --- Player tags ---
+    def _fetch_player_tags(self) -> dict:
+        """Return {player_id: {display_name, notes, color}}. Self-creates the
+        table so reads never fail on a fresh DB."""
+        conn = self._get_db()
+        conn.row_factory = sqlite3.Row
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS player_tags (
+                    player_id TEXT PRIMARY KEY,
+                    display_name TEXT, notes TEXT, color TEXT, updated_at REAL
+                );
+            """)
+            cur.execute("SELECT player_id, display_name, notes, color FROM player_tags")
+            return {r["player_id"]: dict(r) for r in cur.fetchall()}
+        finally:
+            conn.close()
+
+    async def handle_player_tags_list(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+        try:
+            tags = await self._run_query(self._fetch_player_tags)
+        except Exception as e:
+            logger.warning(f"{request.path}: tag query failed ({e})")
+            return web.json_response([])
+        return web.json_response(list(tags.values()))
+
+    async def handle_player_tag_upsert(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "bad_json"}, status=400)
+
+        player_id = str(data.get("player_id") or "").strip()
+        display_name = str(data.get("display_name") or "").strip()
+        if not player_id or not display_name:
+            return web.json_response({"error": "player_id and display_name required"}, status=400)
+        notes = str(data.get("notes") or "")[:1000]
+        color = str(data.get("color") or "")[:32]
+
+        def write():
+            conn = self._get_db()
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS player_tags (
+                        player_id TEXT PRIMARY KEY,
+                        display_name TEXT, notes TEXT, color TEXT, updated_at REAL
+                    );
+                """)
+                cur.execute(
+                    """INSERT OR REPLACE INTO player_tags
+                         (player_id, display_name, notes, color, updated_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (player_id, display_name, notes, color, time.time()),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+        try:
+            await self._run_query(write)
+        except Exception as e:
+            logger.warning(f"{request.path}: tag upsert failed ({e})")
+            return web.json_response({"error": "write_failed"}, status=500)
+        return web.json_response({
+            "player_id": player_id, "display_name": display_name,
+            "notes": notes, "color": color,
+        })
+
+    async def handle_player_tag_delete(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+        player_id = request.match_info.get("player_id", "")
+        if not player_id:
+            return web.json_response({"error": "player_id required"}, status=400)
+
+        def write():
+            conn = self._get_db()
+            try:
+                cur = conn.cursor()
+                cur.execute("DELETE FROM player_tags WHERE player_id = ?", (player_id,))
+                conn.commit()
+            finally:
+                conn.close()
+
+        try:
+            await self._run_query(write)
+        except Exception as e:
+            logger.warning(f"{request.path}: tag delete failed ({e})")
+            return web.json_response({"error": "write_failed"}, status=500)
+        return web.json_response({"ok": True, "player_id": player_id})
 
     async def handle_ghosts_active(self, request):
         guard = self._auth_guard(request)
@@ -1227,6 +1342,7 @@ class OdiseaCentral:
 
         include_server = self._include_flag(request, "include_server")
         include_tests = self._include_flag(request, "include_tests")
+        tags = await self._run_query(self._fetch_player_tags)
         now = time.time()
         active = []
         for pid, hb in self.heartbeats.items():
@@ -1236,6 +1352,7 @@ class OdiseaCentral:
             if now - last_seen < 30:
                 p_data = hb.get("player", {})
                 pos = p_data.get("position", [0, 0, 0])
+                tag = tags.get(pid) or {}
                 active.append({
                     "player_id": pid,
                     "session_id": hb.get("session_id"),
@@ -1244,7 +1361,9 @@ class OdiseaCentral:
                     "pos_y": pos[1],
                     "pos_z": pos[2],
                     "fps": p_data.get("fps"),
-                    "last_seen": last_seen
+                    "last_seen": last_seen,
+                    "display_name": tag.get("display_name"),
+                    "color": tag.get("color"),
                 })
         return web.json_response(active)
 
@@ -1529,7 +1648,11 @@ class OdiseaCentral:
                             break
 
                     elif msg_type == "heartbeat":
-                        await self._process_heartbeat(data, inferred_platform=inferred_platform)
+                        await self._process_heartbeat(
+                            data,
+                            inferred_platform=inferred_platform,
+                            client_ip=self._client_ip(request),
+                        )
 
                     elif msg_type == "command_response":
                         cmd_id = data.get("id")
@@ -1557,7 +1680,7 @@ class OdiseaCentral:
 
         return ws
 
-    async def _process_heartbeat(self, data: dict, inferred_platform: str = ""):
+    async def _process_heartbeat(self, data: dict, inferred_platform: str = "", client_ip: str = ""):
         player_id = data.get("player_id")
         session_id = data.get("session_id")
 
@@ -1674,6 +1797,14 @@ class OdiseaCentral:
             self._store_ghost(player_id, session_id, data)
 
         if self._is_visible_telemetry(data):
+            # Record this IP as a confirmed real player (web or native) for the
+            # geo map. Gated by _is_visible_telemetry so server peers, tests and
+            # warmup never count. Throttled to once per session to spare the DB;
+            # record_geo_player still refreshes last_seen via the batch view.
+            if client_ip and session_id not in self.geo_recorded_sessions:
+                self.geo_recorded_sessions.add(session_id)
+                self.record_geo_player(client_ip, player_id)
+
             for sub in self.event_subscribers:
                 try:
                     await sub.send_json(data)
@@ -1839,6 +1970,15 @@ class OdiseaCentral:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_combined ON heartbeats(player_id, scene, timestamp);")
         
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS player_tags (
+                player_id TEXT PRIMARY KEY,
+                display_name TEXT,
+                notes TEXT,
+                color TEXT,
+                updated_at REAL
+            );
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS milestones (
                 milestone_id TEXT PRIMARY KEY,
                 title TEXT,
@@ -1975,6 +2115,138 @@ class OdiseaCentral:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, func, *args)
 
+    # --- Geo helpers ---
+    @staticmethod
+    def _geo_ip_hash(ip: str) -> str:
+        return hashlib.sha256((GEO_HASH_SALT + ":" + ip).encode()).hexdigest()[:16]
+
+    def _ensure_geo_schema(self, conn):
+        """Create the geo tables if missing. Shared shape with
+        scripts/import_nginx_geo.py so live rows and backfilled rows coexist."""
+        cur = conn.cursor()
+        cur.execute(
+            """CREATE TABLE IF NOT EXISTS geo_ips (
+                ip_hash TEXT PRIMARY KEY,
+                country TEXT, country_code TEXT, region TEXT, city TEXT,
+                latitude REAL, longitude REAL,
+                first_seen REAL, last_seen REAL,
+                hits INTEGER, candidate_hits INTEGER,
+                ws_hits INTEGER, telemetry_hits INTEGER,
+                api_hits INTEGER, site_hits INTEGER, scanner_hits INTEGER,
+                tagged_at REAL, source TEXT
+            )"""
+        )
+        # player_id links a confirmed real player to the hashed IP. Older DBs
+        # created by the import script may lack it; add it idempotently.
+        for column, coltype in (("player_id", "TEXT"),):
+            try:
+                cur.execute(f"ALTER TABLE geo_ips ADD COLUMN {column} {coltype}")
+            except sqlite3.OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
+        conn.commit()
+
+    def record_geo_player(self, ip: str, player_id: str):
+        """Record (hashed) that a real player connected from this IP, and queue
+        the raw IP for deferred geolocation. The raw IP is held only in memory
+        (self.geo_pending_lookup) until the batch task resolves lat/lng; only the
+        hash is persisted. Only called for telemetry passing _is_visible_telemetry."""
+        if not ip or ip == "unknown" or not player_id:
+            return
+        ip_hash = self._geo_ip_hash(ip)
+        # Queue raw IP for the batch geolocator (in-memory only, never on disk).
+        self.geo_pending_lookup[ip_hash] = ip
+
+        def write():
+            now = time.time()
+            conn = sqlite3.connect(GEO_SQLITE_DB)
+            try:
+                self._ensure_geo_schema(conn)
+                cur = conn.cursor()
+                cur.execute(
+                    """INSERT INTO geo_ips
+                         (ip_hash, player_id, first_seen, last_seen,
+                          hits, ws_hits, telemetry_hits, source)
+                       VALUES (?, ?, ?, ?, 1, 1, 1, 'live_ws')
+                       ON CONFLICT(ip_hash) DO UPDATE SET
+                          player_id = excluded.player_id,
+                          last_seen = excluded.last_seen,
+                          hits = COALESCE(geo_ips.hits, 0) + 1,
+                          ws_hits = COALESCE(geo_ips.ws_hits, 0) + 1,
+                          source = 'live_ws'""",
+                    (ip_hash, player_id, now, now),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+        try:
+            return asyncio.get_running_loop().run_in_executor(None, write)
+        except RuntimeError:
+            write()
+
+    async def _geo_lookup_task(self):
+        """Resolve queued raw IPs to lat/lng via ip-api.com and write the geo
+        fields back keyed by hash. Runs out-of-band so the WS path stays fast."""
+        await asyncio.sleep(15)  # let the server settle before first run
+        while True:
+            try:
+                pending = dict(self.geo_pending_lookup)
+                if pending:
+                    resolved = await self._run_query(self._geo_batch_lookup, list(pending.values()))
+                    if resolved:
+                        await self._run_query(self._geo_write_locations, pending, resolved)
+                    for h in pending:
+                        self.geo_pending_lookup.pop(h, None)
+            except Exception as e:
+                logger.warning(f"geo lookup task error: {e}")
+            await asyncio.sleep(60)
+
+    @staticmethod
+    def _geo_batch_lookup(ips: list) -> dict:
+        """Batch geolocate raw IPs. Mirrors scripts/import_nginx_geo.py.geo_lookup."""
+        import urllib.request
+        result = {}
+        fields = "status,country,countryCode,regionName,city,lat,lon,query"
+        for index in range(0, len(ips), 100):
+            batch = ips[index:index + 100]
+            body = json.dumps([{"query": ip, "fields": fields} for ip in batch]).encode()
+            req = urllib.request.Request(
+                "http://ip-api.com/batch", data=body,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=20) as response:
+                data = json.loads(response.read().decode())
+            for row in data:
+                if row.get("status") == "success":
+                    result[row["query"]] = row
+            time.sleep(1.2)  # ip-api free tier rate limit
+        return result
+
+    def _geo_write_locations(self, hash_to_ip: dict, resolved: dict):
+        conn = sqlite3.connect(GEO_SQLITE_DB)
+        try:
+            self._ensure_geo_schema(conn)
+            cur = conn.cursor()
+            now = time.time()
+            for ip_hash, ip in hash_to_ip.items():
+                info = resolved.get(ip)
+                if not info:
+                    continue
+                cur.execute(
+                    """UPDATE geo_ips SET
+                         country=?, country_code=?, region=?, city=?,
+                         latitude=?, longitude=?, tagged_at=?
+                       WHERE ip_hash=?""",
+                    (
+                        info.get("country"), info.get("countryCode"),
+                        info.get("regionName"), info.get("city"),
+                        info.get("lat"), info.get("lon"), now, ip_hash,
+                    ),
+                )
+            conn.commit()
+        finally:
+            conn.close()
 
     async def _import_task(self):
         while True:
@@ -2014,6 +2286,9 @@ class OdiseaCentral:
             web.get('/api/milestones', self.handle_milestones),
             web.get('/api/milestones/achieved', self.handle_milestones_achieved),
             web.get('/api/geo-players', self.handle_geo_players),
+            web.get('/api/player-tags', self.handle_player_tags_list),
+            web.post('/api/player-tags', self.handle_player_tag_upsert),
+            web.delete('/api/player-tags/{player_id}', self.handle_player_tag_delete),
             web.post('/telemetry', self.handle_web_telemetry),
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),
@@ -2046,6 +2321,7 @@ class OdiseaCentral:
         cleanup_task = asyncio.create_task(self._cleanup_loop())
         db_worker_task = asyncio.create_task(self._db_worker())
         import_task = asyncio.create_task(self._import_task())
+        geo_lookup_task = asyncio.create_task(self._geo_lookup_task())
 
         try:
             while True:
@@ -2055,6 +2331,7 @@ class OdiseaCentral:
             cleanup_task.cancel()
             db_worker_task.cancel()
             import_task.cancel()
+            geo_lookup_task.cancel()
             await runner.cleanup()
 
 if __name__ == "__main__":

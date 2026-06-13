@@ -2,6 +2,14 @@
 """Backfill coarse geo stats from nginx access logs into a SQLite DB.
 
 This intentionally stores hashed IPs plus city/country aggregates, not raw IPs.
+
+NOTE: This is a *supplementary backfill* tool, no longer the primary source of
+geo players. The live server (odisea_central.py) records real players directly
+at WebSocket heartbeat time (source='live_ws') and the dashboard's /api/geo-players
+only returns rows tied to an actual telemetry player_id. Rows written here use
+source='nginx_access_log' with no player_id, so they no longer surface on the
+globe on their own — they exist for offline analysis / historical context.
+The candidate filter below is correspondingly strict (real engine_start only).
 """
 
 import collections
@@ -184,12 +192,14 @@ def main() -> None:
     for ip, row in per_ip.items():
         if ip.startswith(INFRA_IP_PREFIXES):
             continue
-        # Require at least one real game-client signal (WebSocket or telemetry).
-        # api_hits and site_visit_hits alone indicate a dashboard viewer/host, not a player.
-        has_game_signal = row["ws_hits"] > 0 or row["telemetry_hits"] > 0
-        signal = row["ws_hits"] + row["telemetry_hits"] + row["api_hits"] + row["site_visit_hits"]
+        # Only count IPs that actually reached the game and emitted telemetry.
+        # A /telemetry POST is the unambiguous "this client is a real player"
+        # signal — it only happens once the game session is running. /ws hits,
+        # /api/ghosts and site visits all come from dashboard viewers, probes
+        # and the host's own browser, so they are NOT sufficient on their own.
+        has_player_signal = row["telemetry_hits"] > 0
         scanner_ratio = row["scanner_hits"] / max(1, row["hits"])
-        if has_game_signal and signal >= 2 and scanner_ratio < 0.5:
+        if has_player_signal and scanner_ratio < 0.5:
             candidates.append(ip)
     candidates.sort(
         key=lambda ip: -(
