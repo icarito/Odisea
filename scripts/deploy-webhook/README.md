@@ -50,7 +50,9 @@ Set on the central process if defaults don't fit:
 
 | Var | Default | Meaning |
 | --- | --- | --- |
-| `DEPLOY_WEBHOOK_SECRET` | `BRIDGE_TOKEN` | HMAC secret; empty disables the endpoint |
+| `ODISEA_BRIDGE_TOKEN` | `odisea-dev-insecure` | Admin/dashboard token for protected central APIs |
+| `ODISEA_CENTRAL_INGEST_TOKEN` | empty | Lower-privilege token for game ingest (`/ws` and `/hotzone`) |
+| `DEPLOY_WEBHOOK_SECRET` | `ODISEA_BRIDGE_TOKEN` | GitHub webhook HMAC secret; set a separate value in production |
 | `DEPLOY_SCRIPT` | `~/odisea-deploy/deploy.sh` | script to run on push |
 | `DEPLOY_BRANCH` | `main` | branch whose pushes trigger deploy |
 
@@ -79,7 +81,7 @@ Repo → Settings → Webhooks → Add webhook:
 
 - **Payload URL:** `https://odisea.educa.juegos/webhook/deploy`
 - **Content type:** `application/json`
-- **Secret:** the bridge token (same value as `DEPLOY_WEBHOOK_SECRET`)
+- **Secret:** the deploy webhook secret (`DEPLOY_WEBHOOK_SECRET`), not the ingest token
 - **Events:** "Just the push event"
 
 GitHub's initial `ping` returns `{"ok": true, "pong": true}` so you can confirm

@@ -43,6 +43,7 @@ VAPID_PRIVATE_KEY = os.environ.get("ODISEA_VAPID_PRIVATE_KEY")
 VAPID_CLAIMS = {"sub": "mailto:admin@odisea.dev"}
 DEV_DEFAULT_TOKEN = "odisea-dev-insecure"
 BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", DEV_DEFAULT_TOKEN)
+INGEST_TOKEN = os.environ.get("ODISEA_CENTRAL_INGEST_TOKEN", "")
 
 CACHE_TTL = int(os.environ.get("CENTRAL_CACHE_TTL", 120))
 STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "true").lower() == "true"
@@ -197,12 +198,53 @@ class OdiseaCentral:
             logger.info(f"Created hotzones directory: {HOTZONES_DIR}")
 
     # --- Auth Logic ---
-    def _is_authorized(self, request):
+    def _bearer_token(self, request) -> str:
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
-            return False
-        token = auth_header[7:]
+            return ""
+        return auth_header[7:]
+
+    def _is_admin_token(self, token: str) -> bool:
         return token == BRIDGE_TOKEN
+
+    def _is_ingest_token(self, token: str) -> bool:
+        if token == BRIDGE_TOKEN:
+            return True
+        return INGEST_TOKEN != "" and token == INGEST_TOKEN
+
+    def _is_authorized(self, request):
+        return self._is_admin_token(self._bearer_token(request))
+
+    def _is_ingest_authorized(self, request):
+        return self._is_ingest_token(self._bearer_token(request))
+
+    def _auth_guard(self, request, scope: str = "admin"):
+        ip = self._client_ip(request)
+        now = time.time()
+        if self._is_locked(ip, now):
+            retry = int(self.auth_fails[ip]["locked_until"] - now)
+            return web.json_response(
+                {"error": "rate_limited", "retry_after": retry},
+                status=429, headers={"Retry-After": str(max(1, retry))},
+            )
+
+        if scope == "ingest":
+            authorized = self._is_ingest_authorized(request)
+        else:
+            authorized = self._is_authorized(request)
+
+        if not authorized:
+            self._record_auth_fail(ip, now)
+            return web.json_response({"error": "unauthorized"}, status=401)
+        self.auth_fails.pop(ip, None)
+        return None
+
+    def _token_mode(self, token: str) -> str:
+        if self._is_admin_token(token):
+            return "admin"
+        if self._is_ingest_token(token):
+            return "ingest"
+        return "telemetry"
 
     def _client_ip(self, request) -> str:
         fwd = request.headers.get("X-Forwarded-For", "")
@@ -222,21 +264,6 @@ class OdiseaCentral:
             entry["locked_until"] = now + AUTH_LOCKOUT
             entry["ts"] = []
             logger.warning(f"Auth brute-force lockout for IP {ip} ({AUTH_LOCKOUT}s)")
-
-    def _auth_guard(self, request):
-        ip = self._client_ip(request)
-        now = time.time()
-        if self._is_locked(ip, now):
-            retry = int(self.auth_fails[ip]["locked_until"] - now)
-            return web.json_response(
-                {"error": "rate_limited", "retry_after": retry},
-                status=429, headers={"Retry-After": str(max(1, retry))},
-            )
-        if not self._is_authorized(request):
-            self._record_auth_fail(ip, now)
-            return web.json_response({"error": "unauthorized"}, status=401)
-        self.auth_fails.pop(ip, None)
-        return None
 
     async def _cleanup_loop(self):
         while True:
@@ -633,7 +660,7 @@ class OdiseaCentral:
             return web.json_response([])
 
     async def handle_hotzone_upload(self, request):
-        guard = self._auth_guard(request)
+        guard = self._auth_guard(request, scope="ingest")
         if guard is not None:
             return guard
 
@@ -1069,8 +1096,8 @@ class OdiseaCentral:
                         if msg_type == "handshake":
                             token = data.get("token")
                             # Aceptamos conexiones anónimas para telemetría (HTML5 por defecto).
-                            # El token válido solo se exige para ejecutar comandos (ya protegido en HTTP).
-                            is_admin = (token == BRIDGE_TOKEN)
+                            # BRIDGE_TOKEN es admin; ODISEA_CENTRAL_INGEST_TOKEN solo identifica ingest.
+                            mode = self._token_mode(token)
                             
                             authenticated = True
                             peer_id = data.get("peer_id")
@@ -1080,7 +1107,6 @@ class OdiseaCentral:
                             self.active_peers[ws] = peer_id
                             self.peer_ws[peer_id] = ws
                             
-                            mode = "admin" if is_admin else "telemetry"
                             logger.info(f"Peer conectado ({mode}): {peer_id}")
                             await ws.send_json({"type": "handshake_ack", "status": "ok", "mode": mode,
                                                 "compression": "deflate"})
