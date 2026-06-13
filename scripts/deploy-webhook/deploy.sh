@@ -189,7 +189,11 @@ PY
 
 log "deploying to $DEPLOY_DIR"
 mkdir -p "$DEPLOY_DIR/static"
+mkdir -p "$DEPLOY_DIR/scripts"
 cp "$REPO_DIR/odisea_central.py" "$DEPLOY_DIR/odisea_central.py"
+cp "$REPO_DIR/scripts/import_ghosts_to_sqlite.py" "$DEPLOY_DIR/scripts/import_ghosts_to_sqlite.py"
+cp "$REPO_DIR/scripts/import_nginx_geo.py" "$DEPLOY_DIR/scripts/import_nginx_geo.py"
+chmod +x "$DEPLOY_DIR/scripts/import_nginx_geo.py"
 rm -rf "$DEPLOY_DIR/static/dashboard"
 cp -r "$REPO_DIR/dashboard/dist" "$DEPLOY_DIR/static/dashboard"
 
