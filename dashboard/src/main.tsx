@@ -4,6 +4,34 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App.tsx'
 import './index.css'
 
+const DASHBOARD_ORIENTATION = 'portrait'
+
+function lockDashboardOrientation() {
+  const orientation = window.screen?.orientation
+  if (!orientation || typeof orientation.lock !== 'function') return
+  if (document.visibilityState === 'hidden') return
+
+  orientation.lock(DASHBOARD_ORIENTATION).catch(() => {
+    // Browsers that only allow orientation lock in installed/fullscreen contexts
+    // reject here. The PWA manifest still provides the preferred orientation.
+  })
+}
+
+function installDashboardOrientationLock() {
+  lockDashboardOrientation()
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') lockDashboardOrientation()
+  })
+  window.addEventListener('focus', lockDashboardOrientation)
+  window.addEventListener('resize', lockDashboardOrientation)
+  window.addEventListener('orientationchange', lockDashboardOrientation)
+  document.addEventListener('click', lockDashboardOrientation, { passive: true })
+  document.addEventListener('touchend', lockDashboardOrientation, { passive: true })
+  document.addEventListener('keydown', lockDashboardOrientation)
+}
+
+installDashboardOrientationLock()
+
 // Register the service worker and auto-reload when a new version takes over.
 // With registerType 'autoUpdate' the new SW skips waiting and claims clients;
 // `controllerchange` then fires once, and we reload to pick up the new assets.

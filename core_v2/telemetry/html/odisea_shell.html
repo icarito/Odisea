@@ -112,6 +112,34 @@ $GODOT_HEAD_INCLUDE
 	<script src="$GODOT_URL"></script>
 	<script>
 (function() {
+	var ORIENTATION_LOCK_TYPE = "landscape";
+	var lastOrientationLockAttempt = 0;
+
+	function lockOdiseaOrientation() {
+		if (!screen.orientation || typeof screen.orientation.lock !== "function") return;
+		if (document.visibilityState === "hidden") return;
+		var now = Date.now();
+		if (now - lastOrientationLockAttempt < 1000) return;
+		lastOrientationLockAttempt = now;
+		try {
+			var result = screen.orientation.lock(ORIENTATION_LOCK_TYPE);
+			if (result && typeof result.catch === "function") {
+				result.catch(function() {});
+			}
+		} catch (e) {}
+	}
+
+	lockOdiseaOrientation();
+	document.addEventListener("visibilitychange", function() {
+		if (document.visibilityState === "visible") lockOdiseaOrientation();
+	});
+	window.addEventListener("focus", lockOdiseaOrientation);
+	window.addEventListener("resize", lockOdiseaOrientation);
+	window.addEventListener("orientationchange", lockOdiseaOrientation);
+	document.addEventListener("click", lockOdiseaOrientation, { passive: true });
+	document.addEventListener("touchend", lockOdiseaOrientation, { passive: true });
+	document.addEventListener("keydown", lockOdiseaOrientation);
+
 	// ================================================================
 	// ANNAV2 WebSocket Bridge — uses a Web Worker to keep WebSocket
 	// traffic off the main thread. Godot calls methods on
