@@ -126,6 +126,237 @@ WEB_TELEMETRY_RATE_WINDOW = int(os.environ.get("CENTRAL_WEB_TELEMETRY_RATE_WINDO
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger("odisea_central")
 
+MILESTONES = [
+    # Players
+    ("players_10", "10 jugadores únicos", "users"),
+    ("players_50", "50 jugadores únicos", "users"),
+    ("players_100", "100 jugadores únicos", "users"),
+    ("players_500", "500 jugadores únicos", "users"),
+    ("players_1000", "1,000 jugadores únicos", "users"),
+    # Concurrent
+    ("concurrent_5", "5 jugadores simultáneos", "zap"),
+    ("concurrent_10", "10 jugadores simultáneos", "zap"),
+    ("concurrent_25", "25 jugadores simultáneos", "zap"),
+    # Heartbeats
+    ("heartbeats_10k", "10,000 heartbeats", "activity"),
+    ("heartbeats_100k", "100,000 heartbeats", "activity"),
+    ("heartbeats_1m", "1,000,000 heartbeats", "activity"),
+    # Gameplay time
+    ("gameplay_1h", "1 hora de gameplay acumulado", "clock"),
+    ("gameplay_10h", "10 horas de gameplay acumulado", "clock"),
+    ("gameplay_100h", "100 horas de gameplay acumulado", "clock"),
+    # Performance
+    ("nobadfps_1h", "1 hora sin FPS bajo", "heart"),
+    ("nobadfps_24h", "24 horas sin FPS bajo", "heart"),
+    # Sessions
+    ("sessions_10", "10 sesiones de juego", "play"),
+    ("sessions_100", "100 sesiones de juego", "play"),
+]
+
+class MilestoneDetector:
+    def __init__(self, central: 'OdiseaCentral'):
+        self.central = central
+        self.unique_players: Set[str] = set()
+        self.total_heartbeats = 0
+        self.total_gameplay_seconds = 0.0
+        self.max_concurrent = 0
+        self.last_low_fps_at = time.time()
+        self.sessions_seen: Set[str] = set()
+        self.achieved_ids: Set[str] = set()
+        self.check_counter = 0
+        self.session_last_ts: Dict[str, float] = {}  # session_id -> last timestamp
+
+    async def load(self):
+        """Initializes metrics from the SQLite database."""
+        def fetch():
+            conn = self.central._get_db()
+            cursor = conn.cursor()
+            
+            # Ensure table exists
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS milestones (
+                    milestone_id TEXT PRIMARY KEY,
+                    title TEXT,
+                    icon TEXT,
+                    achieved_at REAL,
+                    value REAL
+                );
+            """)
+            
+            visible_sql = self.central._visibility_sql(include_server=False, include_tests=False)
+            
+            try:
+                # Unique players
+                cursor.execute(f"SELECT DISTINCT player_id FROM heartbeats WHERE {visible_sql}")
+                self.unique_players = {r[0] for r in cursor.fetchall() if r[0]}
+                
+                # Sessions
+                cursor.execute(f"SELECT DISTINCT session_id FROM heartbeats WHERE {visible_sql}")
+                self.sessions_seen = {r[0] for r in cursor.fetchall() if r[0]}
+                
+                # Total heartbeats
+                cursor.execute(f"SELECT COUNT(*) FROM heartbeats WHERE {visible_sql}")
+                self.total_heartbeats = cursor.fetchone()[0] or 0
+                
+                # Gameplay time estimation
+                cursor.execute(f"""
+                    SELECT session_id, MIN(timestamp), MAX(timestamp)
+                    FROM heartbeats
+                    WHERE {visible_sql}
+                    GROUP BY session_id
+                """)
+                total_duration = 0
+                for row in cursor.fetchall():
+                    if row[1] and row[2]:
+                        total_duration += (row[2] - row[1])
+                self.total_gameplay_seconds = total_duration
+
+                # Max concurrent
+                cursor.execute(f"""
+                    SELECT MIN(timestamp) AS start, MAX(timestamp) AS end
+                    FROM heartbeats WHERE {visible_sql}
+                    GROUP BY player_id, session_id
+                """)
+                events = []
+                for row in cursor.fetchall():
+                    if row[0] is not None and row[1] is not None:
+                        events.append((row[0], 1))
+                        events.append((row[1], -1))
+                events.sort()
+                cur_c = max_c = 0
+                for _, delta in events:
+                    cur_c += delta
+                    max_c = max(max_c, cur_c)
+                self.max_concurrent = max_c
+                
+                # Last low FPS
+                cursor.execute(f"SELECT MAX(timestamp) FROM heartbeats WHERE fps < 15 AND {visible_sql}")
+                row = cursor.fetchone()
+                if row and row[0]:
+                    self.last_low_fps_at = row[0]
+
+            except sqlite3.OperationalError:
+                # heartbeats table might not exist yet
+                pass
+
+            # Achieved milestones
+            cursor.execute("SELECT milestone_id FROM milestones")
+            self.achieved_ids = {r[0] for r in cursor.fetchall()}
+            
+            conn.close()
+
+        await self.central._run_query(fetch)
+        logger.info(f"MilestoneDetector loaded: {len(self.unique_players)} players, "
+                    f"{self.total_heartbeats} heartbeats, {len(self.achieved_ids)} achieved")
+
+    def record_heartbeat(self, data: dict):
+        """Updates internal metrics based on incoming heartbeat data."""
+        if self.central._is_test_telemetry(data):
+            return
+
+        self.total_heartbeats += 1
+        
+        pid = data.get("player_id")
+        if pid:
+            self.unique_players.add(pid)
+            
+        sid = data.get("session_id")
+        if sid:
+            self.sessions_seen.add(sid)
+            ts = data.get("timestamp") or time.time()
+            if sid in self.session_last_ts:
+                delta = ts - self.session_last_ts[sid]
+                if 0 < delta < 60:  # Ignore large gaps or backward jumps
+                    self.total_gameplay_seconds += delta
+            self.session_last_ts[sid] = ts
+
+        # Concurrent players (approximate via active cache)
+        # We only count visible telemetry here as well.
+        active_now = len([hb for hb in self.central.heartbeats.values() 
+                         if self.central._is_visible_telemetry(hb)])
+        if active_now > self.max_concurrent:
+            self.max_concurrent = active_now
+
+    def record_low_fps(self):
+        """Resets the timer for 'time without low FPS' milestone."""
+        self.last_low_fps_at = time.time()
+
+    async def check_and_notify(self):
+        """Checks metrics against MILESTONES and triggers push notifications."""
+        self.check_counter += 1
+        if self.check_counter % 50 != 0:
+            return
+
+        now = time.time()
+        no_bad_fps_seconds = now - self.last_low_fps_at
+        
+        for mid, title, icon in MILESTONES:
+            if mid in self.achieved_ids:
+                continue
+                
+            achieved = False
+            value = 0
+            
+            if mid.startswith("players_"):
+                threshold = int(mid.split("_")[1].replace("k", "000"))
+                value = len(self.unique_players)
+                if value >= threshold: achieved = True
+            elif mid.startswith("concurrent_"):
+                threshold = int(mid.split("_")[1])
+                value = self.max_concurrent
+                if value >= threshold: achieved = True
+            elif mid.startswith("heartbeats_"):
+                suffix = mid.split("_")[1]
+                if suffix == "10k": threshold = 10000
+                elif suffix == "100k": threshold = 100000
+                elif suffix == "1m": threshold = 1000000
+                else: threshold = 0
+                value = self.total_heartbeats
+                if value >= threshold: achieved = True
+            elif mid.startswith("gameplay_"):
+                hours = int(mid.split("_")[1].replace("h", ""))
+                threshold = hours * 3600
+                value = self.total_gameplay_seconds
+                if value >= threshold: achieved = True
+            elif mid.startswith("nobadfps_"):
+                hours = int(mid.split("_")[1].replace("h", ""))
+                threshold = hours * 3600
+                value = no_bad_fps_seconds
+                if value >= threshold: achieved = True
+            elif mid.startswith("sessions_"):
+                threshold = int(mid.split("_")[1])
+                value = len(self.sessions_seen)
+                if value >= threshold: achieved = True
+
+            if achieved:
+                self.achieved_ids.add(mid)
+                logger.info(f"🏆 Milestone achieved: {title} ({mid})")
+                
+                # Persist
+                def save():
+                    conn = self.central._get_db()
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO milestones (milestone_id, title, icon, achieved_at, value)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (mid, title, icon, now, float(value)))
+                    conn.commit()
+                    conn.close()
+                
+                await self.central._run_query(save)
+                
+                # Notify
+                payload = {
+                    "type": "milestone",
+                    "milestone_id": mid,
+                    "title": "¡Hito alcanzado!",
+                    "message": title,
+                    "icon": icon,
+                    "value": value,
+                    "timestamp": now
+                }
+                asyncio.create_task(self.central.send_push_to_all(payload))
+
 class MetricsCollector:
     def __init__(self):
         self.started_at = datetime.datetime.now(datetime.timezone.utc)
@@ -205,6 +436,7 @@ class OdiseaCentral:
         self.pending_commands: Dict[str, asyncio.Future] = {}  # command_id -> Future
         self.web_telemetry_rate: Dict[str, List[float]] = {}  # ip -> [request timestamps]
         self.low_fps_sessions: Dict[str, float] = {}  # session_id -> start_time_of_low_fps
+        self.milestone_checker = MilestoneDetector(self)
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
             os.makedirs(GHOSTS_DIR, exist_ok=True)
@@ -901,6 +1133,38 @@ class OdiseaCentral:
             logger.warning(f"{request.path}: query failed, returning [] ({e})")
             return web.json_response([])
 
+    async def handle_milestones(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        all_milestones = []
+        for mid, title, icon in MILESTONES:
+            all_milestones.append({
+                "id": mid,
+                "title": title,
+                "icon": icon,
+                "achieved": mid in self.milestone_checker.achieved_ids
+            })
+        return web.json_response(all_milestones)
+
+    async def handle_milestones_achieved(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        def fetch():
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM milestones ORDER BY achieved_at DESC")
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return rows
+
+        achieved = await self._run_query(fetch)
+        return web.json_response(achieved)
+
     async def handle_ghosts_active(self, request):
         guard = self._auth_guard(request)
         if guard is not None:
@@ -1210,126 +1474,7 @@ class OdiseaCentral:
                             break
 
                     elif msg_type == "heartbeat":
-                        player_id = data.get("player_id")
-                        session_id = data.get("session_id")
-
-                        if not player_id or not session_id:
-                            continue
-
-                        now = time.time()
-                        last_time = self.session_rate_limit.get(session_id, 0)
-                        if now - last_time < 0.05:
-                            continue
-
-                        self.session_rate_limit[session_id] = now
-
-                        # Enrich with inferred platform if missing or unknown (Prompt 4)
-                        if inferred_platform:
-                            if "player" not in data:
-                                data["player"] = {}
-                            if data["player"].get("platform") in [None, "", "unknown"]:
-                                data["player"]["platform"] = inferred_platform
-                            if data.get("platform") in [None, "", "unknown"]:
-                                data["platform"] = inferred_platform
-
-                        # Alerts and Real-time Broadcast
-                        p_data = data.get("player", {})
-                        fps = p_data.get("fps", 60)
-                        platform = (p_data.get("platform") or data.get("platform") or "").lower()
-                        is_test_telemetry = self._is_test_telemetry(data)
-                        if platform == "server" or is_test_telemetry:
-                            self.low_fps_timers.pop(player_id, None)
-                        elif fps < 15:
-                            if player_id not in self.low_fps_timers:
-                                self.low_fps_timers[player_id] = now
-                            elif now - self.low_fps_timers[player_id] > 5:
-                                # Throttle alerts: max 1 per 60s
-                                if now - self.last_alert_time.get(player_id, 0) > 60:
-                                    self.last_alert_time[player_id] = now
-                                    alert = {
-                                        "type": "alert",
-                                        "alertType": "low_fps",
-                                        "playerId": player_id,
-                                        "player_id": player_id,
-                                        "platform": platform,
-                                        "message": f"Low FPS detected: {fps} FPS",
-                                        "fps": fps,
-                                        "timestamp": now
-                                    }
-                                    for sub in self.event_subscribers:
-                                        try:
-                                            await sub.send_json(alert)
-                                        except Exception:
-                                            pass
-                                    asyncio.create_task(self.send_push_to_all(alert))
-                        else:
-                            self.low_fps_timers.pop(player_id, None)
-
-                        # Fusionar datos para manejar actualizaciones parciales (tiers) del cliente Godot
-                        if player_id in self.heartbeats:
-                            existing = self.heartbeats[player_id]
-                            existing.update(data)
-                            if "player" in data and isinstance(data["player"], dict):
-                                if "player" not in existing or not isinstance(existing["player"], dict):
-                                    existing["player"] = {}
-                                
-                                # Fusión inteligente: NO sobrescribir con valores vacíos o nulos
-                                curr_player = existing["player"]
-                                for key, value in data["player"].items():
-                                    if value is not None and value != "":
-                                        curr_player[key] = value
-                                        
-                                existing["player"] = curr_player
-                            self.heartbeats[player_id] = existing
-                        else:
-                            self.heartbeats[player_id] = data.copy()
-
-                        self.last_update[player_id] = now
-                        self.last_known_hb[player_id] = data.copy()
-                        self.metrics.record_heartbeat(session_id)
-
-                        if self.metrics.heartbeats_total % 100 == 0:
-                            logger.info(f"Heartbeat 100x: {player_id}")
-
-                        if STORE_GHOSTS:
-                            self._store_ghost(player_id, session_id, data)
-
-                        # Low FPS alerts (Prompt 9)
-                        player_data_fps = data.get("player", {}).get("fps", 60)
-                        player_data = data.get("player", {})
-                        platform = (player_data.get("platform") or data.get("platform") or "").lower()
-                        if platform == "server" or is_test_telemetry:
-                            self.low_fps_sessions.pop(session_id, None)
-                        elif player_data_fps < 15:
-                            if session_id not in self.low_fps_sessions:
-                                self.low_fps_sessions[session_id] = now
-                            elif now - self.low_fps_sessions[session_id] > 5:
-                                # Persistent low FPS alert
-                                alert = {
-                                    "type": "alert",
-                                    "alertType": "low_fps",
-                                    "playerId": player_id,
-                                    "player_id": player_id,
-                                    "session_id": session_id,
-                                    "platform": platform,
-                                    "message": "Low FPS detected (>5s)",
-                                    "fps": player_data_fps,
-                                    "timestamp": now
-                                }
-                                for sub in self.event_subscribers:
-                                    try:
-                                        asyncio.create_task(sub.send_json(alert))
-                                    except Exception: pass
-                                asyncio.create_task(self.send_push_to_all(alert))
-                        else:
-                            self.low_fps_sessions.pop(session_id, None)
-
-                        if self._is_visible_telemetry(data):
-                            for sub in self.event_subscribers:
-                                try:
-                                    await sub.send_json(data)
-                                except Exception:
-                                    pass
+                        await self._process_heartbeat(data, inferred_platform=inferred_platform)
 
                     elif msg_type == "command_response":
                         cmd_id = data.get("id")
@@ -1357,31 +1502,128 @@ class OdiseaCentral:
 
         return ws
 
-    async def _process_heartbeat(self, data):
-        pid = data.get("player_id")
-        sid = data.get("session_id")
-        if pid and sid:
-            now = time.time()
-            if now - self.session_rate_limit.get(sid, 0) < 0.05:
-                return
-            self.session_rate_limit[sid] = now
+    async def _process_heartbeat(self, data: dict, inferred_platform: str = ""):
+        player_id = data.get("player_id")
+        session_id = data.get("session_id")
 
-            self.heartbeats[pid] = data
-            self.last_update[pid] = now
-            self.metrics.record_heartbeat(sid)
+        if not player_id or not session_id:
+            return
 
-            if self.metrics.heartbeats_total % 100 == 0:
-                logger.info(f"Heartbeat 100x: {pid}")
+        now = time.time()
+        last_time = self.session_rate_limit.get(session_id, 0)
+        if now - last_time < 0.05:
+            return
 
-            if STORE_GHOSTS:
-                self._store_ghost(pid, sid, data)
+        self.session_rate_limit[session_id] = now
 
-            if self._is_visible_telemetry(data):
+        # Enrich with inferred platform if missing or unknown (Prompt 4)
+        if inferred_platform:
+            if "player" not in data:
+                data["player"] = {}
+            if data["player"].get("platform") in [None, "", "unknown"]:
+                data["player"]["platform"] = inferred_platform
+            if data.get("platform") in [None, "", "unknown"]:
+                data["platform"] = inferred_platform
+
+        # Alerts and Real-time Broadcast
+        p_data = data.get("player", {})
+        fps = p_data.get("fps", 60)
+        platform = (p_data.get("platform") or data.get("platform") or "").lower()
+        is_test_telemetry = self._is_test_telemetry(data)
+        
+        if platform == "server" or is_test_telemetry:
+            self.low_fps_timers.pop(player_id, None)
+            self.low_fps_sessions.pop(session_id, None)
+        elif fps < 15:
+            # Player-based alert
+            if player_id not in self.low_fps_timers:
+                self.low_fps_timers[player_id] = now
+            elif now - self.low_fps_timers[player_id] > 5:
+                # Throttle alerts: max 1 per 60s
+                if now - self.last_alert_time.get(player_id, 0) > 60:
+                    self.last_alert_time[player_id] = now
+                    alert = {
+                        "type": "alert",
+                        "alertType": "low_fps",
+                        "playerId": player_id,
+                        "player_id": player_id,
+                        "platform": platform,
+                        "message": f"Low FPS detected: {fps} FPS",
+                        "fps": fps,
+                        "timestamp": now
+                    }
+                    for sub in self.event_subscribers:
+                        try:
+                            await sub.send_json(alert)
+                        except Exception: pass
+                    asyncio.create_task(self.send_push_to_all(alert))
+                    self.milestone_checker.record_low_fps()
+
+            # Session-based alert (Prompt 9)
+            if session_id not in self.low_fps_sessions:
+                self.low_fps_sessions[session_id] = now
+            elif now - self.low_fps_sessions[session_id] > 5:
+                # Persistent low FPS alert
+                alert = {
+                    "type": "alert",
+                    "alertType": "low_fps",
+                    "playerId": player_id,
+                    "player_id": player_id,
+                    "session_id": session_id,
+                    "platform": platform,
+                    "message": "Low FPS detected (>5s)",
+                    "fps": fps,
+                    "timestamp": now
+                }
                 for sub in self.event_subscribers:
                     try:
-                        await sub.send_json(data)
-                    except Exception:
-                        pass
+                        asyncio.create_task(sub.send_json(alert))
+                    except Exception: pass
+                asyncio.create_task(self.send_push_to_all(alert))
+                self.milestone_checker.record_low_fps()
+        else:
+            self.low_fps_timers.pop(player_id, None)
+            self.low_fps_sessions.pop(session_id, None)
+
+        # Fusionar datos para manejar actualizaciones parciales (tiers) del cliente Godot
+        if player_id in self.heartbeats:
+            existing = self.heartbeats[player_id]
+            existing.update(data)
+            if "player" in data and isinstance(data["player"], dict):
+                if "player" not in existing or not isinstance(existing["player"], dict):
+                    existing["player"] = {}
+                
+                # Fusión inteligente: NO sobrescribir con valores vacíos o nulos
+                curr_player = existing["player"]
+                for key, value in data["player"].items():
+                    if value is not None and value != "":
+                        curr_player[key] = value
+                        
+                existing["player"] = curr_player
+            self.heartbeats[player_id] = existing
+        else:
+            self.heartbeats[player_id] = data.copy()
+
+        self.last_update[player_id] = now
+        self.last_known_hb[player_id] = data.copy()
+        self.metrics.record_heartbeat(session_id)
+        
+        # Milestone Detector
+        self.milestone_checker.record_heartbeat(data)
+        await self.milestone_checker.check_and_notify()
+
+        if self.metrics.heartbeats_total % 100 == 0:
+            logger.info(f"Heartbeat 100x: {player_id}")
+
+        if STORE_GHOSTS:
+            self._store_ghost(player_id, session_id, data)
+
+        if self._is_visible_telemetry(data):
+            for sub in self.event_subscribers:
+                try:
+                    await sub.send_json(data)
+                except Exception:
+                    pass
 
     async def handle_events_ws(self, request):
         # Allow token in query param for WebSockets as browser API doesn't support headers
@@ -1541,6 +1783,15 @@ class OdiseaCentral:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_session ON heartbeats(session_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_combined ON heartbeats(player_id, scene, timestamp);")
         
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS milestones (
+                milestone_id TEXT PRIMARY KEY,
+                title TEXT,
+                icon TEXT,
+                achieved_at REAL,
+                value REAL
+            );
+        """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS push_subscriptions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1705,6 +1956,8 @@ class OdiseaCentral:
             web.get('/hotzones/{id}/download', self.handle_hotzone_download),
             web.post('/command', self.handle_command),
             web.get('/health', self.handle_health),
+            web.get('/api/milestones', self.handle_milestones),
+            web.get('/api/milestones/achieved', self.handle_milestones_achieved),
             web.post('/telemetry', self.handle_web_telemetry),
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),
@@ -1733,6 +1986,7 @@ class OdiseaCentral:
         await site.start()
         logger.info(f"Odisea Central V2 running on port {CENTRAL_HTTP_PORT}")
 
+        await self.milestone_checker.load()
         cleanup_task = asyncio.create_task(self._cleanup_loop())
         db_worker_task = asyncio.create_task(self._db_worker())
         import_task = asyncio.create_task(self._import_task())
