@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, Tag } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
 import { getPlatform } from '../lib/filters';
 import { buildLabel } from '../lib/buildLabels';
 
-export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null }) => {
+export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, onEditTag }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null, onEditTag?: (playerId: string) => void }) => {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [sortKey, setSortKey] = useState<'date' | 'fps'>('date');
   // Ticks every second so live-session uptime counts up in real time.
@@ -108,11 +108,13 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
             const label = s.display_name || '';
             const location = [s.city, s.country_code || s.country].filter(Boolean).join(', ');
             return (
-              <button
+              <div
                 key={`${s.session_id || 'session'}-${idx}`}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelectSession(s)}
-                className={`flex w-full items-center gap-3 border-2 p-3 text-left shadow-[2px_2px_0px_0px_black] transition-colors sm:p-4 ${
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSession(s); } }}
+                className={`flex w-full cursor-pointer items-center gap-3 border-2 p-3 text-left shadow-[2px_2px_0px_0px_black] transition-colors sm:p-4 ${
                   isSelected ? 'border-accent bg-accent/10' : 'border-black bg-bg-card hover:bg-accent/5'
                 }`}
               >
@@ -178,8 +180,19 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
                 <span className={`shrink-0 border-2 px-2 py-1 text-[0.625rem] font-black ${tone.badge}`}>
                   {avgFps.toFixed(1)}
                 </span>
+                {onEditTag && s.player_id && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onEditTag(s.player_id); }}
+                    className="shrink-0 border-2 border-black bg-bg-card p-1 hover:bg-accent hover:text-black"
+                    title={label ? `Editar tag de ${label}` : 'Asignar tag'}
+                    aria-label="Editar tag del player"
+                  >
+                    <Tag size={14} />
+                  </button>
+                )}
                 <ChevronRight size={18} className="shrink-0 text-text-muted" />
-              </button>
+              </div>
             );
           })}
         </div>

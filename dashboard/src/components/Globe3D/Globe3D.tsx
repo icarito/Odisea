@@ -43,6 +43,14 @@ const STATUS_RANK: Record<GeoPlayer['status'], number> = {
   old: 0,
 };
 
+// ISO 3166-1 alpha-2 code -> flag emoji (regional indicator pair). Empty for
+// missing/invalid codes so the UI just shows the name.
+const countryFlag = (code?: string): string => {
+  const c = String(code || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(c)) return '';
+  return String.fromCodePoint(...[...c].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
+};
+
 const escapeHtml = (value: string) => (
   value.replace(/[&<>"']/g, (char) => ({
     '&': '&amp;',
@@ -92,14 +100,32 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [countries, setCountries] = useState<object[]>([]);
   const [selected, setSelected] = useState<GroupedPlayer | null>(null);
+  const [hovered, setHovered] = useState<GroupedPlayer | null>(null);
   const [camDistance, setCamDistance] = useState(600);
   // When on, the camera re-centers on the latest activity as it moves around.
   // On by default so a new player is framed automatically.
   const [followActivity, setFollowActivity] = useState(true);
+  const [showTopCountries, setShowTopCountries] = useState(false);
 
   const isMobile = size.width > 0 && size.width < 768;
 
   const points = useMemo(() => groupPlayers(players), [players]);
+
+  // Top countries by player presence, aggregated across all geo points. Counts
+  // distinct points (locations) and players per country.
+  const topCountries = useMemo(() => {
+    const byCountry = new Map<string, { code: string; country: string; count: number }>();
+    for (const p of players) {
+      const code = String(p.country_code || '').toUpperCase();
+      const country = String(p.country || '').trim();
+      if ((!code && !country) || country.toLowerCase() === 'unknown') continue;
+      const key = code || country;
+      const cur = byCountry.get(key) || { code, country: country || code, count: 0 };
+      cur.count += Number(p.player_count || 1) || 1;
+      byCountry.set(key, cur);
+    }
+    return [...byCountry.values()].sort((a, b) => b.count - a.count).slice(0, 8);
+  }, [players]);
 
   // Most "recent" group: prefer live (connected) over recent over old; break
   // ties by how many players sit there. Used to center the camera on landing.
@@ -267,10 +293,12 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
           pointColor={(d) => (d as GroupedPlayer).color || STATUS_COLOR[(d as GroupedPlayer).status]}
           pointAltitude={(d) => 0.01 + Math.min((d as GroupedPlayer).count * 0.01, 0.12)}
           pointRadius={(d) => {
-            // Shrink markers as the camera gets closer so dense clusters separate
-            // and don't smother the map at street-level zoom.
-            const shrink = 1 - zoomFactor * 0.6;
-            return ((isMobile ? 0.45 : 0.28) + Math.min((d as GroupedPlayer).count * 0.05, 0.5)) * shrink;
+            // Shrink markers hard as the camera gets closer so dense clusters
+            // separate and stay distinguishable at street-level zoom (down to
+            // ~15% of the far-view size).
+            const shrink = 1 - zoomFactor * 0.85;
+            const base = (isMobile ? 0.42 : 0.26) + Math.min((d as GroupedPlayer).count * 0.04, 0.4) * (1 - zoomFactor * 0.7);
+            return base * shrink;
           }}
           pointsMerge={false}
           pointLabel={(d) => {
@@ -285,7 +313,28 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
             return `<div style="background:rgba(0,0,0,.8);border:1px solid #3fb950;padding:6px 8px;border-radius:4px;font-size:11px;white-space:nowrap"><b>${escapeHtml(p.city)}, ${escapeHtml(p.country)}</b><br/>${p.count} punto${p.count !== 1 ? 's' : ''}${names}${detail}${historical}</div>`;
           }}
           onPointClick={handlePointClick}
+          onPointHover={(d) => setHovered((d as GroupedPlayer) || null)}
         />
+      )}
+
+      {/* Hover overlay (desktop): a compact card for the point under the cursor,
+          shown only when nothing is click-selected. Touch devices use click. */}
+      {hovered && !selected && (
+        <div className="pointer-events-none absolute top-3 left-3 z-20 w-56 max-w-[70vw] border-2 border-black bg-[#0d1117]/95 p-2.5 shadow-[2px_2px_0px_0px_black]">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hovered.color || STATUS_COLOR[hovered.status] }} />
+            <span className="font-bold text-xs truncate">{hovered.city}, {hovered.country}</span>
+          </div>
+          {hovered.names.length > 0 && (
+            <div className="text-[0.5625rem] text-accent truncate mt-0.5">
+              {hovered.names.slice(0, 4).join(', ')}{hovered.names.length > 4 ? ` +${hovered.names.length - 4}` : ''}
+            </div>
+          )}
+          <div className="text-[0.5625rem] text-text-muted mt-0.5">
+            {(hovered.player_count || hovered.count)} jugador{(hovered.player_count || hovered.count) !== 1 ? 'es' : ''} · {STATUS_LABEL[hovered.status]}
+            {hovered.historical ? ` · ${hovered.hits} hits` : ''}
+          </div>
+        </div>
       )}
 
       {/* Follow-activity toggle — re-centers the camera on the latest players. */}
@@ -301,6 +350,44 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
       >
         Follow
       </button>
+
+      {/* Top-countries toggle + panel, bottom-left. */}
+      <button
+        type="button"
+        onClick={() => setShowTopCountries((v) => !v)}
+        className={`absolute bottom-3 left-3 z-20 border-2 px-2.5 py-1 text-[0.625rem] font-black uppercase tracking-wide shadow-[2px_2px_0px_0px_black] transition-colors ${
+          showTopCountries
+            ? 'border-accent bg-accent text-black'
+            : 'border-black bg-bg-card/90 text-text-muted hover:text-text-primary'
+        }`}
+        title="Top de países"
+      >
+        Top países
+      </button>
+
+      {showTopCountries && (
+        <div className="absolute bottom-12 left-3 z-20 w-52 max-w-[70vw] border-2 border-black bg-[#0d1117]/95 shadow-[2px_2px_0px_0px_black]">
+          <div className="border-b-2 border-black px-3 py-1.5 text-[0.625rem] font-black uppercase tracking-widest text-text-muted">
+            Top países
+          </div>
+          {topCountries.length === 0 ? (
+            <div className="px-3 py-3 text-center text-[0.625rem] text-text-muted">Sin datos de geo.</div>
+          ) : (
+            <ul className="max-h-56 overflow-y-auto">
+              {topCountries.map((c, i) => (
+                <li key={c.code || c.country} className="flex items-center justify-between gap-2 border-b border-black/40 px-3 py-1.5 last:border-b-0">
+                  <span className="flex min-w-0 items-center gap-2 text-xs">
+                    <span className="w-4 text-right text-[0.625rem] font-black text-text-muted">{i + 1}</span>
+                    <span className="shrink-0">{countryFlag(c.code)}</span>
+                    <span className="truncate font-bold">{c.country}</span>
+                  </span>
+                  <span className="shrink-0 text-[0.625rem] font-black text-accent">{c.count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Info overlay shown when a point is clicked (desktop + mobile). */}
       {selected && (

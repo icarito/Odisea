@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
+import { toast } from 'react-hot-toast'
 import App from './App.tsx'
 import './index.css'
 
@@ -47,14 +48,16 @@ if (isPWA) {
 
 // Register the service worker and auto-reload when a new version takes over.
 // With registerType 'autoUpdate' the new SW skips waiting and claims clients;
-// `controllerchange` then fires once, and we reload to pick up the new assets.
-// The `refreshing` guard prevents a reload loop.
+// `controllerchange` then fires once. We toast first, then reload shortly after
+// so the user sees why the page refreshed. The `refreshing` guard prevents a
+// reload loop.
 if ('serviceWorker' in navigator) {
   let refreshing = false
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return
     refreshing = true
-    window.location.reload()
+    toast.success('Nueva versión del dashboard · actualizando…', { icon: '✨', duration: 2000 })
+    setTimeout(() => window.location.reload(), 1500)
   })
 }
 

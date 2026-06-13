@@ -12,7 +12,7 @@ export const GlobeView: React.FC<GlobeViewProps> = ({ players, onSelectPlayer })
     <div className="h-full w-full bg-[#0d1117] flex flex-col p-4">
       <div className="mb-4 flex items-center justify-between shrink-0">
         <div>
-          <h2 className="text-xl font-black italic text-accent uppercase tracking-tighter">Globe Heatmap 3D</h2>
+          <h2 className="text-xl font-black italic text-accent uppercase tracking-tighter">Mapa Global 3D</h2>
           <p className="text-[0.625rem] text-text-muted uppercase">Distribución geográfica de jugadores</p>
         </div>
         <div className="flex gap-4 text-[0.625rem] font-bold uppercase">

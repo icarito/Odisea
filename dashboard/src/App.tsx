@@ -3,6 +3,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import {
   Bar,
   BarChart,
+  Brush,
   CartesianGrid,
   Line,
   LineChart,
@@ -120,12 +121,16 @@ const SessionsPerDayChart = ({ sessions }: { sessions: any[] }) => {
 
   return (
     <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-      <BarChart data={sessionsByDay}>
+      <BarChart data={sessionsByDay} margin={{ bottom: sessionsByDay.length > 10 ? 4 : 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
         <XAxis dataKey="date" stroke="#666" fontSize={10} tickFormatter={(v) => String(v).slice(5)} />
         <YAxis stroke="#666" fontSize={10} allowDecimals={false} />
         <Tooltip content={tooltip} />
         <Bar dataKey="count" fill="#7fd1ff" isAnimationActive={false} />
+        {sessionsByDay.length > 10 && (
+          <Brush dataKey="date" height={16} stroke="#7fd1ff" travellerWidth={8} fill="#0d1117"
+            tickFormatter={(v) => String(v).slice(5)} />
+        )}
       </BarChart>
     </ResponsiveContainer>
   );
@@ -234,6 +239,10 @@ const HistoryOverview = ({ sessions }: { sessions: any[] }) => {
                   <YAxis stroke="#666" fontSize={10} width={28} />
                   <Tooltip content={fpsTooltip} />
                   <Line type="monotone" dataKey="avg_fps" stroke="#7fd1ff" dot={{ r: 3 }} strokeWidth={2} isAnimationActive={false} />
+                  {fpsSeries.length > 8 && (
+                    <Brush dataKey="timestamp" height={16} stroke="#7fd1ff" travellerWidth={8} fill="#0d1117"
+                      tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -383,6 +392,10 @@ const CommitsFpsChart = ({ sessions, commits }: { sessions: any[]; commits: GitC
             );
           })}
           <Line type="monotone" dataKey="avg_fps" stroke="#7fd1ff" dot={{ r: 3 }} strokeWidth={2} isAnimationActive={false} />
+          {fpsSeries.length > 8 && (
+            <Brush dataKey="timestamp" height={16} stroke="#7fd1ff" travellerWidth={8} fill="#0d1117"
+              tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
+          )}
         </LineChart>
       </ResponsiveContainer>
 
@@ -642,6 +655,38 @@ const SceneIndex = ({
           </button>
         );
       })}
+    </div>
+  );
+};
+
+// Shown in the Live view while we wait for the first heartbeat: instead of a
+// dead "no player" line, rotate through aggregate stats so the screen feels
+// alive during the (sometimes slow) wait for live telemetry.
+const LiveWaitTicker = ({ items }: { items: { label: string; value: string }[] }) => {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (items.length <= 1) return;
+    const id = setInterval(() => setIdx((i) => (i + 1) % items.length), 2500);
+    return () => clearInterval(id);
+  }, [items.length]);
+  const safe = items.length ? items[idx % items.length] : null;
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="flex items-center gap-2 text-[0.625rem] font-black uppercase tracking-widest text-text-muted">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-warning" />
+        Esperando telemetría en vivo…
+      </div>
+      {safe && (
+        <div key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="text-4xl font-black tracking-tighter text-accent">{safe.value}</div>
+          <div className="mt-1 text-[0.625rem] font-black uppercase tracking-widest text-text-muted">{safe.label}</div>
+        </div>
+      )}
+      <div className="flex gap-1">
+        {items.map((_, i) => (
+          <span key={i} className={`h-1 w-4 ${i === idx % items.length ? 'bg-accent' : 'bg-text-muted/30'}`} />
+        ))}
+      </div>
     </div>
   );
 };
@@ -912,6 +957,29 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       .catch(() => setCommits([]));
   }, []);
 
+  // Announce a freshly published nightly: watch latest_published.git_commit from
+  // /health and toast once when it changes, with the commit message looked up in
+  // the GitHub commit list. The first observed value is recorded silently (no
+  // toast on initial load).
+  const lastPublishedCommit = useRef<string | null>(null);
+  useEffect(() => {
+    const published = health?.latest_published;
+    const sha: string | undefined = published?.git_commit;
+    if (!sha) return;
+    if (lastPublishedCommit.current === null) {
+      lastPublishedCommit.current = sha; // seed silently on first load
+      return;
+    }
+    if (lastPublishedCommit.current === sha) return;
+    lastPublishedCommit.current = sha;
+    const channel = String(published?.build_channel || 'build');
+    const msg = commits.find((c) => c.sha.startsWith(sha) || sha.startsWith(c.sha))?.message?.split('\n')[0];
+    toast.success(
+      `Nuevo ${channel} publicado · ${sha.slice(0, 7)}${msg ? `\n${msg}` : ''}`,
+      { duration: 8000, icon: '🚀' },
+    );
+  }, [health?.latest_published?.git_commit, commits]);
+
   // Normalizes a heartbeat to the flat shape the playback charts use.
   // /api/ghosts returns flat SQLite rows (hb.fps, hb.pos_x, ...), while the
   // runtime/JSONL format nests them under hb.player. Support both.
@@ -1048,10 +1116,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // player_id -> geo, joined from geoPlayers. Used both to enrich session rows
   // for display and to resolve a session's country for the country filter.
   const geoByPlayer = useMemo(() => {
-    const map: Record<string, { city?: string; country?: string; country_code?: string }> = {};
+    const map: Record<string, { city?: string; country?: string; country_code?: string; display_name?: string; color?: string }> = {};
     for (const g of geoPlayers) {
       if (g.player_id && !map[g.player_id]) {
-        map[g.player_id] = { city: g.city, country: g.country, country_code: g.country_code };
+        map[g.player_id] = {
+          city: g.city, country: g.country, country_code: g.country_code,
+          display_name: g.display_name, color: g.color,
+        };
       }
     }
     return map;
@@ -1209,17 +1280,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   ), [focusPlayerId, geoPlayers]);
   // player_id -> {city, country} so player lists can show location instead of
   // the raw id. Geo data only lives on geoPlayers, not on the heartbeat.
-  // History sessions enriched with geo (city/country) joined by player_id, so the
-  // session list can show location. Only fills fields the row doesn't already have.
+  // History sessions enriched with geo (city/country) and tags (display_name,
+  // color) joined by player_id, so the session list shows location + the player's
+  // tag — and re-renders the moment a tag is saved (loadGeoPlayers refreshes the
+  // source). Only fills fields the row doesn't already carry.
   const historySessionsWithGeo = useMemo(() => (
     filteredHistoricalSessions.map((s) => {
       const geo = s.player_id ? geoByPlayer[s.player_id] : undefined;
-      if (!geo || (s.city && s.country)) return s;
+      if (!geo) return s;
       return {
         ...s,
         city: s.city || geo.city,
         country: s.country || geo.country,
         country_code: s.country_code || geo.country_code,
+        display_name: s.display_name || geo.display_name,
+        color: s.color || geo.color,
       };
     })
   ), [filteredHistoricalSessions, geoByPlayer]);
@@ -1355,6 +1430,20 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     >
       <Toaster position="bottom-right" />
 
+      {/* Global tag editor — lets you tag a player from any tab (e.g. History).
+          The mapa tab renders its own inline instance, so skip it there to avoid
+          a duplicate. onSaved refreshes geoPlayers, which flows into the history
+          rows' display_name/color immediately. */}
+      {showTagEditor && focusPlayerId && activeTab !== 'mapa' && (
+        <div className="fixed right-4 top-16 z-[8000] w-80 max-w-[90vw]">
+          <PlayerTagEditor
+            playerId={focusPlayerId}
+            onSaved={loadGeoPlayers}
+            onClose={() => { setShowTagEditor(false); setFocusPlayerId(null); }}
+          />
+        </div>
+      )}
+
       <FiltersDrawer
         open={showFilters}
         onClose={() => setShowFilters(false)}
@@ -1457,9 +1546,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 </div>
               </div>
             ) : !activeHb ? (
-              <div className="flex h-full items-center justify-center p-6 text-center text-sm italic text-text-muted">
-                No active player. Open Dashboard or adjust filters.
-              </div>
+              <LiveWaitTicker items={[
+                { label: 'Sesiones totales', value: String(heatmapSummary.totalSessions) },
+                { label: 'Tiempo jugado', value: formatPlayTime(heatmapSummary.totalPlaySeconds) },
+                { label: 'FPS promedio', value: heatmapSummary.avgFps.toFixed(1) },
+                { label: 'Escenas', value: String(heatmapSummary.sceneCount) },
+                ...(heatmapSummary.topScenes[0] ? [{ label: 'Escena más jugada', value: heatmapSummary.topScenes[0].scene }] : []),
+                ...(availableCountries[0] ? [{ label: 'País más activo', value: availableCountries[0].label }] : []),
+                ...(Number(serverStats?.unique_players_total) > 0 ? [{ label: 'Players únicos', value: String(serverStats?.unique_players_total) }] : []),
+              ]} />
             ) : liveView === '3d' ? (
               <div className="flex h-full min-h-0 flex-col">
                 {/* 3D-only control bar */}
@@ -1761,6 +1856,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   sessions={historySessionsWithGeo}
                   onSelectSession={handleSelectHistorySession}
                   selectedSessionId={selectedSession?.session_id}
+                  onEditTag={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
                 />
               </div>
             </RetroCard>
