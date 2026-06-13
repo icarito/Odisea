@@ -24,6 +24,9 @@ import { PlayerBottomSheet } from './components/PlayerBottomSheet';
 import { FiltersDrawer, FiltersSidebar } from './components/FiltersDrawer';
 import { LiveCombinedChart } from './components/LiveCombinedChart';
 import { RetroCard, RetroButton } from './components/retro';
+import { GlobeView } from './components/GlobeView';
+import { PlayerFocus } from './components/PlayerFocus';
+import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
@@ -38,7 +41,7 @@ import {
 } from './lib/filters';
 import { Maximize2, X, SlidersHorizontal, ChevronUp, ChevronDown, RotateCcw, WifiOff } from 'lucide-react';
 
-type Tab = 'live' | 'heatmap' | 'history';
+type Tab = 'live' | 'heatmap' | 'history' | 'mapa';
 
 type GitCommit = {
   sha: string;
@@ -515,6 +518,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [heatmapData, setHeatmapData] = useState<any[] | undefined>();
   const [showLiveGhosts, setShowLiveGhosts] = useState(true);
 
+  // Notification deep-link: focus on a specific player from URL params
+  const [focusPlayerId, setFocusPlayerId] = useState<string | null>(null);
+  const [showTagEditor, setShowTagEditor] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Read query params on mount for deep-link
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get('player');
+    if (pid) setFocusPlayerId(pid);
+  }, []);
+
   // Live tab view toggle: dashboard, 2D birdseye map, or 3D perspective.
   const [liveView, setLiveView] = useState<'dashboard' | 'birdseye' | '3d'>('birdseye');
   // CSS overlay fullscreen for the 3D canvas (NOT the browser Fullscreen API,
@@ -968,6 +983,22 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       playerCount={pids.length}
       playerCountLabel={playerCountLabel}
       onPlayersClick={() => setShowPlayerSheet(true)}
+      showSettings={showSettings}
+      onToggleSettings={() => setShowSettings(!showSettings)}
+      settingsPanel={
+        <div>
+          <NotificationSettings />
+        </div>
+      }
+      playerFocus={
+        focusPlayerId ? (
+          <PlayerFocus
+            playerId={focusPlayerId}
+            onClear={() => { setFocusPlayerId(null); setShowTagEditor(false); }}
+            onTagClick={() => setShowTagEditor(!showTagEditor)}
+          />
+        ) : undefined
+      }
       headerControls={
         <div className="flex shrink-0 items-center gap-1.5">
           <button
@@ -1115,7 +1146,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 {/* Bottom stripe: info cards (historical summary) */}
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <div className="p-4 sm:p-6 pb-0">
-                    <NotificationSettings />
                   </div>
                   <HomeStats sessions={filteredDashboardSessions} serverStats={serverStats} />
                 </div>
@@ -1224,6 +1254,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'mapa' && (
+        <div className="flex h-full flex-col">
+          {focusPlayerId && showTagEditor && <PlayerTagEditor />}
+          <GlobeView players={[]} />
         </div>
       )}
 

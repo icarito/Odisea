@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Map, Clock, Users, LogOut } from 'lucide-react';
+import { Activity, Map, Clock, Users, LogOut, Globe, Settings } from 'lucide-react';
 import { RetroTabs } from './retro';
 
 interface DashboardLayoutProps {
@@ -12,6 +12,10 @@ interface DashboardLayoutProps {
   playerCountLabel?: string;
   onPlayersClick: () => void;
   headerControls?: React.ReactNode;
+  settingsPanel?: React.ReactNode;
+  playerFocus?: React.ReactNode;
+  showSettings?: boolean;
+  onToggleSettings?: () => void;
   // Optional second-level bar rendered just above the bottom nav (e.g. the
   // Live-tab view switcher). Hidden when not provided.
   secondaryNav?: React.ReactNode;
@@ -29,10 +33,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   playerCountLabel,
   onPlayersClick,
   headerControls,
+  settingsPanel,
+  playerFocus,
+  showSettings,
+  onToggleSettings,
   secondaryNav,
 }) => {
   const tabs = [
     { id: 'live', label: 'Live', icon: <Activity size={24} /> },
+    { id: 'mapa', label: 'Globe', icon: <Globe size={24} /> },
     { id: 'heatmap', label: 'Heatmap', icon: <Map size={24} /> },
     { id: 'history', label: 'History', icon: <Clock size={24} /> },
   ];
@@ -57,6 +66,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
           {/* Player count -> opens the bottom sheet */}
           <button
+            onClick={onToggleSettings}
+            className="p-1.5 border-2 border-black bg-bg-primary hover:bg-accent hover:text-black transition-colors"
+            title="Settings"
+          >
+            <Settings size={14} />
+          </button>
+
+          <button
             onClick={onPlayersClick}
             className="flex items-center gap-1.5 px-2 py-1 border-2 border-black bg-bg-primary text-[0.625rem] font-bold uppercase hover:bg-accent hover:text-black transition-colors"
           >
@@ -76,6 +93,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       {/* Scrollable content */}
       <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        {playerFocus && (
+          <div className="sticky top-0 z-20 bg-bg-card border-b-2 border-black px-3 py-1.5">
+            {playerFocus}
+          </div>
+        )}
+        {showSettings && settingsPanel && (
+          <div className="sticky top-0 z-20 bg-bg-card border-b-2 border-black px-3 py-3">
+            {settingsPanel}
+          </div>
+        )}
         {children}
       </main>
 
