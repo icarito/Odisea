@@ -10,6 +10,9 @@ export interface PlayerState {
   tick: number;
   fps: number;
   memory_mb: number;
+  // False when the game window is backgrounded; telemetry is throttled and
+  // FPS/perf alerts are suppressed for these samples.
+  focused?: boolean;
   perf?: {
     dc: number;
     obj: number;

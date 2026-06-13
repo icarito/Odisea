@@ -23,7 +23,7 @@ export function useWebSocket() {
     const connect = () => {
       if (disposed) return;
 
-      const token = sessionStorage.getItem("odisea_token");
+      const token = localStorage.getItem("odisea_token");
       if (!token) return;
 
       // In central-dev mode, connect directly to the remote WSS endpoint instead

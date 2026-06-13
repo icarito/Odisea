@@ -126,12 +126,14 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
     if (centeredRef.current && !followActivity) return;
     const firstCenter = !centeredRef.current;
     centeredRef.current = true;
-    // Follow zooms in closer to frame the activity; the initial one-shot center
-    // (follow off) keeps a wider establishing view.
-    const altitude = followActivity ? 0.9 : (firstCenter ? 2.2 : 0.9);
+    // First center frames the activity at a fixed altitude; subsequent follow
+    // re-centers preserve whatever zoom the user has dialed in (only lat/lng move),
+    // so the user stays in control of zoom even while following.
+    const current = g.pointOfView();
+    const altitude = firstCenter ? (followActivity ? 0.9 : 2.2) : (current?.altitude ?? 0.9);
     g.pointOfView(
       { lat: latestGroup.latitude, lng: latestGroup.longitude, altitude },
-      1200,
+      1000,
     );
   }, [latestGroup, size.width, followActivity]);
 
@@ -202,8 +204,12 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
     };
     controls.addEventListener('change', onChange);
     onChange();
+    // 'start' fires on a rotate/pan drag (pointer down), but NOT on wheel/pinch
+    // zoom — so dragging the globe drops follow and stops auto-rotation, while
+    // zooming keeps follow active.
     const stop = () => {
       controls.autoRotate = false;
+      setFollowActivity(false);
     };
     controls.addEventListener('start', stop);
     return () => {
@@ -221,19 +227,19 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
 
   const handlePointClick = (obj: object) => {
     const p = obj as GroupedPlayer;
-    if (isMobile) {
-      if (selected?.key === p.key) {
-        if (p.player_id) onSelectPlayer?.(p.player_id);
-      } else {
-        setSelected(p);
-        globeRef.current?.pointOfView(
-          { lat: p.latitude, lng: p.longitude, altitude: 1.5 },
-          800,
-        );
-      }
-    } else if (p.player_id) {
-      onSelectPlayer?.(p.player_id);
+    // Clicking a point shows the info overlay and frames it; clicking again (or
+    // the overlay's "Ver" button) drills into the player. Same flow on desktop
+    // and mobile. Clicking a point drops follow so the camera stays put.
+    if (selected?.key === p.key) {
+      if (p.player_id) onSelectPlayer?.(p.player_id);
+      return;
     }
+    setFollowActivity(false);
+    setSelected(p);
+    globeRef.current?.pointOfView(
+      { lat: p.latitude, lng: p.longitude, altitude: 1.2 },
+      800,
+    );
   };
 
   return (
@@ -296,23 +302,28 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
         Follow
       </button>
 
-      {/* Mobile info overlay — first tap selects, second navigates */}
+      {/* Info overlay shown when a point is clicked (desktop + mobile). */}
       {selected && (
-        <div className="absolute bottom-4 left-4 right-4 bg-[#0d1117]/95 border border-accent rounded-lg p-3 flex items-center justify-between gap-3 shadow-lg">
+        <div className="absolute bottom-4 left-4 right-4 z-20 mx-auto max-w-md bg-[#0d1117]/95 border border-accent rounded-lg p-3 flex items-center justify-between gap-3 shadow-lg">
           <div className="min-w-0">
-            <div className="font-bold text-sm truncate">
-              {selected.city}, {selected.country}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: selected.color || STATUS_COLOR[selected.status] }} />
+              <span className="font-bold text-sm truncate">{selected.city}, {selected.country}</span>
             </div>
+            {selected.names.length > 0 && (
+              <div className="text-[0.625rem] text-accent truncate mt-0.5">
+                {selected.names.slice(0, 4).join(', ')}{selected.names.length > 4 ? ` +${selected.names.length - 4}` : ''}
+              </div>
+            )}
             <div className="text-[0.625rem] text-text-muted mt-0.5">
-              {selected.count} jugador{selected.count !== 1 ? 'es' : ''} · toca de nuevo para ver
+              {(selected.player_count || selected.count)} jugador{(selected.player_count || selected.count) !== 1 ? 'es' : ''} · {STATUS_LABEL[selected.status]}
+              {selected.historical ? ` · ${selected.hits} hits` : ''}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {selected.player_id && (
+            {selected.player_id && !selected.historical && (
               <button
-                onClick={() => {
-                  onSelectPlayer?.(selected.player_id);
-                }}
+                onClick={() => onSelectPlayer?.(selected.player_id)}
                 className="text-xs bg-accent/20 border border-accent/40 text-accent px-3 py-1.5 rounded font-bold"
               >
                 Ver

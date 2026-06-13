@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
-const getAuthToken = () => sessionStorage.getItem("odisea_token");
+const getAuthToken = () => localStorage.getItem("odisea_token");
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   const token = getAuthToken();
@@ -13,7 +13,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   const response = await fetch(url, { ...options, headers });
 
   if (response.status === 401) {
-    sessionStorage.removeItem("odisea_token");
+    localStorage.removeItem("odisea_token");
     window.location.reload();
     throw new Error("Unauthorized");
   }

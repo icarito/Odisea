@@ -69,6 +69,12 @@ WARMUP_SECONDS = int(os.environ.get("CENTRAL_WARMUP_SECONDS", 13))
 # SQL fragment: exclude the headless server peer (case-insensitive).
 _NOT_SERVER = "LOWER(COALESCE(platform,'')) != 'server'"
 
+# SQL fragment: keep only focused (foreground) samples for FPS/perf aggregation.
+# A backgrounded game throttles itself and drops FPS, which would otherwise skew
+# avg_fps / low_fps stats and paint fake heatmap hotspots. Rows predating the
+# `focused` column default to 1, so historical data is unaffected.
+_FOCUSED_ONLY = "COALESCE(focused, 1) = 1"
+
 # SQL fragment: exclude automated test telemetry by default. Test runners do
 # not consistently report platform=server, so use the persisted identifiers and
 # scene metadata that survives JSONL imports into SQLite.
@@ -235,8 +241,8 @@ class MilestoneDetector:
                     max_c = max(max_c, cur_c)
                 self.max_concurrent = max_c
                 
-                # Last low FPS
-                cursor.execute(f"SELECT MAX(timestamp) FROM heartbeats WHERE fps < 15 AND {visible_sql}")
+                # Last low FPS (focused samples only — backgrounded games drop FPS legitimately)
+                cursor.execute(f"SELECT MAX(timestamp) FROM heartbeats WHERE fps < 15 AND {_FOCUSED_ONLY} AND {visible_sql}")
                 row = cursor.fetchone()
                 if row and row[0]:
                     self.last_low_fps_at = row[0]
@@ -975,9 +981,9 @@ class OdiseaCentral:
             MIN(fps) as min_fps,
             AVG(memory_mb) as avg_mem
         FROM heartbeats
-        WHERE scene = ? AND {visible} AND {past_warmup}
+        WHERE scene = ? AND {visible} AND {past_warmup} AND {focused}
         GROUP BY grid_x, grid_z
-        """.format(visible=self._visibility_sql(include_server, include_tests), past_warmup=_PAST_WARMUP)
+        """.format(visible=self._visibility_sql(include_server, include_tests), past_warmup=_PAST_WARMUP, focused=_FOCUSED_ONLY)
         params = (res, res, res, res, low_fps_threshold, scene)
 
         try:
@@ -1146,8 +1152,11 @@ class OdiseaCentral:
             MAX(timestamp) as end_time,
             MAX(timestamp) - MIN(timestamp) as duration,
             GROUP_CONCAT(DISTINCT scene) as scenes_visited,
-            AVG(fps) as avg_fps,
-            SUM(CASE WHEN fps < 30 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as low_fps_pct,
+            -- FPS stats only over focused samples so a backgrounded stretch
+            -- doesn't drag the session's avg_fps down or inflate low_fps_pct.
+            AVG(CASE WHEN COALESCE(focused, 1) = 1 THEN fps END) as avg_fps,
+            SUM(CASE WHEN COALESCE(focused, 1) = 1 AND fps < 30 THEN 1 ELSE 0 END) * 100.0
+                / NULLIF(SUM(CASE WHEN COALESCE(focused, 1) = 1 THEN 1 ELSE 0 END), 0) as low_fps_pct,
             AVG(memory_mb) as avg_mem,
             COALESCE(NULLIF(MAX(game_version), ''), 'unknown') as game_version,
             COALESCE(NULLIF(MAX(git_commit), ''), '') as git_commit,
@@ -1172,10 +1181,47 @@ class OdiseaCentral:
                 return rows
 
             rows = await self._run_query(fetch)
+            geo = await self._run_query(self._geo_by_player_id)
+            for r in rows:
+                loc = geo.get(r.get("player_id"))
+                if loc:
+                    r["city"] = loc.get("city")
+                    r["country"] = loc.get("country")
+                    r["country_code"] = loc.get("country_code")
             return web.json_response(rows)
         except Exception as e:
             logger.warning(f"{request.path}: query failed, returning [] ({e})")
             return web.json_response([])
+
+    def _geo_by_player_id(self) -> dict:
+        """Map player_id -> {city, country, country_code} from the geo DB so the
+        session list can show where each player connected from. Best-effort: a
+        missing geo DB or column just yields no location, never an error."""
+        if not os.path.exists(GEO_SQLITE_DB):
+            return {}
+        conn = sqlite3.connect(GEO_SQLITE_DB)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.cursor()
+            # Most recent geo row per linked player wins.
+            cursor.execute("""
+                SELECT player_id, city, country, country_code
+                FROM geo_ips
+                WHERE COALESCE(player_id, '') != ''
+                ORDER BY last_seen ASC
+            """)
+            out = {}
+            for row in cursor.fetchall():
+                out[row["player_id"]] = {
+                    "city": row["city"] or None,
+                    "country": row["country"] or None,
+                    "country_code": row["country_code"] or None,
+                }
+            return out
+        except sqlite3.OperationalError:
+            return {}
+        finally:
+            conn.close()
 
     async def handle_milestones(self, request):
         guard = self._auth_guard(request)
@@ -1420,9 +1466,6 @@ class OdiseaCentral:
             for row in cursor.fetchall():
                 scenes = [s.strip() for s in (row["scenes_visited"] or "").split(",")]
                 if not any(self._is_useful_session_scene(scene) for scene in scenes):
-                    continue
-                avg_fps = float(row["avg_fps"] or 0)
-                if avg_fps > 65:
                     continue
                 candidates.append(dict(row))
             return candidates
@@ -2260,6 +2303,7 @@ class OdiseaCentral:
                 official_build INTEGER,
                 intake_mode TEXT,
                 peer_id TEXT,
+                focused INTEGER DEFAULT 1,
                 UNIQUE(player_id, session_id, timestamp)
             );
         """)
@@ -2271,6 +2315,7 @@ class OdiseaCentral:
             ("official_host", "TEXT"),
             ("official_build", "INTEGER"),
             ("intake_mode", "TEXT"),
+            ("focused", "INTEGER DEFAULT 1"),
         ):
             try:
                 cursor.execute(f"ALTER TABLE heartbeats ADD COLUMN {column} {coltype};")
@@ -2333,8 +2378,8 @@ class OdiseaCentral:
                             fps, memory_mb, pos_x, pos_y, pos_z,
                             engine_version, game_version, git_commit, build_id,
                             build_channel, official_host, official_build,
-                            intake_mode, peer_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            intake_mode, peer_id, focused
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         data.get("player_id"),
                         data.get("session_id"),
@@ -2352,7 +2397,8 @@ class OdiseaCentral:
                         data.get("official_host"),
                         1 if data.get("official_build") else 0,
                         data.get("intake_mode", "telemetry"),
-                        data.get("peer_id")
+                        data.get("peer_id"),
+                        0 if player_data.get("focused", True) is False else 1
                     ))
 
                 conn.commit()

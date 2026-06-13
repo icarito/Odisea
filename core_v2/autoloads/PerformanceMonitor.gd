@@ -397,7 +397,7 @@ func _report_lag_spike(fps, prev_fps, process_t, physics_t, draw_c, objects_in_f
 		"node_count": node_c,
 		"scene": _get_current_scene_path(),
 		"player_position": _get_player_position(),
-		"memory_mb": Performance.get_monitor(Performance.MEMORY_STATIC) * 0.000001,
+		"memory_mb": _get_memory_mb(),
 		"heavy_nodes": _get_top_heavy_nodes()
 	}
 
@@ -450,6 +450,17 @@ func _get_player_position() -> Array:
 		var pos = (players[0] as Spatial).global_transform.origin
 		return [pos.x, pos.y, pos.z]
 	return [0.0, 0.0, 0.0]
+
+func _get_memory_mb() -> float:
+	var mem_static: float = Performance.get_monitor(Performance.MEMORY_STATIC) * 0.000001
+	if mem_static > 0.0:
+		return mem_static
+	var sm: Node = get_node_or_null("/root/SessionManager")
+	if sm and sm.has_method("read_process_memory_mb"):
+		var os_mem: float = sm.read_process_memory_mb()
+		if os_mem >= 0.0:
+			return os_mem
+	return 0.0
 
 func _save_report(data: Dictionary):
 	var file = File.new()

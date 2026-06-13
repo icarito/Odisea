@@ -73,6 +73,9 @@ deploy-dashboard:
 		'    try: conn.execute("ALTER TABLE heartbeats ADD COLUMN %s TEXT" % c)' \
 		'    except sqlite3.OperationalError as e:' \
 		'        if "duplicate column name" not in str(e).lower(): raise' \
+		'try: conn.execute("ALTER TABLE heartbeats ADD COLUMN focused INTEGER DEFAULT 1")' \
+		'except sqlite3.OperationalError as e:' \
+		'    if "duplicate column name" not in str(e).lower(): raise' \
 		'conn.commit()' \
 		'conn.close()' \
 		'print("Migración central OK:", db)' \

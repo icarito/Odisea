@@ -26,12 +26,17 @@ export const getPlatform = (item: any): string | null => (
   normalizePlatform(item?.platform ?? item?.player?.platform)
 );
 
-// A "dashboard" session is a real client run: not the headless server, and a
-// plausible client framerate (the server reports uncapped FPS).
+// A "dashboard" session is a real client run: not the headless server.
+// Server builds report uncapped FPS (hundreds/thousands), while real players
+// with high-refresh monitors (144Hz, 240Hz) can legitimately exceed 65 FPS.
+// We use platform + auth token to distinguish server from real clients,
+// rather than an arbitrary FPS cap.
 export const isDashboardSession = (session: any): boolean => {
   const platform = getPlatform(session);
-  const avgFps = Number(session?.avg_fps) || 0;
-  if (platform === 'server' || avgFps > 65) return false;
+  // Only drop explicit server platform (headless builds report as 'server')
+  if (platform === 'server') return false;
+  // A real client with auth token is always a dashboard session
+  if (session?.token_mode) return true;
   // Live sessions (still in flight) are kept regardless of scene: a player who
   // just spawned may still be in `boot` or report an empty scene for a tick, and
   // dropping them here would make them vanish from the live globe. The

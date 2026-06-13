@@ -58,7 +58,16 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-registerSW({ immediate: true })
+// Check for a new SW on load and every 30 min so a long-open dashboard picks up
+// a fresh deploy without a manual refresh (skipWaiting+clientsClaim then reload).
+registerSW({
+  immediate: true,
+  onRegisteredSW(_swUrl, registration) {
+    if (!registration) return
+    registration.update()
+    setInterval(() => registration.update(), 30 * 60 * 1000)
+  },
+})
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

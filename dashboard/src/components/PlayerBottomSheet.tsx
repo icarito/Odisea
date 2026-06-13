@@ -104,6 +104,9 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
                   <div className="text-[0.625rem] text-text-muted flex gap-3 mt-0.5">
                     <span className="text-accent truncate max-w-[110px]">{p.scene || 'unknown'}</span>
                     <span className={official ? 'text-success' : 'text-warning'}>{official ? 'official' : 'canary'}</span>
+                    {p.focused === false && (
+                      <span className="text-text-muted/80 uppercase" title="Ventana en segundo plano — telemetría reducida">unfocused</span>
+                    )}
                     <span>{stale.toFixed(1)}s ago</span>
                   </div>
                 </div>

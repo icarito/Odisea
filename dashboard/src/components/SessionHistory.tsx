@@ -54,7 +54,7 @@ export const SessionHistory: React.FC = () => {
     setDetailLoading(true);
     setDetail(null);
     try {
-        const token = sessionStorage.getItem("odisea_token");
+        const token = localStorage.getItem("odisea_token");
         const response = await fetch(`/sessions/${session.player_id}/${session.session_id}`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
@@ -126,7 +126,7 @@ export const SessionHistory: React.FC = () => {
 
   const downloadSession = async (pid: string, sid: string) => {
     try {
-        const token = sessionStorage.getItem("odisea_token");
+        const token = localStorage.getItem("odisea_token");
         const response = await fetch(`/sessions/${pid}/${sid}`, {
             headers: { "Authorization": `Bearer ${token}` }
         });

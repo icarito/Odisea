@@ -1148,6 +1148,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
     return map;
   }, [geoPlayers]);
+
+  // History sessions enriched with geo (city/country) joined by player_id, so the
+  // session list can show location. Only fills fields the row doesn't already have.
+  const historySessionsWithGeo = useMemo(() => (
+    filteredHistoricalSessions.map((s) => {
+      const geo = s.player_id ? geoByPlayer[s.player_id] : undefined;
+      if (!geo || (s.city && s.country)) return s;
+      return {
+        ...s,
+        city: s.city || geo.city,
+        country: s.country || geo.country,
+        country_code: s.country_code || geo.country_code,
+      };
+    })
+  ), [filteredHistoricalSessions, geoByPlayer]);
   const staleAge = activeHb ? (activeHb.timestamp ? (Date.now() - activeHb.timestamp * 1000) / 1000 : 0) : 0;
   const liveSceneName = selectedSceneFilter === 'all'
     ? (activeHb?.player?.scene || '')
@@ -1408,7 +1423,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 {showLiveCharts && (
                   <div className="shrink-0 border-t-2 border-black bg-bg-card/80">
                     <div className="grid grid-cols-2 gap-2 px-3 pt-2 text-[0.625rem] font-mono sm:grid-cols-4 lg:grid-cols-6">
-                      <Info label="FPS" value={Math.round(activeHb?.player?.fps ?? 0)} />
+                      <Info label="FPS" value={`${Math.round(activeHb?.player?.fps ?? 0)}${activeHb?.player?.focused === false ? ' (bg)' : ''}`} />
                       <Info label="RAM" value={activeHb?.player?.memory_mb != null ? `${Math.round(activeHb.player.memory_mb)} MB` : '—'} />
                       <Info label="Scene" value={activeHb?.player?.scene || '-'} />
                       <Info label="Platform" value={getPlatform(activeHb) || '-'} />
@@ -1680,7 +1695,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <RetroCard title="Sesiones" className={`min-h-0 overflow-hidden ${historyMobileView === 'player' ? 'hidden xl:block' : ''}`}>
               <div className="h-full overflow-y-auto">
                 <HistoricalTable
-                  sessions={filteredHistoricalSessions}
+                  sessions={historySessionsWithGeo}
                   onSelectSession={handleSelectHistorySession}
                   selectedSessionId={selectedSession?.session_id}
                 />
@@ -1728,17 +1743,17 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 }
 
 function App() {
-  const [token, setToken] = useState<string | null>(sessionStorage.getItem("odisea_token"));
+  const [token, setToken] = useState<string | null>(localStorage.getItem("odisea_token"));
 
   if (!token) {
     return <LoginScreen onLogin={(t) => {
-      sessionStorage.setItem("odisea_token", t);
+      localStorage.setItem("odisea_token", t);
       setToken(t);
     }} />;
   }
 
   return <Dashboard onLogout={() => {
-    sessionStorage.removeItem("odisea_token");
+    localStorage.removeItem("odisea_token");
     setToken(null);
   }} />;
 }

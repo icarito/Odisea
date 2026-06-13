@@ -164,7 +164,7 @@ func _update_telemetry():
 		"tick": 0,
 		"fps": fps,
 		"focused": _window_focused,
-		"memory_mb": Performance.get_monitor(Performance.MEMORY_STATIC) / 1024 / 1024
+		"memory_mb": _get_memory_mb()
 	}
 
 	if is_instance_valid(player):
@@ -564,12 +564,39 @@ func _get_url_param(param_name: String) -> String:
 	return str(res) if res != null else ""
 
 func _get_build_meta_value(key: String) -> String:
-	if not OS.has_feature("web"): return ""
-	if not Engine.has_singleton("JavaScript"): return ""
-	var js = Engine.get_singleton("JavaScript")
-	var expr = "window.ODISEA_BUILD_META && window.ODISEA_BUILD_META['" + key + "'] || ''"
-	var res = js.eval(expr)
-	return str(res) if res != null else ""
+	# HTML5: read from window.ODISEA_BUILD_META injected by CI
+	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
+		var js = Engine.get_singleton("JavaScript")
+		var expr = "window.ODISEA_BUILD_META && window.ODISEA_BUILD_META['" + key + "'] || ''"
+		var res = js.eval(expr)
+		return str(res) if res != null else ""
+	# Native: read from build_meta.json next to the executable
+	return _get_build_meta_value_from_file(key)
+
+
+var _build_meta_json_cache: Dictionary = {}
+
+func _get_build_meta_value_from_file(key: String) -> String:
+	if _build_meta_json_cache.empty():
+		var file: File = File.new()
+		var meta_paths := [
+			"build_meta.json",
+			OS.get_executable_path().get_base_dir().plus_file("build_meta.json")
+		]
+		for path in meta_paths:
+			if file.file_exists(path):
+				var err := file.open(path, File.READ)
+				if err == OK:
+					var text: String = file.get_as_text()
+					file.close()
+					var parse_result = JSON.parse(text)
+					if parse_result.error == OK and typeof(parse_result.result) == TYPE_DICTIONARY:
+						_build_meta_json_cache = parse_result.result
+						break
+		if _build_meta_json_cache.empty():
+			_build_meta_json_cache["_loaded"] = false
+			return ""
+	return str(_build_meta_json_cache.get(key, ""))
 
 func _load_build_info() -> Dictionary:
 	var game_version = OS.get_environment("ODISEA_GAME_VERSION")
@@ -623,3 +650,14 @@ func _load_build_info() -> Dictionary:
 		"official_host": official_host,
 		"official_build": official_host != "" or build_channel in ["nightly", "tip", "release"]
 	}
+
+func _get_memory_mb() -> float:
+	var mem_static: float = Performance.get_monitor(Performance.MEMORY_STATIC) / 1024.0 / 1024.0
+	if mem_static > 0.0:
+		return mem_static
+	var sm: Node = get_node_or_null("/root/SessionManager")
+	if sm and sm.has_method("read_process_memory_mb"):
+		var os_mem: float = sm.read_process_memory_mb()
+		if os_mem >= 0.0:
+			return os_mem
+	return 0.0

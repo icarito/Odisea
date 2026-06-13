@@ -894,6 +894,117 @@ func _read_mem_total_gb() -> float:
 		return float(kb) / 1024.0 / 1024.0
 	return 0.0
 
+
+const PROCESS_MEMORY_CACHE_INTERVAL_MS := 2000
+var _cached_process_memory_mb: float = -1.0
+var _last_process_memory_read_ms: int = 0
+var _process_memory_available: bool = true
+
+func read_process_memory_mb() -> float:
+	var now_ms: int = OS.get_ticks_msec()
+	if _cached_process_memory_mb >= 0.0 and (now_ms - _last_process_memory_read_ms) < PROCESS_MEMORY_CACHE_INTERVAL_MS:
+		return _cached_process_memory_mb
+	if not _process_memory_available:
+		return -1.0
+
+	_last_process_memory_read_ms = now_ms
+
+	var os_name := OS.get_name()
+
+	# Windows: use tasklist /FI to get process Working Set
+	if os_name == "Windows" or os_name == "UWP":
+		_cached_process_memory_mb = _read_windows_process_memory_mb(OS.get_process_id())
+		return _cached_process_memory_mb
+
+	# Linux/X11/Server: read /proc/self/status -> VmRSS
+	if os_name in ["X11", "Linux", "Server"]:
+		_cached_process_memory_mb = _read_linux_process_memory_mb()
+		return _cached_process_memory_mb
+
+	# macOS: use ps (forking a shell command is the simplest option)
+	if os_name == "OSX":
+		_cached_process_memory_mb = _read_macos_process_memory_mb(OS.get_process_id())
+		return _cached_process_memory_mb
+
+	_process_memory_available = false
+	return -1.0
+
+
+func _read_windows_process_memory_mb(pid: int) -> float:
+	var output: Array = []
+	var exit_code: int = OS.execute(
+		"tasklist",
+		["/FI", "PID eq " + str(pid), "/FO", "CSV", "/NH"],
+		true,
+		output,
+		false
+	)
+	if exit_code != 0:
+		return -1.0
+	var raw_output: String = ""
+	for line in output:
+		raw_output += str(line) + "\n"
+	# tasklist CSV output: "name.exe","pid","SessionName","Session#","Mem Usage"
+	# We need the last field "Mem Usage" which looks like "123,456 K"
+	var raw_lines: Array = raw_output.split("\n", false)
+	for raw_line in raw_lines:
+		var line: String = String(raw_line).strip_edges()
+		if line == "":
+			continue
+		var fields: Array = line.split(",", false)
+		if fields.size() < 5:
+			continue
+		# Last field: "123,456 K" or "123.456 K"
+		var mem_str: String = String(fields[fields.size() - 1]).replace("\"", "").strip_edges()
+		# Remove " K" suffix and thousand separators
+		var kb_str: String = mem_str.replace(" K", "").replace("K", "").replace(".", "").replace(",", "").strip_edges()
+		if kb_str.is_valid_integer():
+			var kb: int = int(kb_str)
+			return float(kb) / 1024.0
+	return -1.0
+
+
+func _read_linux_process_memory_mb() -> float:
+	var status: String = _read_text_file("/proc/self/status")
+	if status == "":
+		return -1.0
+	var raw_lines: Array = status.split("\n")
+	for raw_line in raw_lines:
+		var line: String = String(raw_line).strip_edges()
+		if line.begins_with("VmRSS:"):
+			var parts: Array = line.split(":")
+			if parts.size() >= 2:
+				var kb: int = _parse_first_int(parts[1])
+				if kb > 0:
+					return float(kb) / 1024.0
+	return -1.0
+
+
+func _read_macos_process_memory_mb(pid: int) -> float:
+	var output: Array = []
+	var exit_code: int = OS.execute(
+		"ps",
+		["-o", "rss=", "-p", str(pid)],
+		true,
+		output,
+		false
+	)
+	if exit_code != 0:
+		return -1.0
+	var raw_output: String = ""
+	for line in output:
+		raw_output += str(line)
+	var trimmed: String = String(raw_output).strip_edges()
+	if trimmed.length() == 0:
+		return -1.0
+	# macOS ps -o rss= returns RSS in KB
+	if trimmed.is_valid_integer():
+		var kb: int = int(trimmed)
+		if kb > 0:
+			return float(kb) / 1024.0
+	return -1.0
+
+
 func _parse_first_int(raw: String) -> int:
 	var digits := ""
 	for i in range(raw.length()):
