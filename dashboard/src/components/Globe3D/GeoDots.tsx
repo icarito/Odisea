@@ -1,11 +1,21 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
+import type { ThreeEvent } from '@react-three/fiber';
 import type { GeoPlayer } from '../../types';
+
+export interface GroupedPlayer extends GeoPlayer {
+  count: number;
+  names: string[];
+  pos: THREE.Vector3;
+}
 
 interface GeoDotsProps {
   players: GeoPlayer[];
+  isMobile?: boolean;
+  onSelect?: (group: GroupedPlayer | null) => void;
+  selectedKey?: string | null;
 }
 
 function latLngToVec3(lat: number, lng: number, radius: number): THREE.Vector3 {
@@ -18,22 +28,16 @@ function latLngToVec3(lat: number, lng: number, radius: number): THREE.Vector3 {
   );
 }
 
-export const GeoDots: React.FC<GeoDotsProps> = ({ players }) => {
+export const GeoDots: React.FC<GeoDotsProps> = ({ players, isMobile, onSelect, selectedKey }) => {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const [hovered, setHovered] = useState<number | null>(null);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const groupedPlayers = useMemo(() => {
-    const groups: { [key: string]: GeoPlayer & { count: number, names: string[], pos: THREE.Vector3 } } = {};
+    const groups: { [key: string]: GroupedPlayer } = {};
     players.forEach(p => {
       const key = `${p.latitude.toFixed(2)}|${p.longitude.toFixed(2)}`;
       if (!groups[key]) {
-        groups[key] = {
-          ...p,
-          count: 0,
-          names: [],
-          status: 'old',
-          pos: latLngToVec3(p.latitude, p.longitude, 1.01)
-        };
+        groups[key] = { ...p, count: 0, names: [], status: 'old', pos: latLngToVec3(p.latitude, p.longitude, 1.01) };
       }
       groups[key].count++;
       if (p.display_name) groups[key].names.push(p.display_name);
@@ -49,17 +53,14 @@ export const GeoDots: React.FC<GeoDotsProps> = ({ players }) => {
 
   useFrame((state) => {
     if (!meshRef.current) return;
+    const time = state.clock.getElapsedTime();
 
     groupedPlayers.forEach((p, i) => {
-      const time = state.clock.getElapsedTime();
       const key = `${p.latitude}|${p.longitude}`;
-      if (appearanceTimeRef.current[key] === undefined) {
-        appearanceTimeRef.current[key] = time;
-      }
+      if (appearanceTimeRef.current[key] === undefined) appearanceTimeRef.current[key] = time;
       const fadeIn = Math.min(1, (time - appearanceTimeRef.current[key]) / 1.0);
 
       let scale = 1.0;
-
       if (p.status === 'connected') {
         scale = 1.0 + Math.sin(time * 5) * 0.2;
         color.set('#3fb950');
@@ -70,7 +71,9 @@ export const GeoDots: React.FC<GeoDotsProps> = ({ players }) => {
         color.set('#8b949e');
       }
 
-      const finalScale = (0.015 + Math.min(p.count * 0.005, 0.05)) * scale * fadeIn;
+      // Bigger base size on mobile for easier tapping
+      const base = isMobile ? 0.032 : 0.015;
+      const finalScale = (base + Math.min(p.count * 0.005, 0.05)) * scale * fadeIn;
 
       dummy.position.copy(p.pos);
       dummy.lookAt(p.pos.clone().multiplyScalar(2));
@@ -85,30 +88,46 @@ export const GeoDots: React.FC<GeoDotsProps> = ({ players }) => {
     if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
   });
 
+  const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    const idx = e.instanceId;
+    if (idx === undefined) return;
+    const p = groupedPlayers[idx];
+    if (!p) return;
+
+    if (isMobile) {
+      const key = `${p.latitude.toFixed(2)}|${p.longitude.toFixed(2)}`;
+      if (selectedKey === key) {
+        // Second tap on same dot: navigate
+        if (p.player_id) window.location.search = `?player=${p.player_id}`;
+      } else {
+        onSelect?.(p);
+      }
+    } else {
+      if (p.player_id) window.location.search = `?player=${p.player_id}`;
+    }
+  }, [groupedPlayers, isMobile, selectedKey, onSelect]);
+
+  const tooltipPlayer = !isMobile && hoveredIdx !== null ? groupedPlayers[hoveredIdx] : null;
+
   return (
     <group>
       <instancedMesh
         ref={meshRef}
         args={[undefined, undefined, groupedPlayers.length]}
-        onPointerOver={(e) => setHovered(e.instanceId!)}
-        onPointerOut={() => setHovered(null)}
-        onClick={(e) => {
-            const p = groupedPlayers[e.instanceId!];
-            if (p.player_id) {
-                // Find first player in group to link
-                window.location.search = `?player=${p.player_id}`;
-            }
-        }}
+        onPointerOver={isMobile ? undefined : (e) => setHoveredIdx(e.instanceId!)}
+        onPointerOut={isMobile ? undefined : () => setHoveredIdx(null)}
+        onClick={handleClick}
       >
         <circleGeometry args={[1, 16]} />
         <meshBasicMaterial transparent opacity={0.8} side={THREE.DoubleSide} />
       </instancedMesh>
 
-      {hovered !== null && groupedPlayers[hovered] && (
-        <Html position={groupedPlayers[hovered].pos} pointerEvents="none">
+      {tooltipPlayer && (
+        <Html position={tooltipPlayer.pos} pointerEvents="none">
           <div className="bg-black/80 border border-accent p-2 rounded text-[10px] whitespace-nowrap pointer-events-none select-none">
-            <div className="font-bold">{groupedPlayers[hovered].city}, {groupedPlayers[hovered].country}</div>
-            <div>{groupedPlayers[hovered].count} jugadores</div>
+            <div className="font-bold">{tooltipPlayer.city}, {tooltipPlayer.country}</div>
+            <div>{tooltipPlayer.count} jugadores</div>
           </div>
         </Html>
       )}
