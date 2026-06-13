@@ -12,6 +12,9 @@ interface DashboardLayoutProps {
   playerCount: number;
   playerCountLabel?: string;
   onPlayersClick: () => void;
+  // Compact live metadata for the currently focused/active player, shown in the
+  // header when there is one.
+  activePlayerMeta?: React.ReactNode;
   headerControls?: React.ReactNode;
   settingsPanel?: React.ReactNode;
   playerFocus?: React.ReactNode;
@@ -40,6 +43,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   playerCount,
   playerCountLabel,
   onPlayersClick,
+  activePlayerMeta,
   headerControls,
   settingsPanel,
   playerFocus,
@@ -74,6 +78,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </h1>
 
         <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end sm:gap-4">
+          {activePlayerMeta}
           {headerControls}
 
           <span className="flex items-center gap-1.5 text-[0.625rem] uppercase font-bold">

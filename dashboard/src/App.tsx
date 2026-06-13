@@ -1466,6 +1466,34 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       playerCount={pids.length}
       playerCountLabel={playerCountLabel}
       onPlayersClick={() => setShowPlayerSheet(true)}
+      activePlayerMeta={activeHb ? (
+        <button
+          type="button"
+          onClick={() => { setActiveTab('live'); setLiveView('3d'); }}
+          title="Player activo — ver en 3D"
+          className="hidden min-w-0 items-center gap-2 border-2 border-black bg-bg-primary px-2 py-1 text-[0.625rem] font-bold hover:bg-accent/10 md:flex"
+        >
+          {activeHb.color && (
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: activeHb.color }} />
+          )}
+          <span className="max-w-[120px] truncate">{activeLabel}</span>
+          <span className="text-text-muted/60">·</span>
+          <span className="max-w-[90px] truncate text-accent">{activeHb.player?.scene || '—'}</span>
+          <span className="text-text-muted/60">·</span>
+          <span style={{ color: fpsColor(Number(activeHb.player?.fps) || 0) }}>
+            {Math.round(Number(activeHb.player?.fps) || 0)} FPS
+          </span>
+          {activeHb.player?.memory_mb != null && (
+            <>
+              <span className="text-text-muted/60">·</span>
+              <span className="text-text-muted">{Math.round(Number(activeHb.player.memory_mb))} MB</span>
+            </>
+          )}
+          {activeHb.player?.focused === false && (
+            <span className="uppercase text-text-muted/80" title="En segundo plano">bg</span>
+          )}
+        </button>
+      ) : undefined}
       showSettings={showSettings}
       onToggleSettings={() => setShowSettings(!showSettings)}
       settingsPanel={
