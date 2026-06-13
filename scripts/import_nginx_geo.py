@@ -184,9 +184,12 @@ def main() -> None:
     for ip, row in per_ip.items():
         if ip.startswith(INFRA_IP_PREFIXES):
             continue
+        # Require at least one real game-client signal (WebSocket or telemetry).
+        # api_hits and site_visit_hits alone indicate a dashboard viewer/host, not a player.
+        has_game_signal = row["ws_hits"] > 0 or row["telemetry_hits"] > 0
         signal = row["ws_hits"] + row["telemetry_hits"] + row["api_hits"] + row["site_visit_hits"]
         scanner_ratio = row["scanner_hits"] / max(1, row["hits"])
-        if signal >= 2 and scanner_ratio < 0.5:
+        if has_game_signal and signal >= 2 and scanner_ratio < 0.5:
             candidates.append(ip)
     candidates.sort(
         key=lambda ip: -(
