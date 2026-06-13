@@ -31,6 +31,11 @@ var _custom_points := {}
 # The network thread only sends at 10Hz anyway, so gathering at 60Hz was wasted main-thread
 # work. Lower the interval for finer local capture; raise it to reduce ANNA's per-frame cost.
 var TELEMETRY_INTERVAL_MS := 100 # 10Hz
+# When the game window loses focus the user has stepped away: throttle telemetry
+# hard (the data is uninteresting) and flag heartbeats so the backend can ignore
+# FPS/hotzone alerts that would otherwise fire on a backgrounded, throttled game.
+var TELEMETRY_INTERVAL_UNFOCUSED_MS := 1000 # 1Hz while backgrounded
+var _window_focused := true
 var _last_telemetry_ms := 0
 var _perf_monitor: Node = null
 var _perf_profiling_enabled := false
@@ -106,6 +111,16 @@ func _exit_tree():
 	if _net_thread:
 		_net_thread.stop()
 
+func _notification(what):
+	# Window focus drives the throttle + the `unfocused` heartbeat flag. Works on
+	# desktop and HTML5 (Godot maps browser tab blur to the same notifications).
+	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
+		_window_focused = false
+	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
+		_window_focused = true
+		# Send one prompt heartbeat on return so the dashboard updates immediately.
+		_last_telemetry_ms = 0
+
 func _process(_delta):
 	if _perf_profiling_enabled:
 		_perf_monitor.profiling_start("ANNAV2")
@@ -114,7 +129,8 @@ func _process(_delta):
 		_net_thread._main_thread_tick()
 
 	var now = OS.get_ticks_msec()
-	if now - _last_telemetry_ms >= TELEMETRY_INTERVAL_MS:
+	var interval = TELEMETRY_INTERVAL_MS if _window_focused else TELEMETRY_INTERVAL_UNFOCUSED_MS
+	if now - _last_telemetry_ms >= interval:
 		_last_telemetry_ms = now
 		_update_telemetry()
 
@@ -147,6 +163,7 @@ func _update_telemetry():
 		"zone": "",
 		"tick": 0,
 		"fps": fps,
+		"focused": _window_focused,
 		"memory_mb": Performance.get_monitor(Performance.MEMORY_STATIC) / 1024 / 1024
 	}
 

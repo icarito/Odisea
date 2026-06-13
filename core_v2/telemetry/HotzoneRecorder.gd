@@ -93,6 +93,13 @@ func record_frame(input, dt: float):
 	if SessionManager.is_recording or SessionManager.is_replaying:
 		return
 
+	# A backgrounded window legitimately drops FPS (the OS throttles it), so don't
+	# treat that as a performance hotzone. Abort any in-progress capture too.
+	if not _is_testing and not OS.is_window_focused():
+		if _is_in_hotzone:
+			_is_in_hotzone = false
+		return
+
 	var fps = _test_fps if _is_testing else Performance.get_monitor(Performance.TIME_FPS)
 	var now = OS.get_ticks_msec()
 	var startup_grace_msec := int(startup_grace_sec * 1000.0)

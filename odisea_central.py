@@ -2007,8 +2007,12 @@ class OdiseaCentral:
         fps = p_data.get("fps", 60)
         platform = (p_data.get("platform") or data.get("platform") or "").lower()
         is_test_telemetry = self._is_test_telemetry(data)
-        
-        if platform == "server" or is_test_telemetry:
+        # An unfocused (backgrounded) game throttles itself and legitimately drops
+        # FPS — don't raise low-FPS alerts for it. `focused` defaults to True so
+        # older clients that don't send the flag behave exactly as before.
+        is_unfocused = p_data.get("focused", True) is False
+
+        if platform == "server" or is_test_telemetry or is_unfocused:
             self.low_fps_timers.pop(player_id, None)
             self.low_fps_sessions.pop(session_id, None)
         elif fps < 15:

@@ -337,6 +337,7 @@ func _send_heartbeat(tier: int):
 		"tick": player_data.get("tick", 0),
 		"memory_mb": player_data.get("memory_mb", 0.0),
 		"velocity": player_data.get("velocity", [0, 0, 0]),
+		"focused": player_data.get("focused", true),
 		"platform": platform_name
 	}
 	
