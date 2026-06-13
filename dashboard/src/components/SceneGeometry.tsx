@@ -6,6 +6,7 @@ import { Html } from '@react-three/drei';
 
 interface SceneGeometryProps {
   data: SceneGeometryData;
+  focusPosition?: [number, number, number];
   showGeometry?: boolean;
   showProps?: boolean;
   showZones?: boolean;
@@ -38,25 +39,54 @@ const RotatorMesh: React.FC<{ position: [number, number, number], radius: number
 
 export const SceneGeometry: React.FC<SceneGeometryProps> = ({
   data,
+  focusPosition = [0, 0, 0],
   showGeometry = true,
   showProps = true,
   showZones = true
 }) => {
-  // Use useMemo for geometry to avoid re-calculating every frame
-  const pointsGeometry = useMemo(() => {
-    if (!data.points || data.points.length === 0) return null;
-    const geometry = new THREE.BufferGeometry();
-    const vertices = new Float32Array(data.points.flat());
-    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    return geometry;
-  }, [data.points]);
+  // Render streamed points in distance bands so the slice reads as scene volume,
+  // not as a flat sparse scatter. The backend sends nearest-first, but banding
+  // makes walls/floors around the player much easier to read.
+  const pointBands = useMemo(() => {
+    if (!data.points || data.points.length === 0) return [];
+    const radius = Math.max(1, data.stream?.radius || 160);
+    const nearSq = Math.pow(radius * 0.33, 2);
+    const midSq = Math.pow(radius * 0.66, 2);
+    const buckets: [number, number, number][][] = [[], [], []];
+    const [fx, fy, fz] = focusPosition;
+
+    data.points.forEach((point) => {
+      const dx = point[0] - fx;
+      const dy = point[1] - fy;
+      const dz = point[2] - fz;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      buckets[d2 <= nearSq ? 0 : d2 <= midSq ? 1 : 2].push(point);
+    });
+
+    return buckets.map((points) => {
+      if (points.length === 0) return null;
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(points.flat()), 3));
+      return geometry;
+    });
+  }, [data.points, data.stream?.radius, focusPosition]);
 
   return (
     <group>
       {/* 1. Point Cloud Geometry */}
-      {showGeometry && pointsGeometry && (
-        <points geometry={pointsGeometry}>
-          <pointsMaterial size={0.3} color="#4a5568" transparent opacity={0.8} />
+      {showGeometry && pointBands[2] && (
+        <points geometry={pointBands[2]}>
+          <pointsMaterial size={0.55} color="#3b4658" transparent opacity={0.55} depthWrite={false} />
+        </points>
+      )}
+      {showGeometry && pointBands[1] && (
+        <points geometry={pointBands[1]}>
+          <pointsMaterial size={0.9} color="#4f9dff" transparent opacity={0.62} depthWrite={false} />
+        </points>
+      )}
+      {showGeometry && pointBands[0] && (
+        <points geometry={pointBands[0]}>
+          <pointsMaterial size={1.35} color="#b8f3ff" transparent opacity={0.9} depthWrite={false} />
         </points>
       )}
 

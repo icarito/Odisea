@@ -193,7 +193,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
         <SceneErrorBoundary>
             <Suspense fallback={null}>
                 {sceneName && <SceneModel sceneName={sceneName} wireframe={wireframe} />}
-                {geometry && <SceneGeometry data={geometry} showGeometry={!wireframe} />}
+                {geometry && <SceneGeometry data={geometry} focusPosition={position} showGeometry={!wireframe} />}
             </Suspense>
         </SceneErrorBoundary>
 

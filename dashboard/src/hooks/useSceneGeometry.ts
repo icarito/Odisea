@@ -110,8 +110,8 @@ const bucketCoord = (value: number, size: number) => Math.floor(value / size) * 
 export const useSceneGeometryStream = (
   sceneName: string,
   center: [number, number, number],
-  radius = 80,
-  limit = 12000
+  radius = 160,
+  limit = 30000
 ) => {
   const bucketSize = Math.max(20, radius * 0.5);
   const bucket: [number, number, number] = [

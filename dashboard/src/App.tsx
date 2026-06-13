@@ -67,6 +67,57 @@ const LazyPanelFallback = ({ label = 'Cargando vista…' }: { label?: string }) 
   </div>
 );
 
+const activateWaitingServiceWorker = (registration: ServiceWorkerRegistration) => {
+  const waiting = registration.waiting;
+  if (!waiting) return false;
+  try { sessionStorage.setItem(DASHBOARD_UPDATED_FLAG, '1'); } catch { /* ignore */ }
+  waiting.postMessage({ type: 'SKIP_WAITING' });
+  return true;
+};
+
+const waitForInstalledWorker = (worker: ServiceWorker) => new Promise<void>((resolve) => {
+  if (worker.state === 'installed') {
+    resolve();
+    return;
+  }
+  worker.addEventListener('statechange', () => {
+    if (worker.state === 'installed') resolve();
+  });
+});
+
+const updateDashboardWhenCached = async () => {
+  if (!('serviceWorker' in navigator)) {
+    try { sessionStorage.setItem(DASHBOARD_UPDATED_FLAG, '1'); } catch { /* ignore */ }
+    window.location.reload();
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) return;
+  if (activateWaitingServiceWorker(registration)) return;
+
+  const updateFound = new Promise<ServiceWorker | null>((resolve) => {
+    const existing = registration.installing;
+    if (existing) {
+      resolve(existing);
+      return;
+    }
+    const timer = window.setTimeout(() => resolve(null), 60000);
+    registration.addEventListener('updatefound', () => {
+      window.clearTimeout(timer);
+      resolve(registration.installing);
+    }, { once: true });
+  });
+
+  await registration.update();
+  if (activateWaitingServiceWorker(registration)) return;
+
+  const worker = registration.installing || await updateFound;
+  if (!worker) return;
+  await waitForInstalledWorker(worker);
+  activateWaitingServiceWorker(registration);
+};
+
 const formatDateTime = (timestampSeconds: number) => {
   if (!timestampSeconds) return 'No data';
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -1156,7 +1207,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   }, [health?.latest_published?.git_commit, commits]);
 
   // Detect a new dashboard deploy from /health.dashboard_version. Ask the SW to
-  // update, but also reload as a fallback if controllerchange doesn't fire.
+  // update, but only activate/reload after the new SW has installed its precache.
+  // On slow links this avoids reloading onto an incomplete app shell.
   const loadedDashboardVersion = useRef<string | null>(null);
   const dashboardReloadScheduled = useRef(false);
   useEffect(() => {
@@ -1170,12 +1222,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     if (dashboardReloadScheduled.current) return;
     dashboardReloadScheduled.current = true;
 
-    try { sessionStorage.setItem(DASHBOARD_UPDATED_FLAG, '1'); } catch { /* ignore */ }
-
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {});
-    }
-    window.setTimeout(() => window.location.reload(), 1800);
+    updateDashboardWhenCached().catch((err) => {
+      console.warn('Dashboard update check failed', err);
+      dashboardReloadScheduled.current = false;
+    });
   }, [health?.dashboard_version]);
 
   // Post-reload announcement: main.tsx sets this sessionStorage flag right before

@@ -7,11 +7,15 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: any[];
 };
 
-// With the injectManifest strategy we own the SW lifecycle, so `autoUpdate` does
-// NOT add skipWaiting for us. Take over as soon as a new SW installs: skipWaiting
-// activates it immediately and clients.claim() makes it control open tabs, which
-// fires `controllerchange` in main.tsx → the page reloads onto the new assets.
-self.skipWaiting();
+// With the injectManifest strategy we own the SW lifecycle. Do not skipWaiting
+// automatically: the dashboard asks the browser to update, waits until the new
+// SW has installed/pre-cached its manifest, then sends SKIP_WAITING. This avoids
+// reloading onto a half-downloaded version on slow links.
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
