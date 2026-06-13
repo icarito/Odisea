@@ -14,6 +14,12 @@ export interface SceneFilterOption {
   playTime: number;
 }
 
+export interface CountryFilterOption {
+  code: string;     // ISO country code, used as the filter value
+  label: string;    // flag + name for display
+  sessions: number;
+}
+
 interface FiltersContentProps {
   platforms: string[];
   selectedPlatforms: Set<string>;
@@ -21,6 +27,9 @@ interface FiltersContentProps {
   scenes: SceneFilterOption[];
   selectedScene: string;
   onSelectScene: (scene: string) => void;
+  countries: CountryFilterOption[];
+  selectedCountry: string;
+  onSelectCountry: (code: string) => void;
   minDuration: number;
   onSetMinDuration: (seconds: number) => void;
   onReset: () => void;
@@ -31,6 +40,7 @@ interface FiltersContentProps {
 const FiltersContent: React.FC<FiltersContentProps> = ({
   platforms, selectedPlatforms, onTogglePlatform,
   scenes, selectedScene, onSelectScene,
+  countries, selectedCountry, onSelectCountry,
   minDuration, onSetMinDuration, onReset,
 }) => {
   const visiblePlatforms = KNOWN_ORDER.filter((p) => platforms.includes(p));
@@ -94,6 +104,31 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
             })}
           </div>
         </div>
+
+        {/* Country filter — only shown once we have geolocated sessions. */}
+        {countries.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <span className="text-[0.625rem] font-black uppercase tracking-widest text-text-muted">País</span>
+            <div className="flex flex-col gap-1">
+              <SceneOption
+                label="Todos los países"
+                active={selectedCountry === 'all'}
+                onClick={() => onSelectCountry('all')}
+              />
+              <div className="max-h-[11.75rem] overflow-y-auto pr-1">
+                {countries.map((item) => (
+                  <SceneOption
+                    key={item.code}
+                    label={item.label}
+                    sessions={item.sessions}
+                    active={selectedCountry === item.code}
+                    onClick={() => onSelectCountry(item.code)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* History min-duration filter — excludes very short sessions (mostly
             bootup noise) from the History list and aggregate charts. */}
@@ -167,7 +202,7 @@ const SceneOption: React.FC<{ label: string; sessions?: number; playTime?: numbe
       <span className="block truncate">{label}</span>
       {sessions != null && (
         <span className="mt-0.5 block truncate text-[0.5625rem] font-bold normal-case text-text-muted">
-          {sessions} sessions · {formatPlayTime(playTime || 0)}
+          {sessions} sessions{playTime != null ? ` · ${formatPlayTime(playTime)}` : ''}
         </span>
       )}
     </span>

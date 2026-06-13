@@ -21,7 +21,7 @@ import { HistoricalTable } from './components/HistoricalTable';
 import { SessionPlayback } from './components/SessionPlayback';
 import { DashboardLayout } from './components/DashboardLayout';
 import { PlayerBottomSheet } from './components/PlayerBottomSheet';
-import { FiltersDrawer, FiltersSidebar, type SceneFilterOption } from './components/FiltersDrawer';
+import { FiltersDrawer, FiltersSidebar, type SceneFilterOption, type CountryFilterOption } from './components/FiltersDrawer';
 import { LiveCombinedChart } from './components/LiveCombinedChart';
 import { RetroCard, RetroButton } from './components/retro';
 import { GlobeView } from './components/GlobeView';
@@ -168,11 +168,16 @@ const HistoryOverview = ({ sessions }: { sessions: any[] }) => {
       });
       const code = String(session.country_code || '').toUpperCase();
       const country = String(session.country || '').trim();
-      const key = code || country || 'unknown';
-      const label = [countryFlag(code), code || country || 'Unknown'].filter(Boolean).join(' ');
-      const current = countries.get(key) || { label, sessions: 0 };
-      current.sessions += 1;
-      countries.set(key, current);
+      // Skip sessions whose geo couldn't be resolved — "unknown" isn't a country
+      // and would otherwise dominate the top-countries list as noise.
+      const isUnknown = (!code && (!country || country.toLowerCase() === 'unknown'));
+      if (!isUnknown) {
+        const key = code || country;
+        const label = [countryFlag(code), code || country].filter(Boolean).join(' ');
+        const current = countries.get(key) || { label, sessions: 0 };
+        current.sessions += 1;
+        countries.set(key, current);
+      }
     });
 
     return {
@@ -716,12 +721,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     () => new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server'))
   );
   const [selectedSceneFilter, setSelectedSceneFilter] = useState('all');
+  const [selectedCountry, setSelectedCountry] = useState('all');
 
   // Restore the default filters: all scenes, every platform except the headless
-  // server.
+  // server, all countries.
   const resetFilters = () => {
     setSelectedPlatforms(new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server')));
     setSelectedSceneFilter('all');
+    setSelectedCountry('all');
     setMinDuration(DEFAULT_HISTORY_MIN_DURATION);
   };
   const [lastLivePlayerCount, setLastLivePlayerCount] = useState(0);
@@ -994,18 +1001,40 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // heartbeats), so a new session shows in History immediately — before the
   // periodic SQLite import persists it. Shaped like the /api/ghosts/sessions
   // rows the table expects.
+  // Real session start times (MIN timestamp per session) from the persisted
+  // history, so a live session's uptime counts from when it actually began —
+  // the heartbeat itself carries no session_start, only the latest timestamp.
+  const sessionStartById = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const s of historicalSessions) {
+      const start = Number(s.start_time);
+      if (s.session_id && Number.isFinite(start) && start > 0) {
+        map[s.session_id] = map[s.session_id] ? Math.min(map[s.session_id], start) : start;
+      }
+    }
+    return map;
+  }, [historicalSessions]);
+
   const liveSessionRows = useMemo(() => (
     Object.entries(heartbeats)
       .filter(([, hb]: [string, any]) => getPlatform(hb) !== 'server')
       .map(([pid, hb]: [string, any]) => {
         const p = hb.player || {};
+        // Prefer the persisted session start; fall back to the heartbeat's own
+        // session_start, then to the prefix encoded in the session/player id
+        // (a unix timestamp), and only last to the current heartbeat time.
+        const idPrefix = Number(String(hb.session_id || pid).split('-')[0]);
+        const start = sessionStartById[hb.session_id]
+          ?? hb.session_start
+          ?? (Number.isFinite(idPrefix) && idPrefix > 1_000_000_000 ? idPrefix : undefined)
+          ?? hb.timestamp;
         return {
           player_id: pid,
           display_name: hb.display_name,
           color: hb.color,
           session_id: hb.session_id,
           platform: getPlatform(hb) || 'unknown',
-          start_time: hb.session_start ?? hb.timestamp,
+          start_time: start,
           duration: 0,
           scenes_visited: p.scene ? [p.scene] : [],
           scene: p.scene,
@@ -1014,7 +1043,27 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           live: true,
         };
       })
-  ), [heartbeats]);
+  ), [heartbeats, sessionStartById]);
+
+  // player_id -> geo, joined from geoPlayers. Used both to enrich session rows
+  // for display and to resolve a session's country for the country filter.
+  const geoByPlayer = useMemo(() => {
+    const map: Record<string, { city?: string; country?: string; country_code?: string }> = {};
+    for (const g of geoPlayers) {
+      if (g.player_id && !map[g.player_id]) {
+        map[g.player_id] = { city: g.city, country: g.country, country_code: g.country_code };
+      }
+    }
+    return map;
+  }, [geoPlayers]);
+
+  // A session's ISO country code: from the row (server-enriched) or the geo join.
+  const countryCodeForSession = (session: any): string => {
+    const direct = String(session.country_code || '').toUpperCase();
+    if (direct) return direct;
+    const geo = session.player_id ? geoByPlayer[session.player_id] : undefined;
+    return String(geo?.country_code || '').toUpperCase();
+  };
 
   const filteredHistoricalSessions = useMemo(() => {
     const liveIds = new Set(liveSessionRows.map((s) => s.session_id).filter(Boolean));
@@ -1028,9 +1077,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     return merged.filter((session) => (
       platformAllowed(session)
       && sceneAllowed(session)
+      && (selectedCountry === 'all' || countryCodeForSession(session) === selectedCountry)
       && (session.live || minDuration <= 0 || sessionDuration(session) >= minDuration)
     ));
-  }, [historicalSessions, liveSessionRows, selectedPlatforms, selectedSceneFilter, minDuration]);
+  }, [historicalSessions, liveSessionRows, selectedPlatforms, selectedSceneFilter, selectedCountry, geoByPlayer, minDuration]);
 
   const sceneFilterOptions = useMemo<SceneFilterOption[]>(() => {
     return availableSceneFilters
@@ -1047,6 +1097,25 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       })
       .sort((a, b) => (b.sessions - a.sessions) || (b.playTime - a.playTime) || a.scene.localeCompare(b.scene));
   }, [availableSceneFilters, filteredHistoricalSessions]);
+
+  // Country options for the filter: every geolocatable country across the
+  // current session set, with a count. Built independent of selectedCountry so
+  // the user can switch between countries freely.
+  const availableCountries = useMemo<CountryFilterOption[]>(() => {
+    const liveIds = new Set(liveSessionRows.map((s) => s.session_id).filter(Boolean));
+    const all = [...liveSessionRows, ...historicalSessions.filter((s) => !liveIds.has(s.session_id))];
+    const byCode = new Map<string, { code: string; label: string; sessions: number }>();
+    for (const s of all) {
+      const code = countryCodeForSession(s);
+      if (!code) continue;
+      const country = String(s.country || geoByPlayer[s.player_id]?.country || '').trim();
+      const label = [countryFlag(code), country || code].filter(Boolean).join(' ');
+      const cur = byCode.get(code) || { code, label, sessions: 0 };
+      cur.sessions += 1;
+      byCode.set(code, cur);
+    }
+    return [...byCode.values()].sort((a, b) => b.sessions - a.sessions || a.code.localeCompare(b.code));
+  }, [historicalSessions, liveSessionRows, geoByPlayer]);
 
   const filteredDashboardSessions = useMemo(() => (
     filteredHistoricalSessions.filter(isDashboardSession)
@@ -1121,6 +1190,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const activeFilterCount =
     (selectedSceneFilter !== 'all' ? 1 : 0) +
+    (selectedCountry !== 'all' ? 1 : 0) +
     (KNOWN_PLATFORMS.filter((p) => p !== 'server').length - [...selectedPlatforms].filter((p) => p !== 'server').length > 0 ? 1 : 0) +
     (minDuration !== DEFAULT_HISTORY_MIN_DURATION ? 1 : 0);
 
@@ -1139,16 +1209,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   ), [focusPlayerId, geoPlayers]);
   // player_id -> {city, country} so player lists can show location instead of
   // the raw id. Geo data only lives on geoPlayers, not on the heartbeat.
-  const geoByPlayer = useMemo(() => {
-    const map: Record<string, { city?: string; country?: string; country_code?: string }> = {};
-    for (const g of geoPlayers) {
-      if (g.player_id && !map[g.player_id]) {
-        map[g.player_id] = { city: g.city, country: g.country, country_code: g.country_code };
-      }
-    }
-    return map;
-  }, [geoPlayers]);
-
   // History sessions enriched with geo (city/country) joined by player_id, so the
   // session list can show location. Only fills fields the row doesn't already have.
   const historySessionsWithGeo = useMemo(() => (
@@ -1304,6 +1364,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         scenes={sceneFilterOptions}
         selectedScene={selectedSceneFilter}
         onSelectScene={setSelectedSceneFilter}
+        countries={availableCountries}
+        selectedCountry={selectedCountry}
+        onSelectCountry={setSelectedCountry}
         minDuration={minDuration}
         onSetMinDuration={setMinDuration}
         onReset={resetFilters}
@@ -1733,6 +1796,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           scenes={sceneFilterOptions}
           selectedScene={selectedSceneFilter}
           onSelectScene={setSelectedSceneFilter}
+          countries={availableCountries}
+          selectedCountry={selectedCountry}
+          onSelectCountry={setSelectedCountry}
           minDuration={minDuration}
           onSetMinDuration={setMinDuration}
           onReset={resetFilters}
