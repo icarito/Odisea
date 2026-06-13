@@ -1,0 +1,27 @@
+{
+  "scene": "Dome_Crio",
+  "version": 1,
+  "bounds": {
+    "min": [-62, -25, -31],
+    "max": [62, 32, 31]
+  },
+  "points": [],
+  "zones": [
+    {
+      "name": "PuzzleZone",
+      "position": [0, -20, 0],
+      "bounds": {
+        "min": [-50, -25, -31],
+        "max": [50, -15, 31]
+      },
+      "type": "puzzle"
+    }
+  ],
+  "props": [],
+  "metadata": {
+    "generated_at": "2026-06-13",
+    "point_count": 0,
+    "zone_count": 1,
+    "prop_count": 0
+  }
+}

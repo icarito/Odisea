@@ -1,0 +1,37 @@
+{
+  "scene": "OdiseaExterior",
+  "version": 1,
+  "bounds": {
+    "min": [-500, -100, -500],
+    "max": [500, 100, 500]
+  },
+  "points": [
+    [0, 0, 0], [10, 0, 0], [-10, 0, 0], [0, 0, 10], [0, 0, -10]
+  ],
+  "zones": [
+    {
+      "name": "Arrival Zone",
+      "position": [33, 3, 29],
+      "bounds": {
+        "min": [28, 0, 24],
+        "max": [38, 6, 34]
+      },
+      "type": "spawn"
+    }
+  ],
+  "props": [
+    {
+      "name": "WorldRotator",
+      "position": [0, 0, 0],
+      "type": "rotator",
+      "radius": 190.0,
+      "tags": ["rotator"]
+    }
+  ],
+  "metadata": {
+    "generated_at": "2026-06-13",
+    "point_count": 5,
+    "zone_count": 1,
+    "prop_count": 1
+  }
+}
