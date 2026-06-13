@@ -30,8 +30,8 @@ interface GlobeViewProps {
 export const GlobeView: React.FC<GlobeViewProps> = ({ players }) => {
   const statusColor = (status: string, customColor?: string) => {
     if (status === 'connected') return customColor || '#3fb950';
-    if (status === 'recent') return '#888';
-    return '#f85149';
+    if (status === 'recent') return '#d29922';
+    return '#8b949e';
   };
 
   const groupedMarkers = useMemo(() => {
@@ -114,10 +114,10 @@ export const GlobeView: React.FC<GlobeViewProps> = ({ players }) => {
               <circle
                 r={4 + Math.min(marker.count * 2, 20)}
                 fill={statusColor(marker.status)}
-                stroke="#fff"
-                strokeWidth={0.5}
+                stroke="#c9d1d9"
+                strokeWidth={marker.status === 'connected' ? 1 : 0.5}
                 className={marker.status === 'connected' ? 'animate-pulse' : ''}
-                opacity={0.7}
+                opacity={0.85}
               >
                 <title>
                   {marker.city}, {marker.country}
