@@ -1,6 +1,7 @@
 import React from 'react';
 import { Activity, Map, Clock, Users, LogOut, Globe, Settings } from 'lucide-react';
 import { RetroTabs } from './retro';
+import { buildLabel } from '../lib/buildLabels';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -20,6 +21,7 @@ interface DashboardLayoutProps {
   latestPublished?: {
     game_version?: string;
     git_commit?: string;
+    build_id?: string;
     build_channel?: string;
   };
   // Optional second-level bar rendered just above the bottom nav (e.g. the
@@ -47,6 +49,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   latestPublished,
   secondaryNav,
 }) => {
+  const publishedLabel = buildLabel(latestPublished);
   const tabs = [
     { id: 'live', label: 'Live', icon: <Activity size={24} /> },
     { id: 'mapa', label: 'Globe', icon: <Globe size={24} /> },
@@ -64,8 +67,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </button>
           <span className="ml-2 align-middle text-[0.5rem] font-bold not-italic tracking-normal text-text-muted">
             dash {dashboardVersion || 'dev'}
-            {latestPublished?.game_version ? (
-              <> · pub {latestPublished.game_version}{latestPublished.git_commit ? `@${latestPublished.git_commit.slice(0, 7)}` : ''}</>
+            {publishedLabel ? (
+              <> · pub {publishedLabel}</>
             ) : null}
           </span>
         </h1>

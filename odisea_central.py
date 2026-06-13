@@ -64,7 +64,7 @@ STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 # streaming) skew FPS/memory — both are excluded here so every dashboard
 # consumer sees clean runtime data without re-filtering. Mirrors the frontend
 # WARMUP_SECONDS in dashboard/src/lib/filters.ts.
-WARMUP_SECONDS = int(os.environ.get("CENTRAL_WARMUP_SECONDS", 10))
+WARMUP_SECONDS = int(os.environ.get("CENTRAL_WARMUP_SECONDS", 13))
 
 # SQL fragment: exclude the headless server peer (case-insensitive).
 _NOT_SERVER = "LOWER(COALESCE(platform,'')) != 'server'"
@@ -1261,6 +1261,7 @@ class OdiseaCentral:
                 conn.close()
 
         try:
+            await self._run_query(self._link_unassigned_geo_rows)
             rows, historical_rows = await self._run_query(fetch)
         except Exception as e:
             logger.warning(f"{request.path}: geo query failed, returning [] ({e})")
@@ -1372,6 +1373,124 @@ class OdiseaCentral:
                     if pid not in result:
                         result[pid] = dict(row)
             return result
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _is_useful_session_scene(scene: str) -> bool:
+        normalized = (scene or "").strip().lower()
+        return bool(normalized) and normalized not in {
+            "?",
+            "unknown",
+            "desconocida",
+            "desconocido",
+            "undefined",
+            "null",
+            "boot",
+        }
+
+    def _geo_session_candidates(self, first_seen: float, last_seen: float) -> list:
+        conn = self._get_db()
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT player_id, session_id, platform,
+                       MIN(timestamp) AS start_time,
+                       MAX(timestamp) AS end_time,
+                       MAX(timestamp) - MIN(timestamp) AS duration,
+                       AVG(fps) AS avg_fps,
+                       GROUP_CONCAT(DISTINCT scene) AS scenes_visited,
+                       COUNT(*) AS samples
+                FROM heartbeats
+                WHERE timestamp BETWEEN ? AND ?
+                  AND player_id IS NOT NULL
+                  AND player_id != ''
+                  AND session_id IS NOT NULL
+                  AND session_id != ''
+                  AND LOWER(COALESCE(platform, '')) != 'server'
+                GROUP BY player_id, session_id, platform
+                HAVING duration >= ? AND samples >= 10
+                """,
+                (float(first_seen) - 120.0, float(last_seen) + 120.0, WARMUP_SECONDS),
+            )
+            candidates = []
+            for row in cursor.fetchall():
+                scenes = [s.strip() for s in (row["scenes_visited"] or "").split(",")]
+                if not any(self._is_useful_session_scene(scene) for scene in scenes):
+                    continue
+                avg_fps = float(row["avg_fps"] or 0)
+                if avg_fps > 65:
+                    continue
+                candidates.append(dict(row))
+            return candidates
+        finally:
+            conn.close()
+
+    def _pick_geo_session_candidate(self, first_seen: float, candidates: list) -> Optional[str]:
+        if not candidates:
+            return None
+        timestamp_prefix = str(int(first_seen))
+        prefix_matches = [
+            row for row in candidates
+            if str(row.get("player_id") or "").startswith(timestamp_prefix)
+            or str(row.get("session_id") or "").startswith(timestamp_prefix)
+        ]
+        if len({row["player_id"] for row in prefix_matches}) == 1:
+            return prefix_matches[0]["player_id"]
+        distinct_players = {row["player_id"] for row in candidates if row.get("player_id")}
+        if len(distinct_players) == 1:
+            return next(iter(distinct_players))
+        return None
+
+    def _link_unassigned_geo_rows(self) -> int:
+        """Backfill geo rows imported from access logs with the most likely
+        telemetry player. Conservative by design: ambiguous rows stay unlinked."""
+        if not os.path.exists(GEO_SQLITE_DB):
+            return 0
+        conn = sqlite3.connect(GEO_SQLITE_DB)
+        conn.row_factory = sqlite3.Row
+        try:
+            self._ensure_geo_schema(conn)
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT ip_hash, first_seen, last_seen
+                FROM geo_ips
+                WHERE latitude IS NOT NULL
+                  AND longitude IS NOT NULL
+                  AND COALESCE(player_id, '') = ''
+                  AND (
+                    COALESCE(telemetry_hits, 0) > 0
+                    OR COALESCE(ws_hits, 0) > 0
+                  )
+                  AND first_seen IS NOT NULL
+                  AND last_seen IS NOT NULL
+                ORDER BY last_seen DESC
+                LIMIT 200
+                """
+            )
+            rows = cursor.fetchall()
+            linked = 0
+            for row in rows:
+                first_seen = float(row["first_seen"] or 0)
+                last_seen = float(row["last_seen"] or first_seen)
+                candidate = self._pick_geo_session_candidate(
+                    first_seen,
+                    self._geo_session_candidates(first_seen, last_seen),
+                )
+                if not candidate:
+                    continue
+                cursor.execute(
+                    "UPDATE geo_ips SET player_id = ? WHERE ip_hash = ? AND COALESCE(player_id, '') = ''",
+                    (candidate, row["ip_hash"]),
+                )
+                linked += cursor.rowcount
+            if linked:
+                conn.commit()
+                logger.info("Linked %s historical geo rows to telemetry players", linked)
+            return linked
         finally:
             conn.close()
 
@@ -2203,7 +2322,13 @@ class OdiseaCentral:
                 WHERE COALESCE(official_build, 0) = 1
                    OR COALESCE(build_channel, '') IN ('nightly', 'tip', 'release')
                    OR COALESCE(official_host, '') != ''
-                ORDER BY timestamp DESC
+                ORDER BY
+                    CASE
+                        WHEN COALESCE(git_commit, '') != '' THEN 0
+                        WHEN COALESCE(build_id, '') != '' THEN 1
+                        ELSE 2
+                    END,
+                    timestamp DESC
                 LIMIT 1
             """)
             row = cursor.fetchone()

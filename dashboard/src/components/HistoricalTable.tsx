@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
 import { getPlatform } from '../lib/filters';
+import { buildLabel } from '../lib/buildLabels';
 
 export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null }) => {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
@@ -95,7 +96,7 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
             const scenesVisited = sceneCount(s.scenes_visited);
             const isSelected = selectedSessionId && s.session_id === selectedSessionId;
             const official = s.intake_mode === 'admin' || s.intake_mode === 'ingest';
-            const commit = typeof s.git_commit === 'string' ? s.git_commit.slice(0, 7) : '';
+            const versionLabel = buildLabel(s);
             const label = s.display_name || '';
             const location = [s.city, s.country_code || s.country].filter(Boolean).join(', ');
             return (
@@ -152,10 +153,10 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
                     )}
                     <span className="text-text-muted/60">·</span>
                     <span className={official ? 'text-success' : 'text-warning'}>{official ? 'official' : 'canary'}</span>
-                    {s.game_version && s.game_version !== 'unknown' && (
+                    {versionLabel && (
                       <>
                         <span className="text-text-muted/60">·</span>
-                        <span>{s.game_version}{commit ? `@${commit}` : ''}</span>
+                        <span>{versionLabel}</span>
                       </>
                     )}
                   </span>

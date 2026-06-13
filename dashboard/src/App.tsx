@@ -919,6 +919,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     filteredHistoricalSessions.filter(isDashboardSession)
   ), [filteredHistoricalSessions]);
 
+  const filteredGeoPlayers = useMemo(() => {
+    const allowedPlayers = new Set(filteredDashboardSessions.map((session) => session.player_id).filter(Boolean));
+    return geoPlayers.filter((player) => (
+      !player.historical
+      && player.player_id
+      && allowedPlayers.has(player.player_id)
+    ));
+  }, [geoPlayers, filteredDashboardSessions]);
+
   const filteredHeatmapData = useMemo(() => (
     (heatmapData ?? []).filter((item) => platformAllowed(item) && sceneAllowed(item))
   ), [heatmapData, selectedPlatforms, selectedSceneFilter]);
@@ -1319,7 +1328,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             />
           )}
           <GlobeView
-            players={geoPlayers}
+            players={filteredGeoPlayers}
             onSelectPlayer={(playerId) => {
               setFocusPlayerId(playerId);
               setShowTagEditor(true);

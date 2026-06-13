@@ -546,10 +546,20 @@ func _get_url_param(param_name: String) -> String:
 	var res = js.eval("new URLSearchParams(window.location.search).get('" + param_name + "')")
 	return str(res) if res != null else ""
 
+func _get_build_meta_value(key: String) -> String:
+	if not OS.has_feature("web"): return ""
+	if not Engine.has_singleton("JavaScript"): return ""
+	var js = Engine.get_singleton("JavaScript")
+	var expr = "window.ODISEA_BUILD_META && window.ODISEA_BUILD_META['" + key + "'] || ''"
+	var res = js.eval(expr)
+	return str(res) if res != null else ""
+
 func _load_build_info() -> Dictionary:
 	var game_version = OS.get_environment("ODISEA_GAME_VERSION")
 	if game_version == "":
 		game_version = _get_url_param("game_version")
+	if game_version == "":
+		game_version = _get_build_meta_value("version")
 	if game_version == "":
 		game_version = GAME_VERSION
 
@@ -560,22 +570,30 @@ func _load_build_info() -> Dictionary:
 		git_commit = _get_url_param("git_commit")
 	if git_commit == "":
 		git_commit = _get_url_param("commit")
+	if git_commit == "":
+		git_commit = _get_build_meta_value("commit")
 
 	var build_id = OS.get_environment("ODISEA_BUILD_ID")
 	if build_id == "":
 		build_id = OS.get_environment("GITHUB_RUN_ID")
 	if build_id == "":
 		build_id = _get_url_param("build_id")
+	if build_id == "":
+		build_id = _get_build_meta_value("build_id")
 
 	var build_channel = OS.get_environment("ODISEA_BUILD_CHANNEL")
 	if build_channel == "":
 		build_channel = _get_url_param("build_channel")
+	if build_channel == "":
+		build_channel = _get_build_meta_value("channel")
 	if build_channel == "":
 		build_channel = "dev"
 
 	var official_host = OS.get_environment("ODISEA_OFFICIAL_HOST")
 	if official_host == "":
 		official_host = _get_url_param("official_host")
+	if official_host == "":
+		official_host = _get_build_meta_value("officialHost")
 	if official_host == "" and OS.has_feature("web") and Engine.has_singleton("JavaScript"):
 		var js = Engine.get_singleton("JavaScript")
 		official_host = str(js.eval("window.location.hostname || ''"))

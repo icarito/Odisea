@@ -16,6 +16,7 @@ from pathlib import Path
 
 
 PATCH_MARKER = "ODISEA_GZIP_EXPORT_PATCH"
+BUILD_META_MARKER = "ODISEA_BUILD_META_SCRIPT"
 
 
 HELPER = f"""
@@ -83,6 +84,20 @@ def patch_loader(index_js: Path) -> None:
     index_js.write_text(text, encoding="utf-8")
 
 
+def patch_html(index_html: Path) -> None:
+    text = index_html.read_text(encoding="utf-8")
+    if BUILD_META_MARKER in text:
+        return
+    tag = f'<script src="build_meta.js"></script><!-- {BUILD_META_MARKER} -->'
+    if "</head>" in text:
+        text = text.replace("</head>", f"\t{tag}\n</head>", 1)
+    elif "</body>" in text:
+        text = text.replace("</body>", f"\t{tag}\n</body>", 1)
+    else:
+        text = f"{tag}\n{text}"
+    index_html.write_text(text, encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("export_dir", type=Path, help="Directory containing index.html/index.js")
@@ -94,6 +109,9 @@ def main() -> int:
         raise SystemExit(f"Missing Godot HTML loader: {index_js}")
 
     patch_loader(index_js)
+    index_html = export_dir / "index.html"
+    if index_html.is_file():
+        patch_html(index_html)
 
     for suffix in (".pck", ".wasm"):
         for path in export_dir.glob(f"*{suffix}"):

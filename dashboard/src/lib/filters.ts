@@ -31,7 +31,11 @@ export const getPlatform = (item: any): string | null => (
 export const isDashboardSession = (session: any): boolean => {
   const platform = getPlatform(session);
   const avgFps = Number(session?.avg_fps) || 0;
-  return platform !== 'server' && avgFps <= 65;
+  const scenes = sessionScenes(session).filter((scene) => {
+    const normalized = scene.trim().toLowerCase();
+    return isUsefulSceneName(scene) && normalized !== 'boot';
+  });
+  return platform !== 'server' && avgFps <= 65 && scenes.length > 0;
 };
 
 // Session length in seconds. Prefer the persisted `duration`; fall back to
