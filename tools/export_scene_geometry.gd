@@ -9,6 +9,8 @@ var resolution: float = 2.0
 var include_props: bool = true
 var output_dir: String = "exported_scenes/"
 var scene_seed: int = 42
+var _min_bound := Vector3()
+var _max_bound := Vector3()
 
 func _init():
 	var args = OS.get_cmdline_args()
@@ -51,6 +53,7 @@ func _run_export():
 	if not root:
 		printerr("Error: Could not instance scene")
 		return
+	get_root().add_child(root)
 
 	var scene_name = scene_path.get_file().get_basename()
 
@@ -91,14 +94,14 @@ func _run_export():
 		}
 	}
 
-	var min_bound = Vector3(INF, INF, INF)
-	var max_bound = Vector3(-INF, -INF, -INF)
+	_min_bound = Vector3(INF, INF, INF)
+	_max_bound = Vector3(-INF, -INF, -INF)
 
-	_process_node(root, root, data, min_bound, max_bound)
+	_process_node(root, root, data, _min_bound, _max_bound)
 
 	if data.points.size() > 0:
-		data.bounds.min = [min_bound.x, min_bound.y, min_bound.z]
-		data.bounds.max = [max_bound.x, max_bound.y, max_bound.z]
+		data.bounds.min = [_min_bound.x, _min_bound.y, _min_bound.z]
+		data.bounds.max = [_max_bound.x, _max_bound.y, _max_bound.z]
 
 	data.metadata.point_count = data.points.size()
 	data.metadata.zone_count = data.zones.size()
@@ -146,14 +149,14 @@ func _is_prop(node: Node) -> bool:
 
 	return false
 
-func _is_subclass_of(node: Node, class_name: String) -> bool:
+func _is_subclass_of(node: Node, target_class_name: String) -> bool:
 	var script = node.get_script()
 	while script:
-		if script.get_instance_base_type() == class_name:
+		if script.get_instance_base_type() == target_class_name:
 			return true
 		# In Godot 3, checking script inheritance is a bit manual
 		var base_script = script.get_base_script()
-		if base_script and base_script.resource_path.contains(class_name):
+		if base_script and base_script.resource_path.find(target_class_name) != -1:
 			return true
 		script = base_script
 	return false
@@ -239,12 +242,12 @@ func _sample_triangle(v1: Vector3, v2: Vector3, v3: Vector3, res: float, points:
 		points.append([stepify(center.x, 0.1), stepify(center.y, 0.1), stepify(center.z, 0.1)])
 
 func _update_bounds(p: Vector3, min_b: Vector3, max_b: Vector3):
-	min_b.x = min(min_b.x, p.x)
-	min_b.y = min(min_b.y, p.y)
-	min_b.z = min(min_b.z, p.z)
-	max_b.x = max(max_b.x, p.x)
-	max_b.y = max(max_b.y, p.y)
-	max_b.z = max(max_b.z, p.z)
+	_min_bound.x = min(_min_bound.x, p.x)
+	_min_bound.y = min(_min_bound.y, p.y)
+	_min_bound.z = min(_min_bound.z, p.z)
+	_max_bound.x = max(_max_bound.x, p.x)
+	_max_bound.y = max(_max_bound.y, p.y)
+	_max_bound.z = max(_max_bound.z, p.z)
 
 func _export_zone(node: Node, zones: Array):
 	var extents = node.get("zone_extents") if "zone_extents" in node else Vector3(1,1,1)
@@ -288,11 +291,11 @@ func _get_timestamp() -> String:
 	var t = OS.get_datetime()
 	return "%04d-%02d-%02d" % [t.year, t.month, t.day]
 
-func _find_node_of_class(root: Node, class_name: String) -> Node:
-	if root.get_class() == class_name:
+func _find_node_of_class(root: Node, target_class_name: String) -> Node:
+	if root.get_class() == target_class_name:
 		return root
 	for child in root.get_children():
-		var found = _find_node_of_class(child, class_name)
+		var found = _find_node_of_class(child, target_class_name)
 		if found:
 			return found
 	return null
