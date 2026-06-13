@@ -1591,6 +1591,7 @@ class OdiseaCentral:
         app = web.Application()
         app.add_routes([
             web.get('/', self.handle_index),
+            web.get('/index.html', self.handle_index),
             web.get('/ws', self.handle_ws),
             web.get('/events', self.handle_events_ws),
             web.get('/status', self.handle_status),
