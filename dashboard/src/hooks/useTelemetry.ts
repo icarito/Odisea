@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getStatus, getHealth } from '../api';
-import type { HeartbeatMap, Alert } from '../types';
+import type { Heartbeat, HeartbeatMap, Alert } from '../types';
 import { saveSnapshot, getSnapshot } from '../lib/pushStorage';
 
 // Live telemetry is delivered by the central over WebSocket (/events): it pushes
@@ -14,6 +14,7 @@ const HEALTH_POLL_MS = 15000;
 // stream only adds players, so staleness is detected by a periodic sweep.
 const STALE_AFTER_MS = 12000;
 const SWEEP_MS = 2000;
+const SNAPSHOT_EVERY_MS = 5000;
 
 const wsBaseFromApiTarget = () => {
   const apiTarget = import.meta.env.VITE_API_TARGET;
@@ -22,33 +23,63 @@ const wsBaseFromApiTarget = () => {
 };
 const EVENTS_WS_URL = `${wsBaseFromApiTarget()}/events`;
 
+interface PlayerHistory {
+  fps: number[];
+  memory: number[];
+  trail: [number, number, number][];
+  lastPos: [number, number, number] | null;
+  lastTick: number;
+  lastMoveTime: number;
+  lastScene: string;
+  events: { scene: string; zone: string; mode: string; timestamp: number }[];
+}
+
+type PlayerHistoryMap = Record<string, PlayerHistory>;
+
+interface PublishedBuild {
+  game_version?: string;
+  git_commit?: string;
+  build_id?: string;
+  build_channel?: string;
+  timestamp?: number;
+}
+
+interface HealthPayload {
+  peers_connected?: number | string;
+  heartbeats_rate?: number | string;
+  dashboard_version?: string;
+  dashboard_deployed_at?: number | null;
+  latest_published?: PublishedBuild;
+}
+
+type HeartbeatMessage = Heartbeat & { type?: string };
+
+const isHeartbeatMessage = (msg: unknown): msg is HeartbeatMessage => {
+  if (!msg || typeof msg !== 'object') return false;
+  const candidate = msg as Partial<HeartbeatMessage>;
+  return candidate.type !== 'alert' && typeof candidate.player_id === 'string' && !!candidate.player;
+};
+
 export const useTelemetry = () => {
   const [heartbeats, setHeartbeats] = useState<HeartbeatMap>({});
   const [peersConnected, setPeersConnected] = useState<number | string>('?');
   const [heartbeatRate, setHeartbeatRate] = useState<number | string>('?');
   const [isConnected, setIsConnected] = useState(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [health, setHealth] = useState<any>({});
+  const [health, setHealth] = useState<HealthPayload>({});
+  const [history, setHistory] = useState<PlayerHistoryMap>({});
   const disconnectedPids = useRef<Set<string>>(new Set());
   const playerLabels = useRef<Record<string, string>>({});
   // Wall-clock ms of the last heartbeat seen per player, for the stale sweep.
   const lastSeenMs = useRef<Record<string, number>>({});
   const ghostTick = useRef<Record<string, number>>({});
+  const lastSnapshotMs = useRef(0);
   const GHOST_STORE_EVERY = 10; // sample fps/mem into history every N heartbeats
-  const historyRef = useRef<Record<string, {
-    fps: number[],
-    memory: number[],
-    trail: [number, number, number][],
-    lastPos: [number, number, number] | null,
-    lastTick: number,
-    lastMoveTime: number,
-    lastScene: string,
-    events: { scene: string, zone: string, mode: string, timestamp: number }[]
-  }>>({});
+  const historyRef = useRef<PlayerHistoryMap>({});
 
   // Fold a single heartbeat into the per-player history (fps/mem buffers, trail,
   // scene/zone/mode events). Shared by the WS path and the initial GET seed.
-  const ingestHeartbeat = (pid: string, hb: any) => {
+  const ingestHeartbeat = useCallback((pid: string, hb: Heartbeat) => {
     const now = Date.now();
     lastSeenMs.current[pid] = now;
     playerLabels.current[pid] = hb.display_name || pid;
@@ -61,6 +92,7 @@ export const useTelemetry = () => {
       };
     }
     const hist = historyRef.current[pid];
+    hist.lastTick = Number(hb.player?.tick ?? hist.lastTick ?? 0);
 
     ghostTick.current[pid] = (ghostTick.current[pid] || 0) + 1;
     if (ghostTick.current[pid] % GHOST_STORE_EVERY === 0) {
@@ -89,7 +121,19 @@ export const useTelemetry = () => {
       hist.lastPos = pos;
       hist.lastMoveTime = now;
     }
-  };
+    setHistory({ ...historyRef.current });
+  }, []);
+
+  const ingestHeartbeatMap = useCallback((data: HeartbeatMap) => {
+    Object.entries(data).forEach(([pid, hb]) => ingestHeartbeat(pid, hb));
+  }, [ingestHeartbeat]);
+
+  const saveStatusSnapshotSoon = useCallback((data: HeartbeatMap) => {
+    const now = Date.now();
+    if (now - lastSnapshotMs.current < SNAPSHOT_EVERY_MS) return;
+    lastSnapshotMs.current = now;
+    saveSnapshot('status', data).catch(() => {});
+  }, []);
 
   // --- Heartbeats over WebSocket (push) ---
   useEffect(() => {
@@ -104,11 +148,14 @@ export const useTelemetry = () => {
         const data: HeartbeatMap = await getStatus();
         if (disposed) return;
         await saveSnapshot('status', data);
-        Object.entries(data).forEach(([pid, hb]) => ingestHeartbeat(pid, hb));
+        ingestHeartbeatMap(data);
         setHeartbeats(data);
       } catch {
         const cached = (await getSnapshot('status')) || {};
-        if (!disposed) setHeartbeats(cached);
+        if (!disposed) {
+          ingestHeartbeatMap(cached);
+          setHeartbeats(cached);
+        }
       }
     })();
 
@@ -121,13 +168,17 @@ export const useTelemetry = () => {
       socket.onopen = () => { if (!disposed) setIsConnected(true); };
 
       socket.onmessage = (event) => {
-        let msg: any;
-        try { msg = JSON.parse(event.data); } catch { return; }
+        let msg: unknown;
+        try { msg = JSON.parse(event.data) as unknown; } catch { return; }
         // Alerts are handled by useWebSocket; here we only fold in heartbeats.
         // A heartbeat carries a player_id and a nested player object.
-        if (msg && msg.type !== 'alert' && msg.player_id && msg.player) {
+        if (isHeartbeatMessage(msg)) {
           ingestHeartbeat(msg.player_id, msg);
-          setHeartbeats((prev) => ({ ...prev, [msg.player_id]: msg }));
+          setHeartbeats((prev) => {
+            const next = { ...prev, [msg.player_id]: msg };
+            saveStatusSnapshotSoon(next);
+            return next;
+          });
         }
       };
 
@@ -145,7 +196,7 @@ export const useTelemetry = () => {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (socket) { socket.onclose = null; socket.close(); }
     };
-  }, []);
+  }, [ingestHeartbeat, ingestHeartbeatMap, saveStatusSnapshotSoon]);
 
   // --- Stale sweep: prune players whose last heartbeat is too old, and raise a
   // single disconnect alert for each. Replaces the poll's map-diff logic. ---
@@ -188,13 +239,13 @@ export const useTelemetry = () => {
   useEffect(() => {
     const loadHealth = async () => {
       try {
-        const h = await getHealth();
+        const h = await getHealth() as HealthPayload;
         setHealth(h);
         setPeersConnected(h.peers_connected ?? '?');
         setHeartbeatRate(h.heartbeats_rate ?? '?');
         await saveSnapshot('health', h);
       } catch {
-        const cached = (await getSnapshot('health')) || {};
+        const cached = ((await getSnapshot('health')) || {}) as HealthPayload;
         setHealth(cached);
         setPeersConnected(cached.peers_connected ?? '?');
         setHeartbeatRate(cached.heartbeats_rate ?? '?');
@@ -205,5 +256,5 @@ export const useTelemetry = () => {
     return () => clearInterval(id);
   }, []);
 
-  return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history: historyRef.current, health };
+  return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history, health };
 };

@@ -27,7 +27,7 @@ export async function getStatus() {
 }
 
 export async function getHealth() {
-  const response = await fetch("/health");
+  const response = await apiFetch("/health");
   return response.json();
 }
 
