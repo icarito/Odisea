@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RetroCard, RetroButton, RetroInput } from './retro';
 import { getPlayerTags, postPlayerTag, deletePlayerTag } from '../api';
 import { X, Save, Trash2, UserPlus, Pencil } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { notify } from '../lib/notify';
 
 interface PlayerTag {
   player_id: string;
@@ -27,7 +27,7 @@ export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSa
       const data = await getPlayerTags();
       setTags(data);
     } catch (e) {
-      toast.error("Error cargando tags");
+      notify.error("Error cargando tags");
     } finally {
       setLoading(false);
     }
@@ -45,17 +45,17 @@ export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSa
 
   const handleSave = async () => {
     if (!editing?.player_id || !editing?.display_name) {
-      toast.error("Player ID y Nombre son requeridos");
+      notify.error("Player ID y Nombre son requeridos");
       return;
     }
     try {
       await postPlayerTag(editing as PlayerTag);
-      toast.success("Tag guardado");
+      notify.success("Tag guardado");
       setEditing(null);
       onSaved?.();
       onClose?.();
     } catch (e) {
-      toast.error("Error guardando tag");
+      notify.error("Error guardando tag");
     }
   };
 
@@ -63,7 +63,7 @@ export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSa
     if (!window.confirm(`¿Eliminar tag para ${playerId}?`)) return;
     try {
       await deletePlayerTag(playerId);
-      toast.success("Tag eliminado");
+      notify.success("Tag eliminado");
       loadTags();
       onSaved?.();
       if (editing?.player_id === playerId) {
@@ -71,7 +71,7 @@ export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSa
         onClose?.();
       }
     } catch (e) {
-      toast.error("Error eliminando tag");
+      notify.error("Error eliminando tag");
     }
   };
 

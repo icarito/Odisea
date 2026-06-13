@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
+import { notify } from './lib/notify';
 import {
   Bar,
   BarChart,
@@ -31,7 +32,7 @@ import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
-import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats } from './api';
+import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone } from './api';
 import {
   KNOWN_PLATFORMS,
   getPlatform,
@@ -867,6 +868,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [playbackData, setPlaybackData] = useState<any[]>([]);
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [serverStats, setServerStats] = useState<GhostStats>({});
+  const [hotzones, setHotzones] = useState<any[]>([]);
   const [geoPlayers, setGeoPlayers] = useState<any[]>([]);
   const loadGeoPlayers = useCallback(() => {
     getGeoPlayers()
@@ -940,7 +942,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       ].filter(Boolean);
 
       toast.custom((t) => (
-        <div className={`${t.visible ? 'opacity-100' : 'opacity-0'} border-4 border-black bg-bg-card p-3 font-mono text-xs text-text-primary shadow-[4px_4px_0px_0px_black] transition-opacity`}>
+        <div className={`${t.visible ? 'opacity-100' : 'opacity-0'} border-4 border-accent bg-bg-card p-3 font-mono text-xs text-text-primary shadow-[4px_4px_0px_0px_black] transition-opacity max-w-sm`}>
           <div className="flex items-start gap-3">
             <span className="text-base">🔥</span>
             <div className="min-w-0 flex-1">
@@ -954,7 +956,16 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 </div>
               )}
               <div className="mt-3 flex gap-2">
-                {playerId !== 'unknown' && (
+                {alertType === 'hotzone' && lastMessage.hotzoneId && (
+                  <button
+                    type="button"
+                    onClick={() => { handleDownloadHotzone(lastMessage.hotzoneId, playerLabel); toast.dismiss(t.id); }}
+                    className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                  >
+                    Descargar
+                  </button>
+                )}
+                {alertType !== 'hotzone' && playerId !== 'unknown' && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1045,6 +1056,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       getGhostStats()
         .then((d) => setServerStats(d && typeof d === 'object' ? d : {}))
         .catch(() => {});
+      getHotzones()
+        .then((d) => setHotzones(Array.isArray(d) ? d : []))
+        .catch(() => {});
     };
     loadSessions();
     const interval = setInterval(loadSessions, 10000);
@@ -1085,10 +1099,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     lastPublishedCommit.current = sha;
     const channel = String(published?.build_channel || 'build');
     const msg = commits.find((c) => c.sha.startsWith(sha) || sha.startsWith(c.sha))?.message?.split('\n')[0];
-    toast.success(
-      `Nuevo ${channel} publicado · ${sha.slice(0, 7)}${msg ? `\n${msg}` : ''}`,
-      { duration: 8000, icon: '🚀' },
-    );
+    notify.success(`Nuevo ${channel} publicado · ${sha.slice(0, 7)}`, {
+      description: msg || undefined,
+      important: true,
+      data: { tag: `published-${sha.slice(0, 7)}` },
+    });
   }, [health?.latest_published?.git_commit, commits]);
 
   // Detect a new dashboard deploy the moment it lands: /health.dashboard_version
@@ -1111,6 +1126,23 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
   }, [health?.dashboard_version]);
 
+  // Post-reload announcement: main.tsx sets this sessionStorage flag right before
+  // it reloads onto a new SW. We fire the toast from here (inside React) so the
+  // <Toaster> is guaranteed mounted — emitting it from main.tsx before mount drops
+  // it. Runs once on mount.
+  useEffect(() => {
+    try {
+      // Keep this key in sync with UPDATED_FLAG in main.tsx.
+      if (sessionStorage.getItem('odisea_dashboard_updated')) {
+        sessionStorage.removeItem('odisea_dashboard_updated');
+        notify.success('Dashboard actualizado a la última versión', {
+          important: true,
+          data: { tag: 'dashboard-update' },
+        });
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   // Normalizes a heartbeat to the flat shape the playback charts use.
   // /api/ghosts returns flat SQLite rows (hb.fps, hb.pos_x, ...), while the
   // runtime/JSONL format nests them under hb.player. Support both.
@@ -1130,6 +1162,28 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     };
   };
 
+  // session_id -> its hotzone ghosts (most recent first), so the History table
+  // can show a download affordance on sessions that produced one.
+  const hotzonesBySession = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const hz of hotzones) {
+      if (!hz.session_id) continue;
+      (map[hz.session_id] ||= []).push(hz);
+    }
+    for (const k in map) map[k].sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+    return map;
+  }, [hotzones]);
+
+  // Download a hotzone ghost binary, surfacing success/failure via notify.
+  const handleDownloadHotzone = useCallback(async (hotzoneId: string, label?: string) => {
+    try {
+      await downloadHotzone(hotzoneId, label);
+      notify.success('Hotzone descargada');
+    } catch {
+      notify.error('No se pudo descargar la hotzone');
+    }
+  }, []);
+
   const handleSelectHistorySession = async (session: any) => {
     setSelectedSession(session);
     setHistoryMobileView('player');
@@ -1145,7 +1199,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       }
       setPlaybackData(rows.map(normalizeHeartbeat));
     } catch (e) {
-      toast.error("Failed to load session data");
+      notify.error("Failed to load session data");
       setPlaybackData([]);
     } finally {
       setPlaybackLoading(false);
@@ -1154,9 +1208,31 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const [followPlayer, setFollowPlayer] = useState(true);
 
-  const availablePlatforms = useMemo(() => {
-    return KNOWN_PLATFORMS;
-  }, []);
+  // Platforms ordered by popularity (session count, desc). Counts across the
+  // current session set; platforms with no sessions keep their known order at the
+  // tail so they're still selectable.
+  // Session counts per platform (history + live), and the platform list ordered
+  // by that popularity. The counts also feed the filter UI badges.
+  const platformCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const tally = (rows: any[]) => {
+      for (const r of rows) {
+        const p = getPlatform(r);
+        if (p) counts[p] = (counts[p] || 0) + 1;
+      }
+    };
+    tally(historicalSessions);
+    tally(Object.values(heartbeats));
+    return counts;
+  }, [historicalSessions, heartbeats]);
+
+  const availablePlatforms = useMemo(() => (
+    [...KNOWN_PLATFORMS].sort((a, b) => {
+      const diff = (platformCounts[b] || 0) - (platformCounts[a] || 0);
+      if (diff !== 0) return diff;
+      return KNOWN_PLATFORMS.indexOf(a) - KNOWN_PLATFORMS.indexOf(b);
+    })
+  ), [platformCounts]);
 
   const availableSceneFilters = useMemo(() => {
     const found = new Set<string>();
@@ -1609,6 +1685,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         platforms={availablePlatforms}
         selectedPlatforms={selectedPlatforms}
         onTogglePlatform={togglePlatform}
+        platformCounts={platformCounts}
         scenes={sceneFilterOptions}
         selectedScene={selectedSceneFilter}
         onSelectScene={setSelectedSceneFilter}
@@ -2017,6 +2094,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   onSelectSession={handleSelectHistorySession}
                   selectedSessionId={selectedSession?.session_id}
                   onEditTag={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+                  hotzonesBySession={hotzonesBySession}
+                  onDownloadHotzone={handleDownloadHotzone}
                 />
               </div>
             </RetroCard>
@@ -2049,6 +2128,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           platforms={availablePlatforms}
           selectedPlatforms={selectedPlatforms}
           onTogglePlatform={togglePlatform}
+          platformCounts={platformCounts}
           scenes={sceneFilterOptions}
           selectedScene={selectedSceneFilter}
           onSelectScene={setSelectedSceneFilter}

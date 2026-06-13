@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getVapidKey, subscribePush } from '../api';
-import { toast } from 'react-hot-toast';
+import { notify } from '../lib/notify';
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -50,7 +50,7 @@ export function usePushNotifications() {
       const result = await Notification.requestPermission();
       setPermission(result);
       if (result !== 'granted') {
-        toast.error("Permiso de notificaciones denegado");
+        notify.error("Permiso de notificaciones denegado");
         return;
       }
     }
@@ -71,10 +71,10 @@ export function usePushNotifications() {
       await subscribePush(sub, settings);
       setSubscription(sub);
       setPermission(Notification.permission);
-      toast.success("Notificaciones activadas");
+      notify.success("Notificaciones activadas");
     } catch (e) {
       console.error("Failed to subscribe to push notifications", e);
-      toast.error("Error al activar notificaciones");
+      notify.error("Error al activar notificaciones");
     } finally {
       setIsSubscribing(false);
     }
@@ -85,7 +85,7 @@ export function usePushNotifications() {
     try {
       await subscription.unsubscribe();
       setSubscription(null);
-      toast.success("Notificaciones desactivadas");
+      notify.success("Notificaciones desactivadas");
     } catch (e) {
       console.error("Failed to unsubscribe", e);
     }

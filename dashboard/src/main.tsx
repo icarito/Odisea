@@ -1,7 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
-import { toast } from 'react-hot-toast'
 import App from './App.tsx'
 import './index.css'
 
@@ -67,16 +66,9 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-// Post-reload: if we just updated, announce it now that the page (and Toaster)
-// is live. Deferred so the Toaster has mounted before the toast fires.
-try {
-  if (sessionStorage.getItem(UPDATED_FLAG)) {
-    sessionStorage.removeItem(UPDATED_FLAG)
-    setTimeout(() => {
-      toast.success('Dashboard actualizado a la última versión', { icon: '✨', duration: 5000 })
-    }, 800)
-  }
-} catch { /* ignore */ }
+// Note: the post-reload "Dashboard actualizado" toast is fired from inside App
+// (a useEffect) rather than here — emitting a toast before React mounts the
+// <Toaster> drops it. App reads and clears the UPDATED_FLAG. See App.tsx.
 
 // Check for a new SW on load and every 30 min so a long-open dashboard picks up
 // a fresh deploy without a manual refresh (skipWaiting+clientsClaim then reload).

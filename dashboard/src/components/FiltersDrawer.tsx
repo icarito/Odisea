@@ -2,8 +2,6 @@ import React from 'react';
 import { X, ChevronRight } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
 
-const KNOWN_ORDER = ['server', 'android', 'linux', 'windows', 'macos', 'web'];
-
 // Quick presets for the History min-duration filter (seconds). 13s aligns with
 // WARMUP_SECONDS so "13s" drops sessions that are essentially only bootup.
 const MIN_DURATION_PRESETS = [0, 13, 30, 60];
@@ -24,6 +22,7 @@ interface FiltersContentProps {
   platforms: string[];
   selectedPlatforms: Set<string>;
   onTogglePlatform: (platform: string) => void;
+  platformCounts?: Record<string, number>;
   scenes: SceneFilterOption[];
   selectedScene: string;
   onSelectScene: (scene: string) => void;
@@ -38,12 +37,13 @@ interface FiltersContentProps {
 // The actual filter controls, shared by the mobile overlay drawer and the
 // desktop docked sidebar.
 const FiltersContent: React.FC<FiltersContentProps> = ({
-  platforms, selectedPlatforms, onTogglePlatform,
+  platforms, selectedPlatforms, onTogglePlatform, platformCounts,
   scenes, selectedScene, onSelectScene,
   countries, selectedCountry, onSelectCountry,
   minDuration, onSetMinDuration, onReset,
 }) => {
-  const visiblePlatforms = KNOWN_ORDER.filter((p) => platforms.includes(p));
+  // `platforms` arrives pre-sorted by popularity from App.tsx; render it as-is.
+  const visiblePlatforms = platforms;
   const isCustomDuration = !MIN_DURATION_PRESETS.includes(minDuration);
 
   return (
@@ -98,7 +98,10 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
                   />
                   <span className={`h-3 w-3 border border-black ${meta.color}`} />
                   {meta.icon}
-                  <span>{meta.label}</span>
+                  <span className="flex-1">{meta.label}</span>
+                  <span className="shrink-0 tabular-nums text-[0.625rem] font-bold normal-case text-text-muted">
+                    {platformCounts?.[platform] ?? 0}
+                  </span>
                 </label>
               );
             })}

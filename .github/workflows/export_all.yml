@@ -3,6 +3,20 @@ name: Release Multiplataforma
 on:
   push:
     branches: [ "main", "release" ]
+    paths-ignore:
+      - 'dashboard/**'
+      - 'docs/**'
+      - '.githooks/**'
+      - 'ci/**'
+      - 'scripts/check_*.py'
+      - 'scripts/godot_import_smoke.sh'
+      - 'scripts/install_git_hooks.sh'
+      - 'scripts/analyze_ghosts.py'
+      - 'scripts/check_regression.py'
+      - 'tests/test_export_presets.py'
+      - 'tests/ci_resource_smoke*.gd'
+      - '*.md'
+      - 'AGENTS.md'
   workflow_dispatch:
     inputs:
       publish_prerelease:
@@ -79,40 +93,28 @@ jobs:
           - platform: linux_x64
             os: ubuntu-latest
             preset: "Linux/X11 x86_64"
-            artifact_name: linux-x64
-            outfile: "Odisea-Tech-Demo.x86_64"
-            outdir: "Odisea-Tech-Demo-Linux"
+            artifact_name: Odisea-Tech-Demo-Linux
           - platform: linux_arm64
             os: ubuntu-latest
             preset: "Linux/X11 ARM64"
-            artifact_name: linux-arm64
-            outfile: "Odisea-Tech-Demo.arm64"
-            outdir: "Odisea-Tech-Demo-Linux-ARM64"
+            artifact_name: Odisea-Tech-Demo-Linux-ARM64
           - platform: windows
             os: ubuntu-latest
             preset: "Windows Desktop"
-            artifact_name: windows
-            outfile: "Odisea-Tech-Demo.exe"
-            outdir: "Odisea-Tech-Demo-Windows"
+            artifact_name: Odisea-Tech-Demo-Windows
           - platform: ios
             os: macos-latest
             preset: "iOS"
-            artifact_name: ios
-            outfile: "Odisea-Tech-Demo.ipa"
-            outdir: "Odisea-Tech-Demo-iOS"
+            artifact_name: Odisea-Tech-Demo-iOS
           - platform: android
             os: ubuntu-latest
             preset: "Android"
-            artifact_name: android
+            artifact_name: Odisea-Tech-Demo-Android
             container: barichello/godot-ci:3.6.2
-            outfile: "Odisea-Tech-Demo.apk"
-            outdir: "Odisea-Tech-Demo-Android"
           - platform: html5
             os: ubuntu-latest
             preset: "HTML5 Threads"
-            artifact_name: html5
-            outfile: "index.html"
-            outdir: "Odisea-Tech-Demo-Web"
+            artifact_name: Odisea-Tech-Demo-Web
 
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -307,13 +309,13 @@ jobs:
           $G_BIN --editor --quit --headless || true
 
           case "${{ matrix.platform }}" in
-            linux_x64) OUT="build/linux_x86_64/${{ matrix.outfile }}" ;;
-            linux_arm64) OUT="build/linux_arm64/${{ matrix.outfile }}" ;;
-            windows) OUT="build/windows/${{ matrix.outfile }}" ;;
-            macos) OUT="build/macos/${{ matrix.outfile }}" ;;
-            ios) OUT="build/ios/${{ matrix.outfile }}" ;;
-            android) OUT="build/android/${{ matrix.outfile }}" ;;
-            html5) OUT="build/html5/${{ matrix.outfile }}" ;;
+            linux_x64) OUT="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
+            linux_arm64) OUT="build/linux_arm64/Odisea-Tech-Demo.arm64" ;;
+            windows) OUT="build/windows/Odisea-Tech-Demo.exe" ;;
+            macos) OUT="build/macos/Odisea-Tech-Demo.zip" ;;
+            ios) OUT="build/ios/Odisea-Tech-Demo.ipa" ;;
+            android) OUT="build/android/Odisea-Tech-Demo.apk" ;;
+            html5) OUT="build/html5/index.html" ;;
           esac
 
           mkdir -p $(dirname "$OUT")
@@ -378,8 +380,7 @@ jobs:
         run: |
           VERSION="${{ needs.prep.outputs.version }}"
           SHA="${{ needs.prep.outputs.sha }}"
-          ARTIFACT_BASE="${{ matrix.outdir }}"
-          PACKAGE="dist/$ARTIFACT_BASE-$VERSION-$SHA.zip"
+          PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION-$SHA.zip"
           mkdir -p dist
 
           # For native platforms, include build_meta.json in the zip
@@ -397,9 +398,13 @@ jobs:
           if [ "${{ matrix.platform }}" = "html5" ]; then
             cd build/html5 && zip -r "../../$PACKAGE" .
           elif [ "${{ matrix.platform }}" = "android" ]; then
-            cd build/android && mv * ../ && cd .. && rm -rf android && zip -r "../$PACKAGE" .
+            # APK se sube sin comprimir (ya es un zip firmado)
+            PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION-$SHA.apk"
+            cp build/android/Odisea-Tech-Demo.apk "$PACKAGE"
           elif [ "${{ matrix.platform }}" = "ios" ]; then
             cd build/ios && zip -r "../../$PACKAGE" .
+          elif [ "${{ matrix.platform }}" = "macos" ]; then
+             cp build/macos/Odisea-Tech-Demo.zip "$PACKAGE"
           else
             cd build && zip -r "../$PACKAGE" . -x "netlify/*" -x "pages/*" -x "html5/*" -x "android/*" -x "ios/*"
           fi
@@ -409,7 +414,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*.apk
 
       - name: Upload Netlify artifact
         if: matrix.platform == 'html5'
@@ -539,7 +546,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="nightly"
-          mapfile -t RELEASE_FILES < <(find nightly_assets -type f -name "*.zip" -print | sort)
+          mapfile -t RELEASE_FILES < <(find nightly_assets -type f -name "*.zip" -o -name "*.apk" -print | sort)
           if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
             echo "::error::No release zip artifacts found in nightly_assets"
             find nightly_assets -maxdepth 3 -type f -print || true

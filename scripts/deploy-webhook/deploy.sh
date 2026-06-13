@@ -36,6 +36,20 @@ BACKUP_DIR="${BACKUP_DIR:-$DEPLOY_DIR/data/backups}"
 
 log() { echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"; }
 
+# Serialize deploys: the webhook (origin/main) and a manual `make deploy-dashboard`
+# both write $DEPLOY_DIR/static/dashboard. Running concurrently leaves index.html
+# pointing at hashed assets the other deploy already replaced (→ 404 / corrupted
+# content). Take an exclusive lock on a shared lockfile for the whole run; the
+# manual Makefile path takes the SAME lock. We re-exec under flock so the lock is
+# held for the entire script, then released when it exits.
+LOCK_FILE="${DEPLOY_LOCK:-$DEPLOY_DIR/.deploy.lock}"
+if [ -z "${_DEPLOY_LOCKED:-}" ]; then
+  mkdir -p "$(dirname "$LOCK_FILE")"
+  export _DEPLOY_LOCKED=1
+  # -w 600: wait up to 10 min for a concurrent deploy to finish rather than fail.
+  exec flock -w 600 "$LOCK_FILE" "$0" "$@"
+fi
+
 log "=== auto-deploy start (branch=$BRANCH) ==="
 
 # Clone on first run if the dedicated checkout doesn't exist yet.
@@ -78,7 +92,11 @@ VITE_DASHBOARD_VERSION="$NEW_SHA" \
 VITE_GIT_COMMIT="$FULL_SHA" \
 $PNPM run build
 
-log "backing up and migrating SQLite ($DB_PATH)"
+log "backing up SQLite ($DB_PATH)"
+# Schema (CREATE TABLE / ALTER ADD COLUMN) is owned by odisea_central.py, which
+# re-applies it on every startup (the restart below). We do NOT duplicate it here.
+# This block only: backs up the DB, integrity-checks it, and runs the legacy
+# data backfills the central does not do (intake_mode default, official_build).
 python3 - "$DB_PATH" "$BACKUP_DIR" <<'PY'
 import os
 import sqlite3
@@ -90,126 +108,48 @@ backup_dir = sys.argv[2]
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
 os.makedirs(backup_dir, exist_ok=True)
 
-backup_path = ""
-
 try:
-    db_exists = os.path.exists(db_path)
+    if not os.path.exists(db_path):
+        print("SQLite DB missing; the central will create it on startup:", db_path)
+        sys.exit(0)
+
     conn = sqlite3.connect(db_path)
 
-    if db_exists:
-        backup_path = os.path.join(
-            backup_dir,
-            "ghosts_%s.db" % time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()),
-        )
-        backup = sqlite3.connect(backup_path)
-        conn.backup(backup)
-        backup.close()
-        if not os.path.exists(backup_path) or os.path.getsize(backup_path) <= 0:
-            raise RuntimeError("backup file was not created correctly")
-        print("SQLite backup:", backup_path)
-    else:
-        print("SQLite DB missing; creating fresh DB:", db_path)
+    backup_path = os.path.join(
+        backup_dir,
+        "ghosts_%s.db" % time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()),
+    )
+    backup = sqlite3.connect(backup_path)
+    conn.backup(backup)
+    backup.close()
+    if not os.path.exists(backup_path) or os.path.getsize(backup_path) <= 0:
+        raise RuntimeError("backup file was not created correctly")
+    print("SQLite backup:", backup_path)
 
     integrity = conn.execute("PRAGMA integrity_check").fetchone()
     if not integrity or integrity[0] != "ok":
         raise RuntimeError("integrity_check failed: %r" % (integrity,))
 
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS hotzones (
-            id TEXT PRIMARY KEY,
-            player_id TEXT,
-            session_id TEXT,
-            timestamp REAL,
-            file_path TEXT,
-            trigger_type TEXT DEFAULT 'auto'
-        );
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS heartbeats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            player_id TEXT,
-            session_id TEXT,
-            timestamp REAL,
-            scene TEXT,
-            platform TEXT,
-            fps REAL,
-            memory_mb REAL,
-            pos_x REAL,
-            pos_y REAL,
-            pos_z REAL,
-            engine_version TEXT,
-            game_version TEXT,
-            git_commit TEXT,
-            build_id TEXT,
-            build_channel TEXT,
-            official_host TEXT,
-            official_build INTEGER,
-            intake_mode TEXT,
-            peer_id TEXT,
-            UNIQUE(player_id, session_id, timestamp)
-        );
-        """
-    )
-    for column, coltype in (
-        ("game_version", "TEXT"),
-        ("git_commit", "TEXT"),
-        ("build_id", "TEXT"),
-        ("build_channel", "TEXT"),
-        ("official_host", "TEXT"),
-        ("official_build", "INTEGER"),
-        ("intake_mode", "TEXT"),
-    ):
-        try:
-            conn.execute("ALTER TABLE heartbeats ADD COLUMN %s %s" % (column, coltype))
-        except sqlite3.OperationalError as exc:
-            if "duplicate column name" not in str(exc).lower():
-                raise
-    conn.execute("UPDATE heartbeats SET intake_mode='telemetry' WHERE intake_mode IS NULL OR intake_mode=''")
-    conn.execute(
-        """
-        UPDATE heartbeats
-           SET official_build=1
-         WHERE COALESCE(official_build, 0)=0
-           AND (COALESCE(official_host, '') != ''
-                OR COALESCE(build_channel, '') IN ('nightly', 'tip', 'release'))
-        """
-    )
+    # Legacy data backfills (no-ops once applied; the central doesn't do these).
+    # Guarded by table_info so they don't fail on a DB the central hasn't built yet.
+    hb_cols = {row[1] for row in conn.execute("PRAGMA table_info(heartbeats)").fetchall()}
+    if "intake_mode" in hb_cols:
+        conn.execute("UPDATE heartbeats SET intake_mode='telemetry' WHERE intake_mode IS NULL OR intake_mode=''")
+    if {"official_build", "official_host", "build_channel"} <= hb_cols:
+        conn.execute(
+            """
+            UPDATE heartbeats
+               SET official_build=1
+             WHERE COALESCE(official_build, 0)=0
+               AND (COALESCE(official_host, '') != ''
+                    OR COALESCE(build_channel, '') IN ('nightly', 'tip', 'release'))
+            """
+        )
     conn.commit()
-
-    cols = {
-        row[1]
-        for row in conn.execute("PRAGMA table_info(hotzones)").fetchall()
-    }
-    required = {"id", "player_id", "session_id", "timestamp", "file_path", "trigger_type"}
-    missing = sorted(required - cols)
-    if missing:
-        raise RuntimeError("hotzones schema missing columns: %s" % ", ".join(missing))
-
-    hb_cols = {
-        row[1]
-        for row in conn.execute("PRAGMA table_info(heartbeats)").fetchall()
-    }
-    hb_required = {
-        "game_version", "git_commit", "build_id", "build_channel",
-        "official_host", "official_build", "intake_mode",
-    }
-    hb_missing = sorted(hb_required - hb_cols)
-    if hb_missing:
-        raise RuntimeError("heartbeats schema missing columns: %s" % ", ".join(hb_missing))
-
-    post_integrity = conn.execute("PRAGMA integrity_check").fetchone()
-    if not post_integrity or post_integrity[0] != "ok":
-        raise RuntimeError("post-migration integrity_check failed: %r" % (post_integrity,))
-
     conn.close()
-    print("SQLite migration OK:", db_path)
+    print("SQLite backup + backfill OK:", db_path)
 except Exception as exc:
-    print("SQLite migration FAILED:", exc, file=sys.stderr)
-    if backup_path:
-        print("Backup left untouched:", backup_path, file=sys.stderr)
+    print("SQLite backup/backfill FAILED:", exc, file=sys.stderr)
     sys.exit(1)
 PY
 
@@ -220,8 +160,15 @@ cp "$REPO_DIR/odisea_central.py" "$DEPLOY_DIR/odisea_central.py"
 cp "$REPO_DIR/scripts/import_ghosts_to_sqlite.py" "$DEPLOY_DIR/scripts/import_ghosts_to_sqlite.py"
 cp "$REPO_DIR/scripts/import_nginx_geo.py" "$DEPLOY_DIR/scripts/import_nginx_geo.py"
 chmod +x "$DEPLOY_DIR/scripts/import_nginx_geo.py"
-rm -rf "$DEPLOY_DIR/static/dashboard"
-cp -r "$REPO_DIR/dashboard/dist" "$DEPLOY_DIR/static/dashboard"
+# Atomic static swap: copy into a staging dir on the same filesystem, then `mv`
+# into place. A plain rm+cp leaves a window where index.html references hashed
+# assets that aren't there yet (→ 404 / corrupted content). The mv is atomic.
+STAGE="$DEPLOY_DIR/static/.dashboard.stage"
+rm -rf "$STAGE" "$DEPLOY_DIR/static/dashboard.old"
+cp -r "$REPO_DIR/dashboard/dist" "$STAGE"
+[ -d "$DEPLOY_DIR/static/dashboard" ] && mv "$DEPLOY_DIR/static/dashboard" "$DEPLOY_DIR/static/dashboard.old"
+mv "$STAGE" "$DEPLOY_DIR/static/dashboard"
+rm -rf "$DEPLOY_DIR/static/dashboard.old"
 
 log "writing systemd build metadata"
 sudo mkdir -p "/etc/systemd/system/${SERVICE}.d"

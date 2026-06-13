@@ -1,0 +1,37 @@
+{
+  "scene": "Criogenia",
+  "version": 1,
+  "bounds": {
+    "min": [-150, -350, 3400],
+    "max": [150, 50, 3600]
+  },
+  "points": [
+    [48, -343, 3521], [148, -343, 3521], [-52, -343, 3521],
+    [48, -343, 3421], [48, -343, 3621]
+  ],
+  "zones": [
+    {
+      "name": "PuzzleZone",
+      "position": [47.5, -320, 3461.6],
+      "bounds": {
+        "min": [-100, -350, 3400],
+        "max": [200, -290, 3550]
+      },
+      "type": "puzzle"
+    }
+  ],
+  "props": [
+    {
+      "name": "CommandCenter",
+      "position": [35, 0, 108.7],
+      "type": "prop",
+      "tags": ["decoration"]
+    }
+  ],
+  "metadata": {
+    "generated_at": "2026-06-13",
+    "point_count": 5,
+    "zone_count": 1,
+    "prop_count": 1
+  }
+}

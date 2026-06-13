@@ -2,6 +2,8 @@ import React, { useRef, Suspense, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF, Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { SceneGeometry } from './SceneGeometry';
+import { useSceneGeometry } from '../hooks/useSceneGeometry';
 
 // Inline heatmap overlay rendered as a group so it can nest inside this Canvas.
 // (The standalone Heatmap3D component owns its own Canvas and is used in the heatmap tab.)
@@ -149,6 +151,7 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
 export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, label, color, hud }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
+  const { geometry } = useSceneGeometry(sceneName);
 
   const resetView = () => {
     if (cameraRef.current && controlsRef.current) {
@@ -177,6 +180,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
         <SceneErrorBoundary>
             <Suspense fallback={null}>
                 {sceneName && <SceneModel sceneName={sceneName} wireframe={wireframe} />}
+                {geometry && <SceneGeometry data={geometry} showGeometry={!wireframe} />}
             </Suspense>
         </SceneErrorBoundary>
 

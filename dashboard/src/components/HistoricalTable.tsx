@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, ChevronUp, Tag } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, Tag, Download } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
 import { getPlatform } from '../lib/filters';
 import { buildLabel } from '../lib/buildLabels';
 
-export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, onEditTag }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null, onEditTag?: (playerId: string) => void }) => {
+export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, onEditTag, hotzonesBySession, onDownloadHotzone }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null, onEditTag?: (playerId: string) => void, hotzonesBySession?: Record<string, any[]>, onDownloadHotzone?: (hotzoneId: string, label?: string) => void }) => {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [sortKey, setSortKey] = useState<'date' | 'fps'>('date');
   // Ticks every second so live-session uptime counts up in real time.
@@ -107,6 +107,7 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
             const versionLabel = buildLabel(s);
             const label = s.display_name || '';
             const location = [s.city, s.country_code || s.country].filter(Boolean).join(', ');
+            const sessionHotzones = (s.session_id && hotzonesBySession?.[s.session_id]) || [];
             return (
               <div
                 key={`${s.session_id || 'session'}-${idx}`}
@@ -180,6 +181,17 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                 <span className={`shrink-0 border-2 px-2 py-1 text-[0.625rem] font-black ${tone.badge}`}>
                   {avgFps.toFixed(1)}
                 </span>
+                {onDownloadHotzone && sessionHotzones.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onDownloadHotzone(sessionHotzones[0].id, label || s.player_id); }}
+                    className="shrink-0 border-2 border-accent bg-accent/10 p-1 text-accent hover:bg-accent hover:text-black"
+                    title={`Descargar hotzone${sessionHotzones.length > 1 ? ` (1 de ${sessionHotzones.length})` : ''}`}
+                    aria-label="Descargar hotzone de la sesión"
+                  >
+                    <Download size={14} />
+                  </button>
+                )}
                 {onEditTag && s.player_id && (
                   <button
                     type="button"
