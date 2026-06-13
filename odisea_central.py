@@ -826,11 +826,24 @@ class OdiseaCentral:
         if player_id:
             hb = self.heartbeats.get(player_id)
             if hb and self._is_visible_telemetry(hb, include_server, include_tests):
+                tags = await self._run_query(self._fetch_player_tags)
+                hb = hb.copy()
+                tag = tags.get(player_id) or {}
+                hb["display_name"] = tag.get("display_name")
+                hb["color"] = tag.get("color")
+                hb["notes"] = tag.get("notes")
                 return web.json_response(hb)
             return web.json_response({"error": "not_found"}, status=404)
 
+        tags = await self._run_query(self._fetch_player_tags)
         visible = {
-            pid: hb for pid, hb in self.heartbeats.items()
+            pid: {
+                **hb,
+                "display_name": (tags.get(pid) or {}).get("display_name"),
+                "color": (tags.get(pid) or {}).get("color"),
+                "notes": (tags.get(pid) or {}).get("notes"),
+            }
+            for pid, hb in self.heartbeats.items()
             if self._is_visible_telemetry(hb, include_server, include_tests)
         }
         return web.json_response(visible)
@@ -978,6 +991,22 @@ class OdiseaCentral:
                 return rows
 
             rows = await self._run_query(fetch)
+            tags = await self._run_query(self._fetch_player_tags)
+            geo_by_player = await self._run_query(
+                self._fetch_geo_by_player_ids,
+                [row.get("player_id") for row in rows],
+            )
+            for row in rows:
+                tag = tags.get(row.get("player_id")) or {}
+                geo = geo_by_player.get(row.get("player_id")) or {}
+                row["display_name"] = tag.get("display_name")
+                row["color"] = tag.get("color")
+                row["country"] = geo.get("country")
+                row["country_code"] = geo.get("country_code")
+                row["region"] = geo.get("region")
+                row["city"] = geo.get("city")
+                row["latitude"] = geo.get("latitude")
+                row["longitude"] = geo.get("longitude")
             return web.json_response(rows)
         except Exception as e:
             logger.warning(f"{request.path}: query failed, returning [] ({e})")
@@ -1194,10 +1223,7 @@ class OdiseaCentral:
             conn.row_factory = sqlite3.Row
             try:
                 cursor = conn.cursor()
-                # Only confirmed real players: rows carrying a player_id (written
-                # by the live WS path) that have been geolocated. This excludes
-                # dashboard viewers, /ws probes, and any nginx-derived row that
-                # never tied to an actual telemetry session.
+                # Confirmed player-linked rows written by the live WS path.
                 cursor.execute("""
                     SELECT ip_hash, player_id, country, country_code, region, city,
                            latitude, longitude, last_seen, hits
@@ -1209,12 +1235,33 @@ class OdiseaCentral:
                     ORDER BY last_seen DESC
                     LIMIT 500
                 """)
-                return [dict(row) for row in cursor.fetchall()]
+                players = [dict(row) for row in cursor.fetchall()]
+
+                # Historical telemetry-only rows. Do not use geo_locations here:
+                # that aggregate can include plain website hits. The globe must
+                # represent game telemetry, so require ws/telemetry counters.
+                cursor.execute("""
+                    SELECT ip_hash, player_id, country, country_code, region, city,
+                           latitude, longitude, last_seen, hits,
+                           ws_hits, telemetry_hits
+                    FROM geo_ips
+                    WHERE latitude IS NOT NULL
+                      AND longitude IS NOT NULL
+                      AND COALESCE(player_id, '') = ''
+                      AND (
+                        COALESCE(ws_hits, 0) > 0
+                        OR COALESCE(telemetry_hits, 0) > 0
+                      )
+                    ORDER BY last_seen DESC
+                    LIMIT 500
+                """)
+                historical = [dict(row) for row in cursor.fetchall()]
+                return players, historical
             finally:
                 conn.close()
 
         try:
-            rows = await self._run_query(fetch)
+            rows, historical_rows = await self._run_query(fetch)
         except Exception as e:
             logger.warning(f"{request.path}: geo query failed, returning [] ({e})")
             return web.json_response([])
@@ -1241,6 +1288,40 @@ class OdiseaCentral:
                 "status": status,
                 "hits": row.get("hits") or 0,
             })
+        seen_locations = {
+            (
+                round(float(p.get("latitude") or 0), 2),
+                round(float(p.get("longitude") or 0), 2),
+            )
+            for p in players
+        }
+        for row in historical_rows:
+            lat = row.get("latitude")
+            lng = row.get("longitude")
+            key = (round(float(lat or 0), 2), round(float(lng or 0), 2))
+            if key in seen_locations:
+                continue
+            age = now - float(row.get("last_seen") or 0)
+            status = "recent" if age <= 3600 else "old"
+            city = row.get("city") or "Unknown"
+            country = row.get("country") or "Unknown"
+            players.append({
+                "player_id": "geo:%s:%s" % (city, country),
+                "session_id": "historical_geo",
+                "last_seen": row.get("last_seen"),
+                "country": country,
+                "country_code": row.get("country_code") or "",
+                "region": row.get("region") or "",
+                "city": city,
+                "latitude": lat,
+                "longitude": lng,
+                "display_name": None,
+                "color": None,
+                "status": status,
+                "hits": row.get("telemetry_hits") or row.get("ws_hits") or row.get("hits") or 0,
+                "historical": True,
+                "player_count": 0,
+            })
         return web.json_response(players)
 
     # --- Player tags ---
@@ -1259,6 +1340,38 @@ class OdiseaCentral:
             """)
             cur.execute("SELECT player_id, display_name, notes, color FROM player_tags")
             return {r["player_id"]: dict(r) for r in cur.fetchall()}
+        finally:
+            conn.close()
+
+    def _fetch_geo_by_player_ids(self, player_ids: list) -> dict:
+        ids = sorted({str(pid) for pid in player_ids if pid})
+        if not ids or not os.path.exists(GEO_SQLITE_DB):
+            return {}
+        conn = sqlite3.connect(GEO_SQLITE_DB)
+        conn.row_factory = sqlite3.Row
+        try:
+            self._ensure_geo_schema(conn)
+            result = {}
+            for index in range(0, len(ids), 200):
+                chunk = ids[index:index + 200]
+                placeholders = ",".join("?" for _ in chunk)
+                rows = conn.execute(
+                    f"""
+                    SELECT player_id, country, country_code, region, city,
+                           latitude, longitude, last_seen
+                    FROM geo_ips
+                    WHERE player_id IN ({placeholders})
+                      AND latitude IS NOT NULL
+                      AND longitude IS NOT NULL
+                    ORDER BY last_seen DESC
+                    """,
+                    chunk,
+                ).fetchall()
+                for row in rows:
+                    pid = row["player_id"]
+                    if pid not in result:
+                        result[pid] = dict(row)
+            return result
         finally:
             conn.close()
 
@@ -1680,10 +1793,15 @@ class OdiseaCentral:
                     self.peer_ws.pop(pid, None)
                 
                 if pid:
+                    tags = await self._run_query(self._fetch_player_tags)
+                    tag = tags.get(pid) or {}
+                    label = tag.get("display_name") or pid[:8]
                     asyncio.create_task(self.send_push_to_all({
                         "type": "disconnect",
                         "playerId": pid,
-                        "message": f"Player {pid[:8]} disconnected"
+                        "playerName": label,
+                        "display_name": tag.get("display_name"),
+                        "message": f"{label} disconnected"
                     }))
             logger.info(f"Peer disconnected: {peer_id}")
 
@@ -1697,6 +1815,8 @@ class OdiseaCentral:
             return
 
         data["intake_mode"] = intake_mode if intake_mode in ("admin", "ingest", "telemetry") else "telemetry"
+        tag = {}
+        player_label = player_id[:8]
 
         now = time.time()
         last_time = self.session_rate_limit.get(session_id, 0)
@@ -1731,13 +1851,18 @@ class OdiseaCentral:
                 # Throttle alerts: max 1 per 60s
                 if now - self.last_alert_time.get(player_id, 0) > 60:
                     self.last_alert_time[player_id] = now
+                    tags = await self._run_query(self._fetch_player_tags)
+                    tag = tags.get(player_id) or {}
+                    player_label = tag.get("display_name") or player_id[:8]
                     alert = {
                         "type": "alert",
                         "alertType": "low_fps",
                         "playerId": player_id,
                         "player_id": player_id,
+                        "playerName": player_label,
+                        "display_name": tag.get("display_name"),
                         "platform": platform,
-                        "message": f"Low FPS detected: {fps} FPS",
+                        "message": f"{player_label}: low FPS detected ({fps} FPS)",
                         "fps": fps,
                         "timestamp": now
                     }
@@ -1758,9 +1883,11 @@ class OdiseaCentral:
                     "alertType": "low_fps",
                     "playerId": player_id,
                     "player_id": player_id,
+                    "playerName": player_label,
+                    "display_name": tag.get("display_name"),
                     "session_id": session_id,
                     "platform": platform,
-                    "message": "Low FPS detected (>5s)",
+                    "message": f"{player_label}: low FPS detected (>5s)",
                     "fps": fps,
                     "timestamp": now
                 }

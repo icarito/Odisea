@@ -19,6 +19,10 @@ interface GroupedPlayer {
   status: GeoPlayer['status'];
   player_id: string;
   names: string[];
+  color?: string;
+  historical: boolean;
+  hits: number;
+  player_count: number;
 }
 
 const STATUS_COLOR: Record<GeoPlayer['status'], string> = {
@@ -32,6 +36,16 @@ const STATUS_RANK: Record<GeoPlayer['status'], number> = {
   recent: 1,
   old: 0,
 };
+
+const escapeHtml = (value: string) => (
+  value.replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char] || char))
+);
 
 function groupPlayers(players: GeoPlayer[]): GroupedPlayer[] {
   const groups: Record<string, GroupedPlayer> = {};
@@ -48,11 +62,19 @@ function groupPlayers(players: GeoPlayer[]): GroupedPlayer[] {
         status: 'old',
         player_id: p.player_id,
         names: [],
+        color: p.color,
+        historical: Boolean(p.historical),
+        hits: 0,
+        player_count: 0,
       };
     }
     const g = groups[key];
     g.count++;
     if (p.display_name) g.names.push(p.display_name);
+    if (!g.color && p.color) g.color = p.color;
+    g.historical = g.historical || Boolean(p.historical);
+    g.hits += Number(p.hits || 0);
+    g.player_count += Number(p.player_count || 0);
     if (STATUS_RANK[p.status] > STATUS_RANK[g.status]) g.status = p.status;
   }
   return Object.values(groups);
@@ -164,7 +186,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
           pointsData={points}
           pointLat="latitude"
           pointLng="longitude"
-          pointColor={(d) => STATUS_COLOR[(d as GroupedPlayer).status]}
+          pointColor={(d) => (d as GroupedPlayer).color || STATUS_COLOR[(d as GroupedPlayer).status]}
           pointAltitude={(d) => 0.01 + Math.min((d as GroupedPlayer).count * 0.01, 0.12)}
           pointRadius={(d) =>
             (isMobile ? 0.45 : 0.28) + Math.min((d as GroupedPlayer).count * 0.05, 0.5)
@@ -172,7 +194,9 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
           pointsMerge={false}
           pointLabel={(d) => {
             const p = d as GroupedPlayer;
-            return `<div style="background:rgba(0,0,0,.8);border:1px solid #3fb950;padding:6px 8px;border-radius:4px;font-size:11px;white-space:nowrap"><b>${p.city}, ${p.country}</b><br/>${p.count} jugador${p.count !== 1 ? 'es' : ''}</div>`;
+            const historical = p.historical ? `<br/><span style="color:#8b949e">${p.hits} hits historicos</span>` : '';
+            const names = p.names.length ? `<br/><span style="color:#7fd1ff">${escapeHtml(p.names.slice(0, 3).join(', '))}</span>` : '';
+            return `<div style="background:rgba(0,0,0,.8);border:1px solid #3fb950;padding:6px 8px;border-radius:4px;font-size:11px;white-space:nowrap"><b>${escapeHtml(p.city)}, ${escapeHtml(p.country)}</b><br/>${p.count} punto${p.count !== 1 ? 's' : ''}${names}${historical}</div>`;
           }}
           onPointClick={handlePointClick}
         />

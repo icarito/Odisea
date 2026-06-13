@@ -161,6 +161,7 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
 
   const platform = data[0]?.platform || session?.platform || '?';
   const engine = data[0]?.engine_version || '?';
+  const location = [session?.city, session?.country_code || session?.country].filter(Boolean).join(', ');
 
   if (chartData.length === 0) {
     return (
@@ -243,11 +244,15 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
         />
         {/* Session identity overlay (key fields over the 3D view). */}
         <div className="pointer-events-none absolute top-3 left-3 max-w-[70%] border-2 border-black bg-bg-card/90 px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
-          <div className="mb-1 truncate font-black text-accent">{session?.player_id || 'SESSION'}</div>
+          <div className="mb-1 truncate font-black text-accent">{session?.display_name || session?.player_id || 'SESSION'}</div>
+          {session?.display_name && (
+            <div className="mb-1 truncate text-[0.5625rem] text-text-muted">{session.player_id}</div>
+          )}
           <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-text-muted">
             <span>Scene</span><span className="truncate" style={{ color: sceneColor(curScene || '?') }}>{curScene || '—'}</span>
             <span>Platform</span><span className="uppercase text-text-primary">{platform}</span>
             <span>Engine</span><span className="truncate text-text-primary">{engine}</span>
+            {location && <><span>Geo</span><span className="truncate text-text-primary">{location}</span></>}
             <span>Duration</span><span className="text-text-primary">{fmtDuration(stats.duration)}</span>
           </div>
         </div>

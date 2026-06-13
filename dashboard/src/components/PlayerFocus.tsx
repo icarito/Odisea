@@ -4,17 +4,18 @@ import { User, Tag, X } from 'lucide-react';
 
 interface PlayerFocusProps {
   playerId: string;
+  displayName?: string | null;
   onClear: () => void;
   onTagClick: () => void;
 }
 
-export const PlayerFocus: React.FC<PlayerFocusProps> = ({ playerId, onClear, onTagClick }) => {
+export const PlayerFocus: React.FC<PlayerFocusProps> = ({ playerId, displayName, onClear, onTagClick }) => {
   return (
     <div className="flex items-center gap-2 bg-accent/10 border-2 border-accent/40 p-1.5 rounded-sm">
       <div className="flex items-center gap-1.5">
         <User size={14} className="text-accent" />
         <span className="text-[0.625rem] font-black uppercase text-accent truncate max-w-[120px]">
-          Focussing: {playerId}
+          Focussing: {displayName || playerId}
         </span>
       </div>
       <div className="flex gap-1 ml-auto">

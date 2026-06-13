@@ -31,6 +31,9 @@ export interface Heartbeat {
   official_host?: string;
   official_build?: boolean;
   intake_mode?: 'admin' | 'ingest' | 'telemetry';
+  display_name?: string;
+  color?: string;
+  notes?: string;
   player: PlayerState;
   timestamp: number;
 }
@@ -57,4 +60,7 @@ export interface GeoPlayer {
   display_name?: string;
   color?: string;
   status: 'connected' | 'recent' | 'old';
+  hits?: number;
+  historical?: boolean;
+  player_count?: number;
 }

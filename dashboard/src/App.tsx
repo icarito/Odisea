@@ -21,7 +21,7 @@ import { HistoricalTable } from './components/HistoricalTable';
 import { SessionPlayback } from './components/SessionPlayback';
 import { DashboardLayout } from './components/DashboardLayout';
 import { PlayerBottomSheet } from './components/PlayerBottomSheet';
-import { FiltersDrawer, FiltersSidebar } from './components/FiltersDrawer';
+import { FiltersDrawer, FiltersSidebar, type SceneFilterOption } from './components/FiltersDrawer';
 import { LiveCombinedChart } from './components/LiveCombinedChart';
 import { RetroCard, RetroButton } from './components/retro';
 import { GlobeView } from './components/GlobeView';
@@ -54,6 +54,7 @@ const DASHBOARD_BUILD_VERSION = (
   || import.meta.env.VITE_GIT_COMMIT
   || ''
 ).slice(0, 12);
+const DEFAULT_HISTORY_MIN_DURATION = 13;
 
 const formatDateTime = (timestampSeconds: number) => {
   if (!timestampSeconds) return 'No data';
@@ -588,7 +589,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const resetFilters = () => {
     setSelectedPlatforms(new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server')));
     setSelectedSceneFilter('all');
-    setMinDuration(0);
+    setMinDuration(DEFAULT_HISTORY_MIN_DURATION);
   };
   const [lastLivePlayerCount, setLastLivePlayerCount] = useState(0);
   const alertToastTimes = useRef<Map<string, number>>(new Map());
@@ -630,6 +631,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       // Enrich the alert with whatever runtime context we have: prefer the
       // alert payload, fall back to the player's current heartbeat.
       const liveHb: any = heartbeats[playerId];
+      const playerLabel = lastMessage.display_name || lastMessage.playerName || liveHb?.display_name || playerId;
       const ctxScene = lastMessage.scene ?? lastMessage.player?.scene ?? liveHb?.player?.scene;
       const ctxPlatform = alertPlatform ?? getPlatform(liveHb);
       const ctxFps = lastMessage.fps ?? lastMessage.player?.fps ?? liveHb?.player?.fps;
@@ -647,7 +649,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <span className="text-base">🔥</span>
             <div className="min-w-0 flex-1">
               <div className="font-black uppercase text-accent">
-                Performance alert{alertType && alertType !== 'alert' ? ` · ${alertType}` : ''}
+                {playerLabel}{alertType && alertType !== 'alert' ? ` · ${alertType}` : ''}
               </div>
               <div className="mt-1 text-text-muted">{lastMessage.message}</div>
               {ctxParts.length > 0 && (
@@ -698,6 +700,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       const pos = p.position || [0,0,0];
       return {
         player_id: pid,
+        display_name: hb.display_name,
+        color: hb.color,
         session_id: hb.session_id,
         scene: p.scene,
         platform: getPlatform(hb),
@@ -864,6 +868,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         const p = hb.player || {};
         return {
           player_id: pid,
+          display_name: hb.display_name,
+          color: hb.color,
           session_id: hb.session_id,
           platform: getPlatform(hb) || 'unknown',
           start_time: hb.session_start ?? hb.timestamp,
@@ -892,6 +898,22 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       && (session.live || minDuration <= 0 || sessionDuration(session) >= minDuration)
     ));
   }, [historicalSessions, liveSessionRows, selectedPlatforms, selectedSceneFilter, minDuration]);
+
+  const sceneFilterOptions = useMemo<SceneFilterOption[]>(() => {
+    return availableSceneFilters
+      .map((scene) => {
+        const sessionsForScene = filteredHistoricalSessions.filter((session) => {
+          const ss = sessionScenes(session);
+          return ss.length === 0 || ss.includes(scene);
+        });
+        return {
+          scene,
+          sessions: sessionsForScene.length,
+          playTime: sessionsForScene.reduce((sum, session) => sum + sessionDuration(session), 0),
+        };
+      })
+      .sort((a, b) => (b.sessions - a.sessions) || (b.playTime - a.playTime) || a.scene.localeCompare(b.scene));
+  }, [availableSceneFilters, filteredHistoricalSessions]);
 
   const filteredDashboardSessions = useMemo(() => (
     filteredHistoricalSessions.filter(isDashboardSession)
@@ -942,7 +964,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const activeFilterCount =
     (selectedSceneFilter !== 'all' ? 1 : 0) +
     (KNOWN_PLATFORMS.filter((p) => p !== 'server').length - [...selectedPlatforms].filter((p) => p !== 'server').length > 0 ? 1 : 0) +
-    (minDuration > 0 ? 1 : 0);
+    (minDuration !== DEFAULT_HISTORY_MIN_DURATION ? 1 : 0);
 
   const playerCountLabel = pids.length > 0
     ? `${pids.length} ${pids.length === 1 ? 'player' : 'players'}`
@@ -952,6 +974,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const activeId = selectedPlayerId && filteredHeartbeats[selectedPlayerId] ? selectedPlayerId : pids[0];
   const activeHb = filteredHeartbeats[activeId];
+  const activeLabel = activeHb?.display_name || activeId;
   const activeHistory = history[activeId];
   const staleAge = activeHb ? (activeHb.timestamp ? (Date.now() - activeHb.timestamp * 1000) / 1000 : 0) : 0;
   const liveSceneName = selectedSceneFilter === 'all'
@@ -987,6 +1010,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         fps: activeHb.player?.fps,
         scene: activeHb.player?.scene,
         playerId: activeId,
+        displayName: activeHb.display_name,
         sessionId: activeHb.session_id,
         platform: getPlatform(activeHb) || undefined,
         memoryMb: activeHb.player?.memory_mb,
@@ -1018,6 +1042,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         focusPlayerId ? (
           <PlayerFocus
             playerId={focusPlayerId}
+            displayName={filteredHeartbeats[focusPlayerId]?.display_name}
             onClear={() => { setFocusPlayerId(null); setShowTagEditor(false); }}
             onTagClick={() => setShowTagEditor(!showTagEditor)}
           />
@@ -1085,7 +1110,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         platforms={availablePlatforms}
         selectedPlatforms={selectedPlatforms}
         onTogglePlatform={togglePlatform}
-        scenes={availableSceneFilters}
+        scenes={sceneFilterOptions}
         selectedScene={selectedSceneFilter}
         onSelectScene={setSelectedSceneFilter}
         minDuration={minDuration}
@@ -1234,7 +1259,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     off or there's no history yet. */}
                 {showLiveCharts && activeHistory && !birdseyeDetailId && (
                   <div className="absolute top-3 left-3 z-10 h-28 w-60 max-w-[55vw] border-2 border-black bg-bg-card/90 p-2 shadow-[3px_3px_0px_0px_black] backdrop-blur-sm">
-                    <div className="mb-1 truncate text-[0.5625rem] font-black uppercase text-accent">{activeId?.slice(0, 12)}</div>
+                    <div className="mb-1 truncate text-[0.5625rem] font-black uppercase text-accent">{activeLabel || activeId?.slice(0, 12)}</div>
                     <div className="h-[calc(100%-1rem)]">
                       <LiveCombinedChart history={activeHistory} />
                     </div>
@@ -1248,7 +1273,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     <div className="absolute right-3 top-3 z-20 w-64 max-w-[80vw] border-2 border-black bg-bg-card/95 p-3 shadow-[3px_3px_0px_0px_black]">
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="truncate text-xs font-black text-accent">{birdseyeDetailId.slice(0, 12)}</div>
+                          <div className="truncate text-xs font-black text-accent">{hb?.display_name || birdseyeDetailId.slice(0, 12)}</div>
+                          {hb?.display_name && <div className="truncate text-[0.5625rem] text-text-muted">{birdseyeDetailId.slice(0, 12)}</div>}
                           <div className="truncate text-[0.625rem] text-text-muted">{hb?.player?.scene || 'scene —'}</div>
                         </div>
                         <button
@@ -1286,7 +1312,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       {activeTab === 'mapa' && (
         <div className="flex h-full flex-col">
           {focusPlayerId && showTagEditor && (
-            <PlayerTagEditor playerId={focusPlayerId} onSaved={loadGeoPlayers} />
+            <PlayerTagEditor
+              playerId={focusPlayerId}
+              onSaved={loadGeoPlayers}
+              onClose={() => setShowTagEditor(false)}
+            />
           )}
           <GlobeView
             players={geoPlayers}
@@ -1473,7 +1503,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           platforms={availablePlatforms}
           selectedPlatforms={selectedPlatforms}
           onTogglePlatform={togglePlatform}
-          scenes={availableSceneFilters}
+          scenes={sceneFilterOptions}
           selectedScene={selectedSceneFilter}
           onSelectScene={setSelectedSceneFilter}
           minDuration={minDuration}

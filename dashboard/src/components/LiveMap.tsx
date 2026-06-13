@@ -10,6 +10,8 @@ interface ActiveGhost {
   pos_z: number;
   fps: number;
   last_seen: number;
+  display_name?: string | null;
+  color?: string | null;
   platform?: string | null;
   memory_mb?: number;
   mode?: string;
@@ -334,8 +336,9 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
           const projected = projectGhost(g, w, h);
           const sx = projected.x;
           const sz = projected.y;
-          const color = fpsColor(g.fps);
+          const color = g.color || fpsColor(g.fps);
           const isActive = g.player_id === activeIdRef.current;
+          const label = g.display_name || g.player_id.substring(0, 8);
           if (isActive) {
             ctx.strokeStyle = '#7fd1ff';
             ctx.lineWidth = 2;
@@ -352,7 +355,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
           ctx.shadowBlur = 0;
           ctx.fillStyle = '#d7dbe0';
           ctx.font = '10px monospace';
-          ctx.fillText(g.player_id.substring(0, 8), sx + 9, sz + 3);
+          ctx.fillText(label.length > 14 ? `${label.substring(0, 13)}…` : label, sx + 9, sz + 3);
         });
       }
       raf = requestAnimationFrame(draw);
@@ -566,7 +569,8 @@ export const LiveMap: React.FC<LiveMapProps> = ({ ghosts, sceneName, onSelectGho
           className="pointer-events-none absolute z-10 border-2 border-black bg-bg-card px-3 py-2 text-[0.625rem] font-mono shadow-[3px_3px_0px_0px_black]"
           style={{ left: Math.min(hover.x + 14, (wrapRef.current?.clientWidth || 0) - 190), top: Math.max(8, hover.y - 18), width: 180 }}
         >
-          <div className="font-black text-accent">{hover.ghost.player_id.slice(0, 8)}</div>
+          <div className="font-black text-accent">{hover.ghost.display_name || hover.ghost.player_id.slice(0, 8)}</div>
+          {hover.ghost.display_name && <div className="text-[0.5625rem] text-text-muted">{hover.ghost.player_id.slice(0, 12)}</div>}
           <div className="text-text-muted">{hover.ghost.scene || 'scene —'}</div>
           <div>FPS: <span style={{ color: fpsColor(hover.ghost.fps) }}>{Math.round(hover.ghost.fps || 0)}</span></div>
           <div>Platform: {hover.ghost.platform || '-'}</div>

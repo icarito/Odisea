@@ -8,11 +8,17 @@ const KNOWN_ORDER = ['server', 'android', 'linux', 'windows', 'macos', 'web'];
 // WARMUP_SECONDS so "13s" drops sessions that are essentially only bootup.
 const MIN_DURATION_PRESETS = [0, 13, 30, 60];
 
+export interface SceneFilterOption {
+  scene: string;
+  sessions: number;
+  playTime: number;
+}
+
 interface FiltersContentProps {
   platforms: string[];
   selectedPlatforms: Set<string>;
   onTogglePlatform: (platform: string) => void;
-  scenes: string[];
+  scenes: SceneFilterOption[];
   selectedScene: string;
   onSelectScene: (scene: string) => void;
   minDuration: number;
@@ -42,14 +48,18 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
               active={selectedScene === 'all'}
               onClick={() => onSelectScene('all')}
             />
-            {scenes.map((scene) => (
+            <div className="max-h-[11.75rem] overflow-y-auto pr-1">
+            {scenes.map((item) => (
               <SceneOption
-                key={scene}
-                label={scene}
-                active={selectedScene === scene}
-                onClick={() => onSelectScene(scene)}
+                key={item.scene}
+                label={item.scene}
+                sessions={item.sessions}
+                playTime={item.playTime}
+                active={selectedScene === item.scene}
+                onClick={() => onSelectScene(item.scene)}
               />
             ))}
+            </div>
           </div>
         </div>
 
@@ -101,7 +111,7 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
                   onClick={() => onSetMinDuration(seconds)}
                   className={`border-2 border-black px-2.5 py-1.5 text-[0.625rem] font-black uppercase transition-colors ${active ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted hover:bg-accent/10'}`}
                 >
-                  {seconds === 0 ? 'Todas' : `${seconds}s`}
+                  {seconds === 0 ? 'Todas' : seconds === 13 ? '13s default' : `${seconds}s`}
                 </button>
               );
             })}
@@ -137,15 +147,30 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
   );
 };
 
-const SceneOption: React.FC<{ label: string; active: boolean; onClick: () => void }> = ({
-  label, active, onClick,
+const formatPlayTime = (seconds: number) => {
+  const safe = Math.max(0, Math.round(seconds || 0));
+  const minutes = Math.floor(safe / 60);
+  const hours = Math.floor(minutes / 60);
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  return `${minutes}m`;
+};
+
+const SceneOption: React.FC<{ label: string; sessions?: number; playTime?: number; active: boolean; onClick: () => void }> = ({
+  label, sessions, playTime, active, onClick,
 }) => (
   <button
     type="button"
     onClick={onClick}
     className={`flex items-center justify-between gap-2 border-2 border-black px-3 py-2 text-left text-xs font-black uppercase transition-colors ${active ? 'bg-accent text-black' : 'bg-bg-card text-text-muted hover:bg-accent/10'}`}
   >
-    <span className="truncate">{label}</span>
+    <span className="min-w-0">
+      <span className="block truncate">{label}</span>
+      {sessions != null && (
+        <span className="mt-0.5 block truncate text-[0.5625rem] font-bold normal-case text-text-muted">
+          {sessions} sessions · {formatPlayTime(playTime || 0)}
+        </span>
+      )}
+    </span>
     {active && <ChevronRight size={14} className="shrink-0" />}
   </button>
 );

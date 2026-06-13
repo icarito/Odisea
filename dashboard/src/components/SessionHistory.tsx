@@ -11,6 +11,9 @@ interface HistorySession {
   avg_fps: number;
   peak_mem: number;
   frame_count: number;
+  display_name?: string;
+  city?: string;
+  country?: string;
 }
 
 interface SessionDetail {
@@ -219,7 +222,7 @@ export const SessionHistory: React.FC = () => {
             className="p-2 border border-border-custom bg-bg-card rounded text-[0.625rem] group cursor-pointer hover:border-accent transition-colors"
         >
           <div className="flex justify-between items-center mb-1">
-            <span className="text-accent font-bold">{s.player_id.slice(0, 8)}</span>
+            <span className="text-accent font-bold">{s.display_name || s.player_id.slice(0, 8)}</span>
             <span className="text-text-muted">{s.timestamp ? new Date(s.timestamp * 1000).toLocaleString() : "?"}</span>
           </div>
           <div className="text-text-muted truncate mb-2">{s.session_id}</div>

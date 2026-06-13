@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'odisea_dashboard_layout';
+const LAYOUT_VERSION = 2;
+const DEFAULT_MIN_DURATION = 13;
 
 export interface LayoutState {
+  version: number;
   panelSizes: number[];
   activeTab: string;
   sidebarCollapsed: boolean;
@@ -14,12 +17,13 @@ export interface LayoutState {
 }
 
 const DEFAULT_STATE: LayoutState = {
+  version: LAYOUT_VERSION,
   panelSizes: [20, 80],
   activeTab: 'live',
   sidebarCollapsed: false,
   accelerometerEnabled: false,
   filtersCollapsed: false,
-  historyMinDuration: 0,
+  historyMinDuration: DEFAULT_MIN_DURATION,
 };
 
 export function useLayoutPersistence() {
@@ -27,7 +31,13 @@ export function useLayoutPersistence() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        return { ...DEFAULT_STATE, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        const next = { ...DEFAULT_STATE, ...parsed };
+        if ((parsed.version || 1) < LAYOUT_VERSION) {
+          next.version = LAYOUT_VERSION;
+          next.historyMinDuration = DEFAULT_MIN_DURATION;
+        }
+        return next;
       } catch (e) {
         return DEFAULT_STATE;
       }

@@ -54,6 +54,7 @@ interface Viewport3DProps {
     fps?: number;
     scene?: string;
     playerId?: string;
+    displayName?: string;
     sessionId?: string;
     platform?: string;
     memoryMb?: number;
@@ -185,8 +186,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
             pitch={ghost.player?.pitch || 0}
             roll={ghost.player?.roll || 0}
             staleAge={(Date.now() - (ghost.timestamp * 1000)) / 1000}
-            label={ghost.player_id.slice(0,8)}
-            color={ghost.player?.fps < 30 ? "#ef4444" : ghost.player?.fps < 45 ? "#eab308" : "#22c55e"}
+            label={ghost.display_name || ghost.player_id.slice(0,8)}
+            color={ghost.color || (ghost.player?.fps < 30 ? "#ef4444" : ghost.player?.fps < 45 ? "#eab308" : "#22c55e")}
           />
         ))}
 
@@ -234,7 +235,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
       {hud && (
         <div className="absolute bottom-3 right-3 pointer-events-none w-56 bg-black/65 px-3 py-2 rounded text-[10px] font-mono leading-tight text-white">
           <div className="mb-1 flex items-center justify-between gap-2 border-b border-white/15 pb-1">
-            <span className="truncate text-accent font-bold">{hud.playerId?.slice(0, 8) || 'PLAYER'}</span>
+            <span className="truncate text-accent font-bold">{hud.displayName || hud.playerId?.slice(0, 8) || 'PLAYER'}</span>
             <span className={(hud.fps ?? 0) < 30 ? 'text-danger' : (hud.fps ?? 0) < 45 ? 'text-warning' : 'text-success'}>
               {Math.round(hud.fps ?? 0)} FPS
             </span>

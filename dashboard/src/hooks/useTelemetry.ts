@@ -11,6 +11,7 @@ export const useTelemetry = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [health, setHealth] = useState<any>({});
   const disconnectedPids = useRef<Set<string>>(new Set());
+  const playerLabels = useRef<Record<string, string>>({});
   const pollCount = useRef(0);
   const GHOST_STORE_INTERVAL = 10; // Only write to history every N polls
   const historyRef = useRef<Record<string, {
@@ -44,6 +45,7 @@ export const useTelemetry = () => {
         const shouldWriteGhost = pollCount.current % GHOST_STORE_INTERVAL === 0;
 
         Object.entries(data).forEach(([pid, hb]) => {
+          playerLabels.current[pid] = hb.display_name || pid;
           if (!historyRef.current[pid]) {
             historyRef.current[pid] = {
                 fps: [],
@@ -107,10 +109,11 @@ export const useTelemetry = () => {
         Object.keys(historyRef.current).forEach(pid => {
           if (!data[pid] && !disconnectedPids.current.has(pid)) {
             disconnectedPids.current.add(pid);
+            const label = playerLabels.current[pid] || pid;
             newAlerts.push({
               id: `${pid}-disconnect-${now}`,
               type: 'disconnect',
-              message: `Player ${pid.slice(0,8)} disconnected`,
+              message: `${label} disconnected`,
               timestamp: now,
               playerId: pid
             });

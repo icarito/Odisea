@@ -14,9 +14,10 @@ interface PlayerTag {
 interface PlayerTagEditorProps {
   playerId?: string | null;
   onSaved?: () => void;
+  onClose?: () => void;
 }
 
-export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSaved }) => {
+export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSaved, onClose }) => {
   const [tags, setTags] = useState<PlayerTag[]>([]);
   const [editing, setEditing] = useState<Partial<PlayerTag> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,8 +52,8 @@ export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSa
       await postPlayerTag(editing as PlayerTag);
       toast.success("Tag guardado");
       setEditing(null);
-      loadTags();
       onSaved?.();
+      onClose?.();
     } catch (e) {
       toast.error("Error guardando tag");
     }
@@ -64,6 +65,7 @@ export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSa
       await deletePlayerTag(playerId);
       toast.success("Tag eliminado");
       loadTags();
+      onSaved?.();
     } catch (e) {
       toast.error("Error eliminando tag");
     }
@@ -149,7 +151,7 @@ export const PlayerTagEditor: React.FC<PlayerTagEditorProps> = ({ playerId, onSa
               </div>
               <div className="flex gap-2 mt-2">
                 <RetroButton variant="primary" onClick={handleSave} className="flex-1">Guardar</RetroButton>
-                <RetroButton variant="secondary" onClick={() => setEditing(null)}><X size={16} /></RetroButton>
+                <RetroButton variant="secondary" onClick={() => { setEditing(null); onClose?.(); }}><X size={16} /></RetroButton>
               </div>
             </div>
           </RetroCard>

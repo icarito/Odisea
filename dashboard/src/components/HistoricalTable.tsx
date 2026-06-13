@@ -96,6 +96,8 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
             const isSelected = selectedSessionId && s.session_id === selectedSessionId;
             const official = s.intake_mode === 'admin' || s.intake_mode === 'ingest';
             const commit = typeof s.git_commit === 'string' ? s.git_commit.slice(0, 7) : '';
+            const label = s.display_name || '';
+            const location = [s.city, s.country_code || s.country].filter(Boolean).join(', ');
             return (
               <button
                 key={`${s.session_id || 'session'}-${idx}`}
@@ -113,9 +115,21 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 truncate text-xs font-black text-text-primary sm:text-sm">
                     {s.live && <span className="shrink-0 bg-success px-1 text-[0.5rem] font-black uppercase text-black">Live</span>}
-                    <span className="truncate">{s.live ? 'En curso' : formatDate(Number(s.start_time) || 0)}</span>
+                    <span className="truncate">{label || (s.live ? 'En curso' : formatDate(Number(s.start_time) || 0))}</span>
                   </span>
                   <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.625rem] text-text-muted">
+                    {s.display_name && (
+                      <>
+                        <span className="font-mono">{s.player_id}</span>
+                        <span className="text-text-muted/60">·</span>
+                      </>
+                    )}
+                    {!s.display_name && !s.live && (
+                      <>
+                        <span>{formatDate(Number(s.start_time) || 0)}</span>
+                        <span className="text-text-muted/60">·</span>
+                      </>
+                    )}
                     {(() => {
                       const plat = getPlatform(s);
                       const meta = plat ? PLATFORM_META[plat] : undefined;
@@ -130,6 +144,12 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId }
                     <span>{formatDuration(Number(s.duration) || 0)} played</span>
                     <span className="text-text-muted/60">·</span>
                     <span>{scenesVisited} scenes</span>
+                    {location && (
+                      <>
+                        <span className="text-text-muted/60">·</span>
+                        <span>{location}</span>
+                      </>
+                    )}
                     <span className="text-text-muted/60">·</span>
                     <span className={official ? 'text-success' : 'text-warning'}>{official ? 'official' : 'canary'}</span>
                     {s.game_version && s.game_version !== 'unknown' && (

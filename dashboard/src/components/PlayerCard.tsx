@@ -13,6 +13,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ hb, isActive, onClick, s
   const isStale = staleAge > 5;
   const fps = p.fps || 0;
   const official = hb.intake_mode === 'admin' || hb.intake_mode === 'ingest';
+  const label = hb.display_name || hb.player_id;
   
   const getFpsColor = (f: number) => {
     if (f > 45) return 'success';
@@ -38,8 +39,13 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ hb, isActive, onClick, s
             Subject ID
           </span>
           <span className="text-xs font-bold truncate max-w-[120px]">
-            {hb.player_id}
+            {label}
           </span>
+          {hb.display_name && (
+            <span className="text-[0.5rem] text-text-muted truncate max-w-[120px] font-mono">
+              {hb.player_id}
+            </span>
+          )}
         </div>
         <RetroBadge color={getFpsColor(fps)} className="scale-90 origin-left @[200px]:origin-right mt-1 @[200px]:mt-0 self-start @[200px]:self-auto">
           {fps} FPS
