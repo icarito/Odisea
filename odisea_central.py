@@ -1069,6 +1069,38 @@ class OdiseaCentral:
             await self._run_query(record)
 
             logger.info(f"Hotzone uploaded: {hotzone_id} for player {player_id}")
+
+            # Notify dashboards (live event stream) + push subscribers that a new
+            # hotzone ghost arrived, with a download link. Same shape as low_fps
+            # alerts so the dashboard's notification handling treats it uniformly.
+            try:
+                tags = await self._run_query(self._fetch_player_tags)
+                tag = tags.get(player_id) or {}
+                player_label = tag.get("display_name") or player_id[:8]
+                event = {
+                    "type": "alert",
+                    "alertType": "hotzone",
+                    "playerId": player_id,
+                    "player_id": player_id,
+                    "sessionId": session_id,
+                    "session_id": session_id,
+                    "playerName": player_label,
+                    "display_name": tag.get("display_name"),
+                    "hotzoneId": hotzone_id,
+                    "downloadUrl": f"/hotzones/{hotzone_id}/download",
+                    "trigger": trigger,
+                    "message": f"{player_label}: nueva hotzone ({trigger})",
+                    "timestamp": time.time(),
+                }
+                for sub in self.event_subscribers:
+                    try:
+                        await sub.send_json(event)
+                    except Exception:
+                        pass
+                asyncio.create_task(self.send_push_to_all(event))
+            except Exception as e:
+                logger.warning(f"Hotzone notify failed (upload still recorded): {e}")
+
             return web.json_response({"ok": True, "id": hotzone_id}, status=201)
 
         except Exception as e:

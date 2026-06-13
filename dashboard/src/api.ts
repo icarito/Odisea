@@ -153,3 +153,25 @@ export async function deletePlayerTag(playerId: string) {
   });
   return response.json();
 }
+
+// List hotzone ghosts (most recent first).
+export async function getHotzones() {
+  const response = await apiFetch("/hotzones");
+  return response.json();
+}
+
+// Download a hotzone ghost binary as an authenticated blob and save it. The
+// endpoint needs the Bearer token, so a plain <a download> link won't work.
+export async function downloadHotzone(hotzoneId: string, suggestedName?: string) {
+  const response = await apiFetch(`/hotzones/${encodeURIComponent(hotzoneId)}/download`);
+  if (!response.ok) throw new Error(`download failed (${response.status})`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${suggestedName ? `${suggestedName}-` : ""}hotzone-${hotzoneId.slice(0, 8)}.bin`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

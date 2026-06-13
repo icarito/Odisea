@@ -32,7 +32,7 @@ import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
-import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats } from './api';
+import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone } from './api';
 import {
   KNOWN_PLATFORMS,
   getPlatform,
@@ -868,6 +868,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [playbackData, setPlaybackData] = useState<any[]>([]);
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [serverStats, setServerStats] = useState<GhostStats>({});
+  const [hotzones, setHotzones] = useState<any[]>([]);
   const [geoPlayers, setGeoPlayers] = useState<any[]>([]);
   const loadGeoPlayers = useCallback(() => {
     getGeoPlayers()
@@ -955,7 +956,16 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 </div>
               )}
               <div className="mt-3 flex gap-2">
-                {playerId !== 'unknown' && (
+                {alertType === 'hotzone' && lastMessage.hotzoneId && (
+                  <button
+                    type="button"
+                    onClick={() => { handleDownloadHotzone(lastMessage.hotzoneId, playerLabel); toast.dismiss(t.id); }}
+                    className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                  >
+                    Descargar
+                  </button>
+                )}
+                {alertType !== 'hotzone' && playerId !== 'unknown' && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1045,6 +1055,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         .catch(() => {});
       getGhostStats()
         .then((d) => setServerStats(d && typeof d === 'object' ? d : {}))
+        .catch(() => {});
+      getHotzones()
+        .then((d) => setHotzones(Array.isArray(d) ? d : []))
         .catch(() => {});
     };
     loadSessions();
@@ -1148,6 +1161,28 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       engine_version: hb.engine_version ?? hb.godot_version ?? p.engine_version ?? "?",
     };
   };
+
+  // session_id -> its hotzone ghosts (most recent first), so the History table
+  // can show a download affordance on sessions that produced one.
+  const hotzonesBySession = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const hz of hotzones) {
+      if (!hz.session_id) continue;
+      (map[hz.session_id] ||= []).push(hz);
+    }
+    for (const k in map) map[k].sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+    return map;
+  }, [hotzones]);
+
+  // Download a hotzone ghost binary, surfacing success/failure via notify.
+  const handleDownloadHotzone = useCallback(async (hotzoneId: string, label?: string) => {
+    try {
+      await downloadHotzone(hotzoneId, label);
+      notify.success('Hotzone descargada');
+    } catch {
+      notify.error('No se pudo descargar la hotzone');
+    }
+  }, []);
 
   const handleSelectHistorySession = async (session: any) => {
     setSelectedSession(session);
@@ -2059,6 +2094,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   onSelectSession={handleSelectHistorySession}
                   selectedSessionId={selectedSession?.session_id}
                   onEditTag={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+                  hotzonesBySession={hotzonesBySession}
+                  onDownloadHotzone={handleDownloadHotzone}
                 />
               </div>
             </RetroCard>
