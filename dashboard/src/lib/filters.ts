@@ -11,6 +11,7 @@ export const KNOWN_PLATFORMS = ['server', 'android', 'linux', 'windows', 'macos'
 // reflects steady-state behavior, not warmup. Bumped 10 -> 13 because 10s still
 // caught the tail of scene bootup.
 export const WARMUP_SECONDS = 13;
+export const UNCAPPED_FPS_THRESHOLD = 240;
 
 export const normalizePlatform = (value: any): string | null => {
   if (typeof value !== 'string' || value.trim() === '') return null;
@@ -80,6 +81,17 @@ export const isUsefulSceneName = (scene: any): scene is string => {
 export const hasMemReport = (value: any): value is number => (
   typeof value === 'number' && Number.isFinite(value) && value > 0
 );
+
+export const isLikelyUncappedFps = (value: unknown): boolean => {
+  const fps = Number(value);
+  return Number.isFinite(fps) && fps > UNCAPPED_FPS_THRESHOLD;
+};
+
+export const formatFpsLabel = (value: unknown): string => {
+  const fps = Number(value) || 0;
+  const rounded = Math.round(fps);
+  return isLikelyUncappedFps(fps) ? `${rounded} FPS uncapped` : `${rounded} FPS`;
+};
 
 // Drop heartbeats within WARMUP_SECONDS of the session's first sample. Rows must
 // carry a numeric `timestamp` (seconds). If stripping would empty the set (very

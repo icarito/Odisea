@@ -40,6 +40,7 @@ import {
   sessionScenes,
   sessionDuration,
   isUsefulSceneName,
+  formatFpsLabel,
 } from './lib/filters';
 import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download } from 'lucide-react';
 
@@ -1618,7 +1619,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <span className="max-w-[90px] truncate text-accent">{activeHb.player?.scene || '—'}</span>
             <span className="text-text-muted/60">·</span>
             <span style={{ color: fpsColor(Number(activeHb.player?.fps) || 0) }}>
-              {Math.round(Number(activeHb.player?.fps) || 0)} FPS
+              {formatFpsLabel(activeHb.player?.fps)}
             </span>
             {activeHb.player?.memory_mb != null && (
               <>
@@ -1872,7 +1873,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 {showLiveCharts && (
                   <div className="shrink-0 border-t-2 border-black bg-bg-card/80">
                     <div className="grid grid-cols-2 gap-2 px-3 pt-2 text-[0.625rem] font-mono sm:grid-cols-4 lg:grid-cols-6">
-                      <Info label="FPS" value={`${Math.round(activeHb?.player?.fps ?? 0)}${activeHb?.player?.focused === false ? ' (bg)' : ''}`} />
+                      <Info label="FPS" value={`${formatFpsLabel(activeHb?.player?.fps).replace(' FPS', '')}${activeHb?.player?.focused === false ? ' (bg)' : ''}`} />
                       <Info label="RAM" value={activeHb?.player?.memory_mb != null ? `${Math.round(activeHb.player.memory_mb)} MB` : '—'} />
                       <Info label="Scene" value={activeHb?.player?.scene || '-'} />
                       <Info label="Platform" value={getPlatform(activeHb) || '-'} />

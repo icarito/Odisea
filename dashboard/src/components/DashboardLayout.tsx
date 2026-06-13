@@ -60,7 +60,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   const publishedLabel = buildLabel(latestPublished);
   const fmtDate = (sec?: number | null) => (
-    sec ? new Date(sec * 1000).toLocaleDateString('es', { day: '2-digit', month: 'short' }) : ''
+    sec ? new Date(sec * 1000).toLocaleString('es', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }) : ''
   );
   // Deploy date of this dashboard build, shown next to its version so "which
   // version" reads as a human date, not just a hash.

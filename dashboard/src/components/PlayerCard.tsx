@@ -1,5 +1,6 @@
 import React from 'react';
 import { RetroBadge } from './retro';
+import { formatFpsLabel } from '../lib/filters';
 
 interface PlayerCardProps {
   hb: any;
@@ -48,7 +49,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ hb, isActive, onClick, s
           )}
         </div>
         <RetroBadge color={getFpsColor(fps)} className="scale-90 origin-left @[200px]:origin-right mt-1 @[200px]:mt-0 self-start @[200px]:self-auto">
-          {fps} FPS
+          {formatFpsLabel(fps)}
         </RetroBadge>
       </div>
 

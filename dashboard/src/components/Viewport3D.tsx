@@ -4,6 +4,7 @@ import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF, Html } from '@re
 import * as THREE from 'three';
 import { SceneGeometry } from './SceneGeometry';
 import { useSceneGeometry } from '../hooks/useSceneGeometry';
+import { formatFpsLabel } from '../lib/filters';
 
 // Inline heatmap overlay rendered as a group so it can nest inside this Canvas.
 // (The standalone Heatmap3D component owns its own Canvas and is used in the heatmap tab.)
@@ -245,7 +246,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
           <div className="mb-1 flex items-center justify-between gap-2 border-b border-white/15 pb-1">
             <span className="truncate text-accent font-bold">{hud.displayName || hud.playerId?.slice(0, 8) || 'PLAYER'}</span>
             <span className={(hud.fps ?? 0) < 30 ? 'text-danger' : (hud.fps ?? 0) < 45 ? 'text-warning' : 'text-success'}>
-              {Math.round(hud.fps ?? 0)} FPS
+              {formatFpsLabel(hud.fps ?? 0)}
             </span>
           </div>
           <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-2 gap-y-0.5">

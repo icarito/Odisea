@@ -77,6 +77,10 @@ func _ready():
 	if _get_url_param("nocentral") in ["1", "true", "yes", "on"]:
 		_net_thread._central_enabled = false
 	_build_info = _load_build_info()
+	if token_override == "":
+		var build_token := _get_build_meta_value("token")
+		if _is_valid_build_token(build_token) and _net_thread._bridge_token == "odisea-dev-insecure":
+			_net_thread._bridge_token = build_token
 	if _net_thread.has_method("set_build_info"):
 		_net_thread.set_build_info(_build_info)
 	# HTML5 desde HTTPS: usar wss:// automáticamente (el central ya tiene TLS)
@@ -573,6 +577,15 @@ func _get_build_meta_value(key: String) -> String:
 	# Native: read from build_meta.json next to the executable
 	return _get_build_meta_value_from_file(key)
 
+func _is_valid_build_token(token: String) -> bool:
+	var value := token.strip_edges()
+	if value == "":
+		return false
+	if value == "ODISEA_TOKEN_CANARY_MISSING":
+		return false
+	if value == "odisea-dev-insecure":
+		return false
+	return true
 
 var _build_meta_json_cache: Dictionary = {}
 
