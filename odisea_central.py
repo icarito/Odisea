@@ -49,6 +49,7 @@ CACHE_TTL = int(os.environ.get("CENTRAL_CACHE_TTL", 120))
 STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "true").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
 SQLITE_DB = os.environ.get("CENTRAL_SQLITE_DB", os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db"))
+GEO_SQLITE_DB = os.environ.get("CENTRAL_GEO_DB", "./data/geo_tags.db")
 HOTZONES_DIR = os.environ.get("CENTRAL_HOTZONES_DIR", "./data/hotzones")
 GHOSTS_MAX_BYTES = int(os.environ.get("CENTRAL_GHOSTS_MAX_BYTES", 1073741824))  # 1GB
 STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
@@ -1165,6 +1166,60 @@ class OdiseaCentral:
         achieved = await self._run_query(fetch)
         return web.json_response(achieved)
 
+    async def handle_geo_players(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+        if not os.path.exists(GEO_SQLITE_DB):
+            return web.json_response([])
+
+        now = time.time()
+
+        def fetch():
+            conn = sqlite3.connect(GEO_SQLITE_DB)
+            conn.row_factory = sqlite3.Row
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT ip_hash, country, country_code, region, city,
+                           latitude, longitude, last_seen, hits
+                    FROM geo_ips
+                    WHERE latitude IS NOT NULL
+                      AND longitude IS NOT NULL
+                    ORDER BY last_seen DESC
+                    LIMIT 500
+                """)
+                return [dict(row) for row in cursor.fetchall()]
+            finally:
+                conn.close()
+
+        try:
+            rows = await self._run_query(fetch)
+        except Exception as e:
+            logger.warning(f"{request.path}: geo query failed, returning [] ({e})")
+            return web.json_response([])
+
+        players = []
+        for row in rows:
+            age = now - float(row.get("last_seen") or 0)
+            status = "connected" if age <= 120 else ("recent" if age <= 3600 else "old")
+            players.append({
+                "player_id": f"geo:{row['ip_hash']}",
+                "session_id": "nginx_access_log",
+                "last_seen": row.get("last_seen"),
+                "country": row.get("country") or "Unknown",
+                "country_code": row.get("country_code") or "",
+                "region": row.get("region") or "",
+                "city": row.get("city") or "Unknown",
+                "latitude": row.get("latitude"),
+                "longitude": row.get("longitude"),
+                "display_name": None,
+                "color": None,
+                "status": status,
+                "hits": row.get("hits") or 0,
+            })
+        return web.json_response(players)
+
     async def handle_ghosts_active(self, request):
         guard = self._auth_guard(request)
         if guard is not None:
@@ -1958,6 +2013,7 @@ class OdiseaCentral:
             web.get('/health', self.handle_health),
             web.get('/api/milestones', self.handle_milestones),
             web.get('/api/milestones/achieved', self.handle_milestones_achieved),
+            web.get('/api/geo-players', self.handle_geo_players),
             web.post('/telemetry', self.handle_web_telemetry),
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),

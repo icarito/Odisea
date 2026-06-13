@@ -69,6 +69,12 @@ export async function getGhostStats() {
   return json.headline || json;
 }
 
+export async function getGeoPlayers() {
+  const response = await apiFetch("/api/geo-players");
+  const json = await response.json();
+  return Array.isArray(json) ? json : [];
+}
+
 export async function getGhostData(playerId: string, sessionId: string) {
   const response = await apiFetch(`/ghosts?player_id=${playerId}&session_id=${sessionId}&limit=10000`);
   const json = await response.json();

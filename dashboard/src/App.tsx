@@ -30,7 +30,7 @@ import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
-import { getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats } from './api';
+import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats } from './api';
 import {
   KNOWN_PLATFORMS,
   getPlatform,
@@ -566,6 +566,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [playbackData, setPlaybackData] = useState<any[]>([]);
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [serverStats, setServerStats] = useState<GhostStats>({});
+  const [geoPlayers, setGeoPlayers] = useState<any[]>([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(
     () => new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server'))
   );
@@ -893,6 +894,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       setHeatmapData([]);
     }
   }, [activeTab, heatmapTargetScene, heatmapRes]);
+
+  useEffect(() => {
+    if (activeTab !== 'mapa') return;
+    getGeoPlayers()
+      .then(setGeoPlayers)
+      .catch(() => setGeoPlayers([]));
+  }, [activeTab]);
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) => {
@@ -1260,7 +1268,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       {activeTab === 'mapa' && (
         <div className="flex h-full flex-col">
           {focusPlayerId && showTagEditor && <PlayerTagEditor />}
-          <GlobeView players={[]} />
+          <GlobeView players={geoPlayers} />
         </div>
       )}
 
