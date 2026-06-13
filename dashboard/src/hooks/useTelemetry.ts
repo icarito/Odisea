@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getStatus, getHealth } from '../api';
 import type { Heartbeat, HeartbeatMap, Alert } from '../types';
-import { saveSnapshot, getSnapshot } from '../lib/pushStorage';
+import {
+  saveSnapshot,
+  getSnapshot,
+  saveHeartbeatSamples,
+  getRecentHeartbeatSamples,
+  pruneHeartbeatSamples,
+  type StoredHeartbeatSample,
+} from '../lib/pushStorage';
 
 // Live telemetry is delivered by the central over WebSocket (/events): it pushes
 // each heartbeat as it arrives, so the dashboard no longer polls /status every
@@ -15,6 +22,9 @@ const HEALTH_POLL_MS = 5000;
 const STALE_AFTER_MS = 12000;
 const SWEEP_MS = 2000;
 const SNAPSHOT_EVERY_MS = 5000;
+const HISTORY_HYDRATE_WINDOW_SEC = 2 * 60 * 60;
+const HISTORY_RETENTION_SEC = 6 * 60 * 60;
+const PRUNE_EVERY_MS = 60 * 60 * 1000;
 
 const wsBaseFromApiTarget = () => {
   const apiTarget = import.meta.env.VITE_API_TARGET;
@@ -74,8 +84,70 @@ export const useTelemetry = () => {
   const lastSeenMs = useRef<Record<string, number>>({});
   const ghostTick = useRef<Record<string, number>>({});
   const lastSnapshotMs = useRef(0);
+  const lastPruneMs = useRef(0);
   const GHOST_STORE_EVERY = 10; // sample fps/mem into history every N heartbeats
   const historyRef = useRef<PlayerHistoryMap>({});
+
+  const publishHistory = useCallback(() => {
+    setHistory({ ...historyRef.current });
+  }, []);
+
+  const ensureHistory = useCallback((pid: string, now: number): PlayerHistory => {
+    if (!historyRef.current[pid]) {
+      historyRef.current[pid] = {
+        fps: [], memory: [], trail: [], lastPos: null,
+        lastTick: 0, lastMoveTime: now, lastScene: '', events: [],
+      };
+    }
+    return historyRef.current[pid];
+  }, []);
+
+  const foldSampleIntoHistory = useCallback((sample: StoredHeartbeatSample) => {
+    const hist = ensureHistory(sample.player_id, sample.timestamp * 1000);
+    hist.lastTick = Number(sample.tick ?? hist.lastTick ?? 0);
+
+    hist.fps = [...hist.fps, sample.fps ?? 0].slice(-300);
+    hist.memory = [...hist.memory, sample.memory_mb ?? 0].slice(-300);
+
+    const lastEvent = hist.events[hist.events.length - 1];
+    if (!lastEvent || lastEvent.scene !== sample.scene || lastEvent.zone !== sample.zone || lastEvent.mode !== sample.mode) {
+      hist.events = [...hist.events, {
+        scene: sample.scene,
+        zone: sample.zone,
+        mode: sample.mode,
+        timestamp: sample.timestamp,
+      }].slice(-200);
+    }
+
+    if (sample.scene !== hist.lastScene) {
+      hist.trail = [];
+      hist.lastScene = sample.scene;
+    }
+    hist.trail = [...hist.trail, sample.position].slice(-600);
+    hist.lastPos = sample.position;
+    hist.lastMoveTime = sample.timestamp * 1000;
+  }, [ensureHistory]);
+
+  const heartbeatToSample = useCallback((pid: string, hb: Heartbeat): StoredHeartbeatSample | null => {
+    const rawPos = hb.player?.position;
+    if (!Array.isArray(rawPos) || rawPos.length < 3) return null;
+    const timestamp = Number(hb.timestamp || Date.now() / 1000);
+    const tick = Number(hb.player?.tick ?? 0);
+    const sessionId = hb.session_id || 'unknown-session';
+    return {
+      id: `${sessionId}:${pid}:${timestamp}:${tick}`,
+      player_id: pid,
+      session_id: sessionId,
+      timestamp,
+      scene: hb.player?.scene ?? '',
+      zone: hb.player?.zone ?? '',
+      mode: hb.player?.mode ?? '',
+      fps: Number(hb.player?.fps ?? 0),
+      memory_mb: Number(hb.player?.memory_mb ?? 0),
+      position: [Number(rawPos[0]), Number(rawPos[1]), Number(rawPos[2])],
+      tick,
+    };
+  }, []);
 
   // Fold a single heartbeat into the per-player history (fps/mem buffers, trail,
   // scene/zone/mode events). Shared by the WS path and the initial GET seed.
@@ -85,19 +157,18 @@ export const useTelemetry = () => {
     playerLabels.current[pid] = hb.display_name || pid;
     disconnectedPids.current.delete(pid);
 
-    if (!historyRef.current[pid]) {
-      historyRef.current[pid] = {
-        fps: [], memory: [], trail: [], lastPos: null,
-        lastTick: 0, lastMoveTime: now, lastScene: '', events: [],
-      };
-    }
-    const hist = historyRef.current[pid];
+    const hist = ensureHistory(pid, now);
     hist.lastTick = Number(hb.player?.tick ?? hist.lastTick ?? 0);
 
     ghostTick.current[pid] = (ghostTick.current[pid] || 0) + 1;
     if (ghostTick.current[pid] % GHOST_STORE_EVERY === 0) {
-      hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
-      hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
+      const sample = heartbeatToSample(pid, hb);
+      if (sample) {
+        saveHeartbeatSamples([sample]).catch(() => {});
+      } else {
+        hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
+        hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
+      }
     }
 
     const lastEvent = hist.events[hist.events.length - 1];
@@ -121,8 +192,13 @@ export const useTelemetry = () => {
       hist.lastPos = pos;
       hist.lastMoveTime = now;
     }
-    setHistory({ ...historyRef.current });
-  }, []);
+    publishHistory();
+
+    if (now - lastPruneMs.current > PRUNE_EVERY_MS) {
+      lastPruneMs.current = now;
+      pruneHeartbeatSamples(Math.floor(now / 1000) - HISTORY_RETENTION_SEC).catch(() => {});
+    }
+  }, [ensureHistory, heartbeatToSample, publishHistory]);
 
   const ingestHeartbeatMap = useCallback((data: HeartbeatMap) => {
     Object.entries(data).forEach(([pid, hb]) => ingestHeartbeat(pid, hb));
@@ -134,6 +210,19 @@ export const useTelemetry = () => {
     lastSnapshotMs.current = now;
     saveSnapshot('status', data).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    const since = Math.floor(Date.now() / 1000) - HISTORY_HYDRATE_WINDOW_SEC;
+    getRecentHeartbeatSamples(since).then((samples) => {
+      if (disposed || samples.length === 0) return;
+      samples.forEach(foldSampleIntoHistory);
+      publishHistory();
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [foldSampleIntoHistory, publishHistory]);
 
   // --- Heartbeats over WebSocket (push) ---
   useEffect(() => {
@@ -151,7 +240,7 @@ export const useTelemetry = () => {
         ingestHeartbeatMap(data);
         setHeartbeats(data);
       } catch {
-        const cached = (await getSnapshot('status')) || {};
+        const cached = (await getSnapshot<HeartbeatMap>('status')) || {};
         if (!disposed) {
           ingestHeartbeatMap(cached);
           setHeartbeats(cached);
