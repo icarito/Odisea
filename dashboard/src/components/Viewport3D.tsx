@@ -152,12 +152,20 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
 export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, label, color, hud }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
-  const { geometry } = useSceneGeometry(sceneName);
+  const { geometry, loading: geometryLoading, error: geometryError } = useSceneGeometry(sceneName);
+  const geometrySummary = geometry
+    ? `${geometry.metadata?.point_count ?? geometry.points?.length ?? 0} pts · ${geometry.zones?.length ?? 0} zones · ${geometry.props?.length ?? 0} props`
+    : geometryLoading
+      ? 'loading geometry'
+      : geometryError
+        ? 'geometry unavailable'
+        : 'no geometry';
 
   const resetView = () => {
     if (cameraRef.current && controlsRef.current) {
-      cameraRef.current.position.set(15, 15, 15);
-      controlsRef.current.target.set(0, 0, 0);
+      const target = follow ? new THREE.Vector3(...position) : new THREE.Vector3(0, 0, 0);
+      cameraRef.current.position.copy(target.clone().add(new THREE.Vector3(15, 15, 15)));
+      controlsRef.current.target.copy(target);
       controlsRef.current.update();
     }
   };
@@ -165,7 +173,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
   // Force OrbitControls to track the new target when follow/position changes
   useEffect(() => {
     if (controlsRef.current && follow) {
-      controlsRef.current.target.lerp(new THREE.Vector3(...position), 0.3);
+      const target = new THREE.Vector3(...position);
+      if (cameraRef.current && cameraRef.current.position.distanceTo(target) > 80) {
+        cameraRef.current.position.copy(target.clone().add(new THREE.Vector3(15, 15, 15)));
+      }
+      controlsRef.current.target.lerp(target, 0.3);
       controlsRef.current.update();
     }
   }, [position, follow]);
@@ -231,6 +243,14 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
       <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
         <div className="bg-bg-card/90 px-3 py-1.5 rounded text-[0.625rem] border border-border-custom pointer-events-auto">
             SCENE: <span className="text-accent font-bold">{sceneName || 'NONE'}</span>
+        </div>
+        <div
+          className={`bg-bg-card/90 px-3 py-1.5 rounded text-[0.625rem] border pointer-events-auto ${
+            geometryError ? 'border-danger text-danger' : geometry ? 'border-success text-success' : 'border-border-custom text-text-muted'
+          }`}
+          title={geometryError || undefined}
+        >
+          GEOM: <span className="font-bold">{geometrySummary}</span>
         </div>
         <button
             onClick={resetView}

@@ -2744,6 +2744,10 @@ class OdiseaCentral:
         if os.path.exists(STATIC_DIR):
             app.router.add_static('/assets/', path=os.path.join(STATIC_DIR, "assets"), name='assets')
             logger.info(f"Serving static assets from {STATIC_DIR}/assets")
+            scene_data_dir = os.path.join(STATIC_DIR, "scene-data")
+            if os.path.isdir(scene_data_dir):
+                app.router.add_static('/scene-data/', path=scene_data_dir, name='scene-data')
+                logger.info(f"Serving scene geometry from {scene_data_dir}")
 
         runner = web.AppRunner(app)
         await runner.setup()
