@@ -2654,7 +2654,7 @@ class OdiseaCentral:
             await asyncio.sleep(300)
 
     async def run(self):
-        app = web.Application()
+        app = web.Application(client_max_size=16 * 1024 * 1024)
         app.add_routes([
             web.get('/', self.handle_index),
             web.get('/index.html', self.handle_index),

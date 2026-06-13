@@ -403,6 +403,8 @@ func _get_session_id() -> String:
 	return "unknown"
 
 func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: String):
+	var blob_kb = blob.size() / 1024.0
+	print("[HotzoneRecorder] Uploading ", blob_kb, " KB to ", url)
 	var headers = [
 		"Authorization: Bearer " + token,
 		"Content-Type: application/octet-stream"
@@ -431,7 +433,8 @@ func _on_upload_completed(_result, response_code, _headers, _body):
 		_retry_timer = 5.0
 		call_deferred("_process_upload_queue")
 	else:
-		printerr("[HotzoneRecorder] Upload failed with code ", response_code)
+		var body_str = _body.get_string_from_utf8() if _body and _body.size() > 0 else "(empty)"
+		printerr("[HotzoneRecorder] Upload failed: code=", response_code, " body=", body_str)
 		_on_upload_error()
 
 func _on_upload_error():

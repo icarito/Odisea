@@ -48,18 +48,31 @@ if (isPWA) {
 
 // Register the service worker and auto-reload when a new version takes over.
 // With registerType 'autoUpdate' the new SW skips waiting and claims clients;
-// `controllerchange` then fires once. We toast first, then reload shortly after
-// so the user sees why the page refreshed. The `refreshing` guard prevents a
-// reload loop.
+// `controllerchange` then fires once. A toast shown here would be wiped by the
+// immediate reload, so instead we set a flag and toast *after* the reload, once
+// the app has mounted (see UPDATED_FLAG below). The `refreshing` guard prevents
+// a reload loop.
+const UPDATED_FLAG = 'odisea_dashboard_updated'
 if ('serviceWorker' in navigator) {
   let refreshing = false
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return
     refreshing = true
-    toast.success('Nueva versión del dashboard · actualizando…', { icon: '✨', duration: 2000 })
-    setTimeout(() => window.location.reload(), 1500)
+    try { sessionStorage.setItem(UPDATED_FLAG, '1') } catch { /* ignore */ }
+    window.location.reload()
   })
 }
+
+// Post-reload: if we just updated, announce it now that the page (and Toaster)
+// is live. Deferred so the Toaster has mounted before the toast fires.
+try {
+  if (sessionStorage.getItem(UPDATED_FLAG)) {
+    sessionStorage.removeItem(UPDATED_FLAG)
+    setTimeout(() => {
+      toast.success('Dashboard actualizado a la última versión', { icon: '✨', duration: 5000 })
+    }, 800)
+  }
+} catch { /* ignore */ }
 
 // Check for a new SW on load and every 30 min so a long-open dashboard picks up
 // a fresh deploy without a manual refresh (skipWaiting+clientsClaim then reload).

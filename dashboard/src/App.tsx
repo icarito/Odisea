@@ -352,15 +352,94 @@ const CommitsFpsChart = ({ sessions, commits }: { sessions: any[]; commits: GitC
   // the chart (the cursor picks the nearest commit marker).
   const selected = rangeCommits.find((c) => c.sha === selectedSha) || rangeCommits[0] || null;
 
-  // Clicking the chart selects the commit nearest to the clicked time.
-  const onChartClick = (e: any) => {
-    const t = e?.activeLabel;
-    if (typeof t !== 'number' || commitLines.length === 0) return;
+  // Select the version (commit) nearest to where the user actually clicked.
+  // recharts' activeLabel snaps to the nearest *session* point, which makes the
+  // cursor hop between sessions instead of versions — so we derive the click
+  // time from the pixel X against the visible domain and snap to commits.
+  const selectNearestCommitAt = (timeSec: number) => {
+    if (commitLines.length === 0) return;
     const nearest = commitLines.reduce((best, c) =>
-      Math.abs(c.timestamp - t) < Math.abs(best.timestamp - t) ? c : best
+      Math.abs(c.timestamp - timeSec) < Math.abs(best.timestamp - timeSec) ? c : best
     );
     setSelectedSha(nearest.sha);
   };
+
+  const onChartClick = (e: any) => {
+    const rect = wrapElRef.current?.getBoundingClientRect();
+    // Prefer the true pixel position (chartX) mapped through the visible domain;
+    // fall back to activeLabel if recharts didn't provide coordinates.
+    if (rect && typeof e?.chartX === 'number') {
+      const [lo, hi] = xDomain ?? [dataMin, dataMax];
+      // chartX is relative to the SVG; approximate plot width with the wrapper.
+      const frac = Math.min(1, Math.max(0, e.chartX / rect.width));
+      selectNearestCommitAt(lo + (hi - lo) * frac);
+      return;
+    }
+    if (typeof e?.activeLabel === 'number') selectNearestCommitAt(e.activeLabel);
+  };
+
+  // Step the version selection along the commit timeline (keyboard arrows).
+  const stepVersion = (dir: -1 | 1) => {
+    if (commitLines.length === 0) return;
+    const ordered = [...commitLines].sort((a, b) => a.timestamp - b.timestamp);
+    const curIdx = ordered.findIndex((c) => c.sha === (selectedSha ?? ordered[ordered.length - 1].sha));
+    const next = ordered[Math.min(ordered.length - 1, Math.max(0, (curIdx < 0 ? ordered.length - 1 : curIdx) + dir))];
+    if (next) setSelectedSha(next.sha);
+  };
+
+  // Scroll-zoom + drag-pan over the X (time) axis, driven by an explicit domain.
+  // null = full range. Bounds come from the data; we never zoom/pan past them.
+  const dataMin = fpsSeries.length ? fpsSeries[0].timestamp : 0;
+  const dataMax = fpsSeries.length ? fpsSeries[fpsSeries.length - 1].timestamp : 1;
+  const [xDomain, setXDomain] = useState<[number, number] | null>(null);
+  const wrapElRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; dom: [number, number]; moved: boolean } | null>(null);
+
+  const clampDomain = (lo: number, hi: number): [number, number] => {
+    const fullSpan = dataMax - dataMin || 1;
+    let span = Math.min(Math.max(hi - lo, fullSpan / 200), fullSpan); // min 0.5% zoom
+    let nlo = lo;
+    let nhi = lo + span;
+    if (nlo < dataMin) { nlo = dataMin; nhi = nlo + span; }
+    if (nhi > dataMax) { nhi = dataMax; nlo = nhi - span; }
+    if (nlo < dataMin) nlo = dataMin;
+    return [nlo, nhi];
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    if (!fpsSeries.length) return;
+    e.preventDefault();
+    const rect = wrapElRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const [lo, hi] = xDomain ?? [dataMin, dataMax];
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const pivot = lo + (hi - lo) * frac;
+    const factor = e.deltaY < 0 ? 0.8 : 1.25; // up = zoom in
+    const span = (hi - lo) * factor;
+    setXDomain(clampDomain(pivot - span * frac, pivot - span * frac + span));
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!fpsSeries.length) return;
+    dragRef.current = { startX: e.clientX, dom: xDomain ?? [dataMin, dataMax], moved: false };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    const rect = wrapElRef.current?.getBoundingClientRect();
+    if (!drag || !rect) return;
+    const [lo, hi] = drag.dom;
+    const dxFrac = (e.clientX - drag.startX) / rect.width;
+    if (Math.abs(dxFrac) > 0.01) drag.moved = true;
+    const shift = -dxFrac * (hi - lo);
+    setXDomain(clampDomain(lo + shift, hi + shift));
+  };
+  const endPointer = () => { dragRef.current = null; };
+  // Suppress the select-on-click that fires at the end of a pan drag.
+  const onChartClickGuarded = (e: any) => {
+    if (dragRef.current?.moved) return;
+    onChartClick(e);
+  };
+  const isZoomed = xDomain !== null && (xDomain[0] > dataMin || xDomain[1] < dataMax);
 
   if (fpsSeries.length === 0) {
     return (
@@ -371,11 +450,20 @@ const CommitsFpsChart = ({ sessions, commits }: { sessions: any[]; commits: GitC
   }
 
   return (
-    <div className="relative h-full w-full">
+    <div
+      ref={wrapElRef}
+      className="relative h-full w-full touch-none select-none"
+      onWheel={onWheel}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endPointer}
+      onPointerLeave={endPointer}
+      style={{ cursor: dragRef.current ? 'grabbing' : 'grab' }}
+    >
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-        <LineChart data={fpsSeries} margin={{ top: 4, right: 8, bottom: 0, left: -8 }} onClick={onChartClick}>
+        <LineChart data={fpsSeries} margin={{ top: 4, right: 8, bottom: 0, left: -8 }} onClick={onChartClickGuarded}>
           <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
-          <XAxis dataKey="timestamp" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
+          <XAxis dataKey="timestamp" stroke="#666" fontSize={10} type="number" allowDataOverflow domain={xDomain ?? ['dataMin', 'dataMax']} tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
           <YAxis stroke="#666" fontSize={10} domain={[0, 'auto']} width={28} />
           <Tooltip content={tooltip} />
           {commitLines.map((commit) => {
@@ -392,22 +480,45 @@ const CommitsFpsChart = ({ sessions, commits }: { sessions: any[]; commits: GitC
             );
           })}
           <Line type="monotone" dataKey="avg_fps" stroke="#7fd1ff" dot={{ r: 3 }} strokeWidth={2} isAnimationActive={false} />
-          {fpsSeries.length > 8 && (
-            <Brush dataKey="timestamp" height={16} stroke="#7fd1ff" travellerWidth={8} fill="#0d1117"
-              tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
-          )}
         </LineChart>
       </ResponsiveContainer>
+
+      {/* Zoom hint + reset, shown once the user has zoomed/panned in. */}
+      {isZoomed && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setXDomain(null); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute right-2 top-2 z-10 border-2 border-black bg-bg-card/90 px-2 py-0.5 text-[0.5625rem] font-black uppercase text-text-muted shadow-[2px_2px_0px_0px_black] hover:bg-accent hover:text-black"
+          title="Restablecer zoom"
+        >
+          Reset zoom
+        </button>
+      )}
 
       {/* Selected version metadata — moves with the chart cursor (click to pick
           the nearest commit). */}
       {selected && (
-        <div className="pointer-events-none absolute left-2 top-2 max-w-[70%] border-2 border-black bg-bg-card/90 px-2 py-1.5 text-[0.5625rem] font-mono shadow-[2px_2px_0px_0px_black]">
-          <div className="mb-0.5 font-black uppercase tracking-widest text-[#d29922]">
-            Versión · <span className="text-[#f85149]">{selected.sha.slice(0, 7)}</span> · {new Date(selected.date).toISOString().slice(0, 10)}
+        <div className="absolute left-2 top-2 max-w-[78%] border-2 border-black bg-bg-card/90 px-2 py-1.5 text-[0.5625rem] font-mono shadow-[2px_2px_0px_0px_black]">
+          <div className="mb-0.5 flex items-center gap-1.5 font-black uppercase tracking-widest text-[#d29922]">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); stepVersion(-1); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="border border-black bg-bg-primary px-1 leading-none hover:bg-accent hover:text-black"
+              title="Versión anterior"
+            >‹</button>
+            <span>Versión · <span className="text-[#f85149]">{selected.sha.slice(0, 7)}</span> · {new Date(selected.date).toISOString().slice(0, 10)}</span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); stepVersion(1); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="border border-black bg-bg-primary px-1 leading-none hover:bg-accent hover:text-black"
+              title="Versión siguiente"
+            >›</button>
           </div>
           <div className="whitespace-pre-wrap break-words text-text-primary">{selected.message.split('\n')[0]}</div>
-          <div className="mt-1 text-text-muted/70">Click en el chart para elegir versión</div>
+          <div className="mt-1 text-text-muted/70">Click o ‹ › para elegir versión · scroll = zoom · arrastrar = pan</div>
         </div>
       )}
     </div>
@@ -1466,6 +1577,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         onClose={() => setShowPlayerSheet(false)}
         players={Object.values(filteredHeartbeats)}
         geoByPlayer={geoByPlayer}
+        history={history}
         activeId={activeId}
         onSelect={(pid) => {
           setSelectedPlayerId(pid);
