@@ -60,7 +60,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   return (
     <div className="flex flex-col h-screen bg-bg-primary overflow-hidden font-mono crt-effect">
       {/* Fixed header */}
-      <header className="shrink-0 flex flex-col gap-2 px-3 py-2 border-b-4 border-black bg-bg-card z-30 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+      <header className="relative shrink-0 flex flex-col gap-2 px-3 py-2 border-b-4 border-black bg-bg-card z-30 sm:flex-row sm:items-center sm:justify-between sm:px-4">
         <h1 className="text-accent font-black text-sm italic leading-none tracking-tighter sm:text-base">
           <button type="button" onClick={() => setActiveTab('live')} className="hover:text-text-primary">
             <span className="block sm:inline">ODISEA</span>
@@ -106,15 +106,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <LogOut size={14} />
           </button>
         </div>
+        {playerFocus && (
+          <div className="fixed right-2 top-2 z-50 sm:absolute sm:left-1/2 sm:right-auto sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
+            {playerFocus}
+          </div>
+        )}
       </header>
 
       {/* Scrollable content */}
       <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        {playerFocus && (
-          <div className="sticky top-0 z-20 bg-bg-card border-b-2 border-black px-3 py-1.5">
-            {playerFocus}
-          </div>
-        )}
         {showSettings && settingsPanel && (
           <div className="sticky top-0 z-20 bg-bg-card border-b-2 border-black px-3 py-3">
             {settingsPanel}

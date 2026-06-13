@@ -131,6 +131,141 @@ const SessionsPerDayChart = ({ sessions }: { sessions: any[] }) => {
   );
 };
 
+const countryFlag = (countryCode?: string | null): string => {
+  const code = (countryCode || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return '';
+  return Array.from(code).map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
+};
+
+const HistoryOverview = ({ sessions }: { sessions: any[] }) => {
+  const cleanSessions = useMemo(() => sessions.filter(isDashboardSession), [sessions]);
+
+  const fpsSeries = useMemo(() => (
+    cleanSessions
+      .filter((s) => Number(s.start_time) > 0)
+      .sort((a, b) => Number(a.start_time) - Number(b.start_time))
+      .map((s) => ({
+        timestamp: Number(s.start_time),
+        date: formatDateTime(Number(s.start_time)),
+        avg_fps: Number(s.avg_fps) || 0,
+      }))
+  ), [cleanSessions]);
+
+  const stats = useMemo(() => {
+    const totalDuration = cleanSessions.reduce((sum, s) => sum + sessionDuration(s), 0);
+    const fpsValues = cleanSessions.map((s) => Number(s.avg_fps)).filter(Number.isFinite);
+    const avgFps = fpsValues.reduce((sum, fps) => sum + fps, 0) / (fpsValues.length || 1);
+    const uniquePlayers = new Set(cleanSessions.map((s) => s.player_id).filter(Boolean)).size;
+    const scenes = new Map<string, { scene: string; sessions: number; duration: number }>();
+    const countries = new Map<string, { label: string; sessions: number }>();
+
+    cleanSessions.forEach((session) => {
+      sessionScenes(session).filter(isUsefulSceneName).forEach((scene) => {
+        const current = scenes.get(scene) || { scene, sessions: 0, duration: 0 };
+        current.sessions += 1;
+        current.duration += sessionDuration(session);
+        scenes.set(scene, current);
+      });
+      const code = String(session.country_code || '').toUpperCase();
+      const country = String(session.country || '').trim();
+      const key = code || country || 'unknown';
+      const label = [countryFlag(code), code || country || 'Unknown'].filter(Boolean).join(' ');
+      const current = countries.get(key) || { label, sessions: 0 };
+      current.sessions += 1;
+      countries.set(key, current);
+    });
+
+    return {
+      avgFps,
+      totalDuration,
+      uniquePlayers,
+      scenes: [...scenes.values()].sort((a, b) => b.sessions - a.sessions || b.duration - a.duration).slice(0, 5),
+      countries: [...countries.values()].sort((a, b) => b.sessions - a.sessions).slice(0, 5),
+    };
+  }, [cleanSessions]);
+
+  const fpsTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
+        <div className="font-black text-accent">{d.date}</div>
+        <div>Avg FPS: {Number(d.avg_fps).toFixed(1)}</div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex min-h-full flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: 'Sessions', value: cleanSessions.length.toString() },
+          { label: 'Players', value: stats.uniquePlayers.toString() },
+          { label: 'Play Time', value: formatPlayTime(stats.totalDuration) },
+          { label: 'Avg FPS', value: stats.avgFps.toFixed(1), color: fpsColor(stats.avgFps) },
+        ].map((cell) => (
+          <div key={cell.label} className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+            <div className="truncate text-xl font-black tracking-tighter" style={cell.color ? { color: cell.color } : undefined}>{cell.value}</div>
+            <div className="mt-1 text-[0.5625rem] font-black uppercase text-text-muted">{cell.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
+        <RetroCard title="Sesiones por día" className="min-h-[220px]">
+          <div className="h-52">
+            <SessionsPerDayChart sessions={cleanSessions} />
+          </div>
+        </RetroCard>
+        <RetroCard title="FPS por sesión" className="min-h-[220px]">
+          <div className="h-52">
+            {fpsSeries.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-xs italic text-text-muted">Sin datos de FPS</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <LineChart data={fpsSeries} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
+                  <XAxis dataKey="timestamp" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
+                  <YAxis stroke="#666" fontSize={10} width={28} />
+                  <Tooltip content={fpsTooltip} />
+                  <Line type="monotone" dataKey="avg_fps" stroke="#7fd1ff" dot={{ r: 3 }} strokeWidth={2} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </RetroCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <RetroCard title="Escenas principales">
+          <div className="flex flex-col gap-2">
+            {stats.scenes.length === 0 ? (
+              <div className="text-xs italic text-text-muted">Sin escenas filtradas</div>
+            ) : stats.scenes.map((scene) => (
+              <div key={scene.scene} className="flex items-center justify-between gap-3 border-2 border-black bg-bg-primary px-3 py-2">
+                <span className="min-w-0 truncate text-xs font-black text-accent">{scene.scene}</span>
+                <span className="shrink-0 text-[0.625rem] text-text-muted">{scene.sessions} · {formatPlayTime(scene.duration)}</span>
+              </div>
+            ))}
+          </div>
+        </RetroCard>
+        <RetroCard title="Países">
+          <div className="flex flex-col gap-2">
+            {stats.countries.length === 0 ? (
+              <div className="text-xs italic text-text-muted">Sin geolocalización en sesiones filtradas</div>
+            ) : stats.countries.map((country) => (
+              <div key={country.label} className="flex items-center justify-between gap-3 border-2 border-black bg-bg-primary px-3 py-2">
+                <span className="truncate text-xs font-black text-text-primary">{country.label}</span>
+                <span className="shrink-0 text-[0.625rem] text-text-muted">{country.sessions} sesiones</span>
+              </div>
+            ))}
+          </div>
+        </RetroCard>
+      </div>
+    </div>
+  );
+};
+
 // Compact label/value cell for the collapsible 3D info panel.
 const Info = ({ label, value }: { label: string; value: ReactNode }) => (
   <div className="flex flex-col">
@@ -985,6 +1120,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const activeHb = filteredHeartbeats[activeId];
   const activeLabel = activeHb?.display_name || activeId;
   const activeHistory = history[activeId];
+  const focusedGeo = useMemo(() => (
+    focusPlayerId ? geoPlayers.find((player) => player.player_id === focusPlayerId) : undefined
+  ), [focusPlayerId, geoPlayers]);
   const staleAge = activeHb ? (activeHb.timestamp ? (Date.now() - activeHb.timestamp * 1000) / 1000 : 0) : 0;
   const liveSceneName = selectedSceneFilter === 'all'
     ? (activeHb?.player?.scene || '')
@@ -1051,7 +1189,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         focusPlayerId ? (
           <PlayerFocus
             playerId={focusPlayerId}
-            displayName={filteredHeartbeats[focusPlayerId]?.display_name}
+            displayName={filteredHeartbeats[focusPlayerId]?.display_name || focusedGeo?.display_name}
+            country={focusedGeo?.country}
+            countryCode={focusedGeo?.country_code}
             onClear={() => { setFocusPlayerId(null); setShowTagEditor(false); }}
             onTagClick={() => setShowTagEditor(!showTagEditor)}
           />
@@ -1480,15 +1620,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             {/* Right: playback */}
             <div className={`min-h-0 overflow-y-auto ${historyMobileView === 'list' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
-                <div className="flex h-full items-center justify-center p-6 text-center">
-                  <RetroCard>
-                    <div className="max-w-sm">
-                      <div className="text-sm font-black uppercase text-accent">Selecciona una sesión</div>
-                      <div className="mt-2 text-xs text-text-muted">
-                        Elige una sesión de la lista para reproducirla. Las sesiones en vivo aparecen arriba marcadas LIVE.
-                      </div>
-                    </div>
-                  </RetroCard>
+                <div className="min-h-full p-1">
+                  <HistoryOverview sessions={filteredHistoricalSessions} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">
