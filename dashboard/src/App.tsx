@@ -1154,9 +1154,25 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const [followPlayer, setFollowPlayer] = useState(true);
 
+  // Platforms ordered by popularity (session count, desc). Counts across the
+  // current session set; platforms with no sessions keep their known order at the
+  // tail so they're still selectable.
   const availablePlatforms = useMemo(() => {
-    return KNOWN_PLATFORMS;
-  }, []);
+    const counts = new Map<string, number>();
+    const tally = (rows: any[]) => {
+      for (const r of rows) {
+        const p = getPlatform(r);
+        if (p) counts.set(p, (counts.get(p) || 0) + 1);
+      }
+    };
+    tally(historicalSessions);
+    tally(Object.values(heartbeats));
+    return [...KNOWN_PLATFORMS].sort((a, b) => {
+      const diff = (counts.get(b) || 0) - (counts.get(a) || 0);
+      if (diff !== 0) return diff;
+      return KNOWN_PLATFORMS.indexOf(a) - KNOWN_PLATFORMS.indexOf(b);
+    });
+  }, [historicalSessions, heartbeats]);
 
   const availableSceneFilters = useMemo(() => {
     const found = new Set<string>();

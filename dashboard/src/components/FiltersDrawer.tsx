@@ -2,8 +2,6 @@ import React from 'react';
 import { X, ChevronRight } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
 
-const KNOWN_ORDER = ['server', 'android', 'linux', 'windows', 'macos', 'web'];
-
 // Quick presets for the History min-duration filter (seconds). 13s aligns with
 // WARMUP_SECONDS so "13s" drops sessions that are essentially only bootup.
 const MIN_DURATION_PRESETS = [0, 13, 30, 60];
@@ -43,7 +41,8 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
   countries, selectedCountry, onSelectCountry,
   minDuration, onSetMinDuration, onReset,
 }) => {
-  const visiblePlatforms = KNOWN_ORDER.filter((p) => platforms.includes(p));
+  // `platforms` arrives pre-sorted by popularity from App.tsx; render it as-is.
+  const visiblePlatforms = platforms;
   const isCustomDuration = !MIN_DURATION_PRESETS.includes(minDuration);
 
   return (
