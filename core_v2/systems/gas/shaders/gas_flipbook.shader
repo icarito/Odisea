@@ -8,6 +8,8 @@ uniform float frames_per_second = 16.0;
 uniform float alpha_multiplier = 1.35;
 uniform float emission_strength = 0.12;
 uniform float fire_emission_strength = 1.35;
+uniform vec2 atlas_size = vec2(1024.0, 1024.0);
+uniform float frame_padding_px = 1.5;
 
 varying vec4 instance_color;
 varying float particle_age;
@@ -19,16 +21,6 @@ void vertex() {
 	particle_age = clamp(INSTANCE_CUSTOM.x, 0.0, 1.0);
 	particle_fire_mix = clamp(INSTANCE_CUSTOM.y, 0.0, 1.0);
 	particle_frame_time = INSTANCE_CUSTOM.z;
-
-	float columns = max(float(atlas_columns), 1.0);
-	float rows = max(float(atlas_rows), 1.0);
-	float total_frames = columns * rows;
-	float frame = mod(floor(max(particle_frame_time, 0.0) * max(frames_per_second, 0.001)), total_frames);
-	float frame_x = mod(frame, columns);
-	float frame_y = floor(frame / columns);
-	vec2 frame_size = vec2(1.0 / columns, 1.0 / rows);
-
-	UV = (UV * frame_size) + vec2(frame_x * frame_size.x, frame_y * frame_size.y);
 
 	// Full billboard: align local XY with camera XY so gas reads well from above and below.
 	MODELVIEW_MATRIX = INV_CAMERA_MATRIX * mat4(
@@ -45,8 +37,47 @@ void vertex() {
 	);
 }
 
+float bayer4(vec2 p) {
+	vec2 q = floor(mod(p, 4.0));
+	float x = q.x;
+	float y = q.y;
+	if (y < 0.5) {
+		if (x < 0.5) return 0.03125;
+		if (x < 1.5) return 0.53125;
+		if (x < 2.5) return 0.15625;
+		return 0.65625;
+	}
+	if (y < 1.5) {
+		if (x < 0.5) return 0.78125;
+		if (x < 1.5) return 0.28125;
+		if (x < 2.5) return 0.90625;
+		return 0.40625;
+	}
+	if (y < 2.5) {
+		if (x < 0.5) return 0.21875;
+		if (x < 1.5) return 0.71875;
+		if (x < 2.5) return 0.09375;
+		return 0.59375;
+	}
+	if (x < 0.5) return 0.96875;
+	if (x < 1.5) return 0.46875;
+	if (x < 2.5) return 0.84375;
+	return 0.34375;
+}
+
 void fragment() {
-	vec4 tex = texture(smoke_atlas, UV);
+	float columns = max(float(atlas_columns), 1.0);
+	float rows = max(float(atlas_rows), 1.0);
+	float total_frames = columns * rows;
+	float frame = mod(floor(max(particle_frame_time, 0.0) * max(frames_per_second, 0.001)), total_frames);
+	float frame_x = mod(frame, columns);
+	float frame_y = floor(frame / columns);
+	vec2 frame_size = vec2(1.0 / columns, 1.0 / rows);
+	vec2 local_padding = frame_padding_px * vec2(columns, rows) / atlas_size;
+	vec2 local_uv = clamp(UV, local_padding, vec2(1.0) - local_padding);
+	vec2 atlas_uv = (local_uv * frame_size) + vec2(frame_x * frame_size.x, frame_y * frame_size.y);
+
+	vec4 tex = texture(smoke_atlas, atlas_uv);
 	vec4 modulated = tex * instance_color;
 	float age_fade = smoothstep(0.0, 0.015, particle_age) * (1.0 - smoothstep(0.92, 1.0, particle_age));
 	float alpha = modulated.a * alpha_multiplier * age_fade;
@@ -54,11 +85,9 @@ void fragment() {
 	ALBEDO = modulated.rgb;
 	EMISSION = modulated.rgb * mix(emission_strength, fire_emission_strength, particle_fire_mix);
 	
-	// Dithered transparency for GLES2 (Jimenez's Interleaved Gradient Noise)
-	// Pos offset by TIME to eliminate static screen patterns (Film grain effect)
-	vec2 pos = FRAGCOORD.xy + vec2(TIME * 73.0, TIME * 91.0);
-	vec2 magic = vec2(0.06711056, 0.00583715);
-	float limit = fract(52.9829189 * fract(dot(pos, magic)));
+	// Ordered dither avoids Android/GLES2 precision artifacts from dot/fract noise.
+	vec2 pos = FRAGCOORD.xy + floor(mod(TIME * 12.0, 4.0));
+	float limit = bayer4(pos);
 	if (alpha < limit) {
 		discard;
 	}

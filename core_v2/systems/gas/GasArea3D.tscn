@@ -16,6 +16,8 @@ shader_param/frames_per_second = 16.0
 shader_param/alpha_multiplier = 1.35
 shader_param/emission_strength = 0.12
 shader_param/fire_emission_strength = 1.35
+shader_param/atlas_size = Vector2( 1024, 1024 )
+shader_param/frame_padding_px = 1.5
 shader_param/smoke_atlas = ExtResource( 4 )
 
 [sub_resource type="QuadMesh" id=2]
