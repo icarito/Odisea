@@ -278,3 +278,36 @@ func _draw_minimalist_arc(pos: Vector2, angle: float, color: Color) -> void:
 		var a = start_angle + (float(i) / steps) * arc_span
 		points.append(pos + Vector2(cos(a), sin(a)) * ARC_RADIUS)
 	_arc_overlay.draw_polyline(points, arc_color, ARC_STROKE, true)
+
+# --- TargetRegistry API (FD-030 Task A) ---
+
+func get_targets_in_range(origin: Vector3, p_range: float) -> Array:
+	var results = []
+	for entry in _entries:
+		if not is_instance_valid(entry.interactable):
+			continue
+		var dist = entry.interactable.global_transform.origin.distance_to(origin)
+		if dist <= p_range:
+			results.append({
+				"spatial": entry.interactable,
+				"config": entry.config,
+				"distance": dist,
+				"state": entry.state
+			})
+	
+	results.sort_custom(self, "_sort_targets_by_priority_and_dist")
+	return results
+
+func _sort_targets_by_priority_and_dist(a, b) -> bool:
+	if a.config.priority != b.config.priority:
+		return a.config.priority < b.config.priority
+	return a.distance < b.distance
+
+func get_named_target(name: String) -> Spatial:
+	for entry in _entries:
+		if entry.config.label == name:
+			return entry.interactable
+	return null
+
+func get_registered_count() -> int:
+	return _entries.size()
