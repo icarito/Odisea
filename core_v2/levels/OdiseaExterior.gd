@@ -16,9 +16,12 @@ export(float, 0.0, 180.0) var dome_lod_frustum_half_fov_deg := 180.0 if OS.has_f
 export(float, 1.0, 32.0) var dome_lod_backface_penalty := 8.0
 export(bool) var dome_lod_camera_update_enabled := not OS.has_feature("HTML5")
 export(float, 1.0, 90.0) var dome_lod_camera_angle_threshold := 20.0
-export(int, 4, 64) var exterior_collision_pool_size := 6
-export(int, 1, 30) var exterior_collision_update_interval := 20
-export(int, 1, 30) var exterior_target_plate_query_interval := 6
+# Pool de 6 con reasignación cada 20 frames dejaba al jugador adelantar al pool. Pool 12
+# cubre ±2 plates en el espiral actual + vecinos, reasignado cada frame (cheap, ~0.4ms),
+# para que al saltar/caminar siempre haya un collider bajo la plate de destino.
+export(int, 4, 64) var exterior_collision_pool_size := 12
+export(int, 1, 30) var exterior_collision_update_interval := 1
+export(int, 1, 30) var exterior_target_plate_query_interval := 2
 
 onready var _rotator: Spatial = $WorldRotator
 onready var _physical_terrace: StaticBody = $PhysicalTerrace

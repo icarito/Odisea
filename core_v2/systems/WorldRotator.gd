@@ -117,6 +117,13 @@ export(int, 1, 30) var collision_update_interval := 3
 # En modo centrífugo las plates vecinas están a ~249 unidades de distancia XZ,
 # dejando un hueco de 49u entre boxes. Escalar a 1.3 da extents=130 -> solape.
 export(float, 1.0, 3.0) var collision_pool_xz_scale := 1.3
+# Radio (en plates) de la búsqueda que reposiciona el centro del pool sobre la plate
+# realmente más cercana al jugador. Debe superar el peor "lag" de la selección con
+# histéresis para que el pool nunca quede detrás del jugador. Búsqueda por franja barata.
+export(int, 2, 64) var pool_center_search_radius := 24
+# Cuántas plates a cada lado del centro recibe collider por espiral. ±2 garantiza
+# cobertura contigua bajo el jugador al saltar entre plates vecinas.
+export(int, 1, 6) var pool_plate_window_radius := 2
 export(bool) var warn_on_physics_children := true
 # En centrifugo, solo el PhysicalTerrace/ActiveTerraceCollision representa el
 # plate actual. El pool queda como mecanismo legacy para modos no centrifugos.
@@ -309,7 +316,15 @@ func _physics_process(delta: float) -> void:
 	# physics tick so they stay aligned with the visual terrazas.
 	if continuous_tracking_applied:
 		_sync_pool_transforms_to_world()
-	var pool_update_due: bool = false if continuous_tracking_applied else _is_pool_update_due()
+	# BUGFIX (terrace clip-through): previously, while continuous_tracking_applied was
+	# true the pool RE-CENTER (_assign_pool_to_nearest_plates — which picks WHICH plates
+	# get a collider based on the player's current position) was force-skipped
+	# (pool_update_due=false). Only the transform re-sync ran, so the assignment stayed
+	# frozen on the plates the player had already left: colliders were never kept up to
+	# date with where the player walked/jumped, so the player would land on a plate with
+	# no collider and fall straight through. The re-assignment is cheap (~0.4ms), so run
+	# it on the normal interval in BOTH modes.
+	var pool_update_due: bool = _is_pool_update_due()
 	if not pool_update_due:
 		_pool_update_counter += 1
 		pool_update_due = _pool_update_counter >= collision_update_interval
@@ -1545,12 +1560,20 @@ func _assign_pool_to_nearest_plates() -> void:
 		return
 
 	# Recolectar placas usando interlock offsets verificados. Sin distancia euclidiana.
-	# Espiral seleccionada: ±1 placa alrededor de _selected_plate_index (3 slots).
-	# Espirales vecinas: misma posición física vía offset, ±1 (3 slots cada una).
+	# Espirales vecinas: misma posición física vía offset.
 	var candidates: Array = []
 	var pool_size: int = _collision_pool.size()
+	# CENTRO DEL POOL = la plate REALMENTE más cercana al jugador, NO la seleccionada.
+	# La selección (_selected_plate_index) tiene histéresis (auto_track_min_switch_distance
+	# + cooldown) y puede quedarse atascada varias plates detrás del jugador al cruzar
+	# espirales; si el pool sigue la selección deja al jugador sin collider debajo y cae.
 	var sel_spiral: int = _selected_spiral_index
 	var sel_plate: int = _selected_plate_index
+	if tracking_target != null:
+		var nearest := _find_nearest_plate_in_strip(center_canonical, pool_center_search_radius)
+		if not nearest.empty():
+			sel_spiral = int(nearest.get("spiral_index", sel_spiral))
+			sel_plate = int(nearest.get("plate_index", sel_plate))
 
 	if sel_spiral < 0 or sel_spiral >= _registered_platforms.size():
 		return
@@ -1585,7 +1608,8 @@ func _assign_pool_to_nearest_plates() -> void:
 			var rel_off: int = INTERLOCK_OFFSETS[spiral_index] - INTERLOCK_OFFSETS[sel_spiral]
 			center_plate = posmod(sel_plate + rel_off, plate_count)
 
-		for doff in [-1, 0, 1]:
+		var window_r: int = int(clamp(pool_plate_window_radius, 1, 6))
+		for doff in range(-window_r, window_r + 1):
 			var plate_index := posmod(center_plate + doff, plate_count)
 			var plate_tx: Transform = spiral_canonical_base * (cached_list[plate_index] as Transform)
 			var dist_sq: float = plate_tx.origin.distance_squared_to(center_canonical)
