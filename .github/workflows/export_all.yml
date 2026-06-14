@@ -538,6 +538,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: nightly_assets
+          pattern: Odisea-Tech-Demo-*
           merge-multiple: true
 
       - name: Update Nightly Release
@@ -546,7 +547,13 @@ jobs:
         run: |
           set -euo pipefail
           TAG="nightly"
-          mapfile -t RELEASE_FILES < <(find nightly_assets -type f -name "*.zip" -o -name "*.apk" -print | sort)
+
+          # Show all files for debugging
+          echo "=== Files in nightly_assets ==="
+          find nightly_assets -type f -print | sort
+          echo "=== End of file listing ==="
+
+          mapfile -t RELEASE_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" \) -print | sort)
           if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
             echo "::error::No release zip artifacts found in nightly_assets"
             find nightly_assets -maxdepth 3 -type f -print || true
