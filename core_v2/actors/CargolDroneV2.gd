@@ -58,15 +58,16 @@ func _ready():
 	# Reuse existing anchor from scene if present, otherwise create one.
 	if has_node("CargoAnchor"):
 		cargo_anchor = get_node("CargoAnchor")
-		remove_child(cargo_anchor)
 	else:
 		cargo_anchor = Position3D.new()
 		cargo_anchor.name = "CargoAnchor"
-	
+		add_child(cargo_anchor)
+
+	# Reparent the anchor to the drone's parent so cargo inherits the canonical
+	# logical transform. This must be deferred: during _ready() the parent is
+	# still busy adding its own children, so add_child() on it fails outright.
 	if parent_node:
-		parent_node.add_child(cargo_anchor)
-	else:
-		add_child(cargo_anchor)  # fallback for headless / tests
+		call_deferred("_reparent_cargo_anchor", parent_node)
 
 	# Register as OYS Actor
 	var sm = get_node_or_null("/root/SessionManager")
@@ -81,6 +82,16 @@ func _ready():
 		_perf_monitor = get_node("/root/PerformanceMonitor")
 		if _perf_monitor and _perf_monitor.has_method("register_monitored_node"):
 			_perf_monitor.register_monitored_node(self)
+
+func _reparent_cargo_anchor(parent_node: Node) -> void:
+	# Move the anchor out of the KinematicBody and under the drone's parent.
+	if not is_instance_valid(cargo_anchor) or not is_instance_valid(parent_node):
+		return
+	if cargo_anchor.get_parent() == parent_node:
+		return
+	if cargo_anchor.get_parent():
+		cargo_anchor.get_parent().remove_child(cargo_anchor)
+	parent_node.add_child(cargo_anchor)
 
 # --- CORE API (Programmable Interface) ---
 
@@ -182,6 +193,11 @@ func pickup(target_node_path) -> void:
 			target.mode = RigidBody.MODE_KINEMATIC
 			target.collision_layer = 0
 			target.collision_mask = 0
+			# Zero residual momentum so the carried cargo is fully managed by the
+			# anchor; otherwise pre-pickup fall velocity lingers on the body.
+			target.linear_velocity = Vector3.ZERO
+			target.angular_velocity = Vector3.ZERO
+			target.sleeping = true
 
 			_attached_node = target
 
@@ -217,6 +233,7 @@ func release(impulse: Vector3) -> void:
 			target.collision_mask = 1
 
 			# Reset physics state to avoid inherited momentum from kinematic mode or weirdness
+			target.sleeping = false
 			target.linear_velocity = Vector3.ZERO
 			target.angular_velocity = Vector3.ZERO
 			

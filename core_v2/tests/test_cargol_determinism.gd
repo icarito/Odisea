@@ -60,10 +60,14 @@ func test_release_uses_canonical_not_post_slide_velocity() -> void:
 	var cargo = runner.scene().find_node("Cargo", true, false)
 	if cargo:
 		drone.pickup("Cargo")
-		yield(runner.simulate_frames(2), "completed")
 
-		# Track pre-release linear_velocity (zero after kinematic pickup).
+		# Pickup zeroes residual momentum and switches the body to kinematic mode.
+		# Assert before stepping: once frames advance, a kinematic body carried by
+		# the moving anchor reports the anchor's per-frame displacement as velocity.
+		assert_int(cargo.mode).is_equal(RigidBody.MODE_KINEMATIC)
 		assert_bool(cargo.linear_velocity == Vector3.ZERO).is_true()
+
+		yield(runner.simulate_frames(2), "completed")
 
 		# Release with zero impulse; only _canonical_velocity contributes.
 		drone.release(Vector3.ZERO)

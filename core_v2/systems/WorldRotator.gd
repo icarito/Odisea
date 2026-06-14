@@ -44,6 +44,15 @@ export(bool) var snap_initial_selection := true
 # Colisiones físicas generadas para probar/usar terrazas sin authoring manual.
 export(NodePath) var physical_terrace_path := NodePath("")
 export(Vector3) var fallback_collision_extents := Vector3(100.0, 1.0, 100.0)
+# Extra collider depth added BELOW the visual plate surface (units). The visual
+# plate slab is thin (~2 units), but the StaticBody floor is hard-teleported under
+# the player every physics tick as the world rotates. On a slow client one tick can
+# move the floor more than the slab thickness, so the kinematic player tunnels
+# straight through it. Extending the collider downward keeps the player intersecting
+# the floor even when it lags/overshoots in a single frame, without changing the
+# visible geometry. The box is grown by this amount on the bottom face only (its
+# top stays flush with the visual plate, so standing height is unchanged).
+export(float, 0.0, 200.0) var collision_extra_depth := 40.0
 export(bool) var auto_track_target_plate := false
 export(NodePath) var tracking_target_path := NodePath("")
 export(float) var auto_track_min_switch_distance := 20.0
@@ -56,6 +65,21 @@ export(int, 1, 30) var target_plate_query_interval := 3
 # full-detail dome flickers (Full-Detail↔LOD snap loop) on the grounded player.
 export(int, 0, 120) var auto_track_switch_cooldown_frames := 20
 export(bool) var continuous_tracking := true
+# Maximum fraction of the remaining rotation that a single physics tick may apply in
+# continuous_tracking mode. The interpolation weight is t = slerp_rate * delta; on a
+# slow client delta is large, t saturates to 1.0, and the world (and the floor
+# StaticBody teleported under the player) jumps the entire pending rotation in one
+# frame — a large per-frame floor displacement that tunnels the kinematic player
+# through the thin plate. Clamping t bounds that per-frame jump, spreading a big
+# rotation over a few frames. 1.0 disables the cap (original behaviour).
+export(float, 0.05, 1.0) var continuous_tracking_max_step := 0.34
+# Upper bound (seconds) on the physics delta fed to the tracking/rotation math. After
+# a frame hitch or on a very slow client the engine can hand _physics_process a large
+# delta; uncapped, that scales the rotation step (and the floor teleport under the
+# player) proportionally, compounding the tunneling. Clamping keeps each tick's floor
+# movement bounded regardless of the real frame time. ~0.05s == a 20 FPS-equivalent
+# ceiling; normal 30/60 FPS ticks (0.033/0.0167s) are unaffected.
+export(float, 0.0, 0.25) var max_tracking_delta := 0.05
 # Eje del cilindro para el fallback radial (cuando no hay GravityWorld).
 # 0 = Y (por defecto, OdiseaExterior: ring cierra en XZ)
 # 1 = X (SGC: ring cierra en YZ)
@@ -236,6 +260,10 @@ func _sync_faux_skydome_visibility() -> void:
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
+	# Bound the delta used for all tracking/rotation math so a frame hitch or a very
+	# slow client can't apply an unbounded rotation (and floor teleport) in one tick.
+	if max_tracking_delta > 0.0:
+		delta = min(delta, max_tracking_delta)
 	# Self-pause on the physics tick itself. The external gate that calls
 	# pause_tracking() lives in OdiseaExterior._process, which runs once per
 	# rendered frame — on a scene-load hitch several physics ticks can fire before
@@ -466,6 +494,10 @@ func select_terrace_plate(spiral_index: int, plate_index: int, target_body: Spat
 				_active_collision_shape = _create_collision_shape(_active_collision_body)
 
 	_sync_active_collision_shape(spiral)
+	# Mark the active floor body so the player controller can detect it is standing on
+	# a WorldRotator-driven moving terrace and apply the anti-tunneling floor snap.
+	if _active_collision_body and is_instance_valid(_active_collision_body):
+		_active_collision_body.set_meta("world_rotator_collision", true)
 	align_canonical_transform_to_global(_selected_plate_canonical, target_body.global_transform, snap_immediately)
 	# Forzar reasignación inmediata del pool al nuevo centro.
 	_pool_update_counter = collision_update_interval
@@ -1149,7 +1181,12 @@ func _update_continuous_tracking(_delta: float) -> bool:
 		_resume_ramp_left = max(0.0, _resume_ramp_left - _delta)
 		slerp_rate = 1.0 / RESUME_TRACKING_DURATION
 	# Interpolar suavemente hacia el target para evitar saltos de cámara.
-	var t: float = min(1.0, slerp_rate * _delta)
+	# Cap the per-tick step so a low-FPS frame can't apply the whole pending rotation
+	# at once (which would teleport the floor far under the player in one tick and
+	# tunnel them through the thin plate). The resume ease is left uncapped — it is
+	# already rate-limited to RESUME_TRACKING_DURATION.
+	var max_step: float = 1.0 if _resume_ramp_left > 0.0 else clamp(continuous_tracking_max_step, 0.05, 1.0)
+	var t: float = min(max_step, slerp_rate * _delta)
 	var eased_t: float = t * t * (3.0 - 2.0 * t)
 	var current: Transform = global_transform
 	var q_cur: Quat = current.basis.get_rotation_quat()
@@ -1703,18 +1740,33 @@ func _sync_pool_shape_extents(body: StaticBody, spiral: Spatial) -> void:
 		return
 	# Cache extents per spiral index — plate_mesh never changes at runtime.
 	var spiral_index: int = _registered_platforms.find(spiral)
+	var e: Vector3
 	if spiral_index >= 0 and _spiral_extents_cache.has(spiral_index):
-		var cached_e: Vector3 = _spiral_extents_cache[spiral_index]
-		var want: Vector3 = Vector3(cached_e.x * collision_pool_xz_scale, cached_e.y, cached_e.z * collision_pool_xz_scale)
-		if box.extents.is_equal_approx(want):
-			return
+		e = _spiral_extents_cache[spiral_index]
+	else:
+		e = _get_plate_collision_extents(spiral)
+		if spiral_index >= 0:
+			_spiral_extents_cache[spiral_index] = e
+	# Escalar XZ para cubrir el hueco entre plates adyacentes; engrosar hacia abajo
+	# para evitar tunneling del jugador cuando el suelo se teletransporta por frame.
+	_apply_plate_box_extents(shape_node, box, e)
+
+# Configures a plate collider box so it covers the (optionally xz-scaled) visual
+# plate and extends downward by collision_extra_depth without raising the standing
+# surface: the box's top face stays flush with the plate while its bottom drops.
+# The downward growth lives on the CollisionShape's local Y offset, so the owning
+# body's origin (the plate surface reference used for teleporting) is untouched.
+func _apply_plate_box_extents(shape_node: CollisionShape, box: BoxShape, base_extents: Vector3) -> void:
+	var half_depth: float = max(0.0, collision_extra_depth) * 0.5
+	var want: Vector3 = Vector3(
+		base_extents.x * collision_pool_xz_scale,
+		base_extents.y + half_depth,
+		base_extents.z * collision_pool_xz_scale)
+	if not box.extents.is_equal_approx(want):
 		box.extents = want
-		return
-	var e: Vector3 = _get_plate_collision_extents(spiral)
-	if spiral_index >= 0:
-		_spiral_extents_cache[spiral_index] = e
-	# Escalar XZ para cubrir el hueco entre plates adyacentes.
-	box.extents = Vector3(e.x * collision_pool_xz_scale, e.y, e.z * collision_pool_xz_scale)
+	var local_origin: Vector3 = shape_node.transform.origin
+	if not is_equal_approx(local_origin.y, -half_depth):
+		shape_node.transform.origin = Vector3(local_origin.x, -half_depth, local_origin.z)
 
 func _get_collision_parent() -> Node:
 	if get_parent():
@@ -1743,7 +1795,7 @@ func _sync_active_collision_shape(spiral: Spatial) -> void:
 	if box == null:
 		box = BoxShape.new()
 		_active_collision_shape.shape = box
-	box.extents = _get_plate_collision_extents(spiral)
+	_apply_plate_box_extents(_active_collision_shape, box, _get_plate_collision_extents(spiral))
 
 func _get_plate_collision_extents(spiral: Spatial) -> Vector3:
 	var mesh: Mesh = spiral.get("plate_mesh")

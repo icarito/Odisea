@@ -29,6 +29,14 @@ export(bool) var invert_mouse_y := false
 export(float) var joy_look_sensitivity := 15.0
 export(float) var joy_move_sensitivity := 1.0
 export(float) var snap_length := 0.25
+# Floor snap used while standing on a WorldRotator-driven moving terrace (e.g.
+# OdiseaExterior). The whole world rotates around the player and the floor StaticBody
+# is hard-teleported under the feet every physics tick; on a slow client one tick can
+# drop the floor more than the default 0.25 snap, losing contact and letting the player
+# fall through the thin slab. A larger snap re-grabs the floor each frame. Only applied
+# when the active floor collider is a moving terrace plate, so normal interior
+# platforming keeps the tightly-tuned default snap.
+export(float) var moving_floor_snap_length := 2.0
 export(float) var push_force := 1.0
 export(float) var min_pitch := -85.0
 export(float) var max_pitch := 85.0
@@ -156,6 +164,10 @@ var _cinematic_zone_switch_grace_left := 0.0
 const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
 
 var _terminal_ui_active := false
+# Clip-through diagnostic state (ODISEA_CLIP_DEBUG=1)
+var _terrace_floor_grace := 0
+var _clip_logged := false
+var _clip_followup := 0
 var _restore_spring_length: float = -1.0
 var _post_teleport_snap_frames := 0
 var _transition_airlock_placed := false
@@ -2164,6 +2176,12 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _post_teleport_snap_frames > 0:
 		_post_teleport_snap_frames -= 1
 		_effective_snap = max(snap_length, 1.0)
+	# On a WorldRotator-driven moving terrace, use a larger snap so the player stays
+	# glued to the floor that teleports under it each tick (anti-tunneling). Detected
+	# from last frame's slide contacts — the snap only matters while continuously
+	# grounded on the same moving plate, so a one-frame lag is harmless.
+	if _standing_on_moving_terrace():
+		_effective_snap = max(_effective_snap, moving_floor_snap_length)
 	var snap_vec = Vector3.DOWN * _effective_snap if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
 	
 	if enable_step_up and (not _rl_fast_controller) and is_on_floor() and velocity.y <= 0:
@@ -2176,8 +2194,33 @@ func step(dt: float, input: InputDataV2) -> void:
 			if debug_stair_state:
 				print("[STAIR] step_up success: pos=", step_result.position, " vy=", velocity.y)
 	
+	var _clip_debug := OS.get_environment("ODISEA_CLIP_DEBUG") == "1"
+	if _clip_debug and _standing_on_moving_terrace():
+		# Keep a short grace so the detector fires even if terrace contact is lost a
+		# frame or two before the drop becomes detectable.
+		_terrace_floor_grace = 8
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
-	
+	# Clip-through detector: was grounded on a moving terrace recently, now airborne
+	# and dropping. Logs the floor geometry so we can see whether the collider was
+	# absent, diverged from the visual plate, or the player genuinely tunneled. Fires
+	# once per fall, then logs a few follow-up frames to show the drop developing.
+	if _clip_debug:
+		if _terrace_floor_grace > 0:
+			_terrace_floor_grace -= 1
+		var dropping := not is_on_floor() and velocity.y < -1.0
+		if dropping and _terrace_floor_grace > 0 and not _clip_logged:
+			_clip_logged = true
+			_clip_followup = 5
+			print("[CLIP] === FALL BEGIN ===")
+			_log_terrace_clip_through(snap_vec)
+		elif _clip_followup > 0:
+			_clip_followup -= 1
+			_log_terrace_clip_through(snap_vec)
+			if _clip_followup == 0:
+				print("[CLIP] === FALL END ===")
+		elif is_on_floor():
+			_clip_logged = false
+
 	_update_floor_info()
 	if _rl_fast_controller and _rl_skip_platform_tracking:
 		_platform_velocity = Vector3.ZERO
@@ -2478,6 +2521,55 @@ func _update_platform_tracking(dt: float) -> void:
 	else:
 		_platform_velocity = Vector3.ZERO
 		_platform_tracking_key = ""
+
+# True when the player is currently grounded on a WorldRotator-driven terrace plate.
+# Those StaticBody colliders carry a "canonical_tx" meta (set by the pool/active-body
+# assignment) — a reliable, exclusive marker for the moving exterior floor.
+func _standing_on_moving_terrace() -> bool:
+	if not is_on_floor():
+		return false
+	for i in get_slide_count():
+		var collision = get_slide_collision(i)
+		if collision == null:
+			continue
+		if collision.normal.y <= 0.5:
+			continue
+		var collider = collision.collider
+		if collider != null and (collider.has_meta("canonical_tx") or collider.has_meta("world_rotator_collision")):
+			return true
+	return false
+
+# Diagnostic: dump the floor situation at the instant a terrace clip-through begins.
+func _log_terrace_clip_through(snap_vec: Vector3) -> void:
+	var pos := global_transform.origin
+	var space := get_world().direct_space_state
+	# Ray straight down a long way to find whatever collider (if any) is below the feet.
+	var ray := space.intersect_ray(pos, pos + Vector3.DOWN * 200.0, [self], collision_mask)
+	var below := "none"
+	var below_dist := -1.0
+	var below_meta := ""
+	if not ray.empty():
+		below_dist = pos.distance_to(ray.position)
+		var c = ray.collider
+		below = String(c.name) if c else "?"
+		if c and c.has_meta("spiral_index"):
+			below_meta = "sp=%s pl=%s" % [str(c.get_meta("spiral_index")), str(c.get_meta("plate_index"))]
+		elif c and c.has_meta("world_rotator_collision"):
+			below_meta = "active"
+	# Also ray UP, in case the floor teleported above the feet (player ended inside/below it).
+	var ray_up := space.intersect_ray(pos, pos + Vector3.UP * 200.0, [self], collision_mask)
+	var above := "none"
+	var above_dist := -1.0
+	if not ray_up.empty():
+		above_dist = pos.distance_to(ray_up.position)
+		var cu = ray_up.collider
+		above = String(cu.name) if cu else "?"
+	print("[CLIP] tick=", Engine.get_physics_frames(),
+		" pos=", pos,
+		" vy=", stepify(velocity.y, 0.01),
+		" snap=", stepify(snap_vec.y, 0.001),
+		" | below=", below, " d=", stepify(below_dist, 0.01), " ", below_meta,
+		" | above=", above, " d=", stepify(above_dist, 0.01))
 
 func _is_trackable_platform_collider(collider: Object) -> bool:
 	if not collider is Spatial:
