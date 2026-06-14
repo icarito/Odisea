@@ -151,6 +151,27 @@ export const saveSceneGeometryChunk = async <T = unknown>(chunk: StoredSceneGeom
   }
 };
 
+// All cached geometry chunks for a scene (across stream buckets/radii). The
+// heatmap reuses whatever the live viewport already streamed into IndexedDB so it
+// doesn't have to re-download the full scene .json.
+export const getSceneGeometryChunksByScene = async <T = unknown>(scene: string): Promise<StoredSceneGeometryChunk<T>[]> => {
+  if (!scene) return [];
+  try {
+    const db = await openDB();
+    const tx = db.transaction(SCENE_GEOMETRY_STORE, 'readonly');
+    const store = tx.objectStore(SCENE_GEOMETRY_STORE);
+    const index = store.index('scene');
+    const request = index.getAll(IDBKeyRange.only(scene));
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve((request.result as StoredSceneGeometryChunk<T>[]) ?? []);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error('Failed to load scene geometry chunks by scene from IndexedDB', e);
+    return [];
+  }
+};
+
 export const getSceneGeometryChunk = async <T = unknown>(id: string): Promise<StoredSceneGeometryChunk<T> | null> => {
   try {
     const db = await openDB();

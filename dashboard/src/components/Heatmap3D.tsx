@@ -2,7 +2,47 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { useSceneGeometry } from '../hooks/useSceneGeometry';
+import { useSceneGeometry, type SceneGeometryData } from '../hooks/useSceneGeometry';
+import { getSceneGeometryChunksByScene } from '../lib/pushStorage';
+
+// Cache-first scene points for the heatmap: reuse whatever the live viewport
+// already streamed into IndexedDB (chunks keyed by stream bucket), merging and
+// de-duplicating their points. Only if the cache is empty do we fall back to the
+// full static .json — which for OdiseaExterior is 6.4 MB, so avoiding it matters.
+function useHeatmapScenePoints(scene: string | undefined): [number, number, number][] {
+  const [cachedPoints, setCachedPoints] = useState<[number, number, number][]>([]);
+  const [cacheChecked, setCacheChecked] = useState(false);
+  // Fallback static loader only runs (fetches) once we know the cache is empty.
+  const { geometry } = useSceneGeometry(cacheChecked && cachedPoints.length === 0 ? (scene || '') : '');
+
+  useEffect(() => {
+    let aborted = false;
+    setCacheChecked(false);
+    setCachedPoints([]);
+    if (!scene) { setCacheChecked(true); return; }
+    getSceneGeometryChunksByScene<SceneGeometryData>(scene)
+      .then((chunks) => {
+        if (aborted) return;
+        const seen = new Set<string>();
+        const merged: [number, number, number][] = [];
+        for (const chunk of chunks) {
+          for (const p of chunk.data?.points ?? []) {
+            // Quantize to ~1u so overlapping stream buckets don't double-plot.
+            const key = `${Math.round(p[0])},${Math.round(p[1])},${Math.round(p[2])}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push(p);
+          }
+        }
+        setCachedPoints(merged);
+        setCacheChecked(true);
+      })
+      .catch(() => { if (!aborted) setCacheChecked(true); });
+    return () => { aborted = true; };
+  }, [scene]);
+
+  return cachedPoints.length > 0 ? cachedPoints : (geometry?.points ?? []);
+}
 
 interface HeatmapCell {
   grid_x: number;
@@ -60,7 +100,9 @@ const Cell: React.FC<{
   // Height: blend low-fps severity with relative traffic so a busy-but-healthy
   // cell still reads as a presence, and a critical cell towers over it.
   const traffic = maxCount > 0 ? cell.count / maxCount : 0;
-  const height = 0.4 + (pct / 100) * 6 + traffic * 2;
+  // Scale tower height with cell size so the relief reads at any scene scale
+  // (resolution grows for large scenes like OdiseaExterior).
+  const height = resolution * (0.1 + (pct / 100) * 1.2 + traffic * 0.4);
 
   return (
     <group position={[cell.grid_x + resolution / 2, height / 2, cell.grid_z + resolution / 2]}>
@@ -82,41 +124,46 @@ const Cell: React.FC<{
   );
 };
 
+function makePointTexture(): THREE.Texture | null {
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.7)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 32, 32);
+  const t = new THREE.CanvasTexture(canvas);
+  t.needsUpdate = true;
+  return t;
+}
+
 // Scene scatter cloud: the same point data the live viewport uses, drawn faded
 // underneath the heat cells so the heatmap reads against real scene volume
-// instead of an empty grid. Banded by distance from scene center for depth.
-const SceneScatter: React.FC<{ points: [number, number, number][]; center: [number, number, number] }> = ({ points, center }) => {
-  const texture = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 32;
-    canvas.height = 32;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-    g.addColorStop(0, 'rgba(255,255,255,1)');
-    g.addColorStop(0.55, 'rgba(255,255,255,0.7)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 32, 32);
-    const t = new THREE.CanvasTexture(canvas);
-    t.needsUpdate = true;
-    return t;
-  }, []);
+// instead of an empty grid. Banded by HEIGHT (Y) so floors/walls/ceilings read
+// as layers from a bird's-eye view, and sized in *screen pixels*
+// (sizeAttenuation={false}) so the cloud is visible at any scene scale — Dome_Crio
+// spans ~70u while OdiseaExterior spans ~2000u, and a world-unit point size that
+// works for one is invisible for the other.
+const SceneScatter: React.FC<{ points: [number, number, number][] }> = ({ points }) => {
+  const texture = useMemo(makePointTexture, []);
 
   const bands = useMemo(() => {
     if (!points || points.length === 0) return [];
-    let maxD = 1;
+    let minY = Infinity, maxY = -Infinity;
     for (const p of points) {
-      const dx = p[0] - center[0], dy = p[1] - center[1], dz = p[2] - center[2];
-      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (d > maxD) maxD = d;
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
     }
-    const near = maxD * 0.33, mid = maxD * 0.66;
+    const span = Math.max(1, maxY - minY);
+    const low = minY + span * 0.33, high = minY + span * 0.66;
+    // 0 = floor/low, 1 = mid, 2 = high/ceiling
     const buckets: [number, number, number][][] = [[], [], []];
     for (const p of points) {
-      const dx = p[0] - center[0], dy = p[1] - center[1], dz = p[2] - center[2];
-      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      buckets[d <= near ? 0 : d <= mid ? 1 : 2].push(p);
+      buckets[p[1] <= low ? 0 : p[1] <= high ? 1 : 2].push(p);
     }
     return buckets.map((pts) => {
       if (pts.length === 0) return null;
@@ -124,7 +171,7 @@ const SceneScatter: React.FC<{ points: [number, number, number][]; center: [numb
       geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts.flat()), 3));
       return geo;
     });
-  }, [points, center]);
+  }, [points]);
 
   useEffect(() => {
     const current = bands;
@@ -133,19 +180,19 @@ const SceneScatter: React.FC<{ points: [number, number, number][]; center: [numb
 
   return (
     <group>
-      {bands[2] && (
-        <points geometry={bands[2]}>
-          <pointsMaterial size={0.3} color="#3a4760" map={texture || undefined} transparent opacity={0.22} depthWrite={false} />
+      {bands[0] && (
+        <points geometry={bands[0]}>
+          <pointsMaterial sizeAttenuation={false} size={3} color="#3a4760" map={texture || undefined} transparent opacity={0.35} depthWrite={false} />
         </points>
       )}
       {bands[1] && (
         <points geometry={bands[1]}>
-          <pointsMaterial size={0.42} color="#4d6285" map={texture || undefined} transparent opacity={0.3} depthWrite={false} />
+          <pointsMaterial sizeAttenuation={false} size={3.5} color="#5d79a8" map={texture || undefined} transparent opacity={0.45} depthWrite={false} />
         </points>
       )}
-      {bands[0] && (
-        <points geometry={bands[0]}>
-          <pointsMaterial size={0.55} color="#5d79a8" map={texture || undefined} transparent opacity={0.38} depthWrite={false} />
+      {bands[2] && (
+        <points geometry={bands[2]}>
+          <pointsMaterial sizeAttenuation={false} size={4} color="#9cc4ff" map={texture || undefined} transparent opacity={0.55} depthWrite={false} />
         </points>
       )}
     </group>
@@ -154,9 +201,13 @@ const SceneScatter: React.FC<{ points: [number, number, number][]; center: [numb
 
 const HotzoneMarkers: React.FC<{
   hotzones: HotzoneMarker[];
+  scale: number;
   onSelect?: (hz: HotzoneMarker) => void;
-}> = ({ hotzones, onSelect }) => {
+}> = ({ hotzones, scale, onSelect }) => {
   const [hovered, setHovered] = useState<string | null>(null);
+  // Pins are sized relative to the scene so they stay visible from Dome_Crio's
+  // ~70u up to OdiseaExterior's ~2000u without dwarfing or vanishing.
+  const s = scale;
   return (
     <group>
       {hotzones.map((hz) => {
@@ -168,20 +219,20 @@ const HotzoneMarkers: React.FC<{
         return (
           <group key={hz.id} position={[x, 0, z]}>
             <mesh
-              position={[0, 4.5, 0]}
+              position={[0, 5 * s, 0]}
               onPointerOver={(e) => { e.stopPropagation(); setHovered(hz.id); }}
               onPointerOut={() => setHovered(null)}
               onClick={(e) => { e.stopPropagation(); onSelect?.(hz); }}
             >
-              <coneGeometry args={[0.9, 2, 4]} />
+              <coneGeometry args={[s, 2 * s, 4]} />
               <meshStandardMaterial color="#ff3df0" emissive="#ff3df0" emissiveIntensity={isHover ? 0.8 : 0.4} />
             </mesh>
-            <mesh position={[0, 4.5, 0]} rotation={[0, Math.PI / 4, 0]}>
-              <ringGeometry args={[1.2, 1.6, 4]} />
+            <mesh position={[0, 5 * s, 0]} rotation={[0, Math.PI / 4, 0]}>
+              <ringGeometry args={[1.3 * s, 1.8 * s, 4]} />
               <meshBasicMaterial color="#ff3df0" transparent opacity={0.5} side={THREE.DoubleSide} />
             </mesh>
             {isHover && (
-              <Html distanceFactor={20} position={[0, 7, 0]}>
+              <Html distanceFactor={20} position={[0, 7 * s, 0]}>
                 <div className="pointer-events-none whitespace-nowrap rounded border border-[#ff3df0]/50 bg-[#0c0e12]/95 px-2 py-1 text-[0.6rem] text-white shadow-xl">
                   <span className="font-bold text-[#ff3df0]">{hz.display_name || hz.player_id || 'hotzone'}</span>
                   {' · '}{hz.trigger_type || 'auto'}
@@ -199,19 +250,27 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredCell, setHoveredCell] = useState<HeatmapCell | null>(null);
   const [selectedCell, setSelectedCell] = useState<HeatmapCell | null>(null);
-  const { geometry } = useSceneGeometry(scene || '');
+  const scenePoints = useHeatmapScenePoints(scene);
 
   const cells = Array.isArray(data) ? data : [];
   const maxCount = useMemo(() => cells.reduce((m, c) => Math.max(m, c.count), 0), [cells]);
 
-  // Center the camera/scatter banding on the spread of the heat data so the
-  // initial view frames the active area regardless of scene origin.
-  const center = useMemo<[number, number, number]>(() => {
-    if (cells.length === 0) return [0, 0, 0];
-    let sx = 0, sz = 0;
-    for (const c of cells) { sx += c.grid_x; sz += c.grid_z; }
-    return [sx / cells.length, 0, sz / cells.length];
-  }, [cells]);
+  // Frame the camera on the actual geometry (or heat cells if no points yet):
+  // scenes range from ~70u (Dome_Crio) to ~2000u (OdiseaExterior), so a fixed
+  // camera distance leaves one of them off-screen or microscopic.
+  const { center, radius } = useMemo(() => {
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    const consume = (x: number, z: number) => {
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    };
+    for (const p of scenePoints) consume(p[0], p[2]);
+    for (const c of cells) consume(c.grid_x, c.grid_z);
+    if (!isFinite(minX)) return { center: [0, 0, 0] as [number, number, number], radius: 60 };
+    const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+    const r = Math.max(20, Math.hypot(maxX - minX, maxZ - minZ) / 2);
+    return { center: [cx, 0, cz] as [number, number, number], radius: r };
+  }, [scenePoints, cells]);
 
   // The panel shows the selected cell if one is pinned, else whatever is hovered.
   const panelCell = selectedCell || hoveredCell;
@@ -228,13 +287,13 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
   return (
     <div className="relative h-full w-full overflow-hidden rounded-lg border border-[#232833] bg-black">
       <Canvas ref={canvasRef} gl={{ preserveDrawingBuffer: true }} onPointerMissed={() => setSelectedCell(null)}>
-        <PerspectiveCamera makeDefault position={[center[0] + 60, 60, center[2] + 60]} />
+        <PerspectiveCamera makeDefault position={[center[0] + radius * 0.9, radius * 1.1, center[2] + radius * 0.9]} far={Math.max(2000, radius * 8)} />
         <ambientLight intensity={0.7} />
-        <directionalLight position={[10, 50, 5]} intensity={1} />
-        <pointLight position={[center[0], 40, center[2]]} intensity={0.4} />
+        <directionalLight position={[10, radius, 5]} intensity={1} />
+        <pointLight position={[center[0], radius * 0.8, center[2]]} intensity={0.4} />
 
-        {geometry?.points && geometry.points.length > 0 && (
-          <SceneScatter points={geometry.points} center={center} />
+        {scenePoints.length > 0 && (
+          <SceneScatter points={scenePoints} />
         )}
 
         {cells.map((cell, idx) => (
@@ -250,12 +309,12 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
         ))}
 
         {hotzones && hotzones.length > 0 && (
-          <HotzoneMarkers hotzones={hotzones} onSelect={onSelectHotzone} />
+          <HotzoneMarkers hotzones={hotzones} scale={Math.max(0.9, radius * 0.02)} onSelect={onSelectHotzone} />
         )}
 
         <Grid
           infiniteGrid
-          fadeDistance={250}
+          fadeDistance={Math.max(250, radius * 4)}
           cellColor="#232833"
           sectionColor="#2a3140"
           cellSize={resolution}
