@@ -52,7 +52,12 @@ func set_build_info(info: Dictionary):
 	official_build = info.get("official_build", false)
 
 func _init():
+	# Web can't safely embed the ingest token (it'd be visible in the browser), so
+	# the official-ingest path is handled via the build-meta token / ?token= URL
+	# param elsewhere. Here we only honor an explicit env token, then dev fallback.
 	_bridge_token = OS.get_environment("ODISEA_BRIDGE_TOKEN")
+	if _bridge_token == "":
+		_bridge_token = OS.get_environment("ODISEA_CENTRAL_INGEST_TOKEN")
 	if _bridge_token == "":
 		_bridge_token = DEV_DEFAULT_TOKEN
 	var central_env = OS.get_environment("ANNA_V2_CENTRAL")

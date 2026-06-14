@@ -829,7 +829,10 @@ const SceneIndex = ({
           avg_fps: Number(session.avg_fps) || 0,
         })),
       };
-    }).filter((stat) => stat.sessions > 0);
+    })
+      .filter((stat) => stat.sessions > 0)
+      // Most-played scenes first (tie-break alphabetically for stable ordering).
+      .sort((a, b) => b.sessions - a.sessions || a.scene.localeCompare(b.scene));
   }, [sessions, scenes]);
 
   const sceneTrendTooltip = ({ active, payload }: any) => {

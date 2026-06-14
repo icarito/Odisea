@@ -83,15 +83,61 @@ func _init():
 	else:
 		_server_enabled = false
 
-	_bridge_token = OS.get_environment("ODISEA_BRIDGE_TOKEN")
+	# Token resolution (native runs):
+	#  1. ODISEA_BRIDGE_TOKEN  -> admin (full bridge access), highest priority.
+	#  2. ODISEA_CENTRAL_INGEST_TOKEN -> marks the session as "ingest" on the
+	#     central, so even a local "dev" run counts as official telemetry.
+	#  3. DEV_DEFAULT_TOKEN -> anonymous dev fallback.
+	# Each is read from the process env first, then from res://.env (dev checkout)
+	# so a local dev run picks up the ingest token without exporting it by hand.
+	_bridge_token = _resolve_env("ODISEA_BRIDGE_TOKEN")
+	if _bridge_token == "":
+		_bridge_token = _resolve_env("ODISEA_CENTRAL_INGEST_TOKEN")
 	if _bridge_token == "":
 		_bridge_token = DEV_DEFAULT_TOKEN
-	var central_env = OS.get_environment("ANNA_V2_CENTRAL")
+	var central_env = _resolve_env("ANNA_V2_CENTRAL")
 	if central_env == "":
 		central_env = DEFAULT_CENTRAL
 	_central_url = "wss://" + central_env + "/ws"
 	# Privacy/production: set ANNA_V2_NO_CENTRAL=1 to never phone home to the central.
-	_central_enabled = not (OS.get_environment("ANNA_V2_NO_CENTRAL") in ["1", "true", "yes", "on"])
+	_central_enabled = not (_resolve_env("ANNA_V2_NO_CENTRAL") in ["1", "true", "yes", "on"])
+
+# Process env wins; res://.env (dev checkout) is the fallback so a local run can
+# pick up secrets without exporting them. Web has no readable .env, so this is a
+# no-op there beyond the normal OS.get_environment.
+func _resolve_env(key: String) -> String:
+	var value = OS.get_environment(key)
+	if value != "":
+		return value
+	return _load_dotenv().get(key, "")
+
+var _dotenv_cache = null # null = not loaded yet; Dictionary once parsed
+func _load_dotenv() -> Dictionary:
+	if _dotenv_cache != null:
+		return _dotenv_cache
+	_dotenv_cache = {}
+	if OS.has_feature("web"):
+		return _dotenv_cache
+	var f = File.new()
+	if not f.file_exists("res://.env"):
+		return _dotenv_cache
+	if f.open("res://.env", File.READ) != OK:
+		return _dotenv_cache
+	while not f.eof_reached():
+		var line = f.get_line().strip_edges()
+		if line == "" or line.begins_with("#"):
+			continue
+		var eq = line.find("=")
+		if eq <= 0:
+			continue
+		var k = line.substr(0, eq).strip_edges()
+		var v = line.substr(eq + 1).strip_edges()
+		# Strip optional surrounding quotes (KEY="value" / KEY='value').
+		if v.length() >= 2 and ((v[0] == '"' and v[-1] == '"') or (v[0] == "'" and v[-1] == "'")):
+			v = v.substr(1, v.length() - 2)
+		_dotenv_cache[k] = v
+	f.close()
+	return _dotenv_cache
 
 func start(command_queue, p_id, s_id, g_ver):
 	_command_queue = command_queue

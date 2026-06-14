@@ -418,8 +418,15 @@ func _get_upload_url() -> String:
 	var base = "wss://odisea.educa.juegos/ws" # Default central
 	var net_thread = _get_net_thread()
 	if net_thread:
+		# Prefer the LAN peer when the telemetry WS is actually connected to one:
+		# it relays the upload to central (and spools it if central is offline), so
+		# captures survive LAN/offline play. Fall back to the central URL otherwise.
+		var peer_url = net_thread._peer_url if "_peer_url" in net_thread else ""
+		var connected = net_thread._is_connected if "_is_connected" in net_thread else false
 		var central_url = net_thread._central_url if "_central_url" in net_thread else ""
-		if central_url != "":
+		if connected and peer_url != "" and peer_url != central_url:
+			base = peer_url
+		elif central_url != "":
 			base = central_url
 
 	var url = base.replace("/ws", "/hotzone")

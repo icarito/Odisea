@@ -53,16 +53,52 @@ def inflate_ws_frame(data: bytes) -> Optional[bytes]:
     except zlib.error:
         return data
 
+# --- .env loading (dev convenience) -------------------------------------------
+# Process env always wins; values in ./.env (the dev checkout) are a fallback so a
+# local peer picks up the same secrets the game and central use without exporting
+# them by hand. Mirrors ANNAV2_Thread.gd's res://.env resolution.
+def _load_dotenv() -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k, v = k.strip(), v.strip()
+                if len(v) >= 2 and ((v[0] == '"' and v[-1] == '"') or (v[0] == "'" and v[-1] == "'")):
+                    v = v[1:-1]
+                out[k] = v
+    except OSError:
+        pass
+    return out
+
+
+_DOTENV = _load_dotenv()
+
+
+def _env(key: str, default: str = "") -> str:
+    return os.environ.get(key) or _DOTENV.get(key, default)
+
+
 # --- Configuration (env-overridable) ---
-PEER_PORT = int(os.environ.get("PEER_PORT", 4999))
-ANNA_HOST = os.environ.get("ANNA_HOST", "127.0.0.1")
-ANNA_PORT = int(os.environ.get("ANNA_PORT", 5000))
-CENTRAL_WS_URL = os.environ.get("CENTRAL_WS_URL", "wss://odisea.educa.juegos/ws")
-CENTRAL_ENABLED = os.environ.get("PEER_NO_CENTRAL", "").lower() not in ("1", "true", "yes", "on")
+PEER_PORT = int(_env("PEER_PORT", "4999"))
+ANNA_HOST = _env("ANNA_HOST", "127.0.0.1")
+ANNA_PORT = int(_env("ANNA_PORT", "5000"))
+CENTRAL_WS_URL = _env("CENTRAL_WS_URL", "wss://odisea.educa.juegos/ws")
+CENTRAL_ENABLED = _env("PEER_NO_CENTRAL", "").lower() not in ("1", "true", "yes", "on")
 
 # Dev-only default; PRODUCTION must set ODISEA_BRIDGE_TOKEN to a real secret. See FD-162.
 DEV_DEFAULT_TOKEN = "odisea-dev-insecure"
-BRIDGE_TOKEN = os.environ.get("ODISEA_BRIDGE_TOKEN", DEV_DEFAULT_TOKEN)
+# Token used for the uplink to central. Admin bridge token wins; the ingest token
+# is the official-but-not-admin path (matches the game's resolution order).
+BRIDGE_TOKEN = _env("ODISEA_BRIDGE_TOKEN") or _env("ODISEA_CENTRAL_INGEST_TOKEN") or DEV_DEFAULT_TOKEN
+
+# Where hotzone uploads relayed from games are buffered if central is unreachable.
+HOTZONE_SPOOL_DIR = _env("PEER_HOTZONE_SPOOL", "/tmp/odisea_peer/hotzones")
+HOTZONE_MAX_BYTES = 10 * 1024 * 1024  # mirror central's 10MB cap
 
 # How long a heartbeat stays "live" in /status before it's pruned (seconds).
 HEARTBEAT_TTL = float(os.environ.get("PEER_HEARTBEAT_TTL", 30))
@@ -577,6 +613,100 @@ class OdiseaPeer:
                 "message": str(e)
             }, status=503)
 
+    async def handle_hotzone_upload(self, request):
+        """Relay a hotzone capture from a LAN game up to central.
+
+        The game uploads its diagnostic ghost over HTTP. When it's pointed at this
+        peer (LAN play, possibly offline), it would otherwise have nowhere to send
+        it — central might be unreachable. We forward to central with our own
+        token, preserving the game's metadata headers; if central is down we spool
+        the blob to disk and a background task drains it on reconnect.
+        """
+        body = await request.read()
+        if len(body) < 32:
+            return web.json_response({"error": "payload_too_small"}, status=400)
+        if len(body) > HOTZONE_MAX_BYTES:
+            return web.json_response({"error": "payload_too_large"}, status=413)
+
+        # Carry through the game's diagnostic metadata (player/session/trigger and
+        # the new spatial headers used by the heatmap).
+        fwd_headers = {"Content-Type": "application/octet-stream"}
+        for h in ("X-Player-ID", "X-Session-ID", "X-Trigger", "X-Scene", "X-Grid-X", "X-Grid-Z"):
+            if h in request.headers:
+                fwd_headers[h] = request.headers[h]
+
+        relayed = await self._relay_hotzone(body, fwd_headers)
+        if relayed:
+            return web.json_response({"ok": True, "relayed": True}, status=201)
+
+        # Central unavailable: spool and report accepted-but-deferred.
+        spooled = self._spool_hotzone(body, fwd_headers)
+        status = 202 if spooled else 503
+        return web.json_response({"ok": spooled, "relayed": False, "spooled": spooled}, status=status)
+
+    async def _relay_hotzone(self, body: bytes, headers: dict) -> bool:
+        """POST a hotzone blob to central; returns True on success."""
+        if not CENTRAL_ENABLED or self.http_session is None:
+            return False
+        url = CENTRAL_WS_URL.replace("ws://", "http://").replace("wss://", "https://").replace("/ws", "/hotzone")
+        send_headers = dict(headers)
+        send_headers["Authorization"] = f"Bearer {BRIDGE_TOKEN}"
+        try:
+            async with self.http_session.post(url, data=body, headers=send_headers, timeout=10.0) as resp:
+                if resp.status in (200, 201):
+                    return True
+                logger.warning("Central rejected hotzone relay: %s %s", resp.status, await resp.text())
+                return False
+        except Exception as e:
+            logger.warning("Hotzone relay to central failed (%s); will spool.", e)
+            return False
+
+    def _spool_hotzone(self, body: bytes, headers: dict) -> bool:
+        """Persist a hotzone blob + its forward headers for later draining."""
+        try:
+            os.makedirs(HOTZONE_SPOOL_DIR, exist_ok=True)
+            base = os.path.join(HOTZONE_SPOOL_DIR, f"hz-{int(time.time()*1000)}-{uuid.uuid4().hex[:6]}")
+            with open(base + ".bin", "wb") as f:
+                f.write(body)
+            with open(base + ".json", "w", encoding="utf-8") as f:
+                json.dump(headers, f)
+            logger.info("Spooled hotzone for later relay: %s.bin", base)
+            return True
+        except Exception as e:
+            logger.error("Failed to spool hotzone: %s", e)
+            return False
+
+    async def _drain_hotzone_spool(self):
+        """Periodically retry spooled hotzone uploads while central is reachable."""
+        while not self._shutting_down:
+            await asyncio.sleep(30)
+            if not CENTRAL_ENABLED or self.central_ws is None or self.central_ws.closed:
+                continue  # only attempt when we believe central is up
+            try:
+                names = [n for n in os.listdir(HOTZONE_SPOOL_DIR) if n.endswith(".bin")]
+            except OSError:
+                continue
+            for name in names[:5]:  # bounded per tick
+                base = os.path.join(HOTZONE_SPOOL_DIR, name[:-4])
+                try:
+                    with open(base + ".bin", "rb") as f:
+                        body = f.read()
+                    headers = {}
+                    if os.path.exists(base + ".json"):
+                        with open(base + ".json", "r", encoding="utf-8") as f:
+                            headers = json.load(f)
+                except OSError:
+                    continue
+                if await self._relay_hotzone(body, headers):
+                    for ext in (".bin", ".json"):
+                        try:
+                            os.remove(base + ext)
+                        except OSError:
+                            pass
+                    logger.info("Drained spooled hotzone: %s", name)
+                else:
+                    break  # central flaky again; try next tick
+
     async def handle_sessions(self, request):
         sessions = sorted({hb.get("session_id") for hb in self._live_heartbeats().values()
                            if hb.get("session_id")})
@@ -685,6 +815,7 @@ class OdiseaPeer:
             web.get('/command', self.handle_command),
             web.post('/command', self.handle_command),
             web.post('/command/batch', self.handle_command_batch),
+            web.post('/hotzone', self.handle_hotzone_upload),
             web.get('/ws', self.handle_godot_client),
         ])
 
@@ -697,6 +828,7 @@ class OdiseaPeer:
 
         await self._register_mdns()
         central_task = asyncio.create_task(self.central_loop())
+        drain_task = asyncio.create_task(self._drain_hotzone_spool())
 
         try:
             while not self._shutting_down:
@@ -704,6 +836,7 @@ class OdiseaPeer:
         finally:
             self._shutting_down = True
             central_task.cancel()
+            drain_task.cancel()
             await self._unregister_mdns()
             if self.http_session is not None:
                 await self.http_session.close()
