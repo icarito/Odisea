@@ -8,7 +8,7 @@
 
 config_version=4
 
-_global_script_classes=[ {
+_global_script_classes=[ { "base": "Area", "class": "InteractableEntity", "language": "GDScript", "path": "res://core_v2/Components/Shared/InteractableEntity.gd" }, { "base": "Resource", "class": "MarkerConfig", "language": "GDScript", "path": "res://core_v2/Components/Shared/MarkerConfig.gd" }, {
 "base": "RigidBody",
 "class": "Aircraft",
 "language": "GDScript",
@@ -2277,6 +2277,7 @@ VideoExporter="*res://core_v2/systems/VideoExporter.gd"
 StartupTrace="*res://core_v2/autoloads/StartupTrace.gd"
 PropDitherManager="*res://core_v2/autoloads/PropDitherManager.gd"
 PlayerHintManager="*res://core_v2/autoloads/PlayerHintManager.gd"
+InteractionMarker="*res://core_v2/Components/UI/InteractionMarker.tscn"
 GravityWorld="*res://core_v2/systems/GravityWorld.gd"
 SceneLighting="*res://core_v2/autoloads/SceneLighting.gd"
 AirlockManager="*res://core_v2/autoloads/AirlockManager.gd"
