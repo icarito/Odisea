@@ -1,7 +1,8 @@
 const DB_NAME = 'odisea_offline';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const SNAPSHOT_STORE = 'snapshots';
 const HEARTBEAT_STORE = 'heartbeat_samples';
+const SCENE_GEOMETRY_STORE = 'scene_geometry_chunks';
 
 export interface StoredHeartbeatSample {
   id: string;
@@ -15,6 +16,14 @@ export interface StoredHeartbeatSample {
   memory_mb: number;
   position: [number, number, number];
   tick: number;
+}
+
+export interface StoredSceneGeometryChunk<T = unknown> {
+  id: string;
+  scene: string;
+  geometry_version?: string;
+  stored_at: number;
+  data: T;
 }
 
 const openDB = (): Promise<IDBDatabase> => {
@@ -32,6 +41,12 @@ const openDB = (): Promise<IDBDatabase> => {
         store.createIndex('timestamp', 'timestamp', { unique: false });
         store.createIndex('player_id', 'player_id', { unique: false });
         store.createIndex('session_id', 'session_id', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(SCENE_GEOMETRY_STORE)) {
+        const store = db.createObjectStore(SCENE_GEOMETRY_STORE, { keyPath: 'id' });
+        store.createIndex('scene', 'scene', { unique: false });
+        store.createIndex('geometry_version', 'geometry_version', { unique: false });
+        store.createIndex('stored_at', 'stored_at', { unique: false });
       }
     };
   });
@@ -121,5 +136,33 @@ export const pruneHeartbeatSamples = async (beforeTimestamp: number) => {
     return completeTx(tx);
   } catch (e) {
     console.error('Failed to prune heartbeat samples from IndexedDB', e);
+  }
+};
+
+export const saveSceneGeometryChunk = async <T = unknown>(chunk: StoredSceneGeometryChunk<T>) => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(SCENE_GEOMETRY_STORE, 'readwrite');
+    const store = tx.objectStore(SCENE_GEOMETRY_STORE);
+    store.put(chunk);
+    return completeTx(tx);
+  } catch (e) {
+    console.error('Failed to save scene geometry chunk to IndexedDB', e);
+  }
+};
+
+export const getSceneGeometryChunk = async <T = unknown>(id: string): Promise<StoredSceneGeometryChunk<T> | null> => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(SCENE_GEOMETRY_STORE, 'readonly');
+    const store = tx.objectStore(SCENE_GEOMETRY_STORE);
+    const request = store.get(id);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve((request.result as StoredSceneGeometryChunk<T> | undefined) ?? null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error('Failed to load scene geometry chunk from IndexedDB', e);
+    return null;
   }
 };

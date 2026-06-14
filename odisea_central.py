@@ -1056,9 +1056,11 @@ class OdiseaCentral:
             point_grid.setdefault(cell, []).append(point)
         cached = {
             "mtime": mtime,
+            "geometry_version": f"{data.get('version', 1)}:{int(mtime)}",
             "data": data,
             "cell_size": cell_size,
             "point_grid": point_grid,
+            "stream_cache": {},
         }
         self.scene_geometry_cache[scene] = cached
         logger.info(
@@ -1092,6 +1094,17 @@ class OdiseaCentral:
         if scene_cache is None:
             return web.json_response({"error": "scene_not_found"}, status=404)
         data = scene_cache["data"]
+        stream_cache = scene_cache.setdefault("stream_cache", {})
+        cache_key = (
+            round(center[0], 3),
+            round(center[1], 3),
+            round(center[2], 3),
+            round(radius, 3),
+            limit,
+        )
+        cached_response = stream_cache.get(cache_key)
+        if cached_response is not None:
+            return web.json_response(cached_response)
 
         cx, cy, cz = center
         radius_sq = radius * radius
@@ -1157,7 +1170,7 @@ class OdiseaCentral:
             "total_point_count": len(data.get("points", [])),
         })
 
-        return web.json_response({
+        response_data = {
             "scene": data.get("scene", scene),
             "version": data.get("version", 1),
             "bounds": data.get("bounds", {"min": [0, 0, 0], "max": [0, 0, 0]}),
@@ -1166,6 +1179,7 @@ class OdiseaCentral:
             "props": props,
             "metadata": metadata,
             "stream": {
+                "geometry_version": scene_cache.get("geometry_version"),
                 "center": [cx, cy, cz],
                 "radius": radius,
                 "limit": limit,
@@ -1174,7 +1188,11 @@ class OdiseaCentral:
                 "candidate_points": len(candidate_points),
                 "truncated": len(ranked_points) > limit,
             },
-        })
+        }
+        if len(stream_cache) > 256:
+            stream_cache.pop(next(iter(stream_cache)), None)
+        stream_cache[cache_key] = response_data
+        return web.json_response(response_data)
 
     async def handle_hotzone_upload(self, request):
         guard = self._auth_guard(request, scope="ingest")
@@ -2896,6 +2914,8 @@ class OdiseaCentral:
             if os.path.isdir(scene_data_dir):
                 app.router.add_static('/scene-data/', path=scene_data_dir, name='scene-data')
                 logger.info(f"Serving scene geometry from {scene_data_dir}")
+                for scene in DEFAULT_SCENES:
+                    self._load_scene_geometry(scene)
 
         runner = web.AppRunner(app)
         await runner.setup()

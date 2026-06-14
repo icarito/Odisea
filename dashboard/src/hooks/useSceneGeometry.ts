@@ -1,4 +1,8 @@
 import { useState, useEffect } from 'react';
+import {
+  getSceneGeometryChunk,
+  saveSceneGeometryChunk,
+} from '../lib/pushStorage';
 
 export interface SceneBounds {
   min: [number, number, number];
@@ -34,6 +38,7 @@ export interface SceneGeometryData {
     prop_count: number;
   };
   stream?: {
+    geometry_version?: string;
     center: [number, number, number];
     radius: number;
     limit: number;
@@ -110,8 +115,8 @@ const bucketCoord = (value: number, size: number) => Math.floor(value / size) * 
 export const useSceneGeometryStream = (
   sceneName: string,
   center: [number, number, number],
-  radius = 160,
-  limit = 30000
+  radius = 320,
+  limit = 12000
 ) => {
   const bucketSize = Math.max(64, radius);
   const bucket: [number, number, number] = [
@@ -146,6 +151,12 @@ export const useSceneGeometryStream = (
       setLoading(true);
       setError(null);
       try {
+        const cached = await getSceneGeometryChunk<SceneGeometryData>(cacheKey);
+        if (!aborted && cached?.data) {
+          streamCache[cacheKey] = cached.data;
+          setGeometry(cached.data);
+        }
+
         const params = new URLSearchParams({
           x: String(bucket[0]),
           y: String(bucket[1]),
@@ -161,6 +172,13 @@ export const useSceneGeometryStream = (
         if (!aborted) {
           streamCache[cacheKey] = data;
           setGeometry(data);
+          saveSceneGeometryChunk({
+            id: cacheKey,
+            scene: sceneName,
+            geometry_version: data.stream?.geometry_version,
+            stored_at: Date.now(),
+            data,
+          }).catch(() => {});
         }
       } catch (err: unknown) {
         if (!aborted) {

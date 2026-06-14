@@ -1514,6 +1514,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     return { totalSessions, totalPlaySeconds, avgFps, livePlayers, sceneCount: sceneFilterOptions.length, topScenes };
   }, [filteredDashboardSessions, sceneFilterOptions]);
 
+  const heatmapHotzones = useMemo(() => {
+    if (!heatmapTargetScene) return [];
+    const sessionIds = new Set(
+      filteredDashboardSessions
+        .filter((session) => sessionScenes(session).includes(heatmapTargetScene))
+        .map((session) => session.session_id)
+        .filter(Boolean)
+    );
+    return hotzones
+      .filter((hz) => hz.session_id && sessionIds.has(hz.session_id))
+      .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+  }, [heatmapTargetScene, filteredDashboardSessions, hotzones]);
+
   const filteredGeoPlayers = useMemo(() => {
     const allowedPlayers = new Set(filteredDashboardSessions.map((session) => session.player_id).filter(Boolean));
     return geoPlayers.filter((player) => (
@@ -2233,6 +2246,38 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <Suspense fallback={<LazyPanelFallback label="Cargando heatmap…" />}>
               <Heatmap3D data={filteredHeatmapData} resolution={heatmapRes} />
             </Suspense>
+            {heatmapHotzones.length > 0 && (
+              <div className="absolute bottom-3 right-3 z-10 max-h-44 w-72 max-w-[calc(100%-1.5rem)] overflow-y-auto border-2 border-black bg-bg-card/95 p-2 shadow-[2px_2px_0px_0px_black]">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="text-[0.625rem] font-black uppercase text-text-muted">
+                    Hotzones ({heatmapHotzones.length})
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {heatmapHotzones.slice(0, 8).map((hz) => {
+                    const label = hz.display_name || hz.player_id || 'hotzone';
+                    const ts = Number(hz.timestamp || 0);
+                    return (
+                      <button
+                        key={hz.id}
+                        type="button"
+                        onClick={() => handleDownloadHotzone(hz.id, label)}
+                        className="flex items-center justify-between gap-2 border-2 border-black bg-bg-primary px-2 py-1 text-left text-[0.625rem] font-bold hover:bg-accent hover:text-black"
+                        title="Descargar ghost de hotzone"
+                      >
+                        <span className="min-w-0 truncate">
+                          {label} · {hz.trigger_type || 'auto'}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1 text-[0.5625rem]">
+                          {ts ? new Date(ts * 1000).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          <Download size={12} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             </>
             )}
           </div>
