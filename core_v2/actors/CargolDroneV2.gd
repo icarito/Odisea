@@ -35,6 +35,7 @@ var _is_following_target := false
 # Deterministic input buffer from agents
 var _intended_velocity := Vector3.ZERO
 var _has_intended_velocity := false
+var _canonical_velocity := Vector3.ZERO # Velocity snapshot before move_and_slide()
 
 # Parenting Logic State
 var _original_parent_path := ""
@@ -50,14 +51,16 @@ func _init():
 	add_to_group("cargol_drone")
 
 func _ready():
-	if has_node("CargoAnchor"):
-		cargo_anchor = get_node("CargoAnchor")
+	# CargoAnchor must live outside the KinematicBody so cargo inherits the
+	# canonical logical transform, not an interpolated visual one.
+	var anchor = Position3D.new()
+	anchor.name = "CargoAnchor"
+	var parent_node = get_parent()
+	if parent_node:
+		parent_node.add_child(anchor)
 	else:
-		# Create anchor if not present in scene (fallback)
-		var anchor = Position3D.new()
-		anchor.name = "CargoAnchor"
-		add_child(anchor)
-		cargo_anchor = anchor
+		add_child(anchor) # fallback for tests / headless scenes
+	cargo_anchor = anchor
 
 	# Register as OYS Actor
 	var sm = get_node_or_null("/root/SessionManager")
@@ -211,8 +214,8 @@ func release(impulse: Vector3) -> void:
 			target.linear_velocity = Vector3.ZERO
 			target.angular_velocity = Vector3.ZERO
 			
-			# Apply drone velocity + throw impulse
-			target.apply_central_impulse(impulse + velocity)
+			# Use canonical velocity (pre-move_and_slide) for deterministic throw momentum.
+			target.apply_central_impulse(impulse + _canonical_velocity)
 
 		print("[Cargol] Released: ", target.name)
 
@@ -326,8 +329,16 @@ func step(dt: float) -> void:
 
 	if _perf_monitor and _perf_monitor.has_method("measure_end"):
 		_perf_monitor.measure_end(self, "step")
-	
+
+	# Capture canonical velocity BEFORE move_and_slide() can alter it via collision response.
+	# release() uses this so thrown cargo momentum is deterministic across runs.
+	_canonical_velocity = velocity
+
 	_apply_movement_and_rotation()
+
+	# Keep anchor in sync with the logical (canonical) transform, not the visual one.
+	if cargo_anchor and cargo_anchor.get_parent() != self:
+		cargo_anchor.global_transform = global_transform
 
 
 func _apply_movement_and_rotation() -> void:
