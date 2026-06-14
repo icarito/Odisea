@@ -53,14 +53,20 @@ func _init():
 func _ready():
 	# CargoAnchor must live outside the KinematicBody so cargo inherits the
 	# canonical logical transform, not an interpolated visual one.
-	var anchor = Position3D.new()
-	anchor.name = "CargoAnchor"
 	var parent_node = get_parent()
-	if parent_node:
-		parent_node.add_child(anchor)
+	
+	# Reuse existing anchor from scene if present, otherwise create one.
+	if has_node("CargoAnchor"):
+		cargo_anchor = get_node("CargoAnchor")
+		remove_child(cargo_anchor)
 	else:
-		add_child(anchor) # fallback for tests / headless scenes
-	cargo_anchor = anchor
+		cargo_anchor = Position3D.new()
+		cargo_anchor.name = "CargoAnchor"
+	
+	if parent_node:
+		parent_node.add_child(cargo_anchor)
+	else:
+		add_child(cargo_anchor)  # fallback for headless / tests
 
 	# Register as OYS Actor
 	var sm = get_node_or_null("/root/SessionManager")
