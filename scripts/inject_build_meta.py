@@ -6,9 +6,9 @@ import sys
 
 CANARY_TOKEN = "ODISEA_TOKEN_CANARY_MISSING"
 CANARY_COMMIT = "unknown-commit"
-CANARY_BUILD_ID = "local-canary"
+CANARY_BUILD_ID = "local"
 CANARY_CHANNEL = "dev"
-CANARY_VERSION = "0.1.0-canary"
+CANARY_VERSION = "0.1.0"
 CANARY_OFFICIAL_HOST = "odisea.educa.juegos"
 
 def _value_or_canary(value, canary):

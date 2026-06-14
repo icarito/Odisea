@@ -1602,9 +1602,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       ? `${lastLivePlayerCount} last live`
       : `${filteredDashboardSessions.length} sessions`;
 
-  const explicitActiveId = selectedPlayerId && filteredHeartbeats[selectedPlayerId] ? selectedPlayerId : null;
+  // A player the user explicitly selected/follows is resolved against the
+  // unfiltered heartbeat map, not filteredHeartbeats: scene/platform list filters
+  // must not yank the followed player out from under you. On a scene change the
+  // client can briefly report a scene (or a platform string) the active filters
+  // exclude — resolving against filteredHeartbeats here made activeHb go
+  // undefined and bounced the 3D view back to the home/wait screen.
+  const explicitActiveId = selectedPlayerId && heartbeats[selectedPlayerId] ? selectedPlayerId : null;
   const activeId = explicitActiveId || pids[0];
-  const activeHb = filteredHeartbeats[activeId];
+  const activeHb = heartbeats[activeId] || filteredHeartbeats[activeId];
   const activeLabel = activeHb?.display_name || activeId;
   const activeHistory = history[activeId];
   const focusedGeo = useMemo(() => (
@@ -1631,8 +1637,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     })
   ), [filteredHistoricalSessions, geoByPlayer]);
   const staleAge = activeHb ? (activeHb.timestamp ? (Date.now() - activeHb.timestamp * 1000) / 1000 : 0) : 0;
+  // "Desconocida" is the placeholder the game emits for a tick or two while a
+  // scene is loading (ANNAV2_Thread player_data default). Treat it as "no scene"
+  // so we don't try to load a /game-assets/Desconocida.glb or flicker the scene.
+  const rawLiveScene = activeHb?.player?.scene || '';
   const liveSceneName = selectedSceneFilter === 'all'
-    ? (activeHb?.player?.scene || '')
+    ? (rawLiveScene === 'Desconocida' ? '' : rawLiveScene)
     : selectedSceneFilter;
   const birdseyeSceneName = selectedSceneFilter === 'all' ? '' : selectedSceneFilter;
 

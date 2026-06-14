@@ -4,6 +4,7 @@ const PEER_PORT := 4999
 const SERVER_PORT := 5001
 const HEARTBEAT_INTERVAL_MS := 100
 const RECONNECT_INTERVAL_MS := 2000
+const MAX_RECONNECT_INTERVAL_MS := 5000
 # Dev-only fallback secret; PRODUCTION must set ODISEA_BRIDGE_TOKEN in the environment.
 const DEV_DEFAULT_TOKEN := "odisea-dev-insecure"
 const DEFAULT_CENTRAL := "odisea.educa.juegos"
@@ -41,6 +42,7 @@ var _last_telemetry := {}
 var _heartbeat_counter := 0
 var _heartbeat_interval_ms := 100
 var _throttle_tier := 3
+var _reconnect_attempts := 0
 
 func set_scheme(scheme: String):
 	_mutex.lock()
@@ -130,9 +132,14 @@ func _thread_func(_userdata):
 		var now = OS.get_ticks_msec()
 
 		if not _is_connected:
-			if now - last_reconnect > RECONNECT_INTERVAL_MS:
+			var backoff = min(MAX_RECONNECT_INTERVAL_MS, RECONNECT_INTERVAL_MS * pow(1.5, _reconnect_attempts))
+			var jitter = randi() % 500
+			if now - last_reconnect > (backoff + jitter):
 				_attempt_connection()
 				last_reconnect = now
+				_reconnect_attempts += 1
+		else:
+			_reconnect_attempts = 0
 		else:
 			_mutex.lock()
 			var interval = _heartbeat_interval_ms
