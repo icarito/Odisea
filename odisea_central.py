@@ -1226,6 +1226,24 @@ class OdiseaCentral:
         grid_x = _parse_grid("X-Grid-X")
         grid_z = _parse_grid("X-Grid-Z")
 
+        # Optional: capture metadata from client headers
+        def _parse_float_header(h):
+            raw = request.headers.get(h)
+            if raw is not None:
+                try: return float(raw)
+                except (TypeError, ValueError): pass
+            return None
+
+        def _parse_int_header(h):
+            raw = request.headers.get(h)
+            if raw is not None:
+                try: return int(raw)
+                except (TypeError, ValueError): pass
+            return None
+
+        capture_duration = _parse_float_header("X-Capture-Duration")
+        capture_frames = _parse_int_header("X-Frame-Count")
+
         try:
             body = await request.read()
             if len(body) < 32:
@@ -1244,6 +1262,7 @@ class OdiseaCentral:
 
             hotzone_id = str(uuid.uuid4())
             fpath = os.path.join(p_dir, f"{hotzone_id}.bin")
+            file_size = len(body)
 
             with open(fpath, "wb") as f:
                 f.write(body)
@@ -1253,9 +1272,9 @@ class OdiseaCentral:
                 conn = self._get_db()
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO hotzones (id, player_id, session_id, timestamp, file_path, trigger_type, scene, grid_x, grid_z)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (hotzone_id, player_id, session_id, time.time(), fpath, trigger, scene, grid_x, grid_z))
+                    INSERT INTO hotzones (id, player_id, session_id, timestamp, file_path, trigger_type, scene, grid_x, grid_z, file_size, capture_duration, frame_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (hotzone_id, player_id, session_id, time.time(), fpath, trigger, scene, grid_x, grid_z, file_size, capture_duration, capture_frames))
                 conn.commit()
                 conn.close()
 
@@ -1316,6 +1335,23 @@ class OdiseaCentral:
                 return rows
 
             rows = await self._run_query(fetch)
+
+            # Resolve player tags
+            tags = await self._run_query(self._fetch_player_tags)
+            for row in rows:
+                pid = row.get("player_id", "")
+                tag = tags.get(pid) or {}
+                row["display_name"] = tag.get("display_name")
+                row["color"] = tag.get("color")
+                row["notes"] = tag.get("notes")
+                # Add computed fields
+                fs = row.get("file_size")
+                if fs:
+                    row["size_kb"] = round(fs / 1024.0, 1)
+                dur = row.get("capture_duration")
+                if dur:
+                    row["duration_sec"] = round(dur, 1)
+
             return web.json_response(rows)
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
@@ -2543,6 +2579,9 @@ class OdiseaCentral:
             ("scene", "TEXT"),
             ("grid_x", "REAL"),  # world X of the capture (resolution-agnostic)
             ("grid_z", "REAL"),  # world Z of the capture
+            ("file_size", "INTEGER"),
+            ("capture_duration", "REAL"),
+            ("frame_count", "INTEGER"),
         ):
             try:
                 cursor.execute(f"ALTER TABLE hotzones ADD COLUMN {column} {coltype};")
