@@ -275,13 +275,26 @@ func _trigger_capture(scene: String, pos: Vector3, trigger_type: String):
 		export_start = (start_idx + first_snapshot_offset) % hotzone_buffer_frames
 		export_count = _count - first_snapshot_offset
 	else:
-		# Fallback: if no snapshot in buffer, force one now at the beginning if possible
-		# though we'd prefer having it from the history.
-		# Given snapshot_interval=100 and buffer=300, we should always have one.
-		pass
+		# Force a snapshot now: if no snapshot exists in the ring buffer,
+		# this hotzone is unreplayable. Grab one immediately.
+		var player = SessionManager.player if SessionManager else null
+		if is_instance_valid(player) and player.has_method("get_full_snapshot"):
+			var first_frame = {"_forced": true}
+			first_frame["snapshot"] = player.get_full_snapshot()
+			frames.append(first_frame)
 
 	for i in range(export_count):
 		frames.append(_ring_buffer[(export_start + i) % hotzone_buffer_frames])
+
+	# Compute capture metadata
+	var capture_duration := 0.0
+	var frame_count := 0
+	if frames.size() > 0:
+		var first_t = frames[0].get("t", null)
+		var last_t = frames[-1].get("t", null)
+		if first_t != null and last_t != null:
+			capture_duration = (last_t - first_t) / 1000.0  # ms -> seconds
+		frame_count = frames.size()
 
 	var snapshot = {
 		"magic": BINARY_MAGIC,
@@ -296,7 +309,9 @@ func _trigger_capture(scene: String, pos: Vector3, trigger_type: String):
 		# heatmap's (user-adjustable) cell resolution; `grid` stays cell-indexed
 		# for dedup and the in-game replay tooling.
 		"pos": [pos.x, pos.z],
-		"frames": frames
+		"frames": frames,
+		"capture_duration": capture_duration,
+		"frame_count": frame_count
 	}
 
 	_queue_snapshot_save(snapshot, trigger_type)
@@ -331,6 +346,8 @@ func _save_snapshot_worker(job: Dictionary) -> Dictionary:
 	var snap = job.get("snapshot", {})
 	# World position (not cell index) so the dashboard marker is resolution-agnostic.
 	var pos = snap.get("pos", [])
+	var capture_duration = snap.get("capture_duration", 0.0)
+	var frame_count = snap.get("frame_count", 0)
 	var result = {
 		"ok": false,
 		"path": "",
@@ -338,6 +355,8 @@ func _save_snapshot_worker(job: Dictionary) -> Dictionary:
 		"scene": snap.get("scene", ""),
 		"grid_x": pos[0] if pos.size() > 0 else null,
 		"grid_z": pos[1] if pos.size() > 1 else null,
+		"capture_duration": capture_duration,
+		"frame_count": frame_count
 	}
 
 	var filename = "hotzone_%d_%d.bin" % [OS.get_unix_time(), OS.get_ticks_usec()]
@@ -369,6 +388,8 @@ func _enqueue_upload(filepath: String, trigger_type: String = "auto", meta: Dict
 			"scene": meta.get("scene", ""),
 			"grid_x": meta.get("grid_x", null),
 			"grid_z": meta.get("grid_z", null),
+			"capture_duration": meta.get("capture_duration", 0.0),
+			"frame_count": meta.get("frame_count", 0),
 		})
 
 	if _upload_queue.size() > 3:
@@ -391,6 +412,8 @@ func _process_upload_queue():
 	var scene = item.get("scene", "")
 	var grid_x = item.get("grid_x", null)
 	var grid_z = item.get("grid_z", null)
+	var capture_duration = item.get("capture_duration", 0.0)
+	var frame_count = item.get("frame_count", 0)
 	if not f.file_exists(filepath):
 		_upload_queue.pop_front()
 		call_deferred("_process_upload_queue")
@@ -412,7 +435,7 @@ func _process_upload_queue():
 	if _is_web:
 		_upload_web(url, token, blob, filepath, trigger, scene, grid_x, grid_z)
 	else:
-		_upload_native(url, token, blob, trigger, scene, grid_x, grid_z)
+		_upload_native(url, token, blob, trigger, scene, grid_x, grid_z, capture_duration, frame_count)
 
 func _get_upload_url() -> String:
 	var base = "wss://odisea.educa.juegos/ws" # Default central
@@ -461,7 +484,7 @@ func _get_session_id() -> String:
 			return String(_anna_v2.session_id)
 	return "unknown"
 
-func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: String, scene: String = "", grid_x = null, grid_z = null):
+func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: String, scene: String = "", grid_x = null, grid_z = null, capture_duration: float = 0.0, frame_count: int = 0):
 	var blob_kb = blob.size() / 1024.0
 	print("[HotzoneRecorder] Uploading ", blob_kb, " KB to ", url)
 	var headers = [
@@ -480,6 +503,10 @@ func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: St
 		headers.append("X-Grid-X: " + str(grid_x))
 	if grid_z != null:
 		headers.append("X-Grid-Z: " + str(grid_z))
+	if capture_duration > 0:
+		headers.append("X-Capture-Duration: " + str(capture_duration))
+	if frame_count > 0:
+		headers.append("X-Frame-Count: " + str(frame_count))
 
 	var err = _http_request.request_raw(url, headers, true, HTTPClient.METHOD_POST, blob)
 	if err != OK:
@@ -631,6 +658,8 @@ func _process(delta):
 					"scene": result.get("scene", ""),
 					"grid_x": result.get("grid_x", null),
 					"grid_z": result.get("grid_z", null),
+					"capture_duration": result.get("capture_duration", 0.0),
+					"frame_count": result.get("frame_count", 0),
 				})
 			if result.get("trigger", "auto") == "manual":
 				_show_feedback("Bug report guardado ✓")
