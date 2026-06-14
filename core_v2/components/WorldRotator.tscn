@@ -72,7 +72,3 @@ r_min = 288.0
 r_max = 288.0
 interlock_angle = 12.5
 
-[node name="Sde1Mesh0" type="MeshInstance" parent="."]
-transform = Transform( 2500, 0, 0, 0, -0.000109278, 2500, 0, -2500, -0.000109278, 0, 1686, 52.9999 )
-mesh = ExtResource( 3 )
-material/0 = SubResource( 3 )

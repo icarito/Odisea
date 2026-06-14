@@ -1223,9 +1223,141 @@ func _resolve_dome_lod_blueprint(info: Dictionary, preload_only: bool = false) -
 	scene_root.free()
 	if mesh_blueprint.empty():
 		return {}
+	var alignment_fix := _get_dome_lod_alignment_fix(scene_path, info, mesh_blueprint)
+	if alignment_fix != Transform.IDENTITY:
+		mesh_blueprint = _apply_dome_lod_alignment_fix(mesh_blueprint, alignment_fix)
+	if scene_path == "res://models/lod/DomeFacade_01_LOD.glb":
+		mesh_blueprint = _normalize_domefacade_01_lod_parts(mesh_blueprint)
 	mesh_blueprint["cache_key"] = scene_key
 	_dome_lod_blueprint_cache[scene_key] = mesh_blueprint
 	return mesh_blueprint
+
+func _get_dome_lod_alignment_fix(scene_path: String, info: Dictionary, source_blueprint: Dictionary) -> Transform:
+	var rotation_deg: Vector3 = info.get("facade_lod_rotation_degrees", Vector3.ZERO)
+	if rotation_deg != Vector3.ZERO:
+		return _build_rotation_transform_from_degrees(rotation_deg)
+	if scene_path == "res://models/lod/DomeFacade_01_LOD.glb":
+		return _pick_best_domefacade_01_alignment(source_blueprint, info)
+	return Transform.IDENTITY
+
+func _build_rotation_transform_from_degrees(rotation_deg: Vector3) -> Transform:
+	var basis := Basis.IDENTITY
+	if abs(rotation_deg.x) > 0.001:
+		basis = Basis(Vector3(1, 0, 0), deg2rad(rotation_deg.x)) * basis
+	if abs(rotation_deg.y) > 0.001:
+		basis = Basis(Vector3(0, 1, 0), deg2rad(rotation_deg.y)) * basis
+	if abs(rotation_deg.z) > 0.001:
+		basis = Basis(Vector3(0, 0, 1), deg2rad(rotation_deg.z)) * basis
+	return Transform(basis, Vector3.ZERO)
+
+func _pick_best_domefacade_01_alignment(source_blueprint: Dictionary, info: Dictionary) -> Transform:
+	var target_size: Vector3 = _resolve_facade_reference_size(info)
+	if source_blueprint.empty() or target_size.length_squared() <= 0.001:
+		# Known good fallback for this exported asset.
+		return _build_rotation_transform_from_degrees(Vector3(90.0, 0.0, 0.0))
+	var candidates := [
+		Vector3(90.0, 0.0, 0.0),
+		Vector3(-90.0, 0.0, 0.0),
+		Vector3.ZERO
+	]
+	var best_fix := Transform.IDENTITY
+	var best_score := INF
+	for candidate_deg in candidates:
+		var candidate_fix := _build_rotation_transform_from_degrees(candidate_deg)
+		var aligned := _apply_dome_lod_alignment_fix(source_blueprint, candidate_fix)
+		var source_size: Vector3 = aligned.get("aabb_size", Vector3.ONE)
+		var score := _compute_size_match_score(source_size, target_size)
+		if score < best_score:
+			best_score = score
+			best_fix = candidate_fix
+	return best_fix
+
+func _compute_size_match_score(source_size: Vector3, target_size: Vector3) -> float:
+	var sx := max(abs(source_size.x), 0.001)
+	var sy := max(abs(source_size.y), 0.001)
+	var sz := max(abs(source_size.z), 0.001)
+	var tx := max(abs(target_size.x), 0.001)
+	var ty := max(abs(target_size.y), 0.001)
+	var tz := max(abs(target_size.z), 0.001)
+	var ex := abs((sx / tx) - 1.0)
+	var ey := abs((sy / ty) - 1.0)
+	var ez := abs((sz / tz) - 1.0)
+	return ex + ey + ez
+
+func _apply_dome_lod_alignment_fix(blueprint: Dictionary, fix: Transform) -> Dictionary:
+	var parts: Array = blueprint.get("parts", [])
+	if parts.empty():
+		return blueprint
+	var fixed_parts := []
+	for part in parts:
+		var fixed_part: Dictionary = (part as Dictionary).duplicate(true)
+		var local_transform: Transform = fixed_part.get("local_transform", Transform.IDENTITY)
+		var fixed_local := fix * local_transform
+		fixed_part["local_transform"] = fixed_local
+		var mesh: Mesh = fixed_part.get("mesh", null)
+		if mesh != null:
+			fixed_part["aabb"] = _transform_aabb(mesh.get_aabb(), fixed_local)
+		fixed_parts.append(fixed_part)
+	var fixed_blueprint: Dictionary = blueprint.duplicate(true)
+	fixed_blueprint["parts"] = fixed_parts
+	var fixed_aabb := _compute_parts_aabb(fixed_parts)
+	fixed_blueprint["aabb"] = fixed_aabb
+	fixed_blueprint["aabb_size"] = fixed_aabb.size
+	return fixed_blueprint
+
+func _normalize_domefacade_01_lod_parts(blueprint: Dictionary) -> Dictionary:
+	var parts: Array = blueprint.get("parts", [])
+	# Keep only the visual essentials for this optimized facade: dome shell + 4 cardinal cylinders.
+	if parts.size() <= 5:
+		return blueprint
+	var shell_index := -1
+	var shell_volume := -1.0
+	for i in range(parts.size()):
+		var aabb: AABB = (parts[i] as Dictionary).get("aabb", AABB(Vector3.ZERO, Vector3.ZERO))
+		var size := aabb.size
+		var volume := abs(size.x * size.y * size.z)
+		if volume > shell_volume:
+			shell_volume = volume
+			shell_index = i
+	if shell_index < 0:
+		return blueprint
+
+	var selected_indices := [shell_index]
+	for _slot in range(4):
+		var best_index := -1
+		var best_score := -INF
+		for i in range(parts.size()):
+			if selected_indices.has(i):
+				continue
+			var aabb: AABB = (parts[i] as Dictionary).get("aabb", AABB(Vector3.ZERO, Vector3.ZERO))
+			var size := aabb.size
+			var max_axis := max(size.x, max(size.y, size.z))
+			if max_axis <= 0.001:
+				continue
+			var min_axis := min(size.x, min(size.y, size.z))
+			var compactness := min_axis / max_axis
+			var volume := abs(size.x * size.y * size.z)
+			# Prefer chunky near-isotropic parts (cylinders) over thin strips/panels.
+			var score := compactness * 1000000.0 + min(volume, 999999.0)
+			if score > best_score:
+				best_score = score
+				best_index = i
+		if best_index >= 0:
+			selected_indices.append(best_index)
+
+	var filtered_parts := []
+	for idx in selected_indices:
+		if idx >= 0 and idx < parts.size():
+			filtered_parts.append((parts[idx] as Dictionary).duplicate(true))
+	if filtered_parts.size() < 5:
+		return blueprint
+
+	var normalized := blueprint.duplicate(true)
+	normalized["parts"] = filtered_parts
+	var normalized_aabb := _compute_parts_aabb(filtered_parts)
+	normalized["aabb"] = normalized_aabb
+	normalized["aabb_size"] = normalized_aabb.size
+	return normalized
 
 func _extract_dome_lod_blueprint(root: Node, mesh_node_path: String) -> Dictionary:
 	var search_root: Node = root
