@@ -62,6 +62,49 @@ func unregister(interactable: Spatial) -> void:
 			_entries.remove(i)
 			return
 
+func get_targets_in_range(origin: Vector3, p_range: float) -> Array:
+	var results = []
+	for entry in _entries:
+		if not is_instance_valid(entry.interactable):
+			continue
+		var pos = entry.interactable.global_transform.origin
+		var dist = origin.distance_to(pos)
+		if dist <= p_range:
+			results.append({
+				"spatial": entry.interactable,
+				"config": entry.config,
+				"distance": dist,
+				"state": entry.state,
+				"priority": entry.priority
+			})
+
+	results.sort_custom(self, "_sort_targets")
+
+	# Strip internal priority from final dictionaries to match spec
+	var final_results = []
+	for res in results:
+		final_results.append({
+			"spatial": res.spatial,
+			"config": res.config,
+			"distance": res.distance,
+			"state": res.state
+		})
+	return final_results
+
+func _sort_targets(a, b) -> bool:
+	if a.priority != b.priority:
+		return a.priority < b.priority
+	return a.distance < b.distance
+
+func get_named_target(p_label: String) -> Spatial:
+	for entry in _entries:
+		if is_instance_valid(entry.interactable) and entry.config.label == p_label:
+			return entry.interactable
+	return null
+
+func get_registered_count() -> int:
+	return _entries.size()
+
 func update_config(interactable: Spatial, config: Resource) -> void:
 	register(interactable, config)
 

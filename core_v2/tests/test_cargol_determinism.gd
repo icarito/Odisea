@@ -76,3 +76,12 @@ func test_release_uses_canonical_not_post_slide_velocity() -> void:
 		var speed = cargo.linear_velocity.length()
 		# Allow physics tolerance; just rule out the 99 m/s case.
 		assert_bool(speed < 50.0).is_true()
+
+func test_cargol_player_input_exists() -> void:
+	var drone_scene = load("res://core_v2/actors/CargolDroneV2.tscn")
+	var drone = auto_free(drone_scene.instance())
+	add_child(drone)
+
+	var input_node = drone.get_node_or_null("CargolPlayerInput")
+	assert_object(input_node).is_not_null()
+	assert_object(input_node.drone).is_equal(drone)

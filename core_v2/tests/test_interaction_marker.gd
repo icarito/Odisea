@@ -112,3 +112,85 @@ func test_off_screen_arc_direction() -> void:
 	# Verify that the screen position of the off-screen object is to the right of the center
 	var vs = get_viewport().size
 	assert_bool(arc_data[0].pos.x > vs.x / 2.0).is_true()
+
+func test_get_targets_in_range() -> void:
+	var marker_scene = load("res://core_v2/components/ui/InteractionMarker.tscn")
+	var marker_system = auto_free(marker_scene.instance())
+	add_child(marker_system)
+
+	var objects = []
+	var distances = [3, 6, 9]
+	for i in range(3):
+		var spatial = auto_free(Spatial.new())
+		add_child(spatial)
+		spatial.translation = Vector3(distances[i], 0, 0)
+
+		var config = MarkerConfig.new()
+		config.label = "Obj %d" % i
+		config.interaction_range = 10.0
+
+		marker_system.register(spatial, config)
+		objects.append(spatial)
+
+	var targets = marker_system.get_targets_in_range(Vector3.ZERO, 5.0)
+	assert_int(targets.size()).is_equal(1)
+	assert_object(targets[0].spatial).is_equal(objects[0])
+
+	targets = marker_system.get_targets_in_range(Vector3.ZERO, 7.0)
+	assert_int(targets.size()).is_equal(2)
+	assert_object(targets[0].spatial).is_equal(objects[0])
+	assert_object(targets[1].spatial).is_equal(objects[1])
+
+func test_get_named_target() -> void:
+	var marker_scene = load("res://core_v2/components/ui/InteractionMarker.tscn")
+	var marker_system = auto_free(marker_scene.instance())
+	add_child(marker_system)
+
+	var spatial = auto_free(Spatial.new())
+	add_child(spatial)
+	var config = MarkerConfig.new()
+	config.label = "Consola OD-02"
+	marker_system.register(spatial, config)
+
+	var target = marker_system.get_named_target("Consola OD-02")
+	assert_object(target).is_equal(spatial)
+
+	target = marker_system.get_named_target("NonExistent")
+	assert_object(target).is_null()
+
+func test_get_targets_respects_priority_order() -> void:
+	var marker_scene = load("res://core_v2/components/ui/InteractionMarker.tscn")
+	var marker_system = auto_free(marker_scene.instance())
+	add_child(marker_system)
+
+	var priorities = [5, 1, 3]
+	for i in range(3):
+		var spatial = auto_free(Spatial.new())
+		add_child(spatial)
+		spatial.translation = Vector3(5, 0, 0) # Same distance
+
+		var config = MarkerConfig.new()
+		config.label = "Obj %d" % i
+		config.priority = priorities[i]
+
+		marker_system.register(spatial, config)
+
+	var targets = marker_system.get_targets_in_range(Vector3.ZERO, 10.0)
+	assert_int(targets.size()).is_equal(3)
+	assert_int(targets[0].config.priority).is_equal(1)
+	assert_int(targets[1].config.priority).is_equal(3)
+	assert_int(targets[2].config.priority).is_equal(5)
+
+func test_get_registered_count() -> void:
+	var marker_scene = load("res://core_v2/components/ui/InteractionMarker.tscn")
+	var marker_system = auto_free(marker_scene.instance())
+	add_child(marker_system)
+
+	assert_int(marker_system.get_registered_count()).is_equal(0)
+
+	var spatial = auto_free(Spatial.new())
+	add_child(spatial)
+	var config = MarkerConfig.new()
+	marker_system.register(spatial, config)
+
+	assert_int(marker_system.get_registered_count()).is_equal(1)
