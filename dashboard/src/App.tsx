@@ -27,7 +27,7 @@ import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
-import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone } from './api';
+import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone } from './api';
 import {
   KNOWN_PLATFORMS,
   getPlatform,
@@ -37,7 +37,7 @@ import {
   isUsefulSceneName,
   formatFpsLabel,
 } from './lib/filters';
-import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download } from 'lucide-react';
+import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2 } from 'lucide-react';
 
 type Tab = 'live' | 'heatmap' | 'history' | 'mapa';
 
@@ -203,7 +203,7 @@ const countryFlag = (countryCode?: string | null): string => {
   return Array.from(code).map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
 };
 
-const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void }) => {
+const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void }) => {
   const cleanSessions = useMemo(() => sessions.filter(isDashboardSession), [sessions]);
   // Map player_id -> display name from the (already tag-enriched) session rows,
   // so the hotzone list can show a friendly label instead of the raw id.
@@ -361,17 +361,30 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone }: { sessions: 
                     {when}{hz.trigger_type ? ` · ${hz.trigger_type}` : ''}
                   </div>
                 </div>
-                {onDownloadHotzone && (
-                  <button
-                    type="button"
-                    onClick={() => onDownloadHotzone(hz.id, name)}
-                    className="shrink-0 border-2 border-accent bg-accent/10 p-1.5 text-accent hover:bg-accent hover:text-black"
-                    title="Descargar captura"
-                    aria-label="Descargar captura hotzone"
-                  >
-                    <Download size={14} />
-                  </button>
-                )}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {onDownloadHotzone && (
+                    <button
+                      type="button"
+                      onClick={() => onDownloadHotzone(hz.id, name)}
+                      className="border-2 border-accent bg-accent/10 p-1.5 text-accent hover:bg-accent hover:text-black"
+                      title="Descargar captura"
+                      aria-label="Descargar captura hotzone"
+                    >
+                      <Download size={14} />
+                    </button>
+                  )}
+                  {onDeleteHotzone && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteHotzone(hz.id, name)}
+                      className="border-2 border-danger bg-danger/10 p-1.5 text-danger hover:bg-danger hover:text-white"
+                      title="Borrar captura"
+                      aria-label="Borrar captura hotzone"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -1283,6 +1296,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       notify.success('Hotzone descargada');
     } catch {
       notify.error('No se pudo descargar la hotzone');
+    }
+  }, []);
+
+  // Delete a hotzone ghost (server + local state), confirming first.
+  const handleDeleteHotzone = useCallback(async (hotzoneId: string, label?: string) => {
+    if (!window.confirm(`¿Borrar la hotzone${label ? ` de ${label}` : ''}? No se puede deshacer.`)) return;
+    try {
+      await deleteHotzone(hotzoneId);
+      setHotzones((prev) => prev.filter((hz) => hz.id !== hotzoneId));
+      notify.success('Hotzone borrada');
+    } catch {
+      notify.error('No se pudo borrar la hotzone');
     }
   }, []);
 
@@ -2254,7 +2279,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             </div>
             <Suspense fallback={<LazyPanelFallback label="Cargando heatmap…" />}>
-              <Heatmap3D data={filteredHeatmapData} resolution={heatmapRes} />
+              <Heatmap3D
+                data={filteredHeatmapData}
+                resolution={heatmapRes}
+                scene={heatmapTargetScene}
+                hotzones={heatmapHotzones}
+                onSelectHotzone={(hz) => handleDownloadHotzone(hz.id, hz.display_name || hz.player_id || 'hotzone')}
+              />
             </Suspense>
             {heatmapHotzones.length > 0 && (
               <div className="absolute bottom-3 right-3 z-10 max-h-44 w-72 max-w-[calc(100%-1.5rem)] overflow-y-auto border-2 border-black bg-bg-card/95 p-2 shadow-[2px_2px_0px_0px_black]">
@@ -2268,21 +2299,33 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     const label = hz.display_name || hz.player_id || 'hotzone';
                     const ts = Number(hz.timestamp || 0);
                     return (
-                      <button
+                      <div
                         key={hz.id}
-                        type="button"
-                        onClick={() => handleDownloadHotzone(hz.id, label)}
-                        className="flex items-center justify-between gap-2 border-2 border-black bg-bg-primary px-2 py-1 text-left text-[0.625rem] font-bold hover:bg-accent hover:text-black"
-                        title="Descargar ghost de hotzone"
+                        className="flex items-center gap-1 border-2 border-black bg-bg-primary text-[0.625rem] font-bold"
                       >
-                        <span className="min-w-0 truncate">
-                          {label} · {hz.trigger_type || 'auto'}
-                        </span>
-                        <span className="flex shrink-0 items-center gap-1 text-[0.5625rem]">
-                          {ts ? new Date(ts * 1000).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : ''}
-                          <Download size={12} />
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadHotzone(hz.id, label)}
+                          className="flex min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1 text-left hover:bg-accent hover:text-black"
+                          title="Descargar ghost de hotzone"
+                        >
+                          <span className="min-w-0 truncate">
+                            {label} · {hz.trigger_type || 'auto'}
+                          </span>
+                          <span className="flex shrink-0 items-center gap-1 text-[0.5625rem]">
+                            {ts ? new Date(ts * 1000).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : ''}
+                            <Download size={12} />
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteHotzone(hz.id, label)}
+                          className="shrink-0 border-l-2 border-black px-2 py-1 text-text-muted hover:bg-danger hover:text-white"
+                          title="Borrar hotzone"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -2335,7 +2378,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className={`min-h-0 overflow-y-auto ${historyMobileView === 'list' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
-                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} />
+                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">

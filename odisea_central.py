@@ -1209,6 +1209,23 @@ class OdiseaCentral:
         player_id = "".join(c for c in player_id if c.isalnum() or c in "-_")[:64]
         session_id = "".join(c for c in session_id if c.isalnum() or c in "-_")[:64]
 
+        # Optional spatial context: lets the heatmap pin the hotzone on its cell.
+        scene = request.headers.get("X-Scene")
+        if scene:
+            scene = "".join(c for c in scene if c.isalnum() or c in "-_./")[:128]
+
+        def _parse_grid(header_name):
+            raw = request.headers.get(header_name)
+            if raw is None or raw == "":
+                return None
+            try:
+                return float(raw)
+            except (TypeError, ValueError):
+                return None
+
+        grid_x = _parse_grid("X-Grid-X")
+        grid_z = _parse_grid("X-Grid-Z")
+
         try:
             body = await request.read()
             if len(body) < 32:
@@ -1236,9 +1253,9 @@ class OdiseaCentral:
                 conn = self._get_db()
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO hotzones (id, player_id, session_id, timestamp, file_path, trigger_type)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (hotzone_id, player_id, session_id, time.time(), fpath, trigger))
+                    INSERT INTO hotzones (id, player_id, session_id, timestamp, file_path, trigger_type, scene, grid_x, grid_z)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (hotzone_id, player_id, session_id, time.time(), fpath, trigger, scene, grid_x, grid_z))
                 conn.commit()
                 conn.close()
 
@@ -1324,6 +1341,37 @@ class OdiseaCentral:
                     "Content-Disposition": f'attachment; filename="hotzone_{hz_id}.bin"'
                 })
             return web.Response(status=404, text="Hotzone not found")
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_hotzone_delete(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        hz_id = request.match_info.get('id')
+        try:
+            def delete():
+                conn = self._get_db()
+                cursor = conn.cursor()
+                cursor.execute("SELECT file_path FROM hotzones WHERE id = ?", (hz_id,))
+                row = cursor.fetchone()
+                cursor.execute("DELETE FROM hotzones WHERE id = ?", (hz_id,))
+                conn.commit()
+                conn.close()
+                return (row[0] if row else None), cursor.rowcount
+
+            fpath, rowcount = await self._run_query(delete)
+            if rowcount == 0:
+                return web.json_response({"error": "not_found"}, status=404)
+            # Remove the backing blob too; missing file is fine (already gone).
+            if fpath and os.path.exists(fpath):
+                try:
+                    os.remove(fpath)
+                except OSError as exc:
+                    logger.warning(f"Hotzone {hz_id} row deleted but blob removal failed: {exc}")
+            logger.info(f"Hotzone deleted: {hz_id}")
+            return web.json_response({"ok": True, "id": hz_id})
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
@@ -2489,6 +2537,18 @@ class OdiseaCentral:
                 trigger_type TEXT DEFAULT 'auto'
             );
         """)
+        # scene + grid coords let the heatmap pin hotzones in-situ on their cell.
+        # Older rows predate these columns; migrate in place (NULL = unknown).
+        for column, coltype in (
+            ("scene", "TEXT"),
+            ("grid_x", "REAL"),  # world X of the capture (resolution-agnostic)
+            ("grid_z", "REAL"),  # world Z of the capture
+        ):
+            try:
+                cursor.execute(f"ALTER TABLE hotzones ADD COLUMN {column} {coltype};")
+            except sqlite3.OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS heartbeats (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2880,6 +2940,7 @@ class OdiseaCentral:
             web.post('/hotzone', self.handle_hotzone_upload),
             web.get('/hotzones', self.handle_hotzones_list),
             web.get('/hotzones/{id}/download', self.handle_hotzone_download),
+            web.delete('/hotzones/{id}', self.handle_hotzone_delete),
             web.post('/command', self.handle_command),
             web.get('/health', self.handle_health),
             web.get('/api/milestones', self.handle_milestones),

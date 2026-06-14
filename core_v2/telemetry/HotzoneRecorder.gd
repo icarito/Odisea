@@ -8,6 +8,16 @@ const BINARY_MAGIC := 0x485a4e32 # "HZN2"
 const SCHEMA_VERSION := 1
 
 # Configuration
+#
+# Defaults calibrated 2026-06-14 against 5 days of prod telemetry (72.5k focused
+# heartbeats, ~1Hz). Findings:
+#   - fps<30 split: 139 sessions had only 1-2s of low fps (transient blips) vs
+#     131 sessions with 10s+ sustained low fps. min_duration=5s filters the blips
+#     while still catching the real cases. Lower would flood captures.
+#   - fps<30 share by scene: OdiseaExterior 34.7% (avg 33.7), Dome_Crio 19.3%,
+#     ScaffoldOrbit 2.4% (avg 121). So 30 fps is the right gameplay-struggle line.
+#   - Boot scene: 87% of frames <30 (pure load noise) -> excluded by scene.
+#   - Server platform: avg 6 fps headless -> recorder disabled on Server builds.
 var hotzone_enabled := true
 var hotzone_buffer_frames := 300
 var hotzone_fps_threshold := 30.0
@@ -17,7 +27,11 @@ var hotzone_max_captures_per_session := 5
 var hotzone_grid_size := 10.0
 var snapshot_interval := 100 # Frames between full snapshots in buffer
 var startup_grace_sec := 10.0
-var scene_grace_sec := 3.0
+# Heavy gameplay scenes (Dome_Crio, OdiseaExterior) have load tails longer than
+# 3s; the post-load <15fps lump in telemetry was inflating false hotzones.
+var scene_grace_sec := 5.0
+# Scenes whose low FPS is load noise rather than a gameplay hotzone.
+var excluded_scenes := ["Boot", ""]
 
 # State
 var _is_testing := false
@@ -61,6 +75,10 @@ func _ready():
 func _is_disabled_for_current_run() -> bool:
 	if _is_testing:
 		return false
+	# Headless/dedicated server runs average ~6 fps with no real player; their low
+	# FPS is not a gameplay hotzone, so never record or upload from them.
+	if OS.has_feature("Server"):
+		return true
 	var hard_disable = OS.get_environment("ODISEA_DISABLE_HOTZONES").to_lower()
 	return hard_disable in ["1", "true", "yes", "on"]
 
@@ -132,6 +150,12 @@ func record_frame(input, dt: float):
 		_last_scene_name = scene_name
 		_scene_changed_msec = now
 		_frames_since_snapshot = 0 # Force a snapshot on scene change
+
+	# Excluded scenes (e.g. Boot) are dominated by load frames, not gameplay
+	# hotzones (Boot was 87% <30fps in telemetry). Never record/diagnose them.
+	if not _is_testing and scene_name in excluded_scenes:
+		_is_in_hotzone = false
+		return
 
 	# Startup and scene-load frames are expected to be noisy and often stall the
 	# main thread. Do not record or diagnose them; hotzones are runtime evidence.
@@ -268,6 +292,10 @@ func _trigger_capture(scene: String, pos: Vector3, trigger_type: String):
 		"timestamp": OS.get_unix_time(),
 		"scene": scene,
 		"grid": [int(floor(pos.x / hotzone_grid_size)), int(floor(pos.z / hotzone_grid_size))],
+		# World position so the dashboard can place the marker independent of the
+		# heatmap's (user-adjustable) cell resolution; `grid` stays cell-indexed
+		# for dedup and the in-game replay tooling.
+		"pos": [pos.x, pos.z],
 		"frames": frames
 	}
 
@@ -300,20 +328,34 @@ func _save_snapshot_worker(job: Dictionary) -> Dictionary:
 	if not dir.dir_exists(PENDING_DIR):
 		dir.make_dir_recursive(PENDING_DIR)
 
+	var snap = job.get("snapshot", {})
+	# World position (not cell index) so the dashboard marker is resolution-agnostic.
+	var pos = snap.get("pos", [])
+	var result = {
+		"ok": false,
+		"path": "",
+		"trigger": job.get("trigger", "auto"),
+		"scene": snap.get("scene", ""),
+		"grid_x": pos[0] if pos.size() > 0 else null,
+		"grid_z": pos[1] if pos.size() > 1 else null,
+	}
+
 	var filename = "hotzone_%d_%d.bin" % [OS.get_unix_time(), OS.get_ticks_usec()]
 	var filepath = PENDING_DIR + filename
-	var data_blob = var2bytes(job.get("snapshot", {}))
+	result["path"] = filepath
+	var data_blob = var2bytes(snap)
 
 	var f = File.new()
 	if f.open(filepath, File.WRITE) != OK:
-		return {"ok": false, "path": filepath, "trigger": job.get("trigger", "auto")}
+		return result
 
 	f.store_32(BINARY_MAGIC)
 	f.store_buffer(data_blob)
 	f.close()
-	return {"ok": true, "path": filepath, "trigger": job.get("trigger", "auto")}
+	result["ok"] = true
+	return result
 
-func _enqueue_upload(filepath: String, trigger_type: String = "auto"):
+func _enqueue_upload(filepath: String, trigger_type: String = "auto", meta: Dictionary = {}):
 	var already_in = false
 	for item in _upload_queue:
 		if item.path == filepath:
@@ -321,7 +363,13 @@ func _enqueue_upload(filepath: String, trigger_type: String = "auto"):
 			break
 
 	if not already_in:
-		_upload_queue.append({"path": filepath, "trigger": trigger_type})
+		_upload_queue.append({
+			"path": filepath,
+			"trigger": trigger_type,
+			"scene": meta.get("scene", ""),
+			"grid_x": meta.get("grid_x", null),
+			"grid_z": meta.get("grid_z", null),
+		})
 
 	if _upload_queue.size() > 3:
 		var dropped = _upload_queue.pop_at(1)
@@ -339,6 +387,10 @@ func _process_upload_queue():
 	var trigger = item.trigger
 
 	var f = File.new()
+	# Spatial context (may be absent for rescanned pending files).
+	var scene = item.get("scene", "")
+	var grid_x = item.get("grid_x", null)
+	var grid_z = item.get("grid_z", null)
 	if not f.file_exists(filepath):
 		_upload_queue.pop_front()
 		call_deferred("_process_upload_queue")
@@ -358,9 +410,9 @@ func _process_upload_queue():
 	var token = _get_token()
 
 	if _is_web:
-		_upload_web(url, token, blob, filepath, trigger)
+		_upload_web(url, token, blob, filepath, trigger, scene, grid_x, grid_z)
 	else:
-		_upload_native(url, token, blob, trigger)
+		_upload_native(url, token, blob, trigger, scene, grid_x, grid_z)
 
 func _get_upload_url() -> String:
 	var base = "wss://odisea.educa.juegos/ws" # Default central
@@ -402,7 +454,7 @@ func _get_session_id() -> String:
 			return String(_anna_v2.session_id)
 	return "unknown"
 
-func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: String):
+func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: String, scene: String = "", grid_x = null, grid_z = null):
 	var blob_kb = blob.size() / 1024.0
 	print("[HotzoneRecorder] Uploading ", blob_kb, " KB to ", url)
 	var headers = [
@@ -415,6 +467,12 @@ func _upload_native(url: String, token: String, blob: PoolByteArray, trigger: St
 	headers.append("X-Player-ID: " + player_id)
 	headers.append("X-Session-ID: " + session_id)
 	headers.append("X-Trigger: " + trigger)
+	if scene != "":
+		headers.append("X-Scene: " + scene)
+	if grid_x != null:
+		headers.append("X-Grid-X: " + str(grid_x))
+	if grid_z != null:
+		headers.append("X-Grid-Z: " + str(grid_z))
 
 	var err = _http_request.request_raw(url, headers, true, HTTPClient.METHOD_POST, blob)
 	if err != OK:
@@ -455,7 +513,7 @@ func _scan_pending_files():
 						already_in = true
 						break
 				if not already_in:
-					_upload_queue.append({"path": full_path, "trigger": "unknown"})
+					_upload_queue.append({"path": full_path, "trigger": "unknown", "scene": "", "grid_x": null, "grid_z": null})
 					if _upload_queue.size() >= 5: break
 			file_name = dir.get_next()
 		dir.list_dir_end()
@@ -532,18 +590,26 @@ window.Hotzone_Worker_Bridge = {
 
 var _current_web_upload_id := ""
 
-func _upload_web(url: String, token: String, blob: PoolByteArray, _filepath: String, trigger: String):
+func _upload_web(url: String, token: String, blob: PoolByteArray, _filepath: String, trigger: String, scene: String = "", grid_x = null, grid_z = null):
 	_current_web_upload_id = str(OS.get_ticks_msec())
 	var js = Engine.get_singleton("JavaScript")
 	var player_id = _get_player_id()
 	var session_id = _get_session_id()
 	var b64 = Marshalls.raw_to_base64(blob)
+	var extra_headers = ""
+	if scene != "":
+		extra_headers += ",  'X-Scene': '" + scene + "'"
+	if grid_x != null:
+		extra_headers += ",  'X-Grid-X': '" + str(grid_x) + "'"
+	if grid_z != null:
+		extra_headers += ",  'X-Grid-Z': '" + str(grid_z) + "'"
 	js.eval("(function(){ " +
 		"var b64 = '" + b64 + "';" +
 		"var headers = {" +
 		"  'X-Player-ID': '" + player_id + "'," +
 		"  'X-Session-ID': '" + session_id + "'," +
 		"  'X-Trigger': '" + trigger + "'" +
+		extra_headers +
 		"};" +
 		"Hotzone_Worker_Bridge.upload('" + url + "', '" + token + "', b64, '" + _current_web_upload_id + "', headers);" +
 		"})()")
@@ -554,7 +620,11 @@ func _process(delta):
 		_save_thread_busy = false
 		if typeof(result) == TYPE_DICTIONARY and result.get("ok", false):
 			if not _is_testing:
-				_enqueue_upload(result.get("path", ""), result.get("trigger", "auto"))
+				_enqueue_upload(result.get("path", ""), result.get("trigger", "auto"), {
+					"scene": result.get("scene", ""),
+					"grid_x": result.get("grid_x", null),
+					"grid_z": result.get("grid_z", null),
+				})
 			if result.get("trigger", "auto") == "manual":
 				_show_feedback("Bug report guardado ✓")
 		else:

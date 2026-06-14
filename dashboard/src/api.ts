@@ -175,3 +175,12 @@ export async function downloadHotzone(hotzoneId: string, suggestedName?: string)
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// Delete a hotzone ghost (DB row + backing blob) on the central server.
+export async function deleteHotzone(hotzoneId: string) {
+  const response = await apiFetch(`/hotzones/${encodeURIComponent(hotzoneId)}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(`delete failed (${response.status})`);
+  return response.json();
+}
