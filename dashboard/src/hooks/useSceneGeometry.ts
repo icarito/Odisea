@@ -113,7 +113,7 @@ export const useSceneGeometryStream = (
   radius = 160,
   limit = 30000
 ) => {
-  const bucketSize = Math.max(20, radius * 0.5);
+  const bucketSize = Math.max(64, radius);
   const bucket: [number, number, number] = [
     bucketCoord(center[0], bucketSize),
     bucketCoord(center[1], bucketSize),
@@ -141,7 +141,6 @@ export const useSceneGeometryStream = (
       return;
     }
 
-    setGeometry(null);
     let aborted = false;
     const fetchGeometry = async () => {
       setLoading(true);

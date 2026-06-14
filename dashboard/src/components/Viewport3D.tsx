@@ -70,6 +70,7 @@ interface Viewport3DProps {
     peers?: number;
     staleAge?: number;
   } | null;
+  onUserInteract?: () => void;
 }
 
 const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ sceneName, wireframe }) => {
@@ -149,7 +150,7 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
   );
 };
 
-export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, label, color, hud }) => {
+export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, label, color, hud, onUserInteract }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
   const { geometry, loading: geometryLoading, error: geometryError } = useSceneGeometryStream(sceneName, position);
@@ -237,6 +238,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
             enablePan={true}
             makeDefault
             target={follow ? new THREE.Vector3(...position) : undefined}
+            onStart={onUserInteract}
         />
       </Canvas>
 

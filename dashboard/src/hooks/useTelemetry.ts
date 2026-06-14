@@ -16,10 +16,14 @@ import {
 // We seed the map once with a GET, then keep it live from the WS stream. /health
 // is polled separately because it carries deploy/version metadata.
 
-const HEALTH_POLL_MS = 5000;
+const HEALTH_POLL_MS = 15000;
 // Drop a player from the live map this long after its last heartbeat. The WS
 // stream only adds players, so staleness is detected by a periodic sweep.
-const STALE_AFTER_MS = 12000;
+// Scene transitions in the HTML build can pause heartbeats while Godot loads a
+// new scene/PCK. Keep the last live heartbeat long enough that the dashboard
+// does not throw the followed player back to the home view during that gap.
+const STALE_AFTER_MS = 45000;
+const REMOVE_STALE_AFTER_MS = 3 * 60 * 1000;
 const SWEEP_MS = 2000;
 const SNAPSHOT_EVERY_MS = 5000;
 const HISTORY_HYDRATE_WINDOW_SEC = 2 * 60 * 60;
@@ -63,11 +67,17 @@ interface HealthPayload {
 }
 
 type HeartbeatMessage = Heartbeat & { type?: string };
+type AlertMessage = Alert & { [key: string]: any };
 
 const isHeartbeatMessage = (msg: unknown): msg is HeartbeatMessage => {
   if (!msg || typeof msg !== 'object') return false;
   const candidate = msg as Partial<HeartbeatMessage>;
   return candidate.type !== 'alert' && typeof candidate.player_id === 'string' && !!candidate.player;
+};
+
+const isAlertMessage = (msg: unknown): msg is AlertMessage => {
+  if (!msg || typeof msg !== 'object') return false;
+  return (msg as { type?: string }).type === 'alert';
 };
 
 export const useTelemetry = () => {
@@ -76,6 +86,7 @@ export const useTelemetry = () => {
   const [heartbeatRate, setHeartbeatRate] = useState<number | string>('?');
   const [isConnected, setIsConnected] = useState(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [lastMessage, setLastMessage] = useState<any>(null);
   const [health, setHealth] = useState<HealthPayload>({});
   const [history, setHistory] = useState<PlayerHistoryMap>({});
   const disconnectedPids = useRef<Set<string>>(new Set());
@@ -259,9 +270,9 @@ export const useTelemetry = () => {
       socket.onmessage = (event) => {
         let msg: unknown;
         try { msg = JSON.parse(event.data) as unknown; } catch { return; }
-        // Alerts are handled by useWebSocket; here we only fold in heartbeats.
-        // A heartbeat carries a player_id and a nested player object.
-        if (isHeartbeatMessage(msg)) {
+        if (isAlertMessage(msg)) {
+          setLastMessage(msg);
+        } else if (isHeartbeatMessage(msg)) {
           ingestHeartbeat(msg.player_id, msg);
           setHeartbeats((prev) => {
             const next = { ...prev, [msg.player_id]: msg };
@@ -287,16 +298,20 @@ export const useTelemetry = () => {
     };
   }, [ingestHeartbeat, ingestHeartbeatMap, saveStatusSnapshotSoon]);
 
-  // --- Stale sweep: prune players whose last heartbeat is too old, and raise a
-  // single disconnect alert for each. Replaces the poll's map-diff logic. ---
+  // --- Stale sweep: mark players whose last heartbeat is too old, but keep the
+  // last heartbeat around for a longer grace period. Scene changes can pause the
+  // HTML client long enough that deleting immediately kicks the user out of 3D.
   useEffect(() => {
     const sweep = () => {
       const now = Date.now();
       const stale: string[] = [];
+      const expired: string[] = [];
       for (const pid of Object.keys(lastSeenMs.current)) {
-        if (now - lastSeenMs.current[pid] > STALE_AFTER_MS) stale.push(pid);
+        const age = now - lastSeenMs.current[pid];
+        if (age > STALE_AFTER_MS) stale.push(pid);
+        if (age > REMOVE_STALE_AFTER_MS) expired.push(pid);
       }
-      if (stale.length === 0) return;
+      if (stale.length === 0 && expired.length === 0) return;
 
       const newAlerts: Alert[] = [];
       for (const pid of stale) {
@@ -310,13 +325,16 @@ export const useTelemetry = () => {
             playerId: pid,
           });
         }
+      }
+      for (const pid of expired) {
         delete lastSeenMs.current[pid];
       }
       if (newAlerts.length) setAlerts((prev) => [...newAlerts, ...prev].slice(0, 50));
-      // Remove stale players from the live map (history is kept frozen).
+      // Remove very old players from the live map (history is kept frozen).
+      if (expired.length === 0) return;
       setHeartbeats((prev) => {
         const next = { ...prev };
-        for (const pid of stale) delete next[pid];
+        for (const pid of expired) delete next[pid];
         return next;
       });
     };
@@ -345,5 +363,5 @@ export const useTelemetry = () => {
     return () => clearInterval(id);
   }, []);
 
-  return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history, health };
+  return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history, health, lastMessage };
 };

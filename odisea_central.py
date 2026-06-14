@@ -463,7 +463,7 @@ class OdiseaCentral:
         self.low_fps_sessions: Dict[str, float] = {}  # session_id -> start_time_of_low_fps
         self.geo_recorded_sessions: Set[str] = set()  # session_ids already geo-recorded this run
         self.geo_pending_lookup: Dict[str, str] = {}  # ip_hash -> raw IP awaiting geolocation (memory-only)
-        self.scene_geometry_cache: Dict[str, dict] = {}  # scene -> {"mtime": float, "data": dict}
+        self.scene_geometry_cache: Dict[str, dict] = {}  # scene -> {"mtime": float, "data": dict, "grid": dict}
         self.milestone_checker = MilestoneDetector(self)
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
@@ -1039,11 +1039,35 @@ class OdiseaCentral:
         mtime = os.path.getmtime(path)
         cached = self.scene_geometry_cache.get(scene)
         if cached and cached.get("mtime") == mtime:
-            return cached.get("data")
+            return cached
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        self.scene_geometry_cache[scene] = {"mtime": mtime, "data": data}
-        return data
+        cell_size = 48.0
+        point_grid: Dict[tuple, list] = {}
+        for point in data.get("points", []):
+            try:
+                cell = (
+                    int(float(point[0]) // cell_size),
+                    int(float(point[1]) // cell_size),
+                    int(float(point[2]) // cell_size),
+                )
+            except (TypeError, ValueError, IndexError):
+                continue
+            point_grid.setdefault(cell, []).append(point)
+        cached = {
+            "mtime": mtime,
+            "data": data,
+            "cell_size": cell_size,
+            "point_grid": point_grid,
+        }
+        self.scene_geometry_cache[scene] = cached
+        logger.info(
+            "Indexed scene geometry %s: %s points in %s cells",
+            scene,
+            len(data.get("points", [])),
+            len(point_grid),
+        )
+        return cached
 
     async def handle_scene_geometry_stream(self, request):
         """Return a nearest-first slice of scene geometry around a player.
@@ -1064,9 +1088,10 @@ class OdiseaCentral:
         except ValueError:
             return web.json_response({"error": "bad_query"}, status=400)
 
-        data = self._load_scene_geometry(scene)
-        if data is None:
+        scene_cache = self._load_scene_geometry(scene)
+        if scene_cache is None:
             return web.json_response({"error": "scene_not_found"}, status=404)
+        data = scene_cache["data"]
 
         cx, cy, cz = center
         radius_sq = radius * radius
@@ -1080,8 +1105,26 @@ class OdiseaCentral:
             except (TypeError, ValueError, IndexError):
                 return None
 
+        cell_size = float(scene_cache.get("cell_size") or 48.0)
+        point_grid = scene_cache.get("point_grid") or {}
+        min_cell = (
+            int((cx - radius) // cell_size),
+            int((cy - radius) // cell_size),
+            int((cz - radius) // cell_size),
+        )
+        max_cell = (
+            int((cx + radius) // cell_size),
+            int((cy + radius) // cell_size),
+            int((cz + radius) // cell_size),
+        )
+        candidate_points = []
+        for ix in range(min_cell[0], max_cell[0] + 1):
+            for iy in range(min_cell[1], max_cell[1] + 1):
+                for iz in range(min_cell[2], max_cell[2] + 1):
+                    candidate_points.extend(point_grid.get((ix, iy, iz), []))
+
         ranked_points = []
-        for point in data.get("points", []):
+        for point in candidate_points:
             d2 = dist_sq(point)
             if d2 is not None and d2 <= radius_sq:
                 ranked_points.append((d2, point))
@@ -1128,6 +1171,7 @@ class OdiseaCentral:
                 "limit": limit,
                 "returned_points": len(selected_points),
                 "total_points": len(data.get("points", [])),
+                "candidate_points": len(candidate_points),
                 "truncated": len(ranked_points) > limit,
             },
         })

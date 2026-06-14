@@ -44,6 +44,23 @@ export const SceneGeometry: React.FC<SceneGeometryProps> = ({
   showProps = true,
   showZones = true
 }) => {
+  const pointTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.55, 'rgba(255,255,255,0.72)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 32, 32);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  }, []);
+
   // Render streamed points in distance bands so the slice reads as scene volume,
   // not as a flat sparse scatter. The backend sends nearest-first, but banding
   // makes walls/floors around the player much easier to read.
@@ -76,17 +93,17 @@ export const SceneGeometry: React.FC<SceneGeometryProps> = ({
       {/* 1. Point Cloud Geometry */}
       {showGeometry && pointBands[2] && (
         <points geometry={pointBands[2]}>
-          <pointsMaterial size={0.55} color="#3b4658" transparent opacity={0.55} depthWrite={false} />
+          <pointsMaterial size={0.32} color="#46546a" map={pointTexture || undefined} transparent opacity={0.38} depthWrite={false} />
         </points>
       )}
       {showGeometry && pointBands[1] && (
         <points geometry={pointBands[1]}>
-          <pointsMaterial size={0.9} color="#4f9dff" transparent opacity={0.62} depthWrite={false} />
+          <pointsMaterial size={0.52} color="#66a9ff" map={pointTexture || undefined} transparent opacity={0.52} depthWrite={false} />
         </points>
       )}
       {showGeometry && pointBands[0] && (
         <points geometry={pointBands[0]}>
-          <pointsMaterial size={1.35} color="#b8f3ff" transparent opacity={0.9} depthWrite={false} />
+          <pointsMaterial size={0.78} color="#c8f6ff" map={pointTexture || undefined} transparent opacity={0.78} depthWrite={false} />
         </points>
       )}
 

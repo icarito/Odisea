@@ -26,7 +26,6 @@ import { RetroCard, RetroButton } from './components/retro';
 import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
-import { useWebSocket } from './hooks/useWebSocket';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
 import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone } from './api';
 import {
@@ -56,7 +55,8 @@ const DASHBOARD_BUILD_VERSION = (
 const DEFAULT_HISTORY_MIN_DURATION = 13;
 const DASHBOARD_UPDATED_FLAG = 'odisea_dashboard_updated';
 
-const Viewport3D = lazy(() => import('./components/Viewport3D').then((module) => ({ default: module.Viewport3D })));
+const loadViewport3D = () => import('./components/Viewport3D').then((module) => ({ default: module.Viewport3D }));
+const Viewport3D = lazy(loadViewport3D);
 const Heatmap3D = lazy(() => import('./components/Heatmap3D').then((module) => ({ default: module.Heatmap3D })));
 const GlobeView = lazy(() => import('./components/GlobeView').then((module) => ({ default: module.GlobeView })));
 const SessionPlayback = lazy(() => import('./components/SessionPlayback').then((module) => ({ default: module.SessionPlayback })));
@@ -904,8 +904,7 @@ const LiveWaitTicker = ({ items }: { items: { label: string; value: string }[] }
 };
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
-  const { heartbeats, isConnected, alerts, history, health } = useTelemetry();
-  const { lastMessage } = useWebSocket();
+  const { heartbeats, isConnected, alerts, history, health, lastMessage } = useTelemetry();
   const { layout, updateLayout } = useLayoutPersistence();
   
   const activeTab = layout.activeTab as Tab;
@@ -939,6 +938,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // CSS overlay fullscreen for the 3D canvas (NOT the browser Fullscreen API,
   // which is unreliable on mobile).
   const [fs3d, setFs3d] = useState(false);
+  const [fsBirdseye, setFsBirdseye] = useState(false);
   // Player list bottom sheet (opened from the header counter).
   const [showPlayerSheet, setShowPlayerSheet] = useState(false);
   // Live FPS/memory charts overlay over the 3D view.
@@ -949,6 +949,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [showFilters, setShowFilters] = useState(false);
   // Top-stripe inner tab on the Dashboard view (live combined chart vs sessions).
   const [dashStripeTab, setDashStripeTab] = useState<'live' | 'sessions' | 'versions'>('live');
+  const viewport3DPreloaded = useRef(false);
 
   // Playback loading flag (history -> playback fetch).
   const [playbackLoading, setPlaybackLoading] = useState(false);
@@ -1161,7 +1162,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         .catch(() => {});
     };
     loadSessions();
-    const interval = setInterval(loadSessions, 10000);
+    const interval = setInterval(loadSessions, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1527,6 +1528,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   ), [heatmapData, selectedPlatforms, selectedSceneFilter]);
 
   useEffect(() => {
+    if (viewport3DPreloaded.current) return;
+    if (activeTab !== 'live' && !selectedPlayerId && Object.keys(heartbeats).length === 0) return;
+    viewport3DPreloaded.current = true;
+    const preload = () => { loadViewport3D().catch(() => { viewport3DPreloaded.current = false; }); };
+    const idle = window.requestIdleCallback?.(preload, { timeout: 2500 });
+    if (idle == null) {
+      const timer = window.setTimeout(preload, 400);
+      return () => window.clearTimeout(timer);
+    }
+    return () => window.cancelIdleCallback?.(idle);
+  }, [activeTab, selectedPlayerId, heartbeats]);
+
+  useEffect(() => {
     if (activeTab === 'heatmap' && heatmapTargetScene) {
       getHeatmap(heatmapTargetScene, heatmapRes)
         .then((d) => setHeatmapData(Array.isArray(d) ? d : []))
@@ -1554,6 +1568,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const pids = Object.keys(filteredHeartbeats);
   const hasLive = pids.length > 0;
+  const canShowSpatialLiveView = hasLive || !!selectedPlayerId;
   // Peers = other live players besides the active one. Drives the PEERS toggle's
   // enabled state (no peers → nothing to show, so the button reads disabled).
   const otherPeerCount = Math.max(0, pids.length - 1);
@@ -1561,11 +1576,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     if (pids.length > 0) setLastLivePlayerCount(pids.length);
   }, [pids.length]);
-
-  // Birdseye/3D require a live player; fall back to Dashboard when none.
-  useEffect(() => {
-    if (!hasLive && liveView !== 'dashboard') setLiveView('dashboard');
-  }, [hasLive, liveView]);
 
   const activeFilterCount =
     (selectedSceneFilter !== 'all' ? 1 : 0) +
@@ -1664,8 +1674,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           peers: pids.length,
           staleAge,
         } : null}
+        onUserInteract={() => setFollowPlayer(false)}
       />
     </Suspense>
+  );
+
+  const birdseyeMap = (
+    <LiveMap
+      ghosts={liveGhosts}
+      sceneName={birdseyeSceneName}
+      activePlayerId={activeId}
+      onSelectGhost={(pid) => setBirdseyeDetailId(pid)}
+    />
   );
 
   return (
@@ -1777,12 +1797,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         <div className="flex">
           {([
             { id: 'dashboard', label: 'Dashboard', enabled: true },
-            { id: 'birdseye', label: 'Birdseye', enabled: hasLive },
-            { id: '3d', label: '3D', enabled: hasLive },
+            { id: 'birdseye', label: 'Birdseye', enabled: canShowSpatialLiveView },
+            { id: '3d', label: '3D', enabled: canShowSpatialLiveView },
           ] as const).map((v) => (
             <button
               key={v.id}
               onClick={() => v.enabled && setLiveView(v.id)}
+              onMouseEnter={() => { if (v.id === '3d') loadViewport3D().catch(() => {}); }}
+              onFocus={() => { if (v.id === '3d') loadViewport3D().catch(() => {}); }}
+              onTouchStart={() => { if (v.id === '3d') loadViewport3D().catch(() => {}); }}
               disabled={!v.enabled}
               className={`subtab-btn ${liveView === v.id ? 'subtab-btn-active' : ''}`}
             >
@@ -1859,6 +1882,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <LiveCombinedChart history={activeHistory} />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {fsBirdseye && (
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+          <button
+            onClick={() => setFsBirdseye(false)}
+            className="absolute top-3 right-3 z-10 p-2 border-2 border-white/40 bg-black/60 text-white"
+            aria-label="Close fullscreen map"
+          >
+            <X size={24} />
+          </button>
+          <div className="relative flex-1 min-h-0">
+            {birdseyeMap}
           </div>
         </div>
       )}
@@ -1962,12 +2000,17 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             ) : (
               <>
-                <LiveMap
-                  ghosts={liveGhosts}
-                  sceneName={birdseyeSceneName}
-                  activePlayerId={activeId}
-                  onSelectGhost={(pid) => setBirdseyeDetailId(pid)}
-                />
+                {birdseyeMap}
+
+                <button
+                  type="button"
+                  onClick={() => setFsBirdseye(true)}
+                  className="absolute right-3 top-3 z-10 border-2 border-black bg-bg-card/90 p-2 hover:bg-accent hover:text-black"
+                  title="Fullscreen map"
+                  aria-label="Fullscreen map"
+                >
+                  <Maximize2 size={16} />
+                </button>
 
                 {/* Live chart overlay for the active player — shown by default
                     (top-left), like the 3D view. Hidden if charts are toggled
