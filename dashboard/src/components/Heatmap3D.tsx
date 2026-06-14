@@ -1,48 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { useSceneGeometry, type SceneGeometryData } from '../hooks/useSceneGeometry';
-import { getSceneGeometryChunksByScene } from '../lib/pushStorage';
-
-// Cache-first scene points for the heatmap: reuse whatever the live viewport
-// already streamed into IndexedDB (chunks keyed by stream bucket), merging and
-// de-duplicating their points. Only if the cache is empty do we fall back to the
-// full static .json — which for OdiseaExterior is 6.4 MB, so avoiding it matters.
-function useHeatmapScenePoints(scene: string | undefined): [number, number, number][] {
-  const [cachedPoints, setCachedPoints] = useState<[number, number, number][]>([]);
-  const [cacheChecked, setCacheChecked] = useState(false);
-  // Fallback static loader only runs (fetches) once we know the cache is empty.
-  const { geometry } = useSceneGeometry(cacheChecked && cachedPoints.length === 0 ? (scene || '') : '');
-
-  useEffect(() => {
-    let aborted = false;
-    setCacheChecked(false);
-    setCachedPoints([]);
-    if (!scene) { setCacheChecked(true); return; }
-    getSceneGeometryChunksByScene<SceneGeometryData>(scene)
-      .then((chunks) => {
-        if (aborted) return;
-        const seen = new Set<string>();
-        const merged: [number, number, number][] = [];
-        for (const chunk of chunks) {
-          for (const p of chunk.data?.points ?? []) {
-            // Quantize to ~1u so overlapping stream buckets don't double-plot.
-            const key = `${Math.round(p[0])},${Math.round(p[1])},${Math.round(p[2])}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            merged.push(p);
-          }
-        }
-        setCachedPoints(merged);
-        setCacheChecked(true);
-      })
-      .catch(() => { if (!aborted) setCacheChecked(true); });
-    return () => { aborted = true; };
-  }, [scene]);
-
-  return cachedPoints.length > 0 ? cachedPoints : (geometry?.points ?? []);
-}
+import { ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react';
+import { useSceneGeometryStream } from '../hooks/useSceneGeometry';
 
 interface HeatmapCell {
   grid_x: number;
@@ -247,30 +208,38 @@ const HotzoneMarkers: React.FC<{
 };
 
 export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, hotzones, onSelectHotzone }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredCell, setHoveredCell] = useState<HeatmapCell | null>(null);
   const [selectedCell, setSelectedCell] = useState<HeatmapCell | null>(null);
-  const scenePoints = useHeatmapScenePoints(scene);
+  const [controlsOpen, setControlsOpen] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const cells = Array.isArray(data) ? data : [];
   const maxCount = useMemo(() => cells.reduce((m, c) => Math.max(m, c.count), 0), [cells]);
 
-  // Frame the camera on the actual geometry (or heat cells if no points yet):
-  // scenes range from ~70u (Dome_Crio) to ~2000u (OdiseaExterior), so a fixed
-  // camera distance leaves one of them off-screen or microscopic.
+  // Center + extent of the heat data alone — stable (doesn't depend on points),
+  // so it's safe to feed to the streaming geometry as the focus position.
   const { center, radius } = useMemo(() => {
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-    const consume = (x: number, z: number) => {
-      if (x < minX) minX = x; if (x > maxX) maxX = x;
-      if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
-    };
-    for (const p of scenePoints) consume(p[0], p[2]);
-    for (const c of cells) consume(c.grid_x, c.grid_z);
+    for (const c of cells) {
+      if (c.grid_x < minX) minX = c.grid_x; if (c.grid_x > maxX) maxX = c.grid_x;
+      if (c.grid_z < minZ) minZ = c.grid_z; if (c.grid_z > maxZ) maxZ = c.grid_z;
+    }
     if (!isFinite(minX)) return { center: [0, 0, 0] as [number, number, number], radius: 60 };
     const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
     const r = Math.max(20, Math.hypot(maxX - minX, maxZ - minZ) / 2);
     return { center: [cx, 0, cz] as [number, number, number], radius: r };
-  }, [scenePoints, cells]);
+  }, [cells]);
+
+  // Same source as the live 3D viewport: stream the points near the heat center
+  // instead of pulling the whole scene .json. Radius covers the heat spread.
+  const { geometry } = useSceneGeometryStream(
+    scene || '',
+    center,
+    Math.min(500, Math.max(120, radius * 1.6)),
+  );
+  const scenePoints = geometry?.points ?? [];
 
   // The panel shows the selected cell if one is pinned, else whatever is hovered.
   const panelCell = selectedCell || hoveredCell;
@@ -284,8 +253,18 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
     link.click();
   };
 
+  const toggleFullscreen = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
+
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-lg border border-[#232833] bg-black">
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden rounded-lg border border-[#232833] bg-black">
       <Canvas ref={canvasRef} gl={{ preserveDrawingBuffer: true }} onPointerMissed={() => setSelectedCell(null)}>
         <PerspectiveCamera makeDefault position={[center[0] + radius * 0.9, radius * 1.1, center[2] + radius * 0.9]} far={Math.max(2000, radius * 8)} />
         <ambientLight intensity={0.7} />
@@ -359,13 +338,34 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
         </div>
       )}
 
-      <div className="absolute right-4 top-4">
-        <button
-          onClick={exportPng}
-          className="rounded bg-[#7fd1ff] px-4 py-2 text-xs font-bold text-black shadow-lg transition-colors hover:bg-[#7fd1ff]/80"
-        >
-          EXPORT PNG
-        </button>
+      {/* Collapsible control cluster (top-right). */}
+      <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setControlsOpen((v) => !v)}
+            className="rounded border border-[#232833] bg-[#0c0e12]/90 p-2 text-text-muted shadow-lg transition-colors hover:text-white"
+            title={controlsOpen ? 'Ocultar controles' : 'Mostrar controles'}
+            aria-label="Alternar controles"
+          >
+            {controlsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            className="rounded border border-[#232833] bg-[#0c0e12]/90 p-2 text-text-muted shadow-lg transition-colors hover:text-white"
+            title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+            aria-label="Pantalla completa"
+          >
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+        </div>
+        {controlsOpen && (
+          <button
+            onClick={exportPng}
+            className="rounded bg-[#7fd1ff] px-4 py-2 text-xs font-bold text-black shadow-lg transition-colors hover:bg-[#7fd1ff]/80"
+          >
+            EXPORT PNG
+          </button>
+        )}
       </div>
     </div>
   );

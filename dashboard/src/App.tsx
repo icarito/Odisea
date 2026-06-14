@@ -2252,25 +2252,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   </button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <RetroButton
-                  variant="secondary"
-                  onClick={() => {
-                    setSelectedSceneFilter('all');
-                    setHeatmapMobileView('scenes');
-                  }}
-                  className="px-2 py-1 text-[0.625rem]"
-                >
-                  Todas las escenas
-                </RetroButton>
-                <RetroButton
-                  variant="secondary"
-                  onClick={() => setHeatmapMobileView('scenes')}
-                  className="px-2 py-1 text-[0.625rem] xl:hidden"
-                >
-                  Cambiar escena
-                </RetroButton>
-              </div>
               <div className="grid grid-cols-2 gap-2 text-[0.5rem] font-bold uppercase sm:grid-cols-4">
                 <div className="flex items-center gap-1"><div className="h-2 w-2 bg-green-500" /> Low</div>
                 <div className="flex items-center gap-1"><div className="h-2 w-2 bg-yellow-500" /> Med</div>
