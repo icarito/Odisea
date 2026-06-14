@@ -10,16 +10,19 @@ export(int, 0, 3) var dome_full_detail_spiral_radius := 1
 export(int, 0, 32) var dome_inter_spiral_plate_offset := 4
 export(int, 0, 8) var dome_full_detail_preload_extra_radius := 0 if OS.has_feature("HTML5") else 2
 export(bool) var dome_lod_enabled := true
-export(int, 0, 1024) var dome_lod_overlay_max_instances := 64
+# Domes LOD dibujados por MultiMesh (batched: ~1 draw call por mesh-part sin importar
+# la cantidad de instancias). Subir el cap es barato en GPU; el coste extra es lineal en
+# la escritura de instancias del MultiMesh, no en draw calls. 128 = más domes visibles.
+export(int, 0, 1024) var dome_lod_overlay_max_instances := 128
 export(int, 0, 16) var dome_lod_adjacent_spiral_slots := 4
 export(float, 0.0, 180.0) var dome_lod_frustum_half_fov_deg := 180.0 if OS.has_feature("HTML5") else 80.0
 export(float, 1.0, 32.0) var dome_lod_backface_penalty := 8.0
 export(bool) var dome_lod_camera_update_enabled := not OS.has_feature("HTML5")
 export(float, 1.0, 90.0) var dome_lod_camera_angle_threshold := 20.0
-# Pool de 6 con reasignación cada 20 frames dejaba al jugador adelantar al pool. Pool 12
-# cubre ±2 plates en el espiral actual + vecinos, reasignado cada frame (cheap, ~0.4ms),
-# para que al saltar/caminar siempre haya un collider bajo la plate de destino.
-export(int, 4, 64) var exterior_collision_pool_size := 12
+# El bug no era el TAMAÑO del pool sino que el re-centrado no corría en continuous_tracking
+# (los colliders no se ponían al día con el jugador). Con reasignación cada frame, 6 slots
+# bastan: ±1 en el espiral actual (3) + las plates vecinas más cercanas vía offset (3).
+export(int, 4, 64) var exterior_collision_pool_size := 6
 export(int, 1, 30) var exterior_collision_update_interval := 1
 export(int, 1, 30) var exterior_target_plate_query_interval := 2
 
@@ -563,12 +566,49 @@ func _build_assignments_for_keys(keys: Dictionary) -> Array:
 	return assignments
 
 func _build_lod_overlay_assignments_for_selection() -> Array:
-	# Devuelve TODAS las plates con LOD blueprint para que _select_nearest_dome_lod_assignments
-	# pueda elegir las max_instances MÁS CERCANAS por distancia 3D real.
+	# O(k) en vez de O(N): en vez de devolver TODAS las plates con blueprint (~596) para
+	# que _select_nearest las puntúe y ordene por distancia 3D, devolvemos sólo la VENTANA
+	# de plates alrededor del jugador, indexada por la fórmula de offsets (igual que el pool
+	# de colisión). Tomamos un radio generoso (≈2× lo necesario) para que el sort por
+	# frustum/adyacencia siga teniendo de dónde elegir, pero acotado a O(max_instances).
+	# Fallback: si la ventana no llena el cupo (cache parcial), completar con el set total.
+	var max_instances := int(dome_lod_overlay_max_instances)
+	if max_instances <= 0:
+		return _build_all_lod_overlay_assignments()
+	var windowed := _build_windowed_lod_overlay_assignments(max_instances)
+	# Si la ventana indexada quedó corta (p.ej. cache aún parcial), usar el set completo.
+	if windowed.size() < max_instances:
+		return _build_all_lod_overlay_assignments()
+	return windowed
+
+func _build_all_lod_overlay_assignments() -> Array:
 	var assignments := []
 	for key in _dome_lod_assignment_keys:
 		if _dome_assignment_cache.has(key):
 			assignments.append(_dome_assignment_cache[key])
+	return assignments
+
+# Candidatos LOD por ventana de índices alrededor del jugador (sin escanear las 596).
+# Radio por espiral dimensionado para entregar ~2× max_instances candidatos repartidos
+# entre las espirales, de modo que el sort por frustum/distancia tenga margen de elección.
+func _build_windowed_lod_overlay_assignments(max_instances: int) -> Array:
+	var assignments := []
+	if _spirals.empty():
+		return assignments
+	var spiral_count := int(max(1, _spirals.size()))
+	# 2× el cupo, repartido en (espirales × 2 lados) → radio por espiral.
+	var per_spiral_radius := int(max(1, ceil(float(max_instances * 2) / float(spiral_count * 2))))
+	for spiral_idx in range(_spirals.size()):
+		var plate_count := _get_plate_count(_spirals[spiral_idx])
+		if plate_count <= 0:
+			continue
+		var signed_spiral_delta := _get_signed_wrapped_spiral_delta(selected_spiral, spiral_idx)
+		var center_plate := selected_plate - signed_spiral_delta * dome_inter_spiral_plate_offset
+		for offset in range(-per_spiral_radius, per_spiral_radius + 1):
+			var plate_idx := _wrap_index(center_plate + offset, plate_count)
+			var key := _make_plate_key(spiral_idx, plate_idx)
+			if _dome_assignment_cache.has(key):
+				assignments.append(_dome_assignment_cache[key])
 	return assignments
 
 func _get_lod_overlay_plate_keys_for_selection() -> Dictionary:

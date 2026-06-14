@@ -15,7 +15,7 @@ extents = Vector3( 100, 1, 100 )
 script = ExtResource( 3 )
 selected_spiral = 2
 selected_plate = 50
-dome_lod_overlay_max_instances = 24
+dome_lod_overlay_max_instances = 128
 dome_lod_camera_angle_threshold = 40.0
 
 [node name="WorldRotator" parent="." instance=ExtResource( 1 )]

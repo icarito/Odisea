@@ -121,9 +121,9 @@ export(float, 1.0, 3.0) var collision_pool_xz_scale := 1.3
 # realmente más cercana al jugador. Debe superar el peor "lag" de la selección con
 # histéresis para que el pool nunca quede detrás del jugador. Búsqueda por franja barata.
 export(int, 2, 64) var pool_center_search_radius := 24
-# Cuántas plates a cada lado del centro recibe collider por espiral. ±2 garantiza
-# cobertura contigua bajo el jugador al saltar entre plates vecinas.
-export(int, 1, 6) var pool_plate_window_radius := 2
+# Cuántas plates a cada lado del centro recibe collider por espiral. Con el pool
+# reasignado cada frame ±1 (3 plates) basta; subir requiere más slots en el pool.
+export(int, 1, 6) var pool_plate_window_radius := 1
 export(bool) var warn_on_physics_children := true
 # En centrifugo, solo el PhysicalTerrace/ActiveTerraceCollision representa el
 # plate actual. El pool queda como mecanismo legacy para modos no centrifugos.
