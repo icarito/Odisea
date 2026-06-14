@@ -140,7 +140,6 @@ func _thread_func(_userdata):
 				_reconnect_attempts += 1
 		else:
 			_reconnect_attempts = 0
-		else:
 			_mutex.lock()
 			var interval = _heartbeat_interval_ms
 			var tier = _throttle_tier
