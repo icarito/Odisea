@@ -83,6 +83,11 @@ var _lod_update_phase := 0              # 0=idle, 1=ejecutar ciclo completo
 var _lod_pipeline_all_assignments := [] # candidatos para el ciclo actual
 var _lod_dirty := false                 # plate cambió mientras el pipeline corría; reiniciar al terminar
 var _lod_last_camera_fwd := Vector3.ZERO  # forward canónico en el último LOD update
+# Bake-once para el caso ESTÁTICO (todas las espirales con animate=false): se hornean
+# TODOS los domes en los MultiMesh una sola vez y el pipeline LOD por-frame queda inactivo
+# (la GPU hace el frustum-culling). En cuanto haya animación, _is_dome_layout_static()
+# devuelve false y se usa la ruta O(k) windowed de re-selección por-frame.
+var _dome_lod_baked := false
 
 func _ready() -> void:
 	if has_node("/root/SessionManager"):
@@ -527,7 +532,13 @@ func _sync_plate_window_for_selection(_force: bool = false) -> void:
 		_sync_stream_assignments_legacy(stream_assignments)
 
 	if lod_mode == "lod":
-		if _lod_update_phase == 0:
+		if _dome_lod_baked:
+			# Escena estática ya horneada: todos los domes están presentes, no re-seleccionar.
+			pass
+		elif _is_dome_layout_static() and _dome_assignment_cache_ready:
+			# Hornear TODOS los domes una sola vez; luego el pipeline por-frame queda inactivo.
+			_bake_all_dome_lod_overlays()
+		elif _lod_update_phase == 0:
 			_schedule_lod_overlay_update(_build_lod_overlay_assignments_for_selection())
 		else:
 			_lod_dirty = true
@@ -587,6 +598,44 @@ func _build_all_lod_overlay_assignments() -> Array:
 		if _dome_assignment_cache.has(key):
 			assignments.append(_dome_assignment_cache[key])
 	return assignments
+
+# Hornea TODOS los domes en los MultiMesh de cada espiral una sola vez (escena estática).
+# No hay cap ni sort por distancia/frustum: cada dome queda presente y la GPU descarta los
+# que están fuera de cámara. Tras esto, _dome_lod_baked=true desactiva el pipeline por-frame.
+func _bake_all_dome_lod_overlays() -> void:
+	var assignments := _build_all_lod_overlay_assignments()
+	var groups_by_spiral := {}
+	for assignment in assignments:
+		var info: Dictionary = assignment.get("info", {})
+		var blueprint: Dictionary = assignment.get("blueprint", {})
+		if blueprint.empty():
+			blueprint = _resolve_dome_lod_blueprint(info)
+		if blueprint.empty():
+			continue
+		var spiral_index := int(assignment.get("spiral_index", -1))
+		if spiral_index < 0 or spiral_index >= _spirals.size():
+			continue
+		var cache_key := String(blueprint.get("cache_key", "")).strip_edges()
+		if cache_key == "":
+			cache_key = String(assignment.get("dome_id", "lod"))
+		if not groups_by_spiral.has(spiral_index):
+			groups_by_spiral[spiral_index] = {}
+		if not groups_by_spiral[spiral_index].has(cache_key):
+			groups_by_spiral[spiral_index][cache_key] = {"blueprint": blueprint, "items": []}
+		groups_by_spiral[spiral_index][cache_key]["items"].append(assignment)
+	for spiral_index in range(_spirals.size()):
+		var spiral: Spatial = _spirals[spiral_index]
+		if not (spiral is TerraceSpiral):
+			continue
+		if groups_by_spiral.has(spiral_index):
+			spiral.set_dome_lod_overlays(_build_spiral_dome_lod_groups(groups_by_spiral[spiral_index]))
+		else:
+			spiral.clear_dome_lod_overlays()
+	_last_dome_lod_stats = _build_dome_lod_stats(
+		assignments, _get_full_detail_plate_keys_for_selection(), _count_overlay_parts(groups_by_spiral))
+	_last_dome_lod_stats["lod1_visible_instances"] = assignments.size()
+	_last_dome_lod_stats["baked_static"] = true
+	_dome_lod_baked = true
 
 # Candidatos LOD por ventana de índices alrededor del jugador (sin escanear las 596).
 # Radio por espiral dimensionado para entregar ~2× max_instances candidatos repartidos
@@ -663,6 +712,18 @@ func _get_dome_lod_mode() -> String:
 
 func _uses_dome_lod_overlays() -> bool:
 	return _get_dome_lod_mode() == "lod"
+
+# El layout de domes es estático si NINGUNA espiral anima (animate=false en todas). En
+# ese caso podemos hornear todos los domes una vez en vez de re-seleccionar por frame.
+func _is_dome_layout_static() -> bool:
+	if _spirals.empty():
+		return false
+	for spiral in _spirals:
+		if spiral == null or not is_instance_valid(spiral):
+			continue
+		if bool(spiral.get("animate")):
+			return false
+	return true
 
 func _load_packed_scene(path: String) -> PackedScene:
 	if path == "":
@@ -758,6 +819,10 @@ func _get_wrapped_plate_distance(from_plate: int, to_plate: int, plate_count: in
 
 # Dispara un nuevo ciclo LOD si la cámara giró más de dome_lod_camera_angle_threshold grados.
 func _tick_frustum_lod_update() -> void:
+	# Si ya horneamos todos los domes (escena estática), no hay nada que re-seleccionar al
+	# girar la cámara: están todos presentes y la GPU los descarta fuera del frustum.
+	if _dome_lod_baked:
+		return
 	if not dome_lod_camera_update_enabled:
 		return
 	if _lod_update_phase != 0:

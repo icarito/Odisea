@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://core_v2/components/WorldRotator.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -28,12 +28,6 @@ scene_anchor_use_selected_plate_on_ready = true
 collision_pool_size = 6
 collision_pool_xz_scale = 1.0
 centrifugal_current_plate_only_physics = false
-
-[node name="FauxSkydome" type="Spatial" parent="WorldRotator"]
-visible = false
-script = ExtResource( 7 )
-radius = 330.0
-height = 400.0
 
 [node name="TerraceSegmentManager" type="Spatial" parent="WorldRotator"]
 script = ExtResource( 8 )
