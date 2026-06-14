@@ -118,12 +118,21 @@ export const useSceneGeometryStream = (
   radius = 320,
   limit = 12000
 ) => {
-  const bucketSize = Math.max(64, radius);
+  // Quantize to a coarse bucket ONLY for cache identity / re-fetch gating, with
+  // hysteresis (half-bucket overlap) so walking across a cell boundary doesn't
+  // trigger a re-fetch and flicker. The bucket is NOT used as the query center:
+  // we re-fetch a wider radius centered on the bucket so the slice stays valid
+  // anywhere inside the cell, keeping the point cloud centered on the player.
+  const bucketSize = Math.max(64, radius * 0.5);
   const bucket: [number, number, number] = [
     bucketCoord(center[0], bucketSize),
     bucketCoord(center[1], bucketSize),
     bucketCoord(center[2], bucketSize),
   ];
+  // The query radius covers the whole bucket plus the requested view radius, so
+  // a slice fetched at the bucket center still has points all around the player
+  // no matter where they are within the cell (fixes the "half screen" gap).
+  const queryRadius = radius + bucketSize;
   const cacheKey = sceneName
     ? `${sceneName}:${bucket.join(',')}:${radius}:${limit}`
     : '';
@@ -148,6 +157,8 @@ export const useSceneGeometryStream = (
 
     let aborted = false;
     const fetchGeometry = async () => {
+      // Keep showing the previous slice while the next one loads instead of
+      // dropping to "loading" (which blanks the cloud and causes the flicker).
       setLoading(true);
       setError(null);
       try {
@@ -161,7 +172,7 @@ export const useSceneGeometryStream = (
           x: String(bucket[0]),
           y: String(bucket[1]),
           z: String(bucket[2]),
-          radius: String(radius),
+          radius: String(queryRadius),
           limit: String(limit),
         });
         const response = await fetch(`/api/scene-data/${encodeURIComponent(sceneName)}?${params.toString()}`);
@@ -198,7 +209,8 @@ export const useSceneGeometryStream = (
     return () => {
       aborted = true;
     };
-  }, [cacheKey, sceneName, bucket[0], bucket[1], bucket[2], radius, limit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey, sceneName, queryRadius, limit]);
 
   return { geometry, loading, error };
 };

@@ -1,7 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { SceneGeometryData } from '../hooks/useSceneGeometry';
-import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 
 interface SceneGeometryProps {
@@ -12,27 +11,23 @@ interface SceneGeometryProps {
   showZones?: boolean;
 }
 
+// Rotators are rendered as a static ring so they read as scene structure
+// without spinning (the animation was visual noise in orbit/exterior scenes
+// with many rotators) and without a permanent floating Html label (reprojected
+// every frame). The name shows on hover only.
 const RotatorMesh: React.FC<{ position: [number, number, number], radius: number, name: string }> = ({ position, radius, name }) => {
-  const meshRef = React.useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.3;
-    }
-  });
-
-  var displayRadius = Math.min(radius * 0.01, 5);
+  const displayRadius = Math.min(radius * 0.01, 5);
   return (
     <group position={position}>
-      <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[displayRadius, displayRadius, 0.3, 32, 1, true]} />
-        <meshStandardMaterial color="#7fd1ff" wireframe transparent opacity={0.4} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#7fd1ff" wireframe transparent opacity={0.25} side={THREE.DoubleSide} />
+        <Html distanceFactor={15} position={[0, 0, displayRadius + 0.5]}>
+          <div className="bg-bg-card/80 text-accent text-[0.5rem] px-1 rounded whitespace-nowrap border border-accent/30 opacity-0 hover:opacity-100 transition-opacity">
+            ROT: {name}
+          </div>
+        </Html>
       </mesh>
-      <Html distanceFactor={15} position={[0, displayRadius + 0.5, 0]}>
-        <div className="bg-bg-card/80 text-accent text-[0.5rem] px-1 rounded whitespace-nowrap border border-accent/30">
-          ROT: {name}
-        </div>
-      </Html>
     </group>
   );
 };
@@ -61,6 +56,12 @@ export const SceneGeometry: React.FC<SceneGeometryProps> = ({
     return texture;
   }, []);
 
+  // Quantize the focus to ~8u steps so the distance banding only re-buckets when
+  // the player moves meaningfully, not on every telemetry frame. Recomputing the
+  // BufferGeometries each frame was the main source of the flicker / GC churn.
+  const [fx, fy, fz] = focusPosition;
+  const focusKey = `${Math.round(fx / 8)}:${Math.round(fy / 8)}:${Math.round(fz / 8)}`;
+
   // Render streamed points in distance bands so the slice reads as scene volume,
   // not as a flat sparse scatter. The backend sends nearest-first, but banding
   // makes walls/floors around the player much easier to read.
@@ -70,7 +71,6 @@ export const SceneGeometry: React.FC<SceneGeometryProps> = ({
     const nearSq = Math.pow(radius * 0.33, 2);
     const midSq = Math.pow(radius * 0.66, 2);
     const buckets: [number, number, number][][] = [[], [], []];
-    const [fx, fy, fz] = focusPosition;
 
     data.points.forEach((point) => {
       const dx = point[0] - fx;
@@ -86,7 +86,19 @@ export const SceneGeometry: React.FC<SceneGeometryProps> = ({
       geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(points.flat()), 3));
       return geometry;
     });
-  }, [data.points, data.stream?.radius, focusPosition]);
+    // focusKey (quantized) gates recompute; raw fx/fy/fz are read inside but
+    // intentionally excluded so we don't rebuild on sub-step jitter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.points, data.stream?.radius, focusKey]);
+
+  // Dispose the GPU buffers of the previous band set when bands change/unmount,
+  // otherwise every re-bucket leaks three BufferGeometries.
+  useEffect(() => {
+    const current = pointBands;
+    return () => {
+      current.forEach((g) => g?.dispose());
+    };
+  }, [pointBands]);
 
   return (
     <group>
