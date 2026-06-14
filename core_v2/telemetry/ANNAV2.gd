@@ -592,7 +592,11 @@ var _build_meta_json_cache: Dictionary = {}
 func _get_build_meta_value_from_file(key: String) -> String:
 	if _build_meta_json_cache.empty():
 		var file: File = File.new()
+		# res:// first so the value is embedded in the .pck and behaves
+		# identically on every platform (Windows can launch the .exe with a
+		# different CWD, so the loose file next to the binary is unreliable).
 		var meta_paths := [
+			"res://build_meta.json",
 			"build_meta.json",
 			OS.get_executable_path().get_base_dir().plus_file("build_meta.json")
 		]
