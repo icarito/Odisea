@@ -2299,7 +2299,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/virtualcamera/plugin.cfg", "res://addons/zylann.scatter/plugin.cfg" )
+enabled=PoolStringArray(  )
 
 [gdunit3]
 
