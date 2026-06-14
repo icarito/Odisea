@@ -14,6 +14,8 @@ shader_param/plasma_color = Color( 0, 0.5, 1, 1 )
 shader_param/emission_intensity = 2.0
 shader_param/distortion_strength = 0.05
 shader_param/pulse_factor = 1.0
+shader_param/atlas_size = Vector2( 1024, 1024 )
+shader_param/frame_padding_px = 1.5
 shader_param/flipbook_tex = ExtResource( 3 )
 
 [sub_resource type="CylinderMesh" id=2]

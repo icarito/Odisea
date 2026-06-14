@@ -9,6 +9,8 @@ uniform vec4 plasma_color : hint_color = vec4(0.0, 0.5, 1.0, 1.0);
 uniform float emission_intensity = 2.0;
 uniform float distortion_strength = 0.02;
 uniform float pulse_factor = 1.0;
+uniform vec2 atlas_size = vec2(1024.0, 1024.0);
+uniform float frame_padding_px = 1.5;
 
 void fragment() {
 	float t = TIME;
@@ -30,7 +32,9 @@ void fragment() {
 		floor(frame / float(columns)) * frame_size.y
 	);
 
-	vec2 final_uv = frame_offset + clamp(distorted_uv, 0.0, 1.0) * frame_size;
+	vec2 local_padding = frame_padding_px * vec2(float(columns), float(rows)) / atlas_size;
+	vec2 local_uv = clamp(distorted_uv, local_padding, vec2(1.0) - local_padding);
+	vec2 final_uv = frame_offset + local_uv * frame_size;
 
 	vec4 tex = texture(flipbook_tex, final_uv);
 

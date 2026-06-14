@@ -179,6 +179,19 @@ jobs:
             --official-host "odisea.educa.juegos" \
             --out-js "build_meta.js" \
             --out-json "build_meta.json"
+          python3 - <<'PY'
+          import json
+          import sys
+          meta = json.load(open("build_meta.json", "r", encoding="utf-8"))
+          token = str(meta.get("token", "")).strip()
+          if not token or token == "ODISEA_TOKEN_CANARY_MISSING" or "canary" in token.lower():
+              print("::error::ODISEA_CENTRAL_INGEST_TOKEN is missing; refusing to export a canary telemetry build")
+              sys.exit(1)
+          print("Build metadata OK: token present, channel=%s, build_id=%s" % (
+              meta.get("channel", ""),
+              meta.get("build_id", ""),
+          ))
+          PY
 
       - name: Cache Godot
         uses: actions/cache@v4
@@ -395,7 +408,7 @@ jobs:
           fi
 
           if [ "${{ matrix.platform }}" = "html5" ]; then
-            cd build/html5 && zip -r "../../$PACKAGE" .
+            cd build/html5 && zip -r "../../$PACKAGE" . -x "_headers"
           elif [ "${{ matrix.platform }}" = "android" ]; then
             # APK se sube sin comprimir (ya es un zip firmado)
             PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION-$SHA.apk"
@@ -405,7 +418,7 @@ jobs:
           elif [ "${{ matrix.platform }}" = "macos" ]; then
              cp build/macos/Odisea-Tech-Demo.zip "$PACKAGE"
           else
-            cd build && zip -r "../$PACKAGE" . -x "netlify/*" -x "pages/*" -x "html5/*" -x "android/*" -x "ios/*"
+            cd build && zip -r "../$PACKAGE" . -x "_headers" -x "netlify/*" -x "pages/*" -x "html5/*" -x "android/*" -x "ios/*"
           fi
 
       - name: Upload Artifact
