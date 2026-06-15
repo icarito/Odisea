@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Maximize2, Minimize2, Download, Play, X } from 'lucide-react';
 import { useSceneGeometryStream } from '../hooks/useSceneGeometry';
 
 interface HeatmapCell {
@@ -24,6 +24,10 @@ export interface HotzoneMarker {
   display_name?: string | null;
   player_id?: string | null;
   timestamp?: number | null;
+  frame_count?: number | null;
+  capture_duration?: number | null;
+  file_size?: number | null;
+  size_kb?: number | null;
 }
 
 interface Heatmap3DProps {
@@ -32,6 +36,7 @@ interface Heatmap3DProps {
   scene?: string;
   hotzones?: HotzoneMarker[];
   onSelectHotzone?: (hz: HotzoneMarker) => void;
+  onDownloadHotzone?: (hz: HotzoneMarker) => void;
 }
 
 function lowFpsPct(cell: HeatmapCell): number {
@@ -163,40 +168,130 @@ const SceneScatter: React.FC<{ points: [number, number, number][] }> = ({ points
 const HotzoneMarkers: React.FC<{
   hotzones: HotzoneMarker[];
   scale: number;
+  expandedId: string | null;
+  onToggleExpand: (id: string | null) => void;
   onSelect?: (hz: HotzoneMarker) => void;
-}> = ({ hotzones, scale, onSelect }) => {
+  onDownload?: (hz: HotzoneMarker) => void;
+}> = ({ hotzones, scale, expandedId, onToggleExpand, onSelect, onDownload }) => {
   const [hovered, setHovered] = useState<string | null>(null);
+
   // Pins are sized relative to the scene so they stay visible from Dome_Crio's
   // ~70u up to OdiseaExterior's ~2000u without dwarfing or vanishing.
   const s = scale;
+
+  const formatDate = (ts?: number | null) => {
+    if (!ts) return '';
+    return new Date(ts * 1000).toLocaleString('es', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+  };
+
   return (
     <group>
       {hotzones.map((hz) => {
         if (hz.grid_x == null || hz.grid_z == null) return null;
-        // grid_x/grid_z are world coords (resolution-agnostic) of the capture.
         const x = hz.grid_x;
         const z = hz.grid_z;
         const isHover = hovered === hz.id;
+        const isExpanded = expandedId === hz.id;
+
         return (
           <group key={hz.id} position={[x, 0, z]}>
             <mesh
               position={[0, 5 * s, 0]}
               onPointerOver={(e) => { e.stopPropagation(); setHovered(hz.id); }}
               onPointerOut={() => setHovered(null)}
-              onClick={(e) => { e.stopPropagation(); onSelect?.(hz); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand(isExpanded ? null : hz.id);
+              }}
             >
               <coneGeometry args={[s, 2 * s, 4]} />
-              <meshStandardMaterial color="#ff3df0" emissive="#ff3df0" emissiveIntensity={isHover ? 0.8 : 0.4} />
+              <meshStandardMaterial
+                color={isExpanded ? "#ffffff" : "#ff3df0"}
+                emissive={isExpanded ? "#ffffff" : "#ff3df0"}
+                emissiveIntensity={isHover || isExpanded ? 0.8 : 0.4}
+              />
             </mesh>
             <mesh position={[0, 5 * s, 0]} rotation={[0, Math.PI / 4, 0]}>
               <ringGeometry args={[1.3 * s, 1.8 * s, 4]} />
               <meshBasicMaterial color="#ff3df0" transparent opacity={0.5} side={THREE.DoubleSide} />
             </mesh>
-            {isHover && (
+
+            {/* Simple Hover Tooltip (hidden when expanded) */}
+            {isHover && !isExpanded && (
               <Html distanceFactor={20} position={[0, 7 * s, 0]}>
                 <div className="pointer-events-none whitespace-nowrap rounded border border-[#ff3df0]/50 bg-[#0c0e12]/95 px-2 py-1 text-[0.6rem] text-white shadow-xl">
                   <span className="font-bold text-[#ff3df0]">{hz.display_name || hz.player_id || 'hotzone'}</span>
                   {' · '}{hz.trigger_type || 'auto'}
+                </div>
+              </Html>
+            )}
+
+            {/* Detailed Expanded Panel */}
+            {isExpanded && (
+              <Html distanceFactor={25} position={[0, 8 * s, 0]} center>
+                <div className="w-56 overflow-hidden rounded border border-[#ff3df0]/50 bg-[#0c0e12]/98 text-white shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between border-b border-[#ff3df0]/20 bg-[#ff3df0]/10 px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-[0.7rem] font-black text-[#ff3df0]">
+                        {hz.display_name || 'Anónimo'}
+                      </div>
+                      <div className="truncate font-mono text-[0.5rem] opacity-60">
+                        {hz.player_id?.slice(0, 12)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onToggleExpand(null); }}
+                      className="text-text-muted hover:text-white"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  <div className="p-3">
+                    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[0.6rem]">
+                      <span className="text-text-muted">Fecha</span>
+                      <span className="text-right">{formatDate(hz.timestamp)}</span>
+                      <span className="text-text-muted">Trigger</span>
+                      <span className={`text-right font-bold ${hz.trigger_type === 'manual' ? 'text-accent' : 'text-danger'}`}>
+                        {hz.trigger_type}
+                      </span>
+                      {hz.size_kb && (
+                        <>
+                          <span className="text-text-muted">Tamaño</span>
+                          <span className="text-right">{hz.size_kb} KB</span>
+                        </>
+                      )}
+                      {hz.capture_duration && (
+                        <>
+                          <span className="text-text-muted">Duración</span>
+                          <span className="text-right">{hz.capture_duration.toFixed(1)}s</span>
+                        </>
+                      )}
+                      {hz.frame_count && (
+                        <>
+                          <span className="text-text-muted">Frames</span>
+                          <span className="text-right">{hz.frame_count}</span>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onSelect?.(hz); }}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded border border-success bg-success/10 py-1.5 text-[0.6rem] font-bold text-success hover:bg-success hover:text-black transition-colors"
+                      >
+                        <Play size={12} fill="currentColor" /> REPLAY
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDownload?.(hz); }}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded border border-accent bg-accent/10 py-1.5 text-[0.6rem] font-bold text-accent hover:bg-accent hover:text-black transition-colors"
+                      >
+                        <Download size={12} /> Bajar
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </Html>
             )}
@@ -207,11 +302,12 @@ const HotzoneMarkers: React.FC<{
   );
 };
 
-export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, hotzones, onSelectHotzone }) => {
+export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, hotzones, onSelectHotzone, onDownloadHotzone }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredCell, setHoveredCell] = useState<HeatmapCell | null>(null);
   const [selectedCell, setSelectedCell] = useState<HeatmapCell | null>(null);
+  const [expandedHotzoneId, setExpandedHotzoneId] = useState<string | null>(null);
   const [controlsOpen, setControlsOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -265,7 +361,14 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden rounded-lg border border-[#232833] bg-black">
-      <Canvas ref={canvasRef} gl={{ preserveDrawingBuffer: true }} onPointerMissed={() => setSelectedCell(null)}>
+      <Canvas
+        ref={canvasRef}
+        gl={{ preserveDrawingBuffer: true }}
+        onPointerMissed={() => {
+          setSelectedCell(null);
+          setExpandedHotzoneId(null);
+        }}
+      >
         <PerspectiveCamera makeDefault position={[center[0] + radius * 0.9, radius * 1.1, center[2] + radius * 0.9]} far={Math.max(2000, radius * 8)} />
         <ambientLight intensity={0.7} />
         <directionalLight position={[10, radius, 5]} intensity={1} />
@@ -288,7 +391,14 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
         ))}
 
         {hotzones && hotzones.length > 0 && (
-          <HotzoneMarkers hotzones={hotzones} scale={Math.max(0.9, radius * 0.02)} onSelect={onSelectHotzone} />
+          <HotzoneMarkers
+            hotzones={hotzones}
+            scale={Math.max(0.9, radius * 0.02)}
+            expandedId={expandedHotzoneId}
+            onToggleExpand={setExpandedHotzoneId}
+            onSelect={onSelectHotzone}
+            onDownload={onDownloadHotzone}
+          />
         )}
 
         <Grid

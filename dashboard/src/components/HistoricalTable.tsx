@@ -103,7 +103,7 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
             const tone = perfTone(avgFps);
             const scenesVisited = sceneCount(s.scenes_visited);
             const isSelected = selectedSessionId && s.session_id === selectedSessionId;
-            const official = s.intake_mode === 'admin' || s.intake_mode === 'ingest';
+            const official = s.official_build === 1 || s.intake_mode === 'admin' || s.intake_mode === 'ingest';
             const versionLabel = buildLabel(s);
             const label = s.display_name || '';
             const location = [s.city, s.country_code || s.country].filter(Boolean).join(', ');
