@@ -46,23 +46,30 @@ usage() {
 ${C_INFO}runbin.sh${C_RST} - reproduce hotzone .bin captures locally
 
 ${C_OK}Usage:${C_RST}
-  $0 --file <path.bin> [--scene <Name>] [--speed 1|2|4]
+  $0 [<path.bin>] [--scene <Name>] [--speed 1|2|4] [--warmup <sec>]
   $0 --list
   $0 --help
 
 ${C_OK}Options:${C_RST}
-  --file <path>     Hotzone .bin file to replay (HZN2 binary format).
+  [<path.bin>]      Hotzone .bin to replay (HZN2 binary). May be given positionally
+                    or via --file. If omitted, the most recent capture in the
+                    pending dir is used.
+  --file <path>     Same as the positional argument.
   --list            List .bin captures in the pending hotzones dir and exit.
   --scene <name>    Override the scene baked in the .bin. Accepts a known name
                     (Dome_Crio, OdiseaExterior, ScaffoldOrbit, TestScene_v2) or a
                     res:// path. Useful to test a hotzone in a different scene.
   --speed <1|2|4>   Initial playback speed (default 1). Changeable in-player with
                     keys 1/2/4.
+  --warmup <sec>    Settle time before stepping inputs (default 1.5). The replay
+                    loops automatically when it reaches the end.
   --help            Show this help.
 
 ${C_OK}In-player controls:${C_RST}
-  Space  pause/resume      Left/Right  step backward/forward
-  1/2/4  speed 1x/2x/4x    Esc         quit
+  Space        pause/resume          1/2/4  speed 1x/2x/4x
+  Left/Right   step 1 frame          Esc    quit
+  Ctrl+Arrow   step 10 frames        Ctrl+Shift+Arrow  step 30 frames
+  (playback loops on finish; pausing also freezes the player animator)
 
 ${C_DIM}Pending dir: ${PENDING_DIR}${C_RST}
 EOF
@@ -87,25 +94,28 @@ list_bins() {
     fi
 }
 
+latest_bin() {
+    find "$PENDING_DIR" -maxdepth 1 -name '*.bin' -printf '%T@ %p\n' 2>/dev/null \
+        | sort -nr | head -1 | cut -d' ' -f2-
+}
+
 # --- Parse args ---
 FILE=""
 SCENE=""
 SPEED="1"
+WARMUP="1.5"
 DO_LIST=0
-
-if [ $# -eq 0 ]; then
-    usage
-    exit 1
-fi
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --file)  FILE="${2:-}"; shift 2 ;;
-        --scene) SCENE="${2:-}"; shift 2 ;;
-        --speed) SPEED="${2:-}"; shift 2 ;;
-        --list)  DO_LIST=1; shift ;;
+        --file)   FILE="${2:-}"; shift 2 ;;
+        --scene)  SCENE="${2:-}"; shift 2 ;;
+        --speed)  SPEED="${2:-}"; shift 2 ;;
+        --warmup) WARMUP="${2:-}"; shift 2 ;;
+        --list)   DO_LIST=1; shift ;;
         --help|-h) usage; exit 0 ;;
-        *) err "Unknown option: $1"; echo; usage; exit 1 ;;
+        -*) err "Unknown option: $1"; echo; usage; exit 1 ;;
+        *) FILE="$1"; shift ;;  # positional .bin path
     esac
 done
 
@@ -115,10 +125,15 @@ if [ "$DO_LIST" -eq 1 ]; then
 fi
 
 # --- Validate ---
+# No file given: fall back to the most recent capture in the pending dir.
 if [ -z "$FILE" ]; then
-    err "--file is required (or use --list)."
-    usage
-    exit 1
+    FILE="$(latest_bin)"
+    if [ -z "$FILE" ]; then
+        err "No .bin given and no captures found in $PENDING_DIR"
+        usage
+        exit 1
+    fi
+    info "No file given, using latest capture: $(basename "$FILE")"
 fi
 
 # Allow a bare basename to resolve against the pending dir for convenience.
@@ -141,6 +156,11 @@ case "$SPEED" in
     *) err "--speed must be 1, 2 or 4 (got: $SPEED)"; exit 1 ;;
 esac
 
+if ! [[ "$WARMUP" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    err "--warmup must be a non-negative number of seconds (got: $WARMUP)"
+    exit 1
+fi
+
 if ! command -v "$GODOT_BIN" >/dev/null 2>&1; then
     err "$GODOT_BIN not found in PATH."
     exit 1
@@ -149,14 +169,14 @@ fi
 ABS_FILE="$(cd "$(dirname "$FILE")" && pwd)/$(basename "$FILE")"
 
 # --- Launch ---
-ARGS=(--path "$PROJECT_PATH" --scene "$PLAYER_SCENE" --replay-file "$ABS_FILE" --replay-speed "$SPEED")
+ARGS=(--path "$PROJECT_PATH" --scene "$PLAYER_SCENE" --replay-file "$ABS_FILE" --replay-speed "$SPEED" --replay-warmup "$WARMUP")
 if [ -n "$SCENE" ]; then
     ARGS+=(--replay-scene "$SCENE")
     info "Scene override: $SCENE"
 fi
 
 info "Replaying: $ABS_FILE"
-info "Speed: ${SPEED}x"
+info "Speed: ${SPEED}x  Warmup: ${WARMUP}s  (loops on finish)"
 ok "Launching HotzonePlayer..."
 
 exec "$GODOT_BIN" "${ARGS[@]}"

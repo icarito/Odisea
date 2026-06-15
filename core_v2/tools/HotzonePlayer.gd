@@ -19,8 +19,15 @@ var replay_data := {}
 var frames := []
 var current_frame_idx := 0
 var playback_speed := 1.0
-var is_paused := true
+var is_paused := true setget _set_paused
 var player_node = null
+var player_animator = null
+# Let the scene settle (physics/animation tree warm up, first frames render)
+# before we start stepping inputs, so the measured replay isn't penalised by
+# load-tail jank. Configurable via --replay-warmup <seconds>.
+var warmup_sec := 1.5
+var _warmup_remaining := 0.0
+var _is_warming_up := false
 var initial_scene_path := ""
 var loaded_scene_node = null
 var scene_override := ""
@@ -37,6 +44,8 @@ func _ready():
 			scene_override = args[i + 1]
 		elif args[i] == "--replay-speed" and i + 1 < args.size():
 			playback_speed = max(1.0, float(args[i + 1]))
+		elif args[i] == "--replay-warmup" and i + 1 < args.size():
+			warmup_sec = max(0.0, float(args[i + 1]))
 
 	if replay_path == "":
 		_show_error("No replay file specified. Use --replay-file <path>")
@@ -106,7 +115,11 @@ func _prepare_scene():
 
 func _attach_loaded_scene():
 	get_tree().root.add_child(loaded_scene_node)
-	yield(get_tree(), "idle_frame")
+	# Let the scene's own startup run (player _ready, TeleportSystem.force_initial_spawn,
+	# deferred spawn placement) before we take over, otherwise those would overwrite
+	# the captured position right after we restore it.
+	for _i in range(4):
+		yield(get_tree(), "physics_frame")
 	_start_replay()
 
 func _resolve_scene_path(scene_name: String) -> String:
@@ -136,6 +149,10 @@ func _start_replay():
 
 	print("[HotzonePlayer] Player found. Initializing replay provider.")
 
+	# Cache the player's animator so we can freeze it whenever playback pauses.
+	if "animator" in player_node:
+		player_animator = player_node.animator
+
 	# Setup InputProvider
 	if not ("input_provider" in player_node):
 		_show_error("Player node lacks input_provider.")
@@ -158,9 +175,20 @@ func _start_replay():
 	# Initial positioning
 	_restore_frame_state(0)
 
-	is_paused = false
-	status_label.text = "Reproduciendo..."
-	status_label.modulate = Color(0.3, 1, 0.3)
+	# Warm up before stepping inputs so the replay is judged on steady-state perf.
+	if warmup_sec > 0.0:
+		_is_warming_up = true
+		_warmup_remaining = warmup_sec
+		is_paused = true
+		# Keep the animator running during warmup; we're settling the scene, not
+		# pausing it. _process counts the timer down and starts playback after.
+		_set_animator_active(true)
+		status_label.text = "Calentando... %.1fs" % _warmup_remaining
+		status_label.modulate = Color(1, 1, 0.3)
+	else:
+		is_paused = false
+		status_label.text = "Reproduciendo..."
+		status_label.modulate = Color(0.3, 1, 0.3)
 
 func _update_ui_metadata():
 	var trigger = replay_data.get("trigger", "auto")
@@ -188,6 +216,17 @@ func _update_ui_frame():
 		status_label.text = "Replay FPS: %.1f | Source FPS: %.1f" % [actual_fps, f.get("fps", 0.0)]
 
 func _process(delta):
+	if _is_warming_up:
+		_warmup_remaining -= delta
+		if _warmup_remaining <= 0.0:
+			_is_warming_up = false
+			is_paused = false
+			status_label.text = "Reproduciendo..."
+			status_label.modulate = Color(0.3, 1, 0.3)
+		else:
+			status_label.text = "Calentando... %.1fs" % _warmup_remaining
+		return
+
 	if is_instance_valid(player_node) and not is_paused:
 		# Handle speed-scaled playback
 		var frames_to_step = int(playback_speed)
@@ -207,10 +246,10 @@ func _unhandled_input(event):
 		is_paused = !is_paused
 		status_label.text = "Pausado" if is_paused else "Reproduciendo..."
 	elif event.is_action_pressed("ui_right"): # Right Arrow
-		_step_forward()
+		_seek_relative(_seek_step_for(event))
 		is_paused = true
 	elif event.is_action_pressed("ui_left"): # Left Arrow
-		_step_backward()
+		_seek_relative(-_seek_step_for(event))
 		is_paused = true
 	elif event is InputEventKey and event.pressed:
 		if event.scancode == KEY_1: _set_speed(1.0)
@@ -218,6 +257,31 @@ func _unhandled_input(event):
 		elif event.scancode == KEY_4: _set_speed(4.0)
 		elif event.scancode == KEY_ESCAPE:
 			get_tree().quit() # or return to menu
+
+# Arrow = 1 frame, Ctrl+Arrow = 10, Ctrl+Shift+Arrow = 30.
+func _seek_step_for(event) -> int:
+	if event is InputEventWithModifiers and event.control:
+		return 30 if event.shift else 10
+	return 1
+
+func _seek_relative(delta_frames: int) -> void:
+	var target = clamp(current_frame_idx + delta_frames, 0, frames.size() - 1)
+	# _restore_frame_state replays from the nearest snapshot, so it handles both
+	# forward and backward jumps correctly regardless of magnitude.
+	_restore_frame_state(target)
+	_update_ui_frame()
+
+func _set_paused(value: bool) -> void:
+	is_paused = value
+	# Freeze the player's animation whenever playback halts, so a paused frame
+	# isn't misleading (idle/locomotion blends would keep advancing otherwise).
+	_set_animator_active(not value)
+
+func _set_animator_active(active: bool) -> void:
+	if player_animator == null or not is_instance_valid(player_animator):
+		return
+	if "animation_tree" in player_animator and player_animator.animation_tree:
+		player_animator.animation_tree.active = active
 
 func _set_speed(s: float):
 	playback_speed = s
@@ -286,9 +350,10 @@ func _restore_frame_state(idx: int):
 		player_node.input_provider.playback_index = idx
 
 func _on_replay_finished():
-	is_paused = true
-	status_label.text = "Replay completo"
-	status_label.modulate = Color(1, 1, 0.3)
+	# Loop: rewind to the start and keep playing so the hotzone repeats.
+	print("[HotzonePlayer] Replay finished, looping.")
+	_restore_frame_state(0)
+	_update_ui_frame()
 
 func _exit_tree():
 	if is_instance_valid(loaded_scene_node):
