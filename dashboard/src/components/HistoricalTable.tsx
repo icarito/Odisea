@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, ChevronUp, Tag, Download } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, Tag, Download, Play } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
 import { getPlatform } from '../lib/filters';
 import { buildLabel } from '../lib/buildLabels';
 
-export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, onEditTag, hotzonesBySession, onDownloadHotzone }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null, onEditTag?: (playerId: string) => void, hotzonesBySession?: Record<string, any[]>, onDownloadHotzone?: (hotzoneId: string, label?: string) => void }) => {
+export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, onEditTag, hotzonesBySession, onDownloadHotzone, onPlayHotzone }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null, onEditTag?: (playerId: string) => void, hotzonesBySession?: Record<string, any[]>, onDownloadHotzone?: (hotzoneId: string, label?: string) => void, onPlayHotzone?: (hotzoneId: string) => void }) => {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [sortKey, setSortKey] = useState<'date' | 'fps'>('date');
   // Ticks every second so live-session uptime counts up in real time.
@@ -181,6 +181,17 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                 <span className={`shrink-0 border-2 px-2 py-1 text-[0.625rem] font-black ${tone.badge}`}>
                   {avgFps.toFixed(1)}
                 </span>
+                {onPlayHotzone && sessionHotzones.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onPlayHotzone(sessionHotzones[0].id); }}
+                    className="shrink-0 border-2 border-success bg-success/10 p-1 text-success hover:bg-success hover:text-black"
+                    title={`Reproducir hotzone${sessionHotzones.length > 1 ? ` (1 de ${sessionHotzones.length})` : ''} en Netlify`}
+                    aria-label="Reproducir hotzone de la sesión"
+                  >
+                    <Play size={14} fill="currentColor" />
+                  </button>
+                )}
                 {onDownloadHotzone && sessionHotzones.length > 0 && (
                   <button
                     type="button"

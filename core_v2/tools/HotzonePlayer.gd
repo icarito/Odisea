@@ -36,6 +36,29 @@ func _ready():
 	# Parse command line: --replay-file (required), --replay-scene (override the
 	# scene baked in the .bin), --replay-speed (initial 1/2/4x playback speed).
 	var replay_path = ""
+
+	if OS.has_feature("web"):
+		var js = JavaScript.get_interface("OdiseaShell")
+		if js != null and js.pendingRunbin != null:
+			print("[HotzonePlayer] Binary data found in OdiseaShell.pendingRunbin")
+			var buf = js.pendingRunbin
+			replay_path = "user://hotzones/remote.bin"
+			
+			var dir = Directory.new()
+			if not dir.dir_exists("user://hotzones"):
+				dir.make_dir_recursive("user://hotzones")
+				
+			var f = File.new()
+			if f.open(replay_path, File.WRITE) == OK:
+				f.store_buffer(buf)
+				f.close()
+				print("[HotzonePlayer] Persisted remote binary to user://hotzones/remote.bin")
+			else:
+				printerr("[HotzonePlayer] Failed to write remote binary to user://hotzones/remote.bin")
+				replay_path = ""
+			
+			js.pendingRunbin = null
+
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):
 		if args[i] == "--replay-file" and i + 1 < args.size():

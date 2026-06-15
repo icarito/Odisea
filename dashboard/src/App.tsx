@@ -27,7 +27,7 @@ import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
-import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone } from './api';
+import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone, getHotzoneDownloadLink } from './api';
 import {
   KNOWN_PLATFORMS,
   getPlatform,
@@ -37,7 +37,7 @@ import {
   isUsefulSceneName,
   formatFpsLabel,
 } from './lib/filters';
-import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2 } from 'lucide-react';
+import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play } from 'lucide-react';
 
 type Tab = 'live' | 'heatmap' | 'history' | 'mapa';
 
@@ -203,7 +203,7 @@ const countryFlag = (countryCode?: string | null): string => {
   return Array.from(code).map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
 };
 
-const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void }) => {
+const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
   const cleanSessions = useMemo(() => sessions.filter(isDashboardSession), [sessions]);
   // Map player_id -> display name from the (already tag-enriched) session rows,
   // so the hotzone list can show a friendly label instead of the raw id.
@@ -362,6 +362,17 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzon
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
+                  {onPlayHotzone && (
+                    <button
+                      type="button"
+                      onClick={() => onPlayHotzone(hz.id)}
+                      className="border-2 border-success bg-success/10 p-1.5 text-success hover:bg-success hover:text-black"
+                      title="Reproducir en Netlify"
+                      aria-label="Reproducir captura hotzone"
+                    >
+                      <Play size={14} fill="currentColor" />
+                    </button>
+                  )}
                   {onDownloadHotzone && (
                     <button
                       type="button"
@@ -969,6 +980,17 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   // Playback loading flag (history -> playback fetch).
   const [playbackLoading, setPlaybackLoading] = useState(false);
+
+  // Play a hotzone in the Netlify build by generating a signed runbin URL.
+  const handlePlayHotzone = useCallback(async (hotzoneId: string) => {
+    try {
+      const { url } = await getHotzoneDownloadLink(hotzoneId);
+      const runbinUrl = `https://odisea-game.netlify.app/?runbin=${encodeURIComponent(url)}`;
+      window.open(runbinUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      notify.error('No se pudo generar el enlace de reproducción');
+    }
+  }, []);
 
   // Heatmap State
   const [heatmapRes, setHeatmapRes] = useState(5);
@@ -2268,7 +2290,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 resolution={heatmapRes}
                 scene={heatmapTargetScene}
                 hotzones={heatmapHotzones}
-                onSelectHotzone={(hz) => handleDownloadHotzone(hz.id, hz.display_name || hz.player_id || 'hotzone')}
+                onSelectHotzone={(hz) => handlePlayHotzone(hz.id)}
               />
             </Suspense>
             {heatmapHotzones.length > 0 && (
@@ -2289,16 +2311,16 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                       >
                         <button
                           type="button"
-                          onClick={() => handleDownloadHotzone(hz.id, label)}
+                          onClick={() => handlePlayHotzone(hz.id)}
                           className="flex min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1 text-left hover:bg-accent hover:text-black"
-                          title="Descargar ghost de hotzone"
+                          title="Reproducir captura en Netlify"
                         >
                           <span className="min-w-0 truncate">
                             {label} · {hz.trigger_type || 'auto'}
                           </span>
                           <span className="flex shrink-0 items-center gap-1 text-[0.5625rem]">
                             {ts ? new Date(ts * 1000).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : ''}
-                            <Download size={12} />
+                            <Play size={12} fill="currentColor" />
                           </span>
                         </button>
                         <button
@@ -2354,6 +2376,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   onEditTag={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
                   hotzonesBySession={hotzonesBySession}
                   onDownloadHotzone={handleDownloadHotzone}
+                  onPlayHotzone={handlePlayHotzone}
                 />
               </div>
             </RetroCard>
@@ -2362,7 +2385,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className={`min-h-0 overflow-y-auto ${historyMobileView === 'list' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
-                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} />
+                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">

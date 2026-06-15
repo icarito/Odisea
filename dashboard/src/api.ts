@@ -160,6 +160,12 @@ export async function getHotzones() {
   return response.json();
 }
 
+// Get a signed download link for a hotzone (valid for 5 mins).
+export async function getHotzoneDownloadLink(hotzoneId: string): Promise<{ url: string }> {
+  const response = await apiFetch(`/hotzones/${encodeURIComponent(hotzoneId)}/dl-link`);
+  return response.json();
+}
+
 // Download a hotzone ghost binary as an authenticated blob and save it. The
 // endpoint needs the Bearer token, so a plain <a download> link won't work.
 export async function downloadHotzone(hotzoneId: string, suggestedName?: string) {
