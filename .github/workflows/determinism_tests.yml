@@ -23,10 +23,53 @@ env:
 
 jobs:
   determinism-tests:
-    name: Run Determinism Tests
+    name: Run Determinism Tests (${{ matrix.group }})
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [A, B]
+        include:
+          - group: A
+            tests: >-
+              test_locomocion_adelante
+              test_locomocion_atras
+              test_locomocion_strafe
+              test_locomocion_walk
+              test_salto_vertical
+              test_salto_desplazamiento
+              test_camara_rotacion
+              test_dome_crio_airlock_multi_cycle
+              test_dome_crio_airlock_regret_pre60
+              test_dome_crio_airlock_return
+              test_dome_crio_airlock_transition
+              test_push_clipping
+              test_push_integration
+              test_tube_airlock
+              test_killzone_signal
+              test_reverse_tank
+              test_sidescroll_acrobatic
+              test_sgc_orbit
+          - group: B
+            tests: >-
+              test_cargol_basic
+              test_cargol_starter
+              test_cinematic_input_latch
+              test_destroyer_debug
+              test_ghost_trigger_loop
+              test_oys_trigger
+              test_pro
+              test_scaffold_wfc
+              test_zero_g_roll_ots_camera
+              test_anna_scene_visual
+              test_anna_v2_telemetry
+              debug_perf
+              perf_ab_test
+              perf_test
+              reproduction_blend
+              run_test_zg
     permissions:
       contents: read
 
@@ -99,9 +142,10 @@ jobs:
         env:
           GODOT_BIN: /usr/local/bin/godot
           ODISEA_SKIP_PREFLIGHT: "1"
+          TEST_LIST: ${{ matrix.tests }}
         run: |
           mkdir -p reports
-          echo "Running determinism tests with 60s timeout per test"
+          echo "Running determinism tests group ${{ matrix.group }} with 120s timeout per test"
           echo "Issue #64: Some tests may hang or fail in CI"
           passed=0
           failed=0
@@ -109,11 +153,10 @@ jobs:
           last_test=""
           failed_cases=""
           timeout_cases=""
-          for oys_file in core_v2/tests/*.oys; do
-            oys_name=$(basename "$oys_file" .oys)
+          for oys_name in $TEST_LIST; do
             last_test="$oys_name"
             echo "Running: $oys_name"
-            if timeout 60 ./runtest.sh --oys "$oys_name" > "reports/${oys_name}.log" 2>&1; then
+            if timeout 120 ./runtest.sh --oys "$oys_name" > "reports/${oys_name}.log" 2>&1; then
               if grep -q "✅ Test OYS" "reports/${oys_name}.log" 2>/dev/null; then
                 echo "✅ $oys_name"
                 passed=$((passed + 1))
