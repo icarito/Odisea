@@ -379,7 +379,8 @@ $GODOT_HEAD_INCLUDE
 					session_id: sessionId,
 					total_ms: Date.now() - loaderStartMs
 				});
-			}
+			},
+			pendingRunbin: null
 		};
 
 		// --- Popup (error / slow-load watchdog) ---
@@ -452,21 +453,50 @@ $GODOT_HEAD_INCLUDE
 			}, 600);
 		}
 
-		var engine = new Engine($GODOT_CONFIG);
-		engine.startGame({
-			onProgress: function(current, total) {
-				var t = (total > 0 && total >= current) ? total : EXPECTED_TOTAL_BYTES;
-				if (t > 0) {
-					barFillEl.style.width = Math.min(100, current / t * 100).toFixed(1) + "%";
+		var godotConfig = $GODOT_CONFIG;
+		var runbinUrl = new URLSearchParams(window.location.search).get("runbin");
+
+		async function startGodot() {
+			if (runbinUrl) {
+				loreEl.textContent = "Descargando captura de rendimiento...";
+				try {
+					var resp = await fetch(runbinUrl);
+					if (!resp.ok) throw new Error("HTTP " + resp.status);
+					var binBuf = await resp.arrayBuffer();
+					window.OdiseaShell.pendingRunbin = binBuf;
+					console.log("[Runbin] Downloaded " + binBuf.byteLength + " bytes");
+					loreEl.textContent = "Cargando captura en el motor...";
+					// Force HotzonePlayer scene
+					godotConfig.canvasResizePolicy = 1;
+					if (!godotConfig.args) godotConfig.args = [];
+					godotConfig.args.push("--main-loop", "res://core_v2/tools/HotzonePlayer.tscn");
+				} catch (err) {
+					clearInterval(loreTimer);
+					loreEl.textContent = "Error al descargar captura: " + err.message;
+					console.error("[Runbin] Download failed:", err);
+					showPopup(POPUP_ERROR_MSG);
+					return;
 				}
-			},
-			onComplete: onEngineStarted
-		}).then(onEngineStarted).catch(function(err) {
-			clearInterval(loreTimer);
-			loreEl.textContent = "Error al cargar. Recarga la página.";
-			console.error("[ODiSEA] Engine start failed:", err);
-			showPopup(POPUP_ERROR_MSG);
-		});
+			}
+
+			var engine = new Engine(godotConfig);
+			engine.startGame({
+				onProgress: function(current, total) {
+					var t = (total > 0 && total >= current) ? total : EXPECTED_TOTAL_BYTES;
+					if (t > 0) {
+						barFillEl.style.width = Math.min(100, current / t * 100).toFixed(1) + "%";
+					}
+				},
+				onComplete: onEngineStarted
+			}).then(onEngineStarted).catch(function(err) {
+				clearInterval(loreTimer);
+				loreEl.textContent = "Error al cargar. Recarga la página.";
+				console.error("[ODiSEA] Engine start failed:", err);
+				showPopup(POPUP_ERROR_MSG);
+			});
+		}
+
+		startGodot();
 	</script>
 </body>
 </html>

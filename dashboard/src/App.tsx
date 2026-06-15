@@ -27,7 +27,7 @@ import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
-import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone } from './api';
+import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone, getHotzoneDownloadLink, buildRunbinUrl } from './api';
 import {
   KNOWN_PLATFORMS,
   getPlatform,
@@ -203,7 +203,7 @@ const countryFlag = (countryCode?: string | null): string => {
   return Array.from(code).map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
 };
 
-const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void }) => {
+const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayRunbin }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayRunbin?: (hotzoneId: string, label?: string) => void; }) => {
   const cleanSessions = useMemo(() => sessions.filter(isDashboardSession), [sessions]);
   // Map player_id -> display name from the (already tag-enriched) session rows,
   // so the hotzone list can show a friendly label instead of the raw id.
@@ -371,6 +371,17 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzon
                       aria-label="Descargar captura hotzone"
                     >
                       <Download size={14} />
+                    </button>
+                  )}
+                  {onPlayRunbin && (
+                    <button
+                      type="button"
+                      onClick={() => onPlayRunbin(hz.id, name)}
+                      className="border-2 border-[#44cc44] bg-[#44cc44]/10 p-1.5 text-[#44cc44] hover:bg-[#44cc44] hover:text-black"
+                      title="Reproducir en Netlify"
+                      aria-label="Reproducir hotzone en Netlify"
+                    >
+                      ▶
                     </button>
                   )}
                   {onDeleteHotzone && (
@@ -1299,6 +1310,17 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       notify.success('Hotzone descargada');
     } catch {
       notify.error('No se pudo descargar la hotzone');
+    }
+  }, []);
+
+  // Fetch a signed URL and open the HTML5 build with ?runbin=  to replay the hotzone in the browser.
+  const handlePlayRunbin = useCallback(async (hotzoneId: string, label?: string) => {
+    try {
+      const { url } = await getHotzoneDownloadLink(hotzoneId);
+      window.open(buildRunbinUrl(url), '_blank');
+      notify.success('Abriendo captura en Netlify...');
+    } catch {
+      notify.error('No se pudo generar enlace de reproducción');
     }
   }, []);
 
@@ -2362,7 +2384,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className={`min-h-0 overflow-y-auto ${historyMobileView === 'list' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
-                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} />
+                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayRunbin={handlePlayRunbin} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">

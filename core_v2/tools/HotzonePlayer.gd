@@ -33,22 +33,43 @@ var loaded_scene_node = null
 var scene_override := ""
 
 func _ready():
+	var replay_path = ""
+
+	# Web path: receive binary from JavaScript shared via OdiseaShell.pendingRunbin
+	if OS.has_feature("web"):
+		var js = JavaScript.get_interface("OdiseaShell")
+		if js != null and js.pendingRunbin != null:
+			var buf = js.pendingRunbin
+			replay_path = "user://hotzones/remote.bin"
+			var dir = Directory.new()
+			dir.make_dir_recursive("user://hotzones")
+			var f = File.new()
+			if f.open(replay_path, File.WRITE) == OK:
+				f.store_buffer(buf)
+				f.close()
+				print("[HotzonePlayer] Saved web binary to ", replay_path, " (", buf.size(), " bytes)")
+			else:
+				_show_error("Could not save web binary to user://")
+				return
+			# Clear so it doesn't persist on reload
+			js.pendingRunbin = null
+
 	# Parse command line: --replay-file (required), --replay-scene (override the
 	# scene baked in the .bin), --replay-speed (initial 1/2/4x playback speed).
-	var replay_path = ""
-	var args = OS.get_cmdline_args()
-	for i in range(args.size()):
-		if args[i] == "--replay-file" and i + 1 < args.size():
-			replay_path = args[i + 1]
-		elif args[i] == "--replay-scene" and i + 1 < args.size():
-			scene_override = args[i + 1]
-		elif args[i] == "--replay-speed" and i + 1 < args.size():
-			playback_speed = max(1.0, float(args[i + 1]))
-		elif args[i] == "--replay-warmup" and i + 1 < args.size():
-			warmup_sec = max(0.0, float(args[i + 1]))
+	if replay_path == "":
+		var args = OS.get_cmdline_args()
+		for i in range(args.size()):
+			if args[i] == "--replay-file" and i + 1 < args.size():
+				replay_path = args[i + 1]
+			elif args[i] == "--replay-scene" and i + 1 < args.size():
+				scene_override = args[i + 1]
+			elif args[i] == "--replay-speed" and i + 1 < args.size():
+				playback_speed = max(1.0, float(args[i + 1]))
+			elif args[i] == "--replay-warmup" and i + 1 < args.size():
+				warmup_sec = max(0.0, float(args[i + 1]))
 
 	if replay_path == "":
-		_show_error("No replay file specified. Use --replay-file <path>")
+		_show_error("No replay file specified.")
 		return
 
 	if not _load_binary(replay_path):

@@ -1357,9 +1357,28 @@ class OdiseaCentral:
             return web.json_response({"error": str(e)}, status=500)
 
     async def handle_hotzone_download(self, request):
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
+        # Accept either Bearer token (dashboard) or ?runbin_token= (signed URL for HTML5)
+        token = request.query.get("runbin_token")
+        if token:
+            try:
+                parts = token.split(":")
+                if len(parts) != 2:
+                    return web.json_response({"error": "invalid_token"}, status=401)
+                expiry, sig = parts
+                expiry_int = int(expiry)
+                if time.time() > expiry_int:
+                    return web.json_response({"error": "token_expired"}, status=401)
+                hz_id = request.match_info.get('id')
+                payload = f"{hz_id}:{expiry_int}"
+                expected = hmac.new(BRIDGE_TOKEN.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+                if sig != expected:
+                    return web.json_response({"error": "invalid_signature"}, status=401)
+            except (ValueError, IndexError):
+                return web.json_response({"error": "invalid_token"}, status=401)
+        else:
+            guard = self._auth_guard(request)
+            if guard is not None:
+                return guard
 
         hz_id = request.match_info.get('id')
         try:
@@ -1373,9 +1392,11 @@ class OdiseaCentral:
 
             fpath = await self._run_query(fetch)
             if fpath and os.path.exists(fpath):
-                return web.FileResponse(fpath, headers={
+                resp = web.FileResponse(fpath, headers={
                     "Content-Disposition": f'attachment; filename="hotzone_{hz_id}.bin"'
                 })
+                resp.headers["Access-Control-Allow-Origin"] = "*"
+                return resp
             return web.Response(status=404, text="Hotzone not found")
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
@@ -1408,6 +1429,37 @@ class OdiseaCentral:
                     logger.warning(f"Hotzone {hz_id} row deleted but blob removal failed: {exc}")
             logger.info(f"Hotzone deleted: {hz_id}")
             return web.json_response({"ok": True, "id": hz_id})
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_hotzone_dl_link(self, request):
+        """Generate a signed temporary URL for hotzone download (runnable in HTML5 build)."""
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        hz_id = request.match_info.get('id')
+        try:
+            def fetch():
+                conn = self._get_db()
+                cursor = conn.cursor()
+                cursor.execute("SELECT file_path FROM hotzones WHERE id = ?", (hz_id,))
+                row = cursor.fetchone()
+                conn.close()
+                return row[0] if row else None
+
+            fpath = await self._run_query(fetch)
+            if not fpath or not os.path.exists(fpath):
+                return web.json_response({"error": "not_found"}, status=404)
+
+            expiry = int(time.time()) + 300  # 5 min TTL
+            payload = f"{hz_id}:{expiry}"
+            sig = hmac.new(BRIDGE_TOKEN.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+            token = f"{expiry}:{sig}"
+            base_url = f"{request.scheme}://{request.host}"
+            download_url = f"{base_url}/hotzones/{hz_id}/download?runbin_token={token}"
+            logger.info(f"Hotzone dl-link generated: {hz_id} (expires in 5m)")
+            return web.json_response({"url": download_url})
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
@@ -2979,6 +3031,7 @@ class OdiseaCentral:
             web.post('/hotzone', self.handle_hotzone_upload),
             web.get('/hotzones', self.handle_hotzones_list),
             web.get('/hotzones/{id}/download', self.handle_hotzone_download),
+            web.get('/hotzones/{id}/dl-link', self.handle_hotzone_dl_link),
             web.delete('/hotzones/{id}', self.handle_hotzone_delete),
             web.post('/command', self.handle_command),
             web.get('/health', self.handle_health),

@@ -176,6 +176,20 @@ export async function downloadHotzone(hotzoneId: string, suggestedName?: string)
   URL.revokeObjectURL(url);
 }
 
+// Get a signed download-link for reproducing a hotzone in the HTML5 build.
+export async function getHotzoneDownloadLink(hotzoneId: string) {
+  const response = await apiFetch(`/hotzones/${encodeURIComponent(hotzoneId)}/dl-link`);
+  if (!response.ok) throw new Error(`dl-link failed (${response.status})`);
+  return response.json(); // { url: "..." }
+}
+
+const NETLIFY_BUILD_URL = "https://odisea.netlify.app";
+
+// Generate a URL that can be passed to the HTML5 build to auto-play a hotzone.
+export function buildRunbinUrl(signedUrl: string): string {
+  return `${NETLIFY_BUILD_URL}/?runbin=${encodeURIComponent(signedUrl)}`;
+}
+
 // Delete a hotzone ghost (DB row + backing blob) on the central server.
 export async function deleteHotzone(hotzoneId: string) {
   const response = await apiFetch(`/hotzones/${encodeURIComponent(hotzoneId)}`, {
