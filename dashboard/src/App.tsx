@@ -22,7 +22,7 @@ import { DashboardLayout } from './components/DashboardLayout';
 import { PlayerBottomSheet } from './components/PlayerBottomSheet';
 import { FiltersDrawer, FiltersSidebar, type SceneFilterOption, type CountryFilterOption } from './components/FiltersDrawer';
 import { LiveCombinedChart } from './components/LiveCombinedChart';
-import { RetroCard, RetroButton } from './components/retro';
+import { RetroCard, RetroButton, CollapsibleCard } from './components/retro';
 import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { useTelemetry } from './hooks/useTelemetry';
@@ -39,7 +39,7 @@ import {
 } from './lib/filters';
 import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play } from 'lucide-react';
 
-type Tab = 'live' | 'heatmap' | 'history' | 'mapa';
+type Tab = 'live' | 'heatmap' | 'history' | 'mapa' | 'stats';
 
 type GitCommit = {
   sha: string;
@@ -203,15 +203,8 @@ const countryFlag = (countryCode?: string | null): string => {
   return Array.from(code).map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
 };
 
-const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
+const StatsOverview = ({ sessions }: { sessions: any[] }) => {
   const cleanSessions = useMemo(() => sessions.filter(isDashboardSession), [sessions]);
-  // Map player_id -> display name from the (already tag-enriched) session rows,
-  // so the hotzone list can show a friendly label instead of the raw id.
-  const nameByPlayer = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const s of sessions) if (s.player_id && s.display_name) m[s.player_id] = s.display_name;
-    return m;
-  }, [sessions]);
 
   const fpsSeries = useMemo(() => (
     cleanSessions
@@ -241,8 +234,6 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzon
       });
       const code = String(session.country_code || '').toUpperCase();
       const country = String(session.country || '').trim();
-      // Skip sessions whose geo couldn't be resolved — "unknown" isn't a country
-      // and would otherwise dominate the top-countries list as noise.
       const isUnknown = (!code && (!country || country.toLowerCase() === 'unknown'));
       if (!isUnknown) {
         const key = code || country;
@@ -344,7 +335,21 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzon
           </div>
         </RetroCard>
       </div>
+    </div>
+  );
+};
 
+const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
+  // Map player_id -> display name from the (already tag-enriched) session rows,
+  // so the hotzone list can show a friendly label instead of the raw id.
+  const nameByPlayer = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const s of sessions) if (s.player_id && s.display_name) m[s.player_id] = s.display_name;
+    return m;
+  }, [sessions]);
+
+  return (
+    <div className="flex min-h-full flex-col gap-4">
       {/* Hotzone captures — performance ghosts uploaded by the game, newest first. */}
       <RetroCard title={`Capturas hotzone${hotzones && hotzones.length ? ` (${hotzones.length})` : ''}`}>
         <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
@@ -961,7 +966,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   // Live tab view toggle: dashboard, 2D birdseye map, or 3D perspective.
-  const [liveView, setLiveView] = useState<'dashboard' | 'birdseye' | '3d'>('birdseye');
+  const [liveView, setLiveView] = useState<'dashboard' | 'birdseye' | '3d'>('dashboard');
   // CSS overlay fullscreen for the 3D canvas (NOT the browser Fullscreen API,
   // which is unreliable on mobile).
   const [fs3d, setFs3d] = useState(false);
@@ -1987,34 +1992,43 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               /* Stripe layout: charts on top, info cards below. */
               <div className="flex h-full min-h-0 flex-col">
                 {/* Top stripe: live combined FPS/Memory chart, else Sessions/day */}
-                <div className="flex min-h-0 flex-[1.1] flex-col border-b-2 border-black bg-bg-card/40">
-                  <div className="flex shrink-0">
-                    {(activeHistory
-                      ? ([['live', 'FPS / Memoria'], ['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
-                      : ([['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
-                    ).map(([id, label]) => {
-                      const effectiveTab = activeHistory ? dashStripeTab : (dashStripeTab === 'live' ? 'sessions' : dashStripeTab);
-                      return (
-                        <button
-                          key={id}
-                          onClick={() => setDashStripeTab(id)}
-                          className={`subtab-btn ${effectiveTab === id ? 'subtab-btn-active' : ''}`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+                <CollapsibleCard
+                  title="Performance Charts"
+                  storageKey="live_charts_collapsed"
+                  defaultOpen={true}
+                  resizable={true}
+                  initialHeight={320}
+                  className="shrink-0 border-x-0 border-t-0"
+                >
+                  <div className="flex h-full flex-col bg-bg-card/40">
+                    <div className="flex shrink-0">
+                      {(activeHistory
+                        ? ([['live', 'FPS / Memoria'], ['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
+                        : ([['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
+                      ).map(([id, label]) => {
+                        const effectiveTab = activeHistory ? dashStripeTab : (dashStripeTab === 'live' ? 'sessions' : dashStripeTab);
+                        return (
+                          <button
+                            key={id}
+                            onClick={() => setDashStripeTab(id)}
+                            className={`subtab-btn ${effectiveTab === id ? 'subtab-btn-active' : ''}`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="min-h-0 flex-1 p-3">
+                      {activeHistory && dashStripeTab === 'live' ? (
+                        <LiveCombinedChart history={activeHistory} />
+                      ) : dashStripeTab === 'versions' ? (
+                        <CommitsFpsChart sessions={filteredDashboardSessions} commits={commits} />
+                      ) : (
+                        <SessionsPerDayChart sessions={filteredDashboardSessions} />
+                      )}
+                    </div>
                   </div>
-                  <div className="min-h-0 flex-1 p-3">
-                    {activeHistory && dashStripeTab === 'live' ? (
-                      <LiveCombinedChart history={activeHistory} />
-                    ) : dashStripeTab === 'versions' ? (
-                      <CommitsFpsChart sessions={filteredDashboardSessions} commits={commits} />
-                    ) : (
-                      <SessionsPerDayChart sessions={filteredDashboardSessions} />
-                    )}
-                  </div>
-                </div>
+                </CollapsibleCard>
                 {/* Bottom stripe: info cards (historical summary) */}
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <div className="p-4 sm:p-6 pb-0">
@@ -2295,13 +2309,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               />
             </Suspense>
             {heatmapHotzones.length > 0 && (
-              <div className="absolute bottom-3 right-3 z-10 max-h-44 w-72 max-w-[calc(100%-1.5rem)] overflow-y-auto border-2 border-black bg-bg-card/95 p-2 shadow-[2px_2px_0px_0px_black]">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="text-[0.625rem] font-black uppercase text-text-muted">
-                    Hotzones ({heatmapHotzones.length})
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1">
+              <CollapsibleCard
+                title="Hotzones"
+                count={heatmapHotzones.length}
+                storageKey="heatmap_hotzones_collapsed"
+                defaultOpen={false}
+                className="absolute bottom-3 right-3 z-10 w-72 max-w-[calc(100%-1.5rem)] bg-bg-card/95"
+              >
+                <div className="flex flex-col gap-1 p-2 max-h-40">
                   {heatmapHotzones.slice(0, 8).map((hz) => {
                     const label = hz.display_name || hz.player_id || 'hotzone';
                     const ts = Number(hz.timestamp || 0);
@@ -2336,12 +2351,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     );
                   })}
                 </div>
-              </div>
+              </CollapsibleCard>
             )}
             </>
             )}
           </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'stats' && (
+        <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
+          <StatsOverview sessions={historySessionsWithGeo} />
         </div>
       )}
 
