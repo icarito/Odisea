@@ -41,23 +41,27 @@ func _ready():
 		var js = JavaScript.get_interface("OdiseaShell")
 		if js != null and js.pendingRunbin != null:
 			print("[HotzonePlayer] Binary data found in OdiseaShell.pendingRunbin")
-			var buf = js.pendingRunbin
-			replay_path = "user://hotzones/remote.bin"
-			
-			var dir = Directory.new()
-			if not dir.dir_exists("user://hotzones"):
-				dir.make_dir_recursive("user://hotzones")
-				
-			var f = File.new()
-			if f.open(replay_path, File.WRITE) == OK:
-				f.store_buffer(buf)
-				f.close()
-				print("[HotzonePlayer] Persisted remote binary to user://hotzones/remote.bin")
-			else:
-				printerr("[HotzonePlayer] Failed to write remote binary to user://hotzones/remote.bin")
-				replay_path = ""
-			
+			# The shell hands us the .bin as a base64 string: Godot 3's JS bridge
+			# can't marshal an ArrayBuffer into a PoolByteArray, so we decode here.
+			var b64 = String(js.pendingRunbin)
+			var buf = Marshalls.base64_to_raw(b64)
 			js.pendingRunbin = null
+
+			if buf.size() == 0:
+				printerr("[HotzonePlayer] Decoded remote binary is empty (bad base64?)")
+			else:
+				var dir = Directory.new()
+				if not dir.dir_exists("user://hotzones"):
+					dir.make_dir_recursive("user://hotzones")
+
+				var f = File.new()
+				if f.open("user://hotzones/remote.bin", File.WRITE) == OK:
+					f.store_buffer(buf)
+					f.close()
+					replay_path = "user://hotzones/remote.bin"
+					print("[HotzonePlayer] Persisted %d bytes to user://hotzones/remote.bin" % buf.size())
+				else:
+					printerr("[HotzonePlayer] Failed to write remote binary to user://hotzones/remote.bin")
 
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):

@@ -602,9 +602,9 @@ func _inject_worker():
 	Engine.get_singleton("JavaScript").eval("""
 (function(){
 if (window.Hotzone_Worker_Bridge) return;
-var w = new Worker(URL.createObjectURL(new Blob([
+var w = new Worker(URL.createObjectURL(new Blob([[
 \"""" + worker_code + """\"
-].join('\\n'),{type:'application/javascript'})));
+].join('\\n')],{type:'application/javascript'})));
 var results = {};
 w.onmessage = function(ev) {
 	results[ev.data.id] = ev.data;

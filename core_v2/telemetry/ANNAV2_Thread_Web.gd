@@ -121,7 +121,7 @@ func _inject_bridge():
 	Engine.get_singleton("JavaScript").eval("""
 (function(){
 if (window.ANNAV2_WS_Bridge) return;
-var w = new Worker(URL.createObjectURL(new Blob([
+var w = new Worker(URL.createObjectURL(new Blob([[
 "var ws=null,pi=[];",
 "self.onmessage=function(e){var m=e.data;",
 "switch(m.cmd){",
@@ -139,7 +139,7 @@ var w = new Worker(URL.createObjectURL(new Blob([
 "case'poll':var n=m.max||16;self.postMessage({cmd:'pollResult',messages:pi.splice(0,n)});break;",
 "case'getState':self.postMessage({cmd:'state',state:ws?ws.readyState:3});break;",
 "}}"
-].join('\\n'),{type:'application/javascript'})));
+].join('\\n')],{type:'application/javascript'})));
 var iq=[],cs=3;
 w.onmessage=function(ev){var m=ev.data;
 if(m.cmd==='pollResult'&&m.messages&&m.messages.length)iq.push.apply(iq,m.messages);

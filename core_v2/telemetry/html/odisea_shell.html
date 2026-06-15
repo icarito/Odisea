@@ -490,7 +490,16 @@ $GODOT_HEAD_INCLUDE
 					return response.arrayBuffer();
 				})
 				.then(function(buffer) {
-					window.OdiseaShell.pendingRunbin = buffer;
+					// Godot 3's JavaScript.get_interface() cannot marshal a raw
+					// ArrayBuffer into a PoolByteArray, so hand the bytes to GDScript
+					// as a base64 string (decoded there with Marshalls.base64_to_raw).
+					var bytes = new Uint8Array(buffer);
+					var binary = "";
+					var CHUNK = 0x8000; // avoid arg-count limits on String.fromCharCode
+					for (var i = 0; i < bytes.length; i += CHUNK) {
+						binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+					}
+					window.OdiseaShell.pendingRunbin = btoa(binary);
 					bootEngine();
 				})
 				.catch(function(err) {
