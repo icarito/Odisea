@@ -118,9 +118,11 @@ export(int, 1, 30) var collision_update_interval := 3
 # dejando un hueco de 49u entre boxes. Escalar a 1.3 da extents=130 -> solape.
 export(float, 1.0, 3.0) var collision_pool_xz_scale := 1.3
 # Radio (en plates) de la búsqueda que reposiciona el centro del pool sobre la plate
-# realmente más cercana al jugador. Debe superar el peor "lag" de la selección con
-# histéresis para que el pool nunca quede detrás del jugador. Búsqueda por franja barata.
-export(int, 2, 64) var pool_center_search_radius := 24
+# realmente más cercana al jugador. Con el pool reasignado cada frame y el jugador
+# moviéndose ≤1 plate/frame, un radio pequeño basta y mantiene el costo bajo (la
+# búsqueda escanea radio×2+1 plates por espiral cada frame). 24 era para absorber el
+# lag de la selección atascada, ya innecesario.
+export(int, 2, 64) var pool_center_search_radius := 6
 # Cuántas plates a cada lado del centro recibe collider por espiral. Con el pool
 # reasignado cada frame ±1 (3 plates) basta; subir requiere más slots en el pool.
 export(int, 1, 6) var pool_plate_window_radius := 1
@@ -155,6 +157,16 @@ var _scene_anchor_resolved_plate_index := -1
 var _collision_pool: Array = []        # Array[StaticBody]
 var _pool_assignments: Array = []      # Array[Dictionary]
 var _pool_update_counter: int = 0
+# Última plate-centro usada para asignar el pool. Si no cambia, el pool ya cubre las
+# plates correctas y nos saltamos el costoso recálculo de candidatos (los transforms se
+# sincronizan aparte cada frame vía _sync_pool_transforms_to_world).
+var _pool_last_center_spiral: int = -1
+var _pool_last_center_plate: int = -1
+# Radio² de la huella de la plate-centro (distancia² hasta la cual seguimos considerando
+# que el jugador está sobre la misma plate). Se calcula de la separación real entre plates
+# adyacentes la primera vez. Conservador: ~0.45× la separación para no retener una plate
+# cuando el jugador ya cruzó a la siguiente.
+var _pool_center_footprint_sq: float = 100.0
 var _spiral_extents_cache: Dictionary = {}  # spiral_index (int) -> Vector3
 var _target_plate_query_counter: int = 0
 var _switch_cooldown_left: int = 0  # frames remaining before another plate switch is allowed
@@ -720,6 +732,39 @@ func _get_plate_dist_sq_for_indices(spiral_index: int, plate_index: int, canonic
 
 # Busca la plate más cercana dentro de la franja _selected_plate_index ± strip_radius
 # en todas las espirales. No usa sqrt ni itera plates lejanas.
+# Calcula el radio² de huella de la separación real entre la plate-centro y su vecina.
+func _update_pool_center_footprint(spiral_index: int, plate_index: int) -> void:
+	if spiral_index < 0 or spiral_index >= _registered_platforms.size():
+		return
+	var spiral: Spatial = _registered_platforms[spiral_index]
+	var cached_list = spiral.get("_cached_transforms")
+	if cached_list == null or not (cached_list is Array) or (cached_list as Array).size() < 2:
+		return
+	var pc: int = (cached_list as Array).size()
+	var a: Vector3 = (cached_list[plate_index] as Transform).origin
+	var nb: Vector3 = (cached_list[_wrap_index(plate_index + 1, pc)] as Transform).origin
+	var spacing: float = a.distance_to(nb)
+	if spacing > 0.001:
+		# 0.45× la separación, al cuadrado. Conservador para no retener una plate ya cruzada.
+		var r: float = spacing * 0.45
+		_pool_center_footprint_sq = r * r
+
+# True si el jugador sigue dentro de la huella de la plate-centro cacheada. Evita el
+# strip search completo en frames donde el jugador no cruzó a otra plate. El radio de
+# huella es generoso (no necesita ser exacto: si da false de más, sólo corre el search).
+func _is_still_over_cached_center(canonical_position: Vector3) -> bool:
+	if _pool_last_center_spiral < 0 or _pool_last_center_spiral >= _registered_platforms.size():
+		return false
+	var spiral: Spatial = _registered_platforms[_pool_last_center_spiral]
+	var cached_list = spiral.get("_cached_transforms")
+	if cached_list == null or not (cached_list is Array):
+		return false
+	if _pool_last_center_plate < 0 or _pool_last_center_plate >= cached_list.size():
+		return false
+	var base: Transform = global_transform.affine_inverse() * spiral.global_transform
+	var center_origin: Vector3 = base.xform((cached_list[_pool_last_center_plate] as Transform).origin)
+	return center_origin.distance_squared_to(canonical_position) <= _pool_center_footprint_sq
+
 func _find_nearest_plate_in_strip(canonical_position: Vector3, strip_radius: int) -> Dictionary:
 	if _registered_platforms.empty() or _selected_plate_index < 0:
 		return {}
@@ -737,14 +782,16 @@ func _find_nearest_plate_in_strip(canonical_position: Vector3, strip_radius: int
 		var multimesh: MultiMesh = null if has_cache else spiral.get("multimesh")
 		for offset in range(-strip_radius, strip_radius + 1):
 			var plate_index: int = _wrap_index(_selected_plate_index + offset, plate_count)
-			var local_xform: Transform
+			# Solo necesitamos el ORIGEN de la plate, no la transform completa: transformar
+			# el punto (matriz×vector) es mucho más barato que multiplicar dos transforms.
+			var local_origin: Vector3
 			if has_cache and plate_index < cached_list.size():
-				local_xform = cached_list[plate_index]
+				local_origin = (cached_list[plate_index] as Transform).origin
 			elif multimesh != null and multimesh.instance_count > 0:
-				local_xform = multimesh.get_instance_transform(plate_index)
+				local_origin = multimesh.get_instance_transform(plate_index).origin
 			else:
 				continue
-			var plate_origin: Vector3 = (spiral_canonical_base * local_xform).origin
+			var plate_origin: Vector3 = spiral_canonical_base.xform(local_origin)
 			var dist_sq: float = plate_origin.distance_squared_to(canonical_position)
 			if dist_sq < best_dist_sq:
 				best_dist_sq = dist_sq
@@ -1570,6 +1617,11 @@ func _assign_pool_to_nearest_plates() -> void:
 	var sel_spiral: int = _selected_spiral_index
 	var sel_plate: int = _selected_plate_index
 	if tracking_target != null:
+		# Fast-path: si seguimos sobre la plate-centro cacheada (dentro de su huella), no
+		# hace falta escanear la franja — el centro no cambió. Una sola comprobación de
+		# distancia evita las ~52 transforms/frame del strip search en estado estable.
+		if _pool_last_center_spiral >= 0 and _is_still_over_cached_center(center_canonical):
+			return
 		var nearest := _find_nearest_plate_in_strip(center_canonical, pool_center_search_radius)
 		if not nearest.empty():
 			sel_spiral = int(nearest.get("spiral_index", sel_spiral))
@@ -1577,6 +1629,15 @@ func _assign_pool_to_nearest_plates() -> void:
 
 	if sel_spiral < 0 or sel_spiral >= _registered_platforms.size():
 		return
+
+	# Early-out: si la plate-centro no cambió desde el último frame, el pool ya cubre las
+	# plates correctas — sus transforms se re-sincronizan aparte cada frame. Evita el
+	# recálculo de candidatos + sort + reasignación de slots (el grueso del costo).
+	if sel_spiral == _pool_last_center_spiral and sel_plate == _pool_last_center_plate:
+		return
+	_pool_last_center_spiral = sel_spiral
+	_pool_last_center_plate = sel_plate
+	_update_pool_center_footprint(sel_spiral, sel_plate)
 
 	# Colectar placas de la espiral seleccionada y sus dos vecinas más cercanas
 	# (las de menor offset). Ordenamos por |offset| para priorizar las colindantes.
@@ -1653,6 +1714,9 @@ func _assign_pool_to_nearest_plates() -> void:
 		assigned_keys[key] = true
 
 func _deactivate_collision_pool() -> void:
+	# Invalidar el centro cacheado: tras desactivar, la próxima asignación debe reconstruir.
+	_pool_last_center_spiral = -1
+	_pool_last_center_plate = -1
 	var far_away: Transform = Transform(Basis.IDENTITY, Vector3(0.0, -99999.0, 0.0))
 	for i in range(_collision_pool.size()):
 		var body: StaticBody = _collision_pool[i]
