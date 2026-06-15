@@ -115,6 +115,9 @@ MDNS_ENABLED = os.environ.get("PEER_NO_MDNS", "").lower() not in ("1", "true", "
 RECONNECT_MIN = 1.0
 RECONNECT_MAX = 30.0
 
+# UDP discovery port for simple broadcast discovery (supplemental to mDNS).
+DISCOVERY_PORT = int(os.environ.get("PEER_DISCOVERY_PORT", 5500))
+
 PEER_BUFFER_SIZE = int(os.environ.get("PEER_BUFFER_SIZE", 36000))
 
 # Logging setup
@@ -230,6 +233,33 @@ class OdiseaPeer:
                 if self.central_ws is ws:
                     self.central_ws = None
         logger.info("Central connection closed.")
+
+    async def _udp_broadcast_task(self):
+        """Periodically broadcast peer availability over UDP."""
+        logger.info("UDP Discovery: broadcasting on port %d", DISCOVERY_PORT)
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        # Non-blocking for use with loop.run_in_executor or similar, but
+        # since we just send, we can keep it simple.
+
+        payload = json.dumps({
+            "type": "odisea_peer_discovery",
+            "peer_id": self.peer_id,
+            "hostname": self.hostname,
+            "ip": self.ip_address,
+            "port": PEER_PORT,
+            "ts": time.time()
+        }).encode("utf-8")
+
+        while not self._shutting_down:
+            try:
+                # Broadcast to the subnet
+                sock.sendto(payload, ("255.255.255.255", DISCOVERY_PORT))
+            except Exception as e:
+                logger.warning("UDP broadcast failed: %s", e)
+            await asyncio.sleep(5.0)
+        sock.close()
 
     async def _on_central_message(self, raw: str, ws):
         try:
@@ -829,6 +859,7 @@ class OdiseaPeer:
         await self._register_mdns()
         central_task = asyncio.create_task(self.central_loop())
         drain_task = asyncio.create_task(self._drain_hotzone_spool())
+        udp_task = asyncio.create_task(self._udp_broadcast_task())
 
         try:
             while not self._shutting_down:
@@ -837,6 +868,7 @@ class OdiseaPeer:
             self._shutting_down = True
             central_task.cancel()
             drain_task.cancel()
+            udp_task.cancel()
             await self._unregister_mdns()
             if self.http_session is not None:
                 await self.http_session.close()
