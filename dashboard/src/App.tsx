@@ -2291,6 +2291,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 scene={heatmapTargetScene}
                 hotzones={heatmapHotzones}
                 onSelectHotzone={(hz) => handlePlayHotzone(hz.id)}
+                onDownloadHotzone={(hz) => handleDownloadHotzone(hz.id, hz.display_name || hz.player_id || undefined)}
               />
             </Suspense>
             {heatmapHotzones.length > 0 && (

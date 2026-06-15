@@ -8,6 +8,7 @@ const MAX_RECONNECT_INTERVAL_MS := 5000
 # Dev-only fallback secret; PRODUCTION must set ODISEA_BRIDGE_TOKEN in the environment.
 const DEV_DEFAULT_TOKEN := "odisea-dev-insecure"
 const DEFAULT_CENTRAL := "odisea.educa.juegos"
+const DISCOVERY_PORT := 5500
 
 var _thread: Thread
 var _stop_thread := false
@@ -213,6 +214,35 @@ func _attempt_connection():
 		print("[ANNAV2] Attempting to connect to peer: ", _peer_url)
 		_client.connect_to_url(_peer_url)
 
+func _discover_peer_udp() -> String:
+	var udp := PacketPeerUDP.new()
+	if udp.listen(DISCOVERY_PORT) != OK:
+		return ""
+
+	print("[ANNAV2] UDP Discovery: listening on port ", DISCOVERY_PORT)
+
+	var start_time = OS.get_ticks_msec()
+	var found_url = ""
+
+	# Listen for up to 1 second
+	while OS.get_ticks_msec() - start_time < 1000:
+		if udp.get_available_packet_count() > 0:
+			var packet = udp.get_packet().get_string_from_utf8()
+			var json = JSON.parse(packet)
+			if json.error == OK and typeof(json.result) == TYPE_DICTIONARY:
+				var data = json.result
+				if data.get("type") == "odisea_peer_discovery":
+					var ip = data.get("ip")
+					var port = data.get("port", PEER_PORT)
+					if ip:
+						found_url = "ws://" + str(ip) + ":" + str(port) + "/ws"
+						print("[ANNAV2] UDP Discovery: found peer at ", found_url)
+						break
+		OS.delay_msec(50)
+
+	udp.close()
+	return found_url
+
 func _discover_peer() -> String:
 	# 1. Check ENV override
 	var env_bridge = OS.get_environment("ANNA_V2_BRIDGE")
@@ -241,7 +271,13 @@ func _discover_peer() -> String:
 		if _check_port(addr, PEER_PORT):
 			return "ws://" + addr + ":4999/ws"
 
-	# 5. Optional full subnet scan (slow, enabled by env)
+	# 5. Try UDP Broadcast Discovery (supplemental to mDNS, works on Anbernic/handhelds)
+	if not OS.has_feature("web"):
+		var udp_peer = _discover_peer_udp()
+		if udp_peer != "":
+			return udp_peer
+
+	# 6. Optional full subnet scan (slow, enabled by env)
 	var allow_full_scan = OS.get_environment("ANNA_V2_FULL_SCAN") in ["1", "true", "yes", "on"]
 	if allow_full_scan:
 		for addr in addresses:
