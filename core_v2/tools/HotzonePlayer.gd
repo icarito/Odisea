@@ -23,15 +23,20 @@ var is_paused := true
 var player_node = null
 var initial_scene_path := ""
 var loaded_scene_node = null
+var scene_override := ""
 
 func _ready():
-	# Get replay file from command line
+	# Parse command line: --replay-file (required), --replay-scene (override the
+	# scene baked in the .bin), --replay-speed (initial 1/2/4x playback speed).
 	var replay_path = ""
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):
 		if args[i] == "--replay-file" and i + 1 < args.size():
 			replay_path = args[i + 1]
-			break
+		elif args[i] == "--replay-scene" and i + 1 < args.size():
+			scene_override = args[i + 1]
+		elif args[i] == "--replay-speed" and i + 1 < args.size():
+			playback_speed = max(1.0, float(args[i + 1]))
 
 	if replay_path == "":
 		_show_error("No replay file specified. Use --replay-file <path>")
@@ -79,7 +84,10 @@ func _show_error(msg: String):
 		status_label.modulate = Color(1, 0.3, 0.3)
 
 func _prepare_scene():
-	var scene_name = replay_data.get("scene", "")
+	# --replay-scene lets us test a hotzone captured in scene X against scene Y.
+	var scene_name = scene_override if scene_override != "" else replay_data.get("scene", "")
+	if scene_override != "":
+		print("[HotzonePlayer] Overriding captured scene with: ", scene_override)
 	var scene_path = _resolve_scene_path(scene_name)
 	if scene_path == "":
 		_show_error("Unrecognized scene: " + scene_name)
@@ -143,6 +151,7 @@ func _start_replay():
 	player_node.set_physics_process(false) # We will step manually
 
 	# Update HUD
+	_set_speed(playback_speed)
 	_update_ui_metadata()
 	_update_ui_frame()
 
