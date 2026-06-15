@@ -1356,12 +1356,44 @@ class OdiseaCentral:
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
-    async def handle_hotzone_download(self, request):
+    async def handle_hotzone_dl_link(self, request):
         guard = self._auth_guard(request)
         if guard is not None:
             return guard
 
         hz_id = request.match_info.get('id')
+        expiry = int(time.time() + 300)  # 5 minutes
+        payload = f"{hz_id}:{expiry}"
+        token = hmac.new(BRIDGE_TOKEN.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+
+        # Use the incoming request's host to build the absolute download URL.
+        protocol = "https" if request.headers.get("X-Forwarded-Proto") == "https" else "http"
+        host = request.host
+        url = f"{protocol}://{host}/hotzones/{hz_id}/download?runbin_token={token}&expires={expiry}"
+
+        return web.json_response({"url": url})
+
+    async def handle_hotzone_download(self, request):
+        token = request.query.get("runbin_token")
+        expires = request.query.get("expires")
+        hz_id = request.match_info.get('id')
+
+        authorized = False
+        if token and expires:
+            try:
+                if int(expires) > time.time():
+                    payload = f"{hz_id}:{expires}"
+                    expected = hmac.new(BRIDGE_TOKEN.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+                    if hmac.compare_digest(token, expected):
+                        authorized = True
+            except (ValueError, TypeError):
+                pass
+
+        if not authorized:
+            guard = self._auth_guard(request)
+            if guard is not None:
+                return guard
+
         try:
             def fetch():
                 conn = self._get_db()
@@ -1374,11 +1406,12 @@ class OdiseaCentral:
             fpath = await self._run_query(fetch)
             if fpath and os.path.exists(fpath):
                 return web.FileResponse(fpath, headers={
-                    "Content-Disposition": f'attachment; filename="hotzone_{hz_id}.bin"'
+                    "Content-Disposition": f'attachment; filename="hotzone_{hz_id}.bin"',
+                    "Access-Control-Allow-Origin": "*"
                 })
-            return web.Response(status=404, text="Hotzone not found")
+            return web.Response(status=404, text="Hotzone not found", headers={"Access-Control-Allow-Origin": "*"})
         except Exception as e:
-            return web.json_response({"error": str(e)}, status=500)
+            return web.json_response({"error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
     async def handle_hotzone_delete(self, request):
         guard = self._auth_guard(request)
@@ -2978,6 +3011,7 @@ class OdiseaCentral:
             web.get('/scenes', self.handle_scenes),
             web.post('/hotzone', self.handle_hotzone_upload),
             web.get('/hotzones', self.handle_hotzones_list),
+            web.get('/hotzones/{id}/dl-link', self.handle_hotzone_dl_link),
             web.get('/hotzones/{id}/download', self.handle_hotzone_download),
             web.delete('/hotzones/{id}', self.handle_hotzone_delete),
             web.post('/command', self.handle_command),

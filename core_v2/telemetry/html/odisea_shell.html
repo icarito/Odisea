@@ -379,7 +379,8 @@ $GODOT_HEAD_INCLUDE
 					session_id: sessionId,
 					total_ms: Date.now() - loaderStartMs
 				});
-			}
+			},
+			pendingRunbin: null
 		};
 
 		// --- Popup (error / slow-load watchdog) ---
@@ -452,21 +453,54 @@ $GODOT_HEAD_INCLUDE
 			}, 600);
 		}
 
-		var engine = new Engine($GODOT_CONFIG);
-		engine.startGame({
-			onProgress: function(current, total) {
-				var t = (total > 0 && total >= current) ? total : EXPECTED_TOTAL_BYTES;
-				if (t > 0) {
-					barFillEl.style.width = Math.min(100, current / t * 100).toFixed(1) + "%";
-				}
-			},
-			onComplete: onEngineStarted
-		}).then(onEngineStarted).catch(function(err) {
-			clearInterval(loreTimer);
-			loreEl.textContent = "Error al cargar. Recarga la página.";
-			console.error("[ODiSEA] Engine start failed:", err);
-			showPopup(POPUP_ERROR_MSG);
-		});
+		var engineConfig = $GODOT_CONFIG;
+		var params = new URLSearchParams(window.location.search);
+		var runbinUrl = params.get('runbin');
+
+		function bootEngine() {
+			var engine = new Engine(engineConfig);
+			engine.startGame({
+				onProgress: function(current, total) {
+					var t = (total > 0 && total >= current) ? total : EXPECTED_TOTAL_BYTES;
+					if (t > 0) {
+						barFillEl.style.width = Math.min(100, current / t * 100).toFixed(1) + "%";
+					}
+				},
+				onComplete: onEngineStarted
+			}).then(onEngineStarted).catch(function(err) {
+				clearInterval(loreTimer);
+				loreEl.textContent = "Error al cargar. Recarga la página.";
+				console.error("[ODiSEA] Engine start failed:", err);
+				showPopup(POPUP_ERROR_MSG);
+			});
+		}
+
+		if (runbinUrl) {
+			console.log("[ODiSEA] Runbin mode detected:", runbinUrl);
+			loreEl.textContent = "Descargando captura de rendimiento...";
+			
+			// Override start scene and add replay-file argument
+			engineConfig.args = engineConfig.args || [];
+			engineConfig.args.push("--scene", "res://core_v2/tools/HotzonePlayer.tscn");
+			engineConfig.args.push("--replay-file", "user://hotzones/remote.bin");
+
+			fetch(runbinUrl)
+				.then(function(response) {
+					if (!response.ok) throw new Error("HTTP " + response.status);
+					return response.arrayBuffer();
+				})
+				.then(function(buffer) {
+					window.OdiseaShell.pendingRunbin = buffer;
+					bootEngine();
+				})
+				.catch(function(err) {
+					console.error("[ODiSEA] Failed to fetch runbin:", err);
+					loreEl.textContent = "Error descargando captura. Iniciando normalmente...";
+					setTimeout(bootEngine, 2000);
+				});
+		} else {
+			bootEngine();
+		}
 	</script>
 </body>
 </html>
