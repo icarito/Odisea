@@ -32,6 +32,25 @@ func _ready():
 	_mesh = _find_child_by_type("MeshInstance")
 	_initialize_flicker_timeout_state()
 	_apply_settings()
+	# InteractableBaseV2._ready() culls physics_process once the open/close anim is
+	# at its target (FD-224). A flickering light still needs step() so _time_acc
+	# advances and the flicker timeout settles — re-arm it via the virtual below.
+	_refresh_flicker_process()
+
+func set_active(value: bool, immediate: bool = false) -> void:
+	.set_active(value, immediate)
+	if is_inside_tree():
+		_refresh_flicker_process()
+
+func _wants_continuous_step() -> bool:
+	# Keep step() alive while the flicker is still evolving over time.
+	return flicker_enabled and anim_progress > 0.01 and not _flicker_has_settled
+
+func _refresh_flicker_process() -> void:
+	if Engine.editor_hint:
+		return
+	if _wants_continuous_step():
+		set_physics_process(true)
 
 func set_light_color(v: Color) -> void:
 	light_color = v
@@ -200,6 +219,9 @@ func _step_flicker_timeout(dt: float) -> void:
 func _settle_flicker_state() -> void:
 	_flicker_has_settled = true
 	_flicker_settled_on = _timeout_rng.randf() <= clamp(flicker_settle_on_probability, 0.0, 1.0)
+	# Apply the final settled state immediately, then let the base step() cull
+	# physics_process on its next run (now that _wants_continuous_step() is false).
+	_update_visuals()
 
 func _sample_timeout(base_seconds: float, random_offset: float) -> float:
 	var clamped_offset := max(random_offset, 0.0)

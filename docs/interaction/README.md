@@ -36,6 +36,8 @@ flowchart TB
 
 3. **Hierarchy Preferred**: When possible, use parent-child relationships in the scene tree. The visual editor reflects these relationships.
 
+4. **Idle Culling (FD-224)**: Interactables stop their `_physics_process` once the animation reaches its target. If a prop must keep updating *at rest* (e.g. a flickering light), it MUST override `_wants_continuous_step()` — see [CONTRACT.md → Idle Culling](CONTRACT.md#idle-culling-fd-224-and-_wants_continuous_step).
+
 ## Quick Reference
 
 | Use Case | Recommended Approach |

@@ -178,6 +178,44 @@ func step(delta: float) -> void:
         emit_signal("activated" if is_active else "deactivated")
 ```
 
+### Idle Culling (FD-224) and `_wants_continuous_step()`
+
+To save CPU, `InteractableBaseV2` **disables `_physics_process` once the
+animation reaches its target** (`anim_progress == target_progress`). This happens
+in three places: `_ready()`, the immediate branch of `set_active()`, and at the
+top of `step()`. An idle door/button consumes zero per-frame time until it is
+next toggled — `set_active()` re-enables `_physics_process` when an animation
+starts.
+
+> ⚠️ **Contract gotcha:** A subclass whose visual evolves *over time while at
+> rest* (not just while the open/close animation runs) will silently freeze under
+> this culling. The classic case is a **flickering light** that sits at
+> `anim_progress == 1.0` but must keep advancing a flicker timer — once culled,
+> its `step()` never runs again, so it never flickers or settles.
+
+The escape hatch is the virtual `_wants_continuous_step()`:
+
+```gdscript
+# InteractableBaseV2 — default keeps the FD-224 culling for every normal prop.
+func _wants_continuous_step() -> bool:
+    return false
+```
+
+A subclass that needs per-frame work at rest **overrides it** to return `true`
+while that work is pending, and `false` once done so the prop is culled again:
+
+```gdscript
+# FluorescentLight — flicker keeps step() alive until the timer settles.
+func _wants_continuous_step() -> bool:
+    return flicker_enabled and anim_progress > 0.01 and not _flicker_has_settled
+```
+
+Because `step()`'s idle branch checks this virtual **before** calling
+`set_physics_process(false)`, overriding `_ready()` alone is not enough — the
+first `step()` after an at-target `_ready()` would re-cull it. Always gate
+continuous work through `_wants_continuous_step()`, not through ad-hoc
+`set_physics_process(true)` calls that the base class will immediately undo.
+
 ## Subclass Patterns
 
 ### SlidingObjectV2

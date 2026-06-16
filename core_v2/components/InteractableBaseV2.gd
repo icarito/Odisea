@@ -169,8 +169,15 @@ func step(dt: float) -> void:
 			anim_progress = target_progress
 			_on_animation_completed()
 
-		# PERF: Disable physics process when idle
-		set_physics_process(false)
+		# PERF: Disable physics process when idle — unless a subclass still needs
+		# per-frame updates at rest (e.g. a flickering light evolves over time even
+		# though its open/close animation is complete).
+		if not _wants_continuous_step():
+			set_physics_process(false)
+			return
+		_update_visuals()
+		if _perf_monitor and _perf_monitor.has_method("measure_end"):
+			_perf_monitor.measure_end(self , "step")
 		return
 	
 	# Move towards target
@@ -209,6 +216,11 @@ func _update_visuals() -> void:
 	"""Update the visual representation based on anim_progress.
 	Override this in subclasses (SlidingObjectV2, RotatingObjectV2, etc.)"""
 	pass
+
+func _wants_continuous_step() -> bool:
+	"""Override to keep step() running while at the animation target.
+	Default false so idle interactables are culled from physics_process (FD-224)."""
+	return false
 
 # --- HIGHLIGHT API ---
 
