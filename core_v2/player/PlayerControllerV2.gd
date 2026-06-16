@@ -2336,8 +2336,14 @@ func _append_profile_line(path: String, line: String) -> void:
 func _update_cinematic_zone_detection(_input: InputDataV2, dt: float = 1.0 / 60.0):
 	var current_zone: Node = _active_cinematic_zone
 
-	# Drop a freed cached zone so the throttle below forces a fresh scan.
+	# Drop the cached zone (freed, deactivated, or body no longer inside) BEFORE the
+	# throttle check, so the scan below is forced to run this frame and can pick up a
+	# replacement zone immediately. Otherwise a freshly-entered overlapping zone would
+	# be missed until the next throttled scan, and exit grace would resurrect the stale
+	# zone in the meantime.
 	if not is_instance_valid(_best_zone_cached):
+		_best_zone_cached = null
+	elif not _best_zone_cached.is_zone_active or not _best_zone_cached.is_body_in_zone(self):
 		_best_zone_cached = null
 
 	# PERF: Throttle group-wide search
