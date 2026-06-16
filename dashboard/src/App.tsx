@@ -203,7 +203,10 @@ const countryFlag = (countryCode?: string | null): string => {
   return Array.from(code).map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
 };
 
-const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
+// Reusable hotzone captures list — performance ghosts uploaded by the game,
+// ordered newest first (the API already sorts by timestamp DESC). Each row
+// surfaces the scene and capture duration alongside the player + date.
+const HotzoneList = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
   // Map player_id -> display name from the (already tag-enriched) session rows,
   // so the hotzone list can show a friendly label instead of the raw id.
   const nameByPlayer = useMemo(() => {
@@ -212,62 +215,83 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzon
     return m;
   }, [sessions]);
 
+  if (!hotzones || hotzones.length === 0) {
+    return <div className="text-xs italic text-text-muted">Sin capturas de hotzone</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {hotzones.map((hz) => {
+        const name = nameByPlayer[hz.player_id] || String(hz.player_id || '').slice(0, 8);
+        const when = hz.timestamp ? formatDateTime(Number(hz.timestamp)) : '';
+        const scene = hz.scene || 'Escena desconocida';
+        const dur = typeof hz.duration_sec === 'number'
+          ? hz.duration_sec
+          : (typeof hz.capture_duration === 'number' ? hz.capture_duration : null);
+        return (
+          <div key={hz.id} className="flex items-center justify-between gap-3 border-2 border-black bg-bg-primary px-3 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-xs font-black text-accent">{scene}</div>
+              <div className="text-[0.625rem] text-text-muted">
+                {when}{dur != null ? ` · ${Math.round(dur)}s` : ''}{hz.trigger_type ? ` · ${hz.trigger_type}` : ''}
+              </div>
+              <div className="truncate text-[0.625rem] text-text-muted">{name}</div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {onPlayHotzone && (
+                <button
+                  type="button"
+                  onClick={() => onPlayHotzone(hz.id)}
+                  className="border-2 border-success bg-success/10 p-1.5 text-success hover:bg-success hover:text-black"
+                  title="Reproducir en Netlify"
+                  aria-label="Reproducir captura hotzone"
+                >
+                  <Play size={14} fill="currentColor" />
+                </button>
+              )}
+              {onDownloadHotzone && (
+                <button
+                  type="button"
+                  onClick={() => onDownloadHotzone(hz.id, name)}
+                  className="border-2 border-accent bg-accent/10 p-1.5 text-accent hover:bg-accent hover:text-black"
+                  title="Descargar captura"
+                  aria-label="Descargar captura hotzone"
+                >
+                  <Download size={14} />
+                </button>
+              )}
+              {onDeleteHotzone && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteHotzone(hz.id, name)}
+                  className="border-2 border-danger bg-danger/10 p-1.5 text-danger hover:bg-danger hover:text-white"
+                  title="Borrar captura"
+                  aria-label="Borrar captura hotzone"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
   return (
     <div className="flex min-h-full flex-col gap-4">
       {/* Hotzone captures — performance ghosts uploaded by the game, newest first. */}
       <RetroCard title={`Capturas hotzone${hotzones && hotzones.length ? ` (${hotzones.length})` : ''}`}>
         <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
-          {!hotzones || hotzones.length === 0 ? (
-            <div className="text-xs italic text-text-muted">Sin capturas de hotzone</div>
-          ) : hotzones.map((hz) => {
-            const name = nameByPlayer[hz.player_id] || String(hz.player_id || '').slice(0, 8);
-            const when = hz.timestamp ? formatDateTime(Number(hz.timestamp)) : '';
-            return (
-              <div key={hz.id} className="flex items-center justify-between gap-3 border-2 border-black bg-bg-primary px-3 py-2">
-                <div className="min-w-0">
-                  <div className="truncate text-xs font-black text-accent">{name}</div>
-                  <div className="text-[0.625rem] text-text-muted">
-                    {when}{hz.trigger_type ? ` · ${hz.trigger_type}` : ''}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {onPlayHotzone && (
-                    <button
-                      type="button"
-                      onClick={() => onPlayHotzone(hz.id)}
-                      className="border-2 border-success bg-success/10 p-1.5 text-success hover:bg-success hover:text-black"
-                      title="Reproducir en Netlify"
-                      aria-label="Reproducir captura hotzone"
-                    >
-                      <Play size={14} fill="currentColor" />
-                    </button>
-                  )}
-                  {onDownloadHotzone && (
-                    <button
-                      type="button"
-                      onClick={() => onDownloadHotzone(hz.id, name)}
-                      className="border-2 border-accent bg-accent/10 p-1.5 text-accent hover:bg-accent hover:text-black"
-                      title="Descargar captura"
-                      aria-label="Descargar captura hotzone"
-                    >
-                      <Download size={14} />
-                    </button>
-                  )}
-                  {onDeleteHotzone && (
-                    <button
-                      type="button"
-                      onClick={() => onDeleteHotzone(hz.id, name)}
-                      className="border-2 border-danger bg-danger/10 p-1.5 text-danger hover:bg-danger hover:text-white"
-                      title="Borrar captura"
-                      aria-label="Borrar captura hotzone"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          <HotzoneList
+            sessions={sessions}
+            hotzones={hotzones}
+            onDownloadHotzone={onDownloadHotzone}
+            onDeleteHotzone={onDeleteHotzone}
+            onPlayHotzone={onPlayHotzone}
+          />
         </div>
       </RetroCard>
     </div>
@@ -868,7 +892,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // (FD-223) that shows the heatmapSummary cards instead of a top-level tab.
   const [heatmapView, setHeatmapView] = useState<'scenes' | 'map' | 'stats'>('scenes');
   // History tab mobile pane toggle (session list vs playback), mirrors heatmap.
-  const [historyMobileView, setHistoryMobileView] = useState<'list' | 'player'>('list');
+  const [historyMobileView, setHistoryMobileView] = useState<'list' | 'hotzones' | 'player'>('list');
 
   // Available scenes (fetched from backend, not hardcoded)
   const [scenes, setScenes] = useState<string[]>([]);
@@ -2225,7 +2249,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       {activeTab === 'history' && (
         <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
-          {/* Mobile pane toggle: session list vs playback. */}
+          {/* Mobile pane toggle: session list vs hotzones vs playback. */}
           <div className="flex border-2 border-black xl:hidden">
             <button
               type="button"
@@ -2233,6 +2257,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               className={`subtab-btn ${historyMobileView === 'list' ? 'subtab-btn-active' : ''}`}
             >
               Sesiones
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryMobileView('hotzones')}
+              className={`subtab-btn ${historyMobileView === 'hotzones' ? 'subtab-btn-active' : ''}`}
+            >
+              Hotzones{hotzones.length ? ` (${hotzones.length})` : ''}
             </button>
             <button
               type="button"
@@ -2246,7 +2277,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[360px_minmax(0,1fr)]">
             {/* Left: live session list sidebar */}
-            <RetroCard title="Sesiones" className={`min-h-0 overflow-hidden ${historyMobileView === 'player' ? 'hidden xl:block' : ''}`}>
+            <RetroCard title="Sesiones" className={`min-h-0 overflow-hidden ${historyMobileView !== 'list' ? 'hidden xl:block' : ''}`}>
               <div className="h-full overflow-y-auto">
                 <HistoricalTable
                   sessions={historySessionsWithGeo}
@@ -2260,8 +2291,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             </RetroCard>
 
+            {/* Mobile-only hotzones pane: captures ordered by date with scene + duration. */}
+            <RetroCard title={`Hotzones${hotzones.length ? ` (${hotzones.length})` : ''}`} className={`min-h-0 overflow-hidden xl:hidden ${historyMobileView === 'hotzones' ? '' : 'hidden'}`}>
+              <div className="h-full overflow-y-auto">
+                <HotzoneList
+                  sessions={historySessionsWithGeo}
+                  hotzones={hotzones}
+                  onDownloadHotzone={handleDownloadHotzone}
+                  onDeleteHotzone={handleDeleteHotzone}
+                  onPlayHotzone={handlePlayHotzone}
+                />
+              </div>
+            </RetroCard>
+
             {/* Right: playback */}
-            <div className={`min-h-0 overflow-y-auto ${historyMobileView === 'list' ? 'hidden xl:block' : ''}`}>
+            <div className={`min-h-0 overflow-y-auto ${historyMobileView !== 'player' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
                   <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} />
