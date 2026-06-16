@@ -39,7 +39,7 @@ import {
 } from './lib/filters';
 import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play } from 'lucide-react';
 
-type Tab = 'live' | 'heatmap' | 'history' | 'mapa' | 'stats';
+type Tab = 'live' | 'heatmap' | 'history' | 'mapa';
 
 type GitCommit = {
   sha: string;
@@ -201,142 +201,6 @@ const countryFlag = (countryCode?: string | null): string => {
   const code = (countryCode || '').trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(code)) return '';
   return Array.from(code).map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
-};
-
-const StatsOverview = ({ sessions }: { sessions: any[] }) => {
-  const cleanSessions = useMemo(() => sessions.filter(isDashboardSession), [sessions]);
-
-  const fpsSeries = useMemo(() => (
-    cleanSessions
-      .filter((s) => Number(s.start_time) > 0)
-      .sort((a, b) => Number(a.start_time) - Number(b.start_time))
-      .map((s) => ({
-        timestamp: Number(s.start_time),
-        date: formatDateTime(Number(s.start_time)),
-        avg_fps: Number(s.avg_fps) || 0,
-      }))
-  ), [cleanSessions]);
-
-  const stats = useMemo(() => {
-    const totalDuration = cleanSessions.reduce((sum, s) => sum + sessionDuration(s), 0);
-    const fpsValues = cleanSessions.map((s) => Number(s.avg_fps)).filter(Number.isFinite);
-    const avgFps = fpsValues.reduce((sum, fps) => sum + fps, 0) / (fpsValues.length || 1);
-    const uniquePlayers = new Set(cleanSessions.map((s) => s.player_id).filter(Boolean)).size;
-    const scenes = new Map<string, { scene: string; sessions: number; duration: number }>();
-    const countries = new Map<string, { label: string; sessions: number }>();
-
-    cleanSessions.forEach((session) => {
-      sessionScenes(session).filter(isUsefulSceneName).forEach((scene) => {
-        const current = scenes.get(scene) || { scene, sessions: 0, duration: 0 };
-        current.sessions += 1;
-        current.duration += sessionDuration(session);
-        scenes.set(scene, current);
-      });
-      const code = String(session.country_code || '').toUpperCase();
-      const country = String(session.country || '').trim();
-      const isUnknown = (!code && (!country || country.toLowerCase() === 'unknown'));
-      if (!isUnknown) {
-        const key = code || country;
-        const label = [countryFlag(code), code || country].filter(Boolean).join(' ');
-        const current = countries.get(key) || { label, sessions: 0 };
-        current.sessions += 1;
-        countries.set(key, current);
-      }
-    });
-
-    return {
-      avgFps,
-      totalDuration,
-      uniquePlayers,
-      scenes: [...scenes.values()].sort((a, b) => b.sessions - a.sessions || b.duration - a.duration).slice(0, 5),
-      countries: [...countries.values()].sort((a, b) => b.sessions - a.sessions).slice(0, 5),
-    };
-  }, [cleanSessions]);
-
-  const fpsTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
-        <div className="font-black text-accent">{d.date}</div>
-        <div>Avg FPS: {Number(d.avg_fps).toFixed(1)}</div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="flex min-h-full flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { label: 'Sessions', value: cleanSessions.length.toString() },
-          { label: 'Players', value: stats.uniquePlayers.toString() },
-          { label: 'Play Time', value: formatPlayTime(stats.totalDuration) },
-          { label: 'Avg FPS', value: stats.avgFps.toFixed(1), color: fpsColor(stats.avgFps) },
-        ].map((cell) => (
-          <div key={cell.label} className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
-            <div className="truncate text-xl font-black tracking-tighter" style={cell.color ? { color: cell.color } : undefined}>{cell.value}</div>
-            <div className="mt-1 text-[0.5625rem] font-black uppercase text-text-muted">{cell.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
-        <RetroCard title="Sesiones por día" className="min-h-[220px]">
-          <div className="h-52">
-            <SessionsPerDayChart sessions={cleanSessions} />
-          </div>
-        </RetroCard>
-        <RetroCard title="FPS por sesión" className="min-h-[220px]">
-          <div className="h-52">
-            {fpsSeries.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-xs italic text-text-muted">Sin datos de FPS</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <LineChart data={fpsSeries} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
-                  <XAxis dataKey="timestamp" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
-                  <YAxis stroke="#666" fontSize={10} width={28} />
-                  <Tooltip content={fpsTooltip} />
-                  <Line type="monotone" dataKey="avg_fps" stroke="#7fd1ff" dot={{ r: 3 }} strokeWidth={2} isAnimationActive={false} />
-                  {fpsSeries.length > 8 && (
-                    <Brush dataKey="timestamp" height={16} stroke="#7fd1ff" travellerWidth={8} fill="#0d1117"
-                      tickFormatter={(v) => new Date(Number(v) * 1000).toISOString().slice(5, 10)} />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </RetroCard>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <RetroCard title="Escenas principales">
-          <div className="flex flex-col gap-2">
-            {stats.scenes.length === 0 ? (
-              <div className="text-xs italic text-text-muted">Sin escenas filtradas</div>
-            ) : stats.scenes.map((scene) => (
-              <div key={scene.scene} className="flex items-center justify-between gap-3 border-2 border-black bg-bg-primary px-3 py-2">
-                <span className="min-w-0 truncate text-xs font-black text-accent">{scene.scene}</span>
-                <span className="shrink-0 text-[0.625rem] text-text-muted">{scene.sessions} · {formatPlayTime(scene.duration)}</span>
-              </div>
-            ))}
-          </div>
-        </RetroCard>
-        <RetroCard title="Países">
-          <div className="flex flex-col gap-2">
-            {stats.countries.length === 0 ? (
-              <div className="text-xs italic text-text-muted">Sin geolocalización en sesiones filtradas</div>
-            ) : stats.countries.map((country) => (
-              <div key={country.label} className="flex items-center justify-between gap-3 border-2 border-black bg-bg-primary px-3 py-2">
-                <span className="truncate text-xs font-black text-text-primary">{country.label}</span>
-                <span className="shrink-0 text-[0.625rem] text-text-muted">{country.sessions} sesiones</span>
-              </div>
-            ))}
-          </div>
-        </RetroCard>
-      </div>
-    </div>
-  );
 };
 
 const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
@@ -999,7 +863,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   // Heatmap State
   const [heatmapRes, setHeatmapRes] = useState(5);
-  const [heatmapMobileView, setHeatmapMobileView] = useState<'scenes' | 'map'>('scenes');
+  // Heatmap sub-tab, surfaced as a secondaryNav (like Live). 'scenes'/'map'
+  // mirror the old mobile pane toggle; 'stats' is the dedicated summary view
+  // (FD-223) that shows the heatmapSummary cards instead of a top-level tab.
+  const [heatmapView, setHeatmapView] = useState<'scenes' | 'map' | 'stats'>('scenes');
   // History tab mobile pane toggle (session list vs playback), mirrors heatmap.
   const [historyMobileView, setHistoryMobileView] = useState<'list' | 'player'>('list');
 
@@ -1766,6 +1633,37 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     />
   );
 
+  // Heatmap summary stats — the cards + top-scenes list. Reused for both the
+  // "no scene selected" landing fallback and the dedicated Stats sub-tab
+  // (FD-223). Only the stats that correspond to the heatmap, nothing else.
+  const heatmapStatsPanel = (
+    <div className="h-full overflow-y-auto bg-bg-primary p-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+          <div className="text-[0.625rem] font-black uppercase text-text-muted">Sessions</div>
+          <div className="text-2xl font-black text-accent">{heatmapSummary.totalSessions}</div>
+          {heatmapSummary.livePlayers > 0 && (
+            <div className="text-[0.625rem] font-black uppercase text-success">{heatmapSummary.livePlayers} live</div>
+          )}
+        </div>
+        <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+          <div className="text-[0.625rem] font-black uppercase text-text-muted">Play time</div>
+          <div className="text-2xl font-black text-text-primary">{formatPlayTime(heatmapSummary.totalPlaySeconds)}</div>
+        </div>
+        <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+          <div className="text-[0.625rem] font-black uppercase text-text-muted">Avg FPS</div>
+          <div className="text-2xl font-black" style={{ color: fpsColor(heatmapSummary.avgFps) }}>
+            {heatmapSummary.avgFps.toFixed(1)}
+          </div>
+        </div>
+        <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
+          <div className="text-[0.625rem] font-black uppercase text-text-muted">Scenes</div>
+          <div className="text-2xl font-black text-text-primary">{heatmapSummary.sceneCount}</div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <DashboardLayout
       onLogout={onLogout}
@@ -2178,92 +2076,57 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       {activeTab === 'heatmap' && (
         <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
+          {/* Mobile-only sub-tabs (top, like History): Escenas / Mapa / Stats
+              swap the single visible pane. On desktop (xl+) the two columns
+              show side by side and the stats live in the right column when no
+              scene is selected, so no tab bar is needed there. */}
           <div className="flex border-2 border-black xl:hidden">
             <button
               type="button"
-              onClick={() => setHeatmapMobileView('scenes')}
-              className={`subtab-btn ${heatmapMobileView === 'scenes' ? 'subtab-btn-active' : ''}`}
+              onClick={() => setHeatmapView('scenes')}
+              className={`subtab-btn ${heatmapView === 'scenes' ? 'subtab-btn-active' : ''}`}
             >
               Escenas
             </button>
             <button
               type="button"
-              onClick={() => setHeatmapMobileView('map')}
-              className={`subtab-btn ${heatmapMobileView === 'map' ? 'subtab-btn-active' : ''}`}
+              onClick={() => setHeatmapView('stats')}
+              className={`subtab-btn ${heatmapView === 'stats' ? 'subtab-btn-active' : ''}`}
             >
-              {heatmapTargetScene ? 'Mapa' : 'Stats'}
+              Stats
+            </button>
+            <button
+              type="button"
+              onClick={() => setHeatmapView('map')}
+              disabled={!heatmapTargetScene}
+              className={`subtab-btn ${heatmapView === 'map' ? 'subtab-btn-active' : ''} disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
+              Mapa
             </button>
           </div>
 
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[360px_minmax(0,1fr)]">
-          <RetroCard title="Scenes" className={`min-h-0 overflow-hidden ${heatmapMobileView === 'map' ? 'hidden xl:block' : ''}`}>
+          <RetroCard title="Scenes" className={`min-h-0 overflow-hidden ${heatmapView !== 'scenes' ? 'hidden xl:block' : ''}`}>
             <SceneIndex
               sessions={filteredDashboardSessions}
               scenes={availableSceneFilters}
               selectedScene={selectedSceneFilter}
               onSelectScene={(scene) => {
                 setSelectedSceneFilter(scene);
-                setHeatmapMobileView('map');
+                setHeatmapView('map');
               }}
             />
           </RetroCard>
 
-          <div className={`min-h-0 relative border-4 border-black shadow-retro overflow-hidden ${heatmapMobileView === 'scenes' ? 'hidden xl:block' : ''}`}>
-            {!heatmapTargetScene ? (
-              <div className="h-full overflow-y-auto bg-bg-primary p-4">
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
-                    <div className="text-[0.625rem] font-black uppercase text-text-muted">Sessions</div>
-                    <div className="text-2xl font-black text-accent">{heatmapSummary.totalSessions}</div>
-                    {heatmapSummary.livePlayers > 0 && (
-                      <div className="text-[0.625rem] font-black uppercase text-success">{heatmapSummary.livePlayers} live</div>
-                    )}
-                  </div>
-                  <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
-                    <div className="text-[0.625rem] font-black uppercase text-text-muted">Play time</div>
-                    <div className="text-2xl font-black text-text-primary">{formatPlayTime(heatmapSummary.totalPlaySeconds)}</div>
-                  </div>
-                  <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
-                    <div className="text-[0.625rem] font-black uppercase text-text-muted">Avg FPS</div>
-                    <div className="text-2xl font-black" style={{ color: fpsColor(heatmapSummary.avgFps) }}>
-                      {heatmapSummary.avgFps.toFixed(1)}
-                    </div>
-                  </div>
-                  <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
-                    <div className="text-[0.625rem] font-black uppercase text-text-muted">Scenes</div>
-                    <div className="text-2xl font-black text-text-primary">{heatmapSummary.sceneCount}</div>
-                  </div>
-                </div>
+          {/* Mobile: this pane is the Stats view. Desktop: hidden (stats render
+              in the right column below when no scene is selected). */}
+          <div className={`min-h-0 border-4 border-black shadow-retro overflow-hidden xl:hidden ${heatmapView === 'stats' ? '' : 'hidden'}`}>
+            {heatmapStatsPanel}
+          </div>
 
-                <div className="mt-4 border-2 border-black bg-bg-card shadow-[2px_2px_0px_0px_black]">
-                  <div className="border-b-2 border-black px-3 py-2 text-[0.625rem] font-black uppercase text-text-muted">
-                    Top scenes
-                  </div>
-                  {heatmapSummary.topScenes.length === 0 ? (
-                    <div className="px-3 py-4 text-center text-xs text-text-muted">No scene data yet.</div>
-                  ) : (
-                    heatmapSummary.topScenes.map((opt) => (
-                      <button
-                        key={opt.scene}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSceneFilter(opt.scene);
-                          setHeatmapMobileView('map');
-                        }}
-                        className="flex w-full items-center justify-between gap-3 border-b border-black/40 px-3 py-2 text-left last:border-b-0 hover:bg-accent/5"
-                      >
-                        <span className="min-w-0 truncate text-xs font-black text-accent">{opt.scene}</span>
-                        <span className="shrink-0 text-[0.625rem] font-black uppercase text-text-muted">
-                          {opt.sessions} sessions · {formatPlayTime(opt.playTime)}
-                        </span>
-                      </button>
-                    ))
-                  )}
-                  <div className="px-3 py-2 text-[0.5625rem] text-text-muted">
-                    Pick a scene to open its heatmap.
-                  </div>
-                </div>
-              </div>
+          <div className={`min-h-0 relative border-4 border-black shadow-retro overflow-hidden ${heatmapView !== 'map' ? 'hidden xl:block' : ''}`}>
+            {!heatmapTargetScene ? (
+              heatmapStatsPanel
             ) : (
             <>
             <div className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-end gap-3 border-2 border-black bg-bg-card/95 p-3 shadow-[2px_2px_0px_0px_black]">
@@ -2357,12 +2220,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             )}
           </div>
           </div>
-        </div>
-      )}
-
-      {activeTab === 'stats' && (
-        <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
-          <StatsOverview sessions={historySessionsWithGeo} />
         </div>
       )}
 

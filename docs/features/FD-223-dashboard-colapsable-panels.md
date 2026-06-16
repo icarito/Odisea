@@ -32,22 +32,26 @@ Agregar un componente reutilizable `CollapsibleCard` que envuelva la lista de ho
 - Transición suave al expandir/colapsar
 - El título muestra el count de hotzones
 
-### 2. Stats como pestaña independiente (tipo HeatMap)
+### 2. Stats como sub-pestaña de Heatmap (segundo nivel)
 
-Actualmente las stats (Sessions, Players, Play Time, Avg FPS, escenas, países) están dentro de `HistoryOverview` como un grid de cards + charts. Moverlas a una **nueva pestaña** en el mismo nivel que "HeatMap" y "History".
-
-En la navegación del panel lateral (donde está HeatMap, History, Live), agregar pestaña "Stats":
+Stats **no** es un tab top-level. Va como sub-pestaña (secondaryNav, igual que el
+switcher de Live) dentro del tab Heatmap, junto a "Escenas" y "Mapa":
 
 ```
-[Historia] [Calor] [Stats] [En Vivo]
+[Live] [Globe] [Heatmap] [History]   ← tabs top-level
+  └ heatmap activo:
+  [Escenas] [Mapa] [Stats]           ← secondaryNav (segundo nivel)
 ```
 
-Al hacer clic en "Stats", se muestra:
-- Grid de 4 cards: Sessions, Players, Play Time, Avg FPS
-- Charts: Sesiones por día, Top escenas, Top países (lo que ya existe en HistoryOverview)
-- Misma data que History, solo que en una vista dedicada
+El panel Stats muestra **solo las stats que corresponden al heatmap** (el
+`heatmapSummary` ya existente): Sessions, Play time, Avg FPS, Scenes + lista de
+Top scenes (clickeable → abre el heatmap de esa escena). Nada de Players /
+Países / FPS-por-sesión / Sesiones-por-día — esas estadísticas extra que había
+agregado Jules se eliminaron junto con el componente `StatsOverview`.
 
-Esto resuelve que las stats "solo se vean en desktop" — ahora tienen su propio panel accesible en cualquier tamaño.
+Es el mismo panel que ya se mostraba como landing del heatmap cuando no había
+escena seleccionada; ahora está extraído a `heatmapStatsPanel` y se reutiliza en
+ambos lugares. Al ser una sub-pestaña dedicada es accesible en cualquier tamaño.
 
 ### 3. Live charts colapsables + resizables + default view
 

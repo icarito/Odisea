@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Maximize, Minimize } from 'lucide-react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { feature } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
@@ -106,6 +107,25 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
   // On by default so a new player is framed automatically.
   const [followActivity, setFollowActivity] = useState(true);
   const [showTopCountries, setShowTopCountries] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Native fullscreen on the bordered box (the container's parent). The existing
+  // ResizeObserver measures that same box, so the globe resizes to fill the
+  // screen automatically when we enter/exit.
+  const toggleFullscreen = () => {
+    const box = containerRef.current?.parentElement;
+    if (!box) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      box.requestFullscreen().catch(() => {});
+    }
+  };
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
 
   const isMobile = size.width > 0 && size.width < 768;
 
@@ -145,13 +165,27 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
   // instance and at least one point. Runs once per "had no center yet" → keeps
   // auto-rotation afterwards and never fights the user's manual navigation.
   const centeredRef = useRef(false);
+  // Last lat/lng we animated the camera to. `latestGroup` is rebuilt (new object
+  // identity) on every players poll even when the actual hottest location hasn't
+  // moved, so without this guard the effect would re-fire each poll and restart
+  // a 1s camera tween mid-flight — the visible follow "flicker"/glitch. We only
+  // re-center when the followed coordinates genuinely change.
+  const lastCenterRef = useRef<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
     const g = globeRef.current;
     if (!g || !latestGroup) return;
     // Center once on first load, and keep re-centering while "follow" is on.
     if (centeredRef.current && !followActivity) return;
     const firstCenter = !centeredRef.current;
+    // Skip if the followed location hasn't actually moved — avoids restarting
+    // the camera tween (and the flicker) on every unchanged poll.
+    const last = lastCenterRef.current;
+    const moved = !last
+      || Math.abs(last.lat - latestGroup.latitude) > 1e-4
+      || Math.abs(last.lng - latestGroup.longitude) > 1e-4;
+    if (!firstCenter && !moved) return;
     centeredRef.current = true;
+    lastCenterRef.current = { lat: latestGroup.latitude, lng: latestGroup.longitude };
     // First center frames the activity at a fixed altitude; subsequent follow
     // re-centers preserve whatever zoom the user has dialed in (only lat/lng move),
     // so the user stays in control of zoom even while following.
@@ -337,19 +371,30 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
         </div>
       )}
 
-      {/* Follow-activity toggle — re-centers the camera on the latest players. */}
-      <button
-        type="button"
-        onClick={() => setFollowActivity((v) => !v)}
-        className={`absolute top-3 right-3 z-10 border-2 px-2.5 py-1 text-[0.625rem] font-black uppercase tracking-wide shadow-[2px_2px_0px_0px_black] transition-colors ${
-          followActivity
-            ? 'border-accent bg-accent text-black'
-            : 'border-black bg-bg-card/90 text-text-muted hover:text-text-primary'
-        }`}
-        title="Centrar la cámara en la actividad más reciente"
-      >
-        Follow
-      </button>
+      {/* Top-right controls: follow-activity toggle + fullscreen. */}
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setFollowActivity((v) => !v)}
+          className={`border-2 px-2.5 py-1 text-[0.625rem] font-black uppercase tracking-wide shadow-[2px_2px_0px_0px_black] transition-colors ${
+            followActivity
+              ? 'border-accent bg-accent text-black'
+              : 'border-black bg-bg-card/90 text-text-muted hover:text-text-primary'
+          }`}
+          title="Centrar la cámara en la actividad más reciente"
+        >
+          Follow
+        </button>
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="border-2 border-black bg-bg-card/90 p-1.5 text-text-muted shadow-[2px_2px_0px_0px_black] transition-colors hover:text-text-primary"
+          title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+        >
+          {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+        </button>
+      </div>
 
       {/* Top-countries toggle + panel, bottom-left. */}
       <button

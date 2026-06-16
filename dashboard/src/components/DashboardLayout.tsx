@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Map, Clock, Users, LogOut, Globe, Settings, BarChart3 } from 'lucide-react';
+import { Activity, Map, Clock, Users, LogOut, Globe, Settings } from 'lucide-react';
 import { RetroTabs } from './retro';
 import { buildLabel } from '../lib/buildLabels';
 
@@ -75,7 +75,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     { id: 'live', label: 'Live', icon: <Activity size={24} /> },
     { id: 'mapa', label: 'Globe', icon: <Globe size={24} /> },
     { id: 'heatmap', label: 'Heatmap', icon: <Map size={24} /> },
-    { id: 'stats', label: 'Stats', icon: <BarChart3 size={24} /> },
     { id: 'history', label: 'History', icon: <Clock size={24} /> },
   ];
 
