@@ -90,6 +90,10 @@ func _ready():
 	# Initialize visuals to current state
 	_update_visuals()
 
+	# PERF: Disable physics process when idle
+	if anim_progress == target_progress:
+		set_physics_process(false)
+
 	# Register with Performance Monitor
 	if Engine.has_singleton("PerformanceMonitor") or has_node("/root/PerformanceMonitor"):
 		_perf_monitor = get_node("/root/PerformanceMonitor")
@@ -144,7 +148,11 @@ func set_active(value: bool, immediate: bool = false) -> void:
 		anim_progress = target_progress
 		_update_visuals()
 		_on_animation_completed()
+		# PERF: Ensure we are disabled if snap immediate
+		set_physics_process(false)
 	else:
+		# PERF: Enable physics process when animation starts
+		set_physics_process(true)
 		emit_signal("interaction_started")
 	
 	if debug:
@@ -160,6 +168,9 @@ func step(dt: float) -> void:
 		if anim_progress != target_progress:
 			anim_progress = target_progress
 			_on_animation_completed()
+
+		# PERF: Disable physics process when idle
+		set_physics_process(false)
 		return
 	
 	# Move towards target

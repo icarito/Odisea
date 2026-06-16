@@ -96,6 +96,8 @@ func _reparent_cargo_anchor(parent_node: Node) -> void:
 # --- CORE API (Programmable Interface) ---
 
 func move_to(position: Vector3) -> void:
+	# PERF: Enable physics process for movement
+	set_physics_process(true)
 	target_position = position
 	is_moving = true
 	_is_following_path = false
@@ -105,6 +107,8 @@ func move_to(position: Vector3) -> void:
 func follow_path(path_nodepath: NodePath) -> void:
 	var node = get_node_or_null(path_nodepath)
 	if node and node is Path:
+		# PERF: Enable physics process for movement
+		set_physics_process(true)
 		_current_path_node = node
 		_path_offset = 0.0
 		_is_following_path = true
@@ -115,6 +119,8 @@ func follow_path(path_nodepath: NodePath) -> void:
 		printerr("[Cargol] Invalid path node: ", path_nodepath)
 
 func set_velocity(vector: Vector3) -> void:
+	# PERF: Enable physics process for movement
+	set_physics_process(true)
 	_intended_velocity = vector
 	_has_intended_velocity = true
 	is_moving = true # Active movement state
@@ -126,6 +132,8 @@ func follow_target(target: Node, distance: float = 3.0) -> void:
 	if not target or not is_instance_valid(target):
 		printerr("[Cargol] follow_target: Invalid target")
 		return
+	# PERF: Enable physics process for movement
+	set_physics_process(true)
 	_follow_target = target
 	_follow_distance = distance
 	_is_following_target = true
@@ -137,6 +145,8 @@ func follow_target(target: Node, distance: float = 3.0) -> void:
 
 func return_to(position: Vector3) -> void:
 	# Clear follow state and move to a specific position (home).
+	# PERF: Enable physics process for movement
+	set_physics_process(true)
 	_is_following_target = false
 	_follow_target = null
 	_update_led(Color(0.2, 1.0, 0.4)) # Green LED = returning
@@ -363,6 +373,11 @@ func step(dt: float) -> void:
 	if cargo_anchor and cargo_anchor.get_parent() != self:
 		cargo_anchor.global_transform = global_transform
 
+	# PERF: Disable physics process when drone is idle
+	# Use exact zero check for velocity to maintain perfect determinism during lerp/deceleration
+	if not is_moving and not _is_following_path and not _is_following_target and not _has_intended_velocity and velocity.length_squared() == 0:
+		set_physics_process(false)
+
 
 func _apply_movement_and_rotation() -> void:
 	# Move and Slide
@@ -428,6 +443,9 @@ func get_snapshot() -> Dictionary:
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
+	# PERF: Re-enable physics process if restored state is active
+	set_physics_process(true)
+
 	if data.has("tf_origin"):
 		var o = str2var(data["tf_origin"])
 		var b = str2var(data["tf_basis"])

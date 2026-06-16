@@ -28,8 +28,14 @@ func _ready():
 	else:
 		current_speed_scale = 0.0
 
+	# PERF: Disable physics process if starting inactive and stopped
+	if current_speed_scale == 0 and not is_active:
+		set_physics_process(false)
+
 func set_is_active(val):
 	is_active = val
+	# PERF: Enable physics process when state changes
+	set_physics_process(true)
 
 func step(dt: float):
 	# if Engine.editor_hint:
@@ -43,6 +49,8 @@ func step(dt: float):
 		current_speed_scale = target_scale
 
 	if current_speed_scale == 0 and not is_active:
+		# PERF: Disable physics process when inactive and stopped
+		set_physics_process(false)
 		return
 
 	# Calculate rotation step

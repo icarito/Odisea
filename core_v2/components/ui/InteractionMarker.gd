@@ -82,9 +82,19 @@ func _process(delta: float) -> void:
 		var pos = entry.interactable.global_transform.origin
 		entry.distance_to_camera = pos.distance_to(camera.global_transform.origin)
 
+		# PERF: Early exit for extremely distant markers
+		if entry.distance_to_camera > 100.0:
+			entry.state = State.HIDDEN
+			continue
+
 		var is_in_range = entry.distance_to_camera <= entry.config.interaction_range
 		var is_behind = camera.is_position_behind(pos)
-		entry.screen_pos = camera.unproject_position(pos)
+
+		# PERF: Defer unproject_position until we know it's in range
+		if is_in_range:
+			entry.screen_pos = camera.unproject_position(pos)
+		else:
+			entry.screen_pos = Vector2(-1000, -1000)
 
 		var viewport_rect = Rect2(Vector2.ZERO, viewport_size)
 		var is_in_viewport = not is_behind and viewport_rect.has_point(entry.screen_pos)

@@ -190,6 +190,10 @@ var _rl_step_profile_us_move: int = 0
 var _rl_step_profile_us_post: int = 0
 var _hyper_low_animator_throttle := false
 var _hyper_low_animator_tick := 0
+var _best_interaction_target_cached = null
+var _crouch_ledge_target_cached = null
+var _crouch_ladder_target_cached = null
+var _best_zone_cached = null
 
 # Signals
 signal jumped
@@ -1567,26 +1571,37 @@ func _process_interaction(input: InputDataV2):
 		_clear_interactable()
 		return
 	if not _interact_area: return
-	var bodies = _interact_area.get_overlapping_bodies()
-	var best_target = null
-	var crouch_ledge_target = null
-	var crouch_ladder_target = null
-	var min_dist = 999.0
-	for body in bodies:
-		var candidate = _resolve_interactable_root(body)
-		if is_instance_valid(candidate) and _candidate_is_actionable(candidate):
-			var dist = global_transform.origin.distance_squared_to(candidate.global_transform.origin)
-			if dist < min_dist:
-				min_dist = dist
-				best_target = candidate
-	if input.crouch and (best_target == null or best_target.is_in_group("ledge")):
-		crouch_ledge_target = _find_nearby_ledge_for_crouch()
-		if crouch_ledge_target:
-			best_target = crouch_ledge_target
-	if input.crouch and (best_target == null or best_target.is_in_group("ladder")):
-		crouch_ladder_target = _find_nearby_ladder_for_crouch()
-		if crouch_ladder_target:
-			best_target = crouch_ladder_target
+
+	# PERF: Throttle heavy physics/search scans
+	if Engine.get_physics_frames() % 8 == 0 or _best_interaction_target_cached == null:
+		var bodies = _interact_area.get_overlapping_bodies()
+		var best_target = null
+		var crouch_ledge_target = null
+		var crouch_ladder_target = null
+		var min_dist = 999.0
+		for body in bodies:
+			var candidate = _resolve_interactable_root(body)
+			if is_instance_valid(candidate) and _candidate_is_actionable(candidate):
+				var dist = global_transform.origin.distance_squared_to(candidate.global_transform.origin)
+				if dist < min_dist:
+					min_dist = dist
+					best_target = candidate
+		if input.crouch and (best_target == null or best_target.is_in_group("ledge")):
+			crouch_ledge_target = _find_nearby_ledge_for_crouch()
+			if crouch_ledge_target:
+				best_target = crouch_ledge_target
+		if input.crouch and (best_target == null or best_target.is_in_group("ladder")):
+			crouch_ladder_target = _find_nearby_ladder_for_crouch()
+			if crouch_ladder_target:
+				best_target = crouch_ladder_target
+
+		_best_interaction_target_cached = best_target
+		_crouch_ledge_target_cached = crouch_ledge_target
+		_crouch_ladder_target_cached = crouch_ladder_target
+
+	var best_target = _best_interaction_target_cached
+	var crouch_ledge_target = _crouch_ledge_target_cached
+	var crouch_ladder_target = _crouch_ladder_target_cached
 	var h_color = Color.cyan
 	var p_color = Color(0, 1, 1, 0.15)
 	var p_radius_sq = 36.0 # 6m default
@@ -2046,6 +2061,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	_update_camera_orbit_state(dt, input)
 
 	if not _rl_fast_controller:
+		# PERF: responsiveness - process interaction every frame
 		_process_interaction(input)
 
 	if physics_grounded and velocity.y < 0 and movement_logic.get_horizontal_velocity().y <= 0:
@@ -2063,6 +2079,7 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# --- CINEMATIC ZONE DETECTION ---
 	if not _rl_fast_controller and not _perf_disable_cinematic_zone_scan:
+		# PERF: responsiveness - detection every frame
 		_update_cinematic_zone_detection(input, dt)
 	
 	# --- MOVEMENT ---
@@ -2309,30 +2326,39 @@ func _append_profile_line(path: String, line: String) -> void:
 	f.close()
 		
 func _update_cinematic_zone_detection(_input: InputDataV2, dt: float = 1.0 / 60.0):
-	var all_zones = get_tree().get_nodes_in_group("CameraZoneV2")
-	var best_zone: Node = null
-	var min_volume = INF
 	var current_zone: Node = _active_cinematic_zone
 
-	for zone in all_zones:
-		if zone.is_zone_active and zone.is_body_in_zone(self ):
-			# Simple volume comparison for priority (smaller = higher priority)
-			var vol = zone.get_volume() if zone.has_method("get_volume") else 1000.0
-			if vol < min_volume:
-				min_volume = vol
-				best_zone = zone
-			elif abs(vol - min_volume) <= 0.0001:
-				# Deterministic tie-break: prefer current zone if still valid,
-				# then stable lexical NodePath (instance_id is not deterministic across reloads).
-				if zone == current_zone and best_zone != current_zone:
-					best_zone = zone
-				elif best_zone != current_zone:
-					var zone_path = str(zone.get_path()) if zone.is_inside_tree() else zone.name
-					var best_path = str(best_zone.get_path()) if best_zone and best_zone.is_inside_tree() else (best_zone.name if best_zone else "")
-					if zone_path < best_path:
-						best_zone = zone
+	# PERF: Throttle group-wide search
+	if Engine.get_physics_frames() % 16 == 8 or _best_zone_cached == null:
+		var all_zones = get_tree().get_nodes_in_group("CameraZoneV2")
+		var best_zone: Node = null
+		var min_volume = INF
 
-	var resolved_zone: Node = best_zone
+		for zone in all_zones:
+			if zone.is_zone_active and zone.is_body_in_zone(self ):
+				# Simple volume comparison for priority (smaller = higher priority)
+				var vol = zone.get_volume() if zone.has_method("get_volume") else 1000.0
+				if vol < min_volume:
+					min_volume = vol
+					best_zone = zone
+				elif abs(vol - min_volume) <= 0.0001:
+					# Deterministic tie-break: prefer current zone if still valid,
+					# then stable lexical NodePath (instance_id is not deterministic across reloads).
+					if zone == current_zone and best_zone != current_zone:
+						best_zone = zone
+					elif best_zone != current_zone:
+						var zone_path = str(zone.get_path()) if zone.is_inside_tree() else zone.name
+						var best_path = str(best_zone.get_path()) if best_zone and best_zone.is_inside_tree() else (best_zone.name if best_zone else "")
+						if zone_path < best_path:
+							best_zone = zone
+		_best_zone_cached = best_zone
+
+	# Ensure current zone exit is detected promptly even if search is throttled
+	if _best_zone_cached and is_instance_valid(_best_zone_cached):
+		if not _best_zone_cached.is_zone_active or not _best_zone_cached.is_body_in_zone(self):
+			_best_zone_cached = null
+
+	var resolved_zone: Node = _best_zone_cached
 	if resolved_zone != null:
 		_cinematic_zone_exit_grace_left = CINEMATIC_ZONE_EXIT_GRACE_TIME
 		var current_still_inside: bool = (
