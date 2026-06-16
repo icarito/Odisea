@@ -37,9 +37,8 @@ import {
   isUsefulSceneName,
   formatFpsLabel,
 } from './lib/filters';
-import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play } from 'lucide-react';
-
-type Tab = 'live' | 'heatmap' | 'history' | 'mapa';
+import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play, Tag } from 'lucide-react';
+import type { Tab } from './types';
 
 type GitCommit = {
   sha: string;
@@ -1688,10 +1687,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // "Desconocida" is the placeholder the game emits for a tick or two while a
   // scene is loading (ANNAV2_Thread player_data default). Treat it as "no scene"
   // so we don't try to load a /game-assets/Desconocida.glb or flicker the scene.
+  // The live view always follows the *real* scene of the player you're tracking,
+  // never the scene filter. The filter scopes the players list and birdseye map,
+  // but pinning liveSceneName to selectedSceneFilter froze the 3D view (model +
+  // geometry stream) on that scene, so following a player across scenes left the
+  // viewport stuck on the first one. (Same lesson as the platform/scene filters
+  // not being allowed to yank the followed player out from under you.)
   const rawLiveScene = activeHb?.player?.scene || '';
-  const liveSceneName = selectedSceneFilter === 'all'
-    ? (rawLiveScene === 'Desconocida' ? '' : rawLiveScene)
-    : selectedSceneFilter;
+  const liveSceneName = rawLiveScene === 'Desconocida' ? '' : rawLiveScene;
   const birdseyeSceneName = selectedSceneFilter === 'all' ? '' : selectedSceneFilter;
 
   const safePos = (p: any): [number, number, number] => {
@@ -1727,7 +1730,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         onSelectSession={handleSelectHistorySession}
         onDownloadHotzone={handleDownloadHotzone}
         onPlayHotzone={handlePlayHotzone}
-        onTagPlayer={(pid: string) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
         setActiveTab={setActiveTab}
         position={activeHb ? safePos(activeHb.player.position) : [0, 0, 0]}
         yaw={activeHb ? Number(activeHb.player.yaw) || 0 : 0}
@@ -1835,6 +1837,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             {activeHb.player?.focused === false && (
               <span className="uppercase text-text-muted/80" title="En segundo plano">bg</span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setFocusPlayerId(activeId); setShowTagEditor(true); }}
+            title="Etiquetar player"
+            aria-label="Etiquetar player"
+            className="shrink-0 text-text-muted hover:text-accent"
+          >
+            <Tag size={12} />
           </button>
           {explicitActiveId && (
             <button
@@ -2166,13 +2177,22 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                       <div className="h-28">
                         <LiveCombinedChart history={hist} />
                       </div>
-                      <LiveSessionHotzones
-                        activeId={birdseyeDetailId}
-                        heartbeats={filteredHeartbeats}
-                        hotzones={hotzones}
-                        onDownload={handleDownloadHotzone}
-                        onPlay={handlePlayHotzone}
-                        onTag={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+                      <HotzoneList
+                        sessions={hb ? [{
+                          player_id: birdseyeDetailId,
+                          session_id: hb.session_id,
+                          display_name: hb.display_name,
+                          scene: hb.player?.scene,
+                        }] : []}
+                        // HotzoneList renders every row it's given (it only uses
+                        // sessions for name lookup), so scope to this player here.
+                        hotzones={hotzones.filter((hz: any) =>
+                          hz.player_id === birdseyeDetailId || (hb?.session_id && hz.session_id === hb.session_id)
+                        )}
+                        onDownloadHotzone={handleDownloadHotzone}
+                        onPlayHotzone={handlePlayHotzone}
+                        onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+                        compact
                       />
                       <div className="mt-2 flex gap-2">
                         <RetroButton

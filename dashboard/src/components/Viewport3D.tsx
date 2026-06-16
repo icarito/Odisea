@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { SceneGeometry } from './SceneGeometry';
 import { useSceneGeometryStream } from '../hooks/useSceneGeometry';
 import { formatFpsLabel } from '../lib/filters';
+import type { Tab } from '../types';
 
 // Inline heatmap overlay rendered as a group so it can nest inside this Canvas.
 // (The standalone Heatmap3D component owns its own Canvas and is used in the heatmap tab.)
@@ -79,8 +80,7 @@ interface Viewport3DProps {
   onSelectSession?: (session: any) => void;
   onDownloadHotzone?: (id: string, label: string) => void;
   onPlayHotzone?: (id: string) => void;
-  onTagPlayer?: (pid: string) => void;
-  setActiveTab?: (tab: string) => void;
+  setActiveTab?: (tab: Tab) => void;
 }
 
 const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ sceneName, wireframe }) => {
@@ -163,7 +163,7 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
 export const Viewport3D: React.FC<Viewport3DProps> = ({
   position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge,
   heatmapData, liveGhosts, label, color, hud, onUserInteract,
-  activeId, heartbeats, hotzones, sessions, onSelectSession, onDownloadHotzone, onPlayHotzone, onTagPlayer, setActiveTab
+  activeId, heartbeats, hotzones, sessions, onSelectSession, onDownloadHotzone, onPlayHotzone, setActiveTab
 }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
