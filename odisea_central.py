@@ -1344,6 +1344,9 @@ class OdiseaCentral:
                     "hotzoneId": hotzone_id,
                     "downloadUrl": f"/hotzones/{hotzone_id}/download",
                     "trigger": trigger,
+                    "scene": scene,
+                    "capture_duration": capture_duration,
+                    "frame_count": capture_frames,
                     "message": f"{player_label}: nueva hotzone ({trigger})",
                     "timestamp": time.time(),
                 }

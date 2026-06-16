@@ -206,9 +206,113 @@ const countryFlag = (countryCode?: string | null): string => {
 // Reusable hotzone captures list — performance ghosts uploaded by the game,
 // ordered newest first (the API already sorts by timestamp DESC). Each row
 // surfaces the scene and capture duration alongside the player + date.
-const HotzoneList = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
-  // Map player_id -> display name from the (already tag-enriched) session rows,
-  // so the hotzone list can show a friendly label instead of the raw id.
+const HotzoneRow = ({
+  hz,
+  name,
+  onPlay,
+  onDownload,
+  onDelete,
+  onTag,
+  compact = false
+}: {
+  hz: any;
+  name?: string;
+  onPlay?: (id: string) => void;
+  onDownload?: (id: string, label: string) => void;
+  onDelete?: (id: string, label: string) => void;
+  onTag?: (id: string) => void;
+  compact?: boolean;
+}) => {
+  const label = name || hz.display_name || String(hz.player_id || '').slice(0, 8);
+  const when = hz.timestamp ? formatDateTime(Number(hz.timestamp)) : '';
+  const scene = hz.scene || 'Escena desconocida';
+  const dur = typeof hz.duration_sec === 'number'
+    ? hz.duration_sec
+    : (typeof hz.capture_duration === 'number' ? hz.capture_duration : null);
+  const frames = hz.frame_count || null;
+  const size = hz.size_kb ? `${Math.round(hz.size_kb)}KB` : null;
+  const isManual = hz.trigger_type === 'manual' || hz.trigger === 'manual';
+  const isOptimistic = hz.is_optimistic;
+
+  return (
+    <div className={`flex items-center justify-between gap-2 border-2 border-black bg-bg-primary ${compact ? 'px-2 py-1' : 'px-3 py-2'} ${isOptimistic ? 'opacity-50 grayscale' : ''}`}>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <div className={`truncate ${compact ? 'text-[0.625rem]' : 'text-xs'} font-black text-accent`}>{scene}</div>
+          {isManual && (
+            <span className="bg-accent px-1 text-[0.5rem] font-black uppercase text-black">Manual</span>
+          )}
+        </div>
+        <div className={`${compact ? 'text-[0.5rem]' : 'text-[0.625rem]'} text-text-muted`}>
+          {when}{dur != null ? ` · ${Math.round(dur)}s` : ''}{frames ? ` · ${frames}f` : ''}{size ? ` · ${size}` : ''}
+        </div>
+        {!compact && (
+          <div className="truncate text-[0.625rem] text-text-muted">{label}</div>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {onPlay && (
+          <button
+            type="button"
+            onClick={() => onPlay(hz.id)}
+            className="border-2 border-success bg-success/10 p-1 text-success hover:bg-success hover:text-black"
+            title="Reproducir en Netlify"
+          >
+            <Play size={compact ? 10 : 12} fill="currentColor" />
+          </button>
+        )}
+        {onDownload && (
+          <button
+            type="button"
+            onClick={() => onDownload(hz.id, label)}
+            className="border-2 border-accent bg-accent/10 p-1 text-accent hover:bg-accent hover:text-black"
+            title="Descargar"
+          >
+            <Download size={compact ? 10 : 12} />
+          </button>
+        )}
+        {onTag && (
+          <button
+            type="button"
+            onClick={() => onTag(hz.player_id)}
+            className="border-2 border-accent bg-accent/10 p-1 text-accent hover:bg-accent hover:text-black"
+            title="Taguear"
+          >
+            <Tag size={compact ? 10 : 12} />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(hz.id, label)}
+            className="border-2 border-danger bg-danger/10 p-1 text-danger hover:bg-danger hover:text-white"
+            title="Borrar"
+          >
+            <Trash2 size={compact ? 10 : 12} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const HotzoneList = ({
+  sessions,
+  hotzones,
+  onDownloadHotzone,
+  onDeleteHotzone,
+  onPlayHotzone,
+  onTagPlayer,
+  compact = false
+}: {
+  sessions: any[];
+  hotzones?: any[];
+  onDownloadHotzone?: (hotzoneId: string, label?: string) => void;
+  onDeleteHotzone?: (hotzoneId: string, label?: string) => void;
+  onPlayHotzone?: (hotzoneId: string) => void;
+  onTagPlayer?: (playerId: string) => void;
+  compact?: boolean;
+}) => {
   const nameByPlayer = useMemo(() => {
     const m: Record<string, string> = {};
     for (const s of sessions) if (s.player_id && s.display_name) m[s.player_id] = s.display_name;
@@ -220,61 +324,19 @@ const HotzoneList = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, o
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      {hotzones.map((hz) => {
-        const name = nameByPlayer[hz.player_id] || String(hz.player_id || '').slice(0, 8);
-        const when = hz.timestamp ? formatDateTime(Number(hz.timestamp)) : '';
-        const scene = hz.scene || 'Escena desconocida';
-        const dur = typeof hz.duration_sec === 'number'
-          ? hz.duration_sec
-          : (typeof hz.capture_duration === 'number' ? hz.capture_duration : null);
-        return (
-          <div key={hz.id} className="flex items-center justify-between gap-3 border-2 border-black bg-bg-primary px-3 py-2">
-            <div className="min-w-0">
-              <div className="truncate text-xs font-black text-accent">{scene}</div>
-              <div className="text-[0.625rem] text-text-muted">
-                {when}{dur != null ? ` · ${Math.round(dur)}s` : ''}{hz.trigger_type ? ` · ${hz.trigger_type}` : ''}
-              </div>
-              <div className="truncate text-[0.625rem] text-text-muted">{name}</div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {onPlayHotzone && (
-                <button
-                  type="button"
-                  onClick={() => onPlayHotzone(hz.id)}
-                  className="border-2 border-success bg-success/10 p-1.5 text-success hover:bg-success hover:text-black"
-                  title="Reproducir en Netlify"
-                  aria-label="Reproducir captura hotzone"
-                >
-                  <Play size={14} fill="currentColor" />
-                </button>
-              )}
-              {onDownloadHotzone && (
-                <button
-                  type="button"
-                  onClick={() => onDownloadHotzone(hz.id, name)}
-                  className="border-2 border-accent bg-accent/10 p-1.5 text-accent hover:bg-accent hover:text-black"
-                  title="Descargar captura"
-                  aria-label="Descargar captura hotzone"
-                >
-                  <Download size={14} />
-                </button>
-              )}
-              {onDeleteHotzone && (
-                <button
-                  type="button"
-                  onClick={() => onDeleteHotzone(hz.id, name)}
-                  className="border-2 border-danger bg-danger/10 p-1.5 text-danger hover:bg-danger hover:text-white"
-                  title="Borrar captura"
-                  aria-label="Borrar captura hotzone"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      })}
+    <div className="flex flex-col gap-1">
+      {hotzones.map((hz) => (
+        <HotzoneRow
+          key={hz.id}
+          hz={hz}
+          name={nameByPlayer[hz.player_id]}
+          onPlay={onPlayHotzone}
+          onDownload={onDownloadHotzone}
+          onDelete={onDeleteHotzone}
+          onTag={onTagPlayer}
+          compact={compact}
+        />
+      ))}
     </div>
   );
 };
@@ -953,6 +1015,31 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     if (lastMessage?.type === 'alert') {
       const playerId = lastMessage.playerId || lastMessage.player_id || 'unknown';
       const alertType = lastMessage.alertType || lastMessage.alert_type || 'alert';
+
+      // Optimistic Hotzone insertion
+      if (alertType === 'hotzone' && lastMessage.hotzoneId) {
+        const optimisticHz = {
+          id: lastMessage.hotzoneId,
+          player_id: playerId,
+          session_id: lastMessage.sessionId || lastMessage.session_id,
+          scene: lastMessage.scene,
+          trigger_type: lastMessage.trigger || 'auto',
+          timestamp: lastMessage.timestamp || (Date.now() / 1000),
+          display_name: lastMessage.display_name,
+          capture_duration: lastMessage.capture_duration,
+          frame_count: lastMessage.frame_count,
+          is_optimistic: true // Marker for reconciliation
+        };
+        setHotzones((prev) => [optimisticHz, ...prev.filter(h => h.id !== lastMessage.hotzoneId)]);
+
+        // Reconciliation fetch
+        setTimeout(() => {
+          getHotzones()
+            .then((d) => setHotzones(Array.isArray(d) ? d : []))
+            .catch(() => {});
+        }, 3000);
+      }
+
       const alertPlatform = getPlatform(lastMessage);
       if (alertPlatform === 'server') return;
       const key = `${playerId}|${alertType}`;
@@ -974,6 +1061,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         ctxPlatform ? ctxPlatform : null,
         typeof ctxFps === 'number' ? `${Math.round(ctxFps)} fps` : null,
         typeof ctxMem === 'number' && ctxMem > 0 ? `${ctxMem.toFixed(0)} MB` : null,
+        lastMessage.capture_duration ? `${Math.round(lastMessage.capture_duration)}s` : null,
+        lastMessage.frame_count ? `${lastMessage.frame_count} frames` : null,
       ].filter(Boolean);
 
       toast.custom((t) => (
@@ -990,17 +1079,30 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   {ctxParts.join(' · ')}
                 </div>
               )}
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {alertType === 'hotzone' && lastMessage.hotzoneId && (
-                  <button
-                    type="button"
-                    onClick={() => { handleDownloadHotzone(lastMessage.hotzoneId, playerLabel); toast.dismiss(t.id); }}
-                    className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
-                  >
-                    Descargar
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { handleDownloadHotzone(lastMessage.hotzoneId, playerLabel); toast.dismiss(t.id); }}
+                      className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                    >
+                      Descargar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFocusPlayerId(playerId);
+                        setShowTagEditor(true);
+                        toast.dismiss(t.id);
+                      }}
+                      className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                    >
+                      Taguear
+                    </button>
+                  </>
                 )}
-                {alertType !== 'hotzone' && playerId !== 'unknown' && (
+                {playerId !== 'unknown' && heartbeats[playerId] && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1012,7 +1114,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     }}
                     className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
                   >
-                    View live
+                    Ver live
                   </button>
                 )}
                 <button
@@ -1618,6 +1720,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const viewport3D = (
     <Suspense fallback={<LazyPanelFallback label="Cargando 3D…" />}>
       <Viewport3D
+        activeId={activeId}
+        heartbeats={heartbeats}
+        hotzones={hotzones}
+        sessions={historySessionsWithGeo}
+        onSelectSession={handleSelectHistorySession}
+        onDownloadHotzone={handleDownloadHotzone}
+        onPlayHotzone={handlePlayHotzone}
+        onTagPlayer={(pid: string) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+        setActiveTab={setActiveTab}
         position={activeHb ? safePos(activeHb.player.position) : [0, 0, 0]}
         yaw={activeHb ? Number(activeHb.player.yaw) || 0 : 0}
         pitch={activeHb ? Number(activeHb.player.pitch) || 0 : 0}
@@ -2055,18 +2166,41 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                       <div className="h-28">
                         <LiveCombinedChart history={hist} />
                       </div>
-                      <RetroButton
-                        variant="primary"
-                        onClick={() => {
-                          setSelectedPlayerId(birdseyeDetailId);
-                          setBirdseyeDetailId(null);
-                          setLiveView('3d');
-                          setFollowPlayer(true);
-                        }}
-                        className="mt-2 w-full py-1 text-[0.625rem]"
-                      >
-                        Ver 3D
-                      </RetroButton>
+                      <LiveSessionHotzones
+                        activeId={birdseyeDetailId}
+                        heartbeats={filteredHeartbeats}
+                        hotzones={hotzones}
+                        onDownload={handleDownloadHotzone}
+                        onPlay={handlePlayHotzone}
+                        onTag={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+                      />
+                      <div className="mt-2 flex gap-2">
+                        <RetroButton
+                          variant="primary"
+                          onClick={() => {
+                            setSelectedPlayerId(birdseyeDetailId);
+                            setBirdseyeDetailId(null);
+                            setLiveView('3d');
+                            setFollowPlayer(true);
+                          }}
+                          className="flex-1 py-1 text-[0.625rem]"
+                        >
+                          Ver 3D
+                        </RetroButton>
+                        <RetroButton
+                          variant="secondary"
+                          onClick={() => {
+                            const session = historySessionsWithGeo.find(s => s.session_id === hb.session_id);
+                            if (session) {
+                              handleSelectHistorySession(session);
+                              setActiveTab('history');
+                            }
+                          }}
+                          className="flex-1 py-1 text-[0.625rem]"
+                        >
+                          Historial
+                        </RetroButton>
+                      </div>
                     </div>
                   );
                 })()}

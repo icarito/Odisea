@@ -19,7 +19,7 @@ const SCHEMA_VERSION := 1
 #   - Boot scene: 87% of frames <30 (pure load noise) -> excluded by scene.
 #   - Server platform: avg 6 fps headless -> recorder disabled on Server builds.
 var hotzone_enabled := true
-var hotzone_buffer_frames := 300
+var hotzone_buffer_frames := 600 # 10s @ 60fps
 var hotzone_fps_threshold := 30.0
 var hotzone_min_duration := 5.0
 var hotzone_cooldown := 60.0
@@ -57,6 +57,9 @@ var _scene_changed_msec := 0
 var _save_thread: Thread = null
 var _save_thread_busy := false
 var _save_jobs := []
+var _ambient_enabled := true
+var _manual_recording := false
+var _manual_start_msec := 0
 
 func _ready():
 	_ready_msec = OS.get_ticks_msec()
@@ -67,6 +70,7 @@ func _ready():
 		hotzone_enabled = false
 	_ensure_dir()
 	_setup_http()
+	_ambient_enabled = OS.get_environment("ODISEA_HOTZONE_AMBIENT").to_lower() not in ["0", "false", "no", "off"]
 	call_deferred("_cache_anna_reference")
 	if _is_web:
 		_inject_worker()
@@ -165,13 +169,13 @@ func record_frame(input, dt: float):
 		if now - _scene_changed_msec < scene_grace_msec:
 			return
 
-	# Hotzone Detection Logic
+	# Hotzone Detection Logic (Auto)
 	if not _is_in_hotzone:
 		if fps < hotzone_fps_threshold and _capture_count < hotzone_max_captures_per_session:
 			if _last_hotzone_msec <= 0 or now - _last_hotzone_msec > hotzone_cooldown * 1000.0:
 				_is_in_hotzone = true
 				_hotzone_start_msec = now
-				_reset_ring_buffer()
+				# We no longer reset the ring buffer here because we want history context
 				print("[HotzoneRecorder] Potential hotzone started at FPS ", fps)
 	else:
 		# Already in hotzone
@@ -189,7 +193,14 @@ func record_frame(input, dt: float):
 			_last_hotzone_msec = now
 			print("[HotzoneRecorder] Hotzone timed out (sustained low FPS > 30s)")
 
-	if _is_testing or _is_in_hotzone:
+	# Manual recording safeguard: auto-trigger if held for too long
+	if _manual_recording and (now - _manual_start_msec) > 30000:
+		_manual_recording = false
+		_trigger_capture(scene_name, pos, "manual")
+		print("[HotzoneRecorder] Manual recording timed out (max 30s)")
+
+	# Final storage decision
+	if _is_testing or _is_in_hotzone or _manual_recording or _ambient_enabled:
 		_store_frame(input, dt, fps, now, pos, player)
 
 func _reset_ring_buffer() -> void:
@@ -244,24 +255,25 @@ func _capture_prop_snapshots() -> Dictionary:
 	return out
 
 func _unhandled_input(event):
-	var manual = false
-	if event is InputEventKey and event.pressed:
-		if event.control and event.shift and event.scancode == KEY_BACKSPACE:
-			manual = true
+	if not InputMap.has_action("hotzone_manual_capture"):
+		return
 
-	if not manual and InputMap.has_action("hotzone_manual_capture") and event.is_action_pressed("hotzone_manual_capture"):
-		manual = true
-
-	if manual:
-		var scene_name = ""
-		var pos = Vector3.ZERO
-		var player = SessionManager.player
-		if is_instance_valid(player):
-			pos = player.global_transform.origin
-			if get_tree().current_scene:
-				scene_name = get_tree().current_scene.filename.get_file().get_basename()
-
-		_trigger_capture(scene_name, pos, "manual")
+	if event.is_action_pressed("hotzone_manual_capture", false):
+		if not _manual_recording:
+			_manual_recording = true
+			_manual_start_msec = OS.get_ticks_msec()
+			print("[HotzoneRecorder] Manual recording started")
+	elif event.is_action_released("hotzone_manual_capture"):
+		if _manual_recording:
+			_manual_recording = false
+			var scene_name = ""
+			var pos = Vector3.ZERO
+			var player = SessionManager.player
+			if is_instance_valid(player):
+				pos = player.global_transform.origin
+				if get_tree().current_scene:
+					scene_name = get_tree().current_scene.filename.get_file().get_basename()
+			_trigger_capture(scene_name, pos, "manual")
 
 func _trigger_capture(scene: String, pos: Vector3, trigger_type: String):
 	if trigger_type == "auto":
