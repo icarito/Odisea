@@ -1,7 +1,6 @@
 extends Node
 
 const PLAYER_ID_FILE := "user://odisea_player_id.txt"
-const GAME_VERSION := "0.1.0"
 const CAPTURE_DEFAULT_MAX := 36000 # ~10 min at 60 fps; ring buffer caps memory use
 
 var _command_queue_script = preload("res://core_v2/telemetry/ANNAV2_CommandQueue.gd")
@@ -90,7 +89,7 @@ func _ready():
 		if proto == "https:":
 			_net_thread.set_scheme("wss")
 
-	_net_thread.start(_command_queue, _player_id, _session_id, _build_info.get("game_version", GAME_VERSION))
+	_net_thread.start(_command_queue, _player_id, _session_id, _build_info.get("game_version", Constants.GAME_VERSION))
 	_init_capture_from_env()
 	_perf_monitor = get_node_or_null("/root/PerformanceMonitor")
 	_perf_profiling_enabled = _perf_monitor and "_profiling_enabled" in _perf_monitor and _perf_monitor._profiling_enabled
@@ -493,7 +492,7 @@ func dump_telemetry_json(path := "") -> String:
 	var payload = {
 		"player_id": _player_id,
 		"session_id": _session_id,
-		"game_version": _build_info.get("game_version", GAME_VERSION),
+		"game_version": _build_info.get("game_version", Constants.GAME_VERSION),
 		"git_commit": _build_info.get("git_commit", ""),
 		"build_id": _build_info.get("build_id", ""),
 		"build_channel": _build_info.get("build_channel", ""),
@@ -622,7 +621,7 @@ func _load_build_info() -> Dictionary:
 	if game_version == "":
 		game_version = _get_build_meta_value("version")
 	if game_version == "":
-		game_version = GAME_VERSION
+		game_version = Constants.GAME_VERSION
 
 	var git_commit = OS.get_environment("ODISEA_GIT_COMMIT")
 	if git_commit == "":

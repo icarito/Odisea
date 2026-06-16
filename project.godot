@@ -2270,6 +2270,8 @@ output_latency.web=100
 
 [autoload]
 
+Constants="*res://core_v2/Constants.gd"
+VersionChecker="*res://core_v2/systems/VersionChecker.gd"
 DomeRegistry="*res://core_v2/data/DomeRegistry.gd"
 AudioManager="*res://core_v2/autoloads/AudioManager.gd"
 SessionManager="*res://core_v2/autoloads/SessionManager.gd"
@@ -2295,6 +2297,7 @@ SceneLighting="*res://core_v2/autoloads/SceneLighting.gd"
 AirlockManager="*res://core_v2/autoloads/AirlockManager.gd"
 ANNAV2="*res://core_v2/telemetry/ANNAV2.gd"
 HotzoneRecorder="*res://core_v2/telemetry/HotzoneRecorder.gd"
+VersionNotification="*res://core_v2/ui/VersionNotification.tscn"
 
 [debug]
 

@@ -37,6 +37,10 @@ def inflate_ws_frame(data: bytes) -> Optional[bytes]:
 # --- Configuration ---
 CENTRAL_HTTP_PORT = int(os.environ.get("CENTRAL_HTTP_PORT", 5003))
 
+GITHUB_RELEASES_URL = "https://api.github.com/repos/icarito/Odisea/releases/latest"
+DOWNLOADS_PAGE_URL = "https://icarito.github.io/odisea-neon-dreams/#downloads"
+WEB_URL = "https://odisea-game.netlify.app"
+
 # PWA Push Notifications (FD-167)
 VAPID_PUBLIC_KEY = os.environ.get("ODISEA_VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY = os.environ.get("ODISEA_VAPID_PRIVATE_KEY")
@@ -607,6 +611,45 @@ class OdiseaCentral:
     # --- Request Handlers ---
     async def handle_health(self, request):
         return web.json_response(self.metrics.get_metrics(self))
+
+    async def handle_game_version(self, request):
+        """Returns the latest game version from GitHub Releases with 5-min caching."""
+        now = time.time()
+        if hasattr(self, "_game_version_cache"):
+            cache_ts, cache_data = self._game_version_cache
+            if now - cache_ts < 300:  # 5 minutes TTL
+                return web.json_response(cache_data, headers={"Access-Control-Allow-Origin": "*"})
+
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                GITHUB_RELEASES_URL,
+                headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "Odisea-Central-Bridge"}
+            )
+            # Fetch from GitHub API (sync call in executor)
+            def fetch():
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    return json.loads(response.read().decode())
+
+            data = await asyncio.get_running_loop().run_in_executor(None, fetch)
+            version = data.get("tag_name", "v0.0.0")
+            release_url = data.get("html_url", "")
+
+            version_info = {
+                "version": version,
+                "latest_release_url": release_url,
+                "web_url": WEB_URL,
+                "downloads_page": DOWNLOADS_PAGE_URL
+            }
+            self._game_version_cache = (now, version_info)
+            return web.json_response(version_info, headers={"Access-Control-Allow-Origin": "*"})
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch game version from GitHub: {e}")
+            # Fallback to last cached if available, even if expired
+            if hasattr(self, "_game_version_cache"):
+                return web.json_response(self._game_version_cache[1], headers={"Access-Control-Allow-Origin": "*"})
+            return web.json_response({"error": "failed_to_fetch_version"}, status=502, headers={"Access-Control-Allow-Origin": "*"})
 
     async def handle_web_telemetry(self, request):
         """Unauthenticated loader metrics from the HTML shell (fire and forget).
@@ -3031,6 +3074,7 @@ class OdiseaCentral:
             web.get('/api/player-tags', self.handle_player_tags_list),
             web.post('/api/player-tags', self.handle_player_tag_upsert),
             web.delete('/api/player-tags/{player_id}', self.handle_player_tag_delete),
+            web.get('/game/version', self.handle_game_version),
             web.post('/telemetry', self.handle_web_telemetry),
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),
