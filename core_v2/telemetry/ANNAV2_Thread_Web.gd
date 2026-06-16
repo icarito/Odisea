@@ -299,6 +299,11 @@ func _send_heartbeat(tier: int):
 		"platform": platform_name,
 		"timestamp": OS.get_unix_time()
 	}
+	# Stamp the token on every heartbeat so the central classifies intake_mode from our
+	# own token even when relayed through a peer (otherwise relayed heartbeats inherit
+	# the peer's handshake mode). Mirrors the native ANNAV2_Thread heartbeat.
+	if _bridge_token != "":
+		msg["token"] = _bridge_token
 
 	# En HTML5, Performance.MEMORY_STATIC puede devolver 0 o valores invalidos.
 	# Usamos la API del navegador (performance.memory.usedJSHeapSize en Chrome,

@@ -181,6 +181,16 @@ func _start_replay():
 
 	print("[HotzonePlayer] Player found. Initializing replay provider.")
 
+	# Silence the global HotzoneRecorder autoload for the whole replay session. The
+	# loaded scene drives the same low-FPS conditions that produced this capture, so a
+	# live recorder would detect the playback as a fresh hotzone and record/upload it
+	# — replaying a hotzone must never spawn another. (The recorder's own
+	# SessionManager.is_replaying guard doesn't cover this tool, which steps the player
+	# directly instead of going through SessionManager.)
+	if has_node("/root/HotzoneRecorder"):
+		get_node("/root/HotzoneRecorder").hotzone_enabled = false
+		print("[HotzonePlayer] Disabled HotzoneRecorder for replay session.")
+
 	# Cache the player's animator so we can freeze it whenever playback pauses.
 	if "animator" in player_node:
 		player_animator = player_node.animator
@@ -431,5 +441,9 @@ func _on_replay_finished():
 	_update_ui_frame()
 
 func _exit_tree():
+	# Restore the recorder we silenced in _start_replay, in case this tool ever runs
+	# inside a longer-lived session rather than its own throwaway process.
+	if has_node("/root/HotzoneRecorder"):
+		get_node("/root/HotzoneRecorder").hotzone_enabled = true
 	if is_instance_valid(loaded_scene_node):
 		loaded_scene_node.queue_free()

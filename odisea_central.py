@@ -1487,7 +1487,15 @@ class OdiseaCentral:
             COALESCE(NULLIF(MAX(git_commit), ''), '') as git_commit,
             COALESCE(NULLIF(MAX(build_channel), ''), '') as build_channel,
             MAX(COALESCE(official_build, 0)) as official_build,
-            COALESCE(NULLIF(MAX(intake_mode), ''), 'telemetry') as intake_mode
+            -- Prefer an official mode if ANY heartbeat in the session carried one.
+            -- Plain MAX(intake_mode) is lexicographic ('telemetry' > 'ingest' > 'admin'),
+            -- so one tokenless/early frame would mask an otherwise-official session and
+            -- show it as "canary". Rank admin > ingest > telemetry explicitly instead.
+            CASE
+                WHEN MAX(CASE WHEN intake_mode = 'admin' THEN 1 ELSE 0 END) = 1 THEN 'admin'
+                WHEN MAX(CASE WHEN intake_mode = 'ingest' THEN 1 ELSE 0 END) = 1 THEN 'ingest'
+                ELSE 'telemetry'
+            END as intake_mode
         FROM heartbeats
         WHERE {visible}
         GROUP BY player_id, session_id

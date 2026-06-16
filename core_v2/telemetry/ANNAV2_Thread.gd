@@ -411,6 +411,14 @@ func _send_heartbeat(tier: int):
 		"platform": platform_name,
 		"timestamp": OS.get_unix_time()
 	}
+	# Carry the token on every heartbeat, not just the handshake. The central
+	# classifies each heartbeat's intake_mode from its own token; when our heartbeats
+	# are relayed through a peer they ride the peer's connection, so without a token
+	# here they'd inherit the peer's handshake mode instead of ours. Stamping it makes
+	# the game's ODISEA_CENTRAL_INGEST_TOKEN authoritative end-to-end ("official"),
+	# regardless of whether we reach central directly or via a relay.
+	if _bridge_token != "":
+		msg["token"] = _bridge_token
 	
 	# Envío completo en cada latido para garantizar telemetría continua en el dashboard
 	var player_msg = {
