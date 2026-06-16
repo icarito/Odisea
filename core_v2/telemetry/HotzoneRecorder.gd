@@ -211,7 +211,11 @@ func _store_frame(input, dt: float, fps: float, now: int, pos: Vector3, player: 
 	if _frames_since_snapshot <= 0 or _frames_since_snapshot >= snapshot_interval:
 		if is_instance_valid(player) and player.has_method("get_full_snapshot"):
 			frame_data["snapshot"] = player.get_full_snapshot()
-			_frames_since_snapshot = 0
+		# Snapshot every tagged scene element (the "replay_sync" group) so a replay
+		# can restore the whole world on seek, not just the player. Keyed by path
+		# relative to the scene root so the player side can match nodes back up.
+		frame_data["props"] = _capture_prop_snapshots()
+		_frames_since_snapshot = 0
 	_frames_since_snapshot += 1
 
 	if _ring_buffer.size() < hotzone_buffer_frames:
@@ -221,6 +225,23 @@ func _store_frame(input, dt: float, fps: float, now: int, pos: Vector3, player: 
 
 	_head = (_head + 1) % hotzone_buffer_frames
 	_count = min(_count + 1, hotzone_buffer_frames)
+
+func _capture_prop_snapshots() -> Dictionary:
+	# Walk the "replay_sync" group and collect each node's get_snapshot(), keyed by
+	# the node's path relative to the current scene root. Runtime-spawned nodes that
+	# live outside the scene tree (no stable path) are skipped.
+	var out := {}
+	var scene_root = get_tree().current_scene
+	if not is_instance_valid(scene_root):
+		return out
+	for node in get_tree().get_nodes_in_group("replay_sync"):
+		if not is_instance_valid(node) or not node.has_method("get_snapshot"):
+			continue
+		if not scene_root.is_a_parent_of(node):
+			continue
+		var rel = scene_root.get_path_to(node)
+		out[str(rel)] = node.get_snapshot()
+	return out
 
 func _unhandled_input(event):
 	var manual = false

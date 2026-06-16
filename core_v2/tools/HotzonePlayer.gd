@@ -142,6 +142,11 @@ func _prepare_scene():
 
 func _attach_loaded_scene():
 	get_tree().root.add_child(loaded_scene_node)
+	# When playback pauses we flip get_tree().paused, which stops all physics and
+	# _process across the loaded scene. The scene must STOP under that flag while
+	# this player keeps PROCESSing so its UI and unpause/seek input stay alive.
+	loaded_scene_node.pause_mode = Node.PAUSE_MODE_STOP
+	pause_mode = Node.PAUSE_MODE_PROCESS
 	# Let the scene's own startup run (player _ready, TeleportSystem.force_initial_spawn,
 	# deferred spawn placement) before we take over, otherwise those would overwrite
 	# the captured position right after we restore it.
@@ -206,9 +211,11 @@ func _start_replay():
 	if warmup_sec > 0.0:
 		_is_warming_up = true
 		_warmup_remaining = warmup_sec
+		# Plain (self-access) assignment intentionally bypasses the setget: we want
+		# the playback gate up WITHOUT freezing the tree, so the scene keeps settling
+		# (physics/animators run) during warmup. The setter (get_tree().paused) only
+		# fires on real user pauses via self.is_paused.
 		is_paused = true
-		# Keep the animator running during warmup; we're settling the scene, not
-		# pausing it. _process counts the timer down and starts playback after.
 		_set_animator_active(true)
 		status_label.text = "Calentando... %.1fs" % _warmup_remaining
 		status_label.modulate = Color(1, 1, 0.3)
@@ -270,14 +277,15 @@ func _process(delta):
 
 func _unhandled_input(event):
 	if event.is_action_pressed("ui_accept"): # Space
-		is_paused = !is_paused
+		# Use self. so the setget setter fires (plain assignment self-access skips it).
+		self.is_paused = not is_paused
 		status_label.text = "Pausado" if is_paused else "Reproduciendo..."
 	elif event.is_action_pressed("ui_right"): # Right Arrow
 		_seek_relative(_seek_step_for(event))
-		is_paused = true
+		self.is_paused = true
 	elif event.is_action_pressed("ui_left"): # Left Arrow
 		_seek_relative(-_seek_step_for(event))
-		is_paused = true
+		self.is_paused = true
 	elif event is InputEventKey and event.pressed:
 		if event.scancode == KEY_1: _set_speed(1.0)
 		elif event.scancode == KEY_2: _set_speed(2.0)
@@ -300,8 +308,14 @@ func _seek_relative(delta_frames: int) -> void:
 
 func _set_paused(value: bool) -> void:
 	is_paused = value
-	# Freeze the player's animation whenever playback halts, so a paused frame
-	# isn't misleading (idle/locomotion blends would keep advancing otherwise).
+	# Freeze the whole loaded scene when playback halts: get_tree().paused stops all
+	# physics and _process (the scene is PAUSE_MODE_STOP). The player itself isn't
+	# physics-processed by the engine here, so we still step it manually on seek.
+	get_tree().paused = value
+	# Animators are frozen separately: AnimationPlayer/AnimationTree nodes left at
+	# PAUSE_MODE_PROCESS would keep advancing through the tree pause, so a paused
+	# frame isn't a true still otherwise.
+	_set_animators_active(not value)
 	_set_animator_active(not value)
 
 func _set_animator_active(active: bool) -> void:
@@ -309,6 +323,21 @@ func _set_animator_active(active: bool) -> void:
 		return
 	if "animation_tree" in player_animator and player_animator.animation_tree:
 		player_animator.animation_tree.active = active
+
+# Walk the loaded scene and freeze/unfreeze every AnimationPlayer and AnimationTree,
+# so pausing yields a real still frame regardless of each animator's pause_mode.
+func _set_animators_active(active: bool) -> void:
+	if not is_instance_valid(loaded_scene_node):
+		return
+	_walk_animators(loaded_scene_node, active)
+
+func _walk_animators(node: Node, active: bool) -> void:
+	if node is AnimationPlayer:
+		node.playback_active = active
+	elif node is AnimationTree:
+		node.active = active
+	for child in node.get_children():
+		_walk_animators(child, active)
 
 func _set_speed(s: float):
 	playback_speed = s
@@ -324,6 +353,7 @@ func _step_forward():
 	# Restore snapshot if present
 	if f.has("snapshot"):
 		player_node.restore_snapshot(f["snapshot"])
+	_restore_prop_snapshots(f)
 
 	var input = InputDataV2.new()
 	input.from_dict(f.get("input", {}))
@@ -360,6 +390,7 @@ func _restore_frame_state(idx: int):
 
 	if snapshot_idx != -1:
 		player_node.restore_snapshot(frames[snapshot_idx]["snapshot"])
+		_restore_prop_snapshots(frames[snapshot_idx])
 		# Play back inputs from snapshot_idx to current_frame_idx
 		player_node.input_provider.playback_index = snapshot_idx
 		for i in range(snapshot_idx, idx):
@@ -375,6 +406,23 @@ func _restore_frame_state(idx: int):
 		player_node.global_transform = t
 		if "velocity" in player_node: player_node.velocity = Vector3.ZERO
 		player_node.input_provider.playback_index = idx
+
+var _prop_node_cache := {}
+func _restore_prop_snapshots(f: Dictionary) -> void:
+	# Mirror of the recorder's _capture_prop_snapshots: each entry is keyed by the
+	# node's path relative to the scene root. Resolve against loaded_scene_node and
+	# call restore_snapshot so seeking rewinds the whole world, not just the player.
+	var props = f.get("props", {})
+	if props.empty() or not is_instance_valid(loaded_scene_node):
+		return
+	for rel_path in props:
+		var node = _prop_node_cache.get(rel_path)
+		if not is_instance_valid(node):
+			node = loaded_scene_node.get_node_or_null(rel_path)
+			if node != null:
+				_prop_node_cache[rel_path] = node
+		if is_instance_valid(node) and node.has_method("restore_snapshot"):
+			node.restore_snapshot(props[rel_path])
 
 func _on_replay_finished():
 	# Loop: rewind to the start and keep playing so the hotzone repeats.

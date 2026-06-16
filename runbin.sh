@@ -69,7 +69,8 @@ ${C_OK}In-player controls:${C_RST}
   Space        pause/resume          1/2/4  speed 1x/2x/4x
   Left/Right   step 1 frame          Esc    quit
   Ctrl+Arrow   step 10 frames        Ctrl+Shift+Arrow  step 30 frames
-  (playback loops on finish; pausing also freezes the player animator)
+  (playback loops on finish; pausing freezes the whole scene: physics and all
+   animators stop for a true still frame. Seeking rewinds tagged props too.)
 
 ${C_DIM}Pending dir: ${PENDING_DIR}${C_RST}
 EOF
