@@ -43,16 +43,9 @@ export(bool) var snap_initial_selection := true
 
 # Colisiones físicas generadas para probar/usar terrazas sin authoring manual.
 export(NodePath) var physical_terrace_path := NodePath("")
-export(Vector3) var fallback_collision_extents := Vector3(100.0, 1.0, 100.0)
-# Extra collider depth added BELOW the visual plate surface (units). The visual
-# plate slab is thin (~2 units), but the StaticBody floor is hard-teleported under
-# the player every physics tick as the world rotates. On a slow client one tick can
-# move the floor more than the slab thickness, so the kinematic player tunnels
-# straight through it. Extending the collider downward keeps the player intersecting
-# the floor even when it lags/overshoots in a single frame, without changing the
-# visible geometry. The box is grown by this amount on the bottom face only (its
-# top stays flush with the visual plate, so standing height is unchanged).
-export(float, 0.0, 200.0) var collision_extra_depth := 40.0
+# Fallback extents (half-sizes) used only when a spiral exposes no CubeMesh to
+# derive the plate size from. The plate slabs are 4 units thick, so Y=2 here.
+export(Vector3) var fallback_collision_extents := Vector3(100.0, 2.0, 100.0)
 export(bool) var auto_track_target_plate := false
 export(NodePath) var tracking_target_path := NodePath("")
 export(float) var auto_track_min_switch_distance := 20.0
@@ -112,11 +105,6 @@ export(int, 4, 128) var collision_pool_size := 32
 # Cada cuántos physics frames se recalcula la asignación del pool.
 # 1 = cada frame (máxima precisión), 6 = cada 6 frames (~10 Hz a 60 Hz).
 export(int, 1, 30) var collision_update_interval := 3
-# Factor de escala en XZ para los BoxShape del pool.
-# El mesh de las plates es 200x2x200 -> extents = (100,1,100).
-# En modo centrífugo las plates vecinas están a ~249 unidades de distancia XZ,
-# dejando un hueco de 49u entre boxes. Escalar a 1.3 da extents=130 -> solape.
-export(float, 1.0, 3.0) var collision_pool_xz_scale := 1.3
 # Radio (en plates) de la búsqueda que reposiciona el centro del pool sobre la plate
 # realmente más cercana al jugador. Con el pool reasignado cada frame y el jugador
 # moviéndose ≤1 plate/frame, un radio pequeño basta y mantiene el costo bajo (la
@@ -1835,26 +1823,20 @@ func _sync_pool_shape_extents(body: StaticBody, spiral: Spatial) -> void:
 		e = _get_plate_collision_extents(spiral)
 		if spiral_index >= 0:
 			_spiral_extents_cache[spiral_index] = e
-	# Escalar XZ para cubrir el hueco entre plates adyacentes; engrosar hacia abajo
-	# para evitar tunneling del jugador cuando el suelo se teletransporta por frame.
 	_apply_plate_box_extents(shape_node, box, e)
 
-# Configures a plate collider box so it covers the (optionally xz-scaled) visual
-# plate and extends downward by collision_extra_depth without raising the standing
-# surface: the box's top face stays flush with the plate while its bottom drops.
-# The downward growth lives on the CollisionShape's local Y offset, so the owning
-# body's origin (the plate surface reference used for teleporting) is untouched.
+# Configures a plate collider box so it matches the visual plate slab exactly: the
+# BoxShape's extents equal the plate mesh half-size (no XZ scaling, no downward
+# growth) and the CollisionShape sits centred on the plate. Colliders that overhang
+# the mesh are confusing — the grout/tunneling issues are handled by the per-frame
+# tracking caps (continuous_tracking_max_step / max_tracking_delta), not by inflating
+# the box.
 func _apply_plate_box_extents(shape_node: CollisionShape, box: BoxShape, base_extents: Vector3) -> void:
-	var half_depth: float = max(0.0, collision_extra_depth) * 0.5
-	var want: Vector3 = Vector3(
-		base_extents.x * collision_pool_xz_scale,
-		base_extents.y + half_depth,
-		base_extents.z * collision_pool_xz_scale)
-	if not box.extents.is_equal_approx(want):
-		box.extents = want
+	if not box.extents.is_equal_approx(base_extents):
+		box.extents = base_extents
 	var local_origin: Vector3 = shape_node.transform.origin
-	if not is_equal_approx(local_origin.y, -half_depth):
-		shape_node.transform.origin = Vector3(local_origin.x, -half_depth, local_origin.z)
+	if not is_equal_approx(local_origin.y, 0.0):
+		shape_node.transform.origin = Vector3(local_origin.x, 0.0, local_origin.z)
 
 func _get_collision_parent() -> Node:
 	if get_parent():

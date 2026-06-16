@@ -7,7 +7,7 @@
 
 [sub_resource type="CubeMesh" id=1]
 material = ExtResource( 4 )
-size = Vector3( 100, 2, 100 )
+size = Vector3( 100, 4, 100 )
 
 [sub_resource type="MultiMesh" id=2]
 transform_format = 1

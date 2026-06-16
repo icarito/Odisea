@@ -1573,6 +1573,14 @@ func _process_interaction(input: InputDataV2):
 	if not _interact_area: return
 
 	# PERF: Throttle heavy physics/search scans
+	# Invalidate stale cached targets (e.g. freed on scene change / prop destroy)
+	# so a freed instance never reaches is_in_group/has_method below.
+	if not is_instance_valid(_best_interaction_target_cached):
+		_best_interaction_target_cached = null
+	if not is_instance_valid(_crouch_ledge_target_cached):
+		_crouch_ledge_target_cached = null
+	if not is_instance_valid(_crouch_ladder_target_cached):
+		_crouch_ladder_target_cached = null
 	if Engine.get_physics_frames() % 8 == 0 or _best_interaction_target_cached == null:
 		var bodies = _interact_area.get_overlapping_bodies()
 		var best_target = null
@@ -2328,6 +2336,10 @@ func _append_profile_line(path: String, line: String) -> void:
 func _update_cinematic_zone_detection(_input: InputDataV2, dt: float = 1.0 / 60.0):
 	var current_zone: Node = _active_cinematic_zone
 
+	# Drop a freed cached zone so the throttle below forces a fresh scan.
+	if not is_instance_valid(_best_zone_cached):
+		_best_zone_cached = null
+
 	# PERF: Throttle group-wide search
 	if Engine.get_physics_frames() % 16 == 8 or _best_zone_cached == null:
 		var all_zones = get_tree().get_nodes_in_group("CameraZoneV2")
@@ -2353,10 +2365,12 @@ func _update_cinematic_zone_detection(_input: InputDataV2, dt: float = 1.0 / 60.
 							best_zone = zone
 		_best_zone_cached = best_zone
 
-	# Ensure current zone exit is detected promptly even if search is throttled
-	if _best_zone_cached and is_instance_valid(_best_zone_cached):
-		if not _best_zone_cached.is_zone_active or not _best_zone_cached.is_body_in_zone(self):
-			_best_zone_cached = null
+	# Ensure current zone exit is detected promptly even if search is throttled.
+	# Drop freed instances first (a freed zone is truthy but not valid).
+	if not is_instance_valid(_best_zone_cached):
+		_best_zone_cached = null
+	elif not _best_zone_cached.is_zone_active or not _best_zone_cached.is_body_in_zone(self):
+		_best_zone_cached = null
 
 	var resolved_zone: Node = _best_zone_cached
 	if resolved_zone != null:
