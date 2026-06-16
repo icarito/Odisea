@@ -58,7 +58,7 @@ var _perf_monitor = null
 # --- HIGHLIGHT SYSTEM ---
 var _highlight_meshes: Array = []
 var _proximity_meshes: Array = []
-const PROXIMITY_SHADER_PATH = "res://shaders/proximity_glow.shader"
+const _PROXIMITY_SHADER: Shader = preload("res://shaders/proximity_glow.shader")
 const _HIGHLIGHT_SHADER: Shader = preload("res://core_v2/visual/interact_highlight.shader")
 
 # --- SIGNALS ---
@@ -260,7 +260,7 @@ func _apply_proximity(color: Color) -> void:
 				overlay.material_override.set_shader_param("glow_color", color)
 		return
 
-	var shader = load(PROXIMITY_SHADER_PATH)
+	var shader = _PROXIMITY_SHADER
 	if shader == null: return
 
 	for child in _get_all_meshes(self ):

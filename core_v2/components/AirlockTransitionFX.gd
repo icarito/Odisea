@@ -27,6 +27,7 @@ var _complete := false
 var _skip_next_airlock_ready := false
 var _post_only := false
 var _managed_lights: Array = []  # [{ node, property, base_value }]
+var _managed_lights_cached := false
 
 func _ready() -> void:
 	_controller = _find_controller()
@@ -133,6 +134,13 @@ func _finish_fx() -> void:
 	emit_signal("fx_complete")
 
 func _collect_managed_lights() -> void:
+	# The light set is static per airlock — collect once and reuse. The recursive
+	# walk plus get_shader_param() calls force a render-server sync and used to run
+	# on every airlock_ready (entry AND exit), causing a hitch right at the worst
+	# moment (scene load + strobe). base_value is captured here so the hot path in
+	# _apply_brightness/_restore_lights only ever writes, never reads, the shader.
+	if _managed_lights_cached:
+		return
 	_managed_lights.clear()
 	if not is_instance_valid(_controller):
 		return
@@ -140,9 +148,15 @@ func _collect_managed_lights() -> void:
 	var beacon = _controller.get("_beacon")
 	if is_instance_valid(beacon) and beacon.has_method("set_active"):
 		_managed_lights.append({"node": beacon, "type": "beacon", "base_value": true})
+	_managed_lights_cached = true
 
 func _collect_managed_lights_recursive(node: Node) -> void:
 	for child in node.get_children():
+		# Doors animate themselves and carry the bulk of the airlock subtree (each
+		# is an instanced scene). They are not part of the chamber light flicker, so
+		# skip their subtrees entirely — this is the main cost of the walk.
+		if _is_managed_door(child):
+			continue
 		if child is OmniLight or child is SpotLight or child is DirectionalLight:
 			_managed_lights.append({"node": child, "type": "light_energy", "base_value": float(child.light_energy)})
 		elif child is MeshInstance or child is CSGBox or child is CSGCombiner:
@@ -158,6 +172,15 @@ func _collect_managed_lights_recursive(node: Node) -> void:
 					_managed_lights.append({"node": child, "type": "shader_seam_emission", "base_value": float(seam_em), "material": mat})
 		if child.get_child_count() > 0:
 			_collect_managed_lights_recursive(child)
+
+func _is_managed_door(node: Node) -> bool:
+	# A door subtree is the node the controller tracks as outer/inner, or any node
+	# the controller tagged as owned (set in AirlockControllerV2._mark_controller_owned_door).
+	if not is_instance_valid(_controller):
+		return false
+	if node == _controller.get("_outer_door") or node == _controller.get("_inner_door"):
+		return true
+	return node.has_meta("airlock_controller_owned")
 
 func _apply_brightness(t: float) -> void:
 	# Scene-level lights and environments via SceneLighting autoload
