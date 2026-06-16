@@ -70,7 +70,8 @@ func _ready():
 		hotzone_enabled = false
 	_ensure_dir()
 	_setup_http()
-	_ambient_enabled = OS.get_environment("ODISEA_HOTZONE_AMBIENT").to_lower() not in ["0", "false", "no", "off"]
+	var ambient_env = OS.get_environment("ODISEA_HOTZONE_AMBIENT").to_lower()
+	_ambient_enabled = not (ambient_env in ["0", "false", "no", "off"])
 	call_deferred("_cache_anna_reference")
 	if _is_web:
 		_inject_worker()
