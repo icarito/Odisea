@@ -1,0 +1,121 @@
+<<<<<<< SEARCH
+  useEffect(() => {
+    if (lastMessage?.type === 'alert') {
+      const playerId = lastMessage.playerId || lastMessage.player_id || 'unknown';
+      const alertType = lastMessage.alertType || lastMessage.alert_type || 'alert';
+      const alertPlatform = getPlatform(lastMessage);
+=======
+  useEffect(() => {
+    if (lastMessage?.type === 'alert') {
+      const playerId = lastMessage.playerId || lastMessage.player_id || 'unknown';
+      const alertType = lastMessage.alertType || lastMessage.alert_type || 'alert';
+
+      // Optimistic Hotzone insertion
+      if (alertType === 'hotzone' && lastMessage.hotzoneId) {
+        const optimisticHz = {
+          id: lastMessage.hotzoneId,
+          player_id: playerId,
+          session_id: lastMessage.sessionId || lastMessage.session_id,
+          scene: lastMessage.scene,
+          trigger_type: lastMessage.trigger || 'auto',
+          timestamp: lastMessage.timestamp || (Date.now() / 1000),
+          display_name: lastMessage.display_name,
+          capture_duration: lastMessage.capture_duration,
+          frame_count: lastMessage.frame_count,
+          is_optimistic: true // Marker for reconciliation
+        };
+        setHotzones((prev) => [optimisticHz, ...prev.filter(h => h.id !== lastMessage.hotzoneId)]);
+
+        // Reconciliation fetch
+        setTimeout(() => {
+          getHotzones()
+            .then((d) => setHotzones(Array.isArray(d) ? d : []))
+            .catch(() => {});
+        }, 3000);
+      }
+
+      const alertPlatform = getPlatform(lastMessage);
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+      const ctxParts = [
+        ctxScene ? `scene ${ctxScene}` : null,
+        ctxPlatform ? ctxPlatform : null,
+        typeof ctxFps === 'number' ? `${Math.round(ctxFps)} fps` : null,
+        typeof ctxMem === 'number' && ctxMem > 0 ? `${ctxMem.toFixed(0)} MB` : null,
+      ].filter(Boolean);
+=======
+      const ctxParts = [
+        ctxScene ? `scene ${ctxScene}` : null,
+        ctxPlatform ? ctxPlatform : null,
+        typeof ctxFps === 'number' ? `${Math.round(ctxFps)} fps` : null,
+        typeof ctxMem === 'number' && ctxMem > 0 ? `${ctxMem.toFixed(0)} MB` : null,
+        lastMessage.capture_duration ? `${Math.round(lastMessage.capture_duration)}s` : null,
+        lastMessage.frame_count ? `${lastMessage.frame_count} frames` : null,
+      ].filter(Boolean);
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+              <div className="mt-3 flex gap-2">
+                {alertType === 'hotzone' && lastMessage.hotzoneId && (
+                  <button
+                    type="button"
+                    onClick={() => { handleDownloadHotzone(lastMessage.hotzoneId, playerLabel); toast.dismiss(t.id); }}
+                    className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                  >
+                    Descargar
+                  </button>
+                )}
+                {alertType !== 'hotzone' && playerId !== 'unknown' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPlayerId(playerId);
+                      setActiveTab('live');
+                      setLiveView('3d');
+                      setFollowPlayer(true);
+                      toast.dismiss(t.id);
+                    }}
+                    className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                  >
+                    View live
+                  </button>
+                )}
+=======
+              <div className="mt-3 flex flex-wrap gap-2">
+                {alertType === 'hotzone' && lastMessage.hotzoneId && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { handleDownloadHotzone(lastMessage.hotzoneId, playerLabel); toast.dismiss(t.id); }}
+                      className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                    >
+                      Descargar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFocusPlayerId(playerId);
+                        setShowTagEditor(true);
+                        toast.dismiss(t.id);
+                      }}
+                      className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                    >
+                      Taguear
+                    </button>
+                  </>
+                )}
+                {playerId !== 'unknown' && heartbeats[playerId] && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPlayerId(playerId);
+                      setActiveTab('live');
+                      setLiveView('3d');
+                      setFollowPlayer(true);
+                      toast.dismiss(t.id);
+                    }}
+                    className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
+                  >
+                    Ver live
+                  </button>
+                )}
+>>>>>>> REPLACE

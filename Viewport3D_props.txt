@@ -1,0 +1,17 @@
+<<<<<<< SEARCH
+  onUserInteract?: () => void;
+}
+=======
+  onUserInteract?: () => void;
+  // History integration
+  activeId?: string | null;
+  heartbeats?: any;
+  hotzones?: any[];
+  sessions?: any[];
+  onSelectSession?: (session: any) => void;
+  onDownloadHotzone?: (id: string, label: string) => void;
+  onPlayHotzone?: (id: string) => void;
+  onTagPlayer?: (pid: string) => void;
+  setActiveTab?: (tab: string) => void;
+}
+>>>>>>> REPLACE

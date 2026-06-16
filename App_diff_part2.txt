@@ -1,0 +1,209 @@
+<<<<<<< SEARCH
+const HotzoneList = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
+  // Map player_id -> display name from the (already tag-enriched) session rows,
+  // so the hotzone list can show a friendly label instead of the raw id.
+  const nameByPlayer = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const s of sessions) if (s.player_id && s.display_name) m[s.player_id] = s.display_name;
+    return m;
+  }, [sessions]);
+
+  if (!hotzones || hotzones.length === 0) {
+    return <div className="text-xs italic text-text-muted">Sin capturas de hotzone</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {hotzones.map((hz) => {
+        const name = nameByPlayer[hz.player_id] || String(hz.player_id || '').slice(0, 8);
+        const when = hz.timestamp ? formatDateTime(Number(hz.timestamp)) : '';
+        const scene = hz.scene || 'Escena desconocida';
+        const dur = typeof hz.duration_sec === 'number'
+          ? hz.duration_sec
+          : (typeof hz.capture_duration === 'number' ? hz.capture_duration : null);
+        return (
+          <div key={hz.id} className="flex items-center justify-between gap-3 border-2 border-black bg-bg-primary px-3 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-xs font-black text-accent">{scene}</div>
+              <div className="text-[0.625rem] text-text-muted">
+                {when}{dur != null ? ` · ${Math.round(dur)}s` : ''}{hz.trigger_type ? ` · ${hz.trigger_type}` : ''}
+              </div>
+              <div className="truncate text-[0.625rem] text-text-muted">{name}</div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {onPlayHotzone && (
+                <button
+                  type="button"
+                  onClick={() => onPlayHotzone(hz.id)}
+                  className="border-2 border-success bg-success/10 p-1.5 text-success hover:bg-success hover:text-black"
+                  title="Reproducir en Netlify"
+                  aria-label="Reproducir captura hotzone"
+                >
+                  <Play size={14} fill="currentColor" />
+                </button>
+              )}
+              {onDownloadHotzone && (
+                <button
+                  type="button"
+                  onClick={() => onDownloadHotzone(hz.id, name)}
+                  className="border-2 border-accent bg-accent/10 p-1.5 text-accent hover:bg-accent hover:text-black"
+                  title="Descargar captura"
+                  aria-label="Descargar captura hotzone"
+                >
+                  <Download size={14} />
+                </button>
+              )}
+              {onDeleteHotzone && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteHotzone(hz.id, name)}
+                  className="border-2 border-danger bg-danger/10 p-1.5 text-danger hover:bg-danger hover:text-white"
+                  title="Borrar captura"
+                  aria-label="Borrar captura hotzone"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+=======
+const HotzoneRow = ({
+  hz,
+  name,
+  onPlay,
+  onDownload,
+  onDelete,
+  onTag,
+  compact = false
+}: {
+  hz: any;
+  name?: string;
+  onPlay?: (id: string) => void;
+  onDownload?: (id: string, label: string) => void;
+  onDelete?: (id: string, label: string) => void;
+  onTag?: (id: string) => void;
+  compact?: boolean;
+}) => {
+  const label = name || hz.display_name || String(hz.player_id || '').slice(0, 8);
+  const when = hz.timestamp ? formatDateTime(Number(hz.timestamp)) : '';
+  const scene = hz.scene || 'Escena desconocida';
+  const dur = typeof hz.duration_sec === 'number'
+    ? hz.duration_sec
+    : (typeof hz.capture_duration === 'number' ? hz.capture_duration : null);
+  const frames = hz.frame_count || null;
+  const size = hz.size_kb ? `${Math.round(hz.size_kb)}KB` : null;
+  const isManual = hz.trigger_type === 'manual' || hz.trigger === 'manual';
+  const isOptimistic = hz.is_optimistic;
+
+  return (
+    <div className={`flex items-center justify-between gap-2 border-2 border-black bg-bg-primary ${compact ? 'px-2 py-1' : 'px-3 py-2'} ${isOptimistic ? 'opacity-50 grayscale' : ''}`}>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <div className={`truncate ${compact ? 'text-[0.625rem]' : 'text-xs'} font-black text-accent`}>{scene}</div>
+          {isManual && (
+            <span className="bg-accent px-1 text-[0.5rem] font-black uppercase text-black">Manual</span>
+          )}
+        </div>
+        <div className={`${compact ? 'text-[0.5rem]' : 'text-[0.625rem]'} text-text-muted`}>
+          {when}{dur != null ? ` · ${Math.round(dur)}s` : ''}{frames ? ` · ${frames}f` : ''}{size ? ` · ${size}` : ''}
+        </div>
+        {!compact && (
+          <div className="truncate text-[0.625rem] text-text-muted">{label}</div>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {onPlay && (
+          <button
+            type="button"
+            onClick={() => onPlay(hz.id)}
+            className="border-2 border-success bg-success/10 p-1 text-success hover:bg-success hover:text-black"
+            title="Reproducir en Netlify"
+          >
+            <Play size={compact ? 10 : 12} fill="currentColor" />
+          </button>
+        )}
+        {onDownload && (
+          <button
+            type="button"
+            onClick={() => onDownload(hz.id, label)}
+            className="border-2 border-accent bg-accent/10 p-1 text-accent hover:bg-accent hover:text-black"
+            title="Descargar"
+          >
+            <Download size={compact ? 10 : 12} />
+          </button>
+        )}
+        {onTag && (
+          <button
+            type="button"
+            onClick={() => onTag(hz.player_id)}
+            className="border-2 border-accent bg-accent/10 p-1 text-accent hover:bg-accent hover:text-black"
+            title="Taguear"
+          >
+            <Tag size={compact ? 10 : 12} />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(hz.id, label)}
+            className="border-2 border-danger bg-danger/10 p-1 text-danger hover:bg-danger hover:text-white"
+            title="Borrar"
+          >
+            <Trash2 size={compact ? 10 : 12} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const HotzoneList = ({
+  sessions,
+  hotzones,
+  onDownloadHotzone,
+  onDeleteHotzone,
+  onPlayHotzone,
+  onTagPlayer,
+  compact = false
+}: {
+  sessions: any[];
+  hotzones?: any[];
+  onDownloadHotzone?: (hotzoneId: string, label?: string) => void;
+  onDeleteHotzone?: (hotzoneId: string, label?: string) => void;
+  onPlayHotzone?: (hotzoneId: string) => void;
+  onTagPlayer?: (playerId: string) => void;
+  compact?: boolean;
+}) => {
+  const nameByPlayer = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const s of sessions) if (s.player_id && s.display_name) m[s.player_id] = s.display_name;
+    return m;
+  }, [sessions]);
+
+  if (!hotzones || hotzones.length === 0) {
+    return <div className="text-xs italic text-text-muted">Sin capturas de hotzone</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {hotzones.map((hz) => (
+        <HotzoneRow
+          key={hz.id}
+          hz={hz}
+          name={nameByPlayer[hz.player_id]}
+          onPlay={onPlayHotzone}
+          onDownload={onDownloadHotzone}
+          onDelete={onDeleteHotzone}
+          onTag={onTagPlayer}
+          compact={compact}
+        />
+      ))}
+    </div>
+  );
+};
+>>>>>>> REPLACE

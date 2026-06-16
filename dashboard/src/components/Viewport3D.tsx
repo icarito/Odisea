@@ -71,6 +71,16 @@ interface Viewport3DProps {
     staleAge?: number;
   } | null;
   onUserInteract?: () => void;
+  // History integration
+  activeId?: string | null;
+  heartbeats?: any;
+  hotzones?: any[];
+  sessions?: any[];
+  onSelectSession?: (session: any) => void;
+  onDownloadHotzone?: (id: string, label: string) => void;
+  onPlayHotzone?: (id: string) => void;
+  onTagPlayer?: (pid: string) => void;
+  setActiveTab?: (tab: string) => void;
 }
 
 const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ sceneName, wireframe }) => {
@@ -150,7 +160,11 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
   );
 };
 
-export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, label, color, hud, onUserInteract }) => {
+export const Viewport3D: React.FC<Viewport3DProps> = ({
+  position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge,
+  heatmapData, liveGhosts, label, color, hud, onUserInteract,
+  activeId, heartbeats, hotzones, sessions, onSelectSession, onDownloadHotzone, onPlayHotzone, onTagPlayer, setActiveTab
+}) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
   const { geometry, loading: geometryLoading, error: geometryError } = useSceneGeometryStream(sceneName, position);
@@ -261,6 +275,58 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, ro
             RESET VIEW (CENITAL)
         </button>
       </div>
+
+      {/* Session Hotzones Overlay */}
+      {activeId && heartbeats?.[activeId] && hotzones && sessions && setActiveTab && onSelectSession && (
+        <div className="absolute top-4 right-4 z-10 w-72 max-w-[40vw] flex flex-col gap-2 pointer-events-auto">
+          <div className="bg-bg-card/90 border-2 border-black p-3 shadow-[2px_2px_0px_0px_black]">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[0.625rem] font-black uppercase text-accent">Session History</span>
+              <button
+                onClick={() => {
+                  const hb = heartbeats[activeId];
+                  const session = sessions.find(s => s.session_id === hb.session_id);
+                  if (session) {
+                    onSelectSession(session);
+                    setActiveTab('history');
+                  }
+                }}
+                className="text-[0.5rem] font-black uppercase bg-accent text-black px-1.5 py-0.5 hover:bg-white"
+              >
+                Go to History
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
+              {(() => {
+                const hb = heartbeats[activeId];
+                const sessionHotzones = hotzones.filter(hz => hz.session_id === hb.session_id);
+                if (sessionHotzones.length === 0) {
+                  return <div className="text-[0.5rem] italic text-text-muted">No hotzones for this session</div>;
+                }
+                return sessionHotzones.map(hz => (
+                  <div key={hz.id} className="flex items-center justify-between gap-1 border border-black bg-bg-primary px-2 py-1 text-[0.5rem]">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-black text-accent">{hz.scene}</div>
+                      <div className="text-text-muted">
+                        {hz.trigger_type || 'auto'} · {Math.round(hz.capture_duration || 0)}s
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      {onPlayHotzone && (
+                        <button onClick={() => onPlayHotzone(hz.id)} className="text-success hover:scale-110">Play</button>
+                      )}
+                      {onDownloadHotzone && (
+                        <button onClick={() => onDownloadHotzone(hz.id, label || activeId)} className="text-accent hover:scale-110">DL</button>
+                      )}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Compact data HUD (doesn't steal canvas space). */}
       {hud && (

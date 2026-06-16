@@ -1,0 +1,9 @@
+<<<<<<< SEARCH
+export const Viewport3D: React.FC<Viewport3DProps> = ({ position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge, heatmapData, liveGhosts, label, color, hud, onUserInteract }) => {
+=======
+export const Viewport3D: React.FC<Viewport3DProps> = ({
+  position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge,
+  heatmapData, liveGhosts, label, color, hud, onUserInteract,
+  activeId, heartbeats, hotzones, sessions, onSelectSession, onDownloadHotzone, onPlayHotzone, onTagPlayer, setActiveTab
+}) => {
+>>>>>>> REPLACE

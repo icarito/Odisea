@@ -1,0 +1,42 @@
+<<<<<<< SEARCH
+                      <RetroButton
+                        variant="primary"
+                        onClick={() => {
+                          setSelectedPlayerId(birdseyeDetailId);
+                          setBirdseyeDetailId(null);
+                          setLiveView('3d');
+                          setFollowPlayer(true);
+                        }}
+                        className="mt-2 w-full py-1 text-[0.625rem]"
+                      >
+                        Ver 3D
+                      </RetroButton>
+=======
+                      <div className="mt-2 flex gap-2">
+                        <RetroButton
+                          variant="primary"
+                          onClick={() => {
+                            setSelectedPlayerId(birdseyeDetailId);
+                            setBirdseyeDetailId(null);
+                            setLiveView('3d');
+                            setFollowPlayer(true);
+                          }}
+                          className="flex-1 py-1 text-[0.625rem]"
+                        >
+                          Ver 3D
+                        </RetroButton>
+                        <RetroButton
+                          variant="secondary"
+                          onClick={() => {
+                            const session = historySessionsWithGeo.find(s => s.session_id === hb.session_id);
+                            if (session) {
+                              handleSelectHistorySession(session);
+                              setActiveTab('history');
+                            }
+                          }}
+                          className="flex-1 py-1 text-[0.625rem]"
+                        >
+                          Historial
+                        </RetroButton>
+                      </div>
+>>>>>>> REPLACE
