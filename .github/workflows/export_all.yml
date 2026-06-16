@@ -1,22 +1,16 @@
 name: Release Multiplataforma
 
+# Releases are gated on a green test run: this workflow only fires after
+# "Odyssey Pytest Runner" completes on main/release, and prep aborts unless
+# that run concluded with success. This prevents broken commits (e.g. a
+# GDScript syntax error merged to main) from triggering a multiplatform
+# export or publishing a release. `workflow_dispatch` still allows manual
+# builds, which bypass the gate intentionally.
 on:
-  push:
+  workflow_run:
+    workflows: [ "Odyssey Pytest Runner" ]
+    types: [ completed ]
     branches: [ "main", "release" ]
-    paths-ignore:
-      - 'dashboard/**'
-      - 'docs/**'
-      - '.githooks/**'
-      - 'ci/**'
-      - 'scripts/check_*.py'
-      - 'scripts/godot_import_smoke.sh'
-      - 'scripts/install_git_hooks.sh'
-      - 'scripts/analyze_ghosts.py'
-      - 'scripts/check_regression.py'
-      - 'tests/test_export_presets.py'
-      - 'tests/ci_resource_smoke*.gd'
-      - '*.md'
-      - 'AGENTS.md'
   workflow_dispatch:
     inputs:
       publish_prerelease:
