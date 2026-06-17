@@ -658,12 +658,15 @@ class OdiseaPeer:
         if len(body) > HOTZONE_MAX_BYTES:
             return web.json_response({"error": "payload_too_large"}, status=413)
 
-        # Carry through the game's diagnostic metadata (player/session/trigger and
-        # the new spatial headers used by the heatmap).
+        # Carry through the game's diagnostic metadata transparently: forward every
+        # X-* header the game sent, rather than an allowlist. Central owns the
+        # game->server header contract (player/session/trigger, spatial coords,
+        # capture duration/frame count, and whatever it adds next); the peer is a
+        # dumb relay and must not need a lockstep edit each time that contract grows.
         fwd_headers = {"Content-Type": "application/octet-stream"}
-        for h in ("X-Player-ID", "X-Session-ID", "X-Trigger", "X-Scene", "X-Grid-X", "X-Grid-Z"):
-            if h in request.headers:
-                fwd_headers[h] = request.headers[h]
+        for h, v in request.headers.items():
+            if h.upper().startswith("X-"):
+                fwd_headers[h] = v
 
         relayed = await self._relay_hotzone(body, fwd_headers)
         if relayed:

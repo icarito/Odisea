@@ -466,7 +466,7 @@ func _process_upload_queue():
 	var token = _get_token()
 
 	if _is_web:
-		_upload_web(url, token, blob, filepath, trigger, scene, grid_x, grid_z)
+		_upload_web(url, token, blob, filepath, trigger, scene, grid_x, grid_z, capture_duration, frame_count)
 	else:
 		_upload_native(url, token, blob, trigger, scene, grid_x, grid_z, capture_duration, frame_count)
 
@@ -657,7 +657,7 @@ window.Hotzone_Worker_Bridge = {
 
 var _current_web_upload_id := ""
 
-func _upload_web(url: String, token: String, blob: PoolByteArray, _filepath: String, trigger: String, scene: String = "", grid_x = null, grid_z = null):
+func _upload_web(url: String, token: String, blob: PoolByteArray, _filepath: String, trigger: String, scene: String = "", grid_x = null, grid_z = null, capture_duration: float = 0.0, frame_count: int = 0):
 	_current_web_upload_id = str(OS.get_ticks_msec())
 	var js = Engine.get_singleton("JavaScript")
 	var player_id = _get_player_id()
@@ -670,6 +670,10 @@ func _upload_web(url: String, token: String, blob: PoolByteArray, _filepath: Str
 		extra_headers += ",  'X-Grid-X': '" + str(grid_x) + "'"
 	if grid_z != null:
 		extra_headers += ",  'X-Grid-Z': '" + str(grid_z) + "'"
+	if capture_duration > 0:
+		extra_headers += ",  'X-Capture-Duration': '" + str(capture_duration) + "'"
+	if frame_count > 0:
+		extra_headers += ",  'X-Frame-Count': '" + str(frame_count) + "'"
 	js.eval("(function(){ " +
 		"var b64 = '" + b64 + "';" +
 		"var headers = {" +

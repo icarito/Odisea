@@ -37,7 +37,7 @@ import {
   isUsefulSceneName,
   formatFpsLabel,
 } from './lib/filters';
-import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play, Tag } from 'lucide-react';
+import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play, Tag, ChevronDown, ChevronRight } from 'lucide-react';
 import type { Tab } from './types';
 
 type GitCommit = {
@@ -202,12 +202,22 @@ const countryFlag = (countryCode?: string | null): string => {
   return Array.from(code).map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
 };
 
+// One key/value cell used inside the expanded hotzone detail grid.
+const HzMeta = ({ label, value }: { label: string; value: ReactNode }) => (
+  <div className="flex min-w-0 flex-col">
+    <span className="text-[0.5rem] uppercase tracking-wide text-text-muted">{label}</span>
+    <span className="truncate text-[0.625rem] text-text-primary">{value}</span>
+  </div>
+);
+
 // Reusable hotzone captures list — performance ghosts uploaded by the game,
 // ordered newest first (the API already sorts by timestamp DESC). Each row
-// surfaces the scene and capture duration alongside the player + date.
+// surfaces the scene and capture duration alongside the player + date, and
+// expands in-place to show the full metadata for that capture.
 const HotzoneRow = ({
   hz,
   name,
+  session,
   onPlay,
   onDownload,
   onDelete,
@@ -216,12 +226,14 @@ const HotzoneRow = ({
 }: {
   hz: any;
   name?: string;
+  session?: any;
   onPlay?: (id: string) => void;
   onDownload?: (id: string, label: string) => void;
   onDelete?: (id: string, label: string) => void;
   onTag?: (id: string) => void;
   compact?: boolean;
 }) => {
+  const [expanded, setExpanded] = useState(false);
   const label = name || hz.display_name || String(hz.player_id || '').slice(0, 8);
   const when = hz.timestamp ? formatDateTime(Number(hz.timestamp)) : '';
   const scene = hz.scene || 'Escena desconocida';
@@ -230,25 +242,44 @@ const HotzoneRow = ({
     : (typeof hz.capture_duration === 'number' ? hz.capture_duration : null);
   const frames = hz.frame_count || null;
   const size = hz.size_kb ? `${Math.round(hz.size_kb)}KB` : null;
-  const isManual = hz.trigger_type === 'manual' || hz.trigger === 'manual';
+  const trigger = hz.trigger_type || hz.trigger || 'auto';
+  const isManual = trigger === 'manual';
   const isOptimistic = hz.is_optimistic;
+  // The per-frame FPS series lives inside the binary blob (not decoded here),
+  // so the honest FPS context we can show is the owning session's average.
+  const sessionFps = session && typeof session.avg_fps !== 'undefined' && session.avg_fps !== null
+    ? Number(session.avg_fps)
+    : null;
+  const grid = (hz.grid_x != null && hz.grid_z != null)
+    ? `${Number(hz.grid_x).toFixed(1)}, ${Number(hz.grid_z).toFixed(1)}`
+    : null;
 
   return (
-    <div className={`flex items-center justify-between gap-2 border-2 border-black bg-bg-primary ${compact ? 'px-2 py-1' : 'px-3 py-2'} ${isOptimistic ? 'opacity-50 grayscale' : ''}`}>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <div className={`truncate ${compact ? 'text-[0.625rem]' : 'text-xs'} font-black text-accent`}>{scene}</div>
-          {isManual && (
-            <span className="bg-accent px-1 text-[0.5rem] font-black uppercase text-black">Manual</span>
+    <div className={`border-2 border-black bg-bg-primary ${isOptimistic ? 'opacity-50 grayscale' : ''}`}>
+    <div className={`flex items-center justify-between gap-2 ${compact ? 'px-2 py-1' : 'px-3 py-2'}`}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+        aria-expanded={expanded}
+        title={expanded ? 'Ocultar detalle' : 'Ver detalle'}
+      >
+        {expanded ? <ChevronDown size={compact ? 12 : 14} className="shrink-0 text-text-muted" /> : <ChevronRight size={compact ? 12 : 14} className="shrink-0 text-text-muted" />}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <div className={`truncate ${compact ? 'text-[0.625rem]' : 'text-xs'} font-black text-accent`}>{scene}</div>
+            {isManual && (
+              <span className="bg-accent px-1 text-[0.5rem] font-black uppercase text-black">Manual</span>
+            )}
+          </div>
+          <div className={`${compact ? 'text-[0.5rem]' : 'text-[0.625rem]'} text-text-muted`}>
+            {when}{dur != null ? ` · ${Math.round(dur)}s` : ''}{frames ? ` · ${frames}f` : ''}{size ? ` · ${size}` : ''}
+          </div>
+          {!compact && (
+            <div className="truncate text-[0.625rem] text-text-muted">{label}</div>
           )}
         </div>
-        <div className={`${compact ? 'text-[0.5rem]' : 'text-[0.625rem]'} text-text-muted`}>
-          {when}{dur != null ? ` · ${Math.round(dur)}s` : ''}{frames ? ` · ${frames}f` : ''}{size ? ` · ${size}` : ''}
-        </div>
-        {!compact && (
-          <div className="truncate text-[0.625rem] text-text-muted">{label}</div>
-        )}
-      </div>
+      </button>
       <div className="flex shrink-0 items-center gap-1">
         {onPlay && (
           <button
@@ -292,6 +323,29 @@ const HotzoneRow = ({
         )}
       </div>
     </div>
+    {expanded && (
+      <div className="border-t-2 border-black/40 px-3 py-2">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3">
+          <HzMeta label="Escena" value={scene} />
+          <HzMeta label="Trigger" value={trigger} />
+          <HzMeta label="FPS sesión" value={sessionFps != null ? sessionFps.toFixed(1) : '—'} />
+          <HzMeta label="Duración" value={dur != null ? `${Math.round(dur)}s` : '—'} />
+          <HzMeta label="Frames" value={frames != null ? String(frames) : '—'} />
+          <HzMeta label="Tamaño" value={size || '—'} />
+          <HzMeta label="Player" value={label} />
+          <HzMeta label="Player ID" value={hz.player_id || '—'} />
+          <HzMeta label="Grid X,Z" value={grid || '—'} />
+          <HzMeta label="Sesión" value={hz.session_id ? String(hz.session_id).slice(0, 12) : '—'} />
+          <HzMeta label="Fecha" value={when || '—'} />
+        </div>
+        {sessionFps == null && (
+          <div className="mt-2 text-[0.5rem] italic text-text-muted">
+            La serie de FPS por frame está en el blob de la captura; descárgala para reproducirla.
+          </div>
+        )}
+      </div>
+    )}
+    </div>
   );
 };
 
@@ -318,6 +372,14 @@ const HotzoneList = ({
     return m;
   }, [sessions]);
 
+  // Match each hotzone to its owning session (by session_id) so the expanded
+  // detail can surface the session's avg FPS as honest FPS context.
+  const sessionById = useMemo(() => {
+    const m: Record<string, any> = {};
+    for (const s of sessions) if (s.session_id) m[s.session_id] = s;
+    return m;
+  }, [sessions]);
+
   if (!hotzones || hotzones.length === 0) {
     return <div className="text-xs italic text-text-muted">Sin capturas de hotzone</div>;
   }
@@ -329,6 +391,7 @@ const HotzoneList = ({
           key={hz.id}
           hz={hz}
           name={nameByPlayer[hz.player_id]}
+          session={hz.session_id ? sessionById[hz.session_id] : undefined}
           onPlay={onPlayHotzone}
           onDownload={onDownloadHotzone}
           onDelete={onDeleteHotzone}
@@ -340,7 +403,7 @@ const HotzoneList = ({
   );
 };
 
-const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void }) => {
+const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone, onTagPlayer }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void; onTagPlayer?: (playerId: string) => void }) => {
   return (
     <div className="flex min-h-full flex-col gap-4">
       {/* Hotzone captures — performance ghosts uploaded by the game, newest first. */}
@@ -352,6 +415,7 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzon
             onDownloadHotzone={onDownloadHotzone}
             onDeleteHotzone={onDeleteHotzone}
             onPlayHotzone={onPlayHotzone}
+            onTagPlayer={onTagPlayer}
           />
         </div>
       </RetroCard>
@@ -2454,6 +2518,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   onDownloadHotzone={handleDownloadHotzone}
                   onDeleteHotzone={handleDeleteHotzone}
                   onPlayHotzone={handlePlayHotzone}
+                  onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
                 />
               </div>
             </RetroCard>
@@ -2462,7 +2527,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className={`min-h-0 overflow-y-auto ${historyMobileView !== 'player' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
-                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} />
+                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">
