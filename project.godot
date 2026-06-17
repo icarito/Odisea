@@ -2298,6 +2298,7 @@ AirlockManager="*res://core_v2/autoloads/AirlockManager.gd"
 ANNAV2="*res://core_v2/telemetry/ANNAV2.gd"
 HotzoneRecorder="*res://core_v2/telemetry/HotzoneRecorder.gd"
 VersionNotification="*res://core_v2/ui/VersionNotification.tscn"
+EventBus="*res://core_v2/EventBus.gd"
 
 [debug]
 
