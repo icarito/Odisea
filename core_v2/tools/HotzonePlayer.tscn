@@ -174,7 +174,7 @@ anchor_top = 1.0
 anchor_bottom = 1.0
 margin_left = 20.0
 margin_top = -25.0
-margin_right = 120.0
+margin_right = 700.0
 margin_bottom = -11.0
 text = "Frame: 0/0"
 
@@ -219,3 +219,15 @@ margin_right = 300.0
 margin_bottom = 100.0
 text = "Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse"
 align = 1
+
+[node name="BtnCollapse" type="Button" parent="."]
+anchor_left = 1.0
+anchor_right = 1.0
+margin_left = -60.0
+margin_top = 20.0
+margin_right = -20.0
+margin_bottom = 50.0
+rect_min_size = Vector2( 40, 30 )
+toggle_mode = true
+text = "▼"
+hint_tooltip = "Colapsar/expandir controles"

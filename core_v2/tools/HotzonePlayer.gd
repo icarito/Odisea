@@ -19,6 +19,8 @@ onready var progress_container = $Overlay/ProgressContainer
 onready var progress_fill = $Overlay/ProgressContainer/Fill
 onready var btn_play = $Overlay/Controls/BtnPlay
 onready var btn_restart = $Overlay/Controls/BtnRestart
+onready var overlay = $Overlay
+onready var btn_collapse = $BtnCollapse
 
 var replay_data := {}
 var frames := []
@@ -53,6 +55,7 @@ func _ready():
 	$Overlay/Controls/Btn2x.connect("pressed", self, "_set_speed", [2.0])
 	$Overlay/Controls/Btn4x.connect("pressed", self, "_set_speed", [4.0])
 	btn_restart.connect("pressed", self, "restart_replay")
+	btn_collapse.connect("toggled", self, "_on_collapse_toggled")
 
 	# Parse command line
 	var replay_path = ""
@@ -330,21 +333,48 @@ func _update_ui_metadata():
 	fps_chart.update()
 
 func _update_ui_frame():
-	frame_label.text = "Frame: %d/%d" % [current_frame_idx + 1, frames.size()]
+	# Bottom strip shows, always (playing, paused, scrubbing): the frame index,
+	# the original FPS of the frame we're parked on, and the live replay FPS.
+	# Keeping these here means the original FPS is never hidden behind transient
+	# status messages.
+	var src_fps := -1.0
+	if current_frame_idx < frames.size():
+		src_fps = float(frames[current_frame_idx].get("fps", -1.0))
+
+	var line := "Frame: %d/%d" % [current_frame_idx + 1, frames.size()]
+	if src_fps >= 0.0:
+		# "Source" = the original recorded FPS of this frame; "Replay" = the FPS
+		# the player itself is currently rendering at.
+		var replay_fps := Performance.get_monitor(Performance.TIME_FPS)
+		line += " | Source FPS: %.1f | Replay FPS: %.1f" % [src_fps, replay_fps]
+		frame_label.modulate = _fps_color(src_fps)
+	else:
+		frame_label.modulate = Color(1, 1, 1)
+	frame_label.text = line
+
 	var pct = float(current_frame_idx) / float(max(1, frames.size() - 1))
 	progress_fill.rect_size.x = progress_container.rect_size.x * pct
 
 	if current_frame_idx < frames.size():
-		var f = frames[current_frame_idx]
-		if not is_paused:
-			var actual_fps = Performance.get_monitor(Performance.TIME_FPS)
-			status_label.text = "Replay FPS: %.1f | Source FPS: %.1f" % [actual_fps, f.get("fps", 0.0)]
-
 		var elapsed = current_frame_idx * 0.016 # Default 60fps
 		var total_dur = frames.size() * 0.016
 		progress_container.hint_tooltip = "Frame %d/%d — T: %.1fs / %.1fs" % [current_frame_idx + 1, frames.size(), elapsed, total_dur]
 
 	fps_chart.update()
+
+# Collapse/expand the bottom overlay (panel, controls, chart, metadata) so the
+# replay can be watched unobstructed; the small toggle button stays visible.
+func _on_collapse_toggled(pressed: bool) -> void:
+	if is_instance_valid(overlay):
+		overlay.visible = not pressed
+	if is_instance_valid(btn_collapse):
+		btn_collapse.text = "▲" if pressed else "▼"
+
+# Green/yellow/red by the same thresholds the chart and recorder use.
+func _fps_color(fps: float) -> Color:
+	if fps > 45.0: return Color(0.3, 1.0, 0.3)
+	elif fps > 30.0: return Color(1.0, 1.0, 0.3)
+	return Color(1.0, 0.4, 0.4)
 
 func _process(delta):
 	if _is_warming_up:
@@ -561,11 +591,31 @@ func _on_fps_chart_draw():
 	if _chart_points.empty(): return
 	var rect = fps_chart.rect_size
 	var count = _chart_points.size()
+	var font = fps_chart.get_font("font")
+
+	# Reference gridlines so the curve is readable: the chart maps y = fps/60,
+	# drawn top-down, so a line at F fps sits at (1 - F/60) * height.
+	for ref_fps in [60, 45, 30]:
+		var gy = (1.0 - float(ref_fps) / 60.0) * rect.y
+		fps_chart.draw_line(Vector2(0, gy), Vector2(rect.x, gy), Color(1, 1, 1, 0.12), 1.0)
+		if font:
+			fps_chart.draw_string(font, Vector2(2, max(8, gy - 2)), "%d" % ref_fps, Color(1, 1, 1, 0.4))
 
 	for i in range(count - 1):
 		var p1 = _chart_points[i] * rect
 		var p2 = _chart_points[i+1] * rect
 		fps_chart.draw_line(p1, p2, _chart_colors[i], 2.0, true)
 
+	# Current position marker + the original FPS value at that frame.
 	var cur_x = float(current_frame_idx) / float(max(1, frames.size() - 1)) * rect.x
 	fps_chart.draw_line(Vector2(cur_x, 0), Vector2(cur_x, rect.y), Color(1, 1, 1, 0.8), 2.0)
+	if font and current_frame_idx < frames.size():
+		var cur_fps = float(frames[current_frame_idx].get("fps", -1.0))
+		if cur_fps >= 0.0:
+			var cur_y = (1.0 - clamp(cur_fps / 60.0, 0.0, 1.0)) * rect.y
+			fps_chart.draw_circle(Vector2(cur_x, cur_y), 3.0, _fps_color(cur_fps))
+			# Keep the label on-screen near the right edge.
+			var label = "%.0f fps" % cur_fps
+			var lx = cur_x + 4
+			if lx > rect.x - 48: lx = cur_x - 48
+			fps_chart.draw_string(font, Vector2(lx, max(10, cur_y - 4)), label, _fps_color(cur_fps))
