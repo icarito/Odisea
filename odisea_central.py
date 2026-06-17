@@ -1453,9 +1453,13 @@ class OdiseaCentral:
             if fpath and os.path.exists(fpath):
                 return web.FileResponse(fpath, headers={
                     "Content-Disposition": f'attachment; filename="hotzone_{hz_id}.bin"',
-                    "Access-Control-Allow-Origin": "*"
+                    "Access-Control-Allow-Origin": "*",
+                    "Cross-Origin-Resource-Policy": "cross-origin",
                 })
-            return web.Response(status=404, text="Hotzone not found", headers={"Access-Control-Allow-Origin": "*"})
+            return web.Response(status=404, text="Hotzone not found", headers={
+                "Access-Control-Allow-Origin": "*",
+                "Cross-Origin-Resource-Policy": "cross-origin",
+            })
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
@@ -2857,10 +2861,24 @@ class OdiseaCentral:
             self.metrics.record_error()
             logger.error(f"Ghost error: {e}")
 
+    # Headers necesarios para SharedArrayBuffer en builds HTML5.
+    _COOP_COEP_HEADERS = {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "credentialless",
+        "Access-Control-Allow-Origin": "*",
+    }
+
+    @staticmethod
+    def _add_coop_coep_headers(response: web.StreamResponse) -> None:
+        for k, v in OdiseaCentral._COOP_COEP_HEADERS.items():
+            response.headers[k] = v
+
     async def handle_index(self, request):
         index_path = os.path.join(STATIC_DIR, "index.html")
         if os.path.exists(index_path):
-            return web.FileResponse(index_path)
+            resp = web.FileResponse(index_path)
+            self._add_coop_coep_headers(resp)
+            return resp
         return web.Response(text="<h1>Odisea Central</h1><p>Dashboard not built. Check /health for metrics.</p>", content_type="text/html")
 
     async def handle_pwa_root_file(self, request):
@@ -2883,6 +2901,8 @@ class OdiseaCentral:
         # The service worker must not be cached, or clients get stuck on an old
         # SW that never updates.
         headers = {}
+        # Los headers COOP/COEP son obligatorios para SharedArrayBuffer en HTML5.
+        headers.update(self._COOP_COEP_HEADERS)
         if name == "sw.js" or name == "registerSW.js":
             headers["Cache-Control"] = "no-cache"
         return web.FileResponse(fpath, headers=headers)
@@ -3047,8 +3067,15 @@ class OdiseaCentral:
                 logger.error(f"Error in import task: {e}")
             await asyncio.sleep(300)
 
+    async def _on_prepare(self, request: web.Request, response: web.StreamResponse) -> None:
+        # Inyecta headers COOP/COEP a todas las respuestas del dashboard,
+        # cubriendo assets/ y cualquier otra ruta estática que no pase por
+        # los handlers explícitos.
+        self._add_coop_coep_headers(response)
+
     async def run(self):
         app = web.Application(client_max_size=16 * 1024 * 1024)
+        app.on_response_prepare.append(self._on_prepare)
         app.add_routes([
             web.get('/', self.handle_index),
             web.get('/index.html', self.handle_index),
