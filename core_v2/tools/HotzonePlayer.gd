@@ -1,7 +1,7 @@
 extends Control
 
 # HotzonePlayer.gd
-# Tool scene for playing back binary hotzone captures.
+# Tool scene for playing back binary hotzone captures with enhanced UX.
 
 const InputDataV2 = preload("res://core_v2/input/InputDataV2.gd")
 const InputProviderV2 = preload("res://core_v2/input/InputProviderV2.gd")
@@ -9,11 +9,16 @@ const BINARY_MAGIC := 0x485a4e32 # "HZN2"
 
 onready var status_label = $Overlay/Status
 onready var metadata_label = $Overlay/Metadata
-onready var progress_bar = $Overlay/ProgressBar
+onready var metadata_extra_label = $Overlay/MetadataExtra
 onready var frame_label = $Overlay/FrameInfo
 onready var speed_label = $Overlay/SpeedInfo
 onready var icon_auto = $Overlay/IconAuto
 onready var icon_manual = $Overlay/IconManual
+onready var fps_chart = $Overlay/FPSChart
+onready var progress_container = $Overlay/ProgressContainer
+onready var progress_fill = $Overlay/ProgressContainer/Fill
+onready var btn_play = $Overlay/Controls/BtnPlay
+onready var btn_restart = $Overlay/Controls/BtnRestart
 
 var replay_data := {}
 var frames := []
@@ -22,9 +27,6 @@ var playback_speed := 1.0
 var is_paused := true setget _set_paused
 var player_node = null
 var player_animator = null
-# Let the scene settle (physics/animation tree warm up, first frames render)
-# before we start stepping inputs, so the measured replay isn't penalised by
-# load-tail jank. Configurable via --replay-warmup <seconds>.
 var warmup_sec := 1.5
 var _warmup_remaining := 0.0
 var _is_warming_up := false
@@ -32,24 +34,38 @@ var initial_scene_path := ""
 var loaded_scene_node = null
 var scene_override := ""
 
+var _is_scrubbing := false
+var _chart_points := PoolVector2Array()
+var _chart_colors := PoolColorArray()
+
 func _ready():
-	# Parse command line: --replay-file (required), --replay-scene (override the
-	# scene baked in the .bin), --replay-speed (initial 1/2/4x playback speed).
+	# UI Connections
+	progress_container.connect("gui_input", self, "_on_progress_gui_input")
+	fps_chart.connect("gui_input", self, "_on_progress_gui_input")
+	fps_chart.connect("draw", self, "_on_fps_chart_draw")
+
+	$Overlay/Controls/BtnStart.connect("pressed", self, "seek_to_frame", [0])
+	$Overlay/Controls/BtnEnd.connect("pressed", self, "seek_to_frame", [-1])
+	$Overlay/Controls/BtnBack.connect("pressed", self, "_seek_relative_time", [-1.0])
+	$Overlay/Controls/BtnForward.connect("pressed", self, "_seek_relative_time", [1.0])
+	btn_play.connect("toggled", self, "_on_play_toggled")
+	$Overlay/Controls/Btn1x.connect("pressed", self, "_set_speed", [1.0])
+	$Overlay/Controls/Btn2x.connect("pressed", self, "_set_speed", [2.0])
+	$Overlay/Controls/Btn4x.connect("pressed", self, "_set_speed", [4.0])
+	btn_restart.connect("pressed", self, "restart_replay")
+
+	# Parse command line
 	var replay_path = ""
 
 	if OS.has_feature("web"):
 		var js = JavaScript.get_interface("OdiseaShell")
 		if js != null and js.pendingRunbin != null:
 			print("[HotzonePlayer] Binary data found in OdiseaShell.pendingRunbin")
-			# The shell hands us the .bin as a base64 string: Godot 3's JS bridge
-			# can't marshal an ArrayBuffer into a PoolByteArray, so we decode here.
 			var b64 = String(js.pendingRunbin)
 			var buf = Marshalls.base64_to_raw(b64)
 			js.pendingRunbin = null
 
-			if buf.size() == 0:
-				printerr("[HotzonePlayer] Decoded remote binary is empty (bad base64?)")
-			else:
+			if buf.size() > 0:
 				var dir = Directory.new()
 				if not dir.dir_exists("user://hotzones"):
 					dir.make_dir_recursive("user://hotzones")
@@ -59,9 +75,6 @@ func _ready():
 					f.store_buffer(buf)
 					f.close()
 					replay_path = "user://hotzones/remote.bin"
-					print("[HotzonePlayer] Persisted %d bytes to user://hotzones/remote.bin" % buf.size())
-				else:
-					printerr("[HotzonePlayer] Failed to write remote binary to user://hotzones/remote.bin")
 
 	var args = OS.get_cmdline_args()
 	for i in range(args.size()):
@@ -91,7 +104,7 @@ func _load_binary(path: String) -> bool:
 
 	var magic = f.get_32()
 	if magic != BINARY_MAGIC:
-		_show_error("Invalid file magic. Expected HZN2 (0x485a4e32)")
+		_show_error("Invalid file magic. Expected HZN2")
 		f.close()
 		return false
 
@@ -100,7 +113,7 @@ func _load_binary(path: String) -> bool:
 
 	var data = bytes2var(data_blob)
 	if typeof(data) != TYPE_DICTIONARY:
-		_show_error("Failed to parse replay data from binary.")
+		_show_error("Failed to parse replay data.")
 		return false
 
 	replay_data = data
@@ -110,28 +123,55 @@ func _load_binary(path: String) -> bool:
 		_show_error("Replay file contains no frames.")
 		return false
 
-	print("[HotzonePlayer] Loaded %d frames for scene %s" % [frames.size(), replay_data.get("scene")])
+	print("[HotzonePlayer] Loaded %d frames" % frames.size())
+	_precalculate_chart_data()
 	return true
+
+func _precalculate_chart_data():
+	_chart_points = PoolVector2Array()
+	_chart_colors = PoolColorArray()
+	var count = frames.size()
+	if count < 2: return
+
+	# Sample every 5 frames as requested
+	var step = 5
+	for i in range(0, count, step):
+		var f = frames[i]
+		var fps = f.get("fps", 60.0)
+		var x = float(i) / float(max(1, count - 1))
+		var y = clamp(fps / 60.0, 0.0, 1.0)
+		_chart_points.append(Vector2(x, 1.0 - y))
+
+		if fps > 45: _chart_colors.append(Color(0.3, 1.0, 0.3, 0.5))
+		elif fps > 30: _chart_colors.append(Color(1.0, 1.0, 0.3, 0.5))
+		else: _chart_colors.append(Color(1.0, 0.3, 0.3, 0.5))
+
+	# Ensure the last frame is included if not already
+	var last_idx = count - 1
+	if last_idx % step != 0:
+		var f = frames[last_idx]
+		var fps = f.get("fps", 60.0)
+		var x = 1.0
+		var y = clamp(fps / 60.0, 0.0, 1.0)
+		_chart_points.append(Vector2(x, 1.0 - y))
+		if fps > 45: _chart_colors.append(Color(0.3, 1.0, 0.3, 0.5))
+		elif fps > 30: _chart_colors.append(Color(1.0, 1.0, 0.3, 0.5))
+		else: _chart_colors.append(Color(1.0, 0.3, 0.3, 0.5))
 
 func _show_error(msg: String):
 	printerr("[HotzonePlayer] ERROR: ", msg)
-	if has_node("Overlay/Status"):
+	if is_instance_valid(status_label):
 		status_label.text = "ERROR: " + msg
 		status_label.modulate = Color(1, 0.3, 0.3)
 
 func _prepare_scene():
-	# --replay-scene lets us test a hotzone captured in scene X against scene Y.
 	var scene_name = scene_override if scene_override != "" else replay_data.get("scene", "")
-	if scene_override != "":
-		print("[HotzonePlayer] Overriding captured scene with: ", scene_override)
 	var scene_path = _resolve_scene_path(scene_name)
 	if scene_path == "":
 		_show_error("Unrecognized scene: " + scene_name)
 		return
 
 	initial_scene_path = scene_path
-	print("[HotzonePlayer] Loading scene: ", scene_path)
-
 	var packed = load(scene_path)
 	if not packed or not (packed is PackedScene):
 		_show_error("Failed to load scene: " + scene_path)
@@ -142,14 +182,8 @@ func _prepare_scene():
 
 func _attach_loaded_scene():
 	get_tree().root.add_child(loaded_scene_node)
-	# When playback pauses we flip get_tree().paused, which stops all physics and
-	# _process across the loaded scene. The scene must STOP under that flag while
-	# this player keeps PROCESSing so its UI and unpause/seek input stay alive.
 	loaded_scene_node.pause_mode = Node.PAUSE_MODE_STOP
 	pause_mode = Node.PAUSE_MODE_PROCESS
-	# Let the scene's own startup run (player _ready, TeleportSystem.force_initial_spawn,
-	# deferred spawn placement) before we take over, otherwise those would overwrite
-	# the captured position right after we restore it.
 	for _i in range(4):
 		yield(get_tree(), "physics_frame")
 	_start_replay()
@@ -161,44 +195,33 @@ func _resolve_scene_path(scene_name: String) -> String:
 		"ScaffoldOrbit": "res://core_v2/components/ScaffoldOrbit.tscn",
 		"TestScene_v2": "res://core_v2/levels/TestScene_v2.tscn"
 	}
-	if known.has(scene_name):
-		return known[scene_name]
-	if scene_name.begins_with("res://") and ResourceLoader.exists(scene_name):
-		return scene_name
-	if scene_name.find("/") != -1 or scene_name.ends_with(".tscn"):
-		return scene_name if ResourceLoader.exists(scene_name) else ""
+	if known.has(scene_name): return known[scene_name]
+	if scene_name.begins_with("res://") and ResourceLoader.exists(scene_name): return scene_name
 	return ""
 
 func _start_replay():
-	# Find player
 	var pilots = get_tree().get_nodes_in_group("player")
-	if pilots.size() > 0:
-		player_node = pilots[0]
+	if pilots.size() > 0: player_node = pilots[0]
 
 	if not is_instance_valid(player_node):
-		_show_error("Could not find player node in scene.")
+		_show_error("Could not find player node.")
 		return
 
-	print("[HotzonePlayer] Player found. Initializing replay provider.")
+	# Replay Inhibition
+	if SessionManager:
+		SessionManager.is_replaying = true
+		print("[HotzonePlayer] Set SessionManager.is_replaying = true")
 
-	# Silence the global HotzoneRecorder autoload for the whole replay session. The
-	# loaded scene drives the same low-FPS conditions that produced this capture, so a
-	# live recorder would detect the playback as a fresh hotzone and record/upload it
-	# — replaying a hotzone must never spawn another. (The recorder's own
-	# SessionManager.is_replaying guard doesn't cover this tool, which steps the player
-	# directly instead of going through SessionManager.)
 	if has_node("/root/HotzoneRecorder"):
 		get_node("/root/HotzoneRecorder").hotzone_enabled = false
-		print("[HotzonePlayer] Disabled HotzoneRecorder for replay session.")
+		print("[HotzonePlayer] Disabled HotzoneRecorder.")
 
-	# Cache the player's animator so we can freeze it whenever playback pauses.
+	if OS.has_feature("web"):
+		var js = JavaScript.get_interface("OdiseaShell")
+		if js: js.is_replaying = true
+
 	if "animator" in player_node:
 		player_animator = player_node.animator
-
-	# Setup InputProvider
-	if not ("input_provider" in player_node):
-		_show_error("Player node lacks input_provider.")
-		return
 
 	var provider = InputProviderV2.new()
 	var inputs = []
@@ -207,201 +230,206 @@ func _start_replay():
 	provider.set_replay_data(inputs)
 	player_node.input_provider = provider
 	player_node.is_replay_mode = true
-	player_node.set_physics_process(false) # We will step manually
+	player_node.set_physics_process(false)
 
-	# Update HUD
-	_set_speed(playback_speed)
 	_update_ui_metadata()
 	_update_ui_frame()
-
-	# Initial positioning
 	_restore_frame_state(0)
 
-	# Warm up before stepping inputs so the replay is judged on steady-state perf.
 	if warmup_sec > 0.0:
 		_is_warming_up = true
 		_warmup_remaining = warmup_sec
-		# Plain (self-access) assignment intentionally bypasses the setget: we want
-		# the playback gate up WITHOUT freezing the tree, so the scene keeps settling
-		# (physics/animators run) during warmup. The setter (get_tree().paused) only
-		# fires on real user pauses via self.is_paused.
+		# Direct access to bypass setter (avoids get_tree().paused = true)
+		# so the scene can settle/warm up while playback is technically gated.
 		is_paused = true
 		_set_animator_active(true)
 		status_label.text = "Calentando... %.1fs" % _warmup_remaining
 		status_label.modulate = Color(1, 1, 0.3)
 	else:
-		is_paused = false
-		status_label.text = "Reproduciendo..."
-		status_label.modulate = Color(0.3, 1, 0.3)
+		self.is_paused = false
 
 func _update_ui_metadata():
 	var trigger = replay_data.get("trigger", "auto")
 	var min_fps = 999.0
+	var sum_fps = 0.0
 	for f in frames:
 		var f_fps = f.get("fps", 60.0)
 		if f_fps < min_fps: min_fps = f_fps
+		sum_fps += f_fps
+	var avg_fps = sum_fps / max(1, frames.size())
 
-	metadata_label.text = "Scene: %s | Trigger: %s | Min FPS: %.1f" % [
+	metadata_label.text = "Escena: %s | Disparador: %s | FPS mín: %.1f | FPS med: %.1f" % [
 		replay_data.get("scene", "Unknown"),
 		trigger,
-		min_fps
+		min_fps,
+		avg_fps
+	]
+
+	var timestamp = replay_data.get("timestamp", 0)
+	var date_str = "unknown"
+	if timestamp > 0:
+		var dt = OS.get_datetime_from_unix_time(timestamp)
+		date_str = "%04d-%02d-%02d %02d:%02d:%02d UTC" % [dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second]
+
+	var duration = replay_data.get("capture_duration", frames.size() * 0.016)
+	var player_id = replay_data.get("player_id", "unknown")
+	var build = ProjectSettings.get_setting("application/config/version")
+	var platform = OS.get_name()
+
+	metadata_extra_label.text = "Capturado: %s | Duración: %.1fs\nBuild: %s | Plataforma: %s | Tripulante: %s" % [
+		date_str, duration, build, platform, player_id
 	]
 
 	icon_auto.visible = (trigger == "auto")
 	icon_manual.visible = (trigger == "manual")
+	fps_chart.update()
 
 func _update_ui_frame():
 	frame_label.text = "Frame: %d/%d" % [current_frame_idx + 1, frames.size()]
-	progress_bar.value = float(current_frame_idx + 1) / float(frames.size()) * 100.0
+	var pct = float(current_frame_idx) / float(max(1, frames.size() - 1))
+	progress_fill.rect_size.x = progress_container.rect_size.x * pct
 
 	if current_frame_idx < frames.size():
 		var f = frames[current_frame_idx]
-		var actual_fps = Performance.get_monitor(Performance.TIME_FPS)
-		status_label.text = "Replay FPS: %.1f | Source FPS: %.1f" % [actual_fps, f.get("fps", 0.0)]
+		if not is_paused:
+			var actual_fps = Performance.get_monitor(Performance.TIME_FPS)
+			status_label.text = "Replay FPS: %.1f | Source FPS: %.1f" % [actual_fps, f.get("fps", 0.0)]
+
+		var elapsed = current_frame_idx * 0.016 # Default 60fps
+		var total_dur = frames.size() * 0.016
+		progress_container.hint_tooltip = "Frame %d/%d — T: %.1fs / %.1fs" % [current_frame_idx + 1, frames.size(), elapsed, total_dur]
+
+	fps_chart.update()
 
 func _process(delta):
 	if _is_warming_up:
 		_warmup_remaining -= delta
 		if _warmup_remaining <= 0.0:
 			_is_warming_up = false
-			is_paused = false
-			status_label.text = "Reproduciendo..."
-			status_label.modulate = Color(0.3, 1, 0.3)
+			self.is_paused = false
 		else:
 			status_label.text = "Calentando... %.1fs" % _warmup_remaining
 		return
 
 	if is_instance_valid(player_node) and not is_paused:
-		# Handle speed-scaled playback
 		var frames_to_step = int(playback_speed)
-		if playback_speed < 1.0:
-			# TODO: Slow motion interpolation? For now just skip frames
-			pass
-
 		for _i in range(frames_to_step):
-			if current_frame_idx < frames.size():
+			if current_frame_idx < frames.size() - 1:
 				_step_forward()
 			else:
 				_on_replay_finished()
 				break
 
 func _unhandled_input(event):
-	if event.is_action_pressed("ui_accept"): # Space
-		# Use self. so the setget setter fires (plain assignment self-access skips it).
-		self.is_paused = not is_paused
-		status_label.text = "Pausado" if is_paused else "Reproduciendo..."
-	elif event.is_action_pressed("ui_right"): # Right Arrow
-		_seek_relative(_seek_step_for(event))
-		self.is_paused = true
-	elif event.is_action_pressed("ui_left"): # Left Arrow
-		_seek_relative(-_seek_step_for(event))
-		self.is_paused = true
-	elif event is InputEventKey and event.pressed:
-		if event.scancode == KEY_1: _set_speed(1.0)
+	if event is InputEventKey and event.pressed:
+		if event.scancode == KEY_SPACE:
+			self.is_paused = not is_paused
+			get_tree().set_input_as_handled()
+		elif event.scancode == KEY_RIGHT:
+			var step = 1
+			if event.control: step = 60 # ~1s
+			_seek_relative(step)
+			self.is_paused = true
+			get_tree().set_input_as_handled()
+		elif event.scancode == KEY_LEFT:
+			var step = -1
+			if event.control: step = -60 # ~1s
+			_seek_relative(step)
+			self.is_paused = true
+			get_tree().set_input_as_handled()
+		elif event.scancode == KEY_1: _set_speed(1.0)
 		elif event.scancode == KEY_2: _set_speed(2.0)
 		elif event.scancode == KEY_4: _set_speed(4.0)
+		elif event.scancode == KEY_R:
+			restart_replay()
+		elif event.scancode == KEY_HOME:
+			seek_to_frame(0)
+		elif event.scancode == KEY_END:
+			seek_to_frame(frames.size() - 1)
 		elif event.scancode == KEY_ESCAPE:
-			get_tree().quit() # or return to menu
-
-# Arrow = 1 frame, Ctrl+Arrow = 10, Ctrl+Shift+Arrow = 30.
-func _seek_step_for(event) -> int:
-	if event is InputEventWithModifiers and event.control:
-		return 30 if event.shift else 10
-	return 1
+			if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+			else:
+				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+			get_tree().set_input_as_handled()
 
 func _seek_relative(delta_frames: int) -> void:
 	var target = clamp(current_frame_idx + delta_frames, 0, frames.size() - 1)
-	# _restore_frame_state replays from the nearest snapshot, so it handles both
-	# forward and backward jumps correctly regardless of magnitude.
+	_restore_frame_state(target)
+	_update_ui_frame()
+
+func _seek_relative_time(delta_sec: float) -> void:
+	var delta_frames = int(delta_sec * 60.0)
+	_seek_relative(delta_frames)
+	self.is_paused = true
+
+func seek_to_frame(idx: int):
+	if idx < 0: idx = frames.size() - 1
+	var target = clamp(idx, 0, frames.size() - 1)
 	_restore_frame_state(target)
 	_update_ui_frame()
 
 func _set_paused(value: bool) -> void:
 	is_paused = value
-	# Freeze the whole loaded scene when playback halts: get_tree().paused stops all
-	# physics and _process (the scene is PAUSE_MODE_STOP). The player itself isn't
-	# physics-processed by the engine here, so we still step it manually on seek.
 	get_tree().paused = value
-	# Animators are frozen separately: AnimationPlayer/AnimationTree nodes left at
-	# PAUSE_MODE_PROCESS would keep advancing through the tree pause, so a paused
-	# frame isn't a true still otherwise.
 	_set_animators_active(not value)
 	_set_animator_active(not value)
 
+	if btn_play.pressed != value:
+		btn_play.set_pressed_no_signal(value)
+	btn_play.text = "RESUME" if value else "PAUSE"
+
+	if value:
+		if status_label.text != "REGISTRO COMPLETADO — Pausado":
+			status_label.text = "Pausado"
+			status_label.modulate = Color(1, 1, 1)
+	else:
+		status_label.text = "Reproduciendo..."
+		status_label.modulate = Color(0.3, 1, 0.3)
+
+func _on_play_toggled(pressed: bool):
+	self.is_paused = pressed
+
 func _set_animator_active(active: bool) -> void:
-	if player_animator == null or not is_instance_valid(player_animator):
-		return
+	if player_animator == null or not is_instance_valid(player_animator): return
 	if "animation_tree" in player_animator and player_animator.animation_tree:
 		player_animator.animation_tree.active = active
 
-# Walk the loaded scene and freeze/unfreeze every AnimationPlayer and AnimationTree,
-# so pausing yields a real still frame regardless of each animator's pause_mode.
 func _set_animators_active(active: bool) -> void:
-	if not is_instance_valid(loaded_scene_node):
-		return
+	if not is_instance_valid(loaded_scene_node): return
 	_walk_animators(loaded_scene_node, active)
 
 func _walk_animators(node: Node, active: bool) -> void:
-	if node is AnimationPlayer:
-		node.playback_active = active
-	elif node is AnimationTree:
-		node.active = active
-	for child in node.get_children():
-		_walk_animators(child, active)
+	if node is AnimationPlayer: node.playback_active = active
+	elif node is AnimationTree: node.active = active
+	for child in node.get_children(): _walk_animators(child, active)
 
 func _set_speed(s: float):
 	playback_speed = s
 	speed_label.text = "Speed: %dx" % int(s)
 
 func _step_forward():
-	if current_frame_idx >= frames.size() - 1:
-		return
-
+	if current_frame_idx >= frames.size() - 1: return
 	current_frame_idx += 1
 	var f = frames[current_frame_idx]
-
-	# Restore snapshot if present
-	if f.has("snapshot"):
-		player_node.restore_snapshot(f["snapshot"])
+	if f.has("snapshot"): player_node.restore_snapshot(f["snapshot"])
 	_restore_prop_snapshots(f)
-
 	var input = InputDataV2.new()
 	input.from_dict(f.get("input", {}))
-
-	# Step the player
-	if SessionManager and SessionManager.has_method("is_recording"):
-		# If SessionManager exists, use its synchronized stepping if possible
-		# but for hotzone playback we usually want direct control.
-		player_node.step(f.get("dt", 0.016), input)
-	else:
-		player_node.step(f.get("dt", 0.016), input)
-
-	_update_ui_frame()
-
-func _step_backward():
-	if current_frame_idx <= 0:
-		return
-
-	current_frame_idx -= 1
-	# Re-seek to current_frame_idx
-	_restore_frame_state(current_frame_idx)
+	player_node.step(f.get("dt", 0.016), input)
 	_update_ui_frame()
 
 func _restore_frame_state(idx: int):
 	current_frame_idx = idx
 	var f = frames[idx]
-
-	# We must find the nearest snapshot BEFORE or AT idx to restore state
 	var snapshot_idx = -1
 	for i in range(idx, -1, -1):
 		if frames[i].has("snapshot"):
 			snapshot_idx = i
 			break
-
 	if snapshot_idx != -1:
 		player_node.restore_snapshot(frames[snapshot_idx]["snapshot"])
 		_restore_prop_snapshots(frames[snapshot_idx])
-		# Play back inputs from snapshot_idx to current_frame_idx
 		player_node.input_provider.playback_index = snapshot_idx
 		for i in range(snapshot_idx, idx):
 			var step_f = frames[i]
@@ -409,7 +437,6 @@ func _restore_frame_state(idx: int):
 			input.from_dict(step_f.get("input", {}))
 			player_node.step(step_f.get("dt", 0.016), input)
 	else:
-		# Fallback: just teleport to pos
 		var pos_arr = f.get("pos", [0, 0, 0])
 		var t = player_node.global_transform
 		t.origin = Vector3(pos_arr[0], pos_arr[1], pos_arr[2])
@@ -419,31 +446,81 @@ func _restore_frame_state(idx: int):
 
 var _prop_node_cache := {}
 func _restore_prop_snapshots(f: Dictionary) -> void:
-	# Mirror of the recorder's _capture_prop_snapshots: each entry is keyed by the
-	# node's path relative to the scene root. Resolve against loaded_scene_node and
-	# call restore_snapshot so seeking rewinds the whole world, not just the player.
 	var props = f.get("props", {})
-	if props.empty() or not is_instance_valid(loaded_scene_node):
-		return
+	if props.empty() or not is_instance_valid(loaded_scene_node): return
 	for rel_path in props:
 		var node = _prop_node_cache.get(rel_path)
 		if not is_instance_valid(node):
 			node = loaded_scene_node.get_node_or_null(rel_path)
-			if node != null:
-				_prop_node_cache[rel_path] = node
+			if node != null: _prop_node_cache[rel_path] = node
 		if is_instance_valid(node) and node.has_method("restore_snapshot"):
 			node.restore_snapshot(props[rel_path])
 
 func _on_replay_finished():
-	# Loop: rewind to the start and keep playing so the hotzone repeats.
-	print("[HotzonePlayer] Replay finished, looping.")
+	self.is_paused = true
+	status_label.text = "REGISTRO COMPLETADO — Pausado"
+	status_label.modulate = Color(0.3, 1, 1)
+
+func restart_replay():
 	_restore_frame_state(0)
 	_update_ui_frame()
+	self.is_paused = false
 
 func _exit_tree():
-	# Restore the recorder we silenced in _start_replay, in case this tool ever runs
-	# inside a longer-lived session rather than its own throwaway process.
+	if SessionManager:
+		SessionManager.is_replaying = false
+
+	if OS.has_feature("web"):
+		var js = JavaScript.get_interface("OdiseaShell")
+		if js: js.is_replaying = false
+
 	if has_node("/root/HotzoneRecorder"):
 		get_node("/root/HotzoneRecorder").hotzone_enabled = true
 	if is_instance_valid(loaded_scene_node):
 		loaded_scene_node.queue_free()
+
+func _on_progress_gui_input(event):
+	if event is InputEventMouseButton:
+		if event.button_index == BUTTON_LEFT:
+			if event.pressed:
+				_is_scrubbing = true
+				_seek_to_mouse_pos(event.position.x)
+			else:
+				_is_scrubbing = false
+	elif event is InputEventMouseMotion:
+		if _is_scrubbing:
+			_seek_to_mouse_pos(event.position.x)
+		_update_hover_tooltip(event.position.x)
+
+func _seek_to_mouse_pos(x_pos):
+	var w = progress_container.rect_size.x
+	var pct = clamp(x_pos / w, 0.0, 1.0)
+	var target_frame = int(round(pct * (frames.size() - 1)))
+	seek_to_frame(target_frame)
+	self.is_paused = true
+
+func _update_hover_tooltip(x_pos):
+	var w = progress_container.rect_size.x
+	var pct = clamp(x_pos / w, 0.0, 1.0)
+	var frame_idx = int(round(pct * (frames.size() - 1)))
+	if frame_idx < 0 or frame_idx >= frames.size(): return
+
+	var f = frames[frame_idx]
+	var elapsed = frame_idx * 0.016
+	var fps = f.get("fps", 0.0)
+	var msg = "Frame %d/%d — T: %.1fs — FPS: %.1f" % [frame_idx + 1, frames.size(), elapsed, fps]
+	progress_container.hint_tooltip = msg
+	fps_chart.hint_tooltip = msg
+
+func _on_fps_chart_draw():
+	if _chart_points.empty(): return
+	var rect = fps_chart.rect_size
+	var count = _chart_points.size()
+
+	for i in range(count - 1):
+		var p1 = _chart_points[i] * rect
+		var p2 = _chart_points[i+1] * rect
+		fps_chart.draw_line(p1, p2, _chart_colors[i], 2.0, true)
+
+	var cur_x = float(current_frame_idx) / float(max(1, frames.size() - 1)) * rect.x
+	fps_chart.draw_line(Vector2(cur_x, 0), Vector2(cur_x, rect.y), Color(1, 1, 1, 0.8), 2.0)
