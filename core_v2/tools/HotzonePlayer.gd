@@ -58,6 +58,19 @@ func _ready():
 	if mobile_ui:
 		mobile_ui.set_replay_mode(true)
 
+	# Silence telemetry for the whole playback: a replay viewer must not appear on
+	# the dashboard as a phantom session nor feed playback FPS into the stats. ANNA
+	# auto-detects replay from the cmdline (native/web), but the Android deep link
+	# change_scene()s here after ANNA already booted, so tell it explicitly. Also
+	# stop the recorder now (not later in _start_replay, which is skipped if the
+	# scene fails to load) so we never record over a playback.
+	var anna_node = get_node_or_null("/root/ANNAV2")
+	if anna_node and anna_node.has_method("set_replay_mode"):
+		anna_node.set_replay_mode(true)
+	var recorder_node = get_node_or_null("/root/HotzoneRecorder")
+	if recorder_node:
+		recorder_node.hotzone_enabled = false
+
 	# UI Connections
 	progress_container.connect("gui_input", self, "_on_progress_gui_input")
 	fps_chart.connect("gui_input", self, "_on_progress_gui_input")

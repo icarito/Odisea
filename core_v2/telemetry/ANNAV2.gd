@@ -38,8 +38,22 @@ var _window_focused := true
 var _last_telemetry_ms := 0
 var _perf_monitor: Node = null
 var _perf_profiling_enabled := false
+# Replay sessions (HotzonePlayer) must not emit telemetry: they would show up on
+# the dashboard as phantom players and pollute hotzone/FPS stats with playback
+# numbers. When true we never start the network thread and _process is a no-op.
+var _replay_mode := false
 
 func _ready():
+	# Bail out early for hotzone playback: this is a viewer, not a play session.
+	# Detected from the cmdline scene arg (native launch + web shell + deep link
+	# all pass --scene HotzonePlayer.tscn) and, on web, the shell's is_replaying
+	# flag. Returning before _net_thread.start() means no central/peer connection,
+	# no heartbeats, no phantom session.
+	if _detect_replay_mode():
+		_replay_mode = true
+		print("[ANNAV2] Replay mode detected — telemetry disabled for this session.")
+		return
+
 	# Optimization for HTML5/Weak hardware
 	if OS.get_name() == "HTML5" or OS.has_touchscreen_ui_hint():
 		TELEMETRY_INTERVAL_MS = 200 # 5Hz for web
@@ -95,6 +109,18 @@ func _ready():
 	_perf_profiling_enabled = _perf_monitor and "_profiling_enabled" in _perf_monitor and _perf_monitor._profiling_enabled
 	print("[ANNAV2] Initialized. PlayerID: ", _player_id, " SessionID: ", _session_id)
 
+# Disable telemetry for this session, tearing down the network thread if it has
+# already started. Idempotent. Called by HotzonePlayer for the runtime paths that
+# _detect_replay_mode() can't see at autoload time — chiefly the Android deep link,
+# which change_scene()s into HotzonePlayer after ANNAV2._ready() already ran.
+func set_replay_mode(enabled: bool = true) -> void:
+	if not enabled or _replay_mode:
+		return
+	_replay_mode = true
+	if _net_thread:
+		_net_thread.stop()
+	print("[ANNAV2] Replay mode set at runtime — telemetry stopped for this session.")
+
 func _init_capture_from_env():
 	# Opt-in local capture for headless telemetry analysis. Never required for the
 	# game to run; defaults keep capture off so normal sessions are unaffected.
@@ -107,7 +133,26 @@ func _init_capture_from_env():
 	if max_env.is_valid_integer():
 		_capture_max = int(max(1, int(max_env)))
 
+# True when this process is a hotzone playback viewer. Checks the cmdline scene
+# arg (used by native launch, the web shell's engineConfig.args, and the Android
+# deep link) plus, on web, the shell's OdiseaShell.is_replaying flag.
+func _detect_replay_mode() -> bool:
+	var args = OS.get_cmdline_args()
+	for i in range(args.size()):
+		if args[i] == "--scene" and i + 1 < args.size():
+			if "HotzonePlayer" in args[i + 1]:
+				return true
+		elif args[i] == "--replay-file" or args[i] == "--replay-scene":
+			return true
+	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
+		var js = JavaScript.get_interface("OdiseaShell")
+		if js != null and js.is_replaying:
+			return true
+	return false
+
 func _exit_tree():
+	if _replay_mode:
+		return
 	# Auto-dump on shutdown so headless runs always leave a JSON artifact behind.
 	if _capture_enabled and _capture_dump_path != "" and _capture_count > 0:
 		dump_telemetry_json(_capture_dump_path)
@@ -125,6 +170,10 @@ func _notification(what):
 		_last_telemetry_ms = 0
 
 func _process(_delta):
+	# Replay viewer: no network thread was started, so there is nothing to tick.
+	if _replay_mode:
+		return
+
 	if _perf_profiling_enabled:
 		_perf_monitor.profiling_start("ANNAV2")
 
