@@ -57,39 +57,109 @@
 			text-decoration: none;
 		}
 
-		#odisea-popup {
+		/* ETA hint shown inline under the bar while the download is slow
+		   but still making progress. Quiet, on-theme, never alarming. */
+		#odisea-eta {
+			color: #7a8aa0;
+			font-size: 12px;
+			margin-top: 12px;
+			min-height: 1.2em;
+			opacity: 0;
+			transition: opacity 0.4s linear;
+		}
+		#odisea-eta.visible { opacity: 1; }
+
+		/* Corner toast: a small, opaque, on-theme alert anchored to a
+		   corner. Used for slow-load warnings and for real errors. It never
+		   covers the center of the screen and never relies on transparency
+		   over the canvas (its own panel is fully opaque). */
+		#odisea-toast {
 			position: fixed;
-			inset: 0;
-			background: rgba(0, 0, 0, 0.85);
-			display: none;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
+			top: 16px;
+			right: 16px;
+			max-width: min(340px, calc(100vw - 32px));
+			background: #0b1019;
+			border: 1px solid #2a3650;
+			border-left: 3px solid #c8a23c;
+			border-radius: 4px;
+			box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+			padding: 12px 14px;
 			font-family: system-ui, sans-serif;
 			z-index: 20;
+			display: none;
+			transform: translateY(-12px);
+			opacity: 0;
+			transition: opacity 0.3s linear, transform 0.3s ease-out;
 		}
-		#odisea-popup.visible { display: flex; }
-		#odisea-popup-msg {
-			color: #cccccc;
-			font-size: 14px;
-			line-height: 1.6;
-			text-align: center;
-			white-space: pre-line;
+		#odisea-toast.visible {
+			display: block;
+			transform: translateY(0);
+			opacity: 1;
 		}
-		#odisea-popup a {
-			color: #aabbcc;
-			text-decoration: none;
+		#odisea-toast.error {
+			border-left-color: #c0463c;
 		}
-		#odisea-popup-close {
-			margin-top: 24px;
-			padding: 6px 20px;
-			background: none;
-			border: 1px solid #445566;
-			color: #aabbcc;
-			font: inherit;
+		#odisea-toast-head {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-bottom: 6px;
+		}
+		#odisea-toast-icon {
+			flex: 0 0 auto;
+			width: 18px;
+			height: 18px;
+			color: #c8a23c;
+		}
+		#odisea-toast.error #odisea-toast-icon { color: #d9685e; }
+		#odisea-toast-title {
+			color: #cfd7e3;
 			font-size: 13px;
-			cursor: pointer;
+			font-weight: 600;
+			letter-spacing: 0.02em;
 		}
+		#odisea-toast-msg {
+			color: #93a0b4;
+			font-size: 12px;
+			line-height: 1.5;
+			white-space: pre-line;
+			word-break: break-word;
+		}
+		#odisea-toast-detail {
+			color: #6b7488;
+			font-size: 11px;
+			line-height: 1.4;
+			margin-top: 6px;
+			font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+			white-space: pre-wrap;
+			word-break: break-word;
+			max-height: 6em;
+			overflow: auto;
+		}
+		#odisea-toast-foot {
+			margin-top: 10px;
+			display: none;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+		#odisea-toast.error #odisea-toast-foot { display: flex; }
+		#odisea-toast-foot a {
+			color: #7f9bc7;
+			text-decoration: none;
+			font-size: 11px;
+		}
+		#odisea-toast-close {
+			background: none;
+			border: none;
+			color: #56627a;
+			font: inherit;
+			font-size: 16px;
+			line-height: 1;
+			cursor: pointer;
+			padding: 0 2px;
+		}
+		#odisea-toast-close:hover { color: #93a0b4; }
 	</style>
 $GODOT_HEAD_INCLUDE
 </head>
@@ -98,16 +168,28 @@ $GODOT_HEAD_INCLUDE
 	<div id="odisea-loading">
 		<div id="odisea-title">ODiSEA</div>
 		<div id="odisea-bar"><div id="odisea-bar-fill"></div></div>
+		<div id="odisea-eta"></div>
 		<div id="odisea-lore"></div>
 		<div id="odisea-links">
 			<a href="#" rel="noopener">icarito</a><br>
 			<a href="https://odisea.educa.juegos" target="_blank" rel="noopener">odisea.educa.juegos</a>
 		</div>
 	</div>
-	<div id="odisea-popup">
-		<div id="odisea-popup-msg"></div>
-		<a href="https://github.com/icarito/Odisea/issues" target="_blank" rel="noopener">github.com/icarito/Odisea/issues</a>
-		<button id="odisea-popup-close" type="button">Cerrar</button>
+	<div id="odisea-toast" role="status" aria-live="polite">
+		<div id="odisea-toast-head">
+			<svg id="odisea-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+				<line x1="12" y1="9" x2="12" y2="13"/>
+				<line x1="12" y1="17" x2="12.01" y2="17"/>
+			</svg>
+			<span id="odisea-toast-title">Señal débil</span>
+			<button id="odisea-toast-close" type="button" aria-label="Cerrar" style="margin-left:auto">×</button>
+		</div>
+		<div id="odisea-toast-msg"></div>
+		<div id="odisea-toast-detail"></div>
+		<div id="odisea-toast-foot">
+			<a href="https://github.com/icarito/Odisea/issues" target="_blank" rel="noopener">Reportar en github.com/icarito/Odisea/issues</a>
+		</div>
 	</div>
 	<script src="$GODOT_URL"></script>
 	<script>
@@ -324,8 +406,11 @@ $GODOT_HEAD_INCLUDE
 		var loadingEl = document.getElementById("odisea-loading");
 		var barFillEl = document.getElementById("odisea-bar-fill");
 		var loreEl = document.getElementById("odisea-lore");
-		var popupEl = document.getElementById("odisea-popup");
-		var popupMsgEl = document.getElementById("odisea-popup-msg");
+		var etaEl = document.getElementById("odisea-eta");
+		var toastEl = document.getElementById("odisea-toast");
+		var toastTitleEl = document.getElementById("odisea-toast-title");
+		var toastMsgEl = document.getElementById("odisea-toast-msg");
+		var toastDetailEl = document.getElementById("odisea-toast-detail");
 
 		// --- Telemetry (fire and forget, must never block the load) ---
 		var TELEMETRY_ENDPOINTS = [
@@ -383,32 +468,64 @@ $GODOT_HEAD_INCLUDE
 			pendingRunbin: null
 		};
 
-		// --- Popup (error / slow-load watchdog) ---
-		var POPUP_ERROR_MSG = "Algo salió mal.\nReportalo en:";
-		var POPUP_TIMEOUT_MSG = "La carga está tomando más de lo esperado.\nSi no se completa, reportalo en:";
-		var popupShown = false;
+		// --- Corner toast (slow-load hint / real error) ----------------
+		// Two states, never the old full-screen transparent popup:
+		//   * "slow"  — quiet amber alert, download still breathing.
+		//   * "error" — red alert with the real error string + report link.
+		// The toast lives in a corner; the load keeps going behind it.
+		var toastState = null; // null | "slow" | "error"
 
-		function showPopup(message) {
-			if (engineStarted || popupShown) return;
-			popupShown = true;
-			popupMsgEl.textContent = message;
-			popupEl.classList.add("visible");
+		function showToast(kind, title, message, detail) {
+			// An error always wins over a slow hint, but once we're showing
+			// an error we don't downgrade back to slow.
+			if (engineStarted) return;
+			if (toastState === "error" && kind !== "error") return;
+			toastState = kind;
+			toastEl.classList.toggle("error", kind === "error");
+			toastTitleEl.textContent = title;
+			toastMsgEl.textContent = message || "";
+			if (detail) {
+				toastDetailEl.textContent = detail;
+				toastDetailEl.style.display = "block";
+			} else {
+				toastDetailEl.textContent = "";
+				toastDetailEl.style.display = "none";
+			}
+			toastEl.classList.add("visible");
 		}
 
-		document.getElementById("odisea-popup-close").addEventListener("click", function() {
-			popupEl.classList.remove("visible");
-		});
+		function hideToast() {
+			toastEl.classList.remove("visible");
+		}
 
-		window.addEventListener("error", function() {
-			showPopup(POPUP_ERROR_MSG);
-		});
-		window.addEventListener("unhandledrejection", function() {
-			showPopup(POPUP_ERROR_MSG);
-		});
+		// Turn an arbitrary throwable / event into a short real string so the
+		// player sees what actually failed, not a generic "algo salió mal".
+		function describeError(err) {
+			if (!err) return "";
+			if (typeof err === "string") return err;
+			if (err.message) return String(err.message);
+			if (err.reason) return describeError(err.reason);
+			if (err.error) return describeError(err.error);
+			try { return String(err); } catch (e) { return "Error desconocido"; }
+		}
 
-		var watchdogTimer = setTimeout(function() {
-			showPopup(POPUP_TIMEOUT_MSG);
-		}, 90000);
+		function showErrorToast(detail) {
+			showToast(
+				"error",
+				"Fallo de carga",
+				"Odisea no pudo iniciar.",
+				detail || ""
+			);
+		}
+
+		document.getElementById("odisea-toast-close").addEventListener("click", hideToast);
+
+		window.addEventListener("error", function(ev) {
+			showErrorToast(describeError(ev && (ev.error || ev.message)));
+		});
+		window.addEventListener("unhandledrejection", function(ev) {
+			showErrorToast(describeError(ev && ev.reason));
+		});
 
 		var lorePhrases = [
 			"La nave tiene 8 kilómetros de eslora.",
@@ -432,11 +549,90 @@ $GODOT_HEAD_INCLUDE
 		// If the token is not replaced, this resolves to 0 and is ignored.
 		var EXPECTED_TOTAL_BYTES = Number("$ODISEA_TOTAL_BYTES".replace(/[^0-9]/g, "")) || 0;
 
+		// --- Download progress / ETA / stall detection -----------------
+		// Drives three outcomes off the real byte stream:
+		//   * compute a moving-average speed and ETA;
+		//   * raise a quiet "slow" toast if we're clearly dragging but the
+		//     bytes keep climbing;
+		//   * raise a real "error" toast only when the bytes have been
+		//     frozen for STALL_MS — i.e. the download actually died.
+		var STALL_MS = 20000;          // bytes frozen this long => real error
+		var SLOW_HINT_MS = 12000;      // still moving but slow => quiet hint
+		var lastBytes = 0;
+		var lastBytesTs = loaderStartMs;   // last time bytes increased
+		var lastProgressTs = 0;            // last onProgress call at all
+		var speedBps = 0;                  // smoothed bytes/sec
+
+		function fmtEta(seconds) {
+			if (!isFinite(seconds) || seconds <= 0) return "";
+			seconds = Math.ceil(seconds);
+			if (seconds < 60) return "~" + seconds + " s";
+			var m = Math.floor(seconds / 60);
+			var s = seconds % 60;
+			return "~" + m + " min" + (s ? " " + s + " s" : "");
+		}
+
+		function recordProgress(current, total) {
+			var now = Date.now();
+			if (current > lastBytes) {
+				var dt = (now - lastBytesTs) / 1000;
+				if (dt > 0) {
+					var inst = (current - lastBytes) / dt;
+					// Exponential moving average to smooth bursty chunks.
+					speedBps = speedBps > 0 ? (speedBps * 0.7 + inst * 0.3) : inst;
+				}
+				lastBytes = current;
+				lastBytesTs = now;
+			}
+			lastProgressTs = now;
+
+			var t = (total > 0 && total >= current) ? total : EXPECTED_TOTAL_BYTES;
+			var remaining = t > 0 ? Math.max(0, t - current) : 0;
+			var eta = (remaining > 0 && speedBps > 0) ? remaining / speedBps : 0;
+			var etaStr = fmtEta(eta);
+			var elapsed = now - loaderStartMs;
+
+			// Show a quiet ETA line once we're past the slow-hint threshold
+			// and we actually have an estimate.
+			if (etaStr && elapsed > SLOW_HINT_MS) {
+				etaEl.textContent = "Conexión lenta — tiempo restante " + etaStr;
+				etaEl.classList.add("visible");
+			}
+		}
+
+		// Independent of onProgress firing: a frozen byte counter is the real
+		// failure signal. Poll the gap since bytes last moved.
+		var stallTimer = setInterval(function() {
+			if (engineStarted) { clearInterval(stallTimer); return; }
+			var now = Date.now();
+			var sinceProgress = now - lastBytesTs;
+			var started = lastProgressTs > 0;
+
+			// Never downloaded a single byte after a while, or bytes frozen
+			// mid-flight past STALL_MS => declare a real, surfaced error.
+			if (sinceProgress >= STALL_MS) {
+				var pct = (lastBytes > 0)
+					? " (" + (lastBytes / (1024 * 1024)).toFixed(1) + " MB descargados)"
+					: "";
+				showToast(
+					"error",
+					"Descarga interrumpida",
+					"La descarga se detuvo y no avanza.",
+					started
+						? "Sin datos nuevos hace " + Math.round(sinceProgress / 1000) + " s" + pct +
+						  ".\nRevise su conexión y recargue la página."
+						: "No se recibieron datos del servidor.\nRevise su conexión y recargue la página."
+				);
+				etaEl.classList.remove("visible");
+			}
+		}, 2000);
+
 		function onEngineStarted() {
 			if (engineStarted) return;
 			engineStarted = true;
-			clearTimeout(watchdogTimer);
-			popupEl.classList.remove("visible");
+			clearInterval(stallTimer);
+			hideToast();
+			etaEl.classList.remove("visible");
 			sendMetric({
 				event: "engine_start",
 				ts: Date.now(),
@@ -465,13 +661,15 @@ $GODOT_HEAD_INCLUDE
 					if (t > 0) {
 						barFillEl.style.width = Math.min(100, current / t * 100).toFixed(1) + "%";
 					}
+					recordProgress(current, total);
 				},
 				onComplete: onEngineStarted
 			}).then(onEngineStarted).catch(function(err) {
 				clearInterval(loreTimer);
+				clearInterval(stallTimer);
 				loreEl.textContent = "Error al cargar. Recarga la página.";
 				console.error("[ODiSEA] Engine start failed:", err);
-				showPopup(POPUP_ERROR_MSG);
+				showErrorToast(describeError(err) || "El motor no pudo iniciar.");
 			});
 		}
 
