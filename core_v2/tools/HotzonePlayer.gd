@@ -41,6 +41,23 @@ var _chart_points := PoolVector2Array()
 var _chart_colors := PoolColorArray()
 
 func _ready():
+	# Playback pauses the SceneTree (get_tree().paused). Without PAUSE_MODE_PROCESS
+	# this Control and its buttons (transport, collapse) stop receiving GUI input
+	# while paused — so nothing is clickable. Set it here, in _ready, so it holds
+	# even if the scene fails to load (then _attach_loaded_scene never runs).
+	pause_mode = Node.PAUSE_MODE_PROCESS
+
+	# Enter replay mode immediately, before any gameplay scene mounts: this scene
+	# IS the player, the user never controls the avatar here. Setting it now (not
+	# in _start_replay, which runs much later and not at all if loading fails)
+	# keeps the gameplay touch UI hidden from the very first frame.
+	var session_node = get_node_or_null("/root/SessionManager")
+	if session_node:
+		session_node.is_replaying = true
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	if mobile_ui:
+		mobile_ui.set_replay_mode(true)
+
 	# UI Connections
 	progress_container.connect("gui_input", self, "_on_progress_gui_input")
 	fps_chart.connect("gui_input", self, "_on_progress_gui_input")
@@ -263,6 +280,13 @@ func _start_replay():
 	if has_node("/root/HotzoneRecorder"):
 		get_node("/root/HotzoneRecorder").hotzone_enabled = false
 		print("[HotzonePlayer] Disabled HotzoneRecorder.")
+
+	# Hide the gameplay touch UI: the replay drives the player from the .bin, so
+	# on-screen controls must not appear. Direct call (not just is_replaying +
+	# per-frame refresh) because the player pauses the tree, which stops
+	# MobileUIManager._process.
+	if has_node("/root/MobileUIManager"):
+		get_node("/root/MobileUIManager").set_replay_mode(true)
 
 	if OS.has_feature("web"):
 		var js = JavaScript.get_interface("OdiseaShell")

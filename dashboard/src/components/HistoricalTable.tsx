@@ -186,7 +186,7 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onPlayHotzone(sessionHotzones[0].id); }}
                     className="shrink-0 border-2 border-success bg-success/10 p-1 text-success hover:bg-success hover:text-black"
-                    title={`Reproducir hotzone${sessionHotzones.length > 1 ? ` (1 de ${sessionHotzones.length})` : ''} en Netlify`}
+                    title={`Reproducir hotzone${sessionHotzones.length > 1 ? ` (1 de ${sessionHotzones.length})` : ''}`}
                     aria-label="Reproducir hotzone de la sesión"
                   >
                     <Play size={14} fill="currentColor" />

@@ -70,6 +70,16 @@ func _is_replay_active() -> bool:
 	var session = get_node_or_null("/root/SessionManager")
 	return is_instance_valid(session) and bool(session.get("is_replaying"))
 
+# Force the touch UI hidden right now, independent of _process. The replay
+# player pauses the SceneTree, which stops this autoload's _process, so the
+# per-frame refresh can't be relied on to hide controls during replay; the
+# player calls this directly when it takes over.
+func set_replay_mode(active: bool) -> void:
+	if active and is_instance_valid(_mobile_ui):
+		_mobile_ui.visible = false
+	else:
+		_refresh_mobile_ui_visibility()
+
 func _process(_delta: float) -> void:
 	if not _is_mobile or not is_instance_valid(_mobile_ui):
 		return

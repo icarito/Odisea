@@ -25,6 +25,7 @@ import { LiveCombinedChart } from './components/LiveCombinedChart';
 import { RetroCard, RetroButton, CollapsibleCard } from './components/retro';
 import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
+import { HotzonePlayerModal, prefetchHotzoneEngine } from './components/HotzonePlayerModal';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
 import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone, getHotzoneDownloadLink } from './api';
@@ -285,8 +286,9 @@ const HotzoneRow = ({
           <button
             type="button"
             onClick={() => onPlay(hz.id)}
+            onMouseEnter={prefetchHotzoneEngine}
             className="border-2 border-success bg-success/10 p-1 text-success hover:bg-success hover:text-black"
-            title="Reproducir en Netlify"
+            title="Reproducir captura"
           >
             <Play size={compact ? 10 : 12} fill="currentColor" />
           </button>
@@ -965,6 +967,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [heatmapData, setHeatmapData] = useState<any[] | undefined>();
   const [showLiveGhosts, setShowLiveGhosts] = useState(true);
+  // Embedded hotzone player: the web-shell URL to load in the iframe modal, or
+  // null when closed. Used on desktop instead of opening a new tab.
+  const [hotzonePlayerSrc, setHotzonePlayerSrc] = useState<string | null>(null);
 
   // Notification deep-link: focus on a specific player from URL params
   const [focusPlayerId, setFocusPlayerId] = useState<string | null>(null);
@@ -1002,8 +1007,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // Play a hotzone. On Android, try to hand the signed capture URL to the
   // installed native build via the odisea://replay deep link; if that app
   // isn't installed the deep link silently no-ops, so we fall back to the
-  // web (Netlify) shell after a short grace period. Everywhere else we go
-  // straight to the web shell.
+  // web (Netlify) shell after a short grace period. On desktop we play it
+  // inside an embedded iframe modal (with engine asset prefetch) instead of
+  // a new tab.
   const handlePlayHotzone = useCallback(async (hotzoneId: string) => {
     try {
       const { url } = await getHotzoneDownloadLink(hotzoneId);
@@ -1026,7 +1032,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         }, 1500);
         return;
       }
-      window.open(webUrl, '_blank', 'noopener,noreferrer');
+      setHotzonePlayerSrc(webUrl);
     } catch {
       notify.error('No se pudo generar el enlace de reproducción');
     }
@@ -2455,8 +2461,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                         <button
                           type="button"
                           onClick={() => handlePlayHotzone(hz.id)}
+                          onMouseEnter={prefetchHotzoneEngine}
                           className="flex min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1 text-left hover:bg-accent hover:text-black"
-                          title="Reproducir captura en Netlify"
+                          title="Reproducir captura"
                         >
                           <span className="min-w-0 truncate">
                             {label} · {hz.trigger_type || 'auto'}
@@ -2587,6 +2594,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           onReset={resetFilters}
         />
       </div>
+      <HotzonePlayerModal src={hotzonePlayerSrc} onClose={() => setHotzonePlayerSrc(null)} />
     </DashboardLayout>
   );
 }
