@@ -2506,7 +2506,6 @@ npc-use={
 
 [input_devices]
 
-pointing/emulate_mouse_from_touch=true
 roll={
 "deadzone": 0.5,
 "events": [  ]
