@@ -58,9 +58,17 @@ func _is_script_cinematic_active() -> bool:
 	return false
 
 func _refresh_mobile_ui_visibility() -> void:
-	_is_cinematic_active = _is_script_cinematic_active() or _is_script_input_block_active()
+	# Hide touch controls during cinematics, scripted input blocks, and hotzone
+	# replay: in replay the player moves from the recorded .bin, so on-screen
+	# controls would let the viewer fight the playback. We still want the player
+	# rendered/interactive-looking, just not driven by touch.
+	_is_cinematic_active = _is_script_cinematic_active() or _is_script_input_block_active() or _is_replay_active()
 	if is_instance_valid(_mobile_ui):
 		_mobile_ui.visible = _is_mobile and not _is_cinematic_active
+
+func _is_replay_active() -> bool:
+	var session = get_node_or_null("/root/SessionManager")
+	return is_instance_valid(session) and bool(session.get("is_replaying"))
 
 func _process(_delta: float) -> void:
 	if not _is_mobile or not is_instance_valid(_mobile_ui):

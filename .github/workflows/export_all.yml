@@ -38,6 +38,11 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       sha: ${{ steps.meta.outputs.sha }}
       channel: ${{ steps.meta.outputs.channel }}
+      # Android needs a monotonic integer versionCode or the device refuses to
+      # update over an existing install. We derive it from the git commit count
+      # (always increases). version_name reuses the human version string.
+      android_version_code: ${{ steps.meta.outputs.android_version_code }}
+      android_version_name: ${{ steps.meta.outputs.android_version_name }}
       # Branch and full SHA, normalized across workflow_run and workflow_dispatch
       # so downstream jobs never have to read github.ref / github.event_name,
       # which mean different things under workflow_run.
@@ -111,6 +116,14 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Android versionCode: a strictly-increasing integer is required for
+          # the device to accept an update over an existing install. github's
+          # run_number increments on every workflow run and never depends on
+          # git checkout depth, so it's a reliable monotonic source. versionName
+          # is the human version string the in-game notifier already shows.
+          echo "android_version_code=${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "android_version_name=$VERSION" >> $GITHUB_OUTPUT
 
   export:
     needs: prep
@@ -342,6 +355,20 @@ jobs:
             echo "export/android/android_sdk_path = \"$ANDROID_HOME\""
             echo "export/android/java_sdk_path = \"$JDK_PATH\""
           } > "$HOME/.config/godot/editor_settings-3.tres"
+
+      - name: Android Version Stamp
+        if: matrix.platform == 'android'
+        env:
+          ANDROID_VERSION_CODE: ${{ needs.prep.outputs.android_version_code }}
+          ANDROID_VERSION_NAME: ${{ needs.prep.outputs.android_version_name }}
+        run: |
+          set -e
+          # Stamp a monotonic versionCode (+ human versionName) into the Android
+          # preset so the built APK installs over a previous one without an
+          # uninstall. These keys live only in the Android preset block.
+          echo "Android versionCode=$ANDROID_VERSION_CODE versionName=$ANDROID_VERSION_NAME"
+          sed -i -E "s|^version/code = .*|version/code = ${ANDROID_VERSION_CODE}|" export_presets.cfg
+          sed -i -E "s|^version/name = .*|version/name = \"${ANDROID_VERSION_NAME}\"|" export_presets.cfg
 
       - name: Export
         if: steps.ios_gate.outputs.skip_ios != 'true'

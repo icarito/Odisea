@@ -999,12 +999,34 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // Playback loading flag (history -> playback fetch).
   const [playbackLoading, setPlaybackLoading] = useState(false);
 
-  // Play a hotzone in the Netlify build by generating a signed runbin URL.
+  // Play a hotzone. On Android, try to hand the signed capture URL to the
+  // installed native build via the odisea://replay deep link; if that app
+  // isn't installed the deep link silently no-ops, so we fall back to the
+  // web (Netlify) shell after a short grace period. Everywhere else we go
+  // straight to the web shell.
   const handlePlayHotzone = useCallback(async (hotzoneId: string) => {
     try {
       const { url } = await getHotzoneDownloadLink(hotzoneId);
-      const runbinUrl = `https://odisea-game.netlify.app/?runbin=${encodeURIComponent(url)}`;
-      window.open(runbinUrl, '_blank', 'noopener,noreferrer');
+      const webUrl = `https://odisea-game.netlify.app/?runbin=${encodeURIComponent(url)}`;
+      const isAndroid = /android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        const deepLink = `odisea://replay?url=${encodeURIComponent(url)}`;
+        // If the native app handles the deep link, the browser tab is
+        // backgrounded and our fallback timer is suspended; if nothing handles
+        // it, the timer fires and we open the web shell instead.
+        let launched = false;
+        const onHide = () => { launched = true; };
+        document.addEventListener('visibilitychange', onHide, { once: true });
+        window.location.href = deepLink;
+        setTimeout(() => {
+          document.removeEventListener('visibilitychange', onHide);
+          if (!launched && !document.hidden) {
+            window.open(webUrl, '_blank', 'noopener,noreferrer');
+          }
+        }, 1500);
+        return;
+      }
+      window.open(webUrl, '_blank', 'noopener,noreferrer');
     } catch {
       notify.error('No se pudo generar el enlace de reproducción');
     }

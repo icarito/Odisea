@@ -32,6 +32,8 @@ package com.godot.game;
 
 import org.godotengine.godot.FullScreenGodotApp;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 
 /**
@@ -39,9 +41,46 @@ import android.os.Bundle;
  * Feel free to extend and modify this class for your custom logic.
  */
 public class GodotApp extends FullScreenGodotApp {
+	// Buffer for a deep link that arrived before the OdiseaDeepLink plugin was
+	// constructed (the normal launch ordering). The plugin drains this in its
+	// constructor; onNewIntent (app already running) feeds the plugin directly.
+	private static String sPendingDeepLink = "";
+
+	/** Drained by OdiseaDeepLink's constructor for the launch Intent. */
+	public static String takePendingDeepLink() {
+		String link = sPendingDeepLink;
+		sPendingDeepLink = "";
+		return link;
+	}
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		setTheme(R.style.GodotAppMainTheme);
 		super.onCreate(savedInstanceState);
+		// The launch Intent arrives before the engine constructs the
+		// OdiseaDeepLink plugin, so stash the odisea:// URI for it to pick up.
+		stashDeepLink(getIntent());
+	}
+
+	@Override
+	public void onNewIntent(Intent intent) {
+		super.onNewIntent(intent);
+		// singleInstancePerTask: re-launches while running come through here.
+		setIntent(intent);
+		stashDeepLink(intent);
+		OdiseaDeepLink.feedIntent(intent);
+	}
+
+	private void stashDeepLink(Intent intent) {
+		if (intent == null) {
+			return;
+		}
+		Uri data = intent.getData();
+		if (data != null && "odisea".equals(data.getScheme())) {
+			// Buffer for the plugin constructor; also feed it live in case the
+			// plugin already exists (onNewIntent path).
+			sPendingDeepLink = data.toString();
+			OdiseaDeepLink.feedLink(data.toString());
+		}
 	}
 }

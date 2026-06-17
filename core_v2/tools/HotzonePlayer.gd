@@ -87,6 +87,17 @@ func _ready():
 		elif args[i] == "--replay-warmup" and i + 1 < args.size():
 			warmup_sec = max(0.0, float(args[i + 1]))
 
+	# Android deep link (odisea://replay): Boot stashed the signed download URL
+	# on SessionManager. Fetch the .bin asynchronously, then play it.
+	if replay_path == "":
+		var session = get_node_or_null("/root/SessionManager")
+		if session and typeof(session.replay_meta) == TYPE_DICTIONARY:
+			var dl_url := String(session.replay_meta.get("deep_link_url", ""))
+			if dl_url != "":
+				session.replay_meta = {}
+				_fetch_remote_replay(dl_url)
+				return
+
 	if replay_path == "":
 		_show_error("No replay file specified. Use --replay-file <path>")
 		return
@@ -95,6 +106,33 @@ func _ready():
 		return
 
 	_prepare_scene()
+
+# Downloads a signed hotzone .bin from central (Android deep link path) to a
+# local file, then loads + plays it. Async via HTTPRequest.
+func _fetch_remote_replay(url: String) -> void:
+	status_label.text = "Descargando captura..."
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.connect("request_completed", self, "_on_remote_replay_completed")
+	var err := http.request(url)
+	if err != OK:
+		_show_error("No se pudo iniciar la descarga (err=%d)" % err)
+
+func _on_remote_replay_completed(result: int, response_code: int, _headers: PoolStringArray, body: PoolByteArray) -> void:
+	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 300:
+		_show_error("Descarga fallida (HTTP %d)" % response_code)
+		return
+	var dir := Directory.new()
+	if not dir.dir_exists("user://hotzones"):
+		dir.make_dir_recursive("user://hotzones")
+	var f := File.new()
+	if f.open("user://hotzones/remote.bin", File.WRITE) != OK:
+		_show_error("No se pudo guardar la captura descargada.")
+		return
+	f.store_buffer(body)
+	f.close()
+	if _load_binary("user://hotzones/remote.bin"):
+		_prepare_scene()
 
 func _load_binary(path: String) -> bool:
 	var f = File.new()
@@ -165,6 +203,13 @@ func _show_error(msg: String):
 		status_label.modulate = Color(1, 0.3, 0.3)
 
 func _prepare_scene():
+	# Mark replay mode before the gameplay scene mounts so UI that keys off it
+	# (e.g. MobileUIManager hiding touch controls) is correct from the first
+	# frame — _start_replay() runs several physics frames later, too late to
+	# avoid a flash of on-screen controls.
+	if SessionManager:
+		SessionManager.is_replaying = true
+
 	var scene_name = scene_override if scene_override != "" else replay_data.get("scene", "")
 	var scene_path = _resolve_scene_path(scene_name)
 	if scene_path == "":

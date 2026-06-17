@@ -26,12 +26,18 @@
     <!-- Any tag in this line after android:icon will be erased when doing custom builds. -->
     <!-- If you want to add tags manually, do before it. -->
     <!-- WARNING: This should stay on a single line until the parsing code is improved. See GH-32414. -->
-    <application android:label="@string/godot_project_name_string" android:allowBackup="false" android:isGame="true" android:hasFragileUserData="false" android:requestLegacyExternalStorage="false" tools:ignore="GoogleAppIndexingWarning" android:icon="@mipmap/icon" >
+    <application android:label="@string/godot_project_name_string" android:allowBackup="false" android:isGame="true" android:hasFragileUserData="false" android:requestLegacyExternalStorage="false" tools:ignore="GoogleAppIndexingWarning" android:icon="@mipmap/icon">
 
         <!-- Records the version of the Godot editor used for building -->
         <meta-data
             android:name="org.godotengine.editor.version"
             android:value="${godotEditorVersion}" />
+
+        <!-- Registers the in-tree OdiseaDeepLink GodotPlugin so the engine loads
+             it and exposes it via Engine.get_singleton("OdiseaDeepLink"). -->
+        <meta-data
+            android:name="org.godotengine.plugin.v1.OdiseaDeepLink"
+            android:value="com.godot.game.OdiseaDeepLink" />
 
         <!-- The following metadata values are replaced when Godot exports, modifying them here has no effect. -->
         <!-- Do these changes in the export preset. Adding new ones is fine. -->
@@ -83,6 +89,17 @@
                 <!-- Enable access to OpenXR on Oculus mobile devices, no-op on other Android
                 platforms. -->
                 <category android:name="com.oculus.intent.category.VR" />
+            </intent-filter>
+
+            <!-- Hotzone replay deep link: the dashboard opens odisea://replay?url=<signed>
+                 so a hotzone capture can be played in the installed native build instead of
+                 the web (Netlify) shell. The OdiseaDeepLink plugin reads this Intent's data
+                 and Boot routes it to HotzonePlayer. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="odisea" android:host="replay" />
             </intent-filter>
         </activity>
 

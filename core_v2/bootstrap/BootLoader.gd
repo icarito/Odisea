@@ -12,6 +12,20 @@ func _ready() -> void:
 	if Engine.editor_hint:
 		return
 	_mark_trace("boot_scene_ready", {"target_scene": startup_scene_path})
+	# Android hotzone deep link: if the app was launched via odisea://replay,
+	# route straight to the replay player instead of the normal boot flow.
+	var deep_link := _get_replay_deep_link()
+	if deep_link != "":
+		_mark_trace("boot_replay_deep_link", {"link": deep_link})
+		# Hand the signed replay URL to HotzonePlayer (change_scene can't pass
+		# args, so stash it on SessionManager, which the player already reads).
+		var session := get_node_or_null("/root/SessionManager")
+		if session:
+			session.replay_meta = {"deep_link_url": deep_link}
+		var err := get_tree().change_scene("res://core_v2/tools/HotzonePlayer.tscn")
+		if err != OK:
+			printerr("[BootLoader] change_scene to HotzonePlayer failed (err=%d)" % err)
+		return
 	var skip_reason := _get_skip_reason()
 	if skip_reason != "":
 		_mark_trace("boot_scene_autoload_skipped", {"reason": skip_reason})
@@ -177,6 +191,27 @@ func _get_skip_reason() -> String:
 				var next = String(args[i + 1])
 				if not next.begins_with("--") and (next.ends_with(".json") or next.ends_with(".oys")):
 					return "video_export_replay"
+	return ""
+
+# Returns the signed hotzone replay URL from an odisea://replay?url=<signed>
+# Android deep link, or "" when there is none. The OdiseaDeepLink plugin is
+# only present on Android custom builds; absent everywhere else.
+func _get_replay_deep_link() -> String:
+	if not Engine.has_singleton("OdiseaDeepLink"):
+		return ""
+	var plugin = Engine.get_singleton("OdiseaDeepLink")
+	var link := String(plugin.consume_deep_link())
+	if link == "" or not link.begins_with("odisea://replay"):
+		return ""
+	# Extract the url query param: odisea://replay?url=<percent-encoded signed url>
+	var q_idx := link.find("?")
+	if q_idx == -1:
+		return ""
+	var query = link.substr(q_idx + 1)
+	for pair in query.split("&"):
+		var kv = String(pair).split("=")
+		if kv.size() == 2 and kv[0] == "url":
+			return String(kv[1]).percent_decode()
 	return ""
 
 func _mark_trace(name: String, data: Dictionary = {}) -> void:

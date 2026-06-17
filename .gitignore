@@ -5,6 +5,9 @@ maps/autosave/
 
 # Godot-specific ignores
 export.cfg
+# Android debug signing key (generated locally / in CI via keytool, never committed)
+android/debug.keystore
+android/build/local.properties
 # .import folder contains imported assets (stex, etc) - generated but large
 .import/
 # Allow tracking of Qodot .map import artifacts for CI cold-export
