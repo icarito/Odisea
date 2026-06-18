@@ -44,12 +44,18 @@ func _ready() -> void:
 	set_process(true)
 	_update_indicator_lights()
 
+var _indicator_lights_dirty := true
+
 func _process(delta: float) -> void:
 	._process(delta)
 	if Engine.editor_hint:
 		return
-	_poll_background_load()
-	_update_indicator_lights()
+	if _background_load != null and not _scene_ready:
+		_poll_background_load()
+		_indicator_lights_dirty = true
+	if _indicator_lights_dirty:
+		_update_indicator_lights()
+		_indicator_lights_dirty = false
 
 func _on_zone_entered(body: Node) -> void:
 	if Engine.editor_hint:
@@ -734,14 +740,22 @@ func _is_player(node: Node) -> bool:
 
 var _cached_red_light: Node = null
 var _cached_green_light: Node = null
+var _last_red_energy := -1.0
+var _last_green_energy := -1.0
 
 func _update_indicator_lights() -> void:
 	if _cached_red_light == null or not is_instance_valid(_cached_red_light):
 		_cached_red_light = get_parent().get_node_or_null("LoadingRedLight") if get_parent() else null
+		_last_red_energy = -1.0
 	if _cached_green_light == null or not is_instance_valid(_cached_green_light):
 		_cached_green_light = get_parent().get_node_or_null("ReadyGreenLight") if get_parent() else null
+		_last_green_energy = -1.0
 
-	if _cached_red_light and _cached_red_light is Light:
-		_cached_red_light.light_energy = 1.8 if _background_load != null or _stalling else 0.25
-	if _cached_green_light and _cached_green_light is Light:
-		_cached_green_light.light_energy = 1.6 if _scene_ready else 0.2
+	var red_energy := 1.8 if _background_load != null or _stalling else 0.25
+	var green_energy := 1.6 if _scene_ready else 0.2
+	if _cached_red_light and _cached_red_light is Light and red_energy != _last_red_energy:
+		_cached_red_light.light_energy = red_energy
+		_last_red_energy = red_energy
+	if _cached_green_light and _cached_green_light is Light and green_energy != _last_green_energy:
+		_cached_green_light.light_energy = green_energy
+		_last_green_energy = green_energy
