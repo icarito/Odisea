@@ -1,7 +1,16 @@
-import React from 'react';
-import { Activity, Map, Clock, Users, LogOut, Globe, Settings } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Activity, Map, Clock, Users, LogOut, Globe, Settings, Loader2, ExternalLink } from 'lucide-react';
 import { RetroTabs } from './retro';
 import { buildLabel } from '../lib/buildLabels';
+
+// In-flight GitHub Actions run, surfaced in the header "PUBLICANDO" indicator.
+export interface RunningAction {
+  id: number;
+  name: string;
+  status: string; // queued | in_progress
+  html_url: string;
+  created_at: string;
+}
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -34,7 +43,92 @@ interface DashboardLayoutProps {
   // Optional second-level bar rendered just above the bottom nav (e.g. the
   // Live-tab view switcher). Hidden when not provided.
   secondaryNav?: React.ReactNode;
+  // GitHub Actions runs currently in flight. When non-empty the connection
+  // indicator turns amber ("PUBLICANDO") and becomes clickable to list them.
+  runningActions?: RunningAction[];
 }
+
+// Connection / CI status indicator. Green "on" / red "off" by default; turns
+// amber "PUBLICANDO" while GitHub Actions runs are in flight, and clicking it
+// then reveals the pending runs in a popover.
+const StatusIndicator: React.FC<{ isConnected: boolean; runningActions: RunningAction[] }> = ({
+  isConnected,
+  runningActions,
+}) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const publishing = runningActions.length > 0;
+
+  // Close the popover on outside click.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const dotClass = publishing
+    ? 'bg-warning shadow-[0_0_8px_rgba(210,153,34,0.6)] animate-pulse'
+    : isConnected
+      ? 'bg-success shadow-[0_0_8px_rgba(63,185,80,0.5)]'
+      : 'bg-danger';
+  const textClass = publishing ? 'text-warning' : isConnected ? 'text-success' : 'text-danger';
+  const label = publishing ? `publicando${runningActions.length > 1 ? ` (${runningActions.length})` : ''}` : isConnected ? 'on' : 'off';
+
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => publishing && setOpen((v) => !v)}
+        className={`flex items-center gap-1.5 text-[0.625rem] uppercase font-bold ${publishing ? 'cursor-pointer' : 'cursor-default'}`}
+        title={publishing ? 'Acciones en curso — clic para ver' : isConnected ? 'Telemetría conectada' : 'Sin conexión'}
+        aria-haspopup={publishing ? 'menu' : undefined}
+        aria-expanded={publishing ? open : undefined}
+      >
+        <span className={`w-2 h-2 rounded-full ${dotClass}`} />
+        <span className={textClass}>{label}</span>
+      </button>
+
+      {open && publishing && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-64 max-w-[80vw] border-4 border-black bg-bg-card shadow-[4px_4px_0px_0px_black]">
+          <div className="border-b-2 border-black px-3 py-1.5 text-[0.625rem] font-black uppercase tracking-widest text-warning">
+            Acciones en curso ({runningActions.length})
+          </div>
+          <ul className="max-h-64 overflow-y-auto">
+            {runningActions.map((run) => (
+              <li key={run.id} className="border-b border-black/40 last:border-b-0">
+                <a
+                  href={run.html_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-2 px-3 py-2 text-[0.625rem] hover:bg-bg-primary"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Loader2 size={11} className="shrink-0 animate-spin text-warning" />
+                    <span className="min-w-0">
+                      <span className="block truncate font-bold text-text-primary">{run.name}</span>
+                      <span className="text-text-muted">
+                        {run.status === 'queued' ? 'en cola' : 'ejecutando'}{fmt(run.created_at) ? ` · ${fmt(run.created_at)}` : ''}
+                      </span>
+                    </span>
+                  </span>
+                  <ExternalLink size={11} className="shrink-0 text-accent" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Unified mobile-first layout: fixed header + fixed bottom nav, scrollable
 // content in between. The same structure scales up to desktop (just wider).
@@ -57,6 +151,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   dashboardDeployedAt,
   latestPublished,
   secondaryNav,
+  runningActions = [],
 }) => {
   const publishedLabel = buildLabel(latestPublished);
   const fmtDate = (sec?: number | null) => (
@@ -101,10 +196,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {activePlayerMeta}
           {headerControls}
 
-          <span className="flex items-center gap-1.5 text-[0.625rem] uppercase font-bold">
-            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success shadow-[0_0_8px_rgba(63,185,80,0.5)]' : 'bg-danger'}`} />
-            <span className={isConnected ? 'text-success' : 'text-danger'}>{isConnected ? 'on' : 'off'}</span>
-          </span>
+          <StatusIndicator isConnected={isConnected} runningActions={runningActions} />
 
           {/* Player count -> opens the bottom sheet */}
           <button

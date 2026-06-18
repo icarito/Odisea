@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize, Minimize } from 'lucide-react';
+import { Maximize, Minimize, ChevronUp, ChevronDown, Play, Pause, SlidersHorizontal } from 'lucide-react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { feature } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
@@ -109,6 +109,31 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
   const [showTopCountries, setShowTopCountries] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Collapsible controls overlay (mirrors the Heatmap pattern: collapses to just
+  // the toggle button to free up the globe).
+  const [controlsOpen, setControlsOpen] = useState(true);
+
+  // Layer toggles.
+  const [showHeatmap, setShowHeatmap] = useState(false); // density rings
+  const [showArcs, setShowArcs] = useState(false);       // connection arcs to the hottest hub
+  const [showLabels, setShowLabels] = useState(false);   // persistent city labels
+
+  // Temporal window: a preset range (filter) + a scrubber position within it.
+  // `windowMs = 0` means "todo" (no time filter). `playhead` is a unix-seconds
+  // cursor; points newer than the playhead are hidden so playback "reveals"
+  // activity over time. When not playing the playhead sits at the newest end.
+  const RANGE_PRESETS: { label: string; ms: number }[] = [
+    { label: '24h', ms: 24 * 3600e3 },
+    { label: '7d', ms: 7 * 24 * 3600e3 },
+    { label: '30d', ms: 30 * 24 * 3600e3 },
+    { label: 'Todo', ms: 0 },
+  ];
+  const [windowMs, setWindowMs] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  // null = pinned to "now" (show everything up to the latest). A number is the
+  // active scrub cursor in unix seconds.
+  const [playhead, setPlayhead] = useState<number | null>(null);
+
   // Native fullscreen on the bordered box (the container's parent). The existing
   // ResizeObserver measures that same box, so the globe resizes to fill the
   // screen automatically when we enter/exit.
@@ -129,13 +154,89 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
 
   const isMobile = size.width > 0 && size.width < 768;
 
-  const points = useMemo(() => groupPlayers(players), [players]);
+  // Time bounds across the dataset (unix seconds), from last_seen. Drives the
+  // scrubber range and the window filter. Falls back to a sane span when the
+  // data lacks timestamps.
+  // Stable "mount time" fallback, captured once via a lazy state initializer so
+  // the bounds memo stays pure when the dataset has no usable timestamps.
+  const [mountSeconds] = useState(() => Date.now() / 1000);
+  const timeBounds = useMemo(() => {
+    let min = Infinity;
+    let max = 0;
+    for (const p of players) {
+      const t = Number(p.last_seen) || 0;
+      if (t <= 0) continue;
+      if (t < min) min = t;
+      if (t > max) max = t;
+    }
+    if (!Number.isFinite(min) || max === 0) {
+      return { min: mountSeconds - 30 * 24 * 3600, max: mountSeconds };
+    }
+    return { min, max };
+  }, [players, mountSeconds]);
+
+  // Lower bound of the active window: max(playhead-cursor's range, preset range).
+  // The effective "now" is the playhead when scrubbing, else the dataset max.
+  const effectiveNow = playhead ?? timeBounds.max;
+  const windowStart = windowMs > 0 ? effectiveNow - windowMs / 1000 : timeBounds.min;
+
+  // Players visible under the current window + playhead: within [windowStart,
+  // effectiveNow]. Players without a timestamp are always shown (can't filter).
+  const visiblePlayers = useMemo(() => (
+    players.filter((p) => {
+      const t = Number(p.last_seen) || 0;
+      if (t <= 0) return windowMs === 0; // untimed: only in "Todo"
+      return t >= windowStart && t <= effectiveNow;
+    })
+  ), [players, windowStart, effectiveNow, windowMs]);
+
+  const isTimeFiltered = windowMs > 0 || playhead !== null;
+
+  const points = useMemo(() => groupPlayers(visiblePlayers), [visiblePlayers]);
+
+  // Playback: advance the playhead from the window start to the dataset max over
+  // ~8s, then stop pinned at the end. Stepping in unix seconds keeps it honest
+  // against real timestamps.
+  const windowLowerBound = windowMs > 0 ? timeBounds.max - windowMs / 1000 : timeBounds.min;
+  const canPlay = timeBounds.max - windowLowerBound > 0;
+  useEffect(() => {
+    if (!playing || !canPlay) return;
+    const span = timeBounds.max - windowLowerBound;
+    const startCursor = playhead ?? windowLowerBound;
+    const stepMs = 80;
+    const durationMs = 8000;
+    const perTick = span / (durationMs / stepMs);
+    const id = window.setInterval(() => {
+      setPlayhead((prev) => {
+        const next = (prev ?? startCursor) + perTick;
+        if (next >= timeBounds.max) { setPlaying(false); return timeBounds.max; }
+        return next;
+      });
+    }, stepMs);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing]);
+
+  // Connection arcs: link the hottest hub to the other active points, so bursts
+  // of distributed activity read as a constellation. Capped to keep it legible.
+  const arcs = useMemo(() => {
+    if (!showArcs || points.length < 2) return [];
+    const hub = points.reduce((best, g) => (g.count > (best?.count ?? -1) ? g : best), points[0]);
+    return points
+      .filter((g) => g.key !== hub.key)
+      .slice(0, 40)
+      .map((g) => ({
+        startLat: hub.latitude, startLng: hub.longitude,
+        endLat: g.latitude, endLng: g.longitude,
+        color: g.color || STATUS_COLOR[g.status],
+      }));
+  }, [showArcs, points]);
 
   // Top countries by player presence, aggregated across all geo points. Counts
   // distinct points (locations) and players per country.
   const topCountries = useMemo(() => {
     const byCountry = new Map<string, { code: string; country: string; count: number }>();
-    for (const p of players) {
+    for (const p of visiblePlayers) {
       const code = String(p.country_code || '').toUpperCase();
       const country = String(p.country || '').trim();
       if ((!code && !country) || country.toLowerCase() === 'unknown') continue;
@@ -145,7 +246,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
       byCountry.set(key, cur);
     }
     return [...byCountry.values()].sort((a, b) => b.count - a.count).slice(0, 8);
-  }, [players]);
+  }, [visiblePlayers]);
 
   // Most "recent" group: prefer live (connected) over recent over old; break
   // ties by how many players sit there. Used to center the camera on landing.
@@ -348,6 +449,35 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
           }}
           onPointClick={handlePointClick}
           onPointHover={(d) => setHovered((d as GroupedPlayer) || null)}
+          // Density rings (heatmap layer): pulse outward, sized by cluster count.
+          ringsData={showHeatmap ? points : []}
+          ringLat="latitude"
+          ringLng="longitude"
+          ringColor={(d: object) => () => (d as GroupedPlayer).color || STATUS_COLOR[(d as GroupedPlayer).status]}
+          ringMaxRadius={(d: object) => 2 + Math.min((d as GroupedPlayer).count * 0.6, 6)}
+          ringPropagationSpeed={2}
+          ringRepeatPeriod={900}
+          // Connection arcs layer.
+          arcsData={arcs}
+          arcStartLat="startLat"
+          arcStartLng="startLng"
+          arcEndLat="endLat"
+          arcEndLng="endLng"
+          arcColor="color"
+          arcStroke={0.4}
+          arcDashLength={0.4}
+          arcDashGap={0.2}
+          arcDashAnimateTime={1500}
+          arcAltitudeAutoScale={0.4}
+          // Persistent city labels layer.
+          labelsData={showLabels ? points : []}
+          labelLat="latitude"
+          labelLng="longitude"
+          labelText={(d: object) => (d as GroupedPlayer).city || (d as GroupedPlayer).country || ''}
+          labelSize={0.9}
+          labelDotRadius={0.3}
+          labelColor={(d: object) => (d as GroupedPlayer).color || STATUS_COLOR[(d as GroupedPlayer).status]}
+          labelResolution={2}
         />
       )}
 
@@ -371,36 +501,143 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
         </div>
       )}
 
-      {/* Top-right controls: follow-activity toggle + fullscreen. */}
-      <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setFollowActivity((v) => !v)}
-          className={`border-2 px-2.5 py-1 text-[0.625rem] font-black uppercase tracking-wide shadow-[2px_2px_0px_0px_black] transition-colors ${
-            followActivity
-              ? 'border-accent bg-accent text-black'
-              : 'border-black bg-bg-card/90 text-text-muted hover:text-text-primary'
-          }`}
-          title="Centrar la cámara en la actividad más reciente"
-        >
-          Follow
-        </button>
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          className="border-2 border-black bg-bg-card/90 p-1.5 text-text-muted shadow-[2px_2px_0px_0px_black] transition-colors hover:text-text-primary"
-          title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-          aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-        >
-          {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-        </button>
+      {/* Top-right controls: follow toggle + collapse + fullscreen, with a
+          collapsible panel (layers + time window) below — mirrors the Heatmap. */}
+      <div className="absolute top-3 right-3 z-20 flex flex-col items-end gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFollowActivity((v) => !v)}
+            className={`border-2 px-2.5 py-1 text-[0.625rem] font-black uppercase tracking-wide shadow-[2px_2px_0px_0px_black] transition-colors ${
+              followActivity
+                ? 'border-accent bg-accent text-black'
+                : 'border-black bg-bg-card/90 text-text-muted hover:text-text-primary'
+            }`}
+            title="Centrar la cámara en la actividad más reciente"
+          >
+            Follow
+          </button>
+          <button
+            type="button"
+            onClick={() => setControlsOpen((v) => !v)}
+            className="border-2 border-black bg-bg-card/90 p-1.5 text-text-muted shadow-[2px_2px_0px_0px_black] transition-colors hover:text-text-primary"
+            title={controlsOpen ? 'Ocultar controles' : 'Mostrar controles'}
+            aria-label="Alternar controles"
+          >
+            {controlsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="border-2 border-black bg-bg-card/90 p-1.5 text-text-muted shadow-[2px_2px_0px_0px_black] transition-colors hover:text-text-primary"
+            title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+            aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          >
+            {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+          </button>
+        </div>
+
+        {controlsOpen && (
+          <div className="w-56 max-w-[78vw] border-2 border-black bg-[#0d1117]/95 shadow-[2px_2px_0px_0px_black]">
+            <div className="flex items-center gap-1.5 border-b-2 border-black px-3 py-1.5 text-[0.625rem] font-black uppercase tracking-widest text-text-muted">
+              <SlidersHorizontal size={11} /> Controles
+            </div>
+            <div className="flex flex-col gap-2 p-2.5">
+              {/* Layer toggles. */}
+              <div className="flex flex-col gap-1">
+                <span className="text-[0.5rem] font-black uppercase tracking-widest text-text-muted">Capas</span>
+                <div className="flex flex-wrap gap-1">
+                  {([
+                    { label: 'Heatmap', on: showHeatmap, set: setShowHeatmap },
+                    { label: 'Arcos', on: showArcs, set: setShowArcs },
+                    { label: 'Etiquetas', on: showLabels, set: setShowLabels },
+                  ] as const).map((layer) => (
+                    <button
+                      key={layer.label}
+                      type="button"
+                      onClick={() => layer.set((v) => !v)}
+                      className={`border-2 px-2 py-0.5 text-[0.5625rem] font-black uppercase tracking-wide transition-colors ${
+                        layer.on
+                          ? 'border-accent bg-accent text-black'
+                          : 'border-black bg-bg-primary text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      {layer.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Time-window preset (range filter). */}
+              <div className="flex flex-col gap-1">
+                <span className="text-[0.5rem] font-black uppercase tracking-widest text-text-muted">Ventana temporal</span>
+                <div className="flex flex-wrap gap-1">
+                  {RANGE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => { setWindowMs(preset.ms); setPlayhead(null); setPlaying(false); }}
+                      className={`border-2 px-2 py-0.5 text-[0.5625rem] font-black uppercase tracking-wide transition-colors ${
+                        windowMs === preset.ms
+                          ? 'border-accent bg-accent text-black'
+                          : 'border-black bg-bg-primary text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Top-countries toggle + panel, bottom-left. */}
+      {/* Bottom scrubber: play/pause + a draggable time cursor. Reveals activity
+          chronologically; dragging pins the playhead, "live" snaps back to now. */}
+      {controlsOpen && (
+        <div className="absolute bottom-3 left-3 right-3 z-20 mx-auto flex max-w-2xl items-center gap-2 border-2 border-black bg-[#0d1117]/95 px-3 py-2 shadow-[2px_2px_0px_0px_black]">
+          <button
+            type="button"
+            onClick={() => setPlaying((v) => !v)}
+            disabled={!canPlay}
+            className="border-2 border-black bg-bg-primary p-1 text-accent hover:bg-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
+            title={playing ? 'Pausar' : 'Reproducir'}
+            aria-label={playing ? 'Pausar' : 'Reproducir'}
+          >
+            {playing ? <Pause size={12} /> : <Play size={12} fill="currentColor" />}
+          </button>
+          <input
+            type="range"
+            min={windowMs > 0 ? Math.floor(timeBounds.max - windowMs / 1000) : Math.floor(timeBounds.min)}
+            max={Math.floor(timeBounds.max)}
+            step={Math.max(1, Math.floor((timeBounds.max - timeBounds.min) / 1000))}
+            value={Math.floor(effectiveNow)}
+            onChange={(e) => { setPlaying(false); setPlayhead(Number(e.target.value)); }}
+            className="h-1 flex-1 cursor-pointer accent-accent"
+          />
+          <span className="w-28 shrink-0 text-right font-mono text-[0.5625rem] text-text-muted">
+            {new Date(effectiveNow * 1000).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          </span>
+          {isTimeFiltered && (
+            <button
+              type="button"
+              onClick={() => { setPlaying(false); setPlayhead(null); setWindowMs(0); }}
+              className="shrink-0 border-2 border-black bg-bg-primary px-1.5 py-0.5 text-[0.5rem] font-black uppercase text-text-muted hover:text-text-primary"
+              title="Mostrar todo / volver a vivo"
+            >
+              Live
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Top-countries toggle + panel, bottom-left. Lifted above the scrubber
+          strip when the controls overlay (and thus the scrubber) is open. */}
       <button
         type="button"
         onClick={() => setShowTopCountries((v) => !v)}
-        className={`absolute bottom-3 left-3 z-20 border-2 px-2.5 py-1 text-[0.625rem] font-black uppercase tracking-wide shadow-[2px_2px_0px_0px_black] transition-colors ${
+        className={`absolute left-3 z-20 border-2 px-2.5 py-1 text-[0.625rem] font-black uppercase tracking-wide shadow-[2px_2px_0px_0px_black] transition-colors ${controlsOpen ? 'bottom-16' : 'bottom-3'} ${
           showTopCountries
             ? 'border-accent bg-accent text-black'
             : 'border-black bg-bg-card/90 text-text-muted hover:text-text-primary'
@@ -411,7 +648,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
       </button>
 
       {showTopCountries && (
-        <div className="absolute bottom-12 left-3 z-20 w-52 max-w-[70vw] border-2 border-black bg-[#0d1117]/95 shadow-[2px_2px_0px_0px_black]">
+        <div className={`absolute left-3 z-20 w-52 max-w-[70vw] border-2 border-black bg-[#0d1117]/95 shadow-[2px_2px_0px_0px_black] ${controlsOpen ? 'bottom-[6.5rem]' : 'bottom-12'}`}>
           <div className="border-b-2 border-black px-3 py-1.5 text-[0.625rem] font-black uppercase tracking-widest text-text-muted">
             Top países
           </div>

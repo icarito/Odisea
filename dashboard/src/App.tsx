@@ -26,6 +26,7 @@ import { RetroCard, RetroButton, CollapsibleCard } from './components/retro';
 import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { HotzonePlayerModal, prefetchHotzoneEngine } from './components/HotzonePlayerModal';
+import { DeploymentHistory, type WorkflowRun, type Deployment } from './components/DeploymentHistory';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
 import { useUrlNavigation } from './hooks/useUrlNavigation';
@@ -438,7 +439,7 @@ const HotzoneList = ({
   );
 };
 
-const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone, onTagPlayer, onShowOnMap }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void; onTagPlayer?: (playerId: string) => void; onShowOnMap?: (hz: any) => void }) => {
+const HistoryOverview = ({ sessions, statsSessions, hotzones, commits, workflowRuns, deployments, latestPublished, dashboardVersion, dashboardDeployedAt, onDownloadHotzone, onDeleteHotzone, onPlayHotzone, onTagPlayer, onShowOnMap }: { sessions: any[]; statsSessions: any[]; hotzones?: any[]; commits: GitCommit[]; workflowRuns?: WorkflowRun[]; deployments?: Deployment[]; latestPublished?: any; dashboardVersion?: string | null; dashboardDeployedAt?: number | null; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void; onTagPlayer?: (playerId: string) => void; onShowOnMap?: (hz: any) => void }) => {
   return (
     <div className="flex min-h-full flex-col gap-4">
       {/* Hotzone captures — performance ghosts uploaded by the game, newest first. */}
@@ -454,6 +455,20 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzon
             onShowOnMap={onShowOnMap}
           />
         </div>
+      </RetroCard>
+
+      {/* Git / deployments / versions — commit messages + CI badges + deployments
+          with dates, each version annotated with the FILTERED session stats. */}
+      <RetroCard title="Versiones & Deployments">
+        <DeploymentHistory
+          sessions={statsSessions}
+          commits={commits}
+          workflowRuns={workflowRuns}
+          deployments={deployments}
+          latestPublished={latestPublished}
+          dashboardVersion={dashboardVersion}
+          dashboardDeployedAt={dashboardDeployedAt}
+        />
       </RetroCard>
     </div>
   );
@@ -1101,6 +1116,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [playbackData, setPlaybackData] = useState<any[]>([]);
   const [commits, setCommits] = useState<GitCommit[]>([]);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [serverStats, setServerStats] = useState<GhostStats>({});
   const [hotzones, setHotzones] = useState<any[]>([]);
   const [geoPlayers, setGeoPlayers] = useState<any[]>([]);
@@ -1355,6 +1372,99 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       })
       .catch(() => setCommits([]));
   }, []);
+
+  // GitHub Actions runs (CI status badges + header "publicando" indicator).
+  // Polled so in-flight runs update without a reload; best-effort against the
+  // public GitHub REST API (on rate-limit/error we keep the last good list).
+  useEffect(() => {
+    let cancelled = false;
+    const fetchRuns = () => {
+      fetch('https://api.github.com/repos/icarito/Odisea/actions/runs?per_page=30')
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => {
+          if (cancelled) return;
+          const runs = data?.workflow_runs;
+          if (!Array.isArray(runs)) return; // keep previous list on a bad/empty response
+          setWorkflowRuns(runs.map((r: any) => ({
+            id: r.id,
+            name: r.name || r.display_title || 'workflow',
+            status: r.status || '',
+            conclusion: r.conclusion ?? null,
+            head_sha: r.head_sha || '',
+            created_at: r.created_at || '',
+            html_url: r.html_url || '',
+          })).filter((r: WorkflowRun) => r.id));
+        })
+        .catch(() => { /* keep previous list */ });
+    };
+    fetchRuns();
+    // Poll every 30s. Unauthenticated GitHub allows 60 req/h per IP; one request
+    // every 30s stays well within that.
+    const id = window.setInterval(fetchRuns, 30000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, []);
+
+  // Deployments (with dates) — fetched once; they change far less often.
+  useEffect(() => {
+    fetch('https://api.github.com/repos/icarito/Odisea/deployments?per_page=20')
+      .then((response) => response.ok ? response.json() : [])
+      .then((data) => {
+        if (!Array.isArray(data)) { setDeployments([]); return; }
+        setDeployments(data.map((d: any) => ({
+          id: d.id,
+          environment: d.environment || 'production',
+          sha: d.sha || '',
+          ref: d.ref || '',
+          created_at: d.created_at || '',
+          url: d.payload?.web_url || d.payload?.url || null,
+          state: null,
+        })).filter((d: Deployment) => d.id));
+      })
+      .catch(() => setDeployments([]));
+  }, []);
+
+  // Failure notifications for the export build + pytest workflows. We toast (and
+  // mirror to an OS notification) once per run id when a relevant workflow ends
+  // in failure. The first poll only seeds the "already seen" set so we don't
+  // replay historical failures on load.
+  const notifiedRunFailures = useRef<Set<number>>(new Set());
+  const failuresSeeded = useRef(false);
+  useEffect(() => {
+    if (workflowRuns.length === 0) return;
+    // Workflows we care about, by their `name:` in .github/workflows.
+    const WATCHED: Record<string, string> = {
+      'Release Multiplataforma': 'Build de exportación',
+      'Odyssey Pytest Runner': 'Pytest',
+    };
+    const failed = workflowRuns.filter(
+      (r) => r.status === 'completed' && r.conclusion === 'failure' && WATCHED[r.name]
+    );
+    if (!failuresSeeded.current) {
+      // Seed silently: record current failures without notifying.
+      failed.forEach((r) => notifiedRunFailures.current.add(r.id));
+      failuresSeeded.current = true;
+      return;
+    }
+    for (const run of failed) {
+      if (notifiedRunFailures.current.has(run.id)) continue;
+      notifiedRunFailures.current.add(run.id);
+      notify.error(`Falló: ${WATCHED[run.name]}`, {
+        description: `${run.name} · ${run.head_sha.slice(0, 7)}`,
+        important: true,
+        durationMs: 10000,
+        data: { tag: `ci-fail-${run.id}`, url: run.html_url },
+      });
+    }
+  }, [workflowRuns]);
+
+  // In-flight GitHub Actions runs (queued or in_progress), newest first, for the
+  // header "PUBLICANDO" indicator + its popover.
+  const runningActions = useMemo(() => (
+    workflowRuns
+      .filter((r) => r.status !== 'completed')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .map((r) => ({ id: r.id, name: r.name, status: r.status, html_url: r.html_url, created_at: r.created_at }))
+  ), [workflowRuns]);
 
   // Announce a freshly published nightly: watch latest_published.git_commit from
   // /health and toast once when it changes, with the commit message looked up in
@@ -1963,6 +2073,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     <DashboardLayout
       onLogout={onLogout}
       isConnected={isConnected}
+      runningActions={runningActions}
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       playerCount={pids.length}
@@ -2649,7 +2760,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className={`min-h-0 overflow-y-auto ${historyMobileView !== 'player' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
-                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }} onShowOnMap={handleShowHotzoneOnMap} />
+                  <HistoryOverview sessions={historySessionsWithGeo} statsSessions={filteredDashboardSessions} hotzones={hotzones} commits={commits} workflowRuns={workflowRuns} deployments={deployments} latestPublished={health?.latest_published} dashboardVersion={DASHBOARD_BUILD_VERSION || health?.dashboard_version} dashboardDeployedAt={health?.dashboard_deployed_at} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }} onShowOnMap={handleShowHotzoneOnMap} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">
