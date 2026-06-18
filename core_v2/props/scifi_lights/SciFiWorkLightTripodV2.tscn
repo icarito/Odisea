@@ -39,7 +39,7 @@ interaction_text = "Toggle Flood Light"
 starts_active = true
 enable_shadows = false
 is_interactable = false
-light_energy_max = 12.0
+light_energy_max = 6.0
 light_range = 32.0
 spot_angle = 60.0
 head_tilt = -42.0
@@ -132,12 +132,12 @@ material = SubResource( 1 )
 [node name="SpotLight" type="SpotLight" parent="Head"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12 )
 light_color = Color( 1, 0.9, 0.7, 1 )
-light_energy = 12.0
+light_energy = 6.0
 light_cull_mask = 4293918721
 shadow_enabled = false
 shadow_bias = 0.03
 shadow_contact = 0.35
-spot_range = 32.0
+spot_range = 20.0
 spot_attenuation = 1.93187
 spot_angle = 60.0
 spot_angle_attenuation = 2.37841
@@ -147,7 +147,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.05 )
 visible = false
 light_color = Color( 1, 0.9, 0.7, 1 )
 light_energy = 0.0
-omni_range = 11.2
+omni_range = 7.0
 omni_attenuation = 2.14355
 
 [node name="Bulb" type="MeshInstance" parent="Head"]

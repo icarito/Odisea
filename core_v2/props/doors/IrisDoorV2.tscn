@@ -13,6 +13,9 @@ size = Vector3( 1.8, 1.35, 0.05 )
 [sub_resource type="BoxShape" id=2]
 extents = Vector3( 0.9, 0.675, 0.025 )
 
+[sub_resource type="BoxShape" id=3]
+extents = Vector3( 1.65, 1.65, 0.08 )
+
 [node name="IrisDoorV2" type="Spatial"]
 script = ExtResource( 1 )
 target_node = NodePath("IrisMechanism")
@@ -29,24 +32,12 @@ transform = Transform( -1, 8.74228e-08, 0, -8.74228e-08, -1, 0, 0, 0, 1, 1.7, 0,
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
 
-[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot1"]
-
-[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot1/StaticBody"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
-shape = SubResource( 2 )
-
 [node name="BladePivot2" type="Spatial" parent="IrisMechanism"]
 transform = Transform( -0.707107, 0.707107, 0, -0.707107, -0.707107, 0, 0, 0, 1, 1.20208, 1.20208, 0.005 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
-
-[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot2"]
-
-[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot2/StaticBody"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
-shape = SubResource( 2 )
 
 [node name="BladePivot3" type="Spatial" parent="IrisMechanism"]
 transform = Transform( 1.19249e-08, 1, 0, -1, 1.19249e-08, 0, 0, 0, 1, 1.04095e-16, 1.7, 0.01 )
@@ -55,24 +46,12 @@ transform = Transform( 1.19249e-08, 1, 0, -1, 1.19249e-08, 0, 0, 0, 1, 1.04095e-
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
 
-[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot3"]
-
-[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot3/StaticBody"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
-shape = SubResource( 2 )
-
 [node name="BladePivot4" type="Spatial" parent="IrisMechanism"]
 transform = Transform( 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 0, 0, 1, -1.20208, 1.20208, 0.015 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot4"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
-
-[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot4"]
-
-[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot4/StaticBody"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
-shape = SubResource( 2 )
 
 [node name="BladePivot5" type="Spatial" parent="IrisMechanism"]
 transform = Transform( 1, -1.74846e-07, 0, 1.74846e-07, 1, 0, 0, 0, 1, -1.7, 2.0819e-16, 0.02 )
@@ -81,24 +60,12 @@ transform = Transform( 1, -1.74846e-07, 0, 1.74846e-07, 1, 0, 0, 0, 1, -1.7, 2.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
 
-[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot5"]
-
-[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot5/StaticBody"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
-shape = SubResource( 2 )
-
 [node name="BladePivot6" type="Spatial" parent="IrisMechanism"]
 transform = Transform( 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 0, 0, 1, -1.20208, -1.20208, 0.025 )
 
 [node name="BladeGeo" type="MeshInstance" parent="IrisMechanism/BladePivot6"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
-
-[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot6"]
-
-[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot6/StaticBody"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
-shape = SubResource( 2 )
 
 [node name="BladePivot7" type="Spatial" parent="IrisMechanism"]
 transform = Transform( 1.39071e-07, -1, 0, 1, 1.39071e-07, 0, 0, 0, 1, -3.12285e-16, -1.7, 0.03 )
@@ -107,12 +74,6 @@ transform = Transform( 1.39071e-07, -1, 0, 1, 1.39071e-07, 0, 0, 0, 1, -3.12285e
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
 
-[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot7"]
-
-[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot7/StaticBody"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
-shape = SubResource( 2 )
-
 [node name="BladePivot8" type="Spatial" parent="IrisMechanism"]
 transform = Transform( -0.707107, -0.707108, 0, 0.707108, -0.707107, 0, 0, 0, 1, 1.20208, -1.20208, 0.035 )
 
@@ -120,11 +81,10 @@ transform = Transform( -0.707107, -0.707108, 0, 0.707108, -0.707107, 0, 0, 0, 1,
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 0.675, 0 )
 mesh = SubResource( 1 )
 
-[node name="StaticBody" type="StaticBody" parent="IrisMechanism/BladePivot8"]
+[node name="DoorBlocker" type="StaticBody" parent="IrisMechanism"]
 
-[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/BladePivot8/StaticBody"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1.75, 0 )
-shape = SubResource( 2 )
+[node name="CollisionShape" type="CollisionShape" parent="IrisMechanism/DoorBlocker"]
+shape = SubResource( 3 )
 
 [node name="Frame" type="StaticBody" parent="."]
 

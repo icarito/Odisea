@@ -41,9 +41,11 @@ func set_rebuild_now(_v: bool) -> void:
 var _blades: Array = []
 var _start_rotations: Array = []
 var _initialized := false
+var _door_blocker: CollisionShape = null
 
 func _ready():
 	_initialize()
+	_door_blocker = get_node_or_null("DoorBlocker/CollisionShape") as CollisionShape
 	if rebuild_at_runtime or Engine.editor_hint:
 		_setup_mathematical_positions()
 	._ready()
@@ -122,6 +124,9 @@ func _update_visuals() -> void:
 		if blade is CollisionObject or blade is CSGShape:
 			if blade.has_method("force_update_transform"):
 				blade.force_update_transform()
+
+	if is_instance_valid(_door_blocker):
+		_door_blocker.disabled = anim_progress > 0.15
 
 func _apply_easing(t: float) -> float:
 	match easing_type:

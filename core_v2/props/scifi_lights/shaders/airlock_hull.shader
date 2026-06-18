@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_disabled;
 
 // Sci-Fi Airlock Hull Panels (GLES2 compatible)
 // Procedural paneled metal with glowing seams, rivets, and depth illusion
@@ -82,9 +82,8 @@ void fragment() {
 	base = mix(base, base * 0.7, wear);
 
 	ALBEDO = base;
-	METALLIC = metallic_value;
+	METALLIC = 0.0;
 	ROUGHNESS = mix(roughness_value, roughness_value + 0.25, wear);
-	SPECULAR = 0.6;
 
 	// Seam glow
 	EMISSION = seam_color.rgb * seam * seam_emission * intensity;

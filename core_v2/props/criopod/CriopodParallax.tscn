@@ -11,7 +11,8 @@ resource_name = "DisplayCase_2_mat"
 vertex_color_use_as_albedo = true
 params_cull_mode = 2
 albedo_color = Color( 0.906332, 0.906332, 0.906332, 1 )
-metallic = 1.0
+metallic = 0.75
+roughness = 0.5
 
 [sub_resource type="ArrayMesh" id=220]
 resource_name = "Generic_Props_Cont_DisplayCase_2"
@@ -30,7 +31,7 @@ surfaces/0 = {
 
 [sub_resource type="SpatialMaterial" id=221]
 albedo_texture = ExtResource( 3 )
-metallic = 1.0
+metallic = 0.75
 metallic_texture = ExtResource( 1 )
 roughness_texture = ExtResource( 1 )
 roughness_texture_channel = 1
@@ -48,7 +49,8 @@ resource_name = "DisplayCase_2_glass"
 vertex_color_use_as_albedo = true
 params_cull_mode = 2
 albedo_color = Color( 0.906332, 0.906332, 0.906332, 1 )
-metallic = 1.0
+metallic = 0.35
+roughness = 0.4
 
 [sub_resource type="ArrayMesh" id=32]
 resource_name = "Generic_Props_Cont_DisplayCase_2_Glass"
@@ -69,8 +71,8 @@ surfaces/0 = {
 flags_transparent = true
 params_cull_mode = 2
 albedo_color = Color( 0.1, 0.3, 0.5, 0.2 )
-metallic = 0.5
-roughness = 0.1
+metallic = 0.25
+roughness = 0.45
 
 [sub_resource type="ConvexPolygonShape" id=41]
 points = PoolVector3Array( -0.349034, 0, -0.295586, -0.349034, 0, 0.18234, -0.349034, 1.32561, -0.295586, 0.349034, 0, -0.295586, -0.235878, 0, 0.295586, -0.349034, 1.32561, 0.18234, 0.349034, 1.32561, -0.295586, 0.349034, 0, 0.18234, 0.23581, 0, 0.295586, -0.235878, 1.32561, 0.295586, 0.349034, 1.32561, 0.18234, 0.23581, 1.32561, 0.295586 )

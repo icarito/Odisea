@@ -1,9 +1,8 @@
-[gd_scene load_steps=22 format=2]
+[gd_scene load_steps=21 format=2]
 
 [ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/IrisDoorV2.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/components/AirlockZoneV2.gd" type="Script" id=3]
-[ext_resource path="res://core_v2/props/scifi_lights/SciFiWallSconceV2.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/props/scifi_lights/shaders/airlock_hull.shader" type="Shader" id=5]
 [ext_resource path="res://core_v2/props/scifi_lights/shaders/airlock_floor.shader" type="Shader" id=6]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=7]
@@ -37,7 +36,7 @@ shader_param/grid_scale = 14.0
 shader_param/line_width = 0.025
 shader_param/accent_emission = 0.8
 shader_param/metallic_value = 0.9
-shader_param/roughness_value = 0.22
+shader_param/roughness_value = 0.5
 shader_param/tread_depth = 0.6
 shader_param/stripe_width = 0.12
 
@@ -87,12 +86,9 @@ inner_door_path = NodePath("InnerDoor")
 chamber_zone_path = NodePath("ChamberZone")
 beacon_path = NodePath("EmergencyBeacon")
 pressurize_sfx_path = NodePath("PressurizeSFX")
-outer_status_light_path = NodePath("SciFiWallSconceV3")
-inner_status_light_path = NodePath("SciFiWallSconceV2")
 status_label_path = NodePath("StatusLabel")
 
 [node name="CylindricalShell" type="CSGCombiner" parent="."]
-use_collision = false
 collision_layer = 130
 
 [node name="OuterTube" type="CSGCylinder" parent="CylindricalShell"]
@@ -114,29 +110,28 @@ material = SubResource( 1 )
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 2.5 )
 inner_radius = 2.75
 outer_radius = 2.95
-ring_sides = 12
 sides = 12
+ring_sides = 12
 material = SubResource( 3 )
 
 [node name="Rib_Center" type="CSGTorus" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
 inner_radius = 2.75
 outer_radius = 2.95
-ring_sides = 12
 sides = 12
+ring_sides = 12
 material = SubResource( 3 )
 
 [node name="Rib_Back" type="CSGTorus" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -2.5 )
 inner_radius = 2.75
 outer_radius = 2.95
-ring_sides = 12
 sides = 12
+ring_sides = 12
 material = SubResource( 3 )
 
 [node name="Floor" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.3, 0 )
-use_collision = false
 width = 4.5
 height = 0.22
 depth = 8.0
@@ -193,26 +188,6 @@ __meta__ = {
 "airlock_door_name": "inner"
 }
 
-[node name="SciFiWallSconceV3" parent="." instance=ExtResource( 4 )]
-transform = Transform( -0.72, 0, -6.29444e-08, 0, 0.72, 0, 6.29444e-08, 0, -0.72, 2.98023e-08, 1.65, 3.6 )
-__meta__ = {
-"_editor_description_": ""
-}
-interaction_text = "Toggle Beacon"
-is_interactable = false
-light_color = Color( 0, 1, 0.18, 1 )
-light_range = 6.0
-
-[node name="SciFiWallSconceV2" parent="." instance=ExtResource( 4 )]
-transform = Transform( 0.72, 0, 0, 0, 0.72, 0, 0, 0, 0.72, -2.23517e-08, 1.65, -3.6 )
-__meta__ = {
-"_editor_description_": ""
-}
-interaction_text = "Toggle Beacon"
-is_interactable = false
-light_color = Color( 0, 1, 0.18, 1 )
-light_range = 6.0
-
 [node name="StatusLabel" type="Label3D" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 1.75, 0 )
 visible = false
@@ -264,7 +239,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.62, 0 )
 shape = SubResource( 13 )
 
 [node name="EmergencyBeacon" parent="." instance=ExtResource( 7 )]
-transform = Transform( -1, -8.74228e-08, 0, 8.74228e-08, -1, 0, 0, 0, 1, 0, 2.5, 0 )
+transform = Transform( -0.707107, 0.707107, 0, -0.707107, -0.707107, 0, 0, 0, 1, -2.1, 1.8, 0 )
 sound_enabled = false
 
 [node name="PressurizeSFX" type="AudioStreamPlayer3D" parent="."]
@@ -272,12 +247,6 @@ stream = ExtResource( 8 )
 unit_db = 4.0
 max_distance = 25.0
 
-[node name="AmbientBlueLight" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0 )
-light_color = Color( 0.9, 0.85, 0.75, 1 )
-light_energy = 1.2
-omni_range = 8.0
-omni_attenuation = 0.5
-
 [node name="AirlockTransitionFX" type="Node" parent="."]
 script = ExtResource( 9 )
+pulse_speed = 1.5

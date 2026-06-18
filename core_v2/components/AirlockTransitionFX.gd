@@ -114,7 +114,8 @@ func _process(delta: float) -> void:
 	# Apply flicker to managed lights.
 	var brightness := _flicker_brightness(phase)
 	if _post_only:
-		brightness = lerp(clamp(post_transition_min_brightness, 0.0, 1.0), 1.0, brightness)
+		var fade_progress := clamp(_time / max(float(post_transition_cycles) * period, 0.001), 0.0, 1.0)
+		brightness = smoothstep(0.0, 1.0, fade_progress)
 	_apply_brightness(brightness)
 
 	# End after total cycles.
@@ -123,7 +124,7 @@ func _process(delta: float) -> void:
 
 func _flicker_brightness(phase: float) -> float:
 	# Full sine wave: 1.0 at phase 0 and 1.0, 0.0 at phase 0.5.
-	return (sin(phase * TAU - PI * 0.5) + 1.0) * 0.5
+	return (cos(phase * TAU) + 1.0) * 0.5
 
 func _finish_fx() -> void:
 	var was_post_only := _post_only

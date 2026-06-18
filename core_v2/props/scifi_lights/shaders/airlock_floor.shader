@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_disabled;
 
 // Sci-Fi Grated Metal Floor with subtle underglow
 // Diamond-plate / tread pattern with emissive accent lines
@@ -55,9 +55,8 @@ void fragment() {
 	color = stripe_color;
 
 	ALBEDO = color;
-	METALLIC = metallic_value;
+	METALLIC = 0.0;
 	ROUGHNESS = mix(roughness_value, roughness_value + 0.15, tread);
-	SPECULAR = 0.7;
 
 	// Subtle accent line emission
 	EMISSION = accent_color.rgb * grid * accent_emission * 0.15;
