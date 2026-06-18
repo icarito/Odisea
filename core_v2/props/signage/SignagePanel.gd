@@ -22,7 +22,7 @@ export(bool) var is_interactive: bool = false setget set_is_interactive
 export(String) var interactive_hint: String = "Leer letrero"
 export(String) var interactive_text: String = "" # If empty, use 'text'
 
-export(Vector2) var viewport_size: Vector2 = Vector2(128, 64) setget set_viewport_size
+export(Vector2) var viewport_size: Vector2 = Vector2(512, 256) setget set_viewport_size
 
 signal signage_read(id)
 
@@ -128,6 +128,7 @@ func update_text() -> void:
 		lbl.text = text
 		lbl.align = Label.ALIGN_CENTER
 		lbl.valign = Label.VALIGN_CENTER
+		lbl.autowrap = true
 		lbl.add_color_override("font_color", color)
 
 		# Try to find a nice font
@@ -143,7 +144,15 @@ func update_text() -> void:
 			font.font_data = load(alt_font_path)
 
 		if font:
-			font.size = int(viewport_size.y * 0.6)
+			# Scale font to the panel height, but shrink for longer / multi-word
+			# strings so they don't clip off the edges.
+			var base_size = viewport_size.y * 0.55
+			var longest_word = 0
+			for w in text.split(" ", false):
+				longest_word = max(longest_word, w.length())
+			if longest_word > 4:
+				base_size *= 4.0 / longest_word
+			font.size = int(clamp(base_size, viewport_size.y * 0.18, viewport_size.y * 0.6))
 			lbl.add_font_override("font", font)
 		vp.add_child(lbl)
 

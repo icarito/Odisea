@@ -2259,11 +2259,11 @@ _global_script_class_icons={
 [application]
 
 config/name="Odisea"
-config/version="v0.3.2"
 run/main_scene="res://core_v2/bootstrap/Boot.tscn"
 boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
+config/version="v0.3.2"
 
 [audio]
 
@@ -2310,7 +2310,6 @@ debug/gdscript/warnings/exclude_addons=true
 [display]
 
 window/size/width=800
-window/size/height=600
 window/size/fullscreen=true
 window/size/test_width=1280
 window/size/test_height=720

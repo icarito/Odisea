@@ -101,7 +101,7 @@ func _update_marker():
 	config.label = panel_title
 	config.hint = "Leer"
 	config.accent_color = PRESET_COLORS[preset]
-	config.interaction_range = 2.5
+	config.interaction_range = 3.0
 	interaction_entity.set_marker_config(config)
 
 func _update_world_visuals():

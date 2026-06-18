@@ -8,17 +8,17 @@
 font_path = "res://assets/fonts/SyneMono-Regular.ttf"
 
 [sub_resource type="DynamicFont" id=7]
-size = 13
-outline_size = 1
+size = 24
+outline_size = 2
 outline_color = Color( 0, 0, 0, 0.6 )
 font_data = SubResource( 6 )
 
 [sub_resource type="DynamicFont" id=8]
-size = 9
+size = 22
 font_data = SubResource( 6 )
 
 [sub_resource type="DynamicFont" id=9]
-size = 8
+size = 20
 font_data = SubResource( 6 )
 
 [sub_resource type="SpatialMaterial" id=10]
@@ -37,17 +37,17 @@ emission_energy = 1.6
 
 [sub_resource type="CubeMesh" id=11]
 material = SubResource( 10 )
-size = Vector3( 0.46, 0.34, 0.05 )
+size = Vector3( 1.15, 0.85, 0.06 )
 
 [sub_resource type="CubeMesh" id=1]
 material = SubResource( 2 )
-size = Vector3( 0.4, 0.28, 0.04 )
+size = Vector3( 1.0, 0.7, 0.05 )
 
 [sub_resource type="BoxShape" id=3]
-extents = Vector3( 0.23, 0.17, 0.03 )
+extents = Vector3( 0.575, 0.425, 0.04 )
 
 [sub_resource type="SphereShape" id=4]
-radius = 2.5
+radius = 3.0
 
 [node name="AreaInfoScreen" type="StaticBody"]
 script = ExtResource( 1 )
@@ -59,7 +59,7 @@ world_text = "INFO"
 mesh = SubResource( 11 )
 
 [node name="MeshInstance" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.012 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.015 )
 mesh = SubResource( 1 )
 material/0 = SubResource( 2 )
 
@@ -82,15 +82,15 @@ script = ExtResource( 2 )
 shape = SubResource( 3 )
 
 [node name="OmniLight" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.18 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.35 )
 light_energy = 0.9
 light_specular = 0.2
-omni_range = 1.6
+omni_range = 2.6
 omni_attenuation = 1.8
 shadow_enabled = false
 
 [node name="Viewport" type="Viewport" parent="."]
-size = Vector2( 256, 180 )
+size = Vector2( 512, 360 )
 transparent_bg = true
 usage = 0
 render_target_v_flip = true
@@ -103,18 +103,18 @@ color = Color( 0.02, 0.04, 0.05, 0.92 )
 
 [node name="HeaderBar" type="ColorRect" parent="Viewport"]
 anchor_right = 1.0
-margin_left = 4.0
-margin_top = 4.0
-margin_right = -4.0
-margin_bottom = 34.0
+margin_left = 8.0
+margin_top = 8.0
+margin_right = -8.0
+margin_bottom = 68.0
 color = Color( 0, 1, 1, 1 )
 
 [node name="Title" type="Label" parent="Viewport"]
 anchor_right = 1.0
-margin_left = 4.0
-margin_top = 4.0
-margin_right = -4.0
-margin_bottom = 34.0
+margin_left = 8.0
+margin_top = 8.0
+margin_right = -8.0
+margin_bottom = 68.0
 custom_fonts/font = SubResource( 7 )
 custom_colors/font_color = Color( 0.03, 0.05, 0.06, 1 )
 text = "Information"
@@ -126,10 +126,10 @@ uppercase = true
 [node name="Body" type="Label" parent="Viewport"]
 anchor_right = 1.0
 anchor_bottom = 1.0
-margin_left = 12.0
-margin_top = 44.0
-margin_right = -12.0
-margin_bottom = -26.0
+margin_left = 24.0
+margin_top = 88.0
+margin_right = -24.0
+margin_bottom = -52.0
 custom_fonts/font = SubResource( 8 )
 custom_colors/font_color = Color( 0.75, 0.9, 0.95, 1 )
 text = ""
@@ -139,10 +139,10 @@ autowrap = true
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-margin_left = 4.0
-margin_top = -22.0
-margin_right = -4.0
-margin_bottom = -6.0
+margin_left = 8.0
+margin_top = -44.0
+margin_right = -8.0
+margin_bottom = -12.0
 custom_fonts/font = SubResource( 9 )
 custom_colors/font_color = Color( 0, 1, 1, 1 )
 text = "▸ PRESIONE PARA LEER"
