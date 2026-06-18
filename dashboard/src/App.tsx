@@ -2,9 +2,6 @@ import { lazy, Suspense, useState, useEffect, useMemo, useRef, useCallback, type
 import { Toaster, toast } from 'react-hot-toast';
 import { notify } from './lib/notify';
 import {
-  Bar,
-  BarChart,
-  Brush,
   CartesianGrid,
   Line,
   LineChart,
@@ -19,6 +16,13 @@ import { NotificationSettings } from './components/NotificationSettings';
 import { LiveMap } from './components/LiveMap';
 import { HistoricalTable } from './components/HistoricalTable';
 import { DashboardLayout } from './components/DashboardLayout';
+import { GlobalFilterBar } from './components/GlobalFilterBar';
+import { BreadcrumbNav } from './components/BreadcrumbNav';
+import { CockpitGrid } from './components/CockpitGrid';
+import { CockpitPanel } from './components/CockpitPanel';
+import { ActivePlayersGrid } from './components/ActivePlayersGrid';
+import { PlayerHealthCard } from './components/PlayerHealthCard';
+import { EventTimeline } from './components/EventTimeline';
 import { PlayerBottomSheet } from './components/PlayerBottomSheet';
 import { FiltersDrawer, FiltersSidebar, type SceneFilterOption, type CountryFilterOption } from './components/FiltersDrawer';
 import { LiveCombinedChart } from './components/LiveCombinedChart';
@@ -39,7 +43,7 @@ import {
   formatFpsLabel,
 } from './lib/filters';
 import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play, Tag, ChevronDown, ChevronRight } from 'lucide-react';
-import type { Tab } from './types';
+import type { Tab, NavStackItem } from './types';
 
 type GitCommit = {
   sha: string;
@@ -145,57 +149,6 @@ const fpsColor = (fps: number) => {
   return '#f85149';
 };
 
-// Standalone "Sessions per day" bar chart, shown in the Live top stripe when no
-// player is live. Reused from the HomeStats aggregation logic.
-const SessionsPerDayChart = ({ sessions }: { sessions: any[] }) => {
-  const sessionsByDay = useMemo(() => {
-    const grouped = new Map<string, number>();
-    sessions.filter(isDashboardSession).forEach((s) => {
-      const ts = Number(s.start_time) || 0;
-      if (!ts) return;
-      const day = new Date(ts * 1000).toISOString().slice(0, 10);
-      grouped.set(day, (grouped.get(day) || 0) + 1);
-    });
-    return Array.from(grouped.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, count]) => ({ date, count }));
-  }, [sessions]);
-
-  const tooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
-        <div className="font-black text-accent">{d.date}</div>
-        <div>Sessions: {d.count}</div>
-      </div>
-    );
-  };
-
-  if (sessionsByDay.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center text-xs italic text-text-muted">
-        No session history yet
-      </div>
-    );
-  }
-
-  return (
-    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-      <BarChart data={sessionsByDay} margin={{ bottom: sessionsByDay.length > 10 ? 4 : 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
-        <XAxis dataKey="date" stroke="#666" fontSize={10} tickFormatter={(v) => String(v).slice(5)} />
-        <YAxis stroke="#666" fontSize={10} allowDecimals={false} />
-        <Tooltip content={tooltip} />
-        <Bar dataKey="count" fill="#7fd1ff" isAnimationActive={false} />
-        {sessionsByDay.length > 10 && (
-          <Brush dataKey="date" height={16} stroke="#7fd1ff" travellerWidth={8} fill="#0d1117"
-            tickFormatter={(v) => String(v).slice(5)} />
-        )}
-      </BarChart>
-    </ResponsiveContainer>
-  );
-};
 
 const countryFlag = (countryCode?: string | null): string => {
   const code = (countryCode || '').trim().toUpperCase();
@@ -425,13 +378,6 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzon
   );
 };
 
-// Compact label/value cell for the collapsible 3D info panel.
-const Info = ({ label, value }: { label: string; value: ReactNode }) => (
-  <div className="flex flex-col">
-    <span className="text-[0.5rem] uppercase text-text-muted">{label}</span>
-    <span className="truncate text-[0.625rem]">{value}</span>
-  </div>
-);
 
 // Historical avg-FPS-per-session line with git commit markers — useful to spot
 // which commit moved performance. Standalone so it can live in the Live top
@@ -955,7 +901,17 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const { layout, updateLayout } = useLayoutPersistence();
   
   const activeTab = layout.activeTab as Tab;
-  const setActiveTab = (t: Tab) => updateLayout({ activeTab: t });
+  const setActiveTab = (t: Tab) => {
+    updateLayout({ activeTab: t, navStack: [] });
+  };
+
+  const navStack = layout.navStack || [];
+  const pushNav = (item: NavStackItem) => {
+    updateLayout({ navStack: [...navStack, item] });
+  };
+  const navigateTo = (index: number) => {
+    updateLayout({ navStack: navStack.slice(0, index + 1) });
+  };
 
   // Desktop docked filters sidebar collapsed state + History min-duration
   // filter, both persisted across reloads.
@@ -993,12 +949,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [showPlayerSheet, setShowPlayerSheet] = useState(false);
   // Live FPS/memory charts overlay over the 3D view.
   const [showLiveCharts, setShowLiveCharts] = useState(true);
-  // Selected ghost in birdseye -> floating detail card with live charts.
-  const [birdseyeDetailId, setBirdseyeDetailId] = useState<string | null>(null);
+  const [, setBirdseyeDetailId] = useState<string | null>(null);
   // Filters side drawer (platform + scene).
   const [showFilters, setShowFilters] = useState(false);
-  // Top-stripe inner tab on the Dashboard view (live combined chart vs sessions).
-  const [dashStripeTab, setDashStripeTab] = useState<'live' | 'sessions' | 'versions'>('live');
   const viewport3DPreloaded = useRef(false);
 
   // Playback loading flag (history -> playback fetch).
@@ -1198,7 +1151,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     type="button"
                     onClick={() => {
                       setSelectedPlayerId(playerId);
-                      setActiveTab('live');
+                        setActiveTab('dashboard');
                       setLiveView('3d');
                       setFollowPlayer(true);
                       toast.dismiss(t.id);
@@ -1906,7 +1859,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         <div className="hidden min-w-0 items-center gap-2 border-2 border-black bg-bg-primary px-2 py-1 text-[0.625rem] font-bold md:flex">
           <button
             type="button"
-            onClick={() => { setActiveTab('live'); setLiveView('3d'); }}
+            onClick={() => { setActiveTab('dashboard'); setLiveView('3d'); }}
             title="Player activo — ver en 3D"
             className="flex min-w-0 items-center gap-2 hover:text-accent"
           >
@@ -2007,7 +1960,30 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           )}
         </div>
       }
-      secondaryNav={activeTab === 'live' ? (
+      filterBar={
+        <GlobalFilterBar
+          selectedScene={selectedSceneFilter}
+          selectedPlatforms={selectedPlatforms}
+          selectedCountry={selectedCountry}
+          warmupSeconds={minDuration === DEFAULT_HISTORY_MIN_DURATION ? 13 : minDuration}
+          onRemoveScene={() => setSelectedSceneFilter('all')}
+          onTogglePlatform={togglePlatform}
+          onRemoveCountry={() => setSelectedCountry('all')}
+          onToggleWarmup={() => setMinDuration(minDuration > 0 ? 0 : 13)}
+          onOpenFilters={() => setShowFilters(true)}
+          allPlatforms={availablePlatforms}
+        />
+      }
+      breadcrumb={
+        navStack.length > 0 ? (
+          <BreadcrumbNav 
+            stack={navStack} 
+            onNavigate={navigateTo} 
+            onHome={() => setActiveTab('dashboard')} 
+          />
+        ) : undefined
+      }
+      secondaryNav={activeTab === 'dashboard' ? (
         <div className="flex">
           {([
             { id: 'dashboard', label: 'Dashboard', enabled: true },
@@ -2119,60 +2095,20 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           the sidebar is a fixed-width docked column on xl+ (overlay on mobile). */}
       <div className="flex h-full min-h-0">
         <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-      {activeTab === 'live' && (
-        <div className="flex flex-col h-full min-h-0">
-          {/* View area fills all remaining space; the view switcher now lives in
-              the secondary nav above the bottom bar. */}
-          <div className="flex-1 min-h-0 relative">
-            {liveView === 'dashboard' ? (
-              /* Stripe layout: charts on top, info cards below. */
-              <div className="flex h-full min-h-0 flex-col">
-                {/* Top stripe: live combined FPS/Memory chart, else Sessions/day */}
-                <CollapsibleCard
-                  title="Performance Charts"
-                  storageKey="live_charts_collapsed"
-                  defaultOpen={true}
-                  resizable={true}
-                  initialHeight={320}
-                  className="shrink-0 border-x-0 border-t-0"
-                >
-                  <div className="flex h-full flex-col bg-bg-card/40">
-                    <div className="flex shrink-0">
-                      {(activeHistory
-                        ? ([['live', 'FPS / Memoria'], ['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
-                        : ([['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
-                      ).map(([id, label]) => {
-                        const effectiveTab = activeHistory ? dashStripeTab : (dashStripeTab === 'live' ? 'sessions' : dashStripeTab);
-                        return (
-                          <button
-                            key={id}
-                            onClick={() => setDashStripeTab(id)}
-                            className={`subtab-btn ${effectiveTab === id ? 'subtab-btn-active' : ''}`}
-                          >
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="min-h-0 flex-1 p-3">
-                      {activeHistory && dashStripeTab === 'live' ? (
-                        <LiveCombinedChart history={activeHistory} />
-                      ) : dashStripeTab === 'versions' ? (
-                        <CommitsFpsChart sessions={filteredDashboardSessions} commits={commits} />
-                      ) : (
-                        <SessionsPerDayChart sessions={filteredDashboardSessions} />
-                      )}
-                    </div>
-                  </div>
-                </CollapsibleCard>
-                {/* Bottom stripe: info cards (historical summary) */}
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <div className="p-4 sm:p-6 pb-0">
-                  </div>
-                  <HomeStats sessions={filteredDashboardSessions} serverStats={serverStats} />
-                </div>
-              </div>
-            ) : !activeHb ? (
+      {activeTab === 'dashboard' && (
+        <CockpitGrid storageKey="cockpit_main">
+          <CockpitPanel title="Players activos" storageKey="panel_active_players" count={pids.length}>
+            <ActivePlayersGrid 
+              players={Object.values(filteredHeartbeats)} 
+              onPlayerClick={(pid) => setSelectedPlayerId(pid)}
+              onSceneClick={(scene) => setSelectedSceneFilter(scene)}
+            />
+          </CockpitPanel>
+
+          {/* Main View Area */}
+          <div className="h-full relative min-h-[400px] border-2 border-black shadow-[2px_2px_0px_0px_black] bg-bg-primary overflow-hidden flex flex-col">
+            <div className="flex-1 relative min-h-0">
+            {!activeHb ? (
               <LiveWaitTicker items={[
                 { label: 'Sesiones totales', value: String(heatmapSummary.totalSessions) },
                 { label: 'Tiempo jugado', value: formatPlayTime(heatmapSummary.totalPlaySeconds) },
@@ -2184,7 +2120,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               ]} />
             ) : liveView === '3d' ? (
               <div className="flex h-full min-h-0 flex-col">
-                {/* 3D-only control bar */}
                 <div className="shrink-0 flex flex-wrap items-center gap-1 p-2 border-b-2 border-black bg-bg-card/60">
                   <RetroButton variant={followPlayer ? 'primary' : 'secondary'} onClick={() => setFollowPlayer(!followPlayer)} className="py-1 px-2 text-[0.625rem]">FOLLOW</RetroButton>
                   <RetroButton
@@ -2202,121 +2137,96 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <div className="relative flex-1 min-h-0">
                   {viewport3D}
                 </div>
-                {/* Bottom panel: large live FPS+RAM chart plus an explicit metric
-                    strip. Replaces the old redundant accordion — RAM is now a
-                    first-class readout instead of hidden in the chart's right axis. */}
-                {showLiveCharts && (
-                  <div className="shrink-0 border-t-2 border-black bg-bg-card/80">
-                    <div className="grid grid-cols-2 gap-2 px-3 pt-2 text-[0.625rem] font-mono sm:grid-cols-4 lg:grid-cols-6">
-                      <Info label="FPS" value={`${formatFpsLabel(activeHb?.player?.fps).replace(' FPS', '')}${activeHb?.player?.focused === false ? ' (bg)' : ''}`} />
-                      <Info label="RAM" value={activeHb?.player?.memory_mb != null ? `${Math.round(activeHb.player.memory_mb)} MB` : '—'} />
-                      <Info label="Scene" value={activeHb?.player?.scene || '-'} />
-                      <Info label="Platform" value={getPlatform(activeHb) || '-'} />
-                      <Info label="Peers" value={otherPeerCount} />
-                      <Info label="Latency" value={`${staleAge.toFixed(1)}s`} />
-                    </div>
-                    <div className="h-40 px-2 pb-2 pt-1">
-                      <LiveCombinedChart history={activeHistory} />
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <>
                 {birdseyeMap}
-
                 <button
                   type="button"
                   onClick={() => setFsBirdseye(true)}
-                  className="absolute right-3 top-3 z-10 border-2 border-black bg-bg-card/90 p-2 hover:bg-accent hover:text-black"
+                  className="absolute right-3 top-3 z-10 border-2 border-black bg-bg-card/90 p-2 hover:bg-accent hover:text-black shadow-[2px_2px_0px_0px_black]"
                   title="Fullscreen map"
                   aria-label="Fullscreen map"
                 >
                   <Maximize2 size={16} />
                 </button>
-
-                {/* Live chart overlay for the active player — shown by default
-                    (top-left), like the 3D view. Hidden if charts are toggled
-                    off or there's no history yet. */}
-                {showLiveCharts && activeHistory && !birdseyeDetailId && (
-                  <div className="absolute top-3 left-3 z-10 h-28 w-60 max-w-[55vw] border-2 border-black bg-bg-card/90 p-2 shadow-[3px_3px_0px_0px_black] backdrop-blur-sm">
-                    <div className="mb-1 truncate text-[0.5625rem] font-black uppercase text-accent">{activeLabel || activeId?.slice(0, 12)}</div>
-                    <div className="h-[calc(100%-1rem)]">
-                      <LiveCombinedChart history={activeHistory} />
-                    </div>
-                  </div>
-                )}
-
-                {birdseyeDetailId && (() => {
-                  const hb = filteredHeartbeats[birdseyeDetailId];
-                  const hist = history[birdseyeDetailId];
-                  return (
-                    <div className="absolute right-3 top-3 z-20 w-64 max-w-[80vw] border-2 border-black bg-bg-card/95 p-3 shadow-[3px_3px_0px_0px_black]">
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-xs font-black text-accent">{hb?.display_name || birdseyeDetailId.slice(0, 12)}</div>
-                          {hb?.display_name && <div className="truncate text-[0.5625rem] text-text-muted">{birdseyeDetailId.slice(0, 12)}</div>}
-                          <div className="truncate text-[0.625rem] text-text-muted">{hb?.player?.scene || 'scene —'}</div>
-                        </div>
-                        <button
-                          onClick={() => setBirdseyeDetailId(null)}
-                          className="shrink-0 border-2 border-black bg-bg-primary px-1.5 py-0.5 text-[0.625rem] font-black hover:bg-danger hover:text-black"
-                          aria-label="Close"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                      <div className="h-28">
-                        <LiveCombinedChart history={hist} />
-                      </div>
-                      <HotzoneList
-                        sessions={hb ? [{
-                          player_id: birdseyeDetailId,
-                          session_id: hb.session_id,
-                          display_name: hb.display_name,
-                          scene: hb.player?.scene,
-                        }] : []}
-                        // HotzoneList renders every row it's given (it only uses
-                        // sessions for name lookup), so scope to this player here.
-                        hotzones={hotzones.filter((hz: any) =>
-                          hz.player_id === birdseyeDetailId || (hb?.session_id && hz.session_id === hb.session_id)
-                        )}
-                        onDownloadHotzone={handleDownloadHotzone}
-                        onPlayHotzone={handlePlayHotzone}
-                        onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
-                        compact
-                      />
-                      <div className="mt-2 flex gap-2">
-                        <RetroButton
-                          variant="primary"
-                          onClick={() => {
-                            setSelectedPlayerId(birdseyeDetailId);
-                            setBirdseyeDetailId(null);
-                            setLiveView('3d');
-                            setFollowPlayer(true);
-                          }}
-                          className="flex-1 py-1 text-[0.625rem]"
-                        >
-                          Ver 3D
-                        </RetroButton>
-                        <RetroButton
-                          variant="secondary"
-                          onClick={() => {
-                            const session = historySessionsWithGeo.find(s => s.session_id === hb.session_id);
-                            if (session) {
-                              handleSelectHistorySession(session);
-                              setActiveTab('history');
-                            }
-                          }}
-                          className="flex-1 py-1 text-[0.625rem]"
-                        >
-                          Historial
-                        </RetroButton>
-                      </div>
-                    </div>
-                  );
-                })()}
               </>
+            )}
+
+            {/* Player Selected State Overlay (Phase 2) */}
+            {activeHb && explicitActiveId && (
+              <div className="absolute left-3 top-3 z-20 w-80 max-w-[90vw]">
+                <PlayerHealthCard
+                  playerId={activeId}
+                  displayName={activeHb.display_name}
+                  fps={activeHb.player?.fps || 0}
+                  fpsHistory={activeHistory?.fps || []}
+                  platform={getPlatform(activeHb) || 'unknown'}
+                  scene={activeHb.player?.scene || 'unknown'}
+                  status={(activeHb.player?.fps || 0) > 45 ? 'ok' : (activeHb.player?.fps || 0) > 30 ? 'warning' : 'critical'}
+                />
+              </div>
+            )}
+            </div>
+          </div>
+
+          {/* Scoreboard (HomeStats) */}
+          <CockpitPanel title="Scoreboard" storageKey="panel_scoreboard">
+            <HomeStats sessions={filteredDashboardSessions} serverStats={serverStats} />
+          </CockpitPanel>
+
+          <CockpitPanel title="Eventos recientes" storageKey="panel_events">
+            <EventTimeline 
+              events={alerts.map(a => ({
+                id: a.id,
+                type: a.type === 'disconnect' ? 'disconnect' : 'alert',
+                playerId: a.playerId,
+                playerName: heartbeats[a.playerId]?.display_name || '',
+                timestamp: a.timestamp,
+                message: a.message,
+                scene: heartbeats[a.playerId]?.player?.scene
+              }))} 
+            />
+          </CockpitPanel>
+        </CockpitGrid>
+      )}
+
+      {activeTab === 'players' && (
+        <div className="flex h-full flex-col p-4 gap-4">
+          <div className="flex border-2 border-black">
+            <button
+              type="button"
+              onClick={() => setLiveView('dashboard')}
+              className={`subtab-btn ${liveView !== 'birdseye' ? 'subtab-btn-active' : ''}`}
+            >
+              Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setLiveView('birdseye')}
+              className={`subtab-btn ${liveView === 'birdseye' ? 'subtab-btn-active' : ''}`}
+            >
+              Globe
+            </button>
+          </div>
+          
+          <div className="flex-1 min-h-0">
+            {liveView === 'birdseye' ? (
+              <div className="h-full border-4 border-black shadow-retro overflow-hidden">
+                <Suspense fallback={<LazyPanelFallback label="Cargando globo…" />}>
+                  <GlobeView
+                    players={filteredGeoPlayers}
+                    onSelectPlayer={(playerId) => {
+                      setFocusPlayerId(playerId);
+                      setShowTagEditor(true);
+                    }}
+                  />
+                </Suspense>
+              </div>
+            ) : (
+              <div className="h-full border-4 border-black shadow-retro overflow-hidden bg-bg-card">
+                 <div className="p-4 text-xs italic text-text-muted">Lista de players (Fase 2)...</div>
+              </div>
             )}
           </div>
         </div>
@@ -2341,6 +2251,55 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               }}
             />
           </Suspense>
+        </div>
+      )}
+
+      {activeTab === 'scenes' && (
+        <div className="flex h-full flex-col p-4 gap-4">
+          <div className="flex-1 border-4 border-black shadow-retro bg-bg-card p-4">
+            <h2 className="text-sm font-black uppercase text-accent mb-4">Índice de Escenas</h2>
+            <SceneIndex
+              sessions={filteredDashboardSessions}
+              scenes={availableSceneFilters}
+              selectedScene={selectedSceneFilter}
+              onSelectScene={(scene) => {
+                setSelectedSceneFilter(scene);
+                pushNav({ tab: 'scenes', view: scene, label: scene });
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'analysis' && (
+        <div className="flex h-full flex-col p-4 gap-4">
+          <div className="flex-1 border-4 border-black shadow-retro bg-bg-card p-4">
+            <h2 className="text-sm font-black uppercase text-accent mb-4">Análisis de Rendimiento</h2>
+            <div className="h-64 mb-6">
+              <CommitsFpsChart sessions={filteredDashboardSessions} commits={commits} />
+            </div>
+            <div className="text-xs italic text-text-muted">Más visualizaciones en Fase 5...</div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'replays' && (
+        <div className="flex h-full flex-col p-4 gap-4">
+          <div className="flex-1 border-4 border-black shadow-retro bg-bg-card overflow-hidden flex flex-col">
+            <div className="p-4 border-b-2 border-black bg-bg-primary">
+               <h2 className="text-sm font-black uppercase text-accent">Inbox de Hotzones</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+               <HotzoneList
+                sessions={historySessionsWithGeo}
+                hotzones={hotzones}
+                onDownloadHotzone={handleDownloadHotzone}
+                onDeleteHotzone={handleDeleteHotzone}
+                onPlayHotzone={handlePlayHotzone}
+                onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+              />
+            </div>
+          </div>
         </div>
       )}
 

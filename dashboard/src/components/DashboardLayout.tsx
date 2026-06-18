@@ -1,14 +1,15 @@
 import React from 'react';
-import { Activity, Map, Clock, Users, LogOut, Globe, Settings } from 'lucide-react';
-import { RetroTabs } from './retro';
+import { LogOut, Users, Settings } from 'lucide-react';
 import { buildLabel } from '../lib/buildLabels';
+import { NavigationRail } from './NavigationRail';
+import type { Tab } from '../types';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
   onLogout: () => void;
   isConnected: boolean;
-  activeTab: string;
-  setActiveTab: (tab: any) => void;
+  activeTab: Tab;
+  setActiveTab: (tab: Tab) => void;
   playerCount: number;
   playerCountLabel?: string;
   onPlayersClick: () => void;
@@ -34,10 +35,11 @@ interface DashboardLayoutProps {
   // Optional second-level bar rendered just above the bottom nav (e.g. the
   // Live-tab view switcher). Hidden when not provided.
   secondaryNav?: React.ReactNode;
+  filterBar?: React.ReactNode;
+  breadcrumb?: React.ReactNode;
 }
 
-// Unified mobile-first layout: fixed header + fixed bottom nav, scrollable
-// content in between. The same structure scales up to desktop (just wider).
+// Unified layout with NavigationRail (desktop side, mobile bottom)
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
   onLogout,
@@ -57,6 +59,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   dashboardDeployedAt,
   latestPublished,
   secondaryNav,
+  filterBar,
+  breadcrumb,
 }) => {
   const publishedLabel = buildLabel(latestPublished);
   const fmtDate = (sec?: number | null) => (
@@ -67,95 +71,96 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       minute: '2-digit',
     }) : ''
   );
-  // Deploy date of this dashboard build, shown next to its version so "which
-  // version" reads as a human date, not just a hash.
   const dashDate = fmtDate(dashboardDeployedAt);
   const publishedDate = fmtDate(latestPublished?.timestamp);
-  const tabs = [
-    { id: 'live', label: 'Live', icon: <Activity size={24} /> },
-    { id: 'mapa', label: 'Globe', icon: <Globe size={24} /> },
-    { id: 'heatmap', label: 'Heatmap', icon: <Map size={24} /> },
-    { id: 'history', label: 'History', icon: <Clock size={24} /> },
-  ];
 
   return (
-    <div className="flex flex-col h-screen bg-bg-primary overflow-hidden font-mono crt-effect">
-      {/* Fixed header */}
-      <header className="relative shrink-0 flex flex-col gap-2 px-3 py-2 border-b-4 border-black bg-bg-card z-30 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-        <h1 className="text-accent font-black text-sm italic leading-none tracking-tighter sm:text-base">
-          <button type="button" onClick={() => setActiveTab('live')} className="hover:text-text-primary">
-            <span className="block sm:inline">ODISEA</span>
-          </button>
-          <span className="ml-2 align-middle text-[0.5rem] font-bold not-italic tracking-normal text-text-muted">
-            dash {dashboardVersion || 'dev'}{dashDate ? ` (${dashDate})` : ''}
-            {publishedLabel ? (
-              <> · pub {publishedLabel}{publishedDate ? ` (${publishedDate})` : ''}</>
-            ) : null}
-          </span>
-        </h1>
+    <div className="flex h-screen w-screen bg-bg-primary overflow-hidden font-mono crt-effect">
+      {/* Desktop side navigation */}
+      <NavigationRail activeTab={activeTab} onTabChange={setActiveTab} className="hidden lg:flex" />
 
-        <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end sm:gap-4">
-          {activePlayerMeta}
-          {headerControls}
+      <div className="flex flex-1 flex-col min-w-0">
+        {/* Fixed header */}
+        <header className="relative shrink-0 flex flex-col gap-2 px-3 py-2 border-b-4 border-black bg-bg-card z-30 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <h1 className="text-accent font-black text-sm italic leading-none tracking-tighter sm:text-base">
+            <button type="button" onClick={() => setActiveTab('dashboard')} className="hover:text-text-primary">
+              <span className="block sm:inline">ODISEA</span>
+            </button>
+            <span className="ml-2 align-middle text-[0.5rem] font-bold not-italic tracking-normal text-text-muted">
+              dash {dashboardVersion || 'dev'}{dashDate ? ` (${dashDate})` : ''}
+              {publishedLabel ? (
+                <> · pub {publishedLabel}{publishedDate ? ` (${publishedDate})` : ''}</>
+              ) : null}
+            </span>
+          </h1>
 
-          <span className="flex items-center gap-1.5 text-[0.625rem] uppercase font-bold">
-            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success shadow-[0_0_8px_rgba(63,185,80,0.5)]' : 'bg-danger'}`} />
-            <span className={isConnected ? 'text-success' : 'text-danger'}>{isConnected ? 'on' : 'off'}</span>
-          </span>
+          <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end sm:gap-4">
+            {activePlayerMeta}
+            {headerControls}
 
-          {/* Player count -> opens the bottom sheet */}
-          <button
-            onClick={onToggleSettings}
-            className="p-1.5 border-2 border-black bg-bg-primary hover:bg-accent hover:text-black transition-colors"
-            title="Settings"
-          >
-            <Settings size={14} />
-          </button>
+            <span className="flex items-center gap-1.5 text-[0.625rem] uppercase font-bold">
+              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success shadow-[0_0_8px_rgba(63,185,80,0.5)]' : 'bg-danger'}`} />
+              <span className={isConnected ? 'text-success' : 'text-danger'}>{isConnected ? 'on' : 'off'}</span>
+            </span>
 
-          <button
-            onClick={onPlayersClick}
-            className="flex items-center gap-1.5 px-2 py-1 border-2 border-black bg-bg-primary text-[0.625rem] font-bold uppercase hover:bg-accent hover:text-black transition-colors"
-          >
-            <Users size={14} />
-            {playerCountLabel || `${playerCount} ${playerCount === 1 ? 'player' : 'players'}`}
-          </button>
+            <button
+              onClick={onToggleSettings}
+              className="p-1.5 border-2 border-black bg-bg-primary hover:bg-accent hover:text-black transition-colors"
+              title="Settings"
+            >
+              <Settings size={14} />
+            </button>
 
-          <button
-            onClick={onLogout}
-            className="p-1.5 border-2 border-black bg-bg-primary hover:bg-danger hover:text-black transition-colors"
-            title="Log out"
-          >
-            <LogOut size={14} />
-          </button>
+            <button
+              onClick={onPlayersClick}
+              className="flex items-center gap-1.5 px-2 py-1 border-2 border-black bg-bg-primary text-[0.625rem] font-bold uppercase hover:bg-accent hover:text-black transition-colors"
+            >
+              <Users size={14} />
+              <span className="hidden sm:inline">{playerCountLabel || `${playerCount} ${playerCount === 1 ? 'player' : 'players'}`}</span>
+              <span className="sm:hidden">{playerCount}</span>
+            </button>
+
+            <button
+              onClick={onLogout}
+              className="p-1.5 border-2 border-black bg-bg-primary hover:bg-danger hover:text-black transition-colors"
+              title="Log out"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+          {playerFocus && (
+            <div className="fixed right-2 top-2 z-50 sm:absolute sm:left-1/2 sm:right-auto sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
+              {playerFocus}
+            </div>
+          )}
+        </header>
+
+        {/* Breadcrumb & Filter Bar */}
+        <div className="shrink-0 flex flex-col">
+          {breadcrumb}
+          {filterBar}
         </div>
-        {playerFocus && (
-          <div className="fixed right-2 top-2 z-50 sm:absolute sm:left-1/2 sm:right-auto sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
-            {playerFocus}
+
+        {/* Scrollable content */}
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative">
+          {showSettings && settingsPanel && (
+            <div className="sticky top-0 z-20 bg-bg-card border-b-2 border-black px-3 py-3">
+              {settingsPanel}
+            </div>
+          )}
+          {children}
+        </main>
+
+        {/* Optional second-level bar */}
+        {secondaryNav && (
+          <div className="shrink-0 border-t-2 border-black bg-bg-card/80 z-30">
+            {secondaryNav}
           </div>
         )}
-      </header>
 
-      {/* Scrollable content */}
-      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        {showSettings && settingsPanel && (
-          <div className="sticky top-0 z-20 bg-bg-card border-b-2 border-black px-3 py-3">
-            {settingsPanel}
-          </div>
-        )}
-        {children}
-      </main>
-
-      {/* Optional second-level bar (e.g. Live view switcher) */}
-      {secondaryNav && (
-        <div className="shrink-0 border-t-2 border-black bg-bg-card/80 z-30">
-          {secondaryNav}
-        </div>
-      )}
-
-      {/* Fixed bottom nav */}
-      <nav className="shrink-0 border-t-4 border-black bg-bg-card z-30">
-        <RetroTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-      </nav>
+        {/* Mobile bottom navigation */}
+        <NavigationRail activeTab={activeTab} onTabChange={setActiveTab} className="lg:hidden" isMobile />
+      </div>
     </div>
   );
 };

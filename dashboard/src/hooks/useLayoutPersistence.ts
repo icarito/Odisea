@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import type { NavStackItem } from '../types';
 
 const STORAGE_KEY = 'odisea_dashboard_layout';
-const LAYOUT_VERSION = 2;
+const LAYOUT_VERSION = 3;
 const DEFAULT_MIN_DURATION = 13;
 
 export interface LayoutState {
@@ -14,16 +15,24 @@ export interface LayoutState {
   filtersCollapsed: boolean;
   // History min-duration filter (seconds); excludes shorter sessions.
   historyMinDuration: number;
+  // Navigation stack for drilldown preservation
+  navStack: NavStackItem[];
+  // Persisted state for cockpit panels
+  cockpitPanelStates: Record<string, boolean>;
+  cockpitPanelSizes: Record<string, number>;
 }
 
 const DEFAULT_STATE: LayoutState = {
   version: LAYOUT_VERSION,
   panelSizes: [20, 80],
-  activeTab: 'live',
+  activeTab: 'dashboard',
   sidebarCollapsed: false,
   accelerometerEnabled: false,
   filtersCollapsed: false,
   historyMinDuration: DEFAULT_MIN_DURATION,
+  navStack: [],
+  cockpitPanelStates: {},
+  cockpitPanelSizes: {},
 };
 
 export function useLayoutPersistence() {
