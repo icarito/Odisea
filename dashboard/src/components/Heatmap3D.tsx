@@ -3,9 +3,6 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera, Html } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Ref type for drei's <OrbitControls> (its impl instance), without depending on
-// three-stdlib being installed.
-type OrbitControlsImpl = React.ElementRef<typeof OrbitControls>;
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, Download, Play, X } from 'lucide-react';
 import { useSceneGeometryStream } from '../hooks/useSceneGeometry';
 
@@ -306,31 +303,6 @@ const HotzoneMarkers: React.FC<{
   );
 };
 
-// Camera/target rig. Centers on the heat data once on first mount,
-// then leaves the OrbitControls alone so the user can pan freely.
-const CameraRig: React.FC<{
-  controlsRef: React.RefObject<OrbitControlsImpl | null>;
-  center: [number, number, number];
-  radius: number;
-}> = ({ controlsRef, center, radius }) => {
-  const centeredRef = useRef(false);
-
-  useEffect(() => {
-    const controls = controlsRef.current;
-    if (!controls) return;
-    if (centeredRef.current) return;
-
-    const cam = controls.object as THREE.PerspectiveCamera;
-    controls.target.set(center[0], 0, center[2]);
-    cam.position.set(center[0] + radius * 0.9, radius * 1.1, center[2] + radius * 0.9);
-    controls.update();
-
-    centeredRef.current = true;
-  }, [controlsRef, center, radius]);
-
-  return null;
-};
-
 export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, hotzones, onSelectHotzone, onDownloadHotzone }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -339,8 +311,6 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
   const [expandedHotzoneId, setExpandedHotzoneId] = useState<string | null>(null);
   const [controlsOpen, setControlsOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const orbitRef = useRef<OrbitControlsImpl | null>(null);
-
   const cells = Array.isArray(data) ? data : [];
   const maxCount = useMemo(() => cells.reduce((m, c) => Math.max(m, c.count), 0), [cells]);
 
@@ -399,11 +369,10 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
           setExpandedHotzoneId(null);
         }}
       >
-        <PerspectiveCamera makeDefault far={Math.max(2000, radius * 8)} />
-        <CameraRig
-          controlsRef={orbitRef}
-          center={center}
-          radius={radius}
+        <PerspectiveCamera
+          makeDefault
+          position={[center[0] + radius * 0.9, radius * 1.1, center[2] + radius * 0.9]}
+          far={Math.max(2000, radius * 8)}
         />
         <ambientLight intensity={0.7} />
         <directionalLight position={[10, radius, 5]} intensity={1} />
@@ -446,7 +415,12 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
           position={[0, 0.01, 0]}
         />
 
-        <OrbitControls ref={orbitRef} enablePan makeDefault />
+        <OrbitControls
+          key={scene || 'heatmap'}
+          target={[center[0], 0, center[2]]}
+          enablePan
+          makeDefault
+        />
       </Canvas>
 
       {/* Fixed, readable stats panel (replaces the tiny floating 3D tooltip). */}
