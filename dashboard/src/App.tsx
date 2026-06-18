@@ -39,7 +39,7 @@ import {
   isUsefulSceneName,
   formatFpsLabel,
 } from './lib/filters';
-import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play, Tag, ChevronDown, ChevronRight } from 'lucide-react';
+import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play, Tag, ChevronDown, ChevronRight, Map as MapIcon } from 'lucide-react';
 import type { Tab } from './types';
 
 type GitCommit = {
@@ -224,6 +224,7 @@ const HotzoneRow = ({
   onDownload,
   onDelete,
   onTag,
+  onShowOnMap,
   compact = false
 }: {
   hz: any;
@@ -233,6 +234,7 @@ const HotzoneRow = ({
   onDownload?: (id: string, label: string) => void;
   onDelete?: (id: string, label: string) => void;
   onTag?: (id: string) => void;
+  onShowOnMap?: (hz: any) => void;
   compact?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -345,7 +347,24 @@ const HotzoneRow = ({
           <HzMeta label="Tamaño" value={size || '—'} />
           <HzMeta label="Player" value={label} />
           <HzMeta label="Player ID" value={hz.player_id || '—'} />
-          <HzMeta label="Grid X,Z" value={grid || '—'} />
+          <HzMeta
+            label="Grid X,Z"
+            value={grid
+              ? (onShowOnMap
+                ? (
+                  <button
+                    type="button"
+                    onClick={() => onShowOnMap(hz)}
+                    className="inline-flex items-center gap-1 text-accent underline decoration-dotted underline-offset-2 hover:text-text-primary"
+                    title="Ver en el heatmap"
+                  >
+                    <MapIcon size={10} className="shrink-0" />
+                    {grid}
+                  </button>
+                )
+                : grid)
+              : '—'}
+          />
           <HzMeta label="Sesión" value={hz.session_id ? String(hz.session_id).slice(0, 12) : '—'} />
           <HzMeta label="Fecha" value={when || '—'} />
         </div>
@@ -367,6 +386,7 @@ const HotzoneList = ({
   onDeleteHotzone,
   onPlayHotzone,
   onTagPlayer,
+  onShowOnMap,
   compact = false
 }: {
   sessions: any[];
@@ -375,6 +395,7 @@ const HotzoneList = ({
   onDeleteHotzone?: (hotzoneId: string, label?: string) => void;
   onPlayHotzone?: (hotzoneId: string) => void;
   onTagPlayer?: (playerId: string) => void;
+  onShowOnMap?: (hz: any) => void;
   compact?: boolean;
 }) => {
   const nameByPlayer = useMemo(() => {
@@ -407,6 +428,7 @@ const HotzoneList = ({
           onDownload={onDownloadHotzone}
           onDelete={onDeleteHotzone}
           onTag={onTagPlayer}
+          onShowOnMap={onShowOnMap}
           compact={compact}
         />
       ))}
@@ -414,7 +436,7 @@ const HotzoneList = ({
   );
 };
 
-const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone, onTagPlayer }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void; onTagPlayer?: (playerId: string) => void }) => {
+const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzone, onPlayHotzone, onTagPlayer, onShowOnMap }: { sessions: any[]; hotzones?: any[]; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void; onTagPlayer?: (playerId: string) => void; onShowOnMap?: (hz: any) => void }) => {
   return (
     <div className="flex min-h-full flex-col gap-4">
       {/* Hotzone captures — performance ghosts uploaded by the game, newest first. */}
@@ -427,6 +449,7 @@ const HistoryOverview = ({ sessions, hotzones, onDownloadHotzone, onDeleteHotzon
             onDeleteHotzone={onDeleteHotzone}
             onPlayHotzone={onPlayHotzone}
             onTagPlayer={onTagPlayer}
+            onShowOnMap={onShowOnMap}
           />
         </div>
       </RetroCard>
@@ -1058,6 +1081,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   // Heatmap State
   const [heatmapRes, setHeatmapRes] = useState(5);
+  // Heatmap scene/options overlay: vertical + collapsible (collapses to just the
+  // scene title to free up the canvas).
+  const [heatmapOverlayOpen, setHeatmapOverlayOpen] = useState(true);
   // Heatmap sub-tab, surfaced as a secondaryNav (like Live). 'scenes'/'map'
   // mirror the old mobile pane toggle; 'stats' is the dedicated summary view
   // (FD-223) that shows the heatmapSummary cards instead of a top-level tab.
@@ -1442,6 +1468,27 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       notify.error('No se pudo borrar la hotzone');
     }
   }, []);
+
+  // Jump from a hotzone capture to its spot on the heatmap: select the
+  // capture's scene (recovering it from the owning session when the capture
+  // itself lacks one) and switch to the Heatmap tab's map view, which already
+  // pins that scene's hotzones in-situ.
+  const handleShowHotzoneOnMap = useCallback((hz: any) => {
+    let scene: string | null = isUsefulSceneName(hz?.scene) ? hz.scene : null;
+    if (!scene && hz?.session_id) {
+      const owning = historicalSessions.find((s) => s.session_id === hz.session_id);
+      const visited = owning ? sessionScenes(owning).filter(isUsefulSceneName) : [];
+      if (visited.length) scene = visited[visited.length - 1];
+    }
+    if (!scene) {
+      notify.error('No se pudo determinar la escena de la hotzone');
+      return;
+    }
+    setSelectedSceneFilter(scene);
+    setHeatmapView('map');
+    setActiveTab('heatmap');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historicalSessions]);
 
   const handleSelectHistorySession = async (session: any) => {
     setSelectedSession(session);
@@ -2415,37 +2462,51 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               heatmapStatsPanel
             ) : (
             <>
-            <div className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-end gap-3 border-2 border-black bg-bg-card/95 p-3 shadow-[2px_2px_0px_0px_black]">
-              <div className="min-w-0">
-                <div className="text-[0.625rem] font-black uppercase text-text-muted">Scene</div>
-                <div className="max-w-48 truncate text-xs font-black text-accent">{heatmapTargetScene}</div>
-              </div>
-              <div className="shrink-0">
-                <div className="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.25em] text-text-muted">Res</div>
-                <div className="flex items-center border-2 border-black">
-                  <button
-                    type="button"
-                    onClick={() => setHeatmapRes((value) => Math.max(1, value - 1))}
-                    className="bg-bg-primary px-2 py-1 text-xs font-black hover:bg-accent hover:text-black"
-                  >
-                    -
-                  </button>
-                  <span className="min-w-8 border-x-2 border-black bg-bg-primary px-2 py-1 text-center text-xs font-black">{heatmapRes}</span>
-                  <button
-                    type="button"
-                    onClick={() => setHeatmapRes((value) => value + 1)}
-                    className="bg-bg-primary px-2 py-1 text-xs font-black hover:bg-accent hover:text-black"
-                  >
-                    +
-                  </button>
+            <div className="absolute left-3 top-3 z-10 flex w-44 max-w-[calc(100%-1.5rem)] flex-col border-2 border-black bg-bg-card/95 shadow-[2px_2px_0px_0px_black]">
+              {/* Header: scene title + collapse toggle (always visible). */}
+              <button
+                type="button"
+                onClick={() => setHeatmapOverlayOpen((v) => !v)}
+                className="flex items-center gap-1.5 border-b-2 border-black px-2 py-1.5 text-left hover:bg-accent/5"
+                aria-expanded={heatmapOverlayOpen}
+                title={heatmapOverlayOpen ? 'Ocultar opciones' : 'Mostrar opciones'}
+              >
+                {heatmapOverlayOpen ? <ChevronDown size={12} className="shrink-0 text-text-muted" /> : <ChevronRight size={12} className="shrink-0 text-text-muted" />}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[0.5rem] font-black uppercase tracking-wide text-text-muted">Escena</span>
+                  <span className="block truncate text-[0.6875rem] font-black text-accent">{heatmapTargetScene}</span>
+                </span>
+              </button>
+              {heatmapOverlayOpen && (
+                <div className="flex flex-col gap-2 p-2">
+                  <div>
+                    <div className="mb-1 text-[0.5rem] font-bold uppercase tracking-[0.2em] text-text-muted">Resolución</div>
+                    <div className="flex items-center border-2 border-black">
+                      <button
+                        type="button"
+                        onClick={() => setHeatmapRes((value) => Math.max(1, value - 1))}
+                        className="bg-bg-primary px-2 py-0.5 text-xs font-black hover:bg-accent hover:text-black"
+                      >
+                        -
+                      </button>
+                      <span className="min-w-8 flex-1 border-x-2 border-black bg-bg-primary px-2 py-0.5 text-center text-xs font-black">{heatmapRes}</span>
+                      <button
+                        type="button"
+                        onClick={() => setHeatmapRes((value) => value + 1)}
+                        className="bg-bg-primary px-2 py-0.5 text-xs font-black hover:bg-accent hover:text-black"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 text-[0.5rem] font-bold uppercase">
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-green-500" /> Low</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-yellow-500" /> Med</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-orange-500" /> High</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-red-500" /> Crit</div>
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-[0.5rem] font-bold uppercase sm:grid-cols-4">
-                <div className="flex items-center gap-1"><div className="h-2 w-2 bg-green-500" /> Low</div>
-                <div className="flex items-center gap-1"><div className="h-2 w-2 bg-yellow-500" /> Med</div>
-                <div className="flex items-center gap-1"><div className="h-2 w-2 bg-orange-500" /> High</div>
-                <div className="flex items-center gap-1"><div className="h-2 w-2 bg-red-500" /> Crit</div>
-              </div>
+              )}
             </div>
             <Suspense fallback={<LazyPanelFallback label="Cargando heatmap…" />}>
               <Heatmap3D
@@ -2577,6 +2638,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   onDeleteHotzone={handleDeleteHotzone}
                   onPlayHotzone={handlePlayHotzone}
                   onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+                  onShowOnMap={handleShowHotzoneOnMap}
                 />
               </div>
             </RetroCard>
@@ -2585,7 +2647,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className={`min-h-0 overflow-y-auto ${historyMobileView !== 'player' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
-                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }} />
+                  <HistoryOverview sessions={historySessionsWithGeo} hotzones={hotzones} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }} onShowOnMap={handleShowHotzoneOnMap} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">
