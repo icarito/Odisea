@@ -1,0 +1,9 @@
+# Quick OYS benchmark — idle FPS test for OdiseaExterior
+LEVEL "res://core_v2/levels/OdiseaExterior.tscn"
+WAIT 3
+CALL perf_capture_start "quick_idle"
+WAIT 2
+CALL perf_capture_stop "quick_idle"
+PRINT "=== BENCHMARK COMPLETE ==="
+QUIT
+END

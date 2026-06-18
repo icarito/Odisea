@@ -379,6 +379,9 @@ static func parse_instruction(line: String) -> Dictionary:
 		"END":
 			pass # Marker only
 
+		"QUIT":
+			pass # Marker only — interpreter calls get_tree().quit() on END when preceded by QUIT
+
 		"SCREENSHOT":
 			data["label"] = _extract_quoted(parts, 1)
 

@@ -1,0 +1,57 @@
+# Benchmark: OdiseaExterior performance
+# Mide FPS en el exterior moviendo al jugador en todas direcciones
+
+LEVEL "res://core_v2/levels/OdiseaExterior.tscn"
+
+# Warmup: dejar que el LOD y streaming se estabilicen
+WAIT 3
+
+# FASE 1: Caminata recta hacia adelante (-Z = forward in Odisea)
+CALL perf_capture_start "odiseaExterior_fw"
+FW 4s
+CALL perf_capture_stop "odiseaExterior_fw"
+WAIT 0.5
+
+# FASE 2: Caminata hacia atrás
+CALL perf_capture_start "odiseaExterior_bw"
+BW 4s
+CALL perf_capture_stop "odiseaExterior_bw"
+WAIT 0.5
+
+# FASE 3: Strafe izquierda-derecha (4 ciclos)
+CALL perf_capture_start "odiseaExterior_strafe"
+FOR 4
+    LEFT 1s
+    RIGHT 1s
+ENDFOR
+CALL perf_capture_stop "odiseaExterior_strafe"
+WAIT 0.5
+
+# FASE 4: Rotaciones (girar en círculo 4 veces)
+CALL perf_capture_start "odiseaExterior_rotate"
+FOR 4
+    LEFT 90
+    WAIT 0.2
+ENDFOR
+CALL perf_capture_stop "odiseaExterior_rotate"
+WAIT 0.5
+
+# FASE 5: Sprint + salto (mix de movimiento)
+CALL perf_capture_start "odiseaExterior_sprint"
+RUN FW 1s
+JUMP 0.5
+WAIT 1
+RUN FW 1s
+JUMP 0.5
+WAIT 1
+CALL perf_capture_stop "odiseaExterior_sprint"
+WAIT 0.5
+
+# FASE 6: Quieto (idle FPS baseline)
+CALL perf_capture_start "odiseaExterior_idle"
+WAIT 3
+CALL perf_capture_stop "odiseaExterior_idle"
+
+PRINT "=== ODISEA_EXTERIOR BENCHMARK COMPLETE ==="
+QUIT
+END

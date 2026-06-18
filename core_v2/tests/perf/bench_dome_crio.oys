@@ -1,0 +1,57 @@
+# Benchmark: Dome_Crio performance
+# Mide FPS en el interior del dome criogenia
+
+LEVEL "res://core_v2/levels/interiors/Dome_Crio.tscn"
+
+# Warmup: cargar assets del interior
+WAIT 4
+
+# FASE 1: Caminata recta adelante
+CALL perf_capture_start "domeCrio_fw"
+FW 3s
+CALL perf_capture_stop "domeCrio_fw"
+WAIT 0.5
+
+# FASE 2: Caminata atrás
+CALL perf_capture_start "domeCrio_bw"
+BW 3s
+CALL perf_capture_stop "domeCrio_bw"
+WAIT 0.5
+
+# FASE 3: Strafe
+CALL perf_capture_start "domeCrio_strafe"
+FOR 3
+    LEFT 1s
+    RIGHT 1s
+ENDFOR
+CALL perf_capture_stop "domeCrio_strafe"
+WAIT 0.5
+
+# FASE 4: Rotaciones
+CALL perf_capture_start "domeCrio_rotate"
+FOR 4
+    LEFT 90
+    WAIT 0.2
+ENDFOR
+CALL perf_capture_stop "domeCrio_rotate"
+WAIT 0.5
+
+# FASE 5: Sprint + salto
+CALL perf_capture_start "domeCrio_sprint"
+RUN FW 1s
+JUMP 0.5
+WAIT 1
+RUN FW 1s
+JUMP 0.5
+WAIT 1
+CALL perf_capture_stop "domeCrio_sprint"
+WAIT 0.5
+
+# FASE 6: Idle
+CALL perf_capture_start "domeCrio_idle"
+WAIT 3
+CALL perf_capture_stop "domeCrio_idle"
+
+PRINT "=== DOME_CRIO BENCHMARK COMPLETE ==="
+QUIT
+END

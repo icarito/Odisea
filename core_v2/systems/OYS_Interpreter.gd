@@ -92,6 +92,14 @@ func parse(script_content: String):
 				if start_inst.command == "BLEND":
 					loop_stack.pop_back()
 					start_inst["end_index"] = instructions.size()
+			# If the PREVIOUS instruction was QUIT, mark this END to quit
+			if instructions.size() >= 1:
+				var prev = instructions[instructions.size() - 1]
+				if prev.command == "QUIT":
+					inst["_quit_on_end"] = true
+
+		elif inst.command == "QUIT":
+			pass # Processed when END follows — see above
 
 		instructions.append(inst)
 
@@ -1075,6 +1083,8 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 		
 		# Markers - no action needed
 		"LEVEL", "END":
+			if inst.command == "END" and inst.get("_quit_on_end", false):
+				host_node.get_tree().quit(0)
 			pass
 		
 		"MATH":
