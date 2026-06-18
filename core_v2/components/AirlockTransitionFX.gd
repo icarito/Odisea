@@ -28,6 +28,7 @@ var _skip_next_airlock_ready := false
 var _post_only := false
 var _managed_lights: Array = []  # [{ node, property, base_value }]
 var _managed_lights_cached := false
+var _scene_lighting: Node = null
 
 func _ready() -> void:
 	_controller = _find_controller()
@@ -183,11 +184,10 @@ func _is_managed_door(node: Node) -> bool:
 	return node.has_meta("airlock_controller_owned")
 
 func _apply_brightness(t: float) -> void:
-	# Scene-level lights and environments via SceneLighting autoload
-	var sl := get_node_or_null("/root/SceneLighting")
-	if sl and not _post_only:
-		sl.set_brightness(t)
-	# Chamber-local lights
+	if _scene_lighting == null:
+		_scene_lighting = get_node_or_null("/root/SceneLighting")
+	if _scene_lighting and is_instance_valid(_scene_lighting) and not _post_only:
+		_scene_lighting.set_brightness(t)
 	for entry in _managed_lights:
 		var node: Node = entry["node"]
 		if not is_instance_valid(node):
@@ -212,9 +212,10 @@ func _apply_brightness(t: float) -> void:
 					node.call("set_active", t > 0.5, true)
 
 func _restore_lights(skip_scene_lighting: bool = false) -> void:
-	var sl := get_node_or_null("/root/SceneLighting")
-	if sl and not skip_scene_lighting:
-		sl.restore_brightness()
+	if _scene_lighting == null:
+		_scene_lighting = get_node_or_null("/root/SceneLighting")
+	if _scene_lighting and is_instance_valid(_scene_lighting) and not skip_scene_lighting:
+		_scene_lighting.restore_brightness()
 	for entry in _managed_lights:
 		var node: Node = entry["node"]
 		if not is_instance_valid(node):

@@ -9,7 +9,7 @@ func _init():
 
 export(Color) var light_color := Color(1.0, 0.9, 0.7) setget set_light_color
 export(float, 0.0, 10.0) var light_energy_max := 4.0
-export(float, 1.0, 100.0) var light_range := 15.0 setget set_light_range
+export(float, 1.0, 100.0) var light_range := 5.0 setget set_light_range
 export(float, 1.0, 90.0) var spot_angle := 45.0 setget set_spot_angle
 export(float, -90.0, 90.0) var head_tilt := 0.0 setget set_head_tilt
 export(bool) var enable_shadows := false setget set_enable_shadows

@@ -14,8 +14,8 @@ extents = Vector3( 100, 1, 100 )
 script = ExtResource( 3 )
 selected_spiral = 2
 selected_plate = 50
-dome_lod_overlay_max_instances = 128
-dome_lod_camera_angle_threshold = 40.0
+dome_lod_overlay_max_instances = 96
+dome_lod_camera_angle_threshold = 50.0
 
 [node name="WorldRotator" parent="." instance=ExtResource( 1 )]
 rotation_frozen = false
@@ -47,8 +47,8 @@ camera_collision_mask = 1
 [node name="OmniLight" type="OmniLight" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 695.641, 0 )
 light_color = Color( 1, 0.827451, 0.560784, 1 )
-light_energy = 0.8
-omni_range = 200.0
+light_energy = 1.2
+omni_range = 120.0
 omni_attenuation = 0.116629
 omni_shadow_mode = 0
 script = ExtResource( 6 )

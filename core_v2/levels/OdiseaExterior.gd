@@ -8,7 +8,7 @@ export(int, -1, 8) var dome_full_detail_plate_radius := 1
 export(int, 0, 64) var dome_full_detail_nearest_count := 1
 export(int, 0, 3) var dome_full_detail_spiral_radius := 1
 export(int, 0, 32) var dome_inter_spiral_plate_offset := 4
-export(int, 0, 8) var dome_full_detail_preload_extra_radius := 0 if OS.has_feature("HTML5") else 2
+export(int, 0, 8) var dome_full_detail_preload_extra_radius := 0 if OS.has_feature("HTML5") else 1
 export(bool) var dome_lod_enabled := true
 # Domes LOD dibujados por MultiMesh (batched: ~1 draw call por mesh-part sin importar
 # la cantidad de instancias). Subir el cap es barato en GPU; el coste extra es lineal en
@@ -154,7 +154,7 @@ func _begin_dome_resource_preloads() -> void:
 func _tick_preload_loaders() -> void:
 	if _preload_loaders.empty():
 		return
-	var budget_usec := 3000
+	var budget_usec := 2000
 	var start := OS.get_ticks_usec()
 	var finished := []
 	for path in _preload_loaders.keys():
@@ -185,16 +185,21 @@ func _resolve_player_camera() -> Camera:
 	camera = _player.get_node_or_null("CameraRig/Yaw/Pitch/SpringArm/Camera") as Camera
 	return camera
 
+var _process_tick := 0
+
 func _process(_delta: float) -> void:
+	_process_tick += 1
 	_tick_airlock_chamber_gate()
-	_tick_preload_loaders()
-	_tick_dome_assignment_cache_build()
-	_sync_selection_from_rotator()
-	_tick_lod_update_phase()
+	if _process_tick % 2 == 0:
+		_tick_preload_loaders()
+		_tick_dome_assignment_cache_build()
 	_tick_frustum_lod_update()
-	_tick_dome_facade_cursor()  # sigue la animación/rotación del WorldRotator cada frame
+	_tick_lod_update_phase()
+	_sync_selection_from_rotator()
+	_tick_dome_facade_cursor()
 	_reset_camera_roll()
-	_tick_camera_yank_debug()
+	if _process_tick % 4 == 0:
+		_tick_camera_yank_debug()
 
 # Yank telemetry: measures how much the camera's world-forward jumps per frame.
 # A clean arrival is ~0 deg/frame; a camera yank spikes several degrees. Pushed to
@@ -227,8 +232,8 @@ func _tick_camera_yank_debug() -> void:
 			"max_deg": stepify(_cam_yank_max_deg, 0.001)
 		})
 
-# Mirrors the player's airlock chamber state onto WorldRotator tracking: pause
-# while inside a chamber, resume (with a 0.3s ease) when the player exits it.
+var _airlock_streaming_throttled := false
+
 func _tick_airlock_chamber_gate() -> void:
 	if not _rotator or not is_instance_valid(_rotator):
 		return
@@ -240,8 +245,21 @@ func _tick_airlock_chamber_gate() -> void:
 	_airlock_chamber_suspended = suspended
 	if suspended:
 		_rotator.pause_tracking()
+		_throttle_streaming_for_airlock(true)
 	else:
 		_rotator.resume_tracking()
+		_throttle_streaming_for_airlock(false)
+
+func _throttle_streaming_for_airlock(throttle: bool) -> void:
+	if throttle == _airlock_streaming_throttled:
+		return
+	_airlock_streaming_throttled = throttle
+	if throttle:
+		if _plate_content_stream and is_instance_valid(_plate_content_stream):
+			_plate_content_stream.set_physics_process(false)
+	else:
+		if _plate_content_stream and is_instance_valid(_plate_content_stream):
+			_plate_content_stream.set_physics_process(true)
 
 func _is_player_airlock_suspended() -> bool:
 	var player := _resolve_tracking_player()
@@ -459,7 +477,7 @@ func _tick_dome_assignment_cache_build() -> void:
 		_cache_build_pending = false
 		return
 
-	var budget_usec := 4000  # 4ms per frame
+	var budget_usec := 2000  # 2ms per frame — reduced from 4ms to lower main-thread pressure near airlocks
 	var start := OS.get_ticks_usec()
 
 	while _cache_build_spiral < _spirals.size():

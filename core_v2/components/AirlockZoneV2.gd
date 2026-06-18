@@ -1,7 +1,7 @@
 extends BaseZoneV2
 class_name AirlockZoneV2
 
-const PRELOAD_POLL_BUDGET_MS := 4
+const PRELOAD_POLL_BUDGET_MS := 2
 const DEFAULT_FADE_OUT_S := 0.017
 const DEFAULT_FADE_IN_S := 0.08
 const TRANSITION_TRIGGER_PROGRESS := 0.6
@@ -732,11 +732,16 @@ func _find_spring_arm(body: Node) -> Node:
 func _is_player(node: Node) -> bool:
 	return is_instance_valid(node) and node.is_in_group("player")
 
-func _update_indicator_lights() -> void:
-	var red = get_parent().get_node_or_null("LoadingRedLight") if get_parent() else null
-	var green = get_parent().get_node_or_null("ReadyGreenLight") if get_parent() else null
+var _cached_red_light: Node = null
+var _cached_green_light: Node = null
 
-	if red and red is Light:
-		red.light_energy = 1.8 if _background_load != null or _stalling else 0.25
-	if green and green is Light:
-		green.light_energy = 1.6 if _scene_ready else 0.2
+func _update_indicator_lights() -> void:
+	if _cached_red_light == null or not is_instance_valid(_cached_red_light):
+		_cached_red_light = get_parent().get_node_or_null("LoadingRedLight") if get_parent() else null
+	if _cached_green_light == null or not is_instance_valid(_cached_green_light):
+		_cached_green_light = get_parent().get_node_or_null("ReadyGreenLight") if get_parent() else null
+
+	if _cached_red_light and _cached_red_light is Light:
+		_cached_red_light.light_energy = 1.8 if _background_load != null or _stalling else 0.25
+	if _cached_green_light and _cached_green_light is Light:
+		_cached_green_light.light_energy = 1.6 if _scene_ready else 0.2
