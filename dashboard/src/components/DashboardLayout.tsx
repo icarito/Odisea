@@ -97,34 +97,49 @@ const StatusIndicator: React.FC<{ isConnected: boolean; runningActions: RunningA
       </button>
 
       {open && publishing && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-64 max-w-[80vw] border-4 border-black bg-bg-card shadow-[4px_4px_0px_0px_black]">
-          <div className="border-b-2 border-black px-3 py-1.5 text-[0.625rem] font-black uppercase tracking-widest text-warning">
-            Acciones en curso ({runningActions.length})
-          </div>
-          <ul className="max-h-64 overflow-y-auto">
-            {runningActions.map((run) => (
-              <li key={run.id} className="border-b border-black/40 last:border-b-0">
-                <a
-                  href={run.html_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between gap-2 px-3 py-2 text-[0.625rem] hover:bg-bg-primary"
-                >
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <Loader2 size={11} className="shrink-0 animate-spin text-warning" />
-                    <span className="min-w-0">
-                      <span className="block truncate font-bold text-text-primary">{run.name}</span>
-                      <span className="text-text-muted">
-                        {run.status === 'queued' ? 'en cola' : 'ejecutando'}{fmt(run.created_at) ? ` · ${fmt(run.created_at)}` : ''}
+        <>
+          {/* Mobile: dim backdrop so the panel reads as a sheet, not a clipped
+              dropdown. Tapping it closes. Hidden on sm+ (anchored dropdown). */}
+          <div
+            className="fixed inset-0 z-40 bg-black/40 sm:hidden"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          {/* On mobile the panel is pinned across the viewport (insets) just below
+              the header; on sm+ it anchors to the indicator as a dropdown. */}
+          <div
+            className="fixed inset-x-3 top-16 z-50 border-4 border-black bg-bg-card shadow-[4px_4px_0px_0px_black]
+                       sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64"
+            role="menu"
+          >
+            <div className="border-b-2 border-black px-3 py-1.5 text-[0.625rem] font-black uppercase tracking-widest text-warning">
+              Acciones en curso ({runningActions.length})
+            </div>
+            <ul className="max-h-[60vh] overflow-y-auto sm:max-h-64">
+              {runningActions.map((run) => (
+                <li key={run.id} className="border-b border-black/40 last:border-b-0">
+                  <a
+                    href={run.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between gap-2 px-3 py-2 text-[0.625rem] hover:bg-bg-primary"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Loader2 size={11} className="shrink-0 animate-spin text-warning" />
+                      <span className="min-w-0">
+                        <span className="block truncate font-bold text-text-primary">{run.name}</span>
+                        <span className="text-text-muted">
+                          {run.status === 'queued' ? 'en cola' : 'ejecutando'}{fmt(run.created_at) ? ` · ${fmt(run.created_at)}` : ''}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                  <ExternalLink size={11} className="shrink-0 text-accent" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+                    <ExternalLink size={11} className="shrink-0 text-accent" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
       )}
     </div>
   );

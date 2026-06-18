@@ -1106,7 +1106,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // (FD-223) that shows the heatmapSummary cards instead of a top-level tab.
   const [heatmapView, setHeatmapView] = useState<'scenes' | 'map' | 'stats'>('scenes');
   // History tab mobile pane toggle (session list vs playback), mirrors heatmap.
-  const [historyMobileView, setHistoryMobileView] = useState<'list' | 'hotzones' | 'player'>('list');
+  const [historyMobileView, setHistoryMobileView] = useState<'list' | 'hotzones' | 'versions' | 'player'>('list');
 
   // Available scenes (fetched from backend, not hardcoded)
   const [scenes, setScenes] = useState<string[]>([]);
@@ -2717,6 +2717,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </button>
             <button
               type="button"
+              onClick={() => setHistoryMobileView('versions')}
+              className={`subtab-btn ${historyMobileView === 'versions' ? 'subtab-btn-active' : ''}`}
+            >
+              Versiones
+            </button>
+            <button
+              type="button"
               onClick={() => setHistoryMobileView('player')}
               disabled={!selectedSession}
               className={`subtab-btn ${historyMobileView === 'player' ? 'subtab-btn-active' : ''}`}
@@ -2752,6 +2759,22 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   onPlayHotzone={handlePlayHotzone}
                   onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
                   onShowOnMap={handleShowHotzoneOnMap}
+                />
+              </div>
+            </RetroCard>
+
+            {/* Mobile-only versions pane: git history + CI badges + deployments,
+                with filtered per-version performance stats. */}
+            <RetroCard title="Versiones & Deployments" className={`min-h-0 overflow-hidden xl:hidden ${historyMobileView === 'versions' ? '' : 'hidden'}`}>
+              <div className="h-full overflow-y-auto">
+                <DeploymentHistory
+                  sessions={filteredDashboardSessions}
+                  commits={commits}
+                  workflowRuns={workflowRuns}
+                  deployments={deployments}
+                  latestPublished={health?.latest_published}
+                  dashboardVersion={DASHBOARD_BUILD_VERSION || health?.dashboard_version}
+                  dashboardDeployedAt={health?.dashboard_deployed_at}
                 />
               </div>
             </RetroCard>
