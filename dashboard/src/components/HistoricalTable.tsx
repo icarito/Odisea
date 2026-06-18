@@ -1,12 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Tag, Download, Play } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
 import { getPlatform } from '../lib/filters';
 import { buildLabel } from '../lib/buildLabels';
 
+// One key/value cell used inside the expanded session-detail grid.
+const SessionMeta = ({ label, value }: { label: string; value: ReactNode }) => (
+  <div className="flex min-w-0 flex-col">
+    <span className="text-[0.5rem] uppercase tracking-wide text-text-muted">{label}</span>
+    <span className="truncate text-[0.625rem] text-text-primary">{value}</span>
+  </div>
+);
+
 export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, onEditTag, hotzonesBySession, onDownloadHotzone, onPlayHotzone }: { sessions: any[], onSelectSession: (s: any) => void, selectedSessionId?: string | null, onEditTag?: (playerId: string) => void, hotzonesBySession?: Record<string, any[]>, onDownloadHotzone?: (hotzoneId: string, label?: string) => void, onPlayHotzone?: (hotzoneId: string) => void }) => {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [sortKey, setSortKey] = useState<'date' | 'fps'>('date');
+  // Per-row expand state (in-place metadata detail). Keyed by session id|idx so
+  // it survives re-sorts; the chevron toggles it without opening the replay.
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
   // Ticks every second so live-session uptime counts up in real time.
   const [nowSec, setNowSec] = useState(() => Date.now() / 1000);
   useEffect(() => {
@@ -108,16 +119,20 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
             const label = s.display_name || '';
             const location = [s.city, s.country_code || s.country].filter(Boolean).join(', ');
             const sessionHotzones = (s.session_id && hotzonesBySession?.[s.session_id]) || [];
+            const rowKey = `${s.session_id || 'session'}-${idx}`;
+            const isExpanded = expandedRow === rowKey;
+            const plat = getPlatform(s);
+            const platMeta = plat ? PLATFORM_META[plat] : undefined;
             return (
+              <div key={rowKey} className="flex flex-col">
               <div
-                key={`${s.session_id || 'session'}-${idx}`}
                 role="button"
                 tabIndex={0}
                 onClick={() => onSelectSession(s)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSession(s); } }}
                 className={`flex w-full cursor-pointer items-center gap-3 border-2 p-3 text-left shadow-[2px_2px_0px_0px_black] transition-colors sm:p-4 ${
                   isSelected ? 'border-accent bg-accent/10' : 'border-black bg-bg-card hover:bg-accent/5'
-                }`}
+                } ${isExpanded ? 'border-b-0 shadow-none' : ''}`}
               >
                 {s.live ? (
                   <span className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-success shadow-[0_0_8px_rgba(63,185,80,0.6)]" title="Live" />
@@ -214,7 +229,39 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                     <Tag size={14} />
                   </button>
                 )}
-                <ChevronRight size={18} className="shrink-0 text-text-muted" />
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setExpandedRow(isExpanded ? null : rowKey); }}
+                  className="shrink-0 border-2 border-black bg-bg-card p-1 text-text-muted hover:bg-accent hover:text-black"
+                  title={isExpanded ? 'Ocultar detalle' : 'Ver detalle'}
+                  aria-expanded={isExpanded}
+                  aria-label={isExpanded ? 'Ocultar detalle de la sesión' : 'Ver detalle de la sesión'}
+                >
+                  {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                </button>
+              </div>
+              {isExpanded && (
+                <div className={`border-2 border-t-0 bg-bg-primary/40 px-3 py-2 sm:px-4 ${isSelected ? 'border-accent' : 'border-black'}`}>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3">
+                    <SessionMeta label="Escena(s)" value={scenesVisited} />
+                    <SessionMeta label="Plataforma" value={platMeta?.label || plat || 'unknown'} />
+                    <SessionMeta label="Avg FPS" value={avgFps.toFixed(1)} />
+                    <SessionMeta
+                      label={s.live ? 'Uptime' : 'Duración'}
+                      value={s.live
+                        ? formatDuration(Math.max(0, nowSec - (Number(s.start_time) || nowSec)))
+                        : formatDuration(Number(s.duration) || 0)}
+                    />
+                    <SessionMeta label="Inicio" value={formatDate(Number(s.start_time) || 0)} />
+                    <SessionMeta label="Build" value={official ? 'official' : 'canary'} />
+                    {versionLabel && <SessionMeta label="Versión" value={versionLabel} />}
+                    {location && <SessionMeta label="Ubicación" value={location} />}
+                    {s.player_id && <SessionMeta label="Player ID" value={s.player_id} />}
+                    {s.session_id && <SessionMeta label="Sesión" value={String(s.session_id).slice(0, 12)} />}
+                    {sessionHotzones.length > 0 && <SessionMeta label="Hotzones" value={sessionHotzones.length} />}
+                  </div>
+                </div>
+              )}
               </div>
             );
           })}

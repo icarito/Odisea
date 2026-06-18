@@ -1377,6 +1377,31 @@ class OdiseaCentral:
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM hotzones ORDER BY timestamp DESC LIMIT 100")
                 rows = [dict(row) for row in cursor.fetchall()]
+
+                # Recover the scene for captures uploaded without an X-Scene
+                # header: pick the heartbeat scene closest in time within the
+                # same session. The scene IS known (the player was somewhere),
+                # so we backfill it instead of leaving it "desconocida".
+                for row in rows:
+                    if row.get("scene"):
+                        continue
+                    sid = row.get("session_id")
+                    ts = row.get("timestamp")
+                    if not sid or ts is None:
+                        continue
+                    cursor.execute(
+                        """
+                        SELECT scene FROM heartbeats
+                        WHERE session_id = ? AND scene IS NOT NULL AND scene != ''
+                        ORDER BY ABS(timestamp - ?) ASC
+                        LIMIT 1
+                        """,
+                        (sid, ts),
+                    )
+                    hit = cursor.fetchone()
+                    if hit and hit["scene"]:
+                        row["scene"] = hit["scene"]
+
                 conn.close()
                 return rows
 

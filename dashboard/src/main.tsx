@@ -32,17 +32,15 @@ function installDashboardOrientationLock() {
 
 installDashboardOrientationLock()
 
-// PWA detection — add .pwa-mode class when running as standalone
+// PWA detection — add .pwa-mode class when running as standalone.
+// NOTE: we intentionally do NOT trap `popstate` here anymore. The old trap
+// re-pushed state on every back press to keep the PWA from exiting, but it
+// also defeated all in-app back navigation. The app now drives history via
+// the URL (`?tab=`/`?player=`), and only guards the *root* entry so the back
+// button doesn't immediately exit the PWA from the home tab (see App.tsx).
 const isPWA = window.matchMedia('(display-mode: standalone)').matches
 if (isPWA) {
   document.body.classList.add('pwa-mode')
-  // Keep the back button from exiting the PWA on the home screen
-  window.history.pushState({ noBackExitsApp: true }, '')
-  window.addEventListener('popstate', (event) => {
-    if (event.state && (event.state as any).noBackExitsApp) {
-      window.history.pushState({ noBackExitsApp: true }, '')
-    }
-  })
 }
 
 // Register the service worker and auto-reload when a new version takes over.

@@ -28,6 +28,7 @@ import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { HotzonePlayerModal, prefetchHotzoneEngine } from './components/HotzonePlayerModal';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
+import { useUrlNavigation } from './hooks/useUrlNavigation';
 import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone, getHotzoneDownloadLink } from './api';
 import {
   KNOWN_PLATFORMS,
@@ -237,7 +238,15 @@ const HotzoneRow = ({
   const [expanded, setExpanded] = useState(false);
   const label = name || hz.display_name || String(hz.player_id || '').slice(0, 8);
   const when = hz.timestamp ? formatDateTime(Number(hz.timestamp)) : '';
-  const scene = hz.scene || 'Escena desconocida';
+  // Prefer the scene the game stamped on the capture; when that header was
+  // missing fall back to the owning session's scene(s) (the last useful one),
+  // so a known scene isn't shown as "desconocida".
+  const sessionScene = (() => {
+    if (isUsefulSceneName(hz.scene)) return hz.scene as string;
+    const visited = session ? sessionScenes(session).filter(isUsefulSceneName) : [];
+    return visited.length ? visited[visited.length - 1] : null;
+  })();
+  const scene = sessionScene || 'Escena desconocida';
   const dur = typeof hz.duration_sec === 'number'
     ? hz.duration_sec
     : (typeof hz.capture_duration === 'number' ? hz.capture_duration : null);
@@ -976,12 +985,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [showTagEditor, setShowTagEditor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Read query params on mount for deep-link
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const pid = params.get('player');
-    if (pid) setFocusPlayerId(pid);
+  // Keep the active tab + focused player in sync with the browser URL/history
+  // so the back/forward buttons navigate between views (and deep links to
+  // ?tab=/?player= still work). On a back/forward press we restore both pieces
+  // of state from the URL.
+  const onUrlPopState = useCallback((state: { tab: Tab; player: string | null }) => {
+    setActiveTab(state.tab);
+    setFocusPlayerId(state.player);
+    // Closing the selection on back should also drop any selection-scoped UI.
+    if (!state.player) {
+      setSelectedPlayerId(null);
+      setShowTagEditor(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useUrlNavigation({ tab: activeTab, player: focusPlayerId }, onUrlPopState);
 
   // Live tab view toggle: dashboard, 2D birdseye map, or 3D perspective.
   const [liveView, setLiveView] = useState<'dashboard' | 'birdseye' | '3d'>('dashboard');
@@ -1801,14 +1819,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     : [];
 
   const clearPlayerSelection = () => {
+    // Dropping focusPlayerId lets useUrlNavigation strip ?player= from the URL
+    // (and push a history entry), so we don't touch history here directly.
     setSelectedPlayerId(null);
     setFocusPlayerId(null);
     setFollowPlayer(false);
     setShowTagEditor(false);
     setBirdseyeDetailId(null);
-    const url = new URL(window.location.href);
-    url.searchParams.delete('player');
-    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
   };
 
   // The 3D viewport element, reused inline and inside the fullscreen overlay.
@@ -2337,7 +2354,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               onSelectPlayer={(playerId) => {
                 setFocusPlayerId(playerId);
                 setShowTagEditor(true);
-                window.history.replaceState(null, '', `?player=${encodeURIComponent(playerId)}`);
               }}
             />
           </Suspense>
@@ -2453,6 +2469,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   {heatmapHotzones.slice(0, 8).map((hz) => {
                     const label = hz.display_name || hz.player_id || 'hotzone';
                     const ts = Number(hz.timestamp || 0);
+                    const dur = typeof hz.duration_sec === 'number'
+                      ? hz.duration_sec
+                      : (typeof hz.capture_duration === 'number' ? hz.capture_duration : null);
+                    const frames = hz.frame_count || null;
+                    // The overlay list is scoped to one scene, so surface the
+                    // capture's own metadata (duration · frames · trigger) that
+                    // distinguishes one ghost from another within that scene.
+                    const meta = [
+                      hz.trigger_type || 'auto',
+                      dur != null ? `${Math.round(dur)}s` : null,
+                      frames ? `${frames}f` : null,
+                    ].filter(Boolean).join(' · ');
                     return (
                       <div
                         key={hz.id}
@@ -2465,8 +2493,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                           className="flex min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1 text-left hover:bg-accent hover:text-black"
                           title="Reproducir captura"
                         >
-                          <span className="min-w-0 truncate">
-                            {label} · {hz.trigger_type || 'auto'}
+                          <span className="flex min-w-0 flex-col">
+                            <span className="truncate">{label}</span>
+                            <span className="truncate text-[0.5625rem] font-normal text-text-muted">{meta}</span>
                           </span>
                           <span className="flex shrink-0 items-center gap-1 text-[0.5625rem]">
                             {ts ? new Date(ts * 1000).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : ''}

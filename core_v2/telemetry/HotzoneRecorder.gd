@@ -566,6 +566,36 @@ func _on_upload_error():
 	var _failed_item = _upload_queue.pop_front()
 	_retry_timer = hotzone_cooldown
 
+# Rebuild an upload-queue item for a pending .bin by reading back the metadata
+# that was serialized into the blob (scene, grid/world pos, trigger, duration,
+# frames). Falls back to empty/unknown only if the blob can't be parsed, so a
+# rescanned capture still uploads with its real scene instead of "desconocida".
+func _pending_item_from_blob(full_path: String) -> Dictionary:
+	var item := {"path": full_path, "trigger": "unknown", "scene": "", "grid_x": null, "grid_z": null, "capture_duration": 0.0, "frame_count": 0}
+	var f = File.new()
+	if f.open(full_path, File.READ) != OK:
+		return item
+	# Layout: [u32 magic][var2bytes(snapshot dict)]
+	var magic = f.get_32()
+	var rest = f.get_buffer(f.get_len() - 4)
+	f.close()
+	if magic != BINARY_MAGIC:
+		return item
+	var snap = bytes2var(rest)
+	if typeof(snap) != TYPE_DICTIONARY:
+		return item
+	item["scene"] = snap.get("scene", "")
+	item["trigger"] = snap.get("trigger", "unknown")
+	item["capture_duration"] = snap.get("capture_duration", 0.0)
+	item["frame_count"] = snap.get("frame_count", 0)
+	# World position (pos) is what the upload sends as grid_x/grid_z; mirror the
+	# save-worker mapping so the heatmap pins it on the right cell.
+	var pos = snap.get("pos", [])
+	if typeof(pos) == TYPE_ARRAY:
+		if pos.size() > 0: item["grid_x"] = pos[0]
+		if pos.size() > 1: item["grid_z"] = pos[1]
+	return item
+
 func _scan_pending_files():
 	var dir = Directory.new()
 	if dir.open(PENDING_DIR) == OK:
@@ -580,7 +610,10 @@ func _scan_pending_files():
 						already_in = true
 						break
 				if not already_in:
-					_upload_queue.append({"path": full_path, "trigger": "unknown", "scene": "", "grid_x": null, "grid_z": null})
+					# Scene/grid/trigger were serialized into the blob; recover
+					# them here instead of uploading an empty scene (would show as
+					# "Escena desconocida" on the dashboard).
+					_upload_queue.append(_pending_item_from_blob(full_path))
 					if _upload_queue.size() >= 5: break
 			file_name = dir.get_next()
 		dir.list_dir_end()
