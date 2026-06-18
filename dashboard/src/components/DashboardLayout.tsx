@@ -79,9 +79,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-bg-primary overflow-hidden font-mono crt-effect">
-      {/* Fixed header */}
-      <header className="relative shrink-0 flex flex-col gap-2 px-3 py-2 border-b-4 border-black bg-bg-card z-30 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+    <div className="app-shell flex flex-col bg-bg-primary overflow-hidden font-mono crt-effect">
+      {/* Fixed header — top safe-area inset keeps it clear of the status bar. */}
+      <header
+        className="relative shrink-0 flex flex-col gap-2 px-3 py-2 border-b-4 border-black bg-bg-card z-30 sm:flex-row sm:items-center sm:justify-between sm:px-4"
+        style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top, 0px))' }}
+      >
         <h1 className="text-accent font-black text-sm italic leading-none tracking-tighter sm:text-base">
           <button type="button" onClick={() => setActiveTab('live')} className="hover:text-text-primary">
             <span className="block sm:inline">ODISEA</span>
@@ -152,8 +155,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </div>
       )}
 
-      {/* Fixed bottom nav */}
-      <nav className="shrink-0 border-t-4 border-black bg-bg-card z-30">
+      {/* Fixed bottom nav — bottom safe-area inset keeps it above the Android
+          navigation bar / iOS home indicator. */}
+      <nav
+        className="shrink-0 border-t-4 border-black bg-bg-card z-30"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
         <RetroTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
       </nav>
     </div>

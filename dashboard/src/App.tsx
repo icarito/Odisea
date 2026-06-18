@@ -347,26 +347,28 @@ const HotzoneRow = ({
           <HzMeta label="Tamaño" value={size || '—'} />
           <HzMeta label="Player" value={label} />
           <HzMeta label="Player ID" value={hz.player_id || '—'} />
-          <HzMeta
-            label="Grid X,Z"
-            value={grid
-              ? (onShowOnMap
-                ? (
-                  <button
-                    type="button"
-                    onClick={() => onShowOnMap(hz)}
-                    className="inline-flex items-center gap-1 text-accent underline decoration-dotted underline-offset-2 hover:text-text-primary"
-                    title="Ver en el heatmap"
-                  >
-                    <MapIcon size={10} className="shrink-0" />
-                    {grid}
-                  </button>
-                )
-                : grid)
-              : '—'}
-          />
+          <HzMeta label="Grid X,Z" value={grid || '—'} />
           <HzMeta label="Sesión" value={hz.session_id ? String(hz.session_id).slice(0, 12) : '—'} />
           <HzMeta label="Fecha" value={when || '—'} />
+          {/* "Ver en mapa" jumps to this scene on the heatmap. It depends on the
+              scene (resolvable even when the capture lacks grid coords), not on
+              grid X,Z — so it shows whenever we know the scene. */}
+          {onShowOnMap && sessionScene && (
+            <HzMeta
+              label="Heatmap"
+              value={(
+                <button
+                  type="button"
+                  onClick={() => onShowOnMap(hz)}
+                  className="inline-flex items-center gap-1 text-accent underline decoration-dotted underline-offset-2 hover:text-text-primary"
+                  title="Ver esta escena en el heatmap"
+                >
+                  <MapIcon size={10} className="shrink-0" />
+                  Ver en mapa
+                </button>
+              )}
+            />
+          )}
         </div>
         {sessionFps == null && (
           <div className="mt-2 text-[0.5rem] italic text-text-muted">

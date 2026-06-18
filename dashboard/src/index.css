@@ -104,8 +104,16 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* App root: fill the *visible* viewport only. `dvh` shrinks as the Android
+   system/navigation bars appear, so the shell never extends behind them (the
+   old `100vh`/`h-screen` overflowed under the nav icons). Safe-area insets are
+   handled inside the shell (header top, bottom nav bottom) rather than on the
+   body, so they don't double-count against this height. */
+.app-shell {
+  height: 100vh; /* fallback for engines without dvh */
+  height: 100dvh;
 }
 
 * {
