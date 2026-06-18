@@ -20,18 +20,6 @@ export type WorkflowRun = {
   html_url: string;
 };
 
-export type Deployment = {
-  id: number;
-  environment: string;
-  sha: string;
-  ref: string;
-  created_at: string;
-  // Resolved deployment state (success/failure/…) when available.
-  state?: string | null;
-  // Where it was published, if the deployment carries a target URL.
-  url?: string | null;
-};
-
 // A live (non-GitHub) published build coming from /health — the nightly/canary
 // the central server last announced.
 export type PublishedBuild = {
@@ -47,7 +35,6 @@ interface DeploymentHistoryProps {
   sessions: any[];
   commits: GitCommit[];
   workflowRuns?: WorkflowRun[];
-  deployments?: Deployment[];
   // Live published build + dashboard deploy from /health.
   latestPublished?: PublishedBuild | null;
   dashboardVersion?: string | null;
@@ -113,7 +100,6 @@ export const DeploymentHistory: React.FC<DeploymentHistoryProps> = ({
   sessions,
   commits,
   workflowRuns = [],
-  deployments = [],
   latestPublished,
   dashboardVersion,
   dashboardDeployedAt,
@@ -153,15 +139,14 @@ export const DeploymentHistory: React.FC<DeploymentHistoryProps> = ({
     return map;
   }, [orderedCommits, cleanSessions]);
 
-  // Latest CI run per workflow name, for the badge row at the top.
-  const latestRuns = useMemo(() => {
-    const byName = new Map<string, WorkflowRun>();
-    for (const run of workflowRuns) {
-      const prev = byName.get(run.name);
-      if (!prev || new Date(run.created_at) > new Date(prev.created_at)) byName.set(run.name, run);
-    }
-    return [...byName.values()];
-  }, [workflowRuns]);
+  // The few most-recent CI runs overall, for a compact "latest activity" strip.
+  // The full per-workflow outcome lives embedded in each version row below, so
+  // this stays small (3) to avoid duplicating that information.
+  const latestRuns = useMemo(() => (
+    [...workflowRuns]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3)
+  ), [workflowRuns]);
 
   // CI runs keyed by head sha, so each commit row can show its build outcome.
   const runsBySha = useMemo(() => {
@@ -178,29 +163,25 @@ export const DeploymentHistory: React.FC<DeploymentHistoryProps> = ({
 
   const runsForSha = (sha: string) => runsBySha.get(sha.slice(0, 12)) || [];
 
-  // Deployments newest-first; merge the live published build (from /health) in
-  // as a synthetic row so the "what is live right now" is visible alongside the
-  // GitHub deployment records.
+  // Only what's live right now: the published build (from /health) and the
+  // currently-served dashboard. We intentionally drop the long GitHub
+  // deployment history — that detail lives in the version rows below.
   const deployRows = useMemo(() => {
     const rows: Array<{
       key: string; environment: string; sha?: string; date: string | number | undefined;
-      state?: string | null; url?: string | null; channel?: string;
-    }> = deployments.map((d) => ({
-      key: `gh-${d.id}`, environment: d.environment, sha: d.sha,
-      date: d.created_at, state: d.state, url: d.url,
-    }));
+      state?: string | null; url?: string | null;
+    }> = [];
     if (latestPublished?.git_commit || latestPublished?.timestamp) {
-      rows.unshift({
+      rows.push({
         key: 'live-published',
         environment: latestPublished.build_channel || 'build',
         sha: latestPublished.git_commit,
         date: latestPublished.timestamp,
         state: 'live',
-        channel: latestPublished.build_channel,
       });
     }
     if (dashboardVersion || dashboardDeployedAt) {
-      rows.unshift({
+      rows.push({
         key: 'live-dashboard',
         environment: 'dashboard',
         sha: dashboardVersion || undefined,
@@ -208,30 +189,27 @@ export const DeploymentHistory: React.FC<DeploymentHistoryProps> = ({
         state: 'live',
       });
     }
-    return rows.sort((a, b) => {
-      const ta = typeof a.date === 'number' ? a.date : new Date(a.date || 0).getTime() / 1000;
-      const tb = typeof b.date === 'number' ? b.date : new Date(b.date || 0).getTime() / 1000;
-      return (tb || 0) - (ta || 0);
-    });
-  }, [deployments, latestPublished, dashboardVersion, dashboardDeployedAt]);
+    return rows;
+  }, [latestPublished, dashboardVersion, dashboardDeployedAt]);
 
   return (
     <div className="flex flex-col gap-4 p-1">
-      {/* CI status badges — latest run per workflow. */}
+      {/* Compact "latest CI activity" strip — just the most recent runs. The
+          full per-version outcome is embedded in each version row below. */}
       {latestRuns.length > 0 && (
         <div>
-          <div className="mb-1.5 text-[0.625rem] font-black uppercase tracking-widest text-accent">GitHub Actions</div>
+          <div className="mb-1.5 text-[0.625rem] font-black uppercase tracking-widest text-accent">Últimas corridas</div>
           <div className="flex flex-wrap gap-1.5">
             {latestRuns.map((run) => <RunBadge key={run.id} run={run} />)}
           </div>
         </div>
       )}
 
-      {/* Deployments with dates — live published build + GitHub deployments. */}
+      {/* What's live right now — published build + current dashboard. */}
       {deployRows.length > 0 && (
         <div>
           <div className="mb-1.5 flex items-center gap-1.5 text-[0.625rem] font-black uppercase tracking-widest text-accent">
-            <Rocket size={11} /> Deployments
+            <Rocket size={11} /> En vivo
           </div>
           <div className="flex flex-col gap-1">
             {deployRows.map((d) => (

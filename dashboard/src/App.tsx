@@ -26,11 +26,12 @@ import { RetroCard, RetroButton, CollapsibleCard } from './components/retro';
 import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { HotzonePlayerModal, prefetchHotzoneEngine } from './components/HotzonePlayerModal';
-import { DeploymentHistory, type WorkflowRun, type Deployment } from './components/DeploymentHistory';
+import { DeploymentHistory, type WorkflowRun } from './components/DeploymentHistory';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
 import { useUrlNavigation } from './hooks/useUrlNavigation';
 import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone, getHotzoneDownloadLink } from './api';
+import { idbGet, idbSet, CACHE_KEYS } from './lib/idbCache';
 import {
   KNOWN_PLATFORMS,
   getPlatform,
@@ -439,7 +440,7 @@ const HotzoneList = ({
   );
 };
 
-const HistoryOverview = ({ sessions, statsSessions, hotzones, commits, workflowRuns, deployments, latestPublished, dashboardVersion, dashboardDeployedAt, onDownloadHotzone, onDeleteHotzone, onPlayHotzone, onTagPlayer, onShowOnMap }: { sessions: any[]; statsSessions: any[]; hotzones?: any[]; commits: GitCommit[]; workflowRuns?: WorkflowRun[]; deployments?: Deployment[]; latestPublished?: any; dashboardVersion?: string | null; dashboardDeployedAt?: number | null; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void; onTagPlayer?: (playerId: string) => void; onShowOnMap?: (hz: any) => void }) => {
+const HistoryOverview = ({ sessions, statsSessions, hotzones, commits, workflowRuns, latestPublished, dashboardVersion, dashboardDeployedAt, onDownloadHotzone, onDeleteHotzone, onPlayHotzone, onTagPlayer, onShowOnMap }: { sessions: any[]; statsSessions: any[]; hotzones?: any[]; commits: GitCommit[]; workflowRuns?: WorkflowRun[]; latestPublished?: any; dashboardVersion?: string | null; dashboardDeployedAt?: number | null; onDownloadHotzone?: (hotzoneId: string, label?: string) => void; onDeleteHotzone?: (hotzoneId: string, label?: string) => void; onPlayHotzone?: (hotzoneId: string) => void; onTagPlayer?: (playerId: string) => void; onShowOnMap?: (hz: any) => void }) => {
   return (
     <div className="flex min-h-full flex-col gap-4">
       {/* Hotzone captures — performance ghosts uploaded by the game, newest first. */}
@@ -457,14 +458,13 @@ const HistoryOverview = ({ sessions, statsSessions, hotzones, commits, workflowR
         </div>
       </RetroCard>
 
-      {/* Git / deployments / versions — commit messages + CI badges + deployments
-          with dates, each version annotated with the FILTERED session stats. */}
-      <RetroCard title="Versiones & Deployments">
+      {/* Git versions — commit messages + CI badges, each version annotated with
+          the FILTERED session stats; plus a compact "what's live now" strip. */}
+      <RetroCard title="Versiones">
         <DeploymentHistory
           sessions={statsSessions}
           commits={commits}
           workflowRuns={workflowRuns}
-          deployments={deployments}
           latestPublished={latestPublished}
           dashboardVersion={dashboardVersion}
           dashboardDeployedAt={dashboardDeployedAt}
@@ -1113,18 +1113,28 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   // History State
   const [historicalSessions, setHistoricalSessions] = useState<any[]>([]);
+  // Set once the live /ghosts/sessions fetch resolves, so the IDB seed never
+  // overwrites fresher live data if it happens to arrive first.
+  const sessionsHydratedRef = useRef(false);
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [playbackData, setPlaybackData] = useState<any[]>([]);
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [serverStats, setServerStats] = useState<GhostStats>({});
   const [hotzones, setHotzones] = useState<any[]>([]);
   const [geoPlayers, setGeoPlayers] = useState<any[]>([]);
+  // Tracks whether the live fetch has replaced the IDB-seeded data yet, so we
+  // never clobber a good cached list with an empty live result on a flaky load.
+  const geoHydratedRef = useRef(false);
   const loadGeoPlayers = useCallback(() => {
     getGeoPlayers()
-      .then(setGeoPlayers)
-      .catch(() => setGeoPlayers([]));
+      .then((d) => {
+        const list = Array.isArray(d) ? d : [];
+        geoHydratedRef.current = true;
+        setGeoPlayers(list);
+        void idbSet(CACHE_KEYS.geoPlayers, list);
+      })
+      .catch(() => { /* keep whatever we have (cache or previous) */ });
   }, []);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(
     () => new Set(KNOWN_PLATFORMS.filter((platform) => platform !== 'server'))
@@ -1336,14 +1346,36 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       .catch(() => setScenes([]));
   }, []);
 
+  // Stale-while-revalidate seed: on mount, paint the last good sessions + geo
+  // players from IndexedDB instantly so the dashboard isn't blank while the live
+  // fetch runs. We only apply the seed if the live data hasn't already arrived
+  // (hydrated refs), so a fast network is never overwritten by stale cache.
+  useEffect(() => {
+    let cancelled = false;
+    void idbGet<any[]>(CACHE_KEYS.historicalSessions).then((entry) => {
+      if (cancelled || sessionsHydratedRef.current || !entry?.value?.length) return;
+      setHistoricalSessions(entry.value);
+    });
+    void idbGet<any[]>(CACHE_KEYS.geoPlayers).then((entry) => {
+      if (cancelled || geoHydratedRef.current || !entry?.value?.length) return;
+      setGeoPlayers(entry.value);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   // Keep the historical list live: refetch periodically so sessions that have
   // been persisted to SQLite appear without a manual reload. (Sessions still in
   // flight are injected from heartbeats in liveHistoricalSessions below.)
   useEffect(() => {
     const loadSessions = () => {
       getHistoricalSessions()
-        .then((d) => setHistoricalSessions(Array.isArray(d) ? d : []))
-        .catch(() => {});
+        .then((d) => {
+          const list = Array.isArray(d) ? d : [];
+          sessionsHydratedRef.current = true;
+          setHistoricalSessions(list);
+          void idbSet(CACHE_KEYS.historicalSessions, list);
+        })
+        .catch(() => { /* keep cache / previous list on failure */ });
       getGhostStats()
         .then((d) => setServerStats(d && typeof d === 'object' ? d : {}))
         .catch(() => {});
@@ -1402,25 +1434,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     // every 30s stays well within that.
     const id = window.setInterval(fetchRuns, 30000);
     return () => { cancelled = true; window.clearInterval(id); };
-  }, []);
-
-  // Deployments (with dates) — fetched once; they change far less often.
-  useEffect(() => {
-    fetch('https://api.github.com/repos/icarito/Odisea/deployments?per_page=20')
-      .then((response) => response.ok ? response.json() : [])
-      .then((data) => {
-        if (!Array.isArray(data)) { setDeployments([]); return; }
-        setDeployments(data.map((d: any) => ({
-          id: d.id,
-          environment: d.environment || 'production',
-          sha: d.sha || '',
-          ref: d.ref || '',
-          created_at: d.created_at || '',
-          url: d.payload?.web_url || d.payload?.url || null,
-          state: null,
-        })).filter((d: Deployment) => d.id));
-      })
-      .catch(() => setDeployments([]));
   }, []);
 
   // Failure notifications for the export build + pytest workflows. We toast (and
@@ -2763,15 +2776,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             </RetroCard>
 
-            {/* Mobile-only versions pane: git history + CI badges + deployments,
-                with filtered per-version performance stats. */}
-            <RetroCard title="Versiones & Deployments" className={`min-h-0 overflow-hidden xl:hidden ${historyMobileView === 'versions' ? '' : 'hidden'}`}>
+            {/* Mobile-only versions pane: git history + CI badges, with filtered
+                per-version performance stats. */}
+            <RetroCard title="Versiones" className={`min-h-0 overflow-hidden xl:hidden ${historyMobileView === 'versions' ? '' : 'hidden'}`}>
               <div className="h-full overflow-y-auto">
                 <DeploymentHistory
                   sessions={filteredDashboardSessions}
                   commits={commits}
                   workflowRuns={workflowRuns}
-                  deployments={deployments}
                   latestPublished={health?.latest_published}
                   dashboardVersion={DASHBOARD_BUILD_VERSION || health?.dashboard_version}
                   dashboardDeployedAt={health?.dashboard_deployed_at}
@@ -2783,7 +2795,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className={`min-h-0 overflow-y-auto ${historyMobileView !== 'player' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
-                  <HistoryOverview sessions={historySessionsWithGeo} statsSessions={filteredDashboardSessions} hotzones={hotzones} commits={commits} workflowRuns={workflowRuns} deployments={deployments} latestPublished={health?.latest_published} dashboardVersion={DASHBOARD_BUILD_VERSION || health?.dashboard_version} dashboardDeployedAt={health?.dashboard_deployed_at} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }} onShowOnMap={handleShowHotzoneOnMap} />
+                  <HistoryOverview sessions={historySessionsWithGeo} statsSessions={filteredDashboardSessions} hotzones={hotzones} commits={commits} workflowRuns={workflowRuns} latestPublished={health?.latest_published} dashboardVersion={DASHBOARD_BUILD_VERSION || health?.dashboard_version} dashboardDeployedAt={health?.dashboard_deployed_at} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }} onShowOnMap={handleShowHotzoneOnMap} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">

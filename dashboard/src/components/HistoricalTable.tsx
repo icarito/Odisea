@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Tag, Download, Play } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
 import { getPlatform } from '../lib/filters';
@@ -36,6 +36,39 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
       return sortDir === 'desc' ? bValue - aValue : aValue - bValue;
     });
   }, [sessions, sortDir, sortKey]);
+
+  // Infinite scroll: render a growing window of rows so a long history doesn't
+  // mount hundreds of nodes at once. A sentinel at the bottom grows the window
+  // via IntersectionObserver as the user scrolls.
+  const PAGE = 30;
+  const [visibleCount, setVisibleCount] = useState(PAGE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Reset the window to the top when the sort/filter changes. Tracked in state
+  // (React's "adjust state during render" pattern) so it costs no extra render
+  // and stays clear of effect/ref lint rules.
+  const windowSignature = `${sortKey}|${sortDir}|${sessions.length}`;
+  const [lastSignature, setLastSignature] = useState(windowSignature);
+  if (lastSignature !== windowSignature) {
+    setLastSignature(windowSignature);
+    setVisibleCount(PAGE);
+  }
+  const visibleSessions = useMemo(
+    () => sortedSessions.slice(0, visibleCount),
+    [sortedSessions, visibleCount],
+  );
+  const hasMore = visibleCount < sortedSessions.length;
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        setVisibleCount((c) => Math.min(c + PAGE, sortedSessions.length));
+      }
+    }, { rootMargin: '200px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, sortedSessions.length]);
 
   const formatDate = (ts: number) => {
     if (!ts) return 'Unknown date';
@@ -109,7 +142,7 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
         </div>
       ) : (
         <div className="flex flex-col gap-2 border-x-4 border-b-4 border-black bg-bg-primary/40 p-2 sm:p-3">
-          {sortedSessions.map((s, idx) => {
+          {visibleSessions.map((s, idx) => {
             const avgFps = Number(s.avg_fps) || 0;
             const tone = perfTone(avgFps);
             const scenesVisited = sceneCount(s.scenes_visited);
@@ -265,6 +298,12 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
               </div>
             );
           })}
+          {/* Infinite-scroll sentinel + remaining count. */}
+          {hasMore && (
+            <div ref={sentinelRef} className="py-2 text-center text-[0.625rem] uppercase tracking-widest text-text-muted">
+              Cargando más… ({sortedSessions.length - visibleCount} restantes)
+            </div>
+          )}
         </div>
       )}
     </div>
