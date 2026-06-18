@@ -5,7 +5,7 @@ interface CollapsibleCardProps {
   children: React.ReactNode;
   title: string;
   count?: number;
-  storageKey: string;
+  storageKey?: string;
   defaultOpen?: boolean;
   className?: string;
   resizable?: boolean;
@@ -16,7 +16,7 @@ export const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
   children,
   title,
   count,
-  storageKey,
+  storageKey = '',
   defaultOpen = true,
   className = '',
   resizable = false,

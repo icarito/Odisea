@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlayerHealthCard } from './PlayerHealthCard';
+
 import { RetroButton } from './retro';
 import { Tag, MapPin, Monitor } from 'lucide-react';
 

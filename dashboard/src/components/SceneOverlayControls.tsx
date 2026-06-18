@@ -12,7 +12,7 @@ interface SceneOverlayControlsProps {
 
 export const SceneOverlayControls: React.FC<SceneOverlayControlsProps> = ({ active, onChange }) => {
   const toggle = (key: string) => {
-    onChange({ ...active, [key]: !active[key] });
+    onChange({ ...active, [key]: !(active as any)[key] });
   };
 
   return (

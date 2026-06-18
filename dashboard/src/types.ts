@@ -45,7 +45,7 @@ export type HeartbeatMap = Record<string, Heartbeat>;
 
 // Top-level dashboard tabs. Shared so components (e.g. Viewport3D) can type
 // their setActiveTab prop against the same union instead of a loose `string`.
-export type Tab = 'live' | 'heatmap' | 'history' | 'mapa';
+export type Tab = 'dashboard' | 'scenes' | 'players' | 'analysis' | 'replays' | 'live' | 'heatmap' | 'history' | 'mapa';
 
 export interface Alert {
   id: string;
@@ -70,4 +70,11 @@ export interface GeoPlayer {
   hits?: number;
   historical?: boolean;
   player_count?: number;
+}
+
+export interface Tag {
+  id: string;
+  label: string;
+  category?: string;
+  color?: string;
 }

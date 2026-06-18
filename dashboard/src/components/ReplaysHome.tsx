@@ -1,7 +1,7 @@
 import React from 'react';
 import { HotzoneInbox } from './HotzoneInbox';
 import { HistoricalTable } from './HistoricalTable';
-import { CollapsibleCard } from './retro';
+// CollapsibleCard removed - unused
 
 interface ReplaysHomeProps {
   hotzones: any[];

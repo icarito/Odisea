@@ -6,8 +6,7 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  ReferenceArea
+  ResponsiveContainer
 } from 'recharts';
 import { BuildMarkersLayer } from './BuildMarkersLayer';
 

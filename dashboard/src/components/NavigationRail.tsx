@@ -1,6 +1,6 @@
 import React from 'react';
 import { LayoutDashboard, Layers, Users, AreaChart, PlayCircle } from 'lucide-react';
-import { Tab } from '../types';
+import type { Tab } from '../types';
 
 interface NavigationRailProps {
   activeTab: Tab;

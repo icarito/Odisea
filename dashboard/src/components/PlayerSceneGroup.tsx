@@ -1,5 +1,4 @@
 import React from 'react';
-import { PlayerCard } from './PlayerCard';
 
 interface PlayerSceneGroupProps {
   scene: string;
@@ -34,10 +33,10 @@ export const PlayerSceneGroup: React.FC<PlayerSceneGroupProps> = ({
             }`}
           >
             {/* We might need to extend PlayerCard or use a new variant */}
-            <PlayerCard 
-              player={player}
-              active={selectedPlayerId === player.player_id}
-            />
+            <div className="border-2 border-black bg-bg-card p-3 cursor-pointer hover:bg-accent/10" onClick={() => onSelectPlayer && onSelectPlayer(player.player_id)}>
+              <span className="text-[0.625rem] font-black">{player.display_name || player.player_id.slice(0, 8)}</span>
+              <span className="ml-2 text-[0.5rem] text-text-muted">{player.scene}</span>
+            </div>
           </div>
         ))}
       </div>

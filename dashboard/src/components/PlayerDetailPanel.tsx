@@ -1,6 +1,6 @@
 import React from 'react';
-import { X, ExternalLink, Tag as TagIcon, History, PlayCircle } from 'lucide-react';
 import { PlayerHealthCard } from './PlayerHealthCard';
+import { X, Clock, Tag as TagIcon, PlayCircle } from 'lucide-react';
 import { RetroButton } from './retro';
 
 interface PlayerDetailPanelProps {
@@ -8,7 +8,7 @@ interface PlayerDetailPanelProps {
   history: any[];
   onClose: () => void;
   onTag: () => void;
-  onHistory: () => void;
+  onViewHistory: () => void;
   onReplay: () => void;
 }
 
@@ -17,7 +17,7 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
   history, 
   onClose,
   onTag,
-  onHistory,
+  onViewHistory: onHistory,
   onReplay
 }) => {
   if (!player) return null;
@@ -73,7 +73,7 @@ export const PlayerDetailPanel: React.FC<PlayerDetailPanelProps> = ({
             <TagIcon size={12} /> TAGS & NOTES
           </RetroButton>
           <RetroButton variant="secondary" onClick={onHistory} className="w-full justify-start gap-2 text-[0.625rem]">
-            <History size={12} /> FULL HISTORY
+            <Clock size={12} /> FULL HISTORY
           </RetroButton>
           <RetroButton variant="secondary" onClick={onReplay} className="w-full justify-start gap-2 text-[0.625rem]">
             <PlayCircle size={12} /> OPEN REPLAY

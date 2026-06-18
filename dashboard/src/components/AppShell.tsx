@@ -1,9 +1,9 @@
 import React from 'react';
-import { Settings, Users, LogOut, Activity } from 'lucide-react';
+import { Settings, Users, LogOut } from 'lucide-react';
 import { NavigationRail } from './NavigationRail';
 import { GlobalFilterBar } from './GlobalFilterBar';
 import { BreadcrumbNav } from './BreadcrumbNav';
-import { Tab } from '../types';
+import type { Tab } from '../types';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -44,7 +44,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   headerControls,
   settingsPanel,
   showSettings,
-  dashboardVersion,
+  dashboardVersion: _dashboardVersion,
 }) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
