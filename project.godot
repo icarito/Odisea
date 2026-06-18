@@ -2260,7 +2260,7 @@ _global_script_class_icons={
 
 config/name="Odisea"
 config/version="v0.3.2"
-run/main_scene="res://scenes/Menu.tscn"
+run/main_scene="res://core_v2/bootstrap/Boot.tscn"
 boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
@@ -2272,8 +2272,6 @@ output_latency.web=100
 [autoload]
 
 Constants="*res://core_v2/Constants.gd"
-SettingsManager="*res://core_v2/autoloads/SettingsManager.gd"
-PauseManager="*res://core_v2/autoloads/PauseManager.gd"
 VersionChecker="*res://core_v2/systems/VersionChecker.gd"
 DomeRegistry="*res://core_v2/data/DomeRegistry.gd"
 AudioManager="*res://core_v2/autoloads/AudioManager.gd"
@@ -2301,6 +2299,8 @@ AirlockManager="*res://core_v2/autoloads/AirlockManager.gd"
 ANNAV2="*res://core_v2/telemetry/ANNAV2.gd"
 HotzoneRecorder="*res://core_v2/telemetry/HotzoneRecorder.gd"
 VersionNotification="*res://core_v2/ui/VersionNotification.tscn"
+SettingsManager="*res://core_v2/autoloads/SettingsManager.gd"
+PauseManager="*res://core_v2/autoloads/PauseManager.gd"
 
 [debug]
 
@@ -2309,6 +2309,8 @@ debug/gdscript/warnings/exclude_addons=true
 
 [display]
 
+window/size/width=800
+window/size/height=600
 window/size/fullscreen=true
 window/size/test_width=1280
 window/size/test_height=720

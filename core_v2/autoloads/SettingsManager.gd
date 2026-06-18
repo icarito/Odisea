@@ -11,7 +11,11 @@ var sfx_volume = 1.0
 var invert_y = false
 var vibration = true
 var fullscreen = true
-var resolution = Vector2(1920, 1080)
+# Internal render resolution. The project uses stretch mode "viewport", so the
+# game renders to this base size and is stretched to fill the window. Lower
+# values give the retro/CRT look and cost much less to render, independent of
+# window size or fullscreen.
+var render_resolution = Vector2(800, 600)
 var vsync = true
 
 func _ready():
@@ -32,7 +36,7 @@ func load_settings():
 	vibration = _config.get_value("input", "vibration", true)
 
 	fullscreen = _config.get_value("display", "fullscreen", true)
-	resolution = _config.get_value("display", "resolution", Vector2(1920, 1080))
+	render_resolution = _config.get_value("display", "render_resolution", Vector2(800, 600))
 	vsync = _config.get_value("display", "vsync", true)
 
 func save_settings():
@@ -44,7 +48,7 @@ func save_settings():
 	_config.set_value("input", "vibration", vibration)
 
 	_config.set_value("display", "fullscreen", fullscreen)
-	_config.set_value("display", "resolution", resolution)
+	_config.set_value("display", "render_resolution", render_resolution)
 	_config.set_value("display", "vsync", vsync)
 
 	var err = _config.save(SETTINGS_PATH)
@@ -67,9 +71,18 @@ func _set_bus_volume(bus_name: String, volume_linear: float):
 
 func apply_display_settings():
 	OS.window_fullscreen = fullscreen
-	if not fullscreen:
-		OS.window_size = resolution
-		# Center window
-		var screen_size = OS.get_screen_size()
-		OS.window_position = (screen_size - resolution) * 0.5
 	OS.vsync_enabled = vsync
+	apply_render_resolution()
+
+# Apply the internal render resolution. With stretch mode "viewport" the game
+# renders to render_resolution and the engine stretches it to the window, so
+# this works the same in fullscreen, windowed, web and Android.
+func apply_render_resolution():
+	var tree = get_tree()
+	if tree == null:
+		return
+	tree.set_screen_stretch(
+		SceneTree.STRETCH_MODE_VIEWPORT,
+		SceneTree.STRETCH_ASPECT_EXPAND,
+		render_resolution
+	)

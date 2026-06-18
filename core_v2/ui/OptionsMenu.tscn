@@ -137,7 +137,7 @@ rect_min_size = Vector2( 0, 40 )
 margin_top = 303.0
 margin_right = 283.0
 margin_bottom = 326.0
-text = "Resolución"
+text = "Resolución interna"
 
 [node name="ResolutionOption" type="OptionButton" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
 margin_left = 303.0

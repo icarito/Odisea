@@ -10,13 +10,15 @@ onready var resolution_option = find_node("ResolutionOption")
 onready var vsync_option = find_node("VsyncOption")
 onready var back_button = find_node("Back")
 
-var resolutions = [
+# Internal render resolutions (the game renders here and is stretched to the
+# window). Lower = more retro/CRT look and better performance.
+var render_resolutions = [
+	Vector2(640, 480),
+	Vector2(800, 600),
+	Vector2(960, 540),
 	Vector2(1280, 720),
-	Vector2(1366, 768),
 	Vector2(1600, 900),
-	Vector2(1920, 1080),
-	Vector2(2560, 1440),
-	Vector2(3840, 2160)
+	Vector2(1920, 1080)
 ]
 
 func _ready():
@@ -26,13 +28,13 @@ func _ready():
 	back_button.grab_focus()
 
 func _setup_options():
-	resolution_option.clear()
-	for res in resolutions:
-		resolution_option.add_item("%dx%d" % [res.x, res.y])
-
 	fullscreen_option.clear()
 	fullscreen_option.add_item("Ventana")
 	fullscreen_option.add_item("Pantalla Completa")
+
+	resolution_option.clear()
+	for res in render_resolutions:
+		resolution_option.add_item("%dx%d" % [res.x, res.y])
 
 	vsync_option.clear()
 	vsync_option.add_item("Desactivado")
@@ -51,9 +53,9 @@ func _load_ui_values():
 	fullscreen_option.selected = 1 if sm.fullscreen else 0
 	vsync_option.selected = 1 if sm.vsync else 0
 
-	# Select resolution in dropdown
-	for i in range(resolutions.size()):
-		if resolutions[i] == sm.resolution:
+	# Select the active render resolution in the dropdown.
+	for i in range(render_resolutions.size()):
+		if render_resolutions[i] == sm.render_resolution:
 			resolution_option.selected = i
 			break
 
@@ -105,8 +107,8 @@ func _on_fullscreen_selected(index):
 func _on_resolution_selected(index):
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm:
-		sm.resolution = resolutions[index]
-		sm.apply_display_settings()
+		sm.render_resolution = render_resolutions[index]
+		sm.apply_render_resolution()
 
 func _on_vsync_selected(index):
 	var sm = get_node_or_null("/root/SettingsManager")
