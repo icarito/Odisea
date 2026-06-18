@@ -6,7 +6,7 @@ import * as THREE from 'three';
 // Ref type for drei's <OrbitControls> (its impl instance), without depending on
 // three-stdlib being installed.
 type OrbitControlsImpl = React.ElementRef<typeof OrbitControls>;
-import { ChevronDown, ChevronUp, Maximize2, Minimize2, Download, Play, X, Crosshair } from 'lucide-react';
+import { ChevronDown, ChevronUp, Maximize2, Minimize2, Download, Play, X } from 'lucide-react';
 import { useSceneGeometryStream } from '../hooks/useSceneGeometry';
 
 interface HeatmapCell {
@@ -306,39 +306,19 @@ const HotzoneMarkers: React.FC<{
   );
 };
 
-// Camera/target rig. Centers on the heat data once on first load (and re-centers
-// while "follow" is on and the center actually moves), but otherwise leaves the
-// OrbitControls target alone so the user can pan freely. A pan/rotate drag drops
-// follow (mirrors the globe view); wheel/pinch zoom keeps it.
+// Camera/target rig. Centers on the heat data once on first mount,
+// then leaves the OrbitControls alone so the user can pan freely.
 const CameraRig: React.FC<{
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
   center: [number, number, number];
   radius: number;
-  follow: boolean;
-  onUserInteract: () => void;
-}> = ({ controlsRef, center, radius, follow, onUserInteract }) => {
+}> = ({ controlsRef, center, radius }) => {
   const centeredRef = useRef(false);
-  // Track the last center we framed so we only re-center when it truly changes.
-  const lastCenterRef = useRef<[number, number, number] | null>(null);
 
-  // Drop follow on a pan/rotate drag (not on zoom), like the globe.
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
-    const onStart = () => onUserInteract();
-    controls.addEventListener('start', onStart);
-    return () => { controls.removeEventListener('start', onStart); };
-  }, [controlsRef, onUserInteract]);
-
-  // Frame the heat data on first mount and whenever follow re-centers it.
-  useEffect(() => {
-    const controls = controlsRef.current;
-    if (!controls) return;
-    if (centeredRef.current && !follow) return;
-
-    const last = lastCenterRef.current;
-    const moved = !last || last[0] !== center[0] || last[2] !== center[2];
-    if (centeredRef.current && !moved) return;
+    if (centeredRef.current) return;
 
     const cam = controls.object as THREE.PerspectiveCamera;
     controls.target.set(center[0], 0, center[2]);
@@ -346,8 +326,7 @@ const CameraRig: React.FC<{
     controls.update();
 
     centeredRef.current = true;
-    lastCenterRef.current = center;
-  }, [controlsRef, center, radius, follow]);
+  }, [controlsRef, center, radius]);
 
   return null;
 };
@@ -360,17 +339,10 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
   const [expandedHotzoneId, setExpandedHotzoneId] = useState<string | null>(null);
   const [controlsOpen, setControlsOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // Camera "follow": when on, the rig keeps the heat data framed; a pan/rotate
-  // drag turns it off so the user can move freely (re-enable via the toggle).
-  const [followActivity, setFollowActivity] = useState(true);
   const orbitRef = useRef<OrbitControlsImpl | null>(null);
 
   const cells = Array.isArray(data) ? data : [];
   const maxCount = useMemo(() => cells.reduce((m, c) => Math.max(m, c.count), 0), [cells]);
-
-  // Re-enable follow when the scene changes so the new scene gets framed once
-  // (then the user can pan to drop follow again).
-  useEffect(() => { setFollowActivity(true); }, [scene]);
 
   // Center + extent of the heat data alone — stable (doesn't depend on points),
   // so it's safe to feed to the streaming geometry as the focus position.
@@ -432,8 +404,6 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
           controlsRef={orbitRef}
           center={center}
           radius={radius}
-          follow={followActivity}
-          onUserInteract={() => setFollowActivity(false)}
         />
         <ambientLight intensity={0.7} />
         <directionalLight position={[10, radius, 5]} intensity={1} />
@@ -516,18 +486,6 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
       {/* Collapsible control cluster (top-right). */}
       <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
         <div className="flex gap-2">
-          <button
-            onClick={() => setFollowActivity((v) => !v)}
-            className={`flex items-center gap-1.5 rounded border p-2 text-[0.625rem] font-bold uppercase shadow-lg transition-colors ${
-              followActivity
-                ? 'border-[#7fd1ff] bg-[#7fd1ff] text-black'
-                : 'border-[#232833] bg-[#0c0e12]/90 text-text-muted hover:text-white'
-            }`}
-            title={followActivity ? 'Follow activo — clic para liberar la cámara' : 'Centrar y seguir la escena'}
-            aria-pressed={followActivity}
-          >
-            <Crosshair size={16} />
-          </button>
           <button
             onClick={() => setControlsOpen((v) => !v)}
             className="rounded border border-[#232833] bg-[#0c0e12]/90 p-2 text-text-muted shadow-lg transition-colors hover:text-white"
