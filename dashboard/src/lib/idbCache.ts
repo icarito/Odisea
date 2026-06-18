@@ -76,4 +76,5 @@ export async function idbSet<T>(key: string, value: T): Promise<void> {
 export const CACHE_KEYS = {
   historicalSessions: 'historical-sessions',
   geoPlayers: 'geo-players',
+  gitCommits: 'git-commits-v1',
 } as const;

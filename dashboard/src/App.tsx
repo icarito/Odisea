@@ -48,6 +48,14 @@ type GitCommit = {
   sha: string;
   date: string;
   message: string;
+  additions?: number;
+  deletions?: number;
+  files?: Array<{
+    filename: string;
+    status: string;
+    additions: number;
+    deletions: number;
+  }>;
 };
 
 const DASHBOARD_BUILD_VERSION = (
@@ -1389,20 +1397,51 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   useEffect(() => {
-    fetch('https://api.github.com/repos/icarito/Odisea/commits?per_page=40')
-      .then((response) => response.ok ? response.json() : [])
-      .then((data) => {
-        if (!Array.isArray(data)) {
-          setCommits([]);
-          return;
-        }
-        setCommits(data.map((item: any) => ({
+    let cancelled = false;
+    const loadCommits = async () => {
+      const cached = await idbGet<GitCommit[]>(CACHE_KEYS.gitCommits);
+      const cachedBySha = new Map((cached?.value || []).map((commit) => [commit.sha, commit]));
+      if (!cancelled && cached?.value.length) setCommits(cached.value);
+
+      try {
+        const response = await fetch('https://api.github.com/repos/icarito/Odisea/commits?per_page=40');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!Array.isArray(data)) return;
+
+        const list: GitCommit[] = data.map((item: any) => ({
+          ...cachedBySha.get(item.sha),
           sha: item.sha || '',
           date: item.commit?.committer?.date || item.commit?.author?.date || '',
           message: item.commit?.message || '',
-        })).filter((item: GitCommit) => item.sha && item.date));
-      })
-      .catch(() => setCommits([]));
+        })).filter((item: GitCommit) => item.sha && item.date);
+
+        // The list endpoint omits file changes. Fetch details only for recent
+        // commits not already enriched in IDB, keeping anonymous API usage low.
+        const missing = list.filter((commit) => !commit.files).slice(0, 12);
+        await Promise.all(missing.map(async (commit) => {
+          const detailResponse = await fetch(`https://api.github.com/repos/icarito/Odisea/commits/${commit.sha}`);
+          if (!detailResponse.ok) return;
+          const detail = await detailResponse.json();
+          commit.additions = Number(detail.stats?.additions) || 0;
+          commit.deletions = Number(detail.stats?.deletions) || 0;
+          commit.files = Array.isArray(detail.files) ? detail.files.map((file: any) => ({
+            filename: file.filename || '',
+            status: file.status || 'modified',
+            additions: Number(file.additions) || 0,
+            deletions: Number(file.deletions) || 0,
+          })).filter((file: any) => file.filename) : [];
+        }));
+
+        if (cancelled) return;
+        setCommits(list);
+        void idbSet(CACHE_KEYS.gitCommits, list);
+      } catch {
+        // Keep the cached or previous list on network/rate-limit failures.
+      }
+    };
+    void loadCommits();
+    return () => { cancelled = true; };
   }, []);
 
   // GitHub Actions runs (CI status badges + header "publicando" indicator).

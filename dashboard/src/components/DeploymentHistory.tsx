@@ -8,6 +8,14 @@ export type GitCommit = {
   sha: string;
   date: string;
   message: string;
+  additions?: number;
+  deletions?: number;
+  files?: Array<{
+    filename: string;
+    status: string;
+    additions: number;
+    deletions: number;
+  }>;
 };
 
 export type WorkflowRun = {
@@ -284,6 +292,34 @@ export const DeploymentHistory: React.FC<DeploymentHistoryProps> = ({
                   {ciRuns.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
                       {ciRuns.map((run) => <RunBadge key={run.id} run={run} />)}
+                    </div>
+                  )}
+                  {c.files && (
+                    <div className="mt-1.5 border-t border-black/40 pt-1">
+                      <div className="mb-1 flex items-center gap-2 text-[0.5rem] font-black uppercase text-text-muted">
+                        <span>{c.files.length} archivo{c.files.length === 1 ? '' : 's'}</span>
+                        <span className="text-success">+{c.additions || 0}</span>
+                        <span className="text-danger">−{c.deletions || 0}</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        {c.files.slice(0, 6).map((file) => (
+                          <div key={file.filename} className="flex min-w-0 items-center gap-1 font-mono text-[0.5rem]">
+                            <span className={`w-3 shrink-0 font-black uppercase ${
+                              file.status === 'added' ? 'text-success'
+                                : file.status === 'removed' ? 'text-danger'
+                                  : 'text-[#d29922]'
+                            }`}>
+                              {file.status.slice(0, 1)}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-text-muted" title={file.filename}>{file.filename}</span>
+                            <span className="shrink-0 text-success">+{file.additions}</span>
+                            <span className="shrink-0 text-danger">−{file.deletions}</span>
+                          </div>
+                        ))}
+                        {c.files.length > 6 && (
+                          <div className="text-[0.5rem] italic text-text-muted">+{c.files.length - 6} archivos más</div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
