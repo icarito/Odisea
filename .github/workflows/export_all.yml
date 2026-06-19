@@ -12,7 +12,7 @@ on:
     types: [ completed ]
     branches: [ "main", "release" ]
   workflow_dispatch:
-    inputs:feat(export): add macOS platform support for multiplatform builds
+    inputs:
       publish_prerelease:
         description: 'Publish a GitHub pre-release from this manual build'
         required: false
