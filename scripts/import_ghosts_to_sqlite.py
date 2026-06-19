@@ -31,10 +31,33 @@ def init_db(conn):
         UNIQUE(player_id, session_id, timestamp)
     );
     """)
+    # Idempotent ALTER TABLE: align older DBs with the central schema. Each
+    # call ignores "duplicate column name" so re-runs are safe. This mirrors the
+    # ALTER block in odisea_central.py:_init_db so re-imports land perf data.
+    for column, coltype in (
+        ("game_version", "TEXT"),
+        ("git_commit", "TEXT"),
+        ("build_id", "TEXT"),
+        ("build_channel", "TEXT"),
+        ("official_host", "TEXT"),
+        ("official_build", "INTEGER"),
+        ("intake_mode", "TEXT"),
+        ("focused", "INTEGER DEFAULT 1"),
+        ("draw_calls", "REAL"),
+        ("objects", "REAL"),
+        ("vertices", "REAL"),
+        ("nodes", "REAL"),
+    ):
+        try:
+            cursor.execute(f"ALTER TABLE heartbeats ADD COLUMN {column} {coltype};")
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower():
+                raise
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_scene ON heartbeats(scene);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_timestamp ON heartbeats(timestamp);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_platform ON heartbeats(platform);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_session ON heartbeats(session_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_combined ON heartbeats(player_id, scene, timestamp);")
     conn.commit()
 
 def import_ghosts():
@@ -74,19 +97,37 @@ def process_file(path: str, cursor: sqlite3.Cursor) -> int:
 
                     player_data = data.get("player", {})
                     pos = player_data.get("position", [0, 0, 0])
+                    perf = player_data.get("perf") or {}
+                    if not isinstance(perf, dict):
+                        perf = {}
+                    platform = player_data.get("platform") or data.get("platform") or "unknown"
 
-                    # Mapping data from JSON to Table
+                    # Mapping data from JSON to Table. perf.dc/obj/vtx/nodes come
+                    # from the `perf` sub-dict ANNAV2 sends; older JSONL without
+                    # perf leave them NULL (AVG ignores NULLs in the heatmap).
                     record = (
                         player_id,
                         session_id,
                         timestamp,
                         player_data.get("scene", "unknown"),
-                        data.get("platform", "unknown"),
+                        platform,
                         player_data.get("fps", 0.0),
                         player_data.get("memory_mb", 0.0),
                         pos[0], pos[1], pos[2],
                         data.get("godot_version", "unknown"),
-                        data.get("peer_id", "unknown")
+                        data.get("peer_id", "unknown"),
+                        data.get("game_version"),
+                        data.get("git_commit"),
+                        data.get("build_id"),
+                        data.get("build_channel"),
+                        data.get("official_host"),
+                        1 if data.get("official_build") else 0,
+                        data.get("intake_mode", "telemetry"),
+                        0 if player_data.get("focused", True) is False else 1,
+                        perf.get("dc"),
+                        perf.get("obj"),
+                        perf.get("vtx"),
+                        perf.get("nodes"),
                     )
 
                     try:
@@ -94,8 +135,11 @@ def process_file(path: str, cursor: sqlite3.Cursor) -> int:
                         INSERT OR IGNORE INTO heartbeats (
                             player_id, session_id, timestamp, scene, platform,
                             fps, memory_mb, pos_x, pos_y, pos_z,
-                            engine_version, peer_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            engine_version, peer_id,
+                            game_version, git_commit, build_id, build_channel,
+                            official_host, official_build, intake_mode, focused,
+                            draw_calls, objects, vertices, nodes
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, record)
                         if cursor.rowcount > 0:
                             new_records += 1

@@ -1025,7 +1025,10 @@ class OdiseaCentral:
         res = float(request.query.get("resolution", 5))
         low_fps_threshold = 30.0
 
-        # Aggregate data by grid cell
+        # Aggregate data by grid cell. perf.dc/obj/vtx/nodes are only populated
+        # by ANNAV2 builds that send the `perf` sub-dict (older rows are NULL),
+        # so we use AVG() which ignores NULLs — the resulting avg_perf_* fields
+        # are null for cells with no instrumented samples.
         query = """
         SELECT
             CAST(pos_x / ? AS INTEGER) * ? as grid_x,
@@ -1034,7 +1037,11 @@ class OdiseaCentral:
             SUM(CASE WHEN fps < ? THEN 1 ELSE 0 END) as low_fps_count,
             AVG(fps) as avg_fps,
             MIN(fps) as min_fps,
-            AVG(memory_mb) as avg_mem
+            AVG(memory_mb) as avg_mem,
+            AVG(draw_calls) as avg_draw_calls,
+            AVG(objects) as avg_objects,
+            AVG(vertices) as avg_vertices,
+            AVG(nodes) as avg_nodes
         FROM heartbeats
         WHERE scene = ? AND {visible} AND {past_warmup} AND {focused}
         GROUP BY grid_x, grid_z
@@ -2727,6 +2734,10 @@ class OdiseaCentral:
                 intake_mode TEXT,
                 peer_id TEXT,
                 focused INTEGER DEFAULT 1,
+                draw_calls REAL,
+                objects REAL,
+                vertices REAL,
+                nodes REAL,
                 UNIQUE(player_id, session_id, timestamp)
             );
         """)
@@ -2739,6 +2750,10 @@ class OdiseaCentral:
             ("official_build", "INTEGER"),
             ("intake_mode", "TEXT"),
             ("focused", "INTEGER DEFAULT 1"),
+            ("draw_calls", "REAL"),
+            ("objects", "REAL"),
+            ("vertices", "REAL"),
+            ("nodes", "REAL"),
         ):
             try:
                 cursor.execute(f"ALTER TABLE heartbeats ADD COLUMN {column} {coltype};")
@@ -2794,6 +2809,9 @@ class OdiseaCentral:
                     player_data = data.get("player", {})
                     pos = player_data.get("position", [0, 0, 0])
                     platform = player_data.get("platform") or data.get("platform") or "unknown"
+                    perf = player_data.get("perf") or {}
+                    if not isinstance(perf, dict):
+                        perf = {}
 
                     cursor.execute("""
                         INSERT OR IGNORE INTO heartbeats (
@@ -2801,8 +2819,9 @@ class OdiseaCentral:
                             fps, memory_mb, pos_x, pos_y, pos_z,
                             engine_version, game_version, git_commit, build_id,
                             build_channel, official_host, official_build,
-                            intake_mode, peer_id, focused
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            intake_mode, peer_id, focused,
+                            draw_calls, objects, vertices, nodes
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         data.get("player_id"),
                         data.get("session_id"),
@@ -2821,7 +2840,11 @@ class OdiseaCentral:
                         1 if data.get("official_build") else 0,
                         data.get("intake_mode", "telemetry"),
                         data.get("peer_id"),
-                        0 if player_data.get("focused", True) is False else 1
+                        0 if player_data.get("focused", True) is False else 1,
+                        perf.get("dc"),
+                        perf.get("obj"),
+                        perf.get("vtx"),
+                        perf.get("nodes"),
                     ))
 
                 conn.commit()

@@ -25,7 +25,6 @@ physical_terrace_path = NodePath("../PhysicalTerrace")
 auto_track_target_plate = true
 scene_anchor_use_selected_plate_on_ready = true
 collision_pool_size = 6
-centrifugal_current_plate_only_physics = false
 
 [node name="TerraceSegmentManager" type="Spatial" parent="WorldRotator"]
 script = ExtResource( 8 )
@@ -38,7 +37,6 @@ shape = SubResource( 1 )
 [node name="PlateContentRoot" parent="." instance=ExtResource( 4 )]
 rotator_path = NodePath("../WorldRotator")
 tracking_target_path = NodePath("../Pilot")
-centrifugal_current_plate_only_physics = false
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 3, 29 )
