@@ -373,7 +373,15 @@ $GODOT_HEAD_INCLUDE
 				var isPck = resource.indexOf('.pck') !== -1;
 				var isWasm = resource.indexOf('.wasm') !== -1;
 
-			if (isPck || isWasm) {
+				// Cross-origin isolation gate. The threaded engine wasm needs
+				// SharedArrayBuffer, which requires crossOriginIsolated. Safari does
+				// not isolate under COEP: credentialless, so SAB is missing there.
+				// When isolation is absent we serve a no-threads engine wasm from the
+				// SAME ORIGIN (Netlify) instead of the threaded build on GitHub Pages.
+				// The .pck is identical for both engines, so only the wasm switches.
+				var isolated = (typeof SharedArrayBuffer !== "undefined") && !!window.crossOriginIsolated;
+
+			if (isPck || (isWasm && isolated)) {
 				var filename = resource.split('/').pop();
 				var remoteUrl = isWasm
 					? PAGES_BASE + "/threads/" + filename
@@ -389,6 +397,24 @@ $GODOT_HEAD_INCLUDE
 						throw new Error("GitHub Pages returned " + response.status);
 					}).catch(function(err) {
 						console.warn("[" + assetType + "] GitHub Pages failed, falling back to local:", resource, err);
+						return originalFetch(resource, init);
+					});
+				}
+
+				// Not isolated + wasm requested: serve the no-threads engine from
+				// GitHub Pages (/no_threads/), not the threaded /threads/ build that
+				// needs SharedArrayBuffer. Without isolation this is a plain CORS
+				// fetch — Pages' Access-Control-Allow-Origin: * covers it. Falls back
+				// to the local copy if Pages is unreachable.
+				if (isWasm && !isolated) {
+					var filename = resource.split('/').pop();
+					var noThreadsUrl = PAGES_BASE + "/no_threads/" + filename;
+					console.log("[WASM] No cross-origin isolation; loading no-threads engine:", noThreadsUrl);
+					return originalFetch(noThreadsUrl, init).then(function(response) {
+						if (response.ok) return response;
+						throw new Error("GitHub Pages returned " + response.status);
+					}).catch(function(err) {
+						console.warn("[WASM] No-threads wasm fetch failed, falling back to local:", err);
 						return originalFetch(resource, init);
 					});
 				}
@@ -520,11 +546,16 @@ $GODOT_HEAD_INCLUDE
 
 		document.getElementById("odisea-toast-close").addEventListener("click", hideToast);
 
+		// Global handlers are NON-FATAL. A stray window.error or rejected promise
+		// (telemetry, a worker warning, a missing SharedArrayBuffer probe) must not
+		// declare the load dead — the engine may still boot, or already has. The only
+		// authoritative "load failed" signals are bootEngine().catch (engine refused
+		// to start) and the stall watchdog (bytes stopped). So here we only log.
 		window.addEventListener("error", function(ev) {
-			showErrorToast(describeError(ev && (ev.error || ev.message)));
+			console.warn("[ODiSEA] Non-fatal error:", describeError(ev && (ev.error || ev.message)));
 		});
 		window.addEventListener("unhandledrejection", function(ev) {
-			showErrorToast(describeError(ev && ev.reason));
+			console.warn("[ODiSEA] Non-fatal rejection:", describeError(ev && ev.reason));
 		});
 
 		var lorePhrases = [
@@ -653,7 +684,41 @@ $GODOT_HEAD_INCLUDE
 		var params = new URLSearchParams(window.location.search);
 		var runbinUrl = params.get('runbin');
 
+		// Cross-origin isolation gate (same check the fetch interceptor uses to
+		// pick the wasm). When absent, SharedArrayBuffer is unavailable: we load
+		// the no-threads engine and warn the player about reduced performance.
+		var pageIsolated = (typeof SharedArrayBuffer !== "undefined") && !!window.crossOriginIsolated;
+
+		// Dismissable, non-blocking banner. Distinct from the fatal toast: the
+		// game keeps loading/playing behind it. Shown only when not isolated.
+		function showDegradedOverlay() {
+			if (document.getElementById("odisea-degraded")) return;
+			var el = document.createElement("div");
+			el.id = "odisea-degraded";
+			el.style.cssText = "position:fixed;left:50%;bottom:16px;transform:translateX(-50%);" +
+				"max-width:90%;z-index:9999;background:rgba(30,30,40,0.95);color:#f0e6c0;" +
+				"border:1px solid #6a5a30;border-radius:8px;padding:10px 14px;font:13px/1.4 sans-serif;" +
+				"box-shadow:0 4px 16px rgba(0,0,0,0.5);display:flex;align-items:center;gap:12px;";
+			var msg = document.createElement("span");
+			msg.textContent = "Tu navegador no permite el modo de alto rendimiento. " +
+				"Odisea funcionará con rendimiento reducido.";
+			var btn = document.createElement("button");
+			btn.textContent = "Entendido";
+			btn.style.cssText = "background:#6a5a30;color:#fff;border:0;border-radius:5px;" +
+				"padding:5px 10px;cursor:pointer;font:13px sans-serif;flex-shrink:0;";
+			btn.addEventListener("click", function() {
+				if (el.parentNode) el.parentNode.removeChild(el);
+			});
+			el.appendChild(msg);
+			el.appendChild(btn);
+			document.body.appendChild(el);
+		}
+
 		function bootEngine() {
+			if (!pageIsolated) {
+				console.warn("[ODiSEA] No cross-origin isolation; booting no-threads engine (degraded performance).");
+				showDegradedOverlay();
+			}
 			var engine = new Engine(engineConfig);
 			engine.startGame({
 				onProgress: function(current, total) {

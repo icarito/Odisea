@@ -21,6 +21,7 @@ export(float, 3.0, 180.0) var hyper_low_transition_timeout_s := 35.0
 export(bool) var boot_fade_in_enabled := true
 export(float, 0.0, 5.0) var boot_fade_in_duration := 0.55
 export(int, 0, 10) var boot_fade_in_wait_frames := 1
+export(bool) var threaded_resource_loading := false
 
 var _loader = null
 var _loaded_scene: PackedScene = null
@@ -42,12 +43,56 @@ var _preload_loaders: Dictionary = {}
 var _preloaded_scenes: Dictionary = {}
 var _preload_errors: Dictionary = {}
 
+# Worker-thread loader state. Whether a real worker thread runs here is PROBED, not
+# read from OS.can_use_threads() — that flag is unreliable in Godot 3.6 (it returns
+# false on native/headless Linux where threads work fine, and some HTML5 builds let
+# Thread.start() return without ever running the worker). The probe spins up a
+# throwaway thread, joins it, and checks its body executed — the same pattern WFC
+# uses (see ScaffoldWFCThreaded._probe_thread_support). On the deployed web build
+# threads are live (preset "HTML5 Threads", COOP/COEP set on Netlify → SAB); on
+# Safari without isolation the no-threads engine has none and we fall back to the
+# main-thread per-frame budget loop. ResourceInteractiveLoader.poll() may run on a
+# worker thread, but the mutex must NOT be held across poll() (it can touch the
+# VisualServer and deadlock). Scene instancing always stays on the main thread.
+var _use_loader_thread := false
+var _loader_thread: Thread = null
+var _loader_mutex: Mutex = null
+var _loader_thread_running := false
+var _probe_value := 0
+
 func _ready() -> void:
+	_use_loader_thread = threaded_resource_loading and _probe_thread_support()
+	if _use_loader_thread:
+		_loader_mutex = Mutex.new()
+		_loader_thread = Thread.new()
+		_loader_thread_running = true
+		_loader_thread.start(self, "_loader_thread_main")
 	call_deferred("_run_boot_fade_in")
 
+# Actually try to run a thread and confirm its body executed. OS.can_use_threads()
+# is NOT trustworthy here (see the note on _use_loader_thread). Returns true only if
+# a spawned thread's body actually ran. Mirrors ScaffoldWFCThreaded._probe_thread_support.
+func _probe_thread_support() -> bool:
+	_probe_value = 0
+	var probe := Thread.new()
+	var err = probe.start(self, "_thread_probe_body", null)
+	if err != OK:
+		return false
+	probe.wait_to_finish()
+	return _probe_value == 1
+
+func _thread_probe_body(_userdata) -> void:
+	_probe_value = 1
+
+func _exit_tree() -> void:
+	_stop_loader_thread()
+
 func _process(_delta: float) -> void:
-	_poll_loader()
-	_poll_scene_preload()
+	if _use_loader_thread:
+		_drain_loader_progress()
+	else:
+		_poll_loader()
+		_poll_scene_preload()
 	_check_transition_timeout()
 	_drain_pending_transition()
 
@@ -72,12 +117,14 @@ func goto_scene(path: String, params: Dictionary = {}):
 	var sanitized_params = params.duplicate(false)
 	sanitized_params.erase("_preloaded_scene")
 	_transition_params = sanitized_params.duplicate(true)
+	_lock()
 	_loaded_scene = null
 	_load_error = ""
 	_loader = null
 	_is_loading = false
 	_loader_last_progress_ms = 0
 	_loader_last_stage = -1
+	_unlock()
 	_last_transition_abort_reason = ""
 
 	_capture_player_state_for_transition()
@@ -153,15 +200,131 @@ func goto_scene(path: String, params: Dictionary = {}):
 	return completed
 
 func _start_loader(path: String) -> void:
-	_loader = ResourceLoader.load_interactive(path)
-	if _loader == null:
+	var loader = ResourceLoader.load_interactive(path)
+	if loader == null:
 		_load_error = "Could not create ResourceInteractiveLoader for %s" % path
 		_is_loading = false
 		return
+	_lock()
+	_loader = loader
 	_is_loading = true
 	_loader_last_progress_ms = OS.get_ticks_msec()
 	_loader_last_stage = -1
+	_unlock()
 	_emit_progress(0.0)
+
+func _lock() -> void:
+	if _loader_mutex != null:
+		_loader_mutex.lock()
+
+func _unlock() -> void:
+	if _loader_mutex != null:
+		_loader_mutex.unlock()
+
+func _stop_loader_thread() -> void:
+	if _loader_thread == null:
+		return
+	_lock()
+	_loader_thread_running = false
+	_unlock()
+	_loader_thread.wait_to_finish()
+	_loader_thread = null
+
+# Runs on a worker thread. Drives poll() for the active transition loader and the
+# preload loaders. Never holds the mutex across poll(): it snapshots the loader
+# handles under the lock, releases, polls, then re-locks to write results back.
+# Progress signals and scene instancing are left to the main thread.
+func _loader_thread_main(_userdata) -> void:
+	while true:
+		_lock()
+		if not _loader_thread_running:
+			_unlock()
+			return
+		var loader = _loader if _is_loading else null
+		# Snapshot one preload loader to advance when no transition load is active.
+		var preload_path := ""
+		var preload_loader = null
+		if loader == null and not _preload_loaders.empty():
+			preload_path = String(_preload_loaders.keys()[0])
+			preload_loader = _preload_loaders[preload_path]
+		_unlock()
+
+		if loader == null and preload_loader == null:
+			OS.delay_msec(8)
+			continue
+
+		if loader != null:
+			var err = loader.poll()
+			_lock()
+			# Re-validate: a reset/abort on the main thread may have cleared it.
+			if _loader == loader and _is_loading:
+				_apply_loader_poll_locked(err, loader)
+			_unlock()
+		else:
+			var perr = preload_loader.poll()
+			_lock()
+			if _preload_loaders.get(preload_path, null) == preload_loader:
+				_apply_preload_poll_locked(perr, preload_path, preload_loader)
+			_unlock()
+
+# Caller must hold the mutex. Updates transition loader state from a poll() result.
+func _apply_loader_poll_locked(err, loader) -> void:
+	if err == OK:
+		var stage = loader.get_stage()
+		if stage != _loader_last_stage:
+			_loader_last_stage = stage
+			_loader_last_progress_ms = OS.get_ticks_msec()
+	elif err == ERR_FILE_EOF:
+		var resource = loader.get_resource()
+		_loader_last_progress_ms = OS.get_ticks_msec()
+		if resource and resource is PackedScene:
+			_loaded_scene = resource
+		else:
+			_load_error = "Loaded resource is not a PackedScene: %s" % _next_scene_path
+		_is_loading = false
+		_loader = null
+	else:
+		_load_error = "Loader poll failed (%d) for %s" % [err, _next_scene_path]
+		_is_loading = false
+		_loader = null
+
+# Caller must hold the mutex. Updates preload state from a poll() result.
+func _apply_preload_poll_locked(err, path: String, loader) -> void:
+	if err == OK:
+		if _is_transitioning and path == _next_scene_path:
+			var stage: int = int(loader.get_stage())
+			if stage != _loader_last_stage:
+				_loader_last_stage = stage
+				_loader_last_progress_ms = OS.get_ticks_msec()
+		return
+	_preload_loaders.erase(path)
+	if err == ERR_FILE_EOF:
+		var resource = loader.get_resource()
+		if resource and resource is PackedScene:
+			_preloaded_scenes[path] = resource
+			_preload_errors.erase(path)
+			return
+		_preload_errors[path] = "loaded_resource_is_not_scene"
+		return
+	_preload_errors[path] = "loader_poll_failed_%d" % err
+
+# Main-thread: emit progress from the stage the worker stashed. Mirrors the
+# progress side-effects the fallback path performs inline during poll().
+func _drain_loader_progress() -> void:
+	_lock()
+	var loading := _is_loading
+	var loaded := _loaded_scene != null
+	var stage := _loader_last_stage
+	var stage_count := 1
+	if _loader != null:
+		stage_count = int(max(1, _loader.get_stage_count()))
+	elif loaded:
+		stage_count = max(1, stage)
+	_unlock()
+	if loaded and not loading:
+		_emit_progress(1.0)
+	elif loading and stage >= 0:
+		_emit_progress(float(stage) / float(stage_count))
 
 func _poll_loader() -> void:
 	if not _is_loading or _loader == null:
@@ -201,24 +364,43 @@ func request_scene_preload(path: String) -> bool:
 		return true
 	var loader := ResourceLoader.load_interactive(target_path)
 	if loader == null:
+		_lock()
 		_preload_errors[target_path] = "loader_create_failed"
+		_unlock()
 		return false
+	_lock()
 	_preload_errors.erase(target_path)
 	_preload_loaders[target_path] = loader
+	_unlock()
 	return true
 
 func has_preloaded_scene(path: String) -> bool:
-	return _preloaded_scenes.has(String(path).strip_edges())
+	var key := String(path).strip_edges()
+	_lock()
+	var has := _preloaded_scenes.has(key)
+	_unlock()
+	return has
 
 func get_preloaded_scene(path: String) -> PackedScene:
-	var resource = _preloaded_scenes.get(String(path).strip_edges(), null)
+	var key := String(path).strip_edges()
+	_lock()
+	var resource = _preloaded_scenes.get(key, null)
+	_unlock()
 	return resource as PackedScene if resource is PackedScene else null
 
 func is_scene_preloading(path: String) -> bool:
-	return _preload_loaders.has(String(path).strip_edges())
+	var key := String(path).strip_edges()
+	_lock()
+	var preloading := _preload_loaders.has(key)
+	_unlock()
+	return preloading
 
 func get_scene_preload_error(path: String) -> String:
-	return String(_preload_errors.get(String(path).strip_edges(), ""))
+	var key := String(path).strip_edges()
+	_lock()
+	var err := String(_preload_errors.get(key, ""))
+	_unlock()
+	return err
 
 func _poll_scene_preload() -> void:
 	if _is_loading or _preload_loaders.empty():
@@ -650,10 +832,12 @@ func _finalize_failed_transition(reason: String) -> void:
 	_reset_runtime_state()
 
 func _reset_runtime_state() -> void:
+	_lock()
 	_loader = null
 	_loaded_scene = null
 	_load_error = ""
 	_is_loading = false
+	_unlock()
 	_is_transitioning = false
 	_transition_started_ms = 0
 	_loader_last_progress_ms = 0

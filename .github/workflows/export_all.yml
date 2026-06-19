@@ -421,6 +421,34 @@ jobs:
           rm -f "$UNSIGNED" "$ALIGNED"
           "$BUILD_TOOLS/apksigner" verify "$APK"
 
+      - name: HTML5 Export no-threads engine
+        if: matrix.platform == 'html5'
+        run: |
+          set -e
+          # Safari (and any browser without cross-origin isolation) can't run the
+          # threaded engine: it needs SharedArrayBuffer. We export the regular
+          # "HTML5" preset (no-threads) purely to harvest its index.wasm, which the
+          # shell loads from the same origin as index.nothreads.wasm when isolation
+          # is absent. The .pck is identical to the threaded build, so we keep only
+          # the wasm. Restore the standard webassembly slot the threaded swap (in
+          # "Setup Godot") clobbered with the threads template.
+          G_BIN="${GODOT_BIN:-godot}"
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
+          else
+            TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+          fi
+          if [ -f "$TPL_DIR/webassembly_release.standard.bak" ]; then
+            cp "$TPL_DIR/webassembly_release.standard.bak" "$TPL_DIR/webassembly_release.zip"
+          fi
+          mkdir -p build/html5_nothreads
+          $G_BIN --no-window --export "HTML5" build/html5_nothreads/index.html --headless || true
+          if [ ! -s build/html5_nothreads/index.wasm ]; then
+            echo "::error::No-threads HTML5 export produced no index.wasm"
+            exit 1
+          fi
+          echo "No-threads wasm OK: $(du -h build/html5_nothreads/index.wasm | cut -f1)"
+
       - name: HTML5 Post-process
         if: matrix.platform == 'html5'
         run: |
@@ -442,9 +470,15 @@ jobs:
       - name: HTML5 Stage Pages
         if: matrix.platform == 'html5'
         run: |
-          mkdir -p build/pages/threads
+          mkdir -p build/pages/threads build/pages/no_threads
           cp build/html5/index.pck build/html5/index.pck.gz build/pages/
           cp build/html5/index.wasm build/html5/index.wasm.gz build/pages/threads/
+          # No-threads engine wasm for browsers without cross-origin isolation
+          # (Safari). The .pck is shared (served from build/pages/), so only the
+          # wasm differs. On Safari the page isn't isolated, so this is a plain
+          # CORS fetch — GitHub Pages' Access-Control-Allow-Origin: * covers it.
+          cp build/html5_nothreads/index.wasm build/pages/no_threads/index.wasm
+          gzip -9 -k -f build/pages/no_threads/index.wasm
 
       - name: Package Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'
