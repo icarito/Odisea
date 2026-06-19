@@ -38,12 +38,16 @@ var _last_transition_abort_reason := ""
 var _pending_scene_path := ""
 var _pending_transition_params: Dictionary = {}
 var _boot_fade_consumed := false
+var _preload_loaders: Dictionary = {}
+var _preloaded_scenes: Dictionary = {}
+var _preload_errors: Dictionary = {}
 
 func _ready() -> void:
 	call_deferred("_run_boot_fade_in")
 
 func _process(_delta: float) -> void:
 	_poll_loader()
+	_poll_scene_preload()
 	_check_transition_timeout()
 	_drain_pending_transition()
 
@@ -103,10 +107,19 @@ func goto_scene(path: String, params: Dictionary = {}):
 	if supplied_preloaded_scene and supplied_preloaded_scene is PackedScene:
 		_loaded_scene = supplied_preloaded_scene
 		_emit_progress(1.0)
+	elif has_preloaded_scene(_next_scene_path):
+		_loaded_scene = get_preloaded_scene(_next_scene_path)
+		_emit_progress(1.0)
 	else:
-		_start_loader(_next_scene_path)
-		while _is_loading:
+		while is_scene_preloading(_next_scene_path):
 			yield(get_tree(), "idle_frame")
+		if has_preloaded_scene(_next_scene_path):
+			_loaded_scene = get_preloaded_scene(_next_scene_path)
+			_emit_progress(1.0)
+		else:
+			_start_loader(_next_scene_path)
+			while _is_loading:
+				yield(get_tree(), "idle_frame")
 
 	if _last_transition_abort_reason != "":
 		return false
@@ -179,6 +192,59 @@ func _poll_loader() -> void:
 			_load_error = "Loader poll failed (%d) for %s" % [err, _next_scene_path]
 			_is_loading = false
 			_loader = null
+
+func request_scene_preload(path: String) -> bool:
+	var target_path := String(path).strip_edges()
+	if target_path == "":
+		return false
+	if has_preloaded_scene(target_path) or is_scene_preloading(target_path):
+		return true
+	var loader := ResourceLoader.load_interactive(target_path)
+	if loader == null:
+		_preload_errors[target_path] = "loader_create_failed"
+		return false
+	_preload_errors.erase(target_path)
+	_preload_loaders[target_path] = loader
+	return true
+
+func has_preloaded_scene(path: String) -> bool:
+	return _preloaded_scenes.has(String(path).strip_edges())
+
+func get_preloaded_scene(path: String) -> PackedScene:
+	var resource = _preloaded_scenes.get(String(path).strip_edges(), null)
+	return resource as PackedScene if resource is PackedScene else null
+
+func is_scene_preloading(path: String) -> bool:
+	return _preload_loaders.has(String(path).strip_edges())
+
+func get_scene_preload_error(path: String) -> String:
+	return String(_preload_errors.get(String(path).strip_edges(), ""))
+
+func _poll_scene_preload() -> void:
+	if _is_loading or _preload_loaders.empty():
+		return
+	var path: String = String(_preload_loaders.keys()[0])
+	var loader = _preload_loaders[path]
+	var err = loader.poll()
+	if err == OK:
+		if _is_transitioning and path == _next_scene_path:
+			var stage_count: int = int(max(1, loader.get_stage_count()))
+			var stage: int = int(loader.get_stage())
+			if stage != _loader_last_stage:
+				_loader_last_stage = stage
+				_loader_last_progress_ms = OS.get_ticks_msec()
+			_emit_progress(float(stage) / float(stage_count))
+		return
+	_preload_loaders.erase(path)
+	if err == ERR_FILE_EOF:
+		var resource = loader.get_resource()
+		if resource and resource is PackedScene:
+			_preloaded_scenes[path] = resource
+			_preload_errors.erase(path)
+			return
+		_preload_errors[path] = "loaded_resource_is_not_scene"
+		return
+	_preload_errors[path] = "loader_poll_failed_%d" % err
 
 func _emit_progress(progress_01: float) -> void:
 	var p := clamp(progress_01, 0.0, 1.0)

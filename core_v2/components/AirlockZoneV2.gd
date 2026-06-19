@@ -50,6 +50,7 @@ func _process(delta: float) -> void:
 	._process(delta)
 	if Engine.editor_hint:
 		return
+	_sync_scene_manager_preload()
 	if _background_load != null and not _scene_ready:
 		_poll_background_load()
 		_indicator_lights_dirty = true
@@ -219,6 +220,12 @@ func _begin_background_load() -> bool:
 		printerr("[AirlockZoneV2] Missing target_scene on ", name)
 		return false
 
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.has_method("request_scene_preload"):
+		if scene_manager.request_scene_preload(target_scene):
+			_sync_scene_manager_preload()
+			return true
+
 	_background_load = ResourceLoader.load_interactive(target_scene)
 	if _background_load == null:
 		_load_error = "loader_create_failed"
@@ -250,6 +257,32 @@ func _poll_background_load() -> void:
 		printerr("[AirlockZoneV2] Loader poll failed (", err, ") for ", target_scene)
 		_background_load = null
 		return
+
+func _sync_scene_manager_preload() -> void:
+	if _scene_ready or target_scene.strip_edges() == "":
+		return
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager == null or not scene_manager.has_method("get_preloaded_scene"):
+		return
+	var resource = scene_manager.get_preloaded_scene(target_scene)
+	if resource and resource is PackedScene:
+		_preloaded_scene = resource
+		_scene_ready = true
+		_load_error = ""
+		_indicator_lights_dirty = true
+		return
+	if scene_manager.has_method("get_scene_preload_error"):
+		var preload_error := String(scene_manager.get_scene_preload_error(target_scene))
+		if preload_error != "":
+			_load_error = preload_error
+
+func _is_background_load_active() -> bool:
+	if _background_load != null:
+		return true
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	return scene_manager != null \
+		and scene_manager.has_method("is_scene_preloading") \
+		and scene_manager.is_scene_preloading(target_scene)
 
 func _update_progress(player: Spatial) -> void:
 	var local_pos: Vector3 = global_transform.affine_inverse().xform(player.global_transform.origin)
@@ -754,7 +787,7 @@ func _update_indicator_lights() -> void:
 		_cached_green_light = get_parent().get_node_or_null("ReadyGreenLight") if get_parent() else null
 		_last_green_energy = -1.0
 
-	var red_energy := 1.8 if _background_load != null or _stalling else 0.25
+	var red_energy := 1.8 if _is_background_load_active() or _stalling else 0.25
 	var green_energy := 1.6 if _scene_ready else 0.2
 	if _cached_red_light and _cached_red_light is Light and red_energy != _last_red_energy:
 		_cached_red_light.light_energy = red_energy

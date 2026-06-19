@@ -1,5 +1,7 @@
 extends Control
 
+const EXTERIOR_SCENE := "res://core_v2/levels/OdiseaExterior.tscn"
+
 export var enable_touch_buttons := true
 
 onready var fade_rect: ColorRect = $CanvasLayer/ColorRect
@@ -32,6 +34,13 @@ func _ready():
 			if b:
 				temp_buttons.append(b)
 		handler.buttons = temp_buttons
+	call_deferred("_request_exterior_preload")
+
+func _request_exterior_preload() -> void:
+	yield(get_tree(), "idle_frame")
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.has_method("request_scene_preload"):
+		scene_manager.request_scene_preload(EXTERIOR_SCENE)
 
 func _check_save_game():
 	# Simple check for existing checkpoints
