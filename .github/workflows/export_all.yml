@@ -480,6 +480,39 @@ jobs:
           cp build/html5_nothreads/index.wasm build/pages/no_threads/index.wasm
           gzip -9 -k -f build/pages/no_threads/index.wasm
 
+      - name: HTML5 Stage Vercel
+        if: matrix.platform == 'html5'
+        run: |
+          # Vercel deploy for Safari/iOS: serves EVERYTHING same-origin (html, js,
+          # threaded wasm, pck) with COEP require-corp (set in vercel.json), so the
+          # page is cross-origin isolated and SharedArrayBuffer is available — which
+          # the threaded engine needs and which Safari does NOT get under the main
+          # site's COEP credentialless. Because assets are same-origin here, the
+          # shell's GitHub Pages fetch interceptor must be neutralized: under
+          # require-corp a cross-origin fetch to Pages (which sends no CORP) would be
+          # blocked. We disable it by forcing the interceptor to pass through.
+          mkdir -p build/vercel
+          cp -a build/html5/* build/vercel/
+          cp vercel.json build/vercel/vercel.json
+          # Neutralize the Pages interceptor: inject an early pass-through at the top
+          # of the window.fetch override so every asset resolves to its original
+          # same-origin URL instead of being rewritten to GitHub Pages.
+          sed -i 's#window.fetch = function(resource, init) {#window.fetch = function(resource, init) {\n\t\t\t\treturn originalFetch(resource, init); /* ODISEA_VERCEL_SAME_ORIGIN */#' build/vercel/index.html
+          grep -q "ODISEA_VERCEL_SAME_ORIGIN" build/vercel/index.html || { echo "::error::Failed to neutralize Pages interceptor for Vercel build"; exit 1; }
+          PCK_BYTES=$(stat -c%s build/html5/index.pck)
+          WASM_BYTES=$(stat -c%s build/html5/index.wasm)
+          TOTAL=$((PCK_BYTES + WASM_BYTES))
+          sed -i "s/\$ODISEA_TOTAL_BYTES/${TOTAL}/g" build/vercel/index.html
+          echo "Vercel stage: $(du -sh build/vercel | cut -f1)"
+
+      - name: Upload Vercel artifact
+        if: matrix.platform == 'html5'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vercel-build
+          path: build/vercel/
+          retention-days: 1
+
       - name: Package Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'
         run: |
@@ -607,6 +640,46 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-vercel:
+    needs: [prep, export]
+    runs-on: ubuntu-latest
+    if: ${{ always() && needs.prep.result == 'success' && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
+    steps:
+      - name: Download Vercel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vercel-build
+          path: vercel-build
+
+      - name: Validate Vercel artifact
+        run: |
+          # The Vercel deploy serves everything same-origin for cross-origin
+          # isolation on Safari, so the threaded wasm + pck MUST be present here
+          # (unlike the Netlify deploy, where they live on GitHub Pages).
+          test -s vercel-build/index.html || { echo "::error::Missing Vercel index.html"; exit 1; }
+          test -s vercel-build/index.wasm || { echo "::error::Missing Vercel index.wasm (threaded engine)"; exit 1; }
+          test -s vercel-build/index.pck || { echo "::error::Missing Vercel index.pck"; exit 1; }
+          test -s vercel-build/vercel.json || { echo "::error::Missing vercel.json"; exit 1; }
+          grep -q "ODISEA_VERCEL_SAME_ORIGIN" vercel-build/index.html || { echo "::error::Pages interceptor not neutralized in Vercel index.html"; exit 1; }
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          cd vercel-build
+          # Deploy the prebuilt static dir to production and alias to the stable
+          # iOS host the main site redirects Safari/iPadOS traffic to.
+          URL=$(vercel deploy --prod --yes --archive=tgz --token "$VERCEL_TOKEN" 2>&1 | grep -oE 'https://[a-z0-9._-]+\.vercel\.app' | tail -1)
+          echo "Deployed: $URL"
+          if [ -z "$URL" ]; then echo "::error::Vercel deploy produced no URL"; exit 1; fi
+          vercel alias set "$URL" odisea-ios.vercel.app --token "$VERCEL_TOKEN" --scope sebastian-silvas-projects-8fed1460
+          echo "Aliased to https://odisea-ios.vercel.app"
 
   release:
     needs: [prep, export]

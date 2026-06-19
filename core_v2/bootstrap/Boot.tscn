@@ -4,5 +4,3 @@
 
 [node name="Boot" type="Node"]
 script = ExtResource( 1 )
-startup_scene_path = "res://scenes/Menu.tscn"
-loading_message = "ODiSEA"

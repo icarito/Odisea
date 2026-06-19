@@ -48,3 +48,4 @@ digest.txt
 *.log
 data/ghosts.db
 .venv/
+.vercel

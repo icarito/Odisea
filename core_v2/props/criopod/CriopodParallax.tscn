@@ -1,6 +1,6 @@
 [gd_scene load_steps=15 format=2]
 
-[ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.exr" type="Texture" id=1]
+[ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.png" type="Texture" id=1]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=2]
 [ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=3]
 [ext_resource path="res://core_v2/components/RotatingObjectV2.gd" type="Script" id=4]

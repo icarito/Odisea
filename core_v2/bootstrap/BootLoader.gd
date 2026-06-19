@@ -1,7 +1,7 @@
 extends Node
 
-export(String, FILE, "*.tscn,*.scn") var startup_scene_path := "res://core_v2/levels/BaseTerrace.tscn"
-export(String) var loading_message := "Abriendo BaseTerrace..."
+export(String, FILE, "*.tscn,*.scn") var startup_scene_path := "res://scenes/Menu.tscn"
+export(String) var loading_message := "ODiSEA"
 export(bool) var show_progress := true
 export(int, 0, 60) var scene_manager_wait_frames := 12
 

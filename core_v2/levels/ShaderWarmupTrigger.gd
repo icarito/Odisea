@@ -1,6 +1,6 @@
 extends Spatial
 
-export(String, FILE, "*.tscn,*.scn") var shader_cache_scene_path := "res://core_v2/levels/shader_cache/BaseTerraceShaderCache.tscn"
+export(String, FILE, "*.tscn,*.scn") var shader_cache_scene_path := "res://core_v2/levels/shader_cache/DomeCrioShaderCache.tscn"
 export(bool) var run_in_tests := false
 export(bool) var wait_for_startup_gate := true
 export(int, 0, 1200) var startup_wait_max_frames := 720

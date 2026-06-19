@@ -684,6 +684,26 @@ $GODOT_HEAD_INCLUDE
 		var params = new URLSearchParams(window.location.search);
 		var runbinUrl = params.get('runbin');
 
+		// --- iOS/Safari redirect to the cross-origin-isolated Vercel deploy -------
+		// Safari can't run the threaded engine here: COEP credentialless gives no
+		// SharedArrayBuffer. The Vercel deploy serves everything same-origin with
+		// COEP require-corp, so Safari IS isolated there and runs threaded. Send
+		// iOS/iPadOS devices there before booting. Guards against a redirect loop
+		// (skip if already on the Vercel host) and honors ?nethr=1 to opt out.
+		var ODISEA_VERCEL_HOST = "odisea-ios.vercel.app";
+		(function maybeRedirectIOS() {
+			if (params.get("nothr") === "1") return;
+			if (location.hostname === ODISEA_VERCEL_HOST) return;
+			var ua = navigator.userAgent || "";
+			var isIOS = /iPad|iPhone|iPod/.test(ua);
+			// iPadOS 13+ reports as desktop Safari; detect via touch + Mac.
+			var isIPadOS = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+			if (!isIOS && !isIPadOS) return;
+			var target = location.protocol + "//" + ODISEA_VERCEL_HOST + location.pathname + location.search;
+			console.log("[ODiSEA] iOS detected; redirecting to isolated build:", target);
+			location.replace(target);
+		})();
+
 		// Cross-origin isolation gate (same check the fetch interceptor uses to
 		// pick the wasm). When absent, SharedArrayBuffer is unavailable: we load
 		// the no-threads engine and warn the player about reduced performance.
