@@ -130,7 +130,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux_x64, linux_arm64, windows, ios, android, html5]
+        platform: [linux_x64, linux_arm64, windows, ios, macos, android, html5]
         include:
           - platform: linux_x64
             os: ubuntu-latest
@@ -148,6 +148,10 @@ jobs:
             os: macos-latest
             preset: "iOS"
             artifact_name: Odisea-Tech-Demo-iOS
+          - platform: macos
+            os: macos-latest
+            preset: "macOS Universal"
+            artifact_name: Odisea-Tech-Demo-macOS
           - platform: android
             os: ubuntu-latest
             preset: "Android"
