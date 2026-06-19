@@ -1163,10 +1163,13 @@ func _apply_orbit_zoom_delta(zoom_delta: float) -> void:
 func _update_camera_collision_mask_state(dt: float) -> void:
 	if not _cached_spring_arm:
 		return
-	var suppress_collision := false
+	var suppress_collision := has_meta("airlock_tracking_suspended") \
+		and bool(get_meta("airlock_tracking_suspended"))
 	if traversal_logic and traversal_logic.is_active:
 		var state = traversal_logic.current_state
-		suppress_collision = state == traversal_logic.TraversalState.HANGING or state == traversal_logic.TraversalState.MANTLING
+		suppress_collision = suppress_collision \
+			or state == traversal_logic.TraversalState.HANGING \
+			or state == traversal_logic.TraversalState.MANTLING
 	if suppress_collision:
 		_camera_collision_grace_left = max(_camera_collision_grace_left, traversal_camera_collision_grace)
 	else:

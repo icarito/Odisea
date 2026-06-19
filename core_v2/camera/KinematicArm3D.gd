@@ -257,7 +257,8 @@ func _physics_process(delta):
 		if get_child_count() > 0:
 			var child := get_child(0)
 			if is_instance_valid(child) and child is Spatial:
-				child.global_transform.origin = global_transform.origin + global_transform.basis.z * current_length + camera_local_offset
+				var base_target := global_transform.origin + global_transform.basis.z * current_length
+				child.global_transform.origin = _resolve_child_target(base_target)
 		return
 
 	# Use separate smoothing speeds: snappier retract, softer extension.

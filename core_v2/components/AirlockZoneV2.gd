@@ -78,7 +78,6 @@ func _on_zone_entered(body: Node) -> void:
 	_set_airlock_tracking_suspended(body, true)
 	_push_airlock_camera(body)
 	_start_airlock_cycle_from_body(body)
-	_begin_background_load()
 
 func _on_zone_exited(body: Node) -> void:
 	if Engine.editor_hint:
@@ -128,6 +127,10 @@ func _physics_process(_delta: float) -> void:
 		_commit_return_from_open_exit(player)
 
 	if not _passive_exit_open and not _has_triggered and _past_trigger_threshold():
+		# Start loading only once the player committed to the chamber. Individual
+		# ResourceInteractiveLoader.poll() calls can block for tens of milliseconds,
+		# so beginning at the outer zone edge causes a visible approach slowdown.
+		_begin_background_load()
 		var airlock = _find_airlock_controller()
 		if is_instance_valid(airlock):
 			_ensure_transition_cycle_started(airlock, true)
