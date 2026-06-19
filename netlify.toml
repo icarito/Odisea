@@ -1,0 +1,29 @@
+# Netlify configuration for Odisea.
+# Deployments are pushed via GitHub Actions (nwtgck/actions-netlify).
+# The [build] ignore command prevents Netlify's own CI from deploying
+# directly from the repo (which has no pre-built HTML5 export).
+
+[build]
+  ignore = "exit 0"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "credentialless"
+    Cross-Origin-Resource-Policy = "cross-origin"
+
+[[headers]]
+  for = "/*.wasm"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.wasm.gz"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.pck.gz"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
