@@ -1,5 +1,0 @@
-SCENE_GOTO "res://core_v2/levels/test_baseterrace_render.tscn"
-WAIT_SECS 2.0
-SYS_TAKE_SCREENSHOT "baseterrace_render"
-PRINT "Taken screenshot of BaseTerrace"
-EXIT
