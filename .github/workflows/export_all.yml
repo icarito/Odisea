@@ -12,7 +12,7 @@ on:
     types: [ completed ]
     branches: [ "main", "release" ]
   workflow_dispatch:
-    inputs:
+    inputs:feat(export): add macOS platform support for multiplatform builds
       publish_prerelease:
         description: 'Publish a GitHub pre-release from this manual build'
         required: false
@@ -130,12 +130,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux_x64, linux_arm64, windows, ios, macos, android, html5]
+        platform: [linux_x64, linux_arm64, windows, macos, ios, android, html5]
         include:
           - platform: linux_x64
             os: ubuntu-latest
             preset: "Linux/X11 x86_64"
             artifact_name: Odisea-Tech-Demo-Linux
+          # macOS is exported from Linux: the GitHub macos-latest runner is an
+          # Apple Silicon box with only ~7 GB RAM, and the universal export
+          # (x86_64 + arm64) blows past that and gets OOM-killed (SIGKILL /
+          # "Killed: 9"). Godot 3.6 can produce the macOS .zip from a Linux
+          # runner (16 GB) as long as the osx export template is installed,
+          # which the "Install Templates" step already does from the .tpz.
           - platform: linux_arm64
             os: ubuntu-latest
             preset: "Linux/X11 ARM64"
@@ -144,6 +150,10 @@ jobs:
             os: ubuntu-latest
             preset: "Windows Desktop"
             artifact_name: Odisea-Tech-Demo-Windows
+          - platform: macos
+            os: ubuntu-latest
+            preset: "macOS Universal"
+            artifact_name: Odisea-Tech-Demo-macOS
           - platform: ios
             os: macos-latest
             preset: "iOS"
