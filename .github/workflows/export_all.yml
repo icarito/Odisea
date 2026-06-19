@@ -380,6 +380,17 @@ jobs:
           sed -i -E "s|^version/code = .*|version/code = ${ANDROID_VERSION_CODE}|" export_presets.cfg
           sed -i -E "s|^version/name = .*|version/name = \"${ANDROID_VERSION_NAME}\"|" export_presets.cfg
 
+      - name: Limit macOS texture import formats
+        if: matrix.platform == 'macos'
+        run: |
+          # The macOS desktop export only needs S3TC. Generating BPTC, ETC/ETC2
+          # and PVRTC variants for every VRAM texture exhausts the Linux runner
+          # during the headless import before Godot can create the archive.
+          sed -i 's/^vram_compression\/import_bptc=true$/vram_compression\/import_bptc=false/' project.godot
+          sed -i 's/^vram_compression\/import_etc=true$/vram_compression\/import_etc=false/' project.godot
+          sed -i 's/^vram_compression\/import_pvrtc=true$/vram_compression\/import_pvrtc=false/' project.godot
+          grep '^vram_compression/' project.godot
+
       - name: Export
         if: steps.ios_gate.outputs.skip_ios != 'true'
         run: |
