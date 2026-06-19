@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/telemetry",
+      "destination": "https://odisea.educa.juegos/telemetry"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
