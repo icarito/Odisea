@@ -360,6 +360,8 @@ $GODOT_HEAD_INCLUDE
 		// Remote Asset Loader with Local Fallback
 		// Loads .pck and .wasm from GitHub Pages to save Netlify bandwidth.
 		// Falls back to local files if GitHub Pages is unreachable.
+		// Non-isolated browsers (Safari) are redirected to Vercel before
+		// reaching this point, so only the threaded wasm path is needed.
 		// ================================================================
 		(function() {
 			var originalFetch = window.fetch;
@@ -373,20 +375,12 @@ $GODOT_HEAD_INCLUDE
 				var isPck = resource.indexOf('.pck') !== -1;
 				var isWasm = resource.indexOf('.wasm') !== -1;
 
-				// Cross-origin isolation gate. The threaded engine wasm needs
-				// SharedArrayBuffer, which requires crossOriginIsolated. Safari does
-				// not isolate under COEP: credentialless, so SAB is missing there.
-				// When isolation is absent we serve a no-threads engine wasm from the
-				// SAME ORIGIN (Netlify) instead of the threaded build on GitHub Pages.
-				// The .pck is identical for both engines, so only the wasm switches.
-				var isolated = (typeof SharedArrayBuffer !== "undefined") && !!window.crossOriginIsolated;
-
-			if (isPck || (isWasm && isolated)) {
-				var filename = resource.split('/').pop();
-				var remoteUrl = isWasm
-					? PAGES_BASE + "/threads/" + filename
-					: PAGES_BASE + "/" + filename;
-				var assetType = isPck ? "PCK" : "WASM";
+				if (isPck || isWasm) {
+					var filename = resource.split('/').pop();
+					var remoteUrl = isWasm
+						? PAGES_BASE + "/threads/" + filename
+						: PAGES_BASE + "/" + filename;
+					var assetType = isPck ? "PCK" : "WASM";
 
 					console.log("[" + assetType + "] Attempting GitHub Pages:", remoteUrl);
 					return originalFetch(remoteUrl, init).then(function(response) {
@@ -397,24 +391,6 @@ $GODOT_HEAD_INCLUDE
 						throw new Error("GitHub Pages returned " + response.status);
 					}).catch(function(err) {
 						console.warn("[" + assetType + "] GitHub Pages failed, falling back to local:", resource, err);
-						return originalFetch(resource, init);
-					});
-				}
-
-				// Not isolated + wasm requested: serve the no-threads engine from
-				// GitHub Pages (/no_threads/), not the threaded /threads/ build that
-				// needs SharedArrayBuffer. Without isolation this is a plain CORS
-				// fetch — Pages' Access-Control-Allow-Origin: * covers it. Falls back
-				// to the local copy if Pages is unreachable.
-				if (isWasm && !isolated) {
-					var filename = resource.split('/').pop();
-					var noThreadsUrl = PAGES_BASE + "/no_threads/" + filename;
-					console.log("[WASM] No cross-origin isolation; loading no-threads engine:", noThreadsUrl);
-					return originalFetch(noThreadsUrl, init).then(function(response) {
-						if (response.ok) return response;
-						throw new Error("GitHub Pages returned " + response.status);
-					}).catch(function(err) {
-						console.warn("[WASM] No-threads wasm fetch failed, falling back to local:", err);
 						return originalFetch(resource, init);
 					});
 				}
@@ -684,61 +660,24 @@ $GODOT_HEAD_INCLUDE
 		var params = new URLSearchParams(window.location.search);
 		var runbinUrl = params.get('runbin');
 
-		// --- iOS/Safari redirect to the cross-origin-isolated Vercel deploy -------
-		// Safari can't run the threaded engine here: COEP credentialless gives no
-		// SharedArrayBuffer. The Vercel deploy serves everything same-origin with
-		// COEP require-corp, so Safari IS isolated there and runs threaded. Send
-		// iOS/iPadOS devices there before booting. Guards against a redirect loop
-		// (skip if already on the Vercel host) and honors ?nethr=1 to opt out.
+		// --- Redirect to Vercel when not cross-origin isolated -------------------
+		// The threaded engine needs SharedArrayBuffer, which requires
+		// crossOriginIsolated. Netlify sends COEP credentialless (sufficient for
+		// Chrome/Firefox), but Safari only isolates under COEP require-corp.
+		// Vercel serves everything same-origin with require-corp, so any browser
+		// that isn't isolated here gets sent there. Guards against redirect loops
+		// (skip if already on Vercel) and honors ?nothr=1 to opt out.
 		var ODISEA_VERCEL_HOST = "odisea-ios.vercel.app";
-		(function maybeRedirectIOS() {
+		(function maybeRedirectNonIsolated() {
 			if (params.get("nothr") === "1") return;
 			if (location.hostname === ODISEA_VERCEL_HOST) return;
-			var ua = navigator.userAgent || "";
-			var isIOS = /iPad|iPhone|iPod/.test(ua);
-			// iPadOS 13+ reports as desktop Safari; detect via touch + Mac.
-			var isIPadOS = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
-			if (!isIOS && !isIPadOS) return;
+			if ((typeof SharedArrayBuffer !== "undefined") && !!window.crossOriginIsolated) return;
 			var target = location.protocol + "//" + ODISEA_VERCEL_HOST + location.pathname + location.search;
-			console.log("[ODiSEA] iOS detected; redirecting to isolated build:", target);
+			console.log("[ODiSEA] Not cross-origin isolated; redirecting to isolated build:", target);
 			location.replace(target);
 		})();
 
-		// Cross-origin isolation gate (same check the fetch interceptor uses to
-		// pick the wasm). When absent, SharedArrayBuffer is unavailable: we load
-		// the no-threads engine and warn the player about reduced performance.
-		var pageIsolated = (typeof SharedArrayBuffer !== "undefined") && !!window.crossOriginIsolated;
-
-		// Dismissable, non-blocking banner. Distinct from the fatal toast: the
-		// game keeps loading/playing behind it. Shown only when not isolated.
-		function showDegradedOverlay() {
-			if (document.getElementById("odisea-degraded")) return;
-			var el = document.createElement("div");
-			el.id = "odisea-degraded";
-			el.style.cssText = "position:fixed;left:50%;bottom:16px;transform:translateX(-50%);" +
-				"max-width:90%;z-index:9999;background:rgba(30,30,40,0.95);color:#f0e6c0;" +
-				"border:1px solid #6a5a30;border-radius:8px;padding:10px 14px;font:13px/1.4 sans-serif;" +
-				"box-shadow:0 4px 16px rgba(0,0,0,0.5);display:flex;align-items:center;gap:12px;";
-			var msg = document.createElement("span");
-			msg.textContent = "Tu navegador no permite el modo de alto rendimiento. " +
-				"Odisea funcionará con rendimiento reducido.";
-			var btn = document.createElement("button");
-			btn.textContent = "Entendido";
-			btn.style.cssText = "background:#6a5a30;color:#fff;border:0;border-radius:5px;" +
-				"padding:5px 10px;cursor:pointer;font:13px sans-serif;flex-shrink:0;";
-			btn.addEventListener("click", function() {
-				if (el.parentNode) el.parentNode.removeChild(el);
-			});
-			el.appendChild(msg);
-			el.appendChild(btn);
-			document.body.appendChild(el);
-		}
-
 		function bootEngine() {
-			if (!pageIsolated) {
-				console.warn("[ODiSEA] No cross-origin isolation; booting no-threads engine (degraded performance).");
-				showDegradedOverlay();
-			}
 			var engine = new Engine(engineConfig);
 			engine.startGame({
 				onProgress: function(current, total) {
