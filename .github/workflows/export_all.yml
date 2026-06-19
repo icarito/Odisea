@@ -158,10 +158,6 @@ jobs:
             os: macos-latest
             preset: "iOS"
             artifact_name: Odisea-Tech-Demo-iOS
-          - platform: macos
-            os: macos-latest
-            preset: "macOS Universal"
-            artifact_name: Odisea-Tech-Demo-macOS
           - platform: android
             os: ubuntu-latest
             preset: "Android"
