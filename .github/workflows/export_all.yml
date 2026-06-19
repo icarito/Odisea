@@ -300,14 +300,25 @@ jobs:
             TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
           fi
 
-          if [ ! -f "$TPL_DIR/linux_x11_64_release" ]; then
+          case "${{ matrix.platform }}" in
+            macos) REQUIRED_TEMPLATE="$TPL_DIR/osx.zip" ;;
+            ios) REQUIRED_TEMPLATE="$TPL_DIR/iphone.zip" ;;
+            windows) REQUIRED_TEMPLATE="$TPL_DIR/windows_64_release.exe" ;;
+            html5) REQUIRED_TEMPLATE="$TPL_DIR/webassembly_release.zip" ;;
+            linux_arm64) REQUIRED_TEMPLATE="$TPL_DIR/linux_x11_arm64_release" ;;
+            *) REQUIRED_TEMPLATE="$TPL_DIR/linux_x11_64_release" ;;
+          esac
+
+          if [ ! -f "$REQUIRED_TEMPLATE" ]; then
             mkdir -p "$TPL_DIR"
             curl -fSL -o /tmp/tpz.zip "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_export_templates.tpz"
+            rm -rf /tmp/tpz_extract
             unzip -o /tmp/tpz.zip -d /tmp/tpz_extract/
             if [ -d /tmp/tpz_extract/templates ]; then
               cp -a /tmp/tpz_extract/templates/* "$TPL_DIR/"
             fi
           fi
+          test -f "$REQUIRED_TEMPLATE" || { echo "::error::Missing export template: $REQUIRED_TEMPLATE"; exit 1; }
 
           if [ "${{ matrix.platform }}" = "html5" ]; then
             # The "HTML5 Threads" preset reads the webassembly_release.zip slot;
@@ -389,7 +400,9 @@ jobs:
           sed -i 's/^vram_compression\/import_bptc=true$/vram_compression\/import_bptc=false/' project.godot
           sed -i 's/^vram_compression\/import_etc=true$/vram_compression\/import_etc=false/' project.godot
           sed -i 's/^vram_compression\/import_pvrtc=true$/vram_compression\/import_pvrtc=false/' project.godot
+          sed -i '/^\[preset\.6\.options\]/,/^\[preset\./ s/^texture_format\/bptc = true$/texture_format\/bptc = false/' export_presets.cfg
           grep '^vram_compression/' project.godot
+          sed -n '/^\[preset\.6\.options\]/,/^\[preset\./p' export_presets.cfg | grep '^texture_format/'
 
       - name: Export
         if: steps.ios_gate.outputs.skip_ios != 'true'
