@@ -632,7 +632,7 @@ jobs:
           production-branch: main
           github-token: ${{ secrets.GITHUB_TOKEN }}
           deploy-message: "Deploy from ${{ needs.prep.outputs.sha }}"
-          netlify-config-path: ./
+          netlify-config-path: ./netlify.toml
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
@@ -645,6 +645,12 @@ jobs:
     needs: [prep, export]
     runs-on: ubuntu-latest
     if: ${{ always() && needs.prep.result == 'success' && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
+    permissions:
+      contents: read
+      deployments: write
+    environment:
+      name: vercel-ios
+      url: https://odisea-ios.vercel.app
     steps:
       - name: Download Vercel artifact
         uses: actions/download-artifact@v4
