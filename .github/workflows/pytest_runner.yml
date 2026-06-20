@@ -2,8 +2,18 @@ name: Odyssey Pytest Runner
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - '*.md'
+      - 'scripts/*'
+      - '.gitignore'
+      - 'docs/**'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - '*.md'
+      - 'scripts/*'
+      - '.gitignore'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       run_raw_oys:
