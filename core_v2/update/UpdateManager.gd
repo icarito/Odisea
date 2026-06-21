@@ -56,11 +56,12 @@ func check_for_updates() -> void:
 	if channel == "": channel = "release"
 
 	var platform = "linux"
-	if OS.has_feature("windows"): platform = "windows"
-	elif OS.has_feature("macos"): platform = "macos"
-	elif OS.has_feature("android"): platform = "android"
-	elif OS.has_feature("iOS"): platform = "ios"
-	elif OS.has_feature("web"): platform = "html5"
+	var os_name = OS.get_name()
+	if os_name == "Windows": platform = "windows"
+	elif os_name == "OSX": platform = "macos"
+	elif os_name == "Android": platform = "android"
+	elif os_name == "iOS": platform = "ios"
+	elif os_name == "HTML5": platform = "html5"
 
 	var arch = "x86_64" # Simplified
 
@@ -180,6 +181,19 @@ func _get_current_build_id() -> String:
 
 func begin_update() -> void:
 	if _state != State.AVAILABLE:
+		return
+
+	if OS.get_name() == "iOS":
+		var url = _pending_update.get("downloads_page", "")
+		if url != "":
+			OS.shell_open(url)
+		return
+
+	if OS.get_name() == "HTML5":
+		# Delegate to shell by reloading with build_id
+		var build_id = _pending_update.get("build_id", "")
+		if JavaScript:
+			JavaScript.eval("window.location.href = window.location.origin + window.location.pathname + '?build_id=' + '" + build_id + "';")
 		return
 
 	var artifact = get_selected_artifact(_pending_update)
@@ -466,18 +480,26 @@ func _get_current_package_hashes() -> Dictionary:
 func _finalize_apk_download():
 	var artifact_id = _active_download["artifact_id"]
 	var part_path = STAGING_DIR + artifact_id + ".part"
-	var apk_path = OS.get_user_data_dir() + "/updates/" + artifact_id + ".apk"
 
 	var f = File.new()
 	if f.get_sha256(part_path) != _active_download["sha256"]:
 		_on_error("artifact_hash_mismatch", false)
 		return
 
-	var d = Directory.new()
-	# OS.shell_open might need a real path, not user://
+	# On Android, we don't load the PCK, we trigger the APK install
 	var real_path = ProjectSettings.globalize_path(part_path)
-	OS.shell_open(real_path)
-	_set_state(State.APPLYING_EXTERNAL)
+
+	# Rename to .apk so the OS recognizes it
+	var apk_path = PACKAGE_DIR + artifact_id + ".apk"
+	var d = Directory.new()
+	if d.file_exists(apk_path):
+		d.remove(apk_path)
+
+	if d.copy(part_path, apk_path) == OK:
+		OS.shell_open(ProjectSettings.globalize_path(apk_path))
+		_set_state(State.APPLYING_EXTERNAL)
+	else:
+		_on_error("apk_promote_failed", false)
 
 func _finalize_web_update(pending):
 	# JavaScript call to navigate with cache busting

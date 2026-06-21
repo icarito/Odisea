@@ -186,9 +186,19 @@ $GODOT_HEAD_INCLUDE
 			<button id="odisea-toast-close" type="button" aria-label="Cerrar" style="margin-left:auto">×</button>
 		</div>
 		<div id="odisea-toast-msg"></div>
+		<div id="odisea-toast-update" style="display:none; margin-top:10px;">
+			<button id="odisea-toast-update-btn" style="background:#aabbcc; color:#0b1019; border:none; padding:6px 12px; border-radius:2px; font-size:11px; font-weight:600; cursor:pointer;">Actualizar</button>
+		</div>
 		<div id="odisea-toast-detail"></div>
 		<div id="odisea-toast-foot">
 			<a href="https://github.com/icarito/Odisea/issues" target="_blank" rel="noopener">Reportar en github.com/icarito/Odisea/issues</a>
+		</div>
+	</div>
+	<div id="odisea-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:100; align-items:center; justify-content:center; font-family:system-ui, sans-serif; color:#cfd7e3; padding:20px;">
+		<div style="background:#0b1019; border:1px solid #2a3650; border-top: 3px solid #d9685e; padding:24px; max-width:400px; width:100%; border-radius:4px; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+			<h2 id="odisea-modal-title" style="margin-bottom:12px; color:#eee; font-size:18px; font-weight:600;">Actualización requerida</h2>
+			<div id="odisea-modal-msg" style="font-size:14px; line-height:1.5; margin-bottom:24px; color:#93a0b4;">Se requiere una actualización de seguridad para continuar.</div>
+			<button id="odisea-modal-ok" style="background:#aabbcc; color:#0b1019; border:none; padding:12px 20px; border-radius:2px; font-weight:600; cursor:pointer; width:100%; font-size:14px;">Actualizar ahora</button>
 		</div>
 	</div>
 	<script src="$GODOT_URL"></script>
@@ -413,6 +423,11 @@ $GODOT_HEAD_INCLUDE
 		var toastTitleEl = document.getElementById("odisea-toast-title");
 		var toastMsgEl = document.getElementById("odisea-toast-msg");
 		var toastDetailEl = document.getElementById("odisea-toast-detail");
+		var toastUpdateEl = document.getElementById("odisea-toast-update");
+		var toastUpdateBtn = document.getElementById("odisea-toast-update-btn");
+		var modalEl = document.getElementById("odisea-modal");
+		var modalOkBtn = document.getElementById("odisea-modal-ok");
+		var modalMsgEl = document.getElementById("odisea-modal-msg");
 
 		// --- Telemetry (fire and forget, must never block the load) ---
 		var TELEMETRY_ENDPOINTS = [
@@ -676,6 +691,35 @@ $GODOT_HEAD_INCLUDE
 			location.replace(target);
 		})();
 
+		function checkForUpdates() {
+			var channel = "release";
+			var platform = "html5";
+			var arch = "web";
+			var currentVersion = "$ODISEA_VERSION".replace("$", ""); // Fallback if not replaced
+			if (currentVersion.startsWith("ODISEA")) currentVersion = "v0.0.0";
+			var currentBuildId = "$ODISEA_BUILD_ID".replace("$", "");
+			if (currentBuildId.startsWith("ODISEA")) currentBuildId = "";
+
+			var query = "channel=" + channel + "&platform=" + platform + "&arch=" + arch +
+						"&current_version=" + encodeURIComponent(currentVersion) +
+						"&current_build_id=" + encodeURIComponent(currentBuildId);
+			var url = "/game/updates/v1/manifest?" + query;
+
+			return fetch(url, {
+				headers: { "Accept": "application/vnd.odisea.update-manifest.v1+json" }
+			}).then(function(response) {
+				if (response.status === 204) return null;
+				if (response.status !== 200) return null;
+				return response.json();
+			}).then(function(envelope) {
+				if (!envelope || !envelope.payload) return null;
+				return JSON.parse(atob(envelope.payload));
+			}).catch(function(err) {
+				console.warn("[ODiSEA] Update check failed:", err);
+				return null;
+			});
+		}
+
 		function bootEngine() {
 			var engine = new Engine(engineConfig);
 			engine.startGame({
@@ -696,8 +740,43 @@ $GODOT_HEAD_INCLUDE
 			});
 		}
 
-		if (runbinUrl) {
-			console.log("[ODiSEA] Runbin mode detected:", runbinUrl);
+		function startOdisea() {
+			checkForUpdates().then(function(update) {
+				if (!update) {
+					proceedWithBoot();
+					return;
+				}
+
+				var severity = update.severity || "optional";
+				var version = update.version || "nueva";
+				var buildId = update.build_id || "";
+				var deploymentUrl = window.location.origin + window.location.pathname;
+
+				function applyUpdate() {
+					window.location.href = deploymentUrl + "?build_id=" + encodeURIComponent(buildId);
+				}
+
+				if (severity === "security_critical") {
+					modalMsgEl.textContent = "Se requiere la versión " + version + " por motivos de seguridad.";
+					modalEl.style.display = "flex";
+					modalOkBtn.onclick = applyUpdate;
+					return; // Stop boot
+				}
+
+				if (severity === "recommended" || severity === "optional") {
+					var title = (severity === "recommended") ? "Actualización recomendada" : "Nueva versión disponible";
+					showToast("slow", title, "La versión " + version + " está disponible.");
+					toastUpdateEl.style.display = "block";
+					toastUpdateBtn.onclick = applyUpdate;
+				}
+
+				proceedWithBoot();
+			});
+		}
+
+		function proceedWithBoot() {
+			if (runbinUrl) {
+				console.log("[ODiSEA] Runbin mode detected:", runbinUrl);
 			loreEl.textContent = "Descargando captura de rendimiento...";
 			
 			// Override start scene and add replay-file argument
@@ -728,9 +807,12 @@ $GODOT_HEAD_INCLUDE
 					loreEl.textContent = "Error descargando captura. Iniciando normalmente...";
 					setTimeout(bootEngine, 2000);
 				});
-		} else {
-			bootEngine();
+			} else {
+				bootEngine();
+			}
 		}
+
+		startOdisea();
 	</script>
 </body>
 </html>
