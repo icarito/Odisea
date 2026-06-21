@@ -4,6 +4,7 @@ signal update_available(info)
 signal update_progress(downloaded_bytes, total_bytes)
 signal update_ready(info)
 signal update_failed(code, recoverable)
+signal new_version_available(version_data)
 
 enum State {
 	IDLE,
@@ -123,6 +124,7 @@ func _on_check_completed(result, response_code, _headers, body, http, channel, p
 	_pending_update = payload
 	_set_state(State.AVAILABLE)
 	emit_signal("update_available", payload)
+	emit_signal("new_version_available", payload)
 
 func _validate_manifest(p, channel, platform) -> bool:
 	if p.get("channel") != channel:
@@ -180,14 +182,14 @@ func begin_update() -> void:
 	if _state != State.AVAILABLE:
 		return
 
-	var artifact = _select_artifact(_pending_update)
+	var artifact = get_selected_artifact(_pending_update)
 	if artifact.empty():
 		_on_error("no_compatible_artifact", false)
 		return
 
 	_start_download(artifact)
 
-func _select_artifact(p: Dictionary) -> Dictionary:
+func get_selected_artifact(p: Dictionary) -> Dictionary:
 	var current_confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
 	var current_build_id = current_confirmed.get("build_id", "")
 
@@ -195,7 +197,7 @@ func _select_artifact(p: Dictionary) -> Dictionary:
 	if p.has("delta_artifacts"):
 		for delta in p["delta_artifacts"]:
 			if delta.get("from_build_id") == current_build_id:
-				if _is_delta_eligible(delta, p):
+				if is_delta_eligible(delta, p):
 					delta["is_delta"] = true
 					return delta
 
@@ -207,7 +209,7 @@ func _select_artifact(p: Dictionary) -> Dictionary:
 
 	return {}
 
-func _is_delta_eligible(delta: Dictionary, p: Dictionary) -> bool:
+func is_delta_eligible(delta: Dictionary, p: Dictionary) -> bool:
 	if p.get("force_full", false): return false
 	if delta.get("touches_bootstrap", false): return false
 	if not delta.get("deleted_paths", []).empty(): return false
