@@ -294,9 +294,53 @@ func _execute_command(cmd: Dictionary):
 
 func _can_execute_remote_command(action: String) -> bool:
 	# Telemetry and harmless info commands are always allowed
-	if action in ["inspect_node", "screenshot", "reload_pck"]:
+	if action in ["inspect_node", "screenshot"]:
 		return true
 	return OS.is_debug_build() or OS.has_feature("editor")
+
+func _find_expected_sha256(artifact_id: String) -> String:
+	var f = File.new()
+
+	# 1. Check sidecar file (highest priority for manual/dev overrides)
+	var sidecar_path = "user://updates/packages/" + artifact_id + ".json"
+	if f.file_exists(sidecar_path):
+		if f.open(sidecar_path, File.READ) == OK:
+			var res = JSON.parse(f.get_as_text())
+			f.close()
+			if res.error == OK and typeof(res.result) == TYPE_DICTIONARY:
+				var sha = res.result.get("sha256", "")
+				if sha != "": return sha
+
+	# 2. Check update state files
+	var state_files = [
+		"user://updates/state.json",
+		"user://updates/pending_boot.json",
+		"user://updates/confirmed_boot.json"
+	]
+
+	for path in state_files:
+		if f.file_exists(path):
+			if f.open(path, File.READ) == OK:
+				var res = JSON.parse(f.get_as_text())
+				f.close()
+				if res.error == OK:
+					var sha = _extract_sha256_recursive(res.result, artifact_id)
+					if sha != "": return sha
+
+	return ""
+
+func _extract_sha256_recursive(data, artifact_id: String) -> String:
+	if typeof(data) == TYPE_DICTIONARY:
+		if data.get("artifact_id") == artifact_id and data.has("sha256"):
+			return str(data["sha256"])
+		for key in data:
+			var res = _extract_sha256_recursive(data[key], artifact_id)
+			if res != "": return res
+	elif typeof(data) == TYPE_ARRAY:
+		for item in data:
+			var res = _extract_sha256_recursive(item, artifact_id)
+			if res != "": return res
+	return ""
 
 func _send_response(id, ok, data):
 	var resp = {
@@ -434,51 +478,46 @@ func _cmd_teleport_player(id, args):
 	_send_response(id, true, {})
 
 func _cmd_reload_pck(id, args):
-	var url = args.get("url")
-	if not url or url == "":
-		_send_response(id, false, {"error": "missing pck url"})
+	if not (OS.is_debug_build() or OS.has_feature("editor")):
+		_send_response(id, false, {"error": "reload_pck only available in debug/editor builds"})
 		return
 
-	var target_scene = args.get("scene")
-
-	print("[ANNAV2] Starting PCK download from: ", url)
-
-	var http = HTTPRequest.new()
-	add_child(http)
-
-	# En HTML5 use_threads debe ser false. En Godot 3 standard esto es por defecto.
-	if OS.has_feature("web"):
-		http.use_threads = false
-
-	var temp_path = "user://temp_injection.pck"
-	http.download_file = temp_path
-
-	var err = http.request(url)
-	if err != OK:
-		_send_response(id, false, {"error": "failed to start http request: " + str(err)})
-		http.queue_free()
+	if args.has("url"):
+		_send_response(id, false, {"error": "reload_pck no longer accepts URLs for security reasons"})
 		return
 
-	# Esperar descarga (Godot 3 yield style)
-	var result = yield(http, "request_completed")
-	var response_code = result[1]
-
-	if response_code != 200:
-		_send_response(id, false, {"error": "pck download failed with code: " + str(response_code)})
-		http.queue_free()
+	var artifact_id = args.get("artifact_id")
+	if not artifact_id or artifact_id == "":
+		_send_response(id, false, {"error": "missing artifact_id"})
 		return
 
-	http.queue_free()
+	var pck_path = "user://updates/packages/" + artifact_id + ".pck"
+	var f = File.new()
+	if not f.file_exists(pck_path):
+		_send_response(id, false, {"error": "pck not found in local updates: " + pck_path})
+		return
 
-	print("[ANNAV2] PCK downloaded, loading: ", temp_path)
+	var expected_sha = _find_expected_sha256(artifact_id)
+	if expected_sha == "":
+		_send_response(id, false, {"error": "no verified SHA-256 found for artifact: " + artifact_id})
+		return
 
-	# ProjectSettings.load_resource_pack es global y persiste durante la ejecución
-	var success = ProjectSettings.load_resource_pack(temp_path)
+	var actual_sha = f.get_sha256(pck_path)
+	if actual_sha.to_lower() != expected_sha.to_lower():
+		_send_response(id, false, {
+			"error": "SHA-256 mismatch",
+			"expected": expected_sha,
+			"actual": actual_sha
+		})
+		return
+
+	print("[ANNAV2] Loading verified PCK: ", pck_path)
+	var success = ProjectSettings.load_resource_pack(pck_path)
 	if not success:
 		_send_response(id, false, {"error": "failed to load resource pack"})
 		return
 
-	# Recargar escena
+	var target_scene = args.get("scene")
 	if target_scene and target_scene != "":
 		print("[ANNAV2] Changing scene to: ", target_scene)
 		var change_err = get_tree().change_scene(target_scene)
@@ -488,7 +527,6 @@ func _cmd_reload_pck(id, args):
 	else:
 		var current = get_tree().current_scene.filename
 		if current == "":
-			# Fallback if current scene has no filename (e.g. dynamically created)
 			current = "res://scenes/Main.tscn"
 
 		print("[ANNAV2] Reloading current scene: ", current)
@@ -497,7 +535,7 @@ func _cmd_reload_pck(id, args):
 			_send_response(id, false, {"error": "failed to reload scene: " + str(reload_err)})
 			return
 
-	_send_response(id, true, {"message": "pck loaded and scene reloaded"})
+	_send_response(id, true, {"message": "verified pck loaded and scene reloaded"})
 
 # --- Telemetry capture API (local, bridge-independent) ---
 # Safe to call from OYS (ANNA_ENABLE/ANNA_DISABLE/ANNA_DUMP) or directly from
