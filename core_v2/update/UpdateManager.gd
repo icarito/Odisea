@@ -63,7 +63,13 @@ func check_for_updates() -> void:
 	elif os_name == "iOS": platform = "ios"
 	elif os_name == "HTML5": platform = "html5"
 
-	var arch = "x86_64" # Simplified
+	var arch = "x86_64"
+	if OS.has_feature("arm64"):
+		arch = "arm64"
+	elif OS.has_feature("32"):
+		arch = "x86"
+	if os_name == "HTML5":
+		arch = "web"
 
 	var version = "v0.0.0"
 	var constants = get_node_or_null("/root/Constants")
