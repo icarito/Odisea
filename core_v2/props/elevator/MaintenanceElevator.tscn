@@ -137,6 +137,7 @@ material = SubResource( 2 )
 
 [node name="PassengerArea" type="Area" parent="Platform"]
 collision_layer = 0
+collision_mask = 2
 
 [node name="PassengerCollision" type="CollisionShape" parent="Platform/PassengerArea"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )

@@ -2504,6 +2504,15 @@ func _get_step_support_collision_mask() -> int:
 	return support_mask if support_mask != 0 else collision_mask
 
 func _update_platform_tracking(dt: float) -> void:
+	# If a carrier (e.g. MaintenanceElevator deck) has reparented us under itself,
+	# the carrier's transform already moves us via scene-graph inheritance. Running
+	# the delta-tracking carry on top of that double-counts the motion and makes the
+	# passenger judder (worst on a fast vertical lift). Skip tracking while carried.
+	if _is_carried_by_parent():
+		_platform_collider = null
+		_platform_tracking_key = ""
+		_platform_velocity = Vector3.ZERO
+		return
 	var new_platform: Spatial = null
 	var new_platform_key := ""
 	if is_on_floor():
@@ -2557,6 +2566,17 @@ func _standing_on_moving_terrace() -> bool:
 		var collider = collision.collider
 		if collider != null and (collider.has_meta("canonical_tx") or collider.has_meta("world_rotator_collision")):
 			return true
+	return false
+
+# True when an ancestor node has reparented us to carry us directly (it is in the
+# "player_carrier" group). While carried, scene-graph transform inheritance moves
+# us, so the per-frame delta-tracking carry must stand down to avoid double motion.
+func _is_carried_by_parent() -> bool:
+	var node = get_parent()
+	while node != null:
+		if node.is_in_group("player_carrier"):
+			return true
+		node = node.get_parent()
 	return false
 
 func _is_trackable_platform_collider(collider: Object) -> bool:

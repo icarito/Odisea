@@ -24,10 +24,16 @@ export(float) var speed := 2.0 # m/s cruise speed
 export(float) var approach_distance := 3.0 # last metres are eased to a soft stop
 export(float) var min_approach_speed := 1.0 # m/s floor so it doesn't crawl forever
 export(bool) var starts_at_top := false setget set_starts_at_top
-# Hatch opens as soon as the platform enters the approach zone near the top, so
-# the slow ~1s door slide finishes well before the deck reaches the opening.
-# It closes on the way down once the deck has cleared this far above the floor.
-export(float) var hatch_close_trigger := 1.5 # closes after platform > this (m)
+# Local Y (platform_y) at which the deck reaches the floor hatch opening. With a
+# travel that overshoots the hatch (deck continues up to a higher deck level), the
+# hatch is NOT at the top — tie its open/close to this height, not to the top.
+# 0 = auto: use travel_height (legacy "hatch at the top" behaviour).
+export(float) var hatch_open_height := 0.0
+# Start the door slide this many metres BEFORE the deck reaches hatch_open_height,
+# so the slow (~1s) slide finishes before the deck arrives and nobody hits their head.
+export(float) var hatch_open_lead := 3.0
+# It closes on the way down once the deck has dropped this far below the hatch.
+export(float) var hatch_close_trigger := 1.5 # closes after platform < hatch - this (m)
 
 # --- NODE PATHS ---
 export(NodePath) var platform_path = NodePath("Platform")
@@ -47,8 +53,15 @@ var _start_origin := Vector3.ZERO # platform local position at PB (y=0)
 var _hatch_commanded_open := false
 var _initialized := false
 
+# Player-carry (reparent) state. While the deck moves, any rider standing on it is
+# reparented under the deck so scene-graph transform inheritance carries it with no
+# collision-push / delta-tracking fight (which judders the rider on a fast lift).
+var _carried_bodies := [] # bodies currently reparented under the deck
+var _carry_original_parents := {} # instance_id -> original parent Node
+
 # Cached nodes
 var _platform: Spatial = null
+var _passenger_area: Area = null
 var _hatch: Node = null
 var _button: Node = null
 var _block_area: Area = null
@@ -91,10 +104,13 @@ func _apply_guide_rail_extent() -> void:
 
 func _ready():
 	add_to_group("replay_sync")
-	# Move the platform before the player's _physics_process so the passenger's
-	# transform-delta tracking reads a settled position each frame (no jitter,
-	# especially on the way down where gravity fights the descending deck).
-	process_priority = -10
+	# While moving, riders are reparented under the deck (see _grab_passengers) so
+	# scene-graph transform inheritance carries them — no collision-push / delta-
+	# tracking fight, which is what juddered the passenger on a fast lift. Keep a
+	# positive priority so the deck steps AFTER the player each frame, so any rider
+	# NOT yet grabbed (or just released) still sees a settled floor for one frame
+	# rather than a deck that already jumped into it.
+	process_priority = 10
 	_cache_nodes()
 	_initialized = true
 
@@ -125,6 +141,11 @@ func _cache_nodes() -> void:
 	_platform = get_node_or_null(platform_path)
 	if _platform:
 		_start_origin = _platform.translation - Vector3(0, platform_y, 0)
+		# Tag the deck so a reparented PlayerControllerV2 knows it is being carried
+		# directly (and stands its own delta-tracking down — see _is_carried_by_parent).
+		if not _platform.is_in_group("player_carrier"):
+			_platform.add_to_group("player_carrier")
+		_passenger_area = _platform.get_node_or_null("PassengerArea")
 	_hatch = get_node_or_null(hatch_path) if hatch_path else null
 	_button = get_node_or_null(button_path)
 	_block_area = get_node_or_null(block_area_path)
@@ -169,8 +190,9 @@ func _start_move(going_up: bool) -> void:
 	# isn't capped while still in the opening. The elevator alone decides when to
 	# close (once the deck has dropped clear). On the way UP we leave the hatch
 	# as-is so it only opens once we reach the approach zone near the top.
-	if not going_up and platform_y >= travel_height - approach_distance:
+	if not going_up and platform_y >= _hatch_y() - hatch_close_trigger:
 		_command_hatch(true)
+	_grab_passengers()
 	emit_signal("elevator_departed", 0 if going_up else 1)
 	_start_motor_sfx()
 	_update_button_label()
@@ -193,18 +215,19 @@ func step(dt: float) -> void:
 		v = max(min_approach_speed, speed * f)
 	var delta_y = v * dt
 
+	var hatch_y = _hatch_y()
 	if going_up:
 		platform_y = min(platform_y + delta_y, travel_height)
-		# Open the hatch the moment we enter the approach zone — the slow door
-		# slide then completes before the deck reaches the opening.
-		if not _hatch_commanded_open and remaining <= approach_distance:
+		# Open the hatch `hatch_open_lead` metres BEFORE the deck reaches the opening,
+		# so the slow door slide completes before the deck arrives (no head-bonk).
+		if not _hatch_commanded_open and platform_y >= hatch_y - hatch_open_lead:
 			_command_hatch(true)
 		if platform_y >= travel_height:
 			_arrive(State.IDLE_TOP, 1)
 	else:
 		platform_y = max(platform_y - delta_y, 0.0)
-		# Close the hatch once the deck has dropped clear of the opening.
-		if _hatch_commanded_open and platform_y <= hatch_close_trigger:
+		# Close the hatch once the deck has dropped clear below the opening.
+		if _hatch_commanded_open and platform_y <= hatch_y - hatch_close_trigger:
 			_command_hatch(false)
 		if platform_y <= 0.0:
 			_arrive(State.IDLE_BOTTOM, 0)
@@ -213,6 +236,7 @@ func step(dt: float) -> void:
 
 func _arrive(new_state: int, floor_idx: int) -> void:
 	state = new_state
+	_release_passengers()
 	_stop_motor_sfx()
 	_play_ding_sfx()
 	# Ensure hatch matches the resting state (open at top, closed at bottom).
@@ -223,6 +247,62 @@ func _arrive(new_state: int, floor_idx: int) -> void:
 func _apply_platform_y() -> void:
 	if _platform:
 		_platform.translation = _start_origin + Vector3(0, platform_y, 0)
+
+func _hatch_y() -> float:
+	# Local Y (platform_y) at which the deck reaches the hatch opening. 0 = auto:
+	# legacy behaviour where the hatch sits at the top of travel.
+	return hatch_open_height if hatch_open_height > 0.0 else travel_height
+
+# --- PASSENGER CARRY (reparent) ---
+
+func _grab_passengers() -> void:
+	# Reparent every body currently standing in the PassengerArea under the deck so
+	# the deck's transform carries it directly (no collision-push / tracking fight).
+	if Engine.editor_hint or _passenger_area == null or _platform == null:
+		return
+	_passenger_area.force_update_transform()
+	for body in _passenger_area.get_overlapping_bodies():
+		_grab_one(body)
+
+func _grab_one(body: Node) -> void:
+	if body == null or _carried_bodies.has(body):
+		return
+	if body == _platform or body.get_parent() == _platform:
+		return
+	if not (body is Spatial):
+		return
+	var prev_parent = body.get_parent()
+	if prev_parent == null:
+		return
+	var world_tx: Transform = (body as Spatial).global_transform
+	_carry_original_parents[body.get_instance_id()] = prev_parent
+	prev_parent.remove_child(body)
+	_platform.add_child(body)
+	(body as Spatial).global_transform = world_tx
+	_carried_bodies.append(body)
+
+func _release_passengers() -> void:
+	if _carried_bodies.empty():
+		return
+	for body in _carried_bodies.duplicate():
+		_release_one(body)
+	_carried_bodies.clear()
+	_carry_original_parents.clear()
+
+func _release_one(body: Node) -> void:
+	if body == null or not is_instance_valid(body):
+		return
+	var dest = _carry_original_parents.get(body.get_instance_id(), null)
+	if dest == null or not is_instance_valid(dest):
+		# Fall back to the elevator's own parent so the body is never orphaned.
+		dest = get_parent()
+	if dest == null:
+		return
+	var world_tx: Transform = (body as Spatial).global_transform
+	if body.get_parent() != null:
+		body.get_parent().remove_child(body)
+	dest.add_child(body)
+	(body as Spatial).global_transform = world_tx
 
 # --- HATCH ---
 
