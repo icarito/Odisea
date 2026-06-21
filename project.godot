@@ -2564,7 +2564,6 @@ threads/thread_model=0
 vram_compression/import_bptc=true
 vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
-quality/shading/force_vertex_shading=true
 quality/shading/use_physical_light_attenuation=true
 batching/options/single_rect_fallback=true
 batching/parameters/max_join_item_commands=32
