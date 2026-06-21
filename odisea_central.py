@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import datetime
 import hashlib
 import hmac
@@ -36,6 +37,10 @@ def inflate_ws_frame(data: bytes) -> Optional[bytes]:
 
 # --- Configuration ---
 CENTRAL_HTTP_PORT = int(os.environ.get("CENTRAL_HTTP_PORT", 5003))
+
+VALID_PLATFORMS = {"linux", "windows", "macos", "android", "html5", "ios"}
+VALID_CHANNELS = {"release", "nightly"}
+MANIFEST_ACCEPT_HEADER = "application/vnd.odisea.update-manifest.v1+json"
 
 GITHUB_RELEASES_URL = "https://api.github.com/repos/icarito/Odisea/releases/latest"
 DOWNLOADS_PAGE_URL = "https://icarito.github.io/odisea-neon-dreams/#downloads"
@@ -141,6 +146,22 @@ WEB_TELEMETRY_RATE_WINDOW = int(os.environ.get("CENTRAL_WEB_TELEMETRY_RATE_WINDO
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger("odisea_central")
+
+
+def semver_lt(v1: str, v2: str) -> bool:
+    """Returns True if v1 < v2 using SemVer comparison (major.minor.patch)."""
+    try:
+        def parse(v):
+            # Strip 'v' prefix if present and split by '.', take first 3 parts as ints
+            parts = v.lstrip('v').split('+')[0].split('-')[0].split('.')
+            res = [int(p) for p in parts[:3]]
+            while len(res) < 3:
+                res.append(0)
+            return res
+        return parse(v1) < parse(v2)
+    except (ValueError, IndexError):
+        return False
+
 
 MILESTONES = [
     # Players
@@ -469,6 +490,7 @@ class OdiseaCentral:
         self.geo_pending_lookup: Dict[str, str] = {}  # ip_hash -> raw IP awaiting geolocation (memory-only)
         self.scene_geometry_cache: Dict[str, dict] = {}  # scene -> {"mtime": float, "data": dict, "grid": dict}
         self.milestone_checker = MilestoneDetector(self)
+        self._manifest_cache: Dict[tuple, dict] = {}  # (channel, platform, arch) -> {ts, etag, content}
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
             os.makedirs(GHOSTS_DIR, exist_ok=True)
@@ -611,6 +633,148 @@ class OdiseaCentral:
     # --- Request Handlers ---
     async def handle_health(self, request):
         return web.json_response(self.metrics.get_metrics(self))
+
+    async def _get_manifest(self, channel: str, platform: str, arch: str) -> Optional[dict]:
+        """Fetch and cache the signed manifest from GitHub.
+        Returns:
+            - The cache entry dict if found/fetched.
+            - {} (empty dict) if GitHub is UP but the asset is NOT FOUND (204 candidate).
+            - None if GitHub is DOWN and no cache is available (503 candidate).
+        """
+        now = time.time()
+        cache_key = (channel, platform, arch)
+        cached = self._manifest_cache.get(cache_key)
+
+        # 5 minutes TTL
+        if cached and now - cached["ts"] < 300:
+            return cached
+
+        try:
+            import urllib.request
+
+            # 1. Fetch release metadata to find the asset URL
+            if channel == "release":
+                api_url = GITHUB_RELEASES_URL
+            else:
+                api_url = f"https://api.github.com/repos/icarito/Odisea/releases/tags/{channel}"
+
+            headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "Odisea-Central-Bridge"}
+
+            def fetch_json(url):
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    return json.loads(response.read().decode())
+
+            release_data = await asyncio.get_running_loop().run_in_executor(None, fetch_json, api_url)
+
+            asset_name = f"manifest-{platform}-{arch}.json"
+            asset_url = None
+            for asset in release_data.get("assets", []):
+                if asset.get("name") == asset_name:
+                    asset_url = asset.get("url")
+                    break
+
+            if not asset_url:
+                logger.info(f"Manifest asset {asset_name} not found in {channel} release")
+                # Mark as not found in cache too to avoid re-fetching for 5 min
+                self._manifest_cache[cache_key] = {"ts": now, "not_found": True}
+                return {}
+
+            # 2. Fetch the actual manifest content (the signed envelope)
+            # GitHub Assets API requires a different Accept header for raw data
+            asset_headers = headers.copy()
+            asset_headers["Accept"] = "application/octet-stream"
+
+            def fetch_raw(url):
+                req = urllib.request.Request(url, headers=asset_headers)
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    content = response.read()
+                    if len(content) > 2 * 1024 * 1024:  # 2 MiB limit
+                        raise ValueError("Manifest envelope too large")
+                    return content
+
+            content = await asyncio.get_running_loop().run_in_executor(None, fetch_raw, asset_url)
+
+            etag = hashlib.sha256(content).hexdigest()
+            entry = {
+                "ts": now,
+                "etag": etag,
+                "content": content
+            }
+            self._manifest_cache[cache_key] = entry
+            return entry
+
+        except Exception as e:
+            logger.error(f"Failed to fetch manifest for {cache_key}: {e}")
+            # stale-if-error: up to 24 hours
+            if cached and now - cached["ts"] < 86400:
+                logger.info(f"Serving stale manifest for {cache_key}")
+                return cached
+            return None
+
+    async def handle_update_manifest(self, request):
+        """GET /game/updates/v1/manifest"""
+        if request.headers.get("Accept") != MANIFEST_ACCEPT_HEADER:
+            return web.json_response({"error": "invalid_accept_header"}, status=400)
+
+        channel = request.query.get("channel")
+        platform = request.query.get("platform")
+        arch = request.query.get("arch")
+        current_version = request.query.get("current_version")
+        current_build_id = request.query.get("current_build_id")
+
+        if not all([channel, platform, arch, current_version, current_build_id]):
+            return web.json_response({"error": "missing_parameters"}, status=400)
+
+        if channel not in VALID_CHANNELS:
+            return web.json_response({"error": "invalid_channel"}, status=400)
+        if platform not in VALID_PLATFORMS:
+            return web.json_response({"error": "invalid_platform"}, status=400)
+
+        manifest_entry = await self._get_manifest(channel, platform, arch)
+        if manifest_entry is None:
+            return web.json_response({"error": "origin_unavailable"}, status=503)
+        if manifest_entry == {} or manifest_entry.get("not_found"):
+            return web.Response(status=204)
+
+        # Cache/ETag check
+        if_none_match = request.headers.get("If-None-Match", "").strip('"')
+        if if_none_match == manifest_entry["etag"]:
+            return web.Response(status=304)
+
+        # Parse signed envelope to check version/build
+        envelope = {}
+        try:
+            envelope = json.loads(manifest_entry["content"].decode("utf-8"))
+            payload_raw = base64.b64decode(envelope.get("payload_b64", ""))
+            payload = json.loads(payload_raw.decode("utf-8"))
+
+            # 204 if already on this build
+            if str(payload.get("build_id")) == str(current_build_id):
+                return web.Response(status=204)
+
+            # 409 if current version is too old (unsupported)
+            min_v = payload.get("min_supported_version")
+            if min_v and semver_lt(current_version, min_v):
+                return web.Response(
+                    body=manifest_entry["content"],
+                    status=409,
+                    content_type="application/json",
+                    headers={"ETag": f'"{manifest_entry["etag"]}"'}
+                )
+        except Exception as e:
+            logger.error(f"Error parsing manifest for check: {e}")
+            # If we can't parse it to check version, still serve it as-is if
+            # it's a valid envelope format, otherwise 503.
+            if not isinstance(envelope, dict) or "payload_b64" not in envelope:
+                return web.json_response({"error": "malformed_manifest"}, status=503)
+
+        return web.Response(
+            body=manifest_entry["content"],
+            status=200,
+            content_type="application/json",
+            headers={"ETag": f'"{manifest_entry["etag"]}"'}
+        )
 
     async def handle_game_version(self, request):
         """Returns the latest game version from GitHub Releases with 5-min caching."""
@@ -3153,6 +3317,7 @@ class OdiseaCentral:
             web.post('/api/player-tags', self.handle_player_tag_upsert),
             web.delete('/api/player-tags/{player_id}', self.handle_player_tag_delete),
             web.get('/game/version', self.handle_game_version),
+            web.get('/game/updates/v1/manifest', self.handle_update_manifest),
             web.post('/telemetry', self.handle_web_telemetry),
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),

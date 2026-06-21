@@ -687,8 +687,99 @@ jobs:
           vercel alias set "$URL" odisea-ios.vercel.app --token "$VERCEL_TOKEN" --scope sebastian-silvas-projects-8fed1460
           echo "Aliased to https://odisea-ios.vercel.app"
 
-  release:
+  manifests:
     needs: [prep, export]
+    runs-on: ubuntu-latest
+    # Generate signed manifests only for main (nightly) or release branches.
+    # Forks don't have access to the signing secret and shouldn't publish manifests.
+    if: |
+      (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.ref_name == 'release' || needs.prep.outputs.is_dispatch == 'true') &&
+      github.repository == 'icarito/Odisea'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prep.outputs.head_sha }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_artifacts
+
+      - name: Generate Signed Manifests
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          # If the secret is missing, we skip signing but don't fail (unless on release branch)
+          if [ -z "$UPDATE_SIGNING_KEY" ]; then
+            if [ "${{ needs.prep.outputs.ref_name }}" = "release" ]; then
+              echo "::error::UPDATE_SIGNING_KEY is missing for a release build!"
+              exit 1
+            fi
+            echo "UPDATE_SIGNING_KEY is missing — skipping manifest generation."
+            exit 0
+          fi
+
+          mkdir -p signed_manifests
+
+          # Define platforms and their artifact names as seen in the 'export' job matrix
+          # Format: platform_arch:artifact_pattern:output_platform:output_arch
+          PLATFORMS=(
+            "linux_x64:Odisea-Tech-Demo-Linux-*:linux:x86_64"
+            "linux_arm64:Odisea-Tech-Demo-Linux-ARM64-*:linux:arm64"
+            "windows:Odisea-Tech-Demo-Windows-*:windows:x86_64"
+            "macos:Odisea-Tech-Demo-macOS-*:macos:universal"
+            "android:Odisea-Tech-Demo-Android-*:android:arm64"
+            "html5:Odisea-Tech-Demo-Web-*:html5:wasm"
+          )
+
+          VERSION="${{ needs.prep.outputs.version }}"
+          BUILD_ID="${{ github.run_id }}"
+          CHANNEL="${{ needs.prep.outputs.channel }}"
+          COMMIT="${{ needs.prep.outputs.head_sha }}"
+
+          # Extract public key for audit asset. Name matches expected format for
+          # scripts/update_manifest.py verify: {key_id}.pub.pem
+          KEY_ID="release-2026-a"
+          echo "$UPDATE_SIGNING_KEY" > private.pem
+          openssl rsa -in private.pem -pubout -out "$KEY_ID.pub.pem"
+          rm private.pem
+
+          for entry in "${PLATFORMS[@]}"; do
+            IFS=":" read -r P_NAME P_PATTERN P_OUT P_ARCH <<< "$entry"
+
+            # Find the directory for this artifact (artifact_name-version-sha)
+            ART_DIR=$(find all_artifacts -maxdepth 1 -name "$P_PATTERN" -type d | head -n 1)
+
+            if [ -n "$ART_DIR" ]; then
+              echo "Generating manifest for $P_NAME ($P_OUT/$P_ARCH) from $ART_DIR"
+              python3 scripts/update_manifest.py generate \
+                --artifacts-dir "$ART_DIR" \
+                --output "signed_manifests/manifest-$P_OUT-$P_ARCH.json" \
+                --key "$UPDATE_SIGNING_KEY" \
+                --key-id "$KEY_ID" \
+                --version "$VERSION" \
+                --build-id "$BUILD_ID" \
+                --channel "$CHANNEL" \
+                --platform "$P_OUT" \
+                --arch "$P_ARCH" \
+                --commit "$COMMIT" \
+                --base-url "https://github.com/icarito/Odisea/releases/download/$VERSION"
+            else
+              echo "Warning: No artifact found for $P_NAME matching $P_PATTERN"
+            fi
+          done
+
+      - name: Upload Manifests Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-manifests
+          path: |
+            signed_manifests/*.json
+            *.pub.pem
+
+  release:
+    needs: [prep, export, manifests]
     runs-on: ubuntu-latest
     if: needs.prep.outputs.ref_name == 'release' || (needs.prep.outputs.is_dispatch == 'true' && needs.prep.outputs.publish_prerelease == 'false')
     steps:
@@ -711,7 +802,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   nightly:
-    needs: [prep, export]
+    needs: [prep, export, manifests]
     runs-on: ubuntu-latest
     if: needs.prep.outputs.ref_name == 'main' || (needs.prep.outputs.is_dispatch == 'true' && needs.prep.outputs.publish_prerelease == 'true')
     steps:
@@ -724,7 +815,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: nightly_assets
-          pattern: Odisea-Tech-Demo-*
           merge-multiple: true
 
       - name: Update Nightly Release
@@ -739,9 +829,10 @@ jobs:
           find nightly_assets -type f -print | sort
           echo "=== End of file listing ==="
 
-          mapfile -t RELEASE_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" \) -print | sort)
+          # Include manifests and public key in nightly release
+          mapfile -t RELEASE_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "manifest-*.json" -o -name "*.pem" \) -print | sort)
           if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
-            echo "::error::No release zip artifacts found in nightly_assets"
+            echo "::error::No release artifacts found in nightly_assets"
             find nightly_assets -maxdepth 3 -type f -print || true
             exit 1
           fi

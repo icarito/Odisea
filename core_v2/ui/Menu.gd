@@ -14,6 +14,11 @@ onready var options_menu = $OptionsMenu
 
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+	# FD-228: Confirm stable boot for UpdateManager
+	if get_node_or_null("/root/UpdateManager"):
+		get_node("/root/UpdateManager").confirm_boot()
+
 	_check_save_game()
 	_connect_signals()
 
