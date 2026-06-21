@@ -2271,6 +2271,7 @@ output_latency.web=100
 
 [autoload]
 
+UpdateManager="*res://core_v2/update/UpdateManager.gd"
 Constants="*res://core_v2/Constants.gd"
 VersionChecker="*res://core_v2/systems/VersionChecker.gd"
 DomeRegistry="*res://core_v2/data/DomeRegistry.gd"
