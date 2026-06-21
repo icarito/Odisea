@@ -343,7 +343,85 @@ moderno es `POST /command` vía HTTP al peer :4999 (ver §9.3).
 
 ---
 
-## 9. TELEMETRY — TELEMETRÍA EN VIVO (FD-162)
+## 9. TELEMETRY / OBSERVABILIDAD EN VIVO (FD-162)
+
+Cómo mirar y manejar un juego **corriendo** sin re-descubrir las herramientas cada vez.
+Referencia operativa completa: skill **`odisea-telemetry`** (`/odisea-telemetry`).
+
+### 9.0 Arquitectura
+
+El autoload `ANNAV2` ([core_v2/telemetry/ANNAV2.gd](core_v2/telemetry/ANNAV2.gd)) emite un
+**heartbeat** cada 100ms por WebSocket a un **peer** Python local, que lo sirve por HTTP y lo
+reenvía a un **central** que agrega todos los peers.
+
+```
+Godot ─WS─▶ peer :4999 (LAN, sin auth) ─WS+token─▶ central :5003 (agrega, token Bearer)
+              GET /status /eval, POST /command          GET /status (dashboard en /)
+```
+
+### 9.1 Asegurar el peer (idempotente)
+
+```bash
+tools/ensure_peer.sh            # arranca odisea_peer.py si /health no responde; no-op si ya corre
+tools/ensure_peer.sh --status   # solo reporta
+```
+
+El **MCP `odisea-mcp`** ([core_v2/telemetry/odisea_v2_mcp_server.py](core_v2/telemetry/odisea_v2_mcp_server.py))
+proxya el peer y llama a `ensure_peer.sh` solo. Configurado en `.claude/settings.json` y
+`.vscode/mcp.json`. Tools: `status`, `health`, `sessions`, `peers`, `eval`, `inspect_node`,
+`set_property`, `execute_script`, `screenshot`, `teleport_player`, `spawn_scene`.
+
+> **El peer arrancado DESPUÉS del juego se detecta solo.** ANNAV2 cae al central como fallback
+> si no halla peer local al boot, y luego hace *upgrade* al peer local en pocos segundos
+> (`ANNAV2_Thread._maybe_upgrade_to_local_peer`, sondea `127.0.0.1:4999` cada 5s). No hace falta
+> reiniciar el juego.
+
+**Arrancar un juego propio (autónomo):** `tools/launch_game.sh [--headless] [--scene res://...]
+[--pos "x,y,z"] [--yaw N] [--stop]` lanza Godot en debug (comandos habilitados), espera que
+conecte al peer, y lo lleva a la escena/posición pedida (`SceneManager.goto_scene` vía `/eval`
++ `teleport_player`). Headful para revisar **con** el usuario; headless para checks autónomos
+(no captura screenshots). No mata el editor abierto (`-e`).
+
+### 9.2 Leer estado (observabilidad)
+
+```bash
+curl -s localhost:4999/status | python3 -m json.tool      # quién está vivo: scene/pos/vel/fps/mem
+curl -s "localhost:4999/status?player_id=<id>"            # un player
+curl -s localhost:4999/peers                              # peers y player_ids
+curl -sN localhost:4999/events                            # stream SSE (en vez de polling)
+# central (todos los peers, requiere token; NO imprimir el token):
+curl -s -H "Authorization: Bearer $ODISEA_BRIDGE_TOKEN" https://odisea.educa.juegos/status
+```
+
+### 9.3 Manejar / debuggear el runtime (POST /command, /eval)
+
+El peer relaya comandos al juego y devuelve la respuesta de ANNAV2 **sincrónicamente**:
+
+```bash
+curl -s "localhost:4999/eval?expr=get_tree().get_node_count()"           # evaluar GDScript
+curl -s -XPOST localhost:4999/command -d '{"action":"inspect_node","args":{"path":"/root"}}'
+curl -s -XPOST localhost:4999/command -d '{"action":"screenshot"}'        # -> {"screenshot_path"}
+curl -s -XPOST localhost:4999/command/batch -d '{"commands":[...]}'       # repro ordenado
+```
+
+**Gating:** `inspect_node`, `screenshot`, `reload_pck` van siempre. `set_property`,
+`execute_script` (lo usa `/eval`), `spawn_scene`, `teleport_player` requieren
+`OS.is_debug_build() or has_feature("editor")` — **cierto en dev** (editor F5 y export con debug),
+falso solo en un export sin debug. El `game_version` del heartbeat (`Constants.GAME_VERSION`, ej.
+`v0.3.2`) es **cosmético**, NO indica release: no inferir el gating de ahí. Si un comando da
+`timeout` con el juego conectado, verificá `/eval?expr=OS.is_debug_build()`; si ni `inspect_node`
+responde, el binario en ejecución puede ser un build viejo previo al código de comandos.
+
+### 9.4 Profiling / performance
+
+- Snapshots de stress: `./runtest.sh --stress` → `~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json` (ver §6.5).
+- Perfilar draw calls / objetos con `VisualServer.get_render_info(...)` (Godot 3.6: usar
+  `INFO_OBJECTS_IN_FRAME` + `INFO_2D_ITEMS_IN_FRAME`; `INFO_*_DRAWS_IN_FRAME` **no** existe).
+- `ANNAV2.register_telemetry_point(key, value)` mezcla métricas custom en cada heartbeat.
+
+---
+
+## 10. ALCANCE DEL PROYECTO (ACTO I)
 
 **Dentro del alcance (Acto I):**
 - Módulo Criogenia (entorno y narrativa)

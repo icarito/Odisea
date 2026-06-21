@@ -349,18 +349,29 @@ func _cmd_set_property(id, args):
 func _cmd_execute_script(id, args):
 	var script_text = args.get("script")
 	var script = GDScript.new()
-	# In some Godot 3 versions, GDScript.new() might not work as expected for source loading.
-	# But .new() is the standard way to create a script resource.
-	script.set_source_code("func run():\n" + _indent_code(script_text))
+	# Extend Node and run from a node attached to the tree, so the script can use get_node(),
+	# get_tree(), SceneManager, etc. A bare Reference has no tree access (get_node/get_tree
+	# don't exist on it) and even `get_tree().x` fails to compile with ERR_PARSE_ERROR (43).
+	script.set_source_code("extends Node\nfunc run():\n" + _indent_code(script_text))
 	var err = script.reload()
 	if err != OK:
 		_send_response(id, false, {"error": "script compilation error: " + str(err)})
 		return
 
-	var obj = Reference.new()
-	obj.set_script(script)
-	var result = obj.call("run")
-	_send_response(id, true, {"result": result})
+	var runner = Node.new()
+	runner.set_script(script)
+	add_child(runner)  # ANNAV2 is an autoload under /root, so the runner is in the tree
+	var result = null
+	var run_err = null
+	if runner.has_method("run"):
+		result = runner.call("run")
+	else:
+		run_err = "script has no run() body"
+	runner.queue_free()
+	if run_err != null:
+		_send_response(id, false, {"error": run_err})
+	else:
+		_send_response(id, true, {"result": result})
 
 func _indent_code(code: String) -> String:
 	var indented = ""

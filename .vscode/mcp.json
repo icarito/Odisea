@@ -5,12 +5,12 @@
 			"type": "stdio",
 			"command": "python3",
 			"args": [
-				"core_v2/anna/client/odisea_mcp_stdio_server.py"
+				"core_v2/telemetry/odisea_v2_mcp_server.py"
 			],
 			"env": {
-				"ODISEA_ANNA_HOST": "127.0.0.1",
-				"ODISEA_ANNA_PORT": "5000",
-				"ODISEA_MCP_TIMEOUT": "6.0"
+				"ODISEA_PEER_HOST": "127.0.0.1",
+				"ODISEA_PEER_PORT": "4999",
+				"ODISEA_MCP_TIMEOUT": "8.0"
 			}
 		}
 	}

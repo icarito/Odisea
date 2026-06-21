@@ -24,6 +24,13 @@ var _is_connected := false
 # support in handshake_ack ("compression": "deflate"), so old peers keep working.
 var _use_compression := false
 var _peer_url := ""
+# True when the active connection is the remote central (a fallback), not a LAN peer.
+# While true we keep probing for a local peer and upgrade to it when one appears, so a
+# peer launched AFTER the game still gets picked up instead of us staying on central.
+var _connected_to_central := false
+# Throttle for the "is a local peer up yet?" probe while parked on central (ms).
+const LOCAL_PEER_PROBE_INTERVAL_MS := 5000
+var _last_local_probe := 0
 # Por defecto, apuntar al nodo central para que HTML5 funcione sin parámetros URL
 var _central_url := "wss://" + DEFAULT_CENTRAL + "/ws"
 # Token de desarrollo por defecto para autenticación automática
@@ -187,11 +194,12 @@ func _thread_func(_userdata):
 				_reconnect_attempts += 1
 		else:
 			_reconnect_attempts = 0
+			_maybe_upgrade_to_local_peer(now)
 			_mutex.lock()
 			var interval = _heartbeat_interval_ms
 			var tier = _throttle_tier
 			_mutex.unlock()
-			
+
 			if interval > 0 and now - last_heartbeat > interval:
 				_send_heartbeat(tier)
 				last_heartbeat = now
@@ -211,8 +219,25 @@ func _attempt_connection():
 		_peer_url = _discover_peer()
 
 	if _peer_url != "":
+		# Remember whether this target is the central fallback so the main loop knows to
+		# keep hunting for a local peer (see _maybe_upgrade_to_local_peer).
+		_connected_to_central = (_peer_url == _central_url)
 		print("[ANNAV2] Attempting to connect to peer: ", _peer_url)
 		_client.connect_to_url(_peer_url)
+
+# While parked on the remote central, periodically check if a LAN peer has come up; if so,
+# drop central and reconnect locally. Cheap: a single 50ms TCP probe to 127.0.0.1:4999.
+func _maybe_upgrade_to_local_peer(now: int) -> void:
+	if not _is_connected or not _connected_to_central:
+		return
+	if now - _last_local_probe < LOCAL_PEER_PROBE_INTERVAL_MS:
+		return
+	_last_local_probe = now
+	if _check_port("127.0.0.1", PEER_PORT):
+		print("[ANNAV2] Local peer appeared; upgrading from central to ws://127.0.0.1:4999/ws")
+		_peer_url = ""            # force re-discovery (will prefer localhost)
+		_connected_to_central = false
+		_client.disconnect_from_host()  # triggers _on_disconnected -> reconnect loop
 
 func _discover_peer_udp() -> String:
 	var udp := PacketPeerUDP.new()
@@ -332,6 +357,11 @@ func _on_connected(_protocol = ""):
 func _on_disconnected(_was_clean = false):
 	_is_connected = false
 	_use_compression = false
+	# Forget the cached peer URL so the next _attempt_connection() re-discovers.
+	# A peer that died and came back (or a peer launched AFTER the game) may live at a
+	# different address/instance; without this the client would keep dialing a stale URL.
+	_peer_url = ""
+	_connected_to_central = false
 	print("[ANNAV2] Disconnected from peer")
 
 func _on_data():

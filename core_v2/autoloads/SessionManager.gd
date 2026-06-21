@@ -442,6 +442,13 @@ func _ready():
 				# Buscar nodos relevantes tras un pequeño delay para asegurar que la escena está lista
 				call_deferred("_connect_teleport_system")
 
+	# --- Escuchar cambios de escena para re-capturar el mouse ---
+	# _connect_teleport_system se ejecuta durante Menu y saltea la captura;
+	# la señal scene_ready de SceneManager lo re-dispara en la escena correcta.
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager and not scene_manager.is_connected("scene_ready", self, "_on_scene_ready_capture_mouse"):
+		scene_manager.connect("scene_ready", self, "_on_scene_ready_capture_mouse")
+
 	# --- Auto Run (Prop Validation Pipeline) ---
 	if _env_vars["$sys_env_auto_run"] != "":
 		var script_path = _env_vars["$sys_env_auto_run"]
@@ -1067,6 +1074,12 @@ func _connect_teleport_system():
 		is_menu = true
 	if not is_testing and not is_cli_mode and not is_menu and not OS.has_feature("Server"):
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+func _on_scene_ready_capture_mouse(_path, _scene_root, _params):
+	# Re-disparado por SceneManager.scene_ready cuando una escena nueva termina de cargar.
+	# La llamada original de _connect_teleport_system corre durante Menu y saltea la captura;
+	# aquí la escena ya es Dome_Crio (u otra de gameplay), así que se captura correctamente.
+	_connect_teleport_system()
 
 func _on_tree_changed_for_replay(replay_path: String, export_video = false):
 	yield (get_tree(), "idle_frame")

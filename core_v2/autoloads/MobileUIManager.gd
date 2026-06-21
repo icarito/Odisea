@@ -64,11 +64,18 @@ func _refresh_mobile_ui_visibility() -> void:
 	# rendered/interactive-looking, just not driven by touch.
 	_is_cinematic_active = _is_script_cinematic_active() or _is_script_input_block_active() or _is_replay_active()
 	if is_instance_valid(_mobile_ui):
-		_mobile_ui.visible = _is_mobile and not _is_cinematic_active
+		_mobile_ui.visible = _is_mobile and not _is_cinematic_active and not _is_non_playable_scene()
 
 func _is_replay_active() -> bool:
 	var session = get_node_or_null("/root/SessionManager")
 	return is_instance_valid(session) and bool(session.get("is_replaying"))
+
+func _is_non_playable_scene() -> bool:
+	var current_scene = get_tree().current_scene
+	if not current_scene:
+		return false
+	var filename: String = current_scene.filename
+	return filename.find("Menu.tscn") != -1 or filename.find("Boot.tscn") != -1
 
 # Force the touch UI hidden right now, independent of _process. The replay
 # player pauses the SceneTree, which stops this autoload's _process, so the
