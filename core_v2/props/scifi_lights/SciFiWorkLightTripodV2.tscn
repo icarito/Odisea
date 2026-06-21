@@ -11,8 +11,8 @@ roughness = 0.25
 [sub_resource type="SpatialMaterial" id=2]
 resource_local_to_scene = true
 emission_enabled = true
-emission = Color( 1, 0.95, 0.8, 1 )
-emission_energy = 5.0
+emission = Color( 1, 0.9, 0.7, 1 )
+emission_energy = 8.0
 emission_operator = 0
 emission_on_uv2 = false
 
@@ -37,7 +37,6 @@ extents = Vector3( 0.6, 1.25, 0.6 )
 script = ExtResource( 1 )
 interaction_text = "Toggle Flood Light"
 starts_active = true
-enable_shadows = false
 is_interactable = false
 light_energy_max = 6.0
 light_range = 32.0
@@ -108,13 +107,13 @@ radius = 0.06
 material = SubResource( 1 )
 
 [node name="StemUpper" type="CSGCylinder" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.552679, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55268, 0 )
 radius = 0.04
 height = 0.8
 material = SubResource( 1 )
 
 [node name="Head" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 0.743145, 0.669131, 0, -0.669131, 0.743145, 0, 1.952679, 0 )
+transform = Transform( 1, 0, 0, 0, 0.743145, 0.669131, 0, -0.669131, 0.743145, 0, 1.95268, 0 )
 
 [node name="MeshInstance" type="CSGBox" parent="Head"]
 width = 0.65
@@ -134,20 +133,19 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12 )
 light_color = Color( 1, 0.9, 0.7, 1 )
 light_energy = 6.0
 light_cull_mask = 4293918721
-shadow_enabled = false
+shadow_enabled = true
 shadow_bias = 0.03
 shadow_contact = 0.35
-spot_range = 20.0
+spot_range = 32.0
 spot_attenuation = 1.93187
 spot_angle = 60.0
 spot_angle_attenuation = 2.37841
 
 [node name="OmniLight" type="OmniLight" parent="Head"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.05 )
-visible = false
 light_color = Color( 1, 0.9, 0.7, 1 )
-light_energy = 0.0
-omni_range = 7.0
+light_energy = 2.7
+omni_range = 11.2
 omni_attenuation = 2.14355
 
 [node name="Bulb" type="MeshInstance" parent="Head"]

@@ -181,7 +181,6 @@ startup_stream_settle_seconds = 0.75
 startup_collision_delay_seconds = 4.5
 startup_chunk_requests_per_frame = 2
 startup_pending_generation_jobs = 2
-startup_collision_toggles_per_frame = 1
 min_stairs_per_chunk = 1
 min_elevated_cells = 4
 min_empty_cells = 2
@@ -307,9 +306,11 @@ shape = SubResource( 468 )
 
 [node name="entity_1_light_work_tripod" parent="Basement" instance=ExtResource( 8 )]
 transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, 6.8125, -24.75, -7.6875 )
+enable_shadows = true
 
 [node name="entity_2_light_work_tripod" parent="Basement" instance=ExtResource( 8 )]
 transform = Transform( 0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 7.0625, -24.75, 3.5625 )
+enable_shadows = true
 
 [node name="Pilot" parent="." groups=["player"] instance=ExtResource( 10 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 6.54182, -9 )
@@ -331,21 +332,10 @@ __meta__ = {
 "airlock_door_name": "inner"
 }
 
-[node name="SciFiWallSconceV3" parent="Airlock_Basement" index="12"]
-enable_shadows = false
-
-[node name="SciFiWallSconceV2" parent="Airlock_Basement" index="13"]
-enable_shadows = false
-
-[node name="AirlockZoneV2" parent="Airlock_Basement" index="16"]
+[node name="AirlockZoneV2" parent="Airlock_Basement" index="14"]
 target_scene = "res://core_v2/levels/interiors/Dome_Crio.tscn"
 target_spawn_id = "from_scaffold_orbit"
 target_airlock_path = NodePath("Airlock_Basement")
 zone_dir = Vector3( 0, 0, 1 )
-
-[node name="DirectionalLight" type="DirectionalLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 31.1847, 0 )
-visible = false
-shadow_enabled = true
 
 [editable path="Airlock_Basement"]

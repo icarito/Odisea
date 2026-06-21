@@ -46,5 +46,6 @@ camera_collision_mask = 1
 
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 180, 0 )
+light_energy = 0.7
 directional_shadow_mode = 1
 directional_shadow_blend_splits = true

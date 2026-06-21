@@ -131,7 +131,7 @@
 ( -208 356 -396 ) ( -208 357 -396 ) ( -208 356 -395 ) kenney_prototype_textures/orange/texture_09 -644 4 0 1 1
 ( -208 356 -396 ) ( -208 356 -395 ) ( -207 356 -396 ) kenney_prototype_textures/orange/texture_09 0 4 0 1 1
 ( -208 356 -396 ) ( -207 356 -396 ) ( -208 357 -396 ) kenney_prototype_textures/orange/texture_09 0 644 0 1 1
-( 192 372 -208 ) ( 192 373 -208 ) ( 193 372 -208 ) kenney_prototype_textures/orange/texture_09 0 644 0 1 1
+( 192 372 -192 ) ( 192 373 -192 ) ( 193 372 -192 ) kenney_prototype_textures/orange/texture_09 0 644 0 1 1
 ( 192 368 -380 ) ( 193 368 -380 ) ( 192 368 -379 ) kenney_prototype_textures/orange/texture_09 0 4 0 1 1
 ( 208 372 -380 ) ( 208 372 -379 ) ( 208 373 -380 ) kenney_prototype_textures/orange/texture_09 -644 4 0 1 1
 }
@@ -231,10 +231,12 @@
 "classname" "light_work_tripod"
 "origin" "-123 109 -396"
 "angles" "0 135 0"
+"enable_shadows" "1"
 }
 // entity 2
 {
 "classname" "light_work_tripod"
 "origin" "57 113 -396"
 "angles" "0 45 0"
+"enable_shadows" "1"
 }

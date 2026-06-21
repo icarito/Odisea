@@ -1,4 +1,4 @@
-[gd_scene load_steps=273 format=2]
+[gd_scene load_steps=62 format=2]
 
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldWalkway.tscn" type="PackedScene" id=1]
 [ext_resource path="res://addons/qodot/src/nodes/qodot_map.gd" type="Script" id=2]
@@ -23,10 +23,13 @@
 [ext_resource path="res://textures/kenney_prototype_textures/orange/texture_09.png" type="Texture" id=21]
 [ext_resource path="res://textures/kenney_prototype_textures/light/texture_06.png" type="Texture" id=22]
 [ext_resource path="res://core_v2/props/tube/TubeSection.tscn" type="PackedScene" id=23]
-[ext_resource path="res://core_v2/levels/interiors/Dome_Crio_world_collision.tres" type="ConcavePolygonShape" id=24]
-[ext_resource path="res://core_v2/levels/interiors/Dome_Crio_basement_collision.tres" type="ConcavePolygonShape" id=25]
+[ext_resource path="res://core_v2/levels/interiors/Dome_Crio_world_collision.tres" type="Shape" id=24]
 
 [sub_resource type="SpatialMaterial" id=1]
+ao_enabled = true
+ao_light_affect = 0.0
+ao_on_uv2 = false
+ao_texture_channel = 0
 
 [sub_resource type="SpatialMaterial" id=222]
 albedo_texture = ExtResource( 6 )
@@ -60,19 +63,19 @@ surfaces/1 = {
 "vertex_count": 264
 }
 
-[sub_resource type="BoxShape" id=467]
+[sub_resource type="BoxShape" id=255]
 extents = Vector3( 1.4, 0.06, 1.4 )
 
-[sub_resource type="SpatialMaterial" id=438]
+[sub_resource type="SpatialMaterial" id=226]
 albedo_texture = ExtResource( 22 )
 
-[sub_resource type="SpatialMaterial" id=439]
+[sub_resource type="SpatialMaterial" id=227]
 albedo_texture = ExtResource( 5 )
 
-[sub_resource type="SpatialMaterial" id=440]
+[sub_resource type="SpatialMaterial" id=228]
 albedo_texture = ExtResource( 21 )
 
-[sub_resource type="ArrayMesh" id=441]
+[sub_resource type="ArrayMesh" id=229]
 surfaces/0 = {
 "aabb": AABB( -18, -25, -14, 41, 0.25001, 28 ),
 "array_data": PoolByteArray( 0, 0, 144, 193, 0, 0, 198, 193, 88, 25, 224, 63, 197, 127, 0, 63, 202, 45, 201, 49, 0, 0, 144, 193, 0, 0, 200, 193, 103, 19, 188, 63, 197, 127, 0, 63, 191, 45, 201, 49, 0, 0, 184, 65, 0, 0, 200, 193, 103, 19, 188, 63, 197, 127, 0, 63, 191, 45, 159, 180, 0, 0, 184, 65, 0, 0, 198, 193, 88, 25, 224, 63, 197, 127, 0, 63, 202, 45, 159, 180, 0, 0, 144, 193, 0, 0, 198, 193, 88, 25, 224, 63, 129, 0, 0, 63, 249, 167, 0, 66, 0, 0, 144, 193, 0, 0, 198, 193, 0, 0, 96, 65, 129, 0, 0, 63, 0, 62, 0, 66, 0, 0, 144, 193, 0, 0, 200, 193, 0, 0, 96, 65, 129, 0, 0, 63, 0, 62, 16, 66, 0, 0, 144, 193, 0, 0, 200, 193, 103, 19, 188, 63, 129, 0, 0, 63, 62, 172, 16, 66, 0, 0, 184, 65, 0, 0, 200, 193, 103, 19, 188, 63, 0, 129, 0, 193, 62, 172, 128, 194, 0, 0, 144, 193, 0, 0, 200, 193, 103, 19, 188, 63, 0, 129, 0, 193, 62, 172, 128, 63, 0, 0, 144, 193, 0, 0, 200, 193, 0, 0, 96, 65, 0, 129, 0, 193, 0, 62, 128, 63, 0, 0, 184, 65, 0, 0, 200, 193, 0, 0, 96, 65, 0, 129, 0, 193, 0, 62, 128, 194, 0, 0, 184, 65, 0, 0, 198, 193, 88, 25, 224, 63, 0, 127, 0, 63, 249, 167, 128, 194, 0, 0, 184, 65, 0, 0, 198, 193, 0, 0, 96, 65, 0, 127, 0, 63, 0, 62, 128, 194, 0, 0, 144, 193, 0, 0, 198, 193, 0, 0, 96, 65, 0, 127, 0, 63, 0, 62, 128, 63, 0, 0, 144, 193, 0, 0, 198, 193, 88, 25, 224, 63, 0, 127, 0, 63, 249, 167, 128, 63, 0, 0, 184, 65, 0, 0, 198, 193, 88, 25, 224, 63, 127, 0, 0, 193, 249, 167, 0, 66, 0, 0, 184, 65, 0, 0, 200, 193, 103, 19, 188, 63, 127, 0, 0, 193, 62, 172, 16, 66, 0, 0, 184, 65, 0, 0, 200, 193, 0, 0, 96, 65, 127, 0, 0, 193, 0, 62, 16, 66, 0, 0, 184, 65, 0, 0, 198, 193, 0, 0, 96, 65, 127, 0, 0, 193, 0, 62, 0, 66, 0, 0, 144, 193, 0, 0, 198, 193, 0, 0, 96, 65, 0, 0, 127, 63, 128, 191, 0, 66, 0, 0, 184, 65, 0, 0, 198, 193, 0, 0, 96, 65, 0, 0, 127, 63, 128, 66, 0, 66, 0, 0, 184, 65, 0, 0, 200, 193, 0, 0, 96, 65, 0, 0, 127, 63, 128, 66, 16, 66, 0, 0, 144, 193, 0, 0, 200, 193, 0, 0, 96, 65, 0, 0, 127, 63, 128, 191, 16, 66, 0, 0, 144, 193, 0, 0, 198, 193, 0, 0, 96, 193, 127, 127, 127, 193, 128, 191, 0, 66, 0, 0, 144, 193, 0, 0, 200, 193, 0, 0, 96, 193, 127, 127, 127, 193, 128, 191, 16, 66, 0, 0, 184, 65, 0, 0, 200, 193, 0, 0, 96, 193, 127, 127, 127, 193, 128, 66, 16, 66, 0, 0, 184, 65, 0, 0, 198, 193, 0, 0, 96, 193, 127, 127, 127, 193, 128, 66, 0, 66, 0, 0, 144, 193, 0, 0, 198, 193, 0, 0, 96, 193, 129, 0, 0, 63, 0, 192, 0, 66, 0, 0, 144, 193, 0, 0, 198, 193, 125, 82, 7, 192, 129, 0, 0, 63, 29, 184, 0, 66, 0, 0, 144, 193, 0, 0, 200, 193, 10, 159, 234, 191, 129, 0, 0, 63, 170, 183, 16, 66, 0, 0, 144, 193, 0, 0, 200, 193, 0, 0, 96, 193, 129, 0, 0, 63, 0, 192, 16, 66, 0, 0, 184, 65, 0, 0, 200, 193, 0, 0, 96, 193, 0, 129, 0, 193, 0, 192, 128, 194, 0, 0, 144, 193, 0, 0, 200, 193, 0, 0, 96, 193, 0, 129, 0, 193, 0, 192, 128, 63, 0, 0, 144, 193, 0, 0, 200, 193, 10, 159, 234, 191, 0, 129, 0, 193, 170, 183, 128, 63, 0, 0, 184, 65, 0, 0, 200, 193, 10, 159, 234, 191, 0, 129, 0, 193, 170, 183, 128, 194, 0, 0, 184, 65, 0, 0, 198, 193, 0, 0, 96, 193, 0, 127, 0, 63, 0, 192, 128, 194, 0, 0, 184, 65, 0, 0, 198, 193, 125, 82, 7, 192, 0, 127, 0, 63, 29, 184, 128, 194, 0, 0, 144, 193, 0, 0, 198, 193, 125, 82, 7, 192, 0, 127, 0, 63, 29, 184, 128, 63, 0, 0, 144, 193, 0, 0, 198, 193, 0, 0, 96, 193, 0, 127, 0, 63, 0, 192, 128, 63, 0, 0, 184, 65, 0, 0, 198, 193, 0, 0, 96, 193, 127, 0, 0, 193, 0, 192, 0, 66, 0, 0, 184, 65, 0, 0, 200, 193, 0, 0, 96, 193, 127, 0, 0, 193, 0, 192, 16, 66, 0, 0, 184, 65, 0, 0, 200, 193, 10, 159, 234, 191, 127, 0, 0, 193, 170, 183, 16, 66, 0, 0, 184, 65, 0, 0, 198, 193, 125, 82, 7, 192, 127, 0, 0, 193, 29, 184, 0, 66, 0, 0, 144, 193, 0, 0, 198, 193, 125, 82, 7, 192, 0, 67, 0, 63, 53, 45, 201, 49, 0, 0, 184, 65, 0, 0, 198, 193, 125, 82, 7, 192, 0, 67, 0, 63, 53, 45, 159, 180, 0, 0, 184, 65, 0, 0, 200, 193, 10, 159, 234, 191, 0, 67, 0, 63, 64, 45, 159, 180, 0, 0, 144, 193, 0, 0, 200, 193, 10, 159, 234, 191, 0, 67, 0, 63, 64, 45, 201, 49, 0, 0, 240, 63, 0, 0, 198, 193, 125, 82, 7, 192, 59, 129, 0, 193, 53, 45, 255, 169, 0, 0, 240, 63, 0, 0, 200, 193, 10, 159, 234, 191, 59, 129, 0, 193, 64, 45, 255, 169, 0, 0, 184, 65, 0, 0, 200, 193, 10, 159, 234, 191, 59, 129, 0, 193, 64, 45, 159, 180, 0, 0, 184, 65, 0, 0, 198, 193, 125, 82, 7, 192, 59, 129, 0, 193, 53, 45, 159, 180, 0, 0, 240, 63, 0, 0, 198, 193, 125, 82, 7, 192, 129, 0, 0, 63, 53, 45, 245, 49, 0, 0, 240, 63, 0, 0, 198, 193, 88, 25, 224, 63, 129, 0, 0, 63, 202, 45, 245, 49, 0, 0, 240, 63, 0, 0, 200, 193, 103, 19, 188, 63, 129, 0, 0, 63, 191, 45, 250, 49, 0, 0, 240, 63, 0, 0, 200, 193, 10, 159, 234, 191, 129, 0, 0, 63, 64, 45, 250, 49, 0, 0, 184, 65, 0, 0, 200, 193, 10, 159, 234, 191, 0, 129, 0, 193, 170, 183, 128, 194, 0, 0, 240, 63, 0, 0, 200, 193, 10, 159, 234, 191, 0, 129, 0, 193, 170, 183, 224, 184, 0, 0, 240, 63, 0, 0, 200, 193, 103, 19, 188, 63, 0, 129, 0, 193, 62, 172, 224, 184, 0, 0, 184, 65, 0, 0, 200, 193, 103, 19, 188, 63, 0, 129, 0, 193, 62, 172, 128, 194, 0, 0, 184, 65, 0, 0, 198, 193, 125, 82, 7, 192, 0, 127, 0, 63, 29, 184, 128, 194, 0, 0, 184, 65, 0, 0, 198, 193, 88, 25, 224, 63, 0, 127, 0, 63, 249, 167, 128, 194, 0, 0, 240, 63, 0, 0, 198, 193, 88, 25, 224, 63, 0, 127, 0, 63, 249, 167, 224, 184, 0, 0, 240, 63, 0, 0, 198, 193, 125, 82, 7, 192, 0, 127, 0, 63, 29, 184, 224, 184, 0, 0, 184, 65, 0, 0, 198, 193, 125, 82, 7, 192, 127, 0, 0, 193, 29, 184, 0, 66, 0, 0, 184, 65, 0, 0, 200, 193, 10, 159, 234, 191, 127, 0, 0, 193, 170, 183, 16, 66, 0, 0, 184, 65, 0, 0, 200, 193, 103, 19, 188, 63, 127, 0, 0, 193, 62, 172, 16, 66, 0, 0, 184, 65, 0, 0, 198, 193, 88, 25, 224, 63, 127, 0, 0, 193, 249, 167, 0, 66, 0, 0, 240, 63, 0, 0, 198, 193, 88, 25, 224, 63, 0, 189, 0, 193, 202, 45, 255, 169, 0, 0, 184, 65, 0, 0, 198, 193, 88, 25, 224, 63, 0, 189, 0, 193, 202, 45, 159, 180, 0, 0, 184, 65, 0, 0, 200, 193, 103, 19, 188, 63, 0, 189, 0, 193, 191, 45, 159, 180, 0, 0, 240, 63, 0, 0, 200, 193, 103, 19, 188, 63, 0, 189, 0, 193, 191, 45, 255, 169, 0, 0, 144, 193, 0, 0, 198, 193, 125, 82, 7, 192, 197, 129, 0, 193, 53, 45, 201, 49, 0, 0, 144, 193, 0, 0, 200, 193, 10, 159, 234, 191, 197, 129, 0, 193, 64, 45, 201, 49, 0, 0, 2, 193, 0, 0, 200, 193, 10, 159, 234, 191, 197, 129, 0, 193, 64, 45, 85, 44, 0, 0, 2, 193, 0, 0, 198, 193, 125, 82, 7, 192, 197, 129, 0, 193, 53, 45, 85, 44, 0, 0, 144, 193, 0, 0, 198, 193, 125, 82, 7, 192, 129, 0, 0, 63, 29, 184, 0, 66, 0, 0, 144, 193, 0, 0, 198, 193, 88, 25, 224, 63, 129, 0, 0, 63, 249, 167, 0, 66, 0, 0, 144, 193, 0, 0, 200, 193, 103, 19, 188, 63, 129, 0, 0, 63, 62, 172, 16, 66, 0, 0, 144, 193, 0, 0, 200, 193, 10, 159, 234, 191, 129, 0, 0, 63, 170, 183, 16, 66, 0, 0, 2, 193, 0, 0, 200, 193, 10, 159, 234, 191, 0, 129, 0, 193, 170, 183, 32, 57, 0, 0, 144, 193, 0, 0, 200, 193, 10, 159, 234, 191, 0, 129, 0, 193, 170, 183, 128, 63, 0, 0, 144, 193, 0, 0, 200, 193, 103, 19, 188, 63, 0, 129, 0, 193, 62, 172, 128, 63, 0, 0, 2, 193, 0, 0, 200, 193, 103, 19, 188, 63, 0, 129, 0, 193, 62, 172, 32, 57, 0, 0, 2, 193, 0, 0, 198, 193, 125, 82, 7, 192, 0, 127, 0, 63, 29, 184, 32, 57, 0, 0, 2, 193, 0, 0, 198, 193, 88, 25, 224, 63, 0, 127, 0, 63, 249, 167, 32, 57, 0, 0, 144, 193, 0, 0, 198, 193, 88, 25, 224, 63, 0, 127, 0, 63, 249, 167, 128, 63, 0, 0, 144, 193, 0, 0, 198, 193, 125, 82, 7, 192, 0, 127, 0, 63, 29, 184, 128, 63, 0, 0, 2, 193, 0, 0, 198, 193, 125, 82, 7, 192, 127, 0, 0, 193, 53, 45, 245, 49, 0, 0, 2, 193, 0, 0, 200, 193, 10, 159, 234, 191, 127, 0, 0, 193, 64, 45, 250, 49, 0, 0, 2, 193, 0, 0, 200, 193, 103, 19, 188, 63, 127, 0, 0, 193, 191, 45, 250, 49, 0, 0, 2, 193, 0, 0, 198, 193, 88, 25, 224, 63, 127, 0, 0, 193, 202, 45, 245, 49, 0, 0, 144, 193, 0, 0, 198, 193, 88, 25, 224, 63, 0, 189, 0, 193, 202, 45, 201, 49, 0, 0, 2, 193, 0, 0, 198, 193, 88, 25, 224, 63, 0, 189, 0, 193, 202, 45, 85, 44, 0, 0, 2, 193, 0, 0, 200, 193, 103, 19, 188, 63, 0, 189, 0, 193, 191, 45, 85, 44, 0, 0, 144, 193, 0, 0, 200, 193, 103, 19, 188, 63, 0, 189, 0, 193, 191, 45, 201, 49 ),
@@ -80,7 +83,7 @@ surfaces/0 = {
 "blend_shape_data": [  ],
 "format": 2194711,
 "index_count": 144,
-"material": SubResource( 438 ),
+"material": SubResource( 226 ),
 "primitive": 4,
 "skeleton_aabb": [  ],
 "vertex_count": 96
@@ -92,7 +95,7 @@ surfaces/1 = {
 "blend_shape_data": [  ],
 "format": 2194711,
 "index_count": 492,
-"material": SubResource( 439 ),
+"material": SubResource( 227 ),
 "primitive": 4,
 "skeleton_aabb": [  ],
 "vertex_count": 336
@@ -104,7 +107,7 @@ surfaces/2 = {
 "blend_shape_data": [  ],
 "format": 2194711,
 "index_count": 180,
-"material": SubResource( 440 ),
+"material": SubResource( 228 ),
 "primitive": 4,
 "skeleton_aabb": [  ],
 "vertex_count": 120
@@ -122,12 +125,88 @@ surfaces/3 = {
 "vertex_count": 24
 }
 
+[sub_resource type="ConvexPolygonShape" id=230]
+points = PoolVector3Array( -18, -24.75, 1.75077, -18, -25, 1.46934, 23, -25, 1.46934, 23, -24.75, 1.75077, -18, -24.75, 14, -18, -25, 14, 23, -25, 14, 23, -24.75, 14 )
+
+[sub_resource type="ConvexPolygonShape" id=231]
+points = PoolVector3Array( -18, -24.75, -14, -18, -25, -14, 23, -25, -14, 23, -24.75, -14, -18, -24.75, -2.11441, -18, -25, -1.83298, 23, -25, -1.83298, 23, -24.75, -2.11441 )
+
+[sub_resource type="ConvexPolygonShape" id=232]
+points = PoolVector3Array( 1.875, -24.75, -2.11441, 1.875, -25, -1.83298, 23, -25, -1.83298, 23, -24.75, -2.11441, 1.875, -24.75, 1.75077, 1.875, -25, 1.46934, 23, -25, 1.46934, 23, -24.75, 1.75077 )
+
+[sub_resource type="ConvexPolygonShape" id=233]
+points = PoolVector3Array( -18, -24.75, -2.11441, -18, -25, -1.83298, -8.125, -25, -1.83298, -8.125, -24.75, -2.11441, -18, -24.75, 1.75077, -18, -25, 1.46934, -8.125, -25, 1.46934, -8.125, -24.75, 1.75077 )
+
+[sub_resource type="ConvexPolygonShape" id=234]
+points = PoolVector3Array( -4, -19, 3.25, -4, -25, 3.25, -3, -25, 3.25, -3, -19, 3.25, -4, -19, 14, -4, -25, 14, -3, -25, 14, -3, -19, 14 )
+
+[sub_resource type="ConvexPolygonShape" id=235]
+points = PoolVector3Array( -4, -19, -14, -4, -25, -14, -3, -25, -14, -3, -19, -14, -4, -19, -3.25, -4, -25, -3.25, -3, -25, -3.25, -3, -19, -3.25 )
+
+[sub_resource type="ConvexPolygonShape" id=236]
+points = PoolVector3Array( -4, -23.4182, 3.25, -4, -25, 1.46934, -3, -25, 1.46934, -3, -23.4182, 3.25, -4, -25, 3.25, -3, -25, 3.25 )
+
+[sub_resource type="ConvexPolygonShape" id=237]
+points = PoolVector3Array( -4, -20.8838, -3.25, -3, -20.8838, -3.25, -3, -19, -3.25, -4, -19, -3.25, -4, -19, -1.1294, -3, -19, -1.1294 )
+
+[sub_resource type="ConvexPolygonShape" id=238]
+points = PoolVector3Array( -4, -21.2068, 3.25, -3, -21.2068, 3.25, -3, -19, 0.765764, -4, -19, 0.765764, -4, -19, 3.25, -3, -19, 3.25 )
+
+[sub_resource type="ConvexPolygonShape" id=239]
+points = PoolVector3Array( -4, -23.7412, -3.25, -4, -25, -3.25, -3, -25, -3.25, -3, -23.7412, -3.25, -4, -25, -1.83298, -3, -25, -1.83298 )
+
+[sub_resource type="ConvexPolygonShape" id=240]
+points = PoolVector3Array( -4, -19, -1.1294, -4, -19.375, -1.55155, -3, -19.375, -1.55155, -3, -19, -1.1294, -4, -19, 0.765764, -4, -19.375, 1.18791, -3, -19.375, 1.18791, -3, -19, 0.765764 )
+
+[sub_resource type="ConvexPolygonShape" id=241]
+points = PoolVector3Array( -18, -19, 13, -18, -25, 13, -4, -25, 13, -4, -19, 13, -18, -19, 14, -18, -25, 14, -4, -25, 14, -4, -19, 14 )
+
+[sub_resource type="ConvexPolygonShape" id=242]
+points = PoolVector3Array( -3, -18.75, 13, -3, -24.75, 13, 23, -24.75, 13, 23, -18.75, 13, -3, -18.75, 14, -3, -24.75, 14, 23, -24.75, 14, 23, -18.75, 14 )
+
+[sub_resource type="ConvexPolygonShape" id=243]
+points = PoolVector3Array( -3, -18.75, -14, -3, -24.75, -14, 23, -24.75, -14, 23, -18.75, -14, -3, -18.75, -13, -3, -24.75, -13, 23, -24.75, -13, 23, -18.75, -13 )
+
+[sub_resource type="ConvexPolygonShape" id=244]
+points = PoolVector3Array( 22.25, -13, -13, 22.25, -24.75, -13, 23, -24.75, -13, 23, -13, -13, 22.25, -13, 13, 22.25, -24.75, 13, 23, -24.75, 13, 23, -13, 13 )
+
+[sub_resource type="ConvexPolygonShape" id=245]
+points = PoolVector3Array( -3, -13, 13, -3, -18.75, 13, 23, -18.75, 13, 23, -13, 13, -3, -13, 14, -3, -18.75, 14, 23, -18.75, 14, 23, -13, 14 )
+
+[sub_resource type="ConvexPolygonShape" id=246]
+points = PoolVector3Array( -3, -13, -14, -3, -18.75, -14, 23, -18.75, -14, 23, -13, -14, -3, -13, -13, -3, -18.75, -13, 23, -18.75, -13, 23, -13, -13 )
+
+[sub_resource type="ConvexPolygonShape" id=247]
+points = PoolVector3Array( -18, -12, -14, -18, -13, -14, 23, -13, -14, 23, -12, -14, -18, -12, -13, -18, -13, -13, 23, -13, -13, 23, -12, -13 )
+
+[sub_resource type="ConvexPolygonShape" id=248]
+points = PoolVector3Array( -18, -12, -14, -18, -13, -14, 23, -13, -14, 23, -12, -14, -18, -12, -13, -18, -13, -13, 23, -13, -13, 23, -12, -13 )
+
+[sub_resource type="ConvexPolygonShape" id=249]
+points = PoolVector3Array( -18, -12, 13, -18, -13, 13, 23, -13, 13, 23, -12, 13, -18, -12, 14, -18, -13, 14, 23, -13, 14, 23, -12, 14 )
+
+[sub_resource type="ConvexPolygonShape" id=250]
+points = PoolVector3Array( -3.5, -12, -13, -3.5, -19, -13, -3, -19, -13, -3, -12, -13, -3.5, -12, 13, -3.5, -19, 13, -3, -19, 13, -3, -12, 13 )
+
+[sub_resource type="ConvexPolygonShape" id=251]
+points = PoolVector3Array( -18, -11, 2, -18, -12, 2, 23, -12, 2, 23, -11, 2, -18, -11, 14, -18, -12, 14, 23, -12, 14, 23, -11, 14 )
+
+[sub_resource type="ConvexPolygonShape" id=252]
+points = PoolVector3Array( -18, -11, -14, -18, -12, -14, 23, -12, -14, 23, -11, -14, -18, -11, -2, -18, -12, -2, 23, -12, -2, 23, -11, -2 )
+
+[sub_resource type="ConvexPolygonShape" id=253]
+points = PoolVector3Array( 12, -11, -2, 12, -12, -2, 23, -12, -2, 23, -11, -2, 12, -11, 2, 12, -12, 2, 23, -12, 2, 23, -11, 2 )
+
+[sub_resource type="ConvexPolygonShape" id=254]
+points = PoolVector3Array( -18, -11, -2, -18, -12, -2, 8, -12, -2, 8, -11, -2, -18, -11, 2, -18, -12, 2, 8, -12, 2, 8, -11, 2 )
+
 [sub_resource type="SpatialMaterial" id=219]
 resource_name = "DisplayCase_2_mat"
 vertex_color_use_as_albedo = true
 params_cull_mode = 2
 albedo_color = Color( 0.906332, 0.906332, 0.906332, 1 )
-metallic = 1.0
+metallic = 0.75
+roughness = 0.5
 
 [sub_resource type="ArrayMesh" id=220]
 resource_name = "Generic_Props_Cont_DisplayCase_2"
@@ -146,7 +225,7 @@ surfaces/0 = {
 
 [sub_resource type="SpatialMaterial" id=221]
 albedo_texture = ExtResource( 13 )
-metallic = 1.0
+metallic = 0.75
 metallic_texture = ExtResource( 15 )
 roughness_texture = ExtResource( 15 )
 roughness_texture_channel = 1
@@ -198,12 +277,14 @@ shape = ExtResource( 24 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1875, 0 )
 
 [node name="CollisionShape" parent="entity_1_prop_door_floor_hatch/HatchDoor" index="0"]
-shape = SubResource( 467 )
+shape = SubResource( 255 )
 
 [node name="MaintenanceElevator" parent="." instance=ExtResource( 20 )]
 process_priority = -10
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -24.7, 0 )
 travel_height = 24.7875
+speed = 2.5
+hatch_close_trigger = 2.5
 hatch_path = NodePath("../entity_1_prop_door_floor_hatch/HatchDoor")
 
 [node name="Basement" type="Spatial" parent="."]
@@ -232,16 +313,90 @@ auto_build = true
 
 [node name="entity_0_mesh_instance" type="MeshInstance" parent="Basement/entity_0_worldspawn"]
 use_in_baked_light = true
-mesh = SubResource( 441 )
+mesh = SubResource( 229 )
 
-[node name="WorldCollision" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
-shape = ExtResource( 25 )
+[node name="entity_0_brush_0_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 230 )
+
+[node name="entity_0_brush_1_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 231 )
+
+[node name="entity_0_brush_2_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 232 )
+
+[node name="entity_0_brush_3_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 233 )
+
+[node name="entity_0_brush_4_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 234 )
+
+[node name="entity_0_brush_5_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 235 )
+
+[node name="entity_0_brush_6_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 236 )
+
+[node name="entity_0_brush_7_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 237 )
+
+[node name="entity_0_brush_8_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 238 )
+
+[node name="entity_0_brush_9_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 239 )
+
+[node name="entity_0_brush_10_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 240 )
+
+[node name="entity_0_brush_11_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 241 )
+
+[node name="entity_0_brush_12_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 242 )
+
+[node name="entity_0_brush_13_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 243 )
+
+[node name="entity_0_brush_14_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 244 )
+
+[node name="entity_0_brush_15_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 245 )
+
+[node name="entity_0_brush_16_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 246 )
+
+[node name="entity_0_brush_17_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 247 )
+
+[node name="entity_0_brush_18_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 248 )
+
+[node name="entity_0_brush_19_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 249 )
+
+[node name="entity_0_brush_20_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 250 )
+
+[node name="entity_0_brush_21_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 251 )
+
+[node name="entity_0_brush_22_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 252 )
+
+[node name="entity_0_brush_23_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 253 )
+
+[node name="entity_0_brush_24_collision_shape" type="CollisionShape" parent="Basement/entity_0_worldspawn"]
+shape = SubResource( 254 )
 
 [node name="entity_1_light_work_tripod" parent="Basement" instance=ExtResource( 16 )]
 transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, 6.8125, -24.75, -7.6875 )
+enable_shadows = true
 
 [node name="entity_2_light_work_tripod" parent="Basement" instance=ExtResource( 16 )]
 transform = Transform( 0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 7.0625, -24.75, 3.5625 )
+enable_shadows = true
 
 [node name="Airlock_North" parent="." instance=ExtResource( 3 )]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -0.4, 3.4, -32 )
@@ -260,7 +415,7 @@ __meta__ = {
 "airlock_door_name": "inner"
 }
 
-[node name="AirlockZoneV2" parent="Airlock_North" index="16"]
+[node name="AirlockZoneV2" parent="Airlock_North" index="14"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_exterior_dome_01"
 target_airlock_path = NodePath("Airlock_North")
@@ -283,7 +438,7 @@ __meta__ = {
 "airlock_door_name": "inner"
 }
 
-[node name="AirlockZoneV2" parent="Airlock_South" index="16"]
+[node name="AirlockZoneV2" parent="Airlock_South" index="14"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_exterior_dome_01"
 target_airlock_path = NodePath("Airlock_South")
@@ -306,7 +461,7 @@ __meta__ = {
 "airlock_door_name": "inner"
 }
 
-[node name="AirlockZoneV2" parent="Airlock_East" index="16"]
+[node name="AirlockZoneV2" parent="Airlock_East" index="14"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_exterior_dome_01"
 target_airlock_path = NodePath("Airlock_East")
@@ -329,7 +484,7 @@ __meta__ = {
 "airlock_door_name": "inner"
 }
 
-[node name="AirlockZoneV2" parent="Airlock_West" index="16"]
+[node name="AirlockZoneV2" parent="Airlock_West" index="14"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_exterior_dome_01"
 target_airlock_path = NodePath("Airlock_West")
@@ -352,7 +507,7 @@ __meta__ = {
 "airlock_door_name": "inner"
 }
 
-[node name="AirlockZoneV2" parent="Airlock_Basement" index="16"]
+[node name="AirlockZoneV2" parent="Airlock_Basement" index="14"]
 target_scene = "res://core_v2/components/ScaffoldOrbit.tscn"
 target_spawn_id = "from_dome_crio_basement"
 target_airlock_path = NodePath("Airlock_Basement")
@@ -390,1046 +545,542 @@ rail_left = true
 rail_right = true
 rail_infill_enabled = false
 
-[node name="RadialScatter" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 0 )
-script = ExtResource( 11 )
-target_scene = ExtResource( 9 )
-item_count = 64
-radius = 14.5
-rotation_x = -15.0
-rotation_y = 180.0
-rotation_z = 360.0
-
-[node name="Item_0" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 8.29019e-08, -0.258819, -0.965926, 1.91515e-07, 0.965926, -0.258819, 1, -1.63532e-07, 1.29645e-07, 14.5, 0, 0 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_1" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.0980171, -0.257573, -0.961275, 1.91515e-07, 0.965926, -0.258819, 0.995185, -0.0253689, -0.0946772, 14.4302, 0, 1.42125 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_2" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.19509, -0.253846, -0.947366, 1.91515e-07, 0.965926, -0.258819, 0.980785, -0.0504933, -0.188443, 14.2214, 0, 2.82881 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_3" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.290285, -0.247674, -0.924333, 1.91515e-07, 0.965926, -0.258819, 0.95694, -0.0751314, -0.280393, 13.8756, 0, 4.20913 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_4" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.382683, -0.239118, -0.892399, 1.91515e-07, 0.965926, -0.258819, 0.92388, -0.0990459, -0.369644, 13.3963, 0, 5.54891 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_5" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.471397, -0.228258, -0.851871, 1.91515e-07, 0.965926, -0.258819, 0.881921, -0.122007, -0.455334, 12.7879, 0, 6.83525 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_6" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.55557, -0.2152, -0.803138, 1.91515e-07, 0.965926, -0.258819, 0.83147, -0.143792, -0.53664, 12.0563, 0, 8.05577 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_7" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.634393, -0.20007, -0.746671, 1.91515e-07, 0.965926, -0.258819, 0.77301, -0.164193, -0.612777, 11.2087, 0, 9.1987 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_8" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.707107, -0.183013, -0.683013, 1.91515e-07, 0.965926, -0.258819, 0.707107, -0.183013, -0.683013, 10.253, 0, 10.253 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_9" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.77301, -0.164193, -0.612777, 1.91515e-07, 0.965926, -0.258819, 0.634393, -0.20007, -0.746671, 9.1987, 0, 11.2087 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_10" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.83147, -0.143792, -0.53664, 1.91515e-07, 0.965926, -0.258819, 0.55557, -0.2152, -0.803138, 8.05577, 0, 12.0563 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_11" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.881921, -0.122006, -0.455334, 1.91515e-07, 0.965926, -0.258819, 0.471397, -0.228258, -0.85187, 6.83525, 0, 12.7879 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_12" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.92388, -0.0990456, -0.369644, 1.91515e-07, 0.965926, -0.258819, 0.382683, -0.239118, -0.892399, 5.54891, 0, 13.3963 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_13" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.95694, -0.075131, -0.280394, 1.91515e-07, 0.965926, -0.258819, 0.290285, -0.247674, -0.924333, 4.20913, 0, 13.8756 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_14" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.980785, -0.0504929, -0.188443, 1.91515e-07, 0.965926, -0.258819, 0.19509, -0.253846, -0.947366, 2.82881, 0, 14.2214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_15" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.995185, -0.0253685, -0.0946774, 1.91515e-07, 0.965926, -0.258819, 0.0980172, -0.257573, -0.961275, 1.42125, 0, 14.4302 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_16" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -1, 1.74846e-07, -8.74228e-08, 1.91515e-07, 0.965926, -0.258819, 3.91906e-08, -0.258819, -0.965926, 8.87869e-16, 0, 14.5 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_17" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.995185, 0.0253689, 0.0946772, 1.91515e-07, 0.965926, -0.258819, -0.0980171, -0.257573, -0.961275, -1.42125, 0, 14.4302 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_18" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.980785, 0.0504933, 0.188443, 1.91515e-07, 0.965926, -0.258819, -0.19509, -0.253846, -0.947366, -2.82881, 0, 14.2214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_19" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.95694, 0.0751314, 0.280393, 1.91515e-07, 0.965926, -0.258819, -0.290285, -0.247674, -0.924333, -4.20913, 0, 13.8756 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_20" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.92388, 0.0990459, 0.369644, 1.91515e-07, 0.965926, -0.258819, -0.382683, -0.239118, -0.892399, -5.54891, 0, 13.3963 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_21" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.881921, 0.122007, 0.455334, 1.91515e-07, 0.965926, -0.258819, -0.471397, -0.228258, -0.851871, -6.83525, 0, 12.7879 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_22" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.83147, 0.143792, 0.53664, 1.91515e-07, 0.965926, -0.258819, -0.55557, -0.2152, -0.803138, -8.05577, 0, 12.0563 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_23" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.773011, 0.164193, 0.612777, 1.91515e-07, 0.965926, -0.258819, -0.634393, -0.20007, -0.746671, -9.1987, 0, 11.2087 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_24" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.707107, 0.183013, 0.683013, 1.91515e-07, 0.965926, -0.258819, -0.707107, -0.183013, -0.683013, -10.253, 0, 10.253 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_25" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.634393, 0.20007, 0.746671, 1.91515e-07, 0.965926, -0.258819, -0.77301, -0.164193, -0.612777, -11.2087, 0, 9.1987 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_26" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.55557, 0.2152, 0.803138, 1.91515e-07, 0.965926, -0.258819, -0.83147, -0.143792, -0.53664, -12.0563, 0, 8.05577 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_27" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.471397, 0.228258, 0.85187, 1.91515e-07, 0.965926, -0.258819, -0.881921, -0.122006, -0.455334, -12.7879, 0, 6.83525 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_28" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.382683, 0.239118, 0.892399, 1.91515e-07, 0.965926, -0.258819, -0.923879, -0.0990456, -0.369644, -13.3963, 0, 5.54891 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_29" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.290285, 0.247674, 0.924333, 1.91515e-07, 0.965926, -0.258819, -0.95694, -0.075131, -0.280394, -13.8756, 0, 4.20913 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_30" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.19509, 0.253846, 0.947366, 1.91515e-07, 0.965926, -0.258819, -0.980785, -0.0504929, -0.188443, -14.2214, 0, 2.82881 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_31" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( -0.0980172, 0.257573, 0.961275, 1.91515e-07, 0.965926, -0.258819, -0.995185, -0.0253685, -0.0946774, -14.4302, 0, 1.42125 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_32" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 4.52083e-09, 0.258819, 0.965926, 1.91515e-07, 0.965926, -0.258819, -1, 1.86159e-07, -4.52008e-08, -14.5, 0, 1.77574e-15 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_33" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.0980171, 0.257573, 0.961275, 1.91515e-07, 0.965926, -0.258819, -0.995185, 0.0253689, 0.0946772, -14.4302, 0, -1.42125 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_34" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.19509, 0.253846, 0.947366, 1.91515e-07, 0.965926, -0.258819, -0.980785, 0.0504933, 0.188443, -14.2214, 0, -2.82881 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_35" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.290285, 0.247674, 0.924333, 1.91515e-07, 0.965926, -0.258819, -0.95694, 0.0751314, 0.280393, -13.8756, 0, -4.20913 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_36" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.382683, 0.239118, 0.892399, 1.91515e-07, 0.965926, -0.258819, -0.92388, 0.0990459, 0.369644, -13.3963, 0, -5.54891 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_37" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.471397, 0.228258, 0.851871, 1.91515e-07, 0.965926, -0.258819, -0.881921, 0.122007, 0.455334, -12.7879, 0, -6.83525 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_38" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.55557, 0.2152, 0.803138, 1.91515e-07, 0.965926, -0.258819, -0.83147, 0.143792, 0.53664, -12.0563, 0, -8.05577 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_39" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.634393, 0.20007, 0.746671, 1.91515e-07, 0.965926, -0.258819, -0.773011, 0.164193, 0.612777, -11.2087, 0, -9.1987 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_40" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.707107, 0.183013, 0.683013, 1.91515e-07, 0.965926, -0.258819, -0.707107, 0.183013, 0.683013, -10.253, 0, -10.253 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_41" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.77301, 0.164193, 0.612777, 1.91515e-07, 0.965926, -0.258819, -0.634393, 0.20007, 0.746671, -9.1987, 0, -11.2087 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_42" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.83147, 0.143792, 0.53664, 1.91515e-07, 0.965926, -0.258819, -0.55557, 0.2152, 0.803138, -8.05577, 0, -12.0563 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_43" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.881921, 0.122006, 0.455334, 1.91515e-07, 0.965926, -0.258819, -0.471397, 0.228258, 0.85187, -6.83525, 0, -12.7879 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_44" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.923879, 0.0990456, 0.369644, 1.91515e-07, 0.965926, -0.258819, -0.382684, 0.239118, 0.892399, -5.54891, 0, -13.3963 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_45" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.95694, 0.0751311, 0.280394, 1.91515e-07, 0.965926, -0.258819, -0.290285, 0.247674, 0.924333, -4.20913, 0, -13.8756 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_46" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.980785, 0.0504929, 0.188443, 1.91515e-07, 0.965926, -0.258819, -0.19509, 0.253846, 0.947366, -2.82881, 0, -14.2214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_47" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.995185, 0.0253685, 0.0946773, 1.91515e-07, 0.965926, -0.258819, -0.0980171, 0.257573, 0.961275, -1.42125, 0, -14.4302 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_48" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 1, -1.97472e-07, 2.97886e-09, 1.91515e-07, 0.965926, -0.258819, 4.82322e-08, 0.258819, 0.965926, -2.66361e-15, 0, -14.5 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_49" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.995185, -0.0253689, -0.0946772, 1.91515e-07, 0.965926, -0.258819, 0.0980171, 0.257573, 0.961275, 1.42125, 0, -14.4302 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_50" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.980785, -0.0504933, -0.188443, 1.91515e-07, 0.965926, -0.258819, 0.19509, 0.253846, 0.947366, 2.82881, 0, -14.2214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_51" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.95694, -0.0751314, -0.280393, 1.91515e-07, 0.965926, -0.258819, 0.290285, 0.247674, 0.924333, 4.20913, 0, -13.8756 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_52" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.92388, -0.0990459, -0.369644, 1.91515e-07, 0.965926, -0.258819, 0.382683, 0.239118, 0.892399, 5.54891, 0, -13.3963 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_53" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.881921, -0.122007, -0.455334, 1.91515e-07, 0.965926, -0.258819, 0.471397, 0.228258, 0.851871, 6.83525, 0, -12.7879 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_54" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.83147, -0.143792, -0.53664, 1.91515e-07, 0.965926, -0.258819, 0.55557, 0.2152, 0.803138, 8.05577, 0, -12.0563 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_55" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.773011, -0.164193, -0.612777, 1.91515e-07, 0.965926, -0.258819, 0.634393, 0.20007, 0.746671, 9.1987, 0, -11.2087 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_56" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.707107, -0.183013, -0.683013, 1.91515e-07, 0.965926, -0.258819, 0.707107, 0.183013, 0.683013, 10.253, 0, -10.253 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_57" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.634393, -0.20007, -0.746671, 1.91515e-07, 0.965926, -0.258819, 0.77301, 0.164193, 0.612777, 11.2087, 0, -9.1987 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_58" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.55557, -0.2152, -0.803138, 1.91515e-07, 0.965926, -0.258819, 0.83147, 0.143792, 0.53664, 12.0563, 0, -8.05577 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_59" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.471397, -0.228258, -0.85187, 1.91515e-07, 0.965926, -0.258819, 0.881921, 0.122006, 0.455334, 12.7879, 0, -6.83525 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_60" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.382683, -0.239118, -0.892399, 1.91515e-07, 0.965926, -0.258819, 0.92388, 0.0990456, 0.369644, 13.3963, 0, -5.54891 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_61" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.290285, -0.247674, -0.924333, 1.91515e-07, 0.965926, -0.258819, 0.95694, 0.0751311, 0.280394, 13.8756, 0, -4.20913 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_62" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.19509, -0.253846, -0.947366, 1.91515e-07, 0.965926, -0.258819, 0.980785, 0.0504929, 0.188443, 14.2214, 0, -2.82881 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_63" type="MeshInstance" parent="RadialScatter" instance=ExtResource( 9 )]
-transform = Transform( 0.0980171, -0.257573, -0.961275, 1.91515e-07, 0.965926, -0.258819, 0.995185, 0.0253685, 0.0946773, 14.4302, 0, -1.42125 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
 [node name="RadialScatter2" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -15 )
 script = ExtResource( 11 )
 target_scene = ExtResource( 9 )
-item_count = 64
+item_count = 32
+radius = 7.0
 blocked_angle_ranges_deg = [ Vector2( -8, 8 ), Vector2( 82, 98 ), Vector2( 172, 188 ), Vector2( 262, 278 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
 
+[node name="Item_1" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
+transform = Transform( -0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, -0.19509, 6.8655, 0, 1.36563 )
+use_in_baked_light = true
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
+
 [node name="Item_2" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, -0.19509, 9.80785, 0, 1.9509 )
+transform = Transform( -0.382683, 0, -0.92388, 0, 1, 0, 0.92388, 0, -0.382683, 6.46716, 0, 2.67878 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_3" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.290285, 0, -0.95694, 0, 1, 0, 0.95694, 0, -0.290285, 9.5694, 0, 2.90285 )
+transform = Transform( -0.55557, 0, -0.83147, 0, 1, 0, 0.83147, 0, -0.55557, 5.82029, 0, 3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_4" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.382683, 0, -0.92388, 0, 1, 0, 0.92388, 0, -0.382683, 9.2388, 0, 3.82683 )
+transform = Transform( -0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, 4.94975, 0, 4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_5" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.471397, 0, -0.881921, 0, 1, 0, 0.881921, 0, -0.471397, 8.81921, 0, 4.71397 )
+transform = Transform( -0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, -0.83147, 3.88899, 0, 5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_6" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.55557, 0, -0.83147, 0, 1, 0, 0.83147, 0, -0.55557, 8.3147, 0, 5.5557 )
+transform = Transform( -0.923879, 0, -0.382684, 0, 1, 0, 0.382684, 0, -0.923879, 2.67878, 0, 6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_7" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.634393, 0, -0.77301, 0, 1, 0, 0.77301, 0, -0.634393, 7.7301, 0, 6.34393 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_8" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, 7.07107, 0, 7.07107 )
+transform = Transform( -0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, -0.980785, 1.36563, 0, 6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_9" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.77301, 0, -0.634393, 0, 1, 0, 0.634393, 0, -0.77301, 6.34393, 0, 7.7301 )
+transform = Transform( -0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, -0.980785, -1.36563, 0, 6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_10" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, -0.83147, 5.5557, 0, 8.3147 )
+transform = Transform( -0.92388, 0, 0.382683, 0, 1, 0, -0.382683, 0, -0.92388, -2.67878, 0, 6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_11" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.881921, 0, -0.471397, 0, 1, 0, 0.471397, 0, -0.881921, 4.71397, 0, 8.81921 )
+transform = Transform( -0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, -0.83147, -3.88899, 0, 5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_12" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.923879, 0, -0.382684, 0, 1, 0, 0.382684, 0, -0.923879, 3.82683, 0, 9.2388 )
+transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, -4.94975, 0, 4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_13" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.95694, 0, -0.290285, 0, 1, 0, 0.290285, 0, -0.95694, 2.90285, 0, 9.5694 )
+transform = Transform( -0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, -0.55557, -5.82029, 0, 3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_14" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, -0.980785, 1.9509, 0, 9.80785 )
+transform = Transform( -0.382684, 0, 0.923879, 0, 1, 0, -0.923879, 0, -0.382684, -6.46716, 0, 2.67878 )
+use_in_baked_light = true
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
+
+[node name="Item_15" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
+transform = Transform( -0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, -0.19509, -6.8655, 0, 1.36563 )
+use_in_baked_light = true
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
+
+[node name="Item_17" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
+transform = Transform( 0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, 0.19509, -6.8655, 0, -1.36563 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_18" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, -0.980785, -1.9509, 0, 9.80785 )
+transform = Transform( 0.382683, 0, 0.92388, 0, 1, 0, -0.92388, 0, 0.382683, -6.46716, 0, -2.67878 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_19" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.95694, 0, 0.290285, 0, 1, 0, -0.290285, 0, -0.95694, -2.90285, 0, 9.5694 )
+transform = Transform( 0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, 0.55557, -5.82029, 0, -3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_20" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.92388, 0, 0.382683, 0, 1, 0, -0.382683, 0, -0.92388, -3.82683, 0, 9.2388 )
+transform = Transform( 0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -4.94975, 0, -4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_21" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.881921, 0, 0.471397, 0, 1, 0, -0.471397, 0, -0.881921, -4.71397, 0, 8.81921 )
+transform = Transform( 0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, 0.83147, -3.88899, 0, -5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_22" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, -0.83147, -5.5557, 0, 8.3147 )
+transform = Transform( 0.923879, 0, 0.382684, 0, 1, 0, -0.382684, 0, 0.923879, -2.67878, 0, -6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_23" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.773011, 0, 0.634393, 0, 1, 0, -0.634393, 0, -0.773011, -6.34393, 0, 7.7301 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_24" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, -7.07107, 0, 7.07107 )
+transform = Transform( 0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, 0.980785, -1.36563, 0, -6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_25" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.634393, 0, 0.77301, 0, 1, 0, -0.77301, 0, -0.634393, -7.7301, 0, 6.34393 )
+transform = Transform( 0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, 0.980785, 1.36563, 0, -6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_26" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, -0.55557, -8.3147, 0, 5.5557 )
+transform = Transform( 0.92388, 0, -0.382683, 0, 1, 0, 0.382683, 0, 0.92388, 2.67878, 0, -6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_27" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.471397, 0, 0.881921, 0, 1, 0, -0.881921, 0, -0.471397, -8.81921, 0, 4.71397 )
+transform = Transform( 0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, 0.83147, 3.88899, 0, -5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_28" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.382684, 0, 0.923879, 0, 1, 0, -0.923879, 0, -0.382684, -9.2388, 0, 3.82683 )
+transform = Transform( 0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 4.94975, 0, -4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_29" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.290285, 0, 0.95694, 0, 1, 0, -0.95694, 0, -0.290285, -9.5694, 0, 2.90285 )
+transform = Transform( 0.55557, 0, -0.83147, 0, 1, 0, 0.83147, 0, 0.55557, 5.82029, 0, -3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_30" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( -0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, -0.19509, -9.80785, 0, 1.9509 )
+transform = Transform( 0.382684, 0, -0.923879, 0, 1, 0, 0.923879, 0, 0.382684, 6.46716, 0, -2.67878 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_34" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, 0.19509, -9.80785, 0, -1.9509 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_35" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.290285, 0, 0.95694, 0, 1, 0, -0.95694, 0, 0.290285, -9.5694, 0, -2.90285 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_36" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.382683, 0, 0.92388, 0, 1, 0, -0.92388, 0, 0.382683, -9.2388, 0, -3.82683 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_37" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.471397, 0, 0.881921, 0, 1, 0, -0.881921, 0, 0.471397, -8.81921, 0, -4.71397 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_38" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, 0.55557, -8.3147, 0, -5.5557 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_39" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.634393, 0, 0.773011, 0, 1, 0, -0.773011, 0, 0.634393, -7.7301, 0, -6.34393 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_40" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -7.07107, 0, -7.07107 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_41" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.77301, 0, 0.634393, 0, 1, 0, -0.634393, 0, 0.77301, -6.34393, 0, -7.7301 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_42" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, 0.83147, -5.5557, 0, -8.3147 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_43" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.881921, 0, 0.471397, 0, 1, 0, -0.471397, 0, 0.881921, -4.71397, 0, -8.81921 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_44" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.923879, 0, 0.382684, 0, 1, 0, -0.382684, 0, 0.923879, -3.82683, 0, -9.2388 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_45" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.95694, 0, 0.290285, 0, 1, 0, -0.290285, 0, 0.95694, -2.90285, 0, -9.5694 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_46" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, 0.980785, -1.9509, 0, -9.80785 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_50" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, 0.980785, 1.9509, 0, -9.80785 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_51" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.95694, 0, -0.290285, 0, 1, 0, 0.290285, 0, 0.95694, 2.90285, 0, -9.5694 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_52" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.92388, 0, -0.382683, 0, 1, 0, 0.382683, 0, 0.92388, 3.82683, 0, -9.2388 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_53" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.881921, 0, -0.471397, 0, 1, 0, 0.471397, 0, 0.881921, 4.71397, 0, -8.81921 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_54" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, 0.83147, 5.5557, 0, -8.3147 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_55" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.773011, 0, -0.634393, 0, 1, 0, 0.634393, 0, 0.773011, 6.34393, 0, -7.7301 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_56" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 7.07107, 0, -7.07107 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_57" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.634393, 0, -0.77301, 0, 1, 0, 0.77301, 0, 0.634393, 7.7301, 0, -6.34393 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_58" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.55557, 0, -0.83147, 0, 1, 0, 0.83147, 0, 0.55557, 8.3147, 0, -5.5557 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_59" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.471397, 0, -0.881921, 0, 1, 0, 0.881921, 0, 0.471397, 8.81921, 0, -4.71397 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_60" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.382684, 0, -0.923879, 0, 1, 0, 0.923879, 0, 0.382684, 9.2388, 0, -3.82683 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_61" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.290285, 0, -0.95694, 0, 1, 0, 0.95694, 0, 0.290285, 9.5694, 0, -2.90285 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_62" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
-transform = Transform( 0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, 0.19509, 9.80785, 0, -1.9509 )
+[node name="Item_31" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
+transform = Transform( 0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, 0.19509, 6.8655, 0, -1.36563 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="RadialScatter3" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 15 )
 script = ExtResource( 11 )
 target_scene = ExtResource( 9 )
-item_count = 64
-radius = 15.0
+item_count = 32
+radius = 7.0
 blocked_angle_ranges_deg = [ Vector2( -8, 8 ), Vector2( 82, 98 ), Vector2( 172, 188 ), Vector2( 262, 278 ) ]
-rotation_x = -7.0
 rotation_y = 180.0
 rand_rotation_amount = 0.0
 
+[node name="Item_1" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
+transform = Transform( -0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, -0.19509, 6.8655, 0, 1.36563 )
+use_in_baked_light = true
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
+
 [node name="Item_2" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.19509, -0.119528, -0.973475, 1.06542e-08, 0.992546, -0.121869, 0.980785, -0.0237755, -0.193636, 14.7118, 0, 2.92635 )
+transform = Transform( -0.382683, 0, -0.92388, 0, 1, 0, 0.92388, 0, -0.382683, 6.46716, 0, 2.67878 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_3" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.290285, -0.116622, -0.949807, 1.06542e-08, 0.992546, -0.121869, 0.95694, -0.0353768, -0.288121, 14.3541, 0, 4.35427 )
+transform = Transform( -0.55557, 0, -0.83147, 0, 1, 0, 0.83147, 0, -0.55557, 5.82029, 0, 3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_4" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.382683, -0.112593, -0.916993, 1.06542e-08, 0.992546, -0.121869, 0.92388, -0.0466374, -0.379831, 13.8582, 0, 5.74025 )
+transform = Transform( -0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, 4.94975, 0, 4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_5" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.471397, -0.107479, -0.875348, 1.06542e-08, 0.992546, -0.121869, 0.881921, -0.0574488, -0.467883, 13.2288, 0, 7.07095 )
+transform = Transform( -0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, -0.83147, 3.88899, 0, 5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_6" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.55557, -0.101331, -0.825272, 1.06542e-08, 0.992546, -0.121869, 0.83147, -0.067707, -0.551429, 12.472, 0, 8.33355 )
+transform = Transform( -0.923879, 0, -0.382684, 0, 1, 0, 0.382684, 0, -0.923879, 2.67878, 0, 6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_7" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.634393, -0.0942063, -0.767249, 1.06542e-08, 0.992546, -0.121869, 0.77301, -0.0773131, -0.629665, 11.5952, 0, 9.5159 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_8" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.707107, -0.0861746, -0.701836, 1.06542e-08, 0.992546, -0.121869, 0.707107, -0.0861746, -0.701836, 10.6066, 0, 10.6066 )
+transform = Transform( -0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, -0.980785, 1.36563, 0, 6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_9" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.77301, -0.0773131, -0.629665, 1.06542e-08, 0.992546, -0.121869, 0.634393, -0.0942063, -0.767248, 9.5159, 0, 11.5952 )
+transform = Transform( -0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, -0.980785, -1.36563, 0, 6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_10" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.83147, -0.067707, -0.551429, 1.06542e-08, 0.992546, -0.121869, 0.55557, -0.101331, -0.825272, 8.33355, 0, 12.472 )
+transform = Transform( -0.92388, 0, 0.382683, 0, 1, 0, -0.382683, 0, -0.92388, -2.67878, 0, 6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_11" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.881921, -0.0574488, -0.467883, 1.06542e-08, 0.992546, -0.121869, 0.471397, -0.107479, -0.875347, 7.07095, 0, 13.2288 )
+transform = Transform( -0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, -0.83147, -3.88899, 0, 5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_12" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.923879, -0.0466374, -0.379831, 1.06542e-08, 0.992546, -0.121869, 0.382684, -0.112593, -0.916993, 5.74025, 0, 13.8582 )
+transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, -4.94975, 0, 4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_13" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.95694, -0.0353768, -0.288121, 1.06542e-08, 0.992546, -0.121869, 0.290285, -0.116622, -0.949807, 4.35427, 0, 14.3541 )
+transform = Transform( -0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, -0.55557, -5.82029, 0, 3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_14" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.980785, -0.0237755, -0.193636, 1.06542e-08, 0.992546, -0.121869, 0.19509, -0.119528, -0.973475, 2.92635, 0, 14.7118 )
+transform = Transform( -0.382684, 0, 0.923879, 0, 1, 0, -0.923879, 0, -0.382684, -6.46716, 0, 2.67878 )
+use_in_baked_light = true
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
+
+[node name="Item_15" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
+transform = Transform( -0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, -0.19509, -6.8655, 0, 1.36563 )
+use_in_baked_light = true
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
+
+[node name="Item_17" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
+transform = Transform( 0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, 0.19509, -6.8655, 0, -1.36563 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_18" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.980785, 0.0237755, 0.193636, 1.06542e-08, 0.992546, -0.121869, -0.19509, -0.119528, -0.973475, -2.92635, 0, 14.7118 )
+transform = Transform( 0.382683, 0, 0.92388, 0, 1, 0, -0.92388, 0, 0.382683, -6.46716, 0, -2.67878 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_19" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.95694, 0.0353768, 0.288121, 1.06542e-08, 0.992546, -0.121869, -0.290285, -0.116622, -0.949807, -4.35427, 0, 14.3541 )
+transform = Transform( 0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, 0.55557, -5.82029, 0, -3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_20" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.92388, 0.0466374, 0.379831, 1.06542e-08, 0.992546, -0.121869, -0.382683, -0.112593, -0.916993, -5.74025, 0, 13.8582 )
+transform = Transform( 0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -4.94975, 0, -4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_21" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.881921, 0.0574488, 0.467883, 1.06542e-08, 0.992546, -0.121869, -0.471397, -0.107479, -0.875348, -7.07095, 0, 13.2288 )
+transform = Transform( 0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, 0.83147, -3.88899, 0, -5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_22" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.83147, 0.067707, 0.551429, 1.06542e-08, 0.992546, -0.121869, -0.55557, -0.101331, -0.825272, -8.33355, 0, 12.472 )
+transform = Transform( 0.923879, 0, 0.382684, 0, 1, 0, -0.382684, 0, 0.923879, -2.67878, 0, -6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_23" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.77301, 0.0773131, 0.629665, 1.06542e-08, 0.992546, -0.121869, -0.634393, -0.0942063, -0.767249, -9.5159, 0, 11.5952 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_24" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.707107, 0.0861746, 0.701836, 1.06542e-08, 0.992546, -0.121869, -0.707107, -0.0861746, -0.701836, -10.6066, 0, 10.6066 )
+transform = Transform( 0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, 0.980785, -1.36563, 0, -6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_25" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.634393, 0.0942063, 0.767248, 1.06542e-08, 0.992546, -0.121869, -0.77301, -0.0773131, -0.629665, -11.5952, 0, 9.5159 )
+transform = Transform( 0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, 0.980785, 1.36563, 0, -6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_26" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.55557, 0.101331, 0.825272, 1.06542e-08, 0.992546, -0.121869, -0.83147, -0.067707, -0.551429, -12.472, 0, 8.33355 )
+transform = Transform( 0.92388, 0, -0.382683, 0, 1, 0, 0.382683, 0, 0.92388, 2.67878, 0, -6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_27" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.471397, 0.107479, 0.875347, 1.06542e-08, 0.992546, -0.121869, -0.881921, -0.0574488, -0.467883, -13.2288, 0, 7.07095 )
+transform = Transform( 0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, 0.83147, 3.88899, 0, -5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_28" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.382684, 0.112593, 0.916993, 1.06542e-08, 0.992546, -0.121869, -0.923879, -0.0466374, -0.379831, -13.8582, 0, 5.74025 )
+transform = Transform( 0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 4.94975, 0, -4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_29" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.290285, 0.116622, 0.949807, 1.06542e-08, 0.992546, -0.121869, -0.95694, -0.0353768, -0.288121, -14.3541, 0, 4.35427 )
+transform = Transform( 0.55557, 0, -0.831469, 0, 1, 0, 0.831469, 0, 0.55557, 5.82029, 0, -3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="Item_30" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( -0.19509, 0.119528, 0.973475, 1.06542e-08, 0.992546, -0.121869, -0.980785, -0.0237755, -0.193636, -14.7118, 0, 2.92635 )
+transform = Transform( 0.382683, 0, -0.92388, 0, 1, 0, 0.92388, 0, 0.382683, 6.46716, 0, -2.67878 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_34" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.19509, 0.119528, 0.973475, 1.06542e-08, 0.992546, -0.121869, -0.980785, 0.0237755, 0.193636, -14.7118, 0, -2.92635 )
+[node name="Item_31" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
+transform = Transform( 0.195091, 0, -0.980785, 0, 1, 0, 0.980785, 0, 0.195091, 6.8655, 0, -1.36563 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_35" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.290285, 0.116622, 0.949807, 1.06542e-08, 0.992546, -0.121869, -0.95694, 0.0353768, 0.288121, -14.3541, 0, -4.35427 )
+[node name="RadialScatter4" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 15 )
+script = ExtResource( 11 )
+target_scene = ExtResource( 9 )
+item_count = 32
+radius = 7.0
+blocked_angle_ranges_deg = [ Vector2( -8, 8 ), Vector2( 82, 98 ), Vector2( 172, 188 ), Vector2( 262, 278 ) ]
+rotation_y = 180.0
+rand_rotation_amount = 0.0
+
+[node name="Item_1" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, -0.19509, 6.8655, 0, 1.36563 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_36" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.382683, 0.112593, 0.916993, 1.06542e-08, 0.992546, -0.121869, -0.92388, 0.0466374, 0.379831, -13.8582, 0, -5.74025 )
+[node name="Item_2" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.382683, 0, -0.92388, 0, 1, 0, 0.92388, 0, -0.382683, 6.46716, 0, 2.67878 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_37" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.471397, 0.107479, 0.875348, 1.06542e-08, 0.992546, -0.121869, -0.881921, 0.0574488, 0.467883, -13.2288, 0, -7.07095 )
+[node name="Item_3" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.55557, 0, -0.83147, 0, 1, 0, 0.83147, 0, -0.55557, 5.82029, 0, 3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_38" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.55557, 0.101331, 0.825272, 1.06542e-08, 0.992546, -0.121869, -0.83147, 0.067707, 0.551429, -12.472, 0, -8.33355 )
+[node name="Item_4" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, 4.94975, 0, 4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_39" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.634393, 0.0942063, 0.767249, 1.06542e-08, 0.992546, -0.121869, -0.773011, 0.0773131, 0.629665, -11.5952, 0, -9.5159 )
+[node name="Item_5" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, -0.83147, 3.88899, 0, 5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_40" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.707107, 0.0861746, 0.701836, 1.06542e-08, 0.992546, -0.121869, -0.707107, 0.0861746, 0.701836, -10.6066, 0, -10.6066 )
+[node name="Item_6" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.923879, 0, -0.382684, 0, 1, 0, 0.382684, 0, -0.923879, 2.67878, 0, 6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_41" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.77301, 0.0773131, 0.629665, 1.06542e-08, 0.992546, -0.121869, -0.634393, 0.0942063, 0.767249, -9.5159, 0, -11.5952 )
+[node name="Item_7" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, -0.980785, 1.36563, 0, 6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_42" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.83147, 0.067707, 0.551429, 1.06542e-08, 0.992546, -0.121869, -0.55557, 0.101331, 0.825272, -8.33355, 0, -12.472 )
+[node name="Item_9" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, -0.980785, -1.36563, 0, 6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_43" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.881921, 0.0574488, 0.467883, 1.06542e-08, 0.992546, -0.121869, -0.471397, 0.107479, 0.875347, -7.07095, 0, -13.2288 )
+[node name="Item_10" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.92388, 0, 0.382683, 0, 1, 0, -0.382683, 0, -0.92388, -2.67878, 0, 6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_44" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.923879, 0.0466374, 0.379831, 1.06542e-08, 0.992546, -0.121869, -0.382684, 0.112593, 0.916993, -5.74025, 0, -13.8582 )
+[node name="Item_11" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, -0.83147, -3.88899, 0, 5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_45" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.95694, 0.0353768, 0.288121, 1.06542e-08, 0.992546, -0.121869, -0.290285, 0.116622, 0.949807, -4.35427, 0, -14.3541 )
+[node name="Item_12" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, -4.94975, 0, 4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_46" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.980785, 0.0237755, 0.193636, 1.06542e-08, 0.992546, -0.121869, -0.19509, 0.119528, 0.973475, -2.92635, 0, -14.7118 )
+[node name="Item_13" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, -0.55557, -5.82029, 0, 3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_50" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.980785, -0.0237755, -0.193636, 1.06542e-08, 0.992546, -0.121869, 0.19509, 0.119528, 0.973475, 2.92635, 0, -14.7118 )
+[node name="Item_14" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.382683, 0, 0.92388, 0, 1, 0, -0.92388, 0, -0.382683, -6.46716, 0, 2.67878 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_51" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.95694, -0.0353768, -0.288121, 1.06542e-08, 0.992546, -0.121869, 0.290285, 0.116622, 0.949807, 4.35427, 0, -14.3541 )
+[node name="Item_15" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( -0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, -0.19509, -6.8655, 0, 1.36563 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_52" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.92388, -0.0466374, -0.379831, 1.06542e-08, 0.992546, -0.121869, 0.382683, 0.112593, 0.916993, 5.74025, 0, -13.8582 )
+[node name="Item_17" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.19509, 0, 0.980785, 0, 1, 0, -0.980785, 0, 0.19509, -6.8655, 0, -1.36563 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_53" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.881921, -0.0574488, -0.467883, 1.06542e-08, 0.992546, -0.121869, 0.471397, 0.107479, 0.875348, 7.07095, 0, -13.2288 )
+[node name="Item_18" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.382683, 0, 0.92388, 0, 1, 0, -0.92388, 0, 0.382683, -6.46716, 0, -2.67878 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_54" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.83147, -0.067707, -0.551429, 1.06542e-08, 0.992546, -0.121869, 0.55557, 0.101331, 0.825272, 8.33355, 0, -12.472 )
+[node name="Item_19" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.55557, 0, 0.83147, 0, 1, 0, -0.83147, 0, 0.55557, -5.82029, 0, -3.88899 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_55" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.773011, -0.0773131, -0.629665, 1.06542e-08, 0.992546, -0.121869, 0.634393, 0.0942063, 0.767249, 9.5159, 0, -11.5952 )
+[node name="Item_20" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -4.94975, 0, -4.94975 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_56" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.707107, -0.0861746, -0.701836, 1.06542e-08, 0.992546, -0.121869, 0.707107, 0.0861746, 0.701836, 10.6066, 0, -10.6066 )
+[node name="Item_21" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.83147, 0, 0.55557, 0, 1, 0, -0.55557, 0, 0.83147, -3.88899, 0, -5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_57" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.634393, -0.0942063, -0.767249, 1.06542e-08, 0.992546, -0.121869, 0.77301, 0.0773131, 0.629665, 11.5952, 0, -9.5159 )
+[node name="Item_22" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.923879, 0, 0.382684, 0, 1, 0, -0.382684, 0, 0.923879, -2.67878, 0, -6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_58" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.55557, -0.101331, -0.825272, 1.06542e-08, 0.992546, -0.121869, 0.83147, 0.067707, 0.551429, 12.472, 0, -8.33355 )
+[node name="Item_23" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.980785, 0, 0.19509, 0, 1, 0, -0.19509, 0, 0.980785, -1.36563, 0, -6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_59" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.471397, -0.107479, -0.875347, 1.06542e-08, 0.992546, -0.121869, 0.881921, 0.0574488, 0.467883, 13.2288, 0, -7.07095 )
+[node name="Item_25" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.980785, 0, -0.19509, 0, 1, 0, 0.19509, 0, 0.980785, 1.36563, 0, -6.8655 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_60" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.382684, -0.112593, -0.916993, 1.06542e-08, 0.992546, -0.121869, 0.923879, 0.0466374, 0.379831, 13.8582, 0, -5.74025 )
+[node name="Item_26" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.92388, 0, -0.382683, 0, 1, 0, 0.382683, 0, 0.92388, 2.67878, 0, -6.46716 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_61" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.290285, -0.116622, -0.949807, 1.06542e-08, 0.992546, -0.121869, 0.95694, 0.0353768, 0.288121, 14.3541, 0, -4.35427 )
+[node name="Item_27" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.83147, 0, -0.55557, 0, 1, 0, 0.55557, 0, 0.83147, 3.88899, 0, -5.82029 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="Item_62" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
-transform = Transform( 0.19509, -0.119528, -0.973475, 1.06542e-08, 0.992546, -0.121869, 0.980785, 0.0237755, 0.193636, 14.7118, 0, -2.92635 )
+[node name="Item_28" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 4.94975, 0, -4.94975 )
+use_in_baked_light = true
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
+
+[node name="Item_29" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.55557, 0, -0.83147, 0, 1, 0, 0.83147, 0, 0.55557, 5.82029, 0, -3.88899 )
+use_in_baked_light = true
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
+
+[node name="Item_30" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.382684, 0, -0.923879, 0, 1, 0, 0.923879, 0, 0.382684, 6.46716, 0, -2.67878 )
+use_in_baked_light = true
+mesh = SubResource( 220 )
+material/0 = SubResource( 221 )
+
+[node name="Item_31" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
+transform = Transform( 0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, 0.19509, 6.8655, 0, -1.36563 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="GasArea3D" parent="." instance=ExtResource( 12 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 2, 15 )
 gas_type = 1
 buoyancy = -0.01
 initial_particle_count = 48

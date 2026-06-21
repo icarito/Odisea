@@ -10,9 +10,10 @@ roughness = 0.05
 
 [sub_resource type="CylinderMesh" id=2]
 material = SubResource( 1 )
-top_radius = 2.5
-bottom_radius = 2.5
+top_radius = 4.0
+bottom_radius = 4.0
 height = 9.0
+radial_segments = 12
 rings = 1
 
 [node name="TubeSection" type="Spatial"]
