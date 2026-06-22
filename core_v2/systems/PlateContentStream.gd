@@ -34,6 +34,11 @@ var _last_selected_spiral_idx: int = -2
 var _last_selected_plate_idx: int = -2
 var _direct_active_assignments := false
 var _slot_transform_sync_counter := 0
+# Última transform del rotator con la que se sincronizaron los slots. Si el rotator
+# rota, hasta las plates lejanas se desplazan (giran alrededor del centro) y deben
+# re-sincronizarse; el gate por distancia solo es válido mientras el rotator no se
+# mueve. Empieza inválida para forzar el primer sync.
+var _last_synced_rotator_xform := Transform(Basis(), Vector3(INF, INF, INF))
 # Verified via telemetry: S0(15deg) -> S1(195deg)=+9, S2(105deg)=+4, S3(285deg)=+13
 const INTERLOCK_OFFSETS := [0, 9, 4, 13]
 
@@ -189,15 +194,24 @@ func _sync_slot_transforms(delta: float = 0.0) -> void:
 	var reference_canonical := _get_reference_canonical_position()
 	var skip_dist_sq := 100.0 * 100.0 # 100m radius for transform sync gating
 
+	# El gate por distancia solo es seguro si el rotator no se movió desde el último
+	# sync: si rotó, las plates lejanas también cambian de posición global y hay que
+	# actualizarlas igual (si no, los slots se quedan en la pose vieja — FD-235 rompía
+	# test_slot_follows_world_rotator_rotation).
+	var rotator_xform: Transform = _rotator.global_transform
+	var rotator_moved: bool = not _transforms_close(rotator_xform, _last_synced_rotator_xform)
+	_last_synced_rotator_xform = rotator_xform
+
 	for i in range(_slots.size()):
 		var assignment: Dictionary = _slot_assignments[i]
 		if assignment.empty():
 			continue
-		
-		# Optimization: skip transform sync for far plates. 
-		# Canonical transforms are in WorldRotator space, so distance is stable.
+
+		# Optimization: skip transform sync for far plates SOLO si el rotator no se
+		# movió. Canonical transforms son estables en espacio del WorldRotator, pero
+		# su proyección global depende de la transform del rotator.
 		var dist_sq: float = assignment.get("dist_sq", 0.0)
-		if dist_sq > skip_dist_sq:
+		if dist_sq > skip_dist_sq and not rotator_moved:
 			continue
 
 		var slot: Spatial = _slots[i]
