@@ -396,73 +396,80 @@ jobs:
           sed -i -E "s|^version/name = .*|version/name = \"${ANDROID_VERSION_NAME}\"|" export_presets.cfg
 
       - name: Limit texture import formats per platform
+        # En Python: portable entre Linux (las 6 plataformas) y macOS (iOS corre en
+        # macos-latest, donde BSD sed difiere de GNU sed y rompía el script anterior).
         run: |
-          # El step de import (godot --editor --quit) genera una variante VRAM por
-          # cada formato habilitado en [rendering] vram_compression, para CADA textura.
-          # Generar formatos que la plataforma no usa hace que el import tarde ~14min
-          # (vs ~3min cuando solo se genera lo necesario, como ya hacía macOS).
-          #
-          # El proyecto es GLES2 (quality/driver/driver_name="GLES2"):
-          #   - BPTC es GLES3/Vulkan -> NUNCA se usa en GLES2: off en todas.
-          #   - PVRTC es iOS viejo -> off salvo iOS.
-          #   - Desktop (linux_x64, windows, macos) usa S3TC -> ETC/ETC2 off.
-          #   - linux_arm64 usa ETC (su preset tiene s3tc=false) -> mantener ETC.
-          #   - android/ios/html5 usan ETC/ETC2 -> mantener.
-          # No tocamos export_presets.cfg (qué se EXPORTA); solo el import VRAM.
-          set_vram() { # set_vram <key> <true|false>
-            sed -i "s/^vram_compression\/import_$1=.*/vram_compression\/import_$1=$2/" project.godot
-          }
-          ensure_vram() { # add the key if missing, then set it
-            grep -q "^vram_compression/import_$1=" project.godot \
-              || sed -i "/^\[rendering\]/a vram_compression/import_$1=true" project.godot
-            set_vram "$1" "$2"
-          }
-          # BPTC inútil en GLES2 para todas las plataformas.
-          ensure_vram bptc false
-          case "${{ matrix.platform }}" in
-            linux_x64|windows|macos)
-              ensure_vram etc false
-              ensure_vram etc2 false
-              ensure_vram pvrtc false
-              ;;
-            linux_arm64)
-              # Mantiene ETC (s3tc=false en su preset); desactiva el resto.
-              ensure_vram etc true
-              ensure_vram etc2 false
-              ensure_vram pvrtc false
-              ;;
-            android|html5)
-              ensure_vram etc true
-              ensure_vram etc2 true
-              ensure_vram pvrtc false
-              ;;
-            ios)
-              # iOS conserva ETC/ETC2 y PVRTC por compatibilidad de dispositivos.
-              ensure_vram etc true
-              ensure_vram etc2 true
-              ensure_vram pvrtc true
-              ;;
-          esac
-          echo "VRAM import formats for ${{ matrix.platform }}:"
-          grep '^vram_compression/' project.godot
+          python3 - "${{ matrix.platform }}" <<'PY'
+          import sys, re
+          platform = sys.argv[1]
 
-          # Si desactivamos el import de BPTC, el preset no debe pedir exportarlo
-          # (no habría datos BPTC y el exporter se quejaría). Desactivamos el
-          # texture_format/bptc en el preset de la plataforma desktop afectada.
-          # preset.1=Linux x64, preset.5=Windows, preset.6=macOS.
-          disable_preset_bptc() { # disable_preset_bptc <preset_index>
-            sed -i "/^\[preset\.$1\.options\]/,/^\[preset\./ s/^texture_format\/bptc = true$/texture_format\/bptc = false/" export_presets.cfg
-          }
-          case "${{ matrix.platform }}" in
-            linux_x64) disable_preset_bptc 1 ;;
-            windows)   disable_preset_bptc 5 ;;
-            macos)     disable_preset_bptc 6 ;;
-          esac
-          case "${{ matrix.platform }}" in
-            linux_x64) sed -n '/^\[preset\.1\.options\]/,/^\[preset\./p' export_presets.cfg | grep '^texture_format/' || true ;;
-            windows)   sed -n '/^\[preset\.5\.options\]/,/^\[preset\./p' export_presets.cfg | grep '^texture_format/' || true ;;
-            macos)     sed -n '/^\[preset\.6\.options\]/,/^\[preset\./p' export_presets.cfg | grep '^texture_format/' || true ;;
-          esac
+          # El step de import (godot --editor --quit) genera una variante VRAM por
+          # cada formato habilitado, para CADA textura. Generar formatos que la
+          # plataforma no usa hacía el import ~14min (vs ~1-3min con lo justo).
+          # El proyecto es GLES2: BPTC (GLES3/Vulkan) nunca se usa; desktop usa S3TC;
+          # móvil/web usa ETC/ETC2; iOS conserva PVRTC.
+          # bptc, etc, etc2, pvrtc -> True = importar. S3TC siempre se genera.
+          fmts = {
+              "linux_x64":   dict(bptc=False, etc=False, etc2=False, pvrtc=False),
+              "windows":     dict(bptc=False, etc=False, etc2=False, pvrtc=False),
+              "macos":       dict(bptc=False, etc=False, etc2=False, pvrtc=False),
+              "linux_arm64": dict(bptc=False, etc=True,  etc2=False, pvrtc=False),
+              "android":     dict(bptc=False, etc=True,  etc2=True,  pvrtc=False),
+              "html5":       dict(bptc=False, etc=True,  etc2=True,  pvrtc=False),
+              "ios":         dict(bptc=False, etc=True,  etc2=True,  pvrtc=True),
+          }[platform]
+
+          # 1) project.godot: ajustar vram_compression/import_* dentro de [rendering].
+          path = "project.godot"
+          lines = open(path, encoding="utf-8").read().splitlines()
+          out, in_rendering, seen = [], False, set()
+          def kv(k, v):
+              return f"vram_compression/import_{k}={'true' if v else 'false'}"
+          for line in lines:
+              if re.match(r"^\[.*\]\s*$", line):
+                  # Al salir de [rendering], agregar las claves que faltaban.
+                  if in_rendering:
+                      for k, v in fmts.items():
+                          if k not in seen:
+                              out.append(kv(k, v))
+                  in_rendering = line.strip() == "[rendering]"
+                  out.append(line)
+                  continue
+              m = re.match(r"^vram_compression/import_(\w+)=", line)
+              if in_rendering and m and m.group(1) in fmts:
+                  k = m.group(1)
+                  out.append(kv(k, fmts[k]))
+                  seen.add(k)
+              else:
+                  out.append(line)
+          if in_rendering:  # [rendering] era la última sección
+              for k, v in fmts.items():
+                  if k not in seen:
+                      out.append(kv(k, v))
+          open(path, "w", encoding="utf-8").write("\n".join(out) + "\n")
+          print(f"VRAM import formats for {platform}:")
+          for ln in out:
+              if ln.startswith("vram_compression/"):
+                  print("  " + ln)
+
+          # 2) Si BPTC no se importa, el preset desktop no debe pedir exportarlo.
+          preset_for = {"linux_x64": "1", "windows": "5", "macos": "6"}
+          if not fmts["bptc"] and platform in preset_for:
+              idx = preset_for[platform]
+              cfg = "export_presets.cfg"
+              txt = open(cfg, encoding="utf-8").read().splitlines()
+              res, in_block = [], False
+              for line in txt:
+                  if re.match(r"^\[preset\.\d+\.options\]\s*$", line):
+                      in_block = (line.strip() == f"[preset.{idx}.options]")
+                  elif re.match(r"^\[preset\.", line):
+                      in_block = False
+                  if in_block and line.strip() == "texture_format/bptc = true":
+                      line = "texture_format/bptc = false"
+                  res.append(line)
+              open(cfg, "w", encoding="utf-8").write("\n".join(res) + "\n")
+              print(f"Disabled texture_format/bptc in preset.{idx} for {platform}")
+          PY
 
       # Cache del .import/ POR PLATAFORMA, después de fijar los formatos VRAM.
       # La key incluye matrix.platform y el hash del project.godot ya modificado,
