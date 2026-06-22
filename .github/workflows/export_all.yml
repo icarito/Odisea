@@ -102,13 +102,13 @@ jobs:
             CHANNEL="release"
           fi
 
-          # Manual overrides
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ github.event.inputs.publish_prerelease }}" = "true" ]; then
-              CHANNEL="nightly"
-            else
-              CHANNEL="release"
-            fi
+          # Manual overrides. Un workflow_dispatch NUNCA debe publicar un release
+          # estable: hoy solo se publica nightly. Antes, un dispatch sin marcar
+          # publish_prerelease ponía CHANNEL=release y el job 'release' publicaba un
+          # tag 0.1.0 no querido. Un dispatch desde la rama 'release' sí libera; desde
+          # cualquier otra rama (p.ej. main) queda en nightly.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$REF_NAME" != "release" ]; then
+            CHANNEL="nightly"
           fi
           echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
 
@@ -883,7 +883,10 @@ jobs:
   release:
     needs: [prep, export, manifests]
     runs-on: ubuntu-latest
-    if: needs.prep.outputs.ref_name == 'release' || (needs.prep.outputs.is_dispatch == 'true' && needs.prep.outputs.publish_prerelease == 'false')
+    # Solo libera un release estable desde la rama 'release'. Un workflow_dispatch
+    # NO publica release (publicaba un 0.1.0 indeseado); usar publish_prerelease=true
+    # para un nightly manual, o pushear a 'release' para liberar de verdad.
+    if: needs.prep.outputs.ref_name == 'release'
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
