@@ -9,6 +9,7 @@ export(float, 0.0, 3.0) var default_fade_in_duration := 0.35
 var _overlay: ColorRect = null
 var _loading_root: Control = null
 var _loading_label: Label = null
+var _loading_subtitle: Label = null
 var _loading_progress: ProgressBar = null
 var _loading_footer: Label = null
 var _fade_tween: Tween = null
@@ -49,6 +50,18 @@ func _ready() -> void:
 	_loading_label.anchor_bottom = 0.50
 	_loading_label.text = "Cargando..."
 	_loading_root.add_child(_loading_label)
+
+	_loading_subtitle = Label.new()
+	_loading_subtitle.name = "LoadingSubtitle"
+	_loading_subtitle.align = Label.ALIGN_CENTER
+	_loading_subtitle.valign = Label.VALIGN_TOP
+	_loading_subtitle.anchor_left = 0.25
+	_loading_subtitle.anchor_top = 0.48
+	_loading_subtitle.anchor_right = 0.75
+	_loading_subtitle.anchor_bottom = 0.52
+	_loading_subtitle.add_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	_loading_subtitle.text = ""
+	_loading_root.add_child(_loading_subtitle)
 
 	_loading_progress = ProgressBar.new()
 	_loading_progress.name = "LoadingProgress"
@@ -100,15 +113,19 @@ func play(animation_name: String, params: Dictionary = {}):
 		"loading_screen_show":
 			show_loading(
 				String(params.get("message", "Cargando...")),
-				bool(params.get("show_progress", true))
+				bool(params.get("show_progress", true)),
+				String(params.get("subtitle", ""))
 			)
 			return
 		_:
 			printerr("[TransitionLayer] Unknown animation: ", animation_name)
 
-func show_loading(message: String = "Cargando...", show_progress: bool = true) -> void:
+func show_loading(message: String = "Cargando...", show_progress: bool = true, subtitle: String = "") -> void:
 	if _loading_label:
 		_loading_label.text = message
+	if _loading_subtitle:
+		_loading_subtitle.text = subtitle
+		_loading_subtitle.visible = subtitle != ""
 	if _loading_progress:
 		_loading_progress.visible = show_progress
 		_loading_progress.value = 0.0

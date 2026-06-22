@@ -11,6 +11,7 @@ onready var continue_button = find_node("Continue")
 onready var options_button = find_node("Options")
 onready var quit_button = find_node("Quit")
 onready var options_menu = $OptionsMenu
+onready var version_label = get_node_or_null("VersionLabel")
 
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -21,6 +22,7 @@ func _ready():
 
 	_check_save_game()
 	_connect_signals()
+	_initialize_version_label()
 
 	if continue_button.visible and not continue_button.disabled:
 		continue_button.grab_focus()
@@ -62,6 +64,12 @@ func _check_save_game():
 			file_name = dir.get_next()
 
 	continue_button.disabled = not has_save
+
+func _initialize_version_label():
+	if version_label:
+		var VersionLabelHelper = load("res://core_v2/ui/VersionLabel.gd")
+		if VersionLabelHelper:
+			version_label.text = VersionLabelHelper.get_formatted_version()
 
 func _connect_signals():
 	new_game_button.connect("pressed", self, "_on_NewGame_pressed")

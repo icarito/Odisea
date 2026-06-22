@@ -14,14 +14,10 @@ func _ready():
 	resume_button.grab_focus()
 
 func _update_version_label():
-	var version = ProjectSettings.get_setting("application/config/version")
-	if version == null or version == "":
-		var constants = get_node_or_null("/root/Constants")
-		if constants:
-			version = constants.GAME_VERSION
-		else:
-			version = "v0.3.2" # Fallback
-	version_label.text = version
+	if version_label:
+		var VersionLabelHelper = load("res://core_v2/ui/VersionLabel.gd")
+		if VersionLabelHelper:
+			version_label.text = VersionLabelHelper.get_formatted_version()
 
 func _connect_signals():
 	resume_button.connect("pressed", self, "_on_resume_pressed")

@@ -112,10 +112,13 @@ jobs:
           fi
           echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
 
-          # Construct version
+          # Construct version with date (FD-234)
+          BUILD_DATE=$(date -u +%Y-%m-%d)
           VERSION="$BASE_VERSION"
           if [ "$CHANNEL" = "nightly" ]; then
-            VERSION="$BASE_VERSION-nightly+$SHA"
+            VERSION="$BASE_VERSION-nightly+$SHA ($BUILD_DATE)"
+          else
+            VERSION="$BASE_VERSION ($BUILD_DATE)"
           fi
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
@@ -234,7 +237,11 @@ jobs:
         run: python3 scripts/disable_plugins.py
 
       - name: Inject build metadata
+        env:
+          VERSION: ${{ needs.prep.outputs.version }}
         run: |
+          # FD-234: Inject version + hash + date into project.godot
+          sed -i -E "s/^(application\/)?config\/version=\".*\"/config\/version=\"$VERSION\"/" project.godot
           python3 scripts/inject_build_meta.py \
             --token "${{ secrets.ODISEA_CENTRAL_INGEST_TOKEN }}" \
             --commit "${{ needs.prep.outputs.head_sha }}" \

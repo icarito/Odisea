@@ -9,12 +9,15 @@ func _ready():
 func _unhandled_input(event):
 	if event.is_action_pressed("ui_cancel"):
 		var current_scene = get_tree().current_scene
-		if current_scene and current_scene.filename.find("Menu.tscn") != -1:
-			return # No pausar en el menú principal
+		if current_scene and (current_scene.filename.find("Menu.tscn") != -1 or current_scene.filename.find("Boot.tscn") != -1):
+			return # No pausar en el menú principal ni en el boot
 
 		if get_tree().paused:
 			resume()
-		elif Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		else:
+			# FD-234: Si no está pausado, pausar sin importar el modo del mouse.
+			# Esto permite pausar si el mouse se liberó por otra UI o si el
+			# jugador simplemente quiere pausar en cualquier momento.
 			pause()
 
 func pause():

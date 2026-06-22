@@ -140,7 +140,8 @@ func goto_scene(path: String, params: Dictionary = {}):
 		if show_loading and transition_layer.has_method("show_loading"):
 			transition_layer.show_loading(
 				String(_transition_params.get("loading_message", "Cargando...")),
-				bool(_transition_params.get("show_progress", true))
+				bool(_transition_params.get("show_progress", true)),
+				String(_transition_params.get("loading_subtitle", ""))
 			)
 		if use_fade and transition_layer.has_method("play"):
 			var fade_out_duration := max(0.0, float(_transition_params.get("fade_out", default_fade_out)))

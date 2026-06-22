@@ -9,6 +9,7 @@
 [ext_resource path="res://core_v2/ui/OptionsMenu.tscn" type="PackedScene" id=12]
 [ext_resource path="res://assets/fonts/SixtyFour_Regular_24.tres" type="DynamicFont" id=13]
 [ext_resource path="res://core_v2/levels/ShaderWarmupTrigger.gd" type="Script" id=14]
+[ext_resource path="res://assets/fonts/SixtyFour_Regular_20.tres" type="DynamicFont" id=15]
 
 [node name="Menu" type="Control"]
 anchor_right = 1.0
@@ -133,3 +134,18 @@ mouse_filter = 2
 script = ExtResource( 10 )
 
 [node name="Tween" type="Tween" parent="."]
+
+[node name="VersionLabel" type="Label" parent="."]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = -300.0
+margin_top = -40.0
+margin_right = -10.0
+margin_bottom = -10.0
+custom_colors/font_color = Color( 1, 1, 1, 0.470588 )
+custom_fonts/font = ExtResource( 15 )
+text = "v0.0.0"
+align = 2
+valign = 2

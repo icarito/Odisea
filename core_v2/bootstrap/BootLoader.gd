@@ -2,6 +2,7 @@ extends Node
 
 export(String, FILE, "*.tscn,*.scn") var startup_scene_path := "res://scenes/Menu.tscn"
 export(String) var loading_message := "ODiSEA"
+export(String) var version_label := ""
 export(bool) var show_progress := true
 export(int, 0, 60) var scene_manager_wait_frames := 12
 
@@ -11,6 +12,11 @@ var _fallback_started := false
 func _ready() -> void:
 	if Engine.editor_hint:
 		return
+	
+	# FD-234: Initialize version label from ProjectSettings
+	var VersionLabelHelper = load("res://core_v2/ui/VersionLabel.gd")
+	if VersionLabelHelper:
+		version_label = VersionLabelHelper.get_formatted_version()
 	_mark_trace("boot_scene_ready", {"target_scene": startup_scene_path})
 	# Android hotzone deep link: if the app was launched via odisea://replay,
 	# route straight to the replay player instead of the normal boot flow.
@@ -126,6 +132,7 @@ func _start_boot_transition() -> void:
 			"show_loading": true,
 			"show_progress": show_progress,
 			"loading_message": loading_message,
+			"loading_subtitle": version_label,
 			"fade_out": 0.0,
 			"fade_in": 0.0,
 			"audio_fade_out": 0.0,

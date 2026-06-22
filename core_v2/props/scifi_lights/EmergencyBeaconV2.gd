@@ -172,6 +172,9 @@ func _physics_process(delta: float) -> void:
 			var pulse = lerp(pulse_min, 1.0, (sin(_time_accumulator * pulse_speed * TAU) + 1.0) * 0.5)
 			_lens_mesh.material_override.emission_energy = pulse * lens_emission_energy * anim_progress
 
+func _wants_continuous_step() -> bool:
+	return is_active
+
 func _update_visuals() -> void:
 	._update_visuals()
 	var t = anim_progress
