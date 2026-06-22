@@ -14,6 +14,10 @@ Odisea es un juego de plataformas 3D en tercera persona ambientado en una nave e
 
 Consulta **AGENTS.md** para reglas de determinismo, contratos de agentes, y normas de desarrollo (commits pequeños, tests con GdUnit3, todo en core_v2, etc).
 
+## Operación
+
+- **Sistema de Actualización Segura (FD-228)**: guía operativa del mecanismo de updates (palancas de release, deberes del operador, rotación de clave, promoción a estable) en [core_v2/update/README.md](core_v2/update/README.md).
+
 ## Features Fundacionales (Canon)
 
 Las siguientes features están implementadas y documentadas en `docs/canon/`:
