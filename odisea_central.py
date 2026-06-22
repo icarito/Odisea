@@ -41,6 +41,7 @@ CENTRAL_HTTP_PORT = int(os.environ.get("CENTRAL_HTTP_PORT", 5003))
 VALID_PLATFORMS = {"linux", "windows", "macos", "android", "html5", "ios"}
 VALID_CHANNELS = {"release", "nightly"}
 MANIFEST_ACCEPT_HEADER = "application/vnd.odisea.update-manifest.v1+json"
+MANIFEST_CACHE_TTL_S = 60  # frescura del manifest cacheado (antes 300)
 
 GITHUB_RELEASES_URL = "https://api.github.com/repos/icarito/Odisea/releases/latest"
 DOWNLOADS_PAGE_URL = "https://icarito.github.io/odisea-neon-dreams/#downloads"
@@ -669,8 +670,11 @@ class OdiseaCentral:
         cache_key = (channel, platform, arch)
         cached = self._manifest_cache.get(cache_key)
 
-        # 5 minutes TTL (fast path, sin lock)
-        if cached and now - cached["ts"] < 300:
+        # TTL 60s (fast path, sin lock). Antes 300s: un nightly nuevo tardaba hasta
+        # 5min en verse, y abría una ventana donde el manifest cacheado podía apuntar
+        # a un .zip ya reemplazado. 60s + single-flight (un fetch por manifest) da
+        # frescura sin castigar a GitHub.
+        if cached and now - cached["ts"] < MANIFEST_CACHE_TTL_S:
             return cached
 
         # Single-flight: solo un fetch por manifest a la vez. Los requests
@@ -684,7 +688,7 @@ class OdiseaCentral:
             # Re-chequear cache: otro request pudo poblarlo mientras esperábamos.
             now = time.time()
             cached = self._manifest_cache.get(cache_key)
-            if cached and not cached.get("not_found") and now - cached["ts"] < 300:
+            if cached and not cached.get("not_found") and now - cached["ts"] < MANIFEST_CACHE_TTL_S:
                 return cached
 
             return await self._fetch_manifest_locked(channel, platform, arch, cache_key, now, cached)

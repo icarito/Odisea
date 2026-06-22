@@ -949,11 +949,20 @@ jobs:
     needs: [prep, export, manifests]
     runs-on: ubuntu-latest
     if: needs.prep.outputs.ref_name == 'main' || (needs.prep.outputs.is_dispatch == 'true' && needs.prep.outputs.publish_prerelease == 'true')
+    # La fase de publicación NO debe ser cancelada a mitad por un run más nuevo
+    # (cancel-in-progress del workflow). Con un concurrency propio SIN
+    # cancel-in-progress, dos publicaciones se encolan (la nueva espera a que la
+    # vieja termine) en vez de cortarse a la mitad. El orden binarios->manifest ya
+    # la hace segura aunque se corte, pero encolar evita estados intermedios.
+    concurrency:
+      group: nightly-publish-${{ github.event.workflow_run.head_branch || github.ref_name }}
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.prep.outputs.head_sha }}
+          fetch-depth: 50  # historial para el changelog del release
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -987,13 +996,27 @@ jobs:
             exit 1
           fi
 
-          # Notas del release
-          echo "### Artifacts" > body.md
+          # Notas del release: changelog (commits desde el tag nightly anterior) +
+          # artefactos. release_notes_url del manifest apunta acá, así que el botón
+          # "ver cambios" del cliente muestra algo útil.
+          echo "## Nightly $(date -u +'%Y-%m-%d %H:%M') UTC" > body.md
+          echo "" >> body.md
+          echo "Commit: \`${{ needs.prep.outputs.sha }}\`" >> body.md
+          echo "" >> body.md
+          echo "### Changes" >> body.md
+          PREV_TAG_SHA=$(git rev-list -n 1 nightly 2>/dev/null || true)
+          if [ -n "$PREV_TAG_SHA" ] && git merge-base --is-ancestor "$PREV_TAG_SHA" HEAD 2>/dev/null; then
+            RANGE="$PREV_TAG_SHA..HEAD"
+          else
+            RANGE="HEAD~20..HEAD"
+          fi
+          git log --pretty=format:'- %s (%h)' "$RANGE" 2>/dev/null | grep -viE '^\- (Merge |chore: bump|temp|wip)' | head -40 >> body.md || echo "- (sin cambios listables)" >> body.md
+          echo "" >> body.md
+          echo "" >> body.md
+          echo "### Artifacts" >> body.md
           echo "| Artifact | Size |" >> body.md
           echo "|---|---|" >> body.md
           du -h "${BIN_FILES[@]}" "${MANIFEST_FILES[@]}" | awk '{n=split($2,a,"/"); print "| " a[n] " | " $1 " |"}' >> body.md
-          echo "" >> body.md
-          echo "Built from commit ${{ needs.prep.outputs.sha }} at $(date -u +'%Y-%m-%d %H:%M:%S') UTC." >> body.md
 
           # 1. Asegurar que el release existe (sin borrarlo). Si no existe, crearlo
           #    vacío; si existe, solo actualizar notas/target. No se borra para no

@@ -46,6 +46,9 @@ var _capture_tag := ""
 var _capture_start_usec := 0
 var _capture_samples := []
 var _last_cpu_warning_time := 0.0
+# Cuando true, no se emiten warnings de CPU Budget (operaciones pesadas esperadas:
+# descarga/verificación de update). Lo togglean vía set_heavy_op_active().
+var _heavy_op_active := false
 var _last_lag_log_time_msec := 0
 var _last_report_write_time_msec := 0
 var _last_saved_drop := 0.0
@@ -147,8 +150,10 @@ func _process(_delta):
 	_last_fps = fps
 
 	# 3. CPU Budget Check (throttled)
+	# Operaciones pesadas legítimas (descarga/verificación de update) silencian el
+	# warning para no spammear el log con ruido esperado.
 	var startup_grace_active := now_msec - _ready_msec < STARTUP_WARNING_GRACE_MS
-	if not startup_grace_active and process_time > (CPU_BUDGET_MS * LOG_TRIGGER_PERCENT * 0.001):
+	if not startup_grace_active and not _heavy_op_active and process_time > (CPU_BUDGET_MS * LOG_TRIGGER_PERCENT * 0.001):
 		if not _suppress_runtime_logs:
 			var current_time = OS.get_ticks_msec()
 			if current_time - _last_cpu_warning_time > (CPU_WARNING_INTERVAL_SEC * 1000.0):
@@ -306,6 +311,11 @@ func _exit_tree():
 	_profiled_node_paths.clear()
 	_capture_active = false
 	_capture_samples.clear()
+
+# Silencia/restaura los warnings de CPU Budget durante operaciones pesadas
+# esperadas (p.ej. descarga/verificación de update).
+func set_heavy_op_active(value: bool) -> void:
+	_heavy_op_active = value
 
 # --- Debug Actions ---
 

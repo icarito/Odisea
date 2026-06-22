@@ -46,6 +46,17 @@ func _ready():
 	_load_local_state()
 	_check_pending_boot()
 	_cleanup_staging()
+	# Confirmar el boot tras un update no debe depender SOLO de llegar al menú
+	# (Menu.gd): si el jugador entra directo a gameplay (deep-link) o el menú cambia,
+	# el pending nunca se confirmaba y el update se revertía a los 2 intentos aunque
+	# funcionara. El startup gate de SessionManager abre de forma fiable en cualquier
+	# flujo, así que también confirmamos ahí (confirm_boot es idempotente).
+	var sm = get_node_or_null("/root/SessionManager")
+	if sm and sm.has_signal("startup_gate_opened"):
+		sm.connect("startup_gate_opened", self, "_on_startup_gate_opened", [], CONNECT_ONESHOT)
+
+func _on_startup_gate_opened(_reason, _frames) -> void:
+	confirm_boot()
 
 func check_for_updates() -> void:
 	if _state != State.IDLE and _state != State.FAILED:
@@ -321,6 +332,11 @@ func get_status() -> String:
 func _set_state(new_state: int):
 	_state = new_state
 	print("[UpdateManager] State changed to: ", get_status())
+	# Silenciar warnings de CPU Budget mientras descargamos/verificamos (es CPU-pesado
+	# y esperado); restaurar al volver a un estado ocioso.
+	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if pm and pm.has_method("set_heavy_op_active"):
+		pm.set_heavy_op_active(new_state == State.DOWNLOADING or new_state == State.VERIFYING)
 
 func _ensure_dirs():
 	var d = Directory.new()
