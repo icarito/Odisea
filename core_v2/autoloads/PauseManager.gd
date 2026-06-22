@@ -5,13 +5,18 @@ var pause_menu_instance = null
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
+	# La setting config/quit_on_go_back de project.godot no siempre basta para que
+	# el SceneTree propague WM_GO_BACK_REQUEST a los nodos en 3.6; lo forzamos en
+	# runtime (mismo patrón que SessionManager con set_auto_accept_quit para
+	# WM_QUIT_REQUEST). Sin esto, en Android el back no cerraba la app pero tampoco
+	# llegaba el notification -> no se abría la pausa.
+	get_tree().set_quit_on_go_back(false)
 
 func _notification(what: int) -> void:
-	# En Android el botón "back" envía WM_GO_BACK_REQUEST y por defecto cierra la
-	# app (quit_on_go_back). Lo interceptamos para abrir/cerrar el menú de pausa en
-	# vez de salir. quit_on_go_back está desactivado en project.godot para que este
-	# notification llegue sin que el motor cierre la app antes.
+	# En Android el botón "back" envía WM_GO_BACK_REQUEST. Lo interceptamos para
+	# abrir/cerrar el menú de pausa en vez de salir de la app.
 	if what == MainLoop.NOTIFICATION_WM_GO_BACK_REQUEST:
+		print("[PauseManager] WM_GO_BACK_REQUEST -> toggle pause")
 		_toggle_pause()
 
 func _unhandled_input(event):
