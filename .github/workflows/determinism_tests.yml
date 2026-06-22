@@ -67,6 +67,32 @@ jobs:
           fi
           sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: requirements-pytest.txt
+
+      - name: Cache virtualenv
+        id: venv_cache
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-pytest-v2-${{ hashFiles('requirements-pytest.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-pytest-v2-
+
+      - name: Install/Repair Pytest venv
+        run: |
+          set -euo pipefail
+          if [ ! -x .venv/bin/python ] || [ ! -x .venv/bin/pytest ] || ! .venv/bin/python -c "import sys" >/dev/null 2>&1; then
+            rm -rf .venv
+            python -m venv .venv
+          fi
+          ./.venv/bin/pip install --upgrade pip
+          ./.venv/bin/pip install -r requirements-pytest.txt
+
       - name: Validate tracked import manifests
         run: |
           set -euo pipefail
@@ -99,69 +125,69 @@ jobs:
         env:
           GODOT_BIN: /usr/local/bin/godot
           ODISEA_SKIP_PREFLIGHT: "1"
+          ODISEA_FULL_DETERMINISM: "1"
+          # Cap por test (margen para los render-dependientes ~45-50s + PASS 2).
+          ODISEA_TEST_TIMEOUT_SEC: "120"
         run: |
           mkdir -p reports
-          echo "Running determinism tests with 90s timeout per test"
-          echo "Issue #64: Some tests may hang or fail in CI"
-          passed=0
-          failed=0
-          timed_out=0
-          last_test=""
-          failed_cases=""
-          timeout_cases=""
-          for oys_file in core_v2/tests/*.oys; do
-            oys_name=$(basename "$oys_file" .oys)
-            last_test="$oys_name"
-            echo "Running: $oys_name"
-            if timeout 90 ./runtest.sh --oys "$oys_name" > "reports/${oys_name}.log" 2>&1; then
-              if grep -q "✅ Test OYS" "reports/${oys_name}.log" 2>/dev/null; then
-                echo "✅ $oys_name"
-                passed=$((passed + 1))
-              else
-                echo "❌ $oys_name (no success)"
-                failed=$((failed + 1))
-                failed_cases="${failed_cases}\n- ${oys_name} (no success marker)"
-              fi
-            else
-              exit_code=$?
-              if [ "$exit_code" -eq 124 ]; then
-                echo "⏱️ $oys_name (timeout)"
-                timed_out=$((timed_out + 1))
-                timeout_cases="${timeout_cases}\n- ${oys_name}"
-              else
-                echo "❌ $oys_name (exit $exit_code)"
-                failed=$((failed + 1))
-                failed_cases="${failed_cases}\n- ${oys_name} (exit $exit_code)"
-              fi
-            fi
-          done
-          echo ""
-          echo "## Determinism Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Passed:** $passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Failed:** $failed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Timed out:** $timed_out" >> $GITHUB_STEP_SUMMARY
-          echo "- **Last executed test:** ${last_test:-none}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -n "$failed_cases" ]; then
-            echo "### Failed Cases" >> $GITHUB_STEP_SUMMARY
-            printf "%b\n" "$failed_cases" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ -n "$timeout_cases" ]; then
-            echo "### Timed Out Cases" >> $GITHUB_STEP_SUMMARY
-            printf "%b\n" "$timeout_cases" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-          for log in reports/*.log; do
-            if [ -f "$log" ]; then
-              name=$(basename "$log" .log)
-              if grep -q "✅ Test OYS" "$log" 2>/dev/null; then
-                echo "- ✅ $name" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "- ❌ $name" >> $GITHUB_STEP_SUMMARY
-              fi
-            fi
-          done
-          echo ""
-          echo "Determinism tests: $passed passed, $failed failed, $timed_out timed out"
+          # El binario de Godot es el build _linux_headless, así que corre con
+          # --no-window SIN xvfb. Antes el step iteraba los .oys en serie (un
+          # arranque de Godot por test, ~4.5s fijos x34 + render por software),
+          # lo que acercaba el job al timeout y a la cancelación diaria.
+          #
+          # Ahora delegamos en el runner pytest, que ejecuta cada caso de
+          # determinismo como test independiente y los paraleliza con pytest-xdist
+          # (-n auto). Medido local: serie 416s -> paralelo headless sin xvfb 154s.
+          # El render-off por test (OYS_RENDER_DISABLED) ya lo aplica runtest.sh.
+          echo "Running determinism tests in parallel (pytest-xdist, headless, no xvfb)"
+          echo "Issue #64: algunos casos aún fallan por drift; ver docs/determinism_test_failures.md"
+          set +e
+          ./.venv/bin/pytest -p no:cacheprovider \
+            tests/test_odisea_runner.py \
+            --odisea-runner gdunit \
+            -m "odisea_determinism" \
+            --odisea-include-determinism \
+            -n auto \
+            -p no:randomly \
+            --junitxml=reports/determinism_junit.xml \
+            -ra 2>&1 | tee reports/determinism_pytest.log
+          pytest_rc="${PIPESTATUS[0]}"
+          set -e
+
+          # Resumen a partir del JUnit XML (robusto independiente del formato de consola).
+          python3 - "$pytest_rc" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import sys, xml.etree.ElementTree as ET
+          rc = sys.argv[1]
+          path = "reports/determinism_junit.xml"
+          try:
+              root = ET.parse(path).getroot()
+          except Exception as e:
+              print(f"## Determinism Test Results\n\nNo se pudo leer el JUnit XML: {e} (pytest rc={rc})")
+              sys.exit(0)
+          suites = root.iter("testsuite")
+          cases = list(root.iter("testcase"))
+          total = len(cases)
+          failed, errored, skipped = [], [], []
+          for c in cases:
+              name = c.get("name", "?")
+              if c.find("failure") is not None:
+                  failed.append(name)
+              elif c.find("error") is not None:
+                  errored.append(name)
+              elif c.find("skipped") is not None:
+                  skipped.append(name)
+          passed = total - len(failed) - len(errored) - len(skipped)
+          print("## Determinism Test Results\n")
+          print(f"- **Passed:** {passed}")
+          print(f"- **Failed:** {len(failed)}")
+          print(f"- **Errored:** {len(errored)}")
+          print(f"- **Skipped:** {len(skipped)}")
+          print(f"- **Total:** {total}  (pytest rc={rc})\n")
+          if failed or errored:
+              print("### Failed / Errored Cases\n")
+              for n in failed + errored:
+                  print(f"- ❌ {n}")
+              print()
+          PY
+
+          echo "Determinism pytest exit code: $pytest_rc"
