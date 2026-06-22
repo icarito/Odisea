@@ -40,8 +40,15 @@ jobs:
           path: |
             ${{ github.workspace }}/.import
             ${{ github.workspace }}/.godot
-          key: ${{ runner.os }}-godot-v3-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import', '.import/**', 'assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
+          # Key estable, alineada con export_all.yml: hashea solo project.godot y los
+          # manifests *.import (trackeados en git), NO el contenido generado de
+          # .import/** ni los assets crudos (textures/models/...). Esos cambiaban con
+          # cualquier PNG y por incluir output generado provocaban cache MISS casi
+          # siempre -> re-import de minutos. Con esta key el hit es frecuente (~4s).
+          key: ${{ runner.os }}-godot-v4-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
           restore-keys: |
+            ${{ runner.os }}-godot-v4-${{ hashFiles('**/project.godot') }}-
+            ${{ runner.os }}-godot-v4-
             ${{ runner.os }}-godot-v3-
             ${{ runner.os }}-godot-
 
