@@ -903,53 +903,78 @@ func _snapshot_canonical_origins(assignments: Array) -> Dictionary:
 # Ejecuta el pipeline LOD completo en un solo frame.
 # Fase 1 (snapshot + sort + build) es barata tras la optimización de spiral_canonicals.
 # Fase 2 (flush a espirales) usa structural signature para evitar rebuilds de MultiMesh.
+# Implementa un presupuesto de 1.5ms para evitar picos de frame en campos densos.
+var _lod_update_spiral_idx := 0
+var _lod_update_covered_spirals := {}
+var _lod_update_groups_by_spiral := {}
+
 func _tick_lod_update_phase() -> void:
-	if _lod_update_phase != 1:
+	if _lod_update_phase == 0:
 		return
-	var origin_snap := _snapshot_canonical_origins(_lod_pipeline_all_assignments)
-	var sorted := _select_nearest_dome_lod_assignments(_lod_pipeline_all_assignments, origin_snap)
-	var groups_by_spiral := {}
-	for assignment in sorted:
-		var info: Dictionary = assignment.get("info", {})
-		var blueprint: Dictionary = assignment.get("blueprint", {})
-		if blueprint.empty():
-			blueprint = _resolve_dome_lod_blueprint(info)
-		if blueprint.empty():
-			continue
-		var spiral_index := int(assignment.get("spiral_index", -1))
-		if spiral_index < 0 or spiral_index >= _spirals.size():
-			continue
-		var cache_key := String(blueprint.get("cache_key", "")).strip_edges()
-		if cache_key == "":
-			cache_key = String(assignment.get("dome_id", "lod"))
-		if not groups_by_spiral.has(spiral_index):
-			groups_by_spiral[spiral_index] = {}
-		if not groups_by_spiral[spiral_index].has(cache_key):
-			groups_by_spiral[spiral_index][cache_key] = {"blueprint": blueprint, "items": []}
-		groups_by_spiral[spiral_index][cache_key]["items"].append(assignment)
-	# Flush todas las espirales en el mismo frame (structural signature evita rebuild si no cambió).
-	var covered_spirals := {}
-	for spiral_index in groups_by_spiral.keys():
-		var spiral: Spatial = _spirals[int(spiral_index)]
-		if not (spiral is TerraceSpiral):
-			continue
-		spiral.set_dome_lod_overlays(_build_spiral_dome_lod_groups(groups_by_spiral[spiral_index]))
-		covered_spirals[int(spiral_index)] = true
-	for i in range(_spirals.size()):
-		if covered_spirals.has(i):
-			continue
-		var spiral: Spatial = _spirals[i]
-		if spiral is TerraceSpiral:
-			spiral.clear_dome_lod_overlays()
-	_last_dome_lod_stats = _build_dome_lod_stats(
-		_lod_pipeline_all_assignments,
-		_get_full_detail_plate_keys_for_selection(),
-		_count_overlay_parts(groups_by_spiral))
-	_last_dome_lod_stats["lod1_visible_instances"] = sorted.size()
-	_lod_update_phase = 0
-	if _lod_dirty:
-		_lod_dirty = false
-		_schedule_lod_overlay_update(_build_lod_overlay_assignments_for_selection())
+	
+	var budget_usec := 1500
+	var start_usec := OS.get_ticks_usec()
+	
+	if _lod_update_phase == 1:
+		# Inicialización del ciclo
+		var origin_snap := _snapshot_canonical_origins(_lod_pipeline_all_assignments)
+		var sorted := _select_nearest_dome_lod_assignments(_lod_pipeline_all_assignments, origin_snap)
+		_lod_update_groups_by_spiral = {}
+		for assignment in sorted:
+			var info: Dictionary = assignment.get("info", {})
+			var blueprint: Dictionary = assignment.get("blueprint", {})
+			if blueprint.empty():
+				blueprint = _resolve_dome_lod_blueprint(info)
+			if blueprint.empty():
+				continue
+			var spiral_index := int(assignment.get("spiral_index", -1))
+			if spiral_index < 0 or spiral_index >= _spirals.size():
+				continue
+			var cache_key := String(blueprint.get("cache_key", "")).strip_edges()
+			if cache_key == "":
+				cache_key = String(assignment.get("dome_id", "lod"))
+			if not _lod_update_groups_by_spiral.has(spiral_index):
+				_lod_update_groups_by_spiral[spiral_index] = {}
+			if not _lod_update_groups_by_spiral[spiral_index].has(cache_key):
+				_lod_update_groups_by_spiral[spiral_index][cache_key] = {"blueprint": blueprint, "items": []}
+			_lod_update_groups_by_spiral[spiral_index][cache_key]["items"].append(assignment)
+		
+		_lod_update_spiral_idx = 0
+		_lod_update_covered_spirals = {}
+		_lod_update_phase = 2 # Pasar a fase de flush incremental
+		
+		if OS.get_ticks_usec() - start_usec >= budget_usec:
+			return
+
+	if _lod_update_phase == 2:
+		var spiral_indices := _lod_update_groups_by_spiral.keys()
+		while _lod_update_spiral_idx < spiral_indices.size():
+			var s_idx = spiral_indices[_lod_update_spiral_idx]
+			var spiral: Spatial = _spirals[int(s_idx)]
+			if spiral is TerraceSpiral:
+				spiral.set_dome_lod_overlays(_build_spiral_dome_lod_groups(_lod_update_groups_by_spiral[s_idx]))
+				_lod_update_covered_spirals[int(s_idx)] = true
+			
+			_lod_update_spiral_idx += 1
+			if OS.get_ticks_usec() - start_usec >= budget_usec:
+				return
+		
+		# Limpiar espirales no cubiertas
+		for i in range(_spirals.size()):
+			if not _lod_update_covered_spirals.has(i):
+				var spiral: Spatial = _spirals[i]
+				if spiral is TerraceSpiral:
+					spiral.clear_dome_lod_overlays()
+		
+		_last_dome_lod_stats = _build_dome_lod_stats(
+			_lod_pipeline_all_assignments,
+			_get_full_detail_plate_keys_for_selection(),
+			_count_overlay_parts(_lod_update_groups_by_spiral))
+		
+		_lod_update_phase = 0
+		if _lod_dirty:
+			_lod_dirty = false
+			_schedule_lod_overlay_update(_build_lod_overlay_assignments_for_selection())
 
 func _update_dome_lod(assignments: Array) -> void:
 	var use_lod_overlays := _uses_dome_lod_overlays()

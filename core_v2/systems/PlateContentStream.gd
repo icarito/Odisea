@@ -185,10 +185,21 @@ func register_rotator(rotator: Spatial) -> void:
 func _sync_slot_transforms(delta: float = 0.0) -> void:
 	if _rotator == null or not is_instance_valid(_rotator):
 		return
+	
+	var reference_canonical := _get_reference_canonical_position()
+	var skip_dist_sq := 100.0 * 100.0 # 100m radius for transform sync gating
+
 	for i in range(_slots.size()):
 		var assignment: Dictionary = _slot_assignments[i]
 		if assignment.empty():
 			continue
+		
+		# Optimization: skip transform sync for far plates. 
+		# Canonical transforms are in WorldRotator space, so distance is stable.
+		var dist_sq: float = assignment.get("dist_sq", 0.0)
+		if dist_sq > skip_dist_sq:
+			continue
+
 		var slot: Spatial = _slots[i]
 		if not is_instance_valid(slot):
 			continue
@@ -355,6 +366,7 @@ func _apply_active_candidates(active_candidates: Array) -> void:
 		var key: String = str(assignment.get("key", ""))
 		if candidates_by_key.has(key):
 			_activate_slot(i, candidates_by_key[key])
+			# _activate_slot overwrites _slot_assignments[i] with new dist_sq
 			assigned_keys[key] = true
 			assigned_slots[i] = true
 
@@ -555,6 +567,7 @@ func _activate_slot(index: int, candidate: Dictionary) -> void:
 		"spiral_idx": int(candidate["spiral_idx"]),
 		"plate_idx": int(candidate["plate_idx"]),
 		"canonical_tx": candidate["canonical_tx"],
+		"dist_sq": candidate.get("dist_sq", 0.0),
 		"context": candidate.get("context", _assignment_indices.get(key, {}).get("context", {}))
 	}
 	_slot_scenes[index] = scene

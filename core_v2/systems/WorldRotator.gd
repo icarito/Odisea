@@ -145,6 +145,7 @@ var _scene_anchor_resolved_plate_index := -1
 var _collision_pool: Array = []        # Array[StaticBody]
 var _pool_assignments: Array = []      # Array[Dictionary]
 var _pool_update_counter: int = 0
+var _pool_transform_sync_counter: int = 0
 # Última plate-centro usada para asignar el pool. Si no cambia, el pool ya cubre las
 # plates correctas y nos saltamos el costoso recálculo de candidatos (los transforms se
 # sincronizan aparte cada frame vía _sync_pool_transforms_to_world).
@@ -314,8 +315,13 @@ func _physics_process(delta: float) -> void:
 	# In continuous_tracking mode, the WorldRotator rotates every frame but pool
 	# bodies are parented outside it. We must re-sync their global transforms each
 	# physics tick so they stay aligned with the visual terrazas.
+	# Optimized: sync only every N frames (collision_update_interval) to reduce 
+	# per-frame physics server calls, since player physics can handle small drift.
 	if continuous_tracking_applied:
-		_sync_pool_transforms_to_world()
+		_pool_transform_sync_counter += 1
+		if _pool_transform_sync_counter >= collision_update_interval:
+			_pool_transform_sync_counter = 0
+			_sync_pool_transforms_to_world()
 	# BUGFIX (terrace clip-through): previously, while continuous_tracking_applied was
 	# true the pool RE-CENTER (_assign_pool_to_nearest_plates — which picks WHICH plates
 	# get a collider based on the player's current position) was force-skipped

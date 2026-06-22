@@ -2241,7 +2241,8 @@ func step(dt: float, input: InputDataV2) -> void:
 	# Rigid body push
 	var touched_rigid = false
 	if not (_rl_fast_controller and _rl_skip_rigidbody_push):
-		for i in get_slide_count():
+		var slide_count := get_slide_count()
+		for i in slide_count:
 			var collision = get_slide_collision(i)
 			var body = collision.collider
 			if is_instance_valid(body) and body is RigidBody:
@@ -2249,10 +2250,13 @@ func step(dt: float, input: InputDataV2) -> void:
 				if is_pushing and body == _push_target:
 					continue
 				if body is RigidBody:
-					var push_dir := _get_push_plane_direction(-collision.normal, velocity)
-					if push_dir.length_squared() > 0.0001:
-						var impulse = push_dir * push_force * dt
-						body.apply_central_impulse(impulse)
+					# Optimization: Skip push impulse for far RigidBodies (e.g. decorative props in other rooms)
+					# Player is at global origin or very close in centrifugal mode, but distance is safer.
+					if body.global_transform.origin.distance_squared_to(global_transform.origin) < 6.25: # 2.5m radius
+						var push_dir := _get_push_plane_direction(-collision.normal, velocity)
+						if push_dir.length_squared() > 0.0001:
+							var impulse = push_dir * push_force * dt
+							body.apply_central_impulse(impulse)
 	
 	if _was_touching_rigid and not touched_rigid:
 		emit_signal("rigid_contact_ended")
