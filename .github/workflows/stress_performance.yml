@@ -13,6 +13,9 @@ on:
         required: false
         default: "0.97"
         type: string
+  schedule:
+    # Nightly at 3 AM UTC (después del job de determinismo, 2 AM).
+    - cron: '0 3 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

@@ -1,0 +1,49 @@
+# Stress Test Execution Script (rewrite)
+#
+# Cada fase: genera carga -> WAIT (ventana de muestreo) -> end_phase "<tag>".
+# Los tags coinciden con scripts/check_regression.py.
+# OYS_REQUIRE_RENDER no aplica: el stress mide el costo real con render activo.
+
+LEVEL res://core_v2/tests/TestScene_Cargol.tscn
+
+SPAWN scene="res://core_v2/tests/stress/StressTestRunner.tscn" pos=[0, 0, 0]
+WAIT 1.0
+
+# 1. Saturación sostenida (100 entidades activas)
+PRINT ">>> [STRESS] Saturation (100 entities)"
+CALL StressTestRunner "run_saturation_test" 100
+WAIT 4.0
+CALL StressTestRunner "end_phase" "saturation_end"
+WAIT 1.0
+
+# 2. Spawning churn (crear/destruir continuo)
+PRINT ">>> [STRESS] Spawning churn"
+CALL StressTestRunner "run_spawning_test"
+WAIT 4.0
+CALL StressTestRunner "end_phase" "spawning_end"
+WAIT 1.0
+
+# 3. Pathfinding / movimiento bajo carga (50 agentes)
+PRINT ">>> [STRESS] Pathfinding (50 agents)"
+CALL StressTestRunner "run_pathfinding_test" 50
+WAIT 4.0
+CALL StressTestRunner "end_phase" "pathfinding_end"
+WAIT 1.0
+
+# 4. Jerarquía profunda/ancha (transform propagation)
+PRINT ">>> [STRESS] Hierarchy (depth 50)"
+CALL StressTestRunner "run_hierarchy_test" 50
+WAIT 4.0
+CALL StressTestRunner "end_phase" "hierarchy_end"
+WAIT 1.0
+
+# 5. Física (50 rigid bodies en colisión)
+PRINT ">>> [STRESS] Physics boxes (50 bodies)"
+CALL StressTestRunner "run_physics_box_test" 50
+WAIT 6.0
+CALL StressTestRunner "end_phase" "physics_box_end"
+WAIT 1.0
+
+PRINT ">>> [STRESS] All phases completed"
+CALL StressTestRunner "finish"
+WAIT 0.5
