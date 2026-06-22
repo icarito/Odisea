@@ -447,11 +447,7 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	var is_climbing = controller.traversal_logic.is_climbing if controller and controller.get("traversal_logic") else false
 	var is_hanging = controller.traversal_logic.is_hanging if controller and controller.get("traversal_logic") else false
 	var traversal_locked: bool = is_climbing or is_hanging
-	var is_zero_g := false
-	if controller:
-		var cm = controller.get_node_or_null("ControllerManager")
-		if cm and cm.get("current_mode") == cm.Mode.ZERO_GRAVITY:
-			is_zero_g = true
+	var is_zero_g := _is_zero_g()
 	var anim_on_floor: bool = is_on_floor and not traversal_locked and not is_zero_g
 	var climb_exit_air: bool = _was_climbing_anim_last_frame and not is_climbing and not is_on_floor and not is_zero_g
 
@@ -1181,12 +1177,22 @@ func _has_locomotion_intent() -> bool:
 	var wish_direction = controller.get_wish_direction()
 	return typeof(wish_direction) == TYPE_VECTOR3 and wish_direction.length_squared() > 0.0001
 
+func _is_zero_g() -> bool:
+	if controller:
+		var cm = controller.get_node_or_null("ControllerManager")
+		if cm and cm.get("current_mode") == cm.Mode.ZERO_GRAVITY:
+			return true
+	return false
+
 func _should_accumulate_footsteps(is_on_floor: bool, planar_delta: float, has_locomotion_intent: bool, planar_threshold: float = 0.001) -> bool:
 	if not is_on_floor or planar_delta <= planar_threshold:
 		return false
 	if not has_locomotion_intent:
 		return false
 	if controller and bool(controller.get("is_pushing")):
+		return false
+	# Sin pisadas en gravedad cero: no hay suelo bajo los pies aunque haya contacto incidental.
+	if _is_zero_g():
 		return false
 	return true
 

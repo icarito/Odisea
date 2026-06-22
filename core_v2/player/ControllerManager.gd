@@ -124,6 +124,11 @@ func switch_to(new_mode: int) -> void:
 			if "velocity" in standard_controller: standard_controller.velocity = transfer_velocity
 			if "yaw"      in standard_controller: standard_controller.yaw      = transfer_yaw
 			if "pitch"    in standard_controller: standard_controller.pitch    = transfer_pitch
+			if exiting_zero_to_standard:
+				if "movement_logic" in standard_controller and is_instance_valid(standard_controller.movement_logic):
+					standard_controller.movement_logic.horizontal_velocity = Vector3(transfer_velocity.x, 0.0, transfer_velocity.z)
+				if "jump_logic" in standard_controller and is_instance_valid(standard_controller.jump_logic):
+					standard_controller.jump_logic.set_internal_velocity(transfer_velocity.y)
 		_restore_standard_rig(root)
 		_restore_standard_zoom_state(root)
 

@@ -243,13 +243,8 @@ func _apply_zero_g_ots() -> void:
 	if not is_instance_valid(_ots_offset_parent):
 		return
 	_clear_spring_arm_camera_offset()
-	var current_len := _get_effective_zero_g_arm_length()
-	var distance_min := float(_ots_logic.get("distance_min")) if _ots_logic and "distance_min" in _ots_logic else 1.5
-	var distance_max := float(_ots_logic.get("distance_max")) if _ots_logic and "distance_max" in _ots_logic else 4.5
-	var span := max(distance_max - distance_min, 0.001)
-	var weight := 1.0 - clamp((current_len - distance_min) / span, 0.0, 1.0)
-	var curve_power := float(_ots_logic.get("curve_power")) if _ots_logic and "curve_power" in _ots_logic else 1.5
-	weight = pow(weight, curve_power)
+	# A shoulder offset circles around the screen during 6DOF roll.
+	var weight := 0.0
 	var side := float(_ots_logic.get("max_side_offset")) if _ots_logic and "max_side_offset" in _ots_logic else 0.75
 	var height := float(_ots_logic.get("max_height_offset")) if _ots_logic and "max_height_offset" in _ots_logic else -0.65
 	var pivot_z := float(_ots_logic.get("max_pivot_z_offset")) if _ots_logic and "max_pivot_z_offset" in _ots_logic else 0.2
@@ -307,9 +302,9 @@ func _snap_camera_rig_y() -> void:
 	if not is_instance_valid(_body) or not is_instance_valid(_camera_rig):
 		return
 	# In zero-g, don't reset origin.x/z — let the OTS offset subnodes handle it.
-	# Only snap Y to base_rig_y to keep camera at correct height.
+	# Roll around the visual center so the player stays centered on screen.
 	if "base_rig_y" in _body:
-		_camera_rig.transform.origin.y = _body.base_rig_y
+		_camera_rig.transform.origin.y = _body.base_rig_y * 0.5
 	if "_camera_rig_y_smoothed_global" in _body:
 		_body._camera_rig_y_smoothed_global = _camera_rig.global_transform.origin.y
 	if "_camera_rig_airborne_anchor_global" in _body:
