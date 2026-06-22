@@ -103,6 +103,35 @@ func before():
 	SessionManager.is_manual_mode = true
 	_drift_threshold_cache.clear()
 
+# En CI headless el render por software de las escenas 3D pesadas baja a ~1 FPS y
+# dispara timeouts (cada test pasa de segundos a >60s). La determinación física no
+# depende del render, así que lo desactivamos cuando no hay ventana visible.
+# Algunos tests sí dependen del render/shader (p.ej. proyección cilíndrica SGC,
+# triggers por visibilidad): esos declaran la directiva OYS_REQUIRE_RENDER y se
+# corren con render activo aunque sea más lento.
+const REQUIRE_RENDER_DIRECTIVE := "OYS_REQUIRE_RENDER"
+
+func _apply_render_mode_for(path: String) -> void:
+	var disable := _should_disable_render()
+	if disable and _oys_has_directive(path, REQUIRE_RENDER_DIRECTIVE):
+		disable = false
+		print("[TEST_RUNNER] Directive %s detected: keeping render enabled for %s" % [REQUIRE_RENDER_DIRECTIVE, path.get_file()])
+	var mode := Viewport.UPDATE_DISABLED if disable else Viewport.UPDATE_ALWAYS
+	get_tree().get_root().render_target_update_mode = mode
+
+# Render solo es necesario para depuración visual / tests render-dependientes; en
+# headless/CI lo desactivamos por defecto para evitar el costo de software-rendering.
+static func _should_disable_render() -> bool:
+	# Permitir forzar render en una corrida headless si se quiere depurar visualmente.
+	if OS.get_environment("OYS_FORCE_RENDER") != "":
+		return false
+	# El binario headless de export expone la feature "Server".
+	if OS.has_feature("Server"):
+		return true
+	# runtest.sh exporta OYS_RENDER_DISABLED=1 cuando lanza sin ventana (--no-window).
+	# Es la señal fiable: el engine consume --no-window antes de get_cmdline_args().
+	return OS.get_environment("OYS_RENDER_DISABLED") != ""
+
 # Data provider: devuelve un Array de parameter sets.
 
 # Solo buscamos .oys para el ciclo de determinismo completo (OYS -> JSON -> Verify)
@@ -252,6 +281,9 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 	if path == "__odisea_skip__":
 		print("[test_replay] Skipped deterministic pass in core profile.")
 		return
+
+	# Render off en headless salvo que el test lo requiera (OYS_REQUIRE_RENDER).
+	_apply_render_mode_for(path)
 
 	# LIMPIEZA INICIAL DEL SINGLETON
 	SessionManager.is_replaying = false

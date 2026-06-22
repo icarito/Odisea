@@ -1,5 +1,6 @@
 // FD-052: Scaffold cylindrical orbit integration tests.
 // Visual chunks are curved by ScaffoldOrbit while player physics stays flat.
+// OYS_REQUIRE_RENDER: depende del shader de proyección cilíndrica; no desactivar render en headless.
 
 LEVEL res://core_v2/tests/TestScaffoldOrbit.tscn
 

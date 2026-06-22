@@ -25,7 +25,7 @@ jobs:
   determinism-tests:
     name: Run Determinism Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     continue-on-error: true
     permissions:
       contents: read
@@ -101,7 +101,7 @@ jobs:
           ODISEA_SKIP_PREFLIGHT: "1"
         run: |
           mkdir -p reports
-          echo "Running determinism tests with 60s timeout per test"
+          echo "Running determinism tests with 90s timeout per test"
           echo "Issue #64: Some tests may hang or fail in CI"
           passed=0
           failed=0
@@ -113,7 +113,7 @@ jobs:
             oys_name=$(basename "$oys_file" .oys)
             last_test="$oys_name"
             echo "Running: $oys_name"
-            if timeout 60 ./runtest.sh --oys "$oys_name" > "reports/${oys_name}.log" 2>&1; then
+            if timeout 90 ./runtest.sh --oys "$oys_name" > "reports/${oys_name}.log" 2>&1; then
               if grep -q "✅ Test OYS" "reports/${oys_name}.log" 2>/dev/null; then
                 echo "✅ $oys_name"
                 passed=$((passed + 1))

@@ -61,6 +61,13 @@ if [ -n "$HEADLESS" ] && [ -z "${ODISEA_FORCE_MUTE_AUDIO+x}" ]; then
     export ODISEA_FORCE_MUTE_AUDIO=1
 fi
 
+# En headless el render por software de escenas 3D pesadas baja el framerate a ~1 FPS
+# y dispara timeouts en CI. Los tests de determinismo no dependen del render, así que
+# señalamos al harness para desactivarlo. Con --show (ventana visible) se conserva.
+if [ -n "$HEADLESS" ] && [ -z "${OYS_RENDER_DISABLED+x}" ]; then
+    export OYS_RENDER_DISABLED=1
+fi
+
 # Configuración de logging - Generar nombre único para soporte concurrente
 LOG_DIR="./reports"
 LOG_FILE="$LOG_DIR/gdunit_$(date +%Y%m%d_%H%M%S)_$$.log"

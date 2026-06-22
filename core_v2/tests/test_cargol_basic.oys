@@ -1,5 +1,6 @@
 LEVEL res://core_v2/tests/TestScene_Cargol.tscn
 
+// OYS_REQUIRE_RENDER: el pickup/visibilidad del Cargol depende del render; no desactivar en headless.
 // Test: Basic Cargol Cargo Pickup and Movement
 // This test verifies that Cargol can:
 // 1. Move to a target position
