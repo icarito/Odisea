@@ -25,7 +25,7 @@ jobs:
   determinism-tests:
     name: Run Determinism Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     continue-on-error: true
     permissions:
       contents: read
@@ -148,9 +148,10 @@ jobs:
           # (-n auto). Medido local: serie 416s -> paralelo headless sin xvfb 154s.
           # El render-off por test (OYS_RENDER_DISABLED) ya lo aplica runtest.sh.
           #
-          # Workers: el runner ubuntu-latest tiene pocas vCPUs. Con -n auto (4) cada
-          # worker arranca un Godot pesado y se saturaba la CPU, haciendo que tests
-          # rápidos superaran el timeout (rc=124). Fijamos -n 2 para no sobre-suscribir.
+          # Workers: -n auto (4) saturaba la CPU del runner (tests rápidos daban
+          # rc=124 por thrash). -n 2 dio 0 timeouts (resultados correctos) pero la
+          # suite necesita ~39min y se cancelaba al 88% con timeout-minutes=35.
+          # Mantenemos -n 2 (probado sin thrash) y subimos el budget a 45min.
           echo "Running determinism tests in parallel (pytest-xdist -n 2, headless, no xvfb)"
           echo "Issue #64: algunos casos aún fallan por drift; ver docs/determinism_test_failures.md"
           set +e
