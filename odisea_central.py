@@ -59,6 +59,24 @@ STORE_GHOSTS = os.environ.get("CENTRAL_STORE_GHOSTS", "true").lower() == "true"
 GHOSTS_DIR = os.environ.get("CENTRAL_GHOSTS_DIR", "./data/ghosts")
 SQLITE_DB = os.environ.get("CENTRAL_SQLITE_DB", os.environ.get("CENTRAL_DB_PATH", "./data/ghosts.db"))
 GEO_SQLITE_DB = os.environ.get("CENTRAL_GEO_DB", "./data/geo_tags.db")
+
+
+def db_connect(path, **kwargs):
+    """sqlite3.connect con WAL + busy_timeout. Sin esto, lecturas/escrituras
+    concurrentes fallaban con 'database is locked' (181/hora en prod), trababan el
+    _db_worker y colgaban el event loop async -> incluso el endpoint de update
+    daba 504. WAL permite lectores concurrentes con un escritor; busy_timeout hace
+    que SQLite espere/reintente el lock en vez de fallar al instante.
+    """
+    kwargs.setdefault("timeout", 15.0)  # espera hasta 15s por el lock a nivel driver
+    conn = sqlite3.connect(path, **kwargs)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=8000")  # 8s a nivel SQLite
+        conn.execute("PRAGMA synchronous=NORMAL")  # seguro con WAL, menos fsync
+    except sqlite3.Error:
+        pass
+    return conn
 DASHBOARD_VERSION = os.environ.get("ODISEA_DASHBOARD_VERSION", os.environ.get("GITHUB_SHA", ""))[:12] or "dev"
 # Salt for hashing client IPs before they touch disk. MUST match the salt used
 # by scripts/import_nginx_geo.py (ODISEA_GEO_HASH_SALT) so live-recorded hashes
@@ -1801,7 +1819,7 @@ class OdiseaCentral:
         missing geo DB or column just yields no location, never an error."""
         if not os.path.exists(GEO_SQLITE_DB):
             return {}
-        conn = sqlite3.connect(GEO_SQLITE_DB)
+        conn = db_connect(GEO_SQLITE_DB)
         conn.row_factory = sqlite3.Row
         try:
             cursor = conn.cursor()
@@ -1867,7 +1885,7 @@ class OdiseaCentral:
         now = time.time()
 
         def fetch():
-            conn = sqlite3.connect(GEO_SQLITE_DB)
+            conn = db_connect(GEO_SQLITE_DB)
             conn.row_factory = sqlite3.Row
             try:
                 cursor = conn.cursor()
@@ -1997,7 +2015,7 @@ class OdiseaCentral:
         ids = sorted({str(pid) for pid in player_ids if pid})
         if not ids or not os.path.exists(GEO_SQLITE_DB):
             return {}
-        conn = sqlite3.connect(GEO_SQLITE_DB)
+        conn = db_connect(GEO_SQLITE_DB)
         conn.row_factory = sqlite3.Row
         try:
             self._ensure_geo_schema(conn)
@@ -2093,7 +2111,7 @@ class OdiseaCentral:
         timestamp prefix; anything else should stay unassigned and untagged."""
         if not os.path.exists(GEO_SQLITE_DB):
             return 0
-        conn = sqlite3.connect(GEO_SQLITE_DB)
+        conn = db_connect(GEO_SQLITE_DB)
         conn.row_factory = sqlite3.Row
         try:
             self._ensure_geo_schema(conn)
@@ -2143,7 +2161,7 @@ class OdiseaCentral:
         telemetry player. Conservative by design: ambiguous rows stay unlinked."""
         if not os.path.exists(GEO_SQLITE_DB):
             return 0
-        conn = sqlite3.connect(GEO_SQLITE_DB)
+        conn = db_connect(GEO_SQLITE_DB)
         conn.row_factory = sqlite3.Row
         try:
             self._ensure_geo_schema(conn)
@@ -3144,7 +3162,7 @@ class OdiseaCentral:
 
     # --- SQLite Helpers ---
     def _get_db(self):
-        conn = sqlite3.connect(SQLITE_DB)
+        conn = db_connect(SQLITE_DB)
         try:
             conn.execute("PRAGMA compression_level=3")
         except sqlite3.OperationalError:
@@ -3199,7 +3217,7 @@ class OdiseaCentral:
 
         def write():
             now = time.time()
-            conn = sqlite3.connect(GEO_SQLITE_DB)
+            conn = db_connect(GEO_SQLITE_DB)
             try:
                 self._ensure_geo_schema(conn)
                 cur = conn.cursor()
@@ -3264,7 +3282,7 @@ class OdiseaCentral:
         return result
 
     def _geo_write_locations(self, hash_to_ip: dict, resolved: dict):
-        conn = sqlite3.connect(GEO_SQLITE_DB)
+        conn = db_connect(GEO_SQLITE_DB)
         try:
             self._ensure_geo_schema(conn)
             cur = conn.cursor()
@@ -3291,13 +3309,30 @@ class OdiseaCentral:
     async def _import_task(self):
         while True:
             try:
-                import subprocess
                 logger.info("Running periodic ghost import...")
-                result = subprocess.run(["python3", "scripts/import_ghosts_to_sqlite.py"], capture_output=True, text=True)
-                if result.returncode == 0:
-                    logger.info("Periodic import finished successfully.")
+                # CRÍTICO: subprocess.run() es BLOQUEANTE y congelaba TODO el event
+                # loop mientras importaba ghosts a SQLite (verificado con py-spy: el
+                # MainThread quedaba en subprocess.communicate()). Eso colgaba /health,
+                # el endpoint de update (504) y toda request async. Usamos el subprocess
+                # async de asyncio para no bloquear el loop.
+                proc = await asyncio.create_subprocess_exec(
+                    "python3", "scripts/import_ghosts_to_sqlite.py",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    # Cap defensivo: si el import se cuelga, no lo dejamos correr
+                    # para siempre (re-intenta en el próximo ciclo).
+                    _stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=240)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.wait()
+                    logger.error("Periodic import timed out (>240s); killed.")
                 else:
-                    logger.error(f"Periodic import failed: {result.stderr}")
+                    if proc.returncode == 0:
+                        logger.info("Periodic import finished successfully.")
+                    else:
+                        logger.error(f"Periodic import failed: {stderr.decode(errors='replace')}")
             except Exception as e:
                 logger.error(f"Error in import task: {e}")
             await asyncio.sleep(300)
