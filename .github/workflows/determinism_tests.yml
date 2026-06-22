@@ -133,8 +133,9 @@ jobs:
           GODOT_BIN: /usr/local/bin/godot
           ODISEA_SKIP_PREFLIGHT: "1"
           ODISEA_FULL_DETERMINISM: "1"
-          # Cap por test (margen para los render-dependientes ~45-50s + PASS 2).
-          ODISEA_TEST_TIMEOUT_SEC: "120"
+          # Cap por test. Con 2 workers cada test tiene más CPU; 180s deja margen a
+          # los render-dependientes (~45-50s) + PASS 2 incluso bajo contención.
+          ODISEA_TEST_TIMEOUT_SEC: "180"
         run: |
           mkdir -p reports
           # El binario de Godot es el build _linux_headless, así que corre con
@@ -146,7 +147,11 @@ jobs:
           # determinismo como test independiente y los paraleliza con pytest-xdist
           # (-n auto). Medido local: serie 416s -> paralelo headless sin xvfb 154s.
           # El render-off por test (OYS_RENDER_DISABLED) ya lo aplica runtest.sh.
-          echo "Running determinism tests in parallel (pytest-xdist, headless, no xvfb)"
+          #
+          # Workers: el runner ubuntu-latest tiene pocas vCPUs. Con -n auto (4) cada
+          # worker arranca un Godot pesado y se saturaba la CPU, haciendo que tests
+          # rápidos superaran el timeout (rc=124). Fijamos -n 2 para no sobre-suscribir.
+          echo "Running determinism tests in parallel (pytest-xdist -n 2, headless, no xvfb)"
           echo "Issue #64: algunos casos aún fallan por drift; ver docs/determinism_test_failures.md"
           set +e
           ./.venv/bin/pytest -p no:cacheprovider \
@@ -154,7 +159,7 @@ jobs:
             --odisea-runner gdunit \
             -m "odisea_determinism" \
             --odisea-include-determinism \
-            -n auto \
+            -n 2 \
             -p no:randomly \
             --junitxml=reports/determinism_junit.xml \
             -ra 2>&1 | tee reports/determinism_pytest.log
