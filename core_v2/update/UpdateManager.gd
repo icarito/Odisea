@@ -36,6 +36,7 @@ var _installation_id := ""
 var _pending_update := {}
 var _active_download := {}
 var _http_download: HTTPRequest
+var _downloading_chunk_idx := -1
 var _chunk_retries := 0
 
 func _ready():
@@ -197,8 +198,17 @@ func _validate_manifest(p, channel, platform) -> bool:
 	return true
 
 func _on_error(code: String, recoverable: bool):
+	_free_download_request()
 	_set_state(State.FAILED)
 	emit_signal("update_failed", code, recoverable)
+
+# Libera el HTTPRequest persistente de descarga (al terminar/fallar/cancelar), para
+# que la próxima descarga arranque con uno limpio.
+func _free_download_request() -> void:
+	if is_instance_valid(_http_download):
+		_http_download.queue_free()
+	_http_download = null
+	_downloading_chunk_idx = -1
 
 func get_current_update() -> Dictionary:
 	return _pending_update.duplicate()
@@ -301,8 +311,9 @@ func is_delta_eligible(delta: Dictionary, p: Dictionary) -> bool:
 
 func cancel_download() -> void:
 	if _state == State.DOWNLOADING:
-		if _http_download:
+		if is_instance_valid(_http_download):
 			_http_download.cancel_request()
+		_free_download_request()
 		_set_state(State.AVAILABLE)
 
 func request_restart() -> void:
@@ -393,6 +404,15 @@ func _start_download(artifact: Dictionary):
 	_active_download = artifact
 	_set_state(State.DOWNLOADING)
 	_chunk_retries = 0
+	# Reusar UN solo HTTPRequest para todos los chunks. Antes se creaba uno nuevo +
+	# add_child + queue_free por chunk, y eso colgaba la descarga a mitad en Godot
+	# 3.6 (el nodo viejo en cola de liberación chocaba con el nuevo, request_completed
+	# dejaba de dispararse -> download trabado, p.ej. a 42%). Un request persistente
+	# es estable (probado: baja los 12 chunks sin colgarse).
+	if not is_instance_valid(_http_download):
+		_http_download = HTTPRequest.new()
+		add_child(_http_download)
+		_http_download.connect("request_completed", self, "_on_chunk_completed")
 	_download_next_chunk()
 
 func _download_next_chunk():
@@ -413,22 +433,24 @@ func _download_next_chunk():
 		return
 
 	var chunk = chunks[next_chunk_idx]
-	var http = HTTPRequest.new()
-	add_child(http)
-	_http_download = http
+	if not is_instance_valid(_http_download):
+		_http_download = HTTPRequest.new()
+		add_child(_http_download)
+		_http_download.connect("request_completed", self, "_on_chunk_completed")
 
+	_downloading_chunk_idx = next_chunk_idx
 	var start_byte = chunk["offset"]
 	var end_byte = chunk["offset"] + chunk["size"] - 1
 	var headers = ["Range: bytes=%d-%d" % [start_byte, end_byte]]
 
-	http.connect("request_completed", self, "_on_chunk_completed", [http, next_chunk_idx])
-	var err = http.request(_active_download["url"], headers)
+	var err = _http_download.request(_active_download["url"], headers)
 	if err != OK:
 		_handle_chunk_error("request_failed")
 
-func _on_chunk_completed(result, response_code, _headers, body, http, idx):
-	http.queue_free()
-	_http_download = null
+func _on_chunk_completed(result, response_code, _headers, body):
+	# Reusamos _http_download (no se libera por chunk). idx viene de un miembro porque
+	# el HTTPRequest persistente no puede llevar binds que cambian por request.
+	var idx = _downloading_chunk_idx
 
 	if result != HTTPRequest.RESULT_SUCCESS:
 		_handle_chunk_error("http_request_failed")
@@ -493,6 +515,7 @@ func _handle_chunk_error(code):
 	_download_next_chunk()
 
 func _finalize_download():
+	_free_download_request()
 	_set_state(State.VERIFYING)
 
 	if _active_download.get("kind") == "apk":
