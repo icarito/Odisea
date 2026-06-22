@@ -52,8 +52,16 @@ func check_for_updates() -> void:
 		return
 	_set_state(State.CHECKING)
 
+	# El canal debe venir del build_meta empaquetado (channel=nightly en builds de
+	# main). Antes salía solo de la env var ODISEA_UPDATE_CHANNEL y caía a "release",
+	# así que un build nightly preguntaba por un manifest "release" inexistente y el
+	# server devolvía 204 -> el juego nunca veía la actualización. La env var sigue
+	# como override para debug.
 	var channel = OS.get_environment("ODISEA_UPDATE_CHANNEL")
-	if channel == "": channel = "release"
+	if channel == "":
+		channel = _get_build_meta_value("channel")
+	if channel == "":
+		channel = "release"
 
 	var platform = "linux"
 	var os_name = OS.get_name()
@@ -181,8 +189,42 @@ func get_current_update() -> Dictionary:
 	return _pending_update.duplicate()
 
 func _get_current_build_id() -> String:
+	# Tras aplicar un update, el build corriente queda en confirmed_boot.json. En una
+	# instalación fresca ese archivo no existe, así que caemos al build_id empaquetado
+	# (build_meta) para que el server compare contra el build real, no contra "".
 	var confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
-	return confirmed.get("build_id", "")
+	var bid = confirmed.get("build_id", "")
+	if bid == "":
+		bid = _get_build_meta_value("build_id")
+	return bid
+
+# Lee un valor del build_meta inyectado por CI: window.ODISEA_BUILD_META en web,
+# res://build_meta.json (embebido en el .pck) en nativo. Mismo patrón que ANNAV2.
+var _build_meta_cache := {}
+func _get_build_meta_value(key: String) -> String:
+	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
+		var js = Engine.get_singleton("JavaScript")
+		var expr = "window.ODISEA_BUILD_META && window.ODISEA_BUILD_META['" + key + "'] || ''"
+		var res = js.eval(expr)
+		return str(res) if res != null else ""
+	if _build_meta_cache.empty():
+		var file := File.new()
+		var meta_paths := [
+			"res://build_meta.json",
+			"build_meta.json",
+			OS.get_executable_path().get_base_dir().plus_file("build_meta.json")
+		]
+		for path in meta_paths:
+			if file.file_exists(path):
+				if file.open(path, File.READ) == OK:
+					var parsed = JSON.parse(file.get_as_text())
+					file.close()
+					if parsed.error == OK and typeof(parsed.result) == TYPE_DICTIONARY:
+						_build_meta_cache = parsed.result
+						break
+		if _build_meta_cache.empty():
+			_build_meta_cache["_loaded"] = false
+	return str(_build_meta_cache.get(key, ""))
 
 
 func begin_update() -> void:
