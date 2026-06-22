@@ -45,9 +45,8 @@ jobs:
       android_version_name: ${{ steps.meta.outputs.android_version_name }}
       # release_sequence/build_id del manifest de update: el cliente compara
       # seq <= last_seq para decidir "más nueva". github.run_id NO es monotónico
-      # creciente (y un build viejo con run_id mayor bloqueaba uno nuevo). Usamos
-      # epoch-ms: monotónico para siempre y mayor que cualquier run_id histórico
-      # (~1.75e12 > ~2.79e10), así la transición no bloquea a clientes existentes.
+      # creciente (un build viejo con run_id mayor bloqueaba uno nuevo). Usamos
+      # run_number: entero monotónico simple, el mismo que el versionCode del APK.
       build_seq: ${{ steps.meta.outputs.build_seq }}
       # Branch and full SHA, normalized across workflow_run and workflow_dispatch
       # so downstream jobs never have to read github.ref / github.event_name,
@@ -132,10 +131,9 @@ jobs:
           echo "android_version_name=$VERSION" >> $GITHUB_OUTPUT
 
           # build_seq: secuencia monotónica para el manifest de update (release_sequence).
-          # Epoch en milisegundos: siempre creciente y > cualquier github.run_id previo,
-          # así clientes que ya aceptaron un run_id gigante igual aceptan el nuevo build.
-          BUILD_SEQ=$(date -u +%s%3N)
-          echo "build_seq=$BUILD_SEQ" >> $GITHUB_OUTPUT
+          # run_number es un entero simple que crece en cada run del workflow; es la
+          # misma fuente que el versionCode del APK.
+          echo "build_seq=${{ github.run_number }}" >> $GITHUB_OUTPUT
 
   export:
     needs: prep
@@ -828,7 +826,7 @@ jobs:
           )
 
           VERSION="${{ needs.prep.outputs.version }}"
-          # build_seq (epoch-ms monotónico), no github.run_id: debe coincidir con el
+          # build_seq (run_number monotónico), no github.run_id: debe coincidir con el
           # build-id inyectado en el juego (Inject build metadata) para que el server
           # haga bien la comparación de igualdad y el cliente la de release_sequence.
           BUILD_ID="${{ needs.prep.outputs.build_seq }}"
