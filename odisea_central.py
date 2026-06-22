@@ -491,6 +491,12 @@ class OdiseaCentral:
         self.scene_geometry_cache: Dict[str, dict] = {}  # scene -> {"mtime": float, "data": dict, "grid": dict}
         self.milestone_checker = MilestoneDetector(self)
         self._manifest_cache: Dict[tuple, dict] = {}  # (channel, platform, arch) -> {ts, etag, content}
+        # Single-flight: un solo fetch a GitHub por manifest a la vez. Sin esto, N
+        # requests concurrentes al mismo manifest disparaban N fetch bloqueantes en
+        # el threadpool default -> se saturaba -> requests nuevos esperaban hasta el
+        # timeout de nginx (60s) -> 504. Con el lock, los concurrentes esperan al
+        # primero y reusan su resultado (cache).
+        self._manifest_locks: Dict[tuple, "asyncio.Lock"] = {}
 
         if STORE_GHOSTS and not os.path.exists(GHOSTS_DIR):
             os.makedirs(GHOSTS_DIR, exist_ok=True)
@@ -645,10 +651,27 @@ class OdiseaCentral:
         cache_key = (channel, platform, arch)
         cached = self._manifest_cache.get(cache_key)
 
-        # 5 minutes TTL
+        # 5 minutes TTL (fast path, sin lock)
         if cached and now - cached["ts"] < 300:
             return cached
 
+        # Single-flight: solo un fetch por manifest a la vez. Los requests
+        # concurrentes esperan acá y al entrar reusan el cache recién poblado.
+        lock = self._manifest_locks.get(cache_key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._manifest_locks[cache_key] = lock
+
+        async with lock:
+            # Re-chequear cache: otro request pudo poblarlo mientras esperábamos.
+            now = time.time()
+            cached = self._manifest_cache.get(cache_key)
+            if cached and not cached.get("not_found") and now - cached["ts"] < 300:
+                return cached
+
+            return await self._fetch_manifest_locked(channel, platform, arch, cache_key, now, cached)
+
+    async def _fetch_manifest_locked(self, channel, platform, arch, cache_key, now, cached):
         try:
             import urllib.request
 
