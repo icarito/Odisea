@@ -36,7 +36,7 @@ func verify(envelope: Dictionary) -> Dictionary:
 	var payload_hash = Utils.get_sha256_hash(payload_raw)
 
 	for sig_obj in signatures:
-		if not sig_obj.has("key_id") or not sig_obj.has("signature_b64"):
+		if not sig_obj.has("key_id") or not sig_obj.has("value_b64"):
 			continue
 
 		var key_id = sig_obj["key_id"]
@@ -54,7 +54,7 @@ func verify(envelope: Dictionary) -> Dictionary:
 		if pub_key == null:
 			continue
 
-		var signature = Marshalls.base64_to_raw(sig_obj["signature_b64"])
+		var signature = Marshalls.base64_to_raw(sig_obj["value_b64"])
 		if signature.size() == 0:
 			continue
 
@@ -80,7 +80,9 @@ func verify(envelope: Dictionary) -> Dictionary:
 
 func _load_pub_key(path: String) -> CryptoKey:
 	var key = CryptoKey.new()
-	var err = key.load(path)
+	# public_only=true: the keyring ships SPKI public PEMs; without this flag
+	# Godot 3.6 expects a private key and load() fails (mbedtls parse error).
+	var err = key.load(path, true)
 	if err != OK:
 		return null
 	return key
