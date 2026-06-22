@@ -36,6 +36,12 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     outputs:
       version: ${{ steps.meta.outputs.version }}
+      # Slug seguro para nombres de archivo/URL (sin espacios ni paréntesis): el
+      # VERSION humano "0.1.0-nightly+sha (fecha)" rompía los nombres de asset y las
+      # URLs de descarga del manifest (GitHub sanitiza el asset y el filename dejaba
+      # de coincidir -> 404). version_slug se usa SOLO para nombres; version sigue
+      # siendo el string humano que muestra el juego.
+      version_slug: ${{ steps.meta.outputs.version_slug }}
       sha: ${{ steps.meta.outputs.sha }}
       channel: ${{ steps.meta.outputs.channel }}
       # Android needs a monotonic integer versionCode or the device refuses to
@@ -124,6 +130,11 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # version_slug: VERSION sin caracteres problemáticos para filenames/URLs.
+          # Quita "(...)" (la fecha), colapsa espacios y deja solo [A-Za-z0-9.+_-].
+          VERSION_SLUG=$(echo "$VERSION" | sed -E 's/\([^)]*\)//g; s/[[:space:]]+//g; s/[^A-Za-z0-9.+_-]/-/g')
+          echo "version_slug=$VERSION_SLUG" >> $GITHUB_OUTPUT
 
           # Android versionCode: a strictly-increasing integer is required for
           # the device to accept an update over an existing install. github's
@@ -615,7 +626,9 @@ jobs:
       - name: Package Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'
         run: |
-          VERSION="${{ needs.prep.outputs.version }}"
+          # version_slug (sin espacios/paréntesis) para que el nombre del asset
+          # coincida con la URL del manifest y no lo sanitice GitHub.
+          VERSION="${{ needs.prep.outputs.version_slug }}"
           SHA="${{ needs.prep.outputs.sha }}"
           PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION-$SHA.zip"
           mkdir -p dist
@@ -823,6 +836,9 @@ jobs:
 
           # Define platforms and their artifact names as seen in the 'export' job matrix
           # Format: platform_arch:artifact_pattern:output_platform:output_arch
+          # OJO: el patrón de linux_x64 NO debe matchear el de ARM64
+          # (Odisea-Tech-Demo-Linux-* incluiría Linux-ARM64-*). El find de abajo
+          # excluye explícitamente ARM64 para el caso x64.
           PLATFORMS=(
             "linux_x64:Odisea-Tech-Demo-Linux-*:linux:x86_64"
             "linux_arm64:Odisea-Tech-Demo-Linux-ARM64-*:linux:arm64"
@@ -840,6 +856,17 @@ jobs:
           CHANNEL="${{ needs.prep.outputs.channel }}"
           COMMIT="${{ needs.prep.outputs.head_sha }}"
 
+          # base_url de descarga: debe apuntar al TAG real del release, no a $VERSION.
+          # El nightly se publica siempre en el tag fijo "nightly" (el job 'nightly'
+          # borra/recrea ese release); $VERSION además trae espacios/paréntesis y no
+          # sirve como URL. Por eso antes el manifest tenía una URL de descarga rota.
+          if [ "$CHANNEL" = "nightly" ]; then
+            RELEASE_TAG="nightly"
+          else
+            RELEASE_TAG="$VERSION"
+          fi
+          ARTIFACT_BASE_URL="https://github.com/icarito/Odisea/releases/download/$RELEASE_TAG"
+
           # Extract public key for audit asset. Name matches expected format for
           # scripts/update_manifest.py verify: {key_id}.pub.pem
           KEY_ID="release-2026-a"
@@ -850,8 +877,13 @@ jobs:
           for entry in "${PLATFORMS[@]}"; do
             IFS=":" read -r P_NAME P_PATTERN P_OUT P_ARCH <<< "$entry"
 
-            # Find the directory for this artifact (artifact_name-version-sha)
-            ART_DIR=$(find all_artifacts -maxdepth 1 -name "$P_PATTERN" -type d | head -n 1)
+            # Find the directory for this artifact (artifact_name-version-sha).
+            # Para linux_x64 excluir el dir de ARM64 (su patrón es un prefijo del de x64).
+            if [ "$P_NAME" = "linux_x64" ]; then
+              ART_DIR=$(find all_artifacts -maxdepth 1 -name "$P_PATTERN" ! -name "Odisea-Tech-Demo-Linux-ARM64-*" -type d | head -n 1)
+            else
+              ART_DIR=$(find all_artifacts -maxdepth 1 -name "$P_PATTERN" -type d | head -n 1)
+            fi
 
             if [ -n "$ART_DIR" ]; then
               echo "Generating manifest for $P_NAME ($P_OUT/$P_ARCH) from $ART_DIR"
@@ -866,7 +898,7 @@ jobs:
                 --platform "$P_OUT" \
                 --arch "$P_ARCH" \
                 --commit "$COMMIT" \
-                --base-url "https://github.com/icarito/Odisea/releases/download/$VERSION"
+                --base-url "$ARTIFACT_BASE_URL"
             else
               echo "Warning: No artifact found for $P_NAME matching $P_PATTERN"
             fi
