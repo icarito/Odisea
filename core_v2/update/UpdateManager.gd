@@ -56,12 +56,13 @@ func check_for_updates() -> void:
 	# main). Antes salía solo de la env var ODISEA_UPDATE_CHANNEL y caía a "release",
 	# así que un build nightly preguntaba por un manifest "release" inexistente y el
 	# server devolvía 204 -> el juego nunca veía la actualización. La env var sigue
-	# como override para debug.
+	# como override para debug. Fallback: "nightly", porque hoy SOLO se publica
+	# nightly (no hay canal release todavía).
 	var channel = OS.get_environment("ODISEA_UPDATE_CHANNEL")
 	if channel == "":
 		channel = _get_build_meta_value("channel")
 	if channel == "":
-		channel = "release"
+		channel = "nightly"
 
 	var platform = "linux"
 	var os_name = OS.get_name()
