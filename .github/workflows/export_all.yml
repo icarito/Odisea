@@ -43,6 +43,12 @@ jobs:
       # (always increases). version_name reuses the human version string.
       android_version_code: ${{ steps.meta.outputs.android_version_code }}
       android_version_name: ${{ steps.meta.outputs.android_version_name }}
+      # release_sequence/build_id del manifest de update: el cliente compara
+      # seq <= last_seq para decidir "más nueva". github.run_id NO es monotónico
+      # creciente (y un build viejo con run_id mayor bloqueaba uno nuevo). Usamos
+      # epoch-ms: monotónico para siempre y mayor que cualquier run_id histórico
+      # (~1.75e12 > ~2.79e10), así la transición no bloquea a clientes existentes.
+      build_seq: ${{ steps.meta.outputs.build_seq }}
       # Branch and full SHA, normalized across workflow_run and workflow_dispatch
       # so downstream jobs never have to read github.ref / github.event_name,
       # which mean different things under workflow_run.
@@ -124,6 +130,12 @@ jobs:
           # is the human version string the in-game notifier already shows.
           echo "android_version_code=${{ github.run_number }}" >> $GITHUB_OUTPUT
           echo "android_version_name=$VERSION" >> $GITHUB_OUTPUT
+
+          # build_seq: secuencia monotónica para el manifest de update (release_sequence).
+          # Epoch en milisegundos: siempre creciente y > cualquier github.run_id previo,
+          # así clientes que ya aceptaron un run_id gigante igual aceptan el nuevo build.
+          BUILD_SEQ=$(date -u +%s%3N)
+          echo "build_seq=$BUILD_SEQ" >> $GITHUB_OUTPUT
 
   export:
     needs: prep
@@ -228,7 +240,7 @@ jobs:
           python3 scripts/inject_build_meta.py \
             --token "${{ secrets.ODISEA_CENTRAL_INGEST_TOKEN }}" \
             --commit "${{ needs.prep.outputs.head_sha }}" \
-            --build-id "${{ github.run_id }}" \
+            --build-id "${{ needs.prep.outputs.build_seq }}" \
             --channel "${{ needs.prep.outputs.channel }}" \
             --version "${{ needs.prep.outputs.version }}" \
             --official-host "odisea.educa.juegos" \
@@ -816,7 +828,10 @@ jobs:
           )
 
           VERSION="${{ needs.prep.outputs.version }}"
-          BUILD_ID="${{ github.run_id }}"
+          # build_seq (epoch-ms monotónico), no github.run_id: debe coincidir con el
+          # build-id inyectado en el juego (Inject build metadata) para que el server
+          # haga bien la comparación de igualdad y el cliente la de release_sequence.
+          BUILD_ID="${{ needs.prep.outputs.build_seq }}"
           CHANNEL="${{ needs.prep.outputs.channel }}"
           COMMIT="${{ needs.prep.outputs.head_sha }}"
 
