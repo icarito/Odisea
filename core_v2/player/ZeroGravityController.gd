@@ -7,6 +7,11 @@ const DEFAULT_MAX_SPEED := 8.0
 const DEFAULT_SPRINT_MULTIPLIER := 2.0
 const DEFAULT_ACCELERATION := 15.0
 const DEFAULT_IDLE_DAMPING := 0.95
+const DEFAULT_INERTIA_FACTOR := 0.3
+const DEFAULT_THRUST_FORCE := 40.0
+const DEFAULT_MASS := 80.0
+const DEFAULT_SPACE_DAMPING := 0.998
+const DEFAULT_MAX_INERTIA_SPEED := 12.0
 const DEFAULT_ROLL_SPEED_DEG := 90.0
 const DEFAULT_MESH_ROTATION_SMOOTH := 8.0
 const DEFAULT_MESH_CENTER_OFFSET := Vector3(0.0, 1.0, 0.0)
@@ -67,6 +72,26 @@ func reset_visual_state() -> void:
 	_snap_camera_rig_y()
 	if is_instance_valid(_pilot_mesh):
 		_restore_standard_visual_mesh()
+
+func get_snapshot() -> Dictionary:
+	return {
+		"velocity": velocity,
+		"yaw": yaw,
+		"pitch": pitch,
+		"roll_angle": roll_angle,
+		"last_rolled_basis": _last_rolled_basis
+	}
+
+func restore_snapshot(data: Dictionary) -> void:
+	if data.has("velocity"):
+		velocity = data["velocity"]
+		if is_instance_valid(_body):
+			_body.velocity = velocity
+	yaw = data.get("yaw", yaw)
+	pitch = data.get("pitch", pitch)
+	roll_angle = data.get("roll_angle", roll_angle)
+	if data.has("last_rolled_basis"):
+		_last_rolled_basis = data["last_rolled_basis"]
 
 func get_standard_exit_orientation() -> Dictionary:
 	var min_p: float = deg2rad(_body.min_pitch) if _body and "min_pitch" in _body else deg2rad(-85.0)
@@ -164,13 +189,40 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		_update_wish_direction(Vector3.ZERO)
 
 	# 4. Velocity.
+	var i_factor: float = clamp(float(_setting("inertia_factor", DEFAULT_INERTIA_FACTOR)), 0.0, 1.0)
+	var speed_mult: float = float(_setting("sprint_multiplier", DEFAULT_SPRINT_MULTIPLIER)) if input and input.sprint else 1.0
+	var move_speed: float = float(_setting("max_speed", DEFAULT_MAX_SPEED)) * speed_mult
+
+	# Kinematic behavior (current)
+	var kinematic_v: Vector3 = _body.velocity
 	if move_dir.length_squared() < 0.001:
-		_body.velocity *= pow(float(_setting("idle_damping", DEFAULT_IDLE_DAMPING)), dt * 60.0)
+		if i_factor <= 0.0:
+			kinematic_v *= pow(float(_setting("idle_damping", DEFAULT_IDLE_DAMPING)), dt * 60.0)
 	else:
-		var speed_mult := float(_setting("sprint_multiplier", DEFAULT_SPRINT_MULTIPLIER)) if input and input.sprint else 1.0
-		var target_v   := move_dir * float(_setting("max_speed", DEFAULT_MAX_SPEED)) * speed_mult
-		var accel_t    := clamp(float(_setting("acceleration", DEFAULT_ACCELERATION)) * dt, 0.0, 1.0)
-		_body.velocity = _body.velocity.linear_interpolate(target_v, accel_t)
+		var target_v := move_dir * move_speed
+		var accel_t := clamp(float(_setting("acceleration", DEFAULT_ACCELERATION)) * dt, 0.0, 1.0)
+		kinematic_v = kinematic_v.linear_interpolate(target_v, accel_t)
+
+	if i_factor <= 0.001:
+		_body.velocity = kinematic_v
+	else:
+		# Newtonian behavior (inertia)
+		var thrust: float = float(_setting("thrust_force", DEFAULT_THRUST_FORCE))
+		var mass: float = float(_setting("mass", DEFAULT_MASS))
+		var force: Vector3 = move_dir * move_speed * thrust
+		var inertia_accel: Vector3 = force / mass
+		var inertia_v: Vector3 = _body.velocity + inertia_accel * dt
+		var s_damping: float = float(_setting("space_damping", DEFAULT_SPACE_DAMPING))
+		inertia_v *= pow(s_damping, dt * 60.0)
+
+		var max_i_speed: float = float(_setting("max_inertia_speed", DEFAULT_MAX_INERTIA_SPEED))
+		if inertia_v.length_squared() > max_i_speed * max_i_speed:
+			inertia_v = inertia_v.normalized() * max_i_speed
+
+		if i_factor >= 0.999:
+			_body.velocity = inertia_v
+		else:
+			_body.velocity = kinematic_v.linear_interpolate(inertia_v, i_factor)
 
 	# 5. Move.
 	_body.velocity = _body.move_and_slide(_body.velocity, Vector3.UP)
