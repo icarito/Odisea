@@ -191,7 +191,12 @@ func _process(_delta: float) -> void:
 	_process_tick += 1
 	_tick_airlock_chamber_gate()
 	if _airlock_streaming_throttled:
-		# Player is inside an airlock — skip all LOD/facade/preload work as the exterior is invisible
+		# Prewarm static dome resources while the airlock still hides the exterior.
+		# Keep a low cadence so the MultiMesh is ready before the door reveals it
+		# without restoring the dynamic streaming/tracking cost inside the chamber.
+		if _process_tick % 4 == 0:
+			_tick_preload_loaders()
+			_tick_dome_assignment_cache_build()
 		_reset_camera_roll()
 		return
 	if _process_tick % 2 == 0:
