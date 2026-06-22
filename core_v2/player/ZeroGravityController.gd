@@ -71,7 +71,10 @@ func reset_visual_state() -> void:
 func get_standard_exit_orientation() -> Dictionary:
 	var min_p: float = deg2rad(_body.min_pitch) if _body and "min_pitch" in _body else deg2rad(-85.0)
 	var max_p: float = deg2rad(_body.max_pitch) if _body and "max_pitch" in _body else deg2rad(85.0)
-	return {"yaw": wrapf(yaw, -PI, PI), "pitch": clamp(pitch, min_p, max_p)}
+	var forward: Vector3 = _last_rolled_basis.z.normalized()
+	var exit_yaw := atan2(forward.x, forward.z)
+	var exit_pitch := atan2(-forward.y, Vector2(forward.x, forward.z).length())
+	return {"yaw": wrapf(exit_yaw, -PI, PI), "pitch": clamp(exit_pitch, min_p, max_p)}
 
 func step_zero_g(dt: float, input: InputDataV2) -> void:
 	if not is_instance_valid(_body):
@@ -88,16 +91,21 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		yaw = _body.yaw if "yaw" in _body else yaw
 		pitch = _body.pitch if "pitch" in _body else pitch
 
-	# 1. Accumulate yaw / pitch / roll.
+	# 1. Accumulate local yaw / pitch / roll deltas.
+	var yaw_delta := 0.0
+	var pitch_delta := 0.0
+	var roll_delta := 0.0
 	if input:
 		var mouse_y := -input.mouse_delta.y if invert_y else input.mouse_delta.y
-		yaw   -= input.mouse_delta.x * sens
-		pitch -= mouse_y * sens
-		pitch = wrapf(pitch, -PI, PI)
+		yaw_delta = -input.mouse_delta.x * sens
+		pitch_delta = -mouse_y * sens
 		var roll_input := 0.0
 		if input.roll_left:  roll_input += 1.0
 		if input.roll_right: roll_input -= 1.0
-		roll_angle += roll_input * deg2rad(_setting("roll_speed_deg", DEFAULT_ROLL_SPEED_DEG)) * dt
+		roll_delta = roll_input * deg2rad(_setting("roll_speed_deg", DEFAULT_ROLL_SPEED_DEG)) * dt
+		yaw += yaw_delta
+		pitch += pitch_delta
+		roll_angle += roll_delta
 
 	if "yaw"   in _body: _body.yaw   = yaw
 	if "pitch" in _body: _body.pitch = pitch
@@ -113,15 +121,16 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		pitch = zero_g_pitch
 		if "pitch" in _body: _body.pitch = pitch
 
-	# 2. Write to rig root with yaw + pitch + roll.
-	var yp_basis     := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
-	var roll_basis   := Basis(Vector3.FORWARD, roll_angle)
-	var rolled_basis := roll_basis * yp_basis
+	# 2. Rotate around the player's current local axes, never the map axes.
+	var local_delta := Basis(Vector3.UP, yaw_delta)
+	local_delta *= Basis(Vector3.RIGHT, pitch_delta)
+	local_delta *= Basis(Vector3.FORWARD, roll_delta)
+	var rolled_basis := _last_rolled_basis * local_delta
 	rolled_basis = rolled_basis.orthonormalized()
 	var prefix: Basis = _body.get("camera_basis_prefix") if "camera_basis_prefix" in _body else Basis.IDENTITY
 	_last_rolled_basis = rolled_basis
 
-	# Apply full rotation to rig (roll first, then yaw + pitch)
+	# Apply full rotation to the shared rig in player-local coordinates.
 	_camera_rig.transform.basis = prefix * rolled_basis
 	if "base_rig_y" in _body:
 		_camera_rig.transform.origin.y = _body.base_rig_y * 0.5
