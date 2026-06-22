@@ -647,17 +647,10 @@ jobs:
           PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION.zip"
           mkdir -p dist
 
-          # For native platforms, include build_meta.json in the zip
-          if [ -f build_meta.json ]; then
-            case "${{ matrix.platform }}" in
-              linux_*) cp build_meta.json build/linux_*/ ;;
-              windows) cp build_meta.json build/windows/ ;;
-              android) cp build_meta.json build/android/ ;;
-              ios)     cp build_meta.json build/ios/ ;;
-              macos)   # macos zip is already built by export
-                       ;;
-            esac
-          fi
+          # build_meta.json NO se copia suelto al paquete: ya va EMBEBIDO en el .pck
+          # (está en el include_filter de todos los presets), y el runtime lo lee de
+          # res://build_meta.json primero (UpdateManager/ANNAV2). Web usa build_meta.js
+          # aparte. La copia suelta era redundante (macOS ya no la copiaba y andaba).
 
           if [ "${{ matrix.platform }}" = "html5" ]; then
             cd build/html5 && zip -r "../../$PACKAGE" . -x "_headers"
