@@ -432,7 +432,10 @@ func _on_chunk_completed(result, response_code, _headers, body, http, idx):
 		_handle_chunk_error("size_mismatch")
 		return
 
-	if File.new().get_sha256_from_buffer(body) != chunk["sha256"]:
+	# File.get_sha256_from_buffer NO existe en Godot 3.6 (es de Godot 4): devolvía
+	# null -> siempre chunk_hash_mismatch -> descarga fallaba. Usamos HashingContext
+	# vía UpdateUtils (mismo que el verifier) y comparamos el hex.
+	if Utils.get_sha256_hash(body).hex_encode() != chunk["sha256"]:
 		_handle_chunk_error("chunk_hash_mismatch")
 		return
 
@@ -642,7 +645,8 @@ func _redirect_check(url, channel, platform):
 func _handle_non_range_response(body: PoolByteArray):
 	print("[UpdateManager] Server does not support Range. Handling full response.")
 	if body.size() == _active_download["size"]:
-		if File.new().get_sha256_from_buffer(body) == _active_download["sha256"]:
+		# get_sha256_from_buffer no existe en 3.6 (ver chunk verify arriba).
+		if Utils.get_sha256_hash(body).hex_encode() == _active_download["sha256"]:
 			var artifact_id = _active_download["artifact_id"]
 			var part_path = STAGING_DIR + artifact_id + ".part"
 			var f = File.new()
