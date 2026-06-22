@@ -391,18 +391,74 @@ jobs:
           sed -i -E "s|^version/code = .*|version/code = ${ANDROID_VERSION_CODE}|" export_presets.cfg
           sed -i -E "s|^version/name = .*|version/name = \"${ANDROID_VERSION_NAME}\"|" export_presets.cfg
 
-      - name: Limit macOS texture import formats
-        if: matrix.platform == 'macos'
+      - name: Limit texture import formats per platform
         run: |
-          # The macOS desktop export only needs S3TC. Generating BPTC, ETC/ETC2
-          # and PVRTC variants for every VRAM texture exhausts the Linux runner
-          # during the headless import before Godot can create the archive.
-          sed -i 's/^vram_compression\/import_bptc=true$/vram_compression\/import_bptc=false/' project.godot
-          sed -i 's/^vram_compression\/import_etc=true$/vram_compression\/import_etc=false/' project.godot
-          sed -i 's/^vram_compression\/import_pvrtc=true$/vram_compression\/import_pvrtc=false/' project.godot
-          sed -i '/^\[preset\.6\.options\]/,/^\[preset\./ s/^texture_format\/bptc = true$/texture_format\/bptc = false/' export_presets.cfg
+          # El step de import (godot --editor --quit) genera una variante VRAM por
+          # cada formato habilitado en [rendering] vram_compression, para CADA textura.
+          # Generar formatos que la plataforma no usa hace que el import tarde ~14min
+          # (vs ~3min cuando solo se genera lo necesario, como ya hacía macOS).
+          #
+          # El proyecto es GLES2 (quality/driver/driver_name="GLES2"):
+          #   - BPTC es GLES3/Vulkan -> NUNCA se usa en GLES2: off en todas.
+          #   - PVRTC es iOS viejo -> off salvo iOS.
+          #   - Desktop (linux_x64, windows, macos) usa S3TC -> ETC/ETC2 off.
+          #   - linux_arm64 usa ETC (su preset tiene s3tc=false) -> mantener ETC.
+          #   - android/ios/html5 usan ETC/ETC2 -> mantener.
+          # No tocamos export_presets.cfg (qué se EXPORTA); solo el import VRAM.
+          set_vram() { # set_vram <key> <true|false>
+            sed -i "s/^vram_compression\/import_$1=.*/vram_compression\/import_$1=$2/" project.godot
+          }
+          ensure_vram() { # add the key if missing, then set it
+            grep -q "^vram_compression/import_$1=" project.godot \
+              || sed -i "/^\[rendering\]/a vram_compression/import_$1=true" project.godot
+            set_vram "$1" "$2"
+          }
+          # BPTC inútil en GLES2 para todas las plataformas.
+          ensure_vram bptc false
+          case "${{ matrix.platform }}" in
+            linux_x64|windows|macos)
+              ensure_vram etc false
+              ensure_vram etc2 false
+              ensure_vram pvrtc false
+              ;;
+            linux_arm64)
+              # Mantiene ETC (s3tc=false en su preset); desactiva el resto.
+              ensure_vram etc true
+              ensure_vram etc2 false
+              ensure_vram pvrtc false
+              ;;
+            android|html5)
+              ensure_vram etc true
+              ensure_vram etc2 true
+              ensure_vram pvrtc false
+              ;;
+            ios)
+              # iOS conserva ETC/ETC2 y PVRTC por compatibilidad de dispositivos.
+              ensure_vram etc true
+              ensure_vram etc2 true
+              ensure_vram pvrtc true
+              ;;
+          esac
+          echo "VRAM import formats for ${{ matrix.platform }}:"
           grep '^vram_compression/' project.godot
-          sed -n '/^\[preset\.6\.options\]/,/^\[preset\./p' export_presets.cfg | grep '^texture_format/'
+
+          # Si desactivamos el import de BPTC, el preset no debe pedir exportarlo
+          # (no habría datos BPTC y el exporter se quejaría). Desactivamos el
+          # texture_format/bptc en el preset de la plataforma desktop afectada.
+          # preset.1=Linux x64, preset.5=Windows, preset.6=macOS.
+          disable_preset_bptc() { # disable_preset_bptc <preset_index>
+            sed -i "/^\[preset\.$1\.options\]/,/^\[preset\./ s/^texture_format\/bptc = true$/texture_format\/bptc = false/" export_presets.cfg
+          }
+          case "${{ matrix.platform }}" in
+            linux_x64) disable_preset_bptc 1 ;;
+            windows)   disable_preset_bptc 5 ;;
+            macos)     disable_preset_bptc 6 ;;
+          esac
+          case "${{ matrix.platform }}" in
+            linux_x64) sed -n '/^\[preset\.1\.options\]/,/^\[preset\./p' export_presets.cfg | grep '^texture_format/' || true ;;
+            windows)   sed -n '/^\[preset\.5\.options\]/,/^\[preset\./p' export_presets.cfg | grep '^texture_format/' || true ;;
+            macos)     sed -n '/^\[preset\.6\.options\]/,/^\[preset\./p' export_presets.cfg | grep '^texture_format/' || true ;;
+          esac
 
       - name: Export
         if: steps.ios_gate.outputs.skip_ios != 'true'
