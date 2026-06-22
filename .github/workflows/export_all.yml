@@ -28,6 +28,15 @@ permissions:
   issues: write
   pull-requests: write
 
+# Solo el export más reciente por rama debe correr: si entra un run nuevo (push a
+# main vía workflow_run, o un dispatch) mientras hay uno en curso de la misma rama,
+# se cancela el viejo. Se agrupa por la rama del CÓDIGO buildeado: bajo workflow_run
+# github.ref apunta al archivo del workflow (default branch), así que usamos
+# head_branch del run que disparó; bajo dispatch, github.ref_name.
+concurrency:
+  group: export-all-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   prep:
     runs-on: ubuntu-latest
