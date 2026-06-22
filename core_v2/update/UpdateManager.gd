@@ -94,7 +94,10 @@ func check_for_updates() -> void:
 	http.connect("request_completed", self, "_on_check_completed", [http, channel, platform])
 
 	var url = "https://odisea.educa.juegos/game/updates/v1/manifest?" + query
-	var err = http.request(url)
+	# El server EXIGE este Accept o devuelve 400 invalid_accept_header. Sin él, el
+	# check siempre fallaba (-> State.FAILED) y nunca aparecía la notificación.
+	var request_headers := ["Accept: application/vnd.odisea.update-manifest.v1+json"]
+	var err = http.request(url, request_headers)
 	if err != OK:
 		_on_error("network_unavailable", true)
 		http.queue_free()
@@ -633,7 +636,8 @@ func _redirect_check(url, channel, platform):
 	var http = HTTPRequest.new()
 	add_child(http)
 	http.connect("request_completed", self, "_on_check_completed", [http, channel, platform])
-	http.request(url)
+	# Mismo Accept que el check directo, o el destino del redirect daría 400.
+	http.request(url, ["Accept: application/vnd.odisea.update-manifest.v1+json"])
 
 func _handle_non_range_response(body: PoolByteArray):
 	print("[UpdateManager] Server does not support Range. Handling full response.")
