@@ -10,6 +10,18 @@ export(float) var acceleration := 15.0
 # Per-60Hz damping applied when there is no thrust input.
 export(float, 0.0, 1.0) var idle_damping := 0.95
 
+# Newtonian Inertia (FD-233)
+# 0.0 = kinematic pure, 1.0 = inertia pure
+export(float, 0.0, 1.0) var inertia_factor := 0.3
+# Thrust force in Newtons
+export(float) var thrust_force := 40.0
+# Player mass in kg
+export(float) var mass := 80.0
+# Spatial friction per frame (0.995-1.0)
+export(float, 0.995, 1.0) var space_damping := 0.998
+# Absolute cap for inertial velocity (m/s)
+export(float) var max_inertia_speed := 12.0
+
 # Zero-G camera. The rig inherits full 6DOF orientation; the mesh does not inherit pitch/roll.
 export(float) var roll_speed_deg := 90.0
 # Fixed trailing distance for the dedicated 0G camera.
