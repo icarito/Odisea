@@ -185,14 +185,18 @@ func _thread_func(_userdata):
 
 		var now = OS.get_ticks_msec()
 
-		if not _is_connected:
+		# Solo reintentar si el socket está realmente DESCONECTADO. _is_connected solo
+		# se vuelve true tras el handshake completo; durante el TCP+WS handshake sigue
+		# false, y sin este guard el loop llamaba connect_to_url sobre un socket ya en
+		# proceso -> ERR_ALREADY_IN_USE en cada tick (4-5 errores hasta conectar).
+		if not _is_connected and _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 			var backoff = min(MAX_RECONNECT_INTERVAL_MS, RECONNECT_INTERVAL_MS * pow(1.5, _reconnect_attempts))
 			var jitter = randi() % 500
 			if now - last_reconnect > (backoff + jitter):
 				_attempt_connection()
 				last_reconnect = now
 				_reconnect_attempts += 1
-		else:
+		elif _is_connected:
 			_reconnect_attempts = 0
 			_maybe_upgrade_to_local_peer(now)
 			_mutex.lock()
