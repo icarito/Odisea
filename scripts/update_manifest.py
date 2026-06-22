@@ -125,6 +125,15 @@ def cmd_generate(args):
     version = args.version or "0.0.0"
     build_id = args.build_id or "0"
     channel = args.channel or "dev"
+
+    # release_notes_url debe apuntar al TAG REAL del release, derivado del base_url
+    # (que ya tiene .../releases/download/<TAG>). Antes se hardcodeaba v{version} con
+    # la versión humana (espacios/paréntesis) -> link de changelog roto.
+    release_notes_url = f"https://github.com/icarito/Odisea/releases/tag/v{version}"
+    if args.base_url and "/releases/download/" in args.base_url:
+        release_tag = args.base_url.split("/releases/download/", 1)[1].split("/", 1)[0]
+        if release_tag:
+            release_notes_url = f"https://github.com/icarito/Odisea/releases/tag/{release_tag}"
     platform = args.platform or "linux"
     arch = args.arch or "x86_64"
     commit = args.commit or "0" * 40
@@ -158,7 +167,7 @@ def cmd_generate(args):
             "chunks": main_artifact["chunks"]
         },
         "deltas": [],
-        "release_notes_url": f"https://github.com/icarito/Odisea/releases/tag/v{version}",
+        "release_notes_url": release_notes_url,
         "downloads_page": "https://icarito.github.io/odisea-neon-dreams/#downloads"
     }
 
