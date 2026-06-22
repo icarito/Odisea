@@ -2270,6 +2270,9 @@ boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
 config/version="v0.3.2"
+# Android: el botón "back" no debe cerrar la app. PauseManager intercepta
+# WM_GO_BACK_REQUEST para abrir/cerrar el menú de pausa en su lugar.
+config/quit_on_go_back=false
 
 [audio]
 
