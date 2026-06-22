@@ -973,33 +973,60 @@ jobs:
           find nightly_assets -type f -print | sort
           echo "=== End of file listing ==="
 
-          # Include manifests and public key in nightly release
-          mapfile -t RELEASE_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "manifest-*.json" -o -name "*.pem" \) -print | sort)
-          if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
-            echo "::error::No release artifacts found in nightly_assets"
+          # Separar BINARIOS (zip/apk/pem) de MANIFESTS. El manifest es lo que el
+          # server lee para decidir qué descargar, así que debe subirse SIEMPRE
+          # DESPUÉS de los binarios: si no, hay una ventana (o un run cancelado por
+          # cancel-in-progress) donde el manifest apunta a un .zip que aún no existe
+          # -> el cliente baja 404. Por eso ya NO borramos+recreamos el release
+          # (delete+create dejaba todo ausente entre medio); usamos upload --clobber.
+          mapfile -t BIN_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "*.pem" \) -print | sort)
+          mapfile -t MANIFEST_FILES < <(find nightly_assets -type f -name "manifest-*.json" -print | sort)
+          if [ "${#BIN_FILES[@]}" -eq 0 ]; then
+            echo "::error::No binary artifacts found in nightly_assets"
             find nightly_assets -maxdepth 3 -type f -print || true
             exit 1
           fi
 
-          # Delete existing tag and release if they exist
-          gh release delete "$TAG" --yes --cleanup-tag || true
-          git push origin ":refs/tags/$TAG" || true
-
-          # Generate detailed artifact list
+          # Notas del release
           echo "### Artifacts" > body.md
           echo "| Artifact | Size |" >> body.md
           echo "|---|---|" >> body.md
-          du -h "${RELEASE_FILES[@]}" | awk '{n=split($2,a,"/"); print "| " a[n] " | " $1 " |"}' >> body.md
+          du -h "${BIN_FILES[@]}" "${MANIFEST_FILES[@]}" | awk '{n=split($2,a,"/"); print "| " a[n] " | " $1 " |"}' >> body.md
           echo "" >> body.md
           echo "Built from commit ${{ needs.prep.outputs.sha }} at $(date -u +'%Y-%m-%d %H:%M:%S') UTC." >> body.md
-          
-          # Create new release
-          gh release create "$TAG" \
-            --title "Nightly Tip" \
-            --notes-file body.md \
-            --prerelease \
-            --target "${{ needs.prep.outputs.head_sha }}" \
-            "${RELEASE_FILES[@]}"
+
+          # 1. Asegurar que el release existe (sin borrarlo). Si no existe, crearlo
+          #    vacío; si existe, solo actualizar notas/target. No se borra para no
+          #    dejar el release ausente entre delete y create.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file body.md --target "${{ needs.prep.outputs.head_sha }}" --prerelease
+          else
+            gh release create "$TAG" --title "Nightly Tip" --notes-file body.md \
+              --prerelease --target "${{ needs.prep.outputs.head_sha }}"
+          fi
+
+          # 2. Subir PRIMERO los binarios (clobber reemplaza los del commit anterior).
+          gh release upload "$TAG" "${BIN_FILES[@]}" --clobber
+
+          # 3. Subir el manifest AL FINAL, ya con los binarios presentes. Recién acá
+          #    el server puede servir un manifest cuyo download URL existe.
+          if [ "${#MANIFEST_FILES[@]}" -gt 0 ]; then
+            gh release upload "$TAG" "${MANIFEST_FILES[@]}" --clobber
+          fi
+
+          # 4. Limpiar binarios de commits viejos que quedaron en el release (sus
+          #    nombres llevan el sha, así que no los pisa el --clobber del actual).
+          KEEP_SHA="${{ needs.prep.outputs.version_slug }}"
+          for old in $(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null); do
+            case "$old" in
+              *.zip|*.apk)
+                if [[ "$old" != *"$KEEP_SHA"* ]]; then
+                  echo "Removing stale asset: $old"
+                  gh release delete-asset "$TAG" "$old" --yes || true
+                fi
+                ;;
+            esac
+          done
 
       - name: Discord Notification
         if: success()
