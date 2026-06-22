@@ -54,6 +54,7 @@ Usar tres capas separadas:
 | FD | Title | Status | Effort | Priority | PM Note |
 |----|-------|--------|--------|----------|---------|
 | FD-021 | Scene Transition System | Implemented | Medium | P0 | AirlockZoneV2 con carga async, snapshot, camera yank fix. |
+| FD-236 | Bake Airlock CSG | Implemented | Small | P0 | Performance optimization for airlocks. |
 | FD-042 | Over-the-Shoulder Camera | Implemented | Small | P0 | Desplaza camara al hombro, compensacion de salto. |
 | FD-040 | PlateContentStream Authoring | In Progress | Small | P0 | Sub-escenas jugables por plate. |
 | FD-026 | Goal Beacon | Planned | Small | P0 | Loop de nivel testeable. |
@@ -65,6 +66,7 @@ Usar tres capas separadas:
 | FD | Title | Status | Effort | Priority | PM Note |
 |----|-------|--------|--------|----------|---------|
 | FD-032 | Seamless Startup Streaming | In Progress | Large | P1 | Vecinos de transicion, luego chunks. |
+| FD-237 | Async Scene Loading | Implemented | Medium | P1 | Async loading + WorldRotator memory fix. |
 | FD-036 | Gravity Manager | Implemented | Medium | P1 | World-rotation approach. |
 | FD-039 | Gravity Physics Strategy | Implemented | Medium | P1 | Fuente de verdad para fisica/espiral. |
 | FD-033 | Advanced Traversal | In Progress | Large | P1 | Ladder/ledge core si el nivel lo necesita. |
@@ -80,6 +82,7 @@ Usar tres capas separadas:
 | FD-035 | ConveyorCarrousel | Design | Medium | P2 | Puzzle prop. |
 | FD-022 | BGM Audio Manager | Planned | Medium | P2 | Polish de transiciones. |
 | FD-027 | Spawn Cinematic / ScreenBorders | In Progress | Medium | P2 | Ocultar entrada/retry. |
+| FD-238 | FD System Improvements | In Progress | Small | P2 | Skills, fd-close, changelog. |
 
 ### P3 — Contenido posterior
 
@@ -98,6 +101,11 @@ Usar tres capas separadas:
 | FD-001 a FD-018 | Sistema inicial | 2026-01/02 | Archivados en docs/features/archive/ |
 | FD-021 | Scene Transition System | 2026-05-29 | AirlockZoneV2, camera yank fix. |
 | FD-042 | Over-the-Shoulder Camera | 2026-05-29 | OTS en espacios estrechos. |
+| FD-231 | Main Menu & Pause | 2026-06-22 | Screen, keyboard/gamepad, pause. |
+| FD-232 | FireEmitter Fix | 2026-06-22 | Reparar FireEmitter + Beacon. |
+| FD-233 | ZeroG Inertia Layer | 2026-06-22 | Newtoniana en 0G. |
+| FD-234 | Version Display | 2026-06-22 | Versión en boot y menú. |
+| FD-235 | Performance Pass | 2026-06-22 | LOD + instrumentación. |
 | FD-023 | WindZone | 2026-03-02 | archive/ |
 | FD-024 | Guardrail Platform | 2026-03-02 | archive/ |
 
