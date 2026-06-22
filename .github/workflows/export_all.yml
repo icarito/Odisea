@@ -94,8 +94,12 @@ jobs:
           echo "is_dispatch=$IS_DISPATCH" >> $GITHUB_OUTPUT
           echo "publish_prerelease=${{ github.event.inputs.publish_prerelease }}" >> $GITHUB_OUTPUT
 
-          # Base version from project.godot. Some dev builds do not define it,
-          BASE_VERSION=$(grep -E "^application/config/version=" project.godot | head -n 1 | cut -d'"' -f2 || true)
+          # Base version from project.godot. Godot la escribe como "config/version="
+          # bajo la sección [application] (no "application/config/version="), así que
+          # el grep anterior nunca matcheaba y caía SIEMPRE al fallback 0.1.0,
+          # ignorando la versión real (v0.3.2). Aceptamos ambas formas. Se quita un
+          # eventual prefijo "v" para que el versionado sea numérico.
+          BASE_VERSION=$(grep -E "^(application/)?config/version=" project.godot | head -n 1 | cut -d'"' -f2 | sed -E 's/^v//' || true)
           if [ -z "$BASE_VERSION" ]; then
             BASE_VERSION="0.1.0"
           fi
@@ -627,10 +631,11 @@ jobs:
         if: steps.ios_gate.outputs.skip_ios != 'true'
         run: |
           # version_slug (sin espacios/paréntesis) para que el nombre del asset
-          # coincida con la URL del manifest y no lo sanitice GitHub.
+          # coincida con la URL del manifest y no lo sanitice GitHub. Para nightly el
+          # slug ya incluye el sha (0.1.0-nightly+<sha>), así que NO se agrega -$SHA
+          # otra vez (antes salía duplicado: ...+0e504e1-0e504e1).
           VERSION="${{ needs.prep.outputs.version_slug }}"
-          SHA="${{ needs.prep.outputs.sha }}"
-          PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION-$SHA.zip"
+          PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION.zip"
           mkdir -p dist
 
           # For native platforms, include build_meta.json in the zip
@@ -649,7 +654,7 @@ jobs:
             cd build/html5 && zip -r "../../$PACKAGE" . -x "_headers"
           elif [ "${{ matrix.platform }}" = "android" ]; then
             # APK se sube sin comprimir (ya es un zip firmado)
-            PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION-$SHA.apk"
+            PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION.apk"
             cp build/android/Odisea-Tech-Demo.apk "$PACKAGE"
           elif [ "${{ matrix.platform }}" = "ios" ]; then
             cd build/ios && zip -r "../../$PACKAGE" .
