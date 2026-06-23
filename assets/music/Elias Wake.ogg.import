@@ -2,12 +2,12 @@
 
 importer="ogg_vorbis"
 type="AudioStreamOGGVorbis"
-path="res://.import/Elias Wake.ogg-356a192b7913b04c54574d18c28d46e639ceb7b7.ogg"
+path="res://.import/Elias Wake.ogg-c8316dac0556d9685063b9b01cf6372a1ce759c0.ogg"
 
 [deps]
 
 source_file="res://assets/music/Elias Wake.ogg"
-dest_files=[ "res://.import/Elias Wake.ogg-356a192b7913b04c54574d18c28d46e639ceb7b7.ogg" ]
+dest_files=[ "res://.import/Elias Wake.ogg-c8316dac0556d9685063b9b01cf6372a1ce759c0.ogg" ]
 
 [params]
 
