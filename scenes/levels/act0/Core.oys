@@ -1,0 +1,11 @@
+# Prólogo Acto 0 — Elías Wake
+# Añadir eventos guionados debajo del CALL usando WAIT, PRINT, VCAMERA,
+# PLAY_ANIM, CALL y demás instrucciones OYS.
+
+SECTION "PROLOGUE"
+	CALL PrologueDirector "start_prologue"
+
+	# --- SCRIPTED EVENTS ---
+	# WAIT 12.0
+	# PRINT "Evento del prólogo"
+	# -----------------------

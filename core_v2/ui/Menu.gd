@@ -79,7 +79,7 @@ func _connect_signals():
 
 func _on_NewGame_pressed():
 	# TODO: Clear existing save? Requirement didn't specify.
-	_start_game("res://core_v2/levels/interiors/Dome_Crio.tscn")
+	_start_game("res://scenes/levels/act0/Core.tscn")
 
 func _on_Continue_pressed():
 	# PersistenceManager will handle loading the latest checkpoint automatically when the scene loads
