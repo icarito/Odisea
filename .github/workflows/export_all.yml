@@ -1146,7 +1146,7 @@ jobs:
           if-no-files-found: ignore
 
   manifests:
-    needs: [prep, export, deltas]
+    needs: [prep, export]
     runs-on: ubuntu-latest
     # Generate signed manifests only for main (nightly) or release branches.
     # Forks don't have access to the signing secret and shouldn't publish manifests.
