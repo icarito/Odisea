@@ -117,9 +117,17 @@ def cmd_generate(args):
         print(f"Error: No artifacts found in {args.artifacts_dir}", file=sys.stderr)
         sys.exit(1)
 
-    # Heuristic for full_artifact: largest file or first one if only one
-    artifacts.sort(key=lambda x: x["size"], reverse=True)
-    main_artifact = artifacts[0]
+    # Elegir el artefacto del update. PREFERIR un .pck: el cliente hace hot-swap con
+    # load_resource_pack (requiere un .pck real, no un .zip), y el .pck es chunkeable
+    # y diffeable (deltas binarios futuros). Si no hay .pck (móvil/web), caer al más
+    # grande (.zip/.apk).
+    pcks = [a for a in artifacts if a["path"].endswith(".pck")]
+    if pcks:
+        pcks.sort(key=lambda x: x["size"], reverse=True)
+        main_artifact = pcks[0]
+    else:
+        artifacts.sort(key=lambda x: x["size"], reverse=True)
+        main_artifact = artifacts[0]
 
     # Values from args or defaults
     version = args.version or "0.0.0"

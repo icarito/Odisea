@@ -666,6 +666,29 @@ jobs:
             cd build && zip -r "../$PACKAGE" . -x "_headers" -x "netlify/*" -x "pages/*" -x "html5/*" -x "android/*" -x "ios/*"
           fi
 
+      - name: Stage standalone .pck for in-app update (desktop)
+        if: matrix.platform == 'linux_x64' || matrix.platform == 'linux_arm64' || matrix.platform == 'windows'
+        run: |
+          # El export desktop usa embed_pck=false, así que junto al ejecutable queda
+          # un .pck suelto. El update in-app hace hot-swap de ESE .pck (chunkeable y
+          # diffeable a futuro), NO del .zip (que es para instalación manual y cambia
+          # entero con cualquier byte). Lo publicamos como asset aparte del release.
+          VERSION="${{ needs.prep.outputs.version_slug }}"
+          case "${{ matrix.platform }}" in
+            linux_x64)   SRC="build/linux_x86_64" ;;
+            linux_arm64) SRC="build/linux_arm64" ;;
+            windows)     SRC="build/windows" ;;
+          esac
+          PCK=$(find "$SRC" -maxdepth 1 -name "*.pck" | head -n 1)
+          if [ -z "$PCK" ]; then
+            echo "::error::No standalone .pck found in $SRC (embed_pck debería ser false)"
+            ls -la "$SRC" || true
+            exit 1
+          fi
+          mkdir -p dist
+          cp "$PCK" "dist/${{ matrix.artifact_name }}-$VERSION.pck"
+          echo "Staged update .pck: dist/${{ matrix.artifact_name }}-$VERSION.pck ($(du -h "$PCK" | cut -f1))"
+
       - name: Upload Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'
         uses: actions/upload-artifact@v4
@@ -674,6 +697,7 @@ jobs:
           path: |
             dist/*.zip
             dist/*.apk
+            dist/*.pck
 
       - name: Upload Netlify artifact
         if: matrix.platform == 'html5'
@@ -988,7 +1012,9 @@ jobs:
           # cancel-in-progress) donde el manifest apunta a un .zip que aún no existe
           # -> el cliente baja 404. Por eso ya NO borramos+recreamos el release
           # (delete+create dejaba todo ausente entre medio); usamos upload --clobber.
-          mapfile -t BIN_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "*.pem" \) -print | sort)
+          # Los .pck (target del update in-app) van con los binarios: el manifest
+          # apunta a ellos, así que deben existir ANTES de subir el manifest.
+          mapfile -t BIN_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "*.pck" -o -name "*.pem" \) -print | sort)
           mapfile -t MANIFEST_FILES < <(find nightly_assets -type f -name "manifest-*.json" -print | sort)
           if [ "${#BIN_FILES[@]}" -eq 0 ]; then
             echo "::error::No binary artifacts found in nightly_assets"
@@ -1042,7 +1068,7 @@ jobs:
           KEEP_SHA="${{ needs.prep.outputs.version_slug }}"
           for old in $(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null); do
             case "$old" in
-              *.zip|*.apk)
+              *.zip|*.apk|*.pck)
                 if [[ "$old" != *"$KEEP_SHA"* ]]; then
                   echo "Removing stale asset: $old"
                   gh release delete-asset "$TAG" "$old" --yes || true

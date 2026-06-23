@@ -317,8 +317,20 @@ func cancel_download() -> void:
 		_set_state(State.AVAILABLE)
 
 func request_restart() -> void:
-	if _state == State.READY_TO_RESTART:
-		get_tree().quit() # Or OS.shell_execute for restart if possible
+	if _state != State.READY_TO_RESTART:
+		return
+	# En desktop, get_tree().quit() solo CIERRA el juego (no relanza) -> el usuario
+	# cree que crasheó. Relanzamos el ejecutable como proceso desacoplado y luego
+	# salimos; el pending_boot se aplica en el arranque del nuevo proceso.
+	if OS.has_feature("web"):
+		get_tree().quit()
+		return
+	var exe := OS.get_executable_path()
+	if exe != "":
+		# OS.create_process no existe en 3.6; execute con blocking=false relanza el
+		# ejecutable en background sin esperar. El proceso nuevo aplica el pending_boot.
+		OS.execute(exe, [], false)
+	get_tree().quit()
 
 func confirm_boot() -> void:
 	var pending = _load_json(PENDING_BOOT_FILE, {})
@@ -613,29 +625,49 @@ func _check_pending_boot():
 
 	if pending["attempts"] > 2:
 		print("[UpdateManager] Pending boot failed 2 times. Rolling back.")
-		var d = Directory.new()
-		d.remove(PENDING_BOOT_FILE)
-		_load_active_packages()
+		_rollback_pending()
 		return
 
-	_apply_packages(pending["package_ids"], pending.get("package_hashes", {}))
+	# Aplicar el pending; si FALLA (p.ej. el package no es un .pck válido, o falta),
+	# revertir YA al build instalado en vez de quedar en un estado roto y crashear.
+	# Antes el fallo se ignoraba (continue) y el arranque seguía con un swap a medias.
+	if not _apply_packages(pending["package_ids"], pending.get("package_hashes", {})):
+		print("[UpdateManager] Pending package(s) failed to apply. Rolling back to installed build.")
+		_rollback_pending()
+
+# Descarta el pending (boot fallido), borra sus packages no confirmados, y carga
+# los packages confirmados (build instalado) para arrancar en un estado sano.
+func _rollback_pending() -> void:
+	var pending = _load_json(PENDING_BOOT_FILE, {})
+	var confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
+	var keep = confirmed.get("package_ids", [])
+	var d = Directory.new()
+	for id in pending.get("package_ids", []):
+		if not id in keep:
+			d.remove(PACKAGE_DIR + id + ".pck")
+	d.remove(PENDING_BOOT_FILE)
+	_load_active_packages()
 
 func _load_active_packages():
 	var confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
 	if confirmed.has("package_ids"):
 		_apply_packages(confirmed["package_ids"])
 
-func _apply_packages(package_ids: Array, p_hashes: Dictionary = {}):
+# Devuelve true si TODOS los packages requeridos se aplicaron; false si alguno
+# faltaba, tenía hash inválido o no cargó (para que el caller pueda revertir).
+func _apply_packages(package_ids: Array, p_hashes: Dictionary = {}) -> bool:
 	var package_hashes = p_hashes
 	if package_hashes.empty():
 		var confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
 		package_hashes = confirmed.get("package_hashes", {})
 
+	var all_ok := true
 	for id in package_ids:
 		var path = PACKAGE_DIR + id + ".pck"
 		var f = File.new()
 		if not f.file_exists(path):
 			print("[UpdateManager] Missing package: ", id)
+			all_ok = false
 			continue
 
 		# Re-verify SHA-256 before loading
@@ -643,10 +675,13 @@ func _apply_packages(package_ids: Array, p_hashes: Dictionary = {}):
 			var expected_hash = package_hashes[id]
 			if f.get_sha256(path) != expected_hash:
 				print("[UpdateManager] Hash mismatch for package ", id, ". Skipping load.")
+				all_ok = false
 				continue
 
 		if not ProjectSettings.load_resource_pack(path, true):
 			print("[UpdateManager] Failed to load package: ", id)
+			all_ok = false
+	return all_ok
 
 func _cleanup_packages():
 	var active = _local_state.get("active_package_ids", [])
