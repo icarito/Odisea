@@ -202,7 +202,7 @@ def cmd_generate(args):
             "chunk_size": main_artifact["chunk_size"],
             "chunks": main_artifact["chunks"]
         },
-        "deltas": [],
+        "delta_artifacts": [],
         "release_notes_url": release_notes_url,
         "downloads_page": "https://icarito.github.io/odisea-neon-dreams/#downloads"
     }
@@ -238,6 +238,88 @@ def cmd_generate(args):
         print(f"Manifest written to {args.output}")
     else:
         print(output)
+
+def cmd_add_delta(args):
+    """Inyecta un delta_artifact (patch bsdiff) en un manifest ya generado y lo
+    re-firma. El cliente elige el delta cuyo from_build_id == su build actual;
+    si no hay match, cae al full_artifact. NO se encadenan: cada delta reconstruye
+    el .pck nuevo COMPLETO directo desde el build viejo indicado."""
+    with open(args.manifest, "r") as f:
+        envelope = json.load(f)
+    payload = json.loads(base64.b64decode(envelope["payload_b64"]))
+
+    # El .patch.gz es lo que se TRANSPORTA (size/sha256/chunks describen el .gz).
+    gz_path = args.patch_gz
+    gz_hashes = calculate_hashes(gz_path)
+
+    # patch_* describen el patch CRUDO tras inflar el gz (para verificar el inflate).
+    import gzip as _gz
+    h = hashlib.sha256()
+    patch_raw_size = 0
+    with _gz.open(gz_path, "rb") as gf:
+        while True:
+            b = gf.read(1024 * 1024)
+            if not b:
+                break
+            h.update(b)
+            patch_raw_size += len(b)
+    patch_raw_sha256 = h.hexdigest()
+
+    platform = payload["platform"]
+    arch = payload["arch"]
+    version = payload["version"]
+    gz_name = os.path.basename(gz_path)
+    delta = {
+        "artifact_id": f"{platform}-{arch}-{version}-delta-from-{args.from_build_id}",
+        "kind": "delta_patch",
+        "from_build_id": str(args.from_build_id),
+        "url": f"{args.base_url}/{gz_name}" if args.base_url else gz_name,
+        # transporte (gzip): size/sha256/chunks del .gz, para Range/resume.
+        "compression": "gzip",
+        "size": gz_hashes["size"],
+        "sha256": gz_hashes["sha256"],
+        "chunk_size": gz_hashes["chunk_size"],
+        "chunks": gz_hashes["chunks"],
+        # patch crudo (tras inflar el gz, antes de bspatch).
+        "patch_uncompressed_size": patch_raw_size,
+        "patch_sha256": patch_raw_sha256,
+        # .pck RECONSTRUIDO (tras bspatch): debe coincidir con el full uncompressed_*.
+        "uncompressed_size": payload["full_artifact"].get("uncompressed_size", 0),
+        "uncompressed_sha256": payload["full_artifact"].get("uncompressed_sha256", ""),
+    }
+
+    payload.setdefault("delta_artifacts", [])
+    # Reemplazar si ya existe un delta del mismo from_build_id (idempotente).
+    payload["delta_artifacts"] = [
+        d for d in payload["delta_artifacts"]
+        if d.get("from_build_id") != delta["from_build_id"]
+    ]
+    payload["delta_artifacts"].append(delta)
+
+    # Re-serializar y RE-FIRMAR (la firma cubre el payload, que cambió).
+    payload_json = json.dumps(payload, sort_keys=True, separators=(',', ':'))
+    payload_bytes = payload_json.encode("utf-8")
+    if os.path.exists(args.key):
+        with open(args.key, "r") as f:
+            key_content = f.read()
+    else:
+        key_content = args.key
+    signature_raw = sign_payload(payload_bytes, key_content)
+
+    envelope = {
+        "schema_version": 1,
+        "payload_b64": base64.b64encode(payload_bytes).decode("utf-8"),
+        "signatures": [{
+            "algorithm": "RSASSA-PKCS1-v1_5-SHA256",
+            "key_id": args.key_id,
+            "value_b64": base64.b64encode(signature_raw).decode("utf-8"),
+        }],
+    }
+    out = args.output or args.manifest
+    with open(out, "w") as f:
+        f.write(json.dumps(envelope, indent=2))
+    print(f"Delta from build {args.from_build_id} added to {out} "
+          f"(patch.gz {gz_hashes['size']} bytes, raw {patch_raw_size} bytes)")
 
 def cmd_verify(args):
     with open(args.manifest, "r") as f:
@@ -299,6 +381,16 @@ def main():
     p_gen.add_argument("--min-supported-version")
     p_gen.add_argument("--base-url", help="Base URL for artifacts")
 
+    # Add-delta: inyecta un patch bsdiff en un manifest ya generado y lo re-firma.
+    p_delta = subparsers.add_parser("add-delta")
+    p_delta.add_argument("--manifest", required=True, help="Manifest generado a modificar")
+    p_delta.add_argument("--patch-gz", required=True, help=".patch.gz a publicar como delta")
+    p_delta.add_argument("--from-build-id", required=True, help="build_id del .pck base del diff")
+    p_delta.add_argument("--key", required=True, help="Path a private.pem o su contenido")
+    p_delta.add_argument("--key-id", required=True)
+    p_delta.add_argument("--base-url", help="Base URL de descarga del patch")
+    p_delta.add_argument("--output", help="Salida (default: sobrescribe --manifest)")
+
     # Verify
     p_ver = subparsers.add_parser("verify")
     p_ver.add_argument("--manifest", required=True)
@@ -310,6 +402,8 @@ def main():
         cmd_inventory(args)
     elif args.command == "generate":
         cmd_generate(args)
+    elif args.command == "add-delta":
+        cmd_add_delta(args)
     elif args.command == "verify":
         cmd_verify(args)
 

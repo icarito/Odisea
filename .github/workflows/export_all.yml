@@ -895,8 +895,129 @@ jobs:
           vercel alias set "$URL" odisea-ios.vercel.app --token "$VERCEL_TOKEN" --scope sebastian-silvas-projects-8fed1460
           echo "Aliased to https://odisea-ios.vercel.app"
 
-  manifests:
+  # Genera deltas bsdiff EN PARALELO al deploy/manifests (no afecta build time): baja
+  # el .pck.gz y el manifest del release ANTERIOR (tag fijo "nightly", aún no
+  # sobrescrito), corre bsdiff_gen contra el .pck.gz nuevo, y publica un .patch.gz por
+  # plataforma. Solo 1 delta (build N-1 -> N); quien venga de más atrás recibe el full.
+  # Si algo falla (no hay release previo, etc.) el job no rompe el pipeline: sin delta,
+  # el cliente baja el full.
+  deltas:
     needs: [prep, export]
+    runs-on: ubuntu-latest
+    if: |
+      (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.ref_name == 'release' || needs.prep.outputs.is_dispatch == 'true') &&
+      github.repository == 'icarito/Odisea'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prep.outputs.head_sha }}
+
+      - name: Download new .pck artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_artifacts
+
+      - name: Build deltas vs previous release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          gcc -O2 native/bsdiff/bsdiff_gen.c -o /tmp/bsdiff_gen
+          mkdir -p deltas
+
+          # El nightly se publica en el tag fijo "nightly"; el release estable en su tag.
+          if [ "${{ needs.prep.outputs.channel }}" = "nightly" ]; then
+            PREV_TAG="nightly"
+          else
+            # Para release estable, el "anterior" es el penúltimo tag; lo dejamos a futuro.
+            echo "Delta generation for stable release not wired yet — skipping."
+            exit 0
+          fi
+
+          # platform_arch:new_pck_pattern:out_platform:out_arch (solo desktop tiene .pck.gz)
+          PLATFORMS=(
+            "linux_x64:Odisea-Tech-Demo-Linux-*:linux:x86_64"
+            "linux_arm64:Odisea-Tech-Demo-Linux-ARM64-*:linux:arm64"
+            "windows:Odisea-Tech-Demo-Windows-*:windows:x86_64"
+          )
+
+          for entry in "${PLATFORMS[@]}"; do
+            IFS=":" read -r P_NAME P_PATTERN P_OUT P_ARCH <<< "$entry"
+
+            if [ "$P_NAME" = "linux_x64" ]; then
+              ART_DIR=$(find all_artifacts -maxdepth 1 -name "$P_PATTERN" ! -name "Odisea-Tech-Demo-Linux-ARM64-*" -type d | head -n 1)
+            else
+              ART_DIR=$(find all_artifacts -maxdepth 1 -name "$P_PATTERN" -type d | head -n 1)
+            fi
+            NEW_GZ=$(find "$ART_DIR" -name "*.pck.gz" 2>/dev/null | head -n 1)
+            if [ -z "$NEW_GZ" ]; then
+              echo "No new .pck.gz for $P_NAME — skip."; continue
+            fi
+
+            # Bajar del release previo: el .pck.gz y el manifest (para su build_id).
+            PREV_DIR=$(mktemp -d)
+            PREV_MANIFEST="manifest-$P_OUT-$P_ARCH.json"
+            if ! gh release download "$PREV_TAG" -R icarito/Odisea \
+                  --pattern "$PREV_MANIFEST" --dir "$PREV_DIR" 2>/dev/null; then
+              echo "No previous manifest for $P_NAME (first release?) — skip delta."; continue
+            fi
+            # from_build_id = build_id del manifest anterior.
+            FROM_BUILD=$(python3 -c "
+          import json,base64,sys
+          e=json.load(open('$PREV_DIR/$PREV_MANIFEST'))
+          p=json.loads(base64.b64decode(e['payload_b64']))
+          print(p['build_id'])
+          ")
+            if [ "$FROM_BUILD" = "${{ needs.prep.outputs.build_seq }}" ]; then
+              echo "Previous build == current ($FROM_BUILD) — skip (re-run?)."; continue
+            fi
+            # El .pck.gz previo: su nombre lleva el slug viejo; bajarlo por patrón.
+            if ! gh release download "$PREV_TAG" -R icarito/Odisea \
+                  --pattern "Odisea-Tech-Demo-*$P_OUT*.pck.gz" --dir "$PREV_DIR" 2>/dev/null; then
+              # Patrón por nombre de artefacto desktop.
+              case "$P_NAME" in
+                linux_x64) PAT="Odisea-Tech-Demo-Linux-*.pck.gz" ;;
+                linux_arm64) PAT="Odisea-Tech-Demo-Linux-ARM64-*.pck.gz" ;;
+                windows) PAT="Odisea-Tech-Demo-Windows-*.pck.gz" ;;
+              esac
+              gh release download "$PREV_TAG" -R icarito/Odisea --pattern "$PAT" --dir "$PREV_DIR" 2>/dev/null || true
+            fi
+            if [ "$P_NAME" = "linux_x64" ]; then
+              PREV_GZ=$(find "$PREV_DIR" -name "*.pck.gz" ! -name "*ARM64*" | head -n 1)
+            else
+              PREV_GZ=$(find "$PREV_DIR" -name "*.pck.gz" | head -n 1)
+            fi
+            if [ -z "$PREV_GZ" ]; then
+              echo "No previous .pck.gz for $P_NAME — skip delta."; continue
+            fi
+
+            # Descomprimir ambos .pck y diffear.
+            gunzip -c "$PREV_GZ" > "$PREV_DIR/old.pck"
+            gunzip -c "$NEW_GZ" > "$PREV_DIR/new.pck"
+            /tmp/bsdiff_gen "$PREV_DIR/old.pck" "$PREV_DIR/new.pck" "$PREV_DIR/patch.ods"
+
+            OUT_GZ="deltas/Odisea-Tech-Demo-$P_OUT-$P_ARCH-${{ needs.prep.outputs.version_slug }}-from-$FROM_BUILD.patch.gz"
+            gzip -9 -n -c "$PREV_DIR/patch.ods" > "$OUT_GZ"
+            # Meta para que 'manifests' sepa el from_build_id y el plat/arch del patch.
+            echo "{\"platform\":\"$P_OUT\",\"arch\":\"$P_ARCH\",\"from_build_id\":\"$FROM_BUILD\",\"patch_gz\":\"$(basename "$OUT_GZ")\"}" \
+              > "deltas/delta-$P_OUT-$P_ARCH.json"
+            FULL=$(stat -c%s "$PREV_DIR/new.pck"); PATCHSZ=$(stat -c%s "$OUT_GZ")
+            echo "Delta $P_NAME from $FROM_BUILD: patch.gz $PATCHSZ bytes vs full $FULL bytes"
+            rm -rf "$PREV_DIR"
+          done
+
+          ls -la deltas/ || echo "No deltas produced."
+
+      - name: Upload Deltas Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-deltas
+          path: deltas/
+          if-no-files-found: ignore
+
+  manifests:
+    needs: [prep, export, deltas]
     runs-on: ubuntu-latest
     # Generate signed manifests only for main (nightly) or release branches.
     # Forks don't have access to the signing secret and shouldn't publish manifests.
@@ -995,6 +1116,26 @@ jobs:
                 --arch "$P_ARCH" \
                 --commit "$COMMIT" \
                 --base-url "$ARTIFACT_BASE_URL"
+
+              # Si el job 'deltas' produjo un patch para esta plataforma, inyectarlo en
+              # el manifest (re-firma el payload). El .patch.gz se publica como asset del
+              # mismo release, así que la base-url es la misma.
+              DELTA_META="all_artifacts/update-deltas/delta-$P_OUT-$P_ARCH.json"
+              if [ -f "$DELTA_META" ]; then
+                FROM_BUILD=$(python3 -c "import json;print(json.load(open('$DELTA_META'))['from_build_id'])")
+                PATCH_GZ_NAME=$(python3 -c "import json;print(json.load(open('$DELTA_META'))['patch_gz'])")
+                PATCH_GZ="all_artifacts/update-deltas/$PATCH_GZ_NAME"
+                if [ -f "$PATCH_GZ" ]; then
+                  echo "Adding delta from build $FROM_BUILD for $P_NAME"
+                  python3 scripts/update_manifest.py add-delta \
+                    --manifest "signed_manifests/manifest-$P_OUT-$P_ARCH.json" \
+                    --patch-gz "$PATCH_GZ" \
+                    --from-build-id "$FROM_BUILD" \
+                    --key "$UPDATE_SIGNING_KEY" \
+                    --key-id "$KEY_ID" \
+                    --base-url "$ARTIFACT_BASE_URL"
+                fi
+              fi
             else
               echo "Warning: No artifact found for $P_NAME matching $P_PATTERN"
             fi
@@ -1077,9 +1218,10 @@ jobs:
           # cancel-in-progress) donde el manifest apunta a un .zip que aún no existe
           # -> el cliente baja 404. Por eso ya NO borramos+recreamos el release
           # (delete+create dejaba todo ausente entre medio); usamos upload --clobber.
-          # Los .pck (target del update in-app) van con los binarios: el manifest
-          # apunta a ellos, así que deben existir ANTES de subir el manifest.
-          mapfile -t BIN_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "*.pck" -o -name "*.pck.gz" -o -name "*.pem" \) -print | sort)
+          # Los .pck (target del update in-app) y los .patch.gz (delta bsdiff) van con
+          # los binarios: el manifest apunta a ellos, así que deben existir ANTES de
+          # subir el manifest.
+          mapfile -t BIN_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "*.pck" -o -name "*.pck.gz" -o -name "*.patch.gz" -o -name "*.pem" \) -print | sort)
           mapfile -t MANIFEST_FILES < <(find nightly_assets -type f -name "manifest-*.json" -print | sort)
           if [ "${#BIN_FILES[@]}" -eq 0 ]; then
             echo "::error::No binary artifacts found in nightly_assets"

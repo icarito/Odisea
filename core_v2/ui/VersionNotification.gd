@@ -14,6 +14,12 @@ var _current_update_info := {}
 var _dismissed_manifest_id := ""
 var _is_security_critical := false
 var _release_notes_url := ""
+# El usuario ya confirmó "Actualizar": al terminar la descarga se aplica (reinicia)
+# automáticamente, sin un segundo clic. Un único clic confirma TODO el flujo.
+var _user_confirmed := false
+# Para un delta (descarga chica) pre-descargamos en background apenas se detecta, así
+# el clic de confirmación aplica de inmediato. Para un full esperamos al clic.
+var _is_delta_update := false
 
 func _ready():
 	panel.hide()
@@ -47,12 +53,22 @@ func _on_update_available(info: Dictionary):
 	_current_update_info = info
 	_is_security_critical = (severity == "security_critical")
 	_release_notes_url = info.get("release_notes_url", "")
+	_user_confirmed = false
 
 	var artifact = UpdateManager.get_selected_artifact(info)
+	_is_delta_update = artifact.get("is_delta", false)
 	var type = "Completo"
-	if artifact.get("is_delta", false):
+	if _is_delta_update:
 		type = "Delta"
 	var size_mb = artifact.get("size", 0) / (1024.0 * 1024.0)
+
+	# Delta = descarga chica: pre-bajarla en background ya, para que el clic de
+	# confirmación aplique al instante (la barra solo se muestra al confirmar). Solo en
+	# plataformas que hacen hot-swap local (no web/iOS, que delegan a shell/store).
+	var platform = OS.get_name()
+	if _is_delta_update and platform != "HTML5" and platform != "iOS" and platform != "Android":
+		if UpdateManager.get_status() == "available":
+			UpdateManager.begin_update()
 
 	# Tabla "burocrática" alineada (fuente monospace del tema retro): compara el build
 	# local instalado (de build_meta) con el remoto disponible.
@@ -169,29 +185,23 @@ func _setup_severity_ui(severity: String):
 
 	_update_action_button_text()
 
+# Un solo botón que confirma TODO el flujo. El texto refleja la acción única que el
+# clic dispara según plataforma; tras confirmar, la descarga+aplicación es automática.
 func _update_action_button_text():
 	var platform = OS.get_name()
-	var update_manager = get_node_or_null("/root/UpdateManager")
-	var status = "idle"
-	if update_manager:
-		status = update_manager.get_status()
-
-	if status == "ready_to_restart":
-		action_button.text = "Reiniciar para aplicar"
-	elif platform == "Android":
+	if platform == "Android":
 		action_button.text = "Abrir instalador"
 	elif platform == "HTML5":
 		action_button.text = "Actualizar ahora"
 	elif platform == "iOS":
 		action_button.text = "Ver en App Store"
 	else:
-		action_button.text = "Descargar e instalar"
+		# Desktop: un clic descarga (si falta) y reinicia para aplicar, sin más pasos.
+		action_button.text = "Actualizar y reiniciar"
 
+# Un único clic = confirmación total. Marca _user_confirmed para que, en cuanto la
+# descarga termine (update_ready), se aplique automáticamente sin un segundo clic.
 func _on_action_pressed():
-	if UpdateManager.get_status() == "ready_to_restart":
-		UpdateManager.request_restart()
-		return
-
 	var platform = OS.get_name()
 	if platform == "iOS":
 		var url = _current_update_info.get("downloads_page", "")
@@ -199,20 +209,45 @@ func _on_action_pressed():
 			OS.shell_open(url)
 		return
 
-	UpdateManager.begin_update()
+	_user_confirmed = true
 	action_button.disabled = true
 	download_progress.value = 0
 	download_progress.show()
 
+	var status = UpdateManager.get_status()
+	if status == "ready_to_restart":
+		# Ya descargado (delta pre-bajado o full ya listo): aplicar de inmediato.
+		_apply_now()
+	elif status == "available":
+		# Aún no se descargó (full, o delta que no alcanzó a pre-bajar): iniciar. Al
+		# terminar, _on_update_ready aplicará solo porque _user_confirmed está activo.
+		UpdateManager.begin_update()
+	# Si ya está "downloading"/"verifying" (delta pre-bajándose), no hacemos nada:
+	# _on_update_ready aplicará al completarse.
+
+# Aplica el update ya descargado (reinicio en desktop, navegación en web).
+func _apply_now():
+	UpdateManager.request_restart()
+
 func _on_update_progress(downloaded, total):
+	# Mientras el usuario no haya confirmado (p.ej. delta pre-descargándose en
+	# background), no mostramos la barra para no distraer; aparece al confirmar.
+	if not _user_confirmed:
+		return
 	download_progress.show()
 	if total > 0:
 		download_progress.value = (float(downloaded) / total) * 100
 
 func _on_update_ready(_info):
 	download_progress.value = 100
-	action_button.disabled = false
-	_update_action_button_text()
+	# Si el usuario ya confirmó, aplicar automáticamente (sin segundo clic). Si no
+	# (delta pre-bajado en background antes de confirmar), dejamos el botón listo para
+	# que su clic aplique al instante.
+	if _user_confirmed:
+		_apply_now()
+	else:
+		action_button.disabled = false
+		_update_action_button_text()
 
 func _on_update_failed(code, recoverable):
 	action_button.disabled = false
@@ -227,6 +262,24 @@ func _on_close_pressed():
 		panel.hide()
 		if _current_update_info.get("severity") == "optional":
 			_dismissed_manifest_id = _current_update_info.get("manifest_id", "")
+
+# --- API pública para reabrir el diálogo desde Opciones ---
+
+# True si hay un update conocido (disponible o descargado) para mostrar. Lo usa el
+# menú de Opciones para decidir si ofrecer el botón "Ver actualización".
+func has_pending_update() -> bool:
+	if _current_update_info.empty():
+		return false
+	var st = UpdateManager.get_status()
+	return st == "available" or st == "downloading" or st == "verifying" or st == "ready_to_restart"
+
+# Reabre el diálogo de update que el usuario había descartado (desde Opciones). Limpia
+# el dismiss para que vuelva a verse y reusa la info ya conocida.
+func reopen_update_dialog() -> void:
+	if _current_update_info.empty():
+		return
+	_dismissed_manifest_id = ""
+	_on_update_available(_current_update_info)
 
 func _on_release_notes_pressed():
 	if _release_notes_url != "":

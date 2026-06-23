@@ -25,7 +25,33 @@ func _ready():
 	_setup_options()
 	_load_ui_values()
 	_connect_signals()
+	_setup_update_button()
 	back_button.grab_focus()
+
+# Si el usuario descartó el diálogo de actualización, ofrecer aquí un acceso para
+# reabrirlo (requisito UX: el dismiss debe ser recuperable desde Opciones). El botón
+# se crea solo cuando hay un update pendiente, junto al botón Back.
+func _setup_update_button():
+	var vn = get_node_or_null("/root/VersionNotification")
+	if vn == null or not vn.has_method("has_pending_update"):
+		return
+	if not vn.has_pending_update():
+		return
+	var container = back_button.get_parent()
+	if container == null:
+		return
+	var btn = Button.new()
+	btn.name = "UpdateAvailable"
+	btn.text = "Ver actualización disponible"
+	container.add_child(btn)
+	# Colocarlo justo antes de Back.
+	container.move_child(btn, back_button.get_index())
+	btn.connect("pressed", self, "_on_update_button_pressed")
+
+func _on_update_button_pressed():
+	var vn = get_node_or_null("/root/VersionNotification")
+	if vn and vn.has_method("reopen_update_dialog"):
+		vn.reopen_update_dialog()
 
 func _setup_options():
 	fullscreen_option.clear()
