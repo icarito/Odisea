@@ -413,11 +413,57 @@ jobs:
           cp -a "$SRC"/. "$DEST_NEW"/
           cp -a "$SRC"/. "$DEST_OLD"/
 
+      - name: Android SDK Setup
+        if: matrix.platform == 'android'
+        run: |
+          set -e
+          echo "=== Java version ==="
+          java -version 2>&1 || true
+          javac -version 2>&1 || true
+          echo "JAVA_HOME=${JAVA_HOME:-not set}"
+
+          echo "=== Android SDK components ==="
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/ndk" 2>/dev/null || echo "No NDK installed"
+          ls "$ANDROID_HOME/build-tools" 2>/dev/null || echo "No build-tools"
+          ls "$ANDROID_HOME/platforms" 2>/dev/null || echo "No platforms"
+
+          # Install missing SDK components required by android/build/config.gradle:
+          #   ndkVersion 28.1.13356709, buildTools 35.0.0, compileSdk/targetSdk 35
+          SDKMANAGER=""
+          for p in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+                   "$ANDROID_HOME/tools/bin/sdkmanager"; do
+            [ -f "$p" ] && SDKMANAGER="$p" && break
+          done
+          if [ -n "$SDKMANAGER" ]; then
+            echo "Using sdkmanager: $SDKMANAGER"
+            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+            # Install only what's missing (idempotent)
+            "$SDKMANAGER" "ndk;28.1.13356709" "build-tools;35.0.0" "platforms;android-35" 2>&1 | tail -5 || true
+          else
+            echo "::warning::sdkmanager not found; skipping SDK component install"
+          fi
+          echo "=== NDK after setup ==="
+          ls "$ANDROID_HOME/ndk" 2>/dev/null || true
+
       - name: Android Editor Settings
         if: matrix.platform == 'android'
         run: |
-          JDK_PATH="/usr/lib/jvm/java-11-openjdk-amd64"
-          if [ ! -d "$JDK_PATH" ]; then JDK_PATH="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"; fi
+          # config.gradle requires Java 17; search for it explicitly before falling back.
+          # Checking java-17 BEFORE java-11 is critical: if both are installed the old
+          # logic accidentally handed Java 11 to Gradle, which then failed validateJavaVersion.
+          JDK_PATH=""
+          for p in /usr/lib/jvm/java-17-openjdk-amd64 \
+                   /usr/lib/jvm/java-17-openjdk \
+                   /usr/lib/jvm/temurin-17 \
+                   /usr/local/lib/jvm/openjdk17; do
+            [ -d "$p" ] && JDK_PATH="$p" && break
+          done
+          if [ -z "$JDK_PATH" ]; then
+            JDK_PATH="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+          fi
+          echo "Using JDK path: $JDK_PATH"
+          "$JDK_PATH/bin/java" -version 2>&1 || true
           mkdir -p "$HOME/.config/godot"
           {
             echo '[gd_resource type="EditorSettings" format=2]'
@@ -609,6 +655,29 @@ jobs:
           esac
           ls -la "$OUTDIR"
 
+      - name: Android Gradle Diagnostic
+        if: matrix.platform == 'android'
+        run: |
+          # Run Gradle directly to capture any build errors before Godot does.
+          # Godot does NOT forward Gradle's stdout/stderr, so failures are silent.
+          # This step runs the same tasks Godot would run (assembleDebug) and shows
+          # the full error if Gradle fails. NOT using || true so failures are visible.
+          set -e
+          cd android/build
+          echo "=== Gradle wrapper version ==="
+          ./gradlew --version 2>&1
+          echo "=== Java env ==="
+          echo "JAVA_HOME=${JAVA_HOME:-not set}"
+          java -version 2>&1 || true
+          echo "=== Gradle assembleDebug (must succeed) ==="
+          ./gradlew assembleDebug \
+            -PANDROID_HOME="$ANDROID_HOME" \
+            --stacktrace \
+            2>&1
+          echo "=== APKs produced by assembleDebug ==="
+          find . -name "*.apk" 2>/dev/null | head -20 || echo "None"
+          cd "$GITHUB_WORKSPACE"
+
       - name: Export
         if: steps.ios_gate.outputs.skip_ios != 'true'
         run: |
@@ -635,7 +704,38 @@ jobs:
           # checking the artifact was actually written instead.
           # Use --export-debug for Android
           if [ "${{ matrix.platform }}" = "android" ]; then
-            $G_BIN --no-window --export-debug "${{ matrix.preset }}" "$OUT" --headless || true
+            echo "=== Godot binary: $G_BIN ==="
+            "$G_BIN" --version 2>&1 || true
+            echo "=== Running Godot --export-debug Android ==="
+            # Capture full output via tee so we can see everything (not just tail)
+            "$G_BIN" --no-window --export-debug "${{ matrix.preset }}" "$OUT" --headless 2>&1 | tee /tmp/godot_android.log || true
+            echo "=== build/android/ after Godot export ==="
+            ls -la "$(dirname "$OUT")/" 2>/dev/null || echo "Directory absent"
+            # If APK wasn't placed at expected location, run Gradle explicitly with
+            # absolute paths. Godot may pass relative paths to Gradle which causes
+            # copyAndRenameDebugApk to copy to the wrong directory.
+            if [ ! -f "$OUT" ]; then
+              echo "=== APK missing after Godot export — running Gradle manually ==="
+              echo "=== android/build/assets/ contents ==="
+              ls android/build/assets/ 2>/dev/null | head -20 || echo "No assets directory (Godot may not have run)"
+              cd android/build
+              ./gradlew assembleDebug copyAndRenameDebugApk \
+                -PANDROID_HOME="$ANDROID_HOME" \
+                -Pexport_path="$GITHUB_WORKSPACE/$(dirname "$OUT")" \
+                -Pexport_filename="$(basename "$OUT")" \
+                --stacktrace 2>&1 | tail -100 || true
+              cd "$GITHUB_WORKSPACE"
+              echo "=== build/android/ after explicit Gradle ==="
+              ls -la "$(dirname "$OUT")/" 2>/dev/null || echo "Directory absent"
+              # Final fallback: direct copy from known Gradle output path
+              GRADLE_APK="android/build/build/outputs/apk/debug/android_debug.apk"
+              if [ ! -f "$OUT" ] && [ -f "$GRADLE_APK" ]; then
+                echo "=== Copying APK from Gradle output to expected location ==="
+                cp "$GRADLE_APK" "$OUT"
+              fi
+            fi
+            echo "=== Gradle debug APK location check ==="
+            find android/build/build/outputs/apk/debug/ -name "*.apk" 2>/dev/null || echo "None in android/build/build/outputs/apk/debug/"
           else
             $G_BIN --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
           fi
