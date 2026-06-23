@@ -707,11 +707,35 @@ jobs:
             echo "=== Godot binary: $G_BIN ==="
             "$G_BIN" --version 2>&1 || true
             echo "=== Running Godot --export-debug Android ==="
-            "$G_BIN" --no-window --export-debug "${{ matrix.preset }}" "$OUT" --headless 2>&1 | tail -100 || true
-            echo "=== build/android/ after export ==="
+            # Capture full output via tee so we can see everything (not just tail)
+            "$G_BIN" --no-window --export-debug "${{ matrix.preset }}" "$OUT" --headless 2>&1 | tee /tmp/godot_android.log || true
+            echo "=== build/android/ after Godot export ==="
             ls -la "$(dirname "$OUT")/" 2>/dev/null || echo "Directory absent"
-            echo "=== Gradle APKs after Godot export ==="
-            find android/build/app/build/outputs/ -name "*.apk" 2>/dev/null | head -10 || echo "None found"
+            # If APK wasn't placed at expected location, run Gradle explicitly with
+            # absolute paths. Godot may pass relative paths to Gradle which causes
+            # copyAndRenameDebugApk to copy to the wrong directory.
+            if [ ! -f "$OUT" ]; then
+              echo "=== APK missing after Godot export — running Gradle manually ==="
+              echo "=== android/build/assets/ contents ==="
+              ls android/build/assets/ 2>/dev/null | head -20 || echo "No assets directory (Godot may not have run)"
+              cd android/build
+              ./gradlew assembleDebug copyAndRenameDebugApk \
+                -PANDROID_HOME="$ANDROID_HOME" \
+                -Pexport_path="$GITHUB_WORKSPACE/$(dirname "$OUT")" \
+                -Pexport_filename="$(basename "$OUT")" \
+                --stacktrace 2>&1 | tail -100 || true
+              cd "$GITHUB_WORKSPACE"
+              echo "=== build/android/ after explicit Gradle ==="
+              ls -la "$(dirname "$OUT")/" 2>/dev/null || echo "Directory absent"
+              # Final fallback: direct copy from known Gradle output path
+              GRADLE_APK="android/build/build/outputs/apk/debug/android_debug.apk"
+              if [ ! -f "$OUT" ] && [ -f "$GRADLE_APK" ]; then
+                echo "=== Copying APK from Gradle output to expected location ==="
+                cp "$GRADLE_APK" "$OUT"
+              fi
+            fi
+            echo "=== Gradle debug APK location check ==="
+            find android/build/build/outputs/apk/debug/ -name "*.apk" 2>/dev/null || echo "None in android/build/build/outputs/apk/debug/"
           else
             $G_BIN --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
           fi
