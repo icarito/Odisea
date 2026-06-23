@@ -441,20 +441,11 @@ jobs:
           sed -i -E "s|^version/code = .*|version/code = ${ANDROID_VERSION_CODE}|" export_presets.cfg
           sed -i -E "s|^version/name = .*|version/name = \"${ANDROID_VERSION_NAME}\"|" export_presets.cfg
 
-      # Android usa custom build (Gradle) por el plugin nativo / deep-link, y compila
-      # el APK desde cero cada run (~3min del paso Export). Cachear el repo de
-      # dependencias y artefactos de Gradle hace el build incremental y baja bastante
-      # ese tiempo. La key se invalida si cambian los archivos de build de Android.
-      - name: Cache Gradle (Android)
-        if: matrix.platform == 'android'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-android-${{ hashFiles('android/build/build.gradle', 'android/build/config.gradle', 'android/build/AndroidManifest.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-android-
+      # (Se quitó el cache de Gradle: apuntaba a ~/.gradle que no existe en el
+      # container barichello -> nunca cacheaba, y además el Gradle build NO es el
+      # cuello del export de Android. El cuello es el IMPORT de Godot, que re-importaba
+      # todas las texturas porque el cache del .import se invalidaba por config/version
+      # — eso se arregla con "Stable project hash for import cache" más abajo.)
 
       - name: Limit texture import formats per platform
         # En Python: portable entre Linux (las 6 plataformas) y macOS (iOS corre en
@@ -541,14 +532,25 @@ jobs:
       # así cada plataforma reusa su propio .import sin cruzarse con otra (linux=S3TC,
       # android=ETC2, ...). En el primer run de cada plataforma es MISS y el import
       # genera; a partir de ahí, cache hit -> import casi instantáneo.
+      # Hash de project.godot ESTABLE para la key del cache .import: excluye
+      # config/version (lo estampa "Inject build metadata" con build-num+sha+fecha,
+      # distinto cada run -> invalidaba el cache y Godot re-importaba TODAS las
+      # texturas ~93s). Las texturas solo dependen de [rendering] vram_compression,
+      # no de la versión.
+      - name: Stable project hash for import cache
+        id: pghash
+        run: |
+          H=$(grep -vE '^(application/)?config/version=' project.godot | sha256sum | cut -d' ' -f1)
+          echo "hash=$H" >> "$GITHUB_OUTPUT"
+
       - name: Cache .import (per platform)
         uses: actions/cache@v4
         with:
           path: |
             .import/
-          key: ${{ runner.os }}-import-${{ matrix.platform }}-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
+          key: ${{ runner.os }}-import-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-${{ hashFiles('**/*.import') }}
           restore-keys: |
-            ${{ runner.os }}-import-${{ matrix.platform }}-${{ hashFiles('**/project.godot') }}-
+            ${{ runner.os }}-import-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-
             ${{ runner.os }}-import-${{ matrix.platform }}-
 
       - name: Export
