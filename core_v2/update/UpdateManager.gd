@@ -218,10 +218,19 @@ func _get_current_build_id() -> String:
 	# instalación fresca ese archivo no existe, así que caemos al build_id empaquetado
 	# (build_meta) para que el server compare contra el build real, no contra "".
 	var confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
-	var bid = confirmed.get("build_id", "")
-	if bid == "":
-		bid = _get_build_meta_value("build_id")
-	return bid
+	var confirmed_bid = str(confirmed.get("build_id", ""))
+	var packaged_bid = _get_build_meta_value("build_id")
+	# Si reinstalaste un .zip más NUEVO que el último update aplicado (p.ej. bajaste
+	# manualmente el build 227 pero confirmed_boot decía 225 de un update viejo), el
+	# build_meta empaquetado es la verdad. Si no, antes el cliente reportaba el 225 y
+	# el server ofrecía "actualizar" a 227 = la versión que ya tenías instalada.
+	# Usamos el MAYOR de los dos (todos son run_number, comparables como int).
+	if confirmed_bid == "":
+		return packaged_bid
+	if packaged_bid != "" and packaged_bid.is_valid_integer() and confirmed_bid.is_valid_integer():
+		if int(packaged_bid) > int(confirmed_bid):
+			return packaged_bid
+	return confirmed_bid
 
 # Lee un valor del build_meta inyectado por CI: window.ODISEA_BUILD_META en web,
 # res://build_meta.json (embebido en el .pck) en nativo. Mismo patrón que ANNAV2.
