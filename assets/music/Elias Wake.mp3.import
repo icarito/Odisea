@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/Elias Wake.mp3-ce4669911e2a269d47ead5791c067fe3.mp3str"
+
+[deps]
+
+source_file="res://assets/music/Elias Wake.mp3"
+dest_files=[ "res://.import/Elias Wake.mp3-ce4669911e2a269d47ead5791c067fe3.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0
