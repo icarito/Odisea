@@ -562,6 +562,24 @@ jobs:
         if: matrix.platform == 'linux_x64' || matrix.platform == 'linux_arm64' || matrix.platform == 'windows'
         run: |
           set -e
+          # godot-headers NO está en el repo (gitignored, 5.6M de headers externos). Lo
+          # bajamos del tag godot-3.6-stable. Usamos el tarball (no requiere git ni clonar
+          # el .git interno). Layout: godot-headers-godot-3.6-stable/ -> aplanar al dir.
+          HDR_DIR="native/godot-headers"
+          if [ ! -f "$HDR_DIR/gdnative_api_struct.gen.h" ]; then
+            echo "Fetching godot-headers (godot-3.6-stable)…"
+            mkdir -p "$HDR_DIR"
+            curl -fsSL "https://github.com/godotengine/godot-headers/archive/refs/tags/godot-3.6-stable.tar.gz" \
+              | tar -xz -C "$HDR_DIR" --strip-components=1
+          fi
+          test -f "$HDR_DIR/gdnative_api_struct.gen.h" || { echo "::error::godot-headers missing"; exit 1; }
+
+          # apt-get necesita root; en ubuntu-latest (no container) usar sudo.
+          SUDO=""
+          if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+            SUDO="sudo"
+          fi
+
           SRC="native/bsdiff/odisea_bspatch_gdnative.c native/bsdiff/bspatch.c"
           INC="-I native/godot-headers"
           case "${{ matrix.platform }}" in
@@ -574,13 +592,13 @@ jobs:
               OUTDIR="core_v2/update/native/bin/linux_arm64"
               mkdir -p "$OUTDIR"
               # cross-compiler para arm64 (el .gdnlib referencia esta ruta para X11.arm64)
-              apt-get update && apt-get install -y gcc-aarch64-linux-gnu
+              $SUDO apt-get update && $SUDO apt-get install -y gcc-aarch64-linux-gnu
               aarch64-linux-gnu-gcc -O2 -fPIC -shared $INC $SRC -o "$OUTDIR/libodisea_bspatch.so"
               ;;
             windows)
               OUTDIR="core_v2/update/native/bin/windows"
               mkdir -p "$OUTDIR"
-              apt-get update && apt-get install -y gcc-mingw-w64-x86-64
+              $SUDO apt-get update && $SUDO apt-get install -y gcc-mingw-w64-x86-64
               x86_64-w64-mingw32-gcc -O2 -shared $INC $SRC -o "$OUTDIR/libodisea_bspatch.dll" -static-libgcc
               ;;
           esac
