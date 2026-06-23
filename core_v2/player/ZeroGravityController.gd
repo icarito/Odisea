@@ -356,6 +356,8 @@ func _update_zero_g_camera_view(dt: float) -> void:
 func _snap_camera_rig_y() -> void:
 	if not is_instance_valid(_body) or not is_instance_valid(_camera_rig):
 		return
+	if not _body.is_inside_tree() or not _camera_rig.is_inside_tree():
+		return
 	# In zero-g, don't reset origin.x/z — let the OTS offset subnodes handle it.
 	# Roll around the visual center so the player stays centered on screen.
 	if "base_rig_y" in _body:

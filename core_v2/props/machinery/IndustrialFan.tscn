@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://core_v2/props/machinery/IndustrialFan.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/machinery/IndustrialFanBlade.gd" type="Script" id=2]
@@ -12,6 +12,9 @@ roughness = 0.3
 [sub_resource type="CubeMesh" id=5]
 material = SubResource( 4 )
 size = Vector3( 0.9, 0.04, 0.3 )
+
+[sub_resource type="BoxShape" id=11]
+extents = Vector3( 0.45, 0.02, 0.15 )
 
 [sub_resource type="CubeMesh" id=6]
 material = SubResource( 4 )
@@ -56,12 +59,24 @@ height = 0.1
 transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
 mesh = SubResource( 5 )
 
+[node name="BladeBody1" type="StaticBody" parent="BladeMount/Blade/Pivot1"]
+
+[node name="CollisionShape" type="CollisionShape" parent="BladeMount/Blade/Pivot1/BladeBody1"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+shape = SubResource( 11 )
+
 [node name="Pivot2" type="Spatial" parent="BladeMount/Blade"]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 0, 0 )
 
 [node name="BladeGeo2" type="MeshInstance" parent="BladeMount/Blade/Pivot2"]
 transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
 mesh = SubResource( 6 )
+
+[node name="BladeBody2" type="StaticBody" parent="BladeMount/Blade/Pivot2"]
+
+[node name="CollisionShape" type="CollisionShape" parent="BladeMount/Blade/Pivot2/BladeBody2"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+shape = SubResource( 11 )
 
 [node name="Pivot3" type="Spatial" parent="BladeMount/Blade"]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
@@ -70,12 +85,24 @@ transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0
 transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
 mesh = SubResource( 7 )
 
+[node name="BladeBody3" type="StaticBody" parent="BladeMount/Blade/Pivot3"]
+
+[node name="CollisionShape" type="CollisionShape" parent="BladeMount/Blade/Pivot3/BladeBody3"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+shape = SubResource( 11 )
+
 [node name="Pivot4" type="Spatial" parent="BladeMount/Blade"]
 transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, 0, 0, 0 )
 
 [node name="BladeGeo4" type="MeshInstance" parent="BladeMount/Blade/Pivot4"]
 transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
 mesh = SubResource( 8 )
+
+[node name="BladeBody4" type="StaticBody" parent="BladeMount/Blade/Pivot4"]
+
+[node name="CollisionShape" type="CollisionShape" parent="BladeMount/Blade/Pivot4/BladeBody4"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+shape = SubResource( 11 )
 
 [node name="Housing" type="CSGCombiner" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )

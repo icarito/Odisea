@@ -167,6 +167,8 @@ func _on_body_entered(body: Node) -> void:
 	_notify_controller_gravity_mode(body, GravityModes.Mode.ZERO_G)
 
 func _on_body_exited(body: Node) -> void:
+	if not is_inside_tree() or not body.is_inside_tree():
+		return
 	if not body.is_in_group("player"):
 		return
 	emit_signal("gravity_zone_changed", body, GravityModes.Mode.STANDARD_1G)

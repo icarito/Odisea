@@ -5,10 +5,10 @@
 [ext_resource path="res://textures/kenney_prototype_textures/light/GuardrailTranslucent.tres" type="Material" id=3]
 [ext_resource path="res://core_v2/components/CylindricalInteriorCollider.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/props/machinery/IndustrialFan.tscn" type="PackedScene" id=5]
-[ext_resource path="res://core_v2/props/machinery/VentilationTurbine.tscn" type="PackedScene" id=6]
 [ext_resource path="res://scenes/levels/act0/PrologueDirector.gd" type="Script" id=7]
 [ext_resource path="res://assets/music/Elías Wake.mp3" type="AudioStream" id=8]
 [ext_resource path="res://core_v2/components/OYSComponent.gd" type="Script" id=9]
+[ext_resource path="res://assets/fonts/SyneMono_Prologue_20.tres" type="DynamicFont" id=10]
 
 [node name="Core" type="Spatial"]
 
@@ -26,7 +26,21 @@ margin_left = -150.0
 margin_top = 28.0
 margin_right = -28.0
 margin_bottom = 72.0
+custom_fonts/font = ExtResource( 10 )
 text = "00:00"
+align = 2
+
+[node name="SkipHint" type="Label" parent="PrologueDirector"]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = -280.0
+margin_top = -62.0
+margin_right = -28.0
+margin_bottom = -28.0
+custom_fonts/font = ExtResource( 10 )
+text = "ENTER  —  OMITIR PRÓLOGO"
 align = 2
 
 [node name="PrologueOYS" type="Node" parent="."]
@@ -40,6 +54,7 @@ debug_render = false
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 
 [node name="CSGCylinder" type="CSGCombiner" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2532, 0 )
 
 [node name="OuterShell" type="CSGCylinder" parent="CSGCylinder"]
 radius = 30.3
@@ -74,21 +89,39 @@ is_interactable = false
 rotation_speed = 5.0
 wind_force = 5.0
 
-[node name="VentilationTurbine" parent="." instance=ExtResource( 6 )]
-transform = Transform( 14, 0, 0, 0, -6.11959e-07, -14, 0, 14, -6.11959e-07, 0, -103, 0 )
+[node name="IndustrialFan2" parent="." instance=ExtResource( 5 )]
+transform = Transform( 25, 0, 0, 0, -1.09278e-06, -25, 0, 25, -1.09278e-06, 0, -183, 0 )
 starts_active = true
+is_interactable = false
+rotation_speed = 5.0
+wind_force = 5.0
 
-[node name="FanBlades" parent="VentilationTurbine" index="2"]
-transform = Transform( 0.891007, -0.453991, 0, 0.453991, 0.891007, 0, 0, 0, 1, 0, 0, 0 )
-is_active = true
+[node name="IndustrialFan3" parent="." instance=ExtResource( 5 )]
+transform = Transform( 25, 0, 0, 0, -1.09278e-06, -25, 0, 25, -1.09278e-06, 0, 768, 0 )
+starts_active = true
+is_interactable = false
+rotation_speed = 5.0
+wind_force = 5.0
 
-[node name="WindTunnel" parent="VentilationTurbine" index="3"]
-is_active = true
+[node name="IndustrialFan4" parent="." instance=ExtResource( 5 )]
+transform = Transform( 25, 0, 0, 0, -1.09278e-06, -25, 0, 25, -1.09278e-06, 0, 451, 0 )
+starts_active = true
+is_interactable = false
+rotation_speed = 5.0
+wind_force = 5.0
 
-[node name="WindParticles" parent="VentilationTurbine/WindTunnel" index="1"]
-emitting = true
-direction = Vector3( 0, 0, 1 )
-initial_velocity = 5.0
+[node name="IndustrialFan5" parent="." instance=ExtResource( 5 )]
+transform = Transform( 25, 0, 0, 0, -1.09278e-06, -25, 0, 25, -1.09278e-06, 0, 1444, 0 )
+starts_active = true
+is_interactable = false
+rotation_speed = 5.0
+wind_force = 5.0
+
+[node name="IndustrialFan6" parent="." instance=ExtResource( 5 )]
+transform = Transform( 25, 0, 0, 0, -1.09278e-06, -25, 0, 25, -1.09278e-06, 0, 1127, 0 )
+starts_active = true
+is_interactable = false
+rotation_speed = 5.0
+wind_force = 5.0
 
 [editable path="TubeZeroGravityZone"]
-[editable path="VentilationTurbine"]

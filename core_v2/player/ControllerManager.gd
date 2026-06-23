@@ -215,9 +215,12 @@ func _restore_standard_zoom_state(root: KinematicBody) -> void:
 		cam.fov = fov
 
 func _can_transition_from(from_cam: Camera) -> bool:
+	if not is_inside_tree():
+		return false
 	return (
 		camera_transition_duration > 0.0
 		and is_instance_valid(from_cam)
+		and from_cam.is_inside_tree()
 		and get_node_or_null("/root/CameraTransition") != null
 	)
 
