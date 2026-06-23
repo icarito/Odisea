@@ -392,6 +392,21 @@ func _load_local_state():
 		"accepted_sequences": [],
 		"active_package_ids": []
 	})
+	# Auto-nuke de una vez: un puñado de clientes tempranos guardaron un
+	# release_sequence = github.run_id (~2.7e10) de builds canary, antes de pasar a
+	# run_number (entero chico). Ese valor gigante bloqueaba TODOS los updates
+	# futuros (seq nuevo 221 <= 27483628278 -> idle para siempre). Si lo detectamos,
+	# reseteamos el state de update una sola vez. Código temporal de migración.
+	var seqs = _local_state.get("accepted_sequences", [])
+	var poisoned = false
+	for s in seqs:
+		if int(s) >= 1000000000:  # ningún run_number legítimo llega a 1e9
+			poisoned = true
+			break
+	if poisoned:
+		print("[UpdateManager] Estado de update envenenado (run_id legacy) -> reset.")
+		_local_state = {"accepted_sequences": [], "active_package_ids": []}
+		_save_json(STATE_FILE, _local_state)
 
 func _load_json(path: String, default: Dictionary) -> Dictionary:
 	var f = File.new()

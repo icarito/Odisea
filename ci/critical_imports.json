@@ -71,6 +71,13 @@
         ".tres"
       ],
       "reason": "Qodot .map artifact needed for Android export on cold CI checkouts."
+    },
+    {
+      "path": "assets/hdris/2k_stars_milky_way.jpg.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Referenciado por default_env.tres (Default Environment del proyecto): si falta el .stex, TODA escena spammea 'Failed to load default_env.tres' al arrancar. Debe estar en cada build."
     }
   ]
 }
