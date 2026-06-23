@@ -1,6 +1,9 @@
 extends SceneTree
 
 const CRITICAL_RESOURCES := [
+	# Default Environment del proyecto: si su HDRI no importa, TODA escena spammea
+	# "Failed to load default_env.tres" al arrancar el build.
+	"res://default_env.tres",
 	"res://core_v2/ui/retro/RetroOS.tres",
 	"res://core_v2/components/PushableBoxV2.tscn",
 	"res://core_v2/components/SlidingObjectV2.tscn",
