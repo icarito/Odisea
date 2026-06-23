@@ -76,29 +76,38 @@ func _format_update_table(remote_info: Dictionary, local: Dictionary, type: Stri
 	var r_dt = _build_datetime(remote_info.get("version", ""), remote_info.get("issued_at", ""))
 	var channel = remote_info.get("channel", "?")
 
-	# Anchos de columna
-	var w_field := 9
-	var col1 := max(l_ver.length(), max(l_hash.length(), l_dt.length()))
-	col1 = max(col1, 9)  # "Instalado"
+	var l_chan = local.get("channel", "?")
+	# Anchos de columna calculados del contenido real (ambas columnas de datos), para
+	# que todo quede alineado verticalmente como un formulario burocrático.
+	var w_field := 9  # "Versión "
+	var col1 := _max_len(["Instalado", l_ver, l_hash, l_dt, l_chan])
+	var col2 := _max_len(["Nuevo", r_ver, r_hash, r_dt, channel])
 	var rows := []
-	rows.append(_row("", "Instalado", "Nuevo", w_field, col1))
-	rows.append(_rule(w_field, col1))
-	rows.append(_row("Versión", l_ver, r_ver, w_field, col1))
-	rows.append(_row("Commit", l_hash, r_hash, w_field, col1))
-	rows.append(_row("Fecha", l_dt, r_dt, w_field, col1))
-	rows.append(_row("Canal", local.get("channel", "?"), channel, w_field, col1))
+	rows.append(_row("", "Instalado", "Nuevo", w_field, col1, col2))
+	rows.append(_rule(w_field, col1, col2))
+	rows.append(_row("Versión", l_ver, r_ver, w_field, col1, col2))
+	rows.append(_row("Commit", l_hash, r_hash, w_field, col1, col2))
+	rows.append(_row("Fecha", l_dt, r_dt, w_field, col1, col2))
+	rows.append(_row("Canal", l_chan, channel, w_field, col1, col2))
 
-	var table_width := w_field + 2 + col1 + 2 + 13
+	var table_width := w_field + 2 + col1 + 2 + col2
 	var header := _center("ACTUALIZACIÓN DISPONIBLE", table_width)
 	var footer := _center("Tipo: %s    Tamaño: %.1f MB" % [type, size_mb], table_width)
 	return header + "\n\n" + PoolStringArray(rows).join("\n") + "\n\n" + footer
+
+func _max_len(items: Array) -> int:
+	var m := 0
+	for s in items:
+		if String(s).length() > m:
+			m = String(s).length()
+	return m
 
 func _center(s: String, width: int) -> String:
 	var pad = int((width - s.length()) / 2.0)
 	return " ".repeat(max(0, pad)) + s
 
-func _row(field: String, a: String, b: String, wf: int, w1: int) -> String:
-	return "%s  %s  %s" % [_pad(field, wf), _pad(a, w1), b]
+func _row(field: String, a: String, b: String, wf: int, w1: int, w2: int) -> String:
+	return "%s  %s  %s" % [_pad(field, wf), _pad(a, w1), _pad(b, w2)]
 
 # String.rpad no existe en Godot 3.6; padding manual a la derecha.
 func _pad(s: String, width: int) -> String:
@@ -107,8 +116,8 @@ func _pad(s: String, width: int) -> String:
 		out += " "
 	return out
 
-func _rule(wf: int, w1: int) -> String:
-	return ("-".repeat(wf + 2 + w1 + 2 + 13))
+func _rule(wf: int, w1: int, w2: int) -> String:
+	return ("-".repeat(wf + 2 + w1 + 2 + w2))
 
 # "0.3.2-nightly+sha (fecha)" -> "0.3.2-nightly"
 func _short_version(v: String) -> String:
