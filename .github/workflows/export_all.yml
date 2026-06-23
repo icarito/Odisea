@@ -440,6 +440,11 @@ jobs:
           echo "Android versionCode=$ANDROID_VERSION_CODE versionName=$ANDROID_VERSION_NAME"
           sed -i -E "s|^version/code = .*|version/code = ${ANDROID_VERSION_CODE}|" export_presets.cfg
           sed -i -E "s|^version/name = .*|version/name = \"${ANDROID_VERSION_NAME}\"|" export_presets.cfg
+          # Godot 3.6.2 can mis-detect the checked-in custom build during its
+          # headless filesystem scan. In that state, explicit SDK overrides make
+          # preset validation abort before Gradle starts. The Android template's
+          # config.gradle already supplies these values, so omit only the overrides.
+          sed -i -E '/^custom_build\/(min_sdk|target_sdk) = /d' export_presets.cfg
 
       # (Se quitó el cache de Gradle: apuntaba a ~/.gradle que no existe en el
       # container barichello -> nunca cacheaba, y además el Gradle build NO es el
@@ -636,14 +641,8 @@ jobs:
           fi
 
           if [ ! -s "$OUT" ]; then
-            if [ "${{ matrix.platform }}" = "android" ]; then
-              echo "::warning::Android export failed — no artifact produced at $OUT (skipping, non-blocking for nightly)"
-              mkdir -p dist
-              touch "dist/${{ matrix.artifact_name }}-stub.txt"
-            else
-              echo "::error::Export failed — no artifact produced at $OUT"
-              exit 1
-            fi
+            echo "::error::Export failed — no artifact produced at $OUT"
+            exit 1
           fi
           echo "Export OK: $OUT ($(du -h "$OUT" | cut -f1))"
 
@@ -652,10 +651,7 @@ jobs:
         run: |
           set -e
           APK="build/android/Odisea-Tech-Demo.apk"
-          if [ ! -f "$APK" ]; then
-            echo "No APK to sign — skipping."
-            exit 0
-          fi
+          test -s "$APK" || { echo "::error::No APK to sign"; exit 1; }
           UNSIGNED="build/android/Odisea-Tech-Demo-unsigned.apk"
           ALIGNED="build/android/Odisea-Tech-Demo-aligned.apk"
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
