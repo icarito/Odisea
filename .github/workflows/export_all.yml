@@ -661,16 +661,21 @@ jobs:
           # Run Gradle directly to capture any build errors before Godot does.
           # Godot does NOT forward Gradle's stdout/stderr, so failures are silent.
           # This step runs the same tasks Godot would run (assembleDebug) and shows
-          # the full error if Gradle fails.
+          # the full error if Gradle fails. NOT using || true so failures are visible.
+          set -e
           cd android/build
           echo "=== Gradle wrapper version ==="
-          ./gradlew --version 2>&1 || true
-          echo "=== Gradle assembleDebug --info ==="
+          ./gradlew --version 2>&1
+          echo "=== Java env ==="
+          echo "JAVA_HOME=${JAVA_HOME:-not set}"
+          java -version 2>&1 || true
+          echo "=== Gradle assembleDebug (must succeed) ==="
           ./gradlew assembleDebug \
             -PANDROID_HOME="$ANDROID_HOME" \
-            --info \
             --stacktrace \
-            2>&1 | tail -200 || true
+            2>&1
+          echo "=== APKs produced by assembleDebug ==="
+          find . -name "*.apk" 2>/dev/null | head -20 || echo "None"
           cd "$GITHUB_WORKSPACE"
 
       - name: Export
@@ -699,7 +704,14 @@ jobs:
           # checking the artifact was actually written instead.
           # Use --export-debug for Android
           if [ "${{ matrix.platform }}" = "android" ]; then
-            $G_BIN --no-window --export-debug "${{ matrix.preset }}" "$OUT" --headless || true
+            echo "=== Godot binary: $G_BIN ==="
+            "$G_BIN" --version 2>&1 || true
+            echo "=== Running Godot --export-debug Android ==="
+            "$G_BIN" --no-window --export-debug "${{ matrix.preset }}" "$OUT" --headless 2>&1 | tail -100 || true
+            echo "=== build/android/ after export ==="
+            ls -la "$(dirname "$OUT")/" 2>/dev/null || echo "Directory absent"
+            echo "=== Gradle APKs after Godot export ==="
+            find android/build/app/build/outputs/ -name "*.apk" 2>/dev/null | head -10 || echo "None found"
           else
             $G_BIN --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
           fi
