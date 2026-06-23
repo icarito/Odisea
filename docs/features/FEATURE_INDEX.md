@@ -94,6 +94,18 @@ Usar tres capas separadas:
 | FD-030 | Cargol NPC | Planned | Medium | P3 | NPC posterior. |
 | FD-031 | Narrative Dialogs (IA) | Planned | Large | P3 | Postergar hasta que el loop jugable pida dialogos. |
 
+## Active Backlog (Post-FD-239)
+
+### P0 — Contenido jugable del Acto I
+
+| FD | Title | Status | Effort | Priority |
+|----|-------|--------|--------|----------|
+| FD-240 | Blockout Módulo Criogenia | Planned | Medium | P0 |
+| FD-241 | Cargol V2 — Compañero Funcional | Design | Medium | P0 |
+| FD-242 | DDC Drone + Sigilo Básico | Design | Medium | P0 |
+| FD-243 | Diálogo Odisea y Lore Pickup | Planned | Large | P1 |
+| FD-244 | Multi-Tool — Láser + Gloo Gun | Design | Medium | P0 |
+
 ## Completed / Archived
 
 | FD | Title | Completed | Notes |
