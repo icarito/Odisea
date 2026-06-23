@@ -49,3 +49,6 @@ digest.txt
 data/ghosts.db
 .venv/
 .vercel
+native/godot-headers/
+native/bin/
+core_v2/update/native/bin/

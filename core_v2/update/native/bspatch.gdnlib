@@ -1,0 +1,14 @@
+[general]
+
+singleton=false
+load_once=true
+symbol_prefix="godot_"
+reloadable=false
+
+[entry]
+
+X11.64="res://core_v2/update/native/bin/linux_x64/libodisea_bspatch.so"
+
+[dependencies]
+
+X11.64=[  ]
