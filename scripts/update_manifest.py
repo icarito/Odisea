@@ -117,12 +117,34 @@ def cmd_generate(args):
         print(f"Error: No artifacts found in {args.artifacts_dir}", file=sys.stderr)
         sys.exit(1)
 
-    # Elegir el artefacto del update. PREFERIR un .pck: el cliente hace hot-swap con
-    # load_resource_pack (requiere un .pck real, no un .zip), y el .pck es chunkeable
-    # y diffeable (deltas binarios futuros). Si no hay .pck (móvil/web), caer al más
+    # Elegir el artefacto del update. PREFERIR el .pck.gz (comprimido): el .pck no
+    # está comprimido internamente y gzip ahorra ~71%; gzip+Range son incompatibles,
+    # así que servimos un .gz pre-comprimido que el cliente baja por chunks y
+    # descomprime. Luego .pck crudo (hot-swap directo). Si no hay (móvil/web), el más
     # grande (.zip/.apk).
+    compression = "none"
+    uncompressed_sha256 = ""
+    uncompressed_size = 0
+    pck_gz = [a for a in artifacts if a["path"].endswith(".pck.gz")]
     pcks = [a for a in artifacts if a["path"].endswith(".pck")]
-    if pcks:
+    if pck_gz:
+        pck_gz.sort(key=lambda x: x["size"], reverse=True)
+        main_artifact = pck_gz[0]
+        compression = "gzip"
+        # sha256/size del .pck DESCOMPRIMIDO, para verificar tras inflar en el cliente.
+        import gzip as _gz
+        h = hashlib.sha256()
+        n = 0
+        with _gz.open(os.path.join(args.artifacts_dir, main_artifact["path"]), "rb") as gf:
+            while True:
+                b = gf.read(1024 * 1024)
+                if not b:
+                    break
+                h.update(b)
+                n += len(b)
+        uncompressed_sha256 = h.hexdigest()
+        uncompressed_size = n
+    elif pcks:
         pcks.sort(key=lambda x: x["size"], reverse=True)
         main_artifact = pcks[0]
     else:
@@ -167,10 +189,16 @@ def cmd_generate(args):
         "arch": arch,
         "full_artifact": {
             "artifact_id": f"{platform}-{arch}-{version}-full",
-            "kind": "full_pck" if main_artifact["path"].endswith(".pck") else "archive",
+            "kind": "full_pck" if ".pck" in main_artifact["path"] else "archive",
             "url": f"{args.base_url}/{main_artifact['path']}" if args.base_url else main_artifact["path"],
+            # size/sha256/chunks describen el archivo TAL CUAL se transporta (el .gz si
+            # está comprimido), para Range/resume. uncompressed_* verifican el .pck
+            # final tras descomprimir.
+            "compression": compression,
             "size": main_artifact["size"],
             "sha256": main_artifact["sha256"],
+            "uncompressed_size": uncompressed_size,
+            "uncompressed_sha256": uncompressed_sha256,
             "chunk_size": main_artifact["chunk_size"],
             "chunks": main_artifact["chunks"]
         },

@@ -541,6 +541,37 @@ func _on_chunk_completed(result, response_code, _headers, body):
 	emit_signal("update_progress", ds["completed_chunks"].size() * chunk["size"], _active_download["size"])
 	_download_next_chunk()
 
+# Descomprime un .gz (src_path) a dst_path y verifica el sha256 del .pck resultante
+# contra uncompressed_sha256. Devuelve false (y llama _on_error) si algo falla.
+func _decompress_gzip_to(src_path: String, dst_path: String, artifact: Dictionary) -> bool:
+	var f := File.new()
+	if f.open(src_path, File.READ) != OK:
+		_on_error("decompress_open_failed", false)
+		return false
+	var gz := f.get_buffer(f.get_len())
+	f.close()
+	var uncompressed_size := int(artifact.get("uncompressed_size", 0))
+	if uncompressed_size <= 0:
+		_on_error("decompress_bad_size", false)
+		return false
+	var raw := gz.decompress(uncompressed_size, File.COMPRESSION_GZIP)
+	if raw.size() != uncompressed_size:
+		_on_error("decompress_failed", false)
+		return false
+	var wf := File.new()
+	if wf.open(dst_path, File.WRITE) != OK:
+		_on_error("decompress_write_failed", false)
+		return false
+	wf.store_buffer(raw)
+	wf.close()
+	# Verificar el .pck descomprimido.
+	var expected := str(artifact.get("uncompressed_sha256", ""))
+	if expected != "" and File.new().get_sha256(dst_path) != expected:
+		Directory.new().remove(dst_path)
+		_on_error("uncompressed_hash_mismatch", false)
+		return false
+	return true
+
 func _handle_chunk_error(code):
 	_chunk_retries += 1
 	if _chunk_retries > 3:
@@ -564,14 +595,23 @@ func _finalize_download():
 	var final_path = PACKAGE_DIR + artifact_id + ".pck"
 
 	var f = File.new()
+	# El .part es lo que se transportó (el .gz si viene comprimido); su sha256
+	# verifica la integridad de la descarga.
 	if f.get_sha256(part_path) != _active_download["sha256"]:
 		_on_error("artifact_hash_mismatch", false)
 		return
 
 	var d = Directory.new()
-	if d.rename(part_path, final_path) != OK:
-		_on_error("promote_failed", false)
-		return
+	# Si el artefacto vino comprimido (gzip), descomprimir a final_path y verificar
+	# el sha del .pck resultante. Si no, basta con renombrar.
+	if _active_download.get("compression", "none") == "gzip":
+		if not _decompress_gzip_to(part_path, final_path, _active_download):
+			return  # _decompress_gzip_to ya llamó _on_error
+		d.remove(part_path)
+	else:
+		if d.rename(part_path, final_path) != OK:
+			_on_error("promote_failed", false)
+			return
 
 	d.remove(STAGING_DIR + artifact_id + ".state.json")
 
