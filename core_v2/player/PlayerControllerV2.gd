@@ -208,6 +208,10 @@ var frames_since_last_snap := ACROBATIC_WINDOW_FRAMES + 1
 var last_input_vector := Vector3.ZERO
 var is_acrobatic_ready := false
 
+var multi_tool = null
+var _multi_tool_enabled := false
+var _tool_secondary_was_pressed := false
+
 var _current_interactable: Node = null
 var _current_interaction_prompt := ""
 var _nearby_interactables: Array = []
@@ -648,6 +652,7 @@ func _ready():
 	
 	_setup_interact_area()
 	_setup_crouch_collision()
+	_setup_multi_tool()
 	call_deferred("_apply_weak_visual_policy_if_needed_deferred")
 	call_deferred("_apply_camera_particle_policy")
 
@@ -768,6 +773,8 @@ func _get_camera_space_dust() -> Node:
 	return cam.get_node_or_null("SpaceDust")
 
 func _find_camera(node: Node) -> Camera:
+	if not node:
+		return null
 	if node is Camera:
 		return node as Camera
 	for i in range(node.get_child_count()):
@@ -790,6 +797,8 @@ func _ensure_primary_camera_current() -> void:
 		_cached_cam.current = true
 
 func _find_spring_arm(node: Node) -> Node:
+	if not node:
+		return null
 	if node is SpringArm or node.has_method("get_hit_length"):
 		return node
 	for i in range(node.get_child_count()):
@@ -1429,6 +1438,30 @@ func _setup_interact_area():
 		animator.add_child(_interact_area)
 	else:
 		add_child(_interact_area)
+
+func _setup_multi_tool():
+	if not _multi_tool_enabled:
+		return
+	if multi_tool and is_instance_valid(multi_tool):
+		return
+	
+	var mt_scene = load("res://core_v2/player/MultiToolV2.tscn")
+	if mt_scene:
+		multi_tool = mt_scene.instance()
+		# Attach to camera to follow gaze
+		var cam = _find_camera(camera_rig)
+		if cam:
+			cam.add_child(multi_tool)
+		else:
+			add_child(multi_tool)
+
+func set_multi_tool_enabled(enabled: bool):
+	_multi_tool_enabled = enabled
+	if enabled:
+		_setup_multi_tool()
+	elif multi_tool and is_instance_valid(multi_tool):
+		multi_tool.queue_free()
+		multi_tool = null
 
 func _setup_crouch_collision() -> void:
 	var body_shape = get_node_or_null("CollisionShape")
@@ -2284,6 +2317,13 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	_update_camera_collision_mask_state(dt)
 	_update_camera_view(dt)
+
+	if multi_tool and is_instance_valid(multi_tool):
+		multi_tool.step(dt, input)
+		if input.tool_fire_secondary and not _tool_secondary_was_pressed:
+			multi_tool.fire_gloo()
+		_tool_secondary_was_pressed = input.tool_fire_secondary
+
 	if prof_enabled:
 		_rl_step_profile_add(prof_t0, prof_t_control, prof_t_move, OS.get_ticks_usec())
 	_update_input_edge_state(input)

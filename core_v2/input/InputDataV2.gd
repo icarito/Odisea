@@ -13,6 +13,10 @@ var rotate_left := false
 var rotate_right := false
 var roll_left := false
 var roll_right := false
+var tool_fire_primary := false
+var tool_fire_secondary := false
+var tool_next_mode := false
+var tool_prev_mode := false
 var mouse_delta := Vector2()
 var zoom_delta := 0.0
 var fov_override := -1.0 # -1 means no override
@@ -38,6 +42,10 @@ func to_dict() -> Dictionary:
 		"rotate_right": rotate_right,
 		"roll_left": roll_left,
 		"roll_right": roll_right,
+		"tool_fire_primary": tool_fire_primary,
+		"tool_fire_secondary": tool_fire_secondary,
+		"tool_next_mode": tool_next_mode,
+		"tool_prev_mode": tool_prev_mode,
 		"hardware_mouse_active": hardware_mouse_active
 	}
 
@@ -69,5 +77,13 @@ func from_dict(d: Dictionary) -> void:
 		roll_left = d["roll_left"]
 	if d.has("roll_right"):
 		roll_right = d["roll_right"]
+	if d.has("tool_fire_primary"):
+		tool_fire_primary = d["tool_fire_primary"]
+	if d.has("tool_fire_secondary"):
+		tool_fire_secondary = d["tool_fire_secondary"]
+	if d.has("tool_next_mode"):
+		tool_next_mode = d["tool_next_mode"]
+	if d.has("tool_prev_mode"):
+		tool_prev_mode = d["tool_prev_mode"]
 	if d.has("hardware_mouse_active"):
 		hardware_mouse_active = d["hardware_mouse_active"]
