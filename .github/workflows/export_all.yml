@@ -553,6 +553,39 @@ jobs:
             ${{ runner.os }}-import-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-
             ${{ runner.os }}-import-${{ matrix.platform }}-
 
+      # Compila la lib GDNative de bspatch (delta binario del update) para la plataforma
+      # actual ANTES del export: el exporter de Godot copia la .so/.dll junto al binario
+      # solo si existe en disco en la ruta del .gdnlib. Sin lib, el cliente cae a full
+      # (is_delta_eligible -> false), así que las plataformas sin toolchain aquí siguen
+      # funcionando, solo sin deltas.
+      - name: Build native bspatch lib
+        if: matrix.platform == 'linux_x64' || matrix.platform == 'linux_arm64' || matrix.platform == 'windows'
+        run: |
+          set -e
+          SRC="native/bsdiff/odisea_bspatch_gdnative.c native/bsdiff/bspatch.c"
+          INC="-I native/godot-headers"
+          case "${{ matrix.platform }}" in
+            linux_x64)
+              OUTDIR="core_v2/update/native/bin/linux_x64"
+              mkdir -p "$OUTDIR"
+              gcc -O2 -fPIC -shared $INC $SRC -o "$OUTDIR/libodisea_bspatch.so"
+              ;;
+            linux_arm64)
+              OUTDIR="core_v2/update/native/bin/linux_arm64"
+              mkdir -p "$OUTDIR"
+              # cross-compiler para arm64 (el .gdnlib referencia esta ruta para X11.arm64)
+              apt-get update && apt-get install -y gcc-aarch64-linux-gnu
+              aarch64-linux-gnu-gcc -O2 -fPIC -shared $INC $SRC -o "$OUTDIR/libodisea_bspatch.so"
+              ;;
+            windows)
+              OUTDIR="core_v2/update/native/bin/windows"
+              mkdir -p "$OUTDIR"
+              apt-get update && apt-get install -y gcc-mingw-w64-x86-64
+              x86_64-w64-mingw32-gcc -O2 -shared $INC $SRC -o "$OUTDIR/libodisea_bspatch.dll" -static-libgcc
+              ;;
+          esac
+          ls -la "$OUTDIR"
+
       - name: Export
         if: steps.ios_gate.outputs.skip_ios != 'true'
         run: |

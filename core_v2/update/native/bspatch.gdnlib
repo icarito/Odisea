@@ -8,7 +8,11 @@ reloadable=false
 [entry]
 
 X11.64="res://core_v2/update/native/bin/linux_x64/libodisea_bspatch.so"
+X11.arm64="res://core_v2/update/native/bin/linux_arm64/libodisea_bspatch.so"
+Windows.64="res://core_v2/update/native/bin/windows/libodisea_bspatch.dll"
 
 [dependencies]
 
 X11.64=[  ]
+X11.arm64=[  ]
+Windows.64=[  ]

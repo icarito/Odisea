@@ -28,6 +28,12 @@ const INSTALL_ID_FILE = UPDATE_DIR + "installation_id"
 
 const Utils = preload("res://core_v2/update/UpdateUtils.gd")
 
+# Preload del NativeScript de bspatch para que el exporter lo trate como DEPENDENCIA
+# y empaquete el .gdns + .gdnlib + la .so/.dll de la plataforma activa, ignorando el
+# filtro de exclusión global "*.so" (las dependencias detectadas se exportan siempre).
+# preload del recurso NO abre la lib nativa; eso ocurre recién en .new().
+const BspatchScript = preload("res://core_v2/update/native/OdiseaBspatch.gdns")
+
 var _state = State.IDLE
 var _keyring: Reference
 var _verifier: Reference
@@ -317,6 +323,10 @@ func get_selected_artifact(p: Dictionary) -> Dictionary:
 
 func is_delta_eligible(delta: Dictionary, p: Dictionary) -> bool:
 	if p.get("force_full", false): return false
+	# Un delta bsdiff requiere la lib nativa OdiseaBspatch para reconstruir el .pck.
+	# En plataformas sin lib (p.ej. web, o un build móvil sin .so ARM) preferimos el
+	# full antes que ofrecer un delta que no podríamos aplicar.
+	if not _has_native_bspatch(): return false
 	if delta.get("touches_bootstrap", false): return false
 	if not delta.get("deleted_paths", []).empty(): return false
 
@@ -327,6 +337,22 @@ func is_delta_eligible(delta: Dictionary, p: Dictionary) -> bool:
 		return false
 
 	return true
+
+# True si la lib nativa de bspatch puede instanciarse en esta plataforma. La web no
+# usa deltas binarios (recarga la página), y un build sin la .so/.dll correcta no debe
+# ofrecer deltas. Se cachea: instanciar abre la lib una vez.
+var _native_bspatch_ok := -1  # -1 desconocido, 0 no, 1 sí
+func _has_native_bspatch() -> bool:
+	if _native_bspatch_ok != -1:
+		return _native_bspatch_ok == 1
+	_native_bspatch_ok = 0
+	if OS.has_feature("web"):
+		return false
+	if BspatchScript != null:
+		var p = BspatchScript.new()
+		if p != null and p.has_method("apply"):
+			_native_bspatch_ok = 1
+	return _native_bspatch_ok == 1
 
 func cancel_download() -> void:
 	if _state == State.DOWNLOADING:
@@ -552,14 +578,21 @@ func _on_chunk_completed(result, response_code, _headers, body):
 
 # Descomprime un .gz (src_path) a dst_path y verifica el sha256 del .pck resultante
 # contra uncompressed_sha256. Devuelve false (y llama _on_error) si algo falla.
-func _decompress_gzip_to(src_path: String, dst_path: String, artifact: Dictionary) -> bool:
+# Para un full, el contenido descomprimido es el .pck final -> verificar contra
+# uncompressed_sha256/uncompressed_size. Para un delta, el contenido descomprimido es
+# el PATCH crudo -> verificar contra patch_sha256/patch_uncompressed_size (el .pck
+# reconstruido se valida aparte, después de bspatch).
+func _decompress_gzip_to(src_path: String, dst_path: String, artifact: Dictionary, hash_field := "uncompressed_sha256") -> bool:
+	var size_field := "uncompressed_size"
+	if hash_field == "patch_sha256":
+		size_field = "patch_uncompressed_size"
 	var f := File.new()
 	if f.open(src_path, File.READ) != OK:
 		_on_error("decompress_open_failed", false)
 		return false
 	var gz := f.get_buffer(f.get_len())
 	f.close()
-	var uncompressed_size := int(artifact.get("uncompressed_size", 0))
+	var uncompressed_size := int(artifact.get(size_field, 0))
 	if uncompressed_size <= 0:
 		_on_error("decompress_bad_size", false)
 		return false
@@ -573,11 +606,56 @@ func _decompress_gzip_to(src_path: String, dst_path: String, artifact: Dictionar
 		return false
 	wf.store_buffer(raw)
 	wf.close()
-	# Verificar el .pck descomprimido.
-	var expected := str(artifact.get("uncompressed_sha256", ""))
+	# Verificar el contenido descomprimido contra el hash esperado del campo indicado.
+	var expected := str(artifact.get(hash_field, ""))
 	if expected != "" and File.new().get_sha256(dst_path) != expected:
 		Directory.new().remove(dst_path)
 		_on_error("uncompressed_hash_mismatch", false)
+		return false
+	return true
+
+# Resuelve la ruta ABSOLUTA del .pck base sobre el que se aplica un delta bsdiff.
+# Si ya hubo un update previo, el base es el último .pck activo en PACKAGE_DIR;
+# si no, es el .pck original que se distribuye junto al ejecutable.
+func _resolve_base_pck_path() -> String:
+	var active = _local_state.get("active_package_ids", [])
+	if not active.empty():
+		var last_id = active[active.size() - 1]
+		var p = PACKAGE_DIR + last_id + ".pck"
+		if File.new().file_exists(p):
+			return ProjectSettings.globalize_path(p)
+	# Base original: <ejecutable_basename>.pck junto al binario.
+	var exe = OS.get_executable_path()
+	var pck = exe.get_basename() + ".pck"
+	if File.new().file_exists(pck):
+		return pck
+	# Algunos exports nombran el pck igual que el binario sin recortar extensión.
+	pck = exe.get_base_dir().plus_file(exe.get_file().get_basename() + ".pck")
+	if File.new().file_exists(pck):
+		return pck
+	return ""
+
+# Aplica un patch bsdiff (ODSBSDF1) sobre el .pck base actual y escribe el .pck
+# reconstruido en out_path (ruta res://). Usa la lib nativa OdiseaBspatch (GDNative).
+# Devuelve true si reconstruyó OK. En error llama _on_error y devuelve false.
+func _apply_binary_patch(patch_path: String, out_path: String) -> bool:
+	if BspatchScript == null:
+		_on_error("bspatch_native_missing", false)
+		return false
+	var patcher = BspatchScript.new()
+	if patcher == null or not patcher.has_method("apply"):
+		_on_error("bspatch_native_invalid", false)
+		return false
+	var base_abs = _resolve_base_pck_path()
+	if base_abs == "":
+		_on_error("bspatch_base_pck_missing", false)
+		return false
+	# La lib nativa hace todo el I/O en C con rutas absolutas del SO.
+	var patch_abs = ProjectSettings.globalize_path(patch_path)
+	var out_abs = ProjectSettings.globalize_path(out_path)
+	var rc = patcher.apply(base_abs, patch_abs, out_abs)
+	if rc != 0:
+		_on_error("bspatch_apply_failed:" + str(rc), false)
 		return false
 	return true
 
@@ -611,32 +689,60 @@ func _finalize_download():
 		return
 
 	var d = Directory.new()
-	# Si el artefacto vino comprimido (gzip), descomprimir a final_path y verificar
-	# el sha del .pck resultante. Si no, basta con renombrar.
-	if _active_download.get("compression", "none") == "gzip":
-		if not _decompress_gzip_to(part_path, final_path, _active_download):
-			return  # _decompress_gzip_to ya llamó _on_error
-		d.remove(part_path)
-	else:
-		if d.rename(part_path, final_path) != OK:
-			_on_error("promote_failed", false)
+	var is_delta = _active_download.get("is_delta", false)
+
+	# Para un delta binario (bsdiff), lo que se transportó es un PATCH, no el .pck
+	# final. El flujo es: [.gz patch] -> descomprimir a patch crudo -> bspatch(base,
+	# patch) -> final_path (.pck nuevo reconstruido). Para un full, el artefacto ES
+	# el .pck (o su .gz), así que solo descomprimir/renombrar.
+	if is_delta:
+		# 1) Materializar el patch crudo en disco (descomprimir si vino gzip).
+		var patch_path = STAGING_DIR + artifact_id + ".patch"
+		if _active_download.get("compression", "none") == "gzip":
+			if not _decompress_gzip_to(part_path, patch_path, _active_download, "patch_sha256"):
+				return  # _decompress_gzip_to ya llamó _on_error
+			d.remove(part_path)
+		else:
+			if d.rename(part_path, patch_path) != OK:
+				_on_error("promote_failed", false)
+				return
+		# 2) Aplicar bspatch sobre el .pck base actualmente activo.
+		if not _apply_binary_patch(patch_path, final_path):
+			d.remove(patch_path)
+			return  # _apply_binary_patch ya llamó _on_error
+		d.remove(patch_path)
+		# 3) Verificar el .pck RECONSTRUIDO contra uncompressed_sha256.
+		var want = _active_download.get("uncompressed_sha256", "")
+		if want != "" and f.get_sha256(final_path) != want:
+			d.remove(final_path)
+			_on_error("patched_pck_hash_mismatch", false)
 			return
+	else:
+		# Si el artefacto vino comprimido (gzip), descomprimir a final_path y verificar
+		# el sha del .pck resultante. Si no, basta con renombrar.
+		if _active_download.get("compression", "none") == "gzip":
+			if not _decompress_gzip_to(part_path, final_path, _active_download):
+				return  # _decompress_gzip_to ya llamó _on_error
+			d.remove(part_path)
+		else:
+			if d.rename(part_path, final_path) != OK:
+				_on_error("promote_failed", false)
+				return
 
 	d.remove(STAGING_DIR + artifact_id + ".state.json")
 
-	# Create pending boot
-	var package_ids = []
-	if _active_download["is_delta"]:
-		package_ids = _local_state.get("active_package_ids", []).duplicate()
-	package_ids.append(artifact_id)
+	# Create pending boot. Un delta bsdiff reconstruye el .pck COMPLETO de la versión
+	# nueva, así que reemplaza al base (no es un overlay encadenado): el boot carga un
+	# único .pck, igual que un full. Por eso no acumulamos package_ids.
+	var package_ids = [artifact_id]
 
 	# Keep track of hashes for boot verification. OJO: el hash debe ser el del .pck
-	# EN DISCO (descomprimido), no el del .gz transportado. Si guardáramos el sha del
-	# .gz, _apply_packages compararía contra el .pck real -> nunca coincide -> "Failed
-	# to load package" -> rollback en loop.
-	var package_hashes = _get_current_package_hashes()
+	# EN DISCO (final reconstruido/descomprimido), no el del .gz/patch transportado. Si
+	# guardáramos el sha del transporte, _apply_packages compararía contra el .pck real
+	# -> nunca coincide -> "Failed to load package" -> rollback en loop.
+	var package_hashes = {}
 	var pck_hash = _active_download["sha256"]
-	if _active_download.get("compression", "none") == "gzip":
+	if is_delta or _active_download.get("compression", "none") == "gzip":
 		pck_hash = _active_download.get("uncompressed_sha256", pck_hash)
 	package_hashes[artifact_id] = pck_hash
 
@@ -763,6 +869,11 @@ func _apply_packages(package_ids: Array, p_hashes: Dictionary = {}) -> bool:
 		if not ProjectSettings.load_resource_pack(path, true):
 			print("[UpdateManager] Failed to load package: ", id)
 			all_ok = false
+		else:
+			# El pck nuevo trae su propio build_meta.json -> invalidar el cache para que
+			# get_local_build_info()/VersionLabel reflejen la versión recién aplicada y no
+			# la del boot (ProjectSettings queda con la vieja, por eso build_meta manda).
+			_build_meta_cache = {}
 	return all_ok
 
 func _cleanup_packages():
