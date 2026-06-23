@@ -1,5 +1,5 @@
 extends KinematicBody
-class_name AgentBase
+# class_name AgentBase - REPLACED BY EXPLICIT RESOURCE PATHS FOR HEADLESS GODOT 3
 
 # AgentBase.gd
 # Generic base class for NPC agents with state management and deterministic replay support.
@@ -12,7 +12,8 @@ enum State {
 	RETURN_HOME,
 	ALERT,
 	SEARCH,
-	MOVE_TO
+	MOVE_TO,
+	PATROL # Added PATROL to AgentBase for FD-242
 }
 
 # --- EXPORTED CONFIGURATION ---
@@ -155,6 +156,8 @@ func _calculate_wish_velocity(dt: float) -> Vector3:
 		State.RETURN_HOME:
 			return _logic_move_to(target_position, dt)
 		State.MOVE_TO:
+			return _logic_move_to(target_position, dt)
+		State.PATROL:
 			return _logic_move_to(target_position, dt)
 	return Vector3.ZERO
 
