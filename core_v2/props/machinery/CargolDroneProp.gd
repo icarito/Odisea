@@ -50,6 +50,7 @@ func _activate():
 		return
 	var player = _find_player()
 	if player:
+		# Updated for new AgentBase API
 		_drone.follow_target(player, follow_distance)
 	else:
 		printerr("[CargolDroneProp] Player not found for follow_target")
@@ -57,7 +58,9 @@ func _activate():
 func _deactivate():
 	if not _drone:
 		return
-	_drone.return_to(_home_position)
+	# Updated for new AgentBase API
+	_drone.target_position = _home_position
+	_drone.current_state = _drone.State.RETURN_HOME
 
 func _find_player() -> Node:
 	var players = get_tree().get_nodes_in_group("player")

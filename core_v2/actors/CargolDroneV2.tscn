@@ -17,3 +17,8 @@ shape = SubResource( 1 )
 
 [node name="MeshInstance" type="MeshInstance" parent="."]
 mesh = SubResource( 2 )
+
+[node name="StatusLight" type="OmniLight" parent="."]
+light_color = Color( 0.2, 0.4, 1, 1 )
+light_energy = 2.0
+omni_range = 10.0
