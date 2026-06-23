@@ -131,13 +131,18 @@ jobs:
           fi
           echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
 
-          # Construct version with date (FD-234)
+          # Construct version with date (FD-234). Incluimos el build number del run
+          # de "Release Multiplataforma" (github.run_number) para trazabilidad directa:
+          # ese número es clickeable al run de Actions y es el mismo build_id/
+          # release_sequence que usa el update. El commit (+sha) queda a la vista.
+          # Ej: "0.3.2-nightly.230+5d024b6 (2026-06-23)".
           BUILD_DATE=$(date -u +%Y-%m-%d)
+          BUILD_NUM="${{ github.run_number }}"
           VERSION="$BASE_VERSION"
           if [ "$CHANNEL" = "nightly" ]; then
-            VERSION="$BASE_VERSION-nightly+$SHA ($BUILD_DATE)"
+            VERSION="$BASE_VERSION-nightly.$BUILD_NUM+$SHA ($BUILD_DATE)"
           else
-            VERSION="$BASE_VERSION ($BUILD_DATE)"
+            VERSION="$BASE_VERSION.$BUILD_NUM ($BUILD_DATE)"
           fi
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
