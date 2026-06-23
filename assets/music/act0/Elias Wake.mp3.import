@@ -2,12 +2,12 @@
 
 importer="mp3"
 type="AudioStreamMP3"
-path="res://.import/Elias Wake.mp3-ce4669911e2a269d47ead5791c067fe3.mp3str"
+path="res://.import/Elias Wake.mp3-3c75ef95baafb4d8eea47c908aec4aac.mp3str"
 
 [deps]
 
 source_file="res://assets/music/act0/Elias Wake.mp3"
-dest_files=[ "res://.import/Elias Wake.mp3-ce4669911e2a269d47ead5791c067fe3.mp3str" ]
+dest_files=[ "res://.import/Elias Wake.mp3-3c75ef95baafb4d8eea47c908aec4aac.mp3str" ]
 
 [params]
 
