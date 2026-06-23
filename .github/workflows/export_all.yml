@@ -436,6 +436,21 @@ jobs:
           sed -i -E "s|^version/code = .*|version/code = ${ANDROID_VERSION_CODE}|" export_presets.cfg
           sed -i -E "s|^version/name = .*|version/name = \"${ANDROID_VERSION_NAME}\"|" export_presets.cfg
 
+      # Android usa custom build (Gradle) por el plugin nativo / deep-link, y compila
+      # el APK desde cero cada run (~3min del paso Export). Cachear el repo de
+      # dependencias y artefactos de Gradle hace el build incremental y baja bastante
+      # ese tiempo. La key se invalida si cambian los archivos de build de Android.
+      - name: Cache Gradle (Android)
+        if: matrix.platform == 'android'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-android-${{ hashFiles('android/build/build.gradle', 'android/build/config.gradle', 'android/build/AndroidManifest.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-android-
+
       - name: Limit texture import formats per platform
         # En Python: portable entre Linux (las 6 plataformas) y macOS (iOS corre en
         # macos-latest, donde BSD sed difiere de GNU sed y rompía el script anterior).
