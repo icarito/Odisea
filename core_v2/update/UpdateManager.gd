@@ -621,9 +621,15 @@ func _finalize_download():
 		package_ids = _local_state.get("active_package_ids", []).duplicate()
 	package_ids.append(artifact_id)
 
-	# Keep track of hashes for boot verification
+	# Keep track of hashes for boot verification. OJO: el hash debe ser el del .pck
+	# EN DISCO (descomprimido), no el del .gz transportado. Si guardáramos el sha del
+	# .gz, _apply_packages compararía contra el .pck real -> nunca coincide -> "Failed
+	# to load package" -> rollback en loop.
 	var package_hashes = _get_current_package_hashes()
-	package_hashes[artifact_id] = _active_download["sha256"]
+	var pck_hash = _active_download["sha256"]
+	if _active_download.get("compression", "none") == "gzip":
+		pck_hash = _active_download.get("uncompressed_sha256", pck_hash)
+	package_hashes[artifact_id] = pck_hash
 
 	var pending = {
 		"manifest_id": _pending_update["manifest_id"],
