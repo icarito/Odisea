@@ -6,7 +6,7 @@
 [ext_resource path="res://core_v2/components/CylindricalInteriorCollider.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/props/machinery/IndustrialFan.tscn" type="PackedScene" id=5]
 [ext_resource path="res://scenes/levels/act0/PrologueDirector.gd" type="Script" id=7]
-[ext_resource path="res://assets/music/Elias Wake.ogg" type="AudioStream" id=8]
+[ext_resource path="res://assets/music/Elias Wake.mp3" type="AudioStream" id=8]
 [ext_resource path="res://core_v2/components/OYSComponent.gd" type="Script" id=9]
 [ext_resource path="res://assets/fonts/SyneMono_Prologue_20.tres" type="DynamicFont" id=10]
 
