@@ -471,7 +471,11 @@ jobs:
               "macos":       dict(bptc=False, etc=False, etc2=False, pvrtc=False),
               "linux_arm64": dict(bptc=False, etc=True,  etc2=False, pvrtc=False),
               "android":     dict(bptc=False, etc=True,  etc2=True,  pvrtc=False),
-              "html5":       dict(bptc=False, etc=True,  etc2=True,  pvrtc=False),
+              # html5: el proyecto es GLES2 -> WebGL1 -> usa ETC1, NO ETC2 (que es
+              # WebGL2/GLES3). Generar ETC2 además triplicaba las texturas del .pck
+              # web (215MB vs ~desktop). Solo ETC (+ S3TC por default) -> bundle mucho
+              # menor. ETC2 off.
+              "html5":       dict(bptc=False, etc=True,  etc2=False, pvrtc=False),
               "ios":         dict(bptc=False, etc=True,  etc2=True,  pvrtc=True),
           }[platform]
 
