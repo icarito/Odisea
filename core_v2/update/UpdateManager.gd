@@ -226,6 +226,16 @@ func _get_current_build_id() -> String:
 # Lee un valor del build_meta inyectado por CI: window.ODISEA_BUILD_META en web,
 # res://build_meta.json (embebido en el .pck) en nativo. Mismo patrón que ANNAV2.
 var _build_meta_cache := {}
+# Info del build LOCAL instalado (del build_meta empaquetado), para mostrar en el
+# diálogo de update junto al build remoto. Devuelve "" en los campos que falten.
+func get_local_build_info() -> Dictionary:
+	return {
+		"version": _get_build_meta_value("version"),
+		"commit": _get_build_meta_value("commit"),
+		"build_id": _get_build_meta_value("build_id"),
+		"channel": _get_build_meta_value("channel"),
+	}
+
 func _get_build_meta_value(key: String) -> String:
 	if OS.has_feature("web") and Engine.has_singleton("JavaScript"):
 		var js = Engine.get_singleton("JavaScript")

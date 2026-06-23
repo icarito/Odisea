@@ -54,8 +54,8 @@ custom_constants/separation = 10
 margin_right = 296.0
 margin_bottom = 14.0
 text = "Actualización disponible"
-align = 1
-autowrap = true
+align = 0
+autowrap = false
 
 [node name="MetadataLabel" type="Label" parent="Control/MarginContainer/PanelContainer/MarginContainer/VBoxContainer"]
 margin_top = 24.0

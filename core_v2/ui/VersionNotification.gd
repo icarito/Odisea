@@ -45,27 +45,100 @@ func _on_update_available(info: Dictionary):
 	_is_security_critical = (severity == "security_critical")
 	_release_notes_url = info.get("release_notes_url", "")
 
-	var remote_ver = info.get("version", "v?.?.?")
-	var local_ver = "v0.0.0"
-	var constants = get_node_or_null("/root/Constants")
-	if constants:
-		local_ver = constants.get("GAME_VERSION")
-
-	label.text = "Actualización %s disponible (Local: %s)" % [remote_ver, local_ver]
-
-	var channel = info.get("channel", "unknown")
 	var artifact = UpdateManager.get_selected_artifact(info)
 	var type = "Completo"
 	if artifact.get("is_delta", false):
 		type = "Delta"
-
 	var size_mb = artifact.get("size", 0) / (1024.0 * 1024.0)
-	metadata_label.text = "Canal: %s | Tipo: %s | Tamaño: %.1f MB" % [channel, type, size_mb]
+
+	# Tabla "burocrática" alineada (fuente monospace del tema retro): compara el build
+	# local instalado (de build_meta) con el remoto disponible.
+	var local := {}
+	if UpdateManager.has_method("get_local_build_info"):
+		local = UpdateManager.get_local_build_info()
+	label.text = _format_update_table(info, local, type, size_mb)
+	metadata_label.visible = false
 
 	release_notes_button.visible = _release_notes_url != ""
 
 	_setup_severity_ui(severity)
 	panel.show()
+
+# Arma una "ficha" alineada en monospace: encabezado + filas Campo/Instalado/Nuevo +
+# pie con Canal/Tipo/Tamaño. El tema retro usa fuente monoespaciada, así que el
+# padding por espacios alinea como tabla burocrática.
+func _format_update_table(remote_info: Dictionary, local: Dictionary, type: String, size_mb: float) -> String:
+	var l_ver = _short_version(local.get("version", ""))
+	var r_ver = _short_version(remote_info.get("version", ""))
+	var l_hash = _short_commit(local.get("commit", ""))
+	var r_hash = _short_commit(remote_info.get("commit", ""))
+	var l_dt = _build_datetime(local.get("version", ""), "")
+	var r_dt = _build_datetime(remote_info.get("version", ""), remote_info.get("issued_at", ""))
+	var channel = remote_info.get("channel", "?")
+
+	# Anchos de columna
+	var w_field := 9
+	var col1 := max(l_ver.length(), max(l_hash.length(), l_dt.length()))
+	col1 = max(col1, 9)  # "Instalado"
+	var rows := []
+	rows.append(_row("", "Instalado", "Nuevo", w_field, col1))
+	rows.append(_rule(w_field, col1))
+	rows.append(_row("Versión", l_ver, r_ver, w_field, col1))
+	rows.append(_row("Commit", l_hash, r_hash, w_field, col1))
+	rows.append(_row("Fecha", l_dt, r_dt, w_field, col1))
+	rows.append(_row("Canal", local.get("channel", "?"), channel, w_field, col1))
+
+	var table_width := w_field + 2 + col1 + 2 + 13
+	var header := _center("ACTUALIZACIÓN DISPONIBLE", table_width)
+	var footer := _center("Tipo: %s    Tamaño: %.1f MB" % [type, size_mb], table_width)
+	return header + "\n\n" + PoolStringArray(rows).join("\n") + "\n\n" + footer
+
+func _center(s: String, width: int) -> String:
+	var pad = int((width - s.length()) / 2.0)
+	return " ".repeat(max(0, pad)) + s
+
+func _row(field: String, a: String, b: String, wf: int, w1: int) -> String:
+	return "%s  %s  %s" % [_pad(field, wf), _pad(a, w1), b]
+
+# String.rpad no existe en Godot 3.6; padding manual a la derecha.
+func _pad(s: String, width: int) -> String:
+	var out = s
+	while out.length() < width:
+		out += " "
+	return out
+
+func _rule(wf: int, w1: int) -> String:
+	return ("-".repeat(wf + 2 + w1 + 2 + 13))
+
+# "0.3.2-nightly+sha (fecha)" -> "0.3.2-nightly"
+func _short_version(v: String) -> String:
+	if v == "":
+		return "-"
+	var s = v
+	var plus = s.find("+")
+	if plus != -1:
+		s = s.substr(0, plus)
+	return s.strip_edges()
+
+func _short_commit(c: String) -> String:
+	if c == "":
+		return "-"
+	return c.substr(0, 7)
+
+# Devuelve "YYYY-MM-DD HH:MM": de issued_at (ISO con hora) si está, si no de la
+# fecha embebida en la version "(YYYY-MM-DD)".
+func _build_datetime(version: String, issued_at: String) -> String:
+	if issued_at != "":
+		# ISO: 2026-06-23T03:27:11.123Z -> 2026-06-23 03:27
+		var iso = issued_at.replace("T", " ")
+		if iso.length() >= 16:
+			return iso.substr(0, 16)
+	# fallback: fecha entre paréntesis en la version
+	var op = version.find("(")
+	var cp = version.find(")")
+	if op != -1 and cp > op:
+		return version.substr(op + 1, cp - op - 1)
+	return "-"
 
 func _setup_severity_ui(severity: String):
 	if severity == "security_critical":
