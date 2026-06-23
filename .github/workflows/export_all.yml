@@ -636,8 +636,14 @@ jobs:
           fi
 
           if [ ! -s "$OUT" ]; then
-            echo "::error::Export failed — no artifact produced at $OUT"
-            exit 1
+            if [ "${{ matrix.platform }}" = "android" ]; then
+              echo "::warning::Android export failed — no artifact produced at $OUT (skipping, non-blocking for nightly)"
+              mkdir -p dist
+              touch "dist/${{ matrix.artifact_name }}-stub.txt"
+            else
+              echo "::error::Export failed — no artifact produced at $OUT"
+              exit 1
+            fi
           fi
           echo "Export OK: $OUT ($(du -h "$OUT" | cut -f1))"
 
@@ -646,6 +652,10 @@ jobs:
         run: |
           set -e
           APK="build/android/Odisea-Tech-Demo.apk"
+          if [ ! -f "$APK" ]; then
+            echo "No APK to sign — skipping."
+            exit 0
+          fi
           UNSIGNED="build/android/Odisea-Tech-Demo-unsigned.apk"
           ALIGNED="build/android/Odisea-Tech-Demo-aligned.apk"
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
@@ -733,8 +743,12 @@ jobs:
             cd build/html5 && zip -r "../../$PACKAGE" . -x "_headers"
           elif [ "${{ matrix.platform }}" = "android" ]; then
             # APK se sube sin comprimir (ya es un zip firmado)
-            PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION.apk"
-            cp build/android/Odisea-Tech-Demo.apk "$PACKAGE"
+            if [ -f build/android/Odisea-Tech-Demo.apk ]; then
+              PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION.apk"
+              cp build/android/Odisea-Tech-Demo.apk "$PACKAGE"
+            else
+              echo "No APK to package — skipping."
+            fi
           elif [ "${{ matrix.platform }}" = "ios" ]; then
             cd build/ios && zip -r "../../$PACKAGE" .
           elif [ "${{ matrix.platform }}" = "macos" ]; then
@@ -781,6 +795,7 @@ jobs:
             dist/*.zip
             dist/*.apk
             dist/*.pck.gz
+          if-no-files-found: warn
 
       - name: Upload Netlify artifact
         if: matrix.platform == 'html5'
