@@ -28,11 +28,12 @@ const INSTALL_ID_FILE = UPDATE_DIR + "installation_id"
 
 const Utils = preload("res://core_v2/update/UpdateUtils.gd")
 
-# Preload del NativeScript de bspatch para que el exporter lo trate como DEPENDENCIA
-# y empaquete el .gdns + .gdnlib + la .so/.dll de la plataforma activa, ignorando el
-# filtro de exclusión global "*.so" (las dependencias detectadas se exportan siempre).
-# preload del recurso NO abre la lib nativa; eso ocurre recién en .new().
-const BspatchScript = preload("res://core_v2/update/native/OdiseaBspatch.gdns")
+# NO usar preload() del .gdns: un preload lo vuelve dependencia DURA del autoload, que
+# el exporter intenta resolver/inicializar en TODA plataforma. En Android (sin lib ARM)
+# eso dispara init_library "does not have a library" y ABORTA el export. El empaquetado
+# de la lib en desktop ya lo garantiza el include_filter (*.gdns/*.gdnlib en el preset),
+# así que la carga puede ser lazy con load(), solo al aplicar un delta.
+const BSPATCH_GDNS := "res://core_v2/update/native/OdiseaBspatch.gdns"
 
 var _state = State.IDLE
 var _keyring: Reference
@@ -348,8 +349,11 @@ func _has_native_bspatch() -> bool:
 	_native_bspatch_ok = 0
 	if OS.has_feature("web"):
 		return false
-	if BspatchScript != null:
-		var p = BspatchScript.new()
+	if not ResourceLoader.exists(BSPATCH_GDNS):
+		return false
+	var script = load(BSPATCH_GDNS)
+	if script != null:
+		var p = script.new()
 		if p != null and p.has_method("apply"):
 			_native_bspatch_ok = 1
 	return _native_bspatch_ok == 1
@@ -639,10 +643,14 @@ func _resolve_base_pck_path() -> String:
 # reconstruido en out_path (ruta res://). Usa la lib nativa OdiseaBspatch (GDNative).
 # Devuelve true si reconstruyó OK. En error llama _on_error y devuelve false.
 func _apply_binary_patch(patch_path: String, out_path: String) -> bool:
-	if BspatchScript == null:
+	if not ResourceLoader.exists(BSPATCH_GDNS):
 		_on_error("bspatch_native_missing", false)
 		return false
-	var patcher = BspatchScript.new()
+	var script = load(BSPATCH_GDNS)
+	if script == null:
+		_on_error("bspatch_native_missing", false)
+		return false
+	var patcher = script.new()
 	if patcher == null or not patcher.has_method("apply"):
 		_on_error("bspatch_native_invalid", false)
 		return false
