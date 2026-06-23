@@ -20,6 +20,9 @@ func _ready():
 	modal_dim.hide()
 	download_progress.hide()
 
+	if OS.is_debug_build() or Engine.editor_hint:
+		return
+
 	UpdateManager.connect("update_available", self, "_on_update_available")
 	UpdateManager.connect("update_progress", self, "_on_update_progress")
 	UpdateManager.connect("update_ready", self, "_on_update_ready")

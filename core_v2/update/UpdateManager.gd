@@ -695,6 +695,8 @@ func _finalize_web_update(pending):
 	_set_state(State.READY_TO_RESTART)
 
 func _check_pending_boot():
+	if OS.is_debug_build() or Engine.editor_hint:
+		return
 	var pending = _load_json(PENDING_BOOT_FILE, {})
 	if pending.empty():
 		_load_active_packages()

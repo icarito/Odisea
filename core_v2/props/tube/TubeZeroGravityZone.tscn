@@ -3,8 +3,8 @@
 [ext_resource path="res://core_v2/props/decor/ZeroGravityZone.gd" type="Script" id=1]
 
 [sub_resource type="CylinderShape" id=1]
-radius = 2.5
-height = 10.0
+height = 8000.0
+radius = 30.0
 
 [node name="TubeZeroGravityZone" type="Area"]
 collision_layer = 0

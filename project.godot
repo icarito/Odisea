@@ -269,6 +269,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/visual/CylinderRotator.gd"
 }, {
+"base": "StaticBody",
+"class": "CylindricalInteriorCollider",
+"language": "GDScript",
+"path": "res://core_v2/components/CylindricalInteriorCollider.gd"
+}, {
 "base": "ValueProvider",
 "class": "DefaultValueProvider",
 "language": "GDScript",
@@ -1937,6 +1942,7 @@ _global_script_class_icons={
 "ContinuousRotatorV2": "",
 "ControllerManager": "",
 "CylinderRotator": "",
+"CylindricalInteriorCollider": "",
 "DefaultValueProvider": "",
 "DrawLine3D": "",
 "DroneDock": "",

@@ -13,6 +13,9 @@ var latest_version_data := {}
 func _ready():
 	UpdateManager.connect("update_available", self, "_on_update_available")
 
+	if OS.is_debug_build() or Engine.editor_hint:
+		return
+
 	# Small delay to let the game initialize
 	yield(get_tree().create_timer(5.0), "timeout")
 	check_for_updates()

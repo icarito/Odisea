@@ -224,6 +224,9 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		else:
 			_body.velocity = kinematic_v.linear_interpolate(inertia_v, i_factor)
 
+	if "movement_logic" in _body and is_instance_valid(_body.movement_logic):
+		_body.velocity += _body.movement_logic.integrate_external_velocity(dt)
+
 	# 5. Move.
 	_body.velocity = _body.move_and_slide(_body.velocity, Vector3.UP)
 	velocity = _body.velocity

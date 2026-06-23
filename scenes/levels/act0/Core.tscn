@@ -1,0 +1,57 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/props/tube/TubeZeroGravityZone.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://textures/kenney_prototype_textures/light/GuardrailTranslucent.tres" type="Material" id=3]
+[ext_resource path="res://core_v2/components/CylindricalInteriorCollider.gd" type="Script" id=4]
+[ext_resource path="res://core_v2/props/machinery/IndustrialFan.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/props/machinery/VentilationTurbine.tscn" type="PackedScene" id=6]
+
+[node name="Core" type="Spatial"]
+
+[node name="TubeZeroGravityZone" parent="." instance=ExtResource( 1 )]
+visible = false
+debug_render = false
+
+[node name="Pilot" parent="." instance=ExtResource( 2 )]
+
+[node name="CSGCylinder" type="CSGCombiner" parent="."]
+
+[node name="OuterShell" type="CSGCylinder" parent="CSGCylinder"]
+radius = 30.3
+height = 8000.0
+sides = 32
+material = ExtResource( 3 )
+
+[node name="InnerHole" type="CSGCylinder" parent="CSGCylinder/OuterShell"]
+operation = 2
+radius = 30.0
+height = 8000.0
+sides = 32
+smooth_faces = false
+material = ExtResource( 3 )
+
+[node name="CylinderCollision" type="StaticBody" parent="."]
+collision_layer = 9
+collision_mask = 0
+script = ExtResource( 4 )
+constrained_body_path = NodePath("../Pilot")
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( -1.13133e-08, -0.965926, 0.258819, -4.2222e-08, 0.258819, 0.965926, -1, -8.88178e-16, -4.37114e-08, 0, 180, 0 )
+light_energy = 0.7
+shadow_enabled = true
+directional_shadow_mode = 1
+
+[node name="IndustrialFan" parent="." instance=ExtResource( 5 )]
+transform = Transform( 25, 0, 0, 0, -1.09278e-06, -25, 0, 25, -1.09278e-06, 0, 36, 0 )
+starts_active = true
+is_interactable = false
+rotation_speed = 5.0
+wind_force = 30.0
+
+[node name="VentilationTurbine" parent="." instance=ExtResource( 6 )]
+transform = Transform( 14, 0, 0, 0, -6.11959e-07, -14, 0, 14, -6.11959e-07, 0, -103, 0 )
+starts_active = true
+
+[editable path="TubeZeroGravityZone"]

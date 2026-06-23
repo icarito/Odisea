@@ -1,6 +1,8 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://core_v2/props/machinery/IndustrialFan.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/machinery/IndustrialFanBlade.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/components/WindTunnelV2.gd" type="Script" id=3]
 
 [sub_resource type="SpatialMaterial" id=4]
 albedo_color = Color( 0.7, 0.15, 0.15, 1 )
@@ -26,8 +28,58 @@ size = Vector3( 0.9, 0.04, 0.3 )
 [sub_resource type="BoxShape" id=3]
 extents = Vector3( 2, 2, 5 )
 
+[sub_resource type="CylinderShape" id=11]
+radius = 1.2
+height = 0.5
+
+[sub_resource type="SpatialMaterial" id=9]
+flags_transparent = true
+flags_unshaded = true
+albedo_color = Color( 0.65, 0.9, 1, 0.35 )
+
+[sub_resource type="CubeMesh" id=10]
+material = SubResource( 9 )
+size = Vector3( 0.04, 0.04, 1.2 )
+
 [node name="IndustrialFan" type="Spatial"]
 script = ExtResource( 1 )
+
+[node name="BladeMount" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+
+[node name="Blade" type="Spatial" parent="BladeMount"]
+script = ExtResource( 2 )
+
+[node name="Hub" type="CSGCylinder" parent="BladeMount/Blade"]
+radius = 0.2
+height = 0.1
+
+[node name="Pivot1" type="Spatial" parent="BladeMount/Blade"]
+
+[node name="BladeGeo1" type="MeshInstance" parent="BladeMount/Blade/Pivot1"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+mesh = SubResource( 5 )
+
+[node name="Pivot2" type="Spatial" parent="BladeMount/Blade"]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 0, 0 )
+
+[node name="BladeGeo2" type="MeshInstance" parent="BladeMount/Blade/Pivot2"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+mesh = SubResource( 6 )
+
+[node name="Pivot3" type="Spatial" parent="BladeMount/Blade"]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
+
+[node name="BladeGeo3" type="MeshInstance" parent="BladeMount/Blade/Pivot3"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+mesh = SubResource( 7 )
+
+[node name="Pivot4" type="Spatial" parent="BladeMount/Blade"]
+transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, 0, 0, 0 )
+
+[node name="BladeGeo4" type="MeshInstance" parent="BladeMount/Blade/Pivot4"]
+transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
+mesh = SubResource( 8 )
 
 [node name="Housing" type="CSGCombiner" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
@@ -44,41 +96,31 @@ radius = 1.1
 height = 0.6
 sides = 16
 
-[node name="Blade" type="Spatial" parent="Housing"]
+[node name="SolidCollision" type="StaticBody" parent="."]
 
-[node name="Hub" type="CSGCylinder" parent="Housing/Blade"]
-radius = 0.2
-height = 0.1
-
-[node name="Pivot1" type="Spatial" parent="Housing/Blade"]
-
-[node name="BladeGeo1" type="MeshInstance" parent="Housing/Blade/Pivot1"]
-transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
-mesh = SubResource( 5 )
-
-[node name="Pivot2" type="Spatial" parent="Housing/Blade"]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 0, 0 )
-
-[node name="BladeGeo2" type="MeshInstance" parent="Housing/Blade/Pivot2"]
-transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
-mesh = SubResource( 6 )
-
-[node name="Pivot3" type="Spatial" parent="Housing/Blade"]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
-
-[node name="BladeGeo3" type="MeshInstance" parent="Housing/Blade/Pivot3"]
-transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
-mesh = SubResource( 7 )
-
-[node name="Pivot4" type="Spatial" parent="Housing/Blade"]
-transform = Transform( 1.19249e-08, 0, -1, 0, 1, 0, 1, 0, 1.19249e-08, 0, 0, 0 )
-
-[node name="BladeGeo4" type="MeshInstance" parent="Housing/Blade/Pivot4"]
-transform = Transform( 1, 0, 0, 0, 0.939693, -0.34202, 0, 0.34202, 0.939693, 0.55, 0, 0 )
-mesh = SubResource( 8 )
+[node name="CollisionShape" type="CollisionShape" parent="SolidCollision"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+shape = SubResource( 11 )
 
 [node name="WindArea" type="Area" parent="."]
+script = ExtResource( 3 )
+is_active = false
 
 [node name="CollisionShape" type="CollisionShape" parent="WindArea"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0 )
 shape = SubResource( 3 )
+
+[node name="WindParticles" type="CPUParticles" parent="WindArea"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.4 )
+emitting = false
+amount = 64
+mesh = SubResource( 10 )
+emission_shape = 1
+emission_sphere_radius = 1.0
+direction = Vector3( 0, 0, -1 )
+spread = 6.0
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 10.0
+initial_velocity_random = 0.25
+tangential_accel = 1.5
+scale_amount = 0.7

@@ -63,7 +63,7 @@ surfaces/1 = {
 "vertex_count": 264
 }
 
-[sub_resource type="BoxShape" id=225]
+[sub_resource type="BoxShape" id=267]
 extents = Vector3( 1.4, 0.06, 1.4 )
 
 [sub_resource type="SpatialMaterial" id=226]
@@ -325,7 +325,7 @@ shape = ExtResource( 24 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1875, 0 )
 
 [node name="CollisionShape" parent="Floor_Hatch/HatchDoor" index="0"]
-shape = SubResource( 225 )
+shape = SubResource( 267 )
 
 [node name="MaintenanceElevator" parent="." instance=ExtResource( 20 )]
 process_priority = 10

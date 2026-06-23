@@ -11,32 +11,19 @@ var _blade: Spatial
 var _area: Area
 
 func _ready():
-	_blade = get_node_or_null("Housing/Blade")
+	_blade = get_node_or_null("BladeMount/Blade")
 	_area = get_node_or_null("WindArea")
+	if _blade and "rotation_speed" in _blade:
+		_blade.rotation_speed = rotation_speed
+	if _area and "wind_velocity" in _area:
+		_area.wind_velocity = Vector3(0.0, 0.0, -wind_force)
 	_update_visuals()
 
-func _physics_process(delta):
-	# Fan logic runs in physics step for determinism
-	step(delta)
-
-	if is_active and _blade:
-		_blade.rotate_y(rotation_speed * delta)
-
-	if is_active and _area:
-		var bodies = _area.get_overlapping_bodies()
-		for body in bodies:
-			if body == self: continue
-
-			# Direction: Forward (-Z)
-			var dir = - global_transform.basis.z
-
-			if body.has_method("set_external_velocity"):
-				# PlayerControllerV2 or compatible actor
-				body.set_external_velocity(dir * wind_force)
-			elif body is RigidBody:
-				# Physics object
-				body.apply_central_impulse(dir * wind_force * delta)
-
 func _update_visuals():
-	# Could change light color or sound if implemented
-	pass
+	if _blade and "is_active" in _blade:
+		_blade.is_active = is_active
+	if _area and _area.has_method("set_active"):
+		_area.set_active(is_active)
+
+func _wants_continuous_step() -> bool:
+	return is_active
