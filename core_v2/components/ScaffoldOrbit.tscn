@@ -338,4 +338,7 @@ target_spawn_id = "from_scaffold_orbit"
 target_airlock_path = NodePath("Airlock_Basement")
 zone_dir = Vector3( 0, 0, 1 )
 
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.258819, 0.965926, 0, -0.965926, 0.258819, 0, 0, 0 )
+
 [editable path="Airlock_Basement"]

@@ -28,12 +28,12 @@ const INSTALL_ID_FILE = UPDATE_DIR + "installation_id"
 
 const Utils = preload("res://core_v2/update/UpdateUtils.gd")
 
-# NO usar preload() del .gdns: un preload lo vuelve dependencia DURA del autoload, que
-# el exporter intenta resolver/inicializar en TODA plataforma. En Android (sin lib ARM)
-# eso dispara init_library "does not have a library" y ABORTA el export. El empaquetado
-# de la lib en desktop ya lo garantiza el include_filter (*.gdns/*.gdnlib en el preset),
-# así que la carga puede ser lazy con load(), solo al aplicar un delta.
-const BSPATCH_GDNS := "res://core_v2/update/native/OdiseaBspatch.gdns"
+# NO usar preload() ni string literal res:// del .gdns: el exporter de Godot 3.x escanea
+# cualquier string "res://" en scripts de autoload y lo trata como dependencia, incluso
+# si no es preload. En Android (sin lib ARM nativa) eso dispara init_library y ABORTA
+# el export. El empaquetado de la lib en desktop lo garantiza el include_filter, así que
+# la ruta se construye SIN string literal res:// para que el exporter no la detecte.
+const BSPATCH_GDNS_PATH := "core_v2/update/native/OdiseaBspatch.gdns"
 
 var _state = State.IDLE
 var _keyring: Reference
@@ -349,9 +349,9 @@ func _has_native_bspatch() -> bool:
 	_native_bspatch_ok = 0
 	if OS.has_feature("web"):
 		return false
-	if not ResourceLoader.exists(BSPATCH_GDNS):
+	if not ResourceLoader.exists("res://" + BSPATCH_GDNS_PATH):
 		return false
-	var script = load(BSPATCH_GDNS)
+	var script = load("res://" + BSPATCH_GDNS_PATH)
 	if script != null:
 		var p = script.new()
 		if p != null and p.has_method("apply"):
@@ -643,10 +643,10 @@ func _resolve_base_pck_path() -> String:
 # reconstruido en out_path (ruta res://). Usa la lib nativa OdiseaBspatch (GDNative).
 # Devuelve true si reconstruyó OK. En error llama _on_error y devuelve false.
 func _apply_binary_patch(patch_path: String, out_path: String) -> bool:
-	if not ResourceLoader.exists(BSPATCH_GDNS):
+	if not ResourceLoader.exists("res://" + BSPATCH_GDNS_PATH):
 		_on_error("bspatch_native_missing", false)
 		return false
-	var script = load(BSPATCH_GDNS)
+	var script = load("res://" + BSPATCH_GDNS_PATH)
 	if script == null:
 		_on_error("bspatch_native_missing", false)
 		return false
