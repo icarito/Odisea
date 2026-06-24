@@ -12,18 +12,30 @@ export(float) var cure_time := 0.65
 export(float) var collision_radius := 0.32
 export(float) var surface_offset := 0.08
 export(int) var projectile_collision_mask := 253
+export(int) var attached_static_mask := 1
 export(float) var wake_impulse := 3.0
 export(int) var laser_detection_layer := 512
 export(Color) var gloo_color := Color(0.18, 0.88, 0.78, 1.0)
 export(Color) var cured_color := Color(0.46, 0.58, 0.52, 1.0)
 export(Color) var emission_color := Color(0.08, 0.55, 0.48, 1.0)
 export(float) var emission_energy := 0.45
+export(float) var laser_heat_time := 2.2
+export(float) var laser_cool_rate := 1.4
+export(Color) var laser_hot_color := Color(1.0, 0.12, 0.02, 1.0)
+export(float) var smoke_fx_scale := 2.0
+export(float) var explosion_fx_scale := 1.2
+export(float) var joint_bias := 0.15
+export(float) var joint_damping := 0.9
+export(float) var joint_impulse_clamp := 1.2
 
 var velocity := Vector3.ZERO
 var _is_stuck := false
 var _is_destroying := false
+var _is_laser_heating := false
 var _age := 0.0
 var _cure_elapsed := 0.0
+var _laser_heat_elapsed := 0.0
+var _laser_contact_this_frame := false
 var _current_radius := 0.09
 var _anchor_collider = null
 var _solid_collision_enabled := true
@@ -47,7 +59,7 @@ func _ready():
 	add_to_group("gloo_blob")
 	add_to_group("replay_sync")
 
-func configure(p_speed: float, p_gravity: float, p_lifetime: float, p_launch_radius: float, p_blob_radius: float, p_cure_time: float, p_collision_radius: float, p_surface_offset: float, p_collision_mask: int, p_wake_impulse: float, p_color: Color, p_cured_color: Color, p_emission_color: Color, p_emission_energy: float) -> void:
+func configure(p_speed: float, p_gravity: float, p_lifetime: float, p_launch_radius: float, p_blob_radius: float, p_cure_time: float, p_collision_radius: float, p_surface_offset: float, p_collision_mask: int, p_attached_static_mask: int, p_wake_impulse: float, p_color: Color, p_cured_color: Color, p_emission_color: Color, p_emission_energy: float, p_laser_heat_time: float, p_laser_cool_rate: float, p_smoke_fx_scale: float, p_explosion_fx_scale: float, p_joint_bias: float, p_joint_damping: float, p_joint_impulse_clamp: float) -> void:
 	speed = p_speed
 	gravity = p_gravity
 	lifetime = p_lifetime
@@ -57,11 +69,19 @@ func configure(p_speed: float, p_gravity: float, p_lifetime: float, p_launch_rad
 	collision_radius = p_collision_radius
 	surface_offset = p_surface_offset
 	projectile_collision_mask = p_collision_mask
+	attached_static_mask = p_attached_static_mask
 	wake_impulse = p_wake_impulse
 	gloo_color = p_color
 	cured_color = p_cured_color
 	emission_color = p_emission_color
 	emission_energy = p_emission_energy
+	laser_heat_time = p_laser_heat_time
+	laser_cool_rate = p_laser_cool_rate
+	smoke_fx_scale = p_smoke_fx_scale
+	explosion_fx_scale = p_explosion_fx_scale
+	joint_bias = p_joint_bias
+	joint_damping = p_joint_damping
+	joint_impulse_clamp = p_joint_impulse_clamp
 	collision_mask = projectile_collision_mask
 	_current_radius = launch_radius
 	_apply_visual_settings()
@@ -79,13 +99,16 @@ func _apply_visual_settings() -> void:
 		mat.flags_unshaded = false
 		mat.flags_transparent = cure_t < 0.98
 		var color := gloo_color.linear_interpolate(cured_color, cure_t)
+		if _is_laser_heating:
+			var heat_t: float = clamp(_laser_heat_elapsed / max(0.01, laser_heat_time), 0.0, 1.0)
+			color = color.linear_interpolate(laser_hot_color, min(1.0, heat_t * 2.0))
 		color.a = lerp(0.72, 1.0, cure_t)
 		mat.albedo_color = color
-		mat.metallic = lerp(0.18, 0.0, cure_t)
-		mat.roughness = lerp(0.18, 0.92, cure_t)
-		mat.emission_enabled = emission_energy > 0.0 and cure_t < 0.98
-		mat.emission = emission_color
-		mat.emission_energy = lerp(emission_energy, 0.0, cure_t)
+		mat.metallic = 0.0 if _is_laser_heating else lerp(0.18, 0.0, cure_t)
+		mat.roughness = 0.38 if _is_laser_heating else lerp(0.18, 0.92, cure_t)
+		mat.emission_enabled = (emission_energy > 0.0 and cure_t < 0.98) or _is_laser_heating
+		mat.emission = laser_hot_color if _is_laser_heating else emission_color
+		mat.emission_energy = 3.0 if _is_laser_heating else lerp(emission_energy, 0.0, cure_t)
 	if _collision_shape and _collision_shape.shape:
 		if _collision_shape.shape.resource_local_to_scene == false:
 			_collision_shape.shape = _collision_shape.shape.duplicate()
@@ -128,6 +151,18 @@ func _physics_process(delta):
 func step(delta: float):
 	if _is_destroying:
 		return
+	if _is_laser_heating:
+		if _laser_contact_this_frame:
+			_laser_heat_elapsed = min(laser_heat_time, _laser_heat_elapsed + delta)
+		else:
+			_laser_heat_elapsed = max(0.0, _laser_heat_elapsed - (laser_cool_rate * delta))
+			if _laser_heat_elapsed <= 0.0:
+				_is_laser_heating = false
+		_laser_contact_this_frame = false
+		_apply_visual_settings()
+		if _laser_heat_elapsed >= laser_heat_time:
+			_finish_laser_destroy()
+		return
 	if _is_stuck:
 		_age += delta
 		if _cure_elapsed < cure_time:
@@ -146,7 +181,10 @@ func step(delta: float):
 	
 	var motion := velocity * delta
 	var space_state := get_world().direct_space_state
-	var hit := space_state.intersect_ray(global_transform.origin, global_transform.origin + motion, [self], collision_mask)
+	var ray_end := global_transform.origin + motion
+	if motion.length_squared() > 0.0001:
+		ray_end += motion.normalized() * max(_current_radius, collision_radius)
+	var hit := space_state.intersect_ray(global_transform.origin, ray_end, [self], collision_mask)
 	if hit and _should_stick_to(hit.get("collider", null)):
 		_wake_collider(hit["collider"], hit["normal"])
 		_stick_at(hit["collider"], hit["position"], hit["normal"])
@@ -178,11 +216,25 @@ func restore_snapshot(data: Dictionary):
 
 func _handle_collision(collision: KinematicCollision):
 	var collider = collision.collider
+	if not _should_stick_to(collider):
+		return
 	_wake_collider(collider, collision.normal)
 	_stick_at(collider, collision.position, collision.normal)
 
 func _should_stick_to(collider) -> bool:
+	if _is_player_collider(collider):
+		return false
 	return collider is StaticBody or collider is CSGShape or collider is RigidBody or collider is KinematicBody
+
+func _is_player_collider(collider) -> bool:
+	var node = collider
+	for _i in range(8):
+		if node == null:
+			return false
+		if node is Node and node.is_in_group("player"):
+			return true
+		node = node.get_parent() if node is Node else null
+	return false
 
 func _wake_collider(collider, normal: Vector3) -> void:
 	if collider == null or not is_instance_valid(collider):
@@ -191,8 +243,6 @@ func _wake_collider(collider, normal: Vector3) -> void:
 		collider.wake_up()
 	if collider is RigidBody:
 		collider.sleeping = false
-		if wake_impulse > 0.0 and collider.mode == RigidBody.MODE_RIGID:
-			collider.apply_central_impulse((-normal).normalized() * wake_impulse)
 
 func _stick_at(collider, position: Vector3, normal: Vector3):
 	if not (collider is Spatial):
@@ -223,7 +273,10 @@ func _stick_at(collider, position: Vector3, normal: Vector3):
 	if collider.has_method("add_collision_exception_with"):
 		collider.add_collision_exception_with(self)
 	_add_gloo_collision_exceptions()
-	_set_solid_collision(collider is StaticBody or collider is CSGShape)
+	if collider is StaticBody or collider is CSGShape:
+		_set_solid_collision(true, projectile_collision_mask)
+	else:
+		_set_solid_collision(false)
 
 func _add_gloo_collision_exceptions() -> void:
 	for blob in get_tree().get_nodes_in_group("gloo_blob"):
@@ -238,16 +291,16 @@ func _resolve_cured_collision_behavior() -> void:
 		_set_solid_collision(false)
 		return
 	if _anchor_collider is StaticBody or _anchor_collider is CSGShape:
-		_set_solid_collision(true)
+		_set_solid_collision(true, projectile_collision_mask)
 		return
 	var bridged_bodies := _get_bridged_bodies(_anchor_collider)
 	if bridged_bodies.size() > 0:
 		var anchors_to_static := _contains_static_body(bridged_bodies)
 		if anchors_to_static:
-			_pin_anchor_to_gloo(_anchor_collider)
+			_wake_for_glue(_anchor_collider)
 		for body in bridged_bodies:
 			if anchors_to_static:
-				_pin_anchor_to_gloo(body)
+				_wake_for_glue(body)
 			else:
 				_wake_collider(body, Vector3.ZERO)
 			_create_glue_joint(_anchor_collider, body)
@@ -255,10 +308,10 @@ func _resolve_cured_collision_behavior() -> void:
 	else:
 		_set_solid_collision(false)
 
-func _set_solid_collision(enabled: bool) -> void:
+func _set_solid_collision(enabled: bool, mask: int = 0) -> void:
 	_solid_collision_enabled = enabled
 	collision_layer = 64 if enabled else 0
-	collision_mask = projectile_collision_mask if enabled else 0
+	collision_mask = mask if enabled else 0
 	if _collision_shape:
 		_collision_shape.disabled = not enabled
 
@@ -279,6 +332,8 @@ func _get_bridged_bodies(anchor) -> Array:
 			continue
 		if collider == anchor or collider == self:
 			continue
+		if _is_player_collider(collider):
+			continue
 		if collider is StaticBody or collider is CSGShape or collider is RigidBody or collider is KinematicBody:
 			if not bridged.has(collider):
 				bridged.append(collider)
@@ -290,16 +345,13 @@ func _contains_static_body(bodies: Array) -> bool:
 			return true
 	return false
 
-func _pin_anchor_to_gloo(anchor) -> void:
+func _wake_for_glue(anchor) -> void:
 	if anchor == null or not is_instance_valid(anchor):
 		return
-	if anchor.has_method("_settle"):
-		anchor.call("_settle")
-	elif anchor is RigidBody:
-		anchor.mode = RigidBody.MODE_KINEMATIC
-		anchor.linear_velocity = Vector3.ZERO
-		anchor.angular_velocity = Vector3.ZERO
-		anchor.sleeping = true
+	if anchor.has_method("wake_up"):
+		anchor.wake_up()
+	if anchor is RigidBody:
+		anchor.sleeping = false
 
 func _create_glue_joint(a, b) -> void:
 	if a == null or b == null:
@@ -310,28 +362,56 @@ func _create_glue_joint(a, b) -> void:
 		return
 	if not (a is PhysicsBody and b is PhysicsBody):
 		return
+	if _has_existing_joint_between(a, b):
+		return
 
 	var joint := PinJoint.new()
-	joint.name = "GlooJoint"
-	joint.global_transform.origin = global_transform.origin
+	joint.name = "GlooPinJoint"
+	joint.add_to_group("gloo_joint")
 	get_tree().root.add_child(joint)
-	var path_a: NodePath = joint.get_path_to(a)
-	var path_b: NodePath = joint.get_path_to(b)
-	if joint.has_method("set_node_a"):
-		joint.set_node_a(path_a)
-		joint.set_node_b(path_b)
-	else:
-		joint.set("nodes/node_a", path_a)
-		joint.set("nodes/node_b", path_b)
+	joint.global_transform.origin = global_transform.origin
+	joint.set("nodes/node_a", joint.get_path_to(a))
+	joint.set("nodes/node_b", joint.get_path_to(b))
+	joint.set("collision/exclude_nodes", false)
+	joint.set("params/bias", joint_bias)
+	joint.set("params/damping", joint_damping)
+	joint.set("params/impulse_clamp", joint_impulse_clamp)
+	joint.set_meta("gloo_node_a", str(a.get_path()))
+	joint.set_meta("gloo_node_b", str(b.get_path()))
 	_glue_joints.append(joint)
+
+func _has_existing_joint_between(a: Node, b: Node) -> bool:
+	var path_a := str(a.get_path())
+	var path_b := str(b.get_path())
+	for node in get_tree().get_nodes_in_group("gloo_joint"):
+		if not is_instance_valid(node):
+			continue
+		var node_a := String(node.get_meta("gloo_node_a", ""))
+		var node_b := String(node.get_meta("gloo_node_b", ""))
+		if (node_a == path_a and node_b == path_b) or (node_a == path_b and node_b == path_a):
+			return true
+	return false
 
 func laser_hit() -> void:
 	if _is_destroying:
 		return
+	_laser_contact_this_frame = true
+	if not _is_laser_heating:
+		_is_laser_heating = true
+		_set_solid_collision(false)
+		_apply_visual_settings()
+		_spawn_flipbook_fx(SmokeScene, smoke_fx_scale * 0.65, laser_heat_time)
+
+func get_laser_hit_radius() -> float:
+	return max(_current_radius, collision_radius)
+
+func _finish_laser_destroy() -> void:
+	if _is_destroying:
+		return
 	_is_destroying = true
 	_release_glue_joints()
-	_spawn_flipbook_fx(SmokeScene, 1.45, 1.15)
-	_spawn_flipbook_fx(ExplosionScene, 0.85, 0.75)
+	_spawn_flipbook_fx(SmokeScene, smoke_fx_scale, 1.15)
+	_spawn_flipbook_fx(ExplosionScene, explosion_fx_scale, 0.75)
 	queue_free()
 
 func _release_glue_joints() -> void:

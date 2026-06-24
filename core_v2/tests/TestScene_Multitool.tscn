@@ -31,14 +31,38 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2587, 0.6, 1.3436 )
 [node name="PushableBoxV4" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7587, 2.6, 1.3436 )
 
+[node name="PushableBoxV5" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.7413, 0.6, 1.3436 )
+
+[node name="PushableBoxV6" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.7413, 0.6, 1.3436 )
+
+[node name="PushableBoxV7" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.2413, 2.6, 1.3436 )
+
+[node name="PushableBoxV8" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2587, 4.6, 1.3436 )
+
+[node name="PushableBoxV9" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.7413, 4.6, 1.3436 )
+
+[node name="PushableBoxV10" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2413, 6.6, 1.3436 )
+
+[node name="PushableBoxV11" parent="." instance=ExtResource( 6 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2413, 2.6, 1.3436 )
+
 [node name="SciFiWorkLightV2" parent="." instance=ExtResource( 2 )]
-transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, 3.2901, -0.4, -2.27052 )
+transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, 7.2901, -0.4, -2.27052 )
+head_tilt = 30.0
 
 [node name="SciFiWorkLightV3" parent="." instance=ExtResource( 2 )]
-transform = Transform( -0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, -5.7099, -0.4, -2.27052 )
+transform = Transform( -0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, -5.7099, -0.4, -1.27052 )
+head_tilt = 30.0
 
 [node name="SciFiWorkLightTripodV2" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.751572, -0.399999, 6.41613 )
+head_tilt = 20.0
 
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 2.41047, -3 )

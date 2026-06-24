@@ -77,3 +77,66 @@ func test_gloo_sticking():
 	assert_vector3(projectile.velocity).is_equal(Vector3.ZERO)
 	
 	static_body.queue_free()
+
+func test_gloo_does_not_stick_to_player():
+	var projectile = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	add_child(projectile)
+	
+	assert_bool(projectile._should_stick_to(_player)).is_false()
+	
+	projectile.queue_free()
+
+func test_gloo_uses_pin_joint_for_bridged_bodies():
+	var projectile = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	var a := RigidBody.new()
+	var b := StaticBody.new()
+	add_child(a)
+	add_child(b)
+	add_child(projectile)
+	
+	projectile._create_glue_joint(a, b)
+	
+	assert_int(projectile._glue_joints.size()).is_equal(1)
+	assert_bool(projectile._glue_joints[0] is PinJoint).is_true()
+	assert_bool(projectile._glue_joints[0].get("collision/exclude_nodes")).is_false()
+	assert_int(a.mode).is_equal(RigidBody.MODE_RIGID)
+	
+	projectile.queue_free()
+	a.queue_free()
+	b.queue_free()
+
+func test_gloo_does_not_duplicate_pin_joint_for_same_pair():
+	var projectile_a = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	var projectile_b = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	var a := RigidBody.new()
+	var b := RigidBody.new()
+	add_child(a)
+	add_child(b)
+	add_child(projectile_a)
+	add_child(projectile_b)
+	
+	projectile_a._create_glue_joint(a, b)
+	projectile_b._create_glue_joint(a, b)
+	
+	assert_int(projectile_a._glue_joints.size()).is_equal(1)
+	assert_int(projectile_b._glue_joints.size()).is_equal(0)
+	
+	projectile_a.queue_free()
+	projectile_b.queue_free()
+	a.queue_free()
+	b.queue_free()
+
+func test_gloo_attached_to_dynamic_body_has_no_solid_collision():
+	var projectile = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	var body := RigidBody.new()
+	add_child(body)
+	add_child(projectile)
+	
+	projectile._stick_at(body, body.global_transform.origin, Vector3.UP)
+	
+	assert_int(projectile.collision_layer).is_equal(0)
+	assert_int(projectile.collision_mask).is_equal(0)
+	assert_bool(projectile._collision_shape.disabled).is_true()
+	
+	projectile.queue_free()
+	body.queue_free()

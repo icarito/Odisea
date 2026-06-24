@@ -20,11 +20,19 @@ export(float, 0.05, 5.0) var gloo_cure_time := 0.65
 export(float, 0.05, 1.5) var gloo_collision_radius := 0.32
 export(float, 0.0, 2.0) var gloo_surface_offset := 0.08
 export(int) var gloo_collision_mask := 253 # All gameplay layers except player layer 2.
+export(int) var gloo_attached_static_mask := 1
 export(float, 0.0, 20.0) var gloo_wake_impulse := 0.0
 export(Color) var gloo_color := Color(0.18, 0.88, 0.78, 1.0)
 export(Color) var gloo_cured_color := Color(0.46, 0.58, 0.52, 1.0)
 export(Color) var gloo_emission_color := Color(0.08, 0.55, 0.48, 1.0)
 export(float, 0.0, 3.0) var gloo_emission_energy := 0.45
+export(float, 0.2, 8.0) var gloo_laser_heat_time := 1.25
+export(float, 0.1, 8.0) var gloo_laser_cool_rate := 1.8
+export(float, 0.2, 6.0) var gloo_smoke_scale := 2.0
+export(float, 0.2, 6.0) var gloo_explosion_scale := 1.2
+export(float, 0.0, 1.0) var gloo_joint_bias := 0.15
+export(float, 0.0, 4.0) var gloo_joint_damping := 0.9
+export(float, 0.0, 20.0) var gloo_joint_impulse_clamp := 1.2
 export(float, 1.0, 200.0) var laser_max_range := 50.0
 export(int) var laser_collision_mask := 765 # Everything except player layer 2, plus gloo laser hit areas.
 export(Color) var laser_color := Color(1.0, 0.3, 0.1)
@@ -127,7 +135,7 @@ func _fire_gloo():
 	var projectile = GlooProjectileScene.instance()
 	get_tree().root.add_child(projectile)
 	if projectile.has_method("configure"):
-		projectile.configure(gloo_projectile_speed, gloo_projectile_gravity, gloo_projectile_lifetime, gloo_launch_radius, gloo_blob_radius, gloo_cure_time, gloo_collision_radius, gloo_surface_offset, gloo_collision_mask, gloo_wake_impulse, gloo_color, gloo_cured_color, gloo_emission_color, gloo_emission_energy)
+		projectile.configure(gloo_projectile_speed, gloo_projectile_gravity, gloo_projectile_lifetime, gloo_launch_radius, gloo_blob_radius, gloo_cure_time, gloo_collision_radius, gloo_surface_offset, gloo_collision_mask, gloo_attached_static_mask, gloo_wake_impulse, gloo_color, gloo_cured_color, gloo_emission_color, gloo_emission_energy, gloo_laser_heat_time, gloo_laser_cool_rate, gloo_smoke_scale, gloo_explosion_scale, gloo_joint_bias, gloo_joint_damping, gloo_joint_impulse_clamp)
 	projectile.launch(_gloo_spawn_point.global_transform)
 	_gloo_cooldown_left = gloo_fire_cooldown
 	

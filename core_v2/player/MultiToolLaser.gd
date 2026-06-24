@@ -52,9 +52,9 @@ func _physics_process(_delta):
 		var collision_point = _raycast.get_collision_point()
 		beam_length = global_transform.origin.distance_to(collision_point)
 		var collider = _raycast.get_collider()
-		var target = collider
-		if target and not target.has_method("laser_hit") and target.get_parent():
-			target = target.get_parent()
+		var target = _find_laser_target(collider)
+		if target == null:
+			target = _find_gloo_target_on_beam(beam_length)
 		if target and target.has_method("laser_hit"):
 			target.laser_hit()
 		
@@ -77,6 +77,35 @@ func _physics_process(_delta):
 	# It points towards -Z.
 	_beam_mesh.scale.z = beam_length
 	_beam_mesh.translation.z = -beam_length / 2.0
+
+func _find_laser_target(collider):
+	var target = collider
+	for _i in range(4):
+		if target == null:
+			return null
+		if target.has_method("laser_hit"):
+			return target
+		target = target.get_parent()
+	return null
+
+func _find_gloo_target_on_beam(beam_length: float):
+	var from: Vector3 = global_transform.origin
+	var dir: Vector3 = -global_transform.basis.z.normalized()
+	var best = null
+	var best_t := beam_length
+	for blob in get_tree().get_nodes_in_group("gloo_blob"):
+		if not is_instance_valid(blob) or not (blob is Spatial):
+			continue
+		var to_blob: Vector3 = blob.global_transform.origin - from
+		var t: float = clamp(to_blob.dot(dir), 0.0, beam_length)
+		var closest: Vector3 = from + dir * t
+		var radius := 0.4
+		if blob.has_method("get_laser_hit_radius"):
+			radius = float(blob.get_laser_hit_radius())
+		if closest.distance_to(blob.global_transform.origin) <= radius and t <= best_t:
+			best = blob
+			best_t = t
+	return best
 
 func _update_beam_material():
 	var mat = SpatialMaterial.new()
