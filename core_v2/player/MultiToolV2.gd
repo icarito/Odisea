@@ -40,6 +40,9 @@ func step(dt: float, input):
 	match current_mode:
 		Mode.LASER:
 			_handle_laser_input(input.tool_fire_primary)
+		Mode.GLOO:
+			if input.tool_fire_primary:
+				_fire_gloo()
 
 	# Clean up any freed projectiles from our list
 	var i = 0
@@ -84,8 +87,7 @@ func _handle_laser_input(is_firing: bool):
 	if _laser:
 		_laser.set_firing(is_firing)
 
-# Called by PlayerController when secondary fire is JUST pressed
-func fire_gloo():
+func _fire_gloo():
 	if current_mode != Mode.GLOO:
 		return
 		
