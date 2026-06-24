@@ -40,6 +40,7 @@ func test_gloo_firing():
 	assert_bool(projectile.get_parent() != null).is_true()
 
 func test_gloo_max_count():
+	_multi_tool.gloo_fire_cooldown = 0.0
 	var max_count = _multi_tool.max_gloo_projectiles
 	
 	for i in range(max_count + 2):
@@ -57,10 +58,12 @@ func test_gloo_sticking():
 	collision_shape.shape = box
 	static_body.add_child(collision_shape)
 	add_child(static_body)
-	static_body.global_transform.origin = _player.global_transform.origin + Vector3(0, 0, -2)
+	var visual_forward = _player.get_node("Visual/Pivot").global_transform.basis.z.normalized()
+	static_body.global_transform.origin = _player.global_transform.origin + visual_forward * 2.0
 	
 	yield(get_tree(), "idle_frame")
 	
+	_player.step(1.0/60.0, InputDataV2.new())
 	_multi_tool.fire_gloo()
 	var projectile = _multi_tool._active_gloo_projectiles.back()
 	

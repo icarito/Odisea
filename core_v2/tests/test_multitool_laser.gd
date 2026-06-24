@@ -51,7 +51,8 @@ func test_laser_raycast_collision():
 	collision_shape.shape = box
 	static_body.add_child(collision_shape)
 	add_child(static_body)
-	static_body.global_transform.origin = _player.global_transform.origin + Vector3(0, 0, -5)
+	var visual_forward = _player.get_node("Visual/Pivot").global_transform.basis.z.normalized()
+	static_body.global_transform.origin = _player.global_transform.origin + visual_forward * 5.0
 	
 	yield(get_tree(), "idle_frame")
 	
@@ -59,7 +60,7 @@ func test_laser_raycast_collision():
 	input.tool_fire_primary = true
 	
 	# Step player and multi-tool
-	_player.multi_tool.step(1.0/60.0, input)
+	_player.step(1.0/60.0, input)
 	_laser._physics_process(1.0/60.0) # Explicit call since it might be throttled or not running in test env same way
 	
 	assert_bool(_laser._raycast.is_colliding()).is_true()

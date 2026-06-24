@@ -211,6 +211,9 @@ var is_acrobatic_ready := false
 var multi_tool = null
 var _multi_tool_enabled := false
 var _tool_secondary_was_pressed := false
+var _multi_tool_mount: Spatial = null
+var _multi_tool_skeleton: Skeleton = null
+var _multi_tool_hand_bone_idx := -1
 
 var _current_interactable: Node = null
 var _current_interaction_prompt := ""
@@ -1440,20 +1443,112 @@ func _setup_interact_area():
 		add_child(_interact_area)
 
 func _setup_multi_tool():
-	if not _multi_tool_enabled:
-		return
 	if multi_tool and is_instance_valid(multi_tool):
+		_sync_multi_tool_action_transform()
+		return
+
+	var existing_tool = get_node_or_null("MultiTool")
+	if existing_tool:
+		multi_tool = existing_tool
+		var existing_mount = _get_multi_tool_mount()
+		if existing_mount:
+			remove_child(multi_tool)
+			existing_mount.add_child(multi_tool)
+			_apply_multi_tool_hand_transform()
+			_sync_multi_tool_action_transform()
+		return
+
+	if not _multi_tool_enabled:
 		return
 	
 	var mt_scene = load("res://core_v2/player/MultiToolV2.tscn")
 	if mt_scene:
 		multi_tool = mt_scene.instance()
-		# Attach to camera to follow gaze
-		var cam = _find_camera(camera_rig)
-		if cam:
-			cam.add_child(multi_tool)
+		var mount = _get_multi_tool_mount()
+		if mount:
+			mount.add_child(multi_tool)
+			_apply_multi_tool_hand_transform()
+			_sync_multi_tool_action_transform()
 		else:
 			add_child(multi_tool)
+
+func _get_multi_tool_mount() -> Spatial:
+	if _multi_tool_mount and is_instance_valid(_multi_tool_mount):
+		return _multi_tool_mount
+
+	var skeleton = get_node_or_null("Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton")
+	if skeleton and skeleton is Skeleton:
+		_multi_tool_skeleton = skeleton
+		_multi_tool_hand_bone_idx = skeleton.find_bone("DEF-handR")
+		_multi_tool_mount = self
+		return _multi_tool_mount
+
+	var pivot = get_node_or_null("Visual/Pivot")
+	if pivot:
+		var fallback = pivot.get_node_or_null("MultiToolHandSocket")
+		if fallback == null:
+			fallback = Spatial.new()
+			fallback.name = "MultiToolHandSocket"
+			pivot.add_child(fallback)
+			fallback.translation = Vector3(0.32, 1.05, -0.28)
+		_multi_tool_mount = fallback
+		return _multi_tool_mount
+
+	return null
+
+func _apply_multi_tool_hand_transform() -> void:
+	if not (multi_tool and is_instance_valid(multi_tool)):
+		return
+	multi_tool.transform = Transform(Basis(Vector3.UP, PI), Vector3(0.03, 0.0, -0.08))
+
+func _sync_multi_tool_action_transform() -> void:
+	if not (multi_tool and is_instance_valid(multi_tool)):
+		return
+	if not is_inside_tree():
+		return
+	var t: Transform = multi_tool.global_transform
+	t.origin = _get_multi_tool_hand_origin()
+	var aim_dir: Vector3 = _get_multi_tool_aim_direction(t.origin)
+	var look: Transform = Transform(t.basis, t.origin).looking_at(t.origin + aim_dir, Vector3.UP)
+	t.basis = look.basis
+	multi_tool.global_transform = t
+
+func _get_multi_tool_hand_origin() -> Vector3:
+	if _multi_tool_skeleton and is_instance_valid(_multi_tool_skeleton) and _multi_tool_hand_bone_idx >= 0:
+		var bone_pose: Transform = _multi_tool_skeleton.get_bone_global_pose(_multi_tool_hand_bone_idx)
+		return (_multi_tool_skeleton.global_transform * bone_pose).origin
+	return global_transform.origin + Vector3(0.32, 1.05, -0.28)
+
+func _get_multi_tool_forward() -> Vector3:
+	var visual_pivot = get_node_or_null("Visual/Pivot")
+	if visual_pivot and is_instance_valid(visual_pivot):
+		return visual_pivot.global_transform.basis.z.normalized()
+	return -global_transform.basis.z.normalized()
+
+func _get_multi_tool_aim_direction(origin: Vector3) -> Vector3:
+	var visual_forward: Vector3 = _get_multi_tool_forward()
+	var camera = _cached_cam
+	if not (camera and is_instance_valid(camera)):
+		camera = _find_camera(camera_rig)
+	if not (camera and is_instance_valid(camera)):
+		return visual_forward
+
+	var center: Vector2 = get_viewport().size * 0.5
+	var cam_origin: Vector3 = camera.project_ray_origin(center)
+	var cam_dir: Vector3 = camera.project_ray_normal(center).normalized()
+	var target: Vector3 = cam_origin + cam_dir * max(8.0, interact_distance)
+	var space_state := get_world().direct_space_state
+	var hit := space_state.intersect_ray(cam_origin, cam_origin + cam_dir * 80.0, [self], 255)
+	if hit:
+		target = hit["position"]
+
+	var hand_to_target: Vector3 = target - origin
+	if hand_to_target.length_squared() < 0.0001:
+		return visual_forward
+	var aim_dir: Vector3 = hand_to_target.normalized()
+	if aim_dir.dot(visual_forward) < 0.1:
+		return visual_forward
+	return aim_dir
 
 func set_multi_tool_enabled(enabled: bool):
 	_multi_tool_enabled = enabled
@@ -2319,9 +2414,13 @@ func step(dt: float, input: InputDataV2) -> void:
 	_update_camera_view(dt)
 
 	if multi_tool and is_instance_valid(multi_tool):
+		_sync_multi_tool_action_transform()
 		multi_tool.step(dt, input)
 		if input.tool_fire_secondary and not _tool_secondary_was_pressed:
-			multi_tool.fire_gloo()
+			if multi_tool.has_method("fire_gloo"):
+				multi_tool.fire_gloo()
+			elif multi_tool.has_method("_fire_gloo"):
+				multi_tool.call("_fire_gloo")
 		_tool_secondary_was_pressed = input.tool_fire_secondary
 
 	if prof_enabled:

@@ -9,10 +9,31 @@ enum Mode {
 }
 
 export(Mode) var current_mode := Mode.LASER
-export(int) var max_gloo_projectiles := 6
+export(int, 1, 64) var max_gloo_projectiles := 18
+export(float, 0.0, 5.0) var gloo_fire_cooldown := 0.18
+export(float, 1.0, 80.0) var gloo_projectile_speed := 18.0
+export(float, 0.0, 30.0) var gloo_projectile_gravity := 7.5
+export(float, 1.0, 600.0) var gloo_projectile_lifetime := 240.0
+export(float, 0.03, 1.0) var gloo_launch_radius := 0.09
+export(float, 0.05, 1.5) var gloo_blob_radius := 0.35
+export(float, 0.05, 5.0) var gloo_cure_time := 0.65
+export(float, 0.05, 1.5) var gloo_collision_radius := 0.32
+export(float, 0.0, 2.0) var gloo_surface_offset := 0.08
+export(int) var gloo_collision_mask := 253 # All gameplay layers except player layer 2.
+export(float, 0.0, 20.0) var gloo_wake_impulse := 0.0
+export(Color) var gloo_color := Color(0.18, 0.88, 0.78, 1.0)
+export(Color) var gloo_cured_color := Color(0.46, 0.58, 0.52, 1.0)
+export(Color) var gloo_emission_color := Color(0.08, 0.55, 0.48, 1.0)
+export(float, 0.0, 3.0) var gloo_emission_energy := 0.45
+export(float, 1.0, 200.0) var laser_max_range := 50.0
+export(int) var laser_collision_mask := 765 # Everything except player layer 2, plus gloo laser hit areas.
+export(Color) var laser_color := Color(1.0, 0.3, 0.1)
+export(float, 0.05, 2.0) var laser_alpha := 0.6
+export(float, 0.0, 8.0) var laser_emission_energy := 2.0
 
 var _active_gloo_projectiles := []
 var _is_firing_primary := false
+var _gloo_cooldown_left := 0.0
 
 onready var _laser: Spatial = $Laser
 onready var _gloo_spawn_point: Position3D = $GlooSpawnPoint
@@ -22,6 +43,7 @@ onready var _ui: Control = $HUD/UIIndicator
 const GlooProjectileScene = preload("res://core_v2/player/MultiToolGloo.tscn")
 
 func _ready():
+	_apply_exported_settings()
 	_update_mode_visuals()
 	_laser.set_firing(false)
 	add_to_group("replay_sync")
@@ -29,6 +51,8 @@ func _ready():
 func step(dt: float, input):
 	if input == null:
 		return
+	if _gloo_cooldown_left > 0.0:
+		_gloo_cooldown_left = max(0.0, _gloo_cooldown_left - dt)
 
 	# Mode switching
 	if input.tool_next_mode:
@@ -79,6 +103,10 @@ func _update_mode_visuals():
 		Mode.GLOO:
 			mat.albedo_color = Color.cyan
 
+func _apply_exported_settings() -> void:
+	if _laser and _laser.has_method("configure"):
+		_laser.configure(laser_max_range, laser_collision_mask, laser_color, laser_alpha, laser_emission_energy)
+
 func _handle_laser_input(is_firing: bool):
 	if _is_firing_primary == is_firing:
 		return
@@ -87,13 +115,21 @@ func _handle_laser_input(is_firing: bool):
 	if _laser:
 		_laser.set_firing(is_firing)
 
+func fire_gloo() -> void:
+	_fire_gloo()
+
 func _fire_gloo():
 	if current_mode != Mode.GLOO:
+		return
+	if _gloo_cooldown_left > 0.0:
 		return
 		
 	var projectile = GlooProjectileScene.instance()
 	get_tree().root.add_child(projectile)
+	if projectile.has_method("configure"):
+		projectile.configure(gloo_projectile_speed, gloo_projectile_gravity, gloo_projectile_lifetime, gloo_launch_radius, gloo_blob_radius, gloo_cure_time, gloo_collision_radius, gloo_surface_offset, gloo_collision_mask, gloo_wake_impulse, gloo_color, gloo_cured_color, gloo_emission_color, gloo_emission_energy)
 	projectile.launch(_gloo_spawn_point.global_transform)
+	_gloo_cooldown_left = gloo_fire_cooldown
 	
 	_active_gloo_projectiles.append(projectile)
 	
