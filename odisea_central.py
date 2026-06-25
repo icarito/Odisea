@@ -2921,9 +2921,12 @@ class OdiseaCentral:
         repo_info = payload.get("repository") or {}
         repo_name = str(repo_info.get("name") or "")
         is_dashboard_repo = repo_name in DEPLOY_DASHBOARD_REPOS
+        if is_dashboard_repo:
+            logger.info("deploy webhook: dashboard repo push is handled by GitHub Actions (%s)", repo_name)
+            return web.json_response({"ok": True, "skipped": "dashboard deploy handled by actions"})
 
         # Skip the redeploy unless the push touched central's dependencies.
-        if DEPLOY_PATHS and not is_dashboard_repo:
+        if DEPLOY_PATHS:
             changed = set()
             for commit in payload.get("commits", []):
                 changed.update(commit.get("added", []))
