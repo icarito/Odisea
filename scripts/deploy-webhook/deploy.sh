@@ -3,8 +3,9 @@
 # Auto-deploy script triggered by the /webhook/deploy endpoint in odisea_central.py.
 #
 # It keeps a DEDICATED clone (separate from the interactive ~/.openclaw workspace),
-# hard-resets it to origin/main, builds the dashboard, copies the central + static
-# assets into the runtime dir (~/anna-central), and restarts the systemd service.
+# hard-resets it to origin/main, builds the external Expo dashboard, copies the
+# central + static assets into the runtime dir (~/anna-central), and restarts the
+# systemd service.
 #
 # Designed to run detached: it survives odisea-central restarting mid-deploy.
 #
@@ -16,18 +17,22 @@
 #   # allow the restart without a password prompt (see README)
 #
 # Override via env if your layout differs:
-#   REPO_DIR    - dedicated clone        (default ~/odisea-deploy/Odisea)
-#   REPO_URL    - remote for first clone (default git@github.com:icarito/Odisea.git)
-#   BRANCH      - branch to deploy       (default main)
-#   DEPLOY_DIR  - runtime dir            (default ~/anna-central)
-#   SERVICE     - systemd unit           (default odisea-central.service)
-#   DB_PATH     - central SQLite DB      (default $DEPLOY_DIR/data/ghosts.db)
-#   BACKUP_DIR  - SQLite backup dir      (default $DEPLOY_DIR/data/backups)
+#   REPO_DIR       - Odisea clone          (default ~/odisea-deploy/Odisea)
+#   REPO_URL       - Odisea remote         (default git@github.com:icarito/Odisea.git)
+#   DASHBOARD_DIR  - dashboard clone       (default ~/odisea-deploy/Odisea_Dashboard)
+#   DASHBOARD_URL  - dashboard remote      (default https://github.com/icarito/Rottapaint)
+#   BRANCH         - branch to deploy      (default main)
+#   DEPLOY_DIR     - runtime dir           (default ~/anna-central)
+#   SERVICE        - systemd unit          (default odisea-central.service)
+#   DB_PATH        - central SQLite DB     (default $DEPLOY_DIR/data/ghosts.db)
+#   BACKUP_DIR     - SQLite backup dir     (default $DEPLOY_DIR/data/backups)
 
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/odisea-deploy/Odisea}"
 REPO_URL="${REPO_URL:-git@github.com:icarito/Odisea.git}"
+DASHBOARD_DIR="${DASHBOARD_DIR:-$HOME/odisea-deploy/Odisea_Dashboard}"
+DASHBOARD_URL="${DASHBOARD_URL:-https://github.com/icarito/Rottapaint}"
 BRANCH="${BRANCH:-main}"
 DEPLOY_DIR="${DEPLOY_DIR:-$HOME/anna-central}"
 SERVICE="${SERVICE:-odisea-central.service}"
@@ -71,26 +76,26 @@ NEW_SHA="$(git rev-parse --short HEAD)"
 FULL_SHA="$(git rev-parse HEAD)"
 log "now at $NEW_SHA"
 
-log "building dashboard (pnpm)"
-cd "$REPO_DIR/dashboard"
-# The dashboard uses pnpm (pnpm-lock.yaml). npm is intentionally NOT used — it
-# diverges from the pnpm lockfile. Resolve a pnpm command that works without
-# root: a real pnpm on PATH, else corepack's shim (`corepack pnpm ...`).
-# `corepack enable` needs write access to /usr/bin, which we don't have, so we
-# invoke pnpm through corepack directly instead.
-if command -v pnpm >/dev/null 2>&1; then
-  PNPM="pnpm"
-elif command -v corepack >/dev/null 2>&1; then
-  corepack prepare "pnpm@${PNPM_VERSION:-9.15.0}" --activate >/dev/null 2>&1 || true
-  PNPM="corepack pnpm"
-else
-  echo "::error::Neither pnpm nor corepack is available"; exit 1
+if [ ! -d "$DASHBOARD_DIR/.git" ]; then
+  log "no dashboard clone at $DASHBOARD_DIR, cloning from $DASHBOARD_URL"
+  git clone "$DASHBOARD_URL" "$DASHBOARD_DIR"
 fi
-log "using: $PNPM ($($PNPM --version 2>/dev/null || echo '?'))"
-$PNPM install --frozen-lockfile
-VITE_DASHBOARD_VERSION="$NEW_SHA" \
-VITE_GIT_COMMIT="$FULL_SHA" \
-$PNPM run build
+
+cd "$DASHBOARD_DIR"
+log "fetching dashboard origin"
+git fetch --prune origin
+log "hard-resetting dashboard to origin/$BRANCH"
+git checkout -q "$BRANCH" 2>/dev/null || git checkout -q -b "$BRANCH" "origin/$BRANCH"
+git reset --hard "origin/$BRANCH"
+DASHBOARD_SHA="$(git rev-parse --short HEAD)"
+DASHBOARD_FULL_SHA="$(git rev-parse HEAD)"
+log "dashboard now at $DASHBOARD_SHA"
+
+log "building Expo dashboard (npm)"
+npm ci
+EXPO_PUBLIC_DASHBOARD_VERSION="$DASHBOARD_SHA" \
+EXPO_PUBLIC_GIT_COMMIT="$DASHBOARD_FULL_SHA" \
+npm run build:web
 
 log "backing up SQLite ($DB_PATH)"
 # Schema (CREATE TABLE / ALTER ADD COLUMN) is owned by odisea_central.py, which
@@ -165,7 +170,7 @@ chmod +x "$DEPLOY_DIR/scripts/import_nginx_geo.py"
 # assets that aren't there yet (→ 404 / corrupted content). The mv is atomic.
 STAGE="$DEPLOY_DIR/static/.dashboard.stage"
 rm -rf "$STAGE" "$DEPLOY_DIR/static/dashboard.old"
-cp -r "$REPO_DIR/dashboard/dist" "$STAGE"
+cp -r "$DASHBOARD_DIR/dist" "$STAGE"
 [ -d "$DEPLOY_DIR/static/dashboard" ] && mv "$DEPLOY_DIR/static/dashboard" "$DEPLOY_DIR/static/dashboard.old"
 mv "$STAGE" "$DEPLOY_DIR/static/dashboard"
 rm -rf "$DEPLOY_DIR/static/dashboard.old"
@@ -176,6 +181,8 @@ sudo tee "/etc/systemd/system/${SERVICE}.d/version.conf" >/dev/null <<EOF
 [Service]
 Environment=ODISEA_DASHBOARD_VERSION=$NEW_SHA
 Environment=GITHUB_SHA=$FULL_SHA
+Environment=ODISEA_EXPO_DASHBOARD_VERSION=$DASHBOARD_SHA
+Environment=ODISEA_EXPO_DASHBOARD_SHA=$DASHBOARD_FULL_SHA
 EOF
 sudo systemctl daemon-reload
 

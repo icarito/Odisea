@@ -159,6 +159,14 @@ DEPLOY_PATHS = [
         "odisea_central.py,dashboard/,scripts/deploy-webhook/,scripts/import_ghosts_to_sqlite.py",
     ).split(",") if p.strip()
 ]
+# Repos whose pushes mean "redeploy the external Expo dashboard", not paths
+# inside this repo. Keep Rottapaint during the repository rename window.
+DEPLOY_DASHBOARD_REPOS = {
+    p.strip() for p in os.environ.get(
+        "DEPLOY_DASHBOARD_REPOS",
+        "Odisea_Dashboard,Rottapaint",
+    ).split(",") if p.strip()
+}
 
 AUTH_MAX_FAILS = int(os.environ.get("CENTRAL_AUTH_MAX_FAILS", 8))
 AUTH_FAIL_WINDOW = int(os.environ.get("CENTRAL_AUTH_FAIL_WINDOW", 60))
@@ -2910,9 +2918,12 @@ class OdiseaCentral:
         ref = payload.get("ref", "")
         if ref != f"refs/heads/{DEPLOY_BRANCH}":
             return web.json_response({"ok": True, "ignored": f"ref={ref}"})
+        repo_info = payload.get("repository") or {}
+        repo_name = str(repo_info.get("name") or "")
+        is_dashboard_repo = repo_name in DEPLOY_DASHBOARD_REPOS
 
         # Skip the redeploy unless the push touched central's dependencies.
-        if DEPLOY_PATHS:
+        if DEPLOY_PATHS and not is_dashboard_repo:
             changed = set()
             for commit in payload.get("commits", []):
                 changed.update(commit.get("added", []))
