@@ -250,6 +250,9 @@ func _notification(what):
 	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
 		# Diferimos un frame: al recibir FOCUS_IN el compositor aún puede no
 		# haber entregado el puntero; reafirmar tras el frame es más confiable.
+		# La promoción a fullscreen va antes y es independiente del menú:
+		# queremos fullscreen incluso en el menú principal, no sólo en gameplay.
+		call_deferred("_promote_to_fullscreen_if_wanted")
 		call_deferred("_reassert_mouse_capture")
 	elif what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
 		# Soltamos el grab para no "secuestrar" el cursor del usuario al perder
@@ -282,9 +285,46 @@ func _reassert_mouse_capture() -> void:
 		return
 	if not OS.is_window_focused():
 		return
+	# Bajo Mutter+XWayland el grab del puntero es rechazado en ventanas
+	# fullscreen X11. Por eso arrancamos en ventana (project.godot) y
+	# promovemos a fullscreen sólo aquí, con foco ya confirmado: Mutter sí
+	# concede foco+grab a una ventana normal y la transición a fullscreen
+	# mantiene el grab vivo.
+	_promote_to_fullscreen_if_wanted()
 	# Reaplicar incondicionalmente: bajo XWayland un grab previo pudo haberse
 	# revocado sin notificar, así que volver a setearlo recupera el grab.
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+# Bandera para aplicar el modo de ventana una sola vez tras el primer foco real.
+var _fullscreen_promoted := false
+
+func _promote_to_fullscreen_if_wanted() -> void:
+	# Aplica la PREFERENCIA del usuario (SettingsManager.fullscreen) una vez que
+	# la ventana tiene foco real. Arrancamos en ventana (project.godot) para
+	# evitar la ventana fullscreen-XWayland-sin-foco que rompe el grab bajo
+	# Mutter; aquí, con foco confirmado, fijamos el modo que el usuario eligió
+	# en Opciones. NO forzamos fullscreen: si eligió "Ventana", se queda ventana.
+	if _fullscreen_promoted:
+		return
+	# En modos sin ventana de gameplay (CLI/replay/script/headless) no tocamos
+	# el modo de ventana. _wants_mouse_capture ya cubre test/CLI/Server/menú.
+	if is_cli_mode or OS.has_feature("Server"):
+		return
+	# Sólo aplicamos con foco real: ir a fullscreen sin foco recrea la ventana
+	# override-redirect sin foco de Mutter que dispara el bug.
+	if not OS.is_window_focused():
+		return
+	# La preferencia del usuario es la fuente de verdad. Override de entorno
+	# para dev/CI: ODISEA_NO_FULLSCREEN=1 fuerza ventana sin importar el setting.
+	var want_fullscreen := true
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm and "fullscreen" in sm:
+		want_fullscreen = bool(sm.fullscreen)
+	if OS.get_environment("ODISEA_NO_FULLSCREEN").to_lower() in ["1", "true", "yes", "on"]:
+		want_fullscreen = false
+	if OS.window_fullscreen != want_fullscreen:
+		OS.window_fullscreen = want_fullscreen
+	_fullscreen_promoted = true
 
 func _prepare_live_video_export_recording_runtime() -> void:
 	# Live export should not alter gameplay audio; silence is applied in the spawned export process.
@@ -447,6 +487,14 @@ func _ready():
 				_live_export_on_exit = true
 				get_tree().connect("tree_changed", self , "_on_tree_changed_for_live_recording", [], CONNECT_ONESHOT)
 				continue
+
+	# --- Promoción a fullscreen al primer foco real ---
+	# Arrancamos en ventana (project.godot) para evitar la ventana fullscreen
+	# XWayland sin foco que rompe el grab bajo Mutter. Intentamos promover ya;
+	# si aún no hay foco, el handler de NOTIFICATION_WM_FOCUS_IN lo hará al
+	# entregarse el foco. Programamos además un reintento por si FOCUS_IN llega
+	# antes de que este nodo esté escuchando.
+	call_deferred("_promote_to_fullscreen_if_wanted")
 
 	# --- Instanciar y conectar TeleportSystem (instanciación robusta) ---
 	if not has_node("TeleportSystem"):

@@ -70,7 +70,13 @@ func _set_bus_volume(bus_name: String, volume_linear: float):
 		AudioServer.set_bus_volume_db(bus_index, linear2db(volume_linear))
 
 func apply_display_settings():
-	OS.window_fullscreen = fullscreen
+	# El modo de ventana sólo se aplica con foco real. Al arrancar (sin foco)
+	# entrar en fullscreen crea la ventana XWayland sin foco que rompe el grab
+	# del mouse bajo Mutter ("input always below"); en ese caso lo difiere
+	# SessionManager._promote_to_fullscreen_if_wanted() al primer FOCUS_IN, que
+	# respeta esta misma preferencia. Con foco (cambio en Opciones) se aplica ya.
+	if OS.is_window_focused():
+		OS.window_fullscreen = fullscreen
 	OS.vsync_enabled = vsync
 	apply_render_resolution()
 

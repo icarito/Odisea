@@ -2330,7 +2330,7 @@ debug/gdscript/warnings/exclude_addons=true
 [display]
 
 window/size/width=800
-window/size/fullscreen=true
+window/size/fullscreen=false
 window/size/test_width=1280
 window/size/test_height=720
 window/dpi/allow_hidpi=true
