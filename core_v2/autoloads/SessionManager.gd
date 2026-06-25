@@ -242,6 +242,49 @@ func _notification(what):
 				call_deferred("_finalize_live_recording_with_video_export", true)
 				return
 			get_tree().quit(0)
+	# Captura de mouse defensiva basada en el foco REAL de la ventana.
+	# Bajo Wayland (Godot 3.6 corre vía XWayland) el grab del puntero puede
+	# fallar o ser revocado silenciosamente por el compositor si la ventana
+	# no tiene el foco. Reafirmamos la captura cada vez que recuperamos el foco
+	# y la soltamos al perderlo, haciéndola idempotente y auto-reparable.
+	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
+		# Diferimos un frame: al recibir FOCUS_IN el compositor aún puede no
+		# haber entregado el puntero; reafirmar tras el frame es más confiable.
+		call_deferred("_reassert_mouse_capture")
+	elif what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
+		# Soltamos el grab para no "secuestrar" el cursor del usuario al perder
+		# el foco (cambio de ventana, alt-tab, etc.).
+		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+func _wants_mouse_capture() -> bool:
+	# Condiciones bajo las cuales el gameplay quiere el mouse capturado.
+	# No incluye el chequeo de foco: eso lo decide _reassert_mouse_capture.
+	var is_testing = false
+	if Engine.has_singleton("GdUnit3"):
+		is_testing = Engine.get_singleton("GdUnit3").is_test_suite()
+	if is_testing or is_cli_mode or OS.has_feature("Server"):
+		return false
+	var current_scene = get_tree().current_scene
+	if current_scene and current_scene.filename.find("Menu.tscn") != -1:
+		return false
+	# Si el usuario soltó el mouse a propósito (ui_cancel -> VISIBLE) y no estamos
+	# en captura, no lo reasaltamos por un mero FOCUS_IN; sólo reafirmamos si ya
+	# estaba capturado o si es la captura inicial. Ese estado lo maneja el caller.
+	return true
+
+func _reassert_mouse_capture() -> void:
+	# Reafirma la captura SOLO si la ventana tiene foco real. Esto evita el
+	# bug "input always below": llamar set_mouse_mode(CAPTURED) sin foco hace
+	# que Godot crea que capturó mientras el compositor sigue enviando los
+	# eventos a la ventana de abajo.
+	if not _wants_mouse_capture():
+		return
+	if not OS.is_window_focused():
+		return
+	# Reaplicar incondicionalmente: bajo XWayland un grab previo pudo haberse
+	# revocado sin notificar, así que volver a setearlo recupera el grab.
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _prepare_live_video_export_recording_runtime() -> void:
 	# Live export should not alter gameplay audio; silence is applied in the spawned export process.
@@ -1073,7 +1116,15 @@ func _connect_teleport_system():
 	if current_scene and current_scene.filename.find("Menu.tscn") != -1:
 		is_menu = true
 	if not is_testing and not is_cli_mode and not is_menu and not OS.has_feature("Server"):
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		# Captura defensiva: si la ventana ya tiene foco, capturamos ahora;
+		# si no (caso típico al arrancar en fullscreen bajo XWayland, donde el
+		# compositor todavía no entregó el foco), lo dejamos al handler de
+		# NOTIFICATION_WM_FOCUS_IN. Evita el grab fantasma "input always below".
+		if OS.is_window_focused():
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		else:
+			# Reintento diferido por si el foco llega en el mismo frame de arranque.
+			call_deferred("_reassert_mouse_capture")
 
 func _on_scene_ready_capture_mouse(_path, _scene_root, _params):
 	# Re-disparado por SceneManager.scene_ready cuando una escena nueva termina de cargar.
@@ -1186,8 +1237,10 @@ func _unhandled_input(event):
 		if event.is_action_pressed("ui_cancel"):
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		# Re-capturar al hacer click en la pantalla, solo si el cursor está visible.
+		# Que el clic haya llegado hasta aquí implica que la ventana tiene foco,
+		# pero lo verificamos igual para mantener una sola fuente de verdad.
 		if event is InputEventMouseButton and event.pressed and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
-			if not OS.has_feature("Server"):
+			if not OS.has_feature("Server") and OS.is_window_focused():
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
