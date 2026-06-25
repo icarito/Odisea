@@ -87,6 +87,13 @@ HOTZONES_DIR = os.environ.get("CENTRAL_HOTZONES_DIR", "./data/hotzones")
 GHOSTS_MAX_BYTES = int(os.environ.get("CENTRAL_GHOSTS_MAX_BYTES", 1073741824))  # 1GB
 STATIC_DIR = os.environ.get("CENTRAL_STATIC_DIR", "./dashboard/dist")
 
+# Incident detection (v1 dashboard redesign)
+INCIDENT_FPS_THRESHOLD = int(os.environ.get("CENTRAL_INCIDENT_FPS_THRESHOLD", 15))
+INCIDENT_DURATION_S = int(os.environ.get("CENTRAL_INCIDENT_DURATION_S", 5))
+INCIDENT_SPATIAL_CLUSTER_RADIUS = float(os.environ.get("CENTRAL_INCIDENT_CLUSTER_RADIUS", 5.0))
+INCIDENT_ALERT_COOLDOWN = int(os.environ.get("CENTRAL_INCIDENT_ALERT_COOLDOWN", 300))
+INCIDENT_DATA_RETENTION_DAYS = int(os.environ.get("CENTRAL_INCIDENT_DATA_RETENTION_DAYS", 30))
+
 # Global, server-side telemetry filtering. The headless server peer is never a
 # real client, and the first seconds of every session (scene load, GC, chunk
 # streaming) skew FPS/memory — both are excluded here so every dashboard
@@ -501,6 +508,7 @@ class OdiseaCentral:
         self.db_queue: asyncio.Queue = asyncio.Queue()
         self.ghost_rotation_counter: Dict[str, int] = {}  # pid -> count
         self.low_fps_timers: Dict[str, float] = {}  # player_id -> timestamp when FPS first dropped < 15
+        self.incident_low_fps_timers: Dict[str, float] = {}  # "player_id:session_id" -> timestamp for incident detection
         self.last_alert_time: Dict[str, float] = {}  # player_id -> last alert timestamp
         self.pending_commands: Dict[str, asyncio.Future] = {}  # command_id -> Future
         self.web_telemetry_rate: Dict[str, List[float]] = {}  # ip -> [request timestamps]
@@ -508,6 +516,8 @@ class OdiseaCentral:
         self.geo_recorded_sessions: Set[str] = set()  # session_ids already geo-recorded this run
         self.geo_pending_lookup: Dict[str, str] = {}  # ip_hash -> raw IP awaiting geolocation (memory-only)
         self.scene_geometry_cache: Dict[str, dict] = {}  # scene -> {"mtime": float, "data": dict, "grid": dict}
+        self._incident_notify_lock = asyncio.Lock()
+        self._incident_last_notify: Dict[str, float] = {}  # group_id -> last notify timestamp
         self.milestone_checker = MilestoneDetector(self)
         self._manifest_cache: Dict[tuple, dict] = {}  # (channel, platform, arch) -> {ts, etag, content}
         # Single-flight: un solo fetch a GitHub por manifest a la vez. Sin esto, N
@@ -651,6 +661,36 @@ class OdiseaCentral:
                                   if not any(now - t < WEB_TELEMETRY_RATE_WINDOW for t in ts)]
                 for ip in to_delete_rate:
                     self.web_telemetry_rate.pop(ip, None)
+
+                # Incident data retention cleanup (v1 dashboard redesign)
+                if self.metrics.heartbeats_total % 600 == 0:  # every ~10 min at 1hz
+                    cutoff = now - INCIDENT_DATA_RETENTION_DAYS * 86400
+
+                    def prune():
+                        conn = self._get_db()
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "DELETE FROM incident_occurrences WHERE timestamp < ?",
+                            (cutoff,),
+                        )
+                        removed_occ = cursor.rowcount
+                        cursor.execute(
+                            """DELETE FROM incident_groups
+                               WHERE last_seen < ? AND status IN ('dismissed', 'resolved')""",
+                            (cutoff,),
+                        )
+                        removed_grp = cursor.rowcount
+                        conn.commit()
+                        conn.close()
+                        return (removed_occ, removed_grp)
+
+                    if self.db_queue.qsize() < 50:
+                        result = await self._run_query(prune)
+                        if result and (result[0] > 0 or result[1] > 0):
+                            logger.info(
+                                "Pruned incident data: %d occurrences, %d groups older than %d days",
+                                result[0], result[1], INCIDENT_DATA_RETENTION_DAYS,
+                            )
             except Exception as e:
                 logger.error(f"Error in cleanup loop: {e}")
             await asyncio.sleep(60)
@@ -1572,6 +1612,18 @@ class OdiseaCentral:
                     except Exception:
                         pass
                 asyncio.create_task(self.send_push_to_all(event))
+
+                # Link hotzone to incident group (v1 dashboard redesign)
+                build_id = request.headers.get("X-Build-Id") or ""
+                zone = request.headers.get("X-Zone") or ""
+                pos_x = grid_x if grid_x is not None else 0
+                pos_z = grid_z if grid_z is not None else 0
+                asyncio.create_task(
+                    self._detect_hotzone_incident(
+                        player_id, session_id, scene, zone,
+                        pos_x, pos_z, build_id, time.time(), hotzone_id,
+                    )
+                )
             except Exception as e:
                 logger.warning(f"Hotzone notify failed (upload still recorded): {e}")
 
@@ -2736,6 +2788,20 @@ class OdiseaCentral:
                     except Exception: pass
                 asyncio.create_task(self.send_push_to_all(alert))
                 self.milestone_checker.record_low_fps()
+
+            # Incident detection (v1 dashboard redesign): sustained low FPS -> incident group
+            scene = p_data.get("scene", "")
+            zone = p_data.get("zone", "")
+            pos = p_data.get("position", [0, 0, 0])
+            build_id = data.get("build_id", "")
+            asyncio.create_task(
+                self._detect_low_fps_incident(
+                    player_id, session_id, fps, scene, zone,
+                    float(pos[0]) if len(pos) > 0 else 0,
+                    float(pos[2]) if len(pos) > 2 else 0,
+                    build_id, now,
+                )
+            )
         else:
             self.low_fps_timers.pop(player_id, None)
             self.low_fps_sessions.pop(session_id, None)
@@ -3002,6 +3068,39 @@ class OdiseaCentral:
                 updated_at REAL
             );
         """)
+
+        # Incident tables (v1 dashboard redesign)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS incident_groups (
+                id TEXT PRIMARY KEY,
+                type TEXT NOT NULL,
+                scene TEXT,
+                zone TEXT DEFAULT '',
+                spatial_cluster_x REAL,
+                spatial_cluster_z REAL,
+                status TEXT NOT NULL DEFAULT 'open',
+                count INTEGER NOT NULL DEFAULT 0,
+                first_seen REAL,
+                last_seen REAL,
+                builds_seen TEXT DEFAULT '[]'
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_incident_groups_status ON incident_groups(status);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_incident_groups_type ON incident_groups(type);")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS incident_occurrences (
+                id TEXT PRIMARY KEY,
+                group_id TEXT NOT NULL,
+                player_id TEXT,
+                session_id TEXT,
+                fps REAL,
+                timestamp REAL,
+                scene TEXT,
+                build_id TEXT,
+                FOREIGN KEY (group_id) REFERENCES incident_groups(id)
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_incident_occurrences_group ON incident_occurrences(group_id);")
         conn.commit()
 
         while True:
@@ -3118,7 +3217,383 @@ class OdiseaCentral:
             self.metrics.record_error()
             logger.error(f"Ghost error: {e}")
 
-    # Headers necesarios para SharedArrayBuffer en builds HTML5.
+    # --- Incident handling (v1 dashboard redesign) ---
+
+    @staticmethod
+    def _incident_signature(
+        incident_type: str,
+        scene: str,
+        zone: str,
+        pos_x: float,
+        pos_z: float,
+        radius: float = INCIDENT_SPATIAL_CLUSTER_RADIUS,
+    ) -> str:
+        quant_x = round(pos_x / radius) * radius
+        quant_z = round(pos_z / radius) * radius
+        key = f"{incident_type}:{scene}:{zone}:{quant_x}:{quant_z}"
+        return hashlib.sha256(key.encode()).hexdigest()[:16]
+
+    async def _get_or_create_incident_group(
+        self,
+        incident_type: str,
+        scene: str,
+        zone: str,
+        pos_x: float,
+        pos_z: float,
+        build_id: str,
+        now: float,
+    ) -> tuple:
+        sig = self._incident_signature(incident_type, scene, zone, pos_x, pos_z)
+
+        def upsert():
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM incident_groups WHERE id = ?", (sig,))
+            row = cursor.fetchone()
+            if row:
+                group = dict(row)
+                old_builds = json.loads(group.get("builds_seen") or "[]")
+                build_is_new = build_id and build_id not in old_builds
+                if build_is_new:
+                    old_builds.append(build_id)
+                new_count = int(group.get("count", 0)) + 1
+                cursor.execute(
+                    """UPDATE incident_groups
+                       SET count = ?, last_seen = ?, builds_seen = ?
+                       WHERE id = ?""",
+                    (new_count, now, json.dumps(old_builds), sig),
+                )
+                conn.commit()
+                group["count"] = new_count
+                group["last_seen"] = now
+                group["builds_seen"] = old_builds
+                conn.close()
+                return group, row["status"], False, build_is_new  # existing
+            else:
+                cursor.execute(
+                    """INSERT INTO incident_groups
+                       (id, type, scene, zone, spatial_cluster_x, spatial_cluster_z,
+                        status, count, first_seen, last_seen, builds_seen)
+                       VALUES (?, ?, ?, ?, ?, ?, 'open', 1, ?, ?, ?)""",
+                    (
+                        sig, incident_type, scene, zone,
+                        round(pos_x / INCIDENT_SPATIAL_CLUSTER_RADIUS) * INCIDENT_SPATIAL_CLUSTER_RADIUS,
+                        round(pos_z / INCIDENT_SPATIAL_CLUSTER_RADIUS) * INCIDENT_SPATIAL_CLUSTER_RADIUS,
+                        now, now,
+                        json.dumps([build_id] if build_id else []),
+                    ),
+                )
+                conn.commit()
+                conn.close()
+                return {
+                    "id": sig,
+                    "type": incident_type,
+                    "scene": scene,
+                    "zone": zone,
+                    "spatial_cluster_x": pos_x,
+                    "spatial_cluster_z": pos_z,
+                    "status": "open",
+                    "count": 1,
+                    "first_seen": now,
+                    "last_seen": now,
+                    "builds_seen": [build_id] if build_id else [],
+                }, "open", True, True  # new group, new build
+
+        return await self._run_query(upsert)
+
+    async def _insert_incident_occurrence(
+        self,
+        group_id: str,
+        player_id: str,
+        session_id: str,
+        fps: float,
+        ts: float,
+        scene: str,
+        build_id: str,
+    ):
+        occ_id = str(uuid.uuid4())[:12]
+
+        def insert():
+            conn = self._get_db()
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO incident_occurrences
+                   (id, group_id, player_id, session_id, fps, timestamp, scene, build_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (occ_id, group_id, player_id, session_id, fps, ts, scene, build_id),
+            )
+            conn.commit()
+            conn.close()
+
+        await self._run_query(insert)
+
+    async def _detect_low_fps_incident(self, player_id: str, session_id: str, fps: float,
+                                        scene: str, zone: str, pos_x: float, pos_z: float,
+                                        build_id: str, now: float):
+        """Sustained low-FPS detection: create/update incident group when FPS stays
+        below threshold for INCIDENT_DURATION_S."""
+
+        if not scene or fps >= INCIDENT_FPS_THRESHOLD:
+            return
+
+        timer_key = f"{player_id}:{session_id}"
+        if timer_key not in self.incident_low_fps_timers:
+            self.incident_low_fps_timers[timer_key] = now
+            return
+
+        if now - self.incident_low_fps_timers[timer_key] < INCIDENT_DURATION_S:
+            return
+
+        group, old_status, is_new, build_is_new = await self._get_or_create_incident_group(
+            "low_fps", scene, zone, pos_x, pos_z, build_id, now,
+        )
+
+        await self._insert_incident_occurrence(
+            group["id"], player_id, session_id, fps, now, scene, build_id,
+        )
+
+        should_notify = is_new or (
+            old_status in ("known", "resolved") and build_is_new
+        )
+
+        if should_notify:
+            async with self._incident_notify_lock:
+                last = self._incident_last_notify.get(group["id"], 0)
+                if now - last < INCIDENT_ALERT_COOLDOWN:
+                    should_notify = False
+                else:
+                    self._incident_last_notify[group["id"]] = now
+
+        if should_notify:
+            tags = await self._run_query(self._fetch_player_tags)
+            tag = tags.get(player_id) or {}
+            player_label = tag.get("display_name") or player_id[:8]
+            event = {
+                "type": "incident",
+                "incidentType": "low_fps",
+                "incidentId": group["id"],
+                "groupId": group["id"],
+                "scene": scene,
+                "zone": zone,
+                "fps": fps,
+                "playerId": player_id,
+                "playerName": player_label,
+                "sessionId": session_id,
+                "message": f"{player_label}: sustained low FPS in {scene}" + (f" / {zone}" if zone else ""),
+                "timestamp": now,
+            }
+            for sub in self.event_subscribers:
+                try:
+                    await sub.send_json(event)
+                except Exception:
+                    pass
+            asyncio.create_task(self.send_push_to_all(event))
+
+    async def _detect_hotzone_incident(self, player_id: str, session_id: str, scene: str,
+                                        zone: str, pos_x: float, pos_z: float,
+                                        build_id: str, now: float, hotzone_id: str = ""):
+        """Create/link a hotzone incident group."""
+        group, old_status, is_new, build_is_new = await self._get_or_create_incident_group(
+            "hotzone", scene, zone, pos_x, pos_z, build_id, now,
+        )
+
+        await self._insert_incident_occurrence(
+            group["id"], player_id, session_id, 0, now, scene, build_id,
+        )
+
+        should_notify = is_new or (
+            old_status in ("known", "resolved") and build_is_new
+        )
+
+        if should_notify:
+            async with self._incident_notify_lock:
+                last = self._incident_last_notify.get(group["id"], 0)
+                if now - last < INCIDENT_ALERT_COOLDOWN:
+                    should_notify = False
+                else:
+                    self._incident_last_notify[group["id"]] = now
+
+        if should_notify:
+            tags = await self._run_query(self._fetch_player_tags)
+            tag = tags.get(player_id) or {}
+            player_label = tag.get("display_name") or player_id[:8]
+            event = {
+                "type": "incident",
+                "incidentType": "hotzone",
+                "incidentId": group["id"],
+                "groupId": group["id"],
+                "hotzoneId": hotzone_id,
+                "scene": scene,
+                "zone": zone,
+                "playerId": player_id,
+                "playerName": player_label,
+                "sessionId": session_id,
+                "message": f"{player_label}: hotzone in {scene}" + (f" / {zone}" if zone else ""),
+                "timestamp": now,
+            }
+            for sub in self.event_subscribers:
+                try:
+                    await sub.send_json(event)
+                except Exception:
+                    pass
+            asyncio.create_task(self.send_push_to_all(event))
+
+    # --- Incident HTTP endpoints ---
+
+    async def handle_incidents_list(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        status_filter = request.query.get("status")
+        type_filter = request.query.get("type")
+        scene_filter = request.query.get("scene")
+        try:
+            limit = min(max(int(request.query.get("limit", 50)), 1), 200)
+        except ValueError:
+            limit = 50
+
+        def fetch():
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            query = "SELECT * FROM incident_groups WHERE 1=1"
+            params: list = []
+            if status_filter:
+                query += " AND status = ?"
+                params.append(status_filter)
+            if type_filter:
+                query += " AND type = ?"
+                params.append(type_filter)
+            if scene_filter:
+                query += " AND scene = ?"
+                params.append(scene_filter)
+            query += " ORDER BY last_seen DESC LIMIT ?"
+            params.append(limit)
+            cursor.execute(query, params)
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return rows
+
+        rows = await self._run_query(fetch)
+        for row in rows:
+            builds = row.get("builds_seen", "[]")
+            if isinstance(builds, str):
+                try:
+                    row["builds_seen"] = json.loads(builds)
+                except json.JSONDecodeError:
+                    row["builds_seen"] = []
+        return web.json_response(rows)
+
+    async def handle_incident_detail(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+        incident_id = request.match_info.get("id", "")
+
+        def fetch():
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM incident_groups WHERE id = ?", (incident_id,))
+            row = cursor.fetchone()
+            conn.close()
+            return dict(row) if row else None
+
+        row = await self._run_query(fetch)
+        if not row:
+            return web.json_response({"error": "not_found"}, status=404)
+        builds = row.get("builds_seen", "[]")
+        if isinstance(builds, str):
+            try:
+                row["builds_seen"] = json.loads(builds)
+            except json.JSONDecodeError:
+                row["builds_seen"] = []
+        return web.json_response(row)
+
+    async def handle_incident_status(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+        incident_id = request.match_info.get("id", "")
+        try:
+            body = await request.json()
+            new_status = body.get("status", "")
+        except Exception:
+            return web.json_response({"error": "invalid_json"}, status=400)
+
+        if new_status not in ("open", "known", "resolved", "dismissed"):
+            return web.json_response({"error": "invalid_status"}, status=400)
+
+        def update():
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE incident_groups SET status = ? WHERE id = ?",
+                (new_status, incident_id),
+            )
+            conn.commit()
+            cursor.execute("SELECT * FROM incident_groups WHERE id = ?", (incident_id,))
+            row = cursor.fetchone()
+            conn.close()
+            return dict(row) if row else None
+
+        row = await self._run_query(update)
+        if not row:
+            return web.json_response({"error": "not_found"}, status=404)
+        builds = row.get("builds_seen", "[]")
+        if isinstance(builds, str):
+            try:
+                row["builds_seen"] = json.loads(builds)
+            except json.JSONDecodeError:
+                row["builds_seen"] = []
+        return web.json_response(row)
+
+    async def handle_incident_samples(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+        incident_id = request.match_info.get("id", "")
+
+        def fetch():
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT o.timestamp, o.fps, o.player_id, o.session_id, o.scene,
+                          h.pos_x, h.pos_y, h.pos_z, h.memory_mb, h.fps as heartbeat_fps
+                   FROM incident_occurrences o
+                   LEFT JOIN heartbeats h ON h.session_id = o.session_id
+                     AND h.player_id = o.player_id
+                     AND ABS(h.timestamp - o.timestamp) < 2.0
+                   WHERE o.group_id = ?
+                   ORDER BY o.timestamp ASC
+                   LIMIT 1000""",
+                (incident_id,),
+            )
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return rows
+
+        rows = await self._run_query(fetch)
+        samples = []
+        for r in rows:
+            samples.append({
+                "timestamp": r.get("timestamp"),
+                "fps": r.get("fps") or r.get("heartbeat_fps") or 0,
+                "pos_x": r.get("pos_x") or 0,
+                "pos_y": r.get("pos_y") or 0,
+                "pos_z": r.get("pos_z") or 0,
+                "scene": r.get("scene") or "",
+                "zone": "",
+                "mode": "",
+                "memory_mb": r.get("memory_mb") or 0,
+            })
+        return web.json_response(samples)
+
+    # Headers needed for SharedArrayBuffer in HTML5 builds.
     _COOP_COEP_HEADERS = {
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Embedder-Policy": "credentialless",
@@ -3143,9 +3618,15 @@ class OdiseaCentral:
         icons, ...). These aren't under /assets/, so they need their own route.
         Only an allowlist of filenames is served, to avoid path traversal."""
         name = request.match_info.get("name", "")
+        html_routes = {"auth", "globe", "heatmap", "investigate", "skia-debug"}
+        if name in html_routes:
+            fpath = os.path.join(STATIC_DIR, f"{name}.html")
+            if os.path.isfile(fpath):
+                return web.FileResponse(fpath, headers=self._COOP_COEP_HEADERS)
+
         allowed = {
             "sw.js", "registerSW.js", "manifest.webmanifest",
-            "favicon.svg", "icons.svg",
+            "favicon.ico", "favicon.svg", "icons.svg",
             "pwa-192x192.png", "pwa-512x512.png", "apple-touch-icon.png",
         }
         # Workbox emits a hashed runtime file (workbox-<hash>.js).
@@ -3163,6 +3644,12 @@ class OdiseaCentral:
         if name == "sw.js" or name == "registerSW.js":
             headers["Cache-Control"] = "no-cache"
         return web.FileResponse(fpath, headers=headers)
+
+    async def handle_dashboard_investigation_route(self, request):
+        fpath = os.path.join(STATIC_DIR, "investigation", "[id].html")
+        if os.path.isfile(fpath):
+            return web.FileResponse(fpath, headers=self._COOP_COEP_HEADERS)
+        return await self.handle_index(request)
 
     # --- SQLite Helpers ---
     def _get_db(self):
@@ -3364,6 +3851,13 @@ class OdiseaCentral:
             web.get('/ghosts/active', self.handle_ghosts_active),
             web.get('/ghosts/stats', self.handle_ghosts_stats),
             web.get('/scenes', self.handle_scenes),
+
+            # Incident endpoints (v1 dashboard redesign)
+            web.get('/incidents', self.handle_incidents_list),
+            web.get('/incidents/{id}', self.handle_incident_detail),
+            web.post('/incidents/{id}/status', self.handle_incident_status),
+            web.get('/incidents/{id}/samples', self.handle_incident_samples),
+
             web.post('/hotzone', self.handle_hotzone_upload),
             web.get('/hotzones', self.handle_hotzones_list),
             web.get('/hotzones/{id}/dl-link', self.handle_hotzone_dl_link),
@@ -3391,6 +3885,7 @@ class OdiseaCentral:
 
             # CI/CD: GitHub push webhook -> pull + redeploy
             web.post('/webhook/deploy', self.handle_deploy_webhook),
+            web.get('/investigation/{tail:.*}', self.handle_dashboard_investigation_route),
 
             # PWA root files (sw.js, manifest, icons, workbox-*.js). Registered
             # last so the single-segment match doesn't shadow the routes above;
@@ -3401,6 +3896,14 @@ class OdiseaCentral:
         if os.path.exists(STATIC_DIR):
             app.router.add_static('/assets/', path=os.path.join(STATIC_DIR, "assets"), name='assets')
             logger.info(f"Serving static assets from {STATIC_DIR}/assets")
+            expo_dir = os.path.join(STATIC_DIR, "_expo")
+            if os.path.isdir(expo_dir):
+                app.router.add_static('/_expo/', path=expo_dir, name='expo')
+                logger.info(f"Serving Expo assets from {expo_dir}")
+            icons_dir = os.path.join(STATIC_DIR, "icons")
+            if os.path.isdir(icons_dir):
+                app.router.add_static('/icons/', path=icons_dir, name='icons')
+                logger.info(f"Serving dashboard icons from {icons_dir}")
             scene_data_dir = os.path.join(STATIC_DIR, "scene-data")
             if os.path.isdir(scene_data_dir):
                 app.router.add_static('/scene-data/', path=scene_data_dir, name='scene-data')
