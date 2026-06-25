@@ -30,6 +30,11 @@ export(float, 0.2, 8.0) var gloo_laser_heat_time := 1.25
 export(float, 0.1, 8.0) var gloo_laser_cool_rate := 1.8
 export(float, 0.2, 6.0) var gloo_smoke_scale := 2.0
 export(float, 0.2, 6.0) var gloo_explosion_scale := 1.2
+export(float, 0.5, 5.0) var gloo_fx_lifetime_scale := 1.8
+export(float, 0.0, 2.0) var gloo_fx_camera_offset := 0.35
+export(float, 0.0, 3.0) var gloo_laser_heat_spread_radius := 0.75
+export(float, 0.0, 2.0) var gloo_merge_distance := 0.28
+export(float, 0.0, 2.0) var gloo_merge_radius_gain := 0.45
 export(float, 0.0, 1.0) var gloo_joint_bias := 0.15
 export(float, 0.0, 4.0) var gloo_joint_damping := 0.9
 export(float, 0.0, 20.0) var gloo_joint_impulse_clamp := 1.2
@@ -135,7 +140,7 @@ func _fire_gloo():
 	var projectile = GlooProjectileScene.instance()
 	get_tree().root.add_child(projectile)
 	if projectile.has_method("configure"):
-		projectile.configure(gloo_projectile_speed, gloo_projectile_gravity, gloo_projectile_lifetime, gloo_launch_radius, gloo_blob_radius, gloo_cure_time, gloo_collision_radius, gloo_surface_offset, gloo_collision_mask, gloo_attached_static_mask, gloo_wake_impulse, gloo_color, gloo_cured_color, gloo_emission_color, gloo_emission_energy, gloo_laser_heat_time, gloo_laser_cool_rate, gloo_smoke_scale, gloo_explosion_scale, gloo_joint_bias, gloo_joint_damping, gloo_joint_impulse_clamp)
+		projectile.configure(gloo_projectile_speed, gloo_projectile_gravity, gloo_projectile_lifetime, gloo_launch_radius, gloo_blob_radius, gloo_cure_time, gloo_collision_radius, gloo_surface_offset, gloo_collision_mask, gloo_attached_static_mask, gloo_wake_impulse, gloo_color, gloo_cured_color, gloo_emission_color, gloo_emission_energy, gloo_laser_heat_time, gloo_laser_cool_rate, gloo_smoke_scale, gloo_explosion_scale, gloo_fx_lifetime_scale, gloo_fx_camera_offset, gloo_laser_heat_spread_radius, gloo_merge_distance, gloo_merge_radius_gain, gloo_joint_bias, gloo_joint_damping, gloo_joint_impulse_clamp)
 	projectile.launch(_gloo_spawn_point.global_transform)
 	_gloo_cooldown_left = gloo_fire_cooldown
 	

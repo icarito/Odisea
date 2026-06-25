@@ -24,6 +24,11 @@ export(float) var laser_cool_rate := 1.4
 export(Color) var laser_hot_color := Color(1.0, 0.12, 0.02, 1.0)
 export(float) var smoke_fx_scale := 2.0
 export(float) var explosion_fx_scale := 1.2
+export(float) var fx_lifetime_scale := 1.8
+export(float) var fx_camera_offset := 0.35
+export(float) var laser_heat_spread_radius := 0.75
+export(float) var merge_distance := 0.28
+export(float) var merge_radius_gain := 0.45
 export(float) var joint_bias := 0.15
 export(float) var joint_damping := 0.9
 export(float) var joint_impulse_clamp := 1.2
@@ -59,7 +64,7 @@ func _ready():
 	add_to_group("gloo_blob")
 	add_to_group("replay_sync")
 
-func configure(p_speed: float, p_gravity: float, p_lifetime: float, p_launch_radius: float, p_blob_radius: float, p_cure_time: float, p_collision_radius: float, p_surface_offset: float, p_collision_mask: int, p_attached_static_mask: int, p_wake_impulse: float, p_color: Color, p_cured_color: Color, p_emission_color: Color, p_emission_energy: float, p_laser_heat_time: float, p_laser_cool_rate: float, p_smoke_fx_scale: float, p_explosion_fx_scale: float, p_joint_bias: float, p_joint_damping: float, p_joint_impulse_clamp: float) -> void:
+func configure(p_speed: float, p_gravity: float, p_lifetime: float, p_launch_radius: float, p_blob_radius: float, p_cure_time: float, p_collision_radius: float, p_surface_offset: float, p_collision_mask: int, p_attached_static_mask: int, p_wake_impulse: float, p_color: Color, p_cured_color: Color, p_emission_color: Color, p_emission_energy: float, p_laser_heat_time: float, p_laser_cool_rate: float, p_smoke_fx_scale: float, p_explosion_fx_scale: float, p_fx_lifetime_scale: float, p_fx_camera_offset: float, p_laser_heat_spread_radius: float, p_merge_distance: float, p_merge_radius_gain: float, p_joint_bias: float, p_joint_damping: float, p_joint_impulse_clamp: float) -> void:
 	speed = p_speed
 	gravity = p_gravity
 	lifetime = p_lifetime
@@ -79,6 +84,11 @@ func configure(p_speed: float, p_gravity: float, p_lifetime: float, p_launch_rad
 	laser_cool_rate = p_laser_cool_rate
 	smoke_fx_scale = p_smoke_fx_scale
 	explosion_fx_scale = p_explosion_fx_scale
+	fx_lifetime_scale = p_fx_lifetime_scale
+	fx_camera_offset = p_fx_camera_offset
+	laser_heat_spread_radius = p_laser_heat_spread_radius
+	merge_distance = p_merge_distance
+	merge_radius_gain = p_merge_radius_gain
 	joint_bias = p_joint_bias
 	joint_damping = p_joint_damping
 	joint_impulse_clamp = p_joint_impulse_clamp
@@ -172,6 +182,7 @@ func step(delta: float):
 			_current_radius = lerp(launch_radius, blob_radius, t)
 			_apply_visual_settings()
 			if _cure_elapsed >= cure_time:
+				_try_merge_nearby_gloo()
 				_resolve_cured_collision_behavior()
 		if _age > lifetime:
 			fade_out()
@@ -274,7 +285,7 @@ func _stick_at(collider, position: Vector3, normal: Vector3):
 		collider.add_collision_exception_with(self)
 	_add_gloo_collision_exceptions()
 	if collider is StaticBody or collider is CSGShape:
-		_set_solid_collision(true, projectile_collision_mask)
+		_set_solid_collision(true, _get_static_gloo_collision_mask())
 	else:
 		_set_solid_collision(false)
 
@@ -291,7 +302,7 @@ func _resolve_cured_collision_behavior() -> void:
 		_set_solid_collision(false)
 		return
 	if _anchor_collider is StaticBody or _anchor_collider is CSGShape:
-		_set_solid_collision(true, projectile_collision_mask)
+		_set_solid_collision(true, _get_static_gloo_collision_mask())
 		return
 	var bridged_bodies := _get_bridged_bodies(_anchor_collider)
 	if bridged_bodies.size() > 0:
@@ -308,12 +319,41 @@ func _resolve_cured_collision_behavior() -> void:
 	else:
 		_set_solid_collision(false)
 
+func _try_merge_nearby_gloo() -> void:
+	for blob in get_tree().get_nodes_in_group("gloo_blob"):
+		if blob == self or not is_instance_valid(blob) or not (blob is Spatial):
+			continue
+		if blob.has_method("is_destroying") and blob.is_destroying():
+			continue
+		var dist: float = global_transform.origin.distance_to(blob.global_transform.origin)
+		if dist > merge_distance:
+			continue
+		if _anchor_collider != null and blob.get("_anchor_collider") != _anchor_collider:
+			continue
+		_absorb_gloo(blob)
+
+func _absorb_gloo(blob) -> void:
+	if not is_instance_valid(blob):
+		return
+	var other_radius := collision_radius
+	if blob.has_method("get_laser_hit_radius"):
+		other_radius = float(blob.get_laser_hit_radius())
+	blob.call("_release_glue_joints")
+	blob.queue_free()
+	blob_radius = min(blob_radius + other_radius * merge_radius_gain, collision_radius * 3.0)
+	collision_radius = max(collision_radius, blob_radius)
+	_current_radius = max(_current_radius, blob_radius)
+	_apply_visual_settings()
+
 func _set_solid_collision(enabled: bool, mask: int = 0) -> void:
 	_solid_collision_enabled = enabled
 	collision_layer = 64 if enabled else 0
 	collision_mask = mask if enabled else 0
 	if _collision_shape:
 		_collision_shape.disabled = not enabled
+
+func _get_static_gloo_collision_mask() -> int:
+	return projectile_collision_mask | 2
 
 func _get_bridged_bodies(anchor) -> Array:
 	var bridged := []
@@ -392,7 +432,10 @@ func _has_existing_joint_between(a: Node, b: Node) -> bool:
 			return true
 	return false
 
-func laser_hit() -> void:
+func is_destroying() -> bool:
+	return _is_destroying
+
+func laser_hit(propagate: bool = true) -> void:
 	if _is_destroying:
 		return
 	_laser_contact_this_frame = true
@@ -400,7 +443,18 @@ func laser_hit() -> void:
 		_is_laser_heating = true
 		_set_solid_collision(false)
 		_apply_visual_settings()
-		_spawn_flipbook_fx(SmokeScene, smoke_fx_scale * 0.65, laser_heat_time)
+		_spawn_flipbook_fx(SmokeScene, smoke_fx_scale * 0.85, laser_heat_time * fx_lifetime_scale)
+	if propagate:
+		_spread_laser_heat()
+
+func _spread_laser_heat() -> void:
+	for blob in get_tree().get_nodes_in_group("gloo_blob"):
+		if blob == self or not is_instance_valid(blob) or not (blob is Spatial):
+			continue
+		if global_transform.origin.distance_to(blob.global_transform.origin) > laser_heat_spread_radius:
+			continue
+		if blob.has_method("laser_hit"):
+			blob.laser_hit(false)
 
 func get_laser_hit_radius() -> float:
 	return max(_current_radius, collision_radius)
@@ -410,8 +464,8 @@ func _finish_laser_destroy() -> void:
 		return
 	_is_destroying = true
 	_release_glue_joints()
-	_spawn_flipbook_fx(SmokeScene, smoke_fx_scale, 1.15)
-	_spawn_flipbook_fx(ExplosionScene, explosion_fx_scale, 0.75)
+	_spawn_flipbook_fx(SmokeScene, smoke_fx_scale * 1.25, 1.15 * fx_lifetime_scale)
+	_spawn_flipbook_fx(ExplosionScene, explosion_fx_scale * 1.35, 0.75 * fx_lifetime_scale)
 	queue_free()
 
 func _release_glue_joints() -> void:
@@ -426,7 +480,7 @@ func _spawn_flipbook_fx(scene: PackedScene, scale_value: float, lifetime_sec: fl
 	var fx = scene.instance()
 	get_tree().root.add_child(fx)
 	if fx is Spatial:
-		fx.global_transform.origin = global_transform.origin
+		fx.global_transform.origin = _get_fx_origin()
 		fx.scale = Vector3.ONE * scale_value
 	var timer := Timer.new()
 	timer.one_shot = true
@@ -434,6 +488,15 @@ func _spawn_flipbook_fx(scene: PackedScene, scale_value: float, lifetime_sec: fl
 	fx.add_child(timer)
 	timer.connect("timeout", fx, "queue_free")
 	timer.start()
+
+func _get_fx_origin() -> Vector3:
+	var origin := global_transform.origin
+	var camera := get_viewport().get_camera()
+	if camera and is_instance_valid(camera):
+		var to_camera: Vector3 = camera.global_transform.origin - origin
+		if to_camera.length_squared() > 0.0001:
+			origin += to_camera.normalized() * fx_camera_offset
+	return origin
 
 func fade_out():
 	# Simple shrink and free

@@ -140,3 +140,58 @@ func test_gloo_attached_to_dynamic_body_has_no_solid_collision():
 	
 	projectile.queue_free()
 	body.queue_free()
+
+func test_gloo_attached_to_static_body_collides_with_player_layer():
+	var projectile = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	var body := StaticBody.new()
+	add_child(body)
+	add_child(projectile)
+	
+	projectile._stick_at(body, body.global_transform.origin, Vector3.UP)
+	
+	assert_int(projectile.collision_layer).is_equal(64)
+	assert_bool((projectile.collision_mask & 2) != 0).is_true()
+	assert_bool(projectile._collision_shape.disabled).is_false()
+	
+	projectile.queue_free()
+	body.queue_free()
+
+func test_gloo_laser_heat_spreads_to_nearby_blob():
+	var projectile_a = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	var projectile_b = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	add_child(projectile_a)
+	add_child(projectile_b)
+	projectile_a.global_transform.origin = Vector3.ZERO
+	projectile_b.global_transform.origin = Vector3(0.2, 0.0, 0.0)
+	projectile_a.laser_heat_spread_radius = 0.5
+	
+	projectile_a.laser_hit()
+	
+	assert_bool(projectile_a._is_laser_heating).is_true()
+	assert_bool(projectile_b._is_laser_heating).is_true()
+	
+	projectile_a.queue_free()
+	projectile_b.queue_free()
+
+func test_gloo_merges_nearby_blob_on_same_anchor():
+	var projectile_a = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	var projectile_b = load("res://core_v2/player/MultiToolGloo.tscn").instance()
+	var body := StaticBody.new()
+	add_child(body)
+	add_child(projectile_a)
+	add_child(projectile_b)
+	projectile_a.global_transform.origin = Vector3.ZERO
+	projectile_b.global_transform.origin = Vector3(0.1, 0.0, 0.0)
+	projectile_a._anchor_collider = body
+	projectile_b._anchor_collider = body
+	projectile_a.blob_radius = 0.35
+	projectile_b.blob_radius = 0.35
+	projectile_a.merge_distance = 0.25
+	
+	projectile_a._try_merge_nearby_gloo()
+	
+	assert_bool(projectile_a.blob_radius > 0.35).is_true()
+	assert_bool(projectile_b.is_queued_for_deletion()).is_true()
+	
+	projectile_a.queue_free()
+	body.queue_free()
