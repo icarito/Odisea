@@ -3637,6 +3637,7 @@ class OdiseaCentral:
             fpath = os.path.join(STATIC_DIR, f"{name}.html")
             if os.path.isfile(fpath):
                 return web.FileResponse(fpath, headers=self._COOP_COEP_HEADERS)
+            return await self.handle_index(request)
 
         allowed = {
             "sw.js", "registerSW.js", "manifest.webmanifest",
@@ -3663,6 +3664,7 @@ class OdiseaCentral:
         fpath = os.path.join(STATIC_DIR, "investigation", "[id].html")
         if os.path.isfile(fpath):
             return web.FileResponse(fpath, headers=self._COOP_COEP_HEADERS)
+        return await self.handle_index(request)
         return await self.handle_index(request)
 
     # --- SQLite Helpers ---
