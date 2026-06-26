@@ -8,6 +8,9 @@ export.cfg
 # Android debug signing key (generated locally / in CI via keytool, never committed)
 android/debug.keystore
 android/build/local.properties
+# Gradle build output (regenerated on Android export; was causing duplicate class_name scans)
+android/build/build/
+android/build/.gradle/
 # .import folder contains imported assets (stex, etc) - generated but large
 .import/
 # Allow tracking of Qodot .map import artifacts for CI cold-export
