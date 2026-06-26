@@ -9,9 +9,7 @@ const INNER_RADIUS = 2.0
 const RING_STEP = 2.0
 const ANGLE_STEP = 30.0
 
-export(float) var cylinder_radius := 14.0
 export(float) var inner_radius := 2.0
-export(float) var cylinder_height := 15.0
 export(int) var sectors := 12
 export(int) var rings := 6
 export(int) var height_steps := 6
@@ -90,17 +88,39 @@ func generate() -> void:
 
 		var instance: Spatial = null
 
-		if v.id == "W" and not (v.rotation in [0, 180]):
-			# Procedural DuctArc
+		if v.id == "W" and (int(v.rotation) % 180 != 0):
+			# Task 1: Procedural DuctArc
 			var major_r = inner_radius + (gy + 0.5) * RING_STEP
 			var mesh = _arc_builder_script.get_or_build_arc(major_r, 2.0, ANGLE_STEP)
 			var mesh_instance = MeshInstance.new()
 			mesh_instance.mesh = mesh
-			mesh_instance.create_trimesh_collision()
+			mesh_instance.set_meta("variant_id", "W")
+			mesh_instance.set_meta("rotation", v.rotation)
+
+			# Apply material from Radial tile if possible
+			var radial_res = _get_res(TILE_PATHS["W"])
+			if radial_res:
+				var radial_temp = radial_res.instance()
+				var csg = radial_temp.get_node_or_null("CSGCombiner")
+				if csg and csg.get_child_count() > 0:
+					mesh_instance.material_override = csg.get_child(0).material
+				radial_temp.free()
+
+			if not mesh_instance.material_override:
+				mesh_instance.material_override = _get_res("res://core_v2/props/duct/DuctHull.tres")
+
+			# Collision: CylinderShape (radio 2.0, altura ~2.0) oriented to arc
+			var sb = StaticBody.new()
+			var col = CollisionShape.new()
+			var shape = CylinderShape.new()
+			shape.radius = 2.0
+			shape.height = 2.0
+			col.shape = shape
+			col.rotation_degrees = Vector3(90, 0, 0)
+			sb.add_child(col)
+			mesh_instance.add_child(sb)
 
 			add_child(mesh_instance)
-			# DuctArc placement: its vertices are polar-projected starting at angle 0.
-			# A tangential tile at grid_x spans from angle (gx-0.5) to (gx+0.5).
 			mesh_instance.translation = Vector3(0, cell.base_height, 0)
 			mesh_instance.rotation_degrees = Vector3(0, (gx - 0.5) * ANGLE_STEP, 0)
 
@@ -120,6 +140,8 @@ func generate() -> void:
 			add_child(instance)
 			instance.transform = _grid_to_world(gx, gy, cell.base_height)
 			instance.rotate_object_local(Vector3.UP, deg2rad(v.rotation))
+			instance.set_meta("variant_id", v.id)
+			instance.set_meta("rotation", v.rotation)
 			_add_overlay(instance, gy)
 
 	_insert_valves()
@@ -146,13 +168,14 @@ func _grado(conn: Array) -> int:
 	return count
 
 func _add_overlay(node: Spatial, gy: int) -> void:
-	var r = inner_radius + (gy + 0.5) * RING_STEP
+	# Task 4: Content Zones
 	var color = Color.white
 	var zone_name = "Air"
-	if r > 10.0:
+
+	if gy >= 4:
 		color = Color.cyan # Gas
 		zone_name = "Gas"
-	elif r > 6.0:
+	elif gy >= 2:
 		color = Color.blue # Water
 		zone_name = "Water"
 	else:
@@ -165,17 +188,29 @@ func _add_overlay(node: Spatial, gy: int) -> void:
 	# Visual overlays: Colored light
 	var light = OmniLight.new()
 	light.light_color = color
-	light.light_energy = 0.5
-	light.omni_range = 5.0
+	light.light_energy = 0.8
+	light.omni_range = 6.0
 	node.add_child(light)
 
-	# Material tint
-	_apply_tint(node, color)
+	# Material tint (Water/Gas)
+	if zone_name != "Air":
+		_apply_tint(node, color)
 
-	# Particles placeholder
-	if randf() < 0.2:
+	# Particles for Gas
+	if zone_name == "Gas":
 		var particles = Particles.new()
 		particles.name = "ZoneParticles_" + zone_name
+		var mat = ParticlesMaterial.new()
+		mat.emission_shape = ParticlesMaterial.EMISSION_SHAPE_BOX
+		mat.emission_box_extents = Vector3(1.5, 1.5, 1.5)
+		mat.direction = Vector3(0, 1, 0)
+		mat.spread = 180.0
+		mat.gravity = Vector3(0, 0, 0)
+		mat.initial_velocity = 0.2
+		mat.color = color
+		particles.process_material = mat
+		particles.amount = 32
+		particles.lifetime = 4.0
 		node.add_child(particles)
 
 func _apply_tint(node: Node, color: Color) -> void:
@@ -190,26 +225,38 @@ func _apply_tint(node: Node, color: Color) -> void:
 					var new_mat = mat.duplicate()
 					new_mat.albedo_color = new_mat.albedo_color.linear_interpolate(color, 0.3)
 					child.set_surface_material(i, new_mat)
+		elif child is CSGCombiner:
+			# Tinting CSG is trickier if it uses material at root
+			if child.material is SpatialMaterial:
+				child.material = child.material.duplicate()
+				child.material.albedo_color = child.material.albedo_color.linear_interpolate(color, 0.3)
 		_apply_tint(child, color)
 
 func _insert_valves() -> void:
+	# Task 2: Strategic valves
 	var valve_scene = _get_res(VALVE_PATH)
 	if not valve_scene: return
 
-	# Place valves on some radial segments or arcs
+	var count = 0
 	for child in get_children():
-		if child is Spatial and (child.name.find("Radial") != -1 or child.name.find("MeshInstance") != -1):
-			if randf() < 0.2:
+		var is_radial = false
+		if "DuctRadial" in child.name:
+			is_radial = true
+		elif child.has_meta("variant_id") and child.get_meta("variant_id") == "W":
+			if child.has_meta("rotation") and int(child.get_meta("rotation")) % 180 == 0:
+				is_radial = true
+
+		if is_radial:
+			count += 1
+			if count % 3 == 0:
 				var valve = valve_scene.instance()
 				child.add_child(valve)
-				# Center valve on the segment
-				valve.translation = Vector3.ZERO
+				valve.translation = Vector3(0, 0, 0)
 
 func _activate_collapse_triggers() -> void:
-	# Add collapse logic metadata to all spawned elements
+	# Task 3: Progressive collapse activation
 	for child in get_children():
 		if child is Spatial:
 			child.set_meta("collapse_active", true)
-			# If the tile has a script, we could call a method to enable local triggers
 			if child.has_method("enable_collapse"):
 				child.enable_collapse()
