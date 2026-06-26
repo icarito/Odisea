@@ -1,0 +1,102 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://core_v2/props/duct/DuctGateValve.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/duct/DuctHull.tres" type="Material" id=2]
+[ext_resource path="res://core_v2/props/duct/DuctHazardStripe.tres" type="Material" id=3]
+
+[sub_resource type="CylinderMesh" id=1]
+top_radius = 2.2
+bottom_radius = 2.2
+height = 0.2
+radial_segments = 32
+
+[sub_resource type="CylinderMesh" id=2]
+top_radius = 2.0
+bottom_radius = 2.0
+height = 0.1
+radial_segments = 32
+
+[sub_resource type="CylinderShape" id=3]
+radius = 2.0
+height = 0.1
+
+[sub_resource type="SphereShape" id=4]
+radius = 8.0
+
+[sub_resource type="Animation" id=5]
+resource_name = "Close"
+length = 3.0
+tracks/0/type = "value"
+tracks/0/path = NodePath("Frame/GateMesh:translation")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 3 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ Vector3( 0, 4, 0 ), Vector3( 0, 0, 0 ) ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("Frame/GateMesh/StaticBody/CollisionShape:disabled")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 3 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 1,
+"values": [ true, false ]
+}
+
+[node name="DuctGateValve" type="Spatial"]
+script = ExtResource( 1 )
+anim_duration = 3.0
+starts_active = true
+
+[node name="Frame" type="CSGCombiner" parent="."]
+use_collision = true
+
+[node name="FrameOuter" type="CSGCylinder" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+radius = 2.2
+height = 0.2
+radial_segments = 32
+material = ExtResource( 2 )
+
+[node name="FrameInner" type="CSGCylinder" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+operation = 1
+radius = 2.0
+height = 0.3
+radial_segments = 32
+
+[node name="HazardStrip" type="CSGCylinder" parent="Frame"]
+transform = Transform( 1.05, 0, 0, 0, -4.5897e-08, -1.05, 0, 1.05, -4.5897e-08, 0, 0, 0.05 )
+radius = 2.2
+height = 0.05
+radial_segments = 32
+material = ExtResource( 3 )
+
+[node name="GateMesh" type="MeshInstance" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 4, 0 )
+mesh = SubResource( 2 )
+material/0 = ExtResource( 2 )
+
+[node name="StaticBody" type="StaticBody" parent="Frame/GateMesh"]
+
+[node name="CollisionShape" type="CollisionShape" parent="Frame/GateMesh/StaticBody"]
+shape = SubResource( 3 )
+disabled = true
+
+[node name="ProximityArea" type="Area" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape" type="CollisionShape" parent="ProximityArea"]
+shape = SubResource( 4 )
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+anims/Close = SubResource( 5 )
