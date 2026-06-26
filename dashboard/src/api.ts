@@ -1,3 +1,5 @@
+import type { IncidentGroup, IncidentStatus, IncidentType, SessionSample } from "./types";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 const getAuthToken = () => localStorage.getItem("odisea_token");
@@ -189,4 +191,47 @@ export async function deleteHotzone(hotzoneId: string) {
   });
   if (!response.ok) throw new Error(`delete failed (${response.status})`);
   return response.json();
+}
+
+// --- Incidentes (IA incident-first) -----------------------------------------
+// Triage de incidentes agrupados. Backend: /incidents* (odisea_central.py).
+
+export async function getIncidents(params: {
+  status?: IncidentStatus;
+  type?: IncidentType;
+  scene?: string;
+  limit?: number;
+} = {}): Promise<IncidentGroup[]> {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set("status", params.status);
+  if (params.type) qs.set("type", params.type);
+  if (params.scene) qs.set("scene", params.scene);
+  if (params.limit) qs.set("limit", String(params.limit));
+  const q = qs.toString();
+  const response = await apiFetch(`/incidents${q ? `?${q}` : ""}`);
+  const json = await response.json();
+  return Array.isArray(json) ? json : (json.data || []);
+}
+
+export async function getIncident(id: string): Promise<IncidentGroup> {
+  const response = await apiFetch(`/incidents/${encodeURIComponent(id)}`);
+  return response.json();
+}
+
+export async function setIncidentStatus(
+  id: string,
+  status: IncidentStatus,
+): Promise<IncidentGroup> {
+  const response = await apiFetch(`/incidents/${encodeURIComponent(id)}/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  return response.json();
+}
+
+export async function getIncidentSamples(id: string): Promise<SessionSample[]> {
+  const response = await apiFetch(`/incidents/${encodeURIComponent(id)}/samples`);
+  const json = await response.json();
+  return Array.isArray(json) ? json : (json.data || []);
 }

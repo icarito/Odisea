@@ -1,7 +1,11 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App.tsx'
+import { IncidentShell } from './app/IncidentShell'
+import { Inbox } from './app/Inbox'
+import { Investigation } from './app/Investigation'
 import './index.css'
 
 const DASHBOARD_ORIENTATION = 'portrait'
@@ -81,6 +85,16 @@ registerSW({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <Routes>
+        {/* IA incident-first (nueva). Aditiva: no toca el dashboard clásico. */}
+        <Route element={<IncidentShell />}>
+          <Route path="/investigate" element={<Inbox />} />
+          <Route path="/investigation/:id" element={<Investigation />} />
+        </Route>
+        {/* Dashboard clásico — todo lo demás (?tab=…) lo maneja App internamente. */}
+        <Route path="/*" element={<App />} />
+      </Routes>
+    </BrowserRouter>
   </React.StrictMode>,
 )

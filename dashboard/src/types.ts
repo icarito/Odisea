@@ -78,3 +78,58 @@ export interface Tag {
   category?: string;
   color?: string;
 }
+
+// --- Incidentes (IA incident-first, backend /incidents*) ----------------------
+// Un incidente agrupa ocurrencias del mismo problema (mismo tipo + escena + zona
+// + cluster espacial) para triage: open -> known/resolved/dismissed.
+export type IncidentType = 'low_fps' | 'hotzone';
+export type IncidentStatus = 'open' | 'known' | 'resolved' | 'dismissed';
+
+export interface IncidentGroup {
+  id: string;
+  type: IncidentType;
+  scene: string;
+  zone: string;
+  spatial_cluster_x: number;
+  spatial_cluster_z: number;
+  status: IncidentStatus;
+  count: number;
+  first_seen: number;
+  last_seen: number;
+  builds_seen: string[];
+}
+
+export interface IncidentOccurrence {
+  id: string;
+  group_id: string;
+  player_id: string;
+  session_id: string;
+  fps: number;
+  timestamp: number;
+  scene: string;
+  build_id: string;
+}
+
+// Una muestra de telemetría (ghost) usada por la vista de investigación:
+// timeline de FPS + trayectoria sobre el floorplan de la escena.
+export interface SessionSample {
+  timestamp: number;
+  fps: number;
+  pos_x: number;
+  pos_y: number;
+  pos_z: number;
+  scene: string;
+  zone: string;
+  mode: string;
+  memory_mb: number;
+}
+
+// Proyección del floorplan de una escena (world bounds + escala) para dibujar
+// la trayectoria del jugador en 2D.
+export interface FloorplanProjection {
+  world_min_x: number;
+  world_min_z: number;
+  world_max_x: number;
+  world_max_z: number;
+  scale: number;
+}
