@@ -115,7 +115,6 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
 
   // Layer toggles.
   const [showHeatmap, setShowHeatmap] = useState(false); // density rings
-  const [showArcs, setShowArcs] = useState(false);       // connection arcs to the hottest hub
   const [showLabels, setShowLabels] = useState(false);   // persistent city labels
 
   // Temporal window: a preset range (filter) + a scrubber position within it.
@@ -216,21 +215,6 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
-
-  // Connection arcs: link the hottest hub to the other active points, so bursts
-  // of distributed activity read as a constellation. Capped to keep it legible.
-  const arcs = useMemo(() => {
-    if (!showArcs || points.length < 2) return [];
-    const hub = points.reduce((best, g) => (g.count > (best?.count ?? -1) ? g : best), points[0]);
-    return points
-      .filter((g) => g.key !== hub.key)
-      .slice(0, 40)
-      .map((g) => ({
-        startLat: hub.latitude, startLng: hub.longitude,
-        endLat: g.latitude, endLng: g.longitude,
-        color: g.color || STATUS_COLOR[g.status],
-      }));
-  }, [showArcs, points]);
 
   // Top countries by player presence, aggregated across all geo points. Counts
   // distinct points (locations) and players per country.
@@ -386,6 +370,19 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
   }, [camDistance]);
   const isClose = zoomFactor > 0.55;
 
+  // Etiquetas HTML (soportan acentos y font mono, a diferencia del typeface 3D).
+  // Sólo se muestran al acercar el zoom — así no se enciman en la vista mundial —
+  // y escalan con el zoom. Bucket grueso del zoom para recrear los nodos (y su
+  // tamaño de fuente) por pasos en vez de en cada frame.
+  const labelBucket = Math.round(zoomFactor * 4);
+  const labelFontPx = 9 + Math.round(zoomFactor * 11);
+  const labelData = useMemo(
+    () => (showLabels && isClose ? points : []),
+    // labelBucket fuerza recrear los nodos con su nuevo tamaño al cambiar de zoom.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showLabels, isClose, points, labelBucket],
+  );
+
   const handlePointClick = (obj: object) => {
     const p = obj as GroupedPlayer;
     // Clicking a point shows the info overlay and frames it; clicking again (or
@@ -450,34 +447,39 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
           onPointClick={handlePointClick}
           onPointHover={(d) => setHovered((d as GroupedPlayer) || null)}
           // Density rings (heatmap layer): pulse outward, sized by cluster count.
+          // ringAltitude los levanta por encima de los polígonos de países para que
+          // los "latidos" se vean sobre los continentes, no sólo sobre el mar.
           ringsData={showHeatmap ? points : []}
           ringLat="latitude"
           ringLng="longitude"
+          ringAltitude={0.02}
           ringColor={(d: object) => () => (d as GroupedPlayer).color || STATUS_COLOR[(d as GroupedPlayer).status]}
           ringMaxRadius={(d: object) => 2 + Math.min((d as GroupedPlayer).count * 0.6, 6)}
           ringPropagationSpeed={2}
           ringRepeatPeriod={900}
-          // Connection arcs layer.
-          arcsData={arcs}
-          arcStartLat="startLat"
-          arcStartLng="startLng"
-          arcEndLat="endLat"
-          arcEndLng="endLng"
-          arcColor="color"
-          arcStroke={0.4}
-          arcDashLength={0.4}
-          arcDashGap={0.2}
-          arcDashAnimateTime={1500}
-          arcAltitudeAutoScale={0.4}
-          // Persistent city labels layer.
-          labelsData={showLabels ? points : []}
-          labelLat="latitude"
-          labelLng="longitude"
-          labelText={(d: object) => (d as GroupedPlayer).city || (d as GroupedPlayer).country || ''}
-          labelSize={0.9}
-          labelDotRadius={0.3}
-          labelColor={(d: object) => (d as GroupedPlayer).color || STATUS_COLOR[(d as GroupedPlayer).status]}
-          labelResolution={2}
+          // Etiquetas de ciudad: HTML (soportan acentos + font mono, al revés del
+          // typeface 3D), sólo al acercar el zoom y escalando con él para no
+          // encimarse en la vista mundial.
+          htmlElementsData={labelData}
+          htmlLat="latitude"
+          htmlLng="longitude"
+          htmlAltitude={0.02}
+          htmlElement={(d: object) => {
+            const p = d as GroupedPlayer;
+            const el = document.createElement('div');
+            el.textContent = p.city || p.country || '';
+            el.style.cssText = [
+              'font-family: ui-monospace, SFMono-Regular, Menlo, monospace',
+              'font-weight: 700',
+              `font-size: ${labelFontPx}px`,
+              `color: ${p.color || STATUS_COLOR[p.status]}`,
+              'text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 3px #000',
+              'white-space: nowrap',
+              'pointer-events: none',
+              'transform: translate(-50%, -160%)',
+            ].join(';');
+            return el;
+          }}
         />
       )}
 
@@ -549,7 +551,6 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
                 <div className="flex flex-wrap gap-1">
                   {([
                     { label: 'Heatmap', on: showHeatmap, set: setShowHeatmap },
-                    { label: 'Arcos', on: showArcs, set: setShowArcs },
                     { label: 'Etiquetas', on: showLabels, set: setShowLabels },
                   ] as const).map((layer) => (
                     <button
@@ -648,22 +649,22 @@ export const Globe3D: React.FC<Globe3DProps> = ({ players, onSelectPlayer }) => 
       </button>
 
       {showTopCountries && (
-        <div className={`absolute left-3 z-20 w-52 max-w-[70vw] border-2 border-black bg-[#0d1117]/95 shadow-[2px_2px_0px_0px_black] ${controlsOpen ? 'bottom-[6.5rem]' : 'bottom-12'}`}>
-          <div className="border-b-2 border-black px-3 py-1.5 text-[0.625rem] font-black uppercase tracking-widest text-text-muted">
+        <div className={`absolute left-3 z-20 w-40 max-w-[55vw] border-2 border-black bg-[#0d1117]/95 shadow-[2px_2px_0px_0px_black] ${controlsOpen ? 'bottom-[6.5rem]' : 'bottom-12'}`}>
+          <div className="border-b-2 border-black px-2 py-1 text-[0.5rem] font-black uppercase tracking-widest text-text-muted">
             Top países
           </div>
           {topCountries.length === 0 ? (
-            <div className="px-3 py-3 text-center text-[0.625rem] text-text-muted">Sin datos de geo.</div>
+            <div className="px-2 py-2 text-center text-[0.5rem] text-text-muted">Sin datos de geo.</div>
           ) : (
-            <ul className="max-h-56 overflow-y-auto">
-              {topCountries.map((c, i) => (
-                <li key={c.code || c.country} className="flex items-center justify-between gap-2 border-b border-black/40 px-3 py-1.5 last:border-b-0">
-                  <span className="flex min-w-0 items-center gap-2 text-xs">
-                    <span className="w-4 text-right text-[0.625rem] font-black text-text-muted">{i + 1}</span>
-                    <span className="shrink-0">{countryFlag(c.code)}</span>
+            <ul>
+              {topCountries.slice(0, 5).map((c, i) => (
+                <li key={c.code || c.country} className="flex items-center justify-between gap-1.5 border-b border-black/40 px-2 py-1 last:border-b-0">
+                  <span className="flex min-w-0 items-center gap-1.5 text-[0.625rem]">
+                    <span className="w-3 text-right text-[0.5rem] font-black text-text-muted">{i + 1}</span>
+                    <span className="shrink-0 text-[0.625rem]">{countryFlag(c.code)}</span>
                     <span className="truncate font-bold">{c.country}</span>
                   </span>
-                  <span className="shrink-0 text-[0.625rem] font-black text-accent">{c.count}</span>
+                  <span className="shrink-0 text-[0.5rem] font-black text-accent">{c.count}</span>
                 </li>
               ))}
             </ul>
