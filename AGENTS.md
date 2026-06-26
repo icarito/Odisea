@@ -2,6 +2,13 @@
 
 Este documento define las reglas, convenciones y procesos para cualquier agente que asista en el desarrollo de *Odisea: El Arca Silenciosa* (Godot 3, GDScript 1.x).
 
+Para navegacion entre agentes, comandos y skills, leer tambien:
+
+- `docs/agents/README.md` — punto de entrada neutral para Codex, Claude, Gemini, Kilo y agentes genericos.
+- `docs/agents/agent-map.md` — que archivo editar y que archivo solo adapta instrucciones.
+- `docs/agents/tooling.md` — resumen operativo de tests, telemetria, eval headless, props y UI.
+- `docs/agents/skills-index.md` — indice de workflows compartidos y adaptadores por agente.
+
 ---
 
 ## 1. REGLAS FUNDAMENTALES
