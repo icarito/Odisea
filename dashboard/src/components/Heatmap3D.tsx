@@ -31,11 +31,21 @@ export interface HotzoneMarker {
   size_kb?: number | null;
 }
 
+// Punto 3D de jugador (ghost): posición real en la escena + FPS, para la nube
+// 3D coloreada por rendimiento. Opcional — el dashboard clásico no la pasa.
+export interface GhostPoint {
+  x: number;
+  y: number;
+  z: number;
+  fps: number;
+}
+
 interface Heatmap3DProps {
   data: HeatmapCell[];
   resolution: number;
   scene?: string;
   hotzones?: HotzoneMarker[];
+  ghosts?: GhostPoint[];
   onSelectHotzone?: (hz: HotzoneMarker) => void;
   onDownloadHotzone?: (hz: HotzoneMarker) => void;
 }
@@ -163,6 +173,41 @@ const SceneScatter: React.FC<{ points: [number, number, number][] }> = ({ points
         </points>
       )}
     </group>
+  );
+};
+
+// Nube de jugadores 3D: cada ghost en su posición REAL (incluye altura/piso),
+// coloreado por FPS — rojo (<30) → ámbar (30-50) → verde (>50). Esto es la
+// "data 3D" propiamente: muestra dónde estuvieron los jugadores en el espacio,
+// no la agregación 2D de las torres de severidad.
+const GhostCloud: React.FC<{ points: GhostPoint[] }> = ({ points }) => {
+  const geometry = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const n = points.length;
+    const pos = new Float32Array(n * 3);
+    const col = new Float32Array(n * 3);
+    const c = new THREE.Color();
+    for (let i = 0; i < n; i++) {
+      const p = points[i];
+      pos[i * 3] = p.x;
+      pos[i * 3 + 1] = p.y;
+      pos[i * 3 + 2] = p.z;
+      const hex = p.fps >= 50 ? 0x3fb950 : p.fps >= 30 ? 0xd29922 : 0xf85149;
+      c.setHex(hex);
+      col[i * 3] = c.r;
+      col[i * 3 + 1] = c.g;
+      col[i * 3 + 2] = c.b;
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    return g;
+  }, [points]);
+
+  if (points.length === 0) return null;
+  return (
+    <points geometry={geometry}>
+      <pointsMaterial vertexColors size={3} sizeAttenuation={false} transparent opacity={0.85} depthWrite={false} />
+    </points>
   );
 };
 
@@ -303,7 +348,7 @@ const HotzoneMarkers: React.FC<{
   );
 };
 
-export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, hotzones, onSelectHotzone, onDownloadHotzone }) => {
+export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, hotzones, ghosts, onSelectHotzone, onDownloadHotzone }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredCell, setHoveredCell] = useState<HeatmapCell | null>(null);
@@ -381,6 +426,8 @@ export const Heatmap3D: React.FC<Heatmap3DProps> = ({ data, resolution, scene, h
         {scenePoints.length > 0 && (
           <SceneScatter points={scenePoints} />
         )}
+
+        {ghosts && ghosts.length > 0 && <GhostCloud points={ghosts} />}
 
         {cells.map((cell, idx) => (
           <Cell
