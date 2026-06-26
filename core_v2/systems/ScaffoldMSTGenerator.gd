@@ -74,6 +74,7 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 	else: rng.seed = seed_val
 
 	var rooms = []
+	var room_indices := {}
 	var room_count = rng.randi_range(5, 8)
 	var grid = []
 	grid.resize(grid_width * grid_depth)
@@ -100,6 +101,7 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 		var bi := cy * grid_width + cx
 		heights[bi] = bh
 		rooms.append({"pos": Vector2(cx, cy), "h": bh})
+		room_indices[bi] = true
 		# Open the seam tile's OUTWARD side toward the neighbouring chunk so the two
 		# chunks actually bridge. Without this the seam heights match but no walkable
 		# connection crosses the boundary — chunks look connectable but aren't. (The
@@ -122,7 +124,9 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			continue
 		var rh = float(rng.randi_range(min_height_steps, max_height_steps)) * HEIGHT_STEP
 		rooms.append({"pos": Vector2(rx, ry), "h": rh})
-		heights[ry * grid_width + rx] = rh
+		var ri: int = int(ry * grid_width + rx)
+		heights[ri] = rh
+		room_indices[ri] = true
 
 	# 2. MST Construction (Kruskal's)
 	var edges = []
@@ -221,7 +225,8 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 				"id": variant.id, "rotation": variant.rotation, "connections": variant.connections,
 				"port_heights": variant.port_heights, "weight": 1.0
 			},
-			"base_height": h + _last_stair_base_shift
+			"base_height": h + _last_stair_base_shift,
+			"is_room": room_indices.has(i)
 		})
 	return result
 
