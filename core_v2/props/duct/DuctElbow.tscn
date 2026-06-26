@@ -1,0 +1,77 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://core_v2/props/duct/DuctElbow.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/duct/DuctHull.tres" type="Material" id=2]
+
+[sub_resource type="SphereShape" id=1]
+radius = 2.5
+
+[sub_resource type="CylinderShape" id=2]
+radius = 2.0
+height = 1.0
+
+[sub_resource type="CylinderShape" id=3]
+radius = 2.0
+height = 1.0
+
+[node name="DuctElbow" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="StaticBody" type="StaticBody" parent="."]
+
+[node name="CollisionSphere" type="CollisionShape" parent="StaticBody"]
+shape = SubResource( 1 )
+
+[node name="CollisionRadial" type="CollisionShape" parent="StaticBody"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -3 )
+shape = SubResource( 2 )
+
+[node name="CollisionTangential" type="CollisionShape" parent="StaticBody"]
+transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, -0.776, 0, -2.9 )
+shape = SubResource( 3 )
+
+[node name="CSGCombiner" type="CSGCombiner" parent="."]
+calculate_tangents = true
+
+[node name="Hub" type="CSGSphere" parent="CSGCombiner"]
+radius = 2.6
+radial_segments = 24
+rings = 12
+material = ExtResource( 2 )
+
+[node name="HubInner" type="CSGSphere" parent="CSGCombiner"]
+operation = 2
+radius = 2.5
+radial_segments = 24
+rings = 12
+material = ExtResource( 2 )
+
+[node name="RadialArm" type="CSGCylinder" parent="CSGCombiner"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -3 )
+radius = 2.1
+height = 1.0
+sides = 32
+material = ExtResource( 2 )
+
+[node name="RadialArmInner" type="CSGCylinder" parent="CSGCombiner"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -3 )
+operation = 2
+radius = 2.0
+height = 1.1
+sides = 32
+material = ExtResource( 2 )
+
+[node name="TangentialArm" type="CSGCylinder" parent="CSGCombiner"]
+transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, -0.776, 0, -2.9 )
+radius = 2.1
+height = 1.0
+sides = 32
+material = ExtResource( 2 )
+
+[node name="TangentialArmInner" type="CSGCylinder" parent="CSGCombiner"]
+transform = Transform( 0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, -0.776, 0, -2.9 )
+operation = 2
+radius = 2.0
+height = 1.1
+sides = 32
+material = ExtResource( 2 )
