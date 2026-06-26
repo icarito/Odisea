@@ -37,15 +37,25 @@ Height → Altura z  (vertical)
 
 ### 2.2 Conversión de Conexiones
 
-| Dirección MST | Significado físico | Tile |
-|---|---|---|
-| EAST/WEST | Conexión circunferencial | **PipeArc** (tubo curvo, arco de circunferencia) |
-| NORTH/SOUTH | Conexión radial | **PipeSection** (tubo recto radial) |
-| Height delta | Conexión vertical | **PipeVertical** (tubo recto ascendente/descendente) |
+**Importante — el generador es _per-cell_, no _per-edge_.** El
+`ScaffoldMSTGenerator` no emite "un tubo entre dos celdas". Emite **un tile por
+celda**, clasificado por la firma de sus conexiones (ver
+`_select_variant`, [ScaffoldMSTGenerator.gd:600](../../core_v2/systems/ScaffoldMSTGenerator.gd#L600)).
+El spawner elige el tile por `variant.id` y usa `variant.rotation` para
+orientarlo en el espacio polar. No hay que inventar tiles "por dirección".
 
-Las conexiones EAST/WEST se vuelven arcos de circunferencia a radio constante.
-Las NORTH/SOUTH se vuelven tubos rectos en dirección radial. Los cambios de
-altura son tubos verticales puros.
+Cada dirección de conexión se interpreta geométricamente así:
+
+| Dirección MST | Significado físico | Geometría del brazo |
+|---|---|---|
+| EAST/WEST | circunferencial | arco de circunferencia a radio constante (tangente) |
+| NORTH/SOUTH | radial | tramo recto en dirección radial |
+| Height delta | desnivel | el brazo recto se **inclina** (no es un tubo vertical aparte) |
+
+El desnivel **nunca viaja solo**: el MST siempre lo monta sobre un recto pasante
+(la variante `S`, dos puertos opuestos a distinta altura — ver normalización en
+[ScaffoldMSTGenerator.gd:627](../../core_v2/systems/ScaffoldMSTGenerator.gd#L627)).
+Por eso en este maze no existen tubos verticales puros: hay **tubos inclinados**.
 
 ### 2.3 Parámetros del Grid para el Cilindro de 30m
 
@@ -116,64 +126,39 @@ de contenido (gas/agua/aire).
 ### 3.2 Tiles Navegables Nuevos (Diámetro 4m)
 
 Tubos por los que Elías puede caminar/correr/arrastrarse. Diámetro interno 4m
-(radio 2m), paredes de 0.1m de espesor.
+(radio 2m), paredes de 0.1m de espesor. Todos heredan de `Spatial`, colisión
+`StaticBody` + `ConcaveShape`.
 
-Todos heredan de `Spatial`. Colisión `StaticBody` + `CylinderShape`/`ConcaveShape`.
+**El inventario navegable se deriva directamente de la firma de conexiones que
+emite el generador** — un tile por cada variante posible, no por dirección de
+arista. Nombramos los navegables `Duct*` (4m) para no colisionar con los
+decorativos `Pipe*` (0.4m) de `core_v2/props/pipe/`.
 
-#### PipeArc (Arco Circunferencial)
+| `variant.id` | conexiones | Tile navegable | Geometría en polar |
+|---|---|---|---|
+| `E` | 1 | **DuctEndCap** | tapa ciega + stub corto de 1m (×4 rotaciones) |
+| `W` rot 0/180 | 2 opuestas radiales | **DuctRadial** | cilindro hueco recto radial, largo = RING_STEP (2m) |
+| `W` rot 90/270 | 2 opuestas circunf. | **DuctArc** | segmento de toro, `major_radius` = radio del anillo, `minor_radius` 2.0, `arc` 30° |
+| `C` | 2 adyacentes | **DuctElbow** | codo que une un brazo recto-radial con un brazo arco-tangente (×4) |
+| `T` | 3 | **DuctTee** | te; el brazo circunferencial curva, los radiales rectos (×4) |
+| `X` | 4 | **DuctCross** | cruz: esfera central (radio 2.5) + 4 brazos a N/S radiales y E/W tangentes |
+| `S` | 2 opuestas + Δh | **DuctIncline** | el recto pero inclinado según `port_heights` (radial o circunferencial) |
 
-```
-Propósito:    Conexión EAST/WEST — arco de circunferencia a radio constante
-Geometría:    Segmento de toro (CSGTorus o mesh custom):
-              - major_radius = radio del anillo en ese grid_y
-              - minor_radius = 2.0 (radio del tubo)
-              - arc_degrees = 30° (ANGLE_STEP)
-Orientación:  El eje del toro es vertical (Y up). El arco recorre en XZ.
-Variantes:    Ninguna (siempre mismo ángulo, 30°)
-Archivo:      PipeArc.tscn
-```
+7 tiles cubren **toda** la salida del generador.
 
-La major_radius varía según el anillo. Esto implica que `PipeArc` necesita
-recibir el radio como parámetro al instanciar, o se calcula en el spawner.
-Alternativa: hacer el mesh procedural en GDScript en vez de escenas pre-hechas.
+Notas geométricas clave:
 
-#### PipeSection (Tubo Radial)
+- **`DuctArc` debe ser mesh procedural.** El `major_radius` cambia con el anillo
+  (`grid_y`), así que no sirve una escena estática por anillo — ver §6.2.
+- **`DuctElbow`/`DuctTee`/`DuctCross` no son codos/uniones planares simétricos.**
+  En el espacio polar, un brazo radial es recto y un brazo circunferencial es un
+  arco tangente; la unión tiene que mezclar recto→arco. Esto vale para todas las
+  variantes con al menos un brazo E/W.
+- **`DuctIncline` reemplaza al "PipeVertical" del borrador.** No hay tubo
+  vertical puro: el desnivel siempre cabalga sobre un recto (la variante `S`). El
+  `rotation` y `port_heights` del tile dicen el eje y la pendiente.
 
-```
-Propósito:    Conexión NORTH/SOUTH — tubo recto en dirección radial
-Geometría:    Cilindro hueco, radio 2.0, largo = RING_STEP (2m)
-Orientación:  Eje del cilindro alineado con la dirección radial (Z local)
-              del Transform de la celda
-Archivo:      PipeSection4m.tscn (variante grande del existente)
-```
-
-#### PipeVertical (Tubo Vertical)
-
-```
-Propósito:    Cambio de altura entre celdas conectadas con height delta
-Geometría:    Cilindro hueco, radio 2.0, largo = HEIGHT_STEP (2m)
-Orientación:  Eje del cilindro vertical (Y up)
-Archivo:      PipeVertical.tscn
-```
-
-#### PipeCross (Intersección en X — 4 direcciones)
-
-```
-Propósito:    Nodo con 4 salidas horizontales (N/S/E/W)
-Geometría:    Esfera central (radio 2.5) + 4 brazos cortos de cilindro
-              apuntando a 0°, 90°, 180°, 270°
-Archivo:      PipeCross4m.tscn
-```
-
-#### EndCap (Tapa de Conducto)
-
-```
-Propósito:    Cerrar ramas sin salida (celdas con 1 sola conexión)
-Geometría:    Disco metálico con reborde, radio 2.0
-Archivo:      PipeEndCap.tscn
-```
-
-#### GateValve (Compuerta de Presión)
+#### DuctGateValve (Compuerta de Presión) — overlay, no es de topología
 
 ```
 Propósito:    Compuerta que se cierra — mecánica de presión/urgencia
@@ -182,52 +167,78 @@ Script:       Extiende InteractableBaseV2
               - Animación: compuerta baja de abierto → cerrado en N segundos
               - Señal: gate_state_changed(is_open)
               - Trigger: por proximidad del jugador o por timer global
-Archivo:      PipeGateValve.tscn + PipeGateValve.gd
+Archivo:      DuctGateValve.tscn + DuctGateValve.gd
 ```
 
-### 3.3 Cápsulas (Habitaciones — Nodos del MST)
+La compuerta **no la pide el generador**: el spawner la inserta sobre un brazo
+existente (un `DuctRadial`/`DuctArc`) en puntos estratégicos, post-generación.
 
-Cada celda del grid que el MST marca como "room" (nodo conectado) aloja una
-**cápsula**. Es una habitación cilíndrica con extremos abovedados, construida
-con primitivas de Godot.
+### 3.3 Cápsulas (Nodos del MST) = junction decorado
+
+Una **cápsula no es un tile aparte de la topología**: es uno de los junctions
+(`C`/`T`/`X`) envuelto en una carcasa cilíndrica habitable, con **un puerto
+abierto por cada conexión activa** de esa celda. Reusa exactamente la misma
+máscara `variant.connections` que usaría el tile de ducto pelado.
 
 ```
 Nombre:       CapsuleRoom
 Geometría:    CSGCylinder (radio 3m, altura 4m) +
-              2× CSGSphere (radio 3m) en los extremos superior e inferior
-              → Forma de cápsula farmacéutica de ~10m de alto total
+              2× CSGSphere (radio 3m) en los extremos
+              → cápsula farmacéutica de ~10m de alto total
 
 Interior:
   - Suelo de rejilla metálica (plane mesh con alpha)
   - 4 paneles de luz de emergencia (luz puntual roja/cian)
-  - Puertos en paredes: aberturas circulares de radio 2m donde conectan los tubos
-  - Un puerto por cada conexión activa del MST en esa celda
-  - Válvulas decorativas pequeñas (0.4m) en las paredes
+  - Puertos: 1 abertura de radio 2m por cada bit true de variant.connections,
+    orientada al brazo correspondiente (radial recto / circunferencial tangente)
+  - Válvulas decorativas pequeñas (0.4m, props Pipe* existentes) en las paredes
 
 Colisión:     ConcaveShape generado del CSGCombiner bakeado
 Archivo:      CapsuleRoom.tscn (con script CapsuleRoom.gd)
 
 CapsuleRoom.gd:
-  - export(Array, NodePath) var connected_pipes: Array
-  - func open_port(index: int) / close_port(index: int)
-  - Señal: port_state_changed(port_index, is_open)
+  - func setup(connections: Array, rotation: int)   # abre solo los puertos activos
+  - func open_port(dir: int) / close_port(dir: int) # dir en {N,E,S,W}
+  - Señal: port_state_changed(dir, is_open)
 ```
+
+**Criterio de qué celda es cápsula** (decisión de diseño, ver §3.3.1).
+
+#### 3.3.1 Exponer las "rooms" del generador
+
+Hoy `generate_grid_data` **no dice qué celda fue nodo-semilla del MST**: siembra
+las rooms internamente ([ScaffoldMSTGenerator.gd:117](../../core_v2/systems/ScaffoldMSTGenerator.gd#L117))
+pero el resultado solo devuelve `{variant, base_height}`. Para colocar cápsulas
+hay que surfacearlo. Cambio mínimo en el loop final del generador:
+
+```gdscript
+# marcar las celdas que fueron rooms semilla
+result[i]["is_room"] = _room_indices.has(i)
+```
+
+(`_room_indices` se llena al hacer `rooms.append(...)`, guardando `ry*grid_width+rx`.)
+
+**Regla recomendada:** `cápsula = is_room AND grado(celda) >= 2`. Las semillas que
+degeneraron en dead-end (`E`) o recto (`W`) no merecen habitación y se quedan como
+ducto normal. Así toda cápsula es por definición un `C`/`T`/`X`.
 
 ### 3.4 Tabla Completa de Tiles
 
-| Tile | Tipo | Diámetro | Nuevo? | Archivo |
-|---|---|---|---|---|
-| PipeSection | decorativo | 0.4m | existe | `core_v2/props/pipe/PipeSection.tscn` |
-| PipeCorner | decorativo | 0.4m | existe | `core_v2/props/pipe/PipeCorner.tscn` |
-| PipeTee | decorativo | 0.4m | existe | `core_v2/props/pipe/PipeTee.tscn` |
-| PipeValve | interactivo | 0.4m | existe | `core_v2/props/pipe/PipeValve.tscn` |
-| PipeArc | navegable | 4m | **nuevo** | `core_v2/props/duct/PipeArc.tscn` |
-| PipeSection4m | navegable | 4m | **nuevo** | `core_v2/props/duct/PipeSection4m.tscn` |
-| PipeVertical | navegable | 4m | **nuevo** | `core_v2/props/duct/PipeVertical.tscn` |
-| PipeCross4m | navegable | 4m | **nuevo** | `core_v2/props/duct/PipeCross4m.tscn` |
-| PipeEndCap | navegable | 4m | **nuevo** | `core_v2/props/duct/PipeEndCap.tscn` |
-| PipeGateValve | navegable | 4m | **nuevo** | `core_v2/props/duct/PipeGateValve.tscn` |
-| CapsuleRoom | habitación | 6m | **nuevo** | `core_v2/props/duct/CapsuleRoom.tscn` |
+| Tile | Tipo | Origen | Diámetro | Nuevo? | Archivo |
+|---|---|---|---|---|---|
+| PipeSection | decorativo | — | 0.4m | existe | `core_v2/props/pipe/PipeSection.tscn` |
+| PipeCorner | decorativo | — | 0.4m | existe | `core_v2/props/pipe/PipeCorner.tscn` |
+| PipeTee | decorativo | — | 0.4m | existe | `core_v2/props/pipe/PipeTee.tscn` |
+| PipeValve | interactivo | — | 0.4m | existe | `core_v2/props/pipe/PipeValve.tscn` |
+| DuctEndCap | navegable | variant `E` | 4m | **nuevo** | `core_v2/props/duct/DuctEndCap.tscn` |
+| DuctRadial | navegable | variant `W` (0/180) | 4m | **nuevo** | `core_v2/props/duct/DuctRadial.tscn` |
+| DuctArc | navegable | variant `W` (90/270) | 4m | **nuevo** | `core_v2/props/duct/DuctArc` (procedural) |
+| DuctElbow | navegable | variant `C` | 4m | **nuevo** | `core_v2/props/duct/DuctElbow.tscn` |
+| DuctTee | navegable | variant `T` | 4m | **nuevo** | `core_v2/props/duct/DuctTee.tscn` |
+| DuctCross | navegable | variant `X` | 4m | **nuevo** | `core_v2/props/duct/DuctCross.tscn` |
+| DuctIncline | navegable | variant `S` | 4m | **nuevo** | `core_v2/props/duct/DuctIncline.tscn` |
+| DuctGateValve | overlay | spawner | 4m | **nuevo** | `core_v2/props/duct/DuctGateValve.tscn` |
+| CapsuleRoom | habitación | room + `C`/`T`/`X` | 6m | **nuevo** | `core_v2/props/duct/CapsuleRoom.tscn` |
 
 ## 4. Mecánica de Presión / Colapso
 
@@ -304,21 +315,33 @@ export var room_count := 8
 export var extra_cycles := 2
 export var seed_value := -1
 
-# Tile libraries
-export var duct_tiles: Dictionary  # {W: PackedScene, C: PackedScene, ...}
+# Tile libraries — keyed por variant.id que emite el generador
+export var duct_tiles: Dictionary  # {E:.., W:.., C:.., T:.., X:.., S:..}
 export var capsule_scene: PackedScene
 
 func generate() -> void:
-    # 1. Configurar MST Generator con grid params
-    # 2. Ejecutar MST
-    # 3. Para cada celda con height >= 0:
-    #    a. Calcular posición polar → world Transform
-    #    b. Instanciar tile según variant
-    #    c. Si es room: instanciar CapsuleRoom
-    #    d. Pintar zona de contenido según posición radial
-    # 4. Instanciar compuertas en puntos estratégicos
-    # 5. Activar timer de colapso progresivo
+    # 1. Configurar MST Generator con grid params (sectors→grid_width, rings→grid_depth)
+    # 2. grid = mst_gen.generate_grid_data(seed_value)
+    # 3. Para cada celda i con cell != null (height >= 0):
+    #    var v = cell.variant
+    #    a. xform = grid_to_world(i % grid_width, i / grid_width, cell.base_height)
+    #    b. Elegir geometría:
+    #         - v.id == "W": DuctRadial si rotation in {0,180} else DuctArc(radio del anillo)
+    #         - v.id == "S": DuctIncline (orientar por rotation + port_heights)
+    #         - resto (E/C/T/X): duct_tiles[v.id]
+    #    c. Aplicar v.rotation alrededor del eje vertical local del Transform polar
+    #    d. Si cell.is_room AND grado(v.connections) >= 2:
+    #         capsula = capsule_scene.instance(); capsula.setup(v.connections, v.rotation)
+    #       (la cápsula REEMPLAZA al tile pelado, no se suma)
+    #    e. Pintar zona de contenido según posición radial (grid_y)
+    # 4. Insertar DuctGateValve sobre brazos elegidos (puntos estratégicos)
+    # 5. Activar timer/triggers de colapso progresivo
 ```
+
+> `grado(connections)` = cantidad de bits true. `DuctArc` se construye con el
+> radio del anillo de esa celda (§6.2); los demás tiles son escenas estáticas
+> rotadas. El `variant.rotation` ya viene resuelto por el generador — el spawner
+> no recalcula la firma, solo la consume.
 
 ### 6.2 PipeArc — Mesh Procedural
 
@@ -384,19 +407,24 @@ plantada.
 ```
 core_v2/systems/DuctMazeSpawner.gd          — Spawner principal (wrapper de MST + proyección polar)
 core_v2/systems/DuctMazeSpawner.tscn
-core_v2/systems/PipeArcBuilder.gd           — Mesh procedural para arcos de toro
-core_v2/props/duct/PipeArc.tscn             — (o generado en código)
-core_v2/props/duct/PipeSection4m.tscn       — Tubo recto radial 4m diámetro
-core_v2/props/duct/PipeVertical.tscn        — Tubo vertical 4m diámetro
-core_v2/props/duct/PipeCross4m.tscn         — Intersección X 4m diámetro
-core_v2/props/duct/PipeEndCap.tscn          — Tapa ciega
-core_v2/props/duct/PipeGateValve.tscn       — Compuerta de presión
-core_v2/props/duct/PipeGateValve.gd
-core_v2/props/duct/CapsuleRoom.tscn         — Habitación cápsula
+core_v2/systems/DuctArcBuilder.gd           — Mesh procedural para arcos de toro (DuctArc)
+core_v2/props/duct/DuctRadial.tscn          — variant W (rot 0/180): tubo recto radial 4m
+core_v2/props/duct/DuctElbow.tscn           — variant C: codo radial↔arco
+core_v2/props/duct/DuctTee.tscn             — variant T: te 3 brazos
+core_v2/props/duct/DuctCross.tscn           — variant X: cruz 4 brazos
+core_v2/props/duct/DuctIncline.tscn         — variant S: tubo inclinado (desnivel)
+core_v2/props/duct/DuctEndCap.tscn          — variant E: tapa ciega
+core_v2/props/duct/DuctGateValve.tscn       — Compuerta de presión (overlay)
+core_v2/props/duct/DuctGateValve.gd
+core_v2/props/duct/CapsuleRoom.tscn         — Habitación cápsula (junction decorado)
 core_v2/props/duct/CapsuleRoom.gd
 scenes/levels/act0_duct_maze.tscn           — Escena del nivel Acto 0
 scenes/levels/act0_duct_maze.gd
 ```
+
+> `DuctArc` no tiene .tscn propio: lo construye `DuctArcBuilder.gd` en runtime
+> con el radio del anillo. Una sola modificación al generador
+> (`ScaffoldMSTGenerator.gd`) para exponer `is_room` por celda — ver §3.3.1.
 
 ### Modificados
 
@@ -408,10 +436,11 @@ Diseno/Narrativa/Acto_0_Cold_Open.md        — Actualizar referencia a este FD
 
 1. MST genera grafo conectado en grid 12×6 con 6 height steps
 2. Proyección polar coloca tiles dentro del cilindro de 30m diámetro
-3. PipeArc conecta celdas EAST/WEST con curvatura correcta por anillo
-4. CapsuleRoom se instancia en nodos con puertos que coinciden con tubos conectados
-5. Compuertas se cierran al detectar proximidad del jugador
-6. Colapso progresivo sella secciones detrás del jugador
-7. Transición de zonas (gas/agua/aire) es visible y afecta gameplay
-8. Corte a negro al cruzar la esclusa final
-9. Primer diálogo de Odisea en Acto I hace referencia ambigua al evento
+3. Cada `variant.id` mapea al tile `Duct*` correcto; `W` elige radial vs arco por `rotation`
+4. `DuctArc` conecta celdas E/W con curvatura correcta según el radio de cada anillo
+5. El generador expone `is_room`; `CapsuleRoom` se instancia solo en rooms con grado ≥ 2, con puertos que coinciden con `variant.connections`
+6. Compuertas se cierran al detectar proximidad del jugador
+7. Colapso progresivo sella secciones detrás del jugador
+8. Transición de zonas (gas/agua/aire) es visible y afecta gameplay
+9. Corte a negro al cruzar la esclusa final
+10. Primer diálogo de Odisea en Acto I hace referencia ambigua al evento
