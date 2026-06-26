@@ -211,6 +211,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {activePlayerMeta}
           {headerControls}
 
+          {/* Acceso a la nueva IA incident-first (rediseño en curso). */}
+          <a
+            href="/investigate"
+            className="border-2 border-accent bg-accent/10 px-2 py-1 text-[0.625rem] font-black uppercase text-accent transition-colors hover:bg-accent hover:text-black"
+            title="Nueva vista de incidentes"
+          >
+            Incidentes ▸
+          </a>
+
           <StatusIndicator isConnected={isConnected} runningActions={runningActions} />
 
           {/* Player count -> opens the bottom sheet */}
