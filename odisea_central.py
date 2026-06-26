@@ -3628,16 +3628,16 @@ class OdiseaCentral:
         return web.Response(text="<h1>Odisea Central</h1><p>Dashboard not built. Check /health for metrics.</p>", content_type="text/html")
 
     async def handle_pwa_root_file(self, request):
-        """Serve PWA files that live at the dashboard root (sw.js, manifest,
-        icons, ...). These aren't under /assets/, so they need their own route.
-        Only an allowlist of filenames is served, to avoid path traversal."""
+        """Serve single-segment root paths: PWA files (sw.js, manifest, icons…)
+        and the SPA fallback for client-side routes.
+
+        Static files come from an allowlist (avoids path traversal). Any path
+        *without* a file extension is treated as a client-side route and served
+        the SPA shell, so new dashboard routes (e.g. /sessions, /live) work
+        without touching the server — no more hardcoded route allowlist to keep
+        in sync with the frontend router. Paths that look like files (have an
+        extension) but aren't allowed still 404."""
         name = request.match_info.get("name", "")
-        html_routes = {"auth", "globe", "heatmap", "investigate", "skia-debug"}
-        if name in html_routes:
-            fpath = os.path.join(STATIC_DIR, f"{name}.html")
-            if os.path.isfile(fpath):
-                return web.FileResponse(fpath, headers=self._COOP_COEP_HEADERS)
-            return await self.handle_index(request)
 
         allowed = {
             "sw.js", "registerSW.js", "manifest.webmanifest",
@@ -3646,25 +3646,35 @@ class OdiseaCentral:
         }
         # Workbox emits a hashed runtime file (workbox-<hash>.js).
         is_workbox = name.startswith("workbox-") and name.endswith(".js")
-        if name not in allowed and not is_workbox:
-            return web.Response(status=404)
-        fpath = os.path.join(STATIC_DIR, name)
-        if not os.path.isfile(fpath):
-            return web.Response(status=404)
-        # The service worker must not be cached, or clients get stuck on an old
-        # SW that never updates.
-        headers = {}
-        # Los headers COOP/COEP son obligatorios para SharedArrayBuffer en HTML5.
-        headers.update(self._COOP_COEP_HEADERS)
-        if name == "sw.js" or name == "registerSW.js":
-            headers["Cache-Control"] = "no-cache"
-        return web.FileResponse(fpath, headers=headers)
+        if name in allowed or is_workbox:
+            fpath = os.path.join(STATIC_DIR, name)
+            if not os.path.isfile(fpath):
+                return web.Response(status=404)
+            # The service worker must not be cached, or clients get stuck on an
+            # old SW that never updates.
+            headers = {}
+            # Los headers COOP/COEP son obligatorios para SharedArrayBuffer.
+            headers.update(self._COOP_COEP_HEADERS)
+            if name == "sw.js" or name == "registerSW.js":
+                headers["Cache-Control"] = "no-cache"
+            return web.FileResponse(fpath, headers=headers)
+
+        # Extension-less path -> client-side route. Prefer a pre-rendered
+        # per-route HTML if the build emitted one (multipage builds); otherwise
+        # serve the SPA index and let the router take over. Anything that looks
+        # like a missing asset (has an extension) -> 404.
+        if "." not in name:
+            html_path = os.path.join(STATIC_DIR, f"{name}.html")
+            if os.path.isfile(html_path):
+                return web.FileResponse(html_path, headers=self._COOP_COEP_HEADERS)
+            return await self.handle_index(request)
+
+        return web.Response(status=404)
 
     async def handle_dashboard_investigation_route(self, request):
         fpath = os.path.join(STATIC_DIR, "investigation", "[id].html")
         if os.path.isfile(fpath):
             return web.FileResponse(fpath, headers=self._COOP_COEP_HEADERS)
-        return await self.handle_index(request)
         return await self.handle_index(request)
 
     # --- SQLite Helpers ---

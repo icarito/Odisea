@@ -31,7 +31,7 @@ Capa central `src/dashboard/src/data/`:
 Regla: **las vistas son presentacionales**; nada de `fetch` ad-hoc, todo via el pipeline + filtros.
 
 ### Gotchas
-- **SPA fallback del server**: rutas nuevas deben matchear lo que `odisea_central.py` ya sirve como index.html: `html_routes = {auth, globe, heatmap, investigate, skia-debug}` + ruta dedicada `/investigation/*`. **`/inbox` daría 404** → por eso la lista vive en `/investigate`. Al agregar rutas nuevas, o se alinean a esa lista o hay que **agregar un SPA fallback genérico** en el server.
+- **SPA fallback del server** (resuelto): `odisea_central.py::handle_pwa_root_file` ahora sirve la SPA shell para **cualquier ruta de un segmento sin extensión** (p.ej. `/sessions`, `/live`, `/history`, `/hotzones`) — se eliminó el allowlist `html_routes` hardcodeado. Ya **no hace falta tocar el server** para agregar rutas nuevas al router del frontend. Rutas con extensión (parecen archivos) que no estén en el allowlist de PWA siguen dando 404; `/investigation/*` (multi-segmento) tiene su ruta dedicada.
 - Tooltips de recharts: tipar el `content` como `any` (convención del repo).
 - `Globo3D` y `Heatmap3D` son **compartidos con el clásico** — los cambios (sin arcos, leyenda compacta, labels HTML mono con escala por zoom, `ringAltitude`, prop opcional `ghosts`) son aditivos/seguros.
 - react-globe.gl **2.38** (viejo): soporta `htmlElementsData`; `ringAltitude` no verificado a ojo.
@@ -45,7 +45,7 @@ Regla: **las vistas son presentacionales**; nada de `fetch` ad-hoc, todo via el 
 
 1. Portar a la shell nueva las vistas aún enredadas en `App.tsx` (2897 líneas, ~30 `useState`, `useTelemetry` por WS): **Live (3D/birdseye en tiempo real), Sesiones, Hotzones, History**.
 2. Recién ahí **voltear `/`** a la shell nueva y **borrar `App.tsx`**.
-3. Agregar **SPA fallback genérico** en `odisea_central.py`.
+3. ~~Agregar **SPA fallback genérico** en `odisea_central.py`.~~ **Hecho** (`handle_pwa_root_file`): rutas de un segmento sin extensión → SPA shell; se borró el allowlist `html_routes`. Las rutas nuevas del frontend ya no requieren cambios en el server.
 4. Sumar filtros **plataforma/duración/ventana** cuando exista la vista Sesiones (ya están en el store).
 5. ~~Tests de los `selectors.ts` puros y del pipeline.~~ **Hecho** (`src/data/selectors.test.ts`): vitest, 21 tests cubriendo `filterIncidents`, `filterGeoPlayers` (país case-insensitive, ventana de recencia con fake timers, combinados), `countriesFromGeo` (conteo/orden/normalización) y `applyIncidentStatusToList` (núcleo puro de la mutación optimista, extraído de `queries.ts`). Correr con `pnpm test`.
 
