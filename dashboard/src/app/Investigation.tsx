@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   CartesianGrid,
@@ -10,8 +10,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { getIncident, getIncidentSamples, setIncidentStatus } from '../api';
-import type { IncidentGroup, IncidentStatus, SessionSample } from '../types';
+import { useIncidentQuery, useIncidentSamplesQuery, useUpdateIncidentStatus } from '../data/queries';
+import type { IncidentStatus, SessionSample } from '../types';
 
 const STATUS_META: Record<IncidentStatus, { label: string; cls: string }> = {
   open: { label: 'OPEN', cls: 'bg-danger text-black' },
@@ -85,28 +85,15 @@ function fpsTooltip({ active, payload }: any) {
 
 export function Investigation() {
   const { id = '' } = useParams();
-  const [incident, setIncident] = useState<IncidentGroup | null>(null);
-  const [samples, setSamples] = useState<SessionSample[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const incidentQ = useIncidentQuery(id);
+  const samplesQ = useIncidentSamplesQuery(id);
+  const update = useUpdateIncidentStatus();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [inc, smp] = await Promise.all([getIncident(id), getIncidentSamples(id)]);
-      setIncident(inc);
-      setSamples(Array.isArray(smp) ? smp : []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error cargando el incidente');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    if (id) load();
-  }, [id, load]);
+  const incident = incidentQ.data ?? null;
+  const samples = (samplesQ.data as SessionSample[]) ?? [];
+  const loading = incidentQ.isLoading || samplesQ.isLoading;
+  const err = incidentQ.error || samplesQ.error;
+  const error = err instanceof Error ? err.message : err ? 'Error cargando el incidente' : null;
 
   const fpsSeries = useMemo(
     () =>
@@ -116,18 +103,10 @@ export function Investigation() {
     [samples],
   );
 
-  const changeStatus = useCallback(
-    async (status: IncidentStatus) => {
-      if (!incident) return;
-      setIncident({ ...incident, status });
-      try {
-        await setIncidentStatus(incident.id, status);
-      } catch {
-        load();
-      }
-    },
-    [incident, load],
-  );
+  const changeStatus = (status: IncidentStatus) => {
+    if (!incident) return;
+    update.mutate({ id: incident.id, status });
+  };
 
   return (
     <div className="flex flex-col gap-4 p-4">

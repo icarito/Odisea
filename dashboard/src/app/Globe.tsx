@@ -1,31 +1,19 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
-import { getGeoPlayers } from '../api';
+import { Suspense, lazy } from 'react';
+import { useFilteredGeoPlayers } from '../data/queries';
 
 const GlobeView = lazy(() => import('../components/GlobeView').then((m) => ({ default: m.GlobeView })));
 
 export function Globe() {
-  const [players, setPlayers] = useState<any[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = () =>
-      getGeoPlayers()
-        .then((d) => {
-          if (!cancelled) setPlayers(Array.isArray(d) ? d : []);
-        })
-        .catch(() => {});
-    load();
-    const id = setInterval(load, 15000); // refresco suave de ubicaciones en vivo
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
+  // Geo desde el pipeline central, ya filtrado por el filtro global de país.
+  // react-query maneja el refetch en vivo (15s) y la cache.
+  const { data, isFetching } = useFilteredGeoPlayers();
+  const players = data ?? [];
 
   return (
     <div className="flex h-full flex-col p-3">
       <div className="mb-2 flex items-center gap-2">
         <span className="text-[0.625rem] font-black uppercase tracking-widest text-accent">Globe</span>
+        {isFetching && <span className="text-[0.5625rem] uppercase text-text-muted">actualizando…</span>}
         <span className="ml-auto text-[0.5625rem] uppercase text-text-muted">{players.length} ubicaciones</span>
       </div>
       <div className="min-h-0 flex-1 border-2 border-black bg-bg-card">

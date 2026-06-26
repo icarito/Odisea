@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { LoginScreen } from '../components/LoginScreen';
+import { GlobalFilterBar } from './GlobalFilterBar';
 
 // Paths alineados al SPA fallback que ya sirve odisea_central (investigate /
 // heatmap / globe están en su allowlist; investigation/* tiene ruta dedicada).
@@ -80,6 +81,8 @@ export function IncidentShell() {
           </NavLink>
         ))}
       </nav>
+
+      <GlobalFilterBar />
 
       <main className="min-h-0 flex-1 overflow-y-auto">
         <Outlet />

@@ -1,8 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App.tsx'
+import { persister, queryClient } from './data/queryClient'
 import { IncidentShell } from './app/IncidentShell'
 import { Inbox } from './app/Inbox'
 import { Investigation } from './app/Investigation'
@@ -87,6 +89,7 @@ registerSW({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
+    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000 }}>
     <BrowserRouter>
       <Routes>
         {/* IA incident-first (nueva). Aditiva: no toca el dashboard clásico. */}
@@ -100,5 +103,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/*" element={<App />} />
       </Routes>
     </BrowserRouter>
+    </PersistQueryClientProvider>
   </React.StrictMode>,
 )

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { IncidentGroup, IncidentStatus } from '../types';
-import { type IncidentFilter, useIncidents } from './useIncidents';
+import { type IncidentFilter, useFilteredIncidents, useUpdateIncidentStatus } from '../data/queries';
 
 const STATUS_META: Record<IncidentStatus, { label: string; cls: string }> = {
   open: { label: 'OPEN', cls: 'bg-danger text-black' },
@@ -95,7 +95,9 @@ function IncidentCard({
 export function Inbox() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<IncidentFilter>('open');
-  const { incidents, loading, refreshing, error, fromCacheAt, refresh, changeStatus } = useIncidents(filter);
+  const { data, isLoading, isFetching, error, refetch } = useFilteredIncidents(filter);
+  const update = useUpdateIncidentStatus();
+  const incidents = data ?? [];
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -113,30 +115,23 @@ export function Inbox() {
             {f}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-2">
-          {fromCacheAt && (
-            <span className="text-[0.5rem] uppercase tracking-wide text-text-muted" title="Mostrando cache mientras revalida">
-              cache
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={refresh}
-            disabled={refreshing}
-            className="border-2 border-black bg-bg-primary px-2 py-0.5 text-[0.5625rem] font-black uppercase text-text-muted hover:bg-accent hover:text-black disabled:opacity-40"
-          >
-            {refreshing ? '…' : 'Recargar'}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="ml-auto border-2 border-black bg-bg-primary px-2 py-0.5 text-[0.5625rem] font-black uppercase text-text-muted hover:bg-accent hover:text-black disabled:opacity-40"
+        >
+          {isFetching ? '…' : 'Recargar'}
+        </button>
       </div>
 
       {error && (
         <div className="border-2 border-danger bg-danger/10 px-3 py-2 text-[0.625rem] font-black uppercase text-danger">
-          {error}
+          {error instanceof Error ? error.message : 'Error cargando incidentes'}
         </div>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="py-12 text-center text-[0.625rem] font-black uppercase tracking-widest text-text-muted">
           Cargando…
         </div>
@@ -147,7 +142,12 @@ export function Inbox() {
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {incidents.map((item) => (
-            <IncidentCard key={item.id} item={item} onChange={changeStatus} onOpen={(id) => navigate(`/investigation/${id}`)} />
+            <IncidentCard
+              key={item.id}
+              item={item}
+              onChange={(id, status) => update.mutate({ id, status })}
+              onOpen={(id) => navigate(`/investigation/${id}`)}
+            />
           ))}
         </div>
       )}
