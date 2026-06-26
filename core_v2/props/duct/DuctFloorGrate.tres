@@ -1,0 +1,9 @@
+[gd_resource type="SpatialMaterial" format=2]
+
+[resource]
+resource_name = "DuctFloorGrate"
+flags_transparent = true
+params_cull_mode = 2
+albedo_color = Color( 0.164706, 0.164706, 0.188235, 0.8 )
+metallic = 0.5
+roughness = 0.8
