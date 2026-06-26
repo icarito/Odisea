@@ -1,4 +1,4 @@
-import type { GeoPlayer, IncidentGroup } from '../types';
+import type { GeoPlayer, IncidentGroup, IncidentStatus } from '../types';
 import type { GlobalFilters } from './filters.store';
 
 // Selectores PUROS (sin React) — cruzan dataset + filtros globales. Viven acá
@@ -20,6 +20,22 @@ export function filterGeoPlayers(items: GeoPlayer[], f: GlobalFilters): GeoPlaye
     out = out.filter((p) => (p.last_seen || 0) >= cutoff);
   }
   return out;
+}
+
+// Aplica un cambio de estado optimista a UNA lista de incidentes cacheada.
+// `keyStatus` es el status por el que esa query está filtrada ('all' = sin
+// filtro). Devuelve la lista con el item actualizado y, si su nuevo status ya no
+// matchea el filtro de esa query, removido. Pura para poder testear el corazón
+// de la mutación optimista sin montar react-query.
+export function applyIncidentStatusToList(
+  data: IncidentGroup[],
+  id: string,
+  status: IncidentStatus,
+  keyStatus: IncidentStatus | 'all',
+): IncidentGroup[] {
+  return data
+    .map((i) => (i.id === id ? { ...i, status } : i))
+    .filter((i) => keyStatus === 'all' || i.status === keyStatus);
 }
 
 // Lista de países presente en los datos de geo (para poblar el filtro de país),

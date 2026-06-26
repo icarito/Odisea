@@ -47,7 +47,7 @@ Regla: **las vistas son presentacionales**; nada de `fetch` ad-hoc, todo via el 
 2. Recién ahí **voltear `/`** a la shell nueva y **borrar `App.tsx`**.
 3. Agregar **SPA fallback genérico** en `odisea_central.py`.
 4. Sumar filtros **plataforma/duración/ventana** cuando exista la vista Sesiones (ya están en el store).
-5. Tests de los `selectors.ts` puros y del pipeline.
+5. ~~Tests de los `selectors.ts` puros y del pipeline.~~ **Hecho** (`src/data/selectors.test.ts`): vitest, 21 tests cubriendo `filterIncidents`, `filterGeoPlayers` (país case-insensitive, ventana de recencia con fake timers, combinados), `countriesFromGeo` (conteo/orden/normalización) y `applyIncidentStatusToList` (núcleo puro de la mutación optimista, extraído de `queries.ts`). Correr con `pnpm test`.
 
 ## Commits de la rama
 

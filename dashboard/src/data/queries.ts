@@ -12,7 +12,7 @@ import {
 } from '../api';
 import type { GeoPlayer, IncidentGroup, IncidentStatus } from '../types';
 import { useFilters } from './filters.store';
-import { filterGeoPlayers } from './selectors';
+import { applyIncidentStatusToList, filterGeoPlayers } from './selectors';
 
 export type IncidentFilter = IncidentStatus | 'all';
 
@@ -91,10 +91,7 @@ export function useUpdateIncidentStatus() {
       for (const [key, data] of snapshots) {
         if (!Array.isArray(data)) continue;
         const keyStatus = key[1] as IncidentFilter;
-        const next = data
-          .map((i) => (i.id === id ? { ...i, status } : i))
-          .filter((i) => keyStatus === 'all' || i.status === keyStatus);
-        qc.setQueryData(key, next);
+        qc.setQueryData(key, applyIncidentStatusToList(data, id, status, keyStatus));
       }
       // Detalle (vista Investigation) también optimista.
       const prevDetail = qc.getQueryData<IncidentGroup>(['incident', id]);
