@@ -6,6 +6,8 @@ import App from './App.tsx'
 import { IncidentShell } from './app/IncidentShell'
 import { Inbox } from './app/Inbox'
 import { Investigation } from './app/Investigation'
+import { Heatmap } from './app/Heatmap'
+import { Globe } from './app/Globe'
 import './index.css'
 
 const DASHBOARD_ORIENTATION = 'portrait'
@@ -91,6 +93,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route element={<IncidentShell />}>
           <Route path="/investigate" element={<Inbox />} />
           <Route path="/investigation/:id" element={<Investigation />} />
+          <Route path="/heatmap" element={<Heatmap />} />
+          <Route path="/globe" element={<Globe />} />
         </Route>
         {/* Dashboard clásico — todo lo demás (?tab=…) lo maneja App internamente. */}
         <Route path="/*" element={<App />} />
