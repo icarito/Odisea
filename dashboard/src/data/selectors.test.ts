@@ -4,8 +4,13 @@ import { DEFAULT_FILTERS, type GlobalFilters } from './filters.store';
 import {
   applyIncidentStatusToList,
   countriesFromGeo,
+  enrichSessionsWithGeo,
   filterGeoPlayers,
   filterIncidents,
+  filterSessions,
+  geoByPlayer,
+  normalizeGhostSample,
+  platformsFromSessions,
 } from './selectors';
 
 // Factories — solo los campos que los selectores miran; el resto, valores válidos
@@ -214,5 +219,138 @@ describe('applyIncidentStatusToList (optimistic mutation core)', () => {
     const snapshot = JSON.parse(JSON.stringify(list));
     applyIncidentStatusToList(list, 'a', 'resolved', 'all');
     expect(list).toEqual(snapshot);
+  });
+});
+
+describe('geoByPlayer', () => {
+  it('maps player_id to geo info, first occurrence wins', () => {
+    const items = [
+      geo({ player_id: 'p1', city: 'Lima', country_code: 'PE' }),
+      geo({ player_id: 'p1', city: 'Cusco', country_code: 'PE' }),
+      geo({ player_id: 'p2', city: 'Bogota', country_code: 'CO' }),
+    ];
+    const map = geoByPlayer(items);
+    expect(map.p1.city).toBe('Lima');
+    expect(map.p2.country_code).toBe('CO');
+  });
+});
+
+describe('enrichSessionsWithGeo', () => {
+  it('fills only missing fields from the geo join', () => {
+    const byPlayer = { p1: { city: 'Lima', country: 'Peru', country_code: 'PE', display_name: 'Ana' } };
+    const sessions: Array<Record<string, unknown>> = [
+      { player_id: 'p1', session_id: 's1', city: 'Arequipa' }, // city already set, keep it
+      { player_id: 'p1', session_id: 's2' },
+      { player_id: 'pX', session_id: 's3' }, // no geo -> untouched
+    ];
+    const out = enrichSessionsWithGeo(sessions, byPlayer);
+    expect(out[0].city).toBe('Arequipa');
+    expect(out[0].country).toBe('Peru');
+    expect(out[1].city).toBe('Lima');
+    expect(out[2]).toEqual({ player_id: 'pX', session_id: 's3' });
+  });
+
+  it('returns the same object reference for rows without geo (no needless copy)', () => {
+    const row = { player_id: 'pX', session_id: 's3' };
+    const out = enrichSessionsWithGeo([row], {});
+    expect(out[0]).toBe(row);
+  });
+});
+
+describe('filterSessions', () => {
+  const base = filters({});
+
+  it('returns all sessions when no filters are set', () => {
+    const sessions = [{ session_id: 'a' }, { session_id: 'b' }];
+    expect(filterSessions(sessions, base)).toHaveLength(2);
+  });
+
+  it('keeps a session whose visited scenes include the filter scene', () => {
+    const sessions = [
+      { session_id: 'a', scenes_visited: ['OdiseaExterior', 'OdiseaInterior'] },
+      { session_id: 'b', scenes_visited: ['OdiseaInterior'] },
+    ];
+    const out = filterSessions(sessions, filters({ scene: 'OdiseaExterior' }));
+    expect(out.map((s) => s.session_id)).toEqual(['a']);
+  });
+
+  it('keeps scene-less sessions regardless of the scene filter', () => {
+    const sessions = [{ session_id: 'a' }]; // no scene info
+    expect(filterSessions(sessions, filters({ scene: 'OdiseaExterior' }))).toHaveLength(1);
+  });
+
+  it('filters by normalized platform (win -> windows)', () => {
+    const sessions = [
+      { session_id: 'a', platform: 'win64' },
+      { session_id: 'b', platform: 'android' },
+    ];
+    const out = filterSessions(sessions, filters({ platform: 'windows' }));
+    expect(out.map((s) => s.session_id)).toEqual(['a']);
+  });
+
+  it('keeps platform-less sessions when a platform filter is set', () => {
+    const sessions = [{ session_id: 'srv' }]; // no platform detected
+    expect(filterSessions(sessions, filters({ platform: 'windows' }))).toHaveLength(1);
+  });
+
+  it('filters by country code via the geo join when the row lacks one', () => {
+    const sessions = [
+      { session_id: 'a', player_id: 'p1' },
+      { session_id: 'b', player_id: 'p2' },
+    ];
+    const byPlayer = { p1: { country_code: 'PE' }, p2: { country_code: 'US' } };
+    const out = filterSessions(sessions, filters({ country: 'PE' }), byPlayer);
+    expect(out.map((s) => s.session_id)).toEqual(['a']);
+  });
+
+  it('drops sessions shorter than minDurationSec but never live ones', () => {
+    const sessions = [
+      { session_id: 'short', duration: 5 },
+      { session_id: 'long', duration: 120 },
+      { session_id: 'live', duration: 0, live: true },
+    ];
+    const out = filterSessions(sessions, filters({ minDurationSec: 60 }));
+    expect(out.map((s) => s.session_id)).toEqual(['long', 'live']);
+  });
+});
+
+describe('platformsFromSessions', () => {
+  it('counts normalized platforms, sorted by count desc, skipping unknown', () => {
+    const sessions = [
+      { platform: 'win64' },
+      { platform: 'windows' },
+      { platform: 'android' },
+      { platform: 'html5' },
+      {}, // no platform -> skipped
+    ];
+    expect(platformsFromSessions(sessions)).toEqual([
+      { platform: 'windows', count: 2 },
+      { platform: 'android', count: 1 },
+      { platform: 'web', count: 1 },
+    ]);
+  });
+});
+
+describe('normalizeGhostSample', () => {
+  it('flattens a nested player heartbeat (position array -> pos_x/y/z)', () => {
+    const out = normalizeGhostSample({
+      timestamp: 100,
+      player: { fps: 42, memory_mb: 256, position: [1, 2, 3], scene: 'OdiseaExterior', platform: 'windows' },
+    });
+    expect(out).toMatchObject({
+      timestamp: 100,
+      fps: 42,
+      memory_mb: 256,
+      pos_x: 1,
+      pos_y: 2,
+      pos_z: 3,
+      scene: 'OdiseaExterior',
+      platform: 'windows',
+    });
+  });
+
+  it('prefers already-flat fields and falls back to defaults', () => {
+    const out = normalizeGhostSample({ pos_x: 7, fps: 30 });
+    expect(out).toMatchObject({ pos_x: 7, pos_y: 0, pos_z: 0, fps: 30, scene: '?', platform: '?' });
   });
 });

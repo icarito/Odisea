@@ -16,9 +16,10 @@ El dashboard de prod se había migrado a **Expo / React Native** (repo aparte `O
 - Shell nueva retro-limpia (`src/app/`):
   - `/investigate` — **Inbox/triage** de incidentes (filtros estado, acciones inline).
   - `/investigation/:id` — detalle: timeline FPS (recharts) + trayectoria X/Z (SVG) + acciones.
+  - `/history` — **Sesiones**: `HistoricalTable` (lista filtrable, infinite scroll) + `SessionPlayback` (3D lazy) al elegir una. Filtros locales **plataforma** + **duración mínima** (escriben en el store global).
   - `/heatmap` — Heatmap3D + **nube de jugadores 3D por FPS** (toggle "Puntos 3D").
   - `/globe` — GlobeView/Globo3D.
-- **Filtros globales** (`GlobalFilterBar`): escena (cruza Incidentes+Heatmap), país (Globo).
+- **Filtros globales** (`GlobalFilterBar`): escena (cruza Incidentes+Heatmap+Sesiones), país (Globo+Sesiones). Plataforma/duración se setean desde la vista Sesiones.
 
 ## Arquitectura de datos (lo importante)
 
@@ -26,7 +27,7 @@ Capa central `src/dashboard/src/data/`:
 - `queryClient.ts` — **TanStack Query** + persistencia en **IndexedDB** (reusa `lib/idbCache.ts`) → pinta al instante al reabrir.
 - `filters.store.ts` — **Zustand** persistido: `scene/country/platform/minDurationSec/windowMs`.
 - `queries.ts` — hooks react-query (crudos + filtrados) + `useUpdateIncidentStatus` (mutación **optimista**, actualiza lista y detalle).
-- `selectors.ts` — funciones **puras** (sin React) → testeables: `filterIncidents`, `filterGeoPlayers`, `countriesFromGeo`.
+- `selectors.ts` — funciones **puras** (sin React) → testeables: `filterIncidents`, `filterGeoPlayers`, `countriesFromGeo`, `applyIncidentStatusToList`, y para Sesiones: `geoByPlayer`, `enrichSessionsWithGeo`, `filterSessions`, `platformsFromSessions`, `normalizeGhostSample`.
 
 Regla: **las vistas son presentacionales**; nada de `fetch` ad-hoc, todo via el pipeline + filtros.
 
@@ -43,10 +44,10 @@ Regla: **las vistas son presentacionales**; nada de `fetch` ad-hoc, todo via el 
 
 ## Pendiente (Fase 3 — necesita OK, riesgoso)
 
-1. Portar a la shell nueva las vistas aún enredadas en `App.tsx` (2897 líneas, ~30 `useState`, `useTelemetry` por WS): **Live (3D/birdseye en tiempo real), Sesiones, Hotzones, History**.
+1. Portar a la shell nueva las vistas aún enredadas en `App.tsx` (2897 líneas, ~30 `useState`, `useTelemetry` por WS). **History/Sesiones: hecho** (`/history`, ver arriba — incluye playback). Faltan: **Live (3D/birdseye en tiempo real, WS), Hotzones, y los sub-paneles de History que quedaron fuera del primer port** (capturas hotzone embebidas, "Versiones"/DeploymentHistory con commits+CI). _Pendiente de verificación visual con datos admin._
 2. Recién ahí **voltear `/`** a la shell nueva y **borrar `App.tsx`**.
 3. ~~Agregar **SPA fallback genérico** en `odisea_central.py`.~~ **Hecho** (`handle_pwa_root_file`): rutas de un segmento sin extensión → SPA shell; se borró el allowlist `html_routes`. Las rutas nuevas del frontend ya no requieren cambios en el server.
-4. Sumar filtros **plataforma/duración/ventana** cuando exista la vista Sesiones (ya están en el store).
+4. ~~Sumar filtros **plataforma/duración/ventana** cuando exista la vista Sesiones (ya están en el store).~~ **Hecho** para plataforma + duración (controles en `/history`, vía `filterSessions`). `windowMs` sigue libre para cuando exista Live.
 5. ~~Tests de los `selectors.ts` puros y del pipeline.~~ **Hecho** (`src/data/selectors.test.ts`): vitest, 21 tests cubriendo `filterIncidents`, `filterGeoPlayers` (país case-insensitive, ventana de recencia con fake timers, combinados), `countriesFromGeo` (conteo/orden/normalización) y `applyIncidentStatusToList` (núcleo puro de la mutación optimista, extraído de `queries.ts`). Correr con `pnpm test`.
 
 ## Commits de la rama

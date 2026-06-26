@@ -7,6 +7,7 @@ import { GlobalFilterBar } from './GlobalFilterBar';
 // heatmap / globe están en su allowlist; investigation/* tiene ruta dedicada).
 const NAV = [
   { to: '/investigate', label: 'Incidentes' },
+  { to: '/history', label: 'Sesiones' },
   { to: '/heatmap', label: 'Heatmap' },
   { to: '/globe', label: 'Globe' },
 ];
@@ -15,8 +16,9 @@ const NAV = [
 // header sobrio + nav + contenido. Comparte el gate de auth del dashboard
 // clásico (token en localStorage `odisea_token`).
 //
-// Por ahora la única sección portada es Inbox; Investigate / Heatmap / Globe
-// siguen viviendo en el dashboard clásico (link "Clásico") hasta que se porten.
+// Secciones portadas: Incidentes (Inbox/Investigation), Sesiones (History),
+// Heatmap y Globe. Live/Hotzones siguen en el clásico (link "Clásico") hasta
+// que se porten; recién ahí se voltea `/` y se borra App.tsx.
 export function IncidentShell() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('odisea_token'));
 
