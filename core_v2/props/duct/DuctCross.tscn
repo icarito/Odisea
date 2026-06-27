@@ -1,12 +1,34 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/props/duct/DuctHull.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/props/duct/DuctFloorGrate.tres" type="Material" id=2]
 
+[sub_resource type="SphereShape" id=1]
+radius = 2.5
+
+[sub_resource type="CylinderShape" id=2]
+radius = 2.0
+height = 8.0
+
 [node name="DuctCross" type="Spatial"]
 
+[node name="StaticBody" type="StaticBody" parent="."]
+collision_layer = 64
+collision_mask = 255
+
+[node name="CollisionHub" type="CollisionShape" parent="StaticBody"]
+shape = SubResource( 1 )
+
+[node name="CollisionRadial" type="CollisionShape" parent="StaticBody"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+shape = SubResource( 2 )
+
+[node name="CollisionCircum" type="CollisionShape" parent="StaticBody"]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0 )
+shape = SubResource( 2 )
+
 [node name="Geometry" type="CSGCombiner" parent="."]
-use_collision = true
+use_collision = false
 collision_layer = 1
 collision_mask = 255
 
@@ -17,7 +39,7 @@ rings = 12
 material = ExtResource( 1 )
 
 [node name="HubInner" type="CSGSphere" parent="Geometry"]
-operation = 1
+operation = 2
 radius = 2.3
 radial_segments = 24
 rings = 12
@@ -31,26 +53,24 @@ material = ExtResource( 1 )
 
 [node name="RadialHollow" type="CSGCylinder" parent="Geometry"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
-operation = 1
+operation = 2
 radius = 1.8
 height = 8.2
 radial_segments = 16
 
-[node name="CircumTube" type="CSGTorus" parent="Geometry"]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, -10, 0, 0 )
-inner_radius = 8.0
-outer_radius = 12.0
-sides = 32
-ring_sides = 12
+[node name="CircumTube" type="CSGCylinder" parent="Geometry"]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0 )
+radius = 2.0
+height = 8.0
+radial_segments = 32
 material = ExtResource( 1 )
 
-[node name="CircumHollow" type="CSGTorus" parent="Geometry"]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, -10, 0, 0 )
-operation = 1
-inner_radius = 8.2
-outer_radius = 11.8
-sides = 32
-ring_sides = 12
+[node name="CircumHollow" type="CSGCylinder" parent="Geometry"]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0 )
+operation = 2
+radius = 1.8
+height = 8.2
+radial_segments = 32
 
 [node name="Clipper" type="CSGBox" parent="Geometry"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
@@ -66,10 +86,16 @@ height = 0.1
 depth = 8.0
 material = ExtResource( 2 )
 
-[node name="FloorCircum" type="CSGTorus" parent="Geometry"]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, -10, -1.8, 0 )
-inner_radius = 9.0
-outer_radius = 11.0
-sides = 32
-ring_sides = 6
+[node name="FloorCircum" type="CSGBox" parent="Geometry"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.8, 0 )
+width = 8.0
+height = 0.1
+depth = 2.0
 material = ExtResource( 2 )
+
+[node name="FinalClipper" type="CSGBox" parent="Geometry"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
+operation = 1
+width = 8.0
+height = 8.0
+depth = 8.0

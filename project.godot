@@ -305,7 +305,7 @@ _global_script_classes=[ {
 "path": "res://core_v2/systems/DuctArcBuilder.gd"
 }, {
 "base": "Spatial",
-"class": "DuctMazeSpawner",
+"class": "DuctMazeStreamer",
 "language": "GDScript",
 "path": "res://core_v2/systems/DuctMazeSpawner.gd"
 }, {
@@ -1964,7 +1964,7 @@ _global_script_class_icons={
 "DualScalingObjectV2": "",
 "DualSlidingObjectV2": "",
 "DuctArcBuilder": "",
-"DuctMazeSpawner": "",
+"DuctMazeStreamer": "",
 "DynamicGravityDebugDraw": "",
 "DynamicGravityProxy": "",
 "ElevatorController": "",

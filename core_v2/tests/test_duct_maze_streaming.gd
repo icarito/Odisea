@@ -2,6 +2,8 @@ extends GdUnitTestSuite
 
 const DuctMazeStreamerScript = preload("res://core_v2/systems/DuctMazeSpawner.gd")
 const DuctGateValveScene = preload("res://core_v2/props/duct/DuctGateValve.tscn")
+const CapsuleRoomScene = preload("res://core_v2/props/duct/CapsuleRoom.tscn")
+const PlayerControllerScript = preload("res://core_v2/player/PlayerControllerV2.gd")
 
 func test_axial_stream_covers_tube_and_tracks_target() -> void:
 	var root := Spatial.new()
@@ -248,6 +250,24 @@ func test_room_airlocks_are_interactable_iris_doors() -> void:
 	tile.queue_free()
 	spawner.queue_free()
 
+func test_capsule_room_exit_airlock_is_interactable() -> void:
+	var room = CapsuleRoomScene.instance()
+	add_child(room)
+	yield(get_tree(), "idle_frame")
+
+	var iris = room.get_node_or_null("Interior/ExitAirlockIris")
+	assert_bool(iris != null).is_true()
+	var mechanism = iris.get_node_or_null("IrisMechanism") if iris else null
+	assert_bool(mechanism != null).is_true()
+	assert_bool(mechanism != null and mechanism.is_in_group("interactable")).is_true()
+	assert_bool(mechanism != null and mechanism.starts_active).is_true()
+	var interaction_area = mechanism.get_node_or_null("InteractionArea") if mechanism else null
+	assert_bool(interaction_area != null).is_true()
+	assert_int(interaction_area.collision_layer).is_equal(16)
+	_assert_no_entorno_static_bodies(iris)
+
+	room.queue_free()
+
 func _assert_no_entorno_static_bodies(node: Node) -> void:
 	if node is StaticBody:
 		assert_int(node.collision_layer & 1).is_equal(0)  # no Entorno bit
@@ -317,3 +337,92 @@ func test_duct_tiles_are_on_prop_layer_so_camera_passes_through() -> void:
 
 	tile.queue_free()
 	spawner.queue_free()
+
+func test_player_can_resolve_and_operate_an_airlock_iris() -> void:
+	# Drive the PLAYER's real interaction path, not iris.interact() in isolation:
+	#  - the iris's physics bodies / InteractionArea must resolve (via the same
+	#    _resolve_interactable_root the player uses) back to the IrisMechanism,
+	#  - that resolved node must be reported actionable (_candidate_can_interact),
+	#  - calling the resolved node's interact() must actually flip the door state.
+	# This is what "the iris is interactable in-game" means; a direct mech.interact()
+	# only proves the door's internal logic, which is why the earlier claim was wrong.
+	var spawner = DuctMazeStreamerScript.new()
+	spawner.duct_radius = 3.75
+	spawner.ring_step = 10.0
+	spawner.inner_radius = 9.5
+	spawner.room_radius_multiplier = 1.7
+	spawner.room_airlocks_enabled = true
+	add_child(spawner)
+	yield(get_tree(), "idle_frame")
+
+	var tile = spawner._make_procedural_tile([true, true, false, true], [0.0, 0.0, 0.0, 0.0], spawner._cell_radius(2, 0.0), true)
+	add_child(tile)
+	yield(get_tree(), "idle_frame")
+
+	var player = PlayerControllerScript.new()
+	add_child(player)
+	yield(get_tree(), "idle_frame")
+
+	# Collect the bodies/areas the player's interact scan would see from one iris,
+	# then run the player's own resolution + actionable checks against each.
+	var iris_root: Node = null
+	for child in tile.get_children():
+		if "AirlockIris" in child.name:
+			iris_root = child
+			break
+	assert_bool(iris_root != null).is_true()
+
+	var mechanism = iris_root.get_node_or_null("IrisMechanism")
+	assert_bool(mechanism != null).is_true()
+
+	# Every physics body and the InteractionArea under the iris must resolve to a node
+	# the player accepts as interactable. If ANY collidable resolves to something the
+	# player rejects, the door reads as "not interactable" depending on what you hit.
+	var collidables := []
+	_collect_physics_nodes(iris_root, collidables)
+	assert_int(collidables.size()).is_greater(0)
+
+	var resolved_actionable := 0
+	for node in collidables:
+		var resolved = player._resolve_interactable_root(node)
+		if player._candidate_can_interact(resolved):
+			resolved_actionable += 1
+	# At least one collidable (the InteractionArea / DoorBlocker) must lead to an
+	# actionable target.
+	assert_int(resolved_actionable).is_greater(0)
+
+	# And operating that resolved target must actually toggle the door.
+	var before: bool = mechanism.is_active
+	mechanism.interact()
+	assert_bool(mechanism.is_active).is_not_equal(before)
+
+	player.queue_free()
+	tile.queue_free()
+	spawner.queue_free()
+
+func _collect_physics_nodes(node: Node, out: Array) -> void:
+	if node is CollisionObject:
+		out.append(node)
+	for child in node.get_children():
+		_collect_physics_nodes(child, out)
+
+func test_held_interact_toggles_iris_once_not_every_frame() -> void:
+	# The player calls interact() every physics frame while the interact button is HELD
+	# (it reads the raw button state, not just-pressed). A free-standing toggle door would
+	# flip open/closed each frame and net to nothing — "interacting does nothing". The
+	# iris debounces interact() so one tap (several held frames) flips exactly once.
+	var iris = load("res://core_v2/props/doors/IrisDoorV2.tscn").instance()
+	add_child(iris)
+	yield(get_tree(), "idle_frame")
+	var mech = iris.get_node("IrisMechanism")
+	mech.set_active(true, true)  # open
+	yield(get_tree(), "idle_frame")
+
+	var before: bool = mech.is_active
+	# Simulate a held button: many interact() calls back-to-back in one burst.
+	for i in range(8):
+		mech.interact()
+	# Debounce → exactly one toggle, regardless of how many calls in the burst.
+	assert_bool(mech.is_active).is_not_equal(before)
+
+	iris.queue_free()

@@ -53,6 +53,7 @@ script_file = "res://scenes/levels/act0/Core.oys"
 debug_render = false
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 221.784 )
 
 [node name="AnimationTree" parent="Pilot/Visual/Pivot" index="1"]
 parameters/playback = SubResource( 1 )

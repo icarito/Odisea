@@ -21,7 +21,7 @@ export(float) var ring_step := DEFAULT_RING_STEP
 export(int) var sectors := 12
 export(int) var rings := 6
 export(int) var height_steps := 6
-export(int) var room_count := 8
+export(int) var room_count := 4
 export(int) var extra_cycles := 2
 export(int) var seed_value := -1
 export(bool) var axial_layout := false
@@ -32,8 +32,8 @@ export(float) var duct_wall_thickness := 0.35
 export(float) var connection_overlap := 1.25
 export(float) var collar_radius_extra := 0.08
 export(float) var collar_length := 0.55
-export(float) var room_radius_multiplier := 1.65
-export(float) var room_length_multiplier := 0.8
+export(float) var room_radius_multiplier := 3.2
+export(float) var room_length_multiplier := 1.6
 export(int) var mesh_segments := 16
 export(int) var room_segments := 18
 export(int) var overlay_stride := 8
@@ -91,7 +91,6 @@ const IRIS_DOOR_BASE_RADIUS = 1.7
 
 # Resource cache
 var _resource_cache := {}
-var _arc_builder_script = load("res://core_v2/systems/DuctArcBuilder.gd")
 var _runtime_material: Material = null
 var _stream_chunks := {}
 var _stream_target: Spatial = null
@@ -170,54 +169,6 @@ func _generate_grid_into(parent: Spatial, grid_depth: int, center_y: float, grid
 			continue
 
 		var instance: Spatial = null
-
-		var is_stair_w := false
-		if v.id == "W":
-			for ph in v.port_heights:
-				if abs(float(ph)) > 0.001:
-					is_stair_w = true
-					break
-
-		if v.id == "W" and (int(v.rotation) % 180 != 0) and not is_stair_w:
-			# Task 1: Procedural DuctArc
-			var major_r = _cell_radius(gy, base_height)
-			var mesh = _arc_builder_script.get_or_build_arc(major_r, duct_radius, _angle_step())
-			var mesh_instance = MeshInstance.new()
-			mesh_instance.mesh = mesh
-			mesh_instance.set_meta("variant_id", "W")
-			mesh_instance.set_meta("rotation", v.rotation)
-
-			# Apply material from Radial tile if possible
-			var radial_res = _get_res(TILE_PATHS["W"])
-			if radial_res:
-				var radial_temp = radial_res.instance()
-				var csg = radial_temp.get_node_or_null("CSGCombiner")
-				if csg:
-					mesh_instance.material_override = _find_csg_material(csg)
-				radial_temp.free()
-
-			if not mesh_instance.material_override:
-				mesh_instance.material_override = _get_res("res://core_v2/props/duct/DuctHull.tres")
-			mesh_instance.material_override = _get_runtime_material()
-
-			var sb = StaticBody.new()
-			sb.collision_layer = DUCT_COLLISION_LAYER
-			sb.collision_mask = 255
-			var col = CollisionShape.new()
-			var shape = mesh.create_trimesh_shape()
-			col.shape = shape
-			sb.add_child(col)
-			mesh_instance.add_child(sb)
-
-			parent.add_child(mesh_instance)
-			if axial_layout:
-				mesh_instance.translation = Vector3(0, _axis_position(gy), 0)
-			else:
-				mesh_instance.translation = Vector3(0, base_height, 0)
-			mesh_instance.rotation_degrees = Vector3(0, (gx - 0.5) * _angle_step(), 0)
-
-			_add_overlay(mesh_instance, gy, i)
-			continue
 
 		instance = _make_procedural_tile(v.connections, v.port_heights, _cell_radius(gy, base_height), is_room, extra_endpoint_specs)
 		if instance:
@@ -465,7 +416,7 @@ func _make_procedural_tile(connections: Array, port_heights: Array, ring_radius:
 		var tube_length: float = far - near
 		var tube_center: Vector3 = axis * ((near + far) * 0.5)
 		endpoint_specs.append({"dir": d, "endpoint": endpoint, "mouth": mouth, "length": length, "axis": axis, "airlock": true})
-		_append_cylinder_shell(visual_data, tube_center, axis, tube_length, visual_radius, mesh_segments, false)
+		_append_cylinder_shell(visual_data, tube_center, axis, tube_length, visual_radius, mesh_segments, true)
 		_append_cylinder_shell(collision_data, tube_center, axis, tube_length, collision_radius, mesh_segments, false)
 		# Collar ring at the mouth. When there's a shell (room/junction) push it slightly
 		# outward so its faces don't sit coplanar with the shell (z-fight). For shell-less
@@ -474,7 +425,7 @@ func _make_procedural_tile(connections: Array, port_heights: Array, ring_radius:
 		# two collars don't overlap at the seam midpoint.
 		var collar_offset: float = collar_length * 0.25 if shell_reach > 0.0 else -collar_length * 0.25
 		var collar_center: Vector3 = mouth + axis * collar_offset
-		_append_cylinder_shell(visual_data, collar_center, axis, collar_length, collar_radius, mesh_segments, false)
+		_append_cylinder_shell(visual_data, collar_center, axis, collar_length, collar_radius, mesh_segments, true)
 
 	for extra_spec in extra_endpoint_specs:
 		if not (extra_spec is Dictionary):
@@ -490,19 +441,18 @@ func _make_procedural_tile(connections: Array, port_heights: Array, ring_radius:
 			if not spec_copy.get("external_tube", false):
 				var extra_len: float = shell_reach + connection_overlap * 2.0
 				var extra_center: Vector3 = extra_axis * (shell_reach * 0.5)
-				_append_cylinder_shell(visual_data, extra_center, extra_axis, extra_len, visual_radius, mesh_segments, false)
+				_append_cylinder_shell(visual_data, extra_center, extra_axis, extra_len, visual_radius, mesh_segments, true)
 				_append_cylinder_shell(collision_data, extra_center, extra_axis, extra_len, collision_radius, mesh_segments, false)
-				_append_cylinder_shell(visual_data, extra_mouth + extra_axis * (collar_length * 0.25), extra_axis, collar_length, collar_radius, mesh_segments, false)
+				_append_cylinder_shell(visual_data, extra_mouth + extra_axis * (collar_length * 0.25), extra_axis, collar_length, collar_radius, mesh_segments, true)
 		endpoint_specs.append(spec_copy)
 
-	# Visual shells are single-sided: _get_runtime_material() already renders with
-	# CULL_DISABLED, so emitting flipped back-faces only produces coplanar pairs that
-	# z-fight. Collision shells stay single-sided too (trimesh is treated as solid).
+	# Visual shells emit real back-faces so generated ducts remain readable even when
+	# material culling/lighting changes. Collision shells stay single-sided.
 	if is_room:
-		_append_capsule_shell(visual_data, endpoint_specs, _room_outer_radius(), _room_body_length(), room_segments, 5, false)
+		_append_capsule_shell(visual_data, endpoint_specs, _room_outer_radius(), _room_body_length(), room_segments, 5, true)
 		_append_capsule_shell(collision_data, endpoint_specs, _room_inner_radius(), _room_body_length(), room_segments, 5, false)
 	elif _grado(connections) > 1:
-		_append_sphere_shell(visual_data, endpoint_specs, duct_radius + duct_wall_thickness, mesh_segments, 6, false)
+		_append_sphere_shell(visual_data, endpoint_specs, duct_radius + duct_wall_thickness, mesh_segments, 6, true)
 		_append_sphere_shell(collision_data, endpoint_specs, collision_radius, mesh_segments, 5, false)
 
 	var visual_mesh: ArrayMesh = _mesh_from_data(visual_data)
@@ -582,8 +532,9 @@ func _add_room_airlocks(root: Spatial, endpoint_specs: Array) -> void:
 
 func _move_static_bodies_to_prop_layer(node: Node) -> void:
 	if node is StaticBody:
-		# Only remap bodies that are on Entorno (the .tscn default); leave anything already
-		# on a deliberate layer (e.g. interaction areas on 16) alone.
+		if (node.collision_layer & 1) != 0:
+			node.collision_layer = DUCT_COLLISION_LAYER
+	elif node is CSGCombiner:
 		if (node.collision_layer & 1) != 0:
 			node.collision_layer = DUCT_COLLISION_LAYER
 	for child in node.get_children():
@@ -646,7 +597,12 @@ func _get_runtime_material() -> Material:
 		mat.params_cull_mode = SpatialMaterial.CULL_DISABLED
 		_runtime_material = mat
 	else:
-		_runtime_material = base_mat
+		var fallback = SpatialMaterial.new()
+		fallback.params_cull_mode = SpatialMaterial.CULL_DISABLED
+		fallback.albedo_color = Color(0.2, 0.2, 0.22, 1.0)
+		fallback.metallic = 0.3
+		fallback.roughness = 0.9
+		_runtime_material = fallback
 	return _runtime_material
 
 func _new_mesh_data() -> Dictionary:

@@ -120,14 +120,18 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 	var yaw_delta := 0.0
 	var pitch_delta := 0.0
 	var roll_delta := 0.0
+	var brakes_engaged := false
 	if input:
 		var mouse_y := -input.mouse_delta.y if invert_y else input.mouse_delta.y
 		yaw_delta = -input.mouse_delta.x * sens
 		pitch_delta = -mouse_y * sens
-		var roll_input := 0.0
-		if input.roll_left:  roll_input += 1.0
-		if input.roll_right: roll_input -= 1.0
-		roll_delta = roll_input * deg2rad(_setting("roll_speed_deg", DEFAULT_ROLL_SPEED_DEG)) * dt
+		if input.roll_left and input.roll_right:
+			brakes_engaged = true
+		else:
+			var roll_input := 0.0
+			if input.roll_left:  roll_input += 1.0
+			if input.roll_right: roll_input -= 1.0
+			roll_delta = roll_input * deg2rad(_setting("roll_speed_deg", DEFAULT_ROLL_SPEED_DEG)) * dt
 		yaw += yaw_delta
 		pitch += pitch_delta
 		roll_angle += roll_delta
@@ -203,7 +207,9 @@ func step_zero_g(dt: float, input: InputDataV2) -> void:
 		var accel_t := clamp(float(_setting("acceleration", DEFAULT_ACCELERATION)) * dt, 0.0, 1.0)
 		kinematic_v = kinematic_v.linear_interpolate(target_v, accel_t)
 
-	if i_factor <= 0.001:
+	if brakes_engaged:
+		_body.velocity = kinematic_v * pow(float(_setting("idle_damping", DEFAULT_IDLE_DAMPING)), dt * 60.0 * 3.0)
+	elif i_factor <= 0.001:
 		_body.velocity = kinematic_v
 	else:
 		# Newtonian behavior (inertia)

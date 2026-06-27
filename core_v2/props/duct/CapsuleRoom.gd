@@ -12,7 +12,7 @@ onready var port_nodes = {
 }
 
 func _ready():
-	pass
+	_setup_exit_airlock()
 
 func setup(connections: Array, rotation: int) -> void:
 	# connections is an array of bools [N, E, S, W]
@@ -38,3 +38,45 @@ func close_port(local_dir: int) -> void:
 	if port_nodes.has(local_dir) and port_nodes[local_dir]:
 		port_nodes[local_dir].visible = true
 		emit_signal("port_state_changed", local_dir, false)
+
+func _setup_exit_airlock() -> void:
+	var iris = get_node_or_null("Interior/ExitAirlockIris")
+	if not iris:
+		return
+	_move_static_bodies_to_prop_layer(iris)
+	var mechanism = iris.get_node_or_null("IrisMechanism")
+	if not mechanism:
+		return
+	if "interaction_text" in mechanism:
+		mechanism.interaction_text = "Operar esclusa"
+	if "starts_active" in mechanism:
+		mechanism.starts_active = true
+	if mechanism.has_method("set_active"):
+		mechanism.set_active(true, true)
+	_ensure_iris_interaction_area(mechanism)
+
+func _move_static_bodies_to_prop_layer(node: Node) -> void:
+	if node is StaticBody:
+		if (node.collision_layer & 1) != 0:
+			node.collision_layer = 1 << 6
+	elif node is CSGCombiner:
+		if (node.collision_layer & 1) != 0:
+			node.collision_layer = 1 << 6
+	for child in node.get_children():
+		_move_static_bodies_to_prop_layer(child)
+
+func _ensure_iris_interaction_area(mechanism: Spatial) -> void:
+	if mechanism.has_node("InteractionArea"):
+		return
+	var area := Area.new()
+	area.name = "InteractionArea"
+	area.collision_layer = 16
+	area.collision_mask = 0
+	area.monitorable = true
+	area.monitoring = false
+	var shape := CollisionShape.new()
+	var sphere := SphereShape.new()
+	sphere.radius = 1.6
+	shape.shape = sphere
+	area.add_child(shape)
+	mechanism.add_child(area)
