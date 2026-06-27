@@ -333,44 +333,125 @@ func _add_structural_rings_arc(root: Spatial, R: float, arc_deg: float, count: i
 func make_junction(id: String, connections: Array) -> Spatial:
 	var root = Spatial.new()
 	root.name = "Junction_" + id
-	
-	# Central hub: a torus collar (open centre) framing the junction, like the collars on
-	# the curved ducts. A solid sphere either sealed the path ("esferas impasables") or
-	# looked bad; an open collar reads as a joint and stays passable. No collision on it —
-	# the arms provide the walls.
-	var hub = MeshInstance.new()
-	hub.mesh = _get_ring_collar_mesh(duct_radius + ring_extra_radius, max(ring_height, 0.18))
-	hub.material_override = _get_res(CONDUIT_MAT_PATH)
-	root.add_child(hub)
 
-	# Connection layout in the MST: [NORTH=0, EAST=1, SOUTH=2, WEST=3].
-	# In the junction's LOCAL frame (set by _grid_to_world's straight-piece basis):
-	#   local +Z / -Z  = global Y  = AXIAL  (NORTH/SOUTH)  -> straight arms reach the
-	#                                          neighbour 1 cell away (ring_step apart).
-	#   local +X / -X  = world tangent       = CIRCUMFERENTIAL (EAST/WEST) -> the
-	#                                          neighbour is an ARC (~sector length) away
-	#                                          along the curved wall, NOT a straight line.
-	# Bug: EAST/WEST used straight stubs (make_arm) of ring_step*0.5; they fell ~60% short
-	# of the arc gap AND left the wall, so the lateral mouth dead-ended. Fix: lateral
-	# connections are arc segments (make_arc_arm) that hug the cylinder wall and span half
-	# the sector toward the neighbour (the neighbour's matching half-arc closes the ring).
-	#
-	# AXIAL arms still use straight tubes along local Z (FORWARD/BACK).
-	# Axial arms reach from the hub rim (junction_hub_reach) to the shared mouth at
-	# ring_step*0.5, so opposite arms no longer pile through the centre.
-	var axial_len := ring_step * 0.5 - junction_hub_reach
-	if connections[0]:
-		root.add_child(make_arm(Vector3.FORWARD, axial_len, duct_radius, junction_hub_reach))
-	if connections[2]:
-		root.add_child(make_arm(Vector3.BACK, axial_len, duct_radius, junction_hub_reach))
-	# +1 = EAST = increasing gx = +tangent = junction local +X.
-	if connections[1]:
-		root.add_child(make_arc_arm(1, duct_radius))
-	# -1 = WEST = decreasing gx = -tangent = junction local -X.
-	if connections[3]:
-		root.add_child(make_arc_arm(-1, duct_radius))
+	# FD-052 v4: build the junction from intersecting procedural cylinders instead of a
+	# spherical hub + look_at()'d arms. The hub sphere + arms-with-look_at() never aligned
+	# with the Z=forward convention (AGENTS.md §2.1) and rendered as broken geometry.
+	# Connections layout in junction-LOCAL frame (set by _grid_to_world for straight pieces):
+	#   +Z / -Z  = FORWARD / BACK     (NORTH / SOUTH, axial along the cylinder tube)
+	#   +X / -X  = RIGHT / LEFT       (EAST / WEST,  circumferential around the wall)
+	# Each junction is a hub of intersecting HULL_MAT hollow cylinders with CONDUIT_MAT
+	# rings at the far ends and FLOOR_MAT grates along their length.
+	# Arm parameters per spec:
+	#   C-junction N-S: full ring_step through-cylinder along Z (single piece)
+	#   all other arms: length ring_step*0.5, offset ring_step*0.25 along the arm direction
+	match id:
+		"C":
+			# Corner: N-S through cylinder + one (or two) lateral stubs.
+			if connections[0] or connections[2]:
+				_make_junction_through(root, ring_step)
+			if connections[1]:
+				_make_junction_arm(root, Vector3.RIGHT, ring_step * 0.5, ring_step * 0.25)
+			if connections[3]:
+				_make_junction_arm(root, Vector3.LEFT, ring_step * 0.5, ring_step * 0.25)
+		"T", "X":
+			# T = 3 independent arms; X = 4 independent arms.
+			if connections[0]:
+				_make_junction_arm(root, Vector3.FORWARD, ring_step * 0.5, ring_step * 0.25)
+			if connections[2]:
+				_make_junction_arm(root, Vector3.BACK, ring_step * 0.5, ring_step * 0.25)
+			if connections[1]:
+				_make_junction_arm(root, Vector3.RIGHT, ring_step * 0.5, ring_step * 0.25)
+			if connections[3]:
+				_make_junction_arm(root, Vector3.LEFT, ring_step * 0.5, ring_step * 0.25)
+
+	# Central hub collision: HOLLOW (trimesh of a sphere shell) so the player can pass
+	# through the centre of the junction. A solid SphereShape sealed the hub; a trimesh
+	# of the shell mesh makes only the shell surface collide, leaving the interior open.
+	# Matches the existing _add_collision_sphere pattern.
+	var hub_body = StaticBody.new()
+	root.add_child(hub_body)
+	var hub_col = CollisionShape.new()
+	hub_col.shape = _get_sphere_mesh(duct_radius * 1.25).create_trimesh_shape()
+	hub_body.add_child(hub_col)
 
 	return root
+
+# N-S through-cylinder for C-junction: full ring_step along local Z, centered on the
+# junction origin. Rings at BOTH ends (per spec, "anillos en los extremos"); a single
+# floor strip runs along the cylinder length. HOLLOW trimesh collision so the player
+# can walk through the bore.
+func _make_junction_through(root: Spatial, length: float) -> void:
+	var cyl = MeshInstance.new()
+	var cyl_mesh := _get_hollow_cylinder(length, duct_radius, duct_wall_thickness)
+	cyl.mesh = cyl_mesh
+	cyl.material_override = _hull_mat()
+	root.add_child(cyl)
+
+	_add_floor_grate(root, length, duct_radius)
+
+	var body = StaticBody.new()
+	root.add_child(body)
+	var shape = CollisionShape.new()
+	shape.shape = cyl_mesh.create_trimesh_shape()
+	body.add_child(shape)
+
+	var collar = _get_ring_collar_mesh(duct_radius + ring_extra_radius, max(ring_height, 0.18))
+	for z in [-length * 0.5, length * 0.5]:
+		var ring = MeshInstance.new()
+		ring.mesh = collar
+		ring.material_override = _get_res(CONDUIT_MAT_PATH)
+		ring.translation = Vector3(0, 0, z)
+		root.add_child(ring)
+
+# Single junction arm as a child of `root`. `dir` is the arm direction in junction-LOCAL
+# space (FORWARD, BACK, RIGHT, LEFT). The hollow-cylinder mesh runs along arm-local +Z,
+# so the arm's basis is built by hand to rotate arm-local +Z onto `dir` (look_at() in a
+# not-yet-parented node ignores the parent's rotation and was the source of the wrong
+# orientation bug). The arm spans `offset` to `offset+length` along `dir` in junction-local
+# coordinates. Floor grate, far-end ring, and cylinder collision are added as children of
+# the arm Spatial so they inherit its rotation automatically.
+func _make_junction_arm(root: Spatial, dir: Vector3, length: float, offset: float) -> void:
+	var arm = Spatial.new()
+
+	var cyl = MeshInstance.new()
+	cyl.mesh = _get_hollow_cylinder(length, duct_radius, duct_wall_thickness)
+	cyl.material_override = _hull_mat()
+	arm.add_child(cyl)
+
+	# Orient arm so local +Z = dir. Build basis by hand from cross products.
+	var fwd := dir.normalized()
+	var up_ref := Vector3.UP if abs(fwd.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT
+	var right := up_ref.cross(fwd).normalized()
+	var up := fwd.cross(right).normalized()
+	arm.transform.basis = Basis(right, up, fwd)
+	# Mesh is centred on its origin, so its centre sits at offset + length*0.5 along dir.
+	arm.translation = fwd * (offset + length * 0.5)
+
+	# Floor grate (lies flat along arm direction; child of arm so inherits the rotation).
+	_add_floor_grate(arm, length, duct_radius)
+
+	# Structural ring at the FAR end of the arm (CONDUIT_MAT). Cylinder centred on the
+	# arm origin, far mouth at arm-local +Z = +length*0.5.
+	var collar = _get_ring_collar_mesh(duct_radius + ring_extra_radius, max(ring_height, 0.18))
+	var ring = MeshInstance.new()
+	ring.mesh = collar
+	ring.material_override = _get_res(CONDUIT_MAT_PATH)
+	ring.translation = Vector3(0, 0, length * 0.5)
+	arm.add_child(ring)
+
+	# HOLLOW collision: solid CylinderShape / SphereShape fill the tube and seal the hub
+	# ("no se puede atravesar el medio del cilindro"). Use trimesh of the same wall mesh
+	# so only the WALL collides and the interior is navigable — matches make_duct_radial
+	# / _add_collision_cylinder. The shape is a child of the arm Spatial so it inherits
+	# the arm's rotation automatically.
+	var col_body = StaticBody.new()
+	arm.add_child(col_body)
+	var col_shape = CollisionShape.new()
+	col_shape.shape = cyl.mesh.create_trimesh_shape()
+	col_body.add_child(col_shape)
+
+	root.add_child(arm)
 
 # A junction arm that follows the cylinder wall circumferentially (EAST/WEST).
 # `dir_sign` = +1 toward increasing gx (junction local +X), -1 toward decreasing gx.
@@ -517,8 +598,15 @@ func make_incline(port_heights: Array) -> Spatial:
 	var body = _add_collision_cylinder(root, hypotenuse, duct_radius)
 	body.rotation.x = angle
 	body.translation.y = h1 * 0.5
-	
-	_add_structural_rings(root, Vector3.FORWARD, length, duct_radius)
+
+	# Rings must inherit the duct's slope too — otherwise the decorative collars stay
+	# perpendicular to world Y while the cylinder tilts, reading as "rings no incline".
+	# Same X rotation + same Y offset as the mesh and the collision body.
+	var rings_root = Spatial.new()
+	rings_root.rotation.x = angle
+	rings_root.translation.y = h1 * 0.5
+	root.add_child(rings_root)
+	_add_structural_rings(rings_root, Vector3.FORWARD, length, duct_radius)
 	return root
 
 func make_endcap() -> Spatial:
