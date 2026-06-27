@@ -32,6 +32,9 @@ class CellState:
 
 var grid_width := 8
 var grid_depth := 12
+var room_count_min := 5
+var room_count_max := 8
+var extra_cycles := 2
 var cell_size := 6.0
 var rng = RandomNumberGenerator.new()
 # Height range, configurable so the MST scaffold can be constrained to fit the
@@ -53,6 +56,9 @@ var _last_stair_base_shift := 0.0  # set by _select_variant; applied to base_hei
 func apply_params(params: Dictionary):
 	grid_width = params.get("grid_width", 8)
 	grid_depth = params.get("grid_depth", 12)
+	room_count_min = params.get("room_count_min", 5)
+	room_count_max = params.get("room_count_max", 8)
+	extra_cycles = params.get("extra_cycles", 2)
 	cell_size = params.get("cell_size", 6.0)
 	max_height_steps = int(clamp(params.get("mst_max_height_steps", MAX_HEIGHT_STEPS), 1, MAX_HEIGHT_STEPS))
 	min_height_steps = int(clamp(params.get("mst_min_height_steps", 1), 1, max_height_steps))
@@ -74,7 +80,7 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 	else: rng.seed = seed_val
 
 	var rooms = []
-	var room_count = rng.randi_range(5, 8)
+	var room_count = rng.randi_range(room_count_min, room_count_max)
 	var grid = []
 	grid.resize(grid_width * grid_depth)
 	var connections = []
@@ -142,7 +148,7 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			mst_edges.append(e)
 
 	# 4. Cycles
-	for i in range(2):
+	for i in range(extra_cycles):
 		var e = edges[rng.randi() % edges.size()]
 		if not mst_edges.has(e): mst_edges.append(e)
 
