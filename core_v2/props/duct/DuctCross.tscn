@@ -8,7 +8,7 @@
 [node name="Geometry" type="CSGCombiner" parent="."]
 use_collision = true
 collision_layer = 1
-collision_mask = 0
+collision_mask = 255
 
 [node name="HubOuter" type="CSGSphere" parent="Geometry"]
 radius = 2.5

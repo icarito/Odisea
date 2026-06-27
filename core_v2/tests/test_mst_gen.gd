@@ -43,6 +43,40 @@ func test_mst_generation():
 	assert_int(room_count).is_less_equal(8)
 	assert_bool(_is_connected(grid, mst_gen.grid_width, mst_gen.grid_depth)).is_true()
 
+func test_mst_wrap_x_no_void_angular_ports() -> void:
+	var mst_gen = load("res://core_v2/systems/ScaffoldMSTGenerator.gd").new()
+	mst_gen.apply_params({"grid_width": 8, "grid_depth": 12, "wrap_x": true})
+
+	var grid = mst_gen.generate_grid_data(1234)
+	var gw: int = 8
+	var gd: int = 12
+
+	# Every populated cell with an EAST/WEST connection on the angular border must connect
+	# to a populated neighbour (wrapped or interior). No void E/W ports at grid edges.
+	for y in range(gd):
+		for x in range(gw):
+			var i: int = y * gw + x
+			var cell = grid[i]
+			if cell == null:
+				continue
+			var v = cell["variant"]
+			var conn = v["connections"]
+			for d in [1, 3]:  # EAST, WEST
+				if not conn[d]:
+					continue
+				var nv_vec = DIR_VEC[d]
+				var nx := int(posmod(x + int(nv_vec.x), gw))
+				var ny := y + int(nv_vec.y)
+				if ny < 0 or ny >= gd:
+					continue  # seam port (N/S), skip
+				var ni: int = ny * gw + nx
+				if grid[ni] == null or grid[ni]["variant"]["id"] == "EMPTY":
+					assert_bool(false).is_true()  # Force fail: void E/W port at wrapped border
+				else:
+					assert_bool(true).is_true()
+
+	assert_bool(_is_connected(grid, gw, gd)).is_true()
+
 func _assert_port_alignment(grid: Array, i: int, gw: int, gd: int) -> void:
 	var cell = grid[i]
 	var v = cell["variant"]

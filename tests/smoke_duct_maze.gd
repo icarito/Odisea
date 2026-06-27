@@ -1,9 +1,9 @@
 extends SceneTree
 
 func _init():
-	print("--- Smoke Test: DuctMazeSpawner ---")
-	var DuctMazeSpawnerScript = load("res://core_v2/systems/DuctMazeSpawner.gd")
-	var spawner = DuctMazeSpawnerScript.new()
+	print("--- Smoke Test: DuctMazeStreamer ---")
+	var DuctMazeStreamerScript = load("res://core_v2/systems/DuctMazeSpawner.gd")
+	var spawner = DuctMazeStreamerScript.new()
 
 	# Mock duct_tiles with dummy Spatial scenes so they can be instanced
 	var dummy_scene = PackedScene.new()

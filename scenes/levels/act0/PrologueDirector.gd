@@ -3,6 +3,7 @@ class_name PrologueDirector
 
 export(AudioStream) var music_stream: AudioStream
 export(String, FILE, "*.tscn") var next_scene_path: String = "res://core_v2/levels/interiors/Dome_Crio.tscn"
+export(String) var skip_action: String = "skip"
 
 onready var _music: AudioStreamPlayer = $Music
 onready var _countdown: Label = $Countdown
@@ -41,7 +42,7 @@ func _process(_delta: float) -> void:
 		_finish_prologue()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _running and event.is_action_pressed("ui_accept"):
+	if _running and event.is_action_pressed(skip_action):
 		get_tree().set_input_as_handled()
 		_finish_prologue()
 

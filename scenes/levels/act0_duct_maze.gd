@@ -1,6 +1,6 @@
 extends Spatial
 
-onready var spawner = $DuctMazeSpawner
+onready var spawner = $DuctMazeStreamer
 
 func _ready():
 	# The spawner already calls generate() in _ready if not Engine.editor_hint

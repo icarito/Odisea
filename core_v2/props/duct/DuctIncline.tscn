@@ -14,8 +14,12 @@ height = 2.0
 [node name="CollisionShape" type="CollisionShape" parent="StaticBody"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
 shape = SubResource( 1 )
+disabled = true
 
 [node name="CSGCombiner" type="CSGCombiner" parent="."]
+use_collision = true
+collision_layer = 1
+collision_mask = 255
 calculate_tangents = true
 
 [node name="Outer" type="CSGCylinder" parent="CSGCombiner"]

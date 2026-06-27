@@ -68,7 +68,7 @@ material = ExtResource( 2 )
 
 [node name="FrameInner" type="CSGCylinder" parent="Frame"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
-operation = 1
+operation = 2
 radius = 2.0
 height = 0.3
 radial_segments = 32
