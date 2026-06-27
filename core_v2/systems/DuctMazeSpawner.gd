@@ -37,8 +37,7 @@ var _resource_cache := {}
 var _mesh_cache := {}
 
 func _ready():
-	if not Engine.editor_hint:
-		generate()
+	generate()
 
 func _get_res(path: String):
 	if not _resource_cache.has(path):

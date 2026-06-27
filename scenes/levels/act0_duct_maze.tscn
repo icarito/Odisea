@@ -1,49 +1,19 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=2 format=2]
 
-[ext_resource path="res://scenes/levels/act0_duct_maze.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/systems/DuctMazeSpawner.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/systems/DuctMazeSpawner.gd" type="Script" id=1]
 
 [node name="Act0DuctMaze" type="Spatial"]
 script = ExtResource( 1 )
-
-[node name="DuctMazeStreamer" parent="." instance=ExtResource( 2 )]
-inner_radius = 9.5
-ring_step = 10.0
-sectors = 16
-rings = 16
-height_steps = 3
+inner_radius = 2.0
+ring_step = 4.0
+sectors = 12
+rings = 3
+height_steps = 6
 room_count = 4
-extra_cycles = 8
-axial_layout = true
-duct_radius = 3.75
+extra_cycles = 2
+seed_value = -1
+duct_radius = 2.0
 duct_wall_thickness = 0.35
-connection_overlap = 1.4
-collar_radius_extra = 0.08
-room_radius_multiplier = 3.2
-room_length_multiplier = 1.6
-mesh_segments = 12
-room_segments = 14
-overlay_stride = 999
-streaming_enabled = true
-stream_total_length = 8000.0
-stream_chunk_rings = 16
-stream_active_chunks_each_side = 1
-stream_seam_ports = 2
-stream_update_interval = 0.20
-stream_builds_per_tick = 1
-concentric_axial_lanes = true
-lane_connector_stride = 10
-lane_connector_offset = 4
-concentric_radius_gap = 11.5
-concentric_spine_stride = 8
-radial_bridge_stride = 20
-radial_bridge_offset = 4
-entry_tunnel_enabled = true
-entry_sector = 0
-room_airlocks_enabled = true
-room_light_strips_enabled = true
-corridor_valves_enabled = false
-
-[node name="Camera" type="Camera" parent="."]
-transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 15, 20 )
-far = 200.0
+ring_spacing = 4.0
+ring_height = 0.15
+ring_extra_radius = 0.35
