@@ -10,10 +10,8 @@ func _ready():
 		if child is Spatial and not (child.name == "Floor" or child.name == "Pilot" or child.name == "DirectionalLight"):
 			child.queue_free()
 
-	# Wait a frame for queue_free if in editor? Usually not needed for tool scripts in _ready
-	# but let's be safe and just don't add if already there if we can.
-	# Actually, better to just check if we already have the labels.
-	if has_node("E_Label"):
+	# In runtime, always generate. In editor, skip if already have labels.
+	if Engine.editor_hint and has_node("E_Label"):
 		return
 
 	var types = ["E", "W", "C", "T", "X"]
@@ -33,14 +31,16 @@ func _ready():
 		}
 		var tile = streamer._instantiate_tile(data)
 		tile.name = type + "_Tile"
+		# Offset: W at origin, others to the right, E furthest left
+		var offset_x = (i - 2) * 10.0
 		add_child(tile)
-		tile.translation = Vector3(i * 10.0, 0, 0)
+		tile.translation = Vector3(offset_x, 0, 0)
 
 		var label = Label3D.new()
 		label.name = type + "_Label"
 		label.text = type
-		label.translation = Vector3(i * 10.0, 3.0, 0)
-		label.billboard = SpatialMaterial.BILLBOARD_ENABLED
+		label.translation = Vector3(offset_x, 5.0, 0)
+		label.pixel_size = 0.02
 		add_child(label)
 
 	streamer.free()

@@ -3,12 +3,11 @@
 [ext_resource path="res://core_v2/systems/DuctMazeStreamerFlat.gd" type="Script" id=1]
 
 [node name="Act0DuctMaze" type="Spatial"]
+lod_range = 0.0
+merging_mode = 2
 
 [node name="DuctMazeStreamerFlat" type="Spatial" parent="."]
 script = ExtResource( 1 )
-grid_width = 8
-grid_depth = 8
 room_count = 6
 extra_cycles = 4
-cell_size = 4.0
 maze_seed = 123
