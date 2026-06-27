@@ -28,6 +28,12 @@ export var duct_wall_thickness := 0.35
 export var ring_spacing := 4.0
 export var ring_height := 0.15
 export var ring_extra_radius := 0.35
+# How far from the junction CENTRE each arm begins. Arms used to start at the hub
+# centre (z=0), so an axial arm and an arc arm both filled the ~duct_radius ball at
+# the origin and interpenetrated (~a couple of metres of clipping). Starting each arm
+# at the hub rim instead leaves the centre clear; the hub collar + the arm overshoot
+# still cover the joint so no gap opens.
+export var junction_hub_reach := 0.8
 
 const DUCT_LAYER := 1 << 6 # bit 6 = layer 7 (Prop)
 
@@ -116,35 +122,20 @@ func generate() -> void:
 	mst_gen.apply_params(params)
 	var grid = mst_gen.generate_grid_data(seed_value)
 	
-	var last_cell_idx = -1
-	var max_gy = -1
-	var max_h = -1.0
-	
-	for i in range(grid.size()):
-		var cell = grid[i]
-		if cell == null: continue
-		
-		var gx := i % sectors
-		var gy := i / sectors
-		
-		# Find the exit cell candidate (furthest gy, then highest height)
-		if gy > max_gy or (gy == max_gy and cell.base_height > max_h):
-			max_gy = gy
-			max_h = cell.base_height
-			last_cell_idx = i
+	# Airlocks are no longer dropped loose on the furthest cell. Instead they couple to
+	# ROOMS at the mouth of an interactable (tangential E/W) connection — see
+	# _select_airlock_cells / _add_room_airlock. This gives them spatial meaning
+	# (entrance/exit of a chamber) instead of floating at an arbitrary endpoint.
+	var airlock_cells := _select_airlock_cells(grid)
 
 	for i in range(grid.size()):
 		var cell = grid[i]
 		if cell == null: continue
-		
+
 		var gx := i % sectors
 		var gy := i / sectors
 		var v = cell.variant
-		
-		if i == last_cell_idx:
-			_add_exit_airlock(cell, i)
-			continue
-		
+
 		var tile = instantiate_tile(gx, gy, cell)
 		if tile:
 			# Capture the authored name BEFORE add_child: Godot auto-renames on a name
@@ -154,6 +145,9 @@ func generate() -> void:
 			var tile_kind = String(tile.name)
 			add_child(tile)
 			tile.transform = _grid_to_world(gx, gy, cell.base_height, tile_kind)
+
+			if airlock_cells.has(i):
+				_add_room_airlock(cell, gx, gy, airlock_cells[i])
 
 # Wrap-on-wall model (FD-052): the maze hugs the cylinder wall at a near-fixed
 # radius. gx wraps the circumference, gy runs ALONG the tube axis (Y). base_height
@@ -349,29 +343,148 @@ func make_junction(id: String, connections: Array) -> Spatial:
 	hub.material_override = _get_res(CONDUIT_MAT_PATH)
 	root.add_child(hub)
 
-	# Arms (Z = Forward, X = Right)
-	var dirs = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
-	for i in range(4):
-		if connections[i]:
-			var arm = make_arm(dirs[i], ring_step * 0.5, duct_radius)
-			root.add_child(arm)
-	
+	# Connection layout in the MST: [NORTH=0, EAST=1, SOUTH=2, WEST=3].
+	# In the junction's LOCAL frame (set by _grid_to_world's straight-piece basis):
+	#   local +Z / -Z  = global Y  = AXIAL  (NORTH/SOUTH)  -> straight arms reach the
+	#                                          neighbour 1 cell away (ring_step apart).
+	#   local +X / -X  = world tangent       = CIRCUMFERENTIAL (EAST/WEST) -> the
+	#                                          neighbour is an ARC (~sector length) away
+	#                                          along the curved wall, NOT a straight line.
+	# Bug: EAST/WEST used straight stubs (make_arm) of ring_step*0.5; they fell ~60% short
+	# of the arc gap AND left the wall, so the lateral mouth dead-ended. Fix: lateral
+	# connections are arc segments (make_arc_arm) that hug the cylinder wall and span half
+	# the sector toward the neighbour (the neighbour's matching half-arc closes the ring).
+	#
+	# AXIAL arms still use straight tubes along local Z (FORWARD/BACK).
+	# Axial arms reach from the hub rim (junction_hub_reach) to the shared mouth at
+	# ring_step*0.5, so opposite arms no longer pile through the centre.
+	var axial_len := ring_step * 0.5 - junction_hub_reach
+	if connections[0]:
+		root.add_child(make_arm(Vector3.FORWARD, axial_len, duct_radius, junction_hub_reach))
+	if connections[2]:
+		root.add_child(make_arm(Vector3.BACK, axial_len, duct_radius, junction_hub_reach))
+	# +1 = EAST = increasing gx = +tangent = junction local +X.
+	if connections[1]:
+		root.add_child(make_arc_arm(1, duct_radius))
+	# -1 = WEST = decreasing gx = -tangent = junction local -X.
+	if connections[3]:
+		root.add_child(make_arc_arm(-1, duct_radius))
+
 	return root
 
-func make_arm(dir: Vector3, length: float, radius: float) -> Spatial:
+# A junction arm that follows the cylinder wall circumferentially (EAST/WEST).
+# `dir_sign` = +1 toward increasing gx (junction local +X), -1 toward decreasing gx.
+# The arc curves around the global axis at wall_radius and spans HALF a sector so it meets
+# the neighbour junction/arc coming the other way. Built in the arm's own local frame and
+# then rotated into the junction frame so:
+#   arc travel  (builder +Z) -> junction +X * dir_sign  (circumferential)
+#   arc out     (builder +X) -> junction +Y             (radial-out; curvature centre is
+#                                                         the cylinder axis, at -Y)
+func make_arc_arm(dir_sign: int, radius: float) -> Spatial:
+	var arm = Spatial.new()
+	arm.name = "ArcArm"
+	var R := _ring_radius(0)
+	var half_arc_deg := (360.0 / sectors) * 0.5
+
+	# Inset the near end off the hub centre by the same hub_reach as the axial arms, so
+	# the arc tube starts at the rim instead of filling the central ball (clipping fix).
+	var start_deg := rad2deg(junction_hub_reach / max(R, 0.001))
+	var mesh = MeshInstance.new()
+	mesh.mesh = _build_arc_arm_mesh(R, radius, half_arc_deg, 8, start_deg)
+	mesh.material_override = _hull_mat()
+	arm.add_child(mesh)
+
+	# Map builder axes (X=out, Y=up, Z=travel) into the junction frame. For EAST
+	# (dir_sign=+1): col_x=image(X)=+Y_j, col_y=image(Y)=+Z_j, col_z=image(Z)=+X_j — a
+	# proper rotation (cyclic permutation). WEST mirrors the travel axis (col_z) and flips
+	# col_y so the basis stays right-handed (no inverted winding).
+	if dir_sign >= 0:
+		arm.transform.basis = Basis(Vector3(0, 1, 0), Vector3(0, 0, 1), Vector3(1, 0, 0))
+	else:
+		arm.transform.basis = Basis(Vector3(0, 1, 0), Vector3(0, 0, -1), Vector3(-1, 0, 0))
+
+	# Hollow trimesh collision from the same wall mesh (walls collide, interior navigable).
+	var body = StaticBody.new()
+	arm.add_child(body)
+	var shape = CollisionShape.new()
+	shape.shape = mesh.mesh.create_trimesh_shape()
+	body.add_child(shape)
+	return arm
+
+# Like DuctArcBuilder._build_arc but sweeping u in [0, arc_deg] (one-directional) so the
+# NEAR end sits exactly at the local origin (the junction hub) and the tube travels toward
+# +Z, curving toward -X (the cylinder axis). Centre of section at u: (R*cos u - R,0,R*sin u).
+func _build_arc_arm_mesh(R: float, r: float, arc_deg: float, arc_segs: int, start_deg: float = 0.0) -> ArrayMesh:
+	var key = "arcarm_%f_%f_%f_%d_%f" % [R, r, arc_deg, arc_segs, start_deg]
+	if _mesh_cache.has(key): return _mesh_cache[key]
+
+	var section_segs := 16
+	var verts = PoolVector3Array()
+	var norms = PoolVector3Array()
+	var uvs = PoolVector2Array()
+	var idx = PoolIntArray()
+	var arc_rad := deg2rad(arc_deg)
+	var start_rad := deg2rad(start_deg)
+
+	for i in range(arc_segs + 1):
+		# Sweep from start_rad (hub rim) to arc_rad (toward the neighbour). The section
+		# centre at u is still (R*cos u - R, 0, R*sin u), so trimming the start simply
+		# moves the near mouth off the junction centre by the inset arc length.
+		var u = start_rad + (float(i) / arc_segs) * (arc_rad - start_rad)
+		var cos_u = cos(u); var sin_u = sin(u)
+		var center = Vector3(R * cos_u - R, 0, R * sin_u)
+		for j in range(section_segs + 1):
+			var v = (float(j) / section_segs) * TAU
+			var cv = cos(v); var sv = sin(v)
+			var x = r * cv
+			var z = (R + x) * sin_u
+			x = (R + x) * cos_u - R
+			var y = r * sv
+			var p = Vector3(x, y, z)
+			verts.push_back(p)
+			norms.push_back((p - center).normalized())
+			uvs.push_back(Vector2(float(i) / arc_segs, float(j) / section_segs))
+
+	for i in range(arc_segs):
+		for j in range(section_segs):
+			var i0 = i * (section_segs + 1) + j
+			var i1 = i0 + 1
+			var i2 = (i + 1) * (section_segs + 1) + j
+			var i3 = i2 + 1
+			idx.push_back(i0); idx.push_back(i1); idx.push_back(i2)
+			idx.push_back(i1); idx.push_back(i3); idx.push_back(i2)
+
+	var arr = []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = norms
+	arr[Mesh.ARRAY_TEX_UV] = uvs
+	arr[Mesh.ARRAY_INDEX] = idx
+	var mesh = ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	_mesh_cache[key] = mesh
+	return mesh
+
+func make_arm(dir: Vector3, length: float, radius: float, start_offset: float = 0.0) -> Spatial:
 	var arm = Spatial.new()
 	var mesh = MeshInstance.new()
 	mesh.mesh = _get_hollow_cylinder(length, radius, duct_wall_thickness)
 	mesh.material_override = _hull_mat()
 	arm.add_child(mesh)
-	
-	var look_dir = dir
-	if look_dir == Vector3.UP or look_dir == Vector3.DOWN:
-		arm.look_at(look_dir, Vector3.RIGHT)
-	else:
-		arm.look_at(look_dir, Vector3.UP)
-	arm.translation = dir * length * 0.5
-	
+
+	# The tube mesh runs along LOCAL Z. Orient the arm so local +Z points at `dir`,
+	# building the basis by hand. (look_at() here was wrong: it runs in GLOBAL space on a
+	# node not yet in the tree, so it ignored the junction's own rotation and arms that
+	# should open sideways ended up axial — bug "Junction T no abre al costado".)
+	var fwd := dir.normalized()
+	var up_ref := Vector3.UP if abs(fwd.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT
+	var right := up_ref.cross(fwd).normalized()
+	var up := fwd.cross(right).normalized()
+	arm.transform.basis = Basis(right, up, fwd)
+	# Near end sits at `start_offset` from the origin, far end at start_offset+length.
+	# The mesh is centred, so the centre is at start_offset + length*0.5.
+	arm.translation = dir * (start_offset + length * 0.5)
+
 	_add_collision_cylinder(arm, length, radius)
 	return arm
 
@@ -432,19 +545,26 @@ func make_capsule(connections: Array, gy: int) -> Spatial:
 	var root = Spatial.new()
 	root.name = "CapsuleRoom"
 	
+	# Room must be wider than the ducts that meet it, otherwise the player hits its closed
+	# wall coming down a fatter tube. Size it above duct_radius so it reads as a chamber.
+	var room_radius = duct_radius * 1.6
+	var room_height = duct_radius * 2.2
 	var mesh_instance = MeshInstance.new()
-	mesh_instance.mesh = _get_capsule_mesh(3.0, 4.0)
+	mesh_instance.mesh = _get_capsule_mesh(room_radius, room_height)
 	mesh_instance.material_override = _hull_mat()
 	root.add_child(mesh_instance)
+
+	_add_collision_capsule(root, room_height, room_radius)
 	
-	_add_collision_capsule(root, 4.0, 3.0)
-	
-	# Ports
+	# Ports: short connector tubes punching out of the room wall toward each neighbour, so
+	# the room actually opens into the ducts that meet it (not a sealed blob).
+	var port_len = room_radius
 	var dirs = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
 	for i in range(4):
 		if connections[i]:
-			var arm = make_arm(dirs[i], 2.0, duct_radius)
-			arm.translation = dirs[i] * 4.0
+			var arm = make_arm(dirs[i], port_len, duct_radius)
+			# make_arm centres the tube at dir*len*0.5; push it out so it bridges the wall.
+			arm.translation = dirs[i] * room_radius
 			root.add_child(arm)
 			
 	# No dynamic OmniLight per tile: GLES2 forward does not scale with omni lights.
@@ -619,13 +739,12 @@ func _add_collision_sphere(root: Node, radius: float) -> StaticBody:
 	return body
 
 func _add_collision_capsule(root: Node, height: float, radius: float) -> StaticBody:
+	# HOLLOW collision: a solid CapsuleShape made the room an impassable blob ("cápsula
+	# rara que no deja pasar"). Use a trimesh of the capsule shell so the player can be
+	# INSIDE the room; the wall collides, the interior is open.
 	var body = StaticBody.new()
 	var shape = CollisionShape.new()
-	var capsule = CapsuleShape.new()
-	capsule.radius = radius
-	capsule.height = height
-	shape.shape = capsule
-	shape.rotation_degrees = Vector3(90, 0, 0)
+	shape.shape = _get_capsule_mesh(radius, height).create_trimesh_shape()
 	body.add_child(shape)
 	root.add_child(body)
 	return body
@@ -681,21 +800,92 @@ func _apply_tint(node: Node, color: Color) -> void:
 				child.material_override = new_mat
 		_apply_tint(child, color)
 
-func _add_exit_airlock(cell: Dictionary, idx: int) -> void:
+# Pick which cells get an airlock coupled to them, and on WHICH connection.
+# Returns { cell_index : connection_index } where the connection is a TANGENTIAL one
+# (EAST=1 or WEST=3) so the chamber's door through-axis ends up HORIZONTAL and the
+# player can actually interact with it (axial N/S connections run along global Y =
+# the player's up, which would stack the doors vertically and break interaction).
+#
+# Targets, in priority order: rooms (is_room) and the dead-end endpoints (degree 1),
+# because an airlock reads as the entrance/exit of a chamber or the cap of a spur.
+# We only take cells that expose a tangential connection, and cap the count so the
+# maze is not wall-to-wall airlocks.
+func _select_airlock_cells(grid: Array) -> Dictionary:
+	var out := {}
+	var max_airlocks := 3
+
+	# Rooms (is_room) that BOTH expose a tangential (interactable) mouth AND render a tile
+	# with an actual tangential tube to butt against. Capsule rooms (id C/T/X) and
+	# tangential straight/arc duct-rooms (id W) qualify; an endcap (id E) is rendered as an
+	# AXIAL stub regardless of its MST connection, so an airlock on its tangential side
+	# would float disconnected — exclude it. Axial-only rooms are dropped by
+	# _tangential_conn (doors there would stack along the player's up = uninteractable).
+	for i in range(grid.size()):
+		if out.size() >= max_airlocks:
+			break
+		var cell = grid[i]
+		if cell == null: continue
+		if not cell.get("is_room", false):
+			continue
+		var id = cell.variant.id
+		if not (id in ["C", "T", "X", "W"]):
+			continue
+		var conn_dir = _tangential_conn(cell.variant.connections)
+		if conn_dir == -1:
+			continue
+		out[i] = conn_dir
+
+	return out
+
+# Returns EAST (1) if present, else WEST (3), else -1. Both are tangential connections
+# whose airlock door through-axis is HORIZONTAL (interactable). Axial N/S returns -1.
+func _tangential_conn(conn: Array) -> int:
+	if conn[1]:
+		return 1
+	if conn[3]:
+		return 3
+	return -1
+
+# Couple an AirlockChamber to a room/endpoint cell at the mouth of a tangential
+# connection, oriented so the through-axis (and thus the doors) is horizontal.
+func _add_room_airlock(cell: Dictionary, gx: int, gy: int, conn_dir: int) -> void:
 	var airlock_scene = _get_res(AIRLOCK_CHAMBER_PATH)
 	if not airlock_scene: return
-	
+
 	var airlock = airlock_scene.instance()
+	airlock.name = "RoomAirlock"
 	# No scene transition in the maze: let the airlock complete its cycle locally
 	# (open the exit door after pressurizing) instead of hanging on "PRESURIZANDO".
 	if "standalone_cycle" in airlock:
 		airlock.standalone_cycle = true
 	add_child(airlock)
-	
-	var gx := idx % sectors
-	var gy := idx / sectors
-	airlock.transform = _grid_to_world(gx, gy, cell.base_height)
-	airlock.rotate_object_local(Vector3.UP, PI) # Orient outward
+
+	var angle_rad := deg2rad(float(gx) * (360.0 / sectors))
+	var radius := _ring_radius(gy, cell.base_height)
+	var cell_pos := Vector3(radius * cos(angle_rad), float(gy) * ring_step * axial_scale, radius * sin(angle_rad))
+	var tangent := Vector3(-sin(angle_rad), 0, cos(angle_rad)) # horizontal, along the wall
+	var up := Vector3(0, 1, 0)
+
+	# Through-axis points along the chosen connection: EAST=+tangent, WEST=-tangent.
+	var through := tangent if conn_dir == 1 else -tangent
+
+	# Butt the chamber's INNER door (local -Z, ~chamber_inner_half from the chamber centre)
+	# against the room's tangential tube mouth, so the airlock reads as coupled to the room
+	# instead of floating in the bore.
+	#   capsule rooms (C/T/X): the port tube reaches ~2*room_radius from the cell centre.
+	#   tangential duct-rooms (W): the arc/straight tube reaches ~one duct radius past the bore.
+	var id = cell.variant.id
+	var room_radius := duct_radius * 1.6
+	var tube_reach := (room_radius * 2.0) if (id in ["C", "T", "X"]) else (duct_radius + 1.0)
+	var chamber_inner_half := 4.1
+	var mouth_reach := tube_reach + chamber_inner_half
+	var pos := cell_pos + through * mouth_reach
+
+	# Build a globally-upright basis with local Z = through (door through-axis horizontal,
+	# local Y = global up). Doors then face horizontally so the player's forward interact
+	# box can reach the door Frame (see history of the loose-airlock interaction fix).
+	var side := up.cross(through).normalized()
+	airlock.transform = Transform(Basis(side, up, through), pos)
 	# NOTE: AirlockChamber.tscn already contains its own IrisDoorV2 wired to an
 	# AirlockControllerV2 that actually opens it. We must NOT add a second loose iris
 	# here — that duplicate had no controller, so it never opened and overlapped the

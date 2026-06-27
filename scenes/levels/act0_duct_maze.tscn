@@ -12,6 +12,7 @@ ring_step = 8.0
 sectors = 16
 rings = 24
 height_steps = 6
+seed_value = 42
 room_count = 4
 extra_cycles = 8
 duct_radius = 3.75

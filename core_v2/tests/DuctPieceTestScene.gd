@@ -37,20 +37,14 @@ func _ready():
 		["CAPSULE", streamer.make_capsule([true, true, true, true], 0)]
 	]
 	
+	# Wider spacing so each piece is clearly separated (they were packed together).
+	var piece_spacing = 22.0
 	for i in range(piece_configs.size()):
 		var p_name = piece_configs[i][0]
 		var node = piece_configs[i][1]
-		node.translation.x = i * 10.0
+		node.translation.x = i * piece_spacing
 		add_child(node)
-		
-		# Add Label
-		var label_scene = load("res://core_v2/props/signage/SignagePanel.tscn")
-		if label_scene:
-			var label = label_scene.instance()
-			label.translation = node.translation + Vector3(0, 6, 0)
-			label.set("text", p_name + " OK")
-			label.set("color_preset", "terminal")
-			add_child(label)
+		add_child(_make_label(p_name, node.translation + Vector3(0, 7, 0)))
 
 	# Add Player
 	#var player_scene = load("res://core_v2/actors/Pilot_v2.tscn")
@@ -61,10 +55,45 @@ func _ready():
 	#	# Ensure camera is current
 	#	player.call_deferred("force_camera_current")
 
+	# Second row: a real generated MST maze, placed further away and spread out so the
+	# pieces are not on top of each other.
+	_add_mst_row(Vector3(0, 0, 60))
+
 	# Add some lights
 	var sun = DirectionalLight.new()
 	sun.rotation_degrees = Vector3(-45, 45, 0)
 	sun.light_energy = 0.5
 	add_child(sun)
+
+func _make_label(text: String, pos: Vector3) -> Label3D:
+	var label = Label3D.new()
+	label.text = text
+	label.translation = pos
+	label.billboard = SpatialMaterial.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.fixed_size = true
+	label.pixel_size = 0.005   # smaller: the labels were too big
+	label.modulate = Color(0.4, 1.0, 0.6)
+	label.outline_modulate = Color(0, 0, 0, 1)
+	return label
+
+# Builds a small MST maze with generous spacing so each cell's pieces stand apart, for
+# inspecting how the generator wires them together.
+func _add_mst_row(origin: Vector3) -> void:
+	var maze = DuctMazeStreamer.new()
+	maze.name = "MST_Sample"
+	maze.sectors = 4
+	maze.rings = 4
+	maze.room_count = 2
+	maze.extra_cycles = 1
+	maze.seed_value = 42
+	# Spread the cells out: ring_step drives both tube length and axial spacing, and a
+	# large wall_radius pushes the angular sectors apart so nothing overlaps.
+	maze.ring_step = 16.0
+	maze.wall_radius = 40.0
+	maze.axial_scale = 1.0
+	maze.translation = origin
+	add_child(maze)
+	add_child(_make_label("MST SAMPLE", origin + Vector3(0, 20, 0)))
 	
 	print("DuctPieceTestScene ready. 8 pieces instantiated.")
