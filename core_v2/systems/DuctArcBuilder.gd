@@ -35,16 +35,18 @@ static func _build_arc(R: float, r: float, arc_deg: float, arc_segs: int) -> Arr
 			var cos_v = cos(v)
 			var sin_v = sin(v)
 
-			# Torus vertex centered at (0,0,0) with X as tangent axis (arc)
-			var x = (R + r * cos_v) * sin_u
-			var z = (R + r * cos_v) * cos_u - R
+			# Torus vertex centered at (0,0,0) with Z as tangent axis (arc)
+			# Following ODI-001: Z is forward navigable
+			var x = r * cos_v
+			var z = (R + x) * sin_u
+			x = (R + x) * cos_u - R
 			var y = r * sin_v
 
 			vertices.push_back(Vector3(x, y, z))
 
 			# Normal
-			# The center of the section at angle u is (R*sin_u, 0, R*cos_u - R)
-			var center = Vector3(R * sin_u, 0, R * cos_u - R)
+			# The center of the section at angle u is (R*cos_u - R, 0, R*sin_u)
+			var center = Vector3(R * cos_u - R, 0, R * sin_u)
 			normals.push_back((Vector3(x, y, z) - center).normalized())
 
 			uvs.push_back(Vector2(float(i) / arc_segs, float(j) / section_segs))
