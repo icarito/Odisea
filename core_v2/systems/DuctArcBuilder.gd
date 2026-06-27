@@ -17,7 +17,7 @@ static func get_or_build_arc(major_radius: float, minor_radius: float, arc_degre
 const _cache = {}
 
 static func _build_arc(R: float, r: float, arc_deg: float, arc_segs: int) -> ArrayMesh:
-	var section_segs = 8
+	var section_segs = 16
 	var vertices = PoolVector3Array()
 	var normals = PoolVector3Array()
 	var uvs = PoolVector2Array()
@@ -26,7 +26,7 @@ static func _build_arc(R: float, r: float, arc_deg: float, arc_segs: int) -> Arr
 	var arc_rad = deg2rad(arc_deg)
 
 	for i in range(arc_segs + 1):
-		var u = (float(i) / arc_segs) * arc_rad
+		var u = (float(i) / arc_segs - 0.5) * arc_rad
 		var cos_u = cos(u)
 		var sin_u = sin(u)
 
@@ -35,16 +35,16 @@ static func _build_arc(R: float, r: float, arc_deg: float, arc_segs: int) -> Arr
 			var cos_v = cos(v)
 			var sin_v = sin(v)
 
-			# Torus vertex
-			var x = (R + r * cos_v) * cos_u
-			var z = (R + r * cos_v) * sin_u
+			# Torus vertex centered at (0,0,0) with X as tangent axis (arc)
+			var x = (R + r * cos_v) * sin_u
+			var z = (R + r * cos_v) * cos_u - R
 			var y = r * sin_v
 
 			vertices.push_back(Vector3(x, y, z))
 
 			# Normal
-			# The center of the section at angle u is (R*cos_u, 0, R*sin_u)
-			var center = Vector3(R * cos_u, 0, R * sin_u)
+			# The center of the section at angle u is (R*sin_u, 0, R*cos_u - R)
+			var center = Vector3(R * sin_u, 0, R * cos_u - R)
 			normals.push_back((Vector3(x, y, z) - center).normalized())
 
 			uvs.push_back(Vector2(float(i) / arc_segs, float(j) / section_segs))

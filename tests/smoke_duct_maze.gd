@@ -1,24 +1,9 @@
 extends SceneTree
 
 func _init():
-	print("--- Smoke Test: DuctMazeStreamer ---")
+	print("--- Smoke Test: DuctMazeStreamer (v3 Procedural) ---")
 	var DuctMazeStreamerScript = load("res://core_v2/systems/DuctMazeSpawner.gd")
 	var spawner = DuctMazeStreamerScript.new()
-
-	# Mock duct_tiles with dummy Spatial scenes so they can be instanced
-	var dummy_scene = PackedScene.new()
-	var spatial = Spatial.new()
-	dummy_scene.pack(spatial)
-
-	spawner.duct_tiles = {
-		"E": dummy_scene,
-		"W": dummy_scene,
-		"C": dummy_scene,
-		"T": dummy_scene,
-		"X": dummy_scene,
-		"S": dummy_scene
-	}
-	spawner.capsule_scene = dummy_scene
 
 	print("Generating maze...")
 	spawner.generate()
@@ -34,12 +19,25 @@ func _init():
 		quit(1)
 		return
 
-	# Check for DuctArc (MeshInstance)
+	# Verification of tile types
+	var radial_count = 0
 	var arc_count = 0
+	var capsule_count = 0
+	var junction_count = 0
+	
 	for child in spawner.get_children():
-		if child is MeshInstance:
+		if "DuctRadial" in child.name:
+			radial_count += 1
+		elif "DuctArc" in child.name:
 			arc_count += 1
+		elif "CapsuleRoom" in child.name:
+			capsule_count += 1
+		elif "Junction" in child.name:
+			junction_count += 1
 
-	print("DuctArc (MeshInstance) count: ", arc_count)
+	print("DuctRadial count: ", radial_count)
+	print("DuctArc count: ", arc_count)
+	print("CapsuleRoom count: ", capsule_count)
+	print("Junction count: ", junction_count)
 
 	quit(0)

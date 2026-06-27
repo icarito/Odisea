@@ -8,7 +8,7 @@ enum Direction { NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3 }
 const DIR_VEC = { 0: Vector2(0, -1), 1: Vector2(1, 0), 2: Vector2(0, 1), 3: Vector2(-1, 0) }
 const OPPOSITE = { 0: 2, 1: 3, 2: 0, 3: 1 }
 const HEIGHT_STEP = 2.0
-const MAX_HEIGHT_STEPS = 5
+const MAX_HEIGHT_STEPS = 6
 
 class ModuleVariant:
 	var id: String

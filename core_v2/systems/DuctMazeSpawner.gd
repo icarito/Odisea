@@ -2,110 +2,39 @@ tool
 extends Spatial
 class_name DuctMazeStreamer
 
-# FD-052: DuctMazeStreamer
-# Streams axial duct maze chunks around the player.
+# FD-052: Act 0 — Duct Maze Streamer (Rewrite v3)
+# Procedural radial duct maze generation.
 
-const INNER_RADIUS = 16.0
-const DEFAULT_RING_STEP = 8.0
-const ANGLE_STEP = 30.0
-const CSG_SUBTRACT = 2
-# Duct tiles live on the Prop layer (7, bit 64) instead of Entorno (1). The player
-# always collides with Prop (PLAYER_REQUIRED_COLLISION_MASK), but the camera spring arm
-# (camera_collision_mask=129 = Entorno+CameraCollision, no Prop) ignores them — so the
-# camera passes THROUGH the ducts instead of being shoved by every wall, letting you see
-# inside the tubes.
-const DUCT_COLLISION_LAYER = 1 << 6
+export var inner_radius := 2.0
+export var ring_step := 4.0
+export var sectors := 12
+export var rings := 3
+export var height_steps := 6
+export var room_count := 4
+export var extra_cycles := 2
+export var seed_value := -1
 
-export(float) var inner_radius := INNER_RADIUS
-export(float) var ring_step := DEFAULT_RING_STEP
-export(int) var sectors := 12
-export(int) var rings := 6
-export(int) var height_steps := 6
-export(int) var room_count := 4
-export(int) var extra_cycles := 2
-export(int) var seed_value := -1
-export(bool) var axial_layout := false
-export(float) var axial_center_y := 0.0
-export(bool) var add_connection_bridges := true
-export(float) var duct_radius := 3.75
-export(float) var duct_wall_thickness := 0.35
-export(float) var connection_overlap := 1.25
-export(float) var collar_radius_extra := 0.08
-export(float) var collar_length := 0.55
-export(float) var room_radius_multiplier := 3.2
-export(float) var room_length_multiplier := 1.6
-export(int) var mesh_segments := 16
-export(int) var room_segments := 18
-export(int) var overlay_stride := 8
-export(bool) var enable_zone_particles := false
-export(bool) var streaming_enabled := false
-export(NodePath) var stream_target_path := NodePath("../../Pilot")
-export(float) var stream_total_length := 8000.0
-export(int) var stream_chunk_rings := 24
-export(int) var stream_active_chunks_each_side := 1
-export(int) var stream_seam_ports := 4
-export(float) var stream_update_interval := 0.35
-export(int) var stream_builds_per_tick := 1
-# DEPRECATED: replaced by MST with wrap_x=true in axial_layout. Kept for .tscn compatibility.
-export(bool) var dual_axial_lanes := false
-# DEPRECATED: replaced by MST with wrap_x=true in axial_layout. Kept for .tscn compatibility.
-export(bool) var concentric_axial_lanes := false
-# DEPRECATED (concentric/dual only)
-export(int) var lane_a_sector := -1
-# DEPRECATED (concentric/dual only)
-export(int) var lane_b_sector := -1
-# DEPRECATED (concentric/dual only)
-export(int) var lane_connector_stride := 8
-# DEPRECATED (concentric/dual only)
-export(int) var lane_connector_offset := 3
-# DEPRECATED (concentric only)
-export(float) var concentric_radius_gap := 12.0
-# DEPRECATED (concentric only)
-export(int) var concentric_spine_stride := 4
-# DEPRECATED (concentric only)
-export(int) var radial_bridge_stride := 20
-# DEPRECATED (concentric only)
-export(int) var radial_bridge_offset := 4
-# DEPRECATED (concentric only): entry tunnel is now a room seeded by MST.
-export(bool) var entry_tunnel_enabled := true
-# DEPRECATED (concentric only)
-export(int) var entry_sector := 0
-export(bool) var room_airlocks_enabled := true
-export(bool) var room_light_strips_enabled := true
-export(bool) var corridor_valves_enabled := false
+# Visual Params
+export var duct_radius := 2.0
+export var duct_wall_thickness := 0.35
+export var ring_spacing := 4.0
+export var ring_height := 0.15
+export var ring_extra_radius := 0.35
 
-# Tile paths
-const TILE_PATHS = {
-	"E": "res://core_v2/props/duct/DuctEndCap.tscn",
-	"W": "res://core_v2/props/duct/DuctRadial.tscn",
-	"C": "res://core_v2/props/duct/DuctElbow.tscn",
-	"T": "res://core_v2/props/duct/DuctTee.tscn",
-	"X": "res://core_v2/props/duct/DuctCross.tscn",
-	"S": "res://core_v2/props/duct/DuctIncline.tscn"
-}
-const CAPSULE_PATH = "res://core_v2/props/duct/CapsuleRoom.tscn"
-const VALVE_PATH = "res://core_v2/props/duct/DuctGateValve.tscn"
-const IRIS_DOOR_PATH = "res://core_v2/props/doors/IrisDoorV2.tscn"
-# IrisDoorV2's iris_radius default — used to scale the door to the duct opening.
-const IRIS_DOOR_BASE_RADIUS = 1.7
+const DUCT_LAYER := 1 << 6 # bit 6 = layer 7 (Prop)
 
-# Resource cache
+# Resource paths
+const HULL_MAT_PATH := "res://core_v2/props/duct/DuctHull.tres"
+const FLOOR_MAT_PATH := "res://core_v2/props/duct/DuctFloorGrate.tres"
+const LIGHT_STRIP_MAT_PATH := "res://core_v2/props/duct/DuctLightStrip.tres"
+const CONDUIT_MAT_PATH := "res://core_v2/props/duct/DuctConduit.tres"
+const HAZARD_MAT_PATH := "res://core_v2/props/duct/DuctHazardStripe.tres"
+const VALVE_PATH := "res://core_v2/props/pipe/PipeValve.tscn"
+const AIRLOCK_CHAMBER_PATH := "res://core_v2/props/doors/AirlockChamber.tscn"
+const IRIS_DOOR_PATH := "res://core_v2/components/IrisDoorV2.tscn"
+
 var _resource_cache := {}
-var _runtime_material: Material = null
-var _stream_chunks := {}
-var _stream_target: Spatial = null
-var _stream_timer := 0.0
-var _stream_chunk_count := 0
-var _stream_desired_chunks := {}
-var _stream_pending_chunks := []
-var _build_rings := -1
-var _build_axial_center_y := 0.0
-var _build_chunk_index := -1
-var _room_light_material: Material = null
-
-# Exported dictionaries for manual override
-export(Dictionary) var duct_tiles := {}
-export(PackedScene) var capsule_scene: PackedScene
+var _mesh_cache := {}
 
 func _ready():
 	if not Engine.editor_hint:
@@ -120,794 +49,533 @@ func _get_res(path: String):
 	return _resource_cache[path]
 
 func generate() -> void:
-	# Clear existing
 	for child in get_children():
 		child.queue_free()
-
-	_stream_chunks.clear()
-	if streaming_enabled and axial_layout:
-		_start_streaming()
-		return
-
-	set_physics_process(false)
-	_generate_grid_into(self, rings, axial_center_y, seed_value, {})
-
-func _generate_grid_into(parent: Spatial, grid_depth: int, center_y: float, grid_seed: int, fixed_border_tiles: Dictionary, chunk_index: int = -1) -> void:
-	var grid: Array
+	
 	var mst_gen = ScaffoldMSTGenerator.new()
 	var params = {
 		"grid_width": sectors,
-		"grid_depth": grid_depth,
+		"grid_depth": rings,
 		"mst_max_height_steps": height_steps,
 		"room_count": room_count,
 		"extra_cycles": extra_cycles,
-		"fixed_border_tiles": fixed_border_tiles,
-		"wrap_x": axial_layout
+		"wrap_x": true
 	}
 	mst_gen.apply_params(params)
-	grid = mst_gen.generate_grid_data(grid_seed)
-
-	var previous_build_rings: int = _build_rings
-	var previous_build_center_y: float = _build_axial_center_y
-	var previous_build_chunk_index: int = _build_chunk_index
-	_build_rings = grid_depth
-	_build_axial_center_y = center_y
-	_build_chunk_index = chunk_index
+	var grid = mst_gen.generate_grid_data(seed_value)
+	
+	var last_cell_idx = -1
+	var max_gy = -1
+	var max_h = -1.0
+	
+	for i in range(grid.size()):
+		var cell = grid[i]
+		if cell == null: continue
+		
+		var gx := i % sectors
+		var gy := i / sectors
+		var v = cell.variant
+		
+		# Find the exit cell candidate
+		if gy > max_gy or (gy == max_gy and cell.base_height > max_h):
+			max_gy = gy
+			max_h = cell.base_height
+			last_cell_idx = i
 
 	for i in range(grid.size()):
 		var cell = grid[i]
-		if cell == null:
+		if cell == null: continue
+		
+		var gx := i % sectors
+		var gy := i / sectors
+		var v = cell.variant
+		
+		if i == last_cell_idx:
+			_add_exit_airlock(cell, i)
 			continue
-
-		var gx: int = int(_cell_value(cell, "grid_x", i % sectors))
-		var gy: int = int(_cell_value(cell, "grid_y", i / sectors))
-		var base_height: float = float(_cell_value(cell, "base_height", 0.0))
-		var is_room: bool = bool(_cell_value(cell, "is_room", false))
-		var extra_endpoint_specs: Array = _cell_value(cell, "extra_endpoint_specs", [])
-		var v = _cell_value(cell, "variant", null)
-		if v == null:
-			continue
-
-		var instance: Spatial = null
-
-		instance = _make_procedural_tile(v.connections, v.port_heights, _cell_radius(gy, base_height), is_room, extra_endpoint_specs)
-		if instance:
-			parent.add_child(instance)
-			instance.transform = _grid_to_world(gx, gy, base_height)
-			instance.set_meta("variant_id", v.id)
-			instance.set_meta("rotation", v.rotation)
-			_add_overlay(instance, gy, i)
-
-	_insert_valves(parent)
-	_activate_collapse_triggers(parent)
-	_build_rings = previous_build_rings
-	_build_axial_center_y = previous_build_center_y
-	_build_chunk_index = previous_build_chunk_index
-
-func _physics_process(delta: float) -> void:
-	if not streaming_enabled or not axial_layout:
-		return
-	_stream_timer -= delta
-	if _stream_timer > 0.0:
-		return
-	_stream_timer = max(0.05, stream_update_interval)
-	_refresh_stream(false)
-	_process_stream_queue()
-
-func _start_streaming() -> void:
-	_stream_target = get_node_or_null(stream_target_path) as Spatial
-	_stream_chunk_count = int(max(1, ceil(stream_total_length / _stream_chunk_length())))
-	_stream_desired_chunks.clear()
-	_stream_pending_chunks.clear()
-	set_physics_process(true)
-	_refresh_stream(true)
-
-func _refresh_stream(force: bool) -> void:
-	var center_chunk: int = _chunk_index_for_y(_stream_target_local_y())
-	var desired := {}
-	var radius: int = int(max(0, stream_active_chunks_each_side))
-	for chunk_index in range(center_chunk - radius, center_chunk + radius + 1):
-		if chunk_index < 0 or chunk_index >= _stream_chunk_count:
-			continue
-		desired[chunk_index] = true
-		if not _stream_chunks.has(chunk_index):
-			if force and chunk_index == center_chunk:
-				_load_stream_chunk(chunk_index)
-			else:
-				_queue_stream_chunk(chunk_index)
-
-	_stream_desired_chunks = desired
-	for i in range(_stream_pending_chunks.size() - 1, -1, -1):
-		if not desired.has(_stream_pending_chunks[i]):
-			_stream_pending_chunks.remove(i)
-
-	for key in _stream_chunks.keys():
-		if not desired.has(key):
-			var chunk: Node = _stream_chunks[key]
-			_stream_chunks.erase(key)
-			if is_instance_valid(chunk):
-				chunk.queue_free()
-
-func _queue_stream_chunk(chunk_index: int) -> void:
-	if _stream_chunks.has(chunk_index) or _stream_pending_chunks.has(chunk_index):
-		return
-	_stream_pending_chunks.append(chunk_index)
-
-func _process_stream_queue() -> void:
-	var built := 0
-	while built < int(max(1, stream_builds_per_tick)) and not _stream_pending_chunks.empty():
-		var chunk_index: int = int(_stream_pending_chunks.pop_front())
-		if _stream_desired_chunks.has(chunk_index) and not _stream_chunks.has(chunk_index):
-			_load_stream_chunk(chunk_index)
-			built += 1
-
-func _load_stream_chunk(chunk_index: int) -> void:
-	var chunk_root: Spatial = Spatial.new()
-	chunk_root.name = "DuctStreamChunk_%03d" % chunk_index
-	chunk_root.set_meta("chunk_index", chunk_index)
-	add_child(chunk_root)
-	_stream_chunks[chunk_index] = chunk_root
-	_generate_grid_into(
-		chunk_root,
-		_stream_chunk_depth(),
-		_stream_chunk_center_y(chunk_index),
-		_stream_chunk_seed(chunk_index),
-		_stream_fixed_border_tiles(chunk_index),
-		chunk_index
-	)
-
-func _stream_target_local_y() -> float:
-	if not _stream_target or not is_instance_valid(_stream_target):
-		_stream_target = get_node_or_null(stream_target_path) as Spatial
-	if _stream_target and is_instance_valid(_stream_target):
-		return global_transform.affine_inverse().xform(_stream_target.global_transform.origin).y
-	return axial_center_y
-
-func _stream_chunk_depth() -> int:
-	return int(max(2, stream_chunk_rings))
-
-func _stream_chunk_length() -> float:
-	return float(_stream_chunk_depth()) * ring_step
-
-func _stream_start_y() -> float:
-	return axial_center_y - stream_total_length * 0.5
-
-func _stream_chunk_center_y(chunk_index: int) -> float:
-	return _stream_start_y() + (float(chunk_index) + 0.5) * _stream_chunk_length()
-
-func _chunk_index_for_y(local_y: float) -> int:
-	var index: int = int(floor((local_y - _stream_start_y()) / _stream_chunk_length()))
-	return int(clamp(index, 0, max(0, _stream_chunk_count - 1)))
-
-func _stream_chunk_seed(chunk_index: int) -> int:
-	var base_seed: int = seed_value if seed_value != -1 else 52
-	return int(abs(base_seed + chunk_index * 92821 + 131))
-
-func _stream_fixed_border_tiles(chunk_index: int) -> Dictionary:
-	var fixed := {}
-	var depth: int = _stream_chunk_depth()
-	if chunk_index > 0:
-		_add_stream_seam_tiles(fixed, chunk_index, 0)
-	if chunk_index < _stream_chunk_count - 1:
-		_add_stream_seam_tiles(fixed, chunk_index + 1, depth - 1)
-	return fixed
-
-func _add_stream_seam_tiles(fixed: Dictionary, seam_index: int, y: int) -> void:
-	var port_count: int = int(clamp(stream_seam_ports, 1, max(1, sectors)))
-	var stride: int = int(max(1, floor(float(sectors) / float(port_count))))
-	var offset: int = int(abs(_stream_hash(seam_index, 17))) % stride
-	for n in range(port_count):
-		var x: int = int((offset + n * stride) % sectors)
-		fixed["%d,%d" % [x, y]] = {"height": _stream_seam_height(seam_index, x)}
-
-func _stream_seam_height(seam_index: int, sector: int) -> float:
-	var level_count: int = int(max(1, height_steps))
-	var level: int = (int(abs(_stream_hash(seam_index, sector))) % level_count) + 1
-	return float(level) * 2.0
-
-func _stream_hash(a: int, b: int) -> int:
-	var base_seed: int = seed_value if seed_value != -1 else 52
-	return int(base_seed + a * 73856093 + b * 19349663)
-
-func get_active_stream_chunk_indices() -> Array:
-	var keys: Array = _stream_chunks.keys()
-	keys.sort()
-	return keys
-
-func get_stream_coverage_length() -> float:
-	return float(_stream_chunk_count) * _stream_chunk_length()
-
-func _cell_value(cell, key: String, fallback):
-	if cell is Dictionary:
-		return cell[key] if cell.has(key) else fallback
-	var value = cell.get(key)
-	return fallback if value == null else value
+		
+		var tile = _instantiate_tile(gx, gy, cell)
+		if tile:
+			add_child(tile)
+			tile.transform = _grid_to_world(gx, gy, cell.base_height)
+			# Arcs are already tangentially oriented by the polar transform + builder
+			if v.id != "W" or int(v.rotation) % 180 == 0:
+				tile.rotate_object_local(Vector3.UP, deg2rad(v.rotation))
 
 func _grid_to_world(gx: int, gy: int, height: float) -> Transform:
-	var r = _cell_radius(gy, height)
-	var angle = deg2rad(gx * _angle_step())
+	var angle_deg := float(gx) * (360.0 / sectors)
+	var angle_rad := deg2rad(angle_deg)
+	var radius := inner_radius + (float(gy) + 0.5) * ring_step
 
-	var pos: Vector3
-	if axial_layout:
-		pos = Vector3(r * cos(angle), _axis_position(gy), r * sin(angle))
+	var world_x := radius * cos(angle_rad)
+	var world_z := radius * sin(angle_rad)
+	var pos := Vector3(world_x, height, world_z)
+
+	var tangent := Vector3(-sin(angle_rad), 0, cos(angle_rad))
+	var up := Vector3.UP
+	var radial := Vector3(cos(angle_rad), 0, sin(angle_rad))
+
+	return Transform(Basis(tangent, up, radial), pos)
+
+func _instantiate_tile(gx: int, gy: int, cell: Dictionary) -> Spatial:
+	var v = cell.variant
+	var id = v.id
+	var is_room = cell.get("is_room", false)
+	
+	var tile: Spatial = null
+	if is_room and _grado(v.connections) >= 2 and id in ["C", "T", "X"]:
+		tile = _make_capsule(v.connections, gy)
 	else:
-		pos = Vector3(r * cos(angle), height, r * sin(angle))
+		match id:
+			"W":
+				if int(v.rotation) % 180 == 0:
+					tile = _make_duct_radial(gy)
+				else:
+					tile = _make_duct_arc(gx, gy)
+			"C", "T", "X":
+				tile = _make_junction(id, v.connections)
+			"S":
+				tile = _make_incline(v.port_heights)
+			"E":
+				tile = _make_endcap()
+	
+	if tile:
+		tile.set_meta("gx", gx)
+		tile.set_meta("gy", gy)
+		_add_content_overlay(tile, gy)
+		_apply_duct_properties(tile)
+		_add_collapse_trigger(tile)
+	
+	return tile
 
-	# Basis: X=tangent, Y=up, Z=radial outward
-	var tangent = Vector3(-sin(angle), 0, cos(angle))
-	var up = Vector3.UP
-	var radial = Vector3(cos(angle), 0, sin(angle))
-
-	var basis = Basis(tangent, up, radial)
-	return Transform(basis, pos)
-
-func _ring_radius(gy: int) -> float:
-	return inner_radius + (float(gy) + 0.5) * ring_step
-
-func _angle_step() -> float:
-	return 360.0 / float(max(1, sectors))
-
-func _cell_radius(gy: int, height: float) -> float:
-	if axial_layout:
-		return inner_radius + height
-	return _ring_radius(gy)
-
-func _axis_position(gy: int) -> float:
-	var active_rings: int = rings if _build_rings < 0 else _build_rings
-	var active_center_y: float = axial_center_y if _build_rings < 0 else _build_axial_center_y
-	var centered_index: float = float(gy) - float(max(active_rings - 1, 0)) * 0.5
-	return active_center_y + centered_index * ring_step
-
-func _make_procedural_tile(connections: Array, port_heights: Array, ring_radius: float, is_room: bool = false, extra_endpoint_specs: Array = []) -> Spatial:
-	var root: Spatial = Spatial.new()
-	root.name = "DuctProceduralTile"
-	root.set_meta("is_room", is_room)
-
-	var visual_data: Dictionary = _new_mesh_data()
-	var collision_data: Dictionary = _new_mesh_data()
-	var visual_radius: float = duct_radius
-	var collision_radius: float = max(0.2, duct_radius - 0.05)
-	var collar_radius: float = min(duct_radius + duct_wall_thickness + collar_radius_extra, duct_radius + max(duct_wall_thickness, 0.12))
-
-	# A room's port tube must reach the capsule wall, not just the grid port endpoint.
-	# The capsule body sits at _room_outer_radius(); the bare port endpoint is well
-	# inside it (~4 vs ~6.2), so without this the tube stops short of the carved hole
-	# and the opening reads as "a hole with no tunnel reaching it" — you can't enter.
-	# We extend the tube out to the wall and remember that wall point as the mouth so
-	# the airlock gate sits in the opening instead of floating inside the room.
-	# Every port tube must reach the OUTER surface of whatever shell wraps this tile,
-	# then cross it, or the carved hole has no tunnel behind it ("shell with a hole but
-	# no way out"). Rooms are wrapped by the capsule (_room_outer_radius). Junctions
-	# (degree > 1) are wrapped by the junction sphere (duct_radius+wall). Tangential
-	# (E/W) port endpoints land at only ~2.5 from centre — well inside the sphere
-	# (~4.1) — so without forcing the tube out to the shell surface those arms dead-end
-	# inside the sphere and read as "small nexus, no exit".
-	var has_junction_shell: bool = (not is_room) and _grado(connections) > 1
-	var shell_reach: float = 0.0
-	if is_room:
-		shell_reach = _room_outer_radius()
-	elif has_junction_shell:
-		shell_reach = duct_radius + duct_wall_thickness
-
-	var endpoint_specs: Array = []
-	for d in range(4):
-		if d >= connections.size() or not connections[d]:
-			continue
-		var height: float = 0.0
-		if d < port_heights.size():
-			height = float(port_heights[d])
-		var endpoint: Vector3 = _local_port_endpoint(d, ring_radius, height)
-		var length: float = endpoint.length()
-		if length <= 0.01:
-			continue
-		var axis: Vector3 = endpoint.normalized()
-		# Mouth = where the tube meets the shell surface (room wall / junction sphere),
-		# or the grid endpoint when there's no shell (straight/elbow corridor).
-		var mouth: Vector3 = endpoint
-		var reach: float = length
-		if shell_reach > length:
-			mouth = axis * shell_reach
-			reach = shell_reach
-		# Tube spans from BEHIND the cell centre (overlap so it buries into the shell /
-		# meets the opposite arm) out PAST the mouth by connection_overlap, so the bore
-		# punches cleanly through the shell and the neighbour's tube overlaps it.
-		var near: float = -connection_overlap
-		var far: float = reach + connection_overlap
-		var tube_length: float = far - near
-		var tube_center: Vector3 = axis * ((near + far) * 0.5)
-		endpoint_specs.append({"dir": d, "endpoint": endpoint, "mouth": mouth, "length": length, "axis": axis, "airlock": true})
-		_append_cylinder_shell(visual_data, tube_center, axis, tube_length, visual_radius, mesh_segments, true)
-		_append_cylinder_shell(collision_data, tube_center, axis, tube_length, collision_radius, mesh_segments, false)
-		# Collar ring at the mouth. When there's a shell (room/junction) push it slightly
-		# outward so its faces don't sit coplanar with the shell (z-fight). For shell-less
-		# straight/elbow corridors there is no mouth surface to clash with, and two
-		# neighbour tiles meet at the grid endpoint — push the collar inward there so the
-		# two collars don't overlap at the seam midpoint.
-		var collar_offset: float = collar_length * 0.25 if shell_reach > 0.0 else -collar_length * 0.25
-		var collar_center: Vector3 = mouth + axis * collar_offset
-		_append_cylinder_shell(visual_data, collar_center, axis, collar_length, collar_radius, mesh_segments, true)
-
-	for extra_spec in extra_endpoint_specs:
-		if not (extra_spec is Dictionary):
-			continue
-		var spec_copy: Dictionary = extra_spec.duplicate()
-		var extra_axis: Vector3 = spec_copy["axis"]
-		# Extra ports (radial bridges / entry tunnels) land inside the room. Put the gate
-		# at the capsule wall regardless. Only emit an inner tube when the port has no
-		# external bridge tube of its own — otherwise we'd double the geometry there.
-		if is_room and shell_reach > 0.0:
-			var extra_mouth: Vector3 = extra_axis * shell_reach
-			spec_copy["mouth"] = extra_mouth
-			if not spec_copy.get("external_tube", false):
-				var extra_len: float = shell_reach + connection_overlap * 2.0
-				var extra_center: Vector3 = extra_axis * (shell_reach * 0.5)
-				_append_cylinder_shell(visual_data, extra_center, extra_axis, extra_len, visual_radius, mesh_segments, true)
-				_append_cylinder_shell(collision_data, extra_center, extra_axis, extra_len, collision_radius, mesh_segments, false)
-				_append_cylinder_shell(visual_data, extra_mouth + extra_axis * (collar_length * 0.25), extra_axis, collar_length, collar_radius, mesh_segments, true)
-		endpoint_specs.append(spec_copy)
-
-	# Visual shells emit real back-faces so generated ducts remain readable even when
-	# material culling/lighting changes. Collision shells stay single-sided.
-	if is_room:
-		_append_capsule_shell(visual_data, endpoint_specs, _room_outer_radius(), _room_body_length(), room_segments, 5, true)
-		_append_capsule_shell(collision_data, endpoint_specs, _room_inner_radius(), _room_body_length(), room_segments, 5, false)
-	elif _grado(connections) > 1:
-		_append_sphere_shell(visual_data, endpoint_specs, duct_radius + duct_wall_thickness, mesh_segments, 6, true)
-		_append_sphere_shell(collision_data, endpoint_specs, collision_radius, mesh_segments, 5, false)
-
-	var visual_mesh: ArrayMesh = _mesh_from_data(visual_data)
-	if visual_mesh:
-		var mesh_instance: MeshInstance = MeshInstance.new()
-		mesh_instance.name = "Geometry"
-		mesh_instance.mesh = visual_mesh
-		mesh_instance.material_override = _get_runtime_material()
-		root.add_child(mesh_instance)
-
-	var collision_mesh: ArrayMesh = _mesh_from_data(collision_data)
-	if collision_mesh:
-		var body: StaticBody = StaticBody.new()
-		body.name = "Collision"
-		body.collision_layer = DUCT_COLLISION_LAYER
-		body.collision_mask = 255
-		var shape: CollisionShape = CollisionShape.new()
-		shape.shape = collision_mesh.create_trimesh_shape()
-		body.add_child(shape)
-		root.add_child(body)
-
-	if is_room:
-		if room_light_strips_enabled:
-			_add_room_light_strips(root)
-		if room_airlocks_enabled:
-			_add_room_airlocks(root, endpoint_specs)
-
-	return root
-
-func _add_room_airlocks(root: Spatial, endpoint_specs: Array) -> void:
-	# Airlocks are iris doors set into each tube mouth. IrisDoorV2 extends
-	# InteractableBaseV2, so the player can open/close it through the normal
-	# interaction system (group "interactable" + its InteractionArea) — no extra
-	# wiring needed. Its passage axis is local Z (blades lie in the XY plane), which
-	# _basis_from_z_axis aligns to the port direction.
-	var iris_scene = _get_res(IRIS_DOOR_PATH)
-	if not iris_scene:
-		return
-	# Scale the iris so its open aperture clears the duct bore.
-	var iris_scale: float = max(1.0, (duct_radius + 0.1) / IRIS_DOOR_BASE_RADIUS)
-	for spec in endpoint_specs:
-		if spec.has("airlock") and not bool(spec["airlock"]):
-			continue
-		var axis: Vector3 = spec["axis"]
-		# Set the door slightly inside the mouth so its frame reads as part of the wall
-		# opening rather than floating beyond it.
-		var mouth: Vector3 = spec["mouth"] if spec.has("mouth") else spec["endpoint"]
-		var endpoint: Vector3 = mouth - axis * (collar_length * 0.5)
-		var iris = iris_scene.instance()
-		iris.name = "RoomAirlockIris_%d" % int(spec["dir"])
-		# The InteractableBaseV2 (the actual interactable, in group "interactable") is the
-		# IrisMechanism child, not the InteractableBridge root — configure it there.
-		var mechanism = iris.get_node_or_null("IrisMechanism")
-		if mechanism:
-			if "interaction_text" in mechanism:
-				mechanism.interaction_text = "Operar exclusa"
-			# Start OPEN so the maze is traversable — you can walk into rooms. The player
-			# closes a door on interact (e.g. to seal a section). A closed-by-default
-			# airlock blocks every room entrance and reads as "no door ever opens to let
-			# me in". The iris is "active" when open.
-			if "starts_active" in mechanism:
-				mechanism.starts_active = true
-		iris.transform = Transform(_basis_from_z_axis(axis, Vector3.UP), endpoint)
-		iris.scale = Vector3.ONE * iris_scale
-		root.add_child(iris)
-		# The iris .tscn's StaticBodies (Frame, DoorBlocker) default to layer 1 (Entorno),
-		# which would block the camera. Move them to the Prop layer like the tubes so the
-		# camera passes through; the player still collides (Prop is in the required mask).
-		_move_static_bodies_to_prop_layer(iris)
-		# Robust interaction targeting: give the iris its own InteractionArea (layer 16,
-		# the interaction layer the player's interact scan reads) on the IrisMechanism, so
-		# the player can target it whether the door is open or closed. Without it the only
-		# physics body to hit when open is the Frame (under the non-interactable bridge
-		# root), which doesn't resolve back to the mechanism.
-		if mechanism:
-			_ensure_iris_interaction_area(mechanism)
-
-func _move_static_bodies_to_prop_layer(node: Node) -> void:
-	if node is StaticBody:
-		if (node.collision_layer & 1) != 0:
-			node.collision_layer = DUCT_COLLISION_LAYER
-	elif node is CSGCombiner:
-		if (node.collision_layer & 1) != 0:
-			node.collision_layer = DUCT_COLLISION_LAYER
-	for child in node.get_children():
-		_move_static_bodies_to_prop_layer(child)
-
-func _ensure_iris_interaction_area(mechanism: Spatial) -> void:
-	if mechanism.has_node("InteractionArea"):
-		return
-	var area := Area.new()
-	area.name = "InteractionArea"
-	area.collision_layer = 16
-	area.collision_mask = 0
-	area.monitorable = true
-	area.monitoring = false
-	var shape := CollisionShape.new()
-	var sphere := SphereShape.new()
-	# Local radius; the mechanism's inherited scale (~2.3x) expands it to cover the bore.
-	sphere.radius = 1.6
+func _add_collapse_trigger(tile: Spatial) -> void:
+	var area = Area.new()
+	area.name = "CollapseTrigger"
+	var shape = CollisionShape.new()
+	var sphere = SphereShape.new()
+	sphere.radius = 3.0
 	shape.shape = sphere
 	area.add_child(shape)
-	mechanism.add_child(area)
+	tile.add_child(area)
+	area.connect("body_entered", self, "_on_collapse_triggered", [tile])
 
-func _add_room_light_strips(root: Spatial) -> void:
-	var mat: Material = _get_room_light_material()
-	var radius: float = _room_inner_radius() * 0.72
-	var length: float = _room_body_length() * 0.72
-	_add_room_strip(root, Vector3(radius, 0.0, 0.0), Vector3(0.10, length, 0.28), mat, "RoomLightStrip_XP")
-	_add_room_strip(root, Vector3(-radius, 0.0, 0.0), Vector3(0.10, length, 0.28), mat, "RoomLightStrip_XN")
-	_add_room_strip(root, Vector3(0.0, 0.0, radius), Vector3(0.28, length, 0.10), mat, "RoomLightStrip_ZP")
-	_add_room_strip(root, Vector3(0.0, 0.0, -radius), Vector3(0.28, length, 0.10), mat, "RoomLightStrip_ZN")
+func _on_collapse_triggered(body: Node, tile: Spatial) -> void:
+	if body.name.begins_with("Pilot") or body.name.begins_with("Player"):
+		var blocker = _make_endcap()
+		tile.add_child(blocker)
+		
+		# Place blocker behind the player based on the tile's orientation
+		# For DuctRadial/Incline, -Z is the forward axis.
+		if tile.name == "DuctArc":
+			# For arcs, we want to place it at the start of the arc
+			var radius := inner_radius + (float(tile.get_meta("gy")) + 0.5) * ring_step
+			var arc_deg := 360.0 / sectors
+			var angle = -deg2rad(arc_deg) * 0.5
+			blocker.translation = Vector3(radius * sin(angle), 0, radius * cos(angle) - radius)
+			blocker.rotation.y = angle
+		else:
+			blocker.translation = Vector3(0, 0, -ring_step * 0.5)
+		
+		blocker.name = "CollapseBlocker"
+		# Disconnect to avoid re-triggering
+		var area = tile.get_node_or_null("CollapseTrigger")
+		if area: area.queue_free()
 
-func _add_room_strip(root: Spatial, pos: Vector3, size: Vector3, mat: Material, node_name: String) -> void:
-	var mesh := CubeMesh.new()
-	mesh.size = size
-	var strip := MeshInstance.new()
-	strip.name = node_name
-	strip.mesh = mesh
-	strip.material_override = mat
-	strip.translation = pos
-	root.add_child(strip)
+func _apply_duct_properties(node: Node) -> void:
+	if node is CollisionObject:
+		node.collision_layer = DUCT_LAYER
+		node.collision_mask = 255 # Collide with player
+	for child in node.get_children():
+		_apply_duct_properties(child)
 
-func _get_room_light_material() -> Material:
-	if _room_light_material:
-		return _room_light_material
-	var mat := SpatialMaterial.new()
-	mat.flags_unshaded = true
-	mat.albedo_color = Color(0.25, 0.95, 1.0, 1.0)
-	mat.emission_enabled = true
-	mat.emission = Color(0.25, 0.95, 1.0, 1.0)
-	mat.emission_energy = 1.4
-	_room_light_material = mat
-	return _room_light_material
+func _make_duct_radial(gy: int) -> Spatial:
+	var root = Spatial.new()
+	root.name = "DuctRadial"
+	var mesh_instance = MeshInstance.new()
+	mesh_instance.mesh = _get_hollow_cylinder(ring_step, duct_radius, duct_wall_thickness)
+	mesh_instance.material_override = _get_res(HULL_MAT_PATH)
+	root.add_child(mesh_instance)
+	
+	_add_collision_cylinder(root, ring_step, duct_radius)
+	_add_structural_rings(root, Vector3.FORWARD, ring_step, duct_radius)
+	_add_floor_grate(root, ring_step, duct_radius)
+	
+	return root
 
-func _get_runtime_material() -> Material:
-	if _runtime_material:
-		return _runtime_material
-	var base_mat = _get_res("res://core_v2/props/duct/DuctHull.tres")
-	if base_mat is SpatialMaterial:
-		var mat: SpatialMaterial = base_mat.duplicate()
-		mat.params_cull_mode = SpatialMaterial.CULL_DISABLED
-		_runtime_material = mat
+func _make_duct_arc(gx: int, gy: int) -> Spatial:
+	var root = Spatial.new()
+	root.name = "DuctArc"
+	var radius := inner_radius + (float(gy) + 0.5) * ring_step
+	var arc_deg := 360.0 / sectors
+	var arc_rad := deg2rad(arc_deg)
+	
+	var mesh_instance = MeshInstance.new()
+	mesh_instance.mesh = DuctArcBuilder.get_or_build_arc(radius, duct_radius, arc_deg, 16)
+	mesh_instance.material_override = _get_res(HULL_MAT_PATH)
+	root.add_child(mesh_instance)
+	
+	# Floor grate for the arc
+	var segments_f = 8
+	for i in range(segments_f):
+		var angle = (float(i) / (segments_f - 1) - 0.5) * arc_rad
+		var grate = MeshInstance.new()
+		var grate_mesh = QuadMesh.new()
+		grate_mesh.size = Vector2(duct_radius * 1.5, (radius * arc_rad) / segments_f)
+		grate.mesh = grate_mesh
+		grate.material_override = _get_res(FLOOR_MAT_PATH)
+		
+		var x = radius * sin(angle)
+		var z = radius * cos(angle) - radius
+		grate.translation = Vector3(x, -duct_radius + 0.1, z)
+		grate.rotation.y = angle
+		grate.rotation.x = -PI * 0.5
+		root.add_child(grate)
+	
+	# Segmented collision for the arc
+	var segments = 8
+	var body = StaticBody.new()
+	root.add_child(body)
+	for i in range(segments):
+		var angle = (float(i) / (segments - 1) - 0.5) * arc_rad
+		var shape = CollisionShape.new()
+		var cylinder = CylinderShape.new()
+		cylinder.radius = duct_radius
+		cylinder.height = (radius * arc_rad) / segments * 1.1
+		shape.shape = cylinder
+		
+		var x = radius * sin(angle)
+		var z = radius * cos(angle) - radius
+		shape.translation = Vector3(x, 0, z)
+		shape.rotation.y = angle
+		shape.rotation.z = PI * 0.5
+		body.add_child(shape)
+	
+	# Rings at ends and middle
+	_add_structural_rings_arc(root, radius, arc_deg, 3)
+	
+	return root
+
+func _add_structural_rings_arc(root: Spatial, R: float, arc_deg: float, count: int) -> void:
+	var arc_rad = deg2rad(arc_deg)
+	for i in range(count):
+		var angle = (float(i) / (count - 1) - 0.5) * arc_rad
+		var ring = MeshInstance.new()
+		var ring_mesh = CylinderMesh.new()
+		ring_mesh.top_radius = duct_radius + ring_extra_radius
+		ring_mesh.bottom_radius = duct_radius + ring_extra_radius
+		ring_mesh.height = ring_height
+		ring.mesh = ring_mesh
+		ring.material_override = _get_res(CONDUIT_MAT_PATH)
+		
+		var x = R * sin(angle)
+		var z = R * cos(angle) - R
+		ring.translation = Vector3(x, 0, z)
+		ring.rotation.y = angle
+		ring.rotation.z = PI * 0.5
+		root.add_child(ring)
+
+func _make_junction(id: String, connections: Array) -> Spatial:
+	var root = Spatial.new()
+	root.name = "Junction_" + id
+	
+	# Central hub
+	var sphere = MeshInstance.new()
+	sphere.mesh = _get_sphere_mesh(2.5)
+	sphere.material_override = _get_res(HULL_MAT_PATH)
+	root.add_child(sphere)
+	_add_collision_sphere(root, 2.5)
+	
+	# Arms
+	var dirs = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
+	for i in range(4):
+		if connections[i]:
+			var arm = _make_arm(dirs[i], ring_step * 0.5, duct_radius)
+			root.add_child(arm)
+	
+	return root
+
+func _make_arm(dir: Vector3, length: float, radius: float) -> Spatial:
+	var arm = Spatial.new()
+	var mesh = MeshInstance.new()
+	mesh.mesh = _get_hollow_cylinder(length, radius, duct_wall_thickness)
+	mesh.material_override = _get_res(HULL_MAT_PATH)
+	arm.add_child(mesh)
+	
+	var look_dir = dir
+	if look_dir == Vector3.UP or look_dir == Vector3.DOWN:
+		arm.look_at(look_dir, Vector3.RIGHT)
 	else:
-		var fallback = SpatialMaterial.new()
-		fallback.params_cull_mode = SpatialMaterial.CULL_DISABLED
-		fallback.albedo_color = Color(0.2, 0.2, 0.22, 1.0)
-		fallback.metallic = 0.3
-		fallback.roughness = 0.9
-		_runtime_material = fallback
-	return _runtime_material
+		arm.look_at(look_dir, Vector3.UP)
+	arm.translation = dir * length * 0.5
+	
+	_add_collision_cylinder(arm, length, radius)
+	return arm
 
-func _new_mesh_data() -> Dictionary:
-	return {"vertices": [], "normals": [], "uvs": []}
+func _make_incline(port_heights: Array) -> Spatial:
+	var root = Spatial.new()
+	root.name = "DuctIncline"
+	
+	# S variant has two ports: one at 0, one at +/- HEIGHT_STEP
+	var h0 = 0.0
+	var h1 = 0.0
+	var d0 = Vector3.ZERO
+	var d1 = Vector3.ZERO
+	
+	for i in range(port_heights.size()):
+		if abs(port_heights[i]) > 0.001:
+			h1 = port_heights[i]
+			d1 = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT][i]
+		elif i < 4: # Connection at 0
+			d0 = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT][i]
 
-func _mesh_from_data(data: Dictionary) -> ArrayMesh:
-	if not data.has("vertices") or data["vertices"].empty():
-		return null
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = PoolVector3Array(data["vertices"])
-	arrays[Mesh.ARRAY_NORMAL] = PoolVector3Array(data["normals"])
-	arrays[Mesh.ARRAY_TEX_UV] = PoolVector2Array(data["uvs"])
-	var mesh: ArrayMesh = ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var length = ring_step
+	var mesh_instance = MeshInstance.new()
+	mesh_instance.mesh = _get_hollow_cylinder(length, duct_radius, duct_wall_thickness)
+	mesh_instance.material_override = _get_res(HULL_MAT_PATH)
+	root.add_child(mesh_instance)
+	
+	# Slope the duct
+	var angle = atan2(h1 - h0, length)
+	mesh_instance.rotation.x = angle
+	mesh_instance.translation.y = (h1 + h0) * 0.5
+	
+	_add_collision_cylinder(root, length, duct_radius)
+	root.get_node("Collision").rotation.x = angle
+	root.get_node("Collision").translation.y = (h1 + h0) * 0.5
+	
+	_add_structural_rings(root, Vector3.FORWARD, length, duct_radius)
+	return root
+
+func _make_endcap() -> Spatial:
+	var root = Spatial.new()
+	root.name = "DuctEndCap"
+	var mesh = MeshInstance.new()
+	mesh.mesh = _get_hollow_cylinder(1.0, duct_radius, duct_wall_thickness)
+	mesh.material_override = _get_res(HULL_MAT_PATH)
+	root.add_child(mesh)
+	
+	# Solid cap
+	var cap = MeshInstance.new()
+	var cap_mesh = CylinderMesh.new()
+	cap_mesh.top_radius = duct_radius + duct_wall_thickness
+	cap_mesh.bottom_radius = duct_radius + duct_wall_thickness
+	cap_mesh.height = 0.1
+	cap.mesh = cap_mesh
+	cap.material_override = _get_res(HULL_MAT_PATH)
+	cap.translation = Vector3(0, 0, 0.5)
+	root.add_child(cap)
+	
+	_add_collision_cylinder(root, 1.0, duct_radius)
+	return root
+
+func _make_capsule(connections: Array, gy: int) -> Spatial:
+	var root = Spatial.new()
+	root.name = "CapsuleRoom"
+	
+	var mesh_instance = MeshInstance.new()
+	mesh_instance.mesh = _get_capsule_mesh(3.0, 4.0)
+	mesh_instance.material_override = _get_res(HULL_MAT_PATH)
+	root.add_child(mesh_instance)
+	
+	_add_collision_capsule(root, 4.0, 3.0)
+	
+	# Ports
+	var dirs = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
+	for i in range(4):
+		if connections[i]:
+			var arm = _make_arm(dirs[i], 2.0, duct_radius)
+			arm.translation = dirs[i] * 4.0
+			root.add_child(arm)
+			
+	# Lights
+	var light = OmniLight.new()
+	light.light_energy = 1.0
+	light.omni_range = 10.0
+	root.add_child(light)
+	
+	return root
+
+func _get_hollow_cylinder(length: float, radius: float, thickness: float) -> ArrayMesh:
+	var key = "h_cyl_%f_%f_%f" % [length, radius, thickness]
+	if _mesh_cache.has(key): return _mesh_cache[key]
+	
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var segments = 16
+	var half_l = length * 0.5
+	
+	for i in range(segments):
+		var a0 = TAU * i / segments
+		var a1 = TAU * (i + 1) / segments
+		var c0 = cos(a0); var s0 = sin(a0)
+		var c1 = cos(a1); var s1 = sin(a1)
+		
+		# Inner
+		var p0 = Vector3(radius * c0, radius * s0, -half_l)
+		var p1 = Vector3(radius * c1, radius * s1, -half_l)
+		var p2 = Vector3(radius * c0, radius * s0, half_l)
+		var p3 = Vector3(radius * c1, radius * s1, half_l)
+		
+		st.add_normal(Vector3(-c0, -s0, 0))
+		st.add_vertex(p0); st.add_vertex(p1); st.add_vertex(p2)
+		st.add_vertex(p1); st.add_vertex(p3); st.add_vertex(p2)
+		
+		# Outer
+		var orad = radius + thickness
+		var op0 = Vector3(orad * c0, orad * s0, -half_l)
+		var op1 = Vector3(orad * c1, orad * s1, -half_l)
+		var op2 = Vector3(orad * c0, orad * s0, half_l)
+		var op3 = Vector3(orad * c1, orad * s1, half_l)
+		
+		st.add_normal(Vector3(c0, s0, 0))
+		st.add_vertex(op2); st.add_vertex(op1); st.add_vertex(op0)
+		st.add_vertex(op2); st.add_vertex(op3); st.add_vertex(op1)
+
+	var mesh = st.commit()
+	_mesh_cache[key] = mesh
 	return mesh
 
-func _push_triangle(data: Dictionary, a: Vector3, b: Vector3, c: Vector3, na: Vector3, nb: Vector3, nc: Vector3) -> void:
-	data["vertices"].append(a)
-	data["vertices"].append(b)
-	data["vertices"].append(c)
-	data["normals"].append(na.normalized())
-	data["normals"].append(nb.normalized())
-	data["normals"].append(nc.normalized())
-	data["uvs"].append(Vector2(0.0, 0.0))
-	data["uvs"].append(Vector2(0.0, 1.0))
-	data["uvs"].append(Vector2(1.0, 0.0))
+func _get_sphere_mesh(radius: float) -> ArrayMesh:
+	var key = "sphere_%f" % radius
+	if _mesh_cache.has(key): return _mesh_cache[key]
+	var sphere = SphereMesh.new()
+	sphere.radius = radius
+	sphere.height = radius * 2.0
+	var mesh = ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, sphere.get_mesh_arrays())
+	_mesh_cache[key] = mesh
+	return mesh
 
-func _push_shell_triangle(data: Dictionary, a: Vector3, b: Vector3, c: Vector3, na: Vector3, nb: Vector3, nc: Vector3, double_sided: bool) -> void:
-	_push_triangle(data, a, b, c, na, nb, nc)
-	if double_sided:
-		_push_triangle(data, c, b, a, -nc, -nb, -na)
+func _get_capsule_mesh(radius: float, height: float) -> ArrayMesh:
+	var key = "capsule_%f_%f" % [radius, height]
+	if _mesh_cache.has(key): return _mesh_cache[key]
+	var cap = CapsuleMesh.new()
+	cap.radius = radius
+	cap.mid_height = height
+	var mesh = ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, cap.get_mesh_arrays())
+	_mesh_cache[key] = mesh
+	return mesh
 
-func _push_shell_quad(data: Dictionary, p00: Vector3, p10: Vector3, p01: Vector3, p11: Vector3, n00: Vector3, n10: Vector3, n01: Vector3, n11: Vector3, double_sided: bool) -> void:
-	_push_shell_triangle(data, p00, p10, p01, n00, n10, n01, double_sided)
-	_push_shell_triangle(data, p01, p10, p11, n01, n10, n11, double_sided)
+func _add_collision_cylinder(root: Node, length: float, radius: float) -> void:
+	var body = StaticBody.new()
+	var shape = CollisionShape.new()
+	var cylinder = CylinderShape.new()
+	cylinder.radius = radius
+	cylinder.height = length
+	shape.shape = cylinder
+	shape.rotation_degrees = Vector3(90, 0, 0)
+	body.add_child(shape)
+	root.add_child(body)
 
-func _append_cylinder_shell(data: Dictionary, center: Vector3, axis: Vector3, length: float, radius: float, segments: int, double_sided: bool) -> void:
-	if length <= 0.01 or radius <= 0.01:
-		return
-	var safe_segments: int = int(max(6, segments))
-	var basis: Basis = _basis_from_y_axis(axis.normalized())
-	var half_length: float = length * 0.5
-	for s in range(safe_segments):
-		var a0: float = TAU * float(s) / float(safe_segments)
-		var a1: float = TAU * float(s + 1) / float(safe_segments)
-		var n0: Vector3 = basis.xform(Vector3(cos(a0), 0.0, sin(a0))).normalized()
-		var n1: Vector3 = basis.xform(Vector3(cos(a1), 0.0, sin(a1))).normalized()
-		var p00: Vector3 = center + basis.xform(Vector3(cos(a0) * radius, -half_length, sin(a0) * radius))
-		var p10: Vector3 = center + basis.xform(Vector3(cos(a0) * radius, half_length, sin(a0) * radius))
-		var p01: Vector3 = center + basis.xform(Vector3(cos(a1) * radius, -half_length, sin(a1) * radius))
-		var p11: Vector3 = center + basis.xform(Vector3(cos(a1) * radius, half_length, sin(a1) * radius))
-		_push_shell_quad(data, p00, p10, p01, p11, n0, n0, n1, n1, double_sided)
+func _add_collision_sphere(root: Node, radius: float) -> void:
+	var body = StaticBody.new()
+	var shape = CollisionShape.new()
+	var sphere = SphereShape.new()
+	sphere.radius = radius
+	shape.shape = sphere
+	body.add_child(shape)
+	root.add_child(body)
 
-func _append_sphere_shell(data: Dictionary, endpoint_specs: Array, radius: float, segments: int, rings: int, double_sided: bool) -> void:
-	var safe_segments: int = int(max(8, segments))
-	var safe_rings: int = int(max(4, rings))
-	for y in range(safe_rings):
-		var v0: float = -PI * 0.5 + PI * float(y) / float(safe_rings)
-		var v1: float = -PI * 0.5 + PI * float(y + 1) / float(safe_rings)
-		for s in range(safe_segments):
-			var a0: float = TAU * float(s) / float(safe_segments)
-			var a1: float = TAU * float(s + 1) / float(safe_segments)
-			var n00: Vector3 = Vector3(cos(v0) * cos(a0), sin(v0), cos(v0) * sin(a0)).normalized()
-			var n10: Vector3 = Vector3(cos(v1) * cos(a0), sin(v1), cos(v1) * sin(a0)).normalized()
-			var n01: Vector3 = Vector3(cos(v0) * cos(a1), sin(v0), cos(v0) * sin(a1)).normalized()
-			var n11: Vector3 = Vector3(cos(v1) * cos(a1), sin(v1), cos(v1) * sin(a1)).normalized()
-			var patch_normal: Vector3 = (n00 + n10 + n01 + n11).normalized()
-			if _is_port_hole_direction(patch_normal, endpoint_specs, radius):
-				continue
-			_push_shell_quad(data, n00 * radius, n10 * radius, n01 * radius, n11 * radius, n00, n10, n01, n11, double_sided)
+func _add_collision_capsule(root: Node, height: float, radius: float) -> void:
+	var body = StaticBody.new()
+	var shape = CollisionShape.new()
+	var capsule = CapsuleShape.new()
+	capsule.radius = radius
+	capsule.height = height
+	shape.shape = capsule
+	shape.rotation_degrees = Vector3(90, 0, 0)
+	body.add_child(shape)
+	root.add_child(body)
 
-func _append_capsule_shell(data: Dictionary, endpoint_specs: Array, radius: float, body_length: float, segments: int, hemisphere_rings: int, double_sided: bool) -> void:
-	var safe_segments: int = int(max(8, segments))
-	var half_body: float = body_length * 0.5
-	for s in range(safe_segments):
-		var a0: float = TAU * float(s) / float(safe_segments)
-		var a1: float = TAU * float(s + 1) / float(safe_segments)
-		var n0: Vector3 = Vector3(cos(a0), 0.0, sin(a0)).normalized()
-		var n1: Vector3 = Vector3(cos(a1), 0.0, sin(a1)).normalized()
-		var patch_normal: Vector3 = (n0 + n1).normalized()
-		if not _is_port_hole_direction(patch_normal, endpoint_specs, radius):
-			var p00: Vector3 = Vector3(n0.x * radius, -half_body, n0.z * radius)
-			var p10: Vector3 = Vector3(n0.x * radius, half_body, n0.z * radius)
-			var p01: Vector3 = Vector3(n1.x * radius, -half_body, n1.z * radius)
-			var p11: Vector3 = Vector3(n1.x * radius, half_body, n1.z * radius)
-			_push_shell_quad(data, p00, p10, p01, p11, n0, n0, n1, n1, double_sided)
+func _add_structural_rings(root: Node, axis: Vector3, length: float, radius: float, count: int = 2) -> void:
+	for i in range(count):
+		var ring = MeshInstance.new()
+		var ring_mesh = CylinderMesh.new()
+		ring_mesh.top_radius = radius + ring_extra_radius
+		ring_mesh.bottom_radius = radius + ring_extra_radius
+		ring_mesh.height = ring_height
+		ring.mesh = ring_mesh
+		ring.material_override = _get_res(CONDUIT_MAT_PATH)
+		
+		var t = -length * 0.5 + (length / (count + 1)) * (i + 1)
+		ring.translation = axis * t
+		ring.rotation_degrees = Vector3(90, 0, 0)
+		root.add_child(ring)
 
-	var safe_rings: int = int(max(3, hemisphere_rings))
-	_append_capsule_cap(data, endpoint_specs, radius, half_body, 1.0, safe_segments, safe_rings, double_sided)
-	_append_capsule_cap(data, endpoint_specs, radius, -half_body, -1.0, safe_segments, safe_rings, double_sided)
+func _add_floor_grate(root: Node, length: float, radius: float) -> void:
+	var grate = MeshInstance.new()
+	var grate_mesh = QuadMesh.new()
+	grate_mesh.size = Vector2(radius * 1.5, length)
+	grate.mesh = grate_mesh
+	grate.material_override = _get_res(FLOOR_MAT_PATH)
+	grate.translation = Vector3(0, -radius + 0.1, 0)
+	grate.rotation_degrees = Vector3(-90, 0, 0)
+	root.add_child(grate)
 
-func _append_capsule_cap(data: Dictionary, endpoint_specs: Array, radius: float, y_center: float, y_sign: float, segments: int, rings: int, double_sided: bool) -> void:
-	for r in range(rings):
-		var p0: float = float(r) / float(rings) * PI * 0.5
-		var p1: float = float(r + 1) / float(rings) * PI * 0.5
-		for s in range(segments):
-			var a0: float = TAU * float(s) / float(segments)
-			var a1: float = TAU * float(s + 1) / float(segments)
-			var n00: Vector3 = Vector3(sin(p0) * cos(a0), y_sign * cos(p0), sin(p0) * sin(a0)).normalized()
-			var n10: Vector3 = Vector3(sin(p1) * cos(a0), y_sign * cos(p1), sin(p1) * sin(a0)).normalized()
-			var n01: Vector3 = Vector3(sin(p0) * cos(a1), y_sign * cos(p0), sin(p0) * sin(a1)).normalized()
-			var n11: Vector3 = Vector3(sin(p1) * cos(a1), y_sign * cos(p1), sin(p1) * sin(a1)).normalized()
-			var patch_normal: Vector3 = (n00 + n10 + n01 + n11).normalized()
-			if _is_port_hole_direction(patch_normal, endpoint_specs, radius):
-				continue
-			var center: Vector3 = Vector3(0.0, y_center, 0.0)
-			_push_shell_quad(data, center + n00 * radius, center + n10 * radius, center + n01 * radius, center + n11 * radius, n00, n10, n01, n11, double_sided)
+func _add_content_overlay(node: Spatial, gy: int) -> void:
+	var color = Color.white
+	var zone = "Air"
+	if gy >= 2:
+		color = Color.cyan; zone = "Gas"
+	elif gy == 1:
+		color = Color.blue; zone = "Water"
+	else:
+		color = Color(0.5, 0.5, 0.5); zone = "Air"
+	
+	node.set_meta("zone", zone)
+	
+	var light = OmniLight.new()
+	light.light_color = color
+	light.light_energy = 0.4
+	light.omni_range = 8.0
+	node.add_child(light)
 
-func _is_port_hole_direction(normal: Vector3, endpoint_specs: Array, radius: float) -> bool:
-	if endpoint_specs.empty():
-		return false
-	var hole_ratio: float = clamp((duct_radius + 0.25) / max(radius, duct_radius + 0.26), 0.2, 0.96)
-	var hole_cos: float = cos(min(PI * 0.45, asin(hole_ratio) + 0.12))
-	for spec in endpoint_specs:
-		var axis: Vector3 = spec["axis"]
-		if normal.dot(axis) > hole_cos:
-			return true
-	return false
+	if zone != "Air" and node.name == "CapsuleRoom":
+		_apply_tint(node, color)
 
-func _room_outer_radius() -> float:
-	return max(duct_radius + duct_wall_thickness, duct_radius * room_radius_multiplier)
+func _apply_tint(node: Node, color: Color) -> void:
+	for child in node.get_children():
+		if child is MeshInstance:
+			var mat = child.material_override
+			if not mat:
+				mat = child.mesh.surface_get_material(0) if child.mesh else null
+			if mat is SpatialMaterial:
+				var new_mat = mat.duplicate()
+				new_mat.albedo_color = new_mat.albedo_color.linear_interpolate(color, 0.3)
+				child.material_override = new_mat
+		_apply_tint(child, color)
 
-func _room_inner_radius() -> float:
-	return max(duct_radius, _room_outer_radius() - max(duct_wall_thickness, 0.5))
+func _add_exit_airlock(cell: Dictionary, idx: int) -> void:
+	var airlock_scene = _get_res(AIRLOCK_CHAMBER_PATH)
+	if not airlock_scene: return
+	
+	var airlock = airlock_scene.instance()
+	add_child(airlock)
+	
+	var gx := idx % sectors
+	var gy := idx / sectors
+	airlock.transform = _grid_to_world(gx, gy, cell.base_height)
+	airlock.rotate_object_local(Vector3.UP, PI) # Orient outward
+	
+	# Add Iris Door
+	var iris_scene = _get_res(IRIS_DOOR_PATH)
+	if iris_scene:
+		var iris = iris_scene.instance()
+		airlock.add_child(iris)
+		iris.translation = Vector3(0, 0, 0)
+		iris.scale = Vector3.ONE * (duct_radius / 1.7)
+		_apply_duct_properties(iris)
 
-func _room_body_length() -> float:
-	return max(ring_step * room_length_multiplier, _room_outer_radius() * 1.25)
-
-func _local_port_endpoint(direction: int, ring_radius: float, port_height: float = 0.0) -> Vector3:
-	if axial_layout:
-		if direction == 0:
-			return Vector3(0, -ring_step * 0.5, port_height)
-		if direction == 2:
-			return Vector3(0, ring_step * 0.5, port_height)
-		var axial_port_radius: float = ring_radius + port_height
-		var axial_half_angle: float = deg2rad(_angle_step() * 0.5)
-		var axial_tangent_offset: float = axial_port_radius * sin(axial_half_angle)
-		var axial_inward_offset: float = axial_port_radius * cos(axial_half_angle) - ring_radius
-		if direction == 1:
-			return Vector3(axial_tangent_offset, 0, axial_inward_offset)
-		return Vector3(-axial_tangent_offset, 0, axial_inward_offset)
-	if direction == 0:
-		return Vector3(0, port_height, -ring_step * 0.5)
-	if direction == 2:
-		return Vector3(0, port_height, ring_step * 0.5)
-	var half_angle: float = deg2rad(_angle_step() * 0.5)
-	var tangent_offset: float = ring_radius * sin(half_angle)
-	var inward_offset: float = ring_radius * (cos(half_angle) - 1.0)
-	if direction == 1:
-		return Vector3(tangent_offset, port_height, inward_offset)
-	return Vector3(-tangent_offset, port_height, inward_offset)
-
-func _basis_from_y_axis(axis: Vector3) -> Basis:
-	var y_axis: Vector3 = axis.normalized()
-	var x_ref: Vector3 = Vector3.RIGHT
-	if abs(y_axis.dot(x_ref)) > 0.92:
-		x_ref = Vector3.FORWARD
-	var z_axis: Vector3 = x_ref.cross(y_axis).normalized()
-	var x_axis: Vector3 = y_axis.cross(z_axis).normalized()
-	return Basis(x_axis, y_axis, z_axis)
-
-func _basis_from_z_axis(axis: Vector3, up_hint: Vector3 = Vector3.UP) -> Basis:
-	var z_axis: Vector3 = axis.normalized()
-	var y_ref: Vector3 = up_hint.normalized()
-	if abs(z_axis.dot(y_ref)) > 0.92:
-		y_ref = Vector3.RIGHT
-	# Godot's Basis(x, y, z) takes the axes as COLUMNS; it is right-handed (det +1) only
-	# when z == x.cross(y). Build an orthonormal frame, then flip x if the result came out
-	# mirrored (det -1) — a mirrored basis shows up as a NEGATIVE scale on the placed node
-	# and flips the iris blade rotation sense, so the door looks like it does nothing.
-	var x_axis: Vector3 = y_ref.cross(z_axis).normalized()
-	var y_axis: Vector3 = z_axis.cross(x_axis).normalized()
-	var basis := Basis(x_axis, y_axis, z_axis)
-	if basis.determinant() < 0.0:
-		basis = Basis(-x_axis, y_axis, z_axis)
-	return basis
+	# Add some valves for decoration
+	var valve_scene = _get_res(VALVE_PATH)
+	if valve_scene:
+		var valve = valve_scene.instance()
+		airlock.add_child(valve)
+		valve.translation = Vector3(1.5, 0, -2.0)
 
 func _grado(conn: Array) -> int:
 	var count = 0
 	for c in conn:
 		if c: count += 1
 	return count
-
-func _add_overlay(node: Spatial, gy: int, cell_index: int = -1) -> void:
-	# Task 4: Content Zones
-	var color = Color.white
-	var zone_name = "Air"
-
-	if gy >= 4:
-		color = Color.cyan # Gas
-		zone_name = "Gas"
-	elif gy >= 2:
-		color = Color.blue # Water
-		zone_name = "Water"
-	else:
-		color = Color.lightgray # Air
-		zone_name = "Air"
-
-	node.set_meta("zone_color", color)
-	node.set_meta("zone_name", zone_name)
-
-	var sparse_overlay: bool = overlay_stride <= 1 or cell_index < 0 or cell_index % overlay_stride == 0
-	var is_room_overlay: bool = node.has_meta("is_room") and bool(node.get_meta("is_room"))
-	if not sparse_overlay and not is_room_overlay:
-		return
-
-	# Visual overlays: Colored light
-	var light = OmniLight.new()
-	light.light_color = color
-	light.light_energy = 0.45
-	light.omni_range = 8.0
-	node.add_child(light)
-
-	# Material tint (Water/Gas)
-	if zone_name != "Air" and is_room_overlay:
-		_apply_tint(node, color)
-
-	# Particles for Gas
-	if enable_zone_particles and zone_name == "Gas" and is_room_overlay:
-		var particles = Particles.new()
-		particles.name = "ZoneParticles_" + zone_name
-		var mat = ParticlesMaterial.new()
-		mat.emission_shape = ParticlesMaterial.EMISSION_SHAPE_BOX
-		mat.emission_box_extents = Vector3(1.5, 1.5, 1.5)
-		mat.direction = Vector3(0, 1, 0)
-		mat.spread = 180.0
-		mat.gravity = Vector3(0, 0, 0)
-		mat.initial_velocity = 0.2
-		mat.color = color
-		particles.process_material = mat
-		particles.amount = 32
-		particles.lifetime = 4.0
-		node.add_child(particles)
-
-func _apply_tint(node: Node, color: Color) -> void:
-	for child in node.get_children():
-		if child is MeshInstance:
-			for i in range(child.get_surface_material_count()):
-				var mat = child.get_surface_material(i)
-				if not mat:
-					mat = child.mesh.surface_get_material(i) if child.mesh else null
-
-				if mat is SpatialMaterial:
-					var new_mat = mat.duplicate()
-					new_mat.albedo_color = new_mat.albedo_color.linear_interpolate(color, 0.3)
-					child.set_surface_material(i, new_mat)
-		elif child is CSGCombiner:
-			# Tinting CSG is trickier if it uses material at root
-			var child_mat = child.get("material")
-			if child_mat is SpatialMaterial:
-				var new_child_mat = child_mat.duplicate()
-				new_child_mat.albedo_color = new_child_mat.albedo_color.linear_interpolate(color, 0.3)
-				child.set("material", new_child_mat)
-		_apply_tint(child, color)
-
-func _find_csg_material(node: Node) -> Material:
-	var material = node.get("material")
-	if material is Material:
-		return material
-	for child in node.get_children():
-		var child_material = _find_csg_material(child)
-		if child_material:
-			return child_material
-	return null
-
-func _insert_valves(parent: Spatial = null) -> void:
-	# Task 2: Strategic valves
-	if not corridor_valves_enabled:
-		return
-	var valve_scene = _get_res(VALVE_PATH)
-	if not valve_scene: return
-	var root: Spatial = parent if parent != null else self
-
-	var count = 0
-	for child in root.get_children():
-		var is_radial = false
-		if "DuctRadial" in child.name:
-			is_radial = true
-		elif child.has_meta("variant_id") and child.get_meta("variant_id") == "W":
-			if child.has_meta("rotation") and int(child.get_meta("rotation")) % 180 == 0:
-				is_radial = true
-
-		if is_radial:
-			count += 1
-			if count % 3 == 0:
-				var valve = valve_scene.instance()
-				root.add_child(valve)
-				valve.name = "DuctGateValve_%d" % count
-				var valve_axis: Vector3 = _valve_axis_for_child(child)
-				var valve_transform: Transform = Transform(_basis_from_z_axis(valve_axis, child.transform.basis.y), child.translation)
-				valve.transform = valve_transform
-				valve.scale = Vector3.ONE * max(1.0, duct_radius / 2.0)
-
-func _valve_axis_for_child(child: Spatial) -> Vector3:
-	if axial_layout and child.has_meta("variant_id") and child.get_meta("variant_id") == "W":
-		if child.has_meta("rotation") and int(child.get_meta("rotation")) % 180 == 0:
-			return child.transform.basis.y.normalized()
-	return child.transform.basis.z.normalized()
-
-func _activate_collapse_triggers(parent: Spatial = null) -> void:
-	# Task 3: Progressive collapse activation
-	var root: Spatial = parent if parent != null else self
-	for child in root.get_children():
-		if child is Spatial:
-			child.set_meta("collapse_active", true)
-			if child.has_method("enable_collapse"):
-				child.enable_collapse()
