@@ -6,10 +6,18 @@ class_name DuctMazeStreamer
 # Procedural radial duct maze generation.
 
 export var inner_radius := 2.0
-export var ring_step := 4.0
+export var ring_step := 4.0      # axial length of each duct segment (NOT radial spacing)
 export var sectors := 12
 export var rings := 3
 export var height_steps := 6
+
+# Concentric radial fill (FD-052): the maze fills the cylinder interior. Rings grow
+# INWARD from the wall so everything stays inside the Core shell (radius ~30).
+export var wall_radius := 28.0   # outermost ring radius; keep < Core inner shell (30)
+export var radial_step := 1.5    # radial gap between concentric rings
+# Axial spread: MST base_height has only `height_steps` discrete levels (×2m each),
+# which is a thin slice in an 8000-long tube. Scale it so the maze spans the axis.
+export var axial_scale := 1.0
 export var room_count := 4
 export var extra_cycles := 2
 export var seed_value := -1
@@ -31,7 +39,7 @@ const CONDUIT_MAT_PATH := "res://core_v2/props/duct/DuctConduit.tres"
 const HAZARD_MAT_PATH := "res://core_v2/props/duct/DuctHazardStripe.tres"
 const VALVE_PATH := "res://core_v2/props/pipe/PipeValve.tscn"
 const AIRLOCK_CHAMBER_PATH := "res://core_v2/props/doors/AirlockChamber.tscn"
-const IRIS_DOOR_PATH := "res://core_v2/components/IrisDoorV2.tscn"
+const IRIS_DOOR_PATH := "res://core_v2/props/doors/IrisDoorV2.tscn"
 
 var _resource_cache := {}
 var _mesh_cache := {}
@@ -46,6 +54,51 @@ func _get_res(path: String):
 		else:
 			_resource_cache[path] = null
 	return _resource_cache[path]
+
+const AIRLOCK_HULL_SHADER := "res://core_v2/props/scifi_lights/shaders/airlock_hull.shader"
+const DUCT_HULL_SHADER := "res://core_v2/props/duct/shaders/duct_hull.shader"
+
+# All duct hull pieces: the airlock panel shader look, but forced CULL_DISABLED so that
+# wherever an open mouth shows the tube interior (junctions, endcaps, capsule ports) the
+# wall is visible from both sides — cull_back left those interior faces dark/inverted
+# ("cull dañado"). Now that the straight tube mesh has UVs the panels render correctly,
+# so cull_disabled no longer degenerates into a solid emissive fill.
+func _hull_mat() -> Material:
+	if _resource_cache.has("__hull_shared"):
+		return _resource_cache["__hull_shared"]
+	var mat = ShaderMaterial.new()
+	var shader = _get_res(DUCT_HULL_SHADER)  # = airlock shader with render_mode cull_disabled
+	if shader:
+		mat.shader = shader
+		mat.set_shader_param("seam_emission", 0.8)
+		mat.set_shader_param("intensity", 0.7)
+		_resource_cache["__hull_shared"] = mat
+		return mat
+	var fallback = SpatialMaterial.new()
+	fallback.albedo_color = Color(0.22, 0.25, 0.28)
+	fallback.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	_resource_cache["__hull_shared"] = fallback
+	return fallback
+
+# STRAIGHT ducts: same panels but cull_disabled (visible from both sides, which the user
+# wants) and with the emissive seams turned OFF — the straight tube was reading as fully
+# emissive. intensity=0 kills the seam glow; the panels still shade normally.
+func _hull_mat_straight() -> Material:
+	if _resource_cache.has("__hull_straight"):
+		return _resource_cache["__hull_straight"]
+	var mat = ShaderMaterial.new()
+	var shader = _get_res(DUCT_HULL_SHADER)
+	if shader:
+		mat.shader = shader
+		mat.set_shader_param("seam_emission", 0.0)
+		mat.set_shader_param("intensity", 0.0)
+		_resource_cache["__hull_straight"] = mat
+		return mat
+	var fallback = SpatialMaterial.new()
+	fallback.albedo_color = Color(0.22, 0.25, 0.28)
+	fallback.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	_resource_cache["__hull_straight"] = fallback
+	return fallback
 
 func generate() -> void:
 	for child in get_children():
@@ -94,31 +147,53 @@ func generate() -> void:
 		
 		var tile = instantiate_tile(gx, gy, cell)
 		if tile:
+			# Capture the authored name BEFORE add_child: Godot auto-renames on a name
+			# collision (e.g. "DuctArc" -> "@DuctArc@443"), and that "@" prefix broke the
+			# begins_with("DuctArc") test in _grid_to_world, routing arcs through the
+			# straight-duct basis (bug 3: arcs mis-oriented / not connecting).
+			var tile_kind = String(tile.name)
 			add_child(tile)
-			tile.transform = _grid_to_world(gx, gy, cell.base_height)
-			# Apply local rotation. Following ODI-001, Z is always forward.
-			# Radial ducts (rot 0) face Z radial.
-			# Arcs (rot 90/270) face Z tangential.
-			tile.rotate_object_local(Vector3.UP, deg2rad(v.rotation))
+			tile.transform = _grid_to_world(gx, gy, cell.base_height, tile_kind)
 
-func _grid_to_world(gx: int, gy: int, height: float) -> Transform:
+# Wrap-on-wall model (FD-052): the maze hugs the cylinder wall at a near-fixed
+# radius. gx wraps the circumference, gy runs ALONG the tube axis (Y). base_height
+# gives a small radial relief so it does not read as a flat sheet. Centralised so
+# tile placement and the arc mesh (make_duct_arc) stay in sync.
+func _ring_radius(_gy: int, _height: float = 0.0) -> float:
+	# Wrap-on-wall: every piece sits at the wall. (No per-piece radial relief — that
+	# collapsed pieces to the center because base_height is the AXIAL offset, 0..12.)
+	return wall_radius
+
+func _grid_to_world(gx: int, gy: int, height: float, piece_name: String = "") -> Transform:
 	var angle_deg := float(gx) * (360.0 / sectors)
 	var angle_rad := deg2rad(angle_deg)
-	var radius := inner_radius + (float(gy) + 0.5) * ring_step
+	var radius := _ring_radius(gy, height)
 
 	var world_x := radius * cos(angle_rad)
+	# gy walks the cylinder axis: this is the long direction of the tube.
+	var world_y := float(gy) * ring_step * axial_scale
 	var world_z := radius * sin(angle_rad)
-	var pos := Vector3(world_x, height, world_z)
+	var pos := Vector3(world_x, world_y, world_z)
 
-	# Basis following FD-052 Section 2.4:
-	# tangent = circunferencial (Basis.x)
-	# up = Vector3.UP (Basis.y)
-	# radial = radial (Basis.z)
 	var tangent := Vector3(-sin(angle_rad), 0, cos(angle_rad))
-	var up := Vector3.UP
 	var radial := Vector3(cos(angle_rad), 0, sin(angle_rad))
+	var up := Vector3(0, 1, 0)
 
-	return Transform(Basis(tangent, up, radial), pos)
+	# Arcs connect two sectors at the SAME Y level, hugging the wall along the
+	# circumference. DuctArcBuilder authors the arc so that its navigable direction
+	# (tangent to the arc) is local +Z and its centre of curvature is at local -X
+	# (i.e. local +X points away from the arc centre). To wrap the cylinder wall:
+	#   local +Z -> circle tangent   (sweep along the circumference)
+	#   local +X -> radial-out       (so -X, the arc centre, points at the axis)
+	#   local +Y -> global up (axis)
+	# => Basis columns (x=radial, y=up, z=tangent).
+	if piece_name.begins_with("DuctArc"):
+		return Transform(Basis(radial, up, tangent), pos)
+
+	# Everything else (straight ducts, junctions) connects ALONG the tube: their
+	# authored "forward" (local Z) must point along global Y. local Y = radial-out.
+	#   x = tangent, y = radial-out, z = axial(global Y)
+	return Transform(Basis(tangent, radial, up), pos)
 
 func instantiate_tile(gx: int, gy: int, cell: Dictionary) -> Spatial:
 	var v = cell.variant
@@ -187,7 +262,9 @@ func make_duct_radial(gy: int) -> Spatial:
 	root.name = "DuctRadial"
 	var mesh_instance = MeshInstance.new()
 	mesh_instance.mesh = _get_hollow_cylinder(ring_step, duct_radius, duct_wall_thickness)
-	mesh_instance.material_override = _get_res(HULL_MAT_PATH)
+	# Same material as the curved ducts (airlock panel shader, cull_back). The earlier
+	# cull_disabled variant made the straight tube read as a solid blue glow inside.
+	mesh_instance.material_override = _hull_mat()
 	root.add_child(mesh_instance)
 	
 	_add_collision_cylinder(root, ring_step, duct_radius)
@@ -199,14 +276,15 @@ func make_duct_radial(gy: int) -> Spatial:
 func make_duct_arc(gx: int, gy: int) -> Spatial:
 	var root = Spatial.new()
 	root.name = "DuctArc"
-	var radius := inner_radius + (float(gy) + 0.5) * ring_step
+	# Arc curvature must match the wall radius so it follows the cylinder circumference.
+	var radius := wall_radius
 	var arc_deg := 360.0 / sectors
 	var arc_rad := deg2rad(arc_deg)
 	
 	var mesh_instance = MeshInstance.new()
 	# The builder now generates arcs aligned with Z axis
 	mesh_instance.mesh = DuctArcBuilder.get_or_build_arc(radius, duct_radius, arc_deg, 16)
-	mesh_instance.material_override = _get_res(HULL_MAT_PATH)
+	mesh_instance.material_override = _hull_mat()
 	root.add_child(mesh_instance)
 	
 	# Floor grate for the arc
@@ -226,27 +304,14 @@ func make_duct_arc(gx: int, gy: int) -> Spatial:
 		grate.rotation.x = -PI * 0.5
 		root.add_child(grate)
 	
-	# Segmented collision for the arc using BoxShape
-	var segments = 8
+	# HOLLOW collision: the old segmented BoxShapes filled the curved tube so the player
+	# could not enter it (bug). Use a trimesh of the arc wall mesh instead, so only the
+	# wall collides and the curve is navigable.
 	var body = StaticBody.new()
 	root.add_child(body)
-	for i in range(segments):
-		var u_start = (float(i) / segments - 0.5) * arc_rad
-		var u_end = (float(i+1) / segments - 0.5) * arc_rad
-		var u_mid = (u_start + u_end) * 0.5
-		
-		var shape = CollisionShape.new()
-		var box = BoxShape.new()
-		var length = radius * (u_end - u_start)
-		# Extents are half-sizes
-		box.extents = Vector3(duct_radius, duct_radius, length * 0.5)
-		shape.shape = box
-		
-		var x = radius * cos(u_mid) - radius
-		var z = radius * sin(u_mid)
-		shape.translation = Vector3(x, 0, z)
-		shape.rotation.y = -u_mid
-		body.add_child(shape)
+	var arc_shape = CollisionShape.new()
+	arc_shape.shape = mesh_instance.mesh.create_trimesh_shape()
+	body.add_child(arc_shape)
 	
 	# Structural rings following the arc
 	_add_structural_rings_arc(root, radius, arc_deg, 3)
@@ -255,34 +320,35 @@ func make_duct_arc(gx: int, gy: int) -> Spatial:
 
 func _add_structural_rings_arc(root: Spatial, R: float, arc_deg: float, count: int) -> void:
 	var arc_rad = deg2rad(arc_deg)
+	# Torus collar (bug 2): axis = local Z. Along the arc the local tangent at parameter u
+	# is (-sin u, 0, cos u); a yaw of -u rotates the collar's Z axis onto that tangent so
+	# the band sits square around the curved tube (no flat-plate look).
+	var collar = _get_ring_collar_mesh(duct_radius + ring_extra_radius, max(ring_height, 0.18))
 	for i in range(count):
 		var u = (float(i) / (count - 1) - 0.5) * arc_rad
 		var ring = MeshInstance.new()
-		var ring_mesh = CylinderMesh.new()
-		ring_mesh.top_radius = duct_radius + ring_extra_radius
-		ring_mesh.bottom_radius = duct_radius + ring_extra_radius
-		ring_mesh.height = ring_height
-		ring.mesh = ring_mesh
+		ring.mesh = collar
 		ring.material_override = _get_res(CONDUIT_MAT_PATH)
-		
+
 		var x = R * cos(u) - R
 		var z = R * sin(u)
 		ring.translation = Vector3(x, 0, z)
 		ring.rotation.y = -u
-		ring.rotation.x = PI * 0.5
 		root.add_child(ring)
 
 func make_junction(id: String, connections: Array) -> Spatial:
 	var root = Spatial.new()
 	root.name = "Junction_" + id
 	
-	# Central hub
-	var sphere = MeshInstance.new()
-	sphere.mesh = _get_sphere_mesh(2.5)
-	sphere.material_override = _get_res(HULL_MAT_PATH)
-	root.add_child(sphere)
-	_add_collision_sphere(root, 2.5)
-	
+	# Central hub: a torus collar (open centre) framing the junction, like the collars on
+	# the curved ducts. A solid sphere either sealed the path ("esferas impasables") or
+	# looked bad; an open collar reads as a joint and stays passable. No collision on it —
+	# the arms provide the walls.
+	var hub = MeshInstance.new()
+	hub.mesh = _get_ring_collar_mesh(duct_radius + ring_extra_radius, max(ring_height, 0.18))
+	hub.material_override = _get_res(CONDUIT_MAT_PATH)
+	root.add_child(hub)
+
 	# Arms (Z = Forward, X = Right)
 	var dirs = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
 	for i in range(4):
@@ -296,7 +362,7 @@ func make_arm(dir: Vector3, length: float, radius: float) -> Spatial:
 	var arm = Spatial.new()
 	var mesh = MeshInstance.new()
 	mesh.mesh = _get_hollow_cylinder(length, radius, duct_wall_thickness)
-	mesh.material_override = _get_res(HULL_MAT_PATH)
+	mesh.material_override = _hull_mat()
 	arm.add_child(mesh)
 	
 	var look_dir = dir
@@ -323,7 +389,7 @@ func make_incline(port_heights: Array) -> Spatial:
 	var length = ring_step
 	var mesh_instance = MeshInstance.new()
 	mesh_instance.mesh = _get_hollow_cylinder(length, duct_radius, duct_wall_thickness)
-	mesh_instance.material_override = _get_res(HULL_MAT_PATH)
+	mesh_instance.material_override = _hull_mat()
 	root.add_child(mesh_instance)
 	
 	# Slope the duct
@@ -347,21 +413,18 @@ func make_endcap() -> Spatial:
 	root.name = "DuctEndCap"
 	var mesh = MeshInstance.new()
 	mesh.mesh = _get_hollow_cylinder(1.0, duct_radius, duct_wall_thickness)
-	mesh.material_override = _get_res(HULL_MAT_PATH)
+	mesh.material_override = _hull_mat()
 	root.add_child(mesh)
 	
-	# Solid cap
-	var cap = MeshInstance.new()
-	var cap_mesh = CylinderMesh.new()
-	cap_mesh.top_radius = duct_radius + duct_wall_thickness
-	cap_mesh.bottom_radius = duct_radius + duct_wall_thickness
-	cap_mesh.height = 0.1
-	cap.mesh = cap_mesh
-	cap.material_override = _get_res(HULL_MAT_PATH)
-	cap.translation = Vector3(0, 0, 0.5)
-	cap.rotation.x = PI * 0.5
-	root.add_child(cap)
-	
+	# Open torus collar at the mouth instead of a solid disc plate. The flat CylinderMesh
+	# cap read as a "circular plate covering the section" (bug); a collar frames the
+	# opening like the curved-duct rings and keeps the tube passable.
+	var collar = MeshInstance.new()
+	collar.mesh = _get_ring_collar_mesh(duct_radius + ring_extra_radius, max(ring_height, 0.18))
+	collar.material_override = _get_res(CONDUIT_MAT_PATH)
+	collar.translation = Vector3(0, 0, 0.5)
+	root.add_child(collar)
+
 	_add_collision_cylinder(root, 1.0, duct_radius)
 	return root
 
@@ -371,7 +434,7 @@ func make_capsule(connections: Array, gy: int) -> Spatial:
 	
 	var mesh_instance = MeshInstance.new()
 	mesh_instance.mesh = _get_capsule_mesh(3.0, 4.0)
-	mesh_instance.material_override = _get_res(HULL_MAT_PATH)
+	mesh_instance.material_override = _hull_mat()
 	root.add_child(mesh_instance)
 	
 	_add_collision_capsule(root, 4.0, 3.0)
@@ -384,12 +447,9 @@ func make_capsule(connections: Array, gy: int) -> Spatial:
 			arm.translation = dirs[i] * 4.0
 			root.add_child(arm)
 			
-	# Lights
-	var light = OmniLight.new()
-	light.light_energy = 1.0
-	light.omni_range = 10.0
-	root.add_child(light)
-	
+	# No dynamic OmniLight per tile: GLES2 forward does not scale with omni lights.
+	# Illumination comes from emissive materials (DuctLightStrip.tres) + scene DirectionalLight.
+
 	# Decoration
 	var valve_scene = _get_res(VALVE_PATH)
 	if valve_scene:
@@ -408,34 +468,108 @@ func _get_hollow_cylinder(length: float, radius: float, thickness: float) -> Arr
 	var segments = 16
 	var half_l = length * 0.5
 	
+	# Per-vertex normals: each corner gets the radial normal at its OWN angle (not the
+	# segment-start angle), so shading is smooth and the outer face is correctly lit
+	# instead of reading as black (bug 1). Inner normals point in (toward axis), outer
+	# normals point out. Winding is set so each face's front matches its normal.
 	for i in range(segments):
 		var a0 = TAU * i / segments
 		var a1 = TAU * (i + 1) / segments
 		var c0 = cos(a0); var s0 = sin(a0)
 		var c1 = cos(a1); var s1 = sin(a1)
-		
+
+		var ni0 = Vector3(-c0, -s0, 0)  # inner normal at a0 (toward axis)
+		var ni1 = Vector3(-c1, -s1, 0)  # inner normal at a1
+		var no0 = Vector3(c0, s0, 0)    # outer normal at a0 (away from axis)
+		var no1 = Vector3(c1, s1, 0)    # outer normal at a1
+
+		# UVs: U = around the circumference, V = along the length. Without UVs the airlock
+		# panel shader read everything as a seam -> solid emissive blue (bug). U is scaled
+		# by the circumference and V by the length so panels stay roughly square.
+		var u0 = float(i) / segments * (TAU * radius) / 4.0
+		var u1 = float(i + 1) / segments * (TAU * radius) / 4.0
+		var vlo = 0.0
+		var vhi = length / 4.0
+		var uv_p0 = Vector2(u0, vlo); var uv_p1 = Vector2(u1, vlo)
+		var uv_p2 = Vector2(u0, vhi); var uv_p3 = Vector2(u1, vhi)
+
 		# Inner
 		var p0 = Vector3(radius * c0, radius * s0, -half_l)
 		var p1 = Vector3(radius * c1, radius * s1, -half_l)
 		var p2 = Vector3(radius * c0, radius * s0, half_l)
 		var p3 = Vector3(radius * c1, radius * s1, half_l)
-		
-		st.add_normal(Vector3(-c0, -s0, 0))
-		st.add_vertex(p0); st.add_vertex(p1); st.add_vertex(p2)
-		st.add_vertex(p1); st.add_vertex(p3); st.add_vertex(p2)
-		
+
+		st.add_normal(ni0); st.add_uv(uv_p0); st.add_vertex(p0)
+		st.add_normal(ni1); st.add_uv(uv_p1); st.add_vertex(p1)
+		st.add_normal(ni0); st.add_uv(uv_p2); st.add_vertex(p2)
+		st.add_normal(ni1); st.add_uv(uv_p1); st.add_vertex(p1)
+		st.add_normal(ni1); st.add_uv(uv_p3); st.add_vertex(p3)
+		st.add_normal(ni0); st.add_uv(uv_p2); st.add_vertex(p2)
+
 		# Outer
 		var orad = radius + thickness
 		var op0 = Vector3(orad * c0, orad * s0, -half_l)
 		var op1 = Vector3(orad * c1, orad * s1, -half_l)
 		var op2 = Vector3(orad * c0, orad * s0, half_l)
 		var op3 = Vector3(orad * c1, orad * s1, half_l)
-		
-		st.add_normal(Vector3(c0, s0, 0))
-		st.add_vertex(op2); st.add_vertex(op1); st.add_vertex(op0)
-		st.add_vertex(op2); st.add_vertex(op3); st.add_vertex(op1)
+
+		# Outer face: winding reversed vs the inner face so the front side faces OUTWARD
+		# (matching the outward normal). The previous order culled the outer face, so the
+		# tube was visible only from inside (bug 1, recurring).
+		st.add_normal(no0); st.add_uv(uv_p0); st.add_vertex(op0)
+		st.add_normal(no1); st.add_uv(uv_p1); st.add_vertex(op1)
+		st.add_normal(no0); st.add_uv(uv_p2); st.add_vertex(op2)
+		st.add_normal(no1); st.add_uv(uv_p1); st.add_vertex(op1)
+		st.add_normal(no1); st.add_uv(uv_p3); st.add_vertex(op3)
+		st.add_normal(no0); st.add_uv(uv_p2); st.add_vertex(op2)
 
 	var mesh = st.commit()
+	_mesh_cache[key] = mesh
+	return mesh
+
+# Torus collar that wraps AROUND the tube as a raised band (bug 2: the old rings used a
+# thin solid CylinderMesh disc -> read as a flat plate seen edge-on). The torus axis is
+# local Z, so it sits in the local XY plane and hugs a tube whose run direction is Z.
+func _get_ring_collar_mesh(major_radius: float, minor_radius: float) -> ArrayMesh:
+	var key = "collar_%f_%f" % [major_radius, minor_radius]
+	if _mesh_cache.has(key): return _mesh_cache[key]
+
+	var ring_segs = 20   # around the tube circumference
+	var tube_segs = 8    # around the collar's own thickness
+	var verts = PoolVector3Array()
+	var norms = PoolVector3Array()
+	var idx = PoolIntArray()
+
+	for i in range(ring_segs + 1):
+		var u = TAU * i / ring_segs
+		var cu = cos(u); var su = sin(u)
+		# Ring runs in local XY plane (axis = local Z). Centre of each section:
+		var center = Vector3(major_radius * cu, major_radius * su, 0)
+		for j in range(tube_segs + 1):
+			var v = TAU * j / tube_segs
+			var cv = cos(v); var sv = sin(v)
+			# Section circle lives in the (radial, Z) plane of the ring.
+			var radial = Vector3(cu, su, 0)
+			var n = radial * cv + Vector3(0, 0, sv)
+			verts.push_back(center + n * minor_radius)
+			norms.push_back(n)
+
+	for i in range(ring_segs):
+		for j in range(tube_segs):
+			var a = i * (tube_segs + 1) + j
+			var b = a + 1
+			var c = (i + 1) * (tube_segs + 1) + j
+			var d = c + 1
+			idx.push_back(a); idx.push_back(c); idx.push_back(b)
+			idx.push_back(b); idx.push_back(c); idx.push_back(d)
+
+	var arr = []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = norms
+	arr[Mesh.ARRAY_INDEX] = idx
+	var mesh = ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	_mesh_cache[key] = mesh
 	return mesh
 
@@ -462,23 +596,24 @@ func _get_capsule_mesh(radius: float, height: float) -> ArrayMesh:
 	return mesh
 
 func _add_collision_cylinder(root: Node, length: float, radius: float) -> StaticBody:
+	# HOLLOW collision: a solid CylinderShape filled the tube so the player could not
+	# enter. Build a concave (trimesh) shape from the hollow-cylinder wall mesh, so only
+	# the wall collides and the interior is navigable (zero-g maze).
 	var body = StaticBody.new()
 	var shape = CollisionShape.new()
-	var cylinder = CylinderShape.new()
-	cylinder.radius = radius
-	cylinder.height = length
-	shape.shape = cylinder
-	shape.rotation_degrees = Vector3(90, 0, 0)
+	var mesh: ArrayMesh = _get_hollow_cylinder(length, radius, duct_wall_thickness)
+	shape.shape = mesh.create_trimesh_shape()
 	body.add_child(shape)
 	root.add_child(body)
 	return body
 
 func _add_collision_sphere(root: Node, radius: float) -> StaticBody:
+	# HOLLOW collision (see _add_collision_cylinder): a solid SphereShape sealed the
+	# junction hub. Use the sphere shell mesh as a trimesh so the player can pass through.
 	var body = StaticBody.new()
 	var shape = CollisionShape.new()
-	var sphere = SphereShape.new()
-	sphere.radius = radius
-	shape.shape = sphere
+	var mesh: ArrayMesh = _get_sphere_mesh(radius)
+	shape.shape = mesh.create_trimesh_shape()
 	body.add_child(shape)
 	root.add_child(body)
 	return body
@@ -496,18 +631,16 @@ func _add_collision_capsule(root: Node, height: float, radius: float) -> StaticB
 	return body
 
 func _add_structural_rings(root: Node, axis: Vector3, length: float, radius: float, count: int = 2) -> void:
+	# Torus collars wrapping the tube. The tube runs along local Z, and the collar mesh's
+	# axis is local Z too, so the band hugs the tube cross-section with no rotation.
+	var collar = _get_ring_collar_mesh(radius + ring_extra_radius, max(ring_height, 0.18))
 	for i in range(count):
 		var ring = MeshInstance.new()
-		var ring_mesh = CylinderMesh.new()
-		ring_mesh.top_radius = radius + ring_extra_radius
-		ring_mesh.bottom_radius = radius + ring_extra_radius
-		ring_mesh.height = ring_height
-		ring.mesh = ring_mesh
+		ring.mesh = collar
 		ring.material_override = _get_res(CONDUIT_MAT_PATH)
-		
+
 		var t = -length * 0.5 + (length / (count + 1)) * (i + 1)
 		ring.translation = axis * t
-		ring.rotation_degrees = Vector3(90, 0, 0)
 		root.add_child(ring)
 
 func _add_floor_grate(root: Node, length: float, radius: float) -> void:
@@ -531,13 +664,8 @@ func _add_content_overlay(node: Spatial, gy: int) -> void:
 		color = Color(0.5, 0.5, 0.5); zone = "Air"
 	
 	node.set_meta("zone", zone)
-	
-	var light = OmniLight.new()
-	light.light_color = color
-	light.light_energy = 0.4
-	light.omni_range = 8.0
-	node.add_child(light)
 
+	# Zone is conveyed via emissive tint instead of a dynamic OmniLight (GLES2 cost).
 	if zone != "Air" and node.name == "CapsuleRoom":
 		_apply_tint(node, color)
 
@@ -558,21 +686,20 @@ func _add_exit_airlock(cell: Dictionary, idx: int) -> void:
 	if not airlock_scene: return
 	
 	var airlock = airlock_scene.instance()
+	# No scene transition in the maze: let the airlock complete its cycle locally
+	# (open the exit door after pressurizing) instead of hanging on "PRESURIZANDO".
+	if "standalone_cycle" in airlock:
+		airlock.standalone_cycle = true
 	add_child(airlock)
 	
 	var gx := idx % sectors
 	var gy := idx / sectors
 	airlock.transform = _grid_to_world(gx, gy, cell.base_height)
 	airlock.rotate_object_local(Vector3.UP, PI) # Orient outward
-	
-	# Add Iris Door
-	var iris_scene = _get_res(IRIS_DOOR_PATH)
-	if iris_scene:
-		var iris = iris_scene.instance()
-		airlock.add_child(iris)
-		iris.translation = Vector3(0, 0, 0)
-		iris.scale = Vector3.ONE * (duct_radius / 1.7)
-		_apply_duct_properties(iris)
+	# NOTE: AirlockChamber.tscn already contains its own IrisDoorV2 wired to an
+	# AirlockControllerV2 that actually opens it. We must NOT add a second loose iris
+	# here — that duplicate had no controller, so it never opened and overlapped the
+	# real door (bug: "airlocks/iris don't open").
 
 func _grado(conn: Array) -> int:
 	var count = 0

@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
 
-const DuctMazeStreamerScript = preload("res://core_v2/systems/DuctMazeSpawner.gd")
+const DuctMazeStreamerScript = preload("res://core_v2/systems/DuctMazeStreamer.gd")
 
 func test_smoke_generation() -> void:
 	var root := Spatial.new()

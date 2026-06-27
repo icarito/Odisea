@@ -2,7 +2,7 @@ extends SceneTree
 
 func _init():
 	print("--- Smoke Test: DuctMazeStreamer (v3 Procedural) ---")
-	var DuctMazeStreamerScript = load("res://core_v2/systems/DuctMazeSpawner.gd")
+	var DuctMazeStreamerScript = load("res://core_v2/systems/DuctMazeStreamer.gd")
 	var spawner = DuctMazeStreamerScript.new()
 
 	print("Generating maze...")

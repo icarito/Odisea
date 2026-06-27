@@ -78,6 +78,10 @@ func set_build_info(info: Dictionary):
 
 func _init():
 	_client = WebSocketClient.new()
+	# Enlarge outbound buffer: screenshot responses are full-viewport PNGs (base64) that
+	# overflow the default 64KB WS out buffer (ERR_OUT_OF_MEMORY in wsl_peer put_packet),
+	# which silently drops the response and stalls the command until disconnect.
+	_client.set_buffers(64, 1024, 4096, 1024)
 	_client.connect("connection_established", self, "_on_connected")
 	_client.connect("connection_closed", self, "_on_disconnected")
 	_client.connect("connection_error", self, "_on_disconnected")

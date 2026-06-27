@@ -53,13 +53,13 @@ func _ready():
 			add_child(label)
 
 	# Add Player
-	var player_scene = load("res://core_v2/actors/Pilot_v2.tscn")
-	if player_scene:
-		var player = player_scene.instance()
-		player.translation = Vector3(0, 2, 5)
-		add_child(player)
-		# Ensure camera is current
-		player.call_deferred("force_camera_current")
+	#var player_scene = load("res://core_v2/actors/Pilot_v2.tscn")
+	#if player_scene:
+	#	var player = player_scene.instance()
+	#	player.translation = Vector3(0, 2, 5)
+	#	add_child(player)
+	#	# Ensure camera is current
+	#	player.call_deferred("force_camera_current")
 
 	# Add some lights
 	var sun = DirectionalLight.new()

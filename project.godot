@@ -307,7 +307,7 @@ _global_script_classes=[ {
 "base": "Spatial",
 "class": "DuctMazeStreamer",
 "language": "GDScript",
-"path": "res://core_v2/systems/DuctMazeSpawner.gd"
+"path": "res://core_v2/systems/DuctMazeStreamer.gd"
 }, {
 "base": "ImmediateGeometry",
 "class": "DynamicGravityDebugDraw",

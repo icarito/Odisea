@@ -12,8 +12,7 @@
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=1]
 
-[node name="Core" type="Spatial"]
-
+[node name="Core" type="Spatial"]11
 [node name="PrologueDirector" type="CanvasLayer" parent="."]
 script = ExtResource( 7 )
 music_stream = ExtResource( 8 )
