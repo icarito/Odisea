@@ -183,6 +183,67 @@ func test_collapse_triggers_are_disabled_by_default() -> void:
 
 	spawner.queue_free()
 
+func test_chunk_boundary_port_synchronization() -> void:
+	var spawner = DuctMazeStreamerScript.new()
+	spawner.sectors = 12
+	spawner.stream_chunk_rings = 8
+	spawner.seed_value = 123
+
+	# Seam between chunk 0 and chunk 1.
+	# Chunk 0: its SOUTH boundary (gy=7)
+	# Chunk 1: its NORTH boundary (gy=0)
+	var fixed0 = spawner._get_fixed_border_tiles(0, 8)
+	var fixed1 = spawner._get_fixed_border_tiles(1, 8)
+
+	var south_gx0 = -1
+	for key in fixed0.keys():
+		if ",7" in key:
+			south_gx0 = int(key.split(",")[0])
+			var spec = fixed0[key]
+			assert_str(spec.id).is_equal("W")
+			assert_int(spec.rotation).is_equal(0)
+			break
+
+	var north_gx1 = -1
+	for key in fixed1.keys():
+		if ",0" in key:
+			north_gx1 = int(key.split(",")[0])
+			var spec = fixed1[key]
+			assert_str(spec.id).is_equal("W")
+			assert_int(spec.rotation).is_equal(0)
+			break
+
+	assert_int(south_gx0).is_not_equal(-1)
+	assert_int(north_gx1).is_not_equal(-1)
+	assert_int(south_gx0).is_equal(north_gx1)
+
+	spawner.free()
+
+func test_generator_respects_fixed_variants() -> void:
+	var gen = ScaffoldMSTGenerator.new()
+	var params = {
+		"grid_width": 8,
+		"grid_depth": 12,
+		"fixed_border_tiles": {
+			"4,0": {"id": "W", "rotation": 0, "height": 2.0},
+			"2,11": {"id": "E", "rotation": 180, "height": 4.0}
+		}
+	}
+	gen.apply_params(params)
+	var grid = gen.generate_grid_data(42)
+
+	var cell_4_0 = grid[0 * 8 + 4]
+	assert_object(cell_4_0).is_not_null()
+	assert_str(cell_4_0.variant.id).is_equal("W")
+	assert_int(cell_4_0.variant.rotation).is_equal(0)
+	assert_float(cell_4_0.base_height).is_equal(2.0)
+
+	var cell_2_11 = grid[11 * 8 + 2]
+	assert_object(cell_2_11).is_not_null()
+	assert_str(cell_2_11.variant.id).is_equal("E")
+	assert_int(cell_2_11.variant.rotation).is_equal(180)
+	assert_float(cell_2_11.base_height).is_equal(4.0)
+
 func _count_collision_shapes(node: Node) -> Dictionary:
 	var counts := {}
 	if node is CollisionShape and node.shape != null:

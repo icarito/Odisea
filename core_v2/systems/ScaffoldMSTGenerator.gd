@@ -123,18 +123,29 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 		heights[bi] = bh
 		rooms.append({"pos": Vector2(cx, cy), "h": bh})
 		room_indices[bi] = true
-		# Open the seam tile's OUTWARD side toward the neighbouring chunk so the two
-		# chunks actually bridge. Without this the seam heights match but no walkable
-		# connection crosses the boundary — chunks look connectable but aren't. (The
-		# stream's hash makes this chunk's outward port and the neighbour's coincide.)
-		if cx == 0:
-			connections[bi][Direction.WEST] = true
-		elif cx == grid_width - 1:
-			connections[bi][Direction.EAST] = true
-		if cy == 0:
-			connections[bi][Direction.NORTH] = true
-		elif cy == grid_depth - 1:
-			connections[bi][Direction.SOUTH] = true
+		# Open the seam tile's connections based on fixed variant if specified,
+		# otherwise just open the outward side toward the neighbouring chunk.
+		var id = String(spec.get("id", ""))
+		if id != "" and id != "EMPTY":
+			var rot = int(spec.get("rotation", 0))
+			var wanted := _get_connections_for_variant(id, rot)
+			for d in range(4):
+				if wanted[d]:
+					connections[bi][d] = true
+					var ni = _neighbor(cx, cy, d)
+					if ni >= 0:
+						connections[ni][OPPOSITE[d]] = true
+						if heights[ni] < 0:
+							heights[ni] = bh
+		else:
+			if cx == 0:
+				connections[bi][Direction.WEST] = true
+			elif cx == grid_width - 1:
+				connections[bi][Direction.EAST] = true
+			if cy == 0:
+				connections[bi][Direction.NORTH] = true
+			elif cy == grid_depth - 1:
+				connections[bi][Direction.SOUTH] = true
 
 	# 1. Room Placement
 	var room_attempts := 0
@@ -243,6 +254,18 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 
 		_last_stair_base_shift = 0.0
 		var variant = _select_variant(conn, i, heights)
+
+		if _pinned_indices.has(i):
+			var cx := i % grid_width
+			var cy := i / grid_width
+			var spec = fixed_border_tiles.get("%d,%d" % [cx, cy])
+			if typeof(spec) == TYPE_DICTIONARY and spec.has("id") and spec["id"] != "EMPTY":
+				variant.id = spec["id"]
+				variant.rotation = int(spec.get("rotation", 0))
+				variant.connections = _get_connections_for_variant(variant.id, variant.rotation)
+				if variant.id != "S":
+					_last_stair_base_shift = 0.0
+
 		# For a stair whose ports were normalized to non-negative, lower base_height by
 		# the same amount so the ramp's low end stays on the lower deck's floor.
 		result.append({
@@ -254,6 +277,30 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			"is_room": room_indices.has(i)
 		})
 	return result
+
+func _get_connections_for_variant(id: String, rotation: int) -> Array:
+	var conn = [false, false, false, false]
+	var r = int(posmod(rotation, 360) / 90)
+	match id:
+		"E": conn[r] = true
+		"W":
+			if r % 2 == 0:
+				conn[0] = true; conn[2] = true
+			else:
+				conn[1] = true; conn[3] = true
+		"C":
+			conn[r] = true; conn[(r + 1) % 4] = true
+		"T":
+			var missing = (r + 2) % 4
+			for d in range(4): if d != missing: conn[d] = true
+		"X":
+			for d in range(4): conn[d] = true
+		"S":
+			if r % 2 == 0:
+				conn[0] = true; conn[2] = true
+			else:
+				conn[1] = true; conn[3] = true
+	return conn
 
 # Pulls connected cells together so no edge spans more than one HEIGHT_STEP. The
 # higher side of an over-steep edge is lowered toward the lower side, in steps,
