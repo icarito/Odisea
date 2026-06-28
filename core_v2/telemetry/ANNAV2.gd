@@ -392,6 +392,11 @@ func _cmd_set_property(id, args):
 
 func _cmd_execute_script(id, args):
 	var script_text = args.get("script")
+	var validation_error := _validate_remote_script(script_text)
+	if validation_error != "":
+		_send_response(id, false, {"error": validation_error})
+		return
+
 	var script = GDScript.new()
 	# Extend Node and run from a node attached to the tree, so the script can use get_node(),
 	# get_tree(), SceneManager, etc. A bare Reference has no tree access (get_node/get_tree
@@ -416,6 +421,34 @@ func _cmd_execute_script(id, args):
 		_send_response(id, false, {"error": run_err})
 	else:
 		_send_response(id, true, {"result": result})
+
+func _validate_remote_script(script_text) -> String:
+	if typeof(script_text) != TYPE_STRING:
+		return "script must be a string"
+	if script_text.length() > 12000:
+		return "script too long"
+	var stripped := String(script_text).strip_edges()
+	if stripped == "":
+		return "script is empty"
+	var risky_tokens = [
+		"\nfunc ",
+		" func ",
+		"\nclass ",
+		" class ",
+		"\nclass_name ",
+		" class_name ",
+		"\nextends ",
+		" extends ",
+		"\nyield(",
+		" yield(",
+		"\nwhile ",
+		" while "
+	]
+	var padded := "\n" + stripped + "\n"
+	for token in risky_tokens:
+		if padded.find(token) != -1:
+			return "unsupported remote script token: " + token.strip_edges()
+	return ""
 
 func _indent_code(code: String) -> String:
 	var indented = ""
