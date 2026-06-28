@@ -16,7 +16,7 @@ seed_value = 42
 streaming_enabled = true
 stream_chunk_rings = 24
 stream_active_chunks_each_side = 1
-duct_radius = 3.75
+duct_radius = 2.7
 
 [node name="Camera" type="Camera" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 15, 20 )

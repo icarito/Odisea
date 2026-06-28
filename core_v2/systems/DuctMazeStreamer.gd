@@ -380,19 +380,83 @@ func make_junction(id: String, connections: Array) -> Spatial:
 	var root = Spatial.new()
 	root.name = "Junction_" + id
 
+	var dirs = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
+
+	# Collect the directions this junction actually connects, so the hub shell is pierced
+	# with an open mouth toward each arm. The old solid SphereMesh (radius ~= the bore)
+	# sealed every crossing: from inside a duct the hub read as a wall and a T had no gap
+	# to walk through.
+	var hole_dirs := []
+	for i in range(4):
+		if connections[i]:
+			hole_dirs.append(dirs[i])
+
+	# Hub sized so the carved mouths stay BELOW 45deg half-angle: then four mouths (90deg
+	# apart on an X) don't overlap, and each hole rim sits well out from the equator so the
+	# arms seat into it without a gap AND without reaching so far in that they cross. At
+	# ratio 1.6: mouth ~39deg, footprint ~4.3m < the 5.1m half-sector (no sphere-to-sphere
+	# overlap now that duct_radius=2.7). This headroom is exactly what the thinner bore bought.
+	var hub_radius := duct_radius * 1.6
+	# Mouth half-angle = asin(bore/hub_radius): the carved hole is then EXACTLY bore-sized
+	# (its rim radius == duct_radius). No extra fudge — the old +4deg widened the hole past
+	# the tube so a thin ring gap opened between the cut sphere and the arm.
+	var mouth_half_angle := asin(clamp(duct_radius / hub_radius, 0.0, 0.999))
+	# Where the hole rim sits along the arm axis: the arm must start at (or just inside) this
+	# z so its tube wall meets the cut sphere edge with no gap (the "gap entre la esfera
+	# cortada y los ductos" bug). cos(mouth) shrinks fast as the hole grows, so for a tight
+	# hub this is near the equator — the arm has to reach well back into the hub.
+	var mouth_rim_z := hub_radius * cos(mouth_half_angle)
+
 	var hub = MeshInstance.new()
 	hub.name = "JunctionHub"
-	hub.mesh = _get_sphere_mesh(duct_radius * 0.95)
+	hub.mesh = _get_pierced_sphere_mesh(hub_radius, duct_wall_thickness, hole_dirs, mouth_half_angle)
 	hub.material_override = _hull_mat()
 	root.add_child(hub)
 
-	var dirs = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
-	var hub_clearance := clamp(junction_hub_reach, 0.0, ring_step * 0.45)
-	var length := max(ring_step * 0.5 - hub_clearance + duct_wall_thickness, duct_radius * 0.75)
+	# Collision for the hub: a TRIMESH of the pierced shell itself (exact, hollow, with the
+	# mouths open) instead of a box approximation. Box floor/walls left the player clipping
+	# the curved sphere where the square collider and the round mesh disagreed; the trimesh
+	# matches the visual wall exactly so you can't pass through it (FD-052 hollow-collision
+	# lesson: tubes/arcs/spheres need create_trimesh_shape, not primitive shapes).
+	var hub_body = StaticBody.new()
+	hub_body.name = "HubCollision"
+	var hub_col = CollisionShape.new()
+	hub_col.shape = hub.mesh.create_trimesh_shape()
+	hub_body.add_child(hub_col)
+	root.add_child(hub_body)
+
+	# Arms bridge from the HUB SURFACE to the cell boundary. AXIAL arms (FORWARD/BACK ==
+	# ±local Z) are straight; TANGENTIAL arms (RIGHT/LEFT == ±local X) CURVE around the
+	# cylinder (a straight tangential arm shoots as a chord across the hub and falls short of
+	# the neighbour ~10m away on the arc). dirs order: [FWD,RIGHT,BACK,LEFT].
+	#
+	# Each arm starts at the MOUTH RIM (mouth_rim_z), pulled in by a small overlap so the tube
+	# wall seats into the cut sphere edge with no gap. This is keyed to the hole geometry, so
+	# it stays sealed for elbow/T/X alike. The hollow hub interior is the crossing volume, so
+	# even when the rim is near the equator (4-way X) the arms don't cross — they plug their
+	# own mouth and stop.
+	var rim_overlap := duct_wall_thickness
+	var hub_clearance := max(mouth_rim_z - rim_overlap, 0.0)
+	# Axial arms slightly overshoot the cell half so the seam with the neighbour closes (no
+	# gap between sections); the small overlap is hidden by the collars.
+	var axial_len := max(ring_step * 0.5 - hub_clearance + duct_wall_thickness, duct_radius * 0.5)
+	# Tangential arc: start at the mouth-rim angle so the curved tube seats into the hole, span
+	# to the mid-sector boundary so it reaches the neighbour's arc tile.
+	var sector_half_deg := (360.0 / sectors) * 0.5
+	var arc_start_deg := rad2deg(hub_clearance / wall_radius)
+	var arc_span_deg := max(sector_half_deg - arc_start_deg, sector_half_deg * 0.4)
 	for i in range(4):
-		if connections[i]:
-			var arm = make_arm(dirs[i], length, duct_radius, hub_clearance)
+		if not connections[i]:
+			continue
+		if i == 0 or i == 2:
+			# Axial (straight).
+			var arm = make_arm(dirs[i], axial_len, duct_radius, hub_clearance)
 			root.add_child(arm)
+		else:
+			# Tangential (curved): RIGHT(i=1)=+X=east(+1), LEFT(i=3)=-X=west(-1).
+			var arc_sign := 1.0 if i == 1 else -1.0
+			var arc_arm = make_arc_arm(arc_sign, arc_span_deg, arc_start_deg, duct_radius)
+			root.add_child(arc_arm)
 
 	return root
 
@@ -416,6 +480,107 @@ func make_arm(dir: Vector3, length: float, radius: float, start_offset: float = 
 	arm.transform.basis = Basis(right, local_up, fwd)
 	arm.translation = dir * (start_offset + length * 0.5)
 	return arm
+
+# A junction's tangential (E/W) connection follows the cylinder circumference, so a straight
+# arm is wrong: it shoots as a chord across the hub (the "tubos cruzan el hub" / "lados muy
+# juntos" bug) and falls short of the neighbour ~10m away around the arc. This builds a
+# CURVED arm in the junction's local frame: X=tangent, Y=radial(outward), Z=axial. The arc
+# bends in the local XY plane around centre (0,-R,0) (R = wall_radius, the cylinder axis is
+# at -radial), starting at the hub rim and spanning `span_deg` toward the neighbour mouth.
+# `sign` = +1 for EAST (+X), -1 for WEST (-X). Returns a Spatial already in local coords.
+func make_arc_arm(dir_sign: float, span_deg: float, start_deg: float, radius: float) -> Spatial:
+	var arm = Spatial.new()
+	var R := wall_radius
+	var start_rad := deg2rad(start_deg)
+	var end_rad := deg2rad(start_deg + span_deg)
+	var mesh = MeshInstance.new()
+	mesh.mesh = _build_arc_arm_mesh(R, radius, duct_wall_thickness, start_rad, end_rad, dir_sign)
+	mesh.material_override = _hull_mat()
+	arm.add_child(mesh)
+	# Trimesh collision straight off the curved hull (exact hollow wall, no clipping) — the
+	# box-segment approximation let the player catch/pass between segments on the curve.
+	var body = StaticBody.new()
+	var col = CollisionShape.new()
+	col.shape = mesh.mesh.create_trimesh_shape()
+	body.add_child(col)
+	arm.add_child(body)
+	# End collar at the outer mouth (where it meets the neighbour arc tile).
+	_add_arc_arm_collar(arm, R, radius, end_rad, dir_sign)
+	return arm
+
+# Centreline point at angle t (t=0 at hub) and its forward tangent, in local XY plane.
+func _arc_point(R: float, t: float, dir_sign: float) -> Vector3:
+	return Vector3(dir_sign * R * sin(t), -R + R * cos(t), 0)
+
+func _arc_forward(t: float, dir_sign: float) -> Vector3:
+	return Vector3(dir_sign * cos(t), -sin(t), 0).normalized()
+
+func _build_arc_arm_mesh(R: float, r: float, thickness: float, t0: float, t1: float, dir_sign: float) -> ArrayMesh:
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var arc_segs := 10
+	var ring_segs := 16
+	var orad := r + thickness
+	for ai in range(arc_segs):
+		var ta = lerp(t0, t1, float(ai) / arc_segs)
+		var tb = lerp(t0, t1, float(ai + 1) / arc_segs)
+		var ca := _arc_point(R, ta, dir_sign)
+		var cb := _arc_point(R, tb, dir_sign)
+		var fa := _arc_forward(ta, dir_sign)
+		var fb := _arc_forward(tb, dir_sign)
+		# Cross-section basis: axial (local Z) and the in-plane radial of the arc.
+		var axial := Vector3(0, 0, 1)
+		var ra: Vector3 = fa.cross(axial).normalized()   # in-plane normal at a
+		var rb: Vector3 = fb.cross(axial).normalized()
+		for ri in range(ring_segs):
+			var p0 = TAU * ri / ring_segs
+			var p1 = TAU * (ri + 1) / ring_segs
+			# Cross-section direction at section angle p (0=+axial, sweeps around the tube).
+			var da0 = (axial * cos(p0) + ra * sin(p0))
+			var da1 = (axial * cos(p1) + ra * sin(p1))
+			var db0 = (axial * cos(p0) + rb * sin(p0))
+			var db1 = (axial * cos(p1) + rb * sin(p1))
+			# UV: U around the tube, V along the arc.
+			var uA = float(ai) / arc_segs * (abs(t1 - t0) * R) / 4.0
+			var uB = float(ai + 1) / arc_segs * (abs(t1 - t0) * R) / 4.0
+			var v0 = float(ri) / ring_segs * (TAU * r) / 4.0
+			var v1 = float(ri + 1) / ring_segs * (TAU * r) / 4.0
+			# Inner wall (normals point inward).
+			_arc_quad(st, ca + da0 * r, cb + db0 * r, ca + da1 * r, cb + db1 * r,
+				-da0, -db0, -da1, -db1, Vector2(v0, uA), Vector2(v0, uB), Vector2(v1, uA), Vector2(v1, uB), false)
+			# Outer wall (normals point outward).
+			_arc_quad(st, ca + da0 * orad, cb + db0 * orad, ca + da1 * orad, cb + db1 * orad,
+				da0, db0, da1, db1, Vector2(v0, uA), Vector2(v0, uB), Vector2(v1, uA), Vector2(v1, uB), true)
+	return st.commit()
+
+func _arc_quad(st: SurfaceTool, a0: Vector3, b0: Vector3, a1: Vector3, b1: Vector3,
+		na0: Vector3, nb0: Vector3, na1: Vector3, nb1: Vector3,
+		uva0: Vector2, uvb0: Vector2, uva1: Vector2, uvb1: Vector2, outward: bool) -> void:
+	if outward:
+		st.add_normal(na0); st.add_uv(uva0); st.add_vertex(a0)
+		st.add_normal(nb0); st.add_uv(uvb0); st.add_vertex(b0)
+		st.add_normal(na1); st.add_uv(uva1); st.add_vertex(a1)
+		st.add_normal(nb0); st.add_uv(uvb0); st.add_vertex(b0)
+		st.add_normal(nb1); st.add_uv(uvb1); st.add_vertex(b1)
+		st.add_normal(na1); st.add_uv(uva1); st.add_vertex(a1)
+	else:
+		st.add_normal(na0); st.add_uv(uva0); st.add_vertex(a0)
+		st.add_normal(na1); st.add_uv(uva1); st.add_vertex(a1)
+		st.add_normal(nb0); st.add_uv(uvb0); st.add_vertex(b0)
+		st.add_normal(nb0); st.add_uv(uvb0); st.add_vertex(b0)
+		st.add_normal(na1); st.add_uv(uva1); st.add_vertex(a1)
+		st.add_normal(nb1); st.add_uv(uvb1); st.add_vertex(b1)
+
+func _add_arc_arm_collar(arm: Node, R: float, r: float, t: float, dir_sign: float) -> void:
+	var collar = MeshInstance.new()
+	collar.mesh = _get_ring_collar_mesh(r + ring_extra_radius, max(ring_height, 0.18))
+	collar.material_override = _get_res(CONDUIT_MAT_PATH)
+	var centre := _arc_point(R, t, dir_sign)
+	var fwd := _arc_forward(t, dir_sign)
+	var axial := Vector3(0, 0, 1)
+	var rad: Vector3 = fwd.cross(axial).normalized()
+	collar.transform = Transform(Basis(rad, axial, fwd), centre)
+	arm.add_child(collar)
 
 func _add_arm_end_collar(root: Node, z: float, radius: float) -> void:
 	var collar = MeshInstance.new()
@@ -687,6 +852,89 @@ func _get_sphere_mesh(radius: float) -> ArrayMesh:
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, sphere.get_mesh_arrays())
 	_mesh_cache[key] = mesh
 	return mesh
+
+# Hollow sphere shell with a MOUTH carved toward each arm direction, so the junction
+# reads as a sphere from outside but is open and navigable from inside the ducts (the
+# plain SphereMesh hub was a closed ball ~the bore diameter -> sealed every crossing).
+# Built as a lat/long UV sphere; any quad whose centre falls within `hole_half_angle`
+# of a hole direction is skipped, opening a round port aligned with the arm bore. Both
+# inner and outer faces are emitted (wall thickness) so the shell is visible from in
+# and out, matching the hollow-cylinder/_hull_mat convention.
+func _get_pierced_sphere_mesh(radius: float, thickness: float, hole_dirs: Array, hole_half_angle: float) -> ArrayMesh:
+	var dir_key = ""
+	for d in hole_dirs:
+		dir_key += "_%d%d%d" % [round(d.x), round(d.y), round(d.z)]
+	var key = "pierced_sphere_%f_%f_%f%s" % [radius, thickness, hole_half_angle, dir_key]
+	if _mesh_cache.has(key): return _mesh_cache[key]
+
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings = 16   # latitude bands
+	var segs = 24    # longitude segments
+	var cos_thresh = cos(hole_half_angle)
+	var orad = radius + thickness
+
+	for ri in range(rings):
+		var t0 = PI * ri / rings
+		var t1 = PI * (ri + 1) / rings
+		for si in range(segs):
+			var p0 = TAU * si / segs
+			var p1 = TAU * (si + 1) / segs
+			# Quad corners as unit directions (theta = polar from +Y, phi around).
+			var d00 = _sphere_dir(t0, p0)
+			var d01 = _sphere_dir(t0, p1)
+			var d10 = _sphere_dir(t1, p0)
+			var d11 = _sphere_dir(t1, p1)
+			# Skip the quad if its centre lies inside any hole cone -> opens a port.
+			var centre = (d00 + d01 + d10 + d11).normalized()
+			var in_hole = false
+			for hd in hole_dirs:
+				if centre.dot(hd) >= cos_thresh:
+					in_hole = true
+					break
+			if in_hole:
+				continue
+			_emit_sphere_quad(st, d00, d01, d10, d11, radius, false)  # inner (faces in)
+			_emit_sphere_quad(st, d00, d01, d10, d11, orad, true)     # outer (faces out)
+
+	var mesh = st.commit()
+	_mesh_cache[key] = mesh
+	return mesh
+
+func _sphere_dir(theta: float, phi: float) -> Vector3:
+	var st_ = sin(theta)
+	return Vector3(st_ * cos(phi), cos(theta), st_ * sin(phi))
+
+# Emit one sphere quad (two tris). `outward`=false makes the front face point toward the
+# centre (inner shell, normals inward); =true points it away (outer shell).
+func _emit_sphere_quad(st: SurfaceTool, d00: Vector3, d01: Vector3, d10: Vector3, d11: Vector3, r: float, outward: bool) -> void:
+	var s = 1.0 if outward else -1.0
+	var v00 = d00 * r; var v01 = d01 * r; var v10 = d10 * r; var v11 = d11 * r
+	var n00 = d00 * s; var n01 = d01 * s; var n10 = d10 * s; var n11 = d11 * s
+	# UV roughly from spherical coords so the panel shader has gradient (no all-seam blue).
+	var uv00 = _sphere_uv(d00, r); var uv01 = _sphere_uv(d01, r)
+	var uv10 = _sphere_uv(d10, r); var uv11 = _sphere_uv(d11, r)
+	if outward:
+		# CCW seen from outside.
+		st.add_normal(n00); st.add_uv(uv00); st.add_vertex(v00)
+		st.add_normal(n10); st.add_uv(uv10); st.add_vertex(v10)
+		st.add_normal(n01); st.add_uv(uv01); st.add_vertex(v01)
+		st.add_normal(n01); st.add_uv(uv01); st.add_vertex(v01)
+		st.add_normal(n10); st.add_uv(uv10); st.add_vertex(v10)
+		st.add_normal(n11); st.add_uv(uv11); st.add_vertex(v11)
+	else:
+		# Reversed winding so the front face points inward (visible from inside the hub).
+		st.add_normal(n00); st.add_uv(uv00); st.add_vertex(v00)
+		st.add_normal(n01); st.add_uv(uv01); st.add_vertex(v01)
+		st.add_normal(n10); st.add_uv(uv10); st.add_vertex(v10)
+		st.add_normal(n01); st.add_uv(uv01); st.add_vertex(v01)
+		st.add_normal(n11); st.add_uv(uv11); st.add_vertex(v11)
+		st.add_normal(n10); st.add_uv(uv10); st.add_vertex(v10)
+
+func _sphere_uv(d: Vector3, r: float) -> Vector2:
+	var u = (atan2(d.z, d.x) + PI) / TAU * (TAU * r) / 4.0
+	var v = (acos(clamp(d.y, -1.0, 1.0)) / PI) * (PI * r) / 4.0
+	return Vector2(u, v)
 
 func _get_capsule_mesh(radius: float, height: float) -> ArrayMesh:
 	var key = "capsule_%f_%f" % [radius, height]
