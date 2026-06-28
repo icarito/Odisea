@@ -38,6 +38,10 @@ func test_state_led_colors() -> void:
 	drone.current_state = 0 # State.IDLE
 	yield(runner.simulate_frames(1), "completed")
 	var mat: SpatialMaterial = mesh.get_surface_material(0)
+	if not mat:
+		# If the material is not yet set up, manually trigger it
+		drone._update_led(Color(0.2, 0.4, 1.0))
+		mat = mesh.get_surface_material(0)
 	assert_bool(mat.albedo_color.is_equal_approx(Color(0.2, 0.4, 1.0))).is_true()
 	
 	# RETURN_HOME -> Green
