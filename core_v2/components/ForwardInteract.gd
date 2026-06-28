@@ -17,9 +17,31 @@ func interact():
 	if not get_is_interactable():
 		return
 	print("[ForwardInteract] Interaction triggered on ", name)
+	if _forward_airlock_owned_interaction():
+		return
 	var p = get_parent()
 	if p and p.has_method("interact"):
 		p.interact()
+
+func _forward_airlock_owned_interaction() -> bool:
+	var source: Node = self
+	if not source.has_meta("airlock_controller_owned") and get_parent():
+		source = get_parent()
+	if not source.has_meta("airlock_controller_owned") or not bool(source.get_meta("airlock_controller_owned")):
+		return false
+	if not source.has_meta("airlock_controller_owner_path"):
+		return false
+	var owner_path = source.get_meta("airlock_controller_owner_path")
+	var owner: Node = null
+	if owner_path is NodePath:
+		owner = get_node_or_null(owner_path)
+	if not is_instance_valid(owner):
+		return false
+	var door_name := String(source.get_meta("airlock_door_name") if source.has_meta("airlock_door_name") else "")
+	if owner.has_method("request_door_interaction"):
+		owner.request_door_interaction(door_name)
+		return true
+	return false
 
 func set_active(val):
 	var p = get_parent()

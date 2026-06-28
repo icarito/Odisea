@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://scenes/levels/act0_duct_maze.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/DuctMazeStreamer.tscn" type="PackedScene" id=2]
+
+[node name="Act0DuctMaze" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="DuctMazeStreamer" parent="." instance=ExtResource( 2 )]
+ring_step = 8.0
+sectors = 16
+rings = 24
+wall_radius = 26.0
+extra_cycles = 8
+seed_value = 42
+streaming_enabled = true
+stream_chunk_rings = 24
+stream_active_chunks_each_side = 1
+duct_radius = 2.7
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 15, 20 )
+far = 200.0

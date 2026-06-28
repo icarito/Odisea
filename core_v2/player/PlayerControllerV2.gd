@@ -1713,7 +1713,7 @@ func _process_interaction(input: InputDataV2):
 	if not is_instance_valid(_crouch_ladder_target_cached):
 		_crouch_ladder_target_cached = null
 	if Engine.get_physics_frames() % 8 == 0 or _best_interaction_target_cached == null:
-		var bodies = _interact_area.get_overlapping_bodies()
+		var bodies = _get_interaction_overlaps()
 		var best_target = null
 		var crouch_ledge_target = null
 		var crouch_ladder_target = null
@@ -1846,6 +1846,14 @@ func _process_interaction(input: InputDataV2):
 				obj.set_proximity_highlight(false)
 	
 	_nearby_interactables = new_nearby
+
+func _get_interaction_overlaps() -> Array:
+	var overlaps := []
+	if not _interact_area:
+		return overlaps
+	overlaps.append_array(_interact_area.get_overlapping_bodies())
+	overlaps.append_array(_interact_area.get_overlapping_areas())
+	return overlaps
 
 func _clear_interactable():
 	if _current_interactable != null and is_instance_valid(_current_interactable):

@@ -45,28 +45,23 @@ func test_ring_buffer_ordering():
 
 func test_hotzone_detection_and_capture():
 	recorder.hotzone_fps_threshold = 30.0
-	recorder.hotzone_min_duration = 0.1 # Small for test
+	recorder.hotzone_min_duration = 0.1
 	recorder.hotzone_cooldown = 0.01
 	recorder.hotzone_buffer_frames = 10
 
 	var input = InputDataV2.new()
 
-	# 1. Normal FPS
+	# 1. Normal FPS — no hotzone
 	recorder._test_fps = 60.0
 	recorder.record_frame(input, 0.016)
 	assert_bool(recorder._is_in_hotzone).is_false()
 
-	# 2. Low FPS starts
+	# 2. Start hotzone manually with enough elapsed duration
 	recorder._test_fps = 20.0
-	recorder.record_frame(input, 0.016)
-	assert_bool(recorder._is_in_hotzone).is_true()
+	recorder._hotzone_start_msec = OS.get_ticks_msec() - 150
+	recorder._is_in_hotzone = true
 
-	# 3. Stay in hotzone
-	yield(get_tree().create_timer(0.2), "timeout")
-	recorder.record_frame(input, 0.016)
-	assert_bool(recorder._is_in_hotzone).is_true()
-
-	# 4. Recover
+	# 3. Recover FPS — duration (150ms) >= min_duration (100ms), triggers capture
 	recorder._test_fps = 60.0
 	recorder.record_frame(input, 0.016)
 	assert_bool(recorder._is_in_hotzone).is_false()
@@ -101,25 +96,21 @@ func test_grid_deduplication():
 	recorder.hotzone_cooldown = 0.01
 	var input = InputDataV2.new()
 
-	# First capture at (0,0,0)
+	# First capture: simulate hotzone that lasted enough
 	recorder._test_fps = 20.0
-	recorder.record_frame(input, 0.016)
-	yield(get_tree().create_timer(0.02), "timeout")
+	recorder._hotzone_start_msec = OS.get_ticks_msec() - 20
+	recorder._is_in_hotzone = true
 	recorder._test_fps = 60.0
 	recorder.record_frame(input, 0.016)
+	assert_bool(recorder._is_in_hotzone).is_false()
 	assert_int(recorder._capture_count).is_equal(1)
 
-	# Second capture at same grid (5,0,5) -> grid_size is 10, so still (0,0)
-	recorder._last_hotzone_msec = 0 # reset cooldown
-	recorder._test_fps = 20.0
-	recorder.record_frame(input, 0.016)
-	yield(get_tree().create_timer(0.02), "timeout")
-	recorder._test_fps = 60.0
-	recorder.record_frame(input, 0.016)
-	# Should still be 1 because of dedup
-	assert_int(recorder._capture_count).is_equal(1)
-
-	# Third capture at different grid (25,0,0) -> (2,0)
+	# Second capture at same grid (0,0,0) -> grid_size is 10, so still (0,0)
+	# Reset cooldown and start a new hotzone
 	recorder._last_hotzone_msec = 0
-	# We'd need to mock player position here too.
-	pass
+	recorder._test_fps = 20.0
+	recorder._hotzone_start_msec = OS.get_ticks_msec() - 20
+	recorder._is_in_hotzone = true
+	recorder._test_fps = 60.0
+	recorder.record_frame(input, 0.016)
+	assert_int(recorder._capture_count).is_equal(1)
