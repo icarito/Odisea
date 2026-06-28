@@ -37,3 +37,13 @@ material/0 = null
 unit_db = 5.0
 autoplay = true
 max_distance = 20.0
+
+[node name="AlarmLightRig" type="Spatial" parent="."]
+visible = false
+
+[node name="AlarmLight" type="SpotLight" parent="AlarmLightRig"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.6 )
+light_color = Color( 1, 0, 0, 1 )
+light_energy = 5.0
+spot_range = 10.0
+spot_angle = 30.0

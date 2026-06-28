@@ -19,6 +19,7 @@ var cargo_uid := "" # Path of attached cargo (original path)
 var _attached_node: Spatial = null
 var _original_parent_path := ""
 var _interaction_target: Node = null
+var _bob_time := 0.0
 
 # --- NODES ---
 onready var cargo_anchor: Position3D = null
@@ -66,13 +67,21 @@ func _on_state_changed(new_state):
 	match new_state:
 		State.IDLE, State.FOLLOW_TARGET, State.MOVE_TO:
 			_update_led(Color(0.2, 0.4, 1.0)) # Blue
+			_set_status_light_intensity(0.8)
 		State.FOLLOW_PATH, State.RETURN_HOME:
 			_update_led(Color(0.2, 1.0, 0.4)) # Green
+			_set_status_light_intensity(1.5)
 		State.ALERT, State.SEARCH:
 			_update_led(Color(1.0, 0.2, 0.2)) # Red
+			_set_status_light_intensity(2.0)
 	
 	if new_state != State.IDLE:
 		_interaction_target = null
+
+func _set_status_light_intensity(intensity: float):
+	var light = get_node_or_null("StatusLight")
+	if light and light is Light:
+		light.light_energy = intensity
 
 func step(dt: float) -> void:
 	.step(dt) # Call AgentBase.step
@@ -88,6 +97,19 @@ func step(dt: float) -> void:
 	if _interaction_target and is_instance_valid(_interaction_target):
 		if global_transform.origin.distance_to(_interaction_target.global_transform.origin) < 1.5:
 			_perform_remote_interact()
+
+	# Visual effects: Charge Field
+	var charge_field = get_node_or_null("ChargeField")
+	if charge_field:
+		charge_field.visible = _attached_node != null
+
+	# Visual effects: Bobbing and rotation when idle or moving slowly
+	_bob_time += dt
+	var mesh = get_node_or_null("MeshInstance")
+	if mesh:
+		var bob = sin(_bob_time * 1.5) * 0.05
+		mesh.translation.y = bob
+		mesh.rotate_y(dt * 0.2)
 
 func _check_player_distance():
 	if current_state == State.FOLLOW_TARGET and _follow_target and _follow_target.is_in_group("player"):
@@ -188,28 +210,6 @@ func query_cargo() -> Dictionary:
 	return {"attached": false}
 
 # --- VISUAL FEEDBACK ---
-
-func _update_visuals():
-	_update_led(Color(0.2, 0.4, 1.0)) # Default blue
-
-func _update_led(color: Color) -> void:
-	var mesh = get_node_or_null("MeshInstance")
-	if mesh and mesh is MeshInstance:
-		var mat = mesh.get_surface_material(0)
-		if not mat or not mat is SpatialMaterial:
-			mat = SpatialMaterial.new()
-			mat.resource_local_to_scene = true
-			mesh.set_surface_material(0, mat)
-		if mat is SpatialMaterial:
-			mat.albedo_color = color
-			mat.emission_enabled = true
-			mat.emission = color
-			mat.emission_energy = 1.0 # Increased energy for better visibility
-
-	# Also update a light if present
-	var light = get_node_or_null("StatusLight")
-	if light and light is Light:
-		light.light_color = color
 
 func _on_oys_registry_reset() -> void:
 	var sm = get_node_or_null("/root/SessionManager")
