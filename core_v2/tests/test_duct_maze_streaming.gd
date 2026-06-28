@@ -90,13 +90,18 @@ func test_arc_collision_has_no_solid_round_blockers() -> void:
 	arc.free()
 	spawner.free()
 
-func test_capsule_room_ports_are_not_sealed_by_center_trimesh() -> void:
+func test_capsule_room_has_collision_and_ports_are_open() -> void:
 	var spawner = DuctMazeStreamerScript.new()
+	# [FWD, RIGHT, BACK, LEFT] -> 2 connections
 	var room = spawner.make_capsule([true, true, false, false], 0)
 	var counts := _count_collision_shapes(room)
 
-	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(0)
-	assert_int(counts.get("BoxShape", 0)).is_greater(0)
+	# 1 (shell) + 2 (ports) = 3 ConcavePolygonShape
+	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(3)
+	# 1 (floor) + 1 (valve wheel) + 1 (valve base) = 3 CylinderShape
+	assert_int(counts.get("CylinderShape", 0)).is_equal(3)
+	# Each 'arm' (port) has 4 BoxShape walls -> 2 arms * 4 = 8 BoxShape
+	assert_int(counts.get("BoxShape", 0)).is_equal(8)
 
 	room.free()
 	spawner.free()
