@@ -46,21 +46,31 @@ func test_grid_to_world_polar_projection() -> void:
 	spawner.inner_radius = 2.0
 	spawner.ring_step = 4.0
 	spawner.sectors = 12
+	spawner.rings = 3
+	spawner.wall_radius = 28.0
 	
 	# Test at gx=0, gy=0, height=0
-	var t0 = spawner._grid_to_world(0, 0, 0.0)
-	# radius = 2.0 + 0.5 * 4.0 = 4.0
-	# angle = 0 -> world_x = 4.0 * cos(0) = 4.0, world_z = 4.0 * sin(0) = 0.0
-	assert_vector3(t0.origin).is_equal_approx(Vector3(4.0, 0.0, 0.0), Vector3(0.001, 0.001, 0.001))
+	var t0 = spawner._grid_to_world(0, 0, 0.0, "DuctRadial")
+	# radius = wall_radius, y = gy * ring_step within the current chunk
+	assert_vector3(t0.origin).is_equal_approx(Vector3(28.0, 0.0, 0.0), Vector3(0.001, 0.001, 0.001))
 	
 	# tangent = (-sin(0), 0, cos(0)) = (0, 0, 1) -> Basis.x
 	assert_vector3(t0.basis.x).is_equal_approx(Vector3(0, 0, 1), Vector3(0.001, 0.001, 0.001))
-	# radial = (cos(0), 0, sin(0)) = (1, 0, 0) -> Basis.z
-	assert_vector3(t0.basis.z).is_equal_approx(Vector3(1, 0, 0), Vector3(0.001, 0.001, 0.001))
+	# straight duct local Z follows the cylinder axis
+	assert_vector3(t0.basis.z).is_equal_approx(Vector3.UP, Vector3(0.001, 0.001, 0.001))
+	# straight duct local Y points radially out from the cylinder
+	assert_vector3(t0.basis.y).is_equal_approx(Vector3(1, 0, 0), Vector3(0.001, 0.001, 0.001))
 	
 	# Test at gx=3 (90 degrees), gy=0, height=0
-	var t1 = spawner._grid_to_world(3, 0, 0.0)
-	# angle = 90 -> world_x = 4.0 * cos(90) = 0.0, world_z = 4.0 * sin(90) = 4.0
-	assert_vector3(t1.origin).is_equal_approx(Vector3(0.0, 0.0, 4.0), Vector3(0.001, 0.001, 0.001))
+	var t1 = spawner._grid_to_world(3, 0, 0.0, "DuctRadial")
+	# angle = 90 -> world_x = 0.0, world_z = wall_radius
+	assert_vector3(t1.origin).is_equal_approx(Vector3(0.0, 0.0, 28.0), Vector3(0.001, 0.001, 0.001))
+
+	var t2 = spawner._grid_to_world(0, 2, 0.0, "DuctRadial")
+	assert_vector3(t2.origin).is_equal_approx(Vector3(28.0, 8.0, 0.0), Vector3(0.001, 0.001, 0.001))
+
+	var arc = spawner._grid_to_world(0, 0, 0.0, "DuctArc")
+	assert_vector3(arc.basis.x).is_equal_approx(Vector3(1, 0, 0), Vector3(0.001, 0.001, 0.001))
+	assert_vector3(arc.basis.z).is_equal_approx(Vector3(0, 0, 1), Vector3(0.001, 0.001, 0.001))
 	
 	spawner.free()

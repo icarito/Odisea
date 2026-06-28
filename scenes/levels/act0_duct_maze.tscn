@@ -7,19 +7,13 @@
 script = ExtResource( 1 )
 
 [node name="DuctMazeStreamer" parent="." instance=ExtResource( 2 )]
-inner_radius = 2.0
 ring_step = 8.0
 sectors = 16
 rings = 24
-height_steps = 6
-seed_value = 42
-room_count = 4
-extra_cycles = 8
-duct_radius = 3.75
-duct_wall_thickness = 0.35
 wall_radius = 26.0
-radial_step = 8.0
-axial_scale = 1.0
+extra_cycles = 8
+seed_value = 42
+duct_radius = 3.75
 
 [node name="Camera" type="Camera" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 15, 20 )
