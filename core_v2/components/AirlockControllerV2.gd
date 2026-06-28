@@ -38,6 +38,7 @@ const STATUS_BLOCKED := Color(1.0, 0.05, 0.02, 1.0)
 # --- INTERNAL STATE ---
 var state = State.IDLE setget _set_state
 var timer := 0.0
+var _time_in_state := 0.0
 var _is_cycling_in := true
 var _current_exit_door_name := ""
 
@@ -104,6 +105,7 @@ func _ready():
 func _set_state(new_state):
 	if state != new_state:
 		state = new_state
+		_time_in_state = 0.0
 		_update_beacons()
 		_update_physics_processing()
 
@@ -378,6 +380,7 @@ func _on_body_entered(body):
 
 func step(dt: float):
 	if Engine.editor_hint: return
+	_time_in_state += dt
 
 	if _label_linger_timer > 0.0:
 		_label_linger_timer -= dt
@@ -408,7 +411,9 @@ func step(dt: float):
 			timer -= dt
 			if timer <= 0:
 				_finish_transition_pressurization()
-
+		elif standalone_cycle and _time_in_state > 3.0 and not _transition_ready:
+			_finish_transition_pressurization()
+	
 	elif state == State.EXIT_OPEN:
 		if timer < 0.0:
 			return
@@ -476,7 +481,7 @@ func _update_physics_processing() -> void:
 	if state == State.ENTRY_OPEN:
 		should_process = should_process or timer > 0.0
 	elif state == State.PRESSURIZING:
-		should_process = should_process or (_pressurize_active and timer > 0.0)
+		should_process = should_process or (_pressurize_active and timer > 0.0) or (standalone_cycle and not _transition_ready)
 	elif state == State.EXIT_OPEN:
 		should_process = should_process or timer > 0.0
 	set_physics_process(should_process)
@@ -619,7 +624,7 @@ func _update_airlock_affordances() -> void:
 func _apply_status_light(node: Node, color: Color, enabled: bool) -> void:
 	if not is_instance_valid(node):
 		return
-	# Prefer set_status_color() — updates light + bulb + indicator LED in one call
+	# Prefer set_status_color() - updates light + bulb + indicator LED in one call
 	if node.has_method("set_status_color"):
 		node.call("set_status_color", color)
 	elif "light_color" in node:
