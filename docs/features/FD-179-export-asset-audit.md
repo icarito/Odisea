@@ -1,92 +1,117 @@
-# FD-179: Asset export management — auto‑register new resources in export_presets.cfg
+# FD-179: Export asset audit — pre-commit check for missing exports
 
 ## Problem
-Each time Jules (or anyone) adds a new resource (scene, texture, material, shader) to the project but forgets to list it in `export_presets.cfg`'s `include_filter`, the exported build breaks at runtime — the resource is simply missing from the `.pck`. This happens every single feature.
+Every time a new asset (scene, texture, material, shader) is added to the project but not listed in `export_presets.cfg`'s `include_filter`, the exported build breaks at runtime. The asset is simply missing from the `.pck`. This has happened repeatedly with every feature.
 
-Current `export_presets.cfg` has 8 presets (HTML5, Linux, Windows, etc.), each with a slightly different `include_filter` / `exclude_filter` that must be kept in sync manually — they're **not identical** (some include `core_v2/props/exhaust/*`, others `core_v2/update/native/*`). This divergence is itself a source of bugs.
+The `export_presets.cfg` has 8 export presets, each with its own `include_filter` and `exclude_filter`. They have drifted apart — some include `core_v2/props/exhaust/*`, others `core_v2/update/native/*`, others don't. This divergence is itself a source of bugs.
 
 ## Goal
-Make the export include_filter reliable and self-documenting so that any resource in active use is automatically included.
+A pre-commit hook that checks whether staged asset files would be excluded from export. No more broken builds due to missing includes.
 
-## Constraints
-- Godot 3.x export system: `include_filter` is a comma‑separated string of globs, one per line in the export preset editor. The `exclude_filter` overrides it when a path matches both.
-- Cannot use a dynamic script‑based solution at export time (Godot 3 export plugins can run GDScript, but the filter is baked into the preset).
-- Must not break existing builds.
-- The `exclude_filter` must remain aggressive for dev‑only files (tests, scenes, tools).
+## How export_presets.cfg works (Godot 3)
 
-## Possible solutions
+The file has sections like:
 
-### Option A — Audit script (recommended first step)
-A GDScript tool (or Python script outside Godot) that:
-1. Scans the Godot project for all `.tscn`, `.scn`, `.tres`, `.res`, `.gd`, `.shader` files.
-2. For each scene/resource, reads its `ext_resource` dependencies recursively.
-3. Cross‑references the full dependency tree against `include_filter` in `export_presets.cfg`.
-4. Reports any **used** file that would be excluded at export time.
-5. Optionally auto‑patches `export_presets.cfg` to add the missing globs.
+```
+[preset.0]
+name = "Linux/X11 ARM64"
+export_filter = "resources"
+export_files = PoolStringArray( "res://scenes/Menu.tscn", ... )
+include_filter = "*.gd, assets/hdris/2k_stars_milky_way.jpg, ..."
+exclude_filter = "assets/hdris/*.hdr, core_v2/tests/*, ..."
+```
 
-Run this in CI after every PR merge.
+Key rules:
+- `export_filter = "resources"` means Godot only packs files that match `include_filter` AND are NOT in `exclude_filter`.
+- **Exception**: files in `export_files` (the `PoolStringArray`) are ALWAYS included regardless of filters.
+- A file matched by BOTH include and exclude → excluded. Exclude wins.
+- Globs are comma-separated, support `*` and `**`.
+- Godot compares against the path relative to `res://` (e.g. `assets/hdris/2k_stars_milky_way.jpg`).
 
-### Option B — Godot export plugin
-A small GDScript `EditorExportPlugin` that extends `_export_begin` and dynamically injects files via `add_file`. This way the `include_filter` stays generic and the plugin adds whatever the scene tree actually references.
+## Gotchas discovered during prototyping
 
-Downside: Godot 3 export plugins run at export time and can slow the build if they scan the whole project.
+### 1. exclude_filter wildcards can accidentally catch files you want included
+The old exclude had `assets/hdris/*` which caught `2k_stars_milky_way.jpg` (the panorama). Even though the .jpg was in include_filter, the wildcard in exclude won. Fix: only exclude the heavy `.hdr` files: `assets/hdris/*.hdr`.
 
-### Option C — Consolidate into one canonical include_filter
-Make all 8 presets share the **same** `include_filter` string (or as close as possible given platform‑specific differences like native libs). Then maintain that single list and keep it generous — include entire category directories (e.g., `core_v2/props/*`) instead of individual files.
+### 2. export_files has priority over filters
+Files listed in the `PoolStringArray` of `export_files` are always included, even if they match exclude_filter. The parser must handle multiline `PoolStringArray( "r1", "r2", ... )` spanning many lines in the `.cfg` file. These are mostly addon scenes and test utilities that are explicitly included despite general exclude patterns.
 
-## Recommended approach for this FD
+### 3. The 8 presets have slightly different include_filters
+They are not identical. Consolidating them is risky (platform-specific assets like native libs for desktop vs web). Solution: the audit script should check against ALL presets and flag a file as problematic only if it's excluded by EVERY preset that actually exists (or at least by the main ones: HTML5 + Linux + Windows).
 
-### Phase 1 — Consolidate & audit
-1. Normalize all 8 presets in `export_presets.cfg` to use the same base `include_filter` (keep only truly platform‑specific differences like `core_v2/update/native/*.gdns` for desktop only).
-2. Write a GDScript tool at `tools/audit_export_includes.gd` that:
-   - Reads `export_presets.cfg`
-   - Scans the project filesystem for all resources (`.tscn`, `.tres`, `.res`, `.shader`, `.gdshader`, `.png`, `.jpg`, `.hdr`, `.ogg`, `.mp3`, `.glb`, `.obj`, `.fbx`)
-   - Matches each file against include/exclude patterns of each preset
-   - Reports files that would be excluded but are referenced by at least one scene via ext_resource
-3. Print a report with files that need to be added.
+### 4. Some files are legitimately excluded
+- Test scenes in `core_v2/tests/*` — intentionally not in builds
+- `.hdr` files in `assets/hdris/` — too heavy (6.4 MB each), not needed at runtime
+- Addon example scenes in `addons/qodot/example_scenes/*`
+- Dev-only tool scenes
 
-### Phase 2 — CI integration
-Add the audit script to the CI pipeline as a non‑blocking warning step. If new resources are orphaned from export, CI flags them.
+The audit must distinguish "excluded by mistake" from "excluded on purpose". One heuristic: if the file is referenced by a non-test scene as an `ext_resource`, it's probably needed.
 
-### Phase 3 (future) — Export plugin
-If the audit script works well for 2-3 sprints, consider a Godot export plugin that auto‑injects.
+### 5. Performance
+Scanning all files in the repo (`--all` mode) takes ~1-2 seconds for ~7000 files. The `--staged` mode (pre-commit) is instant because it only checks files in the git stage. Use `--all` only in CI, not in pre-commit.
 
-## Files to modify
-- `export_presets.cfg` — consolidate include_filters across 8 presets
-- `tools/audit_export_includes.py` — new audit script (Python, runs outside Godot)
-- `.githooks/pre-commit` — add audit script to pre-commit hook
-- `.github/workflows/ci.yml` — add audit step for `--all` mode
+## Spec
 
-## Implementation status (prototype done by Odiseo, needs Jules formalization)
+### 1. Audit script (`tools/audit_export_includes.py`)
 
-### Already done (as prototype):
-1. **Fix exclude_filter for hdris**: changed `assets/hdris/*` to `assets/hdris/*.hdr` in all 8 presets, so `2k_stars_milky_way.jpg` (the panorama) is no longer excluded. The 6.4 MB `.hdr` files remain excluded.
-2. **Audit script**: `tools/audit_export_includes.py`
-   - Parses all 8 presets from `export_presets.cfg`
-   - Matching: checks if a file path matches `exclude_filter` globs but NOT `include_filter` globs
-   - Respects `export_files` (PoolStringArray): files explicitly listed there are always considered included
-   - `--staged` mode (pre-commit): only checks files in git stage
-   - `--all` mode (CI): scans entire repo for files with asset extensions
-3. **Pre-commit hook**: added `python3 tools/audit_export_includes.py --staged` to `.githooks/pre-commit`
+**Arguments:**
+- `--staged` (default): read files from `git diff --cached --name-only --diff-filter=ACMR`
+- `--all`: scan all files in the repo with asset extensions
 
-### What Jules should formalize/improve:
-1. **GDScript version**: optionally rewrite as GDScript `tools/audit_export_includes.gd` that runs inside Godot editor for more accurate dependency resolution (could read actual `ext_resource` references from scenes)
-2. **Consolidate include_filters**: make all 8 presets use the **same** base include_filter string, keeping only truly platform-specific additions (like `core_v2/update/native/*` for desktop)
-3. **CI integration**: add audit step to `.github/workflows/ci.yml` that runs `python3 tools/audit_export_includes.py --all` and warns if files are excluded
-4. **Edge cases**: 
-   - Test with `.hdr` files staged → should warn (correctly, they shouldn't be in build)
-   - Test with new `.jpg` referenced by a scene but missing from include_filter → should block commit
-   - Verify all `export_files` PoolStringArray paths are correctly parsed (the Python parser handles multiline)
+**Asset extensions to check:**
+`.tscn`, `.scn`, `.tres`, `.res`, `.gd`, `.shader`, `.gdshader`, `.jpg`, `.jpeg`, `.png`, `.webp`, `.hdr`, `.exr`, `.ogg`, `.mp3`, `.wav`, `.glb`, `.gltf`, `.obj`, `.fbx`, `.dae`, `.ttf`, `.otf`, `.anim`, `.spk`, `.gdns`, `.gdnlib`, `.oys`, `.json`
 
-## Test
-1. Run `python3 tools/audit_export_includes.py --all` — should report only files that are genuinely excluded (addons not in export_files, test resources, etc.)
-2. Stage a file that's in exclude_filter → pre-commit should reject.
-3. Export HTML5 build — should succeed and include the panorama, all duct textures, the new capsule room, etc.
-4. Verify the 6.4 MB `.hdr` is NOT in the exported build (check .pck size).
+**Parsing `export_presets.cfg`:**
+- Read line by line
+- Detect `[preset.N]` sections
+- Extract `name`, `include_filter`, `exclude_filter`
+- Parse `export_files` PoolStringArray (may span multiple lines, ends with `)`)
+- Return a list of `(preset_name, include_filter, exclude_filter, export_files_set)`
+
+**Matching logic (per file and per preset):**
+1. If file is in `export_files` → skip (always included)
+2. If file matches `exclude_filter` AND does NOT match `include_filter` → flag as problem
+3. If file matches both exclude and include → flag as problem (exclude wins in Godot 3)
+
+**False positive mitigation:**
+- If the file is inside `addons/` and NOT in export_files → skip (addons that are not explicitly exported are dev-only)
+- If the file is in `core_v2/tests/` → skip (tests are dev-only)
+
+**Exit code:** 0 if no issues, 1 if any issues found (blocks commit in pre-commit).
+
+### 2. Pre-commit hook (`.githooks/pre-commit`)
+
+Add after existing checks:
+```
+python3 tools/audit_export_includes.py --staged
+```
+
+### 3. CI integration (optional, not in pre-commit to avoid slowing pushes)
+
+Add a step in `.github/workflows/ci.yml`:
+```yaml
+- name: Check export includes
+  run: python3 tools/audit_export_includes.py --all
+```
+
+Run as warning (non-blocking) — it may report true positives for legitimately excluded files.
+
+## Test plan
+
+1. **Happy path**: stage a `.tscn` file that is properly included → pre-commit passes.
+2. **Missing include**: stage a new `.jpg` that's not in include_filter but is in exclude_filter → pre-commit rejects with file path.
+3. **Export_files exception**: stage a file from `export_files` that also matches exclude_filter → pre-commit passes.
+4. **Heavy .hdr**: stage `assets/hdris/ringed_gas_giant_planet.hdr` → pre-commit warns (correctly — it's excluded on purpose).
+5. **Test scene**: stage `core_v2/tests/SomeTest.tscn` → pre-commit passes (not supposed to be in builds).
+6. **CI full scan**: run `--all` → output should be clean or contain only known false positives (addons).
 
 ## Out of scope
-- Dynamic Godot export plugins (Phase 3).
-- Fixing Godot 3's inherently fragile export system — we only mitigate it.
+- Dynamic Godot export plugins that inject files at export time (future phase).
+- Auto-patching `export_presets.cfg` (the script only reports, it doesn't modify files).
+- Consolidating include_filters across presets (that's a separate task if needed).
 
-## Related notes
-- If `project.godot` changes, the update system needs a new binary too (not just pck). This is FD-XXX (separate).
+## Files to create/modify
+- `tools/audit_export_includes.py` (new)
+- `.githooks/pre-commit` (add audit line)
+- `.github/workflows/ci.yml` (add optional audit step)
+- `export_presets.cfg` (may need minor fixes for exclude_filter precision)
