@@ -201,12 +201,24 @@ func _grid_to_world(gx: int, gy: int, height: float, piece_name: String = "") ->
 	var world_y := _axis_y(gy)
 	var world_z := radius * sin(angle_rad)
 	var pos := Vector3(world_x, world_y, world_z)
+
+	# Snap to 1mm to eliminate floating point drift at seams.
+	pos.x = stepify(pos.x, 0.001)
+	pos.y = stepify(pos.y, 0.001)
+	pos.z = stepify(pos.z, 0.001)
+
 	var tangent := Vector3(-sin(angle_rad), 0, cos(angle_rad))
 	var up := Vector3.UP
 	var radial := Vector3(cos(angle_rad), 0, sin(angle_rad))
+
+	var basis: Basis
 	if piece_name.begins_with("DuctArc"):
-		return Transform(Basis(radial, up, tangent), pos)
-	return Transform(Basis(tangent, radial, up), pos)
+		basis = Basis(radial, up, tangent)
+	else:
+		basis = Basis(tangent, radial, up)
+
+	# Orthonormalize the basis to ensure consistent orientation.
+	return Transform(basis.orthonormalized(), pos)
 
 func _axis_y(gy: int) -> float:
 	return float(gy) * ring_step
@@ -285,7 +297,8 @@ func make_duct_radial(gy: int) -> Spatial:
 	var root = Spatial.new()
 	root.name = "DuctRadial"
 	var mesh_instance = MeshInstance.new()
-	mesh_instance.mesh = _get_hollow_cylinder(ring_step, duct_radius, duct_wall_thickness)
+	# Add 0.05m overshoot to ensure seams overlap.
+	mesh_instance.mesh = _get_hollow_cylinder(ring_step + 0.05, duct_radius, duct_wall_thickness)
 	# Same material as the curved ducts (airlock panel shader, cull_back). The earlier
 	# cull_disabled variant made the straight tube read as a solid blue glow inside.
 	mesh_instance.material_override = _hull_mat()
@@ -293,7 +306,8 @@ func make_duct_radial(gy: int) -> Spatial:
 	
 	_add_collision_cylinder(root, ring_step, duct_radius)
 	_add_structural_rings(root, Vector3.FORWARD, ring_step, duct_radius)
-	_add_floor_grate(root, ring_step, duct_radius)
+	# Floor grate also gets overshoot.
+	_add_floor_grate(root, ring_step + 0.05, duct_radius)
 	
 	return root
 
@@ -303,21 +317,25 @@ func make_duct_arc(gx: int, gy: int) -> Spatial:
 	# Arc curvature must match the wall radius so it follows the cylinder circumference.
 	var radius := wall_radius
 	var arc_deg := 360.0 / sectors
-	var arc_rad := deg2rad(arc_deg)
+	var arc_rad_exact := deg2rad(arc_deg)
+
+	# Add 0.1 degree overshoot to ensure seams overlap.
+	var arc_deg_mesh := arc_deg + 0.1
+	var arc_rad_mesh := deg2rad(arc_deg_mesh)
 	
 	var mesh_instance = MeshInstance.new()
 	# The builder now generates arcs aligned with Z axis
-	mesh_instance.mesh = DuctArcBuilder.get_or_build_arc(radius, duct_radius, arc_deg, 16)
+	mesh_instance.mesh = DuctArcBuilder.get_or_build_arc(radius, duct_radius, arc_deg_mesh, 16)
 	mesh_instance.material_override = _hull_mat()
 	root.add_child(mesh_instance)
 	
-	# Floor grate for the arc
+	# Floor grate for the arc (uses overshot arc for seamless grate)
 	var segments_f = 8
 	for i in range(segments_f):
-		var u = (float(i + 0.5) / segments_f - 0.5) * arc_rad
+		var u = (float(i + 0.5) / segments_f - 0.5) * arc_rad_mesh
 		var grate = MeshInstance.new()
 		var grate_mesh = QuadMesh.new()
-		grate_mesh.size = Vector2(duct_radius * 1.5, (radius * arc_rad) / segments_f)
+		grate_mesh.size = Vector2(duct_radius * 1.5, (radius * arc_rad_mesh) / segments_f)
 		grate.mesh = grate_mesh
 		grate.material_override = _get_res(FLOOR_MAT_PATH)
 		
@@ -331,10 +349,11 @@ func make_duct_arc(gx: int, gy: int) -> Spatial:
 	var body = StaticBody.new()
 	root.add_child(body)
 	var segments_c := 8
-	var segment_len := (radius * arc_rad) / segments_c
+	# Collision uses exact dimensions to avoid physics overlap.
+	var segment_len := (radius * arc_rad_exact) / segments_c
 	var wall := max(duct_wall_thickness, 0.2)
 	for i in range(segments_c):
-		var u_col = (float(i + 0.5) / segments_c - 0.5) * arc_rad
+		var u_col = (float(i + 0.5) / segments_c - 0.5) * arc_rad_exact
 		var segment_basis := Basis(Vector3.UP, -u_col)
 		var center := Vector3(radius * cos(u_col) - radius, 0, radius * sin(u_col))
 		var half_segment := segment_len * 0.49
@@ -444,7 +463,8 @@ func make_junction(id: String, connections: Array) -> Spatial:
 	# to the mid-sector boundary so it reaches the neighbour's arc tile.
 	var sector_half_deg := (360.0 / sectors) * 0.5
 	var arc_start_deg := rad2deg(hub_clearance / wall_radius)
-	var arc_span_deg := max(sector_half_deg - arc_start_deg, sector_half_deg * 0.4)
+	# Add 0.1 degree overshoot to ensure seams overlap.
+	var arc_span_deg := max(sector_half_deg - arc_start_deg, sector_half_deg * 0.4) + 0.1
 	for i in range(4):
 		if not connections[i]:
 			continue
@@ -629,7 +649,8 @@ func make_incline(port_heights: Array) -> Spatial:
 	# Slope the duct
 	# Length must be the hypotenuse to bridge the gap between cells
 	var hypotenuse = sqrt(length * length + h1 * h1)
-	mesh_instance.mesh = _get_hollow_cylinder(hypotenuse, duct_radius, duct_wall_thickness)
+	# Add 0.05m overshoot to ensure seams overlap.
+	mesh_instance.mesh = _get_hollow_cylinder(hypotenuse + 0.05, duct_radius, duct_wall_thickness)
 	
 	var angle = atan2(h1, length)
 	mesh_instance.rotation.x = angle
