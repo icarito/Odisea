@@ -702,19 +702,59 @@ func make_capsule(connections: Array, gy: int) -> Spatial:
 	mesh_instance.material_override = _hull_mat()
 	root.add_child(mesh_instance)
 
-	# The room shell is visual only. A capsule trimesh seals the port mouths before the
-	# connector arms are added, making some room-junctions look open but physically closed.
-	
+	# Collect connection directions for hole-punching the collision shell.
 	# Ports: short connector tubes punching out of the room wall toward each neighbour, so
 	# the room actually opens into the ducts that meet it (not a sealed blob).
 	var port_len = room_radius
 	var dirs = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
+	var hole_dirs := []
+	for i in range(4):
+		if connections[i]:
+			hole_dirs.append(dirs[i])
+
+	# Shell collision: using a pierced mesh so ports are open.
+	var shell_body = StaticBody.new()
+	shell_body.name = "CapsuleShellCollision"
+	var shell_shape = CollisionShape.new()
+	# mouth_half_angle matching the junction hub logic: asin(bore/radius)
+	var mouth_half_angle := asin(clamp(duct_radius / room_radius, 0.0, 0.999))
+	shell_shape.shape = _get_pierced_capsule_mesh(room_radius, duct_wall_thickness, room_height, hole_dirs, mouth_half_angle).create_trimesh_shape()
+	shell_body.add_child(shell_shape)
+	root.add_child(shell_body)
+
+	# Flat floor disc collision
+	var floor_body = StaticBody.new()
+	floor_body.name = "CapsuleFloorCollision"
+	var floor_shape = CollisionShape.new()
+	var cylinder = CylinderShape.new()
+	cylinder.radius = room_radius * 0.8
+	cylinder.height = 0.2
+	floor_shape.shape = cylinder
+	floor_body.add_child(floor_shape)
+	floor_body.translation = Vector3(0, -room_height * 0.5 + 0.1, 0)
+	root.add_child(floor_body)
+
 	for i in range(4):
 		if connections[i]:
 			var arm = make_arm(dirs[i], port_len, duct_radius)
 			# make_arm centres the tube at dir*len*0.5; push it out so it bridges the wall.
 			arm.translation = dirs[i] * room_radius
 			root.add_child(arm)
+
+			# Port collision: matching the arm's hollow tube
+			var port_col_body = StaticBody.new()
+			port_col_body.name = "PortCollision_%d" % i
+			var port_col_shape = CollisionShape.new()
+			port_col_shape.shape = _get_hollow_cylinder(port_len, duct_radius, duct_wall_thickness).create_trimesh_shape()
+			port_col_body.add_child(port_col_shape)
+
+			var fwd: Vector3 = dirs[i].normalized()
+			var up_ref: Vector3 = Vector3.UP if abs(fwd.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT
+			var right: Vector3 = up_ref.cross(fwd).normalized()
+			var local_up: Vector3 = fwd.cross(right).normalized()
+			port_col_body.transform.basis = Basis(right, local_up, fwd)
+			port_col_body.translation = dirs[i] * room_radius
+			root.add_child(port_col_body)
 			
 	# No dynamic OmniLight per tile: GLES2 forward does not scale with omni lights.
 	# Illumination comes from emissive materials (DuctLightStrip.tres) + scene DirectionalLight.
@@ -861,10 +901,10 @@ func _get_sphere_mesh(radius: float) -> ArrayMesh:
 # inner and outer faces are emitted (wall thickness) so the shell is visible from in
 # and out, matching the hollow-cylinder/_hull_mat convention.
 func _get_pierced_sphere_mesh(radius: float, thickness: float, hole_dirs: Array, hole_half_angle: float) -> ArrayMesh:
-	var dir_key = ""
+	var dir_key: String = ""
 	for d in hole_dirs:
 		dir_key += "_%d%d%d" % [round(d.x), round(d.y), round(d.z)]
-	var key = "pierced_sphere_%f_%f_%f%s" % [radius, thickness, hole_half_angle, dir_key]
+	var key: String = "pierced_sphere_%f_%f_%f%s" % [radius, thickness, hole_half_angle, dir_key]
 	if _mesh_cache.has(key): return _mesh_cache[key]
 
 	var st = SurfaceTool.new()
@@ -946,6 +986,95 @@ func _get_capsule_mesh(radius: float, height: float) -> ArrayMesh:
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, cap.get_mesh_arrays())
 	_mesh_cache[key] = mesh
 	return mesh
+
+func _get_pierced_capsule_mesh(radius: float, thickness: float, height: float, hole_dirs: Array, hole_half_angle: float) -> ArrayMesh:
+	var dir_key: String = ""
+	for d in hole_dirs:
+		dir_key += "_%d%d%d" % [round(d.x), round(d.y), round(d.z)]
+	var key: String = "pierced_capsule_%f_%f_%f_%f%s" % [radius, thickness, height, hole_half_angle, dir_key]
+	if _mesh_cache.has(key): return _mesh_cache[key]
+
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings: int = 16
+	var segs: int = 24
+	var cos_thresh: float = cos(hole_half_angle)
+	var orad: float = radius + thickness
+	var half_h: float = height * 0.5
+
+	for ri in range(rings):
+		var t0: float = PI * ri / rings
+		var t1: float = PI * (ri + 1) / rings
+		for si in range(segs):
+			var p0: float = TAU * si / segs
+			var p1: float = TAU * (si + 1) / segs
+
+			var d00: Vector3 = _sphere_dir(t0, p0)
+			var d01: Vector3 = _sphere_dir(t0, p1)
+			var d10: Vector3 = _sphere_dir(t1, p0)
+			var d11: Vector3 = _sphere_dir(t1, p1)
+
+			var v00: Vector3 = _capsule_pos(d00, radius, half_h)
+			var v01: Vector3 = _capsule_pos(d01, radius, half_h)
+			var v10: Vector3 = _capsule_pos(d10, radius, half_h)
+			var v11: Vector3 = _capsule_pos(d11, radius, half_h)
+
+			var centre: Vector3 = (v00 + v01 + v10 + v11).normalized()
+			var in_hole: bool = false
+			for hd in hole_dirs:
+				if centre.dot(hd) >= cos_thresh:
+					in_hole = true
+					break
+			if in_hole:
+				continue
+
+			var ov00: Vector3 = _capsule_pos(d00, orad, half_h)
+			var ov01: Vector3 = _capsule_pos(d01, orad, half_h)
+			var ov10: Vector3 = _capsule_pos(d10, orad, half_h)
+			var ov11: Vector3 = _capsule_pos(d11, orad, half_h)
+
+			_emit_capsule_quad(st, v00, v01, v10, v11, d00, d01, d10, d11, radius, false)
+			_emit_capsule_quad(st, ov00, ov01, ov10, ov11, d00, d01, d10, d11, orad, true)
+
+	var mesh = st.commit()
+	_mesh_cache[key] = mesh
+	return mesh
+
+func _capsule_pos(dir: Vector3, radius: float, half_h: float) -> Vector3:
+	var p = dir * radius
+	if dir.y > 0:
+		p.y += half_h
+	else:
+		p.y -= half_h
+	return p
+
+func _emit_capsule_quad(st: SurfaceTool, v00: Vector3, v01: Vector3, v10: Vector3, v11: Vector3, d00: Vector3, d01: Vector3, d10: Vector3, d11: Vector3, r: float, outward: bool) -> void:
+	var s: float = 1.0 if outward else -1.0
+	var n00: Vector3 = d00 * s
+	var n01: Vector3 = d01 * s
+	var n10: Vector3 = d10 * s
+	var n11: Vector3 = d11 * s
+
+	# Approx UV
+	var uv00: Vector2 = _sphere_uv(d00, r)
+	var uv01: Vector2 = _sphere_uv(d01, r)
+	var uv10: Vector2 = _sphere_uv(d10, r)
+	var uv11: Vector2 = _sphere_uv(d11, r)
+
+	if outward:
+		st.add_normal(n00); st.add_uv(uv00); st.add_vertex(v00)
+		st.add_normal(n10); st.add_uv(uv10); st.add_vertex(v10)
+		st.add_normal(n01); st.add_uv(uv01); st.add_vertex(v01)
+		st.add_normal(n01); st.add_uv(uv01); st.add_vertex(v01)
+		st.add_normal(n10); st.add_uv(uv10); st.add_vertex(v10)
+		st.add_normal(n11); st.add_uv(uv11); st.add_vertex(v11)
+	else:
+		st.add_normal(n00); st.add_uv(uv00); st.add_vertex(v00)
+		st.add_normal(n01); st.add_uv(uv01); st.add_vertex(v01)
+		st.add_normal(n10); st.add_uv(uv10); st.add_vertex(v10)
+		st.add_normal(n01); st.add_uv(uv01); st.add_vertex(v01)
+		st.add_normal(n11); st.add_uv(uv11); st.add_vertex(v11)
+		st.add_normal(n10); st.add_uv(uv10); st.add_vertex(v10)
 
 func _get_cap_disc_mesh(radius: float) -> ArrayMesh:
 	var key = "cap_disc_%f" % radius
