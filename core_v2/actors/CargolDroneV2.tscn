@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://core_v2/actors/CargolDroneV2.gd" type="Script" id=1]
 
@@ -7,6 +7,18 @@ radius = 0.5
 
 [sub_resource type="CubeMesh" id=2]
 size = Vector3( 1, 1, 1 )
+
+[sub_resource type="SphereMesh" id=3]
+radius = 1.2
+radial_segments = 32
+rings = 16
+
+[sub_resource type="SpatialMaterial" id=4]
+flags_transparent = true
+albedo_color = Color( 0, 0.439216, 1, 0.313726 )
+emission_enabled = true
+emission = Color( 0, 0.505882, 1, 1 )
+emission_energy = 0.5
 
 [node name="CargolDrone" type="KinematicBody"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
@@ -22,3 +34,8 @@ mesh = SubResource( 2 )
 light_color = Color( 0.2, 0.4, 1, 1 )
 light_energy = 2.0
 omni_range = 10.0
+
+[node name="ChargeField" type="MeshInstance" parent="."]
+visible = false
+mesh = SubResource( 3 )
+material/0 = SubResource( 4 )

@@ -22,6 +22,7 @@ var _pause_timer := 0.0
 var _last_seen_player_pos := Vector3.ZERO
 var _player_ref: Node = null
 var _pulse_time := 0.0
+var _cone_fade := 0.0
 
 func _init():
 	add_to_group("ddc_drone")
@@ -29,7 +30,20 @@ func _init():
 func _ready():
 	_player_ref = get_tree().get_nodes_in_group("player")[0] if get_tree().get_nodes_in_group("player").size() > 0 else null
 	_discover_patrol_points()
+	_setup_materials()
 	_update_visuals()
+
+func _setup_materials():
+	var mesh = get_node_or_null("MeshInstance")
+	if mesh and mesh is MeshInstance:
+		var mat = SpatialMaterial.new()
+		mat.albedo_color = Color(0.1, 0.1, 0.1) # Dark metallic
+		mat.metallic = 1.0
+		mat.roughness = 0.4
+		mat.emission_enabled = true
+		mat.emission = Color.black
+		mat.emission_energy = 1.0
+		mesh.set_surface_material(0, mat)
 
 func _discover_patrol_points():
 	_patrol_points.clear()
@@ -42,36 +56,60 @@ func _discover_patrol_points():
 
 func _on_state_changed(new_state):
 	match new_state:
-		State.PATROL:
-			_update_led(Color.blue)
+		State.PATROL, State.IDLE:
 			max_speed = 5.0
-			_update_cone_scale(1.0)
-			_set_hum_pitch(1.0)
+			_set_hum_pitch(0.9)
+			_set_alarm_light_visible(false)
 		State.ALERT:
-			_update_led(Color.red)
 			max_speed = 5.0 * alert_speed_multiplier
-			_update_cone_scale(1.5)
 			_set_hum_pitch(1.5)
+			_set_alarm_light_visible(true)
 			emit_signal("player_detected")
 		State.SEARCH:
-			_update_led(Color.yellow)
 			_search_timer = search_time
-			_update_cone_scale(1.2)
-			_set_hum_pitch(1.2)
+			# pitch oscillation in step
+			_set_alarm_light_visible(false)
 		State.RETURN_HOME:
-			_update_led(Color.cyan)
-			_update_cone_scale(1.0)
+			max_speed = 5.0
 			_set_hum_pitch(1.0)
+			_set_alarm_light_visible(false)
+
+func _set_alarm_light_visible(v: bool):
+	var rig = get_node_or_null("AlarmLightRig")
+	if rig: rig.visible = v
 
 func step(dt: float) -> void:
 	# Detection logic
 	_check_detection(dt)
 	
-	# Visual pulsing in alert
-	if current_state == State.ALERT:
-		_pulse_time += dt * 5.0
-		var pulse = (sin(_pulse_time) + 1.0) * 0.5
-		_update_led(Color.red.linear_interpolate(Color.black, pulse * 0.5))
+	_pulse_time += dt
+
+	# Visual effects based on state
+	match current_state:
+		State.PATROL, State.IDLE:
+			var pulse = (sin(_pulse_time * 2.0) + 1.0) * 0.5
+			_update_led(Color.red.linear_interpolate(Color(0.2, 0, 0), pulse))
+			_cone_fade = max(_cone_fade - dt * 4.0, 0.0)
+		State.ALERT:
+			var pulse = (sin(_pulse_time * 10.0) + 1.0) * 0.5
+			_update_led(Color.red.linear_interpolate(Color.white, pulse * 0.5))
+			_cone_fade = min(_cone_fade + dt * 2.0, 1.0)
+			var rig = get_node_or_null("AlarmLightRig")
+			if rig: rig.rotate_y(dt * 10.0)
+		State.SEARCH:
+			var blink = int(_pulse_time * 4.0) % 2 == 0
+			_update_led(Color.yellow if blink else Color.black)
+			_cone_fade = max(_cone_fade - dt * 4.0, 0.0)
+			_set_hum_pitch(1.0 + (sin(_pulse_time * 3.0) + 1.0) * 0.5 * 0.3)
+		_:
+			_cone_fade = max(_cone_fade - dt * 4.0, 0.0)
+
+	var cone = get_node_or_null("VisionCone")
+	if cone:
+		cone.visible = _cone_fade > 0.01
+		var target_scale = 1.5 if current_state == State.ALERT else 1.0
+		var s = target_scale * _cone_fade
+		cone.scale = Vector3(s, s, s)
 
 	# State-specific logic
 	match current_state:
@@ -138,32 +176,6 @@ func _check_detection(_dt: float):
 		if current_state == State.ALERT:
 			self.current_state = State.SEARCH
 
-func _update_visuals():
-	_update_led(Color.blue)
-
-func _update_led(color: Color) -> void:
-	var mesh = get_node_or_null("MeshInstance")
-	if mesh and mesh is MeshInstance:
-		var mat = mesh.get_surface_material(0)
-		if not mat or not mat is SpatialMaterial:
-			mat = SpatialMaterial.new()
-			mat.resource_local_to_scene = true
-			mesh.set_surface_material(0, mat)
-		if mat is SpatialMaterial:
-			mat.albedo_color = color
-			mat.emission_enabled = true
-			mat.emission = color
-			mat.emission_energy = 1.0
-
-func _update_cone_scale(scale: float) -> void:
-	var cone = get_node_or_null("VisionCone")
-	if cone and cone is Spatial:
-		cone.scale = Vector3(scale, scale, scale)
-
-func _set_hum_pitch(pitch: float) -> void:
-	var hum = get_node_or_null("HumPlayer")
-	if hum and hum is AudioStreamPlayer3D:
-		hum.pitch_scale = pitch
 
 func get_snapshot() -> Dictionary:
 	var data = .get_snapshot()

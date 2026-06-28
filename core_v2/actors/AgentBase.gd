@@ -158,7 +158,7 @@ func _calculate_wish_velocity(dt: float) -> Vector3:
 		State.MOVE_TO:
 			return _logic_move_to(target_position, dt)
 		State.PATROL:
-			return _logic_move_to(target_position, dt)
+			return _logic_move_to(target_position, dt, true) # hold_at_target
 	return Vector3.ZERO
 
 func _logic_follow_target(_dt: float) -> Vector3:
@@ -209,11 +209,13 @@ func _logic_follow_path(dt: float) -> Vector3:
 			emit_signal("goal_reached")
 	return Vector3.ZERO
 
-func _logic_move_to(pos: Vector3, _dt: float) -> Vector3:
+func _logic_move_to(pos: Vector3, _dt: float, hold_at_target: bool = false) -> Vector3:
 	var to_target = pos - global_transform.origin
 	var dist = to_target.length()
 
 	if dist < 0.2:
+		if hold_at_target:
+			return Vector3.ZERO
 		target_position = Vector3.ZERO
 		self.current_state = State.IDLE
 		emit_signal("goal_reached")
@@ -238,6 +240,40 @@ func _apply_movement_and_rotation(_dt: float) -> void:
 			var target_look = global_transform.origin + horiz_vel.normalized()
 			if not target_look.is_equal_approx(global_transform.origin):
 				look_at(target_look, Vector3.UP)
+
+# --- VISUALS ---
+
+func _update_visuals() -> void:
+	_update_led(Color.white)
+	_update_cone_scale(1.0)
+
+func _update_led(color: Color) -> void:
+	var mesh = get_node_or_null("MeshInstance")
+	if mesh and mesh is MeshInstance:
+		var mat = mesh.get_surface_material(0)
+		if not mat or not mat is SpatialMaterial:
+			mat = SpatialMaterial.new()
+			mat.resource_local_to_scene = true
+			mesh.set_surface_material(0, mat)
+		if mat is SpatialMaterial:
+			mat.albedo_color = color
+			mat.emission_enabled = true
+			mat.emission = color
+			mat.emission_energy = 1.0
+
+	var light = get_node_or_null("StatusLight")
+	if light and light is Light:
+		light.light_color = color
+
+func _update_cone_scale(scale: float) -> void:
+	var cone = get_node_or_null("VisionCone")
+	if cone and cone is Spatial:
+		cone.scale = Vector3(scale, scale, scale)
+
+func _set_hum_pitch(pitch: float) -> void:
+	var hum = get_node_or_null("HumPlayer")
+	if hum and hum is AudioStreamPlayer3D:
+		hum.pitch_scale = pitch
 
 # --- REPLAY SYSTEM ---
 
