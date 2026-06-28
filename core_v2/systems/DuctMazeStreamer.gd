@@ -155,13 +155,15 @@ func _create_stream_chunk(chunk_idx: int) -> void:
 
 func _build_chunk_contents(parent: Spatial, chunk_idx: int, chunk_rings: int) -> void:
 	var mst_gen = ScaffoldMSTGenerator.new()
+	var fixed_tiles := _get_fixed_border_tiles(chunk_idx, chunk_rings)
 	var params = {
 		"grid_width": sectors,
 		"grid_depth": chunk_rings,
 		"mst_max_height_steps": height_steps,
 		"room_count": room_count,
 		"extra_cycles": extra_cycles,
-		"wrap_x": true
+		"wrap_x": true,
+		"fixed_border_tiles": fixed_tiles
 	}
 	mst_gen.apply_params(params)
 	var grid = mst_gen.generate_grid_data(_chunk_seed(chunk_idx))
@@ -188,6 +190,28 @@ func _build_chunk_contents(parent: Spatial, chunk_idx: int, chunk_rings: int) ->
 
 			if airlock_cells.has(i):
 				_add_room_airlock(cell, gx, gy, airlock_cells[i], parent)
+
+func _stable_hash(a: int, b: int, c: int = 0) -> int:
+	var h = (a * 73856093) ^ (b * 19349663) ^ (c * 83492791)
+	if seed_value >= 0:
+		h ^= seed_value * 12345
+	return int(h) & 0x7fffffff
+
+func _get_fixed_border_tiles(chunk_idx: int, chunk_rings: int) -> Dictionary:
+	var fixed := {}
+	# NORTH boundary of chunk N (gy=0) meets SOUTH of chunk N-1.
+	# Hashing chunk_idx ensures both agree on this seam.
+	# Boundary tiles are forced to be axial straight ducts ("W", rot 0) to ensure
+	# seamless connections without junction/arc mismatch.
+	var north_gx = _stable_hash(chunk_idx, 101) % sectors
+	fixed["%d,0" % north_gx] = {"height": 0.0, "id": "W", "rotation": 0}
+
+	# SOUTH boundary of chunk N (gy=chunk_rings-1) meets NORTH of chunk N+1.
+	# Hashing chunk_idx + 1 ensures both agree.
+	var south_gx = _stable_hash(chunk_idx + 1, 101) % sectors
+	fixed["%d,%d" % [south_gx, chunk_rings - 1]] = {"height": 0.0, "id": "W", "rotation": 0}
+
+	return fixed
 
 func _chunk_seed(chunk_idx: int) -> int:
 	var base_seed := seed_value if seed_value >= 0 else 0
