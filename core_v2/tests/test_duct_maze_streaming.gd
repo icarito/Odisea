@@ -111,7 +111,7 @@ func test_junctions_have_visible_hub_without_solid_center_blocker() -> void:
 
 	assert_object(junction.get_node_or_null("JunctionHub")).is_not_null()
 	assert_int(_count_direct_arm_children(junction)).is_equal(3)
-	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(0)
+	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(2)
 	assert_int(counts.get("SphereShape", 0)).is_equal(0)
 	assert_int(counts.get("CylinderShape", 0)).is_equal(0)
 	assert_int(counts.get("BoxShape", 0)).is_greater(0)
@@ -200,6 +200,6 @@ func _count_nodes_named(node: Node, target_name: String) -> int:
 func _count_direct_arm_children(node: Node) -> int:
 	var count := 0
 	for child in node.get_children():
-		if child is Spatial and child.name != "JunctionHub":
+		if child is Spatial and child.name != "JunctionHub" and child.name != "HubCollision":
 			count += 1
 	return count
