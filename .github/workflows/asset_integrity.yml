@@ -104,6 +104,10 @@ jobs:
           set -euo pipefail
           python3 scripts/check_critical_import_artifacts.py
 
+      - name: Audit export includes
+        run: |
+          python3 tools/audit_export_includes.py --all || true
+
       - name: Import + Smoke (full clean rebuild)
         run: |
           set -euo pipefail
