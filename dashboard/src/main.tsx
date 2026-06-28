@@ -10,6 +10,7 @@ import { Inbox } from './app/Inbox'
 import { Investigation } from './app/Investigation'
 import { Heatmap } from './app/Heatmap'
 import { Globe } from './app/Globe'
+import { History } from './app/History'
 import './index.css'
 
 const DASHBOARD_ORIENTATION = 'portrait'
@@ -96,6 +97,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route element={<IncidentShell />}>
           <Route path="/investigate" element={<Inbox />} />
           <Route path="/investigation/:id" element={<Investigation />} />
+          <Route path="/history" element={<History />} />
           <Route path="/heatmap" element={<Heatmap />} />
           <Route path="/globe" element={<Globe />} />
         </Route>

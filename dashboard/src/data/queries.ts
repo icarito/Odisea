@@ -2,8 +2,10 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getGeoPlayers,
+  getGhostData,
   getGhosts,
   getHeatmap,
+  getHistoricalSessions,
   getIncident,
   getIncidentSamples,
   getIncidents,
@@ -12,7 +14,14 @@ import {
 } from '../api';
 import type { GeoPlayer, IncidentGroup, IncidentStatus } from '../types';
 import { useFilters } from './filters.store';
-import { filterGeoPlayers } from './selectors';
+import {
+  applyIncidentStatusToList,
+  enrichSessionsWithGeo,
+  filterGeoPlayers,
+  filterSessions,
+  geoByPlayer,
+  normalizeGhostSample,
+} from './selectors';
 
 export type IncidentFilter = IncidentStatus | 'all';
 
@@ -43,6 +52,32 @@ export function useGhostsQuery(scene: string) {
     queryKey: ['ghosts', scene],
     queryFn: () => getGhosts(scene),
     enabled: !!scene,
+  });
+}
+
+export function useHistoricalSessionsQuery() {
+  return useQuery({
+    queryKey: ['historicalSessions'],
+    queryFn: getHistoricalSessions,
+    refetchInterval: 30_000,
+  });
+}
+
+// Muestras de una sesión para reproducción (ghosts), normalizadas al heartbeat
+// plano que espera SessionPlayback. enabled sólo cuando hay sesión elegida.
+export function useGhostDataQuery(playerId: string | undefined, sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ['ghostData', playerId, sessionId],
+    queryFn: () => getGhostData(playerId as string, sessionId as string),
+    enabled: !!playerId && !!sessionId,
+    select: (rows: unknown) => {
+      const arr = Array.isArray(rows)
+        ? rows
+        : typeof rows === 'string'
+          ? rows.split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l))
+          : [];
+      return arr.map(normalizeGhostSample);
+    },
   });
 }
 
@@ -77,6 +112,27 @@ export function useFilteredGeoPlayers() {
   return { ...q, data };
 }
 
+// Sesiones históricas + live, enriquecidas con geo y filtradas por los filtros
+// globales (escena/país/plataforma/duración). Presentacional: la vista History
+// sólo consume `data`.
+export function useFilteredHistoricalSessions() {
+  const scene = useFilters((s) => s.scene);
+  const country = useFilters((s) => s.country);
+  const platform = useFilters((s) => s.platform);
+  const minDurationSec = useFilters((s) => s.minDurationSec);
+  const sessionsQ = useHistoricalSessionsQuery();
+  const geoQ = useGeoPlayersQuery();
+
+  const data = useMemo(() => {
+    const sessions = (sessionsQ.data as Array<Record<string, unknown>>) ?? [];
+    const byPlayer = geoByPlayer((geoQ.data as GeoPlayer[]) ?? []);
+    const enriched = enrichSessionsWithGeo(sessions, byPlayer);
+    return filterSessions(enriched, { scene, country, platform, minDurationSec, windowMs: 0 }, byPlayer);
+  }, [sessionsQ.data, geoQ.data, scene, country, platform, minDurationSec]);
+
+  return { ...sessionsQ, data };
+}
+
 // --- Mutación: cambiar estado de incidente (optimista) ----------------------
 
 export function useUpdateIncidentStatus() {
@@ -91,10 +147,7 @@ export function useUpdateIncidentStatus() {
       for (const [key, data] of snapshots) {
         if (!Array.isArray(data)) continue;
         const keyStatus = key[1] as IncidentFilter;
-        const next = data
-          .map((i) => (i.id === id ? { ...i, status } : i))
-          .filter((i) => keyStatus === 'all' || i.status === keyStatus);
-        qc.setQueryData(key, next);
+        qc.setQueryData(key, applyIncidentStatusToList(data, id, status, keyStatus));
       }
       // Detalle (vista Investigation) también optimista.
       const prevDetail = qc.getQueryData<IncidentGroup>(['incident', id]);
