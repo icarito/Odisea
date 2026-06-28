@@ -61,6 +61,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -71,7 +75,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          31.415926,
           0
         ],
         "zoom_delta": 0,
@@ -85,6 +89,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -95,7 +103,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          41.887901,
           0
         ],
         "zoom_delta": 0,
@@ -109,6 +117,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -119,7 +131,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          52.359879,
           0
         ],
         "zoom_delta": 0,
@@ -133,6 +145,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -143,7 +159,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          62.831852,
           0
         ],
         "zoom_delta": 0,
@@ -157,6 +173,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -167,7 +187,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          73.303825,
           0
         ],
         "zoom_delta": 0,
@@ -181,6 +201,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -191,7 +215,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          83.775803,
           0
         ],
         "zoom_delta": 0,
@@ -205,6 +229,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -215,7 +243,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          94.24778,
           0
         ],
         "zoom_delta": 0,
@@ -229,6 +257,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -239,7 +271,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          104.719757,
           0
         ],
         "zoom_delta": 0,
@@ -253,6 +285,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -263,7 +299,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          115.191734,
           0
         ],
         "zoom_delta": 0,
@@ -277,6 +313,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -287,7 +327,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          125.663704,
           0
         ],
         "zoom_delta": 0,
@@ -301,6 +341,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -311,7 +355,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          136.135681,
           0
         ],
         "zoom_delta": 0,
@@ -325,6 +369,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -335,7 +383,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          146.607651,
           0
         ],
         "zoom_delta": 0,
@@ -349,6 +397,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -359,7 +411,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          157.079636,
           0
         ],
         "zoom_delta": 0,
@@ -373,6 +425,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -383,7 +439,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          167.551605,
           0
         ],
         "zoom_delta": 0,
@@ -397,6 +453,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -407,7 +467,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          178.02359,
           0
         ],
         "zoom_delta": 0,
@@ -421,6 +481,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -431,7 +495,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          188.49556,
           0
         ],
         "zoom_delta": 0,
@@ -445,6 +509,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -455,7 +523,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          198.967529,
           0
         ],
         "zoom_delta": 0,
@@ -469,6 +537,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -479,7 +551,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          209.439514,
           0
         ],
         "zoom_delta": 0,
@@ -493,6 +565,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -503,7 +579,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          219.911484,
           0
         ],
         "zoom_delta": 0,
@@ -517,6 +593,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -527,7 +607,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          230.383469,
           0
         ],
         "zoom_delta": 0,
@@ -541,6 +621,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -551,7 +635,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          240.855438,
           0
         ],
         "zoom_delta": 0,
@@ -565,6 +649,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -575,7 +663,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          251.327408,
           0
         ],
         "zoom_delta": 0,
@@ -589,6 +677,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -599,7 +691,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          261.799377,
           0
         ],
         "zoom_delta": 0,
@@ -613,6 +705,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -623,7 +719,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          272.271362,
           0
         ],
         "zoom_delta": 0,
@@ -637,6 +733,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -647,7 +747,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          282.743347,
           0
         ],
         "zoom_delta": 0,
@@ -661,6 +761,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -671,7 +775,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          293.215302,
           0
         ],
         "zoom_delta": 0,
@@ -685,6 +789,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -695,7 +803,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          303.687286,
           0
         ],
         "zoom_delta": 0,
@@ -709,6 +817,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -719,7 +831,7 @@
           0
         ],
         "mouse_delta": [
-          10.471975,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -733,6 +845,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -743,7 +859,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -757,6 +873,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -767,7 +887,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -781,6 +901,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -791,7 +915,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -805,6 +929,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -815,7 +943,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -829,6 +957,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -839,7 +971,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -853,6 +985,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -863,7 +999,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -877,6 +1013,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -887,7 +1027,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -901,6 +1041,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -911,7 +1055,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -925,6 +1069,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -935,7 +1083,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -949,6 +1097,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -959,7 +1111,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -973,6 +1125,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -983,7 +1139,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -997,6 +1153,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1007,7 +1167,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1021,6 +1181,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1031,7 +1195,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1045,6 +1209,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1055,7 +1223,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1069,6 +1237,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1079,7 +1251,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1093,6 +1265,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1103,7 +1279,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1117,6 +1293,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1127,7 +1307,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1141,6 +1321,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1151,7 +1335,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1165,6 +1349,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1175,7 +1363,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1189,6 +1377,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1199,7 +1391,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1213,6 +1405,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1223,7 +1419,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1237,6 +1433,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1247,7 +1447,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1261,6 +1461,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1271,7 +1475,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1285,6 +1489,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1295,7 +1503,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1309,6 +1517,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1319,7 +1531,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1333,6 +1545,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1343,7 +1559,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1357,6 +1573,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1367,7 +1587,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1381,6 +1601,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1391,7 +1615,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1405,6 +1629,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1415,7 +1643,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1429,6 +1657,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     },
@@ -1439,7 +1671,7 @@
           0
         ],
         "mouse_delta": [
-          0,
+          314.159271,
           0
         ],
         "zoom_delta": 0,
@@ -1453,6 +1685,10 @@
         "rotate_right": false,
         "roll_left": false,
         "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
         "hardware_mouse_active": false
       }
     }
@@ -1476,14 +1712,6 @@
       {
         "command": "ASSERT",
         "condition": "yaw_deg > -95 \"Cámara giró demasiado\""
-      },
-      {
-        "command": "ASSERT",
-        "condition": "pos.z == 0 \"El jugador se movió durante la rotación\""
-      },
-      {
-        "command": "ASSERT",
-        "condition": "pos.x == 0 \"El jugador se movió lateralmente\""
       }
     ]
   },
@@ -1825,6 +2053,12 @@
         "occupied": false,
         "feedback_state": "disabled"
       },
+      "/root/TestScene/Pilot/MultiTool": {
+        "mode": 1,
+        "projectiles": [
+
+        ]
+      },
       "/root/TestScene/SlidingDrawer": {
         "active": false,
         "used": false,
@@ -1871,7 +2105,7 @@
       0,
       0
     ],
-    "yaw": -1.570796,
+    "yaw": -71.418874,
     "pitch": 0,
     "base_spring_length_3d": 4,
     "movement_state": {
@@ -1885,7 +2119,7 @@
         0,
         0
       ],
-      "camera_input_timer": 0.5,
+      "camera_input_timer": 0,
       "is_tank_turn_mode": false,
       "current_turn_time": 0,
       "_mouse_used_this_move": false

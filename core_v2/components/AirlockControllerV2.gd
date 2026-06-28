@@ -17,6 +17,11 @@ export(NodePath) var inner_door_path
 export(NodePath) var chamber_zone_path
 export(float) var pressurize_time := 1.0
 export(float) var reset_time := 10.0
+# Standalone cycle: when there is no destination scene to transition into (e.g. the
+# duct maze, future stream), open the EXIT door automatically once pressurization
+# finishes instead of waiting for a scene change that never comes. Off by default so
+# scene-transition airlocks are unaffected.
+export(bool) var standalone_cycle := false
 
 export(NodePath) var beacon_path
 export(NodePath) var pressurize_sfx_path
@@ -431,6 +436,11 @@ func _finish_transition_pressurization() -> void:
 	timer = 0.0
 	_update_beacons()
 	emit_signal("airlock_ready")
+	# No destination scene (duct maze / stream): complete the cycle locally by opening
+	# the exit door, instead of waiting for a scene change that will never happen.
+	if standalone_cycle:
+		var exit_name := "inner" if _is_cycling_in else "outer"
+		open_exit_door(exit_name, false, false)
 	_update_physics_processing()
 
 func _finish_pressurization() -> void:

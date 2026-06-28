@@ -8,7 +8,7 @@ enum Direction { NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3 }
 const DIR_VEC = { 0: Vector2(0, -1), 1: Vector2(1, 0), 2: Vector2(0, 1), 3: Vector2(-1, 0) }
 const OPPOSITE = { 0: 2, 1: 3, 2: 0, 3: 1 }
 const HEIGHT_STEP = 2.0
-const MAX_HEIGHT_STEPS = 5
+const MAX_HEIGHT_STEPS = 6
 
 class ModuleVariant:
 	var id: String
@@ -33,6 +33,7 @@ class CellState:
 var grid_width := 8
 var grid_depth := 12
 var cell_size := 6.0
+var wrap_x := false
 var rng = RandomNumberGenerator.new()
 # Height range, configurable so the MST scaffold can be constrained to fit the
 # surrounding level geometry. WFC and MST are different algorithms; with the full
@@ -41,6 +42,8 @@ var rng = RandomNumberGenerator.new()
 # the number of height steps keeps the generated scaffold inside the playable band.
 var max_height_steps := MAX_HEIGHT_STEPS
 var min_height_steps := 1
+var requested_room_count := -1
+var requested_extra_cycles := 2
 # Deterministic seam tiles shared with neighbouring chunks. Keyed "x,y" -> {id,
 # rotation, height}. When present, these cells are pinned to the given height so the
 # scaffold joins continuously across chunk borders on the centrifugal axis (the same
@@ -56,8 +59,11 @@ func apply_params(params: Dictionary):
 	cell_size = params.get("cell_size", 6.0)
 	max_height_steps = int(clamp(params.get("mst_max_height_steps", MAX_HEIGHT_STEPS), 1, MAX_HEIGHT_STEPS))
 	min_height_steps = int(clamp(params.get("mst_min_height_steps", 1), 1, max_height_steps))
+	requested_room_count = int(params.get("room_count", -1))
+	requested_extra_cycles = int(max(0, params.get("extra_cycles", 2)))
 	var fb = params.get("fixed_border_tiles", {})
 	fixed_border_tiles = fb if typeof(fb) == TYPE_DICTIONARY else {}
+	wrap_x = params.get("wrap_x", false)
 	# Cache pinned cell indices (border seams) so the smoothing passes never move them,
 	# preserving cross-chunk continuity.
 	_pinned_indices = {}
@@ -69,12 +75,28 @@ func apply_params(params: Dictionary):
 			if px >= 0 and px < grid_width and py >= 0 and py < grid_depth:
 				_pinned_indices[py * grid_width + px] = true
 
+# Returns the index of the neighbour cell in direction d, or -1 if out of grid.
+# When wrap_x, the X (angular) axis is cyclic: x=-1 wraps to grid_width-1, x=grid_width wraps to 0.
+func _neighbor(x: int, y: int, d: int) -> int:
+	var nv = DIR_VEC[d]
+	var nx: int = x + int(nv.x)
+	var ny: int = y + int(nv.y)
+	if wrap_x:
+		nx = int(posmod(nx, grid_width))
+	elif nx < 0 or nx >= grid_width:
+		return -1
+	if ny < 0 or ny >= grid_depth:
+		return -1
+	return ny * grid_width + nx
+
 func generate_grid_data(seed_val: int = -1) -> Array:
 	if seed_val == -1: rng.randomize()
 	else: rng.seed = seed_val
 
 	var rooms = []
-	var room_count = rng.randi_range(5, 8)
+	var room_indices := {}
+	var target_room_count = requested_room_count if requested_room_count > 0 else rng.randi_range(5, 8)
+	target_room_count = int(clamp(target_room_count, 1, max(1, grid_width * grid_depth)))
 	var grid = []
 	grid.resize(grid_width * grid_depth)
 	var connections = []
@@ -100,6 +122,7 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 		var bi := cy * grid_width + cx
 		heights[bi] = bh
 		rooms.append({"pos": Vector2(cx, cy), "h": bh})
+		room_indices[bi] = true
 		# Open the seam tile's OUTWARD side toward the neighbouring chunk so the two
 		# chunks actually bridge. Without this the seam heights match but no walkable
 		# connection crosses the boundary — chunks look connectable but aren't. (The
@@ -114,7 +137,9 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			connections[bi][Direction.SOUTH] = true
 
 	# 1. Room Placement
-	for i in range(room_count):
+	var room_attempts := 0
+	while rooms.size() < target_room_count and room_attempts < target_room_count * 8:
+		room_attempts += 1
 		var rx = rng.randi() % grid_width
 		var ry = rng.randi() % grid_depth
 		# Don't overwrite a pinned border seam tile.
@@ -122,7 +147,9 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			continue
 		var rh = float(rng.randi_range(min_height_steps, max_height_steps)) * HEIGHT_STEP
 		rooms.append({"pos": Vector2(rx, ry), "h": rh})
-		heights[ry * grid_width + rx] = rh
+		var ri: int = int(ry * grid_width + rx)
+		heights[ri] = rh
+		room_indices[ri] = true
 
 	# 2. MST Construction (Kruskal's)
 	var edges = []
@@ -142,7 +169,9 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			mst_edges.append(e)
 
 	# 4. Cycles
-	for i in range(2):
+	for i in range(requested_extra_cycles):
+		if edges.empty():
+			break
 		var e = edges[rng.randi() % edges.size()]
 		if not mst_edges.has(e): mst_edges.append(e)
 
@@ -221,7 +250,8 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 				"id": variant.id, "rotation": variant.rotation, "connections": variant.connections,
 				"port_heights": variant.port_heights, "weight": 1.0
 			},
-			"base_height": h + _last_stair_base_shift
+			"base_height": h + _last_stair_base_shift,
+			"is_room": room_indices.has(i)
 		})
 	return result
 
@@ -248,12 +278,9 @@ func _limit_slope_to_one_step(heights, connections) -> void:
 				for d in range(4):
 					if not connections[i][d]:
 						continue
-					var nv = DIR_VEC[d]
-					var nx := x + int(nv.x)
-					var ny := y + int(nv.y)
-					if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+					var ni := _neighbor(x, y, d)
+					if ni < 0:
 						continue
-					var ni := int(ny * grid_width + nx)
 					if heights[ni] < 0:
 						continue
 					var diff: float = heights[i] - heights[ni]
@@ -296,7 +323,10 @@ func _ensure_border_ports_connected(heights, connections) -> bool:
 			var rxi := int(ri)
 			var rx := rxi % grid_width
 			var ry := rxi / grid_width
-			var dist: int = abs(rx - bx) + abs(ry - by)
+			var dist_x: int = abs(rx - bx)
+			if wrap_x:
+				dist_x = min(dist_x, grid_width - dist_x)
+			var dist: int = dist_x + abs(ry - by)
 			if dist < best_dist:
 				best_dist = dist
 				best = ri
@@ -328,11 +358,9 @@ func _compute_reachable_set(connections, heights) -> Dictionary:
 		for d in range(4):
 			if not connections[c][d]:
 				continue
-			var nx := cx + int(DIR_VEC[d].x)
-			var ny := cy + int(DIR_VEC[d].y)
-			if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+			var ni := _neighbor(cx, cy, d)
+			if ni < 0:
 				continue
-			var ni := ny * grid_width + nx
 			if heights[ni] < 0 or seen.has(ni):
 				continue
 			if connections[ni][OPPOSITE[d]]:
@@ -384,11 +412,9 @@ func _cell_is_stair(heights, connections, i: int) -> bool:
 	for d in range(4):
 		if not connections[i][d]:
 			continue
-		var nx := cx + int(DIR_VEC[d].x)
-		var ny := cy + int(DIR_VEC[d].y)
-		if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+		var ni := _neighbor(cx, cy, d)
+		if ni < 0:
 			continue
-		var ni := ny * grid_width + nx
 		if heights[ni] >= 0 and abs(heights[i] - heights[ni]) > 0.001:
 			return true
 	return false
@@ -411,11 +437,9 @@ func _break_stair_chains(heights, connections) -> void:
 				for d in range(4):
 					if not connections[i][d]:
 						continue
-					var nx := x + int(DIR_VEC[d].x)
-					var ny := y + int(DIR_VEC[d].y)
-					if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+					var ni := _neighbor(x, y, d)
+					if ni < 0:
 						continue
-					var ni := int(ny * grid_width + nx)
 					if heights[ni] < 0:
 						continue
 					if abs(heights[i] - heights[ni]) <= 0.001:
@@ -440,11 +464,9 @@ func _finalize_edges(heights, connections) -> void:
 			if heights[i] < 0:
 				continue
 			for d in range(4):
-				var nx := x + int(DIR_VEC[d].x)
-				var ny := y + int(DIR_VEC[d].y)
-				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+				var ni := _neighbor(x, y, d)
+				if ni < 0:
 					continue
-				var ni := int(ny * grid_width + nx)
 				if heights[ni] < 0:
 					continue
 				# Either side already open at the same height → make it mutual.
@@ -462,16 +484,12 @@ func _finalize_edges(heights, connections) -> void:
 			for d in range(4):
 				if not connections[i][d]:
 					continue
-				var nx := x + int(DIR_VEC[d].x)
-				var ny := y + int(DIR_VEC[d].y)
-				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
-					# Keep an out-of-grid connection only if it's a pinned seam tile's outward
-					# port (the bridge to the neighbouring chunk). Otherwise it's a railing
-					# onto the void.
+				var ni := _neighbor(x, y, d)
+				if ni < 0:
+					# Out of grid: keep only if it's a pinned seam tile's outward port.
 					if not _pinned_indices.has(i):
 						connections[i][d] = false
 					continue
-				var ni := int(ny * grid_width + nx)
 				# Neighbour empty, or height gap too large to host a stair → close side.
 				if heights[ni] < 0 or abs(heights[i] - heights[ni]) > HEIGHT_STEP + 0.001:
 					connections[i][d] = false
@@ -486,25 +504,40 @@ func _union(parent, i, j): parent[_find(parent, i)] = _find(parent, j)
 func _trace_path(u, v, connections, heights):
 	var curr = u.pos
 	var target = v.pos
-	while curr.x != target.x:
-		var next_x = curr.x + (1 if target.x > curr.x else -1)
-		_connect(curr, next_x, curr.y, connections, heights)
+	# When wrapping, take the shorter angular path around the cylinder.
+	var dx: float = target.x - curr.x
+	if wrap_x:
+		if dx > float(grid_width) * 0.5:
+			dx -= float(grid_width)
+		elif dx < -float(grid_width) * 0.5:
+			dx += float(grid_width)
+	while int(curr.x) != int(target.x) and abs(dx) > 0.001:
+		var step := 1 if dx > 0 else -1
+		var next_x = int(posmod(curr.x + step, grid_width)) if wrap_x else int(curr.x + step)
+		_connect_wrap(curr, next_x, curr.y, connections, heights)
 		curr.x = next_x
-		if heights[curr.y * grid_width + curr.x] < 0: heights[curr.y * grid_width + curr.x] = u.h
+		if heights[int(curr.y) * grid_width + int(curr.x)] < 0: heights[int(curr.y) * grid_width + int(curr.x)] = u.h
+		dx -= step
 	while curr.y != target.y:
 		var next_y = curr.y + (1 if target.y > curr.y else -1)
-		_connect(curr, curr.x, next_y, connections, heights)
+		_connect_wrap(curr, curr.x, next_y, connections, heights)
 		curr.y = next_y
-		if heights[curr.y * grid_width + curr.x] < 0: heights[curr.y * grid_width + curr.x] = v.h
+		if heights[int(curr.y) * grid_width + int(curr.x)] < 0: heights[int(curr.y) * grid_width + int(curr.x)] = v.h
 
-func _connect(p1, x2, y2, connections, heights):
-	var d1 = _get_dir(p1, Vector2(x2, y2))
-	connections[int(p1.y * grid_width + p1.x)][d1] = true
-	connections[int(y2 * grid_width + x2)][OPPOSITE[d1]] = true
+func _connect_wrap(p1, x2, y2, connections, heights):
+	var d1 = _get_dir_wrap(p1, Vector2(x2, y2))
+	var i1 := int(int(p1.y) * grid_width + int(p1.x))
+	var i2 := int(int(y2) * grid_width + int(x2))
+	connections[i1][d1] = true
+	connections[i2][OPPOSITE[d1]] = true
 
-func _get_dir(p1, p2):
-	if p2.x > p1.x: return Direction.EAST
-	if p2.x < p1.x: return Direction.WEST
+func _get_dir_wrap(p1, p2):
+	var dx: float = p2.x - p1.x
+	if wrap_x:
+		if dx > float(grid_width) * 0.5: dx -= float(grid_width)
+		elif dx < -float(grid_width) * 0.5: dx += float(grid_width)
+	if dx > 0.001: return Direction.EAST
+	if dx < -0.001: return Direction.WEST
 	if p2.y > p1.y: return Direction.SOUTH
 	return Direction.NORTH
 
@@ -517,11 +550,8 @@ func _fill_missing_heights(heights, connections):
 		var cy = curr / grid_width
 		for d in range(4):
 			if not connections[curr][d]: continue
-			var nv = DIR_VEC[d]
-			var nx = cx + nv.x
-			var ny = cy + nv.y
-			if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth: continue
-			var ni = int(ny * grid_width + nx)
+			var ni := _neighbor(int(cx), int(cy), d)
+			if ni < 0: continue
 			if heights[ni] < 0:
 				heights[ni] = heights[curr]
 				q.append(ni)
@@ -533,12 +563,9 @@ func _connect_adjacent_equal_height_cells(heights, connections) -> void:
 			if heights[i] < 0:
 				continue
 			for d in [Direction.EAST, Direction.SOUTH]:
-				var nv = DIR_VEC[d]
-				var nx = x + int(nv.x)
-				var ny = y + int(nv.y)
-				if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+				var ni := _neighbor(x, y, d)
+				if ni < 0:
 					continue
-				var ni = int(ny * grid_width + nx)
 				if heights[ni] < 0:
 					continue
 				if abs(heights[i] - heights[ni]) <= 0.001:
@@ -560,12 +587,9 @@ func _flatten_invalid_height_edges(heights, connections) -> bool:
 				for d in range(4):
 					if not connections[i][d]:
 						continue
-					var nv = DIR_VEC[d]
-					var nx = x + int(nv.x)
-					var ny = y + int(nv.y)
-					if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+					var ni := _neighbor(x, y, d)
+					if ni < 0:
 						continue
-					var ni = int(ny * grid_width + nx)
 					if heights[ni] < 0:
 						continue
 					if abs(heights[i] - heights[ni]) <= 0.001:
@@ -608,15 +632,10 @@ func _select_variant(conn, idx, heights):
 	var cy = idx / grid_width
 	for d in range(4):
 		if not conn[d]: continue
-		var nv = DIR_VEC[d]
-		var nx = cx + int(nv.x)
-		var ny = cy + int(nv.y)
-		# Bounds-check x AND y, not the linear index: a left/right port on a border
-		# cell wraps to a valid index on another row, which would read a wrong height
-		# and put a phantom ramp on the outward (seam) port. Out-of-grid ports stay 0.
-		if nx < 0 or nx >= grid_width or ny < 0 or ny >= grid_depth:
+		var ni := _neighbor(cx, cy, d)
+		if ni < 0:
 			continue
-		ph[d] = heights[ny * grid_width + nx] - h
+		ph[d] = heights[ni] - h
 
 	var is_stair = false
 	for p in ph:

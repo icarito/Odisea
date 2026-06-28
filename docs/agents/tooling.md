@@ -1,0 +1,128 @@
+# Tooling And Validation
+
+Resumen operativo de herramientas. La referencia de reglas sigue siendo `AGENTS.md`.
+
+## Godot
+
+Usar siempre:
+
+```bash
+godot3-bin
+```
+
+No usar `godot`, porque puede apuntar a Godot 4 y romper sintaxis GDScript 1.x.
+
+## Tests
+
+Suite completa:
+
+```bash
+./runtest.sh
+./runtest.sh -a ./core_v2/tests/
+```
+
+Tests principales:
+
+```bash
+./runtest.sh -a ./core_v2/tests/test_gravity_modes.gd
+./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd
+./runtest.sh --oys test_salto_vertical
+./runtest.sh --stress
+```
+
+Leer resultados si el terminal no muestra todo:
+
+```bash
+grep -E "(PASSED|FAILED|ERROR|Total|Exit code|SCRIPT ERROR)" ./reports/gdunit_runner.log
+```
+
+## Eval headless de GDScript
+
+Usar el wrapper:
+
+```bash
+.claude/skills/run-odisea/eval.sh 'print("[t] threads=", OS.has_feature("threads"))'
+```
+
+Variables utiles:
+
+- `EVAL_RAW=1`: output completo de Godot.
+- `EVAL_TIMEOUT=<s>`: timeout, default 90s.
+- `GODOT_BIN`: override del binario, default `godot3-bin`.
+
+Gotchas:
+
+- El inline corre en `_init()`: usar statements (`var`, llamadas). Para `func`, `const` o `enum`, usar modo archivo `-f`.
+- Taggear prints con `[t]` para filtrarlos del ruido del engine.
+- `instances leaked at exit` en scripts one-shot suele ser harmless.
+
+## Telemetria y runtime debug
+
+ANNA V1 esta deprecado para trabajo nuevo. Usar ANNA V2 via peer HTTP local:
+
+```bash
+tools/ensure_peer.sh
+curl -s localhost:4999/status | python3 -m json.tool
+curl -s "localhost:4999/eval?expr=get_tree().get_node_count()"
+curl -s -XPOST localhost:4999/command -d '{"action":"inspect_node","args":{"path":"/root"}}'
+curl -s -XPOST localhost:4999/command -d '{"action":"screenshot"}'
+```
+
+Arrancar juego propio:
+
+```bash
+tools/launch_game.sh --headless --scene res://core_v2/levels/interiors/Dome_Crio.tscn
+tools/launch_game.sh --scene <res://...> --pos "x,y,z"
+tools/launch_game.sh --stop
+```
+
+Regla de debug: `GET /status` primero, luego `POST /command`.
+
+Comandos modificadores como `set_property`, `/eval`, `spawn_scene` y `teleport_player`
+requieren debug/editor build. Confirmar con:
+
+```bash
+curl -s "localhost:4999/eval?expr=OS.is_debug_build()"
+```
+
+## Props
+
+Validar y capturar estados:
+
+```bash
+./test_prop.sh <PropName>
+./test_prop.sh <PropName> --base64
+```
+
+Artefactos:
+
+```text
+test_output/props/<PropName>_0_idle.png
+test_output/props/<PropName>_1_mid.png
+test_output/props/<PropName>_2_active.png
+test_output/props/<PropName>_3_off.png
+```
+
+Despues de cambios visuales, mostrar capturas al usuario antes de cerrar la iteracion.
+
+## UI retro
+
+```bash
+./test_ui.sh --scene=DebugOverlay --base64
+./test_ui.sh --scene="res://core_v2/ui/retro/DebugOverlay.tscn"
+```
+
+Artefactos en `test_output/ui/`.
+
+## Assets e imports
+
+Si se tocan assets, manifests o imports:
+
+```bash
+python3 scripts/check_tracked_imports.py
+python3 scripts/check_critical_import_artifacts.py
+scripts/godot_import_smoke.sh --godot-bin godot3-bin --project-path . --clean-cache 0 --import-mode quick
+```
+
+No borrar `.import/` como cache: contiene artefactos versionados criticos.
+

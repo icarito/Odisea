@@ -197,7 +197,8 @@ func _restore_standard_rig(root: KinematicBody) -> void:
 		_standard_camera_rig.transform.origin.y = root.base_rig_y
 	var prefix: Basis = root.get("camera_basis_prefix") if "camera_basis_prefix" in root else Basis.IDENTITY
 	_standard_camera_rig.transform.basis = prefix * Basis(Vector3.UP, root.yaw) * Basis(Vector3.RIGHT, root.pitch)
-	_standard_camera_rig.force_update_transform()
+	if _standard_camera_rig.is_inside_tree():
+		_standard_camera_rig.force_update_transform()
 
 func _restore_standard_zoom_state(root: KinematicBody) -> void:
 	var distance := _last_standard_camera_distance
