@@ -78,6 +78,7 @@ func _on_activated():
 	
 	var player = _find_player()
 	if player:
+		# Updated for new AgentBase API
 		_drone.follow_target(player, follow_distance)
 	else:
 		printerr("[CargolController] _on_activated: Player not found")
@@ -87,4 +88,6 @@ func _on_deactivated():
 		printerr("[CargolController] _on_deactivated: No drone reference")
 		return
 	
-	_drone.return_to(home_position)
+	# Updated for new AgentBase API
+	_drone.target_position = home_position
+	_drone.current_state = _drone.State.RETURN_HOME

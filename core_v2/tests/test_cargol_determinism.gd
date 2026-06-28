@@ -1,14 +1,7 @@
 extends GdUnitTestSuite
 
 # Tests for CargolDroneV2 determinism fixes (issues #200 and #201).
-#
-# Bug #1: CargoAnchor was a child of the KinematicBody. Now it must be a
-#         sibling (child of the drone's parent) so cargo inherits the
-#         canonical logical transform, not an interpolated visual one.
-#
-# Bug #2: release() was using `velocity` after move_and_slide() had altered
-#         it via collision response. Now `_canonical_velocity` captures the
-#         intent before that mutation.
+# Updated for AgentBase refactor.
 
 func test_cargo_anchor_is_sibling_not_child() -> void:
 	var runner := scene_runner("res://core_v2/tests/TestScene_Cargol.tscn")
@@ -62,8 +55,6 @@ func test_release_uses_canonical_not_post_slide_velocity() -> void:
 		drone.pickup("Cargo")
 
 		# Pickup zeroes residual momentum and switches the body to kinematic mode.
-		# Assert before stepping: once frames advance, a kinematic body carried by
-		# the moving anchor reports the anchor's per-frame displacement as velocity.
 		assert_int(cargo.mode).is_equal(RigidBody.MODE_KINEMATIC)
 		assert_bool(cargo.linear_velocity == Vector3.ZERO).is_true()
 
@@ -73,10 +64,25 @@ func test_release_uses_canonical_not_post_slide_velocity() -> void:
 		drone.release(Vector3.ZERO)
 		yield(runner.simulate_frames(2), "completed")
 
-		# Cargo impulse = impulse(0) + _canonical_velocity(3,0,0).
-		# Post-slide velocity(99,0,0) must NOT have been used.
-		# We can't inspect apply_central_impulse directly, but we can confirm
-		# the magnitude is consistent with 3 m/s, not 99 m/s.
 		var speed = cargo.linear_velocity.length()
-		# Allow physics tolerance; just rule out the 99 m/s case.
+		# Magnitude should be consistent with 3 m/s, not 99 m/s.
 		assert_bool(speed < 50.0).is_true()
+
+func test_snapshot_restore_determinism() -> void:
+	var runner := scene_runner("res://core_v2/tests/TestScene_Cargol.tscn")
+	yield(runner.simulate_frames(3), "completed")
+
+	var drone = runner.scene().find_node("CargolDrone", true, false)
+	
+	drone.velocity = Vector3(1, 2, 3)
+	drone.current_state = 2 # State.FOLLOW_TARGET
+	
+	var snapshot = drone.get_snapshot()
+	
+	drone.velocity = Vector3.ZERO
+	drone.current_state = 0 # State.IDLE
+	
+	drone.restore_snapshot(snapshot)
+	
+	assert_int(drone.current_state).is_equal(2)
+	assert_bool(drone.velocity.is_equal_approx(Vector3(1, 2, 3))).is_true()
