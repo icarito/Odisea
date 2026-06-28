@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from collections import defaultdict, Counter
 
 DEFAULT_DB = "/home/ubuntu/anna-central/data/ghosts.db"
+DEFAULT_STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".telemetry_stats_state.json")
 
 
 def connect(db_path: str) -> sqlite3.Connection:
@@ -39,7 +40,7 @@ def ts_to_iso(ts: float) -> str:
     return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
-def run(db_path: str, as_json: bool, cron_mode: bool):
+def run(db_path: str, as_json: bool, cron_mode: bool, state_file: str = ""):
     conn = connect(db_path)
     cur = conn.cursor()
 
@@ -247,14 +248,13 @@ def run(db_path: str, as_json: bool, cron_mode: bool):
     }
 
     if cron_mode:
-        # Salida breve para cron
-        est = report["estimacion_jugadores_reales"]
-        tot = report["totales"]
-        print(f"[telemetry_stats] {tot['jugadores_unicos']} jugadores únicos | "
-              f"{est['visitantes_anonimos_1_sesión']} anónimos | "
-              f"{est['probables_desarrolladores_(heartbeats>2000)']} devs | "
-              f"{est['estimado_jugadores_externos_reales']} externos estimados | "
-              f"{tot['heartbeats_totales']} heartbeats desde {report['periodo']['desde']}")
+        prev = _load_state(state_file) if state_file else {}
+        summary = _cron_summary(report, prev)
+        if state_file:
+            _save_state(state_file, report)
+        if summary:
+            print(summary)
+        # Si no hay cambios, no imprime nada — el cron superior decide si reportar o no
         return
 
     if as_json:
@@ -314,13 +314,75 @@ def run(db_path: str, as_json: bool, cron_mode: bool):
     print("=" * 60)
 
 
+def _load_state(state_file: str) -> dict:
+    if os.path.exists(state_file):
+        try:
+            with open(state_file) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def _save_state(state_file: str, data: dict) -> None:
+    with open(state_file, "w") as f:
+        json.dump(data, f)
+
+
+def _cron_summary(report: dict, prev: dict) -> str:
+    """Genera un resumen breve del reporte actual vs el anterior.
+    Retorna el texto del reporte si hay cambios significativos
+    respecto a prev, o si es la primera vez (prev vacío).
+    Si no hay cambios, retorna string vacío."""
+    tot = report["totales"]
+    est = report["estimacion_jugadores_reales"]
+
+    lines = []
+    first_time = not prev or "totales" not in prev
+
+    if first_time:
+        lines.append(f"📊 {tot['jugadores_unicos']} jugadores únicos | "
+                     f"{est['visitantes_anonimos_1_sesión']} anónimos | "
+                     f"{est['probables_desarrolladores_(heartbeats>2000)']} devs | "
+                     f"{est['estimado_jugadores_externos_reales']} externos | "
+                     f"{tot['heartbeats_totales']} heartbeats")
+        return "\n".join(lines)
+
+    # Solo reportar si hay cambios reales
+    changes = []
+    delta_players = tot['jugadores_unicos'] - prev['totales']['jugadores_unicos']
+    delta_hb = tot['heartbeats_totales'] - prev['totales']['heartbeats_totales']
+    delta_externos = est['estimado_jugadores_externos_reales'] - prev.get('estimacion_jugadores_reales', {}).get('estimado_jugadores_externos_reales', 0)
+
+    if delta_players != 0:
+        changes.append(f"jugadores {'+' if delta_players > 0 else ''}{delta_players}")
+    if delta_externos != 0:
+        changes.append(f"externos {'+' if delta_externos > 0 else ''}{delta_externos}")
+    if delta_hb > 1000:
+        changes.append(f"+{delta_hb} heartbeats")
+
+    # Detectar escenas nuevas en top 5
+    old_scenes = {s["escena"] for s in prev.get("top_escenas", [])[:5]}
+    new_scenes = {s["escena"] for s in report.get("top_escenas", [])[:5]}
+    added = new_scenes - old_scenes
+    if added:
+        changes.append(f"🆕 {', '.join(sorted(added))}")
+
+    if not changes:
+        return ""  # Sin novedades — no reportar
+
+    summary = f"📊 {tot['jugadores_unicos']} únicos | {est['estimado_jugadores_externos_reales']} externos | {tot['heartbeats_totales']} HBs"
+    return summary + "\n↳ " + ", ".join(changes)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Estadísticas de telemetría desde ghosts.db")
     parser.add_argument("--db", default=DEFAULT_DB, help=f"Ruta a ghosts.db (default: {DEFAULT_DB})")
     parser.add_argument("--json", action="store_true", help="Salida en JSON")
     parser.add_argument("--cron", action="store_true", help="Salida breve para cron")
+    parser.add_argument("--state-file", default=DEFAULT_STATE_FILE, help="Archivo de estado persistente")
     args = parser.parse_args()
-    run(args.db, args.json, args.cron)
+    run(args.db, args.json, args.cron, args.state_file)
 
 
 if __name__ == "__main__":
