@@ -45,6 +45,9 @@ var _active_download := {}
 var _http_download: HTTPRequest
 var _downloading_chunk_idx := -1
 var _chunk_retries := 0
+var _needs_binary_update := false
+var _download_queue := []
+var _staged_artifacts := []
 
 func _ready():
 	_keyring = load("res://core_v2/update/UpdateKeyring.gd").new()
@@ -160,6 +163,7 @@ func _on_check_completed(result, response_code, _headers, body, http, channel, p
 		return
 
 	_pending_update = payload
+	_needs_binary_update = _check_needs_binary_update(payload)
 	_set_state(State.AVAILABLE)
 	emit_signal("update_available", payload)
 	emit_signal("new_version_available", payload)
@@ -203,6 +207,31 @@ func _validate_manifest(p, channel, platform) -> bool:
 			return false
 
 	return true
+
+func _check_needs_binary_update(p: Dictionary) -> bool:
+	if OS.has_feature("web") or OS.get_name() == "Android" or OS.get_name() == "iOS":
+		return false
+
+	var remote_godot_hash = p.get("project_godot_hash", "")
+	if remote_godot_hash == "":
+		return false
+
+	var local_godot_hash = _get_local_project_godot_hash()
+	return local_godot_hash != remote_godot_hash
+
+func _get_local_project_godot_hash() -> String:
+	var paths = [
+		"res://project.godot",
+		OS.get_executable_path().get_base_dir().plus_file("project.godot")
+	]
+	var f = File.new()
+	for path in paths:
+		if f.file_exists(path):
+			if f.open(path, File.READ) == OK:
+				var data = f.get_buffer(f.get_len())
+				f.close()
+				return Utils.get_sha256_hash(data).hex_encode()
+	return ""
 
 func _on_error(code: String, recoverable: bool):
 	_free_download_request()
@@ -295,12 +324,54 @@ func begin_update() -> void:
 			JavaScript.eval("window.location.href = window.location.origin + window.location.pathname + '?build_id=' + '" + build_id + "';")
 		return
 
-	var artifact = get_selected_artifact(_pending_update)
-	if artifact.empty():
+	_download_queue = []
+	_staged_artifacts = []
+	if _needs_binary_update:
+		var binary = get_selected_binary_artifact(_pending_update)
+		if not binary.empty():
+			_download_queue.append(binary)
+
+	var pck = get_selected_artifact(_pending_update)
+	if not pck.empty():
+		_download_queue.append(pck)
+
+	if _download_queue.empty():
 		_on_error("no_compatible_artifact", false)
 		return
 
-	_start_download(artifact)
+	_download_next_in_queue(true)
+
+func _download_next_in_queue(is_reentry: bool = false):
+	if _download_queue.empty():
+		_finalize_all_downloads()
+		return
+
+	var artifact = _download_queue.pop_front()
+	if is_reentry:
+		_start_download(artifact)
+	else:
+		call_deferred("_start_download", artifact)
+
+func get_selected_binary_artifact(p: Dictionary) -> Dictionary:
+	var current_confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
+	var current_build_id = current_confirmed.get("build_id", "")
+
+	# Try binary delta
+	if p.has("binary_delta_artifacts"):
+		for delta in p["binary_delta_artifacts"]:
+			if delta.get("from_build_id") == current_build_id:
+				delta["is_delta"] = true
+				delta["is_binary"] = true
+				return delta
+
+	# Fallback to binary full
+	if p.has("binary_full_artifact") and p["binary_full_artifact"] != null:
+		var full = p["binary_full_artifact"]
+		full["is_delta"] = false
+		full["is_binary"] = true
+		return full
+
+	return {}
 
 func get_selected_artifact(p: Dictionary) -> Dictionary:
 	var current_confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
@@ -368,18 +439,52 @@ func cancel_download() -> void:
 func request_restart() -> void:
 	if _state != State.READY_TO_RESTART:
 		return
-	# En desktop, get_tree().quit() solo CIERRA el juego (no relanza) -> el usuario
-	# cree que crasheó. Relanzamos el ejecutable como proceso desacoplado y luego
-	# salimos; el pending_boot se aplica en el arranque del nuevo proceso.
+
+	var pending = _load_json(PENDING_BOOT_FILE, {})
+	var exe := OS.get_executable_path()
+
 	if OS.has_feature("web"):
 		get_tree().quit()
 		return
-	var exe := OS.get_executable_path()
+
+	# Apply binary update if pending BEFORE launching the new process.
+	if pending.has("pending_binary") and not pending["pending_binary"].empty():
+		if OS.get_name() == "Windows":
+			# On Windows we can't replace the EXE while running.
+			# We launch a temporary batch script that handles the swap and relaunch.
+			_launch_windows_updater(pending["pending_binary"], exe)
+			get_tree().quit()
+			return
+		else:
+			# Linux/macOS: swap it now.
+			if not _apply_binary_update(pending["pending_binary"]):
+				# If swap failed, we can't really proceed with an incompatible PCK.
+				# The user will have to try again or we might need a rollback here.
+				print("[UpdateManager] Binary swap failed before restart.")
+
 	if exe != "":
-		# OS.create_process no existe en 3.6; execute con blocking=false relanza el
-		# ejecutable en background sin esperar. El proceso nuevo aplica el pending_boot.
 		OS.execute(exe, [], false)
 	get_tree().quit()
+
+func _launch_windows_updater(info: Dictionary, exe_path: String) -> void:
+	var bin_path = ProjectSettings.globalize_path(PACKAGE_DIR + info.id + ".bin")
+	var abs_exe = ProjectSettings.globalize_path(exe_path)
+	var script_path = ProjectSettings.globalize_path(UPDATE_DIR + "updater.bat")
+
+	var script_content = [
+		"@echo off",
+		"timeout /t 2 /nobreak > nul",
+		"copy /y \"%s\" \"%s\"" % [bin_path, abs_exe],
+		"start \"\" \"%s\"" % [abs_exe],
+		"del \"%%~f0\""
+	]
+
+	var f = File.new()
+	if f.open(script_path, File.WRITE) == OK:
+		for line in script_content:
+			f.store_line(line)
+		f.close()
+		OS.execute("cmd.exe", ["/c", "start", "/min", script_path], false)
 
 func confirm_boot() -> void:
 	var pending = _load_json(PENDING_BOOT_FILE, {})
@@ -642,7 +747,11 @@ func _resolve_base_pck_path() -> String:
 # Aplica un patch bsdiff (ODSBSDF1) sobre el .pck base actual y escribe el .pck
 # reconstruido en out_path (ruta res://). Usa la lib nativa OdiseaBspatch (GDNative).
 # Devuelve true si reconstruyó OK. En error llama _on_error y devuelve false.
-func _apply_binary_patch(patch_path: String, out_path: String) -> bool:
+func _resolve_base_binary_path() -> String:
+	# For binaries, we only have the currently running one.
+	return OS.get_executable_path()
+
+func _apply_binary_patch(patch_path: String, out_path: String, is_binary: bool = false) -> bool:
 	if not ResourceLoader.exists("res://" + BSPATCH_GDNS_PATH):
 		_on_error("bspatch_native_missing", false)
 		return false
@@ -654,9 +763,9 @@ func _apply_binary_patch(patch_path: String, out_path: String) -> bool:
 	if patcher == null or not patcher.has_method("apply"):
 		_on_error("bspatch_native_invalid", false)
 		return false
-	var base_abs = _resolve_base_pck_path()
+	var base_abs = _resolve_base_binary_path() if is_binary else _resolve_base_pck_path()
 	if base_abs == "":
-		_on_error("bspatch_base_pck_missing", false)
+		_on_error("bspatch_base_missing", false)
 		return false
 	# La lib nativa hace todo el I/O en C con rutas absolutas del SO.
 	var patch_abs = ProjectSettings.globalize_path(patch_path)
@@ -686,8 +795,9 @@ func _finalize_download():
 		return
 
 	var artifact_id = _active_download["artifact_id"]
+	var is_binary = _active_download.get("is_binary", false)
 	var part_path = STAGING_DIR + artifact_id + ".part"
-	var final_path = PACKAGE_DIR + artifact_id + ".pck"
+	var final_path = PACKAGE_DIR + artifact_id + (".bin" if is_binary else ".pck")
 
 	var f = File.new()
 	# El .part es lo que se transportó (el .gz si viene comprimido); su sha256
@@ -715,7 +825,7 @@ func _finalize_download():
 				_on_error("promote_failed", false)
 				return
 		# 2) Aplicar bspatch sobre el .pck base actualmente activo.
-		if not _apply_binary_patch(patch_path, final_path):
+		if not _apply_binary_patch(patch_path, final_path, is_binary):
 			d.remove(patch_path)
 			return  # _apply_binary_patch ya llamó _on_error
 		d.remove(patch_path)
@@ -741,18 +851,32 @@ func _finalize_download():
 
 	# Create pending boot. Un delta bsdiff reconstruye el .pck COMPLETO de la versión
 	# nueva, así que reemplaza al base (no es un overlay encadenado): el boot carga un
-	# único .pck, igual que un full. Por eso no acumulamos package_ids.
-	var package_ids = [artifact_id]
-
-	# Keep track of hashes for boot verification. OJO: el hash debe ser el del .pck
-	# EN DISCO (final reconstruido/descomprimido), no el del .gz/patch transportado. Si
-	# guardáramos el sha del transporte, _apply_packages compararía contra el .pck real
-	# -> nunca coincide -> "Failed to load package" -> rollback en loop.
-	var package_hashes = {}
-	var pck_hash = _active_download["sha256"]
+	var artifact_hash = _active_download["sha256"]
 	if is_delta or _active_download.get("compression", "none") == "gzip":
-		pck_hash = _active_download.get("uncompressed_sha256", pck_hash)
-	package_hashes[artifact_id] = pck_hash
+		artifact_hash = _active_download.get("uncompressed_sha256", artifact_hash)
+
+	_staged_artifacts.append({
+		"id": artifact_id,
+		"hash": artifact_hash,
+		"is_binary": is_binary
+	})
+
+	_download_next_in_queue()
+
+func _finalize_all_downloads():
+	var package_ids = []
+	var package_hashes = {}
+	var pending_binary = {}
+
+	for artifact in _staged_artifacts:
+		if artifact.is_binary:
+			pending_binary = {
+				"id": artifact.id,
+				"hash": artifact.hash
+			}
+		else:
+			package_ids.append(artifact.id)
+			package_hashes[artifact.id] = artifact.hash
 
 	var pending = {
 		"manifest_id": _pending_update["manifest_id"],
@@ -760,6 +884,7 @@ func _finalize_download():
 		"release_sequence": _pending_update["release_sequence"],
 		"package_ids": package_ids,
 		"package_hashes": package_hashes,
+		"pending_binary": pending_binary,
 		"attempts": 0
 	}
 
@@ -824,23 +949,83 @@ func _check_pending_boot():
 		_rollback_pending()
 		return
 
+	# On Linux/macOS, the binary might have been replaced by the previous process.
+	# On Windows, it should have been replaced by the updater.bat.
+	# We check if a binary update IS STILL PENDING (hash mismatch).
+	if pending.has("pending_binary") and not pending["pending_binary"].empty():
+		var info = pending["pending_binary"]
+		if File.new().get_sha256(OS.get_executable_path()) != info.hash:
+			# Not updated yet? This could happen if the stub failed or on Linux if we just booted.
+			# Try applying it now as a fallback.
+			_apply_binary_update(info)
+
 	# Aplicar el pending; si FALLA (p.ej. el package no es un .pck válido, o falta),
 	# revertir YA al build instalado en vez de quedar en un estado roto y crashear.
-	# Antes el fallo se ignoraba (continue) y el arranque seguía con un swap a medias.
 	if not _apply_packages(pending["package_ids"], pending.get("package_hashes", {})):
-		print("[UpdateManager] Pending package(s) failed to apply. Rolling back to installed build.")
+		print("[UpdateManager] Pending package(s) failed to apply. Rolling back.")
 		_rollback_pending()
+
+func _apply_binary_update(info: Dictionary) -> bool:
+	var bin_path = PACKAGE_DIR + info.id + ".bin"
+	var f = File.new()
+	if not f.file_exists(bin_path):
+		print("[UpdateManager] Binary update file missing: ", bin_path)
+		return false
+
+	var exe_path = OS.get_executable_path()
+	if f.get_sha256(exe_path) == info.hash:
+		print("[UpdateManager] Binary already matches target hash.")
+		return true
+
+	if f.get_sha256(bin_path) != info.hash:
+		print("[UpdateManager] Binary update source hash mismatch.")
+		return false
+
+	var backup_path = UPDATE_DIR + "backup_binary"
+	var d = Directory.new()
+	# Backup current binary
+	if d.file_exists(backup_path):
+		d.remove(backup_path)
+
+	if OS.get_name() == "Windows":
+		# Direct replacement on Windows is usually locked.
+		return d.copy(bin_path, exe_path) == OK
+	else:
+		# Linux/macOS atomic swap
+		if d.copy(exe_path, backup_path) != OK:
+			print("[UpdateManager] Failed to backup current binary.")
+
+		if d.rename(bin_path, exe_path) == OK:
+			if OS.get_name() == "Linux":
+				OS.execute("chmod", ["+x", exe_path], true)
+			print("[UpdateManager] Binary updated successfully.")
+			return true
+
+	return false
 
 # Descarta el pending (boot fallido), borra sus packages no confirmados, y carga
 # los packages confirmados (build instalado) para arrancar en un estado sano.
 func _rollback_pending() -> void:
 	var pending = _load_json(PENDING_BOOT_FILE, {})
 	var confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
-	var keep = confirmed.get("package_ids", [])
+
 	var d = Directory.new()
+
+	# Rollback binary if needed
+	if pending.has("pending_binary") and not pending["pending_binary"].empty():
+		var backup_path = UPDATE_DIR + "backup_binary"
+		var exe_path = OS.get_executable_path()
+		if d.file_exists(backup_path):
+			d.rename(backup_path, exe_path)
+			if OS.get_name() == "Linux":
+				OS.execute("chmod", ["+x", exe_path], true)
+
+	var keep = confirmed.get("package_ids", [])
 	for id in pending.get("package_ids", []):
 		if not id in keep:
 			d.remove(PACKAGE_DIR + id + ".pck")
+			d.remove(PACKAGE_DIR + id + ".bin")
+
 	d.remove(PENDING_BOOT_FILE)
 	_load_active_packages()
 
