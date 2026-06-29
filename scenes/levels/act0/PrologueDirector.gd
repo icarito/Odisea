@@ -19,6 +19,7 @@ func _ready() -> void:
 	var session := get_node_or_null("/root/SessionManager")
 	if session and session.has_method("register_oys_actor"):
 		session.register_oys_actor("PrologueDirector", self)
+	call_deferred("start_prologue")
 
 func start_prologue() -> void:
 	if _running or music_stream == null:

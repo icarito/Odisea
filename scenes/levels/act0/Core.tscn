@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://core_v2/props/tube/TubeZeroGravityZone.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -9,6 +9,8 @@
 [ext_resource path="res://core_v2/components/OYSComponent.gd" type="Script" id=9]
 [ext_resource path="res://assets/fonts/SyneMono_Prologue_20.tres" type="DynamicFont" id=10]
 [ext_resource path="res://scenes/levels/act0_duct_maze.tscn" type="PackedScene" id=11]
+
+[sub_resource type="AnimationNodeStateMachinePlayback" id=1]
 
 [node name="Core" type="Spatial"]
 
@@ -52,6 +54,12 @@ debug_render = false
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 
+[node name="AnimationTree" parent="Pilot/Visual/Pivot" index="1"]
+parameters/playback = SubResource( 1 )
+
+[node name="FakeShadow" parent="Pilot/Visual/Pivot" index="3"]
+visible = false
+
 [node name="CSGCylinder" type="CSGCombiner" parent="."]
 
 [node name="OuterShell" type="CSGCylinder" parent="CSGCylinder"]
@@ -77,9 +85,11 @@ constrained_body_path = NodePath("../Pilot")
 [node name="Act0DuctMaze" parent="." instance=ExtResource( 11 )]
 
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 180, 0 )
+transform = Transform( -1.13133e-08, 0.965926, 0.258819, 4.2222e-08, 0.258819, -0.965926, -1, 8.88178e-16, -4.37114e-08, 0, 180, 0 )
 light_energy = 0.7
 directional_shadow_mode = 1
 directional_shadow_blend_splits = true
 
 [editable path="TubeZeroGravityZone"]
+[editable path="Pilot"]
+[editable path="Pilot/Visual/Pivot/Skeleton"]

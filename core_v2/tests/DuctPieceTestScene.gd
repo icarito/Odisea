@@ -91,7 +91,6 @@ func _add_mst_row(origin: Vector3) -> void:
 	# large wall_radius pushes the angular sectors apart so nothing overlaps.
 	maze.ring_step = 16.0
 	maze.wall_radius = 40.0
-	maze.axial_scale = 1.0
 	maze.translation = origin
 	add_child(maze)
 	add_child(_make_label("MST SAMPLE", origin + Vector3(0, 20, 0)))

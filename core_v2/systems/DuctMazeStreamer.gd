@@ -336,8 +336,6 @@ func make_duct_radial(_gy: int) -> Spatial:
 	root.add_child(mesh_instance)
 	
 	_add_collision_cylinder(root, ring_step, duct_radius)
-	_add_structural_rings(root, Vector3.FORWARD, ring_step, duct_radius)
-	# Floor grate also gets overshoot.
 	_add_floor_grate(root, ring_step + 0.05, duct_radius)
 	
 	return root
@@ -682,43 +680,40 @@ func make_incline(port_heights: Array) -> Spatial:
 func make_endcap(dir: Vector3 = Vector3.FORWARD) -> Spatial:
 	var root = Spatial.new()
 	root.name = "DuctEndCap"
-	var length := 1.0
+	var length := ring_step * 0.5
+	var arm = Spatial.new()
+	arm.name = "EndCapArm"
 	var mesh = MeshInstance.new()
 	mesh.mesh = _get_hollow_cylinder(length, duct_radius, duct_wall_thickness)
 	mesh.material_override = _hull_mat()
-	root.add_child(mesh)
+	arm.add_child(mesh)
+
+	_add_hollow_trimesh_collision(arm, length, duct_radius)
+	_add_structural_rings(arm, Vector3.FORWARD, length, duct_radius)
 
 	var cap = MeshInstance.new()
 	cap.mesh = _get_cap_disc_mesh(duct_radius + duct_wall_thickness)
 	cap.material_override = _hull_mat()
-	cap.translation = Vector3(0, 0, length * 0.5)
-	root.add_child(cap)
-	
-	# Open torus collar at the mouth instead of a solid disc plate. The flat CylinderMesh
-	# cap read as a "circular plate covering the section" (bug); a collar frames the
-	# opening like the curved-duct rings and keeps the tube passable.
+	cap.translation = Vector3(0, 0, -length * 0.5)
+	arm.add_child(cap)
+
 	var collar = MeshInstance.new()
 	collar.mesh = _get_ring_collar_mesh(duct_radius + ring_extra_radius, max(ring_height, 0.18))
 	collar.material_override = _get_res(CONDUIT_MAT_PATH)
 	collar.translation = Vector3(0, 0, length * 0.5)
-	root.add_child(collar)
+	arm.add_child(collar)
 
-	var body = StaticBody.new()
-	body.collision_layer = DUCT_LAYER
-	body.collision_mask = 255
-	root.add_child(body)
-	var shape = CollisionShape.new()
-	var box = BoxShape.new()
-	box.extents = Vector3(duct_radius + duct_wall_thickness, duct_radius + duct_wall_thickness, 0.12)
-	shape.shape = box
-	shape.translation = Vector3(0, 0, length * 0.5)
-	body.add_child(shape)
+	_add_arm_end_collar(arm, -length * 0.5, duct_radius)
+	_add_arm_end_collar(arm, length * 0.5, duct_radius)
+	_add_floor_grate(arm, length, duct_radius)
 
 	var fwd := dir.normalized()
 	var up_ref := Vector3.UP if abs(fwd.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT
 	var right := up_ref.cross(fwd).normalized()
 	var local_up := fwd.cross(right).normalized()
-	root.transform.basis = Basis(right, local_up, fwd)
+	arm.transform.basis = Basis(right, local_up, fwd)
+	arm.translation = fwd * length * 0.5
+	root.add_child(arm)
 	return root
 
 func make_capsule(connections: Array, _gy: int, has_airlock_port: bool = false) -> Spatial:
@@ -1118,7 +1113,7 @@ func _add_collision_cylinder(root: Node, length: float, radius: float) -> Static
 	# visual tube — invisible and fine.
 	return _add_hollow_trimesh_collision(root, length, radius)
 
-const DUCT_COLLISION_FACETS := 16
+const DUCT_COLLISION_FACETS := 8
 
 # Name kept for its callers (make_arm / make_duct_radial / make_incline). Builds a RING of
 # tangent box slabs around the round bore (tube runs along local Z). Four axis-aligned boxes
@@ -1278,10 +1273,19 @@ func _add_room_airlock(cell: Dictionary, gx: int, gy: int, _conn_dir: int, paren
 	# DoorBlocker re-enabled across the open mouth ("abre pero choco con algo invisible").
 	if "standalone_cycle" in airlock:
 		airlock.standalone_cycle = true
+	var _az = airlock.get_node_or_null("AirlockZoneV2")
+	if _az != null:
+		_az.monitoring = false
+		_az.set_process(false)
+		_az.set_physics_process(false)
+	_apply_hull_mat_to_airlock_meshes(airlock)
 	var target_parent := parent if parent != null else self
 	_sanitize_generated_airlock_collision(airlock)
 	target_parent.add_child(airlock)
 	_ensure_airlock_interactables(airlock)
+	var pdm = get_node_or_null("/root/PropDitherManager")
+	if pdm and pdm.has_method("refresh_occlusion_for_node"):
+		pdm.call_deferred("refresh_occlusion_for_node", airlock)
 
 	var angle_rad := deg2rad(float(gx) * (360.0 / sectors))
 	var radius := wall_radius
@@ -1326,6 +1330,11 @@ func _sanitize_generated_airlock_collision(airlock: Node) -> void:
 	if _sf != null:
 		_sf.collision_layer = DUCT_LAYER
 		_sf.collision_mask = 255
+
+func _apply_hull_mat_to_airlock_meshes(airlock: Node) -> void:
+	var shell_mesh = airlock.get_node_or_null("CylindricalShell/ShellMesh")
+	if shell_mesh is MeshInstance:
+		shell_mesh.material_override = _hull_mat()
 
 func _move_collision_to_prop(node: Node) -> void:
 	if node is CollisionObject:
