@@ -1719,6 +1719,21 @@ func _show_interaction_prompt(text: String) -> void:
 	if hints and hints.has_method("show_interaction_hint"):
 		hints.show_interaction_hint(text)
 
+func _interaction_input_without_crouch(input: InputDataV2) -> InputDataV2:
+	# Interaction must not couple to crouch. In zero-g crouch means "descend", so we
+	# feed the scan a copy with crouch cleared; interact/focus/move_vec are preserved.
+	if input == null:
+		return input
+	if not input.crouch:
+		return input
+	var stripped := InputDataV2.new()
+	stripped.from_dict(input.to_dict())
+	stripped.crouch = false
+	stripped.mouse_delta = input.mouse_delta
+	stripped.zoom_delta = input.zoom_delta
+	stripped.fov_override = input.fov_override
+	return stripped
+
 func _process_interaction(input: InputDataV2):
 	if _perf_disable_interaction_scan:
 		_clear_interactable()
@@ -2077,9 +2092,11 @@ func step(dt: float, input: InputDataV2) -> void:
 			# Zero-g delegates stepping to ZeroGravityController and returns early, so
 			# the interaction scan that lives further down in step() never runs. Without
 			# this, airlocks/iris doors in the (zero-g) duct maze never become targetable
-			# even though they overlap the InteractArea. Run the scan here too.
+			# even though they overlap the InteractArea. Run the scan here too, but strip
+			# crouch first: in zero-g crouch means "descend", and interaction must never
+			# couple to crouch (it would mis-fire the crouch->ledge/ladder entry path).
 			if not _rl_fast_controller:
-				_process_interaction(input)
+				_process_interaction(_interaction_input_without_crouch(input))
 			_update_input_edge_state(input)
 			return
 
