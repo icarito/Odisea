@@ -85,7 +85,7 @@ func test_arc_collision_has_no_solid_round_blockers() -> void:
 	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(0)
 	assert_int(counts.get("CylinderShape", 0)).is_equal(0)
 	assert_int(counts.get("SphereShape", 0)).is_equal(0)
-	assert_int(counts.get("BoxShape", 0)).is_equal(32)
+	assert_int(counts.get("BoxShape", 0)).is_equal(128)
 
 	arc.free()
 	spawner.free()
@@ -97,9 +97,8 @@ func test_capsule_room_has_collision_and_ports_are_open() -> void:
 	var counts := _count_collision_shapes(room)
 
 	assert_int(room.get_child_count()).is_greater(0)
-	assert_int(counts.get("CylinderShape", 0)).is_greater_equal(2)
-	# Each 'arm' (port) has 4 BoxShape walls -> 2 arms * 4 = 8 BoxShape
-	assert_int(counts.get("BoxShape", 0)).is_equal(8)
+	assert_int(counts.get("ConcavePolygonShape", 0)).is_greater_equal(2)
+	assert_int(counts.get("BoxShape", 0)).is_equal(16)
 
 	room.free()
 	spawner.free()
@@ -277,10 +276,10 @@ func test_capsule_room_airlock_port_adds_radial_opening() -> void:
 	var room = spawner.make_capsule([true, true, false, false], 0, true)
 	var counts := _count_collision_shapes(room)
 
-	assert_object(room.get_node_or_null("PortCollision_0")).is_not_null()
-	assert_object(room.get_node_or_null("PortCollision_1")).is_not_null()
-	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(3)
-	assert_int(counts.get("BoxShape", 0)).is_equal(12)
+	assert_object(room.get_node_or_null("PortArm_0")).is_not_null()
+	assert_object(room.get_node_or_null("PortArm_1")).is_not_null()
+	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(2)
+	assert_int(counts.get("BoxShape", 0)).is_equal(32)
 	assert_int(_count_direct_arm_children(room)).is_greater_equal(3)
 
 	room.free()

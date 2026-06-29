@@ -4178,16 +4178,14 @@
         "tf_basis": "Basis( 1, 0, 0, 0, 1, 0, 0, 0, 1 )",
         "velocity": "Vector3( 0, 0, 0 )",
         "target_pos": "Vector3( 0, 0, 0 )",
-        "is_moving": false,
-        "cargo_uid": "",
+        "state": 0,
         "cmd_idx": 0,
         "has_intent": false,
         "intent_vel": "Vector3( 0, 0, 0 )",
         "path_off": 0,
-        "path_follow": false,
-        "orig_parent": "",
-        "follow_target": false,
-        "follow_dist": 3
+        "follow_dist": 3,
+        "cargo_uid": "",
+        "orig_parent": ""
       },
       "/root/TestScene_Cargol/ControlLever/LeverBase/RotatingLever": {
         "active": false,
@@ -4265,6 +4263,6 @@
   "oys_variables": {
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
-    "$cargo_x": -0.772739
+    "$cargo_x": -1.83944
   }
 }
