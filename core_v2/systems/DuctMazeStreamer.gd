@@ -341,7 +341,6 @@ func make_duct_arc(gx: int, gy: int) -> Spatial:
 	# Arc curvature must match the wall radius so it follows the cylinder circumference.
 	var radius := wall_radius
 	var arc_deg := 360.0 / sectors
-	var arc_rad_exact := deg2rad(arc_deg)
 
 	# Add 0.1 degree overshoot to ensure seams overlap.
 	var arc_deg_mesh := arc_deg + 0.1
@@ -370,32 +369,18 @@ func make_duct_arc(gx: int, gy: int) -> Spatial:
 		grate.rotation.x = -PI * 0.5
 		root.add_child(grate)
 	
+	# Trimesh straight off the curved hull (exact hollow wall) instead of 8 segments × 4
+	# rotated boxes. The box segments were the "colisiones rarísimas": the player caught
+	# between segments and clipped where the boxed arc met the round straight/junction
+	# pieces. A trimesh of the round arc matches the wall exactly and seams cleanly with the
+	# trimesh straight tubes (same FD-052 hollow-collision lesson). Use the EXACT arc (no
+	# 0.1° overshoot) so the collider doesn't bleed into the neighbour cell.
 	var body = StaticBody.new()
 	root.add_child(body)
-	var segments_c := 8
-	# Collision uses exact dimensions to avoid physics overlap.
-	var segment_len := (radius * arc_rad_exact) / segments_c
-	var wall := max(duct_wall_thickness, 0.2)
-	for i in range(segments_c):
-		var u_col = (float(i + 0.5) / segments_c - 0.5) * arc_rad_exact
-		var segment_basis := Basis(Vector3.UP, -u_col)
-		var center := Vector3(radius * cos(u_col) - radius, 0, radius * sin(u_col))
-		var half_segment := segment_len * 0.49
-		var wall_specs = [
-			[Vector3(0, duct_radius + wall * 0.5, 0), Vector3(duct_radius, wall * 0.5, half_segment)],
-			[Vector3(0, -duct_radius - wall * 0.5, 0), Vector3(duct_radius, wall * 0.5, half_segment)],
-			[Vector3(duct_radius + wall * 0.5, 0, 0), Vector3(wall * 0.5, duct_radius + wall, half_segment)],
-			[Vector3(-duct_radius - wall * 0.5, 0, 0), Vector3(wall * 0.5, duct_radius + wall, half_segment)]
-		]
-		for spec in wall_specs:
-			var shape = CollisionShape.new()
-			var box = BoxShape.new()
-			box.extents = spec[1]
-			shape.shape = box
-			shape.translation = center + segment_basis.xform(spec[0])
-			shape.rotation.y = -u_col
-			body.add_child(shape)
-	
+	var col_shape = CollisionShape.new()
+	col_shape.shape = DuctArcBuilder.get_or_build_arc(radius, duct_radius, arc_deg, 16).create_trimesh_shape()
+	body.add_child(col_shape)
+
 	# Structural rings following the arc
 	_add_structural_rings_arc(root, radius, arc_deg, 3)
 	
@@ -511,7 +496,9 @@ func make_arm(dir: Vector3, length: float, radius: float, start_offset: float = 
 	mesh.material_override = _hull_mat()
 	arm.add_child(mesh)
 
-	_add_hollow_box_collision(arm, length, radius)
+	# Trimesh off the same round hull (was a square 4-box approximation that left the
+	# player clipping the corners and catching at the seam with the round hub/arc).
+	_add_hollow_trimesh_collision(arm, length, radius)
 
 	_add_structural_rings(arm, Vector3.FORWARD, length, radius)
 	_add_arm_end_collar(arm, -length * 0.5, radius)
@@ -632,26 +619,6 @@ func _add_arm_end_collar(root: Node, z: float, radius: float) -> void:
 	collar.material_override = _get_res(CONDUIT_MAT_PATH)
 	collar.translation = Vector3(0, 0, z)
 	root.add_child(collar)
-
-func _add_hollow_box_collision(root: Node, length: float, radius: float) -> StaticBody:
-	var body = StaticBody.new()
-	root.add_child(body)
-	var wall := max(duct_wall_thickness, 0.2)
-	var half_len := length * 0.5
-	var specs = [
-		[Vector3(0, radius + wall * 0.5, 0), Vector3(radius, wall * 0.5, half_len)],
-		[Vector3(0, -radius - wall * 0.5, 0), Vector3(radius, wall * 0.5, half_len)],
-		[Vector3(radius + wall * 0.5, 0, 0), Vector3(wall * 0.5, radius + wall, half_len)],
-		[Vector3(-radius - wall * 0.5, 0, 0), Vector3(wall * 0.5, radius + wall, half_len)]
-	]
-	for spec in specs:
-		var shape = CollisionShape.new()
-		var box = BoxShape.new()
-		box.extents = spec[1]
-		shape.shape = box
-		shape.translation = spec[0]
-		body.add_child(shape)
-	return body
 
 func make_incline(port_heights: Array) -> Spatial:
 	var root = Spatial.new()
@@ -1147,9 +1114,22 @@ func _get_cap_disc_mesh(radius: float) -> ArrayMesh:
 	return mesh
 
 func _add_collision_cylinder(root: Node, length: float, radius: float) -> StaticBody:
-	# Godot 3 ConcavePolygonShape treats the hollow-cylinder triangles as two-sided
-	# blockers. Four box walls keep the tube open without invisible circular plates.
-	return _add_hollow_box_collision(root, length, radius)
+	# Trimesh straight off the hollow-cylinder hull (exact round wall) instead of the
+	# four-box square approximation. The boxes traced a SQUARE tube around a ROUND mesh,
+	# so the player could stand in the corners outside the visible wall and — worse — caught
+	# or slipped through where a square straight piece met a round arc/junction (the curved
+	# pieces already use create_trimesh_shape). Matching every piece to its own round mesh
+	# removes the seam mismatch and the corner clipping (FD-052 hollow-collision lesson:
+	# tubes need create_trimesh_shape, not primitive shapes).
+	return _add_hollow_trimesh_collision(root, length, radius)
+
+func _add_hollow_trimesh_collision(root: Node, length: float, radius: float) -> StaticBody:
+	var body = StaticBody.new()
+	var shape = CollisionShape.new()
+	shape.shape = _get_hollow_cylinder(length, radius, duct_wall_thickness).create_trimesh_shape()
+	body.add_child(shape)
+	root.add_child(body)
+	return body
 
 func _add_structural_rings(root: Node, axis: Vector3, length: float, radius: float, count: int = 2) -> void:
 	# Torus collars wrapping the tube. The tube runs along local Z, and the collar mesh's
@@ -1260,10 +1240,11 @@ func _add_room_airlock(cell: Dictionary, gx: int, gy: int, conn_dir: int, parent
 
 	var airlock = airlock_scene.instance()
 	airlock.name = "RoomAirlock"
-	# No scene transition in the maze: let the airlock complete its cycle locally
-	# (open the exit door after pressurizing) instead of hanging on "PRESURIZANDO".
-	if "standalone_cycle" in airlock:
-		airlock.standalone_cycle = true
+	# Maze airlocks are passable SERVICE decoration, not a functional pressure gate: the
+	# chamber floats inside the cylinder (its inner door doesn't reach the wall tube), and
+	# the closed iris + solid shell otherwise sealed the path inward ("el airlock no deja
+	# pasar dentro del cilindro"). So we force the doors OPEN and move every collider onto
+	# the Prop layer in _sanitize — no standalone_cycle to wait on.
 	var target_parent := parent if parent != null else self
 	target_parent.add_child(airlock)
 	_sanitize_generated_airlock_collision(airlock)
@@ -1299,20 +1280,49 @@ func _add_room_airlock(cell: Dictionary, gx: int, gy: int, conn_dir: int, parent
 	# real door (bug: "airlocks/iris don't open").
 
 func _sanitize_generated_airlock_collision(airlock: Node) -> void:
-	var shell = airlock.get_node_or_null("CylindricalShell")
-	if shell is CollisionObject:
-		shell.collision_layer = DUCT_LAYER
-		shell.collision_mask = 255
-		var shell_shape = shell.get_node_or_null("CollisionShape")
-		if shell_shape is CollisionShape:
-			shell_shape.disabled = false
-	var camera_walls = airlock.get_node_or_null("CameraWalls")
-	if camera_walls is CollisionObject:
-		camera_walls.collision_layer = DUCT_LAYER
-		camera_walls.collision_mask = 255
-		for child in camera_walls.get_children():
-			if child is CollisionShape:
-				child.disabled = false
+	# Move EVERY collider in the chamber onto the Prop layer so the occlusion shader
+	# transparents it and the camera passes through it — same rule as the ducts/joints.
+	# The shell/CameraWalls were already moved here, but the iris doors' DoorBlocker and
+	# Frame StaticBodies default to layer 1 (Entorno), so the camera bumped them and they
+	# read as solid walls. Sweep the whole subtree so nothing stays on Entorno.
+	_move_collision_to_prop(airlock)
+	# Force both iris doors fully OPEN at build time. The maze airlock is passable service
+	# decoration; a closed iris (DoorBlocker enabled, anim_progress 0) sealed the through
+	# passage and there is no controller cycle to open it here.
+	for door_name in ["OuterDoor", "InnerDoor"]:
+		var door = airlock.get_node_or_null(door_name)
+		if door != null:
+			_force_iris_open(door)
+
+func _move_collision_to_prop(node: Node) -> void:
+	if node is CollisionObject:
+		node.collision_layer = DUCT_LAYER
+		node.collision_mask = 255
+	for child in node.get_children():
+		_move_collision_to_prop(child)
+
+func _force_iris_open(door: Node) -> void:
+	# Open every IrisDoorV2 in the door subtree (the AirlockChamber wraps the iris in an
+	# IrisMechanism child). Setting anim_progress/target to 1.0 + _update_visuals() rotates
+	# the blades open AND disables the DoorBlocker collision (disabled = anim_progress > 0.15).
+	var pending: Array = [door]
+	while not pending.empty():
+		var n = pending.pop_front()
+		if not is_instance_valid(n):
+			continue
+		if n is InteractableBaseV2 and n.has_method("_update_visuals"):
+			n.is_active = true
+			n.anim_progress = 1.0
+			n.target_progress = 1.0
+			n._update_visuals()
+		# Belt-and-suspenders: directly disable any DoorBlocker collider in case a blade
+		# subtree carries its own static blocker independent of the iris script.
+		if String(n.name) == "DoorBlocker":
+			for c in n.get_children():
+				if c is CollisionShape:
+					c.disabled = true
+		for child in n.get_children():
+			pending.push_back(child)
 
 func _ensure_airlock_interactables(airlock: Node) -> void:
 	var doors = [
