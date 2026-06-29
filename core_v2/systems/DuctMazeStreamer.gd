@@ -341,6 +341,7 @@ func make_duct_arc(gx: int, gy: int) -> Spatial:
 	# Arc curvature must match the wall radius so it follows the cylinder circumference.
 	var radius := wall_radius
 	var arc_deg := 360.0 / sectors
+	var arc_rad_exact := deg2rad(arc_deg)
 
 	# Add 0.1 degree overshoot to ensure seams overlap.
 	var arc_deg_mesh := arc_deg + 0.1
@@ -369,17 +370,34 @@ func make_duct_arc(gx: int, gy: int) -> Spatial:
 		grate.rotation.x = -PI * 0.5
 		root.add_child(grate)
 	
-	# Trimesh straight off the curved hull (exact hollow wall) instead of 8 segments × 4
-	# rotated boxes. The box segments were the "colisiones rarísimas": the player caught
-	# between segments and clipped where the boxed arc met the round straight/junction
-	# pieces. A trimesh of the round arc matches the wall exactly and seams cleanly with the
-	# trimesh straight tubes (same FD-052 hollow-collision lesson). Use the EXACT arc (no
-	# 0.1° overshoot) so the collider doesn't bleed into the neighbour cell.
+	# SOLID box-wall segments hugging the curve, not a thin arc trimesh. A single-surface
+	# arc shell lets a fast zero-G player tunnel through; solid boxes give a barrier with
+	# real thickness. Each segment is a short straight box section yaw-rotated onto the arc
+	# tangent. EXACT arc dims (no overshoot) so the collider doesn't bleed into the neighbour.
 	var body = StaticBody.new()
 	root.add_child(body)
-	var col_shape = CollisionShape.new()
-	col_shape.shape = DuctArcBuilder.get_or_build_arc(radius, duct_radius, arc_deg, 16).create_trimesh_shape()
-	body.add_child(col_shape)
+	var segments_c := 8
+	var segment_len := (radius * arc_rad_exact) / segments_c
+	var wall := max(duct_wall_thickness, 0.2)
+	for i in range(segments_c):
+		var u_col = (float(i + 0.5) / segments_c - 0.5) * arc_rad_exact
+		var segment_basis := Basis(Vector3.UP, -u_col)
+		var center := Vector3(radius * cos(u_col) - radius, 0, radius * sin(u_col))
+		var half_segment := segment_len * 0.5 + 0.02
+		var wall_specs = [
+			[Vector3(0, duct_radius + wall * 0.5, 0), Vector3(duct_radius, wall * 0.5, half_segment)],
+			[Vector3(0, -duct_radius - wall * 0.5, 0), Vector3(duct_radius, wall * 0.5, half_segment)],
+			[Vector3(duct_radius + wall * 0.5, 0, 0), Vector3(wall * 0.5, duct_radius + wall, half_segment)],
+			[Vector3(-duct_radius - wall * 0.5, 0, 0), Vector3(wall * 0.5, duct_radius + wall, half_segment)]
+		]
+		for spec in wall_specs:
+			var shape = CollisionShape.new()
+			var box = BoxShape.new()
+			box.extents = spec[1]
+			shape.shape = box
+			shape.translation = center + segment_basis.xform(spec[0])
+			shape.rotation.y = -u_col
+			body.add_child(shape)
 
 	# Structural rings following the arc
 	_add_structural_rings_arc(root, radius, arc_deg, 3)
@@ -737,23 +755,24 @@ func make_capsule(connections: Array, gy: int, has_airlock_port: bool = false) -
 	shell_body.add_child(shell_shape)
 	root.add_child(shell_body)
 
-	# Flat floor disc collision
-	var floor_body = StaticBody.new()
-	floor_body.name = "CapsuleFloorCollision"
-	var floor_shape = CollisionShape.new()
-	var cylinder = CylinderShape.new()
-	cylinder.radius = room_radius * 0.8
-	cylinder.height = 0.2
-	floor_shape.shape = cylinder
-	floor_body.add_child(floor_shape)
-	floor_body.translation = Vector3(0, -room_height * 0.5 + 0.1, 0)
-	root.add_child(floor_body)
+	# No flat floor disc: the duct maze lives inside the Core's zero-G zone, so there is no
+	# "down" to stand on — a floating horizontal disc is just an invisible slab the player
+	# rams into when flying into the room ("no hay piso en zero g"). The pierced capsule
+	# shell already closes the bottom of the room (minus the connection mouths), so the
+	# player is contained without it.
 
+	# Each port bridges from the shell mouth OUTWARD to the neighbour. The tube CENTRE must
+	# sit at room_radius + port_len/2 so the tube spans [room_radius, room_radius + port_len]
+	# and its inner rim lands exactly on the shell. The old placement centred the tube at
+	# room_radius, so its inner half (down to room_radius/2) jutted INTO the room — with
+	# several ports those inner stubs overlapped near the centre and the player snagged on a
+	# port wall while trying to cross the room ("el codo no me deja entrar"). Visual arm and
+	# collision tube now share this outward placement so they still seal the mouth.
+	var port_center: float = room_radius + port_len * 0.5
 	for i in range(4):
 		if connections[i]:
 			var arm = make_arm(dirs[i], port_len, duct_radius)
-			# make_arm centres the tube at dir*len*0.5; push it out so it bridges the wall.
-			arm.translation = dirs[i] * room_radius
+			arm.translation = dirs[i] * port_center
 			root.add_child(arm)
 
 			# Port collision: matching the arm's hollow tube
@@ -768,12 +787,12 @@ func make_capsule(connections: Array, gy: int, has_airlock_port: bool = false) -
 			var right: Vector3 = up_ref.cross(fwd).normalized()
 			var local_up: Vector3 = fwd.cross(right).normalized()
 			port_col_body.transform.basis = Basis(right, local_up, fwd)
-			port_col_body.translation = dirs[i] * room_radius
+			port_col_body.translation = dirs[i] * port_center
 			root.add_child(port_col_body)
 
 	if has_airlock_port:
 		var radial_arm = make_arm(Vector3.DOWN, port_len, duct_radius)
-		radial_arm.translation = Vector3.DOWN * room_radius
+		radial_arm.translation = Vector3.DOWN * port_center
 		root.add_child(radial_arm)
 			
 	# No dynamic OmniLight per tile: GLES2 forward does not scale with omni lights.
@@ -1114,21 +1133,34 @@ func _get_cap_disc_mesh(radius: float) -> ArrayMesh:
 	return mesh
 
 func _add_collision_cylinder(root: Node, length: float, radius: float) -> StaticBody:
-	# Trimesh straight off the hollow-cylinder hull (exact round wall) instead of the
-	# four-box square approximation. The boxes traced a SQUARE tube around a ROUND mesh,
-	# so the player could stand in the corners outside the visible wall and — worse — caught
-	# or slipped through where a square straight piece met a round arc/junction (the curved
-	# pieces already use create_trimesh_shape). Matching every piece to its own round mesh
-	# removes the seam mismatch and the corner clipping (FD-052 hollow-collision lesson:
-	# tubes need create_trimesh_shape, not primitive shapes).
+	# SOLID four-box walls around the bore, not a thin hollow-cylinder trimesh. The trimesh
+	# is a pair of ~0.35 m-apart paper-thin shells: in zero-G the player tunnels the inner
+	# shell and gets LODGED inside the wall thickness (seen embedded in a tube wall off a
+	# junction). Solid boxes (≥0.2 m thick, corners sealed) give a barrier the player can't
+	# penetrate or get stuck in. The player travels a square-section corridor inside the round
+	# visual tube — invisible and fine.
 	return _add_hollow_trimesh_collision(root, length, radius)
 
+# Name kept for its callers (make_arm / make_duct_radial / make_incline); builds SOLID box
+# walls now, not a trimesh.
 func _add_hollow_trimesh_collision(root: Node, length: float, radius: float) -> StaticBody:
 	var body = StaticBody.new()
-	var shape = CollisionShape.new()
-	shape.shape = _get_hollow_cylinder(length, radius, duct_wall_thickness).create_trimesh_shape()
-	body.add_child(shape)
 	root.add_child(body)
+	var wall: float = max(duct_wall_thickness, 0.2)
+	var half_len: float = length * 0.5
+	var specs = [
+		[Vector3(0, radius + wall * 0.5, 0), Vector3(radius, wall * 0.5, half_len)],
+		[Vector3(0, -radius - wall * 0.5, 0), Vector3(radius, wall * 0.5, half_len)],
+		[Vector3(radius + wall * 0.5, 0, 0), Vector3(wall * 0.5, radius + wall, half_len)],
+		[Vector3(-radius - wall * 0.5, 0, 0), Vector3(wall * 0.5, radius + wall, half_len)]
+	]
+	for spec in specs:
+		var shape = CollisionShape.new()
+		var box = BoxShape.new()
+		box.extents = spec[1]
+		shape.shape = box
+		shape.translation = spec[0]
+		body.add_child(shape)
 	return body
 
 func _add_structural_rings(root: Node, axis: Vector3, length: float, radius: float, count: int = 2) -> void:
@@ -1240,11 +1272,13 @@ func _add_room_airlock(cell: Dictionary, gx: int, gy: int, conn_dir: int, parent
 
 	var airlock = airlock_scene.instance()
 	airlock.name = "RoomAirlock"
-	# Maze airlocks are passable SERVICE decoration, not a functional pressure gate: the
-	# chamber floats inside the cylinder (its inner door doesn't reach the wall tube), and
-	# the closed iris + solid shell otherwise sealed the path inward ("el airlock no deja
-	# pasar dentro del cilindro"). So we force the doors OPEN and move every collider onto
-	# the Prop layer in _sanitize — no standalone_cycle to wait on.
+	# No scene transition in the maze: let the airlock complete its cycle LOCALLY so the
+	# exit door actually opens (the controller, not us, drives the iris — exactly like the
+	# Dome_Crio airlocks that work). The earlier hack that force-set is_active on the iris
+	# desynced it from the controller: the controller then re-closed the door, leaving the
+	# DoorBlocker re-enabled across the open mouth ("abre pero choco con algo invisible").
+	if "standalone_cycle" in airlock:
+		airlock.standalone_cycle = true
 	var target_parent := parent if parent != null else self
 	target_parent.add_child(airlock)
 	_sanitize_generated_airlock_collision(airlock)
@@ -1289,6 +1323,14 @@ func _sanitize_generated_airlock_collision(airlock: Node) -> void:
 	# Doors keep their natural behavior: each iris's DoorBlocker blocks while closed and
 	# clears when open (IrisDoorV2 toggles disabled = anim_progress > 0.15). We do NOT force
 	# them open or disable the blocker — "the door should only be passable when open".
+	# Drop the AirlockSafetyFloor: in the Core zero-G zone there is no "down", so that floor
+	# slab is just an invisible obstacle the player rams into flying through (same as the
+	# CapsuleRoom floor disc we removed).
+	var safety_floor = airlock.get_node_or_null("AirlockSafetyFloor")
+	if safety_floor != null:
+		for c in safety_floor.get_children():
+			if c is CollisionShape:
+				c.disabled = true
 
 func _move_collision_to_prop(node: Node) -> void:
 	if node is CollisionObject:
@@ -1334,7 +1376,13 @@ func _mark_airlock_door_interactable(door: Node, owner: Node, door_name: String)
 		proxy.set_meta("airlock_controller_owned", true)
 		proxy.set_meta("airlock_controller_owner_path", owner.get_path())
 		proxy.set_meta("airlock_door_name", door_name)
-		proxy.collision_layer = 4
+		# layer 0: the proxy is an INTERACTION target only (found via the "interactable"
+		# group + distance, not a physics query — see PlayerControllerV2 _update_nearby).
+		# On layer 4 (NPC-Friendly) the player's body (mask 255) physically collided with
+		# this 4.4×4.4×1.2 m box across the doorway — the real "invisible wall" that stopped
+		# the player entering/leaving the airlock. With no layer it blocks nothing but still
+		# interacts.
+		proxy.collision_layer = 0
 		proxy.collision_mask = 0
 		door.add_child(proxy)
 		if not proxy.is_in_group("interactable"):
