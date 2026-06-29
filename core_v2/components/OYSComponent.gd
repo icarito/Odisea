@@ -47,10 +47,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _is_skip_cinematic_input(event: InputEvent) -> bool:
 	if not event:
 		return false
-	return event.is_action_pressed("interact") \
-		or event.is_action_pressed("jump") \
-		or event.is_action_pressed("ui_cancel") \
-		or event.is_action_pressed("ui_accept")
+	return event.is_action_pressed("skip")
 
 func _can_request_skip() -> bool:
 	if not interpreter or not interpreter.is_running:

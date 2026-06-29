@@ -52,6 +52,9 @@ func _ready():
 	_ensure_dirs()
 	_load_installation_id()
 	_load_local_state()
+	if _is_source_checkout():
+		print("[UpdateManager] Source checkout detected; packaged updates disabled for this run.")
+		return
 	_check_pending_boot()
 	_cleanup_staging()
 	# Confirmar el boot tras un update no debe depender SOLO de llegar al menú
@@ -67,6 +70,9 @@ func _on_startup_gate_opened(_reason, _frames) -> void:
 	confirm_boot()
 
 func check_for_updates() -> void:
+	if _is_source_checkout():
+		_set_state(State.IDLE)
+		return
 	if _state != State.IDLE and _state != State.FAILED:
 		return
 	_set_state(State.CHECKING)
@@ -221,6 +227,8 @@ func get_current_update() -> Dictionary:
 	return _pending_update.duplicate()
 
 func _get_current_build_id() -> String:
+	if _is_source_checkout():
+		return OS.get_environment("ODISEA_BUILD_ID") if OS.get_environment("ODISEA_BUILD_ID") != "" else "dev"
 	# Tras aplicar un update, el build corriente queda en confirmed_boot.json. En una
 	# instalación fresca ese archivo no existe, así que caemos al build_id empaquetado
 	# (build_meta) para que el server compare contra el build real, no contra "".
@@ -276,6 +284,14 @@ func _get_build_meta_value(key: String) -> String:
 		if _build_meta_cache.empty():
 			_build_meta_cache["_loaded"] = false
 	return str(_build_meta_cache.get(key, ""))
+
+func _is_source_checkout() -> bool:
+	if OS.get_environment("ODISEA_ENABLE_UPDATES_IN_DEV") in ["1", "true", "yes", "on"]:
+		return false
+	if Engine.editor_hint or OS.has_feature("editor"):
+		return true
+	var dir := Directory.new()
+	return dir.dir_exists("res://.git")
 
 
 func begin_update() -> void:
@@ -816,6 +832,12 @@ func _check_pending_boot():
 		_load_active_packages()
 		return
 
+	if _packaged_build_supersedes(pending):
+		print("[UpdateManager] Packaged build supersedes pending update ", pending.get("build_id", ""), "; ignoring pending package.")
+		Directory.new().remove(PENDING_BOOT_FILE)
+		_load_active_packages()
+		return
+
 	pending["attempts"] = pending.get("attempts", 0) + 1
 	_save_json(PENDING_BOOT_FILE, pending)
 
@@ -847,7 +869,28 @@ func _rollback_pending() -> void:
 func _load_active_packages():
 	var confirmed = _load_json(CONFIRMED_BOOT_FILE, {})
 	if confirmed.has("package_ids"):
+		if _packaged_build_supersedes(confirmed):
+			print("[UpdateManager] Packaged build supersedes confirmed update ", confirmed.get("build_id", ""), "; ignoring installed package.")
+			_clear_confirmed_update_state()
+			return
 		_apply_packages(confirmed["package_ids"])
+
+func _packaged_build_supersedes(update_state: Dictionary) -> bool:
+	var packaged_bid := _get_build_meta_value("build_id")
+	var state_bid := str(update_state.get("build_id", ""))
+	return _is_build_id_newer(packaged_bid, state_bid)
+
+func _is_build_id_newer(candidate: String, baseline: String) -> bool:
+	if candidate == "" or baseline == "":
+		return false
+	if not candidate.is_valid_integer() or not baseline.is_valid_integer():
+		return false
+	return int(candidate) > int(baseline)
+
+func _clear_confirmed_update_state() -> void:
+	Directory.new().remove(CONFIRMED_BOOT_FILE)
+	_local_state["active_package_ids"] = []
+	_save_json(STATE_FILE, _local_state)
 
 # Devuelve true si TODOS los packages requeridos se aplicaron; false si alguno
 # faltaba, tenía hash inválido o no cargó (para que el caller pueda revertir).

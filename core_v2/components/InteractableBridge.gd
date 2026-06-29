@@ -10,6 +10,8 @@ export(NodePath) var source_node: NodePath # If empty, tries self or children
 export(NodePath) var target_node: NodePath
 export(String) var target_method := "set_active"
 export(bool) var debug := false
+export(String) var interaction_text := "Interact"
+export(bool) var is_interactable := true setget set_is_interactable
 
 # --- VISUAL HELPERS (Compatibility with Lever prefab) ---
 export(Material) var base_material setget set_base_material
@@ -19,8 +21,18 @@ var _sources := []
 var _targets := []
 var _is_syncing := false
 
+func set_is_interactable(value: bool) -> void:
+	is_interactable = value
+	if is_interactable:
+		if not is_in_group("interactable"):
+			add_to_group("interactable")
+	elif is_in_group("interactable"):
+		remove_from_group("interactable")
+
 func interact() -> void:
 	"""Manual interaction trigger (for testing/validation)."""
+	if not is_interactable:
+		return
 	if has_meta("airlock_controller_owned") and bool(get_meta("airlock_controller_owned")):
 		_forward_airlock_owned_interaction()
 		return
@@ -63,6 +75,7 @@ func _forward_airlock_owned_interaction() -> void:
 
 
 func _ready():
+	set_is_interactable(is_interactable)
 	_find_and_connect_source()
 	_find_and_connect_targets()
 	_apply_visuals()

@@ -92,19 +92,9 @@ mesh = ExtResource( 30 )
 
 [node name="OuterDoor" parent="." instance=ExtResource( 2 )]
 transform = Transform( 0.78, 0, 0, 0, 0.78, 0, 0, 0, 0.78, 0, 0, 4.1 )
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/AirlockChamber"),
-"airlock_door_name": "outer"
-}
 
 [node name="InnerDoor" parent="." instance=ExtResource( 2 )]
 transform = Transform( -0.78, -6.81898e-08, 0, 6.81898e-08, -0.78, 0, 0, 0, 0.78, 0, 0, -4.1 )
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/AirlockChamber"),
-"airlock_door_name": "inner"
-}
 
 [node name="StatusLabel" type="Label3D" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 1.75, 0 )

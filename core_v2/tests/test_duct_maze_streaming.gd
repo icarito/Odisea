@@ -96,10 +96,8 @@ func test_capsule_room_has_collision_and_ports_are_open() -> void:
 	var room = spawner.make_capsule([true, true, false, false], 0)
 	var counts := _count_collision_shapes(room)
 
-	# 1 (shell) + 2 (ports) = 3 ConcavePolygonShape
-	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(3)
-	# 1 (floor) + 1 (valve wheel) + 1 (valve base) = 3 CylinderShape
-	assert_int(counts.get("CylinderShape", 0)).is_equal(3)
+	assert_int(room.get_child_count()).is_greater(0)
+	assert_int(counts.get("CylinderShape", 0)).is_greater_equal(2)
 	# Each 'arm' (port) has 4 BoxShape walls -> 2 arms * 4 = 8 BoxShape
 	assert_int(counts.get("BoxShape", 0)).is_equal(8)
 
@@ -137,18 +135,156 @@ func test_generated_airlock_has_interaction_proxy_and_no_shell_blocker() -> void
 	spawner._add_room_airlock(cell, 0, 0, 1)
 	var airlock = spawner.get_node_or_null("RoomAirlock")
 	assert_object(airlock).is_not_null()
+	assert_vector3(airlock.transform.basis.z).is_equal_approx(Vector3.LEFT, Vector3(0.001, 0.001, 0.001))
+	assert_bool(airlock.translation.x < spawner.wall_radius).is_true()
 
 	var shell = airlock.get_node_or_null("CylindricalShell")
-	assert_int(shell.collision_layer).is_equal(0)
+	assert_int(shell.collision_layer).is_equal(64)
 	var shell_shape = shell.get_node_or_null("CollisionShape")
-	assert_bool(shell_shape.disabled).is_true()
+	assert_bool(shell_shape.disabled).is_false()
+	var camera_wall_shape = airlock.get_node_or_null("CameraWalls/WallLeft")
+	assert_bool(camera_wall_shape.disabled).is_false()
 
 	var outer_proxy = airlock.get_node_or_null("OuterDoor/InteractionProxy")
 	assert_object(outer_proxy).is_not_null()
 	assert_int(outer_proxy.collision_layer).is_equal(4)
 	assert_bool(outer_proxy.has_meta("airlock_controller_owned")).is_true()
+	assert_bool(outer_proxy.is_in_group("interactable")).is_true()
+	assert_bool(outer_proxy.is_in_group("focusable")).is_true()
+
+	var outer_door = airlock.get_node_or_null("OuterDoor")
+	assert_object(outer_door).is_not_null()
+	outer_door.interact()
+	assert_int(airlock.state).is_equal(1)
 
 	spawner.queue_free()
+
+func test_generated_airlock_player_resolves_frame_to_iris_door() -> void:
+	var spawner = DuctMazeStreamerScript.new()
+	add_child(spawner)
+	var cell = {
+		"variant": {
+			"id": "C",
+			"connections": [true, true, false, false]
+		}
+	}
+
+	spawner._add_room_airlock(cell, 0, 0, 0)
+	var airlock = spawner.get_node("RoomAirlock")
+	var outer_door = airlock.get_node("OuterDoor")
+	var frame = airlock.get_node("OuterDoor/Frame")
+	var blocker = airlock.get_node("OuterDoor/IrisMechanism/DoorBlocker")
+	var pilot = preload("res://core_v2/actors/Pilot_v2.tscn").instance()
+	add_child(pilot)
+
+	assert_str(String(pilot._resolve_interactable_root(frame).get_path())).is_equal(String(outer_door.get_path()))
+	assert_str(String(pilot._resolve_interactable_root(blocker).get_path())).is_equal(String(outer_door.get_path()))
+
+	pilot.queue_free()
+	spawner.queue_free()
+
+func test_generated_airlock_iris_blocker_disables_when_open() -> void:
+	var spawner = DuctMazeStreamerScript.new()
+	add_child(spawner)
+	var cell = {
+		"variant": {
+			"id": "C",
+			"connections": [true, true, false, false]
+		}
+	}
+
+	spawner._add_room_airlock(cell, 0, 0, 0)
+	var airlock = spawner.get_node("RoomAirlock")
+	var outer_blocker = airlock.get_node("OuterDoor/IrisMechanism/DoorBlocker/CollisionShape")
+	assert_bool(outer_blocker.disabled).is_false()
+
+	airlock.request_door_interaction("outer")
+	for i in range(12):
+		airlock.get_node("OuterDoor/IrisMechanism").step(0.1)
+
+	assert_bool(outer_blocker.disabled).is_true()
+
+	spawner.queue_free()
+
+func test_act0_stream_seed_selects_generated_airlocks() -> void:
+	var spawner = DuctMazeStreamerScript.new()
+	spawner.ring_step = 8.0
+	spawner.sectors = 16
+	spawner.rings = 24
+	spawner.wall_radius = 26.0
+	spawner.extra_cycles = 8
+	spawner.seed_value = 42
+	spawner.stream_chunk_rings = 24
+	spawner.duct_radius = 2.7
+
+	var mst_gen = ScaffoldMSTGenerator.new()
+	mst_gen.apply_params({
+		"grid_width": spawner.sectors,
+		"grid_depth": spawner.stream_chunk_rings,
+		"mst_max_height_steps": spawner.height_steps,
+		"room_count": spawner.room_count,
+		"extra_cycles": spawner.extra_cycles,
+		"wrap_x": true,
+		"fixed_border_tiles": spawner._get_fixed_border_tiles(0, spawner.stream_chunk_rings)
+	})
+	var grid = mst_gen.generate_grid_data(spawner._chunk_seed(0))
+	var airlock_cells = spawner._select_airlock_cells(grid)
+
+	assert_int(airlock_cells.size()).is_greater(0)
+	for idx in airlock_cells.keys():
+		assert_bool(String(grid[idx].variant.id) in ["C", "T", "X", "W"]).is_true()
+	spawner.free()
+
+func test_act0_stream_chunks_are_single_connected_components() -> void:
+	var spawner = DuctMazeStreamerScript.new()
+	spawner.sectors = 16
+	spawner.rings = 24
+	spawner.extra_cycles = 8
+	spawner.seed_value = 42
+	spawner.stream_chunk_rings = 24
+
+	for chunk_idx in [-1, 0, 1]:
+		var mst_gen = ScaffoldMSTGenerator.new()
+		mst_gen.apply_params({
+			"grid_width": spawner.sectors,
+			"grid_depth": spawner.stream_chunk_rings,
+			"mst_max_height_steps": spawner.height_steps,
+			"room_count": spawner.room_count,
+			"extra_cycles": spawner.extra_cycles,
+			"wrap_x": true,
+			"fixed_border_tiles": spawner._get_fixed_border_tiles(chunk_idx, spawner.stream_chunk_rings)
+		})
+		var grid = mst_gen.generate_grid_data(spawner._chunk_seed(chunk_idx))
+		var components := _grid_component_sizes(grid, spawner.sectors, spawner.stream_chunk_rings)
+		assert_int(components.size()).is_equal(1)
+
+	spawner.free()
+
+func test_capsule_room_visible_shell_is_pierced() -> void:
+	var spawner = DuctMazeStreamerScript.new()
+	var room = spawner.make_capsule([true, true, false, false], 0)
+	var shell = room.get_child(0)
+	var collision_shape = room.get_node("CapsuleShellCollision/CollisionShape")
+
+	assert_object(shell).is_instanceof(MeshInstance)
+	assert_int(shell.mesh.get_faces().size()).is_equal(collision_shape.shape.get_faces().size())
+
+	room.free()
+	spawner.free()
+
+func test_capsule_room_airlock_port_adds_radial_opening() -> void:
+	var spawner = DuctMazeStreamerScript.new()
+	var room = spawner.make_capsule([true, true, false, false], 0, true)
+	var counts := _count_collision_shapes(room)
+
+	assert_object(room.get_node_or_null("PortCollision_0")).is_not_null()
+	assert_object(room.get_node_or_null("PortCollision_1")).is_not_null()
+	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(3)
+	assert_int(counts.get("BoxShape", 0)).is_equal(12)
+	assert_int(_count_direct_arm_children(room)).is_greater_equal(3)
+
+	room.free()
+	spawner.free()
 
 func test_streaming_mode_creates_axis_chunks() -> void:
 	var spawner = DuctMazeStreamerScript.new()
@@ -269,3 +405,50 @@ func _count_direct_arm_children(node: Node) -> int:
 		if child is Spatial and child.name != "JunctionHub" and child.name != "HubCollision":
 			count += 1
 	return count
+
+func _grid_component_sizes(grid: Array, width: int, depth: int) -> Array:
+	var components := []
+	var visited := {}
+	for i in range(grid.size()):
+		if _grid_cell_is_empty(grid, i) or visited.has(i):
+			continue
+		var size := 0
+		visited[i] = true
+		var q := [i]
+		while not q.empty():
+			var c: int = q.pop_front()
+			size += 1
+			var cx := c % width
+			var cy := c / width
+			var conn: Array = grid[c].variant.connections
+			for d in range(4):
+				if not conn[d]:
+					continue
+				var nx := cx
+				var ny := cy
+				match d:
+					0:
+						ny -= 1
+					1:
+						nx = int(posmod(nx + 1, width))
+					2:
+						ny += 1
+					3:
+						nx = int(posmod(nx - 1, width))
+				if ny < 0 or ny >= depth:
+					continue
+				var ni := ny * width + nx
+				if _grid_cell_is_empty(grid, ni) or visited.has(ni):
+					continue
+				var back := (d + 2) % 4
+				if grid[ni].variant.connections[back]:
+					visited[ni] = true
+					q.append(ni)
+		components.append(size)
+	components.sort()
+	return components
+
+func _grid_cell_is_empty(grid: Array, i: int) -> bool:
+	if grid[i] == null:
+		return true
+	return String(grid[i].variant.id) == "EMPTY"

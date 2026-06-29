@@ -182,7 +182,7 @@ func _build_chunk_contents(parent: Spatial, chunk_idx: int, chunk_rings: int) ->
 		var gy := i / sectors
 		var v = cell.variant
 
-		var tile = instantiate_tile(gx, gy, cell)
+		var tile = instantiate_tile(gx, gy, cell, airlock_cells.has(i))
 		if tile:
 			var tile_kind := String(tile.name)
 			parent.add_child(tile)
@@ -247,14 +247,14 @@ func _grid_to_world(gx: int, gy: int, height: float, piece_name: String = "") ->
 func _axis_y(gy: int) -> float:
 	return float(gy) * ring_step
 
-func instantiate_tile(gx: int, gy: int, cell: Dictionary) -> Spatial:
+func instantiate_tile(gx: int, gy: int, cell: Dictionary, has_airlock_port: bool = false) -> Spatial:
 	var v = cell.variant
 	var id = v.id
 	var is_room = cell.get("is_room", false)
 	
 	var tile: Spatial = null
 	if is_room and _grado(v.connections) >= 2 and id in ["C", "T", "X"]:
-		tile = make_capsule(v.connections, gy)
+		tile = make_capsule(v.connections, gy, has_airlock_port)
 	else:
 		match id:
 			"W":
@@ -734,7 +734,7 @@ func make_endcap(dir: Vector3 = Vector3.FORWARD) -> Spatial:
 	root.transform.basis = Basis(right, local_up, fwd)
 	return root
 
-func make_capsule(connections: Array, gy: int) -> Spatial:
+func make_capsule(connections: Array, gy: int, has_airlock_port: bool = false) -> Spatial:
 	var root = Spatial.new()
 	root.name = "CapsuleRoom"
 	
@@ -742,11 +742,6 @@ func make_capsule(connections: Array, gy: int) -> Spatial:
 	# wall coming down a fatter tube. Size it above duct_radius so it reads as a chamber.
 	var room_radius = duct_radius * 1.6
 	var room_height = duct_radius * 2.2
-	var mesh_instance = MeshInstance.new()
-	mesh_instance.mesh = _get_capsule_mesh(room_radius, room_height)
-	mesh_instance.material_override = _hull_mat()
-	root.add_child(mesh_instance)
-
 	# Collect connection directions for hole-punching the collision shell.
 	# Ports: short connector tubes punching out of the room wall toward each neighbour, so
 	# the room actually opens into the ducts that meet it (not a sealed blob).
@@ -756,13 +751,21 @@ func make_capsule(connections: Array, gy: int) -> Spatial:
 	for i in range(4):
 		if connections[i]:
 			hole_dirs.append(dirs[i])
+	if has_airlock_port:
+		hole_dirs.append(Vector3.DOWN)
+
+	var mouth_half_angle := asin(clamp(duct_radius / room_radius, 0.0, 0.999))
+	var mesh_instance = MeshInstance.new()
+	mesh_instance.mesh = _get_pierced_capsule_mesh(room_radius, duct_wall_thickness, room_height, hole_dirs, mouth_half_angle)
+	mesh_instance.material_override = _hull_mat()
+	root.add_child(mesh_instance)
 
 	# Shell collision: using a pierced mesh so ports are open.
 	var shell_body = StaticBody.new()
 	shell_body.name = "CapsuleShellCollision"
 	var shell_shape = CollisionShape.new()
+	shell_shape.name = "CollisionShape"
 	# mouth_half_angle matching the junction hub logic: asin(bore/radius)
-	var mouth_half_angle := asin(clamp(duct_radius / room_radius, 0.0, 0.999))
 	shell_shape.shape = _get_pierced_capsule_mesh(room_radius, duct_wall_thickness, room_height, hole_dirs, mouth_half_angle).create_trimesh_shape()
 	shell_body.add_child(shell_shape)
 	root.add_child(shell_body)
@@ -800,6 +803,11 @@ func make_capsule(connections: Array, gy: int) -> Spatial:
 			port_col_body.transform.basis = Basis(right, local_up, fwd)
 			port_col_body.translation = dirs[i] * room_radius
 			root.add_child(port_col_body)
+
+	if has_airlock_port:
+		var radial_arm = make_arm(Vector3.DOWN, port_len, duct_radius)
+		radial_arm.translation = Vector3.DOWN * room_radius
+		root.add_child(radial_arm)
 			
 	# No dynamic OmniLight per tile: GLES2 forward does not scale with omni lights.
 	# Illumination comes from emissive materials (DuctLightStrip.tres) + scene DirectionalLight.
@@ -1197,23 +1205,14 @@ func _apply_tint(node: Node, color: Color) -> void:
 # Pick which cells get an airlock coupled to them, and on WHICH connection.
 # Returns { cell_index : connection_index } where the connection is a TANGENTIAL one
 # (EAST=1 or WEST=3) so the chamber's door through-axis ends up HORIZONTAL and the
-# player can actually interact with it (axial N/S connections run along global Y =
-# the player's up, which would stack the doors vertically and break interaction).
-#
-# Targets, in priority order: rooms (is_room) and the dead-end endpoints (degree 1),
-# because an airlock reads as the entrance/exit of a chamber or the cap of a spur.
-# We only take cells that expose a tangential connection, and cap the count so the
-# maze is not wall-to-wall airlocks.
+# player can actually interact with it. Maze airlocks are radial service hatches:
+# their entrance faces inward toward the Core axis, not outward into space.
+# Targets, in priority order: radial capsule rooms, then tangential duct rooms
+# as a fallback so a sparse seed still exposes service airlocks.
 func _select_airlock_cells(grid: Array) -> Dictionary:
 	var out := {}
 	var max_airlocks := 3
 
-	# Rooms (is_room) that BOTH expose a tangential (interactable) mouth AND render a tile
-	# with an actual tangential tube to butt against. Capsule rooms (id C/T/X) and
-	# tangential straight/arc duct-rooms (id W) qualify; an endcap (id E) is rendered as an
-	# AXIAL stub regardless of its MST connection, so an airlock on its tangential side
-	# would float disconnected — exclude it. Axial-only rooms are dropped by
-	# _tangential_conn (doors there would stack along the player's up = uninteractable).
 	for i in range(grid.size()):
 		if out.size() >= max_airlocks:
 			break
@@ -1222,7 +1221,20 @@ func _select_airlock_cells(grid: Array) -> Dictionary:
 		if not cell.get("is_room", false):
 			continue
 		var id = cell.variant.id
-		if not (id in ["C", "T", "X", "W"]):
+		if not (id in ["C", "T", "X"]):
+			continue
+		out[i] = 0
+
+	for i in range(grid.size()):
+		if out.size() >= max_airlocks:
+			break
+		if out.has(i):
+			continue
+		var cell = grid[i]
+		if cell == null: continue
+		if not cell.get("is_room", false):
+			continue
+		if String(cell.variant.id) != "W":
 			continue
 		var conn_dir = _tangential_conn(cell.variant.connections)
 		if conn_dir == -1:
@@ -1260,20 +1272,18 @@ func _add_room_airlock(cell: Dictionary, gx: int, gy: int, conn_dir: int, parent
 	var angle_rad := deg2rad(float(gx) * (360.0 / sectors))
 	var radius := wall_radius
 	var cell_pos := Vector3(radius * cos(angle_rad), _axis_y(gy), radius * sin(angle_rad))
-	var tangent := Vector3(-sin(angle_rad), 0, cos(angle_rad)) # horizontal, along the wall
+	var radial := Vector3(cos(angle_rad), 0, sin(angle_rad))
+	var tangent := Vector3(-sin(angle_rad), 0, cos(angle_rad))
 	var up := Vector3(0, 1, 0)
 
-	# Through-axis points along the chosen connection: EAST=+tangent, WEST=-tangent.
-	var through := tangent if conn_dir == 1 else -tangent
+	# Through-axis points inward, toward the Core axis. This keeps every generated
+	# airlock facing the readable interior void and puts the interaction proxy where
+	# the player approaches it from inside the cylinder.
+	var through := -radial
 
-	# Butt the chamber's INNER door (local -Z, ~chamber_inner_half from the chamber centre)
-	# against the room's tangential tube mouth, so the airlock reads as coupled to the room
-	# instead of floating in the bore.
-	#   capsule rooms (C/T/X): the port tube reaches ~2*room_radius from the cell centre.
-	#   tangential duct-rooms (W): the arc/straight tube reaches ~one duct radius past the bore.
 	var id = cell.variant.id
 	var room_radius := duct_radius * 1.6
-	var tube_reach := (room_radius * 2.0) if (id in ["C", "T", "X"]) else (duct_radius + 1.0)
+	var tube_reach := room_radius if (id in ["C", "T", "X"]) else (duct_radius + 1.0)
 	var chamber_inner_half := 4.1
 	var mouth_reach := tube_reach + chamber_inner_half
 	var pos := cell_pos + through * mouth_reach
@@ -1291,18 +1301,18 @@ func _add_room_airlock(cell: Dictionary, gx: int, gy: int, conn_dir: int, parent
 func _sanitize_generated_airlock_collision(airlock: Node) -> void:
 	var shell = airlock.get_node_or_null("CylindricalShell")
 	if shell is CollisionObject:
-		shell.collision_layer = 0
-		shell.collision_mask = 0
+		shell.collision_layer = DUCT_LAYER
+		shell.collision_mask = 255
 		var shell_shape = shell.get_node_or_null("CollisionShape")
 		if shell_shape is CollisionShape:
-			shell_shape.disabled = true
+			shell_shape.disabled = false
 	var camera_walls = airlock.get_node_or_null("CameraWalls")
 	if camera_walls is CollisionObject:
-		camera_walls.collision_layer = 0
-		camera_walls.collision_mask = 0
+		camera_walls.collision_layer = DUCT_LAYER
+		camera_walls.collision_mask = 255
 		for child in camera_walls.get_children():
 			if child is CollisionShape:
-				child.disabled = true
+				child.disabled = false
 
 func _ensure_airlock_interactables(airlock: Node) -> void:
 	var doors = [
@@ -1344,6 +1354,10 @@ func _mark_airlock_door_interactable(door: Node, owner: Node, door_name: String)
 		proxy.collision_layer = 4
 		proxy.collision_mask = 0
 		door.add_child(proxy)
+		if not proxy.is_in_group("interactable"):
+			proxy.add_to_group("interactable")
+		if not proxy.is_in_group("focusable"):
+			proxy.add_to_group("focusable")
 		var shape = CollisionShape.new()
 		var box = BoxShape.new()
 		box.extents = Vector3(2.2, 2.2, 0.6)

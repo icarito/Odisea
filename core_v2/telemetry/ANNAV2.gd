@@ -44,6 +44,7 @@ var _perf_profiling_enabled := false
 var _replay_mode := false
 
 func _ready():
+	pause_mode = Node.PAUSE_MODE_PROCESS
 	# Bail out early for hotzone playback: this is a viewer, not a play session.
 	# Detected from the cmdline scene arg (native launch + web shell + deep link
 	# all pass --scene HotzonePlayer.tscn) and, on web, the shell's is_replaying
@@ -420,7 +421,7 @@ func _cmd_execute_script(id, args):
 	if run_err != null:
 		_send_response(id, false, {"error": run_err})
 	else:
-		_send_response(id, true, {"result": result})
+		_send_response(id, true, {"result": _json_safe_value(result)})
 
 func _validate_remote_script(script_text) -> String:
 	if typeof(script_text) != TYPE_STRING:
@@ -430,6 +431,9 @@ func _validate_remote_script(script_text) -> String:
 	var stripped := String(script_text).strip_edges()
 	if stripped == "":
 		return "script is empty"
+	var allow_blocks := OS.get_environment("ODISEA_TELEMETRY_ALLOW_SCRIPT_BLOCKS") in ["1", "true", "yes", "on"]
+	if not allow_blocks and stripped.find("\n") != -1:
+		return "multi-line execute_script is disabled; use /eval expressions or set ODISEA_TELEMETRY_ALLOW_SCRIPT_BLOCKS=1"
 	var risky_tokens = [
 		"\nfunc ",
 		" func ",
@@ -441,14 +445,64 @@ func _validate_remote_script(script_text) -> String:
 		" extends ",
 		"\nyield(",
 		" yield(",
+		"\nyield ",
+		" yield ",
 		"\nwhile ",
-		" while "
+		" while ",
+		"\nfor ",
+		" for ",
+		"\nmatch ",
+		" match ",
+		"\nload(",
+		" load(",
+		"\npreload(",
+		" preload(",
+		"\ncall_deferred(",
+		" call_deferred(",
+		"\nqueue_free(",
+		" queue_free(",
+		"\nfree(",
+		" free("
 	]
 	var padded := "\n" + stripped + "\n"
 	for token in risky_tokens:
 		if padded.find(token) != -1:
 			return "unsupported remote script token: " + token.strip_edges()
 	return ""
+
+func _json_safe_value(value, depth: int = 0):
+	if depth > 4:
+		return "<max_depth>"
+	var t := typeof(value)
+	match t:
+		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_REAL, TYPE_STRING:
+			return value
+		TYPE_VECTOR2:
+			return [value.x, value.y]
+		TYPE_VECTOR3:
+			return [value.x, value.y, value.z]
+		TYPE_COLOR:
+			return [value.r, value.g, value.b, value.a]
+		TYPE_NODE_PATH:
+			return String(value)
+		TYPE_OBJECT:
+			if value is Node:
+				return {"node_path": String(value.get_path()), "name": value.name, "class": value.get_class()}
+			if value is Resource:
+				return {"resource_path": value.resource_path, "class": value.get_class()}
+			return str(value)
+		TYPE_ARRAY:
+			var out := []
+			for item in value:
+				out.append(_json_safe_value(item, depth + 1))
+			return out
+		TYPE_DICTIONARY:
+			var out := {}
+			for key in value.keys():
+				out[str(key)] = _json_safe_value(value[key], depth + 1)
+			return out
+		_:
+			return str(value)
 
 func _indent_code(code: String) -> String:
 	var indented = ""

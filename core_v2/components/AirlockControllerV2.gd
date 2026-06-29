@@ -489,20 +489,28 @@ func _update_physics_processing() -> void:
 func _set_door_active(door: Node, value: bool, immediate: bool = false) -> bool:
 	if not is_instance_valid(door):
 		return false
+	var mechanism := _find_door_mechanism(door)
+	if is_instance_valid(mechanism):
+		mechanism.call("set_active", value, immediate)
+		return true
 	if door.has_method("set_active"):
 		door.call("set_active", value, immediate)
 		return true
+	return false
+
+func _find_door_mechanism(door: Node) -> Node:
+	if not is_instance_valid(door):
+		return null
 	var pending: Array = [door]
 	while not pending.empty():
 		var node = pending.pop_front()
 		if not is_instance_valid(node):
 			continue
 		if node != door and node.has_method("set_active"):
-			node.call("set_active", value, immediate)
-			return true
+			return node
 		for child in node.get_children():
 			pending.push_back(child)
-	return false
+	return null
 
 func _configure_managed_doors() -> void:
 	_mark_controller_owned_door(_outer_door, "outer")
