@@ -13,6 +13,11 @@ const PROP_LAYER_BIT: int = 64  # Layer 7
 
 var _dither_shader: Shader = preload("res://shaders/prop_dither_occlusion.gdshader")
 var _parallax_shader: Shader = preload("res://core_v2/props/parallax_assets/card_parallax.shader")
+# The duct maze hull keeps its own stylized panel shader but now carries the same
+# cone-occlusion uniforms (player_pos/camera_pos/is_active/...). Register its materials
+# so they fade between camera and player like the generic dither props, without losing
+# the panel/seam/rivet look.
+var _duct_hull_shader: Shader = preload("res://core_v2/props/duct/shaders/duct_hull.shader")
 var _registered_materials: Array = []
 var _processed_meshes: Dictionary = {}  # MeshInstance -> true (avoid double-processing)
 
@@ -193,10 +198,7 @@ func _convert_mesh_instance(mesh: MeshInstance) -> void:
 		mesh.material_override = new_mat
 		register_material(new_mat)
 		return  # Override takes priority, no need to process surfaces
-	elif mat_override is ShaderMaterial and (mat_override as ShaderMaterial).shader == _dither_shader:
-		register_material(mat_override as ShaderMaterial)
-		return
-	elif mat_override is ShaderMaterial and (mat_override as ShaderMaterial).shader == _parallax_shader:
+	elif mat_override is ShaderMaterial and _is_occlusion_shader((mat_override as ShaderMaterial).shader):
 		register_material(mat_override as ShaderMaterial)
 		return
 
@@ -209,9 +211,7 @@ func _convert_mesh_instance(mesh: MeshInstance) -> void:
 			var new_mat = _convert_spatial_to_dither(active_mat as SpatialMaterial)
 			mesh.set_surface_material(i, new_mat)
 			register_material(new_mat)
-		elif active_mat is ShaderMaterial and (active_mat as ShaderMaterial).shader == _dither_shader:
-			register_material(active_mat as ShaderMaterial)
-		elif active_mat is ShaderMaterial and (active_mat as ShaderMaterial).shader == _parallax_shader:
+		elif active_mat is ShaderMaterial and _is_occlusion_shader((active_mat as ShaderMaterial).shader):
 			register_material(active_mat as ShaderMaterial)
 
 func _convert_multimesh_instance(inst: MultiMeshInstance) -> void:
@@ -224,10 +224,15 @@ func _convert_multimesh_instance(inst: MultiMeshInstance) -> void:
 		var new_mat = _convert_spatial_to_dither(mat_override as SpatialMaterial)
 		inst.material_override = new_mat
 		register_material(new_mat)
-	elif mat_override is ShaderMaterial and (mat_override as ShaderMaterial).shader == _dither_shader:
+	elif mat_override is ShaderMaterial and _is_occlusion_shader((mat_override as ShaderMaterial).shader):
 		register_material(mat_override as ShaderMaterial)
-	elif mat_override is ShaderMaterial and (mat_override as ShaderMaterial).shader == _parallax_shader:
-		register_material(mat_override as ShaderMaterial)
+
+
+# A shader that already carries the per-frame occlusion uniforms (player_pos/camera_pos/
+# is_active/...) and just needs registering so _process keeps feeding it. The generic
+# dither + parallax props, plus the duct maze hull.
+func _is_occlusion_shader(shader: Shader) -> bool:
+	return shader == _dither_shader or shader == _parallax_shader or shader == _duct_hull_shader
 
 
 func _can_apply_occlusion_dither(mat: SpatialMaterial) -> bool:

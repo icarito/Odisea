@@ -1286,13 +1286,9 @@ func _sanitize_generated_airlock_collision(airlock: Node) -> void:
 	# Frame StaticBodies default to layer 1 (Entorno), so the camera bumped them and they
 	# read as solid walls. Sweep the whole subtree so nothing stays on Entorno.
 	_move_collision_to_prop(airlock)
-	# Force both iris doors fully OPEN at build time. The maze airlock is passable service
-	# decoration; a closed iris (DoorBlocker enabled, anim_progress 0) sealed the through
-	# passage and there is no controller cycle to open it here.
-	for door_name in ["OuterDoor", "InnerDoor"]:
-		var door = airlock.get_node_or_null(door_name)
-		if door != null:
-			_force_iris_open(door)
+	# Doors keep their natural behavior: each iris's DoorBlocker blocks while closed and
+	# clears when open (IrisDoorV2 toggles disabled = anim_progress > 0.15). We do NOT force
+	# them open or disable the blocker — "the door should only be passable when open".
 
 func _move_collision_to_prop(node: Node) -> void:
 	if node is CollisionObject:
@@ -1300,29 +1296,6 @@ func _move_collision_to_prop(node: Node) -> void:
 		node.collision_mask = 255
 	for child in node.get_children():
 		_move_collision_to_prop(child)
-
-func _force_iris_open(door: Node) -> void:
-	# Open every IrisDoorV2 in the door subtree (the AirlockChamber wraps the iris in an
-	# IrisMechanism child). Setting anim_progress/target to 1.0 + _update_visuals() rotates
-	# the blades open AND disables the DoorBlocker collision (disabled = anim_progress > 0.15).
-	var pending: Array = [door]
-	while not pending.empty():
-		var n = pending.pop_front()
-		if not is_instance_valid(n):
-			continue
-		if n is InteractableBaseV2 and n.has_method("_update_visuals"):
-			n.is_active = true
-			n.anim_progress = 1.0
-			n.target_progress = 1.0
-			n._update_visuals()
-		# Belt-and-suspenders: directly disable any DoorBlocker collider in case a blade
-		# subtree carries its own static blocker independent of the iris script.
-		if String(n.name) == "DoorBlocker":
-			for c in n.get_children():
-				if c is CollisionShape:
-					c.disabled = true
-		for child in n.get_children():
-			pending.push_back(child)
 
 func _ensure_airlock_interactables(airlock: Node) -> void:
 	var doors = [

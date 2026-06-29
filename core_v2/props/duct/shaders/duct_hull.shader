@@ -63,6 +63,37 @@ vec2 panel_id(vec2 uv, float scale) {
 }
 
 void fragment() {
+	// --- Cone occlusion discard FIRST — skip all panel work on hidden fragments ---
+	if (is_active > 0.5) {
+		vec3 cam_to_player = player_pos - camera_pos;
+		float dist_cam_player = length(cam_to_player);
+		vec3 dir_cam_player = cam_to_player / dist_cam_player;
+		vec3 cam_to_frag = world_pos - camera_pos;
+		float t = dot(cam_to_frag, dir_cam_player);
+
+		if (t > 0.1 && t < dist_cam_player) {
+			vec3 projection = camera_pos + dir_cam_player * t;
+			float dist_radial = distance(world_pos, projection);
+			float taper = 1.0 - smoothstep(dist_cam_player - 1.5, dist_cam_player, t);
+			float cylinder_radius = hole_radius * edge_fade * taper;
+
+			if (dist_radial < cylinder_radius && cylinder_radius > 0.01) {
+				float horizontal_dist = length(world_pos.xz - player_pos.xz);
+				bool near_h = horizontal_dist < floor_protect_radius;
+				bool floor_under   = world_normal.y >  0.5 && camera_pos.y > world_pos.y && near_h && world_pos.y < (player_pos.y - 0.5);
+				bool ceiling_above = world_normal.y < -0.5 && camera_pos.y < world_pos.y && near_h && world_pos.y > (player_pos.y + 2.0);
+
+				if (!floor_under && !ceiling_above) {
+					float depth_in_cone = 1.0 - (dist_radial / cylinder_radius);
+					float transparency = mix(transparency_min, transparency_max, depth_in_cone);
+					if (ign(FRAGCOORD.xy) < transparency) {
+						discard;
+					}
+				}
+			}
+		}
+	}
+
 	vec2 uv = UV;
 	vec2 cell = panel_cell(uv, panel_scale);
 	vec2 id = panel_id(uv, panel_scale);
