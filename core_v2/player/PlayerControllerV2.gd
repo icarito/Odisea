@@ -1641,18 +1641,40 @@ func _has_headroom_to_stand() -> bool:
 func _resolve_interactable_root(node: Node) -> Node:
 	var current = node
 	while current and is_instance_valid(current):
+		if current.has_meta("airlock_controller_owned") and bool(current.get_meta("airlock_controller_owned")):
+			var door_root = _resolve_airlock_door_root(current)
+			if is_instance_valid(door_root):
+				return door_root
 		if current.is_in_group("interactable") and current.has_method("get_climb_anchor"):
 			return current
 		if current.is_in_group("interactable") and current.has_method("get_hang_half_width"):
 			return current
-		if current.get("is_interactable") != null and current.get("is_interactable"):
+		if current.get("is_interactable") != null and current.get("is_interactable") and current.has_method("interact"):
 			return current
 		if current.get("is_focusable") != null and current.get("is_focusable"):
+			return current
+		if current.is_in_group("interactable") and current.has_method("interact"):
 			return current
 		if current.is_in_group("focusable"):
 			return current
 		current = current.get_parent()
 	return node
+
+func _resolve_airlock_door_root(node: Node) -> Node:
+	if not node.has_meta("airlock_controller_owner_path"):
+		return null
+	var owner_path = node.get_meta("airlock_controller_owner_path")
+	if not (owner_path is NodePath):
+		return null
+	var owner = node.get_node_or_null(owner_path)
+	if not is_instance_valid(owner):
+		return null
+	var door_name := String(node.get_meta("airlock_door_name") if node.has_meta("airlock_door_name") else "").strip_edges().to_lower()
+	if door_name == "inner" and owner.has_node("InnerDoor"):
+		return owner.get_node("InnerDoor")
+	if owner.has_node("OuterDoor"):
+		return owner.get_node("OuterDoor")
+	return null
 
 func _candidate_can_interact(candidate: Node) -> bool:
 	if candidate == null or not is_instance_valid(candidate):
@@ -1696,6 +1718,21 @@ func _show_interaction_prompt(text: String) -> void:
 	var hints = get_node_or_null("/root/PlayerHintManager")
 	if hints and hints.has_method("show_interaction_hint"):
 		hints.show_interaction_hint(text)
+
+func _interaction_input_without_crouch(input: InputDataV2) -> InputDataV2:
+	# Interaction must not couple to crouch. In zero-g crouch means "descend", so we
+	# feed the scan a copy with crouch cleared; interact/focus/move_vec are preserved.
+	if input == null:
+		return input
+	if not input.crouch:
+		return input
+	var stripped := InputDataV2.new()
+	stripped.from_dict(input.to_dict())
+	stripped.crouch = false
+	stripped.mouse_delta = input.mouse_delta
+	stripped.zoom_delta = input.zoom_delta
+	stripped.fov_override = input.fov_override
+	return stripped
 
 func _process_interaction(input: InputDataV2):
 	if _perf_disable_interaction_scan:
@@ -2052,6 +2089,14 @@ func step(dt: float, input: InputDataV2) -> void:
 		var zgc = cm.zero_gravity_controller
 		if zgc and zgc.has_method("step_zero_g"):
 			zgc.step_zero_g(dt, input)
+			# Zero-g delegates stepping to ZeroGravityController and returns early, so
+			# the interaction scan that lives further down in step() never runs. Without
+			# this, airlocks/iris doors in the (zero-g) duct maze never become targetable
+			# even though they overlap the InteractArea. Run the scan here too, but strip
+			# crouch first: in zero-g crouch means "descend", and interaction must never
+			# couple to crouch (it would mis-fire the crouch->ledge/ladder entry path).
+			if not _rl_fast_controller:
+				_process_interaction(_interaction_input_without_crouch(input))
 			_update_input_edge_state(input)
 			return
 

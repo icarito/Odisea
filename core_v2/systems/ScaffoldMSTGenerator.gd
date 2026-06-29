@@ -241,6 +241,7 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 	# ramp. Pull the inner neighbour of each seam tile to the seam height so the ramp
 	# sits at least one cell in, then re-finalize.
 	_flatten_seam_tiles(heights, connections)
+	_ensure_all_cells_connected(heights, connections)
 	# Levelling may have reopened over-steep or void edges; re-finalize once.
 	_finalize_edges(heights, connections)
 
@@ -276,6 +277,7 @@ func generate_grid_data(seed_val: int = -1) -> Array:
 			"base_height": h + _last_stair_base_shift,
 			"is_room": room_indices.has(i)
 		})
+	_ensure_result_connected(result)
 	return result
 
 func _get_connections_for_variant(id: String, rotation: int) -> Array:
@@ -385,6 +387,190 @@ func _ensure_border_ports_connected(heights, connections) -> bool:
 		added = true
 	return added
 
+func _ensure_all_cells_connected(heights, connections) -> void:
+	var guard := 0
+	while guard < 16:
+		guard += 1
+		var components := _compute_components(connections, heights)
+		if components.size() <= 1:
+			return
+		components.sort_custom(self, "_sort_components_by_size")
+		var main: Array = components[0]
+		for ci in range(1, components.size()):
+			var island: Array = components[ci]
+			if island.empty():
+				continue
+			var pair := _nearest_component_pair(main, island)
+			if pair.empty():
+				continue
+			var src_i: int = pair[0]
+			var dst_i: int = pair[1]
+			var src := {"pos": Vector2(src_i % grid_width, src_i / grid_width), "h": heights[src_i]}
+			var dst := {"pos": Vector2(dst_i % grid_width, dst_i / grid_width), "h": heights[dst_i]}
+			_trace_path(src, dst, connections, heights)
+			main.append_array(island)
+		_limit_slope_to_one_step(heights, connections)
+		_flatten_invalid_height_edges(heights, connections)
+
+func _compute_components(connections, heights) -> Array:
+	var components := []
+	var seen := {}
+	for i in range(grid_width * grid_depth):
+		if heights[i] < 0 or seen.has(i):
+			continue
+		var comp := []
+		seen[i] = true
+		var q := [i]
+		while not q.empty():
+			var c: int = q.pop_front()
+			comp.append(c)
+			var cx := c % grid_width
+			var cy := c / grid_width
+			for d in range(4):
+				if not connections[c][d]:
+					continue
+				var ni := _neighbor(cx, cy, d)
+				if ni < 0 or heights[ni] < 0 or seen.has(ni):
+					continue
+				if connections[ni][OPPOSITE[d]]:
+					seen[ni] = true
+					q.append(ni)
+		components.append(comp)
+	return components
+
+func _nearest_component_pair(a: Array, b: Array) -> Array:
+	var best := []
+	var best_dist := 1 << 30
+	for ai in a:
+		var ax := int(ai) % grid_width
+		var ay := int(ai) / grid_width
+		for bi in b:
+			var bx := int(bi) % grid_width
+			var by := int(bi) / grid_width
+			var dist_x: int = abs(ax - bx)
+			if wrap_x:
+				dist_x = min(dist_x, grid_width - dist_x)
+			var dist: int = dist_x + abs(ay - by)
+			if dist < best_dist:
+				best_dist = dist
+				best = [int(ai), int(bi)]
+	return best
+
+func _sort_components_by_size(a: Array, b: Array) -> bool:
+	return a.size() > b.size()
+
+func _ensure_result_connected(result: Array) -> void:
+	if not wrap_x:
+		return
+	var guard := 0
+	while guard < 16:
+		guard += 1
+		var components := _compute_result_components(result)
+		if components.size() <= 1:
+			return
+		components.sort_custom(self, "_sort_components_by_size")
+		var main: Array = components[0]
+		for ci in range(1, components.size()):
+			var island: Array = components[ci]
+			var pair := _nearest_component_pair(main, island)
+			if pair.empty():
+				continue
+			_trace_result_path(result, int(pair[0]), int(pair[1]))
+			main.append_array(island)
+
+func _compute_result_components(result: Array) -> Array:
+	var components := []
+	var seen := {}
+	for i in range(result.size()):
+		if _result_cell_is_empty(result, i) or seen.has(i):
+			continue
+		var comp := []
+		seen[i] = true
+		var q := [i]
+		while not q.empty():
+			var c: int = q.pop_front()
+			comp.append(c)
+			var cx := c % grid_width
+			var cy := c / grid_width
+			var conn: Array = result[c].variant.connections
+			for d in range(4):
+				if not conn[d]:
+					continue
+				var ni := _neighbor(cx, cy, d)
+				if ni < 0 or _result_cell_is_empty(result, ni) or seen.has(ni):
+					continue
+				if result[ni].variant.connections[OPPOSITE[d]]:
+					seen[ni] = true
+					q.append(ni)
+		components.append(comp)
+	return components
+
+func _result_cell_is_empty(result: Array, i: int) -> bool:
+	if i < 0 or i >= result.size() or result[i] == null:
+		return true
+	return String(result[i].variant.id) == "EMPTY"
+
+func _trace_result_path(result: Array, from_i: int, to_i: int) -> void:
+	var curr := Vector2(from_i % grid_width, from_i / grid_width)
+	var target := Vector2(to_i % grid_width, to_i / grid_width)
+	var dx: float = target.x - curr.x
+	if wrap_x:
+		if dx > float(grid_width) * 0.5:
+			dx -= float(grid_width)
+		elif dx < -float(grid_width) * 0.5:
+			dx += float(grid_width)
+	while int(curr.x) != int(target.x) and abs(dx) > 0.001:
+		var step := 1 if dx > 0 else -1
+		var next_x := int(posmod(curr.x + step, grid_width)) if wrap_x else int(curr.x + step)
+		_connect_result_cells(result, int(curr.x), int(curr.y), next_x, int(curr.y))
+		curr.x = next_x
+		dx -= step
+	while int(curr.y) != int(target.y):
+		var next_y := int(curr.y) + (1 if target.y > curr.y else -1)
+		_connect_result_cells(result, int(curr.x), int(curr.y), int(curr.x), next_y)
+		curr.y = next_y
+
+func _connect_result_cells(result: Array, x1: int, y1: int, x2: int, y2: int) -> void:
+	var i1 := y1 * grid_width + x1
+	var i2 := y2 * grid_width + x2
+	if i1 < 0 or i1 >= result.size() or i2 < 0 or i2 >= result.size():
+		return
+	var d1 = _get_dir_wrap(Vector2(x1, y1), Vector2(x2, y2))
+	var d2 = OPPOSITE[d1]
+	_ensure_result_cell(result, i1, result[i2].base_height if result[i2] != null else HEIGHT_STEP)
+	_ensure_result_cell(result, i2, result[i1].base_height)
+	var c1: Array = result[i1].variant.connections
+	var c2: Array = result[i2].variant.connections
+	c1[d1] = true
+	c2[d2] = true
+	_reselect_result_variant(result, i1)
+	_reselect_result_variant(result, i2)
+
+func _ensure_result_cell(result: Array, i: int, h: float) -> void:
+	if result[i] != null and String(result[i].variant.id) != "EMPTY":
+		return
+	result[i] = {
+		"variant": {
+			"id": "E", "rotation": 0, "connections": [false, false, false, false],
+			"port_heights": [0.0, 0.0, 0.0, 0.0], "weight": 1.0
+		},
+		"base_height": h,
+		"is_room": false
+	}
+
+func _reselect_result_variant(result: Array, i: int) -> void:
+	var heights := []
+	heights.resize(result.size())
+	for idx in range(result.size()):
+		heights[idx] = result[idx].base_height if result[idx] != null else -1.0
+	_last_stair_base_shift = 0.0
+	var variant = _select_variant(result[i].variant.connections, i, heights)
+	result[i].variant.id = variant.id
+	result[i].variant.rotation = variant.rotation
+	result[i].variant.connections = variant.connections
+	result[i].variant.port_heights = variant.port_heights
+	result[i].base_height += _last_stair_base_shift
+
 # BFS over mutually-connected cells, returning the set (Dictionary as set) of the
 # component reachable from the first non-empty cell.
 func _compute_reachable_set(connections, heights) -> Dictionary:
@@ -432,14 +618,19 @@ func _flatten_seam_tiles(heights, connections) -> void:
 		# The inward direction is opposite the chunk edge this tile sits on.
 		var ix := bx
 		var iy := by
+		var inward_dir := -1
 		if bx == 0:
 			ix = 1
+			inward_dir = Direction.EAST
 		elif bx == grid_width - 1:
 			ix = grid_width - 2
+			inward_dir = Direction.WEST
 		if by == 0:
 			iy = 1
+			inward_dir = Direction.SOUTH
 		elif by == grid_depth - 1:
 			iy = grid_depth - 2
+			inward_dir = Direction.NORTH
 		if ix == bx and iy == by:
 			continue  # not actually on an edge
 		var ii := iy * grid_width + ix
@@ -449,6 +640,9 @@ func _flatten_seam_tiles(heights, connections) -> void:
 		# the ramp on the border cell; leave larger interior terrain alone.
 		if abs(heights[ii] - heights[bi]) <= HEIGHT_STEP + 0.001 and not _pinned_indices.has(ii):
 			heights[ii] = heights[bi]
+		if inward_dir >= 0 and abs(heights[ii] - heights[bi]) <= HEIGHT_STEP + 0.001:
+			connections[bi][inward_dir] = true
+			connections[ii][OPPOSITE[inward_dir]] = true
 
 # A cell "is a stair" if any connected neighbour sits at a different height.
 func _cell_is_stair(heights, connections, i: int) -> bool:
@@ -571,7 +765,7 @@ func _trace_path(u, v, connections, heights):
 		curr.y = next_y
 		if heights[int(curr.y) * grid_width + int(curr.x)] < 0: heights[int(curr.y) * grid_width + int(curr.x)] = v.h
 
-func _connect_wrap(p1, x2, y2, connections, heights):
+func _connect_wrap(p1, x2, y2, connections, _heights):
 	var d1 = _get_dir_wrap(p1, Vector2(x2, y2))
 	var i1 := int(int(p1.y) * grid_width + int(p1.x))
 	var i2 := int(int(y2) * grid_width + int(x2))
@@ -690,7 +884,7 @@ func _select_variant(conn, idx, heights):
 			is_stair = true
 			break
 
-	if is_stair:
+	if is_stair and c_count == 2:
 		# Normalize stair ports to the WFC convention: NON-NEGATIVE deltas with the low
 		# side at 0. The ramp mesh is built from base_height + low_h .. base_height +
 		# high_h; if a port were negative (a neighbour lower than this cell) the ramp

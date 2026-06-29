@@ -36,6 +36,11 @@ export var ring_extra_radius := 0.35
 export var junction_hub_reach := 0.8
 
 const DUCT_LAYER := 1 << 6 # bit 6 = layer 7 (Prop)
+# Thickness of the solid collision wall slabs around every tube bore. Kept close to the
+# visible wall so the surface collides correctly from BOTH sides (a fat slab would make the
+# player flying OUTSIDE the duct stop metres early, or wedge between neighbouring tubes).
+# A touch thicker than the 0.35 m visual wall to resist zero-G tunnelling without ballooning.
+const DUCT_WALL_DEPTH := 0.6
 
 # Resource paths
 const HULL_MAT_PATH := "res://core_v2/props/duct/DuctHull.tres"
@@ -54,7 +59,10 @@ var _active_chunks := {}
 var _stream_timer := 0.0
 
 func _ready():
-	generate()
+	if Engine.editor_hint:
+		generate()
+	else:
+		call_deferred("generate")
 
 func _process(delta: float) -> void:
 	if not streaming_enabled:
@@ -180,9 +188,8 @@ func _build_chunk_contents(parent: Spatial, chunk_idx: int, chunk_rings: int) ->
 
 		var gx := i % sectors
 		var gy := i / sectors
-		var v = cell.variant
 
-		var tile = instantiate_tile(gx, gy, cell)
+		var tile = instantiate_tile(gx, gy, cell, airlock_cells.has(i))
 		if tile:
 			var tile_kind := String(tile.name)
 			parent.add_child(tile)
@@ -217,7 +224,7 @@ func _chunk_seed(chunk_idx: int) -> int:
 	var base_seed := seed_value if seed_value >= 0 else 0
 	return int(base_seed + chunk_idx * 73856093)
 
-func _grid_to_world(gx: int, gy: int, height: float, piece_name: String = "") -> Transform:
+func _grid_to_world(gx: int, gy: int, _height: float, piece_name: String = "") -> Transform:
 	var angle_deg := float(gx) * (360.0 / sectors)
 	var angle_rad := deg2rad(angle_deg)
 	var radius := wall_radius
@@ -247,14 +254,14 @@ func _grid_to_world(gx: int, gy: int, height: float, piece_name: String = "") ->
 func _axis_y(gy: int) -> float:
 	return float(gy) * ring_step
 
-func instantiate_tile(gx: int, gy: int, cell: Dictionary) -> Spatial:
+func instantiate_tile(gx: int, gy: int, cell: Dictionary, has_airlock_port: bool = false) -> Spatial:
 	var v = cell.variant
 	var id = v.id
 	var is_room = cell.get("is_room", false)
 	
 	var tile: Spatial = null
 	if is_room and _grado(v.connections) >= 2 and id in ["C", "T", "X"]:
-		tile = make_capsule(v.connections, gy)
+		tile = make_capsule(v.connections, gy, has_airlock_port)
 	else:
 		match id:
 			"W":
@@ -317,7 +324,7 @@ func _apply_duct_properties(node: Node) -> void:
 	for child in node.get_children():
 		_apply_duct_properties(child)
 
-func make_duct_radial(gy: int) -> Spatial:
+func make_duct_radial(_gy: int) -> Spatial:
 	var root = Spatial.new()
 	root.name = "DuctRadial"
 	var mesh_instance = MeshInstance.new()
@@ -329,13 +336,11 @@ func make_duct_radial(gy: int) -> Spatial:
 	root.add_child(mesh_instance)
 	
 	_add_collision_cylinder(root, ring_step, duct_radius)
-	_add_structural_rings(root, Vector3.FORWARD, ring_step, duct_radius)
-	# Floor grate also gets overshoot.
 	_add_floor_grate(root, ring_step + 0.05, duct_radius)
 	
 	return root
 
-func make_duct_arc(gx: int, gy: int) -> Spatial:
+func make_duct_arc(_gx: int, _gy: int) -> Spatial:
 	var root = Spatial.new()
 	root.name = "DuctArc"
 	# Arc curvature must match the wall radius so it follows the cylinder circumference.
@@ -370,32 +375,24 @@ func make_duct_arc(gx: int, gy: int) -> Spatial:
 		grate.rotation.x = -PI * 0.5
 		root.add_child(grate)
 	
+	# Full 360° facet-ring collision per segment along the curve (same sealing ring as the
+	# straight tubes). The old 4-box-per-segment version left the bore diagonals open — the
+	# player slipped through those gaps on curved ducts. Each segment places a complete facet
+	# ring oriented along the local arc tangent; segments overlap (half-len = full segment_len)
+	# so the joins never gap on the curve.
 	var body = StaticBody.new()
+	body.collision_layer = DUCT_LAYER
+	body.collision_mask = 255
 	root.add_child(body)
 	var segments_c := 8
-	# Collision uses exact dimensions to avoid physics overlap.
 	var segment_len := (radius * arc_rad_exact) / segments_c
-	var wall := max(duct_wall_thickness, 0.2)
 	for i in range(segments_c):
 		var u_col = (float(i + 0.5) / segments_c - 0.5) * arc_rad_exact
-		var segment_basis := Basis(Vector3.UP, -u_col)
 		var center := Vector3(radius * cos(u_col) - radius, 0, radius * sin(u_col))
-		var half_segment := segment_len * 0.49
-		var wall_specs = [
-			[Vector3(0, duct_radius + wall * 0.5, 0), Vector3(duct_radius, wall * 0.5, half_segment)],
-			[Vector3(0, -duct_radius - wall * 0.5, 0), Vector3(duct_radius, wall * 0.5, half_segment)],
-			[Vector3(duct_radius + wall * 0.5, 0, 0), Vector3(wall * 0.5, duct_radius + wall, half_segment)],
-			[Vector3(-duct_radius - wall * 0.5, 0, 0), Vector3(wall * 0.5, duct_radius + wall, half_segment)]
-		]
-		for spec in wall_specs:
-			var shape = CollisionShape.new()
-			var box = BoxShape.new()
-			box.extents = spec[1]
-			shape.shape = box
-			shape.translation = center + segment_basis.xform(spec[0])
-			shape.rotation.y = -u_col
-			body.add_child(shape)
-	
+		# Local frame for this segment: yaw -u_col so local Z follows the arc tangent.
+		var seg_xform := Transform(Basis(Vector3.UP, -u_col), center)
+		_add_facet_ring(body, duct_radius, segment_len, seg_xform)
+
 	# Structural rings following the arc
 	_add_structural_rings_arc(root, radius, arc_deg, 3)
 	
@@ -463,6 +460,8 @@ func make_junction(id: String, connections: Array) -> Spatial:
 	# lesson: tubes/arcs/spheres need create_trimesh_shape, not primitive shapes).
 	var hub_body = StaticBody.new()
 	hub_body.name = "HubCollision"
+	hub_body.collision_layer = DUCT_LAYER
+	hub_body.collision_mask = 255
 	var hub_col = CollisionShape.new()
 	hub_col.shape = hub.mesh.create_trimesh_shape()
 	hub_body.add_child(hub_col)
@@ -511,7 +510,9 @@ func make_arm(dir: Vector3, length: float, radius: float, start_offset: float = 
 	mesh.material_override = _hull_mat()
 	arm.add_child(mesh)
 
-	_add_hollow_box_collision(arm, length, radius)
+	# Trimesh off the same round hull (was a square 4-box approximation that left the
+	# player clipping the corners and catching at the seam with the round hub/arc).
+	_add_hollow_trimesh_collision(arm, length, radius)
 
 	_add_structural_rings(arm, Vector3.FORWARD, length, radius)
 	_add_arm_end_collar(arm, -length * 0.5, radius)
@@ -544,6 +545,8 @@ func make_arc_arm(dir_sign: float, span_deg: float, start_deg: float, radius: fl
 	# Trimesh collision straight off the curved hull (exact hollow wall, no clipping) — the
 	# box-segment approximation let the player catch/pass between segments on the curve.
 	var body = StaticBody.new()
+	body.collision_layer = DUCT_LAYER
+	body.collision_mask = 255
 	var col = CollisionShape.new()
 	col.shape = mesh.mesh.create_trimesh_shape()
 	body.add_child(col)
@@ -633,26 +636,6 @@ func _add_arm_end_collar(root: Node, z: float, radius: float) -> void:
 	collar.translation = Vector3(0, 0, z)
 	root.add_child(collar)
 
-func _add_hollow_box_collision(root: Node, length: float, radius: float) -> StaticBody:
-	var body = StaticBody.new()
-	root.add_child(body)
-	var wall := max(duct_wall_thickness, 0.2)
-	var half_len := length * 0.5
-	var specs = [
-		[Vector3(0, radius + wall * 0.5, 0), Vector3(radius, wall * 0.5, half_len)],
-		[Vector3(0, -radius - wall * 0.5, 0), Vector3(radius, wall * 0.5, half_len)],
-		[Vector3(radius + wall * 0.5, 0, 0), Vector3(wall * 0.5, radius + wall, half_len)],
-		[Vector3(-radius - wall * 0.5, 0, 0), Vector3(wall * 0.5, radius + wall, half_len)]
-	]
-	for spec in specs:
-		var shape = CollisionShape.new()
-		var box = BoxShape.new()
-		box.extents = spec[1]
-		shape.shape = box
-		shape.translation = spec[0]
-		body.add_child(shape)
-	return body
-
 func make_incline(port_heights: Array) -> Spatial:
 	var root = Spatial.new()
 	root.name = "DuctIncline"
@@ -697,120 +680,103 @@ func make_incline(port_heights: Array) -> Spatial:
 func make_endcap(dir: Vector3 = Vector3.FORWARD) -> Spatial:
 	var root = Spatial.new()
 	root.name = "DuctEndCap"
-	var length := 1.0
+	var length := ring_step * 0.5
+	var arm = Spatial.new()
+	arm.name = "EndCapArm"
 	var mesh = MeshInstance.new()
 	mesh.mesh = _get_hollow_cylinder(length, duct_radius, duct_wall_thickness)
 	mesh.material_override = _hull_mat()
-	root.add_child(mesh)
+	arm.add_child(mesh)
+
+	_add_hollow_trimesh_collision(arm, length, duct_radius)
+	_add_structural_rings(arm, Vector3.FORWARD, length, duct_radius)
 
 	var cap = MeshInstance.new()
 	cap.mesh = _get_cap_disc_mesh(duct_radius + duct_wall_thickness)
 	cap.material_override = _hull_mat()
-	cap.translation = Vector3(0, 0, length * 0.5)
-	root.add_child(cap)
-	
-	# Open torus collar at the mouth instead of a solid disc plate. The flat CylinderMesh
-	# cap read as a "circular plate covering the section" (bug); a collar frames the
-	# opening like the curved-duct rings and keeps the tube passable.
+	cap.translation = Vector3(0, 0, -length * 0.5)
+	arm.add_child(cap)
+
 	var collar = MeshInstance.new()
 	collar.mesh = _get_ring_collar_mesh(duct_radius + ring_extra_radius, max(ring_height, 0.18))
 	collar.material_override = _get_res(CONDUIT_MAT_PATH)
 	collar.translation = Vector3(0, 0, length * 0.5)
-	root.add_child(collar)
+	arm.add_child(collar)
 
-	var body = StaticBody.new()
-	root.add_child(body)
-	var shape = CollisionShape.new()
-	var box = BoxShape.new()
-	box.extents = Vector3(duct_radius + duct_wall_thickness, duct_radius + duct_wall_thickness, 0.12)
-	shape.shape = box
-	shape.translation = Vector3(0, 0, length * 0.5)
-	body.add_child(shape)
+	_add_arm_end_collar(arm, -length * 0.5, duct_radius)
+	_add_arm_end_collar(arm, length * 0.5, duct_radius)
+	_add_floor_grate(arm, length, duct_radius)
 
 	var fwd := dir.normalized()
 	var up_ref := Vector3.UP if abs(fwd.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT
 	var right := up_ref.cross(fwd).normalized()
 	var local_up := fwd.cross(right).normalized()
-	root.transform.basis = Basis(right, local_up, fwd)
+	arm.transform.basis = Basis(right, local_up, fwd)
+	arm.translation = fwd * length * 0.5
+	root.add_child(arm)
 	return root
 
-func make_capsule(connections: Array, gy: int) -> Spatial:
+func make_capsule(connections: Array, _gy: int, has_airlock_port: bool = false) -> Spatial:
 	var root = Spatial.new()
 	root.name = "CapsuleRoom"
 	
-	# Room must be wider than the ducts that meet it, otherwise the player hits its closed
-	# wall coming down a fatter tube. Size it above duct_radius so it reads as a chamber.
-	var room_radius = duct_radius * 1.6
-	var room_height = duct_radius * 2.2
-	var mesh_instance = MeshInstance.new()
-	mesh_instance.mesh = _get_capsule_mesh(room_radius, room_height)
-	mesh_instance.material_override = _hull_mat()
-	root.add_child(mesh_instance)
-
-	# Collect connection directions for hole-punching the collision shell.
-	# Ports: short connector tubes punching out of the room wall toward each neighbour, so
-	# the room actually opens into the ducts that meet it (not a sealed blob).
-	var port_len = room_radius
+	var hub_radius := duct_radius * 1.6
 	var dirs = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
 	var hole_dirs := []
 	for i in range(4):
 		if connections[i]:
 			hole_dirs.append(dirs[i])
+	if has_airlock_port:
+		hole_dirs.append(Vector3.DOWN)
 
-	# Shell collision: using a pierced mesh so ports are open.
-	var shell_body = StaticBody.new()
-	shell_body.name = "CapsuleShellCollision"
-	var shell_shape = CollisionShape.new()
-	# mouth_half_angle matching the junction hub logic: asin(bore/radius)
-	var mouth_half_angle := asin(clamp(duct_radius / room_radius, 0.0, 0.999))
-	shell_shape.shape = _get_pierced_capsule_mesh(room_radius, duct_wall_thickness, room_height, hole_dirs, mouth_half_angle).create_trimesh_shape()
-	shell_body.add_child(shell_shape)
-	root.add_child(shell_body)
+	var mouth_half_angle := asin(clamp(duct_radius / hub_radius, 0.0, 0.999))
+	var hub = MeshInstance.new()
+	hub.name = "CapsuleHub"
+	hub.mesh = _get_pierced_sphere_mesh(hub_radius, duct_wall_thickness, hole_dirs, mouth_half_angle)
+	hub.material_override = _hull_mat()
+	root.add_child(hub)
 
-	# Flat floor disc collision
-	var floor_body = StaticBody.new()
-	floor_body.name = "CapsuleFloorCollision"
-	var floor_shape = CollisionShape.new()
-	var cylinder = CylinderShape.new()
-	cylinder.radius = room_radius * 0.8
-	cylinder.height = 0.2
-	floor_shape.shape = cylinder
-	floor_body.add_child(floor_shape)
-	floor_body.translation = Vector3(0, -room_height * 0.5 + 0.1, 0)
-	root.add_child(floor_body)
+	var hub_body = StaticBody.new()
+	hub_body.name = "CapsuleShellCollision"
+	hub_body.collision_layer = DUCT_LAYER
+	hub_body.collision_mask = 255
+	var hub_col = CollisionShape.new()
+	hub_col.name = "CollisionShape"
+	hub_col.shape = hub.mesh.create_trimesh_shape()
+	hub_body.add_child(hub_col)
+	root.add_child(hub_body)
 
+	var mouth_rim_z := hub_radius * cos(mouth_half_angle)
+	var rim_overlap := duct_wall_thickness
+	var hub_clearance := max(mouth_rim_z - rim_overlap, 0.0)
+	var sector_half_deg := (360.0 / sectors) * 0.5
+	var arc_start_deg := rad2deg(hub_clearance / wall_radius)
+	var arc_span_deg := max(sector_half_deg - arc_start_deg, sector_half_deg * 0.4) + 0.1
+	var axial_len := max(ring_step * 0.5 - hub_clearance + duct_wall_thickness, duct_radius * 0.5)
 	for i in range(4):
-		if connections[i]:
-			var arm = make_arm(dirs[i], port_len, duct_radius)
-			# make_arm centres the tube at dir*len*0.5; push it out so it bridges the wall.
-			arm.translation = dirs[i] * room_radius
+		if not connections[i]:
+			continue
+		if i == 0 or i == 2:
+			var arm = make_arm(dirs[i], axial_len, duct_radius, hub_clearance)
+			arm.name = "PortArm_%d" % i
 			root.add_child(arm)
+		else:
+			var arc_sign := 1.0 if i == 1 else -1.0
+			var arc_arm = make_arc_arm(arc_sign, arc_span_deg, arc_start_deg, duct_radius)
+			arc_arm.name = "PortArm_%d" % i
+			root.add_child(arc_arm)
 
-			# Port collision: matching the arm's hollow tube
-			var port_col_body = StaticBody.new()
-			port_col_body.name = "PortCollision_%d" % i
-			var port_col_shape = CollisionShape.new()
-			port_col_shape.shape = _get_hollow_cylinder(port_len, duct_radius, duct_wall_thickness).create_trimesh_shape()
-			port_col_body.add_child(port_col_shape)
-
-			var fwd: Vector3 = dirs[i].normalized()
-			var up_ref: Vector3 = Vector3.UP if abs(fwd.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT
-			var right: Vector3 = up_ref.cross(fwd).normalized()
-			var local_up: Vector3 = fwd.cross(right).normalized()
-			port_col_body.transform.basis = Basis(right, local_up, fwd)
-			port_col_body.translation = dirs[i] * room_radius
-			root.add_child(port_col_body)
+	if has_airlock_port:
+		var radial_arm = make_arm(Vector3.DOWN, axial_len, duct_radius, hub_clearance)
+		radial_arm.name = "PortArm_4"
+		root.add_child(radial_arm)
 			
 	# No dynamic OmniLight per tile: GLES2 forward does not scale with omni lights.
 	# Illumination comes from emissive materials (DuctLightStrip.tres) + scene DirectionalLight.
 
-	# Decoration
-	var valve_scene = _get_res(VALVE_PATH)
-	if valve_scene:
-		var valve = valve_scene.instance()
-		root.add_child(valve)
-		valve.translation = Vector3(1.5, -2.0, 0.0)
-	
+	# (No decorative valve prop in the room — it read as a stray white object floating in the
+	# chamber.)
+
 	return root
 
 func _get_hollow_cylinder(length: float, radius: float, thickness: float) -> ArrayMesh:
@@ -954,14 +920,14 @@ func _get_pierced_sphere_mesh(radius: float, thickness: float, hole_dirs: Array,
 
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var rings = 16   # latitude bands
+	var _rings = 16   # latitude bands
 	var segs = 24    # longitude segments
 	var cos_thresh = cos(hole_half_angle)
 	var orad = radius + thickness
 
-	for ri in range(rings):
-		var t0 = PI * ri / rings
-		var t1 = PI * (ri + 1) / rings
+	for ri in range(_rings):
+		var t0 = PI * ri / _rings
+		var t1 = PI * (ri + 1) / _rings
 		for si in range(segs):
 			var p0 = TAU * si / segs
 			var p1 = TAU * (si + 1) / segs
@@ -1041,15 +1007,15 @@ func _get_pierced_capsule_mesh(radius: float, thickness: float, height: float, h
 
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var rings: int = 16
+	var _rings: int = 16
 	var segs: int = 24
 	var cos_thresh: float = cos(hole_half_angle)
 	var orad: float = radius + thickness
 	var half_h: float = height * 0.5
 
-	for ri in range(rings):
-		var t0: float = PI * ri / rings
-		var t1: float = PI * (ri + 1) / rings
+	for ri in range(_rings):
+		var t0: float = PI * ri / _rings
+		var t1: float = PI * (ri + 1) / _rings
 		for si in range(segs):
 			var p0: float = TAU * si / segs
 			var p1: float = TAU * (si + 1) / segs
@@ -1139,9 +1105,57 @@ func _get_cap_disc_mesh(radius: float) -> ArrayMesh:
 	return mesh
 
 func _add_collision_cylinder(root: Node, length: float, radius: float) -> StaticBody:
-	# Godot 3 ConcavePolygonShape treats the hollow-cylinder triangles as two-sided
-	# blockers. Four box walls keep the tube open without invisible circular plates.
-	return _add_hollow_box_collision(root, length, radius)
+	# SOLID four-box walls around the bore, not a thin hollow-cylinder trimesh. The trimesh
+	# is a pair of ~0.35 m-apart paper-thin shells: in zero-G the player tunnels the inner
+	# shell and gets LODGED inside the wall thickness (seen embedded in a tube wall off a
+	# junction). Solid boxes (≥0.2 m thick, corners sealed) give a barrier the player can't
+	# penetrate or get stuck in. The player travels a square-section corridor inside the round
+	# visual tube — invisible and fine.
+	return _add_hollow_trimesh_collision(root, length, radius)
+
+const DUCT_COLLISION_FACETS := 8
+
+# Name kept for its callers (make_arm / make_duct_radial / make_incline). Builds a RING of
+# tangent box slabs around the round bore (tube runs along local Z). Four axis-aligned boxes
+# left the 45°/135°/… diagonals of the round bore uncovered — the player slipped out through
+# those corner gaps (52/72 of the bore ring was open). A 12-facet ring of slabs, each tangent
+# to the bore and wide enough to overlap its neighbours, seals the full 360° with no gap, and
+# each slab is DUCT_WALL_DEPTH thick so a fast zero-G player can't tunnel it.
+func _add_hollow_trimesh_collision(root: Node, length: float, radius: float) -> StaticBody:
+	var body = StaticBody.new()
+	body.collision_layer = DUCT_LAYER
+	body.collision_mask = 255
+	root.add_child(body)
+	_add_facet_ring(body, radius, length * 0.5 + DUCT_WALL_DEPTH, Transform.IDENTITY)
+	return body
+
+# Emit DUCT_COLLISION_FACETS slab boxes forming a closed ring around a bore of `radius`,
+# half-length `half_len` along local Z, placed through `xform` (so callers can position/orient
+# the ring, e.g. each segment of a curved tube). Each slab's inner face sits ON the bore and
+# it is widened so adjacent facets overlap — no angular gap.
+func _add_facet_ring(body: StaticBody, radius: float, half_len: float, xform: Transform) -> void:
+	var wall: float = DUCT_WALL_DEPTH
+	# Half-width of each facet around the circumference, doubled (×2) so each slab spans well
+	# past its neighbours — the round bore bulges past a flat chord between facet centres, so
+	# generous overlap is what actually closes those slivers.
+	var facet_half_w: float = (PI * radius / DUCT_COLLISION_FACETS) * 2.0
+	for i in range(DUCT_COLLISION_FACETS):
+		var a: float = TAU * i / DUCT_COLLISION_FACETS
+		var outward := Vector3(cos(a), sin(a), 0)
+		var shape = CollisionShape.new()
+		var box = BoxShape.new()
+		# extents: x = facet width (around bore), y = wall thickness (radial), z = tube length.
+		box.extents = Vector3(facet_half_w, wall * 0.5, half_len)
+		shape.shape = box
+		# Inner face slightly INSIDE the bore (radius - small inset) so the flat chord never
+		# leaves a sliver where the round bore bulges past it; outer face at ~radius+wall.
+		var centre := outward * (radius - 0.05 + wall * 0.5)
+		# Local frame: the slab's local Y points radially outward (along `outward`), local Z
+		# stays the tube axis, local X is the tangent.
+		var tangent := Vector3(-sin(a), cos(a), 0)
+		var local := Transform(Basis(tangent, outward, Vector3(0, 0, 1)), centre)
+		shape.transform = xform * local
+		body.add_child(shape)
 
 func _add_structural_rings(root: Node, axis: Vector3, length: float, radius: float, count: int = 2) -> void:
 	# Torus collars wrapping the tube. The tube runs along local Z, and the collar mesh's
@@ -1197,23 +1211,14 @@ func _apply_tint(node: Node, color: Color) -> void:
 # Pick which cells get an airlock coupled to them, and on WHICH connection.
 # Returns { cell_index : connection_index } where the connection is a TANGENTIAL one
 # (EAST=1 or WEST=3) so the chamber's door through-axis ends up HORIZONTAL and the
-# player can actually interact with it (axial N/S connections run along global Y =
-# the player's up, which would stack the doors vertically and break interaction).
-#
-# Targets, in priority order: rooms (is_room) and the dead-end endpoints (degree 1),
-# because an airlock reads as the entrance/exit of a chamber or the cap of a spur.
-# We only take cells that expose a tangential connection, and cap the count so the
-# maze is not wall-to-wall airlocks.
+# player can actually interact with it. Maze airlocks are radial service hatches:
+# their entrance faces inward toward the Core axis, not outward into space.
+# Targets, in priority order: radial capsule rooms, then tangential duct rooms
+# as a fallback so a sparse seed still exposes service airlocks.
 func _select_airlock_cells(grid: Array) -> Dictionary:
 	var out := {}
 	var max_airlocks := 3
 
-	# Rooms (is_room) that BOTH expose a tangential (interactable) mouth AND render a tile
-	# with an actual tangential tube to butt against. Capsule rooms (id C/T/X) and
-	# tangential straight/arc duct-rooms (id W) qualify; an endcap (id E) is rendered as an
-	# AXIAL stub regardless of its MST connection, so an airlock on its tangential side
-	# would float disconnected — exclude it. Axial-only rooms are dropped by
-	# _tangential_conn (doors there would stack along the player's up = uninteractable).
 	for i in range(grid.size()):
 		if out.size() >= max_airlocks:
 			break
@@ -1222,7 +1227,20 @@ func _select_airlock_cells(grid: Array) -> Dictionary:
 		if not cell.get("is_room", false):
 			continue
 		var id = cell.variant.id
-		if not (id in ["C", "T", "X", "W"]):
+		if not (id in ["C", "T", "X"]):
+			continue
+		out[i] = 0
+
+	for i in range(grid.size()):
+		if out.size() >= max_airlocks:
+			break
+		if out.has(i):
+			continue
+		var cell = grid[i]
+		if cell == null: continue
+		if not cell.get("is_room", false):
+			continue
+		if String(cell.variant.id) != "W":
 			continue
 		var conn_dir = _tangential_conn(cell.variant.connections)
 		if conn_dir == -1:
@@ -1242,38 +1260,48 @@ func _tangential_conn(conn: Array) -> int:
 
 # Couple an AirlockChamber to a room/endpoint cell at the mouth of a tangential
 # connection, oriented so the through-axis (and thus the doors) is horizontal.
-func _add_room_airlock(cell: Dictionary, gx: int, gy: int, conn_dir: int, parent: Node = null) -> void:
+func _add_room_airlock(cell: Dictionary, gx: int, gy: int, _conn_dir: int, parent: Node = null) -> void:
 	var airlock_scene = _get_res(AIRLOCK_CHAMBER_PATH)
 	if not airlock_scene: return
 
 	var airlock = airlock_scene.instance()
 	airlock.name = "RoomAirlock"
-	# No scene transition in the maze: let the airlock complete its cycle locally
-	# (open the exit door after pressurizing) instead of hanging on "PRESURIZANDO".
+	# No scene transition in the maze: let the airlock complete its cycle LOCALLY so the
+	# exit door actually opens (the controller, not us, drives the iris — exactly like the
+	# Dome_Crio airlocks that work). The earlier hack that force-set is_active on the iris
+	# desynced it from the controller: the controller then re-closed the door, leaving the
+	# DoorBlocker re-enabled across the open mouth ("abre pero choco con algo invisible").
 	if "standalone_cycle" in airlock:
 		airlock.standalone_cycle = true
+	var _az = airlock.get_node_or_null("AirlockZoneV2")
+	if _az != null:
+		_az.monitoring = false
+		_az.set_process(false)
+		_az.set_physics_process(false)
+	_apply_hull_mat_to_airlock_meshes(airlock)
 	var target_parent := parent if parent != null else self
-	target_parent.add_child(airlock)
 	_sanitize_generated_airlock_collision(airlock)
+	target_parent.add_child(airlock)
 	_ensure_airlock_interactables(airlock)
+	var pdm = get_node_or_null("/root/PropDitherManager")
+	if pdm and pdm.has_method("refresh_occlusion_for_node"):
+		pdm.call_deferred("refresh_occlusion_for_node", airlock)
 
 	var angle_rad := deg2rad(float(gx) * (360.0 / sectors))
 	var radius := wall_radius
 	var cell_pos := Vector3(radius * cos(angle_rad), _axis_y(gy), radius * sin(angle_rad))
-	var tangent := Vector3(-sin(angle_rad), 0, cos(angle_rad)) # horizontal, along the wall
+	var radial := Vector3(cos(angle_rad), 0, sin(angle_rad))
+	var tangent := Vector3(-sin(angle_rad), 0, cos(angle_rad))
 	var up := Vector3(0, 1, 0)
 
-	# Through-axis points along the chosen connection: EAST=+tangent, WEST=-tangent.
-	var through := tangent if conn_dir == 1 else -tangent
+	# Through-axis points inward, toward the Core axis. This keeps every generated
+	# airlock facing the readable interior void and puts the interaction proxy where
+	# the player approaches it from inside the cylinder.
+	var through := -radial
 
-	# Butt the chamber's INNER door (local -Z, ~chamber_inner_half from the chamber centre)
-	# against the room's tangential tube mouth, so the airlock reads as coupled to the room
-	# instead of floating in the bore.
-	#   capsule rooms (C/T/X): the port tube reaches ~2*room_radius from the cell centre.
-	#   tangential duct-rooms (W): the arc/straight tube reaches ~one duct radius past the bore.
 	var id = cell.variant.id
 	var room_radius := duct_radius * 1.6
-	var tube_reach := (room_radius * 2.0) if (id in ["C", "T", "X"]) else (duct_radius + 1.0)
+	var tube_reach := room_radius if (id in ["C", "T", "X"]) else (duct_radius + 1.0)
 	var chamber_inner_half := 4.1
 	var mouth_reach := tube_reach + chamber_inner_half
 	var pos := cell_pos + through * mouth_reach
@@ -1289,20 +1317,31 @@ func _add_room_airlock(cell: Dictionary, gx: int, gy: int, conn_dir: int, parent
 	# real door (bug: "airlocks/iris don't open").
 
 func _sanitize_generated_airlock_collision(airlock: Node) -> void:
-	var shell = airlock.get_node_or_null("CylindricalShell")
-	if shell is CollisionObject:
-		shell.collision_layer = 0
-		shell.collision_mask = 0
-		var shell_shape = shell.get_node_or_null("CollisionShape")
-		if shell_shape is CollisionShape:
-			shell_shape.disabled = true
-	var camera_walls = airlock.get_node_or_null("CameraWalls")
-	if camera_walls is CollisionObject:
-		camera_walls.collision_layer = 0
-		camera_walls.collision_mask = 0
-		for child in camera_walls.get_children():
-			if child is CollisionShape:
-				child.disabled = true
+	# Move EVERY collider in the chamber onto the Prop layer so the occlusion shader
+	# transparents it and the camera passes through it — same rule as the ducts/joints.
+	# The shell/CameraWalls were already moved here, but the iris doors' DoorBlocker and
+	# Frame StaticBodies default to layer 1 (Entorno), so the camera bumped them and they
+	# read as solid walls. Sweep the whole subtree so nothing stays on Entorno.
+	_move_collision_to_prop(airlock)
+	# Doors keep their natural behavior: each iris's DoorBlocker blocks while closed and
+	# clears when open (IrisDoorV2 toggles disabled = anim_progress > 0.15). We do NOT force
+	# them open or disable the blocker — "the door should only be passable when open".
+	var _sf = airlock.get_node_or_null("AirlockSafetyFloor")
+	if _sf != null:
+		_sf.collision_layer = DUCT_LAYER
+		_sf.collision_mask = 255
+
+func _apply_hull_mat_to_airlock_meshes(airlock: Node) -> void:
+	var shell_mesh = airlock.get_node_or_null("CylindricalShell/ShellMesh")
+	if shell_mesh is MeshInstance:
+		shell_mesh.material_override = _hull_mat()
+
+func _move_collision_to_prop(node: Node) -> void:
+	if node is CollisionObject:
+		node.collision_layer = DUCT_LAYER
+		node.collision_mask = 255
+	for child in node.get_children():
+		_move_collision_to_prop(child)
 
 func _ensure_airlock_interactables(airlock: Node) -> void:
 	var doors = [
@@ -1341,9 +1380,19 @@ func _mark_airlock_door_interactable(door: Node, owner: Node, door_name: String)
 		proxy.set_meta("airlock_controller_owned", true)
 		proxy.set_meta("airlock_controller_owner_path", owner.get_path())
 		proxy.set_meta("airlock_door_name", door_name)
-		proxy.collision_layer = 4
+		# layer 0: the proxy is an INTERACTION target only (found via the "interactable"
+		# group + distance, not a physics query — see PlayerControllerV2 _update_nearby).
+		# On layer 4 (NPC-Friendly) the player's body (mask 255) physically collided with
+		# this 4.4×4.4×1.2 m box across the doorway — the real "invisible wall" that stopped
+		# the player entering/leaving the airlock. With no layer it blocks nothing but still
+		# interacts.
+		proxy.collision_layer = 0
 		proxy.collision_mask = 0
 		door.add_child(proxy)
+		if not proxy.is_in_group("interactable"):
+			proxy.add_to_group("interactable")
+		if not proxy.is_in_group("focusable"):
+			proxy.add_to_group("focusable")
 		var shape = CollisionShape.new()
 		var box = BoxShape.new()
 		box.extents = Vector3(2.2, 2.2, 0.6)

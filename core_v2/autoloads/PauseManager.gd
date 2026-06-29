@@ -18,14 +18,56 @@ func _notification(what: int) -> void:
 	if what == MainLoop.NOTIFICATION_WM_GO_BACK_REQUEST:
 		print("[PauseManager] WM_GO_BACK_REQUEST -> toggle pause")
 		_toggle_pause()
+	# Al perder el foco de la ventana (alt-tab, cambio de app, etc.) pausamos el
+	# juego en vez de solo silenciar el audio. El AudioManager ya silencia con su
+	# propio handler de foco; aquí detenemos la simulación. No reanudamos solo con
+	# FOCUS_IN: el jugador decide cuándo continuar desde el menú de pausa, evitando
+	# reanudar por un rebote de foco del compositor.
+	elif what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
+		_pause_on_focus_loss()
 
-func _unhandled_input(event):
-	if event.is_action_pressed("ui_cancel"):
-		_toggle_pause()
+func _can_pause_in_current_scene() -> bool:
+	var current_scene = get_tree().current_scene
+	if current_scene == null:
+		return false
+	var fname := String(current_scene.filename)
+	# No pausar en el menú principal ni en el boot.
+	return fname.find("Menu.tscn") == -1 and fname.find("Boot.tscn") == -1
+
+func _pause_on_focus_loss() -> void:
+	if get_tree().paused:
+		return
+	if _is_automated_run():
+		# Headless/CLI/test/RL runs never hold window focus; auto-pausing there would
+		# freeze eval/telemetry-driven sessions. Manual pause (back/ui_cancel) still works.
+		return
+	if not _can_pause_in_current_scene():
+		return
+	pause()
+
+func _is_automated_run() -> bool:
+	if OS.has_feature("Server"):
+		return true
+	if Engine.has_singleton("GdUnit3") and Engine.get_singleton("GdUnit3").is_test_suite():
+		return true
+	if OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]:
+		return true
+	return false
+
+func _input(event):
+	if not event.is_action_pressed("ui_cancel"):
+		return
+	if not _can_pause_in_current_scene():
+		return
+	if get_tree().paused:
+		call_deferred("_toggle_pause")
+		get_tree().set_input_as_handled()
+		return
+	call_deferred("_toggle_pause")
+	get_tree().set_input_as_handled()
 
 func _toggle_pause() -> void:
-	var current_scene = get_tree().current_scene
-	if current_scene and (current_scene.filename.find("Menu.tscn") != -1 or current_scene.filename.find("Boot.tscn") != -1):
+	if not _can_pause_in_current_scene():
 		return # No pausar en el menú principal ni en el boot
 
 	if get_tree().paused:

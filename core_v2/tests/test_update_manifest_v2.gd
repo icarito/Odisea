@@ -8,6 +8,7 @@ func _init():
 	test_signature_verification()
 	test_rollout_logic()
 	test_delta_eligibility()
+	test_packaged_build_supersedes_old_update_state()
 	print("--- Tests Completed ---")
 	quit()
 
@@ -59,6 +60,13 @@ func test_delta_eligibility():
 	delta["touches_bootstrap"] = true
 	eligible = _replicated_is_delta_eligible(delta, manifest, [])
 	assert_eq(eligible, false, "Delta touches bootstrap")
+
+func test_packaged_build_supersedes_old_update_state():
+	var mgr = load("res://core_v2/update/UpdateManager.gd").new()
+	mgr._build_meta_cache = {"build_id": "277"}
+	assert_eq(mgr._packaged_build_supersedes({"build_id": "267"}), true, "Packaged build 277 supersedes confirmed 267")
+	assert_eq(mgr._packaged_build_supersedes({"build_id": "277"}), false, "Equal packaged build does not supersede confirmed")
+	assert_eq(mgr._packaged_build_supersedes({"build_id": "dev"}), false, "Non-numeric build ids are not ordered")
 
 func _replicated_is_delta_eligible(delta, manifest, active_packages):
 	if manifest.get("force_full", false): return false

@@ -13,6 +13,7 @@
 [sub_resource type="AnimationNodeStateMachinePlayback" id=1]
 
 [node name="Core" type="Spatial"]
+
 [node name="PrologueDirector" type="CanvasLayer" parent="."]
 script = ExtResource( 7 )
 music_stream = ExtResource( 8 )
@@ -52,7 +53,6 @@ script_file = "res://scenes/levels/act0/Core.oys"
 debug_render = false
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 221.784 )
 
 [node name="AnimationTree" parent="Pilot/Visual/Pivot" index="1"]
 parameters/playback = SubResource( 1 )
@@ -60,13 +60,7 @@ parameters/playback = SubResource( 1 )
 [node name="FakeShadow" parent="Pilot/Visual/Pivot" index="3"]
 visible = false
 
-[node name="OmniLight" parent="Pilot" index="6"]
-light_energy = 0.7
-omni_range = 30.0
-omni_attenuation = 0.517632
-
 [node name="CSGCylinder" type="CSGCombiner" parent="."]
-visible = false
 
 [node name="OuterShell" type="CSGCylinder" parent="CSGCylinder"]
 radius = 30.3
@@ -83,14 +77,18 @@ smooth_faces = false
 material = ExtResource( 3 )
 
 [node name="CylinderCollision" type="StaticBody" parent="."]
-collision_layer = 9
+collision_layer = 8
 collision_mask = 0
 script = ExtResource( 4 )
 constrained_body_path = NodePath("../Pilot")
 
 [node name="Act0DuctMaze" parent="." instance=ExtResource( 11 )]
 
-[node name="DirectionalLight" type="DirectionalLight" parent="Act0DuctMaze"]
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( -1.13133e-08, 0.965926, 0.258819, 4.2222e-08, 0.258819, -0.965926, -1, 8.88178e-16, -4.37114e-08, 0, 180, 0 )
+light_energy = 0.7
+directional_shadow_mode = 1
+directional_shadow_blend_splits = true
 
 [editable path="TubeZeroGravityZone"]
 [editable path="Pilot"]

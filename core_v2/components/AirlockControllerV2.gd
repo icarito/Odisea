@@ -390,6 +390,22 @@ func step(dt: float):
 			_update_physics_processing()
 
 	if state == State.ENTRY_OPEN:
+		# Standalone (zero-G maze): the player floats in and may already overlap the
+		# ChamberZone when the door opens, so the edge-triggered body_entered never fires
+		# and the cycle stalls at ENTRY_OPEN (player gets in but the exit door never opens —
+		# "no puedo salir"). Poll the overlap here so PRESSURIZING starts reliably. Scoped to
+		# standalone so scene-transition airlocks (Dome_Crio) keep their original behavior.
+		if standalone_cycle and is_instance_valid(_chamber_zone):
+			for body in _chamber_zone.get_overlapping_bodies():
+				if body.is_in_group("player"):
+					self.state = State.PRESSURIZING
+					timer = pressurize_time
+					if _is_cycling_in:
+						_set_door_active(_outer_door, false)
+					else:
+						_set_door_active(_inner_door, false)
+					_update_physics_processing()
+					return
 		timer -= dt
 		if timer <= 0:
 			self.state = State.IDLE
@@ -443,14 +459,20 @@ func _finish_transition_pressurization() -> void:
 	emit_signal("airlock_ready")
 	# No destination scene (duct maze / stream): complete the cycle locally by opening
 	# the exit door, instead of waiting for a scene change that will never happen.
+	# hold_open=true so the exit door LATCHES open — without a scene change the player has
+	# to physically walk through it, and the normal reset_time auto-close re-sealed the
+	# DoorBlocker across the mouth ("abre pero choco con algo invisible").
 	if standalone_cycle:
 		var exit_name := "inner" if _is_cycling_in else "outer"
-		open_exit_door(exit_name, false, false)
+		open_exit_door(exit_name, false, true)
 	_update_physics_processing()
 
 func _finish_pressurization() -> void:
 	self.state = State.EXIT_OPEN
-	timer = max(reset_time, 0.0)
+	# Standalone (duct maze): latch the exit door open (timer < 0) so it never auto-closes
+	# on the player — there is no scene change, so they walk out through it. Scene-transition
+	# airlocks keep the normal reset_time auto-close.
+	timer = -1.0 if standalone_cycle else max(reset_time, 0.0)
 	_pressurize_active = false
 	_transition_ready = false
 	if _is_cycling_in:
@@ -462,7 +484,9 @@ func _finish_pressurization() -> void:
 		_set_door_active(_inner_door, false)
 		_set_door_active(_outer_door, true)
 	emit_signal("airlock_ready")
-	if timer <= 0.0:
+	# timer < 0 = latched open (standalone): do NOT auto-reset. timer == 0 with a real
+	# reset_time of 0 still snaps shut as before.
+	if timer == 0.0:
 		self.state = State.IDLE
 		_current_exit_door_name = ""
 		_waiting_entry_door_name = ""
@@ -489,20 +513,28 @@ func _update_physics_processing() -> void:
 func _set_door_active(door: Node, value: bool, immediate: bool = false) -> bool:
 	if not is_instance_valid(door):
 		return false
+	var mechanism := _find_door_mechanism(door)
+	if is_instance_valid(mechanism):
+		mechanism.call("set_active", value, immediate)
+		return true
 	if door.has_method("set_active"):
 		door.call("set_active", value, immediate)
 		return true
+	return false
+
+func _find_door_mechanism(door: Node) -> Node:
+	if not is_instance_valid(door):
+		return null
 	var pending: Array = [door]
 	while not pending.empty():
 		var node = pending.pop_front()
 		if not is_instance_valid(node):
 			continue
 		if node != door and node.has_method("set_active"):
-			node.call("set_active", value, immediate)
-			return true
+			return node
 		for child in node.get_children():
 			pending.push_back(child)
-	return false
+	return null
 
 func _configure_managed_doors() -> void:
 	_mark_controller_owned_door(_outer_door, "outer")
