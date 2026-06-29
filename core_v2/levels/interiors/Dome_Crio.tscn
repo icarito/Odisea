@@ -1,4 +1,4 @@
-[gd_scene load_steps=74 format=2]
+[gd_scene load_steps=71 format=2]
 
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldWalkway.tscn" type="PackedScene" id=1]
 [ext_resource path="res://addons/qodot/src/nodes/qodot_map.gd" type="Script" id=2]
@@ -12,9 +12,6 @@
 [ext_resource path="res://core_v2/props/scaffold/SteelGratePlatform.tscn" type="PackedScene" id=10]
 [ext_resource path="res://core_v2/tools/RadialScatter.gd" type="Script" id=11]
 [ext_resource path="res://core_v2/systems/gas/GasArea3D.tscn" type="PackedScene" id=12]
-[ext_resource path="res://assets/DisplayCase_2/Base Color_DisplayCase_2.png" type="Texture" id=13]
-[ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=14]
-[ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.png" type="Texture" id=15]
 [ext_resource path="res://core_v2/props/scifi_lights/SciFiWorkLightTripodV2.tscn" type="PackedScene" id=16]
 [ext_resource path="res://textures/kenney_prototype_textures/light/GuardrailTranslucent.tres" type="Material" id=17]
 [ext_resource path="res://core_v2/levels/ShaderWarmupTrigger.gd" type="Script" id=18]
@@ -272,17 +269,12 @@ surfaces/0 = {
 }
 
 [sub_resource type="SpatialMaterial" id=221]
-albedo_texture = ExtResource( 13 )
 metallic = 0.75
-metallic_texture = ExtResource( 15 )
-roughness_texture = ExtResource( 15 )
 roughness_texture_channel = 1
 normal_enabled = true
 normal_scale = 1.0
-normal_texture = ExtResource( 14 )
 ao_enabled = true
 ao_light_affect = 0.0
-ao_texture = ExtResource( 15 )
 ao_on_uv2 = false
 ao_texture_channel = 2
 

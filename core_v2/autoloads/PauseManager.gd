@@ -2,15 +2,15 @@ extends Node
 
 var pause_menu_scene_path = "res://core_v2/ui/PauseMenu.tscn"
 var pause_menu_instance = null
+var _uptime_frames: int = 0
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
-	# La setting config/quit_on_go_back de project.godot no siempre basta para que
-	# el SceneTree propague WM_GO_BACK_REQUEST a los nodos en 3.6; lo forzamos en
-	# runtime (mismo patrón que SessionManager con set_auto_accept_quit para
-	# WM_QUIT_REQUEST). Sin esto, en Android el back no cerraba la app pero tampoco
-	# llegaba el notification -> no se abría la pausa.
 	get_tree().set_quit_on_go_back(false)
+
+func _process(_delta: float) -> void:
+	if _uptime_frames < 120:
+		_uptime_frames += 1
 
 func _notification(what: int) -> void:
 	# En Android el botón "back" envía WM_GO_BACK_REQUEST. Lo interceptamos para
@@ -37,9 +37,9 @@ func _can_pause_in_current_scene() -> bool:
 func _pause_on_focus_loss() -> void:
 	if get_tree().paused:
 		return
+	if _uptime_frames < 120:
+		return
 	if _is_automated_run():
-		# Headless/CLI/test/RL runs never hold window focus; auto-pausing there would
-		# freeze eval/telemetry-driven sessions. Manual pause (back/ui_cancel) still works.
 		return
 	if not _can_pause_in_current_scene():
 		return
@@ -83,11 +83,19 @@ func pause():
 		var scene = load(pause_menu_scene_path)
 		if scene:
 			pause_menu_instance = scene.instance()
-			get_tree().root.add_child(pause_menu_instance)
+			get_tree().root.call_deferred("add_child", pause_menu_instance)
+			# Defer the rest until the child is added
+			call_deferred("_finish_pause")
+			return
 		else:
 			printerr("[PauseManager] No se pudo cargar PauseMenu.tscn")
 			return
 
+	_finish_pause()
+
+func _finish_pause() -> void:
+	if pause_menu_instance == null:
+		return
 	get_tree().paused = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	pause_menu_instance.show()
