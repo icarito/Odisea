@@ -107,8 +107,14 @@ func _start_game(scene_path):
 func _on_fade_out_complete(_object, _key, scene_path):
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager and scene_manager.has_method("goto_scene"):
+		# Gameplay scenes (Core, Dome_Crio) are heavy to load. Show the same loading
+		# screen + progress bar the BootLoader uses, otherwise the player stares at a
+		# frozen black fade with no feedback during the long interactive load.
 		scene_manager.goto_scene(scene_path, {
-			"show_loading": false,
+			"transition": "loading",
+			"show_loading": true,
+			"show_progress": true,
+			"loading_message": "Cargando...",
 			"fade_out": 0.0,
 			"fade_in": 0.25
 		})
