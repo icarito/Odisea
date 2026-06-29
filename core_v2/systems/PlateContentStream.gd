@@ -191,7 +191,7 @@ func _sync_slot_transforms(delta: float = 0.0) -> void:
 	if _rotator == null or not is_instance_valid(_rotator):
 		return
 	
-	var reference_canonical := _get_reference_canonical_position()
+	var _reference_canonical := _get_reference_canonical_position()
 	var skip_dist_sq := 100.0 * 100.0 # 100m radius for transform sync gating
 
 	# El gate por distancia solo es seguro si el rotator no se movió desde el último

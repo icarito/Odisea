@@ -188,7 +188,6 @@ func _build_chunk_contents(parent: Spatial, chunk_idx: int, chunk_rings: int) ->
 
 		var gx := i % sectors
 		var gy := i / sectors
-		var v = cell.variant
 
 		var tile = instantiate_tile(gx, gy, cell, airlock_cells.has(i))
 		if tile:
@@ -225,7 +224,7 @@ func _chunk_seed(chunk_idx: int) -> int:
 	var base_seed := seed_value if seed_value >= 0 else 0
 	return int(base_seed + chunk_idx * 73856093)
 
-func _grid_to_world(gx: int, gy: int, height: float, piece_name: String = "") -> Transform:
+func _grid_to_world(gx: int, gy: int, _height: float, piece_name: String = "") -> Transform:
 	var angle_deg := float(gx) * (360.0 / sectors)
 	var angle_rad := deg2rad(angle_deg)
 	var radius := wall_radius
@@ -325,7 +324,7 @@ func _apply_duct_properties(node: Node) -> void:
 	for child in node.get_children():
 		_apply_duct_properties(child)
 
-func make_duct_radial(gy: int) -> Spatial:
+func make_duct_radial(_gy: int) -> Spatial:
 	var root = Spatial.new()
 	root.name = "DuctRadial"
 	var mesh_instance = MeshInstance.new()
@@ -343,7 +342,7 @@ func make_duct_radial(gy: int) -> Spatial:
 	
 	return root
 
-func make_duct_arc(gx: int, gy: int) -> Spatial:
+func make_duct_arc(_gx: int, _gy: int) -> Spatial:
 	var root = Spatial.new()
 	root.name = "DuctArc"
 	# Arc curvature must match the wall radius so it follows the cylinder circumference.
@@ -722,7 +721,7 @@ func make_endcap(dir: Vector3 = Vector3.FORWARD) -> Spatial:
 	root.transform.basis = Basis(right, local_up, fwd)
 	return root
 
-func make_capsule(connections: Array, gy: int, has_airlock_port: bool = false) -> Spatial:
+func make_capsule(connections: Array, _gy: int, has_airlock_port: bool = false) -> Spatial:
 	var root = Spatial.new()
 	root.name = "CapsuleRoom"
 	
@@ -926,14 +925,14 @@ func _get_pierced_sphere_mesh(radius: float, thickness: float, hole_dirs: Array,
 
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var rings = 16   # latitude bands
+	var _rings = 16   # latitude bands
 	var segs = 24    # longitude segments
 	var cos_thresh = cos(hole_half_angle)
 	var orad = radius + thickness
 
-	for ri in range(rings):
-		var t0 = PI * ri / rings
-		var t1 = PI * (ri + 1) / rings
+	for ri in range(_rings):
+		var t0 = PI * ri / _rings
+		var t1 = PI * (ri + 1) / _rings
 		for si in range(segs):
 			var p0 = TAU * si / segs
 			var p1 = TAU * (si + 1) / segs
@@ -1013,15 +1012,15 @@ func _get_pierced_capsule_mesh(radius: float, thickness: float, height: float, h
 
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var rings: int = 16
+	var _rings: int = 16
 	var segs: int = 24
 	var cos_thresh: float = cos(hole_half_angle)
 	var orad: float = radius + thickness
 	var half_h: float = height * 0.5
 
-	for ri in range(rings):
-		var t0: float = PI * ri / rings
-		var t1: float = PI * (ri + 1) / rings
+	for ri in range(_rings):
+		var t0: float = PI * ri / _rings
+		var t1: float = PI * (ri + 1) / _rings
 		for si in range(segs):
 			var p0: float = TAU * si / segs
 			var p1: float = TAU * (si + 1) / segs
@@ -1266,7 +1265,7 @@ func _tangential_conn(conn: Array) -> int:
 
 # Couple an AirlockChamber to a room/endpoint cell at the mouth of a tangential
 # connection, oriented so the through-axis (and thus the doors) is horizontal.
-func _add_room_airlock(cell: Dictionary, gx: int, gy: int, conn_dir: int, parent: Node = null) -> void:
+func _add_room_airlock(cell: Dictionary, gx: int, gy: int, _conn_dir: int, parent: Node = null) -> void:
 	var airlock_scene = _get_res(AIRLOCK_CHAMBER_PATH)
 	if not airlock_scene: return
 

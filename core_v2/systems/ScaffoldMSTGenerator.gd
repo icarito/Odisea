@@ -765,7 +765,7 @@ func _trace_path(u, v, connections, heights):
 		curr.y = next_y
 		if heights[int(curr.y) * grid_width + int(curr.x)] < 0: heights[int(curr.y) * grid_width + int(curr.x)] = v.h
 
-func _connect_wrap(p1, x2, y2, connections, heights):
+func _connect_wrap(p1, x2, y2, connections, _heights):
 	var d1 = _get_dir_wrap(p1, Vector2(x2, y2))
 	var i1 := int(int(p1.y) * grid_width + int(p1.x))
 	var i2 := int(int(y2) * grid_width + int(x2))

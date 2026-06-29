@@ -57,9 +57,11 @@ func _is_automated_run() -> bool:
 func _input(event):
 	if not event.is_action_pressed("ui_cancel"):
 		return
-	if get_tree().paused:
-		return
 	if not _can_pause_in_current_scene():
+		return
+	if get_tree().paused:
+		call_deferred("_toggle_pause")
+		get_tree().set_input_as_handled()
 		return
 	call_deferred("_toggle_pause")
 	get_tree().set_input_as_handled()

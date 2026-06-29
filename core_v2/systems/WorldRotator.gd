@@ -697,7 +697,7 @@ func find_nearest_terrace_plate(global_position: Vector3) -> Dictionary:
 				}
 	return best
 
-func _get_plate_contact_distance_squared(spiral: Spatial, plate_canonical: Transform, canonical_position: Vector3) -> float:
+func _get_plate_contact_distance_squared(_spiral: Spatial, plate_canonical: Transform, canonical_position: Vector3) -> float:
 	# Distancia 3D simple entre el jugador y el centro de la plate.
 	# Las plates inclinadas tienen su espacio local torcido respecto al movimiento
 	# horizontal del jugador — calcular en espacio local producía rankings incorrectos.
