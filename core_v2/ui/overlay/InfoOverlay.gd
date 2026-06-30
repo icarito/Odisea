@@ -66,7 +66,8 @@ func open():
 	visible = true
 	_is_closing = false
 	get_tree().paused = true
-	
+	_refresh_mobile_ui()
+
 	tween.stop_all()
 	tween.interpolate_property(self, "modulate:a", 0.0, 1.0, 0.2, Tween.TRANS_SINE, Tween.EASE_OUT)
 	tween.interpolate_property(panel, "rect_scale", Vector2(0.9, 0.9), Vector2(1.0, 1.0), 0.2, Tween.TRANS_BACK, Tween.EASE_OUT)
@@ -86,8 +87,16 @@ func close():
 	
 	visible = false
 	get_tree().paused = false
+	_refresh_mobile_ui()
 	emit_signal("closed")
 	queue_free()
+
+func _refresh_mobile_ui() -> void:
+	# Keep on-screen touch controls in sync with pause state; they sit on a high
+	# CanvasLayer and would otherwise intercept touches meant for this overlay.
+	var mobile = get_node_or_null("/root/MobileUIManager")
+	if mobile and mobile.has_method("refresh_for_pause"):
+		mobile.refresh_for_pause()
 
 func _input(event):
 	if not visible or _is_closing: return

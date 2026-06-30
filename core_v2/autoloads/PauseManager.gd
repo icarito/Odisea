@@ -101,9 +101,18 @@ func _finish_pause() -> void:
 	pause_menu_instance.show()
 	if pause_menu_instance.has_method("on_show"):
 		pause_menu_instance.on_show()
+	_refresh_mobile_ui()
 
 func resume():
 	get_tree().paused = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	if pause_menu_instance:
 		pause_menu_instance.hide()
+	_refresh_mobile_ui()
+
+func _refresh_mobile_ui() -> void:
+	# Show/hide the on-screen touch controls in sync with pause state. They live on
+	# a high CanvasLayer and would intercept the touches meant for the pause menu.
+	var mobile = get_node_or_null("/root/MobileUIManager")
+	if mobile and mobile.has_method("refresh_for_pause"):
+		mobile.refresh_for_pause()

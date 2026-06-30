@@ -62,9 +62,12 @@ func _refresh_mobile_ui_visibility() -> void:
 	# replay: in replay the player moves from the recorded .bin, so on-screen
 	# controls would let the viewer fight the playback. We still want the player
 	# rendered/interactive-looking, just not driven by touch.
+	# Also hide while paused: the touch controls (CanvasLayer 10/100) render above
+	# the PauseMenu (CanvasLayer 0) and would otherwise intercept the touches meant
+	# for the pause buttons, leaving the player unable to operate the menu on Android.
 	_is_cinematic_active = _is_script_cinematic_active() or _is_script_input_block_active() or _is_replay_active()
 	if is_instance_valid(_mobile_ui):
-		_mobile_ui.visible = _is_mobile and not _is_cinematic_active and not _is_non_playable_scene()
+		_mobile_ui.visible = _is_mobile and not _is_cinematic_active and not _is_non_playable_scene() and not get_tree().paused
 
 func _is_replay_active() -> bool:
 	var session = get_node_or_null("/root/SessionManager")
@@ -90,6 +93,12 @@ func set_replay_mode(active: bool) -> void:
 func _process(_delta: float) -> void:
 	if not _is_mobile or not is_instance_valid(_mobile_ui):
 		return
+	_refresh_mobile_ui_visibility()
+
+# Called by PauseManager on pause/resume. The autoload inherits PAUSE_MODE_STOP, so
+# its _process is frozen while the tree is paused and can't refresh visibility on its
+# own; the pause flow drives the hide explicitly here.
+func refresh_for_pause() -> void:
 	_refresh_mobile_ui_visibility()
 
 func _is_script_input_block_active() -> bool:
