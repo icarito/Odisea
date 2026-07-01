@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=16 format=2]
 
 [ext_resource path="res://core_v2/props/tube/TubeZeroGravityZone.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
@@ -9,6 +9,10 @@
 [ext_resource path="res://core_v2/components/OYSComponent.gd" type="Script" id=9]
 [ext_resource path="res://assets/fonts/SyneMono_Prologue_20.tres" type="DynamicFont" id=10]
 [ext_resource path="res://scenes/levels/act0_duct_maze.tscn" type="PackedScene" id=11]
+[ext_resource path="res://core_v2/components/BeatSyncTrigger.tscn" type="PackedScene" id=12]
+[ext_resource path="res://core_v2/props/emitters/LeakEmitter.tscn" type="PackedScene" id=13]
+[ext_resource path="res://core_v2/props/emitters/SparkEmitterV2.tscn" type="PackedScene" id=14]
+[ext_resource path="res://core_v2/props/emitters/FireEmitter.tscn" type="PackedScene" id=15]
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=1]
 
@@ -17,6 +21,7 @@
 [node name="PrologueDirector" type="CanvasLayer" parent="."]
 script = ExtResource( 7 )
 music_stream = ExtResource( 8 )
+music_bpm = 120.0
 
 [node name="Music" type="AudioStreamPlayer" parent="PrologueDirector"]
 bus = "Music"
@@ -89,6 +94,35 @@ transform = Transform( -1.13133e-08, 0.965926, 0.258819, 4.2222e-08, 0.258819, -
 light_energy = 0.7
 directional_shadow_mode = 1
 directional_shadow_blend_splits = true
+
+[node name="MusicEvents" type="Spatial" parent="."]
+
+[node name="PlasmaLeak_A" parent="MusicEvents" instance=ExtResource( 13 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, -20 )
+is_active = false
+interval = 0.0
+duration = 2.0
+
+[node name="BeatSyncTrigger_Leak" parent="MusicEvents" instance=ExtResource( 12 )]
+target_path = NodePath("../PlasmaLeak_A")
+every_n_beats = 8
+
+[node name="SparkEmitter_1" parent="MusicEvents" instance=ExtResource( 14 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 5, -15 )
+is_active = false
+interval = 0.0
+
+[node name="BeatSyncTrigger_Spark" parent="MusicEvents" instance=ExtResource( 12 )]
+target_path = NodePath("../SparkEmitter_1")
+measure_pattern = [ 2, 4, 6 ]
+
+[node name="ExplosionFlash" parent="MusicEvents" instance=ExtResource( 15 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 8, -25 )
+is_active = false
+
+[node name="BeatSyncTrigger_Explosion" parent="MusicEvents" instance=ExtResource( 12 )]
+target_path = NodePath("../ExplosionFlash")
+beat_pattern = [ 1 ]
 
 [editable path="TubeZeroGravityZone"]
 [editable path="Pilot"]
