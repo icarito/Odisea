@@ -713,3 +713,42 @@ func test_world_rotator_ignores_airlock_suspended_player_for_continuous_tracking
 	player.set_meta("airlock_tracking_suspended", true)
 
 	assert_object(rotator._get_tracking_target()).is_null()
+
+func test_standalone_airlock_zone_disables_itself_and_never_yanks_camera() -> void:
+	# A standalone (duct maze) airlock cycles locally and never transitions scenes. Its
+	# AirlockZoneV2 must go fully inert so it can't re-arm and yank the camera to the tight
+	# OTS framing ("zoom al salir del airlock"). Gated in _ready() off standalone_cycle.
+	var airlock = _make_airlock_with_doors()
+	airlock.standalone_cycle = true
+	var zone = _make_zone()
+	airlock.add_child(zone)
+	zone.zone_dir = Vector3.FORWARD
+	add_child(airlock)  # _ready() runs here and should disable the zone
+
+	assert_bool(zone._disabled_standalone).is_true()
+	assert_bool(zone.monitoring).is_false()
+	assert_bool(zone.is_processing()).is_false()
+	assert_bool(zone.is_physics_processing()).is_false()
+
+	# Even if _on_zone_entered is invoked directly, it must not push the camera spring.
+	var player = auto_free(FakePlayer.new())
+	add_child(player)
+	var spring := _add_fake_camera_rig(player, 7.0)
+	zone._on_zone_entered(player)
+	assert_float(spring.spring_length).is_equal_approx(7.0, 0.001)
+	assert_float(zone._saved_spring_length).is_equal_approx(-1.0, 0.001)
+
+	airlock.queue_free()
+
+func test_non_standalone_airlock_zone_stays_active() -> void:
+	# Guard the negative: a scene-transition airlock (Dome_Crio) must NOT be disabled.
+	var airlock = _make_airlock_with_doors()
+	airlock.standalone_cycle = false
+	var zone = _make_zone()
+	airlock.add_child(zone)
+	add_child(airlock)
+
+	assert_bool(zone._disabled_standalone).is_false()
+	assert_bool(zone.is_processing()).is_true()
+
+	airlock.queue_free()
