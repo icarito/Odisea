@@ -12,7 +12,7 @@ class DummyPlayer:
 	var input_provider = null
 
 
-func test_touch_ui_is_hidden_while_cinematic_is_active() -> void:
+func test_touch_ui_shows_skip_while_cinematic_is_active() -> void:
 	var cinematic_manager = get_tree().root.get_node_or_null("CinematicManager")
 	assert_object(cinematic_manager).is_not_null()
 
@@ -33,11 +33,17 @@ func test_touch_ui_is_hidden_while_cinematic_is_active() -> void:
 		10
 	)
 	cinematic_manager.emit_signal("cinematic_started", "intro")
-	assert_bool(mobile_ui_manager._mobile_ui.visible).is_false()
+	# During a legacy cinematic the MobileUI stays visible to show the skip button
+	assert_bool(mobile_ui_manager._mobile_ui.visible).is_true()
+	var skip_btn = mobile_ui_manager._mobile_ui.get_node_or_null("Container/SkipButton")
+	assert_object(skip_btn).is_not_null()
+	assert_bool(skip_btn.visible).is_true()
 
 	cinematic_manager.release_camera_request(request_id)
 	cinematic_manager.emit_signal("cinematic_stopped")
 	assert_bool(mobile_ui_manager._mobile_ui.visible).is_true()
+	if is_instance_valid(skip_btn):
+		assert_bool(skip_btn.visible).is_false()
 
 	mobile_ui_manager.queue_free()
 

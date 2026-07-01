@@ -7,6 +7,8 @@ var _touch_camera: TouchCameraControls = null
 var _is_mobile := false
 var _is_cinematic_active := false
 var _cinematic_manager: Node = null
+var _is_zero_g := false
+var _tracked_controller_manager: Node = null
 
 func _ready() -> void:
 	layer = 100
@@ -58,16 +60,38 @@ func _is_script_cinematic_active() -> bool:
 	return false
 
 func _refresh_mobile_ui_visibility() -> void:
-	# Hide touch controls during cinematics, scripted input blocks, and hotzone
-	# replay: in replay the player moves from the recorded .bin, so on-screen
-	# controls would let the viewer fight the playback. We still want the player
-	# rendered/interactive-looking, just not driven by touch.
 	# Also hide while paused: the touch controls (CanvasLayer 10/100) render above
-	# the PauseMenu (CanvasLayer 0) and would otherwise intercept the touches meant
+	# the PauseMenu (CanvasLayer 50) and would otherwise intercept the touches meant
 	# for the pause buttons, leaving the player unable to operate the menu on Android.
 	_is_cinematic_active = _is_script_cinematic_active() or _is_script_input_block_active() or _is_replay_active()
-	if is_instance_valid(_mobile_ui):
-		_mobile_ui.visible = _is_mobile and not _is_cinematic_active and not _is_non_playable_scene() and not get_tree().paused
+	if not is_instance_valid(_mobile_ui):
+		return
+	var non_playable := _is_non_playable_scene()
+	var paused := get_tree().paused
+	var show_skip := _is_mobile and _is_script_cinematic_active() and not non_playable and not paused
+	# During a legacy cinematic (input blocked), show only the skip button so the
+	# player can skip. Camera-zone-only cinematics keep the full UI (handled below).
+	if show_skip:
+		_mobile_ui.visible = true
+		_mobile_ui.set_skip_visible(true)
+		_mobile_ui.set_zero_g_mode(false)
+		_set_gameplay_controls_visible(false)
+		return
+	_mobile_ui.visible = _is_mobile and not _is_cinematic_active and not non_playable and not paused
+	if _mobile_ui.visible:
+		_mobile_ui.set_skip_visible(false)
+		_mobile_ui.set_zero_g_mode(_is_zero_g)
+		_set_gameplay_controls_visible(true)
+
+func _set_gameplay_controls_visible(enabled: bool) -> void:
+	if not is_instance_valid(_mobile_ui):
+		return
+	var container = _mobile_ui.get_node_or_null("Container")
+	if not container:
+		return
+	for child in container.get_children():
+		if child.name != "ZeroGButtons" and child.name != "SkipButton":
+			child.visible = enabled
 
 func _is_replay_active() -> bool:
 	var session = get_node_or_null("/root/SessionManager")
@@ -93,6 +117,7 @@ func set_replay_mode(active: bool) -> void:
 func _process(_delta: float) -> void:
 	if not _is_mobile or not is_instance_valid(_mobile_ui):
 		return
+	_track_player_controller_manager()
 	_refresh_mobile_ui_visibility()
 
 # Called by PauseManager on pause/resume. The autoload inherits PAUSE_MODE_STOP, so
@@ -130,6 +155,26 @@ func _on_camera_zoom(delta: float) -> void:
 	var input_provider = _get_active_input_provider()
 	if input_provider:
 		input_provider.add_touch_camera_zoom(delta)
+
+func _track_player_controller_manager() -> void:
+	var session = get_node_or_null("/root/SessionManager")
+	if not session or not session.player:
+		return
+	var player = session.player
+	var cm = player.get_node_or_null("ControllerManager")
+	if not is_instance_valid(cm) or cm == _tracked_controller_manager:
+		return
+	if is_instance_valid(_tracked_controller_manager):
+		if _tracked_controller_manager.is_connected("controller_changed", self, "_on_controller_changed"):
+			_tracked_controller_manager.disconnect("controller_changed", self, "_on_controller_changed")
+	_tracked_controller_manager = cm
+	_tracked_controller_manager.connect("controller_changed", self, "_on_controller_changed")
+	var cur_mode = cm.get("current_mode")
+	_is_zero_g = (cur_mode == 1)
+
+func _on_controller_changed(mode: int) -> void:
+	_is_zero_g = (mode == 1)
+	_refresh_mobile_ui_visibility()
 
 func _get_active_input_provider():
 	var session = get_node_or_null("/root/SessionManager")
