@@ -36,13 +36,32 @@ var _open_exit_return_last_progress := -1.0
 const AIRLOCK_OTS_SPRING_LENGTH := 1.5
 const SEAMLESS_TRANSITION_ANIM_FREEZE_FRAMES := 4
 
+var _disabled_standalone := false
+
 func _ready() -> void:
 	._ready()
 	if Engine.editor_hint:
 		return
+	# A standalone airlock (duct maze) cycles locally and never transitions scenes, so this
+	# scene-transition zone must stay fully inert. Otherwise it re-arms itself (its _physics_
+	# process polls _arm_player_already_inside_zone regardless of monitoring) and yanks the
+	# camera to the tight airlock OTS framing on every pass — the "zoom al salir del airlock".
+	# Gating here (not from the streamer) is robust against _ready() re-enabling processing.
+	if _is_standalone_airlock():
+		_disabled_standalone = true
+		monitoring = false
+		set_physics_process(false)
+		set_process(false)
+		return
 	set_physics_process(false)
 	set_process(true)
 	_update_indicator_lights()
+
+func _is_standalone_airlock() -> bool:
+	var airlock = _find_airlock_controller()
+	if is_instance_valid(airlock) and "standalone_cycle" in airlock:
+		return bool(airlock.standalone_cycle)
+	return false
 
 var _indicator_lights_dirty := true
 
@@ -60,6 +79,8 @@ func _process(delta: float) -> void:
 
 func _on_zone_entered(body: Node) -> void:
 	if Engine.editor_hint:
+		return
+	if _disabled_standalone:
 		return
 	if not _is_player(body):
 		return
@@ -101,6 +122,9 @@ func _on_zone_exited(body: Node) -> void:
 
 func _physics_process(_delta: float) -> void:
 	if Engine.editor_hint:
+		return
+	if _disabled_standalone:
+		set_physics_process(false)
 		return
 
 	if not _player_in_zone:
