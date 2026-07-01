@@ -14,12 +14,9 @@ var _current_update_info := {}
 var _dismissed_manifest_id := ""
 var _is_security_critical := false
 var _release_notes_url := ""
-# El usuario ya confirmó "Actualizar": al terminar la descarga se aplica (reinicia)
-# automáticamente, sin un segundo clic. Un único clic confirma TODO el flujo.
 var _user_confirmed := false
-# Para un delta (descarga chica) pre-descargamos en background apenas se detecta, así
-# el clic de confirmación aplica de inmediato. Para un full esperamos al clic.
 var _is_delta_update := false
+var _we_paused := false
 
 func _ready():
 	panel.hide()
@@ -169,19 +166,22 @@ func _build_datetime(version: String, issued_at: String) -> String:
 	return "-"
 
 func _setup_severity_ui(severity: String):
+	modal_dim.show()
 	if severity == "security_critical":
-		modal_dim.show()
 		close_button.text = "Salir"
-		# Requirement: security_critical requests save if in gameplay
 		if get_tree().current_scene and get_tree().current_scene.filename != "res://scenes/Menu.tscn":
 			var persistence = get_node_or_null("/root/PersistenceManager")
 			if persistence:
 				print("[VersionNotification] Critical update: saving state...")
 				persistence.save_checkpoint_resource(get_tree().current_scene.filename)
 	else:
-		modal_dim.hide()
 		close_button.text = "Cerrar"
 		close_button.show()
+
+	if not get_tree().paused:
+		_we_paused = true
+		get_tree().paused = true
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 	_update_action_button_text()
 
@@ -260,8 +260,15 @@ func _on_close_pressed():
 		get_tree().quit()
 	else:
 		panel.hide()
+		modal_dim.hide()
+		_resume_if_we_paused()
 		if _current_update_info.get("severity") == "optional":
 			_dismissed_manifest_id = _current_update_info.get("manifest_id", "")
+
+func _resume_if_we_paused():
+	if _we_paused:
+		_we_paused = false
+		get_tree().paused = false
 
 # --- API pública para reabrir el diálogo desde Opciones ---
 

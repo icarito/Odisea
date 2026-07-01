@@ -83,7 +83,11 @@ func pause():
 		var scene = load(pause_menu_scene_path)
 		if scene:
 			pause_menu_instance = scene.instance()
-			get_tree().root.call_deferred("add_child", pause_menu_instance)
+			var canvas = CanvasLayer.new()
+			canvas.layer = 50
+			canvas.name = "PauseMenuLayer"
+			get_tree().root.call_deferred("add_child", canvas)
+			canvas.call_deferred("add_child", pause_menu_instance)
 			# Defer the rest until the child is added
 			call_deferred("_finish_pause")
 			return
