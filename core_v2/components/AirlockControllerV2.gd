@@ -55,6 +55,10 @@ var _pressurize_active := false
 var _transition_ready := false
 var _waiting_entry_door_name := ""
 var _label_linger_timer := 0.0
+# Standalone EXIT_OPEN: latch the exit door open, but once the player has walked out of
+# the chamber, auto-close and return to IDLE so the airlock can be traversed again the
+# other way. True while the player is still inside the chamber during EXIT_OPEN.
+var _standalone_exit_player_inside := false
 var _label_linger_text := ""
 const LABEL_LINGER_SECONDS := 1.5
 
@@ -432,6 +436,22 @@ func step(dt: float):
 	
 	elif state == State.EXIT_OPEN:
 		if timer < 0.0:
+			# Standalone (zero-G maze): the exit door is latched open (no scene change), so
+			# the timer never runs. Instead, watch the chamber: once the player has been
+			# inside and then leaves, close the exit door and return to IDLE so the airlock
+			# is ready to be cycled again from either side. Without this the airlock stays
+			# stuck in EXIT_OPEN and can't be traversed back the other way.
+			if standalone_cycle and is_instance_valid(_chamber_zone):
+				var player_inside := false
+				for body in _chamber_zone.get_overlapping_bodies():
+					if body.is_in_group("player"):
+						player_inside = true
+						break
+				if player_inside:
+					_standalone_exit_player_inside = true
+				elif _standalone_exit_player_inside:
+					_standalone_exit_player_inside = false
+					_reset_standalone_exit_to_idle()
 			return
 		timer -= dt
 		if timer <= 0:
@@ -498,6 +518,22 @@ func _finish_pressurization() -> void:
 		emit_signal("airlock_cycle_completed")
 	_update_physics_processing()
 
+func _reset_standalone_exit_to_idle() -> void:
+	# Player has left the chamber after a standalone cycle: close both doors and return
+	# to IDLE so the airlock can be interacted with and traversed again from either side.
+	self.state = State.IDLE
+	timer = 0.0
+	_current_exit_door_name = ""
+	_waiting_entry_door_name = ""
+	_pressurize_active = false
+	_transition_ready = false
+	_label_linger_timer = 0.0
+	_reset_transition_button()
+	_set_door_active(_outer_door, false)
+	_set_door_active(_inner_door, false)
+	emit_signal("airlock_cycle_completed")
+	_update_physics_processing()
+
 func _update_physics_processing() -> void:
 	if Engine.editor_hint:
 		return
@@ -507,7 +543,9 @@ func _update_physics_processing() -> void:
 	elif state == State.PRESSURIZING:
 		should_process = should_process or (_pressurize_active and timer > 0.0) or (standalone_cycle and not _transition_ready)
 	elif state == State.EXIT_OPEN:
-		should_process = should_process or timer > 0.0
+		# Standalone latches EXIT_OPEN with timer < 0; keep stepping so we can watch the
+		# chamber and auto-reset to IDLE once the player walks out.
+		should_process = should_process or timer > 0.0 or (standalone_cycle and timer < 0.0)
 	set_physics_process(should_process)
 
 func _set_door_active(door: Node, value: bool, immediate: bool = false) -> bool:
