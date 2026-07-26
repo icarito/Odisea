@@ -25,6 +25,7 @@ export(float) var collision_margin := 0.08
 export(float) var collision_damping := 0.28
 export(float) var collision_slide := 0.68
 export(float) var flipbook_frames_per_second := 16.0
+export(bool) var use_dither := true setget set_use_dither
 export(float) var anim_speed_base := 1.0
 export(float) var anim_speed_velocity_factor := 0.2
 export(String, FILE, "*.shader") var shader_path := "res://core_v2/systems/gas/shaders/gas_flipbook.shader"
@@ -92,6 +93,12 @@ func _ensure_material() -> void:
 		if atlas:
 			_gas_material.set_shader_param("smoke_atlas", atlas)
 		_gas_material.set_shader_param("frames_per_second", flipbook_frames_per_second)
+		_gas_material.set_shader_param("use_dither", use_dither)
+
+func set_use_dither(value: bool) -> void:
+	use_dither = value
+	if _gas_material:
+		_gas_material.set_shader_param("use_dither", use_dither)
 
 func _setup_pool() -> void:
 	pool_size = max(1, pool_size)

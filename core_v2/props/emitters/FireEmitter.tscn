@@ -1,60 +1,40 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://core_v2/props/emitters/FireEmitter.gd" type="Script" id=1]
-[ext_resource path="res://assets/flipbook_particles/assets/fireballs/fireball_01/textures/fireball_01.png" type="Texture" id=2]
+[ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=2]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_ambient_01.ogg" type="AudioStream" id=3]
 
 [sub_resource type="CylinderShape" id=1]
 radius = 1.0
 height = 2.0
 
-[sub_resource type="Gradient" id=2]
-offsets = PoolRealArray( 0, 0.2, 0.5, 0.8, 1 )
-colors = PoolColorArray( 1, 1, 0, 1, 1, 0.5, 0, 1, 1, 0, 0, 1, 0.2, 0.2, 0.2, 1, 0, 0, 0, 0 )
-
-[sub_resource type="GradientTexture" id=3]
-gradient = SubResource( 2 )
-
-[sub_resource type="Curve" id=4]
-_data = [ Vector2( 0, 0.2 ), 0.0, 0.0, 0, 0, Vector2( 0.2, 1 ), 0.0, 0.0, 0, 0, Vector2( 1, 0.5 ), 0.0, 0.0, 0, 0 ]
-
-[sub_resource type="CurveTexture" id=5]
-curve = SubResource( 4 )
-
-[sub_resource type="ParticlesMaterial" id=6]
-emission_shape = 1
-emission_sphere_radius = 0.5
-direction = Vector3( 0, 1, 0 )
-spread = 10.0
-gravity = Vector3( 0, 2, 0 )
-initial_velocity = 2.0
-angular_velocity = 40.0
-angular_velocity_random = 1.0
-anim_speed = 1.0
-scale_curve = SubResource( 5 )
-color_ramp = SubResource( 3 )
-
-[sub_resource type="SpatialMaterial" id=7]
-flags_unshaded = true
-vertex_color_use_as_albedo = true
-params_blend_mode = 1
-params_billboard_mode = 3
-particles_anim_h_frames = 8
-particles_anim_v_frames = 8
-particles_anim_loop = false
-albedo_texture = ExtResource( 2 )
-
-[sub_resource type="PointMesh" id=8]
-material = SubResource( 7 )
-
 [node name="FireEmitter" type="Area"]
 script = ExtResource( 1 )
+emission_radius = 0.35
+particles_per_second = 40
+emission_height = 1.5
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 shape = SubResource( 1 )
 
-[node name="Particles" type="Particles" parent="."]
-amount = 50
-lifetime = 1.5
-process_material = SubResource( 6 )
-draw_pass_1 = SubResource( 8 )
+[node name="GasParticleManager" type="Spatial" parent="."]
+script = ExtResource( 2 )
+pool_size = 96
+default_max_lifetime = 1.1
+default_base_scale = 0.9
+viscosity = 0.6
+buoyancy = 0.3
+decay_rate = 1.0
+default_color = Color( 1, 0.501961, 0.117647, 0.85 )
+ignition_color = Color( 1, 0.85, 0.4, 0.9 )
+collide_with_world = false
+default_atlas_path = "res://assets/flipbook_particles/assets/fireballs/fireball_01/textures/fireball_01.png"
+use_dither = true
+
+[node name="FireSound" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource( 3 )
+unit_db = 10.0
+unit_size = 3.0
+max_distance = 40.0
+autoplay = true

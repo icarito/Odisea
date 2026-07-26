@@ -10,6 +10,7 @@ uniform float emission_strength = 0.12;
 uniform float fire_emission_strength = 1.35;
 uniform vec2 atlas_size = vec2(1024.0, 1024.0);
 uniform float frame_padding_px = 1.5;
+uniform bool use_dither = true;
 
 varying vec4 instance_color;
 varying float particle_age;
@@ -86,9 +87,15 @@ void fragment() {
 	EMISSION = modulated.rgb * mix(emission_strength, fire_emission_strength, particle_fire_mix);
 	
 	// Ordered dither avoids Android/GLES2 precision artifacts from dot/fract noise.
-	vec2 pos = FRAGCOORD.xy + floor(mod(TIME * 12.0, 4.0));
-	float limit = bayer4(pos);
-	if (alpha < limit) {
-		discard;
+	if (use_dither) {
+		vec2 pos = FRAGCOORD.xy + floor(mod(TIME * 12.0, 4.0));
+		float limit = bayer4(pos);
+		if (alpha < limit) {
+			discard;
+		}
+	} else {
+		if (alpha < 0.5) {
+			discard;
+		}
 	}
 }

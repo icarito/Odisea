@@ -63,5 +63,12 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.66815, 3.1, 28.8914 )
 
 [node name="FireEmitter" parent="." instance=ExtResource( 10 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -33.7121, 4.1, 47.9215 )
+particles_per_second = 60.0
+
+[node name="GasParticleManager" parent="FireEmitter" index="1"]
+buoyancy = 2.5
+collide_with_world = true
+world_collision_mask = 255
 
 [editable path="ZeroGravityZone"]
+[editable path="FireEmitter"]
