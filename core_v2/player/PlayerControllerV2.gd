@@ -233,6 +233,15 @@ const DEFAULT_ACTION_HINTS := {
 # Input
 var input_provider
 var camera_input_locked := false
+var input_locked := false setget set_input_locked
+
+func set_input_locked(v: bool) -> void:
+	input_locked = v
+	if input_locked:
+		velocity = Vector3.ZERO
+		if is_instance_valid(movement_logic):
+			movement_logic.horizontal_velocity = Vector3.ZERO
+			movement_logic.wish_direction = Vector3.ZERO
 
 func set_camera_input_locked(locked: bool):
 	camera_input_locked = locked
@@ -2085,6 +2094,12 @@ func _apply_push_constraint(dt: float) -> void:
 			movement_logic.horizontal_velocity = h_vel
 
 func step(dt: float, input: InputDataV2) -> void:
+	if input_locked:
+		input = InputDataV2.new()
+		velocity = Vector3.ZERO
+		if is_instance_valid(movement_logic):
+			movement_logic.horizontal_velocity = Vector3.ZERO
+			movement_logic.wish_direction = Vector3.ZERO
 	last_input = input
 	var cm = get_node_or_null("ControllerManager")
 	if cm and cm.current_mode == cm.Mode.ZERO_GRAVITY:

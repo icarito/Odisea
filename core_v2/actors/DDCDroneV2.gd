@@ -26,10 +26,14 @@ var _player_ref: Node = null
 var _pulse_time := 0.0
 var _cone_fade := 0.0
 
+var _initial_transform: Transform
+var is_neutralized := false
+
 func _init():
 	add_to_group("ddc_drone")
 
 func _ready():
+	_initial_transform = global_transform
 	_player_ref = get_tree().get_nodes_in_group("player")[0] if get_tree().get_nodes_in_group("player").size() > 0 else null
 	_discover_patrol_points()
 	_setup_materials()
@@ -164,9 +168,35 @@ func step(dt: float) -> void:
 
 	.step(dt)
 
+func reset_to_spawn() -> void:
+	global_transform = _initial_transform
+	velocity = Vector3.ZERO
+	is_neutralized = false
+	_stun_timer = 0.0
+	_pause_timer = 0.0
+	_search_timer = 0.0
+	_current_waypoint_idx = 0
+	self.current_state = State.PATROL
+	if _patrol_points.size() > 0:
+		move_to(_patrol_points[0])
+	else:
+		self.current_state = State.IDLE
+	_update_visuals()
+
 func _check_detection(_dt: float):
-	if current_state == State.STUNNED:
+	if current_state == State.STUNNED or is_neutralized:
 		return
+
+	if not _player_ref or not is_instance_valid(_player_ref):
+		return
+
+	if current_state == State.ALERT:
+		var raw_dist = global_transform.origin.distance_to(_player_ref.global_transform.origin)
+		if raw_dist < 1.5:
+			var cs = get_node_or_null("/root/CaptureSystem")
+			if cs and cs.has_method("trigger_capture"):
+				cs.trigger_capture(self)
+				return
 
 	# Check for active Cargol Lure first
 	var active_lure = null

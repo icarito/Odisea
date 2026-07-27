@@ -2339,6 +2339,8 @@ HotzoneRecorder="*res://core_v2/telemetry/HotzoneRecorder.gd"
 VersionNotification="*res://core_v2/ui/VersionNotification.tscn"
 SettingsManager="*res://core_v2/autoloads/SettingsManager.gd"
 PauseManager="*res://core_v2/autoloads/PauseManager.gd"
+CaptureSystem="*res://core_v2/systems/CaptureSystem.gd"
+CheckpointManager="*res://core_v2/systems/CheckpointManager.gd"
 
 [debug]
 
