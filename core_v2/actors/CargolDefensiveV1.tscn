@@ -1,0 +1,63 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://core_v2/actors/CargolDefensiveV1.gd" type="Script" id=1]
+
+[sub_resource type="SphereShape" id=1]
+radius = 0.4
+
+[sub_resource type="SphereMesh" id=2]
+radius = 0.35
+height = 0.7
+
+[sub_resource type="CubeMesh" id=3]
+size = Vector3( 0.5, 1.5, 0.5 )
+
+[node name="CargolDefensiveV1" type="KinematicBody"]
+collision_layer = 4
+collision_mask = 65
+script = ExtResource( 1 )
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+shape = SubResource( 1 )
+
+[node name="MeshInstance" type="MeshInstance" parent="."]
+mesh = SubResource( 2 )
+material/0 = null
+
+[node name="StatusLight" type="OmniLight" parent="."]
+light_color = Color( 0.2, 0.4, 1, 1 )
+omni_range = 10.0
+
+[node name="HumPlayer" type="AudioStreamPlayer3D" parent="."]
+unit_db = 1.0
+max_db = 3.0
+autoplay = true
+
+[node name="EMPPlayer" type="AudioStreamPlayer3D" parent="."]
+unit_db = 3.0
+max_db = 6.0
+
+[node name="LurePlayer" type="AudioStreamPlayer3D" parent="."]
+unit_db = 2.0
+max_db = 5.0
+
+[node name="ShockwaveParticles" type="CPUParticles" parent="."]
+emitting = false
+amount = 16
+lifetime = 0.4
+one_shot = true
+explosiveness = 0.95
+mesh = null
+direction = Vector3( 0, 0, 0 )
+spread = 180.0
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 8.0
+scale_amount = 0.5
+
+[node name="Hologram" type="Spatial" parent="."]
+visible = false
+
+[node name="HoloMesh" type="MeshInstance" parent="Hologram"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.75, 0 )
+mesh = SubResource( 3 )
+material/0 = null

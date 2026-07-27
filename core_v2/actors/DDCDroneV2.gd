@@ -15,6 +15,8 @@ export(float) var alert_speed_multiplier := 1.5
 signal player_detected
 
 # --- STATE VARIABLES ---
+var _stun_timer := 0.0
+var _stun_duration_total := 0.0
 var _patrol_points := []
 var _current_waypoint_idx := 0
 var _search_timer := 0.0
@@ -54,6 +56,11 @@ func _discover_patrol_points():
 	if _patrol_points.size() > 0:
 		move_to(_patrol_points[0])
 
+func stun(duration: float) -> void:
+	_stun_timer = duration
+	_stun_duration_total = duration
+	self.current_state = State.STUNNED
+
 func _on_state_changed(new_state):
 	match new_state:
 		State.PATROL, State.IDLE:
@@ -73,6 +80,10 @@ func _on_state_changed(new_state):
 			max_speed = 5.0
 			_set_hum_pitch(1.0)
 			_set_alarm_light_visible(false)
+		State.STUNNED:
+			_set_alarm_light_visible(false)
+			_update_led(Color.black)
+			_set_hum_pitch(0.2)
 
 func _set_alarm_light_visible(v: bool):
 	var rig = get_node_or_null("AlarmLightRig")
@@ -83,6 +94,24 @@ func step(dt: float) -> void:
 	_check_detection(dt)
 	
 	_pulse_time += dt
+
+	if current_state == State.STUNNED:
+		_stun_timer -= dt
+		if _stun_timer <= 0.0:
+			self.current_state = State.SEARCH
+		else:
+			if _stun_timer > _stun_duration_total - 0.33:
+				velocity = Vector3.DOWN * 1.5
+			else:
+				velocity = Vector3.ZERO
+				
+			_update_led(Color.black)
+			_set_hum_pitch(0.2)
+			var light = get_node_or_null("StatusLight")
+			if light and light is Light:
+				light.light_energy = 0.0
+			_apply_movement_and_rotation(dt)
+			return
 
 	# Visual effects based on state
 	match current_state:
@@ -136,6 +165,25 @@ func step(dt: float) -> void:
 	.step(dt)
 
 func _check_detection(_dt: float):
+	if current_state == State.STUNNED:
+		return
+
+	# Check for active Cargol Lure first
+	var active_lure = null
+	var cargols = get_tree().get_nodes_in_group("cargol_defensive")
+	for cargol in cargols:
+		if cargol.state == cargol.State.LURE_DEPLOYED:
+			var dist = global_transform.origin.distance_to(cargol.global_transform.origin)
+			if dist <= cargol.lure_range:
+				active_lure = cargol
+				break
+				
+	if active_lure:
+		_last_seen_player_pos = active_lure.global_transform.origin
+		if current_state != State.ALERT:
+			self.current_state = State.ALERT
+		return
+
 	if not _player_ref or not is_instance_valid(_player_ref):
 		return
 		
@@ -191,3 +239,12 @@ func restore_snapshot(data: Dictionary) -> void:
 	_search_timer = data.get("search_timer", 0.0)
 	_pause_timer = data.get("pause_timer", 0.0)
 	_current_waypoint_idx = data.get("waypoint_idx", 0)
+
+func _calculate_wish_velocity(dt: float) -> Vector3:
+	if current_state == State.ALERT:
+		var target_pos = _last_seen_player_pos
+		var to_target = target_pos - global_transform.origin
+		var dist = to_target.length()
+		if dist > 0.5:
+			return to_target.normalized() * (max_speed * alert_speed_multiplier)
+	return ._calculate_wish_velocity(dt)

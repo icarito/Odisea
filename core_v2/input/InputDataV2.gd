@@ -17,6 +17,7 @@ var tool_fire_primary := false
 var tool_fire_secondary := false
 var tool_next_mode := false
 var tool_prev_mode := false
+var cargol_ability := false
 var mouse_delta := Vector2()
 var zoom_delta := 0.0
 var fov_override := -1.0 # -1 means no override
@@ -46,6 +47,7 @@ func to_dict() -> Dictionary:
 		"tool_fire_secondary": tool_fire_secondary,
 		"tool_next_mode": tool_next_mode,
 		"tool_prev_mode": tool_prev_mode,
+		"cargol_ability": cargol_ability,
 		"hardware_mouse_active": hardware_mouse_active
 	}
 
@@ -85,5 +87,7 @@ func from_dict(d: Dictionary) -> void:
 		tool_next_mode = d["tool_next_mode"]
 	if d.has("tool_prev_mode"):
 		tool_prev_mode = d["tool_prev_mode"]
+	if d.has("cargol_ability"):
+		cargol_ability = d["cargol_ability"]
 	if d.has("hardware_mouse_active"):
 		hardware_mouse_active = d["hardware_mouse_active"]

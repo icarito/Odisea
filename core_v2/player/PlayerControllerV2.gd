@@ -128,6 +128,7 @@ var _ots_camera_follow_weight := 0.0
 var velocity := Vector3()
 var is_pushing: bool = false
 var is_crouching: bool = false
+var last_input: InputDataV2 = null
 var _was_pushing: bool = false
 var push_normal: Vector3 = Vector3.BACK
 var yaw := 0.0
@@ -2084,6 +2085,7 @@ func _apply_push_constraint(dt: float) -> void:
 			movement_logic.horizontal_velocity = h_vel
 
 func step(dt: float, input: InputDataV2) -> void:
+	last_input = input
 	var cm = get_node_or_null("ControllerManager")
 	if cm and cm.current_mode == cm.Mode.ZERO_GRAVITY:
 		var zgc = cm.zero_gravity_controller
