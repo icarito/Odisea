@@ -18,62 +18,62 @@ anchor_bottom = 1.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
 margin_left = 250.0
-margin_top = 141.0
+margin_top = 147.0
 margin_right = 550.0
-margin_bottom = 459.0
+margin_bottom = 453.0
 rect_min_size = Vector2( 300, 0 )
 custom_constants/separation = 10
 
 [node name="Title" type="Label" parent="CenterContainer/VBoxContainer"]
 margin_right = 300.0
-margin_bottom = 22.0
+margin_bottom = 16.0
 text = "PAUSA"
 align = 1
 
 [node name="Resume" type="Button" parent="CenterContainer/VBoxContainer"]
-margin_top = 32.0
+margin_top = 26.0
 margin_right = 300.0
-margin_bottom = 72.0
+margin_bottom = 66.0
 rect_min_size = Vector2( 0, 40 )
 text = "REANUDAR"
 
 [node name="Restart" type="Button" parent="CenterContainer/VBoxContainer"]
-margin_top = 82.0
+margin_top = 76.0
 margin_right = 300.0
-margin_bottom = 122.0
+margin_bottom = 116.0
 rect_min_size = Vector2( 0, 40 )
 text = "REINICIAR NIVEL"
 
 [node name="Options" type="Button" parent="CenterContainer/VBoxContainer"]
-margin_top = 132.0
+margin_top = 126.0
 margin_right = 300.0
-margin_bottom = 172.0
+margin_bottom = 166.0
 rect_min_size = Vector2( 0, 40 )
 text = "OPCIONES"
 
 [node name="MainMenu" type="Button" parent="CenterContainer/VBoxContainer"]
-margin_top = 182.0
+margin_top = 176.0
 margin_right = 300.0
-margin_bottom = 222.0
+margin_bottom = 216.0
 rect_min_size = Vector2( 0, 40 )
 text = "MENÚ PRINCIPAL"
 
 [node name="Quit" type="Button" parent="CenterContainer/VBoxContainer"]
-margin_top = 232.0
+margin_top = 226.0
 margin_right = 300.0
-margin_bottom = 272.0
+margin_bottom = 266.0
 rect_min_size = Vector2( 0, 40 )
 text = "SALIR"
 
 [node name="HSeparator" type="HSeparator" parent="CenterContainer/VBoxContainer"]
-margin_top = 282.0
+margin_top = 276.0
 margin_right = 300.0
-margin_bottom = 286.0
+margin_bottom = 280.0
 
 [node name="VersionLabel" type="Label" parent="CenterContainer/VBoxContainer"]
-margin_top = 296.0
+margin_top = 290.0
 margin_right = 300.0
-margin_bottom = 318.0
+margin_bottom = 306.0
 custom_colors/font_color = Color( 0.490196, 0.490196, 0.490196, 1 )
 text = "v0.0.0"
 align = 1

@@ -29,7 +29,6 @@ cast_to = Vector3( 0, 0, -50 )
 
 [node name="BeamMesh" type="MeshInstance" parent="."]
 mesh = SubResource( 1 )
-material/0 = null
 
 [node name="ImpactParticles" type="CPUParticles" parent="."]
 emitting = false
