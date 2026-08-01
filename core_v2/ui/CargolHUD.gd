@@ -1,36 +1,40 @@
 extends Control
 
-# CargolHUD.gd
-# Minimal HUD overlay showing Cargol Drone status and distance.
+# core_v2/ui/CargolHUD.gd
+# Circular progress bar and defensive status HUD for Cargol.
 
 var _drone: Node = null
-var _player: Node = null
+var _last_state := -1
+var _notification_text := ""
+var _notification_timer := 0.0
 
-onready var status_label = get_node_or_null("VBoxContainer/Status")
-onready var distance_label = get_node_or_null("VBoxContainer/Distance")
+onready var notification_label: Label = get_node_or_null("NotificationLabel")
 
-func _ready():
+func _ready() -> void:
 	add_to_group("hud")
-	# Initial search
-	_drone = _find_drone()
-	_player = _find_player()
+	set_process(true)
 	
-	if not status_label:
-		# Fallback if tscn wasn't used or nodes are missing
-		var vbox = VBoxContainer.new()
-		vbox.name = "VBoxContainer"
-		add_child(vbox)
-		status_label = Label.new()
-		status_label.name = "Status"
-		vbox.add_child(status_label)
-		distance_label = Label.new()
-		distance_label.name = "Distance"
-		vbox.add_child(distance_label)
+	# Fallback if tscn wasn't used or nodes are missing
+	if not notification_label:
+		notification_label = Label.new()
+		notification_label.name = "NotificationLabel"
+		add_child(notification_label)
+		notification_label.set_anchors_and_margins_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
+		notification_label.margin_bottom = -110
+		notification_label.margin_right = -20
+		notification_label.align = Label.ALIGN_RIGHT
 		
-		# Position top right
-		vbox.set_anchors_and_margins_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 20)
+	# Minimal size for drawing
+	rect_min_size = Vector2(120, 120)
+	set_anchors_and_margins_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 20)
 
-func _process(_delta):
+func _find_drone() -> Node:
+	var cargols = get_tree().get_nodes_in_group("cargol_defensive")
+	if not cargols.empty():
+		return cargols[0]
+	return null
+
+func _process(delta: float) -> void:
 	if not _drone or not is_instance_valid(_drone):
 		_drone = _find_drone()
 		if not _drone:
@@ -38,58 +42,95 @@ func _process(_delta):
 			return
 	
 	visible = true
-	if not _player or not is_instance_valid(_player):
-		_player = _find_player()
 	
-	_update_ui()
+	# State change notifications
+	var current_state = _drone.state if "state" in _drone else 0
+	if current_state != _last_state:
+		_on_state_changed(_last_state, current_state)
+		_last_state = current_state
+		
+	# Update notification fade
+	if _notification_timer > 0.0:
+		_notification_timer -= delta
+		if _notification_timer <= 0.0:
+			notification_label.text = ""
+		else:
+			# Gentle fade
+			var alpha = clamp(_notification_timer / 1.0, 0.0, 1.0)
+			notification_label.modulate.a = alpha
+			
+	update() # Redraw circular progress
 
-func _update_ui():
-	var state_text = "IDLE"
-	var state_color = Color.white
+func _on_state_changed(old_state: int, new_state: int) -> void:
+	# Notification texts: "EMP LISTO", "SEÑUELO ACTIVO", "CARGOL CAÍDO"
+	# States: IDLE=0, EMP_CHARGING=1, EMP_FIRING=2, EMP_COOLDOWN=3, LURE_DEPLOYED=4, STUNNED=5, RETURNING=6
+	var text = ""
+	if new_state == 5: # STUNNED
+		text = "CARGOL CAÍDO"
+	elif new_state == 4: # LURE_DEPLOYED
+		text = "SEÑUELO ACTIVO"
+	elif new_state == 0 and old_state != 0: # Returned to IDLE (or EMP list)
+		text = "EMP LISTO"
+	elif new_state == 3: # COOLDOWN
+		text = "EMP ACTIVADO"
+	elif new_state == 6: # RETURNING
+		text = "RETORNANDO"
+		
+	if text != "":
+		notification_label.text = text
+		notification_label.modulate.a = 1.0
+		_notification_timer = 3.0 # Show for 3 seconds
+
+func _draw() -> void:
+	if not _drone or not is_instance_valid(_drone):
+		return
+		
+	var center = rect_size / 2.0
+	var radius = 40.0
 	
-	# Map states to text/color
-	if "current_state" in _drone:
-		var state = _drone.current_state
-		match state:
-			0: # IDLE
-				state_text = "IDLE"
-				state_color = Color(0.5, 0.7, 1.0)
-			1: # FOLLOW_PATH
-				state_text = "FOLLOWING PATH"
-				state_color = Color(0.5, 1.0, 0.7)
-			2: # FOLLOW_TARGET
-				state_text = "FOLLOWING PLAYER"
-				state_color = Color(0.5, 0.7, 1.0)
-			3: # RETURN_HOME
-				state_text = "RETURNING HOME"
-				state_color = Color(0.5, 1.0, 0.7)
-			4: # ALERT
-				state_text = "ALERT"
-				state_color = Color(1.0, 0.5, 0.5)
-			5: # SEARCH
-				state_text = "SEARCHING"
-				state_color = Color(1.0, 0.8, 0.5)
-			6: # MOVE_TO
-				state_text = "MOVING TO"
-				state_color = Color(0.5, 0.7, 1.0)
+	# Draw background circle
+	draw_circle(center, radius, Color(0.1, 0.1, 0.15, 0.6))
 	
-	status_label.text = "CARGOL: " + state_text
-	status_label.add_color_override("font_color", state_color)
+	# Cooldown calculation
+	var remaining_cooldown = _drone.cooldown_timer if "cooldown_timer" in _drone else 0.0
+	var current_state = _drone.state if "state" in _drone else 0
 	
-	if _player and is_instance_valid(_player):
-		var dist = _drone.global_transform.origin.distance_to(_player.global_transform.origin)
-		distance_label.text = "DIST: %.1fm" % dist
+	var max_cooldown = 1.0
+	if current_state == 4 or current_state == 5: # Lure or Stunned
+		max_cooldown = _drone.lure_cooldown
 	else:
-		distance_label.text = ""
-
-func _find_drone() -> Node:
-	var drones = get_tree().get_nodes_in_group("cargol_drone")
-	if not drones.empty():
-		return drones[0]
-	return null
-
-func _find_player() -> Node:
-	var players = get_tree().get_nodes_in_group("player")
-	if not players.empty():
-		return players[0]
-	return null
+		max_cooldown = _drone.emp_cooldown
+		
+	if remaining_cooldown > 0.0:
+		var pct = remaining_cooldown / max_cooldown
+		var start_angle = -PI / 2.0
+		var end_angle = start_angle + pct * TAU
+		# Draw orange circular arc representing remaining cooldown
+		draw_arc(center, radius, start_angle, end_angle, 64, Color(1.0, 0.5, 0.0, 0.9), 4.0, true)
+	else:
+		# Draw solid blue outline when ready
+		draw_arc(center, radius, 0.0, TAU, 64, Color(0.2, 0.6, 1.0, 0.5), 2.0, true)
+		
+	# Draw Cargol State-colored Drone Icon
+	var state_color = Color(0.2, 0.4, 1.0) # IDLE (Blue)
+	match current_state:
+		1: # EMP_CHARGING
+			state_color = Color(1.0, 0.6, 0.0) # Pulse/Pulse
+		2: # EMP_FIRING
+			state_color = Color(1.0, 1.0, 1.0) # White
+		3: # EMP_COOLDOWN
+			state_color = Color(0.8, 0.4, 0.0) # Amber
+		4: # LURE_DEPLOYED
+			state_color = Color(0.2, 1.0, 0.2) # Green
+		5: # STUNNED
+			state_color = Color(1.0, 0.1, 0.1) # Red
+		6: # RETURNING
+			state_color = Color(0.2, 1.0, 1.0) # Cian
+			
+	# Center dot
+	draw_circle(center, 8.0, state_color)
+	# Wings
+	draw_line(center + Vector2(-16, 0), center + Vector2(16, 0), state_color, 3.0, true)
+	# Side thrusters dots
+	draw_circle(center + Vector2(-16, 0), 3.0, state_color)
+	draw_circle(center + Vector2(16, 0), 3.0, state_color)

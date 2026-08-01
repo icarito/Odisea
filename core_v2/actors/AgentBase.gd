@@ -13,7 +13,8 @@ enum State {
 	ALERT,
 	SEARCH,
 	MOVE_TO,
-	PATROL # Added PATROL to AgentBase for FD-242
+	PATROL, # Added PATROL to AgentBase for FD-242
+	STUNNED
 }
 
 # --- EXPORTED CONFIGURATION ---
