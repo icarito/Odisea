@@ -43,12 +43,24 @@ var _start_rotations: Array = []
 var _initialized := false
 var _door_blocker: CollisionShape = null
 
+# --- Merge de aspas en reposo (optimización de draw calls) ---
+# Cada puerta tiene 8 BladeGeo idénticos: 64 MeshInstances por airlock de 4 puertas,
+# ~48% de los meshes de un domo o de una fachada. En reposo (cerrada del todo) las
+# aspas nunca se mueven, así que se hornean en un único MeshInstance y se ocultan las
+# individuales. Al animar se vuelve a los nodos reales, que siguen siendo la fuente
+# de verdad: la matemática de _setup_mathematical_positions no cambia.
+var _merged_blades: MeshInstance = null
+var _blades_merged := false
+
 func _ready():
 	_initialize()
 	_door_blocker = get_node_or_null("DoorBlocker/CollisionShape") as CollisionShape
 	if rebuild_at_runtime or Engine.editor_hint:
 		_setup_mathematical_positions()
 	._ready()
+	# En el editor conviene ver las aspas reales para poder editarlas.
+	if not Engine.editor_hint:
+		call_deferred("_merge_blades_if_idle")
 
 func _initialize():
 	_blades.clear()
@@ -106,6 +118,14 @@ func _update_visuals() -> void:
 		_initialize()
 		if Engine.editor_hint: _setup_mathematical_positions()
 
+	# Mientras la puerta se mueve hacen falta las aspas individuales; en reposo
+	# vuelve el mesh horneado.
+	if not Engine.editor_hint:
+		if anim_progress > 0.001:
+			_unmerge_blades()
+		elif not _blades_merged:
+			call_deferred("_merge_blades_if_idle")
+
 	var eased = _apply_easing(anim_progress)
 	# State Base (0.0): Offset 0
 	# State Open (1.0): Offset +90 degrees (Tangential Outward)
@@ -127,6 +147,97 @@ func _update_visuals() -> void:
 
 	if is_instance_valid(_door_blocker):
 		_door_blocker.disabled = anim_progress > 0.15
+
+# Hornea las 8 aspas en un solo MeshInstance si la puerta está completamente cerrada.
+# Idempotente: si ya está horneada o la puerta no está en reposo, no hace nada.
+func _merge_blades_if_idle() -> void:
+	if _blades_merged or Engine.editor_hint:
+		return
+	if anim_progress > 0.001:
+		return
+	if not _initialized:
+		_initialize()
+	if _blades.size() < 2:
+		return
+
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var material: Material = null
+	var merged_any := false
+
+	for blade in _blades:
+		if not is_instance_valid(blade):
+			continue
+		var geo := blade.get_node_or_null("BladeGeo") as MeshInstance
+		if geo == null or geo.mesh == null:
+			continue
+		if material == null:
+			# El material puede venir del override del nodo o del propio mesh.
+			material = geo.get_surface_material(0)
+			if material == null:
+				material = geo.mesh.surface_get_material(0)
+		# Transform de la geometría relativa al mecanismo (padre común).
+		var local: Transform = blade.transform * geo.transform
+		_append_mesh(st, geo.mesh, local)
+		merged_any = true
+
+	if not merged_any:
+		return
+
+	st.generate_normals()
+	var merged_mesh: ArrayMesh = st.commit()
+	if merged_mesh == null or merged_mesh.get_surface_count() == 0:
+		return
+	if material != null:
+		merged_mesh.surface_set_material(0, material)
+
+	_merged_blades = MeshInstance.new()
+	_merged_blades.name = "BladesMerged"
+	_merged_blades.mesh = merged_mesh
+	add_child(_merged_blades)
+
+	_set_blade_geo_visible(false)
+	_blades_merged = true
+
+# Vuelve a las aspas individuales para poder animarlas.
+func _unmerge_blades() -> void:
+	if not _blades_merged:
+		return
+	_set_blade_geo_visible(true)
+	if is_instance_valid(_merged_blades):
+		_merged_blades.queue_free()
+	_merged_blades = null
+	_blades_merged = false
+
+func _set_blade_geo_visible(v: bool) -> void:
+	for blade in _blades:
+		if not is_instance_valid(blade):
+			continue
+		var geo := blade.get_node_or_null("BladeGeo") as MeshInstance
+		if is_instance_valid(geo):
+			geo.visible = v
+
+func _append_mesh(st: SurfaceTool, mesh: Mesh, xform: Transform) -> void:
+	for s in range(mesh.get_surface_count()):
+		var arrays: Array = mesh.surface_get_arrays(s)
+		var verts: PoolVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals = arrays[Mesh.ARRAY_NORMAL]
+		var uvs = arrays[Mesh.ARRAY_TEX_UV]
+		var idx = arrays[Mesh.ARRAY_INDEX]
+		# CubeMesh viene indexado; si no lo estuviera, se recorre en orden.
+		var order := []
+		if idx != null and idx.size() > 0:
+			for i in idx:
+				order.append(i)
+		else:
+			for i in range(verts.size()):
+				order.append(i)
+		for i in order:
+			if normals != null and normals.size() > i:
+				st.add_normal(xform.basis.xform(normals[i]).normalized())
+			if uvs != null and uvs.size() > i:
+				st.add_uv(uvs[i])
+			st.add_vertex(xform.xform(verts[i]))
 
 func _apply_easing(t: float) -> float:
 	match easing_type:

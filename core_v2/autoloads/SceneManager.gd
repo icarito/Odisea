@@ -68,6 +68,9 @@ func _ready() -> void:
 		_loader_thread_running = true
 		_loader_thread.start(self, "_loader_thread_main")
 	call_deferred("_run_boot_fade_in")
+	# Escenas abiertas directamente (F6) no pasan por change_scene, así que nadie
+	# aplica el spawn. Sin esto, un interior sin Pilot incrustado queda injugable.
+	call_deferred("_ensure_player_in_current_scene")
 
 # Actually try to run a thread and confirm its body executed. OS.can_use_threads()
 # is NOT trustworthy here (see the note on _use_loader_thread). Returns true only if
@@ -542,6 +545,9 @@ func _apply_spawn_and_state(scene_root: Node):
 
 	var spawn_node = _find_spawn_point(scene_root, target_spawn_id)
 	var player = _find_player_in_scene(scene_root)
+	if not is_instance_valid(player):
+		# Interior sin Pilot incrustado: crearlo antes de aplicar spawn/estado.
+		player = _ensure_player_in_current_scene(scene_root)
 	if is_instance_valid(player) and state_data.has("player_snapshot") and typeof(state_data["player_snapshot"]) == TYPE_DICTIONARY and player.has_method("restore_snapshot"):
 		player.restore_snapshot(state_data["player_snapshot"])
 	elif is_instance_valid(player) and state_data.has("controller_mode"):
@@ -668,6 +674,46 @@ func _find_player_in_scene(scene_root: Node) -> Node:
 	if is_instance_valid(pilot):
 		return pilot
 	return null
+
+# Instancia un Pilot en el SpawnPointV2 si la escena actual no trae ninguno.
+# Permite abrir un interior con F6 sin tener que incrustarle un Pilot_v2 al .tscn
+# (un Pilot incrustado se guarda en disco y los controllers pueden cachear la
+# instancia muerta al cambiar de escena).
+# Devuelve el player existente o el recién creado; null si no hay dónde ponerlo.
+func _ensure_player_in_current_scene(scene_root: Node = null) -> Node:
+	if not is_instance_valid(scene_root):
+		var tree := get_tree()
+		if tree == null:
+			return null
+		scene_root = tree.current_scene
+	if not is_instance_valid(scene_root):
+		return null
+
+	var existing = _find_player_in_scene(scene_root)
+	if is_instance_valid(existing):
+		return existing
+
+	# Sin SpawnPointV2 no hay una posición sensata: mejor no adivinar.
+	var spawn_node = _find_spawn_point(scene_root, "")
+	if not is_instance_valid(spawn_node):
+		return null
+
+	var pilot_scene = load("res://core_v2/actors/Pilot_v2.tscn")
+	if pilot_scene == null:
+		push_error("[SceneManager] No se pudo cargar Pilot_v2.tscn")
+		return null
+
+	var pilot = pilot_scene.instance()
+	scene_root.add_child(pilot)
+	# add_child primero para que _ready corra antes de fijar el transform absoluto.
+	_move_player_to_transform(pilot, spawn_node.global_transform)
+
+	var session = get_node_or_null("/root/SessionManager")
+	if session:
+		session.player = pilot
+
+	print("[SceneManager] Pilot instanciado en %s (spawn_id=%s)" % [scene_root.name, spawn_node.get("spawn_id")])
+	return pilot
 
 func _move_player_to_transform(player: Node, target_transform: Transform) -> void:
 	if not is_instance_valid(player):

@@ -17,6 +17,20 @@ const DEFAULT_FACADE_LOD_SCALE := Vector3(1.0, 1.0, 1.0)
 # - facade_lod_spawn_offset: ajuste posicional adicional para el LOD.
 # - facade_lod_scale: escala adicional para el LOD extraido.
 var _registry := {
+	"dome_intro": {
+		"interior_scene": "res://core_v2/levels/interiors/Dome_Intro.tscn",
+		"facade_scene": "res://core_v2/levels/facades/DomeFacade_01.tscn",
+		"facade_lod_scene": "res://models/lod/DomeFacade_01_LOD.glb",
+		"facade_lod_mesh_node": "DomeLOD",
+		"facade_lod_scale": DEFAULT_FACADE_LOD_SCALE,
+		"facade_lod_spawn_offset": Vector3(0, 0.3, 0),
+		"facade_spawn_offset": Vector3(0, 0.3, 0),
+		"spiral_index": 0,
+		"plate_index": 8,
+		"display_name": "Domo de Entrada",
+		"spawn_id_from_exterior": "from_dome_intro",
+		"spawn_id_from_interior": "from_exterior_dome_intro"
+	},
 	"dome_01": {
 		"interior_scene": "res://core_v2/levels/interiors/Dome_Crio.tscn",
 		"facade_scene": "res://core_v2/levels/facades/DomeFacade_01.tscn",
