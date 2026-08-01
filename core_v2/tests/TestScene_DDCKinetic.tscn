@@ -1,0 +1,95 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://core_v2/tests/TestScene_DDCKinetic.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/systems/DDCSpawner.tscn" type="PackedScene" id=3]
+[ext_resource path="res://core_v2/actors/CargolDefensiveV1.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/props/CheckpointConsole.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/ui/CargolHUD.tscn" type="PackedScene" id=6]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=7]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=8]
+
+[sub_resource type="SpatialMaterial" id=1]
+albedo_color = Color( 0.15, 0.16, 0.2, 1 )
+roughness = 0.85
+
+[node name="TestScene_DDCKinetic" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 8 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
+transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0.96225, -0.0225575, -0.965926, 0.257834, 0, 12, 6 )
+light_energy = 0.9
+shadow_enabled = true
+
+[node name="Arena" type="Spatial" parent="."]
+
+[node name="Floor" type="CSGBox" parent="Arena"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )
+use_collision = true
+width = 40.0
+height = 1.0
+depth = 40.0
+material = ExtResource( 7 )
+
+[node name="WallNorth" type="CSGBox" parent="Arena"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -20 )
+use_collision = true
+width = 40.0
+height = 5.0
+depth = 1.0
+material = SubResource( 1 )
+
+[node name="WallSouth" type="CSGBox" parent="Arena"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 20 )
+use_collision = true
+width = 40.0
+height = 5.0
+depth = 1.0
+material = SubResource( 1 )
+
+[node name="WallEast" type="CSGBox" parent="Arena"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 2.5, 0 )
+use_collision = true
+width = 1.0
+height = 5.0
+depth = 40.0
+material = SubResource( 1 )
+
+[node name="WallWest" type="CSGBox" parent="Arena"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 2.5, 0 )
+use_collision = true
+width = 1.0
+height = 5.0
+depth = 40.0
+material = SubResource( 1 )
+
+[node name="Pilot" parent="." instance=ExtResource( 2 )]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
+
+[node name="DDCSpawner" parent="." instance=ExtResource( 3 )]
+spawn_interval = 8.0
+max_simultaneous_ddc = 3
+
+[node name="Gate1" type="Spatial" parent="DDCSpawner"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0, 15 )
+
+[node name="Gate2" type="Spatial" parent="DDCSpawner"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 0, -15 )
+
+[node name="Gate3" type="Spatial" parent="DDCSpawner"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 0, 15 )
+
+[node name="CargolDefensiveV1" parent="." instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 0 )
+
+[node name="CheckpointConsole_Start" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 2 )
+
+[node name="CheckpointConsole_Far" parent="." instance=ExtResource( 5 )]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, -16 )
+spawn_yaw = 3.14159
+
+[node name="CargolHUD" parent="." instance=ExtResource( 6 )]

@@ -40,6 +40,9 @@ func _init() -> void:
 	add_to_group("replay_sync")
 	add_to_group("cargol_defensive")
 
+func is_luring() -> bool:
+	return state == State.LURE_DEPLOYED
+
 func _ready() -> void:
 	_find_player()
 	_update_visuals()
@@ -236,22 +239,22 @@ func _process_inputs(dt: float) -> void:
 			_play_audio_tone(1.0 + charge_progress * 1.5)
 			
 		if hold_timer > 0.8:
-			# Complete Lure charge! Get camera forward raycast point
+			# Complete Lure charge! Throw towards where the PLAYER'S BODY faces
+			# (not the free-orbiting camera) — aiming with the camera while also
+			# steering with WASD/mouse during the hold made the throw direction
+			# unpredictable, since it depended on wherever the camera happened
+			# to be pointed at the exact instant the hold completed.
 			var target_pos = global_transform.origin + Vector3.FORWARD * 10.0
-			var camera = get_viewport().get_camera() if get_viewport() else null
-			if camera:
-				var from = camera.global_transform.origin
-				var to = from - camera.global_transform.basis.z * 100.0
+			if player_node and is_instance_valid(player_node):
+				var from = player_node.global_transform.origin + Vector3.UP * 1.0
+				var to = from - player_node.global_transform.basis.z * 15.0
 				var space_state = get_world().direct_space_state
-				var exclude = [self]
-				if player_node:
-					exclude.append(player_node)
-				var result = space_state.intersect_ray(from, to, exclude, 1)
+				var result = space_state.intersect_ray(from, to, [self, player_node], 1)
 				if not result.empty():
 					target_pos = result.position
 				else:
-					target_pos = from - camera.global_transform.basis.z * 15.0
-			
+					target_pos = to
+
 			deploy_lure(target_pos)
 			hold_timer = 0.0
 	else:

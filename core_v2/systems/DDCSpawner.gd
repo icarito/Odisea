@@ -80,11 +80,19 @@ func spawn_ddc() -> Node:
 	ddc.global_transform = gate.global_transform
 	
 	_active_ddcs.append(ddc)
-	
+
 	# Play activation scale animation
 	if ddc.has_method("play_spawn_animation"):
 		ddc.play_spawn_animation()
-		
+
+	# Wire up capture: DDCContainmentV1 emits player_contained when it catches
+	# the player, but nothing listens to it by default (CaptureSystem.trigger_capture
+	# is otherwise only called by the older DDCDroneV2).
+	if ddc.has_signal("player_contained"):
+		var capture_system = get_node_or_null("/root/CaptureSystem")
+		if capture_system and capture_system.has_method("trigger_capture"):
+			ddc.connect("player_contained", capture_system, "trigger_capture", [ddc])
+
 	return ddc
 
 func get_active_ddcs() -> Array:

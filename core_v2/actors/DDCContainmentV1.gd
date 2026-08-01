@@ -20,6 +20,7 @@ export(float) var containing_duration := 0.5
 export(float) var turn_rate := 3.5 # rad/s, limits turn speed
 export(float) var charging_speed := 6.3 # 70% of 9.0
 export(float) var intercept_speed := 8.55 # 95% of 9.0
+export(float) var lure_detection_range := 20.0
 
 # --- STATE VARIABLES ---
 var state: int = ContainmentState.CHARGING setget set_containment_state
@@ -33,6 +34,9 @@ var _spawn_anim_timer := 0.0
 func _init() -> void:
 	# Add to any relevant groups
 	add_to_group("ddc_containment")
+	# Also join "ddc_drone": CargolDefensiveV1's EMP/lure logic queries this
+	# group name (shared with the older DDCDroneV2) to find nearby drones to stun.
+	add_to_group("ddc_drone")
 
 func _ready() -> void:
 	if target_node_path:
@@ -44,6 +48,21 @@ func _ready() -> void:
 			
 	_setup_materials()
 	_update_visuals()
+
+# Returns the Cargol companion to chase instead of the player, if one is
+# nearby and currently deploying its lure hologram (Cargol tap/hold ability).
+func _get_lure_distraction() -> Node:
+	for cargol in get_tree().get_nodes_in_group("cargol_defensive"):
+		if is_instance_valid(cargol) and cargol.has_method("is_luring") and cargol.is_luring():
+			if global_transform.origin.distance_to(cargol.global_transform.origin) <= lure_detection_range:
+				return cargol
+	return null
+
+func _get_pursuit_target() -> Node:
+	var lure = _get_lure_distraction()
+	if lure:
+		return lure
+	return _player_ref
 
 func _setup_materials() -> void:
 	var mesh = get_node_or_null("MeshInstance")
@@ -130,38 +149,55 @@ func step(dt: float) -> void:
 			set_containment_state(ContainmentState.CHARGING)
 
 	_update_visuals()
-	
-	.step(dt)
+
+	# NOTE: Intentionally does NOT call .step(dt) (AgentBase). AgentBase.step()
+	# auto-disables physics_process when its own current_state == IDLE, which
+	# DDCContainmentV1 never sets (it drives motion via ContainmentState instead),
+	# causing the drone to freeze permanently after the first frame.
+	if _perf_monitor and _perf_monitor.has_method("measure_start"):
+		_perf_monitor.measure_start(self, "step")
+
+	var wish_velocity := _calculate_wish_velocity(dt)
+	var lerp_weight = clamp(acceleration * dt * 0.1, 0.05, 1.0)
+	velocity = velocity.linear_interpolate(wish_velocity, lerp_weight)
+
+	if _perf_monitor and _perf_monitor.has_method("measure_end"):
+		_perf_monitor.measure_end(self, "step")
+
+	_canonical_velocity = velocity
+
+	_apply_movement_and_rotation(dt)
 
 # Override _calculate_wish_velocity to handle kinetics, prediction and turn limit
 func _calculate_wish_velocity(dt: float) -> Vector3:
 	if state == ContainmentState.STUNNED or state == ContainmentState.CONTAINING:
 		return Vector3.ZERO
-		
-	if not _player_ref or not is_instance_valid(_player_ref):
+
+	var pursuit_target = _get_pursuit_target()
+	if not pursuit_target or not is_instance_valid(pursuit_target):
 		return Vector3.ZERO
-		
-	var target_pos = _player_ref.global_transform.origin
-	
-	# Trayectoria de colisión calculada (INTERCEPT predice hacia dónde va el jugador)
+
+	var target_pos = pursuit_target.global_transform.origin
+
+	# Trayectoria de colisión calculada (INTERCEPT predice hacia dónde va el objetivo)
 	if state == ContainmentState.INTERCEPT:
-		var player_vel = Vector3.ZERO
-		if "velocity" in _player_ref:
-			player_vel = _player_ref.velocity
-		elif "linear_velocity" in _player_ref:
-			player_vel = _player_ref.linear_velocity
-			
+		var target_vel = Vector3.ZERO
+		if "velocity" in pursuit_target:
+			target_vel = pursuit_target.velocity
+		elif "linear_velocity" in pursuit_target:
+			target_vel = pursuit_target.linear_velocity
+
 		var dist = global_transform.origin.distance_to(target_pos)
 		var look_ahead = clamp(dist / max(intercept_speed, 1.0), 0.1, 1.5)
-		target_pos += player_vel * look_ahead
-		
-	# Flight height adjustment (~1.5m from ground underneath, or match player elevation)
+		target_pos += target_vel * look_ahead
+
+	# Flight height adjustment (~1.5m from ground underneath, or match target elevation)
 	var floor_y = global_transform.origin.y - flight_height
 	var space_state = get_world().direct_space_state
 	var result = space_state.intersect_ray(global_transform.origin + Vector3.UP * 0.5, global_transform.origin + Vector3.DOWN * 5.0, [self], 1)
 	if not result.empty():
 		floor_y = result.position.y
-	var target_y = clamp(floor_y + flight_height, _player_ref.global_transform.origin.y - 1.0, _player_ref.global_transform.origin.y + 2.0)
+	var target_y = clamp(floor_y + flight_height, pursuit_target.global_transform.origin.y - 1.0, pursuit_target.global_transform.origin.y + 2.0)
 	
 	var final_target = Vector3(target_pos.x, target_y, target_pos.z)
 	var target_dir = final_target - global_transform.origin
