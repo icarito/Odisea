@@ -12,6 +12,12 @@ class_name ScaffoldHubRing
 # spiral chords — so neighbouring segments meet without a seam.
 
 const SEGMENT_SCENE := preload("res://core_v2/props/scaffold/SteelGratePlatform.tscn")
+# Same grate material SteelGratePlatform uses, so hub floors don't read as blank
+# slabs next to the authored platforms.
+const GRATE_MATERIAL_PATH := "res://textures/trenchbroom/steel_grate_platform.tres"
+# Planar UV scale for the deck top. The .tres already applies uv1_scale = 3.5, so
+# this keeps one grate tile at roughly a meter instead of a 0.3 m moiré.
+const GRATE_UV_SCALE := 0.3
 
 export(int, 3, 32) var sides := 8 setget set_sides
 export(float, 0.5, 60.0, 0.1) var outer_radius := 7.0 setget set_outer_radius
@@ -149,6 +155,12 @@ func build() -> void:
 	_build_compact_ring()
 
 func _build_compact_ring() -> void:
+	# Deck top face gets its own surface: it's the only part that needs UVs, for
+	# the real steel-grate texture (alpha scissor punches the holes). The deck
+	# sides/underside and all frame/rail tubes stay flat-colored (no texture
+	# needed, never seen up close) in a second surface without UVs.
+	var deck_top_tool := SurfaceTool.new()
+	deck_top_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var deck_tool := SurfaceTool.new()
 	deck_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var frame_tool := SurfaceTool.new()
@@ -167,7 +179,8 @@ func _build_compact_ring() -> void:
 		var inner_b := Vector3(cos(a1) * inner_corner, deck_top, sin(a1) * inner_corner)
 		var outer_a := Vector3(cos(a0) * outer_corner, deck_top, sin(a0) * outer_corner)
 		var outer_b := Vector3(cos(a1) * outer_corner, deck_top, sin(a1) * outer_corner)
-		_add_prism(deck_tool, inner_a, inner_b, outer_b, outer_a, deck_top - deck_bottom)
+		_add_deck_top_quad(deck_top_tool, inner_a, inner_b, outer_b, outer_a)
+		_add_prism_sides(deck_tool, inner_a, inner_b, outer_b, outer_a, deck_top - deck_bottom)
 
 		var mid_angle: float = (a0 + a1) * 0.5
 		if rail_inner:
@@ -176,9 +189,12 @@ func _build_compact_ring() -> void:
 			_add_rail_edge(frame_tool, outer_a, outer_b, _sector_opening(mid_angle, sector, outer_openings_deg))
 		_add_beam(frame_tool, Vector3(outer_a.x, support_base_local_y, outer_a.z), outer_a, tube_radius * 2.0)
 
+	deck_top_tool.generate_normals()
 	deck_tool.generate_normals()
 	frame_tool.generate_normals()
 	var mesh := ArrayMesh.new()
+	deck_top_tool.set_material(_grate_deck_material())
+	deck_top_tool.commit(mesh)
 	deck_tool.set_material(_compact_material(grate_color, grate_brightness))
 	deck_tool.commit(mesh)
 	frame_tool.set_material(_compact_material(frame_color, 1.0))
@@ -204,9 +220,14 @@ func _build_compact_ring() -> void:
 		body.owner = scene_owner
 		collision.owner = scene_owner
 
-func _add_prism(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, thickness: float) -> void:
+# Deck top face only, with planar (XZ) UVs so the real steel-grate texture (alpha
+# scissor) reads as an actual grate pattern instead of a flat gray slab.
+func _add_deck_top_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	_add_quad_uv(surface_tool, a, d, c, b)
+
+# Deck sides + underside: never seen up close, stays flat-colored (no UVs needed).
+func _add_prism_sides(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, thickness: float) -> void:
 	var down := Vector3.DOWN * thickness
-	_add_quad(surface_tool, a, d, c, b)
 	_add_quad(surface_tool, a + down, b + down, c + down, d + down)
 	_add_quad(surface_tool, a, b, b + down, a + down)
 	_add_quad(surface_tool, b, c, c + down, b + down)
@@ -215,6 +236,14 @@ func _add_prism(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d
 
 func _add_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 	for point in [a, b, c, a, c, d]:
+		surface_tool.add_vertex(point)
+
+# Same triangulation as _add_quad but stamps a planar XZ UV per vertex (in meters,
+# matching SteelGratePlatform's grate texture tiling scale) so alpha-scissor holes
+# read as a real grate pattern.
+func _add_quad_uv(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	for point in [a, b, c, a, c, d]:
+		surface_tool.add_uv(Vector2(point.x, point.z) * GRATE_UV_SCALE)
 		surface_tool.add_vertex(point)
 
 func _add_rail_edge(surface_tool: SurfaceTool, start: Vector3, end: Vector3, opening: Vector2) -> void:
@@ -257,6 +286,30 @@ func _add_prism_between(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Ve
 	_add_quad(surface_tool, b, b + delta, c + delta, c)
 	_add_quad(surface_tool, c, c + delta, d + delta, d)
 	_add_quad(surface_tool, d, d + delta, a + delta, a)
+
+# Deck top: the authored steel-grate .tres with alpha scissor, tinted by this ring's
+# grate_color/brightness — same treatment SteelGratePlatform gives it, so a hub floor
+# and a standalone platform read as the same material.
+func _grate_deck_material() -> Material:
+	var material = load(GRATE_MATERIAL_PATH)
+	if material == null:
+		push_warning("ScaffoldHubRing: falta %s; el piso queda sin textura de rejilla." % GRATE_MATERIAL_PATH)
+		return _compact_material(grate_color, grate_brightness)
+	material = material.duplicate(true)
+	if material is SpatialMaterial:
+		var g := material as SpatialMaterial
+		g.flags_transparent = true
+		g.params_use_alpha_scissor = true
+		g.params_cull_mode = SpatialMaterial.CULL_DISABLED
+		g.albedo_color = Color(
+			clamp(grate_color.r * grate_brightness, 0.0, 1.0),
+			clamp(grate_color.g * grate_brightness, 0.0, 1.0),
+			clamp(grate_color.b * grate_brightness, 0.0, 1.0),
+			grate_color.a
+		)
+		g.metallic = clamp(g.metallic, 0.3, 0.9)
+		g.roughness = clamp(g.roughness, 0.35, 0.75)
+	return material
 
 func _compact_material(color: Color, brightness: float) -> SpatialMaterial:
 	var material := SpatialMaterial.new()
