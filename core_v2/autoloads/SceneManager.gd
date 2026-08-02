@@ -120,6 +120,7 @@ func goto_scene(path: String, params: Dictionary = {}):
 	var sanitized_params = params.duplicate(false)
 	sanitized_params.erase("_preloaded_scene")
 	_transition_params = sanitized_params.duplicate(true)
+	_report_transition("started")
 	_lock()
 	_loaded_scene = null
 	_load_error = ""
@@ -163,6 +164,7 @@ func goto_scene(path: String, params: Dictionary = {}):
 		_emit_progress(1.0)
 	else:
 		while is_scene_preloading(_next_scene_path):
+			_report_transition("waiting_preload")
 			yield(get_tree(), "idle_frame")
 		if has_preloaded_scene(_next_scene_path):
 			_loaded_scene = get_preloaded_scene(_next_scene_path)
@@ -190,20 +192,26 @@ func goto_scene(path: String, params: Dictionary = {}):
 
 	if transition_layer:
 		if use_fade and transition_layer.has_method("play"):
-			transition_layer.play("fade_in", {
+			_report_transition("fade_in_started")
+			var fade_state = transition_layer.play("fade_in", {
 				"duration": float(_transition_params.get("fade_in", default_fade_in))
 			})
+			if fade_state is GDScriptFunctionState:
+				yield(fade_state, "completed")
+			_report_transition("fade_in_completed")
 		elif show_loading and transition_layer.has_method("hide_loading"):
 			transition_layer.hide_loading()
 
 	_restore_input_after_transition()
 	emit_signal("transition_completed", _next_scene_path, get_tree().current_scene, _transition_params)
+	_report_transition("completed", "", 1.0)
 
 	var completed := true
 	_reset_runtime_state()
 	return completed
 
 func _start_loader(path: String) -> void:
+	_report_transition("loading")
 	var loader = ResourceLoader.load_interactive(path)
 	if loader == null:
 		_load_error = "Could not create ResourceInteractiveLoader for %s" % path
@@ -434,12 +442,14 @@ func _poll_scene_preload() -> void:
 
 func _emit_progress(progress_01: float) -> void:
 	var p := clamp(progress_01, 0.0, 1.0)
+	_report_transition("loading", "", p)
 	emit_signal("transition_progress", _next_scene_path, p)
 	var transition_layer = _get_transition_layer()
 	if transition_layer and transition_layer.has_method("set_loading_progress"):
 		transition_layer.set_loading_progress(p)
 
 func _set_new_scene(resource: PackedScene):
+	_report_transition("instancing")
 	if resource == null:
 		_load_error = "Scene resource is null"
 		return
@@ -448,6 +458,7 @@ func _set_new_scene(resource: PackedScene):
 	if new_scene == null:
 		_load_error = "Could not instance scene %s" % _next_scene_path
 		return
+	_report_transition("instance_created")
 
 	var tree := get_tree()
 	var old_scene := tree.current_scene
@@ -487,6 +498,7 @@ func _set_new_scene(resource: PackedScene):
 		yield(prep_state, "completed")
 
 	emit_signal("scene_ready", _next_scene_path, new_scene, _transition_params)
+	_report_transition("scene_ready")
 
 	# Spread heavy deferred-build nodes (e.g. RadialScatter with dozens of items)
 	# across frames so they don't instance everything in the arrival frame — that
@@ -864,6 +876,7 @@ func _fade_audio_in(duration: float) -> void:
 
 func _finalize_failed_transition(reason: String) -> void:
 	printerr("[SceneManager] Transition failed: ", reason)
+	_report_transition("failed", reason)
 	emit_signal("transition_failed", _next_scene_path, reason)
 
 	var transition_layer = _get_transition_layer()
@@ -897,11 +910,47 @@ func _reset_runtime_state() -> void:
 	_input_restore_state.clear()
 
 func _get_effective_poll_budget_ms() -> int:
+	if OS.get_name() == "iOS":
+		return int(hyper_low_poll_budget_ms)
 	return int(poll_budget_ms)
 
 func _get_effective_transition_timeout_ms() -> int:
-	var timeout_s := max(3.0, transition_timeout_s)
+	var timeout_s := hyper_low_transition_timeout_s if OS.get_name() == "iOS" else transition_timeout_s
+	timeout_s = max(3.0, timeout_s)
 	return int(timeout_s * 1000.0)
+
+func _report_transition(stage: String, error: String = "", progress: float = -1.0) -> void:
+	var telemetry = get_node_or_null("/root/ANNAV2")
+	if telemetry == null or not telemetry.has_method("register_telemetry_point"):
+		return
+	var elapsed_ms := 0
+	if _transition_started_ms > 0:
+		elapsed_ms = max(0, OS.get_ticks_msec() - _transition_started_ms)
+	var current_scene := ""
+	if get_tree() and get_tree().current_scene:
+		current_scene = get_tree().current_scene.filename.get_file().get_basename()
+		if current_scene == "":
+			current_scene = get_tree().current_scene.name
+	var overlay_visible := false
+	var overlay_alpha := 0.0
+	var transition_layer = _get_transition_layer()
+	if transition_layer:
+		var overlay = transition_layer.get("_overlay")
+		if overlay is ColorRect:
+			overlay_visible = overlay.visible
+			overlay_alpha = overlay.color.a
+	telemetry.register_telemetry_point("transition", {
+		"stage": stage,
+		"path": _next_scene_path,
+		"current_scene": current_scene,
+		"elapsed_ms": elapsed_ms,
+		"progress": progress,
+		"loader_stage": _loader_last_stage,
+		"preloading": is_scene_preloading(_next_scene_path) if _next_scene_path != "" else false,
+		"overlay_visible": overlay_visible,
+		"overlay_alpha": overlay_alpha,
+		"error": error
+	})
 
 func _get_transition_layer() -> Node:
 	return get_node_or_null("/root/TransitionLayer")
@@ -938,6 +987,7 @@ func _check_transition_timeout() -> void:
 
 func _force_reset_stuck_transition(reason: String) -> void:
 	printerr("[SceneManager] Transition watchdog reset: ", reason, " path=", _next_scene_path)
+	_report_transition("watchdog_reset", reason)
 	_last_transition_abort_reason = "watchdog_" + reason
 	emit_signal("transition_failed", _next_scene_path, "watchdog_" + reason)
 	var transition_layer = _get_transition_layer()

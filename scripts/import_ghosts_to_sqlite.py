@@ -47,6 +47,16 @@ def init_db(conn):
         ("objects", "REAL"),
         ("vertices", "REAL"),
         ("nodes", "REAL"),
+        ("transition_stage", "TEXT"),
+        ("transition_path", "TEXT"),
+        ("transition_current_scene", "TEXT"),
+        ("transition_elapsed_ms", "INTEGER"),
+        ("transition_progress", "REAL"),
+        ("transition_loader_stage", "INTEGER"),
+        ("transition_preloading", "INTEGER"),
+        ("transition_overlay_visible", "INTEGER"),
+        ("transition_overlay_alpha", "REAL"),
+        ("transition_error", "TEXT"),
     ):
         try:
             cursor.execute(f"ALTER TABLE heartbeats ADD COLUMN {column} {coltype};")
@@ -100,6 +110,9 @@ def process_file(path: str, cursor: sqlite3.Cursor) -> int:
                     perf = player_data.get("perf") or {}
                     if not isinstance(perf, dict):
                         perf = {}
+                    transition = player_data.get("transition") or {}
+                    if not isinstance(transition, dict):
+                        transition = {}
                     platform = player_data.get("platform") or data.get("platform") or "unknown"
 
                     # Mapping data from JSON to Table. perf.dc/obj/vtx/nodes come
@@ -128,6 +141,16 @@ def process_file(path: str, cursor: sqlite3.Cursor) -> int:
                         perf.get("obj"),
                         perf.get("vtx"),
                         perf.get("nodes"),
+                        transition.get("stage"),
+                        transition.get("path"),
+                        transition.get("current_scene"),
+                        transition.get("elapsed_ms"),
+                        transition.get("progress"),
+                        transition.get("loader_stage"),
+                        1 if transition.get("preloading") else 0,
+                        1 if transition.get("overlay_visible") else 0,
+                        transition.get("overlay_alpha"),
+                        transition.get("error"),
                     )
 
                     try:
@@ -138,8 +161,12 @@ def process_file(path: str, cursor: sqlite3.Cursor) -> int:
                             engine_version, peer_id,
                             game_version, git_commit, build_id, build_channel,
                             official_host, official_build, intake_mode, focused,
-                            draw_calls, objects, vertices, nodes
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            draw_calls, objects, vertices, nodes,
+                            transition_stage, transition_path, transition_current_scene,
+                            transition_elapsed_ms, transition_progress, transition_loader_stage,
+                            transition_preloading, transition_overlay_visible,
+                            transition_overlay_alpha, transition_error
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, record)
                         if cursor.rowcount > 0:
                             new_records += 1

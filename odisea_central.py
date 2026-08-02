@@ -3027,6 +3027,16 @@ class OdiseaCentral:
                 objects REAL,
                 vertices REAL,
                 nodes REAL,
+                transition_stage TEXT,
+                transition_path TEXT,
+                transition_current_scene TEXT,
+                transition_elapsed_ms INTEGER,
+                transition_progress REAL,
+                transition_loader_stage INTEGER,
+                transition_preloading INTEGER,
+                transition_overlay_visible INTEGER,
+                transition_overlay_alpha REAL,
+                transition_error TEXT,
                 UNIQUE(player_id, session_id, timestamp)
             );
         """)
@@ -3043,6 +3053,16 @@ class OdiseaCentral:
             ("objects", "REAL"),
             ("vertices", "REAL"),
             ("nodes", "REAL"),
+            ("transition_stage", "TEXT"),
+            ("transition_path", "TEXT"),
+            ("transition_current_scene", "TEXT"),
+            ("transition_elapsed_ms", "INTEGER"),
+            ("transition_progress", "REAL"),
+            ("transition_loader_stage", "INTEGER"),
+            ("transition_preloading", "INTEGER"),
+            ("transition_overlay_visible", "INTEGER"),
+            ("transition_overlay_alpha", "REAL"),
+            ("transition_error", "TEXT"),
         ):
             try:
                 cursor.execute(f"ALTER TABLE heartbeats ADD COLUMN {column} {coltype};")
@@ -3134,6 +3154,9 @@ class OdiseaCentral:
                     perf = player_data.get("perf") or {}
                     if not isinstance(perf, dict):
                         perf = {}
+                    transition = player_data.get("transition") or {}
+                    if not isinstance(transition, dict):
+                        transition = {}
 
                     cursor.execute("""
                         INSERT OR IGNORE INTO heartbeats (
@@ -3142,8 +3165,12 @@ class OdiseaCentral:
                             engine_version, game_version, git_commit, build_id,
                             build_channel, official_host, official_build,
                             intake_mode, peer_id, focused,
-                            draw_calls, objects, vertices, nodes
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            draw_calls, objects, vertices, nodes,
+                            transition_stage, transition_path, transition_current_scene,
+                            transition_elapsed_ms, transition_progress, transition_loader_stage,
+                            transition_preloading, transition_overlay_visible,
+                            transition_overlay_alpha, transition_error
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         data.get("player_id"),
                         data.get("session_id"),
@@ -3167,6 +3194,16 @@ class OdiseaCentral:
                         perf.get("obj"),
                         perf.get("vtx"),
                         perf.get("nodes"),
+                        transition.get("stage"),
+                        transition.get("path"),
+                        transition.get("current_scene"),
+                        transition.get("elapsed_ms"),
+                        transition.get("progress"),
+                        transition.get("loader_stage"),
+                        1 if transition.get("preloading") else 0,
+                        1 if transition.get("overlay_visible") else 0,
+                        transition.get("overlay_alpha"),
+                        transition.get("error"),
                     ))
 
                 conn.commit()

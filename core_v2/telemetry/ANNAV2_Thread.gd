@@ -474,7 +474,8 @@ func _send_heartbeat(tier: int):
 		"velocity": player_data.get("velocity", [0, 0, 0]),
 		"focused": player_data.get("focused", true),
 		"platform": platform_name,
-		"perf": player_data.get("perf", {})
+		"perf": player_data.get("perf", {}),
+		"transition": player_data.get("transition", {})
 	}
 	
 	msg["player"] = player_msg
