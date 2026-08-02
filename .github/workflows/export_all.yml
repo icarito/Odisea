@@ -13,6 +13,20 @@ on:
     branches: [ "main", "release" ]
   workflow_dispatch:
     inputs:
+      target_platform:
+        description: 'Platform to build'
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - linux_x64
+          - linux_arm64
+          - windows
+          - macos
+          - ios
+          - android
+          - html5
       publish_prerelease:
         description: 'Publish a GitHub pre-release from this manual build'
         required: false
@@ -34,7 +48,7 @@ permissions:
 # github.ref apunta al archivo del workflow (default branch), así que usamos
 # head_branch del run que disparó; bajo dispatch, github.ref_name.
 concurrency:
-  group: export-all-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  group: export-all-${{ github.event.workflow_run.head_branch || github.ref_name }}-${{ github.event.inputs.target_platform || 'all' }}
   cancel-in-progress: true
 
 jobs:
@@ -71,6 +85,8 @@ jobs:
       head_sha: ${{ steps.meta.outputs.head_sha }}
       is_dispatch: ${{ steps.meta.outputs.is_dispatch }}
       publish_prerelease: ${{ steps.meta.outputs.publish_prerelease }}
+      target_platform: ${{ steps.meta.outputs.target_platform }}
+      platforms: ${{ steps.meta.outputs.platforms }}
     steps:
       - id: ctx
         run: |
@@ -103,6 +119,26 @@ jobs:
           [ "${{ github.event_name }}" = "workflow_dispatch" ] && IS_DISPATCH=true
           echo "is_dispatch=$IS_DISPATCH" >> $GITHUB_OUTPUT
           echo "publish_prerelease=${{ github.event.inputs.publish_prerelease }}" >> $GITHUB_OUTPUT
+
+          TARGET_PLATFORM="all"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TARGET_PLATFORM="${{ github.event.inputs.target_platform }}"
+            [ -n "$TARGET_PLATFORM" ] || TARGET_PLATFORM="all"
+          fi
+          case "$TARGET_PLATFORM" in
+            all)
+              PLATFORMS='["linux_x64","linux_arm64","windows","macos","ios","android","html5"]'
+              ;;
+            linux_x64|linux_arm64|windows|macos|ios|android|html5)
+              PLATFORMS="[\"$TARGET_PLATFORM\"]"
+              ;;
+            *)
+              echo "::error::Unknown target platform: $TARGET_PLATFORM"
+              exit 1
+              ;;
+          esac
+          echo "target_platform=$TARGET_PLATFORM" >> "$GITHUB_OUTPUT"
+          echo "platforms=$PLATFORMS" >> "$GITHUB_OUTPUT"
 
           # Base version from project.godot. Godot la escribe como "config/version="
           # bajo la sección [application] (no "application/config/version="), así que
@@ -174,7 +210,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux_x64, linux_arm64, windows, macos, ios, android, html5]
+        platform: ${{ fromJSON(needs.prep.outputs.platforms) }}
         include:
           - platform: linux_x64
             os: ubuntu-latest
@@ -228,12 +264,13 @@ jobs:
         id: ios_gate
         env:
           IOS_CERT_P12_B64: ${{ secrets.IOS_CERT_P12_B64 }}
+          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
           IOS_PROVISION_B64: ${{ secrets.IOS_PROVISION_B64 }}
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
         run: |
-          if [ "${{ matrix.platform }}" = "ios" ] && { [ -z "$IOS_CERT_P12_B64" ] || [ -z "$IOS_PROVISION_B64" ]; }; then
+          if [ "${{ matrix.platform }}" = "ios" ] && { [ -z "$IOS_CERT_P12_B64" ] || [ -z "$IOS_CERT_PASSWORD" ] || [ -z "$IOS_PROVISION_B64" ]; }; then
             echo "iOS signing secrets missing — skipping iOS export."
             echo "skip_ios=true" >> "$GITHUB_OUTPUT"
           else
@@ -1051,10 +1088,143 @@ jobs:
               });
             }
 
+  # The universal macOS export stays on Ubuntu (the Apple runner OOMs while
+  # exporting it). A small follow-up job downloads that ZIP and uses the macOS
+  # signing tools only for the App Store package and upload.
+  upload-macos:
+    needs: [prep, export]
+    runs-on: macos-latest
+    if: ${{ needs.prep.outputs.ref_name == 'main' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'macos') }}
+    steps:
+      - name: Check macOS App Store credentials
+        id: mac_gate
+        env:
+          APP_CERT_P12_B64: ${{ secrets.MAC_APP_CERT_P12_B64 || secrets.IOS_CERT_P12_B64 }}
+          APP_CERT_PASSWORD: ${{ secrets.MAC_APP_CERT_PASSWORD || secrets.IOS_CERT_PASSWORD }}
+          MAC_PROVISION_B64: ${{ secrets.MAC_PROVISION_B64 }}
+          INSTALLER_CERT_P12_B64: ${{ secrets.MAC_INSTALLER_P12_B64 }}
+          INSTALLER_CERT_PASSWORD: ${{ secrets.MAC_INSTALLER_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          if [ -n "$APP_CERT_P12_B64" ] && [ -n "$APP_CERT_PASSWORD" ] && \
+             [ -n "$MAC_PROVISION_B64" ] && [ -n "$INSTALLER_CERT_P12_B64" ] && \
+             [ -n "$INSTALLER_CERT_PASSWORD" ] && [ -n "$ASC_KEY_ID" ] && \
+             [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_API_KEY_P8" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::macOS App Store upload disabled; configure MAC_PROVISION_B64, MAC_INSTALLER_P12_B64 and MAC_INSTALLER_PASSWORD."
+          fi
+
+      - name: Download macOS export
+        if: steps.mac_gate.outputs.ready == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: Odisea-Tech-Demo-macOS-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
+          path: mac_artifact
+
+      - name: Sign and upload macOS build to TestFlight
+        if: steps.mac_gate.outputs.ready == 'true'
+        env:
+          APP_CERT_P12_B64: ${{ secrets.MAC_APP_CERT_P12_B64 || secrets.IOS_CERT_P12_B64 }}
+          APP_CERT_PASSWORD: ${{ secrets.MAC_APP_CERT_PASSWORD || secrets.IOS_CERT_PASSWORD }}
+          MAC_PROVISION_B64: ${{ secrets.MAC_PROVISION_B64 }}
+          INSTALLER_CERT_P12_B64: ${{ secrets.MAC_INSTALLER_P12_B64 }}
+          INSTALLER_CERT_PASSWORD: ${{ secrets.MAC_INSTALLER_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          MAC_MARKETING_VERSION: ${{ needs.prep.outputs.base_version }}
+          MAC_BUILD_NUMBER: ${{ needs.prep.outputs.build_seq }}
+        run: |
+          set -euo pipefail
+          BUNDLE_ID="juegos.educa.odisea"
+          WORK_DIR="$RUNNER_TEMP/odisea-mac-store"
+          KEYCHAIN="$WORK_DIR/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          KEY_FILE="$KEY_DIR/AuthKey_${ASC_KEY_ID}.p8"
+          APP_P12="$WORK_DIR/app-distribution.p12"
+          INSTALLER_P12="$WORK_DIR/installer-distribution.p12"
+          PROFILE="$WORK_DIR/odisea.provisionprofile"
+          ENTITLEMENTS="$WORK_DIR/odisea.entitlements"
+          PKG="$WORK_DIR/Odisea-Tech-Demo-AppStore.pkg"
+
+          cleanup() {
+            rm -f "$KEY_FILE"
+            security delete-keychain "$KEYCHAIN" >/dev/null 2>&1 || true
+            rm -rf "$WORK_DIR"
+          }
+          trap cleanup EXIT
+          mkdir -p "$WORK_DIR/app" "$KEY_DIR"
+          printf '%s' "$APP_CERT_P12_B64" | base64 --decode > "$APP_P12"
+          printf '%s' "$INSTALLER_CERT_P12_B64" | base64 --decode > "$INSTALLER_P12"
+          printf '%s' "$MAC_PROVISION_B64" | base64 --decode > "$PROFILE"
+          printf '%s\n' "$ASC_API_KEY_P8" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$APP_P12" -k "$KEYCHAIN" -P "$APP_CERT_PASSWORD" -A -t cert -f pkcs12
+          security import "$INSTALLER_P12" -k "$KEYCHAIN" -P "$INSTALLER_CERT_PASSWORD" -A -t cert -f pkcs12
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          APP_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | \
+            sed -nE 's/.*"((Apple Distribution|3rd Party Mac Developer Application|Mac App Distribution):[^"]+)".*/\1/p' | head -n 1)
+          INSTALLER_IDENTITY=$(security find-identity -v "$KEYCHAIN" | \
+            sed -nE 's/.*"((3rd Party Mac Developer Installer|Mac Installer Distribution):[^"]+)".*/\1/p' | head -n 1)
+          test -n "$APP_IDENTITY" || { security find-identity -v "$KEYCHAIN"; echo "::error::Mac app distribution identity not found"; exit 1; }
+          test -n "$INSTALLER_IDENTITY" || { security find-identity -v "$KEYCHAIN"; echo "::error::Mac Installer Distribution identity not found"; exit 1; }
+
+          ZIP=$(find mac_artifact -type f -name '*.zip' -print -quit)
+          test -n "$ZIP" || { echo "::error::Downloaded macOS artifact contains no ZIP"; exit 1; }
+          ditto -x -k "$ZIP" "$WORK_DIR/app"
+          APP=$(find "$WORK_DIR/app" -maxdepth 2 -type d -name '*.app' -print -quit)
+          test -n "$APP" || { echo "::error::No .app found inside macOS export"; exit 1; }
+          cp "$PROFILE" "$APP/Contents/embedded.provisionprofile"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MAC_MARKETING_VERSION" "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $MAC_BUILD_NUMBER" "$APP/Contents/Info.plist"
+
+          security cms -D -i "$PROFILE" > "$WORK_DIR/profile.plist"
+          PROFILE_PLIST="$WORK_DIR/profile.plist" ENTITLEMENTS="$ENTITLEMENTS" BUNDLE_ID="$BUNDLE_ID" python3 - <<'PY'
+          import os
+          import plistlib
+
+          with open(os.environ["PROFILE_PLIST"], "rb") as src:
+              profile = plistlib.load(src)
+          entitlements = dict(profile.get("Entitlements", {}))
+          app_identifier = str(entitlements.get("com.apple.application-identifier", entitlements.get("application-identifier", "")))
+          if not app_identifier.endswith("." + os.environ["BUNDLE_ID"]):
+              raise SystemExit("Mac provisioning profile does not match " + os.environ["BUNDLE_ID"])
+          entitlements["com.apple.security.app-sandbox"] = True
+          entitlements["com.apple.security.network.client"] = True
+          entitlements["com.apple.security.network.server"] = True
+          entitlements.pop("get-task-allow", None)
+          with open(os.environ["ENTITLEMENTS"], "wb") as dst:
+              plistlib.dump(entitlements, dst, sort_keys=True)
+          PY
+
+          codesign --force --deep --timestamp --options runtime \
+            --entitlements "$ENTITLEMENTS" --sign "$APP_IDENTITY" --keychain "$KEYCHAIN" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          productbuild --component "$APP" /Applications \
+            --sign "$INSTALLER_IDENTITY" --keychain "$KEYCHAIN" "$PKG"
+          pkgutil --check-signature "$PKG"
+
+          xcrun altool --validate-app --type macos --file "$PKG" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          xcrun altool --upload-app --type macos --file "$PKG" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          echo "macOS TestFlight upload accepted; Apple will now process build $MAC_BUILD_NUMBER."
+
   deploy-web:
     needs: [prep, export]
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.prep.result == 'success' && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
+    if: ${{ always() && needs.prep.result == 'success' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'html5') && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
     permissions:
       contents: read
       deployments: write
@@ -1101,7 +1271,7 @@ jobs:
   deploy-vercel:
     needs: [prep, export]
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.prep.result == 'success' && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
+    if: ${{ always() && needs.prep.result == 'success' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'html5') && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
     permissions:
       contents: read
       deployments: write
