@@ -19,6 +19,13 @@ var _parallax_shader: Shader = preload("res://core_v2/props/parallax_assets/card
 # the panel/seam/rivet look.
 var _duct_hull_shader: Shader = preload("res://core_v2/props/duct/shaders/duct_hull.shader")
 var _registered_materials: Array = []
+var _registered_lookup: Dictionary = {}  # ShaderMaterial -> true (O(1) dedupe on register)
+# Every per-frame uniform this manager writes (player_pos/camera_pos/is_active/hole_radius)
+# is global, and the conversion below is a pure function of the source SpatialMaterial.
+# So meshes sharing a source material can share one converted ShaderMaterial instead of
+# getting a private copy each: Dome_Intro alone was registering 3825 materials (225
+# criopods x 3 meshes x surfaces), and _process rewrote every one of them every frame.
+var _dither_cache: Dictionary = {}  # source SpatialMaterial -> converted ShaderMaterial
 var _processed_meshes: Dictionary = {}  # MeshInstance -> true (avoid double-processing)
 
 var _player_node: Spatial = null
@@ -55,6 +62,7 @@ func _process(_delta: float) -> void:
 	var c_pos: Vector3 = _camera_node.global_transform.origin
 
 	var living: Array = []
+	var dropped := false
 	for mat in _registered_materials:
 		if is_instance_valid(mat):
 			mat.set_shader_param("player_pos", p_pos)
@@ -64,6 +72,13 @@ func _process(_delta: float) -> void:
 			for key in _shader_params:
 				mat.set_shader_param(key, _shader_params[key])
 			living.append(mat)
+		else:
+			dropped = true
+	if dropped:
+		# Keep the dedupe lookup in sync with the pruned array.
+		_registered_lookup.clear()
+		for mat in living:
+			_registered_lookup[mat] = true
 	_registered_materials = living
 
 
@@ -74,7 +89,10 @@ func set_occlusion_params(radius: float, params: Dictionary = {}) -> void:
 
 
 func register_material(mat: ShaderMaterial) -> void:
-	if mat and not _registered_materials.has(mat):
+	# Dictionary lookup instead of Array.has(): the linear scan made scene load
+	# O(n^2) over thousands of materials.
+	if mat and not _registered_lookup.has(mat):
+		_registered_lookup[mat] = true
 		_registered_materials.append(mat)
 
 
@@ -242,8 +260,15 @@ func _can_apply_occlusion_dither(mat: SpatialMaterial) -> bool:
 
 
 func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
+	# Reuse the conversion for a source material we have already seen: the result
+	# depends only on `source`, and the per-frame uniforms are global.
+	var cached = _dither_cache.get(source)
+	if cached is ShaderMaterial:
+		return cached
+
 	var new_mat := ShaderMaterial.new()
 	new_mat.shader = _dither_shader
+	_dither_cache[source] = new_mat
 
 	# Albedo
 	new_mat.set_shader_param("albedo", source.albedo_color)

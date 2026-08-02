@@ -180,6 +180,9 @@ func _build_compact_ring() -> void:
 		var outer_a := Vector3(cos(a0) * outer_corner, deck_top, sin(a0) * outer_corner)
 		var outer_b := Vector3(cos(a1) * outer_corner, deck_top, sin(a1) * outer_corner)
 		_add_deck_top_quad(deck_top_tool, inner_a, inner_b, outer_b, outer_a)
+		var deck_down := Vector3.DOWN * (deck_top - deck_bottom)
+		_add_deck_bottom_quad(deck_top_tool, inner_a + deck_down, inner_b + deck_down,
+			outer_b + deck_down, outer_a + deck_down)
 		_add_prism_sides(deck_tool, inner_a, inner_b, outer_b, outer_a, deck_top - deck_bottom)
 
 		var mid_angle: float = (a0 + a1) * 0.5
@@ -225,10 +228,16 @@ func _build_compact_ring() -> void:
 func _add_deck_top_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 	_add_quad_uv(surface_tool, a, d, c, b)
 
-# Deck sides + underside: never seen up close, stays flat-colored (no UVs needed).
+# La cara de abajo tambien lleva la rejilla: en una torre de varios pisos se mira
+# el deck desde abajo todo el tiempo, y con material compacto se veia una chapa
+# lisa en vez de la grilla. Winding invertido respecto del top para que la normal
+# apunte hacia abajo; las UV son planares en XZ, asi que valen a cualquier altura.
+func _add_deck_bottom_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	_add_quad_uv(surface_tool, a, b, c, d)
+
+# Deck sides only: the underside now lives in the grate surface above.
 func _add_prism_sides(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, thickness: float) -> void:
 	var down := Vector3.DOWN * thickness
-	_add_quad(surface_tool, a + down, b + down, c + down, d + down)
 	_add_quad(surface_tool, a, b, b + down, a + down)
 	_add_quad(surface_tool, b, c, c + down, b + down)
 	_add_quad(surface_tool, c, d, d + down, c + down)

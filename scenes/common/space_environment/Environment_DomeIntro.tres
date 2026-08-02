@@ -12,7 +12,7 @@
 background_mode = 1
 background_color = Color( 0.008, 0.011, 0.022, 1 )
 ambient_light_color = Color( 0.2, 0.22, 0.27, 1 )
-ambient_light_energy = 1.15
+ambient_light_energy = 1.30
 ambient_light_sky_contribution = 0.0
 fog_enabled = true
 fog_color = Color( 0.05, 0.075, 0.12, 1 )
