@@ -735,11 +735,10 @@ jobs:
           # Use 'godot' if 'godot3-server' is not set (container environment)
           G_BIN="${GODOT_BIN:-godot}"
 
-          # The iOS export imports resources itself. Avoid launching Godot twice
-          # on the memory-constrained Apple Silicon hosted runner.
-          if [ "${{ matrix.platform }}" != "ios" ]; then
-            "$G_BIN" --editor --quit --headless || true
-          fi
+          # Complete platform-specific imports before packaging. The restored
+          # .import cache can be partial or come from an older commit; exporting
+          # directly would then omit otherwise valid audio/texture artifacts.
+          "$G_BIN" --editor --quit --headless || true
 
           case "${{ matrix.platform }}" in
             linux_x64) OUT="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
@@ -920,7 +919,10 @@ jobs:
               echo "No APK to package — skipping."
             fi
           elif [ "${{ matrix.platform }}" = "ios" ]; then
-            cd build/ios && zip -r "../../$PACKAGE" .
+            # El IPA ya es un contenedor ZIP firmado. Publicar solo ese archivo;
+            # comprimir todo build/ios incluía además xcarchive/xcodeproj (~120 MB).
+            PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION.ipa"
+            cp build/ios/Odisea-Tech-Demo.ipa "$PACKAGE"
           elif [ "${{ matrix.platform }}" = "macos" ]; then
              cp build/macos/Odisea-Tech-Demo.zip "$PACKAGE"
           else
@@ -1409,6 +1411,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="nightly"
+          NIGHTLY_DATE=$(date -u +'%Y-%m-%d')
 
           # Show all files for debugging
           echo "=== Files in nightly_assets ==="
@@ -1424,7 +1427,7 @@ jobs:
           # Los .pck (target del update in-app) y los .patch.gz (delta bsdiff) van con
           # los binarios: el manifest apunta a ellos, así que deben existir ANTES de
           # subir el manifest.
-          mapfile -t BIN_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "*.pck" -o -name "*.pck.gz" -o -name "*.patch.gz" -o -name "*.pem" \) -print | sort)
+          mapfile -t BIN_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "*.ipa" -o -name "*.pck" -o -name "*.pck.gz" -o -name "*.patch.gz" -o -name "*.pem" \) -print | sort)
           mapfile -t MANIFEST_FILES < <(find nightly_assets -type f -name "manifest-*.json" -print | sort)
           if [ "${#BIN_FILES[@]}" -eq 0 ]; then
             echo "::error::No binary artifacts found in nightly_assets"
@@ -1458,9 +1461,10 @@ jobs:
           #    vacío; si existe, solo actualizar notas/target. No se borra para no
           #    dejar el release ausente entre delete y create.
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --notes-file body.md --target "${{ needs.prep.outputs.head_sha }}" --prerelease
+            gh release edit "$TAG" --title "Nightly $NIGHTLY_DATE · ${{ needs.prep.outputs.version_slug }}" \
+              --notes-file body.md --target "${{ needs.prep.outputs.head_sha }}" --prerelease
           else
-            gh release create "$TAG" --title "Nightly Tip" --notes-file body.md \
+            gh release create "$TAG" --title "Nightly $NIGHTLY_DATE · ${{ needs.prep.outputs.version_slug }}" --notes-file body.md \
               --prerelease --target "${{ needs.prep.outputs.head_sha }}"
           fi
 
@@ -1478,7 +1482,7 @@ jobs:
           KEEP_SHA="${{ needs.prep.outputs.version_slug }}"
           for old in $(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null); do
             case "$old" in
-              *.zip|*.apk|*.pck|*.pck.gz)
+              *.zip|*.apk|*.ipa|*.pck|*.pck.gz)
                 if [[ "$old" != *"$KEEP_SHA"* ]]; then
                   echo "Removing stale asset: $old"
                   gh release delete-asset "$TAG" "$old" --yes || true
