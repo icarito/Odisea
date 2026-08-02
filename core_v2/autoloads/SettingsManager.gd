@@ -17,6 +17,7 @@ var fullscreen = true
 # window size or fullscreen.
 var render_resolution = Vector2(800, 600)
 var vsync = true
+var telemetry_enabled: bool = true
 
 func _ready():
 	load_settings()
@@ -38,6 +39,7 @@ func load_settings():
 	fullscreen = _config.get_value("display", "fullscreen", true)
 	render_resolution = _config.get_value("display", "render_resolution", Vector2(800, 600))
 	vsync = _config.get_value("display", "vsync", true)
+	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", true)
 
 func save_settings():
 	_config.set_value("audio", "master_volume", master_volume)
@@ -50,6 +52,7 @@ func save_settings():
 	_config.set_value("display", "fullscreen", fullscreen)
 	_config.set_value("display", "render_resolution", render_resolution)
 	_config.set_value("display", "vsync", vsync)
+	_config.set_value("privacy", "telemetry_enabled", telemetry_enabled)
 
 	var err = _config.save(SETTINGS_PATH)
 	if err != OK:
@@ -58,6 +61,12 @@ func save_settings():
 func apply_all_settings():
 	apply_audio_settings()
 	apply_display_settings()
+	apply_privacy_settings()
+
+func apply_privacy_settings() -> void:
+	var telemetry = get_node_or_null("/root/ANNAV2")
+	if telemetry and telemetry.has_method("set_telemetry_enabled"):
+		telemetry.set_telemetry_enabled(telemetry_enabled)
 
 func apply_audio_settings():
 	_set_bus_volume("Master", master_volume)

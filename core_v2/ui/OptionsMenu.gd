@@ -8,6 +8,7 @@ onready var vibration_toggle = find_node("VibrationToggle")
 onready var fullscreen_option = find_node("FullscreenOption")
 onready var resolution_option = find_node("ResolutionOption")
 onready var vsync_option = find_node("VsyncOption")
+onready var telemetry_toggle = find_node("TelemetryToggle")
 onready var back_button = find_node("Back")
 
 # Internal render resolutions (the game renders here and is stretched to the
@@ -75,6 +76,7 @@ func _load_ui_values():
 	sfx_slider.value = sm.sfx_volume
 	invert_y_toggle.pressed = sm.invert_y
 	vibration_toggle.pressed = sm.vibration
+	telemetry_toggle.pressed = sm.telemetry_enabled
 
 	fullscreen_option.selected = 1 if sm.fullscreen else 0
 	vsync_option.selected = 1 if sm.vsync else 0
@@ -94,6 +96,7 @@ func _connect_signals():
 	fullscreen_option.connect("item_selected", self, "_on_fullscreen_selected")
 	resolution_option.connect("item_selected", self, "_on_resolution_selected")
 	vsync_option.connect("item_selected", self, "_on_vsync_selected")
+	telemetry_toggle.connect("toggled", self, "_on_telemetry_toggled")
 	back_button.connect("pressed", self, "_on_back_pressed")
 
 func _on_master_volume_changed(value):
@@ -141,6 +144,13 @@ func _on_vsync_selected(index):
 	if sm:
 		sm.vsync = (index == 1)
 		sm.apply_display_settings()
+
+func _on_telemetry_toggled(button_pressed: bool) -> void:
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm:
+		sm.telemetry_enabled = button_pressed
+		sm.apply_privacy_settings()
+		sm.save_settings()
 
 func _on_back_pressed():
 	var sm = get_node_or_null("/root/SettingsManager")

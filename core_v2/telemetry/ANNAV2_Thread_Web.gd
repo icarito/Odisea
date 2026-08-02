@@ -67,6 +67,7 @@ func _init():
 	_central_enabled = not (OS.get_environment("ANNA_V2_NO_CENTRAL") in ["1", "true", "yes", "on"])
 
 func start(command_queue, p_id, s_id, g_ver):
+	_stop_thread = false
 	_command_queue = command_queue
 	player_id = p_id
 	session_id = s_id

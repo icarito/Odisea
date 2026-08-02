@@ -152,6 +152,7 @@ func _load_dotenv() -> Dictionary:
 	return _dotenv_cache
 
 func start(command_queue, p_id, s_id, g_ver):
+	_stop_thread = false
 	_command_queue = command_queue
 	player_id = p_id
 	session_id = s_id

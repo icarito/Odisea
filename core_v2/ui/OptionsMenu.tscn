@@ -158,6 +158,13 @@ margin_right = 586.0
 margin_bottom = 331.0
 rect_min_size = Vector2( 0, 40 )
 
+[node name="TelemetryLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+text = "Compartir telemetría anónima"
+
+[node name="TelemetryToggle" type="CheckButton" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+pressed = true
+hint_tooltip = "Envía métricas técnicas de rendimiento y uso para ayudar a mejorar el juego."
+
 [node name="Back" type="Button" parent="CenterContainer/PanelContainer/VBoxContainer"]
 margin_top = 446.0
 margin_right = 586.0

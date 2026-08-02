@@ -42,6 +42,7 @@ var _perf_profiling_enabled := false
 # the dashboard as phantom players and pollute hotzone/FPS stats with playback
 # numbers. When true we never start the network thread and _process is a no-op.
 var _replay_mode := false
+var _telemetry_enabled := true
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
@@ -122,6 +123,19 @@ func set_replay_mode(enabled: bool = true) -> void:
 		_net_thread.stop()
 	print("[ANNAV2] Replay mode set at runtime — telemetry stopped for this session.")
 
+func set_telemetry_enabled(enabled: bool) -> void:
+	if _replay_mode or enabled == _telemetry_enabled:
+		return
+	_telemetry_enabled = enabled
+	if not enabled:
+		if _net_thread:
+			_net_thread.stop()
+		print("[ANNAV2] Telemetry disabled by user preference.")
+		return
+	if _net_thread:
+		_net_thread.start(_command_queue, _player_id, _session_id, _build_info.get("game_version", Constants.GAME_VERSION))
+	print("[ANNAV2] Telemetry enabled by user preference.")
+
 func _init_capture_from_env():
 	# Opt-in local capture for headless telemetry analysis. Never required for the
 	# game to run; defaults keep capture off so normal sessions are unaffected.
@@ -172,7 +186,7 @@ func _notification(what):
 
 func _process(_delta):
 	# Replay viewer: no network thread was started, so there is nothing to tick.
-	if _replay_mode:
+	if _replay_mode or not _telemetry_enabled:
 		return
 
 	if _perf_profiling_enabled:

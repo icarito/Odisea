@@ -45,6 +45,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     outputs:
       version: ${{ steps.meta.outputs.version }}
+      base_version: ${{ steps.meta.outputs.base_version }}
       # Slug seguro para nombres de archivo/URL (sin espacios ni paréntesis): el
       # VERSION humano "0.1.0-nightly+sha (fecha)" rompía los nombres de asset y las
       # URLs de descarga del manifest (GitHub sanitiza el asset y el filename dejaba
@@ -112,6 +113,7 @@ jobs:
           if [ -z "$BASE_VERSION" ]; then
             BASE_VERSION="0.1.0"
           fi
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
 
           # Determine channel
           CHANNEL="dev"
@@ -227,12 +229,21 @@ jobs:
         env:
           IOS_CERT_P12_B64: ${{ secrets.IOS_CERT_P12_B64 }}
           IOS_PROVISION_B64: ${{ secrets.IOS_PROVISION_B64 }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
         run: |
           if [ "${{ matrix.platform }}" = "ios" ] && { [ -z "$IOS_CERT_P12_B64" ] || [ -z "$IOS_PROVISION_B64" ]; }; then
             echo "iOS signing secrets missing — skipping iOS export."
             echo "skip_ios=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip_ios=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ matrix.platform }}" = "ios" ] && [ "${{ needs.prep.outputs.ref_name }}" = "main" ] && \
+             [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_API_KEY_P8" ]; then
+            echo "upload_testflight=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "upload_testflight=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Ensure Python (Android container)
@@ -396,6 +407,8 @@ jobs:
         if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
         env:
           IOS_PROVISION_B64: ${{ secrets.IOS_PROVISION_B64 }}
+          IOS_MARKETING_VERSION: ${{ needs.prep.outputs.base_version }}
+          IOS_BUILD_NUMBER: ${{ needs.prep.outputs.build_seq }}
         run: |
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           PROFILE="$HOME/Library/MobileDevice/Provisioning Profiles/odisea.mobileprovision"
@@ -423,6 +436,8 @@ jobs:
               "application/provisioning_profile_uuid_release": os.environ["IOS_PROFILE_UUID"],
               "application/code_sign_identity_release": "Apple Distribution",
               "application/export_method_release": "0",
+              "application/short_version": os.environ["IOS_MARKETING_VERSION"],
+              "application/version": os.environ["IOS_BUILD_NUMBER"],
           }
           found = set()
           for i in range(start + 1, end):
@@ -441,6 +456,7 @@ jobs:
 
           echo "Installed provisioning profile: $PROFILE_NAME ($PROFILE_UUID)"
           echo "Configured Apple Team ID: $TEAM_ID"
+          echo "Configured iOS version: $IOS_MARKETING_VERSION ($IOS_BUILD_NUMBER)"
 
       - name: Android Keystore Setup
         if: matrix.platform == 'android'
@@ -819,6 +835,31 @@ jobs:
           fi
           echo "Export OK: $OUT ($(du -h "$OUT" | cut -f1))"
 
+      - name: Upload iOS build to TestFlight
+        if: matrix.platform == 'ios' && steps.ios_gate.outputs.upload_testflight == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          IPA="build/ios/Odisea-Tech-Demo.ipa"
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          KEY_FILE="$KEY_DIR/AuthKey_${ASC_KEY_ID}.p8"
+          test -s "$IPA" || { echo "::error::No signed IPA available for TestFlight"; exit 1; }
+          mkdir -p "$KEY_DIR"
+          printf '%s\n' "$ASC_API_KEY_P8" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          trap 'rm -f "$KEY_FILE"' EXIT
+
+          echo "=== Validating IPA with App Store Connect ==="
+          xcrun altool --validate-app --type ios --file "$IPA" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          echo "=== Uploading IPA to TestFlight ==="
+          xcrun altool --upload-app --type ios --file "$IPA" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          echo "TestFlight upload accepted; Apple will now process build ${{ needs.prep.outputs.build_seq }}."
+
       - name: Android Sign and Validate
         if: matrix.platform == 'android'
         run: |
@@ -966,8 +1007,11 @@ jobs:
           path: |
             dist/*.zip
             dist/*.apk
+            dist/*.ipa
             dist/*.pck.gz
-          if-no-files-found: warn
+          # Cada matrix export que llega aquí debe haber producido su paquete.
+          # Fallar evita un run verde que publique un nightly incompleto.
+          if-no-files-found: error
 
       - name: Upload Netlify artifact
         if: matrix.platform == 'html5'
