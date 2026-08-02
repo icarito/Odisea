@@ -34,9 +34,10 @@ void fragment() {
 	vec2 p = UV * (1.0 / max(noise_scale, 0.001));
 	vec2 drift = vec2(TIME * noise_speed, TIME * noise_speed * 0.6);
 
+	// Una sola octava: estos planos cubren 60x60 m y suelen ocupar toda la
+	// pantalla, asi que el fragment corre sobre muchisimos pixeles. La segunda
+	// octava costaba otros 4 hash() por pixel y a esta escala casi no se nota.
 	float n = value_noise(p + drift);
-	n += value_noise(p * 2.1 - drift * 1.3) * 0.5;
-	n /= 1.5;
 
 	ALBEDO = base_color.rgb;
 	EMISSION = base_color.rgb * (0.4 + n * 0.6);

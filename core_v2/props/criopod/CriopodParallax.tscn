@@ -91,6 +91,7 @@ data = PoolVector3Array( 0.2918, 0.106, 0.4843, -0.2918, 0.653, 0.4843, 0.2918, 
 [node name="Criopod" type="MeshInstance"]
 use_in_baked_light = true
 mesh = SubResource( 220 )
+lod_max_distance = 55.0
 material/0 = SubResource( 221 )
 
 [node name="RotatingObjectV2" type="KinematicBody" parent="."]
@@ -105,6 +106,7 @@ rotation_amount = -120.0
 [node name="Glass" type="MeshInstance" parent="RotatingObjectV2"]
 use_in_baked_light = true
 mesh = SubResource( 32 )
+lod_max_distance = 28.0
 skeleton = NodePath("../..")
 material/0 = SubResource( 36 )
 
@@ -114,6 +116,7 @@ shape = SubResource( 41 )
 [node name="PersonCard2" type="MeshInstance" parent="." groups=["no_occlusion"]]
 transform = Transform( 1, -1.50996e-07, -1.05697e-07, -1.50996e-07, -1, -7.32463e-08, -1.50996e-07, 1.04638e-07, -0.7, 0, 1.40804, -0.114267 )
 mesh = SubResource( 39 )
+lod_max_distance = 22.0
 material/0 = ExtResource( 8 )
 
 [node name="StaticBody" type="StaticBody" parent="."]

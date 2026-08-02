@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=2]
-
-[ext_resource path="res://.dome_shots_tmp/DomeShots.gd" type="Script" id=1]
-
-[node name="DomeShots" type="Node"]
-script = ExtResource( 1 )
