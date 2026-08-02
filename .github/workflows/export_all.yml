@@ -801,6 +801,19 @@ jobs:
             "$G_BIN" --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
           fi
 
+          # Godot passes the output directory to xcodebuild, which can name the
+          # exported IPA from the product instead of the requested CLI path.
+          # Normalize that successful output for the downstream artifact steps.
+          if [ "${{ matrix.platform }}" = "ios" ] && [ ! -s "$OUT" ]; then
+            echo "=== iOS export directory ==="
+            find "$(dirname "$OUT")" -maxdepth 1 -type f -print
+            ACTUAL_IPA=$(find "$(dirname "$OUT")" -maxdepth 1 -type f -name '*.ipa' -print -quit)
+            if [ -n "$ACTUAL_IPA" ]; then
+              mv "$ACTUAL_IPA" "$OUT"
+              echo "Normalized IPA: $ACTUAL_IPA -> $OUT"
+            fi
+          fi
+
           if [ ! -s "$OUT" ]; then
             echo "::error::Export failed — no artifact produced at $OUT"
             exit 1
