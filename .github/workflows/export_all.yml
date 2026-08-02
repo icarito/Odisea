@@ -124,13 +124,31 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TARGET_PLATFORM="${{ github.event.inputs.target_platform }}"
             [ -n "$TARGET_PLATFORM" ] || TARGET_PLATFORM="all"
+          else
+            # Automatic workflow_run builds may select one platform from the
+            # triggering commit message, e.g. "Fix mac signing [build:macos]".
+            # With no directive, preserve the normal multiplatform build.
+            COMMIT_MESSAGE=$(git log -1 --format=%B "$HEAD_SHA")
+            COMMIT_TARGET=$(printf '%s\n' "$COMMIT_MESSAGE" | sed -nE \
+              's/.*\[build:(all|linux_x64|linux_arm64|windows|macos|ios|android|html5)\].*/\1/p' | tail -n 1)
+            [ -z "$COMMIT_TARGET" ] || TARGET_PLATFORM="$COMMIT_TARGET"
           fi
+          ALL_PLATFORMS='[
+            {"platform":"linux_x64","os":"ubuntu-latest","preset":"Linux/X11 x86_64","artifact_name":"Odisea-Tech-Demo-Linux"},
+            {"platform":"linux_arm64","os":"ubuntu-latest","preset":"Linux/X11 ARM64","artifact_name":"Odisea-Tech-Demo-Linux-ARM64"},
+            {"platform":"windows","os":"ubuntu-latest","preset":"Windows Desktop","artifact_name":"Odisea-Tech-Demo-Windows"},
+            {"platform":"macos","os":"ubuntu-latest","preset":"macOS Universal","artifact_name":"Odisea-Tech-Demo-macOS"},
+            {"platform":"ios","os":"macos-latest","preset":"iOS","artifact_name":"Odisea-Tech-Demo-iOS"},
+            {"platform":"android","os":"ubuntu-latest","preset":"Android","artifact_name":"Odisea-Tech-Demo-Android","container":"barichello/godot-ci:3.6.2"},
+            {"platform":"html5","os":"ubuntu-latest","preset":"HTML5 Threads","artifact_name":"Odisea-Tech-Demo-Web"}
+          ]'
           case "$TARGET_PLATFORM" in
             all)
-              PLATFORMS='["linux_x64","linux_arm64","windows","macos","ios","android","html5"]'
+              PLATFORMS=$(printf '%s' "$ALL_PLATFORMS" | jq -c .)
               ;;
             linux_x64|linux_arm64|windows|macos|ios|android|html5)
-              PLATFORMS="[\"$TARGET_PLATFORM\"]"
+              PLATFORMS=$(printf '%s' "$ALL_PLATFORMS" | jq -c --arg platform "$TARGET_PLATFORM" \
+                '[.[] | select(.platform == $platform)]')
               ;;
             *)
               echo "::error::Unknown target platform: $TARGET_PLATFORM"
@@ -210,43 +228,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ fromJSON(needs.prep.outputs.platforms) }}
-        include:
-          - platform: linux_x64
-            os: ubuntu-latest
-            preset: "Linux/X11 x86_64"
-            artifact_name: Odisea-Tech-Demo-Linux
-          # macOS is exported from Linux: the GitHub macos-latest runner is an
-          # Apple Silicon box with only ~7 GB RAM, and the universal export
-          # (x86_64 + arm64) blows past that and gets OOM-killed (SIGKILL /
-          # "Killed: 9"). Godot 3.6 can produce the macOS .zip from a Linux
-          # runner (16 GB) as long as the osx export template is installed,
-          # which the "Install Templates" step already does from the .tpz.
-          - platform: linux_arm64
-            os: ubuntu-latest
-            preset: "Linux/X11 ARM64"
-            artifact_name: Odisea-Tech-Demo-Linux-ARM64
-          - platform: windows
-            os: ubuntu-latest
-            preset: "Windows Desktop"
-            artifact_name: Odisea-Tech-Demo-Windows
-          - platform: macos
-            os: ubuntu-latest
-            preset: "macOS Universal"
-            artifact_name: Odisea-Tech-Demo-macOS
-          - platform: ios
-            os: macos-latest
-            preset: "iOS"
-            artifact_name: Odisea-Tech-Demo-iOS
-          - platform: android
-            os: ubuntu-latest
-            preset: "Android"
-            artifact_name: Odisea-Tech-Demo-Android
-            container: barichello/godot-ci:3.6.2
-          - platform: html5
-            os: ubuntu-latest
-            preset: "HTML5 Threads"
-            artifact_name: Odisea-Tech-Demo-Web
+        include: ${{ fromJSON(needs.prep.outputs.platforms) }}
 
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -1171,11 +1153,14 @@ jobs:
           security import "$APP_P12" -k "$KEYCHAIN" -P "$APP_CERT_PASSWORD" -A -t cert -f pkcs12
           security import "$INSTALLER_P12" -k "$KEYCHAIN" -P "$INSTALLER_CERT_PASSWORD" -A -t cert -f pkcs12
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN"
+          security default-keychain -d user -s "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
 
           APP_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | \
-            sed -nE 's/.*"((Apple Distribution|3rd Party Mac Developer Application|Mac App Distribution):[^"]+)".*/\1/p' | head -n 1)
+            sed -nE 's/^[[:space:]]*[0-9]+\)[[:space:]]+([[:xdigit:]]+)[[:space:]]+"(Apple Distribution|3rd Party Mac Developer Application|Mac App Distribution):[^"]+".*/\1/p' | head -n 1)
           INSTALLER_IDENTITY=$(security find-identity -v "$KEYCHAIN" | \
-            sed -nE 's/.*"((3rd Party Mac Developer Installer|Mac Installer Distribution):[^"]+)".*/\1/p' | head -n 1)
+            sed -nE 's/^[[:space:]]*[0-9]+\)[[:space:]]+([[:xdigit:]]+)[[:space:]]+"(3rd Party Mac Developer Installer|Mac Installer Distribution):[^"]+".*/\1/p' | head -n 1)
           test -n "$APP_IDENTITY" || { security find-identity -v "$KEYCHAIN"; echo "::error::Mac app distribution identity not found"; exit 1; }
           test -n "$INSTALLER_IDENTITY" || { security find-identity -v "$KEYCHAIN"; echo "::error::Mac Installer Distribution identity not found"; exit 1; }
 
@@ -1324,6 +1309,7 @@ jobs:
     needs: [prep, export]
     runs-on: ubuntu-latest
     if: |
+      needs.prep.outputs.target_platform == 'all' &&
       (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.ref_name == 'release' || needs.prep.outputs.is_dispatch == 'true') &&
       github.repository == 'icarito/Odisea'
     steps:
@@ -1441,6 +1427,7 @@ jobs:
     # Generate signed manifests only for main (nightly) or release branches.
     # Forks don't have access to the signing secret and shouldn't publish manifests.
     if: |
+      needs.prep.outputs.target_platform == 'all' &&
       (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.ref_name == 'release' || needs.prep.outputs.is_dispatch == 'true') &&
       github.repository == 'icarito/Odisea'
     steps:
@@ -1574,7 +1561,7 @@ jobs:
     # Solo libera un release estable desde la rama 'release'. Un workflow_dispatch
     # NO publica release (publicaba un 0.1.0 indeseado); usar publish_prerelease=true
     # para un nightly manual, o pushear a 'release' para liberar de verdad.
-    if: needs.prep.outputs.ref_name == 'release'
+    if: needs.prep.outputs.ref_name == 'release' && needs.prep.outputs.target_platform == 'all'
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -1597,7 +1584,7 @@ jobs:
   nightly:
     needs: [prep, export, manifests]
     runs-on: ubuntu-latest
-    if: needs.prep.outputs.ref_name == 'main' || (needs.prep.outputs.is_dispatch == 'true' && needs.prep.outputs.publish_prerelease == 'true')
+    if: needs.prep.outputs.target_platform == 'all' && (needs.prep.outputs.ref_name == 'main' || (needs.prep.outputs.is_dispatch == 'true' && needs.prep.outputs.publish_prerelease == 'true'))
     # La fase de publicación NO debe ser cancelada a mitad por un run más nuevo
     # (cancel-in-progress del workflow). Con un concurrency propio SIN
     # cancel-in-progress, dos publicaciones se encolan (la nueva espera a que la
