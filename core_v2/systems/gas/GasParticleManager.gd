@@ -279,7 +279,7 @@ func apply_velocity_impulse(global_origin: Vector3, radius: float, velocity: Vec
 		p["velocity"] = Vector3(p["velocity"]) + local_velocity * strength * falloff * delta
 		particles[i] = p
 
-func set_particle_combustion(index: int, active: bool) -> void:
+func set_particle_combustion(index: int, active: bool, override_color: Color = Color(0, 0, 0, -1)) -> void:
 	if index < 0 or index >= particles.size():
 		return
 	var p: Dictionary = particles[index]
@@ -287,6 +287,8 @@ func set_particle_combustion(index: int, active: bool) -> void:
 		return
 	p["combustion"] = active
 	var c = ignition_color if active else default_color
+	if override_color.a >= 0.0:
+		c = override_color
 	var dist := Vector3(p["position"]).length()
 	p["color"] = _get_varied_color(c, index, dist)
 	particles[index] = p

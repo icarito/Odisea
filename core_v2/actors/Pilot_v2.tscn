@@ -61,6 +61,7 @@ max_pitch = 45.0
 auto_align_speed = 3.0
 step_height = 0.3
 step_grounded_grace = 0.3
+debug_acrobatic_probe = true
 camera_rig_jump_lazy_delay = 0.3
 camera_rig_jump_lazy_deadzone = 0.5
 
@@ -120,6 +121,7 @@ roll_speed_deg = 30.0
 [node name="Pivot" type="Spatial" parent="Visual"]
 script = ExtResource( 3 )
 climb_visual_lateral_offset = 0.12
+debug_acrobatic_probe = true
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 
@@ -194,7 +196,7 @@ generic_fallback_profile = ExtResource( 55 )
 stride_length_run = 2.2
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
-transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.96, 0 )
+transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 1, 0 )
 shape = SubResource( 48 )
 
 [node name="AudioListener" type="Listener" parent="."]
@@ -221,7 +223,7 @@ spring_length = 3.2
 [node name="Camera" type="Camera" parent="CameraRig/Yaw/Pitch/OTS_Offset/SpringArm"]
 transform = Transform( 1, -3.90799e-14, 8.52651e-14, 0, 1, 1.49012e-08, -1.42109e-14, -1.49012e-08, 1, 0, 0, 0 )
 current = true
-fov = 75.0
+fov = 80.0
 near = 0.01
 far = 10000.0
 

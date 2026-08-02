@@ -58,6 +58,34 @@ export(float) var centering_in_speed := 3.0
 # restores promptly after the player clears a doorway.
 export(float) var centering_out_speed := 3.5
 
+# --- EXPORTED TUNING: PROXIMITY CLAMP ---
+
+# El centering de arriba solo corrige el eje lateral y solo en pasajes angostos
+# (ratio <= 0.62). Contra superficies amplias y curvas -- la pared de un domo, el
+# piso al mirar hacia abajo -- el brazo se comprime poco (ratio ~0.70) y el offset
+# completo se sigue aplicando desde un punto que ya está a collision_padding de la
+# superficie, metiendo la cámara adentro de la geometría.
+#
+# Este clamp es una segunda curva, más temprana y sobre TODOS los ejes, que reduce
+# el offset en cuanto el brazo reporta contacto. No hace casts propios: se apoya en
+# la compresión que KinematicArm3D ya calculó.
+
+# Ratio de longitud del brazo donde el clamp empieza a reducir el offset.
+# Por encima de esto el offset es pleno (espacio abierto).
+export(float) var proximity_clamp_start_ratio := 0.92
+
+# Ratio donde el offset queda reducido a proximity_clamp_floor.
+export(float) var proximity_clamp_full_ratio := 0.45
+
+# Fracción del offset que sobrevive con el clamp a full. No es 0: el encuadre OTS
+# se pierde del todo si la cámara se centra por completo contra cualquier pared.
+export(float) var proximity_clamp_floor := 0.35
+
+# Velocidad de entrada/salida del clamp. Salida más rápida para que el encuadre
+# se recupere apenas el jugador se despega de la superficie.
+export(float) var proximity_clamp_in_speed := 6.0
+export(float) var proximity_clamp_out_speed := 3.0
+
 # --- EXPORTED TUNING: JUMP COMPENSATION ---
 
 # How much the camera pivot moves back (+Z) when the player is rising.
@@ -73,6 +101,7 @@ var _current_offset := Vector3.ZERO
 var _jump_comp_weight := 0.0
 var _distance_weight := 0.0
 var _centering_weight := 0.0    # 0 = full OTS side offset, 1 = fully centered
+var _proximity_scale := 1.0     # 1 = full offset, proximity_clamp_floor = pegado a una superficie
 var _player: KinematicBody = null
 var _spring_arm = null
 var _ots_offset_parent: Spatial = null
@@ -128,6 +157,14 @@ func _physics_process(delta: float):
 	var centering_speed := centering_in_speed if centering_target > _centering_weight else centering_out_speed
 	_centering_weight = lerp(_centering_weight, centering_target, _blend_alpha(centering_speed, delta))
 
+	# 1c. Clamp de proximidad — reduce el offset entero (lateral, vertical y de pivote)
+	# apenas el brazo toca algo. Cubre el caso que el centering deja pasar: superficies
+	# amplias y curvas donde el brazo apenas se comprime pero la cámara igual queda a
+	# collision_padding de la geometría, y el offset la empujaría del otro lado.
+	var proximity_target := _compute_proximity_scale(compression_ratio)
+	var proximity_speed := proximity_clamp_in_speed if proximity_target < _proximity_scale else proximity_clamp_out_speed
+	_proximity_scale = lerp(_proximity_scale, proximity_target, _blend_alpha(proximity_speed, delta))
+
 	# 2. Jump Compensation Calculation
 	# We look for a rising state to pull the camera back and up.
 	var is_rising = _player.velocity.y > 0.5 and not _player.is_on_floor()
@@ -139,9 +176,11 @@ func _physics_process(delta: float):
 
 	# OTS follows zoom only. The arm decides distance; this component turns
 	# that distance into framing.
-	target_offset.x = max_side_offset * _distance_weight * (1.0 - _centering_weight) * (1.0 if right_side else -1.0)
-	target_offset.y = max_height_offset * _distance_weight
-	target_offset.z = max_pivot_z_offset * _distance_weight
+	# _proximity_scale afecta los tres ejes: el vertical es el que hunde la cámara bajo
+	# el piso al mirar hacia abajo, y no lo cubre ningún otro atenuador.
+	target_offset.x = max_side_offset * _distance_weight * (1.0 - _centering_weight) * _proximity_scale * (1.0 if right_side else -1.0)
+	target_offset.y = max_height_offset * _distance_weight * _proximity_scale
+	target_offset.z = max_pivot_z_offset * _distance_weight * _proximity_scale
 
 	# Jump compensation
 	target_offset.y += jump_rise_offset * _jump_comp_weight
@@ -159,16 +198,20 @@ func snap_to_current_state() -> void:
 	_distance_weight = pow(raw_weight, curve_power)
 	_centering_weight = 0.0
 	_jump_comp_weight = 0.0
+	# Sin blend: si el snap ocurre con la cámara ya contra una superficie (llegada por
+	# airlock, teleport), arrancar en 1.0 metería la cámara en la pared por un frame.
+	_proximity_scale = _compute_proximity_scale(effective_len / max(_get_target_arm_length(), 0.001))
 	var target_offset := Vector3.ZERO
-	target_offset.x = max_side_offset * _distance_weight * (1.0 - _centering_weight) * (1.0 if right_side else -1.0)
-	target_offset.y = max_height_offset * _distance_weight
-	target_offset.z = max_pivot_z_offset * _distance_weight
+	target_offset.x = max_side_offset * _distance_weight * (1.0 - _centering_weight) * _proximity_scale * (1.0 if right_side else -1.0)
+	target_offset.y = max_height_offset * _distance_weight * _proximity_scale
+	target_offset.z = max_pivot_z_offset * _distance_weight * _proximity_scale
 	_current_offset = target_offset
 	_apply_arm_offset(_current_offset)
 
 func _reset_offset(delta: float):
 	_distance_weight = lerp(_distance_weight, 0.0, _blend_alpha(distance_blend_speed, delta))
 	_centering_weight = lerp(_centering_weight, 0.0, _blend_alpha(centering_out_speed, delta))
+	_proximity_scale = lerp(_proximity_scale, 1.0, _blend_alpha(proximity_clamp_out_speed, delta))
 	if _current_offset.length_squared() > 0.00001:
 		_current_offset = _current_offset.linear_interpolate(Vector3.ZERO, _blend_alpha(lerp_speed, delta))
 		_apply_arm_offset(_current_offset)
@@ -181,6 +224,7 @@ func _reset_offset_immediate() -> void:
 	_distance_weight = 0.0
 	_centering_weight = 0.0
 	_jump_comp_weight = 0.0
+	_proximity_scale = 1.0
 	_current_offset = Vector3.ZERO
 	_apply_arm_offset(Vector3.ZERO)
 
@@ -209,6 +253,20 @@ func _get_target_arm_length() -> float:
 func _compute_ots_weight(current_len: float) -> float:
 	var distance_span := max(distance_max - distance_min, 0.001)
 	return 1.0 - clamp((current_len - distance_min) / distance_span, 0.0, 1.0)
+
+# Escalar del offset según cuán cerca está la cámara de una superficie, derivado de la
+# compresión que ya reporta el brazo. Devuelve 1.0 en espacio abierto y baja hasta
+# proximity_clamp_floor cuando el brazo está claramente contra algo.
+#
+# Se apoya en has_active_collision() en vez de solo el ratio: contra una pared plana y
+# amplia el brazo puede quedar latcheado con muy poca compresión, y ahí el ratio por sí
+# solo no distingue "sin obstáculo" de "apoyado contra un muro".
+func _compute_proximity_scale(compression_ratio: float) -> float:
+	if not _has_active_arm_collision():
+		return 1.0
+	var span := max(proximity_clamp_start_ratio - proximity_clamp_full_ratio, 0.001)
+	var t := clamp((compression_ratio - proximity_clamp_full_ratio) / span, 0.0, 1.0)
+	return lerp(clamp(proximity_clamp_floor, 0.0, 1.0), 1.0, t)
 
 func _has_active_arm_collision() -> bool:
 	if _spring_arm.has_method("has_active_collision"):

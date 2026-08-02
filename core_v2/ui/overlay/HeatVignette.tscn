@@ -1,0 +1,26 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/ui/overlay/HeatVignette.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/ui/overlay/shaders/heat_vignette.shader" type="Shader" id=2]
+
+[sub_resource type="ShaderMaterial" id=1]
+shader = ExtResource( 2 )
+shader_param/heat_color = Color( 0.85, 0.117647, 0.0313726, 1 )
+shader_param/intensity = 0.0
+shader_param/inner_radius = 0.35
+shader_param/outer_radius = 0.95
+shader_param/aspect = 1.7777
+shader_param/creep = 0.0
+
+[node name="HeatVignette" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource( 1 )
+
+[node name="Vignette" type="ColorRect" parent="."]
+material = SubResource( 1 )
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color( 1, 1, 1, 1 )

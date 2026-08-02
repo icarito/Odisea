@@ -8,6 +8,11 @@ extends Spatial
 const LATCH_POSE_TRANSLATION_EPSILON := 0.025
 const LATCH_POSE_DIRECTION_DOT_EPSILON := 0.002
 
+# Holgura extra (además de collision_padding) con la que se sondea el barrido de
+# colisión, para que el contacto sostenido en reposo se siga reportando como hit
+# en vez de caer en el guard de safe_fraction >= 0.9999. Ver _cast_shape_hit_length.
+const CONTACT_PROBE_SLACK := 0.04
+
 # The shape of the end of the arm (the "rolling ball")
 export var collider_shape: Shape setget set_collider_shape
 
@@ -361,7 +366,24 @@ func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_le
 	params.collision_mask = collision_mask
 	params.exclude = _excluded_objects
 
-	var motion_result = space_state.cast_motion(params, arm_motion)
+	# Barrer MÁS ALLÁ de la longitud pedida. El hit devuelto ya tiene el padding
+	# restado, así que un arm en reposo contra un muro queda exactamente a padding
+	# de distancia y un barrido de largo exacto no lo alcanza: cast_motion devuelve
+	# safe_fraction≈1 ("libre"), el latch expira por timeout, el arm extiende,
+	# vuelve a chocar y re-latchea -> oscilación permanente con el jugador quieto.
+	#
+	# El margen es padding + slack: con margen == padding el barrido termina JUSTO
+	# sobre la superficie en reposo y safe_fraction cae en el guard de 0.9999, que
+	# es el mismo miss que se quiere evitar. El slack asegura que el contacto
+	# sostenido caiga con holgura dentro del barrido y se reporte como hit real.
+	var motion_length := arm_motion.length()
+	if motion_length <= 0.0001:
+		return -1.0
+	var probe_margin := collision_padding + CONTACT_PROBE_SLACK
+	var probe_length := motion_length + probe_margin
+	var probe_motion := arm_motion * (probe_length / motion_length)
+
+	var motion_result = space_state.cast_motion(params, probe_motion)
 	if motion_result.empty():
 		return -1.0
 
@@ -369,7 +391,18 @@ func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_le
 	if safe_fraction >= 0.9999:
 		return -1.0
 
-	return max((desired_length * safe_fraction) - collision_padding, min_length)
+	# El barrido es más largo que desired_length, así que la fracción se escala
+	# sobre el largo sondeado y recién ahí se descuenta el padding. El clamp evita
+	# que un hit dentro del margen extra extienda el arm más allá de su objetivo.
+	var hit_distance := ((desired_length + probe_margin) * safe_fraction) - collision_padding
+	# NO se sube el hit a min_length. min_length limita cuánto se ENCOGE el arm por
+	# zoom, pero un obstáculo más cercano que min_length es una colisión real: forzar
+	# el largo a 0.65 ahí empuja la cámara a través de la pared. Pasa contra la cúpula,
+	# donde el domo se inclina hacia adentro y a la altura del pivote no queda hueco
+	# detrás del jugador (el barrido devuelve hit negativo). Se devuelve 0.0 como piso
+	# -- cámara pegada al pivote, en primera persona -- que es feo pero nunca traspasa.
+	# Quien decide qué hacer con un hit tan corto es _physics_process, no este cast.
+	return max(min(hit_distance, desired_length), 0.0)
 
 func _cast_motion_lookahead_hit_length(arm_origin: Vector3, desired_length: float, delta: float) -> float:
 	if not _has_previous_arm_origin:
@@ -413,6 +446,23 @@ func _advance_clear_length(delta: float) -> float:
 			else:
 				current_length = _collision_latched_length
 			return current_length
+
+		# Verificar antes de soltar: el cast de este frame puede haber fallado por
+		# parpadeo (geometría densa/curva) y no porque el obstáculo se haya ido.
+		# Se re-sondea a target_length -- más lejos que el arm actual -- así que
+		# alcanza el muro aunque el arm ya esté pegado a él. Solo corre en el frame
+		# en que vence el timer, no en el steady state.
+		var verify_length := max(target_length, min_length)
+		var verify_origin := _get_arm_pose_origin()
+		var verify_hit := _cast_shape_hit_length(
+			verify_origin,
+			global_transform.basis.z * verify_length,
+			verify_length
+		)
+		if verify_hit >= 0.0:
+			# El obstáculo sigue ahí: refrescar el latch en vez de liberarlo.
+			_collision_miss_timer = 0.0
+			return _start_collision_latch(verify_hit)
 
 		_collision_latched_length = -1.0
 		_collision_release_timer = 0.0

@@ -354,10 +354,25 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/visual/FauxSkydomeParallaxShell.gd"
 }, {
+"base": "Node",
+"class": "FireDestructible",
+"language": "GDScript",
+"path": "res://core_v2/systems/fire/FireDestructible.gd"
+}, {
 "base": "Area",
 "class": "FireEmitter",
 "language": "GDScript",
 "path": "res://core_v2/props/emitters/FireEmitter.gd"
+}, {
+"base": "Spatial",
+"class": "FireSystem",
+"language": "GDScript",
+"path": "res://core_v2/systems/fire/FireSystem.gd"
+}, {
+"base": "Spatial",
+"class": "FireVisualBand",
+"language": "GDScript",
+"path": "res://core_v2/systems/fire/FireVisualBand.gd"
 }, {
 "base": "PropBaseV2",
 "class": "FluorescentLight",
@@ -1539,6 +1554,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/scaffold/ScaffoldExclusionArea.gd"
 }, {
+"base": "Spatial",
+"class": "ScaffoldHubRing",
+"language": "GDScript",
+"path": "res://core_v2/props/scaffold/ScaffoldHubRing.gd"
+}, {
+"base": "Spatial",
+"class": "ScaffoldHubTower",
+"language": "GDScript",
+"path": "res://core_v2/props/scaffold/ScaffoldHubTower.gd"
+}, {
 "base": "Reference",
 "class": "ScaffoldMSTGenerator",
 "language": "GDScript",
@@ -1683,6 +1708,11 @@ _global_script_classes=[ {
 "class": "StringFuzzer",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/fuzzers/StringFuzzer.gd"
+}, {
+"base": "Node",
+"class": "SuitThermalResistance",
+"language": "GDScript",
+"path": "res://core_v2/player/components/SuitThermalResistance.gd"
 }, {
 "base": "Node",
 "class": "TeleportSystem",
@@ -1979,7 +2009,10 @@ _global_script_class_icons={
 "EmergencyBeaconV2": "",
 "EqualsArgumentMatcher": "",
 "FauxSkydomeParallaxShell": "",
+"FireDestructible": "",
 "FireEmitter": "",
+"FireSystem": "",
+"FireVisualBand": "",
 "FluorescentLight": "",
 "Follow": "",
 "FootstepDetector": "",
@@ -2216,6 +2249,8 @@ _global_script_class_icons={
 "SGCCameraWarp": "",
 "SGCPlatformBridge": "",
 "ScaffoldExclusionArea": "",
+"ScaffoldHubRing": "",
+"ScaffoldHubTower": "",
 "ScaffoldMSTGenerator": "",
 "ScaffoldOrbit": "",
 "ScaffoldStreamController": "",
@@ -2245,6 +2280,7 @@ _global_script_class_icons={
 "SteelPlate": "",
 "StressTestRunner": "",
 "StringFuzzer": "",
+"SuitThermalResistance": "",
 "TeleportSystem": "",
 "TerminalCameraRig": "",
 "TerminalHUDBridge": "",
@@ -2325,6 +2361,7 @@ ShaderCacheManager="*res://addons/gd-shader-cache/src/ShaderCacheManager.gd"
 MobileUIManager="*res://core_v2/autoloads/MobileUIManager.gd"
 OverlayUIManager="*res://core_v2/autoloads/OverlayUIManager.gd"
 ScreenEffectsManager="*res://core_v2/autoloads/ScreenEffectsManager.gd"
+HeatVignetteManager="*res://core_v2/autoloads/HeatVignetteManager.gd"
 ScreenshotQueue="*res://core_v2/systems/ScreenshotQueue.gd"
 VideoExporter="*res://core_v2/systems/VideoExporter.gd"
 StartupTrace="*res://core_v2/autoloads/StartupTrace.gd"

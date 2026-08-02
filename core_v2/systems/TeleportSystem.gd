@@ -431,6 +431,14 @@ func _on_player_killed():
 			target_transform = Transform()
 			print("[TeleportSystem] Respawn usando Transform.ZERO.")
 
+	# FD-051: no es justo reaparecer bajo/dentro de la zona de calor. Congela el fuego con
+	# margen respecto al punto de respawn real (nunca lo retrocede si ya estaba más abajo).
+	if target_transform != null:
+		var fire_systems: Array = get_tree().get_nodes_in_group("fire_system")
+		for fire_system in fire_systems:
+			if is_instance_valid(fire_system) and fire_system.has_method("ensure_safe_for_respawn"):
+				fire_system.ensure_safe_for_respawn(target_transform.origin.y)
+
 	print("[TeleportSystem] Reinstanciando Pilot en:", target_transform)
 	# Eliminar el Pilot actual
 	if is_instance_valid(player_controller) and player_controller.is_inside_tree():

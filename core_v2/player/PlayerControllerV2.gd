@@ -69,6 +69,7 @@ export(bool) var enable_step_up := true
 export(float) var step_grounded_grace := 0.22
 export(float) var stair_ground_probe_extra := 0.2
 export(bool) var debug_stair_state := false
+export(bool) var debug_acrobatic_probe := false
 export(float, 0.2, 1.0) var crouch_collider_height_ratio := 0.55
 export(float) var crouch_headroom_margin := 0.03
 
@@ -352,6 +353,7 @@ func ensure_input_provider():
 var jump_logic: PlayerJumpV2
 var movement_logic: PlayerMovementV2
 var traversal_logic: TraversalLogicV2
+var thermal_resistance: Node = null
 var _created_jump_logic := false
 var _created_movement_logic := false
 
@@ -666,12 +668,49 @@ func _ready():
 	_setup_interact_area()
 	_setup_crouch_collision()
 	_setup_multi_tool()
+	_setup_thermal_resistance()
 	call_deferred("_apply_weak_visual_policy_if_needed_deferred")
 	call_deferred("_apply_camera_particle_policy")
 
 func _ensure_required_player_collision_mask() -> void:
 	if (collision_mask & PLAYER_REQUIRED_COLLISION_MASK) == 0:
 		collision_mask |= PLAYER_REQUIRED_COLLISION_MASK
+
+# FD-051: el traje absorbe el calor del fuego; su ruptura es lo que mata, no el contacto.
+func _setup_thermal_resistance() -> void:
+	add_to_group("fire_vulnerable")
+	var suit = get_node_or_null("Logic/SuitThermalResistance")
+	if not is_instance_valid(suit):
+		suit = load("res://core_v2/player/components/SuitThermalResistance.gd").new()
+		suit.name = "SuitThermalResistance"
+		if has_node("Logic"):
+			get_node("Logic").add_child(suit)
+		else:
+			add_child(suit)
+	thermal_resistance = suit
+	if not suit.is_connected("suit_breached", self, "_on_suit_breached"):
+		var _err = suit.connect("suit_breached", self, "_on_suit_breached")
+
+	# La viñeta vive en OverlayUIManager y sobrevive a la reinstanciación del Pilot en cada
+	# respawn: hay que re-atarla al traje NUEVO explícitamente, si no queda mostrando el
+	# último ratio del traje anterior (ej. viñeta a full tras morir quemado).
+	var heat_vignette_manager = get_node_or_null("/root/HeatVignetteManager")
+	if heat_vignette_manager and heat_vignette_manager.has_method("bind_suit"):
+		heat_vignette_manager.bind_suit(suit)
+
+func _on_suit_breached() -> void:
+	# El componente del traje no sabe de respawn: la muerte la resuelve el TeleportSystem,
+	# la misma vía que usa KillZoneV2.
+	var teleport_system = get_tree().get_root().find_node("TeleportSystem", true, false)
+	if teleport_system and teleport_system.has_method("_on_player_killed"):
+		teleport_system._on_player_killed()
+	else:
+		push_warning("[PlayerControllerV2] suit_breached sin TeleportSystem: no hay respawn.")
+
+# Vía de daño genérica (compat con la ruta has_method("take_damage") de GasArea3D).
+func take_damage(amount: float) -> void:
+	if is_instance_valid(thermal_resistance) and thermal_resistance.has_method("apply_heat"):
+		thermal_resistance.apply_heat(amount)
 
 func _ensure_player_audio_listener() -> void:
 	if not (_audio_listener and is_instance_valid(_audio_listener)):
@@ -2351,6 +2390,8 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# --- ACROBATIC JUMP CHECK (before normal jump) ---
 	if is_acrobatic_ready and physics_grounded and jump_logic.jump_buffer_timer > 0 and not CinematicManager.latch_active:
+		if debug_acrobatic_probe:
+			print("[ACRO] rama=ACROBATICA force=%.1f snap_age=%d" % [jump_logic.acrobatic_jump_force, frames_since_last_snap])
 		var force = jump_logic.acrobatic_jump_force
 		velocity.y = force
 		
@@ -2375,6 +2416,8 @@ func step(dt: float, input: InputDataV2) -> void:
 		
 		jump_logic.consume_jump()
 		jump_logic.set_internal_velocity(force)
+		# Igual que el salto normal: MIN_JUMP_TIME protege el despegue del recorte variable
+		jump_logic._jump_time_tracker = 0.0
 		is_acrobatic_ready = false
 		emit_signal("acrobatic_jumped")
 	else:
@@ -2382,6 +2425,14 @@ func step(dt: float, input: InputDataV2) -> void:
 		var old_vy = velocity.y
 		velocity.y = jump_logic.step(dt, input.jump, velocity.y, physics_grounded)
 		if velocity.y == jump_logic.jump_force and old_vy != jump_logic.jump_force:
+			if debug_acrobatic_probe:
+				# Por qué NO fue acrobático: aísla ventana vencida vs doble-snap vs latch cinemático.
+				var motivo := "ready=false(ventana/doble-snap)"
+				if is_acrobatic_ready and CinematicManager.latch_active:
+					motivo = "latch_cinematico"
+				elif is_acrobatic_ready:
+					motivo = "sin_jump_buffer"
+				print("[ACRO] rama=NORMAL force=%.1f snap_age=%d motivo=%s" % [jump_logic.jump_force, frames_since_last_snap, motivo])
 			emit_signal("jumped")
 
 	# --- EXTERNAL VELOCITY ---

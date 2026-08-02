@@ -1,0 +1,30 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/systems/fire/FireVisualBand.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=2]
+
+[node name="FireVisualBand" type="Spatial"]
+script = ExtResource( 1 )
+ring_radius = 28.0
+ring_thickness = 3.0
+particles_per_second = 45.0
+visible_arc_deg = 140.0
+line_noise = 0.6
+follow_lerp = 12.0
+flame_rise_speed = 1.4
+
+[node name="GasParticleManager" type="Spatial" parent="."]
+script = ExtResource( 2 )
+pool_size = 96
+default_max_lifetime = 1.4
+default_base_scale = 3.2
+viscosity = 0.45
+buoyancy = -1.6
+decay_rate = 1.0
+default_color = Color( 1, 0.443137, 0.101961, 0.88 )
+ignition_color = Color( 1, 0.639216, 0.219608, 0.9 )
+volume_radius = 30.0
+collide_with_world = false
+flipbook_frames_per_second = 32.0
+default_atlas_path = "res://assets/flipbook_particles/assets/fireballs/fireball_01/textures/fireball_01.png"
+use_dither = true

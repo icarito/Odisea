@@ -112,7 +112,17 @@ var last_air_vertical_speed: float = 0.0 # Guarda la velocidad vertical del últ
 var airborne_time: float = 0.0
 var jumped_buffer_time: float = 0.0
 var acrobatic_trigger_active: bool = false # Latch para garantizar que la SM vea el trigger
-var acrobatic_trigger_frames_left: int = 0 # Hold trigger to survive frame ordering between controller and animator.
+var acrobatic_trigger_time_left: float = 0.0 # Hold trigger to survive frame ordering between controller and animator.
+const ACROBATIC_TRIGGER_HOLD := 0.3 # El AnimationTree corre en IDLE y el trigger llega desde physics.
+
+# --- PROBE: salto con altura acrobática que no gatilla la animación de backflip ---
+export var debug_acrobatic_probe: bool = false
+const ACRO_PROBE_SETTLE := 0.15 # Margen para que la StateMachine resuelva la transición
+const ACRO_PROBE_VY_THRESHOLD := 9.5 # Entre jump_force (8) y acrobatic_jump_force (11)
+var _acro_probe_time_left: float = 0.0
+var _acro_probe_signal_seen: bool = false
+var _acro_probe_takeoff_vy: float = 0.0
+var _acro_probe_trace: Array = [] # Estado por frame durante la ventana de settle
 var is_rotation_locked: bool = false # Impide que el personaje rote durante maniobras (backflip)
 var hit_head_active: bool = false
 var current_push_time: float = 0.0
@@ -312,6 +322,14 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	if jumped_buffer_time > 0.0:
 		jumped_buffer_time = max(0.0, jumped_buffer_time - dt)
 
+	# Idem para el latch acrobático: se sostiene por tiempo, no por frames del animador,
+	# porque el AnimationTree muestrea la condición en su propio callback.
+	if acrobatic_trigger_time_left > 0.0:
+		acrobatic_trigger_time_left = max(0.0, acrobatic_trigger_time_left - dt)
+
+	if debug_acrobatic_probe:
+		_update_acrobatic_probe(dt, p_current_velocity, is_on_floor)
+
 	# 1. SUAVIZADO DE VELOCIDAD PARA ANIMACIÓN
 	# Usamos la velocidad del controlador para el movimiento, pero una versión
 	# suavizada para que las transiciones de animación (e.g., idle -> run) no sean abruptas.
@@ -465,8 +483,8 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	_set_anim_tree_param(PARAM_CONDITIONS_IS_PUSHING, is_pushing)
 	_set_anim_tree_param(PARAM_CONDITIONS_NOT_PUSHING, not is_pushing)
 
-	# Keep acrobatic trigger alive for a couple of frames.
-	acrobatic_trigger_active = acrobatic_trigger_frames_left > 0
+	# Keep acrobatic trigger alive until the hold window expires.
+	acrobatic_trigger_active = acrobatic_trigger_time_left > 0.0
 
 	# Crouch State
 	# If acrobatic is armed this frame, force crouch off to avoid competing transitions.
@@ -493,7 +511,9 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	if acrobatic_trigger_active or is_zero_g:
 		is_jumping_param = false
 
-	var is_floating: bool = effective_airborne and not is_falling and not is_jumping_param
+	# El latch acrobático apaga is_jumping arriba; sin excluirlo aquí, ese mismo apagado
+	# encendería is_floating y competiría con la transición 'is_acrobatic'.
+	var is_floating: bool = effective_airborne and not is_falling and not is_jumping_param and not acrobatic_trigger_active
 
 	_set_anim_tree_param(PARAM_CONDITIONS_IS_FALLING, is_falling)
 	_set_anim_tree_param(PARAM_CONDITIONS_IS_FLOATING, is_floating)
@@ -509,9 +529,6 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 		if debug_animation_events:
 			print("PilotAnimator: Sending is_acrobatic = TRUE to AnimationTree")
 		_set_anim_tree_param(PARAM_CONDITIONS_IS_ACROBATIC, true)
-		acrobatic_trigger_frames_left -= 1
-		if acrobatic_trigger_frames_left <= 0:
-			acrobatic_trigger_active = false
 	else:
 		_set_anim_tree_param(PARAM_CONDITIONS_IS_ACROBATIC, false)
 	
@@ -580,6 +597,50 @@ func _on_controller_jumped() -> void:
 
 	if jump_sfx:
 		jump_sfx.play_sfx()
+
+func _update_acrobatic_probe(dt: float, p_current_velocity: Vector3, is_on_floor: bool) -> void:
+	"""Detecta despegues con velocidad acrobática cuya SM no llegó al estado Acrobatic.
+
+	Se arma por VELOCIDAD, no por la señal, para poder cazar el caso en que la física
+	acrobática ocurre pero la animación no: si dependiera de 'acrobatic_jumped' sería
+	ciego justo al fallo que buscamos.
+	"""
+	# Armar en el frame de despegue (subiendo, ya sin piso).
+	if not is_on_floor and p_current_velocity.y >= ACRO_PROBE_VY_THRESHOLD and _acro_probe_time_left <= 0.0:
+		_acro_probe_time_left = ACRO_PROBE_SETTLE
+		_acro_probe_takeoff_vy = p_current_velocity.y
+		_acro_probe_signal_seen = acrobatic_trigger_time_left > 0.0
+		_acro_probe_trace = []
+		return
+
+	if _acro_probe_time_left <= 0.0:
+		return
+
+	_acro_probe_time_left = max(0.0, _acro_probe_time_left - dt)
+
+	# Traza por frame: qué veía la SM mientras resolvía la transición.
+	var pb = animation_tree.get(PARAM_PLAYBACK) if animation_tree else null
+	_acro_probe_trace.append("%s|floor=%s|acro=%s|air=%.2f" % [
+		str(pb.get_current_node()) if pb else "?",
+		is_on_floor,
+		acrobatic_trigger_time_left > 0.0,
+		airborne_time])
+
+	if _acro_probe_time_left > 0.0:
+		return
+
+	# Ventana cumplida: ¿en qué estado quedó la StateMachine?
+	var estado := "?"
+	var playback = animation_tree.get(PARAM_PLAYBACK) if animation_tree else null
+	if playback:
+		estado = str(playback.get_current_node())
+
+	if estado == "Acrobatic":
+		print("[ACRO-ANIM] OK vy=%.1f estado=%s" % [_acro_probe_takeoff_vy, estado])
+	else:
+		print("[ACRO-ANIM] FALLO vy=%.1f estado=%s señal_recibida=%s (esperaba Acrobatic)" % [
+			_acro_probe_takeoff_vy, estado, _acro_probe_signal_seen])
+		print("[ACRO-ANIM]   traza: %s" % PoolStringArray(_acro_probe_trace).join("  ->  "))
 
 func _on_controller_hit_ceiling() -> void:
 	"""Se ejecuta cuando el controlador emite la señal 'hit_ceiling'."""
@@ -807,7 +868,7 @@ func _on_controller_acrobatic_jumped() -> void:
 			print("PilotAnimator: Controller signal received. Arming ACROBATIC latch.")
 		# Activamos el latch para que update_animation_parameters lo procese en el momento correcto
 		acrobatic_trigger_active = true
-		acrobatic_trigger_frames_left = 2
+		acrobatic_trigger_time_left = ACROBATIC_TRIGGER_HOLD
 		
 		# BLOQUEO DE ROTACIÓN:
 		# Miramos opuesto al movimiento para realizar el backflip hacia atrás

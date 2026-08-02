@@ -65,6 +65,7 @@
         "tool_fire_secondary": false,
         "tool_next_mode": false,
         "tool_prev_mode": false,
+        "cargol_ability": false,
         "hardware_mouse_active": false
       }
     },
@@ -93,6 +94,7 @@
         "tool_fire_secondary": false,
         "tool_next_mode": false,
         "tool_prev_mode": false,
+        "cargol_ability": false,
         "hardware_mouse_active": false
       }
     },
@@ -121,6 +123,7 @@
         "tool_fire_secondary": false,
         "tool_next_mode": false,
         "tool_prev_mode": false,
+        "cargol_ability": false,
         "hardware_mouse_active": false
       }
     },
@@ -149,6 +152,7 @@
         "tool_fire_secondary": false,
         "tool_next_mode": false,
         "tool_prev_mode": false,
+        "cargol_ability": false,
         "hardware_mouse_active": false
       }
     },
@@ -177,6 +181,7 @@
         "tool_fire_secondary": false,
         "tool_next_mode": false,
         "tool_prev_mode": false,
+        "cargol_ability": false,
         "hardware_mouse_active": false
       }
     },
@@ -205,6 +210,7 @@
         "tool_fire_secondary": false,
         "tool_next_mode": false,
         "tool_prev_mode": false,
+        "cargol_ability": false,
         "hardware_mouse_active": false
       }
     }
@@ -595,6 +601,11 @@
         "occupancy_hold_timer": 0,
         "occupied": false,
         "feedback_state": "disabled"
+      },
+      "/root/TestScene/Pilot/Logic/SuitThermalResistance": {
+        "integrity": 100,
+        "is_breached": false,
+        "regen_delay_timer": 0
       },
       "/root/TestScene/Pilot/MultiTool": {
         "mode": 1,

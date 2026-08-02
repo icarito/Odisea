@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/props/scaffold/ScaffoldHubTower.gd" type="Script" id=1]
+
+[node name="ScaffoldHubTower" type="Spatial"]
+script = ExtResource( 1 )
+floor_count = 6
+floor_height = 4.5
+base_y = 0.0
+sides = 8
+outer_radius = 7.0
+inner_radius = 3.0
+inner_opening_angles_deg = [ 0.0, 205.5, 259.5, 313.5, 7.5, 61.5 ]
+outer_opening_angles_deg = [ 75.0, 75.0, 75.0, 75.0, 75.0, 75.0 ]

@@ -1,4 +1,4 @@
-[gd_resource type="AnimationNodeStateMachine" load_steps=59 format=2]
+[gd_resource type="AnimationNodeStateMachine" load_steps=61 format=2]
 
 [sub_resource type="AnimationNodeAnimation" id=207]
 animation = "Backflip001"
@@ -275,6 +275,14 @@ advance_condition = "hit_head"
 xfade_time = 0.14
 priority = 7
 
+[sub_resource type="AnimationNodeStateMachineTransition" id=244]
+advance_condition = "is_acrobatic"
+xfade_time = 0.1
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=245]
+advance_condition = "is_jumping"
+xfade_time = 0.1
+
 [resource]
 states/Acrobatic/node = SubResource( 207 )
 states/Acrobatic/position = Vector2( 178.6, 247.081 )
@@ -298,5 +306,5 @@ states/Push/node = SubResource( 215 )
 states/Push/position = Vector2( 852.143, 457.595 )
 states/Tired/node = SubResource( 211 )
 states/Tired/position = Vector2( 751.857, 135.961 )
-transitions = [ "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ), "Grounded", "Jump", SubResource( 201 ), "Jump", "InAir", SubResource( 202 ), "InAir", "Hit_Head", SubResource( 204 ), "Hit_Head", "InAir", SubResource( 205 ), "Jump", "Hit_Head", SubResource( 206 ), "Grounded", "Acrobatic", SubResource( 208 ), "Acrobatic", "InAir", SubResource( 209 ), "Tired", "Grounded", SubResource( 212 ), "Confused", "Tired", SubResource( 213 ), "Grounded", "Confused", SubResource( 214 ), "Grounded", "Push", SubResource( 216 ), "Push", "Grounded", SubResource( 217 ), "Grounded", "Crouched", SubResource( 221 ), "Crouched", "Grounded", SubResource( 222 ), "Crouched", "Acrobatic", SubResource( 223 ), "Jump", "Acrobatic", SubResource( 224 ), "InAir", "Acrobatic", SubResource( 225 ), "Acrobatic", "Grounded", SubResource( 226 ), "Acrobatic", "Hit_Head", SubResource( 227 ), "Grounded", "Climbing", SubResource( 229 ), "InAir", "Climbing", SubResource( 230 ), "Jump", "Climbing", SubResource( 231 ), "Climbing", "Grounded", SubResource( 232 ), "Climbing", "InAir", SubResource( 235 ), "Crouched", "Climbing", SubResource( 238 ), "Push", "Climbing", SubResource( 239 ), "Climbing", "Jump", SubResource( 240 ), "Climbing", "Hit_Head", SubResource( 241 ) ]
-graph_offset = Vector2( -77, 50.881 )
+transitions = [ "InAir", "HardLand", SubResource( 192 ), "HardLand", "Grounded", SubResource( 194 ), "InAir", "Grounded", SubResource( 195 ), "Grounded", "InAir", SubResource( 196 ), "Grounded", "Jump", SubResource( 201 ), "Jump", "InAir", SubResource( 202 ), "InAir", "Hit_Head", SubResource( 204 ), "Hit_Head", "InAir", SubResource( 205 ), "Jump", "Hit_Head", SubResource( 206 ), "Grounded", "Acrobatic", SubResource( 208 ), "Acrobatic", "InAir", SubResource( 209 ), "Tired", "Grounded", SubResource( 212 ), "Confused", "Tired", SubResource( 213 ), "Grounded", "Confused", SubResource( 214 ), "Grounded", "Push", SubResource( 216 ), "Push", "Grounded", SubResource( 217 ), "Grounded", "Crouched", SubResource( 221 ), "Crouched", "Grounded", SubResource( 222 ), "Crouched", "Acrobatic", SubResource( 223 ), "Jump", "Acrobatic", SubResource( 224 ), "InAir", "Acrobatic", SubResource( 225 ), "Acrobatic", "Grounded", SubResource( 226 ), "Acrobatic", "Hit_Head", SubResource( 227 ), "Grounded", "Climbing", SubResource( 229 ), "InAir", "Climbing", SubResource( 230 ), "Jump", "Climbing", SubResource( 231 ), "Climbing", "Grounded", SubResource( 232 ), "Climbing", "InAir", SubResource( 235 ), "Crouched", "Climbing", SubResource( 238 ), "Push", "Climbing", SubResource( 239 ), "Climbing", "Jump", SubResource( 240 ), "Climbing", "Hit_Head", SubResource( 241 ), "HardLand", "Acrobatic", SubResource( 244 ), "HardLand", "Jump", SubResource( 245 ) ]
+graph_offset = Vector2( -191, -148.119 )

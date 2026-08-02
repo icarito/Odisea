@@ -77,7 +77,7 @@ func _set_visuals_active(active: bool):
 
 func extinguish():
 	set_active(false)
-	emit_signal("extinguished()")
+	emit_signal("extinguished")
 
 func interact():
 	toggle()

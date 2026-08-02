@@ -47,6 +47,7 @@ size = Vector2( 0.1, 0.1 )
 collision_layer = 2
 collision_mask = 255
 script = ExtResource( 2 )
+debug_acrobatic_probe = true
 joy_look_sensitivity = 5.0
 push_force = 9.0
 min_pitch = -45.0
@@ -103,6 +104,7 @@ jump_rise_offset = 0.45
 
 [node name="Pivot" type="Spatial" parent="Visual"]
 script = ExtResource( 3 )
+debug_acrobatic_probe = true
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 
@@ -178,7 +180,7 @@ light_specular = 0.3
 omni_range = 8.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
-transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0.96, 0 )
+transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 1, 0 )
 shape = SubResource( 48 )
 
 [node name="AudioListener" type="Listener" parent="."]

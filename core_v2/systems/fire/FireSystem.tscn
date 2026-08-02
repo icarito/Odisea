@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/systems/fire/FireSystem.gd" type="Script" id=1]
+
+[node name="FireSystem" type="Spatial"]
+script = ExtResource( 1 )
+base_speed = 0.15
+accel = 0.0
+start_height = 0.0
+heat_band = 2.0
+fire_contact_margin = 0.5
+damage_per_second = 25.0
+core_damage_multiplier = 4.0
+respawn_safety_margin = 3.0
+auto_start = true
+debug_draw = true
+debug_plane_radius = 30.0
