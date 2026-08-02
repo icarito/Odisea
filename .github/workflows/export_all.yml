@@ -333,13 +333,22 @@ jobs:
           GODOT_DIR="$HOME/.local/bin"
           mkdir -p "$GODOT_DIR"
           echo "$GODOT_DIR" >> "$GITHUB_PATH"
-          if [ ! -f "$GODOT_DIR/godot" ]; then
+          if [ ! -x "$GODOT_DIR/Godot.app/Contents/MacOS/Godot" ]; then
             curl -fSL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_osx.universal.zip"
+            rm -rf /tmp/godot_extract "$GODOT_DIR/Godot.app"
+            mkdir -p /tmp/godot_extract
             unzip -o /tmp/godot.zip -d /tmp/godot_extract
-            mv /tmp/godot_extract/Godot.app/Contents/MacOS/Godot "$GODOT_DIR/godot"
-            chmod +x "$GODOT_DIR/godot"
+            mv /tmp/godot_extract/Godot.app "$GODOT_DIR/Godot.app"
           fi
-          echo "GODOT_BIN=godot" >> $GITHUB_ENV
+          GODOT_MAC="$GODOT_DIR/Godot.app/Contents/MacOS/Godot"
+          chmod +x "$GODOT_MAC"
+          # Re-sign after extraction so macOS 26 does not terminate this older
+          # Godot bundle with SIGKILL before the process can print an error.
+          codesign --force --deep --sign - "$GODOT_DIR/Godot.app"
+          codesign --verify --deep --strict "$GODOT_DIR/Godot.app"
+          "$GODOT_MAC" --version
+          file "$GODOT_MAC"
+          echo "GODOT_BIN=$GODOT_MAC" >> "$GITHUB_ENV"
 
       - name: Install Templates
         if: matrix.platform != 'android'
@@ -389,7 +398,49 @@ jobs:
           IOS_PROVISION_B64: ${{ secrets.IOS_PROVISION_B64 }}
         run: |
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          echo "$IOS_PROVISION_B64" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/odisea.mobileprovision"
+          PROFILE="$HOME/Library/MobileDevice/Provisioning Profiles/odisea.mobileprovision"
+          echo "$IOS_PROVISION_B64" | base64 --decode > "$PROFILE"
+
+          security cms -D -i "$PROFILE" > /tmp/odisea-profile.plist
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' /tmp/odisea-profile.plist)
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' /tmp/odisea-profile.plist)
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' /tmp/odisea-profile.plist)
+          test -n "$PROFILE_UUID" && test -n "$TEAM_ID"
+          mv "$PROFILE" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+
+          IOS_TEAM_ID="$TEAM_ID" IOS_PROFILE_UUID="$PROFILE_UUID" python3 - <<'PY'
+          import os
+          import re
+
+          path = "export_presets.cfg"
+          lines = open(path, encoding="utf-8").read().splitlines()
+          start = lines.index("[preset.7.options]")
+          end = next((i for i in range(start + 1, len(lines))
+                      if re.match(r"^\[preset\.\d+", lines[i])), len(lines))
+          values = {
+              "application/app_store_team_id": os.environ["IOS_TEAM_ID"],
+              "application/identifier": "juegos.educa.odisea",
+              "application/provisioning_profile_uuid_release": os.environ["IOS_PROFILE_UUID"],
+              "application/code_sign_identity_release": "Apple Distribution",
+              "application/export_method_release": "0",
+          }
+          found = set()
+          for i in range(start + 1, end):
+              key = lines[i].split("=", 1)[0].strip()
+              if key in values:
+                  value = values[key]
+                  lines[i] = f'{key} = {value}' if key == "application/export_method_release" else f'{key} = "{value}"'
+                  found.add(key)
+          additions = []
+          for key, value in values.items():
+              if key not in found:
+                  additions.append(f'{key} = {value}' if key == "application/export_method_release" else f'{key} = "{value}"')
+          lines[end:end] = additions
+          open(path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+          PY
+
+          echo "Installed provisioning profile: $PROFILE_NAME ($PROFILE_UUID)"
+          echo "Configured Apple Team ID: $TEAM_ID"
 
       - name: Android Keystore Setup
         if: matrix.platform == 'android'
@@ -684,8 +735,11 @@ jobs:
           # Use 'godot' if 'godot3-server' is not set (container environment)
           G_BIN="${GODOT_BIN:-godot}"
 
-          # Import step
-          $G_BIN --editor --quit --headless || true
+          # The iOS export imports resources itself. Avoid launching Godot twice
+          # on the memory-constrained Apple Silicon hosted runner.
+          if [ "${{ matrix.platform }}" != "ios" ]; then
+            "$G_BIN" --editor --quit --headless || true
+          fi
 
           case "${{ matrix.platform }}" in
             linux_x64) OUT="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
@@ -736,8 +790,15 @@ jobs:
             fi
             echo "=== Gradle debug APK location check ==="
             find android/build/build/outputs/apk/debug/ -name "*.apk" 2>/dev/null || echo "None in android/build/build/outputs/apk/debug/"
+          elif [ "${{ matrix.platform }}" = "ios" ]; then
+            echo "=== Godot binary: $G_BIN ==="
+            "$G_BIN" --version
+            echo "=== Available Apple Distribution identities ==="
+            security find-identity -v -p codesigning | sed -E 's/(\"Apple Distribution:[^\"]*\").*/\1/'
+            echo "=== Running signed iOS export ==="
+            "$G_BIN" --no-window --export "${{ matrix.preset }}" "$OUT" --headless 2>&1 | tee /tmp/godot_ios.log || true
           else
-            $G_BIN --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
+            "$G_BIN" --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
           fi
 
           if [ ! -s "$OUT" ]; then
