@@ -1,5 +1,6 @@
-[gd_scene load_steps=57 format=2]
+[gd_scene load_steps=59 format=2]
 
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=21]
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
@@ -19,6 +20,7 @@
 [ext_resource path="res://core_v2/systems/fire/FireVisualBand.gd" type="Script" id=17]
 [ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=18]
 [ext_resource path="res://core_v2/systems/fire/shaders/fire_debug_plane.shader" type="Shader" id=19]
+[ext_resource path="res://scenes/common/space_environment/Environment_DomeIntro.tres" type="Environment" id=20]
 
 [sub_resource type="StreamTexture" id=256]
 flags = 18
@@ -410,6 +412,9 @@ size = Vector2( 60, 60 )
 
 [node name="Dome_Intro" type="Spatial"]
 
+[node name="Pilot_v2" parent="." instance=ExtResource( 21 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 4.7, 8 )
+
 [node name="SpawnPointV2" type="Position3D" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 4.7, 8 )
 script = ExtResource( 1 )
@@ -516,13 +521,319 @@ target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_West")
 zone_dir = Vector3( 0, 0, 1 )
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 20 )
+
 [node name="Lighting" type="Spatial" parent="."]
 
-[node name="OmniLight" type="OmniLight" parent="Lighting"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, 0 )
-light_color = Color( 0.9, 0.95, 1, 1 )
-light_energy = 1.5
-omni_range = 42.0
+[node name="KeyLight" type="DirectionalLight" parent="Lighting"]
+transform = Transform( 0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 30, 0 )
+light_color = Color( 0.82, 0.88, 1, 1 )
+light_energy = 0.85
+light_specular = 0.35
+shadow_enabled = true
+shadow_bias = 0.08
+directional_shadow_max_distance = 90.0
+
+[node name="FillLight" type="DirectionalLight" parent="Lighting"]
+transform = Transform( -0.866025, 0.25, -0.433013, 0, 0.866025, 0.5, 0.5, 0.433013, -0.75, 0, 24, 0 )
+light_color = Color( 0.3, 0.42, 0.62, 1 )
+light_energy = 0.22
+light_specular = 0.1
+
+[node name="TowerLights" type="Spatial" parent="Lighting"]
+
+[node name="TowerLight_1_1" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 7.6, 6.718 )
+light_color = Color( 1, 0.82, 0.6, 1 )
+light_energy = 4.20
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_1_2" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 7.6, 6.718 )
+light_color = Color( 1, 0.82, 0.6, 1 )
+light_energy = 4.20
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_1_3" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 7.6, -6.718 )
+light_color = Color( 1, 0.82, 0.6, 1 )
+light_energy = 4.20
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_1_4" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 7.6, -6.718 )
+light_color = Color( 1, 0.82, 0.6, 1 )
+light_energy = 4.20
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_2_1" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 12.1, 6.718 )
+light_color = Color( 1, 0.84, 0.64, 1 )
+light_energy = 3.90
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_2_2" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 12.1, 6.718 )
+light_color = Color( 1, 0.84, 0.64, 1 )
+light_energy = 3.90
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_2_3" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 12.1, -6.718 )
+light_color = Color( 1, 0.84, 0.64, 1 )
+light_energy = 3.90
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_2_4" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 12.1, -6.718 )
+light_color = Color( 1, 0.84, 0.64, 1 )
+light_energy = 3.90
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_3_1" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 16.6, 6.718 )
+light_color = Color( 0.98, 0.86, 0.72, 1 )
+light_energy = 3.60
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_3_2" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 16.6, 6.718 )
+light_color = Color( 0.98, 0.86, 0.72, 1 )
+light_energy = 3.60
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_3_3" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 16.6, -6.718 )
+light_color = Color( 0.98, 0.86, 0.72, 1 )
+light_energy = 3.60
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_3_4" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 16.6, -6.718 )
+light_color = Color( 0.98, 0.86, 0.72, 1 )
+light_energy = 3.60
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_4_1" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 21.1, 6.718 )
+light_color = Color( 0.9, 0.9, 0.98, 1 )
+light_energy = 3.20
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_4_2" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 21.1, 6.718 )
+light_color = Color( 0.9, 0.9, 0.98, 1 )
+light_energy = 3.20
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_4_3" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 21.1, -6.718 )
+light_color = Color( 0.9, 0.9, 0.98, 1 )
+light_energy = 3.20
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_4_4" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 21.1, -6.718 )
+light_color = Color( 0.9, 0.9, 0.98, 1 )
+light_energy = 3.20
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_5_1" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 25.6, 6.718 )
+light_color = Color( 0.82, 0.88, 1, 1 )
+light_energy = 2.80
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_5_2" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 25.6, 6.718 )
+light_color = Color( 0.82, 0.88, 1, 1 )
+light_energy = 2.80
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_5_3" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.718, 25.6, -6.718 )
+light_color = Color( 0.82, 0.88, 1, 1 )
+light_energy = 2.80
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="TowerLight_5_4" type="OmniLight" parent="Lighting/TowerLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.718, 25.6, -6.718 )
+light_color = Color( 0.82, 0.88, 1, 1 )
+light_energy = 2.80
+light_specular = 0.5
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="GroundLights" type="Spatial" parent="Lighting"]
+
+[node name="GroundInner_1" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.526, 3.6, 5.5 )
+light_color = Color( 0.76, 0.83, 0.96, 1 )
+light_energy = 2.60
+light_specular = 0.45
+omni_range = 24.0
+omni_attenuation = 1.0
+
+[node name="GroundInner_2" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.736e-16, 3.6, 11 )
+light_color = Color( 0.76, 0.83, 0.96, 1 )
+light_energy = 2.60
+light_specular = 0.45
+omni_range = 24.0
+omni_attenuation = 1.0
+
+[node name="GroundInner_3" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.526, 3.6, 5.5 )
+light_color = Color( 0.76, 0.83, 0.96, 1 )
+light_energy = 2.60
+light_specular = 0.45
+omni_range = 24.0
+omni_attenuation = 1.0
+
+[node name="GroundInner_4" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.526, 3.6, -5.5 )
+light_color = Color( 0.76, 0.83, 0.96, 1 )
+light_energy = 2.60
+light_specular = 0.45
+omni_range = 24.0
+omni_attenuation = 1.0
+
+[node name="GroundInner_5" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.021e-15, 3.6, -11 )
+light_color = Color( 0.76, 0.83, 0.96, 1 )
+light_energy = 2.60
+light_specular = 0.45
+omni_range = 24.0
+omni_attenuation = 1.0
+
+[node name="GroundInner_6" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.526, 3.6, -5.5 )
+light_color = Color( 0.76, 0.83, 0.96, 1 )
+light_energy = 2.60
+light_specular = 0.45
+omni_range = 24.0
+omni_attenuation = 1.0
+
+[node name="GroundOuter_1" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 4.2, 0 )
+light_color = Color( 0.62, 0.7, 0.85, 1 )
+light_energy = 1.50
+light_specular = 0.45
+omni_range = 22.0
+omni_attenuation = 1.0
+
+[node name="GroundOuter_2" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 4.2, 18.19 )
+light_color = Color( 0.62, 0.7, 0.85, 1 )
+light_energy = 1.50
+light_specular = 0.45
+omni_range = 22.0
+omni_attenuation = 1.0
+
+[node name="GroundOuter_3" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.5, 4.2, 18.19 )
+light_color = Color( 0.62, 0.7, 0.85, 1 )
+light_energy = 1.50
+light_specular = 0.45
+omni_range = 22.0
+omni_attenuation = 1.0
+
+[node name="GroundOuter_4" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -21, 4.2, 2.572e-15 )
+light_color = Color( 0.62, 0.7, 0.85, 1 )
+light_energy = 1.50
+light_specular = 0.45
+omni_range = 22.0
+omni_attenuation = 1.0
+
+[node name="GroundOuter_5" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.5, 4.2, -18.19 )
+light_color = Color( 0.62, 0.7, 0.85, 1 )
+light_energy = 1.50
+light_specular = 0.45
+omni_range = 22.0
+omni_attenuation = 1.0
+
+[node name="GroundOuter_6" type="OmniLight" parent="Lighting/GroundLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 4.2, -18.19 )
+light_color = Color( 0.62, 0.7, 0.85, 1 )
+light_energy = 1.50
+light_specular = 0.45
+omni_range = 22.0
+omni_attenuation = 1.0
+
+[node name="AirlockLights" type="Spatial" parent="Lighting"]
+
+[node name="AirlockLight_North" type="OmniLight" parent="Lighting/AirlockLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 6.2, -29 )
+light_color = Color( 0.45, 0.78, 1, 1 )
+light_energy = 4.0
+light_specular = 0.7
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="AirlockLight_South" type="OmniLight" parent="Lighting/AirlockLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 6.2, 29.3 )
+light_color = Color( 0.45, 0.78, 1, 1 )
+light_energy = 4.0
+light_specular = 0.7
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="AirlockLight_East" type="OmniLight" parent="Lighting/AirlockLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29, 6.2, 0 )
+light_color = Color( 0.45, 0.78, 1, 1 )
+light_energy = 4.0
+light_specular = 0.7
+omni_range = 26.0
+omni_attenuation = 1.0
+
+[node name="AirlockLight_West" type="OmniLight" parent="Lighting/AirlockLights"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -29, 6.2, 0 )
+light_color = Color( 0.45, 0.78, 1, 1 )
+light_energy = 4.0
+light_specular = 0.7
+omni_range = 26.0
+omni_attenuation = 1.0
 
 [node name="SpiralStairs" type="Spatial" parent="."]
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )

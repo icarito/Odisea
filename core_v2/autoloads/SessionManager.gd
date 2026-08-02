@@ -1467,7 +1467,7 @@ func _physics_process(_dt):
 		# Step plataformas TAMBIÉN durante grabación para determinismo
 		var sync_nodes = _get_replay_sync_nodes()
 		for node in sync_nodes:
-			if node != player and node.has_method("step"):
+			if node != player and (not is_instance_valid(player) or not player.is_a_parent_of(node)) and node.has_method("step"):
 				node.step(step_dt)
 		
 		# Step CinematicManager if active
@@ -1548,7 +1548,7 @@ func _physics_process(_dt):
 		# Step plataformas
 		var sync_nodes = _get_replay_sync_nodes()
 		for node in sync_nodes:
-			if node != player and node.has_method("step"):
+			if node != player and (not is_instance_valid(player) or not player.is_a_parent_of(node)) and node.has_method("step"):
 				node.step(FIXED_DT)
 		
 		# Step CinematicManager if active
@@ -3200,7 +3200,7 @@ func run_simulation_from_buffer(buffer_data: Array, world_start_state: Dictionar
 		
 		# Step plataformas
 		for node in sync_nodes:
-			if node != player_controller and node.has_method("step"):
+			if node != player_controller and not player_controller.is_a_parent_of(node) and node.has_method("step"):
 				node.step(FIXED_DT)
 		
 		frame_count += 1

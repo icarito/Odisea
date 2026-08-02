@@ -14,6 +14,11 @@ func after_test() -> void:
 
 func test_new_game_targets_dome_intro() -> void:
 	assert_str(MenuScript.FIRST_GAME_SCENE).is_equal(DOME_INTRO)
+	var dome_scene := load(DOME_INTRO) as PackedScene
+	assert_object(dome_scene).is_not_null()
+	var dome: Node = auto_free(dome_scene.instance())
+	assert_object(dome.get_node_or_null("Pilot_v2")).is_not_null()
+	assert_object(dome.get_node_or_null("Pilot_v2/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera")).is_not_null()
 
 func test_continue_requires_a_real_last_checkpoint() -> void:
 	var persistence = auto_free(PersistenceManagerScript.new())
