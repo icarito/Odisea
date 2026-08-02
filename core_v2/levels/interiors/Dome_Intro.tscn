@@ -2277,22 +2277,26 @@ default_atlas_path = "res://assets/flipbook_particles/assets/fireballs/fireball_
 [node name="FireSmokeCrown" type="Spatial" parent="."]
 script = ExtResource( 17 )
 ring_radius = 26.0
-ring_thickness = 4.0
-particles_per_second = 18.0
+visible_arc_deg = 260.0
+particles_per_second = 90.0
 line_noise = 1.2
 flame_rise_speed = 1.6
-flame_lifetime = 3.5
-flame_scale = 4.5
+flame_lifetime = 5.5
+flame_scale = 8.0
+flame_scale_variance = 0.5
+smoke_height_offset = 1.8
+smoke_lateral_speed = 1.3
 is_smoke_crown = true
 
 [node name="GasParticleManager" type="Spatial" parent="FireSmokeCrown"]
 script = ExtResource( 18 )
-pool_size = 48
-default_max_lifetime = 3.5
-default_base_scale = 4.5
-viscosity = 0.85
-buoyancy = -0.6
-default_color = Color( 0.32, 0.3, 0.28, 0.55 )
+pool_size = 500
+default_max_lifetime = 5.5
+default_base_scale = 8.0
+viscosity = 0.7
+buoyancy = -0.9
+default_color = Color( 0.32, 0.3, 0.28, 0.6 )
+collide_with_world = true
 world_collision_mask = 65
 flipbook_frames_per_second = 10.0
 default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_01/textures/smoke_01.tga"
