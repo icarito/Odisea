@@ -18,6 +18,8 @@ export(float) var pulse_amount := 0.12
 export(float) var responsiveness := 6.0
 # Ratio bajo el cual la viñeta entra en modo peligro (pulso rápido, avance al centro).
 export(float) var danger_ratio := 0.3
+# Desplazamiento UV máximo de la onda de calor. Es deliberadamente pequeño para no marear.
+export(float) var max_distortion := 0.007
 
 var _rect: ColorRect = null
 var _material: ShaderMaterial = null
@@ -26,8 +28,11 @@ var _heat_active := false
 var _heat_hold := 0.0
 var _intensity := 0.0
 var _pulse_time := 0.0
+var _heat_proximity := 0.0
+var _distortion := 0.0
 
 func _ready() -> void:
+	pause_mode = Node.PAUSE_MODE_PROCESS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	anchor_right = 1.0
 	anchor_bottom = 1.0
@@ -49,6 +54,8 @@ func bind_suit(suit: Node) -> void:
 	_pulse_time = 0.0
 	_intensity = 0.0
 	_ratio = 1.0
+	_heat_proximity = 0.0
+	_distortion = 0.0
 	if suit.has_signal("thermal_state_changed") and not suit.is_connected("thermal_state_changed", self, "set_thermal_ratio"):
 		var _e1 = suit.connect("thermal_state_changed", self, "set_thermal_ratio")
 	if suit.has_method("get_ratio"):
@@ -71,7 +78,14 @@ func set_heat_active(active: bool) -> void:
 		_heat_active = false
 		_heat_hold = 0.0
 
+func set_heat_proximity(proximity: float) -> void:
+	_heat_proximity = clamp(proximity, 0.0, 1.0)
+
 func _process(delta: float) -> void:
+	if get_tree().paused:
+		_distortion = 0.0
+		_apply_to_shader(_intensity, 0.0)
+		return
 	if _heat_hold > 0.0:
 		_heat_hold = max(_heat_hold - delta, 0.0)
 	var contact_active: bool = _heat_active or _heat_hold > 0.0
@@ -92,6 +106,8 @@ func _process(delta: float) -> void:
 
 	target = clamp(target, 0.0, 1.0)
 	_intensity = lerp(_intensity, target, clamp(delta * responsiveness, 0.0, 1.0))
+	var distortion_target := _heat_proximity * _heat_proximity * max_distortion
+	_distortion = lerp(_distortion, distortion_target, clamp(delta * responsiveness, 0.0, 1.0))
 
 	var creep := 0.0
 	if danger_ratio > 0.0 and _ratio < danger_ratio:
@@ -99,13 +115,14 @@ func _process(delta: float) -> void:
 	_apply_to_shader(_intensity, creep)
 
 	if is_instance_valid(_rect):
-		_rect.visible = _intensity > 0.002
+		_rect.visible = _intensity > 0.002 or _distortion > 0.00002
 
 func _apply_to_shader(intensity: float, creep: float) -> void:
 	if not is_instance_valid(_material):
 		return
 	_material.set_shader_param("intensity", intensity)
 	_material.set_shader_param("creep", creep)
+	_material.set_shader_param("distortion", _distortion)
 
 func _on_viewport_resized() -> void:
 	if not is_instance_valid(_material):

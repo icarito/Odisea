@@ -8,15 +8,28 @@ extends Node
 const HeatVignetteScene = preload("res://core_v2/ui/overlay/HeatVignette.tscn")
 const OVERLAY_UI_PATH := "/root/OverlayUIManager"
 const OVERLAY_SLOT := "Passive"
+const HEAT_DISTORTION_RANGE := 10.0
 
 var _overlay: Node = null
 var _suit: Node = null
 var _fire_system: Node = null
+var _player: Spatial = null
 var _warned_unavailable := false
 
 func _ready() -> void:
 	var _err = get_tree().connect("node_added", self, "_on_node_added")
 	call_deferred("_try_bind")
+
+func _process(_delta: float) -> void:
+	if not is_instance_valid(_overlay) or not is_instance_valid(_fire_system):
+		return
+	if not is_instance_valid(_player):
+		_player = _find_player()
+	if not is_instance_valid(_player) or not _overlay.has_method("set_heat_proximity"):
+		return
+	var distance_above_fire: float = _player.global_transform.origin.y - float(_fire_system.fire_height)
+	var proximity := 1.0 - clamp(distance_above_fire / HEAT_DISTORTION_RANGE, 0.0, 1.0)
+	_overlay.set_heat_proximity(proximity)
 
 func is_enabled() -> bool:
 	if OS.has_feature("Server"):
@@ -41,6 +54,7 @@ func _try_bind() -> void:
 		# Sin fuego en escena no hace falta la viñeta.
 		return
 	_fire_system = systems[0]
+	_player = _find_player()
 
 	if not _ensure_overlay():
 		return
@@ -74,14 +88,19 @@ func _on_heat_contact(body: Node, _dps: float, _in_core: bool) -> void:
 		_overlay.set_heat_active(true)
 
 func _find_player_suit() -> Node:
-	for player in get_tree().get_nodes_in_group("player"):
-		if not is_instance_valid(player):
-			continue
+	var player := _find_player()
+	if is_instance_valid(player):
 		var suit = player.get_node_or_null("Logic/SuitThermalResistance")
 		if is_instance_valid(suit):
 			return suit
 		if "thermal_resistance" in player and is_instance_valid(player.thermal_resistance):
 			return player.thermal_resistance
+	return null
+
+func _find_player() -> Spatial:
+	for player in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(player) and player is Spatial:
+			return player
 	return null
 
 func _ensure_overlay() -> bool:

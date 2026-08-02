@@ -38,6 +38,8 @@ var multimesh: MultiMesh = null
 var _next_spawn_index := 0
 var _hidden_transform := Transform.IDENTITY
 var _gas_material: ShaderMaterial = null
+# Límite visual opcional, en coordenadas locales. INF conserva el comportamiento normal.
+var vertical_ceiling_y := INF
 
 func _init():
 	add_to_group("replay_sync")
@@ -142,6 +144,9 @@ func step(delta: float) -> void:
 		var move_result: Dictionary = _move_particle_with_collision(position, velocity, delta)
 		position = move_result["position"]
 		velocity = move_result["velocity"]
+		if position.y > vertical_ceiling_y:
+			position.y = vertical_ceiling_y
+			velocity.y = min(velocity.y, 0.0)
 
 		var lifetime := float(p["lifetime"]) + delta * max(decay_rate, 0.0)
 		var max_lifetime := max(float(p["max_lifetime"]), 0.001)

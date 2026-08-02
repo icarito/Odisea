@@ -54,6 +54,12 @@ export(Color) var cool_color := Color(0.55, 0.08, 0.02, 0.85)
 # Cuánto pesa la "temperatura" aleatoria por partícula vs. el ignition_color base del
 # manager. 0 = todas iguales (color plano), 1 = varía completo entre hot_color y cool_color.
 export(float) var temperature_variance := 0.85
+# Cadencia del atlas para fuego. Reduce la variación heredada del manager, que a 32 FPS
+# podía llevar algunas llamas hasta ~64 FPS y hacerlas leer como parpadeo.
+export(float) var fire_animation_speed := 0.72
+# Luz ambiental única para que la superficie afecte al entorno sin una luz por partícula.
+export(float) var fire_light_energy := 1.35
+export(float) var fire_light_range := 18.0
 # Emite también en el centro (pozo) además del anillo.
 export(bool) var emit_center_column := false
 export(float) var center_column_radius := 2.5
@@ -62,6 +68,8 @@ export(float) var center_column_radius := 2.5
 # para un segundo FireVisualBand hijo apuntando a un GasParticleManager con atlas de humo.
 export(bool) var is_smoke_crown := false
 export(float) var smoke_height_offset := 1.5
+# Altura global de la bóveda donde el humo deja de subir y empieza a extenderse.
+export(float) var smoke_ceiling_height := 27.5
 # Solo humo: velocidad lateral inicial (dispersión radial/tangencial, no solo vertical).
 # Combinada con la viscosity alta del GasParticleManager de humo (fricción exponencial),
 # esta velocidad decae con el tiempo: el humo sube, se abre en nube y se frena solo,
@@ -76,6 +84,7 @@ var _height_initialized := false
 var _spawn_accumulator := 0.0
 var _emit_counter := 0
 var _wave_time := 0.0
+var _fire_light: OmniLight = null
 
 func _ready() -> void:
 	if Engine.editor_hint:
@@ -83,7 +92,25 @@ func _ready() -> void:
 	_manager = get_node_or_null("GasParticleManager")
 	if _manager == null:
 		push_warning("[FireVisualBand] falta el hijo GasParticleManager; sin visual de fuego.")
+	elif is_smoke_crown:
+		# La bóveda visual contiene el humo; no hacen falta raycasts contra el mundo.
+		_manager.collide_with_world = false
+		_manager.vertical_ceiling_y = _manager.to_local(Vector3(0.0, smoke_ceiling_height, 0.0)).y
+	else:
+		_manager.anim_speed_base = fire_animation_speed
+		_manager.anim_speed_velocity_factor = 0.04
+		_ensure_fire_light()
 	call_deferred("_connect_fire_system")
+
+func _ensure_fire_light() -> void:
+	_fire_light = get_node_or_null("FireLight")
+	if _fire_light == null:
+		_fire_light = OmniLight.new()
+		_fire_light.name = "FireLight"
+		add_child(_fire_light)
+	_fire_light.light_color = Color(1.0, 0.24, 0.055)
+	_fire_light.omni_range = fire_light_range
+	_fire_light.shadow_enabled = false
 
 func _connect_fire_system() -> void:
 	if not get_tree():
@@ -128,9 +155,20 @@ func _process(delta: float) -> void:
 
 	var center_angle := _get_camera_arc_center()
 	var half_arc := deg2rad(clamp(visible_arc_deg, 1.0, 360.0)) * 0.5
+	_update_fire_light(center_angle)
 
 	for _i in range(to_spawn):
 		_emit_flame(center_angle, half_arc)
+
+func _update_fire_light(center_angle: float) -> void:
+	if not is_instance_valid(_fire_light):
+		return
+	var radius := min(ring_radius * 0.42, 11.0)
+	var base_y := to_local(Vector3(0.0, _display_height, 0.0)).y
+	_fire_light.translation = Vector3(cos(center_angle) * radius, base_y + 1.2, sin(center_angle) * radius)
+	# Dos ondas lentas evitan un pulso mecánico y, a diferencia de ruido por frame, no titilan.
+	var glow := 0.88 + sin(_wave_time * 1.7) * 0.08 + sin(_wave_time * 3.1 + 1.4) * 0.04
+	_fire_light.light_energy = fire_light_energy * glow
 
 # Ángulo (alrededor de +Y, local a este nodo) del sector del anillo que mira la cámara.
 func _get_camera_arc_center() -> float:
@@ -203,6 +241,9 @@ func _emit_flame(center_angle: float, half_arc: float) -> void:
 	var lifetime := flame_lifetime * (0.7 + r2 * 0.6)
 	var index: int = _manager.emit_particle(position, velocity, lifetime, scale)
 	if not is_smoke_crown:
+		var emitted: Dictionary = _manager.particles[index]
+		emitted["anim_speed_mod"] = 0.85 + r3 * 0.3
+		_manager.particles[index] = emitted
 		# Temperatura aproximada por partícula: mezcla un hash independiente con el tamaño
 		# (r2) para que las burbujas grandes/lentas tiendan más a fría (costra) y las
 		# chicas/rápidas a caliente (grieta viva) — correlación física simple, no random
