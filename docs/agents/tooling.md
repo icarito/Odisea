@@ -78,6 +78,20 @@ tools/launch_game.sh --stop
 
 Regla de debug: `GET /status` primero, luego `POST /command`.
 
+### Seguridad del loop ANNA / VSCode
+
+- Después de cada comando ANNA que inspeccione o modifique el runtime, revisar la
+  **Debug Console de VSCode** antes de continuar. Es la fuente de verdad para
+  `Node not found`, `SCRIPT ERROR` y errores que el relay HTTP puede ocultar.
+- Nunca usar `get_node()` sobre paths o nombres no verificados: primero usar
+  `inspect_node`, `get_node_or_null()` o recorrer hijos por índice. Un fallo de
+  inspección no debe escribir errores en la consola del juego.
+- Limitar las consultas a un comando por vez y respetar `504 timeout`; no hacer
+  ráfagas de `/eval` contra un juego ocupado.
+- ANNA es observabilidad: un comando fallido debe devolver un error controlado
+  sin bloquear ni crashear el motor. Si el bridge compromete el runtime, detener
+  los comandos y corregir/aislar el bridge antes de seguir depurando gameplay.
+
 Comandos modificadores como `set_property`, `/eval`, `spawn_scene` y `teleport_player`
 requieren debug/editor build. Confirmar con:
 
@@ -125,4 +139,3 @@ scripts/godot_import_smoke.sh --godot-bin godot3-bin --project-path . --clean-ca
 ```
 
 No borrar `.import/` como cache: contiene artefactos versionados criticos.
-

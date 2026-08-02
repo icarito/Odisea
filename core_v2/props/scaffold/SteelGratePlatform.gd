@@ -7,9 +7,30 @@ const FOOTSTEP_SURFACE_SCRIPT := preload("res://core_v2/systems/footsteps/footst
 
 export(float, 1.0, 100.0, 0.1) var platform_width := 3.0 setget set_platform_width
 export(float, 1.0, 100.0, 0.1) var platform_depth := 3.0 setget set_platform_depth
+# Extends each radial side of the deck independently.  This turns the plan
+# into an isosceles trapezoid, useful for mitered circular walkways.
+export(float, -10.0, 10.0, 0.01) var left_depth_offset := 0.0 setget set_left_depth_offset
+export(float, -10.0, 10.0, 0.01) var right_depth_offset := 0.0 setget set_right_depth_offset
+# Per-corner plan offsets. RadialScatter fills these for exact spiral miters;
+# zero preserves the regular trapezoid defined above.
+export(float, -10.0, 10.0, 0.01) var front_left_depth_offset := 0.0 setget set_front_left_depth_offset
+export(float, -10.0, 10.0, 0.01) var front_right_depth_offset := 0.0 setget set_front_right_depth_offset
+export(float, -10.0, 10.0, 0.01) var back_left_depth_offset := 0.0 setget set_back_left_depth_offset
+export(float, -10.0, 10.0, 0.01) var back_right_depth_offset := 0.0 setget set_back_right_depth_offset
+# Lateral per-corner offsets complete the arbitrary deck quad. They are used
+# by radial joins to put matching support posts at one shared world point.
+export(float, -10.0, 10.0, 0.01) var front_left_width_offset := 0.0 setget set_front_left_width_offset
+export(float, -10.0, 10.0, 0.01) var front_right_width_offset := 0.0 setget set_front_right_width_offset
+export(float, -10.0, 10.0, 0.01) var back_left_width_offset := 0.0 setget set_back_left_width_offset
+export(float, -10.0, 10.0, 0.01) var back_right_width_offset := 0.0 setget set_back_right_width_offset
+# Keeps frame and side-rail endpoints on the common miter plane instead of
+# retracting them by one tube radius at a generated spiral joint.
+export(bool) var snap_mitered_joins := false setget set_snap_mitered_joins
 export(float, 0.2, 100.0, 0.1) var platform_height := 1.6 setget set_platform_height
 export(float, -20.0, 20.0, 0.1) var front_height_offset := 0.0 setget set_front_height_offset
 export(float, -20.0, 20.0, 0.1) var back_height_offset := 0.0 setget set_back_height_offset
+export(float, -20.0, 20.0, 0.1) var left_height_offset := 0.0 setget set_left_height_offset
+export(float, -20.0, 20.0, 0.1) var right_height_offset := 0.0 setget set_right_height_offset
 export(float, -200.0, 200.0, 0.1) var support_base_local_y := 0.0 setget set_support_base_local_y
 export(float, 0.04, 2.0, 0.01) var tube_radius := 0.07 setget set_tube_radius
 export(float, 0.04, 2.0, 0.01) var deck_frame_thickness := 0.10 setget set_deck_frame_thickness
@@ -72,6 +93,50 @@ func set_platform_depth(value: float) -> void:
 	platform_depth = value
 	_queue_rebuild()
 
+func set_left_depth_offset(value: float) -> void:
+	left_depth_offset = value
+	_queue_rebuild()
+
+func set_right_depth_offset(value: float) -> void:
+	right_depth_offset = value
+	_queue_rebuild()
+
+func set_front_left_depth_offset(value: float) -> void:
+	front_left_depth_offset = value
+	_queue_rebuild()
+
+func set_front_right_depth_offset(value: float) -> void:
+	front_right_depth_offset = value
+	_queue_rebuild()
+
+func set_back_left_depth_offset(value: float) -> void:
+	back_left_depth_offset = value
+	_queue_rebuild()
+
+func set_back_right_depth_offset(value: float) -> void:
+	back_right_depth_offset = value
+	_queue_rebuild()
+
+func set_snap_mitered_joins(value: bool) -> void:
+	snap_mitered_joins = value
+	_queue_rebuild()
+
+func set_front_left_width_offset(value: float) -> void:
+	front_left_width_offset = value
+	_queue_rebuild()
+
+func set_front_right_width_offset(value: float) -> void:
+	front_right_width_offset = value
+	_queue_rebuild()
+
+func set_back_left_width_offset(value: float) -> void:
+	back_left_width_offset = value
+	_queue_rebuild()
+
+func set_back_right_width_offset(value: float) -> void:
+	back_right_width_offset = value
+	_queue_rebuild()
+
 func set_platform_height(value: float) -> void:
 	platform_height = value
 	_queue_rebuild()
@@ -82,6 +147,14 @@ func set_front_height_offset(value: float) -> void:
 
 func set_back_height_offset(value: float) -> void:
 	back_height_offset = value
+	_queue_rebuild()
+
+func set_left_height_offset(value: float) -> void:
+	left_height_offset = value
+	_queue_rebuild()
+
+func set_right_height_offset(value: float) -> void:
+	right_height_offset = value
 	_queue_rebuild()
 
 func set_support_base_local_y(value: float) -> void:
@@ -225,20 +298,20 @@ func _rebuild() -> void:
 	_build_materials()
 
 	var half_w = platform_width * 0.5
-	var half_d = platform_depth * 0.5
 	var deck_t = max(deck_frame_thickness, tube_radius * 1.2)
-	var front_top_y = platform_height + front_height_offset
-	var back_top_y = platform_height + back_height_offset
-	var inner_w = max(platform_width - tube_radius * 2.0, tube_radius * 2.0)
-	var inner_d = max(platform_depth - tube_radius * 2.0, tube_radius * 2.0)
 
-	_add_deck_collision(half_w, half_d, deck_t, front_top_y, back_top_y)
-	_add_grate_deck(inner_w, inner_d, front_top_y, back_top_y)
+	_add_deck_collision(half_w, deck_t)
+	_add_grate_deck()
 
-	var front_left_top = Vector3(-half_w + tube_radius, front_top_y - tube_radius, -half_d + tube_radius)
-	var front_right_top = Vector3(half_w - tube_radius, front_top_y - tube_radius, -half_d + tube_radius)
-	var back_left_top = Vector3(-half_w + tube_radius, back_top_y - tube_radius, half_d - tube_radius)
-	var back_right_top = Vector3(half_w - tube_radius, back_top_y - tube_radius, half_d - tube_radius)
+	var join_inset: float = 0.0 if snap_mitered_joins else tube_radius
+	var front_left_top := _deck_point(-half_w + tube_radius, -1.0, join_inset)
+	var front_right_top := _deck_point(half_w - tube_radius, -1.0, join_inset)
+	var back_left_top := _deck_point(-half_w + tube_radius, 1.0, join_inset)
+	var back_right_top := _deck_point(half_w - tube_radius, 1.0, join_inset)
+	front_left_top.y -= tube_radius
+	front_right_top.y -= tube_radius
+	back_left_top.y -= tube_radius
+	back_right_top.y -= tube_radius
 
 	_add_tube_between("Leg_FL", Vector3(front_left_top.x, support_base_local_y, front_left_top.z), front_left_top, _frame_material)
 	_add_tube_between("Leg_FR", Vector3(front_right_top.x, support_base_local_y, front_right_top.z), front_right_top, _frame_material)
@@ -259,8 +332,8 @@ func _rebuild() -> void:
 	_add_joint_cap("FrameJoint_BL", back_left_top, _frame_material)
 	_add_joint_cap("FrameJoint_BR", back_right_top, _frame_material)
 
-	_build_side_rail("Front", rail_front, true, -half_d + tube_radius, rail_front_opening_width, rail_front_opening_gravity)
-	_build_side_rail("Back", rail_back, true, half_d - tube_radius, rail_back_opening_width, rail_back_opening_gravity)
+	_build_side_rail("Front", rail_front, true, -platform_depth * 0.5 + tube_radius, rail_front_opening_width, rail_front_opening_gravity)
+	_build_side_rail("Back", rail_back, true, platform_depth * 0.5 - tube_radius, rail_back_opening_width, rail_back_opening_gravity)
 	_build_side_rail("Left", rail_left, false, -half_w + tube_radius, rail_left_opening_width, rail_left_opening_gravity)
 	_build_side_rail("Right", rail_right, false, half_w - tube_radius, rail_right_opening_width, rail_right_opening_gravity)
 
@@ -334,9 +407,15 @@ func _clear_body_collisions() -> void:
 func _build_side_rail(side_name: String, enabled: bool, is_front_back: bool, fixed_axis: float, opening_width: float, opening_gravity: float) -> void:
 	if not enabled or rail_height <= 0.01:
 		return
+	# Side rails must use the same mitered endpoints as the deck/frame, even
+	# when an authored opening splits them into two segments.
+	if not is_front_back:
+		_build_mitered_side_rail(side_name, fixed_axis, opening_width, opening_gravity)
+		return
 
-	var min_axis = - platform_width * 0.5 if is_front_back else -platform_depth * 0.5
-	var max_axis = platform_width * 0.5 if is_front_back else platform_depth * 0.5
+	var half_depth = _deck_half_depth_at_x(fixed_axis)
+	var min_axis = - platform_width * 0.5 if is_front_back else -half_depth
+	var max_axis = platform_width * 0.5 if is_front_back else half_depth
 	var start_margin = tube_radius
 	var end_margin = tube_radius
 	var span_start = min_axis + start_margin
@@ -359,11 +438,15 @@ func _build_side_rail(side_name: String, enabled: bool, is_front_back: bool, fix
 	_build_side_segment(side_name + "B", is_front_back, fixed_axis, opening_end, span_end)
 
 	if is_front_back:
-		_add_tube_between("%sGatePostL" % side_name, Vector3(opening_start, _deck_top_y_at(fixed_axis), fixed_axis), Vector3(opening_start, _deck_top_y_at(fixed_axis) + rail_height, fixed_axis), _rail_material)
-		_add_tube_between("%sGatePostR" % side_name, Vector3(opening_end, _deck_top_y_at(fixed_axis), fixed_axis), Vector3(opening_end, _deck_top_y_at(fixed_axis) + rail_height, fixed_axis), _rail_material)
+		var gate_left_y := _deck_top_y_at(opening_start, fixed_axis)
+		var gate_right_y := _deck_top_y_at(opening_end, fixed_axis)
+		_add_tube_between("%sGatePostL" % side_name, Vector3(opening_start, gate_left_y, fixed_axis), Vector3(opening_start, gate_left_y + rail_height, fixed_axis), _rail_material)
+		_add_tube_between("%sGatePostR" % side_name, Vector3(opening_end, gate_right_y, fixed_axis), Vector3(opening_end, gate_right_y + rail_height, fixed_axis), _rail_material)
 	else:
-		_add_tube_between("%sGatePostF" % side_name, Vector3(fixed_axis, _deck_top_y_at(opening_start), opening_start), Vector3(fixed_axis, _deck_top_y_at(opening_start) + rail_height, opening_start), _rail_material)
-		_add_tube_between("%sGatePostB" % side_name, Vector3(fixed_axis, _deck_top_y_at(opening_end), opening_end), Vector3(fixed_axis, _deck_top_y_at(opening_end) + rail_height, opening_end), _rail_material)
+		var gate_front_y := _deck_top_y_at(fixed_axis, opening_start)
+		var gate_back_y := _deck_top_y_at(fixed_axis, opening_end)
+		_add_tube_between("%sGatePostF" % side_name, Vector3(fixed_axis, gate_front_y, opening_start), Vector3(fixed_axis, gate_front_y + rail_height, opening_start), _rail_material)
+		_add_tube_between("%sGatePostB" % side_name, Vector3(fixed_axis, gate_back_y, opening_end), Vector3(fixed_axis, gate_back_y + rail_height, opening_end), _rail_material)
 
 func _build_side_segment(side_name: String, is_front_back: bool, fixed_axis: float, axis_start: float, axis_end: float) -> void:
 	if axis_end - axis_start <= tube_radius:
@@ -372,12 +455,11 @@ func _build_side_segment(side_name: String, is_front_back: bool, fixed_axis: flo
 	var bottom_a: Vector3
 	var bottom_b: Vector3
 	if is_front_back:
-		var y = _deck_top_y_at(fixed_axis)
-		bottom_a = Vector3(axis_start, y, fixed_axis)
-		bottom_b = Vector3(axis_end, y, fixed_axis)
+		bottom_a = Vector3(axis_start, _deck_top_y_at(axis_start, fixed_axis), fixed_axis)
+		bottom_b = Vector3(axis_end, _deck_top_y_at(axis_end, fixed_axis), fixed_axis)
 	else:
-		bottom_a = Vector3(fixed_axis, _deck_top_y_at(axis_start), axis_start)
-		bottom_b = Vector3(fixed_axis, _deck_top_y_at(axis_end), axis_end)
+		bottom_a = Vector3(fixed_axis, _deck_top_y_at(fixed_axis, axis_start), axis_start)
+		bottom_b = Vector3(fixed_axis, _deck_top_y_at(fixed_axis, axis_end), axis_end)
 
 	var top_a = bottom_a + Vector3.UP * rail_height
 	var top_b = bottom_b + Vector3.UP * rail_height
@@ -402,23 +484,67 @@ func _build_side_segment(side_name: String, is_front_back: bool, fixed_axis: flo
 		else:
 			_add_vertical_panel("%sRailMesh" % side_name, Vector2(span, rail_height), center, Vector3(-90, 90, 0))
 
-	var collision_shape = BoxShape.new()
-	if is_front_back:
-		collision_shape.extents = Vector3((axis_end - axis_start) * 0.5, rail_height * 0.5, tube_radius * 0.85)
-		var center = Vector3((axis_start + axis_end) * 0.5, (bottom_a.y + top_a.y) * 0.5, fixed_axis)
-		_add_collision_shape("%sRailCollision" % side_name, collision_shape, center, Basis())
-	else:
-		var center = (bottom_a + bottom_b) * 0.5 + Vector3.UP * (rail_height * 0.5)
-		collision_shape.extents = Vector3(tube_radius * 0.85, rail_height * 0.5, (axis_end - axis_start) * 0.5)
-		_add_collision_shape("%sRailCollision" % side_name, collision_shape, center, Basis())
+	_add_rail_collision("%sRailCollision" % side_name, bottom_a, bottom_b, top_a, top_b)
 
-func _add_deck_collision(half_w: float, half_d: float, deck_t: float, front_top_y: float, back_top_y: float) -> void:
-	var shape = BoxShape.new()
-	var slope_angle = - atan2(back_top_y - front_top_y, platform_depth)
-	var slope_scale = 1.0 / max(cos(slope_angle), 0.02)
-	shape.extents = Vector3(half_w, deck_t * 0.5, half_d * slope_scale)
-	var center_y = ((front_top_y + back_top_y) * 0.5) - deck_t * 0.5
-	_add_collision_shape("DeckCollision", shape, Vector3(0, center_y, 0), Basis(Vector3.RIGHT, slope_angle))
+func _build_mitered_side_rail(side_name: String, x: float, opening_width: float, opening_gravity: float) -> void:
+	var join_inset: float = 0.0 if snap_mitered_joins else tube_radius
+	var bottom_a = _deck_point(x, -1.0, join_inset)
+	var bottom_b = _deck_point(x, 1.0, join_inset)
+	var span: float = bottom_a.distance_to(bottom_b)
+	var opening: float = clamp(opening_width, 0.0, max(span - tube_radius * 2.0, 0.0))
+	if opening <= 0.01:
+		_build_mitered_side_segment(side_name, bottom_a, bottom_b)
+		return
+	var opening_center: float = lerp(opening * 0.5, span - opening * 0.5, clamp(opening_gravity, 0.0, 1.0))
+	var dir: Vector3 = (bottom_b - bottom_a).normalized()
+	_build_mitered_side_segment(side_name + "A", bottom_a, bottom_a + dir * (opening_center - opening * 0.5))
+	_build_mitered_side_segment(side_name + "B", bottom_a + dir * (opening_center + opening * 0.5), bottom_b)
+
+func _build_mitered_side_segment(side_name: String, bottom_a: Vector3, bottom_b: Vector3) -> void:
+	var top_a = bottom_a + Vector3.UP * rail_height
+	var top_b = bottom_b + Vector3.UP * rail_height
+	var mid_a = bottom_a + Vector3.UP * (rail_height * clamp(rail_mid_ratio, 0.0, 1.0))
+	var mid_b = bottom_b + Vector3.UP * (rail_height * clamp(rail_mid_ratio, 0.0, 1.0))
+	_add_tube_between("%sRailTop" % side_name, top_a, top_b, _rail_material)
+	_add_tube_between("%sRailMid" % side_name, mid_a, mid_b, _rail_material)
+	_add_tube_between("%sRailPostA" % side_name, bottom_a, top_a, _rail_material)
+	_add_tube_between("%sRailPostB" % side_name, bottom_b, top_b, _rail_material)
+	_add_intermediate_rail_posts(side_name, bottom_a, bottom_b)
+	_add_joint_cap("%sCapTopA" % side_name, top_a, _rail_material)
+	_add_joint_cap("%sCapTopB" % side_name, top_b, _rail_material)
+	_add_joint_cap("%sCapMidA" % side_name, mid_a, _rail_material)
+	_add_joint_cap("%sCapMidB" % side_name, mid_b, _rail_material)
+	if rail_infill_enabled:
+		var center = (bottom_a + bottom_b) * 0.5 + Vector3.UP * (rail_height * 0.5)
+		_add_vertical_panel("%sRailMesh" % side_name, Vector2(bottom_b.distance_to(bottom_a), rail_height), center, Vector3(-90, 90, 0))
+	_add_rail_collision("%sRailCollision" % side_name, bottom_a, bottom_b, top_a, top_b)
+
+func _add_rail_collision(node_name: String, bottom_a: Vector3, bottom_b: Vector3, top_a: Vector3, top_b: Vector3) -> void:
+	# A BoxShape stays axis-aligned and misses the upper end of a sloped rail.
+	# Extrude the actual inclined rail panel instead, so visuals and collision agree.
+	var side_normal: Vector3 = (bottom_b - bottom_a).cross(Vector3.UP).normalized()
+	if side_normal.length_squared() <= 0.001:
+		return
+	var half_thickness: Vector3 = side_normal * tube_radius * 1.15
+	var shape := ConvexPolygonShape.new()
+	shape.points = PoolVector3Array([
+		bottom_a - half_thickness, bottom_b - half_thickness, top_a - half_thickness, top_b - half_thickness,
+		bottom_a + half_thickness, bottom_b + half_thickness, top_a + half_thickness, top_b + half_thickness
+	])
+	_add_collision_shape(node_name, shape, Vector3.ZERO, Basis())
+
+func _add_deck_collision(half_w: float, deck_t: float) -> void:
+	var front_left := _deck_point(-half_w, -1.0)
+	var front_right := _deck_point(half_w, -1.0)
+	var back_left := _deck_point(-half_w, 1.0)
+	var back_right := _deck_point(half_w, 1.0)
+	var shape = ConvexPolygonShape.new()
+	shape.points = PoolVector3Array([
+		front_left, front_right, back_left, back_right,
+		front_left - Vector3.UP * deck_t, front_right - Vector3.UP * deck_t,
+		back_left - Vector3.UP * deck_t, back_right - Vector3.UP * deck_t
+	])
+	_add_collision_shape("DeckCollision", shape, Vector3.ZERO, Basis())
 
 func _add_leg_collision(node_name: String, bottom: Vector3, top: Vector3) -> void:
 	var shape = CylinderShape.new()
@@ -426,20 +552,16 @@ func _add_leg_collision(node_name: String, bottom: Vector3, top: Vector3) -> voi
 	shape.height = bottom.distance_to(top)
 	_add_collision_shape(node_name, shape, (bottom + top) * 0.5, _basis_from_y_axis((top - bottom).normalized()))
 
-func _add_grate_deck(width: float, depth: float, front_top_y: float, back_top_y: float) -> void:
+func _add_grate_deck() -> void:
 	var deck = MeshInstance.new()
 	deck.name = "DeckGrate"
 	deck.layers = PROP_VISUAL_LAYER
-	var slope_angle = - atan2(back_top_y - front_top_y, platform_depth)
-	var slope_scale = 1.0 / max(cos(slope_angle), 0.02)
 	var mesh_size = Vector2(
-		width + tube_radius * GRATE_OVERLAP_WITH_FRAME,
-		(depth + tube_radius * GRATE_OVERLAP_WITH_FRAME) * slope_scale
+		max(platform_width - tube_radius * 2.0, tube_radius * 2.0) + tube_radius * GRATE_OVERLAP_WITH_FRAME,
+		max(platform_depth - tube_radius * 2.0, tube_radius * 2.0) + tube_radius * GRATE_OVERLAP_WITH_FRAME
 	)
-	var mesh = _make_grate_mesh(mesh_size)
+	var mesh = _make_grate_mesh()
 	deck.mesh = mesh
-	deck.translation = Vector3(0, (front_top_y + back_top_y) * 0.5 - GRATE_RECESS, 0)
-	deck.rotation = Vector3(-PI * 0.5 + slope_angle, 0, 0)
 	if _grate_material is SpatialMaterial:
 		var mat = (_grate_material as SpatialMaterial).duplicate(true)
 		mat.uv1_scale = Vector3(max(mesh_size.x * GRATE_REPEAT_PER_METER, 1.0), max(mesh_size.y * GRATE_REPEAT_PER_METER, 1.0), 1.0)
@@ -448,19 +570,17 @@ func _add_grate_deck(width: float, depth: float, front_top_y: float, back_top_y:
 		deck.material_override = _grate_material
 	_visual_root.add_child(deck)
 
-func _make_grate_mesh(size: Vector2) -> ArrayMesh:
-	var half = size * 0.5
+func _make_grate_mesh() -> ArrayMesh:
+	var half_w = max(platform_width * 0.5 - tube_radius, tube_radius)
 	var vertices = PoolVector3Array([
-		Vector3(-half.x, -half.y, 0),
-		Vector3(half.x, -half.y, 0),
-		Vector3(half.x, half.y, 0),
-		Vector3(-half.x, half.y, 0)
+		_deck_point(-half_w, -1.0, tube_radius, GRATE_RECESS),
+		_deck_point(half_w, -1.0, tube_radius, GRATE_RECESS),
+		_deck_point(half_w, 1.0, tube_radius, GRATE_RECESS),
+		_deck_point(-half_w, 1.0, tube_radius, GRATE_RECESS)
 	])
+	var normal: Vector3 = (vertices[1] - vertices[0]).cross(vertices[3] - vertices[0]).normalized()
 	var normals = PoolVector3Array([
-		Vector3(0, 0, 1),
-		Vector3(0, 0, 1),
-		Vector3(0, 0, 1),
-		Vector3(0, 0, 1)
+		normal, normal, normal, normal
 	])
 	var uvs = PoolVector2Array([
 		_transform_grate_uv(Vector2(0, 0)),
@@ -494,17 +614,19 @@ func _transform_grate_uv(uv: Vector2) -> Vector2:
 func _add_intermediate_leg_supports(front_left_top: Vector3, front_right_top: Vector3, back_left_top: Vector3, back_right_top: Vector3) -> void:
 	var x_positions = _intermediate_positions(-platform_width * 0.5 + tube_radius, platform_width * 0.5 - tube_radius)
 	for x in x_positions:
-		var front_top = Vector3(x, front_left_top.y, front_left_top.z)
-		var back_top = Vector3(x, back_left_top.y, back_left_top.z)
-		_add_tube_between("LegFront_%s" % str(x), Vector3(x, support_base_local_y, front_left_top.z), front_top, _frame_material)
-		_add_tube_between("LegBack_%s" % str(x), Vector3(x, support_base_local_y, back_left_top.z), back_top, _frame_material)
-		_add_leg_collision("LegFrontCollision_%s" % str(x), Vector3(x, support_base_local_y, front_left_top.z), front_top)
-		_add_leg_collision("LegBackCollision_%s" % str(x), Vector3(x, support_base_local_y, back_left_top.z), back_top)
+		var front_top := _deck_point(x, -1.0, tube_radius)
+		var back_top := _deck_point(x, 1.0, tube_radius)
+		front_top.y -= tube_radius
+		back_top.y -= tube_radius
+		_add_tube_between("LegFront_%s" % str(x), Vector3(x, support_base_local_y, front_top.z), front_top, _frame_material)
+		_add_tube_between("LegBack_%s" % str(x), Vector3(x, support_base_local_y, back_top.z), back_top, _frame_material)
+		_add_leg_collision("LegFrontCollision_%s" % str(x), Vector3(x, support_base_local_y, front_top.z), front_top)
+		_add_leg_collision("LegBackCollision_%s" % str(x), Vector3(x, support_base_local_y, back_top.z), back_top)
 
 	var z_positions = _intermediate_positions(-platform_depth * 0.5 + tube_radius, platform_depth * 0.5 - tube_radius)
 	for z in z_positions:
-		var left_top = Vector3(front_left_top.x, _deck_top_y_at(z) - tube_radius, z)
-		var right_top = Vector3(front_right_top.x, _deck_top_y_at(z) - tube_radius, z)
+		var left_top = Vector3(front_left_top.x, _deck_top_y_at(front_left_top.x, z) - tube_radius, z)
+		var right_top = Vector3(front_right_top.x, _deck_top_y_at(front_right_top.x, z) - tube_radius, z)
 		_add_tube_between("LegLeft_%s" % str(z), Vector3(front_left_top.x, support_base_local_y, z), left_top, _frame_material)
 		_add_tube_between("LegRight_%s" % str(z), Vector3(front_right_top.x, support_base_local_y, z), right_top, _frame_material)
 		_add_leg_collision("LegLeftCollision_%s" % str(z), Vector3(front_left_top.x, support_base_local_y, z), left_top)
@@ -595,9 +717,30 @@ func _basis_from_y_axis(y_axis: Vector3) -> Basis:
 	var z_axis = x_axis.cross(up).normalized()
 	return Basis(x_axis, up, z_axis)
 
-func _deck_top_y_at(z: float) -> float:
-	var t = clamp((z + platform_depth * 0.5) / max(platform_depth, 0.001), 0.0, 1.0)
-	return lerp(platform_height + front_height_offset, platform_height + back_height_offset, t)
+func _deck_top_y_at(x: float, z: float) -> float:
+	var front_z = _deck_z_at_x(x, -1.0)
+	var back_z = _deck_z_at_x(x, 1.0)
+	var z_t: float = clamp((z - front_z) / max(back_z - front_z, 0.001), 0.0, 1.0)
+	var x_t: float = clamp((x + platform_width * 0.5) / max(platform_width, 0.001), 0.0, 1.0)
+	return platform_height + lerp(front_height_offset, back_height_offset, z_t) + lerp(left_height_offset, right_height_offset, x_t)
+
+func _deck_half_depth_at_x(x: float) -> float:
+	var x_t: float = clamp((x + platform_width * 0.5) / max(platform_width, 0.001), 0.0, 1.0)
+	return max(tube_radius * 2.0, platform_depth * 0.5 + lerp(left_depth_offset, right_depth_offset, x_t))
+
+func _deck_z_at_x(x: float, z_sign: float, inset: float = 0.0) -> float:
+	var half_depth = _deck_half_depth_at_x(x)
+	var x_t: float = clamp((x + platform_width * 0.5) / max(platform_width, 0.001), 0.0, 1.0)
+	var corner_offset = lerp(front_left_depth_offset, front_right_depth_offset, x_t) if z_sign < 0.0 else lerp(back_left_depth_offset, back_right_depth_offset, x_t)
+	return z_sign * max(half_depth - inset, 0.01) + corner_offset
+
+func _deck_width_offset_at_x(x: float, z_sign: float) -> float:
+	var x_t: float = clamp((x + platform_width * 0.5) / max(platform_width, 0.001), 0.0, 1.0)
+	return lerp(front_left_width_offset, front_right_width_offset, x_t) if z_sign < 0.0 else lerp(back_left_width_offset, back_right_width_offset, x_t)
+
+func _deck_point(x: float, z_sign: float, inset: float = 0.0, recess: float = 0.0) -> Vector3:
+	var z = _deck_z_at_x(x, z_sign, inset)
+	return Vector3(x + _deck_width_offset_at_x(x, z_sign), _deck_top_y_at(x, z) - recess, z)
 
 func _add_collision_shape(node_name: String, shape: Shape, pos: Vector3, basis: Basis) -> void:
 	var collision = CollisionShape.new()

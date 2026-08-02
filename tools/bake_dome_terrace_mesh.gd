@@ -100,7 +100,7 @@ func _run() -> void:
 		out_mesh.surface_set_material(out_mesh.get_surface_count() - 1, src_mesh.surface_get_material(s))
 
 	# Placa de piso: 12 triángulos (caja cerrada) en lugar de los ~134 del anillo original.
-	_add_floor_box(out_mesh, _pick_floor_material(src_mesh, floor_material))
+	_add_floor_box(out_mesh, _make_floor_material_two_sided(_pick_floor_material(src_mesh, floor_material)))
 	print("[bake_dome_terrace] piso original removido=%d tris, reemplazado por box (12 tris)" % total_floor)
 
 	# take_over_path evita que ResourceSaver escriba una referencia a la escena de origen.
@@ -144,6 +144,16 @@ func _pick_floor_material(src_mesh: Mesh, detected: Material) -> Material:
 		if _is_light_material(mat):
 			return mat
 	return null
+
+# El piso es una placa simplificada que se ve tanto desde la cámara baja como a
+# través de huecos del scaffold. No debe desaparecer si un import cambia el
+# winding de una de sus caras.
+func _make_floor_material_two_sided(source: Material) -> Material:
+	if not (source is SpatialMaterial):
+		return source
+	var material: SpatialMaterial = (source as SpatialMaterial).duplicate(true)
+	material.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	return material
 
 # Placa cuadrada cerrada a y=0. Sustituye el anillo + polígonos sueltos del piso.
 func _add_floor_box(mesh: ArrayMesh, material: Material) -> void:

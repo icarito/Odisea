@@ -1,0 +1,127 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
+[ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=4]
+
+[node name="Dome_Default" type="Spatial"]
+
+[node name="SpawnPointV2" type="Position3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+script = ExtResource( 1 )
+spawn_id = ""
+
+[node name="Terrace" type="StaticBody" parent="."]
+
+[node name="TerraceMesh" type="MeshInstance" parent="Terrace"]
+use_in_baked_light = true
+mesh = ExtResource( 3 )
+
+[node name="WorldCollision" type="CollisionShape" parent="Terrace"]
+shape = ExtResource( 4 )
+
+[node name="Airlock_North" parent="." instance=ExtResource( 2 )]
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -0.4, 3.4, -32 )
+
+[node name="OuterDoor" parent="Airlock_North" index="10"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Default/Airlock_North"),
+"airlock_door_name": "outer"
+}
+
+[node name="InnerDoor" parent="Airlock_North" index="11"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Default/Airlock_North"),
+"airlock_door_name": "inner"
+}
+
+[node name="AirlockZoneV2" parent="Airlock_North" index="14"]
+target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
+target_spawn_id = ""
+target_airlock_path = NodePath("Airlock_North")
+zone_dir = Vector3( 0, 0, 1 )
+
+[node name="Airlock_South" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 3.4, 32.3809 )
+
+[node name="OuterDoor" parent="Airlock_South" index="10"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Default/Airlock_South"),
+"airlock_door_name": "outer"
+}
+
+[node name="InnerDoor" parent="Airlock_South" index="11"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Default/Airlock_South"),
+"airlock_door_name": "inner"
+}
+
+[node name="AirlockZoneV2" parent="Airlock_South" index="14"]
+target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
+target_spawn_id = ""
+target_airlock_path = NodePath("Airlock_South")
+zone_dir = Vector3( 0, 0, 1 )
+
+[node name="Airlock_East" parent="." instance=ExtResource( 2 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 32, 3.4, 0 )
+
+[node name="OuterDoor" parent="Airlock_East" index="10"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Default/Airlock_East"),
+"airlock_door_name": "outer"
+}
+
+[node name="InnerDoor" parent="Airlock_East" index="11"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Default/Airlock_East"),
+"airlock_door_name": "inner"
+}
+
+[node name="AirlockZoneV2" parent="Airlock_East" index="14"]
+target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
+target_spawn_id = ""
+target_airlock_path = NodePath("Airlock_East")
+zone_dir = Vector3( 0, 0, 1 )
+
+[node name="Airlock_West" parent="." instance=ExtResource( 2 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -32, 3.4, 0 )
+
+[node name="OuterDoor" parent="Airlock_West" index="10"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Default/Airlock_West"),
+"airlock_door_name": "outer"
+}
+
+[node name="InnerDoor" parent="Airlock_West" index="11"]
+__meta__ = {
+"airlock_controller_owned": true,
+"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Default/Airlock_West"),
+"airlock_door_name": "inner"
+}
+
+[node name="AirlockZoneV2" parent="Airlock_West" index="14"]
+target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
+target_spawn_id = ""
+target_airlock_path = NodePath("Airlock_West")
+zone_dir = Vector3( 0, 0, 1 )
+
+[node name="Lighting" type="Spatial" parent="."]
+
+[node name="OmniLight" type="OmniLight" parent="Lighting"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, 0 )
+light_color = Color( 0.9, 0.95, 1, 1 )
+light_energy = 1.5
+omni_range = 4096.0
+
+[editable path="Airlock_North"]
+[editable path="Airlock_South"]
+[editable path="Airlock_East"]
+[editable path="Airlock_West"]

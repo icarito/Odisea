@@ -4,7 +4,6 @@
 
 [node name="ScaffoldCurve" type="Spatial"]
 script = ExtResource( 1 )
-platform_width = 3.0
 platform_depth = 12.0
 rail_front = false
 rail_back = false

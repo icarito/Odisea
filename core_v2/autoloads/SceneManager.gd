@@ -603,9 +603,11 @@ func _find_spawn_point(scene_root: Node, spawn_id: String) -> Position3D:
 		for child in node.get_children():
 			pending.push_back(child)
 
-	if spawn_id == "":
-		return fallback
-	return null
+	# Los interiores compartidos (Dome_Default) sirven a varios domos, así que su
+	# SpawnPointV2 es genérico y no puede coincidir con el id de cada domo. Antes de
+	# rendirse, se usa cualquier spawn de la escena: quedarse sin punto de aparición
+	# deja al jugador sin reposicionar.
+	return fallback
 
 func _find_transition_airlock(scene_root: Node, state_data: Dictionary) -> Spatial:
 	if not is_instance_valid(scene_root) or typeof(state_data) != TYPE_DICTIONARY:

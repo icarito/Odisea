@@ -1,9 +1,13 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=4]
+[ext_resource path="res://core_v2/props/scaffold/SteelGratePlatform.gd" type="Script" id=5]
+[ext_resource path="res://core_v2/tools/RadialScatter.gd" type="Script" id=6]
+[ext_resource path="res://core_v2/props/scaffold/ScaffoldStairs.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/scaffold/ScaffoldRailing.tscn" type="PackedScene" id=8]
 
 [node name="Dome_Intro" type="Spatial"]
 
@@ -120,6 +124,273 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, 0 )
 light_color = Color( 0.9, 0.95, 1, 1 )
 light_energy = 1.5
 omni_range = 4096.0
+
+[node name="SpiralStairs" type="Spatial" parent="."]
+transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
+script = ExtResource( 6 )
+target_scene = ExtResource( 7 )
+item_count = 5
+radius = 26.0
+start_angle_deg = 13.5
+arc_angle_deg = 270.0
+radius_per_turn = -20.0
+radius_ease_power = 2.5
+radius_turn_offset = 0.0375
+spiral_segment_angle_deg = 27.0
+spiral_chord_length_property = "platform_depth"
+miter_spiral_joins = true
+align_to_spiral_tangent = true
+dynamic_float_properties = [ "platform_height", "left_depth_offset", "right_depth_offset", "platform_width", "front_height_offset" ]
+dynamic_float_start = [ 0.2, 0.7, -0.7, 6.0, 4.5 ]
+dynamic_float_end = [ 22.7, 0.7, -0.7, 6.0, 4.5 ]
+rotation_y = 90.0
+rebuild_baked_items = true
+
+[node name="Item_0" type="Spatial" parent="SpiralStairs" instance=ExtResource( 7 )]
+transform = Transform( -0.971824, 0, 0.235708, 0, 1, 0, -0.235708, 0, -0.971824, 24.5694, 0, 5.89488 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 12.132
+left_depth_offset = 0.7
+right_depth_offset = -0.7
+front_left_depth_offset = 1.39355
+front_right_depth_offset = -1.39355
+back_left_depth_offset = -1.40712
+back_right_depth_offset = 1.40712
+front_left_width_offset = 5.91959
+front_right_width_offset = -5.91787
+back_left_width_offset = 5.91461
+back_right_width_offset = -5.91634
+snap_mitered_joins = true
+platform_height = 0.2
+front_height_offset = 4.5
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
+
+[node name="Item_1" type="Spatial" parent="SpiralStairs" instance=ExtResource( 7 )]
+transform = Transform( -0.360974, 0, 0.932576, 0, 1, 0, -0.932576, 0, -0.360974, 9.58607, 0, 23.0495 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 11.99
+left_depth_offset = 0.7
+right_depth_offset = -0.7
+front_left_depth_offset = 1.33193
+front_right_depth_offset = -1.33192
+back_left_depth_offset = -1.46837
+back_right_depth_offset = 1.46835
+front_left_width_offset = 5.94126
+front_right_width_offset = -5.92412
+back_left_width_offset = 5.89136
+back_right_width_offset = -5.90852
+snap_mitered_joins = true
+platform_height = 4.7
+front_height_offset = 4.5
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
+
+[node name="Item_2" type="Spatial" parent="SpiralStairs" instance=ExtResource( 7 )]
+transform = Transform( 0.571506, 0, 0.820598, 0, 1, 0, -0.820598, 0, 0.571506, -12.4484, 0, 20.4784 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 11.5292
+left_depth_offset = 0.7
+right_depth_offset = -0.7
+front_left_depth_offset = 1.22844
+front_right_depth_offset = -1.22837
+back_left_depth_offset = -1.5699
+back_right_depth_offset = 1.56983
+front_left_width_offset = 5.97377
+front_right_width_offset = -5.93242
+back_left_width_offset = 5.85044
+back_right_width_offset = -5.8918
+snap_mitered_joins = true
+platform_height = 9.2
+front_height_offset = 4.5
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
+
+[node name="Item_3" type="Spatial" parent="SpiralStairs" instance=ExtResource( 7 )]
+transform = Transform( 0.9995, 0, -0.0316288, 0, 1, 0, 0.0316288, 0, 0.9995, -21.9393, 0, 1.87621 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 10.6452
+left_depth_offset = 0.7
+right_depth_offset = -0.7
+front_left_depth_offset = 1.07547
+front_right_depth_offset = -1.07523
+back_left_depth_offset = -1.71695
+back_right_depth_offset = 1.71671
+front_left_width_offset = 6.01247
+front_right_width_offset = -5.94039
+back_left_width_offset = 5.78638
+back_right_width_offset = -5.85847
+snap_mitered_joins = true
+platform_height = 13.7
+front_height_offset = 4.5
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
+
+[node name="Item_4" type="Spatial" parent="SpiralStairs" instance=ExtResource( 7 )]
+transform = Transform( 0.494381, 0, -0.869246, 0, 1, 0, 0.869246, 0, 0.494381, -12.4637, 0, -14.2499 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 9.2772
+left_depth_offset = 0.7
+right_depth_offset = -0.7
+front_left_depth_offset = 0.837925
+front_right_depth_offset = -0.837277
+back_left_depth_offset = -1.93826
+back_right_depth_offset = 1.93761
+front_left_width_offset = 6.05145
+front_right_width_offset = -5.94223
+back_left_width_offset = 5.67806
+back_right_width_offset = -5.78729
+snap_mitered_joins = true
+platform_height = 18.2
+front_height_offset = 4.5
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
+
+[node name="SpiralWalkways" type="Spatial" parent="."]
+transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
+script = ExtResource( 6 )
+target_scene = ExtResource( 8 )
+item_count = 5
+radius = 26.0
+start_angle_deg = 40.5
+arc_angle_deg = 270.0
+radius_per_turn = -20.0
+radius_ease_power = 2.5
+radius_turn_offset = 0.1125
+spiral_segment_angle_deg = 27.0
+spiral_chord_length_property = "platform_depth"
+miter_spiral_joins = true
+align_to_spiral_tangent = true
+dynamic_float_properties = [ "platform_height", "left_depth_offset", "right_depth_offset", "platform_width" ]
+dynamic_float_start = [ 4.7, -0.7, 0.7, 6.0 ]
+dynamic_float_end = [ 27.2, -0.7, 0.7, 6.0 ]
+rotation_y = -90.0
+rebuild_baked_items = true
+
+[node name="Item_0" type="Spatial" parent="SpiralWalkways" instance=ExtResource( 8 )]
+transform = Transform( 0.7533, 0, -0.657677, 0, 1, 0, 0.657677, 0, 0.7533, 19.1593, 0, 16.3416 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 12.0921
+left_depth_offset = -0.7
+right_depth_offset = 0.7
+front_left_depth_offset = 0.0320127
+front_right_depth_offset = -0.032007
+back_left_depth_offset = 0.0314195
+back_right_depth_offset = -0.0314199
+front_left_width_offset = 0.0947018
+front_right_width_offset = -0.0866547
+back_left_width_offset = 0.0714302
+back_right_width_offset = -0.079464
+snap_mitered_joins = true
+platform_height = 4.7
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
+
+[node name="Item_1" type="Spatial" parent="SpiralWalkways" instance=ExtResource( 8 )]
+transform = Transform( -0.117518, 0, -0.993071, 0, 1, 0, 0.993071, 0, -0.117518, -1.86881, 0, 24.4977 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 11.8071
+left_depth_offset = -0.7
+right_depth_offset = 0.7
+front_left_depth_offset = 0.114284
+front_right_depth_offset = -0.114249
+back_left_depth_offset = 0.114657
+back_right_depth_offset = -0.11469
+front_left_width_offset = 0.126797
+front_right_width_offset = -0.0984383
+back_left_width_offset = 0.0434704
+back_right_width_offset = -0.0718365
+snap_mitered_joins = true
+platform_height = 9.2
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
+
+[node name="Item_2" type="Spatial" parent="SpiralWalkways" instance=ExtResource( 8 )]
+transform = Transform( -0.892509, 0, -0.45103, 0, 1, 0, 0.45103, 0, -0.892509, -19.6553, 0, 12.1809 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 11.1449
+left_depth_offset = -0.7
+right_depth_offset = 0.7
+front_left_depth_offset = 0.236586
+front_right_depth_offset = -0.236448
+back_left_depth_offset = 0.240465
+back_right_depth_offset = -0.240603
+front_left_width_offset = 0.177898
+front_right_width_offset = -0.121948
+back_left_width_offset = 0.00741959
+back_right_width_offset = -0.0633621
+snap_mitered_joins = true
+platform_height = 13.7
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
+
+[node name="Item_3" type="Spatial" parent="SpiralWalkways" instance=ExtResource( 8 )]
+transform = Transform( -0.858783, 0, 0.512339, 0, 1, 0, -0.512339, 0, -0.858783, -19.1287, 0, -7.72337 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 10.0237
+left_depth_offset = -0.7
+right_depth_offset = 0.7
+front_left_depth_offset = 0.415266
+front_right_depth_offset = -0.414865
+back_left_depth_offset = 0.428933
+back_right_depth_offset = -0.429332
+front_left_width_offset = 0.259817
+front_right_width_offset = -0.170034
+back_left_width_offset = -0.0326328
+back_right_width_offset = -0.0571365
+snap_mitered_joins = true
+platform_height = 18.2
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
+
+[node name="Item_4" type="Spatial" parent="SpiralWalkways" instance=ExtResource( 8 )]
+transform = Transform( 0.0127652, 0, 0.999919, 0, 1, 0, -0.999919, 0, 0.0127652, -4.20243, 0, -16.3763 )
+script = ExtResource( 5 )
+platform_width = 6.0
+platform_depth = 8.40825
+left_depth_offset = -0.7
+right_depth_offset = 0.7
+front_left_depth_offset = 0.696491
+front_right_depth_offset = -0.695473
+back_left_depth_offset = 0.737784
+back_right_depth_offset = -0.738807
+front_left_width_offset = 0.410069
+front_right_width_offset = -0.2791
+back_left_width_offset = -0.0652342
+back_right_width_offset = -0.0657215
+snap_mitered_joins = true
+platform_height = 22.7
+rail_front = false
+rail_back = false
+rail_left = true
+rail_right = true
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]

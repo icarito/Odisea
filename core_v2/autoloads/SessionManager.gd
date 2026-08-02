@@ -271,6 +271,13 @@ func _wants_mouse_capture() -> bool:
 	var current_scene = get_tree().current_scene
 	if current_scene and current_scene.filename.find("Menu.tscn") != -1:
 		return false
+	# Con el juego en pausa hay UI en pantalla (menú de pausa, opciones) que
+	# necesita el puntero visible. PauseManager pausa al perder el foco y NO
+	# reanuda al recuperarlo: el jugador decide cuándo continuar. Recapturar
+	# aquí dejaría el menú de pausa abierto sin cursor visible. La captura la
+	# restaura PauseManager.resume().
+	if get_tree().paused:
+		return false
 	# Si el usuario soltó el mouse a propósito (ui_cancel -> VISIBLE) y no estamos
 	# en captura, no lo reasaltamos por un mero FOCUS_IN; sólo reafirmamos si ya
 	# estaba capturado o si es la captura inicial. Ese estado lo maneja el caller.
@@ -294,6 +301,72 @@ func _reassert_mouse_capture() -> void:
 	# Reaplicar incondicionalmente: bajo XWayland un grab previo pudo haberse
 	# revocado sin notificar, así que volver a setearlo recupera el grab.
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+# --- Captura inicial con reintentos (Wayland / XWayland) ---
+# Godot 3.6 (platform/x11/os_x11.cpp:1010) llama XGrabPointer y, si falla, sólo
+# imprime "NO GRAB" por stderr: igual deja mouse_mode = CAPTURED y warpea el
+# puntero al centro. O sea que NI Input.get_mouse_mode() NI la posición del
+# mouse sirven para saber si el grab funcionó — desde GDScript el fallo es
+# indetectable. El engine tampoco reintenta.
+#
+# Bajo Wayland+XWayland (Mutter) el grab se rechaza mientras la ventana no está
+# mapeada Y enfocada, y a veces el compositor da el foco pero recién concede el
+# puntero unos frames después; también puede revocar un grab ya concedido sin
+# avisar. Como no podemos verificar, la estrategia es REAFIRMAR varias veces
+# durante la ventana de arranque en vez de un único intento: set_mouse_mode con
+# el grab ya vivo es idempotente y barato, así que insistir no cuesta nada y
+# recupera los casos en que el primer intento se perdió.
+const _MOUSE_CAPTURE_RETRY_FRAMES := 600 # ~10s a 60fps esperando el foco
+# Cada cuántos frames reafirmamos el grab una vez que ya hay foco.
+const _MOUSE_CAPTURE_REASSERT_EVERY := 15 # ~0.25s
+# Cuántas veces reafirmamos tras conseguir foco antes de darnos por satisfechos.
+const _MOUSE_CAPTURE_REASSERT_TIMES := 12 # ~3s de insistencia
+
+var _mouse_capture_retry_active := false
+
+func _start_mouse_capture_retry() -> void:
+	if _mouse_capture_retry_active:
+		return
+	_mouse_capture_retry_active = true
+	_mouse_capture_retry_loop()
+
+func _mouse_capture_retry_loop() -> void:
+	# Fase 1: esperar foco real. Sin foco el grab se rechaza siempre, así que
+	# no tiene sentido ni intentarlo (y hacerlo dispara el bug "input always
+	# below": Godot cree que capturó y el compositor sigue mandando los eventos
+	# a la ventana de abajo).
+	var frames := 0
+	while frames < _MOUSE_CAPTURE_RETRY_FRAMES:
+		if not _wants_mouse_capture():
+			_mouse_capture_retry_active = false
+			return
+		if OS.is_window_focused():
+			break
+		frames += 1
+		yield (get_tree(), "idle_frame")
+
+	# Fase 2: con foco confirmado, reafirmar la captura N veces espaciadas.
+	# Insistimos porque el primer grab pudo ser rechazado silenciosamente
+	# (puntero aún no entregado) y no hay forma de consultarlo.
+	var attempts := 0
+	while attempts < _MOUSE_CAPTURE_REASSERT_TIMES:
+		if not _wants_mouse_capture():
+			break
+		# Si perdimos el foco a mitad, el handler de FOCUS_IN reanudará; salimos
+		# para no pelear con el usuario que se fue a otra ventana.
+		if not OS.is_window_focused():
+			break
+		# Si el mouse quedó VISIBLE sin que lo hayamos soltado nosotros, fue el
+		# usuario (ui_cancel) u otra UI: respetamos esa decisión y dejamos de
+		# insistir. Sólo reafirmamos mientras el estado siga siendo "capturado",
+		# que es justo el caso donde el grab pudo haber fallado en silencio.
+		if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED and attempts > 0:
+			break
+		_reassert_mouse_capture()
+		attempts += 1
+		for _i in range(_MOUSE_CAPTURE_REASSERT_EVERY):
+			yield (get_tree(), "idle_frame")
+	_mouse_capture_retry_active = false
 
 # Bandera para aplicar el modo de ventana una sola vez tras el primer foco real.
 var _fullscreen_promoted := false
@@ -1164,15 +1237,10 @@ func _connect_teleport_system():
 	if current_scene and current_scene.filename.find("Menu.tscn") != -1:
 		is_menu = true
 	if not is_testing and not is_cli_mode and not is_menu and not OS.has_feature("Server"):
-		# Captura defensiva: si la ventana ya tiene foco, capturamos ahora;
-		# si no (caso típico al arrancar en fullscreen bajo XWayland, donde el
-		# compositor todavía no entregó el foco), lo dejamos al handler de
-		# NOTIFICATION_WM_FOCUS_IN. Evita el grab fantasma "input always below".
-		if OS.is_window_focused():
-			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-		else:
-			# Reintento diferido por si el foco llega en el mismo frame de arranque.
-			call_deferred("_reassert_mouse_capture")
+		# Captura defensiva con reintentos: bajo Wayland/XWayland el compositor
+		# puede no haber entregado aún el foco (o el puntero) al arrancar, y el
+		# grab se rechaza silenciosamente. Ver _start_mouse_capture_retry.
+		_start_mouse_capture_retry()
 
 func _on_scene_ready_capture_mouse(_path, _scene_root, _params):
 	# Re-disparado por SceneManager.scene_ready cuando una escena nueva termina de cargar.
@@ -1287,8 +1355,9 @@ func _unhandled_input(event):
 		# Re-capturar al hacer click en la pantalla, solo si el cursor está visible.
 		# Que el clic haya llegado hasta aquí implica que la ventana tiene foco,
 		# pero lo verificamos igual para mantener una sola fuente de verdad.
+		# En pausa nunca recapturamos: el clic pertenece al menú de pausa.
 		if event is InputEventMouseButton and event.pressed and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
-			if not OS.has_feature("Server") and OS.is_window_focused():
+			if not get_tree().paused and not OS.has_feature("Server") and OS.is_window_focused():
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 

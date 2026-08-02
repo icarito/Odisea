@@ -1,7 +1,7 @@
 extends Node
 #class_name DomeRegistry
 
-const DEFAULT_INTERIOR_SCENE := "res://core_v2/levels/interiors/Dome_01.tscn"
+const DEFAULT_INTERIOR_SCENE := "res://core_v2/levels/interiors/Dome_Default.tscn"
 const DEFAULT_FACADE_SCENE := "res://core_v2/levels/facades/DomeFacade_01.tscn"
 const DEFAULT_FACADE_LOD_SCENE := "res://models/lod/DomeFacade_01_LOD.glb"
 const DEFAULT_FACADE_LOD_MESH_NODE := "DomeLOD"
@@ -26,7 +26,7 @@ var _registry := {
 		"facade_lod_spawn_offset": Vector3(0, 0.3, 0),
 		"facade_spawn_offset": Vector3(0, 0.3, 0),
 		"spiral_index": 0,
-		"plate_index": 8,
+		"plate_index": 0,
 		"display_name": "Domo de Entrada",
 		"spawn_id_from_exterior": "from_dome_intro",
 		"spawn_id_from_interior": "from_exterior_dome_intro"
@@ -40,13 +40,13 @@ var _registry := {
 		"facade_lod_spawn_offset": Vector3(0, 0.3, 0),
 		"facade_spawn_offset": Vector3(0, 0.3, 0),
 		"spiral_index": 0,
-		"plate_index": 15,
+		"plate_index": 1,
 		"display_name": "Laboratorio Biológico",
 		"spawn_id_from_exterior": "from_dome_01",
 		"spawn_id_from_interior": "from_exterior_dome_01"
 	},
 	"dome_02": {
-		"interior_scene": "res://core_v2/levels/interiors/Dome_01.tscn",
+		"interior_scene": DEFAULT_INTERIOR_SCENE,
 		"facade_scene": "res://core_v2/levels/facades/DomeFacade_01.tscn",
 		"facade_lod_scene": "res://models/lod/DomeFacade_01_LOD.glb",
 		"facade_lod_mesh_node": "DomeLOD",
@@ -54,13 +54,13 @@ var _registry := {
 		"facade_lod_spawn_offset": Vector3(0, 0.3, 0),
 		"facade_spawn_offset": Vector3(0, 0.3, 0),
 		"spiral_index": 0,
-		"plate_index": 1,
+		"plate_index": 2,
 		"display_name": "Bahía de Ingeniería",
 		"spawn_id_from_exterior": "from_dome_02",
 		"spawn_id_from_interior": "from_exterior_dome_02"
 	},
 	"dome_03": {
-		"interior_scene": "res://core_v2/levels/interiors/Dome_01.tscn",
+		"interior_scene": DEFAULT_INTERIOR_SCENE,
 		"facade_scene": "res://core_v2/levels/facades/DomeFacade_01.tscn",
 		"facade_lod_scene": "res://models/lod/DomeFacade_01_LOD.glb",
 		"facade_lod_mesh_node": "DomeLOD",

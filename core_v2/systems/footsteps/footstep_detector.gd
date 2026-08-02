@@ -6,6 +6,12 @@ export(Resource) var footstep_material_library
 export(float) var stride_length_walk: float = 0.9
 export(float) var stride_length_run: float = 2.0
 export(float) var walk_speed_threshold: float = 3.0
+# Que capas cuentan como suelo pisable: Entorno (capa 1, bit 1) + Prop
+# (capa 7, bit 64), que es donde viven los andamios de SteelGratePlatform.
+# La mascara existe para que un agente que pase por debajo del pie (p.ej. el
+# dron DDC) no se robe el rayo; si se deja solo en 1 el rayo ATRAVIESA el
+# andamio y se oye el suelo de abajo.
+export(int, LAYERS_3D_PHYSICS) var floor_collision_mask: int = 65
 
 var last_result: Dictionary = {}
 var parent_rid: RID
@@ -39,17 +45,23 @@ func _play_interaction(_interaction_type: String):
 	if parent_rid:
 		exclude = [parent_rid]
 	var space_state = get_world().direct_space_state
-	var result = space_state.intersect_ray(from, to, exclude)
+	var result = space_state.intersect_ray(from, to, exclude, floor_collision_mask)
 	
-	if result and not result.empty():
-		last_result = result
-		var collider = result.collider
-		
-		if _play_by_footstep_surface(collider):
-			return
-		elif _play_by_material(collider):
-			return
-	
+	if not result or result.empty():
+		# Sin suelo bajo el pie no hay pisada: pasando por un hueco entre
+		# andamios (o por el borde de un deck) el rayo no pega en nada, y
+		# sonar el fallback aqui metia un paso "default" en el aire.
+		last_result = {}
+		return
+
+	last_result = result
+	var collider = result.collider
+
+	if _play_by_footstep_surface(collider):
+		return
+	elif _play_by_material(collider):
+		return
+
 	if generic_fallback_profile:
 		_play_from_profile(generic_fallback_profile)
 
@@ -67,14 +79,17 @@ func _play_by_footstep_surface(collider) -> bool:
 			_play_from_profile(profile)
 			return true
 
-	# Some props keep the collider under a visual root and the footstep marker as a sibling.
+	# Algunos props dejan el collider bajo una raiz visual y el marcador de
+	# footstep como HERMANO. Solo se miran los hermanos directos: antes esto
+	# recorria el subarbol entero del padre y, si el collider colgaba de la raiz
+	# de la escena, terminaba adoptando el perfil de cualquier prop del nivel
+	# (p.ej. el suelo liso de Dome_Intro sonaba a scaffold, o a dirt en la
+	# escena de prueba) en vez de caer al generic_fallback_profile.
 	var parent = collider.get_parent()
 	if parent:
-		surface = _find_footstep_surface(parent)
-	if surface:
-		var parent_profile = surface.get("footstep_profile")
-		if parent_profile:
-			_play_from_profile(parent_profile)
+		var sibling_profile = _find_sibling_footstep_profile(parent, collider)
+		if sibling_profile:
+			_play_from_profile(sibling_profile)
 			return true
 	
 	return false
@@ -146,6 +161,18 @@ func _find_first_child_with_property(root: Node, property: String) -> Node:
 			return child
 		var res = _find_first_child_with_property(child, property)
 		if res: return res
+	return null
+
+# Busca un perfil SOLO entre los hermanos directos del collider (sin recursion).
+# Una busqueda recursiva aqui se lleva puesto el nivel entero cuando el collider
+# cuelga de la raiz de la escena.
+func _find_sibling_footstep_profile(parent: Node, collider: Node) -> Resource:
+	for child in parent.get_children():
+		if child == collider:
+			continue
+		var profile = child.get("footstep_profile")
+		if profile:
+			return profile
 	return null
 
 func _find_footstep_surface(root: Node) -> Node:
