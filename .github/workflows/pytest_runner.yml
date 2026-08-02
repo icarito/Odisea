@@ -4,14 +4,12 @@ on:
     branches: [ main ]
     paths-ignore:
       - '*.md'
-      - 'scripts/*'
       - '.gitignore'
       - 'docs/**'
   pull_request:
     branches: [ main ]
     paths-ignore:
       - '*.md'
-      - 'scripts/*'
       - '.gitignore'
       - 'docs/**'
   workflow_dispatch:
@@ -37,6 +35,7 @@ jobs:
     env:
       GODOT_VERSION: 3.6.2-stable
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
+      ANNA_V2_NO_CENTRAL: "1"
     permissions:
       contents: read
       checks: write
@@ -305,7 +304,7 @@ jobs:
   tests-passed:
     name: Core Tests Passed
     needs: [pytest-core]
-    if: always() && needs.pytest-core.result == 'success'
+    if: always()
     runs-on: ubuntu-latest
     outputs:
       success: ${{ steps.check.outputs.success }}
@@ -313,6 +312,10 @@ jobs:
       - name: Check Test Results
         id: check
         run: |
+          if [ "${{ needs.pytest-core.result }}" != "success" ]; then
+            echo "Core tests result: ${{ needs.pytest-core.result }}"
+            exit 1
+          fi
           echo "success=true" >> $GITHUB_OUTPUT
           echo "✅ Core tests passed!"
           echo ""

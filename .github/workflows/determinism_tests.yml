@@ -8,8 +8,21 @@ on:
   push:
     branches: [main]
     paths:
+      - 'core_v2/**/*.gd'
       - 'core_v2/tests/*.oys'
       - 'core_v2/tests/*.json'
+      - 'runtest.sh'
+      - 'tests/**'
+      - '.github/workflows/determinism_tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'core_v2/**/*.gd'
+      - 'core_v2/tests/*.oys'
+      - 'core_v2/tests/*.json'
+      - 'runtest.sh'
+      - 'tests/**'
+      - '.github/workflows/determinism_tests.yml'
 
 concurrency:
   group: determinism-tests-${{ github.ref }}
@@ -26,7 +39,6 @@ jobs:
     name: Run Determinism Tests
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    continue-on-error: true
     permissions:
       contents: read
 

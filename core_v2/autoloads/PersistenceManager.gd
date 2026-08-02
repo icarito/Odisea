@@ -2,7 +2,10 @@ extends Node
 
 # Guarda y carga CheckpointResource por escena
 const CheckpointResource = preload("res://core_v2/systems/CheckpointResource.gd")
+const DEFAULT_CHECKPOINT_DIRECTORY := "user://checkpoints"
 var checkpoint_resource: Resource = null
+var _continue_requested := false
+var checkpoint_directory := DEFAULT_CHECKPOINT_DIRECTORY
 
 # Entity registration for dynamic prop lifecycle
 var registered_entities := {} # Maps instance_id to NodePath
@@ -51,23 +54,64 @@ func get_registered_entities() -> Array:
 func get_checkpoint_resource(scene_path: String) -> Resource:
 	# Carga o crea el recurso de checkpoint para la escena
 	var our_hash = hash_scene_path(scene_path)
-	var save_path = "user://checkpoints/%s.tres" % our_hash
+	var save_path := "%s/%s.tres" % [checkpoint_directory, our_hash]
 	if ResourceLoader.exists(save_path):
 		checkpoint_resource = ResourceLoader.load(save_path)
 	else:
 		checkpoint_resource = CheckpointResource.new()
+		checkpoint_resource.slots = {}
 	return checkpoint_resource
 
 func save_checkpoint_resource(scene_path: String):
 	if checkpoint_resource:
 		var our_hash = hash_scene_path(scene_path)
 		var dir = Directory.new()
-		if not dir.dir_exists("user://checkpoints"):
-			dir.make_dir_recursive("user://checkpoints")
-		var save_path = "user://checkpoints/%s.tres" % our_hash
+		if not dir.dir_exists(checkpoint_directory):
+			dir.make_dir_recursive(checkpoint_directory)
+		var save_path := "%s/%s.tres" % [checkpoint_directory, our_hash]
 		var err = ResourceSaver.save(save_path, checkpoint_resource)
 		if err != OK:
 			print("[PersistenceManager] Error al guardar checkpoint en ", save_path, ": ", err)
+		elif "last" in checkpoint_resource.slots:
+			_write_continue_index(scene_path, save_path)
+
+func get_continue_scene_path() -> String:
+	var config := ConfigFile.new()
+	if config.load(_get_continue_index_path()) != OK:
+		return ""
+	var scene_path := String(config.get_value("checkpoint", "scene_path", ""))
+	var save_path := String(config.get_value("checkpoint", "save_path", ""))
+	if scene_path == "" or save_path == "":
+		return ""
+	var file := File.new()
+	if not file.file_exists(scene_path) or not ResourceLoader.exists(save_path):
+		return ""
+	var resource = ResourceLoader.load(save_path)
+	if resource == null or not ("slots" in resource) or not ("last" in resource.slots):
+		return ""
+	return scene_path
+
+func request_continue() -> bool:
+	_continue_requested = get_continue_scene_path() != ""
+	return _continue_requested
+
+func consume_continue_checkpoint(scene_path: String):
+	if not _continue_requested or scene_path != get_continue_scene_path():
+		return null
+	_continue_requested = false
+	var resource = get_checkpoint_resource(scene_path)
+	return resource.slots.get("last", null) if resource else null
+
+func _write_continue_index(scene_path: String, save_path: String) -> void:
+	var config := ConfigFile.new()
+	config.set_value("checkpoint", "scene_path", scene_path)
+	config.set_value("checkpoint", "save_path", save_path)
+	var err := config.save(_get_continue_index_path())
+	if err != OK:
+		push_warning("[PersistenceManager] No se pudo actualizar el índice de Continuar (%d)." % err)
+
+func _get_continue_index_path() -> String:
+	return "%s/continue.cfg" % checkpoint_directory
 
 func hash_scene_path(scene_path: String) -> String:
 	# Return cached hash if available

@@ -16,25 +16,33 @@ func _ready():
 		# Cache the scene's original player spawn transform (only once)
 		if player_controller and initial_spawn_transform == null:
 			initial_spawn_transform = player_controller.global_transform
-			# If no checkpoint 'last' exists for this scene, persist this initial spawn as the 'last' checkpoint
-			var persistence_manager = get_node_or_null("/root/PersistenceManager")
-			if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
-				var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
-				var checkpoint_res = persistence_manager.get_checkpoint_resource(scene_path)
-				if checkpoint_res and not ("last" in checkpoint_res.slots):
-					var cp = {
-						"transform": initial_spawn_transform,
-						"yaw": player_controller.get("yaw") if player_controller and "yaw" in player_controller else 0.0,
-						"pitch": player_controller.get("pitch") if player_controller and "pitch" in player_controller else 0.0
-					}
-					checkpoint_res.slots["last"] = cp
-					checkpoint_res.property_list_changed_notify()
-					if persistence_manager.has_method("save_checkpoint_resource"):
-						persistence_manager.save_checkpoint_resource(scene_path)
 		
 	if not camera_controller and player_controller:
 		var cam_rig = player_controller.get_node_or_null("CameraRig")
 		camera_controller = cam_rig
+	call_deferred("_restore_requested_continue")
+
+func _restore_requested_continue() -> void:
+	if not is_instance_valid(player_controller):
+		return
+	var persistence_manager = get_node_or_null("/root/PersistenceManager")
+	if not persistence_manager or not persistence_manager.has_method("consume_continue_checkpoint"):
+		return
+	var scene_path := get_tree().current_scene.filename if get_tree().current_scene else ""
+	var slot = persistence_manager.consume_continue_checkpoint(scene_path)
+	if slot == null:
+		return
+	var target_transform = slot.get("transform", null) if typeof(slot) == TYPE_DICTIONARY else slot
+	if not target_transform is Transform:
+		return
+	teleport_to(target_transform)
+	if typeof(slot) == TYPE_DICTIONARY:
+		if "yaw" in player_controller:
+			player_controller.yaw = float(slot.get("yaw", player_controller.yaw))
+		if "pitch" in player_controller:
+			player_controller.pitch = float(slot.get("pitch", player_controller.pitch))
+	if player_controller.has_method("snap_camera_to_current_state"):
+		player_controller.snap_camera_to_current_state()
 
 func teleport_to(transform: Transform):
 	if player_controller:
@@ -568,26 +576,10 @@ func _on_checkpoint_reached(transform):
 				persistence_manager.save_checkpoint_resource(scene_path)
 				print("[TeleportSystem] Checkpoint persistido en disco.")
 	
-func force_initial_spawn(tf: Transform, yaw: float = 0.0, pitch: float = 0.0):
+func force_initial_spawn(tf: Transform, _yaw: float = 0.0, _pitch: float = 0.0):
 	"""Manually overrides the initial spawn point for the current scene."""
 	initial_spawn_transform = tf
 	print("[TeleportSystem] force_initial_spawn: initial_spawn_transform updated to %s" % tf.origin)
-	
-	var persistence_manager = get_node_or_null("/root/PersistenceManager")
-	var scene_path = get_tree().current_scene.filename if get_tree().current_scene else ""
-	if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
-		var checkpoint_res = persistence_manager.get_checkpoint_resource(scene_path)
-		if checkpoint_res:
-			var checkpoint_data = {
-				"transform": tf,
-				"yaw": yaw,
-				"pitch": pitch
-			}
-			checkpoint_res.slots["last"] = checkpoint_data
-			checkpoint_res.property_list_changed_notify()
-			print("[TeleportSystem] Checkpoint 'last' updated via force_initial_spawn.")
-			if persistence_manager.has_method("save_checkpoint_resource"):
-				persistence_manager.save_checkpoint_resource(scene_path)
 
 func _clear_respawn_flag():
 	# Esperar algunos frames antes de limpiar el flag para asegurar que las zonas

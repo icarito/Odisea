@@ -1,6 +1,6 @@
 extends Control
 
-const EXTERIOR_SCENE := "res://core_v2/levels/OdiseaExterior.tscn"
+const FIRST_GAME_SCENE := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 
 export var enable_touch_buttons := true
 
@@ -12,6 +12,7 @@ onready var options_button = find_node("Options")
 onready var quit_button = find_node("Quit")
 onready var options_menu = $OptionsMenu
 onready var version_label = get_node_or_null("VersionLabel")
+var _continue_scene_path := ""
 
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -41,29 +42,18 @@ func _ready():
 			if b:
 				temp_buttons.append(b)
 		handler.buttons = temp_buttons
-	call_deferred("_request_exterior_preload")
+	call_deferred("_request_first_scene_preload")
 
-func _request_exterior_preload() -> void:
+func _request_first_scene_preload() -> void:
 	yield(get_tree(), "idle_frame")
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager and scene_manager.has_method("request_scene_preload"):
-		scene_manager.request_scene_preload(EXTERIOR_SCENE)
+		scene_manager.request_scene_preload(FIRST_GAME_SCENE)
 
 func _check_save_game():
-	# Simple check for existing checkpoints
-	var dir = Directory.new()
-	var has_save = false
-	if dir.dir_exists("user://checkpoints"):
-		dir.open("user://checkpoints")
-		dir.list_dir_begin()
-		var file_name = dir.get_next()
-		while file_name != "":
-			if file_name.ends_with(".tres"):
-				has_save = true
-				break
-			file_name = dir.get_next()
-
-	continue_button.disabled = not has_save
+	var persistence = get_node_or_null("/root/PersistenceManager")
+	_continue_scene_path = persistence.get_continue_scene_path() if persistence and persistence.has_method("get_continue_scene_path") else ""
+	continue_button.disabled = _continue_scene_path == ""
 
 func _initialize_version_label():
 	if version_label:
@@ -78,13 +68,16 @@ func _connect_signals():
 	quit_button.connect("pressed", self, "_on_Quit_pressed")
 
 func _on_NewGame_pressed():
-	# TODO: Clear existing save? Requirement didn't specify.
-	_start_game("res://scenes/levels/act0/Core.tscn")
+	_start_game(FIRST_GAME_SCENE)
 
 func _on_Continue_pressed():
-	# PersistenceManager will handle loading the latest checkpoint automatically when the scene loads
-	# For now, we just go to the main level.
-	_start_game("res://core_v2/levels/interiors/Dome_Crio.tscn")
+	if _continue_scene_path == "":
+		return
+	var persistence = get_node_or_null("/root/PersistenceManager")
+	if not persistence or not persistence.has_method("request_continue") or not persistence.request_continue():
+		_check_save_game()
+		return
+	_start_game(_continue_scene_path)
 
 func _on_Options_pressed():
 	options_menu.show()
@@ -107,7 +100,7 @@ func _start_game(scene_path):
 func _on_fade_out_complete(_object, _key, scene_path):
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager and scene_manager.has_method("goto_scene"):
-		# Gameplay scenes (Core, Dome_Crio) are heavy to load. Show the same loading
+		# Gameplay scenes are heavy to load. Show the same loading
 		# screen + progress bar the BootLoader uses, otherwise the player stares at a
 		# frozen black fade with no feedback during the long interactive load.
 		scene_manager.goto_scene(scene_path, {

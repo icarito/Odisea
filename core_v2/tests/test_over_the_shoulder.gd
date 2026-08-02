@@ -104,6 +104,7 @@ func test_shortened_zoom_uses_same_shoulder_curve_without_extra_vertical_drop() 
 	ots.lerp_speed = 100.0
 	ots.distance_blend_speed = 100.0
 	ots.centering_in_speed = 100.0
+	ots.proximity_clamp_in_speed = 100.0
 	ots.jump_compensation_speed = 100.0
 
 	player.velocity = Vector3.ZERO
@@ -116,11 +117,12 @@ func test_shortened_zoom_uses_same_shoulder_curve_without_extra_vertical_drop() 
 	ots._physics_process(1.0)
 
 	var expected_distance_weight := pow(1.0 - (1.0 / 4.5), ots.curve_power)
+	var expected_proximity_scale: float = ots.proximity_clamp_floor
 
 	assert_float(abs(arm.camera_local_offset.x)).is_less(0.001)
 	assert_float(arm.camera_local_offset.y).is_less(0.0)
 	assert_float(arm.camera_local_offset.y).is_greater(-2.5)
-	assert_float(arm.camera_local_offset.z).is_equal_approx(0.2 * expected_distance_weight, 0.0001)
+	assert_float(arm.camera_local_offset.z).is_equal_approx(0.2 * expected_distance_weight * expected_proximity_scale, 0.0001)
 
 	yield(_teardown_root(root), "completed")
 
