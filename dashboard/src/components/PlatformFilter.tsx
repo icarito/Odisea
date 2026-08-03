@@ -4,13 +4,14 @@ import { ChevronDown, Monitor, Server, Smartphone } from 'lucide-react';
 export const PLATFORM_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   server: { label: 'Server', color: 'bg-red-500', icon: <Server size={12} /> },
   android: { label: 'Android', color: 'bg-green-500', icon: <Smartphone size={12} /> },
+  ios: { label: 'iOS', color: 'bg-purple-500', icon: <Smartphone size={12} /> },
   linux: { label: 'Linux', color: 'bg-yellow-500', icon: <Monitor size={12} /> },
   windows: { label: 'Windows', color: 'bg-blue-500', icon: <Monitor size={12} /> },
   macos: { label: 'macOS', color: 'bg-zinc-300', icon: <Monitor size={12} /> },
   web: { label: 'Web', color: 'bg-cyan-500', icon: <Monitor size={12} /> },
 };
 
-const KNOWN_ORDER = ['server', 'android', 'linux', 'windows', 'macos', 'web'];
+const KNOWN_ORDER = ['server', 'android', 'ios', 'linux', 'windows', 'macos', 'web'];
 
 interface PlatformFilterProps {
   platforms: string[];

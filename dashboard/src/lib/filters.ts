@@ -4,7 +4,7 @@
 // Centralizing them here keeps the `server`-platform exclusion, scene parsing,
 // and warmup stripping consistent for every consumer.
 
-export const KNOWN_PLATFORMS = ['server', 'android', 'linux', 'windows', 'macos', 'web'];
+export const KNOWN_PLATFORMS = ['server', 'android', 'ios', 'linux', 'windows', 'macos', 'web'];
 
 // First seconds of every session (scene load, GC, chunk streaming) skew FPS and
 // memory. We strip this window from per-heartbeat stats so the runtime data
@@ -18,6 +18,8 @@ export const normalizePlatform = (value: any): string | null => {
   const normalized = value.trim().toLowerCase();
   if (['html5', 'webgl', 'browser'].includes(normalized)) return 'web';
   if (['darwin', 'osx', 'mac'].includes(normalized)) return 'macos';
+  // iOS builds report OS.get_name() == "iOS"; the handshake sends "ios".
+  if (['iphone', 'ipad', 'ipados'].includes(normalized)) return 'ios';
   if (['win', 'win32', 'win64'].includes(normalized)) return 'windows';
   if (['x11', 'linuxbsd', 'linux_x11'].includes(normalized)) return 'linux';
   return normalized;

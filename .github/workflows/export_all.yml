@@ -128,9 +128,11 @@ jobs:
             # Automatic workflow_run builds may select one platform from the
             # triggering commit message, e.g. "Fix mac signing [build:macos]".
             # With no directive, preserve the normal multiplatform build.
+            # `[build:none]` skips the export entirely: for commits that touch
+            # nothing the game binaries ship (dashboard, central, docs, CI).
             COMMIT_MESSAGE=$(git log -1 --format=%B "$HEAD_SHA")
             COMMIT_TARGET=$(printf '%s\n' "$COMMIT_MESSAGE" | sed -nE \
-              's/.*\[build:(all|linux_x64|linux_arm64|windows|macos|ios|android|html5)\].*/\1/p' | tail -n 1)
+              's/.*\[build:(all|none|linux_x64|linux_arm64|windows|macos|ios|android|html5)\].*/\1/p' | tail -n 1)
             [ -z "$COMMIT_TARGET" ] || TARGET_PLATFORM="$COMMIT_TARGET"
           fi
           ALL_PLATFORMS='[
@@ -145,6 +147,12 @@ jobs:
           case "$TARGET_PLATFORM" in
             all)
               PLATFORMS=$(printf '%s' "$ALL_PLATFORMS" | jq -c .)
+              ;;
+            none)
+              # Empty matrix; the export job is also gated off via `if` below, and
+              # every downstream job already requires target_platform == 'all'.
+              PLATFORMS='[]'
+              echo "::notice::[build:none] en el commit: se omite el export multiplataforma."
               ;;
             linux_x64|linux_arm64|windows|macos|ios|android|html5)
               PLATFORMS=$(printf '%s' "$ALL_PLATFORMS" | jq -c --arg platform "$TARGET_PLATFORM" \
@@ -225,6 +233,9 @@ jobs:
 
   export:
     needs: prep
+    # `[build:none]` deja la matriz vacía; el gate explícito evita depender de cómo
+    # Actions resuelve un `include: []`.
+    if: needs.prep.outputs.target_platform != 'none'
     strategy:
       fail-fast: false
       matrix:

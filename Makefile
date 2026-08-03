@@ -42,14 +42,21 @@ dashboard-dev:
 # Build local del dashboard y copia directa por ssh/rsync al servidor donde
 # vive el servicio bridge (odisea-central). No depende del git del server.
 # El central sirve los estáticos desde static/dashboard.
-DEPLOY_HOST   ?= ubuntu@odisea.educa.juegos
-DEPLOY_DIR    ?= /home/ubuntu/anna-central
+DEPLOY_HOST   ?= icarito@odisea.educa.juegos
+DEPLOY_DIR    ?= /opt/odisea-central/repo
 DEPLOY_STATIC ?= $(DEPLOY_DIR)/static/dashboard
 DEPLOY_DB     ?= $(DEPLOY_DIR)/data/ghosts.db
 DEPLOY_BACKUP_DIR ?= $(DEPLOY_DIR)/data/backups
 DEPLOY_SERVICE ?= odisea-central.service
+# El runtime vive en /opt y pertenece al usuario del servicio (no al del login):
+# se entra por SSH como $(DEPLOY_HOST), pero TODO lo que escribe bajo $(DEPLOY_DIR)
+# va por sudo y queda con este dueño. Cambiar ambos si se migra el servicio.
+DEPLOY_OWNER  ?= nanoclaw:nanoclaw
 
 DEPLOY_LOCK   ?= $(DEPLOY_DIR)/.deploy.lock
+# El staging vive DENTRO de $(DEPLOY_DIR)/static a propósito: el swap final es un
+# `mv`, que solo es atómico dentro del mismo filesystem. Un stage en /home o /tmp
+# podría cruzar filesystem y degradar el mv a copia no atómica.
 DEPLOY_STAGE  ?= $(DEPLOY_DIR)/static/.dashboard.stage
 
 deploy-dashboard: DEPLOY_VERSION := dev-$(shell git rev-parse --short HEAD 2>/dev/null || echo nogit)-$(shell date -u +%H%M%S)
@@ -81,29 +88,37 @@ deploy-dashboard:
 		'    print("SQLite backup OK:", bpath)' \
 		'else:' \
 		'    print("SQLite no existe aún; el central lo creará al iniciar:", db)' \
-		| ssh "$(DEPLOY_HOST)" python3 -
+		| ssh "$(DEPLOY_HOST)" sudo python3 -
 	@echo "==> Subiendo a staging $(DEPLOY_HOST):$(DEPLOY_STAGE) ..."
-	ssh "$(DEPLOY_HOST)" 'mkdir -p "$(DEPLOY_STAGE)"'
-	rsync -az --delete dashboard/dist/ "$(DEPLOY_HOST):$(DEPLOY_STAGE)/"
-	rsync -az odisea_central.py "$(DEPLOY_HOST):$(DEPLOY_DIR)/odisea_central.py.new"
+	@# rsync corre bajo el usuario de login, que NO puede escribir en $(DEPLOY_DIR):
+	@# --rsync-path eleva solo el rsync remoto, sin sacar el staging de su filesystem.
+	ssh "$(DEPLOY_HOST)" 'sudo mkdir -p "$(DEPLOY_STAGE)"'
+	rsync -az --delete --rsync-path="sudo rsync" dashboard/dist/ "$(DEPLOY_HOST):$(DEPLOY_STAGE)/"
+	rsync -az --rsync-path="sudo rsync" odisea_central.py "$(DEPLOY_HOST):$(DEPLOY_DIR)/odisea_central.py.new"
 	@echo "==> Swap atómico + restart (bajo flock, serializado con el webhook) ..."
 	@# Critical section in ONE ssh session under an exclusive flock on the shared
 	@# lockfile (the webhook deploy takes the same lock). The static swap is an
 	@# atomic `mv`, so index.html and its hashed assets are never mismatched.
-	ssh "$(DEPLOY_HOST)" 'set -e; \
-		exec 9>"$(DEPLOY_LOCK)"; \
-		flock -w 600 9 || { echo "!! no pude tomar el lock de deploy en 10m"; exit 1; }; \
-		mv "$(DEPLOY_DIR)/odisea_central.py.new" "$(DEPLOY_DIR)/odisea_central.py"; \
-		rm -rf "$(DEPLOY_STATIC).old"; \
-		if [ -d "$(DEPLOY_STATIC)" ]; then mv "$(DEPLOY_STATIC)" "$(DEPLOY_STATIC).old"; fi; \
-		mv "$(DEPLOY_STAGE)" "$(DEPLOY_STATIC)"; \
-		rm -rf "$(DEPLOY_STATIC).old"; \
-		sudo mkdir -p "/etc/systemd/system/$(DEPLOY_SERVICE).d"; \
-		printf "[Service]\nEnvironment=ODISEA_DASHBOARD_VERSION=%s\n" "$(DEPLOY_VERSION)" | sudo tee "/etc/systemd/system/$(DEPLOY_SERVICE).d/version.conf" >/dev/null; \
-		sudo systemctl daemon-reload; \
-		sudo systemctl restart $(DEPLOY_SERVICE); \
-		sleep 2; \
-		systemctl is-active --quiet $(DEPLOY_SERVICE) && echo "OK: servicio activo" || { echo "!! servicio no activo"; sudo journalctl -u $(DEPLOY_SERVICE) -n 20 --no-pager; exit 1; }'
+	@# Va por `sudo bash -s`: el lockfile y $(DEPLOY_DIR) son de $(DEPLOY_OWNER), así
+	@# que ni el flock se puede tomar sin privilegios. Se alimenta por stdin para no
+	@# anidar comillas, igual que el bloque de SQLite de arriba.
+	printf '%s\n' \
+		'set -e' \
+		'exec 9>"$(DEPLOY_LOCK)"' \
+		'flock -w 600 9 || { echo "!! no pude tomar el lock de deploy en 10m"; exit 1; }' \
+		'mv "$(DEPLOY_DIR)/odisea_central.py.new" "$(DEPLOY_DIR)/odisea_central.py"' \
+		'rm -rf "$(DEPLOY_STATIC).old"' \
+		'if [ -d "$(DEPLOY_STATIC)" ]; then mv "$(DEPLOY_STATIC)" "$(DEPLOY_STATIC).old"; fi' \
+		'mv "$(DEPLOY_STAGE)" "$(DEPLOY_STATIC)"' \
+		'rm -rf "$(DEPLOY_STATIC).old"' \
+		'chown -R $(DEPLOY_OWNER) "$(DEPLOY_STATIC)" "$(DEPLOY_DIR)/odisea_central.py"' \
+		'mkdir -p "/etc/systemd/system/$(DEPLOY_SERVICE).d"' \
+		'printf "[Service]\nEnvironment=ODISEA_DASHBOARD_VERSION=%s\n" "$(DEPLOY_VERSION)" > "/etc/systemd/system/$(DEPLOY_SERVICE).d/version.conf"' \
+		'systemctl daemon-reload' \
+		'systemctl restart $(DEPLOY_SERVICE)' \
+		'sleep 2' \
+		'systemctl is-active --quiet $(DEPLOY_SERVICE) && echo "OK: servicio activo" || { echo "!! servicio no activo"; journalctl -u $(DEPLOY_SERVICE) -n 20 --no-pager; exit 1; }' \
+		| ssh "$(DEPLOY_HOST)" sudo bash -s
 	@echo "==> Dashboard desplegado: https://odisea.educa.juegos/"
 
 .PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard
