@@ -10,6 +10,7 @@ render_mode cull_back;
 // --- Standard PBR uniforms (copied from SpatialMaterial at runtime) ---
 uniform vec4 albedo : hint_color = vec4(1.0);
 uniform sampler2D texture_albedo : hint_albedo;
+uniform bool has_albedo_map = false;
 uniform bool use_alpha_scissor = false;
 uniform float alpha_scissor_threshold : hint_range(0.0, 1.0) = 0.0;
 uniform float specular : hint_range(0,1) = 0.5;
@@ -118,7 +119,7 @@ void fragment() {
 		}
 		sample_uv = planar_uv * extent * world_uv_repeat + uv1_offset.xy;
 	}
-	vec4 albedo_tex = texture(texture_albedo, sample_uv);
+	vec4 albedo_tex = has_albedo_map ? texture(texture_albedo, sample_uv) : vec4(1.0);
 	if (use_alpha_scissor && albedo_tex.a < alpha_scissor_threshold) {
 		discard;
 	}

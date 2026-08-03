@@ -274,6 +274,9 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 	new_mat.set_shader_param("albedo", source.albedo_color)
 	if source.albedo_texture:
 		new_mat.set_shader_param("texture_albedo", source.albedo_texture)
+		new_mat.set_shader_param("has_albedo_map", true)
+	else:
+		new_mat.set_shader_param("has_albedo_map", false)
 	new_mat.set_shader_param("use_vertex_color", source.vertex_color_use_as_albedo)
 
 	# PBR

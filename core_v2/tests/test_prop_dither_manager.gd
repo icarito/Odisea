@@ -30,3 +30,20 @@ func test_collision_object_with_multimesh_descendant_is_occlusion_root() -> void
 	body.add_child(inst)
 
 	assert_object(manager._get_occlusion_root_for_collision_object(body)).is_same(body)
+
+
+func test_untextured_material_does_not_sample_an_empty_mobile_texture() -> void:
+	var manager: Node = auto_free(PropDitherManagerScript.new())
+	var source := SpatialMaterial.new()
+	var converted: ShaderMaterial = manager._convert_spatial_to_dither(source)
+
+	assert_bool(converted.get_shader_param("has_albedo_map")).is_false()
+
+
+func test_textured_material_enables_albedo_sampling() -> void:
+	var manager: Node = auto_free(PropDitherManagerScript.new())
+	var source := SpatialMaterial.new()
+	source.albedo_texture = ImageTexture.new()
+	var converted: ShaderMaterial = manager._convert_spatial_to_dither(source)
+
+	assert_bool(converted.get_shader_param("has_albedo_map")).is_true()
