@@ -854,6 +854,36 @@ jobs:
           fi
           echo "Export OK: $OUT ($(du -h "$OUT" | cut -f1))"
 
+      - name: Audit isolated iOS PCK resources
+        if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
+        run: |
+          set -euo pipefail
+          IPA="build/ios/Odisea-Tech-Demo.ipa"
+          AUDIT_DIR="$RUNNER_TEMP/odisea-ios-pck-audit"
+          mkdir -p "$AUDIT_DIR"
+
+          # Audit the packaged PCK, never the checkout: the latter can hide a
+          # missing export dependency by satisfying res:// from the source tree.
+          PCK_MEMBER=$(unzip -Z1 "$IPA" | grep -E '^Payload/[^/]+\.app/[^/]+\.pck$' | head -n 1)
+          test -n "$PCK_MEMBER" || { echo "::error::No PCK found inside $IPA"; exit 1; }
+          unzip -p "$IPA" "$PCK_MEMBER" > "$AUDIT_DIR/game.pck"
+          test -s "$AUDIT_DIR/game.pck" || { echo "::error::Extracted iOS PCK is empty"; exit 1; }
+          strings -a "$AUDIT_DIR/game.pck" > "$AUDIT_DIR/resources.txt"
+
+          REQUIRED_RESOURCES=(
+            "res://core_v2/levels/interiors/Dome_Intro.tscn"
+            "res://core_v2/levels/interiors/DomeTerrace_baked.mesh"
+            "res://core_v2/levels/interiors/DomeTerrace_baked.shape"
+          )
+          for resource in "${REQUIRED_RESOURCES[@]}"; do
+            if ! grep -Fqx "$resource" "$AUDIT_DIR/resources.txt"; then
+              echo "::error::Missing required resource in isolated iOS PCK: $resource"
+              exit 1
+            fi
+            echo "PCK contains: $resource"
+          done
+          echo "Isolated iOS PCK audit OK ($(du -h "$AUDIT_DIR/game.pck" | cut -f1))"
+
       - name: Upload iOS build to TestFlight
         if: matrix.platform == 'ios' && steps.ios_gate.outputs.upload_testflight == 'true'
         env:
