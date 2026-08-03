@@ -259,6 +259,10 @@ func _can_apply_occlusion_dither(mat: SpatialMaterial) -> bool:
 	return true
 
 
+func _has_albedo_map(source: SpatialMaterial) -> bool:
+	return source.albedo_texture != null
+
+
 func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 	# Reuse the conversion for a source material we have already seen: the result
 	# depends only on `source`, and the per-frame uniforms are global.
@@ -272,7 +276,7 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 
 	# Albedo
 	new_mat.set_shader_param("albedo", source.albedo_color)
-	if source.albedo_texture:
+	if _has_albedo_map(source):
 		new_mat.set_shader_param("texture_albedo", source.albedo_texture)
 		new_mat.set_shader_param("has_albedo_map", true)
 	else:
