@@ -2390,6 +2390,7 @@ window/size/width=800
 window/size/test_width=1280
 window/size/test_height=720
 window/dpi/allow_hidpi=true
+window/handheld/orientation="sensor_landscape"
 window/stretch/mode="viewport"
 window/stretch/aspect="expand"
 
