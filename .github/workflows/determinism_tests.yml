@@ -44,10 +44,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Godot cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ${{ github.workspace }}/.import
@@ -65,7 +65,7 @@ jobs:
             ${{ runner.os }}-godot-
 
       - name: Cache Godot binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
           key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-determinism
@@ -87,7 +87,7 @@ jobs:
           sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -95,7 +95,7 @@ jobs:
 
       - name: Cache virtualenv
         id: venv_cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .venv
           key: ${{ runner.os }}-venv-pytest-v2-${{ hashFiles('requirements-pytest.txt') }}

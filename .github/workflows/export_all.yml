@@ -102,7 +102,7 @@ jobs:
           fi
           echo "ref_name=$REF_NAME" >> $GITHUB_OUTPUT
           echo "head_sha=$HEAD_SHA" >> $GITHUB_OUTPUT
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ steps.ctx.outputs.head_sha }}
       - id: meta
@@ -246,7 +246,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prep.outputs.head_sha }}
 
@@ -341,7 +341,7 @@ jobs:
       # y DESPUÉS de ese step, para no cruzar formatos entre plataformas (antes las
       # 6 plataformas Linux compartían la misma key y podían leer un .import ajeno).
       - name: Cache Godot
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/godot
@@ -428,7 +428,7 @@ jobs:
 
       - name: iOS Certificates Setup
         if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
-        uses: apple-actions/import-codesign-certs@v1
+        uses: apple-actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.IOS_CERT_P12_B64 }}
           p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
@@ -692,7 +692,7 @@ jobs:
           echo "hash=$H" >> "$GITHUB_OUTPUT"
 
       - name: Cache .import (per platform)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             .import/
@@ -987,7 +987,7 @@ jobs:
 
       - name: Upload Vercel artifact
         if: matrix.platform == 'html5'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vercel-build
           path: build/vercel/
@@ -1061,7 +1061,7 @@ jobs:
 
       - name: Upload Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
           path: |
@@ -1075,7 +1075,7 @@ jobs:
 
       - name: Upload Netlify artifact
         if: matrix.platform == 'html5'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: netlify-build
           path: build/netlify/
@@ -1083,13 +1083,13 @@ jobs:
 
       - name: Upload Pages artifact
         if: matrix.platform == 'html5'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: build/pages
 
       - name: Build Failure Notification
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -1143,7 +1143,7 @@ jobs:
 
       - name: Download macOS export
         if: steps.mac_gate.outputs.ready == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Odisea-Tech-Demo-macOS-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
           path: mac_artifact
@@ -1261,10 +1261,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download Netlify artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: netlify-build
           path: netlify-build
@@ -1279,7 +1279,7 @@ jobs:
           fi
 
       - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v3
+        uses: nwtgck/actions-netlify@v4
         with:
           publish-dir: netlify-build/
           production-branch: main
@@ -1292,7 +1292,7 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   deploy-vercel:
     needs: [prep, export]
@@ -1306,7 +1306,7 @@ jobs:
       url: https://odisea-ios.vercel.app
     steps:
       - name: Download Vercel artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: vercel-build
           path: vercel-build
@@ -1355,12 +1355,12 @@ jobs:
       github.repository == 'icarito/Odisea'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prep.outputs.head_sha }}
 
       - name: Download new .pck artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: all_artifacts
 
@@ -1456,7 +1456,7 @@ jobs:
           ls -la deltas/ || echo "No deltas produced."
 
       - name: Upload Deltas Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: update-deltas
           path: deltas/
@@ -1473,12 +1473,12 @@ jobs:
       github.repository == 'icarito/Odisea'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prep.outputs.head_sha }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: all_artifacts
 
@@ -1589,7 +1589,7 @@ jobs:
           done
 
       - name: Upload Manifests Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: update-manifests
           path: |
@@ -1605,13 +1605,13 @@ jobs:
     if: needs.prep.outputs.ref_name == 'release' && needs.prep.outputs.target_platform == 'all'
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release_assets
           merge-multiple: true
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prep.outputs.version }}
           files: |
@@ -1636,13 +1636,13 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prep.outputs.head_sha }}
           fetch-depth: 50  # historial para el changelog del release
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: nightly_assets
           merge-multiple: true

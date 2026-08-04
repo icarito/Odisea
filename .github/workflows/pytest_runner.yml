@@ -43,11 +43,11 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Godot cache
         id: godot_project_cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ${{ github.workspace }}/.import
@@ -59,7 +59,7 @@ jobs:
 
       - name: Cache Godot binary
         id: godot_bin_cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
           key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-${{ github.workflow }}-${{ github.job }}
@@ -94,7 +94,7 @@ jobs:
 
       - name: Set up Python
         id: setup_python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -105,7 +105,7 @@ jobs:
 
       - name: Cache virtualenv
         id: venv_cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .venv
           key: ${{ runner.os }}-venv-pytest-v2-${{ hashFiles('requirements-pytest.txt') }}
@@ -235,11 +235,11 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache Godot binary
         id: godot_bin_cache_raw
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
           key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-${{ github.workflow }}-${{ github.job }}
@@ -263,7 +263,7 @@ jobs:
 
       - name: Set up Python
         id: setup_python_raw
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -274,7 +274,7 @@ jobs:
 
       - name: Cache virtualenv
         id: venv_cache_raw
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .venv
           key: ${{ runner.os }}-venv-pytest-v1-${{ hashFiles('requirements-pytest.txt') }}

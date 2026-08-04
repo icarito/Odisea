@@ -37,11 +37,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Restore Godot project cache
         id: godot_project_cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ${{ github.workspace }}/.import
@@ -157,7 +157,7 @@ jobs:
 
       - name: Restore Performance Cache
         id: perf_cache_restore
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             performance_baseline.json
@@ -213,7 +213,7 @@ jobs:
 
       - name: Save Performance Cache
         if: always() && env.SIMULATE_REGRESSION != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             performance_baseline.json
@@ -222,7 +222,7 @@ jobs:
 
       - name: Upload Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: performance-report
           path: |

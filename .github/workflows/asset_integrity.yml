@@ -59,10 +59,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Godot cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ${{ github.workspace }}/.import
@@ -73,7 +73,7 @@ jobs:
             ${{ runner.os }}-godot-v3-
 
       - name: Cache Godot binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
           key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-asset-integrity
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload asset integrity logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: asset-integrity-logs
           path: |
