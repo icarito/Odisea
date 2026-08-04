@@ -12,6 +12,8 @@ class_name ScaffoldHubRing
 # spiral chords — so neighbouring segments meet without a seam.
 
 const SEGMENT_SCENE := preload("res://core_v2/props/scaffold/SteelGratePlatform.tscn")
+const FOOTSTEP_PROFILE := preload("res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres")
+const FOOTSTEP_SURFACE_SCRIPT := preload("res://core_v2/systems/footsteps/footstep_surface.gd")
 # Same grate material SteelGratePlatform uses, so hub floors don't read as blank
 # slabs next to the authored platforms.
 const GRATE_MATERIAL_PATH := "res://textures/trenchbroom/steel_grate_platform.tres"
@@ -217,11 +219,17 @@ func _build_compact_ring() -> void:
 	collision.name = "CombinedCollision"
 	collision.shape = mesh.create_trimesh_shape()
 	body.add_child(collision)
+	var footstep_surface := Spatial.new()
+	footstep_surface.name = "FootstepSurface"
+	footstep_surface.set_script(FOOTSTEP_SURFACE_SCRIPT)
+	footstep_surface.set("footstep_profile", FOOTSTEP_PROFILE)
+	body.add_child(footstep_surface)
 	var scene_owner := _get_scene_owner()
 	if scene_owner:
 		visual.owner = scene_owner
 		body.owner = scene_owner
 		collision.owner = scene_owner
+		footstep_surface.owner = scene_owner
 
 # Deck top face only, with planar (XZ) UVs so the real steel-grate texture (alpha
 # scissor) reads as an actual grate pattern instead of a flat gray slab.
