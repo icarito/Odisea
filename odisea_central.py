@@ -3027,6 +3027,7 @@ class OdiseaCentral:
                 objects REAL,
                 vertices REAL,
                 nodes REAL,
+                render_diag TEXT,
                 transition_stage TEXT,
                 transition_path TEXT,
                 transition_current_scene TEXT,
@@ -3053,6 +3054,7 @@ class OdiseaCentral:
             ("objects", "REAL"),
             ("vertices", "REAL"),
             ("nodes", "REAL"),
+            ("render_diag", "TEXT"),
             ("transition_stage", "TEXT"),
             ("transition_path", "TEXT"),
             ("transition_current_scene", "TEXT"),
@@ -3157,6 +3159,9 @@ class OdiseaCentral:
                     transition = player_data.get("transition") or {}
                     if not isinstance(transition, dict):
                         transition = {}
+                    render_diag = player_data.get("render_diag") or {}
+                    if not isinstance(render_diag, dict):
+                        render_diag = {}
 
                     cursor.execute("""
                         INSERT OR IGNORE INTO heartbeats (
@@ -3166,11 +3171,12 @@ class OdiseaCentral:
                             build_channel, official_host, official_build,
                             intake_mode, peer_id, focused,
                             draw_calls, objects, vertices, nodes,
+                            render_diag,
                             transition_stage, transition_path, transition_current_scene,
                             transition_elapsed_ms, transition_progress, transition_loader_stage,
                             transition_preloading, transition_overlay_visible,
                             transition_overlay_alpha, transition_error
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         data.get("player_id"),
                         data.get("session_id"),
@@ -3194,6 +3200,7 @@ class OdiseaCentral:
                         perf.get("obj"),
                         perf.get("vtx"),
                         perf.get("nodes"),
+                        json.dumps(render_diag, separators=(",", ":"), sort_keys=True),
                         transition.get("stage"),
                         transition.get("path"),
                         transition.get("current_scene"),

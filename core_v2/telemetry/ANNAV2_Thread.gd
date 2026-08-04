@@ -498,6 +498,16 @@ func _send_heartbeat(tier: int):
 		"focused": player_data.get("focused", true),
 		"platform": platform_name,
 		"perf": player_data.get("perf", {}),
+		"render_diag": {
+			"video_driver": OS.get_video_driver_name(OS.get_current_video_driver()),
+			"device_model": OS.get_model_name(),
+			"batching_enabled": ProjectSettings.get_setting("rendering/batching/options/use_batching"),
+			"batch_buffer_size": ProjectSettings.get_setting("rendering/batching/parameters/batch_buffer_size"),
+			"force_vertex_shading": ProjectSettings.get_setting("rendering/quality/shading/force_vertex_shading"),
+			"etc": OS.has_feature("etc"),
+			"etc2": OS.has_feature("etc2"),
+			"pvrtc": OS.has_feature("pvrtc")
+		},
 		"transition": player_data.get("transition", {})
 	}
 	
