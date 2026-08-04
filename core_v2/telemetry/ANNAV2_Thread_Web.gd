@@ -224,10 +224,14 @@ func _process_incoming(text: String):
 			var action = msg.get("action")
 			var args = msg.get("args", {})
 			var cmd_id = msg.get("id", "unknown")
+			# See ANNAV2_Thread._on_data: origin decides what a release build will run.
+			# On web the only non-central target is an explicit ?bridge= / ANNA_V2_BRIDGE
+			# override, which is a developer attaching a local peer on purpose.
 			_command_queue.push({
 				"action": action,
 				"args": args,
-				"id": cmd_id
+				"id": cmd_id,
+				"from_central": _peer_url == _central_url
 			})
 
 func _eval_int(js_code: String) -> int:

@@ -284,7 +284,7 @@ func _execute_command(cmd: Dictionary):
 
 	print("[ANNAV2] Executing command: ", action, " id: ", id)
 
-	if not _can_execute_remote_command(action):
+	if not _can_execute_remote_command(action, bool(cmd.get("from_central", true))):
 		_send_response(id, false, {"error": "command not available in release build"})
 		return
 
@@ -307,11 +307,22 @@ func _execute_command(cmd: Dictionary):
 	else:
 		_send_response(id, false, {"error": "unknown action: " + str(action)})
 
-func _can_execute_remote_command(action: String) -> bool:
-	# Telemetry and harmless info commands are always allowed
-	if action in ["inspect_node", "screenshot"]:
+# Gating has two axes: the build, and who is asking.
+#
+#   debug build / editor      -> everything (dev machine, unchanged behaviour)
+#   release + local peer      -> inspect_node, screenshot (a developer attached a peer
+#                                to an exported build on purpose)
+#   release + remote central  -> nothing
+#
+# The last row is the point: a store build (iOS/macOS release) must not let the central
+# capture its viewport or walk its live scene tree. Those two commands used to be allowed
+# unconditionally, which made every shipped release remotely screenshot-able.
+func _can_execute_remote_command(action: String, from_central: bool = true) -> bool:
+	if OS.is_debug_build() or OS.has_feature("editor"):
 		return true
-	return OS.is_debug_build() or OS.has_feature("editor")
+	if from_central:
+		return false
+	return action in ["inspect_node", "screenshot"]
 
 func _find_expected_sha256(artifact_id: String) -> String:
 	var f = File.new()

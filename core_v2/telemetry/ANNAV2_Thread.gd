@@ -239,6 +239,10 @@ func _attempt_connection():
 func _maybe_upgrade_to_local_peer(now: int) -> void:
 	if not _is_connected or not _connected_to_central:
 		return
+	# iOS never discovers a local peer (see _discover_peer), so there is nothing to
+	# upgrade to — skip the recurring loopback probe.
+	if OS.has_feature("ios"):
+		return
 	if now - _last_local_probe < LOCAL_PEER_PROBE_INTERVAL_MS:
 		return
 	_last_local_probe = now
@@ -289,6 +293,20 @@ func _discover_peer() -> String:
 		if not _central_enabled:
 			return ""
 		print("[ANNAV2] HTML5 build: falling back to central: ", _central_url)
+		return _central_url
+
+	# 2b. iOS: never touch the local network. Probing a LAN address or binding the UDP
+	# discovery socket trips the iOS 14+ Local Network permission prompt, which needs
+	# NSLocalNetworkUsageDescription in the Info.plist — a key the Godot 3.6 iOS export
+	# preset cannot set. An iOS device also never has an ANNA peer to find (no env vars,
+	# no local peer process), so the probe is pure cost: an unexplained permission dialog
+	# on first launch and an App Review question. Go straight to the central.
+	# Android is deliberately NOT included: it needs no permission for this and the LAN
+	# peer discovery is a documented workflow (see docs/features/FD-162-odisea-bridge.md).
+	if OS.has_feature("ios"):
+		if not _central_enabled:
+			return ""
+		print("[ANNAV2] iOS build: skipping LAN discovery, using central: ", _central_url)
 		return _central_url
 
 	# 3. Try localhost
@@ -390,10 +408,15 @@ func _on_data():
 			var action = msg.get("action")
 			var args = msg.get("args", {})
 			var cmd_id = msg.get("id", "unknown")
+			# Stamp the origin so ANNAV2 can refuse remote-central commands in a
+			# release build (a shipped store build must not be screenshot-able or
+			# inspectable from the central). Stamped at receive time rather than
+			# read at execute time so a reconnect can't reclassify a queued command.
 			_command_queue.push({
 				"action": action,
 				"args": args,
-				"id": cmd_id
+				"id": cmd_id,
+				"from_central": _connected_to_central
 			})
 
 func _send_handshake():

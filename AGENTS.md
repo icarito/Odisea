@@ -411,13 +411,28 @@ curl -s -XPOST localhost:4999/command -d '{"action":"screenshot"}'        # -> {
 curl -s -XPOST localhost:4999/command/batch -d '{"commands":[...]}'       # repro ordenado
 ```
 
-**Gating:** `inspect_node`, `screenshot`, `reload_pck` van siempre. `set_property`,
-`execute_script` (lo usa `/eval`), `spawn_scene`, `teleport_player` requieren
-`OS.is_debug_build() or has_feature("editor")` — **cierto en dev** (editor F5 y export con debug),
-falso solo en un export sin debug. El `game_version` del heartbeat (`Constants.GAME_VERSION`, ej.
-`v0.3.2`) es **cosmético**, NO indica release: no inferir el gating de ahí. Si un comando da
-`timeout` con el juego conectado, verificá `/eval?expr=OS.is_debug_build()`; si ni `inspect_node`
-responde, el binario en ejecución puede ser un build viejo previo al código de comandos.
+**Gating** (`ANNAV2._can_execute_remote_command`) — dos ejes, el build y quién pregunta:
+
+| | debug build / editor | release + peer local | release + central remoto |
+|---|---|---|---|
+| `inspect_node`, `screenshot` | sí | sí | **no** |
+| `set_property`, `execute_script` (lo usa `/eval`), `spawn_scene`, `teleport_player`, `reload_pck`, `reload_resource` | sí | no | no |
+
+En dev todo funciona (editor F5 y export con debug ⇒ `OS.is_debug_build()` es cierto). La
+columna del medio cubre inspeccionar un export release atachándole un peer local a mano. La
+tercera columna es deliberada: un build de tienda no debe ser capturable ni inspeccionable
+desde el central. El origen se estampa al recibir el comando (`from_central`), no al
+ejecutarlo, para que una reconexión no reclasifique lo ya encolado.
+
+El `game_version` del heartbeat (`Constants.GAME_VERSION`, ej. `v0.3.2`) es **cosmético**, NO
+indica release: no inferir el gating de ahí. Si un comando da `timeout` con el juego conectado,
+verifique `/eval?expr=OS.is_debug_build()`; si ni `inspect_node` responde, el binario en
+ejecución puede ser un build viejo previo al código de comandos.
+
+**iOS no hace descubrimiento LAN.** `ANNAV2_Thread._discover_peer()` va directo al central en
+iOS: sondear una IP de la LAN o bindear el UDP 5500 dispara el permiso de Red Local de iOS 14+,
+que exige `NSLocalNetworkUsageDescription` — key que el preset iOS de Godot 3.6 no puede setear.
+Android sí sigue descubriendo peers en la LAN (no requiere permiso).
 
 ### 9.4 Profiling / performance
 
