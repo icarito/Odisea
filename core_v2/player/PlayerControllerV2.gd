@@ -59,8 +59,8 @@ export(float) var cinematic_zoom_speed := 1.0
 export(float) var cinematic_zoom_lerp_speed := 8.0
 export(float) var cinematic_zoom_min_fov := 20.0
 export(float) var cinematic_zoom_max_fov := 110.0
-export(float) var orbit_zoom_min_length := 0.75
-export(float) var orbit_zoom_max_length := 50.0
+export(float) var camera_zoom_min_distance := 0.75
+export(float) var camera_zoom_max_distance := 50.0
 export(int, LAYERS_3D_PHYSICS) var camera_collision_mask := 129 # Entorno + CameraCollision
 # Stair-stepping Configuration
 export(float) var step_height := 0.5
@@ -98,9 +98,9 @@ var _platform_tracking_key := ""
 var base_fov := 75.0
 var _cached_cam: Camera = null
 var _cached_spring_arm = null
-var base_spring_length := 7.0
-var base_spring_length_3d := 7.0
-var current_spring_length := 7.0
+var base_spring_length := 5.5
+var base_spring_length_3d := 5.5
+var current_spring_length := 5.5
 var base_rig_y := 0.0
 var base_collision_mask := 0
 var _cinematic_zoom_target_fov := -1.0
@@ -114,8 +114,8 @@ export(float, 0.5, 6.0, 0.1) var camera_rig_y_max_lag := 2.0  # max Y-offset the
 export(float, 0.5, 20.0, 0.1) var camera_rig_step_snap_speed := 7.5 # gentler catch-up immediately after stair-step motion
 export(float, 0.0, 0.5, 0.01) var camera_rig_jump_lazy_delay := 0.16
 export(float, 0.0, 2.0, 0.01) var camera_rig_jump_lazy_deadzone := 0.85
-export(float) var ots_camera_follow_start_length := 3.2
-export(float) var ots_camera_follow_full_length := 1.0
+export(float) var ots_blend_start_distance := 3.2
+export(float) var ots_blend_full_distance := 1.0
 export(float, 1.0, 40.0, 0.5) var ots_camera_follow_speed := 18.0
 export(float, 0.5, 20.0, 0.1) var ots_camera_follow_blend_speed := 8.0
 var _camera_rig_y_smoothed_global := 0.0 # smoothed global-Y for the camera pivot
@@ -129,6 +129,7 @@ var _ots_camera_follow_weight := 0.0
 var velocity := Vector3()
 var is_pushing: bool = false
 var is_crouching: bool = false
+var ice_submersion_depth := 0.0
 var last_input: InputDataV2 = null
 var _was_pushing: bool = false
 var push_normal: Vector3 = Vector3.BACK
@@ -676,9 +677,16 @@ func _ensure_required_player_collision_mask() -> void:
 	if (collision_mask & PLAYER_REQUIRED_COLLISION_MASK) == 0:
 		collision_mask |= PLAYER_REQUIRED_COLLISION_MASK
 
+func set_ice_submersion(depth: float) -> void:
+	ice_submersion_depth = max(depth, 0.0)
+	if is_instance_valid(movement_logic) and movement_logic.has_method("set_ice_movement_multiplier"):
+		var normalized := clamp(ice_submersion_depth / 0.8, 0.0, 1.0)
+		movement_logic.set_ice_movement_multiplier(lerp(1.0, 0.25, normalized))
+
 # FD-051: el traje absorbe el calor del fuego; su ruptura es lo que mata, no el contacto.
 func _setup_thermal_resistance() -> void:
 	add_to_group("fire_vulnerable")
+	add_to_group("ice_vulnerable")
 	var suit = get_node_or_null("Logic/SuitThermalResistance")
 	if not is_instance_valid(suit):
 		suit = load("res://core_v2/player/components/SuitThermalResistance.gd").new()
@@ -697,6 +705,9 @@ func _setup_thermal_resistance() -> void:
 	var heat_vignette_manager = get_node_or_null("/root/HeatVignetteManager")
 	if heat_vignette_manager and heat_vignette_manager.has_method("bind_suit"):
 		heat_vignette_manager.bind_suit(suit)
+	var frost_vignette_manager = get_node_or_null("/root/FrostVignetteManager")
+	if frost_vignette_manager and frost_vignette_manager.has_method("bind_suit"):
+		frost_vignette_manager.bind_suit(suit)
 
 func _on_suit_breached() -> void:
 	# El componente del traje no sabe de respawn: la muerte la resuelve el TeleportSystem,
@@ -1180,8 +1191,8 @@ func _update_camera_rig_vertical(dt: float) -> void:
 	camera_rig.transform.origin.y = _camera_rig_y_smoothed_global - global_transform.origin.y
 
 func _update_ots_camera_follow_weight(dt: float) -> float:
-	var start_len := max(ots_camera_follow_start_length, ots_camera_follow_full_length + 0.001)
-	var full_len := max(ots_camera_follow_full_length, 0.001)
+	var start_len := max(ots_blend_start_distance, ots_blend_full_distance + 0.001)
+	var full_len := max(ots_blend_full_distance, 0.001)
 	var effective_len := _get_effective_camera_arm_length()
 	var raw_weight := 1.0 - clamp((effective_len - full_len) / (start_len - full_len), 0.0, 1.0)
 	_ots_camera_follow_weight = lerp(
@@ -1217,8 +1228,8 @@ func _apply_orbit_zoom_delta(zoom_delta: float) -> void:
 		return
 	base_spring_length_3d = clamp(
 		base_spring_length_3d + zoom_delta,
-		max(orbit_zoom_min_length, 0.1),
-		max(orbit_zoom_max_length, orbit_zoom_min_length)
+		max(camera_zoom_min_distance, 0.1),
+		max(camera_zoom_max_distance, camera_zoom_min_distance)
 	)
 
 func _update_camera_collision_mask_state(dt: float) -> void:

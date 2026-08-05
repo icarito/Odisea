@@ -1,0 +1,145 @@
+tool
+extends Area
+class_name FrostEmitter
+
+signal damage_tick(damage)
+signal extinguished()
+
+export(bool) var is_active: bool = true setget set_active
+export(float) var damage_per_tick: float = 10.0
+export(float) var tick_interval: float = 0.5
+export(float) var emission_radius: float = 0.5
+export(int) var particles_per_second: float = 30
+export(float) var emission_height: float = 1.5
+
+var _tick_timer: float = 0.0
+var _spawn_timer: float = 0.0
+var _player_body: Node = null
+var _emit_counter: int = 0
+var _ice_level: Node = null
+
+onready var _manager: GasParticleManager = get_node_or_null("GasParticleManager")
+onready var _collision_shape: CollisionShape = get_node_or_null("CollisionShape")
+
+func _ready():
+	add_to_group("replay_sync")
+	connect("body_entered", self, "_on_body_entered")
+	connect("body_exited", self, "_on_body_exited")
+
+	_set_visuals_active(is_active)
+	if _collision_shape:
+		_collision_shape.disabled = not is_active
+
+func _process(delta: float):
+	if Engine.editor_hint:
+		return
+
+	if is_active and _manager:
+		_spawn_timer += delta
+		var spawn_interval := 1.0 / max(particles_per_second, 1.0)
+		while _spawn_timer >= spawn_interval:
+			_spawn_timer -= spawn_interval
+			_spawn_frost_particle()
+
+func _physics_process(delta: float) -> void:
+	_sync_ice_level()
+	if is_active and is_instance_valid(_ice_level) and _ice_level.ice_height >= global_transform.origin.y:
+		extinguish()
+	if is_active and _player_body:
+		_tick_timer += delta
+		if _tick_timer >= tick_interval:
+			_tick_timer = 0.0
+			emit_signal("damage_tick", damage_per_tick)
+
+func _spawn_frost_particle() -> void:
+	_emit_counter += 1
+	var offset := Vector3(
+		(_hashed_unit(_emit_counter) - 0.5) * emission_radius,
+		emission_height,
+		(_hashed_unit(_emit_counter + 7919) - 0.5) * emission_radius
+	)
+	var index := _manager.emit_particle(offset)
+	_manager.set_particle_combustion(index, true, Color(0.96, 0.985, 1.0, 0.38))
+
+func _hashed_unit(index: int) -> float:
+	var h := int(index) & 0x7fffffff
+	h = ((h >> 15) ^ h) * 0x2c1b3c6d
+	h = h & 0x7fffffff
+	h = ((h >> 12) ^ h) * 0x297a2d39
+	h = h & 0x7fffffff
+	h = (h >> 15) ^ h
+	return float(h & 0x7fffffff) / 2147483647.0
+
+func _on_body_entered(body: Node):
+	if body.is_in_group("player"):
+		_player_body = body
+		_tick_timer = 0.0
+
+func _on_body_exited(body: Node):
+	if body == _player_body:
+		_player_body = null
+
+func set_active(value: bool):
+	is_active = value
+	_set_visuals_active(is_active)
+	if _collision_shape:
+		_collision_shape.set_deferred("disabled", not is_active)
+	if not is_active:
+		_player_body = null
+
+func _set_visuals_active(active: bool):
+	if not active and _manager:
+		_manager.clear_all()
+	for child in get_children():
+		if child is AudioStreamPlayer or child is AudioStreamPlayer3D:
+			if active:
+				if child.autoplay and not child.playing:
+					child.play()
+			else:
+				child.stop()
+
+func _sync_ice_level() -> void:
+	if is_instance_valid(_ice_level):
+		return
+	var systems: Array = get_tree().get_nodes_in_group("ice_level") if get_tree() else []
+	if not systems.empty():
+		_ice_level = systems[0]
+
+func extinguish():
+	set_active(false)
+	emit_signal("extinguished")
+
+func interact():
+	toggle()
+
+func activate():
+	set_active(true)
+
+func deactivate():
+	set_active(false)
+
+func toggle():
+	set_active(!is_active)
+
+# --- SNAPSHOT SYSTEM ---
+
+func get_snapshot() -> Dictionary:
+	return {
+		"is_active": is_active,
+		"tick_timer": _tick_timer,
+		"spawn_timer": _spawn_timer,
+		"emit_counter": _emit_counter,
+		"manager": _manager.get_snapshot() if _manager else {}
+	}
+
+func restore_snapshot(data: Dictionary):
+	is_active = data.get("is_active", true)
+	_tick_timer = data.get("tick_timer", 0.0)
+	_spawn_timer = data.get("spawn_timer", 0.0)
+	_emit_counter = int(data.get("emit_counter", 0))
+
+	_set_visuals_active(is_active)
+	if _collision_shape:
+		_collision_shape.disabled = not is_active
+	if _manager and data.has("manager"):
+		_manager.restore_snapshot(data["manager"])

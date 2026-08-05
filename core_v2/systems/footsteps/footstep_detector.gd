@@ -71,6 +71,11 @@ func _play_by_footstep_surface(collider) -> bool:
 	if direct_profile:
 		_play_from_profile(direct_profile)
 		return true
+	if collider.has_meta("footstep_profile"):
+		var metadata_profile = collider.get_meta("footstep_profile")
+		if metadata_profile:
+			_play_from_profile(metadata_profile)
+			return true
 	
 	var surface = _find_footstep_surface(collider)
 	if surface:

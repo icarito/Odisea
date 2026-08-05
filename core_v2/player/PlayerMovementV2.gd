@@ -8,6 +8,7 @@ export(float) var air_friction := 10.0
 export(float) var move_speed := 5.0
 export(float) var run_speed_multiplier := 1.8
 export(float) var crouch_speed_multiplier := 0.5
+export(float, 0.0, 1.0) var ice_movement_multiplier := 1.0
 export(float) var air_control_multiplier := 0.5 # Reducir aceleración en el aire
 export(float) var stop_threshold := 0.01 # Threshold para forzar velocidad a cero
 
@@ -188,7 +189,7 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	elif sprint:
 		speed_multiplier = run_speed_multiplier
 
-	var target_speed = move_speed * speed_multiplier
+	var target_speed = move_speed * speed_multiplier * ice_movement_multiplier
 	
 	var forward = - basis.z
 	forward.y = 0.0
@@ -232,3 +233,6 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 
 func get_horizontal_velocity() -> Vector3:
 	return horizontal_velocity
+
+func set_ice_movement_multiplier(value: float) -> void:
+	ice_movement_multiplier = clamp(value, 0.0, 1.0)

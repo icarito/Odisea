@@ -30,6 +30,8 @@ var _intensity := 0.0
 var _pulse_time := 0.0
 var _heat_proximity := 0.0
 var _distortion := 0.0
+var _damage_direction := Vector2.ZERO
+var _directionality := 0.0
 
 func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
@@ -81,6 +83,21 @@ func set_heat_active(active: bool) -> void:
 func set_heat_proximity(proximity: float) -> void:
 	_heat_proximity = clamp(proximity, 0.0, 1.0)
 
+# API común para futuras viñetas de daño. La dirección está en espacio de pantalla:
+# +X derecha, +Y abajo; Vector2.ZERO mantiene el efecto radial.
+func set_hazard_active(active: bool) -> void:
+	set_heat_active(active)
+
+func set_hazard_proximity(proximity: float) -> void:
+	set_heat_proximity(proximity)
+
+func set_damage_direction(direction: Vector2, strength: float = 1.0) -> void:
+	_damage_direction = direction.limit_length(1.0)
+	_directionality = clamp(strength, 0.0, 1.0)
+	if is_instance_valid(_material):
+		_material.set_shader_param("damage_direction", _damage_direction)
+		_material.set_shader_param("directionality", _directionality)
+
 func _process(delta: float) -> void:
 	if get_tree().paused:
 		_distortion = 0.0
@@ -123,6 +140,8 @@ func _apply_to_shader(intensity: float, creep: float) -> void:
 	_material.set_shader_param("intensity", intensity)
 	_material.set_shader_param("creep", creep)
 	_material.set_shader_param("distortion", _distortion)
+	_material.set_shader_param("damage_direction", _damage_direction)
+	_material.set_shader_param("directionality", _directionality)
 
 func _on_viewport_resized() -> void:
 	if not is_instance_valid(_material):

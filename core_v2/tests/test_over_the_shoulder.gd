@@ -98,8 +98,8 @@ func test_shortened_zoom_uses_same_shoulder_curve_without_extra_vertical_drop() 
 	ots.max_side_offset = 2.0
 	ots.max_height_offset = -2.5
 	ots.max_pivot_z_offset = 0.2
-	ots.distance_min = 0.0
-	ots.distance_max = 4.5
+	ots.ots_blend_min_distance = 0.0
+	ots.ots_blend_max_distance = 4.5
 	ots.right_side = false
 	ots.lerp_speed = 100.0
 	ots.distance_blend_speed = 100.0
@@ -136,8 +136,8 @@ func test_open_space_preserves_regular_negative_shoulder_drop() -> void:
 	ots.max_side_offset = 1.2
 	ots.max_height_offset = -0.5
 	ots.max_pivot_z_offset = 0.3
-	ots.distance_min = 0.0
-	ots.distance_max = 4.0
+	ots.ots_blend_min_distance = 0.0
+	ots.ots_blend_max_distance = 4.0
 	ots.right_side = true
 	ots.lerp_speed = 100.0
 	ots.distance_blend_speed = 100.0
@@ -165,8 +165,8 @@ func test_manual_zoom_range_reaches_full_shoulder_offset() -> void:
 	ots.max_side_offset = 0.55
 	ots.max_height_offset = -0.35
 	ots.max_pivot_z_offset = 0.2
-	ots.distance_min = 1.0
-	ots.distance_max = 3.2
+	ots.ots_blend_min_distance = 1.0
+	ots.ots_blend_max_distance = 3.2
 	ots.right_side = true
 	ots.lerp_speed = 100.0
 	ots.distance_blend_speed = 100.0

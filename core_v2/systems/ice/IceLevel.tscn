@@ -1,0 +1,25 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/systems/ice/IceLevel.gd" type="Script" id=1]
+[ext_resource path="res://assets/sfx/voicebosch-ice-crackling-168594.mp3" type="AudioStream" id=2]
+
+[node name="IceLevel" type="Spatial"]
+script = ExtResource( 1 )
+base_speed = 0.15
+accel = 0.0
+start_height = 0.0
+walkable_surface_depth = 0.45
+core_submersion_depth = 1.25
+damage_per_second = 25.0
+core_damage_multiplier = 4.0
+respawn_safety_margin = 3.0
+auto_start = true
+crack_interval = 2.5
+debug_draw = true
+debug_plane_radius = 30.0
+
+[node name="IceCrackSound" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource( 2 )
+unit_db = 6.0
+unit_size = 12.0
+max_distance = 60.0

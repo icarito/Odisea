@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/voicebosch-ice-crackling-168594.mp3-1ecf3f6aea92881c23d6c73a3cb1ae64.mp3str"
+
+[deps]
+
+source_file="res://assets/sfx/voicebosch-ice-crackling-168594.mp3"
+dest_files=[ "res://.import/voicebosch-ice-crackling-168594.mp3-1ecf3f6aea92881c23d6c73a3cb1ae64.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0

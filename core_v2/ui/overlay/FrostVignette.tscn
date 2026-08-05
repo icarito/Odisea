@@ -1,0 +1,33 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/ui/overlay/HeatVignette.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/ui/overlay/shaders/frost_vignette.shader" type="Shader" id=2]
+
+[sub_resource type="ShaderMaterial" id=1]
+shader = ExtResource( 2 )
+shader_param/frost_color = Color( 0.92, 0.98, 1, 1 )
+shader_param/intensity = 0.0
+shader_param/inner_radius = 0.3
+shader_param/outer_radius = 0.92
+shader_param/aspect = 1.7777
+shader_param/creep = 0.0
+shader_param/damage_direction = Vector2( 0, 1 )
+shader_param/directionality = 0.9
+
+[node name="FrostVignette" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource( 1 )
+base_pulse = 0.36
+damage_weight = 0.9
+pulse_amount = 0.08
+responsiveness = 10.0
+max_distortion = 0.0
+
+[node name="Vignette" type="ColorRect" parent="."]
+material = SubResource( 1 )
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color( 1, 1, 1, 1 )

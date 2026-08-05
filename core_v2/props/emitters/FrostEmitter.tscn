@@ -1,0 +1,41 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/props/emitters/FrostEmitter.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=2]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_ambient_01.ogg" type="AudioStream" id=3]
+
+[sub_resource type="CylinderShape" id=1]
+radius = 1.0
+height = 2.0
+
+[node name="FrostEmitter" type="Area"]
+script = ExtResource( 1 )
+emission_radius = 0.35
+particles_per_second = 24
+emission_height = 0.6
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+shape = SubResource( 1 )
+
+[node name="GasParticleManager" type="Spatial" parent="."]
+script = ExtResource( 2 )
+pool_size = 48
+default_max_lifetime = 1.8
+default_base_scale = 1.8
+viscosity = 0.72
+buoyancy = 0.16
+decay_rate = 0.72
+default_color = Color( 0.96, 0.985, 1, 0.34 )
+ignition_color = Color( 0.86, 0.95, 1, 0.4 )
+collide_with_world = false
+default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_02/textures/smoke_02.tga"
+shader_path = "res://core_v2/systems/ice/shaders/frost_flipbook.shader"
+use_dither = false
+
+[node name="FrostSound" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource( 3 )
+unit_db = 10.0
+unit_size = 3.0
+max_distance = 40.0
+autoplay = true

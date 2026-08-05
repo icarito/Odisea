@@ -17,14 +17,14 @@ const CONTACT_PROBE_SLACK := 0.04
 export var collider_shape: Shape setget set_collider_shape
 
 # the initial length of the arm
-export var current_length := 7.0
+var current_length := 7.0
 
 # the closest the end of the arm can be to the origin of this node
 export var min_length := 0.5
 
 # the length the arm will try to extend to
-export var spring_length := 7.0 # Renamed target_length to spring_length for compatibility with SpringArm
-export var target_length := 7.0 # Keeping this for internal use or alias, but spring_length is the primary property manipulated by the player controller.
+export var spring_length := 7.0 # Standard camera distance; runtime state is kept internally.
+var target_length := 7.0
 
 # Smoothing speed while extending back to target length (lower = smoother).
 export var extend_weight := 6.0

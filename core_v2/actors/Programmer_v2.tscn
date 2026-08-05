@@ -58,8 +58,8 @@ camera_rig_y_fall_follow_speed = 4.5
 camera_rig_y_max_lag = 2.0
 camera_rig_jump_lazy_delay = 0.16
 camera_rig_jump_lazy_deadzone = 0.85
-ots_camera_follow_start_length = 5.0
-ots_camera_follow_full_length = 1.0
+ots_blend_start_distance = 5.0
+ots_blend_full_distance = 1.0
 ots_camera_follow_speed = 18.0
 step_depth = 0.7
 step_grounded_grace = 0.3
@@ -96,8 +96,8 @@ proximity_radius = 6.0
 script = ExtResource( 63 )
 max_side_offset = 0.55
 max_height_offset = -0.35
-distance_min = 1.0
-distance_max = 5.0
+ots_blend_min_distance = 1.0
+ots_blend_max_distance = 5.0
 jump_rise_offset = 0.45
 
 [node name="Visual" type="Spatial" parent="."]

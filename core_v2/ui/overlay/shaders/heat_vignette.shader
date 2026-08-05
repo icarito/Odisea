@@ -17,6 +17,9 @@ uniform float aspect = 1.7777;
 uniform float creep : hint_range(0.0, 1.0) = 0.0;
 // Una sola muestra desplazada de pantalla: onda de calor barata, sin blur ni noise texture.
 uniform float distortion : hint_range(0.0, 0.02) = 0.0;
+// Dirección del daño en pantalla (-1..1). Cero conserva la viñeta radial clásica.
+uniform vec2 damage_direction = vec2(0.0);
+uniform float directionality : hint_range(0.0, 1.0) = 0.0;
 
 void fragment() {
 	float wave_x = sin(UV.y * 68.0 + UV.x * 6.0 + TIME * 4.2);
@@ -28,6 +31,9 @@ void fragment() {
 
 	float inner = mix(inner_radius, inner_radius * 0.25, clamp(creep, 0.0, 1.0));
 	float mask = smoothstep(inner, max(outer_radius, inner + 0.001), dist);
+	vec2 direction = normalize(damage_direction + vec2(0.00001));
+	float directional_mask = smoothstep(-0.35, 0.85, dot(normalize(centered + vec2(0.00001)), direction));
+	mask *= mix(1.0, directional_mask, directionality * step(0.001, length(damage_direction)));
 
 	float alpha = clamp(mask * intensity, 0.0, 1.0) * heat_color.a;
 	vec3 final_color = mix(screen_color, heat_color.rgb, alpha);

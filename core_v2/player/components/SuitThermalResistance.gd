@@ -27,6 +27,7 @@ var _regen_delay_timer := 0.0
 var _pending_dps := 0.0
 var _owner_body: Node = null
 var _fire_system: Node = null
+var _ice_level: Node = null
 
 func _init() -> void:
 	add_to_group("replay_sync")
@@ -37,6 +38,7 @@ func _ready() -> void:
 	_regen_delay_timer = 0.0
 	_owner_body = _resolve_owner_body()
 	call_deferred("_connect_fire_system")
+	call_deferred("_connect_ice_level")
 	emit_signal("thermal_state_changed", get_ratio())
 
 func get_ratio() -> float:
@@ -64,6 +66,8 @@ func _physics_process(delta: float) -> void:
 	# Reconexión perezosa: el FireSystem puede aparecer después que el jugador.
 	if not is_instance_valid(_fire_system):
 		_connect_fire_system()
+	if not is_instance_valid(_ice_level):
+		_connect_ice_level()
 
 	var previous_ratio := get_ratio()
 
@@ -111,6 +115,29 @@ func _on_heat_contact(body: Node, dps: float, _in_core: bool) -> void:
 	if body != _owner_body:
 		return
 	apply_heat(dps)
+
+# El mismo aislamiento térmico protege de extremos fríos y calientes; mantenemos una
+# única integridad determinista en vez de duplicar estados del traje.
+func apply_cold(dps: float) -> void:
+	apply_heat(dps)
+
+func _connect_ice_level() -> void:
+	if not get_tree():
+		return
+	var systems: Array = get_tree().get_nodes_in_group("ice_level")
+	if systems.empty():
+		return
+	var system: Node = systems[0]
+	if not is_instance_valid(system):
+		return
+	_ice_level = system
+	if not system.is_connected("frost_contact", self, "_on_frost_contact"):
+		var _err = system.connect("frost_contact", self, "_on_frost_contact")
+
+func _on_frost_contact(body: Node, dps: float, _in_core: bool) -> void:
+	if body != _owner_body:
+		return
+	apply_cold(dps)
 
 # --- REPLAY ---
 

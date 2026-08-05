@@ -446,6 +446,10 @@ func _on_player_killed():
 		for fire_system in fire_systems:
 			if is_instance_valid(fire_system) and fire_system.has_method("ensure_safe_for_respawn"):
 				fire_system.ensure_safe_for_respawn(target_transform.origin.y)
+		var ice_levels: Array = get_tree().get_nodes_in_group("ice_level")
+		for ice_level in ice_levels:
+			if is_instance_valid(ice_level) and ice_level.has_method("ensure_safe_for_respawn"):
+				ice_level.ensure_safe_for_respawn(target_transform.origin.y)
 
 	print("[TeleportSystem] Reinstanciando Pilot en:", target_transform)
 	# Eliminar el Pilot actual

@@ -17,10 +17,10 @@ export(float) var max_height_offset := -0.65
 export(float) var max_pivot_z_offset := 0.2
 
 # Spring length at which OTS is fully active (e.g., 1.5m from player).
-export(float) var distance_min := 1.5
+export(float) var ots_blend_min_distance := 1.5
 
 # Spring length at which OTS starts activating (e.g., at 4.5m it begins to slide).
-export(float) var distance_max := 4.5
+export(float) var ots_blend_max_distance := 4.5
 
 # Toggle which side to slide to (True = Right, False = Left).
 export(bool) var right_side := true
@@ -28,7 +28,7 @@ export(bool) var right_side := true
 # How fast the camera slides to the side (higher = snappier, lower = lazier).
 export(float) var lerp_speed := 6.0
 
-# Power of the transition curve. 1.0 is linear, > 1.0 makes the slide accelerate as it nears distance_min.
+# Power of the transition curve. 1.0 is linear, > 1.0 makes the slide accelerate as it nears ots_blend_min_distance.
 export(float) var curve_power := 1.5
 
 # Smoothing speed while entering the zoom-driven OTS blend.
@@ -251,8 +251,8 @@ func _get_target_arm_length() -> float:
 	return float(target_len)
 
 func _compute_ots_weight(current_len: float) -> float:
-	var distance_span := max(distance_max - distance_min, 0.001)
-	return 1.0 - clamp((current_len - distance_min) / distance_span, 0.0, 1.0)
+	var distance_span := max(ots_blend_max_distance - ots_blend_min_distance, 0.001)
+	return 1.0 - clamp((current_len - ots_blend_min_distance) / distance_span, 0.0, 1.0)
 
 # Escalar del offset según cuán cerca está la cámara de una superficie, derivado de la
 # compresión que ya reporta el brazo. Devuelve 1.0 en espacio abierto y baja hasta

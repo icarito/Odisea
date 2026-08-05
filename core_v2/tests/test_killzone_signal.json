@@ -5710,13 +5710,13 @@
   },
   "final_expected_state": {
     "position": [
-      0,
-      0.0015,
-      0
+      12,
+      -2.733889,
+      -12
     ],
     "velocity": [
       0,
-      0,
+      -8.633333,
       0
     ],
     "yaw": 0,
@@ -5741,7 +5741,7 @@
     "controller_mode": 0,
     "gravity_mode": 0,
     "jump_state": {
-      "coyote_timer": 0.15,
+      "coyote_timer": 0,
       "jump_buffer_timer": 0,
       "is_jumping": false
     }

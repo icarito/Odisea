@@ -19,7 +19,7 @@ var current_gravity_mode: int = GravityModes.Mode.STANDARD_1G
 var standard_controller = null
 var zero_gravity_controller = null
 var _standard_camera_rig: Spatial = null
-var _last_standard_camera_distance := 4.0
+var _last_standard_camera_distance := 0.0
 var _last_standard_camera_fov := 75.0
 
 func _ready() -> void:
@@ -31,6 +31,9 @@ func _ready() -> void:
 	standard_controller = root
 	zero_gravity_controller = root.get_node_or_null("ZeroGravityController")
 	_standard_camera_rig = root.get_node_or_null("CameraRig") as Spatial
+	var initial_arm = root._find_spring_arm(_standard_camera_rig) if root.has_method("_find_spring_arm") else null
+	if initial_arm:
+		_last_standard_camera_distance = float(initial_arm.get("spring_length"))
 
 	var zones = get_tree().get_nodes_in_group("zero_gravity_zones")
 	for zone in zones:

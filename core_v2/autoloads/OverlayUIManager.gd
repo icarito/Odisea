@@ -25,6 +25,10 @@ func ensure_overlay(node_name: String, scene: PackedScene, slot_name: String = S
 		return null
 	var existing = slot.get_node_or_null(node_name)
 	if is_instance_valid(existing):
+		# Un overlay marcado para queue_free sigue siendo instance_valid hasta el final del
+		# frame. No devolvérselo al manager: reintentará y creará uno sano al frame siguiente.
+		if existing.is_queued_for_deletion():
+			return null
 		return existing
 	var instance = scene.instance()
 	if not is_instance_valid(instance):
@@ -32,6 +36,14 @@ func ensure_overlay(node_name: String, scene: PackedScene, slot_name: String = S
 	instance.name = node_name
 	slot.add_child(instance)
 	return instance
+
+func remove_overlay(node_name: String, slot_name: String = SLOT_PASSIVE) -> void:
+	var slot = get_slot(slot_name)
+	if not is_instance_valid(slot):
+		return
+	var overlay = slot.get_node_or_null(node_name)
+	if is_instance_valid(overlay):
+		overlay.queue_free()
 
 func get_safe_margins(extra_padding: float = 0.0) -> Dictionary:
 	var margins = {

@@ -1,4 +1,4 @@
-[gd_scene load_steps=60 format=2]
+[gd_scene load_steps=59 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=21]
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
@@ -16,15 +16,11 @@
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubTower.tscn" type="PackedScene" id=13]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.gd" type="Script" id=14]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=15]
-[ext_resource path="res://core_v2/systems/ice/IceLevel.gd" type="Script" id=16]
-[ext_resource path="res://core_v2/systems/ice/IceVisualBand.gd" type="Script" id=17]
-[ext_resource path="res://core_v2/audio/footsteps/footstep_profile_ice.tres" type="Resource" id=24]
-[ext_resource path="res://core_v2/systems/footsteps/footstep_surface.gd" type="Script" id=25]
+[ext_resource path="res://core_v2/systems/fire/FireSystem.gd" type="Script" id=16]
+[ext_resource path="res://core_v2/systems/fire/FireVisualBand.gd" type="Script" id=17]
 [ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=18]
-[ext_resource path="res://core_v2/systems/ice/shaders/transparent_ice.shader" type="Shader" id=19]
+[ext_resource path="res://core_v2/systems/fire/shaders/fire_debug_plane.shader" type="Shader" id=19]
 [ext_resource path="res://scenes/common/space_environment/Environment_DomeIntro.tres" type="Environment" id=20]
-[ext_resource path="res://core_v2/props/emitters/FrostEmitter.tscn" type="PackedScene" id=22]
-[ext_resource path="res://assets/sfx/voicebosch-ice-crackling-168594.mp3" type="AudioStream" id=23]
 
 [sub_resource type="StreamTexture" id=256]
 flags = 18
@@ -393,30 +389,23 @@ ao_on_uv2 = false
 ao_texture_channel = 2
 
 [sub_resource type="ShaderMaterial" id=252]
-render_priority = 1
 shader = ExtResource( 19 )
-shader_param/albedo = Color( 0.55, 0.85, 1, 0.62 )
-shader_param/deep_color = Color( 0.025, 0.16, 0.36, 1 )
-shader_param/ice_scale = 0.32
-shader_param/parallax_depth = 0.42
-shader_param/refraction = 0.012
-shader_param/crack_strength = 0.36
-shader_param/opacity = 0.48
-shader_param/freeze_progress = 0.0
-shader_param/layer_separation = 0.9
+shader_param/base_color = Color( 1, 0.15, 0.05, 0.4 )
+shader_param/noise_scale = 0.35
+shader_param/noise_speed = 0.35
+shader_param/alpha_min = 0.08
+shader_param/alpha_max = 0.6
 
 [sub_resource type="PlaneMesh" id=253]
 size = Vector2( 60, 60 )
 
 [sub_resource type="ShaderMaterial" id=254]
 shader = ExtResource( 19 )
-shader_param/albedo = Color( 0.55, 0.85, 1, 0.28 )
-shader_param/deep_color = Color( 0.08, 0.3, 0.5, 1 )
-shader_param/ice_scale = 0.25
-shader_param/parallax_depth = 0.15
-shader_param/refraction = 0.006
-shader_param/crack_strength = 0.2
-shader_param/opacity = 0.18
+shader_param/base_color = Color( 1, 0.55, 0.1, 0.22 )
+shader_param/noise_scale = 0.35
+shader_param/noise_speed = 0.35
+shader_param/alpha_min = 0.04
+shader_param/alpha_max = 0.3
 
 [sub_resource type="PlaneMesh" id=255]
 size = Vector2( 60, 60 )
@@ -432,9 +421,6 @@ script = ExtResource( 1 )
 spawn_id = "from_exterior_dome_intro"
 
 [node name="Terrace" type="StaticBody" parent="."]
-__meta__ = {
-"footstep_profile": ExtResource( 24 )
-}
 
 [node name="TerraceMesh" type="MeshInstance" parent="Terrace"]
 use_in_baked_light = true
@@ -442,10 +428,6 @@ mesh = ExtResource( 3 )
 
 [node name="WorldCollision" type="CollisionShape" parent="Terrace"]
 shape = ExtResource( 4 )
-
-[node name="FootstepSurface" type="Spatial" parent="Terrace"]
-script = ExtResource( 25 )
-footstep_profile = ExtResource( 24 )
 
 [node name="Airlock_North" parent="." instance=ExtResource( 2 )]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -0.4, 3.4, -32 )
@@ -547,10 +529,9 @@ environment = ExtResource( 20 )
 [node name="KeyLight" type="DirectionalLight" parent="Lighting"]
 transform = Transform( 0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 30, 0 )
 light_color = Color( 0.82, 0.88, 1, 1 )
-light_energy = 0.5
+light_energy = 0.85
 light_specular = 0.35
-cull_mask = 65
-shadow_enabled = false
+shadow_enabled = true
 shadow_bias = 0.08
 directional_shadow_mode = 0
 directional_shadow_max_distance = 45.0
@@ -558,7 +539,7 @@ directional_shadow_max_distance = 45.0
 [node name="FillLight" type="DirectionalLight" parent="Lighting"]
 transform = Transform( -0.866025, 0.25, -0.433013, 0, 0.866025, 0.5, 0.5, 0.433013, -0.75, 0, 24, 0 )
 light_color = Color( 0.42, 0.52, 0.72, 1 )
-light_energy = 0.25
+light_energy = 0.45
 light_specular = 0.1
 
 [node name="TowerLights" type="Spatial" parent="Lighting"]
@@ -566,7 +547,7 @@ light_specular = 0.1
 [node name="TowerLight_1" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7.6, 0 )
 light_color = Color( 1, 0.82, 0.6, 1 )
-light_energy = 1.8
+light_energy = 2.60
 light_specular = 0.5
 omni_range = 16.0
 omni_attenuation = 1.0
@@ -574,7 +555,7 @@ omni_attenuation = 1.0
 [node name="TowerLight_2" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12.1, 0 )
 light_color = Color( 1, 0.84, 0.64, 1 )
-light_energy = 1.7
+light_energy = 2.40
 light_specular = 0.5
 omni_range = 16.0
 omni_attenuation = 1.0
@@ -582,7 +563,7 @@ omni_attenuation = 1.0
 [node name="TowerLight_3" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.6, 0 )
 light_color = Color( 0.98, 0.86, 0.72, 1 )
-light_energy = 1.55
+light_energy = 2.20
 light_specular = 0.5
 omni_range = 16.0
 omni_attenuation = 1.0
@@ -590,7 +571,7 @@ omni_attenuation = 1.0
 [node name="TowerLight_4" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 21.1, 0 )
 light_color = Color( 0.9, 0.9, 0.98, 1 )
-light_energy = 1.4
+light_energy = 2.00
 light_specular = 0.5
 omni_range = 16.0
 omni_attenuation = 1.0
@@ -598,7 +579,7 @@ omni_attenuation = 1.0
 [node name="TowerLight_5" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.6, 0 )
 light_color = Color( 0.82, 0.88, 1, 1 )
-light_energy = 1.25
+light_energy = 1.80
 light_specular = 0.5
 omni_range = 16.0
 omni_attenuation = 1.0
@@ -608,7 +589,7 @@ omni_attenuation = 1.0
 [node name="AirlockLight_North" type="OmniLight" parent="Lighting/AirlockLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 6.2, -29 )
 light_color = Color( 0.45, 0.78, 1, 1 )
-light_energy = 2.8
+light_energy = 4.0
 light_specular = 0.7
 omni_range = 26.0
 omni_attenuation = 1.0
@@ -616,7 +597,7 @@ omni_attenuation = 1.0
 [node name="AirlockLight_South" type="OmniLight" parent="Lighting/AirlockLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 6.2, 29.3 )
 light_color = Color( 0.45, 0.78, 1, 1 )
-light_energy = 2.8
+light_energy = 4.0
 light_specular = 0.7
 omni_range = 26.0
 omni_attenuation = 1.0
@@ -624,7 +605,7 @@ omni_attenuation = 1.0
 [node name="AirlockLight_East" type="OmniLight" parent="Lighting/AirlockLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29, 6.2, 0 )
 light_color = Color( 0.45, 0.78, 1, 1 )
-light_energy = 2.8
+light_energy = 4.0
 light_specular = 0.7
 omni_range = 26.0
 omni_attenuation = 1.0
@@ -632,7 +613,7 @@ omni_attenuation = 1.0
 [node name="AirlockLight_West" type="OmniLight" parent="Lighting/AirlockLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -29, 6.2, 0 )
 light_color = Color( 0.45, 0.78, 1, 1 )
-light_energy = 2.8
+light_energy = 4.0
 light_specular = 0.7
 omni_range = 26.0
 omni_attenuation = 1.0
@@ -2501,91 +2482,67 @@ use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
-[node name="IceLevel" type="Spatial" parent="."]
+[node name="FireSystem" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
-crack_interval = 2.5
 
-[node name="IceCrackSound" type="AudioStreamPlayer3D" parent="IceLevel"]
-stream = ExtResource( 23 )
-unit_db = 12.0
-unit_size = 12.0
-max_distance = 60.0
-
-[node name="IceSurface" type="MeshInstance" parent="IceLevel"]
+[node name="DebugPlane" type="MeshInstance" parent="FireSystem"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0 )
 material_override = SubResource( 252 )
 cast_shadow = 0
 mesh = SubResource( 253 )
 
-[node name="FrostCeiling" type="MeshInstance" parent="IceLevel"]
+[node name="DebugHeatBand" type="MeshInstance" parent="FireSystem"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 0 )
-visible = false
 material_override = SubResource( 254 )
 cast_shadow = 0
 mesh = SubResource( 255 )
 
-[node name="IceVisualBand" type="Spatial" parent="."]
+[node name="FireVisualBand" type="Spatial" parent="."]
 script = ExtResource( 17 )
 ring_radius = 26.0
-particles_per_second = 24.0
+particles_per_second = 150.0
 visible_arc_deg = 360.0
-frost_scale = 2.6
-frost_scale_variance = 0.25
-hot_color = Color( 1, 1, 1, 0.48 )
-cool_color = Color( 0.82, 0.94, 1, 0.38 )
+flame_scale = 10.0
+flame_scale_variance = 0.35
 
-[node name="GasParticleManager" type="Spatial" parent="IceVisualBand"]
+[node name="GasParticleManager" type="Spatial" parent="FireVisualBand"]
 script = ExtResource( 18 )
-pool_size = 72
+pool_size = 150
 default_max_lifetime = 0.55
-default_base_scale = 4.0
+default_base_scale = 10.0
 viscosity = 0.45
 buoyancy = -1.6
-default_color = Color( 0.96, 0.985, 1, 0.34 )
-ignition_color = Color( 0.9, 0.97, 1, 0.38 )
+default_color = Color( 1, 0.443137, 0.101961, 0.88 )
+ignition_color = Color( 1, 0.639216, 0.219608, 0.9 )
 collide_with_world = false
 flipbook_frames_per_second = 32.0
-default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_02/textures/smoke_02.tga"
-shader_path = "res://core_v2/systems/ice/shaders/frost_flipbook.shader"
-use_dither = false
+default_atlas_path = "res://assets/flipbook_particles/assets/fireballs/fireball_01/textures/fireball_01.png"
 
-[node name="FrostMistCrown" type="Spatial" parent="."]
+[node name="FireSmokeCrown" type="Spatial" parent="."]
 script = ExtResource( 17 )
 ring_radius = 26.0
-particles_per_second = 3.0
+particles_per_second = 28.0
 visible_arc_deg = 360.0
 line_noise = 1.2
-frost_rise_speed = 0.06
-frost_lifetime = 3.6
-frost_scale = 2.2
+flame_rise_speed = 1.5
+flame_lifetime = 4.0
+flame_scale = 8.0
 is_smoke_crown = true
 smoke_height_offset = 1.8
-smoke_lateral_speed = 0.04
+smoke_lateral_speed = 1.3
 
-[node name="GasParticleManager" type="Spatial" parent="FrostMistCrown"]
+[node name="GasParticleManager" type="Spatial" parent="FireSmokeCrown"]
 script = ExtResource( 18 )
-pool_size = 48
-default_max_lifetime = 2.8
-default_base_scale = 3.4
+pool_size = 160
+default_max_lifetime = 4.0
+default_base_scale = 8.0
 viscosity = 0.7
-buoyancy = -0.12
-default_color = Color( 0.98, 0.995, 1, 0.24 )
+buoyancy = -0.9
+default_color = Color( 0.32, 0.3, 0.28, 0.6 )
 collide_with_world = false
 flipbook_frames_per_second = 8.0
 default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_01/textures/smoke_01.tga"
-shader_path = "res://core_v2/systems/ice/shaders/frost_flipbook.shader"
-use_dither = false
-
-[node name="CoolantLeakWest" parent="." instance=ExtResource( 22 )]
-transform = Transform( 0, -1, 0, 1, 0, 0, 0, 0, 1, -18, 4.5, 0 )
-emission_radius = 1.2
-particles_per_second = 18
-
-[node name="CoolantLeakEast" parent="." instance=ExtResource( 22 )]
-transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 18, 7.5, 0 )
-emission_radius = 1.0
-particles_per_second = 15
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
