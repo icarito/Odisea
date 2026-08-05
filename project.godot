@@ -2686,5 +2686,4 @@ gles3/shaders/shader_compilation_mode.web=2
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
 quality/filters/msaa=1
 environment/default_environment="res://default_env.tres"
-batching/options/use_batching.iOS=false
 quality/filters/msaa.web=0
