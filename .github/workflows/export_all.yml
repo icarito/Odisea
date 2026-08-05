@@ -426,6 +426,53 @@ jobs:
             cp "$TPL_DIR/webassembly_threads_release.zip" "$TPL_DIR/webassembly_release.zip"
           fi
 
+          echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
+
+      # Apple exige MinimumOSVersion >= 15.0 para todas las apps iOS a partir de
+      # la primavera de 2027. Godot 3.6 no expone la version minima como opcion de
+      # export: el iphone.zip trae IPHONEOS_DEPLOYMENT_TARGET = 12.0 hardcodeado en
+      # godot_ios.xcodeproj/project.pbxproj, y de ahi xcodebuild deriva la clave
+      # MinimumOSVersion del Info.plist del IPA. Reescribimos esa entrada del zip
+      # dejando el resto byte a byte igual (permisos, timestamps, compresion).
+      # Es idempotente, asi que un TPL_DIR cacheado o ya parcheado no molesta.
+      - name: Patch iOS minimum OS version
+        if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
+        env:
+          MIN_IOS_VERSION: "15.0"
+        run: |
+          set -euo pipefail
+          IOS_TEMPLATE="$TPL_DIR/iphone.zip" python3 - <<'PY'
+          import os
+          import re
+          import shutil
+          import zipfile
+
+          template = os.environ["IOS_TEMPLATE"]
+          target = os.environ["MIN_IOS_VERSION"]
+          member = "godot_ios.xcodeproj/project.pbxproj"
+          patched_path = template + ".patched"
+
+          with zipfile.ZipFile(template) as src:
+              if member not in src.namelist():
+                  raise SystemExit("iphone.zip has no " + member)
+              pbxproj = src.read(member).decode("utf-8")
+              hits = pbxproj.count("IPHONEOS_DEPLOYMENT_TARGET = ")
+              if hits == 0:
+                  raise SystemExit("No IPHONEOS_DEPLOYMENT_TARGET found in " + member)
+              patched = re.sub(
+                  r"IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;",
+                  "IPHONEOS_DEPLOYMENT_TARGET = %s;" % target,
+                  pbxproj,
+              )
+              with zipfile.ZipFile(patched_path, "w") as dst:
+                  for info in src.infolist():
+                      data = patched.encode("utf-8") if info.filename == member else src.read(info)
+                      dst.writestr(info, data, compress_type=info.compress_type)
+
+          shutil.move(patched_path, template)
+          print("iOS deployment target set to %s (%d entries in project.pbxproj)" % (target, hits))
+          PY
+
       - name: iOS Certificates Setup
         if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
         uses: apple-actions/import-codesign-certs@v7
@@ -867,11 +914,25 @@ jobs:
 
       - name: Audit isolated iOS PCK resources
         if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
+        env:
+          MIN_IOS_VERSION: "15.0"
         run: |
           set -euo pipefail
           IPA="build/ios/Odisea-Tech-Demo.ipa"
           AUDIT_DIR="$RUNNER_TEMP/odisea-ios-pck-audit"
           mkdir -p "$AUDIT_DIR"
+
+          # El patch del template solo sirve si llega hasta el IPA: verificarlo aca
+          # falla el build antes de gastar una subida a TestFlight rechazada.
+          APP_PLIST=$(unzip -Z1 "$IPA" | grep -E '^Payload/[^/]+\.app/Info\.plist$' | head -n 1)
+          test -n "$APP_PLIST" || { echo "::error::No Info.plist found inside $IPA"; exit 1; }
+          unzip -p "$IPA" "$APP_PLIST" > "$AUDIT_DIR/Info.plist"
+          FOUND_MIN_OS=$(/usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$AUDIT_DIR/Info.plist")
+          if [ "$FOUND_MIN_OS" != "$MIN_IOS_VERSION" ]; then
+            echo "::error::IPA MinimumOSVersion is $FOUND_MIN_OS, expected $MIN_IOS_VERSION"
+            exit 1
+          fi
+          echo "IPA MinimumOSVersion OK: $FOUND_MIN_OS"
 
           # Audit the packaged PCK, never the checkout: the latter can hide a
           # missing export dependency by satisfying res:// from the source tree.
@@ -1228,7 +1289,11 @@ jobs:
               raise SystemExit("Mac provisioning profile does not match " + os.environ["BUNDLE_ID"])
           entitlements["com.apple.security.app-sandbox"] = True
           entitlements["com.apple.security.network.client"] = True
-          entitlements["com.apple.security.network.server"] = True
+          # El juego solo abre conexiones salientes (telemetria hacia el central).
+          # network.server implicaria escuchar conexiones entrantes: App Review lo
+          # rechaza como entitlement sin funcionalidad asociada. Se elimina tambien
+          # si viniera heredado del provisioning profile.
+          entitlements.pop("com.apple.security.network.server", None)
           entitlements.pop("get-task-allow", None)
           with open(os.environ["ENTITLEMENTS"], "wb") as dst:
               plistlib.dump(entitlements, dst, sort_keys=True)
