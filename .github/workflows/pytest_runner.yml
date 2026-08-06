@@ -129,17 +129,37 @@ jobs:
           echo "venv_cache_hit=${{ steps.venv_cache.outputs.cache-hit }}"
           ls -la "${GODOT_CACHE_DIR}/${GODOT_VERSION}" || true
 
-      - name: Guard added assets size (<=50MB)
+      # El checkout es shallow (fetch-depth 1): el commit base no está en el clon y
+      # los chequeos que diffean contra él quedaban inertes ("fatal: bad object" →
+      # "No added files detected"). Se resuelve y se trae una sola vez, acá.
+      - name: Resolve base commit
         run: |
-          set -euo pipefail
+          set -uo pipefail
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
           else
             BASE_SHA="${{ github.event.before }}"
           fi
           if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
-            BASE_SHA="$(git rev-list --max-count=1 HEAD^)"
+            BASE_SHA=""
           fi
+          if [ -n "${BASE_SHA}" ] && ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "${BASE_SHA}" 2>/dev/null || true
+          fi
+          if [ -n "${BASE_SHA}" ] && ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --deepen=50 2>/dev/null || true
+          fi
+          if [ -n "${BASE_SHA}" ] && ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "::warning::No se pudo traer el commit base ${BASE_SHA}; los chequeos incrementales se omiten."
+            BASE_SHA=""
+          fi
+          echo "BASE_SHA=${BASE_SHA}" >> "$GITHUB_ENV"
+          echo "Base commit: ${BASE_SHA:-<no disponible>}"
+
+      - name: Guard added assets size (<=50MB)
+        if: env.BASE_SHA != ''
+        run: |
+          set -euo pipefail
           scripts/check_added_file_sizes.sh "${BASE_SHA}" "${GITHUB_SHA}"
 
       - name: Validate tracked import manifests
@@ -151,16 +171,9 @@ jobs:
       # vive de la cache), asi que un asset agregado sin su artefacto no existe
       # alla y tumba cualquier escena que lo referencie.
       - name: Validate new imported assets ship their artifact
+        if: env.BASE_SHA != ''
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          else
-            BASE_SHA="${{ github.event.before }}"
-          fi
-          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
-            BASE_SHA="$(git rev-list --max-count=1 HEAD^)"
-          fi
           python3 scripts/check_import_artifacts_present.py --mode added --base "${BASE_SHA}"
 
       - name: Validate critical import artifacts
