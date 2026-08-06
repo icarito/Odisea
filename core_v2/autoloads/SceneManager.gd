@@ -871,7 +871,13 @@ func _fade_audio_out(duration: float) -> void:
 
 func _fade_audio_in(duration: float) -> void:
 	var audio = get_node_or_null("/root/AudioManager")
-	if audio and audio.has_method("refresh_bgm_from_zones"):
+	if not audio:
+		return
+	# Red de seguridad: si se murió y la escena cambió sin cerrar el cover de muerte, el
+	# mute del nivel quedaría pegado. La escena nueva siempre entra con audio.
+	if audio.has_method("set_level_audio_muted"):
+		audio.set_level_audio_muted(false)
+	if audio.has_method("refresh_bgm_from_zones"):
 		audio.refresh_bgm_from_zones(max(0.0, duration))
 
 func _finalize_failed_transition(reason: String) -> void:

@@ -18,6 +18,7 @@ var _active_zone: Node = null
 var _zone_playback_positions := {}
 var _headless_audio_muted := false
 var _focus_audio_muted := false
+var _level_audio_muted := false
 var _cinematic_listener: Listener = null
 var _cinematic_listener_engaged := false
 var _mobile_web_audio_guard_enabled := false
@@ -186,11 +187,23 @@ func _set_focus_audio_muted(muted: bool) -> void:
 	_focus_audio_muted = muted
 	_apply_master_audio_mute_state()
 
+# El nivel sigue corriendo detrás de la pantalla de muerte (el hielo sube, el fuego
+# crepita, la BGM avanza), pero no debe oírse: morir corta el audio del mundo. Lo maneja
+# ScreenEffectsManager junto con el cover, no cada sistema por su cuenta.
+func set_level_audio_muted(muted: bool) -> void:
+	if _level_audio_muted == muted:
+		return
+	_level_audio_muted = muted
+	_apply_master_audio_mute_state()
+
+func is_level_audio_muted() -> bool:
+	return _level_audio_muted
+
 func _apply_master_audio_mute_state() -> void:
 	var master_idx = AudioServer.get_bus_index("Master")
 	if master_idx < 0:
 		master_idx = 0
-	AudioServer.set_bus_mute(master_idx, _headless_audio_muted or _focus_audio_muted)
+	AudioServer.set_bus_mute(master_idx, _headless_audio_muted or _focus_audio_muted or _level_audio_muted)
 
 func _find_mixing_desk():
 	var root = get_tree().get_root()

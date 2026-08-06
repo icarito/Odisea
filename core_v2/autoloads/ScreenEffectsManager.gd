@@ -6,6 +6,9 @@ const OVERLAY_UI_PATH := "/root/OverlayUIManager"
 var _overlay: Node = null
 var _warned_unavailable := false
 var _script_cinematic_depth := 0
+# La pausa del árbol es compartida (menú, InfoOverlay, notificaciones): solo la soltamos
+# si fuimos nosotros los que la pusimos.
+var _death_pause_owned := false
 
 func show_script_cinematic_bars(immediate: bool = false) -> void:
 	_script_cinematic_depth += 1
@@ -20,6 +23,8 @@ func begin_death_cover(params: Dictionary = {}):
 		_warn_unavailable_once("begin_death_cover")
 		return null
 	_script_cinematic_depth = 0
+	_set_level_audio_muted(true)
+	_set_world_paused(true)
 	if _overlay.has_method("set_cinematic_bars_enabled"):
 		_overlay.set_cinematic_bars_enabled(false, true)
 	if _overlay.has_method("begin_death_cover"):
@@ -27,6 +32,10 @@ func begin_death_cover(params: Dictionary = {}):
 	return null
 
 func end_death_cover(params: Dictionary = {}):
+	# Antes del _ensure_overlay: aunque el overlay ya no esté, el audio y la simulación
+	# tienen que volver igual (si no, un respawn sin overlay deja el juego mudo y congelado).
+	_set_level_audio_muted(false)
+	_set_world_paused(false)
 	if not _ensure_overlay():
 		_warn_unavailable_once("end_death_cover")
 		return null
@@ -46,6 +55,8 @@ func wait_for_death_confirm(params: Dictionary = {}):
 
 func reset(immediate: bool = true) -> void:
 	_script_cinematic_depth = 0
+	_set_level_audio_muted(false)
+	_set_world_paused(false)
 	if not _ensure_overlay():
 		return
 	if _overlay.has_method("reset_effects"):
@@ -81,6 +92,38 @@ func _should_skip_death_confirm(params: Dictionary) -> bool:
 	if bool(session.get("_is_waiting_for_respawn_validation")):
 		return true
 	return false
+
+# El cover de muerte tapa la pantalla pero no el mundo: el nivel sigue simulando detrás.
+# Mientras dure, el audio del nivel (hielo, fuego, ambiente, BGM) queda mudo.
+func _set_level_audio_muted(muted: bool) -> void:
+	var audio = get_node_or_null("/root/AudioManager")
+	if audio and audio.has_method("set_level_audio_muted"):
+		audio.set_level_audio_muted(muted)
+
+# Morir congela el mundo: el hielo deja de subir, las partículas quedan quietas y nada
+# puede seguir dañando mientras el jugador mira la pantalla de muerte. El overlay vive en
+# OverlayUIManager (PAUSE_MODE_PROCESS), así que el fundido y la tecla de confirmación
+# siguen funcionando con el árbol pausado.
+func _set_world_paused(paused: bool) -> void:
+	var tree = get_tree()
+	if not tree:
+		return
+	if paused:
+		# Si ya estaba pausado por otro (menú, InfoOverlay), no nos adueñamos de esa pausa.
+		if _death_pause_owned or tree.paused:
+			return
+		_death_pause_owned = true
+		tree.paused = true
+	else:
+		if not _death_pause_owned:
+			return
+		_death_pause_owned = false
+		tree.paused = false
+	# Los controles táctiles (CanvasLayer 10/100) tapan cualquier overlay y se comerían el
+	# toque de "continuar"; su autoload está congelado en pausa, hay que avisarle a mano.
+	var mobile = get_node_or_null("/root/MobileUIManager")
+	if mobile and mobile.has_method("refresh_for_pause"):
+		mobile.refresh_for_pause()
 
 func _set_script_cinematic_visible(enabled: bool, immediate: bool) -> void:
 	if not _ensure_overlay():

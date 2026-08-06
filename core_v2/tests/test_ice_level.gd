@@ -58,6 +58,23 @@ func test_respawn_safety_keeps_checkpoint_above_frost() -> void:
 	assert_float(level.ice_height).is_equal_approx(7.0, 0.0001)
 	assert_float(level.get_frost_ceiling()).is_less_equal(10.0)
 
+# Al reaparecer el mundo está pausado (no corre _physics_process), así que el clamp de
+# ensure_safe_for_respawn tiene que dejar el colisionador y el visual al día por sí mismo:
+# si no, Elías reaparece sobre un piso de hielo invisible a la altura donde murió.
+func test_respawn_safety_syncs_collider_and_asks_for_a_visual_reset() -> void:
+	var level = _make_level(false)
+	level.respawn_safety_margin = 3.0
+	level.ice_height = 20.0
+	var resets := [0]
+	level.connect("ice_visuals_reset", self, "_count_reset", [resets])
+	level.ensure_safe_for_respawn(10.0)
+	assert_int(resets[0]).is_equal(1)
+	var collider: StaticBody = level.get_node("IceCollider")
+	assert_float(collider.global_transform.origin.y).is_equal_approx(level.ice_height - 0.1, 0.0001)
+
+func _count_reset(counter: Array) -> void:
+	counter[0] += 1
+
 func test_frost_vignette_becomes_visible_from_bottom_contact() -> void:
 	assert_object(get_node_or_null("/root/FrostVignetteManager")).is_not_null()
 	var vignette = auto_free(FrostVignetteScene.instance())

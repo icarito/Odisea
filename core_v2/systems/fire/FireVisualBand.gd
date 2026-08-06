@@ -123,6 +123,8 @@ func _connect_fire_system() -> void:
 		return
 	if not _fire_system.is_connected("fire_height_changed", self, "_on_fire_height_changed"):
 		var _err = _fire_system.connect("fire_height_changed", self, "_on_fire_height_changed")
+	if _fire_system.has_signal("fire_visuals_reset") and not _fire_system.is_connected("fire_visuals_reset", self, "reset_visuals"):
+		var _err_reset = _fire_system.connect("fire_visuals_reset", self, "reset_visuals")
 	_target_height = float(_fire_system.fire_height)
 	if not _height_initialized:
 		_display_height = _target_height
@@ -133,6 +135,17 @@ func _on_fire_height_changed(height: float) -> void:
 	if not _height_initialized:
 		_display_height = height
 		_height_initialized = true
+
+# Espejo de IceVisualBand.reset_visuals(): al reaparecer, `fire_height` puede caer de golpe
+# y lo visual no debe arrastrar llamas del intento anterior ni bajar por lerp desde arriba.
+func reset_visuals() -> void:
+	if is_instance_valid(_manager) and _manager.has_method("clear_all"):
+		_manager.clear_all()
+	_spawn_accumulator = 0.0
+	if is_instance_valid(_fire_system):
+		_target_height = float(_fire_system.fire_height)
+	_display_height = _target_height
+	_height_initialized = true
 
 # Visual puro: va en _process, nunca en _physics_process (§5.3 es para lógica).
 func _process(delta: float) -> void:

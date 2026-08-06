@@ -15,6 +15,9 @@ signal fire_height_changed(height)
 # dps ya viene multiplicado por core_damage_multiplier si el cuerpo está bajo la línea.
 signal heat_contact(body, dps, in_core)
 signal fire_started()
+# El intento anterior terminó: la capa visual debe soltar lo que quedó del fuego viejo
+# (partículas en vuelo, altura de dibujo) en vez de arrastrarlo al respawn.
+signal fire_visuals_reset()
 
 const GROUP_VULNERABLE := "fire_vulnerable"
 const GROUP_DESTRUCTIBLE := "fire_destructible"
@@ -86,6 +89,7 @@ func reset() -> void:
 	elapsed = 0.0
 	is_running = auto_start
 	emit_signal("fire_height_changed", fire_height)
+	emit_signal("fire_visuals_reset")
 	_update_debug_visuals()
 
 # Altura del tope de la zona de calor: por encima de esto no hay daño alguno.
@@ -107,6 +111,9 @@ func ensure_safe_for_respawn(respawn_y: float) -> void:
 		fire_height = max_allowed
 		emit_signal("fire_height_changed", fire_height)
 		_update_debug_visuals()
+	# Siempre, aun sin clamp: las llamas del intento anterior quedaron a la altura donde
+	# murió Elías, no donde reaparece.
+	emit_signal("fire_visuals_reset")
 
 # Consulta barata para props destructibles y lógica externa.
 func is_point_burning(point: Vector3) -> bool:

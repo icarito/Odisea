@@ -154,6 +154,8 @@ func _connect_ice_level() -> void:
 		return
 	if not _ice_level.is_connected("ice_height_changed", self, "_on_ice_height_changed"):
 		var _err = _ice_level.connect("ice_height_changed", self, "_on_ice_height_changed")
+	if _ice_level.has_signal("ice_visuals_reset") and not _ice_level.is_connected("ice_visuals_reset", self, "reset_visuals"):
+		var _err_reset = _ice_level.connect("ice_visuals_reset", self, "reset_visuals")
 	_target_height = float(_ice_level.ice_height)
 	if not _height_initialized:
 		_display_height = _target_height
@@ -164,6 +166,24 @@ func _on_ice_height_changed(height: float) -> void:
 	if not _height_initialized:
 		_display_height = height
 		_height_initialized = true
+
+# Al morir, `ice_height` puede caer varios metros de golpe (ensure_safe_for_respawn). Lo
+# visual no debe arrastrar el intento anterior: parches de escarcha pegados donde ya no hay
+# hielo, partículas en vuelo, y un _display_height que tardaría segundos en bajar por lerp.
+func reset_visuals() -> void:
+	if is_instance_valid(_manager) and _manager.has_method("clear_all"):
+		_manager.clear_all()
+	for i in range(_surface_patches.size()):
+		var patch: MeshInstance = _surface_patches[i]
+		if is_instance_valid(patch):
+			patch.visible = false
+		_surface_patch_ages[i] = surface_frost_lifetime
+	_surface_patch_accumulator = 0.0
+	_spawn_accumulator = 0.0
+	if is_instance_valid(_ice_level):
+		_target_height = float(_ice_level.ice_height)
+	_display_height = _target_height
+	_height_initialized = true
 
 # Visual puro: va en _process, nunca en _physics_process (§5.3 es para lógica).
 func _process(delta: float) -> void:

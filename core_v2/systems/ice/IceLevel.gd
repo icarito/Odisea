@@ -15,6 +15,9 @@ signal ice_height_changed(height)
 # dps ya viene multiplicado por core_damage_multiplier si el cuerpo está bajo la línea.
 signal frost_contact(body, dps, in_core)
 signal ice_started()
+# El intento anterior terminó: la capa visual debe soltar lo que quedó pegado del hielo
+# viejo (parches, partículas en vuelo, altura de dibujo) en vez de arrastrarlo al respawn.
+signal ice_visuals_reset()
 
 const GROUP_VULNERABLE := "ice_vulnerable"
 const GROUP_SELF := "ice_level"
@@ -107,6 +110,7 @@ func reset() -> void:
 	elapsed = 0.0
 	is_running = auto_start
 	emit_signal("ice_height_changed", ice_height)
+	emit_signal("ice_visuals_reset")
 	_update_debug_visuals()
 	_update_ice_collider()
 	_update_ice_fog()
@@ -130,6 +134,11 @@ func ensure_safe_for_respawn(respawn_y: float) -> void:
 		ice_height = max_allowed
 		emit_signal("ice_height_changed", ice_height)
 		_update_debug_visuals()
+		_update_ice_collider()
+		_update_ice_fog()
+	# Siempre, aun sin clamp: la escarcha adherida y las partículas del intento anterior
+	# quedaron a la altura donde murió Elías, no donde reaparece.
+	emit_signal("ice_visuals_reset")
 
 # Consulta barata para props destructibles y lógica externa.
 func is_point_frozen(point: Vector3) -> bool:
