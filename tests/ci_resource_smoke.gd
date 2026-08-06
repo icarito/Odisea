@@ -13,6 +13,10 @@ const CRITICAL_RESOURCES := [
 	# Stage-3 curriculum coverage (doors/sparks/HDR and BaseTerrace deps).
 	"res://core_v2/props/doors/VerticalDoor.tscn",
 	"res://core_v2/props/emitters/SparkEmitterV2.tscn",
+	# Primera escena de partida (Menu.FIRST_GAME_SCENE): un ext_resource suyo sin
+	# artefacto de import tumba la escena entera, y conviene verlo acá con el
+	# diagnóstico de dependencias y no como un test que no puede cargarla.
+	"res://core_v2/levels/interiors/Dome_Intro.tscn",
 ]
 
 func _normalize_dep_path(dep: String) -> String:

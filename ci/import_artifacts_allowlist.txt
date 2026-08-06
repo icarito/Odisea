@@ -1,11 +1,11 @@
-# Manifiestos .import trackeados que no tienen artefacto generado en .import/.
-# Los valida scripts/check_import_artifacts_present.py, que corre despues del
-# pase de import en scripts/godot_import_smoke.sh.
+# Manifiestos .import que scripts/check_import_artifacts_present.py debe ignorar:
+# no falla por ellos en `--mode added` ni los lista en el reporte `--mode all`.
 #
-# Solo deberian estar aca assets de packs de terceros que NINGUNA escena del
-# juego referencia (si una escena los usa, no cargan y el juego rompe).
-# Si agrega un asset nuevo, no lo liste aca: importelo, o trackee su artefacto
-# con `git add -f .import/<artefacto>` como el resto de audio del proyecto.
+# Solo deberian estar aca assets que NINGUNA escena del juego referencia (packs de
+# terceros que quedaron en el repo como material de consulta). Si una escena lo usa
+# y el artefacto no viaja en el repo, no existe en CI: la escena no carga.
+# Para un asset nuevo la salida no es listarlo aca, es trackear su artefacto con
+# `git add -f .import/<artefacto>`, como el resto del audio del proyecto.
 
 # Pack de ejemplo de Godot 3 (particulas) y Volumetric_Lights: material de
 # referencia, no instanciado por ninguna escena de core_v2.

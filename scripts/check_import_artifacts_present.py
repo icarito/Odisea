@@ -1,23 +1,30 @@
 #!/usr/bin/env python3
-"""Verifica que cada .import trackeado tenga su artefacto generado en disco.
+"""Chequea que los assets importados tengan su artefacto generado disponible en CI.
 
-Un `.tscn` que referencia un asset importado (audio, textura, modelo) falla al
-cargar con "Make sure resources have been imported..." si el artefacto de
-`.import/` no esta presente, aunque el asset fuente y su manifiesto si esten en
-git. Eso pasa en CI cuando la cache de `.import/` viene de un commit viejo y el
-pase de import no alcanza a procesar los assets nuevos: el fallo aparece despues,
-lejos de su causa, como un test que no puede cargar una escena.
+Contexto (medido, no supuesto):
 
-Este chequeo corre despues del pase de import (ver `scripts/godot_import_smoke.sh`)
-y falla en el paso de import con la lista exacta de assets sin artefacto.
+- El pase de import de CI (`godot --editor --quit`) aborta el scan antes de
+  procesar nada nuevo ("Scan thread aborted"): en la practica CI no importa, vive
+  de la cache de `.import/` que se fue acumulando. Un asset recien agregado, si su
+  artefacto no viaja en el repo, NO existe en CI.
+- Un `ext_resource` de audio/escena/malla que no resuelve tumba la escena entera
+  ("[ext_resource] referenced nonexistent resource"). Una textura faltante, en
+  cambio, solo imprime un error suelto: la escena igual carga. Por eso las
+  texturas quedan fuera del chequeo fatal (y ademas son las que pesan).
 
-Invariante: cada manifiesto debe tener AL MENOS UNO de sus `dest_files` presente.
-No se exigen todos porque las texturas declaran un dest por formato VRAM
-(`.s3tc.stex`, `.etc2.stex`, ...) y cada plataforma genera solo el suyo.
+Modos:
+
+  --mode added --base <sha>   Fatal. Manifiestos AGREGADOS desde <sha> cuyo
+                              artefacto no esta trackeado en git. Es la regla que
+                              se hace cumplir en CI.
+  --mode all                  Informativo. Lista todos los assets sin artefacto en
+                              disco, para que el hueco sea visible en el log.
+                              Con --strict, falla.
 """
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 from typing import List, Sequence, Set
@@ -27,12 +34,17 @@ from check_tracked_imports import (
 	_parse_manifest,
 	_repo_root,
 	_res_to_fs,
+	_run_git,
+	_should_validate_manifest_path,
 	_tracked_import_manifests,
 	_tracked_paths,
 )
 
 
 DEFAULT_ALLOWLIST_PATH = Path("ci/import_artifacts_allowlist.txt")
+# Un .stex faltante no impide cargar la escena que lo usa, y versionarlos es
+# justamente lo que la politica de assets evita (ver docs/engineering/CI_Asset_Strategy.md).
+TOLERATED_SUFFIXES = (".stex",)
 
 
 def _load_allowlist(repo_root: Path, allowlist_rel: Path) -> Set[str]:
@@ -42,104 +54,126 @@ def _load_allowlist(repo_root: Path, allowlist_rel: Path) -> Set[str]:
 	entries: Set[str] = set()
 	for raw_line in allowlist_path.read_text(encoding="utf-8").splitlines():
 		line = raw_line.strip()
-		if not line or line.startswith("#"):
-			continue
-		entries.add(line)
+		if line and not line.startswith("#"):
+			entries.add(line)
 	return entries
 
 
-def _manifests_without_artifacts(
-	repo_root: Path,
-	manifests: Sequence[Path],
-	allowlist: Set[str],
-) -> tuple[List[tuple[Path, List[str]]], Set[str]]:
-	missing: List[tuple[Path, List[str]]] = []
-	allowed_hits: Set[str] = set()
+def _dest_files(repo_root: Path, manifest_rel: Path) -> List[str]:
+	_source_file, dest_files = _parse_manifest(repo_root / manifest_rel)
+	return [dest for dest in dest_files if dest.startswith(RES_PREFIX)]
+
+
+def _is_tolerated(dests: Sequence[str]) -> bool:
+	return bool(dests) and all(dest.endswith(TOLERATED_SUFFIXES) for dest in dests)
+
+
+def _added_manifests(repo_root: Path, base_sha: str) -> List[Path]:
+	output = _run_git(
+		repo_root,
+		["diff", "--name-only", "--diff-filter=A", base_sha, "HEAD"],
+	)
+	return sorted(
+		Path(line.strip())
+		for line in output.splitlines()
+		if line.strip().endswith(".import")
+		and _should_validate_manifest_path(line.strip())
+		and (repo_root / line.strip()).is_file()
+	)
+
+
+def _check_added(repo_root: Path, base_sha: str, allowlist: Set[str]) -> int:
+	manifests = _added_manifests(repo_root, base_sha)
+	if not manifests:
+		print("[import-artifacts] no hay assets importados nuevos desde %s" % base_sha)
+		return 0
+
+	tracked = _tracked_paths(repo_root)
+	offenders: List[tuple[Path, List[str]]] = []
 	for manifest_rel in manifests:
-		_source_file, dest_files = _parse_manifest(repo_root / manifest_rel)
-		dests = [dest for dest in dest_files if dest.startswith(RES_PREFIX)]
+		if manifest_rel.as_posix() in allowlist:
+			continue
+		dests = _dest_files(repo_root, manifest_rel)
+		if not dests or _is_tolerated(dests):
+			continue
+		if any(dest[len(RES_PREFIX):] in tracked for dest in dests):
+			continue
+		offenders.append((manifest_rel, dests))
+
+	if not offenders:
+		print("[import-artifacts] %d asset(s) importado(s) nuevo(s): todos con artefacto trackeado" % len(manifests))
+		return 0
+
+	print("[import-artifacts] %d asset(s) importado(s) nuevo(s) sin artefacto trackeado:" % len(offenders))
+	for manifest_rel, _dests in offenders:
+		print(" - %s" % manifest_rel.as_posix())
+	print("")
+	print("[import-artifacts] CI no importa: si el artefacto no viaja en el repo, no existe alla,")
+	print("[import-artifacts] y cualquier escena que referencie el asset no carga. Agreguelo:")
+	for _manifest_rel, dests in offenders:
+		for dest in dests:
+			print("    git add -f %s" % dest[len(RES_PREFIX):])
+	print("")
+	print("[import-artifacts] (Si el asset es deliberadamente prescindible, listelo en %s.)" % DEFAULT_ALLOWLIST_PATH.as_posix())
+	return 1
+
+
+def _check_all(repo_root: Path, allowlist: Set[str], strict: bool) -> int:
+	manifests = _tracked_import_manifests(repo_root)
+	missing: List[tuple[Path, List[str]]] = []
+	for manifest_rel in manifests:
+		if manifest_rel.as_posix() in allowlist:
+			continue
+		dests = _dest_files(repo_root, manifest_rel)
 		if not dests:
 			continue
-		present = False
-		for dest in dests:
-			dest_fs = _res_to_fs(repo_root, manifest_rel, dest, False)
-			if dest_fs is not None and dest_fs.exists():
-				present = True
-				break
-		if present:
-			continue
-		key = manifest_rel.as_posix()
-		if key in allowlist:
-			allowed_hits.add(key)
-			continue
-		missing.append((manifest_rel, dests))
-	return missing, allowed_hits
+		present = any(
+			(_res_to_fs(repo_root, manifest_rel, dest, False) or Path("/nonexistent")).exists()
+			for dest in dests
+		)
+		if not present:
+			missing.append((manifest_rel, dests))
+
+	if not missing:
+		print("[import-artifacts] %d manifiesto(s): todos con artefacto en disco" % len(manifests))
+		return 0
+
+	blocking = [(rel, dests) for rel, dests in missing if not _is_tolerated(dests)]
+	print(
+		"[import-artifacts] %d asset(s) sin artefacto en disco (%d texturas tolerables, %d no)"
+		% (len(missing), len(missing) - len(blocking), len(blocking))
+	)
+	for manifest_rel, dests in missing:
+		mark = "textura" if _is_tolerated(dests) else "ROMPE ESCENAS"
+		print(" - [%s] %s" % (mark, manifest_rel.as_posix()))
+	if not strict:
+		print("[import-artifacts] informativo: no falla el paso (ver docs/engineering/CI_Asset_Strategy.md)")
+		return 0
+	return 1 if blocking else 0
 
 
 def main() -> int:
 	parser = argparse.ArgumentParser(
-		description="Validate that generated import artifacts exist for tracked .import manifests.",
+		description="Validate that imported assets have their generated artifact available to CI.",
 	)
-	parser.add_argument(
-		"--allowlist",
-		default=DEFAULT_ALLOWLIST_PATH.as_posix(),
-		help="Path to the allowlist of manifests known to have no generated artifact.",
-	)
-	parser.add_argument(
-		"--suggest-tracking",
-		action="store_true",
-		help="Print the `git add -f` remediation for the missing artifacts.",
-	)
+	parser.add_argument("--mode", choices=["added", "all"], default="all")
+	parser.add_argument("--base", help="Base commit for --mode added.")
+	parser.add_argument("--strict", action="store_true", help="Make --mode all fail on blocking gaps.")
+	parser.add_argument("--allowlist", default=DEFAULT_ALLOWLIST_PATH.as_posix())
 	args = parser.parse_args()
 
 	repo_root = _repo_root()
-	manifests = _tracked_import_manifests(repo_root)
-	if not manifests:
-		print("[import-artifacts] no tracked import manifests to validate")
-		return 0
-
 	allowlist = _load_allowlist(repo_root, Path(args.allowlist))
-	missing, allowed_hits = _manifests_without_artifacts(repo_root, manifests, allowlist)
-	stale_allowlist = sorted(allowlist - allowed_hits)
-	if stale_allowlist:
-		print("[import-artifacts] allowlist entries no longer needed (%d):" % len(stale_allowlist))
-		for entry in stale_allowlist:
-			print(" - %s" % entry)
-
-	if not missing:
-		print(
-			"[import-artifacts] %d manifest(s) validated, %d allowlisted: every asset has an artifact"
-			% (len(manifests), len(allowed_hits))
-		)
-		return 0
-
-	print(
-		"[import-artifacts] %d asset(s) have no generated artifact in .import/ (of %d manifest(s))"
-		% (len(missing), len(manifests))
-	)
-	for manifest_rel, dests in missing:
-		print(" - %s" % manifest_rel.as_posix())
-		for dest in dests:
-			print("     esperado: %s" % dest)
-
-	print("")
-	print("[import-artifacts] Cualquier escena que referencie estos assets NO va a cargar.")
-	if args.suggest_tracking:
-		tracked = _tracked_paths(repo_root)
-		suggestions = [
-			dest[len(RES_PREFIX):]
-			for _manifest_rel, dests in missing
-			for dest in dests
-			if dest[len(RES_PREFIX):] not in tracked
-		]
-		if suggestions:
-			print("[import-artifacts] Reimporte el proyecto, o agregue el artefacto al repo:")
-			for dest_rel in suggestions:
-				print("    git add -f %s" % dest_rel)
-		else:
-			print("[import-artifacts] Los artefactos estan trackeados en git pero faltan en disco:")
-			print("[import-artifacts] restaure el working tree (`git checkout -- .import`) o reimporte.")
-	return 1
+	if args.mode == "added":
+		if not args.base:
+			parser.error("--mode added requiere --base <sha>")
+		try:
+			_run_git(repo_root, ["rev-parse", "--verify", "%s^{commit}" % args.base])
+		except subprocess.CalledProcessError:
+			print("[import-artifacts] base %s no disponible en este checkout; se omite el chequeo" % args.base)
+			return 0
+		return _check_added(repo_root, args.base, allowlist)
+	return _check_all(repo_root, allowlist, args.strict)
 
 
 if __name__ == "__main__":

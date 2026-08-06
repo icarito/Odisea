@@ -30,22 +30,39 @@ For this repo, the expensive failures came from imported scene artifacts for cri
 - CI smoke scene list: `tests/ci_resource_smoke.gd`
 - Asset-integrity smoke scene list: `tests/ci_resource_smoke_asset_integrity.gd`
 
-## Gate De Artefactos Generados
+## Assets Nuevos: CI No Los Importa
 
-Las listas de arriba (críticos + smoke) cubren un subconjunto elegido a mano, así que
-un asset nuevo que nadie anotó no está cubierto por ninguna. Eso ya rompió CI una vez:
-`Dome_Intro.tscn` referenciaba un `.mp3` recién agregado, la cache de `.import/` venía
-de un commit anterior y el pase de import (`--editor --quit`) abortó el scan antes de
-procesarlo. El smoke pasó (no incluía esa escena) y el fallo apareció después, como un
-test que no podía cargar la escena.
+Dos hechos medidos, contra-intuitivos, que conviene tener presentes:
 
-`scripts/check_import_artifacts_present.py` cierra ese hueco: recorre **todos** los
-`.import` trackeados y exige que cada uno tenga al menos uno de sus `dest_files`
-presente en disco (uno solo, no todos: las texturas declaran un dest por formato VRAM
-y cada plataforma genera el suyo). `scripts/godot_import_smoke.sh` lo corre después del
-pase de import; si falta algo reintenta un import completo y, si sigue faltando, aborta
-ahí mismo listando los assets y el `git add -f` correspondiente — en el paso de import,
-no 40 segundos después en un test.
+1. **El pase de import de CI no importa.** `godot --editor --quit` sale en el primer
+   frame idle y aborta el scan (`WARNING: Scan thread aborted...`). Un segundo pase no
+   avanza nada. En la práctica CI vive de la cache de `.import/` acumulada, y un asset
+   agregado en el commit no existe allá salvo que su artefacto viaje en el repo.
+2. **No todo lo faltante rompe igual.** Un `ext_resource` de audio/escena/malla que no
+   resuelve tumba la escena entera (`[ext_resource] referenced nonexistent resource`);
+   una textura faltante solo imprime un error suelto y la escena igual carga
+   (verificado cargando `Dome_Intro.tscn` sin sus `.stex`). Por eso los `.stex` quedan
+   fuera del chequeo que bloquea, además de ser los que pesan.
+
+De ahí la regla que se hace cumplir: **todo asset importado nuevo que no sea textura
+debe traer su artefacto trackeado**. La valida `scripts/check_import_artifacts_present.py`:
+
+- `--mode added --base <sha>`: falla si un `.import` agregado en el push/PR no tiene su
+  artefacto en git, e imprime el `git add -f` exacto. Corre como paso propio en
+  `pytest_runner.yml`, antes del import, sin depender de Godot.
+- `--mode all`: informativo. Lista los assets sin artefacto en disco, marcando cuáles
+  romperían escenas. Lo corre `godot_import_smoke.sh` después del import para que el
+  hueco quede visible en el log.
+
+Esto ya rompió CI una vez: `Dome_Intro.tscn` referenciaba un `.mp3` recién agregado, el
+smoke no incluía esa escena y el fallo apareció después, como un test que no podía
+cargarla. Hoy `Dome_Intro.tscn` está en `tests/ci_resource_smoke.gd`.
+
+Al día de hoy el reporte informativo lista ~66 assets sin artefacto en CI (43 texturas
+tolerables + 23 audio/malla que sí romperían la escena que los use). Son huecos
+preexistentes de la cache, no regresiones: ninguna escena que CI cargue hoy los toca.
+Cerrarlos de verdad requiere que el pase de import complete el scan, que es trabajo
+aparte del gate.
 
 Excepciones (packs de terceros que ninguna escena instancia) van en
 `ci/import_artifacts_allowlist.txt`, no en el código.
@@ -127,7 +144,7 @@ When a new actor/prop must survive cold CI loads:
 ```bash
 python3 scripts/check_tracked_imports.py
 python3 scripts/check_critical_import_artifacts.py
-python3 scripts/check_import_artifacts_present.py --suggest-tracking
+python3 scripts/check_import_artifacts_present.py --mode added --base origin/main
 scripts/godot_import_smoke.sh --godot-bin godot3-bin --project-path . --clean-cache 0 --import-mode quick
 ```
 

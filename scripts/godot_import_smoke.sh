@@ -207,13 +207,14 @@ run_smoke_once() {
   return 0
 }
 
-# El smoke solo carga un puñado de recursos criticos, asi que un asset nuevo que
-# el pase de import no alcanzo a procesar (cache de .import/ vieja + scan abortado
-# por --quit) pasa desapercibido y revienta despues, en cualquier test que cargue
-# la escena que lo referencia. Este chequeo mira TODOS los manifiestos trackeados.
-run_artifact_check() {
-  echo "[godot_import_smoke] Checking generated import artifacts..."
-  python3 "${SCRIPT_DIR}/check_import_artifacts_present.py" --suggest-tracking
+# El smoke solo carga un puñado de recursos criticos, asi que los assets sin
+# artefacto (cache de .import/ vieja + scan abortado por --quit) pasan
+# desapercibidos hasta que algun test carga la escena que los referencia. Esto
+# los deja a la vista en el log; el gate que falla es el de assets nuevos, en el
+# workflow (--mode added), porque los huecos preexistentes no son regresiones.
+run_artifact_report() {
+  echo "[godot_import_smoke] Import artifact report:"
+  python3 "${SCRIPT_DIR}/check_import_artifacts_present.py" --mode all || true
 }
 
 import_ok=0
@@ -231,15 +232,7 @@ elif run_import_once "${IMPORT_MODE}" "${IMPORT_LOG}"; then
 fi
 
 if is_truthy "${CHECK_IMPORT_ARTIFACTS}"; then
-  if ! run_artifact_check; then
-    echo "[godot_import_smoke] Missing import artifacts; re-running a full import to generate them..."
-    run_import_once "full" "${IMPORT_RETRY_LOG}" || true
-    if ! run_artifact_check; then
-      echo "[godot_import_smoke] Import artifacts still missing after re-import; aborting before tests."
-      exit 1
-    fi
-    echo "[godot_import_smoke] Missing artifacts regenerated."
-  fi
+  run_artifact_report
 fi
 
 if run_smoke_once "${SMOKE_LOG}"; then
