@@ -13,10 +13,12 @@ const CRITICAL_RESOURCES := [
 	# Stage-3 curriculum coverage (doors/sparks/HDR and BaseTerrace deps).
 	"res://core_v2/props/doors/VerticalDoor.tscn",
 	"res://core_v2/props/emitters/SparkEmitterV2.tscn",
-	# Primera escena de partida (Menu.FIRST_GAME_SCENE): un ext_resource suyo sin
-	# artefacto de import tumba la escena entera, y conviene verlo acá con el
-	# diagnóstico de dependencias y no como un test que no puede cargarla.
-	"res://core_v2/levels/interiors/Dome_Intro.tscn",
+	# Dome_Intro.tscn (FIRST_GAME_SCENE) NO va acá todavía: carga bien, pero arrastra
+	# texturas que la cache de import de CI nunca generó (pilot.png, HelmetView,
+	# steel_grate_platform). Eso no impide instanciarla, pero este paso falla ante
+	# cualquier línea "Failed loading resource:", así que sumarla la vuelve un
+	# generador de ruido hasta cerrar esos huecos.
+	# Ver docs/engineering/CI_Asset_Strategy.md.
 ]
 
 func _normalize_dep_path(dep: String) -> String:

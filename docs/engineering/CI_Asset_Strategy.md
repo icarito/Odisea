@@ -56,7 +56,13 @@ debe traer su artefacto trackeado**. La valida `scripts/check_import_artifacts_p
 
 Esto ya rompió CI una vez: `Dome_Intro.tscn` referenciaba un `.mp3` recién agregado, el
 smoke no incluía esa escena y el fallo apareció después, como un test que no podía
-cargarla. Hoy `Dome_Intro.tscn` está en `tests/ci_resource_smoke.gd`.
+cargarla.
+
+Sumar `Dome_Intro.tscn` al smoke se probó y se revirtió: la escena **carga** en CI, pero
+el paso de smoke falla ante cualquier línea `Failed loading resource:`, y la escena
+arrastra texturas que la cache nunca generó (`pilot.png`, `HelmetView_HI-RES`,
+`steel_grate_platform`). Mientras esos huecos sigan abiertos, agregarla solo produce
+ruido. Queda cubierta por `test_menu_checkpoint_flow`.
 
 Al día de hoy el reporte informativo lista ~66 assets sin artefacto en CI (43 texturas
 tolerables + 23 audio/malla que sí romperían la escena que los use). Son huecos
