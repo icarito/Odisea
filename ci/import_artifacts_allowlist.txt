@@ -1,0 +1,32 @@
+# Manifiestos .import trackeados que no tienen artefacto generado en .import/.
+# Los valida scripts/check_import_artifacts_present.py, que corre despues del
+# pase de import en scripts/godot_import_smoke.sh.
+#
+# Solo deberian estar aca assets de packs de terceros que NINGUNA escena del
+# juego referencia (si una escena los usa, no cargan y el juego rompe).
+# Si agrega un asset nuevo, no lo liste aca: importelo, o trackee su artefacto
+# con `git add -f .import/<artefacto>` como el resto de audio del proyecto.
+
+# Pack de ejemplo de Godot 3 (particulas) y Volumetric_Lights: material de
+# referencia, no instanciado por ninguna escena de core_v2.
+assets/FX/Volumetric_Lights/icon.png.import
+assets/FX/particle_system_effects_Godot3/icon.png.import
+assets/FX/particle_system_effects_Godot3/model/textures/SausageMaterial_baseColor.png.import
+assets/FX/particle_system_effects_Godot3/music/Chiptronical.ogg.import
+assets/FX/particle_system_effects_Godot3/textures/bake_floor.png.import
+assets/FX/particle_system_effects_Godot3/textures/bake_target.png.import
+assets/FX/particle_system_effects_Godot3/textures/bake_wall.png.import
+assets/FX/particle_system_effects_Godot3/textures/base_colorf.png.import
+assets/FX/particle_system_effects_Godot3/textures/base_colorw.png.import
+assets/FX/particle_system_effects_Godot3/textures/bg1.png.import
+assets/FX/particle_system_effects_Godot3/textures/loading.png.import
+assets/FX/particle_system_effects_Godot3/textures/part_AAtest.png.import
+assets/FX/particle_system_effects_Godot3/textures/part_c.png.import
+assets/FX/particle_system_effects_Godot3/textures/part_c2.png.import
+assets/FX/particle_system_effects_Godot3/textures/part_c3.png.import
+assets/FX/particle_system_effects_Godot3/textures/part_c31.png.import
+assets/FX/particle_system_effects_Godot3/textures/part_c4.png.import
+assets/FX/particle_system_effects_Godot3/textures/sprites_16.png.import
+assets/FX/particle_system_effects_Godot3/textures/target_baseColor.jpeg.import
+assets/FX/particle_system_effects_Godot3/textures/target_metallicRoughness.png.import
+assets/FX/particle_system_effects_Godot3/textures/target_normal.jpeg.import

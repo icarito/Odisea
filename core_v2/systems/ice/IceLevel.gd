@@ -58,6 +58,10 @@ var ice_height := 0.0
 var ice_speed := 0.0
 var elapsed := 0.0
 var is_running := false
+# Último progreso de congelamiento aplicado al material (0 = hielo húmedo, 1 = escarcha
+# opaca). Se expone porque el valor no se puede leer de vuelta del ShaderMaterial en
+# headless: con el rasterizer dummy get_shader_param() devuelve null.
+var visual_freeze_progress := 0.0
 
 var _debug_plane: MeshInstance = null
 var _debug_band: MeshInstance = null
@@ -245,12 +249,12 @@ func _update_debug_visuals() -> void:
 			var t := _debug_plane.transform
 			t.origin = Vector3(0.0, to_local(Vector3(0.0, ice_height, 0.0)).y, 0.0)
 			_debug_plane.transform = t
+			var freeze_distance: float = max(visual_freeze_height, 0.001)
+			var rise_progress: float = clamp((ice_height - start_height) / freeze_distance, 0.0, 1.0)
+			visual_freeze_progress = lerp(clamp(initial_freeze_progress, 0.0, 1.0), 1.0, rise_progress)
 			var material: Material = _debug_plane.material_override
 			if material is ShaderMaterial:
-				var freeze_distance: float = max(visual_freeze_height, 0.001)
-				var rise_progress: float = clamp((ice_height - start_height) / freeze_distance, 0.0, 1.0)
-				var freeze_progress: float = lerp(clamp(initial_freeze_progress, 0.0, 1.0), 1.0, rise_progress)
-				material.set_shader_param("freeze_progress", freeze_progress)
+				material.set_shader_param("freeze_progress", visual_freeze_progress)
 	if is_instance_valid(_debug_band):
 		_debug_band.visible = debug_draw and draw_frost_ceiling
 		if debug_draw and draw_frost_ceiling:

@@ -26,8 +26,29 @@ For this repo, the expensive failures came from imported scene artifacts for cri
 - Policy file: `ci/critical_imports.json`
 - Validator: `scripts/check_critical_import_artifacts.py`
 - Generic manifest validator: `scripts/check_tracked_imports.py`
+- Gate de artefactos generados: `scripts/check_import_artifacts_present.py` (+ `ci/import_artifacts_allowlist.txt`)
 - CI smoke scene list: `tests/ci_resource_smoke.gd`
 - Asset-integrity smoke scene list: `tests/ci_resource_smoke_asset_integrity.gd`
+
+## Gate De Artefactos Generados
+
+Las listas de arriba (críticos + smoke) cubren un subconjunto elegido a mano, así que
+un asset nuevo que nadie anotó no está cubierto por ninguna. Eso ya rompió CI una vez:
+`Dome_Intro.tscn` referenciaba un `.mp3` recién agregado, la cache de `.import/` venía
+de un commit anterior y el pase de import (`--editor --quit`) abortó el scan antes de
+procesarlo. El smoke pasó (no incluía esa escena) y el fallo apareció después, como un
+test que no podía cargar la escena.
+
+`scripts/check_import_artifacts_present.py` cierra ese hueco: recorre **todos** los
+`.import` trackeados y exige que cada uno tenga al menos uno de sus `dest_files`
+presente en disco (uno solo, no todos: las texturas declaran un dest por formato VRAM
+y cada plataforma genera el suyo). `scripts/godot_import_smoke.sh` lo corre después del
+pase de import; si falta algo reintenta un import completo y, si sigue faltando, aborta
+ahí mismo listando los assets y el `git add -f` correspondiente — en el paso de import,
+no 40 segundos después en un test.
+
+Excepciones (packs de terceros que ninguna escena instancia) van en
+`ci/import_artifacts_allowlist.txt`, no en el código.
 
 ## Critical Imports Today
 
@@ -37,6 +58,11 @@ For this repo, the expensive failures came from imported scene artifacts for cri
 - `assets/sfx/spark.wav.import`
 - `assets/sfx/Alarm_Loop_01.wav.import`
 - `core_v2/props/dragon-studio-mechanical-door-386159.mp3.import`
+- `assets/sfx/voicebosch-ice-crackling-168594.mp3.import`
+- `core_v2/audio/footsteps/ice/FEETHmn-GRAVEL_AUDIOELK-Fs Gravel Shoes Outdoors 5{6,7}_AUDIOELK_AUDIOELK.wav.import`
+
+(La lista autoritativa es `ci/critical_imports.json`; acá van los casos que conviene
+recordar por qué están.)
 
 These entries require:
 
@@ -101,8 +127,22 @@ When a new actor/prop must survive cold CI loads:
 ```bash
 python3 scripts/check_tracked_imports.py
 python3 scripts/check_critical_import_artifacts.py
+python3 scripts/check_import_artifacts_present.py --suggest-tracking
 scripts/godot_import_smoke.sh --godot-bin godot3-bin --project-path . --clean-cache 0 --import-mode quick
 ```
+
+## Adding A New Audio/Texture Asset
+
+Mismo criterio, más barato: si el asset lo referencia una escena que CI carga (tests,
+smoke, o cuelga de `Dome_Intro.tscn`), no dependa de que el import de CI lo genere a
+tiempo — trackee el artefacto:
+
+```bash
+git add -f .import/<nombre>-<hash>.<mp3str|sample|stex> .import/<nombre>-<hash>.md5
+```
+
+Los `.sample`/`.mp3str` pesan cientos de KB (a diferencia de los `.stex`), así que el
+costo en repo es despreciable frente a un CI rojo.
 
 ## Why Not A Dedicated Imports Branch
 

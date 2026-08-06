@@ -67,13 +67,16 @@ func test_frost_vignette_becomes_visible_from_bottom_contact() -> void:
 	vignette._process(0.1)
 	var rect: ColorRect = vignette.get_node("Vignette")
 	assert_bool(rect.visible).is_true()
+	assert_float(vignette._intensity).is_greater(0.1)
+	assert_float(vignette._directionality).is_equal_approx(0.9, 0.001)
 	var material: ShaderMaterial = rect.material
-	assert_float(float(material.get_shader_param("intensity"))).is_greater(0.1)
-	assert_float(float(material.get_shader_param("directionality"))).is_equal_approx(0.9, 0.001)
-	var frost_color: Color = material.get_shader_param("frost_color")
-	assert_float(frost_color.r).is_greater(0.9)
-	assert_float(frost_color.g).is_greater(0.95)
-	assert_float(frost_color.b).is_equal_approx(1.0, 0.001)
+	if _exposes_shader_param(material, "intensity"):
+		assert_float(float(material.get_shader_param("intensity"))).is_greater(0.1)
+		assert_float(float(material.get_shader_param("directionality"))).is_equal_approx(0.9, 0.001)
+		var frost_color: Color = material.get_shader_param("frost_color")
+		assert_float(frost_color.r).is_greater(0.9)
+		assert_float(frost_color.g).is_greater(0.95)
+		assert_float(frost_color.b).is_equal_approx(1.0, 0.001)
 
 func test_ice_material_freezes_progressively_with_height() -> void:
 	var level = auto_free(IceLevelScript.new())
@@ -86,10 +89,19 @@ func test_ice_material_freezes_progressively_with_height() -> void:
 	var material: ShaderMaterial = surface.material_override
 	level.ice_height = level.start_height
 	level._update_debug_visuals()
-	assert_float(float(material.get_shader_param("freeze_progress"))).is_equal_approx(0.32, 0.001)
+	assert_float(level.visual_freeze_progress).is_equal_approx(0.32, 0.001)
 	level.ice_height = level.start_height + 10.0
 	level._update_debug_visuals()
-	assert_float(float(material.get_shader_param("freeze_progress"))).is_equal_approx(1.0, 0.001)
+	assert_float(level.visual_freeze_progress).is_equal_approx(1.0, 0.001)
+	if _exposes_shader_param(material, "freeze_progress"):
+		assert_float(float(material.get_shader_param("freeze_progress"))).is_equal_approx(1.0, 0.001)
+
+# El binario headless de CI usa el rasterizer dummy: los ShaderMaterial no guardan
+# parámetros y get_shader_param() devuelve null (float(null) es error de script). Los
+# valores se asertan sobre el estado del nodo; el material se revisa solo donde el
+# rasterizer sí los expone (corridas locales con GLES2).
+func _exposes_shader_param(material: ShaderMaterial, param: String) -> bool:
+	return material != null and material.get_shader_param(param) != null
 
 func _collect_contact(body: Node, dps: float, in_core: bool, contacts: Array) -> void:
 	contacts.append({"body": body, "dps": dps, "in_core": in_core})

@@ -78,6 +78,27 @@
         ".md5"
       ],
       "reason": "Referenciado por default_env.tres (Default Environment del proyecto): si falta el .stex, TODA escena spammea 'Failed to load default_env.tres' al arrancar. Debe estar en cada build."
+    },
+    {
+      "path": "assets/sfx/voicebosch-ice-crackling-168594.mp3.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Dome_Intro.tscn (FIRST_GAME_SCENE del menu) lo referencia como ext_resource: sin el .mp3str la escena entera no carga y test_menu_checkpoint_flow falla."
+    },
+    {
+      "path": "core_v2/audio/footsteps/ice/FEETHmn-GRAVEL_AUDIOELK-Fs Gravel Shoes Outdoors 56_AUDIOELK_AUDIOELK.wav.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "footstep_profile_ice.tres cuelga de Dome_Intro.tscn; sin el .sample la escena no carga."
+    },
+    {
+      "path": "core_v2/audio/footsteps/ice/FEETHmn-GRAVEL_AUDIOELK-Fs Gravel Shoes Outdoors 57_AUDIOELK_AUDIOELK.wav.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "footstep_profile_ice.tres cuelga de Dome_Intro.tscn; sin el .sample la escena no carga."
     }
   ]
 }

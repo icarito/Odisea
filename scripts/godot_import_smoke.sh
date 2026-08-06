@@ -29,6 +29,7 @@ ALLOW_IMPORT_RETRY="${ALLOW_IMPORT_RETRY:-1}"
 ALLOW_SMOKE_RETRY="${ALLOW_SMOKE_RETRY:-1}"
 ALLOW_FULL_ESCALATION="${ALLOW_FULL_ESCALATION:-1}"
 REQUIRE_IMPORT_SUCCESS="${REQUIRE_IMPORT_SUCCESS:-0}"
+CHECK_IMPORT_ARTIFACTS="${CHECK_IMPORT_ARTIFACTS:-1}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -50,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --allow-smoke-retry) ALLOW_SMOKE_RETRY="$2"; shift 2 ;;
     --allow-full-escalation) ALLOW_FULL_ESCALATION="$2"; shift 2 ;;
     --require-successful-import) REQUIRE_IMPORT_SUCCESS="$2"; shift 2 ;;
+    --check-import-artifacts) CHECK_IMPORT_ARTIFACTS="$2"; shift 2 ;;
     *)
       echo "[godot_import_smoke] Unknown arg: $1" >&2
       exit 2
@@ -205,6 +207,15 @@ run_smoke_once() {
   return 0
 }
 
+# El smoke solo carga un puñado de recursos criticos, asi que un asset nuevo que
+# el pase de import no alcanzo a procesar (cache de .import/ vieja + scan abortado
+# por --quit) pasa desapercibido y revienta despues, en cualquier test que cargue
+# la escena que lo referencia. Este chequeo mira TODOS los manifiestos trackeados.
+run_artifact_check() {
+  echo "[godot_import_smoke] Checking generated import artifacts..."
+  python3 "${SCRIPT_DIR}/check_import_artifacts_present.py" --suggest-tracking
+}
+
 import_ok=0
 if [[ "${IMPORT_MODE}" == "full" ]]; then
   if run_import_once "full" "${IMPORT_LOG}"; then
@@ -217,6 +228,18 @@ if [[ "${IMPORT_MODE}" == "full" ]]; then
   fi
 elif run_import_once "${IMPORT_MODE}" "${IMPORT_LOG}"; then
   import_ok=1
+fi
+
+if is_truthy "${CHECK_IMPORT_ARTIFACTS}"; then
+  if ! run_artifact_check; then
+    echo "[godot_import_smoke] Missing import artifacts; re-running a full import to generate them..."
+    run_import_once "full" "${IMPORT_RETRY_LOG}" || true
+    if ! run_artifact_check; then
+      echo "[godot_import_smoke] Import artifacts still missing after re-import; aborting before tests."
+      exit 1
+    fi
+    echo "[godot_import_smoke] Missing artifacts regenerated."
+  fi
 fi
 
 if run_smoke_once "${SMOKE_LOG}"; then
