@@ -12,6 +12,7 @@ uniform float crack_strength : hint_range(0.0, 1.0) = 0.36;
 uniform float opacity : hint_range(0.0, 1.0) = 0.46;
 uniform float freeze_progress : hint_range(0.0, 1.0) = 0.0;
 uniform float layer_separation : hint_range(0.0, 2.0) = 0.75;
+uniform float emission_boost : hint_range(0.0, 6.0) = 1.0;
 
 varying vec3 world_position;
 varying vec3 world_normal;
@@ -93,7 +94,7 @@ void fragment() {
 	ROUGHNESS = mix(0.12, 0.88, freeze_progress * (0.55 + frost_mask * 0.45));
 	SPECULAR = mix(1.0, 0.35, freeze_progress);
 	METALLIC = 0.05;
-	EMISSION = albedo.rgb * cracks * 0.06;
+	EMISSION = albedo.rgb * cracks * 0.06 * emission_boost;
 	float frozen_opacity = mix(opacity, 0.94, freeze_progress);
 	ALPHA = clamp(frozen_opacity + frost_mask * 0.12 + fresnel * 0.08, 0.42, 0.96);
 }

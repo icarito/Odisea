@@ -398,12 +398,13 @@ shader = ExtResource( 19 )
 shader_param/albedo = Color( 0.55, 0.85, 1, 0.62 )
 shader_param/deep_color = Color( 0.025, 0.16, 0.36, 1 )
 shader_param/ice_scale = 0.32
-shader_param/parallax_depth = 0.42
-shader_param/refraction = 0.012
-shader_param/crack_strength = 0.36
-shader_param/opacity = 0.48
+shader_param/parallax_depth = 0.28
+shader_param/refraction = 0.008
+shader_param/crack_strength = 0.44
+shader_param/opacity = 0.56
 shader_param/freeze_progress = 0.0
 shader_param/layer_separation = 0.9
+shader_param/emission_boost = 2.6
 
 [sub_resource type="PlaneMesh" id=253]
 size = Vector2( 60, 60 )
@@ -417,6 +418,7 @@ shader_param/parallax_depth = 0.15
 shader_param/refraction = 0.006
 shader_param/crack_strength = 0.2
 shader_param/opacity = 0.18
+shader_param/emission_boost = 2.0
 
 [sub_resource type="PlaneMesh" id=255]
 size = Vector2( 60, 60 )
@@ -547,7 +549,7 @@ environment = ExtResource( 20 )
 [node name="KeyLight" type="DirectionalLight" parent="Lighting"]
 transform = Transform( 0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 30, 0 )
 light_color = Color( 0.82, 0.88, 1, 1 )
-light_energy = 0.5
+light_energy = 0.34
 light_specular = 0.35
 cull_mask = 65
 shadow_enabled = false
@@ -558,7 +560,7 @@ directional_shadow_max_distance = 45.0
 [node name="FillLight" type="DirectionalLight" parent="Lighting"]
 transform = Transform( -0.866025, 0.25, -0.433013, 0, 0.866025, 0.5, 0.5, 0.433013, -0.75, 0, 24, 0 )
 light_color = Color( 0.42, 0.52, 0.72, 1 )
-light_energy = 0.25
+light_energy = 0.14
 light_specular = 0.1
 
 [node name="TowerLights" type="Spatial" parent="Lighting"]
@@ -566,41 +568,41 @@ light_specular = 0.1
 [node name="TowerLight_1" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7.6, 0 )
 light_color = Color( 1, 0.82, 0.6, 1 )
-light_energy = 1.8
+light_energy = 2.05
 light_specular = 0.5
-omni_range = 16.0
+omni_range = 12.0
 omni_attenuation = 1.0
 
 [node name="TowerLight_2" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12.1, 0 )
 light_color = Color( 1, 0.84, 0.64, 1 )
-light_energy = 1.7
+light_energy = 1.95
 light_specular = 0.5
-omni_range = 16.0
+omni_range = 12.0
 omni_attenuation = 1.0
 
 [node name="TowerLight_3" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.6, 0 )
 light_color = Color( 0.98, 0.86, 0.72, 1 )
-light_energy = 1.55
+light_energy = 1.85
 light_specular = 0.5
-omni_range = 16.0
+omni_range = 12.0
 omni_attenuation = 1.0
 
 [node name="TowerLight_4" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 21.1, 0 )
 light_color = Color( 0.9, 0.9, 0.98, 1 )
-light_energy = 1.4
+light_energy = 1.65
 light_specular = 0.5
-omni_range = 16.0
+omni_range = 12.0
 omni_attenuation = 1.0
 
 [node name="TowerLight_5" type="OmniLight" parent="Lighting/TowerLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.6, 0 )
 light_color = Color( 0.82, 0.88, 1, 1 )
-light_energy = 1.25
+light_energy = 1.5
 light_specular = 0.5
-omni_range = 16.0
+omni_range = 12.0
 omni_attenuation = 1.0
 
 [node name="AirlockLights" type="Spatial" parent="Lighting"]
@@ -608,33 +610,33 @@ omni_attenuation = 1.0
 [node name="AirlockLight_North" type="OmniLight" parent="Lighting/AirlockLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 6.2, -29 )
 light_color = Color( 0.45, 0.78, 1, 1 )
-light_energy = 2.8
+light_energy = 3.2
 light_specular = 0.7
-omni_range = 26.0
+omni_range = 18.0
 omni_attenuation = 1.0
 
 [node name="AirlockLight_South" type="OmniLight" parent="Lighting/AirlockLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 6.2, 29.3 )
 light_color = Color( 0.45, 0.78, 1, 1 )
-light_energy = 2.8
+light_energy = 3.2
 light_specular = 0.7
-omni_range = 26.0
+omni_range = 18.0
 omni_attenuation = 1.0
 
 [node name="AirlockLight_East" type="OmniLight" parent="Lighting/AirlockLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 29, 6.2, 0 )
 light_color = Color( 0.45, 0.78, 1, 1 )
-light_energy = 2.8
+light_energy = 3.2
 light_specular = 0.7
-omni_range = 26.0
+omni_range = 18.0
 omni_attenuation = 1.0
 
 [node name="AirlockLight_West" type="OmniLight" parent="Lighting/AirlockLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -29, 6.2, 0 )
 light_color = Color( 0.45, 0.78, 1, 1 )
-light_energy = 2.8
+light_energy = 3.2
 light_specular = 0.7
-omni_range = 26.0
+omni_range = 18.0
 omni_attenuation = 1.0
 
 [node name="SpiralStairs" type="Spatial" parent="."]
@@ -2528,24 +2530,27 @@ mesh = SubResource( 255 )
 [node name="IceVisualBand" type="Spatial" parent="."]
 script = ExtResource( 17 )
 ring_radius = 26.0
-particles_per_second = 24.0
-visible_arc_deg = 360.0
-frost_scale = 2.6
+particles_per_second = 16.0
+visible_arc_deg = 210.0
+frost_scale = 3.1
 frost_scale_variance = 0.25
+surface_frost_pool_size = 96
+surface_frost_per_second = 16.0
+surface_frost_particle_ratio = 0.32
 hot_color = Color( 1, 1, 1, 0.48 )
 cool_color = Color( 0.82, 0.94, 1, 0.38 )
 
 [node name="GasParticleManager" type="Spatial" parent="IceVisualBand"]
 script = ExtResource( 18 )
-pool_size = 72
+pool_size = 48
 default_max_lifetime = 0.55
-default_base_scale = 4.0
+default_base_scale = 4.8
 viscosity = 0.45
 buoyancy = -1.6
 default_color = Color( 0.96, 0.985, 1, 0.34 )
 ignition_color = Color( 0.9, 0.97, 1, 0.38 )
 collide_with_world = false
-flipbook_frames_per_second = 32.0
+flipbook_frames_per_second = 20.0
 default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_02/textures/smoke_02.tga"
 shader_path = "res://core_v2/systems/ice/shaders/frost_flipbook.shader"
 use_dither = false
@@ -2565,14 +2570,14 @@ smoke_lateral_speed = 0.04
 
 [node name="GasParticleManager" type="Spatial" parent="FrostMistCrown"]
 script = ExtResource( 18 )
-pool_size = 48
+pool_size = 28
 default_max_lifetime = 2.8
 default_base_scale = 3.4
 viscosity = 0.7
 buoyancy = -0.12
 default_color = Color( 0.98, 0.995, 1, 0.24 )
 collide_with_world = false
-flipbook_frames_per_second = 8.0
+flipbook_frames_per_second = 6.0
 default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_01/textures/smoke_01.tga"
 shader_path = "res://core_v2/systems/ice/shaders/frost_flipbook.shader"
 use_dither = false
@@ -2580,12 +2585,20 @@ use_dither = false
 [node name="CoolantLeakWest" parent="." instance=ExtResource( 22 )]
 transform = Transform( 0, -1, 0, 1, 0, 0, 0, 0, 1, -18, 4.5, 0 )
 emission_radius = 1.2
-particles_per_second = 18
+particles_per_second = 12
 
 [node name="CoolantLeakEast" parent="." instance=ExtResource( 22 )]
 transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 18, 7.5, 0 )
 emission_radius = 1.0
-particles_per_second = 15
+particles_per_second = 10
+
+[node name="GasParticleManager" parent="CoolantLeakWest" index="1"]
+pool_size = 30
+default_base_scale = 2.2
+
+[node name="GasParticleManager" parent="CoolantLeakEast" index="1"]
+pool_size = 30
+default_base_scale = 2.2
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
