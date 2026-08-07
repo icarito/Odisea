@@ -1,13 +1,5 @@
 [gd_resource type="Environment" format=2]
 
-; Environment del Dome_Intro (domo de criogenia, 88 m de diametro, 34 m de alto).
-;
-; Intencion: aire frio y azulado que se acumula en altura, para que la torre
-; central se lea por capas y el fuego/humo de la escena aporte el contraste
-; calido. El fog de altura es lo que da la sensacion de volumen del domo.
-;
-; GLES2: sin SSAO (no lo soporta de forma util) y glow acotado a pocos niveles.
-
 [resource]
 background_mode = 1
 background_color = Color( 0.008, 0.011, 0.022, 1 )
@@ -21,15 +13,14 @@ fog_sun_amount = 0.005
 fog_depth_begin = 24.0
 fog_depth_end = 180.0
 fog_depth_curve = 1.6
-fog_transmit_enabled = false
 fog_height_enabled = true
+fog_height_min = 0.5
+fog_height_max = -3.0
 tonemap_mode = 2
 tonemap_exposure = 0.95
 tonemap_white = 2.0
 glow_enabled = true
-glow_levels/1 = false
 glow_levels/2 = true
-glow_levels/3 = true
 glow_levels/4 = true
 glow_levels/5 = false
 glow_intensity = 0.45

@@ -34,6 +34,12 @@ export(bool) var rail_inner := true setget set_rail_inner
 # walkway can dock. Same semantics as RadialScatter.blocked_angle_ranges_deg.
 export(Array, Vector2) var outer_openings_deg := [] setget set_outer_openings_deg
 export(Array, Vector2) var inner_openings_deg := [] setget set_inner_openings_deg
+# Per outer opening (same index), how far past the deck edge to carry the floor as
+# a landing. A walkway docks flush and wants 0; the elevator car stops short of the
+# polygon face, and without a landing the gap the rail just opened is a hole to the
+# ground. Extending it here rather than as a separate prop is what keeps the landing
+# and the rail gap on one set of angles.
+export(Array, float) var outer_opening_docks := [] setget set_outer_opening_docks
 # Width of the gap punched into a rail whose segment falls inside an opening.
 # 0 removes that segment's rail entirely instead of splitting it.
 export(float, 0.0, 100.0, 0.1) var opening_width := 2.0 setget set_opening_width
@@ -97,6 +103,10 @@ func set_outer_openings_deg(value: Array) -> void:
 
 func set_inner_openings_deg(value: Array) -> void:
 	inner_openings_deg = value
+	_queue_build()
+
+func set_outer_opening_docks(value: Array) -> void:
+	outer_opening_docks = value
 	_queue_build()
 
 func set_opening_width(value: float) -> void:
@@ -188,10 +198,16 @@ func _build_compact_ring() -> void:
 		_add_prism_sides(deck_tool, inner_a, inner_b, outer_b, outer_a, deck_top - deck_bottom)
 
 		var mid_angle: float = (a0 + a1) * 0.5
+		var outer_sources := []
+		var outer_gaps: Array = _edge_gaps(mid_angle, sector, outer_a.distance_to(outer_b),
+			outer_openings_deg, outer_sources)
 		if rail_inner:
-			_add_rail_edge(frame_tool, inner_a, inner_b, _sector_opening(mid_angle, sector, inner_openings_deg))
+			_add_rail_edge(frame_tool, inner_a, inner_b,
+				_edge_gaps(mid_angle, sector, inner_a.distance_to(inner_b), inner_openings_deg))
 		if rail_outer:
-			_add_rail_edge(frame_tool, outer_a, outer_b, _sector_opening(mid_angle, sector, outer_openings_deg))
+			_add_rail_edge(frame_tool, outer_a, outer_b, outer_gaps)
+		_add_dock_landings(deck_top_tool, deck_tool, outer_a, outer_b, mid_angle,
+			outer_gaps, outer_sources, deck_top - deck_bottom)
 		_add_beam(frame_tool, Vector3(outer_a.x, support_base_local_y, outer_a.z), outer_a, tube_radius * 2.0)
 
 	deck_top_tool.generate_normals()
@@ -231,6 +247,33 @@ func _build_compact_ring() -> void:
 		collision.owner = scene_owner
 		footstep_surface.owner = scene_owner
 
+# Carries the deck past the polygon face over an opening that asks for it, so the
+# player steps onto a landing instead of into the gap between the ring and whatever
+# docks there. The span comes from the same clipped gap the rail was cut with, which
+# is what guarantees the landing sits exactly under the doorway.
+func _add_dock_landings(deck_top_tool: SurfaceTool, deck_tool: SurfaceTool, outer_a: Vector3,
+		outer_b: Vector3, mid_angle: float, gaps: Array, sources: Array, thickness: float) -> void:
+	for index in range(gaps.size()):
+		if index >= sources.size():
+			break
+		var source: int = int(sources[index])
+		if source >= outer_opening_docks.size():
+			continue
+		var depth: float = float(outer_opening_docks[source])
+		if depth <= 0.01:
+			continue
+		# The face normal, not the radial: the landing has to stay square to the deck
+		# edge it grows from, or it wedges open against the car.
+		var outward := Vector3(cos(mid_angle), 0.0, sin(mid_angle)) * depth
+		var gap: Vector2 = gaps[index]
+		var near_a: Vector3 = outer_a.linear_interpolate(outer_b, gap.x)
+		var near_b: Vector3 = outer_a.linear_interpolate(outer_b, gap.y)
+		_add_deck_top_quad(deck_top_tool, near_a, near_b, near_b + outward, near_a + outward)
+		var down := Vector3.DOWN * thickness
+		_add_deck_bottom_quad(deck_top_tool, near_a + down, near_b + down,
+			near_b + outward + down, near_a + outward + down)
+		_add_prism_sides(deck_tool, near_a, near_b, near_b + outward, near_a + outward, thickness)
+
 # Deck top face only, with planar (XZ) UVs so the real steel-grate texture (alpha
 # scissor) reads as an actual grate pattern instead of a flat gray slab.
 func _add_deck_top_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
@@ -263,15 +306,8 @@ func _add_quad_uv(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
 		surface_tool.add_uv(Vector2(point.x, point.z) * GRATE_UV_SCALE)
 		surface_tool.add_vertex(point)
 
-func _add_rail_edge(surface_tool: SurfaceTool, start: Vector3, end: Vector3, opening: Vector2) -> void:
-	var spans := [Vector2(0.0, 1.0)]
-	if opening.x > 0.5 and opening_width > 0.01:
-		var edge_length: float = start.distance_to(end)
-		var half_gap: float = min(opening_width / max(edge_length, 0.001) * 0.5, 0.49)
-		spans = [Vector2(0.0, max(0.0, opening.y - half_gap)), Vector2(min(1.0, opening.y + half_gap), 1.0)]
-	elif opening.x > 0.5:
-		return
-	for span in spans:
+func _add_rail_edge(surface_tool: SurfaceTool, start: Vector3, end: Vector3, gaps: Array) -> void:
+	for span in _rail_spans(gaps):
 		if span.y - span.x <= 0.01:
 			continue
 		var a: Vector3 = start.linear_interpolate(end, span.x)
@@ -409,108 +445,19 @@ func _mesh_category(node_name: String) -> String:
 		return "rail"
 	return "frame"
 
-func _add_segment(index: int, mid_angle: float, sector: float, outer_corner: float, inner_corner: float, scene_owner: Node) -> void:
-	var instance := SEGMENT_SCENE.instance()
-	if not (instance is Spatial):
-		push_warning("ScaffoldHubRing: segment scene root must extend Spatial.")
-		if instance:
-			instance.free()
-		return
-	var seg := instance as Spatial
-
-	# Polygon vertices bounding this sector, in ring-local space.
-	var a0: float = mid_angle - sector * 0.5
-	var a1: float = mid_angle + sector * 0.5
-	var outer_a := Vector3(cos(a0), 0.0, sin(a0)) * outer_corner
-	var outer_b := Vector3(cos(a1), 0.0, sin(a1)) * outer_corner
-	var inner_a := Vector3(cos(a0), 0.0, sin(a0)) * inner_corner
-	var inner_b := Vector3(cos(a1), 0.0, sin(a1)) * inner_corner
-
-	var outer_chord: float = outer_a.distance_to(outer_b)
-	var inner_chord: float = inner_a.distance_to(inner_b)
-	var depth: float = outer_radius - inner_radius
-
-	seg.name = "Segment_%d" % index
-	seg.set("platform_width", max(outer_chord, inner_chord))
-	seg.set("platform_depth", depth)
-	seg.set("platform_height", platform_height)
-	seg.set("support_base_local_y", support_base_local_y)
-	seg.set("tube_radius", tube_radius)
-	seg.set("deck_frame_thickness", deck_frame_thickness)
-	seg.set("rail_height", rail_height)
-	seg.set("frame_color", frame_color)
-	seg.set("rail_color", rail_color)
-	seg.set("grate_color", grate_color)
-	seg.set("grate_brightness", grate_brightness)
-	seg.set("grate_pattern_angle_degrees", grate_pattern_angle_degrees)
-	seg.set("snap_mitered_joins", true)
-
-	add_child(seg)
-	if scene_owner:
-		seg.owner = scene_owner
-
-	# Face the ring centre: local -Z ("front") points inward, +Z ("back") outward.
-	var centre: Vector3 = (outer_a + outer_b + inner_a + inner_b) * 0.25
-	var seg_xform := seg.transform
-	seg_xform.origin = centre
-	seg.transform = seg_xform
-	seg.look_at(to_global(Vector3(0.0, centre.y, 0.0)), Vector3.UP)
-
-	_snap_corners(seg, outer_a, outer_b, inner_a, inner_b)
-	_apply_rails(seg, mid_angle, sector)
-
-# Pushes the four deck corners onto the exact polygon vertices. The deck's own
-# _deck_point() already accounts for platform_width/depth, so we only write the
-# delta between where a corner lands by default and where the polygon wants it.
-func _snap_corners(seg: Spatial, outer_a: Vector3, outer_b: Vector3, inner_a: Vector3, inner_b: Vector3) -> void:
-	var half_w: float = float(seg.get("platform_width")) * 0.5
-	var depth: float = float(seg.get("platform_depth"))
-	var inv: Transform = seg.global_transform.affine_inverse()
-
-	# front == -Z == inner edge; back == +Z == outer edge.
-	# left == -X, right == +X in the segment's local frame.
-	for corner in [
-		{ "point": inner_a, "x": -half_w, "z_sign": -1.0, "depth_prop": "front_left_depth_offset", "width_prop": "front_left_width_offset" },
-		{ "point": inner_b, "x": half_w, "z_sign": -1.0, "depth_prop": "front_right_depth_offset", "width_prop": "front_right_width_offset" },
-		{ "point": outer_a, "x": -half_w, "z_sign": 1.0, "depth_prop": "back_left_depth_offset", "width_prop": "back_left_width_offset" },
-		{ "point": outer_b, "x": half_w, "z_sign": 1.0, "depth_prop": "back_right_depth_offset", "width_prop": "back_right_width_offset" },
-	]:
-		var target_local: Vector3 = inv.xform(to_global(corner["point"]))
-		var base_z: float = float(corner["z_sign"]) * depth * 0.5
-		seg.set(corner["depth_prop"], target_local.z - base_z)
-		seg.set(corner["width_prop"], target_local.x - float(corner["x"]))
-
-func _apply_rails(seg: Spatial, mid_angle: float, sector: float) -> void:
-	# Front/back are the inner/outer faces; left/right are the shared joins with
-	# the neighbouring segments and never get a rail.
-	seg.set("rail_left", false)
-	seg.set("rail_right", false)
-
-	# An opening is claimed by whichever segment's sector *contains* it, not by a
-	# segment whose midpoint happens to fall inside the range — a 2 m doorway is
-	# far narrower than a sector, so testing the midpoint would silently drop it.
-	var outer_hit: Vector2 = _sector_opening(mid_angle, sector, outer_openings_deg)
-	var inner_hit: Vector2 = _sector_opening(mid_angle, sector, inner_openings_deg)
-	var outer_open: bool = outer_hit.x > 0.5
-	var inner_open: bool = inner_hit.x > 0.5
-
-	# opening_width <= 0 means "drop the rail on this segment entirely".
-	seg.set("rail_back", rail_outer and (not outer_open or opening_width > 0.01))
-	seg.set("rail_front", rail_inner and (not inner_open or opening_width > 0.01))
-	seg.set("rail_back_opening_width", opening_width if outer_open else 0.0)
-	seg.set("rail_front_opening_width", opening_width if inner_open else 0.0)
-	# Gravity places the gap along the rail so it lands on the requested angle
-	# instead of always at the segment's midpoint.
-	seg.set("rail_back_opening_gravity", outer_hit.y if outer_open else 0.5)
-	seg.set("rail_front_opening_gravity", inner_hit.y if inner_open else 0.5)
-
-# Returns (hit, gravity): whether any range overlaps this segment's sector, and
-# where along the rail (0..1) the opening centre falls. Ranges wrap around 360,
-# mirroring RadialScatter._is_angle_blocked().
-func _sector_opening(mid_angle: float, sector: float, ranges: Array) -> Vector2:
+# Chord spans (0..1 along this polygon edge) that the authored openings carve out
+# of this segment's rail. Every range is *clipped* against the sector instead of
+# being claimed by whichever sector contains its centre: a segment can therefore
+# hold several gaps at once (the top floor takes a walkway and the elevator on the
+# same face), and a gap wider than one face keeps going on the next segment rather
+# than being silently dropped at the corner. Ranges wrap around 360, mirroring
+# RadialScatter._is_angle_blocked().
+func _edge_gaps(mid_angle: float, sector: float, edge_length: float, ranges: Array, out_sources: Array = []) -> Array:
+	var gaps := []
 	var half: float = rad2deg(sector) * 0.5
 	var mid_deg: float = rad2deg(mid_angle)
-	for range_deg in ranges:
+	for source in range(ranges.size()):
+		var range_deg = ranges[source]
 		if not (range_deg is Vector2):
 			continue
 		# Work in a frame centred on this segment so wraparound is a single
@@ -520,13 +467,53 @@ func _sector_opening(mid_angle: float, sector: float, ranges: Array) -> Vector2:
 		if end_rel < start_rel:
 			end_rel += 360.0
 		var centre_rel: float = _shortest_arc((start_rel + end_rel) * 0.5)
-		if centre_rel < -half or centre_rel > half:
+		var clipped_start: float = max(start_rel, -half)
+		var clipped_end: float = min(end_rel, half)
+		var centre_here: bool = centre_rel >= -half and centre_rel <= half
+		if clipped_end <= clipped_start and not centre_here:
 			continue
-		# The rail is a straight polygon edge, not a circular arc. Project the
-		# radial opening onto that chord so pods and rail gaps share one ray.
-		var projected: float = tan(deg2rad(centre_rel)) / max(tan(deg2rad(half)), 0.001)
-		return Vector2(1.0, clamp((projected + 1.0) * 0.5, 0.0, 1.0))
-	return Vector2(0.0, 0.5)
+		var span := Vector2(_chord_ratio(clipped_start, half), _chord_ratio(clipped_end, half))
+		# opening_width is the metric floor: an angular range too narrow to clear a
+		# doorway still opens opening_width metres, centred on the authored angle.
+		# Only the segment holding the centre may widen, so a clipped tail stays put.
+		if centre_here and opening_width > 0.01 and edge_length > 0.001:
+			var min_ratio: float = min(opening_width / edge_length, 1.0)
+			if span.y - span.x < min_ratio:
+				var centre_ratio: float = _chord_ratio(centre_rel, half)
+				span = Vector2(centre_ratio - min_ratio * 0.5, centre_ratio + min_ratio * 0.5)
+		gaps.append(Vector2(clamp(span.x, 0.0, 1.0), clamp(span.y, 0.0, 1.0)))
+		out_sources.append(source)
+	return gaps
+
+# The rail is a straight polygon edge, not a circular arc. Project a radial angle
+# (relative to the segment centre) onto that chord so pods, walkways and rail gaps
+# all share one ray.
+static func _chord_ratio(angle_rel: float, half: float) -> float:
+	var projected: float = tan(deg2rad(angle_rel)) / max(tan(deg2rad(half)), 0.001)
+	return clamp((projected + 1.0) * 0.5, 0.0, 1.0)
+
+# Complement of the merged gaps inside 0..1: the stretches of rail that survive.
+static func _rail_spans(gaps: Array) -> Array:
+	if gaps.empty():
+		return [Vector2(0.0, 1.0)]
+	# Insertion sort by start — a segment never carries more than a handful of gaps.
+	var ordered := []
+	for gap in gaps:
+		var at: int = ordered.size()
+		for i in range(ordered.size()):
+			if gap.x < ordered[i].x:
+				at = i
+				break
+		ordered.insert(at, gap)
+	var spans := []
+	var cursor: float = 0.0
+	for gap in ordered:
+		if gap.x > cursor:
+			spans.append(Vector2(cursor, gap.x))
+		cursor = max(cursor, gap.y)
+	if cursor < 1.0:
+		spans.append(Vector2(cursor, 1.0))
+	return spans
 
 static func _shortest_arc(delta_deg: float) -> float:
 	return fposmod(delta_deg + 180.0, 360.0) - 180.0

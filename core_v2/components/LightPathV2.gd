@@ -1,0 +1,387 @@
+tool
+extends Spatial
+class_name LightPathV2
+
+# A run of floor markers that lights up behind and just ahead of the player as they
+# climb, to show the way out of a level that is mostly dark scaffolding.
+#
+# Deliberately not made of lights. On GLES2 a dozen OmniLights along a walkway costs
+# far more than the effect is worth, so every marker is one instance in a single
+# MultiMesh — one draw call for the whole path — drawn unshaded and additively so it
+# reads as a glow strip without lighting anything. Switching a marker on is a colour
+# write on an instance, and those only happen when the lit count actually changes,
+# not every frame.
+#
+# Waypoints come either from this node's own Position3D children or from the
+# children of `waypoint_source` (point it at a generated walkway and the path
+# follows the walkway when it rebuilds).
+
+const PLAYER_GROUP := "player"
+const MARKERS_NAME := "Markers"
+
+export(NodePath) var waypoint_source
+# Some waypoint nodes sit at their own base with the walkable surface declared as a
+# property (SteelGratePlatform keeps its deck at `platform_height`), so taking the
+# node origin would run the path along the floor of the level instead of along the
+# walkway. Name that property and it gets added to each waypoint's height.
+export(String) var waypoint_height_property := ""
+# A waypoint that is a whole walkway rather than a point: name the property holding
+# its length along local Z and the path runs end to end through it instead of
+# centre to centre, which otherwise leaves the first and last half-segment of a run
+# unmarked and cuts the corner at every join.
+export(String) var waypoint_span_property := ""
+# True when the waypoints form one continuous run (a spiral of joined walkways).
+# False treats each waypoint as its own stretch, so a set of separate catwalks does
+# not get markers strung through the air between them.
+export(bool) var connect_segments := true
+
+# platform_height is only the nominal deck height: SteelGratePlatform warps its deck
+# with per-corner height offsets (that is how a walkway climbs), so a marker placed
+# at the declared height floats over the middle of a ramp and sinks at its ends.
+# Dropping each marker onto whatever it is standing on fixes that for warped decks,
+# ring floors and spokes alike, without reaching into anyone's internals.
+export(bool) var snap_to_surface := true
+export(int, LAYERS_3D_PHYSICS) var snap_mask := 64
+export(float, 0.1, 20.0, 0.1) var snap_probe := 2.5
+
+# A handful of real lights that ride the markers nearest the player. The markers
+# themselves are unlit geometry; this is the only part that costs lighting, and it
+# is capped, so the cost does not grow with the length of the path.
+export(int, 0, 12) var light_pool_size := 0
+export(float, 0.5, 40.0, 0.1) var light_range := 6.0
+export(float, 0.0, 8.0, 0.05) var light_energy := 1.1
+export(float, 1.0, 80.0, 0.5) var light_follow_radius := 16.0
+# Distance between markers along the path. 0 places exactly one marker per
+# waypoint, which is what an "exit here" cluster wants.
+export(float, 0.0, 40.0, 0.1) var spacing := 2.0
+export(float, 0.05, 4.0, 0.01) var marker_size := 0.35
+# Lifted clear of the deck so it does not z-fight with the grate.
+export(float, -2.0, 4.0, 0.01) var height_offset := 0.06
+
+export(Color) var lit_color := Color(0.35, 0.85, 1.0, 1.0)
+export(Color) var dim_color := Color(0.02, 0.06, 0.09, 1.0)
+# Markers up to the player's height plus this stay lit, so the path reads as
+# leading somewhere instead of stopping at their feet.
+export(float, 0.0, 40.0, 0.1) var lead_height := 2.5
+# Once lit, a marker stays lit: the path is a breadcrumb trail, not a torch.
+export(bool) var latch_lit := true
+export(float, 0.05, 2.0, 0.05) var refresh_interval := 0.25
+
+export(bool) var auto_build := true
+export(bool) var rebuild_baked_items := false
+
+var _marker_heights := []
+var _lit_count := -1
+var _elapsed := 0.0
+var _player: Spatial = null
+var _build_queued := false
+var _snap_pending := false
+var _lights := []
+
+func _ready() -> void:
+	if Engine.editor_hint:
+		_queue_build()
+		return
+	if get_child_count() == 0 or rebuild_baked_items:
+		build()
+	_cache_marker_heights()
+	_snap_pending = snap_to_surface
+	set_process(not _marker_heights.empty())
+
+func set_waypoint_source(value: NodePath) -> void:
+	waypoint_source = value
+	_queue_build()
+
+func _queue_build() -> void:
+	if not auto_build or not is_inside_tree() or _build_queued:
+		return
+	_build_queued = true
+	call_deferred("build")
+
+func _process(delta: float) -> void:
+	if Engine.editor_hint:
+		return
+	_elapsed += delta
+	if _elapsed < refresh_interval:
+		return
+	_elapsed = 0.0
+	if not is_instance_valid(_player):
+		_player = _find_player()
+		if _player == null:
+			return
+	# Colliders are not all registered on the frame the level is built, so the drop
+	# onto the deck waits for the first tick instead of running inside build().
+	if _snap_pending:
+		_snap_pending = false
+		_snap_markers_to_surface()
+	_apply_lit_limit(_player.global_transform.origin.y + lead_height)
+	_drive_lights()
+
+# --- build -------------------------------------------------------------------
+
+func build() -> void:
+	_build_queued = false
+	_clear_markers()
+	var points: Array = _sample_points()
+	if points.size() == 0:
+		return
+
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.color_format = MultiMesh.COLOR_8BIT
+	multimesh.mesh = _marker_mesh()
+	multimesh.instance_count = points.size()
+
+	var inverse: Transform = global_transform.affine_inverse()
+	for index in range(points.size()):
+		var local: Vector3 = inverse.xform(points[index]) + Vector3.UP * height_offset
+		multimesh.set_instance_transform(index, Transform(Basis(), local))
+		multimesh.set_instance_color(index, dim_color)
+
+	var instance := MultiMeshInstance.new()
+	instance.name = MARKERS_NAME
+	instance.multimesh = multimesh
+	instance.material_override = _marker_material()
+	# Same visual layer the rest of the scaffolding uses.
+	instance.layers = 64
+	instance.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	add_child(instance)
+	var scene_owner := _scene_owner()
+	if scene_owner:
+		instance.owner = scene_owner
+	_cache_marker_heights()
+
+# Waypoints in world space: this node's Position3D children, or the children of
+# waypoint_source when one is given.
+func _waypoints() -> Array:
+	var source: Node = self
+	if waypoint_source != NodePath() and has_node(waypoint_source):
+		source = get_node(waypoint_source)
+	var points := []
+	for child in source.get_children():
+		# Our own output is not a waypoint.
+		if child is MultiMeshInstance or child is Light:
+			continue
+		if not (child is Spatial):
+			continue
+		var spatial := child as Spatial
+		var lift := 0.0
+		if not waypoint_height_property.empty():
+			var declared = child.get(waypoint_height_property)
+			if typeof(declared) == TYPE_REAL or typeof(declared) == TYPE_INT:
+				lift = float(declared)
+		var span := 0.0
+		if not waypoint_span_property.empty():
+			var declared_span = child.get(waypoint_span_property)
+			if typeof(declared_span) == TYPE_REAL or typeof(declared_span) == TYPE_INT:
+				span = float(declared_span)
+		if span > 0.01:
+			# Both ends of the walkway, in its own frame, so the run stays on the
+			# deck through the turn instead of chording between centres.
+			points.append([
+				spatial.global_transform.xform(Vector3(0.0, lift, -span * 0.5)),
+				spatial.global_transform.xform(Vector3(0.0, lift, span * 0.5)),
+			])
+		else:
+			points.append([spatial.global_transform.xform(Vector3(0.0, lift, 0.0))])
+	if connect_segments:
+		var joined := []
+		for run in points:
+			for point in run:
+				joined.append(point)
+		return [joined]
+	return points
+
+# Walks the polyline and drops a marker every `spacing` metres. spacing <= 0 keeps
+# the waypoints themselves.
+func _sample_points() -> Array:
+	var points := []
+	for run in _waypoints():
+		for point in _sample_run(run):
+			points.append(point)
+	return points
+
+func _sample_run(waypoints: Array) -> Array:
+	if spacing <= 0.01 or waypoints.size() < 2:
+		return waypoints
+	var points := [waypoints[0]]
+	var carry := 0.0
+	for i in range(waypoints.size() - 1):
+		var from: Vector3 = waypoints[i]
+		var to: Vector3 = waypoints[i + 1]
+		var length: float = from.distance_to(to)
+		if length <= 0.0001:
+			continue
+		var travelled: float = spacing - carry
+		while travelled <= length:
+			points.append(from.linear_interpolate(to, travelled / length))
+			travelled += spacing
+		carry = length - (travelled - spacing)
+	return points
+
+func _marker_mesh() -> Mesh:
+	var quad := QuadMesh.new()
+	quad.size = Vector2(marker_size, marker_size)
+	# QuadMesh faces +Z; lay it flat so it reads as a floor marker.
+	var tool_mesh := SurfaceTool.new()
+	tool_mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
+	tool_mesh.append_from(quad, 0, Transform(Basis(Vector3.RIGHT, -PI * 0.5), Vector3.ZERO))
+	return tool_mesh.commit()
+
+func _marker_material() -> SpatialMaterial:
+	var material := SpatialMaterial.new()
+	material.flags_unshaded = true
+	material.vertex_color_use_as_albedo = true
+	material.flags_transparent = true
+	# Additive keeps the quad's edges from reading as a card and makes an unlit
+	# marker (near-black) disappear on its own.
+	material.params_blend_mode = SpatialMaterial.BLEND_MODE_ADD
+	material.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	material.flags_do_not_receive_shadows = true
+	material.params_depth_draw_mode = SpatialMaterial.DEPTH_DRAW_OPAQUE_ONLY
+	return material
+
+# --- lighting ----------------------------------------------------------------
+
+func _cache_marker_heights() -> void:
+	_marker_heights = []
+	_lit_count = -1
+	var markers: MultiMeshInstance = get_node_or_null(MARKERS_NAME) as MultiMeshInstance
+	if markers == null or markers.multimesh == null:
+		return
+	for index in range(markers.multimesh.instance_count):
+		var local: Vector3 = markers.multimesh.get_instance_transform(index).origin
+		_marker_heights.append(markers.global_transform.xform(local).y)
+
+# Each marker answers for itself rather than being lit by index, so a path that
+# dips or doubles back still lights the part the player has actually reached.
+func _apply_lit_limit(limit: float) -> void:
+	var count := 0
+	for marker_height in _marker_heights:
+		if float(marker_height) <= limit:
+			count += 1
+	if latch_lit:
+		if count <= _lit_count:
+			return
+	elif count == _lit_count:
+		return
+	_lit_count = count
+	var markers: MultiMeshInstance = get_node_or_null(MARKERS_NAME) as MultiMeshInstance
+	if markers == null or markers.multimesh == null:
+		return
+	var reached: float = limit
+	if latch_lit:
+		# Latched: the ceiling only ever rises, so light everything up to the
+		# highest marker reached so far.
+		reached = -INF
+		for marker_height in _marker_heights:
+			if float(marker_height) <= limit:
+				reached = max(reached, float(marker_height))
+	for index in range(markers.multimesh.instance_count):
+		var height: float = float(_marker_heights[index]) if index < _marker_heights.size() else 0.0
+		markers.multimesh.set_instance_color(index, lit_color if height <= reached else dim_color)
+
+# Drops every marker onto the surface underneath it. One ray per marker, once.
+func _snap_markers_to_surface() -> void:
+	if not snap_to_surface:
+		return
+	var markers: MultiMeshInstance = get_node_or_null(MARKERS_NAME) as MultiMeshInstance
+	if markers == null or markers.multimesh == null:
+		return
+	var space := get_world().direct_space_state
+	if space == null:
+		return
+	var to_local: Transform = markers.global_transform.affine_inverse()
+	for index in range(markers.multimesh.instance_count):
+		var xform: Transform = markers.multimesh.get_instance_transform(index)
+		var world: Vector3 = markers.global_transform.xform(xform.origin)
+		# Start above the nominal height and probe down through it.
+		var from: Vector3 = world + Vector3.UP * snap_probe
+		var hit: Dictionary = space.intersect_ray(from, world + Vector3.DOWN * snap_probe,
+			[], snap_mask)
+		if not hit.has("position"):
+			continue
+		xform.origin = to_local.xform(hit["position"] + Vector3.UP * height_offset)
+		markers.multimesh.set_instance_transform(index, xform)
+	_cache_marker_heights()
+
+# Moves a fixed pool of lights onto the lit markers closest to the player. The pool
+# never grows, so a longer path costs no more lighting than a short one.
+func _drive_lights() -> void:
+	if light_pool_size <= 0:
+		return
+	var markers: MultiMeshInstance = get_node_or_null(MARKERS_NAME) as MultiMeshInstance
+	if markers == null or markers.multimesh == null:
+		return
+	_ensure_light_pool()
+	var origin: Vector3 = _player.global_transform.origin
+	var reach_squared: float = light_follow_radius * light_follow_radius
+
+	# Nearest lit markers, kept by insertion into a list only as long as the pool.
+	var best := []
+	for index in range(markers.multimesh.instance_count):
+		if markers.multimesh.get_instance_color(index).v <= 0.5:
+			continue
+		var world: Vector3 = markers.global_transform.xform(
+			markers.multimesh.get_instance_transform(index).origin)
+		var distance: float = origin.distance_squared_to(world)
+		if distance > reach_squared:
+			continue
+		var at: int = best.size()
+		for i in range(best.size()):
+			if distance < best[i][0]:
+				at = i
+				break
+		if at < light_pool_size:
+			best.insert(at, [distance, world])
+			if best.size() > light_pool_size:
+				best.resize(light_pool_size)
+
+	for i in range(_lights.size()):
+		var light: OmniLight = _lights[i]
+		if i >= best.size():
+			light.visible = false
+			continue
+		light.visible = true
+		light.global_transform = Transform(Basis(), best[i][1] + Vector3.UP * 0.35)
+
+func _ensure_light_pool() -> void:
+	while _lights.size() > light_pool_size:
+		var extra: Node = _lights.pop_back()
+		remove_child(extra)
+		extra.free()
+	while _lights.size() < light_pool_size:
+		var light := OmniLight.new()
+		light.name = "PathLight_%d" % _lights.size()
+		light.omni_range = light_range
+		light.light_energy = light_energy
+		light.light_color = lit_color
+		light.shadow_enabled = false
+		light.visible = false
+		add_child(light)
+		_lights.append(light)
+
+func _find_player() -> Spatial:
+	var players: Array = get_tree().get_nodes_in_group(PLAYER_GROUP)
+	for candidate in players:
+		if candidate is Spatial:
+			return candidate as Spatial
+	return null
+
+func _clear_markers() -> void:
+	var markers: Node = get_node_or_null(MARKERS_NAME)
+	if markers:
+		remove_child(markers)
+		markers.free()
+	for light in _lights:
+		if is_instance_valid(light):
+			remove_child(light)
+			light.free()
+	_lights = []
+
+func _scene_owner() -> Node:
+	if owner:
+		return owner
+	if Engine.editor_hint and get_tree():
+		return get_tree().edited_scene_root
+	return null

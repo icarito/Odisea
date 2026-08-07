@@ -25,9 +25,15 @@ export(float, 0.2, 20.0, 0.1) var deck_thickness := 0.2 setget set_deck_thicknes
 export(Array, float) var inner_opening_angles_deg := [] setget set_inner_opening_angles_deg
 export(Array, float) var outer_opening_angles_deg := [] setget set_outer_opening_angles_deg
 export(float, 0.0, 100.0, 0.1) var opening_width := 2.0 setget set_opening_width
-# Angular half-width used to turn a single authored angle into a range. Only has
-# to be wide enough to land inside the target sector.
-export(float, 0.1, 45.0, 0.1) var opening_angle_margin := 1.0 setget set_opening_angle_margin
+# The elevator docks against a wider gap than a walkway does: its platform is the
+# full width of the car, not a 2 m catwalk.
+export(float, 0.0, 100.0, 0.1) var elevator_opening_width := 2.8 setget set_elevator_opening_width
+# The car stops short of the polygon face, so its opening also gets a landing that
+# carries the deck out to meet it. Walkways dock flush and get none.
+export(float, 0.0, 10.0, 0.01) var elevator_dock_depth := 0.0 setget set_elevator_dock_depth
+# Extra angular slack on each side of an authored angle, on top of the arc the
+# opening's own width already subtends.
+export(float, 0.0, 45.0, 0.1) var opening_angle_margin := 0.0 setget set_opening_angle_margin
 
 export(bool) var rail_outer := true setget set_rail_outer
 export(bool) var rail_inner := true setget set_rail_inner
@@ -88,8 +94,16 @@ func set_opening_width(value: float) -> void:
 	opening_width = max(value, 0.0)
 	_queue_build()
 
+func set_elevator_opening_width(value: float) -> void:
+	elevator_opening_width = max(value, 0.0)
+	_queue_build()
+
+func set_elevator_dock_depth(value: float) -> void:
+	elevator_dock_depth = max(value, 0.0)
+	_queue_build()
+
 func set_opening_angle_margin(value: float) -> void:
-	opening_angle_margin = max(value, 0.1)
+	opening_angle_margin = max(value, 0.0)
 	_queue_build()
 
 func set_rail_outer(value: bool) -> void:
@@ -152,7 +166,15 @@ func build() -> void:
 		ring.rail_outer = rail_outer
 		ring.rail_inner = rail_inner
 		ring.inner_openings_deg = []
-		ring.outer_openings_deg = _walkway_ranges_for_floor(i) + _range_for_floor(outer_opening_angles_deg, i)
+		var walkways: Array = _walkway_ranges_for_floor(i)
+		var elevator: Array = _range_for_floor(outer_opening_angles_deg, i, elevator_opening_width)
+		ring.outer_openings_deg = walkways + elevator
+		var docks := []
+		for _w in walkways:
+			docks.append(0.0)
+		for _e in elevator:
+			docks.append(elevator_dock_depth)
+		ring.outer_opening_docks = docks
 		# Every generated upper ring stands on the level below it.
 		ring.support_base_local_y = -floor_height
 		ring.auto_build = true
@@ -164,16 +186,28 @@ func build() -> void:
 		if scene_owner:
 			ring.owner = scene_owner
 
-func _range_for_floor(angles: Array, index: int) -> Array:
+func _range_for_floor(angles: Array, index: int, width: float) -> Array:
 	if index < 0 or index >= angles.size():
 		return []
-	var angle: float = float(angles[index])
-	return [ Vector2(angle - opening_angle_margin, angle + opening_angle_margin) ]
+	return [ _range_for_angle(float(angles[index]), width) ]
+
+# An opening is authored as the angle it faces plus how wide it has to be in
+# metres; the arc that width subtends at the deck edge is what the ring clips
+# against, so the gap lines up with the thing docking there instead of being a
+# fixed angular guess.
+func _range_for_angle(angle: float, width: float) -> Vector2:
+	var half: float = rad2deg(atan(max(width, 0.0) * 0.5 / max(outer_radius, 0.001))) + opening_angle_margin
+	return Vector2(angle - half, angle + half)
 
 func _walkway_ranges_for_floor(index: int) -> Array:
 	if index == 0:
-		return [Vector2(-1.0, 1.0), Vector2(89.0, 91.0), Vector2(179.0, 181.0), Vector2(269.0, 271.0)]
-	return _range_for_floor(inner_opening_angles_deg, index)
+		return [
+			_range_for_angle(0.0, opening_width),
+			_range_for_angle(90.0, opening_width),
+			_range_for_angle(180.0, opening_width),
+			_range_for_angle(270.0, opening_width),
+		]
+	return _range_for_floor(inner_opening_angles_deg, index, opening_width)
 
 # World-space position of a floor's deck, for aligning walkways and elevators.
 func get_floor_y(index: int) -> float:

@@ -11,6 +11,12 @@ export(float, 0.0, 2.0, 0.01) var shaft_pole_overlap := 0.15 setget set_shaft_po
 export(float, 0.0, 2.0, 0.01) var top_floor_pole_overlap := 0.05 setget set_top_floor_pole_overlap
 export(float, 0.01, 0.5, 0.01) var shaft_collision_thickness := 0.03 setget set_shaft_collision_thickness
 export(float, 0.0, 0.5, 0.005) var shaft_cap_clearance := 0.03 setget set_shaft_cap_clearance
+# Distance (m) up to the next stop, handed down by ElevatorController from its
+# floor_heights array; 0 marks the top floor. -1 falls back to reading the sibling
+# Floor nodes, which is what this did before the layout became explicit — that
+# scan runs every physics frame and silently mis-sizes the shaft whenever the
+# scene tree is not laid out exactly as it expects.
+export(float, -1.0, 200.0, 0.01) var shaft_span := -1.0 setget set_shaft_span
 
 const EPSILON := 0.01
 const SHAFT_TILING_MULT := 6.0
@@ -70,6 +76,11 @@ func set_shaft_cap_clearance(v: float) -> void:
 	shaft_cap_clearance = max(v, 0.0)
 	_fit_shaft_fence()
 
+func set_shaft_span(v: float) -> void:
+	shaft_span = max(v, -1.0)
+	_last_fit_signature = ""
+	_fit_shaft_fence()
+
 func _fit_shaft_fence() -> void:
 	if not auto_fit_shaft_fence:
 		return
@@ -81,8 +92,14 @@ func _fit_shaft_fence() -> void:
 		return
 
 	var header_top_y := _get_header_top_local_y()
-	var is_last_floor := _is_last_floor()
-	var next_floor_y = _find_next_floor_local_y()
+	var is_last_floor: bool
+	var next_floor_y
+	if shaft_span >= 0.0:
+		is_last_floor = shaft_span <= EPSILON
+		next_floor_y = null if is_last_floor else _local_y_above_floor(shaft_span)
+	else:
+		is_last_floor = _is_last_floor()
+		next_floor_y = _find_next_floor_local_y()
 	var target_height := fallback_shaft_height
 	var pole_overlap := shaft_pole_overlap
 	var use_top_floor_mode: bool = is_last_floor or (Engine.editor_hint and next_floor_y == null)
@@ -128,6 +145,16 @@ func _get_header_top_local_y() -> float:
 	if header and header is CSGBox:
 		return header.translation.y + header.height * 0.5
 	return 3.4
+
+# Same frame of reference _find_next_floor_local_y() returns, but from a span the
+# controller already knows instead of a scan over sibling nodes.
+func _local_y_above_floor(span: float):
+	var floor_node := get_parent() as Spatial
+	if floor_node == null:
+		return null
+	var sample_global := global_transform.origin
+	sample_global.y = floor_node.global_transform.origin.y + span
+	return to_local(sample_global).y
 
 func _find_next_floor_local_y():
 	var floor_node := get_parent() as Spatial

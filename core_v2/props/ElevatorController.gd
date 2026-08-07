@@ -12,6 +12,19 @@ export(NodePath) var platform_path
 export(NodePath) var floors_path = NodePath("Floors")
 export(float) var door_open_wait := 2.0 # seconds door stays open
 
+# Floor stops as explicit local heights — the single source of truth for the
+# layout. The prop used to infer it from its own node structure (one authored
+# Floor child per stop, doors scanning their siblings to find the next one), so
+# retargeting it to a building with different storey spacing meant editing the
+# scene tree. With this filled in, the first Floors/* child acts as the template
+# and every stop is cloned from it. Empty keeps the authored children untouched.
+export(Array, float) var floor_heights := []
+# Fence enclosing the shaft. Its height follows the topmost stop instead of being
+# authored by hand, so it can never come up short of the last floor.
+export(NodePath) var shaft_fence_path = NodePath("MetalFence")
+export(NodePath) var shaft_cap_path = NodePath("MetalFence/Path2/CSGCylinder")
+export(float) var shaft_fence_headroom := 5.5
+
 var requests = []
 var current_floor = 0
 var target_floor = -1
@@ -27,6 +40,7 @@ onready var floors_container = get_node(floors_path) if floors_path else null
 
 func _ready():
     _cache_sfx_nodes()
+    _sync_floors()
 
     # Discover and connect floor inputs
     if floors_container:
@@ -60,6 +74,68 @@ func _ready():
     if _pending_snapshot != null:
         _apply_snapshot(_pending_snapshot)
         _pending_snapshot = null
+
+# Lays the Floors container out from floor_heights, cloning the first authored
+# child as the template. Each stop is told its own index and the exact distance to
+# the one above, so no node has to look at its siblings to work out where it sits.
+func _sync_floors() -> void:
+    if floor_heights.empty() or floors_container == null:
+        return
+    if floors_container.get_child_count() == 0:
+        push_warning("ElevatorController: Floors needs one authored child to use as the stop template.")
+        return
+
+    var template: Spatial = floors_container.get_child(0) as Spatial
+    if template == null:
+        return
+
+    while floors_container.get_child_count() > floor_heights.size():
+        var extra: Node = floors_container.get_child(floors_container.get_child_count() - 1)
+        floors_container.remove_child(extra)
+        extra.free()
+    while floors_container.get_child_count() < floor_heights.size():
+        floors_container.add_child(template.duplicate())
+
+    for index in range(floor_heights.size()):
+        var stop: Spatial = floors_container.get_child(index) as Spatial
+        if stop == null:
+            continue
+        stop.name = "Floor%d" % index
+        var stop_xform: Transform = stop.transform
+        stop_xform.origin.y = float(floor_heights[index])
+        stop.transform = stop_xform
+
+        var input: Node = stop.get_node_or_null("Input")
+        if input:
+            input.set("floor_index", index)
+        var door: Node = stop.get_node_or_null("Door")
+        if door and door.has_method("set_shaft_span"):
+            var is_top: bool = index >= floor_heights.size() - 1
+            door.set_shaft_span(0.0 if is_top else float(floor_heights[index + 1]) - float(floor_heights[index]))
+
+    _fit_shaft_fence()
+
+# The shaft fence and its cap have to clear the topmost stop, not sit at a height
+# typed in by hand — that is how the fence ended up topping out below the last
+# floor. ElevatorDoor reads the cap to clamp the top floor's shaft, so both move
+# together.
+func _fit_shaft_fence() -> void:
+    if floor_heights.empty():
+        return
+    var base: float = float(floor_heights[0])
+    var top: float = base
+    for height in floor_heights:
+        base = min(base, float(height))
+        top = max(top, float(height))
+
+    var fence: Node = get_node_or_null(shaft_fence_path)
+    if fence:
+        fence.set("height", top - base + shaft_fence_headroom)
+    var cap: Spatial = get_node_or_null(shaft_cap_path) as Spatial
+    if cap:
+        var cap_xform: Transform = cap.transform
+        cap_xform.origin.y = top + shaft_fence_headroom
+        cap.transform = cap_xform
 
 func _find_floor_input(node: Node) -> int:
     for child in node.get_children():

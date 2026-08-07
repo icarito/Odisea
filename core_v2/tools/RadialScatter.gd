@@ -518,8 +518,16 @@ func _apply_per_item_float_properties(item: Spatial, item_index: int) -> void:
 		if value_index >= per_item_float_values.size():
 			return
 		var property_name: String = str(per_item_float_properties[i])
-		if not property_name.empty():
-			item.set(property_name, float(per_item_float_values[value_index]))
+		if property_name.empty():
+			continue
+		var value: float = float(per_item_float_values[value_index])
+		# Flags come through this same table as 0/1: a typed bool export rejects a
+		# float outright, and without this the only way to give one item of a run
+		# its own railing was to stop regenerating the run altogether.
+		if typeof(item.get(property_name)) == TYPE_BOOL:
+			item.set(property_name, value > 0.5)
+		else:
+			item.set(property_name, value)
 
 func _apply_rotation_offsets(item: Spatial, x_deg: float, y_deg: float, z_deg: float) -> void:
 	if not is_zero_approx(x_deg):
