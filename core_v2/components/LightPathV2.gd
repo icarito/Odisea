@@ -55,6 +55,10 @@ export(float, 1.0, 80.0, 0.5) var light_follow_radius := 16.0
 # waypoint, which is what an "exit here" cluster wants.
 export(float, 0.0, 40.0, 0.1) var spacing := 2.0
 export(float, 0.05, 4.0, 0.01) var marker_size := 0.35
+# Floor markers lie flat; a fixture up on a wall has to face the camera or it is
+# invisible edge-on. Billboarding happens in the vertex shader, so the whole set is
+# still one draw call.
+export(bool) var marker_billboard := false
 # Lifted clear of the deck so it does not z-fight with the grate.
 export(float, -2.0, 4.0, 0.01) var height_offset := 0.06
 
@@ -63,6 +67,9 @@ export(Color) var dim_color := Color(0.02, 0.06, 0.09, 1.0)
 # Markers up to the player's height plus this stay lit, so the path reads as
 # leading somewhere instead of stopping at their feet.
 export(float, 0.0, 40.0, 0.1) var lead_height := 2.5
+# Fixtures that are simply on, rather than a trail that reveals itself as you
+# climb. The light pool still follows the player, so only the nearest few are real.
+export(bool) var always_lit := false
 # Once lit, a marker stays lit: the path is a breadcrumb trail, not a torch.
 export(bool) var latch_lit := true
 export(float, 0.05, 2.0, 0.05) var refresh_interval := 0.25
@@ -114,7 +121,7 @@ func _process(delta: float) -> void:
 	if _snap_pending:
 		_snap_pending = false
 		_snap_markers_to_surface()
-	_apply_lit_limit(_player.global_transform.origin.y + lead_height)
+	_apply_lit_limit(INF if always_lit else _player.global_transform.origin.y + lead_height)
 	_drive_lights()
 
 # --- build -------------------------------------------------------------------
@@ -222,7 +229,10 @@ func _sample_run(waypoints: Array) -> Array:
 func _marker_mesh() -> Mesh:
 	var quad := QuadMesh.new()
 	quad.size = Vector2(marker_size, marker_size)
-	# QuadMesh faces +Z; lay it flat so it reads as a floor marker.
+	if marker_billboard:
+		# A billboard has to keep facing +Z for the shader to turn it toward the
+		# camera; laying it flat first would defeat that.
+		return quad
 	var tool_mesh := SurfaceTool.new()
 	tool_mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
 	tool_mesh.append_from(quad, 0, Transform(Basis(Vector3.RIGHT, -PI * 0.5), Vector3.ZERO))
@@ -239,7 +249,31 @@ func _marker_material() -> SpatialMaterial:
 	material.params_cull_mode = SpatialMaterial.CULL_DISABLED
 	material.flags_do_not_receive_shadows = true
 	material.params_depth_draw_mode = SpatialMaterial.DEPTH_DRAW_OPAQUE_ONLY
+	if marker_billboard:
+		material.params_billboard_mode = SpatialMaterial.BILLBOARD_ENABLED
+		material.params_billboard_keep_scale = true
+		# Without a falloff a billboard reads as a hard square rather than a glow.
+		# Generated rather than shipped as an asset: it is 64x64 and built once.
+		material.albedo_texture = _glow_texture()
 	return material
+
+const GLOW_TEXTURE_SIZE := 64
+
+func _glow_texture() -> ImageTexture:
+	var image := Image.new()
+	image.create(GLOW_TEXTURE_SIZE, GLOW_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	image.lock()
+	var centre: float = float(GLOW_TEXTURE_SIZE - 1) * 0.5
+	for y in range(GLOW_TEXTURE_SIZE):
+		for x in range(GLOW_TEXTURE_SIZE):
+			var distance: float = Vector2(float(x) - centre, float(y) - centre).length() / centre
+			# Squared falloff, so the core stays bright and the rim fades out.
+			var level: float = pow(clamp(1.0 - distance, 0.0, 1.0), 2.0)
+			image.set_pixel(x, y, Color(level, level, level, level))
+	image.unlock()
+	var texture := ImageTexture.new()
+	texture.create_from_image(image, Texture.FLAG_FILTER)
+	return texture
 
 # --- lighting ----------------------------------------------------------------
 
