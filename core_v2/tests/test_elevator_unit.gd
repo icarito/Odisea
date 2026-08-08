@@ -90,3 +90,44 @@ func _collect_non_prop_bodies(node: Node, path: String, offenders: Array) -> voi
 		offenders.append("%s (layer=%d)" % [path, node.collision_layer])
 	for child in node.get_children():
 		_collect_non_prop_bodies(child, path + "/" + child.name, offenders)
+
+
+# Being on the prop layer is only half of falling into the occlusion dither: the
+# manager walked MeshInstances only, so the shaft's CSG pieces — the header above
+# every landing door, the cabin deck, the shaft cap — stayed solid between camera
+# and player while the fences around them faded.
+func test_the_shaft_falls_into_the_occlusion_dither():
+	var dither = get_node_or_null("/root/PropDitherManager")
+	if dither == null:
+		return # Autoload absent; nothing to assert against.
+
+	var elevator = auto_free(preload("res://core_v2/props/machinery/ElevatorProp.tscn").instance())
+	elevator.floor_heights = [0.0, 4.6, 9.1]
+	add_child(elevator)
+	for _i in range(8):
+		yield(await_idle_frame(), "completed")
+
+	var solid := []
+	_collect_undithered(elevator, solid)
+	# The indicator lamp is in no_occlusion on purpose (it has to keep changing
+	# colour), and the projector strip is transparent without a scissor, which the
+	# manager rejects by itself. Anything else solid is a hole in the effect.
+	for name in solid:
+		assert_bool(name in ["ButtonMesh", "ProjectorMesh"]) \
+			.override_failure_message("'%s' stays solid; whole list: %s" % [name, solid]) \
+			.is_true()
+
+
+func _collect_undithered(node: Node, out: Array) -> void:
+	if node is VisualInstance:
+		var cls := node.get_class()
+		if cls == "MeshInstance" or cls.begins_with("CSG"):
+			var mat = node.get("material_override")
+			if mat == null and node.has_method("get_surface_material"):
+				mat = node.get_surface_material(0)
+			if mat == null:
+				mat = node.get("material")
+			if mat != null and not (mat is ShaderMaterial):
+				out.append(node.name)
+	for child in node.get_children():
+		_collect_undithered(child, out)

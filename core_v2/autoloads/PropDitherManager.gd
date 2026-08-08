@@ -4,7 +4,8 @@
 # uniforms each frame so the shader can compute cone-based dithering.
 #
 # Props are detected by scanning for StaticBody nodes with collision_layer & 64.
-# Their child MeshInstance SpatialMaterials are converted to ShaderMaterial.
+# Their child MeshInstance, MultiMeshInstance and CSG SpatialMaterials are
+# converted to ShaderMaterial.
 # Nodes in group "no_occlusion" are skipped.
 
 extends Node
@@ -195,13 +196,43 @@ func _convert_meshes_recursive(node: Node) -> void:
 		if not (kb.collision_layer & PROP_LAYER_BIT):
 			return
 
-	if node is MeshInstance:
+	if node is CSGShape:
+		_convert_csg_shape(node as CSGShape)
+	elif node is MeshInstance:
 		_convert_mesh_instance(node as MeshInstance)
 	elif node is MultiMeshInstance:
 		_convert_multimesh_instance(node as MultiMeshInstance)
 
 	for child in node.get_children():
 		_convert_meshes_recursive(child)
+
+
+# CSG geometry is not a MeshInstance, so the scan walked straight past it: a
+# prop built from CSG stayed solid between camera and player while every mesh
+# around it faded. The elevator's door headers are exactly that. Its material can
+# sit on the shape itself (CSGPrimitive.material) or as an override; the override
+# is what the renderer honours last, so that is where the converted shader goes.
+func _convert_csg_shape(shape: CSGShape) -> void:
+	if _processed_meshes.has(shape):
+		return
+	_processed_meshes[shape] = true
+
+	var source = shape.material_override
+	if source == null:
+		source = shape.get("material")
+	if source is ShaderMaterial:
+		if _is_occlusion_shader((source as ShaderMaterial).shader):
+			register_material(source as ShaderMaterial)
+		return
+	if not (source is SpatialMaterial):
+		return
+	if not _can_apply_occlusion_dither(source as SpatialMaterial):
+		return
+
+	shape.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	var new_mat = _convert_spatial_to_dither(source as SpatialMaterial)
+	shape.material_override = new_mat
+	register_material(new_mat)
 
 
 func _convert_mesh_instance(mesh: MeshInstance) -> void:

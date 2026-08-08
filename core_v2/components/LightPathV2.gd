@@ -51,6 +51,7 @@ export(int, 0, 12) var light_pool_size := 0
 export(float, 0.5, 40.0, 0.1) var light_range := 6.0
 export(float, 0.0, 8.0, 0.05) var light_energy := 1.1
 export(float, 1.0, 80.0, 0.5) var light_follow_radius := 16.0
+export(int, LAYERS_3D_RENDER) var light_cull_mask := 1048575
 # Distance between markers along the path. 0 places exactly one marker per
 # waypoint, which is what an "exit here" cluster wants.
 export(float, 0.0, 40.0, 0.1) var spacing := 2.0
@@ -78,6 +79,13 @@ export(float, -80.0, 24.0, 0.5) var activation_sound_volume_db := 18.0
 export(float, 0.0, 5.0, 0.05) var activation_sound_debounce := 2.0
 export(float, 0.0, 40.0, 0.5) var activation_sound_trigger_distance := 25.0
 export(float, 0.0, 2.0, 0.05) var activation_sound_delay := 0.5
+# Optional baked fixture MultiMesh used to place pooled lights at the actual bulb.
+export(NodePath) var fixture_light_source
+export(Vector3) var fixture_light_local_offset := Vector3.ZERO
+export(Mesh) var fixture_high_mesh
+export(Mesh) var fixture_lod_mesh
+export(float, 1.0, 80.0, 0.5) var fixture_lod_distance := 14.0
+export(String) var fixture_batch_prefix := "FixtureBatch_"
 
 export(bool) var auto_build := true
 export(bool) var rebuild_baked_items := false
@@ -150,6 +158,7 @@ func _process(delta: float) -> void:
 		_snap_markers_to_surface()
 	_apply_lit_limit(INF if always_lit else _player.global_transform.origin.y + lead_height)
 	_drive_lights()
+	_drive_fixture_lod()
 
 # --- build -------------------------------------------------------------------
 
@@ -403,7 +412,7 @@ func _drive_lights() -> void:
 				at = i
 				break
 		if at < light_pool_size:
-			best.insert(at, [distance, world])
+			best.insert(at, [distance, world, index])
 			if best.size() > light_pool_size:
 				best.resize(light_pool_size)
 
@@ -417,7 +426,7 @@ func _drive_lights() -> void:
 		if i >= best.size():
 			light.visible = false
 			continue
-		var next_position: Vector3 = best[i][1] + Vector3.UP * 0.35
+		var next_position: Vector3 = _fixture_light_position(best[i][2], best[i][1] + Vector3.UP * 0.35)
 		var changed_fixture: bool = not light.visible or light.global_transform.origin.distance_squared_to(next_position) > 0.01
 		light.visible = true
 		light.global_transform = Transform(Basis(), next_position)
@@ -427,9 +436,39 @@ func _drive_lights() -> void:
 				activation_is_visible = is_visible
 				activation_distance = best[i][0]
 				activation_position = next_position
-	if activation_distance < INF and is_instance_valid(_activation_sound_player) and _activation_sound_cooldown <= 0.0 and _activation_sound_pending_delay < 0.0:
+	if activation_is_visible and activation_distance < INF and is_instance_valid(_activation_sound_player) and _activation_sound_cooldown <= 0.0 and _activation_sound_pending_delay < 0.0:
 		_activation_sound_pending_position = activation_position
 		_activation_sound_pending_delay = activation_sound_delay
+
+func _fixture_light_position(index: int, fallback: Vector3) -> Vector3:
+	if fixture_light_source == NodePath() or not has_node(fixture_light_source):
+		return fallback
+	var fixtures: MultiMeshInstance = get_node(fixture_light_source) as MultiMeshInstance
+	if fixtures == null or fixtures.multimesh == null or index >= fixtures.multimesh.instance_count:
+		return fallback
+	var fixture_transform: Transform = fixtures.multimesh.get_instance_transform(index)
+	return fixtures.global_transform.xform(fixture_transform.xform(fixture_light_local_offset))
+
+func _drive_fixture_lod() -> void:
+	if fixture_high_mesh == null or fixture_lod_mesh == null:
+		return
+	var camera: Camera = get_viewport().get_camera() if get_viewport() else null
+	var origin: Vector3 = camera.global_transform.origin if camera else _player.global_transform.origin
+	var threshold_squared: float = fixture_lod_distance * fixture_lod_distance
+	for child in get_children():
+		if not child is MultiMeshInstance or not child.name.begins_with(fixture_batch_prefix):
+			continue
+		var batch: MultiMeshInstance = child as MultiMeshInstance
+		if batch.multimesh == null:
+			continue
+		var nearest_squared := INF
+		for index in range(batch.multimesh.instance_count):
+			var local_position: Vector3 = batch.multimesh.get_instance_transform(index).origin
+			var world_position: Vector3 = batch.global_transform.xform(local_position)
+			nearest_squared = min(nearest_squared, origin.distance_squared_to(world_position))
+		var desired: Mesh = fixture_lod_mesh if nearest_squared > threshold_squared else fixture_high_mesh
+		if batch.multimesh.mesh != desired:
+			batch.multimesh.mesh = desired
 
 func _step_pending_activation_sound(delta: float) -> void:
 	if _activation_sound_pending_delay < 0.0:
@@ -439,6 +478,9 @@ func _step_pending_activation_sound(delta: float) -> void:
 		return
 	_activation_sound_pending_delay = -1.0
 	if not is_instance_valid(_activation_sound_player):
+		return
+	var camera: Camera = get_viewport().get_camera() if get_viewport() else null
+	if not _is_visible_to_camera(camera, _activation_sound_pending_position):
 		return
 	_activation_sound_player.global_transform.origin = _activation_sound_pending_position
 	_activation_sound_player.play()
@@ -450,7 +492,18 @@ func _is_visible_to_camera(camera: Camera, world_position: Vector3) -> bool:
 	var viewport: Viewport = camera.get_viewport()
 	if viewport == null:
 		return true
-	return viewport.get_visible_rect().has_point(camera.unproject_position(world_position))
+	if not viewport.get_visible_rect().has_point(camera.unproject_position(world_position)):
+		return false
+	var space: PhysicsDirectSpaceState = get_world().direct_space_state
+	if space == null:
+		return true
+	var hit: Dictionary = space.intersect_ray(camera.global_transform.origin, world_position)
+	if hit.empty():
+		return true
+	if not hit.has("position"):
+		return false
+	var hit_position: Vector3 = hit["position"]
+	return hit_position.distance_to(world_position) < 0.75
 
 func _ensure_light_pool() -> void:
 	while _lights.size() > light_pool_size:
@@ -463,6 +516,7 @@ func _ensure_light_pool() -> void:
 		light.omni_range = light_range
 		light.light_energy = light_energy
 		light.light_color = lit_color
+		light.light_cull_mask = light_cull_mask
 		light.shadow_enabled = false
 		light.visible = false
 		add_child(light)

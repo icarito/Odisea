@@ -76,11 +76,23 @@ func _ready():
     if not Engine.editor_hint:
         _open_door(current_floor)
     _cache_stop_heights()
+    if not Engine.editor_hint:
+        call_deferred("_refresh_occlusion")
     if _pending_snapshot != null:
         _apply_snapshot(_pending_snapshot)
         _pending_snapshot = null
     if not Engine.editor_hint:
         _emit_floor_state()
+
+# The stops are cloned during _ready, so the copies land after PropDitherManager
+# has already swept the scene, and ElevatorDoor rebuilds its shaft fittings later
+# still. That left the authored floor's shaft poles solid while every clone
+# faded. One sweep once the shaft is final settles the whole prop.
+func _refresh_occlusion() -> void:
+    var dither = get_node_or_null("/root/PropDitherManager")
+    if dither and dither.has_method("refresh_occlusion_for_node"):
+        dither.refresh_occlusion_for_node(self)
+
 
 # Lays the Floors container out from floor_heights, cloning the first authored
 # child as the template. Each stop is told its own index and the exact distance to
