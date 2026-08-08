@@ -192,9 +192,6 @@ func _build_compact_ring() -> void:
 		var outer_a := Vector3(cos(a0) * outer_corner, deck_top, sin(a0) * outer_corner)
 		var outer_b := Vector3(cos(a1) * outer_corner, deck_top, sin(a1) * outer_corner)
 		_add_deck_top_quad(deck_top_tool, inner_a, inner_b, outer_b, outer_a)
-		var deck_down := Vector3.DOWN * (deck_top - deck_bottom)
-		_add_deck_bottom_quad(deck_top_tool, inner_a + deck_down, inner_b + deck_down,
-			outer_b + deck_down, outer_a + deck_down)
 		_add_prism_sides(deck_tool, inner_a, inner_b, outer_b, outer_a, deck_top - deck_bottom)
 
 		var mid_angle: float = (a0 + a1) * 0.5
@@ -269,22 +266,20 @@ func _add_dock_landings(deck_top_tool: SurfaceTool, deck_tool: SurfaceTool, oute
 		var near_a: Vector3 = outer_a.linear_interpolate(outer_b, gap.x)
 		var near_b: Vector3 = outer_a.linear_interpolate(outer_b, gap.y)
 		_add_deck_top_quad(deck_top_tool, near_a, near_b, near_b + outward, near_a + outward)
-		var down := Vector3.DOWN * thickness
-		_add_deck_bottom_quad(deck_top_tool, near_a + down, near_b + down,
-			near_b + outward + down, near_a + outward + down)
 		_add_prism_sides(deck_tool, near_a, near_b, near_b + outward, near_a + outward, thickness)
 
-# Deck top face only, with planar (XZ) UVs so the real steel-grate texture (alpha
-# scissor) reads as an actual grate pattern instead of a flat gray slab.
+# El deck es UN SOLO quad, con UV planares en XZ para que la textura real de
+# rejilla (alpha scissor) lea como grilla y no como chapa lisa.
+#
+# Antes habia ademas una cara inferior con winding invertido, para que desde abajo
+# (en una torre de varios pisos se mira el deck desde abajo todo el tiempo) se
+# viera la grilla y no una chapa. Pero el material va con CULL_DISABLED, asi que
+# ese quad de arriba YA se ve desde abajo: la cara inferior solo agregaba una
+# segunda capa de rejilla a otra altura, y a traves de los agujeros se veian las
+# dos superpuestas. Un quad de doble cara resuelve lo mismo con la mitad de
+# triangulos y sin la superposicion. El espesor lo siguen dando _add_prism_sides.
 func _add_deck_top_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 	_add_quad_uv(surface_tool, a, d, c, b)
-
-# La cara de abajo tambien lleva la rejilla: en una torre de varios pisos se mira
-# el deck desde abajo todo el tiempo, y con material compacto se veia una chapa
-# lisa en vez de la grilla. Winding invertido respecto del top para que la normal
-# apunte hacia abajo; las UV son planares en XZ, asi que valen a cualquier altura.
-func _add_deck_bottom_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
-	_add_quad_uv(surface_tool, a, b, c, d)
 
 # Deck sides only: the underside now lives in the grate surface above.
 func _add_prism_sides(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, thickness: float) -> void:

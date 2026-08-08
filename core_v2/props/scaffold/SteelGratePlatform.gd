@@ -379,7 +379,12 @@ func _build_materials() -> void:
 	# Grate: alpha scissor requires flags_transparent = true in Godot 3.
 	# Keep metallic/roughness from the base material (steel-looking), only
 	# override color tint and the scissor threshold.
-	_grate_material = load("res://textures/trenchbroom/steel_grate_platform.tres").duplicate(true)
+	# Duplicado SUPERFICIAL a proposito: solo se tocan parametros del material, no
+	# la textura. Con duplicate(true) cada plataforma se quedaba con su propia copia
+	# de la misma textura del grate (10 copias en Dome_Intro), y ademas hacia
+	# imposible deduplicar materiales al hornear, porque nada podia reconocer que
+	# dos grates usan la misma imagen.
+	_grate_material = load("res://textures/trenchbroom/steel_grate_platform.tres").duplicate()
 	if _grate_material is SpatialMaterial:
 		var g := _grate_material as SpatialMaterial
 		g.flags_transparent = true
@@ -397,7 +402,7 @@ func _build_materials() -> void:
 		g.metallic = clamp(g.metallic, 0.3, 0.9)
 		g.roughness = clamp(g.roughness, 0.35, 0.75)
 
-	_fence_material = load("res://textures/trenchbroom/metal_fence_panel.tres").duplicate(true)
+	_fence_material = load("res://textures/trenchbroom/metal_fence_panel.tres").duplicate()
 	if not _fence_material:
 		_fence_material = _rail_material.duplicate()
 
@@ -582,7 +587,7 @@ func _add_grate_deck() -> void:
 	var mesh = _make_grate_mesh()
 	deck.mesh = mesh
 	if _grate_material is SpatialMaterial:
-		var mat = (_grate_material as SpatialMaterial).duplicate(true)
+		var mat = (_grate_material as SpatialMaterial).duplicate()
 		mat.uv1_scale = Vector3(max(mesh_size.x * GRATE_REPEAT_PER_METER, 1.0), max(mesh_size.y * GRATE_REPEAT_PER_METER, 1.0), 1.0)
 		deck.material_override = mat
 	else:

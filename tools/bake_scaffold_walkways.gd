@@ -30,6 +30,9 @@ const OUT_DIR := "res://core_v2/levels/interiors/"
 const FOOTSTEP_SURFACE_SCRIPT := "res://core_v2/systems/footsteps/footstep_surface.gd"
 const FOOTSTEP_PROFILE_METAL := "res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres"
 
+# Cache de firmas de textura por instancia (ver _texture_key).
+var _texture_keys := {}
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -61,11 +64,19 @@ func _bake_group(root: Node, group_name: String) -> void:
 
 	# Once a group has been wired into Dome_Intro it is a single CombinedMesh plus
 	# an instanced StaticBody, not SteelGratePlatforms any more. Re-harvesting that
-	# would bake an already-baked mesh (and drop the collision subtree, which lives
-	# in the instanced sub-scene). Skip it — the .mesh on disk is already current.
+	# would bake an already-baked mesh, asi que por defecto se omite.
+	#
+	# Excepcion con ODISEA_BAKE_REDO_WIRED=1: volver a procesar un grupo ya cableado
+	# es justamente lo que hace falta para fusionar sus superficies por material,
+	# porque las plataformas originales ya no existen en la escena. Es una operacion
+	# sin perdida — misma geometria, mismas UV efectivas, mismas colisiones (se
+	# recogen del StaticBody instanciado, que sigue colgando del grupo) — y es
+	# idempotente: correrlo dos veces da el mismo resultado.
 	if group.get_node_or_null("CombinedMesh") != null:
-		print("[bake_walkways] %s: ya cableado (CombinedMesh presente), se omite" % group_name)
-		return
+		if OS.get_environment("ODISEA_BAKE_REDO_WIRED") != "1":
+			print("[bake_walkways] %s: ya cableado (CombinedMesh presente), se omite" % group_name)
+			return
+		print("[bake_walkways] %s: ya cableado, se re-procesa para fusionar superficies" % group_name)
 
 	var mesh_instances := []
 	_collect_mesh_instances(group, mesh_instances)
@@ -75,8 +86,13 @@ func _bake_group(root: Node, group_name: String) -> void:
 		return
 
 	var group_xform_inv: Transform = group.global_transform.affine_inverse()
-	var surface_tools := {}      # material (or null) -> SurfaceTool
-	var material_order := []     # preserves first-seen order for deterministic output
+	# Se agrupa por FIRMA DE CONTENIDO, no por identidad de objeto: cada
+	# SteelGratePlatform genera sus propios SpatialMaterial, asi que agrupar por
+	# objeto daba una superficie por plataforma y por material (5x4 = 20 en
+	# SpiralWalkways) aunque casi todos fueran identicos.
+	var surface_tools := {}      # firma -> SurfaceTool
+	var signature_material := {} # firma -> Material representativo (uv1 normalizado)
+	var signature_order := []    # preserva el orden de aparicion (salida determinista)
 
 	for mi in mesh_instances:
 		if mi.mesh == null:
@@ -92,17 +108,33 @@ func _bake_group(root: Node, group_name: String) -> void:
 				mat = mi.get_surface_material(surf_idx)
 			if mat == null:
 				mat = mi.mesh.surface_get_material(surf_idx)
-			if not surface_tools.has(mat):
+
+			# El grate escala sus UVs por material (uv1_scale depende del tamaño de
+			# la plataforma), asi que dos grates de distinto largo no comparten
+			# material. Se hornea esa escala en las UVs del vertice y se comparte un
+			# material con uv1 neutro.
+			var uv_scale := Vector2(1.0, 1.0)
+			var uv_offset := Vector2(0.0, 0.0)
+			if mat is SpatialMaterial:
+				var sm := mat as SpatialMaterial
+				uv_scale = Vector2(sm.uv1_scale.x, sm.uv1_scale.y)
+				uv_offset = Vector2(sm.uv1_offset.x, sm.uv1_offset.y)
+
+			var sig := _material_signature(mat)
+			if not surface_tools.has(sig):
 				var st := SurfaceTool.new()
 				st.begin(Mesh.PRIMITIVE_TRIANGLES)
-				surface_tools[mat] = st
-				material_order.append(mat)
-			_append_transformed_surface(surface_tools[mat], mi.mesh, surf_idx, mi_to_group)
+				surface_tools[sig] = st
+				signature_order.append(sig)
+				signature_material[sig] = _neutralized_material(mat)
+			_append_transformed_surface(surface_tools[sig], mi.mesh, surf_idx, mi_to_group,
+				uv_scale, uv_offset)
 
 	var combined := ArrayMesh.new()
-	for mat in material_order:
-		var st: SurfaceTool = surface_tools[mat]
+	for sig in signature_order:
+		var st: SurfaceTool = surface_tools[sig]
 		st.generate_normals()
+		var mat: Material = signature_material[sig]
 		if mat != null:
 			st.set_material(mat)
 		st.commit(combined)
@@ -164,6 +196,77 @@ func _bake_group(root: Node, group_name: String) -> void:
 	print("[bake_walkways] %s: %d surfaces, %d verts, %d collision shapes -> %s / %s" % [
 		group_name, combined.get_surface_count(), vcount, collision_shapes.size(), out_mesh_path, out_body_path])
 
+# Firma estable del CONTENIDO de un material. Dos materiales generados por
+# separado pero con los mismos valores producen la misma firma y comparten
+# superficie. uv1_scale/uv1_offset quedan fuera: se hornean en las UVs.
+# Las texturas se identifican por resource_path si lo tienen y, si no, por
+# instancia — SteelGratePlatform ahora duplica en superficial, asi que las
+# plataformas comparten el mismo objeto Texture y esto empareja.
+func _material_signature(mat: Material) -> String:
+	if mat == null:
+		return "<null>"
+	var parts := PoolStringArray()
+	parts.append(mat.get_class())
+	if mat is ShaderMaterial:
+		var sm := mat as ShaderMaterial
+		parts.append("shader=" + (sm.shader.resource_path if sm.shader else "-"))
+		if sm.shader != null:
+			for p in VisualServer.shader_get_param_list(sm.shader.get_rid()):
+				parts.append("%s=%s" % [p.name, _value_key(sm.get_shader_param(p.name))])
+		return parts.join("|")
+	for p in mat.get_property_list():
+		if not (int(p.usage) & PROPERTY_USAGE_STORAGE):
+			continue
+		var pname: String = p.name
+		if pname in ["resource_path", "resource_name", "resource_local_to_scene", "uv1_scale", "uv1_offset"]:
+			continue
+		parts.append("%s=%s" % [pname, _value_key(mat.get(pname))])
+	return parts.join("|")
+
+
+func _value_key(v) -> String:
+	if v is Texture:
+		return "tex:" + _texture_key(v as Texture)
+	if v is Resource:
+		var r := v as Resource
+		return "res:" + r.resource_path if r.resource_path != "" else "obj:%d" % r.get_instance_id()
+	return str(v)
+
+
+# Las texturas se comparan por CONTENIDO, no por ruta. Una malla ya horneada
+# guarda su textura embebida ("....mesh::1", "....mesh::5"), asi que dos copias de
+# la misma imagen tienen rutas distintas y por ruta nunca deduplicarian.
+func _texture_key(t: Texture) -> String:
+	var id: int = t.get_instance_id()
+	if _texture_keys.has(id):
+		return _texture_keys[id]
+	var key := "obj:%d" % id
+	if t.resource_path != "" and not ("::" in t.resource_path):
+		key = t.resource_path
+	else:
+		var img: Image = t.get_data()
+		if img != null:
+			var ctx := HashingContext.new()
+			ctx.start(HashingContext.HASH_MD5)
+			ctx.update(img.get_data())
+			key = "img:%dx%d:%s" % [img.get_width(), img.get_height(), ctx.finish().hex_encode()]
+	_texture_keys[id] = key
+	return key
+
+
+# Copia del material con uv1 neutro, porque la escala ya quedo horneada en las UVs.
+func _neutralized_material(mat: Material) -> Material:
+	if not (mat is SpatialMaterial):
+		return mat
+	var sm := mat as SpatialMaterial
+	if sm.uv1_scale == Vector3(1, 1, 1) and sm.uv1_offset == Vector3.ZERO:
+		return mat
+	var copy := sm.duplicate() as SpatialMaterial
+	copy.uv1_scale = Vector3(1, 1, 1)
+	copy.uv1_offset = Vector3.ZERO
+	return copy
+
+
 func _collect_collision_shapes(node: Node, out_list: Array) -> void:
 	if node is CollisionShape:
 		out_list.append(node)
@@ -176,7 +279,8 @@ func _collect_mesh_instances(node: Node, out_list: Array) -> void:
 	for child in node.get_children():
 		_collect_mesh_instances(child, out_list)
 
-func _append_transformed_surface(st: SurfaceTool, mesh: Mesh, surf_idx: int, xform: Transform) -> void:
+func _append_transformed_surface(st: SurfaceTool, mesh: Mesh, surf_idx: int, xform: Transform,
+		uv_scale: Vector2 = Vector2(1, 1), uv_offset: Vector2 = Vector2(0, 0)) -> void:
 	var arrays: Array = mesh.surface_get_arrays(surf_idx)
 	var verts: PoolVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var normals = arrays[Mesh.ARRAY_NORMAL]
@@ -187,15 +291,18 @@ func _append_transformed_surface(st: SurfaceTool, mesh: Mesh, surf_idx: int, xfo
 	if indices != null and (indices as PoolIntArray).size() > 0:
 		for idx in (indices as PoolIntArray):
 			_add_vertex(st, verts[idx], normals[idx] if normals != null else null,
-				uvs[idx] if uvs != null else null, xform, normal_basis)
+				uvs[idx] if uvs != null else null, xform, normal_basis, uv_scale, uv_offset)
 	else:
 		for i in range(verts.size()):
 			_add_vertex(st, verts[i], normals[i] if normals != null else null,
-				uvs[i] if uvs != null else null, xform, normal_basis)
+				uvs[i] if uvs != null else null, xform, normal_basis, uv_scale, uv_offset)
 
-func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, xform: Transform, normal_basis: Basis) -> void:
+func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, xform: Transform, normal_basis: Basis,
+		uv_scale: Vector2 = Vector2(1, 1), uv_offset: Vector2 = Vector2(0, 0)) -> void:
 	if uv != null:
-		st.add_uv(uv)
+		# Hornea uv1_scale/uv1_offset del material en la UV del vertice, para que el
+		# material compartido pueda quedarse con uv1 neutro.
+		st.add_uv(Vector2(uv.x * uv_scale.x + uv_offset.x, uv.y * uv_scale.y + uv_offset.y))
 	if n != null:
 		st.add_normal(normal_basis.xform(n).normalized())
 	st.add_vertex(xform.xform(v))
