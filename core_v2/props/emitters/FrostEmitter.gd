@@ -1,4 +1,3 @@
-tool
 extends Area
 class_name FrostEmitter
 

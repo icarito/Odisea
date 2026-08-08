@@ -298,6 +298,16 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var runner := scene_runner(scene_path)
 		runner.maximize_view()
 
+		if not is_instance_valid(runner.scene()):
+			# scene_runner() can silently fail to instance the scene (e.g. the resource
+			# was still mid-load from a prior in-game scene reload of the same path,
+			# "already being loaded, cyclic reference"). Left unguarded, the next
+			# runner.simulate_frames() call yields on a null scene tree and never
+			# resumes, hanging this test until GdUnit3's own suite watchdog fires
+			# minutes later. Fail fast instead.
+			fail("scene_runner() failed to instance scene (resource load race?): %s" % scene_path)
+			return
+
 		# Garantizar estado limpio inicial
 		SessionManager._find_player()
 		if is_instance_valid(SessionManager.player) and SessionManager.player.has_method("full_reset"):
@@ -346,6 +356,10 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var runner := scene_runner(scene_path)
 		runner.maximize_view()
 
+		if not is_instance_valid(runner.scene()):
+			fail("scene_runner() failed to instance scene (resource load race?): %s" % scene_path)
+			return
+
 		# PASS 1: Simular OYS y grabar resultado físico exacto a JSON
 		print("[TEST_RUNNER] --- PASS 1: RECORDING OYS ---")
 
@@ -376,7 +390,14 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		# LIMPIEZA EXPLÍCITA PARA CERRAR VENTANA Y REINSTANCIAR
 		_cleanup_runner_scene(runner)
 		runner = null
-		yield (get_tree(), "idle_frame")
+		# Varios idle frames (no solo uno): si el propio OYS recargó esta misma escena
+		# en juego (p. ej. un airlock cuyo destino es el mismo .tscn, como
+		# test_tube_airlock), el ResourceLoader puede seguir resolviendo esa carga
+		# cuando PASS 2 intenta re-instanciar el mismo path un frame después ->
+		# "already being loaded, cyclic reference" y scene_runner() devuelve una
+		# instancia rota (ver guard de is_instance_valid(runner.scene()) más abajo).
+		for _i in range(5):
+			yield (get_tree(), "idle_frame")
 
 		# PASS 2: Verificar que el JSON grabado sea reproducible
 		var skip_json = OS.get_environment("OYS_NODET") != ""
@@ -398,6 +419,10 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		# Re-instanciar runner y escena para evitar state bleeding
 		runner = scene_runner(scene_path)
 		runner.maximize_view()
+
+		if not is_instance_valid(runner.scene()):
+			fail("scene_runner() failed to instance scene (resource load race?): %s" % scene_path)
+			return
 
 		# RE-SINCRONIZACIÓN ABSOLUTA PARA PASS 2
 		SessionManager.is_replaying = false

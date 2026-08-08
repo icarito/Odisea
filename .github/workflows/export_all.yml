@@ -744,7 +744,10 @@ jobs:
       # config/version (lo estampa "Inject build metadata" con build-num+sha+fecha,
       # distinto cada run -> invalidaba el cache y Godot re-importaba TODAS las
       # texturas ~93s). Las texturas solo dependen de [rendering] vram_compression,
-      # no de la versión.
+      # no de la versión. La key también incluye los FUENTES importables: el contenido
+      # de un .import no cambia cuando cambia su PNG/JPG/GLTF, y Actions no actualiza
+      # un cache que ya existe bajo la misma key. Sin este hash, cada run restauraba
+      # para siempre el artefacto viejo y Godot repetía esos imports.
       - name: Stable project hash for import cache
         id: pghash
         run: |
@@ -756,7 +759,7 @@ jobs:
         with:
           path: |
             .import/
-          key: ${{ runner.os }}-import-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-${{ hashFiles('**/*.import') }}
+          key: ${{ runner.os }}-import-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-${{ hashFiles('**/*.import', '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.tga', '**/*.svg', '**/*.gltf', '**/*.glb', '**/*.dae', '**/*.obj', '**/*.mtl', '**/*.ogg', '**/*.mp3', '**/*.wav', '**/*.ttf', '**/*.otf') }}
           restore-keys: |
             ${{ runner.os }}-import-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-
             ${{ runner.os }}-import-${{ matrix.platform }}-
