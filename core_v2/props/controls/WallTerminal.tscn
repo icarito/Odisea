@@ -96,6 +96,8 @@ interaction_text = "Toggle Terminal"
 anim_duration = 0.5
 starts_active = true
 is_interactable = false
+is_focusable = true
+focus_text = "Focus Terminal"
 slide_height = 0.0
 close_on_exit_zone = false
 

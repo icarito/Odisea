@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/freesound_community-light-switch-turn-on-47753.mp3-3630b2ed2fbefeceb0038a5be53f2a96.mp3str"
+
+[deps]
+
+source_file="res://assets/sfx/freesound_community-light-switch-turn-on-47753.mp3"
+dest_files=[ "res://.import/freesound_community-light-switch-turn-on-47753.mp3-3630b2ed2fbefeceb0038a5be53f2a96.mp3str" ]
+
+[params]
+
+loop=false
+loop_offset=0

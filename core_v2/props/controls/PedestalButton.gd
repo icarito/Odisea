@@ -14,6 +14,13 @@ export(float) var momentary_duration = 0.5
 
 onready var light_mesh = get_node_or_null(light_mesh_path)
 
+# The indicator material has to belong to this button alone. ElevatorController
+# clones its floors with Node.duplicate(), which shares resources rather than
+# copying them, so every landing ended up writing the same material and lighting
+# up together. resource_local_to_scene does not help: the flag survives the
+# duplicate, it just stops being true of the instance.
+var _owns_light_material := false
+
 func _ready():
     # Ensure visual state matches initial logic state
     _update_visuals()
@@ -46,22 +53,28 @@ func _update_visuals():
     var color = color_active if is_active else color_inactive
 
     if light_mesh:
-        var mat = light_mesh.material_override
-        if not mat:
-            mat = SpatialMaterial.new()
-            light_mesh.material_override = mat
-        elif not mat.resource_local_to_scene:
-            mat = mat.duplicate()
-            mat.resource_local_to_scene = true
-            light_mesh.material_override = mat
-
-        # Ensure we are modifying a unique material instance or the shared one if intended
-        # For simple props, usually we want unique instance to not affect others
+        var mat = _own_light_material()
         if mat is SpatialMaterial:
             mat.albedo_color = color
             mat.emission_enabled = true
             mat.emission = color
             mat.emission_energy = 1.0 if is_active else 0.2
+
+
+# Returns this button's private indicator material, making one on first use.
+# The ButtonMesh is in the no_occlusion group so PropDitherManager leaves it be:
+# the prop layer otherwise gets its SpatialMaterial swapped for the dither
+# shader, and the indicator stops changing colour altogether.
+func _own_light_material():
+    if light_mesh == null:
+        return null
+    var mat = light_mesh.material_override
+    if not _owns_light_material or mat == null:
+        mat = mat.duplicate() if mat != null else SpatialMaterial.new()
+        mat.resource_local_to_scene = true
+        light_mesh.material_override = mat
+        _owns_light_material = true
+    return mat
 
 # Optional: expose state change for editor tweaking
 func set_active(value: bool, immediate: bool = false):

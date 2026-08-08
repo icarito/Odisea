@@ -12,6 +12,7 @@ extends Node
 const PROP_LAYER_BIT: int = 64  # Layer 7
 
 var _dither_shader: Shader = preload("res://shaders/prop_dither_occlusion.gdshader")
+var _dither_shader_double_sided: Shader = preload("res://shaders/prop_dither_occlusion_double_sided.gdshader")
 var _parallax_shader: Shader = preload("res://core_v2/props/parallax_assets/card_parallax.shader")
 # The duct maze hull keeps its own stylized panel shader but now carries the same
 # cone-occlusion uniforms (player_pos/camera_pos/is_active/...). Register its materials
@@ -250,12 +251,20 @@ func _convert_multimesh_instance(inst: MultiMeshInstance) -> void:
 # is_active/...) and just needs registering so _process keeps feeding it. The generic
 # dither + parallax props, plus the duct maze hull.
 func _is_occlusion_shader(shader: Shader) -> bool:
-	return shader == _dither_shader or shader == _parallax_shader or shader == _duct_hull_shader
+	return shader == _dither_shader or shader == _dither_shader_double_sided \
+		or shader == _parallax_shader or shader == _duct_hull_shader
 
 
 func _can_apply_occlusion_dither(mat: SpatialMaterial) -> bool:
 	if mat.flags_transparent:
-		return false
+		# El alpha scissor NO es transparencia real: recorta el fragmento y lo que
+		# queda se dibuja opaco. Godot 3 igual exige flags_transparent para
+		# habilitarlo, asi que rechazar todo flags_transparent dejaba fuera de la
+		# oclusion a las rejillas (steel grate) en toda la escena — decks de
+		# SteelGratePlatform, pisos de ScaffoldHubRing y los combinados horneados.
+		# El shader de dither ya implementa el scissor (use_alpha_scissor), solo
+		# que este gate impedia que llegara a usarse.
+		return mat.params_use_alpha_scissor
 	return true
 
 
@@ -271,7 +280,13 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 		return cached
 
 	var new_mat := ShaderMaterial.new()
-	new_mat.shader = _dither_shader
+	# El render_mode no es un uniform en Godot 3: para no perder el doble lado de
+	# las rejillas (un unico quad que tambien se mira desde abajo) hay una variante
+	# del shader con cull_disabled.
+	if source.params_cull_mode == SpatialMaterial.CULL_DISABLED:
+		new_mat.shader = _dither_shader_double_sided
+	else:
+		new_mat.shader = _dither_shader
 	_dither_cache[source] = new_mat
 
 	# Albedo

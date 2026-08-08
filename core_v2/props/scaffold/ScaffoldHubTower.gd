@@ -48,7 +48,14 @@ var _build_queued := false
 
 func _ready() -> void:
 	if Engine.editor_hint:
-		_queue_build()
+		# Mismo criterio que en runtime: si la escena ya trae los hijos horneados y
+		# nadie pidio rebuild, NO reconstruir. Sin esto cualquier apertura de la
+		# escena en el editor —o el pase `--editor --quit` del import de CI—
+		# regeneraba la geometria y la volvia a incrustar en el .tscn al guardar,
+		# deshaciendo el horneado (Dome_Intro paso de 0.30 MB a 1.94 MB asi) y
+		# pisando datos ya horneados.
+		if get_child_count() == 0 or rebuild_baked_items:
+			_queue_build()
 		return
 	if get_child_count() != 0 and not rebuild_baked_items:
 		return  # floors already baked into the scene

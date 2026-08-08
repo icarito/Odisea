@@ -329,6 +329,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/doors/ElevatorDoor.gd"
 }, {
+"base": "InteractableBaseV2",
+"class": "ElevatorFloorSelector",
+"language": "GDScript",
+"path": "res://core_v2/props/elevator/ElevatorFloorSelector.gd"
+}, {
 "base": "PropBaseV2",
 "class": "ElevatorLogicInput",
 "language": "GDScript",
@@ -1519,6 +1524,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/tools/RadialScatter.gd"
 }, {
+"base": "Control",
+"class": "RadialSelectorV2",
+"language": "GDScript",
+"path": "res://core_v2/ui/radial/RadialSelectorV2.gd"
+}, {
 "base": "ISensor3D",
 "class": "RayCastSensor3D",
 "language": "GDScript",
@@ -2029,6 +2039,7 @@ _global_script_class_icons={
 "DynamicGravityProxy": "",
 "ElevatorController": "",
 "ElevatorDoor": "",
+"ElevatorFloorSelector": "",
 "ElevatorLogicInput": "",
 "ElevatorPlatform": "",
 "EmergencyBeaconV2": "",
@@ -2267,6 +2278,7 @@ _global_script_class_icons={
 "RPCGdUnitTestSuite": "",
 "RPCMessage": "",
 "RadialScatter": "",
+"RadialSelectorV2": "",
 "RayCastSensor3D": "",
 "RaycastSensor2D": "",
 "Result": "",
@@ -2427,7 +2439,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/PolyHavenImport/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/PolyHavenImport/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/radial_menu/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
 
 [gdunit3]
 

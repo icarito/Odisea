@@ -1,0 +1,157 @@
+[gd_scene load_steps=17 format=2]
+
+[ext_resource path="res://core_v2/props/elevator/ElevatorFloorSelector.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/ui/radial/RadialSelectorV2.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/visual/HoloGlass.shader" type="Shader" id=3]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=4]
+[ext_resource path="res://assets/sfx/phase.wav" type="AudioStream" id=5]
+[ext_resource path="res://assets/sfx/menu.wav" type="AudioStream" id=6]
+[ext_resource path="res://assets/sfx/click.wav" type="AudioStream" id=7]
+
+[sub_resource type="BoxShape" id=7]
+extents = Vector3( 0.28, 0.6, 0.12 )
+
+[sub_resource type="SpatialMaterial" id=1]
+resource_name = "ConsoleShell"
+albedo_color = Color( 0.243137, 0.266667, 0.298039, 1 )
+metallic = 0.9
+roughness = 0.42
+
+[sub_resource type="SpatialMaterial" id=2]
+resource_name = "ProjectorGlow"
+flags_transparent = true
+albedo_color = Color( 0, 1, 1, 0.5 )
+emission_enabled = true
+emission = Color( 0, 1, 1, 1 )
+emission_energy = 2.0
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="SpatialMaterial" id=3]
+flags_transparent = true
+params_billboard_mode = 1
+albedo_color = Color( 0, 0.890196, 1, 1 )
+
+[sub_resource type="QuadMesh" id=4]
+material = SubResource( 3 )
+size = Vector2( 0.012, 0.05 )
+
+[sub_resource type="QuadMesh" id=9]
+size = Vector2( 1.4, 1.4 )
+
+[sub_resource type="ViewportTexture" id=10]
+
+[sub_resource type="ShaderMaterial" id=6]
+shader = ExtResource( 3 )
+shader_param/albedo = Color( 0.643137, 0.933333, 1, 0.05 )
+shader_param/emission_energy = 3.0
+shader_param/alpha_scissor_threshold = 0.0
+shader_param/flip_h = false
+shader_param/flip_v = false
+shader_param/back_flip_h = false
+shader_param/back_flip_v = false
+shader_param/aligned_flip_h = false
+shader_param/aligned_flip_v = true
+shader_param/flip_h_when_viewed_from_back = false
+shader_param/flip_v_when_viewed_from_back = false
+shader_param/texture_albedo = SubResource( 10 )
+
+[sub_resource type="BoxShape" id=8]
+extents = Vector3( 0.75, 1, 0.75 )
+
+[node name="ElevatorFloorSelector" type="StaticBody"]
+collision_layer = 64
+collision_mask = 0
+script = ExtResource( 1 )
+interaction_text = "Seleccionar nivel"
+anim_duration = 0.25
+auto_interact = true
+close_distance = 4.0
+cabin_zoom_spring_length = 1.8
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0 )
+shape = SubResource( 7 )
+
+[node name="Post" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
+width = 0.14
+height = 0.9
+depth = 0.12
+material = SubResource( 1 )
+
+[node name="BaseMesh" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 1.02, 0.03 )
+width = 0.52
+height = 0.34
+depth = 0.07
+material = SubResource( 1 )
+
+[node name="ProjectorMesh" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.17, 0.02 )
+width = 0.4
+height = 0.02
+depth = 0.05
+material = SubResource( 2 )
+
+[node name="HoloParticles" type="CPUParticles" parent="ProjectorMesh"]
+emitting = false
+amount = 14
+lifetime = 1.6
+randomness = 1.0
+lifetime_randomness = 1.0
+mesh = SubResource( 4 )
+emission_shape = 2
+emission_box_extents = Vector3( 0.2, 0, 0.005 )
+direction = Vector3( 0, 1, 0 )
+spread = 0.0
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 0.35
+radial_accel = 0.6
+scale_amount = 0.5
+color = Color( 0, 1, 1, 0.501961 )
+
+[node name="ScreenContainer" type="Spatial" parent="."]
+transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.25, 0 )
+visible = false
+
+[node name="ScreenMesh" type="MeshInstance" parent="ScreenContainer"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0.02 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 6 )
+
+[node name="Viewport" type="Viewport" parent="."]
+size = Vector2( 1024, 1024 )
+transparent_bg = true
+render_target_update_mode = 0
+gui_disable_input = true
+
+[node name="RadialSelector" parent="Viewport" instance=ExtResource( 2 )]
+
+[node name="InteractableEntity" type="Area" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0.3 )
+collision_mask = 2
+
+[node name="CollisionShape" type="CollisionShape" parent="InteractableEntity"]
+shape = SubResource( 8 )
+
+[node name="SFX Open" type="AudioStreamPlayer3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0 )
+stream = ExtResource( 5 )
+unit_db = -4.0
+max_distance = 12.0
+script = ExtResource( 4 )
+trigger_mode = "OneShotActive"
+
+[node name="SFX Hover" type="AudioStreamPlayer3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0 )
+stream = ExtResource( 7 )
+unit_db = -12.0
+pitch_scale = 1.8
+max_distance = 10.0
+
+[node name="SFX Select" type="AudioStreamPlayer3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0 )
+stream = ExtResource( 6 )
+unit_db = -6.0
+max_distance = 12.0

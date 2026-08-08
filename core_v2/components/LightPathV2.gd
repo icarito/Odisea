@@ -73,6 +73,11 @@ export(bool) var always_lit := false
 # Once lit, a marker stays lit: the path is a breadcrumb trail, not a torch.
 export(bool) var latch_lit := true
 export(float, 0.05, 2.0, 0.05) var refresh_interval := 0.25
+export(AudioStream) var activation_sound
+export(float, -80.0, 24.0, 0.5) var activation_sound_volume_db := 18.0
+export(float, 0.0, 5.0, 0.05) var activation_sound_debounce := 2.0
+export(float, 0.0, 40.0, 0.5) var activation_sound_trigger_distance := 25.0
+export(float, 0.0, 2.0, 0.05) var activation_sound_delay := 0.5
 
 export(bool) var auto_build := true
 export(bool) var rebuild_baked_items := false
@@ -84,13 +89,33 @@ var _player: Spatial = null
 var _build_queued := false
 var _snap_pending := false
 var _lights := []
+var _activation_sound_player: AudioStreamPlayer3D = null
+var _activation_sound_cooldown := 1.0
+var _activation_sound_pending_delay := -1.0
+var _activation_sound_pending_position := Vector3.ZERO
 
 func _ready() -> void:
 	if Engine.editor_hint:
-		_queue_build()
+		# Mismo criterio que en runtime: si la escena ya trae los hijos horneados y
+		# nadie pidio rebuild, NO reconstruir. Sin esto cualquier apertura de la
+		# escena en el editor —o el pase `--editor --quit` del import de CI—
+		# regeneraba la geometria y la volvia a incrustar en el .tscn al guardar,
+		# deshaciendo el horneado (Dome_Intro paso de 0.30 MB a 1.94 MB asi) y
+		# pisando datos ya horneados.
+		if get_child_count() == 0 or rebuild_baked_items:
+			_queue_build()
 		return
 	if get_child_count() == 0 or rebuild_baked_items:
 		build()
+	if activation_sound:
+		_activation_sound_player = AudioStreamPlayer3D.new()
+		_activation_sound_player.name = "ActivationSound"
+		_activation_sound_player.stream = activation_sound
+		_activation_sound_player.unit_db = activation_sound_volume_db
+		_activation_sound_player.unit_size = 10.0
+		_activation_sound_player.max_db = 16.0
+		_activation_sound_player.max_distance = max(light_follow_radius * 2.0, activation_sound_trigger_distance) 
+		add_child(_activation_sound_player)
 	_cache_marker_heights()
 	_snap_pending = snap_to_surface
 	set_process(not _marker_heights.empty())
@@ -108,6 +133,8 @@ func _queue_build() -> void:
 func _process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
+	_activation_sound_cooldown = max(_activation_sound_cooldown - delta, 0.0)
+	_step_pending_activation_sound(delta)
 	_elapsed += delta
 	if _elapsed < refresh_interval:
 		return
@@ -128,10 +155,13 @@ func _process(delta: float) -> void:
 
 func build() -> void:
 	_build_queued = false
-	_clear_markers()
+	# Muestrear ANTES de borrar. Al reves, un source que dejo de dar waypoints
+	# (por ejemplo un grupo que se horneo a un solo CombinedMesh) borraba los
+	# marcadores ya horneados y no los reemplazaba por nada.
 	var points: Array = _sample_points()
 	if points.size() == 0:
 		return
+	_clear_markers()
 
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
@@ -175,8 +205,14 @@ func _waypoints() -> Array:
 		var lift := 0.0
 		if not waypoint_height_property.empty():
 			var declared = child.get(waypoint_height_property)
-			if typeof(declared) == TYPE_REAL or typeof(declared) == TYPE_INT:
-				lift = float(declared)
+			if typeof(declared) != TYPE_REAL and typeof(declared) != TYPE_INT:
+				# Si se pidio una propiedad de altura y este hijo no la declara,
+				# no es un waypoint: es otra cosa que cuelga del source. Sin este
+				# corte, un grupo ya horneado (CombinedMesh + StaticBody, ninguno
+				# con la propiedad) devolvia dos "waypoints" en el origen del
+				# grupo y colapsaba el camino entero a un solo marcador.
+				continue
+			lift = float(declared)
 		var span := 0.0
 		if not waypoint_span_property.empty():
 			var declared_span = child.get(waypoint_span_property)
@@ -371,13 +407,50 @@ func _drive_lights() -> void:
 			if best.size() > light_pool_size:
 				best.resize(light_pool_size)
 
+	var activation_position := Vector3.ZERO
+	var activation_distance := INF
+	var activation_is_visible := false
+	var activation_trigger_distance_squared: float = activation_sound_trigger_distance * activation_sound_trigger_distance
+	var camera: Camera = get_viewport().get_camera() if get_viewport() else null
 	for i in range(_lights.size()):
 		var light: OmniLight = _lights[i]
 		if i >= best.size():
 			light.visible = false
 			continue
+		var next_position: Vector3 = best[i][1] + Vector3.UP * 0.35
+		var changed_fixture: bool = not light.visible or light.global_transform.origin.distance_squared_to(next_position) > 0.01
 		light.visible = true
-		light.global_transform = Transform(Basis(), best[i][1] + Vector3.UP * 0.35)
+		light.global_transform = Transform(Basis(), next_position)
+		if changed_fixture and best[i][0] <= activation_trigger_distance_squared:
+			var is_visible: bool = _is_visible_to_camera(camera, next_position)
+			if (is_visible and not activation_is_visible) or (is_visible == activation_is_visible and best[i][0] < activation_distance):
+				activation_is_visible = is_visible
+				activation_distance = best[i][0]
+				activation_position = next_position
+	if activation_distance < INF and is_instance_valid(_activation_sound_player) and _activation_sound_cooldown <= 0.0 and _activation_sound_pending_delay < 0.0:
+		_activation_sound_pending_position = activation_position
+		_activation_sound_pending_delay = activation_sound_delay
+
+func _step_pending_activation_sound(delta: float) -> void:
+	if _activation_sound_pending_delay < 0.0:
+		return
+	_activation_sound_pending_delay -= delta
+	if _activation_sound_pending_delay > 0.0:
+		return
+	_activation_sound_pending_delay = -1.0
+	if not is_instance_valid(_activation_sound_player):
+		return
+	_activation_sound_player.global_transform.origin = _activation_sound_pending_position
+	_activation_sound_player.play()
+	_activation_sound_cooldown = activation_sound_debounce
+
+func _is_visible_to_camera(camera: Camera, world_position: Vector3) -> bool:
+	if camera == null or camera.is_position_behind(world_position):
+		return false
+	var viewport: Viewport = camera.get_viewport()
+	if viewport == null:
+		return true
+	return viewport.get_visible_rect().has_point(camera.unproject_position(world_position))
 
 func _ensure_light_pool() -> void:
 	while _lights.size() > light_pool_size:

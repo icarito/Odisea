@@ -1,0 +1,77 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://core_v2/ui/radial/RadialSelectorV2.gd" type="Script" id=1]
+
+[sub_resource type="DynamicFontData" id=1]
+font_path = "res://assets/fonts/SyneMono-Regular.ttf"
+
+[sub_resource type="DynamicFont" id=2]
+size = 104
+outline_size = 2
+outline_color = Color( 0, 0.203922, 0.270588, 0.705882 )
+use_filter = true
+font_data = SubResource( 1 )
+
+[sub_resource type="DynamicFont" id=3]
+size = 66
+outline_size = 2
+outline_color = Color( 0, 0.203922, 0.270588, 0.705882 )
+use_filter = true
+font_data = SubResource( 1 )
+
+[sub_resource type="DynamicFont" id=4]
+size = 56
+use_filter = true
+font_data = SubResource( 1 )
+
+[node name="RadialSelector" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource( 1 )
+option_size = Vector2( 260, 130 )
+option_font = SubResource( 2 )
+option_radius = 0.65
+width_max = 0.66
+width_min = 0.24
+
+[node name="RadialHost" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Indicator" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Options" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Readout" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="."]
+anchor_right = 1.0
+margin_top = 16.0
+margin_bottom = 104.0
+custom_colors/font_color = Color( 0, 0.835294, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "SELECCIONE NIVEL"
+align = 1
+valign = 1
+
+[node name="Status" type="Label" parent="."]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_top = -108.0
+margin_bottom = -18.0
+custom_colors/font_color = Color( 0.607843, 0.992157, 0.580392, 1 )
+custom_fonts/font = SubResource( 4 )
+align = 1
+valign = 1

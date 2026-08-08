@@ -136,6 +136,8 @@ mesh = SubResource( 14 )
 material/0 = SubResource( 8 )
 
 [node name="DoorLeft" type="KinematicBody" parent="."]
+collision_layer = 64
+collision_mask = 0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, 0 )
 
 [node name="CollisionShape" type="CollisionShape" parent="DoorLeft"]
@@ -156,6 +158,8 @@ mesh = SubResource( 9 )
 material/0 = SubResource( 8 )
 
 [node name="DoorRight" type="KinematicBody" parent="."]
+collision_layer = 64
+collision_mask = 0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.75, 1.5, 0 )
 
 [node name="CollisionShape" type="CollisionShape" parent="DoorRight"]

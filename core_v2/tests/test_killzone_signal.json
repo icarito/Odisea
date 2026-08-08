@@ -14,7 +14,7 @@
         ],
         "yaw": 0,
         "pitch": 0,
-        "base_spring_length_3d": 3.2,
+        "base_spring_length_3d": 2.5,
         "movement_state": {
           "horizontal_velocity": [
             0,
@@ -5346,296 +5346,6 @@
         "cargol_ability": false,
         "hardware_mouse_active": false
       }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
-    },
-    {
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false
-      }
     }
   ],
   "events": {
@@ -5671,7 +5381,7 @@
         "phase": "check"
       }
     ],
-    "193": [
+    "183": [
       {
         "command": "PRINT",
         "message": "SUCCESS: player_killed signal was emitted!"
@@ -5711,17 +5421,17 @@
   "final_expected_state": {
     "position": [
       12,
-      -2.733889,
+      -3.033333,
       -12
     ],
     "velocity": [
       0,
-      -8.633333,
+      -9.1,
       0
     ],
     "yaw": 0,
     "pitch": 0,
-    "base_spring_length_3d": 4,
+    "base_spring_length_3d": 2.5,
     "movement_state": {
       "horizontal_velocity": [
         0,
@@ -5733,7 +5443,7 @@
         0,
         0
       ],
-      "camera_input_timer": 0.666667,
+      "camera_input_timer": 0.65,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false

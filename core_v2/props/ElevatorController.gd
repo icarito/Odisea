@@ -7,6 +7,9 @@ tool
 
 signal door_opened(floor_idx)
 signal door_closed(floor_idx)
+# Where the car is and where it is headed. For display only (cabin panel): the
+# elevator never reads it back, so it stays outside the deterministic path.
+signal floor_state_changed(current_floor, target_floor, is_moving)
 
 export(NodePath) var platform_path
 export(NodePath) var floors_path = NodePath("Floors")
@@ -34,6 +37,7 @@ var floor_doors = {} # floor_idx -> door node (DualSlidingObjectV2)
 var _sfx_move: SFXComponentV2 = null
 var _sfx_arrival: SFXComponentV2 = null
 var _pending_snapshot = null
+var _stop_heights := []  # World Y per stop, index-aligned. See _cache_stop_heights().
 
 onready var platform = get_node(platform_path) if platform_path else null
 onready var floors_container = get_node(floors_path) if floors_path else null
@@ -71,9 +75,12 @@ func _ready():
     # Open door at starting floor
     if not Engine.editor_hint:
         _open_door(current_floor)
+    _cache_stop_heights()
     if _pending_snapshot != null:
         _apply_snapshot(_pending_snapshot)
         _pending_snapshot = null
+    if not Engine.editor_hint:
+        _emit_floor_state()
 
 # Lays the Floors container out from floor_heights, cloning the first authored
 # child as the template. Each stop is told its own index and the exact distance to
@@ -137,6 +144,58 @@ func _fit_shaft_fence() -> void:
         cap_xform.origin.y = top + shaft_fence_headroom
         cap.transform = cap_xform
 
+# --- Public API for cabin controls ---
+# The internal call button used to be the only rider-facing input and it could
+# only say "next floor", so it wired itself in through input_triggered(-1). A
+# panel that names the stops needs to ask for one directly.
+
+func request_floor(floor_idx: int) -> void:
+    _on_floor_request(floor_idx)
+
+
+func get_floor_count() -> int:
+    if not floor_nodes.empty():
+        return floor_nodes.size()
+    return floor_heights.size()
+
+
+func get_current_floor() -> int:
+    return current_floor
+
+
+# Where the car actually is, in stop units: 2.5 means exactly between the third
+# and fourth stop. A cabin display needs this — current_floor only changes on
+# arrival, so on its own it cannot show a car in motion.
+func get_exact_floor() -> float:
+    if platform == null or _stop_heights.size() < 2:
+        return float(current_floor)
+    var y: float = platform.global_transform.origin.y
+    var top: int = _stop_heights.size() - 1
+    if y <= float(_stop_heights[0]):
+        return 0.0
+    if y >= float(_stop_heights[top]):
+        return float(top)
+    for i in range(top):
+        var low: float = float(_stop_heights[i])
+        var high: float = float(_stop_heights[i + 1])
+        if y >= low and y <= high and high > low:
+            return float(i) + (y - low) / (high - low)
+    return float(current_floor)
+
+
+# Stop heights never move once the shaft is laid out, so they are read once
+# instead of walking six global_transforms every frame.
+func _cache_stop_heights() -> void:
+    _stop_heights.clear()
+    for i in range(floor_nodes.size()):
+        if floor_nodes.has(i):
+            _stop_heights.append(floor_nodes[i].global_transform.origin.y)
+
+
+func is_car_moving() -> bool:
+    return is_moving
+
+
 func _find_floor_input(node: Node) -> int:
     for child in node.get_children():
         if child.has_signal("input_triggered"):
@@ -184,6 +243,7 @@ func _process_queue():
         _start_move_sfx()
         platform.move_to(target_height)
         is_moving = true
+        _emit_floor_state()
     else:
         is_moving = false
         _stop_move_sfx()
@@ -204,6 +264,8 @@ func _on_arrived(height):
 
     # Open door at this floor (stays open until elevator departs)
     _open_door(current_floor)
+    target_floor = current_floor
+    _emit_floor_state()
 
     # Process any pending requests after a brief pause
     if not Engine.editor_hint:
@@ -212,6 +274,10 @@ func _on_arrived(height):
 
 func _on_platform_stopped():
     _stop_move_sfx()
+
+
+func _emit_floor_state() -> void:
+    emit_signal("floor_state_changed", current_floor, target_floor, is_moving)
 
 func _cache_sfx_nodes() -> void:
     _sfx_move = get_node_or_null("Platform/SFX Move")
