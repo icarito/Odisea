@@ -213,7 +213,11 @@ def cmd_generate(args):
         "binary_delta_artifacts": [],
         "full_artifact": {
             "artifact_id": f"{platform}-{arch}-{version}-full",
-            "kind": "full_pck" if ".pck" in main_artifact["path"] else "archive",
+            "kind": (
+                "apk" if main_artifact["path"].endswith(".apk")
+                else "full_pck" if ".pck" in main_artifact["path"]
+                else "archive"
+            ),
             "url": f"{args.base_url}/{main_artifact['path']}" if args.base_url else main_artifact["path"],
             # size/sha256/chunks describen el archivo TAL CUAL se transporta (el .gz si
             # está comprimido), para Range/resume. uncompressed_* verifican el .pck

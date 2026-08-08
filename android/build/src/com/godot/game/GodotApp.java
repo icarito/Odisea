@@ -71,6 +71,12 @@ public class GodotApp extends FullScreenGodotApp {
 		OdiseaDeepLink.feedIntent(intent);
 	}
 
+	@Override
+	protected void onResume() {
+		super.onResume();
+		OdiseaUpdater.onHostResume();
+	}
+
 	private void stashDeepLink(Intent intent) {
 		if (intent == null) {
 			return;

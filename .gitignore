@@ -1,6 +1,23 @@
 experimental/
 ports/
 build/
+!android/build/
+android/build/*
+!android/build/res/
+android/build/res/*
+!android/build/res/xml/
+android/build/res/xml/*
+!android/build/res/xml/odisea_update_paths.xml
+!android/build/src/
+android/build/src/*
+!android/build/src/com/
+android/build/src/com/*
+!android/build/src/com/godot/
+android/build/src/com/godot/*
+!android/build/src/com/godot/game/
+android/build/src/com/godot/game/*
+!android/build/src/com/godot/game/OdiseaUpdater.java
+!android/build/src/com/godot/game/OdiseaUpdateFileProvider.java
 maps/autosave/
 
 # Godot-specific ignores

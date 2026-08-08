@@ -537,8 +537,21 @@ jobs:
 
       - name: Android Keystore Setup
         if: matrix.platform == 'android'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          set -e
           mkdir -p android
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/update.keystore
+            echo "Using persistent Android update signing certificate."
+          else
+            echo "::error::ANDROID_KEYSTORE_BASE64 is required for installable Android updates. A new certificate would make existing installs impossible to update."
+            exit 1
+          fi
+          # Godot's debug preset expects these fixed credentials for the intermediate
+          # export. The published APK is re-signed below with update.keystore.
+          rm -f android/debug.keystore
           keytool -genkey -v -keystore android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Android Templates Setup
@@ -816,6 +829,8 @@ jobs:
           echo "=== Gradle assembleDebug (must succeed) ==="
           ./gradlew assembleDebug \
             -PANDROID_HOME="$ANDROID_HOME" \
+            -Pexport_version_code="${{ needs.prep.outputs.android_version_code }}" \
+            -Pexport_version_name="${{ needs.prep.outputs.android_version_name }}" \
             --stacktrace \
             2>&1
           echo "=== APKs produced by assembleDebug ==="
@@ -867,6 +882,8 @@ jobs:
               cd android/build
               ./gradlew assembleDebug copyAndRenameDebugApk \
                 -PANDROID_HOME="$ANDROID_HOME" \
+                -Pexport_version_code="${{ needs.prep.outputs.android_version_code }}" \
+                -Pexport_version_name="${{ needs.prep.outputs.android_version_name }}" \
                 -Pexport_path="$GITHUB_WORKSPACE/$(dirname "$OUT")" \
                 -Pexport_filename="$(basename "$OUT")" \
                 --stacktrace 2>&1 | tail -100 || true
@@ -983,6 +1000,11 @@ jobs:
 
       - name: Android Sign and Validate
         if: matrix.platform == 'android'
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPECTED_ANDROID_VERSION_CODE: ${{ needs.prep.outputs.android_version_code }}
         run: |
           set -e
           APK="build/android/Odisea-Tech-Demo.apk"
@@ -990,11 +1012,21 @@ jobs:
           UNSIGNED="build/android/Odisea-Tech-Demo-unsigned.apk"
           ALIGNED="build/android/Odisea-Tech-Demo-aligned.apk"
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "::error::ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD are required"
+            exit 1
+          fi
           mv "$APK" "$UNSIGNED"
           "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
-          "$BUILD_TOOLS/apksigner" sign --ks android/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out "$APK" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" sign --ks android/update.keystore --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" --key-pass "pass:$ANDROID_KEY_PASSWORD" --out "$APK" "$ALIGNED"
           rm -f "$UNSIGNED" "$ALIGNED"
           "$BUILD_TOOLS/apksigner" verify "$APK"
+          ACTUAL_VERSION_CODE=$("$BUILD_TOOLS/aapt" dump badging "$APK" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" | head -n 1)
+          echo "Android APK versionCode=$ACTUAL_VERSION_CODE expected=$EXPECTED_ANDROID_VERSION_CODE"
+          test "$ACTUAL_VERSION_CODE" = "$EXPECTED_ANDROID_VERSION_CODE" || {
+            echo "::error::APK versionCode mismatch; refusing to publish a non-upgradable APK"
+            exit 1
+          }
 
       - name: HTML5 Post-process
         if: matrix.platform == 'html5'

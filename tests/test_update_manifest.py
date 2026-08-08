@@ -114,6 +114,33 @@ def test_full_workflow(rsa_keys):
         assert result.returncode == 0
         assert "Manifest verification SUCCESS" in result.stdout
 
+def test_android_apk_is_an_installable_update(rsa_keys):
+    with tempfile.TemporaryDirectory() as artifacts_dir:
+        artifact_path = os.path.join(artifacts_dir, "Odisea-Android.apk")
+        with open(artifact_path, "wb") as f:
+            f.write(b"fake apk content")
+
+        manifest_path = os.path.join(artifacts_dir, "manifest.json")
+        subprocess.run([
+            "python3", "scripts/update_manifest.py", "generate",
+            "--artifacts-dir", artifacts_dir,
+            "--output", manifest_path,
+            "--key", rsa_keys["private_path"],
+            "--key-id", "test",
+            "--version", "0.3.3",
+            "--build-id", "12345",
+            "--channel", "nightly",
+            "--platform", "android",
+            "--arch", "arm64-v8a"
+        ], check=True)
+
+        with open(manifest_path, "r") as f:
+            envelope = json.load(f)
+        payload = json.loads(base64.b64decode(envelope["payload_b64"]).decode("utf-8"))
+
+        assert payload["full_artifact"]["kind"] == "apk"
+        assert payload["full_artifact"]["url"].endswith("Odisea-Android.apk")
+
 def test_tampered_payload(rsa_keys):
     with tempfile.TemporaryDirectory() as artifacts_dir:
         artifact_path = os.path.join(artifacts_dir, "Odisea.pck")

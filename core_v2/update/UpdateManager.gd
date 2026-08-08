@@ -937,8 +937,23 @@ func _finalize_apk_download():
 		d.remove(apk_path)
 
 	if d.copy(part_path, apk_path) == OK:
-		OS.shell_open(ProjectSettings.globalize_path(apk_path))
-		_set_state(State.APPLYING_EXTERNAL)
+		var absolute_apk_path: String = ProjectSettings.globalize_path(apk_path)
+		if Engine.has_singleton("OdiseaUpdater"):
+			var updater: Object = Engine.get_singleton("OdiseaUpdater")
+			if updater.install_apk(absolute_apk_path):
+				_set_state(State.APPLYING_EXTERNAL)
+			else:
+				_on_error("apk_installer_failed", true)
+		else:
+			# Old Android builds do not contain the FileProvider bridge. Sending the
+			# player to the GitHub release still lets them bootstrap into a build that
+			# supports in-app APK installation.
+			var downloads_url: String = _pending_update.get("release_notes_url", _pending_update.get("downloads_page", ""))
+			if downloads_url != "":
+				OS.shell_open(downloads_url)
+				_set_state(State.APPLYING_EXTERNAL)
+			else:
+				_on_error("apk_installer_unavailable", false)
 	else:
 		_on_error("apk_promote_failed", false)
 
