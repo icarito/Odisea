@@ -1798,6 +1798,11 @@ func _process_interaction(input: InputDataV2):
 	if _perf_disable_interaction_scan:
 		_clear_interactable()
 		return
+	if input == null:
+		# Zero-g calls this with a crouch-stripped copy of `input` (see step()), which
+		# passes null straight through when there's no input this frame. Treat that as
+		# "nothing pressed" instead of crashing every physics frame on input.crouch below.
+		input = InputDataV2.new()
 	if not _interact_area: return
 
 	# PERF: Throttle heavy physics/search scans
