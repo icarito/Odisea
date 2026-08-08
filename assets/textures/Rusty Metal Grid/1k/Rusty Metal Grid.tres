@@ -9,7 +9,6 @@
 [resource]
 albedo_texture = ExtResource( 1 )
 metallic = 0.5
-metallic_texture = ExtResource( 4 )
 roughness_texture = ExtResource( 2 )
 normal_enabled = true
 normal_scale = 1.0
@@ -19,9 +18,5 @@ ao_light_affect = 0.0
 ao_texture = ExtResource( 5 )
 ao_on_uv2 = false
 ao_texture_channel = 0
-depth_enabled = true
-depth_scale = 0.05
-depth_deep_parallax = false
-depth_flip_tangent = false
-depth_flip_binormal = false
-depth_texture = ExtResource( 3 )
+uv1_scale = Vector3( 0.3, 0.3, 0.3 )
+uv1_triplanar = true

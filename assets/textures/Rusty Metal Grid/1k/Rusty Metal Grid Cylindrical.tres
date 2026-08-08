@@ -1,0 +1,23 @@
+[gd_resource type="ShaderMaterial" load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/levels/interiors/shaders/dome_wall_cylindrical.shader" type="Shader" id=1]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_diff_1k.png" type="Texture" id=2]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_nor_gl_1k.png" type="Texture" id=3]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_rough_1k.png" type="Texture" id=4]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_ao_1k.png" type="Texture" id=5]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_disp_1k.png" type="Texture" id=6]
+
+[resource]
+shader = ExtResource( 1 )
+shader_param/dome_center = Vector3( 0, 0, 0 )
+shader_param/radial_repeats = 48.0
+shader_param/vertical_scale = 3.65
+shader_param/vertical_offset = 0.0
+shader_param/normal_scale = 1.0
+shader_param/depth_scale = 0.04
+shader_param/metallic_value = 0.5
+shader_param/albedo_texture = ExtResource( 2 )
+shader_param/normal_texture = ExtResource( 3 )
+shader_param/roughness_texture = ExtResource( 4 )
+shader_param/ao_texture = ExtResource( 5 )
+shader_param/depth_texture = ExtResource( 6 )
