@@ -1,7 +1,12 @@
 shader_type spatial;
 render_mode depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
-uniform vec4 base_color : hint_color = vec4(1.0, 0.48, 0.12, 1.0);
+uniform sampler2D albedo_texture : hint_albedo;
+uniform sampler2D normal_texture : hint_normal;
+uniform sampler2D roughness_texture : hint_white;
+uniform sampler2D ao_texture : hint_white;
+uniform float normal_scale : hint_range(-16.0, 16.0) = 1.0;
+uniform vec4 base_color : hint_color = vec4(1.0, 1.0, 1.0, 1.0);
 uniform vec4 frost_color : hint_color = vec4(0.62, 0.88, 1.0, 1.0);
 uniform vec4 crack_color : hint_color = vec4(0.9, 0.98, 1.0, 1.0);
 uniform float base_metallic : hint_range(0.0, 1.0) = 0.22;
@@ -55,7 +60,11 @@ void fragment() {
 	float pulse_mix = mix(0.18, 0.7, pulse);
 	vec3 frozen_tint = mix(frost_color.rgb, crack_color.rgb, pulse_mix);
 
-	vec3 base = base_color.rgb;
+	vec4 tex_albedo = texture(albedo_texture, UV);
+	float tex_roughness = texture(roughness_texture, UV).r;
+	float tex_ao = texture(ao_texture, UV).r;
+
+	vec3 base = tex_albedo.rgb * base_color.rgb;
 	vec3 damaged = mix(base, frozen_tint, crack_intensity * 0.9 + frost_intensity * 0.45);
 	damaged = mix(damaged, frost_color.rgb, broad_frost);
 	damaged = mix(damaged, vec3(1.0), broad_frost * 0.42);
@@ -63,7 +72,11 @@ void fragment() {
 
 	ALBEDO = damaged;
 	METALLIC = base_metallic;
-	ROUGHNESS = mix(base_roughness, 1.0, freeze_band * 0.92);
+	ROUGHNESS = mix(base_roughness * tex_roughness, 1.0, freeze_band * 0.92);
 	SPECULAR = mix(0.22, 0.6, freeze_band * 0.5);
+	AO = tex_ao;
+	AO_LIGHT_AFFECT = 0.0;
+	NORMALMAP = texture(normal_texture, UV).rgb;
+	NORMALMAP_DEPTH = normal_scale;
 	EMISSION = frozen_tint * (crack_intensity * pulse_mix * 0.85 + edge * freeze_band * (0.16 + pulse_mix * 0.32));
 }

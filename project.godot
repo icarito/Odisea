@@ -1269,6 +1269,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/ui/retro/OysTransit.gd"
 }, {
+"base": "Control",
+"class": "Page",
+"language": "GDScript",
+"path": "res://addons/PolyHavenImport/page.gd"
+}, {
 "base": "PropBaseV2",
 "class": "PedestalButton",
 "language": "GDScript",
@@ -2212,6 +2217,7 @@ _global_script_class_icons={
 "OysCameras": "",
 "OysStatus": "",
 "OysTransit": "",
+"Page": "",
 "PedestalButton": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",
@@ -2421,7 +2427,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/silicon.vfx.lens_flare/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/PolyHavenImport/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
 
 [gdunit3]
 
