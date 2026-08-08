@@ -56,7 +56,7 @@ export(float) var aim_margin := 0.45
 # Spring arm length forced while the rider is in the car, so the camera comes
 # inside with them instead of framing the cabin from outside the shaft. Whatever
 # length they had is handed back on the way out. 0 disables it.
-export(float) var cabin_zoom_spring_length := 1.2
+export(float) var cabin_zoom_spring_length := 0.9
 # Volume that counts as "in the car", so the framing holds for the whole ride
 # rather than only while standing at the panel. The elevator owns it: the
 # passenger area would have been the obvious reuse, but it feeds
