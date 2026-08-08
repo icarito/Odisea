@@ -59,6 +59,14 @@ func _bake_group(root: Node, group_name: String) -> void:
 		push_error("[bake_walkways] group not found: %s" % group_name)
 		return
 
+	# Once a group has been wired into Dome_Intro it is a single CombinedMesh plus
+	# an instanced StaticBody, not SteelGratePlatforms any more. Re-harvesting that
+	# would bake an already-baked mesh (and drop the collision subtree, which lives
+	# in the instanced sub-scene). Skip it — the .mesh on disk is already current.
+	if group.get_node_or_null("CombinedMesh") != null:
+		print("[bake_walkways] %s: ya cableado (CombinedMesh presente), se omite" % group_name)
+		return
+
 	var mesh_instances := []
 	_collect_mesh_instances(group, mesh_instances)
 	print("[bake_walkways] %s: %d source MeshInstances" % [group_name, mesh_instances.size()])

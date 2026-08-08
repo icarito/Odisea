@@ -13,12 +13,16 @@ const CRITICAL_RESOURCES := [
 	# Stage-3 curriculum coverage (doors/sparks/HDR and BaseTerrace deps).
 	"res://core_v2/props/doors/VerticalDoor.tscn",
 	"res://core_v2/props/emitters/SparkEmitterV2.tscn",
-	# Dome_Intro.tscn (FIRST_GAME_SCENE) NO va acá todavía: carga bien, pero arrastra
-	# texturas que la cache de import de CI nunca generó (pilot.png, HelmetView,
-	# steel_grate_platform). Eso no impide instanciarla, pero este paso falla ante
-	# cualquier línea "Failed loading resource:", así que sumarla la vuelve un
-	# generador de ruido hasta cerrar esos huecos.
+	# Dome_Intro.tscn (FIRST_GAME_SCENE). Antes quedaba afuera porque arrastraba
+	# texturas que la cache de import de CI nunca generó: la escena cargaba igual,
+	# pero este paso falla ante cualquier línea "Failed loading resource:", así que
+	# sumarla solo generaba ruido. Esos huecos ya están cerrados — los 10 artefactos
+	# que faltaban (pilot.png, HelmetView, DisplayCase, prototype textures y los 3
+	# sets PBR nuevos) están trackeados en .import/.
+	# Ojo: dos de esas texturas llegan por dentro de DomeTerrace_baked.mesh, que es
+	# binario; no aparecen recorriendo ext_resource a mano.
 	# Ver docs/engineering/CI_Asset_Strategy.md.
+	"res://core_v2/levels/interiors/Dome_Intro.tscn",
 ]
 
 func _normalize_dep_path(dep: String) -> String:

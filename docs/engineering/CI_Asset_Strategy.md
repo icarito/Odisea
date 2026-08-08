@@ -73,6 +73,26 @@ aparte del gate.
 Excepciones (packs de terceros que ninguna escena instancia) van en
 `ci/import_artifacts_allowlist.txt`, no en el código.
 
+## Qué variantes VRAM se trackean
+
+Godot genera hasta cinco `.stex` por textura (`s3tc`, `etc2`, `etc`, `pvrtc` y el
+plano sin comprimir). Trackearlas todas cuadruplica el costo en git sin beneficio:
+
+- `s3tc` — Desktop Linux/Windows/macOS y HTML5. **Se trackea.**
+- `etc` — Android GLES2. **Se trackea.**
+- `pvrtc` — iOS, que sí se exporta. **Se trackea.**
+- `etc2` — Android **GLES3**. El proyecto corre en GLES2, así que nunca se carga.
+  **No se trackea.** Si algún día se migra a GLES3, hay que sumarla.
+- plano — fallback; se trackea cuando el importador lo genera.
+
+Los sets PBR nuevos (1k, cinco mapas cada uno) además se importan con
+`size_limit=512`: a 1k pesaban ~19 MB de artefactos por set. Cerrar los huecos de
+`Dome_Intro.tscn` costaba 71 MB con todas las variantes a 1k y quedó en 21 MB.
+
+Ojo al auditar dependencias: `DomeTerrace_baked.mesh` es un recurso binario y sus
+materiales referencian texturas que **no** aparecen si uno recorre las líneas
+`ext_resource` de los `.tscn` a mano. Usar `ResourceLoader.get_dependencies()`.
+
 ## Critical Imports Today
 
 - `models/Pilot.glb.import`

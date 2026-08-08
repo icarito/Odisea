@@ -80,6 +80,9 @@ var _fence_material: Material = null
 var _cylinder_mesh_cache: Dictionary = {}
 var _sphere_mesh_cache: Dictionary = {}
 
+# Set by _queue_rebuild, cleared by _rebuild. See _queue_rebuild for why.
+var _rebuild_pending := false
+
 
 func _ready():
 	_ensure_structure()
@@ -266,8 +269,23 @@ func set_footstep_profile(value: Resource) -> void:
 	_sync_footstep_surface()
 
 func _queue_rebuild() -> void:
-	if is_inside_tree():
-		_rebuild()
+	# Coalesce rebuilds within a frame. RadialScatter._add_item() calls add_child()
+	# and *then* writes ~10 more properties (miter join lines, per-item floats), so
+	# rebuilding synchronously on every setter regenerated the whole platform
+	# (~40 MeshInstances + collisions) once per property. Mark dirty and rebuild
+	# once at the end of the frame instead.
+	if not is_inside_tree() or _rebuild_pending:
+		return
+	_rebuild_pending = true
+	call_deferred("_flush_rebuild")
+
+func _flush_rebuild() -> void:
+	# _ready() rebuilds synchronously and clears the flag, so a platform that got
+	# no further writes does not rebuild a second time here.
+	if not _rebuild_pending or not is_inside_tree():
+		_rebuild_pending = false
+		return
+	_rebuild()
 
 func _ensure_structure() -> void:
 	_visual_root = get_node_or_null("VisualRoot")
@@ -287,6 +305,7 @@ func _ensure_structure() -> void:
 	_sync_footstep_surface()
 
 func _rebuild() -> void:
+	_rebuild_pending = false
 	if not _visual_root or not _body:
 		return
 

@@ -73,13 +73,12 @@ func _run() -> void:
 	# up with Item_4's left-rail gap almost exactly — it was correct from the
 	# start; the actual bugs were the elevator opening (fixed earlier) and
 	# Item_4's stray back gate (fixed in the mesh bake).
-	# Reverted: narrowing back to the original deck opening was wrong too (per
-	# live feedback it closed the elevator side again and re-broke the
-	# ramp/hub union that was half-working at the wide 90-135 setting). Back to
-	# the full-face opening as the known baseline while this gets sorted out
-	# interactively.
-	floor5.outer_openings_deg = [ Vector2(90.0, 135.0) ]
-	floor5.outer_opening_docks = [ 0.4 ]
+	# The opening values used to be hardcoded here (last: 90-135 / dock 0.4) while
+	# they were being tuned interactively. They have since been authored in the
+	# .tscn itself (Floor_5's outer_openings_deg / outer_opening_docks), so the
+	# scene is the source of truth and this bakes exactly what the scene says —
+	# hardcoding again would silently bake geometry the level no longer uses.
+	# Tune the values on the Floor_5 node, then re-run this.
 	floor5.rebuild_baked_items = true
 	floor5.build()
 
