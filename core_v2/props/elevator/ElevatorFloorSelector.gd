@@ -83,6 +83,7 @@ var _restore_spring_length := -1.0
 var _touch_index := -1
 var _touch_start_time := 0
 var _touch_start_position := Vector2.ZERO
+var _touch_can_confirm := false
 var _touch_aim_active := false
 var _ignore_emulated_mouse_until := 0
 
@@ -309,13 +310,14 @@ func _input(event: InputEvent) -> void:
 	if not _is_open or _selector == null:
 		return
 	if event is InputEventScreenTouch:
+		if event.pressed and _is_over_touch_control(event.position):
+			return
 		_handle_screen_touch(event)
-		get_tree().set_input_as_handled()
 		return
 	if event is InputEventScreenDrag and event.index == _touch_index:
-		_touch_aim_active = true
-		_point_at_screen_position(event.position)
-		get_tree().set_input_as_handled()
+		if event.relative.length_squared() > 0.1:
+			_touch_aim_active = true
+			_point_at_screen_direction(event.relative)
 		return
 	if event is InputEventMouseMotion and event.relative.length_squared() > 0.1:
 		_touch_aim_active = false
@@ -349,35 +351,68 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 	# touch confirmation has release and movement semantics of its own.
 	_ignore_emulated_mouse_until = OS.get_ticks_msec() + 500
 	if event.pressed:
-		if not _confirm_armed or _touch_index >= 0:
+		if _touch_index >= 0:
 			return
 		_touch_index = event.index
 		_touch_start_time = OS.get_ticks_msec()
 		_touch_start_position = event.position
-		_touch_aim_active = true
-		_point_at_screen_position(event.position)
+		_touch_can_confirm = _confirm_armed
 		return
 	if event.index != _touch_index:
 		return
-	_point_at_screen_position(event.position)
 	var duration: float = (OS.get_ticks_msec() - _touch_start_time) / 1000.0
 	var distance: float = event.position.distance_to(_touch_start_position)
 	_touch_index = -1
-	if duration <= touch_tap_max_duration and distance <= touch_tap_max_distance:
-		_selector.confirm()
+	if _touch_can_confirm and duration <= touch_tap_max_duration and distance <= touch_tap_max_distance:
+		var direct_aim := _touch_in_viewport(event.position)
+		if direct_aim != NO_AIM and _selector.option_at(direct_aim) >= 0:
+			_selector.point_at(direct_aim)
+			_selector.confirm()
+	_touch_can_confirm = false
 
 
-func _point_at_screen_position(screen_position: Vector2) -> void:
+func _point_at_screen_direction(direction: Vector2) -> void:
+	if _viewport == null or direction.length_squared() <= 0.1:
+		return
+	# The gesture heading expresses intent before the camera has travelled very
+	# far. Keep that last heading even as the camera continues rotating.
+	var radius: float = min(_viewport.size.x, _viewport.size.y) * 0.5
+	_selector.point_at(_viewport.size * 0.5 + direction.normalized() * radius)
+
+
+func _touch_in_viewport(screen_position: Vector2) -> Vector2:
+	"""Map a tap onto the billboarded hologram. Unlike gesture aiming, this is a
+	strict visual hit used only for direct tap confirmation."""
+	var screen_mesh := get_node_or_null("ScreenContainer/ScreenMesh") as MeshInstance
 	var scene_viewport := get_viewport()
-	if scene_viewport == null or _viewport == null:
-		return
-	var view_size: Vector2 = scene_viewport.size
-	if view_size.x <= 0.0 or view_size.y <= 0.0:
-		return
-	# Only the direction from screen centre matters to RadialSelectorV2, so the
-	# whole display becomes a forgiving set of sectors instead of a tiny target.
-	var normalized := screen_position / view_size
-	_selector.point_at(Vector2(normalized.x * _viewport.size.x, normalized.y * _viewport.size.y))
+	if screen_mesh == null or _viewport == null or scene_viewport == null:
+		return NO_AIM
+	var camera := scene_viewport.get_camera()
+	if camera == null or not (screen_mesh.mesh is QuadMesh):
+		return NO_AIM
+	var origin: Vector3 = screen_mesh.global_transform.origin
+	if camera.is_position_behind(origin):
+		return NO_AIM
+	var half_size: Vector2 = screen_mesh.mesh.size * 0.5
+	var center: Vector2 = camera.unproject_position(origin)
+	var right: Vector2 = camera.unproject_position(origin + camera.global_transform.basis.x * half_size.x) - center
+	var up: Vector2 = camera.unproject_position(origin + camera.global_transform.basis.y * half_size.y) - center
+	if right.length_squared() <= 0.001 or up.length_squared() <= 0.001:
+		return NO_AIM
+	var delta: Vector2 = screen_position - center
+	var uv := Vector2(0.5 + delta.dot(right) / (2.0 * right.length_squared()),
+		0.5 - delta.dot(up) / (2.0 * up.length_squared()))
+	if uv.x < 0.0 or uv.x > 1.0 or uv.y < 0.0 or uv.y > 1.0:
+		return NO_AIM
+	return Vector2(uv.x * _viewport.size.x, uv.y * _viewport.size.y)
+
+
+func _is_over_touch_control(screen_position: Vector2) -> bool:
+	for node in get_tree().get_nodes_in_group("touch_control"):
+		if node is Control and node.visible and node.is_inside_tree():
+			if node.get_global_rect().has_point(screen_position):
+				return true
+	return false
 
 
 # --- Elevator wiring ---

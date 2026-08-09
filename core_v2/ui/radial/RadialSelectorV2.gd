@@ -248,6 +248,16 @@ func get_hovered_index() -> int:
 	return _hover_index
 
 
+func option_at(viewport_position: Vector2) -> int:
+	"""Return the actual label under a direct pointer, without radial-sector
+	expansion. Used by touch confirmation so taps outside visible buttons do not
+	commit a choice."""
+	for i in range(_buttons.size()):
+		if _buttons[i].get_global_rect().has_point(viewport_position):
+			return i
+	return NONE
+
+
 func point_at(viewport_position: Vector2) -> void:
 	"""Aim, in this dial's own viewport pixels. Off the dial clears the selection."""
 	if not _is_open or _option_count <= 0 or _focus_suppressed:
