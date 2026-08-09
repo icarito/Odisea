@@ -21,12 +21,13 @@ extends SceneTree
 # under one new StaticBody, saved as its own small sub-scene.
 #
 # Run: godot3-bin --no-window -s tools/bake_scaffold_walkways.gd
-# Output: core_v2/levels/interiors/DomeIntro_<Group>_baked.mesh
+# Output: core_v2/levels/interiors/DomeIntro_<Group>_sector_00..07.mesh
 #         core_v2/levels/interiors/DomeIntro_<Group>_body.tscn
 
 const SCENE_PATH := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 const GROUPS := ["SpiralStairs", "HubSpokes", "SpiralWalkways"]
 const OUT_DIR := "res://core_v2/levels/interiors/"
+const SECTOR_COUNT := 8
 const FOOTSTEP_SURFACE_SCRIPT := "res://core_v2/systems/footsteps/footstep_surface.gd"
 const FOOTSTEP_PROFILE_METAL := "res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres"
 
@@ -159,6 +160,8 @@ func _bake_group(root: Node, group_name: String) -> void:
 	if ResourceSaver.save(out_mesh_path, combined) != OK:
 		push_error("[bake_walkways] failed to save %s" % out_mesh_path)
 		return
+	if not _save_visual_sectors(group_name, combined):
+		return
 
 	# Pack the StaticBody + all its CollisionShapes (dozens of small convex/
 	# cylinder shapes, one clean subtree) into its own sub-scene so Dome_Intro's
@@ -195,6 +198,65 @@ func _bake_group(root: Node, group_name: String) -> void:
 		vcount += (combined.surface_get_arrays(i)[Mesh.ARRAY_VERTEX] as PoolVector3Array).size()
 	print("[bake_walkways] %s: %d surfaces, %d verts, %d collision shapes -> %s / %s" % [
 		group_name, combined.get_surface_count(), vcount, collision_shapes.size(), out_mesh_path, out_body_path])
+
+func _save_visual_sectors(group_name: String, combined: ArrayMesh) -> bool:
+	var sector_tools: Array = []
+	var sector_vertex_counts: Array = []
+	for sector_index in range(SECTOR_COUNT):
+		var tools_for_surfaces: Array = []
+		var counts_for_surfaces: Array = []
+		for _surface_index in range(combined.get_surface_count()):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			tools_for_surfaces.append(st)
+			counts_for_surfaces.append(0)
+		sector_tools.append(tools_for_surfaces)
+		sector_vertex_counts.append(counts_for_surfaces)
+
+	for surface_index in range(combined.get_surface_count()):
+		var arrays: Array = combined.surface_get_arrays(surface_index)
+		var vertices: PoolVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals = arrays[Mesh.ARRAY_NORMAL]
+		var uvs = arrays[Mesh.ARRAY_TEX_UV]
+		var indices = arrays[Mesh.ARRAY_INDEX]
+		var triangle_count: int = (indices as PoolIntArray).size() / 3 if indices is PoolIntArray and (indices as PoolIntArray).size() > 0 else vertices.size() / 3
+		for triangle_index in range(triangle_count):
+			var vertex_indices: PoolIntArray = PoolIntArray()
+			for corner in range(3):
+				var flat_index: int = triangle_index * 3 + corner
+				vertex_indices.append((indices as PoolIntArray)[flat_index] if indices is PoolIntArray and (indices as PoolIntArray).size() > 0 else flat_index)
+			var face_cross: Vector3 = (vertices[vertex_indices[1]] - vertices[vertex_indices[0]]).cross(vertices[vertex_indices[2]] - vertices[vertex_indices[0]])
+			if face_cross.length_squared() <= 0.00000001:
+				continue
+			var face_normal: Vector3 = face_cross.normalized()
+			var centroid: Vector3 = (vertices[vertex_indices[0]] + vertices[vertex_indices[1]] + vertices[vertex_indices[2]]) / 3.0
+			var angle: float = fposmod(atan2(centroid.z, centroid.x) + PI * 2.0, PI * 2.0)
+			var sector_index: int = min(int(floor(angle / (PI * 2.0) * SECTOR_COUNT)), SECTOR_COUNT - 1)
+			var target: SurfaceTool = sector_tools[sector_index][surface_index]
+			for vertex_index in vertex_indices:
+				if uvs != null:
+					target.add_uv(uvs[vertex_index])
+				if normals != null:
+					var normal: Vector3 = normals[vertex_index]
+					target.add_normal(normal.normalized() if normal.length_squared() > 0.00000001 else face_normal)
+				target.add_vertex(vertices[vertex_index])
+			sector_vertex_counts[sector_index][surface_index] += 3
+
+	for sector_index in range(SECTOR_COUNT):
+		var sector_mesh := ArrayMesh.new()
+		for surface_index in range(combined.get_surface_count()):
+			if sector_vertex_counts[sector_index][surface_index] == 0:
+				continue
+			var st: SurfaceTool = sector_tools[sector_index][surface_index]
+			st.set_material(combined.surface_get_material(surface_index))
+			st.commit(sector_mesh)
+		if sector_mesh.get_surface_count() == 0:
+			continue
+		var sector_path: String = OUT_DIR + "DomeIntro_%s_sector_%02d.mesh" % [group_name, sector_index]
+		if ResourceSaver.save(sector_path, sector_mesh) != OK:
+			push_error("[bake_walkways] failed to save %s" % sector_path)
+			return false
+	return true
 
 # Firma estable del CONTENIDO de un material. Dos materiales generados por
 # separado pero con los mismos valores producen la misma firma y comparten

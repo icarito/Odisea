@@ -5,7 +5,7 @@ extends SceneTree
 #   -s res://tools/bake_dome_wall_sconces.gd
 
 const DOME_SCENE := "res://core_v2/levels/interiors/Dome_Intro.tscn"
-const MESH_PATH := "res://core_v2/props/scifi_lights/IndustrialWallLampLow.mesh"
+const MESH_PATH := "res://core_v2/props/scifi_lights/IndustrialWallLampLOD.mesh"
 const OUTPUT_PATH := "res://core_v2/levels/interiors/DomeIntro_WallLightFixtures.tres"
 const BATCH_PATH := "res://core_v2/levels/interiors/DomeIntro_WallLightFixtures_%02d.tres"
 const GLOW_OUTPUT_PATH := "res://core_v2/levels/interiors/DomeIntro_WallLightBulbGlows.tres"

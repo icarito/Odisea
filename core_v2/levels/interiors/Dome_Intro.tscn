@@ -1,4 +1,4 @@
-[gd_scene load_steps=111 format=2]
+[gd_scene load_steps=126 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
@@ -24,12 +24,27 @@
 [ext_resource path="res://core_v2/props/machinery/ElevatorProp.tscn" type="PackedScene" id=26]
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres" type="Resource" id=27]
 [ext_resource path="res://core_v2/components/LightPathV2.gd" type="Script" id=28]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_baked.mesh" type="ArrayMesh" id=33]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_body.tscn" type="PackedScene" id=34]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_baked.mesh" type="ArrayMesh" id=35]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_body.tscn" type="PackedScene" id=36]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_baked.mesh" type="ArrayMesh" id=37]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_body.tscn" type="PackedScene" id=38]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_00.mesh" type="ArrayMesh" id=76]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_01.mesh" type="ArrayMesh" id=77]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_02.mesh" type="ArrayMesh" id=78]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_03.mesh" type="ArrayMesh" id=79]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_04.mesh" type="ArrayMesh" id=80]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_05.mesh" type="ArrayMesh" id=81]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_07.mesh" type="ArrayMesh" id=83]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_00.mesh" type="ArrayMesh" id=84]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_05.mesh" type="ArrayMesh" id=89]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_06.mesh" type="ArrayMesh" id=90]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_07.mesh" type="ArrayMesh" id=91]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_00.mesh" type="ArrayMesh" id=92]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_01.mesh" type="ArrayMesh" id=93]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_02.mesh" type="ArrayMesh" id=94]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_03.mesh" type="ArrayMesh" id=95]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_04.mesh" type="ArrayMesh" id=96]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_05.mesh" type="ArrayMesh" id=97]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_06.mesh" type="ArrayMesh" id=98]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpokeLightPath_markers.tres" type="MultiMesh" id=51]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_WallLightFixtures.tres" type="MultiMesh" id=53]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_WallLightFixtures_00.tres" type="MultiMesh" id=54]
@@ -806,17 +821,53 @@ omni_range = 9.0
 [node name="SpiralStairs" type="Spatial" parent="."]
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
 
-[node name="CombinedMesh" type="MeshInstance" parent="SpiralStairs"]
+[node name="Sector_00" type="MeshInstance" parent="SpiralStairs"]
 layers = 64
-mesh = ExtResource( 35 )
+mesh = ExtResource( 76 )
+
+[node name="Sector_01" type="MeshInstance" parent="SpiralStairs"]
+layers = 64
+mesh = ExtResource( 77 )
+
+[node name="Sector_02" type="MeshInstance" parent="SpiralStairs"]
+layers = 64
+mesh = ExtResource( 78 )
+
+[node name="Sector_03" type="MeshInstance" parent="SpiralStairs"]
+layers = 64
+mesh = ExtResource( 79 )
+
+[node name="Sector_04" type="MeshInstance" parent="SpiralStairs"]
+layers = 64
+mesh = ExtResource( 80 )
+
+[node name="Sector_05" type="MeshInstance" parent="SpiralStairs"]
+layers = 64
+mesh = ExtResource( 81 )
+
+[node name="Sector_07" type="MeshInstance" parent="SpiralStairs"]
+layers = 64
+mesh = ExtResource( 83 )
 
 [node name="StaticBody" parent="SpiralStairs" instance=ExtResource( 36 )]
 
 [node name="HubSpokes" type="Spatial" parent="."]
 
-[node name="CombinedMesh" type="MeshInstance" parent="HubSpokes"]
+[node name="Sector_00" type="MeshInstance" parent="HubSpokes"]
 layers = 64
-mesh = ExtResource( 33 )
+mesh = ExtResource( 84 )
+
+[node name="Sector_05" type="MeshInstance" parent="HubSpokes"]
+layers = 64
+mesh = ExtResource( 89 )
+
+[node name="Sector_06" type="MeshInstance" parent="HubSpokes"]
+layers = 64
+mesh = ExtResource( 90 )
+
+[node name="Sector_07" type="MeshInstance" parent="HubSpokes"]
+layers = 64
+mesh = ExtResource( 91 )
 
 [node name="StaticBody" parent="HubSpokes" instance=ExtResource( 34 )]
 
@@ -972,9 +1023,33 @@ shaft_fence_headroom = 4.5
 [node name="SpiralWalkways" type="Spatial" parent="."]
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
 
-[node name="CombinedMesh" type="MeshInstance" parent="SpiralWalkways"]
+[node name="Sector_00" type="MeshInstance" parent="SpiralWalkways"]
 layers = 64
-mesh = ExtResource( 37 )
+mesh = ExtResource( 92 )
+
+[node name="Sector_01" type="MeshInstance" parent="SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 93 )
+
+[node name="Sector_02" type="MeshInstance" parent="SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 94 )
+
+[node name="Sector_03" type="MeshInstance" parent="SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 95 )
+
+[node name="Sector_04" type="MeshInstance" parent="SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 96 )
+
+[node name="Sector_05" type="MeshInstance" parent="SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 97 )
+
+[node name="Sector_06" type="MeshInstance" parent="SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 98 )
 
 [node name="StaticBody" parent="SpiralWalkways" instance=ExtResource( 38 )]
 

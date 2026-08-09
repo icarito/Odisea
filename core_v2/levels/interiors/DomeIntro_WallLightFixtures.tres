@@ -1,6 +1,6 @@
 [gd_resource type="MultiMesh" load_steps=2 format=2]
 
-[ext_resource path="res://core_v2/props/scifi_lights/IndustrialWallLampLow.mesh" type="ArrayMesh" id=1]
+[ext_resource path="res://core_v2/props/scifi_lights/IndustrialWallLampLOD.mesh" type="ArrayMesh" id=1]
 
 [resource]
 transform_format = 1
