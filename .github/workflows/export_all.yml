@@ -770,9 +770,6 @@ jobs:
             **/*.tga.import
             **/*.svg.import
           key: ${{ runner.os }}-import-v2-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-${{ hashFiles('**/*.import', '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.tga', '**/*.svg', '**/*.gltf', '**/*.glb', '**/*.dae', '**/*.obj', '**/*.mtl', '**/*.ogg', '**/*.mp3', '**/*.wav', '**/*.ttf', '**/*.otf') }}
-          restore-keys: |
-            ${{ runner.os }}-import-v2-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-
-            ${{ runner.os }}-import-v2-${{ matrix.platform }}-
 
       # Compila la lib GDNative de bspatch (delta binario del update) para la plataforma
       # actual ANTES del export: el exporter de Godot copia la .so/.dll junto al binario

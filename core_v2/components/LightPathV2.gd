@@ -86,6 +86,11 @@ export(Mesh) var fixture_high_mesh
 export(Mesh) var fixture_lod_mesh
 export(float, 1.0, 80.0, 0.5) var fixture_lod_distance := 14.0
 export(String) var fixture_batch_prefix := "FixtureBatch_"
+export(bool) var fixture_adaptive_mobile_lod := true
+export(float, 1.0, 120.0, 1.0) var fixture_full_detail_fps := 50.0
+export(float, 1.0, 30.0, 0.5) var fixture_full_detail_hold_seconds := 5.0
+export(float, 1.0, 120.0, 1.0) var fixture_lod_fallback_fps := 42.0
+export(float, 0.5, 10.0, 0.5) var fixture_lod_fallback_seconds := 2.0
 
 export(bool) var auto_build := true
 export(bool) var rebuild_baked_items := false
@@ -101,6 +106,10 @@ var _activation_sound_player: AudioStreamPlayer3D = null
 var _activation_sound_cooldown := 1.0
 var _activation_sound_pending_delay := -1.0
 var _activation_sound_pending_position := Vector3.ZERO
+var _fixture_full_detail_enabled := false
+var _fixture_high_fps_seconds := 0.0
+var _fixture_low_fps_seconds := 0.0
+var _fixture_quality_reported := false
 
 func _ready() -> void:
 	if Engine.editor_hint:
@@ -452,6 +461,11 @@ func _fixture_light_position(index: int, fallback: Vector3) -> Vector3:
 func _drive_fixture_lod() -> void:
 	if fixture_high_mesh == null or fixture_lod_mesh == null:
 		return
+	var adaptive_mobile := fixture_adaptive_mobile_lod and OS.get_name() in ["Android", "iOS"]
+	if adaptive_mobile:
+		_update_adaptive_fixture_quality()
+		if not _fixture_quality_reported:
+			_publish_fixture_quality("lod", float(Performance.get_monitor(Performance.TIME_FPS)))
 	var camera: Camera = get_viewport().get_camera() if get_viewport() else null
 	var origin: Vector3 = camera.global_transform.origin if camera else _player.global_transform.origin
 	var threshold_squared: float = fixture_lod_distance * fixture_lod_distance
@@ -466,9 +480,40 @@ func _drive_fixture_lod() -> void:
 			var local_position: Vector3 = batch.multimesh.get_instance_transform(index).origin
 			var world_position: Vector3 = batch.global_transform.xform(local_position)
 			nearest_squared = min(nearest_squared, origin.distance_squared_to(world_position))
-		var desired: Mesh = fixture_lod_mesh if nearest_squared > threshold_squared else fixture_high_mesh
+		var desired: Mesh
+		if adaptive_mobile:
+			desired = fixture_high_mesh if _fixture_full_detail_enabled else fixture_lod_mesh
+		else:
+			desired = fixture_lod_mesh if nearest_squared > threshold_squared else fixture_high_mesh
 		if batch.multimesh.mesh != desired:
 			batch.multimesh.mesh = desired
+
+func _update_adaptive_fixture_quality() -> void:
+	var fps := float(Performance.get_monitor(Performance.TIME_FPS))
+	if _fixture_full_detail_enabled:
+		_fixture_high_fps_seconds = 0.0
+		_fixture_low_fps_seconds = _fixture_low_fps_seconds + refresh_interval if fps < fixture_lod_fallback_fps else 0.0
+		if _fixture_low_fps_seconds >= fixture_lod_fallback_seconds:
+			_fixture_full_detail_enabled = false
+			_fixture_low_fps_seconds = 0.0
+			_publish_fixture_quality("lod", fps)
+	else:
+		_fixture_low_fps_seconds = 0.0
+		_fixture_high_fps_seconds = _fixture_high_fps_seconds + refresh_interval if fps > fixture_full_detail_fps else 0.0
+		if _fixture_high_fps_seconds >= fixture_full_detail_hold_seconds:
+			_fixture_full_detail_enabled = true
+			_fixture_high_fps_seconds = 0.0
+			_publish_fixture_quality("full", fps)
+
+func _publish_fixture_quality(mode: String, fps: float) -> void:
+	_fixture_quality_reported = true
+	var telemetry := get_node_or_null("/root/ANNAV2")
+	if telemetry and telemetry.has_method("register_telemetry_point"):
+		telemetry.register_telemetry_point("fixture_quality", {
+			"mode": mode,
+			"fps": fps,
+			"source": String(get_path())
+		})
 
 func _step_pending_activation_sound(delta: float) -> void:
 	if _activation_sound_pending_delay < 0.0:

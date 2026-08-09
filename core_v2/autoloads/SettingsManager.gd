@@ -1,6 +1,7 @@
 extends Node
 
 const SETTINGS_PATH = "user://settings.cfg"
+const ANDROID_RENDER_SCALE := 0.75
 
 var _config = ConfigFile.new()
 
@@ -96,8 +97,21 @@ func apply_render_resolution():
 	var tree = get_tree()
 	if tree == null:
 		return
+	var effective_resolution: Vector2 = render_resolution
+	if OS.get_name() == "Android":
+		effective_resolution = Vector2(
+			max(1.0, round(render_resolution.x * ANDROID_RENDER_SCALE)),
+			max(1.0, round(render_resolution.y * ANDROID_RENDER_SCALE))
+		)
 	tree.set_screen_stretch(
 		SceneTree.STRETCH_MODE_VIEWPORT,
 		SceneTree.STRETCH_ASPECT_EXPAND,
-		render_resolution
+		effective_resolution
 	)
+	var telemetry := get_node_or_null("/root/ANNAV2")
+	if telemetry and telemetry.has_method("register_telemetry_point"):
+		telemetry.register_telemetry_point("render_resolution", {
+			"selected": [render_resolution.x, render_resolution.y],
+			"effective": [effective_resolution.x, effective_resolution.y],
+			"scale": ANDROID_RENDER_SCALE if OS.get_name() == "Android" else 1.0
+		})
