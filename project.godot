@@ -2445,7 +2445,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/MultiMeshBatcher/plugin.cfg", "res://addons/PolyHavenImport/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/multimesh_scatter/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg", "res://addons/qodot/plugin.cfg", "res://addons/radial_menu/plugin.cfg", "res://addons/virtualcamera/plugin.cfg" )
+enabled=PoolStringArray(  )
 
 [gdunit3]
 
