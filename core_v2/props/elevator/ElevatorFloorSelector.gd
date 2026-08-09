@@ -53,6 +53,10 @@ export(float) var close_distance := 5.0
 # How far off screen the projection may drift and still count as being looked at,
 # as a fraction of the screen. Raise it to keep the dial live over a wider turn.
 export(float) var aim_margin := 0.45
+# Touch aims by broad screen area instead of making the rider turn the camera.
+# A drag only changes the highlighted floor; a short tap confirms on release.
+export(float) var touch_tap_max_duration := 0.35
+export(float) var touch_tap_max_distance := 24.0
 # Spring arm length forced while the rider is in the car, so the camera comes
 # inside with them instead of framing the cabin from outside the shaft. Whatever
 # length they had is handed back on the way out. 0 disables it.
@@ -76,6 +80,11 @@ var _current_floor := 0
 var _announced_floor := -1
 var _zoomed_player: Node = null
 var _restore_spring_length := -1.0
+var _touch_index := -1
+var _touch_start_time := 0
+var _touch_start_position := Vector2.ZERO
+var _touch_aim_active := false
+var _ignore_emulated_mouse_until := 0
 
 
 func _ready() -> void:
@@ -225,6 +234,10 @@ func _track_aim() -> void:
 	"""Point the dial wherever the camera is looking, or at nothing."""
 	if _selector == null:
 		return
+	# On touch, keep the last broad screen direction. Requiring camera rotation as
+	# well as a finger gesture made the same menu needlessly hard to operate.
+	if _touch_aim_active:
+		return
 	var aim := _aim_in_viewport()
 	if aim == NO_AIM:
 		_selector.clear_pointer()
@@ -282,6 +295,8 @@ func _aim_in_viewport() -> Vector2:
 
 
 func _any_confirm_held() -> bool:
+	if _touch_index >= 0:
+		return true
 	if Input.is_mouse_button_pressed(BUTTON_LEFT):
 		return true
 	for action in ARMING_ACTIONS:
@@ -293,6 +308,17 @@ func _any_confirm_held() -> bool:
 func _input(event: InputEvent) -> void:
 	if not _is_open or _selector == null:
 		return
+	if event is InputEventScreenTouch:
+		_handle_screen_touch(event)
+		get_tree().set_input_as_handled()
+		return
+	if event is InputEventScreenDrag and event.index == _touch_index:
+		_touch_aim_active = true
+		_point_at_screen_position(event.position)
+		get_tree().set_input_as_handled()
+		return
+	if event is InputEventMouseMotion and event.relative.length_squared() > 0.1:
+		_touch_aim_active = false
 
 	if event.is_action_pressed("ui_cancel"):
 		_selector.cancel()
@@ -301,6 +327,9 @@ func _input(event: InputEvent) -> void:
 
 	if _confirm_armed:
 		if event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed:
+			if OS.get_ticks_msec() < _ignore_emulated_mouse_until:
+				get_tree().set_input_as_handled()
+				return
 			_selector.confirm()
 			get_tree().set_input_as_handled()
 			return
@@ -313,6 +342,42 @@ func _input(event: InputEvent) -> void:
 	# Look events are deliberately not touched here. The camera keeps turning on
 	# its own and _track_aim() reads where it ends up, so the dial follows the aim
 	# instead of a cursor, and a press with the aim off the dial does nothing.
+
+
+func _handle_screen_touch(event: InputEventScreenTouch) -> void:
+	# Godot also emits a left mouse click for this touch. Ignore that duplicate;
+	# touch confirmation has release and movement semantics of its own.
+	_ignore_emulated_mouse_until = OS.get_ticks_msec() + 500
+	if event.pressed:
+		if not _confirm_armed or _touch_index >= 0:
+			return
+		_touch_index = event.index
+		_touch_start_time = OS.get_ticks_msec()
+		_touch_start_position = event.position
+		_touch_aim_active = true
+		_point_at_screen_position(event.position)
+		return
+	if event.index != _touch_index:
+		return
+	_point_at_screen_position(event.position)
+	var duration: float = (OS.get_ticks_msec() - _touch_start_time) / 1000.0
+	var distance: float = event.position.distance_to(_touch_start_position)
+	_touch_index = -1
+	if duration <= touch_tap_max_duration and distance <= touch_tap_max_distance:
+		_selector.confirm()
+
+
+func _point_at_screen_position(screen_position: Vector2) -> void:
+	var scene_viewport := get_viewport()
+	if scene_viewport == null or _viewport == null:
+		return
+	var view_size: Vector2 = scene_viewport.size
+	if view_size.x <= 0.0 or view_size.y <= 0.0:
+		return
+	# Only the direction from screen centre matters to RadialSelectorV2, so the
+	# whole display becomes a forgiving set of sectors instead of a tiny target.
+	var normalized := screen_position / view_size
+	_selector.point_at(Vector2(normalized.x * _viewport.size.x, normalized.y * _viewport.size.y))
 
 
 # --- Elevator wiring ---

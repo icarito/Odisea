@@ -57,6 +57,11 @@ func _on_update_button_pressed():
 		vn.reopen_update_dialog()
 
 func _setup_options():
+	# Touch is also emulated as mouse input. Without an exclusive popup, the
+	# release can fall through the dropdown and press the setting underneath it.
+	for option in [fullscreen_option, resolution_option, render_scale_option, vsync_option]:
+		option.get_popup().set_exclusive(true)
+
 	fullscreen_option.clear()
 	fullscreen_option.add_item("Ventana")
 	fullscreen_option.add_item("Pantalla Completa")
