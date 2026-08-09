@@ -16,7 +16,7 @@ var fullscreen = true
 # values give the retro/CRT look and cost much less to render, independent of
 # window size or fullscreen.
 var render_resolution = Vector2(800, 600)
-var render_scale: float = 0.75 if OS.get_name() == "Android" else 1.0
+var render_scale: float = 1.0
 var vsync = true
 var telemetry_enabled: bool = true
 
@@ -39,7 +39,7 @@ func load_settings():
 
 	fullscreen = _config.get_value("display", "fullscreen", true)
 	render_resolution = _config.get_value("display", "render_resolution", Vector2(800, 600))
-	var default_render_scale: float = 0.75 if OS.get_name() == "Android" else 1.0
+	var default_render_scale: float = 1.0
 	render_scale = float(_config.get_value(
 		"display",
 		"render_scale",
