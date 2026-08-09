@@ -221,6 +221,7 @@ func _update_ice_fog() -> void:
 # --- DEBUG ---
 
 const DEBUG_SHADER_PATH := "res://core_v2/systems/ice/shaders/transparent_ice.shader"
+const MOBILE_DEBUG_SHADER_PATH := "res://core_v2/systems/ice/shaders/transparent_ice_mobile.shader"
 
 func _ensure_debug_nodes() -> void:
 	_debug_plane = get_node_or_null("IceSurface")
@@ -229,6 +230,19 @@ func _ensure_debug_nodes() -> void:
 	_debug_band = get_node_or_null("FrostCeiling")
 	if _debug_band == null:
 		_debug_band = _make_debug_plane("FrostCeiling", Color(0.55, 0.85, 1.0, 0.28), 0.35)
+	if OS.get_name() == "Android":
+		_apply_mobile_ice_shader(_debug_plane)
+		_apply_mobile_ice_shader(_debug_band)
+
+func _apply_mobile_ice_shader(instance: MeshInstance) -> void:
+	if instance == null or not (instance.material_override is ShaderMaterial):
+		return
+	var mobile_shader: Shader = load(MOBILE_DEBUG_SHADER_PATH)
+	if mobile_shader == null:
+		return
+	var material: ShaderMaterial = (instance.material_override as ShaderMaterial).duplicate()
+	material.shader = mobile_shader
+	instance.material_override = material
 
 # Ruido animado en vez de un disco de color plano: pensado para quedar SIEMPRE visible
 # (referencia fiel de ice_height/heat_ceiling) sin desentonar con el flipbook real.
