@@ -121,4 +121,61 @@ deploy-dashboard:
 		| ssh "$(DEPLOY_HOST)" sudo bash -s
 	@echo "==> Dashboard desplegado: https://odisea.educa.juegos/"
 
-.PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard
+# --- Android local debug build, signed with the real update key -----------
+# `--export-debug` alone signs with a throwaway debug keystore (Godot's editor
+# default, or the project's android/debug.keystore — either way NOT the key
+# used to sign official builds). CI re-signs every published nightly with a
+# persistent key so nightlies can update each other in place (see
+# .github/workflows/export_all.yml, "Android Sign and Validate"). A
+# throwaway-signed local build is a DIFFERENT signer: Android refuses to
+# install it over an official nightly (or vice versa) without an uninstall,
+# and it can never apply a real OTA update either — the exact thing an
+# editor one-click "Deploy" silently breaks (it uninstalls+reinstalls with
+# its own throwaway key with no warning). This target re-signs the local
+# export with the same persistent key so it drops into the same install
+# lineage as official builds: no uninstall needed, and future real updates
+# would apply to it too.
+#
+# Needs the signing secrets locally, OUTSIDE this repo (never commit them,
+# never point export_presets.cfg's tracked keystore/debug fields at them):
+#   $(ODISEA_SIGNING_DIR)/odisea-update.jks
+#   $(ODISEA_SIGNING_DIR)/github-secrets.txt with lines
+#     ANDROID_KEYSTORE_PASSWORD=... / ANDROID_KEY_ALIAS=... / ANDROID_KEY_PASSWORD=...
+# (whoever holds ANDROID_KEYSTORE_BASE64 from the GitHub secret can regenerate
+# this locally; see the comment in that file for the base64 command.)
+ODISEA_SIGNING_DIR ?= $(HOME)/.config/odisea-signing
+ANDROID_UPDATE_KEYSTORE ?= $(ODISEA_SIGNING_DIR)/odisea-update.jks
+ANDROID_SIGNING_SECRETS ?= $(ODISEA_SIGNING_DIR)/github-secrets.txt
+ANDROID_BUILD_TOOLS := $(shell find "$$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -n1)
+ANDROID_TEST_APK ?= build/android/odisea_localtest.apk
+ANDROID_TEST_VERSION_CODE ?= 900000
+ANDROID_PACKAGE ?= org.odisea.game
+
+android-debug-signed:
+	@[ -f "$(ANDROID_UPDATE_KEYSTORE)" ] || (echo "ERROR: no existe $(ANDROID_UPDATE_KEYSTORE) — hace falta la llave de firma real, no la generes de nuevo" && exit 1)
+	@[ -f "$(ANDROID_SIGNING_SECRETS)" ] || (echo "ERROR: falta $(ANDROID_SIGNING_SECRETS)" && exit 1)
+	@[ -n "$(ANDROID_BUILD_TOOLS)" ] || (echo "ERROR: no encontre build-tools bajo \$$ANDROID_HOME ($$ANDROID_HOME)" && exit 1)
+	@mkdir -p build/android
+	@set -e; \
+	cp export_presets.cfg /tmp/odisea_export_presets.cfg.bak; \
+	trap 'mv /tmp/odisea_export_presets.cfg.bak export_presets.cfg' EXIT; \
+	sed -i -E 's|^version/code = .*|version/code = $(ANDROID_TEST_VERSION_CODE)|' export_presets.cfg; \
+	sed -i -E 's|^version/name = .*|version/name = "0.0.0-localtest.$(ANDROID_TEST_VERSION_CODE)"|' export_presets.cfg; \
+	$(GODOT) --editor --quit --headless >/dev/null 2>&1 || true; \
+	$(GODOT) --no-window --export-debug "Android" "$(ANDROID_TEST_APK)" --headless; \
+	test -s "$(ANDROID_TEST_APK)" || (echo "ERROR: export no produjo $(ANDROID_TEST_APK)" && exit 1)
+	@set -e; \
+	eval "$$(grep -E '^[A-Z_][A-Z0-9_]*=' "$(ANDROID_SIGNING_SECRETS)")"; \
+	UNSIGNED="$(ANDROID_TEST_APK).unsigned"; ALIGNED="$(ANDROID_TEST_APK).aligned"; \
+	mv "$(ANDROID_TEST_APK)" "$$UNSIGNED"; \
+	"$(ANDROID_BUILD_TOOLS)/zipalign" -p -f 4 "$$UNSIGNED" "$$ALIGNED"; \
+	"$(ANDROID_BUILD_TOOLS)/apksigner" sign --ks "$(ANDROID_UPDATE_KEYSTORE)" --ks-key-alias "$$ANDROID_KEY_ALIAS" --ks-pass "pass:$$ANDROID_KEYSTORE_PASSWORD" --key-pass "pass:$$ANDROID_KEY_PASSWORD" --out "$(ANDROID_TEST_APK)" "$$ALIGNED"; \
+	rm -f "$$UNSIGNED" "$$ALIGNED"; \
+	"$(ANDROID_BUILD_TOOLS)/apksigner" verify "$(ANDROID_TEST_APK)"
+	@echo "OK: $(ANDROID_TEST_APK) firmado con la llave de produccion (misma identidad que los nightlies oficiales)."
+
+android-install: android-debug-signed
+	adb install -r "$(ANDROID_TEST_APK)"
+	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
+
+.PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install
