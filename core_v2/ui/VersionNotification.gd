@@ -23,7 +23,15 @@ func _ready():
 	modal_dim.hide()
 	download_progress.hide()
 
-	if OS.is_debug_build() or Engine.editor_hint:
+	# NOTA: no filtrar por OS.is_debug_build() aquí. Todo build de Android se exporta
+	# con --export-debug (ver .github/workflows/export_all.yml, único canal hoy:
+	# nightly) y es_debug_build() es true en ese APK real que corre en el dispositivo
+	# del jugador. Con ese guard, este popup nunca se conectaba a UpdateManager en
+	# NINGÚN build de Android — el aviso de actualización estaba muerto en esa
+	# plataforma. UpdateManager._is_source_checkout() ya distingue correctamente
+	# "corriendo desde el editor/checkout" de "build empaquetado"; alcanza con
+	# Engine.editor_hint acá para no molestar dentro del editor.
+	if Engine.editor_hint:
 		return
 
 	UpdateManager.connect("update_available", self, "_on_update_available")
