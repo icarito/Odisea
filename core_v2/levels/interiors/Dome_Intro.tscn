@@ -763,6 +763,7 @@ directional_shadow_mode = 0
 directional_shadow_max_distance = 45.0
 
 [node name="FillLight" type="DirectionalLight" parent="Lighting"]
+visible = false
 transform = Transform( -0.866025, 0.25, -0.433013, 0, 0.866025, 0.5, 0.5, 0.433013, -0.75, 0, 24, 0 )
 light_color = Color( 0.42, 0.52, 0.72, 1 )
 light_energy = 0.14
@@ -777,6 +778,7 @@ light_energy = 2.05
 omni_range = 9.0
 
 [node name="TowerLight_2" type="OmniLight" parent="Lighting/TowerLights"]
+visible = false
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12.1, 0 )
 light_color = Color( 1, 0.84, 0.64, 1 )
 light_energy = 1.95
@@ -789,6 +791,7 @@ light_energy = 1.85
 omni_range = 9.0
 
 [node name="TowerLight_4" type="OmniLight" parent="Lighting/TowerLights"]
+visible = false
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 21.1, 0 )
 light_color = Color( 0.9, 0.9, 0.98, 1 )
 light_energy = 1.65

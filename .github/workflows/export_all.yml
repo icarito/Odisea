@@ -740,18 +740,20 @@ jobs:
       # así cada plataforma reusa su propio .import sin cruzarse con otra (linux=S3TC,
       # android=ETC2, ...). En el primer run de cada plataforma es MISS y el import
       # genera; a partir de ahí, cache hit -> import casi instantáneo.
-      # Hash de project.godot ESTABLE para la key del cache .import: excluye
-      # config/version (lo estampa "Inject build metadata" con build-num+sha+fecha,
-      # distinto cada run -> invalidaba el cache y Godot re-importaba TODAS las
-      # texturas ~93s). Las texturas solo dependen de [rendering] vram_compression,
-      # no de la versión. La key también incluye los FUENTES importables: el contenido
+      # Hash ESTABLE para la key del cache .import: incluye solamente los formatos
+      # VRAM que cambian los artefactos por plataforma. Cambios de gameplay, input,
+      # MSAA o vertex lighting no deben invalidar todas las texturas. La key también
+      # incluye los FUENTES importables: el contenido
       # de un .import no cambia cuando cambia su PNG/JPG/GLTF, y Actions no actualiza
       # un cache que ya existe bajo la misma key. Sin este hash, cada run restauraba
       # para siempre el artefacto viejo y Godot repetía esos imports.
       - name: Stable project hash for import cache
         id: pghash
         run: |
-          H=$(grep -vE '^(application/)?config/version=' project.godot | sha256sum | cut -d' ' -f1)
+          H=$({
+            echo "godot=3.6.2"
+            grep -E '^vram_compression/import_(bptc|etc|etc2|pvrtc)=' project.godot | sort
+          } | sha256sum | cut -d' ' -f1)
           echo "hash=$H" >> "$GITHUB_OUTPUT"
 
       - name: Cache .import (per platform)

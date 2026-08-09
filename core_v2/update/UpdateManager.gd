@@ -25,6 +25,7 @@ const STATE_FILE = UPDATE_DIR + "state.json"
 const PENDING_BOOT_FILE = UPDATE_DIR + "pending_boot.json"
 const CONFIRMED_BOOT_FILE = UPDATE_DIR + "confirmed_boot.json"
 const INSTALL_ID_FILE = UPDATE_DIR + "installation_id"
+const DOWNLOAD_TIMEOUT_SECONDS := 20
 
 const Utils = preload("res://core_v2/update/UpdateUtils.gd")
 
@@ -608,6 +609,7 @@ func _start_download(artifact: Dictionary):
 	# es estable (probado: baja los 12 chunks sin colgarse).
 	if not is_instance_valid(_http_download):
 		_http_download = HTTPRequest.new()
+		_http_download.timeout = DOWNLOAD_TIMEOUT_SECONDS
 		add_child(_http_download)
 		_http_download.connect("request_completed", self, "_on_chunk_completed")
 	_download_next_chunk()
@@ -632,6 +634,7 @@ func _download_next_chunk():
 	var chunk = chunks[next_chunk_idx]
 	if not is_instance_valid(_http_download):
 		_http_download = HTTPRequest.new()
+		_http_download.timeout = DOWNLOAD_TIMEOUT_SECONDS
 		add_child(_http_download)
 		_http_download.connect("request_completed", self, "_on_chunk_completed")
 
