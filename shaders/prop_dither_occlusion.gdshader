@@ -42,6 +42,7 @@ uniform float edge_fade : hint_range(0.1, 3.0) = 1.0;
 uniform float transparency_min : hint_range(0.0, 1.0) = 0.3;
 uniform float transparency_max : hint_range(0.0, 1.0) = 0.95;
 uniform float floor_protect_radius : hint_range(0.5, 5.0) = 1.0;
+uniform bool stable_mobile_dither = false;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -59,6 +60,17 @@ void vertex() {
 // Interleaved gradient noise — smooth, no tiling, cheap (no sin/hash)
 float ign(vec2 p) {
 	return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
+}
+
+// A fixed 4x4 Bayer matrix avoids the diagonal precision bands produced by
+// the IGN hash at large FRAGCOORD values on GLES2/mediump Android drivers.
+float bayer4(vec2 p) {
+	float x = mod(floor(p.x), 4.0);
+	float y = mod(floor(p.y), 4.0);
+	if (y < 1.0) return (x < 1.0 ? 0.0 : (x < 2.0 ? 8.0 : (x < 3.0 ? 2.0 : 10.0))) / 16.0;
+	if (y < 2.0) return (x < 1.0 ? 12.0 : (x < 2.0 ? 4.0 : (x < 3.0 ? 14.0 : 6.0))) / 16.0;
+	if (y < 3.0) return (x < 1.0 ? 3.0 : (x < 2.0 ? 11.0 : (x < 3.0 ? 1.0 : 9.0))) / 16.0;
+	return (x < 1.0 ? 15.0 : (x < 2.0 ? 7.0 : (x < 3.0 ? 13.0 : 5.0))) / 16.0;
 }
 
 void fragment() {
@@ -86,7 +98,8 @@ void fragment() {
 					float depth_in_cone = 1.0 - (dist_radial / cylinder_radius);
 					float transparency = mix(transparency_min, transparency_max, depth_in_cone);
 					// IGN: smooth gradient noise, no tiling, no sin(), cheaper than Bayer+hash
-					if (ign(FRAGCOORD.xy) < transparency) {
+					float threshold = stable_mobile_dither ? bayer4(FRAGCOORD.xy) : ign(FRAGCOORD.xy);
+					if (threshold < transparency) {
 						discard;
 					}
 				}

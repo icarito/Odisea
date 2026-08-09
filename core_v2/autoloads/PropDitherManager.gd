@@ -365,6 +365,7 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 	# Initial occlusion params
 	new_mat.set_shader_param("hole_radius", _hole_radius)
 	new_mat.set_shader_param("is_active", 1.0)
+	new_mat.set_shader_param("stable_mobile_dither", OS.get_name() == "Android")
 	for key in _shader_params:
 		new_mat.set_shader_param(key, _shader_params[key])
 
