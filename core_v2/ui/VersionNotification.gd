@@ -260,7 +260,15 @@ func _on_update_ready(_info):
 func _on_update_failed(code, recoverable):
 	action_button.disabled = false
 	download_progress.hide()
-	if not recoverable:
+	# Antes, un error "recoverable" (p.ej. una descarga que agotó reintentos por mala
+	# red) no mostraba nada: la barra desaparecía, el botón volvía a habilitarse, y el
+	# jugador se quedaba mirando el mismo texto de "hay actualización" sin entender
+	# qué pasó — indistinguible de que siguiera colgado en 0%. Mostrar SIEMPRE algo,
+	# y dejar reintentar con el mismo botón.
+	if recoverable:
+		metadata_label.text = "No se pudo descargar (%s). Probá de nuevo." % code
+		metadata_label.visible = true
+	else:
 		label.text = "Error de actualización: %s" % code
 
 func _on_close_pressed():

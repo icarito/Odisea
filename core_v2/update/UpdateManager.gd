@@ -610,6 +610,14 @@ func _start_download(artifact: Dictionary):
 	if not is_instance_valid(_http_download):
 		_http_download = HTTPRequest.new()
 		_http_download.timeout = DOWNLOAD_TIMEOUT_SECONDS
+		# use_threads DEFAULTS TO FALSE: sin esto, todo el I/O (incluido el handshake
+		# TLS) corre síncrono en _process del hilo principal, compitiendo por CPU con
+		# el resto del juego. Confirmado en dispositivo (Redmi Note 9 Pro): la MISMA
+		# descarga que tarda 3s aislada ya tarda 7.6s con carga de CPU sintética
+		# moderada; en juego real (CPU Budget > 70% reportado justo al iniciar la
+		# descarga) la contención puede ser mucho peor y dejar la descarga sin avanzar
+		# de forma observable. Con threads, el I/O corre en su propio hilo del SO.
+		_http_download.use_threads = true
 		add_child(_http_download)
 		_http_download.connect("request_completed", self, "_on_chunk_completed")
 	_download_next_chunk()
@@ -635,6 +643,14 @@ func _download_next_chunk():
 	if not is_instance_valid(_http_download):
 		_http_download = HTTPRequest.new()
 		_http_download.timeout = DOWNLOAD_TIMEOUT_SECONDS
+		# use_threads DEFAULTS TO FALSE: sin esto, todo el I/O (incluido el handshake
+		# TLS) corre síncrono en _process del hilo principal, compitiendo por CPU con
+		# el resto del juego. Confirmado en dispositivo (Redmi Note 9 Pro): la MISMA
+		# descarga que tarda 3s aislada ya tarda 7.6s con carga de CPU sintética
+		# moderada; en juego real (CPU Budget > 70% reportado justo al iniciar la
+		# descarga) la contención puede ser mucho peor y dejar la descarga sin avanzar
+		# de forma observable. Con threads, el I/O corre en su propio hilo del SO.
+		_http_download.use_threads = true
 		add_child(_http_download)
 		_http_download.connect("request_completed", self, "_on_chunk_completed")
 
@@ -646,8 +662,32 @@ func _download_next_chunk():
 	var err = _http_download.request(_active_download["url"], headers)
 	if err != OK:
 		_handle_chunk_error("request_failed")
+		return
+	_watch_chunk_timeout()
+
+# Watchdog explícito en GDScript. HTTPRequest.timeout (seteado arriba) no cubre todos
+# los cuelgues observados en Android: un chunk detrás de la redirección GitHub ->
+# release-assets.githubusercontent.com puede quedar colgado sin que request_completed
+# se dispare NUNCA, aun con timeout seteado (confirmado en dispositivo real vía adb
+# logcat: >100s sin actividad, barra fija en 0%, sin error). Este watchdog cancela y
+# reintenta a mano por el mismo camino de _handle_chunk_error si el chunk no resolvió.
+var _chunk_watch_gen := 0
+func _watch_chunk_timeout() -> void:
+	_chunk_watch_gen += 1
+	var my_gen = _chunk_watch_gen
+	var wait_s = DOWNLOAD_TIMEOUT_SECONDS + 5.0
+	yield(get_tree().create_timer(wait_s), "timeout")
+	if my_gen != _chunk_watch_gen or _state != State.DOWNLOADING:
+		return  # ya resolvió (éxito o error) o la descarga se canceló/cambió de estado
+	print("[UpdateManager] Chunk request stalled (no response after ", wait_s, "s); cancelling and retrying.")
+	if is_instance_valid(_http_download):
+		_http_download.cancel_request()
+	_handle_chunk_error("chunk_stalled")
 
 func _on_chunk_completed(result, response_code, _headers, body):
+	# Invalida cualquier watchdog de _watch_chunk_timeout() pendiente para este chunk:
+	# ya llegó una respuesta real (éxito o error), no fue un cuelgue.
+	_chunk_watch_gen += 1
 	# Reusamos _http_download (no se libera por chunk). idx viene de un miembro porque
 	# el HTTPRequest persistente no puede llevar binds que cambian por request.
 	var idx = _downloading_chunk_idx
