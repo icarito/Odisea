@@ -57,10 +57,14 @@ export(float) var aim_margin := 0.45
 # A drag only changes the highlighted floor; a short tap confirms on release.
 export(float) var touch_tap_max_duration := 0.35
 export(float) var touch_tap_max_distance := 24.0
+# Ignore release jitter and tiny camera corrections when deriving radial intent.
+export(float) var touch_aim_min_drag_distance := 12.0
+# Vertical mouse travel needed to sweep from the bottom to the top floor.
+export(float, 40.0, 600.0) var mouse_full_arc_distance := 180.0
 # Spring arm length forced while the rider is in the car, so the camera comes
 # inside with them instead of framing the cabin from outside the shaft. Whatever
 # length they had is handed back on the way out. 0 disables it.
-export(float) var cabin_zoom_spring_length := 0.9
+export(float) var cabin_zoom_spring_length := 0.5
 # Volume that counts as "in the car", so the framing holds for the whole ride
 # rather than only while standing at the panel. The elevator owns it: the
 # passenger area would have been the obvious reuse, but it feeds
@@ -85,6 +89,8 @@ var _touch_start_time := 0
 var _touch_start_position := Vector2.ZERO
 var _touch_can_confirm := false
 var _touch_aim_active := false
+var _mouse_aim_active := false
+var _mouse_floor_progress := 0.0
 var _ignore_emulated_mouse_until := 0
 
 
@@ -173,6 +179,8 @@ func _begin_dial() -> void:
 	# to let go first.
 	_confirm_armed = false
 	_rebuild_options()
+	_mouse_aim_active = false
+	_mouse_floor_progress = float(_current_floor) / max(1.0, float(_resolve_labels().size() - 1))
 	# Opens with nothing selected on purpose: the rider has to aim at a stop.
 	_selector.open()
 	set_process_input(true)
@@ -198,6 +206,7 @@ func _process(_delta: float) -> void:
 	if not _confirm_armed and not _any_confirm_held():
 		_confirm_armed = true
 
+	_track_touch_movement_intent()
 	_track_aim()
 	_track_level()
 
@@ -237,13 +246,25 @@ func _track_aim() -> void:
 		return
 	# On touch, keep the last broad screen direction. Requiring camera rotation as
 	# well as a finger gesture made the same menu needlessly hard to operate.
-	if _touch_aim_active:
+	if _touch_aim_active or _mouse_aim_active:
 		return
 	var aim := _aim_in_viewport()
 	if aim == NO_AIM:
 		_selector.clear_pointer()
 	else:
 		_selector.point_at(aim)
+
+
+func _track_touch_movement_intent() -> void:
+	if not _is_touch_device() or _selector == null:
+		return
+	var direction := Vector2(
+		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
+		Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward"))
+	if direction.length_squared() <= 0.02:
+		return
+	_touch_aim_active = true
+	_point_at_screen_direction(direction)
 
 
 func _aim_in_viewport() -> Vector2:
@@ -315,12 +336,21 @@ func _input(event: InputEvent) -> void:
 		_handle_screen_touch(event)
 		return
 	if event is InputEventScreenDrag and event.index == _touch_index:
-		if event.relative.length_squared() > 0.1:
+		# Use the whole gesture, not its last delta. Android can report a short
+		# opposite "yank" as the finger lifts; it must not replace the intended
+		# direction established by the rest of the drag.
+		var gesture_direction: Vector2 = event.position - _touch_start_position
+		if gesture_direction.length() >= touch_aim_min_drag_distance:
 			_touch_aim_active = true
-			_point_at_screen_direction(event.relative)
+			_point_at_screen_direction(gesture_direction)
 		return
 	if event is InputEventMouseMotion and event.relative.length_squared() > 0.1:
 		_touch_aim_active = false
+		_mouse_aim_active = true
+		_mouse_floor_progress = clamp(
+			_mouse_floor_progress - event.relative.y / max(40.0, mouse_full_arc_distance),
+			0.0, 1.0)
+		_point_at_floor_progress(_mouse_floor_progress)
 
 	if event.is_action_pressed("ui_cancel"):
 		_selector.cancel()
@@ -329,7 +359,7 @@ func _input(event: InputEvent) -> void:
 
 	if _confirm_armed:
 		if event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed:
-			if OS.get_ticks_msec() < _ignore_emulated_mouse_until:
+			if _is_touch_device() or OS.get_ticks_msec() < _ignore_emulated_mouse_until:
 				get_tree().set_input_as_handled()
 				return
 			_selector.confirm()
@@ -363,7 +393,8 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 	var duration: float = (OS.get_ticks_msec() - _touch_start_time) / 1000.0
 	var distance: float = event.position.distance_to(_touch_start_position)
 	_touch_index = -1
-	if _touch_can_confirm and duration <= touch_tap_max_duration and distance <= touch_tap_max_distance:
+	var stayed_a_tap: bool = distance <= min(touch_tap_max_distance, touch_aim_min_drag_distance)
+	if _touch_can_confirm and duration <= touch_tap_max_duration and stayed_a_tap:
 		var direct_aim := _touch_in_viewport(event.position)
 		if direct_aim != NO_AIM and _selector.option_at(direct_aim) >= 0:
 			_selector.point_at(direct_aim)
@@ -378,6 +409,14 @@ func _point_at_screen_direction(direction: Vector2) -> void:
 	# far. Keep that last heading even as the camera continues rotating.
 	var radius: float = min(_viewport.size.x, _viewport.size.y) * 0.5
 	_selector.point_at(_viewport.size * 0.5 + direction.normalized() * radius)
+
+
+func _point_at_floor_progress(progress: float) -> void:
+	if _viewport == null:
+		return
+	var angle: float = PI * 0.5 - clamp(progress, 0.0, 1.0) * PI
+	var radius: float = min(_viewport.size.x, _viewport.size.y) * 0.5
+	_selector.point_at(_viewport.size * 0.5 + Vector2(cos(angle), sin(angle)) * radius)
 
 
 func _touch_in_viewport(screen_position: Vector2) -> Vector2:
@@ -413,6 +452,10 @@ func _is_over_touch_control(screen_position: Vector2) -> bool:
 			if node.get_global_rect().has_point(screen_position):
 				return true
 	return false
+
+
+func _is_touch_device() -> bool:
+	return OS.has_touchscreen_ui_hint() or OS.get_name() == "Android" or OS.get_name() == "iOS"
 
 
 # --- Elevator wiring ---

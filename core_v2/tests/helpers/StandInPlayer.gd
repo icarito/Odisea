@@ -9,3 +9,7 @@ var base_spring_length_3d := 5.5
 
 func _init() -> void:
 	add_to_group("player")
+
+
+func _update_platform_tracking(_delta: float) -> void:
+	pass

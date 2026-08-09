@@ -53,23 +53,6 @@ export(float) var wall_climb_height := 3.2
 export(float, 0.0, 1.0) var wall_emission_ratio := 0.32
 # Deriva lateral de la escarcha; combina dos ondas para evitar un movimiento mecánico.
 export(float) var organic_drift_strength := 0.28
-# Parches proyectados que dejan acumulación visible sobre paredes y objetos.
-export(bool) var surface_frost_enabled := true
-export(int, 8, 256) var surface_frost_pool_size := 192
-export(float) var surface_frost_per_second := 34.0
-export(float) var surface_frost_lifetime := 14.0
-export(float) var surface_frost_size := 0.32
-# Franja vertical sobre ice_height donde nacen los parches adheridos.
-export(float) var surface_frost_edge_band_height := 1.95
-# Radio interior real de la pared; es mayor que el radio visual de partículas del domo.
-export(float) var surface_frost_wall_radius := 31.0
-export(int, 6, 20) var surface_frost_branch_steps := 12
-export(float) var surface_frost_branch_spread := 0.018
-export(float) var surface_frost_wall_size_multiplier := 3.2
-export(float) var surface_frost_object_size_multiplier := 1.45
-# Microcristales emitidos sobre impactos para integrar los parches con la banda móvil.
-export(float, 0.0, 1.0) var surface_frost_particle_ratio := 0.55
-export(int, LAYERS_3D_PHYSICS) var surface_frost_collision_mask := 65
 # Solo hielo: color de la hielo más caliente (núcleo de una burbuja/lengua), casi blanco.
 export(Color) var hot_color := Color(0.82, 0.95, 1.0, 0.9)
 # Solo hielo: color de la hielo más fría (borde/costra), rojo oscuro casi apagado.
@@ -108,13 +91,6 @@ var _spawn_accumulator := 0.0
 var _emit_counter := 0
 var _wave_time := 0.0
 var _ice_light: OmniLight = null
-var _surface_patches: Array = []
-var _surface_patch_ages: Array = []
-var _surface_patch_cursor := 0
-var _surface_patch_counter := 0
-var _surface_patch_accumulator := 0.0
-
-const FROST_DECAL_SHADER := preload("res://core_v2/systems/ice/shaders/frost_decal.shader")
 
 func _ready() -> void:
 	if Engine.editor_hint:
@@ -130,7 +106,6 @@ func _ready() -> void:
 		_manager.anim_speed_base = frost_animation_speed
 		_manager.anim_speed_velocity_factor = 0.04
 		_ensure_ice_light()
-		_ensure_surface_frost_pool()
 	call_deferred("_connect_ice_level")
 
 func _ensure_ice_light() -> void:
@@ -173,12 +148,6 @@ func _on_ice_height_changed(height: float) -> void:
 func reset_visuals() -> void:
 	if is_instance_valid(_manager) and _manager.has_method("clear_all"):
 		_manager.clear_all()
-	for i in range(_surface_patches.size()):
-		var patch: MeshInstance = _surface_patches[i]
-		if is_instance_valid(patch):
-			patch.visible = false
-		_surface_patch_ages[i] = surface_frost_lifetime
-	_surface_patch_accumulator = 0.0
 	_spawn_accumulator = 0.0
 	if is_instance_valid(_ice_level):
 		_target_height = float(_ice_level.ice_height)
@@ -195,7 +164,6 @@ func _process(delta: float) -> void:
 
 	_display_height = lerp(_display_height, _target_height, clamp(delta * follow_lerp, 0.0, 1.0))
 	_wave_time += delta * wave_speed
-	_update_surface_frost(delta)
 
 	_spawn_accumulator += delta * max(particles_per_second, 0.0)
 	var to_spawn := int(_spawn_accumulator)
@@ -211,146 +179,6 @@ func _process(delta: float) -> void:
 
 	for _i in range(to_spawn):
 		_emit_frost(center_angle, half_arc)
-
-func _ensure_surface_frost_pool() -> void:
-	if not surface_frost_enabled or not _surface_patches.empty():
-		return
-	var shared_quad := QuadMesh.new()
-	shared_quad.size = Vector2.ONE
-	for i in range(max(surface_frost_pool_size, 8)):
-		var patch := MeshInstance.new()
-		patch.name = "SurfaceFrost_%02d" % i
-		patch.mesh = shared_quad
-		patch.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-		var material := ShaderMaterial.new()
-		material.shader = FROST_DECAL_SHADER
-		material.set_shader_param("pattern_seed", float(i) * 0.731)
-		patch.material_override = material
-		patch.visible = false
-		add_child(patch)
-		_surface_patches.append(patch)
-		_surface_patch_ages.append(surface_frost_lifetime)
-
-func _update_surface_frost(delta: float) -> void:
-	for i in range(_surface_patches.size()):
-		var patch: MeshInstance = _surface_patches[i]
-		if not patch.visible:
-			continue
-		_surface_patch_ages[i] = float(_surface_patch_ages[i]) + delta
-		var age_ratio: float = float(_surface_patch_ages[i]) / max(surface_frost_lifetime, 0.001)
-		var material := patch.material_override as ShaderMaterial
-		if material:
-			material.set_shader_param("ice_height_world", _display_height)
-			material.set_shader_param("opacity", 1.0 - smoothstep(0.82, 1.0, age_ratio))
-		if patch.global_transform.origin.y <= _display_height + 0.03 or age_ratio >= 1.0:
-			patch.visible = false
-	_surface_patch_accumulator += delta * max(surface_frost_per_second, 0.0)
-	while _surface_patch_accumulator >= 1.0:
-		_surface_patch_accumulator -= 1.0
-		_emit_surface_frost_patch()
-
-func _emit_surface_frost_patch() -> void:
-	if _surface_patches.empty() or get_world() == null:
-		return
-	_surface_patch_counter += 1
-	var r2 := _hashed_unit(_surface_patch_counter + 3253)
-	var r3 := _hashed_unit(_surface_patch_counter + 7919)
-	var r4 := _hashed_unit(_surface_patch_counter + 10427)
-	var wall_sample := (_surface_patch_counter % 5) < 3
-	var angle: float
-	var sample_y: float
-	if wall_sample:
-		# Una raíz conserva su ángulo durante varios pasos y serpentea al crecer. Las
-		# desviaciones alternas forman bifurcaciones similares a capilares congelados.
-		var steps: int = int(max(surface_frost_branch_steps, 2))
-		var tendril_id := int(_surface_patch_counter / steps)
-		var tendril_step := _surface_patch_counter % steps
-		var growth := float(tendril_step) / float(steps - 1)
-		var root_angle := fmod(float(tendril_id) * 2.39996323, TAU)
-		var curvature := (_hashed_unit(tendril_id + 2381) * 2.0 - 1.0) * surface_frost_branch_spread
-		var segment_noise := _hashed_unit(_surface_patch_counter + tendril_id * 31)
-		var branch_side := -1.0 if segment_noise < 0.5 else 1.0
-		var branch := branch_side * surface_frost_branch_spread * growth * (0.2 + r3 * 0.8)
-		var phase := _hashed_unit(tendril_id + 5521) * TAU
-		angle = root_angle + sin(growth * TAU + phase) * curvature + branch
-		var step_height := max(surface_frost_edge_band_height, 0.1) / float(steps - 1)
-		var height_jitter := (segment_noise - 0.5) * step_height * 0.7
-		sample_y = _display_height + 0.04 + growth * max(surface_frost_edge_band_height, 0.1) + height_jitter
-	else:
-		# Los objetos interiores conservan una distribución uniforme desde el perímetro.
-		angle = fmod(float(_surface_patch_counter) * 2.39996323, TAU)
-		sample_y = _display_height + (0.04 + r2 * 0.96) * max(surface_frost_edge_band_height, 0.1)
-	var radial := Vector3(cos(angle), 0.0, sin(angle))
-	var from: Vector3
-	var to: Vector3
-	if not wall_sample:
-		# Avanza desde afuera hacia dentro: encuentra primero los objetos más cercanos a
-		# la pared, de modo que la congelación invada el domo desde el perímetro.
-		from = radial * max(surface_frost_wall_radius - 0.8, 0.0) + Vector3.UP * sample_y
-		to = radial * 0.5 + Vector3.UP * sample_y
-	else:
-		# La mayor parte de los parches nace directamente sobre la pared del domo.
-		from = radial * max(surface_frost_wall_radius - 6.0, 0.0) + Vector3.UP * sample_y
-		to = radial * (surface_frost_wall_radius + 2.0) + Vector3.UP * sample_y
-	var hit: Dictionary = get_world().direct_space_state.intersect_ray(from, to, [], surface_frost_collision_mask, true, false)
-	# La cúpula visual no tiene colisión continua en esclusas y segmentos decorativos.
-	# Completar esos huecos sobre el cilindro interior mantiene la cobertura pareja.
-	if hit.empty() and wall_sample:
-		hit = {
-			"position": radial * surface_frost_wall_radius + Vector3.UP * sample_y,
-			"normal": -radial
-		}
-	if hit.empty():
-		return
-	var normal: Vector3 = Vector3(hit.get("normal", -radial)).normalized()
-	var tangent := Vector3.UP.cross(normal)
-	if tangent.length_squared() < 0.001:
-		tangent = Vector3.RIGHT
-	tangent = tangent.normalized()
-	var local_up := normal.cross(tangent).normalized()
-	var patch: MeshInstance = _surface_patches[_surface_patch_cursor]
-	_surface_patch_ages[_surface_patch_cursor] = 0.0
-	_surface_patch_cursor = (_surface_patch_cursor + 1) % _surface_patches.size()
-	var size_variation := surface_frost_size * (0.42 + r3 * 1.05)
-	if wall_sample:
-		size_variation *= surface_frost_wall_size_multiplier
-	else:
-		size_variation *= surface_frost_object_size_multiplier
-	var world_basis: Basis
-	if wall_sample:
-		# El shader dibuja el capilar dentro de una superficie amplia; pequeñas diferencias
-		# de escala e inclinación evitan la repetición visible entre segmentos.
-		var wall_tilt := (r4 * 2.0 - 1.0) * 0.16
-		var wall_x := (tangent * cos(wall_tilt) + local_up * sin(wall_tilt)).normalized()
-		var wall_y := normal.cross(wall_x).normalized()
-		world_basis = Basis(wall_x * size_variation * (0.78 + r2 * 0.38), wall_y * size_variation * (1.9 + r3 * 0.8), normal)
-	else:
-		var patch_angle := r4 * TAU
-		var patch_x := tangent * cos(patch_angle) + local_up * sin(patch_angle)
-		var patch_y := normal.cross(patch_x).normalized()
-		var aspect := 0.62 + r2 * 0.76
-		world_basis = Basis(patch_x * size_variation * aspect, patch_y * size_variation / aspect, normal)
-	patch.global_transform = Transform(world_basis, Vector3(hit["position"]) + normal * 0.025)
-	var material := patch.material_override as ShaderMaterial
-	if material:
-		material.set_shader_param("opacity", 1.0)
-		material.set_shader_param("ice_height_world", _display_height)
-		material.set_shader_param("tendril_mode", 1.0 if wall_sample else 0.0)
-	patch.visible = true
-	if r4 <= surface_frost_particle_ratio:
-		_emit_surface_crystal(Vector3(hit["position"]), normal, r2, r3)
-
-func _emit_surface_crystal(world_position: Vector3, normal: Vector3, size_seed: float, speed_seed: float) -> void:
-	if not is_instance_valid(_manager):
-		return
-	var local_position := _manager.to_local(world_position + normal * 0.06)
-	var local_normal := _manager.global_transform.basis.xform_inv(normal).normalized()
-	var velocity := local_normal * (0.025 + speed_seed * 0.055) + Vector3.UP * frost_rise_speed * 0.28
-	var lifetime := frost_lifetime * (1.15 + size_seed * 0.9)
-	var crystal_scale := frost_scale * (0.16 + size_seed * 0.13)
-	var index: int = _manager.emit_particle(local_position, velocity, lifetime, crystal_scale)
-	var crystal_color := cool_color.linear_interpolate(hot_color, 0.35 + speed_seed * 0.45)
-	_manager.set_particle_combustion(index, true, crystal_color)
 
 func _update_ice_light(center_angle: float) -> void:
 	if not is_instance_valid(_ice_light):

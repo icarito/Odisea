@@ -110,8 +110,45 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled;
 uniform vec4 fence_color : hint_color = vec4(0.35, 0.35, 0.35, 1.0);
 uniform vec2 tiling = vec2(10.0, 10.0);
 uniform float wire_thickness : hint_range(0.01, 0.5) = 0.08;
+uniform vec3 player_pos;
+uniform vec3 camera_pos;
+uniform float hole_radius = 0.5;
+uniform float is_active = 0.0;
+uniform float edge_fade = 1.0;
+uniform float transparency_min = 0.3;
+uniform float transparency_max = 0.95;
+uniform float floor_protect_radius = 1.0;
+uniform bool stable_mobile_dither = false;
+varying vec3 world_pos;
+
+void vertex() {
+    world_pos = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+float occlusion_noise(vec2 p) {
+    return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
+}
 
 void fragment() {
+    if (is_active > 0.5) {
+        vec3 cam_to_player = player_pos - camera_pos;
+        float dist_cam_player = length(cam_to_player);
+        vec3 direction = cam_to_player / max(dist_cam_player, 0.001);
+        float along = dot(world_pos - camera_pos, direction);
+        if (along > 0.1 && along < dist_cam_player) {
+            vec3 projection = camera_pos + direction * along;
+            float radial = distance(world_pos, projection);
+            float radius = hole_radius * edge_fade
+                * (1.0 - smoothstep(dist_cam_player - 1.5, dist_cam_player, along));
+            if (radial < radius && radius > 0.01) {
+                float depth = 1.0 - radial / radius;
+                float transparency = mix(transparency_min, transparency_max, depth);
+                if (occlusion_noise(FRAGCOORD.xy) < transparency) {
+                    discard;
+                }
+            }
+        }
+    }
     vec2 uv = UV * tiling;
     
     // Create chainlink diamond pattern

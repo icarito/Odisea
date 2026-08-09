@@ -1,4 +1,4 @@
-[gd_scene load_steps=126 format=2]
+[gd_scene load_steps=130 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
@@ -13,8 +13,13 @@
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=15]
 [ext_resource path="res://core_v2/systems/ice/IceLevel.gd" type="Script" id=16]
 [ext_resource path="res://core_v2/systems/ice/IceVisualBand.gd" type="Script" id=17]
+[ext_resource path="res://core_v2/systems/ice/IceObjectFreezer.gd" type="Script" id=99]
 [ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=18]
 [ext_resource path="res://core_v2/systems/ice/shaders/transparent_ice.shader" type="Shader" id=19]
+[ext_resource path="res://assets/textures/Ice/ice_0002_color_1k.jpg" type="Texture" id=101]
+[ext_resource path="res://assets/textures/Ice/ice_0002_normal_opengl_1k.png" type="Texture" id=102]
+[ext_resource path="res://assets/textures/Ice/ice_0002_roughness_1k.jpg" type="Texture" id=103]
+[ext_resource path="res://assets/textures/Ice/ice_0002_ao_1k.jpg" type="Texture" id=104]
 [ext_resource path="res://scenes/common/space_environment/Environment_DomeIntro.tres" type="Environment" id=20]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=21]
 [ext_resource path="res://core_v2/props/emitters/FrostEmitter.tscn" type="PackedScene" id=22]
@@ -611,16 +616,24 @@ ao_texture_channel = 2
 [sub_resource type="ShaderMaterial" id=252]
 render_priority = 1
 shader = ExtResource( 19 )
-shader_param/albedo = Color( 0.55, 0.85, 1, 0.62 )
-shader_param/deep_color = Color( 0.025, 0.16, 0.36, 1 )
+shader_param/albedo = Color( 1, 1, 1, 0.46 )
+shader_param/deep_color = Color( 0.36, 0.4, 0.45, 1 )
 shader_param/ice_scale = 0.32
 shader_param/parallax_depth = 0.28
 shader_param/refraction = 0.008
 shader_param/crack_strength = 0.44
-shader_param/opacity = 0.56
+shader_param/opacity = 0.42
 shader_param/freeze_progress = 0.32
 shader_param/layer_separation = 0.9
-shader_param/emission_boost = 2.6
+shader_param/emission_boost = 0.45
+shader_param/ice_texture = ExtResource( 101 )
+shader_param/ice_normal = ExtResource( 102 )
+shader_param/ice_roughness = ExtResource( 103 )
+shader_param/ice_ao = ExtResource( 104 )
+shader_param/texture_scale = 0.16
+shader_param/surface_radius = 29.7
+shader_param/direct_light_strength = 0.38
+shader_param/direct_specular_strength = 0.055
 
 [sub_resource type="PlaneMesh" id=253]
 size = Vector2( 60, 60 )
@@ -651,7 +664,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 4.7, 8 )
 script = ExtResource( 1 )
 spawn_id = "from_exterior_dome_intro"
 
-[node name="Terrace" type="StaticBody" parent="."]
+[node name="Terrace" type="StaticBody" parent="." groups=["ice_freezable"]]
 __meta__ = {
 "footstep_profile": ExtResource( 24 )
 }
@@ -668,7 +681,7 @@ shape = ExtResource( 4 )
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 24 )
 
-[node name="Airlock_North" parent="." instance=ExtResource( 2 )]
+[node name="Airlock_North" parent="." instance=ExtResource( 2 ) groups=["ice_freezable"]]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -0.4, 3.4, -32 )
 
 [node name="OuterDoor" parent="Airlock_North" index="10"]
@@ -691,7 +704,7 @@ target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_North")
 zone_dir = Vector3( 0, 0, 1 )
 
-[node name="Airlock_South" parent="." instance=ExtResource( 2 )]
+[node name="Airlock_South" parent="." instance=ExtResource( 2 ) groups=["ice_freezable"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 3.4, 32.3809 )
 
 [node name="OuterDoor" parent="Airlock_South" index="10"]
@@ -714,7 +727,7 @@ target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_South")
 zone_dir = Vector3( 0, 0, 1 )
 
-[node name="Airlock_East" parent="." instance=ExtResource( 2 )]
+[node name="Airlock_East" parent="." instance=ExtResource( 2 ) groups=["ice_freezable"]]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 32, 3.4, 0 )
 
 [node name="OuterDoor" parent="Airlock_East" index="10"]
@@ -737,7 +750,7 @@ target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_East")
 zone_dir = Vector3( 0, 0, 1 )
 
-[node name="Airlock_West" parent="." instance=ExtResource( 2 )]
+[node name="Airlock_West" parent="." instance=ExtResource( 2 ) groups=["ice_freezable"]]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -32, 3.4, 0 )
 
 [node name="OuterDoor" parent="Airlock_West" index="10"]
@@ -815,7 +828,7 @@ light_color = Color( 0.82, 0.88, 1, 1 )
 light_energy = 1.5
 omni_range = 9.0
 
-[node name="SpiralStairs" type="Spatial" parent="."]
+[node name="SpiralStairs" type="Spatial" parent="." groups=["ice_freezable"]]
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
 
 [node name="Sector_00" type="MeshInstance" parent="SpiralStairs"]
@@ -848,7 +861,7 @@ mesh = ExtResource( 83 )
 
 [node name="StaticBody" parent="SpiralStairs" instance=ExtResource( 36 )]
 
-[node name="HubSpokes" type="Spatial" parent="."]
+[node name="HubSpokes" type="Spatial" parent="." groups=["ice_freezable"]]
 
 [node name="Sector_00" type="MeshInstance" parent="HubSpokes"]
 layers = 64
@@ -868,7 +881,7 @@ mesh = ExtResource( 91 )
 
 [node name="StaticBody" parent="HubSpokes" instance=ExtResource( 34 )]
 
-[node name="ScaffoldHubTower" parent="." instance=ExtResource( 13 )]
+[node name="ScaffoldHubTower" parent="." instance=ExtResource( 13 ) groups=["ice_freezable"]]
 outer_radius = 13.0
 inner_radius = 6.0
 inner_opening_angles_deg = [ 0.0, 235.457, 289.344, 343.171, 36.902, 90.421 ]
@@ -1017,7 +1030,7 @@ transform = Transform( 0.0871558, 0, 0.996196, 0, 1, 0, -0.996196, 0, 0.0871558,
 floor_heights = [ 0.0, 4.6, 9.1, 13.6, 18.1, 22.6 ]
 shaft_fence_headroom = 4.5
 
-[node name="SpiralWalkways" type="Spatial" parent="."]
+[node name="SpiralWalkways" type="Spatial" parent="." groups=["ice_freezable"]]
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
 
 [node name="Sector_00" type="MeshInstance" parent="SpiralWalkways"]
@@ -1323,7 +1336,7 @@ material_override = SubResource( 307 )
 cast_shadow = 0
 multimesh = SubResource( 309 )
 
-[node name="Spatial" type="Spatial" parent="."]
+[node name="Spatial" type="Spatial" parent="." groups=["ice_freezable"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 
 [node name="Criopods1" type="Spatial" parent="Spatial"]
@@ -2491,6 +2504,9 @@ material/0 = SubResource( 221 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
 
+[node name="IceObjectFreezer" type="Node" parent="IceLevel"]
+script = ExtResource( 99 )
+
 [node name="IceCrackSound" type="AudioStreamPlayer3D" parent="IceLevel"]
 stream = ExtResource( 23 )
 unit_db = 12.0
@@ -2515,11 +2531,12 @@ script = ExtResource( 17 )
 ring_radius = 26.0
 particles_per_second = 16.0
 visible_arc_deg = 210.0
-frost_scale = 3.1
-frost_scale_variance = 0.25
-surface_frost_pool_size = 96
-surface_frost_per_second = 16.0
-surface_frost_particle_ratio = 0.32
+frost_lifetime = 0.68
+frost_scale = 3.4
+frost_scale_variance = 0.32
+wall_climb_height = 4.2
+wall_emission_ratio = 0.42
+ice_light_energy = 0.16
 hot_color = Color( 1, 1, 1, 0.48 )
 cool_color = Color( 0.82, 0.94, 1, 0.38 )
 
@@ -2541,12 +2558,12 @@ default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_02/tex
 [node name="FrostMistCrown" type="Spatial" parent="."]
 script = ExtResource( 17 )
 ring_radius = 26.0
-particles_per_second = 3.0
+particles_per_second = 5.0
 visible_arc_deg = 360.0
 line_noise = 1.2
 frost_rise_speed = 0.06
-frost_lifetime = 3.6
-frost_scale = 2.2
+frost_lifetime = 4.2
+frost_scale = 2.5
 is_smoke_crown = true
 smoke_height_offset = 1.8
 smoke_lateral_speed = 0.04
@@ -2558,7 +2575,7 @@ default_max_lifetime = 2.8
 default_base_scale = 3.4
 viscosity = 0.7
 buoyancy = -0.12
-default_color = Color( 0.98, 0.995, 1, 0.24 )
+default_color = Color( 0.98, 0.995, 1, 0.28 )
 collide_with_world = false
 flipbook_frames_per_second = 6.0
 use_dither = false

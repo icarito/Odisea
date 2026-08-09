@@ -54,6 +54,12 @@ export(float) var debug_plane_radius := 30.0
 # Altura recorrida necesaria para que el material pase de hielo húmedo a escarcha opaca.
 export(float, 0.0, 1.0) var initial_freeze_progress := 0.32
 export(float) var visual_freeze_height := 10.0
+# Cada tramo recorrido elige otro origen de textura. Se deriva de ice_height, por lo que
+# checkpoint y replay reconstruyen exactamente la misma variante sin guardar otro estado.
+export(float) var uv_variant_height := 2.5
+# La niebla ambiental del domo permanece activa, pero el hielo no arrastra una banda de
+# height-fog con su superficie: esa banda lavaba el plano y parecía iluminación propia.
+export(bool) var ice_height_fog_enabled := false
 # Imprime height/speed periódicamente por consola (calibración).
 export(bool) var debug_readout := false
 
@@ -65,6 +71,7 @@ var is_running := false
 # opaca). Se expone porque el valor no se puede leer de vuelta del ShaderMaterial en
 # headless: con el rasterizer dummy get_shader_param() devuelve null.
 var visual_freeze_progress := 0.0
+var visual_uv_variant := Vector2.ZERO
 
 var _debug_plane: MeshInstance = null
 var _debug_band: MeshInstance = null
@@ -214,14 +221,19 @@ func _update_ice_collider() -> void:
 func _update_ice_fog() -> void:
 	if not is_instance_valid(_ice_environment):
 		return
-	_ice_environment.fog_height_enabled = true
+	_ice_environment.fog_height_enabled = ice_height_fog_enabled
+	if not ice_height_fog_enabled:
+		return
 	_ice_environment.fog_height_min = ice_height + 0.5
 	_ice_environment.fog_height_max = ice_height - 3.0
 
 # --- DEBUG ---
 
 const DEBUG_SHADER_PATH := "res://core_v2/systems/ice/shaders/transparent_ice.shader"
-const MOBILE_DEBUG_SHADER_PATH := "res://core_v2/systems/ice/shaders/transparent_ice_mobile.shader"
+const ICE_COLOR_TEXTURE := preload("res://assets/textures/Ice/ice_0002_color_1k.jpg")
+const ICE_NORMAL_TEXTURE := preload("res://assets/textures/Ice/ice_0002_normal_opengl_1k.png")
+const ICE_ROUGHNESS_TEXTURE := preload("res://assets/textures/Ice/ice_0002_roughness_1k.jpg")
+const ICE_AO_TEXTURE := preload("res://assets/textures/Ice/ice_0002_ao_1k.jpg")
 
 func _ensure_debug_nodes() -> void:
 	_debug_plane = get_node_or_null("IceSurface")
@@ -230,19 +242,18 @@ func _ensure_debug_nodes() -> void:
 	_debug_band = get_node_or_null("FrostCeiling")
 	if _debug_band == null:
 		_debug_band = _make_debug_plane("FrostCeiling", Color(0.55, 0.85, 1.0, 0.28), 0.35)
-	if OS.get_name() == "Android":
-		_apply_mobile_ice_shader(_debug_plane)
-		_apply_mobile_ice_shader(_debug_band)
+	_apply_ice_textures(_debug_plane)
+	_apply_ice_textures(_debug_band)
 
-func _apply_mobile_ice_shader(instance: MeshInstance) -> void:
+func _apply_ice_textures(instance: MeshInstance) -> void:
 	if instance == null or not (instance.material_override is ShaderMaterial):
 		return
-	var mobile_shader: Shader = load(MOBILE_DEBUG_SHADER_PATH)
-	if mobile_shader == null:
-		return
-	var material: ShaderMaterial = (instance.material_override as ShaderMaterial).duplicate()
-	material.shader = mobile_shader
-	instance.material_override = material
+	var material: ShaderMaterial = instance.material_override
+	material.set_shader_param("ice_texture", ICE_COLOR_TEXTURE)
+	material.set_shader_param("ice_normal", ICE_NORMAL_TEXTURE)
+	material.set_shader_param("ice_roughness", ICE_ROUGHNESS_TEXTURE)
+	material.set_shader_param("ice_ao", ICE_AO_TEXTURE)
+	material.set_shader_param("surface_radius", max(debug_plane_radius - 0.3, 1.0))
 
 # Ruido animado en vez de un disco de color plano: pensado para quedar SIEMPRE visible
 # (referencia fiel de ice_height/heat_ceiling) sin desentonar con el flipbook real.
@@ -258,6 +269,11 @@ func _make_debug_plane(node_name: String, color: Color, density: float) -> MeshI
 		material.shader = shader
 		material.set_shader_param("albedo", color)
 		material.set_shader_param("opacity", density * 0.5)
+		material.set_shader_param("ice_texture", ICE_COLOR_TEXTURE)
+		material.set_shader_param("ice_normal", ICE_NORMAL_TEXTURE)
+		material.set_shader_param("ice_roughness", ICE_ROUGHNESS_TEXTURE)
+		material.set_shader_param("ice_ao", ICE_AO_TEXTURE)
+		material.set_shader_param("surface_radius", max(debug_plane_radius - 0.3, 1.0))
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	add_child(instance)
@@ -278,12 +294,20 @@ func _update_debug_visuals() -> void:
 			var material: Material = _debug_plane.material_override
 			if material is ShaderMaterial:
 				material.set_shader_param("freeze_progress", visual_freeze_progress)
+				visual_uv_variant = _uv_variant_for_height(ice_height)
+				material.set_shader_param("uv_offset", visual_uv_variant)
 	if is_instance_valid(_debug_band):
 		_debug_band.visible = debug_draw and draw_frost_ceiling
 		if debug_draw and draw_frost_ceiling:
 			var tb := _debug_band.transform
 			tb.origin = Vector3(0.0, to_local(Vector3(0.0, get_frost_ceiling(), 0.0)).y, 0.0)
 			_debug_band.transform = tb
+
+func _uv_variant_for_height(height: float) -> Vector2:
+	var interval: float = max(uv_variant_height, 0.001)
+	var band: int = int(floor((height - start_height) / interval))
+	var variant_hash: int = abs(band * 1103515245 + 12345)
+	return Vector2(float(variant_hash % 997) / 997.0, float((variant_hash / 997) % 991) / 991.0)
 
 # --- REPLAY ---
 

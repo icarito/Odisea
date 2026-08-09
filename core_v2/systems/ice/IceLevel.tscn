@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://core_v2/systems/ice/IceLevel.gd" type="Script" id=1]
 [ext_resource path="res://assets/sfx/voicebosch-ice-crackling-168594.mp3" type="AudioStream" id=2]
+[ext_resource path="res://core_v2/systems/ice/IceObjectFreezer.gd" type="Script" id=3]
 
 [node name="IceLevel" type="Spatial"]
 script = ExtResource( 1 )
@@ -23,3 +24,6 @@ stream = ExtResource( 2 )
 unit_db = 6.0
 unit_size = 12.0
 max_distance = 60.0
+
+[node name="IceObjectFreezer" type="Node" parent="."]
+script = ExtResource( 3 )

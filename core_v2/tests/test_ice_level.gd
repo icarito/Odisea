@@ -1,6 +1,7 @@
 extends GdUnitTestSuite
 
 const IceLevelScript = preload("res://core_v2/systems/ice/IceLevel.gd")
+const IceObjectFreezerScript = preload("res://core_v2/systems/ice/IceObjectFreezer.gd")
 const FrostVignetteScene = preload("res://core_v2/ui/overlay/FrostVignette.tscn")
 const STEP := 1.0 / 60.0
 
@@ -112,6 +113,29 @@ func test_ice_material_freezes_progressively_with_height() -> void:
 	assert_float(level.visual_freeze_progress).is_equal_approx(1.0, 0.001)
 	if _exposes_shader_param(material, "freeze_progress"):
 		assert_float(float(material.get_shader_param("freeze_progress"))).is_equal_approx(1.0, 0.001)
+
+func test_surface_uv_variant_is_deterministic_per_height_band() -> void:
+	var level = auto_free(IceLevelScript.new())
+	level.start_height = 0.0
+	level.uv_variant_height = 2.5
+	var first: Vector2 = level._uv_variant_for_height(1.0)
+	assert_vector2(level._uv_variant_for_height(2.49)).is_equal(first)
+	assert_vector2(level._uv_variant_for_height(2.5)).is_not_equal(first)
+	assert_vector2(level._uv_variant_for_height(1.0)).is_equal(first)
+
+func test_object_freezer_does_not_fill_cutout_or_procedural_surfaces() -> void:
+	var freezer = auto_free(IceObjectFreezerScript.new())
+	var cutout := SpatialMaterial.new()
+	cutout.flags_transparent = true
+	cutout.params_use_alpha_scissor = true
+	var procedural := ShaderMaterial.new()
+	procedural.shader = Shader.new()
+	procedural.shader.code = "shader_type spatial; void fragment() { discard; }"
+	var solid := SpatialMaterial.new()
+
+	assert_bool(freezer._can_wrap_material(cutout)).is_false()
+	assert_bool(freezer._can_wrap_material(procedural)).is_false()
+	assert_bool(freezer._can_wrap_material(solid)).is_true()
 
 # El binario headless de CI usa el rasterizer dummy: los ShaderMaterial no guardan
 # parámetros y get_shader_param() devuelve null (float(null) es error de script). Los

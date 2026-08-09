@@ -282,8 +282,17 @@ func _convert_multimesh_instance(inst: MultiMeshInstance) -> void:
 # is_active/...) and just needs registering so _process keeps feeding it. The generic
 # dither + parallax props, plus the duct maze hull.
 func _is_occlusion_shader(shader: Shader) -> bool:
-	return shader == _dither_shader or shader == _dither_shader_double_sided \
-		or shader == _parallax_shader or shader == _duct_hull_shader
+	if shader == null:
+		return false
+	if shader == _dither_shader or shader == _dither_shader_double_sided \
+		or shader == _parallax_shader or shader == _duct_hull_shader:
+		return true
+	# Procedural props such as MetalFence keep their authored shader, but expose
+	# the same uniform contract so this manager can feed the occlusion cone.
+	var code: String = shader.code
+	return code.find("uniform vec3 player_pos") >= 0 \
+		and code.find("uniform vec3 camera_pos") >= 0 \
+		and code.find("uniform float is_active") >= 0
 
 
 func _can_apply_occlusion_dither(mat: SpatialMaterial) -> bool:

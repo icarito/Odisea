@@ -411,6 +411,9 @@ func _on_player_killed():
 			target_transform = slot.get("transform", null)
 			target_yaw = slot.get("yaw", null)
 			target_pitch = slot.get("pitch", null)
+			var checkpoint_manager = get_node_or_null("/root/CheckpointManager")
+			if checkpoint_manager and checkpoint_manager.has_method("restore_elevator_state"):
+				checkpoint_manager.restore_elevator_state(slot.get("elevator_snapshot", {}))
 		else:
 			target_transform = slot
 		print("[TeleportSystem] Respawn usando último checkpoint registrado.")
@@ -571,7 +574,8 @@ func _on_checkpoint_reached(transform):
 			var checkpoint_data = {
 				"transform": transform,
 				"yaw": player_controller.get("yaw") if "yaw" in player_controller else 0.0,
-				"pitch": player_controller.get("pitch") if "pitch" in player_controller else 0.0
+				"pitch": player_controller.get("pitch") if "pitch" in player_controller else 0.0,
+				"elevator_snapshot": CheckpointManager.capture_elevator_state()
 			}
 			checkpoint_res.slots["last"] = checkpoint_data
 			checkpoint_res.property_list_changed_notify() # Forzar a Godot a marcar el recurso como modificado

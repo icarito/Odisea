@@ -18,12 +18,15 @@ var target_height: float = 0.0
 var current_velocity_y: float = 0.0
 var is_moving: bool = false
 var passengers := []
+var _carried_players := []
+var _carry_original_parents := {}
 onready var passenger_area: Area = get_node(passenger_area_path) if passenger_area_path else null
 var _pending_snapshot = null
 var _snapshot_applied := false
 
 func _init():
     add_to_group("replay_sync")
+    add_to_group("player_carrier")
 
 func _ready():
     if passenger_area:
@@ -39,6 +42,7 @@ func _ready():
         set_physics_process(is_moving)
 
 func move_to(height: float):
+    _grab_player_passengers()
     target_height = height
     is_moving = true
     set_physics_process(true) # Ensure process is running
@@ -61,6 +65,7 @@ func _physics_process(delta: float):
         global_transform.origin.y = target_height
         current_velocity_y = 0.0
         is_moving = false
+        _release_player_passengers()
         emit_signal("arrived_at_floor", target_height)
         emit_signal("stopped")
         _update_passengers(Vector3.ZERO)
@@ -104,10 +109,52 @@ func _update_passengers(velocity: Vector3):
 func _on_passenger_entered(body):
     if body and not passengers.has(body):
         passengers.append(body)
+    if is_moving:
+        _grab_player(body)
 
 func _on_passenger_exited(body):
     if body:
         passengers.erase(body)
+
+func _grab_player_passengers() -> void:
+    if passenger_area == null:
+        return
+    passenger_area.force_update_transform()
+    for body in passenger_area.get_overlapping_bodies():
+        _grab_player(body)
+
+func _grab_player(body: Node) -> void:
+    if body == null or not body.has_method("_update_platform_tracking") or _carried_players.has(body):
+        return
+    var spatial: Spatial = body as Spatial
+    if spatial == null:
+        return
+    var old_parent: Node = body.get_parent()
+    if old_parent == null or old_parent == self:
+        return
+    var world_transform: Transform = spatial.global_transform
+    _carry_original_parents[body.get_instance_id()] = old_parent
+    old_parent.remove_child(body)
+    add_child(body)
+    spatial.global_transform = world_transform
+    _carried_players.append(body)
+
+func _release_player_passengers() -> void:
+    for body in _carried_players.duplicate():
+        if not is_instance_valid(body):
+            continue
+        var destination: Node = _carry_original_parents.get(body.get_instance_id(), get_parent())
+        if not is_instance_valid(destination):
+            continue
+        var spatial: Spatial = body as Spatial
+        if spatial == null:
+            continue
+        var world_transform: Transform = spatial.global_transform
+        remove_child(body)
+        destination.add_child(body)
+        spatial.global_transform = world_transform
+    _carried_players.clear()
+    _carry_original_parents.clear()
 
 func get_snapshot() -> Dictionary:
     return {
@@ -146,3 +193,5 @@ func _apply_snapshot(data: Dictionary) -> void:
     is_moving = bool(data.get("is_moving", false))
     force_update_transform()
     set_physics_process(is_moving)
+    if is_moving:
+        call_deferred("_grab_player_passengers")

@@ -14,6 +14,23 @@ func test_elevator_platform_move_to_sets_target():
 	
 	platform.free()
 
+func test_elevator_carries_player_directly_only_while_moving() -> void:
+	var host := Spatial.new()
+	add_child(host)
+	var platform = preload("res://core_v2/components/ElevatorPlatform.gd").new()
+	host.add_child(platform)
+	var player := KinematicBody.new()
+	player.set_script(load("res://core_v2/tests/helpers/StandInPlayer.gd"))
+	host.add_child(player)
+
+	platform._grab_player(player)
+	assert_object(player.get_parent()).is_same(platform)
+	assert_bool(platform.is_in_group("player_carrier")).is_true()
+
+	platform._release_player_passengers()
+	assert_object(player.get_parent()).is_same(host)
+	host.free()
+
 func test_elevator_controller_request_queues_floor():
 	var controller = preload("res://core_v2/props/ElevatorController.gd").new()
 	controller.set_script(load("res://core_v2/props/ElevatorController.gd"))
@@ -116,6 +133,46 @@ func test_the_shaft_falls_into_the_occlusion_dither():
 		assert_bool(name in ["ButtonMesh", "ProjectorMesh"]) \
 			.override_failure_message("'%s' stays solid; whole list: %s" % [name, solid]) \
 			.is_true()
+
+
+func test_metal_fence_grid_shader_supports_prop_occlusion() -> void:
+	var elevator = auto_free(preload("res://core_v2/props/machinery/ElevatorProp.tscn").instance())
+	add_child(elevator)
+	for _i in range(4):
+		yield(await_idle_frame(), "completed")
+
+	var panels: Array = []
+	_collect_named_meshes(elevator.get_node("MetalFence"), "FencePanel", panels)
+	var checked := 0
+	for panel in panels:
+		var material = panel.material_override
+		assert_bool(material is ShaderMaterial).is_true()
+		assert_bool(PropDitherManager._is_occlusion_shader(material.shader)).is_true()
+		checked += 1
+	assert_int(checked).is_greater(0)
+
+	var doors: Array = []
+	_collect_nodes_by_name(elevator, ["ShaftFence", "FencePanel"], doors)
+	for mesh in doors:
+		var door_material = mesh.material_override
+		if door_material == null:
+			door_material = mesh.get_surface_material(0)
+		assert_bool(door_material is ShaderMaterial).is_true()
+		assert_bool(PropDitherManager._is_occlusion_shader(door_material.shader)).is_true()
+
+
+func _collect_named_meshes(node: Node, marker: String, out: Array) -> void:
+	if node is MeshInstance and node.name.find(marker) >= 0:
+		out.append(node)
+	for child in node.get_children():
+		_collect_named_meshes(child, marker, out)
+
+
+func _collect_nodes_by_name(node: Node, names: Array, out: Array) -> void:
+	if node is MeshInstance and node.name in names:
+		out.append(node)
+	for child in node.get_children():
+		_collect_nodes_by_name(child, names, out)
 
 
 func _collect_undithered(node: Node, out: Array) -> void:

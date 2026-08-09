@@ -5,6 +5,7 @@ extends "res://addons/gdUnit3/src/GdUnitTestSuite.gd"
 
 const CheckpointConsole = preload("res://core_v2/props/CheckpointConsole.gd")
 const DDCDroneV2 = preload("res://core_v2/actors/DDCDroneV2.gd")
+const ElevatorPlatform = preload("res://core_v2/components/ElevatorPlatform.gd")
 
 func test_checkpoint_registration_and_activation() -> void:
 	# Clean up autoload values first
@@ -48,6 +49,26 @@ func test_checkpoint_registration_and_activation() -> void:
 	assert_bool(console.is_active).is_false()
 
 	console.free()
+
+func test_checkpoint_restores_elevator_motion_state() -> void:
+	var platform = auto_free(ElevatorPlatform.new())
+	add_child(platform)
+	platform.global_transform.origin.y = 3.5
+	platform.target_height = 9.0
+	platform.current_velocity_y = 1.25
+	platform.is_moving = true
+
+	CheckpointManager.set_active_checkpoint(Vector3(1, 2, 3), 0.0, 0.0)
+	platform.global_transform.origin.y = 7.0
+	platform.target_height = 0.0
+	platform.current_velocity_y = -2.0
+	platform.is_moving = false
+
+	CheckpointManager.get_respawn_transform()
+	assert_float(platform.global_transform.origin.y).is_equal(3.5)
+	assert_float(platform.target_height).is_equal(9.0)
+	assert_float(platform.current_velocity_y).is_equal(1.25)
+	assert_bool(platform.is_moving).is_true()
 
 func test_capture_dialogue_selection() -> void:
 	# Low count captures (< 3)

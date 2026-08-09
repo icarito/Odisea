@@ -108,6 +108,15 @@ func test_manual_panel_closes_after_a_pick() -> void:
 	assert_int(_elevator.target_floor).is_equal(1)
 
 
+func test_vertical_mouse_intent_sweeps_to_the_top_floor() -> void:
+	_selector.set_active(true)
+	yield(await_idle_frame(), "completed")
+	var motion := InputEventMouseMotion.new()
+	motion.relative = Vector2(30.0, -_selector.mouse_full_arc_distance)
+	_selector._input(motion)
+	assert_int(_dial.get_hovered_index()).is_equal(5)
+
+
 # --- Cabin zoom ---
 
 func _make_stand_in_player() -> KinematicBody:
