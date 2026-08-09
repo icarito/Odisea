@@ -1253,6 +1253,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 [node name="Criopods1" type="Spatial" parent="Spatial"]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0 )
 script = ExtResource( 6 )
+batch_static_meshes = true
 target_scene = ExtResource( 9 )
 item_count = 40
 radius = 8.0
@@ -1433,6 +1434,7 @@ material/0 = SubResource( 221 )
 [node name="Criopods2" type="Spatial" parent="Spatial"]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 4.5, 0 )
 script = ExtResource( 6 )
+batch_static_meshes = true
 target_scene = ExtResource( 9 )
 item_count = 40
 radius = 8.0
@@ -1629,6 +1631,7 @@ material/0 = SubResource( 221 )
 [node name="Criopods3" type="Spatial" parent="Spatial"]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 9, 0 )
 script = ExtResource( 6 )
+batch_static_meshes = true
 target_scene = ExtResource( 9 )
 item_count = 40
 radius = 8.0
@@ -1825,6 +1828,7 @@ material/0 = SubResource( 221 )
 [node name="Criopods4" type="Spatial" parent="Spatial"]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 13.5, 0 )
 script = ExtResource( 6 )
+batch_static_meshes = true
 target_scene = ExtResource( 9 )
 item_count = 40
 radius = 8.0
@@ -2021,6 +2025,7 @@ material/0 = SubResource( 221 )
 [node name="Criopods5" type="Spatial" parent="Spatial"]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 18, 0 )
 script = ExtResource( 6 )
+batch_static_meshes = true
 target_scene = ExtResource( 9 )
 item_count = 40
 radius = 8.0
@@ -2217,6 +2222,7 @@ material/0 = SubResource( 221 )
 [node name="Criopods6" type="Spatial" parent="Spatial"]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 22.5, 0 )
 script = ExtResource( 6 )
+batch_static_meshes = true
 target_scene = ExtResource( 9 )
 item_count = 40
 radius = 8.0

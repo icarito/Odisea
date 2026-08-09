@@ -61,6 +61,9 @@ export(bool) var auto_build := true setget set_auto_build
 # Regenerates scene-baked children at runtime. Keep disabled for normal baked
 # scatters; enable temporarily after changing generator parameters.
 export(bool) var rebuild_baked_items := false
+# Replaces repeated MeshInstance visuals with one MultiMeshInstance per mesh path.
+# Original nodes stay alive for collision and interaction; only their renderers hide.
+export(bool) var batch_static_meshes := false
 
 var _build_queued := false
 # Deferred incremental build state. In game (not editor) the scatter registers in
@@ -88,6 +91,8 @@ func _ready() -> void:
 			_queue_build()
 		return
 	if get_child_count() != 0 and not rebuild_baked_items:
+		if batch_static_meshes:
+			call_deferred("_batch_static_meshes")
 		return  # items already baked into the scene; nothing to build
 	if rebuild_baked_items:
 		build()
@@ -278,6 +283,8 @@ func build() -> void:
 		_build_from_fixed_slots(scene_owner, center_global, rng)
 
 	# Phase 2: batch generated instances into a MultiMeshInstance to reduce draw calls.
+	if batch_static_meshes:
+		_batch_static_meshes()
 
 # --- Deferred incremental build API (driven by SceneManager) ---
 
@@ -317,6 +324,61 @@ func deferred_build_step() -> void:
 		placed += 1
 	if _defer_index >= item_count:
 		_defer_active = false
+		if batch_static_meshes:
+			_batch_static_meshes()
+
+func _batch_static_meshes() -> void:
+	var items := []
+	for child in get_children():
+		if child is Spatial and not child.name.begins_with("Batched_"):
+			items.append(child)
+	if items.empty():
+		return
+
+	var source_meshes := []
+	_collect_mesh_instances(items[0], source_meshes)
+	for source in source_meshes:
+		if source.mesh == null:
+			continue
+		var relative_path: NodePath = items[0].get_path_to(source)
+		var instances := []
+		for item in items:
+			var mesh_instance: MeshInstance = item.get_node_or_null(relative_path) as MeshInstance
+			if mesh_instance != null and mesh_instance.mesh == source.mesh:
+				instances.append(mesh_instance)
+		if instances.empty():
+			continue
+
+		var batch_mesh: Mesh = source.mesh.duplicate()
+		for surface_index in range(batch_mesh.get_surface_count()):
+			var surface_material: Material = source.get_surface_material(surface_index)
+			if surface_material != null:
+				batch_mesh.surface_set_material(surface_index, surface_material)
+
+		var multimesh := MultiMesh.new()
+		multimesh.transform_format = MultiMesh.TRANSFORM_3D
+		multimesh.mesh = batch_mesh
+		multimesh.instance_count = instances.size()
+		var to_local: Transform = global_transform.affine_inverse()
+		for index in range(instances.size()):
+			var mesh_instance: MeshInstance = instances[index]
+			multimesh.set_instance_transform(index, to_local * mesh_instance.global_transform)
+			mesh_instance.visible = false
+
+		var batch := MultiMeshInstance.new()
+		batch.name = "Batched_%s" % source.name
+		batch.multimesh = multimesh
+		batch.layers = source.layers
+		batch.cast_shadow = source.cast_shadow
+		batch.material_override = source.material_override
+		batch.extra_cull_margin = source.extra_cull_margin
+		add_child(batch)
+
+func _collect_mesh_instances(node: Node, result: Array) -> void:
+	if node is MeshInstance:
+		result.append(node)
+	for child in node.get_children():
+		_collect_mesh_instances(child, result)
 
 func _build_from_fixed_slots(scene_owner: Node, center_global: Vector3, rng: RandomNumberGenerator) -> void:
 	for i in range(item_count):
