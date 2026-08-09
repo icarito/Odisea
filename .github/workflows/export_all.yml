@@ -759,12 +759,20 @@ jobs:
       - name: Cache .import (per platform)
         uses: actions/cache@v6
         with:
+          # Godot reescribe también estos sidecars con imported_formats por plataforma.
+          # Restaurar solo .import/ mezcla binarios ETC con manifests S3TC del checkout
+          # y fuerza una reimportación completa aunque la caché haya sido un hit exacto.
           path: |
             .import/
-          key: ${{ runner.os }}-import-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-${{ hashFiles('**/*.import', '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.tga', '**/*.svg', '**/*.gltf', '**/*.glb', '**/*.dae', '**/*.obj', '**/*.mtl', '**/*.ogg', '**/*.mp3', '**/*.wav', '**/*.ttf', '**/*.otf') }}
+            **/*.png.import
+            **/*.jpg.import
+            **/*.jpeg.import
+            **/*.tga.import
+            **/*.svg.import
+          key: ${{ runner.os }}-import-v2-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-${{ hashFiles('**/*.import', '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.tga', '**/*.svg', '**/*.gltf', '**/*.glb', '**/*.dae', '**/*.obj', '**/*.mtl', '**/*.ogg', '**/*.mp3', '**/*.wav', '**/*.ttf', '**/*.otf') }}
           restore-keys: |
-            ${{ runner.os }}-import-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-
-            ${{ runner.os }}-import-${{ matrix.platform }}-
+            ${{ runner.os }}-import-v2-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-
+            ${{ runner.os }}-import-v2-${{ matrix.platform }}-
 
       # Compila la lib GDNative de bspatch (delta binario del update) para la plataforma
       # actual ANTES del export: el exporter de Godot copia la .so/.dll junto al binario
