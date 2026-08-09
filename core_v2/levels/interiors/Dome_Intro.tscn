@@ -524,12 +524,10 @@ flags_do_not_receive_shadows = true
 vertex_color_use_as_albedo = true
 params_blend_mode = 1
 params_cull_mode = 2
-params_billboard_mode = 1
-params_billboard_keep_scale = true
 albedo_texture = SubResource( 301 )
 
-[sub_resource type="QuadMesh" id=303]
-size = Vector2( 7, 7 )
+[sub_resource type="PlaneMesh" id=303]
+size = Vector2( 2.8, 2.8 )
 
 [sub_resource type="MultiMesh" id=304]
 color_format = 1
@@ -561,12 +559,10 @@ flags_do_not_receive_shadows = true
 vertex_color_use_as_albedo = true
 params_blend_mode = 1
 params_cull_mode = 2
-params_billboard_mode = 1
-params_billboard_keep_scale = true
 albedo_texture = SubResource( 306 )
 
-[sub_resource type="QuadMesh" id=308]
-size = Vector2( 2.6, 2.6 )
+[sub_resource type="PlaneMesh" id=308]
+size = Vector2( 1.3, 1.3 )
 
 [sub_resource type="MultiMesh" id=309]
 color_format = 1
@@ -662,6 +658,7 @@ __meta__ = {
 
 [node name="TerraceMesh" type="MeshInstance" parent="Terrace"]
 use_in_baked_light = true
+layers = 64
 mesh = ExtResource( 3 )
 
 [node name="WorldCollision" type="CollisionShape" parent="Terrace"]
@@ -1256,10 +1253,11 @@ snap_to_surface = false
 light_pool_size = 1
 light_range = 16.0
 light_energy = 1.8
+light_cull_mask = 1048511
 light_follow_radius = 90.0
 spacing = 0.0
 marker_size = 2.8
-marker_billboard = true
+marker_billboard = false
 lit_color = Color( 1, 0.97, 0.88, 1 )
 dim_color = Color( 1, 0.97, 0.88, 1 )
 always_lit = true
@@ -1278,7 +1276,7 @@ script = ExtResource( 28 )
 snap_to_surface = false
 spacing = 0.0
 marker_size = 1.3
-marker_billboard = true
+marker_billboard = false
 lit_color = Color( 0.78, 0.9, 1, 1 )
 dim_color = Color( 0.78, 0.9, 1, 1 )
 always_lit = true

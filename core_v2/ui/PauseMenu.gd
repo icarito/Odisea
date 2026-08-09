@@ -54,7 +54,10 @@ func _on_main_menu_pressed():
 	get_tree().change_scene("res://scenes/Menu.tscn")
 
 func _on_quit_pressed():
-	get_tree().quit()
+	if OS.get_name() == "HTML5":
+		JavaScript.eval("window.close();", true)
+	else:
+		get_tree().quit()
 
 func on_show():
 	# on_show() can run before _ready() (e.g. PauseManager opens the menu in the same

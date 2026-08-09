@@ -84,7 +84,10 @@ func _on_Options_pressed():
 	options_menu.on_show()
 
 func _on_Quit_pressed():
-	get_tree().quit()
+	if OS.get_name() == "HTML5":
+		JavaScript.eval("window.close();", true)
+	else:
+		get_tree().quit()
 
 func _start_game(scene_path):
 	# Avoid double-triggering if a button is pressed twice during the fade.
