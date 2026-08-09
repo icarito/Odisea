@@ -1,7 +1,6 @@
 extends Node
 
 const SETTINGS_PATH = "user://settings.cfg"
-const ANDROID_RENDER_SCALE := 0.75
 
 var _config = ConfigFile.new()
 
@@ -17,6 +16,7 @@ var fullscreen = true
 # values give the retro/CRT look and cost much less to render, independent of
 # window size or fullscreen.
 var render_resolution = Vector2(800, 600)
+var render_scale: float = 0.75 if OS.get_name() == "Android" else 1.0
 var vsync = true
 var telemetry_enabled: bool = true
 
@@ -39,6 +39,12 @@ func load_settings():
 
 	fullscreen = _config.get_value("display", "fullscreen", true)
 	render_resolution = _config.get_value("display", "render_resolution", Vector2(800, 600))
+	var default_render_scale: float = 0.75 if OS.get_name() == "Android" else 1.0
+	render_scale = float(_config.get_value(
+		"display",
+		"render_scale",
+		_config.get_value("display", "android_render_scale", default_render_scale)
+	))
 	vsync = _config.get_value("display", "vsync", true)
 	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", true)
 
@@ -52,6 +58,7 @@ func save_settings():
 
 	_config.set_value("display", "fullscreen", fullscreen)
 	_config.set_value("display", "render_resolution", render_resolution)
+	_config.set_value("display", "render_scale", render_scale)
 	_config.set_value("display", "vsync", vsync)
 	_config.set_value("privacy", "telemetry_enabled", telemetry_enabled)
 
@@ -97,21 +104,9 @@ func apply_render_resolution():
 	var tree = get_tree()
 	if tree == null:
 		return
-	var effective_resolution: Vector2 = render_resolution
-	if OS.get_name() == "Android":
-		effective_resolution = Vector2(
-			max(1.0, round(render_resolution.x * ANDROID_RENDER_SCALE)),
-			max(1.0, round(render_resolution.y * ANDROID_RENDER_SCALE))
-		)
+	var effective_resolution: Vector2 = render_resolution * clamp(render_scale, 0.5, 1.0)
 	tree.set_screen_stretch(
 		SceneTree.STRETCH_MODE_VIEWPORT,
 		SceneTree.STRETCH_ASPECT_EXPAND,
 		effective_resolution
 	)
-	var telemetry := get_node_or_null("/root/ANNAV2")
-	if telemetry and telemetry.has_method("register_telemetry_point"):
-		telemetry.register_telemetry_point("render_resolution", {
-			"selected": [render_resolution.x, render_resolution.y],
-			"effective": [effective_resolution.x, effective_resolution.y],
-			"scale": ANDROID_RENDER_SCALE if OS.get_name() == "Android" else 1.0
-		})

@@ -19,7 +19,7 @@ margin_left = 100.0
 margin_top = 50.0
 margin_right = 700.0
 margin_bottom = 550.0
-rect_min_size = Vector2( 600, 500 )
+rect_min_size = Vector2( 560, 400 )
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/PanelContainer"]
 margin_left = 7.0
@@ -144,6 +144,13 @@ margin_top = 241.0
 margin_right = 586.0
 margin_bottom = 281.0
 rect_min_size = Vector2( 0, 40 )
+
+[node name="RenderScaleLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+text = "Escala de render"
+
+[node name="RenderScaleOption" type="OptionButton" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+rect_min_size = Vector2( 0, 40 )
+hint_tooltip = "Reduce la resolución interna para mejorar el rendimiento."
 
 [node name="VsyncLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
 margin_top = 299.0

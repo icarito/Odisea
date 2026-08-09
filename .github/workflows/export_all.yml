@@ -1404,6 +1404,9 @@ jobs:
   deploy-vercel:
     needs: [prep, export]
     runs-on: ubuntu-latest
+    # Es un mirror web opcional: sus fallos no deben volver rojo ni bloquear el
+    # nightly, que publica únicamente desde prep + export + manifests.
+    continue-on-error: true
     if: ${{ always() && needs.prep.result == 'success' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'html5') && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
     permissions:
       contents: read
@@ -1438,13 +1441,37 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
+          set -u
           cd vercel-build
           # Deploy the prebuilt static dir to production and alias to the stable
           # iOS host the main site redirects Safari/iPadOS traffic to.
-          URL=$(vercel deploy --prod --yes --archive=tgz --token "$VERCEL_TOKEN" 2>&1 | grep -oE 'https://[a-z0-9._-]+\.vercel\.app' | tail -1)
+          URL=""
+          for attempt in 1 2 3; do
+            echo "Vercel deploy attempt $attempt/3"
+            set +e
+            OUTPUT=$(vercel deploy --prod --yes --archive=tgz --token "$VERCEL_TOKEN" 2>&1)
+            STATUS=$?
+            set -e
+            echo "$OUTPUT"
+            URL=$(echo "$OUTPUT" | grep -oE 'https://[a-z0-9._-]+\.vercel\.app' | tail -1 || true)
+            if [ "$STATUS" -eq 0 ] && [ -n "$URL" ]; then
+              break
+            fi
+            URL=""
+            sleep $((attempt * 10))
+          done
           echo "Deployed: $URL"
           if [ -z "$URL" ]; then echo "::error::Vercel deploy produced no URL"; exit 1; fi
-          vercel alias set "$URL" odisea-ios.vercel.app --token "$VERCEL_TOKEN" --scope sebastian-silvas-projects-8fed1460
+          ALIASED=0
+          for attempt in 1 2 3; do
+            echo "Vercel alias attempt $attempt/3"
+            if vercel alias set "$URL" odisea-ios.vercel.app --token "$VERCEL_TOKEN" --scope sebastian-silvas-projects-8fed1460; then
+              ALIASED=1
+              break
+            fi
+            sleep $((attempt * 10))
+          done
+          if [ "$ALIASED" -ne 1 ]; then echo "::error::Vercel alias failed after 3 attempts"; exit 1; fi
           echo "Aliased to https://odisea-ios.vercel.app"
 
   # Genera deltas bsdiff EN PARALELO al deploy/manifests (no afecta build time): baja
@@ -1730,6 +1757,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   nightly:
+    # Deliberadamente independiente de deploy-vercel: el mirror iOS no participa
+    # en la publicación de binarios/manifests del updater.
     needs: [prep, export, manifests]
     runs-on: ubuntu-latest
     if: needs.prep.outputs.target_platform == 'all' && (needs.prep.outputs.ref_name == 'main' || (needs.prep.outputs.is_dispatch == 'true' && needs.prep.outputs.publish_prerelease == 'true'))

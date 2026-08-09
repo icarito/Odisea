@@ -7,6 +7,7 @@ onready var invert_y_toggle = find_node("InvertYToggle")
 onready var vibration_toggle = find_node("VibrationToggle")
 onready var fullscreen_option = find_node("FullscreenOption")
 onready var resolution_option = find_node("ResolutionOption")
+onready var render_scale_option = find_node("RenderScaleOption")
 onready var vsync_option = find_node("VsyncOption")
 onready var telemetry_toggle = find_node("TelemetryToggle")
 onready var back_button = find_node("Back")
@@ -21,6 +22,7 @@ var render_resolutions = [
 	Vector2(1600, 900),
 	Vector2(1920, 1080)
 ]
+var render_scales: Array = [1.0, 0.9, 0.75, 0.6]
 
 func _ready():
 	_setup_options()
@@ -63,6 +65,10 @@ func _setup_options():
 	for res in render_resolutions:
 		resolution_option.add_item("%dx%d" % [res.x, res.y])
 
+	render_scale_option.clear()
+	for scale in render_scales:
+		render_scale_option.add_item("%d%%" % int(scale * 100.0))
+
 	vsync_option.clear()
 	vsync_option.add_item("Desactivado")
 	vsync_option.add_item("Activado")
@@ -86,6 +92,10 @@ func _load_ui_values():
 		if render_resolutions[i] == sm.render_resolution:
 			resolution_option.selected = i
 			break
+	for i in range(render_scales.size()):
+		if is_equal_approx(render_scales[i], sm.render_scale):
+			render_scale_option.selected = i
+			break
 
 func _connect_signals():
 	master_slider.connect("value_changed", self, "_on_master_volume_changed")
@@ -95,6 +105,7 @@ func _connect_signals():
 	vibration_toggle.connect("toggled", self, "_on_vibration_toggled")
 	fullscreen_option.connect("item_selected", self, "_on_fullscreen_selected")
 	resolution_option.connect("item_selected", self, "_on_resolution_selected")
+	render_scale_option.connect("item_selected", self, "_on_render_scale_selected")
 	vsync_option.connect("item_selected", self, "_on_vsync_selected")
 	telemetry_toggle.connect("toggled", self, "_on_telemetry_toggled")
 	back_button.connect("pressed", self, "_on_back_pressed")
@@ -137,6 +148,12 @@ func _on_resolution_selected(index):
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm:
 		sm.render_resolution = render_resolutions[index]
+		sm.apply_render_resolution()
+
+func _on_render_scale_selected(index: int) -> void:
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm:
+		sm.render_scale = render_scales[index]
 		sm.apply_render_resolution()
 
 func _on_vsync_selected(index):
