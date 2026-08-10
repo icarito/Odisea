@@ -61,6 +61,8 @@ export(float) var visual_freeze_height := 10.0
 # ni del snapshot: evita saltos visibles y no influye en colisión, daño o replay.
 export(float) var uv_drift_speed := 0.65
 export(float) var uv_drift_amplitude := 0.0045
+# Conserva en desktop la paleta estable de Android sin perder UV, normal, roughness ni AO.
+export(bool) var use_mobile_color_pbr := true
 # La niebla ambiental del domo permanece activa, pero el hielo no arrastra una banda de
 # height-fog con su superficie: esa banda lavaba el plano y parecía iluminación propia.
 export(bool) var ice_height_fog_enabled := false
@@ -241,7 +243,13 @@ func _ensure_ice_collider() -> void:
 
 func _update_ice_collider() -> void:
 	if is_instance_valid(_ice_collider):
-		_ice_collider.global_transform.origin.y = ice_height - 0.1
+		var target_y := ice_height - 0.1
+		for body in get_tree().get_nodes_in_group(GROUP_VULNERABLE):
+			if is_instance_valid(body) and body is Spatial and body.has_method("set_ice_submersion"):
+				var feet_y: float = body.global_transform.origin.y - 1.0
+				if ice_height >= feet_y - 0.02:
+					target_y = min(target_y, _ice_collider.global_transform.origin.y)
+		_ice_collider.global_transform.origin.y = target_y
 
 func _update_ice_fog() -> void:
 	if not is_instance_valid(_ice_environment):
@@ -280,6 +288,7 @@ func _apply_ice_textures(instance: MeshInstance) -> void:
 	material.set_shader_param("ice_ao", ICE_AO_TEXTURE)
 	material.set_shader_param("surface_radius", max(debug_plane_radius - 0.3, 1.0))
 	material.set_shader_param("low_end_mobile", OS.get_name() in ["Android", "iOS"])
+	material.set_shader_param("mobile_color_pbr", use_mobile_color_pbr)
 
 # Ruido animado en vez de un disco de color plano: pensado para quedar SIEMPRE visible
 # (referencia fiel de ice_height/heat_ceiling) sin desentonar con el flipbook real.

@@ -17,6 +17,7 @@ uniform float texture_scale : hint_range(0.01, 1.0) = 0.085;
 uniform vec2 uv_offset = vec2(0.0);
 uniform float surface_radius : hint_range(1.0, 100.0) = 29.7;
 uniform bool low_end_mobile = false;
+uniform bool mobile_color_pbr = true;
 
 varying vec3 world_position;
 varying vec3 world_normal;
@@ -64,6 +65,15 @@ void fragment() {
 		SPECULAR = 0.0;
 		AO = 1.0;
 		EMISSION = textured_ice * 0.72 + vec3(0.55, 0.78, 1.0) * cracks * 0.003 * emission_boost;
+	} else if (mobile_color_pbr) {
+		// Paleta legible de Android, conservando el relieve y respuesta PBR de desktop.
+		ALBEDO = textured_ice * 0.42;
+		NORMALMAP = normal_texel;
+		NORMALMAP_DEPTH = 0.34;
+		ROUGHNESS = mix(roughness_texel, 0.86, freeze_progress);
+		SPECULAR = mix(0.38, 0.26, freeze_progress);
+		AO = mix(1.0, ao_texel, 0.55);
+		EMISSION = textured_ice * 0.46 + vec3(0.55, 0.78, 1.0) * cracks * 0.004 * emission_boost;
 	} else {
 		ALBEDO = textured_ice;
 		NORMALMAP = normal_texel;

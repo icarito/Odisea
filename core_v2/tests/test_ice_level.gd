@@ -9,6 +9,12 @@ class DummyBody extends Spatial:
 	func _init() -> void:
 		add_to_group("ice_vulnerable")
 
+class DummyPlayer extends KinematicBody:
+	func _init() -> void:
+		add_to_group("ice_vulnerable")
+	func set_ice_submersion(_depth: float) -> void:
+		pass
+
 func _make_level(auto_start: bool = true) -> Node:
 	var level = auto_free(IceLevelScript.new())
 	level.auto_start = auto_start
@@ -58,6 +64,18 @@ func test_respawn_safety_keeps_checkpoint_above_frost() -> void:
 	level.ensure_safe_for_respawn(10.0)
 	assert_float(level.ice_height).is_equal_approx(7.0, 0.0001)
 	assert_float(level.get_frost_ceiling()).is_less_equal(10.0)
+
+func test_rising_ice_remains_a_walkable_platform() -> void:
+	var level = _make_level(false)
+	var collider: StaticBody = level.get_node("IceCollider")
+	assert_int(collider.collision_layer).is_equal(1)
+	var player = auto_free(DummyPlayer.new())
+	add_child(player)
+	player.translation.y = 1.01
+	level.ice_height = 0.02
+	level._update_ice_collider()
+	assert_float(collider.global_transform.origin.y).is_equal_approx(-0.1, 0.001)
+	assert_int(collider.collision_layer).is_equal(1)
 
 # Al reaparecer el mundo está pausado (no corre _physics_process), así que el clamp de
 # ensure_safe_for_respawn tiene que dejar el colisionador y el visual al día por sí mismo:
