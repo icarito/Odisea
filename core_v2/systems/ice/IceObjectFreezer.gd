@@ -112,22 +112,29 @@ func _wrap_recursive(node: Node) -> void:
 	for child in node.get_children():
 		_wrap_recursive(child)
 
+# La cascara del domo estaba EXENTA de la guarda de tamano en movil. La exencion se
+# justificaba por seguridad (dome_wall_cylindrical.shader es opaco simple, sin discard, asi
+# que encadenarle un next_pass no rompe nada), pero la guarda no existe por seguridad sino
+# por COSTO: el next_pass duplica los draw calls de lo que envuelve, y el domo es la malla
+# mas grande de la escena. En un telefono, sobre una escena que ademas multiplica ~15x por
+# luces, eso se paga entero. La telemetria da 9-39 fps en Dome_Intro contra 55-60 en Menu.
+#
+# Sin la exencion, el domo (AABB de ~31 m de alto, muy por encima de MOBILE_MAX_WRAPPED_HEIGHT)
+# queda fuera del envoltorio en movil: pierde la escarcha en sus paredes, conserva la del
+# resto de los props, y deja de costar un segundo pase sobre toda su superficie.
 func _is_oversized_mobile_mesh(instance: MeshInstance) -> bool:
-	if not OS.get_name() in ["Android", "iOS"]:
-		return false
-	if _uses_dome_wall_shader(instance):
+	if not _is_mobile_profile():
 		return false
 	return instance.get_transformed_aabb().size.y > MOBILE_MAX_WRAPPED_HEIGHT
 
-func _uses_dome_wall_shader(instance: MeshInstance) -> bool:
-	for surface_index in range(instance.mesh.get_surface_count()):
-		var material: Material = instance.get_surface_material(surface_index)
-		if material == null:
-			material = instance.mesh.surface_get_material(surface_index)
-		if material is ShaderMaterial and material.shader != null \
-			and material.shader.resource_path == "res://core_v2/levels/interiors/shaders/dome_wall_cylindrical.shader":
-			return true
-	return false
+
+# ODISEA_FORCE_MOBILE_PROFILE=1 permite ejercitar la ruta movil desde desktop, para poder
+# verificar estos cortes sin reexportar a un telefono.
+func _is_mobile_profile() -> bool:
+	if OS.get_environment("ODISEA_FORCE_MOBILE_PROFILE") in ["1", "true", "yes", "on"]:
+		return true
+	return OS.get_name() in ["Android", "iOS"]
+
 
 func _min_world_y(instance: VisualInstance) -> float:
 	return instance.get_transformed_aabb().position.y

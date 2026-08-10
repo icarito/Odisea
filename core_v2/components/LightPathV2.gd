@@ -87,6 +87,11 @@ export(Mesh) var fixture_lod_mesh
 export(float, 1.0, 80.0, 0.5) var fixture_lod_distance := 14.0
 export(String) var fixture_batch_prefix := "FixtureBatch_"
 export(bool) var fixture_adaptive_mobile_lod := true
+# En movil, no permitir NUNCA la malla alta de los fixtures. La ruta adaptativa podia
+# subir a fixture_high_mesh si el FPS se sostenia alto unos segundos, pero en telefono ese
+# ascenso es justo lo que reintroduce el costo que el LOD venia a evitar, y ademas oscila.
+# La malla alta cuesta 3078 vertices por instancia contra 1109 de la LOD, sobre 88 lamparas.
+export(bool) var fixture_force_lod_on_mobile := true
 export(float, 1.0, 120.0, 1.0) var fixture_full_detail_fps := 50.0
 export(float, 1.0, 30.0, 0.5) var fixture_full_detail_hold_seconds := 5.0
 export(float, 1.0, 120.0, 1.0) var fixture_lod_fallback_fps := 42.0
@@ -461,7 +466,7 @@ func _fixture_light_position(index: int, fallback: Vector3) -> Vector3:
 func _drive_fixture_lod() -> void:
 	if fixture_high_mesh == null or fixture_lod_mesh == null:
 		return
-	var adaptive_mobile := fixture_adaptive_mobile_lod and OS.get_name() in ["Android", "iOS"]
+	var adaptive_mobile := fixture_adaptive_mobile_lod and _is_mobile_profile()
 	if adaptive_mobile:
 		_update_adaptive_fixture_quality()
 		if not _fixture_quality_reported:
@@ -481,12 +486,21 @@ func _drive_fixture_lod() -> void:
 			var world_position: Vector3 = batch.global_transform.xform(local_position)
 			nearest_squared = min(nearest_squared, origin.distance_squared_to(world_position))
 		var desired: Mesh
-		if adaptive_mobile:
+		if _is_mobile_profile() and fixture_force_lod_on_mobile:
+			desired = fixture_lod_mesh
+		elif adaptive_mobile:
 			desired = fixture_high_mesh if _fixture_full_detail_enabled else fixture_lod_mesh
 		else:
 			desired = fixture_lod_mesh if nearest_squared > threshold_squared else fixture_high_mesh
 		if batch.multimesh.mesh != desired:
 			batch.multimesh.mesh = desired
+
+# ODISEA_FORCE_MOBILE_PROFILE=1 permite ejercitar la ruta movil desde desktop.
+func _is_mobile_profile() -> bool:
+	if OS.get_environment("ODISEA_FORCE_MOBILE_PROFILE") in ["1", "true", "yes", "on"]:
+		return true
+	return OS.get_name() in ["Android", "iOS"]
+
 
 func _update_adaptive_fixture_quality() -> void:
 	var fps := float(Performance.get_monitor(Performance.TIME_FPS))

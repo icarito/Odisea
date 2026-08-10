@@ -258,6 +258,31 @@ func _init() -> void:
 			print("[mitig] despues: ", after)
 			print("[mitig] environment activo resuelto = %s" % str(sm2._active_environment() == we.environment))
 
+	# Verificacion del perfil movil: que malla usan los fixtures y si el domo quedo envuelto.
+	if _env("DBG_MOBILECHECK", "") != "":
+		var wl: Node = scene.get_node_or_null("WallLights")
+		if wl != null:
+			for child in wl.get_children():
+				if child is MultiMeshInstance and String(child.name).begins_with("FixtureBatch_"):
+					var mesh_name := "null"
+					if child.multimesh != null and child.multimesh.mesh != null:
+						mesh_name = child.multimesh.mesh.resource_path.get_file()
+						var vcount := 0
+						for si in range(child.multimesh.mesh.get_surface_count()):
+							vcount += child.multimesh.mesh.surface_get_array_len(si)
+						mesh_name += " (%d verts)" % vcount
+					print("[mobile] %s -> %s" % [child.name, mesh_name])
+		var terrace_mesh: Node = scene.get_node_or_null("Terrace/TerraceMesh")
+		if terrace_mesh != null and terrace_mesh.mesh != null:
+			for si in range(terrace_mesh.mesh.get_surface_count()):
+				var m: Material = terrace_mesh.get_surface_material(si)
+				if m == null:
+					m = terrace_mesh.mesh.surface_get_material(si)
+				var np := "SIN next_pass (no envuelto)"
+				if m != null and m.next_pass != null:
+					np = "CON next_pass de hielo"
+				print("[mobile] Terrace surf %d -> %s" % [si, np])
+
 	if _env("DBG_INVENTORY", "") != "":
 		_report_inventory(scene)
 
