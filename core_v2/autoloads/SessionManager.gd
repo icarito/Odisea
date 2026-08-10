@@ -103,6 +103,13 @@ const DISABLE_FXAA_ENV := "ODISEA_DISABLE_FXAA"
 const MOBILE_WEB_MIN_RENDER_SIZE := Vector2(320, 180)
 var _early_weak_hardware := false
 var _mobile_web_safety_enabled := false
+# El watchdog de FPS estaba atado a _mobile_web_safety_enabled, que solo se enciende en
+# HTML5 con pantalla tactil (ver _should_enable_mobile_web_safety). En un APK nativo
+# OS.get_name() es "Android", asi que en telefono no corria NINGUNA mitigacion.
+# Esta bandera lo habilita tambien en movil nativo, pero deliberadamente NO arrastra el
+# resto del paquete web (hints de graficos, render scale, scatter): solo el watchdog, para
+# que la degradacion siga siendo progresiva y solo se aplique si el FPS realmente cae.
+var _performance_watchdog_enabled := false
 var _startup_gate_open := false
 var _startup_gate_started := false
 var _startup_gate_waited_frames := 0
@@ -115,6 +122,7 @@ func _enter_tree() -> void:
 		OS.has_touchscreen_ui_hint(),
 		OS.get_environment(MOBILE_WEB_SAFETY_ENV)
 	)
+	_performance_watchdog_enabled = _mobile_web_safety_enabled or OS.get_name() in ["Android", "iOS"]
 	_early_weak_hardware = _detect_weak_hardware_early()
 	if _early_weak_hardware:
 		_apply_early_weak_hardware_hints()
@@ -1579,7 +1587,7 @@ func _physics_process(_dt):
 	if __ext_exporter != null and __ext_exporter.is_exporting:
 		__ext_exporter.capture_frame(get_viewport())
 
-	if _mobile_web_safety_enabled and Engine.get_idle_frames() % 60 == 0:
+	if _performance_watchdog_enabled and Engine.get_idle_frames() % 60 == 0:
 		_check_performance_mitigation()
 
 	if pm and pm.has_method("profiling_end"): pm.profiling_end("SessionManager")
@@ -1603,18 +1611,56 @@ func _apply_dynamic_performance_mitigation() -> void:
 	OS.set_environment(MOBILE_WEB_RENDER_SCALE_ENV, str(mitigated_scale))
 	_apply_mobile_web_render_scale()
 
-	# 2. Force Viewport Clear Mode to stabilize framebuffers
-	# VisualServer.viewport_set_clear_mode(get_tree().root.get_viewport_rid(), VisualServer.CLEAR_MODE_ALWAYS)
-	# In Godot 3.x, accessing root viewport directly:
-	get_tree().root.render_target_clear_mode = Viewport.CLEAR_MODE_ALWAYS
+	# 3. Disable high-cost effects if not already.
+	#
+	# Antes esto cargaba el default_environment del proyecto, pero los niveles traen su
+	# propio WorldEnvironment (Dome_Intro usa Environment_DomeIntro.tres), asi que apagaba
+	# un recurso que no estaba en uso y la mitigacion no hacia nada visible. Hay que actuar
+	# sobre el Environment que el viewport esta usando de verdad.
+	var env: Environment = _active_environment()
+	if env != null:
+		env.glow_enabled = false
+		env.adjustment_enabled = false
+		# El DOF far es un pase de pantalla completa: bajar su amount no ahorra nada, hay
+		# que apagar el pase. En movil es de los mas caros por fill rate.
+		env.dof_blur_far_enabled = false
+		env.dof_blur_near_enabled = false
+		print("[SessionManager] Mitigacion: glow/adjustment/DOF apagados en el Environment activo")
 
-	# 3. Disable high-cost effects if not already
+	# Estabilizar el framebuffer va DESPUES de apagar los efectos: es lo menos rentable de
+	# los tres pasos y toca el viewport raiz, asi que si algun dia falla no debe arrastrarse
+	# la mitigacion que si rinde (antes estaba antes, y un error aca dejaba el glow prendido).
+	var root_viewport := get_tree().root if get_tree() else null
+	if root_viewport != null:
+		root_viewport.render_target_clear_mode = Viewport.CLEAR_MODE_ALWAYS
+
+
+# Devuelve el Environment que el viewport esta usando: el del WorldEnvironment de la escena
+# si existe, y si no el del World (que es donde cae el default_environment del proyecto).
+func _active_environment() -> Environment:
+	var scene: Node = get_tree().get_current_scene() if get_tree() else null
+	if scene != null:
+		for node in _find_world_environments(scene):
+			if node.environment != null:
+				return node.environment
+	var world := get_viewport().find_world() if get_viewport() else null
+	if world != null and world.environment != null:
+		return world.environment
 	var env_path = ProjectSettings.get_setting("rendering/environment/default_environment")
 	if env_path != "":
-		var env = load(env_path)
-		if env is Environment:
-			env.glow_enabled = false
-			env.adjustment_enabled = false
+		var fallback = load(env_path)
+		if fallback is Environment:
+			return fallback
+	return null
+
+
+func _find_world_environments(node: Node) -> Array:
+	var found := []
+	if node is WorldEnvironment:
+		found.append(node)
+	for child in node.get_children():
+		found += _find_world_environments(child)
+	return found
 
 func start_recording():
 	if not is_instance_valid(player):

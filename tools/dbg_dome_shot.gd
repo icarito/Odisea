@@ -244,6 +244,20 @@ func _init() -> void:
 				changed += 1
 		print("[dbg] light_activation_distance = %s en %d beacon(s)" % [beacon_dist, changed])
 
+	# DBG_MITIGATE: dispara a mano la mitigacion dinamica de SessionManager y reporta si
+	# efectivamente apago los efectos del Environment que la escena esta usando.
+	if _env("DBG_MITIGATE", "") != "":
+		var sm2 := get_root().get_node_or_null("SessionManager")
+		var we: Node = scene.get_node_or_null("WorldEnvironment")
+		if sm2 != null and we != null and we.environment != null:
+			var before := "glow=%s adjust=%s dof=%s" % [we.environment.glow_enabled, we.environment.adjustment_enabled, we.environment.dof_blur_far_enabled]
+			sm2._apply_dynamic_performance_mitigation()
+			var after := "glow=%s adjust=%s dof=%s" % [we.environment.glow_enabled, we.environment.adjustment_enabled, we.environment.dof_blur_far_enabled]
+			print("[mitig] watchdog_habilitado=%s" % str(sm2._performance_watchdog_enabled))
+			print("[mitig] antes:   ", before)
+			print("[mitig] despues: ", after)
+			print("[mitig] environment activo resuelto = %s" % str(sm2._active_environment() == we.environment))
+
 	if _env("DBG_INVENTORY", "") != "":
 		_report_inventory(scene)
 
