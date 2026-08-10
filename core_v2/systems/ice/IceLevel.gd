@@ -34,7 +34,7 @@ export(float) var start_height := 0.0
 # Techo opcional de la subida. Menor o igual a start_height = sin techo.
 export(float) var max_height := 0.0
 # Profundidad superficial que Elías puede pisar antes de recibir daño.
-export(float) var walkable_surface_depth := 0.45
+export(float) var walkable_surface_depth := 0.85
 # Profundidad de inmersión desde la que se aplica el multiplicador de núcleo.
 export(float) var core_submersion_depth := 1.25
 # Drenaje de integridad por segundo en zona de frío.
