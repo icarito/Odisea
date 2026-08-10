@@ -214,13 +214,18 @@ static func _scan_dir(dir: Directory, current_path: String, results: Array, exte
 	while name != "":
 		var full_path = current_path.plus_file(name)
 		if dir.current_is_dir():
-			if name == "stress" and not include_stress:
+			# Performance benchmarks have their own runner and are not replay
+			# determinism cases. Including them here makes the suite needlessly slow.
+			if name == "perf" or (name == "stress" and not include_stress):
 				name = dir.get_next()
 				continue
 			var subdir := Directory.new()
 			if subdir.open(full_path) == OK:
 				_scan_dir(subdir, full_path, results, extensions, include_stress)
 		else:
+			if name in ["perf_test.oys", "perf_ab_test.oys", "debug_perf.oys"]:
+				name = dir.get_next()
+				continue
 			for ext in extensions:
 				if name.ends_with(ext):
 					results.append([full_path])
@@ -552,12 +557,25 @@ func _cleanup_scene():
 			child.free()
 
 func _cleanup_runner_scene(runner) -> void:
+	# An OYS can replace current_scene through SceneManager. In that case the
+	# runner still owns only its original scene, so freeing runner.scene() leaves
+	# the replacement alive and contaminates every following parametrized case.
+	if SceneManager.is_transitioning():
+		SceneManager._force_reset_stuck_transition("test_cleanup")
+	SceneManager._pending_scene_path = ""
+	SceneManager._pending_transition_params.clear()
+
+	var runner_scene: Node = runner.scene() if runner and runner.has_method("scene") else null
+	var active_scene: Node = get_tree().current_scene
+	if is_instance_valid(active_scene) and active_scene != runner_scene:
+		get_tree().current_scene = null
+		active_scene.free()
+
 	if runner and runner.has_method("scene"):
-		var s = runner.scene()
-		if is_instance_valid(s):
-			if get_tree().current_scene == s:
+		if is_instance_valid(runner_scene):
+			if get_tree().current_scene == runner_scene:
 				get_tree().current_scene = null
-			s.free()
+			runner_scene.free()
 
 func _instance_and_prepare_scene(scene_path: String):
 	var packed = load(scene_path)

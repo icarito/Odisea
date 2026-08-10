@@ -148,7 +148,16 @@ ANDROID_UPDATE_KEYSTORE ?= $(ODISEA_SIGNING_DIR)/odisea-update.jks
 ANDROID_SIGNING_SECRETS ?= $(ODISEA_SIGNING_DIR)/github-secrets.txt
 ANDROID_BUILD_TOOLS := $(shell find "$$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -n1)
 ANDROID_TEST_APK ?= build/android/odisea_localtest.apk
-ANDROID_TEST_VERSION_CODE ?= 900000
+# versionCode BAJO a proposito. En Android el update baja un APK y se lo pasa al
+# instalador del sistema, asi que el versionCode es una barrera dura: con el 900000
+# que habia antes, cualquier nightly real (versionCode = github.run_number, hoy ~348)
+# era un DOWNGRADE y el sistema lo rechazaba — el juego ofrecia la actualizacion y la
+# instalacion fallaba. Con 1, todo nightly es un upgrade y entra limpio.
+# Para volver de un nightly a un build local hace falta el -d de adb install (permitido
+# porque el APK es --export-debug); ya esta en el target android-install.
+ANDROID_TEST_VERSION_CODE ?= 1
+# Canal que va a consultar el update: es el unico que se publica hoy.
+ANDROID_TEST_CHANNEL ?= nightly
 ANDROID_PACKAGE ?= org.odisea.game
 
 android-debug-signed:
@@ -158,9 +167,16 @@ android-debug-signed:
 	@mkdir -p build/android
 	@set -e; \
 	cp export_presets.cfg /tmp/odisea_export_presets.cfg.bak; \
-	trap 'mv /tmp/odisea_export_presets.cfg.bak export_presets.cfg' EXIT; \
+	trap 'mv /tmp/odisea_export_presets.cfg.bak export_presets.cfg; rm -f build_meta.json' EXIT; \
 	sed -i -E 's|^version/code = .*|version/code = $(ANDROID_TEST_VERSION_CODE)|' export_presets.cfg; \
 	sed -i -E 's|^version/name = .*|version/name = "0.0.0-localtest.$(ANDROID_TEST_VERSION_CODE)"|' export_presets.cfg; \
+	python3 scripts/inject_build_meta.py \
+		--commit "$$(git rev-parse --short HEAD 2>/dev/null || echo local)" \
+		--build-id "$(ANDROID_TEST_VERSION_CODE)" \
+		--channel "$(ANDROID_TEST_CHANNEL)" \
+		--version "0.0.0-localtest.$(ANDROID_TEST_VERSION_CODE)" \
+		--official-host "odisea.educa.juegos" \
+		--out-json "build_meta.json"; \
 	$(GODOT) --editor --quit --headless >/dev/null 2>&1 || true; \
 	$(GODOT) --no-window --export-debug "Android" "$(ANDROID_TEST_APK)" --headless; \
 	test -s "$(ANDROID_TEST_APK)" || (echo "ERROR: export no produjo $(ANDROID_TEST_APK)" && exit 1)
@@ -174,8 +190,11 @@ android-debug-signed:
 	"$(ANDROID_BUILD_TOOLS)/apksigner" verify "$(ANDROID_TEST_APK)"
 	@echo "OK: $(ANDROID_TEST_APK) firmado con la llave de produccion (misma identidad que los nightlies oficiales)."
 
+# -d permite bajar de versionCode: hace falta para reinstalar el build local (code 1)
+# encima de un nightly (code ~348) sin desinstalar. Android solo lo acepta en APKs
+# debuggables, que es lo que produce --export-debug.
 android-install: android-debug-signed
-	adb install -r "$(ANDROID_TEST_APK)"
+	adb install -r -d "$(ANDROID_TEST_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
 .PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install

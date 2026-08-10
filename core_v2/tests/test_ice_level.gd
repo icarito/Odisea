@@ -132,6 +132,28 @@ func test_ice_material_freezes_progressively_with_height() -> void:
 	if _exposes_shader_param(material, "freeze_progress"):
 		assert_float(float(material.get_shader_param("freeze_progress"))).is_equal_approx(1.0, 0.001)
 
+# El disco de hielo tiene que morir contra la pared del domo a cualquier altura: con un
+# radio fijo quedaba un anillo de piso descubierto abajo, y al cerrarse la bóveda el mismo
+# disco habría asomado por fuera.
+func test_ice_disc_follows_the_dome_wall_at_every_height() -> void:
+	var level = auto_free(IceLevelScript.new())
+	level.auto_start = false
+	level.debug_draw = true
+	add_child(level)
+
+	# Radios de la pared medidos sobre DomeTerrace_baked.mesh (ver tools/measure_dome_profile.gd).
+	for probe in [[0.5, 31.33], [8.0, 30.98], [14.0, 29.18], [22.0, 23.62], [30.0, 10.91]]:
+		var radius: float = level.get_surface_radius_at(probe[0])
+		assert_float(radius).is_greater(probe[1])
+		# Y enterrado en el espesor de la pared (~0.7 m), no metros más allá.
+		assert_float(radius).is_less(probe[1] + 0.7)
+
+	# La malla y la placa que se pisa tienen que cubrir el punto más ancho del perfil.
+	var surface: MeshInstance = level.get_node("IceSurface")
+	assert_float(surface.mesh.size.x).is_greater_equal(level.get_surface_radius_at(0.0) * 2.0)
+	var box: BoxShape = level.get_node("IceCollider").get_child(0).shape
+	assert_float(box.extents.x).is_greater_equal(level.get_surface_radius_at(0.0))
+
 func test_object_freezer_does_not_fill_cutout_or_procedural_surfaces() -> void:
 	var freezer = auto_free(IceObjectFreezerScript.new())
 	var cutout := SpatialMaterial.new()

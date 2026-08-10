@@ -20,6 +20,7 @@ class_name IceObjectFreezer
 const ICE_FREEZABLE_GROUP := "ice_freezable"
 const FREEZE_SHADER := preload("res://core_v2/systems/ice/shaders/object_freeze_overlay.shader")
 const MOBILE_SURFACE_OFFSET := 0.006
+const MOBILE_MAX_WRAPPED_HEIGHT := 8.0
 
 export(float) var freeze_band_height := 3.0
 export(float) var emission_strength := 0.02
@@ -103,13 +104,30 @@ func _on_ice_height_changed(height: float) -> void:
 
 func _wrap_recursive(node: Node) -> void:
 	if node is MeshInstance and node.mesh != null:
-		if _min_world_y(node) <= max_wrap_height:
+		if _min_world_y(node) <= max_wrap_height and not _is_oversized_mobile_mesh(node):
 			_wrap_mesh_instance(node)
 	elif node is MultiMeshInstance and node.multimesh != null:
 		if _min_world_y(node) <= max_wrap_height:
 			_wrap_multimesh_instance(node)
 	for child in node.get_children():
 		_wrap_recursive(child)
+
+func _is_oversized_mobile_mesh(instance: MeshInstance) -> bool:
+	if not OS.get_name() in ["Android", "iOS"]:
+		return false
+	if _uses_dome_wall_shader(instance):
+		return false
+	return instance.get_transformed_aabb().size.y > MOBILE_MAX_WRAPPED_HEIGHT
+
+func _uses_dome_wall_shader(instance: MeshInstance) -> bool:
+	for surface_index in range(instance.mesh.get_surface_count()):
+		var material: Material = instance.get_surface_material(surface_index)
+		if material == null:
+			material = instance.mesh.surface_get_material(surface_index)
+		if material is ShaderMaterial and material.shader != null \
+			and material.shader.resource_path == "res://core_v2/levels/interiors/shaders/dome_wall_cylindrical.shader":
+			return true
+	return false
 
 func _min_world_y(instance: VisualInstance) -> float:
 	return instance.get_transformed_aabb().position.y

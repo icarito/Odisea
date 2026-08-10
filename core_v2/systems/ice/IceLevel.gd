@@ -52,8 +52,28 @@ export(bool) var debug_draw := true
 # El techo lógico se conserva, pero su segundo raymarch queda apagado por defecto: la
 # superficie de hielo ya comunica la amenaza y duplicarlo cuesta un pase volumétrico.
 export(bool) var draw_frost_ceiling := false
-# Radio del plano de debug (por defecto el del domo).
+# Radio mínimo del plano de debug y de la placa de colisión (por defecto el del domo).
+# El recorte real lo manda `dome_profile`; esto solo garantiza malla suficiente.
 export(float) var debug_plane_radius := 30.0
+# Silueta INTERIOR del domo: pares (altura, radio) de la pared, +0.1 para que el borde
+# del disco muera DENTRO de la pared opaca en vez de dejar una junta a la vista.
+#
+# Un radio fijo no sirve: abajo la pared está a 31.35 y un disco de 29.7 dejaba un
+# anillo de piso descubierto; arriba la bóveda se cierra (r=21 a y=24.75) y ese mismo
+# disco asomaría fuera del domo. Los puntos son los quiebres reales de la cúpula, así
+# que interpolar lineal entre ellos reproduce la pared con error <0.01 m.
+#
+# Medido con `godot3-bin --no-window -s tools/measure_dome_profile.gd` (rayos desde el
+# eje contra DomeTerrace_baked.mesh). Volver a correrlo si cambia la cúpula.
+export(PoolVector2Array) var dome_profile := PoolVector2Array([
+	Vector2(0.0, 31.45),
+	Vector2(6.7, 31.45),
+	Vector2(13.45, 29.63),
+	Vector2(19.6, 26.1),
+	Vector2(24.75, 21.06),
+	Vector2(28.7, 14.8),
+	Vector2(31.0, 8.13)
+])
 # Altura recorrida necesaria para que el material pase de hielo húmedo a escarcha opaca.
 export(float, 0.0, 1.0) var initial_freeze_progress := 0.32
 export(float) var visual_freeze_height := 10.0
@@ -132,6 +152,37 @@ func reset() -> void:
 # Altura del tope de la zona de frío: por encima de esto no hay daño alguno.
 func get_frost_ceiling() -> float:
 	return ice_height - walkable_surface_depth
+
+# Hasta dónde llega el hielo a una altura dada: el radio de la pared del domo ahí.
+# Lo consulta también la capa de partículas (IceVisualBand), para que la escarcha
+# trepe por la pared real y no por un cilindro imaginario.
+func get_surface_radius_at(height: float) -> float:
+	var count: int = dome_profile.size()
+	if count == 0:
+		return max(debug_plane_radius, 1.0)
+	if height <= dome_profile[0].x:
+		return dome_profile[0].y
+	for i in range(1, count):
+		var previous: Vector2 = dome_profile[i - 1]
+		var next: Vector2 = dome_profile[i]
+		if height > next.x:
+			continue
+		var span: float = next.x - previous.x
+		if span <= 0.0:
+			return next.y
+		return lerp(previous.y, next.y, (height - previous.x) / span)
+	return dome_profile[count - 1].y
+
+func get_surface_radius() -> float:
+	return get_surface_radius_at(ice_height)
+
+# Extensión que necesitan la malla del plano y la placa de colisión: nunca menor que
+# el punto más ancho del perfil, o el disco se cortaría en recto antes de la pared.
+func _max_surface_radius() -> float:
+	var maximum: float = max(debug_plane_radius, 1.0)
+	for point in dome_profile:
+		maximum = max(maximum, point.y)
+	return maximum
 
 # Margen de seguridad exigido entre un punto de respawn y la línea de hielo.
 export(float) var respawn_safety_margin := 3.0
@@ -228,18 +279,22 @@ func _find_environment() -> Environment:
 
 func _ensure_ice_collider() -> void:
 	_ice_collider = get_node_or_null("IceCollider") as StaticBody
-	if _ice_collider:
-		return
-	_ice_collider = StaticBody.new()
-	_ice_collider.name = "IceCollider"
-	_ice_collider.collision_layer = 1
-	_ice_collider.collision_mask = 0
-	var shape_node := CollisionShape.new()
-	var shape := BoxShape.new()
-	shape.extents = Vector3(debug_plane_radius, 0.1, debug_plane_radius)
-	shape_node.shape = shape
-	_ice_collider.add_child(shape_node)
-	add_child(_ice_collider)
+	if _ice_collider == null:
+		_ice_collider = StaticBody.new()
+		_ice_collider.name = "IceCollider"
+		_ice_collider.collision_layer = 1
+		_ice_collider.collision_mask = 0
+		var shape_node := CollisionShape.new()
+		shape_node.shape = BoxShape.new()
+		_ice_collider.add_child(shape_node)
+		add_child(_ice_collider)
+	# La placa que se pisa debe llegar tan lejos como el disco visible: si se queda
+	# corta, junto a la pared se ve hielo pero se cae al piso de abajo. Es una caja
+	# (cubre de más en las diagonales), pero ahí la pared del domo ya frena al jugador.
+	var extent: float = _max_surface_radius()
+	for child in _ice_collider.get_children():
+		if child is CollisionShape and child.shape is BoxShape:
+			child.shape.extents = Vector3(extent, 0.1, extent)
 
 func _update_ice_collider() -> void:
 	if is_instance_valid(_ice_collider):
@@ -277,6 +332,8 @@ func _ensure_debug_nodes() -> void:
 		_debug_band = _make_debug_plane("FrostCeiling", Color(0.55, 0.85, 1.0, 0.28), 0.35)
 	_apply_ice_textures(_debug_plane)
 	_apply_ice_textures(_debug_band)
+	_fit_plane_mesh(_debug_plane)
+	_fit_plane_mesh(_debug_band)
 
 func _apply_ice_textures(instance: MeshInstance) -> void:
 	if instance == null or not (instance.material_override is ShaderMaterial):
@@ -286,9 +343,18 @@ func _apply_ice_textures(instance: MeshInstance) -> void:
 	material.set_shader_param("ice_normal", ICE_NORMAL_TEXTURE)
 	material.set_shader_param("ice_roughness", ICE_ROUGHNESS_TEXTURE)
 	material.set_shader_param("ice_ao", ICE_AO_TEXTURE)
-	material.set_shader_param("surface_radius", max(debug_plane_radius - 0.3, 1.0))
 	material.set_shader_param("low_end_mobile", OS.get_name() in ["Android", "iOS"])
 	material.set_shader_param("mobile_color_pbr", use_mobile_color_pbr)
+
+# El shader recorta el disco, pero no puede dibujar más allá de la malla: si el plano
+# de la escena quedó chico para el perfil, el borde se corta recto contra el aire.
+func _fit_plane_mesh(instance: MeshInstance) -> void:
+	if instance == null or not (instance.mesh is PlaneMesh):
+		return
+	var plane: PlaneMesh = instance.mesh
+	var needed: float = _max_surface_radius() * 2.0
+	if plane.size.x < needed or plane.size.y < needed:
+		plane.size = Vector2(max(plane.size.x, needed), max(plane.size.y, needed))
 
 # Ruido animado en vez de un disco de color plano: pensado para quedar SIEMPRE visible
 # (referencia fiel de ice_height/heat_ceiling) sin desentonar con el flipbook real.
@@ -296,7 +362,7 @@ func _make_debug_plane(node_name: String, color: Color, density: float) -> MeshI
 	var instance := MeshInstance.new()
 	instance.name = node_name
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(debug_plane_radius * 2.0, debug_plane_radius * 2.0)
+	plane.size = Vector2(_max_surface_radius() * 2.0, _max_surface_radius() * 2.0)
 	instance.mesh = plane
 	var material := ShaderMaterial.new()
 	var shader = load(DEBUG_SHADER_PATH)
@@ -308,7 +374,6 @@ func _make_debug_plane(node_name: String, color: Color, density: float) -> MeshI
 		material.set_shader_param("ice_normal", ICE_NORMAL_TEXTURE)
 		material.set_shader_param("ice_roughness", ICE_ROUGHNESS_TEXTURE)
 		material.set_shader_param("ice_ao", ICE_AO_TEXTURE)
-		material.set_shader_param("surface_radius", max(debug_plane_radius - 0.3, 1.0))
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	add_child(instance)
@@ -329,12 +394,18 @@ func _update_debug_visuals() -> void:
 			var material: Material = _debug_plane.material_override
 			if material is ShaderMaterial:
 				material.set_shader_param("freeze_progress", visual_freeze_progress)
+				# El disco se ensancha o angosta con la pared del domo a esta altura.
+				material.set_shader_param("surface_radius", get_surface_radius_at(ice_height))
 	if is_instance_valid(_debug_band):
 		_debug_band.visible = debug_draw and draw_frost_ceiling
 		if debug_draw and draw_frost_ceiling:
+			var ceiling: float = get_frost_ceiling()
 			var tb := _debug_band.transform
-			tb.origin = Vector3(0.0, to_local(Vector3(0.0, get_frost_ceiling(), 0.0)).y, 0.0)
+			tb.origin = Vector3(0.0, to_local(Vector3(0.0, ceiling, 0.0)).y, 0.0)
 			_debug_band.transform = tb
+			var band_material: Material = _debug_band.material_override
+			if band_material is ShaderMaterial:
+				band_material.set_shader_param("surface_radius", get_surface_radius_at(ceiling))
 
 # --- REPLAY ---
 

@@ -344,7 +344,9 @@ func _batch_static_meshes() -> void:
 		var instances := []
 		for item in items:
 			var mesh_instance: MeshInstance = item.get_node_or_null(relative_path) as MeshInstance
-			if mesh_instance != null and mesh_instance.mesh == source.mesh:
+			# Instanced scenes duplicate local mesh resources, so identity differs even
+			# when every item comes from the same target_scene and node path.
+			if mesh_instance != null and mesh_instance.mesh != null:
 				instances.append(mesh_instance)
 		if instances.empty():
 			continue

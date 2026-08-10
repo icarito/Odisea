@@ -13,7 +13,13 @@ class_name IceVisualBand
 
 # Radio exterior del hielo (pared del domo). El hielo cubre todo el disco interior hasta
 # acá, no solo un anillo delgado: la superficie completa del piso bajo ice_height arde.
+# Solo se usa como respaldo: si hay IceLevel, manda su silueta del domo (ver
+# `follow_dome_profile`).
 export(float) var ring_radius := 28.0
+# El borde de la banda sigue la pared real a la altura actual, en vez de un cilindro de
+# radio fijo. Sin esto la escarcha trepa por una pared imaginaria a metros de la de
+# verdad, y al cerrarse la bóveda quedaría por fuera del domo.
+export(bool) var follow_dome_profile := true
 # Si es true, solo emite en una franja delgada cerca de ring_radius (comportamiento viejo,
 # "anillo"). Si es false (default), cubre todo el disco desde el centro hasta ring_radius,
 # como una superficie de hielo completa.
@@ -177,18 +183,26 @@ func _process(delta: float) -> void:
 
 	var center_angle := _get_camera_arc_center()
 	var half_arc := deg2rad(clamp(visible_arc_deg, 1.0, 360.0)) * 0.5
-	_update_ice_light(center_angle)
+	var band_radius := _effective_ring_radius()
+	_update_ice_light(center_angle, band_radius)
 
 	for _i in range(to_spawn):
-		_emit_frost(center_angle, half_arc)
+		_emit_frost(center_angle, half_arc, band_radius)
 
-func _update_ice_light(center_angle: float) -> void:
+# Radio de la pared a la altura que está dibujando la banda. IceLevel es la autoridad:
+# tiene el perfil del domo y ya lo usa para recortar la superficie de hielo.
+func _effective_ring_radius() -> float:
+	if follow_dome_profile and is_instance_valid(_ice_level) and _ice_level.has_method("get_surface_radius_at"):
+		return _ice_level.get_surface_radius_at(_display_height)
+	return ring_radius
+
+func _update_ice_light(center_angle: float, band_radius: float) -> void:
 	if not is_instance_valid(_ice_light):
 		return
 	if OS.get_name() in ["Android", "iOS"]:
 		_ice_light.light_energy = 0.0
 		return
-	var radius := min(ring_radius * 0.42, 11.0)
+	var radius := min(band_radius * 0.42, 11.0)
 	var base_y := to_local(Vector3(0.0, _display_height, 0.0)).y
 	_ice_light.translation = Vector3(cos(center_angle) * radius, base_y + 1.2, sin(center_angle) * radius)
 	# El hielo emite una luz estable; no debe comportarse como una llama.
@@ -207,7 +221,7 @@ func _get_camera_arc_center() -> float:
 		return 0.0
 	return atan2(local_cam.z, local_cam.x)
 
-func _emit_frost(center_angle: float, half_arc: float) -> void:
+func _emit_frost(center_angle: float, half_arc: float, band_radius: float) -> void:
 	_emit_counter += 1
 	var r1 := _hashed_unit(_emit_counter)
 	var r2 := _hashed_unit(_emit_counter + 4127)
@@ -219,7 +233,7 @@ func _emit_frost(center_angle: float, half_arc: float) -> void:
 	if wall_frost:
 		angle = center_angle + (r1 * 2.0 - 1.0) * half_arc
 		var wall_pulse := sin(angle * wave_frequency * 0.63 - _wave_time * 1.35)
-		var wall_radius := ring_radius - 0.12 - wall_pulse * 0.08
+		var wall_radius := band_radius - 0.12 - wall_pulse * 0.08
 		position = Vector3(cos(angle) * wall_radius, 0.0, sin(angle) * wall_radius)
 	elif emit_center_column and (_emit_counter % 5) == 0:
 		angle = r1 * TAU
@@ -227,13 +241,13 @@ func _emit_frost(center_angle: float, half_arc: float) -> void:
 		position = Vector3(cos(angle) * center_r, 0.0, sin(angle) * center_r)
 	elif ring_only:
 		angle = center_angle + (r1 * 2.0 - 1.0) * half_arc
-		var radius := ring_radius - r2 * max(ring_thickness, 0.0)
+		var radius := band_radius - r2 * max(ring_thickness, 0.0)
 		position = Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
 	else:
 		# El congelamiento entra desde la pared. La potencia baja concentra el nacimiento
 		# cerca del perímetro y deja algunas lenguas avanzar hacia el interior.
 		angle = center_angle + (r1 * 2.0 - 1.0) * half_arc
-		var radius := ring_radius * pow(r2, 0.22)
+		var radius := band_radius * pow(r2, 0.22)
 		position = Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
 
 	var base_y := to_local(Vector3(0.0, _display_height, 0.0)).y

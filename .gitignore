@@ -72,3 +72,8 @@ data/ghosts.db
 native/godot-headers/
 native/bin/
 core_v2/update/native/bin/
+
+# Generado por CI y por `make android-debug-signed`; nunca se commitea (lleva el token
+# de telemetria, y en builds locales el placeholder canary).
+build_meta.json
+build_meta.js

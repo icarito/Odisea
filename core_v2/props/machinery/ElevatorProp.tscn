@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=2]
+[gd_scene load_steps=19 format=2]
 
 [ext_resource path="res://core_v2/props/ElevatorController.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/ElevatorPlatform.gd" type="Script" id=2]
@@ -6,7 +6,7 @@
 [ext_resource path="res://materials/reference/PrototypeOrange.tres" type="Material" id=4]
 [ext_resource path="res://core_v2/props/controls/PedestalButton.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/props/metal_fence/MetalFence.tscn" type="PackedScene" id=6]
-[ext_resource path="res://textures/prototype_textures/Orange.png" type="Texture" id=7]
+[ext_resource path="res://assets/textures/Hangar Concrete Floor/1k/Hangar Concrete Floor.tres" type="Material" id=7]
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=8]
 [ext_resource path="res://assets/sfx/sfx100v2_loop_machine_01.ogg" type="AudioStream" id=10]
 [ext_resource path="res://assets/beat/bell_l.wav" type="AudioStream" id=11]
@@ -31,12 +31,6 @@ _data = {
 "points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -0.974657, -4.44925e-08, -0.0433385, 0, 0, 0, 0, 0, 0, -1.97465, -8.80818e-08, -0.0405459, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117, 0, 0, 0, 0, 0, 0, 1.02534, 4.26861e-08, -0.0489235 ),
 "tilts": PoolRealArray( 0, 0, 0, 0, 0, 0 )
 }
-
-[sub_resource type="SpatialMaterial" id=4]
-flags_world_triplanar = true
-albedo_texture = ExtResource( 7 )
-uv1_triplanar = true
-uv1_triplanar_sharpness = 1.0
 
 [node name="ElevatorProp" type="Spatial"]
 script = ExtResource( 1 )
@@ -145,9 +139,10 @@ curve = SubResource( 9 )
 
 [node name="CSGCylinder" type="CSGBox" parent="MetalFence/Path2" index="0"]
 transform = Transform( 1, 0, 0, 3.55271e-14, 1, 3.63182e-14, 0, 8.04912e-16, 1, -0.0058718, 15.5, -2.10247 )
+use_collision = true
 width = 4.4
 height = 0.2
 depth = 4.4
-material = SubResource( 4 )
+material = ExtResource( 7 )
 
 [editable path="MetalFence"]
