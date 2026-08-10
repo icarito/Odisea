@@ -10,6 +10,9 @@ resource_local_to_scene = true
 size = Vector2( 3, 0.6 )
 
 [sub_resource type="Shader" id=11]
+__meta__ = {
+"odisea_occlusion_uniforms": true
+}
 code = "shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled;
 
@@ -89,6 +92,9 @@ extents = Vector3( 0.75, 1.5, 0.02 )
 size = Vector2( 1.5, 3 )
 
 [sub_resource type="Shader" id=5]
+__meta__ = {
+"odisea_occlusion_uniforms": true
+}
 code = "shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled;
 
