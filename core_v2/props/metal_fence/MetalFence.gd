@@ -174,6 +174,10 @@ void fragment() {
     ALBEDO *= mix(1.0, 0.5, ao);
 }
 """
+    # PropDitherManager can't sniff Shader.code for player_pos/camera_pos/is_active
+    # under the headless Dummy rasterizer (CI never populates it there), so tag the
+    # shader directly instead of relying on that check.
+    _shader.set_meta("odisea_occlusion_uniforms", true)
     _poles_material = SpatialMaterial.new()
     _poles_material.albedo_color = fence_color
     _poles_material.metallic = 0.9

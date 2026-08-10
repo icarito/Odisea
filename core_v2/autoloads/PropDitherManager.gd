@@ -278,6 +278,13 @@ func _convert_multimesh_instance(inst: MultiMeshInstance) -> void:
 		register_material(mat_override as ShaderMaterial)
 
 
+# Shaders authored outside this manager (MetalFence, ElevatorDoor's ShaftFence/
+# FencePanel) self-tag with this meta key instead of relying on Shader.code: the
+# headless/Dummy rasterizer CI runs under never populates .code (shader_get_code
+# returns "" with no GL driver), so a string-sniffing check silently sees every
+# shader as non-occlusion there even though it works fine in the editor.
+const OCCLUSION_UNIFORMS_META := "odisea_occlusion_uniforms"
+
 # A shader that already carries the per-frame occlusion uniforms (player_pos/camera_pos/
 # is_active/...) and just needs registering so _process keeps feeding it. The generic
 # dither + parallax props, plus the duct maze hull.
@@ -286,6 +293,8 @@ func _is_occlusion_shader(shader: Shader) -> bool:
 		return false
 	if shader == _dither_shader or shader == _dither_shader_double_sided \
 		or shader == _parallax_shader or shader == _duct_hull_shader:
+		return true
+	if shader.has_meta(OCCLUSION_UNIFORMS_META):
 		return true
 	# Procedural props such as MetalFence keep their authored shader, but expose
 	# the same uniform contract so this manager can feed the occlusion cone.
