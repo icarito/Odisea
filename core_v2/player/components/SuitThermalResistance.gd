@@ -63,6 +63,23 @@ func reset() -> void:
 	emit_signal("thermal_state_changed", get_ratio())
 
 func _physics_process(delta: float) -> void:
+	# En reproduccion de hotzone este componente no avanza con el reloj de pared: lo llama
+	# HotzonePlayer con el delta grabado, en lockstep con el jugador. Sin esto derivaba
+	# entre snapshots, y como la integridad del traje decide el dano, esa deriva entraba
+	# en la simulacion del jugador.
+	if _is_hotzone_playback():
+		return
+	step(delta)
+
+
+func _is_hotzone_playback() -> bool:
+	var sm = get_node_or_null("/root/SessionManager")
+	return sm != null and bool(sm.get("is_hotzone_playback"))
+
+
+# Avance determinista del estado termico. Separado de _physics_process para que el replay
+# pueda invocarlo con el delta grabado.
+func step(delta: float) -> void:
 	# Reconexión perezosa: el FireSystem puede aparecer después que el jugador.
 	if not is_instance_valid(_fire_system):
 		_connect_fire_system()

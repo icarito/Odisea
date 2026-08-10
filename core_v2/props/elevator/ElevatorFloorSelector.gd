@@ -92,6 +92,19 @@ var _touch_aim_active := false
 var _mouse_aim_active := false
 var _mouse_floor_progress := 0.0
 var _ignore_emulated_mouse_until := 0
+# Flanco del click segun el stream grabado. La confirmacion "de verdad" vivia solo en
+# _input() como InputEventMouseButton, y en reproduccion no existen eventos de hardware:
+# el click quedaba sin registrar y el ascensor nunca recibia la orden. Esto lo reconstruye
+# desde InputDataV2, que si se graba y reproduce.
+var _stream_confirm_was_down := false
+
+
+func _init() -> void:
+	# El selector de piso decide a que altura viaja el ascensor, o sea que su estado ENTRA
+	# en la simulacion del jugador. Estaba fuera de replay_sync, asi que un replay nunca lo
+	# capturaba ni lo restauraba: la interaccion grabada con el menu radial no se reproducia,
+	# el ascensor no recibia la orden y el jugador terminaba un nivel mas abajo.
+	add_to_group("replay_sync")
 
 
 func _ready() -> void:
@@ -206,6 +219,7 @@ func _process(_delta: float) -> void:
 	if not _confirm_armed and not _any_confirm_held():
 		_confirm_armed = true
 
+	_drive_from_stream()
 	_track_touch_movement_intent()
 	_track_aim()
 	_track_level()
@@ -258,9 +272,15 @@ func _track_aim() -> void:
 func _track_touch_movement_intent() -> void:
 	if not _is_touch_device() or _selector == null:
 		return
-	var direction := Vector2(
-		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
-		Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward"))
+	# Igual que la confirmacion: el move_vec grabado tiene prioridad sobre el hardware.
+	var direction := Vector2.ZERO
+	var input = _frame_input()
+	if input != null:
+		direction = Vector2(input.move_vec.x, input.move_vec.y)
+	else:
+		direction = Vector2(
+			Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
+			Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward"))
 	if direction.length_squared() <= 0.02:
 		return
 	_touch_aim_active = true
@@ -316,9 +336,68 @@ func _aim_in_viewport() -> Vector2:
 	return _viewport.size * 0.5 + heading * (min(_viewport.size.x, _viewport.size.y) * 0.5)
 
 
+# InputDataV2 del frame, tomado del proveedor del jugador que esta usando la consola. En
+# reproduccion ese proveedor entrega el input GRABADO, asi que la confirmacion se replica.
+# Devuelve null cuando no hay proveedor (editor, o nadie en la cabina).
+func _frame_input():
+	var body: Node = _zoomed_player
+	if not is_instance_valid(body):
+		var sm = get_node_or_null("/root/SessionManager")
+		if sm != null:
+			body = sm.player
+	if not is_instance_valid(body):
+		return null
+	if not ("input_provider" in body) or not is_instance_valid(body.input_provider):
+		return null
+	# peek_input(), NO get_input(): este ultimo avanza playback_index, asi que leerlo desde
+	# aca se comia una entrada del buffer por frame y desincronizaba la reproduccion.
+	if not body.input_provider.has_method("peek_input"):
+		return null
+	return body.input_provider.peek_input()
+
+
+# Apuntado y confirmacion reconstruidos desde el input grabado. Ambos vivian solo en
+# _input() —el giro del dial como InputEventMouseMotion.relative, el click como
+# InputEventMouseButton— y en reproduccion no hay eventos de hardware, asi que el radial no
+# se comportaba de forma determinista: el click caia en el momento equivocado porque la
+# aguja nunca se habia movido. mouse_delta y tool_fire_primary SI se graban en InputDataV2.
+#
+# Solo actua en reproduccion: en juego normal manda _input(), que ademas consume el evento,
+# y disparar por los dos lados giraria el dial doble y elegiria piso dos veces.
+func _drive_from_stream() -> void:
+	var input = _frame_input()
+	if input == null:
+		_stream_confirm_was_down = false
+		return
+
+	# El dial lo define la ULTIMA DIRECCION DE MOVIMIENTO, no un progreso acumulado: es la
+	# misma semantica que _track_touch_movement_intent(), que en escritorio no corre porque
+	# esta detras de _is_touch_device(). Acumular mouse_delta elegia otro piso.
+	var direction := Vector2(input.move_vec.x, input.move_vec.y)
+	if direction.length_squared() > 0.02 and _selector != null:
+		_touch_aim_active = true
+		_point_at_screen_direction(direction)
+
+	var down: bool = bool(input.tool_fire_primary)
+	if down and not _stream_confirm_was_down and _confirm_armed and _selector:
+		_selector.confirm()
+	_stream_confirm_was_down = down
+
+
 func _any_confirm_held() -> bool:
 	if _touch_index >= 0:
 		return true
+	# El stream grabado manda cuando existe: sondear Input.* aca dejaba la confirmacion
+	# fuera del replay, el menu radial nunca recibia el click y el ascensor no viajaba.
+	var input = _frame_input()
+	if input != null:
+		if bool(input.interact):
+			return true
+		if ("tool_fire_primary" in input) and bool(input.tool_fire_primary):
+			return true
+		# Sin hardware real detras (reproduccion), el stream es la unica verdad.
+		if not bool(input.hardware_mouse_active):
+			return false
 	if Input.is_mouse_button_pressed(BUTTON_LEFT):
 		return true
 	for action in ARMING_ACTIONS:
@@ -346,11 +425,11 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion and event.relative.length_squared() > 0.1:
 		_touch_aim_active = false
-		_mouse_aim_active = true
-		_mouse_floor_progress = clamp(
-			_mouse_floor_progress - event.relative.y / max(40.0, mouse_full_arc_distance),
-			0.0, 1.0)
-		_point_at_floor_progress(_mouse_floor_progress)
+		# El giro del dial ya no se maneja aca: lo hace _drive_from_stream() leyendo
+		# InputDataV2, la MISMA fuente en vivo y en reproduccion. Tener dos
+		# implementaciones del mismo gesto era lo que hacia que el replay eligiera otro
+		# piso: el stream invierte el signo de Y y lo cuantiza, el evento crudo no.
+		pass
 
 	if event.is_action_pressed("ui_cancel"):
 		_selector.cancel()
@@ -358,11 +437,9 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if _confirm_armed:
+		# El click primario tampoco se confirma aca: _drive_from_stream() lo detecta por
+		# flanco sobre InputDataV2.tool_fire_primary, igual en vivo que en replay.
 		if event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed:
-			if _is_touch_device() or OS.get_ticks_msec() < _ignore_emulated_mouse_until:
-				get_tree().set_input_as_handled()
-				return
-			_selector.confirm()
 			get_tree().set_input_as_handled()
 			return
 		for action in CONFIRM_ACTIONS:
@@ -558,6 +635,11 @@ func _wire_cabin_zoom() -> void:
 	var zone := get_node_or_null(cabin_zone_path) as Area
 	if zone == null:
 		zone = get_node_or_null("InteractableEntity") as Area
+	if OS.get_environment("DBG_SELECTOR") != "":
+		print("[cabin] zona=%s  monitoring=%s  mask=%s" % [
+			zone.name if zone != null else "NINGUNA",
+			str(zone.monitoring) if zone != null else "-",
+			str(zone.collision_mask) if zone != null else "-"])
 	if zone == null:
 		return
 	if not zone.is_connected("body_entered", self, "_on_cabin_body_entered"):
@@ -567,6 +649,9 @@ func _wire_cabin_zoom() -> void:
 
 
 func _on_cabin_body_entered(body: Node) -> void:
+	if OS.get_environment("DBG_SELECTOR") != "":
+		print("[cabin] body_entered: %s  es_player=%s  ya_zoomed=%s" % [
+			body.name, _is_player(body), _zoomed_player != null])
 	if _zoomed_player != null or not _is_player(body):
 		return
 	var current = body.get("base_spring_length_3d")
@@ -636,6 +721,28 @@ func _setup_viewport_texture() -> void:
 		mat = screen_mesh.get("material")
 	if mat is ShaderMaterial:
 		mat.set_shader_param("texture_albedo", _viewport.get_texture())
+
+
+# Estado logico que decide el destino del ascensor. Deliberadamente NO se guarda el estado
+# de puntería (touch/mouse aim), que es de entrada momentanea y se reconstruye solo.
+func get_snapshot() -> Dictionary:
+	return {
+		"is_open": _is_open,
+		"confirm_armed": _confirm_armed,
+		"current_floor": _current_floor,
+		"announced_floor": _announced_floor,
+	}
+
+
+func restore_snapshot(data: Dictionary) -> void:
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	_is_open = bool(data.get("is_open", _is_open))
+	_confirm_armed = bool(data.get("confirm_armed", _confirm_armed))
+	_current_floor = int(data.get("current_floor", _current_floor))
+	_announced_floor = int(data.get("announced_floor", _announced_floor))
+	if is_inside_tree():
+		_update_visuals()
 
 
 func _update_visuals() -> void:

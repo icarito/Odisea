@@ -213,6 +213,24 @@ func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		_update_debug_visuals()
 		return
+	# Durante la reproduccion de un hotzone este nodo NO debe avanzar con el reloj de pared:
+	# lo maneja HotzonePlayer llamando step(dt) con el delta grabado, en lockstep con el
+	# jugador. Antes el hielo subia al ritmo del dispositivo que reproducia, no al de la
+	# grabacion, y como la simulacion del jugador depende de la linea de hielo (profundidad
+	# pisable, dano, colision) esa era una fuente directa de divergencia.
+	if _is_hotzone_playback():
+		return
+	step(delta)
+
+
+func _is_hotzone_playback() -> bool:
+	var sm = get_node_or_null("/root/SessionManager")
+	return sm != null and bool(sm.get("is_hotzone_playback"))
+
+
+# Avance determinista de la linea de hielo. Separado de _physics_process para que el
+# replay pueda invocarlo con el delta grabado en vez del delta real del frame.
+func step(delta: float) -> void:
 	if not is_running:
 		return
 

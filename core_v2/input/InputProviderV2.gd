@@ -45,6 +45,17 @@ func _init() -> void:
 
 
 # Universal input getter
+# Ultimo input entregado por get_input() en este frame. Existe para que otros sistemas
+# (consolas, menus de prop) puedan LEER el input del frame sin consumirlo: get_input()
+# avanza playback_index, asi que llamarlo desde fuera del bucle del jugador se comia
+# entradas del buffer y desincronizaba la reproduccion entera.
+var last_input: InputDataV2 = null
+
+
+func peek_input() -> InputDataV2:
+	return last_input
+
+
 func get_input() -> InputDataV2:
 	if mode == Mode.REPLAY:
 		if playback_index < playback_buffer.size():
@@ -55,12 +66,14 @@ func get_input() -> InputDataV2:
 			else:
 				d.from_dict(entry)
 			playback_index += 1
+			last_input = d
 			return d
 		else:
 			# Buffer ended, return null to signal end of replay
 			return null
 	else:
-		return _read_live_input()
+		last_input = _read_live_input()
+		return last_input
 
 
 func _q(v):

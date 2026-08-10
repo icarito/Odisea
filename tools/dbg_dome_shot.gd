@@ -323,6 +323,34 @@ func _init() -> void:
 				print("[activas] %-24s vivas=%3d de pool efectivo %3d" % [node.name, live, node._effective_pool()])
 		print("[activas] TOTAL vivas en la escena = %d" % total_active)
 
+	# Auditoria de determinismo del replay: quien avanza solo, quien tiene step() y quien
+	# esta en replay_sync (o sea, quien puede corregirse con snapshots).
+	if _env("DBG_DETERMINISM", "") != "":
+		var sync_group := {}
+		for n in scene.get_tree().get_nodes_in_group("replay_sync"):
+			sync_group[n.get_instance_id()] = true
+		var seen := {}
+		for node in _descendants(scene):
+			if not (node.is_processing() or node.is_physics_processing()):
+				continue
+			var sc = node.get_script()
+			if sc == null:
+				continue
+			var key: String = sc.resource_path.get_file()
+			if seen.has(key):
+				continue
+			seen[key] = true
+			var in_sync: bool = sync_group.has(node.get_instance_id())
+			var has_step: bool = node.has_method("step")
+			var has_snap: bool = node.has_method("get_snapshot")
+			var risk := "OK"
+			if not in_sync:
+				risk = "INVISIBLE al replay"
+			elif not has_step:
+				risk = "solo snapshots (deriva entre anclas)"
+			print("[det] %-28s replay_sync=%-5s step=%-5s snapshot=%-5s  %s" % [
+				key, str(in_sync), str(has_step), str(has_snap), risk])
+
 	if _env("DBG_INVENTORY", "") != "":
 		_report_inventory(scene)
 

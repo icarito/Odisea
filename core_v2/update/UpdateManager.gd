@@ -70,11 +70,24 @@ func _ready():
 	if sm and sm.has_signal("startup_gate_opened"):
 		sm.connect("startup_gate_opened", self, "_on_startup_gate_opened", [], CONNECT_ONESHOT)
 
+func _is_replaying() -> bool:
+	var sm = get_node_or_null("/root/SessionManager")
+	return sm != null and bool(sm.get("is_replaying"))
+
+
 func _on_startup_gate_opened(_reason, _frames) -> void:
 	confirm_boot()
 
 func check_for_updates() -> void:
 	if _is_source_checkout():
+		_set_state(State.IDLE)
+		return
+	# Durante un replay de hotzone no se chequean updates: la descarga del manifest y su
+	# verificacion meten I/O de red y trabajo de CPU en medio de la reproduccion, que es
+	# justamente una corrida de medicion donde la entrada es determinista y todo lo demas
+	# deberia serlo tambien.
+	if _is_replaying():
+		print("[UpdateManager] Replay en curso; se omite el chequeo de updates.")
 		_set_state(State.IDLE)
 		return
 	if _state != State.IDLE and _state != State.FAILED:

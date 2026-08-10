@@ -21,6 +21,11 @@ func _ready() -> void:
 	call_deferred("_try_bind")
 
 func _process(_delta: float) -> void:
+	# is_enabled() solo se consulta al enlazar, asi que si el overlay ya estaba montado
+	# cuando arranca el replay habria seguido dibujandose. Se comprueba tambien aca.
+	if not is_enabled():
+		_remove_overlay()
+		return
 	if not is_instance_valid(_ice_level):
 		var systems: Array = get_tree().get_nodes_in_group("ice_level") if get_tree() else []
 		if systems.empty():
@@ -43,6 +48,14 @@ func _process(_delta: float) -> void:
 
 func is_enabled() -> bool:
 	if OS.has_feature("Server"):
+		return false
+	# Un replay coloca al jugador con los transforms grabados, pero el nivel de hielo
+	# arranca de cero y sube a su propio ritmo, asi que la altura del hielo no corresponde
+	# a la que habia cuando se grabo. La comparacion "jugador por debajo de la linea" da
+	# falsos positivos y aparece la vineta de dano por frio sin que el jugador este en
+	# peligro. Mientras se reproduce, la vineta no tiene sentido.
+	var sm := get_node_or_null("/root/SessionManager")
+	if sm != null and bool(sm.get("is_replaying")):
 		return false
 	var env := OS.get_environment("ODISEA_FROST_VIGNETTE").strip_edges().to_lower()
 	if env in ["0", "false", "no", "off"]:

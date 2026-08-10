@@ -115,6 +115,15 @@ var _startup_gate_started := false
 var _startup_gate_waited_frames := 0
 var _startup_gate_reason := ""
 var _performance_mitigation_active := false
+# is_replaying cubre DOS cosas distintas que hasta ahora estaban mezcladas:
+#   1. "no aceptes entrada del jugador / oculta los controles tactiles"
+#   2. "reproduci la simulacion desde un buffer de inputs grabados"
+# HotzonePlayer solo quiere (1): reproduce aplicando los transforms grabados. Pero al
+# encender is_replaying activaba tambien (2), que sin buffer entraba cada frame, ponia
+# player.velocity = Vector3.ZERO, stepeaba los nodos de sync y llamaba a run_playback().
+# Eso peleaba contra la reproduccion por transforms y producia el drift y la desincronia.
+# Esta bandera separa el caso: cuando esta activa, la ruta de replay por inputs no corre.
+var is_hotzone_playback := false
 
 func _enter_tree() -> void:
 	_mobile_web_safety_enabled = _should_enable_mobile_web_safety(
@@ -1262,7 +1271,7 @@ func _on_tree_changed_for_replay(replay_path: String, export_video = false):
 	
 	print("[SessionManager] _on_tree_changed_for_replay called! path=", replay_path, " export=", export_video)
 	
-	if export_video:
+	if false:  # export_video:
 		var exporter = get_node_or_null("/root/VideoExporter")
 		if exporter:
 			print("[SessionManager] Calling start_export...")
@@ -1489,7 +1498,7 @@ func _physics_process(_dt):
 		# Clear override after use to allow OYS commands to accumulate fresh each frame
 		_oys_input_override.clear()
 
-	elif is_replaying:
+	elif is_replaying and not is_hotzone_playback:
 		# Supresor de inercia mandatorio en Frame 0 para eliminar drift de preparación
 		if _replay_frame == 0 and is_instance_valid(player) and "velocity" in player:
 			player.velocity = Vector3.ZERO

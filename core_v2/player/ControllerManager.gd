@@ -23,6 +23,9 @@ var _last_standard_camera_distance := 0.0
 var _last_standard_camera_fov := 75.0
 
 func _ready() -> void:
+	# Ya exponia get_snapshot()/restore_snapshot() pero no estaba en el grupo, asi que el
+	# replay nunca lo capturaba ni lo restauraba: arrancaba desincronizado.
+	add_to_group("replay_sync")
 	var root = get_parent()
 	if not root is KinematicBody:
 		push_error("ControllerManager must be a child of a KinematicBody")

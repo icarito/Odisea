@@ -24,6 +24,13 @@ onready var btn_collapse = $BtnCollapse
 
 var replay_data := {}
 var frames := []
+# Traza de rendimiento de la reproduccion. La telemetria esta apagada a proposito durante
+# un replay (ANNAV2.set_replay_mode corta el hilo de red para no crear sesiones fantasma),
+# asi que no hay heartbeats que muestrear desde afuera. Como el replay SI da entrada
+# determinista, es el unico contexto donde dos corridas son comparables: se vuelca la traza
+# a disco al terminar y se recoge con `adb pull`.
+const PERF_TRACE_PATH := "user://replay_perf.json"
+var _perf_trace := []
 var current_frame_idx := 0
 var playback_speed := 1.0
 var is_paused := true setget _set_paused
@@ -242,6 +249,9 @@ func _prepare_scene():
 	# avoid a flash of on-screen controls.
 	if SessionManager:
 		SessionManager.is_replaying = true
+		# Este reproductor aplica transforms grabados; no hay buffer de inputs que
+		# SessionManager pueda reproducir. Ver is_hotzone_playback en SessionManager.
+		SessionManager.is_hotzone_playback = true
 
 	var scene_name = scene_override if scene_override != "" else replay_data.get("scene", "")
 	var scene_path = _resolve_scene_path(scene_name)
@@ -269,12 +279,23 @@ func _attach_loaded_scene():
 func _resolve_scene_path(scene_name: String) -> String:
 	var known = {
 		"Dome_Crio": "res://core_v2/levels/interiors/Dome_Crio.tscn",
+		"Dome_Intro": "res://core_v2/levels/interiors/Dome_Intro.tscn",
 		"OdiseaExterior": "res://core_v2/levels/OdiseaExterior.tscn",
 		"ScaffoldOrbit": "res://core_v2/components/ScaffoldOrbit.tscn",
 		"TestScene_v2": "res://core_v2/levels/TestScene_v2.tscn"
 	}
 	if known.has(scene_name): return known[scene_name]
 	if scene_name.begins_with("res://") and ResourceLoader.exists(scene_name): return scene_name
+
+	# El mapa de arriba quedaba desactualizado en silencio: el grabador captura hotzones de
+	# cualquier escena (hay decenas de Dome_Intro en el central) pero el reproductor solo
+	# conocia cuatro, y fallaba con "Unrecognized scene". Este fallback resuelve por
+	# convencion de ruta, asi que una escena nueva no necesita tocar el mapa.
+	for base in ["res://core_v2/levels/interiors/", "res://core_v2/levels/",
+			"res://scenes/levels/", "res://core_v2/components/"]:
+		var candidate: String = base + scene_name + ".tscn"
+		if ResourceLoader.exists(candidate):
+			return candidate
 	return ""
 
 func _start_replay():
@@ -383,6 +404,16 @@ func _update_ui_frame():
 		# "Source" = the original recorded FPS of this frame; "Replay" = the FPS
 		# the player itself is currently rendering at.
 		var replay_fps := Performance.get_monitor(Performance.TIME_FPS)
+		_perf_trace.append({
+			"frame": current_frame_idx,
+			"src_fps": src_fps,
+			"replay_fps": replay_fps,
+			"ms_process": Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+			"ms_physics": Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+			"vertices": Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME),
+			"draw_calls": Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
+			"memory_mb": Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0,
+		})
 		line += " | Source FPS: %.1f | Replay FPS: %.1f" % [src_fps, replay_fps]
 		frame_label.modulate = _fps_color(src_fps)
 	else:
@@ -418,6 +449,10 @@ func _process(delta):
 		_warmup_remaining -= delta
 		if _warmup_remaining <= 0.0:
 			_is_warming_up = false
+			# Re-anclar antes del primer paso: _start_replay() restauro el frame 0, pero
+			# durante el calentamiento la escena sigue viva y ese estado queda viejo. Sin
+			# esto la reproduccion arranca desde un estado que no es el grabado.
+			_restore_frame_state(0)
 			self.is_paused = false
 		else:
 			status_label.text = "Calentando... %.1fs" % _warmup_remaining
@@ -528,7 +563,12 @@ func _step_forward():
 	_restore_prop_snapshots(f)
 	var input = InputDataV2.new()
 	input.from_dict(f.get("input", {}))
-	player_node.step(f.get("dt", 0.016), input)
+	var dt: float = f.get("dt", 0.016)
+	player_node.step(dt, input)
+	# El mundo tiene que avanzar EN LOCKSTEP con el jugador y con el delta grabado. Si cada
+	# nodo avanza por su cuenta en su _physics_process, lo hace al ritmo del dispositivo que
+	# reproduce y no al de la grabacion: entre snapshots eso diverge y se ve como drift.
+	_step_world(dt)
 	_update_ui_frame()
 
 func _restore_frame_state(idx: int):
@@ -557,6 +597,18 @@ func _restore_frame_state(idx: int):
 		player_node.input_provider.playback_index = idx
 
 var _prop_node_cache := {}
+# Avanza los nodos del grupo replay_sync con el delta grabado. Solo los que exponen
+# step(): los que no, dependen de sus snapshots periodicos.
+func _step_world(dt: float) -> void:
+	for node in get_tree().get_nodes_in_group("replay_sync"):
+		if node == player_node or not is_instance_valid(node):
+			continue
+		if is_instance_valid(player_node) and player_node.is_a_parent_of(node):
+			continue
+		if node.has_method("step"):
+			node.step(dt)
+
+
 func _restore_prop_snapshots(f: Dictionary) -> void:
 	var props = f.get("props", {})
 	if props.empty() or not is_instance_valid(loaded_scene_node): return
@@ -573,14 +625,34 @@ func _on_replay_finished():
 	status_label.text = "REGISTRO COMPLETADO — Pausado"
 	status_label.modulate = Color(0.3, 1, 1)
 
+# Vuelca la traza a user://replay_perf.json. En Android eso cae en el sandbox de la app,
+# recuperable con: adb exec-out run-as org.odisea.game cat files/replay_perf.json
+func _dump_perf_trace() -> void:
+	if _perf_trace.empty():
+		return
+	var f := File.new()
+	if f.open(PERF_TRACE_PATH, File.WRITE) != OK:
+		printerr("[HotzonePlayer] No se pudo escribir ", PERF_TRACE_PATH)
+		return
+	f.store_string(JSON.print({
+		"scene": replay_data.get("scene", ""),
+		"frames_reproducidos": _perf_trace.size(),
+		"muestras": _perf_trace,
+	}))
+	f.close()
+	print("[HotzonePlayer] Traza de rendimiento escrita: %s (%d muestras)" % [PERF_TRACE_PATH, _perf_trace.size()])
+
+
 func restart_replay():
 	_restore_frame_state(0)
 	_update_ui_frame()
 	self.is_paused = false
 
 func _exit_tree():
+	_dump_perf_trace()
 	if SessionManager:
 		SessionManager.is_replaying = false
+		SessionManager.is_hotzone_playback = false
 
 	if OS.has_feature("web"):
 		var js = JavaScript.get_interface("OdiseaShell")

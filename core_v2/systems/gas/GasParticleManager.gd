@@ -502,6 +502,33 @@ func _hide_instance(index: int) -> void:
 	multimesh.set_instance_color(index, Color(0, 0, 0, 0))
 	multimesh.set_instance_custom_data(index, Color(0, 0, 0, 0))
 
+# Godot 3 no tiene constructor de copia: Vector3(v) y Color(c) son invalidos, igual que
+# Vector3(array). Al restaurar un replay guardado en JSON los vectores llegan como Array
+# [x, y, z] y el codigo anterior lanzaba "Nonexistent 'Vector3' constructor" en CADA
+# particula, asi que ninguna se restauraba y el estado quedaba distinto al grabado: una
+# fuente directa de divergencia en la reproduccion.
+func _as_vector3(value) -> Vector3:
+	if value is Vector3:
+		return value
+	if value is Array and value.size() >= 3:
+		return Vector3(float(value[0]), float(value[1]), float(value[2]))
+	if value is Dictionary and value.has("x"):
+		return Vector3(float(value["x"]), float(value["y"]), float(value["z"]))
+	return Vector3.ZERO
+
+
+func _as_color(value) -> Color:
+	if value is Color:
+		return value
+	if value is Array and value.size() >= 3:
+		var a: float = float(value[3]) if value.size() >= 4 else 1.0
+		return Color(float(value[0]), float(value[1]), float(value[2]), a)
+	if value is Dictionary and value.has("r"):
+		return Color(float(value["r"]), float(value["g"]), float(value["b"]),
+			float(value["a"]) if value.has("a") else 1.0)
+	return default_color
+
+
 func get_snapshot() -> Dictionary:
 	var active_particles := []
 	for i in range(particles.size()):
@@ -510,12 +537,12 @@ func get_snapshot() -> Dictionary:
 			continue
 		active_particles.append({
 			"i": i,
-			"p": Vector3(p["position"]),
-			"v": Vector3(p["velocity"]),
+			"p": _as_vector3(p["position"]),
+			"v": _as_vector3(p["velocity"]),
 			"t": float(p["lifetime"]),
 			"m": float(p["max_lifetime"]),
 			"s": float(p["base_scale"]),
-			"c": Color(p["color"]),
+			"c": _as_color(p["color"]),
 			"b": bool(p["combustion"]),
 			"a": float(p.get("anim_time", 0.0)),
 			"o": float(p.get("anim_offset", 0.0))
@@ -544,13 +571,13 @@ func restore_snapshot(data: Dictionary) -> void:
 
 		var p: Dictionary = particles[index]
 		p["active"] = true
-		p["position"] = Vector3(entry.get("p", Vector3.ZERO))
-		p["velocity"] = Vector3(entry.get("v", Vector3.ZERO))
+		p["position"] = _as_vector3(entry.get("p", Vector3.ZERO))
+		p["velocity"] = _as_vector3(entry.get("v", Vector3.ZERO))
 		p["lifetime"] = float(entry.get("t", 0.0))
 		p["max_lifetime"] = float(entry.get("m", default_max_lifetime))
 		p["base_scale"] = float(entry.get("s", default_base_scale))
 		
-		var raw_color = Color(entry.get("c", default_color))
+		var raw_color = _as_color(entry.get("c", default_color))
 		# If it's a restored snapshot, we can just use the color directly or re-apply variance.
 		# Since we save the exact color in get_snapshot(), we don't need to re-vary it here.
 		p["color"] = raw_color
