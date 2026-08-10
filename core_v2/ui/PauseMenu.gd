@@ -11,6 +11,8 @@ onready var options_menu = get_node_or_null("OptionsMenu")
 func _ready():
 	_connect_signals()
 	_update_version_label()
+	if quit_button and OS.get_name() == "HTML5":
+		quit_button.visible = false
 	if resume_button:
 		resume_button.grab_focus()
 
@@ -54,10 +56,7 @@ func _on_main_menu_pressed():
 	get_tree().change_scene("res://scenes/Menu.tscn")
 
 func _on_quit_pressed():
-	if OS.get_name() == "HTML5":
-		JavaScript.eval("window.close();", true)
-	else:
-		get_tree().quit()
+	get_tree().quit()
 
 func on_show():
 	# on_show() can run before _ready() (e.g. PauseManager opens the menu in the same

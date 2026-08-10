@@ -25,6 +25,9 @@ func _ready():
 	_connect_signals()
 	_initialize_version_label()
 
+	if quit_button and OS.get_name() == "HTML5":
+		quit_button.visible = false
+
 	if continue_button.visible and not continue_button.disabled:
 		continue_button.grab_focus()
 	else:
@@ -39,7 +42,7 @@ func _ready():
 		var handler = $TouchCanvasLayer/TouchHandler
 		var temp_buttons = []
 		for b in [new_game_button, continue_button, options_button, quit_button]:
-			if b:
+			if b and b.visible:
 				temp_buttons.append(b)
 		handler.buttons = temp_buttons
 	call_deferred("_request_first_scene_preload")
@@ -84,10 +87,7 @@ func _on_Options_pressed():
 	options_menu.on_show()
 
 func _on_Quit_pressed():
-	if OS.get_name() == "HTML5":
-		JavaScript.eval("window.close();", true)
-	else:
-		get_tree().quit()
+	get_tree().quit()
 
 func _start_game(scene_path):
 	# Avoid double-triggering if a button is pressed twice during the fade.
