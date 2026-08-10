@@ -24,11 +24,12 @@ render_mode depth_draw_never, cull_back, unshaded;
 // toned down (matte, to kill the view-angle flicker) the only contrast left to make the
 // rim/cracks read is color, so the two need to be visibly distinct instead of both being
 // near-white — that's what made the pass look flat/uniform after the matte fix.
-uniform vec4 frost_color : hint_color = vec4(0.55, 0.76, 0.94, 1.0);
+uniform vec4 frost_color : hint_color = vec4(0.62, 0.8, 0.96, 1.0);
 // Pulled back from near-1.0-white: combined with the fake key light's own boost above
 // 1.0 and any emission, this was crossing the environment's glow_hdr_threshold (1.6 in
 // Environment_DomeIntro.tres) and bloomed hard right where the rim/cracks peak together.
-uniform vec4 crack_color : hint_color = vec4(0.82, 0.9, 0.96, 1.0);
+uniform vec4 crack_color : hint_color = vec4(0.78, 0.89, 0.98, 1.0);
+uniform bool low_end_mobile = false;
 uniform float ice_height_world = 0.0;
 // World-space distance above the ice line over which the freeze front fades in.
 uniform float freeze_band_height : hint_range(0.1, 8.0) = 3.0;
@@ -37,6 +38,9 @@ uniform float emission_strength : hint_range(0.0, 1.0) = 0.02;
 // Bright rim right at the freeze front, like a waterline — the main visibility cue.
 uniform float rim_width : hint_range(0.0, 1.0) = 0.32;
 uniform float rim_strength : hint_range(0.0, 2.0) = 0.85;
+// Evita que el next_pass compita por exactamente el mismo depth que metales y shaders
+// complejos. Es suficientemente pequeño para no cambiar la silueta del prop.
+uniform float surface_offset : hint_range(0.0, 0.01) = 0.002;
 // Alpha-tested (opaque queue), not alpha-blended: this pass sits on the same geometry as
 // dozens of other props near the ice line, several already blended (the ice surface
 // itself). Blending it too would put it in the sorted-transparency queue, competing for
@@ -99,6 +103,7 @@ float bayer4(vec2 p) {
 }
 
 void vertex() {
+	VERTEX += NORMAL * surface_offset;
 	world_position = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((WORLD_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
@@ -149,7 +154,10 @@ void fragment() {
 
 	vec2 p = world_position.xz * crack_density + world_position.y * crack_density * 0.3;
 	float broad = ice_octave(p) * 0.5 + 0.5;
-	float fine = ice_octave(p * 2.3 + vec2(11.0, -4.0)) * 0.5 + 0.5;
+	float fine = broad;
+	if (!low_end_mobile) {
+		fine = ice_octave(p * 2.3 + vec2(11.0, -4.0)) * 0.5 + 0.5;
+	}
 	float crack_mask = smoothstep(0.62, 0.85, broad * 0.55 + fine * 0.45);
 	// Only thins coverage in a few spots instead of holding half the surface at 50%:
 	// the old mix(0.5, 1.0, ...) floor was a big part of why this read as too faint.

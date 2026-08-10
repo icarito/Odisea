@@ -24,7 +24,7 @@ extends SceneTree
 # Output: core_v2/levels/interiors/DomeIntro_<Group>_sector_00..07.mesh
 #         core_v2/levels/interiors/DomeIntro_<Group>_body.tscn
 
-const SCENE_PATH := "res://core_v2/levels/interiors/Dome_Intro.tscn"
+const DEFAULT_SCENE_PATH := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 const GROUPS := ["SpiralStairs", "HubSpokes", "SpiralWalkways"]
 const OUT_DIR := "res://core_v2/levels/interiors/"
 const SECTOR_COUNT := 8
@@ -38,9 +38,12 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var scene: PackedScene = load(SCENE_PATH)
+	var scene_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
+	if scene_path.empty():
+		scene_path = DEFAULT_SCENE_PATH
+	var scene: PackedScene = load(scene_path)
 	if scene == null:
-		push_error("Could not load %s" % SCENE_PATH)
+		push_error("Could not load %s" % scene_path)
 		quit(1)
 		return
 	var root: Node = scene.instance()
@@ -52,7 +55,10 @@ func _run() -> void:
 	for _i in range(20):
 		yield(self, "idle_frame")
 
+	var selected_group: String = OS.get_environment("ODISEA_BAKE_GROUP")
 	for group_name in GROUPS:
+		if not selected_group.empty() and group_name != selected_group:
+			continue
 		_bake_group(root, group_name)
 
 	quit(0)

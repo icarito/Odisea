@@ -1,4 +1,4 @@
-[gd_scene load_steps=130 format=2]
+[gd_scene load_steps=131 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
@@ -13,13 +13,8 @@
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=15]
 [ext_resource path="res://core_v2/systems/ice/IceLevel.gd" type="Script" id=16]
 [ext_resource path="res://core_v2/systems/ice/IceVisualBand.gd" type="Script" id=17]
-[ext_resource path="res://core_v2/systems/ice/IceObjectFreezer.gd" type="Script" id=99]
 [ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=18]
 [ext_resource path="res://core_v2/systems/ice/shaders/transparent_ice.shader" type="Shader" id=19]
-[ext_resource path="res://assets/textures/Ice/ice_0002_color_1k.jpg" type="Texture" id=101]
-[ext_resource path="res://assets/textures/Ice/ice_0002_normal_opengl_1k.png" type="Texture" id=102]
-[ext_resource path="res://assets/textures/Ice/ice_0002_roughness_1k.jpg" type="Texture" id=103]
-[ext_resource path="res://assets/textures/Ice/ice_0002_ao_1k.jpg" type="Texture" id=104]
 [ext_resource path="res://scenes/common/space_environment/Environment_DomeIntro.tres" type="Environment" id=20]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=21]
 [ext_resource path="res://core_v2/props/emitters/FrostEmitter.tscn" type="PackedScene" id=22]
@@ -32,24 +27,6 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_body.tscn" type="PackedScene" id=34]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_body.tscn" type="PackedScene" id=36]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_body.tscn" type="PackedScene" id=38]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_00.mesh" type="ArrayMesh" id=76]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_01.mesh" type="ArrayMesh" id=77]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_02.mesh" type="ArrayMesh" id=78]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_03.mesh" type="ArrayMesh" id=79]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_04.mesh" type="ArrayMesh" id=80]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_05.mesh" type="ArrayMesh" id=81]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_07.mesh" type="ArrayMesh" id=83]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_00.mesh" type="ArrayMesh" id=84]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_05.mesh" type="ArrayMesh" id=89]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_06.mesh" type="ArrayMesh" id=90]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_07.mesh" type="ArrayMesh" id=91]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_00.mesh" type="ArrayMesh" id=92]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_01.mesh" type="ArrayMesh" id=93]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_02.mesh" type="ArrayMesh" id=94]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_03.mesh" type="ArrayMesh" id=95]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_04.mesh" type="ArrayMesh" id=96]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_05.mesh" type="ArrayMesh" id=97]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_06.mesh" type="ArrayMesh" id=98]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpokeLightPath_markers.tres" type="MultiMesh" id=51]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_WallLightFixtures.tres" type="MultiMesh" id=53]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_WallLightFixtures_00.tres" type="MultiMesh" id=54]
@@ -70,6 +47,29 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_WallLightBulbGlows_05.tres" type="MultiMesh" id=73]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_WallLightBulbGlows_06.tres" type="MultiMesh" id=74]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_WallLightBulbGlows_07.tres" type="MultiMesh" id=75]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_00.mesh" type="ArrayMesh" id=76]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_01.mesh" type="ArrayMesh" id=77]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_02.mesh" type="ArrayMesh" id=78]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_03.mesh" type="ArrayMesh" id=79]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_04.mesh" type="ArrayMesh" id=80]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_05.mesh" type="ArrayMesh" id=81]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralStairs_sector_07.mesh" type="ArrayMesh" id=83]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_00.mesh" type="ArrayMesh" id=84]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_05.mesh" type="ArrayMesh" id=89]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_06.mesh" type="ArrayMesh" id=90]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_HubSpokes_sector_07.mesh" type="ArrayMesh" id=91]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_00.mesh" type="ArrayMesh" id=92]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_01.mesh" type="ArrayMesh" id=93]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_02.mesh" type="ArrayMesh" id=94]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_03.mesh" type="ArrayMesh" id=95]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_04.mesh" type="ArrayMesh" id=96]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_05.mesh" type="ArrayMesh" id=97]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_06.mesh" type="ArrayMesh" id=98]
+[ext_resource path="res://core_v2/systems/ice/IceObjectFreezer.gd" type="Script" id=99]
+[ext_resource path="res://assets/textures/Ice/ice_0002_color_1k.jpg" type="Texture" id=101]
+[ext_resource path="res://assets/textures/Ice/ice_0002_normal_opengl_1k.png" type="Texture" id=102]
+[ext_resource path="res://assets/textures/Ice/ice_0002_roughness_1k.jpg" type="Texture" id=103]
+[ext_resource path="res://assets/textures/Ice/ice_0002_ao_1k.jpg" type="Texture" id=104]
 
 [sub_resource type="StreamTexture" id=341]
 flags = 18
@@ -616,24 +616,20 @@ ao_texture_channel = 2
 [sub_resource type="ShaderMaterial" id=252]
 render_priority = 1
 shader = ExtResource( 19 )
-shader_param/albedo = Color( 1, 1, 1, 0.46 )
-shader_param/deep_color = Color( 0.36, 0.4, 0.45, 1 )
-shader_param/ice_scale = 0.32
-shader_param/parallax_depth = 0.28
-shader_param/refraction = 0.008
+shader_param/albedo = Color( 0.88, 0.95, 1, 0.62 )
+shader_param/deep_color = Color( 0.14, 0.3, 0.46, 1 )
 shader_param/crack_strength = 0.44
-shader_param/opacity = 0.42
+shader_param/opacity = 0.74
 shader_param/freeze_progress = 0.32
-shader_param/layer_separation = 0.9
 shader_param/emission_boost = 0.45
+shader_param/texture_scale = 0.115
+shader_param/uv_offset = Vector2( 0, 0 )
+shader_param/surface_radius = 29.7
+shader_param/low_end_mobile = false
 shader_param/ice_texture = ExtResource( 101 )
 shader_param/ice_normal = ExtResource( 102 )
 shader_param/ice_roughness = ExtResource( 103 )
 shader_param/ice_ao = ExtResource( 104 )
-shader_param/texture_scale = 0.16
-shader_param/surface_radius = 29.7
-shader_param/direct_light_strength = 0.38
-shader_param/direct_specular_strength = 0.055
 
 [sub_resource type="PlaneMesh" id=253]
 size = Vector2( 60, 60 )
@@ -642,14 +638,18 @@ size = Vector2( 60, 60 )
 shader = ExtResource( 19 )
 shader_param/albedo = Color( 0.55, 0.85, 1, 0.28 )
 shader_param/deep_color = Color( 0.08, 0.3, 0.5, 1 )
-shader_param/ice_scale = 0.25
-shader_param/parallax_depth = 0.15
-shader_param/refraction = 0.006
 shader_param/crack_strength = 0.2
 shader_param/opacity = 0.18
 shader_param/freeze_progress = 0.0
-shader_param/layer_separation = 0.75
 shader_param/emission_boost = 2.0
+shader_param/texture_scale = 0.085
+shader_param/uv_offset = Vector2( 0, 0 )
+shader_param/surface_radius = 29.7
+shader_param/low_end_mobile = false
+shader_param/ice_texture = ExtResource( 101 )
+shader_param/ice_normal = ExtResource( 102 )
+shader_param/ice_roughness = ExtResource( 103 )
+shader_param/ice_ao = ExtResource( 104 )
 
 [sub_resource type="PlaneMesh" id=255]
 size = Vector2( 60, 60 )
@@ -670,8 +670,8 @@ __meta__ = {
 }
 
 [node name="TerraceMesh" type="MeshInstance" parent="Terrace"]
-use_in_baked_light = true
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 3 )
 
 [node name="WorldCollision" type="CollisionShape" parent="Terrace"]
@@ -681,7 +681,7 @@ shape = ExtResource( 4 )
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 24 )
 
-[node name="Airlock_North" parent="." instance=ExtResource( 2 ) groups=["ice_freezable"]]
+[node name="Airlock_North" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -0.4, 3.4, -32 )
 
 [node name="OuterDoor" parent="Airlock_North" index="10"]
@@ -704,7 +704,7 @@ target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_North")
 zone_dir = Vector3( 0, 0, 1 )
 
-[node name="Airlock_South" parent="." instance=ExtResource( 2 ) groups=["ice_freezable"]]
+[node name="Airlock_South" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 3.4, 32.3809 )
 
 [node name="OuterDoor" parent="Airlock_South" index="10"]
@@ -727,7 +727,7 @@ target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_South")
 zone_dir = Vector3( 0, 0, 1 )
 
-[node name="Airlock_East" parent="." instance=ExtResource( 2 ) groups=["ice_freezable"]]
+[node name="Airlock_East" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 32, 3.4, 0 )
 
 [node name="OuterDoor" parent="Airlock_East" index="10"]
@@ -750,7 +750,7 @@ target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_East")
 zone_dir = Vector3( 0, 0, 1 )
 
-[node name="Airlock_West" parent="." instance=ExtResource( 2 ) groups=["ice_freezable"]]
+[node name="Airlock_West" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -32, 3.4, 0 )
 
 [node name="OuterDoor" parent="Airlock_West" index="10"]
@@ -881,7 +881,7 @@ mesh = ExtResource( 91 )
 
 [node name="StaticBody" parent="HubSpokes" instance=ExtResource( 34 )]
 
-[node name="ScaffoldHubTower" parent="." instance=ExtResource( 13 ) groups=["ice_freezable"]]
+[node name="ScaffoldHubTower" parent="." groups=["ice_freezable"] instance=ExtResource( 13 )]
 outer_radius = 13.0
 inner_radius = 6.0
 inner_opening_angles_deg = [ 0.0, 235.457, 289.344, 343.171, 36.902, 90.421 ]
@@ -1266,11 +1266,10 @@ snap_to_surface = false
 light_pool_size = 1
 light_range = 16.0
 light_energy = 1.8
-light_cull_mask = 1048511
 light_follow_radius = 90.0
+light_cull_mask = 1048511
 spacing = 0.0
 marker_size = 2.8
-marker_billboard = false
 lit_color = Color( 1, 0.97, 0.88, 1 )
 dim_color = Color( 1, 0.97, 0.88, 1 )
 always_lit = true
@@ -1289,7 +1288,6 @@ script = ExtResource( 28 )
 snap_to_surface = false
 spacing = 0.0
 marker_size = 1.3
-marker_billboard = false
 lit_color = Color( 0.78, 0.9, 1, 1 )
 dim_color = Color( 0.78, 0.9, 1, 1 )
 always_lit = true
@@ -2529,16 +2527,16 @@ mesh = SubResource( 255 )
 [node name="IceVisualBand" type="Spatial" parent="."]
 script = ExtResource( 17 )
 ring_radius = 26.0
-particles_per_second = 16.0
+particles_per_second = 24.0
 visible_arc_deg = 210.0
 frost_lifetime = 0.68
 frost_scale = 3.4
 frost_scale_variance = 0.32
 wall_climb_height = 4.2
 wall_emission_ratio = 0.42
+hot_color = Color( 0.86, 0.94, 1, 0.46 )
+cool_color = Color( 0.68, 0.84, 0.98, 0.38 )
 ice_light_energy = 0.16
-hot_color = Color( 1, 1, 1, 0.48 )
-cool_color = Color( 0.82, 0.94, 1, 0.38 )
 
 [node name="GasParticleManager" type="Spatial" parent="IceVisualBand"]
 script = ExtResource( 18 )
@@ -2558,12 +2556,12 @@ default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_02/tex
 [node name="FrostMistCrown" type="Spatial" parent="."]
 script = ExtResource( 17 )
 ring_radius = 26.0
-particles_per_second = 5.0
+particles_per_second = 8.0
 visible_arc_deg = 360.0
 line_noise = 1.2
 frost_rise_speed = 0.06
 frost_lifetime = 4.2
-frost_scale = 2.5
+frost_scale = 2.8
 is_smoke_crown = true
 smoke_height_offset = 1.8
 smoke_lateral_speed = 0.04
@@ -2575,7 +2573,7 @@ default_max_lifetime = 2.8
 default_base_scale = 3.4
 viscosity = 0.7
 buoyancy = -0.12
-default_color = Color( 0.98, 0.995, 1, 0.28 )
+default_color = Color( 0.98, 0.995, 1, 0.32 )
 collide_with_world = false
 flipbook_frames_per_second = 6.0
 use_dither = false

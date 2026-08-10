@@ -95,6 +95,8 @@ var _ice_light: OmniLight = null
 func _ready() -> void:
 	if Engine.editor_hint:
 		return
+	if OS.get_name() in ["Android", "iOS"]:
+		particles_per_second *= 0.6
 	_manager = get_node_or_null("GasParticleManager")
 	if _manager == null:
 		push_warning("[IceVisualBand] falta el hijo GasParticleManager; sin visual de hielo.")
@@ -182,6 +184,9 @@ func _process(delta: float) -> void:
 
 func _update_ice_light(center_angle: float) -> void:
 	if not is_instance_valid(_ice_light):
+		return
+	if OS.get_name() in ["Android", "iOS"]:
+		_ice_light.light_energy = 0.0
 		return
 	var radius := min(ring_radius * 0.42, 11.0)
 	var base_y := to_local(Vector3(0.0, _display_height, 0.0)).y

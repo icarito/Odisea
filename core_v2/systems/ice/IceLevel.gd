@@ -26,6 +26,9 @@ const GROUP_SELF := "ice_level"
 export(float) var base_speed := 0.15
 # m/s^2 de aceleración (0 = velocidad constante).
 export(float) var accel := 0.0
+# Pulsación determinista de la subida: altera el ritmo, nunca el estado aleatoriamente.
+export(float, 0.0, 0.5) var rise_twitch_amount := 0.08
+export(float) var rise_twitch_frequency := 0.85
 # Y inicial de la línea de hielo.
 export(float) var start_height := 0.0
 # Techo opcional de la subida. Menor o igual a start_height = sin techo.
@@ -54,9 +57,10 @@ export(float) var debug_plane_radius := 30.0
 # Altura recorrida necesaria para que el material pase de hielo húmedo a escarcha opaca.
 export(float, 0.0, 1.0) var initial_freeze_progress := 0.32
 export(float) var visual_freeze_height := 10.0
-# Cada tramo recorrido elige otro origen de textura. Se deriva de ice_height, por lo que
-# checkpoint y replay reconstruyen exactamente la misma variante sin guardar otro estado.
-export(float) var uv_variant_height := 2.5
+# Deriva visual continua del PBR mientras sube el hielo. No forma parte del estado lógico
+# ni del snapshot: evita saltos visibles y no influye en colisión, daño o replay.
+export(float) var uv_drift_speed := 0.65
+export(float) var uv_drift_amplitude := 0.0045
 # La niebla ambiental del domo permanece activa, pero el hielo no arrastra una banda de
 # height-fog con su superficie: esa banda lavaba el plano y parecía iluminación propia.
 export(bool) var ice_height_fog_enabled := false
@@ -71,7 +75,8 @@ var is_running := false
 # opaca). Se expone porque el valor no se puede leer de vuelta del ShaderMaterial en
 # headless: con el rasterizer dummy get_shader_param() devuelve null.
 var visual_freeze_progress := 0.0
-var visual_uv_variant := Vector2.ZERO
+var visual_uv_offset := Vector2.ZERO
+var _visual_uv_time := 0.0
 
 var _debug_plane: MeshInstance = null
 var _debug_band: MeshInstance = null
@@ -159,7 +164,10 @@ func _physics_process(delta: float) -> void:
 		return
 
 	elapsed += delta
-	ice_speed = base_speed + accel * elapsed
+	var base_rise_speed: float = base_speed + accel * elapsed
+	var rise_pulse: float = sin(elapsed * TAU * rise_twitch_frequency) * 0.68
+	rise_pulse += sin(elapsed * TAU * rise_twitch_frequency * 2.37 + 1.9) * 0.32
+	ice_speed = base_rise_speed * clamp(1.0 + rise_pulse * rise_twitch_amount, 0.55, 1.45)
 	ice_height += ice_speed * delta
 	_update_ice_collider()
 	_update_ice_fog()
@@ -178,6 +186,23 @@ func _physics_process(delta: float) -> void:
 		if _readout_timer >= 1.0:
 			_readout_timer = 0.0
 			print("[IceLevel] height=%.2f speed=%.3f elapsed=%.1f" % [ice_height, ice_speed, elapsed])
+
+func _process(delta: float) -> void:
+	if Engine.editor_hint or not is_running:
+		return
+	# En GLES2 móvil la precisión y el frame pacing convierten esta deriva subpíxel en
+	# saltos visibles. El plano conserva el PBR, pero su origen UV queda estable.
+	if OS.get_name() in ["Android", "iOS"]:
+		visual_uv_offset = Vector2.ZERO
+		return
+	_visual_uv_time += delta * max(uv_drift_speed, 0.0)
+	var twitch_drift: Vector2 = Vector2(
+		clamp(sin(_visual_uv_time * 5.3 + 0.4) * 2.8, -1.0, 1.0) * 0.68 + sin(_visual_uv_time * 19.1) * 0.32,
+		clamp(sin(_visual_uv_time * 7.7 + 2.1) * 2.6, -1.0, 1.0) * 0.64 + sin(_visual_uv_time * 23.3 + 1.2) * 0.36
+	)
+	visual_uv_offset = twitch_drift * max(uv_drift_amplitude, 0.0)
+	if is_instance_valid(_debug_plane) and _debug_plane.material_override is ShaderMaterial:
+		_debug_plane.material_override.set_shader_param("uv_offset", visual_uv_offset)
 
 func _scan_vulnerable_bodies(_delta: float) -> void:
 	for body in get_tree().get_nodes_in_group(GROUP_VULNERABLE):
@@ -224,8 +249,8 @@ func _update_ice_fog() -> void:
 	_ice_environment.fog_height_enabled = ice_height_fog_enabled
 	if not ice_height_fog_enabled:
 		return
-	_ice_environment.fog_height_min = ice_height + 0.5
-	_ice_environment.fog_height_max = ice_height - 3.0
+	_ice_environment.fog_height_min = ice_height + 0.65
+	_ice_environment.fog_height_max = ice_height - 2.6
 
 # --- DEBUG ---
 
@@ -254,6 +279,7 @@ func _apply_ice_textures(instance: MeshInstance) -> void:
 	material.set_shader_param("ice_roughness", ICE_ROUGHNESS_TEXTURE)
 	material.set_shader_param("ice_ao", ICE_AO_TEXTURE)
 	material.set_shader_param("surface_radius", max(debug_plane_radius - 0.3, 1.0))
+	material.set_shader_param("low_end_mobile", OS.get_name() in ["Android", "iOS"])
 
 # Ruido animado en vez de un disco de color plano: pensado para quedar SIEMPRE visible
 # (referencia fiel de ice_height/heat_ceiling) sin desentonar con el flipbook real.
@@ -294,20 +320,12 @@ func _update_debug_visuals() -> void:
 			var material: Material = _debug_plane.material_override
 			if material is ShaderMaterial:
 				material.set_shader_param("freeze_progress", visual_freeze_progress)
-				visual_uv_variant = _uv_variant_for_height(ice_height)
-				material.set_shader_param("uv_offset", visual_uv_variant)
 	if is_instance_valid(_debug_band):
 		_debug_band.visible = debug_draw and draw_frost_ceiling
 		if debug_draw and draw_frost_ceiling:
 			var tb := _debug_band.transform
 			tb.origin = Vector3(0.0, to_local(Vector3(0.0, get_frost_ceiling(), 0.0)).y, 0.0)
 			_debug_band.transform = tb
-
-func _uv_variant_for_height(height: float) -> Vector2:
-	var interval: float = max(uv_variant_height, 0.001)
-	var band: int = int(floor((height - start_height) / interval))
-	var variant_hash: int = abs(band * 1103515245 + 12345)
-	return Vector2(float(variant_hash % 997) / 997.0, float((variant_hash / 997) % 991) / 991.0)
 
 # --- REPLAY ---
 
