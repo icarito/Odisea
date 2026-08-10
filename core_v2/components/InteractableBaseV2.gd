@@ -90,8 +90,15 @@ func _ready():
 	# Initialize visuals to current state
 	_update_visuals()
 
-	# PERF: Disable physics process when idle
-	if anim_progress == target_progress:
+	# PERF: Disable physics process when idle.
+	#
+	# Consulta _wants_continuous_step() igual que el culling de step(). Sin eso, un prop que
+	# arranca ya en su estado final (starts_active = true) quedaba congelado aca y su
+	# override nunca llegaba a leerse, porque step() no volvia a correr nunca. Eso dejaba
+	# sin animacion justo a los props que declararon necesitarla al estar en reposo:
+	# EmergencyBeaconV2 (cupula giratoria y pulso), FluorescentLight (flicker) e
+	# IndustrialFan. El culling de step() ya tenia la condicion correcta; esta rama no.
+	if anim_progress == target_progress and not _wants_continuous_step():
 		set_physics_process(false)
 
 	# Register with Performance Monitor

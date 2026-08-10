@@ -49,9 +49,7 @@ void fragment() {
 	// Conservar el color real del PBR: el contraste entre su azul superficial y el tono
 	// profundo es lo que daba volumen antes de las compensaciones blancas.
 	vec3 textured_ice = mix(deep_color.rgb, texel * albedo.rgb * 1.3, 0.82);
-	float facing = clamp(abs(dot(normalize(world_normal), view_direction)), 0.0, 1.0);
-	float fresnel = pow(1.0 - facing, 2.0);
-	textured_ice = mix(textured_ice, vec3(0.76, 0.89, 1.0), fresnel * 0.12);
+	// Fresnel desactivado temporalmente para aislar reflejos dependientes de la cámara.
 	textured_ice = mix(textured_ice, vec3(0.9, 0.965, 1.0), frost_mask * freeze_progress * 0.55);
 	textured_ice = mix(textured_ice, vec3(0.96, 0.985, 1.0), cracks * 0.16);
 

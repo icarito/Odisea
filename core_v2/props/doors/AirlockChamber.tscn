@@ -148,6 +148,7 @@ shape = SubResource( 13 )
 [node name="EmergencyBeacon" parent="." instance=ExtResource( 7 )]
 transform = Transform( -0.707107, 0.707107, 0, -0.707107, -0.707107, 0, 0, 0, 1, -2.1, 1.8, 0 )
 sound_enabled = false
+light_activation_distance = 12.0
 
 [node name="PressurizeSFX" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 8 )

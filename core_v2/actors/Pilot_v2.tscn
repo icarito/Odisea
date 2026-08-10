@@ -239,6 +239,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0.5 )
 shape = SubResource( 120 )
 
 [node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot" groups=["switch_keep"]]
+visible = false
 cast_shadow = 0
 script = ExtResource( 53 )
 radius = 0.5

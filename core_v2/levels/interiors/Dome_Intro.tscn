@@ -325,7 +325,7 @@ shader_param/freeze_progress = 0.0
 shader_param/emission_boost = 2.0
 shader_param/texture_scale = 0.085
 shader_param/uv_offset = Vector2( 0, 0 )
-shader_param/surface_radius = 31.2
+shader_param/surface_radius = 31.45
 shader_param/low_end_mobile = false
 shader_param/mobile_color_pbr = true
 shader_param/ice_texture = ExtResource( 101 )
@@ -839,7 +839,7 @@ fixture_light_source = NodePath("Fixtures")
 fixture_light_local_offset = Vector3( 0, 0, 0.11 )
 fixture_high_mesh = ExtResource( 66 )
 fixture_lod_mesh = ExtResource( 67 )
-fixture_lod_distance = 20.0
+fixture_lod_distance = 1.0
 
 [node name="Markers" type="MultiMeshInstance" parent="WallLights"]
 visible = false
@@ -2200,7 +2200,7 @@ cast_shadow = 0
 mesh = SubResource( 253 )
 
 [node name="FrostCeiling" type="MeshInstance" parent="IceLevel"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.95, 0 )
 visible = false
 material_override = SubResource( 254 )
 cast_shadow = 0

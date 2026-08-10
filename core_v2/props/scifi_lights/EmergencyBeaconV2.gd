@@ -22,6 +22,13 @@ export(bool) var sound_enabled := true setget set_sound_enabled
 export(float, -80.0, 24.0) var sound_unit_db := 4.0 setget set_sound_unit_db
 export(float, 1.0, 120.0) var sound_max_distance := 80.0 setget set_sound_max_distance
 export(int, 1, 4) var visual_tick_interval_frames := 2
+# Distancia al jugador a la que se enciende la OmniLight. La malla del beacon sigue
+# emitiendo siempre (es material, no cuesta un pase), asi que de lejos se ve igual: lo que
+# se apaga es la luz dinamica, que en GLES2 agrega un pase de render sobre TODA la
+# geometria que alcanza. En Dome_Intro los cuatro beacons de airlock estaban encendidos
+# permanentemente y median -11% de tiempo de frame ellos solos.
+# 0 = siempre encendida (comportamiento previo, es el default para no cambiar otros usos).
+export(float, 0.0, 60.0) var light_activation_distance := 0.0
 
 var _dome_mesh: MeshInstance = null
 var _base_mesh: MeshInstance = null
@@ -161,8 +168,12 @@ func _physics_process(delta: float) -> void:
 		
 		# Pulse the light energy
 		if _omni_light:
-			var pulse = lerp(pulse_min, 1.0, (sin(_time_accumulator * pulse_speed * TAU) + 1.0) * 0.5)
-			_omni_light.light_energy = pulse * light_energy_max * anim_progress
+			var light_in_range := _player_within_light_range()
+			if _omni_light.visible != light_in_range:
+				_omni_light.visible = light_in_range
+			if light_in_range:
+				var pulse = lerp(pulse_min, 1.0, (sin(_time_accumulator * pulse_speed * TAU) + 1.0) * 0.5)
+				_omni_light.light_energy = pulse * light_energy_max * anim_progress
 		
 		# Pulse dome emission
 		if _dome_mesh and _dome_mesh.material_override is SpatialMaterial:
@@ -171,6 +182,25 @@ func _physics_process(delta: float) -> void:
 		if _lens_mesh and _lens_mesh.material_override is SpatialMaterial:
 			var pulse = lerp(pulse_min, 1.0, (sin(_time_accumulator * pulse_speed * TAU) + 1.0) * 0.5)
 			_lens_mesh.material_override.emission_energy = pulse * lens_emission_energy * anim_progress
+
+# Compuerta de proximidad de la OmniLight. Se evalua en el tick visual (cada
+# visual_tick_interval_frames), no por frame, y es una distancia al cuadrado: barato.
+func _player_within_light_range() -> bool:
+	if light_activation_distance <= 0.0:
+		return true
+	if Engine.editor_hint:
+		return true
+	var player: Spatial = null
+	var session := get_node_or_null("/root/SessionManager")
+	if is_instance_valid(session):
+		player = session.player
+	if not is_instance_valid(player):
+		# Sin jugador resuelto todavia no se puede decidir; dejarla encendida evita que el
+		# beacon parpadee durante el arranque de la escena.
+		return true
+	var reach := light_activation_distance * light_activation_distance
+	return global_transform.origin.distance_squared_to(player.global_transform.origin) <= reach
+
 
 func _wants_continuous_step() -> bool:
 	return is_active
