@@ -2,6 +2,20 @@ extends Spatial
 class_name GasParticleManager
 
 export(int) var pool_size := 128
+# --- Presupuesto de pool en movil ---------------------------------------------------
+# El pool completo se recorre entero cada frame de fisica y cada particula es un quad del
+# MultiMesh que, en GLES2, se reenvia por cada luz que la alcanza. En movil se usa una
+# fraccion del pool y se compensa agrandando las particulas que quedan: la cobertura en
+# pantalla se mantiene parecida con mucho menos trabajo.
+export(float, 0.05, 1.0, 0.05) var mobile_pool_scale := 0.4
+export(float, 1.0, 4.0, 0.05) var mobile_scale_compensation := 1.6
+# Ajuste por FPS, con la misma forma que LightPathV2: por debajo del piso encoge el pool,
+# por encima del techo lo devuelve, y entre medio no toca nada (evita oscilar).
+export(bool) var adaptive_pool_on_mobile := true
+export(float, 5.0, 60.0, 1.0) var pool_fps_floor := 24.0
+export(float, 5.0, 90.0, 1.0) var pool_fps_ceiling := 45.0
+export(float, 0.05, 1.0, 0.05) var min_pool_fraction := 0.25
+export(float, 0.25, 5.0, 0.25) var pool_adapt_interval := 1.5
 export(float) var default_max_lifetime := 6.0
 export(float) var default_base_scale := 2.2
 export(float) var viscosity := 0.8
@@ -36,6 +50,18 @@ var multimesh_instance: MultiMeshInstance = null
 var multimesh: MultiMesh = null
 
 var _next_spawn_index := 0
+# Cuantas particulas del pool estan realmente en uso. step() y emit_particle() se limitan
+# a este numero, asi que reducirlo ahorra CPU de verdad, no solo instancias dibujadas.
+var _pool_limit := 0
+var _pool_adapt_timer := 0.0
+var _scale_boost := 1.0
+var _gravity_world: Node = null
+var _gravity_world_resolved := false
+var _default_gravity_y := -9.8
+# Buffer reutilizado para el volcado en bloque del MultiMesh: 20 floats por instancia
+# (12 de transform, 4 de color, 4 de custom data). Layout verificado contra el motor.
+const BULK_FLOATS_PER_INSTANCE := 20
+var _bulk := PoolRealArray()
 var _hidden_transform := Transform.IDENTITY
 var _gas_material: ShaderMaterial = null
 # Límite visual opcional, en coordenadas locales. INF conserva el comportamiento normal.
@@ -48,6 +74,7 @@ func _ready():
 	_hidden_transform.basis = _hidden_transform.basis.scaled(Vector3.ZERO)
 	_ensure_multimesh_instance()
 	_setup_pool()
+	_apply_pool_limit(_initial_pool_limit())
 	_sync_all_instances()
 
 func _ensure_multimesh_instance() -> void:
@@ -119,9 +146,63 @@ func _setup_pool() -> void:
 			"anim_offset": _get_deterministic_anim_offset(i)
 		})
 
+func _is_mobile_profile() -> bool:
+	if OS.get_environment("ODISEA_FORCE_MOBILE_PROFILE") in ["1", "true", "yes", "on"]:
+		return true
+	return OS.get_name() in ["Android", "iOS"]
+
+
+func _initial_pool_limit() -> int:
+	if not _is_mobile_profile():
+		return particles.size()
+	return int(max(1, round(particles.size() * mobile_pool_scale)))
+
+
+# Cambia cuantas particulas se simulan y se dibujan. Las que quedan fuera se ocultan una
+# sola vez; no se recorren mas hasta que el limite vuelva a subir.
+func _apply_pool_limit(limit: int) -> void:
+	var new_limit: int = int(clamp(limit, 1, particles.size()))
+	if new_limit == _pool_limit:
+		return
+	var previous := _pool_limit
+	_pool_limit = new_limit
+	if multimesh != null:
+		multimesh.visible_instance_count = _pool_limit
+	if _pool_limit < previous:
+		for i in range(_pool_limit, previous):
+			particles[i]["active"] = false
+			_hide_instance(i)
+	if _next_spawn_index >= _pool_limit:
+		_next_spawn_index = 0
+	# Agrandar lo que queda para conservar cobertura en pantalla con menos quads. Se guarda
+	# como multiplicador y se aplica en _sync_instance: escribirlo sobre particles[] no
+	# sirve porque emit_particle() reescribe base_scale en cada emision.
+	_scale_boost = 1.0
+	if _is_mobile_profile() and mobile_scale_compensation > 1.0:
+		var coverage: float = float(particles.size()) / float(max(_pool_limit, 1))
+		_scale_boost = min(mobile_scale_compensation, sqrt(coverage))
+
+
+func _adapt_pool_to_fps(delta: float) -> void:
+	if not adaptive_pool_on_mobile or not _is_mobile_profile():
+		return
+	_pool_adapt_timer += delta
+	if _pool_adapt_timer < pool_adapt_interval:
+		return
+	_pool_adapt_timer = 0.0
+	var fps: float = float(Performance.get_monitor(Performance.TIME_FPS))
+	var floor_limit: int = int(max(1, round(particles.size() * min_pool_fraction)))
+	var target_limit: int = int(max(1, round(particles.size() * mobile_pool_scale)))
+	if fps < pool_fps_floor and _pool_limit > floor_limit:
+		_apply_pool_limit(int(max(floor_limit, _pool_limit * 0.7)))
+	elif fps > pool_fps_ceiling and _pool_limit < target_limit:
+		_apply_pool_limit(int(min(target_limit, _pool_limit + max(1, target_limit / 4))))
+
+
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
+	_adapt_pool_to_fps(delta)
 	step(delta)
 
 func step(delta: float) -> void:
@@ -131,7 +212,7 @@ func step(delta: float) -> void:
 	var gravity_y := _get_local_gravity_y()
 	var friction := clamp(1.0 - viscosity * delta, 0.0, 1.0)
 
-	for i in range(particles.size()):
+	for i in range(_effective_pool()):
 		var p: Dictionary = particles[i]
 		if not bool(p["active"]):
 			continue
@@ -141,9 +222,17 @@ func step(delta: float) -> void:
 		velocity *= friction
 
 		var position: Vector3 = p["position"]
-		var move_result: Dictionary = _move_particle_with_collision(position, velocity, delta)
-		position = move_result["position"]
-		velocity = move_result["velocity"]
+		# Camino rapido: cuando no hay consulta de colision posible, el movimiento es una
+		# suma y no hace falta llamar a _move_particle_with_collision, que devuelve un
+		# Dictionary nuevo POR PARTICULA Y POR FRAME. Con los cuatro managers de Dome_Intro
+		# (todos con collide_with_world = false) eso eran ~10k asignaciones de heap por
+		# segundo, con su boxing de Variant, para un resultado identico a position += v*dt.
+		if _needs_collision_query(velocity):
+			var move_result: Dictionary = _move_particle_with_collision(position, velocity, delta)
+			position = move_result["position"]
+			velocity = move_result["velocity"]
+		else:
+			position += velocity * delta
 		if position.y > vertical_ceiling_y:
 			position.y = vertical_ceiling_y
 			velocity.y = min(velocity.y, 0.0)
@@ -165,22 +254,44 @@ func step(delta: float) -> void:
 			p["combustion"] = false
 			p["color"] = default_color
 			particles[i] = p
-			_hide_instance(i)
 		else:
 			particles[i] = p
-			_sync_instance(i)
 
+	# Un solo volcado por frame en vez de 3 llamadas al MultiMesh por particula. Con ~93
+	# particulas vivas eran ~279 cruces al VisualServer por frame, cada uno con boxing de
+	# Variant; ahora es una llamada con un PoolRealArray preasignado.
+	_flush_bulk()
+
+# Se llama una vez por frame y por manager. La busqueda del autoload y las dos consultas a
+# ProjectSettings se resolvian cada vez; ahora quedan cacheadas. ProjectSettings.get_setting
+# hace lookup por string y no es barato en un bucle de frame.
 func _get_local_gravity_y() -> float:
-	var gravity_world = get_node_or_null("/root/GravityWorld")
-	if gravity_world and gravity_world.has_method("get_physical_gravity"):
-		var gravity_vec: Vector3 = gravity_world.get_physical_gravity(global_transform.origin)
+	if not _gravity_world_resolved:
+		_gravity_world_resolved = true
+		_gravity_world = get_node_or_null("/root/GravityWorld")
+		if _gravity_world != null and not _gravity_world.has_method("get_physical_gravity"):
+			_gravity_world = null
+		var default_gravity := 9.8
+		if ProjectSettings.has_setting("physics/3d/default_gravity"):
+			default_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
+		_default_gravity_y = -abs(default_gravity)
+
+	if is_instance_valid(_gravity_world):
+		var gravity_vec: Vector3 = _gravity_world.get_physical_gravity(global_transform.origin)
 		if gravity_vec.length_squared() > 0.000001:
 			return gravity_vec.y
+	return _default_gravity_y
 
-	var default_gravity := 9.8
-	if ProjectSettings.has_setting("physics/3d/default_gravity"):
-		default_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
-	return -abs(default_gravity)
+# Espeja las salidas tempranas de _move_particle_with_collision: si alguna se cumple, esa
+# funcion solo devuelve position + velocity * delta con la velocidad intacta, asi que se
+# puede evitar la llamada entera sin cambiar el resultado.
+func _needs_collision_query(local_velocity: Vector3) -> bool:
+	if not collide_with_world:
+		return false
+	if raycast_min_speed > 0.0 and local_velocity.length_squared() < raycast_min_speed * raycast_min_speed:
+		return false
+	return local_velocity.length_squared() > 0.000001
+
 
 func _move_particle_with_collision(local_position: Vector3, local_velocity: Vector3, delta: float) -> Dictionary:
 	var target_position: Vector3 = local_position + local_velocity * delta
@@ -228,7 +339,7 @@ func _move_particle_with_collision(local_position: Vector3, local_velocity: Vect
 
 func emit_particle(local_position: Vector3, local_velocity: Vector3 = Vector3.ZERO, max_lifetime: float = -1.0, base_scale: float = -1.0, color: Color = Color(0, 0, 0, -1)) -> int:
 	var index := _next_spawn_index
-	_next_spawn_index = (_next_spawn_index + 1) % particles.size()
+	_next_spawn_index = (_next_spawn_index + 1) % _effective_pool()
 
 	var p: Dictionary = particles[index]
 	p["active"] = true
@@ -329,13 +440,54 @@ func _sync_all_instances() -> void:
 		else:
 			_hide_instance(i)
 
+func _effective_pool() -> int:
+	if _pool_limit <= 0:
+		_pool_limit = particles.size()
+	return int(min(_pool_limit, particles.size()))
+
+
+# Escribe TODAS las instancias del MultiMesh de una vez. set_as_bulk_array exige cubrir
+# instance_count completo, asi que las que estan fuera del pool efectivo o inactivas se
+# escriben con escala cero (equivalente a _hide_instance).
+func _flush_bulk() -> void:
+	if multimesh == null:
+		return
+	var count: int = multimesh.instance_count
+	var needed: int = count * BULK_FLOATS_PER_INSTANCE
+	if _bulk.size() != needed:
+		_bulk.resize(needed)
+	var live: int = _effective_pool()
+	for i in range(count):
+		var base: int = i * BULK_FLOATS_PER_INSTANCE
+		if i >= live or i >= particles.size() or not bool(particles[i]["active"]):
+			for k in range(BULK_FLOATS_PER_INSTANCE):
+				_bulk.set(base + k, 0.0)
+			continue
+		var p: Dictionary = particles[i]
+		var age := clamp(float(p["lifetime"]) / max(float(p["max_lifetime"]), 0.001), 0.0, 1.0)
+		var frame_time := float(p.get("anim_time", 0.0)) + float(p.get("anim_offset", 0.0))
+		var scale := max(float(p["base_scale"]), 0.001) * (0.9 + 0.6 * age) * _scale_boost
+		var origin: Vector3 = p["position"]
+		# Filas de la base (escala uniforme) con la componente de origin al final de cada una.
+		_bulk.set(base + 0, scale); _bulk.set(base + 1, 0.0);   _bulk.set(base + 2, 0.0);   _bulk.set(base + 3, origin.x)
+		_bulk.set(base + 4, 0.0);   _bulk.set(base + 5, scale); _bulk.set(base + 6, 0.0);   _bulk.set(base + 7, origin.y)
+		_bulk.set(base + 8, 0.0);   _bulk.set(base + 9, 0.0);   _bulk.set(base + 10, scale); _bulk.set(base + 11, origin.z)
+		var col: Color = p["color"]
+		_bulk.set(base + 12, col.r); _bulk.set(base + 13, col.g); _bulk.set(base + 14, col.b); _bulk.set(base + 15, col.a)
+		_bulk.set(base + 16, age)
+		_bulk.set(base + 17, 1.0 if bool(p["combustion"]) else 0.0)
+		_bulk.set(base + 18, frame_time)
+		_bulk.set(base + 19, 1.0)
+	multimesh.set_as_bulk_array(_bulk)
+
+
 func _sync_instance(index: int) -> void:
 	if multimesh == null:
 		return
 	var p: Dictionary = particles[index]
 	var age := clamp(float(p["lifetime"]) / max(float(p["max_lifetime"]), 0.001), 0.0, 1.0)
 	var frame_time := float(p.get("anim_time", 0.0)) + float(p.get("anim_offset", 0.0))
-	var scale := max(float(p["base_scale"]), 0.001) * (0.9 + 0.6 * age)
+	var scale := max(float(p["base_scale"]), 0.001) * (0.9 + 0.6 * age) * _scale_boost
 	var xform := Transform.IDENTITY
 	xform.origin = Vector3(p["position"])
 	xform.basis = xform.basis.scaled(Vector3(scale, scale, scale))

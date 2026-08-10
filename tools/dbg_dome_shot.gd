@@ -43,6 +43,12 @@ func _init() -> void:
 	var out_dir := _env("DBG_DIR", "/tmp/odisea_dbg")
 	var hide_list := _env("DBG_HIDE", "")
 
+	# vsync fuera desde el arranque: con el limite de refresco activo el frame se duerme
+	# esperando al monitor y el benchmark mide ese sueno en vez del costo real.
+	OS.vsync_enabled = false
+	Engine.target_fps = 0
+	print("[dbg] vsync=%s target_fps=%d" % [str(OS.vsync_enabled), Engine.target_fps])
+
 	var scene: Node = load(SCENE_PATH).instance()
 
 	# Antes de add_child: _ready() del freezer todavia no corrio, asi que sacarlo aca evita
@@ -283,6 +289,40 @@ func _init() -> void:
 					np = "CON next_pass de hielo"
 				print("[mobile] Terrace surf %d -> %s" % [si, np])
 
+	# Estado del presupuesto de particulas por manager.
+	if _env("DBG_POOLS", "") != "":
+		for node in _descendants(scene):
+			if node.get_class() == "Spatial" and node.has_method("_effective_pool"):
+				print("[pool] %-26s pool_size=%3d efectivo=%3d boost_escala=%.2f" % [
+					node.name, node.pool_size, node._effective_pool(),
+					node._scale_boost])
+
+	# Estado de las luces de los beacons de airlock contra el ciclo del airlock.
+	if _env("DBG_BEACONLIGHT", "") != "":
+		for airlock_name in ["Airlock_North", "Airlock_South", "Airlock_East", "Airlock_West"]:
+			var beacon: Node = scene.get_node_or_null(airlock_name + "/EmergencyBeacon")
+			var ctrl: Node = scene.get_node_or_null(airlock_name)
+			if beacon == null:
+				continue
+			var omni: Node = beacon.get_node_or_null("OmniLight")
+			print("[airlock] %-14s estado=%s beacon_activo=%s luz_visible=%s" % [
+				airlock_name, str(ctrl.state) if ctrl != null else "?",
+				str(beacon.is_active), str(omni.visible) if omni != null else "sin luz"])
+
+	# Cuantas particulas estan realmente vivas: si son pocas, cualquier optimizacion del
+	# bucle por particula no tiene sobre que actuar en esta pose.
+	if _env("DBG_ACTIVEP", "") != "":
+		var total_active := 0
+		for node in _descendants(scene):
+			if node.has_method("_effective_pool"):
+				var live := 0
+				for part in node.particles:
+					if bool(part["active"]):
+						live += 1
+				total_active += live
+				print("[activas] %-24s vivas=%3d de pool efectivo %3d" % [node.name, live, node._effective_pool()])
+		print("[activas] TOTAL vivas en la escena = %d" % total_active)
+
 	if _env("DBG_INVENTORY", "") != "":
 		_report_inventory(scene)
 
@@ -297,6 +337,7 @@ func _init() -> void:
 	var bench_frames := int(_env("DBG_BENCH", "0"))
 	if bench_frames > 0:
 		OS.vsync_enabled = false
+		Engine.target_fps = 0
 		# Descarte: los primeros frames arrastran compilacion de shaders y subida de texturas.
 		for _w in range(30):
 			yield(self, "idle_frame")
@@ -331,6 +372,17 @@ func _init() -> void:
 	for head_h in [1.7, 2.6, 3.6, 5.0]:
 		var world_point: Vector3 = PLAYER_ORIGIN + Vector3(0.0, head_h, 0.0)
 		print("[roi] y=+%.1fm -> pantalla %s" % [head_h, str(cam.unproject_position(world_point))])
+
+	# El profiler por nodo de PerformanceMonitor acumula microsegundos dentro del frame,
+	# pero su volcado a disco esta comentado (ver _save_report_throttled). Se lee aca.
+	var perfmon: Node = get_root().get_node_or_null("PerformanceMonitor")
+	if perfmon != null and _env("ODISEA_DETAILED_NODE_PROFILING", "") != "":
+		for entry in perfmon._get_top_heavy_nodes():
+			var calls: int = int(entry.get("calls", 0))
+			var usec: int = int(entry.get("time_usec", 0))
+			var per_call := float(usec) / float(max(calls, 1))
+			print("[nodo] %-28s total=%8d us  llamadas=%5d  %8.1f us/llamada  %s" % [
+				entry.get("name", "?"), usec, calls, per_call, entry.get("path", "")])
 
 	var image: Image = get_root().get_texture().get_data()
 	image.flip_y()

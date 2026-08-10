@@ -92,6 +92,11 @@ export(bool) var fixture_adaptive_mobile_lod := true
 # ascenso es justo lo que reintroduce el costo que el LOD venia a evitar, y ademas oscila.
 # La malla alta cuesta 3078 vertices por instancia contra 1109 de la LOD, sobre 88 lamparas.
 export(bool) var fixture_force_lod_on_mobile := true
+# Oculta por completo los batches de fixtures cuya lampara mas cercana esta mas alla de
+# esta distancia. Los 8 batches estan repartidos alrededor del anillo del domo y el jugador
+# solo ve dos o tres; los demas aportan vertices que se reenvian por cada luz que los
+# alcanza. 0 = sin culling (comportamiento previo).
+export(float, 0.0, 120.0, 1.0) var fixture_cull_distance := 0.0
 export(float, 1.0, 120.0, 1.0) var fixture_full_detail_fps := 50.0
 export(float, 1.0, 30.0, 0.5) var fixture_full_detail_hold_seconds := 5.0
 export(float, 1.0, 120.0, 1.0) var fixture_lod_fallback_fps := 42.0
@@ -485,6 +490,15 @@ func _drive_fixture_lod() -> void:
 			var local_position: Vector3 = batch.multimesh.get_instance_transform(index).origin
 			var world_position: Vector3 = batch.global_transform.xform(local_position)
 			nearest_squared = min(nearest_squared, origin.distance_squared_to(world_position))
+		# Culling por distancia antes de elegir malla: un batch oculto no cuesta nada.
+		if fixture_cull_distance > 0.0:
+			var cull_squared: float = fixture_cull_distance * fixture_cull_distance
+			var should_show: bool = nearest_squared <= cull_squared
+			if batch.visible != should_show:
+				batch.visible = should_show
+			if not should_show:
+				continue
+
 		var desired: Mesh
 		if _is_mobile_profile() and fixture_force_lod_on_mobile:
 			desired = fixture_lod_mesh

@@ -29,6 +29,11 @@ export(int, 1, 4) var visual_tick_interval_frames := 2
 # permanentemente y median -11% de tiempo de frame ellos solos.
 # 0 = siempre encendida (comportamiento previo, es el default para no cambiar otros usos).
 export(float, 0.0, 60.0) var light_activation_distance := 0.0
+# Apaga la OmniLight de forma permanente, dejando solo la emision de las mallas. En GLES2
+# cada luz reenvia la geometria que alcanza: medido en un Redmi Note 9 Pro (Adreno 618),
+# pasar de 21 luces a 4 subio de 6.57 a 10.08 fps y quito 5,35 M de vertices por frame.
+# El beacon se sigue viendo destellar porque DomeMesh y Lens son emisivos, que no cuesta pases.
+export(bool) var light_enabled := true setget set_light_enabled
 
 var _dome_mesh: MeshInstance = null
 var _base_mesh: MeshInstance = null
@@ -81,6 +86,11 @@ func set_beacon_color(v: Color) -> void:
 	light_color = v
 	if is_inside_tree():
 		_apply_color()
+
+func set_light_enabled(v: bool) -> void:
+	light_enabled = v
+	_refresh_light_visibility()
+
 
 func set_light_range(v: float) -> void:
 	light_range = v
@@ -139,6 +149,7 @@ func set_active(value: bool, immediate: bool = false) -> void:
 func _apply_settings() -> void:
 	_apply_color()
 	set_light_range(light_range)
+	set_light_enabled(light_enabled)
 	set_light_attenuation(light_attenuation)
 	set_enable_shadows(enable_shadows)
 	set_sound_unit_db(sound_unit_db)
@@ -168,10 +179,8 @@ func _physics_process(delta: float) -> void:
 		
 		# Pulse the light energy
 		if _omni_light:
-			var light_in_range := _player_within_light_range()
-			if _omni_light.visible != light_in_range:
-				_omni_light.visible = light_in_range
-			if light_in_range:
+			_refresh_light_visibility()
+			if _omni_light.visible:
 				var pulse = lerp(pulse_min, 1.0, (sin(_time_accumulator * pulse_speed * TAU) + 1.0) * 0.5)
 				_omni_light.light_energy = pulse * light_energy_max * anim_progress
 		
@@ -185,7 +194,23 @@ func _physics_process(delta: float) -> void:
 
 # Compuerta de proximidad de la OmniLight. Se evalua en el tick visual (cada
 # visual_tick_interval_frames), no por frame, y es una distancia al cuadrado: barato.
+# Unico lugar que decide si la OmniLight existe para el renderer. Se apaga por completo
+# (visible = false, no energy = 0) porque en GLES2 una luz visible sigue costando su pase
+# aunque no ilumine. En los airlocks esto la deja encendida solo durante el ciclo: el
+# AirlockControllerV2 llama set_active(state == PRESSURIZING), asi que fuera del ciclo el
+# beacon esta inactivo y su luz no existe.
+func _refresh_light_visibility() -> void:
+	if _omni_light == null:
+		return
+	var should_light: bool = light_enabled and is_active and anim_progress > 0.01 \
+		and _player_within_light_range()
+	if _omni_light.visible != should_light:
+		_omni_light.visible = should_light
+
+
 func _player_within_light_range() -> bool:
+	if not light_enabled:
+		return false
 	if light_activation_distance <= 0.0:
 		return true
 	if Engine.editor_hint:
@@ -207,6 +232,7 @@ func _wants_continuous_step() -> bool:
 
 func _update_visuals() -> void:
 	._update_visuals()
+	_refresh_light_visibility()
 	var t = anim_progress
 	# When off (anim_progress near 0), dim the light significantly
 	if _omni_light:

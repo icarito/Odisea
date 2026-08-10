@@ -462,6 +462,7 @@ environment = ExtResource( 20 )
 
 [node name="KeyLight" type="DirectionalLight" parent="Lighting"]
 transform = Transform( 0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 30, 0 )
+visible = false
 light_color = Color( 0.82, 0.88, 1, 1 )
 light_energy = 0.34
 light_specular = 0.35
@@ -840,6 +841,7 @@ fixture_light_local_offset = Vector3( 0, 0, 0.11 )
 fixture_high_mesh = ExtResource( 66 )
 fixture_lod_mesh = ExtResource( 67 )
 fixture_lod_distance = 1.0
+fixture_cull_distance = 22.0
 
 [node name="Markers" type="MultiMeshInstance" parent="WallLights"]
 visible = false

@@ -125,7 +125,27 @@ func _wrap_recursive(node: Node) -> void:
 func _is_oversized_mobile_mesh(instance: MeshInstance) -> bool:
 	if not _is_mobile_profile():
 		return false
+	# La cascara del domo vuelve a estar exenta de la guarda de tamano. Se la habia sacado
+	# para ahorrar el segundo pase del next_pass sobre la superficie mas grande de la escena,
+	# pero no rindio: en desktop la diferencia fue 0.1 ms (ruido, y los cambios de material
+	# subieron porque la copia cacheada del freezer batchea mejor que los materiales
+	# originales), y en el dispositivo el build 353 dio 15.84 fps contra 15.90 del 352.
+	# Como el corte si le quitaba la escarcha a las paredes del domo en movil, el saldo era
+	# perder efecto visual a cambio de nada medible.
+	if _uses_dome_wall_shader(instance):
+		return false
 	return instance.get_transformed_aabb().size.y > MOBILE_MAX_WRAPPED_HEIGHT
+
+
+func _uses_dome_wall_shader(instance: MeshInstance) -> bool:
+	for surface_index in range(instance.mesh.get_surface_count()):
+		var material: Material = instance.get_surface_material(surface_index)
+		if material == null:
+			material = instance.mesh.surface_get_material(surface_index)
+		if material is ShaderMaterial and material.shader != null \
+			and material.shader.resource_path == "res://core_v2/levels/interiors/shaders/dome_wall_cylindrical.shader":
+			return true
+	return false
 
 
 # ODISEA_FORCE_MOBILE_PROFILE=1 permite ejercitar la ruta movil desde desktop, para poder

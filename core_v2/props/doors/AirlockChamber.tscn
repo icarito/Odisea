@@ -147,6 +147,7 @@ shape = SubResource( 13 )
 
 [node name="EmergencyBeacon" parent="." instance=ExtResource( 7 )]
 transform = Transform( -0.707107, 0.707107, 0, -0.707107, -0.707107, 0, 0, 0, 1, -2.1, 1.8, 0 )
+starts_active = false
 sound_enabled = false
 light_activation_distance = 12.0
 
