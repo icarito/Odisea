@@ -513,6 +513,9 @@ func _update_post_traversal_exit_alignment(dt: float) -> void:
 func _exit_tree() -> void:
 	# Ensure we never leave dangling camera requests when player is respawned/freed.
 	_clear_cinematic_zone_request()
+	var hints = get_node_or_null("/root/PlayerHintManager")
+	if hints and hints.has_method("clear_interaction_hint"):
+		hints.clear_interaction_hint()
 
 func _clear_cinematic_zone_request() -> void:
 	if _current_zone_request_id != -1 and is_instance_valid(CinematicManager):

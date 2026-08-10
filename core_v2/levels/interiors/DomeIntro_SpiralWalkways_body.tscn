@@ -1,4 +1,4 @@
-[gd_scene load_steps=49 format=2]
+[gd_scene load_steps=50 format=2]
 
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres" type="Resource" id=1]
 [ext_resource path="res://core_v2/systems/footsteps/footstep_surface.gd" type="Script" id=2]
@@ -159,12 +159,15 @@ height = 22.63
 radius = 0.0805
 
 [sub_resource type="ConvexPolygonShape" id=44]
-points = PoolVector3Array( -2.44765, 22.7, -2.8349, -2.61544, 22.7, -0.292125, -2.44765, 23.8, -2.8349, -2.61544, 23.8, -0.292125, -2.6083, 22.7, -2.84551, -2.77609, 22.7, -0.302726, -2.6083, 23.8, -2.84551, -2.77609, 23.8, -0.302726 )
+points = PoolVector3Array( -2.93, 22.7, 4.05362, 2.93, 22.7, 4.05362, -2.93, 23.8, 4.05362, 2.93, 23.8, 4.05362, -2.93, 22.7, 4.21462, 2.93, 22.7, 4.21462, -2.93, 23.8, 4.21462, 2.93, 23.8, 4.21462 )
 
 [sub_resource type="ConvexPolygonShape" id=45]
-points = PoolVector3Array( -2.74712, 22.7, 1.70354, -2.91491, 22.7, 4.24631, -2.74712, 23.8, 1.70354, -2.91491, 23.8, 4.24631, -2.90777, 22.7, 1.69293, -3.07557, 22.7, 4.23571, -2.90777, 23.8, 1.69293, -3.07557, 23.8, 4.23571 )
+points = PoolVector3Array( -2.44765, 22.7, -2.8349, -2.67129, 22.7, 0.554344, -2.44765, 23.8, -2.8349, -2.67129, 23.8, 0.554344, -2.6083, 22.7, -2.84551, -2.83194, 22.7, 0.543743, -2.6083, 23.8, -2.84551, -2.83194, 23.8, 0.543743 )
 
 [sub_resource type="ConvexPolygonShape" id=46]
+points = PoolVector3Array( -3.07574, 22.7, 4.24101, -3.07574, 22.7, 4.24101, -3.07574, 23.8, 4.24101, -3.07574, 23.8, 4.24101, -2.91474, 22.7, 4.24101, -2.91474, 22.7, 4.24101, -2.91474, 23.8, 4.24101, -2.91474, 23.8, 4.24101 )
+
+[sub_resource type="ConvexPolygonShape" id=47]
 points = PoolVector3Array( 2.73942, 22.7, -5.56872, 2.94477, 22.7, 4.16451, 2.73942, 23.8, -5.56872, 2.94477, 23.8, 4.16451, 2.57846, 22.7, -5.56533, 2.7838, 22.7, 4.16791, 2.57846, 23.8, -5.56533, 2.7838, 23.8, 4.16791 )
 
 [node name="StaticBody" type="StaticBody"]
@@ -354,6 +357,10 @@ shape = SubResource( 45 )
 [node name="Collision_45" type="CollisionShape" parent="."]
 transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -4.20243, 0, -16.3763 )
 shape = SubResource( 46 )
+
+[node name="Collision_46" type="CollisionShape" parent="."]
+transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -4.20243, 0, -16.3763 )
+shape = SubResource( 47 )
 
 [node name="FootstepSurface" type="Spatial" parent="."]
 script = ExtResource( 2 )

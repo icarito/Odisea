@@ -103,7 +103,14 @@ float bayer4(vec2 p) {
 }
 
 void vertex() {
-	VERTEX += NORMAL * surface_offset;
+	float stable_offset = surface_offset;
+	if (low_end_mobile) {
+		// La precisión del depth buffer cae con la distancia: un offset fijo que funciona
+		// cerca vuelve a compartir el mismo Z en la pared opuesta del domo.
+		vec3 source_world = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		stable_offset += clamp(distance(source_world, CAMERA_POSITION_WORLD) * 0.00032, 0.0, 0.016);
+	}
+	VERTEX += NORMAL * stable_offset;
 	world_position = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((WORLD_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }

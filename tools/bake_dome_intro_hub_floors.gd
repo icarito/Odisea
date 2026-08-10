@@ -57,6 +57,14 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Mismo motivo que en bake_scaffold_walkways.gd: si PropDitherManager esta activo
+	# lo que se hornea son sus ShaderMaterial de runtime, no los materiales autorizados.
+	var dither = get_root().get_node_or_null("PropDitherManager")
+	if dither != null:
+		dither.set_process(false)
+		if is_connected("node_added", dither, "_on_node_added"):
+			disconnect("node_added", dither, "_on_node_added")
+
 	var root: Node = scene.instance()
 	get_root().add_child(root)
 
@@ -66,6 +74,38 @@ func _run() -> void:
 			return
 	quit(0)
 
+
+# firma de contenido -> Material ya guardado en disco (compartido entre pisos)
+var _shared_materials := {}
+
+func _share_materials(mesh: ArrayMesh) -> void:
+	for i in range(mesh.get_surface_count()):
+		var mat: Material = mesh.surface_get_material(i)
+		if mat == null:
+			continue
+		var signature: String = _material_signature(mat)
+		if not _shared_materials.has(signature):
+			var path: String = OUT_DIR + "Dome_Intro_HubRing_mat_%02d.material" % _shared_materials.size()
+			if ResourceSaver.save(path, mat) != OK:
+				push_error("[bake_floors] no pude guardar %s" % path)
+				continue
+			_shared_materials[signature] = load(path)
+		mesh.surface_set_material(i, _shared_materials[signature])
+
+func _material_signature(mat: Material) -> String:
+	var parts := PoolStringArray()
+	parts.append(mat.get_class())
+	for p in mat.get_property_list():
+		if not (int(p.usage) & PROPERTY_USAGE_STORAGE):
+			continue
+		if p.name in ["resource_path", "resource_name", "resource_local_to_scene"]:
+			continue
+		var value = mat.get(p.name)
+		if value is Resource:
+			parts.append("%s=%s" % [p.name, (value as Resource).resource_path])
+		else:
+			parts.append("%s=%s" % [p.name, str(value)])
+	return parts.join("|")
 
 func _bake_floor(root: Node, floor_name: String) -> bool:
 	var ring: Spatial = root.get_node_or_null(TOWER_PATH + "/" + floor_name)
@@ -84,6 +124,12 @@ func _bake_floor(root: Node, floor_name: String) -> bool:
 	if visual == null or visual.mesh == null or collision == null or collision.shape == null:
 		push_error("[bake_floors] %s no produjo CombinedMesh/CombinedCollision" % floor_name)
 		return false
+
+	# Los cinco pisos usan los MISMOS materiales de ScaffoldHubRing (deck, marco,
+	# baranda) pero cada uno se guardaba con su copia privada embebida, o sea 15
+	# materiales distintos para 3 reales: 15 cambios de material por frame y cero
+	# batching entre pisos. Se guardan una vez y se referencian desde los cinco.
+	_share_materials(visual.mesh)
 
 	var out_mesh: String = OUT_DIR + "Dome_Intro_%s_baked.mesh" % floor_name
 	var out_shape: String = OUT_DIR + "Dome_Intro_%s_baked.shape" % floor_name

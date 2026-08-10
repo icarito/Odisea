@@ -2,24 +2,28 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.stex"
+path.s3tc="res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.s3tc.stex"
+path.etc2="res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.etc2.stex"
+path.etc="res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.etc.stex"
+path.pvrtc="res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.pvrtc.stex"
 metadata={
-"vram_texture": false
+"imported_formats": [ "bptc", "s3tc", "etc2", "etc", "pvrtc" ],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/Ice/ice_0002_color_1k.jpg"
-dest_files=[ "res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.stex" ]
+dest_files=[ "res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.s3tc.stex", "res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.etc2.stex", "res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.etc.stex", "res://.import/ice_0002_color_1k.jpg-2a6899400b9dca325d5640d2a7be8abd.pvrtc.stex" ]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/lossy_quality=0.7
 compress/hdr_mode=0
 compress/bptc_ldr=0
 compress/normal_map=0
-flags/repeat=1
+flags/repeat=true
 flags/filter=true
 flags/mipmaps=true
 flags/anisotropic=false
@@ -31,5 +35,5 @@ process/invert_color=false
 process/normal_map_invert_y=false
 stream=false
 size_limit=0
-detect_3d=true
+detect_3d=false
 svg/scale=1.0

@@ -46,6 +46,20 @@ func _run() -> void:
 		push_error("Could not load %s" % scene_path)
 		quit(1)
 		return
+	# PropDitherManager (autoload) convierte en runtime todo SpatialMaterial de un
+	# prop en capa 64 a un ShaderMaterial de oclusion por dither. Si esta activo
+	# mientras se hornea, lo que se recoge son ESOS ShaderMaterial y no los
+	# materiales autorizados: la malla horneada se queda con un shader de runtime
+	# adentro, y como la firma de un ShaderMaterial incluye uv1_scale, cada grate
+	# de distinto tamano deja de deduplicar (HubSpokes salia con 7 superficies en
+	# vez de 3). Se apaga antes de instanciar la escena.
+	var dither = get_root().get_node_or_null("PropDitherManager")
+	if dither != null:
+		dither.set_process(false)
+		if is_connected("node_added", dither, "_on_node_added"):
+			disconnect("node_added", dither, "_on_node_added")
+		print("[bake_walkways] PropDitherManager desactivado para hornear")
+
 	var root: Node = scene.instance()
 	get_root().add_child(root)
 
@@ -137,12 +151,20 @@ func _bake_group(root: Node, group_name: String) -> void:
 			_append_transformed_surface(surface_tools[sig], mi.mesh, surf_idx, mi_to_group,
 				uv_scale, uv_offset)
 
+	# Cada material va a su propio .material ANTES de commitear, para que las 8
+	# mallas de sector referencien el mismo recurso en vez de embeber una copia
+	# privada cada una. Sin esto, SpiralWalkways llegaba a la escena con 26
+	# materiales distintos para 4 materiales reales: 26 cambios de material por
+	# frame, cero batching, y 26 ShaderMaterial de dither convertidos en runtime
+	# en vez de 4 (PropDitherManager cachea por material fuente).
 	var combined := ArrayMesh.new()
-	for sig in signature_order:
+	for i in range(signature_order.size()):
+		var sig = signature_order[i]
 		var st: SurfaceTool = surface_tools[sig]
 		st.generate_normals()
 		var mat: Material = signature_material[sig]
 		if mat != null:
+			mat = _save_shared_material(group_name, i, mat)
 			st.set_material(mat)
 		st.commit(combined)
 
@@ -204,6 +226,18 @@ func _bake_group(root: Node, group_name: String) -> void:
 		vcount += (combined.surface_get_arrays(i)[Mesh.ARRAY_VERTEX] as PoolVector3Array).size()
 	print("[bake_walkways] %s: %d surfaces, %d verts, %d collision shapes -> %s / %s" % [
 		group_name, combined.get_surface_count(), vcount, collision_shapes.size(), out_mesh_path, out_body_path])
+
+# Guarda el material como recurso propio y devuelve el recurso cargado desde
+# disco. Al tener resource_path, ResourceSaver lo escribe como referencia externa
+# en la malla combinada y en cada sector, y el runtime carga UNA sola instancia
+# compartida por todos.
+func _save_shared_material(group_name: String, index: int, mat: Material) -> Material:
+	var path: String = OUT_DIR + "DomeIntro_%s_mat_%02d.material" % [group_name, index]
+	if ResourceSaver.save(path, mat) != OK:
+		push_error("[bake_walkways] failed to save %s" % path)
+		return mat
+	var loaded: Material = load(path)
+	return loaded if loaded != null else mat
 
 func _save_visual_sectors(group_name: String, combined: ArrayMesh) -> bool:
 	var sector_tools: Array = []

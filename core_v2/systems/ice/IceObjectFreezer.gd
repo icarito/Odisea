@@ -37,6 +37,8 @@ export(float) var scan_interval := 0.35
 var _ice_level: Node = null
 var _shared_material: ShaderMaterial = null
 var _wrapped_meshes := {}
+# Material base -> copia con el overlay de hielo encadenado. Ver _wrapped_copy_of.
+var _wrapped_material_cache := {}
 var _scans_done := 0
 
 func _ready() -> void:
@@ -130,14 +132,7 @@ func _wrap_mesh_instance(instance: MeshInstance) -> void:
 			continue
 		if not _can_wrap_material(base_material):
 			continue
-		# Duplicate before chaining next_pass: many props share one base SpatialMaterial
-		# across every instance (that sharing is what keeps them cheap to draw), and
-		# writing next_pass on the shared resource would freeze every instance of that
-		# material everywhere, not just the ones actually wrapped here.
-		var unique_material: Material = base_material.duplicate()
-		unique_material.next_pass = _overlay_for(base_material)
-		instance.set_surface_material(i, unique_material)
-		_register_occlusion_copy(unique_material)
+		instance.set_surface_material(i, _wrapped_copy_of(base_material))
 
 func _wrap_multimesh_instance(instance: MultiMeshInstance) -> void:
 	var key = instance.get_instance_id()
@@ -147,10 +142,7 @@ func _wrap_multimesh_instance(instance: MultiMeshInstance) -> void:
 	if instance.material_override != null:
 		if not _can_wrap_material(instance.material_override):
 			return
-		var unique_override: Material = instance.material_override.duplicate()
-		unique_override.next_pass = _overlay_for(instance.material_override)
-		instance.material_override = unique_override
-		_register_occlusion_copy(unique_override)
+		instance.material_override = _wrapped_copy_of(instance.material_override)
 		return
 	var mesh: Mesh = instance.multimesh.mesh
 	if mesh == null:
@@ -161,10 +153,30 @@ func _wrap_multimesh_instance(instance: MultiMeshInstance) -> void:
 			continue
 		if not _can_wrap_material(base_material):
 			continue
-		var unique_material: Material = base_material.duplicate()
-		unique_material.next_pass = _overlay_for(base_material)
-		mesh.surface_set_material(i, unique_material)
-		_register_occlusion_copy(unique_material)
+		mesh.surface_set_material(i, _wrapped_copy_of(base_material))
+
+# Duplicate before chaining next_pass: many props share one base material across every
+# instance (that sharing is what keeps them cheap to draw), and writing next_pass on the
+# shared resource would freeze every instance of that material everywhere, not just the
+# ones actually wrapped here.
+#
+# Pero la copia si se comparte entre todo lo que SI se envuelve: la copia es funcion pura
+# del material base (duplicate + el mismo next_pass), asi que una copia por superficie solo
+# multiplicaba materiales. Las 7 rebanadas de SpiralWalkways, que salen del horneado
+# compartiendo 3 materiales, terminaban con 19 distintos: 19 cambios de material por frame
+# en vez de 3, cero batching, y 19 materiales que PropDitherManager reescribe cada frame.
+func _wrapped_copy_of(base_material: Material) -> Material:
+	var cached = _wrapped_material_cache.get(base_material)
+	if cached is Material:
+		return cached
+	var unique_material: Material = base_material.duplicate()
+	unique_material.next_pass = _overlay_for(base_material)
+	_wrapped_material_cache[base_material] = unique_material
+	# Una copia envuelta que vuelve a entrar (dos MultiMeshInstance sobre la misma Mesh)
+	# se reconoce a si misma y no encadena un segundo overlay.
+	_wrapped_material_cache[unique_material] = unique_material
+	_register_occlusion_copy(unique_material)
+	return unique_material
 
 func _register_occlusion_copy(material: Material) -> void:
 	if not (material is ShaderMaterial):

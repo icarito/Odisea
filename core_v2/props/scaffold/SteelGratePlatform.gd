@@ -48,7 +48,14 @@ export(bool) var rail_front := true setget set_rail_front
 export(bool) var rail_back := true setget set_rail_back
 export(bool) var rail_left := false setget set_rail_left
 export(bool) var rail_right := false setget set_rail_right
-export(bool) var rail_infill_enabled := true setget set_rail_infill_enabled
+# Apagado por defecto: la unica textura de relleno que hay (metal_fence_panel.png)
+# es un damero placeholder de 64x64, y con el panel bien orientado eso se ve como
+# un cuadriculado entre los parantes que no corresponde. Hasta ahora nadie lo
+# notaba porque _add_vertical_panel dejaba el panel ACOSTADO (ver _add_rail_panel):
+# la baranda "correcta" que todos conocen es la de tubos sola. Dome_Crio ya lo
+# apagaba a mano. El panel sigue disponible para quien tenga una textura de reja
+# de verdad.
+export(bool) var rail_infill_enabled := false setget set_rail_infill_enabled
 export(float, 0.0, 100.0, 0.1) var rail_front_opening_width := 0.0 setget set_rail_front_opening_width
 export(float, 0.0, 100.0, 0.1) var rail_back_opening_width := 0.0 setget set_rail_back_opening_width
 export(float, 0.0, 100.0, 0.1) var rail_left_opening_width := 0.0 setget set_rail_left_opening_width
@@ -66,6 +73,10 @@ const JOINT_SCALE := 1.35
 const GRATE_REPEAT_PER_METER := 1.35
 const GRATE_OVERLAP_WITH_FRAME := 0.35
 const GRATE_RECESS := 0.015
+# La reja de las barandas se texturiza por metro, no por panel: si se estira una
+# UV 0..1 sobre todo el panel, un tramo de 14 m y uno de 4 m muestran celdas de
+# tamano completamente distinto.
+const FENCE_REPEAT_PER_METER := 3.0
 
 var _visual_root: Spatial = null
 var _body: StaticBody = null
@@ -367,14 +378,15 @@ func _build_materials() -> void:
 	_frame_material.rim = 0.4
 	_frame_material.rim_tint = 0.3
 
-	_rail_material = SpatialMaterial.new()
-	_rail_material.albedo_color = rail_color
-	_rail_material.metallic = 0.78
-	_rail_material.roughness = 0.58
-	_rail_material.metallic_specular = 0.5
-	_rail_material.rim_enabled = true
-	_rail_material.rim = 0.4
-	_rail_material.rim_tint = 0.3
+	# Marco y baranda son el mismo tubo de acero. Tenian metallic/roughness que se
+	# diferenciaban en 0.02/0.03 — invisible — pero eso alcanzaba para que fueran
+	# dos materiales distintos, o sea una superficie y una draw call extra por
+	# grupo horneado. Cuando los colores coinciden se comparte el objeto.
+	if rail_color == frame_color:
+		_rail_material = _frame_material
+	else:
+		_rail_material = _frame_material.duplicate() as SpatialMaterial
+		_rail_material.albedo_color = rail_color
 
 	# Grate: alpha scissor requires flags_transparent = true in Godot 3.
 	# Keep metallic/roughness from the base material (steel-looking), only
@@ -405,6 +417,15 @@ func _build_materials() -> void:
 	_fence_material = load("res://textures/trenchbroom/metal_fence_panel.tres").duplicate()
 	if not _fence_material:
 		_fence_material = _rail_material.duplicate()
+	elif _fence_material is SpatialMaterial:
+		var f := _fence_material as SpatialMaterial
+		# Las UV del panel ya vienen en repeticiones reales (_add_rail_panel), asi
+		# que el material no debe volver a escalarlas.
+		f.uv1_scale = Vector3(1, 1, 1)
+		f.uv1_offset = Vector3.ZERO
+		# Una baranda se ve desde los dos lados; con back-face culling el panel
+		# desaparece cuando se la mira desde afuera de la pasarela.
+		f.params_cull_mode = SpatialMaterial.CULL_DISABLED
 
 func _sync_footstep_surface() -> void:
 	if not _body:
@@ -501,12 +522,7 @@ func _build_side_segment(side_name: String, is_front_back: bool, fixed_axis: flo
 	_add_joint_cap("%sCapMidB" % side_name, mid_b, _rail_material)
 
 	if rail_infill_enabled:
-		var center = (bottom_a + bottom_b) * 0.5 + Vector3.UP * (rail_height * 0.5)
-		var span = bottom_b.distance_to(bottom_a)
-		if is_front_back:
-			_add_vertical_panel("%sRailMesh" % side_name, Vector2(span, rail_height), center, Vector3(-90, 0, 0))
-		else:
-			_add_vertical_panel("%sRailMesh" % side_name, Vector2(span, rail_height), center, Vector3(-90, 90, 0))
+		_add_rail_panel("%sRailMesh" % side_name, bottom_a, bottom_b, top_a, top_b)
 
 	_add_rail_collision("%sRailCollision" % side_name, bottom_a, bottom_b, top_a, top_b)
 
@@ -539,8 +555,7 @@ func _build_mitered_side_segment(side_name: String, bottom_a: Vector3, bottom_b:
 	_add_joint_cap("%sCapMidA" % side_name, mid_a, _rail_material)
 	_add_joint_cap("%sCapMidB" % side_name, mid_b, _rail_material)
 	if rail_infill_enabled:
-		var center = (bottom_a + bottom_b) * 0.5 + Vector3.UP * (rail_height * 0.5)
-		_add_vertical_panel("%sRailMesh" % side_name, Vector2(bottom_b.distance_to(bottom_a), rail_height), center, Vector3(-90, 90, 0))
+		_add_rail_panel("%sRailMesh" % side_name, bottom_a, bottom_b, top_a, top_b)
 	_add_rail_collision("%sRailCollision" % side_name, bottom_a, bottom_b, top_a, top_b)
 
 func _add_rail_collision(node_name: String, bottom_a: Vector3, bottom_b: Vector3, top_a: Vector3, top_b: Vector3) -> void:
@@ -676,15 +691,43 @@ func _intermediate_positions(start_axis: float, end_axis: float) -> Array:
 		positions.append(lerp(start_axis, end_axis, float(i) / float(count)))
 	return positions
 
-func _add_vertical_panel(node_name: String, size: Vector2, pos: Vector3, rot_deg: Vector3) -> void:
+# Panel de reja de una baranda, construido con las MISMAS cuatro esquinas que los
+# tubos del pasamanos.
+#
+# Antes esto era un QuadMesh con rotation_degrees fija (-90,0,0) / (-90,90,0). Un
+# QuadMesh nace en el plano XY mirando a +Z, y rotar -90 sobre X lo acuesta: el
+# "panel vertical" quedaba HORIZONTAL, una repisa de reja flotando a media altura
+# de la baranda en vez de una malla entre el piso y el pasamanos. En la rampa,
+# donde la baranda ademas esta inclinada y con miter, era imposible que un quad
+# alineado a los ejes siguiera al pasamanos. Con las esquinas reales el panel
+# sigue la pendiente y el miter sin ninguna cuenta de angulos.
+func _add_rail_panel(node_name: String, bottom_a: Vector3, bottom_b: Vector3, top_a: Vector3, top_b: Vector3) -> void:
+	var span: float = bottom_a.distance_to(bottom_b)
+	if span <= 0.001:
+		return
+	var u_max: float = max(span * FENCE_REPEAT_PER_METER, 1.0)
+	var v_max: float = max(rail_height * FENCE_REPEAT_PER_METER, 1.0)
+	var normal: Vector3 = (bottom_b - bottom_a).cross(top_a - bottom_a).normalized()
+
+	var vertices := PoolVector3Array([bottom_a, bottom_b, top_b, top_a])
+	var uvs := PoolVector2Array([
+		Vector2(0.0, v_max), Vector2(u_max, v_max), Vector2(u_max, 0.0), Vector2(0.0, 0.0)
+	])
+	var normals := PoolVector3Array([normal, normal, normal, normal])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = PoolIntArray([0, 1, 2, 0, 2, 3])
+
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+
 	var panel = MeshInstance.new()
 	panel.name = node_name
 	panel.layers = PROP_VISUAL_LAYER
-	var mesh = QuadMesh.new()
-	mesh.size = size
 	panel.mesh = mesh
-	panel.translation = pos
-	panel.rotation_degrees = rot_deg
 	panel.material_override = _fence_material
 	_visual_root.add_child(panel)
 
