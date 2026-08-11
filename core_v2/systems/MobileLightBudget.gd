@@ -28,6 +28,20 @@ const DISABLE_ENV := "ODISEA_DISABLE_LIGHT_BUDGET"
 const MOBILE_ENV := "ODISEA_FORCE_MOBILE_PROFILE"
 
 export(float, 0.2, 1.0, 0.05) var range_scale := 0.6
+# Recorte fuerte para las luces que el nivel marque con este grupo. El costo de una luz es
+# el area de PANTALLA que cubre su volumen, no su rango en metros: una luz alta, vista desde
+# cerca mirando hacia abajo, tapa la vista entera aunque su rango sea modesto.
+#
+# Medido en Dome_Intro sobre el replay: arriba de la torre (el peor tramo del nivel) DOS
+# luces —DomeLamp/PathLight_0 a y=31.8 y TowerLight_5 a y=25.6— explicaban toda la
+# iluminacion. Apagando esas dos las draw calls caian de 307 a 186, exactamente el mismo
+# numero que apagando las once; las otras nueve ahi son gratis. Bajarles el rango a 5.0 y 3.0
+# dio +54.7% de fps en ese tramo y +23.7% en todo el replay, sin apagar ninguna.
+#
+# Por eso es un grupo y no una regla automatica por altura: cual luz domina la vista depende
+# de por donde pasa el jugador, y eso lo sabe el nivel, no un autoload.
+export(String) var aggressive_group := "light_budget_aggressive"
+export(float, 0.1, 1.0, 0.05) var aggressive_scale := 0.32
 # Luces por debajo de este alcance se dejan quietas: ya cubren poca pantalla, y achicarlas
 # se nota mas de lo que ahorra (la del casco del jugador, por ejemplo).
 export(float, 0.0, 20.0, 0.5) var min_range_to_touch := 6.0
@@ -115,12 +129,29 @@ func _aplicar() -> void:
 			# El rango original se guarda ANTES de tocarlo. Sin esto, un segundo escaneo
 			# volveria a multiplicar sobre el valor ya reducido y las luces se apagarian
 			# de a poco a cada pasada.
-			if actual >= min_range_to_touch:
+			var agresiva := _es_agresiva(n)
+			var factor: float = aggressive_scale if agresiva else range_scale
+			# El umbral no aplica a las marcadas: si el nivel dice que una luz domina la
+			# vista, hay que recortarla aunque su rango ya sea chico.
+			if actual >= min_range_to_touch or agresiva:
 				_originales[n] = actual
-				_set_rango(n as Light, actual * range_scale)
+				_set_rango(n as Light, actual * factor)
 		for c in n.get_children():
 			pila.push_back(c)
 	_aplicado = true
+
+
+# La marca se hereda de los ancestros porque las luces que mas pesan suelen no existir en la
+# escena: LightPathV2 genera las suyas por codigo (DomeLamp/PathLight_0 es una de las dos
+# caras del peor tramo), asi que no hay nodo donde poner el grupo. Marcando el generador
+# quedan cubiertas todas las que produzca.
+func _es_agresiva(n: Node) -> bool:
+	var actual: Node = n
+	while actual != null:
+		if actual.is_in_group(aggressive_group):
+			return true
+		actual = actual.get_parent()
+	return false
 
 
 func _rango_de(l: Light) -> float:

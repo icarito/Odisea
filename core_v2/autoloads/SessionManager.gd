@@ -2322,6 +2322,12 @@ func _muestrear_perf() -> void:
 		"ms_process": Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		"ms_physics": Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
 		"draw_calls": Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
+		# Para distinguir un tiron de ARBOL (nodos que entran o salen: instanciar un prop,
+		# cargar un tramo) de uno de GPU (compilar un shader la primera vez que algo se ve).
+		# Los dos se ven igual en ms_process, pero solo el primero mueve estos contadores.
+		"nodos": Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
+		"recursos": Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT),
+		"objetos": Performance.get_monitor(Performance.OBJECT_COUNT),
 		"x": pos.x, "y": pos.y, "z": pos.z,
 	})
 

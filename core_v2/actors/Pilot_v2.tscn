@@ -40,7 +40,7 @@ shader_param/crack_density = 11.0
 shader_param/freeze_min_y = -1.05
 shader_param/freeze_max_y = 1.25
 shader_param/freeze_front_softness = 0.14
-shader_param/self_illum = 0.35
+shader_param/self_illum = 0.5
 shader_param/albedo_texture = ExtResource( 68 )
 shader_param/normal_texture = ExtResource( 69 )
 shader_param/roughness_texture = ExtResource( 70 )
@@ -240,7 +240,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0.5 )
 shape = SubResource( 120 )
 
 [node name="FakeShadow" type="MeshInstance" parent="Visual/Pivot" groups=["switch_keep"]]
-visible = false
 cast_shadow = 0
 script = ExtResource( 53 )
 radius = 0.5
