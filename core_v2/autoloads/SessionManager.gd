@@ -1381,6 +1381,17 @@ func _unhandled_input(event):
 var _replay_frame := 0
 var _total_replay_frames := 0
 
+# Traza de rendimiento indexada por FRAME DEL REPLAY. Medir por sondeo remoto no sirve: el
+# viaje de ida y vuelta al dispositivo tarda segundos, y una ventana de reloj cubre tramos
+# distintos del nivel segun lo rapido que corra cada corrida. Con esto dos corridas se
+# comparan frame contra frame, que es lo unico que las hace comparables.
+# Recuperar en Android con:
+#   adb exec-out run-as org.odisea.game cat files/replay_perf.json
+const REPLAY_PERF_PATH := "user://replay_perf.json"
+var _replay_perf := []
+var _replay_perf_on := false
+var _replay_perf_label := ""
+
 func _physics_process(_dt):
 	var pm = get_node_or_null("/root/PerformanceMonitor")
 	if pm and pm.has_method("profiling_start"): pm.profiling_start("SessionManager")
@@ -1508,6 +1519,9 @@ func _physics_process(_dt):
 
 		if _replay_frame % 120 == 0 and _replay_frame >= 5:
 			print("[SessionManager] Frame %d: pos=%s" % [_replay_frame, player.global_transform.origin])
+
+		if _replay_perf_on:
+			_muestrear_perf()
 
 		if is_instance_valid(player) and player.global_transform.origin.y > _peak_y:
 			_peak_y = player.global_transform.origin.y
@@ -1792,8 +1806,13 @@ func stop_and_save_recording(force_path: String = "") -> String:
 var _playback_printed_start := false
 var _playback_printed_end := false
 
-func load_and_play(path: String):
+func load_and_play(path: String, perf_label: String = ""):
 	print("[SessionManager] load_and_play called with: ", path)
+	# La traza solo se arma si alguien la pide (una etiqueta, o la variable de entorno):
+	# es una herramienta de medicion, no debe costar nada en una partida normal.
+	_replay_perf = []
+	_replay_perf_label = perf_label
+	_replay_perf_on = perf_label != "" or OS.get_environment("ODISEA_REPLAY_PERF") in ["1", "true", "yes", "on"]
 	_session_run_id += 1
 	var my_run_id = _session_run_id
 	if is_instance_valid(CinematicManager) and CinematicManager.has_method("reset"):
@@ -2290,7 +2309,42 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	print("▶️ Reproduciendo replay desde buffer...")
 
 
+# Una muestra por frame de replay. La posicion viaja con la muestra a proposito: si dos
+# corridas no coinciden frame a frame, el replay perdio determinismo y los fps de esa tanda
+# no se pueden comparar entre si.
+func _muestrear_perf() -> void:
+	var pos := Vector3.ZERO
+	if is_instance_valid(player):
+		pos = player.global_transform.origin
+	_replay_perf.append({
+		"frame": _replay_frame,
+		"fps": Performance.get_monitor(Performance.TIME_FPS),
+		"ms_process": Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		"ms_physics": Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+		"draw_calls": Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
+		"x": pos.x, "y": pos.y, "z": pos.z,
+	})
+
+
+func _volcar_perf(etiqueta: String) -> void:
+	if _replay_perf.empty():
+		return
+	var f := File.new()
+	if f.open(REPLAY_PERF_PATH, File.WRITE) != OK:
+		printerr("[SessionManager] No se pudo escribir ", REPLAY_PERF_PATH)
+		return
+	f.store_string(JSON.print({
+		"etiqueta": etiqueta,
+		"frames": _replay_perf.size(),
+		"muestras": _replay_perf,
+	}))
+	f.close()
+	print("[SessionManager] Traza de rendimiento: %s (%d muestras)" % [REPLAY_PERF_PATH, _replay_perf.size()])
+
+
 func _finish_and_validate():
+	if _replay_perf_on:
+		_volcar_perf(_replay_perf_label)
 	if _is_validating or _drift_validated:
 		return
 	_is_validating = true

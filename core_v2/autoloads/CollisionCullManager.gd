@@ -54,17 +54,19 @@ func _ready() -> void:
 
 
 func _on_tree_changed() -> void:
+	# get_tree() sobre un nodo fuera del arbol imprime un error del motor antes de devolver
+	# null, y esta senal tambien llega durante el desarme de la escena. Preguntar primero.
+	if not is_inside_tree():
+		return
 	# La escena cambio: el cache de props apunta a nodos liberados.
-	if get_tree() != null and get_tree().current_scene != _scanned_scene:
+	if get_tree().current_scene != _scanned_scene:
 		_tracked.clear()
 		_scanned_scene = null
 		_player = null
 
 
 func _physics_process(_delta: float) -> void:
-	if not enabled:
-		return
-	if get_tree() == null:
+	if not enabled or not is_inside_tree():
 		return
 
 	# Un respawn o un teleport mueve al jugador de golpe. Con una evaluacion cada N frames,
@@ -93,20 +95,22 @@ func _physics_process(_delta: float) -> void:
 	var origin: Vector3 = _player.global_transform.origin
 	_last_eval_pos = origin
 	_has_evaluated = true
-	var near_squared: float = cull_radius * cull_radius
-	var far_squared: float = (cull_radius + hysteresis) * (cull_radius + hysteresis)
 
 	for entry in _tracked:
 		var shape: CollisionShape = entry.shape
 		if not is_instance_valid(shape):
 			continue
-		var distance_squared: float = origin.distance_squared_to(entry.pos)
+		# La distancia se mide contra la SUPERFICIE, no contra el origen del nodo. Una baranda
+		# o una plataforma larga tiene su origen en el centro: parado en un extremo el jugador
+		# esta a mas de cull_radius del centro y la forma se apagaria mientras la esta tocando.
+		# Eso paso de verdad: el jugador atraveso una baranda y cayo.
+		var distance: float = origin.distance_to(entry.pos) - entry.radius
 		if entry.culled:
-			if distance_squared <= near_squared:
+			if distance <= cull_radius:
 				shape.disabled = false
 				entry.culled = false
 				_culled_count -= 1
-		elif distance_squared > far_squared:
+		elif distance > cull_radius + hysteresis:
 			shape.disabled = true
 			entry.culled = true
 			_culled_count += 1
@@ -131,10 +135,52 @@ func _rescan() -> void:
 					_tracked.append({
 						"shape": child,
 						"pos": (child as Spatial).global_transform.origin,
+						"radius": _bounding_radius(child as CollisionShape),
 						"culled": false,
 					})
 		for child2 in node.get_children():
 			stack.push_back(child2)
+
+
+# Radio de la esfera que envuelve la forma, en unidades de mundo. Se calcula una sola vez
+# por escena. Ante una forma que no reconocemos devolvemos un radio grande a proposito: el
+# error seguro es NO cullear (se pierde algo de ahorro), nunca apagar una forma que toca al
+# jugador.
+const RADIO_DESCONOCIDO := 100.0
+
+
+func _bounding_radius(node: CollisionShape) -> float:
+	var shape: Shape = node.shape
+	if shape == null:
+		return RADIO_DESCONOCIDO
+	var escala: Vector3 = node.global_transform.basis.get_scale()
+	var factor: float = max(abs(escala.x), max(abs(escala.y), abs(escala.z)))
+	var local := RADIO_DESCONOCIDO
+	if shape is BoxShape:
+		local = (shape as BoxShape).extents.length()
+	elif shape is SphereShape:
+		local = (shape as SphereShape).radius
+	elif shape is CapsuleShape:
+		local = (shape as CapsuleShape).radius + (shape as CapsuleShape).height * 0.5
+	elif shape is CylinderShape:
+		var cil := shape as CylinderShape
+		local = Vector2(cil.radius, cil.height * 0.5).length()
+	elif shape is ConvexPolygonShape:
+		local = _radio_de_puntos((shape as ConvexPolygonShape).points)
+	elif shape is ConcavePolygonShape:
+		local = _radio_de_puntos((shape as ConcavePolygonShape).get_faces())
+	return local * factor
+
+
+func _radio_de_puntos(puntos) -> float:
+	var maximo := 0.0
+	for i in range(puntos.size()):
+		var d: float = (puntos[i] as Vector3).length()
+		if d > maximo:
+			maximo = d
+	if maximo <= 0.0:
+		return RADIO_DESCONOCIDO
+	return maximo
 
 
 func _find_player() -> Spatial:
