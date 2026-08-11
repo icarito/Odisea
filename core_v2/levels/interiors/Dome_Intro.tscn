@@ -1,4 +1,4 @@
-[gd_scene load_steps=111 format=2]
+[gd_scene load_steps=112 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
@@ -66,6 +66,7 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_05.mesh" type="ArrayMesh" id=97]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_06.mesh" type="ArrayMesh" id=98]
 [ext_resource path="res://core_v2/systems/ice/IceObjectFreezer.gd" type="Script" id=99]
+[ext_resource path="res://core_v2/systems/ice/IceSubmergedCuller.gd" type="Script" id=344]
 [ext_resource path="res://assets/textures/Ice/ice_0002_color_1k.jpg" type="Texture" id=101]
 [ext_resource path="res://assets/textures/Ice/ice_0002_normal_opengl_1k.png" type="Texture" id=102]
 [ext_resource path="res://assets/textures/Ice/ice_0002_roughness_1k.jpg" type="Texture" id=103]
@@ -386,6 +387,9 @@ target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_North")
 zone_dir = Vector3( 0, 0, 1 )
 
+[node name="AirlockLOD" parent="Airlock_North" index="20"]
+force_lod = true
+
 [node name="Airlock_South" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 3.4, 32.3809 )
 
@@ -408,6 +412,9 @@ target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_South")
 zone_dir = Vector3( 0, 0, 1 )
+
+[node name="AirlockLOD" parent="Airlock_South" index="20"]
+force_lod = true
 
 [node name="Airlock_East" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 32, 3.4, 0 )
@@ -432,6 +439,9 @@ target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_East")
 zone_dir = Vector3( 0, 0, 1 )
 
+[node name="AirlockLOD" parent="Airlock_East" index="20"]
+force_lod = true
+
 [node name="Airlock_West" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -32, 3.4, 0 )
 
@@ -454,6 +464,9 @@ target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_dome_intro"
 target_airlock_path = NodePath("Airlock_West")
 zone_dir = Vector3( 0, 0, 1 )
+
+[node name="AirlockLOD" parent="Airlock_West" index="20"]
+force_lod = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 20 )
@@ -2188,6 +2201,9 @@ script = ExtResource( 16 )
 
 [node name="IceObjectFreezer" type="Node" parent="IceLevel"]
 script = ExtResource( 99 )
+
+[node name="IceSubmergedCuller" type="Node" parent="IceLevel"]
+script = ExtResource( 344 )
 
 [node name="IceCrackSound" type="AudioStreamPlayer3D" parent="IceLevel"]
 stream = ExtResource( 23 )

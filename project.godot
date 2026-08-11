@@ -85,6 +85,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/components/AirlockControllerV2.gd"
 }, {
 "base": "Node",
+"class": "AirlockLOD",
+"language": "GDScript",
+"path": "res://core_v2/components/AirlockLOD.gd"
+}, {
+"base": "Node",
 "class": "AirlockTransitionFX",
 "language": "GDScript",
 "path": "res://core_v2/components/AirlockTransitionFX.gd"
@@ -993,6 +998,11 @@ _global_script_classes=[ {
 "class": "IceObjectFreezer",
 "language": "GDScript",
 "path": "res://core_v2/systems/ice/IceObjectFreezer.gd"
+}, {
+"base": "Node",
+"class": "IceSubmergedCuller",
+"language": "GDScript",
+"path": "res://core_v2/systems/ice/IceSubmergedCuller.gd"
 }, {
 "base": "Spatial",
 "class": "IceVisualBand",
@@ -2000,6 +2010,7 @@ _global_script_class_icons={
 "AircraftModule_LandingGear": "",
 "AircraftModule_Steering": "",
 "AirlockControllerV2": "",
+"AirlockLOD": "",
 "AirlockTransitionFX": "",
 "AirlockZoneV2": "",
 "AnnaInterface": "",
@@ -2182,6 +2193,7 @@ _global_script_class_icons={
 "ISensor3D": "",
 "IceLevel": "",
 "IceObjectFreezer": "",
+"IceSubmergedCuller": "",
 "IceVisualBand": "",
 "IndustrialCagedSconce": "",
 "IndustrialFan": "",

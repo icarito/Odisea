@@ -26,9 +26,17 @@ export(float, 5.0, 200.0, 1.0) var cull_radius := 15.0
 # que un prop en el limite no oscile encendiendose y apagandose.
 export(float, 1.0, 50.0, 1.0) var hysteresis := 8.0
 export(int, 1, 30) var frames_between_scans := 8
-export(bool) var enabled := true
+# Apagado por defecto. Lo reemplaza IceSubmergedCuller, que resuelve el mismo problema
+# mejor: hundirse bajo el hielo es monotono, asi que apaga cada forma una sola vez y no
+# vuelve a tocarla. Este, en cambio, prende y apaga formas todo el tiempo, y ese churn
+# re-registra las formas en el espacio de fisica y perturba el orden de resolucion de
+# contactos (13 mm de drift en un replay que sin el da 0.0000 m). Medido, ahorra 5.9% de
+# fisica: no paga ese riesgo. Ademas los dos escriben sobre el mismo `disabled`, asi que
+# tenerlos juntos haria que este resucite formas que el hielo ya sepulto.
+export(bool) var enabled := false
 
 const DISABLE_ENV := "ODISEA_DISABLE_COLLISION_CULL"
+const ShapeBounds := preload("res://core_v2/systems/collision/ShapeBounds.gd")
 
 # { CollisionShape: { "body": StaticBody, "pos": Vector3, "culled": bool } }
 var _tracked := []
@@ -135,52 +143,11 @@ func _rescan() -> void:
 					_tracked.append({
 						"shape": child,
 						"pos": (child as Spatial).global_transform.origin,
-						"radius": _bounding_radius(child as CollisionShape),
+						"radius": ShapeBounds.radius_of(child as CollisionShape),
 						"culled": false,
 					})
 		for child2 in node.get_children():
 			stack.push_back(child2)
-
-
-# Radio de la esfera que envuelve la forma, en unidades de mundo. Se calcula una sola vez
-# por escena. Ante una forma que no reconocemos devolvemos un radio grande a proposito: el
-# error seguro es NO cullear (se pierde algo de ahorro), nunca apagar una forma que toca al
-# jugador.
-const RADIO_DESCONOCIDO := 100.0
-
-
-func _bounding_radius(node: CollisionShape) -> float:
-	var shape: Shape = node.shape
-	if shape == null:
-		return RADIO_DESCONOCIDO
-	var escala: Vector3 = node.global_transform.basis.get_scale()
-	var factor: float = max(abs(escala.x), max(abs(escala.y), abs(escala.z)))
-	var local := RADIO_DESCONOCIDO
-	if shape is BoxShape:
-		local = (shape as BoxShape).extents.length()
-	elif shape is SphereShape:
-		local = (shape as SphereShape).radius
-	elif shape is CapsuleShape:
-		local = (shape as CapsuleShape).radius + (shape as CapsuleShape).height * 0.5
-	elif shape is CylinderShape:
-		var cil := shape as CylinderShape
-		local = Vector2(cil.radius, cil.height * 0.5).length()
-	elif shape is ConvexPolygonShape:
-		local = _radio_de_puntos((shape as ConvexPolygonShape).points)
-	elif shape is ConcavePolygonShape:
-		local = _radio_de_puntos((shape as ConcavePolygonShape).get_faces())
-	return local * factor
-
-
-func _radio_de_puntos(puntos) -> float:
-	var maximo := 0.0
-	for i in range(puntos.size()):
-		var d: float = (puntos[i] as Vector3).length()
-		if d > maximo:
-			maximo = d
-	if maximo <= 0.0:
-		return RADIO_DESCONOCIDO
-	return maximo
 
 
 func _find_player() -> Spatial:
