@@ -35,11 +35,53 @@ func _aim_at_option(index: int) -> void:
 	_dial.point_at(_dial.rect_size / 2.0 + Vector2(cos(angle), sin(angle)) * half * 0.65)
 
 
+# Proveedor de input de mentira: es lo unico que necesita _frame_input() para devolver un
+# InputDataV2, y deja al test manejar el flanco de tool_fire_primary a mano.
+class _FakeInputProvider:
+	var data = null
+	func peek_input():
+		return data
+
+
+# Node, no Reference: _frame_input() hace `var body: Node = _zoomed_player`, y asignarle
+# algo que no sea Node deja la variable en null sin avisar.
+class _FakeBody:
+	extends Node
+	var input_provider = null
+
+
+var _fake_body = null
+
+
+# El click ya NO entra por _input(). Al arreglar la desincronizacion del replay, la
+# confirmacion del dial pasa por InputDataV2.tool_fire_primary tanto en vivo como en
+# reproduccion, y ElevatorFloorSelector la detecta por FLANCO en _drive_from_stream().
+# Pinchar _input() con un InputEventMouseButton probaba un camino que ya no existe: pasaba
+# el test y el dial estaba roto en reproduccion. Aca se reproduce el flanco de verdad.
 func _left_click() -> void:
-	var event := InputEventMouseButton.new()
-	event.button_index = BUTTON_LEFT
-	event.pressed = true
-	_selector._input(event)
+	# is_instance_valid y no `== null`: auto_free lo libera al terminar cada test, pero la
+	# variable de la suite sobrevive apuntando a un objeto muerto. Comparar contra null
+	# daba falso y el test reusaba un cuerpo liberado, asi que _zoomed_player nunca se
+	# asignaba y _frame_input() devolvia null en silencio.
+	if not is_instance_valid(_fake_body):
+		_fake_body = auto_free(_FakeBody.new())
+		_fake_body.input_provider = _FakeInputProvider.new()
+		_selector._zoomed_player = _fake_body
+	# Se llama a _drive_from_stream() y no a _process(): este ultimo corre despues
+	# _track_aim(), que recalcula la puntería desde la mirada del jugador y pisaria el
+	# _aim_at_option() del test (no hay jugador real detras).
+	var suelto = InputDataV2.new()
+	suelto.tool_fire_primary = false
+	_fake_body.input_provider.data = suelto
+	# Misma condicion que aplica _process: la confirmacion se arma recien cuando no queda
+	# ninguna tecla apretada, para que un mismo toque no abra y elija a la vez.
+	if not _selector._confirm_armed and not _selector._any_confirm_held():
+		_selector._confirm_armed = true
+	_selector._drive_from_stream()
+	var apretado = InputDataV2.new()
+	apretado.tool_fire_primary = true
+	_fake_body.input_provider.data = apretado
+	_selector._drive_from_stream()
 
 
 func test_the_prop_script_is_actually_attached() -> void:
@@ -111,9 +153,18 @@ func test_manual_panel_closes_after_a_pick() -> void:
 func test_vertical_mouse_intent_sweeps_to_the_top_floor() -> void:
 	_selector.set_active(true)
 	yield(await_idle_frame(), "completed")
-	var motion := InputEventMouseMotion.new()
-	motion.relative = Vector2(30.0, -_selector.mouse_full_arc_distance)
-	_selector._input(motion)
+	# La punteria ya no entra por InputEventMouseMotion: desde el arreglo del replay la
+	# define la ULTIMA DIRECCION de movimiento que viaja en InputDataV2.move_vec, igual en
+	# vivo que en reproduccion. Arriba en pantalla es -Y, y por _point_at_floor_progress
+	# (angle = PI/2 - progress*PI) esa direccion corresponde al piso mas alto.
+	if not is_instance_valid(_fake_body):
+		_fake_body = auto_free(_FakeBody.new())
+		_fake_body.input_provider = _FakeInputProvider.new()
+		_selector._zoomed_player = _fake_body
+	var arriba = InputDataV2.new()
+	arriba.move_vec = Vector2(0.0, -1.0)
+	_fake_body.input_provider.data = arriba
+	_selector._drive_from_stream()
 	assert_int(_dial.get_hovered_index()).is_equal(5)
 
 
