@@ -42,6 +42,23 @@ export(float, 0.2, 1.0, 0.05) var range_scale := 0.6
 # de por donde pasa el jugador, y eso lo sabe el nivel, no un autoload.
 export(String) var aggressive_group := "light_budget_aggressive"
 export(float, 0.1, 1.0, 0.05) var aggressive_scale := 0.32
+
+# --- Adelgazado del pool de luces cuando el dispositivo no da ---
+# Un LightPathV2 marcado con el grupo mantiene un pool fijo de luces que persigue al jugador
+# (WallLights son 3). Si los fps se sostienen bajos, se le quita una.
+#
+# Va en UNA sola direccion y nunca vuelve a subir, a proposito: en GLES2 Godot compila
+# variantes de shader segun cuantas luces alcanzan cada superficie, asi que cada cambio del
+# conteo obliga a recompilar a mitad de partida — es el mismo mecanismo detras de los tirones
+# de 50-90 ms que medimos. Ese costo se paga una vez y se queda; oscilar seria pagarlo cada
+# pocos segundos y ademas haria titilar la iluminacion.
+export(bool) var adaptive_pool := true
+export(float, 5.0, 60.0, 1.0) var pool_fps_floor := 20.0
+export(float, 1.0, 30.0, 0.5) var pool_seconds := 5.0
+# Piso del pool. Con 1 sola luz el pasillo queda desparejo, asi que no baja de 2.
+export(int, 1, 12) var min_pool_size := 2
+# Los primeros segundos de una escena los domina la carga, no el rendimiento real.
+export(float, 0.0, 30.0, 0.5) var pool_grace := 6.0
 # Luces por debajo de este alcance se dejan quietas: ya cubren poca pantalla, y achicarlas
 # se nota mas de lo que ahorra (la del casco del jugador, por ejemplo).
 export(float, 0.0, 20.0, 0.5) var min_range_to_touch := 6.0
@@ -57,6 +74,10 @@ export(float) var scan_interval := 0.5
 # { Light: rango original } — para poder volver atras sin recargar la escena.
 var _originales := {}
 var _escena: Node = null
+# LightPathV2 marcados con el grupo, o sea los que pueden perder luces del pool.
+var _paths := []
+var _bajo_fps := 0.0
+var _gracia := 0.0
 var _scans := 0
 var _aplicado := false
 
@@ -136,15 +157,56 @@ func _aplicar() -> void:
 			if actual >= min_range_to_touch or agresiva:
 				_originales[n] = actual
 				_set_rango(n as Light, actual * factor)
+		elif adaptive_pool and ("light_pool_size" in n) and _es_agresiva(n) and not _paths.has(n):
+			if int(n.light_pool_size) > min_pool_size:
+				_paths.append(n)
 		for c in n.get_children():
 			pila.push_back(c)
 	_aplicado = true
+	set_process(not _paths.empty())
+	_gracia = pool_grace
 
 
 # La marca se hereda de los ancestros porque las luces que mas pesan suelen no existir en la
 # escena: LightPathV2 genera las suyas por codigo (DomeLamp/PathLight_0 es una de las dos
 # caras del peor tramo), asi que no hay nodo donde poner el grupo. Marcando el generador
 # quedan cubiertas todas las que produzca.
+# Baja de a una luz del pool cuando los fps se sostienen bajos. Nunca las devuelve.
+func _process(delta: float) -> void:
+	if not enabled or not adaptive_pool or _paths.empty():
+		return
+	# Durante un replay no se toca: cambiar la iluminacion a mitad de una medicion la
+	# invalida, y una reproduccion tiene que rendir igual que la corrida que la grabo.
+	var sm := get_node_or_null("/root/SessionManager")
+	if sm != null and (bool(sm.is_replaying) or bool(sm.get("is_hotzone_playback"))):
+		return
+	if _gracia > 0.0:
+		_gracia -= delta
+		return
+	if float(Performance.get_monitor(Performance.TIME_FPS)) >= pool_fps_floor:
+		_bajo_fps = 0.0
+		return
+	_bajo_fps += delta
+	if _bajo_fps < pool_seconds:
+		return
+	_bajo_fps = 0.0
+	var quedan := []
+	for p in _paths:
+		if not is_instance_valid(p):
+			continue
+		var nuevo: int = int(max(min_pool_size, int(p.light_pool_size) - 1))
+		if nuevo != int(p.light_pool_size):
+			print("[MobileLightBudget] %s: pool de luces %d -> %d" % [p.name, p.light_pool_size, nuevo])
+			p.light_pool_size = nuevo
+		if nuevo > min_pool_size:
+			quedan.append(p)
+	_paths = quedan
+	# Ya en el piso: nada mas que decidir, y se deja de gastar el frame de dibujo.
+	set_process(not _paths.empty())
+	# Tras un cambio hay que dejar que el motor recompile variantes antes de volver a medir.
+	_gracia = pool_grace
+
+
 func _es_agresiva(n: Node) -> bool:
 	var actual: Node = n
 	while actual != null:

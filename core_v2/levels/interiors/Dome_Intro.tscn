@@ -723,7 +723,7 @@ material_override = SubResource( 292 )
 cast_shadow = 0
 multimesh = ExtResource( 51 )
 
-[node name="WallLights" type="Spatial" parent="."]
+[node name="WallLights" type="Spatial" parent="." groups=["light_budget_aggressive"]]
 script = ExtResource( 28 )
 light_pool_size = 3
 light_range = 16.0
