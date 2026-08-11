@@ -1,0 +1,87 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://core_v2/props/doors/AirlockShell.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/doors/airlock_baked/CylindricalShell.mesh" type="ArrayMesh" id=20]
+[ext_resource path="res://core_v2/props/doors/airlock_baked/CylindricalShell.shape" type="Shape" id=21]
+[ext_resource path="res://core_v2/props/doors/IrisFrameBaked.mesh" type="ArrayMesh" id=22]
+[ext_resource path="res://core_v2/props/doors/IrisFrameBaked.shape" type="Shape" id=23]
+
+[sub_resource type="BoxShape" id=3]
+extents = Vector3( 1.65, 1.65, 0.08 )
+
+[sub_resource type="BoxShape" id=7]
+extents = Vector3( 2.85, 0.08, 4 )
+
+[sub_resource type="BoxShape" id=11]
+extents = Vector3( 0.12, 2.5, 4 )
+
+[sub_resource type="BoxShape" id=12]
+extents = Vector3( 0.12, 2.5, 4 )
+
+[sub_resource type="BoxShape" id=13]
+extents = Vector3( 2.85, 0.12, 4 )
+
+[node name="AirlockShell" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="CylindricalShell" type="StaticBody" parent="."]
+collision_layer = 130
+
+[node name="ShellMesh" type="MeshInstance" parent="CylindricalShell"]
+mesh = ExtResource( 20 )
+
+[node name="CollisionShape" type="CollisionShape" parent="CylindricalShell"]
+shape = ExtResource( 21 )
+
+[node name="OuterSeal" type="Spatial" parent="."]
+transform = Transform( 0.78, 0, 0, 0, 0.78, 0, 0, 0, 0.78, 0, 0, 4.1 )
+
+[node name="Frame" type="StaticBody" parent="OuterSeal"]
+
+[node name="FrameMesh" type="MeshInstance" parent="OuterSeal/Frame"]
+mesh = ExtResource( 22 )
+
+[node name="CollisionShape" type="CollisionShape" parent="OuterSeal/Frame"]
+shape = ExtResource( 23 )
+
+[node name="DoorBlocker" type="StaticBody" parent="OuterSeal"]
+
+[node name="CollisionShape" type="CollisionShape" parent="OuterSeal/DoorBlocker"]
+shape = SubResource( 3 )
+
+[node name="InnerSeal" type="Spatial" parent="."]
+transform = Transform( -0.78, -6.81898e-08, 0, 6.81898e-08, -0.78, 0, 0, 0, 0.78, 0, 0, -4.1 )
+
+[node name="Frame" type="StaticBody" parent="InnerSeal"]
+
+[node name="FrameMesh" type="MeshInstance" parent="InnerSeal/Frame"]
+mesh = ExtResource( 22 )
+
+[node name="CollisionShape" type="CollisionShape" parent="InnerSeal/Frame"]
+shape = ExtResource( 23 )
+
+[node name="DoorBlocker" type="StaticBody" parent="InnerSeal"]
+
+[node name="CollisionShape" type="CollisionShape" parent="InnerSeal/DoorBlocker"]
+shape = SubResource( 3 )
+
+[node name="AirlockSafetyFloor" type="StaticBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.31, 0 )
+
+[node name="CollisionShape" type="CollisionShape" parent="AirlockSafetyFloor"]
+shape = SubResource( 7 )
+
+[node name="CameraWalls" type="StaticBody" parent="."]
+collision_mask = 0
+
+[node name="WallLeft" type="CollisionShape" parent="CameraWalls"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.85, 0, 0 )
+shape = SubResource( 11 )
+
+[node name="WallRight" type="CollisionShape" parent="CameraWalls"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.85, 0, 0 )
+shape = SubResource( 12 )
+
+[node name="Ceiling" type="CollisionShape" parent="CameraWalls"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.62, 0 )
+shape = SubResource( 13 )

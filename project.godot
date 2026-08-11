@@ -90,6 +90,16 @@ _global_script_classes=[ {
 "path": "res://core_v2/components/AirlockLOD.gd"
 }, {
 "base": "Node",
+"class": "AirlockPool",
+"language": "GDScript",
+"path": "res://core_v2/systems/AirlockPool.gd"
+}, {
+"base": "Spatial",
+"class": "AirlockShell",
+"language": "GDScript",
+"path": "res://core_v2/props/doors/AirlockShell.gd"
+}, {
+"base": "Node",
 "class": "AirlockTransitionFX",
 "language": "GDScript",
 "path": "res://core_v2/components/AirlockTransitionFX.gd"
@@ -2011,6 +2021,8 @@ _global_script_class_icons={
 "AircraftModule_Steering": "",
 "AirlockControllerV2": "",
 "AirlockLOD": "",
+"AirlockPool": "",
+"AirlockShell": "",
 "AirlockTransitionFX": "",
 "AirlockZoneV2": "",
 "AnnaInterface": "",

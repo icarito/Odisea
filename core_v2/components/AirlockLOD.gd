@@ -42,7 +42,11 @@ export(int, 1, 60) var frames_between_checks := 10
 # jugador esta lejos: adentro del domo (radio ~13) casi nunca se esta a 22 m de un airlock,
 # solo desde lo alto de la torre.
 export(bool) var force_lod := false
-export(bool) var enabled := true
+# Opt-in por nivel. AirlockChamber.tscn lo instancian tambien Dome_Crio y DomeFacade_01, y
+# ahi los airlocks SI se usan: prenderlo por defecto les cambiaria como se ven sin que nadie
+# lo haya pedido ni medido. En Dome_Intro no hace falta porque los cuatro airlocks son
+# AirlockShell, que ya es solo el cilindro.
+export(bool) var enabled := false
 
 const DISABLE_ENV := "ODISEA_DISABLE_AIRLOCK_LOD"
 

@@ -1,7 +1,7 @@
-[gd_scene load_steps=112 format=2]
+[gd_scene load_steps=113 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=4]
 [ext_resource path="res://core_v2/tools/RadialScatter.gd" type="Script" id=6]
@@ -67,6 +67,7 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SpiralWalkways_sector_06.mesh" type="ArrayMesh" id=98]
 [ext_resource path="res://core_v2/systems/ice/IceObjectFreezer.gd" type="Script" id=99]
 [ext_resource path="res://core_v2/systems/ice/IceSubmergedCuller.gd" type="Script" id=344]
+[ext_resource path="res://core_v2/systems/AirlockPool.gd" type="Script" id=345]
 [ext_resource path="res://assets/textures/Ice/ice_0002_color_1k.jpg" type="Texture" id=101]
 [ext_resource path="res://assets/textures/Ice/ice_0002_normal_opengl_1k.png" type="Texture" id=102]
 [ext_resource path="res://assets/textures/Ice/ice_0002_roughness_1k.jpg" type="Texture" id=103]
@@ -364,109 +365,37 @@ shape = ExtResource( 4 )
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 24 )
 
+[node name="AirlockPool" type="Node" parent="."]
+script = ExtResource( 345 )
+enabled = false
+
 [node name="Airlock_North" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -0.4, 3.4, -32 )
-
-[node name="OuterDoor" parent="Airlock_North" index="10"]
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Intro/Airlock_North"),
-"airlock_door_name": "outer"
-}
-
-[node name="InnerDoor" parent="Airlock_North" index="11"]
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Intro/Airlock_North"),
-"airlock_door_name": "inner"
-}
-
-[node name="AirlockZoneV2" parent="Airlock_North" index="14"]
+airlock_name = "Airlock_North"
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_dome_intro"
-target_airlock_path = NodePath("Airlock_North")
 zone_dir = Vector3( 0, 0, 1 )
-
-[node name="AirlockLOD" parent="Airlock_North" index="20"]
-force_lod = true
 
 [node name="Airlock_South" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 3.4, 32.3809 )
-
-[node name="OuterDoor" parent="Airlock_South" index="10"]
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Intro/Airlock_South"),
-"airlock_door_name": "outer"
-}
-
-[node name="InnerDoor" parent="Airlock_South" index="11"]
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Intro/Airlock_South"),
-"airlock_door_name": "inner"
-}
-
-[node name="AirlockZoneV2" parent="Airlock_South" index="14"]
+airlock_name = "Airlock_South"
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_dome_intro"
-target_airlock_path = NodePath("Airlock_South")
 zone_dir = Vector3( 0, 0, 1 )
-
-[node name="AirlockLOD" parent="Airlock_South" index="20"]
-force_lod = true
 
 [node name="Airlock_East" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 32, 3.4, 0 )
-
-[node name="OuterDoor" parent="Airlock_East" index="10"]
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Intro/Airlock_East"),
-"airlock_door_name": "outer"
-}
-
-[node name="InnerDoor" parent="Airlock_East" index="11"]
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Intro/Airlock_East"),
-"airlock_door_name": "inner"
-}
-
-[node name="AirlockZoneV2" parent="Airlock_East" index="14"]
+airlock_name = "Airlock_East"
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_dome_intro"
-target_airlock_path = NodePath("Airlock_East")
 zone_dir = Vector3( 0, 0, 1 )
-
-[node name="AirlockLOD" parent="Airlock_East" index="20"]
-force_lod = true
 
 [node name="Airlock_West" parent="." groups=["ice_freezable"] instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -32, 3.4, 0 )
-
-[node name="OuterDoor" parent="Airlock_West" index="10"]
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Intro/Airlock_West"),
-"airlock_door_name": "outer"
-}
-
-[node name="InnerDoor" parent="Airlock_West" index="11"]
-__meta__ = {
-"airlock_controller_owned": true,
-"airlock_controller_owner_path": NodePath("/root/EditorNode/@@755/@@756/@@764/@@766/@@770/@@774/@@775/@@776/@@792/@@793/@@805/@@806/@@8468/@@8242/@@8243/@@8244/@@8245/@@8246/@@8247/Dome_Intro/Airlock_West"),
-"airlock_door_name": "inner"
-}
-
-[node name="AirlockZoneV2" parent="Airlock_West" index="14"]
+airlock_name = "Airlock_West"
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_dome_intro"
-target_airlock_path = NodePath("Airlock_West")
 zone_dir = Vector3( 0, 0, 1 )
-
-[node name="AirlockLOD" parent="Airlock_West" index="20"]
-force_lod = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 20 )

@@ -17,6 +17,8 @@ var _container: Spatial = null
 var _shader: Shader = null
 var _poles_material: SpatialMaterial = null
 var _panel_material_cache: Array = []
+# Material unico de la malla de paneles fusionada (antes habia uno por panel).
+var _panels_material: ShaderMaterial = null
 
 func _init():
     is_interactable = false
@@ -187,12 +189,10 @@ func _update_materials():
     if _poles_material:
         _poles_material.albedo_color = fence_color
         
-    if _container:
-        for child in _container.get_children():
-            if child is MeshInstance and child.name.begins_with("FencePanel"):
-                var mat = child.material_override as ShaderMaterial
-                if mat:
-                    mat.set_shader_param("fence_color", fence_color)
+    # Los paneles ahora son una sola malla con un solo material, no un MeshInstance por
+    # panel: alcanza con tocar ese material.
+    if _panels_material:
+        _panels_material.set_shader_param("fence_color", fence_color)
 
 func _generate_fence():
     if not _container:
@@ -222,24 +222,27 @@ func _generate_fence():
     pole_mesh.radial_segments = 8
     
     # Generate points along the path
+    # Los postes son todos la MISMA malla con el MISMO material: solo cambia la posicion.
+    # Uno por poste eran N+1 MeshInstance, y en GLES2 con iluminacion forward cada luz
+    # re-envia la geometria que toca, asi que cada malla suelta se paga varias veces. Medido
+    # en Dome_Intro (14 paneles, 10 luces), la reja entera costaba 143 draw calls, el 18% de
+    # la escena. Un MultiMeshInstance los dibuja de una sola vez, sin cambiar un pixel.
+    var poles_mm := MultiMesh.new()
+    poles_mm.transform_format = MultiMesh.TRANSFORM_3D
+    poles_mm.mesh = pole_mesh
+    poles_mm.instance_count = panel_count + 1
+
     var points = []
     for i in range(panel_count + 1):
         var offset = (float(i) / float(panel_count)) * total_length
         var p = curve.interpolate_baked(offset)
         points.append(p)
-        
-        # Create pole
-        var pole = MeshInstance.new()
-        pole.name = "Pole_%d" % i
-        pole.mesh = pole_mesh
-        pole.material_override = _poles_material
-        
+
         # Adjust Y so bottom of pole is exactly on the curve
         var pos = p
         pos.y += height * 0.5
-        pole.translation = pos
-        _container.add_child(pole)
-        
+        poles_mm.set_instance_transform(i, Transform(Basis(), pos))
+
         var p_body = StaticBody.new()
         p_body.name = "PoleBody_%d" % i
         p_body.collision_layer = PROP_LAYER
@@ -252,7 +255,20 @@ func _generate_fence():
         p_body.add_child(p_col)
         p_body.translation = pos
         _container.add_child(p_body)
-        
+
+    var poles_node := MultiMeshInstance.new()
+    poles_node.name = "Poles"
+    poles_node.multimesh = poles_mm
+    poles_node.material_override = _poles_material
+    _container.add_child(poles_node)
+
+    # Los paneles se fusionan en UNA malla. Cada uno tenia su propio ShaderMaterial que solo
+    # se diferenciaba en `tiling`, y el shader hace `uv = UV * tiling`: horneando ese factor
+    # en las UVs, un unico material da un resultado identico pixel a pixel.
+    var st := SurfaceTool.new()
+    st.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var hay_panel := false
+
     # Generate panels between points
     for i in range(panel_count):
         var p_start = points[i]
@@ -265,28 +281,18 @@ func _generate_fence():
             
         var center = (p_start + p_end) * 0.5
         
-        var panel = MeshInstance.new()
-        panel.name = "FencePanel_%d" % i
         var quad = QuadMesh.new()
         quad.size = Vector2(segment_len, height)
-        panel.mesh = quad
-        
-        var mat = ShaderMaterial.new()
-        mat.shader = _shader
-        mat.set_shader_param("fence_color", fence_color)
-        mat.set_shader_param("tiling", Vector2(segment_len * 6.0, height * 6.0))
-        panel.material_override = mat
-        
+
         center.y += height * 0.5
-        panel.translation = center
-        
         var forward = segment_dir.normalized()
         var panel_basis = _build_segment_basis(forward)
-        panel.transform = Transform(panel_basis, center)
+        var panel_xform := Transform(panel_basis, center)
+        # El mismo factor que antes iba al uniform `tiling` de este panel.
+        var tiling := Vector2(segment_len * 6.0, height * 6.0)
+        _append_panel(st, quad, panel_xform, tiling)
+        hay_panel = true
 
-        _container.add_child(panel)
-        _panel_material_cache.append(mat)
-        
         var body = StaticBody.new()
         body.name = "FenceBarrier_%d" % i
         body.collision_layer = PROP_LAYER
@@ -301,6 +307,47 @@ func _generate_fence():
         body.transform = Transform(panel_basis, center)
                 
         _container.add_child(body)
+
+    if hay_panel:
+        st.generate_tangents()
+        var panels_node := MeshInstance.new()
+        panels_node.name = "Panels"
+        panels_node.mesh = st.commit()
+        _panels_material = ShaderMaterial.new()
+        _panels_material.shader = _shader
+        _panels_material.set_shader_param("fence_color", fence_color)
+        # El tiling ya quedo horneado en las UVs de cada panel; aca tiene que ser neutro.
+        _panels_material.set_shader_param("tiling", Vector2.ONE)
+        panels_node.material_override = _panels_material
+        _panel_material_cache.append(_panels_material)
+        _container.add_child(panels_node)
+
+
+# Copia un panel dentro de la malla acumulada, llevandolo al espacio del contenedor y
+# multiplicando sus UV por el tiling que antes viajaba como uniform. Se emiten triangulos
+# sueltos porque cada panel trae su propio indice y no se pueden concatenar sin reindexar.
+func _append_panel(st: SurfaceTool, quad: QuadMesh, xform: Transform, tiling: Vector2) -> void:
+    var arrays: Array = quad.surface_get_arrays(0)
+    var verts: PoolVector3Array = arrays[Mesh.ARRAY_VERTEX]
+    var norms: PoolVector3Array = arrays[Mesh.ARRAY_NORMAL]
+    var uvs: PoolVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+    # QuadMesh no trae array de indices: sus vertices ya vienen en orden de triangulos. Sin
+    # este caso el bucle no emitia NADA y la malla fusionada salia vacia — los paneles
+    # desaparecian de la escena en silencio.
+    var orden := []
+    var idx = arrays[Mesh.ARRAY_INDEX]
+    if idx != null and idx.size() > 0:
+        for k in range(idx.size()):
+            orden.append(idx[k])
+    else:
+        for k in range(verts.size()):
+            orden.append(k)
+    var base: Basis = xform.basis
+    for v in orden:
+        st.add_normal(base.xform(norms[v]).normalized())
+        st.add_uv(Vector2(uvs[v].x * tiling.x, uvs[v].y * tiling.y))
+        st.add_vertex(xform.xform(verts[v]))
+
 
 func _build_segment_basis(forward: Vector3) -> Basis:
     if forward.length_squared() < 0.0001:
