@@ -51,6 +51,49 @@ func to_dict() -> Dictionary:
 		"hardware_mouse_active": hardware_mouse_active
 	}
 
+func is_equal_to(other) -> bool:
+	if other == null:
+		return false
+	if not is_equal_approx(move_vec.x, other.move_vec.x) or not is_equal_approx(move_vec.y, other.move_vec.y):
+		return false
+	if not is_equal_approx(mouse_delta.x, other.mouse_delta.x) or not is_equal_approx(mouse_delta.y, other.mouse_delta.y):
+		return false
+	if not is_equal_approx(zoom_delta, other.zoom_delta):
+		return false
+	if not is_equal_approx(fov_override, other.fov_override):
+		return false
+	if jump != other.jump:
+		return false
+	if sprint != other.sprint:
+		return false
+	if crouch != other.crouch:
+		return false
+	if interact != other.interact:
+		return false
+	if focus != other.focus:
+		return false
+	if rotate_left != other.rotate_left:
+		return false
+	if rotate_right != other.rotate_right:
+		return false
+	if roll_left != other.roll_left:
+		return false
+	if roll_right != other.roll_right:
+		return false
+	if tool_fire_primary != other.tool_fire_primary:
+		return false
+	if tool_fire_secondary != other.tool_fire_secondary:
+		return false
+	if tool_next_mode != other.tool_next_mode:
+		return false
+	if tool_prev_mode != other.tool_prev_mode:
+		return false
+	if cargol_ability != other.cargol_ability:
+		return false
+	if hardware_mouse_active != other.hardware_mouse_active:
+		return false
+	return true
+
 # Deserialización desde Dictionary
 func from_dict(d: Dictionary) -> void:
 	if d.has("move_vec"):

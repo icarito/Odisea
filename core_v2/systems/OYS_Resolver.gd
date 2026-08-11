@@ -208,10 +208,17 @@ static func _wait_to_frames(inst: Dictionary) -> int:
 	var wait_frames = int(ceil(value * FPS))
 	return wait_frames if wait_frames > 0 else 0
 
+static func _are_input_dicts_equal_static(d1: Dictionary, d2: Dictionary) -> bool:
+	var i1 = InputDataV2.new()
+	i1.from_dict(d1)
+	var i2 = InputDataV2.new()
+	i2.from_dict(d2)
+	return i1.is_equal_to(i2)
+
 static func _convert_frames_to_buffer(frame_data: Dictionary) -> Array:
-	var buffer = []
+	var raw_buffer = []
 	if frame_data.empty():
-		return buffer
+		return raw_buffer
 
 	var sorted_frames = frame_data.keys()
 	sorted_frames.sort()
@@ -219,11 +226,43 @@ static func _convert_frames_to_buffer(frame_data: Dictionary) -> Array:
 	var max_frame = sorted_frames[-1] if sorted_frames.size() > 0 else 0
 	for i in range(max_frame + 1):
 		if frame_data.has(i):
-			buffer.append(frame_data[i])
+			raw_buffer.append(frame_data[i])
 		else:
-			buffer.append(_default_input_dict())
+			raw_buffer.append(_default_input_dict())
 
-	return buffer
+	var compact := []
+	var last_input_dict = null
+	var hold_count = 0
+	
+	for i in range(raw_buffer.size()):
+		var entry = raw_buffer[i]
+		var current_input_dict = entry.get("input", entry) if (typeof(entry) == TYPE_DICTIONARY and entry.has("input")) else entry
+		if typeof(current_input_dict) != TYPE_DICTIONARY:
+			if hold_count > 0:
+				compact.append({"hold": hold_count})
+				hold_count = 0
+			compact.append(entry)
+			continue
+			
+		var is_equal = false
+		if last_input_dict != null:
+			is_equal = _are_input_dicts_equal_static(current_input_dict, last_input_dict)
+		
+		if is_equal:
+			hold_count += 1
+		else:
+			if hold_count > 0:
+				compact.append({"hold": hold_count})
+				hold_count = 0
+			
+			var compact_entry = {"frame": i, "input": current_input_dict}
+			compact.append(compact_entry)
+			last_input_dict = current_input_dict
+			
+	if hold_count > 0:
+		compact.append({"hold": hold_count})
+		
+	return compact
 
 static func _default_input_dict() -> Dictionary:
 	var d = InputDataV2.new()
