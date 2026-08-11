@@ -30,11 +30,16 @@ var _custom_points := {}
 # The network thread only sends at 10Hz anyway, so gathering at 60Hz was wasted main-thread
 # work. Lower the interval for finer local capture; raise it to reduce ANNA's per-frame cost.
 var TELEMETRY_INTERVAL_MS := 100 # 10Hz
-# When the game window loses focus the user has stepped away: throttle telemetry
-# hard (the data is uninteresting) and flag heartbeats so the backend can ignore
-# FPS/hotzone alerts that would otherwise fire on a backgrounded, throttled game.
-var TELEMETRY_INTERVAL_UNFOCUSED_MS := 1000 # 1Hz while backgrounded
+# When the game is paused or the window loses focus the user has stepped away and
+# nothing measurable is happening: FPS, position and hotzones all describe a frozen
+# (and OS-throttled) game. We send one last heartbeat flagging the state and then
+# stop the heartbeat stream entirely instead of streaming idle noise to the central.
+# The WebSocket stays connected, so bridge commands (inspect/screenshot) keep working
+# and resuming costs no reconnect; the dashboard drops the session from the live list
+# after its own 30s staleness window, which is the intent.
 var _window_focused := true
+var _telemetry_idle := false
+var _automated_run := false
 var _last_telemetry_ms := 0
 var _perf_monitor: Node = null
 var _perf_profiling_enabled := false
@@ -46,6 +51,7 @@ var _telemetry_enabled := true
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
+	_automated_run = _detect_automated_run()
 	# Bail out early for hotzone playback: this is a viewer, not a play session.
 	# Detected from the cmdline scene arg (native launch + web shell + deep link
 	# all pass --scene HotzonePlayer.tscn) and, on web, the shell's is_replaying
@@ -175,7 +181,7 @@ func _exit_tree():
 		_net_thread.stop()
 
 func _notification(what):
-	# Window focus drives the throttle + the `unfocused` heartbeat flag. Works on
+	# Window focus drives the idle gate + the `unfocused` heartbeat flag. Works on
 	# desktop and HTML5 (Godot maps browser tab blur to the same notifications).
 	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
 		_window_focused = false
@@ -183,6 +189,30 @@ func _notification(what):
 		_window_focused = true
 		# Send one prompt heartbeat on return so the dashboard updates immediately.
 		_last_telemetry_ms = 0
+
+# True while the session has nothing worth reporting: pause menu open (PauseManager
+# also pauses on focus loss) or window backgrounded. Automated runs are exempt:
+# headless/RL sessions have no window manager to give them focus and must keep
+# reporting. Evaluated every frame, so it stays free of OS calls (see _automated_run).
+func _is_idle() -> bool:
+	if _automated_run:
+		return false
+	return not _window_focused or _is_tree_paused()
+
+func _is_tree_paused() -> bool:
+	var tree = get_tree()
+	return tree != null and tree.paused
+
+func _detect_automated_run() -> bool:
+	if OS.has_feature("Server"):
+		return true
+	if OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]:
+		return true
+	# Escape hatch for tooling that drives an unfocused window and still needs a live
+	# telemetry stream (agent runs, perf capture over alt-tab).
+	if OS.get_environment("ANNA_V2_ALWAYS_STREAM") in ["1", "true", "yes", "on"]:
+		return true
+	return false
 
 func _process(_delta):
 	# Replay viewer: no network thread was started, so there is nothing to tick.
@@ -195,9 +225,21 @@ func _process(_delta):
 	if _is_web_thread:
 		_net_thread._main_thread_tick()
 
+	var idle = _is_idle()
+	if idle != _telemetry_idle:
+		_telemetry_idle = idle
+		if idle:
+			# One final sample carrying paused/unfocused so the dashboard shows why
+			# the stream stopped, then silence the heartbeats (interval 0).
+			_update_telemetry()
+			_net_thread.flush_heartbeat()
+			_net_thread.update_heartbeat_params(0, 3)
+		else:
+			# Resume with an immediate gather + heartbeat.
+			_last_telemetry_ms = 0
+
 	var now = OS.get_ticks_msec()
-	var interval = TELEMETRY_INTERVAL_MS if _window_focused else TELEMETRY_INTERVAL_UNFOCUSED_MS
-	if now - _last_telemetry_ms >= interval:
+	if not _telemetry_idle and now - _last_telemetry_ms >= TELEMETRY_INTERVAL_MS:
 		_last_telemetry_ms = now
 		_update_telemetry()
 
@@ -231,6 +273,7 @@ func _update_telemetry():
 		"tick": 0,
 		"fps": fps,
 		"focused": _window_focused,
+		"paused": _is_tree_paused(),
 		"memory_mb": _get_memory_mb()
 	}
 

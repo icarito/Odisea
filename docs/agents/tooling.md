@@ -78,6 +78,12 @@ tools/launch_game.sh --stop
 
 Regla de debug: `GET /status` primero, luego `POST /command`.
 
+Si el juego esta pausado o su ventana perdio el foco, ANNA V2 deja de emitir latidos
+(el ultimo latido llega marcado con `paused` / `focused: false`). El `/status` queda
+congelado en esa muestra, pero la conexion sigue viva y los comandos (`inspect_node`,
+`/eval`, `screenshot`) siguen funcionando. Las corridas headless no se ven afectadas;
+para forzar el stream en una ventana sin foco, exportar `ANNA_V2_ALWAYS_STREAM=1`.
+
 ### Seguridad del loop ANNA / VSCode
 
 - Después de cada comando ANNA que inspeccione o modifique el runtime, revisar la

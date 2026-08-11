@@ -50,6 +50,7 @@ var _last_telemetry := {}
 var _heartbeat_counter := 0
 var _heartbeat_interval_ms := 100
 var _throttle_tier := 3
+var _force_heartbeat := false
 var _reconnect_attempts := 0
 
 func set_scheme(scheme: String):
@@ -64,6 +65,13 @@ func update_heartbeat_params(interval_ms: int, tier: int):
 	_mutex.lock()
 	_heartbeat_interval_ms = interval_ms
 	_throttle_tier = tier
+	_mutex.unlock()
+
+# Send the current telemetry once on the next loop tick, ignoring the interval.
+# Used to push a final sample before the heartbeats are silenced (interval 0).
+func flush_heartbeat():
+	_mutex.lock()
+	_force_heartbeat = true
 	_mutex.unlock()
 
 func set_build_info(info: Dictionary):
@@ -207,9 +215,13 @@ func _thread_func(_userdata):
 			_mutex.lock()
 			var interval = _heartbeat_interval_ms
 			var tier = _throttle_tier
+			var force = _force_heartbeat
+			_force_heartbeat = false
 			_mutex.unlock()
 
-			if interval > 0 and now - last_heartbeat > interval:
+			# interval == 0 means the session went idle (paused/backgrounded): stay
+			# connected for commands, but stop streaming heartbeats.
+			if force or (interval > 0 and now - last_heartbeat > interval):
 				_send_heartbeat(tier)
 				last_heartbeat = now
 
@@ -496,6 +508,7 @@ func _send_heartbeat(tier: int):
 		"memory_mb": player_data.get("memory_mb", 0.0),
 		"velocity": player_data.get("velocity", [0, 0, 0]),
 		"focused": player_data.get("focused", true),
+		"paused": player_data.get("paused", false),
 		"platform": platform_name,
 		"perf": player_data.get("perf", {}),
 		"render_diag": {
