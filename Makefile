@@ -188,7 +188,23 @@ android-debug-signed:
 	"$(ANDROID_BUILD_TOOLS)/apksigner" sign --ks "$(ANDROID_UPDATE_KEYSTORE)" --ks-key-alias "$$ANDROID_KEY_ALIAS" --ks-pass "pass:$$ANDROID_KEYSTORE_PASSWORD" --key-pass "pass:$$ANDROID_KEY_PASSWORD" --out "$(ANDROID_TEST_APK)" "$$ALIGNED"; \
 	rm -f "$$UNSIGNED" "$$ALIGNED"; \
 	"$(ANDROID_BUILD_TOOLS)/apksigner" verify "$(ANDROID_TEST_APK)"
+	@$(MAKE) --no-print-directory android-clean-asset-copies
 	@echo "OK: $(ANDROID_TEST_APK) firmado con la llave de produccion (misma identidad que los nightlies oficiales)."
+
+# El custom build de Android deja DOS copias completas del proyecto adentro del propio
+# proyecto: android/build/assets (salida del export de Godot) y su clon en
+# android/build/build/intermediates/assets (mergeDebugAssets de Gradle). Cada .gd con
+# class_name queda triplicado y el editor escupe "Unique global class X already exists"
+# al abrir. El .gdignore de android/build/ alcanza para el filesystem del editor, pero NO
+# para el language server de GDScript (3.6): ese recorre todos los .gd de res:// con un
+# walk propio que no consulta .gdignore, y por eso los errores aparecen recien cuando se
+# conecta el cliente LSP. Con el APK ya firmado las copias no sirven para nada y se
+# regeneran solas en el proximo build, asi que se borran. Se conserva el resto del cache
+# de Gradle (dex, java compilado) para no perder incrementalidad: solo se rehace el merge
+# de assets.
+android-clean-asset-copies:
+	@rm -rf android/build/assets android/build/build/intermediates/assets
+	@echo "OK: limpiadas las copias duplicadas del proyecto bajo android/build/."
 
 # -d permite bajar de versionCode: hace falta para reinstalar el build local (code 1)
 # encima de un nightly (code ~348) sin desinstalar. Android solo lo acepta en APKs
@@ -197,4 +213,4 @@ android-install: android-debug-signed
 	adb install -r -d "$(ANDROID_TEST_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install
+.PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies

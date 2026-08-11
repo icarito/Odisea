@@ -1,6 +1,7 @@
 extends Node
 
 const SETTINGS_PATH = "user://settings.cfg"
+const DISABLE_VSYNC_ENV = "ODISEA_DISABLE_VSYNC"
 
 var _config = ConfigFile.new()
 
@@ -94,8 +95,17 @@ func apply_display_settings():
 	# respeta esta misma preferencia. Con foco (cambio en Opciones) se aplica ya.
 	if OS.is_window_focused():
 		OS.window_fullscreen = fullscreen
-	OS.vsync_enabled = vsync
+	OS.vsync_enabled = _effective_vsync()
 	apply_render_resolution()
+
+# ODISEA_DISABLE_VSYNC=1 apaga el vsync solo para esta corrida (perfilado: con vsync
+# el bloqueo del swap se contabiliza dentro de TIME_PROCESS y enmascara el costo real
+# de CPU). Es un override de runtime: no toca `vsync` ni lo que se persiste en
+# settings.cfg, asi que la preferencia del jugador sobrevive intacta.
+func _effective_vsync() -> bool:
+	if OS.get_environment(DISABLE_VSYNC_ENV).to_lower() in ["1", "true", "yes", "on"]:
+		return false
+	return vsync
 
 # Apply the internal render resolution. With stretch mode "viewport" the game
 # renders to render_resolution and the engine stretches it to the window, so

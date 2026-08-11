@@ -10,6 +10,7 @@ const CAPTURE_FILE_PATH := "user://performance_captures.json"
 const LAG_SPIKE_THRESHOLD_FPS := 20.0
 const CPU_BUDGET_MS := 16.6
 const LOG_TRIGGER_PERCENT := 0.70 # 70% of CPU Budget
+const CPU_WARNING_FPS_RATIO := 0.9 # solo avisamos si ademas caemos bajo el 90% del objetivo
 const CPU_WARNING_INTERVAL_SEC := 5.0
 const LAG_LOG_INTERVAL_SEC := 5.0
 const REPORT_WRITE_INTERVAL_SEC := 8.0
@@ -153,12 +154,12 @@ func _process(_delta):
 	# Operaciones pesadas legítimas (descarga/verificación de update) silencian el
 	# warning para no spammear el log con ruido esperado.
 	var startup_grace_active := now_msec - _ready_msec < STARTUP_WARNING_GRACE_MS
-	if not startup_grace_active and not _heavy_op_active and process_time > (CPU_BUDGET_MS * LOG_TRIGGER_PERCENT * 0.001):
+	if not startup_grace_active and not _heavy_op_active and _is_cpu_over_budget(process_time, fps):
 		if not _suppress_runtime_logs:
 			var current_time = OS.get_ticks_msec()
 			if current_time - _last_cpu_warning_time > (CPU_WARNING_INTERVAL_SEC * 1000.0):
 				_last_cpu_warning_time = current_time
-				print("[PerformanceMonitor] WARNING: CPU Budget > 70%% (%.4f ms)" % (process_time * 1000.0))
+				print("[PerformanceMonitor] WARNING: CPU Budget > 70%% (%.4f ms a %d fps)" % [process_time * 1000.0, fps])
 
 	# 4. Debug Logic: Cull Distance
 	if debug_cull_distance_enabled:
@@ -177,6 +178,24 @@ func _process(_delta):
 		profiling_end("PerformanceMonitor")
 		if Engine.get_idle_frames() % PROFILING_LOG_INTERVAL_FRAMES == 0:
 			_log_profiling_stats()
+
+# Pasarse del presupuesto de CPU solo importa si ademas estamos perdiendo frames.
+# TIME_PROCESS incluye el bloqueo del swap cuando hay vsync: con la ventana sincronizada
+# a 60Hz marca ~19ms aunque el trabajo real del frame cueste ~13, asi que el umbral solo
+# (11.6ms) daba positivo permanente y el log escupia el warning cada 5s para siempre,
+# tapando los picos de verdad. Medido en Dome_Intro: p50 19.30ms con vsync vs 13.79ms
+# sin vsync, con la misma carga grafica (434 draw calls en ambos).
+func _is_cpu_over_budget(process_time: float, fps: float) -> bool:
+	if process_time <= (CPU_BUDGET_MS * LOG_TRIGGER_PERCENT * 0.001):
+		return false
+	return fps < _expected_fps() * CPU_WARNING_FPS_RATIO
+
+# Frames por segundo que esta corrida deberia sostener: el limite explicito si hay uno,
+# si no el que implica el presupuesto de CPU (16.6ms -> 60fps).
+func _expected_fps() -> float:
+	if Engine.target_fps > 0:
+		return float(Engine.target_fps)
+	return 1000.0 / CPU_BUDGET_MS
 
 # --- Instrumentation API ---
 
