@@ -167,6 +167,12 @@ func _apply_pool_limit(limit: int) -> void:
 	var previous := _pool_limit
 	_pool_limit = new_limit
 	if multimesh != null:
+		# Dimensionar el MultiMesh al pool efectivo, no dejarlo en pool_size. set_as_bulk_array
+		# exige cubrir instance_count entero, asi que con 48 instancias y 12 en uso se
+		# escribian 48*20 floats por frame y por manager para nada. Con instance_count
+		# ajustado, el volcado cuesta proporcional a lo que de verdad se simula.
+		if multimesh.instance_count != _pool_limit:
+			multimesh.instance_count = _pool_limit
 		multimesh.visible_instance_count = _pool_limit
 	if _pool_limit < previous:
 		for i in range(_pool_limit, previous):
@@ -452,14 +458,15 @@ func _effective_pool() -> int:
 func _flush_bulk() -> void:
 	if multimesh == null:
 		return
-	var count: int = multimesh.instance_count
+	var count: int = min(multimesh.instance_count, _effective_pool())
+	if count <= 0:
+		return
 	var needed: int = count * BULK_FLOATS_PER_INSTANCE
 	if _bulk.size() != needed:
 		_bulk.resize(needed)
-	var live: int = _effective_pool()
 	for i in range(count):
 		var base: int = i * BULK_FLOATS_PER_INSTANCE
-		if i >= live or i >= particles.size() or not bool(particles[i]["active"]):
+		if i >= particles.size() or not bool(particles[i]["active"]):
 			for k in range(BULK_FLOATS_PER_INSTANCE):
 				_bulk.set(base + k, 0.0)
 			continue

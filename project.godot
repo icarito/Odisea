@@ -2433,6 +2433,7 @@ PauseManager="*res://core_v2/autoloads/PauseManager.gd"
 CaptureSystem="*res://core_v2/systems/CaptureSystem.gd"
 CheckpointManager="*res://core_v2/systems/CheckpointManager.gd"
 FrostVignetteManager="*res://core_v2/autoloads/FrostVignetteManager.gd"
+CollisionCullManager="*res://core_v2/autoloads/CollisionCullManager.gd"
 
 [debug]
 
