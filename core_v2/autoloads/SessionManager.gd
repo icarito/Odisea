@@ -78,6 +78,7 @@ var _pending_settle_checkpoint_frame := -1
 var _drift_checkpoints := {}
 # Contador de frames durante grabación
 var _recording_frame := 0
+var _last_recorded_input_dict = null
 # Sobrecarga de input para OYS Live execution
 var _oys_input_override := {}
 # Escena solicitada por OYS para guardar en meta
@@ -1495,12 +1496,15 @@ func _physics_process(_dt):
 		if input_data == null:
 			input_data = InputDataV2.new()
 		
-		var frame_entry = {"input": input_data.to_dict()}
+		var input_dict = input_data.to_dict()
+		var has_extra = false
+		var frame_entry = {"input": input_dict}
 
 		if ghost_manager and ghost_manager.is_ghost_recording:
 			var g_data = ghost_manager.capture_frame(player)
 			if not g_data.empty():
 				frame_entry["ghost_data"] = g_data
+				has_extra = true
 		
 		# Guardar drift checkpoint si el player dejó de tocar un RigidBody
 		if _pending_drift_checkpoint and is_instance_valid(player):
@@ -1508,6 +1512,7 @@ func _physics_process(_dt):
 				"position": var2str(player.global_transform.origin)
 			}
 			_pending_drift_checkpoint = false
+			has_extra = true
 			# Programar un checkpoint "settle" 15 frames después
 			_pending_settle_checkpoint_frame = _recording_frame + 15
 		
@@ -1517,8 +1522,30 @@ func _physics_process(_dt):
 				"position": var2str(player.global_transform.origin)
 			}
 			_pending_settle_checkpoint_frame = -1
+			has_extra = true
 		
-		buffer.append(frame_entry)
+		var appended_to_hold = false
+		if not buffer.empty() and not has_extra:
+			var last_entry = buffer[-1]
+			if typeof(last_entry) == TYPE_DICTIONARY and last_entry.has("hold"):
+				if _last_recorded_input_dict != null and _are_input_dicts_equal(input_dict, _last_recorded_input_dict):
+					last_entry["hold"] = int(last_entry["hold"]) + 1
+					appended_to_hold = true
+			elif typeof(last_entry) == TYPE_DICTIONARY:
+				var last_input_dict = last_entry.get("input", last_entry) if last_entry.has("input") else last_entry
+				if typeof(last_input_dict) == TYPE_DICTIONARY and _are_input_dicts_equal(input_dict, last_input_dict):
+					buffer.append({"hold": 1})
+					_last_recorded_input_dict = last_input_dict
+					appended_to_hold = true
+					
+		if not appended_to_hold:
+			var idx_entry = {"frame": _recording_frame, "input": input_dict}
+			if frame_entry.has("ghost_data"):
+				idx_entry["ghost_data"] = frame_entry["ghost_data"]
+			if frame_entry.has("drift_checkpoint"):
+				idx_entry["drift_checkpoint"] = frame_entry["drift_checkpoint"]
+			buffer.append(idx_entry)
+			_last_recorded_input_dict = input_dict
 		
 		if is_instance_valid(player) and player.global_transform.origin.y > _peak_y:
 			_peak_y = player.global_transform.origin.y
@@ -1742,6 +1769,7 @@ func start_recording():
 		printerr("SessionManager: No se puede iniciar la grabación, no se encontró al jugador.")
 		return
 	buffer.clear()
+	_last_recorded_input_dict = null
 	_current_replay_data = {
 		"events": {}
 	}
@@ -1845,7 +1873,7 @@ func stop_and_save_recording(force_path: String = "") -> String:
 		file.open(file_path, File.WRITE)
 		var out = {
 			"meta": replay_meta,
-			"buffer": buffer,
+			"buffer": compress_buffer(buffer),
 			"final_expected_state": player.get_full_snapshot()
 		}
 		if _current_replay_data.has("events"):
@@ -1933,6 +1961,7 @@ func load_and_play(path: String, perf_label: String = ""):
 		_recording_frame = 0
 		_current_replay_data = {"buffer": [], "events": {}}
 		buffer.clear()
+		_last_recorded_input_dict = null
 		oys_variables = {}
 		_monitored_signals = {}
 		oys_assert_failed = false
@@ -2076,6 +2105,8 @@ func load_and_play(path: String, perf_label: String = ""):
 					final_data["meta"]["drift_threshold"] = float(oys_interpreter.variables["$sys_drift_threshold"])
 			if not final_data.has("buffer") and _current_replay_data.has("buffer"):
 				final_data["buffer"] = _current_replay_data["buffer"]
+			if final_data.has("buffer"):
+				final_data["buffer"] = compress_buffer(final_data["buffer"])
 			var sf = File.new()
 			if sf.open(target_save_path, File.WRITE) == OK:
 				sf.store_string(_json_print_normalized(final_data, "  "))
@@ -2102,6 +2133,8 @@ func load_and_play(path: String, perf_label: String = ""):
 		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
 		return
 	var data = parsed.result
+	if data.has("buffer"):
+		data["buffer"] = expand_buffer(data["buffer"])
 	var input_buffer_raw = data.get("buffer", [])
 	var input_buffer = []
 	for entry in input_buffer_raw:
@@ -2235,6 +2268,20 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 	# Internal call often used by tests directly
 	_find_player()
 
+	if replay_data.has("buffer"):
+		replay_data["buffer"] = expand_buffer(replay_data["buffer"])
+		var input_buffer_raw = replay_data.get("buffer", [])
+		var expanded_input_buffer = []
+		for entry in input_buffer_raw:
+			if typeof(entry) == TYPE_DICTIONARY:
+				if entry.has("snapshot"):
+					continue
+				if entry.has("input"):
+					expanded_input_buffer.append(entry["input"])
+				else:
+					expanded_input_buffer.append(entry)
+		input_buffer = expanded_input_buffer
+
 	if not is_instance_valid(player):
 		printerr("❌ SessionManager: Player no encontrado para iniciar replay.")
 		call_deferred("emit_signal", "replay_finished", false, -1.0, 0)
@@ -2303,6 +2350,20 @@ func _play_buffer_internal(input_buffer: Array, replay_data: Dictionary):
 
 func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	_find_player()
+
+	if replay_data.has("buffer"):
+		replay_data["buffer"] = expand_buffer(replay_data["buffer"])
+		var input_buffer_raw = replay_data.get("buffer", [])
+		var expanded_input_buffer = []
+		for entry in input_buffer_raw:
+			if typeof(entry) == TYPE_DICTIONARY:
+				if entry.has("snapshot"):
+					continue
+				if entry.has("input"):
+					expanded_input_buffer.append(entry["input"])
+				else:
+					expanded_input_buffer.append(entry)
+		input_buffer = expanded_input_buffer
 
 	if not is_instance_valid(player):
 		printerr("❌ SessionManager: Player no encontrado para iniciar replay.")
@@ -2537,6 +2598,8 @@ func _finish_and_validate():
 		# Ensure buffer is present if it's missing (e.g. from OYS data sometimes needing structure adjustment)
 		if not final_data.has("buffer") and _current_replay_data.has("buffer"):
 			final_data["buffer"] = _current_replay_data["buffer"]
+		if final_data.has("buffer"):
+			final_data["buffer"] = compress_buffer(final_data["buffer"])
 		
 		# If we found a JSON with different structure (e.g. nested buffer with 'input' keys), 
 		# we already have it in _current_replay_data because of how load_and_play works.
@@ -3307,6 +3370,7 @@ func run_playback():
 # Helper para tests: ejecuta la simulación desde un buffer
 # Asume que player ya está en el árbol y que las plataformas también están instanciadas
 func run_simulation_from_buffer(buffer_data: Array, world_start_state: Dictionary, player_controller: Node, yield_frames: int = 3) -> Dictionary:
+	buffer_data = expand_buffer(buffer_data)
 	var result = {
 		"final_pos": null,
 		"final_vel": null,
@@ -4123,3 +4187,112 @@ func take_oys_screenshot(label: String, _extra = ""):
 	
 	yield (get_tree(), "idle_frame")
 	return path
+
+func _are_input_dicts_equal(d1: Dictionary, d2: Dictionary) -> bool:
+	var i1 = InputDataV2.new()
+	i1.from_dict(d1)
+	var i2 = InputDataV2.new()
+	i2.from_dict(d2)
+	return i1.is_equal_to(i2)
+
+func compress_buffer(raw_buffer: Array) -> Array:
+	if raw_buffer.empty():
+		return raw_buffer
+	
+	for entry in raw_buffer:
+		if typeof(entry) == TYPE_DICTIONARY and (entry.has("hold") or entry.has("frame")):
+			return raw_buffer
+			
+	var compact := []
+	var start_idx = 0
+	if typeof(raw_buffer[0]) == TYPE_DICTIONARY and raw_buffer[0].has("snapshot"):
+		compact.append(raw_buffer[0])
+		start_idx = 1
+	
+	var last_input_dict = null
+	var hold_count = 0
+	
+	for i in range(start_idx, raw_buffer.size()):
+		var entry = raw_buffer[i]
+		if typeof(entry) != TYPE_DICTIONARY:
+			if hold_count > 0:
+				compact.append({"hold": hold_count})
+				hold_count = 0
+			compact.append(entry)
+			continue
+			
+		var has_extra = entry.has("ghost_data") or entry.has("drift_checkpoint")
+		var current_input_dict = entry.get("input", entry) if entry.has("input") else entry
+		if typeof(current_input_dict) != TYPE_DICTIONARY:
+			if hold_count > 0:
+				compact.append({"hold": hold_count})
+				hold_count = 0
+			compact.append(entry)
+			continue
+			
+		var is_equal = false
+		if last_input_dict != null and not has_extra:
+			is_equal = _are_input_dicts_equal(current_input_dict, last_input_dict)
+		
+		if is_equal:
+			hold_count += 1
+		else:
+			if hold_count > 0:
+				compact.append({"hold": hold_count})
+				hold_count = 0
+			
+			var compact_entry = {"frame": i, "input": current_input_dict}
+			if entry.has("ghost_data"):
+				compact_entry["ghost_data"] = entry["ghost_data"]
+			if entry.has("drift_checkpoint"):
+				compact_entry["drift_checkpoint"] = entry["drift_checkpoint"]
+			compact.append(compact_entry)
+			last_input_dict = current_input_dict
+			
+	if hold_count > 0:
+		compact.append({"hold": hold_count})
+		
+	return compact
+
+func expand_buffer(compact_buffer: Array) -> Array:
+	var expanded := []
+	if compact_buffer.empty():
+		return expanded
+	
+	var start_idx = 0
+	if typeof(compact_buffer[0]) == TYPE_DICTIONARY and compact_buffer[0].has("snapshot"):
+		expanded.append(compact_buffer[0])
+		start_idx = 1
+	
+	var last_input_dict = null
+	for i in range(start_idx, compact_buffer.size()):
+		var entry = compact_buffer[i]
+		if typeof(entry) != TYPE_DICTIONARY:
+			expanded.append(entry)
+			continue
+			
+		if entry.has("hold"):
+			var hold_count = int(entry["hold"])
+			for _h in range(hold_count):
+				if last_input_dict != null:
+					expanded.append({"input": last_input_dict.duplicate(true)})
+				else:
+					expanded.append({"input": InputDataV2.new().to_dict()})
+		elif entry.has("frame") and entry.has("input"):
+			var input_dict = entry["input"]
+			last_input_dict = input_dict
+			var full_entry = {"input": input_dict.duplicate(true)}
+			if entry.has("ghost_data"):
+				full_entry["ghost_data"] = entry["ghost_data"]
+			if entry.has("drift_checkpoint"):
+				full_entry["drift_checkpoint"] = entry["drift_checkpoint"]
+			expanded.append(full_entry)
+		elif entry.has("input"):
+			var input_dict = entry["input"]
+			last_input_dict = input_dict
+			expanded.append(entry.duplicate(true))
+		else:
+			last_input_dict = entry
+			expanded.append({"input": entry.duplicate(true)})
+			
+	return expanded
