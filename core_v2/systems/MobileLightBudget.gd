@@ -1,6 +1,7 @@
 extends Node
-class_name MobileLightBudget
 
+# Sin class_name: es un autoload, y el singleton ya ocupa ese nombre global.
+#
 # Achica el alcance de las luces en movil.
 #
 # El Redmi Note 9 Pro (Adreno 618, GLES2) no esta limitado por CPU sino por FILLRATE. La
@@ -33,11 +34,15 @@ export(float, 0.0, 20.0, 0.5) var min_range_to_touch := 6.0
 export(bool) var enabled := true
 # LightPathV2 genera sus luces por codigo y no todas existen en el primer frame, igual que
 # pasa con los grupos horneados de RadialScatter.
-export(int) var scan_attempts := 4
-export(float) var scan_interval := 0.35
+# La ventana de escaneo (intentos x intervalo) cubre hasta que nacio la ultima luz
+# procedural. 3 s da margen sobre los 1.4 s originales; medido, ampliarla mas no encuentra
+# luces adicionales en Dome_Intro, asi que no hay razon para escanear mas tiempo.
+export(int) var scan_attempts := 6
+export(float) var scan_interval := 0.5
 
 # { Light: rango original } — para poder volver atras sin recargar la escena.
 var _originales := {}
+var _escena: Node = null
 var _scans := 0
 var _aplicado := false
 
@@ -50,7 +55,26 @@ func _ready() -> void:
 		return
 	if not _es_movil():
 		return
+	# Como autoload sobrevive a los cambios de escena, asi que hay que re-aplicar en cada
+	# nivel nuevo: el cache de originales apunta a nodos ya liberados.
+	var t := get_tree()
+	if t != null:
+		var _e = t.connect("tree_changed", self, "_on_tree_changed")
 	_programar_scan()
+
+
+func _on_tree_changed() -> void:
+	if not is_inside_tree() or not enabled:
+		return
+	var actual = get_tree().current_scene
+	if actual == _escena:
+		return
+	_escena = actual
+	_originales.clear()
+	_scans = 0
+	_aplicado = false
+	if actual != null:
+		_programar_scan()
 
 
 func _es_movil() -> bool:
@@ -74,17 +98,16 @@ func _programar_scan() -> void:
 
 
 func _raiz_de_escena() -> Node:
-	var n: Node = self
-	var tope: Node = get_tree().root if get_tree() != null else null
-	while n.get_parent() != null and n.get_parent() != tope:
-		n = n.get_parent()
-	return n
+	return get_tree().current_scene if get_tree() != null else null
 
 
 func _aplicar() -> void:
 	if not enabled or get_tree() == null:
 		return
-	var pila := [_raiz_de_escena()]
+	var raiz := _raiz_de_escena()
+	if raiz == null:
+		return
+	var pila := [raiz]
 	while not pila.empty():
 		var n: Node = pila.pop_back()
 		if n is Light and not _originales.has(n):

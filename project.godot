@@ -1229,11 +1229,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/metal_fence/MetalFence.gd"
 }, {
-"base": "Node",
-"class": "MobileLightBudget",
-"language": "GDScript",
-"path": "res://core_v2/systems/MobileLightBudget.gd"
-}, {
 "base": "VBoxContainer",
 "class": "NodeScan",
 "language": "GDScript",
@@ -2254,7 +2249,6 @@ _global_script_class_icons={
 "MeshBuilderSphere": "",
 "MeshBuilderTorus": "",
 "MetalFence": "",
-"MobileLightBudget": "",
 "NodeScan": "",
 "ONNXModel": "",
 "OYSComponent": "",
@@ -2464,6 +2458,8 @@ CaptureSystem="*res://core_v2/systems/CaptureSystem.gd"
 CheckpointManager="*res://core_v2/systems/CheckpointManager.gd"
 FrostVignetteManager="*res://core_v2/autoloads/FrostVignetteManager.gd"
 CollisionCullManager="*res://core_v2/autoloads/CollisionCullManager.gd"
+MobileLightBudget="*res://core_v2/systems/MobileLightBudget.gd"
+AdaptiveRenderScale="*res://core_v2/systems/AdaptiveRenderScale.gd"
 
 [debug]
 

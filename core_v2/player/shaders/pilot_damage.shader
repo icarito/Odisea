@@ -17,6 +17,11 @@ uniform float crack_density : hint_range(2.0, 32.0) = 11.0;
 uniform float freeze_min_y : hint_range(-3.0, 3.0) = -1.05;
 uniform float freeze_max_y : hint_range(-3.0, 3.0) = 1.25;
 uniform float freeze_front_softness : hint_range(0.01, 0.5) = 0.14;
+// Auto-iluminacion del traje: mantiene a Elias legible sin depender de las luces de la
+// escena. Hace falta porque el presupuesto de luces de movil (MobileLightBudget) achica el
+// alcance de todas, y en los tramos oscuros el personaje se perdia contra el fondo. Suma
+// sobre el ALBEDO ya calculado, asi que respeta el tinte de escarcha y de dano.
+uniform float self_illum : hint_range(0.0, 2.0) = 0.35;
 
 varying vec3 world_position;
 varying float local_y;
@@ -78,5 +83,6 @@ void fragment() {
 	AO_LIGHT_AFFECT = 0.0;
 	NORMALMAP = texture(normal_texture, UV).rgb;
 	NORMALMAP_DEPTH = normal_scale;
-	EMISSION = frozen_tint * (crack_intensity * pulse_mix * 0.85 + edge * freeze_band * (0.16 + pulse_mix * 0.32));
+	EMISSION = damaged * self_illum
+		+ frozen_tint * (crack_intensity * pulse_mix * 0.85 + edge * freeze_band * (0.16 + pulse_mix * 0.32));
 }

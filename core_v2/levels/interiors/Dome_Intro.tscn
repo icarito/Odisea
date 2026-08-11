@@ -1,4 +1,4 @@
-[gd_scene load_steps=114 format=2]
+[gd_scene load_steps=113 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
@@ -82,7 +82,6 @@
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro_Floor_5_baked.shape" type="Shape" id=114]
 [ext_resource path="res://core_v2/systems/ice/IceSubmergedCuller.gd" type="Script" id=344]
 [ext_resource path="res://core_v2/systems/AirlockPool.gd" type="Script" id=345]
-[ext_resource path="res://core_v2/systems/MobileLightBudget.gd" type="Script" id=346]
 
 [sub_resource type="SpatialMaterial" id=286]
 flags_transparent = true
@@ -365,9 +364,6 @@ shape = ExtResource( 4 )
 [node name="FootstepSurface" type="Spatial" parent="Terrace"]
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 24 )
-
-[node name="MobileLightBudget" type="Node" parent="."]
-script = ExtResource( 346 )
 
 [node name="AirlockPool" type="Node" parent="."]
 script = ExtResource( 345 )

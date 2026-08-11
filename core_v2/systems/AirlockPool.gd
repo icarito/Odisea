@@ -48,6 +48,12 @@ func _ready() -> void:
 		return
 	if OS.get_environment(DISABLE_ENV) in ["1", "true", "yes", "on"]:
 		enabled = false
+	if not enabled:
+		# Deshabilitado no debe instanciar nada. Antes se creaba igual el AirlockChamber
+		# completo y se aparcaba invisible: desperdicio, y ademas sus materiales quedaban
+		# registrados en PropDitherManager, que les escribe uniforms cada frame. Un shader
+		# que nunca se dibujo no tiene version compilada, y cada escritura sacaba
+		# `_get_uniform: Condition "!version" is true`.
 		set_physics_process(false)
 		return
 	call_deferred("_preparar")

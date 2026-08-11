@@ -176,8 +176,10 @@ func _apply_pool_limit(limit: int) -> void:
 		multimesh.visible_instance_count = _pool_limit
 	if _pool_limit < previous:
 		for i in range(_pool_limit, previous):
+			# Solo se apaga la particula en la logica. Ocultarla en el MultiMesh seria
+			# escribir en un indice que la linea de arriba acaba de eliminar al achicar
+			# instance_count: "Index p_index = 55 is out of bounds (multimesh->size = 51)".
 			particles[i]["active"] = false
-			_hide_instance(i)
 	if _next_spawn_index >= _pool_limit:
 		_next_spawn_index = 0
 	# Agrandar lo que queda para conservar cobertura en pantalla con menos quads. Se guarda
@@ -440,7 +442,12 @@ func get_particle_world_position(index: int) -> Vector3:
 	return global_transform.xform(Vector3(particles[index]["position"]))
 
 func _sync_all_instances() -> void:
-	for i in range(particles.size()):
+	# Hasta el pool EFECTIVO, no hasta particles.size(): el MultiMesh se dimensiona al pool
+	# efectivo (en movil es una fraccion del total), asi que recorrer el array entero escribe
+	# fuera de rango. Las particulas por encima del limite ya quedaron inactivas en
+	# _apply_pool_limit y no tienen instancia que sincronizar.
+	var limite: int = _effective_pool()
+	for i in range(limite):
 		if bool(particles[i]["active"]):
 			_sync_instance(i)
 		else:
@@ -489,7 +496,7 @@ func _flush_bulk() -> void:
 
 
 func _sync_instance(index: int) -> void:
-	if multimesh == null:
+	if multimesh == null or index >= multimesh.instance_count:
 		return
 	var p: Dictionary = particles[index]
 	var age := clamp(float(p["lifetime"]) / max(float(p["max_lifetime"]), 0.001), 0.0, 1.0)
@@ -503,7 +510,9 @@ func _sync_instance(index: int) -> void:
 	multimesh.set_instance_custom_data(index, Color(age, 1.0 if bool(p["combustion"]) else 0.0, frame_time, 1.0))
 
 func _hide_instance(index: int) -> void:
-	if multimesh == null:
+	# Red de seguridad: el pool se redimensiona en vivo segun los fps, asi que cualquier
+	# recorrido que se haya guardado un tamano viejo puede llegar aca fuera de rango.
+	if multimesh == null or index >= multimesh.instance_count:
 		return
 	multimesh.set_instance_transform(index, _hidden_transform)
 	multimesh.set_instance_color(index, Color(0, 0, 0, 0))
