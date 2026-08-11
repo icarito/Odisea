@@ -69,9 +69,6 @@ export(float) var temperature_variance := 0.85
 # Cadencia del atlas para hielo. Reduce la variación heredada del manager, que a 32 FPS
 # podía llevar algunas escarchas hasta ~64 FPS y hacerlas leer como parpadeo.
 export(float) var frost_animation_speed := 0.72
-# Luz ambiental única para que la superficie afecte al entorno sin una luz por partícula.
-export(float) var ice_light_energy := 0.4
-export(float) var ice_light_range := 18.0
 # Emite también en el centro (pozo) además del anillo.
 export(bool) var emit_center_column := false
 export(float) var center_column_radius := 2.5
@@ -96,7 +93,6 @@ var _height_initialized := false
 var _spawn_accumulator := 0.0
 var _emit_counter := 0
 var _wave_time := 0.0
-var _ice_light: OmniLight = null
 
 func _ready() -> void:
 	if Engine.editor_hint:
@@ -113,18 +109,7 @@ func _ready() -> void:
 	else:
 		_manager.anim_speed_base = frost_animation_speed
 		_manager.anim_speed_velocity_factor = 0.04
-		_ensure_ice_light()
 	call_deferred("_connect_ice_level")
-
-func _ensure_ice_light() -> void:
-	_ice_light = get_node_or_null("IceLight")
-	if _ice_light == null:
-		_ice_light = OmniLight.new()
-		_ice_light.name = "IceLight"
-		add_child(_ice_light)
-	_ice_light.light_color = Color(0.2, 0.62, 1.0)
-	_ice_light.omni_range = ice_light_range
-	_ice_light.shadow_enabled = false
 
 func _connect_ice_level() -> void:
 	if not get_tree():
@@ -184,7 +169,6 @@ func _process(delta: float) -> void:
 	var center_angle := _get_camera_arc_center()
 	var half_arc := deg2rad(clamp(visible_arc_deg, 1.0, 360.0)) * 0.5
 	var band_radius := _effective_ring_radius()
-	_update_ice_light(center_angle, band_radius)
 
 	for _i in range(to_spawn):
 		_emit_frost(center_angle, half_arc, band_radius)
@@ -195,18 +179,6 @@ func _effective_ring_radius() -> float:
 	if follow_dome_profile and is_instance_valid(_ice_level) and _ice_level.has_method("get_surface_radius_at"):
 		return _ice_level.get_surface_radius_at(_display_height)
 	return ring_radius
-
-func _update_ice_light(center_angle: float, band_radius: float) -> void:
-	if not is_instance_valid(_ice_light):
-		return
-	if OS.get_name() in ["Android", "iOS"]:
-		_ice_light.light_energy = 0.0
-		return
-	var radius := min(band_radius * 0.42, 11.0)
-	var base_y := to_local(Vector3(0.0, _display_height, 0.0)).y
-	_ice_light.translation = Vector3(cos(center_angle) * radius, base_y + 1.2, sin(center_angle) * radius)
-	# El hielo emite una luz estable; no debe comportarse como una llama.
-	_ice_light.light_energy = ice_light_energy
 
 # Ángulo (alrededor de +Y, local a este nodo) del sector del anillo que mira la cámara.
 func _get_camera_arc_center() -> float:
