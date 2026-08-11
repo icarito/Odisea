@@ -3333,6 +3333,10 @@
         "occupied": false,
         "feedback_state": "disabled"
       },
+      "/root/TestScene/Pilot/ControllerManager": {
+        "controller_mode": -1,
+        "gravity_mode": 0
+      },
       "/root/TestScene/Pilot/Logic/SuitThermalResistance": {
         "integrity": 100,
         "is_breached": false,

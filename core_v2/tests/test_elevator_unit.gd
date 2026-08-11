@@ -141,8 +141,12 @@ func test_metal_fence_grid_shader_supports_prop_occlusion() -> void:
 	for _i in range(4):
 		yield(await_idle_frame(), "completed")
 
+	# "Panels", no "FencePanel_N": los paneles de la reja se fusionaron en UNA malla con un
+	# solo material (antes eran 14 MeshInstance con 14 ShaderMaterial que solo diferian en el
+	# uniform `tiling`, ahora horneado en las UVs). El contrato que importa es el mismo: la
+	# reja tiene que seguir soportando la oclusion para no tapar al jugador.
 	var panels: Array = []
-	_collect_named_meshes(elevator.get_node("MetalFence"), "FencePanel", panels)
+	_collect_named_meshes(elevator.get_node("MetalFence"), "Panels", panels)
 	var checked := 0
 	for panel in panels:
 		var material = panel.material_override
@@ -152,7 +156,7 @@ func test_metal_fence_grid_shader_supports_prop_occlusion() -> void:
 	assert_int(checked).is_greater(0)
 
 	var doors: Array = []
-	_collect_nodes_by_name(elevator, ["ShaftFence", "FencePanel"], doors)
+	_collect_nodes_by_name(elevator, ["ShaftFence", "Panels"], doors)
 	for mesh in doors:
 		var door_material = mesh.material_override
 		if door_material == null:

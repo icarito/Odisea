@@ -4344,6 +4344,10 @@
           0
         ]
       },
+      "/root/TestScene_Cargol/Platform/Pilot/ControllerManager": {
+        "controller_mode": -1,
+        "gravity_mode": 0
+      },
       "/root/TestScene_Cargol/Platform/Pilot/Logic/SuitThermalResistance": {
         "integrity": 100,
         "is_breached": false,

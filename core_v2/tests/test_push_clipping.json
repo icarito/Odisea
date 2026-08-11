@@ -4504,6 +4504,10 @@
   },
   "meta": {
     "world_start_state": {
+      "/root/TestScenePropZoo/Platform/Pilot/ControllerManager": {
+        "controller_mode": -1,
+        "gravity_mode": 0
+      },
       "/root/TestScenePropZoo/Platform/Pilot/Logic/SuitThermalResistance": {
         "integrity": 100,
         "is_breached": false,
