@@ -6765,6 +6765,10 @@
   },
   "meta": {
     "world_start_state": {
+      "/root/TestScene_PropEmitter/Pilot/ControllerManager": {
+        "controller_mode": -1,
+        "gravity_mode": 0
+      },
       "/root/TestScene_PropEmitter/Pilot/Logic/SuitThermalResistance": {
         "integrity": 100,
         "is_breached": false,

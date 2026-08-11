@@ -2851,23 +2851,23 @@
   },
   "final_expected_state": {
     "position": [
-      -0.000002,
-      -3.934865,
-      15.455638
+      0,
+      0.001503,
+      6.804922
     ],
     "velocity": [
-      -0.000001,
-      -10.266666,
-      7
+      0,
+      0.000004,
+      5.112545
     ],
     "yaw": 0,
     "pitch": 0,
     "base_spring_length_3d": 10,
     "movement_state": {
       "horizontal_velocity": [
-        -0.000001,
         0,
-        7
+        0,
+        0
       ],
       "external_velocity": [
         0,
@@ -2879,8 +2879,8 @@
       "current_turn_time": 0,
       "_mouse_used_this_move": false
     },
-    "controller_mode": 0,
-    "gravity_mode": 1,
+    "controller_mode": 1,
+    "gravity_mode": 2,
     "jump_state": {
       "coyote_timer": 0,
       "jump_buffer_timer": 0,

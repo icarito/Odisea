@@ -4927,6 +4927,10 @@
         "current_animation": "",
         "playback_position": 0
       },
+      "/root/TestCinematicScene/Pilot/ControllerManager": {
+        "controller_mode": -1,
+        "gravity_mode": 0
+      },
       "/root/TestCinematicScene/Pilot/Logic/SuitThermalResistance": {
         "integrity": 100,
         "is_breached": false,
