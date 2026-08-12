@@ -34,7 +34,7 @@ uniform float ice_height_world = 0.0;
 // World-space distance above the ice line over which the freeze front fades in.
 uniform float freeze_band_height : hint_range(0.1, 8.0) = 3.0;
 uniform float crack_density : hint_range(0.05, 2.0) = 0.35;
-uniform float emission_strength : hint_range(0.0, 1.0) = 0.02;
+uniform float emission_strength : hint_range(0.0, 1.0) = 0.0;
 // Bright rim right at the freeze front, like a waterline — the main visibility cue.
 uniform float rim_width : hint_range(0.0, 1.0) = 0.32;
 uniform float rim_strength : hint_range(0.0, 2.0) = 0.85;

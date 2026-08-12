@@ -1,23 +1,64 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://core_v2/systems/ice/IceLevel.gd" type="Script" id=1]
 [ext_resource path="res://assets/sfx/voicebosch-ice-crackling-168594.mp3" type="AudioStream" id=2]
 [ext_resource path="res://core_v2/systems/ice/IceObjectFreezer.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/systems/ice/shaders/transparent_ice.shader" type="Shader" id=4]
+[ext_resource path="res://assets/textures/Ice/ice_0002_color_1k.jpg" type="Texture" id=5]
+[ext_resource path="res://assets/textures/Ice/ice_0002_normal_opengl_1k.png" type="Texture" id=6]
+[ext_resource path="res://assets/textures/Ice/ice_0002_roughness_1k.jpg" type="Texture" id=7]
+[ext_resource path="res://assets/textures/Ice/ice_0002_ao_1k.jpg" type="Texture" id=8]
+
+[sub_resource type="ShaderMaterial" id=1]
+shader = ExtResource( 4 )
+shader_param/albedo = Color( 0.08, 0.42, 1, 0.82 )
+shader_param/deep_color = Color( 0.14, 0.3, 0.46, 1 )
+shader_param/crack_strength = 0.36
+shader_param/opacity = 0.45
+shader_param/freeze_progress = 0.32
+shader_param/emission_boost = 0.0
+shader_param/texture_scale = 0.085
+shader_param/uv_offset = Vector2( 0, 0 )
+shader_param/surface_radius = 31.45
+shader_param/low_end_mobile = false
+shader_param/mobile_color_pbr = true
+shader_param/lod_strength = 0.35
+shader_param/detail_distance = 22.0
+shader_param/detail_fade = 10.0
+shader_param/ice_texture = ExtResource( 5 )
+shader_param/ice_normal = ExtResource( 6 )
+shader_param/ice_roughness = ExtResource( 7 )
+shader_param/ice_ao = ExtResource( 8 )
+
+[sub_resource type="PlaneMesh" id=2]
+size = Vector2( 62.9, 62.9 )
+
+[sub_resource type="ShaderMaterial" id=3]
+shader = ExtResource( 4 )
+shader_param/albedo = Color( 0.55, 0.85, 1, 0.28 )
+shader_param/deep_color = Color( 0.14, 0.3, 0.46, 1 )
+shader_param/crack_strength = 0.36
+shader_param/opacity = 0.175
+shader_param/freeze_progress = 0.0
+shader_param/emission_boost = 1.0
+shader_param/texture_scale = 0.085
+shader_param/uv_offset = Vector2( 0, 0 )
+shader_param/surface_radius = 29.7
+shader_param/low_end_mobile = false
+shader_param/mobile_color_pbr = true
+shader_param/lod_strength = 0.35
+shader_param/detail_distance = 22.0
+shader_param/detail_fade = 10.0
+shader_param/ice_texture = ExtResource( 5 )
+shader_param/ice_normal = ExtResource( 6 )
+shader_param/ice_roughness = ExtResource( 7 )
+shader_param/ice_ao = ExtResource( 8 )
+
+[sub_resource type="PlaneMesh" id=4]
+size = Vector2( 62.9, 62.9 )
 
 [node name="IceLevel" type="Spatial"]
 script = ExtResource( 1 )
-base_speed = 0.15
-accel = 0.0
-start_height = 0.0
-walkable_surface_depth = 0.85
-core_submersion_depth = 1.25
-damage_per_second = 25.0
-core_damage_multiplier = 4.0
-respawn_safety_margin = 3.0
-auto_start = true
-crack_interval = 2.5
-debug_draw = true
-debug_plane_radius = 30.0
 
 [node name="IceCrackSound" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource( 2 )
@@ -27,3 +68,14 @@ max_distance = 60.0
 
 [node name="IceObjectFreezer" type="Node" parent="."]
 script = ExtResource( 3 )
+
+[node name="IceSurface" type="MeshInstance" parent="."]
+material_override = SubResource( 1 )
+cast_shadow = 0
+mesh = SubResource( 2 )
+
+[node name="FrostCeiling" type="MeshInstance" parent="."]
+visible = false
+material_override = SubResource( 3 )
+cast_shadow = 0
+mesh = SubResource( 4 )

@@ -23,7 +23,7 @@ const MOBILE_SURFACE_OFFSET := 0.006
 const MOBILE_MAX_WRAPPED_HEIGHT := 8.0
 
 export(float) var freeze_band_height := 3.0
-export(float) var emission_strength := 0.02
+export(float) var emission_strength := 0.0
 export(float) var rim_strength := 0.85
 # next_pass doubles the draw calls of anything it's chained to. Skipping geometry whose
 # lowest point sits above this height keeps that cost off upper scaffold floors, ceilings,

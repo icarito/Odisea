@@ -698,7 +698,7 @@ light_range = 16.0
 light_energy = 2.6
 light_follow_radius = 24.0
 spacing = 0.0
-marker_size = 1.6
+marker_size = 4.0
 marker_billboard = true
 lit_color = Color( 0.72, 0.84, 1, 1 )
 dim_color = Color( 0.72, 0.84, 1, 1 )
@@ -816,7 +816,6 @@ multimesh = ExtResource( 61 )
 [node name="DomeLamp" type="Spatial" parent="."]
 script = ExtResource( 28 )
 snap_to_surface = false
-light_range = 16.0
 light_energy = 1.8
 light_follow_radius = 90.0
 light_cull_mask = 1048511
@@ -1866,6 +1865,7 @@ script = ExtResource( 99 )
 
 [node name="IceSubmergedCuller" type="Node" parent="IceLevel"]
 script = ExtResource( 344 )
+enabled = false
 
 [node name="IceCrackSound" type="AudioStreamPlayer3D" parent="IceLevel"]
 stream = ExtResource( 23 )
@@ -1950,6 +1950,10 @@ particles_per_second = 12.0
 transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 18, 7.5, 0 )
 emission_radius = 1.0
 particles_per_second = 10.0
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 3, 0 )
+light_energy = 2.0
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
