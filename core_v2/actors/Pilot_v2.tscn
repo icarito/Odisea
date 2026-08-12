@@ -96,7 +96,8 @@ push_force = 9.0
 min_pitch = -80.0
 max_pitch = 45.0
 auto_align_speed = 3.0
-camera_zoom_max_distance = 25.0
+camera_zoom_min_distance = 0.6
+camera_zoom_max_distance = 15.0
 step_height = 0.3
 step_grounded_grace = 0.3
 debug_acrobatic_probe = true
@@ -316,9 +317,5 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 enabled = true
 cast_to = Vector3( 0, -10, 0 )
 collision_mask = 1048575
-
-[node name="OmniLight" type="OmniLight" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
-light_energy = 0.2
 
 [editable path="Visual/Pivot/Skeleton"]

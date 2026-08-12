@@ -33,6 +33,8 @@ const ANBERNIC_DEVICE_HINTS := [
 var _touch_camera_drag := Vector2.ZERO
 var _touch_camera_zoom := 0.0
 var _axis_profile_resolved := false
+var _touch_ui_hint_resolved := false
+var _touch_ui_hint := false
 var _invert_joy_move_x := false
 var _invert_joy_move_y := false
 var _invert_joy_look_x := false
@@ -93,6 +95,14 @@ func _apply_curve(v: Vector2, curve: Curve) -> Vector2:
 	var curved_length = curve.interpolate(length)
 	
 	return v.normalized() * curved_length
+
+
+func _has_touch_ui() -> bool:
+	# Resuelto una sola vez: es una consulta al OS y se lee en cada frame de input.
+	if not _touch_ui_hint_resolved:
+		_touch_ui_hint_resolved = true
+		_touch_ui_hint = OS.has_touchscreen_ui_hint() or OS.get_name() == "Android" or OS.get_name() == "iOS"
+	return _touch_ui_hint
 
 
 func _is_digital_move_vector(v: Vector2) -> bool:
@@ -193,6 +203,13 @@ func _read_live_input() -> InputDataV2:
 		var move_source_vec = raw_move_vec
 		if joy_move.length() > JOY_DEADZONE:
 			move_source_vec = joy_move
+			d.analog_move_active = true
+		elif raw_move_vec.length() > 0.001:
+			# El joystick virtual empuja las MISMAS acciones que el teclado, solo que con
+			# fuerza analogica, asi que un vector no digital delata al stick. A deflexion
+			# maxima entrega 1.0 exacto y pasaria por teclado: en un dispositivo tactil no
+			# hay teclado con el que confundirlo, todo movimiento es del stick de pantalla.
+			d.analog_move_active = _has_touch_ui() or not _is_digital_move_vector(raw_move_vec)
 		d.move_vec = _apply_curve(move_source_vec, move_response_curve)
 		d.move_vec *= joy_move_sensitivity
 		d.move_vec.x = _q(d.move_vec.x)

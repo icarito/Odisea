@@ -1,4 +1,5 @@
 [gd_scene load_steps=124 format=2]
+
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
@@ -76,7 +77,6 @@
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro_Floor_5_baked.shape" type="Shape" id=114]
 [ext_resource path="res://core_v2/systems/ice/IceSubmergedCuller.gd" type="Script" id=344]
 [ext_resource path="res://core_v2/systems/AirlockPool.gd" type="Script" id=345]
-
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods1_shell.mesh" type="ArrayMesh" id=346]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods1_glass.mesh" type="ArrayMesh" id=347]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods1_cards.mesh" type="ArrayMesh" id=348]
@@ -96,6 +96,7 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods6_shell.mesh" type="ArrayMesh" id=362]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods6_glass.mesh" type="ArrayMesh" id=363]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods6_cards.mesh" type="ArrayMesh" id=364]
+
 [sub_resource type="SpatialMaterial" id=286]
 flags_transparent = true
 flags_unshaded = true
@@ -286,6 +287,9 @@ shader_param/uv_offset = Vector2( 0, 0 )
 shader_param/surface_radius = 31.45
 shader_param/low_end_mobile = false
 shader_param/mobile_color_pbr = true
+shader_param/lod_strength = 0.35
+shader_param/detail_distance = 22.0
+shader_param/detail_fade = 10.0
 shader_param/ice_texture = ExtResource( 101 )
 shader_param/ice_normal = ExtResource( 102 )
 shader_param/ice_roughness = ExtResource( 103 )
@@ -307,6 +311,9 @@ shader_param/uv_offset = Vector2( 0, 0 )
 shader_param/surface_radius = 31.45
 shader_param/low_end_mobile = false
 shader_param/mobile_color_pbr = true
+shader_param/lod_strength = 0.35
+shader_param/detail_distance = 22.0
+shader_param/detail_fade = 10.0
 shader_param/ice_texture = ExtResource( 101 )
 shader_param/ice_normal = ExtResource( 102 )
 shader_param/ice_roughness = ExtResource( 103 )
@@ -372,22 +379,6 @@ target_spawn_id = "from_dome_intro"
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 20 )
-
-[node name="Lighting" type="Spatial" parent="."]
-
-[node name="TowerLights" type="Spatial" parent="Lighting"]
-
-[node name="TowerLight_1" type="OmniLight" parent="Lighting/TowerLights"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7.6, 0 )
-light_color = Color( 1, 0.82, 0.6, 1 )
-light_energy = 2.05
-omni_range = 9.0
-
-[node name="TowerLight_3" type="OmniLight" parent="Lighting/TowerLights"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.6, 0 )
-light_color = Color( 0.98, 0.86, 0.72, 1 )
-light_energy = 1.85
-omni_range = 9.0
 
 [node name="SpiralStairs" type="Spatial" parent="." groups=["ice_freezable"]]
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
@@ -1079,11 +1070,11 @@ transform = Transform( -0.333099, 0, -0.942892, 0, 1, 0, 0.942892, 0, -0.333099,
 shape = ExtResource( 349 )
 
 [node name="Pod_03" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( -0.476499, 0, -0.879175, 0, 1, 0, 0.879175, 0, -0.476499, 7.033401, 1.2, 3.81199 )
+transform = Transform( -0.476499, 0, -0.879175, 0, 1, 0, 0.879175, 0, -0.476499, 7.0334, 1.2, 3.81199 )
 shape = ExtResource( 349 )
 
 [node name="Pod_04" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( -0.608166, 0, -0.79381, 0, 1, 0, 0.79381, 0, -0.608166, 6.350481, 1.2, 4.865331 )
+transform = Transform( -0.608166, 0, -0.79381, 0, 1, 0, 0.79381, 0, -0.608166, 6.35048, 1.2, 4.86533 )
 shape = ExtResource( 349 )
 
 [node name="Pod_05" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
@@ -1091,11 +1082,11 @@ transform = Transform( -0.724858, 0, -0.688899, 0, 1, 0, 0.688899, 0, -0.724858,
 shape = ExtResource( 349 )
 
 [node name="Pod_06" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( -0.823701, 0, -0.567025, 0, 1, 0, 0.567025, 0, -0.823701, 4.536201, 1.2, 6.58961 )
+transform = Transform( -0.823701, 0, -0.567025, 0, 1, 0, 0.567025, 0, -0.823701, 4.5362, 1.2, 6.58961 )
 shape = ExtResource( 349 )
 
 [node name="Pod_07" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( -0.902262, 0, -0.431188, 0, 1, 0, 0.431188, 0, -0.902262, 3.44951, 1.2, 7.218101 )
+transform = Transform( -0.902262, 0, -0.431188, 0, 1, 0, 0.431188, 0, -0.902262, 3.44951, 1.2, 7.2181 )
 shape = ExtResource( 349 )
 
 [node name="Pod_08" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
@@ -1115,7 +1106,7 @@ transform = Transform( -0.983391, 0, 0.181497, 0, 1, 0, -0.181497, 0, -0.983391,
 shape = ExtResource( 349 )
 
 [node name="Pod_12" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( -0.79381, 0, 0.608166, 0, 1, 0, -0.608166, 0, -0.79381, -4.865331, 1.2, 6.350481 )
+transform = Transform( -0.79381, 0, 0.608166, 0, 1, 0, -0.608166, 0, -0.79381, -4.86533, 1.2, 6.35048 )
 shape = ExtResource( 349 )
 
 [node name="Pod_13" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
@@ -1123,11 +1114,11 @@ transform = Transform( -0.688899, 0, 0.724858, 0, 1, 0, -0.724858, 0, -0.688899,
 shape = ExtResource( 349 )
 
 [node name="Pod_14" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( -0.567025, 0, 0.823701, 0, 1, 0, -0.823701, 0, -0.567025, -6.58961, 1.2, 4.536201 )
+transform = Transform( -0.567025, 0, 0.823701, 0, 1, 0, -0.823701, 0, -0.567025, -6.58961, 1.2, 4.5362 )
 shape = ExtResource( 349 )
 
 [node name="Pod_15" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( -0.431188, 0, 0.902262, 0, 1, 0, -0.902262, 0, -0.431188, -7.218101, 1.2, 3.44951 )
+transform = Transform( -0.431188, 0, 0.902262, 0, 1, 0, -0.902262, 0, -0.431188, -7.2181, 1.2, 3.44951 )
 shape = ExtResource( 349 )
 
 [node name="Pod_16" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
@@ -1151,11 +1142,11 @@ transform = Transform( 0.333099, 0, 0.942892, 0, 1, 0, -0.942892, 0, 0.333099, -
 shape = ExtResource( 349 )
 
 [node name="Pod_21" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( 0.476499, 0, 0.879175, 0, 1, 0, -0.879175, 0, 0.476499, -7.033401, 1.2, -3.81199 )
+transform = Transform( 0.476499, 0, 0.879175, 0, 1, 0, -0.879175, 0, 0.476499, -7.0334, 1.2, -3.81199 )
 shape = ExtResource( 349 )
 
 [node name="Pod_22" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( 0.608166, 0, 0.79381, 0, 1, 0, -0.79381, 0, 0.608166, -6.350481, 1.2, -4.865331 )
+transform = Transform( 0.608166, 0, 0.79381, 0, 1, 0, -0.79381, 0, 0.608166, -6.35048, 1.2, -4.86533 )
 shape = ExtResource( 349 )
 
 [node name="Pod_23" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
@@ -1163,7 +1154,7 @@ transform = Transform( 0.724858, 0, 0.688899, 0, 1, 0, -0.688899, 0, 0.724858, -
 shape = ExtResource( 349 )
 
 [node name="Pod_24" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( 0.902262, 0, 0.431188, 0, 1, 0, -0.431188, 0, 0.902262, -3.44951, 1.2, -7.218101 )
+transform = Transform( 0.902262, 0, 0.431188, 0, 1, 0, -0.431188, 0, 0.902262, -3.44951, 1.2, -7.2181 )
 shape = ExtResource( 349 )
 
 [node name="Pod_25" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
@@ -1187,11 +1178,11 @@ transform = Transform( 0.942892, 0, -0.333099, 0, 1, 0, 0.333099, 0, 0.942892, 2
 shape = ExtResource( 349 )
 
 [node name="Pod_30" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( 0.879175, 0, -0.476499, 0, 1, 0, 0.476499, 0, 0.879175, 3.81199, 1.2, -7.033401 )
+transform = Transform( 0.879175, 0, -0.476499, 0, 1, 0, 0.476499, 0, 0.879175, 3.81199, 1.2, -7.0334 )
 shape = ExtResource( 349 )
 
 [node name="Pod_31" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( 0.79381, 0, -0.608166, 0, 1, 0, 0.608166, 0, 0.79381, 4.865331, 1.2, -6.350481 )
+transform = Transform( 0.79381, 0, -0.608166, 0, 1, 0, 0.608166, 0, 0.79381, 4.86533, 1.2, -6.35048 )
 shape = ExtResource( 349 )
 
 [node name="Pod_32" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
@@ -1199,11 +1190,11 @@ transform = Transform( 0.688899, 0, -0.724858, 0, 1, 0, 0.724858, 0, 0.688899, 5
 shape = ExtResource( 349 )
 
 [node name="Pod_33" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( 0.567025, 0, -0.823701, 0, 1, 0, 0.823701, 0, 0.567025, 6.58961, 1.2, -4.536201 )
+transform = Transform( 0.567025, 0, -0.823701, 0, 1, 0, 0.823701, 0, 0.567025, 6.58961, 1.2, -4.5362 )
 shape = ExtResource( 349 )
 
 [node name="Pod_34" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
-transform = Transform( 0.431189, 0, -0.902262, 0, 1, 0, 0.902262, 0, 0.431189, 7.218101, 1.2, -3.44951 )
+transform = Transform( 0.431189, 0, -0.902262, 0, 1, 0, 0.902262, 0, 0.431189, 7.2181, 1.2, -3.44951 )
 shape = ExtResource( 349 )
 
 [node name="Pod_35" type="CollisionShape" parent="Spatial/Criopods2/StaticBody"]
@@ -1247,11 +1238,11 @@ transform = Transform( -0.474764, 0, -0.880113, 0, 1, 0, 0.880113, 0, -0.474764,
 shape = ExtResource( 349 )
 
 [node name="Pod_04" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
-transform = Transform( -0.606599, 0, -0.795008, 0, 1, 0, 0.795008, 0, -0.606599, 6.360061, 1.2, 4.85279 )
+transform = Transform( -0.606599, 0, -0.795008, 0, 1, 0, 0.795008, 0, -0.606599, 6.36006, 1.2, 4.85279 )
 shape = ExtResource( 349 )
 
 [node name="Pod_05" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
-transform = Transform( -0.723498, 0, -0.690327, 0, 1, 0, 0.690327, 0, -0.723498, 5.52262, 1.2, 5.787981 )
+transform = Transform( -0.723498, 0, -0.690327, 0, 1, 0, 0.690327, 0, -0.723498, 5.52262, 1.2, 5.78798 )
 shape = ExtResource( 349 )
 
 [node name="Pod_06" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
@@ -1279,11 +1270,11 @@ transform = Transform( -0.983747, 0, 0.179558, 0, 1, 0, -0.179558, 0, -0.983747,
 shape = ExtResource( 349 )
 
 [node name="Pod_12" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
-transform = Transform( -0.795008, 0, 0.606599, 0, 1, 0, -0.606599, 0, -0.795008, -4.85279, 1.2, 6.360061 )
+transform = Transform( -0.795008, 0, 0.606599, 0, 1, 0, -0.606599, 0, -0.795008, -4.85279, 1.2, 6.36006 )
 shape = ExtResource( 349 )
 
 [node name="Pod_13" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
-transform = Transform( -0.690327, 0, 0.723498, 0, 1, 0, -0.723498, 0, -0.690327, -5.787981, 1.2, 5.52262 )
+transform = Transform( -0.690327, 0, 0.723498, 0, 1, 0, -0.723498, 0, -0.690327, -5.78798, 1.2, 5.52262 )
 shape = ExtResource( 349 )
 
 [node name="Pod_14" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
@@ -1319,11 +1310,11 @@ transform = Transform( 0.474764, 0, 0.880113, 0, 1, 0, -0.880113, 0, 0.474764, -
 shape = ExtResource( 349 )
 
 [node name="Pod_22" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
-transform = Transform( 0.606599, 0, 0.795008, 0, 1, 0, -0.795008, 0, 0.606599, -6.360061, 1.2, -4.85279 )
+transform = Transform( 0.606599, 0, 0.795008, 0, 1, 0, -0.795008, 0, 0.606599, -6.36006, 1.2, -4.85279 )
 shape = ExtResource( 349 )
 
 [node name="Pod_23" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
-transform = Transform( 0.723498, 0, 0.690327, 0, 1, 0, -0.690327, 0, 0.723498, -5.52262, 1.2, -5.787981 )
+transform = Transform( 0.723498, 0, 0.690327, 0, 1, 0, -0.690327, 0, 0.723498, -5.52262, 1.2, -5.78798 )
 shape = ExtResource( 349 )
 
 [node name="Pod_24" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
@@ -1355,11 +1346,11 @@ transform = Transform( 0.880113, 0, -0.474764, 0, 1, 0, 0.474764, 0, 0.880113, 3
 shape = ExtResource( 349 )
 
 [node name="Pod_31" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
-transform = Transform( 0.795008, 0, -0.606599, 0, 1, 0, 0.606599, 0, 0.795008, 4.85279, 1.2, -6.360061 )
+transform = Transform( 0.795008, 0, -0.606599, 0, 1, 0, 0.606599, 0, 0.795008, 4.85279, 1.2, -6.36006 )
 shape = ExtResource( 349 )
 
 [node name="Pod_32" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
-transform = Transform( 0.690327, 0, -0.723497, 0, 1, 0, 0.723497, 0, 0.690327, 5.787981, 1.2, -5.52262 )
+transform = Transform( 0.690327, 0, -0.723497, 0, 1, 0, 0.723497, 0, 0.690327, 5.78798, 1.2, -5.52262 )
 shape = ExtResource( 349 )
 
 [node name="Pod_33" type="CollisionShape" parent="Spatial/Criopods3/StaticBody"]
@@ -1395,7 +1386,7 @@ collision_layer = 64
 collision_mask = 255
 
 [node name="Pod_00" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.020436, 0, -0.999791, 0, 1, 0, 0.999791, 0, -0.020436, 7.998331, 1.2, 0.163491 )
+transform = Transform( -0.020436, 0, -0.999791, 0, 1, 0, 0.999791, 0, -0.020436, 7.99833, 1.2, 0.163491 )
 shape = ExtResource( 349 )
 
 [node name="Pod_01" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1403,11 +1394,11 @@ transform = Transform( -0.176587, 0, -0.984285, 0, 1, 0, 0.984285, 0, -0.176587,
 shape = ExtResource( 349 )
 
 [node name="Pod_02" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.328389, 0, -0.944543, 0, 1, 0, 0.944543, 0, -0.328389, 7.556341, 1.2, 2.62711 )
+transform = Transform( -0.328389, 0, -0.944543, 0, 1, 0, 0.944543, 0, -0.328389, 7.55634, 1.2, 2.62711 )
 shape = ExtResource( 349 )
 
 [node name="Pod_03" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.472105, 0, -0.881543, 0, 1, 0, 0.881543, 0, -0.472105, 7.052341, 1.2, 3.77684 )
+transform = Transform( -0.472105, 0, -0.881543, 0, 1, 0, 0.881543, 0, -0.472105, 7.05234, 1.2, 3.77684 )
 shape = ExtResource( 349 )
 
 [node name="Pod_04" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1415,11 +1406,11 @@ transform = Transform( -0.604196, 0, -0.796836, 0, 1, 0, 0.796836, 0, -0.604196,
 shape = ExtResource( 349 )
 
 [node name="Pod_05" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.72141, 0, -0.692508, 0, 1, 0, 0.692508, 0, -0.72141, 5.540071, 1.2, 5.77128 )
+transform = Transform( -0.72141, 0, -0.692508, 0, 1, 0, 0.692508, 0, -0.72141, 5.54007, 1.2, 5.77128 )
 shape = ExtResource( 349 )
 
 [node name="Pod_06" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.82086, 0, -0.571129, 0, 1, 0, 0.571129, 0, -0.82086, 4.56903, 1.2, 6.566881 )
+transform = Transform( -0.82086, 0, -0.571129, 0, 1, 0, 0.571129, 0, -0.82086, 4.56903, 1.2, 6.56688 )
 shape = ExtResource( 349 )
 
 [node name="Pod_07" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1427,7 +1418,7 @@ transform = Transform( -0.900098, 0, -0.435687, 0, 1, 0, 0.435687, 0, -0.900098,
 shape = ExtResource( 349 )
 
 [node name="Pod_08" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.957173, 0, -0.289516, 0, 1, 0, 0.289516, 0, -0.957173, 2.31613, 1.2, 7.657381 )
+transform = Transform( -0.957173, 0, -0.289516, 0, 1, 0, 0.289516, 0, -0.957173, 2.31613, 1.2, 7.65738 )
 shape = ExtResource( 349 )
 
 [node name="Pod_09" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1435,7 +1426,7 @@ transform = Transform( -0.990679, 0, -0.136217, 0, 1, 0, 0.136217, 0, -0.990679,
 shape = ExtResource( 349 )
 
 [node name="Pod_10" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.999791, 0, 0.020436, 0, 1, 0, -0.020436, 0, -0.999791, -0.163491, 1.2, 7.998331 )
+transform = Transform( -0.999791, 0, 0.020436, 0, 1, 0, -0.020436, 0, -0.999791, -0.163491, 1.2, 7.99833 )
 shape = ExtResource( 349 )
 
 [node name="Pod_11" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1447,11 +1438,11 @@ transform = Transform( -0.796836, 0, 0.604196, 0, 1, 0, -0.604196, 0, -0.796836,
 shape = ExtResource( 349 )
 
 [node name="Pod_13" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.692508, 0, 0.72141, 0, 1, 0, -0.72141, 0, -0.692508, -5.77128, 1.2, 5.540071 )
+transform = Transform( -0.692508, 0, 0.72141, 0, 1, 0, -0.72141, 0, -0.692508, -5.77128, 1.2, 5.54007 )
 shape = ExtResource( 349 )
 
 [node name="Pod_14" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.571129, 0, 0.82086, 0, 1, 0, -0.82086, 0, -0.571129, -6.566881, 1.2, 4.56903 )
+transform = Transform( -0.571129, 0, 0.82086, 0, 1, 0, -0.82086, 0, -0.571129, -6.56688, 1.2, 4.56903 )
 shape = ExtResource( 349 )
 
 [node name="Pod_15" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1459,7 +1450,7 @@ transform = Transform( -0.435687, 0, 0.900098, 0, 1, 0, -0.900098, 0, -0.435687,
 shape = ExtResource( 349 )
 
 [node name="Pod_16" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( -0.289516, 0, 0.957173, 0, 1, 0, -0.957173, 0, -0.289516, -7.657381, 1.2, 2.31613 )
+transform = Transform( -0.289516, 0, 0.957173, 0, 1, 0, -0.957173, 0, -0.289516, -7.65738, 1.2, 2.31613 )
 shape = ExtResource( 349 )
 
 [node name="Pod_17" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1467,7 +1458,7 @@ transform = Transform( -0.136217, 0, 0.990679, 0, 1, 0, -0.990679, 0, -0.136217,
 shape = ExtResource( 349 )
 
 [node name="Pod_18" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.020436, 0, 0.999791, 0, 1, 0, -0.999791, 0, 0.020436, -7.998331, 1.2, -0.163491 )
+transform = Transform( 0.020436, 0, 0.999791, 0, 1, 0, -0.999791, 0, 0.020436, -7.99833, 1.2, -0.163491 )
 shape = ExtResource( 349 )
 
 [node name="Pod_19" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1475,11 +1466,11 @@ transform = Transform( 0.176587, 0, 0.984285, 0, 1, 0, -0.984285, 0, 0.176587, -
 shape = ExtResource( 349 )
 
 [node name="Pod_20" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.328388, 0, 0.944543, 0, 1, 0, -0.944543, 0, 0.328388, -7.556341, 1.2, -2.62711 )
+transform = Transform( 0.328388, 0, 0.944543, 0, 1, 0, -0.944543, 0, 0.328388, -7.55634, 1.2, -2.62711 )
 shape = ExtResource( 349 )
 
 [node name="Pod_21" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.472105, 0, 0.881543, 0, 1, 0, -0.881543, 0, 0.472105, -7.052341, 1.2, -3.77684 )
+transform = Transform( 0.472105, 0, 0.881543, 0, 1, 0, -0.881543, 0, 0.472105, -7.05234, 1.2, -3.77684 )
 shape = ExtResource( 349 )
 
 [node name="Pod_22" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1487,11 +1478,11 @@ transform = Transform( 0.604196, 0, 0.796836, 0, 1, 0, -0.796836, 0, 0.604196, -
 shape = ExtResource( 349 )
 
 [node name="Pod_23" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.72141, 0, 0.692509, 0, 1, 0, -0.692509, 0, 0.72141, -5.540071, 1.2, -5.77128 )
+transform = Transform( 0.72141, 0, 0.692509, 0, 1, 0, -0.692509, 0, 0.72141, -5.54007, 1.2, -5.77128 )
 shape = ExtResource( 349 )
 
 [node name="Pod_24" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.82086, 0, 0.571129, 0, 1, 0, -0.571129, 0, 0.82086, -4.56903, 1.2, -6.566881 )
+transform = Transform( 0.82086, 0, 0.571129, 0, 1, 0, -0.571129, 0, 0.82086, -4.56903, 1.2, -6.56688 )
 shape = ExtResource( 349 )
 
 [node name="Pod_25" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1499,7 +1490,7 @@ transform = Transform( 0.900098, 0, 0.435687, 0, 1, 0, -0.435687, 0, 0.900098, -
 shape = ExtResource( 349 )
 
 [node name="Pod_26" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.957173, 0, 0.289516, 0, 1, 0, -0.289516, 0, 0.957173, -2.31613, 1.2, -7.657381 )
+transform = Transform( 0.957173, 0, 0.289516, 0, 1, 0, -0.289516, 0, 0.957173, -2.31613, 1.2, -7.65738 )
 shape = ExtResource( 349 )
 
 [node name="Pod_27" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1507,7 +1498,7 @@ transform = Transform( 0.990679, 0, 0.136217, 0, 1, 0, -0.136217, 0, 0.990679, -
 shape = ExtResource( 349 )
 
 [node name="Pod_28" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.999791, 0, -0.020436, 0, 1, 0, 0.020436, 0, 0.999791, 0.163491, 1.2, -7.998331 )
+transform = Transform( 0.999791, 0, -0.020436, 0, 1, 0, 0.020436, 0, 0.999791, 0.163491, 1.2, -7.99833 )
 shape = ExtResource( 349 )
 
 [node name="Pod_29" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1515,11 +1506,11 @@ transform = Transform( 0.984285, 0, -0.176586, 0, 1, 0, 0.176586, 0, 0.984285, 1
 shape = ExtResource( 349 )
 
 [node name="Pod_30" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.944543, 0, -0.328388, 0, 1, 0, 0.328388, 0, 0.944543, 2.62711, 1.2, -7.556341 )
+transform = Transform( 0.944543, 0, -0.328388, 0, 1, 0, 0.328388, 0, 0.944543, 2.62711, 1.2, -7.55634 )
 shape = ExtResource( 349 )
 
 [node name="Pod_31" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.881543, 0, -0.472105, 0, 1, 0, 0.472105, 0, 0.881543, 3.77684, 1.2, -7.052341 )
+transform = Transform( 0.881543, 0, -0.472105, 0, 1, 0, 0.472105, 0, 0.881543, 3.77684, 1.2, -7.05234 )
 shape = ExtResource( 349 )
 
 [node name="Pod_32" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1527,11 +1518,11 @@ transform = Transform( 0.796836, 0, -0.604196, 0, 1, 0, 0.604196, 0, 0.796836, 4
 shape = ExtResource( 349 )
 
 [node name="Pod_33" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.692509, 0, -0.72141, 0, 1, 0, 0.72141, 0, 0.692509, 5.77128, 1.2, -5.540071 )
+transform = Transform( 0.692509, 0, -0.72141, 0, 1, 0, 0.72141, 0, 0.692509, 5.77128, 1.2, -5.54007 )
 shape = ExtResource( 349 )
 
 [node name="Pod_34" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
-transform = Transform( 0.571129, 0, -0.82086, 0, 1, 0, 0.82086, 0, 0.571129, 6.566881, 1.2, -4.56903 )
+transform = Transform( 0.571129, 0, -0.82086, 0, 1, 0, 0.82086, 0, 0.571129, 6.56688, 1.2, -4.56903 )
 shape = ExtResource( 349 )
 
 [node name="Pod_35" type="CollisionShape" parent="Spatial/Criopods4/StaticBody"]
@@ -1559,151 +1550,151 @@ collision_layer = 64
 collision_mask = 255
 
 [node name="Pod_00" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.015742, 0, -0.999876, 0, 1, 0, 0.999876, 0, -0.015742, 7.99901, 1.199999, 0.125938 )
+transform = Transform( -0.015742, 0, -0.999876, 0, 1, 0, 0.999876, 0, -0.015742, 7.99901, 1.2, 0.125938 )
 shape = ExtResource( 349 )
 
 [node name="Pod_01" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.171963, 0, -0.985103, 0, 1, 0, 0.985103, 0, -0.171963, 7.88083, 1.199999, 1.37571 )
+transform = Transform( -0.171963, 0, -0.985103, 0, 1, 0, 0.985103, 0, -0.171963, 7.88083, 1.2, 1.37571 )
 shape = ExtResource( 349 )
 
 [node name="Pod_02" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.32395, 0, -0.946074, 0, 1, 0, 0.946074, 0, -0.32395, 7.56859, 1.199999, 2.5916 )
+transform = Transform( -0.32395, 0, -0.946074, 0, 1, 0, 0.946074, 0, -0.32395, 7.56859, 1.2, 2.5916 )
 shape = ExtResource( 349 )
 
 [node name="Pod_03" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.467961, 0, -0.883749, 0, 1, 0, 0.883749, 0, -0.467961, 7.06999, 1.199999, 3.74369 )
+transform = Transform( -0.467961, 0, -0.883749, 0, 1, 0, 0.883749, 0, -0.467961, 7.06999, 1.2, 3.74369 )
 shape = ExtResource( 349 )
 
 [node name="Pod_04" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.718151, 0, -0.695888, 0, 1, 0, 0.695888, 0, -0.718151, 5.5671, 1.199999, 5.7452 )
+transform = Transform( -0.718151, 0, -0.695888, 0, 1, 0, 0.695888, 0, -0.718151, 5.5671, 1.2, 5.7452 )
 shape = ExtResource( 349 )
 
 [node name="Pod_05" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.81817, 0, -0.574977, 0, 1, 0, 0.574977, 0, -0.81817, 4.599811, 1.199999, 6.54536 )
+transform = Transform( -0.81817, 0, -0.574977, 0, 1, 0, 0.574977, 0, -0.81817, 4.59981, 1.2, 6.54536 )
 shape = ExtResource( 349 )
 
 [node name="Pod_06" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.898043, 0, -0.439908, 0, 1, 0, 0.439908, 0, -0.898043, 3.51926, 1.199999, 7.18434 )
+transform = Transform( -0.898043, 0, -0.439908, 0, 1, 0, 0.439908, 0, -0.898043, 3.51926, 1.2, 7.18434 )
 shape = ExtResource( 349 )
 
 [node name="Pod_07" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.955803, 0, -0.294007, 0, 1, 0, 0.294007, 0, -0.955803, 2.35206, 1.199999, 7.64643 )
+transform = Transform( -0.955803, 0, -0.294007, 0, 1, 0, 0.294007, 0, -0.955803, 2.35206, 1.2, 7.64643 )
 shape = ExtResource( 349 )
 
 [node name="Pod_08" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.990029, 0, -0.140867, 0, 1, 0, 0.140867, 0, -0.990029, 1.12693, 1.199999, 7.92023 )
+transform = Transform( -0.990029, 0, -0.140867, 0, 1, 0, 0.140867, 0, -0.990029, 1.12693, 1.2, 7.92023 )
 shape = ExtResource( 349 )
 
 [node name="Pod_09" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.999876, 0, 0.015742, 0, 1, 0, -0.015742, 0, -0.999876, -0.125938, 1.199999, 7.99901 )
+transform = Transform( -0.999876, 0, 0.015742, 0, 1, 0, -0.015742, 0, -0.999876, -0.125938, 1.2, 7.99901 )
 shape = ExtResource( 349 )
 
 [node name="Pod_10" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.985103, 0, 0.171963, 0, 1, 0, -0.171963, 0, -0.985103, -1.37571, 1.199999, 7.88083 )
+transform = Transform( -0.985103, 0, 0.171963, 0, 1, 0, -0.171963, 0, -0.985103, -1.37571, 1.2, 7.88083 )
 shape = ExtResource( 349 )
 
 [node name="Pod_11" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.799664, 0, 0.600448, 0, 1, 0, -0.600448, 0, -0.799664, -4.80359, 1.199999, 6.39731 )
+transform = Transform( -0.799664, 0, 0.600448, 0, 1, 0, -0.600448, 0, -0.799664, -4.80359, 1.2, 6.39731 )
 shape = ExtResource( 349 )
 
 [node name="Pod_12" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.695888, 0, 0.71815, 0, 1, 0, -0.71815, 0, -0.695888, -5.7452, 1.199999, 5.5671 )
+transform = Transform( -0.695888, 0, 0.71815, 0, 1, 0, -0.71815, 0, -0.695888, -5.7452, 1.2, 5.5671 )
 shape = ExtResource( 349 )
 
 [node name="Pod_13" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.574977, 0, 0.81817, 0, 1, 0, -0.81817, 0, -0.574977, -6.54536, 1.199999, 4.599811 )
+transform = Transform( -0.574977, 0, 0.81817, 0, 1, 0, -0.81817, 0, -0.574977, -6.54536, 1.2, 4.59981 )
 shape = ExtResource( 349 )
 
 [node name="Pod_14" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.439908, 0, 0.898043, 0, 1, 0, -0.898043, 0, -0.439908, -7.18434, 1.199999, 3.51926 )
+transform = Transform( -0.439908, 0, 0.898043, 0, 1, 0, -0.898043, 0, -0.439908, -7.18434, 1.2, 3.51926 )
 shape = ExtResource( 349 )
 
 [node name="Pod_15" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.294007, 0, 0.955803, 0, 1, 0, -0.955803, 0, -0.294007, -7.64643, 1.199999, 2.35206 )
+transform = Transform( -0.294007, 0, 0.955803, 0, 1, 0, -0.955803, 0, -0.294007, -7.64643, 1.2, 2.35206 )
 shape = ExtResource( 349 )
 
 [node name="Pod_16" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( -0.140867, 0, 0.990029, 0, 1, 0, -0.990029, 0, -0.140867, -7.92023, 1.199999, 1.12693 )
+transform = Transform( -0.140867, 0, 0.990029, 0, 1, 0, -0.990029, 0, -0.140867, -7.92023, 1.2, 1.12693 )
 shape = ExtResource( 349 )
 
 [node name="Pod_17" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.015742, 0, 0.999876, 0, 1, 0, -0.999876, 0, 0.015742, -7.99901, 1.199999, -0.125938 )
+transform = Transform( 0.015742, 0, 0.999876, 0, 1, 0, -0.999876, 0, 0.015742, -7.99901, 1.2, -0.125938 )
 shape = ExtResource( 349 )
 
 [node name="Pod_18" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.171963, 0, 0.985103, 0, 1, 0, -0.985103, 0, 0.171963, -7.88083, 1.199999, -1.37571 )
+transform = Transform( 0.171963, 0, 0.985103, 0, 1, 0, -0.985103, 0, 0.171963, -7.88083, 1.2, -1.37571 )
 shape = ExtResource( 349 )
 
 [node name="Pod_19" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.32395, 0, 0.946074, 0, 1, 0, -0.946074, 0, 0.32395, -7.56859, 1.199999, -2.5916 )
+transform = Transform( 0.32395, 0, 0.946074, 0, 1, 0, -0.946074, 0, 0.32395, -7.56859, 1.2, -2.5916 )
 shape = ExtResource( 349 )
 
 [node name="Pod_20" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.467961, 0, 0.883749, 0, 1, 0, -0.883749, 0, 0.467961, -7.06999, 1.199999, -3.74369 )
+transform = Transform( 0.467961, 0, 0.883749, 0, 1, 0, -0.883749, 0, 0.467961, -7.06999, 1.2, -3.74369 )
 shape = ExtResource( 349 )
 
 [node name="Pod_21" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.600448, 0, 0.799664, 0, 1, 0, -0.799664, 0, 0.600448, -6.39731, 1.199999, -4.80359 )
+transform = Transform( 0.600448, 0, 0.799664, 0, 1, 0, -0.799664, 0, 0.600448, -6.39731, 1.2, -4.80359 )
 shape = ExtResource( 349 )
 
 [node name="Pod_22" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.71815, 0, 0.695888, 0, 1, 0, -0.695888, 0, 0.71815, -5.5671, 1.199999, -5.7452 )
+transform = Transform( 0.71815, 0, 0.695888, 0, 1, 0, -0.695888, 0, 0.71815, -5.5671, 1.2, -5.7452 )
 shape = ExtResource( 349 )
 
 [node name="Pod_23" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.81817, 0, 0.574977, 0, 1, 0, -0.574977, 0, 0.81817, -4.599811, 1.199999, -6.54536 )
+transform = Transform( 0.81817, 0, 0.574977, 0, 1, 0, -0.574977, 0, 0.81817, -4.59981, 1.2, -6.54536 )
 shape = ExtResource( 349 )
 
 [node name="Pod_24" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.898043, 0, 0.439908, 0, 1, 0, -0.439908, 0, 0.898043, -3.51926, 1.199999, -7.18434 )
+transform = Transform( 0.898043, 0, 0.439908, 0, 1, 0, -0.439908, 0, 0.898043, -3.51926, 1.2, -7.18434 )
 shape = ExtResource( 349 )
 
 [node name="Pod_25" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.955803, 0, 0.294007, 0, 1, 0, -0.294007, 0, 0.955803, -2.35206, 1.199999, -7.64643 )
+transform = Transform( 0.955803, 0, 0.294007, 0, 1, 0, -0.294007, 0, 0.955803, -2.35206, 1.2, -7.64643 )
 shape = ExtResource( 349 )
 
 [node name="Pod_26" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.990029, 0, 0.140867, 0, 1, 0, -0.140867, 0, 0.990029, -1.12693, 1.199999, -7.92023 )
+transform = Transform( 0.990029, 0, 0.140867, 0, 1, 0, -0.140867, 0, 0.990029, -1.12693, 1.2, -7.92023 )
 shape = ExtResource( 349 )
 
 [node name="Pod_27" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.999876, 0, -0.015742, 0, 1, 0, 0.015742, 0, 0.999876, 0.125938, 1.199999, -7.99901 )
+transform = Transform( 0.999876, 0, -0.015742, 0, 1, 0, 0.015742, 0, 0.999876, 0.125938, 1.2, -7.99901 )
 shape = ExtResource( 349 )
 
 [node name="Pod_28" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.985103, 0, -0.171964, 0, 1, 0, 0.171964, 0, 0.985103, 1.37571, 1.199999, -7.88083 )
+transform = Transform( 0.985103, 0, -0.171964, 0, 1, 0, 0.171964, 0, 0.985103, 1.37571, 1.2, -7.88083 )
 shape = ExtResource( 349 )
 
 [node name="Pod_29" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.946074, 0, -0.32395, 0, 1, 0, 0.32395, 0, 0.946074, 2.5916, 1.199999, -7.56859 )
+transform = Transform( 0.946074, 0, -0.32395, 0, 1, 0, 0.32395, 0, 0.946074, 2.5916, 1.2, -7.56859 )
 shape = ExtResource( 349 )
 
 [node name="Pod_30" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.883749, 0, -0.467961, 0, 1, 0, 0.467961, 0, 0.883749, 3.74369, 1.199999, -7.06999 )
+transform = Transform( 0.883749, 0, -0.467961, 0, 1, 0, 0.467961, 0, 0.883749, 3.74369, 1.2, -7.06999 )
 shape = ExtResource( 349 )
 
 [node name="Pod_31" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.799664, 0, -0.600448, 0, 1, 0, 0.600448, 0, 0.799664, 4.80359, 1.199999, -6.39731 )
+transform = Transform( 0.799664, 0, -0.600448, 0, 1, 0, 0.600448, 0, 0.799664, 4.80359, 1.2, -6.39731 )
 shape = ExtResource( 349 )
 
 [node name="Pod_32" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.695888, 0, -0.71815, 0, 1, 0, 0.71815, 0, 0.695888, 5.7452, 1.199999, -5.5671 )
+transform = Transform( 0.695888, 0, -0.71815, 0, 1, 0, 0.71815, 0, 0.695888, 5.7452, 1.2, -5.5671 )
 shape = ExtResource( 349 )
 
 [node name="Pod_33" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.574977, 0, -0.81817, 0, 1, 0, 0.81817, 0, 0.574977, 6.54536, 1.199999, -4.599811 )
+transform = Transform( 0.574977, 0, -0.81817, 0, 1, 0, 0.81817, 0, 0.574977, 6.54536, 1.2, -4.59981 )
 shape = ExtResource( 349 )
 
 [node name="Pod_34" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.439908, 0, -0.898043, 0, 1, 0, 0.898043, 0, 0.439908, 7.18434, 1.199999, -3.51926 )
+transform = Transform( 0.439908, 0, -0.898043, 0, 1, 0, 0.898043, 0, 0.439908, 7.18434, 1.2, -3.51926 )
 shape = ExtResource( 349 )
 
 [node name="Pod_35" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.294007, 0, -0.955803, 0, 1, 0, 0.955803, 0, 0.294007, 7.64643, 1.199999, -2.35206 )
+transform = Transform( 0.294007, 0, -0.955803, 0, 1, 0, 0.955803, 0, 0.294007, 7.64643, 1.2, -2.35206 )
 shape = ExtResource( 349 )
 
 [node name="Pod_36" type="CollisionShape" parent="Spatial/Criopods5/StaticBody"]
-transform = Transform( 0.140867, 0, -0.990029, 0, 1, 0, 0.990029, 0, 0.140867, 7.92023, 1.199999, -1.12693 )
+transform = Transform( 0.140867, 0, -0.990029, 0, 1, 0, 0.990029, 0, 0.140867, 7.92023, 1.2, -1.12693 )
 shape = ExtResource( 349 )
 
 [node name="Criopods6" type="Spatial" parent="Spatial"]
@@ -1723,148 +1714,149 @@ collision_layer = 64
 collision_mask = 255
 
 [node name="Pod_00" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.007348, 0, -0.999973, 0, 1, 0, 0.999973, 0, -0.007348, 7.99978, 1.199999, 0.058782 )
+transform = Transform( -0.007348, 0, -0.999973, 0, 1, 0, 0.999973, 0, -0.007348, 7.99978, 1.2, 0.058782 )
 shape = ExtResource( 349 )
 
 [node name="Pod_01" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.163687, 0, -0.986512, 0, 1, 0, 0.986512, 0, -0.163687, 7.8921, 1.199999, 1.3095 )
+transform = Transform( -0.163687, 0, -0.986512, 0, 1, 0, 0.986512, 0, -0.163687, 7.8921, 1.2, 1.3095 )
 shape = ExtResource( 349 )
 
 [node name="Pod_02" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.315997, 0, -0.94876, 0, 1, 0, 0.94876, 0, -0.315997, 7.59008, 1.199999, 2.52797 )
+transform = Transform( -0.315997, 0, -0.94876, 0, 1, 0, 0.94876, 0, -0.315997, 7.59008, 1.2, 2.52797 )
 shape = ExtResource( 349 )
 
 [node name="Pod_03" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.460525, 0, -0.887647, 0, 1, 0, 0.887647, 0, -0.460525, 7.101171, 1.199999, 3.6842 )
+transform = Transform( -0.460525, 0, -0.887647, 0, 1, 0, 0.887647, 0, -0.460525, 7.10117, 1.2, 3.6842 )
 shape = ExtResource( 349 )
 
 [node name="Pod_04" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.593714, 0, -0.804676, 0, 1, 0, 0.804676, 0, -0.593714, 6.43741, 1.199999, 4.74971 )
+transform = Transform( -0.593714, 0, -0.804676, 0, 1, 0, 0.804676, 0, -0.593714, 6.43741, 1.2, 4.74971 )
 shape = ExtResource( 349 )
 
 [node name="Pod_05" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.712283, 0, -0.701892, 0, 1, 0, 0.701892, 0, -0.712283, 5.61514, 1.199999, 5.69827 )
+transform = Transform( -0.712283, 0, -0.701892, 0, 1, 0, 0.701892, 0, -0.712283, 5.61514, 1.2, 5.69827 )
 shape = ExtResource( 349 )
 
 [node name="Pod_06" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.813314, 0, -0.581825, 0, 1, 0, 0.581825, 0, -0.813314, 4.6546, 1.199999, 6.50651 )
+transform = Transform( -0.813314, 0, -0.581825, 0, 1, 0, 0.581825, 0, -0.813314, 4.6546, 1.2, 6.50651 )
 shape = ExtResource( 349 )
 
 [node name="Pod_07" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.894318, 0, -0.447431, 0, 1, 0, 0.447431, 0, -0.894318, 3.57945, 1.199999, 7.15455 )
+transform = Transform( -0.894318, 0, -0.447431, 0, 1, 0, 0.447431, 0, -0.894318, 3.57945, 1.2, 7.15455 )
 shape = ExtResource( 349 )
 
 [node name="Pod_08" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.953301, 0, -0.302021, 0, 1, 0, 0.302021, 0, -0.953301, 2.41616, 1.199999, 7.62641 )
+transform = Transform( -0.953301, 0, -0.302021, 0, 1, 0, 0.302021, 0, -0.953301, 2.41616, 1.2, 7.62641 )
 shape = ExtResource( 349 )
 
 [node name="Pod_09" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.988811, 0, -0.149173, 0, 1, 0, 0.149173, 0, -0.988811, 1.19338, 1.199999, 7.91049 )
+transform = Transform( -0.988811, 0, -0.149173, 0, 1, 0, 0.149173, 0, -0.988811, 1.19338, 1.2, 7.91049 )
 shape = ExtResource( 349 )
 
 [node name="Pod_10" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.804676, 0, 0.593714, 0, 1, 0, -0.593714, 0, -0.804676, -4.74971, 1.199999, 6.43741 )
+transform = Transform( -0.804676, 0, 0.593714, 0, 1, 0, -0.593714, 0, -0.804676, -4.74971, 1.2, 6.43741 )
 shape = ExtResource( 349 )
 
 [node name="Pod_11" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.701892, 0, 0.712283, 0, 1, 0, -0.712283, 0, -0.701892, -5.69827, 1.199999, 5.61514 )
+transform = Transform( -0.701892, 0, 0.712283, 0, 1, 0, -0.712283, 0, -0.701892, -5.69827, 1.2, 5.61514 )
 shape = ExtResource( 349 )
 
 [node name="Pod_12" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.581825, 0, 0.813314, 0, 1, 0, -0.813314, 0, -0.581825, -6.50651, 1.199999, 4.6546 )
+transform = Transform( -0.581825, 0, 0.813314, 0, 1, 0, -0.813314, 0, -0.581825, -6.50651, 1.2, 4.6546 )
 shape = ExtResource( 349 )
 
 [node name="Pod_13" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.447431, 0, 0.894318, 0, 1, 0, -0.894318, 0, -0.447431, -7.15455, 1.199999, 3.57945 )
+transform = Transform( -0.447431, 0, 0.894318, 0, 1, 0, -0.894318, 0, -0.447431, -7.15455, 1.2, 3.57945 )
 shape = ExtResource( 349 )
 
 [node name="Pod_14" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.302021, 0, 0.953301, 0, 1, 0, -0.953301, 0, -0.302021, -7.62641, 1.199999, 2.41616 )
+transform = Transform( -0.302021, 0, 0.953301, 0, 1, 0, -0.953301, 0, -0.302021, -7.62641, 1.2, 2.41616 )
 shape = ExtResource( 349 )
 
 [node name="Pod_15" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( -0.149173, 0, 0.988811, 0, 1, 0, -0.988811, 0, -0.149173, -7.91049, 1.199999, 1.19338 )
+transform = Transform( -0.149173, 0, 0.988811, 0, 1, 0, -0.988811, 0, -0.149173, -7.91049, 1.2, 1.19338 )
 shape = ExtResource( 349 )
 
 [node name="Pod_16" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.007348, 0, 0.999973, 0, 1, 0, -0.999973, 0, 0.007348, -7.99978, 1.199999, -0.058782 )
+transform = Transform( 0.007348, 0, 0.999973, 0, 1, 0, -0.999973, 0, 0.007348, -7.99978, 1.2, -0.058782 )
 shape = ExtResource( 349 )
 
 [node name="Pod_17" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.163687, 0, 0.986512, 0, 1, 0, -0.986512, 0, 0.163687, -7.8921, 1.199999, -1.3095 )
+transform = Transform( 0.163687, 0, 0.986512, 0, 1, 0, -0.986512, 0, 0.163687, -7.8921, 1.2, -1.3095 )
 shape = ExtResource( 349 )
 
 [node name="Pod_18" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.315997, 0, 0.94876, 0, 1, 0, -0.94876, 0, 0.315997, -7.59008, 1.199999, -2.52797 )
+transform = Transform( 0.315997, 0, 0.94876, 0, 1, 0, -0.94876, 0, 0.315997, -7.59008, 1.2, -2.52797 )
 shape = ExtResource( 349 )
 
 [node name="Pod_19" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.460525, 0, 0.887647, 0, 1, 0, -0.887647, 0, 0.460525, -7.101171, 1.199999, -3.6842 )
+transform = Transform( 0.460525, 0, 0.887647, 0, 1, 0, -0.887647, 0, 0.460525, -7.10117, 1.2, -3.6842 )
 shape = ExtResource( 349 )
 
 [node name="Pod_20" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.593714, 0, 0.804676, 0, 1, 0, -0.804676, 0, 0.593714, -6.43741, 1.199999, -4.74971 )
+transform = Transform( 0.593714, 0, 0.804676, 0, 1, 0, -0.804676, 0, 0.593714, -6.43741, 1.2, -4.74971 )
 shape = ExtResource( 349 )
 
 [node name="Pod_21" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.712283, 0, 0.701892, 0, 1, 0, -0.701892, 0, 0.712283, -5.61514, 1.199999, -5.69827 )
+transform = Transform( 0.712283, 0, 0.701892, 0, 1, 0, -0.701892, 0, 0.712283, -5.61514, 1.2, -5.69827 )
 shape = ExtResource( 349 )
 
 [node name="Pod_22" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.813314, 0, 0.581825, 0, 1, 0, -0.581825, 0, 0.813314, -4.6546, 1.199999, -6.50651 )
+transform = Transform( 0.813314, 0, 0.581825, 0, 1, 0, -0.581825, 0, 0.813314, -4.6546, 1.2, -6.50651 )
 shape = ExtResource( 349 )
 
 [node name="Pod_23" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.894318, 0, 0.447432, 0, 1, 0, -0.447432, 0, 0.894318, -3.57945, 1.199999, -7.15455 )
+transform = Transform( 0.894318, 0, 0.447432, 0, 1, 0, -0.447432, 0, 0.894318, -3.57945, 1.2, -7.15455 )
 shape = ExtResource( 349 )
 
 [node name="Pod_24" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.953301, 0, 0.302021, 0, 1, 0, -0.302021, 0, 0.953301, -2.41616, 1.199999, -7.62641 )
+transform = Transform( 0.953301, 0, 0.302021, 0, 1, 0, -0.302021, 0, 0.953301, -2.41616, 1.2, -7.62641 )
 shape = ExtResource( 349 )
 
 [node name="Pod_25" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.988811, 0, 0.149173, 0, 1, 0, -0.149173, 0, 0.988811, -1.19338, 1.199999, -7.91049 )
+transform = Transform( 0.988811, 0, 0.149173, 0, 1, 0, -0.149173, 0, 0.988811, -1.19338, 1.2, -7.91049 )
 shape = ExtResource( 349 )
 
 [node name="Pod_26" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.999973, 0, -0.007348, 0, 1, 0, 0.007348, 0, 0.999973, 0.058782, 1.199999, -7.99978 )
+transform = Transform( 0.999973, 0, -0.007348, 0, 1, 0, 0.007348, 0, 0.999973, 0.058782, 1.2, -7.99978 )
 shape = ExtResource( 349 )
 
 [node name="Pod_27" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.986512, 0, -0.163687, 0, 1, 0, 0.163687, 0, 0.986512, 1.3095, 1.199999, -7.8921 )
+transform = Transform( 0.986512, 0, -0.163687, 0, 1, 0, 0.163687, 0, 0.986512, 1.3095, 1.2, -7.8921 )
 shape = ExtResource( 349 )
 
 [node name="Pod_28" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.94876, 0, -0.315997, 0, 1, 0, 0.315997, 0, 0.94876, 2.52797, 1.199999, -7.59008 )
+transform = Transform( 0.94876, 0, -0.315997, 0, 1, 0, 0.315997, 0, 0.94876, 2.52797, 1.2, -7.59008 )
 shape = ExtResource( 349 )
 
 [node name="Pod_29" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.887647, 0, -0.460525, 0, 1, 0, 0.460525, 0, 0.887647, 3.6842, 1.199999, -7.101171 )
+transform = Transform( 0.887647, 0, -0.460525, 0, 1, 0, 0.460525, 0, 0.887647, 3.6842, 1.2, -7.10117 )
 shape = ExtResource( 349 )
 
 [node name="Pod_30" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.804676, 0, -0.593714, 0, 1, 0, 0.593714, 0, 0.804676, 4.74971, 1.199999, -6.43741 )
+transform = Transform( 0.804676, 0, -0.593714, 0, 1, 0, 0.593714, 0, 0.804676, 4.74971, 1.2, -6.43741 )
 shape = ExtResource( 349 )
 
 [node name="Pod_31" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.701892, 0, -0.712283, 0, 1, 0, 0.712283, 0, 0.701892, 5.69827, 1.199999, -5.61514 )
+transform = Transform( 0.701892, 0, -0.712283, 0, 1, 0, 0.712283, 0, 0.701892, 5.69827, 1.2, -5.61514 )
 shape = ExtResource( 349 )
 
 [node name="Pod_32" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.581825, 0, -0.813314, 0, 1, 0, 0.813314, 0, 0.581825, 6.50651, 1.199999, -4.6546 )
+transform = Transform( 0.581825, 0, -0.813314, 0, 1, 0, 0.813314, 0, 0.581825, 6.50651, 1.2, -4.6546 )
 shape = ExtResource( 349 )
 
 [node name="Pod_33" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.447432, 0, -0.894318, 0, 1, 0, 0.894318, 0, 0.447432, 7.15455, 1.199999, -3.57945 )
+transform = Transform( 0.447432, 0, -0.894318, 0, 1, 0, 0.894318, 0, 0.447432, 7.15455, 1.2, -3.57945 )
 shape = ExtResource( 349 )
 
 [node name="Pod_34" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.302021, 0, -0.953301, 0, 1, 0, 0.953301, 0, 0.302021, 7.62641, 1.199999, -2.41616 )
+transform = Transform( 0.302021, 0, -0.953301, 0, 1, 0, 0.953301, 0, 0.302021, 7.62641, 1.2, -2.41616 )
 shape = ExtResource( 349 )
 
 [node name="Pod_35" type="CollisionShape" parent="Spatial/Criopods6/StaticBody"]
-transform = Transform( 0.149173, 0, -0.988811, 0, 1, 0, 0.988811, 0, 0.149173, 7.91049, 1.199999, -1.19338 )
+transform = Transform( 0.149173, 0, -0.988811, 0, 1, 0, 0.988811, 0, 0.149173, 7.91049, 1.2, -1.19338 )
 shape = ExtResource( 349 )
+
 [node name="IceLevel" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )

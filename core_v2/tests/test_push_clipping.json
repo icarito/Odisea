@@ -67,7 +67,8 @@
         "tool_next_mode": false,
         "tool_prev_mode": false,
         "cargol_ability": false,
-        "hardware_mouse_active": false
+        "hardware_mouse_active": false,
+        "analog_move_active": false
       }
     },
     {
@@ -97,7 +98,8 @@
         "tool_next_mode": false,
         "tool_prev_mode": false,
         "cargol_ability": false,
-        "hardware_mouse_active": false
+        "hardware_mouse_active": false,
+        "analog_move_active": false
       }
     },
     {
@@ -130,7 +132,8 @@
         "tool_next_mode": false,
         "tool_prev_mode": false,
         "cargol_ability": false,
-        "hardware_mouse_active": false
+        "hardware_mouse_active": false,
+        "analog_move_active": false
       }
     },
     {
@@ -163,7 +166,8 @@
         "tool_next_mode": false,
         "tool_prev_mode": false,
         "cargol_ability": false,
-        "hardware_mouse_active": false
+        "hardware_mouse_active": false,
+        "analog_move_active": false
       }
     },
     {
@@ -196,7 +200,8 @@
         "tool_next_mode": false,
         "tool_prev_mode": false,
         "cargol_ability": false,
-        "hardware_mouse_active": false
+        "hardware_mouse_active": false,
+        "analog_move_active": false
       }
     },
     {
@@ -229,7 +234,8 @@
         "tool_next_mode": false,
         "tool_prev_mode": false,
         "cargol_ability": false,
-        "hardware_mouse_active": false
+        "hardware_mouse_active": false,
+        "analog_move_active": false
       }
     },
     {
@@ -262,7 +268,8 @@
         "tool_next_mode": false,
         "tool_prev_mode": false,
         "cargol_ability": false,
-        "hardware_mouse_active": false
+        "hardware_mouse_active": false,
+        "analog_move_active": false
       }
     },
     {

@@ -67,6 +67,7 @@ interaction_text = "Seleccionar nivel"
 anim_duration = 0.25
 auto_interact = true
 close_distance = 4.0
+mouse_gesture_min_delta = 0.2
 cabin_zoom_spring_length = 1.8
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
@@ -75,6 +76,7 @@ shape = SubResource( 7 )
 
 [node name="Post" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
+use_collision = true
 width = 0.14
 height = 0.9
 depth = 0.12
@@ -82,6 +84,7 @@ material = SubResource( 1 )
 
 [node name="BaseMesh" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 1.02, 0.03 )
+use_collision = true
 width = 0.52
 height = 0.34
 depth = 0.07

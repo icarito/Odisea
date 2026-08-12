@@ -15,11 +15,19 @@ class_name ElevatorFloorSelector
 #     restores a global design transform captured at _ready, so on a car that has
 #     since travelled up the shaft the camera would snap back to the ground floor.
 #   - No mouse cursor and no input handover. The mouse stays captured and the
-#     camera keeps turning; _track_aim() projects wherever it ends up onto the
-#     projection plane, so the rider picks a floor by looking at it. Looking
-#     anywhere near the projection always focuses some stop — there are no holes
-#     to sweep across — while looking away focuses nothing at all, which is what
-#     lets a stray press be ignored instead of grabbing the nearest stop.
+#     camera keeps turning; the rider picks a floor by GESTURE, not by where the
+#     camera ended up pointing. The angle of the movement is the choice: push up
+#     and the top stop lights, push down and the bottom one does, push right and
+#     the dial lands mid-arc. Camera angle is deliberately not part of it —
+#     deriving the pick from the aim made the same gesture choose different
+#     floors depending on where the rider happened to be facing. The projection
+#     still has to be on screen for anything to be selected, so a stray press
+#     with the panel behind the rider is ignored instead of grabbing a stop.
+#   - Every pointing device drives it the same way, and the last gesture wins:
+#     mouse, right stick (both arrive as mouse_delta), movement stick — physical
+#     or the virtual joystick — and the touch drag. Only the keyboard is left
+#     out, because on desktop the mouse is the pointing device and walking
+#     across the cabin must not re-pick the floor.
 #
 # The dial itself is RadialSelectorV2 (see core_v2/ui/radial/).
 
@@ -34,6 +42,9 @@ const CONFIRM_ACTIONS := ["ui_accept", "cursor_click_primary"]
 const ARMING_ACTIONS := ["ui_accept", "interact", "cursor_click_primary"]
 # Sentinel for "the aim is not on the projection at all".
 const NO_AIM := Vector2(INF, INF)
+# Cuanto hay que empujar el stick de movimiento para que cuente como gesto del dial.
+# Comodo (0.14 de deflexion) porque lo que importa es el angulo, no la fuerza.
+const MOVE_GESTURE_DEADZONE_SQ := 0.02
 
 # The elevator this panel drives. Default assumes Platform/ThisPanel.
 export(NodePath) var elevator_path = NodePath("../..")
@@ -52,6 +63,7 @@ export(float) var render_distance := 14.0
 export(float) var close_distance := 5.0
 # How far off screen the projection may drift and still count as being looked at,
 # as a fraction of the screen. Raise it to keep the dial live over a wider turn.
+# It only gates whether the dial is live at all; it never picks the stop.
 export(float) var aim_margin := 0.45
 # Touch aims by broad screen area instead of making the rider turn the camera.
 # A drag only changes the highlighted floor; a short tap confirms on release.
@@ -59,8 +71,19 @@ export(float) var touch_tap_max_duration := 0.35
 export(float) var touch_tap_max_distance := 24.0
 # Ignore release jitter and tiny camera corrections when deriving radial intent.
 export(float) var touch_aim_min_drag_distance := 12.0
-# Vertical mouse travel needed to sweep from the bottom to the top floor.
-export(float, 40.0, 600.0) var mouse_full_arc_distance := 180.0
+# Zona muerta del gesto: pixeles de mouse en UNA muestra de input (1/60 s, el tick de
+# fisica, no el frame de video) que hacen falta para que cuente como intencion.
+#
+# No esta para filtrar movimiento, esta para filtrar RUIDO DE ANGULO. Lo que el dial lee es
+# la direccion, y a un pixel de recorrido la direccion es basura: la mano apoyada, el
+# temblor y la cuantizacion del sensor alcanzan para mandar el angulo a cualquier lado, y el
+# dial saltaba solo. Por debajo de esto la seleccion se sostiene; por encima, el angulo se
+# aplica entero, sin escalar por la magnitud — un gesto el doble de largo es la misma
+# intencion, no una distinta.
+#
+# Bajarlo hace el dial mas nervioso, subirlo pide un empujon mas franco. Se mide por muestra
+# de fisica, o sea que el tacto no cambia con los FPS.
+export(float, 0.5, 40.0) var mouse_gesture_deadzone := 3.0
 # Spring arm length forced while the rider is in the car, so the camera comes
 # inside with them instead of framing the cabin from outside the shaft. Whatever
 # length they had is handed back on the way out. 0 disables it.
@@ -88,9 +111,7 @@ var _touch_index := -1
 var _touch_start_time := 0
 var _touch_start_position := Vector2.ZERO
 var _touch_can_confirm := false
-var _touch_aim_active := false
 var _mouse_aim_active := false
-var _mouse_floor_progress := 0.0
 var _ignore_emulated_mouse_until := 0
 # Flanco del click segun el stream grabado. La confirmacion "de verdad" vivia solo en
 # _input() como InputEventMouseButton, y en reproduccion no existen eventos de hardware:
@@ -193,8 +214,7 @@ func _begin_dial() -> void:
 	_confirm_armed = false
 	_rebuild_options()
 	_mouse_aim_active = false
-	_mouse_floor_progress = float(_current_floor) / max(1.0, float(_resolve_labels().size() - 1))
-	# Opens with nothing selected on purpose: the rider has to aim at a stop.
+	# Opens with nothing selected on purpose: the rider has to gesture at a stop.
 	_selector.open()
 	set_process_input(true)
 	set_process(true)
@@ -220,7 +240,6 @@ func _process(_delta: float) -> void:
 		_confirm_armed = true
 
 	_drive_from_stream()
-	_track_touch_movement_intent()
 	_track_aim()
 	_track_level()
 
@@ -255,85 +274,60 @@ func _track_level() -> void:
 
 
 func _track_aim() -> void:
-	"""Point the dial wherever the camera is looking, or at nothing."""
+	"""Keep the dial live only while its projection is on screen.
+
+	The camera decides WHETHER there is anything to pick, never WHICH stop: that
+	comes from the gesture (_drive_from_stream). Turning away drops the selection
+	and the gesture along with it, so a press with the panel out of view cannot
+	commit the floor the rider happened to have highlighted before turning."""
 	if _selector == null:
 		return
-	# On touch, keep the last broad screen direction. Requiring camera rotation as
-	# well as a finger gesture made the same menu needlessly hard to operate.
-	if _touch_aim_active or _mouse_aim_active:
+	if _is_projection_in_view():
 		return
-	var aim := _aim_in_viewport()
-	if aim == NO_AIM:
-		_selector.clear_pointer()
-	else:
-		_selector.point_at(aim)
+	_mouse_aim_active = false
+	_selector.clear_pointer()
 
 
-func _track_touch_movement_intent() -> void:
-	if not _is_touch_device() or _selector == null:
-		return
-	# Igual que la confirmacion: el move_vec grabado tiene prioridad sobre el hardware.
-	var direction := Vector2.ZERO
-	var input = _frame_input()
-	if input != null:
-		direction = Vector2(input.move_vec.x, input.move_vec.y)
-	else:
-		direction = Vector2(
-			Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
-			Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward"))
-	if direction.length_squared() <= 0.02:
-		return
-	_touch_aim_active = true
-	_point_at_screen_direction(direction)
+# El stick de movimiento ya no se lee por separado para touch. Vivia aca en una segunda
+# implementacion que, sin proveedor de input, sondeaba Input.get_action_strength() y se
+# activaba con _is_touch_device(): dos formas de resolver el mismo gesto, y la eleccion del
+# piso dependia del dispositivo en el que se REPRODUCIA. Ahora sale una sola vez de
+# _drive_from_stream(), sobre el move_vec grabado y su analog_move_active.
 
 
-func _aim_in_viewport() -> Vector2:
-	"""Which way the player is looking relative to the projection, as pixels in the
-	dial's own Viewport. Returns NO_AIM when the projection is not on screen.
+func _is_projection_in_view() -> bool:
+	"""Whether the hologram is on screen at all, within aim_margin of slack.
 
-	This is a heading, not a crosshair. Casting the camera ray onto the quad and
-	using the hit point made the dial behave like a rifle sight: zooming in blows
-	the projection up across the screen, so the same small turn of the head swings
-	the hit right across the stops, and picking the top floor meant craning off to
-	one side. Here only the direction from the middle of the view to the
-	projection is used. Direction is invariant under zoom and field of view — they
-	change how far the offset reaches, never where it points — so a stop sits in
-	the same direction however close the camera is.
-
-	The sentinel has to be unreachable rather than merely off-screen: the heading
-	is free to land outside the dial's rect, so anything like (-1, -1) would read
-	as a miss on the left-hand side only."""
-	var miss := NO_AIM
+	This used to return a heading — the direction from the middle of the view to
+	the projection — and that heading picked the stop. It read as a rifle sight
+	pointed by the neck: the same flick of the mouse chose a different floor
+	depending on where the camera already was, and the top stop could only be
+	reached by craning off to one side. The pick now comes from the gesture
+	angle, which is the same wherever the rider is facing, and all that is left
+	for the camera to say is whether the dial is worth driving."""
 	var screen_mesh := get_node_or_null("ScreenContainer/ScreenMesh") as MeshInstance
 	var scene_viewport := get_viewport()
 	if screen_mesh == null or _viewport == null or scene_viewport == null:
-		return miss
+		return false
 	var camera := scene_viewport.get_camera()
 	if camera == null:
-		return miss
+		return false
 
 	var projection_origin := screen_mesh.global_transform.origin
 	if camera.is_position_behind(projection_origin):
-		return miss # Turned away from the panel entirely.
+		return false # Turned away from the panel entirely.
 
 	var view_size: Vector2 = scene_viewport.size
 	if view_size.x <= 0.0 or view_size.y <= 0.0:
-		return miss
+		return false
 	var projection_on_screen: Vector2 = camera.unproject_position(projection_origin)
 	# Off the screen by more than the margin means the rider is looking elsewhere.
 	var slack := view_size * aim_margin
 	if projection_on_screen.x < -slack.x or projection_on_screen.x > view_size.x + slack.x:
-		return miss
+		return false
 	if projection_on_screen.y < -slack.y or projection_on_screen.y > view_size.y + slack.y:
-		return miss
-
-	# From where the camera is pointing towards the projection, in screen pixels.
-	# Normalised by half the shorter screen side so the feel does not change with
-	# resolution, then re-expressed against the dial's own radius. Only the angle
-	# of this vector is read; its length just has to clear the dial's hub so that
-	# looking straight at the panel still counts as no heading.
-	var heading := (view_size * 0.5 - projection_on_screen) / (min(view_size.x, view_size.y) * 0.5)
-	return _viewport.size * 0.5 + heading * (min(_viewport.size.x, _viewport.size.y) * 0.5)
+		return false
+	return true
 
 
 # InputDataV2 del frame, tomado del proveedor del jugador que esta usando la consola. En
@@ -356,27 +350,51 @@ func _frame_input():
 	return body.input_provider.peek_input()
 
 
-# Apuntado y confirmacion reconstruidos desde el input grabado. Ambos vivian solo en
-# _input() —el giro del dial como InputEventMouseMotion.relative, el click como
-# InputEventMouseButton— y en reproduccion no hay eventos de hardware, asi que el radial no
-# se comportaba de forma determinista: el click caia en el momento equivocado porque la
-# aguja nunca se habia movido. mouse_delta y tool_fire_primary SI se graban en InputDataV2.
-#
-# Solo actua en reproduccion: en juego normal manda _input(), que ademas consume el evento,
-# y disparar por los dos lados giraria el dial doble y elegiria piso dos veces.
+# Apuntado y confirmacion, ambos desde el input grabado. Vivian solo en _input() —el giro
+# del dial como InputEventMouseMotion.relative, el click como InputEventMouseButton— y en
+# reproduccion no hay eventos de hardware, asi que el radial no se comportaba de forma
+# determinista: el click caia en el momento equivocado porque la aguja nunca se habia
+# movido. mouse_delta y tool_fire_primary SI se graban en InputDataV2, o sea que leyendo de
+# aca el dial hace lo mismo en vivo que en reproduccion.
 func _drive_from_stream() -> void:
 	var input = _frame_input()
 	if input == null:
 		_stream_confirm_was_down = false
 		return
+	if _selector == null:
+		return
 
-	# El dial lo define la ULTIMA DIRECCION DE MOVIMIENTO, no un progreso acumulado: es la
-	# misma semantica que _track_touch_movement_intent(), que en escritorio no corre porque
-	# esta detras de _is_touch_device(). Acumular mouse_delta elegia otro piso.
-	var direction := Vector2(input.move_vec.x, input.move_vec.y)
-	if direction.length_squared() > 0.02 and _selector != null:
-		_touch_aim_active = true
-		_point_at_screen_direction(direction)
+	# EL GESTO ES LA ELECCION. El angulo con el que el jugador movio el mouse es el angulo
+	# del dial: arriba el piso mas alto, abajo el mas bajo, a la derecha el medio del arco.
+	# Nada de esto mira la camara, asi que el mismo gesto elige el mismo piso mire donde
+	# mire el jugador (antes la puntería salia de la direccion camara→panel y el resultado
+	# dependia de hacia donde estaba dado vuelta).
+	#
+	# Se lee el delta DEL FRAME, sin acumular: _process puede correr varias veces por cada
+	# muestra de input —peek_input() devuelve la misma muestra— y acumular contaria el mismo
+	# gesto de mas, que es justo lo que hacia que una reproduccion terminara en otro piso.
+	# En InputProviderV2 mouse_delta ya viene con Y invertida (arriba es +Y); en pantalla
+	# arriba es -Y, de ahi el signo.
+	var gesture := Vector2(input.mouse_delta.x, -input.mouse_delta.y)
+	var move := Vector2(input.move_vec.x, input.move_vec.y)
+	if _touch_index < 0 and gesture.length() >= mouse_gesture_deadzone:
+		# El mouse (o el stick derecho, que suma al mismo delta) manda mientras no haya un
+		# dedo apoyado: en touch el arrastre de camara tambien alimenta mouse_delta, con
+		# otra convencion de signos, y pisaria el gesto que ya resolvio _input().
+		_mouse_aim_active = true
+		_point_at_screen_direction(gesture)
+	elif move.length_squared() > MOVE_GESTURE_DEADZONE_SQ \
+			and (input.analog_move_active or not _mouse_aim_active):
+		# El stick de MOVIMIENTO tambien apunta, y su ultima direccion vale igual que la de
+		# la mirada: en mobile el joystick virtual es la forma natural de manejar el dial, y
+		# en joypad el stick derecho suma a mouse_delta, asi que sin esto la primera mirada
+		# dejaba muerto al izquierdo para siempre. Manda el ultimo gesto, venga de donde
+		# venga.
+		#
+		# El teclado es la excepcion, y para eso esta analog_move_active: WASD no es un
+		# dispositivo de apuntado —para eso esta el mouse— y caminar por la cabina no puede
+		# reelegir el piso. Solo apunta mientras el jugador todavia no movio el mouse.
+		_point_at_screen_direction(move)
 
 	var down: bool = bool(input.tool_fire_primary)
 	if down and not _stream_confirm_was_down and _confirm_armed and _selector:
@@ -420,16 +438,12 @@ func _input(event: InputEvent) -> void:
 		# direction established by the rest of the drag.
 		var gesture_direction: Vector2 = event.position - _touch_start_position
 		if gesture_direction.length() >= touch_aim_min_drag_distance:
-			_touch_aim_active = true
 			_point_at_screen_direction(gesture_direction)
 		return
-	if event is InputEventMouseMotion and event.relative.length_squared() > 0.1:
-		_touch_aim_active = false
-		# El giro del dial ya no se maneja aca: lo hace _drive_from_stream() leyendo
-		# InputDataV2, la MISMA fuente en vivo y en reproduccion. Tener dos
-		# implementaciones del mismo gesto era lo que hacia que el replay eligiera otro
-		# piso: el stream invierte el signo de Y y lo cuantiza, el evento crudo no.
-		pass
+	# El movimiento del mouse NO se lee aca: lo hace _drive_from_stream() sobre
+	# InputDataV2.mouse_delta, la MISMA fuente en vivo y en reproduccion. Tener dos
+	# implementaciones del mismo gesto era lo que hacia que el replay eligiera otro piso:
+	# el stream invierte el signo de Y y lo cuantiza, el evento crudo no.
 
 	if event.is_action_pressed("ui_cancel"):
 		_selector.cancel()
@@ -448,9 +462,9 @@ func _input(event: InputEvent) -> void:
 				get_tree().set_input_as_handled()
 				return
 
-	# Look events are deliberately not touched here. The camera keeps turning on
-	# its own and _track_aim() reads where it ends up, so the dial follows the aim
-	# instead of a cursor, and a press with the aim off the dial does nothing.
+	# Look events are deliberately not consumed here. The camera keeps turning on
+	# its own; the very same motion drives the dial through the input stream, so
+	# the rider never has to choose between turning and picking a floor.
 
 
 func _handle_screen_touch(event: InputEventScreenTouch) -> void:
@@ -480,20 +494,14 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 
 
 func _point_at_screen_direction(direction: Vector2) -> void:
-	if _viewport == null or direction.length_squared() <= 0.1:
+	"""Aim the dial along a screen-space heading. Only the ANGLE is used: the dial
+	maps 6 o'clock to the bottom stop and 12 to the top, so a flick upwards picks
+	the top floor however short it was. The magnitude is normalised away on
+	purpose — a gesture twice as long is the same intent, not a different one."""
+	if _viewport == null or _selector == null or direction.length_squared() <= 0.0000001:
 		return
-	# The gesture heading expresses intent before the camera has travelled very
-	# far. Keep that last heading even as the camera continues rotating.
 	var radius: float = min(_viewport.size.x, _viewport.size.y) * 0.5
 	_selector.point_at(_viewport.size * 0.5 + direction.normalized() * radius)
-
-
-func _point_at_floor_progress(progress: float) -> void:
-	if _viewport == null:
-		return
-	var angle: float = PI * 0.5 - clamp(progress, 0.0, 1.0) * PI
-	var radius: float = min(_viewport.size.x, _viewport.size.y) * 0.5
-	_selector.point_at(_viewport.size * 0.5 + Vector2(cos(angle), sin(angle)) * radius)
 
 
 func _touch_in_viewport(screen_position: Vector2) -> Vector2:
@@ -529,10 +537,6 @@ func _is_over_touch_control(screen_position: Vector2) -> bool:
 			if node.get_global_rect().has_point(screen_position):
 				return true
 	return false
-
-
-func _is_touch_device() -> bool:
-	return OS.has_touchscreen_ui_hint() or OS.get_name() == "Android" or OS.get_name() == "iOS"
 
 
 # --- Elevator wiring ---

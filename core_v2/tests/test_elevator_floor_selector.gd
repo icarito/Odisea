@@ -59,29 +59,19 @@ var _fake_body = null
 # Pinchar _input() con un InputEventMouseButton probaba un camino que ya no existe: pasaba
 # el test y el dial estaba roto en reproduccion. Aca se reproduce el flanco de verdad.
 func _left_click() -> void:
-	# is_instance_valid y no `== null`: auto_free lo libera al terminar cada test, pero la
-	# variable de la suite sobrevive apuntando a un objeto muerto. Comparar contra null
-	# daba falso y el test reusaba un cuerpo liberado, asi que _zoomed_player nunca se
-	# asignaba y _frame_input() devolvia null en silencio.
-	if not is_instance_valid(_fake_body):
-		_fake_body = auto_free(_FakeBody.new())
-		_fake_body.input_provider = _FakeInputProvider.new()
-		_selector._zoomed_player = _fake_body
-	# Se llama a _drive_from_stream() y no a _process(): este ultimo corre despues
-	# _track_aim(), que recalcula la puntería desde la mirada del jugador y pisaria el
-	# _aim_at_option() del test (no hay jugador real detras).
+	# Se llama a _drive_from_stream() (via _feed) y no a _process(): este ultimo corre
+	# despues _track_aim(), que sin camara en el test da la proyeccion por fuera de pantalla
+	# y limpiaria el _aim_at_option() de arriba.
 	var suelto = InputDataV2.new()
 	suelto.tool_fire_primary = false
-	_fake_body.input_provider.data = suelto
+	_feed(suelto)
 	# Misma condicion que aplica _process: la confirmacion se arma recien cuando no queda
 	# ninguna tecla apretada, para que un mismo toque no abra y elija a la vez.
 	if not _selector._confirm_armed and not _selector._any_confirm_held():
 		_selector._confirm_armed = true
-	_selector._drive_from_stream()
 	var apretado = InputDataV2.new()
 	apretado.tool_fire_primary = true
-	_fake_body.input_provider.data = apretado
-	_selector._drive_from_stream()
+	_feed(apretado)
 
 
 func test_the_prop_script_is_actually_attached() -> void:
@@ -150,22 +140,141 @@ func test_manual_panel_closes_after_a_pick() -> void:
 	assert_int(_elevator.target_floor).is_equal(1)
 
 
-func test_vertical_mouse_intent_sweeps_to_the_top_floor() -> void:
-	_selector.set_active(true)
-	yield(await_idle_frame(), "completed")
-	# La punteria ya no entra por InputEventMouseMotion: desde el arreglo del replay la
-	# define la ULTIMA DIRECCION de movimiento que viaja en InputDataV2.move_vec, igual en
-	# vivo que en reproduccion. Arriba en pantalla es -Y, y por _point_at_floor_progress
-	# (angle = PI/2 - progress*PI) esa direccion corresponde al piso mas alto.
+func _feed(input) -> void:
+	# Alimenta un frame de input al selector por el mismo camino que usan el juego y la
+	# reproduccion: _frame_input() -> peek_input() -> _drive_from_stream().
+	#
+	# is_instance_valid y no `== null`: auto_free lo libera al terminar cada test, pero la
+	# variable de la suite sobrevive apuntando a un objeto muerto. Comparar contra null daba
+	# falso y el test reusaba un cuerpo liberado, asi que _zoomed_player nunca se asignaba y
+	# _frame_input() devolvia null en silencio.
 	if not is_instance_valid(_fake_body):
 		_fake_body = auto_free(_FakeBody.new())
 		_fake_body.input_provider = _FakeInputProvider.new()
 		_selector._zoomed_player = _fake_body
+	_fake_body.input_provider.data = input
+	_selector._drive_from_stream()
+
+
+func _mouse_gesture(delta: Vector2):
+	# OJO con el signo: InputProviderV2 entrega mouse_delta con la Y ya invertida, o sea que
+	# "arriba en pantalla" es +Y aca. El parametro se pasa en coordenadas de pantalla y se
+	# invierte al armar el InputDataV2, para que el test lea como se ve.
+	var input = InputDataV2.new()
+	input.mouse_delta = Vector2(delta.x, -delta.y)
+	return input
+
+
+func _move_stick(direction: Vector2):
+	# Stick de movimiento, real o virtual: analog_move_active es lo que lo separa del
+	# teclado, y lo marca InputProviderV2 al leer el frame.
+	var input = InputDataV2.new()
+	input.move_vec = direction
+	input.analog_move_active = true
+	return input
+
+
+func test_vertical_movement_intent_sweeps_to_the_top_floor() -> void:
+	_selector.set_active(true)
+	yield(await_idle_frame(), "completed")
+	# Arriba en pantalla es -Y y el dial mapea las 12 al piso mas alto.
 	var arriba = InputDataV2.new()
 	arriba.move_vec = Vector2(0.0, -1.0)
-	_fake_body.input_provider.data = arriba
-	_selector._drive_from_stream()
+	_feed(arriba)
 	assert_int(_dial.get_hovered_index()).is_equal(5)
+
+
+func test_the_movement_stick_keeps_aiming_after_a_look_gesture() -> void:
+	# En joypad el stick DERECHO suma a mouse_delta, o sea que mirar una sola vez no puede
+	# dejar muerto al izquierdo. En mobile pasa lo mismo con el arrastre de camara y el
+	# joystick virtual. Manda el ultimo gesto, venga de donde venga.
+	_selector.set_active(true)
+	yield(await_idle_frame(), "completed")
+	_feed(_mouse_gesture(Vector2(0.0, -40.0)))
+	assert_int(_dial.get_hovered_index()).is_equal(5)
+	_feed(_move_stick(Vector2(0.0, 1.0)))
+	assert_int(_dial.get_hovered_index()) \
+		.override_failure_message("el stick de movimiento debe seguir apuntando despues de mirar") \
+		.is_equal(0)
+	_feed(_move_stick(Vector2(0.0, -1.0)))
+	assert_int(_dial.get_hovered_index()).is_equal(5)
+
+
+func test_the_mouse_gesture_angle_picks_the_floor() -> void:
+	# El corazon del dial: elige el ANGULO CON EL QUE SE MOVIO EL MOUSE, no el angulo al
+	# que quedo mirando la camara. Nada aca toca la camara y sin embargo se elige piso.
+	_selector.set_active(true)
+	yield(await_idle_frame(), "completed")
+
+	_feed(_mouse_gesture(Vector2(0.0, -40.0)))
+	assert_int(_dial.get_hovered_index()) \
+		.override_failure_message("empujar el mouse hacia arriba debe elegir el ultimo piso") \
+		.is_equal(5)
+
+	_feed(_mouse_gesture(Vector2(0.0, 40.0)))
+	assert_int(_dial.get_hovered_index()) \
+		.override_failure_message("empujar el mouse hacia abajo debe elegir el primer piso") \
+		.is_equal(0)
+
+	# El arco sube por la derecha: las 6 son el piso 1, las 3 el medio y las 12 el ultimo.
+	# 45 grados arriba-derecha son 135 grados de recorrido sobre un paso de 180/5 = 36, o
+	# sea el indice 4 (piso "5").
+	_feed(_mouse_gesture(Vector2(30.0, -30.0)))
+	assert_int(_dial.get_hovered_index()).is_equal(4)
+
+
+func test_a_light_flick_past_the_deadzone_moves_the_selection() -> void:
+	# Apenas cruzada la zona muerta el gesto vale entero: no hace falta un manotazo, y la
+	# magnitud no escala nada. Si esto empieza a fallar, el dial se volvio pegajoso.
+	_selector.set_active(true)
+	yield(await_idle_frame(), "completed")
+	_feed(_mouse_gesture(Vector2(0.0, 40.0)))
+	assert_int(_dial.get_hovered_index()).is_equal(0)
+	_feed(_mouse_gesture(Vector2(0.0, -_selector.mouse_gesture_deadzone)))
+	assert_int(_dial.get_hovered_index()) \
+		.override_failure_message("un toque justo sobre la zona muerta debe mover la seleccion") \
+		.is_equal(5)
+
+
+func test_mouse_jitter_under_the_deadzone_does_not_move_the_dial() -> void:
+	# El motivo de la zona muerta: a un pixel de recorrido la DIRECCION es ruido. Sin esto
+	# la mano apoyada mandaba el angulo a cualquier lado y el dial saltaba solo.
+	_selector.set_active(true)
+	yield(await_idle_frame(), "completed")
+	_feed(_mouse_gesture(Vector2(30.0, -30.0)))
+	assert_int(_dial.get_hovered_index()).is_equal(4)
+	var temblor: float = _selector.mouse_gesture_deadzone * 0.4
+	for muestra in [Vector2(0.0, temblor), Vector2(-temblor, 0.0), Vector2(temblor, temblor)]:
+		_feed(_mouse_gesture(muestra))
+		assert_int(_dial.get_hovered_index()) \
+			.override_failure_message("el temblor bajo la zona muerta no debe mover el dial") \
+			.is_equal(4)
+
+
+func test_a_still_mouse_holds_the_selection() -> void:
+	# El otro lado del umbral: sin gesto no hay cambio. Un frame de mouse quieto no puede
+	# tirar la seleccion ni hacerla temblar.
+	_selector.set_active(true)
+	yield(await_idle_frame(), "completed")
+	_feed(_mouse_gesture(Vector2(30.0, -30.0)))
+	assert_int(_dial.get_hovered_index()).is_equal(4)
+	_feed(InputDataV2.new())
+	assert_int(_dial.get_hovered_index()).is_equal(4)
+
+
+func test_walking_does_not_move_the_dial_once_the_mouse_has_spoken() -> void:
+	# En escritorio el jugador camina con WASD mientras elige. Ese move_vec no puede pisar
+	# el gesto de mirada, o el piso elegido cambia solo por acomodarse en la cabina.
+	_selector.set_active(true)
+	yield(await_idle_frame(), "completed")
+	_feed(_mouse_gesture(Vector2(0.0, -40.0)))
+	assert_int(_dial.get_hovered_index()).is_equal(5)
+	var caminando = InputDataV2.new()
+	caminando.move_vec = Vector2(0.0, 1.0)
+	_feed(caminando)
+	assert_int(_dial.get_hovered_index()) \
+		.override_failure_message("caminar no debe reelegir el piso") \
+		.is_equal(5)
 
 
 # --- Cabin zoom ---
