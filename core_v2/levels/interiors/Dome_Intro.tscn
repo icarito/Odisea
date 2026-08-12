@@ -377,9 +377,6 @@ airlock_name = "Airlock_West"
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_dome_intro"
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = ExtResource( 20 )
-
 [node name="SpiralStairs" type="Spatial" parent="." groups=["ice_freezable"]]
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
 
@@ -1859,6 +1856,8 @@ shape = ExtResource( 349 )
 [node name="IceLevel" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
+draw_frost_ceiling = true
+ice_height_fog_enabled = true
 
 [node name="IceObjectFreezer" type="Node" parent="IceLevel"]
 script = ExtResource( 99 )
@@ -1881,7 +1880,6 @@ mesh = SubResource( 253 )
 
 [node name="FrostCeiling" type="MeshInstance" parent="IceLevel"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.95, 0 )
-visible = false
 material_override = SubResource( 254 )
 cast_shadow = 0
 mesh = SubResource( 255 )
@@ -1951,9 +1949,13 @@ transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 18, 7.5, 0 )
 emission_radius = 1.0
 particles_per_second = 10.0
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 20 )
+
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 3, 0 )
-light_energy = 2.0
+light_color = Color( 0.254902, 0.254902, 0.254902, 1 )
+light_energy = 0.6
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
