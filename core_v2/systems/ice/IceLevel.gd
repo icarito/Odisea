@@ -243,6 +243,9 @@ func step(delta: float) -> void:
 	_update_ice_collider()
 	_update_ice_fog()
 	if is_instance_valid(_crack_player) and ice_height >= _next_crack_height:
+		var crack_angle := randf() * TAU
+		var crack_radius := debug_plane_radius * sqrt(randf())
+		_crack_player.transform.origin = Vector3(cos(crack_angle) * crack_radius, ice_height, sin(crack_angle) * crack_radius)
 		_crack_player.play()
 		_next_crack_height += max(crack_interval, 0.1)
 	if max_height > start_height:

@@ -75,7 +75,7 @@ export(bool) var always_lit := false
 export(bool) var latch_lit := true
 export(float, 0.05, 2.0, 0.05) var refresh_interval := 0.25
 export(AudioStream) var activation_sound
-export(float, -80.0, 24.0, 0.5) var activation_sound_volume_db := 18.0
+export(float, -80.0, 24.0, 0.5) var activation_sound_volume_db := 10.0
 export(float, 0.0, 5.0, 0.05) var activation_sound_debounce := 2.0
 export(float, 0.0, 40.0, 0.5) var activation_sound_trigger_distance := 25.0
 export(float, 0.0, 2.0, 0.05) var activation_sound_delay := 0.5
@@ -139,9 +139,9 @@ func _ready() -> void:
 		_activation_sound_player.name = "ActivationSound"
 		_activation_sound_player.stream = activation_sound
 		_activation_sound_player.unit_db = activation_sound_volume_db
-		_activation_sound_player.unit_size = 10.0
-		_activation_sound_player.max_db = 16.0
-		_activation_sound_player.max_distance = max(light_follow_radius * 2.0, activation_sound_trigger_distance) 
+		_activation_sound_player.unit_size = 8.0
+		_activation_sound_player.max_db = 10.0
+		_activation_sound_player.max_distance = max(light_follow_radius * 2.0, activation_sound_trigger_distance + 5) 
 		add_child(_activation_sound_player)
 	_cache_marker_heights()
 	_snap_pending = snap_to_surface

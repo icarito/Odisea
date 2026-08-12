@@ -623,6 +623,7 @@ marker_size = 0.5
 lit_color = Color( 1, 0.14, 0.1, 1 )
 dim_color = Color( 0.1, 0.012, 0.008, 1 )
 lead_height = 1.2
+activation_sound_volume_db = 18.0
 
 [node name="Exit_0" type="Position3D" parent="HubExitLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2495, 0.2, 11.4544 )
@@ -661,6 +662,7 @@ marker_size = 0.34
 lit_color = Color( 1, 0.14, 0.1, 1 )
 dim_color = Color( 0.1, 0.012, 0.008, 1 )
 lead_height = 3.0
+activation_sound_volume_db = 18.0
 
 [node name="Markers" type="MultiMeshInstance" parent="RampLightPath"]
 layers = 64
@@ -682,6 +684,7 @@ marker_size = 0.3
 lit_color = Color( 1, 0.14, 0.1, 1 )
 dim_color = Color( 0.1, 0.012, 0.008, 1 )
 lead_height = 2.0
+activation_sound_volume_db = 18.0
 
 [node name="Markers" type="MultiMeshInstance" parent="SpokeLightPath"]
 layers = 64
@@ -702,7 +705,8 @@ lit_color = Color( 0.72, 0.84, 1, 1 )
 dim_color = Color( 0.72, 0.84, 1, 1 )
 always_lit = true
 activation_sound = SubResource( 340 )
-activation_sound_volume_db = 10.0
+activation_sound_volume_db = 8.0
+activation_sound_trigger_distance = 30.0
 activation_sound_delay = 0.0
 fixture_light_source = NodePath("Fixtures")
 fixture_light_local_offset = Vector3( 0, 0, 0.11 )
@@ -823,6 +827,7 @@ marker_size = 2.8
 lit_color = Color( 1, 0.97, 0.88, 1 )
 dim_color = Color( 1, 0.97, 0.88, 1 )
 always_lit = true
+activation_sound_volume_db = 18.0
 
 [node name="Core" type="Position3D" parent="DomeLamp"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 31.4, 0 )
@@ -841,6 +846,7 @@ marker_size = 1.3
 lit_color = Color( 0.78, 0.9, 1, 1 )
 dim_color = Color( 0.78, 0.9, 1, 1 )
 always_lit = true
+activation_sound_volume_db = 18.0
 
 [node name="Petal_0" type="Position3D" parent="DomeLampCrown"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4, 31.05, 0 )
