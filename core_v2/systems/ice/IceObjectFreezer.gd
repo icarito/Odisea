@@ -24,6 +24,7 @@ const MOBILE_MAX_WRAPPED_HEIGHT := 8.0
 
 export(float) var freeze_band_height := 3.0
 export(float) var rim_strength := 0.85
+export(float) var self_illum := 0.35
 # next_pass doubles the draw calls of anything it's chained to. Skipping geometry whose
 # lowest point sits above this height keeps that cost off upper scaffold floors, ceilings,
 # etc. that the rising ice will realistically never reach before the level resolves.
@@ -48,6 +49,7 @@ func _ready() -> void:
 	_shared_material.shader = FREEZE_SHADER
 	_shared_material.set_shader_param("freeze_band_height", freeze_band_height)
 	_shared_material.set_shader_param("rim_strength", rim_strength)
+	_shared_material.set_shader_param("self_illum", self_illum)
 	_shared_material.set_shader_param("low_end_mobile", OS.get_name() in ["Android", "iOS"])
 	if OS.get_name() in ["Android", "iOS"]:
 		_shared_material.set_shader_param("surface_offset", MOBILE_SURFACE_OFFSET)
@@ -276,6 +278,7 @@ func _make_overlay_for(base_material: ShaderMaterial) -> ShaderMaterial:
 	overlay.shader = FREEZE_SHADER
 	overlay.set_shader_param("freeze_band_height", freeze_band_height)
 	overlay.set_shader_param("rim_strength", rim_strength)
+	overlay.set_shader_param("self_illum", self_illum)
 	overlay.set_shader_param("low_end_mobile", OS.get_name() in ["Android", "iOS"])
 	if OS.get_name() in ["Android", "iOS"]:
 		overlay.set_shader_param("surface_offset", MOBILE_SURFACE_OFFSET)

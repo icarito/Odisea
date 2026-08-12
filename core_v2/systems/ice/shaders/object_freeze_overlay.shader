@@ -1,34 +1,37 @@
 shader_type spatial;
-// Unshaded on purpose: this scene has ~20 overlapping OmniLights (GLES2 has no deferred
-// renderer, so each one that reaches a surface is another lit pass), and a normally-lit
-// next_pass here washed out against them — worst on the criopods, whose own base material
-// is already a bright near-white, so frost_color barely read as different once lit. The
-// old frost_decal.shader this replaces was unshaded for the same reason. A fixed fake
-// key light (fake_light below) keeps some surface variation without depending on the
-// scene's actual dynamic lights.
-render_mode depth_draw_never, cull_back, unshaded;
+// Shaded (real lights/shadows), but with specular_disabled: an earlier attempt at shaded
+// PBR here (specular_schlick_ggx, matching pilot_damage.shader) read as "wrong depending on
+// camera angle" / inconsistently transparent on the dome walls even with SPECULAR pinned
+// low and ROUGHNESS pinned high — that's Fresnel, which ramps up hard at grazing angles
+// regardless of the base specular value. Disabling specular entirely removes that grazing
+// highlight while keeping real diffuse light/shadow response, unlike the unshaded+fake-key-
+// light hack this used to have (see git history) which never received real shadows at all.
+render_mode depth_draw_never, cull_back, diffuse_burley, specular_disabled;
 
 // next_pass overlay: makes arbitrary static props freeze over as the rising ice line
-// reaches them. Reuses the freeze-band/crack/restrained-emission visual language of
+// reaches them. Reuses the freeze-band/crack visual language of
 // core_v2/player/shaders/pilot_damage.shader (the Pilot's cold-damage suit shader), but
 // keys off world-space height against a single shared ice_height_world uniform instead
 // of a per-mesh local_y range — one shared material works for props of any size/shape
 // with no per-object calibration, and updating that one uniform (on ice_height_changed)
 // freezes/thaws every wrapped object at once.
 //
-// Uses sin/dot noise, not the dot+fract hash pilot_damage.shader/frost_decal.shader use:
-// Adreno runs fragment math in mediump and that hash's large multiplied constants lose
-// enough precision there to break into visible blocks (see gas_flipbook.shader's dither
-// fix and the main ice shader's low-cost sine variation for the same issue).
-// frost_color is deliberately more saturated than crack_color now: with roughness/specular
-// toned down (matte, to kill the view-angle flicker) the only contrast left to make the
-// rim/cracks read is color, so the two need to be visibly distinct instead of both being
-// near-white — that's what made the pass look flat/uniform after the matte fix.
+// Uses sin/dot noise, not a dot+fract hash: Adreno runs fragment math in mediump and that
+// hash's large multiplied constants lose enough precision there to break into visible
+// blocks (see gas_flipbook.shader's dither fix and the main ice shader's low-cost sine
+// variation for the same issue).
+// frost_color is deliberately more saturated than crack_color: with roughness toned down
+// (matte) the only contrast left to make the rim/cracks read is color, so the two need to
+// be visibly distinct instead of both being near-white — that's what made the pass look
+// flat/uniform before this was tuned.
 uniform vec4 frost_color : hint_color = vec4(0.32, 0.5, 0.66, 1.0);
-// Pulled back from near-1.0-white: combined with the fake key light's own boost above
-// 1.0 and any emission, this was crossing the environment's glow_hdr_threshold (1.6 in
-// Environment_DomeIntro.tres) and bloomed hard right where the rim/cracks peak together.
 uniform vec4 crack_color : hint_color = vec4(0.28, 0.39, 0.48, 1.0);
+// Matte on purpose (see render_mode comment above).
+uniform float surface_roughness : hint_range(0.0, 1.0) = 0.92;
+// Real shading alone leaves the frozen tint unreadable in dim/shadowed spots (it's a dark,
+// desaturated color to begin with) — same role as pilot_damage.shader's self_illum. Scoped
+// by freeze_band below so only the frozen area glows, not the whole mesh.
+uniform float self_illum : hint_range(0.0, 2.0) = 0.35;
 uniform bool low_end_mobile = false;
 uniform float ice_height_world = 0.0;
 // World-space distance above the ice line over which the freeze front fades in.
@@ -191,17 +194,9 @@ void fragment() {
 		coverage = 0.0;
 	}
 
-	// Fixed fake key light (fixed direction, not the scene's real lights): unshaded has no
-	// light interaction at all, so without this the surface would be flat-shaded with zero
-	// depth cue. This is baked math, not a real Light — same result at every camera/light
-	// angle, which is the point.
-	vec3 fake_light_dir = normalize(vec3(0.4, 0.8, 0.3));
-	float fake_diffuse = dot(world_normal, fake_light_dir) * 0.5 + 0.5;
-	// Capped at 1.0, not 1.15: pushing albedo above 1.0 is exactly what was tipping the
-	// brightest pixels (rim + crack_color, already near-white) over glow_hdr_threshold.
-	vec3 shaded_tint = frozen_tint * mix(0.65, 1.0, fake_diffuse);
-
-	ALBEDO = shaded_tint;
+	ALBEDO = frozen_tint;
+	ROUGHNESS = surface_roughness;
+	EMISSION = frozen_tint * self_illum * freeze_band;
 	// Alpha-tested, not blended (see alpha_scissor_threshold above): below the threshold
 	// this pixel is skipped entirely and the base pass shows through untouched, at/above
 	// it this pixel draws fully opaque. No partial blend, so no transparency-sort flicker.
