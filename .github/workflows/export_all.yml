@@ -649,11 +649,11 @@ jobs:
           # config.gradle already supplies these values, so omit only the overrides.
           sed -i -E '/^custom_build\/(min_sdk|target_sdk) = /d' export_presets.cfg
 
-      # (Se quitó el cache de Gradle: apuntaba a ~/.gradle que no existe en el
-      # container barichello -> nunca cacheaba, y además el Gradle build NO es el
-      # cuello del export de Android. El cuello es el IMPORT de Godot, que re-importaba
-      # todas las texturas porque el cache del .import se invalidaba por config/version
-      # — eso se arregla con "Stable project hash for import cache" más abajo.)
+      # El Gradle wrapper y su distribución se cachean en los pasos
+      # "Cache Gradle wrapper" y "Pre-cache Gradle distribution" más abajo,
+      # justo antes de "Android Gradle Diagnostic". El cuello principal del
+      # export de Android sigue siendo el IMPORT de Godot — eso se arregla con
+      # "Stable project hash for import cache" más abajo.
 
       - name: Limit texture import formats per platform
         # En Python: portable entre Linux (las 6 plataformas) y macOS (iOS corre en
@@ -821,6 +821,43 @@ jobs:
               ;;
           esac
           ls -la "$OUTDIR"
+
+      - name: Cache Gradle wrapper
+        if: matrix.platform == 'android'
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-8.11-${{ hashFiles('android/build/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-8.11-
+
+      - name: Pre-cache Gradle distribution
+        if: matrix.platform == 'android'
+        run: |
+          GRADLE_HOME="$HOME/.gradle"
+          mkdir -p "$GRADLE_HOME/wrapper/dists"
+          GRADLE_DIST_DIR="$GRADLE_HOME/wrapper/dists/gradle-8.11.1-bin"
+          # Skip download if already extracted (cache hit or previous step)
+          if find "$GRADLE_DIST_DIR" -name "gradle-8.11.1" -type d 2>/dev/null | grep -q .; then
+            echo "Gradle 8.11.1 already extracted, skipping download."
+          else
+            GRADLE_ZIP="/tmp/gradle-8.11.1-bin.zip"
+            if [ ! -f "$GRADLE_ZIP" ]; then
+              echo "Downloading Gradle 8.11.1..."
+              for i in 1 2 3; do
+                curl -fSL -o "$GRADLE_ZIP" \
+                  "https://services.gradle.org/distributions/gradle-8.11.1-bin.zip" \
+                  --max-time 300 && break
+                echo "Attempt $i failed, retrying in 5s..."
+                sleep 5
+              done
+            fi
+            echo "Extracting Gradle to $GRADLE_HOME..."
+            unzip -q "$GRADLE_ZIP" -d "$GRADLE_HOME"
+            echo "Gradle extracted: $(du -sh "$GRADLE_HOME/gradle-8.11.1" 2>/dev/null || echo 'unknown')"
+          fi
 
       - name: Android Gradle Diagnostic
         if: matrix.platform == 'android'
