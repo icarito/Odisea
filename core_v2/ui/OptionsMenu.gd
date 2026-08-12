@@ -24,11 +24,21 @@ var render_resolutions = [
 ]
 var render_scales: Array = [1.0, 0.9, 0.75, 0.6]
 
+# Tamaño de diseño del panel y margen minimo contra los bordes de la pantalla.
+const PANEL_PREFERRED_SIZE := Vector2(560, 400)
+const MIN_PANEL_SIZE := Vector2(240, 180)
+const VIEWPORT_MARGIN := 8.0
+
 func _ready():
 	_setup_options()
 	_load_ui_values()
 	_connect_signals()
 	_setup_update_button()
+	# El propio menu cambia la escala de render, que redimensiona el viewport: hay que
+	# re-encajar el panel. La señal cubre ademas resolucion interna, fullscreen y la
+	# rotacion de pantalla en movil.
+	get_viewport().connect("size_changed", self, "_fit_to_viewport")
+	_fit_to_viewport()
 	back_button.grab_focus()
 
 # Si el usuario descartó el diálogo de actualización, ofrecer aquí un acceso para
@@ -77,6 +87,28 @@ func _setup_options():
 	vsync_option.clear()
 	vsync_option.add_item("Desactivado")
 	vsync_option.add_item("Activado")
+
+	_hide_desktop_only_options()
+
+# En movil la app siempre corre a pantalla completa: el selector Ventana/Pantalla
+# Completa no hace nada y solo gasta dos filas de un menu que ya queda justo con las
+# escalas de render bajas. Misma deteccion que usa MobileUIManager.
+func _hide_desktop_only_options() -> void:
+	if not _is_mobile():
+		return
+	var label := find_node("FullscreenLabel") as Control
+	if label != null:
+		label.visible = false
+	fullscreen_option.visible = false
+
+func _is_mobile() -> bool:
+	if OS.get_name() == "Switch":
+		return false
+	# ODISEA_FORCE_MOBILE_PROFILE es el mismo interruptor que usan AdaptiveRenderScale y
+	# MobileLightBudget para ensayar el perfil movil desde escritorio.
+	if OS.get_environment("ODISEA_FORCE_MOBILE_PROFILE") in ["1", "true", "yes", "on"]:
+		return true
+	return OS.has_touchscreen_ui_hint() or OS.get_name() in ["Android", "iOS"]
 
 func _load_ui_values():
 	var sm = get_node_or_null("/root/SettingsManager")
@@ -191,9 +223,29 @@ func _on_back_pressed():
 
 func on_show():
 	_load_ui_values()
+	_fit_to_viewport()
 	back_button.grab_focus()
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel") and visible:
 		_on_back_pressed()
 		get_tree().set_input_as_handled()
+
+# El panel trae un rect_min_size de 560x400 pensado para la resolucion nominal, pero
+# con stretch "viewport" bajar la escala de render encoge el espacio de coordenadas
+# de la UI: al 60% sobre 640x480 quedan 384x288 y el panel ya no entra, con lo que
+# VOLVER cae fuera de la pantalla y no hay forma de salir del menu con el dedo.
+# Lo acotamos al viewport (el ScrollContainer del medio absorbe el resto), asi el
+# boton queda siempre alcanzable a cualquier escala.
+func _fit_to_viewport() -> void:
+	var panel := get_node_or_null("CenterContainer/PanelContainer") as Control
+	if panel == null:
+		return
+	# El area del padre, no el viewport: bajo un UIScaleCompensator el menu vive en el
+	# espacio nominal (mas grande que el viewport real) y medir contra el viewport lo
+	# encogeria de mas.
+	var available: Vector2 = get_parent_area_size() - Vector2(VIEWPORT_MARGIN, VIEWPORT_MARGIN) * 2.0
+	panel.rect_min_size = Vector2(
+		min(PANEL_PREFERRED_SIZE.x, max(available.x, MIN_PANEL_SIZE.x)),
+		min(PANEL_PREFERRED_SIZE.y, max(available.y, MIN_PANEL_SIZE.y))
+	)

@@ -2745,11 +2745,10 @@ project/assembly_name="Odisea"
 
 [physics]
 
-common/physics_fps=60
-common/max_physics_steps_per_frame=4
 common/physics_jitter_fix=0.0
 common/enable_pause_aware_picking=true
 3d/physics_engine="Bullet"
+common/max_physics_steps_per_frame=4
 
 [rendering]
 

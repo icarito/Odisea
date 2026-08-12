@@ -1,12 +1,15 @@
 extends SceneTree
 
-# bench_tick_adaptive.gd — Genera carga artificial, reporta ticks/frame y time_scale resultante.
+# bench_tick_adaptive.gd — Genera carga artificial y reporta ticks de fisica por
+# frame de render. Verifica que bajo carga el juego NO entre en camara lenta:
+# Engine.time_scale debe quedarse en 1.0 y el catch-up de fisica lo acota
+# physics/common/max_physics_steps_per_frame.
 #
 # Run: godot3-bin --headless --no-window -s tools/bench_tick_adaptive.gd
 
 func _init() -> void:
 	yield(self, "idle_frame")
-	print("\n[BENCH] Starting tick adaptive benchmark...")
+	print("\n[BENCH] Starting tick pressure benchmark...")
 
 	# Make sure SessionManager exists
 	var sm = get_root().get_node_or_null("SessionManager")
@@ -26,7 +29,9 @@ func _init() -> void:
 
 	# Simulate slow device by adding artificial delay in main thread
 	print("[BENCH] Simulating heavy physics load (introducing 45ms frame delays)...")
-	var success: bool = false
+	var max_steps: int = int(ProjectSettings.get_setting("physics/common/max_physics_steps_per_frame"))
+	var peak_ticks: float = 0.0
+	var min_scale: float = Engine.time_scale
 	for i in range(120):
 		# 45ms delay per visual frame makes the visual frames extremely slow (~22 FPS),
 		# which forces Godot to try executing multiple physics ticks to catch up.
@@ -34,22 +39,20 @@ func _init() -> void:
 		yield(self, "idle_frame")
 
 		var current_avg: float = sm.get_ticks_per_frame_avg()
-		var current_scale: float = Engine.time_scale
+		peak_ticks = max(peak_ticks, current_avg)
+		min_scale = min(min_scale, Engine.time_scale)
 		if i % 30 == 0:
-			print("[BENCH] Frame %d: ticks_per_frame_avg=%.3f, time_scale=%.3f" % [i, current_avg, current_scale])
+			print("[BENCH] Frame %d: ticks_per_frame_avg=%.3f, time_scale=%.3f" % [i, current_avg, Engine.time_scale])
 
-		# If time_scale gets reduced below 1.0, we have successfully triggered adaptive time scaling!
-		if current_scale < 1.0:
-			success = true
+	print("[BENCH] Peak ticks_per_frame_avg: %.3f (cap: %d)" % [peak_ticks, max_steps])
+	print("[BENCH] Min time_scale observed: %.3f" % min_scale)
 
-	var final_avg: float = sm.get_ticks_per_frame_avg()
-	var final_scale: float = Engine.time_scale
-	print("[BENCH] Final ticks_per_frame_avg: ", final_avg)
-	print("[BENCH] Final time_scale: ", final_scale)
-
-	if success and final_scale < 0.99:
-		print("[BENCH] SUCCESS: Adaptive time scaling successfully reduced time_scale (to %.3f) to mitigate simulated load." % final_scale)
-		quit(0)
-	else:
-		printerr("[BENCH] FAILURE: time_scale did not decrease under load (final time_scale: %.3f)." % final_scale)
+	if min_scale < 0.999:
+		printerr("[BENCH] FAILURE: time_scale bajo a %.3f bajo carga: el juego corre en camara lenta." % min_scale)
 		quit(1)
+	elif peak_ticks > float(max_steps) + 0.01:
+		printerr("[BENCH] FAILURE: catch-up de fisica sin acotar (%.3f ticks/frame > cap %d)." % [peak_ticks, max_steps])
+		quit(1)
+	else:
+		print("[BENCH] SUCCESS: bajo carga el tiempo de juego sigue en tiempo real (time_scale=1.0) y el catch-up queda acotado.")
+		quit(0)

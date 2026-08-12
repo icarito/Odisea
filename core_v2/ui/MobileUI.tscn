@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://addons/virtual_joystick/virtual_joystick.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/ui/TouchCameraControls.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/ui/MobileUI.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/ui/TouchActionButton.gd" type="Script" id=4]
+[ext_resource path="res://core_v2/ui/UIScaleCompensator.gd" type="Script" id=5]
 
 [sub_resource type="StyleBoxFlat" id=3]
 bg_color = Color( 0.3, 0.5, 0.7, 0.7 )
@@ -33,6 +34,10 @@ corner_radius_bottom_left = 12
 layer = 10
 script = ExtResource( 3 )
 
+[node name="UIScale" type="Control" parent="."]
+script = ExtResource( 5 )
+target_path = NodePath("../Container")
+
 [node name="Container" type="Control" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -55,6 +60,7 @@ modulate = Color( 1, 1, 1, 0.6 )
 rect_scale = Vector2( 0.9, 0.9 )
 deadzone_size = 15.0
 clampzone_size = 80.0
+joystick_mode = 0
 
 [node name="ActionButtons" type="VBoxContainer" parent="Container"]
 anchor_left = 0.8
@@ -66,8 +72,8 @@ grow_vertical = 0
 custom_constants/separation = 18
 
 [node name="InteractButton" type="Button" parent="Container/ActionButtons"]
-margin_right = 160.0
-margin_bottom = 50.0
+margin_right = 144.0
+margin_bottom = 56.0
 rect_min_size = Vector2( 0, 50 )
 size_flags_vertical = 3
 custom_styles/pressed = SubResource( 3 )
@@ -79,9 +85,9 @@ script = ExtResource( 4 )
 action_name = "interact"
 
 [node name="CrouchButton" type="Button" parent="Container/ActionButtons"]
-margin_top = 65.0
-margin_right = 160.0
-margin_bottom = 115.0
+margin_top = 74.0
+margin_right = 144.0
+margin_bottom = 130.0
 rect_min_size = Vector2( 0, 50 )
 size_flags_vertical = 3
 custom_styles/pressed = SubResource( 3 )
@@ -93,9 +99,9 @@ script = ExtResource( 4 )
 action_name = "crouch"
 
 [node name="JumpButton" type="Button" parent="Container/ActionButtons"]
-margin_top = 130.0
-margin_right = 160.0
-margin_bottom = 180.0
+margin_top = 148.0
+margin_right = 144.0
+margin_bottom = 204.0
 rect_min_size = Vector2( 0, 50 )
 size_flags_vertical = 3
 custom_styles/pressed = SubResource( 3 )
@@ -107,7 +113,6 @@ script = ExtResource( 4 )
 action_name = "jump"
 
 [node name="ZeroGButtons" type="HBoxContainer" parent="Container"]
-visible = false
 anchor_top = 1.0
 anchor_bottom = 1.0
 margin_left = 20.0

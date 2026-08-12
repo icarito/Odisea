@@ -162,7 +162,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
     },
     {
         "name": "query_codex_docs",
-        "description": "Search local README.md and TODO.md for a topic.",
+        "description": "Search local README.md and AGENTS.md for a topic.",
         "inputSchema": {
             "type": "object",
             "properties": {

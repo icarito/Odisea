@@ -10,12 +10,16 @@
 [ext_resource path="res://assets/fonts/SixtyFour_Regular_24.tres" type="DynamicFont" id=13]
 [ext_resource path="res://core_v2/levels/ShaderWarmupTrigger.gd" type="Script" id=14]
 [ext_resource path="res://assets/fonts/SixtyFour_Regular_20.tres" type="DynamicFont" id=15]
+[ext_resource path="res://core_v2/ui/UIScaleCompensator.gd" type="Script" id=16]
 
 [node name="Menu" type="Control"]
 anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource( 11 )
 script = ExtResource( 2 )
+
+[node name="UIScale" type="Control" parent="."]
+script = ExtResource( 16 )
 
 [node name="Backdrop" type="TextureRect" parent="."]
 anchor_right = 1.0

@@ -2,12 +2,15 @@ extends Node
 const FIXED_DT := 1.0 / 60.0
 const REPLAY_WATCHDOG_STALL_FRAMES := 900
 
-# Adaptive Tick Rate (Anti-Death-Spiral) fields
-var adaptive_tick_rate_enabled: bool = true
+# Medicion de presion de fisica (ticks de physics por frame de render).
+# Solo observa: NO toca Engine.time_scale. Bajar time_scale bajo carga hacia
+# que el juego corriera en camara lenta (el paso del jugador usa FIXED_DT fijo,
+# asi que menos ticks reales = menos tiempo de juego por segundo real).
+# El anti-death-spiral real es physics/common/max_physics_steps_per_frame.
+var tick_pressure_monitor_enabled: bool = true
 var _last_physics_frame: int = 0
 var _ticks_history: Array = []
 const HISTORY_SIZE: int = 60
-var _target_time_scale: float = 1.0
 
 func get_ticks_per_frame_avg() -> float:
 	if _ticks_history.empty():
@@ -1409,12 +1412,12 @@ var _replay_perf := []
 var _replay_perf_on := false
 var _replay_perf_label := ""
 
-func _process(delta: float) -> void:
-	if not adaptive_tick_rate_enabled:
+func _process(_delta: float) -> void:
+	if not tick_pressure_monitor_enabled:
 		return
 	if is_replaying:
 		return
-	# Skip first few frames or during loading to avoid spikes
+	# Saltar los primeros frames (carga) para no contaminar el promedio
 	if Engine.get_idle_frames() < 10:
 		_last_physics_frame = Engine.get_physics_frames()
 		return
@@ -1426,24 +1429,6 @@ func _process(delta: float) -> void:
 	_ticks_history.append(ticks_this_frame)
 	if _ticks_history.size() > HISTORY_SIZE:
 		_ticks_history.pop_front()
-
-	var avg_ticks: float = get_ticks_per_frame_avg()
-
-	# Under heavy load (average ticks per frame > 1.5), reduce Engine.time_scale.
-	# If the load decreases (average ticks per frame decreases), gradually restore Engine.time_scale.
-	if avg_ticks > 1.5:
-		_target_time_scale = max(0.3, _target_time_scale - 0.5 * delta)
-	elif avg_ticks < 1.1:
-		_target_time_scale = min(1.0, _target_time_scale + 0.5 * delta)
-
-	# Gradually transition Engine.time_scale to target
-	var diff: float = _target_time_scale - Engine.time_scale
-	if abs(diff) > 0.001:
-		var step: float = 0.5 * delta
-		if diff > 0.0:
-			Engine.time_scale = min(_target_time_scale, Engine.time_scale + step)
-		else:
-			Engine.time_scale = max(_target_time_scale, Engine.time_scale - step)
 
 func _physics_process(_dt):
 	var pm = get_node_or_null("/root/PerformanceMonitor")
@@ -1925,7 +1910,6 @@ func load_and_play(path: String, perf_label: String = ""):
 	_node_cache.clear()
 	_cleanup_session_spawned_nodes()
 	Engine.time_scale = 1.0
-	_target_time_scale = 1.0
 	_ticks_history.clear()
 	_last_physics_frame = Engine.get_physics_frames()
 	
@@ -2497,7 +2481,6 @@ func _finish_and_validate():
 	is_recording = false
 	_reset_replay_watchdog()
 	Engine.time_scale = 1.0
-	_target_time_scale = 1.0
 	_ticks_history.clear()
 	_last_physics_frame = Engine.get_physics_frames()
 	
