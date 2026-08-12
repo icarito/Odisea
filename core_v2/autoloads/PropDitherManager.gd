@@ -33,6 +33,12 @@ var _processed_meshes: Dictionary = {}  # MeshInstance -> true (avoid double-pro
 var _player_node: Spatial = null
 var _camera_node: Camera = null
 
+# Historicamente la conversion a dither apagaba cast_shadow en todo lo que tocaba
+# (perf / evitar shadow del ALPHA_SCISSOR cambiando de frame a frame). Eso le
+# quita la sombra tambien a props que casi nunca entran al cono de oclusion,
+# como el shell de los criopods. Parametro para probar dejarlo prendido.
+export var strip_shadow_on_convert: bool = false
+
 # Shader effect parameters (can be tuned via set_occlusion_params)
 var _hole_radius: float = 0.5
 var _shader_params: Dictionary = {
@@ -229,7 +235,8 @@ func _convert_csg_shape(shape: CSGShape) -> void:
 	if not _can_apply_occlusion_dither(source as SpatialMaterial):
 		return
 
-	shape.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	if strip_shadow_on_convert:
+		shape.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	var new_mat = _convert_spatial_to_dither(source as SpatialMaterial)
 	shape.material_override = new_mat
 	register_material(new_mat)
@@ -243,7 +250,8 @@ func _convert_mesh_instance(mesh: MeshInstance) -> void:
 	# Convert material_override if it's a SpatialMaterial
 	var mat_override = mesh.material_override
 	if mat_override is SpatialMaterial and _can_apply_occlusion_dither(mat_override as SpatialMaterial):
-		mesh.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		if strip_shadow_on_convert:
+			mesh.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		var new_mat = _convert_spatial_to_dither(mat_override as SpatialMaterial)
 		mesh.material_override = new_mat
 		register_material(new_mat)
@@ -257,7 +265,8 @@ func _convert_mesh_instance(mesh: MeshInstance) -> void:
 	for i in range(surface_count):
 		var active_mat = mesh.get_active_material(i)
 		if active_mat is SpatialMaterial and _can_apply_occlusion_dither(active_mat as SpatialMaterial):
-			mesh.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+			if strip_shadow_on_convert:
+				mesh.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 			var new_mat = _convert_spatial_to_dither(active_mat as SpatialMaterial)
 			mesh.set_surface_material(i, new_mat)
 			register_material(new_mat)
@@ -270,7 +279,8 @@ func _convert_multimesh_instance(inst: MultiMeshInstance) -> void:
 	_processed_meshes[inst] = true
 	var mat_override = inst.material_override
 	if mat_override is SpatialMaterial and _can_apply_occlusion_dither(mat_override as SpatialMaterial):
-		inst.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		if strip_shadow_on_convert:
+			inst.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		var new_mat = _convert_spatial_to_dither(mat_override as SpatialMaterial)
 		inst.material_override = new_mat
 		register_material(new_mat)
