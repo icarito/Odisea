@@ -197,11 +197,24 @@ def _collect_gdunit_suites(repo_root: Path):
     return suites
 
 
+# Manual perf-debugging scripts, not replay-determinism tests: no LEVEL/SCENE,
+# no expected final state, meant to be run by hand with --oys to eyeball FPS
+# output. Collecting them here made CI hang on debug_perf.oys until its
+# 180s per-test timeout, every run, flooding the log with millions of
+# AnimationTree "couldn't resolve track" lines and blowing the job's
+# 45-minute budget.
+_NON_DETERMINISM_OYS_STEMS = {"debug_perf", "perf_test", "perf_ab_test"}
+
+
 def _collect_determinism_oys_cases(repo_root: Path, include_determinism: bool):
     if not include_determinism:
         return []
     test_dir = repo_root / "core_v2" / "tests"
-    return [path.stem for path in sorted(test_dir.glob("*.oys"))]
+    return [
+        path.stem
+        for path in sorted(test_dir.glob("*.oys"))
+        if path.stem not in _NON_DETERMINISM_OYS_STEMS
+    ]
 
 
 def _collect_raw_oys_files(repo_root: Path):
