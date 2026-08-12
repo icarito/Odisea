@@ -24,17 +24,16 @@ render_mode depth_draw_never, cull_back, unshaded;
 // toned down (matte, to kill the view-angle flicker) the only contrast left to make the
 // rim/cracks read is color, so the two need to be visibly distinct instead of both being
 // near-white — that's what made the pass look flat/uniform after the matte fix.
-uniform vec4 frost_color : hint_color = vec4(0.32, 0.5, 0.66, 0.7);
+uniform vec4 frost_color : hint_color = vec4(0.32, 0.5, 0.66, 1.0);
 // Pulled back from near-1.0-white: combined with the fake key light's own boost above
 // 1.0 and any emission, this was crossing the environment's glow_hdr_threshold (1.6 in
 // Environment_DomeIntro.tres) and bloomed hard right where the rim/cracks peak together.
-uniform vec4 crack_color : hint_color = vec4(0.28, 0.39, 0.48, 0.7);
+uniform vec4 crack_color : hint_color = vec4(0.28, 0.39, 0.48, 1.0);
 uniform bool low_end_mobile = false;
 uniform float ice_height_world = 0.0;
 // World-space distance above the ice line over which the freeze front fades in.
 uniform float freeze_band_height : hint_range(0.1, 8.0) = 3.0;
 uniform float crack_density : hint_range(0.05, 2.0) = 0.35;
-uniform float emission_strength : hint_range(0.0, 1.0) = 0.0;
 // Bright rim right at the freeze front, like a waterline — the main visibility cue.
 uniform float rim_width : hint_range(0.0, 1.0) = 0.32;
 uniform float rim_strength : hint_range(0.0, 2.0) = 0.85;
@@ -203,7 +202,6 @@ void fragment() {
 	vec3 shaded_tint = frozen_tint * mix(0.65, 1.0, fake_diffuse);
 
 	ALBEDO = shaded_tint;
-	EMISSION = frozen_tint * (crack_mask * 0.6 + rim) * emission_strength * freeze_band;
 	// Alpha-tested, not blended (see alpha_scissor_threshold above): below the threshold
 	// this pixel is skipped entirely and the base pass shows through untouched, at/above
 	// it this pixel draws fully opaque. No partial blend, so no transparency-sort flicker.

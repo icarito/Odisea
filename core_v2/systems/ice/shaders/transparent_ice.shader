@@ -95,7 +95,7 @@ void fragment() {
 		ROUGHNESS = mix(roughness_texel, 0.86, freeze_progress);
 		SPECULAR = mix(0.38, 0.26, freeze_progress);
 		AO = mix(1.0, ao_texel, 0.55);
-		EMISSION = textured_ice * 0.26 + vec3(0.55, 0.78, 1.0) * cracks * 0.004 * emission_boost;
+		EMISSION = textured_ice * 0.06 + vec3(0.55, 0.78, 1.0) * cracks * 0.004 * emission_boost;
 	} else {
 		ALBEDO = textured_ice;
 		NORMALMAP = normal_texel;

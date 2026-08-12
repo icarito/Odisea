@@ -276,7 +276,7 @@ color_array = PoolColorArray( 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1
 [sub_resource type="ShaderMaterial" id=252]
 render_priority = 1
 shader = ExtResource( 19 )
-shader_param/albedo = Color( 0.88, 0.95, 1, 0.62 )
+shader_param/albedo = Color( 0.878431, 0.94902, 1, 0.619608 )
 shader_param/deep_color = Color( 0.14, 0.3, 0.46, 1 )
 shader_param/crack_strength = 0.44
 shader_param/opacity = 0.74
@@ -339,6 +339,7 @@ __meta__ = {
 
 [node name="TerraceMesh" type="MeshInstance" parent="Terrace"]
 layers = 64
+cast_shadow = 0
 use_in_baked_light = true
 mesh = ExtResource( 3 )
 
@@ -701,6 +702,7 @@ lit_color = Color( 0.72, 0.84, 1, 1 )
 dim_color = Color( 0.72, 0.84, 1, 1 )
 always_lit = true
 activation_sound = SubResource( 340 )
+activation_sound_volume_db = 10.0
 activation_sound_delay = 0.0
 fixture_light_source = NodePath("Fixtures")
 fixture_light_local_offset = Vector3( 0, 0, 0.11 )
@@ -1856,8 +1858,6 @@ shape = ExtResource( 349 )
 [node name="IceLevel" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
-draw_frost_ceiling = true
-ice_height_fog_enabled = true
 
 [node name="IceObjectFreezer" type="Node" parent="IceLevel"]
 script = ExtResource( 99 )
@@ -1880,6 +1880,7 @@ mesh = SubResource( 253 )
 
 [node name="FrostCeiling" type="MeshInstance" parent="IceLevel"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.95, 0 )
+visible = false
 material_override = SubResource( 254 )
 cast_shadow = 0
 mesh = SubResource( 255 )
@@ -1954,8 +1955,9 @@ environment = ExtResource( 20 )
 
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 3, 0 )
-light_color = Color( 0.254902, 0.254902, 0.254902, 1 )
-light_energy = 0.6
+light_color = Color( 0.941176, 0.913725, 0.870588, 1 )
+light_cull_mask = 4294967231
+shadow_enabled = true
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
