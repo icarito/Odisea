@@ -1,9 +1,10 @@
-[gd_scene load_steps=124 format=2]
+[gd_scene load_steps=125 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=4]
+[ext_resource path="res://core_v2/levels/interiors/Dome_Intro.lmbake" type="BakedLightmapData" id=5]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubTower.tscn" type="PackedScene" id=13]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=15]
 [ext_resource path="res://core_v2/systems/ice/IceLevel.gd" type="Script" id=16]
@@ -279,14 +280,14 @@ shader = ExtResource( 19 )
 shader_param/albedo = Color( 0.878431, 0.94902, 1, 0.619608 )
 shader_param/deep_color = Color( 0.14, 0.3, 0.46, 1 )
 shader_param/crack_strength = 0.44
-shader_param/opacity = 0.74
+shader_param/opacity = 0.4
 shader_param/freeze_progress = 0.32
-shader_param/emission_boost = 0.45
+shader_param/emission_boost = 0.2
 shader_param/texture_scale = 0.115
 shader_param/uv_offset = Vector2( 0, 0 )
 shader_param/surface_radius = 31.45
 shader_param/low_end_mobile = false
-shader_param/mobile_color_pbr = true
+shader_param/mobile_color_pbr = false
 shader_param/lod_strength = 0.35
 shader_param/detail_distance = 22.0
 shader_param/detail_fade = 10.0
@@ -303,14 +304,14 @@ shader = ExtResource( 19 )
 shader_param/albedo = Color( 0.55, 0.85, 1, 0.28 )
 shader_param/deep_color = Color( 0.08, 0.3, 0.5, 1 )
 shader_param/crack_strength = 0.2
-shader_param/opacity = 0.18
+shader_param/opacity = 0.4
 shader_param/freeze_progress = 0.0
-shader_param/emission_boost = 2.0
+shader_param/emission_boost = 1.0
 shader_param/texture_scale = 0.085
 shader_param/uv_offset = Vector2( 0, 0 )
 shader_param/surface_radius = 31.45
 shader_param/low_end_mobile = false
-shader_param/mobile_color_pbr = true
+shader_param/mobile_color_pbr = false
 shader_param/lod_strength = 0.35
 shader_param/detail_distance = 22.0
 shader_param/detail_fade = 10.0
@@ -383,30 +384,37 @@ transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926,
 
 [node name="Sector_00" type="MeshInstance" parent="SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 76 )
 
 [node name="Sector_01" type="MeshInstance" parent="SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 77 )
 
 [node name="Sector_02" type="MeshInstance" parent="SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 78 )
 
 [node name="Sector_03" type="MeshInstance" parent="SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 79 )
 
 [node name="Sector_04" type="MeshInstance" parent="SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 80 )
 
 [node name="Sector_05" type="MeshInstance" parent="SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 81 )
 
 [node name="Sector_07" type="MeshInstance" parent="SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 83 )
 
 [node name="StaticBody" parent="SpiralStairs" instance=ExtResource( 36 )]
@@ -455,6 +463,7 @@ outer_opening_docks = [ 0.0, 0.45 ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_1"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 105 )
 
 [node name="StaticBody" type="StaticBody" parent="ScaffoldHubTower/Floor_1"]
@@ -481,6 +490,7 @@ outer_opening_docks = [ 0.0, 0.45 ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_2"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 107 )
 
 [node name="StaticBody" type="StaticBody" parent="ScaffoldHubTower/Floor_2"]
@@ -507,6 +517,7 @@ outer_opening_docks = [ 0.0, 0.45 ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_3"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 109 )
 
 [node name="StaticBody" type="StaticBody" parent="ScaffoldHubTower/Floor_3"]
@@ -533,6 +544,7 @@ outer_opening_docks = [ 0.0, 0.45 ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_4"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 111 )
 
 [node name="StaticBody" type="StaticBody" parent="ScaffoldHubTower/Floor_4"]
@@ -559,6 +571,7 @@ outer_opening_docks = [ 0.0 ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_5"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 113 )
 
 [node name="StaticBody" type="StaticBody" parent="ScaffoldHubTower/Floor_5"]
@@ -585,30 +598,37 @@ transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926,
 
 [node name="Sector_00" type="MeshInstance" parent="SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 92 )
 
 [node name="Sector_01" type="MeshInstance" parent="SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 93 )
 
 [node name="Sector_02" type="MeshInstance" parent="SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 94 )
 
 [node name="Sector_03" type="MeshInstance" parent="SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 95 )
 
 [node name="Sector_04" type="MeshInstance" parent="SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 96 )
 
 [node name="Sector_05" type="MeshInstance" parent="SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 97 )
 
 [node name="Sector_06" type="MeshInstance" parent="SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 98 )
 
 [node name="StaticBody" parent="SpiralWalkways" instance=ExtResource( 38 )]
@@ -655,7 +675,7 @@ waypoint_source = NodePath("../SpiralWalkways")
 waypoint_height_property = "platform_height"
 waypoint_span_property = "platform_depth"
 snap_mask = 65
-light_pool_size = 2
+light_pool_size = 1
 light_range = 7.0
 light_energy = 1.2
 marker_size = 0.34
@@ -694,7 +714,7 @@ multimesh = ExtResource( 51 )
 
 [node name="WallLights" type="Spatial" parent="." groups=["light_budget_aggressive"]]
 script = ExtResource( 28 )
-light_pool_size = 3
+light_pool_size = 2
 light_range = 16.0
 light_energy = 2.6
 light_follow_radius = 24.0
@@ -720,100 +740,118 @@ visible = false
 layers = 64
 material_override = SubResource( 297 )
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = SubResource( 299 )
 
 [node name="BulbGlowBatch_00" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 material_override = SubResource( 297 )
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 68 )
 
 [node name="BulbGlowBatch_01" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 material_override = SubResource( 297 )
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 69 )
 
 [node name="BulbGlowBatch_02" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 material_override = SubResource( 297 )
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 70 )
 
 [node name="BulbGlowBatch_03" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 material_override = SubResource( 297 )
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 71 )
 
 [node name="BulbGlowBatch_04" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 material_override = SubResource( 297 )
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 72 )
 
 [node name="BulbGlowBatch_05" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 material_override = SubResource( 297 )
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 73 )
 
 [node name="BulbGlowBatch_06" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 material_override = SubResource( 297 )
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 74 )
 
 [node name="BulbGlowBatch_07" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 material_override = SubResource( 297 )
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 75 )
 
 [node name="Fixtures" type="MultiMeshInstance" parent="WallLights"]
 visible = false
 layers = 64
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 53 )
 
 [node name="FixtureBatch_00" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 54 )
 
 [node name="FixtureBatch_01" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 55 )
 
 [node name="FixtureBatch_02" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 56 )
 
 [node name="FixtureBatch_03" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 57 )
 
 [node name="FixtureBatch_04" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 58 )
 
 [node name="FixtureBatch_05" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 59 )
 
 [node name="FixtureBatch_06" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 60 )
 
 [node name="FixtureBatch_07" type="MultiMeshInstance" parent="WallLights"]
 layers = 64
 cast_shadow = 0
+use_in_baked_light = true
 multimesh = ExtResource( 61 )
 
 [node name="DomeLamp" type="Spatial" parent="."]
@@ -841,6 +879,7 @@ multimesh = SubResource( 304 )
 [node name="DomeLampCrown" type="Spatial" parent="."]
 script = ExtResource( 28 )
 snap_to_surface = false
+light_range = 18.0
 spacing = 0.0
 marker_size = 1.3
 lit_color = Color( 0.78, 0.9, 1, 1 )
@@ -897,12 +936,15 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods1"]
+use_in_baked_light = true
 mesh = ExtResource( 346 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods1"]
+use_in_baked_light = true
 mesh = ExtResource( 347 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods1" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 348 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods1"]
@@ -1049,12 +1091,15 @@ shape = ExtResource( 349 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 4.5, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods2"]
+use_in_baked_light = true
 mesh = ExtResource( 350 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods2"]
+use_in_baked_light = true
 mesh = ExtResource( 351 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods2" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 352 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods2"]
@@ -1213,12 +1258,15 @@ shape = ExtResource( 349 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 9, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods3"]
+use_in_baked_light = true
 mesh = ExtResource( 353 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods3"]
+use_in_baked_light = true
 mesh = ExtResource( 354 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods3" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 355 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods3"]
@@ -1377,12 +1425,15 @@ shape = ExtResource( 349 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 13.5, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods4"]
+use_in_baked_light = true
 mesh = ExtResource( 356 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods4"]
+use_in_baked_light = true
 mesh = ExtResource( 357 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods4" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 358 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods4"]
@@ -1541,12 +1592,15 @@ shape = ExtResource( 349 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 18, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods5"]
+use_in_baked_light = true
 mesh = ExtResource( 359 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods5"]
+use_in_baked_light = true
 mesh = ExtResource( 360 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods5" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 361 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods5"]
@@ -1705,12 +1759,15 @@ shape = ExtResource( 349 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 22.5, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods6"]
+use_in_baked_light = true
 mesh = ExtResource( 362 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods6"]
+use_in_baked_light = true
 mesh = ExtResource( 363 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods6" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 364 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods6"]
@@ -1864,6 +1921,8 @@ shape = ExtResource( 349 )
 [node name="IceLevel" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
+use_mobile_color_pbr = false
+ice_height_fog_enabled = true
 
 [node name="IceObjectFreezer" type="Node" parent="IceLevel"]
 script = ExtResource( 99 )
@@ -1962,8 +2021,15 @@ environment = ExtResource( 20 )
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 3, 0 )
 light_color = Color( 0.941176, 0.913725, 0.870588, 1 )
-light_cull_mask = 4294967231
 shadow_enabled = true
+directional_shadow_mode = 2
+directional_shadow_blend_splits = true
+
+[node name="BakedLightmap" type="BakedLightmap" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 15, 0 )
+extents = Vector3( 30, 20, 30 )
+bounces = 2
+light_data = ExtResource( 5 )
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]

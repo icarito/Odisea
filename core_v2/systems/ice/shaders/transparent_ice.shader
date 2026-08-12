@@ -77,34 +77,16 @@ void fragment() {
 	textured_ice = mix(textured_ice, vec3(0.9, 0.965, 1.0), frost_mask * freeze_progress * 0.55);
 	textured_ice = mix(textured_ice, vec3(0.96, 0.985, 1.0), cracks * 0.16);
 
-	if (low_end_mobile) {
-		// Evita que varias OmniLight acumulen pases inestables sobre transparencia en GLES2.
-		// La lectura de color permanece PBR, pero su iluminación es ambiental y constante.
-		ALBEDO = vec3(0.0);
-		NORMALMAP = vec3(0.5, 0.5, 1.0);
-		NORMALMAP_DEPTH = 0.0;
-		ROUGHNESS = 1.0;
-		SPECULAR = 0.0;
-		AO = 1.0;
-		EMISSION = textured_ice * 0.72 + vec3(0.55, 0.78, 1.0) * cracks * 0.003 * emission_boost;
-	} else if (mobile_color_pbr) {
-		// Paleta legible de Android, conservando el relieve y respuesta PBR de desktop.
-		ALBEDO = textured_ice * 0.42;
-		NORMALMAP = normal_texel;
-		NORMALMAP_DEPTH = 0.34;
-		ROUGHNESS = mix(roughness_texel, 0.86, freeze_progress);
-		SPECULAR = mix(0.38, 0.26, freeze_progress);
-		AO = mix(1.0, ao_texel, 0.55);
-		EMISSION = textured_ice * 0.06 + vec3(0.55, 0.78, 1.0) * cracks * 0.004 * emission_boost;
-	} else {
-		ALBEDO = textured_ice;
-		NORMALMAP = normal_texel;
-		NORMALMAP_DEPTH = 0.34;
-		ROUGHNESS = mix(roughness_texel, 0.86, freeze_progress);
-		SPECULAR = mix(0.38, 0.26, freeze_progress);
-		AO = mix(1.0, ao_texel, 0.55);
-		EMISSION = vec3(0.55, 0.78, 1.0) * cracks * 0.004 * emission_boost;
-	}
-	float height_opacity = smoothstep(0.0, 1.0, freeze_progress);
-	ALPHA = clamp(mix(opacity, 0.94, height_opacity) + frost_mask * height_opacity * 0.01, 0.68, 0.95);
+	ALBEDO = textured_ice;
+	NORMALMAP = normal_texel;
+	NORMALMAP_DEPTH = 0.34;
+	ROUGHNESS = mix(roughness_texel, 0.86, freeze_progress);
+	SPECULAR = mix(0.38, 0.26, freeze_progress);
+	AO = mix(1.0, ao_texel, 0.55);
+	EMISSION = vec3(0.55, 0.78, 1.0) * cracks * 0.004 * emission_boost;
+
+	// Used to ramp toward opaque with freeze_progress/height_opacity (floor 0.68, ceiling
+	// 0.94) — visually it just always read as opaque regardless of how those were tuned, so
+	// dropped the height dependency entirely: flat opacity, always transparent.
+	ALPHA = clamp(opacity, 0.0, 0.95);
 }

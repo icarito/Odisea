@@ -1,12 +1,12 @@
 shader_type spatial;
-// Shaded (real lights/shadows), but with specular_disabled: an earlier attempt at shaded
-// PBR here (specular_schlick_ggx, matching pilot_damage.shader) read as "wrong depending on
-// camera angle" / inconsistently transparent on the dome walls even with SPECULAR pinned
-// low and ROUGHNESS pinned high — that's Fresnel, which ramps up hard at grazing angles
-// regardless of the base specular value. Disabling specular entirely removes that grazing
-// highlight while keeping real diffuse light/shadow response, unlike the unshaded+fake-key-
-// light hack this used to have (see git history) which never received real shadows at all.
-render_mode depth_draw_never, cull_back, diffuse_burley, specular_disabled;
+// Back to unshaded, now with real alpha blending. History (see git log for the gory
+// detail): unshaded+fake-light -> shaded PBR (specular_schlick_ggx) to get real
+// lights/shadows -> Fresnel made it swing with camera angle -> specular_disabled to kill
+// the Fresnel -> still swung, this time with whichever dynamic lights were nearby/culled,
+// appearing and disappearing as the player moved. None of that instability is fixable while
+// this depends on the scene's real lights, so it's unshaded again — a fixed fake key light
+// (fake_light below) gives it depth cues that never change with light or camera angle.
+render_mode blend_mix, cull_back, unshaded;
 
 // next_pass overlay: makes arbitrary static props freeze over as the rising ice line
 // reaches them. Reuses the freeze-band/crack visual language of
@@ -20,36 +20,25 @@ render_mode depth_draw_never, cull_back, diffuse_burley, specular_disabled;
 // hash's large multiplied constants lose enough precision there to break into visible
 // blocks (see gas_flipbook.shader's dither fix and the main ice shader's low-cost sine
 // variation for the same issue).
-// frost_color is deliberately more saturated than crack_color: with roughness toned down
-// (matte) the only contrast left to make the rim/cracks read is color, so the two need to
-// be visibly distinct instead of both being near-white — that's what made the pass look
-// flat/uniform before this was tuned.
+// frost_color is deliberately more saturated than crack_color: unshaded has no
+// roughness/specular contrast to lean on, so color is the only thing that makes the
+// rim/cracks read — they need to be visibly distinct instead of both being near-white,
+// which is what made the pass look flat/uniform before this was tuned.
 uniform vec4 frost_color : hint_color = vec4(0.32, 0.5, 0.66, 1.0);
 uniform vec4 crack_color : hint_color = vec4(0.28, 0.39, 0.48, 1.0);
-// Matte on purpose (see render_mode comment above).
-uniform float surface_roughness : hint_range(0.0, 1.0) = 0.92;
-// Real shading alone leaves the frozen tint unreadable in dim/shadowed spots (it's a dark,
-// desaturated color to begin with) — same role as pilot_damage.shader's self_illum. Scoped
-// by freeze_band below so only the frozen area glows, not the whole mesh.
-uniform float self_illum : hint_range(0.0, 2.0) = 0.35;
-uniform bool low_end_mobile = false;
+// Unshaded has no light interaction at all, so this is what gives EMISSION some depth cue
+// instead of a flat, uniform glow. Scoped by freeze_band below so only the frozen area glows.
+uniform float self_illum : hint_range(0.0, 2.0) = 0.01;
 uniform float ice_height_world = 0.0;
 // World-space distance above the ice line over which the freeze front fades in.
-uniform float freeze_band_height : hint_range(0.1, 8.0) = 3.0;
+uniform float freeze_band_height : hint_range(0.1, 8.0) = 4.0;
 uniform float crack_density : hint_range(0.05, 2.0) = 0.35;
 // Bright rim right at the freeze front, like a waterline — the main visibility cue.
 uniform float rim_width : hint_range(0.0, 1.0) = 0.32;
 uniform float rim_strength : hint_range(0.0, 2.0) = 0.85;
 // Evita que el next_pass compita por exactamente el mismo depth que metales y shaders
 // complejos. Es suficientemente pequeño para no cambiar la silueta del prop.
-uniform float surface_offset : hint_range(0.0, 0.01) = 0.002;
-// Alpha-tested (opaque queue), not alpha-blended: this pass sits on the same geometry as
-// dozens of other props near the ice line, several already blended (the ice surface
-// itself). Blending it too would put it in the sorted-transparency queue, competing for
-// draw order with all of those every frame — sort order isn't stable frame to frame in
-// that queue, which read as the surface flickering. frost_decal.shader (the old decal
-// system this replaces) hit the same issue and fixed it the same way.
-uniform float alpha_scissor_threshold : hint_range(0.0, 1.0) = 0.4;
+uniform float surface_offset : hint_range(0.0, 0.02) = 0.006;
 // Optional cutout mask, copied from a wrapped grate/rail material's own texture: without
 // this, wrapping a flat quad that fakes a "bars" look via texture alpha (steel grating,
 // railings) would draw solid ice across the whole quad, filling in the gaps the texture
@@ -57,7 +46,7 @@ uniform float alpha_scissor_threshold : hint_range(0.0, 1.0) = 0.4;
 // base material is solid too — see IceObjectFreezer._wrap_cutout_material().
 uniform bool use_cutout = false;
 uniform sampler2D cutout_texture : hint_albedo;
-uniform float cutout_threshold : hint_range(0.0, 1.0) = 0.0;
+uniform float cutout_threshold : hint_range(0.0, 1.0) = 0.2;
 
 // --- Camera/player occlusion cone (mirrors shaders/prop_dither_occlusion.gdshader) ---
 // This overlay's next_pass sits on top of props that PropDitherManager already fades
@@ -105,13 +94,11 @@ float bayer4(vec2 p) {
 }
 
 void vertex() {
-	float stable_offset = surface_offset;
-	if (low_end_mobile) {
-		// La precisión del depth buffer cae con la distancia: un offset fijo que funciona
-		// cerca vuelve a compartir el mismo Z en la pared opuesta del domo.
-		vec3 source_world = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
-		stable_offset += clamp(distance(source_world, CAMERA_POSITION_WORLD) * 0.00032, 0.0, 0.02);
-	}
+	// La precisión del depth buffer cae con la distancia: un offset fijo que funciona cerca
+	// vuelve a compartir el mismo Z en la pared opuesta del domo. Aplicado siempre (no solo
+	// en mobile): el extra es minúsculo (tope 0.02) y no cambia nada visible en desktop.
+	vec3 source_world = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float stable_offset = surface_offset + clamp(distance(source_world, CAMERA_POSITION_WORLD) * 0.0006, 0.0, 0.035);
 	VERTEX += NORMAL * stable_offset;
 	world_position = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((WORLD_MATRIX * vec4(NORMAL, 0.0)).xyz);
@@ -150,9 +137,18 @@ void fragment() {
 		discard;
 	}
 
+	// Sampled before the height cutoff on purpose: depth_below/freeze_band are pure
+	// world_position.y, so on flat-ish geometry (railings, beams) the cutoff traced a
+	// perfectly straight line — jittering the effective height with world-space noise
+	// breaks that plane into an organic, uneven edge instead.
+	vec2 p = world_position.xz * crack_density + world_position.y * crack_density * 0.3;
+	float broad = ice_octave(p) * 0.5 + 0.5;
+	float fine = ice_octave(p * 2.3 + vec2(11.0, -4.0)) * 0.5 + 0.5;
+	float height_jitter = (broad - 0.5) * freeze_band_height * 0.6;
+
 	// Above the freeze front: nothing to draw. Keeps this pass free everywhere the ice
 	// hasn't reached yet, which is most of the level most of the time.
-	float depth_below = ice_height_world - world_position.y;
+	float depth_below = ice_height_world - world_position.y + height_jitter;
 	if (depth_below < -freeze_band_height) {
 		discard;
 	}
@@ -160,13 +156,6 @@ void fragment() {
 	// a long hazy gradient, which is what made the first pass feel too subtle.
 	float freeze_band = clamp(depth_below / freeze_band_height + 1.0, 0.0, 1.0);
 	freeze_band = pow(freeze_band, 0.6);
-
-	vec2 p = world_position.xz * crack_density + world_position.y * crack_density * 0.3;
-	float broad = ice_octave(p) * 0.5 + 0.5;
-	float fine = broad;
-	if (!low_end_mobile) {
-		fine = ice_octave(p * 2.3 + vec2(11.0, -4.0)) * 0.5 + 0.5;
-	}
 	float crack_mask = smoothstep(0.62, 0.85, broad * 0.55 + fine * 0.45);
 	// Only thins coverage in a few spots instead of holding half the surface at 50%:
 	// the old mix(0.5, 1.0, ...) floor was a big part of why this read as too faint.
@@ -177,6 +166,12 @@ void fragment() {
 	rim = clamp(rim, 0.0, 1.0) * step(0.02, freeze_band) * (1.0 - step(0.999, freeze_band));
 	rim *= rim_strength;
 
+	// Contour at the UPPER limit of the band (freeze_band -> 0, the highest point frost
+	// reaches before fading out entirely): without this, the top edge just trails off via
+	// `coverage` below with no defined line, unlike the waterline `rim` above which marks
+	// the opposite (fully-frozen) side. Peaks exactly at the top and fades over rim_width.
+	float top_rim = clamp(1.0 - freeze_band / max(rim_width, 0.001), 0.0, 1.0) * rim_strength;
+
 	// Disolución anclada al mundo. FRAGCOORD hacía que el patrón cambiara al mover la
 	// cámara sobre superficies curvas o animadas (IrisDoor/criopods), leyendo como flicker.
 	// La oclusión cámara-jugador de arriba sí conserva su dither de pantalla intencional.
@@ -184,22 +179,29 @@ void fragment() {
 	float fog_visibility = smoothstep(0.0, 0.7, freeze_band);
 	bool fogged_out = dither_noise > fog_visibility && rim < 0.35;
 
-	vec3 frozen_tint = mix(frost_color.rgb, crack_color.rgb, clamp(crack_mask * 0.5 + rim * 0.85, 0.0, 1.0));
-	// Solid almost immediately once past the discard cutoff, instead of ramping up with
-	// freeze_band: multiplying by freeze_band here meant coverage didn't cross
-	// alpha_scissor_threshold until ~40% into the band, so the first chunk of the "frozen"
-	// zone silently drew nothing at all — read as the effect starting late/being too subtle.
+	vec3 frozen_tint = mix(frost_color.rgb, crack_color.rgb, clamp(crack_mask * 0.5 + rim * 0.85 + top_rim * 0.85, 0.0, 1.0));
+	// Solid almost immediately once past the discard cutoff, instead of ramping up slowly
+	// with freeze_band — that read as the effect starting late/being too subtle.
 	float coverage = mix(0.6, 1.0, freeze_band) * mix(0.92, 1.0, frost_patch);
 	if (fogged_out) {
 		coverage = 0.0;
 	}
 
-	ALBEDO = frozen_tint;
-	ROUGHNESS = surface_roughness;
-	EMISSION = frozen_tint * self_illum * freeze_band;
-	// Alpha-tested, not blended (see alpha_scissor_threshold above): below the threshold
-	// this pixel is skipped entirely and the base pass shows through untouched, at/above
-	// it this pixel draws fully opaque. No partial blend, so no transparency-sort flicker.
+	// Fixed fake key light (fixed direction, not the scene's real lights): unshaded has no
+	// light interaction at all, so without this the surface would be flat-shaded with zero
+	// depth cue. This is baked math, not a real Light — same result at every camera/light
+	// angle and never swings with which dynamic lights are nearby, which is the point.
+	vec3 fake_light_dir = normalize(vec3(0.4, 0.8, 0.3));
+	float fake_diffuse = dot(world_normal, fake_light_dir) * 0.5 + 0.5;
+	vec3 shaded_tint = frozen_tint * mix(0.65, 1.0, fake_diffuse);
+
+	ALBEDO = shaded_tint;
+	EMISSION = shaded_tint * self_illum * freeze_band + shaded_tint * top_rim * 0.5;
+	// Real alpha blending now (see render_mode above): coverage/fogged_out fade the surface
+	// toward translucent instead of the previous hard alpha-scissor cutoff — this is the
+	// transparency queue, so draw order among overlapping transparent props isn't
+	// guaranteed stable frame to frame. Accepted tradeoff: the light-dependent flicker from
+	// shaded PBR was worse than this queue's potential sort instability. Floor kept at 0.5
+	// (not 0.0) so fogged-out patches read as thin/translucent ice, not fully absent.
 	ALPHA = clamp(coverage + rim * 0.5, 0.0, 1.0);
-	ALPHA_SCISSOR = alpha_scissor_threshold;
 }

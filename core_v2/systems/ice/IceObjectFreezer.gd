@@ -19,12 +19,11 @@ class_name IceObjectFreezer
 
 const ICE_FREEZABLE_GROUP := "ice_freezable"
 const FREEZE_SHADER := preload("res://core_v2/systems/ice/shaders/object_freeze_overlay.shader")
-const MOBILE_SURFACE_OFFSET := 0.006
 const MOBILE_MAX_WRAPPED_HEIGHT := 8.0
 
 export(float) var freeze_band_height := 3.0
 export(float) var rim_strength := 0.85
-export(float) var self_illum := 0.35
+export(float) var self_illum := 0.6
 # next_pass doubles the draw calls of anything it's chained to. Skipping geometry whose
 # lowest point sits above this height keeps that cost off upper scaffold floors, ceilings,
 # etc. that the rising ice will realistically never reach before the level resolves.
@@ -50,9 +49,6 @@ func _ready() -> void:
 	_shared_material.set_shader_param("freeze_band_height", freeze_band_height)
 	_shared_material.set_shader_param("rim_strength", rim_strength)
 	_shared_material.set_shader_param("self_illum", self_illum)
-	_shared_material.set_shader_param("low_end_mobile", OS.get_name() in ["Android", "iOS"])
-	if OS.get_name() in ["Android", "iOS"]:
-		_shared_material.set_shader_param("surface_offset", MOBILE_SURFACE_OFFSET)
 	# Most of the structural geometry this wraps (SpiralStairs, SpiralWalkways, HubSpokes,
 	# most of Terrace) already carries PropDitherManager's cone-occlusion shader, which
 	# discards fragments between the camera and the player. Registering the shared overlay
@@ -279,9 +275,6 @@ func _make_overlay_for(base_material: ShaderMaterial) -> ShaderMaterial:
 	overlay.set_shader_param("freeze_band_height", freeze_band_height)
 	overlay.set_shader_param("rim_strength", rim_strength)
 	overlay.set_shader_param("self_illum", self_illum)
-	overlay.set_shader_param("low_end_mobile", OS.get_name() in ["Android", "iOS"])
-	if OS.get_name() in ["Android", "iOS"]:
-		overlay.set_shader_param("surface_offset", MOBILE_SURFACE_OFFSET)
 	overlay.set_shader_param("use_cutout", true)
 	overlay.set_shader_param("cutout_texture", base_material.get_shader_param("texture_albedo"))
 	var threshold = base_material.get_shader_param("alpha_scissor_threshold")
