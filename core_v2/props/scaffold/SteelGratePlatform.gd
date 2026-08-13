@@ -4,6 +4,7 @@ class_name SteelGratePlatform
 
 const DEFAULT_FOOTSTEP_PROFILE := preload("res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres")
 const FOOTSTEP_SURFACE_SCRIPT := preload("res://core_v2/systems/footsteps/footstep_surface.gd")
+const HAZARD_STRIPE_MATERIAL := preload("res://materials/diamondPlateAluminum/seam_hazard_stripes.tres")
 
 export(float, 1.0, 100.0, 0.1) var platform_width := 3.0 setget set_platform_width
 export(float, 1.0, 100.0, 0.1) var platform_depth := 3.0 setget set_platform_depth
@@ -44,6 +45,10 @@ export(float, 0.0, 20.0, 0.05) var rail_height := 1.1 setget set_rail_height
 export(float, 0.0, 1.0, 0.05) var rail_mid_ratio := 0.5 setget set_rail_mid_ratio
 export(Color) var frame_color := Color(0.18, 0.19, 0.21, 1.0) setget set_frame_color
 export(Color) var rail_color := Color(0.18, 0.19, 0.21, 1.0) setget set_rail_color
+export(bool) var hazard_strip_front := false setget set_hazard_strip_front
+export(bool) var hazard_strip_back := false setget set_hazard_strip_back
+export(float, 0.10, 2.0, 0.01) var hazard_strip_depth := 0.42 setget set_hazard_strip_depth
+export(float, 0.001, 0.20, 0.001) var hazard_strip_lift := 0.035 setget set_hazard_strip_lift
 export(bool) var rail_front := true setget set_rail_front
 export(bool) var rail_back := true setget set_rail_back
 export(bool) var rail_left := false setget set_rail_left
@@ -223,6 +228,22 @@ func set_rail_color(value: Color) -> void:
 	rail_color = value
 	_queue_rebuild()
 
+func set_hazard_strip_front(value: bool) -> void:
+	hazard_strip_front = value
+	_queue_rebuild()
+
+func set_hazard_strip_back(value: bool) -> void:
+	hazard_strip_back = value
+	_queue_rebuild()
+
+func set_hazard_strip_depth(value: float) -> void:
+	hazard_strip_depth = value
+	_queue_rebuild()
+
+func set_hazard_strip_lift(value: float) -> void:
+	hazard_strip_lift = value
+	_queue_rebuild()
+
 func set_rail_front(value: bool) -> void:
 	rail_front = value
 	_queue_rebuild()
@@ -332,6 +353,7 @@ func _rebuild() -> void:
 
 	_add_deck_collision(half_w, deck_t)
 	_add_grate_deck()
+	_add_hazard_strips(half_w)
 
 	var join_inset: float = 0.0 if snap_mitered_joins else tube_radius
 	var front_left_top := _deck_point(-half_w + tube_radius, -1.0, join_inset)
@@ -616,6 +638,42 @@ func _add_grate_deck() -> void:
 	else:
 		deck.material_override = _grate_material
 	_visual_root.add_child(deck)
+
+# Señalización plana en un borde real de la plataforma. Usa las mismas esquinas
+# deformadas del deck, por lo que queda encima de la rejilla incluso en las rampas
+# con miter y pendiente; no agrega colisión ni una luz runtime.
+func _add_hazard_strips(half_width: float) -> void:
+	if not hazard_strip_front and not hazard_strip_back:
+		return
+	if hazard_strip_front:
+		_add_hazard_strip("HazardStripFront", half_width, -1.0)
+	if hazard_strip_back:
+		_add_hazard_strip("HazardStripBack", half_width, 1.0)
+
+func _add_hazard_strip(node_name: String, half_width: float, edge_sign: float) -> void:
+	var edge_left: Vector3 = _deck_point(-half_width, edge_sign) + Vector3.UP * hazard_strip_lift
+	var edge_right: Vector3 = _deck_point(half_width, edge_sign) + Vector3.UP * hazard_strip_lift
+	var opposite_left: Vector3 = _deck_point(-half_width, -edge_sign) + Vector3.UP * hazard_strip_lift
+	var opposite_right: Vector3 = _deck_point(half_width, -edge_sign) + Vector3.UP * hazard_strip_lift
+	var ratio: float = clamp(hazard_strip_depth / max(edge_left.distance_to(opposite_left), 0.001), 0.01, 0.45)
+	var inner_left: Vector3 = edge_left.linear_interpolate(opposite_left, ratio)
+	var inner_right: Vector3 = edge_right.linear_interpolate(opposite_right, ratio)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = PoolVector3Array([edge_left, edge_right, inner_right, inner_left])
+	arrays[Mesh.ARRAY_NORMAL] = PoolVector3Array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
+	arrays[Mesh.ARRAY_TEX_UV] = PoolVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	arrays[Mesh.ARRAY_INDEX] = PoolIntArray([0, 1, 2, 0, 2, 3])
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.surface_set_material(0, HAZARD_STRIPE_MATERIAL)
+	var strip := MeshInstance.new()
+	strip.name = node_name
+	strip.layers = PROP_VISUAL_LAYER
+	strip.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	strip.use_in_baked_light = true
+	strip.mesh = mesh
+	_visual_root.add_child(strip)
 
 func _make_grate_mesh() -> ArrayMesh:
 	var half_w = max(platform_width * 0.5 - tube_radius, tube_radius)

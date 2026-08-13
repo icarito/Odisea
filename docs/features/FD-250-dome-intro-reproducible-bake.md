@@ -38,8 +38,8 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
    cambios posteriores de la escena.
 2. Cada baker recibe una fuente explícita y nunca vuelve a recolectar una malla
    previamente horneada como fuente de edición.
-3. Agregar marcas planas de transición con franjas amarillas, limitadas a la
-   abertura de cada ring hub y horneadas junto con la geometría que conectan.
+3. Generar marcas planas de transición con franjas amarillas sobre el borde
+   exterior de cada ring hub y sobre las uniones stairs/walkways/spokes.
 4. Aplicar amarillo/naranja industrial sólo a barandas, manteniendo vigas y
    estructura en acero oscuro.
 5. Crear un rig de luces de bake, con una luz estática por fixture relevante.
@@ -65,8 +65,8 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
   la escena pre-bake (`93b00907^`).
 - Los bakers no arrancan `PropDitherManager` ni conservan ShaderMaterial de
   runtime en sus artefactos.
-- Las placas de seam no alteran la superficie caminable ni la colisión salvo que
-  se declare expresamente un cambio de gameplay.
+- Las franjas de seam se generan sobre la geometría de deck existente, sin
+  colisión: quedan elevadas visualmente, pero no alteran la superficie caminable.
 - Las luces de bake se controlan por `light_bake_mode`; ocultar un nodo no es un
   mecanismo válido para excluirlo del bake en Godot 3.
 
@@ -88,7 +88,6 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 - `core_v2/props/scaffold/SteelGratePlatform.gd` (modify only if seam/rail
   authoring needs an existing extension)
 - `core_v2/props/scaffold/ScaffoldSeamPlate.*` (new)
-- `core_v2/levels/interiors/DomeIntro_Seams.tscn` (new)
 - `materials/diamondPlateAluminum/seam_hazard_stripes.*` (new stripe overlay)
 - `tools/bake_dome_intro_criopods.gd` (modify)
 - `tools/bake_scaffold_walkways.gd` (modify)
@@ -109,8 +108,9 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
    preservando las aperturas y colisiones actuales.
 4. Separar la superficie de barandas de los ring hubs; aplicar paleta amarilla/
    naranja a rails y rehornear sus productos.
-5. Crear la placa paramétrica de seam, su material de diamond aluminium con
-   franjas, y colocarla sólo en las uniones reales walkway/ring hub.
+5. Generar las franjas de seam desde las fuentes: los cinco bordes exteriores
+   de hub, diez uniones stairs/walkways y cuatro uniones walkway/spoke, sin
+   geometría PBR separada ni colisión.
 6. Crear el rig de bake de luces y un workflow de bake que permita encender todos
    los fixtures estáticos, hornear, y volver al presupuesto de runtime acordado.
 7. Ejecutar verificación geométrica, inspección visual, smoke de assets, tests

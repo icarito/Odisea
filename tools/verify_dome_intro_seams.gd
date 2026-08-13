@@ -1,28 +1,51 @@
 extends SceneTree
 
-const SCENE_PATH := "res://core_v2/levels/interiors/DomeIntro_Seams.tscn"
-const SEAM_COUNT := 5
+const HUB_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_HubTowerSource.tscn"
+const SCAFFOLD_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_ScaffoldSource.tscn"
+const EXPECTED_HUB_STRIPS := 5
+const EXPECTED_CONNECTION_STRIPS := 14
 
 func _init() -> void:
-	var scene := load(SCENE_PATH) as PackedScene
-	if scene == null:
-		push_error("[verify_seams] missing %s" % SCENE_PATH)
+	call_deferred("_run")
+
+func _run() -> void:
+	var hub_scene := load(HUB_SOURCE_PATH) as PackedScene
+	var scaffold_scene := load(SCAFFOLD_SOURCE_PATH) as PackedScene
+	if hub_scene == null or scaffold_scene == null:
+		push_error("[verify_seams] missing source scene")
 		quit(1)
 		return
-	var seams := scene.instance()
-	var mesh_count := 0
-	for child in seams.get_children():
-		if not (child is MeshInstance):
-			continue
-		var mesh_instance := child as MeshInstance
-		if mesh_instance.mesh == null or not mesh_instance.use_in_baked_light:
-			push_error("[verify_seams] invalid seam mesh %s" % mesh_instance.name)
+	var hub_root := hub_scene.instance()
+	var hub_strips := 0
+	for floor_name in ["Floor_1", "Floor_2", "Floor_3", "Floor_4", "Floor_5"]:
+		var ring := hub_root.get_node_or_null("ScaffoldHubTower/" + floor_name)
+		ring.build()
+		var mesh_instance := ring.get_node_or_null("CombinedMesh") as MeshInstance
+		if mesh_instance == null or mesh_instance.mesh.get_surface_count() < 5:
+			push_error("[verify_seams] %s missing outer hazard surface" % floor_name)
 			quit(1)
 			return
-		mesh_count += 1
-	if mesh_count != SEAM_COUNT:
-		push_error("[verify_seams] expected %d meshes, found %d" % [SEAM_COUNT, mesh_count])
+		hub_strips += 1
+	if hub_strips != EXPECTED_HUB_STRIPS:
+		push_error("[verify_seams] expected %d hub strips, found %d" % [EXPECTED_HUB_STRIPS, hub_strips])
 		quit(1)
 		return
-	print("[verify_seams] PASS %d flat hazard strips" % mesh_count)
+	var scaffold_root := scaffold_scene.instance()
+	var radial := scaffold_root.get_node_or_null("SpiralWalkways")
+	if radial != null:
+		radial.rebuild_baked_items = false
+	get_root().add_child(scaffold_root)
+	yield(self, "idle_frame")
+	var connection_strips := _count_hazard_meshes(scaffold_root)
+	if connection_strips != EXPECTED_CONNECTION_STRIPS:
+		push_error("[verify_seams] expected %d connection strips, found %d" % [EXPECTED_CONNECTION_STRIPS, connection_strips])
+		quit(1)
+		return
+	print("[verify_seams] PASS %d hub-edge and %d connection strips" % [hub_strips, connection_strips])
 	quit(0)
+
+func _count_hazard_meshes(node: Node) -> int:
+	var count := 1 if node is MeshInstance and String(node.name).begins_with("HazardStrip") else 0
+	for child in node.get_children():
+		count += _count_hazard_meshes(child)
+	return count

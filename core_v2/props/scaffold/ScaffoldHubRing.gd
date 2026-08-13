@@ -17,6 +17,7 @@ const FOOTSTEP_SURFACE_SCRIPT := preload("res://core_v2/systems/footsteps/footst
 # Same grate material SteelGratePlatform uses, so hub floors don't read as blank
 # slabs next to the authored platforms.
 const GRATE_MATERIAL_PATH := "res://textures/trenchbroom/steel_grate_platform.tres"
+const HAZARD_STRIPE_MATERIAL := preload("res://materials/diamondPlateAluminum/seam_hazard_stripes.tres")
 # Planar UV scale for the deck top. The .tres already applies uv1_scale = 3.5, so
 # this keeps one grate tile at roughly a meter instead of a 0.3 m moiré.
 const GRATE_UV_SCALE := 0.3
@@ -29,6 +30,9 @@ export(float, -200.0, 200.0, 0.1) var support_base_local_y := 0.0 setget set_sup
 
 export(bool) var rail_outer := true setget set_rail_outer
 export(bool) var rail_inner := true setget set_rail_inner
+export(bool) var hazard_strip_outer := false setget set_hazard_strip_outer
+export(float, 0.10, 2.0, 0.01) var hazard_strip_width := 0.42 setget set_hazard_strip_width
+export(float, 0.001, 0.20, 0.001) var hazard_strip_lift := 0.035 setget set_hazard_strip_lift
 
 # Angular ranges (degrees, local to this node) where the outer rail opens up so a
 # walkway can dock. Same semantics as RadialScatter.blocked_angle_ranges_deg.
@@ -102,6 +106,18 @@ func set_rail_outer(value: bool) -> void:
 
 func set_rail_inner(value: bool) -> void:
 	rail_inner = value
+	_queue_build()
+
+func set_hazard_strip_outer(value: bool) -> void:
+	hazard_strip_outer = value
+	_queue_build()
+
+func set_hazard_strip_width(value: float) -> void:
+	hazard_strip_width = value
+	_queue_build()
+
+func set_hazard_strip_lift(value: float) -> void:
+	hazard_strip_lift = value
 	_queue_build()
 
 func set_outer_openings_deg(value: Array) -> void:
@@ -189,6 +205,10 @@ func _build_compact_ring() -> void:
 	# no como nodos extra en runtime.
 	var rail_tool := SurfaceTool.new()
 	rail_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var hazard_tool: SurfaceTool = null
+	if hazard_strip_outer:
+		hazard_tool = SurfaceTool.new()
+		hazard_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var sector: float = TAU / float(sides)
 	var corner_scale: float = 1.0 / cos(sector * 0.5)
 	var outer_corner: float = outer_radius * corner_scale
@@ -217,6 +237,8 @@ func _build_compact_ring() -> void:
 			_add_rail_edge(rail_tool, outer_a, outer_b, outer_gaps)
 		_add_dock_landings(deck_top_tool, deck_tool, outer_a, outer_b, mid_angle,
 			outer_gaps, outer_sources, deck_top - deck_bottom)
+		if hazard_tool != null:
+			_add_outer_hazard_strip(hazard_tool, outer_a, outer_b, deck_top)
 		_add_beam(frame_tool, Vector3(outer_a.x, support_base_local_y, outer_a.z), outer_a, tube_radius * 2.0)
 
 	deck_top_tool.generate_normals()
@@ -232,6 +254,16 @@ func _build_compact_ring() -> void:
 	frame_tool.commit(mesh)
 	rail_tool.set_material(_compact_material(rail_color, 1.0))
 	rail_tool.commit(mesh)
+	if hazard_tool != null:
+		hazard_tool.generate_normals()
+		hazard_tool.set_material(HAZARD_STRIPE_MATERIAL)
+		hazard_tool.commit(mesh)
+	# La franja es una marca visual sobre el deck. El collider se construye sin
+	# esa última superficie, para que no eleve el piso ni cambie la navegación.
+	var collision_mesh: ArrayMesh = mesh
+	if hazard_tool != null:
+		collision_mesh = mesh.duplicate() as ArrayMesh
+		collision_mesh.surface_remove(collision_mesh.get_surface_count() - 1)
 
 	var visual := MeshInstance.new()
 	visual.name = "CombinedMesh"
@@ -245,7 +277,7 @@ func _build_compact_ring() -> void:
 	add_child(body)
 	var collision := CollisionShape.new()
 	collision.name = "CombinedCollision"
-	collision.shape = mesh.create_trimesh_shape()
+	collision.shape = collision_mesh.create_trimesh_shape()
 	body.add_child(collision)
 	var footstep_surface := Spatial.new()
 	footstep_surface.name = "FootstepSurface"
@@ -295,6 +327,30 @@ func _add_dock_landings(deck_top_tool: SurfaceTool, deck_tool: SurfaceTool, oute
 # triangulos y sin la superposicion. El espesor lo siguen dando _add_prism_sides.
 func _add_deck_top_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 	_add_quad_uv(surface_tool, a, d, c, b)
+
+# Franja sobre el borde exterior real del polígono. Al interpolar los extremos
+# de la misma arista, sigue la silueta del ring hub y queda sobre el deck; no es
+# un plano circular flotante ni interfiere con la colisión.
+func _add_outer_hazard_strip(surface_tool: SurfaceTool, outer_a: Vector3, outer_b: Vector3, deck_top: float) -> void:
+	var scale: float = clamp((outer_radius - hazard_strip_width) / outer_radius, 0.05, 1.0)
+	var edge_a := Vector3(outer_a.x, deck_top + hazard_strip_lift, outer_a.z)
+	var edge_b := Vector3(outer_b.x, deck_top + hazard_strip_lift, outer_b.z)
+	var inner_a := Vector3(outer_a.x * scale, deck_top + hazard_strip_lift, outer_a.z * scale)
+	var inner_b := Vector3(outer_b.x * scale, deck_top + hazard_strip_lift, outer_b.z * scale)
+	# Se asignan UV locales por arista para que las diagonales se lean a una
+	# escala consistente alrededor del perímetro poligonal.
+	surface_tool.add_uv(Vector2(0, 0))
+	surface_tool.add_vertex(edge_a)
+	surface_tool.add_uv(Vector2(1, 0))
+	surface_tool.add_vertex(edge_b)
+	surface_tool.add_uv(Vector2(1, 1))
+	surface_tool.add_vertex(inner_b)
+	surface_tool.add_uv(Vector2(0, 0))
+	surface_tool.add_vertex(edge_a)
+	surface_tool.add_uv(Vector2(1, 1))
+	surface_tool.add_vertex(inner_b)
+	surface_tool.add_uv(Vector2(0, 1))
+	surface_tool.add_vertex(inner_a)
 
 # Deck sides only: the underside now lives in the grate surface above.
 func _add_prism_sides(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, thickness: float) -> void:

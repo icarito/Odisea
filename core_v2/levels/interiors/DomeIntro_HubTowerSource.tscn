@@ -26,6 +26,7 @@ outer_radius = 13.0
 inner_radius = 6.0
 support_base_local_y = -4.5
 rail_color = Color( 1, 0.56, 0.06, 1 )
+hazard_strip_outer = true
 outer_openings_deg = [ Vector2( 231.058, 239.856 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
 
@@ -35,6 +36,7 @@ outer_radius = 13.0
 inner_radius = 6.0
 support_base_local_y = -4.5
 rail_color = Color( 1, 0.56, 0.06, 1 )
+hazard_strip_outer = true
 outer_openings_deg = [ Vector2( 284.945, 293.743 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
 
@@ -44,6 +46,7 @@ outer_radius = 13.0
 inner_radius = 6.0
 support_base_local_y = -4.5
 rail_color = Color( 1, 0.56, 0.06, 1 )
+hazard_strip_outer = true
 outer_openings_deg = [ Vector2( 338.772, 347.57 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
 
@@ -53,6 +56,7 @@ outer_radius = 13.0
 inner_radius = 6.0
 support_base_local_y = -4.5
 rail_color = Color( 1, 0.56, 0.06, 1 )
+hazard_strip_outer = true
 outer_openings_deg = [ Vector2( 32.5033, 41.3007 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
 
@@ -62,5 +66,6 @@ outer_radius = 13.0
 inner_radius = 6.0
 support_base_local_y = -4.5
 rail_color = Color( 1, 0.56, 0.06, 1 )
+hazard_strip_outer = true
 outer_openings_deg = [ Vector2( 90, 123 ) ]
 outer_opening_docks = [ 0.0 ]

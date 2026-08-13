@@ -1,4 +1,4 @@
-[gd_scene load_steps=127 format=2]
+[gd_scene load_steps=126 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
@@ -97,7 +97,6 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods6_shell.mesh" type="ArrayMesh" id=362]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods6_glass.mesh" type="ArrayMesh" id=363]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods6_cards.mesh" type="ArrayMesh" id=364]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_Seams.tscn" type="PackedScene" id=365]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_BakeLights.tscn" type="PackedScene" id=366]
 
 [sub_resource type="SpatialMaterial" id=286]
@@ -634,8 +633,6 @@ use_in_baked_light = true
 mesh = ExtResource( 98 )
 
 [node name="StaticBody" parent="SpiralWalkways" instance=ExtResource( 38 )]
-
-[node name="DomeIntroSeams" parent="." instance=ExtResource( 365 )]
 
 [node name="DomeIntroBakeLights" parent="." instance=ExtResource( 366 )]
 
