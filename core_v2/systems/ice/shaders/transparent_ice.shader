@@ -97,5 +97,5 @@ void fragment() {
 	// quito porque "siempre se veia opaco igual"; en realidad lo que ignoraba el valor era
 	// el depth_draw_alpha_prepass del render_mode (ver arriba), no esta rampa. Si se quiere
 	// recuperar la variacion por altura, ahora si se va a notar.
-	ALPHA = clamp(opacity, 0.0, 0.95);
+	ALPHA = clamp(opacity, 0.6, 0.95);
 }
