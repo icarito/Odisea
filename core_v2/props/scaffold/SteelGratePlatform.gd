@@ -663,6 +663,7 @@ func _add_hazard_strip(node_name: String, half_width: float, edge_sign: float) -
 	arrays[Mesh.ARRAY_VERTEX] = PoolVector3Array([edge_left, edge_right, inner_right, inner_left])
 	arrays[Mesh.ARRAY_NORMAL] = PoolVector3Array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
 	arrays[Mesh.ARRAY_TEX_UV] = PoolVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	arrays[Mesh.ARRAY_TEX_UV2] = PoolVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
 	arrays[Mesh.ARRAY_INDEX] = PoolIntArray([0, 1, 2, 0, 2, 3])
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)

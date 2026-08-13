@@ -95,6 +95,7 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 - `tools/verify_criopod_bake.gd` (modify)
 - `tools/generate_dome_intro_bake_lights.gd` (new)
 - `tools/set_dome_intro_bake_lights.gd` (new)
+- `tools/editor_bake_dome_intro_lightmap_preview.gd` (new, ejecutar en editor)
 - `tools/verify_dome_intro_seams.gd` (new)
 - `tools/verify_dome_intro_bake_lights.gd` (new)
 - `tools/verify_dome_intro_runtime_light_budget.gd` (new)
@@ -122,15 +123,15 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 
 1. Si cambian fixtures o sus MultiMeshes, regenerar el rig:
    `godot3-bin --no-window -s tools/generate_dome_intro_bake_lights.gd`.
-2. Activar sólo sus modos de bake:
-   `ODISEA_BAKE_LIGHTS=1 godot3-bin --no-window -s tools/set_dome_intro_bake_lights.gd`.
-3. Abrir `Dome_Intro.tscn` con Godot 3, seleccionar `BakedLightmap` y ejecutar
-   **Bake Lightmaps**. Para iterar, usar calidad Low/bounces 1; para el producto
-   final usar la calidad acordada y conservar `Dome_Intro.lmbake` versionado.
-4. Desactivar inmediatamente las luces del rig:
-   `ODISEA_BAKE_LIGHTS=0 godot3-bin --no-window -s tools/set_dome_intro_bake_lights.gd`.
-   Las luces permanecen invisibles y con bake deshabilitado en runtime; el
-   lightmap ya cocinado no se pierde.
+2. Abrir `Dome_Intro.tscn` con Godot 3 y ejecutar
+   `tools/editor_bake_dome_intro_lightmap_preview.gd` con **File > Run**
+   (`Ctrl+Shift+X`). Produce `Dome_Intro_fd250_preview.lmbake` en calidad Low,
+   dos bounces y sin atlas; no reemplaza el lightmap aprobado.
+3. Evaluar visualmente el preview. Para el producto final, repetir el bake con
+   la calidad acordada y publicar explícitamente el recurso en
+   `Dome_Intro.lmbake`.
+4. El script siempre restaura el rig: las luces permanecen invisibles y con bake
+   deshabilitado en runtime; el lightmap ya cocinado no se pierde.
 5. Verificar `verify_dome_intro_bake_lights.gd` y
    `verify_dome_intro_runtime_light_budget.gd`. El presupuesto actual es cinco
    OmniLights dinámicas en pools: 1 exit, 1 ramp, 1 spoke y 2 wall fixtures.

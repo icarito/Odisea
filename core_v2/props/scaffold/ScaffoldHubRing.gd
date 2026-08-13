@@ -340,16 +340,22 @@ func _add_outer_hazard_strip(surface_tool: SurfaceTool, outer_a: Vector3, outer_
 	# Se asignan UV locales por arista para que las diagonales se lean a una
 	# escala consistente alrededor del perímetro poligonal.
 	surface_tool.add_uv(Vector2(0, 0))
+	surface_tool.add_uv2(Vector2(0, 0))
 	surface_tool.add_vertex(edge_a)
 	surface_tool.add_uv(Vector2(1, 0))
+	surface_tool.add_uv2(Vector2(1, 0))
 	surface_tool.add_vertex(edge_b)
 	surface_tool.add_uv(Vector2(1, 1))
+	surface_tool.add_uv2(Vector2(1, 1))
 	surface_tool.add_vertex(inner_b)
 	surface_tool.add_uv(Vector2(0, 0))
+	surface_tool.add_uv2(Vector2(0, 0))
 	surface_tool.add_vertex(edge_a)
 	surface_tool.add_uv(Vector2(1, 1))
+	surface_tool.add_uv2(Vector2(1, 1))
 	surface_tool.add_vertex(inner_b)
 	surface_tool.add_uv(Vector2(0, 1))
+	surface_tool.add_uv2(Vector2(0, 1))
 	surface_tool.add_vertex(inner_a)
 
 # Deck sides only: the underside now lives in the grate surface above.
