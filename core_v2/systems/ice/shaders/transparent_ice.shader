@@ -1,5 +1,13 @@
 shader_type spatial;
-render_mode blend_mix, cull_back, depth_draw_alpha_prepass, diffuse_burley, specular_schlick_ggx;
+// SIN depth_draw_alpha_prepass a proposito. En GLES2 (Godot 3.6) ese modo manda el
+// material a la pasada OPACA: el blending queda apagado y ALPHA se ignora, asi que la
+// superficie se dibujaba solida por mas que se bajara `opacity`. Medido con cuatro losas
+// del mismo shader sobre un tablero de contraste: con el prepass tapaba el fondo tanto a
+// 0.40 como a 0.15; sin el, el fondo se ve en las dos. El modo por defecto
+// (depth_draw_opaque) no escribe profundidad en la pasada transparente, que es lo que
+// corresponde para hielo; el orden contra las particulas de escarcha lo resuelve el
+// render_priority del material en la escena.
+render_mode blend_mix, cull_back, diffuse_burley, specular_schlick_ggx;
 
 // Superficie económica: una sola lectura de textura en coordenadas de mundo.
 // El Fresnel es deliberadamente leve para que el dibujo no cambie con la cámara.
@@ -85,8 +93,9 @@ void fragment() {
 	AO = mix(1.0, ao_texel, 0.55);
 	EMISSION = vec3(0.55, 0.78, 1.0) * cracks * 0.004 * emission_boost;
 
-	// Used to ramp toward opaque with freeze_progress/height_opacity (floor 0.68, ceiling
-	// 0.94) — visually it just always read as opaque regardless of how those were tuned, so
-	// dropped the height dependency entirely: flat opacity, always transparent.
+	// Opacidad plana. Antes esto subia hacia opaco con freeze_progress/height_opacity y se
+	// quito porque "siempre se veia opaco igual"; en realidad lo que ignoraba el valor era
+	// el depth_draw_alpha_prepass del render_mode (ver arriba), no esta rampa. Si se quiere
+	// recuperar la variacion por altura, ahora si se va a notar.
 	ALPHA = clamp(opacity, 0.0, 0.95);
 }
