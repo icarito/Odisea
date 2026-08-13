@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=2]
+
+; Variante de fuente para los tramos generados por RadialScatter en Dome_Intro.
+; Los escalones conservan el acero oscuro de la estructura y usan naranja
+; industrial exclusivamente en las barandas.
+[ext_resource path="res://core_v2/props/scaffold/ScaffoldStairs.tscn" type="PackedScene" id=1]
+
+[node name="DomeIntroIndustrialStairs" instance=ExtResource( 1 )]
+rail_color = Color( 1, 0.56, 0.06, 1 )

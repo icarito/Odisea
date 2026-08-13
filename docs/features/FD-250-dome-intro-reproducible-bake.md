@@ -76,6 +76,10 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 - `docs/features/FEATURE_INDEX.md` (modify)
 - `core_v2/levels/interiors/DomeIntro_CriopodsSource.tscn` (new)
 - `core_v2/levels/interiors/DomeIntro_ScaffoldSource.tscn` (modify)
+- `core_v2/levels/interiors/DomeIntro_IndustrialRailing.tscn` (new, source
+  variant used by radial walkway generation)
+- `core_v2/levels/interiors/DomeIntro_IndustrialStairs.tscn` (new, source
+  variant used by radial stair generation)
 - `core_v2/levels/interiors/DomeIntro_HubTowerSource.tscn` (new, if extraction
   is required to eliminate the runtime scene as source)
 - `core_v2/levels/interiors/DomeIntro_BakeLights.tscn` (new)
