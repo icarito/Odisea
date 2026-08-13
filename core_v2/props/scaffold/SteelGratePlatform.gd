@@ -4,7 +4,7 @@ class_name SteelGratePlatform
 
 const DEFAULT_FOOTSTEP_PROFILE := preload("res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres")
 const FOOTSTEP_SURFACE_SCRIPT := preload("res://core_v2/systems/footsteps/footstep_surface.gd")
-const HAZARD_STRIPE_MATERIAL := preload("res://materials/diamondPlateAluminum/seam_hazard_stripes.tres")
+const DEFAULT_HAZARD_STRIPE_MATERIAL := preload("res://materials/diamondPlateAluminum/seam_hazard_stripes.tres")
 
 export(float, 1.0, 100.0, 0.1) var platform_width := 3.0 setget set_platform_width
 export(float, 1.0, 100.0, 0.1) var platform_depth := 3.0 setget set_platform_depth
@@ -49,6 +49,9 @@ export(bool) var hazard_strip_front := false setget set_hazard_strip_front
 export(bool) var hazard_strip_back := false setget set_hazard_strip_back
 export(float, 0.10, 2.0, 0.01) var hazard_strip_depth := 0.42 setget set_hazard_strip_depth
 export(float, 0.001, 0.20, 0.001) var hazard_strip_lift := 0.035 setget set_hazard_strip_lift
+# Material configurable por escena. El default procedural mantiene compatibilidad
+# con los scaffold fuera de Dome_Intro; Dome_Intro selecciona su variante PBR.
+export(Material) var hazard_strip_material: Material = DEFAULT_HAZARD_STRIPE_MATERIAL setget set_hazard_strip_material
 export(bool) var rail_front := true setget set_rail_front
 export(bool) var rail_back := true setget set_rail_back
 export(bool) var rail_left := false setget set_rail_left
@@ -242,6 +245,10 @@ func set_hazard_strip_depth(value: float) -> void:
 
 func set_hazard_strip_lift(value: float) -> void:
 	hazard_strip_lift = value
+	_queue_rebuild()
+
+func set_hazard_strip_material(value: Material) -> void:
+	hazard_strip_material = value if value != null else DEFAULT_HAZARD_STRIPE_MATERIAL
 	_queue_rebuild()
 
 func set_rail_front(value: bool) -> void:
@@ -667,7 +674,7 @@ func _add_hazard_strip(node_name: String, half_width: float, edge_sign: float) -
 	arrays[Mesh.ARRAY_INDEX] = PoolIntArray([0, 1, 2, 0, 2, 3])
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	mesh.surface_set_material(0, HAZARD_STRIPE_MATERIAL)
+	mesh.surface_set_material(0, hazard_strip_material)
 	var strip := MeshInstance.new()
 	strip.name = node_name
 	strip.layers = PROP_VISUAL_LAYER

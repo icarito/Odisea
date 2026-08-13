@@ -17,7 +17,7 @@ const FOOTSTEP_SURFACE_SCRIPT := preload("res://core_v2/systems/footsteps/footst
 # Same grate material SteelGratePlatform uses, so hub floors don't read as blank
 # slabs next to the authored platforms.
 const GRATE_MATERIAL_PATH := "res://textures/trenchbroom/steel_grate_platform.tres"
-const HAZARD_STRIPE_MATERIAL := preload("res://materials/diamondPlateAluminum/seam_hazard_stripes.tres")
+const DEFAULT_HAZARD_STRIPE_MATERIAL := preload("res://materials/diamondPlateAluminum/seam_hazard_stripes.tres")
 # Planar UV scale for the deck top. The .tres already applies uv1_scale = 3.5, so
 # this keeps one grate tile at roughly a meter instead of a 0.3 m moiré.
 const GRATE_UV_SCALE := 0.3
@@ -33,6 +33,8 @@ export(bool) var rail_inner := true setget set_rail_inner
 export(bool) var hazard_strip_outer := false setget set_hazard_strip_outer
 export(float, 0.10, 2.0, 0.01) var hazard_strip_width := 0.42 setget set_hazard_strip_width
 export(float, 0.001, 0.20, 0.001) var hazard_strip_lift := 0.035 setget set_hazard_strip_lift
+# El hub puede elegir el PBR del Dome sin cambiar el default del resto de niveles.
+export(Material) var hazard_strip_material: Material = DEFAULT_HAZARD_STRIPE_MATERIAL setget set_hazard_strip_material
 
 # Angular ranges (degrees, local to this node) where the outer rail opens up so a
 # walkway can dock. Same semantics as RadialScatter.blocked_angle_ranges_deg.
@@ -118,6 +120,10 @@ func set_hazard_strip_width(value: float) -> void:
 
 func set_hazard_strip_lift(value: float) -> void:
 	hazard_strip_lift = value
+	_queue_build()
+
+func set_hazard_strip_material(value: Material) -> void:
+	hazard_strip_material = value if value != null else DEFAULT_HAZARD_STRIPE_MATERIAL
 	_queue_build()
 
 func set_outer_openings_deg(value: Array) -> void:
@@ -256,7 +262,7 @@ func _build_compact_ring() -> void:
 	rail_tool.commit(mesh)
 	if hazard_tool != null:
 		hazard_tool.generate_normals()
-		hazard_tool.set_material(HAZARD_STRIPE_MATERIAL)
+		hazard_tool.set_material(hazard_strip_material)
 		hazard_tool.commit(mesh)
 	# La franja es una marca visual sobre el deck. El collider se construye sin
 	# esa última superficie, para que no eleve el piso ni cambie la navegación.

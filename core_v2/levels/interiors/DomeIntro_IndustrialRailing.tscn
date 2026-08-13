@@ -1,9 +1,11 @@
-[gd_scene load_steps=2 format=2]
+[gd_scene load_steps=3 format=2]
 
 ; Variante de fuente para los tramos generados por RadialScatter en Dome_Intro.
 ; Mantener el color aqui (en vez de solo en los hijos horneados) garantiza que
 ; cada re-bake conserve la señalización industrial de las barandas.
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldRailing.tscn" type="PackedScene" id=1]
+[ext_resource path="res://materials/diamondPlateAluminum/seam_road_lines_pbr.tres" type="Material" id=2]
 
 [node name="DomeIntroIndustrialRailing" instance=ExtResource( 1 )]
 rail_color = Color( 1, 0.56, 0.06, 1 )
+hazard_strip_material = ExtResource( 2 )

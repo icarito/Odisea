@@ -135,6 +135,23 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 5. Verificar `verify_dome_intro_bake_lights.gd` y
    `verify_dome_intro_runtime_light_budget.gd`.
 
+## Material PBR de seams
+
+- `seam_road_lines_pbr.tres` es la variante activa de Dome_Intro. Conserva el
+  patrón vertical amarillo/negro y usa `RoadLines022A` para el desgaste amarillo,
+  normal GL, roughness y AO. No usa displacement, opacity ni el normal DX.
+- La selección es explícita por fuente: `DomeIntro_IndustrialRailing.tscn`,
+  `DomeIntro_IndustrialStairs.tscn` y cada `Floor_*` de
+  `DomeIntro_HubTowerSource.tscn` exponen `hazard_strip_material`. Para volver
+  al aspecto procedural anterior, asignar
+  `res://materials/diamondPlateAluminum/seam_hazard_stripes.tres` en esas mismas
+  propiedades y reejecutar los bakers de walkways y hubs.
+- Las cuatro texturas usadas son compartidas (una sola instancia por escena),
+  1024², con compresión de VRAM y mipmaps. Los `.stex` base resultantes suman
+  aproximadamente 2.6 MiB; no hace falta reducirlas para este único material.
+  Si el perfil móvil revela presión de memoria, crear una variante 512² de esas
+  mismas cuatro entradas antes de bajar la calidad del lightmap.
+
 ## Configuración aprobada — 2026-08-13
 
 - El preview de bake aprobado es `Dome_Intro_fd250_preview.lmbake`; mientras
