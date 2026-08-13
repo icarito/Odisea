@@ -38,8 +38,8 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
    cambios posteriores de la escena.
 2. Cada baker recibe una fuente explícita y nunca vuelve a recolectar una malla
    previamente horneada como fuente de edición.
-3. Agregar placas de transición estáticas con diamond aluminium y franjas
-   amarillas; las placas se hornean junto con la geometría que conectan.
+3. Agregar marcas planas de transición con franjas amarillas, limitadas a la
+   abertura de cada ring hub y horneadas junto con la geometría que conectan.
 4. Aplicar amarillo/naranja industrial sólo a barandas, manteniendo vigas y
    estructura en acero oscuro.
 5. Crear un rig de luces de bake, con una luz estática por fixture relevante.

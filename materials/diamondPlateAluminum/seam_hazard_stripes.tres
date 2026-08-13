@@ -7,5 +7,5 @@ resource_name = "DomeIntroSeamHazardStripes"
 render_priority = 1
 shader = ExtResource( 1 )
 shader_param/stripe_color = Color( 1, 0.72, 0.06, 0.96 )
-shader_param/stripe_count = 7.0
+shader_param/stripe_count = 5.0
 shader_param/stripe_width = 0.52

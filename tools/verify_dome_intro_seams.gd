@@ -20,9 +20,9 @@ func _init() -> void:
 			quit(1)
 			return
 		mesh_count += 1
-	if mesh_count != SEAM_COUNT * 2:
-		push_error("[verify_seams] expected %d meshes, found %d" % [SEAM_COUNT * 2, mesh_count])
+	if mesh_count != SEAM_COUNT:
+		push_error("[verify_seams] expected %d meshes, found %d" % [SEAM_COUNT, mesh_count])
 		quit(1)
 		return
-	print("[verify_seams] PASS %d seams / %d bake meshes" % [SEAM_COUNT, mesh_count])
+	print("[verify_seams] PASS %d flat hazard strips" % mesh_count)
 	quit(0)
