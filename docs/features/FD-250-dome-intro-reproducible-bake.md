@@ -126,13 +126,18 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 2. Abrir `Dome_Intro.tscn` con Godot 3 y ejecutar
    `tools/editor_bake_dome_intro_lightmap.gd` con **File > Run**
    (`Ctrl+Shift+X`). Produce el bake activo `Dome_Intro.lmbake` en calidad Low,
-   dos bounces y sin atlas.
+   dos bounces, sin atlas y en LDR con color. LDR es la compresión sostenible
+   del bake: conserva las luces industriales de color, pero no almacena valores
+   HDR que Dome_Intro no usa.
 3. Evaluar visualmente el bake y volver a ejecutar el mismo flujo al ajustar
    fixtures, geometría o la calidad. Git conserva cada estado del bake.
 4. El script siempre restaura el rig: las luces permanecen invisibles y con bake
    deshabilitado en runtime; el lightmap ya cocinado no se pierde.
 5. Verificar `verify_dome_intro_bake_lights.gd` y
    `verify_dome_intro_runtime_light_budget.gd`.
+6. No comprimir `Dome_Intro.lmbake` con una herramienta externa: Godot debe
+   leerlo como `BakedLightmapData`. El artefacto de distribución es el `.pck.gz`
+   del CI; ahí el bake ya se comprime de forma segura junto con el resto del juego.
 
 ## Material PBR de seams
 

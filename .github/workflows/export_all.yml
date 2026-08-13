@@ -798,6 +798,12 @@ jobs:
             **/*.svg.import
           key: ${{ runner.os }}-import-v2-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-${{ hashFiles('**/*.import', '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.tga', '**/*.svg', '**/*.gltf', '**/*.glb', '**/*.dae', '**/*.obj', '**/*.mtl', '**/*.ogg', '**/*.mp3', '**/*.wav', '**/*.ttf', '**/*.otf') }}
 
+      # The exporter packages every texture destination named by a cached .import
+      # manifest. Normalize this disposable CI checkout so stale ETC/PVRTC outputs
+      # from another platform cannot inflate a desktop PCK.
+      - name: Limit cached VRAM texture variants
+        run: python3 scripts/limit_vram_import_formats.py "${{ matrix.platform }}"
+
       # Compila la lib GDNative de bspatch (delta binario del update) para la plataforma
       # actual ANTES del export: el exporter de Godot copia la .so/.dll junto al binario
       # solo si existe en disco en la ruta del .gdnlib. Sin lib, el cliente cae a full
@@ -1215,6 +1221,11 @@ jobs:
             echo "::error::No standalone .pck found in $SRC (embed_pck debería ser false)"
             ls -la "$SRC" || true
             exit 1
+          fi
+          if [ "${{ matrix.platform }}" = "linux_x64" ] || [ "${{ matrix.platform }}" = "windows" ]; then
+            python3 tools/audit_export_pck.py "$PCK" --desktop
+          else
+            python3 tools/audit_export_pck.py "$PCK"
           fi
           mkdir -p dist
           OUT="dist/${{ matrix.artifact_name }}-$VERSION.pck"

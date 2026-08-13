@@ -28,7 +28,12 @@ func _run() -> void:
 	lightmap.quality = BakedLightmap.BAKE_QUALITY_LOW
 	lightmap.atlas_generate = false # Dome_Intro excede un atlas 4096; funciona en GLES2.
 	lightmap.use_denoiser = true
-	print("[dome_lightmap] bake LOW, 2 bounces, 107 static lights -> ", BAKE_PATH)
+	# Dome_Intro no necesita rango HDR para sus fixtures industriales. LDR reduce
+	# el tamaño del producto de bake sin perder las luces de color; no comprimir
+	# el .lmbake externamente, porque debe seguir siendo un Resource de Godot.
+	lightmap.use_hdr = false
+	lightmap.use_color = true
+	print("[dome_lightmap] bake LOW LDR/color, 2 bounces, 107 static lights -> ", BAKE_PATH)
 	var result: int = lightmap.bake(dome, BAKE_PATH)
 	rig.set("bake_rig_enabled", false)
 	for child in rig.get_children():
