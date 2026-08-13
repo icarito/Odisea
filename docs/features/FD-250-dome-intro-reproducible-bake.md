@@ -95,7 +95,7 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 - `tools/verify_criopod_bake.gd` (modify)
 - `tools/generate_dome_intro_bake_lights.gd` (new)
 - `tools/set_dome_intro_bake_lights.gd` (new)
-- `tools/editor_bake_dome_intro_lightmap_preview.gd` (new, ejecutar en editor)
+- `tools/editor_bake_dome_intro_lightmap.gd` (new, ejecutar en editor)
 - `tools/verify_dome_intro_seams.gd` (new)
 - `tools/verify_dome_intro_bake_lights.gd` (new)
 - `tools/verify_dome_intro_runtime_light_budget.gd` (new)
@@ -124,12 +124,11 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 1. Si cambian fixtures o sus MultiMeshes, regenerar el rig:
    `godot3-bin --no-window -s tools/generate_dome_intro_bake_lights.gd`.
 2. Abrir `Dome_Intro.tscn` con Godot 3 y ejecutar
-   `tools/editor_bake_dome_intro_lightmap_preview.gd` con **File > Run**
-   (`Ctrl+Shift+X`). Produce `Dome_Intro_fd250_preview.lmbake` en calidad Low,
-   dos bounces y sin atlas; no reemplaza el lightmap aprobado.
-3. Evaluar visualmente el preview. Para el producto final, repetir el bake con
-   la calidad acordada y publicar explícitamente el recurso en
-   `Dome_Intro.lmbake`.
+   `tools/editor_bake_dome_intro_lightmap.gd` con **File > Run**
+   (`Ctrl+Shift+X`). Produce el bake activo `Dome_Intro.lmbake` en calidad Low,
+   dos bounces y sin atlas.
+3. Evaluar visualmente el bake y volver a ejecutar el mismo flujo al ajustar
+   fixtures, geometría o la calidad. Git conserva cada estado del bake.
 4. El script siempre restaura el rig: las luces permanecen invisibles y con bake
    deshabilitado en runtime; el lightmap ya cocinado no se pierde.
 5. Verificar `verify_dome_intro_bake_lights.gd` y
@@ -154,8 +153,8 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 
 ## Configuración aprobada — 2026-08-13
 
-- El preview de bake aprobado es `Dome_Intro_fd250_preview.lmbake`; mientras
-  `Dome_Intro.tscn` lo referencie, ese es el lightmap activo de la escena.
+- El bake activo es `Dome_Intro.lmbake`; `Dome_Intro.tscn` siempre referencia
+  ese recurso y Git conserva su evolución.
 - El rig `DomeIntroBakeLights` participa sólo durante el bake y se restaura
   automáticamente a `Bake Disabled` e invisible antes de volver a runtime.
 - Presupuesto dinámico actual: **1 OmniLight**, en `WallLights` (rango 18 m).
@@ -170,9 +169,9 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
    mallas `*_baked.mesh` a mano.
 2. Si cambian los fixtures o sus `MultiMesh`, regenerar `DomeIntro_BakeLights`
    con `tools/generate_dome_intro_bake_lights.gd` antes de hacer otro bake.
-3. Para iterar iluminación, conservar el `.lmbake` aprobado y generar otro
-   preview desde el EditorScript. Publicar/reemplazar el recurso activo sólo
-   después de inspección visual de estáticos, Elías y props móviles.
+3. Para iterar iluminación, reejecutar el EditorScript: reemplaza el bake
+   activo y Git conserva el estado anterior. Inspeccionar estáticos, Elías y
+   props móviles antes de continuar con el siguiente ajuste.
 4. Cada bake debe cerrar con el rig deshabilitado y con
    `godot3-bin --no-window -s tools/verify_dome_intro_runtime_light_budget.gd`.
    Si se modifica la única luz restante, comprobar especialmente legibilidad de

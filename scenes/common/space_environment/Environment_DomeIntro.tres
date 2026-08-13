@@ -4,7 +4,7 @@
 background_mode = 1
 background_color = Color( 0.008, 0.011, 0.022, 1 )
 ambient_light_color = Color( 0.0392157, 0.0980392, 0.133333, 1 )
-ambient_light_energy = 0.4
+ambient_light_energy = 0.2
 ambient_light_sky_contribution = 0.0
 fog_color = Color( 0.075, 0.105, 0.15, 1 )
 fog_sun_color = Color( 0.13, 0.17, 0.22, 1 )
@@ -30,7 +30,7 @@ glow_levels/6 = true
 glow_levels/7 = true
 glow_bloom = 0.7
 glow_blend_mode = 1
-glow_hdr_threshold = 3.0
+glow_hdr_threshold = 2.0
 glow_bicubic_upscale = true
 glow_high_quality = true
 adjustment_brightness = 0.5
