@@ -1,0 +1,857 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/levels/interiors/DomeIntroBakeLightRig.gd" type="Script" id=1]
+
+[node name="DomeIntroBakeLights" type="Spatial"]
+script = ExtResource( 1 )
+bake_rig_enabled = false
+
+[node name="WallFixture_000" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 28.2055, 3.87006, 11.6831 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_001" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 28.1671, 6.90076, 11.6672 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_002" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.061, 11.4121, 11.2091 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_003" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 25.2968, 15.8526, 10.4783 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_004" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 22.6828, 20.304, 9.39549 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_005" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.6787, 24.7695, 7.73695 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_006" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 16.4969, 26.2253, 6.83323 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_007" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.7181, 28.154, 5.68219 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_008" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0069, 29.3501, 4.55921 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_009" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.22817, 30.4098, 3.40821 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_010" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.52094, 31.1107, 2.28688 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_011" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.6831, 3.87006, 28.2055 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_012" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.6672, 6.90076, 28.1671 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_013" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.2091, 11.4121, 27.061 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_014" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.4783, 15.8526, 25.2968 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_015" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.39549, 20.304, 22.6828 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_016" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.73695, 24.7695, 18.6787 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_017" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.83323, 26.2253, 16.4969 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_018" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.68219, 28.154, 13.7181 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_019" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.55921, 29.3501, 11.0069 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_020" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.40821, 30.4098, 8.22817 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_021" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.28688, 31.1107, 5.52094 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_022" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6831, 3.87006, 28.2055 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_023" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6672, 6.90076, 28.1671 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_024" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.2091, 11.4121, 27.061 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_025" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.4783, 15.8526, 25.2968 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_026" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.39549, 20.304, 22.6828 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_027" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7.73695, 24.7695, 18.6787 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_028" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.83323, 26.2253, 16.4969 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_029" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.68219, 28.154, 13.7181 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_030" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.55921, 29.3501, 11.0069 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_031" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.40821, 30.4099, 8.22817 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_032" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.28688, 31.1107, 5.52094 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_033" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -28.2055, 3.87006, 11.6831 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_034" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -28.1671, 6.90076, 11.6672 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_035" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -27.061, 11.4121, 11.2091 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_036" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2968, 15.8526, 10.4783 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_037" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22.6828, 20.304, 9.39549 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_038" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.6787, 24.7695, 7.73695 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_039" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -16.4969, 26.2253, 6.83323 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_040" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -13.7181, 28.1539, 5.68219 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_041" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.0069, 29.3501, 4.55921 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_042" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.22817, 30.4099, 3.40821 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_043" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.52094, 31.1107, 2.28688 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_044" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -28.2055, 3.87006, -11.6831 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_045" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -28.1671, 6.90076, -11.6672 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_046" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -27.061, 11.4121, -11.2091 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_047" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2968, 15.8526, -10.4783 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_048" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22.6828, 20.304, -9.39549 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_049" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.6787, 24.7695, -7.73695 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_050" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -16.4969, 26.2253, -6.83323 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_051" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -13.7181, 28.1539, -5.68219 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_052" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.0069, 29.3501, -4.55921 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_053" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.22817, 30.4098, -3.40821 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_054" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.52094, 31.1107, -2.28688 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_055" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6831, 3.87006, -28.2055 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_056" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6672, 6.90076, -28.1671 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_057" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.2091, 11.4121, -27.061 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_058" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.4783, 15.8526, -25.2968 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_059" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.39549, 20.304, -22.6828 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_060" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7.73695, 24.7695, -18.6787 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_061" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.83323, 26.2253, -16.4969 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_062" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.68219, 28.154, -13.7181 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_063" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.55921, 29.3501, -11.0069 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_064" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.40821, 30.4099, -8.22817 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_065" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.28688, 31.1107, -5.52094 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_066" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.6831, 3.87006, -28.2055 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_067" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.6672, 6.90076, -28.1671 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_068" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.2091, 11.4121, -27.061 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_069" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.4783, 15.8526, -25.2968 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_070" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.39549, 20.304, -22.6828 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_071" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.73695, 24.7695, -18.6787 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_072" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.83323, 26.2253, -16.4969 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_073" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.68219, 28.154, -13.7181 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_074" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.55921, 29.3501, -11.0069 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_075" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.40821, 30.4099, -8.22817 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_076" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.28688, 31.1107, -5.52094 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_077" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 28.2055, 3.87006, -11.6831 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_078" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 28.1671, 6.90076, -11.6672 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_079" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.061, 11.4121, -11.2091 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_080" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 25.2968, 15.8526, -10.4783 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_081" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 22.6828, 20.304, -9.39549 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_082" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.6787, 24.7695, -7.73695 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_083" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 16.4969, 26.2253, -6.83323 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_084" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.7181, 28.154, -5.68219 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_085" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0069, 29.3501, -4.55921 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_086" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.22817, 30.4098, -3.40821 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="WallFixture_087" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.52094, 31.1107, -2.28688 )
+visible = false
+light_color = Color( 0.72, 0.84, 1, 1 )
+light_energy = 0.72
+light_bake_mode = 0
+omni_range = 8.0
+
+[node name="HubExit_00" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2495, 0.2, 11.4544 )
+visible = false
+light_color = Color( 1, 0.14, 0.1, 1 )
+light_energy = 1.2
+light_bake_mode = 0
+
+[node name="HubExit_01" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2495, 4.7, 11.4544 )
+visible = false
+light_color = Color( 1, 0.14, 0.1, 1 )
+light_energy = 1.2
+light_bake_mode = 0
+
+[node name="HubExit_02" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2495, 9.2, 11.4544 )
+visible = false
+light_color = Color( 1, 0.14, 0.1, 1 )
+light_energy = 1.2
+light_bake_mode = 0
+
+[node name="HubExit_03" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2495, 13.7, 11.4544 )
+visible = false
+light_color = Color( 1, 0.14, 0.1, 1 )
+light_energy = 1.2
+light_bake_mode = 0
+
+[node name="HubExit_04" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2495, 18.2, 11.4544 )
+visible = false
+light_color = Color( 1, 0.14, 0.1, 1 )
+light_energy = 1.2
+light_bake_mode = 0
+
+[node name="HubExit_05" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2495, 22.7, 11.4544 )
+visible = false
+light_color = Color( 1, 0.14, 0.1, 1 )
+light_energy = 1.2
+light_bake_mode = 0
+
+[node name="DomeCore_00" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 31.4, 0 )
+visible = false
+light_color = Color( 1, 0.97, 0.88, 1 )
+light_energy = 1.8
+light_bake_mode = 0
+omni_range = 24.0
+
+[node name="DomeCrown_00" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4, 31.05, 0 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_01" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.9445, 31.05, 1.7 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_02" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7, 31.05, 2.9445 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_03" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 31.05, 3.4 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_04" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7, 31.05, 2.9445 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_05" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.9445, 31.05, 1.7 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_06" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4, 31.05, 0 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_07" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.9445, 31.05, -1.7 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_08" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7, 31.05, -2.9445 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_09" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 31.05, -3.4 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_10" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7, 31.05, -2.9445 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0
+
+[node name="DomeCrown_11" type="OmniLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.9445, 31.05, -1.7 )
+visible = false
+light_color = Color( 0.78, 0.9, 1, 1 )
+light_energy = 0.9
+light_bake_mode = 0
+omni_range = 10.0

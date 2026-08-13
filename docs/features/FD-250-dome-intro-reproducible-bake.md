@@ -88,11 +88,17 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 - `core_v2/props/scaffold/SteelGratePlatform.gd` (modify only if seam/rail
   authoring needs an existing extension)
 - `core_v2/props/scaffold/ScaffoldSeamPlate.*` (new)
-- `materials/diamondPlateAluminum/*` (new/modify stripe material only)
+- `core_v2/levels/interiors/DomeIntro_Seams.tscn` (new)
+- `materials/diamondPlateAluminum/seam_hazard_stripes.*` (new stripe overlay)
 - `tools/bake_dome_intro_criopods.gd` (modify)
 - `tools/bake_scaffold_walkways.gd` (modify)
 - `tools/bake_dome_intro_hub_floors.gd` (modify)
 - `tools/verify_criopod_bake.gd` (modify)
+- `tools/generate_dome_intro_bake_lights.gd` (new)
+- `tools/set_dome_intro_bake_lights.gd` (new)
+- `tools/verify_dome_intro_seams.gd` (new)
+- `tools/verify_dome_intro_bake_lights.gd` (new)
+- `tools/verify_dome_intro_runtime_light_budget.gd` (new)
 
 ## Implementation Plan
 
@@ -109,6 +115,23 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
    los fixtures estáticos, hornear, y volver al presupuesto de runtime acordado.
 7. Ejecutar verificación geométrica, inspección visual, smoke de assets, tests
    relevantes y suite completa final.
+
+## Bake Light Workflow
+
+1. Si cambian fixtures o sus MultiMeshes, regenerar el rig:
+   `godot3-bin --no-window -s tools/generate_dome_intro_bake_lights.gd`.
+2. Activar sólo sus modos de bake:
+   `ODISEA_BAKE_LIGHTS=1 godot3-bin --no-window -s tools/set_dome_intro_bake_lights.gd`.
+3. Abrir `Dome_Intro.tscn` con Godot 3, seleccionar `BakedLightmap` y ejecutar
+   **Bake Lightmaps**. Para iterar, usar calidad Low/bounces 1; para el producto
+   final usar la calidad acordada y conservar `Dome_Intro.lmbake` versionado.
+4. Desactivar inmediatamente las luces del rig:
+   `ODISEA_BAKE_LIGHTS=0 godot3-bin --no-window -s tools/set_dome_intro_bake_lights.gd`.
+   Las luces permanecen invisibles y con bake deshabilitado en runtime; el
+   lightmap ya cocinado no se pierde.
+5. Verificar `verify_dome_intro_bake_lights.gd` y
+   `verify_dome_intro_runtime_light_budget.gd`. El presupuesto actual es cinco
+   OmniLights dinámicas en pools: 1 exit, 1 ramp, 1 spoke y 2 wall fixtures.
 
 ## Verification
 

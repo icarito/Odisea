@@ -387,6 +387,14 @@ func _build_materials() -> void:
 	else:
 		_rail_material = _frame_material.duplicate() as SpatialMaterial
 		_rail_material.albedo_color = rail_color
+		# La rampa se ve mayormente con luz indirecta/horneada. El acero muy
+		# metálico devolvía las barandas de seguridad al mismo gris que el frame,
+		# aunque su albedo fuese naranja. Menos metal y una emisión tenue preservan
+		# el código visual industrial sin convertirlas en luces de runtime.
+		_rail_material.metallic = 0.32
+		_rail_material.roughness = 0.44
+		_rail_material.emission_enabled = true
+		_rail_material.emission = rail_color * 0.18
 
 	# Grate: alpha scissor requires flags_transparent = true in Godot 3.
 	# Keep metallic/roughness from the base material (steel-looking), only

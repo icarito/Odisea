@@ -33,9 +33,10 @@ func _init() -> void:
 					str(sm.get_shader_param("use_alpha_scissor"))]
 			elif mat is SpatialMaterial:
 				var sp := mat as SpatialMaterial
-				desc = "SpatialMaterial albedo=%s tex=%s uv1_scale=%s scissor=%s" % [
+				desc = "SpatialMaterial albedo=%s tex=%s metal=%.2f rough=%.2f emission=%s uv1_scale=%s scissor=%s" % [
 					str(sp.albedo_color),
 					sp.albedo_texture.resource_path if sp.albedo_texture else "-",
+					sp.metallic, sp.roughness, str(sp.emission) if sp.emission_enabled else "off",
 					str(sp.uv1_scale), str(sp.params_use_alpha_scissor)]
 			print("  surf %d verts=%6d %s" % [i, verts, desc])
 	quit(0)

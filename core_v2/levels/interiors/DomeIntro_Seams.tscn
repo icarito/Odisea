@@ -1,0 +1,74 @@
+[gd_scene load_steps=5 format=2]
+
+; Placas visuales de transición entre la rampa espiral y las cinco aberturas
+; exteriores de los ring hubs. Son delgadas y sin colisión: el piso/collider de
+; cada hub sigue siendo la única superficie caminable y el cambio puede
+; rehornearse sin alterar gameplay.
+
+[ext_resource path="res://materials/diamondPlateAluminum/diamondAluminum.tres" type="Material" id=1]
+[ext_resource path="res://materials/diamondPlateAluminum/seam_hazard_stripes.tres" type="Material" id=2]
+
+[sub_resource type="PlaneMesh" id=1]
+material = ExtResource( 1 )
+size = Vector2( 6.2, 0.9 )
+
+[sub_resource type="PlaneMesh" id=2]
+material = ExtResource( 2 )
+size = Vector2( 6.2, 0.9 )
+
+[node name="DomeIntroSeams" type="Spatial"]
+
+[node name="Seam_1_Base" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 4.515, 11.9998 )
+use_in_baked_light = true
+mesh = SubResource( 1 )
+
+[node name="Seam_1_Stripes" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 4.53, 11.9998 )
+use_in_baked_light = true
+cast_shadow = 0
+mesh = SubResource( 2 )
+
+[node name="Seam_2_Base" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 9.015, 11.9998 )
+use_in_baked_light = true
+mesh = SubResource( 1 )
+
+[node name="Seam_2_Stripes" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 9.03, 11.9998 )
+use_in_baked_light = true
+cast_shadow = 0
+mesh = SubResource( 2 )
+
+[node name="Seam_3_Base" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 13.515, 11.9998 )
+use_in_baked_light = true
+mesh = SubResource( 1 )
+
+[node name="Seam_3_Stripes" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 13.53, 11.9998 )
+use_in_baked_light = true
+cast_shadow = 0
+mesh = SubResource( 2 )
+
+[node name="Seam_4_Base" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 18.015, 11.9998 )
+use_in_baked_light = true
+mesh = SubResource( 1 )
+
+[node name="Seam_4_Stripes" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 18.03, 11.9998 )
+use_in_baked_light = true
+cast_shadow = 0
+mesh = SubResource( 2 )
+
+[node name="Seam_5_Base" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 22.515, 11.9998 )
+use_in_baked_light = true
+mesh = SubResource( 1 )
+
+[node name="Seam_5_Stripes" type="MeshInstance" parent="."]
+transform = Transform( 0.909076, 0, 0.41663, 0, 1, 0, -0.41663, 0, 0.909076, -5.49951, 22.53, 11.9998 )
+use_in_baked_light = true
+cast_shadow = 0
+mesh = SubResource( 2 )
