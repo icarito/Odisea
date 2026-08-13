@@ -2,7 +2,7 @@ extends SceneTree
 
 const SCENE_PATH := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 const POOLS := ["HubExitLights", "RampLightPath", "SpokeLightPath", "WallLights"]
-const EXPECTED_POOL_TOTAL := 5
+const EXPECTED_POOL_TOTAL := 1
 
 func _init() -> void:
 	var scene := load(SCENE_PATH) as PackedScene

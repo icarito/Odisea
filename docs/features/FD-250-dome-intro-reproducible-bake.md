@@ -133,8 +133,33 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 4. El script siempre restaura el rig: las luces permanecen invisibles y con bake
    deshabilitado en runtime; el lightmap ya cocinado no se pierde.
 5. Verificar `verify_dome_intro_bake_lights.gd` y
-   `verify_dome_intro_runtime_light_budget.gd`. El presupuesto actual es cinco
-   OmniLights dinámicas en pools: 1 exit, 1 ramp, 1 spoke y 2 wall fixtures.
+   `verify_dome_intro_runtime_light_budget.gd`.
+
+## Configuración aprobada — 2026-08-13
+
+- El preview de bake aprobado es `Dome_Intro_fd250_preview.lmbake`; mientras
+  `Dome_Intro.tscn` lo referencie, ese es el lightmap activo de la escena.
+- El rig `DomeIntroBakeLights` participa sólo durante el bake y se restaura
+  automáticamente a `Bake Disabled` e invisible antes de volver a runtime.
+- Presupuesto dinámico actual: **1 OmniLight**, en `WallLights` (rango 18 m).
+  `HubExitLights`, `RampLightPath` y `SpokeLightPath` conservan sus marcadores
+  visuales, pero no instancian luces. La única luz restante es proximidad para
+  Elías/props dinámicos, no iluminación ambiental del domo.
+
+## Continuar el sistema
+
+1. Cambios de criopods, rampa, spokes o hubs se hacen sólo en sus escenas
+   `*Source.tscn`; después ejecutar sus bakers respectivos. No editar las
+   mallas `*_baked.mesh` a mano.
+2. Si cambian los fixtures o sus `MultiMesh`, regenerar `DomeIntro_BakeLights`
+   con `tools/generate_dome_intro_bake_lights.gd` antes de hacer otro bake.
+3. Para iterar iluminación, conservar el `.lmbake` aprobado y generar otro
+   preview desde el EditorScript. Publicar/reemplazar el recurso activo sólo
+   después de inspección visual de estáticos, Elías y props móviles.
+4. Cada bake debe cerrar con el rig deshabilitado y con
+   `godot3-bin --no-window -s tools/verify_dome_intro_runtime_light_budget.gd`.
+   Si se modifica la única luz restante, comprobar especialmente legibilidad de
+   Elías, puertas móviles y feedback de salida.
 
 ## Verification
 
