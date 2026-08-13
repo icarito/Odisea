@@ -258,6 +258,7 @@ func _save_visual_sectors(group_name: String, combined: ArrayMesh) -> bool:
 		var vertices: PoolVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var normals = arrays[Mesh.ARRAY_NORMAL]
 		var uvs = arrays[Mesh.ARRAY_TEX_UV]
+		var tangents = arrays[Mesh.ARRAY_TANGENT]
 		var indices = arrays[Mesh.ARRAY_INDEX]
 		var triangle_count: int = (indices as PoolIntArray).size() / 3 if indices is PoolIntArray and (indices as PoolIntArray).size() > 0 else vertices.size() / 3
 		for triangle_index in range(triangle_count):
@@ -279,6 +280,11 @@ func _save_visual_sectors(group_name: String, combined: ArrayMesh) -> bool:
 				if normals != null:
 					var normal: Vector3 = normals[vertex_index]
 					target.add_normal(normal.normalized() if normal.length_squared() > 0.00000001 else face_normal)
+				if tangents != null and tangents.size() >= (vertex_index + 1) * 4:
+					var tangent_offset: int = vertex_index * 4
+					target.add_tangent(Plane(Vector3(
+						tangents[tangent_offset], tangents[tangent_offset + 1], tangents[tangent_offset + 2]
+					).normalized(), tangents[tangent_offset + 3]))
 				target.add_vertex(vertices[vertex_index])
 			sector_vertex_counts[sector_index][surface_index] += 3
 
@@ -387,19 +393,20 @@ func _append_transformed_surface(st: SurfaceTool, mesh: Mesh, surf_idx: int, xfo
 	var verts: PoolVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var normals = arrays[Mesh.ARRAY_NORMAL]
 	var uvs = arrays[Mesh.ARRAY_TEX_UV]
+	var tangents = arrays[Mesh.ARRAY_TANGENT]
 	var indices = arrays[Mesh.ARRAY_INDEX]
 	var normal_basis: Basis = xform.basis.inverse().transposed()
 
 	if indices != null and (indices as PoolIntArray).size() > 0:
 		for idx in (indices as PoolIntArray):
 			_add_vertex(st, verts[idx], normals[idx] if normals != null else null,
-				uvs[idx] if uvs != null else null, xform, normal_basis, uv_scale, uv_offset)
+				uvs[idx] if uvs != null else null, tangents, idx, xform, normal_basis, uv_scale, uv_offset)
 	else:
 		for i in range(verts.size()):
 			_add_vertex(st, verts[i], normals[i] if normals != null else null,
-				uvs[i] if uvs != null else null, xform, normal_basis, uv_scale, uv_offset)
+				uvs[i] if uvs != null else null, tangents, i, xform, normal_basis, uv_scale, uv_offset)
 
-func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, xform: Transform, normal_basis: Basis,
+func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, tangents, source_index: int, xform: Transform, normal_basis: Basis,
 		uv_scale: Vector2 = Vector2(1, 1), uv_offset: Vector2 = Vector2(0, 0)) -> void:
 	if uv != null:
 		# Hornea uv1_scale/uv1_offset del material en la UV del vertice, para que el
@@ -407,4 +414,13 @@ func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, xform: Transform, normal_ba
 		st.add_uv(Vector2(uv.x * uv_scale.x + uv_offset.x, uv.y * uv_scale.y + uv_offset.y))
 	if n != null:
 		st.add_normal(normal_basis.xform(n).normalized())
+	if tangents != null and tangents.size() >= (source_index + 1) * 4:
+		var tangent_offset: int = source_index * 4
+		var tangent: Vector3 = xform.basis.xform(Vector3(
+			tangents[tangent_offset], tangents[tangent_offset + 1], tangents[tangent_offset + 2]
+		)).normalized()
+		var handedness: float = tangents[tangent_offset + 3]
+		if xform.basis.determinant() < 0.0:
+			handedness *= -1.0
+		st.add_tangent(Plane(tangent, handedness))
 	st.add_vertex(xform.xform(v))

@@ -10,12 +10,17 @@ const BAKED_PBR_MATERIAL_PATHS := [
 	"res://core_v2/levels/interiors/DomeIntro_HubSpokes_mat_01.material",
 	"res://core_v2/levels/interiors/Dome_Intro_HubRing_mat_04.material",
 ]
+const BAKED_PBR_MESH_PATHS := [
+	"res://core_v2/levels/interiors/DomeIntro_SpiralStairs_baked.mesh",
+	"res://core_v2/levels/interiors/DomeIntro_HubSpokes_baked.mesh",
+	"res://core_v2/levels/interiors/Dome_Intro_Floor_1_baked.mesh",
+]
 
 func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	if not _verify_baked_pbr_materials():
+	if not _verify_baked_pbr_materials() or not _verify_baked_pbr_tangents():
 		quit(1)
 		return
 	var hub_scene := load(HUB_SOURCE_PATH) as PackedScene
@@ -61,6 +66,31 @@ func _verify_baked_pbr_materials() -> bool:
 			return false
 		if material.shader.resource_path != PBR_SEAM_SHADER_PATH:
 			push_error("[verify_seams] %s does not use RoadLines PBR" % material_path)
+			return false
+	return true
+
+func _verify_baked_pbr_tangents() -> bool:
+	for mesh_path in BAKED_PBR_MESH_PATHS:
+		var mesh := load(mesh_path) as ArrayMesh
+		if mesh == null:
+			push_error("[verify_seams] missing baked PBR mesh: %s" % mesh_path)
+			return false
+		var has_pbr_surface := false
+		for surface_index in range(mesh.get_surface_count()):
+			var material := mesh.surface_get_material(surface_index) as ShaderMaterial
+			if material == null or material.shader == null:
+				continue
+			if material.shader.resource_path != PBR_SEAM_SHADER_PATH:
+				continue
+			has_pbr_surface = true
+			var arrays: Array = mesh.surface_get_arrays(surface_index)
+			var vertices: PoolVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var tangents = arrays[Mesh.ARRAY_TANGENT]
+			if tangents == null or tangents.size() != vertices.size() * 4:
+				push_error("[verify_seams] PBR surface without tangents: %s" % mesh_path)
+				return false
+		if not has_pbr_surface:
+			push_error("[verify_seams] no PBR surface in %s" % mesh_path)
 			return false
 	return true
 

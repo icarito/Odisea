@@ -261,7 +261,10 @@ func _build_compact_ring() -> void:
 	rail_tool.set_material(_compact_material(rail_color, 1.0))
 	rail_tool.commit(mesh)
 	if hazard_tool != null:
-		hazard_tool.generate_normals()
+		# La tira se posa siempre sobre el deck horizontal. No usar normales del
+		# winding poligonal: en algunos sectores quedaban hacia abajo y el normal
+		# map PBR respondía de manera opuesta a la luz.
+		hazard_tool.generate_tangents()
 		hazard_tool.set_material(hazard_strip_material)
 		hazard_tool.commit(mesh)
 	# La franja es una marca visual sobre el deck. El collider se construye sin
@@ -347,21 +350,27 @@ func _add_outer_hazard_strip(surface_tool: SurfaceTool, outer_a: Vector3, outer_
 	# escala consistente alrededor del perímetro poligonal.
 	surface_tool.add_uv(Vector2(0, 0))
 	surface_tool.add_uv2(Vector2(0, 0))
+	surface_tool.add_normal(Vector3.UP)
 	surface_tool.add_vertex(edge_a)
 	surface_tool.add_uv(Vector2(1, 0))
 	surface_tool.add_uv2(Vector2(1, 0))
+	surface_tool.add_normal(Vector3.UP)
 	surface_tool.add_vertex(edge_b)
 	surface_tool.add_uv(Vector2(1, 1))
 	surface_tool.add_uv2(Vector2(1, 1))
+	surface_tool.add_normal(Vector3.UP)
 	surface_tool.add_vertex(inner_b)
 	surface_tool.add_uv(Vector2(0, 0))
 	surface_tool.add_uv2(Vector2(0, 0))
+	surface_tool.add_normal(Vector3.UP)
 	surface_tool.add_vertex(edge_a)
 	surface_tool.add_uv(Vector2(1, 1))
 	surface_tool.add_uv2(Vector2(1, 1))
+	surface_tool.add_normal(Vector3.UP)
 	surface_tool.add_vertex(inner_b)
 	surface_tool.add_uv(Vector2(0, 1))
 	surface_tool.add_uv2(Vector2(0, 1))
+	surface_tool.add_normal(Vector3.UP)
 	surface_tool.add_vertex(inner_a)
 
 # Deck sides only: the underside now lives in the grate surface above.

@@ -665,15 +665,25 @@ func _add_hazard_strip(node_name: String, half_width: float, edge_sign: float) -
 	var ratio: float = clamp(hazard_strip_depth / max(edge_left.distance_to(opposite_left), 0.001), 0.01, 0.45)
 	var inner_left: Vector3 = edge_left.linear_interpolate(opposite_left, ratio)
 	var inner_right: Vector3 = edge_right.linear_interpolate(opposite_right, ratio)
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = PoolVector3Array([edge_left, edge_right, inner_right, inner_left])
-	arrays[Mesh.ARRAY_NORMAL] = PoolVector3Array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
-	arrays[Mesh.ARRAY_TEX_UV] = PoolVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
-	arrays[Mesh.ARRAY_TEX_UV2] = PoolVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
-	arrays[Mesh.ARRAY_INDEX] = PoolIntArray([0, 1, 2, 0, 2, 3])
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	# El normal map PBR necesita tangentes. ArrayMesh con UVs pero sin tangentes
+	# hacía que algunas placas de rampa reaccionaran distinto a la misma luz.
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var vertices := [edge_left, edge_right, inner_right, inner_left]
+	var uvs := [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]
+	for index in range(vertices.size()):
+		tool.add_uv(uvs[index])
+		tool.add_uv2(uvs[index])
+		tool.add_normal(Vector3.UP)
+		tool.add_vertex(vertices[index])
+	tool.add_index(0)
+	tool.add_index(1)
+	tool.add_index(2)
+	tool.add_index(0)
+	tool.add_index(2)
+	tool.add_index(3)
+	tool.generate_tangents()
+	var mesh := tool.commit()
 	mesh.surface_set_material(0, hazard_strip_material)
 	var strip := MeshInstance.new()
 	strip.name = node_name
