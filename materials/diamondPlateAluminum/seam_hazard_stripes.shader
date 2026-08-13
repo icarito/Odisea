@@ -9,10 +9,10 @@ uniform float stripe_count = 7.0;
 uniform float stripe_width = 0.52;
 
 void fragment() {
-	// La diagonal opuesta al primer pase: sigue la circulación hacia el hub en
-	// vez de leer como una barra atravesada sobre el borde.
-	float diagonal = fract((UV.x - UV.y) * stripe_count);
-	float stripe = step(diagonal, stripe_width);
+	// Bandas verticales en el espacio UV local de cada arista. Cada strip recibe
+	// U a lo ancho de la unión, así que no se inclina al recorrer el anillo.
+	float stripe_position = fract(UV.x * stripe_count);
+	float stripe = step(stripe_position, stripe_width);
 	ALBEDO = stripe_color.rgb;
 	ALPHA = stripe * stripe_color.a;
 }
