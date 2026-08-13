@@ -4,11 +4,20 @@ const HUB_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_HubTowerSourc
 const SCAFFOLD_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_ScaffoldSource.tscn"
 const EXPECTED_HUB_STRIPS := 5
 const EXPECTED_CONNECTION_STRIPS := 14
+const PBR_SEAM_SHADER_PATH := "res://materials/diamondPlateAluminum/seam_road_lines_pbr.shader"
+const BAKED_PBR_MATERIAL_PATHS := [
+	"res://core_v2/levels/interiors/DomeIntro_SpiralStairs_mat_01.material",
+	"res://core_v2/levels/interiors/DomeIntro_HubSpokes_mat_01.material",
+	"res://core_v2/levels/interiors/Dome_Intro_HubRing_mat_04.material",
+]
 
 func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	if not _verify_baked_pbr_materials():
+		quit(1)
+		return
 	var hub_scene := load(HUB_SOURCE_PATH) as PackedScene
 	var scaffold_scene := load(SCAFFOLD_SOURCE_PATH) as PackedScene
 	if hub_scene == null or scaffold_scene == null:
@@ -41,8 +50,19 @@ func _run() -> void:
 		push_error("[verify_seams] expected %d connection strips, found %d" % [EXPECTED_CONNECTION_STRIPS, connection_strips])
 		quit(1)
 		return
-	print("[verify_seams] PASS %d hub-edge and %d connection strips" % [hub_strips, connection_strips])
+	print("[verify_seams] PASS %d hub-edge and %d connection strips use RoadLines PBR" % [hub_strips, connection_strips])
 	quit(0)
+
+func _verify_baked_pbr_materials() -> bool:
+	for material_path in BAKED_PBR_MATERIAL_PATHS:
+		var material := load(material_path) as ShaderMaterial
+		if material == null or material.shader == null:
+			push_error("[verify_seams] missing baked PBR material: %s" % material_path)
+			return false
+		if material.shader.resource_path != PBR_SEAM_SHADER_PATH:
+			push_error("[verify_seams] %s does not use RoadLines PBR" % material_path)
+			return false
+	return true
 
 func _count_hazard_meshes(node: Node) -> int:
 	var count := 1 if node is MeshInstance and String(node.name).begins_with("HazardStrip") else 0

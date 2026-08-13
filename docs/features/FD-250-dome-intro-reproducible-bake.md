@@ -138,7 +138,8 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 
 - `seam_road_lines_pbr.tres` es la variante activa de Dome_Intro. Conserva el
   patrón vertical amarillo/negro y usa `RoadLines022A` para el desgaste amarillo,
-  normal GL, roughness y AO. No usa displacement, opacity ni el normal DX.
+  normal GL, roughness y AO. El muestreo PBR se repite 4×3 por placa para que el
+  desgaste sea legible desde la cámara; no usa displacement, opacity ni el normal DX.
 - La selección es explícita por fuente: `DomeIntro_IndustrialRailing.tscn`,
   `DomeIntro_IndustrialStairs.tscn` y cada `Floor_*` de
   `DomeIntro_HubTowerSource.tscn` exponen `hazard_strip_material`. Para volver
