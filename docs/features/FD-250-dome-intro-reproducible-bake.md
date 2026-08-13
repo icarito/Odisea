@@ -111,7 +111,8 @@ Fuentes editables ──bakers deterministas──> mallas/colliders/materiales 
 5. Generar las franjas de seam desde las fuentes: los cinco bordes exteriores
    de hub, diez uniones stairs/walkways y cuatro uniones walkway/spoke, sin
    geometría PBR separada ni colisión.
-   Las franjas verticales responden al lightmap; no usan emisión propia.
+   Las franjas verticales alternan amarillo y negro metálico, responden al
+   lightmap y no usan emisión propia.
 6. Crear el rig de bake de luces y un workflow de bake que permita encender todos
    los fixtures estáticos, hornear, y volver al presupuesto de runtime acordado.
 7. Ejecutar verificación geométrica, inspección visual, smoke de assets, tests
