@@ -76,6 +76,7 @@ Usar tres capas separadas:
 
 | FD | Title | Status | Effort | Priority | PM Note |
 |----|-------|--------|--------|----------|---------|
+| FD-250 | Dome_Intro bake reproducible + iluminación híbrida | In Progress | Large | P2 | Recuperar fuentes editables, rebake estable y reducir luces runtime. |
 | FD-041 | Faux Skydome / Parallax Shell | Design | Medium | P2 | Fondo barato para casco y espiral. |
 | FD-037 | Infinite Scaffold Field | Design | Large | P2 | Visual infrastructure. |
 | FD-038 | ZeroGravityController | In Progress | Medium | P2 | Prototipo jugable. |
