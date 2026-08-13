@@ -184,6 +184,11 @@ func _build_compact_ring() -> void:
 	deck_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var frame_tool := SurfaceTool.new()
 	frame_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# Las barandas llevan un material separado para que el color de seguridad no
+	# pinte también vigas y soportes. El coste se paga una vez al hornear cada hub,
+	# no como nodos extra en runtime.
+	var rail_tool := SurfaceTool.new()
+	rail_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var sector: float = TAU / float(sides)
 	var corner_scale: float = 1.0 / cos(sector * 0.5)
 	var outer_corner: float = outer_radius * corner_scale
@@ -206,10 +211,10 @@ func _build_compact_ring() -> void:
 		var outer_gaps: Array = _edge_gaps(mid_angle, sector, outer_a.distance_to(outer_b),
 			outer_openings_deg, outer_sources)
 		if rail_inner:
-			_add_rail_edge(frame_tool, inner_a, inner_b,
+			_add_rail_edge(rail_tool, inner_a, inner_b,
 				_edge_gaps(mid_angle, sector, inner_a.distance_to(inner_b), inner_openings_deg))
 		if rail_outer:
-			_add_rail_edge(frame_tool, outer_a, outer_b, outer_gaps)
+			_add_rail_edge(rail_tool, outer_a, outer_b, outer_gaps)
 		_add_dock_landings(deck_top_tool, deck_tool, outer_a, outer_b, mid_angle,
 			outer_gaps, outer_sources, deck_top - deck_bottom)
 		_add_beam(frame_tool, Vector3(outer_a.x, support_base_local_y, outer_a.z), outer_a, tube_radius * 2.0)
@@ -217,6 +222,7 @@ func _build_compact_ring() -> void:
 	deck_top_tool.generate_normals()
 	deck_tool.generate_normals()
 	frame_tool.generate_normals()
+	rail_tool.generate_normals()
 	var mesh := ArrayMesh.new()
 	deck_top_tool.set_material(_grate_deck_material())
 	deck_top_tool.commit(mesh)
@@ -224,6 +230,8 @@ func _build_compact_ring() -> void:
 	deck_tool.commit(mesh)
 	frame_tool.set_material(_compact_material(frame_color, 1.0))
 	frame_tool.commit(mesh)
+	rail_tool.set_material(_compact_material(rail_color, 1.0))
+	rail_tool.commit(mesh)
 
 	var visual := MeshInstance.new()
 	visual.name = "CombinedMesh"

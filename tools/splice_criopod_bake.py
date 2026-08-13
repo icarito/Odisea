@@ -104,10 +104,23 @@ def main():
     # --- 1. ids nuevos para las mallas horneadas -------------------------------
     ids_ext = [b[1] for b in bloques if b[0] == "ext" and b[1] is not None]
     siguiente = max(ids_ext) + 1
+    # Re-aplicar un bake no debe duplicar 19 ext_resources identicos solo porque
+    # la escena ya apunta a los productos de una corrida anterior. Reusar por
+    # ruta mantiene el .tscn estable y evita churn textual innecesario.
+    ext_existente_por_ruta = {}
+    for clase, ident, ls in bloques:
+        if clase != "ext" or ident is None:
+            continue
+        m = re.search(r'\bpath="([^"]+)"', ls[0])
+        if m:
+            ext_existente_por_ruta[m.group(1)] = ident
     id_real = {}
     nuevos_ext = []
     for indice in sorted(rutas):
         ruta = rutas[indice]
+        if ruta in ext_existente_por_ruta:
+            id_real[indice] = ext_existente_por_ruta[ruta]
+            continue
         tipo = TIPO_POR_EXTENSION[Path(ruta).suffix]
         id_real[indice] = siguiente
         nuevos_ext.append(

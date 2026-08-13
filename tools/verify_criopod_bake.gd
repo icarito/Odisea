@@ -3,8 +3,9 @@ extends SceneTree
 # verify_criopod_bake.gd — Comprueba que el horneado de criopods no cambio nada
 # observable, contra la escena original.
 #
-# Corre igual sobre la escena vieja y sobre la horneada, y emite las MISMAS lineas en
-# las dos: asi la comparacion es un diff de texto y no una lectura a ojo.
+# Corre igual sobre la fuente editable y sobre la escena horneada, y emite las
+# MISMAS lineas en las dos: asi la comparacion es un diff de texto y no una
+# lectura a ojo.
 #
 #   1. huella de colision: origen mundial + radio envolvente de cada forma de la capa
 #      Prop en los anillos, ordenados. Es lo que consume IceSubmergedCuller, asi que si
@@ -15,9 +16,13 @@ extends SceneTree
 #      el hielo.
 #   4. costo del batching de RadialScatter, si la escena todavia lo tiene.
 #
-# Run: godot3-bin --no-window -s tools/verify_criopod_bake.gd
+# Run against Dome_Intro runtime:
+#   godot3-bin --no-window -s tools/verify_criopod_bake.gd
+# Run against the editable source:
+#   ODISEA_VERIFY_CRYOPOD_SOURCE=res://core_v2/levels/interiors/DomeIntro_CriopodsSource.tscn \
+#     godot3-bin --no-window -s tools/verify_criopod_bake.gd
 
-const SCENE_PATH := "res://core_v2/levels/interiors/Dome_Intro.tscn"
+const DEFAULT_SCENE_PATH := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 const ShapeBounds := preload("res://core_v2/systems/collision/ShapeBounds.gd")
 
 func _init() -> void:
@@ -25,7 +30,15 @@ func _init() -> void:
 
 
 func _run() -> void:
-	var root: Node = load(SCENE_PATH).instance()
+	var scene_path: String = OS.get_environment("ODISEA_VERIFY_CRYOPOD_SOURCE")
+	if scene_path.empty():
+		scene_path = DEFAULT_SCENE_PATH
+	var packed: PackedScene = load(scene_path)
+	if packed == null:
+		push_error("[verify_criopod_bake] no pude cargar %s" % scene_path)
+		quit(1)
+		return
+	var root: Node = packed.instance()
 	get_root().add_child(root)
 
 	# El costo del batching se mide ANTES de que corra su call_deferred: si la escena

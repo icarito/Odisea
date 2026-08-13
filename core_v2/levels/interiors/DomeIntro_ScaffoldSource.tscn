@@ -60,6 +60,7 @@ rail_front = false
 rail_back = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 
 [node name="Item_1" type="Spatial" parent="SpiralStairs" instance=ExtResource( 7 )]
 transform = Transform( -0.360974, 0, 0.932576, 0, 1, 0, -0.932576, 0, -0.360974, 9.58607, 0, 23.0495 )
@@ -83,6 +84,7 @@ rail_front = false
 rail_back = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 
 [node name="Item_2" type="Spatial" parent="SpiralStairs" instance=ExtResource( 7 )]
 transform = Transform( 0.571506, 0, 0.820598, 0, 1, 0, -0.820598, 0, 0.571506, -12.4484, 0, 20.4784 )
@@ -106,6 +108,7 @@ rail_front = false
 rail_back = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 
 [node name="Item_3" type="Spatial" parent="SpiralStairs" instance=ExtResource( 7 )]
 transform = Transform( 0.9995, 0, -0.0316288, 0, 1, 0, 0.0316288, 0, 0.9995, -21.9393, 0, 1.87621 )
@@ -129,6 +132,7 @@ rail_front = false
 rail_back = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 
 [node name="Item_4" type="Spatial" parent="SpiralStairs" instance=ExtResource( 7 )]
 transform = Transform( 0.494381, 0, -0.869246, 0, 1, 0, 0.869246, 0, 0.494381, -12.4637, 0, -14.2499 )
@@ -152,6 +156,7 @@ rail_front = false
 rail_back = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 
 [node name="HubSpokes" type="Spatial" parent="."]
 
@@ -166,6 +171,7 @@ back_right_depth_offset = -0.0137
 platform_height = 4.7
 support_base_local_y = -4.7
 rail_left_opening_width = 0.0
+rail_color = Color( 1, 0.56, 0.06, 1 )
 
 [node name="Spoke_2" parent="HubSpokes" instance=ExtResource( 8 )]
 transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 5.74222, 0, -16.3571 )
@@ -178,6 +184,7 @@ back_right_depth_offset = -0.0501
 platform_height = 9.2
 support_base_local_y = -9.2
 rail_left_opening_width = 0.0
+rail_color = Color( 1, 0.56, 0.06, 1 )
 
 [node name="Spoke_3" parent="HubSpokes" instance=ExtResource( 8 )]
 transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 15.9228, 0, -4.81623 )
@@ -190,6 +197,7 @@ back_right_depth_offset = -0.1055
 platform_height = 13.7
 support_base_local_y = -13.7
 rail_left_opening_width = 0.0
+rail_color = Color( 1, 0.56, 0.06, 1 )
 
 [node name="Spoke_4" parent="HubSpokes" instance=ExtResource( 8 )]
 transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 12.4483, 0, 9.34721 )
@@ -202,6 +210,7 @@ back_right_depth_offset = -0.1918
 platform_height = 18.2
 support_base_local_y = -18.2
 rail_left_opening_width = 0.0
+rail_color = Color( 1, 0.56, 0.06, 1 )
 
 [node name="SpiralWalkways" type="Spatial" parent="."]
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
@@ -247,6 +256,7 @@ rail_front = false
 rail_back = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rail_left_opening_width = 2.0
 
 [node name="Item_1" type="Spatial" parent="SpiralWalkways" instance=ExtResource( 8 )]
@@ -270,6 +280,7 @@ rail_front = false
 rail_back = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rail_left_opening_width = 2.0
 
 [node name="Item_2" type="Spatial" parent="SpiralWalkways" instance=ExtResource( 8 )]
@@ -293,6 +304,7 @@ rail_front = false
 rail_back = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rail_left_opening_width = 2.0
 
 [node name="Item_3" type="Spatial" parent="SpiralWalkways" instance=ExtResource( 8 )]
@@ -316,6 +328,7 @@ rail_front = false
 rail_back = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rail_left_opening_width = 2.0
 
 [node name="Item_4" type="Spatial" parent="SpiralWalkways" instance=ExtResource( 8 )]
@@ -338,7 +351,7 @@ platform_height = 22.7
 rail_front = false
 rail_left = true
 rail_right = true
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rail_left_opening_width = 3.7
 rail_back_opening_gravity = 0.0
 rail_left_opening_gravity = 1.0
-

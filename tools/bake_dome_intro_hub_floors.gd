@@ -33,14 +33,14 @@ extends SceneTree
 # ScaffoldHubRing.gd _ready()), so editing its outer_openings_deg text in the .tscn
 # has no runtime effect on its own — the mesh has to be rebuilt and re-saved.
 # Instead of re-deriving ScaffoldHubTower's build() parameter plumbing, this loads
-# the actual Dome_Intro scene, finds the already-configured Floor_5 node, edits its
+# the explicit source scene, finds the already-configured Floor_5 node, edits its
 # opening arrays, forces a synchronous rebuild, and saves the result as loose
 # .mesh/.shape resources (same pattern as DomeTerrace_baked.mesh).
 #
 # Run: godot3-bin --no-window -s tools/bake_dome_intro_hub_floors.gd
 # Output: core_v2/levels/interiors/Dome_Intro_Floor5_baked.mesh / .shape
 
-const SCENE_PATH := "res://core_v2/levels/interiors/Dome_Intro.tscn"
+const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_HubTowerSource.tscn"
 const TOWER_PATH := "ScaffoldHubTower"
 const OUT_DIR := "res://core_v2/levels/interiors/"
 # Todos los pisos del hub, no solo el 5: comparten la geometria de deck de
@@ -51,9 +51,12 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var scene: PackedScene = load(SCENE_PATH)
+	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
+	if source_path.empty():
+		source_path = DEFAULT_SOURCE_PATH
+	var scene: PackedScene = load(source_path)
 	if scene == null:
-		push_error("Could not load %s" % SCENE_PATH)
+		push_error("Could not load source %s" % source_path)
 		quit(1)
 		return
 

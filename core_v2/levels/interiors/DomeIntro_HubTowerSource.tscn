@@ -1,0 +1,66 @@
+[gd_scene load_steps=3 format=2]
+
+; Fuente editable de los cinco ring hubs de Dome_Intro.
+;
+; Dome_Intro consume los .mesh/.shape precomputados. Esta escena conserva los
+; parámetros y aperturas que los producen; tools/bake_dome_intro_hub_floors.gd
+; debe leerla en vez de la escena runtime.
+
+[ext_resource path="res://core_v2/props/scaffold/ScaffoldHubTower.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=2]
+
+[node name="DomeIntroHubTowerSource" type="Spatial"]
+
+[node name="ScaffoldHubTower" parent="." instance=ExtResource( 1 )]
+outer_radius = 13.0
+inner_radius = 6.0
+inner_opening_angles_deg = [ 0.0, 235.457, 289.344, 343.171, 36.902, 90.421 ]
+outer_opening_angles_deg = [ 114.622, 114.622, 114.622, 114.622, 114.622, 114.622 ]
+elevator_opening_width = 3.92
+elevator_dock_depth = 0.45
+auto_build = false
+
+[node name="Floor_1" parent="ScaffoldHubTower" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0 )
+outer_radius = 13.0
+inner_radius = 6.0
+support_base_local_y = -4.5
+rail_color = Color( 1, 0.56, 0.06, 1 )
+outer_openings_deg = [ Vector2( 231.058, 239.856 ), Vector2( 106.048, 123.196 ) ]
+outer_opening_docks = [ 0.0, 0.45 ]
+
+[node name="Floor_2" parent="ScaffoldHubTower" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0 )
+outer_radius = 13.0
+inner_radius = 6.0
+support_base_local_y = -4.5
+rail_color = Color( 1, 0.56, 0.06, 1 )
+outer_openings_deg = [ Vector2( 284.945, 293.743 ), Vector2( 106.048, 123.196 ) ]
+outer_opening_docks = [ 0.0, 0.45 ]
+
+[node name="Floor_3" parent="ScaffoldHubTower" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.5, 0 )
+outer_radius = 13.0
+inner_radius = 6.0
+support_base_local_y = -4.5
+rail_color = Color( 1, 0.56, 0.06, 1 )
+outer_openings_deg = [ Vector2( 338.772, 347.57 ), Vector2( 106.048, 123.196 ) ]
+outer_opening_docks = [ 0.0, 0.45 ]
+
+[node name="Floor_4" parent="ScaffoldHubTower" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 18, 0 )
+outer_radius = 13.0
+inner_radius = 6.0
+support_base_local_y = -4.5
+rail_color = Color( 1, 0.56, 0.06, 1 )
+outer_openings_deg = [ Vector2( 32.5033, 41.3007 ), Vector2( 106.048, 123.196 ) ]
+outer_opening_docks = [ 0.0, 0.45 ]
+
+[node name="Floor_5" parent="ScaffoldHubTower" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.5, 0 )
+outer_radius = 13.0
+inner_radius = 6.0
+support_base_local_y = -4.5
+rail_color = Color( 1, 0.56, 0.06, 1 )
+outer_openings_deg = [ Vector2( 90, 123 ) ]
+outer_opening_docks = [ 0.0 ]

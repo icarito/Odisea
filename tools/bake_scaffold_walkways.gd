@@ -24,7 +24,7 @@ extends SceneTree
 # Output: core_v2/levels/interiors/DomeIntro_<Group>_sector_00..07.mesh
 #         core_v2/levels/interiors/DomeIntro_<Group>_body.tscn
 
-const DEFAULT_SCENE_PATH := "res://core_v2/levels/interiors/Dome_Intro.tscn"
+const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_ScaffoldSource.tscn"
 const GROUPS := ["SpiralStairs", "HubSpokes", "SpiralWalkways"]
 const OUT_DIR := "res://core_v2/levels/interiors/"
 const SECTOR_COUNT := 8
@@ -38,12 +38,12 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var scene_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
-	if scene_path.empty():
-		scene_path = DEFAULT_SCENE_PATH
-	var scene: PackedScene = load(scene_path)
+	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
+	if source_path.empty():
+		source_path = DEFAULT_SOURCE_PATH
+	var scene: PackedScene = load(source_path)
 	if scene == null:
-		push_error("Could not load %s" % scene_path)
+		push_error("Could not load source %s" % source_path)
 		quit(1)
 		return
 	# PropDitherManager (autoload) convierte en runtime todo SpatialMaterial de un

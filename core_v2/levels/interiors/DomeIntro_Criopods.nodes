@@ -22,12 +22,15 @@
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods1"]
+use_in_baked_light = true
 mesh = ExtResource( 0 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods1"]
+use_in_baked_light = true
 mesh = ExtResource( 1 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods1" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 2 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods1"]
@@ -174,12 +177,15 @@ shape = ExtResource( 3 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 4.5, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods2"]
+use_in_baked_light = true
 mesh = ExtResource( 4 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods2"]
+use_in_baked_light = true
 mesh = ExtResource( 5 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods2" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 6 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods2"]
@@ -338,12 +344,15 @@ shape = ExtResource( 3 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 9, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods3"]
+use_in_baked_light = true
 mesh = ExtResource( 7 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods3"]
+use_in_baked_light = true
 mesh = ExtResource( 8 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods3" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 9 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods3"]
@@ -502,12 +511,15 @@ shape = ExtResource( 3 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 13.5, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods4"]
+use_in_baked_light = true
 mesh = ExtResource( 10 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods4"]
+use_in_baked_light = true
 mesh = ExtResource( 11 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods4" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 12 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods4"]
@@ -666,12 +678,15 @@ shape = ExtResource( 3 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 18, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods5"]
+use_in_baked_light = true
 mesh = ExtResource( 13 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods5"]
+use_in_baked_light = true
 mesh = ExtResource( 14 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods5" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 15 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods5"]
@@ -830,12 +845,15 @@ shape = ExtResource( 3 )
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 22.5, 0 )
 
 [node name="Shell" type="MeshInstance" parent="Spatial/Criopods6"]
+use_in_baked_light = true
 mesh = ExtResource( 16 )
 
 [node name="Glass" type="MeshInstance" parent="Spatial/Criopods6"]
+use_in_baked_light = true
 mesh = ExtResource( 17 )
 
 [node name="PersonCards" type="MeshInstance" parent="Spatial/Criopods6" groups=["no_occlusion"]]
+use_in_baked_light = true
 mesh = ExtResource( 18 )
 
 [node name="StaticBody" type="StaticBody" parent="Spatial/Criopods6"]

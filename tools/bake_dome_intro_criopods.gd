@@ -1,7 +1,7 @@
 extends SceneTree
 
-# bake_dome_intro_criopods.gd — Hornea los seis anillos de criopods de Dome_Intro a
-# mallas estaticas en disco, una por anillo y por capa.
+# bake_dome_intro_criopods.gd — Hornea los seis anillos de criopods de su fuente
+# editable a mallas estaticas en disco, una por anillo y por capa.
 #
 # ANTES: los 218 criopods vivian como escenas instanciadas dentro del .tscn (1332
 # nodos, 218 StaticBody) y RadialScatter los batcheaba a MultiMeshInstance en CADA
@@ -34,8 +34,10 @@ extends SceneTree
 #     tools/splice_criopod_bake.py — este script NO toca la escena)
 #
 # Run: godot3-bin --no-window -s tools/bake_dome_intro_criopods.gd
+# Optional source override:
+#   ODISEA_BAKE_SOURCE=res://ruta/FuenteCriopods.tscn godot3-bin --no-window -s ...
 
-const SCENE_PATH := "res://core_v2/levels/interiors/Dome_Intro.tscn"
+const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_CriopodsSource.tscn"
 const OUT_DIR := "res://core_v2/levels/interiors/"
 const FRAGMENT_PATH := OUT_DIR + "DomeIntro_Criopods.nodes"
 
@@ -58,9 +60,12 @@ func _init() -> void:
 
 
 func _run() -> void:
-	var packed: PackedScene = load(SCENE_PATH)
+	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
+	if source_path.empty():
+		source_path = DEFAULT_SOURCE_PATH
+	var packed: PackedScene = load(source_path)
 	if packed == null:
-		push_error("[bake_criopods] no pude cargar %s" % SCENE_PATH)
+		push_error("[bake_criopods] no pude cargar fuente %s" % source_path)
 		quit(1)
 		return
 
@@ -79,7 +84,7 @@ func _run() -> void:
 	# call_deferred y aca hacen falta los MeshInstance originales, no los Batched_*.
 	var spatial: Node = root.get_node_or_null("Spatial")
 	if spatial == null:
-		push_error("[bake_criopods] no encuentro el nodo Spatial")
+		push_error("[bake_criopods] no encuentro Spatial en fuente %s" % source_path)
 		quit(1)
 		return
 
@@ -161,6 +166,10 @@ func _bake_ring(ring: Spatial) -> bool:
 		_fragment.append('[node name="%s" type="MeshInstance" parent="Spatial/%s"%s]' % [
 			layer.node, ring.name,
 			' groups=["no_occlusion"]' if layer.no_occlusion else ""])
+		# El producto reemplaza MeshInstance que participaban en el lightmap. El
+		# fragmento tiene que declarar la propiedad, no depender de que la escena
+		# runtime conserve una edición manual después de cada splice.
+		_fragment.append("use_in_baked_light = true")
 		_fragment.append("mesh = ExtResource( %d )" % _ext_id(out_mesh))
 		# El horneado de PropDitherManager apaga las sombras al convertir, pero el
 		# vidrio y las tarjetas nunca pasan por ahi: se copia lo que tenia el prop.
