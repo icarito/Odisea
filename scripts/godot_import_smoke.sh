@@ -20,6 +20,9 @@ SMOKE_RETRY_LOG="reports/resource_smoke_retry.log"
 SMOKE_SCRIPT="tests/ci_resource_smoke.gd"
 TIMEOUT_IMPORT_SEC="${TIMEOUT_IMPORT_SEC:-600}"
 TIMEOUT_SMOKE_SEC="${TIMEOUT_SMOKE_SEC:-180}"
+# El import "full" (escalado) corre sin --quit -- ver run_import_once -- asi
+# que este es el tiempo real que se le da al import asincrono antes de matarlo.
+FULL_IMPORT_TIMEOUT_SEC="${FULL_IMPORT_TIMEOUT_SEC:-150}"
 CLEAN_CACHE="${CLEAN_CACHE:-1}"
 DISABLE_EDITOR_PLUGINS="${DISABLE_EDITOR_PLUGINS:-1}"
 USE_XVFB="${USE_XVFB:-0}"
@@ -159,20 +162,33 @@ run_import_once() {
   local import_mode="$1"
   local log_file="$2"
   local -a cmd=("${GODOT_BIN}" "--path" "${PROJECT_PATH}" "--editor" "--quit" "--headless" "--no-window" "--audio-driver" "Dummy")
+  local timeout_sec="${TIMEOUT_IMPORT_SEC}"
   if [[ "${import_mode}" == "full" ]]; then
-    cmd=("${GODOT_BIN}" "--path" "${PROJECT_PATH}" "-e" "--quit" "--headless" "--no-window" "--audio-driver" "Dummy")
+    # Sin --quit: "-q/--quit" corta tras la PRIMERA iteracion del main loop
+    # (asi lo documenta --help), lo cual aborta el thread de import asincrono
+    # de EditorFileSystem antes de que escriba un asset nuevo/grande. Un
+    # asset recien agregado nunca termina de importarse via --quit sin
+    # importar cuantas veces se reintente; corrido headless sin --quit deja
+    # que el import real corra y luego se mata por SIGTERM externo (timeout).
+    cmd=("${GODOT_BIN}" "--path" "${PROJECT_PATH}" "-e" "--headless" "--no-window" "--audio-driver" "Dummy")
+    timeout_sec="${FULL_IMPORT_TIMEOUT_SEC}"
   fi
   echo "[godot_import_smoke] Import mode=${import_mode}: ${cmd[*]}"
-  if run_cmd "${TIMEOUT_IMPORT_SEC}" "${log_file}" "${cmd[@]}"; then
+  if run_cmd "${timeout_sec}" "${log_file}" "${cmd[@]}"; then
     :
   else
     local rc=$?
     if [[ "${rc}" -eq 124 ]]; then
-      echo "[godot_import_smoke] Import timed out (${TIMEOUT_IMPORT_SEC}s)."
+      if [[ "${import_mode}" == "full" ]]; then
+        echo "[godot_import_smoke] Full import ran without --quit for ${timeout_sec}s (expected; killed to let real import finish)."
+      else
+        echo "[godot_import_smoke] Import timed out (${timeout_sec}s)."
+        return 1
+      fi
+    else
+      echo "[godot_import_smoke] Import command failed (exit=${rc})."
       return 1
     fi
-    echo "[godot_import_smoke] Import command failed (exit=${rc})."
-    return 1
   fi
   if grep -E -q "${import_regex}" "${log_file}"; then
     echo "[godot_import_smoke] Import reported parse/resource errors."
