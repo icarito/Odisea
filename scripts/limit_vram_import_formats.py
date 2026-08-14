@@ -73,6 +73,8 @@ def main() -> int:
 	allowed_formats = PLATFORM_FORMATS[args.platform]
 	updated_count = 0
 	for manifest in project.rglob("*.import"):
+		if not manifest.is_file():
+			continue
 		if _rewrite_manifest(manifest, allowed_formats):
 			updated_count += 1
 	print("VRAM import manifests normalized for %s (%s): %d updated" % (
