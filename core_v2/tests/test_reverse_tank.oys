@@ -1,19 +1,23 @@
 SECTION "Reverse_Turn_Test"
     PRINT "Starting Tank Turn Reverse Test"
     
-    # Move forward and turn right
-    FW 1.0s
-    RIGHT 90
+    # Tank turn: forward/backward and right are held on the same physics frames.
+    # RIGHT with seconds means movement/strafe; no mouse_delta is injected here.
+    BLEND 1.0
+        FW 1.0s
+        RIGHT 1.0s
+    END
     WAIT 0.5
     SCREENSHOT "forward_right"
-    PRINT "Turned right while moving forward"
+    PRINT "Tank turned right while moving forward"
     
-    # Move backward and turn right
-    BW 1.0s
-    RIGHT 90
+    BLEND 1.0
+        BW 1.0s
+        RIGHT 1.0s
+    END
     WAIT 0.5
     SCREENSHOT "backward_right"
-    PRINT "Turned right while moving backward"
+    PRINT "Tank turned right while moving backward"
     
     PRINT "Test completed. Check results visually or via camera alignment."
 END

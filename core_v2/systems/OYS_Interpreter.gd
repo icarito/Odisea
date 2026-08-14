@@ -2001,7 +2001,21 @@ func _post_oys_input(data: Dictionary):
 				if typeof(val) == TYPE_ARRAY and val.size() >= 2:
 					inc_x = float(val[0])
 					inc_y = float(val[1])
-				override[key] = [cur_x + inc_x, cur_y + inc_y]
+					override[key] = [cur_x + inc_x, cur_y + inc_y]
+			elif key == "move_vec":
+				# BLEND can combine e.g. FW + RIGHT into one diagonal/tank-turn input.
+				var current = override.get("move_vec", [0.0, 0.0])
+				var cur_x = 0.0
+				var cur_y = 0.0
+				if typeof(current) == TYPE_ARRAY and current.size() >= 2:
+					cur_x = float(current[0])
+					cur_y = float(current[1])
+				var inc_x = 0.0
+				var inc_y = 0.0
+				if typeof(val) == TYPE_ARRAY and val.size() >= 2:
+					inc_x = float(val[0])
+					inc_y = float(val[1])
+				override[key] = [clamp(cur_x + inc_x, -1.0, 1.0), clamp(cur_y + inc_y, -1.0, 1.0)]
 			else:
 				# Overwrite for non-vector fields.
 				override[key] = val
