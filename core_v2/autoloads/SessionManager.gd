@@ -649,6 +649,8 @@ func _ready():
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager and not scene_manager.is_connected("scene_ready", self, "_on_scene_ready_capture_mouse"):
 		scene_manager.connect("scene_ready", self, "_on_scene_ready_capture_mouse")
+	if scene_manager and not scene_manager.is_connected("scene_ready", self, "_on_replay_scene_ready"):
+		scene_manager.connect("scene_ready", self, "_on_replay_scene_ready")
 
 	# --- Auto Run (Prop Validation Pipeline) ---
 	if _env_vars["$sys_env_auto_run"] != "":
@@ -1284,6 +1286,26 @@ func _on_scene_ready_capture_mouse(_path, _scene_root, _params):
 	# La llamada original de _connect_teleport_system corre durante Menu y saltea la captura;
 	# aquí la escena ya es Dome_Crio (u otra de gameplay), así que se captura correctamente.
 	_connect_teleport_system()
+
+func _on_replay_scene_ready(_path, _scene_root, _params) -> void:
+	if is_replaying:
+		call_deferred("_resume_replay_after_scene_ready")
+
+func _resume_replay_after_scene_ready() -> void:
+	_find_player()
+	if is_replaying and is_instance_valid(player):
+		player.is_replay_mode = true
+		player.set_physics_process(false)
+		if player.has_method("ensure_input_provider"):
+			player.ensure_input_provider()
+		if "input_provider" in player and is_instance_valid(player.input_provider):
+			if player.input_provider != _replay_input_provider:
+				var replay_index := int(_replay_input_provider.playback_index) if is_instance_valid(_replay_input_provider) else _replay_frame
+				player.input_provider.set_replay_data(_replay_input_buffer)
+				player.input_provider.playback_index = replay_index
+			_replay_input_provider = player.input_provider
+			_active_input_provider = player.input_provider
+			_reset_replay_watchdog(player.input_provider)
 
 func _on_tree_changed_for_replay(replay_path: String, export_video = false):
 	yield (get_tree(), "idle_frame")
@@ -1999,10 +2021,10 @@ func load_and_play(path: String, perf_label: String = ""):
 
 		# Run Interpreter
 		var OYS_Interpreter = load("res://core_v2/systems/OYS_Interpreter.gd")
-		var host = get_tree().current_scene
-		if not host:
-			host = get_tree().root
-		var interpreter = OYS_Interpreter.new(host)
+		# The current scene can be freed by an airlock while OYS is yielding.
+		# Keep the interpreter anchored to this autoload so replay input survives
+		# scene transitions; OYS resolves scene-local nodes through current_scene.
+		var interpreter = OYS_Interpreter.new(self)
 		interpreter.parse(script_content)
 		interpreter.connect("instruction_executed", self , "_on_oys_instruction_executed")
 		interpreter.connect("instruction_completed", self , "_on_oys_instruction_completed")
@@ -2648,6 +2670,8 @@ func _get_runtime_drift_threshold() -> float:
 func _execute_event(cmd: Dictionary):
 	var type = cmd.get("command", "")
 	match type:
+		"TELEPORT":
+			_handle_replay_teleport(cmd)
 		"SET":
 			_handle_set_command(cmd)
 		"MATH":
@@ -2964,6 +2988,22 @@ func _handle_set_command(cmd: Dictionary):
 	else:
 		# Player property (Legacy/Standard property set)
 		_set_player_prop(target_var, value)
+
+func _handle_replay_teleport(cmd: Dictionary) -> void:
+	_find_player()
+	if not is_instance_valid(player):
+		printerr("[SessionManager] Replay Error: TELEPORT without player")
+		return
+
+	var pos = _parse_vector3(String(cmd.get("pos", "")))
+	var tf = player.global_transform
+	tf.origin = pos
+	if player.has_method("teleport_to"):
+		player.teleport_to(tf)
+	else:
+		player.global_transform = tf
+		if "velocity" in player:
+			player.velocity = Vector3.ZERO
 
 func _get_camera_relative_axis_sm(axis: String) -> float:
 	if not is_instance_valid(player) or not (player is Spatial):
@@ -3282,7 +3322,7 @@ func _set_player_prop(prop, val):
 		pass
 
 func _parse_vector3(s: String) -> Vector3:
-	var cleaned = s.replace("(", "").replace(")", "").strip_edges()
+	var cleaned = s.replace("(", "").replace(")", "").replace("[", "").replace("]", "").strip_edges()
 	var components = cleaned.split(",")
 	if components.size() >= 3:
 		return Vector3(

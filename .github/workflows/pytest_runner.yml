@@ -204,18 +204,18 @@ jobs:
           GODOT_BIN: /usr/local/bin/godot
           ODISEA_INCLUDE_DETERMINISM: "0"
           ODISEA_TEST_TIMEOUT_SEC: "180"
-          # Cuatro instancias Godot simultáneas hacen thrash en el runner: tests
-          # sensibles al frame/presupuesto (preload y benchmarks) se vuelven flakes.
-          # Dos es el límite ya estable del workflow de determinismo.
-          ODISEA_PYTEST_WORKERS: "2"
-          ODISEA_PYTEST_FAIL_FAST: "1"
           ODISEA_SKIP_PREFLIGHT: "1"
         run: |
           set -euo pipefail
           mkdir -p reports
-          # Keep replay/determinism cases in the dedicated determinism workflow.
+          # GdUnit can execute all suites in one SceneTree. The pytest delegate
+          # starts one Godot per suite; under xdist that caused CPU thrash and
+          # flaky frame- and benchmark-sensitive tests. Keep replay cases in the
+          # dedicated determinism workflow, where fresh processes are intentional.
           set +e
-          timeout 420s ./runtest.sh -a ./core_v2/tests/ 2>&1 | tee reports/core_tests.log
+          timeout 420s ./runtest.sh --runner gdunit \
+            -a ./core_v2/tests/ \
+            -i test_determinism_v2 2>&1 | tee reports/core_tests.log
           test_rc="${PIPESTATUS[0]}"
           set -e
           if [ "$test_rc" -eq 124 ]; then

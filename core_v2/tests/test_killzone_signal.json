@@ -67,7 +67,8 @@
         "tool_next_mode": false,
         "tool_prev_mode": false,
         "cargol_ability": false,
-        "hardware_mouse_active": false
+        "hardware_mouse_active": false,
+        "analog_move_active": false
       }
     },
     {
@@ -100,11 +101,12 @@
         "tool_next_mode": false,
         "tool_prev_mode": false,
         "cargol_ability": false,
-        "hardware_mouse_active": false
+        "hardware_mouse_active": false,
+        "analog_move_active": false
       }
     },
     {
-      "hold": 96
+      "hold": 78
     }
   ],
   "events": {
@@ -140,7 +142,7 @@
         "phase": "check"
       }
     ],
-    "193": [
+    "175": [
       {
         "command": "PRINT",
         "message": "SUCCESS: player_killed signal was emitted!"
@@ -206,7 +208,7 @@
         0,
         0
       ],
-      "camera_input_timer": 0.816667,
+      "camera_input_timer": 0.516667,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false

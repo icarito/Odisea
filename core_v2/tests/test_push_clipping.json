@@ -138,142 +138,6 @@
     },
     {
       "hold": 29
-    },
-    {
-      "frame": 59,
-      "input": {
-        "move_vec": [
-          -1,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": true,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false,
-        "analog_move_active": false
-      }
-    },
-    {
-      "hold": 33
-    },
-    {
-      "frame": 93,
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false,
-        "analog_move_active": false
-      }
-    },
-    {
-      "hold": 12
-    },
-    {
-      "frame": 106,
-      "input": {
-        "move_vec": [
-          0,
-          1
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": true,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false,
-        "analog_move_active": false
-      }
-    },
-    {
-      "hold": 33
-    },
-    {
-      "frame": 140,
-      "input": {
-        "move_vec": [
-          0,
-          0
-        ],
-        "mouse_delta": [
-          0,
-          0
-        ],
-        "zoom_delta": 0,
-        "fov_override": -1,
-        "jump": false,
-        "sprint": false,
-        "crouch": false,
-        "interact": false,
-        "focus": false,
-        "rotate_left": false,
-        "rotate_right": false,
-        "roll_left": false,
-        "roll_right": false,
-        "tool_fire_primary": false,
-        "tool_fire_secondary": false,
-        "tool_next_mode": false,
-        "tool_prev_mode": false,
-        "cargol_ability": false,
-        "hardware_mouse_active": false,
-        "analog_move_active": false
-      }
-    },
-    {
-      "hold": 12
     }
   ],
   "events": {
@@ -289,15 +153,6 @@
         "var": "$drift_threshold",
         "value": "0.03"
       }
-    ],
-    "93": [
-
-    ],
-    "106": [
-
-    ],
-    "140": [
-
     ]
   },
   "meta": {
@@ -461,17 +316,17 @@
   },
   "final_expected_state": {
     "position": [
-      1.504838,
+      0,
       0.1015,
-      1.731992
+      0
     ],
     "velocity": [
       0,
       0,
       0
     ],
-    "yaw": -1.555664,
-    "pitch": 0.785398,
+    "yaw": -1.570796,
+    "pitch": 1.047198,
     "base_spring_length_3d": 2.5,
     "movement_state": {
       "horizontal_velocity": [
@@ -484,8 +339,8 @@
         0,
         0
       ],
-      "camera_input_timer": 1.566667,
-      "is_tank_turn_mode": true,
+      "camera_input_timer": 0,
+      "is_tank_turn_mode": false,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
     },

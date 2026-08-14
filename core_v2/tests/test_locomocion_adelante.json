@@ -437,12 +437,6 @@
         "is_breached": false,
         "regen_delay_timer": 0
       },
-      "/root/TestScene/Pilot/MultiTool": {
-        "mode": 1,
-        "projectiles": [
-
-        ]
-      },
       "/root/TestScene/SlidingDrawer": {
         "active": false,
         "used": false,
