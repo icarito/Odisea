@@ -204,7 +204,10 @@ jobs:
           GODOT_BIN: /usr/local/bin/godot
           ODISEA_INCLUDE_DETERMINISM: "0"
           ODISEA_TEST_TIMEOUT_SEC: "180"
-          ODISEA_PYTEST_WORKERS: "4"
+          # Cuatro instancias Godot simultáneas hacen thrash en el runner: tests
+          # sensibles al frame/presupuesto (preload y benchmarks) se vuelven flakes.
+          # Dos es el límite ya estable del workflow de determinismo.
+          ODISEA_PYTEST_WORKERS: "2"
           ODISEA_PYTEST_FAIL_FAST: "1"
           ODISEA_SKIP_PREFLIGHT: "1"
         run: |

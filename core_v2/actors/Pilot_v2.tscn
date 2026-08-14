@@ -100,7 +100,6 @@ camera_zoom_min_distance = 0.6
 camera_zoom_max_distance = 15.0
 step_height = 0.3
 step_grounded_grace = 0.3
-debug_acrobatic_probe = true
 camera_rig_jump_lazy_delay = 0.3
 camera_rig_jump_lazy_deadzone = 0.5
 
