@@ -54,7 +54,8 @@ func test_laser_raycast_collision():
 	var visual_forward = _player.get_node("Visual/Pivot").global_transform.basis.z.normalized()
 	static_body.global_transform.origin = _player.global_transform.origin + visual_forward * 5.0
 	
-	yield(get_tree(), "idle_frame")
+	# The body is visible to RayCast only after the physics world registers it.
+	yield(get_tree(), "physics_frame")
 	
 	var input = InputDataV2.new()
 	input.tool_fire_primary = true
