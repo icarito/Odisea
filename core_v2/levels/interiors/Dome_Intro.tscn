@@ -2030,11 +2030,11 @@ directional_shadow_mode = 0
 
 [node name="BakedLightmap" type="BakedLightmap" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 15, 0 )
+layers = 1023
 extents = Vector3( 30, 20, 30 )
-quality = 0
-bounces = 2
 use_hdr = false
 atlas_generate = false
+environment_mode = 1
 light_data = ExtResource( 5 )
 
 [editable path="Airlock_North"]
