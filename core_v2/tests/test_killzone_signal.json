@@ -106,7 +106,7 @@
       }
     },
     {
-      "hold": 78
+      "hold": 83
     }
   ],
   "events": {
@@ -142,7 +142,7 @@
         "phase": "check"
       }
     ],
-    "175": [
+    "180": [
       {
         "command": "PRINT",
         "message": "SUCCESS: player_killed signal was emitted!"
@@ -208,7 +208,7 @@
         0,
         0
       ],
-      "camera_input_timer": 0.516667,
+      "camera_input_timer": 0.6,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false

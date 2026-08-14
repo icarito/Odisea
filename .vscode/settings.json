@@ -26,8 +26,7 @@
         "core_v2/tests",
         "--odisea-editor",
         "--odisea-runner",
-        "gdunit",
-        "--odisea-include-determinism"
+        "gdunit"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,

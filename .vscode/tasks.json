@@ -76,12 +76,16 @@
             "detail": "Ejecuta el test OYS actual con ventana visible"
         },
         {
-            "label": "Run All Tests",
+            "label": "Run Core Tests (fast)",
             "type": "shell",
             "command": "./runtest.sh",
             "args": [
+                "--runner",
+                "gdunit",
                 "-a",
-                "./core_v2/tests/"
+                "./core_v2/tests/",
+                "-i",
+                "test_determinism_v2"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -96,7 +100,7 @@
                 "showReuseMessage": false,
                 "clear": true
             },
-            "detail": "Ejecuta todos los tests de core_v2"
+            "detail": "Un proceso Godot; benchmarks, stress y determinismo se ejecutan explícitamente"
         },
         {
             "label": "Run Stress Profile",

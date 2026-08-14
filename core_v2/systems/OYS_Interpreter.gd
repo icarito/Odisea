@@ -878,7 +878,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				consecutive_frames = 5 if is_monitoring else 1
 			var clipping_streak = 0
 			
-			var box = host_node.find_node(box_name, true, false)
+			var box = _resolve_node(box_name)
 			var player = _find_player()
 			
 			if not box:

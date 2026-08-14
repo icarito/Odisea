@@ -222,7 +222,11 @@ def _collect_raw_oys_files(repo_root: Path):
     for base in (repo_root / "tests", repo_root / "core_v2" / "tests"):
         if not base.exists():
             continue
-        oys_files = sorted(base.rglob("*.oys"))
+        oys_files = sorted(
+            path
+            for path in base.rglob("*.oys")
+            if not (base == repo_root / "core_v2" / "tests" and "perf" in path.relative_to(base).parts)
+        )
         files.extend(oys_files)
 
         # Only include JSON replays when no matching OYS file is present.

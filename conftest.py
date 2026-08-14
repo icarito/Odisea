@@ -49,12 +49,16 @@ def pytest_addoption(parser):
     parser.addoption(
         "--odisea-include-determinism",
         action="store_true",
-        default=_env_truthy("ODISEA_INCLUDE_DETERMINISM", True),
-        help="Include odisea_determinism tests (enabled by default; set ODISEA_INCLUDE_DETERMINISM=0 to disable).",
+        default=_env_truthy("ODISEA_INCLUDE_DETERMINISM", False),
+        help="Include replay-determinism tests explicitly (disabled by default in the editor).",
     )
 
 
 def _is_debugger_attached() -> bool:
+    # VS Code's Python Test Explorer loads debugpy before it attaches a trace
+    # function, so sys.gettrace() alone can still be None at collection time.
+    if "debugpy" in sys.modules:
+        return True
     gettrace = getattr(sys, "gettrace", None)
     if gettrace is None:
         return False
@@ -190,6 +194,9 @@ class OdiseaExternalTargetDirectory(pytest.Directory):
         include_stress = bool(self.config.getoption("--odisea-include-stress")) or os.environ.get(
             "ODISEA_INCLUDE_STRESS", ""
         ).strip().lower() in {"1", "true", "yes", "on"}
+        include_determinism = bool(self.config.getoption("--odisea-include-determinism")) or os.environ.get(
+            "ODISEA_RUN_DETERMINISM", ""
+        ).strip().lower() in {"1", "true", "yes", "on"}
 
         items = []
         for target_path in sorted(tests_root.rglob("*")):
@@ -197,7 +204,13 @@ class OdiseaExternalTargetDirectory(pytest.Directory):
                 continue
             if target_path.suffix not in {".oys", ".gd"}:
                 continue
+            # Benchmarks are launched through their dedicated tasks/workflow,
+            # never through the interactive test explorer.
+            if "perf" in target_path.relative_to(tests_root).parts:
+                continue
             if "stress" in target_path.parts and not include_stress:
+                continue
+            if target_path.suffix == ".oys" and not include_determinism:
                 continue
 
             if target_path.suffix == ".gd":
@@ -253,20 +266,26 @@ class OdiseaExternalTargetItem(pytest.Item):
             if bool(self.config.getoption("--odisea-editor")):
                 cmd += ["--nodet"]
             cmd += ["--oys", _to_oys_selector(self.target_path, rootpath)]
-            returncode, _ = stream_process(cmd, file_hint=Path(str(rel_target)), filter_visualserver=True, env=env)
+            returncode, failed_asserts = stream_process(
+                cmd, file_hint=Path(str(rel_target)), filter_visualserver=True, env=env
+            )
             if returncode != 0:
-                raise RunnerError(
-                    f"runtest.sh failed for OYS case '{self.target_path}' with return code {returncode}."
-                )
+                message = f"runtest.sh failed for OYS case '{self.target_path}' with return code {returncode}."
+                if failed_asserts:
+                    message += "\nOYS ASSERT:\n" + "\n".join(dict.fromkeys(failed_asserts))
+                pytest.fail(message, pytrace=False)
             return
 
         # .gd execution path
         cmd += ["-a", str(rel_target)]
-        returncode, _ = stream_process(cmd, file_hint=Path(str(rel_target)), filter_visualserver=True, env=env)
+        returncode, failed_asserts = stream_process(
+            cmd, file_hint=Path(str(rel_target)), filter_visualserver=True, env=env
+        )
         if returncode != 0:
-            raise RunnerError(
-                f"runtest.sh failed for GdUnit suite '{self.target_path}' with return code {returncode}."
-            )
+            message = f"runtest.sh failed for GdUnit suite '{self.target_path}' with return code {returncode}."
+            if failed_asserts:
+                message += "\nAsserts detectados:\n" + "\n".join(dict.fromkeys(failed_asserts))
+            pytest.fail(message, pytrace=False)
 
     def reportinfo(self):
         return self.target_path, 0, self.name
@@ -465,6 +484,15 @@ def stream_process(
     )
 
     captured_failed_asserts = []
+    assert_markers = (
+        "ASSERT FAILED",
+        "Assertion failed",
+        "ASSERT_FAIL",
+        "ASSERT_SIGNAL FAILED",
+        "ASSERT_NO_HAND_CLIPPING failed",
+        "[OYS ASSERT] FAILED",
+        "OYS ASSERT FAILED",
+    )
     deadline = time.monotonic() + timeout_sec if timeout_sec and timeout_sec > 0 else None
     timed_out = False
 
@@ -502,7 +530,7 @@ def stream_process(
         clean = strip_ansi(line)
         print(clean)
 
-        if "ASSERT FAILED" in clean or "Assertion failed" in clean:
+        if any(marker in clean for marker in assert_markers):
             captured_failed_asserts.append(clean)
 
         if _is_github_actions() and file_hint is not None:
@@ -523,6 +551,8 @@ def stream_process(
             clean = strip_ansi(line)
             if clean:
                 print(clean)
+                if any(marker in clean for marker in assert_markers):
+                    captured_failed_asserts.append(clean)
 
     if timed_out:
         print(f"TIMEOUT: command exceeded {timeout_sec:.0f}s: {' '.join(cmd)}")

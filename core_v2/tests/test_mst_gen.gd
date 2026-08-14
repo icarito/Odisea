@@ -75,7 +75,7 @@ func test_mst_wrap_x_no_void_angular_ports() -> void:
 				else:
 					assert_bool(true).is_true()
 
-	assert_bool(_is_connected(grid, gw, gd)).is_true()
+	assert_bool(_is_connected(grid, gw, gd, true)).is_true()
 
 func _assert_port_alignment(grid: Array, i: int, gw: int, gd: int) -> void:
 	var cell = grid[i]
@@ -101,7 +101,7 @@ func _assert_port_alignment(grid: Array, i: int, gw: int, gd: int) -> void:
 		var their_port = float(nb["base_height"]) + float(nv["port_heights"][OPPOSITE[dir]])
 		assert_float(my_port).is_equal_approx(their_port, 0.01)
 
-func _is_connected(grid: Array, gw: int, gd: int) -> bool:
+func _is_connected(grid: Array, gw: int, gd: int, wrap_x: bool = false) -> bool:
 	var start := -1
 	var occupied := 0
 	for i in range(grid.size()):
@@ -125,7 +125,9 @@ func _is_connected(grid: Array, gw: int, gd: int) -> bool:
 			var dv = DIR_VEC[dir]
 			var nx = cx + int(dv.x)
 			var ny = cy + int(dv.y)
-			if nx < 0 or nx >= gw or ny < 0 or ny >= gd:
+			if wrap_x:
+				nx = int(posmod(nx, gw))
+			if ny < 0 or ny >= gd or (not wrap_x and (nx < 0 or nx >= gw)):
 				continue
 			var ni = ny * gw + nx
 			if visited.has(ni) or grid[ni] == null:
