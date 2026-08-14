@@ -1,11 +1,10 @@
-[gd_scene load_steps=127 format=2]
+[gd_scene load_steps=126 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=4]
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro.lmbake" type="BakedLightmapData" id=5]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopod_glass.material" type="Material" id=6]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubTower.tscn" type="PackedScene" id=13]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=15]
 [ext_resource path="res://core_v2/systems/ice/IceLevel.gd" type="Script" id=16]
@@ -1925,7 +1924,6 @@ shape = ExtResource( 349 )
 [node name="IceLevel" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
-auto_start = false
 use_mobile_color_pbr = false
 ice_height_fog_enabled = true
 
@@ -2039,15 +2037,9 @@ atlas_generate = false
 environment_mode = 1
 light_data = ExtResource( 5 )
 
-[node name="CSGCylinder" type="CSGCylinder" parent="."]
+[node name="ReflectionProbe" type="ReflectionProbe" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
-use_collision = true
-collision_layer = 8
-height = 6.0
-material = ExtResource( 6 )
-
-[node name="ReflectionProbe" type="ReflectionProbe" parent="CSGCylinder"]
-max_distance = 12.0
+portal_mode = 1
 extents = Vector3( 12, 12, 12 )
 
 [editable path="Airlock_North"]
