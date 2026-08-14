@@ -302,6 +302,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		print("[TEST_RUNNER] Using scene: ", scene_path)
 		var runner := scene_runner(scene_path)
 		runner.maximize_view()
+		_adopt_runner_scene(runner)
 
 		if not is_instance_valid(runner.scene()):
 			# scene_runner() can silently fail to instance the scene (e.g. the resource
@@ -360,6 +361,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		print("[TEST_RUNNER] Using scene: ", scene_path)
 		var runner := scene_runner(scene_path)
 		runner.maximize_view()
+		_adopt_runner_scene(runner)
 
 		if not is_instance_valid(runner.scene()):
 			fail("scene_runner() failed to instance scene (resource load race?): %s" % scene_path)
@@ -424,6 +426,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		# Re-instanciar runner y escena para evitar state bleeding
 		runner = scene_runner(scene_path)
 		runner.maximize_view()
+		_adopt_runner_scene(runner)
 
 		if not is_instance_valid(runner.scene()):
 			fail("scene_runner() failed to instance scene (resource load race?): %s" % scene_path)
@@ -576,6 +579,14 @@ func _cleanup_runner_scene(runner) -> void:
 			if get_tree().current_scene == runner_scene:
 				get_tree().current_scene = null
 			runner_scene.free()
+
+func _adopt_runner_scene(runner) -> void:
+	# GdUnit agrega la escena a /root pero no la vuelve current_scene. SessionManager
+	# entonces no acepta su Pilot y carga una segunda TestScene para el replay.
+	var runner_scene: Node = runner.scene() if runner and runner.has_method("scene") else null
+	if is_instance_valid(runner_scene):
+		get_tree().current_scene = runner_scene
+		SessionManager.player = null
 
 func _instance_and_prepare_scene(scene_path: String):
 	var packed = load(scene_path)
