@@ -149,11 +149,11 @@ material/0 = ExtResource( 9 )
 ; ValveA gobierna el ramal ROTO, ValveB el SANO. Arrancan las dos abiertas: el plasma
 ; se va por la rotura. Cerrar A y dejar B abierta es redirigir.
 [node name="ValveA" parent="." instance=ExtResource( 5 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1, 0.36 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1, 0.36 )
 starts_active = true
 
 [node name="ValveB" parent="." instance=ExtResource( 5 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -0.24, 1, 1.2 )
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -0.24, 1, 2.2 )
 starts_active = true
 
 [node name="PlasmaLeakParticles" type="CPUParticles" parent="."]
@@ -184,13 +184,26 @@ omni_range = 4.0
 
 ; Barrera de daño: el chorro cortando el paso frente a la ruptura. Arranca
 ; apagada; PlasmaStation.gd la prende recién cuando hay hazard real.
+; Barrera de daño. Tenía visible=false fijo y 1 partícula por segundo: el script la
+; activaba y no se veía nada. Ahora la visibilidad la gobierna is_active y el chorro
+; tiene caudal. La paleta sale del ciclo del plasma (oro y ámbar), no del naranja de
+; incendio del FireEmitter, para que se lea como plasma y no como fuego.
 [node name="FireEmitter" parent="." instance=ExtResource( 7 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.9, 0.1, 0 )
-visible = false
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.9, 0.35, 0 )
 is_active = false
-emission_radius = 0.28
-particles_per_second = 1
-jet_velocity = Vector3( 0, 5, 0 )
+emission_radius = 0.3
+particles_per_second = 42
+emission_height = 0.35
+jet_velocity = Vector3( 0, 5.5, 0 )
+
+[node name="GasParticleManager" parent="FireEmitter" index="0"]
+default_color = Color( 1, 0.68, 0.2, 0.5 )
+ignition_color = Color( 1, 0.86, 0.45, 0.55 )
+default_base_scale = 1.6
+default_max_lifetime = 1.1
+buoyancy = 1.6
+viscosity = 0.6
+use_dither = false
 
 [node name="FireSound" parent="FireEmitter"]
 unit_db = -80.0
