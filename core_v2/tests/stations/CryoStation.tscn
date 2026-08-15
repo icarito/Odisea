@@ -89,10 +89,24 @@ decay_rate = 0.35
 initial_particle_count = 0
 gas_collide_with_world = false
 
+; La nube tiene que CEGAR: partículas grandes, longevas y de poco movimiento. Con la
+; escala por defecto del manager se ven motas y no tapan nada.
+[node name="GasParticleManager" parent="Fog" index="0"]
+pool_size = 128
+default_max_lifetime = 14.0
+default_base_scale = 5.5
+viscosity = 0.95
+buoyancy = 0.04
+decay_rate = 0.18
+default_color = Color( 0.82, 0.94, 0.98, 0.5 )
+collide_with_world = false
+
 [node name="FogAdapter" type="Spatial" parent="."]
 script = ExtResource( 9 )
 leak_path = NodePath("../CoolantLeak")
 gas_path = NodePath("../Fog")
-particles_at_full = 90
-fill_radius = 2.2
-fill_height = 1.4
+particles_at_full = 110
+fill_radius = 2.4
+fill_height = 1.6
+particle_scale = 9.0
+particle_lifetime = 16.0

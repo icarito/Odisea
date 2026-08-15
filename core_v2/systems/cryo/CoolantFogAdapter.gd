@@ -17,6 +17,11 @@ export(float) var fill_radius: float = 2.2
 export(float) var fill_height: float = 1.4
 # Rate at which fog particles dissipate when leak is sealed
 export(float) var dissipate_rate: float = 0.6
+# Tamaño de cada partícula de niebla. Es la perilla que decide si la nube CIEGA o si se
+# ve como motas: estaba fija en el código y ninguna configuración del manager la alcanzaba.
+export(float) var particle_scale: float = 3.0
+# Cuánto vive cada partícula. Más largo = nube más densa a igual ritmo de emisión.
+export(float) var particle_lifetime: float = 8.0
 
 # --- INTERNAL STATE ---
 var _emit_counter: int = 0
@@ -96,7 +101,7 @@ func _emit_particles(manager: Node, count: int) -> void:
 		var local_pos := Vector3(rx, ry, rz)
 		var world_pos: Vector3 = global_transform.xform(local_pos)
 		var manager_pos: Vector3 = manager.global_transform.xform_inv(world_pos)
-		manager.call("emit_particle", manager_pos, Vector3.ZERO, 8.0, 3.0)
+		manager.call("emit_particle", manager_pos, Vector3.ZERO, particle_lifetime, particle_scale)
 
 
 func _hashed_unit(index: int) -> float:
