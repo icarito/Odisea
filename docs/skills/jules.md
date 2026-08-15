@@ -37,6 +37,24 @@ Estados que exigen acción nuestra (`needs_attention: true`): `AWAITING_PLAN_APP
 > siempre un calco del brief). Con tres sesiones en paralelo, `--auto-plan` es lo más seguro:
 > si nadie mira durante veinte minutos, se pierden las tres.
 
+## El PR hay que pedirlo, no darlo por hecho
+
+`create` manda `automationMode: AUTO_CREATE_PR`, pero ese campo es **input-only** (nunca vuelve
+en la respuesta, ni siquiera en las sesiones que sí publicaron) y la propia API lo define como
+"crea rama y PR **si aplica**". En la práctica es discrecional: de siete sesiones, dos publicaron
+PR y cinco entregaron solo el `changeSet`. **No existe ningún endpoint para publicar el PR
+después** — no hay `publishPullRequest` ni equivalente; los únicos métodos son `create`, `get`,
+`list`, `approvePlan` y `sendMessage`.
+
+Consecuencia práctica: si la sesión no publica, hay que bajar el patch y aplicarlo a mano, que es
+trabajo y contexto desperdiciados. Para evitarlo:
+
+1. **Pedirlo en el brief.** Cerrar todo brief con una instrucción explícita de publicar el PR
+   contra la rama de trabajo. Es lo único que Jules lee.
+2. **Si igual no lo publicó**, reclamarlo por `reply`: un mensaje a una sesión `COMPLETED` la
+   reabre (`IN_PROGRESS`) y la pone a publicar. Es más barato que integrar el patch a mano.
+3. Recién como último recurso, `result --patch` + `git apply`.
+
 ## Flujo
 
 1. **Brief** — `docs/features/tasks/FD-0XX-tN-<slug>.md`, autocontenido: objetivo, contexto del

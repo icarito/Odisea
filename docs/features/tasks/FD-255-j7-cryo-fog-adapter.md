@@ -96,3 +96,8 @@ Comportamiento, todo en `_physics_process`:
 - No agregar daño al gas frío.
 - No modificar `GasArea3D` ni `CoolantLeak`: si le falta una API, dígalo en el reporte en vez de
   editarlos.
+
+## Entrega
+
+Cuando termines, **publicá el pull request** contra la rama `feature/FD-255-ship-systems`.
+El PR es la vía de integración: un changeset suelto obliga a aplicar el patch a mano.

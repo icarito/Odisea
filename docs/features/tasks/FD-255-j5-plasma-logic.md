@@ -106,3 +106,8 @@ Sin `randf()`.
 - No aplicar daño directamente al jugador: exponga la intensidad y deje que la zona de daño ya
   existente (`GasArea3D` / `FireEmitter`) lo haga.
 - No duplicar `CoolantLeak`: seguir su forma, no copiar su archivo entero.
+
+## Entrega
+
+Cuando termines, **publicá el pull request** contra la rama `feature/FD-255-ship-systems`.
+El PR es la vía de integración: un changeset suelto obliga a aplicar el patch a mano.

@@ -113,3 +113,8 @@ El output de los tests queda en `./reports/gdunit_runner.log`.
   solo tiene que poder guardarse y restaurarse.
 - No tocar la generación de cables (`generate_cables`, `_spawn_cable`, `_generate_catenary`).
 - No crear escenas de ejemplo ni props nuevos.
+
+## Entrega
+
+Cuando termines, **publicá el pull request** contra la rama `feature/FD-255-ship-systems`.
+El PR es la vía de integración: un changeset suelto obliga a aplicar el patch a mano.

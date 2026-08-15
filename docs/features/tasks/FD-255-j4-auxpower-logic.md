@@ -114,3 +114,8 @@ estado completo (estado, temporizador, nivel de energía). Sin `randf()` ni `OS.
 - No crear escenas, mallas, materiales ni luces.
 - No escribir un sistema de lógica paralelo al `LogicCircuitManager`.
 - No agregar daño: este sistema bloquea ruta, no lastima.
+
+## Entrega
+
+Cuando termines, **publicá el pull request** contra la rama `feature/FD-255-ship-systems`.
+El PR es la vía de integración: un changeset suelto obliga a aplicar el patch a mano.

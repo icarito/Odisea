@@ -146,3 +146,8 @@ El output queda en `./reports/gdunit_runner.log`.
 - No inventar un sistema de interacción nuevo: la válvula ya existe y hereda `InteractableBaseV2`.
 - No agregar daño al jugador: el coolant **ciega, no daña**.
 - No meter un timer que dispare la fuga solo: la fuga la dispara el nivel o el circuito.
+
+## Entrega
+
+Cuando termines, **publicá el pull request** contra la rama `feature/FD-255-ship-systems`.
+El PR es la vía de integración: un changeset suelto obliga a aplicar el patch a mano.

@@ -67,7 +67,8 @@ mkdir -p docs/features/tasks
 # escribir docs/features/tasks/FD-0XX-tN-<slug>.md con:
 #   objetivo, contexto del sistema, archivos permitidos/prohibidos,
 #   convenciones (Godot 3.6, GDScript 1.x, core_v2/, GLES2/CPUParticles),
-#   criterio de aceptación, y qué NO hacer
+#   criterio de aceptación, qué NO hacer, y —última línea, siempre—
+#   "cuando termines, publicá el PR contra la rama <rama>"
 git add docs/features/tasks/ && git commit -m "docs(FD-0XX): brief tarea N" && git push
 
 bin/jules-cli create --branch feature/FD-0XX-<slug> \

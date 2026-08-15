@@ -128,3 +128,8 @@ El output de los tests queda en `./reports/gdunit_runner.log`.
 - No rediseñar la simulación de gas ni tocar sus parámetros de tuning exportados.
 - No convertir `LeakEmitter` en determinista (es decorativo a propósito).
 - No crear props, escenas ni materiales: esta tarea es solo lógica y tests.
+
+## Entrega
+
+Cuando termines, **publicá el pull request** contra la rama `feature/FD-255-ship-systems`.
+El PR es la vía de integración: un changeset suelto obliga a aplicar el patch a mano.
