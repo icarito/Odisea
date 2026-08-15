@@ -24,6 +24,14 @@ onready var _alarm_strip: MeshInstance = get_node_or_null("AlarmStrip")
 onready var _spark: MeshInstance = get_node_or_null("Spark")
 onready var _beacon: Node = get_node_or_null("EmergencyBeacon")
 onready var _pipes: Node = get_node_or_null("Pipes")
+onready var _dial_pivot: Spatial = get_node_or_null("Gauge/DialPivot")
+onready var _dial_needle: MeshInstance = get_node_or_null("Gauge/DialPivot/DialNeedle")
+onready var _target_band: MeshInstance = get_node_or_null("Gauge/TargetBand")
+
+# Cuánto avanza el dial por cada giro de válvula. Con 0.17 hacen falta ~4 giros para
+# cruzar la zona verde: suficiente para que se sienta que uno está buscando el punto,
+# y poco como para no aburrir.
+const DIAL_STEP := 0.17
 # Las fugas de vapor arrancan escalonadas: cuanto más sube la presión, más juntas ceden.
 onready var _steam := [get_node_or_null("SteamA"), get_node_or_null("SteamB"), get_node_or_null("SteamC")]
 
@@ -55,13 +63,17 @@ func _physics_process(delta: float) -> void:
 	_apply()
 
 
-func _on_purge_valve_changed(is_open: bool) -> void:
-	if not _dial:
+func _on_purge_valve_changed(_is_open: bool) -> void:
+	# Cada giro de la válvula avanza el dial un paso y vuelve a empezar al pasarse: es
+	# un mando de sintonía, no un interruptor. Antes la válvula saltaba directo al valor
+	# exacto, así que el mini-juego de buscar la zona verde no existía: se abría y a los
+	# 1.2 s purgaba sin que se viera nada en el medio.
+	if not _dial or not _dial.has_method("nudge"):
 		return
-	if is_open:
-		_dial.value = _dial.target
-	else:
-		_dial.value = 0.0
+	var next_value: float = _dial.value + DIAL_STEP
+	if next_value > 1.0:
+		next_value -= 1.0
+	_dial.nudge(next_value - _dial.value)
 
 
 func _apply() -> void:
@@ -73,6 +85,23 @@ func _apply() -> void:
 
 	if _needle:
 		_needle.rotation.z = lerp(GAUGE_MIN_ANGLE, GAUGE_MAX_ANGLE, normalized)
+
+	# La aguja de ajuste es la que el jugador mueve. Vive en el mismo manómetro que la
+	# de presión para que se lea de un vistazo qué hay que alinear con qué.
+	if _dial and _dial_pivot:
+		_dial_pivot.rotation.z = lerp(GAUGE_MIN_ANGLE, GAUGE_MAX_ANGLE, clamp(_dial.value, 0.0, 1.0))
+	if _dial and _target_band:
+		_target_band.rotation.z = lerp(GAUGE_MIN_ANGLE, GAUGE_MAX_ANGLE, clamp(_dial.target, 0.0, 1.0))
+	# Feedback sensorial que pide el FD: la zona verde y la aguja se encienden al
+	# acercarse, y quedan fijas al enganchar. Es lo único que dice "vas bien".
+	if _dial and _dial.has_method("get_proximity"):
+		var proximity: float = _dial.get_proximity()
+		var locked: bool = _dial.has_method("is_locked") and _dial.is_locked()
+		var glow: float = 0.6 + 3.4 * proximity
+		if _target_band and _target_band.get_surface_material(0):
+			_target_band.get_surface_material(0).emission_energy = 4.5 if locked else glow
+		if _dial_needle and _dial_needle.get_surface_material(0):
+			_dial_needle.get_surface_material(0).emission_energy = 4.5 if locked else glow
 
 	# La cañería acusa la presión antes que cualquier cartel: el aire corre más rápido y
 	# empiezan a ceder las juntas, una a una, de menor a mayor presión.

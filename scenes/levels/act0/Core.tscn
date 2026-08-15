@@ -54,10 +54,10 @@ debug_render = false
 
 [node name="Pilot" parent="." instance=ExtResource( 2 )]
 
-[node name="AnimationTree" parent="Pilot/Visual/Pivot" index="1"]
+[node name="AnimationTree" parent="Pilot/Visual/Pivot" index="2"]
 parameters/playback = SubResource( 1 )
 
-[node name="FakeShadow" parent="Pilot/Visual/Pivot" index="3"]
+[node name="FakeShadow" parent="Pilot/Visual/Pivot" index="4"]
 visible = false
 
 [node name="CSGCylinder" type="CSGCombiner" parent="."]
