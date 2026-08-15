@@ -2,6 +2,15 @@ extends GdUnitTestSuite
 
 const PlayerHintManager = preload("res://core_v2/autoloads/PlayerHintManager.gd")
 
+func before_test() -> void:
+	var screen_fx = get_tree().root.get_node_or_null("ScreenEffectsManager")
+	if screen_fx and screen_fx.has_method("reset"):
+		screen_fx.reset(true)
+	var session = get_tree().root.get_node_or_null("SessionManager")
+	if session and "player" in session and is_instance_valid(session.player):
+		if "input_provider" in session.player and is_instance_valid(session.player.input_provider):
+			session.player.input_provider.hardware_input_enabled = true
+
 func test_interaction_hint_is_visible_text_when_interactive() -> void:
 	var manager = PlayerHintManager.new()
 	add_child(manager)
