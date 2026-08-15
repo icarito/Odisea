@@ -98,6 +98,7 @@ visible = false
 is_active = false
 emission_radius = 0.28
 particles_per_second = 1
+jet_velocity = Vector3( 0, 0, -5 )
 
 [node name="FireSound" parent="FireEmitter"]
 unit_db = -80.0
