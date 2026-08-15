@@ -12,7 +12,11 @@ class_name PipeCoolantRun
 # La intensidad es la palanca de gameplay: un sistema sano corre parejo; una fuga la
 # hace caer. Manejarla en runtime con set_flow_intensity().
 
-const COOLANT_MATERIAL := "res://core_v2/props/pipe/PipeCoolant.tres"
+const DEFAULT_FLOW_MATERIAL := "res://core_v2/props/pipe/PipeCoolant.tres"
+
+# Material de flujo por corrida. Mantiene coolant como default; plasma puede reutilizar
+# el mismo controlador con su shader de bandas, sin teñir el shader de criocoolant.
+export(String, FILE, "*.tres") var flow_material_path: String = DEFAULT_FLOW_MATERIAL
 
 # Dirección del flujo, en coordenadas de mundo. El shader muestrea ruido en mundo, así
 # que este vector es el que hace que el refrigerante "corra" hacia un lado y no al otro.
@@ -94,7 +98,7 @@ func _apply() -> void:
 	if not is_inside_tree():
 		return
 	if _material == null:
-		var base = load(COOLANT_MATERIAL)
+		var base = load(flow_material_path)
 		if base == null:
 			return
 		# Duplicado: si no, cada corrida de tubería del nivel pisaría la dirección

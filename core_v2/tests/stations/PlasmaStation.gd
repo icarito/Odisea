@@ -6,7 +6,7 @@ extends Spatial
 # get_hazard_intensity(), así que no necesita snapshot — el estado vive en
 # PlasmaConduit/PlasmaRoute, que sí cumplen el contrato de replay (AGENTS.md
 # §5.3). Este nodo solo traduce esas dos lecturas a lo que se ve:
-#   - brillo de la tubería (PipeCoolantRun, tañido ámbar una vez al arrancar)
+#   - brillo de la tubería (PipeCoolantRun, plasma cian una vez al arrancar)
 #   - brillo del nozzle roto (PlasmaExhaust, vía su emission_intensity libre)
 #   - la barrera de daño (FireEmitter), solo mientras hay chorro real
 #
@@ -16,8 +16,9 @@ extends Spatial
 # param que ese script nunca escribe, así que es seguro pilotearlo desde acá
 # sin pisarle la animación.
 
-const PIPE_ALBEDO_AMBER := Color(0.85, 0.55, 0.12, 1.0)
-const PIPE_EMISSION_AMBER := Color(0.4, 0.22, 0.02, 1.0)
+const PIPE_ALBEDO_PLASMA := Color(0.008, 0.018, 0.035, 1.0)
+const PIPE_EMISSION_PLASMA := Color(0.03, 0.72, 1.0, 1.0)
+const NOZZLE_PLASMA_COLOR := Color(0.03, 0.72, 1.0, 1.0)
 
 const PIPE_FLOW_HEALTHY := 1.0
 const PIPE_FLOW_WARNING := 2.0
@@ -26,19 +27,24 @@ const PIPE_SPEED_HEALTHY := 0.7
 const PIPE_SPEED_WARNING := 1.6
 
 const NOZZLE_EMISSION_HEALTHY := 1.5
-const NOZZLE_EMISSION_WARNING := 4.0
-const NOZZLE_EMISSION_VENTING := 8.0
+const NOZZLE_EMISSION_WARNING := 3.5
+const NOZZLE_EMISSION_VENTING := 6.5
 
 const HAZARD_THRESHOLD := 0.01
 
 onready var _conduit: Node = get_node_or_null("PlasmaConduit")
 onready var _pipes: Node = get_node_or_null("Pipes")
+onready var _nozzle: Node = get_node_or_null("PlasmaExhaust")
 onready var _nozzle_mesh: MeshInstance = get_node_or_null("PlasmaExhaust/PlasmaMesh")
 onready var _barrier: Node = get_node_or_null("FireEmitter")
 
 
 func _ready() -> void:
-	_tint_pipes_amber()
+	_tint_pipes_plasma()
+	# El nozzle se usa como chorro industrial estable, no como reactor decorativo:
+	# evitamos su ciclo arcoiris para que el color comunique siempre "plasma cian".
+	if _nozzle:
+		_nozzle.set_process(false)
 	_apply(0.0, 0.0)
 
 
@@ -63,6 +69,7 @@ func _apply(warning: float, hazard: float) -> void:
 	var nozzle_warm: float = lerp(NOZZLE_EMISSION_HEALTHY, NOZZLE_EMISSION_WARNING, warning)
 	var nozzle_target: float = lerp(nozzle_warm, NOZZLE_EMISSION_VENTING, hazard)
 	if _nozzle_mesh and _nozzle_mesh.material_override:
+		_nozzle_mesh.material_override.set_shader_param("plasma_color", NOZZLE_PLASMA_COLOR)
 		_nozzle_mesh.material_override.set_shader_param("emission_intensity", nozzle_target)
 
 	# Barrera de daño: solo con el chorro afuera (hazard_intensity). Durante el
@@ -72,9 +79,9 @@ func _apply(warning: float, hazard: float) -> void:
 		_barrier.set_active(hazard > HAZARD_THRESHOLD)
 
 
-func _tint_pipes_amber() -> void:
-	# PipeCoolantRun no expone color propio (siempre carga PipeCoolant.tres,
-	# cian). El material que arma es un ShaderMaterial duplicado UNA vez y
+func _tint_pipes_plasma() -> void:
+	# PipeCoolantRun recibe PipePlasma.tres en esta estación. El material que
+	# arma es un ShaderMaterial duplicado UNA vez y
 	# reutilizado en cada _apply() posterior — nunca se vuelve a cargar desde
 	# disco — así que retocar base_color/flow_color acá, una sola vez, alcanza
 	# y no se lo pisa el propio flow_intensity que actualizamos cada frame
@@ -86,5 +93,10 @@ func _tint_pipes_amber() -> void:
 		return
 	var mat: Material = mesh.get_surface_material(0)
 	if mat is ShaderMaterial:
-		mat.set_shader_param("base_color", PIPE_ALBEDO_AMBER)
-		mat.set_shader_param("flow_color", PIPE_EMISSION_AMBER)
+		mat.set_shader_param("base_color", PIPE_ALBEDO_PLASMA)
+		mat.set_shader_param("flow_color", PIPE_EMISSION_PLASMA)
+		mat.set_shader_param("flow_contrast", 0.22)
+		mat.set_shader_param("metallic_amount", 0.65)
+		mat.set_shader_param("roughness_amount", 0.28)
+		_pipes.base_emission = 1.6
+		_pipes.set_noise_scale(3.2)

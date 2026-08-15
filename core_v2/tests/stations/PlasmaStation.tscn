@@ -19,12 +19,12 @@
 [ext_resource path="res://core_v2/props/exhaust/PlasmaExhaust.tscn" type="PackedScene" id=6]
 [ext_resource path="res://core_v2/props/emitters/FireEmitter.tscn" type="PackedScene" id=7]
 [ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=8]
-[ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=9]
+[ext_resource path="res://core_v2/props/pipe/PipePlasmaMetal.tres" type="Material" id=9]
 
 [sub_resource type="CylinderMesh" id=1]
-top_radius = 0.26
-bottom_radius = 0.26
-height = 0.16
+top_radius = 0.36
+bottom_radius = 0.36
+height = 0.18
 
 [node name="PlasmaStation" type="Spatial"]
 script = ExtResource( 1 )
@@ -44,15 +44,16 @@ conduit_path = NodePath("../PlasmaConduit")
 
 [node name="Pipes" type="Spatial" parent="."]
 script = ExtResource( 8 )
+flow_material_path = "res://core_v2/props/pipe/PipePlasma.tres"
 flow_dir = Vector3( 1, 0, 0 )
 flow_speed = 0.7
 flow_intensity = 1.0
 
 [node name="PipeLeft" parent="Pipes" instance=ExtResource( 4 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1, 0 )
+transform = Transform( 1, 0, 0, 0, 1.55, 0, 0, 0, 1.55, -2, 1, 0 )
 
 [node name="PipeRight" parent="Pipes" instance=ExtResource( 4 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 0 )
+transform = Transform( 1, 0, 0, 0, 1.55, 0, 0, 0, 1.55, 2, 1, 0 )
 
 [node name="Collar1" type="MeshInstance" parent="."]
 transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, -3, 1, 0 )
@@ -87,10 +88,16 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6, 1, 0.12 )
 ; salida de una conducción rota y no como el motor completo. Su -Z local es
 ; la dirección del chorro; apunta hacia el jugador, que entra por -Z.
 [node name="PlasmaExhaust" parent="." instance=ExtResource( 6 )]
-transform = Transform( 0.18, 0, 0, 0, 0.18, 0, 0, 0, 0.18, 0, 1, 0 )
+transform = Transform( 0.46, 0, 0, 0, 0.46, 0, 0, 0, 0.46, 0, 1, 0 )
 
 ; Barrera de daño: el chorro cortando el paso frente a la ruptura. Arranca
 ; apagada; PlasmaStation.gd la prende recién cuando hay hazard real.
 [node name="FireEmitter" parent="." instance=ExtResource( 7 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.3 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.55, -1.3 )
+visible = false
 is_active = false
+emission_radius = 0.28
+particles_per_second = 1
+
+[node name="FireSound" parent="FireEmitter"]
+unit_db = -80.0

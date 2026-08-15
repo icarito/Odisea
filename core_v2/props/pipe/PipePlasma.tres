@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/props/pipe/pipe_plasma.shader" type="Shader" id=1]
+
+[resource]
+shader = ExtResource( 1 )
+shader_param/base_color = Color( 0.008, 0.018, 0.035, 1 )
+shader_param/flow_color = Color( 0.03, 0.72, 1, 1 )
+shader_param/flow_dir = Vector3( 1, 0, 0 )
+shader_param/noise_scale = 3.2
+shader_param/flow_phase = 0.0
+shader_param/emission_strength = 1.6
+shader_param/pipe_alpha = 1.0
+shader_param/flow_contrast = 0.5
+shader_param/metallic_amount = 0.65
+shader_param/roughness_amount = 0.28
