@@ -215,3 +215,18 @@ chocar consigo mismo.
    estaciones activas (R5) y comparar contra el presupuesto de `Dome_Intro`.
 
 Cada ajuste que salga de estos checkpoints se anota en `## Decisiones` con fecha.
+
+### Falso positivo registrado (2026-08-15)
+
+Durante el desarrollo de la estación de criocoolant se persiguió durante horas un supuesto bug:
+la `PipeValve` cambiaba de estado sola y sellaba la fuga. Se descartaron uno por uno la conexión
+de señales, el culling de FD-224, el auto-wiring, la carrera Menu→escena y el caché de objetivo
+del `PlayerControllerV2`.
+
+**No era un bug.** Era entrada real de teclado llegando a la ventana headful que quedó abierta en
+el escritorio: alguien caminando por el taller y pulsando la tecla de interacción. La prueba que
+lo cerró: la misma escena en `--headless`, con el jugador pegado a la válvula, 30 segundos sin un
+solo cambio de estado ni un milímetro de desplazamiento.
+
+**Regla que sale de acá:** un comportamiento "espontáneo" observado en una sesión headful no es
+evidencia de nada hasta reproducirlo en `--headless`. La ventana con foco es un jugador más.
