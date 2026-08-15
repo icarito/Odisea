@@ -215,7 +215,7 @@ jobs:
           set +e
           timeout 420s ./runtest.sh --runner gdunit \
             -a ./core_v2/tests/ \
-            -i test_determinism_v2 2>&1 | tee reports/core_tests.log
+            -i res://core_v2/tests/test_determinism_v2.gd 2>&1 | tee reports/core_tests.log
           test_rc="${PIPESTATUS[0]}"
           set -e
           if [ "$test_rc" -eq 124 ]; then

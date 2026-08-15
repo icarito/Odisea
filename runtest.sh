@@ -191,8 +191,11 @@ print_failed_asserts() {
     cleaned=$(mktemp)
     strip_ansi < "$LOG_FILE" > "$cleaned"
 
+    # GdUnit tests may deliberately execute a failing OYS ASSERT to verify the
+    # interpreter.  Its exit code and the GdUnit report are authoritative; do
+    # not present that expected stderr as the cause of an unrelated failed test.
     mapfile -t failed_asserts < <(
-        grep -E "❌ ASSERT FAILED:|\[OYS ASSERT\] FAILED:|ASSERT_SIGNAL FAILED|OYS ASSERT FAILED|Assertion failed \(" "$cleaned" \
+        grep -E "❌ ASSERT FAILED:|ASSERT_SIGNAL FAILED|Assertion failed \(" "$cleaned" \
         | awk '!seen[$0]++'
     )
 
@@ -204,6 +207,19 @@ print_failed_asserts() {
             printf "%d. %s\n" "$i" "$line"
             i=$((i + 1))
         done
+    fi
+
+    # Preserve GdUnit's contextual failure report in the concise runner output.
+    # This includes the test name and the actual expected/observed values.
+    if grep -q $'\tReport:' "$cleaned"; then
+        echo ""
+        echo "🚨 REPORTES GdUnit FALLIDOS:"
+        awk '
+            /Run Test:.*FAILED/ { failed = 1; test = $0; next }
+            failed && /Report:/ { print test; print; report = 1; next }
+            report && /^[[:space:]]/ { print; next }
+            report { failed = 0; report = 0 }
+        ' "$cleaned" | awk '!seen[$0]++'
     fi
 
     rm -f "$cleaned"

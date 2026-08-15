@@ -51,11 +51,14 @@ func test_laser_raycast_collision():
 	collision_shape.shape = box
 	static_body.add_child(collision_shape)
 	add_child(static_body)
-	var visual_forward = _player.get_node("Visual/Pivot").global_transform.basis.z.normalized()
-	static_body.global_transform.origin = _player.global_transform.origin + visual_forward * 5.0
-	
-	# Registration and the transform update are separate PhysicsServer ticks.
-	for _i in range(2):
+	# Put the target on the RayCast's actual firing line.  Visual/Pivot is an
+	# animation-driven presentation transform, not the source of truth for laser aim.
+	var ray_direction: Vector3 = -_laser.global_transform.basis.z.normalized()
+	static_body.global_transform.origin = _laser.global_transform.origin + ray_direction * 5.0
+
+	# Registration and transform propagation can span several PhysicsServer ticks
+	# when this suite follows a scene-heavy test.
+	for _i in range(8):
 		yield(get_tree(), "physics_frame")
 	
 	var input = InputDataV2.new()
@@ -63,13 +66,18 @@ func test_laser_raycast_collision():
 	
 	# Step player and multi-tool
 	_player.step(1.0/60.0, input)
+	for _i in range(8):
+		_laser._raycast.force_raycast_update()
+		if _laser._raycast.is_colliding():
+			break
+		yield(get_tree(), "physics_frame")
 	_laser._physics_process(1.0/60.0) # Explicit call since it might be throttled or not running in test env same way
 	
-	assert_bool(_laser._raycast.is_colliding()).is_true()
-	assert_bool(_laser._impact_particles.emitting).is_true()
+	assert_bool(_laser._raycast.is_colliding()).override_failure_message("Laser RayCast did not hit the target on its firing line.").is_true()
+	assert_bool(_laser._impact_particles.emitting).override_failure_message("Laser impact particles did not start after a raycast hit.").is_true()
 	
 	# Check beam mesh scale (it should be roughly distance to collision)
 	var expected_len = _laser.global_transform.origin.distance_to(_laser._raycast.get_collision_point())
-	assert_float(_laser._beam_mesh.scale.z).is_between(expected_len - 0.1, expected_len + 0.1)
+	assert_float(_laser._beam_mesh.scale.z).override_failure_message("Laser beam length did not match the raycast hit point.").is_between(expected_len - 0.1, expected_len + 0.1)
 	
 	static_body.queue_free()
