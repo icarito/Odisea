@@ -16,7 +16,7 @@ SECTION "Branch_OK"
     PRINT "Wait finished"
 
     // Test GET_NODES_IN_GROUP
-    GET_NODES_IN_GROUP "player" AS $player_count
-    ASSERT $player_count == 1 "Player count should be 1"
+    GET_NODES_IN_GROUP "oys_pro_test_player" AS $player_count
+    ASSERT $player_count == 1 "OYS Pro test player count should be 1"
 
     PRINT "Test completed successfully"

@@ -8,6 +8,9 @@ func test_oys_pro_execution() -> void:
 
 	var player = runner.scene().find_node("Pilot", true, false)
 	assert_object(player).is_not_null()
+	# Other suites may leave a legacy member in the global "player" group.
+	# Keep this interpreter assertion scoped to the scene owned by this test.
+	player.add_to_group("oys_pro_test_player")
 
 	var comp = OYSComponent.new()
 	comp.name = "OYSComponent"
