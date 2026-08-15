@@ -11,6 +11,7 @@
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=3]
 [ext_resource path="res://core_v2/tests/stations/CryoStation.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/tests/stations/AuxPowerStation.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/tests/stations/PlasmaStation.tscn" type="PackedScene" id=6]
 
 [sub_resource type="SpatialMaterial" id=1]
 albedo_color = Color( 0.06, 0.62, 0.72, 1 )
@@ -77,6 +78,8 @@ width = 7.0
 height = 0.1
 depth = 7.0
 material = SubResource( 2 )
+
+[node name="PlasmaStation" parent="Stations/PlasmaStation" instance=ExtResource( 6 )]
 
 [node name="AtmoStation" type="Spatial" parent="Stations"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 9 )

@@ -1,0 +1,96 @@
+[gd_scene load_steps=11 format=2]
+
+; Estación de plasma (FD-257): conducción rota + dos válvulas de redirección.
+; La lógica del ciclo vive en PlasmaConduit/PlasmaRoute; esta escena solo la
+; viste. Arranca sobrecalentando (starts_overheating=true) para poder recorrer
+; el patrón completo apenas carga: brillo -> chorro -> girar las dos válvulas
+; -> se corta. Las válvulas arrancan cerradas (PipeValve.starts_active=false),
+; que es el patrón roto: el jugador tiene que abrir las dos para redirigir.
+;
+; El gap entre PipeLeft y PipeRight (x=-1..1) es la ruptura: ahí vive el
+; nozzle (PlasmaExhaust, el real del reactor, reescalado) y la barrera
+; (FireEmitter) que corta el paso mientras hay chorro.
+
+[ext_resource path="res://core_v2/tests/stations/PlasmaStation.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/plasma/PlasmaConduit.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/systems/plasma/PlasmaRoute.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/props/pipe/PipeSection.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/props/pipe/PipeValve.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/props/exhaust/PlasmaExhaust.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/props/emitters/FireEmitter.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=8]
+[ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=9]
+
+[sub_resource type="CylinderMesh" id=1]
+top_radius = 0.26
+bottom_radius = 0.26
+height = 0.16
+
+[node name="PlasmaStation" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="PlasmaConduit" type="Spatial" parent="."]
+script = ExtResource( 2 )
+starts_overheating = true
+warning_duration = 4.0
+ramp_up_duration = 2.0
+shutdown_duration = 2.5
+
+[node name="PlasmaRoute" type="Spatial" parent="."]
+script = ExtResource( 3 )
+valve_paths = [ NodePath("../ValveA"), NodePath("../ValveB") ]
+required_pattern = PoolIntArray( 1, 1 )
+conduit_path = NodePath("../PlasmaConduit")
+
+[node name="Pipes" type="Spatial" parent="."]
+script = ExtResource( 8 )
+flow_dir = Vector3( 1, 0, 0 )
+flow_speed = 0.7
+flow_intensity = 1.0
+
+[node name="PipeLeft" parent="Pipes" instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1, 0 )
+
+[node name="PipeRight" parent="Pipes" instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 0 )
+
+[node name="Collar1" type="MeshInstance" parent="."]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, -3, 1, 0 )
+mesh = SubResource( 1 )
+material/0 = ExtResource( 9 )
+
+[node name="Collar2" type="MeshInstance" parent="."]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, -1, 1, 0 )
+mesh = SubResource( 1 )
+material/0 = ExtResource( 9 )
+
+[node name="Collar3" type="MeshInstance" parent="."]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 1, 1, 0 )
+mesh = SubResource( 1 )
+material/0 = ExtResource( 9 )
+
+[node name="Collar4" type="MeshInstance" parent="."]
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 3, 1, 0 )
+mesh = SubResource( 1 )
+material/0 = ExtResource( 9 )
+
+; Montadas contra la pared del caño, vástago hacia adentro (z negativo),
+; volante despejado (mismo criterio que la válvula de CryoStation). Arrancan
+; cerradas: el patrón roto por defecto.
+[node name="ValveA" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6, 1, 0.12 )
+
+[node name="ValveB" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6, 1, 0.12 )
+
+; El punto de ruptura: el nozzle real del reactor, reescalado para leer como
+; salida de una conducción rota y no como el motor completo. Su -Z local es
+; la dirección del chorro; apunta hacia el jugador, que entra por -Z.
+[node name="PlasmaExhaust" parent="." instance=ExtResource( 6 )]
+transform = Transform( 0.18, 0, 0, 0, 0.18, 0, 0, 0, 0.18, 0, 1, 0 )
+
+; Barrera de daño: el chorro cortando el paso frente a la ruptura. Arranca
+; apagada; PlasmaStation.gd la prende recién cuando hay hazard real.
+[node name="FireEmitter" parent="." instance=ExtResource( 7 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.3 )
+is_active = false
