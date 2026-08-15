@@ -13,6 +13,7 @@
 [ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=6]
 [ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=7]
 [ext_resource path="res://core_v2/components/InteractableBaseV2.gd" type="Script" id=8]
+[ext_resource path="res://core_v2/systems/auxpower/AuxPowerBus.gd" type="Script" id=9]
 
 [sub_resource type="CubeMesh" id=1]
 size = Vector3( 0.35, 0.22, 0.05 )
@@ -157,6 +158,14 @@ material = ExtResource( 5 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, -0.22 )
 mesh = SubResource( 4 )
 material/0 = SubResource( 5 )
+
+; El respaldo del sector. Arranca sin energía: hasta que alguien la restaure, la palanca
+; no abre nada. Es el estado que hay que poder leer sin texto (FD-259 §3).
+[node name="AuxPowerBus" type="Spatial" parent="."]
+script = ExtResource( 9 )
+starts_offline = true
+restore_duration = 2.5
+flicker_period = 0.8
 
 ; Caja de empalmes: el cuerpo físico de la compuerta AND. La energía de la fuente y la
 ; orden de la palanca entran acá, y de acá sale la línea que manda a la puerta.

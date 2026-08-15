@@ -20,6 +20,8 @@ onready var _source: Node = get_node_or_null("PowerSource")
 # circuito de punta a punta (bajar la palanca abre la puerta). Cuando el bus aterrice,
 # él manda: cortar la energía deja la palanca sin efecto, que es la regla del FD-259.
 export(bool) var assume_powered_without_bus := true
+# El lever le pide energía al bus: es la secuencia de restauración del FD-259.
+export(bool) var lever_requests_restore := true
 
 # Lectura OD-02: mismo verde de sistema que documenta FD-255.
 const OD02_ALBEDO := Color(0.15, 0.7, 0.3)
@@ -38,6 +40,8 @@ var _door_open := false
 
 
 func _ready() -> void:
+	if lever_requests_restore and _lever and _bus and _lever.has_signal("lever_toggled"):
+		_lever.connect("lever_toggled", self, "_on_lever_toggled")
 	if _panel:
 		_panel_material = _panel.get_surface_material(0)
 		if _panel_material == null:
@@ -83,6 +87,17 @@ func _apply(powered: bool, phase: float) -> void:
 	if _source and _source.has_method("set_active") and powered != _door_open:
 		_door_open = powered
 		_source.set_active(powered)
+
+
+func _on_lever_toggled(is_on: bool) -> void:
+	# Bajar la palanca pide el arranque del respaldo; subirla lo corta. La puerta no la
+	# abre esto: la abre el circuito cuando coinciden energía y palanca.
+	if not _bus:
+		return
+	if is_on and _bus.has_method("request_restore"):
+		_bus.request_restore()
+	elif not is_on and _bus.has_method("cut_power"):
+		_bus.cut_power()
 
 
 func interact() -> void:
