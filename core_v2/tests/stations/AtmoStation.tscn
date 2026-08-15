@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=2]
+[gd_scene load_steps=27 format=2]
 
 ; Estación de atmósfera (FD-258): esclusa sellada, manómetro y purga. Arranca
 ; en sobrepresión para enseñar el orden parpadeo -> chispa -> blowout. La
@@ -8,7 +8,6 @@
 [ext_resource path="res://core_v2/tests/stations/AtmoStation.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/systems/atmosphere/PressureSection.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/systems/atmosphere/PurgeDial.gd" type="Script" id=3]
-[ext_resource path="res://core_v2/props/doors/IrisDoorV2.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/props/pipe/PipeValve.tscn" type="PackedScene" id=5]
 [ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=6]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=7]
@@ -167,11 +166,6 @@ interval = 0.8
 interval_random = 0.2
 duration = 0.5
 fadeout_time = 0.9
-
-; Compuerta de esclusa existente, contenida para que el manómetro conserve
-; protagonismo dentro del pad de 7m.
-[node name="Airlock" parent="." instance=ExtResource( 4 )]
-transform = Transform( 0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 0.9, 1.05, 1.6 )
 
 [node name="EmergencyBeacon" parent="." instance=ExtResource( 7 )]
 transform = Transform( -0.6, 0, 0, 0, 0.6, 0, 0, 0, -0.6, 0.9, 2.1, 1.25 )
