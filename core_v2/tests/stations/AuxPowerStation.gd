@@ -14,6 +14,12 @@ onready var _bus: Node = get_node_or_null("AuxPowerBus")
 onready var _door_slide: Node = get_node_or_null("Door/Mechanism")
 onready var _panel: MeshInstance = get_node_or_null("OD02Panel")
 onready var _lever: Node = get_node_or_null("LeverV2")
+onready var _source: Node = get_node_or_null("PowerSource")
+
+# Hasta que exista AuxPowerBus, el sector se considera alimentado para poder probar el
+# circuito de punta a punta (bajar la palanca abre la puerta). Cuando el bus aterrice,
+# él manda: cortar la energía deja la palanca sin efecto, que es la regla del FD-259.
+export(bool) var assume_powered_without_bus := true
 
 # Lectura OD-02: mismo verde de sistema que documenta FD-255.
 const OD02_ALBEDO := Color(0.15, 0.7, 0.3)
@@ -44,7 +50,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	var powered := false
+	var powered := assume_powered_without_bus
 	if _bus and _bus.has_method("is_powered"):
 		powered = _bus.is_powered()
 
@@ -71,15 +77,18 @@ func _apply(powered: bool, phase: float) -> void:
 			_panel_material.emission = OD02_EMISSION
 			_panel_material.emission_energy = OD02_ENERGY_LIT if lit else OD02_ENERGY_OFF
 
-	if _door_slide and _door_slide.has_method("set_active") and powered != _door_open:
+	# La puerta NO se maneja desde acá: la abre el circuito (fuente AND palanca -> puerta).
+	# Esta estación solo alimenta la fuente; si la energía y la palanca no coinciden, la
+	# puerta se queda sellada, y eso es exactamente lo que tiene que leerse.
+	if _source and _source.has_method("set_active") and powered != _door_open:
 		_door_open = powered
-		_door_slide.set_active(powered)
+		_source.set_active(powered)
 
 
 func interact() -> void:
 	# Puente para el harness OYS (test_prop.sh / prop_validator.oys), igual que
 	# CircuitTestScene.gd: reenvía al lever para que su animación se vea en las
-	# capturas. No es estado de gameplay — el lever ya administra el suyo, y
-	# hasta que aterrice AuxPowerBus no hay nada escuchando su señal.
+	# capturas. No es estado de gameplay — el lever ya administra el suyo, y quien
+	# escucha su señal es el LogicCircuitManager del nodo Circuit.
 	if _lever and _lever.has_method("interact"):
 		_lever.interact()

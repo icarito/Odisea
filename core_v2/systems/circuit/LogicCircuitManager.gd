@@ -131,6 +131,15 @@ func _build_runtime_logic():
 					# Initialize state from prop
 					if node.get("is_active"):
 						r_data.state = true
+		else:
+			# Una GATE puede declarar scene_path para tener presencia física: una caja
+			# de empalmes en la pared. No cambia su lógica (solo los PROP reciben
+			# set_active), pero le da un ancla real y así los cables de sus conexiones
+			# se pueden dibujar. Sin esto, toda conexión que toca una compuerta queda
+			# sin cable, porque _get_node_instance no resuelve nada.
+			var gate_path = n_data.get("scene_path", NodePath())
+			if gate_path and not gate_path.is_empty():
+				r_data.ref = get_node_or_null(gate_path)
 
 		_runtime_nodes[id] = r_data
 
