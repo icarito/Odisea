@@ -1,4 +1,4 @@
-extends "res://core_v2/visual/plasma_exhaust/PlasmaExhaustBase.gd"
+extends "res://core_v2/visual/cryo_vent/CryoVentBase.gd"
 
 # Performance Cost: Medium (CPUParticles — GLES2 compatible; GPU Particles do not render under GLES2)
 # LOD Support: Yes (Particles visible distance / visibility AABB)

@@ -1,7 +1,7 @@
 [gd_scene load_steps=8 format=2]
 
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_B.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_B.shader" type="Shader" id=2]
+[ext_resource path="res://core_v2/visual/cryo_vent/options/CryoVent_B.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/visual/cryo_vent/options/CryoVent_B.shader" type="Shader" id=2]
 [ext_resource path="res://core_v2/props/exhaust/plasma_flipbook_8x8.png" type="Texture" id=3]
 
 [sub_resource type="QuadMesh" id=1]
@@ -52,7 +52,7 @@ shader_param/taper = 0.75
 shader_param/phase_offset = 42.0
 shader_param/depth_offset = -1.2
 
-[node name="PlasmaExhaust_B" type="Spatial"]
+[node name="CryoVent_B" type="Spatial"]
 script = ExtResource( 1 )
 
 [node name="MeshInstance" type="MeshInstance" parent="."]

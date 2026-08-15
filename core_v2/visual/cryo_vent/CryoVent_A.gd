@@ -1,4 +1,4 @@
-extends "res://core_v2/visual/plasma_exhaust/PlasmaExhaustBase.gd"
+extends "res://core_v2/visual/cryo_vent/CryoVentBase.gd"
 
 # Performance Cost: Medium (Procedural Noise in Fragment)
 # LOD Support: Yes (Standard Godot Mesh LOD)

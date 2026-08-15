@@ -1,4 +1,4 @@
-extends "res://core_v2/visual/plasma_exhaust/PlasmaExhaustBase.gd"
+extends "res://core_v2/visual/cryo_vent/CryoVentBase.gd"
 
 # Performance Cost: High (Option A + Option C)
 # LOD Support: Yes
@@ -6,11 +6,13 @@ extends "res://core_v2/visual/plasma_exhaust/PlasmaExhaustBase.gd"
 # A single shared palette so the volumetric shell (A) and the particles (C)
 # blend instead of clashing. core_color is the cool base, hot_color the bright
 # core; both children are driven from these.
-export(Color) var core_color := Color(0.1, 0.4, 1.0, 1.0) setget set_core_color
-export(Color) var hot_color := Color(0.6, 0.85, 1.0, 1.0) setget set_hot_color
+# Cian por defecto: este es el crioenfriador del sistema de criocoolant (FD-256),
+# no plasma. El color dice qué sistema falla antes de que el fallo dañe.
+export(Color) var core_color := Color(0.0, 0.55, 0.68, 1.0) setget set_core_color
+export(Color) var hot_color := Color(0.35, 0.92, 0.98, 1.0) setget set_hot_color
 
-onready var option_a = $PlasmaExhaust_A
-onready var option_c = $PlasmaExhaust_C
+onready var option_a = $CryoVent_A
+onready var option_c = $CryoVent_C
 
 func _ready():
 	_apply_palette()

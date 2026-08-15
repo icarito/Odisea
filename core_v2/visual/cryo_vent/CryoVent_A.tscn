@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=2]
 
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_A.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_A.shader" type="Shader" id=2]
+[ext_resource path="res://core_v2/visual/cryo_vent/CryoVent_A.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/visual/cryo_vent/CryoVent_A.shader" type="Shader" id=2]
 
 [sub_resource type="CylinderMesh" id=1]
 top_radius = 2.0
@@ -23,7 +23,7 @@ shader_param/brightness = 2.0
 shader_param/pulse_frequency = 1.0
 shader_param/flame_sharpness = 0.5
 
-[node name="PlasmaExhaust_A" type="Spatial"]
+[node name="CryoVent_A" type="Spatial"]
 script = ExtResource( 1 )
 
 [node name="MeshInstance" type="MeshInstance" parent="."]

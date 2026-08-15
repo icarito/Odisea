@@ -1,5 +1,5 @@
 extends Spatial
-class_name PlasmaExhaustBase
+class_name CryoVentBase
 
 # Performance Cost: - (Base Class)
 # LOD Support: -

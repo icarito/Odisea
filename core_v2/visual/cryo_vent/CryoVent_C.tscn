@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=2]
 
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_C.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/visual/cryo_vent/CryoVent_C.gd" type="Script" id=1]
 [ext_resource path="res://assets/flipbook_particles/assets/smokes/smoke_01/textures/smoke_01.tga" type="Texture" id=2]
 
 [sub_resource type="Curve" id=3]
@@ -21,7 +21,7 @@ albedo_texture = ExtResource( 2 )
 material = SubResource( 6 )
 size = Vector2( 1.5, 1.5 )
 
-[node name="PlasmaExhaust_C" type="Spatial"]
+[node name="CryoVent_C" type="Spatial"]
 script = ExtResource( 1 )
 flipbook_tex = ExtResource( 2 )
 

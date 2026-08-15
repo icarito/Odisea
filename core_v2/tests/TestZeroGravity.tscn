@@ -4,13 +4,13 @@
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=2]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=3]
 [ext_resource path="res://core_v2/props/decor/ZeroGravityZone.tscn" type="PackedScene" id=4]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_B.tscn" type="PackedScene" id=5]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_A.tscn" type="PackedScene" id=6]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_D.tscn" type="PackedScene" id=7]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_C.tscn" type="PackedScene" id=8]
+[ext_resource path="res://core_v2/visual/cryo_vent/options/CryoVent_B.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/visual/cryo_vent/CryoVent_A.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/visual/cryo_vent/CryoVent_D.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/visual/cryo_vent/CryoVent_C.tscn" type="PackedScene" id=8]
 [ext_resource path="res://core_v2/props/exhaust/PlasmaExhaust.tscn" type="PackedScene" id=9]
 [ext_resource path="res://core_v2/props/emitters/FireEmitter.tscn" type="PackedScene" id=10]
-[ext_resource path="res://core_v2/visual/plasma_exhaust/PlasmaExhaust_E.tscn" type="PackedScene" id=11]
+[ext_resource path="res://core_v2/visual/cryo_vent/options/CryoVent_E.tscn" type="PackedScene" id=11]
 
 [node name="TestZeroGravity" type="Spatial"]
 

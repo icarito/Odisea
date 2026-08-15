@@ -280,6 +280,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/player/ControllerManager.gd"
 }, {
 "base": "Spatial",
+"class": "CryoVentBase",
+"language": "GDScript",
+"path": "res://core_v2/visual/cryo_vent/CryoVentBase.gd"
+}, {
+"base": "Spatial",
 "class": "CylinderRotator",
 "language": "GDScript",
 "path": "res://core_v2/systems/visual/CylinderRotator.gd"
@@ -1335,11 +1340,6 @@ _global_script_classes=[ {
 "path": "res://core_v2/props/pipe/PipeValve.gd"
 }, {
 "base": "Spatial",
-"class": "PlasmaExhaustBase",
-"language": "GDScript",
-"path": "res://core_v2/visual/plasma_exhaust/PlasmaExhaustBase.gd"
-}, {
-"base": "Spatial",
 "class": "PlateContentStream",
 "language": "GDScript",
 "path": "res://core_v2/systems/PlateContentStream.gd"
@@ -2059,6 +2059,7 @@ _global_script_class_icons={
 "Comparator": "",
 "ContinuousRotatorV2": "",
 "ControllerManager": "",
+"CryoVentBase": "",
 "CylinderRotator": "",
 "CylindricalInteriorCollider": "",
 "DefaultValueProvider": "",
@@ -2270,7 +2271,6 @@ _global_script_class_icons={
 "PhysicsEntity": "",
 "PilotAnimatorV2": "",
 "PipeValve": "",
-"PlasmaExhaustBase": "",
 "PlateContentStream": "",
 "PlateSlotConfig": "",
 "PlayerUISettings": "",
@@ -2478,7 +2478,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/PolyHavenImport/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg" )
 
 [gdunit3]
 

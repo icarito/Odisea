@@ -1,4 +1,4 @@
-extends "res://core_v2/visual/plasma_exhaust/PlasmaExhaustBase.gd"
+extends "res://core_v2/visual/cryo_vent/CryoVentBase.gd"
 
 # Performance Cost: Medium (Option A volumetric shell + Option B billboard flame)
 # LOD Support: Yes
@@ -8,8 +8,8 @@ extends "res://core_v2/visual/plasma_exhaust/PlasmaExhaustBase.gd"
 export(Color) var core_color := Color(0.1, 0.4, 1.0, 1.0) setget set_core_color
 export(Color) var hot_color := Color(0.6, 0.85, 1.0, 1.0) setget set_hot_color
 
-onready var option_a = $PlasmaExhaust_A
-onready var option_b = $PlasmaExhaust_B
+onready var option_a = $CryoVent_A
+onready var option_b = $CryoVent_B
 
 func _ready():
 	_apply_palette()
