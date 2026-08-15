@@ -94,6 +94,11 @@ func get_leak_intensity() -> float:
 
 
 func trigger_leak() -> void:
+	# Reabrir mientras todavía se está disipando vuelve a la fuga sin pasar por el aviso:
+	# el caño sigue roto, no hay nada que anticipar de nuevo.
+	if _state == State.SEALED:
+		_set_state(State.LEAKING)
+		return
 	if _state != State.HEALTHY:
 		return
 	if _has_been_sealed and not auto_restart:
@@ -149,7 +154,11 @@ func _set_state(new_state: int) -> void:
 
 
 func _on_valve_state_changed(is_open: bool) -> void:
-	if not is_open:
+	# La válvula corta el caudal, no repara el caño: mientras la fuga no esté arreglada,
+	# abrirla vuelve a soltar coolant y cerrarla lo detiene, las veces que haga falta.
+	if is_open:
+		trigger_leak()
+	else:
 		seal()
 
 

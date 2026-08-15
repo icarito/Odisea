@@ -12,6 +12,7 @@ onready var _leak: Node = get_node_or_null("CoolantLeak")
 onready var _vent: Node = get_node_or_null("Vent/CryoVent_C")
 onready var _fog: Node = get_node_or_null("Fog")
 onready var _pipes: Node = get_node_or_null("Pipes")
+onready var _valve: Node = get_node_or_null("PipeValve")
 
 var _fog_active: bool = false
 
@@ -43,5 +44,12 @@ func _apply(intensity: float) -> void:
 		_fog_active = active
 		_fog.set_active(active)
 
+	# La válvula manda sobre el caudal: cerrada, por el caño no pasa nada y se apaga.
 	if _pipes and _pipes.has_method("set_flow_intensity"):
-		_pipes.set_flow_intensity(lerp(PIPE_FLOW_HEALTHY, PIPE_FLOW_LEAKING, intensity))
+		var valve_open: bool = true
+		if _valve:
+			valve_open = _valve.is_active
+		if valve_open:
+			_pipes.set_flow_intensity(lerp(PIPE_FLOW_HEALTHY, PIPE_FLOW_LEAKING, intensity))
+		else:
+			_pipes.set_flow_intensity(0.0)
