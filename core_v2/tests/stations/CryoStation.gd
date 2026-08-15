@@ -20,6 +20,8 @@ var _fog_active: bool = false
 # caudal y el flujo se apaga. Es la misma lectura que la niebla, pero desde el otro lado.
 const PIPE_FLOW_HEALTHY := 1.0
 const PIPE_FLOW_LEAKING := 0.3
+# Velocidad del recorrido con la válvula abierta. Cerrada pasa a 0 y el patrón queda quieto.
+const PIPE_SPEED_FLOWING := 0.7
 
 
 func _ready() -> void:
@@ -44,12 +46,11 @@ func _apply(intensity: float) -> void:
 		_fog_active = active
 		_fog.set_active(active)
 
-	# La válvula manda sobre el caudal: cerrada, por el caño no pasa nada y se apaga.
-	if _pipes and _pipes.has_method("set_flow_intensity"):
+	# La válvula manda sobre el caudal. Cerrada, el refrigerante deja de correr: el caño
+	# conserva su aspecto y el patrón se congela, no se apaga. Un tubo lleno pero quieto.
+	if _pipes and _pipes.has_method("set_flow_speed"):
 		var valve_open: bool = true
 		if _valve:
 			valve_open = _valve.is_active
-		if valve_open:
-			_pipes.set_flow_intensity(lerp(PIPE_FLOW_HEALTHY, PIPE_FLOW_LEAKING, intensity))
-		else:
-			_pipes.set_flow_intensity(0.0)
+		_pipes.set_flow_speed(PIPE_SPEED_FLOWING if valve_open else 0.0)
+		_pipes.set_flow_intensity(lerp(PIPE_FLOW_HEALTHY, PIPE_FLOW_LEAKING, intensity))

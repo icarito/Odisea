@@ -1,4 +1,5 @@
 shader_type spatial;
+render_mode blend_mix, depth_draw_alpha_prepass;
 
 // Conducción con criocoolant circulando (FD-255 / FD-256).
 //
@@ -14,8 +15,12 @@ uniform vec4 base_color : hint_color = vec4(0.06, 0.22, 0.35, 1.0);
 uniform vec4 flow_color : hint_color = vec4(0.35, 0.92, 0.98, 1.0);
 uniform vec3 flow_dir = vec3(1.0, 0.0, 0.0); // eje de la conducción, en mundo
 uniform float noise_scale = 1.6;
-uniform float speed = 0.7;
+// Fase del recorrido, en metros. La acumula PipeCoolantRun (fase += delta * velocidad)
+// en vez de multiplicar TIME por la velocidad acá: así frenar no produce un salto del
+// patrón, porque la fase es continua aunque la velocidad cambie.
+uniform float flow_phase = 0.0;
 uniform float emission_strength = 1.4;
+uniform float pipe_alpha = 0.88;
 uniform float flow_contrast = 0.55; // 0 = brillo parejo, 1 = vetas marcadas
 uniform float metallic_amount = 0.5;
 uniform float roughness_amount = 0.35;
@@ -50,7 +55,7 @@ float fbm(vec3 p) {
 void fragment() {
 	// VERTEX llega en espacio de vista; CAMERA_MATRIX lo lleva a mundo.
 	vec3 world_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	vec3 coord = world_pos * noise_scale - flow_dir * TIME * speed;
+	vec3 coord = world_pos * noise_scale - flow_dir * flow_phase;
 	float n = fbm(coord);
 	float flow = smoothstep(0.5 - flow_contrast * 0.5, 0.5 + flow_contrast * 0.5, n);
 
@@ -58,4 +63,5 @@ void fragment() {
 	EMISSION = flow_color.rgb * flow * emission_strength;
 	METALLIC = metallic_amount;
 	ROUGHNESS = roughness_amount;
+	ALPHA = pipe_alpha;
 }
