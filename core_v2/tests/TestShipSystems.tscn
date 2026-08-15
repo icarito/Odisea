@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=9 format=2]
 
 ; Banco de trabajo de los 4 sistemas de la nave (FD-255).
 ; Una plataforma por sistema, con el color que lo identifica: cian criocoolant,
@@ -9,6 +9,7 @@
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=2]
 [ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=3]
+[ext_resource path="res://core_v2/tests/stations/CryoStation.tscn" type="PackedScene" id=4]
 
 [sub_resource type="SpatialMaterial" id=1]
 albedo_color = Color( 0.06, 0.62, 0.72, 1 )
@@ -63,6 +64,8 @@ width = 7.0
 height = 0.1
 depth = 7.0
 material = SubResource( 1 )
+
+[node name="CryoStation" parent="Stations/CryoStation" instance=ExtResource( 4 )]
 
 [node name="PlasmaStation" type="Spatial" parent="Stations"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, -9 )
