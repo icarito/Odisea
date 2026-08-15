@@ -1,0 +1,82 @@
+[gd_scene load_steps=6 format=2]
+
+; Estación de energía auxiliar (FD-259): puerta sellada + consola de respaldo
+; (lever + lectura OD-02). La lógica del ciclo de energía vive en AuxPowerBus
+; (core_v2/systems/auxpower/, aún no existe); esta escena solo la viste.
+; Arranca "sin energía": la puerta cerrada y el OD-02 parpadeando con el
+; contador propio del script (sin bus enchufado no hay nada más que mostrar).
+
+[ext_resource path="res://core_v2/tests/stations/AuxPowerStation.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/doors/HeavyBlastDoor.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/controls/LeverV2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=5]
+
+[sub_resource type="CubeMesh" id=1]
+size = Vector3( 0.35, 0.22, 0.05 )
+
+[sub_resource type="SpatialMaterial" id=2]
+resource_local_to_scene = true
+albedo_color = Color( 0.15, 0.7, 0.3, 1 )
+emission_enabled = true
+emission = Color( 0.03, 0.3, 0.1, 1 )
+emission_energy = 0.05
+
+[node name="AuxPowerStation" type="Spatial"]
+script = ExtResource( 1 )
+
+; Puerta sellada al fondo de la sala. HeavyBlastDoor no trae marco propio (a
+; diferencia de VerticalDoor, cuyo bloque de mecanismo asoma por arriba del
+; muro cuando no hay techo que lo tape); el marco lo arma esta estación con
+; tres CSGBox lisos, sin geometría flotando.
+[node name="Door" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.2 )
+
+[node name="Mechanism" parent="Door" instance=ExtResource( 2 )]
+transform = Transform( 0.62, 0, 0, 0, 0.62, 0, 0, 0, 0.62, 0, 0, 0 )
+
+[node name="FrameLeft" type="CSGBox" parent="Door"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 1.65, 0 )
+use_collision = true
+width = 1.0
+height = 3.3
+depth = 0.3
+material = ExtResource( 5 )
+
+[node name="FrameRight" type="CSGBox" parent="Door"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.8, 1.65, 0 )
+use_collision = true
+width = 1.0
+height = 3.3
+depth = 0.3
+material = ExtResource( 5 )
+
+; La hoja mide 2.48 m de alto (4 m nativos * escala 0.62); el dintel arranca
+; justo ahí para no dejar una rendija de luz sobre la puerta "sellada".
+[node name="FrameTop" type="CSGBox" parent="Door"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.78, 0 )
+use_collision = true
+width = 2.6
+height = 0.6
+depth = 0.3
+material = ExtResource( 5 )
+
+; Consola de respaldo: placa de montaje para el lever y el panel OD-02, cerca
+; del jugador y lejos del arco de la puerta.
+[node name="ConsolePlate" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0.8, 0.3 )
+use_collision = true
+width = 0.9
+height = 1.6
+depth = 0.15
+material = ExtResource( 5 )
+
+; Mirado 180° respecto a la referencia de test_lever_v2.tscn: ahí la cámara
+; miraba hacia -Z; acá el jugador entra por -Z, así que el frente del lever
+; tiene que apuntar hacia -Z también.
+[node name="LeverV2" parent="." instance=ExtResource( 3 )]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, -2, 1.1, 0.2 )
+
+[node name="OD02Panel" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1.5, 0.2 )
+mesh = SubResource( 1 )
+material/0 = SubResource( 2 )
