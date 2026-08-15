@@ -1,9 +1,14 @@
 # FD-028: Plasma Leak Obstacle
 
-**Status:** Planned
+**Status:** Superseded
 **Priority:** Low
 **Effort:** Small
 **Created:** 2026-03-02
+**Superseded by:** FD-257 (Sistema Plasma), dentro de la familia FD-255
+
+> Este FD describía la fuga de plasma como un obstáculo suelto. Ahora vive como el *fallo* del
+> sistema de plasma en `docs/features/FD-257_plasma.md`, con su aviso legible (brillo → zumbido →
+> chorro) y su liberación (redirigir el flujo). El contenido de abajo queda como registro.
 
 ## Problem
 

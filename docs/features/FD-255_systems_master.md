@@ -136,6 +136,11 @@ Acordadas con Sebastián el 2026-08-15:
    Criocoolant porque todo su material existe y valida el patrón completo con el menor riesgo;
    Energía porque ejercita el circuito, que es el pegamento del resto.
 5. **Duct Sections componibles: fuera de alcance.** Interesan los sistemas individuales.
+5b. **CryoVent: solo la opción D.** De las cinco variantes de la pluma, la elegida es la D
+   (cáscara volumétrica + partículas). B y E quedan archivadas en `visual/cryo_vent/options/`;
+   A y C no se archivan porque son las dos capas que D compone. Paleta cian y `brightness` 2.6.
+5c. **Escena taller aprobada** (2026-08-15): piso de 44 m, pads de 7×7 separados 18 m. La escala
+   y las distancias funcionan; no hace falta acercar las estaciones.
 6. **Reparto por cómo se verifica, no por tamaño.** Jules recibe lógica sustancial (máquinas de
    estado, determinismo, snapshots, tests) y corre hasta 3 sesiones en paralelo. Todo lo visual
    —props, materiales, escala, luz, calibración de efectos— se hace local con `test_prop.sh` y
@@ -170,10 +175,10 @@ encima y se itera en vivo.
 |---|---|---|---|---|---|---|
 | L1 | Habilitar `addons/odyssey_circuit_editor/plugin.cfg` en `project.godot`; abrir el dock y ver hasta dónde llega | LOCAL | `project.godot` | el editor levanta y muestra "Circuit Board" al seleccionar un `LogicCircuitManager` | — | hecho (falta confirmación visual del dock) |
 | L2 | Renombrar `visual/plasma_exhaust/` → `visual/cryo_vent/` (`PlasmaExhaust_{A..E}` → `CryoVent_{A..E}`, `PlasmaExhaustBase` → `CryoVentBase`, 6 `ext_resource` de `TestZeroGravity.tscn`) **y calibrar la pluma en cian**: color, escala, densidad | LOCAL | `core_v2/visual/plasma_exhaust/**` → `core_v2/visual/cryo_vent/**`, `core_v2/tests/TestZeroGravity.tscn` | sin refs rotas; capturas de la pluma cian aprobadas por Sebastián | — | hecho · opción D única, B/E en `options/` |
-| L3 | Escena taller `TestShipSystems.tscn`: piso, luz, spawn y cuatro anclas (una por estación). Cada estación será una sub-escena instanciada | LOCAL | `core_v2/tests/TestShipSystems.tscn` (nuevo) | abre con F6; escala y distancias validadas caminando | — | hecho · falta el paseo de Sebastián |
+| L3 | Escena taller `TestShipSystems.tscn`: piso, luz, spawn y cuatro anclas (una por estación). Cada estación será una sub-escena instanciada | LOCAL | `core_v2/tests/TestShipSystems.tscn` (nuevo) | abre con F6; escala y distancias validadas caminando | — | hecho · aprobado 2026-08-15 |
 | L4 | Estación Criocoolant (visual): `PipeValve` + tubería + radiador + pluma `CryoVent_D` + volumen de niebla, colgados de la lógica de J3 | LOCAL | `core_v2/tests/stations/CryoStation.tscn` (nuevo) | capturas aprobadas; la sala se lee como "acá vive el coolant" | J3, L2, L3 | pendiente |
 | L5 | Estación Energía auxiliar (visual): lever, panel OD-02 con parpadeo, `HeavyBlastDoor`, cables visibles | LOCAL | `core_v2/tests/stations/AuxPowerStation.tscn` (nuevo) | capturas aprobadas; se lee "puerta sellada por falta de energía" | J1, L1, L3 | pendiente |
-| L6 | Limpieza documental: FD-028 → superseded por FD-257; alta de FD-255..259 en `FEATURE_INDEX.md`; corregir el título interno de `FD-045_gas_simulation.md` | LOCAL | `docs/features/**` | el índice refleja la familia; no quedan dos FDs para la fuga de plasma | — | pendiente |
+| L6 | Limpieza documental: FD-028 → superseded por FD-257; alta de FD-255..259 en `FEATURE_INDEX.md`; corregir el título interno de `FD-045_gas_simulation.md` | LOCAL | `docs/features/**` | el índice refleja la familia; no quedan dos FDs para la fuga de plasma | — | hecho |
 
 ### Ola 2 — Jules (al liberarse las sesiones de la Ola 1)
 
