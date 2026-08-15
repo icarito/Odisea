@@ -44,6 +44,7 @@ mesh = SubResource( 1 )
 material/0 = SubResource( 2 )
 
 [node name="StaticBody" type="StaticBody" parent="."]
+collision_layer = 64
 
 [node name="CollisionShape" type="CollisionShape" parent="StaticBody"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )

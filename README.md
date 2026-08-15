@@ -28,6 +28,17 @@ Las siguientes features están implementadas y documentadas en `docs/canon/`:
 - Transición 2.5D sidescroller
 - Test battery y runner de regresión determinista
 
+## Los cuatro sistemas de la nave
+
+Criocoolant, plasma, atmósfera y energía auxiliar: los órganos industriales de la Odisea.
+Cada uno avisa antes de dañar, y se libera reordenándolo en vez de destruyéndolo.
+
+**→ [Guía de funcionamiento de los cuatro sistemas](docs/systems/four-ship-systems.md)** —
+qué hace cada uno, cómo está armado, cuál es la lógica de sus interruptores y dónde tocar
+para mejorarlo. Banco de pruebas: `core_v2/tests/TestShipSystems.tscn` (F6).
+
+Diseño: [FD-255](docs/features/FD-255_systems_master.md) y sus hijos FD-256 a FD-259.
+
 ## Integración de Agentes (ANNA V1 — DEPRECATED)
 
 La integración de agente externo A.N.N.A (bridge TCP + interfaz de observación/acción) está **deprecada** y preservada solo para compatibilidad con scripts RL legacy. Para telemetría y debugging moderno, consultar **AGENTS.md §9** (Telemetry).

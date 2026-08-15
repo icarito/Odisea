@@ -178,6 +178,7 @@ light_activation_distance = 10.0
 ; Consola de purga delante de la esclusa: el aro blanco/rojo permite leer la
 ; presión antes de ver el efecto de chispa en el sello.
 [node name="Console" type="CSGBox" parent="."]
+collision_layer = 64
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 0.85, -0.15 )
 use_collision = true
 width = 1.2
@@ -188,6 +189,7 @@ material = ExtResource( 6 )
 ; Manómetro holográfico: la lectura se dibuja en 2D dentro del Viewport y se proyecta
 ; sobre este quad, igual que el selector radial del ascensor. Reemplaza al manómetro de
 ; CSG (cara, aro y dos agujas), que era pesado de componer y no se leía.
+
 [node name="Gauge" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 1.45, -0.34 )
 
@@ -244,6 +246,7 @@ height = 0.02
 depth = 0.16
 
 [node name="StaticBody" type="StaticBody" parent="PurgeTuner"]
+collision_layer = 64
 
 [node name="CollisionShape" type="CollisionShape" parent="PurgeTuner/StaticBody"]
 shape = SubResource( 14 )
