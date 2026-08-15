@@ -203,6 +203,7 @@ jobs:
         env:
           GODOT_BIN: /usr/local/bin/godot
           ODISEA_INCLUDE_DETERMINISM: "0"
+          ODISEA_RUN_DETERMINISM: "0"
           ODISEA_TEST_TIMEOUT_SEC: "180"
           ODISEA_SKIP_PREFLIGHT: "1"
         run: |
@@ -214,8 +215,7 @@ jobs:
           # dedicated determinism workflow, where fresh processes are intentional.
           set +e
           timeout 420s ./runtest.sh --runner gdunit \
-            -a ./core_v2/tests/ \
-            -i res://core_v2/tests/test_determinism_v2.gd 2>&1 | tee reports/core_tests.log
+            -a ./core_v2/tests/ 2>&1 | tee reports/core_tests.log
           test_rc="${PIPESTATUS[0]}"
           set -e
           if [ "$test_rc" -eq 124 ]; then
