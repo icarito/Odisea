@@ -179,6 +179,7 @@ encima y se itera en vivo.
 | L4 | Estación Criocoolant (visual): `PipeValve` + tubería + radiador + pluma `CryoVent_D` + volumen de niebla, colgados de la lógica de J3 | LOCAL | `core_v2/tests/stations/CryoStation.tscn` (nuevo) | capturas aprobadas; la sala se lee como "acá vive el coolant" | J3, L2, L3 | hecho · falta checkpoint humano H1 |
 | L5 | Estación Energía auxiliar (visual): lever, panel OD-02 con parpadeo, `HeavyBlastDoor`, cables visibles | LOCAL | `core_v2/tests/stations/AuxPowerStation.tscn` (nuevo) | capturas aprobadas; se lee "puerta sellada por falta de energía" | J1, L1, L3 | hecho · falta checkpoint humano H2 |
 | L6 | Limpieza documental: FD-028 → superseded por FD-257; alta de FD-255..259 en `FEATURE_INDEX.md`; corregir el título interno de `FD-045_gas_simulation.md` | LOCAL | `docs/features/**` | el índice refleja la familia; no quedan dos FDs para la fuga de plasma | — | hecho |
+| L7 | Estación Atmósfera (visual): iris sellado, manómetro blanco/rojo, baliza y válvula de purga conectada a `PurgeDial` | LOCAL | `core_v2/tests/stations/AtmoStation.tscn` (nuevo) | se lee parpadeo → chispa → purga; la válvula estabiliza la presión | J6, L3 | hecho · falta checkpoint humano H3 |
 
 ### Ola 2 — Jules (al liberarse las sesiones de la Ola 1)
 
@@ -194,6 +195,7 @@ encima y se itera en vivo.
 |---|---|---|---|---|
 | H1 | Balance de niebla: densidad, cuánto ciega, tiempo de disipación | HUMANO | L4 | pendiente |
 | H2 | Legibilidad de energía: ¿se entiende sin texto que hay que restaurarla? | HUMANO | L5 | pendiente |
+| H3 | Legibilidad de presión: ¿se entiende parpadeo → chispa → purga sin texto? | HUMANO | L7 | pendiente |
 
 Reglas de corte aplicadas: ninguna tarea de Jules toca escenas (`.tscn`), `project.godot` ni
 archivos de otra sesión; J3 **consume** la API de `GasArea3D` mientras J2 lo edita, sin
