@@ -1,4 +1,5 @@
-// Test script for OYS v2 Pro
+// Private OYS fixture for test_oys_pro_spec.gd.
+// Keep in sync with test_pro.oys, except for the test-owned player group.
 SECTION "Init"
     PRINT "Starting OYS Pro Test"
     SET $test_var 10.0
@@ -16,7 +17,7 @@ SECTION "Branch_OK"
     PRINT "Wait finished"
 
     // Test GET_NODES_IN_GROUP
-    GET_NODES_IN_GROUP "player" AS $player_count
-    ASSERT $player_count == 1 "Player count should be 1"
+    GET_NODES_IN_GROUP "oys_pro_test_player" AS $player_count
+    ASSERT $player_count == 1 "OYS Pro test player count should be 1"
 
     PRINT "Test completed successfully"

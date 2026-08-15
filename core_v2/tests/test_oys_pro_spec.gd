@@ -16,7 +16,7 @@ func test_oys_pro_execution() -> void:
 	comp.name = "OYSComponent"
 	player.add_child(comp)
 
-	comp.load_and_start("res://core_v2/tests/test_pro.oys")
+	comp.load_and_start("res://core_v2/tests/test_pro_spec.oys.txt")
 
 	# Wait a few frames for deferred call to kick in
 	yield (runner.simulate_frames(5), "completed")
