@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=11 format=2]
 
 ; Estación de criocoolant (FD-256): la conducción con su válvula, la pluma del vent
 ; y la niebla que ciega. La lógica del ciclo vive en CoolantLeak; esta escena solo la
@@ -12,7 +12,8 @@
 [ext_resource path="res://core_v2/props/pipe/PipeSection.tscn" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/props/pipe/PipeValve.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/visual/cryo_vent/CryoVent_C.tscn" type="PackedScene" id=5]
-[ext_resource path="res://core_v2/props/emitters/FrostEmitter.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/systems/gas/GasArea3D.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/systems/cryo/CoolantFogAdapter.gd" type="Script" id=9]
 [ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=7]
 [ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=8]
 
@@ -75,10 +76,23 @@ transform = Transform( 0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, -1, 1.15, 0 )
 [node name="CryoVent_C" parent="Vent" instance=ExtResource( 5 )]
 core_color = Color( 0.35, 0.92, 0.98, 1 )
 
+; La niebla real: GasArea3D (replay-safe desde J2). El FrostEmitter que estuvo acá era
+; un sustituto mientras no existía el adaptador. El gas no daña: ciega, y nada más.
 [node name="Fog" parent="." instance=ExtResource( 6 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0.2, 0 )
-is_active = false
-damage_per_tick = 0.0
-particles_per_second = 30
-emission_radius = 0.6
-emission_height = 0.8
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0.9, 0 )
+gas_type = 2
+damage_per_second = 0.0
+is_flammable = false
+buoyancy = 0.05
+viscosity = 0.9
+decay_rate = 0.35
+initial_particle_count = 0
+gas_collide_with_world = false
+
+[node name="FogAdapter" type="Spatial" parent="."]
+script = ExtResource( 9 )
+leak_path = NodePath("../CoolantLeak")
+gas_path = NodePath("../Fog")
+particles_at_full = 90
+fill_radius = 2.2
+fill_height = 1.4

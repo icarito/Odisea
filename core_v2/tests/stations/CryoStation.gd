@@ -6,15 +6,14 @@ extends Spatial
 # necesita snapshot — el estado vive en CoolantLeak, que sí cumple el contrato de replay
 # (AGENTS.md §5.3). Este nodo solo traduce esa intensidad a lo que se ve:
 #   - la pluma del CryoVent (brillo y presencia)
-#   - la niebla del FrostEmitter (el gas frío que ciega)
+#
+# La niebla no se maneja desde acá: la llena CoolantFogAdapter leyendo la misma
+# intensidad, directamente sobre el GasArea3D.
 
 onready var _leak: Node = get_node_or_null("CoolantLeak")
 onready var _vent: Node = get_node_or_null("Vent/CryoVent_C")
-onready var _fog: Node = get_node_or_null("Fog")
 onready var _pipes: Node = get_node_or_null("Pipes")
 onready var _valve: Node = get_node_or_null("PipeValve")
-
-var _fog_active: bool = false
 
 # Presión del circuito: a régimen la tubería corre pareja; con la fuga abierta pierde
 # caudal y el flujo se apaga. Es la misma lectura que la niebla, pero desde el otro lado.
@@ -40,11 +39,6 @@ func _apply(intensity: float) -> void:
 		_vent.set_active(active)
 		if active:
 			_vent.set_intensity(intensity)
-
-	# FrostEmitter reconstruye sus visuales en cada set_active: solo en los cambios.
-	if _fog and active != _fog_active:
-		_fog_active = active
-		_fog.set_active(active)
 
 	# La válvula manda sobre el caudal. Cerrada, el refrigerante deja de correr: el caño
 	# conserva su aspecto y el patrón se congela, no se apaga. Un tubo lleno pero quieto.
