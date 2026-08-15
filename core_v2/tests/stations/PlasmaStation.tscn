@@ -47,21 +47,23 @@ shader_param/atlas_size = Vector2( 1024, 1024 )
 shader_param/frame_padding_px = 1.5
 shader_param/flipbook_tex = ExtResource( 11 )
 
-; Es el mismo shader/atlas que el núcleo, con energía extra para que los
-; fotogramas pequeños sigan leyendo como una fuga en vez de motas oscuras.
-[sub_resource type="ShaderMaterial" id=5]
+; Mismo atlas que el núcleo, pero como SpatialMaterial: un ShaderMaterial no hace
+; billboard, así que de costado las partículas se veían como láminas planas. El modo
+; billboard de partículas (3) las mantiene siempre de cara, y el flipbook se anima con
+; particles_anim_* + anim_offset_random, igual que en CryoVent_C.
+[sub_resource type="SpatialMaterial" id=5]
 resource_local_to_scene = true
-shader = ExtResource( 10 )
-shader_param/columns = 8
-shader_param/rows = 8
-shader_param/animation_speed = 12.0
-shader_param/plasma_color = Color( 1, 0.68, 0.2, 1 )
-shader_param/emission_intensity = 3.0
-shader_param/distortion_strength = 0.05
-shader_param/pulse_factor = 1.25
-shader_param/atlas_size = Vector2( 1024, 1024 )
-shader_param/frame_padding_px = 1.5
-shader_param/flipbook_tex = ExtResource( 11 )
+flags_transparent = true
+flags_unshaded = true
+vertex_color_use_as_albedo = true
+params_blend_mode = 1
+params_billboard_mode = 3
+params_billboard_keep_scale = true
+particles_anim_h_frames = 8
+particles_anim_v_frames = 8
+particles_anim_loop = true
+albedo_color = Color( 1, 0.68, 0.2, 1 )
+albedo_texture = ExtResource( 11 )
 
 [sub_resource type="QuadMesh" id=4]
 material = SubResource( 5 )
@@ -120,7 +122,7 @@ mesh = SubResource( 2 )
 material/0 = SubResource( 3 )
 
 [node name="PlasmaCoreSafe" type="MeshInstance" parent="."]
-transform = Transform( 0, -1, 0, 0, 0, 1, -1, 0, 0, -0.6, 1, 1.4 )
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, -0.6, 1, 1.4 )
 mesh = SubResource( 2 )
 material/0 = SubResource( 3 )
 
@@ -169,6 +171,8 @@ gravity = Vector3( 0, 0, 0 )
 initial_velocity = 0.8
 initial_velocity_random = 0.2
 scale_amount = 0.8
+anim_offset = 0.0
+anim_offset_random = 1.0
 visibility_aabb = AABB( -1, 0, -1, 2, 4, 2 )
 
 [node name="LeakLight" type="OmniLight" parent="."]
