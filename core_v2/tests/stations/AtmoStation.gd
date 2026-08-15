@@ -17,7 +17,7 @@ const PANEL_PURGED := Color(0.12, 0.9, 0.42, 1.0)
 
 onready var _section: Node = get_node_or_null("PressureSection")
 onready var _dial: Node = get_node_or_null("PurgeDial")
-onready var _purge_valve: Node = get_node_or_null("PurgeValve")
+onready var _tuner: Node = get_node_or_null("PurgeTuner")
 onready var _gauge_ui: Control = get_node_or_null("Gauge/Viewport/PressureGaugeUI")
 onready var _gauge_screen: MeshInstance = get_node_or_null("Gauge/ScreenMesh")
 onready var _gauge_viewport: Viewport = get_node_or_null("Gauge/Viewport")
@@ -53,8 +53,6 @@ func _ready() -> void:
 		var mat = _gauge_screen.get_surface_material(0)
 		if mat is ShaderMaterial:
 			mat.set_shader_param("texture_albedo", _gauge_viewport.get_texture())
-	if _purge_valve and _purge_valve.has_signal("valve_state_changed"):
-		_purge_valve.connect("valve_state_changed", self, "_on_purge_valve_changed")
 	if _pump and _pump.has_signal("hold_started"):
 		_pump.connect("hold_started", self, "_on_pump_hold_started")
 	if _panel:
@@ -76,19 +74,6 @@ func _on_pump_hold_started() -> void:
 	# la que purga. Así la sala tiene las dos direcciones y no solo la amenaza.
 	if _section and _section.has_method("raise_pressure"):
 		_section.raise_pressure()
-
-
-func _on_purge_valve_changed(_is_open: bool) -> void:
-	# Cada giro de la válvula avanza el dial un paso y vuelve a empezar al pasarse: es
-	# un mando de sintonía, no un interruptor. Antes la válvula saltaba directo al valor
-	# exacto, así que el mini-juego de buscar la zona verde no existía: se abría y a los
-	# 1.2 s purgaba sin que se viera nada en el medio.
-	if not _dial or not _dial.has_method("nudge"):
-		return
-	var next_value: float = _dial.value + DIAL_STEP
-	if next_value > 1.0:
-		next_value -= 1.0
-	_dial.nudge(next_value - _dial.value)
 
 
 func _apply() -> void:
@@ -146,7 +131,8 @@ func _apply() -> void:
 
 
 func interact() -> void:
-	# Puente para OYS: el jugador real interactúa con PipeValve; el harness de
-	# prop opera la raíz de estación y necesita recorrer el mismo camino.
-	if _purge_valve and _purge_valve.has_method("interact"):
-		_purge_valve.interact()
+	# Puente para OYS: el jugador real sostiene el mando de sintonía; el harness opera la
+	# raíz de la estación, así que acá se le da un pulso de barrido para que las capturas
+	# muestren algo moviéndose.
+	if _tuner and _tuner.has_method("set_held"):
+		_tuner.set_held(not _tuner.is_held())

@@ -1350,6 +1350,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/components/HoldInteractableV2.gd"
 }, {
 "base": "HoldInteractableV2",
+"class": "PurgeTuner",
+"language": "GDScript",
+"path": "res://core_v2/props/controls/PurgeTuner.gd"
+}, {
+"base": "HoldInteractableV2",
 "class": "PressurePump",
 "language": "GDScript",
 "path": "res://core_v2/props/controls/PressurePump.gd"
@@ -2294,6 +2299,7 @@ _global_script_class_icons={
 "PipeCoolantRun": "",
 "HoldInteractableV2": "",
 "PressurePump": "",
+"PurgeTuner": "",
 "PipeValve": "",
 "PlateContentStream": "",
 "PlateSlotConfig": "",
