@@ -11,6 +11,8 @@ export(float) var tick_interval: float = 0.5
 export(float) var emission_radius: float = 0.5
 export(int) var particles_per_second: float = 30
 export(float) var emission_height: float = 1.5
+# Velocidad local inicial de las particulas. Vector3.ZERO mantiene el fuego vertical por defecto.
+export(Vector3) var jet_velocity: Vector3 = Vector3.ZERO
 
 var _tick_timer: float = 0.0
 var _spawn_timer: float = 0.0
@@ -53,7 +55,7 @@ func _spawn_flame_particle() -> void:
 		emission_height,
 		(_hashed_unit(_emit_counter + 7919) - 0.5) * emission_radius
 	)
-	var index := _manager.emit_particle(offset)
+	var index := _manager.emit_particle(offset, jet_velocity)
 	_manager.set_particle_combustion(index, true)
 
 func _hashed_unit(index: int) -> float:
