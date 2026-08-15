@@ -5,6 +5,9 @@ uniform sampler2D flipbook_tex : hint_albedo;
 uniform int columns = 8;
 uniform int rows = 8;
 uniform float animation_speed = 12.0;
+// La estación avanza esta fase sólo mientras la conducción tiene caudal.
+// A diferencia de TIME, permite que el núcleo se detenga al cerrar válvulas.
+uniform float flow_phase = 0.0;
 uniform vec4 plasma_color : hint_color = vec4(0.0, 0.5, 1.0, 1.0);
 uniform float emission_intensity = 2.0;
 uniform float distortion_strength = 0.02;
@@ -13,7 +16,7 @@ uniform vec2 atlas_size = vec2(1024.0, 1024.0);
 uniform float frame_padding_px = 1.5;
 
 void fragment() {
-	float t = TIME;
+	float t = flow_phase;
 
 	// Organic distortion
 	vec2 ripple = vec2(

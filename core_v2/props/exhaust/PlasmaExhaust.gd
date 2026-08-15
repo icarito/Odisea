@@ -9,6 +9,7 @@ var current_state = State.IDLE
 var state_timer = 0.0
 var flare_timer = 0.0
 var color_timer = 0.0
+var flow_phase = 0.0
 
 # Colors for the cycle
 var color_cycle = [
@@ -35,6 +36,9 @@ func _ready():
 	_set_state(State.IDLE)
 
 func _process(delta):
+	flow_phase += delta
+	if mesh and mesh.material_override:
+		mesh.material_override.set_shader_param("flow_phase", flow_phase)
 	_update_color_cycle(delta)
 	_update_state_machine(delta)
 
