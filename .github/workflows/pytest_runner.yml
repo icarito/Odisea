@@ -52,10 +52,10 @@ jobs:
           path: |
             ${{ github.workspace }}/.import
             ${{ github.workspace }}/.godot
-          key: ${{ runner.os }}-godot-v3-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import', '.import/**', 'assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
-          restore-keys: |
-            ${{ runner.os }}-godot-v3-
-            ${{ runner.os }}-godot-
+          # Exact-only: a prefix restore can overlay a stale generated .stex onto
+          # the correct artifact tracked by this revision. That cache corruption
+          # is indistinguishable from a broken source texture during the smoke.
+          key: ${{ runner.os }}-godot-v4-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import', '.import/**', 'assets/**', 'textures/**', 'models/**', 'core_v2/audio/**', 'core_v2/actors/**', 'core_v2/components/**', 'core_v2/props/**', 'core_v2/levels/**') }}
 
       - name: Cache Godot binary
         id: godot_bin_cache

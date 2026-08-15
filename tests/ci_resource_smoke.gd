@@ -13,17 +13,12 @@ const CRITICAL_RESOURCES := [
 	# Stage-3 curriculum coverage (doors/sparks/HDR and BaseTerrace deps).
 	"res://core_v2/props/doors/VerticalDoor.tscn",
 	"res://core_v2/props/emitters/SparkEmitterV2.tscn",
-	# StreamTexture can make a parent PackedScene load with a placeholder, so
-	# validate these imports directly. They are used by the criopod prop loaded
-	# by core scenes and force the existing full-import fallback on a cold cache.
-	"res://assets/DisplayCase_2/decor/DisplayCase_2_albedo_decor.png",
-	"res://assets/DisplayCase_2/decor/DisplayCase_2_mrao_decor.png",
-	"res://assets/DisplayCase_2/decor/DisplayCase_2_normal_decor.png",
 	# Dome_Intro.tscn (FIRST_GAME_SCENE). Antes quedaba afuera porque arrastraba
 	# texturas que la cache de import de CI nunca generó: la escena cargaba igual,
 	# pero este paso falla ante cualquier línea "Failed loading resource:", así que
-	# sumarla solo generaba ruido. Las texturas que importan las escenas de core se
-	# validan arriba para que una caché incompleta escale a import completo.
+	# sumarla solo generaba ruido. Los .stex de texturas decorativas no se versionan
+	# por política; cargarlos directamente haría fallar este gate aunque la escena
+	# pueda usar su placeholder. Los manifests se validan en el paso anterior.
 	# Ojo: dos de esas texturas llegan por dentro de DomeTerrace_baked.mesh, que es
 	# binario; no aparecen recorriendo ext_resource a mano.
 	# Ver docs/engineering/CI_Asset_Strategy.md.

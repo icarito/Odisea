@@ -57,12 +57,9 @@ jobs:
           # .import/** ni los assets crudos (textures/models/...). Esos cambiaban con
           # cualquier PNG y por incluir output generado provocaban cache MISS casi
           # siempre -> re-import de minutos. Con esta key el hit es frecuente (~4s).
-          key: ${{ runner.os }}-godot-v4-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
-          restore-keys: |
-            ${{ runner.os }}-godot-v4-${{ hashFiles('**/project.godot') }}-
-            ${{ runner.os }}-godot-v4-
-            ${{ runner.os }}-godot-v3-
-            ${{ runner.os }}-godot-
+          # Do not restore an arbitrary older import cache over the tracked
+          # artifacts. A truncated StreamTexture otherwise survives forever.
+          key: ${{ runner.os }}-godot-v5-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
 
       - name: Cache Godot binary
         uses: actions/cache@v6
