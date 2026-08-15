@@ -76,12 +76,27 @@ func _refresh_mobile_ui_visibility() -> void:
 		_mobile_ui.set_skip_visible(true)
 		_mobile_ui.set_zero_g_mode(false)
 		_set_gameplay_controls_visible(false)
+		_reset_move_joystick()
 		return
+	var was_visible := _mobile_ui.visible
 	_mobile_ui.visible = _is_mobile and not _is_cinematic_active and not non_playable and not paused
 	if _mobile_ui.visible:
 		_mobile_ui.set_skip_visible(false)
 		_mobile_ui.set_zero_g_mode(_is_zero_g)
 		_set_gameplay_controls_visible(true)
+	elif was_visible:
+		# The tree can pause (or a cinematic can take over) mid-drag: the joystick's
+		# _input freezes under PAUSE_MODE_STOP before it ever sees the touch-release,
+		# leaving it visually stuck and its move_* actions held down. Reset it directly
+		# here — direct calls still run on a paused node, only _input/_process don't.
+		_reset_move_joystick()
+
+func _reset_move_joystick() -> void:
+	if not is_instance_valid(_mobile_ui):
+		return
+	var joystick = _mobile_ui.get_node_or_null("Container/MoveJoystick")
+	if is_instance_valid(joystick):
+		joystick.reset()
 
 func _set_gameplay_controls_visible(enabled: bool) -> void:
 	if not is_instance_valid(_mobile_ui):

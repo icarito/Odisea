@@ -199,6 +199,10 @@ func _bake_group(root: Node, group_name: String) -> void:
 	body.name = "StaticBody"
 	body.collision_layer = 64
 	body.collision_mask = 255
+	# El rayo de FootstepDetector devuelve este StaticBody, no sus
+	# CollisionShape. Guardar el perfil tambien aqui evita depender de que el
+	# marcador hijo se conserve al reempaquetar la escena horneada.
+	body.set_meta("footstep_profile", load(FOOTSTEP_PROFILE_METAL))
 	for i in range(collision_shapes.size()):
 		var pair = collision_shapes[i]
 		var cs := CollisionShape.new()

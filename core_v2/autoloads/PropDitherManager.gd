@@ -20,6 +20,9 @@ var _parallax_shader: Shader = preload("res://core_v2/props/parallax_assets/card
 # so they fade between camera and player like the generic dither props, without losing
 # the panel/seam/rivet look.
 var _duct_hull_shader: Shader = preload("res://core_v2/props/duct/shaders/duct_hull.shader")
+# Las placas RoadLines conservan su PBR propio; este shader implementa el
+# mismo contrato de oclusion y solo necesita que el manager lo alimente.
+var _seam_road_lines_shader: Shader = preload("res://materials/diamondPlateAluminum/seam_road_lines_pbr.shader")
 var _registered_materials: Array = []
 var _registered_lookup: Dictionary = {}  # ShaderMaterial -> true (O(1) dedupe on register)
 # Every per-frame uniform this manager writes (player_pos/camera_pos/is_active/hole_radius)
@@ -302,7 +305,8 @@ func _is_occlusion_shader(shader: Shader) -> bool:
 	if shader == null:
 		return false
 	if shader == _dither_shader or shader == _dither_shader_double_sided \
-		or shader == _parallax_shader or shader == _duct_hull_shader:
+		or shader == _parallax_shader or shader == _duct_hull_shader \
+		or shader == _seam_road_lines_shader:
 		return true
 	if shader.has_meta(OCCLUSION_UNIFORMS_META):
 		return true

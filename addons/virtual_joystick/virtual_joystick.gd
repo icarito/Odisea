@@ -141,6 +141,9 @@ func _update_input_actions():
 	elif Input.is_action_pressed(action_down):
 		Input.action_release(action_down)
 
+func reset() -> void:
+	_reset()
+
 func _reset():
 	_pressed = false
 	_output = Vector2.ZERO

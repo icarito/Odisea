@@ -1,6 +1,8 @@
 extends GdUnitTestSuite
 
 const PropDitherManagerScript := preload("res://core_v2/autoloads/PropDitherManager.gd")
+const RoadLinesSeamMaterial := preload("res://materials/diamondPlateAluminum/seam_road_lines_pbr.tres")
+const HubSpokesBody := preload("res://core_v2/levels/interiors/DomeIntro_HubSpokes_body.tscn")
 
 
 func test_collision_object_with_own_mesh_is_occlusion_root() -> void:
@@ -45,3 +47,16 @@ func test_textured_material_enables_albedo_sampling() -> void:
 	source.albedo_texture = ImageTexture.new()
 
 	assert_bool(manager._has_albedo_map(source)).is_true()
+
+
+func test_road_lines_seam_shader_supports_prop_occlusion() -> void:
+	var manager: Node = auto_free(PropDitherManagerScript.new())
+
+	assert_bool(manager._is_occlusion_shader(RoadLinesSeamMaterial.shader)).is_true()
+
+
+func test_baked_hub_spokes_body_exposes_its_footstep_profile() -> void:
+	var body: StaticBody = auto_free(HubSpokesBody.instance())
+
+	assert_bool(body.has_meta("footstep_profile")).is_true()
+	assert_object(body.get_meta("footstep_profile")).is_not_null()

@@ -446,6 +446,11 @@ func _input(event: InputEvent) -> void:
 	# el stream invierte el signo de Y y lo cuantiza, el evento crudo no.
 
 	if event.is_action_pressed("ui_cancel"):
+		if auto_interact:
+			# Ambient panel: nothing of its own to cancel. Don't swallow the event —
+			# let it fall through to PauseManager so Esc/right-click still opens the
+			# pause menu and releases the mouse while riding.
+			return
 		_selector.cancel()
 		get_tree().set_input_as_handled()
 		return
