@@ -64,8 +64,9 @@ func test_laser_raycast_collision():
 	var input = InputDataV2.new()
 	input.tool_fire_primary = true
 	
-	# Step player and multi-tool
-	_player.step(1.0/60.0, input)
+	# Step the tool directly: PlayerController.step() may resync the presentation
+	# transform between placing the target and enabling the RayCast.
+	_player.multi_tool.step(1.0/60.0, input)
 	for _i in range(8):
 		_laser._raycast.force_raycast_update()
 		if _laser._raycast.is_colliding():
