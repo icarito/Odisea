@@ -42,7 +42,11 @@ void fragment() {
 	vec4 tex = texture(flipbook_tex, final_uv);
 
 	// Apply color and intensity
-	vec3 color = plasma_color.rgb * tex.rgb * emission_intensity * pulse_factor;
+	// La textura da forma, no color: si se multiplica su RGB (amarillo), un plasma azul
+	// o violeta queda casi negro y en blend_add desaparece. Con la luminancia como
+	// mascara, el ciclo entero de PlasmaExhaust se ve.
+	float tex_shape = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+	vec3 color = plasma_color.rgb * tex_shape * emission_intensity * pulse_factor;
 	float alpha = tex.a * plasma_color.a * pulse_factor;
 
 	ALBEDO = color;

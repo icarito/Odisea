@@ -94,7 +94,7 @@ speed_ramp = 0.45
 flow_intensity = 1.0
 base_color = Color( 0.14, 0.09, 0.04, 1 )
 flow_color = Color( 1, 0.62, 0.16, 1 )
-pipe_alpha = 1.0
+pipe_alpha = 0.62
 
 ; Línea principal: entra por -X y llega a la junta de bifurcación en x=-0.6.
 ; Escala UNIFORME (1.4): el cilindro ya viene rotado dentro de PipeSection, así que una

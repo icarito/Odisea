@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_never;
+render_mode blend_mix, depth_draw_alpha_prepass, cull_disabled;
 
 // Conducción de plasma: volumen cian/violeta caliente contenido detrás de una carcasa.
 // La oscilación longitudinal comunica flujo sin convertir la superficie en una
