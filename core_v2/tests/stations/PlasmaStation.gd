@@ -14,8 +14,8 @@ extends Spatial
 # determinista. Se reutiliza el shader de PlasmaExhaust, pero no su malla cono:
 # el núcleo va dentro del tubo y el escape nace como partículas desde la rotura.
 
-const PIPE_ALBEDO_PLASMA := Color(0.008, 0.015, 0.055, 1.0)
-const PIPE_EMISSION_PLASMA := Color(0.08, 0.48, 1.0, 1.0)
+const PIPE_ALBEDO_PLASMA := Color(0.14, 0.09, 0.04, 1.0)
+const PIPE_EMISSION_PLASMA := Color(1.0, 0.62, 0.16, 1.0)
 
 const PIPE_FLOW_HEALTHY := 1.0
 const PIPE_FLOW_WARNING := 2.0
@@ -109,7 +109,7 @@ func _tint_pipes_plasma() -> void:
 	# (ese solo toca emission_strength/flow_phase/etc).
 	if not _pipes:
 		return
-	var mesh: MeshInstance = _pipes.get_node_or_null("PipeLeft/MeshInstance")
+	var mesh: MeshInstance = _pipes.get_node_or_null("MainA/MeshInstance")
 	if not mesh:
 		return
 	var mat: Material = mesh.get_surface_material(0)
@@ -121,7 +121,9 @@ func _tint_pipes_plasma() -> void:
 		mat.set_shader_param("roughness_amount", 0.28)
 		_pipes.base_emission = 1.6
 		_pipes.set_noise_scale(3.2)
-		_pipes.set_pipe_alpha(0.45)
+		# Opaco: el núcleo tiene que verse SOLO por la rotura. Con el caño translúcido,
+		# el ámbar del núcleo atravesaba la pared y toda la cañería se leía magenta.
+		_pipes.set_pipe_alpha(1.0)
 
 
 func interact() -> void:

@@ -5,14 +5,14 @@
 
 [resource]
 shader = ExtResource( 1 )
-shader_param/base_color = Color( 0.008, 0.015, 0.055, 1 )
-shader_param/flow_color = Color( 0.08, 0.48, 1, 1 )
-shader_param/core_color = Color( 0.76, 0.16, 1, 1 )
+shader_param/base_color = Color( 0.14, 0.09, 0.04, 1 )
+shader_param/flow_color = Color( 1, 0.62, 0.16, 1 )
+shader_param/core_color = Color( 1, 0.78, 0.35, 1 )
 shader_param/flow_dir = Vector3( 1, 0, 0 )
 shader_param/noise_scale = 3.2
 shader_param/flow_phase = 0.0
 shader_param/emission_strength = 1.6
-shader_param/pipe_alpha = 0.45
+shader_param/pipe_alpha = 1.0
 shader_param/flow_contrast = 0.5
 shader_param/metallic_amount = 0.65
 shader_param/roughness_amount = 0.28
