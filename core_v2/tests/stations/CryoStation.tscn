@@ -98,18 +98,18 @@ default_base_scale = 5.5
 viscosity = 0.85
 buoyancy = -0.02
 decay_rate = 0.18
-default_color = Color( 0.36, 0.86, 0.96, 0.11 )
+default_color = Color( 0.36, 0.86, 0.96, 0.32 )
 collide_with_world = false
-use_dither = false
+use_dither = true
 
 [node name="FogAdapter" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0.9, 0 )
 script = ExtResource( 9 )
 leak_path = NodePath("../CoolantLeak")
 gas_path = NodePath("../Fog")
-particles_at_full = 55
+particles_at_full = 70
 fill_radius = 2.4
 fill_height = 1.6
-particle_scale = 2.4
+particle_scale = 5.5
 particle_lifetime = 5.0
 fill_duration = 3.5

@@ -26,6 +26,7 @@ onready var _alarm_strip: MeshInstance = get_node_or_null("AlarmStrip")
 onready var _spark: MeshInstance = get_node_or_null("Spark")
 onready var _beacon: Node = get_node_or_null("EmergencyBeacon")
 onready var _pipes: Node = get_node_or_null("Pipes")
+onready var _pump: Node = get_node_or_null("PressurePump")
 
 # Cuánto avanza el dial por cada giro de válvula. Con 0.17 hacen falta ~4 giros para
 # cruzar la zona verde: suficiente para que se sienta que uno está buscando el punto,
@@ -54,6 +55,8 @@ func _ready() -> void:
 			mat.set_shader_param("texture_albedo", _gauge_viewport.get_texture())
 	if _purge_valve and _purge_valve.has_signal("valve_state_changed"):
 		_purge_valve.connect("valve_state_changed", self, "_on_purge_valve_changed")
+	if _pump and _pump.has_signal("hold_started"):
+		_pump.connect("hold_started", self, "_on_pump_hold_started")
 	if _panel:
 		_panel_material = _panel.get_surface_material(0) as SpatialMaterial
 	if _alarm_strip:
@@ -66,6 +69,13 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_visual_phase = fmod(_visual_phase + delta, 1.0)
 	_apply()
+
+
+func _on_pump_hold_started() -> void:
+	# Bombear presuriza el sector: es la mitad activa del sistema. La válvula es la otra,
+	# la que purga. Así la sala tiene las dos direcciones y no solo la amenaza.
+	if _section and _section.has_method("raise_pressure"):
+		_section.raise_pressure()
 
 
 func _on_purge_valve_changed(_is_open: bool) -> void:

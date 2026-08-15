@@ -1345,6 +1345,16 @@ _global_script_classes=[ {
 "path": "res://core_v2/props/pipe/PipeCoolantRun.gd"
 }, {
 "base": "InteractableBaseV2",
+"class": "HoldInteractableV2",
+"language": "GDScript",
+"path": "res://core_v2/components/HoldInteractableV2.gd"
+}, {
+"base": "HoldInteractableV2",
+"class": "PressurePump",
+"language": "GDScript",
+"path": "res://core_v2/props/controls/PressurePump.gd"
+}, {
+"base": "InteractableBaseV2",
 "class": "PipeValve",
 "language": "GDScript",
 "path": "res://core_v2/props/pipe/PipeValve.gd"
@@ -2282,6 +2292,8 @@ _global_script_class_icons={
 "PhysicsEntity": "",
 "PilotAnimatorV2": "",
 "PipeCoolantRun": "",
+"HoldInteractableV2": "",
+"PressurePump": "",
 "PipeValve": "",
 "PlateContentStream": "",
 "PlateSlotConfig": "",

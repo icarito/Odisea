@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=2]
+[gd_scene load_steps=26 format=2]
 
 ; Estación de atmósfera (FD-258): esclusa sellada, manómetro y purga. Arranca
 ; en sobrepresión para enseñar el orden parpadeo -> chispa -> blowout. La
@@ -17,6 +17,7 @@
 [ext_resource path="res://core_v2/props/emitters/LeakEmitter.tscn" type="PackedScene" id=10]
 [ext_resource path="res://core_v2/ui/gauges/PressureGaugeUI.tscn" type="PackedScene" id=11]
 [ext_resource path="res://core_v2/visual/HoloGlass.shader" type="Shader" id=12]
+[ext_resource path="res://core_v2/props/controls/PressurePump.tscn" type="PackedScene" id=13]
 
 [sub_resource type="CylinderMesh" id=1]
 top_radius = 0.46
@@ -210,6 +211,13 @@ material/0 = SubResource( 6 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.9, 2.28, 1.14 )
 mesh = SubResource( 3 )
 material/0 = SubResource( 6 )
+
+; Bomba manual: se mantiene presionada y la presión sube mientras dura el esfuerzo. Es el
+; otro lado del sistema — la válvula purga, la bomba presuriza — y el primer mecanismo del
+; proyecto que usa interacción sostenida.
+[node name="PressurePump" parent="." instance=ExtResource( 13 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.15, 0, -0.2 )
+hold_duration = 2.2
 
 ; La válvula existente es el dial físico de purga: su señal alinea PurgeDial.
 [node name="PurgeValve" parent="." instance=ExtResource( 5 )]

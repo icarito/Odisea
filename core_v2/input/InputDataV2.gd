@@ -8,6 +8,9 @@ var jump := false
 var sprint := false
 var crouch := false
 var interact := false
+# Flanco (interact) vs sostenido (interact_held): el primero dispara una vez al pulsar,
+# el segundo dura lo que dure la tecla. Los mecanismos de mantener presionado usan este.
+var interact_held := false
 var focus := false
 var rotate_left := false
 var rotate_right := false
@@ -43,6 +46,7 @@ func to_dict() -> Dictionary:
 		"sprint": sprint,
 		"crouch": crouch,
 		"interact": interact,
+		"interact_held": interact_held,
 		"focus": focus,
 		"rotate_left": rotate_left,
 		"rotate_right": rotate_right,
@@ -120,6 +124,8 @@ func from_dict(d: Dictionary) -> void:
 		crouch = d["crouch"]
 	if d.has("interact"):
 		interact = d["interact"]
+	if d.has("interact_held"):
+		interact_held = d["interact_held"]
 	if d.has("focus"):
 		focus = d["focus"]
 	if d.has("rotate_left"):

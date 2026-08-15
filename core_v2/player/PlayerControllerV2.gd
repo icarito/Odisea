@@ -1885,6 +1885,11 @@ func _process_interaction(input: InputDataV2):
 			_show_interaction_prompt(text)
 		if input.interact and _candidate_can_interact(best_target) and best_target.has_method("interact"):
 			best_target.interact()
+		# Mecanismos de mantener presionado: el controlador solo informa si esta siendo
+		# sostenido; el tiempo lo acumula el propio prop en su step, que es donde el
+		# contrato de replay lo puede reproducir.
+		if best_target.has_method("set_held"):
+			best_target.set_held(input.interact_held and _candidate_can_interact(best_target))
 		if input.focus and _candidate_can_focus(best_target):
 			if best_target.has_method("focus"):
 				best_target.call("focus")
@@ -2026,6 +2031,7 @@ func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 	target.sprint = target.sprint or source.sprint
 	target.crouch = target.crouch or source.crouch
 	target.interact = target.interact or source.interact
+	target.interact_held = target.interact_held or source.interact_held
 	target.focus = target.focus or source.focus
 
 func _update_push_state(dt: float, input: InputDataV2):
