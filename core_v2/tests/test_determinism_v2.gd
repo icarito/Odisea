@@ -223,7 +223,7 @@ static func _scan_dir(dir: Directory, current_path: String, results: Array, exte
 			if subdir.open(full_path) == OK:
 				_scan_dir(subdir, full_path, results, extensions, include_stress)
 		else:
-			if name in ["perf_test.oys", "perf_ab_test.oys", "debug_perf.oys"]:
+			if name.get_basename() in ["perf_test", "perf_ab_test", "debug_perf"]:
 				name = dir.get_next()
 				continue
 			for ext in extensions:

@@ -144,75 +144,13 @@ jobs:
         env:
           GODOT_BIN: /usr/local/bin/godot
           ODISEA_SKIP_PREFLIGHT: "1"
-          ODISEA_FULL_DETERMINISM: "1"
-          # Cap por test. Con 2 workers cada test tiene más CPU; 180s deja margen a
-          # los render-dependientes (~45-50s) + PASS 2 incluso bajo contención.
-          ODISEA_TEST_TIMEOUT_SEC: "180"
+          ODISEA_RUN_DETERMINISM: "1"
         run: |
           mkdir -p reports
-          # El binario de Godot es el build _linux_headless, así que corre con
-          # --no-window SIN xvfb. Antes el step iteraba los .oys en serie (un
-          # arranque de Godot por test, ~4.5s fijos x34 + render por software),
-          # lo que acercaba el job al timeout y a la cancelación diaria.
-          #
-          # Ahora delegamos en el runner pytest, que ejecuta cada caso de
-          # determinismo como test independiente y los paraleliza con pytest-xdist
-          # (-n auto). Medido local: serie 416s -> paralelo headless sin xvfb 154s.
-          # El render-off por test (OYS_RENDER_DISABLED) ya lo aplica runtest.sh.
-          #
-          # Workers: -n auto (4) saturaba la CPU del runner (tests rápidos daban
-          # rc=124 por thrash). -n 2 dio 0 timeouts (resultados correctos) pero la
-          # suite necesita ~39min y se cancelaba al 88% con timeout-minutes=35.
-          # Mantenemos -n 2 (probado sin thrash) y subimos el budget a 45min.
-          echo "Running determinism tests in parallel (pytest-xdist -n 2, headless, no xvfb)"
-          echo "Issue #64: algunos casos aún fallan por drift; ver docs/determinism_test_failures.md"
-          set +e
-          ./.venv/bin/pytest -p no:cacheprovider \
-            tests/test_odisea_runner.py \
-            --odisea-runner gdunit \
-            -m "odisea_determinism" \
-            --odisea-include-determinism \
-            -n 2 \
-            -p no:randomly \
-            --junitxml=reports/determinism_junit.xml \
-            -ra 2>&1 | tee reports/determinism_pytest.log
-          pytest_rc="${PIPESTATUS[0]}"
-          set -e
-
-          # Resumen a partir del JUnit XML (robusto independiente del formato de consola).
-          python3 - "$pytest_rc" <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import sys, xml.etree.ElementTree as ET
-          rc = sys.argv[1]
-          path = "reports/determinism_junit.xml"
-          try:
-              root = ET.parse(path).getroot()
-          except Exception as e:
-              print(f"## Determinism Test Results\n\nNo se pudo leer el JUnit XML: {e} (pytest rc={rc})")
-              sys.exit(0)
-          suites = root.iter("testsuite")
-          cases = list(root.iter("testcase"))
-          total = len(cases)
-          failed, errored, skipped = [], [], []
-          for c in cases:
-              name = c.get("name", "?")
-              if c.find("failure") is not None:
-                  failed.append(name)
-              elif c.find("error") is not None:
-                  errored.append(name)
-              elif c.find("skipped") is not None:
-                  skipped.append(name)
-          passed = total - len(failed) - len(errored) - len(skipped)
-          print("## Determinism Test Results\n")
-          print(f"- **Passed:** {passed}")
-          print(f"- **Failed:** {len(failed)}")
-          print(f"- **Errored:** {len(errored)}")
-          print(f"- **Skipped:** {len(skipped)}")
-          print(f"- **Total:** {total}  (pytest rc={rc})\n")
-          if failed or errored:
-              print("### Failed / Errored Cases\n")
-              for n in failed + errored:
-                  print(f"- ❌ {n}")
-              print()
-          PY
-
-          echo "Determinism pytest exit code: $pytest_rc"
+          # One Godot process keeps imported scenes/resources warm across all OYS
+          # cases. Each OYS still records and then replays its JSON (PASS 1 + PASS
+          # 2); only process startup is shared.
+          echo "Running full determinism suite in one headless Godot process"
+          set -o pipefail
+          ./runtest.sh --runner gdunit -a ./core_v2/tests/test_determinism_v2.gd \
+            2>&1 | tee reports/determinism.log
