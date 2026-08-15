@@ -22,6 +22,9 @@ export(float) var dissipate_rate: float = 0.6
 export(float) var particle_scale: float = 3.0
 # Cuánto vive cada partícula. Más largo = nube más densa a igual ritmo de emisión.
 export(float) var particle_lifetime: float = 8.0
+# Segundos que tarda la nube en llenarse del todo. Estaba fijo en 0.5 s, y a esa velocidad
+# la niebla aparecía de golpe: se leía como una explosión, no como una fuga que crece.
+export(float) var fill_duration: float = 3.0
 
 # --- INTERNAL STATE ---
 var _emit_counter: int = 0
@@ -67,7 +70,7 @@ func _physics_process(delta: float) -> void:
 	var target_count: int = int(round(intensity * float(particles_at_full)))
 	if current_count < target_count:
 		var needed: int = target_count - current_count
-		var max_per_frame: int = int(max(1, ceil(float(particles_at_full) * delta / 0.5)))
+		var max_per_frame: int = int(max(1, ceil(float(particles_at_full) * delta / max(fill_duration, 0.05))))
 		var to_emit: int = int(min(needed, max_per_frame))
 		_emit_particles(manager, to_emit)
 

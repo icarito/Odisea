@@ -32,6 +32,20 @@ onready var _conduit: Node = get_node_or_null("PlasmaConduit")
 onready var _pipes: Node = get_node_or_null("Pipes")
 onready var _leak_particles: CPUParticles = get_node_or_null("PlasmaLeakParticles")
 onready var _core: MeshInstance = get_node_or_null("PlasmaCoreLeft")
+onready var _cores := [get_node_or_null("PlasmaCoreLeft"), get_node_or_null("PlasmaCoreRight"), get_node_or_null("PlasmaCoreSafe")]
+
+# Ciclo de color del núcleo, tomado tal cual de PlasmaExhaust.gd: el plasma del proyecto
+# late entre azul profundo, violeta, carmesí y oro. Un color fijo con un flipbook en loop
+# se lee como un salto que se repite; el ciclo lo vuelve continuo.
+const CORE_COLOR_CYCLE := [
+	Color(0.0, 0.0, 0.5),
+	Color(0.5, 0.0, 0.5),
+	Color(0.5, 0.0, 0.0),
+	Color(0.8, 0.6, 0.0),
+	Color(0.0, 0.0, 0.5)
+]
+const CORE_COLOR_CYCLE_DURATION := 8.0
+var _core_color_timer := 0.0
 onready var _leak_light: OmniLight = get_node_or_null("LeakLight")
 onready var _barrier: Node = get_node_or_null("FireEmitter")
 
@@ -48,7 +62,24 @@ func _ready() -> void:
 	_apply(0.0, 0.0)
 
 
+func _cycle_core_color(delta: float) -> void:
+	_core_color_timer = fmod(_core_color_timer + delta, CORE_COLOR_CYCLE_DURATION)
+	var progress: float = _core_color_timer / CORE_COLOR_CYCLE_DURATION
+	var steps: int = CORE_COLOR_CYCLE.size() - 1
+	var idx: int = int(progress * steps)
+	var next_idx: int = min(idx + 1, steps)
+	var weight: float = (progress * steps) - idx
+	var color: Color = CORE_COLOR_CYCLE[idx].linear_interpolate(CORE_COLOR_CYCLE[next_idx], weight)
+	for core in _cores:
+		if core == null:
+			continue
+		var mat = core.get_surface_material(0)
+		if mat is ShaderMaterial:
+			mat.set_shader_param("plasma_color", color)
+
+
 func _physics_process(delta: float) -> void:
+	_cycle_core_color(delta)
 	if _conduit:
 		_apply(_conduit.get_warning_progress(), _conduit.get_hazard_intensity())
 	_core_speed = lerp(_core_speed, _core_target_speed, min(delta * 12.0, 1.0))
