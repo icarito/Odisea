@@ -13,6 +13,14 @@ export(int) var particles_per_second: float = 30
 export(float) var emission_height: float = 1.5
 # Velocidad local inicial de las particulas. Vector3.ZERO mantiene el fuego vertical por defecto.
 export(Vector3) var jet_velocity: Vector3 = Vector3.ZERO
+# Velocidad hacia afuera desde el punto de emisión. Con 0 el penacho solo sigue
+# jet_velocity y la gravedad del manager; con valor, las partículas irradian, que es
+# como se lee una descarga en vez de una llama.
+export(float) var radial_speed: float = 0.0
+# Rango de color del penacho. Con alpha < 0 se usa el color del manager. Con dos tintes,
+# cada partícula toma uno intermedio: un plasma no es de un solo color plano.
+export(Color) var tint_a: Color = Color(0, 0, 0, -1)
+export(Color) var tint_b: Color = Color(0, 0, 0, -1)
 
 var _tick_timer: float = 0.0
 var _spawn_timer: float = 0.0
@@ -55,7 +63,20 @@ func _spawn_flame_particle() -> void:
 		emission_height,
 		(_hashed_unit(_emit_counter + 7919) - 0.5) * emission_radius
 	)
-	var index := _manager.emit_particle(offset, jet_velocity)
+	var velocity := jet_velocity
+	if radial_speed != 0.0:
+		# Dirección derivada del propio offset: determinista, sin randf.
+		var outward := Vector3(offset.x, 0.0, offset.z)
+		if outward.length() > 0.0001:
+			outward = outward.normalized()
+		else:
+			outward = Vector3(1, 0, 0)
+		outward.y = (_hashed_unit(_emit_counter + 3571) - 0.35)
+		velocity += outward.normalized() * radial_speed
+	var tint := Color(0, 0, 0, -1)
+	if tint_a.a >= 0.0 and tint_b.a >= 0.0:
+		tint = tint_a.linear_interpolate(tint_b, _hashed_unit(_emit_counter + 104729))
+	var index := _manager.emit_particle(offset, velocity, -1.0, -1.0, tint)
 	_manager.set_particle_combustion(index, true)
 
 func _hashed_unit(index: int) -> float:

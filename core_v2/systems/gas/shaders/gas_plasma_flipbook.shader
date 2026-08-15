@@ -8,7 +8,7 @@ uniform sampler2D smoke_atlas : hint_albedo;
 uniform int atlas_columns = 8;
 uniform int atlas_rows = 8;
 uniform float frames_per_second = 16.0;
-uniform float alpha_multiplier = 1.35;
+uniform float alpha_multiplier = 0.55;
 uniform float emission_strength = 0.12;
 uniform float fire_emission_strength = 1.35;
 uniform vec2 atlas_size = vec2(1024.0, 1024.0);
