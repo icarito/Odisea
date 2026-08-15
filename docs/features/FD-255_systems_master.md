@@ -64,7 +64,149 @@ Cada FD-25x describe UN sistema con el mismo esqueleto mínimo:
 ## Scope y orden
 
 - Cada sistema es independiente y se puede construir/testear aislado (F6 por escena).
-- Orden sugerido: Criocoolant → Plasma → Atmósfera → Energía auxiliar (de lo sensorial a lo
-  estructural).
 - Los mini-games de liberación reutilizan `InteractableBaseV2` y `LogicCircuitManager`;
   **no** se inventa un sistema de interacción nuevo.
+- Orden acordado (ver `## Decisiones`): **Criocoolant y Energía auxiliar en paralelo**, luego
+  Plasma, luego Atmósfera.
+
+**Fuera de alcance de esta tanda:** las *Duct Sections* componibles y optimizadas. La geometría
+de ductos ya tiene dos caminos (`core_v2/props/tube/` a mano y `DuctMazeStreamer` +
+`DuctArcBuilder` procedural, FD-052); unificarlos es un FD aparte. Acá los sistemas se
+construyen en una escena taller, no en ductos.
+
+---
+
+## Inventario de assets
+
+Verificado en disco el 2026-08-15. Lo que el FD afirmaba y lo que hay:
+
+| Asset | Estado | Nota |
+|---|---|---|
+| `core_v2/props/pipe/` (PipeSection/Corner/Tee, `PipeValve.gd`) | EXISTE | `PipeValve` hereda `InteractableBaseV2`, con snapshot y señal `valve_state_changed`. **Cero usos en escenas de nivel.** |
+| `core_v2/systems/gas/GasArea3D.gd` (429 líneas) | EXISTE | Grid de densidad, combustión, empuje y daño al jugador. Usado en `Dome_Crio.tscn`. |
+| `core_v2/systems/gas/GasParticleManager.gd` (617 líneas) | EXISTE | MultiMesh + flipbook, pool adaptativo en móvil, determinista y con snapshot. |
+| `core_v2/props/emitters/LeakEmitter.gd` | EXISTE-OTRO-ROL | Es **decorativo**: `_process`, `rand_range` en los burst, sin `replay_sync` ni snapshot. Sirve para el *aviso*, no para el fallo con consecuencia. Cero usos en niveles. |
+| `core_v2/props/emitters/FireEmitter.gd` / `FrostEmitter.gd` | EXISTE | Ambos en `replay_sync` con snapshot. `FrostEmitter` está en `Dome_Intro.tscn`. Ver riesgo R2. |
+| `core_v2/systems/circuit/` (LogicCircuitManager 586 líneas, CircuitGraphResource, CircuitCable, CircuitTerminalBridge, CircuitUINode) | EXISTE | Lógica por ticks en `_physics_process`, compuertas AND/OR/XOR/NOT/DELAY, cables destructibles. **Cero usos en escenas de nivel**: solo `circuit/examples/CircuitExample.tscn`. |
+| `addons/odyssey_circuit_editor/` (CircuitBoard, plugin) | EXISTE-OTRO-ROL | El plugin está en el repo pero **no figura en `enabled=` de `project.godot`**: hoy no hay editor. Su UI está incompleta (agregar nodo, inspector) según `docs/interaction/IMPLEMENTATION_PLAN.md`. |
+| `core_v2/systems/ice/` (IceLevel, IceVisualBand, IceObjectFreezer) | EXISTE | `IceLevel` en `Dome_Intro.tscn`, con snapshot. |
+| `core_v2/systems/fire/` (FireSystem, FireVisualBand, FireDestructible) | EXISTE | `FireSystem` en `Dome_Intro_Fire.tscn`, determinista y con snapshot. |
+| `core_v2/props/exhaust/PlasmaExhaust.tscn` (nozzle IDLE/FLARE/SURGE) | EXISTE | Es el plasma real. Único referenciador externo: `TestZeroGravity.tscn`. |
+| `core_v2/visual/plasma_exhaust/PlasmaExhaust_{A..E}` + `PlasmaExhaustBase.gd` | EXISTE-OTRO-ROL | Pluma tintable genérica: es el CryoVent. **Único referenciador externo: `TestZeroGravity.tscn` (6 `ext_resource`)** ⇒ el renombre es barato. |
+| `core_v2/systems/AirlockPool.gd` | EXISTE | — |
+| `core_v2/props/doors/` (AirlockChamber, IrisDoorV2, VerticalDoor, HeavyBlastDoor, ElevatorDoor) | EXISTE | El FD-258 citaba `props/AirlockChamber.tscn`; la ruta real es `props/doors/AirlockChamber.tscn`. |
+| `docs/interaction/CIRCUIT_SYSTEM.md` + 7 docs más | EXISTE | Contrato, migración, validación de props e integración con terminales. |
+| `core_v2/tests/TestScenePropZoo.tscn` | EXISTE | Auto-descubre props; referencia útil para armar la escena taller. |
+
+Lectura corta: **no falta casi nada; falta conectarlo**. Los tres subsistemas que este FD
+quiere usar (pipes, circuitos, gas) están implementados y no se usan en ninguna escena de nivel.
+
+---
+
+## Riesgos y contratos
+
+| # | Riesgo | Evidencia | Mitigación |
+|---|---|---|---|
+| R1 | **El pegamento no sobrevive un replay.** `LogicCircuitManager` corre por ticks en `_physics_process` (bien) pero **no está en `replay_sync` ni implementa `get_snapshot`/`restore_snapshot`**. Su `anna_get_snapshot()` es para debug, no para el contrato. Si las puertas dependen del circuito, el replay diverge. | `LogicCircuitManager.gd` — sin `add_to_group("replay_sync")` | Tarea T1, bloquea todo lo del sistema de energía. |
+| R2 | **`FireEmitter` aplica daño en `_process`.** Emite `damage_tick` desde `_process(delta)`, o sea daño dependiente de FPS: viola `AGENTS.md` §5.3. `FrostEmitter` ya hace el daño en `_physics_process`. | `FireEmitter.gd:31-46` | Tarea T5: mover a `_physics_process`. |
+| R3 | **`GasArea3D` no restaura estado.** Corre en `_physics_process` (bien) pero no está en `replay_sync` ni tiene snapshot: densidad, celdas ardiendo y cuerpos adentro se pierden. La niebla de criocoolant y la barrera de plasma quedan fuera del contrato. | `GasArea3D.gd` | Tarea T4. |
+| R4 | **Los emisores usan `randf` para posicionar partículas** que entran al pool de `GasParticleManager`, y ese pool **sí** se snapshotea. Ruido no reproducible tocando estado sincronizado. | `FireEmitter.gd:48-56`, `LeakEmitter.gd:42,132,185` | Confirmar en T5 que el ruido queda solo en lo visual, o derivarlo de un contador determinista (`_hashed_unit`, como ya hace `FrostEmitter`). |
+| R5 | **Presupuesto de render.** Cada estación suma un `GasParticleManager` (MultiMesh + pool) más luces de color. Cuatro estaciones en una escena es el caso peor. | Perf histórica: las luces realtime fueron el 84% de draw calls en `Dome_Intro` | Medir con `VisualServer.get_render_info` en la escena taller antes de integrar a un domo. En 3.6 usar `INFO_OBJECTS_IN_FRAME`, no `INFO_*_DRAWS_IN_FRAME`. |
+| R6 | **GLES2.** El proyecto es GLES2: partículas por `CPUParticles` o por el `GasParticleManager` (MultiMesh), nunca el nodo `Particles`. Sin `SCREEN_TEXTURE` en efectos que deban verse en Android. | `AGENTS.md` §11.7 | Regla para todo brief de esta familia. |
+| R7 | **Props que se apagan solos.** `InteractableBaseV2` corta `_physics_process` en reposo (FD-224); un aviso con animación por tiempo (parpadeo del manómetro, pulso del nozzle) se congela salvo `_wants_continuous_step()`. | FD-224 | Regla para todo brief de esta familia. |
+| R8 | **`project.godot` está modificado en el working tree** y es archivo compartido y conflictivo. La tarea que habilita el plugin lo toca. | `git status` | T2 la hace una sola tarea, local, nunca Jules. |
+| R9 | **Duplicado documental:** FD-028 "Plasma Leak Obstacle" (Planned) cubre lo mismo que FD-257. Además FD-255..259 no figuran en `FEATURE_INDEX.md`, y `FD-045_gas_simulation.md` se titula "FD-043" adentro. | `FEATURE_INDEX.md:93` | Tarea T7 (limpieza documental). |
+
+---
+
+## Decisiones
+
+Acordadas con Sebastián el 2026-08-15:
+
+1. **Pegamento = `LogicCircuitManager`.** No se crea una base `ShipSystemV2`. Cada sistema
+   expone sus interactuables (`PipeValve`, lever, dial) y el grafo de circuito conecta señal →
+   puerta/efecto. A cambio, hay que darle determinismo al manager (T1).
+2. **Se construye en una escena taller**, `core_v2/tests/TestShipSystems.tscn`, con una estación
+   por sistema. No se tocan escenas de nivel en esta tanda. Cada estación es una **sub-escena
+   propia** (`core_v2/tests/stations/*.tscn`) instanciada en el taller: así dos sistemas en
+   paralelo nunca editan el mismo archivo.
+3. **El editor de circuitos se habilita tal cual** (una línea en `project.godot`) y se usa hasta
+   donde llegue. Completar su UI (agregar nodo, inspector) es un FD aparte, solo si estorba.
+4. **Orden: Criocoolant y Energía auxiliar en paralelo**, después Plasma, después Atmósfera.
+   Criocoolant porque todo su material existe y valida el patrón completo con el menor riesgo;
+   Energía porque ejercita el circuito, que es el pegamento del resto.
+5. **Duct Sections componibles: fuera de alcance.** Interesan los sistemas individuales.
+6. **Reparto por cómo se verifica, no por tamaño.** Jules recibe lógica sustancial (máquinas de
+   estado, determinismo, snapshots, tests) y corre hasta 3 sesiones en paralelo. Todo lo visual
+   —props, materiales, escala, luz, calibración de efectos— se hace local con `test_prop.sh` y
+   capturas, porque un prop no está listo cuando compila sino cuando se ve bien.
+
+---
+
+## Plan de ejecución
+
+Dos carriles que corren a la vez:
+
+- **Carril lógica (Jules, 3 sesiones en paralelo).** Máquinas de estado, determinismo, snapshots
+  y tests. Se juzga leyendo el diff y corriendo la suite.
+- **Carril visual (local, Sonnet/Opus con capturas).** Props, materiales, escala, luz,
+  composición de las estaciones, calibración de la pluma y la niebla. Lazo corto:
+  editar → `test_prop.sh` → mirar → ajustar, con Sebastián opinando.
+
+Los sistemas salen deterministas por un lado; cuando hay base coherente, se les pone la cara
+encima y se itera en vivo.
+
+### Ola 1 — Jules (paralelas, archivos disjuntos)
+
+| # | Tarea | Ejecutor | Archivos | Aceptación | Depende de | Estado |
+|---|---|---|---|---|---|---|
+| J1 | **Determinismo del pegamento.** `LogicCircuitManager` → grupo `replay_sync` + `get_snapshot`/`restore_snapshot` completos (colas de entrada/salida, estado de nodos, delays pendientes de las compuertas DELAY) + test de replay que arma un grafo, lo corre N ticks, restaura y compara | JULES | `core_v2/systems/circuit/LogicCircuitManager.gd`, `core_v2/tests/test_circuit_determinism.gd` (nuevo) | test nuevo pasa; `test_determinism_v2.gd` sigue pasando | — | pendiente |
+| J2 | **Peligros deterministas.** `GasArea3D` → `replay_sync` + snapshot (grid de densidad, celdas ardiendo, cuerpos adentro). `FireEmitter` → spawn y `damage_tick` de `_process` a `_physics_process`, ruido de posición derivado de contador (patrón `_hashed_unit` de `FrostEmitter`). `LeakEmitter` → comentario de cabecera declarándolo decorativo | JULES | `core_v2/systems/gas/GasArea3D.gd`, `core_v2/props/emitters/FireEmitter.gd`, `core_v2/props/emitters/LeakEmitter.gd`, test nuevo | daño independiente de FPS; snapshot/restore reproduce la nube | — | pendiente |
+| J3 | **Sistema Criocoolant (lógica).** `core_v2/systems/cryo/CoolantLeak.gd` nuevo: máquina de estados SANO → AVISO → FALLO → LIBERADO, señales por transición, `set_active` desde un `PipeValve`, snapshot/restore, y API para que el visual se cuelgue (`get_state()`, `state_changed`). Sin geometría ni materiales | JULES | `core_v2/systems/cryo/**` (nuevo), test nuevo | la secuencia completa corre headless y es determinista; cero nodos visuales creados | — | pendiente |
+
+### Carril visual y de entorno (local, en paralelo a la Ola 1)
+
+| # | Tarea | Ejecutor | Archivos | Aceptación | Depende de | Estado |
+|---|---|---|---|---|---|---|
+| L1 | Habilitar `addons/odyssey_circuit_editor/plugin.cfg` en `project.godot`; abrir el dock y ver hasta dónde llega | LOCAL | `project.godot` | el editor levanta y muestra "Circuit Board" al seleccionar un `LogicCircuitManager` | — | pendiente |
+| L2 | Renombrar `visual/plasma_exhaust/` → `visual/cryo_vent/` (`PlasmaExhaust_{A..E}` → `CryoVent_{A..E}`, `PlasmaExhaustBase` → `CryoVentBase`, 6 `ext_resource` de `TestZeroGravity.tscn`) **y calibrar la pluma en cian**: color, escala, densidad | LOCAL | `core_v2/visual/plasma_exhaust/**` → `core_v2/visual/cryo_vent/**`, `core_v2/tests/TestZeroGravity.tscn` | sin refs rotas; capturas de la pluma cian aprobadas por Sebastián | — | pendiente |
+| L3 | Escena taller `TestShipSystems.tscn`: piso, luz, spawn y cuatro anclas (una por estación). Cada estación será una sub-escena instanciada | LOCAL | `core_v2/tests/TestShipSystems.tscn` (nuevo) | abre con F6; escala y distancias validadas caminando | — | pendiente |
+| L4 | Estación Criocoolant (visual): `PipeValve` + tubería + radiador + pluma `CryoVent_D` + volumen de niebla, colgados de la lógica de J3 | LOCAL | `core_v2/tests/stations/CryoStation.tscn` (nuevo) | capturas aprobadas; la sala se lee como "acá vive el coolant" | J3, L2, L3 | pendiente |
+| L5 | Estación Energía auxiliar (visual): lever, panel OD-02 con parpadeo, `HeavyBlastDoor`, cables visibles | LOCAL | `core_v2/tests/stations/AuxPowerStation.tscn` (nuevo) | capturas aprobadas; se lee "puerta sellada por falta de energía" | J1, L1, L3 | pendiente |
+| L6 | Limpieza documental: FD-028 → superseded por FD-257; alta de FD-255..259 en `FEATURE_INDEX.md`; corregir el título interno de `FD-045_gas_simulation.md` | LOCAL | `docs/features/**` | el índice refleja la familia; no quedan dos FDs para la fuga de plasma | — | pendiente |
+
+### Ola 2 — Jules (al liberarse las sesiones de la Ola 1)
+
+| # | Tarea | Ejecutor | Archivos | Aceptación | Depende de | Estado |
+|---|---|---|---|---|---|---|
+| J4 | **Sistema Energía auxiliar (lógica).** Grafo `CircuitGraphResource` de ejemplo (lever → compuerta → puerta), estado OD-02, y la puerta reaccionando al circuito. Sin geometría | JULES | `core_v2/systems/auxpower/**` (nuevo), `core_v2/systems/circuit/examples/**` | sin lever la puerta no abre; con lever abre; sobrevive snapshot/restore | J1 | pendiente |
+| J5 | Plasma (FD-257) — lógica | JULES | — | requiere su propio `/enrich` | J2 | en espera |
+| J6 | Atmósfera (FD-258) — lógica | JULES | — | requiere su propio `/enrich` | J2 | en espera |
+
+### Checkpoints humanos
+
+| # | Tarea | Ejecutor | Depende de | Estado |
+|---|---|---|---|---|
+| H1 | Balance de niebla: densidad, cuánto ciega, tiempo de disipación | HUMANO | L4 | pendiente |
+| H2 | Legibilidad de energía: ¿se entiende sin texto que hay que restaurarla? | HUMANO | L5 | pendiente |
+
+Reglas de corte aplicadas: ninguna tarea de Jules toca escenas (`.tscn`), `project.godot` ni
+archivos de otra sesión; J3 **consume** la API de `GasArea3D` mientras J2 lo edita, sin
+modificarlo; las estaciones son sub-escenas distintas, así que el carril visual avanza sin
+chocar consigo mismo.
+
+---
+
+## Checkpoints en vivo
+
+1. **Después de L3** — recorrer la escena taller vacía: escala, distancias, si se llega
+   caminando de una estación a otra sin aburrirse.
+2. **Durante L2 y L4** — la pluma cian y la niebla se calibran mirando capturas, no a ciegas.
+3. **Después de L4** — el patrón criocoolant completo: ¿la condensación avisa a tiempo?, ¿la
+   niebla ciega lo justo sin frustrar?, ¿cerrar la válvula se siente como un respiro?
+4. **Después de L5** — el patrón energía: ¿se lee que la puerta está sellada por falta de
+   energía y no por estar rota?
+4. **Antes de integrar a un domo** — medir draw calls de la escena taller con las cuatro
+   estaciones activas (R5) y comparar contra el presupuesto de `Dome_Intro`.
+
+Cada ajuste que salga de estos checkpoints se anota en `## Decisiones` con fecha.
