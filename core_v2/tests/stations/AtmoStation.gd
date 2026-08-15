@@ -18,15 +18,14 @@ const PANEL_PURGED := Color(0.12, 0.9, 0.42, 1.0)
 onready var _section: Node = get_node_or_null("PressureSection")
 onready var _dial: Node = get_node_or_null("PurgeDial")
 onready var _purge_valve: Node = get_node_or_null("PurgeValve")
-onready var _needle: Spatial = get_node_or_null("Gauge/GaugePivot")
+onready var _gauge_ui: Control = get_node_or_null("Gauge/Viewport/PressureGaugeUI")
+onready var _gauge_screen: MeshInstance = get_node_or_null("Gauge/ScreenMesh")
+onready var _gauge_viewport: Viewport = get_node_or_null("Gauge/Viewport")
 onready var _panel: MeshInstance = get_node_or_null("PressurePanel")
 onready var _alarm_strip: MeshInstance = get_node_or_null("AlarmStrip")
 onready var _spark: MeshInstance = get_node_or_null("Spark")
 onready var _beacon: Node = get_node_or_null("EmergencyBeacon")
 onready var _pipes: Node = get_node_or_null("Pipes")
-onready var _dial_pivot: Spatial = get_node_or_null("Gauge/DialPivot")
-onready var _dial_needle: MeshInstance = get_node_or_null("Gauge/DialPivot/DialNeedle")
-onready var _target_band: MeshInstance = get_node_or_null("Gauge/TargetBand")
 
 # Cuánto avanza el dial por cada giro de válvula. Con 0.17 hacen falta ~4 giros para
 # cruzar la zona verde: suficiente para que se sienta que uno está buscando el punto,
@@ -47,6 +46,12 @@ var _visual_phase: float = 0.0
 
 
 func _ready() -> void:
+	# La pantalla toma su textura del Viewport hermano. Se conecta acá y no en la escena
+	# porque un ViewportTexture guardado en .tscn se rompe al reparentar la estación.
+	if _gauge_screen and _gauge_viewport:
+		var mat = _gauge_screen.get_surface_material(0)
+		if mat is ShaderMaterial:
+			mat.set_shader_param("texture_albedo", _gauge_viewport.get_texture())
 	if _purge_valve and _purge_valve.has_signal("valve_state_changed"):
 		_purge_valve.connect("valve_state_changed", self, "_on_purge_valve_changed")
 	if _panel:
@@ -83,25 +88,14 @@ func _apply() -> void:
 	var state: int = _section.get_state()
 	var normalized: float = clamp((pressure - 1.0) / max(_section.critical_pressure - 1.0, 0.01), 0.0, 1.0)
 
-	if _needle:
-		_needle.rotation.z = lerp(GAUGE_MIN_ANGLE, GAUGE_MAX_ANGLE, normalized)
-
-	# La aguja de ajuste es la que el jugador mueve. Vive en el mismo manómetro que la
-	# de presión para que se lea de un vistazo qué hay que alinear con qué.
-	if _dial and _dial_pivot:
-		_dial_pivot.rotation.z = lerp(GAUGE_MIN_ANGLE, GAUGE_MAX_ANGLE, clamp(_dial.value, 0.0, 1.0))
-	if _dial and _target_band:
-		_target_band.rotation.z = lerp(GAUGE_MIN_ANGLE, GAUGE_MAX_ANGLE, clamp(_dial.target, 0.0, 1.0))
-	# Feedback sensorial que pide el FD: la zona verde y la aguja se encienden al
-	# acercarse, y quedan fijas al enganchar. Es lo único que dice "vas bien".
-	if _dial and _dial.has_method("get_proximity"):
-		var proximity: float = _dial.get_proximity()
-		var locked: bool = _dial.has_method("is_locked") and _dial.is_locked()
-		var glow: float = 0.6 + 3.4 * proximity
-		if _target_band and _target_band.get_surface_material(0):
-			_target_band.get_surface_material(0).emission_energy = 4.5 if locked else glow
-		if _dial_needle and _dial_needle.get_surface_material(0):
-			_dial_needle.get_surface_material(0).emission_energy = 4.5 if locked else glow
+	if _gauge_ui and _gauge_ui.has_method("set_state"):
+		var dial_value: float = _dial.value if _dial else 0.0
+		var dial_target: float = _dial.target if _dial else 0.62
+		var dial_tol: float = _dial.tolerance if _dial else 0.08
+		var prox: float = _dial.get_proximity() if _dial and _dial.has_method("get_proximity") else 0.0
+		var is_locked: bool = _dial.is_locked() if _dial and _dial.has_method("is_locked") else false
+		var rising: bool = state == PRESSURE_RISING or state == PRESSURE_CRITICAL
+		_gauge_ui.set_state(normalized, dial_value, dial_target, dial_tol, prox, is_locked, rising)
 
 	# La cañería acusa la presión antes que cualquier cartel: el aire corre más rápido y
 	# empiezan a ceder las juntas, una a una, de menor a mayor presión.
