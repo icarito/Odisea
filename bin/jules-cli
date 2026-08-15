@@ -162,14 +162,22 @@ def cmd_create(args):
 
 
 def cmd_check(args):
+    """El listado no trae outputs: para las COMPLETED hay que preguntar una por una si
+    de verdad entregaron algo. Una sesion que quedo esperando aprobacion de plan se
+    cierra como COMPLETED y vacia, y eso no se puede distinguir aca sin mirar."""
     data = call("GET", "/sessions?pageSize=%d" % args.limit)
     for ses in data.get("sessions", []):
         title = ses.get("title", "")
         if args.filter and args.filter not in title:
             continue
         state = ses.get("state", "UNKNOWN")
-        mark = "ATENCION" if state in BLOCKED else "ok"
         sid = ses.get("id") or ses.get("name", "").split("/")[-1]
+        mark = "ATENCION" if state in BLOCKED else "ok"
+        if state == "COMPLETED":
+            full = call("GET", "/sessions/%s" % sid)
+            if not summarize_outputs(full):
+                mark = "VACIA"
+                state = "COMPLETED (sin entrega)"
         print("%-9s %-26s %-22s %s" % (mark, state, sid, title[:60]))
 
 

@@ -29,6 +29,14 @@ para leerlo, `result --patch`.
 Estados que exigen acción nuestra (`needs_attention: true`): `AWAITING_PLAN_APPROVAL`,
 `AWAITING_USER_FEEDBACK`, `PAUSED`, `FAILED`.
 
+> **Una sesión esperando aprobación de plan puede cerrarse vacía.** Pasa `COMPLETED` sin haber
+> escrito una línea, y en el listado se ve igual que una que entregó. Por eso `check` consulta
+> los outputs de cada `COMPLETED` y marca `VACIA` las que no entregaron nada.
+> Dos formas de no perder el trabajo: aprobar el plan apenas aparece, o lanzar con
+> `--auto-plan` cuando el brief ya es específico (los planes de un brief bien escrito son
+> siempre un calco del brief). Con tres sesiones en paralelo, `--auto-plan` es lo más seguro:
+> si nadie mira durante veinte minutos, se pierden las tres.
+
 ## Flujo
 
 1. **Brief** — `docs/features/tasks/FD-0XX-tN-<slug>.md`, autocontenido: objetivo, contexto del
