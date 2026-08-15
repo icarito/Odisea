@@ -31,6 +31,11 @@ export(float, 0.05, 6.0) var speed_ramp := 1.6
 export(float, 0.0, 3.0) var flow_intensity := 1.0 setget set_flow_intensity
 # Emisión a intensidad 1.0. La intensidad la escala.
 export(float, 0.0, 4.0) var base_emission := 1.4
+# Color del caño en reposo y color del fluido que corre por dentro. Por defecto, cian de
+# criocoolant; una corrida de atmósfera usa blanco/rojo y una de plasma, ámbar. Es lo que
+# permite reusar la misma corrida de tubería para los cuatro sistemas.
+export(Color) var base_color := Color(0.06, 0.22, 0.35, 1.0) setget set_base_color
+export(Color) var flow_color := Color(0.35, 0.92, 0.98, 1.0) setget set_flow_color
 # Tamaño del patrón de ruido en metros.
 export(float, 0.1, 6.0) var noise_scale := 1.6 setget set_noise_scale
 # Transparencia del caño: 1.0 opaco. Un poco por debajo deja intuir el volumen interno.
@@ -84,6 +89,16 @@ func set_flow_intensity(v: float) -> void:
 	_apply()
 
 
+func set_base_color(v: Color) -> void:
+	base_color = v
+	_apply()
+
+
+func set_flow_color(v: Color) -> void:
+	flow_color = v
+	_apply()
+
+
 func set_noise_scale(v: float) -> void:
 	noise_scale = v
 	_apply()
@@ -113,6 +128,8 @@ func _apply() -> void:
 	_material.set_shader_param("pipe_alpha", pipe_alpha)
 	_material.set_shader_param("emission_strength", base_emission * flow_intensity)
 	_material.set_shader_param("noise_scale", noise_scale)
+	_material.set_shader_param("base_color", base_color)
+	_material.set_shader_param("flow_color", flow_color)
 
 	_assign_to_meshes(self)
 

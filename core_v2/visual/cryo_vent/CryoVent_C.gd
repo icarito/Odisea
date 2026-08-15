@@ -16,7 +16,10 @@ export(float) var scale_random := 0.5 setget set_scale_random
 # --- Flipbook / look ---
 export(Texture) var flipbook_tex setget set_flipbook_tex
 export(Vector2) var flipbook_grid := Vector2(8, 8) setget set_flipbook_grid
-export(Color) var core_color := Color(0.28, 0.42, 0.7, 1.0) setget set_core_color
+# Tinte base del vapor. La variación a lo largo de la vida de la partícula la pone el
+# color_ramp de la escena (nace casi blanco, vive cian, muere azul y transparente); este
+# color lo multiplica, así que conviene mantenerlo claro.
+export(Color) var core_color := Color(0.55, 0.95, 1.0, 0.5) setget set_core_color
 # 1.0 = full additive punch, lower = softer/dimmer so particles blend instead
 # of looking like hard burned-in quads.
 export(float, 0.0, 1.0) var softness := 0.6 setget set_softness

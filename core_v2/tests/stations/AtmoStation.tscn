@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=2]
+[gd_scene load_steps=18 format=2]
 
 ; Estación de atmósfera (FD-258): esclusa sellada, manómetro y purga. Arranca
 ; en sobrepresión para enseñar el orden parpadeo -> chispa -> blowout. La
@@ -12,6 +12,9 @@
 [ext_resource path="res://core_v2/props/pipe/PipeValve.tscn" type="PackedScene" id=5]
 [ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=6]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/pipe/PipeSection.tscn" type="PackedScene" id=8]
+[ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=9]
+[ext_resource path="res://core_v2/props/emitters/LeakEmitter.tscn" type="PackedScene" id=10]
 
 [sub_resource type="CylinderMesh" id=1]
 top_radius = 0.72
@@ -64,6 +67,57 @@ target = 0.62
 tolerance = 0.08
 hold_duration = 1.2
 section_path = NodePath("../PressureSection")
+
+; Conducción de aire del sector: lo que la esclusa sella está acá adentro. Blanca, con el
+; flujo corriendo despacio; cuando la presión sube, el caudal se acelera y arrancan las
+; fugas de vapor por las juntas. La esclusa sola no dice "presión"; la cañería sí.
+[node name="Pipes" type="Spatial" parent="."]
+script = ExtResource( 9 )
+flow_dir = Vector3( 0, 0, 1 )
+flow_speed = 0.35
+flow_intensity = 0.6
+base_color = Color( 0.62, 0.66, 0.7, 1 )
+flow_color = Color( 0.95, 0.97, 1, 1 )
+noise_scale = 2.2
+pipe_alpha = 1.0
+
+[node name="PipeA" parent="Pipes" instance=ExtResource( 8 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -2.6, 1.35, -1.4 )
+
+[node name="PipeB" parent="Pipes" instance=ExtResource( 8 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -2.6, 1.35, 0.6 )
+
+[node name="PipeC" parent="Pipes" instance=ExtResource( 8 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -2.6, 1.35, 2.6 )
+
+[node name="PipeD" parent="Pipes" instance=ExtResource( 8 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6, 1.35, 3.4 )
+
+; Fugas de vapor en las juntas. Son el aviso, no el daño: LeakEmitter es decorativo y no
+; determinista a propósito (el estallido con consecuencia lo maneja PressureSection).
+[node name="SteamA" parent="." instance=ExtResource( 10 )]
+transform = Transform( 0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, -2.6, 1.6, -0.4 )
+is_active = false
+interval = 1.6
+interval_random = 0.4
+duration = 0.7
+fadeout_time = 1.2
+
+[node name="SteamB" parent="." instance=ExtResource( 10 )]
+transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, -2.6, 1.6, 1.6 )
+is_active = false
+interval = 1.1
+interval_random = 0.3
+duration = 0.6
+fadeout_time = 1.0
+
+[node name="SteamC" parent="." instance=ExtResource( 10 )]
+transform = Transform( 0.55, 0, 0, 0, 0.55, 0, 0, 0, 0.55, -2.2, 1.6, 3.4 )
+is_active = false
+interval = 0.8
+interval_random = 0.2
+duration = 0.5
+fadeout_time = 0.9
 
 ; Compuerta de esclusa existente, contenida para que el manómetro conserve
 ; protagonismo dentro del pad de 7m.

@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://core_v2/visual/cryo_vent/CryoVent_C.gd" type="Script" id=1]
 [ext_resource path="res://assets/flipbook_particles/assets/smokes/smoke_01/textures/smoke_01.tga" type="Texture" id=2]
@@ -10,12 +10,20 @@ _data = [ Vector2( 0, 0.1 ), 0.0, 0.0, 0, 0, Vector2( 0.25, 1 ), 0.0, 0.0, 0, 0,
 flags_transparent = true
 flags_unshaded = true
 vertex_color_use_as_albedo = true
-params_blend_mode = 1
+params_blend_mode = 0
 params_billboard_mode = 3
 particles_anim_h_frames = 8
 particles_anim_v_frames = 8
 particles_anim_loop = true
 albedo_texture = ExtResource( 2 )
+
+[sub_resource type="Gradient" id=8]
+offsets = PoolRealArray( 0, 0.35, 1 )
+colors = PoolColorArray( 0.78, 0.98, 1, 0.55, 0.35, 0.92, 0.98, 0.42, 0.1, 0.45, 0.72, 0 )
+
+[sub_resource type="GradientTexture" id=9]
+gradient = SubResource( 8 )
+width = 64
 
 [sub_resource type="QuadMesh" id=7]
 material = SubResource( 6 )
@@ -41,6 +49,7 @@ initial_velocity_random = 0.6
 scale_amount = 0.7
 scale_amount_random = 0.5
 scale_amount_curve = SubResource( 3 )
-color = Color( 0.28, 0.42, 0.7, 0.6 )
+color = Color( 0.55, 0.95, 1, 0.5 )
+color_ramp = SubResource( 9 )
 anim_offset = 0.0
 anim_offset_random = 1.0

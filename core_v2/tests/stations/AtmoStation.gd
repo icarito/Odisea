@@ -23,6 +23,15 @@ onready var _panel: MeshInstance = get_node_or_null("PressurePanel")
 onready var _alarm_strip: MeshInstance = get_node_or_null("AlarmStrip")
 onready var _spark: MeshInstance = get_node_or_null("Spark")
 onready var _beacon: Node = get_node_or_null("EmergencyBeacon")
+onready var _pipes: Node = get_node_or_null("Pipes")
+# Las fugas de vapor arrancan escalonadas: cuanto más sube la presión, más juntas ceden.
+onready var _steam := [get_node_or_null("SteamA"), get_node_or_null("SteamB"), get_node_or_null("SteamC")]
+
+# Caudal de la conducción: en reposo corre lento; con sobrepresión se acelera.
+const PIPE_SPEED_NOMINAL := 0.35
+const PIPE_SPEED_CRITICAL := 1.8
+const PIPE_FLOW_NOMINAL := 0.6
+const PIPE_FLOW_CRITICAL := 1.5
 
 var _panel_material: SpatialMaterial = null
 var _spark_material: SpatialMaterial = null
@@ -64,6 +73,20 @@ func _apply() -> void:
 
 	if _needle:
 		_needle.rotation.z = lerp(GAUGE_MIN_ANGLE, GAUGE_MAX_ANGLE, normalized)
+
+	# La cañería acusa la presión antes que cualquier cartel: el aire corre más rápido y
+	# empiezan a ceder las juntas, una a una, de menor a mayor presión.
+	if _pipes and _pipes.has_method("set_flow_speed"):
+		_pipes.set_flow_speed(lerp(PIPE_SPEED_NOMINAL, PIPE_SPEED_CRITICAL, normalized))
+		_pipes.set_flow_intensity(lerp(PIPE_FLOW_NOMINAL, PIPE_FLOW_CRITICAL, normalized))
+	for i in range(_steam.size()):
+		var jet = _steam[i]
+		if jet == null or not jet.has_method("set_active"):
+			continue
+		var threshold: float = 0.25 + 0.25 * float(i)
+		var should_leak: bool = normalized > threshold
+		if jet.is_active != should_leak:
+			jet.set_active(should_leak)
 
 	var alarm_active: bool = state == PRESSURE_RISING or state == PRESSURE_CRITICAL
 	var critical: bool = state == PRESSURE_CRITICAL
