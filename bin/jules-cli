@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+"""jules-cli — delega tareas a Jules (agente asincrono de Google) y monitorea sesiones.
+
+API key: env JULES_API_KEY, si no <repo>/.env, si no <repo>/secrets/jules_key.
+Nunca imprime la key. Toda la salida es JSON (una linea por comando) salvo `check`.
+
+Uso:
+  bin/jules-cli sources
+  bin/jules-cli create --branch feature/FD-256-criocoolant --spec-file /tmp/task.md \
+                       --title "FD-256: renombrar plasma_exhaust a cryo_vent"
+  bin/jules-cli status <session_id>
+  bin/jules-cli activities <session_id> [--limit N]
+  bin/jules-cli reply <session_id> "<texto>"
+  bin/jules-cli approve-plan <session_id>
+  bin/jules-cli result <session_id>
+  bin/jules-cli check [--filter FD-256] [--limit N]
+"""
+import argparse
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
+
+API = "https://jules.googleapis.com/v1alpha"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Estados en los que Jules espera algo de nosotros.
+BLOCKED = {"AWAITING_PLAN_APPROVAL", "AWAITING_USER_FEEDBACK", "PAUSED", "FAILED"}
+ACTIVITY_META = {"name", "id", "createTime", "updateTime", "originator", "description"}
+
+
+def api_key():
+    key = os.environ.get("JULES_API_KEY")
+    if not key:
+        env = os.path.join(ROOT, ".env")
+        if os.path.exists(env):
+            with open(env) as fh:
+                for line in fh:
+                    m = re.match(r"\s*(?:export\s+)?JULES_API_KEY\s*=\s*(.+)", line)
+                    if m:
+                        key = m.group(1).strip().strip("'\"")
+                        break
+    if not key:
+        legacy = os.path.join(ROOT, "secrets", "jules_key")
+        if os.path.exists(legacy):
+            key = open(legacy).read().strip()
+    if not key:
+        sys.exit("JULES_API_KEY no encontrada (env, .env o secrets/jules_key)")
+    return key
+
+
+def call(method, path, body=None):
+    req = urllib.request.Request(
+        API + path,
+        method=method,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={"X-Goog-Api-Key": api_key(), "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            raw = resp.read().decode()
+        return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode()[:500]
+        sys.exit("HTTP %s en %s %s: %s" % (exc.code, method, path, detail))
+
+
+def out(obj):
+    print(json.dumps(obj, indent=2, ensure_ascii=False))
+
+
+def find_source(repo):
+    """Devuelve el resource name de la source de GitHub que corresponde a owner/repo."""
+    owner, _, name = repo.partition("/")
+    for src in call("GET", "/sources").get("sources", []):
+        gh = src.get("githubRepo", {})
+        if (gh.get("owner"), gh.get("repo")) == (owner, name) or src.get("name") == "sources/github/" + repo:
+            return src["name"]
+    sys.exit("Repo %s no esta conectado a Jules (ver `bin/jules-cli sources`)" % repo)
+
+
+def describe(activity):
+    """Resume una activity sin depender del schema exacto (el oneof cambia)."""
+    kind = next((k for k in activity if k not in ACTIVITY_META), "unknown")
+    payload = activity.get(kind)
+    text = ""
+    if isinstance(payload, dict):
+        steps = payload.get("plan", {}).get("steps") if isinstance(payload.get("plan"), dict) else None
+        if steps:
+            text = "\n".join("%d. %s" % (i + 1, s.get("title", "")) for i, s in enumerate(steps))
+        else:
+            text = (payload.get("agentMessage") or payload.get("description")
+                    or payload.get("prompt") or payload.get("title") or "")
+    elif isinstance(payload, str):
+        text = payload
+    text = text or activity.get("description", "")
+    return {"kind": kind, "text": text[:1500], "createTime": activity.get("createTime", "")}
+
+
+def activities(sid, limit=30):
+    """Devuelve las activities mas viejas primero (orden de la API)."""
+    data = call("GET", "/sessions/%s/activities?pageSize=%d" % (sid, limit))
+    return [describe(a) for a in data.get("activities", [])]
+
+
+def patch_of(ses):
+    for o in ses.get("outputs", []):
+        patch = o.get("changeSet", {}).get("gitPatch", {}).get("unidiffPatch")
+        if patch:
+            return patch
+    return ""
+
+
+def summarize_outputs(ses):
+    """Resumen corto de los outputs: el patch completo no entra en un chat."""
+    summary = {}
+    for o in ses.get("outputs", []):
+        pr = o.get("pullRequest")
+        if pr:
+            summary["pr_url"] = pr.get("url", "")
+            summary["pr_branch"] = pr.get("headRef", "")
+    patch = patch_of(ses)
+    if patch:
+        summary["files"] = re.findall(r"^\+\+\+ b/(.+)$", patch, re.M)
+        summary["patch_lines"] = len(patch.splitlines())
+    return summary
+
+
+def session_status(sid, limit=50):
+    ses = call("GET", "/sessions/%s" % sid)
+    acts = activities(sid, limit)
+    state = ses.get("state", "UNKNOWN")
+    return {
+        "id": sid,
+        "title": ses.get("title", ""),
+        "state": state,
+        "url": ses.get("url", ""),
+        "needs_attention": state in BLOCKED,
+        # La ultima activity suele ser un progressUpdated vacio: preferir la ultima con texto.
+        "latest_activity": next((a for a in reversed(acts) if a["text"]), acts[-1] if acts else None),
+        "outputs": summarize_outputs(ses),
+    }
+
+
+def cmd_create(args):
+    spec = open(args.spec_file).read()
+    body = {
+        "prompt": spec,
+        "title": args.title or os.path.basename(args.spec_file),
+        "sourceContext": {
+            "source": find_source(args.repo),
+            "githubRepoContext": {"startingBranch": args.branch},
+        },
+        "requirePlanApproval": not args.auto_plan,
+    }
+    if not args.no_pr:
+        body["automationMode"] = "AUTO_CREATE_PR"
+    ses = call("POST", "/sessions", body)
+    sid = ses.get("id") or ses.get("name", "").split("/")[-1]
+    out({"session_id": sid, "url": ses.get("url", ""), "state": ses.get("state", "")})
+
+
+def cmd_check(args):
+    data = call("GET", "/sessions?pageSize=%d" % args.limit)
+    for ses in data.get("sessions", []):
+        title = ses.get("title", "")
+        if args.filter and args.filter not in title:
+            continue
+        state = ses.get("state", "UNKNOWN")
+        mark = "ATENCION" if state in BLOCKED else "ok"
+        sid = ses.get("id") or ses.get("name", "").split("/")[-1]
+        print("%-9s %-26s %-22s %s" % (mark, state, sid, title[:60]))
+
+
+def main():
+    p = argparse.ArgumentParser(prog="jules-cli")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("sources")
+
+    c = sub.add_parser("create")
+    c.add_argument("--repo", default="icarito/Odisea")
+    c.add_argument("--branch", required=True, help="rama base ya pusheada")
+    c.add_argument("--spec-file", required=True, help="brief de la tarea (markdown)")
+    c.add_argument("--title")
+    c.add_argument("--auto-plan", action="store_true", help="no exigir aprobacion de plan")
+    c.add_argument("--no-pr", action="store_true", help="no crear PR automatico")
+
+    s = sub.add_parser("status")
+    s.add_argument("session_id")
+
+    a = sub.add_parser("activities")
+    a.add_argument("session_id")
+    a.add_argument("--limit", type=int, default=10)
+
+    r = sub.add_parser("reply")
+    r.add_argument("session_id")
+    r.add_argument("text")
+
+    ap = sub.add_parser("approve-plan")
+    ap.add_argument("session_id")
+
+    res = sub.add_parser("result")
+    res.add_argument("session_id")
+    res.add_argument("--patch", metavar="ARCHIVO", help="volcar el diff completo a un archivo")
+
+    ck = sub.add_parser("check")
+    ck.add_argument("--filter", help="subcadena del titulo, ej FD-256")
+    ck.add_argument("--limit", type=int, default=30)
+
+    args = p.parse_args()
+    if args.cmd == "sources":
+        out(call("GET", "/sources"))
+    elif args.cmd == "create":
+        cmd_create(args)
+    elif args.cmd == "status":
+        out(session_status(args.session_id))
+    elif args.cmd == "activities":
+        out(activities(args.session_id, args.limit))
+    elif args.cmd == "reply":
+        call("POST", "/sessions/%s:sendMessage" % args.session_id, {"prompt": args.text})
+        out(session_status(args.session_id))
+    elif args.cmd == "approve-plan":
+        call("POST", "/sessions/%s:approvePlan" % args.session_id, {})
+        out(session_status(args.session_id))
+    elif args.cmd == "result":
+        st = session_status(args.session_id)
+        if st["state"] != "COMPLETED":
+            print("Sesion en estado %s, todavia sin resultado final." % st["state"], file=sys.stderr)
+        if args.patch:
+            patch = patch_of(call("GET", "/sessions/%s" % args.session_id))
+            open(args.patch, "w").write(patch)
+            st["patch_file"] = args.patch
+        out(st)
+    elif args.cmd == "check":
+        cmd_check(args)
+
+
+if __name__ == "__main__":
+    main()

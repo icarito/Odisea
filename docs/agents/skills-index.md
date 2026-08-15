@@ -13,6 +13,16 @@ workflows generales. Las integraciones especificas de agente pueden envolverlos.
 | `/fd-verify` | `docs/skills/fd-verify.md` | `.kilo/command/fd-verify.md` | Verificar implementacion contra spec. |
 | `/fd-close` | `docs/skills/fd-close.md` | `.kilo/command/fd-close.md` | Archivar FD y actualizar changelog. |
 
+## Ejecucion de Features (enrich → deliver)
+
+| Comando | Canonico | Claude | Kilo | Proposito |
+| --- | --- | --- | --- | --- |
+| `/enrich` | `docs/skills/enrich.md` | `.claude/skills/enrich/SKILL.md` | `.kilo/command/enrich.md` | Enriquecer un FD: assets verificados, riesgos, preguntas y plan de tareas con ejecutor. |
+| `/deliver` | `docs/skills/deliver.md` | `.claude/skills/deliver/SKILL.md` | `.kilo/command/deliver.md` | Ejecutar el plan: despachar a Sonnet y a Jules, revisar, checkpoints en vivo. |
+| `/jules` | `docs/skills/jules.md` | `.claude/skills/jules/SKILL.md` | `.kilo/command/jules.md` | Delegar tareas asincronas a Jules via `bin/jules-cli` y gestionar la sesion hasta el PR. |
+
+Ciclo completo de una feature: `/fd-new` → `/enrich` → `/deliver` → `/fd-verify` → `/fd-close`.
+
 ## Odisea runtime y validacion
 
 | Comando/skill | Canonico | Claude | Kilo | Proposito |
