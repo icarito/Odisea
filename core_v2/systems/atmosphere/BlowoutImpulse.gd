@@ -95,6 +95,13 @@ func _play_explosion() -> void:
 	if _explosion == null:
 		return
 	_set_explosion_visible(true)
+	# Ráfaga de partículas (one_shot): es lo que deja hacer una descarga de aire blanca y
+	# lenta. El prop de explosión del proyecto usa un flipbook de fuego sin parámetro de
+	# color, así que no se puede volver blanco sin tocarle el shader a todo el mundo.
+	if _explosion is CPUParticles:
+		_explosion.restart()
+		_explosion.emitting = true
+		return
 	var anim = _explosion.get_node_or_null("AnimationPlayer")
 	if anim and anim.has_animation("Explode"):
 		anim.stop()

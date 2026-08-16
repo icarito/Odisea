@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=2]
+[gd_scene load_steps=34 format=2]
 
 ; Estación de atmósfera (FD-258): esclusa sellada, manómetro y purga. Arranca
 ; en sobrepresión para enseñar el orden parpadeo -> chispa -> blowout. La
@@ -18,7 +18,7 @@
 [ext_resource path="res://core_v2/visual/HoloGlass.shader" type="Shader" id=12]
 [ext_resource path="res://core_v2/props/controls/PressurePump.tscn" type="PackedScene" id=13]
 [ext_resource path="res://core_v2/props/controls/PurgeTuner.gd" type="Script" id=14]
-[ext_resource path="res://assets/flipbook_particles/assets/explosions/explosion_05/explosion_05.tscn" type="PackedScene" id=15]
+[ext_resource path="res://assets/flipbook_particles/assets/smokes/smoke_03/textures/smoke_03.tga" type="Texture" id=15]
 [ext_resource path="res://core_v2/systems/atmosphere/BlowoutImpulse.gd" type="Script" id=16]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=17]
 [ext_resource path="res://core_v2/props/emitters/SparkEmitterV2.tscn" type="PackedScene" id=18]
@@ -102,6 +102,27 @@ shader_param/flip_v_when_viewed_from_back = false
 [sub_resource type="CylinderShape" id=14]
 radius = 0.2
 height = 0.24
+
+[sub_resource type="SpatialMaterial" id=19]
+resource_local_to_scene = true
+flags_transparent = true
+flags_unshaded = true
+vertex_color_use_as_albedo = true
+params_blend_mode = 0
+params_billboard_mode = 3
+params_billboard_keep_scale = true
+particles_anim_h_frames = 8
+particles_anim_v_frames = 8
+particles_anim_loop = false
+albedo_color = Color( 1, 1, 1, 1 )
+albedo_texture = ExtResource( 15 )
+
+[sub_resource type="QuadMesh" id=20]
+material = SubResource( 19 )
+size = Vector2( 1.6, 1.6 )
+
+[sub_resource type="Curve" id=21]
+_data = [ Vector2( 0, 0.25 ), 0.0, 0.0, 0, 0, Vector2( 0.45, 1 ), 0.0, 0.0, 0, 0, Vector2( 1, 0.55 ), 0.0, 0.0, 0, 0 ]
 
 [node name="AtmoStation" type="Spatial"]
 script = ExtResource( 1 )
@@ -235,13 +256,36 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.5, 0.6 )
 script = ExtResource( 16 )
 section_path = NodePath("../PressureSection")
 explosion_path = NodePath("Explosion")
-player_push = 9.0
-body_push = 7.0
-lift_ratio = 0.45
+player_push = 13.0
+body_push = 11.0
+lift_ratio = 0.3
+shock_duration = 0.7
 
-[node name="Explosion" parent="Blowout" instance=ExtResource( 15 )]
-transform = Transform( 2.2, 0, 0, 0, 2.2, 0, 0, 0, 2.2, 0, 0, 0 )
+; Descarga de aire: blanca, lenta y ancha. Sin fuego — esto es una sobrepresión, no una
+; combustión. one_shot: revienta una vez y se apaga sola.
+[node name="Explosion" type="CPUParticles" parent="Blowout"]
 visible = false
+emitting = false
+amount = 26
+lifetime = 1.8
+one_shot = true
+explosiveness = 0.92
+lifetime_randomness = 0.25
+mesh = SubResource( 20 )
+emission_shape = 1
+emission_sphere_radius = 0.5
+direction = Vector3( 0, 0.35, 0 )
+spread = 180.0
+gravity = Vector3( 0, 0.4, 0 )
+initial_velocity = 2.6
+initial_velocity_random = 0.35
+damping = 1.8
+scale_amount = 2.4
+scale_amount_random = 0.4
+scale_amount_curve = SubResource( 21 )
+color = Color( 0.94, 0.97, 1, 0.55 )
+anim_offset = 0.0
+anim_offset_random = 1.0
 
 ; Cajas cerca del punto de estallido: lo que la explosión mueve. Sin algo que se mueva,
 ; una explosión es una luz.
