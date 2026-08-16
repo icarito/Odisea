@@ -218,18 +218,19 @@ auto_build_cables = true
 ] instance=ExtResource( 10 )]
 transform = Transform( 0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -2, 2.05, 0.34 )
 text = "OD-02 RESPALDO"
-hologram_mode = true
 color_preset = "terminal"
-text_color = Color( 0.78, 1, 0.86, 1 )
+text_color = Color( 0.92, 1, 0.95, 1 )
+panel_alpha = 0.35
+alignment = 0
 font = ExtResource( 11 )
 font_size = 0
 case_mode = 1
 outline_size = 3
-outline_color = Color( 0, 0.2, 0.12, 0.8 )
+outline_color = Color( 0, 0, 0, 0.9 )
 border_enabled = true
-border_color = Color( 0.61, 0.99, 0.58, 0.75 )
-border_width = 4.0
-emission_energy = 2.6
+border_color = Color( 0, 1, 0.53, 1 )
+border_width = 10.0
+emission_energy = 1.6
 
 [node name="OD02Panel" type="MeshInstance" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1.5, 0.2 )

@@ -40,6 +40,12 @@ export(float) var border_width: float = 2.0 setget set_border_width
 
 export(float) var interaction_radius: float = 2.0 setget set_interaction_radius
 
+# Opacidad del fondo del letrero. Un letrero puede ser translúcido sin ser un holograma:
+# el modo holograma es aditivo y se lo come la luz de la sala. 1.0 = placa opaca.
+export(float, 0.0, 1.0) var panel_alpha: float = 1.0 setget set_panel_alpha
+# Espacio reservado a la izquierda para el icono del letrero (FD-260). Con 0 no se
+# reserva nada y el texto ocupa todo el ancho útil.
+export(float) var icon_slot_width: float = 0.0 setget set_icon_slot_width
 export(bool) var hologram_mode: bool = false setget set_hologram_mode
 export(bool) var face_player: bool = false
 export(bool) var is_interactive: bool = false setget set_is_interactive
@@ -147,6 +153,19 @@ func set_interaction_radius(v: float) -> void:
 	if _is_ready:
 		_update_interaction_area()
 
+func set_panel_alpha(v: float) -> void:
+	panel_alpha = clamp(v, 0.0, 1.0)
+	if _is_ready:
+		update_text()
+		_update_material()
+
+
+func set_icon_slot_width(v: float) -> void:
+	icon_slot_width = max(v, 0.0)
+	if _is_ready:
+		update_text()
+
+
 func set_hologram_mode(v: bool) -> void:
 	hologram_mode = v
 	if _is_ready:
@@ -219,7 +238,7 @@ func update_text() -> void:
 
 	var cr = ColorRect.new()
 	cr.rect_size = viewport_size
-	cr.color = Color(0, 0, 0, 1)
+	cr.color = Color(0, 0, 0, panel_alpha)
 	if hologram_mode:
 		cr.color.a = 0.2
 
@@ -275,8 +294,8 @@ func update_text() -> void:
 				font_to_use.size = best_size
 
 			var lbl = Label.new()
-			lbl.rect_position = Vector2(padding, padding)
-			lbl.rect_size = Vector2(avail_w, avail_h)
+			lbl.rect_position = Vector2(padding + icon_slot_width, padding)
+			lbl.rect_size = Vector2(max(avail_w - icon_slot_width, 1.0), avail_h)
 			lbl.text = formatted_text
 			lbl.align = alignment
 			lbl.valign = Label.VALIGN_CENTER
@@ -307,7 +326,7 @@ func _update_material() -> void:
 		_material.params_cull_mode = SpatialMaterial.CULL_DISABLED
 		_material.albedo_color = Color(1, 1, 1, 0.5)
 	else:
-		_material.flags_transparent = false
+		_material.flags_transparent = panel_alpha < 1.0
 		_material.params_blend_mode = SpatialMaterial.BLEND_MODE_MIX
 		_material.params_cull_mode = SpatialMaterial.CULL_BACK
 		_material.albedo_color = Color.white
