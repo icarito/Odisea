@@ -23,7 +23,7 @@ onready var _gauge_screen: MeshInstance = get_node_or_null("Gauge/ScreenMesh")
 onready var _gauge_viewport: Viewport = get_node_or_null("Gauge/Viewport")
 onready var _panel: MeshInstance = get_node_or_null("PressurePanel")
 onready var _alarm_strip: MeshInstance = get_node_or_null("AlarmStrip")
-onready var _spark: MeshInstance = get_node_or_null("Spark")
+onready var _spark: Node = get_node_or_null("Spark")
 onready var _beacon: Node = get_node_or_null("EmergencyBeacon")
 onready var _pipes: Node = get_node_or_null("Pipes")
 onready var _pump: Node = get_node_or_null("PressurePump")
@@ -42,7 +42,6 @@ const PIPE_FLOW_NOMINAL := 0.6
 const PIPE_FLOW_CRITICAL := 1.5
 
 var _panel_material: SpatialMaterial = null
-var _spark_material: SpatialMaterial = null
 var _visual_phase: float = 0.0
 
 
@@ -59,8 +58,6 @@ func _ready() -> void:
 		_panel_material = _panel.get_surface_material(0) as SpatialMaterial
 	if _alarm_strip:
 		_alarm_strip.set_surface_material(0, _panel_material)
-	if _spark:
-		_spark_material = _spark.get_surface_material(0) as SpatialMaterial
 	_apply()
 
 
@@ -121,10 +118,11 @@ func _apply() -> void:
 			_panel_material.emission = PANEL_PURGED
 			_panel_material.emission_energy = 1.4
 
-	if _spark_material:
-		_spark_material.emission_enabled = true
-		_spark_material.emission = PANEL_WARNING
-		_spark_material.emission_energy = 5.0 if critical and _visual_phase < 0.2 else 0.0
+	# El arco eléctrico solo existe en CRITICAL: es el último aviso antes del estallido.
+	if _spark and _spark.has_method("set_active"):
+		_spark.set_active(critical)
+	elif _spark and _spark is Spatial:
+		_spark.visible = critical
 
 	if _beacon and _beacon.has_method("set_active"):
 		_beacon.set_active(alarm_active)
