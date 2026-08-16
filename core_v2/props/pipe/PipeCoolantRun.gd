@@ -9,6 +9,10 @@ class_name PipeCoolantRun
 # una intensidad comunes. Así una sala puede decir "por acá va el refrigerante, y va
 # hacia allá" sin tocar cada tramo a mano.
 #
+# Nodos en este grupo conservan su material propio aunque cuelguen de la corrida: los
+# herrajes (collares, bridas) son metal y no deben recibir el material de fluido.
+const SKIP_GROUP := "no_flow_material"
+
 # La intensidad es la palanca de gameplay: un sistema sano corre parejo; una fuga la
 # hace caer. Manejarla en runtime con set_flow_intensity().
 

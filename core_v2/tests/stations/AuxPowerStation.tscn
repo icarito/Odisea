@@ -221,6 +221,7 @@ text = "OD-02 RESPALDO"
 color_preset = "terminal"
 text_color = Color( 0.92, 1, 0.95, 1 )
 panel_alpha = 0.35
+double_sided = true
 alignment = 0
 font = ExtResource( 11 )
 font_size = 0

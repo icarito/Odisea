@@ -152,7 +152,7 @@ material/0 = ExtResource( 9 )
 [node name="CollarSafeEnd" type="MeshInstance" parent="Pipes/SafeBranch" groups=[
 "no_flow_material",
 ]]
-transform = Transform( -3.12224e-08, -0.714286, 0, 0.714286, -3.12224e-08, 0, 0, 0, 0.714286, 1.0, 0, 0 )
+transform = Transform( -3.12224e-08, -0.714286, 0, 0.714286, -3.12224e-08, 0, 0, 0, 0.714286, -1.0, 0, 0 )
 mesh = SubResource( 1 )
 material/0 = ExtResource( 9 )
 

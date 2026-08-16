@@ -46,6 +46,10 @@ export(float, 0.0, 1.0) var panel_alpha: float = 1.0 setget set_panel_alpha
 # Espacio reservado a la izquierda para el icono del letrero (FD-260). Con 0 no se
 # reserva nada y el texto ocupa todo el ancho útil.
 export(float) var icon_slot_width: float = 0.0 setget set_icon_slot_width
+# Letrero legible por los dos lados. Usa el mismo shader que las pantallas del proyecto
+# (HoloGlass), que además de deshabilitar el culling voltea la textura al mirarlo desde
+# atrás: sin eso el texto se leería espejado por el reverso.
+export(bool) var double_sided: bool = false setget set_double_sided
 export(bool) var hologram_mode: bool = false setget set_hologram_mode
 export(bool) var face_player: bool = false
 export(bool) var is_interactive: bool = false setget set_is_interactive
@@ -60,7 +64,11 @@ signal signage_read(id)
 
 var _base_scale: Vector3 = Vector3.ONE
 var _time: float = 0.0
-var _material: SpatialMaterial = null
+# Material sin tipar: un letrero de una cara usa SpatialMaterial y uno de dos caras el
+# shader HoloGlass. Tipado como SpatialMaterial, el "is ShaderMaterial" ni siquiera
+# compila ("a value of type SpatialMaterial will never be an instance of ShaderMaterial")
+# y el script entero deja de cargar.
+var _material = null
 var _is_ready: bool = false
 var _viewport: Viewport = null
 
@@ -166,6 +174,31 @@ func set_icon_slot_width(v: float) -> void:
 		update_text()
 
 
+func set_double_sided(v: bool) -> void:
+	double_sided = v
+	if _is_ready:
+		_rebuild_material()
+		update_text()
+		_update_material()
+
+
+func _rebuild_material() -> void:
+	"""Un letrero de dos caras necesita el shader HoloGlass; uno de una cara, el material
+	estándar. Cambiar de modo implica cambiar de material, no solo de bandera."""
+	var mesh: MeshInstance = get_node_or_null("MeshInstance")
+	if mesh == null:
+		return
+	if double_sided:
+		if not (_material is ShaderMaterial):
+			var sm := ShaderMaterial.new()
+			sm.shader = load("res://core_v2/visual/HoloGlass.shader")
+			_material = sm
+			mesh.material_override = _material
+	elif not (_material is SpatialMaterial):
+		_material = SpatialMaterial.new()
+		mesh.material_override = _material
+
+
 func set_hologram_mode(v: bool) -> void:
 	hologram_mode = v
 	if _is_ready:
@@ -195,6 +228,9 @@ func _ready() -> void:
 			_material = SpatialMaterial.new()
 		mesh_instance.material_override = _material
 
+	# Si el letrero es de dos caras, el material tiene que ser el shader HoloGlass antes
+	# de configurarlo: son dos caminos distintos, no una bandera sobre el mismo material.
+	_rebuild_material()
 	_update_material()
 	_update_interaction_area()
 	update_text()
@@ -304,7 +340,9 @@ func update_text() -> void:
 			lbl.add_font_override("font", font_to_use)
 			_viewport.add_child(lbl)
 
-	if _material:
+	if _material is ShaderMaterial:
+		_material.set_shader_param("texture_albedo", _viewport.get_texture())
+	elif _material:
 		var vp_tex = _viewport.get_texture()
 		_material.albedo_texture = vp_tex
 		_material.emission_texture = vp_tex
@@ -315,6 +353,17 @@ func _update_material() -> void:
 	var color = custom_color
 	if COLOR_PRESETS.has(color_preset):
 		color = COLOR_PRESETS[color_preset]
+
+	if _material is ShaderMaterial:
+		# HoloGlass: sin culling y volteando la textura por detrás, así el letrero se lee
+		# igual desde los dos lados en vez de desaparecer.
+		_material.set_shader_param("albedo", Color(color.r, color.g, color.b, panel_alpha))
+		_material.set_shader_param("emission_energy", emission_energy)
+		_material.set_shader_param("alpha_scissor_threshold", 0.0)
+		_material.set_shader_param("flip_v", true)
+		_material.set_shader_param("flip_h_when_viewed_from_back", true)
+		_material.set_shader_param("flip_v_when_viewed_from_back", true)
+		return
 
 	_material.emission_enabled = true
 	_material.emission = color
