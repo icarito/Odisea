@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=11 format=2]
 
 ; Estación de energía auxiliar (FD-259): puerta sellada + consola de respaldo
 ; (lever + lectura OD-02). La lógica del ciclo de energía vive en AuxPowerBus
@@ -14,6 +14,7 @@
 [ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=7]
 [ext_resource path="res://core_v2/components/InteractableBaseV2.gd" type="Script" id=8]
 [ext_resource path="res://core_v2/systems/auxpower/AuxPowerBus.gd" type="Script" id=9]
+[ext_resource path="res://core_v2/props/signage/SignagePanel.tscn" type="PackedScene" id=10]
 
 [sub_resource type="CubeMesh" id=1]
 size = Vector3( 0.35, 0.22, 0.05 )
@@ -205,6 +206,16 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, 4.3, -0.25 )
 script = ExtResource( 6 )
 circuit_data = SubResource( 3 )
 auto_build_cables = true
+
+; Rótulo del respaldo. El OD02Panel de al lado es la lectura que parpadea; este cartel
+; dice qué es esa lectura, que hasta ahora había que adivinar.
+[node name="BusSign" parent="." instance=ExtResource( 10 )]
+transform = Transform( 0.34, 0, 0, 0, 0.34, 0, 0, 0, 0.34, -2, 1.78, 0.2 )
+text = "OD-02 RESPALDO"
+color_preset = "terminal"
+case_mode = 1
+border_enabled = true
+emission_energy = 1.2
 
 [node name="OD02Panel" type="MeshInstance" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1.5, 0.2 )

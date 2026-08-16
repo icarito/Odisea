@@ -33,7 +33,8 @@ onready var _pump: Node = get_node_or_null("PressurePump")
 # y poco como para no aburrir.
 const DIAL_STEP := 0.17
 # Las fugas de vapor arrancan escalonadas: cuanto más sube la presión, más juntas ceden.
-onready var _steam := [get_node_or_null("SteamA"), get_node_or_null("SteamB"), get_node_or_null("SteamC")]
+onready var _steam := [get_node_or_null("SteamA"), get_node_or_null("SteamB"), get_node_or_null("SteamC"),
+	get_node_or_null("SteamD"), get_node_or_null("SteamE"), get_node_or_null("SteamF")]
 
 # Caudal de la conducción: en reposo corre lento; con sobrepresión se acelera.
 const PIPE_SPEED_NOMINAL := 0.35
@@ -104,7 +105,9 @@ func _apply() -> void:
 		var jet = _steam[i]
 		if jet == null or not jet.has_method("set_active"):
 			continue
-		var threshold: float = 0.25 + 0.25 * float(i)
+		# Escalonadas a lo largo de toda la escala: la primera junta cede casi enseguida y
+		# la última recién al borde del estallido, así la presión se lee en cuántas pierden.
+		var threshold: float = 0.12 + 0.13 * float(i)
 		var should_leak: bool = normalized > threshold
 		if jet.is_active != should_leak:
 			jet.set_active(should_leak)

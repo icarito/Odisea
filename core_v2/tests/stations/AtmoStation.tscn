@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=2]
+[gd_scene load_steps=35 format=2]
 
 ; Estación de atmósfera (FD-258): esclusa sellada, manómetro y purga. Arranca
 ; en sobrepresión para enseñar el orden parpadeo -> chispa -> blowout. La
@@ -22,6 +22,7 @@
 [ext_resource path="res://core_v2/systems/atmosphere/BlowoutImpulse.gd" type="Script" id=16]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=17]
 [ext_resource path="res://core_v2/props/emitters/SparkEmitterV2.tscn" type="PackedScene" id=18]
+[ext_resource path="res://core_v2/props/signage/SignagePanel.tscn" type="PackedScene" id=22]
 
 [sub_resource type="CylinderMesh" id=1]
 top_radius = 0.46
@@ -203,6 +204,16 @@ light_activation_distance = 10.0
 
 ; Consola de purga delante de la esclusa: el aro blanco/rojo permite leer la
 ; presión antes de ver el efecto de chispa en el sello.
+; Cartel del sector: dice qué se está mirando. Usa el SignagePanel configurable de FD-260,
+; con autofit, así el texto entra sin calcular tamaños a mano.
+[node name="SectorSign" parent="." instance=ExtResource( 22 )]
+transform = Transform( 0.42, 0, 0, 0, 0.42, 0, 0, 0, 0.42, -2.15, 2.15, -0.3 )
+text = "PRESIÓN — SECTOR 04"
+color_preset = "warning"
+case_mode = 1
+border_enabled = true
+emission_energy = 1.4
+
 [node name="Console" type="CSGBox" parent="."]
 collision_layer = 64
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 0.85, -0.15 )
@@ -251,6 +262,30 @@ hold_duration = 2.2
 
 ; El estallido: flipbook de explosión + empuje real a lo que haya alrededor. Hasta ahora
 ; PressureSection emitía blowout() y no lo escuchaba nadie.
+[node name="SteamD" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 2.5, 1.5, 0.7 )
+is_active = false
+interval = 1.3
+interval_random = 0.35
+duration = 0.6
+fadeout_time = 1.1
+
+[node name="SteamE" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.6, 0, 0, 0, 1.6, 0, 0, 0, 1.6, 2.5, 1.5, 2.4 )
+is_active = false
+interval = 0.9
+interval_random = 0.25
+duration = 0.55
+fadeout_time = 1.0
+
+[node name="SteamF" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.35, 0, 0, 0, 1.35, 0, 0, 0, 1.35, 1.9, 1.5, 3.4 )
+is_active = false
+interval = 0.7
+interval_random = 0.2
+duration = 0.5
+fadeout_time = 0.9
+
 [node name="Blowout" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.5, 0.6 )
 script = ExtResource( 16 )

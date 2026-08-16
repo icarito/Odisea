@@ -193,6 +193,11 @@ func update_text() -> void:
 
 	_viewport.size = viewport_size
 	_viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS if Engine.editor_hint else Viewport.UPDATE_ONCE
+	# UPDATE_ONCE dibuja UN frame, y las glifos de una DynamicFont se rasterizan recién
+	# después: ese único frame salía con el fondo y sin texto, y ya no volvía a dibujarse.
+	# Re-armar el disparo en el frame siguiente alcanza para que el texto entre.
+	if not Engine.editor_hint:
+		_viewport.call_deferred("set_render_target_update_mode", Viewport.UPDATE_ONCE)
 
 	for child in _viewport.get_children():
 		_viewport.remove_child(child)

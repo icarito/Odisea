@@ -24,6 +24,8 @@ const PIPE_SPEED_HEALTHY := 0.7
 const PIPE_SPEED_WARNING := 1.6
 const CORE_SPEED_HEALTHY := 1.0
 const CORE_SPEED_WARNING := 1.8
+# Segundos que tarda el núcleo en alcanzar la velocidad pedida.
+const CORE_SPEED_RAMP := 1.6
 const REROUTED_STATE := 3
 
 const HAZARD_THRESHOLD := 0.01
@@ -88,7 +90,9 @@ func _physics_process(delta: float) -> void:
 	_cycle_core_color(delta)
 	if _conduit:
 		_apply(_conduit.get_warning_progress(), _conduit.get_hazard_intensity())
-	_core_speed = lerp(_core_speed, _core_target_speed, min(delta * 12.0, 1.0))
+	# Misma rampa que la tubería de coolant: frenar tiene que verse frenar, no cortarse.
+	# Con lerp a 12/s el núcleo pasaba de correr a quieto en un pestañeo.
+	_core_speed = lerp(_core_speed, _core_target_speed, min(delta / CORE_SPEED_RAMP, 1.0))
 	_core_phase += delta * _core_speed
 	if _core_material:
 		_core_material.set_shader_param("flow_phase", _core_phase)
