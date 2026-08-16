@@ -1,5 +1,7 @@
 shader_type spatial;
-render_mode cull_disabled, unshaded, blend_mix;
+// Transparent holo projections must contribute their own depth before the
+// environment's depth-of-field pass samples the world behind them.
+render_mode cull_disabled, unshaded, blend_mix, depth_draw_alpha_prepass;
 
 uniform sampler2D texture_albedo : hint_albedo;
 uniform vec4 albedo : hint_color = vec4(1.0, 1.0, 1.0, 1.0);

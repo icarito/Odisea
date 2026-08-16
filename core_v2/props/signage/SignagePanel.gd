@@ -50,6 +50,9 @@ export(float) var icon_slot_width: float = 0.0 setget set_icon_slot_width
 # (HoloGlass), que además de deshabilitar el culling voltea la textura al mirarlo desde
 # atrás: sin eso el texto se leería espejado por el reverso.
 export(bool) var double_sided: bool = false setget set_double_sided
+# Los paneles deben componerse después de los materiales transparentes del entorno
+# (vidrios y hielo), o el texto queda parcialmente perforado por su orden de dibujo.
+export(int, -128, 127) var render_priority: int = 100 setget set_render_priority
 export(bool) var hologram_mode: bool = false setget set_hologram_mode
 export(bool) var face_player: bool = false
 export(bool) var is_interactive: bool = false setget set_is_interactive
@@ -179,6 +182,12 @@ func set_double_sided(v: bool) -> void:
 	if _is_ready:
 		_rebuild_material()
 		update_text()
+		_update_material()
+
+
+func set_render_priority(v: int) -> void:
+	render_priority = clamp(v, -128, 127)
+	if _is_ready:
 		_update_material()
 
 
@@ -349,6 +358,7 @@ func update_text() -> void:
 
 func _update_material() -> void:
 	if not _material: return
+	_material.render_priority = render_priority
 
 	var color = custom_color
 	if COLOR_PRESETS.has(color_preset):
