@@ -1409,15 +1409,6 @@ func _unhandled_input(event):
 	if current_scene and current_scene.filename.find("Menu.tscn") != -1:
 		is_menu = true
 	if not is_testing and not is_cli_mode and not is_menu:
-		# release_mouse (botón derecho) suelta el cursor y NADA MÁS. Antes esto lo hacía
-		# ui_cancel, que el derecho también disparaba: soltar el mouse venía con salir del
-		# modo foco del holoterminal, cerrar el selector del ascensor y abrir la pausa.
-		# Ojo con el orden: hay que salir antes del bloque de recaptura de abajo, que ve
-		# un botón de mouse apretado con el cursor visible y lo volvería a capturar en el
-		# mismo evento.
-		if event.is_action_pressed("release_mouse"):
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-			return
 		if event.is_action_pressed("ui_cancel"):
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		# Re-capturar al hacer click en la pantalla, solo si el cursor está visible.
