@@ -136,6 +136,11 @@ func _apply() -> void:
 
 func _assign_to_meshes(node: Node) -> void:
 	for child in node.get_children():
+		# Los collares y demás herrajes cuelgan del tramo para que el oclusor por dither
+		# los alcance (entra por el StaticBody del tramo), pero son metal: si se les pinta
+		# el material de fluido dejan de leerse como juntas y el caño pierde sus marcas.
+		if child.is_in_group(SKIP_GROUP):
+			continue
 		if child is MeshInstance:
 			child.set_surface_material(0, _material)
 		if child.get_child_count() > 0:

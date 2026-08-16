@@ -128,22 +128,30 @@ transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, -0.6, 1, 1.4 )
 mesh = SubResource( 2 )
 material/0 = SubResource( 3 )
 
-[node name="CollarInlet" type="MeshInstance" parent="Pipes/MainA"]
+[node name="CollarInlet" type="MeshInstance" parent="Pipes/MainA" groups=[
+"no_flow_material",
+]]
 transform = Transform( -3.12224e-08, -0.714286, 0, 0.714286, -3.12224e-08, 0, 0, 0, 0.714286, -1.0000, 0, 0 )
 mesh = SubResource( 1 )
 material/0 = ExtResource( 9 )
 
-[node name="CollarJunction" type="MeshInstance" parent="Pipes/MainA"]
+[node name="CollarJunction" type="MeshInstance" parent="Pipes/MainA" groups=[
+"no_flow_material",
+]]
 transform = Transform( -3.12224e-08, -0.714286, 0, 0.714286, -3.12224e-08, 0, 0, 0, 0.714286, 1.0000, 0, 0 )
 mesh = SubResource( 1 )
 material/0 = ExtResource( 9 )
 
-[node name="CollarBrokenEnd" type="MeshInstance" parent="Pipes/BrokenBranch"]
+[node name="CollarBrokenEnd" type="MeshInstance" parent="Pipes/BrokenBranch" groups=[
+"no_flow_material",
+]]
 transform = Transform( -3.12224e-08, -0.714286, 0, 0.714286, -3.12224e-08, 0, 0, 0, 0.714286, 1.0000, 0, 0 )
 mesh = SubResource( 1 )
 material/0 = ExtResource( 9 )
 
-[node name="CollarSafeEnd" type="MeshInstance" parent="Pipes/SafeBranch"]
+[node name="CollarSafeEnd" type="MeshInstance" parent="Pipes/SafeBranch" groups=[
+"no_flow_material",
+]]
 transform = Transform( -3.12224e-08, -0.714286, 0, 0.714286, -3.12224e-08, 0, 0, 0, 0.714286, 1.0, 0, 0 )
 mesh = SubResource( 1 )
 material/0 = ExtResource( 9 )
