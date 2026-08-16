@@ -49,6 +49,8 @@ export(float, 0.2, 1.0) var pipe_alpha := 0.88 setget set_pipe_alpha
 # cara redonda del extremo libre.
 export(bool) var hide_caps := true
 
+const _shared_materials: Dictionary = {}
+
 var _material: ShaderMaterial = null
 var _phase: float = 0.0
 var _current_speed: float = 0.0
@@ -124,21 +126,23 @@ func _apply() -> void:
 		var base = load(flow_material_path)
 		if base == null:
 			return
-		# Duplicado: si no, cada corrida de tubería del nivel pisaría la dirección
-		# de todas las demás, porque el .tres es un recurso compartido.
-		_material = base.duplicate()
+		if not _shared_materials.has(flow_material_path) or not is_instance_valid(_shared_materials[flow_material_path]):
+			_shared_materials[flow_material_path] = base
+		_material = _shared_materials[flow_material_path] as ShaderMaterial
 
 	var dir: Vector3 = flow_dir
 	if dir.length() > 0.001:
 		dir = dir.normalized()
-	_material.set_shader_param("flow_dir", dir)
-	_material.set_shader_param("flow_phase", _phase)
-	_material.set_shader_param("pipe_alpha", pipe_alpha)
-	_material.set_shader_param("emission_strength", base_emission * flow_intensity)
-	_material.set_shader_param("noise_scale", noise_scale)
-	_material.set_shader_param("base_color", base_color)
-	_material.set_shader_param("flow_color", flow_color)
-	_material.set_shader_param("hide_caps", hide_caps)
+
+	if _material:
+		_material.set_shader_param("flow_dir", dir)
+		_material.set_shader_param("flow_phase", _phase)
+		_material.set_shader_param("pipe_alpha", pipe_alpha)
+		_material.set_shader_param("emission_strength", base_emission * flow_intensity)
+		_material.set_shader_param("noise_scale", noise_scale)
+		_material.set_shader_param("base_color", base_color)
+		_material.set_shader_param("flow_color", flow_color)
+		_material.set_shader_param("hide_caps", hide_caps)
 
 	_assign_to_meshes(self)
 
