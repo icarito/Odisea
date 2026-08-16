@@ -80,7 +80,6 @@ floor_index = -1
 
 [node name="ElevatorFloorSelector" parent="Platform" instance=ExtResource( 14 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, -1.3 )
-mouse_gesture_min_delta = 0.2
 cabin_zoom_spring_length = 1.0
 
 [node name="BGMZoneV2" type="Area" parent="Platform"]

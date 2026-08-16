@@ -20,6 +20,10 @@ const COLOR_PRESETS = {
 export(String) var text: String = "SIGNAGE" setget set_text
 export(String, "warning", "danger", "info", "terminal", "hologram", "custom") var color_preset: String = "terminal" setget set_color_preset
 export(Color) var custom_color: Color = Color.white setget set_custom_color
+# Color del texto. Con alpha < 0 usa el color del preset, que es el comportamiento previo.
+# Separarlo es lo que permite tener contraste: el mismo color pintaba la letra Y la
+# emisión del panel, así que el texto siempre quedaba del mismo tono que su fondo.
+export(Color) var text_color: Color = Color(0, 0, 0, -1) setget set_text_color
 export(float) var emission_energy: float = 1.0 setget set_emission_energy
 
 export(DynamicFont) var font: DynamicFont = null setget set_font
@@ -70,6 +74,12 @@ func set_color_preset(v: String) -> void:
 	if _is_ready:
 		update_text()
 		_update_material()
+
+func set_text_color(v: Color) -> void:
+	text_color = v
+	if _is_ready:
+		update_text()
+
 
 func set_custom_color(v: Color) -> void:
 	custom_color = v
@@ -271,7 +281,7 @@ func update_text() -> void:
 			lbl.align = alignment
 			lbl.valign = Label.VALIGN_CENTER
 			lbl.autowrap = true
-			lbl.add_color_override("font_color", color)
+			lbl.add_color_override("font_color", text_color if text_color.a >= 0.0 else color)
 			lbl.add_font_override("font", font_to_use)
 			_viewport.add_child(lbl)
 

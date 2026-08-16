@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=2]
+[gd_scene load_steps=36 format=2]
 
 ; Estación de atmósfera (FD-258): esclusa sellada, manómetro y purga. Arranca
 ; en sobrepresión para enseñar el orden parpadeo -> chispa -> blowout. La
@@ -23,6 +23,7 @@
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=17]
 [ext_resource path="res://core_v2/props/emitters/SparkEmitterV2.tscn" type="PackedScene" id=18]
 [ext_resource path="res://core_v2/props/signage/SignagePanel.tscn" type="PackedScene" id=22]
+[ext_resource path="res://core_v2/props/signage/SignageBold.tres" type="DynamicFont" id=23]
 
 [sub_resource type="CylinderMesh" id=1]
 top_radius = 0.46
@@ -216,9 +217,15 @@ transform = Transform( 1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, -2.15, 2.5, -0.3 )
 face_player = true
 text = "PRESION SECTOR 04"
 color_preset = "warning"
+text_color = Color( 1, 0.98, 0.94, 1 )
+font = ExtResource( 23 )
+font_size = 0
 case_mode = 1
+outline_size = 5
+outline_color = Color( 0, 0, 0, 1 )
 border_enabled = true
-emission_energy = 1.4
+border_width = 6.0
+emission_energy = 1.6
 
 [node name="Console" type="CSGBox" parent="."]
 collision_layer = 64

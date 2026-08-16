@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=12 format=2]
 
 ; Estación de energía auxiliar (FD-259): puerta sellada + consola de respaldo
 ; (lever + lectura OD-02). La lógica del ciclo de energía vive en AuxPowerBus
@@ -15,6 +15,7 @@
 [ext_resource path="res://core_v2/components/InteractableBaseV2.gd" type="Script" id=8]
 [ext_resource path="res://core_v2/systems/auxpower/AuxPowerBus.gd" type="Script" id=9]
 [ext_resource path="res://core_v2/props/signage/SignagePanel.tscn" type="PackedScene" id=10]
+[ext_resource path="res://core_v2/props/signage/SignageBold.tres" type="DynamicFont" id=11]
 
 [sub_resource type="CubeMesh" id=1]
 size = Vector3( 0.35, 0.22, 0.05 )
@@ -219,9 +220,15 @@ transform = Transform( 0.95, 0, 0, 0, 0.95, 0, 0, 0, 0.95, -2, 2.35, 0.2 )
 face_player = true
 text = "OD-02 RESPALDO"
 color_preset = "terminal"
+text_color = Color( 1, 0.98, 0.94, 1 )
+font = ExtResource( 11 )
+font_size = 0
 case_mode = 1
+outline_size = 5
+outline_color = Color( 0, 0, 0, 1 )
 border_enabled = true
-emission_energy = 1.2
+border_width = 6.0
+emission_energy = 1.4
 
 [node name="OD02Panel" type="MeshInstance" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1.5, 0.2 )
