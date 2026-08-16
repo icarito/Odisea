@@ -36,6 +36,10 @@ signal blowout_felt(position, radius)
 var _explosion: Node = null
 var _section: Node = null
 var _shock_timer: float = 0.0
+# Cuerpos despertados por el estallido, esperando su impulso. Godot necesita un paso de
+# física entre el cambio de KINEMATIC a RIGID y el impulso: aplicado en el mismo frame,
+# el impulso se pierde y la caja apenas tiembla.
+var _pending: Array = []
 var _shock_radius: float = 0.0
 var _shock_force: float = 0.0
 
@@ -69,6 +73,16 @@ func _on_blowout(radius: float, force: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if not _pending.empty():
+		for entry in _pending:
+			var body = entry["body"]
+			if not is_instance_valid(body):
+				continue
+			if body is RigidBody and body.mode == RigidBody.MODE_RIGID:
+				body.apply_impulse(Vector3.ZERO, entry["push"] * body.mass)
+			elif body.has_method("set_external_velocity"):
+				body.set_external_velocity(entry["push"])
+		_pending.clear()
 	if _shock_timer <= 0.0:
 		return
 	_shock_timer -= delta
@@ -131,15 +145,12 @@ func _push_everything(radius: float, force: float, impulse_bodies: bool = true) 
 				body.set_external_source_is_static(false)
 		elif body is RigidBody and impulse_bodies:
 			# Las cajas del proyecto (PushableBoxV2) viven en KINEMATIC hasta que algo las
-			# despierta, y en ese modo apply_impulse no hace nada. Primero se las despierta
-			# y recién ahí el impulso tiene efecto.
+			# despierta. Se las despierta ahora y el impulso se les da en el frame
+			# siguiente, cuando la física ya registró el cambio de modo.
 			if body.has_method("wake_up"):
 				body.wake_up()
 			var push: Vector3 = direction * body_push * falloff * max(force, 0.1) / 12.0
-			if body.mode == RigidBody.MODE_RIGID:
-				body.apply_impulse(Vector3.ZERO, push * body.mass * 0.12)
-			elif body.has_method("set_external_velocity"):
-				body.set_external_velocity(push)
+			_pending.append({"body": body, "push": push})
 
 
 func get_snapshot() -> Dictionary:
