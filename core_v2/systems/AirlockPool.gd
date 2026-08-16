@@ -27,13 +27,18 @@ export(float, 5.0, 100.0, 1.0) var activation_distance := 18.0
 # quedarse justo en el limite no haga aparecer y desaparecer el interior.
 export(float, 1.0, 30.0, 1.0) var hysteresis := 6.0
 export(int, 1, 30) var frames_between_checks := 6
-# En Dome_Intro viene en false: ahi los cuatro airlocks estan congelados desde el arranque y
-# no se entra a ninguno, asi que montar el interior seria pagar por algo que nadie usa.
-# Ademas montar un airlock FUNCIONAL cambia la fisica y la logica a su alrededor —aparecen
-# sus dos Area y sus scripts, y AirlockZoneV2 toca la camara—, y eso rompe la reproduccion
-# exacta de un replay: medido, 0.13 m de drift montando contra 0.0015 m con solo los shells.
-# Ponerlo en true devuelve un airlock completo y funcional (incluida la transicion a
-# OdiseaExterior) al que el jugador se acerque.
+# En true, el jugador que se acerca a cualquiera de los cuatro shells se encuentra con un
+# airlock completo y funcional, con su transicion a OdiseaExterior. Estuvo en false un
+# tiempo, cuando los cuatro airlocks de Dome_Intro estaban congelados y no se entraba a
+# ninguno: montar el interior era pagar por algo que nadie usaba. Pero con el pool apagado
+# el domo no tiene NINGUNA salida —los shells son cilindro y colision, sin mecanica—, y un
+# domo del que no se puede salir no es un nivel.
+#
+# El costo: montar un airlock funcional cambia la fisica y la logica a su alrededor
+# —aparecen sus dos Area y sus scripts, y AirlockZoneV2 toca la camara—, y eso degrada la
+# reproduccion exacta de un replay: medido, 0.13 m de drift montando contra 0.0015 m con
+# solo los shells. Si hace falta un replay exacto (un benchmark, un test de determinismo),
+# apagarlo por escena o exportar ODISEA_DISABLE_AIRLOCK_POOL=1.
 export(bool) var enabled := true
 
 var _shells := []
