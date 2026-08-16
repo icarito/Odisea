@@ -15,13 +15,14 @@ export(int, LAYERS_3D_PHYSICS) var floor_collision_mask: int = 65
 
 var last_result: Dictionary = {}
 var parent_rid: RID
+var parent_body: CollisionObject
 
 func _ready():
-	yield (get_tree(), "idle_frame")
 	var parent = get_parent()
 	# Walk up until we find a CollisionObject (PhysicsBody/Area)
 	while parent:
 		if parent is CollisionObject:
+			parent_body = parent
 			parent_rid = parent.get_rid()
 			break
 		parent = parent.get_parent()
@@ -39,8 +40,19 @@ func play_landing():
 	_play_interaction("landing")
 
 func _play_interaction(_interaction_type: String):
+	# El controlador ya resolvio el contacto del piso durante move_and_slide().
+	# Preferirlo evita que una superficie fina de grilla quede fuera de un
+	# raycast aunque sea la que sostiene al jugador.
+	var slide_collider = _get_slide_floor_collider()
+	if slide_collider:
+		last_result = {"collider": slide_collider}
+		if _play_by_footstep_surface(slide_collider):
+			return
+		elif _play_by_material(slide_collider):
+			return
+
 	var from = global_transform.origin
-	var to = from + Vector3(0, -0.6, 0) # Increased length slightly
+	var to = from + Vector3(0, -0.6, 0)
 	var exclude = []
 	if parent_rid:
 		exclude = [parent_rid]
@@ -189,3 +201,12 @@ func _find_footstep_surface(root: Node) -> Node:
 		return named_surface
 
 	return _find_first_child_with_property(root, "footstep_profile")
+
+func _get_slide_floor_collider() -> Object:
+	if parent_body == null or not parent_body.has_method("get_slide_count"):
+		return null
+	for i in range(parent_body.get_slide_count()):
+		var collision = parent_body.get_slide_collision(i)
+		if collision and collision.normal.dot(Vector3.UP) > 0.5:
+			return collision.collider
+	return null

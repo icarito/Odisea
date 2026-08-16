@@ -7,19 +7,19 @@
 points = PoolVector3Array( -1, 4.7, -4.27279, 1, 4.7, -4.69948, -1, 4.7, 4.49984, 1, 4.7, 4.47243, -1, 4.6, -4.27279, 1, 4.6, -4.69948, -1, 4.6, 4.49984, 1, 4.6, 4.47243 )
 
 [sub_resource type="CylinderShape" id=2]
-height = 9.33
+height = 4.63
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=3]
-height = 9.33
+height = 4.63
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=4]
-height = 9.33
+height = 4.63
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=5]
-height = 9.33
+height = 4.63
 radius = 0.0805
 
 [sub_resource type="ConvexPolygonShape" id=6]
@@ -32,19 +32,19 @@ points = PoolVector3Array( 1.0105, 4.7, -4.61454, 1.0105, 4.7, 4.40339, 1.0105, 
 points = PoolVector3Array( -1, 9.2, -4.26085, 1, 9.2, -4.37114, -1, 9.2, 4.3661, 1, 9.2, 4.26589, -1, 9.1, -4.26085, 1, 9.1, -4.37114, -1, 9.1, 4.3661, 1, 9.1, 4.26589 )
 
 [sub_resource type="CylinderShape" id=9]
-height = 18.33
+height = 9.13
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=10]
-height = 18.33
+height = 9.13
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=11]
-height = 18.33
+height = 9.13
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=12]
-height = 18.33
+height = 9.13
 radius = 0.0805
 
 [sub_resource type="ConvexPolygonShape" id=13]
@@ -57,19 +57,19 @@ points = PoolVector3Array( 1.0105, 9.2, -4.29728, 1.0105, 9.2, 4.1994, 1.0105, 1
 points = PoolVector3Array( -1, 13.7, -3.67063, 1, 13.7, -3.47204, -1, 13.7, 3.67684, 1, 13.7, 3.46584, -1, 13.6, -3.67063, 1, 13.6, -3.47204, -1, 13.6, 3.67684, 1, 13.6, 3.46584 )
 
 [sub_resource type="CylinderShape" id=16]
-height = 27.33
+height = 13.63
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=17]
-height = 27.33
+height = 13.63
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=18]
-height = 27.33
+height = 13.63
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=19]
-height = 27.33
+height = 13.63
 radius = 0.0805
 
 [sub_resource type="ConvexPolygonShape" id=20]
@@ -82,19 +82,19 @@ points = PoolVector3Array( 1.0105, 13.7, -3.40899, 1.0105, 13.7, 3.40322, 1.0105
 points = PoolVector3Array( -1, 18.2, -2.40194, 1, 18.2, -1.88834, -1, 18.2, 2.33694, 1, 18.2, 1.95334, -1, 18.1, -2.40194, 1, 18.1, -1.88834, -1, 18.1, 2.33694, 1, 18.1, 1.95334 )
 
 [sub_resource type="CylinderShape" id=23]
-height = 36.33
+height = 18.13
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=24]
-height = 36.33
+height = 18.13
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=25]
-height = 36.33
+height = 18.13
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=26]
-height = 36.33
+height = 18.13
 radius = 0.0805
 
 [sub_resource type="ConvexPolygonShape" id=27]
@@ -115,19 +115,19 @@ transform = Transform( 0.8237, 0, -0.567026, 0, 1, 0, -0.567026, 0, -0.8237, -10
 shape = SubResource( 1 )
 
 [node name="Collision_1" type="CollisionShape" parent="."]
-transform = Transform( 0.8237, 0, -0.567026, 0, 1, 0, -0.567026, 0, -0.8237, -8.45548, -0.0350001, -10.6428 )
+transform = Transform( 0.8237, 0, -0.567026, 0, 1, 0, -0.567026, 0, -0.8237, -8.45548, 2.315, -10.6428 )
 shape = SubResource( 2 )
 
 [node name="Collision_2" type="CollisionShape" parent="."]
-transform = Transform( 0.8237, 0, -0.567026, 0, 1, 0, -0.567026, 0, -0.8237, -6.69839, -0.0350001, -11.3706 )
+transform = Transform( 0.8237, 0, -0.567026, 0, 1, 0, -0.567026, 0, -0.8237, -6.69839, 2.315, -11.3706 )
 shape = SubResource( 3 )
 
 [node name="Collision_3" type="CollisionShape" parent="."]
-transform = Transform( 0.8237, 0, -0.567026, 0, 1, 0, -0.567026, 0, -0.8237, -13.3583, -0.0350001, -17.765 )
+transform = Transform( 0.8237, 0, -0.567026, 0, 1, 0, -0.567026, 0, -0.8237, -13.3583, 2.315, -17.765 )
 shape = SubResource( 4 )
 
 [node name="Collision_4" type="CollisionShape" parent="."]
-transform = Transform( 0.8237, 0, -0.567026, 0, 1, 0, -0.567026, 0, -0.8237, -11.8118, -0.0350001, -18.7987 )
+transform = Transform( 0.8237, 0, -0.567026, 0, 1, 0, -0.567026, 0, -0.8237, -11.8118, 2.315, -18.7987 )
 shape = SubResource( 5 )
 
 [node name="Collision_5" type="CollisionShape" parent="."]
@@ -143,19 +143,19 @@ transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 5
 shape = SubResource( 8 )
 
 [node name="Collision_8" type="CollisionShape" parent="."]
-transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 3.47528, -0.0349998, -12.7072 )
+transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 3.47528, 4.565, -12.7072 )
 shape = SubResource( 9 )
 
 [node name="Collision_9" type="CollisionShape" parent="."]
-transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 5.19631, -0.0349998, -11.9944 )
+transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 5.19631, 4.565, -11.9944 )
 shape = SubResource( 10 )
 
 [node name="Collision_10" type="CollisionShape" parent="."]
-transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 6.28658, -0.0349998, -20.7154 )
+transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 6.28658, 4.565, -20.7154 )
 shape = SubResource( 11 )
 
 [node name="Collision_11" type="CollisionShape" parent="."]
-transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 8.01071, -0.0349998, -20.0114 )
+transform = Transform( 0.943548, 0, 0.331236, 0, 1, 0, 0.331236, 0, -0.943548, 8.01071, 4.565, -20.0114 )
 shape = SubResource( 12 )
 
 [node name="Collision_12" type="CollisionShape" parent="."]
@@ -171,19 +171,19 @@ transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 1
 shape = SubResource( 15 )
 
 [node name="Collision_15" type="CollisionShape" parent="."]
-transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 12.2138, -0.0349998, -4.66596 )
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 12.2138, 6.815, -4.66596 )
 shape = SubResource( 16 )
 
 [node name="Collision_16" type="CollisionShape" parent="."]
-transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 12.9291, -0.0349998, -2.93909 )
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 12.9291, 6.815, -2.93909 )
 shape = SubResource( 17 )
 
 [node name="Collision_17" type="CollisionShape" parent="."]
-transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 19.0988, -0.0349998, -6.74851 )
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 19.0988, 6.815, -6.74851 )
 shape = SubResource( 18 )
 
 [node name="Collision_18" type="CollisionShape" parent="."]
-transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 19.4495, -0.0349998, -4.91136 )
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 19.4495, 6.815, -4.91136 )
 shape = SubResource( 19 )
 
 [node name="Collision_19" type="CollisionShape" parent="."]
@@ -199,19 +199,19 @@ transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 12.
 shape = SubResource( 22 )
 
 [node name="Collision_22" type="CollisionShape" parent="."]
-transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 11.1563, -0.0349998, 7.2141 )
+transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 11.1563, 9.065, 7.2141 )
 shape = SubResource( 23 )
 
 [node name="Collision_23" type="CollisionShape" parent="."]
-transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 10.4215, -0.0349998, 8.98827 )
+transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 10.4215, 9.065, 8.98827 )
 shape = SubResource( 24 )
 
 [node name="Collision_24" type="CollisionShape" parent="."]
-transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 14.8088, -0.0349998, 9.95665 )
+transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 14.8088, 9.065, 9.95665 )
 shape = SubResource( 25 )
 
 [node name="Collision_25" type="CollisionShape" parent="."]
-transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 13.4066, -0.0349998, 11.2298 )
+transform = Transform( -0.600452, 0, 0.79966, 0, 1, 0, 0.79966, 0, 0.600452, 13.4066, 9.065, 11.2298 )
 shape = SubResource( 26 )
 
 [node name="Collision_26" type="CollisionShape" parent="."]

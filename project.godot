@@ -1849,11 +1849,6 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/player/components/SuitThermalResistance.gd"
 }, {
-"base": "Spatial",
-"class": "SuspendedTerminalRig",
-"language": "GDScript",
-"path": "res://core_v2/props/controls/SuspendedTerminalRig.gd"
-}, {
 "base": "Node",
 "class": "TeleportSystem",
 "language": "GDScript",
@@ -2448,7 +2443,6 @@ _global_script_class_icons={
 "StressTestRunner": "",
 "StringFuzzer": "",
 "SuitThermalResistance": "",
-"SuspendedTerminalRig": "",
 "TeleportSystem": "",
 "TerminalCameraRig": "",
 "TerminalHUDBridge": "",

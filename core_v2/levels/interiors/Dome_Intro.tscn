@@ -1,4 +1,4 @@
-[gd_scene load_steps=136 format=2]
+[gd_scene load_steps=138 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
@@ -108,6 +108,8 @@
 [ext_resource path="res://core_v2/props/pipe/PipeTee.tscn" type="PackedScene" id=374]
 [ext_resource path="res://core_v2/props/pipe/PipeCoolantRing.tres" type="Material" id=375]
 [ext_resource path="res://core_v2/props/controls/SuspendedTerminalRig.gd" type="Script" id=376]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_machine_01.ogg" type="AudioStream" id=377]
+[ext_resource path="res://core_v2/props/signage/SignageBold.tres" type="DynamicFont" id=378]
 
 [sub_resource type="SpatialMaterial" id=286]
 flags_transparent = true
@@ -377,6 +379,7 @@ target_spawn_id = "from_dome_intro"
 transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, 0, 1.6, -4.8 )
 text = "SALIDA"
 text_color = Color( 0, 1, 0.533333, 1 )
+font = ExtResource( 378 )
 font_size = 116
 border_enabled = true
 border_color = Color( 0, 1, 0.533333, 1 )
@@ -393,6 +396,7 @@ target_spawn_id = "from_dome_intro"
 transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, 0, 1.6, -4.8 )
 text = "SALIDA"
 text_color = Color( 0, 1, 0.533333, 1 )
+font = ExtResource( 378 )
 font_size = 116
 border_enabled = true
 border_color = Color( 0, 1, 0.533333, 1 )
@@ -409,6 +413,7 @@ target_spawn_id = "from_dome_intro"
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -4.8 )
 text = "SALIDA"
 text_color = Color( 0, 1, 0.533333, 1 )
+font = ExtResource( 378 )
 font_size = 116
 border_enabled = true
 border_color = Color( 0, 1, 0.533333, 1 )
@@ -425,6 +430,7 @@ target_spawn_id = "from_dome_intro"
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -4.8 )
 text = "SALIDA"
 text_color = Color( 0, 1, 0.533333, 1 )
+font = ExtResource( 378 )
 font_size = 116
 border_enabled = true
 border_color = Color( 0, 1, 0.533333, 1 )
@@ -435,10 +441,10 @@ double_sided = true
 
 [node name="CryoWarningWest" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -14.8, 4.8, -1.5 )
-text = "CRYO: PRESION CRITICA
-AISLAR EN LA TORRE"
+text = "CRIO // AISLAR"
 color_preset = "warning"
 text_color = Color( 1, 0.53, 0, 1 )
+font = ExtResource( 378 )
 font_size = 38
 border_enabled = true
 border_color = Color( 1, 0.53, 0, 1 )
@@ -446,76 +452,76 @@ double_sided = true
 
 [node name="CryoWarningEast" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
 transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, 14.8, 7.8, 1.5 )
-text = "CRYO: PRESION CRITICA
-AISLAR EN LA TORRE"
+text = "CRIO // AISLAR"
 color_preset = "warning"
 text_color = Color( 1, 0.53, 0, 1 )
+font = ExtResource( 378 )
 font_size = 38
 border_enabled = true
 border_color = Color( 1, 0.53, 0, 1 )
 double_sided = true
 
 [node name="ElevatorExitLevel1" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
-transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 2.3, 5.61 )
-text = "ASCENSOR // NIVEL 1
-ACCESO AL ANILLO CRIOGENICO"
+transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 1.3, 5.61 )
+text = "ASCENSOR // N1"
 color_preset = "info"
 text_color = Color( 0.35, 0.92, 0.98, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 0.35, 0.92, 0.98, 1 )
 double_sided = true
 
 [node name="ElevatorExitLevel2" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
-transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 6.8, 5.61 )
-text = "ASCENSOR // NIVEL 2
-ACCESO AL ANILLO CRIOGENICO"
+transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 5.8, 5.61 )
+text = "ASCENSOR // N2"
 color_preset = "info"
 text_color = Color( 0.35, 0.92, 0.98, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 0.35, 0.92, 0.98, 1 )
 double_sided = true
 
 [node name="ElevatorExitLevel3" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
-transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 11.3, 5.61 )
-text = "ASCENSOR // NIVEL 3
-ACCESO AL ANILLO CRIOGENICO"
+transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 10.3, 5.61 )
+text = "ASCENSOR // N3"
 color_preset = "info"
 text_color = Color( 0.35, 0.92, 0.98, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 0.35, 0.92, 0.98, 1 )
 double_sided = true
 
 [node name="ElevatorExitLevel4" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
-transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 15.8, 5.61 )
-text = "ASCENSOR // NIVEL 4
-ACCESO AL ANILLO CRIOGENICO"
+transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 14.8, 5.61 )
+text = "ASCENSOR // N4"
 color_preset = "info"
 text_color = Color( 0.35, 0.92, 0.98, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 0.35, 0.92, 0.98, 1 )
 double_sided = true
 
 [node name="ElevatorExitLevel5" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
-transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 20.3, 5.61 )
-text = "ASCENSOR // NIVEL 5
-ACCESO AL ANILLO CRIOGENICO"
+transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 19.3, 5.61 )
+text = "ASCENSOR // N5"
 color_preset = "info"
 text_color = Color( 0.35, 0.92, 0.98, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 0.35, 0.92, 0.98, 1 )
 double_sided = true
 
 [node name="ElevatorExitLevel6" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
-transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 24.8, 5.61 )
-text = "ASCENSOR // NIVEL 6
-ACCESO AL ANILLO CRIOGENICO"
+transform = Transform( 0.907, 0, -0.421, 0, 1, 0, 0.421, 0, 0.907, -2.58, 23.8, 5.61 )
+text = "ASCENSOR // N6"
 color_preset = "info"
 text_color = Color( 0.35, 0.92, 0.98, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 0.35, 0.92, 0.98, 1 )
@@ -523,9 +529,9 @@ double_sided = true
 
 [node name="HubSpokeNorthSign" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.65, 2.45, -16 )
-text = "CORREDOR NORTE // SALIDA
-PROTOCOLO DE EVACUACION"
+text = "NORTE // SALIDA"
 text_color = Color( 0, 1, 0.533333, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 0, 1, 0.533333, 1 )
@@ -533,9 +539,9 @@ double_sided = true
 
 [node name="HubSpokeSouthSign" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
 transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, -1.65, 2.45, 16 )
-text = "CORREDOR SUR // SALIDA
-PROTOCOLO DE EVACUACION"
+text = "SUR // SALIDA"
 text_color = Color( 0, 1, 0.533333, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 0, 1, 0.533333, 1 )
@@ -543,9 +549,9 @@ double_sided = true
 
 [node name="HubSpokeEastSign" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 16, 2.45, -1.65 )
-text = "CORREDOR ESTE // SALIDA
-MANTENER LA RUTA DESPEJADA"
+text = "ESTE // SALIDA"
 text_color = Color( 0, 1, 0.533333, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 0, 1, 0.533333, 1 )
@@ -553,10 +559,10 @@ double_sided = true
 
 [node name="HubSpokeWestSign" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -16, 2.45, 1.65 )
-text = "CORREDOR OESTE // CRYO LOOP
-RIESGO DE SOBREPRESION"
+text = "OESTE // CRIO"
 color_preset = "warning"
 text_color = Color( 1, 0.53, 0, 1 )
+font = ExtResource( 378 )
 font_size = 34
 border_enabled = true
 border_color = Color( 1, 0.53, 0, 1 )
@@ -580,9 +586,10 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
 
 [node name="LoopLabel" parent="CryoLoopWest" instance=ExtResource( 367 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0.32 )
-text = "CRYO LOOP C-02"
+text = "CRIO // C-02"
 color_preset = "info"
 text_color = Color( 0.35, 0.92, 0.98, 1 )
+font = ExtResource( 378 )
 font_size = 48
 border_enabled = true
 border_color = Color( 0.35, 0.92, 0.98, 1 )
@@ -607,9 +614,10 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
 
 [node name="LoopLabel" parent="CryoLoopEast" instance=ExtResource( 367 )]
 transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, 0, 0.75, -0.32 )
-text = "CRYO LOOP C-03"
+text = "CRIO // C-03"
 color_preset = "info"
 text_color = Color( 0.35, 0.92, 0.98, 1 )
+font = ExtResource( 378 )
 font_size = 48
 border_enabled = true
 border_color = Color( 0.35, 0.92, 0.98, 1 )
@@ -943,7 +951,7 @@ material = ExtResource( 375 )
 script = ExtResource( 376 )
 
 [node name="Crossbeam" type="CSGBox" parent="SuspendedCryoDiagnostics"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.2, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 26.55, 0 )
 use_collision = true
 collision_layer = 64
 width = 7.2
@@ -969,6 +977,15 @@ height = 11.2
 depth = 0.14
 material = ExtResource( 370 )
 
+[node name="CentralDropLine" type="CSGBox" parent="SuspendedCryoDiagnostics"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 19.5, 0 )
+use_collision = true
+collision_layer = 64
+width = 0.22
+height = 11.2
+depth = 0.22
+material = ExtResource( 370 )
+
 [node name="Carriage" type="Spatial" parent="SuspendedCryoDiagnostics"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 14, 0 )
 
@@ -980,6 +997,13 @@ width = 7.2
 height = 0.24
 depth = 0.38
 material = ExtResource( 370 )
+
+[node name="MovementSFX" type="AudioStreamPlayer3D" parent="SuspendedCryoDiagnostics/Carriage"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.35, 0 )
+stream = ExtResource( 377 )
+unit_db = -4.0
+unit_size = 10.0
+max_distance = 28.0
 
 [node name="CyanOmniLight" type="OmniLight" parent="SuspendedCryoDiagnostics/Carriage"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0.45 )

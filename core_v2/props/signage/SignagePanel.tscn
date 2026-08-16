@@ -1,6 +1,7 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/props/signage/SignagePanel.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/signage/SignageBold.tres" type="DynamicFont" id=2]
 
 [sub_resource type="QuadMesh" id=1]
 size = Vector2( 1.2, 0.72 )
@@ -19,6 +20,7 @@ radius = 2.0
 
 [node name="SignagePanel" type="Spatial"]
 script = ExtResource( 1 )
+font = ExtResource( 2 )
 
 [node name="MeshInstance" type="MeshInstance" parent="."]
 mesh = SubResource( 1 )
