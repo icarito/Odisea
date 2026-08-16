@@ -10,6 +10,8 @@ var _cursor_layer: CanvasLayer = null
 var _cursor_visual: Sprite = null
 var _mouse_button_mask := 0
 var _use_system_mouse := false
+# Ultimo evento de teclado inyectado, por id de instancia.
+var _last_key_event_id := 0
 
 func _ready() -> void:
 	_cursor_position = get_visible_rect().size * 0.5
@@ -117,6 +119,19 @@ func process_key_event(event: InputEventKey) -> void:
 		return
 	if not event.pressed:
 		return
+	# Un HUD que se reparenta al rig de camara activo termina recibiendo _input DOS veces
+	# por evento —queda registrado para recibir input en dos viewports—, asi que cada tecla
+	# llegaba aca duplicada y el LineEdit escribia dos caracteres. Medido: una sola
+	# pulsacion sintetica producia dos process_key_event desde el MISMO nodo, con un unico
+	# sitio de llamada en HoloTerminalV2._input.
+	#
+	# Se descarta la segunda entrega del MISMO evento. La comparacion es por INSTANCIA, no
+	# por contenido: una tecla repetida de verdad (autorepeat, o pulsarla dos veces rapido)
+	# es otro objeto y sigue pasando.
+	var event_id: int = event.get_instance_id()
+	if event_id == _last_key_event_id:
+		return
+	_last_key_event_id = event_id
 	focus_command_input()
 	if event.scancode == KEY_BACKSPACE:
 		if _apply_backspace_to_line_edit():
