@@ -206,9 +206,15 @@ light_activation_distance = 10.0
 ; presión antes de ver el efecto de chispa en el sello.
 ; Cartel del sector: dice qué se está mirando. Usa el SignagePanel configurable de FD-260,
 ; con autofit, así el texto entra sin calcular tamaños a mano.
-[node name="SectorSign" parent="." instance=ExtResource( 22 )]
-transform = Transform( 0.42, 0, 0, 0, 0.42, 0, 0, 0, 0.42, -2.15, 2.15, -0.3 )
-text = "PRESIÓN — SECTOR 04"
+; groups=["no_occlusion"]: un cartel es información, no un obstáculo. Sin esto el
+; PropDitherManager le reemplaza su material por el de oclusión y el panel pierde el
+; texto del viewport, quedando en el color plano del preset.
+[node name="SectorSign" parent="." groups=[
+"no_occlusion",
+] instance=ExtResource( 22 )]
+transform = Transform( 1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, -2.15, 2.5, -0.3 )
+face_player = true
+text = "PRESION SECTOR 04"
 color_preset = "warning"
 case_mode = 1
 border_enabled = true

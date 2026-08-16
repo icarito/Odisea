@@ -209,8 +209,14 @@ auto_build_cables = true
 
 ; Rótulo del respaldo. El OD02Panel de al lado es la lectura que parpadea; este cartel
 ; dice qué es esa lectura, que hasta ahora había que adivinar.
-[node name="BusSign" parent="." instance=ExtResource( 10 )]
-transform = Transform( 0.34, 0, 0, 0, 0.34, 0, 0, 0, 0.34, -2, 1.78, 0.2 )
+; groups=["no_occlusion"]: un cartel es información, no un obstáculo. Sin esto el
+; PropDitherManager le reemplaza su material por el de oclusión y el panel pierde el
+; texto del viewport, quedando en el color plano del preset.
+[node name="BusSign" parent="." groups=[
+"no_occlusion",
+] instance=ExtResource( 10 )]
+transform = Transform( 0.95, 0, 0, 0, 0.95, 0, 0, 0, 0.95, -2, 2.35, 0.2 )
+face_player = true
 text = "OD-02 RESPALDO"
 color_preset = "terminal"
 case_mode = 1
