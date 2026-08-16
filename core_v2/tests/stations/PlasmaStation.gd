@@ -80,7 +80,7 @@ func _cycle_core_color(delta: float) -> void:
 	# La luz de la fuga es el mismo plasma saliendo: si el núcleo late en violeta, el
 	# reflejo en la sala no puede quedarse en ámbar.
 	if _leak_light:
-		_leak_light.light_color = color.linear_interpolate(Color(1, 1, 1, 1), 0.35)
+		_leak_light.light_color = color.linear_interpolate(Color(1, 1, 1, 1), 0.08)
 	_core_color = color
 
 
@@ -128,15 +128,15 @@ func _apply(warning: float, hazard: float) -> void:
 		_leak_particles.emitting = leak_active
 		_leak_particles.amount = int(lerp(8.0, 18.0, hazard))
 		_leak_particles.initial_velocity = lerp(0.7, 2.6, hazard)
-		_leak_particles.scale_amount = lerp(0.9, 2.1, hazard)
+		_leak_particles.scale_amount = lerp(1.2, 3.0, hazard)
 		# CPUParticles es 3D: el tinte va en .color, no en modulate (que es de CanvasItem).
-		var tint: Color = _core_color.linear_interpolate(Color(1, 1, 1, 1), 0.2)
-		tint.a = 0.42
+		var tint: Color = _core_color.linear_interpolate(Color(1, 1, 1, 1), 0.15)
+		tint.a = 0.9
 		_leak_particles.color = tint
 	_was_leaking = leak_active
 	if _leak_light:
 		_leak_light.visible = leak_active
-		_leak_light.light_energy = lerp(1.2, 5.0, plasma_heat)
+		_leak_light.light_energy = lerp(2.0, 7.5, plasma_heat)
 
 	# Barrera de daño: solo con el chorro afuera (hazard_intensity). Durante el
 	# aviso PlasmaConduit ya deja hazard_intensity en 0 — la tubería solo

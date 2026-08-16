@@ -181,6 +181,8 @@ flicker_period = 0.8
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 1.95, 2.0 )
 
 [node name="Box" type="CSGBox" parent="JunctionBox"]
+use_collision = true
+collision_layer = 64
 width = 0.42
 height = 0.42
 depth = 0.22
