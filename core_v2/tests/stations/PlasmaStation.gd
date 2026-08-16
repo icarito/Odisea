@@ -46,6 +46,7 @@ const CORE_COLOR_CYCLE := [
 ]
 const CORE_COLOR_CYCLE_DURATION := 8.0
 var _core_color_timer := 0.0
+var _core_color := Color(1, 0.62, 0.16)
 onready var _leak_light: OmniLight = get_node_or_null("LeakLight")
 onready var _barrier: Node = get_node_or_null("FireEmitter")
 
@@ -76,6 +77,11 @@ func _cycle_core_color(delta: float) -> void:
 		var mat = core.get_surface_material(0)
 		if mat is ShaderMaterial:
 			mat.set_shader_param("plasma_color", color)
+	# La luz de la fuga es el mismo plasma saliendo: si el núcleo late en violeta, el
+	# reflejo en la sala no puede quedarse en ámbar.
+	if _leak_light:
+		_leak_light.light_color = color.linear_interpolate(Color(1, 1, 1, 1), 0.35)
+	_core_color = color
 
 
 func _physics_process(delta: float) -> void:
@@ -114,11 +120,19 @@ func _apply(warning: float, hazard: float) -> void:
 	var conduit_active: bool = _conduit and _conduit.get_state() != 0
 	var leak_active: bool = conduit_active or hazard > HAZARD_THRESHOLD
 	if _leak_particles:
-		# Un escape ascendente avisa antes de que salga el chorro peligroso;
-		# FireEmitter sigue siendo la única capa que causa daño real.
+		# Un solo efecto para la fuga, que crece con el peligro: durante el aviso es un
+		# escape tenue y al reventar es un chorro. Antes había además una nube de gas del
+		# FireEmitter compitiendo con esto, y las dos juntas se leían sucias.
 		if leak_active and not _was_leaking:
 			_leak_particles.restart()
 		_leak_particles.emitting = leak_active
+		_leak_particles.amount = int(lerp(8.0, 18.0, hazard))
+		_leak_particles.initial_velocity = lerp(0.7, 2.6, hazard)
+		_leak_particles.scale_amount = lerp(0.9, 2.1, hazard)
+		# CPUParticles es 3D: el tinte va en .color, no en modulate (que es de CanvasItem).
+		var tint: Color = _core_color.linear_interpolate(Color(1, 1, 1, 1), 0.2)
+		tint.a = 0.42
+		_leak_particles.color = tint
 	_was_leaking = leak_active
 	if _leak_light:
 		_leak_light.visible = leak_active
