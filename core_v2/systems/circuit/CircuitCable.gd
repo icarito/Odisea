@@ -1,6 +1,8 @@
 extends PropBaseV2
 class_name CircuitCable
 
+const TubeBuilder = preload("res://core_v2/systems/pipe/TubeBuilder.gd")
+
 # CircuitCable.gd
 # Procedurally generated cable that connects circuit nodes.
 # Supports both CSG and direct Mesh generation.
@@ -17,21 +19,35 @@ export(int) var cable_sides := 8
 var _hurtbox: Area
 
 func _ready():
+	print("[CircuitCable] _ready fired: instance ", self)
+
 	# FIRST call parent class _ready() to ensure set_active and other methods are available
+	# This sets is_active, anim_progress, target_progress, and calls _update_visuals()
 	._ready()
 
 	# If no Curve3D is assigned (common in props/tests), create a tiny default
 	# curve so that build() can produce visible geometry for validation.
 	if not path_curve:
+		print("[CircuitCable] path_curve is null; creating default Curve3D for tests/editor.")
 		var default_curve = Curve3D.new()
+		# Make the default cable along X axis (horizontal) for typical circuit layout
+		# In this project +Z is backward (camera direction), so X is horizontal left-right
 		default_curve.add_point(Vector3(0, 0, 0))
 		default_curve.add_point(Vector3(3, 0, 0))
 		path_curve = default_curve
 
 	if path_curve:
+		print("[CircuitCable] _ready sees path_curve, building now.")
+		# Build synchronously so _update_visuals() can access the mesh
 		build()
 
 func build():
+	print("[CircuitCable] build called. instance:", self, " curve: ", path_curve, " points: ", path_curve.get_point_count())
+	print("[CircuitCable] cable_radius:", cable_radius)
+	if path_curve == null:
+		print("[CircuitCable] WARNING: path_curve is null in build.")
+	elif path_curve.get_point_count() < 2:
+		print("[CircuitCable] WARNING: curve has <2 points.")
 	# Clear previous children
 	for child in get_children():
 		child.queue_free()
@@ -47,38 +63,49 @@ func build():
 	_setup_hurtbox()
 
 func _build_csg():
+	print("[CircuitCable] _build_csg with curve points: ", path_curve.get_point_count())
 	var path_node = Path.new()
 	path_node.curve = path_curve
 	path_node.name = "Path"
 	add_child(path_node)
-
+	print("[CircuitCable] Path node added.")
 	var csg = CSGPolygon.new()
 	csg.mode = CSGPolygon.MODE_PATH
 	csg.path_node = path_node.get_path()
 	csg.polygon = _generate_circle_polygon(cable_radius, cable_sides)
+	if cable_material:
+		print("[CircuitCable] cable_material assigned.")
 	csg.material = cable_material
 	csg.use_collision = true
 	csg.name = "CableVis"
 	add_child(csg)
+	print("[CircuitCable] CSGPolygon CableVis added.")
+
+
 
 func _build_mesh():
+	print("[CircuitCable] _build_mesh with curve points: ", path_curve.get_point_count())
 	var mesh_inst = MeshInstance.new()
 	mesh_inst.mesh = _generate_tube_mesh(path_curve, cable_radius, cable_sides)
-
+	print("[CircuitCable] MeshInstance mesh generated. cable_radius:", cable_radius)
+	
+	# Create a unique material per instance (duplicate the assigned material or create new)
 	var unique_material = null
 	if cable_material:
 		unique_material = cable_material.duplicate()
 	else:
 		unique_material = SpatialMaterial.new()
 	mesh_inst.material_override = unique_material
-
+	
+	# If no material was assigned, create a visible fallback
 	if not cable_material:
 		unique_material.emission_enabled = true
 		unique_material.emission = Color(1, 1, 0)
 		unique_material.albedo_color = Color(1, 1, 0.2)
-
+	
 	mesh_inst.name = "CableVis"
 	add_child(mesh_inst)
+	print("[CircuitCable] MeshInstance CableVis added.")
 	mesh_inst.create_trimesh_collision()
 
 
@@ -163,75 +190,13 @@ func _setup_hurtbox():
 
 
 func _generate_circle_polygon(radius: float, sides: int) -> PoolVector2Array:
-	var arr = PoolVector2Array()
-	for i in range(sides):
-		var angle = (i / float(sides)) * TAU
-		arr.append(Vector2(cos(angle), sin(angle)) * radius)
-	return arr
+	return TubeBuilder.generate_circle_polygon(radius, sides)
 
 func _generate_tube_mesh(curve: Curve3D, radius: float, sides: int) -> ArrayMesh:
-	var st = SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	var baked_points = curve.get_baked_points()
-	var baked_tilts = curve.get_baked_tilts()
-	# Up vector logic needed. Curve3D uses tilts.
-	# Simple Frenet frame or similar.
-
-	# For simplicity, I'll rely on a basic up vector that rotates if direction changes up.
-	# Or just use `curve.interpolate_baked_up_vectors` if available in 3.5? No.
-
-	var up = Vector3.UP
-
-	for i in range(baked_points.size()):
-		var p = baked_points[i]
-		var tangent = Vector3.FORWARD
-		if i < baked_points.size() - 1:
-			tangent = (baked_points[i+1] - p).normalized()
-		elif i > 0:
-			tangent = (p - baked_points[i-1]).normalized()
-
-		# Make a basis
-		var right = tangent.cross(up).normalized()
-		if right.length_squared() < 0.001:
-			right = tangent.cross(Vector3.RIGHT).normalized()
-		up = right.cross(tangent).normalized()
-
-		var basis = Basis(right, up, -tangent) # -Z is forward in basis?
-		# Actually we just need a rotation to place the ring.
-
-		# Generate ring
-		for j in range(sides + 1): # +1 to close loop
-			var angle = (j / float(sides)) * TAU
-			var local_pos = Vector2(cos(angle), sin(angle)) * radius
-			var pos_3d = p + (right * local_pos.x) + (up * local_pos.y)
-
-			var uv_x = j / float(sides)
-			var uv_y = i / float(baked_points.size())
-			st.add_uv(Vector2(uv_x, uv_y))
-			st.add_vertex(pos_3d)
-
-	# Indices
-	var ring_v_count = sides + 1
-	for i in range(baked_points.size() - 1):
-		for j in range(sides):
-			var curr = i * ring_v_count + j
-			var next = curr + 1
-			var upper_curr = (i + 1) * ring_v_count + j
-			var upper_next = upper_curr + 1
-
-			# Tri 1
-			st.add_index(curr)
-			st.add_index(upper_curr)
-			st.add_index(next)
-
-			# Tri 2
-			st.add_index(next)
-			st.add_index(upper_curr)
-			st.add_index(upper_next)
-
-	st.generate_normals()
-	var mesh = st.commit()
+	var mesh = TubeBuilder.generate_tube_mesh(curve, radius, sides)
+	if mesh:
+		print("[CircuitCable] generated mesh AABB: ", mesh.get_aabb())
+		print("[CircuitCable] mesh surface_count: ", mesh.get_surface_count())
 	return mesh
 
 func take_damage(amount: float) -> void:
@@ -264,6 +229,8 @@ func _update_visuals() -> void:
 	# Fix: Use target_progress whenever anim_progress is at initial value (0), regardless of direction
 	var t = target_progress if anim_progress < 0.01 else anim_progress
 	
+	print("[CircuitCable] _update_visuals: t=", t, " target_progress=", target_progress, " anim_progress=", anim_progress)
+	
 	# Update legacy state for test compatibility
 	# Map anim_progress to state: idle (0-0.3), mid (0.3-0.7), active (0.7-1.0)
 	if t < 0.3:
@@ -272,6 +239,8 @@ func _update_visuals() -> void:
 		circuit_state = "mid"
 	else:
 		circuit_state = "active"
+	
+	print("[CircuitCable] circuit_state now: ", circuit_state)
 	
 	# Get the cable visual mesh
 	var mesh_inst = get_node_or_null("CableVis")
@@ -313,6 +282,7 @@ func _update_visuals() -> void:
 
 func set_active(value: bool, immediate: bool = false) -> void:
 	"""Override set_active to update state property when called by Lever."""
+	print("[CircuitCable] set_active called with value:", value)
 	# Call parent implementation
 	.set_active(value, immediate)
 	# Force update the state immediately
@@ -320,6 +290,7 @@ func set_active(value: bool, immediate: bool = false) -> void:
 
 func interact(_from = null) -> void:
 	"""Toggle energy state. Called by player interaction or pipeline."""
+	print("[CircuitCable] interact() called. Current is_active:", is_active)
 	# Use the base class toggle via set_active
 	.set_active(not is_active)
 
