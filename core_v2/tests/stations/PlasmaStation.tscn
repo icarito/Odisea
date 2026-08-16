@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=2]
+[gd_scene load_steps=18 format=2]
 
 ; Estación de plasma (FD-257): conducción rota + dos válvulas de redirección.
 ; La lógica del ciclo vive en PlasmaConduit/PlasmaRoute; esta escena solo la
@@ -16,6 +16,7 @@
 [ext_resource path="res://core_v2/systems/plasma/PlasmaConduit.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/systems/plasma/PlasmaRoute.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/props/pipe/PipeSection.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/props/pipe/PipeTee.tscn" type="PackedScene" id=20]
 [ext_resource path="res://core_v2/props/pipe/PipeValve.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/props/emitters/FireEmitter.tscn" type="PackedScene" id=7]
 [ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=8]
@@ -108,6 +109,11 @@ transform = Transform( 1.4, 0, 0, 0, 1.4, 0, 0, 0, 1.4, -2, 1, 0 )
 [node name="BrokenBranch" parent="Pipes" instance=ExtResource( 4 )]
 transform = Transform( 1.4, 0, 0, 0, 1.4, 0, 0, 0, 1.4, 0.8, 1, 0 )
 
+; La bifurcación es una pieza en T de verdad, no dos caños chocando: sus tres brazos
+; solapan los tramos y el codo se lee como un accesorio de cañería.
+[node name="Junction" parent="Pipes" instance=ExtResource( 20 )]
+transform = Transform( 1.4, 0, 0, 0, 0, -1.4, 0, 1.4, 0, -0.6, 1, 0 )
+
 ; Ramal SANO: dobla hacia +Z desde la misma junta.
 [node name="SafeBranch" parent="Pipes" instance=ExtResource( 4 )]
 transform = Transform( 0, 0, 1.4, 0, 1.4, 0, -1.4, 0, 0, -0.6, 1, 1.4 )
@@ -132,13 +138,6 @@ material/0 = SubResource( 3 )
 "no_flow_material",
 ]]
 transform = Transform( -3.12224e-08, -0.714286, 0, 0.714286, -3.12224e-08, 0, 0, 0, 0.714286, -1.0000, 0, 0 )
-mesh = SubResource( 1 )
-material/0 = ExtResource( 9 )
-
-[node name="CollarJunction" type="MeshInstance" parent="Pipes/MainA" groups=[
-"no_flow_material",
-]]
-transform = Transform( -3.12224e-08, -0.714286, 0, 0.714286, -3.12224e-08, 0, 0, 0, 0.714286, 1.0000, 0, 0 )
 mesh = SubResource( 1 )
 material/0 = ExtResource( 9 )
 

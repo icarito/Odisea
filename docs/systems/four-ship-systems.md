@@ -123,8 +123,10 @@ entrada ┤
 = [0, 1]`). Cuando el patrón coincide llama `reroute()` y el chorro se apaga; si se rompe, el
 aviso vuelve a empezar. Redirigir es eso: mandar el plasma por el caño que no está roto.
 
-> Ojo: cerrar **las dos** no es la solución. Eso corta todo y no es "redirigir" — fue justamente
-> el error que hacía incomprensible la sala en su primera versión.
+> Ojo: cerrar **las dos** no es la solución. Corta el caudal, y sin caudal no hay nada que
+> escapar: se frenan las vetas del caño, el núcleo deja de ciclar color y la fuga se apaga.
+> Pero la falla sigue ahí — el conduit continúa su ciclo y al reabrir el chorro vuelve.
+> Eso no es "redirigir", y fue el error que hacía incomprensible la sala en su primera versión.
 
 **Cómo se ve.** El núcleo dentro del caño translúcido cicla color (azul → violeta → carmesí →
 oro) tomado de `PlasmaExhaust`; el chorro de la rotura y la barrera de daño usan

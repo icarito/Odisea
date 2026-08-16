@@ -51,6 +51,8 @@ var _core_color_timer := 0.0
 var _core_color := Color(1, 0.62, 0.16)
 onready var _leak_light: OmniLight = get_node_or_null("LeakLight")
 onready var _barrier: Node = get_node_or_null("FireEmitter")
+onready var _valve_a: Node = get_node_or_null("ValveA")
+onready var _valve_b: Node = get_node_or_null("ValveB")
 
 var _core_material: ShaderMaterial = null
 var _was_leaking := false
@@ -66,6 +68,11 @@ func _ready() -> void:
 
 
 func _cycle_core_color(delta: float) -> void:
+	# Sin caudal el color se congela donde estaba: si el plasma no corre, tampoco late.
+	# Solo frenar la fase dejaba el tubo quieto pero cambiando de color, y eso se sigue
+	# leyendo como movimiento.
+	if _core_target_speed <= 0.001:
+		return
 	_core_color_timer = fmod(_core_color_timer + delta, CORE_COLOR_CYCLE_DURATION)
 	var progress: float = _core_color_timer / CORE_COLOR_CYCLE_DURATION
 	var steps: int = CORE_COLOR_CYCLE.size() - 1
@@ -107,7 +114,15 @@ func _apply(warning: float, hazard: float) -> void:
 	var pipe_target: float = lerp(pipe_warm, PIPE_FLOW_VENTING, hazard)
 	var plasma_heat: float = max(warning, hazard)
 	var conduit_state: int = _conduit.get_state() if _conduit else 0
-	var flow_stopped: bool = conduit_state == REROUTED_STATE
+	# Con las dos válvulas cerradas no pasa plasma por ningún lado: el núcleo y las vetas
+	# tienen que quedarse quietos. Antes solo se frenaban al redirigir, así que cerrar
+	# todo dejaba la energía corriendo por un caño sin caudal.
+	var any_open: bool = true
+	if _valve_a != null or _valve_b != null:
+		var a_open: bool = _valve_a.is_active if _valve_a else false
+		var b_open: bool = _valve_b.is_active if _valve_b else false
+		any_open = a_open or b_open
+	var flow_stopped: bool = conduit_state == REROUTED_STATE or not any_open
 	_core_target_speed = 0.0 if flow_stopped else lerp(CORE_SPEED_HEALTHY, CORE_SPEED_WARNING, warning)
 	if _pipes:
 		if _pipes.has_method("set_flow_intensity"):
@@ -121,8 +136,13 @@ func _apply(warning: float, hazard: float) -> void:
 	# Desde que el conduit abandona NOMINAL hay presión en la junta rota: un
 	# escape tenue empieza durante el aviso y escala con plasma_heat. Esto hace
 	# legible el daño antes de que FireEmitter habilite la barrera peligrosa.
+	# Sin caudal no hay nada que escapar: con las dos válvulas cerradas el caño ya se
+	# congela, y la rotura tenía que seguirlo. Escupir plasma de una cañería vacía era
+	# justamente lo que se leía como "el plasma sigue moviéndose con las válvulas apagadas".
+	# Ojo: esto NO resuelve la falla —el conduit sigue su ciclo y al reabrir el chorro
+	# vuelve—, solo la deja sin material. Redirigir sigue siendo cerrar A y abrir B.
 	var conduit_active: bool = _conduit and _conduit.get_state() != 0
-	var leak_active: bool = conduit_active or hazard > HAZARD_THRESHOLD
+	var leak_active: bool = (conduit_active or hazard > HAZARD_THRESHOLD) and not flow_stopped
 	if _leak_particles:
 		# Un solo efecto para la fuga, que crece con el peligro: durante el aviso es un
 		# escape tenue y al reventar es un chorro. Antes había además una nube de gas del
@@ -146,7 +166,7 @@ func _apply(warning: float, hazard: float) -> void:
 	# aviso PlasmaConduit ya deja hazard_intensity en 0 — la tubería solo
 	# brilla, todavía no corta el paso.
 	if _barrier and _barrier.has_method("set_active"):
-		_barrier.set_active(hazard > HAZARD_THRESHOLD)
+		_barrier.set_active(hazard > HAZARD_THRESHOLD and not flow_stopped)
 
 
 func _tint_pipes_plasma() -> void:

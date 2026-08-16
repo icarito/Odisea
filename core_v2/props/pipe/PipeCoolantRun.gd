@@ -44,6 +44,10 @@ export(Color) var flow_color := Color(0.35, 0.92, 0.98, 1.0) setget set_flow_col
 export(float, 0.1, 6.0) var noise_scale := 1.6 setget set_noise_scale
 # Transparencia del caño: 1.0 opaco. Un poco por debajo deja intuir el volumen interno.
 export(float, 0.2, 1.0) var pipe_alpha := 0.88 setget set_pipe_alpha
+# Descartar las tapas del cilindro. Sirve en un caño translúcido, donde los discos
+# interiores se ven a través de la pared; en uno opaco conviene dejarlas, porque son la
+# cara redonda del extremo libre.
+export(bool) var hide_caps := true
 
 var _material: ShaderMaterial = null
 var _phase: float = 0.0
@@ -134,6 +138,7 @@ func _apply() -> void:
 	_material.set_shader_param("noise_scale", noise_scale)
 	_material.set_shader_param("base_color", base_color)
 	_material.set_shader_param("flow_color", flow_color)
+	_material.set_shader_param("hide_caps", hide_caps)
 
 	_assign_to_meshes(self)
 

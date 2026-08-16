@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=2]
+[gd_scene load_steps=39 format=2]
 
 ; Estación de atmósfera (FD-258): esclusa sellada, manómetro y purga. Arranca
 ; en sobrepresión para enseñar el orden parpadeo -> chispa -> blowout. La
@@ -12,6 +12,7 @@
 [ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=6]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=7]
 [ext_resource path="res://core_v2/props/pipe/PipeSection.tscn" type="PackedScene" id=8]
+[ext_resource path="res://core_v2/props/pipe/PipePlasmaMetal.tres" type="Material" id=25]
 [ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=9]
 [ext_resource path="res://core_v2/props/emitters/LeakEmitter.tscn" type="PackedScene" id=10]
 [ext_resource path="res://core_v2/ui/gauges/PressureGaugeUI.tscn" type="PackedScene" id=11]
@@ -119,6 +120,15 @@ particles_anim_loop = false
 albedo_color = Color( 1, 1, 1, 1 )
 albedo_texture = ExtResource( 15 )
 
+[sub_resource type="SphereMesh" id=27]
+radius = 0.36
+height = 0.72
+
+[sub_resource type="CylinderMesh" id=26]
+top_radius = 0.26
+bottom_radius = 0.26
+height = 0.16
+
 [sub_resource type="QuadMesh" id=20]
 material = SubResource( 19 )
 size = Vector2( 1.6, 1.6 )
@@ -156,6 +166,7 @@ base_color = Color( 0.62, 0.66, 0.7, 1 )
 flow_color = Color( 0.95, 0.97, 1, 1 )
 noise_scale = 2.2
 pipe_alpha = 1.0
+hide_caps = false
 
 [node name="PipeA" parent="Pipes" instance=ExtResource( 8 )]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 2.5, 1.35, -1.4 )
@@ -168,6 +179,29 @@ transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 2.5, 1.
 
 [node name="PipeD" parent="Pipes" instance=ExtResource( 8 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1.35, 3.4 )
+
+; Pieza de esquina: los dos tramos se cruzan y la esfera tapa el cruce.
+[node name="ElbowJoint" type="MeshInstance" parent="Pipes" groups=[
+"no_flow_material",
+]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.35, 3.4 )
+mesh = SubResource( 27 )
+material/0 = ExtResource( 25 )
+
+; Casquillos en las dos bocas libres de la conducción.
+[node name="CapStart" type="MeshInstance" parent="Pipes" groups=[
+"no_flow_material",
+]]
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 2.5, 1.35, -2.4 )
+mesh = SubResource( 26 )
+material/0 = ExtResource( 25 )
+
+[node name="CapEnd" type="MeshInstance" parent="Pipes" groups=[
+"no_flow_material",
+]]
+transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 0.5, 1.35, 3.4 )
+mesh = SubResource( 26 )
+material/0 = ExtResource( 25 )
 
 ; Fugas de vapor en las juntas. Son el aviso, no el daño: LeakEmitter es decorativo y no
 ; determinista a propósito (el estallido con consecuencia lo maneja PressureSection).
