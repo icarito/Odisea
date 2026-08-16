@@ -63,12 +63,18 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_visual_phase = fmod(_visual_phase + delta, 1.0)
+	# Bombear inyecta presión mientras dure el esfuerzo: la aguja trepa mientras se
+	# sostiene y se queda quieta al soltar. Antes la bomba solo daba el pistoletazo de
+	# salida y la presión subía sola, así que el mando y el manómetro no se relacionaban.
+	if _pump and _section and _pump.has_method("is_held") and _pump.is_held():
+		if _section.has_method("inject"):
+			_section.inject(delta)
 	_apply()
 
 
 func _on_pump_hold_started() -> void:
-	# Bombear presuriza el sector: es la mitad activa del sistema. La válvula es la otra,
-	# la que purga. Así la sala tiene las dos direcciones y no solo la amenaza.
+	# El primer golpe de bomba saca al sector del reposo; el resto de la subida la hace
+	# el bombeo sostenido en _physics_process.
 	if _section and _section.has_method("raise_pressure"):
 		_section.raise_pressure()
 

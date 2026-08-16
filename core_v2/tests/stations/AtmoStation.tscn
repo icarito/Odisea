@@ -109,6 +109,7 @@ script = ExtResource( 1 )
 [node name="PressureSection" type="Spatial" parent="."]
 script = ExtResource( 2 )
 starts_rising = false
+rise_needs_input = true
 warning_duration = 5.0
 spark_duration = 2.0
 recover_duration = 3.0
@@ -230,7 +231,7 @@ hold_duration = 2.2
 ; El estallido: flipbook de explosión + empuje real a lo que haya alrededor. Hasta ahora
 ; PressureSection emitía blowout() y no lo escuchaba nadie.
 [node name="Blowout" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6, 1.1, 1.2 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.5, 0.6 )
 script = ExtResource( 16 )
 section_path = NodePath("../PressureSection")
 explosion_path = NodePath("Explosion")
@@ -245,17 +246,17 @@ visible = false
 ; Cajas cerca del punto de estallido: lo que la explosión mueve. Sin algo que se mueva,
 ; una explosión es una luz.
 [node name="CrateA" parent="." instance=ExtResource( 17 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0.35, 2.3 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.35, 1.2 )
 size = Vector3( 0.7, 0.7, 0.7 )
 mass = 12.0
 
 [node name="CrateB" parent="." instance=ExtResource( 17 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6, 0.35, 1.1 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.9, 0.35, 1.9 )
 size = Vector3( 0.7, 0.7, 0.7 )
 mass = 12.0
 
 [node name="CrateC" parent="." instance=ExtResource( 17 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.2, 0.35, 2.6 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.9, 0.35, -0.4 )
 size = Vector3( 0.7, 0.7, 0.7 )
 mass = 12.0
 

@@ -46,6 +46,15 @@ func _ready() -> void:
 	_explosion = get_node_or_null(explosion_path)
 	if _explosion:
 		_set_explosion_visible(false)
+		# El prop de explosión viene con autoplay y la animación en loop: una vez visible
+		# se repetiría para siempre. Se le corta el loop y se lo apaga al terminar.
+		var anim = _explosion.get_node_or_null("AnimationPlayer")
+		if anim:
+			anim.stop()
+			if anim.has_animation("Explode"):
+				anim.get_animation("Explode").loop = false
+			if not anim.is_connected("animation_finished", self, "_on_explosion_finished"):
+				anim.connect("animation_finished", self, "_on_explosion_finished")
 	if _section and _section.has_signal("blowout"):
 		_section.connect("blowout", self, "_on_blowout")
 
@@ -76,6 +85,10 @@ func _play_explosion() -> void:
 	if anim and anim.has_animation("Explode"):
 		anim.stop()
 		anim.play("Explode")
+
+
+func _on_explosion_finished(_anim_name: String) -> void:
+	_set_explosion_visible(false)
 
 
 func _set_explosion_visible(value: bool) -> void:

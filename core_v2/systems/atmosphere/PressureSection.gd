@@ -15,6 +15,11 @@ export(float) var spark_duration: float = 2.5
 # Duration in seconds for pressure to recover back to 1.0 during VENTED state.
 export(float) var recover_duration: float = 3.0
 # Critical overpressure value reached at peak.
+# Si es true, la presión NO sube sola durante RISING: sube solo mientras algo la inyecta
+# (la bomba manual). Es lo que hace legible la relación entre el mando y el manómetro:
+# bombeo y la aguja trepa, suelto y se queda. Con false, RISING corre por tiempo, que es
+# el comportamiento para una fuga que se descontrola sola.
+export(bool) var rise_needs_input: bool = false
 export(float) var critical_pressure: float = 2.4
 # Radius in meters for the blowout explosion event.
 export(float) var blowout_radius: float = 6.0
@@ -49,7 +54,8 @@ func _physics_process(delta: float) -> void:
 			_pressure = 1.0
 
 		State.RISING:
-			_state_timer += delta
+			if not rise_needs_input:
+				_state_timer += delta
 			if warning_duration > 0.0:
 				var progress: float = clamp(_state_timer / warning_duration, 0.0, 1.0)
 				_pressure = lerp(1.0, critical_pressure, progress)
@@ -110,6 +116,15 @@ func raise_pressure() -> void:
 	if _state == State.NOMINAL:
 		_has_blown_out = false
 		_set_state(State.RISING)
+
+
+func inject(seconds: float) -> void:
+	"""Bombear: mete presión al sector. El argumento es tiempo de bombeo, así la escala
+	del manómetro sigue siendo la misma que cuando la presión sube sola."""
+	if _state == State.NOMINAL:
+		raise_pressure()
+	if _state == State.RISING:
+		_state_timer += max(seconds, 0.0)
 
 
 func purge() -> void:
