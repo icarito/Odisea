@@ -25,6 +25,7 @@ mesh = SubResource( 1 )
 material_override = SubResource( 2 )
 
 [node name="StaticBody" type="StaticBody" parent="."]
+collision_layer = 64
 
 [node name="CollisionShape" type="CollisionShape" parent="StaticBody"]
 shape = SubResource( 3 )
