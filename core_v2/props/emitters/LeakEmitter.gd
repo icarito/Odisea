@@ -1,4 +1,10 @@
 tool
+# LeakEmitter: Componente decorativo y NO determinista por diseño (usa rand_range e
+# intervalos no sincronizados). Produce avisos visuales (vapor, condensación, etc.).
+# NO debe usarse para lógica de gameplay con consecuencia (daño, bloqueo de rutas).
+# Para peligros con consecuencia usar FireEmitter, FrostEmitter o GasArea3D, que sí
+# cumplen el contrato de replay (AGENTS.md §5.3).
+
 extends Spatial
 class_name LeakEmitter
 

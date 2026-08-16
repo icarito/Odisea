@@ -1,0 +1,51 @@
+[gd_scene load_steps=6 format=2]
+
+; Bomba manual de presión: se mantiene presionada, no se acciona de un golpe. El pistón
+; baja mientras el jugador sostiene y vuelve al soltar, así el esfuerzo se ve.
+
+[ext_resource path="res://core_v2/props/controls/PressurePump.gd" type="Script" id=1]
+[ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=2]
+
+[sub_resource type="CylinderMesh" id=1]
+top_radius = 0.16
+bottom_radius = 0.16
+height = 0.36
+
+[sub_resource type="SpatialMaterial" id=2]
+albedo_color = Color( 0.85, 0.62, 0.12, 1 )
+metallic = 0.5
+roughness = 0.4
+emission_enabled = true
+emission = Color( 0.5, 0.32, 0.02, 1 )
+emission_energy = 0.5
+
+[sub_resource type="CylinderShape" id=3]
+radius = 0.22
+height = 0.7
+
+[node name="PressurePump" type="Spatial"]
+script = ExtResource( 1 )
+interaction_text = "Bombear"
+hold_duration = 2.2
+release_rate = 0.7
+repeatable = false
+
+[node name="Body" type="CSGCylinder" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0 )
+radius = 0.19
+height = 0.6
+material = ExtResource( 2 )
+
+[node name="Piston" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.78, 0 )
+
+[node name="Handle" type="MeshInstance" parent="Piston"]
+mesh = SubResource( 1 )
+material/0 = SubResource( 2 )
+
+[node name="StaticBody" type="StaticBody" parent="."]
+collision_layer = 64
+
+[node name="CollisionShape" type="CollisionShape" parent="StaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
+shape = SubResource( 3 )

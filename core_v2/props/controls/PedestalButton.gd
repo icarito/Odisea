@@ -22,43 +22,43 @@ onready var light_mesh = get_node_or_null(light_mesh_path)
 var _owns_light_material := false
 
 func _ready():
-    # Ensure visual state matches initial logic state
-    _update_visuals()
+	# Ensure visual state matches initial logic state
+	_update_visuals()
 
 var _momentary_timer = null
 
 func interact():
-    if momentary:
-        set_active(true, true)
-        
-        if _momentary_timer:
-            _momentary_timer.disconnect("timeout", self , "_on_momentary_timeout")
-            _momentary_timer = null
+	if momentary:
+		set_active(true, true)
+		
+		if _momentary_timer:
+			_momentary_timer.disconnect("timeout", self , "_on_momentary_timeout")
+			_momentary_timer = null
 
-        if not Engine.editor_hint:
-            _momentary_timer = get_tree().create_timer(momentary_duration)
-            _momentary_timer.connect("timeout", self , "_on_momentary_timeout")
-    else:
-        # Toggle state
-        set_active(not is_active, true)
+		if not Engine.editor_hint:
+			_momentary_timer = get_tree().create_timer(momentary_duration)
+			_momentary_timer.connect("timeout", self , "_on_momentary_timeout")
+	else:
+		# Toggle state
+		set_active(not is_active, true)
 
 func _on_momentary_timeout():
-    set_active(false, true)
-    _momentary_timer = null
+	set_active(false, true)
+	_momentary_timer = null
 
 func _update_visuals():
-    if not is_inside_tree():
-        return
+	if not is_inside_tree():
+		return
 
-    var color = color_active if is_active else color_inactive
+	var color = color_active if is_active else color_inactive
 
-    if light_mesh:
-        var mat = _own_light_material()
-        if mat is SpatialMaterial:
-            mat.albedo_color = color
-            mat.emission_enabled = true
-            mat.emission = color
-            mat.emission_energy = 1.0 if is_active else 0.2
+	if light_mesh:
+		var mat = _own_light_material()
+		if mat is SpatialMaterial:
+			mat.albedo_color = color
+			mat.emission_enabled = true
+			mat.emission = color
+			mat.emission_energy = 1.0 if is_active else 0.2
 
 
 # Returns this button's private indicator material, making one on first use.
@@ -66,17 +66,17 @@ func _update_visuals():
 # the prop layer otherwise gets its SpatialMaterial swapped for the dither
 # shader, and the indicator stops changing colour altogether.
 func _own_light_material():
-    if light_mesh == null:
-        return null
-    var mat = light_mesh.material_override
-    if not _owns_light_material or mat == null:
-        mat = mat.duplicate() if mat != null else SpatialMaterial.new()
-        mat.resource_local_to_scene = true
-        light_mesh.material_override = mat
-        _owns_light_material = true
-    return mat
+	if light_mesh == null:
+		return null
+	var mat = light_mesh.material_override
+	if not _owns_light_material or mat == null:
+		mat = mat.duplicate() if mat != null else SpatialMaterial.new()
+		mat.resource_local_to_scene = true
+		light_mesh.material_override = mat
+		_owns_light_material = true
+	return mat
 
 # Optional: expose state change for editor tweaking
 func set_active(value: bool, immediate: bool = false):
-    .set_active(value, immediate) # Call parent to update state and anim_progress
-    _update_visuals()
+	.set_active(value, immediate) # Call parent to update state and anim_progress
+	_update_visuals()

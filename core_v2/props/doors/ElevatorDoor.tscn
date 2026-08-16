@@ -10,9 +10,6 @@ resource_local_to_scene = true
 size = Vector2( 3, 0.6 )
 
 [sub_resource type="Shader" id=11]
-__meta__ = {
-"odisea_occlusion_uniforms": true
-}
 code = "shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled;
 
@@ -58,6 +55,9 @@ void fragment() {
     ALBEDO *= mix(1.0, 0.5, ao);
 }
 "
+__meta__ = {
+"odisea_occlusion_uniforms": true
+}
 
 [sub_resource type="ShaderMaterial" id=12]
 resource_local_to_scene = true
@@ -65,6 +65,13 @@ shader = SubResource( 11 )
 shader_param/fence_color = Color( 0.35, 0.35, 0.35, 1 )
 shader_param/tiling = Vector2( 18, 3.6 )
 shader_param/wire_thickness = 0.08
+shader_param/player_pos = null
+shader_param/camera_pos = null
+shader_param/hole_radius = 0.5
+shader_param/is_active = 0.0
+shader_param/edge_fade = 1.0
+shader_param/transparency_min = 0.3
+shader_param/transparency_max = 0.95
 
 [sub_resource type="CylinderMesh" id=13]
 resource_local_to_scene = true
@@ -92,9 +99,6 @@ extents = Vector3( 0.75, 1.5, 0.02 )
 size = Vector2( 1.5, 3 )
 
 [sub_resource type="Shader" id=5]
-__meta__ = {
-"odisea_occlusion_uniforms": true
-}
 code = "shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled;
 
@@ -140,12 +144,22 @@ void fragment() {
     ALBEDO *= mix(1.0, 0.5, ao);
 }
 "
+__meta__ = {
+"odisea_occlusion_uniforms": true
+}
 
 [sub_resource type="ShaderMaterial" id=6]
 shader = SubResource( 5 )
 shader_param/fence_color = Color( 0.35, 0.35, 0.35, 1 )
 shader_param/tiling = Vector2( 18, 15 )
 shader_param/wire_thickness = 0.08
+shader_param/player_pos = null
+shader_param/camera_pos = null
+shader_param/hole_radius = 0.5
+shader_param/is_active = 0.0
+shader_param/edge_fade = 1.0
+shader_param/transparency_min = 0.3
+shader_param/transparency_max = 0.95
 
 [sub_resource type="CylinderMesh" id=9]
 top_radius = 0.05
@@ -165,6 +179,7 @@ top_floor_height = 0.6
 [node name="Header" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, 0 )
 use_collision = true
+collision_layer = 64
 width = 3.0
 height = 0.4
 depth = 0.2
@@ -186,9 +201,9 @@ mesh = SubResource( 14 )
 material/0 = SubResource( 8 )
 
 [node name="DoorLeft" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, 0 )
 collision_layer = 64
 collision_mask = 0
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, 0 )
 
 [node name="CollisionShape" type="CollisionShape" parent="DoorLeft"]
 shape = SubResource( 1 )
@@ -208,9 +223,9 @@ mesh = SubResource( 9 )
 material/0 = SubResource( 8 )
 
 [node name="DoorRight" type="KinematicBody" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.75, 1.5, 0 )
 collision_layer = 64
 collision_mask = 0
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.75, 1.5, 0 )
 
 [node name="CollisionShape" type="CollisionShape" parent="DoorRight"]
 shape = SubResource( 1 )

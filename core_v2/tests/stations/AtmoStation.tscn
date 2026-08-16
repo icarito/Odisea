@@ -1,0 +1,423 @@
+[gd_scene load_steps=39 format=2]
+
+; Estación de atmósfera (FD-258): esclusa sellada, manómetro y purga. Arranca
+; en sobrepresión para enseñar el orden parpadeo -> chispa -> blowout. La
+; válvula de purga alinea el PurgeDial; sostenerla en la zona estable libera
+; presión sin un temporizador agresivo de interacción.
+
+[ext_resource path="res://core_v2/tests/stations/AtmoStation.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/atmosphere/PressureSection.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/systems/atmosphere/PurgeDial.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/props/pipe/PipeValve.tscn" type="PackedScene" id=5]
+[ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=6]
+[ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/props/pipe/PipeSection.tscn" type="PackedScene" id=8]
+[ext_resource path="res://core_v2/props/pipe/PipePlasmaMetal.tres" type="Material" id=25]
+[ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=9]
+[ext_resource path="res://core_v2/props/emitters/LeakEmitter.tscn" type="PackedScene" id=10]
+[ext_resource path="res://core_v2/ui/gauges/PressureGaugeUI.tscn" type="PackedScene" id=11]
+[ext_resource path="res://core_v2/visual/HoloGlass.shader" type="Shader" id=12]
+[ext_resource path="res://core_v2/props/controls/PressurePump.tscn" type="PackedScene" id=13]
+[ext_resource path="res://core_v2/props/controls/PurgeTuner.gd" type="Script" id=14]
+[ext_resource path="res://assets/flipbook_particles/assets/smokes/smoke_03/textures/smoke_03.tga" type="Texture" id=15]
+[ext_resource path="res://core_v2/systems/atmosphere/BlowoutImpulse.gd" type="Script" id=16]
+[ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=17]
+[ext_resource path="res://core_v2/props/emitters/SparkEmitterV2.tscn" type="PackedScene" id=18]
+[ext_resource path="res://core_v2/props/signage/SignagePanel.tscn" type="PackedScene" id=22]
+[ext_resource path="res://core_v2/props/signage/SignageBold.tres" type="DynamicFont" id=23]
+
+[sub_resource type="CylinderMesh" id=1]
+top_radius = 0.46
+bottom_radius = 0.46
+height = 0.08
+
+[sub_resource type="CubeMesh" id=2]
+size = Vector3( 0.05, 0.34, 0.04 )
+
+[sub_resource type="CubeMesh" id=3]
+size = Vector3( 0.72, 0.4, 0.06 )
+
+[sub_resource type="SphereMesh" id=4]
+radius = 0.12
+height = 0.24
+
+[sub_resource type="SpatialMaterial" id=5]
+resource_local_to_scene = true
+albedo_color = Color( 0.86, 0.88, 0.9, 1 )
+metallic = 0.0
+roughness = 0.65
+emission_enabled = true
+emission = Color( 0.5, 0.55, 0.6, 1 )
+emission_energy = 0.35
+
+[sub_resource type="SpatialMaterial" id=6]
+resource_local_to_scene = true
+albedo_color = Color( 0.72, 0.9, 0.96, 1 )
+emission_enabled = true
+emission = Color( 0.72, 0.9, 0.96, 1 )
+emission_energy = 0.45
+
+[sub_resource type="SpatialMaterial" id=7]
+resource_local_to_scene = true
+albedo_color = Color( 0.85, 0.05, 0.03, 1 )
+emission_enabled = true
+emission = Color( 1, 0.1, 0.05, 1 )
+emission_energy = 1.4
+
+[sub_resource type="CubeMesh" id=8]
+size = Vector3( 0.3, 0.08, 0.02 )
+
+[sub_resource type="SpatialMaterial" id=9]
+resource_local_to_scene = true
+albedo_color = Color( 0.12, 0.85, 0.4, 1 )
+emission_enabled = true
+emission = Color( 0.05, 0.5, 0.2, 1 )
+emission_energy = 1.2
+
+[sub_resource type="CubeMesh" id=10]
+size = Vector3( 0.26, 0.07, 0.02 )
+
+[sub_resource type="SpatialMaterial" id=11]
+resource_local_to_scene = true
+albedo_color = Color( 0.85, 0.12, 0.08, 1 )
+emission_enabled = true
+emission = Color( 0.7, 0.06, 0.03, 1 )
+emission_energy = 0.9
+
+[sub_resource type="QuadMesh" id=12]
+size = Vector2( 0.92, 0.92 )
+
+[sub_resource type="ShaderMaterial" id=13]
+resource_local_to_scene = true
+shader = ExtResource( 12 )
+shader_param/albedo = Color( 0.64, 0.93, 1, 0.05 )
+shader_param/emission_energy = 3.0
+shader_param/alpha_scissor_threshold = 0.0
+shader_param/flip_h = false
+shader_param/flip_v = false
+shader_param/back_flip_h = false
+shader_param/back_flip_v = false
+shader_param/aligned_flip_h = false
+shader_param/aligned_flip_v = true
+shader_param/flip_h_when_viewed_from_back = false
+shader_param/flip_v_when_viewed_from_back = false
+
+[sub_resource type="CylinderShape" id=14]
+radius = 0.2
+height = 0.24
+
+[sub_resource type="SpatialMaterial" id=19]
+resource_local_to_scene = true
+flags_transparent = true
+flags_unshaded = true
+vertex_color_use_as_albedo = true
+params_blend_mode = 0
+params_billboard_mode = 3
+params_billboard_keep_scale = true
+particles_anim_h_frames = 8
+particles_anim_v_frames = 8
+particles_anim_loop = false
+albedo_color = Color( 1, 1, 1, 1 )
+albedo_texture = ExtResource( 15 )
+
+[sub_resource type="SphereMesh" id=27]
+radius = 0.36
+height = 0.72
+
+[sub_resource type="CylinderMesh" id=26]
+top_radius = 0.26
+bottom_radius = 0.26
+height = 0.16
+
+[sub_resource type="QuadMesh" id=20]
+material = SubResource( 19 )
+size = Vector2( 1.6, 1.6 )
+
+[sub_resource type="Curve" id=21]
+_data = [ Vector2( 0, 0.25 ), 0.0, 0.0, 0, 0, Vector2( 0.45, 1 ), 0.0, 0.0, 0, 0, Vector2( 1, 0.55 ), 0.0, 0.0, 0, 0 ]
+
+[node name="AtmoStation" type="Spatial"]
+script = ExtResource( 1 )
+
+[node name="PressureSection" type="Spatial" parent="."]
+script = ExtResource( 2 )
+starts_rising = false
+rise_needs_input = true
+warning_duration = 5.0
+spark_duration = 2.0
+recover_duration = 3.0
+
+[node name="PurgeDial" type="Spatial" parent="."]
+script = ExtResource( 3 )
+target = 0.62
+tolerance = 0.08
+hold_duration = 1.2
+section_path = NodePath("../PressureSection")
+
+; Conducción de aire del sector: lo que la esclusa sella está acá adentro. Blanca, con el
+; flujo corriendo despacio; cuando la presión sube, el caudal se acelera y arrancan las
+; fugas de vapor por las juntas. La esclusa sola no dice "presión"; la cañería sí.
+[node name="Pipes" type="Spatial" parent="."]
+script = ExtResource( 9 )
+flow_dir = Vector3( 0, 0, 1 )
+flow_speed = 0.35
+flow_intensity = 0.6
+base_color = Color( 0.62, 0.66, 0.7, 1 )
+flow_color = Color( 0.95, 0.97, 1, 1 )
+noise_scale = 2.2
+pipe_alpha = 1.0
+hide_caps = false
+
+[node name="PipeA" parent="Pipes" instance=ExtResource( 8 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 2.5, 1.35, -1.4 )
+
+[node name="PipeB" parent="Pipes" instance=ExtResource( 8 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 2.5, 1.35, 0.6 )
+
+[node name="PipeC" parent="Pipes" instance=ExtResource( 8 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 2.5, 1.35, 2.6 )
+
+[node name="PipeD" parent="Pipes" instance=ExtResource( 8 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1.35, 3.4 )
+
+; Pieza de esquina: los dos tramos se cruzan y la esfera tapa el cruce.
+[node name="ElbowJoint" type="MeshInstance" parent="Pipes" groups=[
+"no_flow_material",
+]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.35, 3.4 )
+mesh = SubResource( 27 )
+material/0 = ExtResource( 25 )
+
+; Casquillos en las dos bocas libres de la conducción.
+[node name="CapStart" type="MeshInstance" parent="Pipes" groups=[
+"no_flow_material",
+]]
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 2.5, 1.35, -2.4 )
+mesh = SubResource( 26 )
+material/0 = ExtResource( 25 )
+
+[node name="CapEnd" type="MeshInstance" parent="Pipes" groups=[
+"no_flow_material",
+]]
+transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 0.5, 1.35, 3.4 )
+mesh = SubResource( 26 )
+material/0 = ExtResource( 25 )
+
+; Fugas de vapor en las juntas. Son el aviso, no el daño: LeakEmitter es decorativo y no
+; determinista a propósito (el estallido con consecuencia lo maneja PressureSection).
+[node name="SteamA" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 2.5, 1.5, -0.4 )
+is_active = false
+interval = 1.6
+interval_random = 0.4
+duration = 0.7
+fadeout_time = 1.2
+
+[node name="SteamB" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.3, 0, 0, 0, 1.3, 0, 0, 0, 1.3, 2.5, 1.5, 1.6 )
+is_active = false
+interval = 1.1
+interval_random = 0.3
+duration = 0.6
+fadeout_time = 1.0
+
+[node name="SteamC" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.4, 0, 0, 0, 1.4, 0, 0, 0, 1.4, 2.1, 1.5, 3.4 )
+is_active = false
+interval = 0.8
+interval_random = 0.2
+duration = 0.5
+fadeout_time = 0.9
+
+; Baliza de emergencia sobre la consola. Antes colgaba de la esclusa y al sacarla quedó
+; flotando en el aire sin nada que la sostuviera.
+[node name="EmergencyBeacon" parent="." instance=ExtResource( 7 )]
+transform = Transform( -0.5, 0, 0, 0, 0.5, 0, 0, 0, -0.5, -2.15, 1.72, -0.15 )
+starts_active = false
+sound_enabled = false
+light_activation_distance = 10.0
+
+; Consola de purga delante de la esclusa: el aro blanco/rojo permite leer la
+; presión antes de ver el efecto de chispa en el sello.
+; Cartel del sector: dice qué se está mirando. Usa el SignagePanel configurable de FD-260,
+; con autofit, así el texto entra sin calcular tamaños a mano.
+; groups=["no_occlusion"]: un cartel es información, no un obstáculo. Sin esto el
+; PropDitherManager le reemplaza su material por el de oclusión y el panel pierde el
+; texto del viewport, quedando en el color plano del preset.
+[node name="SectorSign" parent="." groups=[
+"no_occlusion",
+] instance=ExtResource( 22 )]
+transform = Transform( -0.78, 0, -6.8e-08, 0, 0.78, 0, 6.8e-08, 0, -0.78, -2.15, 2.1, -0.45 )
+text = "PRESION SECTOR 04"
+color_preset = "warning"
+text_color = Color( 1, 0.96, 0.88, 1 )
+panel_alpha = 0.35
+double_sided = true
+alignment = 0
+font = ExtResource( 23 )
+font_size = 0
+case_mode = 1
+outline_size = 3
+outline_color = Color( 0, 0, 0, 0.9 )
+border_enabled = true
+border_color = Color( 1, 0.53, 0, 1 )
+border_width = 10.0
+emission_energy = 1.8
+
+[node name="Console" type="CSGBox" parent="."]
+collision_layer = 64
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 0.85, -0.15 )
+use_collision = true
+width = 1.2
+height = 1.7
+depth = 0.22
+material = ExtResource( 6 )
+
+; Manómetro holográfico: la lectura se dibuja en 2D dentro del Viewport y se proyecta
+; sobre este quad, igual que el selector radial del ascensor. Reemplaza al manómetro de
+; CSG (cara, aro y dos agujas), que era pesado de componer y no se leía.
+
+[node name="Gauge" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 1.45, -0.34 )
+
+[node name="ScreenMesh" type="MeshInstance" parent="Gauge"]
+mesh = SubResource( 12 )
+material/0 = SubResource( 13 )
+
+[node name="Viewport" type="Viewport" parent="Gauge"]
+size = Vector2( 512, 512 )
+transparent_bg = true
+render_target_v_flip = true
+gui_disable_input = true
+
+[node name="PressureGaugeUI" parent="Gauge/Viewport" instance=ExtResource( 11 )]
+
+[node name="PressurePanel" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 0.5, -0.29 )
+mesh = SubResource( 3 )
+material/0 = SubResource( 6 )
+
+; Barra de alarma en la cara de la consola, no suelta en el aire.
+[node name="AlarmStrip" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 1.62, -0.28 )
+mesh = SubResource( 3 )
+material/0 = SubResource( 6 )
+
+; Bomba manual: se mantiene presionada y la presión sube mientras dura el esfuerzo. Es el
+; otro lado del sistema — la válvula purga, la bomba presuriza — y el primer mecanismo del
+; proyecto que usa interacción sostenida.
+[node name="PressurePump" parent="." instance=ExtResource( 13 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.15, 0, -0.2 )
+hold_duration = 2.2
+
+; El estallido: flipbook de explosión + empuje real a lo que haya alrededor. Hasta ahora
+; PressureSection emitía blowout() y no lo escuchaba nadie.
+[node name="SteamD" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 2.5, 1.5, 0.7 )
+is_active = false
+interval = 1.3
+interval_random = 0.35
+duration = 0.6
+fadeout_time = 1.1
+
+[node name="SteamE" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.6, 0, 0, 0, 1.6, 0, 0, 0, 1.6, 2.5, 1.5, 2.4 )
+is_active = false
+interval = 0.9
+interval_random = 0.25
+duration = 0.55
+fadeout_time = 1.0
+
+[node name="SteamF" parent="." instance=ExtResource( 10 )]
+transform = Transform( 1.35, 0, 0, 0, 1.35, 0, 0, 0, 1.35, 1.9, 1.5, 3.4 )
+is_active = false
+interval = 0.7
+interval_random = 0.2
+duration = 0.5
+fadeout_time = 0.9
+
+[node name="Blowout" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.5, 0.6 )
+script = ExtResource( 16 )
+section_path = NodePath("../PressureSection")
+explosion_path = NodePath("Explosion")
+player_push = 13.0
+body_push = 11.0
+lift_ratio = 0.3
+shock_duration = 0.7
+
+; Descarga de aire: blanca, lenta y ancha. Sin fuego — esto es una sobrepresión, no una
+; combustión. one_shot: revienta una vez y se apaga sola.
+[node name="Explosion" type="CPUParticles" parent="Blowout"]
+visible = false
+emitting = false
+amount = 26
+lifetime = 1.8
+one_shot = true
+explosiveness = 0.92
+lifetime_randomness = 0.25
+mesh = SubResource( 20 )
+emission_shape = 1
+emission_sphere_radius = 0.5
+direction = Vector3( 0, 0.35, 0 )
+spread = 180.0
+gravity = Vector3( 0, 0.4, 0 )
+initial_velocity = 2.6
+initial_velocity_random = 0.35
+damping = 1.8
+scale_amount = 2.4
+scale_amount_random = 0.4
+scale_amount_curve = SubResource( 21 )
+color = Color( 0.94, 0.97, 1, 0.55 )
+anim_offset = 0.0
+anim_offset_random = 1.0
+
+; Cajas cerca del punto de estallido: lo que la explosión mueve. Sin algo que se mueva,
+; una explosión es una luz.
+[node name="CrateA" parent="." instance=ExtResource( 17 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.35, 1.2 )
+size = Vector3( 0.7, 0.7, 0.7 )
+mass = 12.0
+
+[node name="CrateB" parent="." instance=ExtResource( 17 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.9, 0.35, 1.9 )
+size = Vector3( 0.7, 0.7, 0.7 )
+mass = 12.0
+
+[node name="CrateC" parent="." instance=ExtResource( 17 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.9, 0.35, -0.4 )
+size = Vector3( 0.7, 0.7, 0.7 )
+mass = 12.0
+
+; Mando de sintonía: se sostiene y la aguja barre la escala; se suelta al pasar por la
+; zona verde. Antes acá había una PipeValve haciendo de dial, lo que le daba dos
+; gramáticas distintas al mismo prop (en las otras salas una válvula abre o cierra).
+[node name="PurgeTuner" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 0.98, -0.28 )
+script = ExtResource( 14 )
+interaction_text = "Sintonizar"
+sweep_speed = 0.42
+dial_path = NodePath("../PurgeDial")
+
+[node name="Knob" type="CSGCylinder" parent="PurgeTuner"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+radius = 0.13
+height = 0.1
+material = SubResource( 9 )
+
+[node name="Grip" type="CSGBox" parent="PurgeTuner/Knob"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0.07 )
+width = 0.04
+height = 0.02
+depth = 0.16
+
+[node name="StaticBody" type="StaticBody" parent="PurgeTuner"]
+collision_layer = 64
+
+[node name="CollisionShape" type="CollisionShape" parent="PurgeTuner/StaticBody"]
+shape = SubResource( 14 )
+
+; La chispa: arco eléctrico en la junta que pierde. Antes era una esfera roja fija, que
+; no se leía como chispa sino como una bola colgada del caño.
+[node name="Spark" parent="." instance=ExtResource( 18 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.55, 0.6 )

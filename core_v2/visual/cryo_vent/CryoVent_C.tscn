@@ -1,0 +1,55 @@
+[gd_scene load_steps=9 format=2]
+
+[ext_resource path="res://core_v2/visual/cryo_vent/CryoVent_C.gd" type="Script" id=1]
+[ext_resource path="res://assets/flipbook_particles/assets/smokes/smoke_01/textures/smoke_01.tga" type="Texture" id=2]
+
+[sub_resource type="Curve" id=3]
+_data = [ Vector2( 0, 0.1 ), 0.0, 0.0, 0, 0, Vector2( 0.25, 1 ), 0.0, 0.0, 0, 0, Vector2( 1, 0.2 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="SpatialMaterial" id=6]
+flags_transparent = true
+flags_unshaded = true
+vertex_color_use_as_albedo = true
+params_blend_mode = 0
+params_billboard_mode = 3
+particles_anim_h_frames = 8
+particles_anim_v_frames = 8
+particles_anim_loop = true
+albedo_texture = ExtResource( 2 )
+
+[sub_resource type="Gradient" id=8]
+offsets = PoolRealArray( 0, 0.35, 1 )
+colors = PoolColorArray( 0.78, 0.98, 1, 0.55, 0.35, 0.92, 0.98, 0.42, 0.1, 0.45, 0.72, 0 )
+
+[sub_resource type="GradientTexture" id=9]
+gradient = SubResource( 8 )
+width = 64
+
+[sub_resource type="QuadMesh" id=7]
+material = SubResource( 6 )
+size = Vector2( 1.5, 1.5 )
+
+[node name="CryoVent_C" type="Spatial"]
+script = ExtResource( 1 )
+flipbook_tex = ExtResource( 2 )
+
+[node name="Particles" type="CPUParticles" parent="."]
+amount = 70
+lifetime = 2.0
+lifetime_randomness = 0.4
+visibility_aabb = AABB( -5, -2, -5, 10, 20, 10 )
+mesh = SubResource( 7 )
+emission_shape = 1
+emission_sphere_radius = 0.8
+direction = Vector3( 0, 1, 0 )
+spread = 20.0
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 4.0
+initial_velocity_random = 0.6
+scale_amount = 0.7
+scale_amount_random = 0.5
+scale_amount_curve = SubResource( 3 )
+color = Color( 0.55, 0.95, 1, 0.5 )
+color_ramp = SubResource( 9 )
+anim_offset = 0.0
+anim_offset_random = 1.0

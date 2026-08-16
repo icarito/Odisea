@@ -41,6 +41,7 @@ var _collision_shape: CollisionShape = null
 var _density_tick := 0
 
 func _ready():
+	add_to_group("replay_sync")
 	_resolve_collision_shape()
 	_ensure_manager()
 	_ensure_grid()
@@ -427,3 +428,70 @@ func get_grid_cell(x: int, z: int) -> Dictionary:
 	if x < 0 or z < 0 or x >= grid_resolution or z >= grid_resolution:
 		return {}
 	return _grid[_cell_index(x, z)].duplicate()
+
+# --- SNAPSHOT SYSTEM ---
+
+func get_snapshot() -> Dictionary:
+	# Note: Live node references in _bodies_inside are not serialized as they are runtime-managed
+	# by Area signals (body_entered/body_exited) or physics process queries.
+	var grid_data := []
+	for cell in _grid:
+		grid_data.append({
+			"density": float(cell["density"]),
+			"temperature": float(cell["temperature"]),
+			"en_combustion": bool(cell["en_combustion"])
+		})
+
+	var cell_particles_data := []
+	for particle_list in _cell_particles:
+		var list_copy := []
+		for p_idx in particle_list:
+			list_copy.append(int(p_idx))
+		cell_particles_data.append(list_copy)
+
+	var burning_cells_data := {}
+	for cell_idx in _burning_cells.keys():
+		burning_cells_data[int(cell_idx)] = float(_burning_cells[cell_idx])
+
+	return {
+		"grid_resolution": grid_resolution,
+		"grid": grid_data,
+		"cell_particles": cell_particles_data,
+		"burning_cells": burning_cells_data,
+		"density_tick": _density_tick
+	}
+
+func restore_snapshot(data: Dictionary) -> void:
+	var snap_resolution := int(data.get("grid_resolution", grid_resolution))
+	if snap_resolution != grid_resolution:
+		_ensure_grid()
+		return
+
+	var snap_grid: Array = data.get("grid", [])
+	if snap_grid.size() != _grid.size():
+		_ensure_grid()
+		return
+
+	_density_tick = int(data.get("density_tick", 0))
+
+	for i in range(_grid.size()):
+		var cell_info: Dictionary = snap_grid[i] if i < snap_grid.size() and snap_grid[i] is Dictionary else {}
+		var cell: Dictionary = _grid[i]
+		cell["density"] = float(cell_info.get("density", 0.0))
+		cell["temperature"] = float(cell_info.get("temperature", 0.0))
+		cell["en_combustion"] = bool(cell_info.get("en_combustion", false))
+		_grid[i] = cell
+
+	_cell_particles.clear()
+	var snap_cell_particles: Array = data.get("cell_particles", [])
+	for i in range(_grid.size()):
+		var list_copy := []
+		if i < snap_cell_particles.size() and snap_cell_particles[i] is Array:
+			for p_idx in snap_cell_particles[i]:
+				list_copy.append(int(p_idx))
+		_cell_particles.append(list_copy)
+
+	_burning_cells.clear()
+	var snap_burning: Dictionary = data.get("burning_cells", {})
+	for k in snap_burning.keys():
+		_burning_cells[int(k)] = float(snap_burning[k])

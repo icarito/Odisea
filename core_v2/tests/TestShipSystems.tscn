@@ -1,0 +1,118 @@
+[gd_scene load_steps=11 format=2]
+
+; Banco de trabajo de los 4 sistemas de la nave (FD-255).
+; Una plataforma por sistema, con el color que lo identifica: cian criocoolant,
+; ambar plasma, blanco/rojo atmosfera, verde energia auxiliar.
+; Cada estacion se instancia como sub-escena propia bajo su ancla, para que dos
+; sistemas en desarrollo nunca editen el mismo archivo.
+
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=2]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=3]
+[ext_resource path="res://core_v2/tests/stations/CryoStation.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/tests/stations/AuxPowerStation.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/tests/stations/PlasmaStation.tscn" type="PackedScene" id=6]
+[ext_resource path="res://core_v2/tests/stations/AtmoStation.tscn" type="PackedScene" id=7]
+
+[sub_resource type="SpatialMaterial" id=1]
+albedo_color = Color( 0.3, 0.36, 0.38, 1 )
+emission_enabled = true
+emission = Color( 0.02, 0.1, 0.12, 1 )
+emission_energy = 0.15
+
+[sub_resource type="SpatialMaterial" id=2]
+albedo_color = Color( 0.38, 0.34, 0.28, 1 )
+emission_enabled = true
+emission = Color( 0.14, 0.09, 0.02, 1 )
+emission_energy = 0.15
+
+[sub_resource type="SpatialMaterial" id=3]
+albedo_color = Color( 0.36, 0.35, 0.36, 1 )
+emission_enabled = true
+emission = Color( 0.12, 0.04, 0.04, 1 )
+emission_energy = 0.15
+
+[sub_resource type="SpatialMaterial" id=4]
+albedo_color = Color( 0.3, 0.37, 0.32, 1 )
+emission_enabled = true
+emission = Color( 0.03, 0.13, 0.06, 1 )
+emission_energy = 0.15
+
+[node name="TestShipSystems" type="Spatial"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 3 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
+transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0.96225, -0.0225575, -0.965926, 0.257834, 0, 14, 6 )
+light_energy = 0.7
+shadow_enabled = true
+
+[node name="Floor" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )
+use_collision = true
+width = 44.0
+height = 0.2
+depth = 44.0
+material = ExtResource( 2 )
+
+[node name="Stations" type="Spatial" parent="."]
+
+[node name="CryoStation" type="Spatial" parent="Stations"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 0, -9 )
+
+[node name="Pad" type="CSGBox" parent="Stations/CryoStation"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0 )
+use_collision = true
+collision_layer = 64
+width = 7.0
+height = 0.1
+depth = 7.0
+material = SubResource( 1 )
+
+[node name="CryoStation" parent="Stations/CryoStation" instance=ExtResource( 4 )]
+
+[node name="PlasmaStation" type="Spatial" parent="Stations"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, -9 )
+
+[node name="Pad" type="CSGBox" parent="Stations/PlasmaStation"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0 )
+use_collision = true
+collision_layer = 64
+width = 7.0
+height = 0.1
+depth = 7.0
+material = SubResource( 2 )
+
+[node name="PlasmaStation" parent="Stations/PlasmaStation" instance=ExtResource( 6 )]
+
+[node name="AtmoStation" type="Spatial" parent="Stations"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 9 )
+
+[node name="Pad" type="CSGBox" parent="Stations/AtmoStation"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0 )
+use_collision = true
+collision_layer = 64
+width = 7.0
+height = 0.1
+depth = 7.0
+material = SubResource( 3 )
+
+[node name="AtmoStation" parent="Stations/AtmoStation" instance=ExtResource( 7 )]
+
+[node name="AuxPowerStation" type="Spatial" parent="Stations"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 0, 9 )
+
+[node name="Pad" type="CSGBox" parent="Stations/AuxPowerStation"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0 )
+use_collision = true
+collision_layer = 64
+width = 7.0
+height = 0.1
+depth = 7.0
+material = SubResource( 4 )
+
+[node name="AuxPowerStation" parent="Stations/AuxPowerStation" instance=ExtResource( 5 )]
+
+[node name="Pilot" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )

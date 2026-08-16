@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode depth_draw_opaque, cull_disabled, unshaded, shadows_disabled, ambient_light_disabled;
+render_mode depth_draw_alpha_prepass, cull_disabled, unshaded, shadows_disabled, ambient_light_disabled;
 
 uniform sampler2D smoke_atlas : hint_albedo;
 uniform int atlas_columns = 8;
@@ -94,7 +94,10 @@ void fragment() {
 			discard;
 		}
 	} else {
-		if (alpha < 0.5) {
+		// Sin dither la transparencia es real: solo se descarta lo practicamente
+		// invisible. Con el corte en 0.5 las nubes salian opacas, que es justo lo
+		// que el dither trataba de evitar por otro camino.
+		if (alpha < 0.02) {
 			discard;
 		}
 	}

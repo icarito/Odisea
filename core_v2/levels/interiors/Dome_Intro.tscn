@@ -2038,9 +2038,9 @@ environment_mode = 1
 light_data = ExtResource( 5 )
 
 [node name="ReflectionProbe" type="ReflectionProbe" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 14, 0 )
 portal_mode = 1
-extents = Vector3( 12, 12, 12 )
+extents = Vector3( 14, 14, 14 )
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]

@@ -1,13 +1,13 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://core_v2/props/pipe/PipeValve.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=2]
 [ext_resource path="res://core_v2/props/pipe/ValveWheel.tres" type="Material" id=3]
 
 [sub_resource type="CylinderMesh" id=1]
-top_radius = 0.4
-bottom_radius = 0.4
-height = 0.1
+top_radius = 0.12
+bottom_radius = 0.12
+height = 0.12
 
 [sub_resource type="CylinderMesh" id=2]
 top_radius = 0.05
@@ -22,6 +22,19 @@ height = 0.1
 radius = 0.1
 height = 0.4
 
+[sub_resource type="CubeMesh" id=5]
+size = Vector3( 0.74, 0.05, 0.05 )
+
+[sub_resource type="CylinderMesh" id=6]
+top_radius = 0.075
+bottom_radius = 0.075
+height = 0.3
+
+[sub_resource type="SpatialMaterial" id=7]
+albedo_color = Color( 0.93, 0.87, 0.55, 1 )
+metallic = 0.2
+roughness = 0.45
+
 [node name="PipeValve" type="Spatial"]
 script = ExtResource( 1 )
 interaction_text = "Turn Valve"
@@ -33,18 +46,48 @@ transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0
 mesh = SubResource( 1 )
 material/0 = ExtResource( 3 )
 
+[node name="Spoke1" type="MeshInstance" parent="Wheel"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.15 )
+mesh = SubResource( 5 )
+material/0 = ExtResource( 3 )
+
+[node name="Spoke2" type="MeshInstance" parent="Wheel"]
+transform = Transform( 0.5, 0.866025, 0, -0.866025, 0.5, 0, 0, 0, 1, 0, 0, 0.15 )
+mesh = SubResource( 5 )
+material/0 = ExtResource( 3 )
+
+[node name="Spoke3" type="MeshInstance" parent="Wheel"]
+transform = Transform( -0.5, 0.866025, 0, -0.866025, -0.5, 0, 0, 0, 1, 0, 0, 0.15 )
+mesh = SubResource( 5 )
+material/0 = ExtResource( 3 )
+
+[node name="Rim" type="CSGTorus" parent="Wheel"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.15 )
+inner_radius = 0.33
+outer_radius = 0.4
+sides = 16
+ring_sides = 6
+material = ExtResource( 3 )
+
+[node name="Handle" type="MeshInstance" parent="Wheel"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0.365, 0, 0.24 )
+mesh = SubResource( 6 )
+material/0 = SubResource( 7 )
+
 [node name="StemMesh" type="MeshInstance" parent="Wheel"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.075 )
 mesh = SubResource( 2 )
 material/0 = ExtResource( 2 )
 
 [node name="StaticBody" type="StaticBody" parent="Wheel"]
+collision_layer = 64
 
 [node name="CollisionShape" type="CollisionShape" parent="Wheel/StaticBody"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.15 )
 shape = SubResource( 3 )
 
 [node name="BaseStaticBody" type="StaticBody" parent="."]
+collision_layer = 64
 
 [node name="CollisionShape" type="CollisionShape" parent="BaseStaticBody"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )

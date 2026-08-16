@@ -33,6 +33,8 @@ const MAX_LOGIC_STEPS = 100
 func _ready():
     if not is_in_group("olcs_manager"):
         add_to_group("olcs_manager")
+    if not is_in_group("replay_sync"):
+        add_to_group("replay_sync")
     if circuit_data:
         _build_runtime_logic()
         if auto_build_cables:
@@ -129,6 +131,15 @@ func _build_runtime_logic():
 					# Initialize state from prop
 					if node.get("is_active"):
 						r_data.state = true
+		else:
+			# Una GATE puede declarar scene_path para tener presencia física: una caja
+			# de empalmes en la pared. No cambia su lógica (solo los PROP reciben
+			# set_active), pero le da un ancla real y así los cables de sus conexiones
+			# se pueden dibujar. Sin esto, toda conexión que toca una compuerta queda
+			# sin cable, porque _get_node_instance no resuelve nada.
+			var gate_path = n_data.get("scene_path", NodePath())
+			if gate_path and not gate_path.is_empty():
+				r_data.ref = get_node_or_null(gate_path)
 
 		_runtime_nodes[id] = r_data
 
@@ -238,6 +249,106 @@ func _evaluate_gate(type: String, inputs: Dictionary) -> bool:
 				return not values[0]
 			return true
 	return false
+
+# --- REPLAY / SNAPSHOT SYSTEM ---
+
+func get_snapshot() -> Dictionary:
+	var runtime_nodes_snap := {}
+	for node_id in _runtime_nodes:
+		var r_data: Dictionary = _runtime_nodes[node_id]
+		runtime_nodes_snap[node_id] = {
+			"state": bool(r_data.get("state", false)),
+			"inputs": r_data.get("inputs", {}).duplicate(true)
+		}
+
+	var input_q_snap := []
+	for item in _input_queue:
+		if item is Dictionary:
+			input_q_snap.append({
+				"target": String(item.get("target", "")),
+				"input": String(item.get("input", "")),
+				"value": bool(item.get("value", false))
+			})
+
+	var output_q_snap := []
+	for item in _output_queue:
+		if item is Dictionary:
+			output_q_snap.append({
+				"source": String(item.get("source", "")),
+				"value": bool(item.get("value", false)),
+				"delay": float(item.get("delay", 0.0))
+			})
+
+	return {
+		"runtime_nodes": runtime_nodes_snap,
+		"input_queue": input_q_snap,
+		"output_queue": output_q_snap
+	}
+
+func restore_snapshot(data: Dictionary) -> void:
+	if not data is Dictionary:
+		return
+
+	if _runtime_nodes.empty() and circuit_data:
+		_build_runtime_logic()
+
+	var runtime_nodes_snap: Dictionary = data.get("runtime_nodes", {})
+	for node_id in runtime_nodes_snap:
+		if not _runtime_nodes.has(node_id):
+			continue
+		var n_snap: Dictionary = runtime_nodes_snap[node_id]
+		if not n_snap is Dictionary:
+			continue
+
+		var r_data: Dictionary = _runtime_nodes[node_id]
+		if n_snap.has("state"):
+			r_data["state"] = bool(n_snap["state"])
+		if n_snap.has("inputs") and n_snap["inputs"] is Dictionary:
+			r_data["inputs"] = n_snap["inputs"].duplicate(true)
+
+		# Re-apply state to props
+		if r_data.get("type", "") == "PROP":
+			var ref = r_data.get("ref", null)
+			if is_instance_valid(ref) and ref.has_method("set_active"):
+				ref.set_active(r_data["state"])
+
+	# Restore input queue
+	_input_queue.clear()
+	var input_q_snap: Array = data.get("input_queue", [])
+	for item in input_q_snap:
+		if item is Dictionary:
+			_input_queue.append({
+				"target": String(item.get("target", "")),
+				"input": String(item.get("input", "")),
+				"value": bool(item.get("value", false))
+			})
+
+	# Restore output queue with remaining delays
+	_output_queue.clear()
+	var output_q_snap: Array = data.get("output_queue", [])
+	for item in output_q_snap:
+		if item is Dictionary:
+			_output_queue.append({
+				"source": String(item.get("source", "")),
+				"value": bool(item.get("value", false)),
+				"delay": float(item.get("delay", 0.0))
+			})
+
+	# Reflect state to existing cables without regenerating
+	if circuit_data and "connections" in circuit_data:
+		for conn in circuit_data.connections:
+			if typeof(conn) != TYPE_DICTIONARY:
+				continue
+			var source_id: String = String(conn.get("from", ""))
+			if not _runtime_nodes.has(source_id):
+				continue
+			var source_state: bool = bool(_runtime_nodes[source_id].get("state", false))
+			var conn_hash: String = _get_connection_hash(conn)
+			if _cables.has(conn_hash):
+				var cable = _cables[conn_hash]
+				if is_instance_valid(cable) and cable.has_method("set_active"):
+					if not (cable.has_method("is_broken") and cable.is_broken()):
+						cable.set_active(source_state)
 
 # --- ANNA Bridge API ---
 

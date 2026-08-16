@@ -3,10 +3,16 @@ extends Spatial
 
 # core_v2/props/signage/SignagePanel.gd - Lightweight visual signage component
 
+# Color preset palette mapping:
+# warning:  Amber/orange (#FF8800) - Cautionary alerts and hazards
+# danger:   Red (#FF2200)          - Critical errors and danger zones
+# info:     Cyan (#00FFFF)         - General information and status screens
+# terminal: Green (#00FF88)        - System consoles and command prompts
+# hologram: Light cyan (#00CCFF)   - Projection displays and spatial interfaces
 const COLOR_PRESETS = {
 	"warning": Color("#FF8800"),
 	"danger": Color("#FF2200"),
-	"info": Color("#2288FF"),
+	"info": Color("#00FFFF"),
 	"terminal": Color("#00FF88"),
 	"hologram": Color("#00CCFF")
 }
@@ -14,22 +20,57 @@ const COLOR_PRESETS = {
 export(String) var text: String = "SIGNAGE" setget set_text
 export(String, "warning", "danger", "info", "terminal", "hologram", "custom") var color_preset: String = "terminal" setget set_color_preset
 export(Color) var custom_color: Color = Color.white setget set_custom_color
+# Color del texto. Con alpha < 0 usa el color del preset, que es el comportamiento previo.
+# Separarlo es lo que permite tener contraste: el mismo color pintaba la letra Y la
+# emisión del panel, así que el texto siempre quedaba del mismo tono que su fondo.
+export(Color) var text_color: Color = Color(0, 0, 0, -1) setget set_text_color
 export(float) var emission_energy: float = 1.0 setget set_emission_energy
 
+export(DynamicFont) var font: DynamicFont = null setget set_font
+export(int, 0, 256) var font_size: int = 0 setget set_font_size
+export(int, "Left", "Center", "Right") var alignment: int = Label.ALIGN_CENTER setget set_alignment
+export(int, "None", "Upper", "Lower") var case_mode: int = 0 setget set_case_mode
+export(float) var padding: float = 8.0 setget set_padding
+export(Color) var outline_color: Color = Color(0, 0, 0, 0.6) setget set_outline_color
+export(int, 0, 16) var outline_size: int = 0 setget set_outline_size
+
+export(bool) var border_enabled: bool = false setget set_border_enabled
+export(Color) var border_color: Color = Color.white setget set_border_color
+export(float) var border_width: float = 2.0 setget set_border_width
+
+export(float) var interaction_radius: float = 2.0 setget set_interaction_radius
+
+# Opacidad del fondo del letrero. Un letrero puede ser translúcido sin ser un holograma:
+# el modo holograma es aditivo y se lo come la luz de la sala. 1.0 = placa opaca.
+export(float, 0.0, 1.0) var panel_alpha: float = 1.0 setget set_panel_alpha
+# Espacio reservado a la izquierda para el icono del letrero (FD-260). Con 0 no se
+# reserva nada y el texto ocupa todo el ancho útil.
+export(float) var icon_slot_width: float = 0.0 setget set_icon_slot_width
+# Letrero legible por los dos lados. Usa el mismo shader que las pantallas del proyecto
+# (HoloGlass), que además de deshabilitar el culling voltea la textura al mirarlo desde
+# atrás: sin eso el texto se leería espejado por el reverso.
+export(bool) var double_sided: bool = false setget set_double_sided
 export(bool) var hologram_mode: bool = false setget set_hologram_mode
 export(bool) var face_player: bool = false
 export(bool) var is_interactive: bool = false setget set_is_interactive
 export(String) var interactive_hint: String = "Leer letrero"
 export(String) var interactive_text: String = "" # If empty, use 'text'
 
-export(Vector2) var viewport_size: Vector2 = Vector2(512, 256) setget set_viewport_size
+# Viewport size default matches QuadMesh 5:3 aspect ratio (1.2 x 0.72).
+# Note: Overriding viewport_size implies accepting texture stretching if aspect ratio differs.
+export(Vector2) var viewport_size: Vector2 = Vector2(512, 307) setget set_viewport_size
 
 signal signage_read(id)
 
 var _base_scale: Vector3 = Vector3.ONE
 var _time: float = 0.0
-var _material: SpatialMaterial = null
+# Material sin tipar: un letrero de una cara usa SpatialMaterial y uno de dos caras el
+# shader HoloGlass. Tipado como SpatialMaterial, el "is ShaderMaterial" ni siquiera
+# compila ("a value of type SpatialMaterial will never be an instance of ShaderMaterial")
+# y el script entero deja de cargar.
+var _material = null
 var _is_ready: bool = false
+var _viewport: Viewport = null
 
 # Compatibility with PlayerControllerV2
 var is_interactable: bool setget , get_is_interactable
@@ -48,6 +89,12 @@ func set_color_preset(v: String) -> void:
 		update_text()
 		_update_material()
 
+func set_text_color(v: Color) -> void:
+	text_color = v
+	if _is_ready:
+		update_text()
+
+
 func set_custom_color(v: Color) -> void:
 	custom_color = v
 	if color_preset == "custom" and _is_ready:
@@ -59,12 +106,105 @@ func set_emission_energy(v: float) -> void:
 	if _is_ready:
 		_update_material()
 
+func set_font(v: DynamicFont) -> void:
+	font = v
+	if _is_ready:
+		update_text()
+
+func set_font_size(v: int) -> void:
+	font_size = v
+	if _is_ready:
+		update_text()
+
+func set_alignment(v: int) -> void:
+	alignment = v
+	if _is_ready:
+		update_text()
+
+func set_case_mode(v: int) -> void:
+	case_mode = v
+	if _is_ready:
+		update_text()
+
+func set_padding(v: float) -> void:
+	padding = v
+	if _is_ready:
+		update_text()
+
+func set_outline_color(v: Color) -> void:
+	outline_color = v
+	if _is_ready:
+		update_text()
+
+func set_outline_size(v: int) -> void:
+	outline_size = v
+	if _is_ready:
+		update_text()
+
+func set_border_enabled(v: bool) -> void:
+	border_enabled = v
+	if _is_ready:
+		update_text()
+
+func set_border_color(v: Color) -> void:
+	border_color = v
+	if _is_ready:
+		update_text()
+
+func set_border_width(v: float) -> void:
+	border_width = v
+	if _is_ready:
+		update_text()
+
+func set_interaction_radius(v: float) -> void:
+	interaction_radius = v
+	if _is_ready:
+		_update_interaction_area()
+
+func set_panel_alpha(v: float) -> void:
+	panel_alpha = clamp(v, 0.0, 1.0)
+	if _is_ready:
+		update_text()
+		_update_material()
+
+
+func set_icon_slot_width(v: float) -> void:
+	icon_slot_width = max(v, 0.0)
+	if _is_ready:
+		update_text()
+
+
+func set_double_sided(v: bool) -> void:
+	double_sided = v
+	if _is_ready:
+		_rebuild_material()
+		update_text()
+		_update_material()
+
+
+func _rebuild_material() -> void:
+	"""Un letrero de dos caras necesita el shader HoloGlass; uno de una cara, el material
+	estándar. Cambiar de modo implica cambiar de material, no solo de bandera."""
+	var mesh: MeshInstance = get_node_or_null("MeshInstance")
+	if mesh == null:
+		return
+	if double_sided:
+		if not (_material is ShaderMaterial):
+			var sm := ShaderMaterial.new()
+			sm.shader = load("res://core_v2/visual/HoloGlass.shader")
+			_material = sm
+			mesh.material_override = _material
+	elif not (_material is SpatialMaterial):
+		_material = SpatialMaterial.new()
+		mesh.material_override = _material
+
+
 func set_hologram_mode(v: bool) -> void:
 	hologram_mode = v
 	if _is_ready:
 		_update_material()
 		_update_process_mode()
-		update_text() # Background transparency changes
+		update_text()
 
 func set_is_interactive(v: bool) -> void:
 	is_interactive = v
@@ -88,19 +228,45 @@ func _ready() -> void:
 			_material = SpatialMaterial.new()
 		mesh_instance.material_override = _material
 
+	# Si el letrero es de dos caras, el material tiene que ser el shader HoloGlass antes
+	# de configurarlo: son dos caminos distintos, no una bandera sobre el mismo material.
+	_rebuild_material()
 	_update_material()
 	_update_interaction_area()
 	update_text()
 	_update_process_mode()
 
+func _measure_string_size(p_font: Font, p_string: String) -> Vector2:
+	var lines = p_string.split("\n")
+	var max_w: float = 0.0
+	for line in lines:
+		var line_sz = p_font.get_string_size(line)
+		if line_sz.x > max_w:
+			max_w = line_sz.x
+	var total_h: float = lines.size() * p_font.get_height()
+	return Vector2(max_w, total_h)
+
 func update_text() -> void:
 	if not _is_ready: return
 
-	var vp = Viewport.new()
-	vp.size = viewport_size
-	vp.transparent_bg = true
-	vp.render_target_v_flip = true
-	vp.render_target_update_mode = Viewport.UPDATE_ONCE
+	if _viewport == null or not is_instance_valid(_viewport):
+		_viewport = Viewport.new()
+		_viewport.name = "_Viewport"
+		_viewport.transparent_bg = true
+		_viewport.render_target_v_flip = true
+		add_child(_viewport)
+
+	_viewport.size = viewport_size
+	_viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS if Engine.editor_hint else Viewport.UPDATE_ONCE
+	# UPDATE_ONCE dibuja UN frame, y las glifos de una DynamicFont se rasterizan recién
+	# después: ese único frame salía con el fondo y sin texto, y ya no volvía a dibujarse.
+	# Re-armar el disparo en el frame siguiente alcanza para que el texto entre.
+	if not Engine.editor_hint:
+		_viewport.call_deferred("set_render_target_update_mode", Viewport.UPDATE_ONCE)
+
+	for child in _viewport.get_children():
+		_viewport.remove_child(child)
+		child.queue_free()
 
 	var color = custom_color
 	if COLOR_PRESETS.has(color_preset):
@@ -108,78 +274,78 @@ func update_text() -> void:
 
 	var cr = ColorRect.new()
 	cr.rect_size = viewport_size
-	cr.color = Color(0, 0, 0, 1)
+	cr.color = Color(0, 0, 0, panel_alpha)
 	if hologram_mode:
 		cr.color.a = 0.2
-		# Add a border for "borde más brillante" if no text
-		if text == "":
-			var border = ReferenceRect.new()
-			border.rect_size = viewport_size
-			border.editor_only = false
-			border.border_color = color
-			border.border_width = 2.0
-			cr.add_child(border)
 
-	vp.add_child(cr)
+	_viewport.add_child(cr)
 
-	if text != "":
-		var lbl = Label.new()
-		lbl.rect_size = viewport_size
-		lbl.text = text
-		lbl.align = Label.ALIGN_CENTER
-		lbl.valign = Label.VALIGN_CENTER
-		lbl.autowrap = true
-		lbl.add_color_override("font_color", color)
+	if border_enabled or (hologram_mode and text == ""):
+		var border = ReferenceRect.new()
+		border.rect_size = viewport_size
+		border.editor_only = false
+		border.border_color = border_color if border_enabled else color
+		border.border_width = border_width
+		cr.add_child(border)
 
-		# Try to find a nice font
-		var font_path = "res://assets/fonts/terminal.ttf"
-		var alt_font_path = "res://assets/fonts/Ac437_OlivettiThin_8x16.ttf"
-		var font = null
+	var formatted_text = text
+	if case_mode == 1:
+		formatted_text = text.to_upper()
+	elif case_mode == 2:
+		formatted_text = text.to_lower()
 
-		if File.new().file_exists(font_path):
-			font = DynamicFont.new()
-			font.font_data = load(font_path)
-		elif File.new().file_exists(alt_font_path):
-			font = DynamicFont.new()
-			font.font_data = load(alt_font_path)
+	if formatted_text != "":
+		var font_to_use: DynamicFont = null
+		if font != null and font.font_data != null:
+			font_to_use = font.duplicate() as DynamicFont
+		else:
+			var default_font_path = "res://assets/fonts/SyneMono-Regular.ttf"
+			if File.new().file_exists(default_font_path):
+				font_to_use = DynamicFont.new()
+				font_to_use.font_data = load(default_font_path)
 
-		if font:
-			# Scale font to the panel height, but shrink for longer / multi-word
-			# strings so they don't clip off the edges.
-			var base_size = viewport_size.y * 0.55
-			var longest_word = 0
-			for w in text.split(" ", false):
-				longest_word = max(longest_word, w.length())
-			if longest_word > 4:
-				base_size *= 4.0 / longest_word
-			font.size = int(clamp(base_size, viewport_size.y * 0.18, viewport_size.y * 0.6))
-			lbl.add_font_override("font", font)
-		vp.add_child(lbl)
+		if font_to_use:
+			if outline_size > 0:
+				font_to_use.outline_size = outline_size
+				font_to_use.outline_color = outline_color
 
-	add_child(vp)
+			var avail_w = max(1.0, viewport_size.x - 2.0 * padding)
+			var avail_h = max(1.0, viewport_size.y - 2.0 * padding)
 
-	# Wait for rendering
-	if Engine.editor_hint:
-		vp.render_target_update_mode = Viewport.UPDATE_ALWAYS
-		# In tool mode, we can't yield(idle_frame) reliably for immediate results in _ready
-		# but since it's UPDATE_ONCE/ALWAYS it might work.
-		# We'll use a small trick to ensure it captures.
-		visual_update(vp)
-	else:
-		yield(get_tree(), "idle_frame")
-		visual_update(vp)
+			if font_size > 0:
+				font_to_use.size = font_size
+			else:
+				var low: int = 1
+				var high: int = int(avail_h)
+				var best_size: int = 1
+				while low <= high:
+					var mid: int = (low + high) / 2
+					font_to_use.size = mid
+					var measured = _measure_string_size(font_to_use, formatted_text)
+					if measured.x <= avail_w and measured.y <= avail_h:
+						best_size = mid
+						low = mid + 1
+					else:
+						high = mid - 1
+				font_to_use.size = best_size
 
-func visual_update(vp: Viewport) -> void:
-	if not is_instance_valid(vp): return
-	var tex_data = vp.get_texture().get_data()
-	var tex = ImageTexture.new()
-	tex.create_from_image(tex_data)
+			var lbl = Label.new()
+			lbl.rect_position = Vector2(padding + icon_slot_width, padding)
+			lbl.rect_size = Vector2(max(avail_w - icon_slot_width, 1.0), avail_h)
+			lbl.text = formatted_text
+			lbl.align = alignment
+			lbl.valign = Label.VALIGN_CENTER
+			lbl.autowrap = true
+			lbl.add_color_override("font_color", text_color if text_color.a >= 0.0 else color)
+			lbl.add_font_override("font", font_to_use)
+			_viewport.add_child(lbl)
 
-	if _material:
-		_material.albedo_texture = tex
-		_material.emission_texture = tex
-
-	vp.queue_free()
+	if _material is ShaderMaterial:
+		_material.set_shader_param("texture_albedo", _viewport.get_texture())
+	elif _material:
+		var vp_tex = _viewport.get_texture()
+		_material.albedo_texture = vp_tex
+		_material.emission_texture = vp_tex
 
 func _update_material() -> void:
 	if not _material: return
@@ -187,6 +353,17 @@ func _update_material() -> void:
 	var color = custom_color
 	if COLOR_PRESETS.has(color_preset):
 		color = COLOR_PRESETS[color_preset]
+
+	if _material is ShaderMaterial:
+		# HoloGlass: sin culling y volteando la textura por detrás, así el letrero se lee
+		# igual desde los dos lados en vez de desaparecer.
+		_material.set_shader_param("albedo", Color(color.r, color.g, color.b, panel_alpha))
+		_material.set_shader_param("emission_energy", emission_energy)
+		_material.set_shader_param("alpha_scissor_threshold", 0.0)
+		_material.set_shader_param("flip_v", true)
+		_material.set_shader_param("flip_h_when_viewed_from_back", true)
+		_material.set_shader_param("flip_v_when_viewed_from_back", true)
+		return
 
 	_material.emission_enabled = true
 	_material.emission = color
@@ -198,7 +375,7 @@ func _update_material() -> void:
 		_material.params_cull_mode = SpatialMaterial.CULL_DISABLED
 		_material.albedo_color = Color(1, 1, 1, 0.5)
 	else:
-		_material.flags_transparent = false
+		_material.flags_transparent = panel_alpha < 1.0
 		_material.params_blend_mode = SpatialMaterial.BLEND_MODE_MIX
 		_material.params_cull_mode = SpatialMaterial.CULL_BACK
 		_material.albedo_color = Color.white
@@ -209,6 +386,17 @@ func _update_interaction_area() -> void:
 
 	area.monitoring = is_interactive
 	area.monitorable = is_interactive
+
+	var col_shape: CollisionShape = area.get_node_or_null("CollisionShape")
+	if col_shape:
+		if not (col_shape.shape is SphereShape):
+			var sphere = SphereShape.new()
+			sphere.radius = interaction_radius
+			col_shape.shape = sphere
+		else:
+			var sphere = col_shape.shape.duplicate() as SphereShape
+			sphere.radius = interaction_radius
+			col_shape.shape = sphere
 
 	if is_interactive:
 		if not is_in_group("interactable"):
@@ -240,7 +428,9 @@ func _process(delta: float) -> void:
 		_do_face_player(delta)
 
 func _do_face_player(delta: float) -> void:
-	var cam = get_viewport().get_camera()
+	var vp = get_viewport()
+	if not vp: return
+	var cam = vp.get_camera()
 	if not cam: return
 
 	var target_pos = cam.global_transform.origin

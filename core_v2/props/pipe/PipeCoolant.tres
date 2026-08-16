@@ -1,0 +1,21 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=2]
+
+; Material de conducción con criocoolant circulando. El caño sigue siendo un caño azul
+; sólido; el refrigerante se ve como vetas que corren por dentro (EMISSION).
+; La dirección, la velocidad y la intensidad del flujo se manejan con PipeCoolantRun.gd,
+; que duplica este material por tramo — no editar los parámetros acá salvo para el default.
+
+[ext_resource path="res://core_v2/props/pipe/pipe_coolant.shader" type="Shader" id=1]
+
+[resource]
+shader = ExtResource( 1 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( 1, 0, 0 )
+shader_param/noise_scale = 1.6
+shader_param/flow_phase = 0.0
+shader_param/pipe_alpha = 0.88
+shader_param/emission_strength = 1.4
+shader_param/flow_contrast = 0.55
+shader_param/metallic_amount = 0.5
+shader_param/roughness_amount = 0.35

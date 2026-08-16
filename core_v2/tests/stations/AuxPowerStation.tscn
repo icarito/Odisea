@@ -1,0 +1,239 @@
+[gd_scene load_steps=12 format=2]
+
+; Estación de energía auxiliar (FD-259): puerta sellada + consola de respaldo
+; (lever + lectura OD-02). La lógica del ciclo de energía vive en AuxPowerBus
+; (core_v2/systems/auxpower/, aún no existe); esta escena solo la viste.
+; Arranca "sin energía": la puerta cerrada y el OD-02 parpadeando con el
+; contador propio del script (sin bus enchufado no hay nada más que mostrar).
+
+[ext_resource path="res://core_v2/tests/stations/AuxPowerStation.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/doors/HeavyBlastDoor.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/controls/LeverV2.tscn" type="PackedScene" id=3]
+[ext_resource path="res://materials/interior/IndWall.tres" type="Material" id=5]
+[ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=6]
+[ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=7]
+[ext_resource path="res://core_v2/components/InteractableBaseV2.gd" type="Script" id=8]
+[ext_resource path="res://core_v2/systems/auxpower/AuxPowerBus.gd" type="Script" id=9]
+[ext_resource path="res://core_v2/props/signage/SignagePanel.tscn" type="PackedScene" id=10]
+[ext_resource path="res://core_v2/props/signage/SignageBold.tres" type="DynamicFont" id=11]
+
+[sub_resource type="CubeMesh" id=1]
+size = Vector3( 0.35, 0.22, 0.05 )
+
+[sub_resource type="SpatialMaterial" id=2]
+resource_local_to_scene = true
+albedo_color = Color( 0.15, 0.7, 0.3, 1 )
+emission_enabled = true
+emission = Color( 0.03, 0.3, 0.1, 1 )
+emission_energy = 0.05
+
+[sub_resource type="Resource" id=3]
+script = ExtResource( 7 )
+nodes = {
+"Door": {
+"position": Vector2( 520, 60 ),
+"scene_path": NodePath("../Door/Mechanism"),
+"type": "PROP"
+},
+"Gate": {
+"gate_type": "AND",
+"position": Vector2( 300, 60 ),
+"scene_path": NodePath("../JunctionBox"),
+"type": "GATE"
+},
+"Lever": {
+"position": Vector2( 0, 140 ),
+"scene_path": NodePath("../LeverV2"),
+"type": "PROP"
+},
+"Source": {
+"position": Vector2( 0, 0 ),
+"scene_path": NodePath("../PowerSource"),
+"type": "PROP"
+}
+}
+connections = [ {
+"from": "Source",
+"from_port": 0,
+"points": [  ],
+"to": "Gate",
+"to_port": 0,
+"type": "WIRED"
+}, {
+"from": "Lever",
+"from_port": 0,
+"points": [  ],
+"to": "Gate",
+"to_port": 1,
+"type": "WIRED"
+}, {
+"from": "Gate",
+"from_port": 0,
+"points": [  ],
+"to": "Door",
+"to_port": 0,
+"type": "WIRED"
+} ]
+
+[sub_resource type="CubeMesh" id=4]
+size = Vector3( 0.5, 0.8, 0.28 )
+
+[sub_resource type="SpatialMaterial" id=5]
+resource_local_to_scene = true
+albedo_color = Color( 0.1, 0.55, 0.25, 1 )
+emission_enabled = true
+emission = Color( 0.05, 0.4, 0.15, 1 )
+emission_energy = 0.05
+
+[node name="AuxPowerStation" type="Spatial"]
+script = ExtResource( 1 )
+
+; Puerta sellada al fondo de la sala. HeavyBlastDoor no trae marco propio (a
+; diferencia de VerticalDoor, cuyo bloque de mecanismo asoma por arriba del
+; muro cuando no hay techo que lo tape); el marco lo arma esta estación con
+; tres CSGBox lisos, sin geometría flotando.
+[node name="Door" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.2 )
+
+[node name="Mechanism" parent="Door" instance=ExtResource( 2 )]
+transform = Transform( 0.62, 0, 0, 0, 0.62, 0, 0, 0, 0.62, 0, 0, 0 )
+
+[node name="FrameLeft" type="CSGBox" parent="Door"]
+collision_layer = 64
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 1.65, 0 )
+use_collision = true
+width = 1.0
+height = 3.3
+depth = 0.3
+material = ExtResource( 5 )
+
+[node name="FrameRight" type="CSGBox" parent="Door"]
+collision_layer = 64
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.8, 1.65, 0 )
+use_collision = true
+width = 1.0
+height = 3.3
+depth = 0.3
+material = ExtResource( 5 )
+
+; La hoja mide 2.48 m de alto (4 m nativos * escala 0.62); el dintel arranca
+; justo ahí para no dejar una rendija de luz sobre la puerta "sellada".
+
+[node name="FrameTop" type="CSGBox" parent="Door"]
+collision_layer = 64
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.78, 0 )
+use_collision = true
+width = 2.6
+height = 0.6
+depth = 0.3
+material = ExtResource( 5 )
+
+; Consola de respaldo: placa de montaje para el lever y el panel OD-02, cerca
+; del jugador y lejos del arco de la puerta.
+
+[node name="ConsolePlate" type="CSGBox" parent="."]
+collision_layer = 64
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0.8, 0.3 )
+use_collision = true
+width = 0.9
+height = 1.6
+depth = 0.15
+material = ExtResource( 5 )
+
+; Mirado 180° respecto a la referencia de test_lever_v2.tscn: ahí la cámara
+; miraba hacia -Z; acá el jugador entra por -Z, así que el frente del lever
+; tiene que apuntar hacia -Z también.
+
+[node name="LeverV2" parent="." instance=ExtResource( 3 )]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, -2, 1.1, 0.2 )
+
+; Fuente de energia: el gabinete de respaldo del sector. Es el origen del circuito,
+; no un interactuable — el jugador no lo toca, lo alimenta el AuxPowerBus. Sin el, la
+; palanca no abre nada: esa es la regla que el AND vuelve legible.
+[node name="PowerSource" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.2, 0.75, 0.3 )
+script = ExtResource( 8 )
+is_interactable = false
+starts_active = false
+
+[node name="Cabinet" type="CSGBox" parent="PowerSource"]
+collision_layer = 64
+use_collision = true
+width = 0.7
+height = 1.5
+depth = 0.4
+material = ExtResource( 5 )
+
+[node name="Readout" type="MeshInstance" parent="PowerSource"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, -0.22 )
+mesh = SubResource( 4 )
+material/0 = SubResource( 5 )
+
+; El respaldo del sector. Arranca sin energía: hasta que alguien la restaure, la palanca
+; no abre nada. Es el estado que hay que poder leer sin texto (FD-259 §3).
+[node name="AuxPowerBus" type="Spatial" parent="."]
+script = ExtResource( 9 )
+starts_offline = true
+restore_duration = 2.5
+flicker_period = 0.8
+
+; Caja de empalmes: el cuerpo físico de la compuerta AND. La energía de la fuente y la
+; orden de la palanca entran acá, y de acá sale la línea que manda a la puerta.
+[node name="JunctionBox" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 1.95, 2.0 )
+
+[node name="Box" type="CSGBox" parent="JunctionBox"]
+use_collision = true
+collision_layer = 64
+width = 0.42
+height = 0.42
+depth = 0.22
+material = ExtResource( 5 )
+
+[node name="CableAnchor" type="Position3D" parent="JunctionBox"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.22, -0.14 )
+
+[node name="CableAnchor" type="Position3D" parent="PowerSource"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3, 0.6, -0.1 )
+
+[node name="CableAnchor" type="Position3D" parent="LeverV2"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -0.1 )
+
+[node name="CableAnchor" type="Position3D" parent="Door/Mechanism"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, 4.3, -0.25 )
+
+; Los cables los genera el propio manager entre las conexiones WIRED del grafo.
+[node name="Circuit" type="Spatial" parent="."]
+script = ExtResource( 6 )
+circuit_data = SubResource( 3 )
+auto_build_cables = true
+
+; Rótulo del respaldo. El OD02Panel de al lado es la lectura que parpadea; este cartel
+; dice qué es esa lectura, que hasta ahora había que adivinar.
+; groups=["no_occlusion"]: un cartel es información, no un obstáculo. Sin esto el
+; PropDitherManager le reemplaza su material por el de oclusión y el panel pierde el
+; texto del viewport, quedando en el color plano del preset.
+[node name="BusSign" parent="." groups=[
+"no_occlusion",
+] instance=ExtResource( 10 )]
+transform = Transform( 0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -2, 2.05, 0.34 )
+text = "OD-02 RESPALDO"
+color_preset = "terminal"
+text_color = Color( 0.92, 1, 0.95, 1 )
+panel_alpha = 0.35
+double_sided = true
+alignment = 0
+font = ExtResource( 11 )
+font_size = 0
+case_mode = 1
+outline_size = 3
+outline_color = Color( 0, 0, 0, 0.9 )
+border_enabled = true
+border_color = Color( 0, 1, 0.53, 1 )
+border_width = 10.0
+emission_energy = 1.6
+
+[node name="OD02Panel" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1.5, 0.2 )
+mesh = SubResource( 1 )
+material/0 = SubResource( 2 )

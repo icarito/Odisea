@@ -166,7 +166,9 @@ TOTAL_FAILURES=0
 
 if [ -n "$TARGET_PROP" ]; then
     echo "🔍 Searching for '$TARGET_PROP'..."
-    PROP_PATH=$(find "$PROP_DIR" -name "${TARGET_PROP}.tscn" | head -n 1)
+    # Los efectos visuales (core_v2/visual/) y las estaciones de sistema
+    # (core_v2/tests/stations/) no viven en props/, pero se iteran con el mismo lazo.
+    PROP_PATH=$(find "$PROP_DIR" ./core_v2/visual ./core_v2/tests/stations -name "${TARGET_PROP}.tscn" 2>/dev/null | head -n 1)
 
     if [ -z "$PROP_PATH" ]; then
         echo "❌ Error: Prop '$TARGET_PROP.tscn' not found in $PROP_DIR"

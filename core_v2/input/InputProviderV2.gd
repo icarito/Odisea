@@ -178,6 +178,7 @@ func _read_live_input() -> InputDataV2:
 		d.sprint = _action_pressed("run")
 		d.crouch = _action_pressed("crouch")
 		d.interact = _action_just_pressed("interact")
+		d.interact_held = _action_pressed("interact")
 		d.focus = _action_just_pressed("focus")
 		d.rotate_left = _action_pressed("rotate_left")
 		d.rotate_right = _action_pressed("rotate_right")

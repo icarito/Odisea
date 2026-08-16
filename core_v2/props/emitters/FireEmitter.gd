@@ -11,10 +11,21 @@ export(float) var tick_interval: float = 0.5
 export(float) var emission_radius: float = 0.5
 export(int) var particles_per_second: float = 30
 export(float) var emission_height: float = 1.5
+# Velocidad local inicial de las particulas. Vector3.ZERO mantiene el fuego vertical por defecto.
+export(Vector3) var jet_velocity: Vector3 = Vector3.ZERO
+# Velocidad hacia afuera desde el punto de emisión. Con 0 el penacho solo sigue
+# jet_velocity y la gravedad del manager; con valor, las partículas irradian, que es
+# como se lee una descarga en vez de una llama.
+export(float) var radial_speed: float = 0.0
+# Rango de color del penacho. Con alpha < 0 se usa el color del manager. Con dos tintes,
+# cada partícula toma uno intermedio: un plasma no es de un solo color plano.
+export(Color) var tint_a: Color = Color(0, 0, 0, -1)
+export(Color) var tint_b: Color = Color(0, 0, 0, -1)
 
 var _tick_timer: float = 0.0
 var _spawn_timer: float = 0.0
 var _player_body: Node = null
+var _emit_counter: int = 0
 
 onready var _manager: GasParticleManager = get_node_or_null("GasParticleManager")
 onready var _collision_shape: CollisionShape = get_node_or_null("CollisionShape")
@@ -28,7 +39,7 @@ func _ready():
 	if _collision_shape:
 		_collision_shape.disabled = not is_active
 
-func _process(delta: float):
+func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
 
@@ -46,13 +57,36 @@ func _process(delta: float):
 			emit_signal("damage_tick", damage_per_tick)
 
 func _spawn_flame_particle() -> void:
+	_emit_counter += 1
 	var offset := Vector3(
-		(randf() - 0.5) * emission_radius,
+		(_hashed_unit(_emit_counter) - 0.5) * emission_radius,
 		emission_height,
-		(randf() - 0.5) * emission_radius
+		(_hashed_unit(_emit_counter + 7919) - 0.5) * emission_radius
 	)
-	var index := _manager.emit_particle(offset)
+	var velocity := jet_velocity
+	if radial_speed != 0.0:
+		# Dirección derivada del propio offset: determinista, sin randf.
+		var outward := Vector3(offset.x, 0.0, offset.z)
+		if outward.length() > 0.0001:
+			outward = outward.normalized()
+		else:
+			outward = Vector3(1, 0, 0)
+		outward.y = (_hashed_unit(_emit_counter + 3571) - 0.35)
+		velocity += outward.normalized() * radial_speed
+	var tint := Color(0, 0, 0, -1)
+	if tint_a.a >= 0.0 and tint_b.a >= 0.0:
+		tint = tint_a.linear_interpolate(tint_b, _hashed_unit(_emit_counter + 104729))
+	var index := _manager.emit_particle(offset, velocity, -1.0, -1.0, tint)
 	_manager.set_particle_combustion(index, true)
+
+func _hashed_unit(index: int) -> float:
+	var h := int(index) & 0x7fffffff
+	h = ((h >> 15) ^ h) * 0x2c1b3c6d
+	h = h & 0x7fffffff
+	h = ((h >> 12) ^ h) * 0x297a2d39
+	h = h & 0x7fffffff
+	h = (h >> 15) ^ h
+	return float(h & 0x7fffffff) / 2147483647.0
 
 func _on_body_entered(body: Node):
 	if body.is_in_group("player"):
@@ -98,6 +132,7 @@ func get_snapshot() -> Dictionary:
 		"is_active": is_active,
 		"tick_timer": _tick_timer,
 		"spawn_timer": _spawn_timer,
+		"emit_counter": _emit_counter,
 		"manager": _manager.get_snapshot() if _manager else {}
 	}
 
@@ -105,6 +140,7 @@ func restore_snapshot(data: Dictionary):
 	is_active = data.get("is_active", true)
 	_tick_timer = data.get("tick_timer", 0.0)
 	_spawn_timer = data.get("spawn_timer", 0.0)
+	_emit_counter = int(data.get("emit_counter", 0))
 
 	_set_visuals_active(is_active)
 	if _collision_shape:

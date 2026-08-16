@@ -1,4 +1,4 @@
-# FD-043: Dynamic Gas & Fluid Puzzles (Simplified)
+# FD-045: Dynamic Gas & Fluid Puzzles (Simplified)
 
 **Status:** Design
 **Priority:** Medium

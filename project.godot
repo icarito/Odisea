@@ -139,6 +139,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/ui/retro/app_registry.gd"
 }, {
+"base": "Spatial",
+"class": "AuxPowerBus",
+"language": "GDScript",
+"path": "res://core_v2/systems/auxpower/AuxPowerBus.gd"
+}, {
+"base": "Reference",
+"class": "AuxPowerSequence",
+"language": "GDScript",
+"path": "res://core_v2/systems/circuit/examples/AuxPowerSequence.gd"
+}, {
 "base": "Area",
 "class": "BGMZoneV2",
 "language": "GDScript",
@@ -153,6 +163,11 @@ _global_script_classes=[ {
 "class": "BaseZoneV2",
 "language": "GDScript",
 "path": "res://core_v2/components/BaseZoneV2.gd"
+}, {
+"base": "Spatial",
+"class": "BlowoutImpulse",
+"language": "GDScript",
+"path": "res://core_v2/systems/atmosphere/BlowoutImpulse.gd"
 }, {
 "base": "ValueProvider",
 "class": "CallBackValueProvider",
@@ -278,6 +293,21 @@ _global_script_classes=[ {
 "class": "ControllerManager",
 "language": "GDScript",
 "path": "res://core_v2/player/ControllerManager.gd"
+}, {
+"base": "Spatial",
+"class": "CoolantFogAdapter",
+"language": "GDScript",
+"path": "res://core_v2/systems/cryo/CoolantFogAdapter.gd"
+}, {
+"base": "Spatial",
+"class": "CoolantLeak",
+"language": "GDScript",
+"path": "res://core_v2/systems/cryo/CoolantLeak.gd"
+}, {
+"base": "Spatial",
+"class": "CryoVentBase",
+"language": "GDScript",
+"path": "res://core_v2/visual/cryo_vent/CryoVentBase.gd"
 }, {
 "base": "Spatial",
 "class": "CylinderRotator",
@@ -985,6 +1015,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/things/HelmetHUDV2.gd"
 }, {
 "base": "InteractableBaseV2",
+"class": "HoldInteractableV2",
+"language": "GDScript",
+"path": "res://core_v2/components/HoldInteractableV2.gd"
+}, {
+"base": "InteractableBaseV2",
 "class": "HoloTerminalV2",
 "language": "GDScript",
 "path": "res://core_v2/things/HoloTerminalV2.gd"
@@ -1329,15 +1364,25 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/actors/PilotAnimatorV2.gd"
 }, {
+"base": "Spatial",
+"class": "PipeCoolantRun",
+"language": "GDScript",
+"path": "res://core_v2/props/pipe/PipeCoolantRun.gd"
+}, {
 "base": "InteractableBaseV2",
 "class": "PipeValve",
 "language": "GDScript",
 "path": "res://core_v2/props/pipe/PipeValve.gd"
 }, {
 "base": "Spatial",
-"class": "PlasmaExhaustBase",
+"class": "PlasmaConduit",
 "language": "GDScript",
-"path": "res://core_v2/visual/plasma_exhaust/PlasmaExhaustBase.gd"
+"path": "res://core_v2/systems/plasma/PlasmaConduit.gd"
+}, {
+"base": "Spatial",
+"class": "PlasmaRoute",
+"language": "GDScript",
+"path": "res://core_v2/systems/plasma/PlasmaRoute.gd"
 }, {
 "base": "Spatial",
 "class": "PlateContentStream",
@@ -1364,6 +1409,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/PressurePlateV2.gd"
 }, {
+"base": "HoldInteractableV2",
+"class": "PressurePump",
+"language": "GDScript",
+"path": "res://core_v2/props/controls/PressurePump.gd"
+}, {
+"base": "Spatial",
+"class": "PressureSection",
+"language": "GDScript",
+"path": "res://core_v2/systems/atmosphere/PressureSection.gd"
+}, {
 "base": "CanvasLayer",
 "class": "PrologueDirector",
 "language": "GDScript",
@@ -1388,6 +1443,16 @@ _global_script_classes=[ {
 "class": "ProximityTriggerV2",
 "language": "GDScript",
 "path": "res://core_v2/components/ProximityTriggerV2.gd"
+}, {
+"base": "Spatial",
+"class": "PurgeDial",
+"language": "GDScript",
+"path": "res://core_v2/systems/atmosphere/PurgeDial.gd"
+}, {
+"base": "HoldInteractableV2",
+"class": "PurgeTuner",
+"language": "GDScript",
+"path": "res://core_v2/props/controls/PurgeTuner.gd"
 }, {
 "base": "InteractableBaseV2",
 "class": "PushButtonV2",
@@ -1703,6 +1768,11 @@ _global_script_classes=[ {
 "class": "SciFiWorkLightV2",
 "language": "GDScript",
 "path": "res://core_v2/props/scifi_lights/SciFiWorkLightV2.gd"
+}, {
+"base": "Spatial",
+"class": "SealedDoorLock",
+"language": "GDScript",
+"path": "res://core_v2/systems/auxpower/SealedDoorLock.gd"
 }, {
 "base": "PropBaseV2",
 "class": "SearchLightV2",
@@ -2031,9 +2101,12 @@ _global_script_class_icons={
 "AnyBuildInTypeArgumentMatcher": "",
 "AnyClazzArgumentMatcher": "",
 "AppRegistry": "",
+"AuxPowerBus": "",
+"AuxPowerSequence": "",
 "BGMZoneV2": "",
 "BackForthMovement": "",
 "BaseZoneV2": "",
+"BlowoutImpulse": "",
 "CallBackValueProvider": "",
 "Callable": "",
 "CameraInspectorPlugin": "",
@@ -2059,6 +2132,9 @@ _global_script_class_icons={
 "Comparator": "",
 "ContinuousRotatorV2": "",
 "ControllerManager": "",
+"CoolantFogAdapter": "",
+"CoolantLeak": "",
+"CryoVentBase": "",
 "CylinderRotator": "",
 "CylindricalInteriorCollider": "",
 "DefaultValueProvider": "",
@@ -2200,6 +2276,7 @@ _global_script_class_icons={
 "GripPoint": "",
 "HazardTape": "",
 "HelmetHUDV2": "",
+"HoldInteractableV2": "",
 "HoloTerminalV2": "",
 "ISensor2D": "",
 "ISensor3D": "",
@@ -2269,18 +2346,24 @@ _global_script_class_icons={
 "PhysicsBall": "",
 "PhysicsEntity": "",
 "PilotAnimatorV2": "",
+"PipeCoolantRun": "",
 "PipeValve": "",
-"PlasmaExhaustBase": "",
+"PlasmaConduit": "",
+"PlasmaRoute": "",
 "PlateContentStream": "",
 "PlateSlotConfig": "",
 "PlayerUISettings": "",
 "PluginButton": "",
 "PressurePlateV2": "",
+"PressurePump": "",
+"PressureSection": "",
 "PrologueDirector": "",
 "PropBaseV2": "",
 "PropDestroyerArea": "",
 "PropEmitterArea": "",
 "ProximityTriggerV2": "",
+"PurgeDial": "",
+"PurgeTuner": "",
 "PushButtonV2": "",
 "PushableBoxV2": "",
 "QodotDependencies": "",
@@ -2344,6 +2427,7 @@ _global_script_class_icons={
 "SciFiSphereLightV2": "",
 "SciFiStaticLightV2": "",
 "SciFiWorkLightV2": "",
+"SealedDoorLock": "",
 "SearchLightV2": "",
 "SecurityCameraV2": "",
 "Shake": "",
@@ -2478,7 +2562,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/PolyHavenImport/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg" )
 
 [gdunit3]
 
