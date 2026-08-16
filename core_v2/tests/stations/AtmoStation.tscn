@@ -213,19 +213,20 @@ light_activation_distance = 10.0
 [node name="SectorSign" parent="." groups=[
 "no_occlusion",
 ] instance=ExtResource( 22 )]
-transform = Transform( 1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, -2.15, 2.5, -0.3 )
-face_player = true
+transform = Transform( -0.78, 0, -6.8e-08, 0, 0.78, 0, 6.8e-08, 0, -0.78, -2.15, 2.1, -0.45 )
 text = "PRESION SECTOR 04"
-color_preset = "warning"
-text_color = Color( 1, 0.98, 0.94, 1 )
+hologram_mode = true
+color_preset = "hologram"
+text_color = Color( 0.75, 0.97, 1, 1 )
 font = ExtResource( 23 )
 font_size = 0
 case_mode = 1
-outline_size = 5
-outline_color = Color( 0, 0, 0, 1 )
+outline_size = 3
+outline_color = Color( 0, 0.16, 0.22, 0.8 )
 border_enabled = true
-border_width = 6.0
-emission_energy = 1.6
+border_color = Color( 0, 0.83, 1, 0.75 )
+border_width = 4.0
+emission_energy = 3.0
 
 [node name="Console" type="CSGBox" parent="."]
 collision_layer = 64
