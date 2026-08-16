@@ -130,6 +130,14 @@ func _scan_node(node: Node) -> void:
 		var co := node as CollisionObject
 		if co.collision_layer & PROP_LAYER_BIT and not co.is_in_group("player"):
 			_process_collision_object(co)
+	elif node is CSGShape:
+		# Un prop hecho enteramente de CSG no tiene ningun CollisionObject en el arbol:
+		# su colision es interna. El scan pasaba de largo y esos props quedaban solidos
+		# entre camara y jugador mientras todo lo demas se difuminaba. Consolas, marcos,
+		# collares y gabinetes de las salas de sistemas son exactamente eso.
+		var csg := node as CSGShape
+		if csg.use_collision and (csg.collision_layer & PROP_LAYER_BIT):
+			_convert_meshes_recursive(_get_occlusion_root_for_node(csg))
 
 	for child in node.get_children():
 		_scan_node(child)
@@ -163,6 +171,19 @@ func _is_under_qodot_map(node: Node) -> bool:
 			return true
 		current = current.get_parent()
 	return false
+
+
+func _get_occlusion_root_for_node(node: Node) -> Node:
+	"""Misma idea que para un CollisionObject: subir al prop, no quedarse en la pieza.
+	Un CSG suelto suele colgar de un Spatial que agrupa la pieza entera."""
+	if _has_mesh_descendant(node):
+		return node
+	var parent := node.get_parent()
+	if parent == null or parent is Viewport:
+		return node
+	if parent.get_class() == "QodotSpatial":
+		return node
+	return parent
 
 
 func _get_occlusion_root_for_collision_object(co: CollisionObject) -> Node:
