@@ -106,11 +106,11 @@ Usar tres capas separadas:
 | FD-242 | DDC Drone + Sigilo Básico | Design | Medium | P0 |
 | FD-243 | Diálogo Odisea y Lore Pickup | Planned | Large | P1 |
 | FD-244 | Multi-Tool — Láser + Gloo Gun | Design | Medium | P0 |
-| FD-255 | Los 4 Sistemas de la Nave (maestro) | Design | Medium | P0 |
-| FD-256 | Sistema Criocoolant (CryoVent) | Design | Small | P0 |
-| FD-257 | Sistema Plasma | Design | Small | P0 |
-| FD-258 | Sistema Atmósfera (Presión) | Design | Small | P0 |
-| FD-259 | Sistema Energía Auxiliar | Design | Small | P0 |
+| FD-255 | Los 4 Sistemas de la Nave (maestro) | Implemented | Medium | P0 |
+| FD-256 | Sistema Criocoolant (CryoVent) | Implemented | Small | P0 |
+| FD-257 | Sistema Plasma | Implemented | Small | P0 |
+| FD-258 | Sistema Atmósfera (Presión) | Implemented | Small | P0 |
+| FD-259 | Sistema Energía Auxiliar | Implemented | Small | P0 |
 
 ## Completed / Archived
 

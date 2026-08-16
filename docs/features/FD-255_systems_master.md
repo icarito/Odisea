@@ -1,6 +1,6 @@
 # FD-255: Los 4 Sistemas de la Nave — Documento Maestro
 
-**Status:** Design
+**Status:** Implemented — los cuatro sistemas viven en el taller; guía en [`docs/systems/four-ship-systems.md`](../systems/four-ship-systems.md)
 **Priority:** High
 **Effort:** Medium
 **Created:** 2026-08-15
@@ -193,9 +193,9 @@ encima y se itera en vivo.
 
 | # | Tarea | Ejecutor | Depende de | Estado |
 |---|---|---|---|---|
-| H1 | Balance de niebla: densidad, cuánto ciega, tiempo de disipación | HUMANO | L4 | pendiente |
-| H2 | Legibilidad de energía: ¿se entiende sin texto que hay que restaurarla? | HUMANO | L5 | pendiente |
-| H3 | Legibilidad de presión: ¿se entiende parpadeo → chispa → purga sin texto? | HUMANO | L7 | pendiente |
+| H1 | Balance de niebla: densidad, cuánto ciega, tiempo de disipación | HUMANO | L4 | hecho · calibrado en vivo (`particle_scale`, `particles_at_full`, `fill_duration`) |
+| H2 | Legibilidad de energía: ¿se entiende sin texto que hay que restaurarla? | HUMANO | L5 | hecho · el `AND` del grafo se lee con los cables amarillos a la vista |
+| H3 | Legibilidad de presión: ¿se entiende parpadeo → chispa → purga sin texto? | HUMANO | L7 | hecho · hizo falta que el estallido **empujara** (ver Decisión 8) |
 
 Reglas de corte aplicadas: ninguna tarea de Jules toca escenas (`.tscn`), `project.godot` ni
 archivos de otra sesión; J3 **consume** la API de `GasArea3D` mientras J2 lo edita, sin
@@ -232,3 +232,38 @@ solo cambio de estado ni un milímetro de desplazamiento.
 
 **Regla que sale de acá:** un comportamiento "espontáneo" observado en una sesión headful no es
 evidencia de nada hasta reproducirlo en `--headless`. La ventana con foco es un jugador más.
+
+
+---
+
+## Segunda vuelta: la pasada visual (2026-08-15)
+
+Los cuatro sistemas quedaron deterministas y testeados en la primera tanda, pero **ninguno se
+leía** al jugarlo. Lo que siguió fue un lazo largo de iteración en vivo — Sebastián jugando y
+opinando captura por captura — y de ahí salieron decisiones que no estaban en el plan:
+
+8. **Una señal que nadie escucha no es una amenaza.** `blowout(radius, force)` se emitía
+   correctamente y no pasaba nada: el manómetro daba vueltas para siempre. `BlowoutImpulse`
+   le puso cuerpo — ráfaga de partículas y empuje real al jugador y a los cuerpos rígidos.
+   Detalle que costó: `PushableBoxV2` vive en `MODE_KINEMATIC`, así que hay que despertarlo y
+   aplicar el impulso **al frame de física siguiente**; en el mismo frame se pierde.
+9. **Hacía falta un input nuevo.** Presurizar pide sostener, no conmutar. De ahí sale
+   `HoldInteractableV2` (+ `interact_held` serializado en `InputDataV2`), que ya no es de este
+   FD: sirve para resortes y cualquier mecanismo con esfuerzo sostenido.
+10. **Los props van a la capa 7 (Prop).** La cámara enmascara 129 (Entorno + CameraCollision),
+    así que en capa 7 el spring arm deja de saltar al pasar junto a una tubería — y encima
+    entran al oclusor por dither, que solo escanea `collision_layer & 64`.
+11. **El plasma se muestrea en mundo, no en UV.** La UV va de 0 a 1 en *cada* tramo: partía el
+    patrón en cada unión. En coordenadas de mundo, comprimidas a lo largo del eje del caño,
+    los filamentos cruzan las uniones sin costura.
+12. **Sin caudal no hay nada que escapar.** Cerrar las dos válvulas frena las vetas, congela el
+    color del núcleo y apaga la fuga y la barrera — pero **no repara**: el conduit sigue su
+    ciclo y al reabrir el chorro vuelve. Redirigir sigue siendo cerrar A y abrir B.
+13. **Un codo curvo no salió gratis.** Godot 3 no tiene malla de toro con arco parcial, y armar
+    la curva con gajos rectos falla porque el shader de caño usa `blend_mix`: el material es
+    transparente aunque el alfa sea 1.0, y seis gajos interpenetrados se ordenan mal entre sí.
+    La esquina la resuelve una esfera negra opaca, la misma pieza de fontanería que los collares.
+
+**Lo que sigue abierto:** el ramal sano del plasma se lee corto y sin destino; la barrera de daño
+sigue siendo un `FireEmitter`, que arrastra vocabulario de incendio; y la sala de atmósfera no
+tiene todavía nada que la explosión pueda alterar — eso pide un nivel real, no una plataforma.
