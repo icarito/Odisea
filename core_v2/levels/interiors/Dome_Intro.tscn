@@ -1,4 +1,4 @@
-[gd_scene load_steps=126 format=2]
+[gd_scene load_steps=136 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
@@ -98,6 +98,16 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods6_glass.mesh" type="ArrayMesh" id=363]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_Criopods6_cards.mesh" type="ArrayMesh" id=364]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_BakeLights.tscn" type="PackedScene" id=366]
+[ext_resource path="res://core_v2/props/signage/SignagePanel.tscn" type="PackedScene" id=367]
+[ext_resource path="res://core_v2/props/pipe/PipeSection.tscn" type="PackedScene" id=368]
+[ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=369]
+[ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=370]
+[ext_resource path="res://core_v2/props/controls/WallTerminal.tscn" type="PackedScene" id=371]
+[ext_resource path="res://core_v2/props/pipe/PipeValve.tscn" type="PackedScene" id=372]
+[ext_resource path="res://core_v2/systems/cryo/CoolantLeak.gd" type="Script" id=373]
+[ext_resource path="res://core_v2/props/pipe/PipeTee.tscn" type="PackedScene" id=374]
+[ext_resource path="res://core_v2/props/pipe/PipeCoolantRing.tres" type="Material" id=375]
+[ext_resource path="res://core_v2/props/controls/SuspendedTerminalRig.gd" type="Script" id=376]
 
 [sub_resource type="SpatialMaterial" id=286]
 flags_transparent = true
@@ -380,6 +390,219 @@ airlock_name = "Airlock_West"
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
 target_spawn_id = "from_dome_intro"
 
+[node name="EnvironmentalSignage" type="Spatial" parent="."]
+
+[node name="ExitNorth" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 6.3, -28.7 )
+text = "SALIDA"
+text_color = Color( 0, 1, 0.533333, 1 )
+font_size = 116
+border_enabled = true
+border_color = Color( 0, 1, 0.533333, 1 )
+border_width = 4.0
+double_sided = true
+
+[node name="ExitSouth" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, -0.4, 6.3, 29.1 )
+text = "SALIDA"
+text_color = Color( 0, 1, 0.533333, 1 )
+font_size = 116
+border_enabled = true
+border_color = Color( 0, 1, 0.533333, 1 )
+border_width = 4.0
+double_sided = true
+
+[node name="ExitEast" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 28.8, 6.3, 0 )
+text = "SALIDA"
+text_color = Color( 0, 1, 0.533333, 1 )
+font_size = 116
+border_enabled = true
+border_color = Color( 0, 1, 0.533333, 1 )
+border_width = 4.0
+double_sided = true
+
+[node name="ExitWest" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -28.8, 6.3, 0 )
+text = "SALIDA"
+text_color = Color( 0, 1, 0.533333, 1 )
+font_size = 116
+border_enabled = true
+border_color = Color( 0, 1, 0.533333, 1 )
+border_width = 4.0
+double_sided = true
+
+[node name="CryoWarningWest" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -14.8, 4.8, -1.5 )
+text = "CRYO: PRESION CRITICA
+AISLAR EN LA TORRE"
+color_preset = "warning"
+text_color = Color( 1, 0.53, 0, 1 )
+font_size = 38
+border_enabled = true
+border_color = Color( 1, 0.53, 0, 1 )
+double_sided = true
+
+[node name="CryoWarningEast" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, 14.8, 7.8, 1.5 )
+text = "CRYO: PRESION CRITICA
+AISLAR EN LA TORRE"
+color_preset = "warning"
+text_color = Color( 1, 0.53, 0, 1 )
+font_size = 38
+border_enabled = true
+border_color = Color( 1, 0.53, 0, 1 )
+double_sided = true
+
+[node name="CryoWalkwayWarning1" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.7, 5.15, -0.6 )
+text = "CRYO RING · NIVEL 1
+PRESION CRITICA"
+color_preset = "warning"
+text_color = Color( 1, 0.53, 0, 1 )
+font_size = 38
+border_enabled = true
+border_color = Color( 1, 0.53, 0, 1 )
+double_sided = true
+
+[node name="CryoWalkwayWarning2" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.7, 9.65, -0.6 )
+text = "CRYO RING · NIVEL 2
+PRESION CRITICA"
+color_preset = "warning"
+text_color = Color( 1, 0.53, 0, 1 )
+font_size = 38
+border_enabled = true
+border_color = Color( 1, 0.53, 0, 1 )
+double_sided = true
+
+[node name="CryoWalkwayWarning3" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.7, 14.15, -0.6 )
+text = "CRYO RING · NIVEL 3
+PRESION CRITICA"
+color_preset = "warning"
+text_color = Color( 1, 0.53, 0, 1 )
+font_size = 38
+border_enabled = true
+border_color = Color( 1, 0.53, 0, 1 )
+double_sided = true
+
+[node name="CryoWalkwayWarning4" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.7, 18.65, -0.6 )
+text = "CRYO RING · NIVEL 4
+PRESION CRITICA"
+color_preset = "warning"
+text_color = Color( 1, 0.53, 0, 1 )
+font_size = 38
+border_enabled = true
+border_color = Color( 1, 0.53, 0, 1 )
+double_sided = true
+
+[node name="CryoWalkwayWarning5" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.7, 23.15, -0.6 )
+text = "CRYO RING · NIVEL 5
+PRESION CRITICA"
+color_preset = "warning"
+text_color = Color( 1, 0.53, 0, 1 )
+font_size = 38
+border_enabled = true
+border_color = Color( 1, 0.53, 0, 1 )
+double_sided = true
+
+[node name="HubSpokeNorthSign" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.65, 2.45, -16 )
+text = "CORREDOR NORTE // SALIDA
+PROTOCOLO DE EVACUACION"
+text_color = Color( 0, 1, 0.533333, 1 )
+font_size = 34
+border_enabled = true
+border_color = Color( 0, 1, 0.533333, 1 )
+double_sided = true
+
+[node name="HubSpokeSouthSign" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, -1.65, 2.45, 16 )
+text = "CORREDOR SUR // SALIDA
+PROTOCOLO DE EVACUACION"
+text_color = Color( 0, 1, 0.533333, 1 )
+font_size = 34
+border_enabled = true
+border_color = Color( 0, 1, 0.533333, 1 )
+double_sided = true
+
+[node name="HubSpokeEastSign" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 16, 2.45, -1.65 )
+text = "CORREDOR ESTE // SALIDA
+MANTENER LA RUTA DESPEJADA"
+text_color = Color( 0, 1, 0.533333, 1 )
+font_size = 34
+border_enabled = true
+border_color = Color( 0, 1, 0.533333, 1 )
+double_sided = true
+
+[node name="HubSpokeWestSign" parent="EnvironmentalSignage" instance=ExtResource( 367 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -16, 2.45, 1.65 )
+text = "CORREDOR OESTE // CRYO LOOP
+RIESGO DE SOBREPRESION"
+color_preset = "warning"
+text_color = Color( 1, 0.53, 0, 1 )
+font_size = 34
+border_enabled = true
+border_color = Color( 1, 0.53, 0, 1 )
+double_sided = true
+
+[node name="CryoLoopWest" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 5.1, 0 )
+
+[node name="Pipes" type="Spatial" parent="CryoLoopWest"]
+script = ExtResource( 369 )
+flow_speed = 1.25
+base_emission = 1.8
+
+[node name="SectionWest" parent="CryoLoopWest/Pipes" instance=ExtResource( 368 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
+
+[node name="SectionCenter" parent="CryoLoopWest/Pipes" instance=ExtResource( 368 )]
+
+[node name="SectionEast" parent="CryoLoopWest/Pipes" instance=ExtResource( 368 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
+
+[node name="LoopLabel" parent="CryoLoopWest" instance=ExtResource( 367 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0.32 )
+text = "CRYO LOOP C-02"
+color_preset = "info"
+text_color = Color( 0.35, 0.92, 0.98, 1 )
+font_size = 48
+border_enabled = true
+border_color = Color( 0.35, 0.92, 0.98, 1 )
+double_sided = true
+
+[node name="CryoLoopEast" type="Spatial" parent="."]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 18, 8.1, 0 )
+
+[node name="Pipes" type="Spatial" parent="CryoLoopEast"]
+script = ExtResource( 369 )
+flow_dir = Vector3( -1, 0, 0 )
+flow_speed = 1.25
+base_emission = 1.8
+
+[node name="SectionWest" parent="CryoLoopEast/Pipes" instance=ExtResource( 368 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
+
+[node name="SectionCenter" parent="CryoLoopEast/Pipes" instance=ExtResource( 368 )]
+
+[node name="SectionEast" parent="CryoLoopEast/Pipes" instance=ExtResource( 368 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
+
+[node name="LoopLabel" parent="CryoLoopEast" instance=ExtResource( 367 )]
+transform = Transform( -1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, 0, 0.75, -0.32 )
+text = "CRYO LOOP C-03"
+color_preset = "info"
+text_color = Color( 0.35, 0.92, 0.98, 1 )
+font_size = 48
+border_enabled = true
+border_color = Color( 0.35, 0.92, 0.98, 1 )
+double_sided = true
+
 [node name="SpiralStairs" type="Spatial" parent="." groups=["ice_freezable"]]
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, 0, 0, 0 )
 
@@ -478,6 +701,12 @@ shape = ExtResource( 106 )
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
 
+[node name="CoolantValve" parent="ScaffoldHubTower/Floor_1" instance=ExtResource( 372 )]
+transform = Transform( 1, 0, 0, 0, 0, -1, 0, 1, 0, -10.3, 2.65, 0 )
+interaction_text = "Cerrar valvula de emergencia"
+anim_duration = 0.5
+starts_active = true
+
 [node name="ElevatorStop_2" type="Position3D" parent="ScaffoldHubTower"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0 )
 
@@ -504,6 +733,12 @@ shape = ExtResource( 108 )
 [node name="FootstepSurface" type="Spatial" parent="ScaffoldHubTower/Floor_2/StaticBody"]
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
+
+[node name="CoolantValve" parent="ScaffoldHubTower/Floor_2" instance=ExtResource( 372 )]
+transform = Transform( 1, 0, 0, 0, 0, -1, 0, 1, 0, -10.3, 2.65, 0 )
+interaction_text = "Cerrar valvula de emergencia"
+anim_duration = 0.5
+starts_active = true
 
 [node name="ElevatorStop_3" type="Position3D" parent="ScaffoldHubTower"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.5, 0 )
@@ -532,6 +767,12 @@ shape = ExtResource( 110 )
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
 
+[node name="CoolantValve" parent="ScaffoldHubTower/Floor_3" instance=ExtResource( 372 )]
+transform = Transform( 1, 0, 0, 0, 0, -1, 0, 1, 0, -10.3, 2.65, 0 )
+interaction_text = "Cerrar valvula de emergencia"
+anim_duration = 0.5
+starts_active = true
+
 [node name="ElevatorStop_4" type="Position3D" parent="ScaffoldHubTower"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 18, 0 )
 
@@ -559,6 +800,12 @@ shape = ExtResource( 112 )
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
 
+[node name="CoolantValve" parent="ScaffoldHubTower/Floor_4" instance=ExtResource( 372 )]
+transform = Transform( 1, 0, 0, 0, 0, -1, 0, 1, 0, -10.3, 2.65, 0 )
+interaction_text = "Cerrar valvula de emergencia"
+anim_duration = 0.5
+starts_active = true
+
 [node name="ElevatorStop_5" type="Position3D" parent="ScaffoldHubTower"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.5, 0 )
 
@@ -585,6 +832,167 @@ shape = ExtResource( 114 )
 [node name="FootstepSurface" type="Spatial" parent="ScaffoldHubTower/Floor_5/StaticBody"]
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
+
+[node name="CoolantValve" parent="ScaffoldHubTower/Floor_5" instance=ExtResource( 372 )]
+transform = Transform( 1, 0, 0, 0, 0, -1, 0, 1, 0, -10.3, 2.65, 0 )
+interaction_text = "Cerrar valvula de emergencia"
+anim_duration = 0.5
+starts_active = true
+
+[node name="TowerCoolantRiser" type="Spatial" parent="."]
+
+[node name="Pipes" type="Spatial" parent="TowerCoolantRiser"]
+script = ExtResource( 369 )
+flow_dir = Vector3( 0, 1, 0 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+
+[node name="RiserLow" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 368 )]
+transform = Transform( -1.96701e-07, 1, 0, -4.5, -4.37114e-08, 0, 0, 0, 1, -10.3, 4.5, 0 )
+
+[node name="RiserMid" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 368 )]
+transform = Transform( -1.96701e-07, 1, 0, -4.5, -4.37114e-08, 0, 0, 0, 1, -10.3, 13.5, 0 )
+
+[node name="RiserHigh" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 368 )]
+transform = Transform( -1.96701e-07, 1, 0, -4.5, -4.37114e-08, 0, 0, 0, 1, -10.3, 22.5, 0 )
+
+[node name="RiserRoof" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 368 )]
+transform = Transform( -1.96701e-07, 1, 0, -4.5, -4.37114e-08, 0, 0, 0, 1, -10.3, 31.5, 0 )
+
+[node name="JunctionFloor1" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 374 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.3, 4.08, 0 )
+
+[node name="JunctionFloor2" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 374 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.3, 8.58, 0 )
+
+[node name="JunctionFloor3" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 374 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.3, 13.08, 0 )
+
+[node name="JunctionFloor4" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 374 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.3, 17.58, 0 )
+
+[node name="JunctionFloor5" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 374 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.3, 22.08, 0 )
+
+[node name="TowerCoolantRings" type="Spatial" parent="."]
+
+[node name="RingFloor1" type="CSGTorus" parent="TowerCoolantRings"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.08, 0 )
+use_collision = true
+collision_layer = 64
+inner_radius = 10.05
+outer_radius = 10.45
+sides = 48
+ring_sides = 8
+material = ExtResource( 375 )
+
+[node name="RingFloor2" type="CSGTorus" parent="TowerCoolantRings"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.58, 0 )
+use_collision = true
+collision_layer = 64
+inner_radius = 10.05
+outer_radius = 10.45
+sides = 48
+ring_sides = 8
+material = ExtResource( 375 )
+
+[node name="RingFloor3" type="CSGTorus" parent="TowerCoolantRings"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.08, 0 )
+use_collision = true
+collision_layer = 64
+inner_radius = 10.05
+outer_radius = 10.45
+sides = 48
+ring_sides = 8
+material = ExtResource( 375 )
+
+[node name="RingFloor4" type="CSGTorus" parent="TowerCoolantRings"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.58, 0 )
+use_collision = true
+collision_layer = 64
+inner_radius = 10.05
+outer_radius = 10.45
+sides = 48
+ring_sides = 8
+material = ExtResource( 375 )
+
+[node name="RingFloor5" type="CSGTorus" parent="TowerCoolantRings"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.08, 0 )
+use_collision = true
+collision_layer = 64
+inner_radius = 10.05
+outer_radius = 10.45
+sides = 48
+ring_sides = 8
+material = ExtResource( 375 )
+
+[node name="CeilingManifold" type="CSGTorus" parent="TowerCoolantRings"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 31.5, 0 )
+inner_radius = 10.05
+outer_radius = 10.45
+sides = 48
+ring_sides = 8
+material = ExtResource( 375 )
+
+[node name="SuspendedCryoDiagnostics" type="Spatial" parent="."]
+script = ExtResource( 376 )
+
+[node name="Crossbeam" type="CSGBox" parent="SuspendedCryoDiagnostics"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.2, 0 )
+use_collision = true
+collision_layer = 64
+width = 7.2
+height = 0.24
+depth = 0.38
+material = ExtResource( 370 )
+
+[node name="DropLineLeft" type="CSGBox" parent="SuspendedCryoDiagnostics"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.35, 19.5, 0 )
+use_collision = true
+collision_layer = 64
+width = 0.14
+height = 11.2
+depth = 0.14
+material = ExtResource( 370 )
+
+[node name="DropLineRight" type="CSGBox" parent="SuspendedCryoDiagnostics"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.35, 19.5, 0 )
+use_collision = true
+collision_layer = 64
+width = 0.14
+height = 11.2
+depth = 0.14
+material = ExtResource( 370 )
+
+[node name="Carriage" type="Spatial" parent="SuspendedCryoDiagnostics"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 14, 0 )
+
+[node name="CarriageBeam" type="CSGBox" parent="SuspendedCryoDiagnostics/Carriage"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.35, 0 )
+use_collision = true
+collision_layer = 64
+width = 7.2
+height = 0.24
+depth = 0.38
+material = ExtResource( 370 )
+
+[node name="CyanOmniLight" type="OmniLight" parent="SuspendedCryoDiagnostics/Carriage"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0.45 )
+light_color = Color( 0.15, 0.85, 1, 1 )
+light_energy = 0.7
+light_bake_mode = 0
+omni_range = 7.0
+
+[node name="HangingDisplay" parent="SuspendedCryoDiagnostics/Carriage" instance=ExtResource( 371 )]
+transform = Transform( 1.55, 0, 0, 0, -1.55, 0, 0, 0, -1.55, 0, 2.05, 0 )
+is_interactable = true
+is_focusable = false
+screen_resolution = Vector2( 1280, 816 )
+active = true
+use_cinematic_zone = false
+enable_ui_interaction = false
+allow_focus_mode = false
 
 [node name="ElevatorAnchor" type="Position3D" parent="."]
 transform = Transform( 0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, -6.5436, 0, 15.0598 )
@@ -1924,6 +2332,7 @@ shape = ExtResource( 349 )
 [node name="IceLevel" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
+auto_start = false
 use_mobile_color_pbr = false
 ice_height_fog_enabled = true
 
@@ -2009,13 +2418,27 @@ default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_01/tex
 
 [node name="CoolantLeakWest" parent="." instance=ExtResource( 22 )]
 transform = Transform( 0, -1, 0, 1, 0, 0, 0, 0, 1, -18, 4.5, 0 )
+is_active = false
+damage_per_tick = 0.0
 emission_radius = 1.2
 particles_per_second = 12.0
 
 [node name="CoolantLeakEast" parent="." instance=ExtResource( 22 )]
 transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 18, 7.5, 0 )
+is_active = false
+damage_per_tick = 0.0
 emission_radius = 1.0
 particles_per_second = 10.0
+
+[node name="CoolantLeakWestController" type="Spatial" parent="."]
+script = ExtResource( 373 )
+warning_duration = 5.0
+dissipate_duration = 4.0
+
+[node name="CoolantLeakEastController" type="Spatial" parent="."]
+script = ExtResource( 373 )
+warning_duration = 5.0
+dissipate_duration = 4.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 20 )
@@ -2041,6 +2464,23 @@ light_data = ExtResource( 5 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 14, 0 )
 portal_mode = 1
 extents = Vector3( 14, 14, 14 )
+
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_1/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_1/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_2/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_2/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_3/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_3/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_4/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_4/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_5/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
+[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_5/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
+[connection signal="activated" from="SuspendedCryoDiagnostics/Carriage/HangingDisplay" to="CoolantLeakWestController" method="trigger_leak"]
+[connection signal="activated" from="SuspendedCryoDiagnostics/Carriage/HangingDisplay" to="CoolantLeakEastController" method="trigger_leak"]
+[connection signal="leak_sealed" from="CoolantLeakWestController" to="CoolantLeakWest" method="deactivate"]
+[connection signal="leak_started" from="CoolantLeakWestController" to="CoolantLeakWest" method="activate"]
+[connection signal="leak_sealed" from="CoolantLeakEastController" to="CoolantLeakEast" method="deactivate"]
+[connection signal="leak_started" from="CoolantLeakEastController" to="CoolantLeakEast" method="activate"]
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]

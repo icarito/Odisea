@@ -262,7 +262,7 @@ func update_text() -> void:
 	# después: ese único frame salía con el fondo y sin texto, y ya no volvía a dibujarse.
 	# Re-armar el disparo en el frame siguiente alcanza para que el texto entre.
 	if not Engine.editor_hint:
-		_viewport.call_deferred("set_render_target_update_mode", Viewport.UPDATE_ONCE)
+		_viewport.call_deferred("set", "render_target_update_mode", Viewport.UPDATE_ONCE)
 
 	for child in _viewport.get_children():
 		_viewport.remove_child(child)
