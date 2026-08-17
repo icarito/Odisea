@@ -232,6 +232,12 @@ const DEFAULT_ACTION_HINTS := {
 	"focus": "[Z]"
 }
 
+# Touch Tap Interact State
+var _touch_tap_index := -1
+var _touch_tap_start_time := 0
+var _touch_tap_start_pos := Vector2.ZERO
+var _ignore_emulated_mouse_until := 0
+
 # Input
 var input_provider
 var camera_input_locked := false
@@ -1988,6 +1994,24 @@ func _clear_interactable():
 		if hints and hints.has_method("clear_interaction_hint"):
 			hints.clear_interaction_hint()
 
+func _is_over_touch_control(screen_position: Vector2) -> bool:
+	var tree = get_tree()
+	if not tree:
+		return false
+	var nodes = tree.get_nodes_in_group("touch_control")
+	for node in nodes:
+		if is_instance_valid(node) and node is Control and node.is_visible_in_tree():
+			if node.get_global_rect().has_point(screen_position):
+				return true
+	return false
+
+func _trigger_touch_interact() -> void:
+	Input.action_press("interact")
+	var tree = get_tree()
+	if tree:
+		yield(tree, "physics_frame")
+	Input.action_release("interact")
+
 func _input(event):
 	var session_recording = false
 	var sm = get_node_or_null("/root/SessionManager")
@@ -1995,7 +2019,35 @@ func _input(event):
 		session_recording = true
 	if (is_replay_mode and not session_recording) or camera_input_locked: return
 	if _terminal_ui_active: return
-	
+
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if _is_over_touch_control(event.position):
+				return
+			if _touch_tap_index == -1:
+				_touch_tap_index = event.index
+				_touch_tap_start_time = OS.get_ticks_msec()
+				_touch_tap_start_pos = event.position
+		elif event.index == _touch_tap_index:
+			var duration = (OS.get_ticks_msec() - _touch_tap_start_time) / 1000.0
+			var distance = event.position.distance_to(_touch_tap_start_pos)
+			_touch_tap_index = -1
+			if duration <= 0.35 and distance <= 24.0:
+				_ignore_emulated_mouse_until = OS.get_ticks_msec() + 500
+				_trigger_touch_interact()
+		return
+
+	if event is InputEventScreenDrag:
+		if event.index == _touch_tap_index:
+			if event.position.distance_to(_touch_tap_start_pos) > 24.0:
+				_touch_tap_index = -1
+		return
+
+	if event is InputEventMouseButton:
+		if OS.get_ticks_msec() < _ignore_emulated_mouse_until:
+			get_tree().set_input_as_handled()
+			return
+
 	if event is InputEventMouseMotion:
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 			if input_provider:

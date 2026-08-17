@@ -2,9 +2,13 @@ extends CanvasLayer
 
 const MobileUI = preload("res://core_v2/ui/MobileUI.tscn")
 
+export(float) var touch_idle_timeout := 15.0
+
 var _mobile_ui: CanvasLayer = null
 var _touch_camera: TouchCameraControls = null
 var _is_mobile := false
+var _is_touch_active := false
+var _touch_idle_timer := 0.0
 var _is_cinematic_active := false
 var _cinematic_manager: Node = null
 var _is_zero_g := false
@@ -14,13 +18,31 @@ func _ready() -> void:
 	layer = 100
 	
 	_is_mobile = (OS.has_touchscreen_ui_hint() or OS.get_name() == "Android" or OS.get_name() == "iOS") and OS.get_name() != "Switch"
+	_is_touch_active = _is_mobile
+	_touch_idle_timer = 0.0
 	
 	if _is_mobile:
 		_spawn_mobile_ui()
 	
 	_connect_cinematic_manager()
 	_refresh_mobile_ui_visibility()
-	set_process(_is_mobile)
+	set_process(true)
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		_touch_idle_timer = 0.0
+		if not _is_touch_active or not _is_mobile:
+			_is_mobile = true
+			_is_touch_active = true
+			if not is_instance_valid(_mobile_ui):
+				_spawn_mobile_ui()
+			_notify_input_provider_touch_active(true)
+			_refresh_mobile_ui_visibility()
+
+func _notify_input_provider_touch_active(active: bool) -> void:
+	var provider = _get_active_input_provider()
+	if provider and provider.has_method("set_touch_ui_hint"):
+		provider.set_touch_ui_hint(active)
 
 func _spawn_mobile_ui() -> void:
 	if _mobile_ui:
@@ -68,7 +90,7 @@ func _refresh_mobile_ui_visibility() -> void:
 		return
 	var non_playable := _is_non_playable_scene()
 	var paused := get_tree().paused
-	var show_skip := _is_mobile and _is_script_cinematic_active() and not non_playable and not paused
+	var show_skip := _is_mobile and _is_touch_active and _is_script_cinematic_active() and not non_playable and not paused
 	# During a legacy cinematic (input blocked), show only the skip button so the
 	# player can skip. Camera-zone-only cinematics keep the full UI (handled below).
 	if show_skip:
@@ -79,7 +101,7 @@ func _refresh_mobile_ui_visibility() -> void:
 		_reset_move_joystick()
 		return
 	var was_visible := _mobile_ui.visible
-	_mobile_ui.visible = _is_mobile and not _is_cinematic_active and not non_playable and not paused
+	_mobile_ui.visible = _is_mobile and _is_touch_active and not _is_cinematic_active and not non_playable and not paused
 	if _mobile_ui.visible:
 		_mobile_ui.set_skip_visible(false)
 		_mobile_ui.set_zero_g_mode(_is_zero_g)
@@ -129,7 +151,15 @@ func set_replay_mode(active: bool) -> void:
 	else:
 		_refresh_mobile_ui_visibility()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if _is_touch_active:
+		_touch_idle_timer += delta
+		if _touch_idle_timer >= touch_idle_timeout:
+			_is_touch_active = false
+			_reset_move_joystick()
+			_notify_input_provider_touch_active(false)
+			_refresh_mobile_ui_visibility()
+
 	if not _is_mobile or not is_instance_valid(_mobile_ui):
 		return
 	_track_player_controller_manager()
@@ -202,6 +232,9 @@ func _get_active_input_provider():
 
 func is_mobile() -> bool:
 	return _is_mobile
+
+func is_touch_active() -> bool:
+	return _is_mobile and _is_touch_active
 
 func get_reserved_overlay_margins(padding: float = 16.0) -> Dictionary:
 	var margins = {
