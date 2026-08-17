@@ -5,7 +5,7 @@ tool
 # suspended assembly turns on yaw so its overhead beam, cables, lamp, and
 # terminal face together.
 
-export(float) var follow_height_offset: float = 1.6
+export(float) var follow_height_offset: float = 3.6
 export(float) var min_carriage_y: float = 4.2
 export(float) var max_carriage_y: float = 23.8
 # follow_speed y rotation_speed son TASAS de un suavizado exponencial, no factores lineales.
