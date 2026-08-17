@@ -1,10 +1,17 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=16 format=2]
 
 [ext_resource path="res://addons/virtual_joystick/virtual_joystick.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/ui/TouchCameraControls.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/ui/MobileUI.gd" type="Script" id=3]
 [ext_resource path="res://core_v2/ui/TouchActionButton.gd" type="Script" id=4]
 [ext_resource path="res://core_v2/ui/UIScaleCompensator.gd" type="Script" id=5]
+[ext_resource path="res://assets/fonts/Workbench-Regular-VariableFont_BLED,SCAN.ttf" type="DynamicFontData" id=6]
+
+[sub_resource type="DynamicFont" id=10]
+size = 18
+outline_size = 1
+outline_color = Color( 0.0980392, 0.0470588, 0.145098, 0.466667 )
+font_data = ExtResource( 6 )
 
 [sub_resource type="StyleBoxFlat" id=5]
 bg_color = Color( 0.92, 0.78, 0.22, 0.95 )
@@ -129,16 +136,20 @@ invert_y = true
 
 [node name="MoveJoystick" parent="Container" instance=ExtResource( 1 )]
 modulate = Color( 1, 1, 1, 0.6 )
+margin_left = 90.0
+margin_top = -290.0
+margin_right = 290.0
+margin_bottom = -90.0
 rect_scale = Vector2( 0.9, 0.9 )
 deadzone_size = 15.0
-clampzone_size = 80.0
+clampzone_size = 65.0
 joystick_mode = 0
 
 [node name="ActionButtons" type="Control" parent="Container"]
-anchor_left = 0.74
-anchor_top = 0.56
-anchor_right = 1.0
-anchor_bottom = 0.98
+anchor_left = 0.68
+anchor_top = 0.03
+anchor_right = 0.99
+anchor_bottom = 0.45
 grow_horizontal = 0
 grow_vertical = 0
 __meta__ = {
@@ -147,14 +158,15 @@ __meta__ = {
 
 [node name="InteractButton" type="Button" parent="Container/ActionButtons"]
 anchor_left = 0.5
-anchor_top = 0.18
+anchor_top = 0.15
 anchor_right = 0.5
-anchor_bottom = 0.18
-margin_left = -36.0
-margin_top = -36.0
-margin_right = 36.0
-margin_bottom = 36.0
-rect_min_size = Vector2( 72, 72 )
+anchor_bottom = 0.15
+margin_left = -32.0
+margin_top = -32.0
+margin_right = 32.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 64, 64 )
+custom_fonts/font = SubResource( 10 )
 custom_styles/pressed = SubResource( 5 )
 custom_styles/normal = SubResource( 4 )
 toggle_mode = true
@@ -164,15 +176,16 @@ script = ExtResource( 4 )
 action_name = "interact"
 
 [node name="CrouchButton" type="Button" parent="Container/ActionButtons"]
-anchor_left = 0.5
-anchor_top = 0.82
-anchor_right = 0.5
-anchor_bottom = 0.82
-margin_left = -36.0
-margin_top = -36.0
-margin_right = 36.0
-margin_bottom = 36.0
-rect_min_size = Vector2( 72, 72 )
+anchor_left = 0.8
+anchor_top = 0.5
+anchor_right = 0.8
+anchor_bottom = 0.5
+margin_left = -32.0
+margin_top = -32.0
+margin_right = 32.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 64, 64 )
+custom_fonts/font = SubResource( 10 )
 custom_styles/pressed = SubResource( 7 )
 custom_styles/normal = SubResource( 6 )
 toggle_mode = true
@@ -182,15 +195,16 @@ script = ExtResource( 4 )
 action_name = "crouch"
 
 [node name="JumpButton" type="Button" parent="Container/ActionButtons"]
-anchor_left = 0.82
-anchor_top = 0.5
-anchor_right = 0.82
-anchor_bottom = 0.5
-margin_left = -36.0
-margin_top = -36.0
-margin_right = 36.0
-margin_bottom = 36.0
-rect_min_size = Vector2( 72, 72 )
+anchor_left = 0.5
+anchor_top = 0.85
+anchor_right = 0.5
+anchor_bottom = 0.85
+margin_left = -32.0
+margin_top = -32.0
+margin_right = 32.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 64, 64 )
+custom_fonts/font = SubResource( 10 )
 custom_styles/pressed = SubResource( 9 )
 custom_styles/normal = SubResource( 8 )
 toggle_mode = true
@@ -214,6 +228,7 @@ margin_right = 115.0
 margin_bottom = 50.0
 rect_min_size = Vector2( 0, 50 )
 size_flags_horizontal = 3
+custom_fonts/font = SubResource( 10 )
 custom_styles/pressed = SubResource( 3 )
 custom_styles/normal = SubResource( 2 )
 toggle_mode = true
@@ -228,6 +243,7 @@ margin_right = 240.0
 margin_bottom = 50.0
 rect_min_size = Vector2( 0, 50 )
 size_flags_horizontal = 3
+custom_fonts/font = SubResource( 10 )
 custom_styles/pressed = SubResource( 3 )
 custom_styles/normal = SubResource( 2 )
 toggle_mode = true
@@ -245,6 +261,7 @@ margin_right = -20.0
 margin_bottom = 70.0
 grow_horizontal = 0
 rect_min_size = Vector2( 0, 50 )
+custom_fonts/font = SubResource( 10 )
 custom_styles/pressed = SubResource( 3 )
 custom_styles/normal = SubResource( 2 )
 text = "SALTAR"

@@ -1,0 +1,73 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/props/pipe/PipeSection.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/props/pipe/PipeTee.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=3]
+
+[node name="DomeIntro_PipeNetworkSource" type="Spatial"]
+
+[node name="CryoLoopWest" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 5.1, 0 )
+
+[node name="Pipes" type="Spatial" parent="CryoLoopWest"]
+script = ExtResource( 3 )
+flow_speed = 1.25
+base_emission = 1.8
+
+[node name="SectionWest" parent="CryoLoopWest/Pipes" instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
+
+[node name="SectionCenter" parent="CryoLoopWest/Pipes" instance=ExtResource( 1 )]
+
+[node name="SectionEast" parent="CryoLoopWest/Pipes" instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
+
+[node name="CryoLoopEast" type="Spatial" parent="."]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 18, 8.1, 0 )
+
+[node name="Pipes" type="Spatial" parent="CryoLoopEast"]
+script = ExtResource( 3 )
+flow_dir = Vector3( -1, 0, 0 )
+flow_speed = 1.25
+base_emission = 1.8
+
+[node name="SectionWest" parent="CryoLoopEast/Pipes" instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
+
+[node name="SectionCenter" parent="CryoLoopEast/Pipes" instance=ExtResource( 1 )]
+
+[node name="SectionEast" parent="CryoLoopEast/Pipes" instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
+
+[node name="TowerCoolantRiser" type="Spatial" parent="."]
+
+[node name="Pipes" type="Spatial" parent="TowerCoolantRiser"]
+script = ExtResource( 3 )
+flow_dir = Vector3( 0, 1, 0 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+
+[node name="RiserLow" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 1 )]
+transform = Transform( -1.96701e-07, 1, 0, -4.5, -4.37114e-08, 0, 0, 0, 1, -12, 4.5, 0 )
+
+[node name="RiserMid" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 1 )]
+transform = Transform( -1.96701e-07, 1, 0, -4.5, -4.37114e-08, 0, 0, 0, 1, -12, 13.5, 0 )
+
+[node name="RiserHigh" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 1 )]
+transform = Transform( -1.96701e-07, 1, 0, -4.5, -4.37114e-08, 0, 0, 0, 1, -12, 22.5, 0 )
+
+[node name="JunctionFloor1" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 2 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 4.08, 0 )
+
+[node name="JunctionFloor2" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 2 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 8.58, 0 )
+
+[node name="JunctionFloor3" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 2 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 13.08, 0 )
+
+[node name="JunctionFloor4" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 2 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 17.58, 0 )
+
+[node name="JunctionFloor5" parent="TowerCoolantRiser/Pipes" instance=ExtResource( 2 )]
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 22.08, 0 )

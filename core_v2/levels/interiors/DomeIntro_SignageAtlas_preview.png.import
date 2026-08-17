@@ -1,0 +1,35 @@
+[remap]
+
+importer="texture"
+type="StreamTexture"
+path="res://.import/DomeIntro_SignageAtlas_preview.png-023ffa3aa36e9ea27b22ae1e9f31b47a.stex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://core_v2/levels/interiors/DomeIntro_SignageAtlas_preview.png"
+dest_files=[ "res://.import/DomeIntro_SignageAtlas_preview.png-023ffa3aa36e9ea27b22ae1e9f31b47a.stex" ]
+
+[params]
+
+compress/mode=0
+compress/lossy_quality=0.7
+compress/hdr_mode=0
+compress/bptc_ldr=0
+compress/normal_map=0
+flags/repeat=0
+flags/filter=true
+flags/mipmaps=false
+flags/anisotropic=false
+flags/srgb=2
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/HDR_as_SRGB=false
+process/invert_color=false
+process/normal_map_invert_y=false
+stream=false
+size_limit=0
+detect_3d=true
+svg/scale=1.0

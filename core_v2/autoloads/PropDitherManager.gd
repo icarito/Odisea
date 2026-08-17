@@ -14,6 +14,12 @@ const PROP_LAYER_BIT: int = 64  # Layer 7
 
 var _dither_shader: Shader = preload("res://shaders/prop_dither_occlusion.gdshader")
 var _dither_shader_double_sided: Shader = preload("res://shaders/prop_dither_occlusion_double_sided.gdshader")
+# Para materiales fuente con flags_unshaded=true (letreros horneados: texto plano sobre
+# atlas, nunca tuvieron PBR). El shader base es spatial SIN "unshaded" en render_mode
+# -correcto para props iluminados-, asi que ALBEDO ahi pasa por el pase de luz normal y
+# un material pensado para verse siempre a full brillo se ve apagado/teñido por la luz
+# de la escena una vez envuelto. render_mode es fijo por archivo de shader en Godot 3.
+var _dither_shader_unshaded: Shader = preload("res://shaders/prop_dither_occlusion_unshaded.gdshader")
 var _parallax_shader: Shader = preload("res://core_v2/props/parallax_assets/card_parallax.shader")
 # The duct maze hull keeps its own stylized panel shader but now carries the same
 # cone-occlusion uniforms (player_pos/camera_pos/is_active/...). Register its materials
@@ -326,6 +332,7 @@ func _is_occlusion_shader(shader: Shader) -> bool:
 	if shader == null:
 		return false
 	if shader == _dither_shader or shader == _dither_shader_double_sided \
+		or shader == _dither_shader_unshaded \
 		or shader == _parallax_shader or shader == _duct_hull_shader \
 		or shader == _seam_road_lines_shader:
 		return true
@@ -369,6 +376,8 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 	# del shader con cull_disabled.
 	if source.params_cull_mode == SpatialMaterial.CULL_DISABLED:
 		new_mat.shader = _dither_shader_double_sided
+	elif source.flags_unshaded:
+		new_mat.shader = _dither_shader_unshaded
 	else:
 		new_mat.shader = _dither_shader
 	_dither_cache[source] = new_mat

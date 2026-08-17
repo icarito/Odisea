@@ -39,6 +39,13 @@ export(bool) var use_cinematic_zone := true
 export(bool) var close_on_exit_zone := true
 export(bool) var enable_ui_interaction := true
 export(bool) var allow_focus_mode := true # If true, interaction mode can transition to FocusedRig.
+# Para paneles tipo dashboard (ver CoolantSystemStatusUI) cuyo contenido solo cambia por
+# evento, no por frame: UPDATE_WHEN_VISIBLE redibuja 60 veces por segundo algo que se
+# queda quieto la inmensa mayoria del tiempo. Con esto en true el viewport descansa en
+# UPDATE_DISABLED y solo se dispara un UPDATE_ONCE cuando algo llama a request_redraw().
+export(bool) var static_content := false
+var _pending_redraw := false
+var _static_content_initialized := false
 enum CinematicCameraBehavior {
 	CAMERA_FIXED,
 	CAMERA_FOLLOW_PLAYER,
@@ -146,11 +153,21 @@ func _ready():
 			_hud_attach_target = default_target as Spatial
 	
 	_viewport_input = get_node_or_null("Viewport")
-	# Cache TerminalUI reference
-	_terminal_ui = get_node_or_null("Viewport/TerminalUI")
+	if static_content:
+		# Un terminal de contenido fijo (dashboard tipo CoolantSystemStatusUI) no necesita
+		# la consola interactiva por defecto en absoluto: dejarla viva solo-oculta
+		# (visible=false) igual paga su costo, y ademas deja armado el swap a
+		# DebugOverlay (_on_terminal_debug_requested vacia el Viewport entero y pone un
+		# DebugOverlay) para un terminal que no deberia poder abrir ni una ni otra cosa.
+		var default_ui = get_node_or_null("Viewport/TerminalUI")
+		if default_ui != null:
+			default_ui.queue_free()
+	else:
+		# Cache TerminalUI reference
+		_terminal_ui = get_node_or_null("Viewport/TerminalUI")
+		if _terminal_ui and not _terminal_ui.is_connected("debug_button_pressed", self , "_on_terminal_debug_requested"):
+			_terminal_ui.connect("debug_button_pressed", self , "_on_terminal_debug_requested")
 	_apply_player_ui_settings()
-	if _terminal_ui and not _terminal_ui.is_connected("debug_button_pressed", self , "_on_terminal_debug_requested"):
-		_terminal_ui.connect("debug_button_pressed", self , "_on_terminal_debug_requested")
 	_bind_console_events()
 	
 	# Initialize extracted components if enabled
@@ -397,12 +414,56 @@ func _update_visuals() -> void:
 				if dist > 15.0: # Hardcoded threshold for non-focused terminal
 					mode = Viewport.UPDATE_DISABLED
 
+		# static_content: mientras estaria en UPDATE_WHEN_VISIBLE, se queda en DISABLED
+		# y solo pulsa UPDATE_ONCE por un frame cuando hace falta (primera vez que se
+		# vuelve visible, o cuando algo llama a request_redraw()). No toca el caso
+		# DISABLED por distancia/animacion ni el ALWAYS de foco, mas abajo.
+		var force_pulse := false
+		if static_content and mode == Viewport.UPDATE_WHEN_VISIBLE:
+			if not _static_content_initialized:
+				_pending_redraw = true
+				_static_content_initialized = true
+			if _pending_redraw:
+				mode = Viewport.UPDATE_ONCE
+				_pending_redraw = false
+				force_pulse = true
+			else:
+				# Se queda "parado" en UPDATE_ONCE despues del ultimo pulso en vez de
+				# volver a pisarlo con DISABLED: Viewport.render_target_update_mode ya
+				# le entrego el pedido a VisualServer en el momento en que se asigno
+				# UPDATE_ONCE, y ese render no se cancela por reasignar la propiedad
+				# despues - una vez consumido no vuelve a redibujar solo. Reescribirlo a
+				# DISABLED en el mismo tick (o uno muy cercano) corria el riesgo de
+				# pisar el pedido antes de que el render pass lo viera.
+				mode = viewport.render_target_update_mode
+
 		# If focused, always update
 		if _is_focused:
 			mode = Viewport.UPDATE_ALWAYS
 
-		if viewport.render_target_update_mode != mode:
+		# UPDATE_ONCE es un flag de un solo disparo: una vez consumido, el getter de
+		# render_target_update_mode sigue devolviendo UPDATE_ONCE aunque el motor ya
+		# dejo de redibujar. El guard "!=" de abajo por eso NO alcanza para pulsos
+		# repetidos (segundo request_redraw() en adelante): mode volveria a calcular
+		# UPDATE_ONCE, se ve igual al valor cacheado, y la asignacion se salta -> el
+		# viewport jamas se entera del segundo pedido. force_pulse fuerza la
+		# reasignacion en cada pulso real, sin tocar el resto de los casos.
+		if force_pulse or viewport.render_target_update_mode != mode:
 			viewport.render_target_update_mode = mode
+
+
+# Pide un redibujado puntual del viewport (para static_content=true). Llamar cuando el
+# contenido embebido cambia por evento en vez de por frame - ver CoolantSystemStatusUI.
+func request_redraw() -> void:
+	_pending_redraw = true
+	# InteractableBaseV2 apaga _physics_process cuando la animacion esta en reposo
+	# (FD-224). Sin este set_physics_process(true) el proximo step() nunca llega a
+	# correr, asi que _pending_redraw se quedaria escrito pero jamas consumido.
+	set_physics_process(true)
+
+
+func _wants_continuous_step() -> bool:
+	return static_content and _pending_redraw
 
 
 func _ease_out_cubic(t: float) -> float:
@@ -752,9 +813,12 @@ func _set_player_input_blocked(blocked: bool) -> void:
 		_locked_player = null
 
 func _find_player() -> Node:
-	var tree = get_tree()
-	if tree == null:
+	# get_tree() logs a noisy engine-level error if called before this node is in the
+	# SceneTree (e.g. set_active() firing from a property setter during instancing,
+	# before _ready()) - is_inside_tree() avoids ever triggering that call.
+	if not is_inside_tree():
 		return null
+	var tree = get_tree()
 	var players = tree.get_nodes_in_group("player")
 	if players.size() > 0:
 		return players[0]

@@ -37,7 +37,7 @@ extents = Vector3( 0.12, 2.5, 4 )
 [sub_resource type="BoxShape" id=13]
 extents = Vector3( 2.85, 0.12, 4 )
 
-[node name="AirlockChamber" type="Spatial"]
+[node name="AirlockChamber" type="Spatial" groups=["ice_freezable"]]
 script = ExtResource( 1 )
 outer_door_path = NodePath("OuterDoor")
 inner_door_path = NodePath("InnerDoor")

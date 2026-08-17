@@ -57,6 +57,7 @@
         "sprint": true,
         "crouch": false,
         "interact": false,
+        "interact_held": false,
         "focus": false,
         "rotate_left": false,
         "rotate_right": false,
@@ -91,6 +92,7 @@
         "sprint": false,
         "crouch": false,
         "interact": false,
+        "interact_held": false,
         "focus": false,
         "rotate_left": false,
         "rotate_right": false,
@@ -106,7 +108,7 @@
       }
     },
     {
-      "hold": 83
+      "hold": 86
     }
   ],
   "events": {
@@ -142,7 +144,7 @@
         "phase": "check"
       }
     ],
-    "180": [
+    "183": [
       {
         "command": "PRINT",
         "message": "SUCCESS: player_killed signal was emitted!"
@@ -208,7 +210,7 @@
         0,
         0
       ],
-      "camera_input_timer": 0.6,
+      "camera_input_timer": 0.65,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false

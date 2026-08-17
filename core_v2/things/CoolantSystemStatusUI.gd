@@ -48,6 +48,7 @@ func _make_row(valve: Node) -> HBoxContainer:
 
 func _on_valve_state_changed(is_open: bool, valve: Node) -> void:
 	_update_row(valve, is_open)
+	_request_redraw()
 
 
 func _update_row(valve: Node, is_open: bool) -> void:
@@ -56,3 +57,16 @@ func _update_row(valve: Node, is_open: bool) -> void:
 		return
 	label.text = "ABIERTA" if is_open else "CERRADA"
 	label.add_color_override("font_color", COLOR_OPEN if is_open else COLOR_CLOSED)
+
+
+# Este panel vive dentro del Viewport de un HoloTerminalV2 con static_content=true (ver
+# HangingDisplay en Dome_Intro.tscn): ese viewport se queda en UPDATE_DISABLED y solo
+# redibuja cuando se lo pide. Sin esto, el texto de arriba cambiaria pero la textura
+# nunca se actualizaria hasta el proximo evento que si dispare un redraw.
+func _request_redraw() -> void:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("request_redraw"):
+			node.request_redraw()
+			return
+		node = node.get_parent()
