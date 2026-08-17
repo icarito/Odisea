@@ -98,7 +98,7 @@ el flag correspondiente a `update_manifest.py generate`.
 | Plataforma | Qué hace el cliente |
 |---|---|
 | Linux / Windows / macOS | Descarga `.pck` por chunks, verifica SHA-256, stagea como pending_boot, reinicia y aplica. |
-| Android | `kind=apk`: valida SHA-256 y abre el intent del sistema para instalar el APK. No carga PCK. |
+| Android | `kind=apk`: baja el APK completo en segundo plano apenas hay update (sin esperar confirmación), valida SHA-256, y recién al confirmar el usuario abre el intent del sistema para instalar. No carga PCK. APKs viejos en `user://updates/packages/` se purgan en cada boot (son de un solo uso, no hay bookkeeping de "confirmado" como los `.pck`). |
 | iOS | No descarga artifacts; muestra enlace a App Store / TestFlight. |
 | HTML5 | Delega en la shell: navega a `?build_id=xxx` (cache-busting). Sin verificación cripto (se sirve por HTTPS del dominio oficial). |
 

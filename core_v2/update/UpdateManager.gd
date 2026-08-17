@@ -49,6 +49,12 @@ var _chunk_retries := 0
 var _needs_binary_update := false
 var _download_queue := []
 var _staged_artifacts := []
+# Android: cuando begin_update(true) descarga el APK en background (sin que el
+# usuario haya confirmado todavía), NO se debe disparar el instalador del sistema
+# al terminar. _pending_apk_path guarda la ruta ya verificada para que
+# request_restart() la instale recién cuando el usuario confirme.
+var _prefetch_only := false
+var _pending_apk_path := ""
 
 func _ready():
 	_keyring = load("res://core_v2/update/UpdateKeyring.gd").new()
@@ -61,6 +67,7 @@ func _ready():
 		return
 	_check_pending_boot()
 	_cleanup_staging()
+	_cleanup_stale_apks()
 	# Confirmar el boot tras un update no debe depender SOLO de llegar al menú
 	# (Menu.gd): si el jugador entra directo a gameplay (deep-link) o el menú cambia,
 	# el pending nunca se confirmaba y el update se revertía a los 2 intentos aunque
@@ -93,6 +100,8 @@ func check_for_updates() -> void:
 	if _state != State.IDLE and _state != State.FAILED:
 		return
 	_set_state(State.CHECKING)
+	_prefetch_only = false
+	_pending_apk_path = ""
 
 	# El canal debe venir del build_meta empaquetado (channel=nightly en builds de
 	# main). Antes salía solo de la env var ODISEA_UPDATE_CHANNEL y caía a "release",
@@ -337,9 +346,14 @@ func _is_source_checkout() -> bool:
 	return dir.dir_exists("res://.git")
 
 
-func begin_update() -> void:
+# prefetch_only=true baja el artifact sin disparar la acción final (el intent de
+# instalación en Android). Se usa para pre-descargar en background apenas hay
+# update disponible; queda en READY_TO_RESTART y request_restart() dispara la
+# instalación real cuando el usuario confirma.
+func begin_update(prefetch_only: bool = false) -> void:
 	if _state != State.AVAILABLE:
 		return
+	_prefetch_only = prefetch_only
 
 	if OS.get_name() == "iOS":
 		var url = _pending_update.get("downloads_page", "")
@@ -468,6 +482,13 @@ func cancel_download() -> void:
 
 func request_restart() -> void:
 	if _state != State.READY_TO_RESTART:
+		return
+
+	if OS.get_name() == "Android":
+		# El APK ya se bajó y verificó en background (begin_update(true)); acá recién
+		# se dispara el intent de instalación, con el usuario ya confirmado.
+		if _pending_apk_path != "":
+			_install_downloaded_apk(_pending_apk_path)
 		return
 
 	var pending = _load_json(PENDING_BOOT_FILE, {})
@@ -984,34 +1005,45 @@ func _finalize_apk_download():
 		return
 
 	# On Android, we don't load the PCK, we trigger the APK install
-	var real_path = ProjectSettings.globalize_path(part_path)
-
 	# Rename to .apk so the OS recognizes it
 	var apk_path = PACKAGE_DIR + artifact_id + ".apk"
 	var d = Directory.new()
 	if d.file_exists(apk_path):
 		d.remove(apk_path)
 
-	if d.copy(part_path, apk_path) == OK:
-		var absolute_apk_path: String = ProjectSettings.globalize_path(apk_path)
-		if Engine.has_singleton("OdiseaUpdater"):
-			var updater: Object = Engine.get_singleton("OdiseaUpdater")
-			if updater.install_apk(absolute_apk_path):
-				_set_state(State.APPLYING_EXTERNAL)
-			else:
-				_on_error("apk_installer_failed", true)
-		else:
-			# Old Android builds do not contain the FileProvider bridge. Sending the
-			# player to the GitHub release still lets them bootstrap into a build that
-			# supports in-app APK installation.
-			var downloads_url: String = _pending_update.get("release_notes_url", _pending_update.get("downloads_page", ""))
-			if downloads_url != "":
-				OS.shell_open(downloads_url)
-				_set_state(State.APPLYING_EXTERNAL)
-			else:
-				_on_error("apk_installer_unavailable", false)
-	else:
+	if d.copy(part_path, apk_path) != OK:
 		_on_error("apk_promote_failed", false)
+		return
+
+	var absolute_apk_path: String = ProjectSettings.globalize_path(apk_path)
+
+	if _prefetch_only:
+		# Descarga en background: solo dejar el APK verificado listo. El instalador
+		# del sistema se dispara recién en request_restart(), al confirmar el usuario.
+		_pending_apk_path = absolute_apk_path
+		_set_state(State.READY_TO_RESTART)
+		emit_signal("update_ready", _pending_update)
+		return
+
+	_install_downloaded_apk(absolute_apk_path)
+
+func _install_downloaded_apk(absolute_apk_path: String) -> void:
+	if Engine.has_singleton("OdiseaUpdater"):
+		var updater: Object = Engine.get_singleton("OdiseaUpdater")
+		if updater.install_apk(absolute_apk_path):
+			_set_state(State.APPLYING_EXTERNAL)
+		else:
+			_on_error("apk_installer_failed", true)
+	else:
+		# Old Android builds do not contain the FileProvider bridge. Sending the
+		# player to the GitHub release still lets them bootstrap into a build that
+		# supports in-app APK installation.
+		var downloads_url: String = _pending_update.get("release_notes_url", _pending_update.get("downloads_page", ""))
+		if downloads_url != "":
+			OS.shell_open(downloads_url)
+			_set_state(State.APPLYING_EXTERNAL)
+		else:
+			_on_error("apk_installer_unavailable", false)
 
 func _finalize_web_update(pending):
 	# JavaScript call to navigate with cache busting
@@ -1207,6 +1239,21 @@ func _cleanup_staging():
 			# Simple policy: clear staging at boot if it's not a resumed download
 			# In a real scenario we'd check modification times
 			d.remove(file_name)
+		file_name = d.get_next()
+
+# APK descargados (Android) no tienen bookkeeping de "activo/confirmado" como los
+# .pck: una vez ofrecido al instalador del sistema son de un solo uso, y si el
+# usuario nunca llegó a instalar, quedan huérfanos en PACKAGE_DIR. Misma política
+# simple que _cleanup_staging(): barrer todo en cada boot.
+func _cleanup_stale_apks():
+	var d = Directory.new()
+	if d.open(PACKAGE_DIR) != OK:
+		return
+	d.list_dir_begin()
+	var file_name = d.get_next()
+	while file_name != "":
+		if not d.current_is_dir() and file_name.ends_with(".apk"):
+			d.remove(PACKAGE_DIR + file_name)
 		file_name = d.get_next()
 
 func _redirect_check(url, channel, platform):

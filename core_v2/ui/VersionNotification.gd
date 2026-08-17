@@ -1,14 +1,14 @@
 extends CanvasLayer
 
 onready var control = $Control
-onready var panel = $Control/MarginContainer/PanelContainer
+onready var panel = $Control/CenterContainer/PanelContainer
 onready var modal_dim = $Control/ModalDim
-onready var label = $Control/MarginContainer/PanelContainer/MarginContainer/VBoxContainer/Label
-onready var metadata_label = $Control/MarginContainer/PanelContainer/MarginContainer/VBoxContainer/MetadataLabel
-onready var release_notes_button = $Control/MarginContainer/PanelContainer/MarginContainer/VBoxContainer/ReleaseNotesButton
-onready var download_progress = $Control/MarginContainer/PanelContainer/MarginContainer/VBoxContainer/DownloadProgress
-onready var action_button = $Control/MarginContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/ActionButton
-onready var close_button = $Control/MarginContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/CloseButton
+onready var label = $Control/CenterContainer/PanelContainer/MarginContainer/VBoxContainer/Label
+onready var metadata_label = $Control/CenterContainer/PanelContainer/MarginContainer/VBoxContainer/MetadataLabel
+onready var release_notes_button = $Control/CenterContainer/PanelContainer/MarginContainer/VBoxContainer/ReleaseNotesButton
+onready var download_progress = $Control/CenterContainer/PanelContainer/MarginContainer/VBoxContainer/DownloadProgress
+onready var action_button = $Control/CenterContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/ActionButton
+onready var close_button = $Control/CenterContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/CloseButton
 
 var _current_update_info := {}
 var _dismissed_manifest_id := ""
@@ -67,12 +67,16 @@ func _on_update_available(info: Dictionary):
 		type = "Delta"
 	var size_mb = artifact.get("size", 0) / (1024.0 * 1024.0)
 
-	# Delta = descarga chica: pre-bajarla en background ya, para que el clic de
-	# confirmación aplique al instante (la barra solo se muestra al confirmar). Solo en
-	# plataformas que hacen hot-swap local (no web/iOS, que delegan a shell/store).
+	# Pre-bajar en background ya, para que el clic de confirmación aplique al
+	# instante (la barra solo se muestra al confirmar). Desktop: solo si es delta
+	# (descarga chica). Android: siempre, porque hoy no hay delta y el APK completo
+	# es justamente lo que más tarda si se espera a que el usuario confirme. Ni
+	# web ni iOS, que delegan a shell/store en vez de bajar un artifact acá.
 	var platform = OS.get_name()
-	if _is_delta_update and platform != "HTML5" and platform != "iOS" and platform != "Android":
-		if UpdateManager.get_status() == "available":
+	if UpdateManager.get_status() == "available":
+		if platform == "Android":
+			UpdateManager.begin_update(true)
+		elif _is_delta_update and platform != "HTML5" and platform != "iOS":
 			UpdateManager.begin_update()
 
 	# Tabla "burocrática" alineada (fuente monospace del tema retro): compara el build
