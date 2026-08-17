@@ -35,6 +35,18 @@ albedo_color = Color( 0.93, 0.87, 0.55, 1 )
 metallic = 0.2
 roughness = 0.45
 
+[sub_resource type="SphereMesh" id=8]
+radius = 0.1
+height = 0.2
+
+[sub_resource type="SpatialMaterial" id=9]
+resource_local_to_scene = true
+albedo_color = Color( 1, 0.15, 0.1, 1 )
+emission_enabled = true
+emission = Color( 1, 0.15, 0.1, 1 )
+emission_energy = 6.0
+flags_unshaded = true
+
 [node name="PipeValve" type="Spatial"]
 script = ExtResource( 1 )
 interaction_text = "Turn Valve"
@@ -85,6 +97,11 @@ collision_layer = 64
 [node name="CollisionShape" type="CollisionShape" parent="Wheel/StaticBody"]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.15 )
 shape = SubResource( 3 )
+
+[node name="IndicatorLight" type="MeshInstance" parent="." groups=["no_occlusion"]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32, 0.15, 0.24 )
+mesh = SubResource( 8 )
+material/0 = SubResource( 9 )
 
 [node name="BaseStaticBody" type="StaticBody" parent="."]
 collision_layer = 64

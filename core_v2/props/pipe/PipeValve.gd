@@ -14,7 +14,11 @@ signal valve_state_changed(is_open)
 
 # --- INTERNAL STATE ---
 var _wheel: Spatial
+var _indicator: MeshInstance
 var _initialized := false
+
+const COLOR_CLOSED := Color( 1, 0.15, 0.1 )
+const COLOR_OPEN := Color( 0.1, 1, 0.3 )
 
 func set_valve_speed(v: float) -> void:
 	valve_speed = v
@@ -34,6 +38,7 @@ func _update_speed() -> void:
 
 func _ready():
 	_wheel = get_node_or_null("Wheel")
+	_indicator = get_node_or_null("IndicatorLight")
 	_initialized = true
 
 	# Sync speed
@@ -53,6 +58,13 @@ func _update_visuals() -> void:
 	var angle = lerp(0.0, PI, eased)
 
 	_wheel.rotation.z = angle
+
+	if _indicator:
+		var mat: SpatialMaterial = _indicator.get_surface_material(0)
+		if mat:
+			var color: Color = COLOR_CLOSED.linear_interpolate(COLOR_OPEN, eased)
+			mat.albedo_color = color
+			mat.emission = color
 
 func _on_animation_completed() -> void:
 	._on_animation_completed()

@@ -12,6 +12,9 @@ var _font_size := 16
 var _font_data: DynamicFontData = null
 var _scroll_line_cursor := 0
 
+# 0 = keep the theme font size; >0 overrides it (used by the debug console HUD).
+export(int, 0, 64) var font_size := 0
+
 onready var _output: RichTextLabel = $VBox/Output
 onready var _prompt: Label = $VBox/CommandRow/Prompt
 onready var _input: LineEdit = $VBox/CommandRow/CommandInput
@@ -28,7 +31,9 @@ func _ready() -> void:
 		_input.connect("gui_input", self, "_on_input_gui")
 		focus_command_input()
 	if _output:
-		_output.scroll_following = true
+		# scroll_following with append_bbcode triggers the Godot 3 RichTextLabel
+		# ghost-line bug (the last line renders doubled). Manual scroll below.
+		_output.scroll_following = false
 	_render_full_output()
 	set_process(true)
 
@@ -259,6 +264,8 @@ func _init_font_scaling() -> void:
 		var dyn = base_font as DynamicFont
 		_font_size = int(dyn.size)
 		_font_data = dyn.font_data
+	if font_size > 0:
+		_font_size = font_size
 	_apply_font_overrides()
 
 func _change_font_size(delta: int) -> void:

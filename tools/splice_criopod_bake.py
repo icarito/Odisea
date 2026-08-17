@@ -139,12 +139,20 @@ def main():
         )
 
     # --- 2. reemplazar los nodos Criopods* -------------------------------------
+    # El rango a reemplazar es TODO nodo que cuelgue de un anillo: el header
+    # "Criopods\d+", sus hijos directos (Item_N sin hornear, o Shell/Glass/
+    # PersonCards/StaticBody ya horneados) y los nietos (Pod_NN bajo el
+    # StaticBody, o el StaticBody/CollisionShape que traía cada Item_N viejo).
+    # Si esto solo mirara "Criopods\d+" + "Item_\d+" (como antes), un re-bake
+    # sobre una escena YA horneada no encuentra ningun Item_N -> ultimo se
+    # queda en el header y los hijos horneados de Criopods6 (los ultimos del
+    # archivo) quedan afuera del rango, huerfanos sin borrar.
     primero = ultimo = None
     for i, (clase, _ident, ls) in enumerate(bloques):
         if clase != "node":
             continue
-        if re.match(r'\[node name="Criopods\d+" ', ls[0]) or re.match(
-            r'\[node name="Item_\d+" parent="Spatial/Criopods\d+"', ls[0]
+        if re.match(r'\[node name="Criopods\d+" ', ls[0]) or re.search(
+            r'\bparent="Spatial/Criopods\d+(/|")', ls[0]
         ):
             primero = i if primero is None else primero
             ultimo = i
