@@ -427,32 +427,9 @@ func anna_rebuild_cables() -> bool:
 # --- Cable Generation ---
 
 func generate_cables():
-    if not is_inside_tree():
+    if not is_inside_tree() or not circuit_data:
         return
 
-    for conn in circuit_data.connections:
-        if conn.type == "WIRELESS":
-            continue
-
-        var from_node = _get_node_instance(conn.from)
-        var to_node = _get_node_instance(conn.to)
-
-        if not from_node or not to_node:
-            continue
-
-        var start_pos = _get_anchor_pos(from_node)
-        var end_pos = _get_anchor_pos(to_node)
-
-        var cable = _spawn_cable()
-        var curve = Curve3D.new()
-        _generate_catenary(curve, start_pos, end_pos)
-
-        if cable.has_method("init_from_curve"):
-            cable.init_from_curve(curve)
-        else:
-            printerr("[LogicCircuitManager] Cable instance does not support init_from_curve, skipping cable.")
-
-        _cables[_get_connection_hash(conn)] = cable
     # Clear existing cables
     for c in _cables.values():
         if is_instance_valid(c):
@@ -461,20 +438,17 @@ func generate_cables():
 
     for conn in circuit_data.connections:
         # skip wireless connections
-        if conn.type == "WIRELESS":
+        if conn.get("type", "WIRED") == "WIRELESS":
             continue
 
-        var from_node = _get_node_instance(conn.from)
-        var to_node = _get_node_instance(conn.to)
+        var from_node = _get_node_instance(conn.get("from", ""))
+        var to_node = _get_node_instance(conn.get("to", ""))
 
         if not from_node or not to_node:
             continue
 
         var start_pos = _get_anchor_pos(from_node)
         var end_pos = _get_anchor_pos(to_node)
-
-        print("[Debug] LogicCircuitManager::Cable Position Debug --> Start Position: ", start_pos, " End Position: ", end_pos) # Ensure DEBUG'able positions.
-        print("[LogicCircuitManager] Generating cable for connection:", conn)
 
         # Debug spheres at anchors for visibility (only if show_debug_meshes is true)
         if show_debug_meshes and is_inside_tree():
@@ -496,7 +470,6 @@ func generate_cables():
             s2.global_transform.origin = end_pos
 
         var cable = _spawn_cable()
-        print("[LogicCircuitManager] cable node type: ", typeof(cable), cable)
         var curve = Curve3D.new()
         _generate_catenary(curve, start_pos, end_pos)
 
@@ -507,11 +480,9 @@ func generate_cables():
             cable.init_from_curve(curve)
             applied = true
         else:
-            # Try property + build using a robust property-list check
             if cable:
                 var has_path_prop = false
                 var prop_list = []
-                # get_property_list may return array of dictionaries describing properties
                 if cable.has_method("get_property_list"):
                     prop_list = cable.get_property_list()
                 for p in prop_list:
@@ -524,12 +495,7 @@ func generate_cables():
                     if cable.has_method("build"):
                         cable.build()
                     applied = true
-                elif cable.has_method("init_from_curve"):
-                    # fallback to init_from_curve if it exists
-                    cable.init_from_curve(curve)
-                    applied = true
                 elif cable.has_method("build"):
-                    # As a last resort, call build() even if we couldn't set path_curve
                     cable.build()
                     applied = true
 
@@ -537,12 +503,8 @@ func generate_cables():
             printerr("[LogicCircuitManager] Created cable instance does not implement expected API; skipping visuals for", conn)
 
         # Connect break signal if possible
-        if cable and cable.has_method("connect"):
-            # Wrap in try/catch style guard: connect may fail if signal doesn't exist
-            var ok_conn = true
-            # Avoid throwing if the node is a plain Spatial
-            if cable.has_signal("connection_broken"):
-                cable.connect("connection_broken", self, "_on_cable_broken", [conn])
+        if cable and cable.has_signal("connection_broken"):
+            cable.connect("connection_broken", self, "_on_cable_broken", [conn])
 
         var h = _get_connection_hash(conn)
         _cables[h] = cable
@@ -559,72 +521,18 @@ func _spawn_cable() -> CircuitCable:
             if script_res and script_res is Script:
                 c = script_res.new()
 
-    # Preferred: try to instantiate from the GDScript class (most robust in headless/test env)
-    if not c:
-        var script_path = "res://core_v2/systems/circuit/CircuitCable.gd"
-        print("[LogicCircuitManager] Checking script path exists:", script_path, ResourceLoader.exists(script_path))
-        if ResourceLoader.exists(script_path):
-            var script_res = load(script_path)
-            print("[LogicCircuitManager] Loaded resource:", script_res, " type:", typeof(script_res))
-            if script_res and script_res is Script:
-                print("[LogicCircuitManager] Resource is Script. Attempting .new() instantiation...")
-                var inst = null
-                # Try to instantiate and capture result
-                inst = script_res.new()
-                if inst:
-                    c = inst
-                    print("[LogicCircuitManager] .new() returned instance:", c, "class:", c.get_class())
-                    # Print its exported/property list for diagnostics
-                    var prop_names = []
-                    for p in c.get_property_list():
-                        var pname = p["name"] if (typeof(p) == TYPE_DICTIONARY and p.has("name")) else "<unknown>"
-                        prop_names.append(pname)
-                    print("[LogicCircuitManager] Instance properties:", prop_names)
-                else:
-                    printerr("[LogicCircuitManager] script_res.new() returned null")
-            else:
-                printerr("[LogicCircuitManager] CircuitCable.gd loaded but is not a Script resource; got:", script_res)
+    if not c and cable_scene and cable_scene is PackedScene:
+        c = cable_scene.instance()
 
-    # Next: try user-provided PackedScene
-    if not c and cable_scene:
-        if cable_scene is PackedScene:
-            var inst2 = cable_scene.instance()
-            if inst2:
-                c = inst2
-                print("[LogicCircuitManager] Instantiated cable_scene PackedScene ->", c, "class:", c.get_class())
-                # diagnostic property list
-                var prop_names2 = []
-                for p in c.get_property_list():
-                    var pname2 = p["name"] if (typeof(p) == TYPE_DICTIONARY and p.has("name")) else "<unknown>"
-                    prop_names2.append(pname2)
-                print("[LogicCircuitManager] cable_scene instance properties:", prop_names2)
-            else:
-                printerr("[LogicCircuitManager] cable_scene.instance() returned null")
-        else:
-            printerr("[LogicCircuitManager] cable_scene property is not a PackedScene")
-
-    # As a last resort, try loading a tscn bundle (rare)
     if not c and ResourceLoader.exists("res://core_v2/systems/circuit/CircuitCable.tscn"):
-        var tscn_path = "res://core_v2/systems/circuit/CircuitCable.tscn"
-        print("[LogicCircuitManager] Trying bundled scene:", tscn_path, ResourceLoader.exists(tscn_path))
-        var bundled_scene = load(tscn_path)
-        print("[LogicCircuitManager] loaded bundled resource:", bundled_scene, " type:", typeof(bundled_scene))
+        var bundled_scene = load("res://core_v2/systems/circuit/CircuitCable.tscn")
         if bundled_scene and bundled_scene is PackedScene:
-            var inst3 = bundled_scene.instance()
-            if inst3:
-                c = inst3
-                print("[LogicCircuitManager] Bundled tscn instantiated:", c, "class:", c.get_class())
-            else:
-                printerr("[LogicCircuitManager] Bundled CircuitCable.tscn instance() returned null")
-        else:
-            printerr("[LogicCircuitManager] Bundled resource is not a PackedScene or failed to load")
+            c = bundled_scene.instance()
 
-    # Final safety: create an empty Spatial so scene doesn't crash
     if not c:
         printerr("[LogicCircuitManager] All attempts to create a CircuitCable failed — using empty Spatial as fallback")
         c = Spatial.new()
-    else:
-        print("[LogicCircuitManager] Successfully instantiated cable node:", c, " type:", typeof(c), "class:", c.get_class())
+
     add_child(c)
     return c
 
