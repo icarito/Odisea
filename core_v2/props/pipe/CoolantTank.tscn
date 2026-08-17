@@ -1,5 +1,6 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=9 format=2]
 
+[ext_resource path="res://core_v2/props/pipe/CoolantTank.gd" type="Script" id=0]
 [ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/props/pipe/PipeCoolantRing.tres" type="Material" id=2]
 
@@ -28,6 +29,7 @@ height = 0.6
 
 [node name="CoolantTank" type="StaticBody"]
 collision_layer = 64
+script = ExtResource( 0 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0 )

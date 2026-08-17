@@ -284,10 +284,31 @@ func _stick_at(collider, position: Vector3, normal: Vector3):
 	if collider.has_method("add_collision_exception_with"):
 		collider.add_collision_exception_with(self)
 	_add_gloo_collision_exceptions()
+	_try_patch_leak(collider)
+
 	if collider is StaticBody or collider is CSGShape:
 		_set_solid_collision(true, _get_static_gloo_collision_mask())
 	else:
 		_set_solid_collision(false)
+
+
+func _try_patch_leak(node: Node) -> void:
+	var curr = node
+	var depth = 0
+	while curr != null and depth < 6:
+		if curr.has_method("patch_with_gloo"):
+			curr.call("patch_with_gloo")
+			return
+		if curr.is_in_group("gloo_patchable"):
+			if curr.has_method("patch_with_gloo"):
+				curr.call("patch_with_gloo")
+				return
+			for child in curr.get_children():
+				if child.has_method("patch_with_gloo"):
+					child.call("patch_with_gloo")
+					return
+		curr = curr.get_parent()
+		depth += 1
 
 func _add_gloo_collision_exceptions() -> void:
 	for blob in get_tree().get_nodes_in_group("gloo_blob"):
