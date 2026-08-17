@@ -97,11 +97,21 @@ func _apply_curve(v: Vector2, curve: Curve) -> Vector2:
 	return v.normalized() * curved_length
 
 
+func set_touch_ui_hint(active: bool) -> void:
+	_touch_ui_hint_resolved = true
+	_touch_ui_hint = active
+
+func invalidate_touch_ui_hint() -> void:
+	_touch_ui_hint_resolved = false
+
 func _has_touch_ui() -> bool:
-	# Resuelto una sola vez: es una consulta al OS y se lee en cada frame de input.
 	if not _touch_ui_hint_resolved:
 		_touch_ui_hint_resolved = true
 		_touch_ui_hint = OS.has_touchscreen_ui_hint() or OS.get_name() == "Android" or OS.get_name() == "iOS"
+		if not _touch_ui_hint and Engine.get_main_loop() and Engine.get_main_loop().root:
+			var mobile_mgr = Engine.get_main_loop().root.get_node_or_null("MobileUIManager")
+			if is_instance_valid(mobile_mgr) and mobile_mgr.has_method("is_touch_active"):
+				_touch_ui_hint = mobile_mgr.is_touch_active()
 	return _touch_ui_hint
 
 
