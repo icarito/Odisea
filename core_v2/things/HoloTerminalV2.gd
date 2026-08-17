@@ -598,25 +598,21 @@ func _input(event):
 			get_tree().set_input_as_handled()
 			return
 
-	# Unified ui_cancel handling for regular terminals
-	if is_active and event.is_action_pressed("ui_cancel") and not attach_to_active_camera:
-		if _is_focused:
-			print("[HoloTerminalV2] ui_cancel pressed, exiting focus mode")
-			_exit_focus_mode()
-		else:
-			if _camera_zone and "is_zone_active" in _camera_zone:
-				var currently_active = _camera_zone.is_zone_active
-				_camera_zone.is_zone_active = not currently_active
-				print("[HoloTerminalV2] ui_cancel pressed, cinematic camera toggled: ", _camera_zone.is_zone_active)
-				
-			if auto_interact:
-				# auto_interact terminals stay active visually
-				pass
-			else:
-				# For regular terminals, only deactivate terminal if we are releasing the camera
-				if _camera_zone and not _camera_zone.is_zone_active:
-					print("[HoloTerminalV2] Deactivating terminal")
-					set_active(false)
+	# ui_cancel en terminales normales: SOLO sale del modo foco. Si el terminal no está
+	# enfocado, el evento sigue de largo hasta el menú de pausa, que es a donde ui_cancel
+	# tiene que llevar.
+	#
+	# Antes lo consumía siempre: estando cerca de un terminal de pared, Escape apagaba el
+	# terminal o conmutaba su zona cinemática, y la pausa no se abría nunca. El terminal que
+	# cuelga (WallTerminal) trae allow_focus_mode = false, o sea que NUNCA se enfoca: para
+	# él esta era la única rama, y ahora deja pasar el evento siempre.
+	#
+	# El caso enfocado se conserva a propósito. El toggle del puente HUD quedó sin tecla
+	# (solo joypad), así que ui_cancel es la única salida del modo foco por teclado; sin
+	# esto el jugador quedaría atrapado en la cámara del terminal con la pausa encima. Y el
+	# terminal se sigue soltando al alejarse, por close_on_exit_zone.
+	if is_active and _is_focused and event.is_action_pressed("ui_cancel") and not attach_to_active_camera:
+		_exit_focus_mode()
 		get_tree().set_input_as_handled()
 		return
 
