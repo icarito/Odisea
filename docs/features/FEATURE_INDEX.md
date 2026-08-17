@@ -111,6 +111,11 @@ Usar tres capas separadas:
 | FD-257 | Sistema Plasma | Implemented | Small | P0 |
 | FD-258 | Sistema Atmósfera (Presión) | Implemented | Small | P0 |
 | FD-259 | Sistema Energía Auxiliar | Implemented | Small | P0 |
+| FD-260 | Signage — configuración y legibilidad | In Progress | Small | P2 |
+| FD-261 | Editor de circuitos usable (Dome_Intro) | Design | Small | P2 |
+| FD-262 | Generador procedural de rutas de tuberías | Design | Medium | P1 |
+| FD-263 | Touch universal (tap interact + detección runtime) | Design | Medium | P0 |
+| FD-264 | Lógica de circuitos de coolant (grafo de flujo OCLS) | Design | Medium | P0 |
 
 ## Completed / Archived
 

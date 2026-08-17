@@ -37,7 +37,7 @@ Cada uno avisa antes de dañar, y se libera reordenándolo en vez de destruyénd
 qué hace cada uno, cómo está armado, cuál es la lógica de sus interruptores y dónde tocar
 para mejorarlo. Banco de pruebas: `core_v2/tests/TestShipSystems.tscn` (F6).
 
-Diseño: [FD-255](docs/features/FD-255_systems_master.md) y sus hijos FD-256 a FD-259.
+Diseño: [FD-255](docs/features/FD-255_systems_master.md) y sus hijos FD-256 a FD-259. La lógica de flujo del coolant (grafo OCLS + puente visual) vive en [FD-264](docs/features/FD-264_coolant_flow_graph.md) — en diseño.
 
 ## Integración de Agentes (ANNA V1 — DEPRECATED)
 

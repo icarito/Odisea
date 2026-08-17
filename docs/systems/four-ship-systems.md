@@ -59,6 +59,12 @@ niebla son partículas de `GasParticleManager` con dither (así resuelve GLES2 l
 densidad de la nube; `fill_duration` para que entre más o menos rápido; `PipeCoolantRun.base_color`
 y `flow_color` para el caño.
 
+> **Pendiente (FD-264, en diseño):** la mitad visual (`PipeCoolantRun` + `pipe_coolant.shader`,
+ya circuit-aware) y la lógica (`CoolantLeak`) todavía no están unidas. Falta el **grafo de
+> flujo sobre OCLS** + `CoolantFlowAdapter` que escribe `flow_intensity`/`flow_speed` en las
+> corridas, más el parche de gloo temporal y los manómetros. Ver
+> [FD-264](../features/FD-264_coolant_flow_graph.md).
+
 ---
 
 ## 2. Energía auxiliar (verde) — el circuito que abre la puerta
