@@ -133,6 +133,14 @@ lo sostiene indefinidamente; uno provisorio lo pierde cuando salta. El puzle **s
 **Fuera de alcance:** `core_v2/scenes/CoolantLab.tscn` (los valores exportados los calibra
 Sebastián sobre la escena ya verificada), geometría, arte, y los otros tres sistemas de FD-255.
 
+## Plan de tareas
+
+| Tarea | Qué | Ejecutor | Sesión | Brief |
+|---|---|---|---|---|
+| t1 | Semántica del puzle + drain del tanque | Jules | `17995265975647223879` | `docs/features/tasks/FD-266-t1-puzzle-semantics-drain.md` |
+
+Calibración de valores exportados y cableado en `CoolantLab.tscn`: Sebastián, después del merge.
+
 ## Verification
 
 1. Cerrar la válvula aguas arriba de una fuga activa: la intensidad cae a 0 con rampa, pero el

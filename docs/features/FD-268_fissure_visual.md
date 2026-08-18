@@ -59,6 +59,14 @@ paralelo sin chocar.
 **Fuera de alcance:** `CoolantLab.tscn` (lo cablea Sebastián), la lógica de fuga/parche (FD-266),
 y el barrido de tubos (FD-267).
 
+## Plan de tareas
+
+| Tarea | Qué | Ejecutor | Sesión | Brief |
+|---|---|---|---|---|
+| t1 | Grieta en el shader + chorro determinista | Jules | `4786349070699044630` | `docs/features/tasks/FD-268-t1-fissure-visual.md` |
+
+Calibración de valores exportados y cableado en `CoolantLab.tscn`: Sebastián, después del merge.
+
 ## Verification
 
 1. Un tramo sano se ve igual que antes del cambio.

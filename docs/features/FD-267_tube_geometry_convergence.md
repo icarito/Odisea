@@ -82,6 +82,14 @@ de compartir el recurso de `load()`.
 esta tarea arregla cómo se barre, no por dónde va), `CoolantLab.tscn`, `Dome_Intro.tscn`, y
 cualquier escena de nivel.
 
+## Plan de tareas
+
+| Tarea | Qué | Ejecutor | Sesión | Brief |
+|---|---|---|---|---|
+| t1 | Barrido común + convergencia de cable | Jules | `537927738519409501` | `docs/features/tasks/FD-267-t1-tubebuilder-corners.md` |
+
+Calibración de valores exportados y cableado en `CoolantLab.tscn`: Sebastián, después del merge.
+
 ## Verification
 
 1. `test_tube_builder.gd`: una curva con una esquina de 90° produce una malla sin normales
