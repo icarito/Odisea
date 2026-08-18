@@ -1,0 +1,278 @@
+[gd_scene load_steps=13 format=2]
+
+[ext_resource path="res://core_v2/scenes/CoolantLab.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/systems/circuit/CircuitGraphResource.gd" type="Script" id=3]
+[ext_resource path="res://core_v2/props/pipe/CoolantTank.tscn" type="PackedScene" id=4]
+[ext_resource path="res://core_v2/props/pipe/PipeValve.tscn" type="PackedScene" id=5]
+[ext_resource path="res://core_v2/systems/cryo/CoolantLeak.gd" type="Script" id=6]
+[ext_resource path="res://core_v2/systems/cryo/LeakPatchPoint.gd" type="Script" id=7]
+[ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=8]
+[ext_resource path="res://core_v2/props/pipe/PipeManometer.gd" type="Script" id=9]
+[ext_resource path="res://core_v2/systems/cryo/CoolantFlowAdapter.gd" type="Script" id=10]
+[ext_resource path="res://core_v2/systems/circuit/CircuitCable.tscn" type="PackedScene" id=11]
+
+[sub_resource type="Resource" id=1]
+script = ExtResource( 3 )
+nodes = {
+"LeakEast": {
+"position": Vector2( 700, 200 ),
+"scene_path": NodePath("../LeakEast"),
+"type": "PROP"
+},
+"LeakWest": {
+"position": Vector2( 700, 0 ),
+"scene_path": NodePath("../LeakWest"),
+"type": "PROP"
+},
+"TankEast": {
+"position": Vector2( 0, 200 ),
+"scene_path": NodePath("../TankEast"),
+"type": "PROP"
+},
+"TankWest": {
+"position": Vector2( 0, 0 ),
+"scene_path": NodePath("../TankWest"),
+"type": "PROP"
+},
+"ValveEast_1": {
+"position": Vector2( 250, 200 ),
+"scene_path": NodePath("../ValveEast_1"),
+"type": "PROP"
+},
+"ValveEast_2": {
+"position": Vector2( 500, 200 ),
+"scene_path": NodePath("../ValveEast_2"),
+"type": "PROP"
+},
+"ValveWest_1": {
+"position": Vector2( 250, 0 ),
+"scene_path": NodePath("../ValveWest_1"),
+"type": "PROP"
+},
+"ValveWest_2": {
+"position": Vector2( 500, 0 ),
+"scene_path": NodePath("../ValveWest_2"),
+"type": "PROP"
+}
+}
+connections = [ {
+"from": "TankWest",
+"from_port": 0,
+"points": [  ],
+"to": "ValveWest_1",
+"to_port": 0,
+"type": "WIRED"
+}, {
+"from": "ValveWest_1",
+"from_port": 0,
+"points": [  ],
+"to": "ValveWest_2",
+"to_port": 0,
+"type": "WIRED"
+}, {
+"from": "ValveWest_2",
+"from_port": 0,
+"points": [  ],
+"to": "LeakWest",
+"to_port": 0,
+"type": "WIRED"
+}, {
+"from": "TankEast",
+"from_port": 0,
+"points": [  ],
+"to": "ValveEast_1",
+"to_port": 0,
+"type": "WIRED"
+}, {
+"from": "ValveEast_1",
+"from_port": 0,
+"points": [  ],
+"to": "ValveEast_2",
+"to_port": 0,
+"type": "WIRED"
+}, {
+"from": "ValveEast_2",
+"from_port": 0,
+"points": [  ],
+"to": "LeakEast",
+"to_port": 0,
+"type": "WIRED"
+} ]
+
+[node name="CoolantLab" type="Spatial"]
+script = ExtResource( 1 )
+flow_adapter_west_path = NodePath("CoolantFlowAdapterWest")
+flow_adapter_east_path = NodePath("CoolantFlowAdapterEast")
+leak_west_patch_path = NodePath("LeakWest_Patch")
+leak_east_patch_path = NodePath("LeakEast_Patch")
+manometer_west_path = NodePath("ManometerWest")
+manometer_east_path = NodePath("ManometerEast")
+status_label_path = NodePath("UI/Control/StatusLabel")
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 6, 12 )
+current = true
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 10, 0 )
+light_energy = 0.8
+
+[node name="Floor" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )
+width = 24.0
+height = 1.0
+depth = 16.0
+
+[node name="WallNorth" type="CSGBox" parent="Floor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -8 )
+width = 24.0
+height = 6.0
+depth = 0.5
+
+[node name="LogicCircuitManager" type="Spatial" parent="."]
+script = ExtResource( 2 )
+circuit_data = SubResource( 1 )
+auto_build_cables = true
+cable_scene = ExtResource( 11 )
+
+[node name="TankWest" parent="." instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -4 )
+
+[node name="ValveWest_1" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 1, -4 )
+starts_active = true
+
+[node name="ValveWest_2" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1, -4 )
+starts_active = true
+
+[node name="LeakWest" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, -4 )
+script = ExtResource( 6 )
+starts_leaking = true
+valve_path = NodePath("../ValveWest_1")
+
+[node name="CableAnchor" type="Position3D" parent="LeakWest"]
+
+[node name="LeakWest_Patch" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, -4 )
+script = ExtResource( 7 )
+leak_path = NodePath("../LeakWest")
+target_pipe_run_path = NodePath("../PipeRunWest")
+
+[node name="PipeRunWest" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 1, -4 )
+script = ExtResource( 8 )
+
+[node name="Visual" type="CSGBox" parent="PipeRunWest"]
+width = 10.0
+height = 0.3
+depth = 0.3
+
+[node name="ManometerWest" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1.8, -4 )
+script = ExtResource( 9 )
+flow_adapter_path = NodePath("../CoolantFlowAdapterWest")
+tank_path = NodePath("../TankWest")
+leak_path = NodePath("../LeakWest")
+
+[node name="Dial" type="CSGBox" parent="ManometerWest"]
+width = 0.6
+height = 0.6
+depth = 0.1
+
+[node name="Needle" type="Spatial" parent="ManometerWest"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.06 )
+
+[node name="Mesh" type="CSGBox" parent="ManometerWest/Needle"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0 )
+width = 0.04
+height = 0.24
+depth = 0.02
+
+[node name="CoolantFlowAdapterWest" type="Node" parent="."]
+script = ExtResource( 10 )
+circuit_manager_path = NodePath("../LogicCircuitManager")
+tank_path = NodePath("../TankWest")
+valves = [ NodePath("../ValveWest_1"), NodePath("../ValveWest_2") ]
+leaks = [ NodePath("../LeakWest") ]
+pipe_runs = [ NodePath("../PipeRunWest") ]
+
+[node name="TankEast" parent="." instance=ExtResource( 4 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 2 )
+
+[node name="ValveEast_1" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, 2 )
+starts_active = true
+
+[node name="ValveEast_2" parent="." instance=ExtResource( 5 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 2 )
+starts_active = true
+
+[node name="LeakEast" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 2 )
+script = ExtResource( 6 )
+starts_leaking = true
+valve_path = NodePath("../ValveEast_1")
+
+[node name="CableAnchor" type="Position3D" parent="LeakEast"]
+
+[node name="LeakEast_Patch" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 2 )
+script = ExtResource( 7 )
+leak_path = NodePath("../LeakEast")
+target_pipe_run_path = NodePath("../PipeRunEast")
+
+[node name="PipeRunEast" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 1, 2 )
+script = ExtResource( 8 )
+
+[node name="Visual" type="CSGBox" parent="PipeRunEast"]
+width = 10.0
+height = 0.3
+depth = 0.3
+
+[node name="ManometerEast" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.8, 2 )
+script = ExtResource( 9 )
+flow_adapter_path = NodePath("../CoolantFlowAdapterEast")
+tank_path = NodePath("../TankEast")
+leak_path = NodePath("../LeakEast")
+
+[node name="Dial" type="CSGBox" parent="ManometerEast"]
+width = 0.6
+height = 0.6
+depth = 0.1
+
+[node name="Needle" type="Spatial" parent="ManometerEast"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.06 )
+
+[node name="Mesh" type="CSGBox" parent="ManometerEast/Needle"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0 )
+width = 0.04
+height = 0.24
+depth = 0.02
+
+[node name="CoolantFlowAdapterEast" type="Node" parent="."]
+script = ExtResource( 10 )
+circuit_manager_path = NodePath("../LogicCircuitManager")
+tank_path = NodePath("../TankEast")
+valves = [ NodePath("../ValveEast_1"), NodePath("../ValveEast_2") ]
+leaks = [ NodePath("../LeakEast") ]
+pipe_runs = [ NodePath("../PipeRunEast") ]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Control" type="Control" parent="UI"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="StatusLabel" type="Label" parent="UI/Control"]
+anchor_right = 1.0
+margin_top = 20.0
+margin_bottom = 50.0
+text = "ESTADO COOLANT"
+align = 1
+valign = 1
