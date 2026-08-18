@@ -19,6 +19,7 @@ func test_touch_ui_shows_skip_while_cinematic_is_active() -> void:
 	var mobile_ui_manager = MobileUIManagerScript.new()
 	get_tree().root.add_child(mobile_ui_manager)
 	mobile_ui_manager._is_mobile = true
+	mobile_ui_manager._is_touch_active = true
 	mobile_ui_manager._spawn_mobile_ui()
 	mobile_ui_manager._connect_cinematic_manager()
 	mobile_ui_manager._refresh_mobile_ui_visibility()
@@ -55,6 +56,7 @@ func test_touch_ui_stays_visible_for_camera_zone_cinematics() -> void:
 	var mobile_ui_manager = MobileUIManagerScript.new()
 	get_tree().root.add_child(mobile_ui_manager)
 	mobile_ui_manager._is_mobile = true
+	mobile_ui_manager._is_touch_active = true
 	mobile_ui_manager._spawn_mobile_ui()
 	mobile_ui_manager._connect_cinematic_manager()
 	mobile_ui_manager._refresh_mobile_ui_visibility()
@@ -90,6 +92,7 @@ func test_touch_ui_is_hidden_when_script_input_is_blocked() -> void:
 	var mobile_ui_manager = MobileUIManagerScript.new()
 	get_tree().root.add_child(mobile_ui_manager)
 	mobile_ui_manager._is_mobile = true
+	mobile_ui_manager._is_touch_active = true
 	mobile_ui_manager._spawn_mobile_ui()
 	mobile_ui_manager._refresh_mobile_ui_visibility()
 
@@ -113,6 +116,7 @@ func test_hidden_touch_ui_does_not_reserve_subtitle_margins() -> void:
 	var mobile_ui_manager = MobileUIManagerScript.new()
 	get_tree().root.add_child(mobile_ui_manager)
 	mobile_ui_manager._is_mobile = true
+	mobile_ui_manager._is_touch_active = true
 	mobile_ui_manager._spawn_mobile_ui()
 
 	assert_object(mobile_ui_manager._mobile_ui).is_not_null()

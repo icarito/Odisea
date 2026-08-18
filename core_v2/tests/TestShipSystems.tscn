@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=12 format=2]
 
 ; Banco de trabajo de los 4 sistemas de la nave (FD-255).
 ; Una plataforma por sistema, con el color que lo identifica: cian criocoolant,
@@ -13,6 +13,7 @@
 [ext_resource path="res://core_v2/tests/stations/AuxPowerStation.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/tests/stations/PlasmaStation.tscn" type="PackedScene" id=6]
 [ext_resource path="res://core_v2/tests/stations/AtmoStation.tscn" type="PackedScene" id=7]
+[ext_resource path="res://core_v2/systems/pipe/PipeRun.gd" type="Script" id=8]
 
 [sub_resource type="SpatialMaterial" id=1]
 albedo_color = Color( 0.3, 0.36, 0.38, 1 )
@@ -113,6 +114,20 @@ depth = 7.0
 material = SubResource( 4 )
 
 [node name="AuxPowerStation" parent="Stations/AuxPowerStation" instance=ExtResource( 5 )]
+
+[node name="PipeRouterDemo" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -4 )
+
+[node name="AnchorA" type="Position3D" parent="PipeRouterDemo"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0.5, 0 )
+
+[node name="AnchorB" type="Position3D" parent="PipeRouterDemo"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.5, 0 )
+
+[node name="ProceduralPipeRun" type="Spatial" parent="PipeRouterDemo"]
+script = ExtResource( 8 )
+from_anchor = NodePath("../AnchorA")
+to_anchor = NodePath("../AnchorB")
 
 [node name="Pilot" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )

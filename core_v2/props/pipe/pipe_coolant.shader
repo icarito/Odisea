@@ -51,13 +51,11 @@ float noise(vec3 x) {
 				   mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 
-float fbm(vec3 p) {
-	float v = 0.0;
-	float a = 0.5;
-	for (int i = 0; i < 4; i++) {
-		v += a * noise(p);
+float fbm_lod(vec3 p, float dist) {
+	float v = 0.6 * noise(p);
+	if (dist < 15.0) {
 		p *= 2.0;
-		a *= 0.5;
+		v += 0.4 * noise(p);
 	}
 	return v;
 }
@@ -79,8 +77,10 @@ void fragment() {
 	// VERTEX llega en espacio de vista; CAMERA_MATRIX lo lleva a mundo.
 	vec3 world_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 axis = use_local_axis ? pipe_axis : flow_dir;
-	vec3 coord = world_pos * noise_scale - axis * flow_phase;
-	float n = fbm(coord);
+	float dist = length(VERTEX);
+	float phase = (flow_phase != 0.0) ? flow_phase : (TIME * 0.7);
+	vec3 coord = world_pos * noise_scale - axis * phase;
+	float n = fbm_lod(coord, dist);
 	float flow = smoothstep(0.5 - flow_contrast * 0.5, 0.5 + flow_contrast * 0.5, n);
 
 	ALBEDO = mix(base_color.rgb, flow_color.rgb * 0.5, flow * 0.4);

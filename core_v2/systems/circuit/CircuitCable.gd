@@ -1,6 +1,8 @@
 extends PropBaseV2
 class_name CircuitCable
 
+const TubeBuilder = preload("res://core_v2/systems/pipe/TubeBuilder.gd")
+
 # CircuitCable.gd
 # Procedurally generated cable that connects circuit nodes.
 # Supports both CSG and direct Mesh generation.
@@ -188,82 +190,13 @@ func _setup_hurtbox():
 
 
 func _generate_circle_polygon(radius: float, sides: int) -> PoolVector2Array:
-	var arr = PoolVector2Array()
-	for i in range(sides):
-		var angle = (i / float(sides)) * TAU
-		arr.append(Vector2(cos(angle), sin(angle)) * radius)
-	return arr
+	return TubeBuilder.generate_circle_polygon(radius, sides)
 
 func _generate_tube_mesh(curve: Curve3D, radius: float, sides: int) -> ArrayMesh:
-	var st = SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	var baked_points = curve.get_baked_points()
-	var baked_tilts = curve.get_baked_tilts()
-	# Up vector logic needed. Curve3D uses tilts.
-	# Simple Frenet frame or similar.
-
-	# For simplicity, I'll rely on a basic up vector that rotates if direction changes up.
-	# Or just use `curve.interpolate_baked_up_vectors` if available in 3.5? No.
-
-	var up = Vector3.UP
-
-	for i in range(baked_points.size()):
-		var p = baked_points[i]
-		var tangent = Vector3.FORWARD
-		if i < baked_points.size() - 1:
-			tangent = (baked_points[i+1] - p).normalized()
-		elif i > 0:
-			tangent = (p - baked_points[i-1]).normalized()
-
-		# Make a basis
-		var right = tangent.cross(up).normalized()
-		if right.length_squared() < 0.001:
-			right = tangent.cross(Vector3.RIGHT).normalized()
-		up = right.cross(tangent).normalized()
-
-		var basis = Basis(right, up, -tangent) # -Z is forward in basis?
-		# Actually we just need a rotation to place the ring.
-
-		# Generate ring
-		for j in range(sides + 1): # +1 to close loop
-			var angle = (j / float(sides)) * TAU
-			var local_pos = Vector2(cos(angle), sin(angle)) * radius
-			var pos_3d = p + (right * local_pos.x) + (up * local_pos.y)
-
-			var uv_x = j / float(sides)
-			var uv_y = i / float(baked_points.size())
-			st.add_uv(Vector2(uv_x, uv_y))
-			st.add_vertex(pos_3d)
-
-	# Indices
-	var ring_v_count = sides + 1
-	for i in range(baked_points.size() - 1):
-		for j in range(sides):
-			var curr = i * ring_v_count + j
-			var next = curr + 1
-			var upper_curr = (i + 1) * ring_v_count + j
-			var upper_next = upper_curr + 1
-
-			# Tri 1
-			st.add_index(curr)
-			st.add_index(upper_curr)
-			st.add_index(next)
-
-			# Tri 2
-			st.add_index(next)
-			st.add_index(upper_curr)
-			st.add_index(upper_next)
-
-	st.generate_normals()
-	var mesh = st.commit()
-	# Diagnostic: print surface AABB/vertex count if possible
+	var mesh = TubeBuilder.generate_tube_mesh(curve, radius, sides)
 	if mesh:
-		var aabb = mesh.get_aabb()
-		print("[CircuitCable] generated mesh AABB: ", aabb)
-		# If ArrayMesh, attempt to get face count
-		var surfaces = mesh.get_surface_count()
-		print("[CircuitCable] mesh surface_count: ", surfaces)
+		print("[CircuitCable] generated mesh AABB: ", mesh.get_aabb())
+		print("[CircuitCable] mesh surface_count: ", mesh.get_surface_count())
 	return mesh
 
 func take_damage(amount: float) -> void:
