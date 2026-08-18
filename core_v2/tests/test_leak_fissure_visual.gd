@@ -72,13 +72,16 @@ func test_no_leak_fissure_inactive() -> void:
 
 
 func test_active_leak_fissure_visuals() -> void:
-	# Trigger leak: test WARNING vs LEAKING
-	_leak.set("warning_duration", 0.1)
-	_leak.set("ramp_up_duration", 0.1)
-	_leak.call("trigger_leak")
+	# Se fuerza el estado directo con _set_state()/set(), no con trigger_leak() + esperar
+	# warning_duration/ramp_up_duration: simulate_frames() del runner avanza por idle_frame
+	# (render), no por physics_frame, asi que no hay correspondencia 1:1 garantizada entre
+	# "N frames simulados" y "tiempo de fisica transcurrido" — en CI ese ratio es mas
+	# desfavorable que en local y el test moria esperando un timer que no habia terminado
+	# de correr. Forzando el estado, la prueba no depende de tiempo en absoluto.
+	_leak.call("_set_state", CoolantLeak.State.WARNING)
 
 	assert_int(_leak.call("get_state")).is_equal(1) # State.WARNING = 1
-	yield(_runner.simulate_frames(2), "completed")
+	yield(_runner.simulate_frames(1), "completed") # un tick para que LeakFissureVisual lea el estado
 
 	var spray: CPUParticles = _visual.get_node("SprayParticles")
 	var mist: CPUParticles = _visual.get_node("MistParticles")
@@ -92,12 +95,15 @@ func test_active_leak_fissure_visuals() -> void:
 	if _exposes_shader_param(mat, "fissure_intensity"):
 		assert_float(mat.get_shader_param("fissure_intensity")).is_greater(0.0)
 
-	# Transition to LEAKING state
-	yield(_runner.simulate_frames(20), "completed") # > 0.1s
+	# Transition to LEAKING state. ramp_up_duration=0.0 hace que _physics_process asiente
+	# _leak_intensity en 1.0 de inmediato (ver CoolantLeak.gd): forzar _leak_intensity a mano
+	# no sirve, el propio _physics_process la recalcula desde _state_timer/ramp_up_duration
+	# en cada tick y la pisa.
+	_leak.set("ramp_up_duration", 0.0)
+	_leak.call("_set_state", CoolantLeak.State.LEAKING)
+	yield(_runner.simulate_frames(1), "completed")
+
 	assert_int(_leak.call("get_state")).is_equal(2) # State.LEAKING = 2
-
-	yield(_runner.simulate_frames(10), "completed") # > 0.1s ramp up
-
 	assert_bool(spray.emitting).is_true()
 	assert_bool(mist.emitting).is_true()
 
