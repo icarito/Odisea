@@ -23,6 +23,10 @@ export(float) var dissipate_duration: float = 5.0
 export(bool) var auto_restart: bool = false
 # Optional NodePath to a PipeValve node; if set, closing valve depressurizes
 export(NodePath) var valve_path: NodePath
+# Optional NodePath to a Room3D environmental aggregator
+export(NodePath) var room_path: NodePath
+export(float) var leak_temp_rate: float = 5.0
+export(float) var leak_contam_rate: float = 0.1
 
 # --- SIGNALS ---
 signal state_changed(new_state)
@@ -100,6 +104,8 @@ func _physics_process(delta: float) -> void:
 				_leak_intensity = 0.0
 				_has_been_sealed = true
 				_set_state(State.HEALTHY)
+
+	_apply_room_deltas(delta)
 
 
 # --- PUBLIC API ---
@@ -206,6 +212,17 @@ func _set_state(new_state: int) -> void:
 			emit_signal("leak_sealed")
 		State.DEPRESSURIZED, State.HEALTHY:
 			pass
+
+
+func _apply_room_deltas(delta: float) -> void:
+	if _leak_intensity <= 0.0 or room_path == null or room_path.is_empty():
+		return
+	var room = get_node_or_null(room_path)
+	if room != null:
+		if room.has_method("add_temperature"):
+			room.call("add_temperature", -leak_temp_rate * _leak_intensity * delta)
+		if room.has_method("add_contamination"):
+			room.call("add_contamination", leak_contam_rate * _leak_intensity * delta)
 
 
 func _on_valve_state_changed(is_open: bool) -> void:

@@ -25,6 +25,8 @@ export(float) var critical_pressure: float = 2.4
 export(float) var blowout_radius: float = 6.0
 # Force magnitude for the blowout explosion impulse.
 export(float) var blowout_force: float = 12.0
+# NodePath opcional a Room3D para sincronizar presión y ventilación
+export(NodePath) var room_path: NodePath
 
 signal state_changed(new_state)
 signal alarm_started()
@@ -87,6 +89,8 @@ func _physics_process(delta: float) -> void:
 				_has_blown_out = false
 				_set_state(State.NOMINAL)
 
+	_sync_room_environment(delta)
+
 
 func get_state() -> int:
 	return _state
@@ -130,7 +134,35 @@ func inject(seconds: float) -> void:
 func purge() -> void:
 	if _state == State.RISING or _state == State.CRITICAL:
 		emit_signal("pressure_stabilized")
+		_pressure = 1.0
+		_start_pressure = 1.0
 		_set_state(State.VENTED)
+	if room_path != null and not room_path.is_empty():
+		var room = get_node_or_null(room_path)
+		if room != null:
+			if room.has_method("set_pressure"):
+				room.call("set_pressure", 1.0)
+			if room.has_method("set_contamination"):
+				room.call("set_contamination", 0.0)
+
+
+func _sync_room_environment(delta: float) -> void:
+	if room_path == null or room_path.is_empty():
+		return
+	var room = get_node_or_null(room_path)
+	if room == null:
+		return
+
+	if _state == State.NOMINAL:
+		var room_p: float = float(room.get("pressure"))
+		var overp: float = float(room.get("overpressure"))
+		if room_p > overp:
+			raise_pressure()
+		else:
+			_pressure = room_p
+	else:
+		if room.has_method("set_pressure"):
+			room.call("set_pressure", _pressure)
 
 
 func set_active(value: bool) -> void:

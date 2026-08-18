@@ -11,6 +11,9 @@ const LeakPatchPointScript = preload("res://core_v2/systems/cryo/LeakPatchPoint.
 const PipeValveScript = preload("res://core_v2/props/pipe/PipeValve.gd")
 const PipeManometerScript = preload("res://core_v2/props/pipe/PipeManometer.gd")
 const CoolantLabScript = preload("res://core_v2/scenes/CoolantLab.gd")
+const Room3DScript = preload("res://core_v2/systems/room/Room3D.gd")
+const IceLevelScript = preload("res://core_v2/systems/ice/IceLevel.gd")
+const PressureSectionScript = preload("res://core_v2/systems/atmosphere/PressureSection.gd")
 
 const STEP := 1.0 / 60.0
 
@@ -386,3 +389,81 @@ func test_destroying_gloo_reopens_provisional_patch() -> void:
 
 	patch.remove_patch()
 	assert_bool(patch.is_patched()).is_false()
+
+
+# Full environmental Room3D loop: Fissure -> Freezing & Ice Growth -> Seal -> Heat/Melt -> Contamination/Vapor Hazard -> Ventilate -> Stable Room
+func test_room3d_environmental_loop_seal_heat_ventilate() -> void:
+	var room = auto_free(Room3DScript.new())
+	room.temperature = 20.0
+	room.pressure = 1.0
+	room.contamination = 0.0
+	room.freezing_point = 0.0
+	room.hazard_threshold = 0.7
+	add_child(room)
+
+	var leak = auto_free(CoolantLeakScript.new())
+	leak.warning_duration = 0.01
+	leak.ramp_up_duration = 0.01
+	leak.dissipate_duration = 0.01
+	leak.leak_temp_rate = 100.0 # Fast temperature drop for testing
+	leak.leak_contam_rate = 0.5
+	add_child(leak)
+	leak.room_path = leak.get_path_to(room)
+
+	var ice = auto_free(IceLevelScript.new())
+	ice.auto_start = false
+	ice.start_height = 0.0
+	ice.base_speed = 1.0
+	ice.melt_speed = 2.0
+	ice.evap_contamination_rate = 0.5
+	add_child(ice)
+	ice.room_path = ice.get_path_to(room)
+
+	var pressure_sec = auto_free(PressureSectionScript.new())
+	add_child(pressure_sec)
+	pressure_sec.room_path = pressure_sec.get_path_to(room)
+
+	# 1) Trigger leak -> temperature drops below 0°C -> Ice grows
+	leak.trigger_leak()
+	_step_tree([room, leak, ice, pressure_sec], 0.3)
+
+	assert_bool(room.is_freezing()).is_true()
+	assert_float(room.temperature).is_less(0.0)
+
+	_step_tree([room, leak, ice, pressure_sec], 0.5)
+	var ice_h1: float = ice.ice_height
+	assert_float(ice_h1).is_greater(0.0)
+
+	# 2) Seal leak -> temperature stops dropping from leak
+	leak.seal()
+	_step_tree([room, leak, ice, pressure_sec], 0.1)
+
+	var temp_after_seal: float = room.temperature
+
+	_step_tree([room, leak, ice, pressure_sec], 0.2)
+	assert_float(room.temperature).is_equal_approx(temp_after_seal, 0.1)
+
+	# 3) Heat room (heaters/reactor) -> temperature rises above freezing point
+	room.set_temperature(10.0)
+	assert_bool(room.is_freezing()).is_false()
+
+	# Stepping process evaporates/melts ice and raises contamination (vapor)
+	_step_tree([room, leak, ice, pressure_sec], 0.6)
+
+	assert_float(ice.ice_height).is_less(ice_h1)
+	assert_float(room.contamination).is_greater(0.3) # Vapor generated
+
+	# 4) Heat further without ventilation -> contamination hits hazard threshold
+	room.add_contamination(0.5)
+	assert_bool(room.is_hazard_active()).is_true()
+
+	# 5) Ventilate / Purge -> contamination and pressure back to nominal
+	pressure_sec.purge()
+
+	# Step physics frames to ensure PressureSection doesn't overwrite pressure on subsequent ticks
+	_step_tree([room, leak, ice, pressure_sec], 0.5)
+
+	assert_float(room.contamination).is_equal(0.0)
+	assert_float(room.pressure).is_equal(1.0)
+	assert_bool(room.is_hazard_active()).is_false()
+	assert_float(ice.ice_height).is_equal(0.0) # Fully melted back to floor

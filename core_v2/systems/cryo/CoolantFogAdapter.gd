@@ -5,6 +5,8 @@ class_name CoolantFogAdapter
 # Keeps particle count proportional to leak intensity and ensures cold gas blinds without causing damage.
 
 # --- EXPORTED PROPERTIES ---
+# Room3D environmental state node (FD-269)
+export(NodePath) var room_path: NodePath
 # CoolantLeak node providing leak state and intensity
 export(NodePath) var leak_path: NodePath
 # GasArea3D node displaying the coolant fog
@@ -39,10 +41,6 @@ func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
 
-	var leak: Node = _resolve_leak()
-	if leak == null or not leak.has_method("get_leak_intensity"):
-		return
-
 	var gas: Node = get_node_or_null(gas_path)
 	if gas == null:
 		return
@@ -58,7 +56,19 @@ func _physics_process(delta: float) -> void:
 	if "decay_rate" in manager:
 		manager.set("decay_rate", dissipate_rate)
 
-	var intensity: float = clamp(float(leak.call("get_leak_intensity")), 0.0, 1.0)
+	var intensity: float = 0.0
+	var room: Node = get_node_or_null(room_path) if room_path != null and not room_path.is_empty() else null
+	if room != null:
+		var contam: float = float(room.get("contamination"))
+		var fog_thresh: float = float(room.get("fog_threshold"))
+		if contam >= fog_thresh:
+			intensity = clamp((contam - fog_thresh) / max(0.01, 1.0 - fog_thresh), 0.0, 1.0)
+		else:
+			intensity = 0.0
+	else:
+		var leak: Node = _resolve_leak()
+		if leak != null and leak.has_method("get_leak_intensity"):
+			intensity = clamp(float(leak.call("get_leak_intensity")), 0.0, 1.0)
 	var active_indices: Array = manager.call("get_active_particle_indices")
 	var current_count: int = active_indices.size()
 
