@@ -65,10 +65,10 @@ func test_no_leak_fissure_inactive() -> void:
 	assert_bool(mist.emitting).is_false()
 	assert_bool(gloo.visible).is_false()
 
+	assert_float(_visual.get_fissure_intensity()).is_equal(0.0)
 	var mat = _pipe_run.get("_material")
-	if mat != null:
-		var intensity = mat.get_shader_param("fissure_intensity")
-		assert_float(intensity).is_equal(0.0)
+	if _exposes_shader_param(mat, "fissure_intensity"):
+		assert_float(mat.get_shader_param("fissure_intensity")).is_equal(0.0)
 
 
 func test_active_leak_fissure_visuals() -> void:
@@ -87,10 +87,10 @@ func test_active_leak_fissure_visuals() -> void:
 	assert_bool(spray.emitting).is_false()
 	assert_bool(mist.emitting).is_true()
 
+	assert_float(_visual.get_fissure_intensity()).is_greater(0.0)
 	var mat = _pipe_run.get("_material")
-	if mat != null:
-		var warning_intensity = mat.get_shader_param("fissure_intensity")
-		assert_float(warning_intensity).is_greater(0.0)
+	if _exposes_shader_param(mat, "fissure_intensity"):
+		assert_float(mat.get_shader_param("fissure_intensity")).is_greater(0.0)
 
 	# Transition to LEAKING state
 	yield(_runner.simulate_frames(20), "completed") # > 0.1s
@@ -101,9 +101,9 @@ func test_active_leak_fissure_visuals() -> void:
 	assert_bool(spray.emitting).is_true()
 	assert_bool(mist.emitting).is_true()
 
-	if mat != null:
-		var leaking_intensity = mat.get_shader_param("fissure_intensity")
-		assert_float(leaking_intensity).is_greater(0.2)
+	assert_float(_visual.get_fissure_intensity()).is_greater(0.2)
+	if _exposes_shader_param(mat, "fissure_intensity"):
+		assert_float(mat.get_shader_param("fissure_intensity")).is_greater(0.2)
 
 
 func test_patched_fissure_visuals() -> void:
@@ -128,10 +128,10 @@ func test_patched_fissure_visuals() -> void:
 	assert_bool(mist.emitting).is_false()
 	assert_bool(gloo.visible).is_true()
 
+	assert_float(_visual.get_fissure_intensity()).is_equal(0.0)
 	var mat = _pipe_run.get("_material")
-	if mat != null:
-		var intensity = mat.get_shader_param("fissure_intensity")
-		assert_float(intensity).is_equal(0.0)
+	if _exposes_shader_param(mat, "fissure_intensity"):
+		assert_float(mat.get_shader_param("fissure_intensity")).is_equal(0.0)
 
 
 func test_fissure_visual_snapshot_determinism() -> void:
@@ -165,3 +165,12 @@ func test_depressurized_state_winds_down_spray() -> void:
 
 	assert_int(_leak.call("get_state")).is_equal(CoolantLeak.State.DEPRESSURIZED)
 	assert_bool(spray.emitting).is_false()
+
+
+# El binario headless de CI usa el rasterizer dummy: los ShaderMaterial no guardan
+# parametros (ni siquiera los que declara el .tres, porque duplicate() deriva la lista de
+# propiedades de los uniforms del shader, que ahi no existen) y get_shader_param() devuelve
+# null. La decision del componente se asierta sobre el estado del nodo; el material se
+# revisa solo donde el rasterizer si lo expone. Mismo criterio que test_ice_level.gd.
+func _exposes_shader_param(material, param: String) -> bool:
+	return material != null and material.get_shader_param(param) != null

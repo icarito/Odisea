@@ -21,6 +21,12 @@ var _leak: Object = null
 var _patch_point: Object = null
 var _pipe_run: Object = null
 
+# Intensidad de grieta efectivamente aplicada. Es estado del nodo a proposito: el binario
+# headless de CI usa el rasterizer dummy, donde los ShaderMaterial no guardan parametros y
+# get_shader_param() devuelve null, asi que el material no sirve para verificar la decision
+# del componente (mismo criterio que test_ice_level.gd).
+var _fissure_intensity: float = 0.0
+
 onready var _spray_particles: CPUParticles = get_node_or_null("SprayParticles")
 onready var _mist_particles: CPUParticles = get_node_or_null("MistParticles")
 onready var _gloo_mesh: MeshInstance = get_node_or_null("GlooMesh")
@@ -126,7 +132,12 @@ func _set_particles_emitting(spray_active: bool, mist_active: bool) -> void:
 		_mist_particles.emitting = mist_active
 
 
+func get_fissure_intensity() -> float:
+	return _fissure_intensity
+
+
 func _apply_pipe_fissure_uniforms(intensity: float) -> void:
+	_fissure_intensity = intensity
 	if _pipe_run == null:
 		return
 	var mat = _pipe_run.get("_material")
@@ -142,6 +153,7 @@ func _apply_pipe_fissure_uniforms(intensity: float) -> void:
 
 
 func _clear_pipe_fissure_uniforms() -> void:
+	_fissure_intensity = 0.0
 	if _pipe_run == null:
 		return
 	var mat = _pipe_run.get("_material")
@@ -154,11 +166,14 @@ func _clear_pipe_fissure_uniforms() -> void:
 
 func get_snapshot() -> Dictionary:
 	return {
-		"enabled": enabled
+		"enabled": enabled,
+		"fissure_intensity": _fissure_intensity
 	}
 
 
 func restore_snapshot(data: Dictionary) -> void:
 	if data.has("enabled"):
 		enabled = bool(data["enabled"])
+	if data.has("fissure_intensity"):
+		_fissure_intensity = float(data["fissure_intensity"])
 	_update_visuals()
