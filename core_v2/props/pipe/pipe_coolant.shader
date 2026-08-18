@@ -22,7 +22,6 @@ uniform bool hide_caps = true;
 
 // Eje del tramo, calculado una vez por vértice.
 varying vec3 pipe_axis;
-varying vec3 local_pos;
 
 uniform float noise_scale = 1.6;
 // Fase del recorrido, en metros. La acumula PipeCoolantRun (fase += delta * velocidad)
@@ -38,11 +37,19 @@ uniform float metallic_amount = 0.5;
 uniform float roughness_amount = 0.35;
 
 // --- Uniforms de Fisura / Grieta (FD-268) ---
-// El centro está en espacio LOCAL de la malla del tramo para mantenerse fijo si el tramo
-// o la tubería se mueven en la escena.
+// El centro va en COORDENADAS DE MUNDO, igual que el ruido del flujo. En espacio local
+// hay que acertarle al espacio de la MALLA (lo que ve VERTEX), no al del nodo que gobierna
+// la corrida: en una corrida cuyo mesh esta rotado respecto del nodo, el centro caia a
+// varios metros del cano y la grieta no se dibujaba en ningun lado. El componente reescribe
+// el uniform cada tick, asi que un tramo que se mueva igual lo sigue.
 uniform vec3 fissure_center = vec3(0.0);
 uniform float fissure_radius = 0.35;
 uniform float fissure_intensity : hint_range(0.0, 1.0) = 0.0;
+// Escala del patron de grieta, en rasgos por metro. Baja = pocas lineas largas y legibles;
+// alta = moteado fino que se lee como CORROSION, no como una rotura. Un cano de 0.32 de
+// diametro necesita valores chicos: a 18 los rasgos quedaban de milimetros y el cano
+// parecia oxidado en vez de partido.
+uniform float crack_scale = 2.5;
 
 // ponytail: un solo centro de grieta por material (una fisura activa por corrida).
 // Para soportar múltiples fisuras simultáneas sobre la misma corrida, este parámetro
@@ -92,10 +99,10 @@ float calculate_crack_pattern(vec3 p) {
 	float crests = min(min(c1, c2), c3);
 
 	// Invertir para que los valles/cruces por cero queden como líneas duras
-	float line_pattern = 1.0 - smoothstep(0.0, 0.12, crests);
+	float line_pattern = 1.0 - smoothstep(0.0, 0.35, crests);
 
 	// 3. Cobertura angosta para fragmentar líneas continuas en segmentos de grieta
-	float coverage = smoothstep(0.35, 0.75, abs(sin(dot(p, vec3(7.3, 11.1, 5.9)))));
+	float coverage = smoothstep(0.15, 0.55, abs(sin(dot(p, vec3(0.9, 1.4, 0.7)))));
 
 	return line_pattern * coverage;
 }
@@ -103,7 +110,6 @@ float calculate_crack_pattern(vec3 p) {
 void vertex() {
 	// El largo del cilindro es su Y local; llevado a mundo da el eje real de ESTE tramo.
 	pipe_axis = normalize((WORLD_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
-	local_pos = VERTEX;
 }
 
 void fragment() {
@@ -129,21 +135,27 @@ void fragment() {
 
 	// Aplica efecto visual de fisura/grieta si hay intensidad activa (FD-268)
 	if (fissure_intensity > 0.001) {
-		float dist_to_fissure = distance(local_pos, fissure_center);
+		float dist_to_fissure = distance(world_pos, fissure_center);
 		if (dist_to_fissure < fissure_radius) {
 			float mask = (1.0 - smoothstep(fissure_radius * 0.4, fissure_radius, dist_to_fissure)) * fissure_intensity;
-			float crack_pattern = calculate_crack_pattern(local_pos * 18.0);
+			float crack_pattern = calculate_crack_pattern(world_pos * crack_scale);
 
-			// La grieta se ve como fisuras de cristal/metal oscuro con bordes helados superbrillantes
 			vec3 crack_dark = vec3(0.01, 0.04, 0.08);
 			vec3 crack_glow = flow_color.rgb * 3.5;
 
-			// En la fisura se pierde refrigerante por fuga: la emisión normal cae hacia la rotura
+			// En la fisura se pierde refrigerante: la emision normal cae hacia la rotura.
 			current_emission = mix(current_emission, current_emission * 0.2, mask);
 
-			// Dibujar grieta en albedo y emisión
+			// Una grieta es un HUECO: el trazo va oscuro y apaga la emision. Antes el brillo
+			// se pintaba sobre todo el trazo a 3.5x y tapaba el albedo oscuro, asi que la
+			// rotura se leia como una mancha palida — corrosion o escarcha, no una partidura.
 			current_albedo = mix(current_albedo, crack_dark, mask * crack_pattern);
-			current_emission = mix(current_emission, crack_glow, mask * crack_pattern * 0.95);
+			current_emission = mix(current_emission, current_emission * 0.05, mask * crack_pattern);
+
+			// El brillo queda solo en el FILO (banda angosta del patron): es el refrigerante
+			// helado escapando por el borde, y es lo que le da profundidad al hueco.
+			float rim = smoothstep(0.20, 0.45, crack_pattern) * (1.0 - smoothstep(0.45, 0.75, crack_pattern));
+			current_emission += crack_glow * mask * rim * 0.7;
 		}
 	}
 

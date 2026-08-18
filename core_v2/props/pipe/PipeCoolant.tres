@@ -19,3 +19,7 @@ shader_param/emission_strength = 1.4
 shader_param/flow_contrast = 0.55
 shader_param/metallic_amount = 0.5
 shader_param/roughness_amount = 0.35
+shader_param/fissure_center = Vector3( 0, 0, 0 )
+shader_param/fissure_radius = 0.35
+shader_param/fissure_intensity = 0.0
+shader_param/crack_scale = 2.5

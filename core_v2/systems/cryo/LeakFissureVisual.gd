@@ -133,10 +133,10 @@ func _apply_pipe_fissure_uniforms(intensity: float) -> void:
 	if mat == null:
 		return
 
-	# Convertir posición global de la fisura a espacio local de la corrida/tramo
-	var local_fissure_pos: Vector3 = _pipe_run.to_local(global_transform.origin)
-
-	mat.set_shader_param("fissure_center", local_fissure_pos)
+	# En coordenadas de mundo: el shader compara contra world_pos, que no depende de como
+	# este rotada la malla respecto del nodo de la corrida. Pasarlo en espacio del PipeRun
+	# ponia el centro a metros del cano (mesh rotado 90 grados) y la grieta no aparecia.
+	mat.set_shader_param("fissure_center", global_transform.origin)
 	mat.set_shader_param("fissure_radius", fissure_radius)
 	mat.set_shader_param("fissure_intensity", intensity)
 

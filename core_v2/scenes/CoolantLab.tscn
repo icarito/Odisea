@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=2]
+[gd_scene load_steps=30 format=2]
 
 ; CoolantLab.tscn - Laboratorio de criogenia grey-box (FD-265).
 ;
@@ -138,6 +138,10 @@ height = 10.0
 radial_segments = 16
 rings = 1
 
+[sub_resource type="CylinderShape" id=10]
+radius = 0.16
+height = 10.0
+
 [sub_resource type="SphereShape" id=5]
 radius = 0.35
 
@@ -267,12 +271,12 @@ initial_particle_count = 0
 script = ExtResource( 17 )
 leak_path = NodePath("..")
 gas_path = NodePath("../GasArea3D")
-particles_at_full = 22
-fill_radius = 0.8
-fill_height = 0.6
-particle_scale = 1.0
-particle_lifetime = 4.0
-dissipate_rate = 1.5
+particles_at_full = 48
+fill_radius = 1.0
+fill_height = 0.8
+particle_scale = 1.9
+particle_lifetime = 5.0
+dissipate_rate = 1.2
 
 ; La fisura necesita cuerpo: el proyectil de gloo parchea subiendo por los padres
 ; del collider que toca, asi que sin StaticBody el disparo pasaba de largo.
@@ -302,6 +306,14 @@ flow_dir = Vector3( 1, 0, 0 )
 [node name="Visual" type="MeshInstance" parent="PipeRunWest"]
 transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0 )
 mesh = SubResource( 4 )
+
+[node name="Body" type="StaticBody" parent="PipeRunWest"]
+collision_layer = 64
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="PipeRunWest/Body"]
+transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0 )
+shape = SubResource( 10 )
 
 [node name="ManometerWest" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1.8, -4 )
@@ -366,12 +378,12 @@ initial_particle_count = 0
 script = ExtResource( 17 )
 leak_path = NodePath("..")
 gas_path = NodePath("../GasArea3D")
-particles_at_full = 22
-fill_radius = 0.8
-fill_height = 0.6
-particle_scale = 1.0
-particle_lifetime = 4.0
-dissipate_rate = 1.5
+particles_at_full = 48
+fill_radius = 1.0
+fill_height = 0.8
+particle_scale = 1.9
+particle_lifetime = 5.0
+dissipate_rate = 1.2
 
 [node name="LeakEast_Patch" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 2 )
@@ -399,6 +411,14 @@ flow_dir = Vector3( -1, 0, 0 )
 [node name="Visual" type="MeshInstance" parent="PipeRunEast"]
 transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0 )
 mesh = SubResource( 4 )
+
+[node name="Body" type="StaticBody" parent="PipeRunEast"]
+collision_layer = 64
+collision_mask = 0
+
+[node name="CollisionShape" type="CollisionShape" parent="PipeRunEast/Body"]
+transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0 )
+shape = SubResource( 10 )
 
 [node name="ManometerEast" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.8, 2 )
