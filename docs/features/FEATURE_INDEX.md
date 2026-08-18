@@ -117,6 +117,7 @@ Usar tres capas separadas:
 | FD-262 | Generador procedural de rutas de tuberías | Design | Medium | P1 |
 | FD-263 | Touch universal (tap interact + detección runtime) | Design | Medium | P0 |
 | FD-264 | Lógica de circuitos de coolant (grafo de flujo OCLS) | Design | Medium | P0 |
+| FD-269 | Room3D — estado ambiental por habitación (temp/presión/contaminación) | Design | Medium | P0 |
 
 ## Completed / Archived
 
