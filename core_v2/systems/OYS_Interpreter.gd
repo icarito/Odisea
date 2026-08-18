@@ -657,7 +657,16 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				# Fallback is handled below
 				pass
 
-			if screenshot_target.has_method("take_oys_screenshot"):
+			if OS.has_feature("Server"):
+				# El build server corre con el rasterizer dummy: no hay framebuffer y
+				# VisualServer NUNCA emite frame_post_draw. El yield de mas abajo (y el de
+				# take_oys_screenshot) quedaban esperando esa senal para siempre, colgando
+				# al interprete: el replay dejaba de avanzar y el test moria por timeout.
+				# Se veia en CI como "Grabacion OYS timed out en PASS 1" en los 7 .oys que
+				# tienen SCREENSHOT, y en ninguno de los que no lo tienen. Sin captura
+				# posible la instruccion no aporta nada, asi que se saltea y el script sigue.
+				print("[OYS_Interpreter] SCREENSHOT '", label, "' omitido: build server sin framebuffer")
+			elif screenshot_target.has_method("take_oys_screenshot"):
 				var result = yield (screenshot_target.take_oys_screenshot(label, prop_name), "completed")
 				if result and result is String:
 					path = result

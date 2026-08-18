@@ -326,13 +326,10 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
 			timeout_setup -= 1
 
-		_last_replay_progress = -1
-		_replay_raw_ticks = 0
 		var timeout = 5000
 		while SessionManager.is_replaying and timeout > 0:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
-			if _replay_advanced():
-				timeout -= 1
+			timeout -= 1
 
 		if timeout <= 0:
 			_cleanup_runner_scene(runner)
@@ -386,13 +383,10 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
 			timeout_setup1 -= 1
 
-		_last_replay_progress = -1
-		_replay_raw_ticks = 0
 		var timeout1 = 5000
 		while SessionManager.is_replaying and timeout1 > 0:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
-			if _replay_advanced():
-				timeout1 -= 1
+			timeout1 -= 1
 
 		if timeout1 <= 0:
 			# Sin este fail, PASS 1 se cortaba en silencio (p.ej. a mitad de un respawn),
@@ -460,13 +454,10 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
 			timeout_setup -= 1
 		
-		_last_replay_progress = -1
-		_replay_raw_ticks = 0
 		var timeout = 5000
 		while SessionManager.is_replaying and timeout > 0:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
-			if _replay_advanced():
-				timeout -= 1
+			timeout -= 1
 		
 		if timeout <= 0:
 			_cleanup_runner_scene(runner)
@@ -632,42 +623,3 @@ func after():
 	
 	# Limpieza de huérfanos
 	_cleanup_scene()
-
-
-# El presupuesto de 5000 ticks quiere medir cuanto dura el REPLAY, y el replay avanza un
-# _replay_frame por tick de fisica (SessionManager._physics_process). El problema es que la
-# fisica sigue tickeando cuando el replay NO avanza: carga de escena, revalidacion de
-# respawn, busqueda del player despues de una transicion. En un runner lento (CI, sin GPU)
-# esos parates se comian los 5000 ticks y el test moria por timeout sin que el replay
-# tuviera nada que ver — caian justo las escenas de carga pesada (transiciones de airlock,
-# WFC procedural, streaming de ductos), ninguna relacionada con lo que se estaba probando.
-#
-# Contar solo los ticks en los que el replay progreso mide lo que se queria medir. El caso
-# de cuelgue real lo cubre _replay_stalled(): si no avanza durante muchos ticks seguidos,
-# el presupuesto se agota igual y el test falla, que es lo que hay que reportar.
-# Techo duro de ticks crudos. El presupuesto solo cuenta ticks con progreso, asi que sin
-# este tope un replay realmente colgado no gastaria presupuesto nunca y el test quedaria
-# girando hasta el timeout-minutes del job en vez de reportar. Con esto, un cuelgue agota
-# el presupuesto igual y falla como corresponde.
-const REPLAY_HARD_TICK_CEILING := 9000
-
-var _last_replay_progress := -1
-var _replay_raw_ticks := 0
-
-
-func _replay_progress() -> int:
-	if not is_instance_valid(SessionManager):
-		return -1
-	return int(SessionManager.get("_replay_frame")) if "_replay_frame" in SessionManager else -1
-
-
-# true si el replay avanzo desde el tick anterior, o si ya se paso del techo duro.
-func _replay_advanced() -> bool:
-	_replay_raw_ticks += 1
-	if _replay_raw_ticks >= REPLAY_HARD_TICK_CEILING:
-		return true
-	var now := _replay_progress()
-	if now == _last_replay_progress:
-		return false
-	_last_replay_progress = now
-	return true
