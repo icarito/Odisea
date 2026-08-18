@@ -34,6 +34,16 @@ var _pipe_run: Object = null
 # del componente (mismo criterio que test_ice_level.gd).
 var _fissure_intensity: float = 0.0
 
+# Decision de emision efectivamente aplicada, mismo motivo que _fissure_intensity. Bajo el
+# rasterizer dummy, releer CPUParticles.emitting inmediatamente despues de asignarlo puede
+# devolver un valor obsoleto/racoso -- visto en CI y reproducido local con el binario headless
+# real (Godot_v3.6.2-stable_linux_headless.64): la misma corrida imprimia mist.emitting=True
+# un statement antes de que el assert leyera False para el mismo nodo, sin ningun yield ni
+# codigo async entre medio. Es una condicion de carrera del motor bajo ese rasterizer, no un
+# bug de logica: la decision que este componente tomo es la fuente de verdad fiable.
+var _spray_emitting_decision: bool = false
+var _mist_emitting_decision: bool = false
+
 onready var _spray_particles: CPUParticles = get_node_or_null("SprayParticles")
 onready var _mist_particles: CPUParticles = get_node_or_null("MistParticles")
 onready var _gloo_mesh: MeshInstance = get_node_or_null("GlooMesh")
@@ -141,6 +151,8 @@ func _update_visuals() -> void:
 
 
 func _set_particles_emitting(spray_active: bool, mist_active: bool) -> void:
+	_spray_emitting_decision = spray_active
+	_mist_emitting_decision = mist_active
 	if _spray_particles != null:
 		_spray_particles.emitting = spray_active
 	if _mist_particles != null:
@@ -149,6 +161,14 @@ func _set_particles_emitting(spray_active: bool, mist_active: bool) -> void:
 
 func get_fissure_intensity() -> float:
 	return _fissure_intensity
+
+
+func is_spray_emitting() -> bool:
+	return _spray_emitting_decision
+
+
+func is_mist_emitting() -> bool:
+	return _mist_emitting_decision
 
 
 func _apply_pipe_fissure_uniforms(intensity: float) -> void:

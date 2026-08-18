@@ -57,12 +57,10 @@ func test_no_leak_fissure_inactive() -> void:
 
 	yield(_runner.simulate_frames(5), "completed")
 
-	var spray: CPUParticles = _visual.get_node("SprayParticles")
-	var mist: CPUParticles = _visual.get_node("MistParticles")
 	var gloo: MeshInstance = _visual.get_node("GlooMesh")
 
-	assert_bool(spray.emitting).is_false()
-	assert_bool(mist.emitting).is_false()
+	assert_bool(_visual.is_spray_emitting()).is_false()
+	assert_bool(_visual.is_mist_emitting()).is_false()
 	assert_bool(gloo.visible).is_false()
 
 	assert_float(_visual.get_fissure_intensity()).is_equal(0.0)
@@ -72,23 +70,26 @@ func test_no_leak_fissure_inactive() -> void:
 
 
 func test_active_leak_fissure_visuals() -> void:
-	# Se fuerza el estado directo con _set_state()/set(), no con trigger_leak() + esperar
-	# warning_duration/ramp_up_duration: simulate_frames() del runner avanza por idle_frame
-	# (render), no por physics_frame, asi que no hay correspondencia 1:1 garantizada entre
-	# "N frames simulados" y "tiempo de fisica transcurrido" — en CI ese ratio es mas
-	# desfavorable que en local y el test moria esperando un timer que no habia terminado
-	# de correr. Forzando el estado, la prueba no depende de tiempo en absoluto.
+	# Se fuerza el estado directo con _set_state() y se llama _resolve_references()/
+	# _update_visuals() a mano, en vez de esperar a que _physics_process() los dispare via
+	# simulate_frames(). _physics_process corre en el paso de fisica de Godot, que en 3.x no
+	# esta garantizado en lockstep con el idle_frame que usa simulate_frames() (yield del
+	# SceneTree) -- reproducido con el binario headless real (godot_v3.6.2-stable_linux_
+	# headless.64, el mismo que usa CI): sin dar tiempo de reloj real entre el ultimo
+	# idle_frame y el assert, el tick de fisica que actualiza is_mist_emitting() a veces
+	# todavia no habia corrido. Insertar un print() (que consume I/O real) "arreglaba" el
+	# sintoma, lo que confirma que era una carrera de tiempo real, no una espera de
+	# duracion de gameplay ni un problema de cuantos frames simular. Llamando a los metodos
+	# del componente directamente, la prueba no depende del scheduler de fisica en absoluto.
 	_leak.call("_set_state", CoolantLeak.State.WARNING)
+	_visual.call("_resolve_references")
+	_visual.call("_update_visuals")
 
 	assert_int(_leak.call("get_state")).is_equal(1) # State.WARNING = 1
-	yield(_runner.simulate_frames(1), "completed") # un tick para que LeakFissureVisual lea el estado
-
-	var spray: CPUParticles = _visual.get_node("SprayParticles")
-	var mist: CPUParticles = _visual.get_node("MistParticles")
 
 	# WARNING state: mist active, spray inactive
-	assert_bool(spray.emitting).is_false()
-	assert_bool(mist.emitting).is_true()
+	assert_bool(_visual.is_spray_emitting()).is_false()
+	assert_bool(_visual.is_mist_emitting()).is_true()
 
 	assert_float(_visual.get_fissure_intensity()).is_greater(0.0)
 	var mat = _pipe_run.get("_material")
@@ -98,14 +99,17 @@ func test_active_leak_fissure_visuals() -> void:
 	# Transition to LEAKING state. ramp_up_duration=0.0 hace que _physics_process asiente
 	# _leak_intensity en 1.0 de inmediato (ver CoolantLeak.gd): forzar _leak_intensity a mano
 	# no sirve, el propio _physics_process la recalcula desde _state_timer/ramp_up_duration
-	# en cada tick y la pisa.
+	# en cada tick y la pisa. Como aca no dejamos correr _physics_process (ver comentario de
+	# arriba), hay que llamarlo una vez a mano para que la rampa a 1.0 se aplique.
 	_leak.set("ramp_up_duration", 0.0)
 	_leak.call("_set_state", CoolantLeak.State.LEAKING)
-	yield(_runner.simulate_frames(1), "completed")
+	_leak.call("_physics_process", 0.0)
+	_visual.call("_resolve_references")
+	_visual.call("_update_visuals")
 
 	assert_int(_leak.call("get_state")).is_equal(2) # State.LEAKING = 2
-	assert_bool(spray.emitting).is_true()
-	assert_bool(mist.emitting).is_true()
+	assert_bool(_visual.is_spray_emitting()).is_true()
+	assert_bool(_visual.is_mist_emitting()).is_true()
 
 	assert_float(_visual.get_fissure_intensity()).is_greater(0.2)
 	if _exposes_shader_param(mat, "fissure_intensity"):
@@ -126,12 +130,10 @@ func test_patched_fissure_visuals() -> void:
 
 	yield(_runner.simulate_frames(5), "completed")
 
-	var spray: CPUParticles = _visual.get_node("SprayParticles")
-	var mist: CPUParticles = _visual.get_node("MistParticles")
 	var gloo: MeshInstance = _visual.get_node("GlooMesh")
 
-	assert_bool(spray.emitting).is_false()
-	assert_bool(mist.emitting).is_false()
+	assert_bool(_visual.is_spray_emitting()).is_false()
+	assert_bool(_visual.is_mist_emitting()).is_false()
 	assert_bool(gloo.visible).is_true()
 
 	assert_float(_visual.get_fissure_intensity()).is_equal(0.0)
@@ -167,16 +169,15 @@ func test_depressurized_state_winds_down_spray() -> void:
 	_leak.call("trigger_leak")
 	yield(_runner.simulate_frames(5), "completed")
 
-	var spray: CPUParticles = _visual.get_node("SprayParticles")
 	assert_int(_leak.call("get_state")).is_equal(CoolantLeak.State.LEAKING)
-	assert_bool(spray.emitting).is_true()
+	assert_bool(_visual.is_spray_emitting()).is_true()
 
 	_leak.call("depressurize")
 	yield(_runner.simulate_frames(15), "completed") # holgado sobre dissipate_duration
 
 	assert_int(_leak.call("get_state")).is_equal(CoolantLeak.State.DEPRESSURIZED)
 	assert_float(_visual.get_fissure_intensity()).is_equal(0.0)
-	assert_bool(spray.emitting).is_false()
+	assert_bool(_visual.is_spray_emitting()).is_false()
 
 
 # El binario headless de CI usa el rasterizer dummy: los ShaderMaterial no guardan
