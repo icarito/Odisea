@@ -87,7 +87,12 @@ func _build_mesh():
 	
 	mesh_inst.name = "CableVis"
 	add_child(mesh_inst)
-	mesh_inst.create_trimesh_collision()
+	# Con una curva muy corta (p. ej. la de 2 puntos por defecto, o la placeholder que build()
+	# arma en _ready() antes de que init_from_curve() aplique la real) generate_tube_mesh()
+	# puede devolver una malla sin superficies validas. create_trimesh_collision() no tolera
+	# eso: falla con "Condition '!static_body' is true" porque nunca llega a crear el cuerpo.
+	if mesh_inst.mesh != null and mesh_inst.mesh.get_surface_count() > 0:
+		mesh_inst.create_trimesh_collision()
 
 
 func _setup_hurtbox():
