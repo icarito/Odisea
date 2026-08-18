@@ -32,7 +32,7 @@
           "_mouse_used_this_move": false
         },
         "controller_mode": -1,
-        "gravity_mode": 0,
+        "gravity_mode": 2,
         "jump_state": {
           "coyote_timer": 0,
           "jump_buffer_timer": 0,
@@ -1719,7 +1719,7 @@
       "_mouse_used_this_move": false
     },
     "controller_mode": 0,
-    "gravity_mode": 0,
+    "gravity_mode": 2,
     "jump_state": {
       "coyote_timer": 0.15,
       "jump_buffer_timer": 0,

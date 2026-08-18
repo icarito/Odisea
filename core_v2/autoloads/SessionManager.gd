@@ -208,6 +208,14 @@ func _on_node_removed(node: Node):
 	if node.is_in_group("replay_sync"):
 		_replay_sync_cache_dirty = true
 
+# True mientras SceneManager esta cargando/cambiando de escena.
+func _is_scene_transitioning() -> bool:
+	var sm = get_node_or_null("/root/SceneManager")
+	if sm == null:
+		return false
+	return sm.has_method("is_transitioning") and sm.is_transitioning()
+
+
 func _find_player():
 	# Prioridad 0: Si ya tenemos una instancia válida y no está siendo borrada, usarla
 	if _is_player_candidate_valid(player):
@@ -1491,6 +1499,13 @@ func _physics_process(_dt):
 			call_deferred("_finalize_live_recording_with_video_export", false)
 
 	if is_recording:
+		# Simetrico al congelamiento del replay: si se graba durante una transicion, quedan
+		# frames capturados contra un juego que no simula, en cantidad dependiente de la
+		# maquina. Congelar de un solo lado deja un desfase constante entre PASS 1 y PASS 2
+		# (medido: 0.633395 repetido en el ciclo de airlock), asi que va en los dos.
+		if _is_scene_transitioning():
+			return
+
 		# Consumir input desde el provider una única vez y usar ese mismo input
 		var input_data = null
 		if not _oys_input_override.empty():
@@ -1596,6 +1611,18 @@ func _physics_process(_dt):
 		_oys_input_override.clear()
 
 	elif is_replaying and not is_hotzone_playback:
+		# Congelar el consumo de input mientras hay una transicion de escena en curso.
+		# La fisica sigue tickeando mientras el loader interactivo trabaja, pero el juego no
+		# esta simulando al jugador: consumir frames de input ahi los quema contra nada, y
+		# CUANTOS se queman depende de lo que tarde la carga — o sea, de la maquina. Esa
+		# desincronizacion es el resto del drift horizontal del ciclo de airlock, el mismo
+		# patron que el respawn esperando idle_frames (ver TeleportSystem).
+		#
+		# Congelar no puede colgar el replay: el presupuesto de ticks del test corre igual,
+		# asi que una transicion que no termina falla por timeout, que es lo correcto.
+		if _is_scene_transitioning():
+			return
+
 		# Supresor de inercia mandatorio en Frame 0 para eliminar drift de preparación
 		if _replay_frame == 0 and is_instance_valid(player) and "velocity" in player:
 			player.velocity = Vector3.ZERO
