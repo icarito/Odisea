@@ -1,4 +1,12 @@
-[gd_scene load_steps=13 format=2]
+[gd_scene load_steps=28 format=2]
+
+; CoolantLab.tscn - Laboratorio de criogenia grey-box (FD-265).
+;
+; Banco de pruebas jugable del sistema de coolant: dos ramas espejadas
+; (oeste/este), cada una TANQUE -> VALVULA -> VALVULA -> FISURA, gobernadas por
+; el grafo OCLS del LogicCircuitManager. El jugador entra caminando, cierra y
+; abre valvulas, parchea las fisuras con gloo y lee el resultado en los
+; manometros y en el terminal de pared.
 
 [ext_resource path="res://core_v2/scenes/CoolantLab.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/systems/circuit/LogicCircuitManager.gd" type="Script" id=2]
@@ -11,6 +19,14 @@
 [ext_resource path="res://core_v2/props/pipe/PipeManometer.gd" type="Script" id=9]
 [ext_resource path="res://core_v2/systems/cryo/CoolantFlowAdapter.gd" type="Script" id=10]
 [ext_resource path="res://core_v2/systems/circuit/CircuitCable.tscn" type="PackedScene" id=11]
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=12]
+[ext_resource path="res://core_v2/player/MultiToolV2.tscn" type="PackedScene" id=13]
+[ext_resource path="res://core_v2/props/controls/WallTerminal.tscn" type="PackedScene" id=14]
+[ext_resource path="res://core_v2/things/CoolantSystemStatusUI.tscn" type="PackedScene" id=15]
+[ext_resource path="res://core_v2/systems/gas/GasArea3D.tscn" type="PackedScene" id=16]
+[ext_resource path="res://core_v2/systems/cryo/CoolantFogAdapter.gd" type="Script" id=17]
+[ext_resource path="res://core_v2/props/ManometerEmissive.tres" type="Material" id=18]
+[ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=19]
 
 [sub_resource type="Resource" id=1]
 script = ExtResource( 3 )
@@ -100,6 +116,51 @@ connections = [ {
 "type": "WIRED"
 } ]
 
+[sub_resource type="Environment" id=2]
+background_mode = 1
+background_color = Color( 0.03, 0.04, 0.06, 1 )
+ambient_light_color = Color( 0.42, 0.47, 0.53, 1 )
+ambient_light_energy = 1.0
+ambient_light_sky_contribution = 0.0
+
+[sub_resource type="SpatialMaterial" id=3]
+albedo_color = Color( 0.18, 0.2, 0.23, 1 )
+metallic = 0.3
+roughness = 0.8
+
+; Cuerpo del cano: MeshInstance, no CSG. PipeCoolantRun solo pinta MeshInstance,
+; asi que con un CSGBox el shader de coolant no llegaba nunca al cano.
+[sub_resource type="CylinderMesh" id=4]
+top_radius = 0.16
+bottom_radius = 0.16
+height = 10.0
+radial_segments = 16
+rings = 1
+
+[sub_resource type="SphereShape" id=5]
+radius = 0.35
+
+[sub_resource type="SphereMesh" id=6]
+radius = 0.22
+height = 0.44
+radial_segments = 12
+rings = 6
+
+[sub_resource type="SpatialMaterial" id=7]
+albedo_color = Color( 0.9, 0.45, 0.1, 1 )
+emission_enabled = true
+emission = Color( 1, 0.5, 0.12, 1 )
+emission_energy = 2.5
+
+[sub_resource type="CubeMesh" id=9]
+size = Vector3( 0.05, 0.26, 0.03 )
+
+[sub_resource type="SpatialMaterial" id=8]
+albedo_color = Color( 0.95, 0.2, 0.15, 1 )
+emission_enabled = true
+emission = Color( 1, 0.25, 0.2, 1 )
+emission_energy = 1.5
+
 [node name="CoolantLab" type="Spatial"]
 script = ExtResource( 1 )
 flow_adapter_west_path = NodePath("CoolantFlowAdapterWest")
@@ -110,40 +171,79 @@ manometer_west_path = NodePath("ManometerWest")
 manometer_east_path = NodePath("ManometerEast")
 status_label_path = NodePath("UI/Control/StatusLabel")
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource( 2 )
+
+; Camara de encuadre para F6 en el editor. NO es current: al entrar el Pilot su
+; propia camara toma el control.
 [node name="Camera" type="Camera" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 6, 12 )
-current = true
 
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
 transform = Transform( 0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 10, 0 )
-light_energy = 0.8
+light_energy = 1.1
 
+; use_collision en la raiz CSG: las paredes son hijos que se unen a este mesh, asi
+; que un solo flag le da piso y contencion al jugador.
 [node name="Floor" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )
+use_collision = true
 width = 24.0
 height = 1.0
 depth = 16.0
+material = ExtResource( 19 )
 
 [node name="WallNorth" type="CSGBox" parent="Floor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -8 )
 width = 24.0
 height = 6.0
 depth = 0.5
+material = SubResource( 3 )
 
+[node name="WallSouth" type="CSGBox" parent="Floor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 8 )
+width = 24.0
+height = 6.0
+depth = 0.5
+material = SubResource( 3 )
+
+[node name="WallWest" type="CSGBox" parent="Floor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 3, 0 )
+width = 0.5
+height = 6.0
+depth = 16.0
+material = SubResource( 3 )
+
+[node name="WallEast" type="CSGBox" parent="Floor"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 3, 0 )
+width = 0.5
+height = 6.0
+depth = 16.0
+material = SubResource( 3 )
+
+[node name="Pilot" parent="." instance=ExtResource( 12 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 5 )
+
+[node name="MultiTool" parent="Pilot" instance=ExtResource( 13 )]
+
+; auto_build_cables queda en false: los cables procedimentales de CircuitCable salen
+; como banderas planas amarillas entre estos nodos (geometria degenerada del tubo,
+; bug del sistema de cables, no de este laboratorio) y tapan el circuito. La topologia
+; OCLS igual corre: el grafo es logico, el cable es solo su dibujo.
 [node name="LogicCircuitManager" type="Spatial" parent="."]
 script = ExtResource( 2 )
 circuit_data = SubResource( 1 )
-auto_build_cables = true
+auto_build_cables = false
 cable_scene = ExtResource( 11 )
 
 [node name="TankWest" parent="." instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -4 )
 
-[node name="ValveWest_1" parent="." instance=ExtResource( 5 )]
+[node name="ValveWest_1" parent="." groups=["coolant_valve"] instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 1, -4 )
 starts_active = true
 
-[node name="ValveWest_2" parent="." instance=ExtResource( 5 )]
+[node name="ValveWest_2" parent="." groups=["coolant_valve"] instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1, -4 )
 starts_active = true
 
@@ -155,20 +255,46 @@ valve_path = NodePath("../ValveWest_1")
 
 [node name="CableAnchor" type="Position3D" parent="LeakWest"]
 
+[node name="GasArea3D" parent="LeakWest" instance=ExtResource( 16 )]
+damage_per_second = 0.0
+initial_particle_count = 0
+
+[node name="FogAdapter" type="Spatial" parent="LeakWest"]
+script = ExtResource( 17 )
+leak_path = NodePath("..")
+gas_path = NodePath("../GasArea3D")
+particles_at_full = 22
+fill_radius = 0.8
+fill_height = 0.6
+particle_scale = 1.0
+particle_lifetime = 4.0
+dissipate_rate = 1.5
+
+; La fisura necesita cuerpo: el proyectil de gloo parchea subiendo por los padres
+; del collider que toca, asi que sin StaticBody el disparo pasaba de largo.
 [node name="LeakWest_Patch" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, -4 )
 script = ExtResource( 7 )
 leak_path = NodePath("../LeakWest")
 target_pipe_run_path = NodePath("../PipeRunWest")
 
+[node name="StaticBody" type="StaticBody" parent="LeakWest_Patch"]
+
+[node name="CollisionShape" type="CollisionShape" parent="LeakWest_Patch/StaticBody"]
+shape = SubResource( 5 )
+
+[node name="FissureMesh" type="MeshInstance" parent="LeakWest_Patch"]
+mesh = SubResource( 6 )
+material/0 = SubResource( 7 )
+
 [node name="PipeRunWest" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 1, -4 )
 script = ExtResource( 8 )
+flow_dir = Vector3( 1, 0, 0 )
 
-[node name="Visual" type="CSGBox" parent="PipeRunWest"]
-width = 10.0
-height = 0.3
-depth = 0.3
+[node name="Visual" type="MeshInstance" parent="PipeRunWest"]
+transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0 )
+mesh = SubResource( 4 )
 
 [node name="ManometerWest" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1.8, -4 )
@@ -177,19 +303,26 @@ flow_adapter_path = NodePath("../CoolantFlowAdapterWest")
 tank_path = NodePath("../TankWest")
 leak_path = NodePath("../LeakWest")
 
-[node name="Dial" type="CSGBox" parent="ManometerWest"]
-width = 0.6
-height = 0.6
-depth = 0.1
+[node name="Stem" type="CSGCylinder" parent="ManometerWest"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.4, 0 )
+radius = 0.05
+height = 0.8
+sides = 8
+
+[node name="Dial" type="CSGCylinder" parent="ManometerWest"]
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0 )
+radius = 0.3
+height = 0.08
+sides = 20
+material = ExtResource( 18 )
 
 [node name="Needle" type="Spatial" parent="ManometerWest"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.06 )
 
-[node name="Mesh" type="CSGBox" parent="ManometerWest/Needle"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0 )
-width = 0.04
-height = 0.24
-depth = 0.02
+[node name="Mesh" type="MeshInstance" parent="ManometerWest/Needle"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.13, 0 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
 
 [node name="CoolantFlowAdapterWest" type="Node" parent="."]
 script = ExtResource( 10 )
@@ -202,11 +335,11 @@ pipe_runs = [ NodePath("../PipeRunWest") ]
 [node name="TankEast" parent="." instance=ExtResource( 4 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 2 )
 
-[node name="ValveEast_1" parent="." instance=ExtResource( 5 )]
+[node name="ValveEast_1" parent="." groups=["coolant_valve"] instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, 2 )
 starts_active = true
 
-[node name="ValveEast_2" parent="." instance=ExtResource( 5 )]
+[node name="ValveEast_2" parent="." groups=["coolant_valve"] instance=ExtResource( 5 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 2 )
 starts_active = true
 
@@ -218,20 +351,44 @@ valve_path = NodePath("../ValveEast_1")
 
 [node name="CableAnchor" type="Position3D" parent="LeakEast"]
 
+[node name="GasArea3D" parent="LeakEast" instance=ExtResource( 16 )]
+damage_per_second = 0.0
+initial_particle_count = 0
+
+[node name="FogAdapter" type="Spatial" parent="LeakEast"]
+script = ExtResource( 17 )
+leak_path = NodePath("..")
+gas_path = NodePath("../GasArea3D")
+particles_at_full = 22
+fill_radius = 0.8
+fill_height = 0.6
+particle_scale = 1.0
+particle_lifetime = 4.0
+dissipate_rate = 1.5
+
 [node name="LeakEast_Patch" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 2 )
 script = ExtResource( 7 )
 leak_path = NodePath("../LeakEast")
 target_pipe_run_path = NodePath("../PipeRunEast")
 
+[node name="StaticBody" type="StaticBody" parent="LeakEast_Patch"]
+
+[node name="CollisionShape" type="CollisionShape" parent="LeakEast_Patch/StaticBody"]
+shape = SubResource( 5 )
+
+[node name="FissureMesh" type="MeshInstance" parent="LeakEast_Patch"]
+mesh = SubResource( 6 )
+material/0 = SubResource( 7 )
+
 [node name="PipeRunEast" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 1, 2 )
 script = ExtResource( 8 )
+flow_dir = Vector3( -1, 0, 0 )
 
-[node name="Visual" type="CSGBox" parent="PipeRunEast"]
-width = 10.0
-height = 0.3
-depth = 0.3
+[node name="Visual" type="MeshInstance" parent="PipeRunEast"]
+transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0 )
+mesh = SubResource( 4 )
 
 [node name="ManometerEast" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.8, 2 )
@@ -240,19 +397,26 @@ flow_adapter_path = NodePath("../CoolantFlowAdapterEast")
 tank_path = NodePath("../TankEast")
 leak_path = NodePath("../LeakEast")
 
-[node name="Dial" type="CSGBox" parent="ManometerEast"]
-width = 0.6
-height = 0.6
-depth = 0.1
+[node name="Stem" type="CSGCylinder" parent="ManometerEast"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.4, 0 )
+radius = 0.05
+height = 0.8
+sides = 8
+
+[node name="Dial" type="CSGCylinder" parent="ManometerEast"]
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0 )
+radius = 0.3
+height = 0.08
+sides = 20
+material = ExtResource( 18 )
 
 [node name="Needle" type="Spatial" parent="ManometerEast"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.06 )
 
-[node name="Mesh" type="CSGBox" parent="ManometerEast/Needle"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0 )
-width = 0.04
-height = 0.24
-depth = 0.02
+[node name="Mesh" type="MeshInstance" parent="ManometerEast/Needle"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.13, 0 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
 
 [node name="CoolantFlowAdapterEast" type="Node" parent="."]
 script = ExtResource( 10 )
@@ -261,6 +425,21 @@ tank_path = NodePath("../TankEast")
 valves = [ NodePath("../ValveEast_1"), NodePath("../ValveEast_2") ]
 leaks = [ NodePath("../LeakEast") ]
 pipe_runs = [ NodePath("../PipeRunEast") ]
+
+; Terminal de pared con el panel de estado del circuito adentro del viewport,
+; mismo cableado que el HangingDisplay de Dome_Intro: se apaga la TerminalUI
+; generica y se cuelga el dashboard de coolant en su lugar.
+[node name="StatusTerminal" parent="." instance=ExtResource( 14 )]
+transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0.7, -7.4 )
+is_interactable = true
+screen_resolution = Vector2( 1280, 816 )
+active = true
+static_content = true
+
+[node name="TerminalUI" parent="StatusTerminal/Viewport"]
+visible = false
+
+[node name="CoolantSystemStatusUI" parent="StatusTerminal/Viewport" instance=ExtResource( 15 )]
 
 [node name="UI" type="CanvasLayer" parent="."]
 

@@ -49,8 +49,6 @@ export(float, 0.2, 1.0) var pipe_alpha := 0.88 setget set_pipe_alpha
 # cara redonda del extremo libre.
 export(bool) var hide_caps := true
 
-const _shared_materials: Dictionary = {}
-
 var _material: ShaderMaterial = null
 var _phase: float = 0.0
 var _current_speed: float = 0.0
@@ -126,9 +124,10 @@ func _apply() -> void:
 		var base = load(flow_material_path)
 		if base == null:
 			return
-		if not _shared_materials.has(flow_material_path) or not is_instance_valid(_shared_materials[flow_material_path]):
-			_shared_materials[flow_material_path] = base
-		_material = _shared_materials[flow_material_path] as ShaderMaterial
+		# Una copia por corrida: el material del .tres es un recurso compartido por load(),
+		# y dos corridas en la misma escena (oeste/este) se pisaban los parametros entre si
+		# — la ultima en aplicar mandaba sobre las dos.
+		_material = (base as ShaderMaterial).duplicate()
 
 	var dir: Vector3 = flow_dir
 	if dir.length() > 0.001:

@@ -112,8 +112,13 @@ func _sort_by_floor_name(a: Node, b: Node) -> bool:
 
 
 func _floor_label(node: Node) -> String:
+	# En el dome cada valvula cuelga de su Floor_N y el piso es el que la identifica.
+	# Fuera de esa jerarquia (CoolantLab, estaciones sueltas) el padre es el nodo raiz
+	# y todas las filas saldrian con el mismo nombre: ahi manda el nombre propio.
 	var parent := node.get_parent()
-	return parent.name if parent else node.name
+	if parent != null and parent.name.begins_with("Floor_"):
+		return parent.name
+	return node.name
 
 
 func _make_row(valve: Node) -> HBoxContainer:

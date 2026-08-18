@@ -101,3 +101,38 @@ func test_snapshot_determinism() -> void:
 	var snap_2: Dictionary = adapter_west.get_snapshot()
 
 	assert_dict(snap_1).is_equal(snap_2)
+
+
+# Los tres contratos que la escena tiene que cumplir para que el laboratorio se juegue,
+# y que ningun test de logica cubre porque viven en el cableado del .tscn.
+func test_scene_wiring_supports_shader_and_gloo() -> void:
+	yield(_runner.simulate_frames(10), "completed")
+	var lab = _runner.scene()
+
+	# 1. El shader de coolant tiene que llegar al cano. PipeCoolantRun solo pinta
+	#    MeshInstance: con un CSGBox de cuerpo, el cano queda gris.
+	var mat_west = lab.get_node("PipeRunWest/Visual").get_surface_material(0)
+	var mat_east = lab.get_node("PipeRunEast/Visual").get_surface_material(0)
+	assert_object(mat_west).is_not_null()
+	assert_bool(mat_west is ShaderMaterial).is_true()
+
+	# 2. Cada rama con su propia copia del material, o los parametros de flujo de una
+	#    pisan los de la otra y cerrar una valvula frena las dos.
+	assert_bool(mat_west == mat_east).is_false()
+
+	# 3. El proyectil de gloo parchea subiendo por los padres del collider que toca.
+	#    Si el disparo no llega a un cuerpo cuyo ancestro sea el LeakPatchPoint, la
+	#    fisura es inparcheable por mas que patch_with_gloo() funcione a nivel script.
+	var space = lab.get_world().direct_space_state
+	for patch_name in ["LeakWest_Patch", "LeakEast_Patch"]:
+		var origin: Vector3 = lab.get_node(patch_name).global_transform.origin
+		var hit: Dictionary = space.intersect_ray(origin + Vector3(0, 0, 2.5), origin, [], 0x7FFFFFFF, true, false)
+		assert_bool(hit.empty()).is_false()
+		var node = hit["collider"]
+		var reaches_patch_point := false
+		while node != null:
+			if node.has_method("patch_with_gloo"):
+				reaches_patch_point = true
+				break
+			node = node.get_parent()
+		assert_bool(reaches_patch_point).is_true()
