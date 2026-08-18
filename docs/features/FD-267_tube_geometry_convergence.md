@@ -1,6 +1,6 @@
 # FD-267: Un solo barrido de tubo para cables y tuberías
 
-**Status:** Design
+**Status:** Open (parcial — el defecto principal sigue vivo)
 **Priority:** Medium
 **Effort:** Medium
 **Created:** 2026-08-17
@@ -89,6 +89,25 @@ cualquier escena de nivel.
 | t1 | Barrido común + convergencia de cable | Jules | `537927738519409501` | `docs/features/tasks/FD-267-t1-tubebuilder-corners.md` |
 
 Calibración de valores exportados y cableado en `CoolantLab.tscn`: Sebastián, después del merge.
+
+## Estado tras la primera pasada (2026-08-17)
+
+Entregado y mergeado: fillet de esquinas y marcos estables en `TubeBuilder`, `CircuitCable`
+apoyado en el barrido comun y sin sus `print()` por carga, y material por corrida en `PipeRun`.
+
+**No resuelto — el objetivo principal.** Verificado en vivo con `auto_build_cables = true`:
+los cables **siguen saliendo como banderas planas amarillas** y su collider **sigue
+interponiendose en el disparo de gloo** (el raycast a la fisura pega en `CableVis*_col`).
+O sea que la causa **no eran las esquinas**. Descartado tambien que sea la rama CSG:
+`use_csg` es `false`, asi que los cables pasan por el `TubeBuilder` que se arreglo.
+
+`test_tube_builder.gd` **no discrimina**: pasa igual con el `TubeBuilder` anterior, o sea que
+no es red de seguridad de nada. Cualquier proxima pasada tiene que empezar por un test que
+falle con el codigo de hoy.
+
+Proxima hipotesis a investigar: la *ruta* que arma `LogicCircuitManager._generate_catenary()`
+(puntos duplicados o colineales, o el tramo anchor->piso de largo cero cuando el anchor ya esta
+en el piso), que quedo explicitamente fuera de alcance en esta pasada.
 
 ## Verification
 
