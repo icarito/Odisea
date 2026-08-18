@@ -324,12 +324,14 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var timeout_setup = 100
 		while not SessionManager.is_replaying and timeout_setup > 0:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
-			timeout_setup -= 1
+			if not _is_scene_loading():
+				timeout_setup -= 1
 
 		var timeout = 5000
 		while SessionManager.is_replaying and timeout > 0:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
-			timeout -= 1
+			if not _is_scene_loading():
+				timeout -= 1
 
 		if timeout <= 0:
 			_cleanup_runner_scene(runner)
@@ -381,12 +383,14 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var timeout_setup1 = 100
 		while not SessionManager.is_replaying and timeout_setup1 > 0:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
-			timeout_setup1 -= 1
+			if not _is_scene_loading():
+				timeout_setup1 -= 1
 
 		var timeout1 = 5000
 		while SessionManager.is_replaying and timeout1 > 0:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
-			timeout1 -= 1
+			if not _is_scene_loading():
+				timeout1 -= 1
 
 		if timeout1 <= 0:
 			# Sin este fail, PASS 1 se cortaba en silencio (p.ej. a mitad de un respawn),
@@ -452,12 +456,14 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var timeout_setup = 100
 		while not SessionManager.is_replaying and timeout_setup > 0:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
-			timeout_setup -= 1
+			if not _is_scene_loading():
+				timeout_setup -= 1
 		
 		var timeout = 5000
 		while SessionManager.is_replaying and timeout > 0:
 			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
-			timeout -= 1
+			if not _is_scene_loading():
+				timeout -= 1
 		
 		if timeout <= 0:
 			_cleanup_runner_scene(runner)
@@ -623,3 +629,19 @@ func after():
 	
 	# Limpieza de huérfanos
 	_cleanup_scene()
+
+
+# El presupuesto de ticks mide cuanto tarda el REPLAY, no cuanto tarda la maquina en
+# cargar. Con carga interactiva la fisica sigue tickeando mientras el loader trabaja: en un
+# runner lento (CI, sin GPU) una transicion de escena se comia los 5000 ticks y el test
+# moria por timeout sin que el replay tuviera nada que ver. Las que caian eran justo las
+# escenas de carga pesada (transiciones de airlock, WFC procedural, streaming de ductos).
+# Congelar el contador mientras el loader esta activo mide lo que se queria medir; el
+# timeout-minutes del job sigue acotando el caso de cuelgue real.
+func _is_scene_loading() -> bool:
+	var sm = get_node_or_null("/root/SceneManager")
+	if sm == null:
+		return false
+	if sm.has_method("is_transitioning") and sm.is_transitioning():
+		return true
+	return bool(sm.get("_is_loading")) if "_is_loading" in sm else false

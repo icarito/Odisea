@@ -113,6 +113,22 @@ func _unpatch() -> void:
 	emit_signal("patch_expired")
 
 
+# El gloo dejo de existir: lo destruyo el laser, o se disipo. La fisura vuelve a soltar.
+# Sin esto quedaba tapada para siempre, porque desde FD-266 un parche firme ya no caduca
+# solo y el timer de _physics_process es la unica otra salida.
+func remove_patch() -> void:
+	if not _is_patched:
+		return
+	var was_firm := _is_firm_patch
+	_unpatch()
+	# Un parche firme sella el cano de verdad (deja _has_been_sealed en la fuga), asi que
+	# el trigger_leak() de _unpatch() rebota. Romper el parche a proposito no es lo mismo
+	# que dejarlo degradar: hay que volver a abrir la averia.
+	if was_firm and _leak != null:
+		_leak.reset()
+		_leak.trigger_leak()
+
+
 func is_patched() -> bool:
 	return _is_patched
 

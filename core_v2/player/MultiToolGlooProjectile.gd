@@ -44,6 +44,10 @@ var _laser_contact_this_frame := false
 var _current_radius := 0.09
 var _anchor_collider = null
 var _solid_collision_enabled := true
+# Fisura que este blob esta tapando, si tapa alguna. El parche vive mientras viva el gloo:
+# sin esta referencia, destruirlo con el laser dejaba la fisura parcheada para siempre.
+var _patched_point = null
+
 var _laser_area: Area = null
 var _laser_shape: CollisionShape = null
 var _glue_joints := []
@@ -298,14 +302,17 @@ func _try_patch_leak(node: Node) -> void:
 	while curr != null and depth < 6:
 		if curr.has_method("patch_with_gloo"):
 			curr.call("patch_with_gloo")
+			_patched_point = curr
 			return
 		if curr.is_in_group("gloo_patchable"):
 			if curr.has_method("patch_with_gloo"):
 				curr.call("patch_with_gloo")
+				_patched_point = curr
 				return
 			for child in curr.get_children():
 				if child.has_method("patch_with_gloo"):
 					child.call("patch_with_gloo")
+					_patched_point = child
 					return
 		curr = curr.get_parent()
 		depth += 1
@@ -359,6 +366,11 @@ func _absorb_gloo(blob) -> void:
 	var other_radius := collision_radius
 	if blob.has_method("get_laser_hit_radius"):
 		other_radius = float(blob.get_laser_hit_radius())
+	# El blob absorbido se va, pero el gloo sigue puesto: el parche pasa al que queda.
+	# Despatchear aca reabriria una fisura que en pantalla sigue tapada.
+	if _patched_point == null and blob.get("_patched_point") != null:
+		_patched_point = blob.get("_patched_point")
+	blob.set("_patched_point", null)
 	blob.call("_release_glue_joints")
 	blob.queue_free()
 	blob_radius = min(blob_radius + other_radius * merge_radius_gain, collision_radius * 3.0)
@@ -477,6 +489,12 @@ func _spread_laser_heat() -> void:
 		if blob.has_method("laser_hit"):
 			blob.laser_hit(false)
 
+func _release_leak_patch() -> void:
+	if _patched_point != null and is_instance_valid(_patched_point) and _patched_point.has_method("remove_patch"):
+		_patched_point.remove_patch()
+	_patched_point = null
+
+
 func get_laser_hit_radius() -> float:
 	return max(_current_radius, collision_radius)
 
@@ -484,6 +502,7 @@ func _finish_laser_destroy() -> void:
 	if _is_destroying:
 		return
 	_is_destroying = true
+	_release_leak_patch()
 	_release_glue_joints()
 	_spawn_flipbook_fx(SmokeScene, smoke_fx_scale * 1.25, 1.15 * fx_lifetime_scale)
 	_spawn_flipbook_fx(ExplosionScene, explosion_fx_scale * 1.35, 0.75 * fx_lifetime_scale)
@@ -521,6 +540,7 @@ func _get_fx_origin() -> Vector3:
 
 func fade_out():
 	# Simple shrink and free
+	_release_leak_patch()
 	var tween = create_tween()
 	if tween:
 		tween.tween_property(self, "scale", Vector3.ZERO, 0.5)

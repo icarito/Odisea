@@ -344,3 +344,45 @@ func test_circuit_set_active_depressurizes_instead_of_sealing() -> void:
 	# Y reabrir vuelve a soltar la fuga: el cano nunca se reparo solo.
 	leak.set_active(true)
 	assert_int(leak.get_state()).is_equal(CoolantLeak.State.LEAKING)
+
+
+# El parche vive mientras viva el gloo. Con FD-266 un parche firme ya no caduca solo, asi
+# que si nadie avisa al destruir el blob la fisura queda tapada para siempre.
+func test_destroying_gloo_reopens_the_fissure() -> void:
+	var leak = auto_free(CoolantLeakScript.new())
+	add_child(leak)
+	var patch = auto_free(LeakPatchPointScript.new())
+	add_child(patch)
+	patch.set("leak_path", patch.get_path_to(leak))
+	patch._resolve_references()
+
+	leak.trigger_leak()
+	leak._set_state(CoolantLeak.State.LEAKING)
+
+	# Sin presion => parche FIRME, el que no caduca solo.
+	assert_bool(patch.patch_with_gloo()).is_true()
+	assert_bool(patch.is_firmly_patched()).is_true()
+
+	patch.remove_patch()
+
+	assert_bool(patch.is_patched()).is_false()
+	assert_int(leak.get_state()).is_not_equal(CoolantLeak.State.HEALTHY)
+
+
+# Un parche provisorio tambien tiene que reabrir al destruir el gloo.
+func test_destroying_gloo_reopens_provisional_patch() -> void:
+	var leak = auto_free(CoolantLeakScript.new())
+	add_child(leak)
+	var patch = auto_free(LeakPatchPointScript.new())
+	add_child(patch)
+	patch.set("leak_path", patch.get_path_to(leak))
+	patch.set("firm_patch_pressure_threshold", -1.0) # nada alcanza el umbral => provisorio
+	patch._resolve_references()
+
+	leak.trigger_leak()
+	leak._set_state(CoolantLeak.State.LEAKING)
+	assert_bool(patch.patch_with_gloo()).is_true()
+	assert_bool(patch.is_firmly_patched()).is_false()
+
+	patch.remove_patch()
+	assert_bool(patch.is_patched()).is_false()
