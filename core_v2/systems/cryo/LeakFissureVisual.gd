@@ -41,7 +41,16 @@ onready var _gloo_mesh: MeshInstance = get_node_or_null("GlooMesh")
 
 func _ready() -> void:
 	add_to_group("replay_sync")
+	_resolve_references()
+	_update_visuals()
 
+
+# Igual que CoolantFlowAdapter/LeakPatchPoint: re-resolver en cada tick, no solo en _ready().
+# add_child() dispara _ready() sincronicamente, y setear los NodePath despues de add_child()
+# (patron comun al cablear en la escena, y el que usa el propio harness de tests) dejaba
+# _leak/_patch_point/_pipe_run en null para siempre — el componente nunca volvia a intentar
+# resolverlos, asi que quedaba mudo sin importar cuantos frames corrieran despues.
+func _resolve_references() -> void:
 	if leak_path != null and not leak_path.is_empty():
 		_leak = get_node_or_null(leak_path)
 	if patch_point_path != null and not patch_point_path.is_empty():
@@ -49,12 +58,11 @@ func _ready() -> void:
 	if pipe_run_path != null and not pipe_run_path.is_empty():
 		_pipe_run = get_node_or_null(pipe_run_path)
 
-	_update_visuals()
-
 
 func _physics_process(_delta: float) -> void:
 	if Engine.editor_hint:
 		return
+	_resolve_references()
 	_update_visuals()
 
 
