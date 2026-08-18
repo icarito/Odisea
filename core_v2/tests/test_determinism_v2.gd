@@ -323,12 +323,12 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 
 		var timeout_setup = 100
 		while not SessionManager.is_replaying and timeout_setup > 0:
-			yield (runner.simulate_frames(1), "completed")
+			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
 			timeout_setup -= 1
 
 		var timeout = 5000
 		while SessionManager.is_replaying and timeout > 0:
-			yield (runner.simulate_frames(1), "completed")
+			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
 			timeout -= 1
 
 		if timeout <= 0:
@@ -380,13 +380,20 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 
 		var timeout_setup1 = 100
 		while not SessionManager.is_replaying and timeout_setup1 > 0:
-			yield (runner.simulate_frames(1), "completed")
+			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
 			timeout_setup1 -= 1
 
 		var timeout1 = 5000
 		while SessionManager.is_replaying and timeout1 > 0:
-			yield (runner.simulate_frames(1), "completed")
+			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
 			timeout1 -= 1
+
+		if timeout1 <= 0:
+			# Sin este fail, PASS 1 se cortaba en silencio (p.ej. a mitad de un respawn),
+			# no reescribia el JSON y PASS 2 comparaba contra una grabacion vieja: drift fantasma.
+			_cleanup_runner_scene(runner)
+			fail("Grabacion OYS timed out en PASS 1: %s" % path)
+			return
 
 		# Verificar si algún ASSERT de OYS falló
 		if SessionManager.oys_assert_failed:
@@ -444,12 +451,12 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 
 		var timeout_setup = 100
 		while not SessionManager.is_replaying and timeout_setup > 0:
-			yield (runner.simulate_frames(1), "completed")
+			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
 			timeout_setup -= 1
 		
 		var timeout = 5000
 		while SessionManager.is_replaying and timeout > 0:
-			yield (runner.simulate_frames(1), "completed")
+			yield (get_tree(), "physics_frame") # el replay avanza por tick de fisica, no por idle frame
 			timeout -= 1
 		
 		if timeout <= 0:
