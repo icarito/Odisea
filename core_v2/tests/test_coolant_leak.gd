@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
 
-# TestSuite for CoolantLeak (FD-256 / FD-255)
+# TestSuite for CoolantLeak (FD-256 / FD-255 / FD-266)
 
 const CoolantLeakScript = preload("res://core_v2/systems/cryo/CoolantLeak.gd")
 const STEP := 1.0 / 60.0
@@ -124,7 +124,7 @@ func test_determinism_and_snapshot_restore() -> void:
 	assert_float(leak.get_leak_intensity()).is_equal_approx(intensity_after_1, 0.0000001)
 
 
-func test_pipe_valve_integration_and_api_controls() -> void:
+func test_pipe_valve_integration_depressurizes_without_sealing() -> void:
 	var valve = auto_free(DummyValve.new())
 	valve.name = "DummyValve"
 	add_child(valve)
@@ -139,8 +139,16 @@ func test_pipe_valve_integration_and_api_controls() -> void:
 	_step_leak(leak, leak.warning_duration + 0.5)
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.LEAKING)
 
+	# FD-266 semantics: closing valve depressurizes, does NOT seal physically
 	valve.emit_signal("valve_state_changed", false)
-	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.SEALED)
+	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.DEPRESSURIZED)
+	assert_bool(leak.is_depressurized()).is_true()
+
+	_step_leak(leak, leak.dissipate_duration + 0.5)
+	assert_float(leak.get_leak_intensity()).is_equal(0.0)
+	# Re-opening valve re-triggers leak immediately without WARNING
+	valve.emit_signal("valve_state_changed", true)
+	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.LEAKING)
 
 	leak.reset()
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.HEALTHY)

@@ -80,19 +80,22 @@ func _update_visuals() -> void:
 		_set_particles_emitting(false, false)
 		_clear_pipe_fissure_uniforms()
 	else:
+		# Constantes del enum, no enteros pelados: FD-266 agrego DEPRESSURIZED a
+		# CoolantLeak.State y un match sobre numeros se desalinea en silencio ante el
+		# proximo estado nuevo — sin romper ningun test, mostrando el estado equivocado.
 		match leak_state:
-			0: # CoolantLeak.State.HEALTHY
+			CoolantLeak.State.HEALTHY:
 				_set_particles_emitting(false, false)
 				_clear_pipe_fissure_uniforms()
 
-			1: # CoolantLeak.State.WARNING
+			CoolantLeak.State.WARNING:
 				# Fase de condensación previa a la rotura: niebla leve
 				_set_particles_emitting(false, true)
 				if _mist_particles:
 					_mist_particles.amount = 8
 				_apply_pipe_fissure_uniforms(0.25)
 
-			2: # CoolantLeak.State.LEAKING
+			CoolantLeak.State.LEAKING:
 				# Fuga activa con chorro a presión según la intensidad
 				_set_particles_emitting(true, true)
 				if _spray_particles:
@@ -102,8 +105,10 @@ func _update_visuals() -> void:
 					_mist_particles.amount = int(clamp(6.0 + leak_intensity * 14.0, 4.0, 20.0))
 				_apply_pipe_fissure_uniforms(leak_intensity)
 
-			3: # CoolantLeak.State.SEALED
-				# Disipando o cerrado por válvula
+			CoolantLeak.State.SEALED, CoolantLeak.State.DEPRESSURIZED:
+				# SEALED = reparado de verdad; DEPRESSURIZED = la valvula corto el caudal
+				# pero el cano sigue roto. Los dos disipan, asi que se dibujan igual: lo
+				# que se ve es que deja de escupir, no que quedo sano.
 				if leak_intensity > 0.05:
 					_set_particles_emitting(true, false)
 					if _spray_particles:

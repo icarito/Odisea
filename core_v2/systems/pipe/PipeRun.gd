@@ -11,7 +11,7 @@ const TubeBuilder = preload("res://core_v2/systems/pipe/TubeBuilder.gd")
 const PipeRouterScript = preload("res://core_v2/systems/pipe/PipeRouter.gd")
 const DEFAULT_FLOW_MATERIAL := "res://core_v2/props/pipe/PipeCoolant.tres"
 
-# Materiales compartidos indexados por path para evitar .duplicate() innecesario
+# Materiales compartidos indexados por path para optimizar memoria en corridas por defecto
 const _shared_material_cache: Dictionary = {}
 
 export(NodePath) var from_anchor: NodePath
@@ -35,6 +35,7 @@ var _mesh_inst: MeshInstance
 var _hurtbox: Area
 var _leak_particles: CPUParticles
 var _shared_material: ShaderMaterial
+var _is_material_unique: bool = false
 
 
 func _ready() -> void:
@@ -61,7 +62,20 @@ func set_path_curve(curve: Curve3D) -> void:
 func set_flow_intensity(val: float) -> void:
 	flow_intensity = clamp(val, 0.0, 3.0)
 	if _shared_material and is_instance_valid(_shared_material):
+		# Una copia por corrida al modificar parámetros: el material del .tres es un recurso
+		# compartido por load(), y dos corridas en la misma escena con distintas configuraciones
+		# se pisaban los parámetros entre sí. Se duplica el recurso al modificarlo (copy-on-write).
+		_ensure_unique_material()
 		_shared_material.set_shader_param("emission_strength", 1.4 * flow_intensity)
+
+
+func _ensure_unique_material() -> void:
+	if _is_material_unique or _shared_material == null:
+		return
+	_shared_material = _shared_material.duplicate() as ShaderMaterial
+	_is_material_unique = true
+	if _mesh_inst and is_instance_valid(_mesh_inst):
+		_mesh_inst.material_override = _shared_material
 
 
 func build_from_anchors(from_a, to_a, options: Dictionary = {}) -> void:
@@ -101,7 +115,6 @@ func build_mesh_and_collision() -> void:
 	_mesh_inst.name = "PipeMesh"
 	_mesh_inst.mesh = mesh
 
-	# Reutilizar o cargar material compartido sin duplicar recurso por corrida
 	_shared_material = _get_or_load_material(flow_material_path)
 	if _shared_material:
 		_mesh_inst.material_override = _shared_material

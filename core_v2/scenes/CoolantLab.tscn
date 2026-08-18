@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=2]
+[gd_scene load_steps=29 format=2]
 
 ; CoolantLab.tscn - Laboratorio de criogenia grey-box (FD-265).
 ;
@@ -27,6 +27,7 @@
 [ext_resource path="res://core_v2/systems/cryo/CoolantFogAdapter.gd" type="Script" id=17]
 [ext_resource path="res://core_v2/props/ManometerEmissive.tres" type="Material" id=18]
 [ext_resource path="res://materials/interior/FloorDark.tres" type="Material" id=19]
+[ext_resource path="res://core_v2/systems/cryo/LeakFissureVisual.tscn" type="PackedScene" id=20]
 
 [sub_resource type="Resource" id=1]
 script = ExtResource( 3 )
@@ -169,6 +170,8 @@ leak_west_patch_path = NodePath("LeakWest_Patch")
 leak_east_patch_path = NodePath("LeakEast_Patch")
 manometer_west_path = NodePath("ManometerWest")
 manometer_east_path = NodePath("ManometerEast")
+tank_west_path = NodePath("TankWest")
+tank_east_path = NodePath("TankEast")
 status_label_path = NodePath("UI/Control/StatusLabel")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
@@ -226,10 +229,11 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 5 )
 
 [node name="MultiTool" parent="Pilot" instance=ExtResource( 13 )]
 
-; auto_build_cables queda en false: los cables procedimentales de CircuitCable salen
-; como banderas planas amarillas entre estos nodos (geometria degenerada del tubo,
-; bug del sistema de cables, no de este laboratorio) y tapan el circuito. La topologia
-; OCLS igual corre: el grafo es logico, el cable es solo su dibujo.
+; auto_build_cables sigue en false. FD-267 arreglo el barrido de esquinas del TubeBuilder,
+; pero verificado en vivo los cables SIGUEN saliendo como banderas planas amarillas y su
+; collider sigue interponiendose en el disparo de gloo (raycast a la fisura pega en
+; CableVis*_col). O sea que la causa no eran las esquinas. La topologia OCLS corre igual:
+; el grafo es logico, el cable es solo su dibujo. Reabrir FD-267 antes de prenderlos.
 [node name="LogicCircuitManager" type="Spatial" parent="."]
 script = ExtResource( 2 )
 circuit_data = SubResource( 1 )
@@ -277,15 +281,18 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, -4 )
 script = ExtResource( 7 )
 leak_path = NodePath("../LeakWest")
 target_pipe_run_path = NodePath("../PipeRunWest")
+manometer_path = NodePath("../ManometerWest")
+flow_adapter_path = NodePath("../CoolantFlowAdapterWest")
 
 [node name="StaticBody" type="StaticBody" parent="LeakWest_Patch"]
 
 [node name="CollisionShape" type="CollisionShape" parent="LeakWest_Patch/StaticBody"]
 shape = SubResource( 5 )
 
-[node name="FissureMesh" type="MeshInstance" parent="LeakWest_Patch"]
-mesh = SubResource( 6 )
-material/0 = SubResource( 7 )
+[node name="FissureVisual" parent="LeakWest_Patch" instance=ExtResource( 20 )]
+leak_path = NodePath("../../LeakWest")
+patch_point_path = NodePath("..")
+pipe_run_path = NodePath("../../PipeRunWest")
 
 [node name="PipeRunWest" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 1, -4 )
@@ -371,15 +378,18 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 2 )
 script = ExtResource( 7 )
 leak_path = NodePath("../LeakEast")
 target_pipe_run_path = NodePath("../PipeRunEast")
+manometer_path = NodePath("../ManometerEast")
+flow_adapter_path = NodePath("../CoolantFlowAdapterEast")
 
 [node name="StaticBody" type="StaticBody" parent="LeakEast_Patch"]
 
 [node name="CollisionShape" type="CollisionShape" parent="LeakEast_Patch/StaticBody"]
 shape = SubResource( 5 )
 
-[node name="FissureMesh" type="MeshInstance" parent="LeakEast_Patch"]
-mesh = SubResource( 6 )
-material/0 = SubResource( 7 )
+[node name="FissureVisual" parent="LeakEast_Patch" instance=ExtResource( 20 )]
+leak_path = NodePath("../../LeakEast")
+patch_point_path = NodePath("..")
+pipe_run_path = NodePath("../../PipeRunEast")
 
 [node name="PipeRunEast" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 1, 2 )

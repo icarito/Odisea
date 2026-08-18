@@ -1,10 +1,9 @@
-tool
 extends Node
 class_name CoolantFlowAdapter
 
-# CoolantFlowAdapter.gd - Visual-Logical adapter for cryocoolant flow (FD-264 §2).
-# Reads OCLS circuit state, valve states, and tank supply to compute branch flow
-# and write speed/intensity to PipeCoolantRun nodes deterministically.
+# CoolantFlowAdapter.gd - Visual-Logical adapter for cryocoolant flow (FD-264 §2 / FD-266).
+# Reads OCLS circuit state, valve states, and tank supply to compute branch flow,
+# write speed/intensity to PipeCoolantRun nodes, and drain the tank based on active leaks.
 
 export(NodePath) var circuit_manager_path: NodePath
 export(NodePath) var tank_path: NodePath
@@ -26,13 +25,13 @@ func _ready() -> void:
 	add_to_group("replay_sync")
 	add_to_group("coolant_adapter")
 	_resolve_references()
-	update_flow()
+	update_flow(0.0)
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
-	update_flow()
+	update_flow(delta)
 
 
 func _resolve_references() -> void:
@@ -42,7 +41,7 @@ func _resolve_references() -> void:
 		_tank = get_node_or_null(tank_path)
 
 
-func update_flow() -> void:
+func update_flow(delta: float = 0.0) -> void:
 	_resolve_references()
 
 	var tank_level := 1.0
@@ -65,6 +64,8 @@ func update_flow() -> void:
 	var flow_active := (all_valves_open) and (tank_level > 0.0)
 
 	var active_leak_factor := 0.0
+	var total_leak_intensity := 0.0
+
 	if flow_active:
 		for leak_path in leaks:
 			var leak_node = get_node_or_null(leak_path)
@@ -73,6 +74,11 @@ func update_flow() -> void:
 					var intensity: float = float(leak_node.call("get_leak_intensity"))
 					if intensity > active_leak_factor:
 						active_leak_factor = intensity
+					total_leak_intensity += intensity
+
+		if delta > 0.0 and _tank != null and total_leak_intensity > 0.0:
+			var drain: float = total_leak_intensity * float(_tank.get("drain_rate")) * delta
+			_tank.set_tank_level(max(0.0, _tank.tank_level - drain))
 
 	var target_speed := normal_flow_speed if flow_active else 0.0
 	var target_intensity := (normal_flow_intensity * tank_level) if flow_active else 0.0
@@ -118,4 +124,4 @@ func restore_snapshot(data: Dictionary) -> void:
 		_last_computed_speed = float(data["speed"])
 	if data.has("intensity"):
 		_last_computed_intensity = float(data["intensity"])
-	update_flow()
+	update_flow(0.0)

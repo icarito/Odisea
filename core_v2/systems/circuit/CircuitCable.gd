@@ -19,8 +19,6 @@ export(int) var cable_sides := 8
 var _hurtbox: Area
 
 func _ready():
-	print("[CircuitCable] _ready fired: instance ", self)
-
 	# FIRST call parent class _ready() to ensure set_active and other methods are available
 	# This sets is_active, anim_progress, target_progress, and calls _update_visuals()
 	._ready()
@@ -28,7 +26,6 @@ func _ready():
 	# If no Curve3D is assigned (common in props/tests), create a tiny default
 	# curve so that build() can produce visible geometry for validation.
 	if not path_curve:
-		print("[CircuitCable] path_curve is null; creating default Curve3D for tests/editor.")
 		var default_curve = Curve3D.new()
 		# Make the default cable along X axis (horizontal) for typical circuit layout
 		# In this project +Z is backward (camera direction), so X is horizontal left-right
@@ -37,17 +34,10 @@ func _ready():
 		path_curve = default_curve
 
 	if path_curve:
-		print("[CircuitCable] _ready sees path_curve, building now.")
 		# Build synchronously so _update_visuals() can access the mesh
 		build()
 
 func build():
-	print("[CircuitCable] build called. instance:", self, " curve: ", path_curve, " points: ", path_curve.get_point_count())
-	print("[CircuitCable] cable_radius:", cable_radius)
-	if path_curve == null:
-		print("[CircuitCable] WARNING: path_curve is null in build.")
-	elif path_curve.get_point_count() < 2:
-		print("[CircuitCable] WARNING: curve has <2 points.")
 	# Clear previous children
 	for child in get_children():
 		child.queue_free()
@@ -63,31 +53,23 @@ func build():
 	_setup_hurtbox()
 
 func _build_csg():
-	print("[CircuitCable] _build_csg with curve points: ", path_curve.get_point_count())
 	var path_node = Path.new()
 	path_node.curve = path_curve
 	path_node.name = "Path"
 	add_child(path_node)
-	print("[CircuitCable] Path node added.")
 	var csg = CSGPolygon.new()
 	csg.mode = CSGPolygon.MODE_PATH
 	csg.path_node = path_node.get_path()
 	csg.polygon = _generate_circle_polygon(cable_radius, cable_sides)
-	if cable_material:
-		print("[CircuitCable] cable_material assigned.")
 	csg.material = cable_material
 	csg.use_collision = true
 	csg.name = "CableVis"
 	add_child(csg)
-	print("[CircuitCable] CSGPolygon CableVis added.")
-
 
 
 func _build_mesh():
-	print("[CircuitCable] _build_mesh with curve points: ", path_curve.get_point_count())
 	var mesh_inst = MeshInstance.new()
 	mesh_inst.mesh = _generate_tube_mesh(path_curve, cable_radius, cable_sides)
-	print("[CircuitCable] MeshInstance mesh generated. cable_radius:", cable_radius)
 	
 	# Create a unique material per instance (duplicate the assigned material or create new)
 	var unique_material = null
@@ -105,13 +87,8 @@ func _build_mesh():
 	
 	mesh_inst.name = "CableVis"
 	add_child(mesh_inst)
-	print("[CircuitCable] MeshInstance CableVis added.")
 	mesh_inst.create_trimesh_collision()
 
-
-	# The collision sibling created by create_trimesh_collision is a StaticBody.
-	# We might want to move its shape to our Hurtbox or keep it as physical barrier.
-	# For destructibility, we need an Area.
 
 func _setup_hurtbox():
 	# Create an Area named Hurtbox and populate it with capsule CollisionShapes
@@ -131,24 +108,6 @@ func _setup_hurtbox():
 	if points.size() < 2:
 		return
 
-	points = path_curve.get_baked_points()
-	if points.size() < 2:
-		return
-
-	# Create segments (deprecated simple loop removed). We use a more robust
-	# accumulation loop below that batches capsule shapes and parents them to
-	# the Hurtbox before calling Spatial methods that require being inside
-	# the scene tree (e.g. look_at()).
-
-	# For this implementation, I will assume the caller (Projectile/Explosion) checks for `take_damage` on the collider.
-	# If I use `create_trimesh_collision`, I get a StaticBody. I can attach a script to it.
-
-	# However, to be robust, I will manually create an Area with simplified collision (Capsules) as planned above.
-	# Capsule in Godot 3 is Height along Z? No, it's usually Y.
-	# If I look_at(p2), the local -Z points to p2.
-	# I need to align the capsule (Y-axis) with the Z-axis.
-	# Rotate X -90 degrees.
-
 	var prev = points[0]
 	var interval = 0.5 # Generate collision every 0.5 units to reduce count
 	var dist_acc = 0.0
@@ -167,10 +126,6 @@ func _setup_hurtbox():
 
 			var center = (prev + curr) / 2.0
 
-			# Parent to the hurtbox first so we can compute local transforms
-			# relative to it without calling Spatial methods that may depend
-			# on being in the tree. Then set a stable basis oriented along
-			# the segment direction.
 			_hurtbox.add_child(col)
 
 			var local_center = _hurtbox.to_local(center)
@@ -193,11 +148,7 @@ func _generate_circle_polygon(radius: float, sides: int) -> PoolVector2Array:
 	return TubeBuilder.generate_circle_polygon(radius, sides)
 
 func _generate_tube_mesh(curve: Curve3D, radius: float, sides: int) -> ArrayMesh:
-	var mesh = TubeBuilder.generate_tube_mesh(curve, radius, sides)
-	if mesh:
-		print("[CircuitCable] generated mesh AABB: ", mesh.get_aabb())
-		print("[CircuitCable] mesh surface_count: ", mesh.get_surface_count())
-	return mesh
+	return TubeBuilder.generate_tube_mesh(curve, radius, sides)
 
 func take_damage(amount: float) -> void:
 	health -= amount
@@ -224,15 +175,9 @@ func init_from_curve(curve: Curve3D) -> void:
 
 func _update_visuals() -> void:
 	"""Override from PropBaseV2 to react to energy (is_active state)."""
-	# Use target_progress if anim_progress hasn't started (animation pending)
-	# This ensures immediate visual feedback when set_active is called
-	# Fix: Use target_progress whenever anim_progress is at initial value (0), regardless of direction
 	var t = target_progress if anim_progress < 0.01 else anim_progress
 	
-	print("[CircuitCable] _update_visuals: t=", t, " target_progress=", target_progress, " anim_progress=", anim_progress)
-	
 	# Update legacy state for test compatibility
-	# Map anim_progress to state: idle (0-0.3), mid (0.3-0.7), active (0.7-1.0)
 	if t < 0.3:
 		circuit_state = "idle"
 	elif t < 0.7:
@@ -240,15 +185,12 @@ func _update_visuals() -> void:
 	else:
 		circuit_state = "active"
 	
-	print("[CircuitCable] circuit_state now: ", circuit_state)
-	
 	# Get the cable visual mesh
 	var mesh_inst = get_node_or_null("CableVis")
 	if not mesh_inst:
 		return
 	
 	# ALWAYS create a fresh material for energy visualization
-	# This ensures we don't modify the assigned cable_material (CableVisible.tres)
 	var mat = SpatialMaterial.new()
 	mesh_inst.material_override = mat
 	
@@ -259,7 +201,6 @@ func _update_visuals() -> void:
 	# Add dramatic pulse effect based on time when active
 	var pulse = 1.0
 	if t > 0.5:
-		# Pulse effect when more than 50% active
 		pulse = 1.0 + 0.3 * sin(OS.get_ticks_msec() * 0.01)
 	
 	# Interpolate based on animation progress
@@ -282,16 +223,11 @@ func _update_visuals() -> void:
 
 func set_active(value: bool, immediate: bool = false) -> void:
 	"""Override set_active to update state property when called by Lever."""
-	print("[CircuitCable] set_active called with value:", value)
-	# Call parent implementation
 	.set_active(value, immediate)
-	# Force update the state immediately
 	_update_visuals()
 
 func interact(_from = null) -> void:
 	"""Toggle energy state. Called by player interaction or pipeline."""
-	print("[CircuitCable] interact() called. Current is_active:", is_active)
-	# Use the base class toggle via set_active
 	.set_active(not is_active)
 
 # Legacy state handling for backward compatibility with tests

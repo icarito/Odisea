@@ -1,12 +1,12 @@
-tool
 extends StaticBody
 class_name CoolantTank
 
-# CoolantTank.gd - Cryocoolant source tank (FD-264).
+# CoolantTank.gd - Cryocoolant source tank (FD-264 / FD-266).
 # Manages coolant supply level and baseline pressure without causing player defeat when empty.
 
 export(float, 0.0, 1.0) var tank_level: float = 1.0 setget set_tank_level
-export(float, 0.0, 10.0) var drain_rate: float = 0.0
+# drain_rate es la tasa base de vaciado por segundo cuando la fuga está al 100% (default ~0.015 => ~66s para vaciarse entero)
+export(float, 0.0, 10.0) var drain_rate: float = 0.015
 
 signal level_changed(new_level)
 
@@ -19,11 +19,10 @@ func _ready() -> void:
 	_update_visuals()
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if Engine.editor_hint:
 		return
-	if drain_rate > 0.0 and tank_level > 0.0:
-		set_tank_level(max(0.0, tank_level - drain_rate * delta))
+	# El drenaje se calcula en CoolantFlowAdapter según las fugas activas presurizadas de la rama.
 
 
 func set_tank_level(v: float) -> void:

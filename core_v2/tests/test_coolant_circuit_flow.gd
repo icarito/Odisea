@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
 
-# test_coolant_circuit_flow.gd - Unit test suite for FD-264 coolant circuit flow logic,
+# test_coolant_circuit_flow.gd - Unit test suite for FD-264/FD-266 coolant circuit flow logic,
 # adapter bridging, gloo patching decay, manometers, status UI, and snapshot determinism.
 
 const CoolantTankScript = preload("res://core_v2/props/pipe/CoolantTank.gd")
@@ -72,7 +72,7 @@ func test_valve_closure_ramps_speed_and_reduces_intensity() -> void:
 	assert_float(adapter.get_computed_speed()).is_equal(0.7)
 
 
-func test_fissure_and_gloo_patch_decay_cycle() -> void:
+func test_fissure_and_provisional_gloo_patch_decay_cycle() -> void:
 	var leak = auto_free(CoolantLeakScript.new())
 	leak.warning_duration = 0.1
 	leak.ramp_up_duration = 0.2
@@ -81,6 +81,7 @@ func test_fissure_and_gloo_patch_decay_cycle() -> void:
 	var patch_point = auto_free(LeakPatchPointScript.new())
 	patch_point.leak_path = leak.get_path()
 	patch_point.gloo_patch_duration = 0.5
+	# Under pressure, gloo forms provisional patch
 	add_child(patch_point)
 
 	_step_tree([leak, patch_point], 0.05)
@@ -90,12 +91,12 @@ func test_fissure_and_gloo_patch_decay_cycle() -> void:
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.LEAKING)
 	assert_float(leak.get_leak_intensity()).is_equal_approx(1.0, 0.01)
 
-	# Apply Gloo patch
+	# Apply Gloo patch under pressure -> provisional patch
 	patch_point.patch_with_gloo()
 	_step_tree([leak, patch_point], 0.05)
 
 	assert_bool(patch_point.is_patched()).is_true()
-	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.SEALED)
+	assert_bool(patch_point.is_firmly_patched()).is_false()
 
 	# Step until decay duration finishes
 	_step_tree([leak, patch_point], 0.6)
@@ -124,7 +125,6 @@ func test_gloo_projectile_patches_fissure_on_collision() -> void:
 	proj._stick_at(patch_point, Vector3.ZERO, Vector3.UP)
 
 	assert_bool(patch_point.is_patched()).is_true()
-	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.SEALED)
 
 
 func test_manometer_reading_reflects_pressure() -> void:

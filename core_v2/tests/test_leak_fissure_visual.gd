@@ -144,3 +144,24 @@ func test_fissure_visual_snapshot_determinism() -> void:
 	_visual.call("restore_snapshot", snap)
 
 	assert_bool(_visual.get("enabled")).is_false()
+
+
+# Cerrar la valvula despresuriza el tramo (FD-266): el chorro tiene que apagarse aunque
+# el cano siga roto. Sin este caso, un match sobre enteros del enum se desalinea ante un
+# estado nuevo y el visual queda congelado en la fuga sin que ningun test lo note.
+func test_depressurized_state_winds_down_spray() -> void:
+	_leak.call("trigger_leak")
+	yield(_runner.simulate_frames(2), "completed")
+	_leak.set("_state", CoolantLeak.State.LEAKING)
+	_leak.set("_leak_intensity", 1.0)
+	yield(_runner.simulate_frames(2), "completed")
+
+	var spray: CPUParticles = _visual.get_node("SprayParticles")
+	assert_bool(spray.emitting).is_true()
+
+	_leak.set("_state", CoolantLeak.State.DEPRESSURIZED)
+	_leak.set("_leak_intensity", 0.0)
+	yield(_runner.simulate_frames(2), "completed")
+
+	assert_int(_leak.call("get_state")).is_equal(CoolantLeak.State.DEPRESSURIZED)
+	assert_bool(spray.emitting).is_false()
