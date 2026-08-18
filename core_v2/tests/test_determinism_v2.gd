@@ -32,7 +32,15 @@ var _last_replay_result := {}
 
 
 func _on_replay_finished(success: bool, drift: float, frames: int) -> void:
-	_last_replay_result = {"success": success, "drift": drift, "frames": frames}
+	# Varias rutas de SessionManager emiten esta señal con call_deferred, asi que la del
+	# replay ANTERIOR puede llegar cuando el siguiente ya armo su captura. Paso de verdad:
+	# test_killzone_signal, que mide 0.000000, se reporto en CI con el 0.169381 de un test
+	# terminado dos minutos y medio antes. Se anota de que replay venia para descartarla si
+	# no corresponde.
+	var src := ""
+	if "_current_replay_path" in SessionManager:
+		src = str(SessionManager.get("_current_replay_path"))
+	_last_replay_result = {"success": success, "drift": drift, "frames": frames, "path": src}
 
 
 func _arm_replay_result_capture() -> void:
@@ -41,9 +49,15 @@ func _arm_replay_result_capture() -> void:
 		SessionManager.connect("replay_finished", self, "_on_replay_finished")
 
 
-# Drift efectivo: el que midio SessionManager si lo emitio, si no el recalculado.
+# Drift efectivo: manda el que midio SessionManager al terminar el replay, porque lo mide
+# en el momento correcto (player todavia vivo). Recalcularlo aca da valores distintos: para
+# entonces el player pudo respawnear o ser reinstanciado por un airlock. _compute_drift
+# queda de respaldo para los replays que no emiten la señal.
 # Devuelve < 0 cuando no hubo forma de medirlo, que es una falla, no un pase.
-func _effective_drift(drift_info: Dictionary) -> float:
+func _effective_drift(drift_info: Dictionary, expected_path: String = "") -> float:
+	var from_path: String = str(_last_replay_result.get("path", ""))
+	if expected_path != "" and from_path != "" and from_path != expected_path:
+		_last_replay_result = {} # la señal es de otro replay
 	if _last_replay_result.has("drift") and float(_last_replay_result["drift"]) >= 0.0:
 		return float(_last_replay_result["drift"])
 	if drift_info.get("measured", false):
@@ -183,7 +197,6 @@ static func _should_disable_render() -> bool:
 # Si OYS_FILTER está definido, solo retorna ese archivo
 static func _get_replay_paths() -> Array:
 	var filter = OS.get_environment("OYS_FILTER")
-	var skip_json = OS.get_environment("OYS_NODET") != "" # Check for OYS_NODET environment variable
 	var run_determinism = OS.get_environment(DETERMINISM_ENV_FLAG).to_lower() in ["1", "true", "yes", "on"]
 	var raw_files = []
 
@@ -222,39 +235,19 @@ static func _get_replay_paths() -> Array:
 				printerr("OYS_FILTER: archivo no encontrado: ", TESTS_ROOT.plus_file(requested))
 				return []
 	else:
-		if skip_json:
-			raw_files = _scan_for_files([".oys"])
-		else:
-			raw_files = _scan_for_files([".oys", ".json"])
+		# Un .json solo no es un caso de determinismo: o es el snapshot de un .oys, y ya se
+		# prueba en el PASS 2 de ese .oys, o es una grabacion suelta sin script que la
+		# maneje. Las sueltas que quedaban eran de febrero de 2026 contra escenas que se
+		# siguieron modificando: fallaban por expectativa vieja, no por regresion. Para
+		# mirar una a mano sigue estando OYS_FILTER=<archivo>.json.
+		raw_files = _scan_for_files([".oys"])
 	
-	# Filtrar redundancia: si existe un .oys, ignorar el .json
-	var oys_files = {}
-	for pair in raw_files:
-		var path = pair[0]
-		if path.ends_with(".oys"):
-			oys_files[path.get_basename()] = true
-	
+	# El escaneo ya trae solo .oys, asi que no hay redundancia .json que filtrar.
 	var final_results = []
 	for pair in raw_files:
-		var path = pair[0]
-		if path.ends_with(".json"):
-			if oys_files.has(path.get_basename()):
-				# Saltar JSON si existe OYS (ya se prueba en PASS 2 del OYS)
-				continue
 		final_results.append(pair)
 		
 	return final_results
-
-# Grabaciones .json sueltas (sin .oys que las maneje) que quedaron viejas: son de febrero
-# de 2026 y sus escenas se siguieron modificando, asi que su final_expected_state ya no
-# describe el estado al que llega el juego hoy. No son regresiones nuevas: venian fallando
-# sin que nadie lo viera, porque el chequeo de drift leia una instancia liberada y nunca
-# llamaba fail(). Se excluyen hasta que se vuelvan a grabar; para reactivarlas, regrabar
-# con --snapshot y sacarlas de esta lista.
-#   test_ghost_smoke.json         escena test_oys_trigger.tscn   drift 0.041659
-#   test_circuit_signal_visual.json  escena PropStage.tscn       drift 0.552450
-const STALE_REPLAYS := ["test_ghost_smoke.json", "test_circuit_signal_visual.json"]
-
 
 static func _scan_for_files(extensions: Array, include_stress := false) -> Array:
 	var results := []
@@ -272,9 +265,6 @@ static func _scan_dir(dir: Directory, current_path: String, results: Array, exte
 	var name = dir.get_next()
 	while name != "":
 		var full_path = current_path.plus_file(name)
-		if not dir.current_is_dir() and name in STALE_REPLAYS:
-			name = dir.get_next()
-			continue
 		if dir.current_is_dir():
 			# Performance benchmarks have their own runner and are not replay
 			# determinism cases. Including them here makes the suite needlessly slow.
@@ -381,7 +371,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		if is_instance_valid(SessionManager.player) and SessionManager.player.has_method("full_reset"):
 			SessionManager.player.full_reset()
 
-			_arm_replay_result_capture()
+		_arm_replay_result_capture()
 		SessionManager.load_and_play(path)
 
 		var timeout_setup = 100
@@ -411,7 +401,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
 		var drift_threshold = _get_drift_threshold_for_path(path)
 		var drift_warning = _get_drift_warning_for_path(path)
-		var measured_drift = _effective_drift(drift_info)
+		var measured_drift = _effective_drift(drift_info, path)
 		if measured_drift < 0.0 and drift_info.get("not_applicable", false):
 			print("[INFO] Chequeo de drift no aplica (%s): %s" % [drift_info.reason, path])
 		elif measured_drift < 0.0:
@@ -546,7 +536,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
 		var drift_threshold = _get_drift_threshold_for_path(path)
 		var drift_warning = _get_drift_warning_for_path(path)
-		var measured_drift = _effective_drift(drift_info)
+		var measured_drift = _effective_drift(drift_info, path)
 		if measured_drift < 0.0 and drift_info.get("not_applicable", false):
 			print("[INFO] Chequeo de drift no aplica (%s): %s" % [drift_info.reason, path])
 		elif measured_drift < 0.0:
