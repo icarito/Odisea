@@ -20,19 +20,64 @@ static func _describe_replay_path(path: String) -> String:
 	# Eliminar prefijos comunes y extensión para legibilidad
 	return fname.replace("replay_test_", "").replace("test_replay_", "").replace(".json", "")
 
+# "measured" dice si el drift se pudo calcular. Sin ese dato, un drift de -1 (el valor
+# cuando no hay con que medir) no supera ningun umbral y el test pasaba en silencio —
+# la misma clase de agujero que el timeout mudo de PASS 1.
+# SessionManager mide el drift al terminar el replay, con el player TODAVIA vivo, y lo
+# emite en replay_finished(success, drift, frames). Recalcularlo despues leia una instancia
+# ya liberada (airlock que reinstancia al player): el chequeo devolvia Nil, no fallaba nada,
+# y la corrida terminaba verde con "DRIFT ERROR" impreso en el log. Se usa el valor emitido;
+# _compute_drift queda de respaldo para los replays que no emiten.
+var _last_replay_result := {}
+
+
+func _on_replay_finished(success: bool, drift: float, frames: int) -> void:
+	_last_replay_result = {"success": success, "drift": drift, "frames": frames}
+
+
+func _arm_replay_result_capture() -> void:
+	_last_replay_result = {}
+	if not SessionManager.is_connected("replay_finished", self, "_on_replay_finished"):
+		SessionManager.connect("replay_finished", self, "_on_replay_finished")
+
+
+# Drift efectivo: el que midio SessionManager si lo emitio, si no el recalculado.
+# Devuelve < 0 cuando no hubo forma de medirlo, que es una falla, no un pase.
+func _effective_drift(drift_info: Dictionary) -> float:
+	if _last_replay_result.has("drift") and float(_last_replay_result["drift"]) >= 0.0:
+		return float(_last_replay_result["drift"])
+	if drift_info.get("measured", false):
+		return float(drift_info["drift"])
+	return -1.0
+
+
 static func _compute_drift(player, expected) -> Dictionary:
-	var ret = {"drift": - 1.0, "yaw_diff": 0.0, "pitch_diff": 0.0}
+	var ret = {"drift": - 1.0, "yaw_diff": 0.0, "pitch_diff": 0.0, "measured": false, "reason": "", "not_applicable": false}
+	# Sin estado esperado no hay con que comparar: son scripts que no mueven al player
+	# (SET/SCREENSHOT sobre una escena). Eso NO es una falla, es un chequeo que no aplica —
+	# distinto de tener expectativa y no poder medirla, que si lo es.
 	if expected == null:
+		ret["reason"] = "no hay estado esperado"
+		ret["not_applicable"] = true
 		return ret
 	var exp_pos_arr = expected.get("position", null)
 	if exp_pos_arr == null or typeof(exp_pos_arr) != TYPE_ARRAY:
+		ret["reason"] = "el estado esperado no trae posicion"
+		ret["not_applicable"] = true
 		return ret
-	if player:
-		var _expected_pos = Vector3(exp_pos_arr[0], exp_pos_arr[1], exp_pos_arr[2])
-		var final_pos = player.global_transform.origin
-		ret["drift"] = final_pos.distance_to(_expected_pos)
-		ret["yaw_diff"] = abs(player.yaw - expected.get("yaw", 0.0))
-		ret["pitch_diff"] = abs(player.pitch - expected.get("pitch", 0.0))
+	# is_instance_valid, no "if player": en Godot 3 una instancia liberada sigue siendo
+	# truthy, asi que se entraba igual y reventaba al leer global_transform con
+	# "previously freed instance". Pasa de verdad: el airlock reinstancia al player a mitad
+	# del replay y SessionManager.player puede quedar apuntando al viejo.
+	if not is_instance_valid(player):
+		ret["reason"] = "el player fue liberado antes del chequeo (swap de escena?)"
+		return ret
+	var _expected_pos = Vector3(exp_pos_arr[0], exp_pos_arr[1], exp_pos_arr[2])
+	var final_pos = player.global_transform.origin
+	ret["drift"] = final_pos.distance_to(_expected_pos)
+	ret["yaw_diff"] = abs(player.yaw - expected.get("yaw", 0.0))
+	ret["pitch_diff"] = abs(player.pitch - expected.get("pitch", 0.0))
+	ret["measured"] = true
 	return ret
 
 func _extract_drift_threshold_from_data(data: Dictionary) -> float:
@@ -319,7 +364,8 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		if is_instance_valid(SessionManager.player) and SessionManager.player.has_method("full_reset"):
 			SessionManager.player.full_reset()
 
-			SessionManager.load_and_play(path)
+			_arm_replay_result_capture()
+		SessionManager.load_and_play(path)
 
 		var timeout_setup = 100
 		while not SessionManager.is_replaying and timeout_setup > 0:
@@ -348,11 +394,18 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
 		var drift_threshold = _get_drift_threshold_for_path(path)
 		var drift_warning = _get_drift_warning_for_path(path)
-		if drift_info.drift > drift_threshold:
+		var measured_drift = _effective_drift(drift_info)
+		if measured_drift < 0.0 and drift_info.get("not_applicable", false):
+			print("[INFO] Chequeo de drift no aplica (%s): %s" % [drift_info.reason, path])
+		elif measured_drift < 0.0:
 			_cleanup_runner_scene(runner)
-			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, drift_threshold])
-		elif drift_info.drift > drift_warning:
-			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, drift_warning])
+			fail("No se pudo medir el drift (%s): %s" % [drift_info.reason, path])
+			return
+		elif measured_drift > drift_threshold:
+			_cleanup_runner_scene(runner)
+			fail("Drift demasiado alto: %s (umbral: %s)" % [measured_drift, drift_threshold])
+		elif measured_drift > drift_warning:
+			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [measured_drift, drift_warning])
 		_cleanup_runner_scene(runner)
 
 	if path.ends_with(".oys"):
@@ -376,6 +429,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			SessionManager.player.full_reset()
 			
 		SessionManager._should_snapshot = true
+		_arm_replay_result_capture()
 		SessionManager.load_and_play(path)
 
 		var timeout_setup1 = 100
@@ -447,6 +501,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 			SessionManager.player.full_reset()
 
 		SessionManager._should_snapshot = false
+		_arm_replay_result_capture()
 		SessionManager.load_and_play(json_path)
 
 		var timeout_setup = 100
@@ -474,11 +529,18 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 		var drift_info = _compute_drift(SessionManager.player, SessionManager.final_expected_state)
 		var drift_threshold = _get_drift_threshold_for_path(path)
 		var drift_warning = _get_drift_warning_for_path(path)
-		if drift_info.drift > drift_threshold:
+		var measured_drift = _effective_drift(drift_info)
+		if measured_drift < 0.0 and drift_info.get("not_applicable", false):
+			print("[INFO] Chequeo de drift no aplica (%s): %s" % [drift_info.reason, path])
+		elif measured_drift < 0.0:
 			_cleanup_runner_scene(runner)
-			fail("Drift demasiado alto: %s (umbral: %s)" % [drift_info.drift, drift_threshold])
-		elif drift_info.drift > drift_warning:
-			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [drift_info.drift, drift_warning])
+			fail("No se pudo medir el drift (%s): %s" % [drift_info.reason, path])
+			return
+		elif measured_drift > drift_threshold:
+			_cleanup_runner_scene(runner)
+			fail("Drift demasiado alto: %s (umbral: %s)" % [measured_drift, drift_threshold])
+		elif measured_drift > drift_warning:
+			print("[WARNING] Drift alto: %s (umbral warning: %s)" % [measured_drift, drift_warning])
 		_cleanup_runner_scene(runner)
 
 	# Breve espera para que GdUnit considere el test terminado
