@@ -263,8 +263,21 @@ func _respawn_at_spawn_or_zero():
 	if player_controller and player_controller.is_inside_tree():
 		var parent = player_controller.get_parent()
 		var old_input_provider = player_controller.input_provider if "input_provider" in player_controller else null
+		# Determinismo del replay: el replay avanza un frame por TICK DE FISICA, y los
+		# idle_frame no guardan relacion fija con esos ticks. Esperandolos, un respawn
+		# consumia una cantidad variable de frames de replay segun la carga de la maquina:
+		# el jugador retomaba el input en un frame distinto en cada corrida y terminaba en
+		# otro lado. Se veia como drift horizontal que cambiaba entre pasadas (0.033, 0.133,
+		# 0.169 en el ciclo de airlock) con la Y siempre exacta, porque la Y la fija el
+		# teleport y lo horizontal lo caminaba el jugador.
+		#
+		# remove_child es inmediato; queue_free recien libera al final del frame. Sacarlo del
+		# arbol ya evita ademas que el pilot viejo y el nuevo convivan: mientras convivian,
+		# ambos estaban en el grupo "player" y _find_player() podia enganchar cualquiera.
+		if is_instance_valid(parent):
+			parent.remove_child(player_controller)
 		player_controller.queue_free()
-		yield (get_tree(), "idle_frame")
+		yield (get_tree(), "physics_frame")
 		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
 		var new_pilot = pilot_scene.instance()
 		if is_instance_valid(parent):
@@ -273,7 +286,7 @@ func _respawn_at_spawn_or_zero():
 			print("[TeleportSystem] WARNING: parent was freed during reset, fallback to root")
 			var root_node = get_tree().current_scene if get_tree().current_scene else get_tree().root
 			root_node.add_child(new_pilot)
-		yield (get_tree(), "idle_frame")
+		yield (get_tree(), "physics_frame")
 		_force_player_camera_current(new_pilot)
 		if new_pilot.has_method("full_reset"):
 			new_pilot.full_reset()
@@ -459,8 +472,21 @@ func _on_player_killed():
 	if is_instance_valid(player_controller) and player_controller.is_inside_tree():
 		var parent = player_controller.get_parent()
 		var old_input_provider = player_controller.input_provider if "input_provider" in player_controller else null
+		# Determinismo del replay: el replay avanza un frame por TICK DE FISICA, y los
+		# idle_frame no guardan relacion fija con esos ticks. Esperandolos, un respawn
+		# consumia una cantidad variable de frames de replay segun la carga de la maquina:
+		# el jugador retomaba el input en un frame distinto en cada corrida y terminaba en
+		# otro lado. Se veia como drift horizontal que cambiaba entre pasadas (0.033, 0.133,
+		# 0.169 en el ciclo de airlock) con la Y siempre exacta, porque la Y la fija el
+		# teleport y lo horizontal lo caminaba el jugador.
+		#
+		# remove_child es inmediato; queue_free recien libera al final del frame. Sacarlo del
+		# arbol ya evita ademas que el pilot viejo y el nuevo convivan: mientras convivian,
+		# ambos estaban en el grupo "player" y _find_player() podia enganchar cualquiera.
+		if is_instance_valid(parent):
+			parent.remove_child(player_controller)
 		player_controller.queue_free()
-		yield (get_tree(), "idle_frame")
+		yield (get_tree(), "physics_frame")
 		# Instanciar nuevo Pilot
 		var pilot_scene = preload("res://core_v2/actors/Pilot_v2.tscn")
 		var new_pilot = pilot_scene.instance()
@@ -471,7 +497,7 @@ func _on_player_killed():
 			print("[TeleportSystem] WARNING: parent was freed during respawn, fallback to root")
 			var root_node = get_tree().current_scene if get_tree().current_scene else get_tree().root
 			root_node.add_child(new_pilot)
-		yield (get_tree(), "idle_frame")
+		yield (get_tree(), "physics_frame")
 		_force_player_camera_current(new_pilot)
 		# Deep reset to avoid inheriting any previous state
 		if new_pilot.has_method("full_reset"):
