@@ -11,6 +11,13 @@ class_name LeakFissureVisual
 #
 # Pertenece al grupo 'replay_sync' para guardar/restaurar su estado de forma determinista.
 
+# Preload explicito en vez de depender del class_name global: en export, el compilador de
+# bytecode puede resolver el cache de clases globales en un orden distinto al del editor, y
+# referenciar CoolantLeak.State sin esta dependencia declarada puede dejar un .gdc invalido
+# para ESTE script en el PCK exportado (mismo sintoma que en CoolantSystemStatusUI.gd: build
+# nightly 402, "Loader poll failed" al cargar Dome_Intro.tscn).
+const CoolantLeak = preload("res://core_v2/systems/cryo/CoolantLeak.gd")
+
 export(bool) var enabled: bool = true setget set_enabled
 export(NodePath) var leak_path: NodePath
 export(NodePath) var patch_point_path: NodePath

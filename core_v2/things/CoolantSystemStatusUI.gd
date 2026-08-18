@@ -2,6 +2,13 @@ extends Control
 
 # CoolantSystemStatusUI.gd - Displays live status of valves, tank supply, and pipe fissures (FD-264 §4).
 
+# Preload explicito en vez de depender del class_name global: en export, el compilador de
+# bytecode puede resolver el cache de clases globales en un orden distinto al del editor, y
+# referenciar CoolantLeak.State sin esta dependencia declarada puede dejar un .gdc invalido
+# para ESTE script en el PCK exportado (visto en el nightly build 402: "Loader poll failed"
+# al cargar Dome_Intro.tscn, con el .gdc de este archivo sin poder decodificarse).
+const CoolantLeak = preload("res://core_v2/systems/cryo/CoolantLeak.gd")
+
 onready var _rows_container: VBoxContainer = get_node("Panel/CenterContainer/VBoxContainer/Rows")
 
 const COLOR_OPEN := Color( 0.1, 1, 0.3 )
