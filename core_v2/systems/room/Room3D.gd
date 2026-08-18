@@ -1,0 +1,216 @@
+extends Spatial
+class_name Room3D
+
+# Room3D.gd - Environmental state per room (temperature, pressure, contamination) for FD-269.
+# Aggregates deltas from sources (leaks, heaters, vents) and emits threshold signals.
+
+# --- EXPORTED ENVIRONMENTAL STATE ---
+export(float) var temperature: float = 20.0 setget set_temperature
+export(float) var pressure: float = 1.0 setget set_pressure
+export(float) var contamination: float = 0.0 setget set_contamination
+
+# --- EXPORTED DISCRETE THRESHOLDS ---
+export(float) var freezing_point: float = 0.0
+export(float) var lethal_cold: float = -25.0
+export(float) var fog_threshold: float = 0.3
+export(float) var hazard_threshold: float = 0.7
+export(float) var overpressure: float = 2.4
+
+# --- EXPORTED DAMAGE TUNING ---
+export(float) var cold_damage_per_second: float = 15.0
+export(float) var vapor_damage_per_second: float = 20.0
+
+# --- SIGNALS ---
+signal temperature_changed(new_value)
+signal pressure_changed(new_value)
+signal contamination_changed(new_value)
+
+signal freezing_changed(is_freezing)
+signal lethal_cold_changed(is_lethal_cold)
+signal fog_changed(is_fog_active)
+signal hazard_changed(is_hazard_active)
+signal overpressure_changed(is_overpressured)
+
+signal threshold_crossed(variable_name, threshold_name, is_triggered)
+
+# --- INTERNAL THRESHOLD LATCHES ---
+var _is_freezing: bool = false
+var _is_lethal_cold: bool = false
+var _is_fog_active: bool = false
+var _is_hazard_active: bool = false
+var _is_overpressured: bool = false
+
+
+func _ready() -> void:
+	add_to_group("replay_sync")
+	add_to_group("room_3d")
+	_evaluate_thresholds(false)
+
+
+func _physics_process(delta: float) -> void:
+	if Engine.editor_hint:
+		return
+
+	_evaluate_thresholds(true)
+	_apply_environmental_hazards(delta)
+
+
+# --- PUBLIC API FOR SOURCES (DELTAS) ---
+
+func add_temperature(delta_val: float) -> void:
+	set_temperature(temperature + delta_val)
+
+
+func add_pressure(delta_val: float) -> void:
+	set_pressure(pressure + delta_val)
+
+
+func add_contamination(delta_val: float) -> void:
+	set_contamination(contamination + delta_val)
+
+
+func set_temperature(val: float) -> void:
+	val = max(-273.15, val)
+	if not is_equal_approx(temperature, val):
+		temperature = val
+		emit_signal("temperature_changed", temperature)
+		_evaluate_thresholds(true)
+
+
+func set_pressure(val: float) -> void:
+	val = max(0.0, val)
+	if not is_equal_approx(pressure, val):
+		pressure = val
+		emit_signal("pressure_changed", pressure)
+		_evaluate_thresholds(true)
+
+
+func set_contamination(val: float) -> void:
+	val = clamp(val, 0.0, 1.0)
+	if not is_equal_approx(contamination, val):
+		contamination = val
+		emit_signal("contamination_changed", contamination)
+		_evaluate_thresholds(true)
+
+
+# --- QUERY HELPERS ---
+
+func is_freezing() -> bool:
+	return _is_freezing
+
+
+func is_lethal_cold() -> bool:
+	return _is_lethal_cold
+
+
+func is_fog_active() -> bool:
+	return _is_fog_active
+
+
+func is_hazard_active() -> bool:
+	return _is_hazard_active
+
+
+func is_overpressured() -> bool:
+	return _is_overpressured
+
+
+# --- THRESHOLD EVALUATION ---
+
+func _evaluate_thresholds(emit_signals: bool) -> void:
+	var freezing := (temperature <= freezing_point)
+	if freezing != _is_freezing:
+		_is_freezing = freezing
+		if emit_signals:
+			emit_signal("freezing_changed", _is_freezing)
+			emit_signal("threshold_crossed", "temperature", "freezing_point", _is_freezing)
+
+	var lethal := (temperature <= lethal_cold)
+	if lethal != _is_lethal_cold:
+		_is_lethal_cold = lethal
+		if emit_signals:
+			emit_signal("lethal_cold_changed", _is_lethal_cold)
+			emit_signal("threshold_crossed", "temperature", "lethal_cold", _is_lethal_cold)
+
+	var fog := (contamination >= fog_threshold)
+	if fog != _is_fog_active:
+		_is_fog_active = fog
+		if emit_signals:
+			emit_signal("fog_changed", _is_fog_active)
+			emit_signal("threshold_crossed", "contamination", "fog_threshold", _is_fog_active)
+
+	var hazard := (contamination >= hazard_threshold)
+	if hazard != _is_hazard_active:
+		_is_hazard_active = hazard
+		if emit_signals:
+			emit_signal("hazard_changed", _is_hazard_active)
+			emit_signal("threshold_crossed", "contamination", "hazard_threshold", _is_hazard_active)
+
+	var overpress := (pressure > overpressure)
+	if overpress != _is_overpressured:
+		_is_overpressured = overpress
+		if emit_signals:
+			emit_signal("overpressure_changed", _is_overpressured)
+			emit_signal("threshold_crossed", "pressure", "overpressure", _is_overpressured)
+
+
+# --- ENVIRONMENTAL DAMAGE ---
+
+func _apply_environmental_hazards(delta: float) -> void:
+	var damage_to_apply := 0.0
+
+	if _is_lethal_cold:
+		damage_to_apply += cold_damage_per_second * delta
+
+	if _is_hazard_active:
+		damage_to_apply += vapor_damage_per_second * delta
+
+	if damage_to_apply <= 0.0:
+		return
+
+	# Apply damage to player nodes in group "player"
+	for node in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(node):
+			if node.has_method("take_damage"):
+				node.call("take_damage", damage_to_apply)
+			elif node.has_method("apply_damage"):
+				node.call("apply_damage", damage_to_apply)
+			elif node.has_method("damage"):
+				node.call("damage", damage_to_apply)
+
+
+# --- REPLAY / SNAPSHOT SYSTEM ---
+
+func get_snapshot() -> Dictionary:
+	return {
+		"temperature": temperature,
+		"pressure": pressure,
+		"contamination": contamination,
+		"is_freezing": _is_freezing,
+		"is_lethal_cold": _is_lethal_cold,
+		"is_fog_active": _is_fog_active,
+		"is_hazard_active": _is_hazard_active,
+		"is_overpressured": _is_overpressured
+	}
+
+
+func restore_snapshot(data: Dictionary) -> void:
+	if data.has("temperature"):
+		temperature = float(data["temperature"])
+	if data.has("pressure"):
+		pressure = float(data["pressure"])
+	if data.has("contamination"):
+		contamination = float(data["contamination"])
+
+	if data.has("is_freezing"):
+		_is_freezing = bool(data["is_freezing"])
+	if data.has("is_lethal_cold"):
+		_is_lethal_cold = bool(data["is_lethal_cold"])
+	if data.has("is_fog_active"):
+		_is_fog_active = bool(data["is_fog_active"])
+	if data.has("is_hazard_active"):
+		_is_hazard_active = bool(data["is_hazard_active"])
+	if data.has("is_overpressured"):
+		_is_overpressured = bool(data["is_overpressured"])
+
+	_evaluate_thresholds(false)

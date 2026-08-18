@@ -89,6 +89,11 @@ export(bool) var ice_height_fog_enabled := false
 # Imprime height/speed periódicamente por consola (calibración).
 export(bool) var debug_readout := false
 
+# NodePath opcional a Room3D para leer la temperatura y evaporar el hielo
+export(NodePath) var room_path: NodePath
+export(float) var melt_speed := 0.3
+export(float) var evap_contamination_rate := 0.08
+
 var ice_height := 0.0
 var ice_speed := 0.0
 var elapsed := 0.0
@@ -231,6 +236,25 @@ func _is_hotzone_playback() -> bool:
 # Avance determinista de la linea de hielo. Separado de _physics_process para que el
 # replay pueda invocarlo con el delta grabado en vez del delta real del frame.
 func step(delta: float) -> void:
+	if room_path != null and not room_path.is_empty():
+		var room = get_node_or_null(room_path)
+		if room != null:
+			var room_temp: float = float(room.get("temperature"))
+			var freeze_pt: float = float(room.get("freezing_point"))
+			if room_temp <= freeze_pt:
+				if not is_running:
+					start()
+			else:
+				if is_running:
+					stop()
+				if ice_height > start_height:
+					ice_height = max(start_height, ice_height - melt_speed * delta)
+					if room.has_method("add_contamination"):
+						room.call("add_contamination", evap_contamination_rate * delta)
+					emit_signal("ice_height_changed", ice_height)
+					_update_ice_collider()
+					_update_debug_visuals()
+
 	if not is_running:
 		return
 
