@@ -36,6 +36,14 @@ func _ready():
 	if _collision_shape:
 		_collision_shape.disabled = not is_active
 
+	# PERF: en Dome_Intro hay ~24 FrostEmitter (uno por fisura de autoria), la mayoria
+	# arrancan is_active=false (ver LeakFissureVisual.tscn) y solo se activan si su fuga
+	# entra en LEAKING/DEPRESSURIZED. _physics_process no hace nada util mientras esta
+	# inactivo salvo buscar el IceLevel — set_active() reactiva el tick cuando corresponda.
+	if not is_active:
+		set_physics_process(false)
+		set_process(false)
+
 func _process(delta: float):
 	if Engine.editor_hint:
 		return
@@ -92,6 +100,8 @@ func set_active(value: bool):
 		_collision_shape.set_deferred("disabled", not is_active)
 	if not is_active:
 		_player_body = null
+	set_physics_process(is_active)
+	set_process(is_active)
 
 
 func set_intensity(value: float) -> void:
@@ -162,3 +172,5 @@ func restore_snapshot(data: Dictionary):
 		_collision_shape.disabled = not is_active
 	if _manager and data.has("manager"):
 		_manager.restore_snapshot(data["manager"])
+	set_physics_process(is_active)
+	set_process(is_active)

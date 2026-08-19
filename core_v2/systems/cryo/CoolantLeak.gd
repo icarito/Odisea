@@ -65,6 +65,10 @@ func _ready() -> void:
 
 	if starts_leaking:
 		trigger_leak()
+	else:
+		# PERF: arranca en HEALTHY (default) — nada que tickear hasta que algo la
+		# active. Ver el mismo gate en _set_state().
+		set_physics_process(false)
 
 
 func _physics_process(delta: float) -> void:
@@ -254,19 +258,33 @@ func _set_state(new_state: int) -> void:
 		State.DEPRESSURIZED, State.HEALTHY:
 			pass
 
+	# PERF: en Dome_Intro hay ~24 CoolantLeak de autoria y solo 2-3 estan activas por
+	# partida (RandomLeakSeeder) — el resto se queda en HEALTHY toda la partida. Sin
+	# esto, las ~21 inactivas tickeaban _physics_process a 60Hz sin nada que hacer.
+	# HEALTHY es el unico estado sin timer ni intensidad que evolucionar por si solo;
+	# trigger_leak()/set_active() las despierta de nuevo via _set_state().
+	set_physics_process(_state != State.HEALTHY)
+
 
 func _apply_room_deltas(delta: float) -> void:
 	if _leak_intensity <= 0.0:
 		return
 
-	# Resolucion perezosa: en Dome_Intro las ~24 fugas de autoria cuelgan de
-	# TowerCoolantRiser/CryoLoopWest/etc, declarados en el .tscn ANTES que DomeRoom3D, asi
-	# que en _ready() el grupo room_3d todavia estaba vacio. Para cuando el primer frame de
-	# fuga activa llega aca (via _physics_process), el arbol entero ya cargo.
-	if _room == null and (room_path == null or room_path.is_empty()):
-		var rooms := get_tree().get_nodes_in_group("room_3d")
-		if not rooms.empty():
-			_room = rooms[0]
+	# Resolucion perezosa, dos casos:
+	# 1) Sin room_path explicito (~24 fugas de autoria en Dome_Intro, cuelgan de
+	#    TowerCoolantRiser/CryoLoopWest/etc, declarados en el .tscn ANTES que DomeRoom3D):
+	#    en _ready() el grupo room_3d todavia estaba vacio. Para cuando el primer frame de
+	#    fuga activa llega aca, el arbol entero ya cargo.
+	# 2) Con room_path explicito seteado DESPUES de add_child() (patron comun en tests y
+	#    en escenas armadas a mano): _ready() ya paso y get_node_or_null() dio null para
+	#    siempre si solo se intentaba una vez ahi.
+	if _room == null:
+		if room_path != null and not room_path.is_empty():
+			_room = get_node_or_null(room_path)
+		else:
+			var rooms := get_tree().get_nodes_in_group("room_3d")
+			if not rooms.empty():
+				_room = rooms[0]
 
 	if _room == null or not is_instance_valid(_room):
 		return

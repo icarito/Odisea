@@ -49,18 +49,28 @@ onready var _mist_frost: Node = get_node_or_null("MistFrost")
 onready var _gloo_mesh: MeshInstance = get_node_or_null("GlooMesh")
 
 
+var _references_resolved := false
+
+
 func _ready() -> void:
 	add_to_group("replay_sync")
 	_resolve_references()
 	_update_visuals()
+	# PERF: en Dome_Intro hay ~24 fisuras de autoria y solo 2-3 activas por partida — el
+	# resto se queda en HEALTHY toda la partida. _sync_physics_process() decide si sigue
+	# tickeando (referencias sin resolver aun, o _leak fuera de HEALTHY) o se duerme hasta
+	# que _leak.state_changed la despierte.
+	_sync_physics_process()
 
 
-# Igual que CoolantFlowAdapter/LeakPatchPoint: re-resolver en cada tick, no solo en _ready().
-# add_child() dispara _ready() sincronicamente, y setear los NodePath despues de add_child()
-# (patron comun al cablear en la escena, y el que usa el propio harness de tests) dejaba
-# _leak/_patch_point/_pipe_run en null para siempre — el componente nunca volvia a intentar
-# resolverlos, asi que quedaba mudo sin importar cuantos frames corrieran despues.
+# Igual que CoolantFlowAdapter/LeakPatchPoint: re-resolver hasta lograrlo, no solo en
+# _ready(). add_child() dispara _ready() sincronicamente, y setear los NodePath despues de
+# add_child() (patron comun al cablear en la escena, y el que usa el propio harness de
+# tests) dejaba _leak/_patch_point/_pipe_run en null para siempre si esto solo corria una
+# vez. _sync_physics_process() mantiene el tick prendido mientras falte resolver algo.
 func _resolve_references() -> void:
+	if _references_resolved:
+		return
 	if leak_path != null and not leak_path.is_empty():
 		_leak = get_node_or_null(leak_path)
 	if patch_point_path != null and not patch_point_path.is_empty():
@@ -68,12 +78,38 @@ func _resolve_references() -> void:
 	if pipe_run_path != null and not pipe_run_path.is_empty():
 		_pipe_run = get_node_or_null(pipe_run_path)
 
+	var leak_ok: bool = _leak != null or leak_path == null or leak_path.is_empty()
+	var patch_ok: bool = _patch_point != null or patch_point_path == null or patch_point_path.is_empty()
+	var pipe_ok: bool = _pipe_run != null or pipe_run_path == null or pipe_run_path.is_empty()
+	if leak_ok and patch_ok and pipe_ok:
+		_references_resolved = true
+		if _leak != null and _leak.has_signal("state_changed") and not _leak.is_connected("state_changed", self, "_on_leak_state_changed"):
+			_leak.connect("state_changed", self, "_on_leak_state_changed")
+
+
+func _on_leak_state_changed(_new_state = null) -> void:
+	_update_visuals()
+	_sync_physics_process()
+
+
+# HEALTHY es el unico estado de CoolantLeak sin timer ni intensidad que evolucionar por si
+# solo (mismo criterio que el gate de CoolantLeak._set_state()) — mientras dure, no hace
+# falta re-evaluar visuales cada frame; state_changed la despierta cuando cambia.
+func _sync_physics_process() -> void:
+	if not _references_resolved:
+		set_physics_process(true)
+		return
+	var leak_active: bool = _leak != null and is_instance_valid(_leak) and int(_leak.get_state()) != 0 # State.HEALTHY
+	set_physics_process(leak_active)
+
 
 func _physics_process(_delta: float) -> void:
 	if Engine.editor_hint:
 		return
 	_resolve_references()
 	_update_visuals()
+	if _references_resolved:
+		_sync_physics_process()
 
 
 func set_enabled(value: bool) -> void:

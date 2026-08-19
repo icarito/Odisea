@@ -37,6 +37,12 @@ func _ready() -> void:
 
 	_update_pipe_visuals()
 
+	# PERF: en Dome_Intro hay ~24 LeakPatchPoint y solo se parchan los que el jugador
+	# realmente repara — _physics_process no hace nada salvo que haya un parche
+	# provisorio contando su timer (ver abajo). Arranca dormido; patch_with_gloo() lo
+	# despierta si aplica un parche NO firme.
+	set_physics_process(false)
+
 
 func _resolve_references() -> void:
 	if leak_path != null and not leak_path.is_empty():
@@ -73,6 +79,7 @@ func patch_with_gloo() -> bool:
 	if _is_patched:
 		if applies_firmly:
 			_is_firm_patch = true
+			set_physics_process(false)
 			if _leak != null:
 				_leak.seal()
 		else:
@@ -91,6 +98,9 @@ func patch_with_gloo() -> bool:
 
 	_update_pipe_visuals()
 	emit_signal("patch_applied")
+	# Solo el parche PROVISORIO necesita contar _patch_timer cada frame; uno firme no
+	# caduca solo (ver comentario de remove_patch()).
+	set_physics_process(not _is_firm_patch)
 	return true
 
 
@@ -101,6 +111,7 @@ func _unpatch() -> void:
 	_is_patched = false
 	_is_firm_patch = false
 	_patch_timer = 0.0
+	set_physics_process(false)
 
 	if _leak != null:
 		_leak.set_provisionally_patched(false)
