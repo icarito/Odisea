@@ -743,12 +743,6 @@ shape = ExtResource( 106 )
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
 
-[node name="CoolantValve" parent="ScaffoldHubTower/Floor_1" groups=["coolant_valve"] instance=ExtResource( 372 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -11.74, 1.65, -2.01166e-07 )
-interaction_text = "Cerrar valvula de emergencia"
-anim_duration = 0.5
-starts_active = true
-
 [node name="ElevatorStop_2" type="Position3D" parent="ScaffoldHubTower"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0 )
 
@@ -775,12 +769,6 @@ shape = ExtResource( 108 )
 [node name="FootstepSurface" type="Spatial" parent="ScaffoldHubTower/Floor_2/StaticBody"]
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
-
-[node name="CoolantValve" parent="ScaffoldHubTower/Floor_2" groups=["coolant_valve"] instance=ExtResource( 372 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -11.74, 1.65, -2.01166e-07 )
-interaction_text = "Cerrar valvula de emergencia"
-anim_duration = 0.5
-starts_active = true
 
 [node name="ElevatorStop_3" type="Position3D" parent="ScaffoldHubTower"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.5, 0 )
@@ -809,12 +797,6 @@ shape = ExtResource( 110 )
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
 
-[node name="CoolantValve" parent="ScaffoldHubTower/Floor_3" groups=["coolant_valve"] instance=ExtResource( 372 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -11.74, 1.65, -2.01166e-07 )
-interaction_text = "Cerrar valvula de emergencia"
-anim_duration = 0.5
-starts_active = true
-
 [node name="ElevatorStop_4" type="Position3D" parent="ScaffoldHubTower"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 18, 0 )
 
@@ -842,12 +824,6 @@ shape = ExtResource( 112 )
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
 
-[node name="CoolantValve" parent="ScaffoldHubTower/Floor_4" groups=["coolant_valve"] instance=ExtResource( 372 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -11.74, 1.65, -2.01166e-07 )
-interaction_text = "Cerrar valvula de emergencia"
-anim_duration = 0.5
-starts_active = true
-
 [node name="ElevatorStop_5" type="Position3D" parent="ScaffoldHubTower"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.5, 0 )
 
@@ -874,12 +850,6 @@ shape = ExtResource( 114 )
 [node name="FootstepSurface" type="Spatial" parent="ScaffoldHubTower/Floor_5/StaticBody"]
 script = ExtResource( 25 )
 footstep_profile = ExtResource( 27 )
-
-[node name="CoolantValve" parent="ScaffoldHubTower/Floor_5" groups=["coolant_valve"] instance=ExtResource( 372 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -11.74, 1.65, -2.01166e-07 )
-interaction_text = "Cerrar valvula de emergencia"
-anim_duration = 0.5
-starts_active = true
 
 [node name="TowerCoolantRiser" type="Spatial" parent="."]
 
@@ -3121,30 +3091,6 @@ use_dither = false
 shader_path = "res://core_v2/systems/ice/shaders/frost_flipbook.shader"
 default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_01/textures/smoke_01.tga"
 
-[node name="CoolantLeakWest" parent="." instance=ExtResource( 22 )]
-transform = Transform( 0, -1, 0, 1, 0, 0, 0, 0, 1, -18, 4.5, 0 )
-is_active = false
-damage_per_tick = 0.0
-emission_radius = 1.2
-particles_per_second = 12.0
-
-[node name="CoolantLeakEast" parent="." instance=ExtResource( 22 )]
-transform = Transform( 0, 1, 0, -1, 0, 0, 0, 0, 1, 18, 7.5, 0 )
-is_active = false
-damage_per_tick = 0.0
-emission_radius = 1.0
-particles_per_second = 10.0
-
-[node name="CoolantLeakWestController" type="Spatial" parent="."]
-script = ExtResource( 373 )
-warning_duration = 5.0
-dissipate_duration = 4.0
-
-[node name="CoolantLeakEastController" type="Spatial" parent="."]
-script = ExtResource( 373 )
-warning_duration = 5.0
-dissipate_duration = 4.0
-
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 20 )
 
@@ -3165,22 +3111,6 @@ atlas_generate = false
 environment_mode = 1
 light_data = ExtResource( 5 )
 
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_1/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_1/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_2/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_2/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_3/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_3/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_4/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_4/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_5/CoolantValve" to="CoolantLeakWestController" method="_on_valve_state_changed"]
-[connection signal="valve_state_changed" from="ScaffoldHubTower/Floor_5/CoolantValve" to="CoolantLeakEastController" method="_on_valve_state_changed"]
-[connection signal="activated" from="SuspendedCryoDiagnostics/Carriage/HangingDisplay" to="CoolantLeakWestController" method="trigger_leak"]
-[connection signal="activated" from="SuspendedCryoDiagnostics/Carriage/HangingDisplay" to="CoolantLeakEastController" method="trigger_leak"]
-[connection signal="leak_sealed" from="CoolantLeakWestController" to="CoolantLeakWest" method="deactivate"]
-[connection signal="leak_started" from="CoolantLeakWestController" to="CoolantLeakWest" method="activate"]
-[connection signal="leak_sealed" from="CoolantLeakEastController" to="CoolantLeakEast" method="deactivate"]
-[connection signal="leak_started" from="CoolantLeakEastController" to="CoolantLeakEast" method="activate"]
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
