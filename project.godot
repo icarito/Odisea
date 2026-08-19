@@ -410,6 +410,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/components/ElevatorPlatform.gd"
 }, {
 "base": "PropBaseV2",
+"class": "EmergencyBeaconSpotV2",
+"language": "GDScript",
+"path": "res://core_v2/props/scifi_lights/EmergencyBeaconSpotV2.gd"
+}, {
+"base": "PropBaseV2",
 "class": "EmergencyBeaconV2",
 "language": "GDScript",
 "path": "res://core_v2/props/scifi_lights/EmergencyBeaconV2.gd"
@@ -1674,6 +1679,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/ui/radial/RadialSelectorV2.gd"
 }, {
+"base": "Node",
+"class": "RandomLeakSeeder",
+"language": "GDScript",
+"path": "res://core_v2/systems/cryo/RandomLeakSeeder.gd"
+}, {
 "base": "ISensor3D",
 "class": "RayCastSensor3D",
 "language": "GDScript",
@@ -1713,6 +1723,11 @@ _global_script_classes=[ {
 "class": "Room3D",
 "language": "GDScript",
 "path": "res://core_v2/systems/room/Room3D.gd"
+}, {
+"base": "Control",
+"class": "RoomDialsPanel",
+"language": "GDScript",
+"path": "res://core_v2/things/RoomDialsPanel.gd"
 }, {
 "base": "InteractableBaseV2",
 "class": "RotatingObjectV2",
@@ -2215,6 +2230,7 @@ _global_script_class_icons={
 "ElevatorFloorSelector": "",
 "ElevatorLogicInput": "",
 "ElevatorPlatform": "",
+"EmergencyBeaconSpotV2": "",
 "EmergencyBeaconV2": "",
 "EqualsArgumentMatcher": "",
 "FauxSkydomeParallaxShell": "",
@@ -2468,6 +2484,7 @@ _global_script_class_icons={
 "RPCMessage": "",
 "RadialScatter": "",
 "RadialSelectorV2": "",
+"RandomLeakSeeder": "",
 "RayCastSensor3D": "",
 "RaycastSensor2D": "",
 "Result": "",
@@ -2476,6 +2493,7 @@ _global_script_class_icons={
 "RichTextEffectBackground": "",
 "RichTextLabelExt": "",
 "Room3D": "",
+"RoomDialsPanel": "",
 "RotatingObjectV2": "",
 "SFXComponentV2": "",
 "SGCCameraWarp": "",

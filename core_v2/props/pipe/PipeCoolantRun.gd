@@ -210,9 +210,15 @@ func _spawn_entry_collar() -> void:
 	collar.add_to_group(SKIP_GROUP)
 	# El collar hereda la rotación del Visual (mismo eje que el cilindro del caño) y se
 	# ubica en su extremo -Y local: el lado de ENTRADA del tramo, donde se apoya contra
-	# el tramo anterior. cyl.transform ya lleva Y-mesh al eje real del nodo.
-	var entry_local: Vector3 = cyl.transform.xform(Vector3(0, -half_height, 0))
-	var collar_basis: Basis = cyl.transform.basis
+	# el tramo anterior. cyl.transform solo es el eje real del nodo cuando cyl es HIJO
+	# DIRECTO de self — _find_cylinder_visual() recorre recursivamente y puede devolver
+	# un nieto (por ejemplo el MeshInstance de un PipeSection anidado dentro de un arco
+	# de un anillo curvo), cuyo .transform es relativo a SU PADRE INMEDIATO, no a self.
+	# Usar la transform global de ambos evita ese desajuste de espacio sin importar
+	# cuántos niveles de anidamiento haya entre self y el cilindro real.
+	var cyl_to_self: Transform = global_transform.affine_inverse() * cyl.global_transform
+	var entry_local: Vector3 = cyl_to_self.xform(Vector3(0, -half_height, 0))
+	var collar_basis: Basis = cyl_to_self.basis
 	collar.transform = Transform(collar_basis, entry_local)
 	add_child(collar)
 
