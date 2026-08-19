@@ -76,6 +76,14 @@ func _physics_process(delta: float) -> void:
 				_set_state(State.LEAKING)
 
 		State.LEAKING:
+			# El tanque vacío corta el caudal igual que una válvula cerrada — el mismo
+			# adapter ya lo modela (compute_flow multiplica por tank_level), así que
+			# reusar is_pressurized_at() cubre ambos casos sin duplicar la lectura del
+			# tanque acá.
+			if _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at"):
+				if not bool(_flow_adapter.call("is_pressurized_at", self)):
+					_set_state(State.DEPRESSURIZED)
+					return
 			_state_timer += delta
 			if _is_provisionally_patched:
 				if dissipate_duration > 0.0:
@@ -91,6 +99,22 @@ func _physics_process(delta: float) -> void:
 					_leak_intensity = 1.0
 
 		State.DEPRESSURIZED:
+			# Simétrico al chequeo de LEAKING: la presión puede volver por una vía que
+			# esta fisura no escucha directamente (otra válvula de la misma rama, el
+			# tanque recuperando nivel) — sin este chequeo continuo, DEPRESSURIZED solo
+			# salía por la señal de la válvula PROPIA y quedaba congelada para siempre
+			# aunque is_pressurized_at() ya dijera que hay caudal real. Pero si la
+			# válvula PROPIA sigue cerrada, no hay que reactivar todavía — coincide con
+			# la primera verificación de trigger_leak().
+			var own_valve_open := true
+			if valve_path != null and not valve_path.is_empty():
+				var valve = get_node_or_null(valve_path)
+				if valve != null and "is_active" in valve:
+					own_valve_open = bool(valve.get("is_active"))
+			if own_valve_open and _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at"):
+				if bool(_flow_adapter.call("is_pressurized_at", self)):
+					trigger_leak()
+					return
 			_state_timer += delta
 			if dissipate_duration > 0.0:
 				var progress: float = clamp(_state_timer / dissipate_duration, 0.0, 1.0)

@@ -48,7 +48,7 @@ func test_valve_interactivity_stops_branch_flow() -> void:
 
 	# Close ValveWest_1 via interact()
 	valve_west_1.interact()
-	yield(_runner.simulate_frames(5), "completed")
+	yield(_runner.simulate_frames(35), "completed")
 
 	# West flow should now be stopped and pressure reduced
 	assert_bool(adapter_west.is_flow_active()).is_false()
@@ -56,7 +56,7 @@ func test_valve_interactivity_stops_branch_flow() -> void:
 
 	# Re-open ValveWest_1
 	valve_west_1.interact()
-	yield(_runner.simulate_frames(5), "completed")
+	yield(_runner.simulate_frames(35), "completed")
 
 	# West flow active again
 	assert_bool(adapter_west.is_flow_active()).is_true()

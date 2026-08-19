@@ -13,13 +13,17 @@ export(float, 0.0, 3.0) var normal_flow_intensity: float = 1.0
 
 var _tank: Node = null
 var _resolved_segments: Array = [] # Array of Dictionary {pipe_run, valve, leak, leak_path, valve_path, pipe_run_path}
-var _segment_flows: Array = [] # Array of float 0..1
+var _segment_flows: Array = [] # Array of float 0..1 — caudal DESPUES de la fuga del propio tramo (lo que se ve en el shader)
+var _segment_inflows: Array = [] # Array of float 0..1 — caudal que LLEGA al tramo, antes de que su propia fuga lo consuma
+var _last_tank_level: float = 1.0
 
 
 func _ready() -> void:
 	add_to_group("replay_sync")
 	add_to_group("coolant_adapter")
 	_resolve_references()
+	if _tank != null and "tank_level" in _tank:
+		_last_tank_level = float(_tank.tank_level)
 	compute_flow()
 
 
@@ -57,8 +61,10 @@ func _physics_process(delta: float) -> void:
 			var drain: float = total_leak_drain * drain_rate * delta
 			_tank.set_tank_level(max(0.0, tank_level - drain))
 
-	# Recompute flow if leaks are ramping up/down or tank drained
-	if _has_active_leaks() or (_tank != null and "tank_level" in _tank and float(_tank.tank_level) != tank_level):
+	# Recompute flow if leaks are ramping up/down, tank level moved, or a valve state changed
+	var tank_level_changed := _tank != null and "tank_level" in _tank and tank_level != _last_tank_level
+	_last_tank_level = tank_level
+	if _has_active_leaks() or tank_level_changed or _has_valve_changed():
 		compute_flow()
 
 
@@ -150,18 +156,30 @@ func compute_flow() -> void:
 	var num_segments := _resolved_segments.size()
 	if _segment_flows.size() != num_segments:
 		_segment_flows.resize(num_segments)
+	if _segment_inflows.size() != num_segments:
+		_segment_inflows.resize(num_segments)
 
 	var tank_level := 1.0
 	if _tank != null and "tank_level" in _tank:
 		tank_level = float(_tank.tank_level)
 
-	var carrying := 1.0 if tank_level > 0.0 else 0.0
+	# El caudal escala con el nivel del tanque, no solo se apaga en 0 — un tanque a
+	# medio llenar ya se lee más débil en el shader y en el manómetro, coherente con
+	# el comportamiento del adapter v1.
+	var carrying: float = clamp(tank_level, 0.0, 1.0)
 
 	for i in range(num_segments):
 		var seg = _resolved_segments[i]
 		var valve = seg.get("valve")
 		if valve != null and not _is_valve_open(valve):
 			carrying = 0.0
+
+		# El caudal de ENTRADA es lo que trae el tramo anterior, antes de que la
+		# fuga de ESTE tramo lo consuma. Es lo que responde "¿hay presión empujando
+		# contra la fisura?" — con la fuga a intensidad plena, el caudal de salida
+		# cae a ~0 pero la entrada sigue llena, y es la entrada la que decide si el
+		# parche puede ser firme (H6 / is_pressurized_at).
+		_segment_inflows[i] = carrying
 
 		var f := carrying
 		var leak = seg.get("leak")
@@ -186,26 +204,40 @@ func get_segment_flow(index: int) -> float:
 	return 0.0
 
 
+func get_segment_inflow(index: int) -> float:
+	if index >= 0 and index < _segment_inflows.size():
+		return float(_segment_inflows[index])
+	return 0.0
+
+
 func is_pressurized_at(node: Node) -> bool:
 	if node == null:
 		return false
 
+	# Adapter hasn't finished resolving its topology yet (e.g. a leak's _ready()
+	# runs before ours). Without segments we have no evidence of zero pressure,
+	# so default to pressurized to avoid spurious DEPRESSURIZED states at boot.
+	if _resolved_segments.size() == 0:
+		return true
+
 	for i in range(_resolved_segments.size()):
 		var seg = _resolved_segments[i]
 		if seg.get("leak") == node or seg.get("pipe_run") == node or seg.get("valve") == node:
-			return get_segment_flow(i) > 0.0
+			return get_segment_inflow(i) > 0.0
 
 		# Check by resolved node path
 		var leak_path = seg.get("leak_path")
 		if leak_path != null and (leak_path is NodePath or leak_path is String):
 			if _get_target_node(leak_path) == node:
-				return get_segment_flow(i) > 0.0
+				return get_segment_inflow(i) > 0.0
 
 	return false
 
 
 func is_flow_active() -> bool:
-	return get_segment_flow(0) > 0.0
+	if _segment_flows.size() == 0:
+		return false
+	return float(_segment_flows[_segment_flows.size() - 1]) > 0.0
 
 
 func get_computed_speed() -> float:
@@ -245,11 +277,25 @@ func _has_active_leaks() -> bool:
 	return false
 
 
+func _has_valve_changed() -> bool:
+	var changed := false
+	for seg in _resolved_segments:
+		var valve = seg.get("valve")
+		if valve != null:
+			var open := _is_valve_open(valve)
+			var last: bool = seg.get("_last_open", true)
+			if open != last:
+				seg["_last_open"] = open
+				changed = true
+	return changed
+
+
 # --- REPLAY / SNAPSHOT SYSTEM ---
 
 func get_snapshot() -> Dictionary:
 	return {
-		"segment_flows": _segment_flows.duplicate()
+		"segment_flows": _segment_flows.duplicate(),
+		"segment_inflows": _segment_inflows.duplicate()
 	}
 
 
@@ -265,3 +311,5 @@ func restore_snapshot(data: Dictionary) -> void:
 					pr.call("set_flow_speed", normal_flow_speed * f)
 				if pr.has_method("set_flow_intensity"):
 					pr.call("set_flow_intensity", normal_flow_intensity * f)
+	if data.has("segment_inflows"):
+		_segment_inflows = (data["segment_inflows"] as Array).duplicate()

@@ -45,7 +45,7 @@ var _spray_emitting_decision: bool = false
 var _mist_emitting_decision: bool = false
 
 onready var _spray_particles: CPUParticles = get_node_or_null("SprayParticles")
-onready var _mist_particles: CPUParticles = get_node_or_null("MistParticles")
+onready var _mist_frost: Node = get_node_or_null("MistFrost")
 onready var _gloo_mesh: MeshInstance = get_node_or_null("GlooMesh")
 
 
@@ -122,32 +122,34 @@ func _update_visuals() -> void:
 			CoolantLeak.State.WARNING:
 				# Fase de condensación previa a la rotura: niebla leve
 				_set_particles_emitting(false, true)
-				if _mist_particles:
-					_mist_particles.amount = 8
 				_apply_pipe_fissure_uniforms(0.25)
 
 			CoolantLeak.State.LEAKING:
-				# Fuga activa con chorro a presión según la intensidad
+				# Fuga activa: el chorro corre a un régimen fijo (amount/velocity viven en
+				# la escena, constantes) — variarlos con la intensidad cada frame es lo que
+				# reiniciaba el sistema de partículas todo el tiempo y se leía como "sin vida
+				# propia". La intensidad solo modula la grieta del caño, no las partículas.
 				_set_particles_emitting(true, true)
-				if _spray_particles:
-					_spray_particles.amount = int(clamp(12.0 + leak_intensity * 28.0, 8.0, 40.0))
-					_spray_particles.initial_velocity = 2.5 + leak_intensity * 3.5
-				if _mist_particles:
-					_mist_particles.amount = int(clamp(6.0 + leak_intensity * 14.0, 4.0, 20.0))
 				_apply_pipe_fissure_uniforms(leak_intensity)
 
 			CoolantLeak.State.SEALED, CoolantLeak.State.DEPRESSURIZED:
 				# SEALED = reparado de verdad; DEPRESSURIZED = la valvula corto el caudal
 				# pero el cano sigue roto. Los dos disipan, asi que se dibujan igual: lo
-				# que se ve es que deja de escupir, no que quedo sano.
+				# que se ve es que deja de escupir, no que quedo sano. El mist se queda
+				# activo mientras dura la disipación — set_intensity() (más abajo) es lo
+				# que lo va achicando gradualmente; cortarlo acá con set_active(false)
+				# lo apagaba de golpe en vez de dejarlo encoger con la intensidad real.
 				if leak_intensity > 0.05:
-					_set_particles_emitting(true, false)
-					if _spray_particles:
-						_spray_particles.amount = int(clamp(leak_intensity * 20.0, 4.0, 20.0))
+					_set_particles_emitting(true, true)
 					_apply_pipe_fissure_uniforms(leak_intensity)
 				else:
 					_set_particles_emitting(false, false)
 					_clear_pipe_fissure_uniforms()
+
+	# Volumen del vapor proporcional a la intensidad real de la fuga, tapada o no —
+	# 0 cuando está parchada, la misma curva que ya gobierna la grieta del caño.
+	if _mist_frost != null and _mist_frost.has_method("set_intensity"):
+		_mist_frost.set_intensity(0.0 if is_patched else leak_intensity)
 
 
 func _set_particles_emitting(spray_active: bool, mist_active: bool) -> void:
@@ -155,8 +157,11 @@ func _set_particles_emitting(spray_active: bool, mist_active: bool) -> void:
 	_mist_emitting_decision = mist_active
 	if _spray_particles != null:
 		_spray_particles.emitting = spray_active
-	if _mist_particles != null:
-		_mist_particles.emitting = mist_active
+	# FrostEmitter.set_active() ya maneja on/off del GasParticleManager y del audio
+	# ambiente (para el sonido de la fuga) — sin reset por "amount" ni loop propio.
+	if _mist_frost != null and _mist_frost.has_method("set_active"):
+		if _mist_frost.is_active != mist_active:
+			_mist_frost.set_active(mist_active)
 
 
 func get_fissure_intensity() -> float:

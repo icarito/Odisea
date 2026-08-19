@@ -1,31 +1,54 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://core_v2/props/pipe/CoolantTank.gd" type="Script" id=0]
 [ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=1]
 [ext_resource path="res://core_v2/props/pipe/PipeCoolantRing.tres" type="Material" id=2]
 
 [sub_resource type="CylinderShape" id=1]
-radius = 1.15
 height = 3.4
+radius = 1.15
 
 [sub_resource type="SpatialMaterial" id=2]
-albedo_color = Color( 0.28, 0.3, 0.32, 1 )
-metallic = 1.0
-roughness = 0.45
+albedo_color = Color( 0.22, 0.25, 0.28, 1 )
+metallic = 0.9
+roughness = 0.35
 
 [sub_resource type="SpatialMaterial" id=3]
 albedo_color = Color( 0.85, 0.68, 0.08, 1 )
 roughness = 0.6
 
 [sub_resource type="CylinderShape" id=4]
-radius = 0.12
 height = 0.6
+radius = 0.12
 
-; Tanque de refrigerante criogenico. Cuerpo + tapas abulonadas + zunchos +
-; banda de nivel con el mismo shader de flujo que las cañerías
-; (pipe_coolant.shader via PipeCoolantRing.tres) para leer como la misma
-; instalación. Boquilla radial en la base para empalmar con el caño que
-; entra (riser o CryoLoopWest/East).
+[sub_resource type="SpatialMaterial" id=5]
+albedo_color = Color( 0.15, 0.17, 0.19, 1 )
+metallic = 0.85
+roughness = 0.4
+
+[sub_resource type="SpatialMaterial" id=6]
+flags_transparent = true
+albedo_color = Color( 0.7, 0.9, 1, 0.35 )
+metallic = 0.9
+roughness = 0.1
+
+[sub_resource type="SpatialMaterial" id=7]
+albedo_color = Color( 0, 0.85, 1, 1 )
+metallic = 0.1
+roughness = 0.2
+emission_enabled = true
+emission = Color( 0, 0.85, 1, 1 )
+emission_energy = 2.2
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="SpatialMaterial" id=8]
+albedo_color = Color( 0.9, 0.75, 0.2, 1 )
+metallic = 0.85
+roughness = 0.35
+
+[sub_resource type="CubeMesh" id=9]
+size = Vector3( 0.02, 0.03, 0.1 )
 
 [node name="CoolantTank" type="StaticBody"]
 collision_layer = 64
@@ -37,7 +60,6 @@ shape = SubResource( 1 )
 
 [node name="MeshInstance" type="CSGCylinder" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0 )
-radius = 1.0
 height = 3.0
 sides = 24
 material = SubResource( 2 )
@@ -87,12 +109,75 @@ sides = 24
 material = SubResource( 3 )
 
 [node name="OutletPipe" type="CSGCylinder" parent="."]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 1.35, 1.0, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 1.35, 1, 0 )
 radius = 0.12
 height = 0.7
 sides = 12
 material = ExtResource( 1 )
 
 [node name="OutletCollisionShape" type="CollisionShape" parent="."]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 1.35, 1.0, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 1.35, 1, 0 )
 shape = SubResource( 4 )
+
+[node name="LevelGauge" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 0, 0 )
+
+[node name="BackingPlate" type="CSGBox" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.02, 1.7, 0 )
+width = 0.04
+height = 2.4
+depth = 0.28
+material = SubResource( 5 )
+
+[node name="SightGlassTube" type="CSGCylinder" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.07, 1.7, 0 )
+radius = 0.065
+height = 2.3
+sides = 16
+material = SubResource( 6 )
+
+[node name="SightColumn" type="CSGCylinder" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.07, 1.7, 0 )
+radius = 0.05
+height = 2.2
+sides = 16
+material = SubResource( 7 )
+
+[node name="MountTop" type="CSGCylinder" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.05, 2.88, 0 )
+radius = 0.09
+height = 0.12
+sides = 12
+material = SubResource( 8 )
+
+[node name="MountBottom" type="CSGCylinder" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.05, 0.52, 0 )
+radius = 0.09
+height = 0.12
+sides = 12
+material = SubResource( 8 )
+
+[node name="Tick100" type="MeshInstance" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.045, 2.7, -0.11 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
+
+[node name="Tick75" type="MeshInstance" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.045, 2.2, -0.11 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
+
+[node name="Tick50" type="MeshInstance" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.045, 1.7, -0.11 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
+
+[node name="Tick25" type="MeshInstance" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.045, 1.2, -0.11 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )
+
+[node name="Tick0" type="MeshInstance" parent="LevelGauge"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.045, 0.7, -0.11 )
+mesh = SubResource( 9 )
+material/0 = SubResource( 8 )

@@ -11,6 +11,7 @@ export(NodePath) var leak_path: NodePath
 
 export(float, 0.0, 10.0) var max_pressure: float = 5.0
 export(float, 0.0, 180.0) var needle_max_angle_deg: float = 140.0
+export(int) var segment_index: int = 1
 
 var _flow_adapter = null
 var _tank = null
@@ -50,7 +51,9 @@ func _update_pressure() -> void:
 		tank_level = _tank.tank_level
 
 	var flow_intensity := 1.0
-	if _flow_adapter != null:
+	if _flow_adapter != null and _flow_adapter.has_method("get_segment_inflow"):
+		flow_intensity = _flow_adapter.get_segment_inflow(segment_index)
+	elif _flow_adapter != null:
 		flow_intensity = _flow_adapter.get_computed_intensity()
 
 	var leak_factor := 0.0
@@ -68,11 +71,20 @@ func get_pressure() -> float:
 	return _current_pressure
 
 
+var _manometer = null
+
 func _update_visuals() -> void:
+	if _manometer == null:
+		_manometer = get_node_or_null("Manometer")
 	if _needle == null:
 		_needle = get_node_or_null("Needle")
+
+	var ratio := clamp(_current_pressure / max(0.001, max_pressure), 0.0, 1.0)
+
+	if _manometer and _manometer.has_method("set_pressure_value"):
+		_manometer.set_pressure_value(ratio)
+
 	if _needle:
-		var ratio := clamp(_current_pressure / max(0.001, max_pressure), 0.0, 1.0)
 		var angle_rad := deg2rad(ratio * needle_max_angle_deg)
 		_needle.rotation.z = -angle_rad
 

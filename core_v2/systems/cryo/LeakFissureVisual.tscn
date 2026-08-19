@@ -1,42 +1,26 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://core_v2/systems/cryo/LeakFissureVisual.gd" type="Script" id=1]
 [ext_resource path="res://assets/flipbook_particles/assets/clouds/textures/cloud_01.tga" type="Texture" id=2]
+[ext_resource path="res://core_v2/props/emitters/FrostEmitter.tscn" type="PackedScene" id=3]
 
 [sub_resource type="SpatialMaterial" id=1]
 flags_transparent = true
 flags_unshaded = true
 vertex_color_use_as_albedo = true
-params_blend_mode = 1
 params_billboard_mode = 3
 particles_anim_h_frames = 8
 particles_anim_v_frames = 8
 particles_anim_loop = false
+albedo_color = Color( 1, 1, 1, 0.4 )
 albedo_texture = ExtResource( 2 )
-albedo_color = Color( 0.35, 0.92, 0.98, 0.65 )
 
 [sub_resource type="QuadMesh" id=2]
 material = SubResource( 1 )
 size = Vector2( 0.3, 0.3 )
 
-[sub_resource type="SpatialMaterial" id=3]
-flags_transparent = true
-flags_unshaded = true
-vertex_color_use_as_albedo = true
-params_blend_mode = 1
-params_billboard_mode = 3
-particles_anim_h_frames = 8
-particles_anim_v_frames = 8
-particles_anim_loop = false
-albedo_texture = ExtResource( 2 )
-albedo_color = Color( 0.7, 0.95, 1.0, 0.3 )
-
-[sub_resource type="QuadMesh" id=4]
-material = SubResource( 3 )
-size = Vector2( 0.6, 0.6 )
-
 [sub_resource type="SpatialMaterial" id=5]
-albedo_color = Color( 0.82, 0.85, 0.75, 1.0 )
+albedo_color = Color( 0.82, 0.85, 0.75, 1 )
 roughness = 0.85
 
 [sub_resource type="SphereMesh" id=6]
@@ -50,35 +34,31 @@ rings = 6
 script = ExtResource( 1 )
 
 [node name="SprayParticles" type="CPUParticles" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 0 )
 emitting = false
-anim_offset = 1.0
-anim_offset_random = 1.0
-amount = 24
-lifetime = 0.45
+amount = 8
+lifetime = 0.7
 mesh = SubResource( 2 )
 direction = Vector3( 0, 1, 0 )
-spread = 25.0
-gravity = Vector3( 0, -2.0, 0 )
-initial_velocity = 4.0
+spread = 20.0
+gravity = Vector3( 0, -1.8, 0 )
+initial_velocity = 1.6
 initial_velocity_random = 0.3
-color = Color( 0.35, 0.92, 0.98, 0.8 )
+tangential_accel_random = 0.5
+scale_amount = 2.2
+color = Color( 1, 1, 1, 0.4 )
 
-[node name="MistParticles" type="CPUParticles" parent="."]
-emitting = false
-anim_offset = 1.0
-anim_offset_random = 1.0
-amount = 12
-lifetime = 0.8
-mesh = SubResource( 4 )
-emission_shape = 1
-emission_sphere_radius = 0.15
-direction = Vector3( 0, 1, 0 )
-spread = 60.0
-gravity = Vector3( 0, 0.5, 0 )
-initial_velocity = 0.6
-color = Color( 0.8, 0.96, 1.0, 0.4 )
+[node name="MistFrost" parent="." instance=ExtResource( 3 )]
+is_active = false
+emission_radius = 0.2
+particles_per_second = 10
+emission_height = 0.05
+
+[node name="GasParticleManager" parent="MistFrost" index="1"]
+viscosity = 0.25
+collide_with_world = true
+world_collision_mask = 1
 
 [node name="GlooMesh" type="MeshInstance" parent="."]
 visible = false
 mesh = SubResource( 6 )
-material/0 = null

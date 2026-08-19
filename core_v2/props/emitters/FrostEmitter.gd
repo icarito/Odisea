@@ -10,15 +10,22 @@ export(float) var tick_interval: float = 0.5
 export(float) var emission_radius: float = 0.5
 export(int) var particles_per_second: float = 30
 export(float) var emission_height: float = 1.5
+# Volumen (dB) del audio ambiente a intensidad 0 y a intensidad 1. set_intensity()
+# interpola entre los dos — así una fuga que recién empieza a gotear no suena igual
+# de fuerte que una a régimen pleno.
+export(float) var sound_db_min: float = -12.0
+export(float) var sound_db_max: float = 10.0
 
 var _tick_timer: float = 0.0
 var _spawn_timer: float = 0.0
 var _player_body: Node = null
 var _emit_counter: int = 0
 var _ice_level: Node = null
+var _intensity: float = 1.0
 
 onready var _manager: GasParticleManager = get_node_or_null("GasParticleManager")
 onready var _collision_shape: CollisionShape = get_node_or_null("CollisionShape")
+onready var _sound: AudioStreamPlayer3D = get_node_or_null("FrostSound")
 
 func _ready():
 	add_to_group("replay_sync")
@@ -85,6 +92,19 @@ func set_active(value: bool):
 		_collision_shape.set_deferred("disabled", not is_active)
 	if not is_active:
 		_player_body = null
+
+
+func set_intensity(value: float) -> void:
+	_intensity = clamp(value, 0.0, 1.0)
+	if _sound:
+		_sound.unit_db = lerp(sound_db_min, sound_db_max, _intensity)
+	# La nube se achica con la fuga en vez de cortar de golpe a intensidad 0 — mismo
+	# lenguaje visual que LeakEmitter (props decorativo) pero atado a la intensidad
+	# real de la fuga en vez de un timeout propio, porque este emisor sí es
+	# determinista y ya tiene esa curva calculada por CoolantLeak.
+	if _manager:
+		var s: float = max(0.05, _intensity)
+		_manager.scale = Vector3(s, s, s)
 
 func _set_visuals_active(active: bool):
 	if not active and _manager:

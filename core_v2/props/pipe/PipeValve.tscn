@@ -1,13 +1,36 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=15 format=2]
 
 [ext_resource path="res://core_v2/props/pipe/PipeValve.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=2]
 [ext_resource path="res://core_v2/props/pipe/ValveWheel.tres" type="Material" id=3]
 
+[sub_resource type="SpatialMaterial" id=10]
+albedo_color = Color( 0.25, 0.27, 0.3, 1 )
+metallic = 0.85
+roughness = 0.4
+
+[sub_resource type="SpatialMaterial" id=9]
+albedo_color = Color( 0.18, 0.2, 0.22, 1 )
+metallic = 0.9
+roughness = 0.35
+
 [sub_resource type="CylinderMesh" id=1]
 top_radius = 0.12
 bottom_radius = 0.12
 height = 0.12
+
+[sub_resource type="CubeMesh" id=5]
+size = Vector3( 0.74, 0.06, 0.06 )
+
+[sub_resource type="CylinderMesh" id=6]
+top_radius = 0.07
+bottom_radius = 0.07
+height = 0.25
+
+[sub_resource type="SpatialMaterial" id=7]
+albedo_color = Color( 0.92, 0.78, 0.28, 1 )
+metallic = 0.85
+roughness = 0.3
 
 [sub_resource type="CylinderMesh" id=2]
 top_radius = 0.05
@@ -15,79 +38,100 @@ bottom_radius = 0.05
 height = 0.3
 
 [sub_resource type="CylinderShape" id=3]
-radius = 0.4
-height = 0.1
+height = 0.15
+radius = 0.42
+
+[sub_resource type="SpatialMaterial" id=12]
+resource_local_to_scene = true
+albedo_color = Color( 0.15, 0.95, 0.35, 1 )
+metallic = 0.2
+roughness = 0.3
+emission_enabled = true
+emission = Color( 0.15, 0.95, 0.35, 1 )
+emission_energy = 2.5
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CubeMesh" id=11]
+size = Vector3( 0.14, 0.08, 0.04 )
 
 [sub_resource type="CylinderShape" id=4]
-radius = 0.1
-height = 0.4
-
-[sub_resource type="CubeMesh" id=5]
-size = Vector3( 0.74, 0.05, 0.05 )
-
-[sub_resource type="CylinderMesh" id=6]
-top_radius = 0.075
-bottom_radius = 0.075
-height = 0.3
-
-[sub_resource type="SpatialMaterial" id=7]
-albedo_color = Color( 0.93, 0.87, 0.55, 1 )
-metallic = 0.2
-roughness = 0.45
-
-[sub_resource type="SphereMesh" id=8]
-radius = 0.1
-height = 0.2
-
-[sub_resource type="SpatialMaterial" id=9]
-resource_local_to_scene = true
-albedo_color = Color( 1, 0.15, 0.1, 1 )
-emission_enabled = true
-emission = Color( 1, 0.15, 0.1, 1 )
-emission_energy = 6.0
-flags_unshaded = true
+height = 0.5
+radius = 0.25
 
 [node name="PipeValve" type="Spatial"]
 script = ExtResource( 1 )
 interaction_text = "Turn Valve"
+anim_duration = 0.5
+starts_active = true
+
+[node name="ValveBody" type="CSGCombiner" parent="."]
+use_collision = true
+collision_layer = 64
+
+[node name="MainCasing" type="CSGCylinder" parent="ValveBody"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+radius = 0.2
+height = 0.45
+sides = 20
+material = SubResource( 10 )
+
+[node name="FlangeLeft" type="CSGCylinder" parent="ValveBody"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -0.22 )
+radius = 0.26
+height = 0.06
+sides = 20
+material = SubResource( 9 )
+
+[node name="FlangeRight" type="CSGCylinder" parent="ValveBody"]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.22 )
+radius = 0.26
+height = 0.06
+sides = 20
+material = SubResource( 9 )
+
+[node name="BonnetCollar" type="CSGCylinder" parent="ValveBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 0.08 )
+radius = 0.14
+height = 0.22
+sides = 16
+material = SubResource( 9 )
 
 [node name="Wheel" type="Spatial" parent="."]
+transform = Transform( -1, 8.74228e-08, 0, -8.74228e-08, -1, 0, 0, 0, 1, 0, 0, 0 )
 
 [node name="WheelMesh" type="MeshInstance" parent="Wheel"]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.15 )
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.22 )
 mesh = SubResource( 1 )
 material/0 = ExtResource( 3 )
 
 [node name="Spoke1" type="MeshInstance" parent="Wheel"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.15 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.22 )
 mesh = SubResource( 5 )
 material/0 = ExtResource( 3 )
 
 [node name="Spoke2" type="MeshInstance" parent="Wheel"]
-transform = Transform( 0.5, 0.866025, 0, -0.866025, 0.5, 0, 0, 0, 1, 0, 0, 0.15 )
-mesh = SubResource( 5 )
-material/0 = ExtResource( 3 )
-
-[node name="Spoke3" type="MeshInstance" parent="Wheel"]
-transform = Transform( -0.5, 0.866025, 0, -0.866025, -0.5, 0, 0, 0, 1, 0, 0, 0.15 )
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0.22 )
 mesh = SubResource( 5 )
 material/0 = ExtResource( 3 )
 
 [node name="Rim" type="CSGTorus" parent="Wheel"]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.15 )
-inner_radius = 0.33
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.22 )
+use_collision = true
+collision_layer = 64
+inner_radius = 0.32
 outer_radius = 0.4
-sides = 16
-ring_sides = 6
+sides = 24
+ring_sides = 8
 material = ExtResource( 3 )
 
 [node name="Handle" type="MeshInstance" parent="Wheel"]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0.365, 0, 0.24 )
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0.35, 0, 0.32 )
 mesh = SubResource( 6 )
 material/0 = SubResource( 7 )
 
 [node name="StemMesh" type="MeshInstance" parent="Wheel"]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.075 )
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.1 )
 mesh = SubResource( 2 )
 material/0 = ExtResource( 2 )
 
@@ -95,13 +139,31 @@ material/0 = ExtResource( 2 )
 collision_layer = 64
 
 [node name="CollisionShape" type="CollisionShape" parent="Wheel/StaticBody"]
-transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.15 )
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.22 )
 shape = SubResource( 3 )
 
-[node name="IndicatorLight" type="MeshInstance" parent="." groups=["no_occlusion"]]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32, 0.15, 0.24 )
-mesh = SubResource( 8 )
-material/0 = SubResource( 9 )
+[node name="StatusIndicator" type="CSGCombiner" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.38, 0.12 )
+use_collision = true
+collision_layer = 64
+
+[node name="BezelHousing" type="CSGBox" parent="StatusIndicator"]
+width = 0.44
+height = 0.22
+depth = 0.12
+material = SubResource( 9 )
+
+[node name="StatusLight" type="CSGBox" parent="StatusIndicator" groups=["no_occlusion"]]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.05 )
+width = 0.38
+height = 0.16
+depth = 0.05
+material = SubResource( 12 )
+
+[node name="LabelOpen" type="MeshInstance" parent="StatusIndicator"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.16, 0, 0.07 )
+mesh = SubResource( 11 )
+material/0 = SubResource( 7 )
 
 [node name="BaseStaticBody" type="StaticBody" parent="."]
 collision_layer = 64

@@ -25,11 +25,17 @@ func set_pressure_value(v: float) -> void:
 func _ready():
 	_needle = get_node_or_null("Needle")
 	var mesh = get_node_or_null("Face")
-	if mesh and mesh is MeshInstance:
-		_indicator_mat = mesh.get_surface_material(0)
-		if _indicator_mat:
-			_indicator_mat = _indicator_mat.duplicate()
-			mesh.set_surface_material(0, _indicator_mat)
+	if mesh:
+		if mesh is MeshInstance:
+			_indicator_mat = mesh.get_surface_material(0)
+			if _indicator_mat:
+				_indicator_mat = _indicator_mat.duplicate()
+				mesh.set_surface_material(0, _indicator_mat)
+		elif mesh is CSGPrimitive:
+			_indicator_mat = mesh.material as SpatialMaterial
+			if _indicator_mat:
+				_indicator_mat = _indicator_mat.duplicate()
+				mesh.material = _indicator_mat
 
 	_current_value = pressure_value
 	_target_value = pressure_value
@@ -53,14 +59,16 @@ func _update_visuals():
 		_needle.rotation.z = -angle # Rotate around Z for a face-on dial
 
 	if _indicator_mat:
-		# Color from green (0) to red (1)
-		var color_low = Color(0, 1, 0)
-		var color_high = Color(1, 0, 0)
+		# Instrument backlight tint from normal green (0) to warning red (1)
+		var color_low = Color(0.1, 0.9, 0.4)
+		var color_high = Color(1.0, 0.2, 0.1)
 		var current_color = color_low.linear_interpolate(color_high, _current_value)
 		_indicator_mat.emission = current_color
+		_indicator_mat.emission_enabled = true
+		_indicator_mat.emission_energy = 0.6
 
 # Logic Circuit System Integration
-func set_active(value: bool):
+func set_active(value: bool, _immediate: bool = false) -> void:
 	set_pressure_value(1.0 if value else 0.0)
 
 func activate():

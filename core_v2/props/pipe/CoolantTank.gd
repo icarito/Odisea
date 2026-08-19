@@ -11,7 +11,10 @@ export(float, 0.0, 10.0) var drain_rate: float = 0.015
 signal level_changed(new_level)
 
 onready var _level_band: CSGCylinder = get_node_or_null("LevelBand")
+onready var _sight_column: CSGCylinder = get_node_or_null("LevelGauge/SightColumn")
 
+const GAUGE_MIN_Y := 0.6
+const GAUGE_MAX_HEIGHT := 2.2
 
 func _ready() -> void:
 	add_to_group("replay_sync")
@@ -48,6 +51,14 @@ func _update_visuals() -> void:
 		var mat = _level_band.material
 		if mat is ShaderMaterial:
 			mat.set_shader_param("emission_strength", 1.4 * tank_level)
+
+	if _sight_column == null:
+		_sight_column = get_node_or_null("LevelGauge/SightColumn")
+	if _sight_column:
+		var current_h := GAUGE_MAX_HEIGHT * tank_level
+		_sight_column.visible = current_h > 0.01
+		_sight_column.height = max(0.02, current_h)
+		_sight_column.translation.y = GAUGE_MIN_Y + current_h * 0.5
 
 
 func get_snapshot() -> Dictionary:

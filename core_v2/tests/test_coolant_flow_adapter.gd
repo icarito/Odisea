@@ -168,13 +168,64 @@ func test_leak_kills_downstream() -> void:
 	# Downstream flow (segment 2) remains 0.0
 	assert_float(adapter.get_segment_flow(2)).is_equal(0.0)
 
-	# Check pressurized query API
-	assert_bool(adapter.is_pressurized_at(l1)).is_equal(false)
+	# is_pressurized_at() responde por el caudal de ENTRADA al tramo (lo que empuja
+	# contra la fisura), no por lo que sale después de que la propia fuga lo consume.
+	# Con el tanque lleno y sin válvulas cerradas aguas arriba, hay presión de entrada
+	# aunque la fuga absorba el 100% de lo que sale — es justamente esa presión la
+	# que sostiene la fuga y exige un parche provisorio, no firme (H6 / FD-270 §4).
+	assert_bool(adapter.is_pressurized_at(l1)).is_equal(true)
 
-	# Reduce leak intensity to 0.4
+	# Reduce leak intensity to 0.4 — el caudal de salida sube, la entrada no cambia
 	l1.set_intensity(0.4)
 	assert_float(adapter.get_segment_flow(1)).is_equal_approx(0.6, 0.0001)
 	assert_float(adapter.get_segment_flow(2)).is_equal_approx(0.6, 0.0001)
+	assert_bool(adapter.is_pressurized_at(l1)).is_equal(true)
+
+
+func test_pressurized_at_false_when_upstream_valve_closed() -> void:
+	var root: Node = auto_free(Node.new())
+	root.name = "Root"
+
+	var tank: MockTank = MockTank.new()
+	tank.name = "Tank"
+	root.add_child(tank)
+
+	var v0: MockValve = MockValve.new(false) # Válvula cerrada, aguas arriba de la fuga
+	v0.name = "Valve0"
+	root.add_child(v0)
+
+	var p0: MockPipeRun = MockPipeRun.new()
+	p0.name = "Pipe0"
+	root.add_child(p0)
+
+	var l1: MockLeak = MockLeak.new(1.0)
+	l1.name = "Leak1"
+	root.add_child(l1)
+
+	var net: Resource = auto_free(Resource.new())
+	net.set_script(PipeNetworkResourceScript)
+	net.set("branches", {
+		"west": {
+			"tank": NodePath("Tank"),
+			"segments": [
+				{"pipe_run": NodePath("Pipe0"), "valve": NodePath("Valve0"), "leak": NodePath("Leak1"), "flow_dir": Vector3.FORWARD}
+			]
+		}
+	})
+
+	var adapter: Node = auto_free(Node.new())
+	adapter.set_script(CoolantFlowAdapterScript)
+	adapter.set("network", net)
+	adapter.set("branch_id", "west")
+	root.add_child(adapter)
+
+	adapter._ready()
+
+	# Con la válvula cerrada, no hay presión de entrada al tramo — este es el caso
+	# real que justifica un parche firme.
+	assert_bool(adapter.is_pressurized_at(l1)).is_equal(false)
+
+	v0.set_open(true)
 	assert_bool(adapter.is_pressurized_at(l1)).is_equal(true)
 
 

@@ -49,14 +49,32 @@ export(float, 0.2, 1.0) var pipe_alpha := 0.88 setget set_pipe_alpha
 # cara redonda del extremo libre.
 export(bool) var hide_caps := true
 
+# Collar en la entrada del tramo (extremo -Y local): tapa el borde donde este cilindro
+# se toca con el tramo anterior. Cada PipeRun es una malla separada — hide_caps del
+# shader descarta la tapa plana, pero no el anillo del borde entre dos mallas distintas,
+# que se nota como una costura. El último tramo de una rama (contra el sumidero) no
+# necesita nada del lado de salida porque ahí no hay otra malla con la que chocar.
+export(bool) var add_entry_collar := true
+export(float) var collar_radius_margin := 0.03
+export(float) var collar_height := 0.12
+export(Color) var collar_color := Color(0.18, 0.2, 0.23, 1.0)
+
 var _material: ShaderMaterial = null
-var _phase: float = 0.0
+# El shader trata flow_phase == 0.0 como "sin override, animar con TIME" (lo usa
+# PipeRun.gd para conducciones decorativas sin lógica de caudal). PipeCoolantRun SÍ
+# controla el caudal, así que _phase nunca debe caer justo en ese sentinel — si el
+# caudal arranca en 0 (tanque vacío desde el inicio) y nunca se mueve, un flow_phase
+# de 0.0 exacto dejaría el caño animándose solo con el reloj, ignorando que está sin
+# caudal. Un offset ínfimo evita el choque sin cambiar el patrón visual.
+var _phase: float = 0.0001
 var _current_speed: float = 0.0
 
 
 func _ready() -> void:
 	_current_speed = flow_speed
 	_apply()
+	if add_entry_collar:
+		_spawn_entry_collar()
 
 
 func _physics_process(delta: float) -> void:
@@ -135,6 +153,12 @@ func _apply() -> void:
 
 	if _material:
 		_material.set_shader_param("flow_dir", dir)
+		# use_local_axis por defecto en el shader deduce el eje del propio tramo (útil
+		# para codos), pero no tiene signo: dos tramos con la misma rotación local
+		# animan hacia el mismo lado del mundo aunque su flow_dir real sea opuesto
+		# (rama oeste vs este). PipeCoolantRun siempre setea flow_dir explícito por
+		# instancia, así que acá se apaga use_local_axis para que el shader lo respete.
+		_material.set_shader_param("use_local_axis", false)
 		_material.set_shader_param("flow_phase", _phase)
 		_material.set_shader_param("pipe_alpha", pipe_alpha)
 		_material.set_shader_param("emission_strength", base_emission * flow_intensity)
@@ -144,6 +168,56 @@ func _apply() -> void:
 		_material.set_shader_param("hide_caps", hide_caps)
 
 	_assign_to_meshes(self)
+
+
+const _COLLAR_NAME := "_EntryCollar"
+
+
+func _spawn_entry_collar() -> void:
+	if has_node(_COLLAR_NAME):
+		return
+	var cyl := _find_cylinder_visual(self)
+	if cyl == null:
+		return
+	var mesh: CylinderMesh = cyl.mesh
+	var radius: float = max(mesh.top_radius, mesh.bottom_radius)
+	var half_height: float = mesh.height * 0.5
+
+	var collar_mesh := CylinderMesh.new()
+	collar_mesh.top_radius = radius + collar_radius_margin
+	collar_mesh.bottom_radius = radius + collar_radius_margin
+	collar_mesh.height = collar_height
+	collar_mesh.radial_segments = mesh.radial_segments
+	collar_mesh.rings = 1
+
+	var collar_mat := SpatialMaterial.new()
+	collar_mat.albedo_color = collar_color
+	collar_mat.metallic = 0.3
+	collar_mat.roughness = 0.8
+
+	var collar := MeshInstance.new()
+	collar.name = _COLLAR_NAME
+	collar.mesh = collar_mesh
+	collar.set_surface_material(0, collar_mat)
+	collar.add_to_group(SKIP_GROUP)
+	# El collar hereda la rotación del Visual (mismo eje que el cilindro del caño) y se
+	# ubica en su extremo -Y local: el lado de ENTRADA del tramo, donde se apoya contra
+	# el tramo anterior. cyl.transform ya lleva Y-mesh al eje real del nodo.
+	var entry_local: Vector3 = cyl.transform.xform(Vector3(0, -half_height, 0))
+	var collar_basis: Basis = cyl.transform.basis
+	collar.transform = Transform(collar_basis, entry_local)
+	add_child(collar)
+
+
+func _find_cylinder_visual(node: Node) -> MeshInstance:
+	for child in node.get_children():
+		if child is MeshInstance and child.mesh is CylinderMesh and not child.is_in_group(SKIP_GROUP):
+			return child
+		if child.get_child_count() > 0:
+			var found := _find_cylinder_visual(child)
+			if found != null:
+				return found
+	return null
 
 
 func _assign_to_meshes(node: Node) -> void:

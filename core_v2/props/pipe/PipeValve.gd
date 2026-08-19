@@ -14,11 +14,11 @@ signal valve_state_changed(is_open)
 
 # --- INTERNAL STATE ---
 var _wheel: Spatial
-var _indicator: MeshInstance
+var _indicator: GeometryInstance
 var _initialized := false
 
-const COLOR_CLOSED := Color( 1, 0.15, 0.1 )
-const COLOR_OPEN := Color( 0.1, 1, 0.3 )
+const COLOR_CLOSED := Color( 0.95, 0.15, 0.1 )
+const COLOR_OPEN := Color( 0.15, 0.95, 0.35 )
 
 func set_valve_speed(v: float) -> void:
 	valve_speed = v
@@ -38,7 +38,9 @@ func _update_speed() -> void:
 
 func _ready():
 	_wheel = get_node_or_null("Wheel")
-	_indicator = get_node_or_null("IndicatorLight")
+	_indicator = get_node_or_null("StatusIndicator/StatusLight")
+	if _indicator == null:
+		_indicator = get_node_or_null("IndicatorLight")
 	_initialized = true
 
 	# Sync speed
@@ -53,6 +55,11 @@ func _update_visuals() -> void:
 		_wheel = get_node_or_null("Wheel")
 		if not _wheel: return
 
+	if _indicator == null:
+		_indicator = get_node_or_null("StatusIndicator/StatusLight")
+		if _indicator == null:
+			_indicator = get_node_or_null("IndicatorLight")
+
 	# Rota 180 grados en eje Z
 	var eased = _ease_in_out(anim_progress)
 	var angle = lerp(0.0, PI, eased)
@@ -60,11 +67,24 @@ func _update_visuals() -> void:
 	_wheel.rotation.z = angle
 
 	if _indicator:
-		var mat: SpatialMaterial = _indicator.get_surface_material(0)
+		var mat: SpatialMaterial = null
+		if _indicator is CSGPrimitive:
+			mat = _indicator.material as SpatialMaterial
+			if mat:
+				mat = mat.duplicate()
+				_indicator.material = mat
+		elif _indicator is MeshInstance:
+			mat = _indicator.get_surface_material(0) as SpatialMaterial
+			if mat:
+				mat = mat.duplicate()
+				_indicator.set_surface_material(0, mat)
+
 		if mat:
 			var color: Color = COLOR_CLOSED.linear_interpolate(COLOR_OPEN, eased)
 			mat.albedo_color = color
 			mat.emission = color
+			mat.emission_enabled = true
+			mat.emission_energy = 2.5
 
 func _on_animation_completed() -> void:
 	._on_animation_completed()

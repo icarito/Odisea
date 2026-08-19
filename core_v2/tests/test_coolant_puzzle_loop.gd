@@ -10,12 +10,33 @@ const CoolantFlowAdapterScript = preload("res://core_v2/systems/cryo/CoolantFlow
 const LeakPatchPointScript = preload("res://core_v2/systems/cryo/LeakPatchPoint.gd")
 const PipeValveScript = preload("res://core_v2/props/pipe/PipeValve.gd")
 const PipeManometerScript = preload("res://core_v2/props/pipe/PipeManometer.gd")
+const PipeCoolantRunScript = preload("res://core_v2/props/pipe/PipeCoolantRun.gd")
+const PipeNetworkResourceScript = preload("res://core_v2/systems/pipe/PipeNetworkResource.gd")
 const CoolantLabScript = preload("res://core_v2/scenes/CoolantLab.gd")
 const Room3DScript = preload("res://core_v2/systems/room/Room3D.gd")
 const IceLevelScript = preload("res://core_v2/systems/ice/IceLevel.gd")
 const PressureSectionScript = preload("res://core_v2/systems/atmosphere/PressureSection.gd")
 
 const STEP := 1.0 / 60.0
+
+
+func _make_network(tank: Node, pipe_run: Node, valve: Node = null, leak: Node = null) -> Resource:
+	var net: Resource = auto_free(Resource.new())
+	net.set_script(PipeNetworkResourceScript)
+	net.set("branches", {
+		"main": {
+			"tank": tank.get_path(),
+			"segments": [
+				{
+					"pipe_run": pipe_run.get_path(),
+					"valve": valve.get_path() if valve != null else NodePath(""),
+					"leak": leak.get_path() if leak != null else NodePath(""),
+					"flow_dir": Vector3.RIGHT
+				}
+			]
+		}
+	})
+	return net
 
 
 func _step_tree(nodes: Array, seconds: float) -> void:
@@ -89,28 +110,30 @@ func test_tank_drains_only_on_active_pressurized_leaks() -> void:
 	leak.dissipate_duration = 0.1
 	add_child(leak)
 
+	var pipe_run = auto_free(PipeCoolantRunScript.new())
+	add_child(pipe_run)
+
 	var adapter = auto_free(CoolantFlowAdapterScript.new())
-	adapter.tank_path = tank.get_path()
-	adapter.valves = [valve.get_path()]
-	adapter.leaks = [leak.get_path()]
+	adapter.network = _make_network(tank, pipe_run, valve, leak)
+	adapter.branch_id = "main"
 	add_child(adapter)
 
-	_step_tree([tank, valve, leak, adapter], 0.05)
+	_step_tree([tank, pipe_run, valve, leak, adapter], 0.05)
 	leak.trigger_leak()
-	_step_tree([tank, valve, leak, adapter], 0.05)
+	_step_tree([tank, pipe_run, valve, leak, adapter], 0.05)
 
 	var level_1: float = tank.tank_level
-	_step_tree([tank, valve, leak, adapter], 1.0)
+	_step_tree([tank, pipe_run, valve, leak, adapter], 1.0)
 	var level_2: float = tank.tank_level
 
 	assert_float(level_2).is_less(level_1)
 
 	# Close valve -> leak stops draining tank
 	valve.is_active = false
-	_step_tree([tank, valve, leak, adapter], 0.2)
+	_step_tree([tank, pipe_run, valve, leak, adapter], 0.2)
 	var level_3: float = tank.tank_level
 
-	_step_tree([tank, valve, leak, adapter], 1.0)
+	_step_tree([tank, pipe_run, valve, leak, adapter], 1.0)
 	var level_4: float = tank.tank_level
 
 	assert_float(level_4).is_equal_approx(level_3, 0.001)
@@ -132,10 +155,12 @@ func test_gloo_on_pressurized_run_expires() -> void:
 	leak.ramp_up_duration = 0.01
 	add_child(leak)
 
+	var pipe_run = auto_free(PipeCoolantRunScript.new())
+	add_child(pipe_run)
+
 	var adapter = auto_free(CoolantFlowAdapterScript.new())
-	adapter.tank_path = tank.get_path()
-	adapter.valves = [valve.get_path()]
-	adapter.leaks = [leak.get_path()]
+	adapter.network = _make_network(tank, pipe_run, valve, leak)
+	adapter.branch_id = "main"
 	add_child(adapter)
 
 	var manometer = auto_free(PipeManometerScript.new())
@@ -143,30 +168,31 @@ func test_gloo_on_pressurized_run_expires() -> void:
 	manometer.flow_adapter_path = adapter.get_path()
 	manometer.leak_path = leak.get_path()
 	manometer.max_pressure = 5.0
+	manometer.segment_index = 0
 	add_child(manometer)
 
 	var patch_point = auto_free(LeakPatchPointScript.new())
 	patch_point.leak_path = leak.get_path()
-	patch_point.manometer_path = manometer.get_path()
+	patch_point.flow_adapter_path = adapter.get_path()
 	patch_point.gloo_patch_duration = 0.5
 	patch_point.firm_patch_pressure_threshold = 0.2
 	add_child(patch_point)
 
-	_step_tree([tank, valve, leak, adapter, manometer, patch_point], 0.05)
+	_step_tree([tank, pipe_run, valve, leak, adapter, manometer, patch_point], 0.05)
 	leak.trigger_leak()
-	_step_tree([tank, valve, leak, adapter, manometer, patch_point], 0.05)
+	_step_tree([tank, pipe_run, valve, leak, adapter, manometer, patch_point], 0.05)
 
 	assert_float(manometer.get_pressure()).is_greater(1.0)
 
 	# Patch under pressure
 	patch_point.patch_with_gloo()
-	_step_tree([tank, valve, leak, adapter, manometer, patch_point], 0.05)
+	_step_tree([tank, pipe_run, valve, leak, adapter, manometer, patch_point], 0.05)
 
 	assert_bool(patch_point.is_patched()).is_true()
 	assert_bool(patch_point.is_firmly_patched()).is_false()
 
 	# Step past duration -> patch expires
-	_step_tree([tank, valve, leak, adapter, manometer, patch_point], 0.6)
+	_step_tree([tank, pipe_run, valve, leak, adapter, manometer, patch_point], 0.6)
 
 	assert_bool(patch_point.is_patched()).is_false()
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.LEAKING)
@@ -190,10 +216,12 @@ func test_gloo_on_depressurized_run_is_firm() -> void:
 	leak.valve_path = valve.get_path()
 	add_child(leak)
 
+	var pipe_run = auto_free(PipeCoolantRunScript.new())
+	add_child(pipe_run)
+
 	var adapter = auto_free(CoolantFlowAdapterScript.new())
-	adapter.tank_path = tank.get_path()
-	adapter.valves = [valve.get_path()]
-	adapter.leaks = [leak.get_path()]
+	adapter.network = _make_network(tank, pipe_run, valve, leak)
+	adapter.branch_id = "main"
 	add_child(adapter)
 
 	var manometer = auto_free(PipeManometerScript.new())
@@ -205,32 +233,32 @@ func test_gloo_on_depressurized_run_is_firm() -> void:
 
 	var patch_point = auto_free(LeakPatchPointScript.new())
 	patch_point.leak_path = leak.get_path()
-	patch_point.manometer_path = manometer.get_path()
+	patch_point.flow_adapter_path = adapter.get_path()
 	patch_point.gloo_patch_duration = 0.3
 	patch_point.firm_patch_pressure_threshold = 0.2
 	add_child(patch_point)
 
-	_step_tree([tank, valve, leak, adapter, manometer, patch_point], 0.05)
+	_step_tree([tank, pipe_run, valve, leak, adapter, manometer, patch_point], 0.05)
 	leak.trigger_leak()
-	_step_tree([tank, valve, leak, adapter, manometer, patch_point], 0.05)
+	_step_tree([tank, pipe_run, valve, leak, adapter, manometer, patch_point], 0.05)
 
 	# Close valve to depressurize
 	valve.is_active = false
 	valve.emit_signal("valve_state_changed", false)
-	_step_tree([tank, valve, leak, adapter, manometer, patch_point], 0.2)
+	_step_tree([tank, pipe_run, valve, leak, adapter, manometer, patch_point], 0.2)
 
 	assert_float(manometer.get_pressure()).is_less(0.1)
 
 	# Patch depressurized run -> firm patch
 	patch_point.patch_with_gloo()
-	_step_tree([tank, valve, leak, adapter, manometer, patch_point], 0.05)
+	_step_tree([tank, pipe_run, valve, leak, adapter, manometer, patch_point], 0.05)
 
 	assert_bool(patch_point.is_firmly_patched()).is_true()
 
 	# Re-open valve -> flow active, no leak, firm patch does not expire
 	valve.is_active = true
 	valve.emit_signal("valve_state_changed", true)
-	_step_tree([tank, valve, leak, adapter, manometer, patch_point], 0.5)
+	_step_tree([tank, pipe_run, valve, leak, adapter, manometer, patch_point], 0.5)
 
 	assert_bool(patch_point.is_firmly_patched()).is_true()
 	assert_bool(adapter.is_flow_active()).is_true()
@@ -240,16 +268,33 @@ func test_gloo_on_depressurized_run_is_firm() -> void:
 # 5. Full puzzle loop in both branches stabilizes lab permanently
 func test_full_lab_puzzle_loop_stabilizes_permanently() -> void:
 	var lab = auto_free(CoolantLabScript.new())
+
+	var tank_w = auto_free(CoolantTankScript.new())
+	tank_w.tank_level = 1.0
+	add_child(tank_w)
+	var pipe_w = auto_free(PipeCoolantRunScript.new())
+	add_child(pipe_w)
 	var adapter_w = auto_free(CoolantFlowAdapterScript.new())
+	adapter_w.network = _make_network(tank_w, pipe_w)
+	adapter_w.branch_id = "main"
+	add_child(adapter_w)
+
+	var tank_e = auto_free(CoolantTankScript.new())
+	tank_e.tank_level = 1.0
+	add_child(tank_e)
+	var pipe_e = auto_free(PipeCoolantRunScript.new())
+	add_child(pipe_e)
 	var adapter_e = auto_free(CoolantFlowAdapterScript.new())
+	adapter_e.network = _make_network(tank_e, pipe_e)
+	adapter_e.branch_id = "main"
+	add_child(adapter_e)
+
 	var patch_w = auto_free(LeakPatchPointScript.new())
 	var patch_e = auto_free(LeakPatchPointScript.new())
 	var man_w = auto_free(PipeManometerScript.new())
 	var man_e = auto_free(PipeManometerScript.new())
 
 	add_child(lab)
-	add_child(adapter_w)
-	add_child(adapter_e)
 	add_child(patch_w)
 	add_child(patch_e)
 	add_child(man_w)
@@ -263,8 +308,6 @@ func test_full_lab_puzzle_loop_stabilizes_permanently() -> void:
 	lab.manometer_east_path = man_e.get_path()
 
 	# Wire fake active state & firm patches
-	adapter_w._last_computed_flow = true
-	adapter_e._last_computed_flow = true
 	man_w._current_pressure = 4.0
 	man_e._current_pressure = 4.0
 	patch_w._is_patched = true
@@ -272,11 +315,11 @@ func test_full_lab_puzzle_loop_stabilizes_permanently() -> void:
 	patch_e._is_patched = true
 	patch_e._is_firm_patch = true
 
-	_step_tree([lab, adapter_w, adapter_e, patch_w, patch_e, man_w, man_e], 0.1)
+	_step_tree([lab, tank_w, pipe_w, adapter_w, tank_e, pipe_e, adapter_e, patch_w, patch_e, man_w, man_e], 0.1)
 
 	assert_bool(lab.is_stabilized()).is_true()
 
-	_step_tree([lab, adapter_w, adapter_e, patch_w, patch_e, man_w, man_e], 2.0)
+	_step_tree([lab, tank_w, pipe_w, adapter_w, tank_e, pipe_e, adapter_e, patch_w, patch_e, man_w, man_e], 2.0)
 	assert_bool(lab.is_stabilized()).is_true()
 
 
@@ -285,12 +328,14 @@ func test_puzzle_snapshot_determinism() -> void:
 	var tank = auto_free(CoolantTankScript.new())
 	var valve = auto_free(PipeValveScript.new())
 	var leak = auto_free(CoolantLeakScript.new())
+	var pipe_run = auto_free(PipeCoolantRunScript.new())
 	var adapter = auto_free(CoolantFlowAdapterScript.new())
 	var patch = auto_free(LeakPatchPointScript.new())
 
 	add_child(tank)
 	add_child(valve)
 	add_child(leak)
+	add_child(pipe_run)
 	add_child(adapter)
 	add_child(patch)
 
@@ -298,20 +343,20 @@ func test_puzzle_snapshot_determinism() -> void:
 	valve.is_active = true
 	leak.warning_duration = 0.01
 	leak.ramp_up_duration = 0.01
-	adapter.tank_path = tank.get_path()
-	adapter.valves = [valve.get_path()]
-	adapter.leaks = [leak.get_path()]
+	adapter.network = _make_network(tank, pipe_run, valve, leak)
+	adapter.branch_id = "main"
 	patch.leak_path = leak.get_path()
+	patch.flow_adapter_path = adapter.get_path()
 
-	_step_tree([tank, valve, leak, adapter, patch], 0.05)
+	_step_tree([tank, valve, leak, pipe_run, adapter, patch], 0.05)
 	leak.trigger_leak()
-	_step_tree([tank, valve, leak, adapter, patch], 0.2)
+	_step_tree([tank, valve, leak, pipe_run, adapter, patch], 0.2)
 
 	var snap_tank = tank.get_snapshot()
 	var snap_leak = leak.get_snapshot()
 	var snap_patch = patch.get_snapshot()
 
-	_step_tree([tank, valve, leak, adapter, patch], 0.5)
+	_step_tree([tank, valve, leak, pipe_run, adapter, patch], 0.5)
 	var tank_lvl_advanced = tank.tank_level
 	var leak_int_advanced = leak.get_leak_intensity()
 
@@ -319,7 +364,7 @@ func test_puzzle_snapshot_determinism() -> void:
 	leak.restore_snapshot(snap_leak)
 	patch.restore_snapshot(snap_patch)
 
-	_step_tree([tank, valve, leak, adapter, patch], 0.5)
+	_step_tree([tank, valve, leak, pipe_run, adapter, patch], 0.5)
 
 	assert_float(tank.tank_level).is_equal_approx(tank_lvl_advanced, 0.00001)
 	assert_float(leak.get_leak_intensity()).is_equal_approx(leak_int_advanced, 0.00001)
@@ -352,11 +397,24 @@ func test_circuit_set_active_depressurizes_instead_of_sealing() -> void:
 # El parche vive mientras viva el gloo. Con FD-266 un parche firme ya no caduca solo, asi
 # que si nadie avisa al destruir el blob la fisura queda tapada para siempre.
 func test_destroying_gloo_reopens_the_fissure() -> void:
+	var tank = auto_free(CoolantTankScript.new())
+	tank.tank_level = 0.0  # Sin presion
+	add_child(tank)
+	var pipe_run = auto_free(PipeCoolantRunScript.new())
+	add_child(pipe_run)
+
 	var leak = auto_free(CoolantLeakScript.new())
 	add_child(leak)
+
+	var adapter = auto_free(CoolantFlowAdapterScript.new())
+	adapter.network = _make_network(tank, pipe_run, null, leak)
+	adapter.branch_id = "main"
+	add_child(adapter)
+
 	var patch = auto_free(LeakPatchPointScript.new())
 	add_child(patch)
 	patch.set("leak_path", patch.get_path_to(leak))
+	patch.set("flow_adapter_path", patch.get_path_to(adapter))
 	patch._resolve_references()
 
 	leak.trigger_leak()
@@ -374,12 +432,24 @@ func test_destroying_gloo_reopens_the_fissure() -> void:
 
 # Un parche provisorio tambien tiene que reabrir al destruir el gloo.
 func test_destroying_gloo_reopens_provisional_patch() -> void:
+	var tank = auto_free(CoolantTankScript.new())
+	tank.tank_level = 1.0  # Con presion => provisorio
+	add_child(tank)
+	var pipe_run = auto_free(PipeCoolantRunScript.new())
+	add_child(pipe_run)
+
 	var leak = auto_free(CoolantLeakScript.new())
 	add_child(leak)
+
+	var adapter = auto_free(CoolantFlowAdapterScript.new())
+	adapter.network = _make_network(tank, pipe_run, null, leak)
+	adapter.branch_id = "main"
+	add_child(adapter)
+
 	var patch = auto_free(LeakPatchPointScript.new())
 	add_child(patch)
 	patch.set("leak_path", patch.get_path_to(leak))
-	patch.set("firm_patch_pressure_threshold", -1.0) # nada alcanza el umbral => provisorio
+	patch.set("flow_adapter_path", patch.get_path_to(adapter))
 	patch._resolve_references()
 
 	leak.trigger_leak()
