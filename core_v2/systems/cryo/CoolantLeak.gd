@@ -23,6 +23,8 @@ export(float) var dissipate_duration: float = 5.0
 export(bool) var auto_restart: bool = false
 # Optional NodePath to a PipeValve node; if set, closing valve depressurizes
 export(NodePath) var valve_path: NodePath
+# Optional NodePath to a CoolantFlowAdapter node; if set, queries real flow at node location
+export(NodePath) var flow_adapter_path: NodePath
 # Optional NodePath to a Room3D environmental aggregator
 export(NodePath) var room_path: NodePath
 export(float) var leak_temp_rate: float = 5.0
@@ -41,6 +43,7 @@ var _leak_intensity: float = 0.0
 var _start_intensity: float = 0.0
 var _has_been_sealed: bool = false
 var _is_provisionally_patched: bool = false
+var _flow_adapter: Node = null
 
 
 func _ready() -> void:
@@ -50,6 +53,9 @@ func _ready() -> void:
 		var valve = get_node_or_null(valve_path)
 		if valve and valve.has_signal("valve_state_changed"):
 			valve.connect("valve_state_changed", self, "_on_valve_state_changed")
+
+	if flow_adapter_path != null and not flow_adapter_path.is_empty():
+		_flow_adapter = get_node_or_null(flow_adapter_path)
 
 	if starts_leaking:
 		trigger_leak()
@@ -134,6 +140,11 @@ func trigger_leak() -> void:
 	if valve_path != null and not valve_path.is_empty():
 		var valve = get_node_or_null(valve_path)
 		if valve != null and "is_active" in valve and not bool(valve.get("is_active")):
+			_set_state(State.DEPRESSURIZED)
+			return
+
+	if _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at"):
+		if not bool(_flow_adapter.call("is_pressurized_at", self)):
 			_set_state(State.DEPRESSURIZED)
 			return
 
@@ -229,6 +240,9 @@ func _on_valve_state_changed(is_open: bool) -> void:
 	# La válvula corta el caudal, no repara el caño: mientras la fuga no esté arreglada,
 	# abrirla vuelve a soltar coolant y cerrarla despresuriza el tramo.
 	if is_open:
+		if _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at"):
+			if not bool(_flow_adapter.call("is_pressurized_at", self)):
+				return  # otra válvula aguas arriba sigue cortando el caudal
 		trigger_leak()
 	else:
 		depressurize()
