@@ -25,6 +25,13 @@ export(String, FILE, "*.tres") var flow_material_path: String = DEFAULT_FLOW_MAT
 # Dirección del flujo, en coordenadas de mundo. El shader muestrea ruido en mundo, así
 # que este vector es el que hace que el refrigerante "corra" hacia un lado y no al otro.
 export(Vector3) var flow_dir := Vector3(1, 0, 0) setget set_flow_dir
+# _apply() apaga use_local_axis por defecto (ver más abajo) porque asume tramos RECTOS
+# todos con la misma rotación local. Un grupo de arcos curvos (anillo) no cumple esa
+# premisa: cada tramo mira a un ángulo distinto, y necesita SU PROPIO eje (el que el
+# shader ya calcula por vértice) en vez de un flow_dir fijo para todo el grupo. Activar
+# este export en esos grupos respeta use_local_axis=true; el default false no cambia
+# nada en ningún uso existente (CoolantLab, tramos rectos de Dome_Intro).
+export(bool) var use_local_axis_override := false
 # Velocidad del recorrido de las vetas. Es un objetivo, no un salto: al cambiarla la
 # velocidad real la persigue con una rampa, así cortar el caudal frena el patrón en vez
 # de congelarlo de golpe.
@@ -157,8 +164,9 @@ func _apply() -> void:
 		# para codos), pero no tiene signo: dos tramos con la misma rotación local
 		# animan hacia el mismo lado del mundo aunque su flow_dir real sea opuesto
 		# (rama oeste vs este). PipeCoolantRun siempre setea flow_dir explícito por
-		# instancia, así que acá se apaga use_local_axis para que el shader lo respete.
-		_material.set_shader_param("use_local_axis", false)
+		# instancia, así que acá se apaga use_local_axis para que el shader lo respete
+		# — salvo que use_local_axis_override lo pida (grupo de arcos curvos, ver export).
+		_material.set_shader_param("use_local_axis", use_local_axis_override)
 		_material.set_shader_param("flow_phase", _phase)
 		_material.set_shader_param("pipe_alpha", pipe_alpha)
 		_material.set_shader_param("emission_strength", base_emission * flow_intensity)
