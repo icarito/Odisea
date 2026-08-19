@@ -123,6 +123,16 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL4Pipes_body.tscn" type="PackedScene" id=507]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5Pipes_baked.mesh" type="ArrayMesh" id=508]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5Pipes_body.tscn" type="PackedScene" id=509]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL1RingPipes_baked.mesh" type="ArrayMesh" id=530]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL1RingPipes_body.tscn" type="PackedScene" id=531]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL2RingPipes_baked.mesh" type="ArrayMesh" id=532]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL2RingPipes_body.tscn" type="PackedScene" id=533]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL3RingPipes_baked.mesh" type="ArrayMesh" id=534]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL3RingPipes_body.tscn" type="PackedScene" id=535]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL4RingPipes_baked.mesh" type="ArrayMesh" id=536]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL4RingPipes_body.tscn" type="PackedScene" id=537]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5RingPipes_baked.mesh" type="ArrayMesh" id=538]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5RingPipes_body.tscn" type="PackedScene" id=539]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SignagePanels_baked.mesh" type="ArrayMesh" id=387]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SignagePanels_body.tscn" type="PackedScene" id=388]
 [ext_resource path="res://core_v2/systems/cryo/LeakPatchPoint.gd" type="Script" id=389]
@@ -140,6 +150,16 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL4Pipes_body.tscn" type="PackedScene" id=517]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5Pipes_baked.mesh" type="ArrayMesh" id=518]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5Pipes_body.tscn" type="PackedScene" id=519]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1RingPipes_baked.mesh" type="ArrayMesh" id=540]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1RingPipes_body.tscn" type="PackedScene" id=541]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL2RingPipes_baked.mesh" type="ArrayMesh" id=542]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL2RingPipes_body.tscn" type="PackedScene" id=543]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL3RingPipes_baked.mesh" type="ArrayMesh" id=544]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL3RingPipes_body.tscn" type="PackedScene" id=545]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL4RingPipes_baked.mesh" type="ArrayMesh" id=546]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL4RingPipes_body.tscn" type="PackedScene" id=547]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5RingPipes_baked.mesh" type="ArrayMesh" id=548]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5RingPipes_body.tscn" type="PackedScene" id=549]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=396]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconSpotV2.tscn" type="PackedScene" id=397]
 
@@ -382,6 +402,86 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+
+[sub_resource type="ShaderMaterial" id=550]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
+
+[sub_resource type="ShaderMaterial" id=551]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
+
+[sub_resource type="ShaderMaterial" id=552]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
+
+[sub_resource type="ShaderMaterial" id=553]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
+
+[sub_resource type="ShaderMaterial" id=554]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
+
+[sub_resource type="ShaderMaterial" id=555]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
+
+[sub_resource type="ShaderMaterial" id=556]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
+
+[sub_resource type="ShaderMaterial" id=557]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
+
+[sub_resource type="ShaderMaterial" id=558]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
+
+[sub_resource type="ShaderMaterial" id=559]
+shader = ExtResource( 6 )
+shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
+shader_param/use_local_axis = true
+shader_param/hide_caps = true
 
 [sub_resource type="SphereShape" id=347]
 radius = 0.35
@@ -1084,6 +1184,20 @@ material/0 = SubResource( 520 )
 
 [node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L1" instance=ExtResource( 501 )]
 
+[node name="TowerCoolantRiser_L1_Ring" type="Spatial" parent="TowerCoolantRiser"]
+script = ExtResource( 369 )
+flow_dir = Vector3( 0.130526, 0, -0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring"]
+mesh = ExtResource( 530 )
+material/0 = SubResource( 550 )
+
+[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 531 )]
+
 [node name="TowerCoolantRiser_L2" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -1096,6 +1210,20 @@ mesh = ExtResource( 502 )
 material/0 = SubResource( 521 )
 
 [node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L2" instance=ExtResource( 503 )]
+
+[node name="TowerCoolantRiser_L2_Ring" type="Spatial" parent="TowerCoolantRiser"]
+script = ExtResource( 369 )
+flow_dir = Vector3( 0.130526, 0, -0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring"]
+mesh = ExtResource( 532 )
+material/0 = SubResource( 551 )
+
+[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 533 )]
 
 [node name="TowerCoolantRiser_L3" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
@@ -1110,6 +1238,20 @@ material/0 = SubResource( 522 )
 
 [node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L3" instance=ExtResource( 505 )]
 
+[node name="TowerCoolantRiser_L3_Ring" type="Spatial" parent="TowerCoolantRiser"]
+script = ExtResource( 369 )
+flow_dir = Vector3( 0.130526, 0, -0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring"]
+mesh = ExtResource( 534 )
+material/0 = SubResource( 552 )
+
+[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 535 )]
+
 [node name="TowerCoolantRiser_L4" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -1123,6 +1265,20 @@ material/0 = SubResource( 523 )
 
 [node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L4" instance=ExtResource( 507 )]
 
+[node name="TowerCoolantRiser_L4_Ring" type="Spatial" parent="TowerCoolantRiser"]
+script = ExtResource( 369 )
+flow_dir = Vector3( 0.130526, 0, -0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring"]
+mesh = ExtResource( 536 )
+material/0 = SubResource( 553 )
+
+[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 537 )]
+
 [node name="TowerCoolantRiser_L5" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -1135,6 +1291,20 @@ mesh = ExtResource( 508 )
 material/0 = SubResource( 524 )
 
 [node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L5" instance=ExtResource( 509 )]
+
+[node name="TowerCoolantRiser_L5_Ring" type="Spatial" parent="TowerCoolantRiser"]
+script = ExtResource( 369 )
+flow_dir = Vector3( 0.130526, 0, -0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring"]
+mesh = ExtResource( 538 )
+material/0 = SubResource( 554 )
+
+[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 539 )]
 
 [node name="LeakWestRing0" type="Spatial" parent="TowerCoolantRiser"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 0 )
@@ -1178,7 +1348,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 4.08, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakWestRing1")
-target_pipe_run_path = NodePath("../TowerCoolantRiser_L1")
+target_pipe_run_path = NodePath("../TowerCoolantRiser_L1_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1192,7 +1362,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiser/LeakWestRing1_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakWestRing1")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiser_L1")
+pipe_run_path = NodePath("../../TowerCoolantRiser_L1_Ring")
 
 [node name="LeakWestRing2" type="Spatial" parent="TowerCoolantRiser"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 8.58, 0 )
@@ -1207,7 +1377,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 8.58, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakWestRing2")
-target_pipe_run_path = NodePath("../TowerCoolantRiser_L2")
+target_pipe_run_path = NodePath("../TowerCoolantRiser_L2_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1221,7 +1391,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiser/LeakWestRing2_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakWestRing2")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiser_L2")
+pipe_run_path = NodePath("../../TowerCoolantRiser_L2_Ring")
 
 [node name="LeakWestRing3" type="Spatial" parent="TowerCoolantRiser"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 13.08, 0 )
@@ -1236,7 +1406,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 13.08, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakWestRing3")
-target_pipe_run_path = NodePath("../TowerCoolantRiser_L3")
+target_pipe_run_path = NodePath("../TowerCoolantRiser_L3_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1250,7 +1420,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiser/LeakWestRing3_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakWestRing3")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiser_L3")
+pipe_run_path = NodePath("../../TowerCoolantRiser_L3_Ring")
 
 [node name="LeakWestRing4" type="Spatial" parent="TowerCoolantRiser"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 17.58, 0 )
@@ -1265,7 +1435,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 17.58, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakWestRing4")
-target_pipe_run_path = NodePath("../TowerCoolantRiser_L4")
+target_pipe_run_path = NodePath("../TowerCoolantRiser_L4_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1279,7 +1449,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiser/LeakWestRing4_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakWestRing4")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiser_L4")
+pipe_run_path = NodePath("../../TowerCoolantRiser_L4_Ring")
 
 [node name="LeakWestRing5" type="Spatial" parent="TowerCoolantRiser"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 22.08, 0 )
@@ -1294,7 +1464,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 22.08, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakWestRing5")
-target_pipe_run_path = NodePath("../TowerCoolantRiser_L5")
+target_pipe_run_path = NodePath("../TowerCoolantRiser_L5_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1308,7 +1478,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiser/LeakWestRing5_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakWestRing5")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiser_L5")
+pipe_run_path = NodePath("../../TowerCoolantRiser_L5_Ring")
 
 [node name="ValveWestFloor0" parent="TowerCoolantRiser" groups=["coolant_valve"] instance=ExtResource( 372 )]
 transform = Transform(0, 1.0, 0, -1.0, 0, 0, 0, 0, 1.0, -12.0, 1.65, 0)
@@ -1519,6 +1689,20 @@ material/0 = SubResource( 525 )
 
 [node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1" instance=ExtResource( 511 )]
 
+[node name="TowerCoolantRiserEast_L1_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
+script = ExtResource( 369 )
+flow_dir = Vector3( -0.130526, 0, 0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring"]
+mesh = ExtResource( 540 )
+material/0 = SubResource( 555 )
+
+[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 541 )]
+
 [node name="TowerCoolantRiserEast_L2" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -1531,6 +1715,20 @@ mesh = ExtResource( 512 )
 material/0 = SubResource( 526 )
 
 [node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2" instance=ExtResource( 513 )]
+
+[node name="TowerCoolantRiserEast_L2_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
+script = ExtResource( 369 )
+flow_dir = Vector3( -0.130526, 0, 0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring"]
+mesh = ExtResource( 542 )
+material/0 = SubResource( 556 )
+
+[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 543 )]
 
 [node name="TowerCoolantRiserEast_L3" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
@@ -1545,6 +1743,20 @@ material/0 = SubResource( 527 )
 
 [node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3" instance=ExtResource( 515 )]
 
+[node name="TowerCoolantRiserEast_L3_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
+script = ExtResource( 369 )
+flow_dir = Vector3( -0.130526, 0, 0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring"]
+mesh = ExtResource( 544 )
+material/0 = SubResource( 557 )
+
+[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 545 )]
+
 [node name="TowerCoolantRiserEast_L4" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -1558,6 +1770,20 @@ material/0 = SubResource( 528 )
 
 [node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4" instance=ExtResource( 517 )]
 
+[node name="TowerCoolantRiserEast_L4_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
+script = ExtResource( 369 )
+flow_dir = Vector3( -0.130526, 0, 0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring"]
+mesh = ExtResource( 546 )
+material/0 = SubResource( 558 )
+
+[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 547 )]
+
 [node name="TowerCoolantRiserEast_L5" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -1570,6 +1796,20 @@ mesh = ExtResource( 518 )
 material/0 = SubResource( 529 )
 
 [node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5" instance=ExtResource( 519 )]
+
+[node name="TowerCoolantRiserEast_L5_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
+script = ExtResource( 369 )
+flow_dir = Vector3( -0.130526, 0, 0.991445 )
+flow_speed = 1.25
+flow_intensity = 1.5
+base_emission = 1.8
+use_local_axis_override = true
+
+[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring"]
+mesh = ExtResource( 548 )
+material/0 = SubResource( 559 )
+
+[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 549 )]
 
 [node name="LeakEastRing0" type="Spatial" parent="TowerCoolantRiserEast"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 0 )
@@ -1613,7 +1853,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 4.08, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakEastRing1")
-target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L1")
+target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L1_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1627,7 +1867,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiserEast/LeakEastRing1_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakEastRing1")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiserEast_L1")
+pipe_run_path = NodePath("../../TowerCoolantRiserEast_L1_Ring")
 
 [node name="LeakEastRing2" type="Spatial" parent="TowerCoolantRiserEast"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 8.58, 0 )
@@ -1642,7 +1882,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 8.58, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakEastRing2")
-target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L2")
+target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L2_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1656,7 +1896,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiserEast/LeakEastRing2_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakEastRing2")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiserEast_L2")
+pipe_run_path = NodePath("../../TowerCoolantRiserEast_L2_Ring")
 
 [node name="LeakEastRing3" type="Spatial" parent="TowerCoolantRiserEast"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 13.08, 0 )
@@ -1671,7 +1911,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 13.08, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakEastRing3")
-target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L3")
+target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L3_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1685,7 +1925,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiserEast/LeakEastRing3_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakEastRing3")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiserEast_L3")
+pipe_run_path = NodePath("../../TowerCoolantRiserEast_L3_Ring")
 
 [node name="LeakEastRing4" type="Spatial" parent="TowerCoolantRiserEast"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 17.58, 0 )
@@ -1700,7 +1940,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 17.58, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakEastRing4")
-target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L4")
+target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L4_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1714,7 +1954,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiserEast/LeakEastRing4_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakEastRing4")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiserEast_L4")
+pipe_run_path = NodePath("../../TowerCoolantRiserEast_L4_Ring")
 
 [node name="LeakEastRing5" type="Spatial" parent="TowerCoolantRiserEast"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 22.08, 0 )
@@ -1729,7 +1969,7 @@ flow_adapter_path = NodePath("")
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 22.08, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakEastRing5")
-target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L5")
+target_pipe_run_path = NodePath("../TowerCoolantRiserEast_L5_Ring")
 manometer_path = NodePath("")
 flow_adapter_path = NodePath("")
 
@@ -1743,7 +1983,7 @@ shape = SubResource( 347 )
 [node name="FissureVisual" parent="TowerCoolantRiserEast/LeakEastRing5_Patch" instance=ExtResource( 390 )]
 leak_path = NodePath("../../LeakEastRing5")
 patch_point_path = NodePath("..")
-pipe_run_path = NodePath("../../TowerCoolantRiserEast_L5")
+pipe_run_path = NodePath("../../TowerCoolantRiserEast_L5_Ring")
 
 [node name="ValveEastFloor0" parent="TowerCoolantRiserEast" groups=["coolant_valve"] instance=ExtResource( 372 )]
 transform = Transform(0, 1.0, 0, -1.0, 0, 0, 0, 0, 1.0, 12.0, 1.65, 0)

@@ -31,19 +31,39 @@ extends SceneTree
 const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn"
 
 # Each entry: [output GroupName, node path to the PipeCoolantRun to bake].
+#
+# FD-270 v2: cada piso del riser se parte en DOS grupos horneables separados: el tramo
+# recto (RiserSegN + JunctionFloorN, use_local_axis_override=false) y el anillo curvo
+# (RingFloorN/RingFloorNEast, ahora TowerCoolantRiser_LN_Ring en la fuente,
+# use_local_axis_override=true). Antes ambos vivían bajo el mismo PipeCoolantRun del
+# nivel completo, y el bake solo preserva geometría (_collect_mesh_instances funde todo
+# a un mesh) — el script del RingFloorN hijo nunca llegaba a Dome_Intro.tscn, así que
+# use_local_axis_override en el anillo no tenía ningún efecto. Separarlos en la fuente
+# (hermanos, no padre/hijo) y hornear cada uno aparte es la única forma de que el eje
+# local del anillo sobreviva al bake.
 const GROUPS := [
 	["CryoLoopWest", "CryoLoopWest/Pipes"],
 	["CryoLoopEast", "CryoLoopEast/Pipes"],
 	["TowerCoolantRiserL1", "TowerCoolantRiser/TowerCoolantRiser_L1"],
+	["TowerCoolantRiserL1Ring", "TowerCoolantRiser/TowerCoolantRiser_L1_Ring"],
 	["TowerCoolantRiserL2", "TowerCoolantRiser/TowerCoolantRiser_L2"],
+	["TowerCoolantRiserL2Ring", "TowerCoolantRiser/TowerCoolantRiser_L2_Ring"],
 	["TowerCoolantRiserL3", "TowerCoolantRiser/TowerCoolantRiser_L3"],
+	["TowerCoolantRiserL3Ring", "TowerCoolantRiser/TowerCoolantRiser_L3_Ring"],
 	["TowerCoolantRiserL4", "TowerCoolantRiser/TowerCoolantRiser_L4"],
+	["TowerCoolantRiserL4Ring", "TowerCoolantRiser/TowerCoolantRiser_L4_Ring"],
 	["TowerCoolantRiserL5", "TowerCoolantRiser/TowerCoolantRiser_L5"],
+	["TowerCoolantRiserL5Ring", "TowerCoolantRiser/TowerCoolantRiser_L5_Ring"],
 	["TowerCoolantRiserEastL1", "TowerCoolantRiserEast/TowerCoolantRiserEast_L1"],
+	["TowerCoolantRiserEastL1Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring"],
 	["TowerCoolantRiserEastL2", "TowerCoolantRiserEast/TowerCoolantRiserEast_L2"],
+	["TowerCoolantRiserEastL2Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring"],
 	["TowerCoolantRiserEastL3", "TowerCoolantRiserEast/TowerCoolantRiserEast_L3"],
+	["TowerCoolantRiserEastL3Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring"],
 	["TowerCoolantRiserEastL4", "TowerCoolantRiserEast/TowerCoolantRiserEast_L4"],
+	["TowerCoolantRiserEastL4Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring"],
 	["TowerCoolantRiserEastL5", "TowerCoolantRiserEast/TowerCoolantRiserEast_L5"],
+	["TowerCoolantRiserEastL5Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring"],
 ]
 const OUT_DIR := "res://core_v2/levels/interiors/"
 
