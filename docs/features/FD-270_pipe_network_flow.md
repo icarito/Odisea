@@ -273,9 +273,13 @@ dos tanques (`CoolantTank` x=-15, `CoolantTankEast` x=16,z=4). Diseño confirmad
   baja + pisos 1-5) → sumidero en Piso 5.
 - **Circuito ESTE**: `CoolantTankEast` → `CryoLoopEast` (Piso 1, y=8.1, mismo tratamiento) → riser
   central (lado este) → 6 válvulas por nivel → sumidero en Piso 5.
-- El riser central (`TowerCoolantRiser`+`TowerCoolantRings`) pasa a llevar **dos tuberías
-  paralelas**, no una — cada `RingFloorN` se divide en semi-anillos o quedan dos toros concéntricos
-  por piso (decisión de geometría, ver tarea LM2).
+- El riser central (`TowerCoolantRiser`+`TowerCoolantRiserEast`) lleva **dos tuberías paralelas**.
+  `RingFloorN`/`RingFloorNEast` (D7, resuelto): semicírculos de `PipeSection`+`PipeCoolantRun.gd`
+  (flujo de shader real, participan como tramos lógicos), radio 12.0 oeste / 12.6 este, 24
+  segmentos por círculo completo. Pisos 0-4: cada circuito cubre solo su mitad del anillo (12
+  segmentos). Piso 5: círculo completo por lado (24 segmentos), coherente con que ahí ya conecta
+  el puente. **No** son `CSGTorus` — el bake tool solo recolecta `MeshInstance`, y el flujo de
+  shader/topología lógica los necesita como tramos reales, no geometría CSG decorativa.
 - **Puente de interconexión en Piso 5**: 1 tramo + 1 `PipeValve`, `starts_active = false` por
   defecto. Con el puente cerrado, cada circuito sigue siendo un árbol independiente sin ciclo — la
   restricción dura de §1 se mantiene. Abrir el puente es puzle adicional (un tanque puede alimentar
@@ -333,10 +337,12 @@ del `core_v2` exige que la capa visual no entre en el estado lógico.
   cada `CoolantFlowAdapter` sigue viendo solo su propia rama. Falta decidir si en algún momento se
   modela como un tercer `CoolantFlowAdapter` "puente" con lógica especial, o si el puente queda
   puramente narrativo/de exploración sin efecto mecánico en el caudal. `[DECIDIR]`
-- **D7 — Semi-anillos vs. toros concéntricos.** Para separar el riser central en dos tuberías
-  paralelas (oeste/este) sobre `RingFloorN`/`JunctionFloorN`: partir cada anillo en dos mitades, o
-  dejar dos toros de radio distinto superpuestos. Se decide en la tarea LM2 según lo que requiera
-  menos geometría nueva; anotar acá la elegida al cerrar la tarea. `[DECIDIR]`
+- **D7 — Semi-anillos vs. toros concéntricos.** **Resuelto: semi-anillos.** Cada `RingFloorN`
+  (oeste)/`RingFloorNEast` (este) se construye como semicírculo de `PipeSection`+
+  `PipeCoolantRun.gd` (radio 12.0/12.6, 24 segmentos por círculo completo, 12 por semicírculo).
+  Pisos 0-4: cada circuito cubre solo su mitad. Piso 5: círculo completo por lado. Se descartó
+  `CSGTorus` porque no participa del flujo de shader ni es recolectado por `bake_pipe_network.gd`
+  (que solo recorre `MeshInstance`).
 - **D8 — Mapeo tanque↔circuito.** Confirmado con Sebastián: tanque oeste → circuito oeste (vía
   `CryoLoopWest`), tanque este → circuito este (vía `CryoLoopEast`). No es una inversión respecto al
   cableado decorativo previo del riser — ambos tanques ya estaban del lado geométrico correcto.
@@ -354,8 +360,8 @@ archivos disjuntos entre sí.
 | JM2 | Dials de `Room3D` en la UI — extender `CoolantSystemStatusUI.gd` o script hermano `RoomDialsPanel.gd` con lectura de `temperature`/`pressure`/`contamination` y helpers de dibujo (`Control._draw()`, arcos, sin assets nuevos) | JULES | `core_v2/things/CoolantSystemStatusUI.gd` o `RoomDialsPanel.gd` (nuevo) | valores se pintan y cambian de color según los thresholds ya expuestos por `Room3D` | — | en curso · jules `14490107841477009858` |
 | JM3 | Diagrama esquemático — `Control` nuevo con topología fija de autoría (líneas/puntos hardcodeados, sin generalizar a runtime), coloreado por estado de válvula/fuga leyendo los grupos `coolant_valve`/`gloo_patchable` ya usados por `CoolantSystemStatusUI.gd` | JULES | `core_v2/things/CoolantSchematicPanel.gd` (nuevo) | refleja a ojo el estado real de al menos una válvula y una fuga en un test manual/headless | — | en curso · jules `13952948355490591414` |
 | JM4 | Tests GdUnit3: `test_random_leak_seeder_deterministic`, `test_random_leak_seeder_snapshot_roundtrip` | JULES | `core_v2/tests/**` | ambos tests pasan | JM1 (despachada en paralelo contra el contrato, no el resultado) | pendiente — bloqueado por cupo de 3 sesiones Jules concurrentes, reintentar cuando libere |
-| LM1 | Activar `CryoLoopWest`/`CryoLoopEast` como Piso 1 de cada árbol: agregar `CoolantLeak`+`LeakPatchPoint` candidato en cada uno, confirmar que entran al `PipeNetworkResource` como segmento real | LOCAL | `core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn` | ambos loops quedan como segmento 0 de su rama, `validate()` no los rechaza | — | pendiente |
-| LM2 | Dividir el riser central en dos tuberías paralelas (D7), construir 6 tramos + 6 válvulas por lado (planta baja + pisos 1-5, R1/R2/R4), agregar tramo puente + válvula de interconexión en Piso 5 (`starts_active=false`) | LOCAL | `core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn` | 12 válvulas de circuito + 1 puente presentes, cada una inmediatamente aguas arriba de su fuga candidata | LM1 | pendiente |
+| LM1 | Activar `CryoLoopWest`/`CryoLoopEast` como Piso 1 de cada árbol: agregar `CoolantLeak`+`LeakPatchPoint` candidato en cada uno, confirmar que entran al `PipeNetworkResource` como segmento real | LOCAL | `core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn` | ambos loops quedan como segmento 0 de su rama, `validate()` no los rechaza | — | **hecho** · commit `7ed89628` |
+| LM2 | Dividir el riser central en dos tuberías paralelas (D7), construir 6 tramos + 6 válvulas por lado (planta baja + pisos 1-5, R1/R2/R4), agregar tramo puente + válvula de interconexión en Piso 5 (`starts_active=false`) | LOCAL | `core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn` | 12 válvulas de circuito + 1 puente presentes, cada una inmediatamente aguas arriba de su fuga candidata | LM1 | **hecho** · commit `7ed89628`. D7 resuelto: semicírculos de `PipeSection`+`PipeCoolantRun` por piso (no CSGTorus, no requerido para hornear vía `MeshInstance`), círculo completo solo en Piso 5. Riser este en x=+12 (lado `CoolantTankEast`), puente cruza x=-12→+12 |
 | LM3 | 2 `PipeNetworkResource` SubResource (oeste/este) + 2 `CoolantFlowAdapter` en `Dome_Intro.tscn`, cableados a los NodePaths reales; puente de Piso 5 queda fuera de ambas ramas (D6) | LOCAL | `core_v2/levels/interiors/Dome_Intro.tscn` | `validate()` no rechaza nada al cargar la escena | LM1, LM2 | pendiente |
 | LM4 | Instanciar `Room3D.tscn`, setear `IceLevel.room_path` (nodo ya existe, solo falta el NodePath) | LOCAL | `core_v2/levels/interiors/Dome_Intro.tscn` | `IceLevel` responde a temperatura del `Room3D` en runtime | — | pendiente |
 | LM5 | Instanciar `RandomLeakSeeder`, poblar `candidate_leak_paths` con las ~12 fugas de LM1/LM2 | LOCAL | `core_v2/levels/interiors/Dome_Intro.tscn` | 2-3 fugas arrancan activas, distintas entre seeds distintos | JM1, LM1, LM2 | pendiente |
