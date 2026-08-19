@@ -1,4 +1,4 @@
-[gd_scene load_steps=166 format=2]
+[gd_scene load_steps=167 format=2]
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
@@ -853,6 +853,12 @@ top_radius = 0.3
 bottom_radius = 0.3
 height = 0.3
 
+[sub_resource type="CylinderMesh" id=560]
+top_radius = 0.2
+bottom_radius = 0.2
+height = 0.05
+radial_segments = 12
+
 [node name="Dome_Intro" type="Spatial"]
 
 [node name="Pilot_v2" parent="." instance=ExtResource( 21 )]
@@ -1331,6 +1337,16 @@ scale_object_local = Vector3( 1, 0.3, 1 )
 transform = Transform( 0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, 0.922083, -3.10583, 4.08, -11.5911 )
 scale_object_local = Vector3( 1, 0.3, 1 )
 
+[node name="EndCap0" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring"]
+transform = Transform( 0, 1, -0, 0.996486, -0, -0.0837572, -0.0837572, 0, -0.996486, 0, 4.08, 11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
+[node name="EndCap1" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring"]
+transform = Transform( 0, 1, 0, 0.996486, 0, 0.0837572, 0.0837572, 0, -0.996486, 0, 4.08, -11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
 [node name="TowerCoolantRiser_L2" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -1431,6 +1447,16 @@ scale_object_local = Vector3( 1, 0.3, 1 )
 [node name="Joint10" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
 transform = Transform( 0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, 0.922083, -3.10583, 8.58, -11.5911 )
 scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="EndCap0" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring"]
+transform = Transform( 0, 1, -0, 0.996486, -0, -0.0837572, -0.0837572, 0, -0.996486, 0, 8.58, 11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
+[node name="EndCap1" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring"]
+transform = Transform( 0, 1, 0, 0.996486, 0, 0.0837572, 0.0837572, 0, -0.996486, 0, 8.58, -11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
 
 [node name="TowerCoolantRiser_L3" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
@@ -1533,6 +1559,16 @@ scale_object_local = Vector3( 1, 0.3, 1 )
 transform = Transform( 0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, 0.922083, -3.10583, 13.08, -11.5911 )
 scale_object_local = Vector3( 1, 0.3, 1 )
 
+[node name="EndCap0" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring"]
+transform = Transform( 0, 1, -0, 0.996486, -0, -0.0837572, -0.0837572, 0, -0.996486, 0, 13.08, 11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
+[node name="EndCap1" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring"]
+transform = Transform( 0, 1, 0, 0.996486, 0, 0.0837572, 0.0837572, 0, -0.996486, 0, 13.08, -11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
 [node name="TowerCoolantRiser_L4" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -1634,6 +1670,16 @@ scale_object_local = Vector3( 1, 0.3, 1 )
 transform = Transform( 0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, 0.922083, -3.10583, 17.58, -11.5911 )
 scale_object_local = Vector3( 1, 0.3, 1 )
 
+[node name="EndCap0" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring"]
+transform = Transform( 0, 1, -0, 0.996486, -0, -0.0837572, -0.0837572, 0, -0.996486, 0, 17.58, 11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
+[node name="EndCap1" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring"]
+transform = Transform( 0, 1, 0, 0.996486, 0, 0.0837572, 0.0837572, 0, -0.996486, 0, 17.58, -11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
 [node name="TowerCoolantRiser_L5" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -1710,6 +1756,16 @@ scale_object_local = Vector3( 1, 0.3, 1 )
 [node name="Joint10" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
 transform = Transform( -0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, -0.16862, -11.5911, 22.08, 3.10583 )
 scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="EndCap0" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring"]
+transform = Transform( 0, 1, -0, 0.996486, -0, -0.0837572, -0.0837572, 0, -0.996486, 0, 22.08, 11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
+[node name="EndCap1" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring"]
+transform = Transform( 0, 1, 0, 0.996486, 0, 0.0837572, 0.0837572, 0, -0.996486, 0, 22.08, -11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
 
 [node name="Joint11" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
 transform = Transform( 0, 0, 1, 0, 1, 0, -0.1, 0, 0, -12, 22.08, 0 )
@@ -2206,6 +2262,16 @@ scale_object_local = Vector3( 1, 0.3, 1 )
 transform = Transform( -0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, -0.922083, 3.10583, 4.08, 11.5911 )
 scale_object_local = Vector3( 1, 0.3, 1 )
 
+[node name="EndCap0" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring"]
+transform = Transform( 0, 1, -0, 0.996486, -0, -0.0837572, -0.0837572, 0, -0.996486, 0, 4.08, 11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
+[node name="EndCap1" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring"]
+transform = Transform( 0, 1, 0, 0.996486, 0, 0.0837572, 0.0837572, 0, -0.996486, 0, 4.08, -11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
 [node name="TowerCoolantRiserEast_L2" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -2306,6 +2372,16 @@ scale_object_local = Vector3( 1, 0.3, 1 )
 [node name="Joint10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
 transform = Transform( -0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, -0.922083, 3.10583, 8.58, 11.5911 )
 scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="EndCap0" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring"]
+transform = Transform( 0, 1, -0, 0.996486, -0, -0.0837572, -0.0837572, 0, -0.996486, 0, 8.58, 11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
+[node name="EndCap1" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring"]
+transform = Transform( 0, 1, 0, 0.996486, 0, 0.0837572, 0.0837572, 0, -0.996486, 0, 8.58, -11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
 
 [node name="TowerCoolantRiserEast_L3" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
@@ -2408,6 +2484,16 @@ scale_object_local = Vector3( 1, 0.3, 1 )
 transform = Transform( -0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, -0.922083, 3.10583, 13.08, 11.5911 )
 scale_object_local = Vector3( 1, 0.3, 1 )
 
+[node name="EndCap0" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring"]
+transform = Transform( 0, 1, -0, 0.996486, -0, -0.0837572, -0.0837572, 0, -0.996486, 0, 13.08, 11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
+[node name="EndCap1" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring"]
+transform = Transform( 0, 1, 0, 0.996486, 0, 0.0837572, 0.0837572, 0, -0.996486, 0, 13.08, -11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
 [node name="TowerCoolantRiserEast_L4" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0, 1, 0 )
@@ -2508,6 +2594,16 @@ scale_object_local = Vector3( 1, 0.3, 1 )
 [node name="Joint10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
 transform = Transform( -0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, -0.922083, 3.10583, 17.58, 11.5911 )
 scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="EndCap0" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring"]
+transform = Transform( 0, 1, -0, 0.996486, -0, -0.0837572, -0.0837572, 0, -0.996486, 0, 17.58, 11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
+
+[node name="EndCap1" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring"]
+transform = Transform( 0, 1, 0, 0.996486, 0, 0.0837572, 0.0837572, 0, -0.996486, 0, 17.58, -11.6651 )
+mesh = SubResource( 560 )
+material/0 = ExtResource( 370 )
 
 [node name="TowerCoolantRiserEast_L5" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
