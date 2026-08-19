@@ -434,8 +434,8 @@ archivos disjuntos entre sí.
 | LM5 | Instanciar `RandomLeakSeeder`, poblar `candidate_leak_paths` con las ~12 fugas de LM1/LM2 | LOCAL | `core_v2/levels/interiors/Dome_Intro.tscn` | 2-3 fugas arrancan activas, distintas entre seeds distintos | JM1, LM1, LM2 | pendiente |
 | LM6 | Instanciar dials (JM2) + diagrama (JM3) en ambos `HoloTerminalV2` (`StatusTerminal`, `HangingDisplay`), cablear `room_path` al `Room3D` de LM4 | LOCAL | `core_v2/levels/interiors/Dome_Intro.tscn` | paneles visibles y legibles en captura de `run-odisea` | JM2, JM3, LM4 | pendiente |
 | LM7 | Beacon en `HangingDisplay`: instanciar `EmergencyBeaconV2` (omni) + variante `SpotLight`, comparar por captura, dejar ambas (una visible por defecto) | LOCAL | `core_v2/levels/interiors/Dome_Intro.tscn` | dos capturas guardadas, sin luces always-on nuevas fuera del patrón de activación por distancia | — | **hecho** · commit `792d0370`. Sin capturas (screenshot vía telemetría dio timeout en este entorno) — ambas variantes conviven, omni visible por defecto, spot con `visible=false`; revisión visual directa pendiente |
-| LM8 | Target `make bake` en el `Makefile`, correr `tools/bake_pipe_network.gd` tras LM1/LM2 | LOCAL | `Makefile` | `make bake` regenera los `.mesh`/`.tscn` sin error | LM1, LM2 | pendiente |
-| LM9 | Verificación jugable: boot headless de `Dome_Intro.tscn`, `validate()` de ambos circuitos, capturas de válvulas/paneles/beacon | LOCAL | — | boot sin errores de NodePath, capturas guardadas | LM3, LM5, LM6, LM7, LM8 | pendiente |
+| LM8 | Target `make bake` en el `Makefile`, correr `tools/bake_pipe_network.gd` tras LM1/LM2 | LOCAL | `Makefile` | `make bake` regenera los `.mesh`/`.tscn` sin error | LM1, LM2 | **hecho** · commit `fee27373` |
+| LM9 | Verificación jugable: boot headless de `Dome_Intro.tscn`, `validate()` de ambos circuitos, capturas de válvulas/paneles/beacon | LOCAL | — | boot sin errores de NodePath, capturas guardadas | LM3, LM5, LM6, LM7, LM8 | en curso — boot+validate() verificados repetidamente durante la sesión; capturas de imagen bloqueadas (screenshot vía telemetría da timeout en este entorno) |
 
 ### §11 — Reparto de ejecución
 
