@@ -132,6 +132,8 @@
 [ext_resource path="res://core_v2/systems/cryo/CoolantFlowAdapter.gd" type="Script" id=392]
 [ext_resource path="res://core_v2/systems/room/Room3D.tscn" type="PackedScene" id=393]
 [ext_resource path="res://core_v2/systems/cryo/RandomLeakSeeder.gd" type="Script" id=5001]
+[ext_resource path="res://core_v2/things/RoomDialsPanel.gd" type="Script" id=5002]
+[ext_resource path="res://core_v2/things/CoolantSchematicPanel.gd" type="Script" id=5003]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1Pipes_baked.mesh" type="ArrayMesh" id=510]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1Pipes_body.tscn" type="PackedScene" id=511]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL2Pipes_baked.mesh" type="ArrayMesh" id=512]
@@ -3202,6 +3204,20 @@ static_content = true
 visible = false
 
 [node name="CoolantSystemStatusUI" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport" instance=ExtResource( 380 )]
+anchor_right = 0.4
+
+[node name="CoolantSchematicPanel" type="Control" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport"]
+anchor_left = 0.4
+anchor_right = 0.7
+anchor_bottom = 1.0
+script = ExtResource( 5003 )
+
+[node name="RoomDialsPanel" type="Control" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport"]
+anchor_left = 0.7
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 5002 )
+room_path = NodePath("/root/Dome_Intro/DomeRoom3D")
 
 [node name="Beacon" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay" instance=ExtResource( 396 )]
 transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0.85, -0.25 )
