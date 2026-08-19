@@ -124,6 +124,8 @@
 [ext_resource path="res://core_v2/systems/room/Room3D.tscn" type="PackedScene" id=393]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastPipes_baked.mesh" type="ArrayMesh" id=394]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastPipes_body.tscn" type="PackedScene" id=395]
+[ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=396]
+[ext_resource path="res://core_v2/props/decor/EmergencyBeaconSpotV2.tscn" type="PackedScene" id=397]
 
 [sub_resource type="ShaderMaterial" id=341]
 shader = ExtResource( 6 )
@@ -1732,6 +1734,15 @@ static_content = true
 visible = false
 
 [node name="CoolantSystemStatusUI" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport" instance=ExtResource( 380 )]
+
+[node name="Beacon" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay" instance=ExtResource( 396 )]
+transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0.85, -0.25 )
+light_activation_distance = 20.0
+
+[node name="BeaconSpot" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay" instance=ExtResource( 397 )]
+transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0.85, -0.25 )
+visible = false
+light_activation_distance = 20.0
 
 [node name="ElevatorAnchor" type="Position3D" parent="."]
 transform = Transform( 0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, -6.5436, 0, 15.0598 )

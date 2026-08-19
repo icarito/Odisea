@@ -1,0 +1,109 @@
+[gd_scene load_steps=12 format=2]
+
+[ext_resource path="res://core_v2/props/scifi_lights/EmergencyBeaconSpotV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=3]
+[ext_resource path="res://assets/sfx/Alarm_Loop_01.wav" type="AudioStream" id=4]
+
+[sub_resource type="SpatialMaterial" id=2]
+albedo_color = Color( 0.15, 0.15, 0.18, 1 )
+metallic = 0.7
+roughness = 0.3
+
+[sub_resource type="CylinderMesh" id=1]
+top_radius = 0.12
+bottom_radius = 0.18
+height = 0.2
+radial_segments = 12
+
+[sub_resource type="CylinderMesh" id=8]
+top_radius = 0.14
+bottom_radius = 0.19
+height = 0.03
+radial_segments = 12
+
+[sub_resource type="SpatialMaterial" id=4]
+resource_local_to_scene = true
+flags_transparent = true
+albedo_color = Color( 0.1, 0.05, 0.02, 0.7 )
+emission_enabled = true
+emission = Color( 1, 0.0705882, 0, 1 )
+emission_energy = 3.0
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CylinderMesh" id=3]
+top_radius = 0.11
+bottom_radius = 0.11
+height = 0.15
+radial_segments = 12
+
+[sub_resource type="SpatialMaterial" id=6]
+resource_local_to_scene = true
+emission_enabled = true
+emission = Color( 1, 0.0705882, 0, 1 )
+emission_energy = 5.0
+emission_operator = 0
+emission_on_uv2 = false
+
+[sub_resource type="CubeMesh" id=5]
+size = Vector3( 0.08, 0.12, 0.22 )
+
+[sub_resource type="CylinderShape" id=7]
+height = 0.4
+radius = 0.18
+
+[node name="EmergencyBeaconSpotV2" type="StaticBody"]
+collision_layer = 4
+collision_mask = 3
+script = ExtResource( 1 )
+interaction_text = "Toggle Beacon"
+starts_active = true
+is_interactable = false
+_color = Color( 1, 0.0705882, 0, 1 )
+light_color = Color( 1, 0.0705882, 0, 1 )
+beacon_color = Color( 1, 0.0705882, 0, 1 )
+
+[node name="BaseMesh" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
+material_override = SubResource( 2 )
+mesh = SubResource( 1 )
+
+[node name="BaseRing" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.015, 0 )
+material_override = SubResource( 2 )
+mesh = SubResource( 8 )
+
+[node name="DomeMesh" type="MeshInstance" parent="."]
+transform = Transform( 0.587739, 0, 0.809049, 0, 1, 0, -0.809049, 0, 0.587739, 0, 0.295, 0 )
+material_override = SubResource( 4 )
+mesh = SubResource( 3 )
+
+[node name="Lens" type="MeshInstance" parent="DomeMesh"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.12 )
+material_override = SubResource( 6 )
+mesh = SubResource( 5 )
+
+[node name="SpotLight" type="SpotLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.495, 0 )
+layers = 65
+light_color = Color( 1, 0.0705882, 0, 1 )
+light_energy = 3.0
+shadow_enabled = true
+shadow_bias = 0.1
+spot_range = 6.0
+spot_attenuation = 1.5
+spot_angle = 45.0
+
+[node name="CollisionShape" type="CollisionShape" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0 )
+shape = SubResource( 7 )
+
+[node name="SFX Alarm" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource( 4 )
+attenuation_model = 2
+unit_db = 4.0
+unit_size = 6.0
+pitch_scale = 1.3
+max_distance = 80.0
+script = ExtResource( 3 )
+loop_sample = true
