@@ -147,8 +147,20 @@ func _bake_group(root: Node, group_name: String, node_path: String) -> void:
 				surface_tools[sig] = st
 				signature_order.append(sig)
 				signature_material[sig] = _neutralized_material(mat)
+			# Cada segmento (RiserSeg/JunctionFloor) trae sus propias tapas de CylinderMesh en
+			# ambos extremos. hide_caps del shader las descarta en runtime comparando la normal
+			# contra pipe_axis — pero pipe_axis usa el WORLD_MATRIX del MeshInstance FUSIONADO,
+			# no el de cada segmento original, así que en un grupo con segmentos rotados distinto
+			# (el junction gira respecto al tramo recto) el cálculo queda mal para al menos uno:
+			# la tapa donde dos segmentos se tocan queda visible y mal orientada (se ve como un
+			# disco/"tapita" flotando en medio del tubo). Acá SÍ tenemos el eje local real de cada
+			# segmento todavía, así que se recortan las tapas antes de fusionar en vez de confiar
+			# en el shader después.
+			var cap_axis_local: Vector3 = Vector3.ZERO
+			if mi.mesh is CylinderMesh:
+				cap_axis_local = Vector3(0, 1, 0)
 			_append_transformed_surface(surface_tools[sig], mi.mesh, surf_idx, mi_to_group,
-				uv_scale, uv_offset)
+				uv_scale, uv_offset, cap_axis_local)
 
 	var combined := ArrayMesh.new()
 	for i in range(signature_order.size()):
@@ -280,7 +292,8 @@ func _collect_mesh_instances(node: Node, out_list: Array) -> void:
 		_collect_mesh_instances(child, out_list)
 
 func _append_transformed_surface(st: SurfaceTool, mesh: Mesh, surf_idx: int, xform: Transform,
-		uv_scale: Vector2 = Vector2(1, 1), uv_offset: Vector2 = Vector2(0, 0)) -> void:
+		uv_scale: Vector2 = Vector2(1, 1), uv_offset: Vector2 = Vector2(0, 0),
+		cap_axis_local: Vector3 = Vector3.ZERO) -> void:
 	var arrays: Array = mesh.surface_get_arrays(surf_idx)
 	var verts: PoolVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var normals = arrays[Mesh.ARRAY_NORMAL]
@@ -288,15 +301,30 @@ func _append_transformed_surface(st: SurfaceTool, mesh: Mesh, surf_idx: int, xfo
 	var tangents = arrays[Mesh.ARRAY_TANGENT]
 	var indices = arrays[Mesh.ARRAY_INDEX]
 	var normal_basis: Basis = xform.basis.inverse().transposed()
+	var has_cap_axis: bool = cap_axis_local.length() > 0.001
 
+	var tri_indices: Array = []
 	if indices != null and (indices as PoolIntArray).size() > 0:
 		for idx in (indices as PoolIntArray):
-			_add_vertex(st, verts[idx], normals[idx] if normals != null else null,
-				uvs[idx] if uvs != null else null, tangents, idx, xform, normal_basis, uv_scale, uv_offset)
+			tri_indices.append(idx)
 	else:
 		for i in range(verts.size()):
-			_add_vertex(st, verts[i], normals[i] if normals != null else null,
-				uvs[i] if uvs != null else null, tangents, i, xform, normal_basis, uv_scale, uv_offset)
+			tri_indices.append(i)
+
+	for t in range(0, tri_indices.size() - 2, 3):
+		var i0 = tri_indices[t]
+		var i1 = tri_indices[t + 1]
+		var i2 = tri_indices[t + 2]
+		if has_cap_axis and normals != null:
+			# Tapa = las tres normales del triangulo (case local, pre-transform) paralelas al
+			# eje del cilindro — la cara redonda de los extremos, no el costado curvo.
+			if abs(normals[i0].dot(cap_axis_local)) > 0.99 \
+					and abs(normals[i1].dot(cap_axis_local)) > 0.99 \
+					and abs(normals[i2].dot(cap_axis_local)) > 0.99:
+				continue
+		for idx in [i0, i1, i2]:
+			_add_vertex(st, verts[idx], normals[idx] if normals != null else null,
+				uvs[idx] if uvs != null else null, tangents, idx, xform, normal_basis, uv_scale, uv_offset)
 
 func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, tangents, source_index: int, xform: Transform, normal_basis: Basis,
 		uv_scale: Vector2 = Vector2(1, 1), uv_offset: Vector2 = Vector2(0, 0)) -> void:
