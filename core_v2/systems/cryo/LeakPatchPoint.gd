@@ -62,16 +62,13 @@ func _physics_process(delta: float) -> void:
 func patch_with_gloo() -> bool:
 	_resolve_references()
 
-	var pressure := 0.0
-	if _manometer != null and _manometer.has_method("get_pressure"):
-		pressure = float(_manometer.get_pressure())
-	elif _leak != null and _leak.has_method("get_leak_intensity"):
-		var leak_intensity: float = float(_leak.get_leak_intensity())
-		# Fallback: leak active => pressure high
-		if leak_intensity > 0.01:
-			pressure = 1.0
+	# Note: firm_patch_pressure_threshold is preserved for scene backward compatibility,
+	# but is no longer used now that authority shifted from manometer pressure to flow adapter.
+	var is_pressurized := true
+	if _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at") and _leak != null:
+		is_pressurized = bool(_flow_adapter.call("is_pressurized_at", _leak))
 
-	var applies_firmly := (pressure <= firm_patch_pressure_threshold)
+	var applies_firmly := not is_pressurized
 
 	if _is_patched:
 		if applies_firmly:
