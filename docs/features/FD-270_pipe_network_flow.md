@@ -347,6 +347,44 @@ del `core_v2` exige que la capa visual no entre en el estado lógico.
   `CryoLoopWest`), tanque este → circuito este (vía `CryoLoopEast`). No es una inversión respecto al
   cableado decorativo previo del riser — ambos tanques ya estaban del lado geométrico correcto.
   **Resuelto**, no bloquea.
+- **D9 — `MultiMeshInstance` para los arcos del anillo.** El mesh combinado actual (`SurfaceTool` →
+  `ArrayMesh`, vía `bake_pipe_network.gd`) ya colapsa los 168 `PipeSection` de los anillos a 1 draw
+  call por grupo — el objetivo real de perf ya está cubierto. **No se hace esta ronda** (ganancia
+  marginal, riesgo de reescribir la arquitectura del prop sin validación visual esta noche) — se
+  intenta al cierre de la sesión si el tiempo alcanza, como bake alternativo opcional.
+
+  Investigación (Perplexity, confirmado): `flow_phase`/`flow_dir`/`emission_strength`/etc. son
+  `uniform` de `ShaderMaterial`, compartidos por TODAS las instancias de un `MultiMeshInstance` —
+  no per-instance. Como cada grupo `PipeCoolantRun` ya duplica un material único para sus hijos (no
+  uno por segmento), la migración preserva corrección: los N `PipeSection` de un mismo anillo/piso
+  pasan a 1 `MultiMeshInstance` + 1 `ShaderMaterial` compartido, mismo resultado visual.
+
+  Camino de migración (bake-time, mismo patrón que `bake_pipe_network.gd` ya usa, NO reemplazo del
+  bake actual sino una segunda salida alternativa):
+  1. Recolectar transforms de los `MeshInstance` hijos de cada `PipeCoolantRun` (igual que hoy hace
+     `_collect_mesh_instances`).
+  2. Construir un `MultiMesh` (`transform_format = MultiMesh.TRANSFORM_3D`, `instance_count = N`,
+     `set_instance_transform(i, ...)` por segmento) usando el mesh base único (`PipeSection` ya
+     comparte la misma malla en todas sus instancias).
+  3. Un `MultiMeshInstance` con `material_override` = el material de flujo duplicado del grupo (no
+     hace falta `set_surface_material` por instancia — ya no aplica, es un solo material para todo
+     el multimesh).
+  4. **Colisión NO viene del `MultiMesh`** (es puramente de render): mantener el `StaticBody`
+     combinado que el bake actual ya genera (`_collect_collision_shapes` + `body.tscn`) sin cambios
+     — el camino de colisión actual ya es independiente del de mesh visual y sigue sirviendo tal
+     cual.
+  5. Si en el futuro hace falta variación por-arco (ej. una fuga "comiéndose" el flujo a lo largo de
+     arcos individuales de un mismo anillo), Godot 3.6 soporta datos per-instance vía
+     `MultiMesh.use_custom_data` + `set_instance_custom_data()` (`Color` de 4 floats libres),
+     leíble en el shader como `INSTANCE_CUSTOM` en `vertex()` (pasado a `fragment()` por varying) —
+     sin necesidad de volver a materiales separados. Debe habilitarse `use_custom_data` ANTES de
+     asignar `instance_count` (orden de setup importa, falla si no).
+  6. Riesgo conocido GLES2/Android: transparencia se ordena por objeto completo, no por instancia
+     dentro del multimesh — con segmentos transparentes solapados podría haber artefactos de
+     sorting; el material de coolant actual no es transparente (es opaco con emisión), así que este
+     riesgo no aplica hoy pero anotar si se agrega transparencia después.
+
+  `[DECIDIR]` si se implementa esta noche (mejora opcional al cierre) o queda para otra sesión.
 
 #### §7.2 — Reparto de ejecución de la migración (sesión 2026-08-19)
 
