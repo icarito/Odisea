@@ -1,4 +1,4 @@
-[gd_scene load_steps=185 format=2]
+[gd_scene load_steps=166 format=2]
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
@@ -113,6 +113,7 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_CryoLoopWestPipes_body.tscn" type="PackedScene" id=382]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_CryoLoopEastPipes_baked.mesh" type="ArrayMesh" id=383]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_CryoLoopEastPipes_body.tscn" type="PackedScene" id=384]
+[ext_resource path="res://core_v2/props/pipe/PipeSection.tscn" type="PackedScene" id=5000]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL1Pipes_baked.mesh" type="ArrayMesh" id=500]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL1Pipes_body.tscn" type="PackedScene" id=501]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL2Pipes_baked.mesh" type="ArrayMesh" id=502]
@@ -123,16 +124,6 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL4Pipes_body.tscn" type="PackedScene" id=507]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5Pipes_baked.mesh" type="ArrayMesh" id=508]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5Pipes_body.tscn" type="PackedScene" id=509]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL1RingPipes_baked.mesh" type="ArrayMesh" id=530]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL1RingPipes_body.tscn" type="PackedScene" id=531]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL2RingPipes_baked.mesh" type="ArrayMesh" id=532]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL2RingPipes_body.tscn" type="PackedScene" id=533]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL3RingPipes_baked.mesh" type="ArrayMesh" id=534]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL3RingPipes_body.tscn" type="PackedScene" id=535]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL4RingPipes_baked.mesh" type="ArrayMesh" id=536]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL4RingPipes_body.tscn" type="PackedScene" id=537]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5RingPipes_baked.mesh" type="ArrayMesh" id=538]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5RingPipes_body.tscn" type="PackedScene" id=539]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SignagePanels_baked.mesh" type="ArrayMesh" id=387]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_SignagePanels_body.tscn" type="PackedScene" id=388]
 [ext_resource path="res://core_v2/systems/cryo/LeakPatchPoint.gd" type="Script" id=389]
@@ -150,16 +141,6 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL4Pipes_body.tscn" type="PackedScene" id=517]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5Pipes_baked.mesh" type="ArrayMesh" id=518]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5Pipes_body.tscn" type="PackedScene" id=519]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1RingPipes_baked.mesh" type="ArrayMesh" id=540]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1RingPipes_body.tscn" type="PackedScene" id=541]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL2RingPipes_baked.mesh" type="ArrayMesh" id=542]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL2RingPipes_body.tscn" type="PackedScene" id=543]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL3RingPipes_baked.mesh" type="ArrayMesh" id=544]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL3RingPipes_body.tscn" type="PackedScene" id=545]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL4RingPipes_baked.mesh" type="ArrayMesh" id=546]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL4RingPipes_body.tscn" type="PackedScene" id=547]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5RingPipes_baked.mesh" type="ArrayMesh" id=548]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5RingPipes_body.tscn" type="PackedScene" id=549]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=396]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconSpotV2.tscn" type="PackedScene" id=397]
 
@@ -1192,11 +1173,85 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring"]
-mesh = ExtResource( 530 )
-material/0 = SubResource( 550 )
+[node name="Arc0" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, -0.991445, -1.55291, 4.08, 11.7956 )
 
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 531 )]
+[node name="Arc1" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, -0.92388, -4.55291, 4.08, 10.9917 )
+
+[node name="Arc2" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, -0.793353, -7.24264, 4.08, 9.43879 )
+
+[node name="Arc3" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, -0.608761, -9.43879, 4.08, 7.24264 )
+
+[node name="Arc4" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, -0.382683, -10.9917, 4.08, 4.55291 )
+
+[node name="Arc5" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, -0.130526, -11.7956, 4.08, 1.55291 )
+
+[node name="Arc6" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, 0.130526, -11.7956, 4.08, -1.55291 )
+
+[node name="Arc7" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, 0.382683, -10.9917, 4.08, -4.55291 )
+
+[node name="Arc8" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, 0.608761, -9.43879, 4.08, -7.24264 )
+
+[node name="Arc9" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, 0.793353, -7.24264, 4.08, -9.43879 )
+
+[node name="Arc10" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, 0.92388, -4.55291, 4.08, -10.9917 )
+
+[node name="Arc11" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, 0.991445, -1.55291, 4.08, -11.7956 )
+
+[node name="Joint0" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, -0.922083, -3.10583, 4.08, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint1" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, -0.741702, -6, 4.08, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint2" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, -0.538121, -8.48528, 4.08, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint3" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, -0.345856, -10.3923, 4.08, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint4" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, -0.16862, -11.5911, 4.08, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint5" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0, 0, 1, 0, 1, 0, -0.1, 0, 0, -12, 4.08, 0 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint6" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, 0.16862, -11.5911, 4.08, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint7" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, 0.345856, -10.3923, 4.08, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint8" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, 0.538121, -8.48528, 4.08, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint9" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, 0.741702, -6, 4.08, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint10" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, 0.922083, -3.10583, 4.08, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="TowerCoolantRiser_L2" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
@@ -1219,11 +1274,85 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring"]
-mesh = ExtResource( 532 )
-material/0 = SubResource( 551 )
+[node name="Arc0" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, -0.991445, -1.55291, 8.58, 11.7956 )
 
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 533 )]
+[node name="Arc1" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, -0.92388, -4.55291, 8.58, 10.9917 )
+
+[node name="Arc2" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, -0.793353, -7.24264, 8.58, 9.43879 )
+
+[node name="Arc3" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, -0.608761, -9.43879, 8.58, 7.24264 )
+
+[node name="Arc4" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, -0.382683, -10.9917, 8.58, 4.55291 )
+
+[node name="Arc5" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, -0.130526, -11.7956, 8.58, 1.55291 )
+
+[node name="Arc6" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, 0.130526, -11.7956, 8.58, -1.55291 )
+
+[node name="Arc7" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, 0.382683, -10.9917, 8.58, -4.55291 )
+
+[node name="Arc8" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, 0.608761, -9.43879, 8.58, -7.24264 )
+
+[node name="Arc9" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, 0.793353, -7.24264, 8.58, -9.43879 )
+
+[node name="Arc10" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, 0.92388, -4.55291, 8.58, -10.9917 )
+
+[node name="Arc11" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, 0.991445, -1.55291, 8.58, -11.7956 )
+
+[node name="Joint0" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, -0.922083, -3.10583, 8.58, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint1" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, -0.741702, -6, 8.58, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint2" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, -0.538121, -8.48528, 8.58, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint3" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, -0.345856, -10.3923, 8.58, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint4" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, -0.16862, -11.5911, 8.58, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint5" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0, 0, 1, 0, 1, 0, -0.1, 0, 0, -12, 8.58, 0 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint6" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, 0.16862, -11.5911, 8.58, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint7" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, 0.345856, -10.3923, 8.58, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint8" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, 0.538121, -8.48528, 8.58, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint9" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, 0.741702, -6, 8.58, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint10" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, 0.922083, -3.10583, 8.58, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="TowerCoolantRiser_L3" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
@@ -1246,11 +1375,85 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring"]
-mesh = ExtResource( 534 )
-material/0 = SubResource( 552 )
+[node name="Arc0" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, -0.991445, -1.55291, 13.08, 11.7956 )
 
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 535 )]
+[node name="Arc1" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, -0.92388, -4.55291, 13.08, 10.9917 )
+
+[node name="Arc2" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, -0.793353, -7.24264, 13.08, 9.43879 )
+
+[node name="Arc3" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, -0.608761, -9.43879, 13.08, 7.24264 )
+
+[node name="Arc4" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, -0.382683, -10.9917, 13.08, 4.55291 )
+
+[node name="Arc5" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, -0.130526, -11.7956, 13.08, 1.55291 )
+
+[node name="Arc6" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, 0.130526, -11.7956, 13.08, -1.55291 )
+
+[node name="Arc7" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, 0.382683, -10.9917, 13.08, -4.55291 )
+
+[node name="Arc8" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, 0.608761, -9.43879, 13.08, -7.24264 )
+
+[node name="Arc9" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, 0.793353, -7.24264, 13.08, -9.43879 )
+
+[node name="Arc10" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, 0.92388, -4.55291, 13.08, -10.9917 )
+
+[node name="Arc11" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, 0.991445, -1.55291, 13.08, -11.7956 )
+
+[node name="Joint0" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, -0.922083, -3.10583, 13.08, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint1" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, -0.741702, -6, 13.08, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint2" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, -0.538121, -8.48528, 13.08, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint3" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, -0.345856, -10.3923, 13.08, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint4" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, -0.16862, -11.5911, 13.08, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint5" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0, 0, 1, 0, 1, 0, -0.1, 0, 0, -12, 13.08, 0 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint6" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, 0.16862, -11.5911, 13.08, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint7" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, 0.345856, -10.3923, 13.08, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint8" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, 0.538121, -8.48528, 13.08, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint9" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, 0.741702, -6, 13.08, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint10" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, 0.922083, -3.10583, 13.08, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="TowerCoolantRiser_L4" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
@@ -1273,11 +1476,85 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring"]
-mesh = ExtResource( 536 )
-material/0 = SubResource( 553 )
+[node name="Arc0" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, -0.991445, -1.55291, 17.58, 11.7956 )
 
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 537 )]
+[node name="Arc1" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, -0.92388, -4.55291, 17.58, 10.9917 )
+
+[node name="Arc2" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, -0.793353, -7.24264, 17.58, 9.43879 )
+
+[node name="Arc3" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, -0.608761, -9.43879, 17.58, 7.24264 )
+
+[node name="Arc4" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, -0.382683, -10.9917, 17.58, 4.55291 )
+
+[node name="Arc5" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, -0.130526, -11.7956, 17.58, 1.55291 )
+
+[node name="Arc6" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, 0.130526, -11.7956, 17.58, -1.55291 )
+
+[node name="Arc7" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, 0.382683, -10.9917, 17.58, -4.55291 )
+
+[node name="Arc8" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, 0.608761, -9.43879, 17.58, -7.24264 )
+
+[node name="Arc9" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, 0.793353, -7.24264, 17.58, -9.43879 )
+
+[node name="Arc10" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, 0.92388, -4.55291, 17.58, -10.9917 )
+
+[node name="Arc11" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, 0.991445, -1.55291, 17.58, -11.7956 )
+
+[node name="Joint0" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, -0.922083, -3.10583, 17.58, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint1" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, -0.741702, -6, 17.58, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint2" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, -0.538121, -8.48528, 17.58, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint3" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, -0.345856, -10.3923, 17.58, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint4" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, -0.16862, -11.5911, 17.58, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint5" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0, 0, 1, 0, 1, 0, -0.1, 0, 0, -12, 17.58, 0 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint6" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, 0.16862, -11.5911, 17.58, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint7" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, 0.345856, -10.3923, 17.58, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint8" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, 0.538121, -8.48528, 17.58, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint9" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, 0.741702, -6, 17.58, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint10" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, 0.922083, -3.10583, 17.58, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="TowerCoolantRiser_L5" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
@@ -1300,11 +1577,85 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring"]
-mesh = ExtResource( 538 )
-material/0 = SubResource( 554 )
+[node name="Arc6" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, -0.991445, -1.55291, 22.08, 11.7956 )
 
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 539 )]
+[node name="Arc7" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, -0.92388, -4.55291, 22.08, 10.9917 )
+
+[node name="Arc8" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, -0.793353, -7.24264, 22.08, 9.43879 )
+
+[node name="Arc9" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, -0.608761, -9.43879, 22.08, 7.24264 )
+
+[node name="Arc10" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, -0.382683, -10.9917, 22.08, 4.55291 )
+
+[node name="Arc11" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, -0.130526, -11.7956, 22.08, 1.55291 )
+
+[node name="Arc12" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, 0.991445, 0, 1, 0, -1.55291, 0, 0.130526, -11.7956, 22.08, -1.55291 )
+
+[node name="Arc13" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, 0.92388, 0, 1, 0, -1.44709, 0, 0.382683, -10.9917, 22.08, -4.55291 )
+
+[node name="Arc14" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953512, 0, 0.793353, 0, 1, 0, -1.24264, 0, 0.608761, -9.43879, 22.08, -7.24264 )
+
+[node name="Arc15" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, 0.608761, 0, 1, 0, -0.953512, 0, 0.793353, -7.24264, 22.08, -9.43879 )
+
+[node name="Arc16" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, 0.382683, 0, 1, 0, -0.599403, 0, 0.92388, -4.55291, 22.08, -10.9917 )
+
+[node name="Arc17" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, 0.130526, 0, 1, 0, -0.204445, 0, 0.991445, -1.55291, 22.08, -11.7956 )
+
+[node name="Joint6" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, -0.922083, -3.10583, 22.08, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint7" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, -0.741702, -6, 22.08, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint8" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, -0.538121, -8.48528, 22.08, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint9" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, -0.345856, -10.3923, 22.08, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint10" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, -0.16862, -11.5911, 22.08, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint11" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0, 0, 1, 0, 1, 0, -0.1, 0, 0, -12, 22.08, 0 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint12" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, 0.922083, 0, 1, 0, -0.0930829, 0, 0.16862, -11.5911, 22.08, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint13" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, 0.741702, 0, 1, 0, -0.0813518, 0, 0.345856, -10.3923, 22.08, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint14" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, 0.538121, 0, 1, 0, -0.0707107, 0, 0.538121, -8.48528, 22.08, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint15" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, 0.345856, 0, 1, 0, -0.0581539, 0, 0.741702, -6, 22.08, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint16" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, 0.16862, 0, 1, 0, -0.0365456, 0, 0.922083, -3.10583, 22.08, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="LeakWestRing0" type="Spatial" parent="TowerCoolantRiser"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 0 )
@@ -1697,11 +2048,85 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring"]
-mesh = ExtResource( 540 )
-material/0 = SubResource( 555 )
+[node name="Arc0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, 0.991445, 1.55291, 4.08, -11.7955 )
 
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 541 )]
+[node name="Arc1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, 0.92388, 4.55291, 4.08, -10.9917 )
+
+[node name="Arc2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, 0.793353, 7.24264, 4.08, -9.43879 )
+
+[node name="Arc3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, 0.608761, 9.43879, 4.08, -7.24264 )
+
+[node name="Arc4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, 0.382683, 10.9917, 4.08, -4.55291 )
+
+[node name="Arc5" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, 0.130526, 11.7955, 4.08, -1.55291 )
+
+[node name="Arc6" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, -0.130526, 11.7955, 4.08, 1.55291 )
+
+[node name="Arc7" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, -0.382683, 10.9917, 4.08, 4.55291 )
+
+[node name="Arc8" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, -0.608761, 9.43879, 4.08, 7.24264 )
+
+[node name="Arc9" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, -0.793353, 7.24264, 4.08, 9.43879 )
+
+[node name="Arc10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, -0.92388, 4.55291, 4.08, 10.9917 )
+
+[node name="Arc11" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, -0.991445, 1.55291, 4.08, 11.7955 )
+
+[node name="Joint0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, 0.922083, 3.10583, 4.08, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, 0.741701, 6, 4.08, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, 0.538121, 8.48528, 4.08, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, 0.345856, 10.3923, 4.08, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, 0.16862, 11.5911, 4.08, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint5" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0, 0, -1, 0, 1, 0, 0.1, 0, 0, 12, 4.08, 0 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint6" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, -0.16862, 11.5911, 4.08, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint7" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, -0.345856, 10.3923, 4.08, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint8" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, -0.538121, 8.48528, 4.08, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint9" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, -0.741701, 6, 4.08, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, -0.922083, 3.10583, 4.08, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="TowerCoolantRiserEast_L2" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
@@ -1724,11 +2149,85 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring"]
-mesh = ExtResource( 542 )
-material/0 = SubResource( 556 )
+[node name="Arc0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, 0.991445, 1.55291, 8.58, -11.7955 )
 
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 543 )]
+[node name="Arc1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, 0.92388, 4.55291, 8.58, -10.9917 )
+
+[node name="Arc2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, 0.793353, 7.24264, 8.58, -9.43879 )
+
+[node name="Arc3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, 0.608761, 9.43879, 8.58, -7.24264 )
+
+[node name="Arc4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, 0.382683, 10.9917, 8.58, -4.55291 )
+
+[node name="Arc5" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, 0.130526, 11.7955, 8.58, -1.55291 )
+
+[node name="Arc6" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, -0.130526, 11.7955, 8.58, 1.55291 )
+
+[node name="Arc7" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, -0.382683, 10.9917, 8.58, 4.55291 )
+
+[node name="Arc8" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, -0.608761, 9.43879, 8.58, 7.24264 )
+
+[node name="Arc9" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, -0.793353, 7.24264, 8.58, 9.43879 )
+
+[node name="Arc10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, -0.92388, 4.55291, 8.58, 10.9917 )
+
+[node name="Arc11" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, -0.991445, 1.55291, 8.58, 11.7955 )
+
+[node name="Joint0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, 0.922083, 3.10583, 8.58, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, 0.741701, 6, 8.58, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, 0.538121, 8.48528, 8.58, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, 0.345856, 10.3923, 8.58, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, 0.16862, 11.5911, 8.58, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint5" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0, 0, -1, 0, 1, 0, 0.1, 0, 0, 12, 8.58, 0 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint6" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, -0.16862, 11.5911, 8.58, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint7" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, -0.345856, 10.3923, 8.58, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint8" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, -0.538121, 8.48528, 8.58, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint9" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, -0.741701, 6, 8.58, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, -0.922083, 3.10583, 8.58, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="TowerCoolantRiserEast_L3" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
@@ -1751,11 +2250,85 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring"]
-mesh = ExtResource( 544 )
-material/0 = SubResource( 557 )
+[node name="Arc0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, 0.991445, 1.55291, 13.08, -11.7955 )
 
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 545 )]
+[node name="Arc1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, 0.92388, 4.55291, 13.08, -10.9917 )
+
+[node name="Arc2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, 0.793353, 7.24264, 13.08, -9.43879 )
+
+[node name="Arc3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, 0.608761, 9.43879, 13.08, -7.24264 )
+
+[node name="Arc4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, 0.382683, 10.9917, 13.08, -4.55291 )
+
+[node name="Arc5" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, 0.130526, 11.7955, 13.08, -1.55291 )
+
+[node name="Arc6" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, -0.130526, 11.7955, 13.08, 1.55291 )
+
+[node name="Arc7" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, -0.382683, 10.9917, 13.08, 4.55291 )
+
+[node name="Arc8" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, -0.608761, 9.43879, 13.08, 7.24264 )
+
+[node name="Arc9" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, -0.793353, 7.24264, 13.08, 9.43879 )
+
+[node name="Arc10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, -0.92388, 4.55291, 13.08, 10.9917 )
+
+[node name="Arc11" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, -0.991445, 1.55291, 13.08, 11.7955 )
+
+[node name="Joint0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, 0.922083, 3.10583, 13.08, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, 0.741701, 6, 13.08, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, 0.538121, 8.48528, 13.08, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, 0.345856, 10.3923, 13.08, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, 0.16862, 11.5911, 13.08, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint5" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0, 0, -1, 0, 1, 0, 0.1, 0, 0, 12, 13.08, 0 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint6" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, -0.16862, 11.5911, 13.08, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint7" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, -0.345856, 10.3923, 13.08, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint8" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, -0.538121, 8.48528, 13.08, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint9" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, -0.741701, 6, 13.08, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, -0.922083, 3.10583, 13.08, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="TowerCoolantRiserEast_L4" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
@@ -1778,11 +2351,85 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring"]
-mesh = ExtResource( 546 )
-material/0 = SubResource( 558 )
+[node name="Arc0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, 0.991445, 1.55291, 17.58, -11.7955 )
 
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 547 )]
+[node name="Arc1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, 0.92388, 4.55291, 17.58, -10.9917 )
+
+[node name="Arc2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, 0.793353, 7.24264, 17.58, -9.43879 )
+
+[node name="Arc3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, 0.608761, 9.43879, 17.58, -7.24264 )
+
+[node name="Arc4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, 0.382683, 10.9917, 17.58, -4.55291 )
+
+[node name="Arc5" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, 0.130526, 11.7955, 17.58, -1.55291 )
+
+[node name="Arc6" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, -0.130526, 11.7955, 17.58, 1.55291 )
+
+[node name="Arc7" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, -0.382683, 10.9917, 17.58, 4.55291 )
+
+[node name="Arc8" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, -0.608761, 9.43879, 17.58, 7.24264 )
+
+[node name="Arc9" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, -0.793353, 7.24264, 17.58, 9.43879 )
+
+[node name="Arc10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, -0.92388, 4.55291, 17.58, 10.9917 )
+
+[node name="Arc11" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, -0.991445, 1.55291, 17.58, 11.7955 )
+
+[node name="Joint0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, 0.922083, 3.10583, 17.58, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, 0.741701, 6, 17.58, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, 0.538121, 8.48528, 17.58, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, 0.345856, 10.3923, 17.58, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, 0.16862, 11.5911, 17.58, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint5" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0, 0, -1, 0, 1, 0, 0.1, 0, 0, 12, 17.58, 0 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint6" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, -0.16862, 11.5911, 17.58, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint7" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, -0.345856, 10.3923, 17.58, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint8" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, -0.538121, 8.48528, 17.58, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint9" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, -0.741701, 6, 17.58, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint10" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, -0.922083, 3.10583, 17.58, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="TowerCoolantRiserEast_L5" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
@@ -1805,11 +2452,81 @@ flow_intensity = 1.5
 base_emission = 1.8
 use_local_axis_override = true
 
-[node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring"]
-mesh = ExtResource( 548 )
-material/0 = SubResource( 559 )
+[node name="Arc0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, -0.130526, 11.7955, 22.08, 1.55291 )
 
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 549 )]
+[node name="Arc1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, -0.382683, 10.9917, 22.08, 4.55291 )
+
+[node name="Arc2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, -0.608761, 9.43879, 22.08, 7.24264 )
+
+[node name="Arc3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, -0.793353, 7.24264, 22.08, 9.43879 )
+
+[node name="Arc4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, -0.92388, 4.55291, 22.08, 10.9917 )
+
+[node name="Arc5" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, -0.991445, 1.55291, 22.08, 11.7955 )
+
+[node name="Arc18" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.55291, 0, -0.130526, 0, 1, 0, 0.204445, 0, 0.991445, 1.55291, 22.08, -11.7955 )
+
+[node name="Arc19" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.44709, 0, -0.382683, 0, 1, 0, 0.599403, 0, 0.92388, 4.55291, 22.08, -10.9917 )
+
+[node name="Arc20" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 1.24264, 0, -0.608761, 0, 1, 0, 0.953514, 0, 0.793353, 7.24264, 22.08, -9.43879 )
+
+[node name="Arc21" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.953514, 0, -0.793353, 0, 1, 0, 1.24264, 0, 0.608761, 9.43879, 22.08, -7.24264 )
+
+[node name="Arc22" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.599403, 0, -0.92388, 0, 1, 0, 1.44709, 0, 0.382683, 10.9917, 22.08, -4.55291 )
+
+[node name="Arc23" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.204445, 0, -0.991445, 0, 1, 0, 1.55291, 0, 0.130526, 11.7955, 22.08, -1.55291 )
+
+[node name="Joint0" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, -0.16862, 11.5911, 22.08, 3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint1" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, -0.345856, 10.3923, 22.08, 6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint2" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, -0.538121, 8.48528, 22.08, 8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint3" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, -0.741701, 6, 22.08, 10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint4" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( -0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, -0.922083, 3.10583, 22.08, 11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint18" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0930829, 0, -0.16862, 0, 1, 0, 0.0365456, 0, 0.922083, 3.10583, 22.08, -11.5911 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint19" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0813518, 0, -0.345856, 0, 1, 0, 0.0581539, 0, 0.741701, 6, 22.08, -10.3923 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint20" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0707107, 0, -0.538121, 0, 1, 0, 0.0707107, 0, 0.538121, 8.48528, 22.08, -8.48528 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint21" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0581539, 0, -0.741701, 0, 1, 0, 0.0813518, 0, 0.345856, 10.3923, 22.08, -6 )
+scale_object_local = Vector3( 1, 0.3, 1 )
+
+[node name="Joint22" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring" instance=ExtResource( 5000 )]
+transform = Transform( 0.0365456, 0, -0.922083, 0, 1, 0, 0.0930829, 0, 0.16862, 11.5911, 22.08, -3.10583 )
+scale_object_local = Vector3( 1, 0.3, 1 )
 
 [node name="LeakEastRing0" type="Spatial" parent="TowerCoolantRiserEast"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 0 )
