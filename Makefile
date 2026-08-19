@@ -32,6 +32,12 @@ export: export-linux-arm64 export-pck
 
 all: render
 
+# Rehornea la red de tuberías de refrigerante (FD-270) desde
+# core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn a los .mesh/.tscn
+# combinados que instancia Dome_Intro.tscn. Correr tras editar la fuente.
+bake:
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_pipe_network.gd
+
 dashboard-dev:
 	@set -a; \
 	[ ! -f .env ] || . ./.env; \
@@ -213,4 +219,4 @@ android-install: android-debug-signed
 	adb install -r -d "$(ANDROID_TEST_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies
+.PHONY: all bake export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies
