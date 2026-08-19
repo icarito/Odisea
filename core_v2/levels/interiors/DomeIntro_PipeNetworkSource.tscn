@@ -115,7 +115,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg0" parent="TowerCoolantRiser/TowerCoolantRiser_L1" instance=ExtResource( 1 )]
-transform = Transform( -8.91711e-08, -2.04, 0, 1, -4.37114e-08, 0, 0, 0, 1, -12, 2.04, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.075, -1.34413e-07, 0, 0, 0, 1, -12, 3.075, 0 )
 
 [node name="JunctionFloor1" parent="TowerCoolantRiser/TowerCoolantRiser_L1" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 4.08, 0 )
@@ -215,7 +215,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg1" parent="TowerCoolantRiser/TowerCoolantRiser_L2" instance=ExtResource( 1 )]
-transform = Transform( -9.83505e-08, -2.25, 0, 1, -4.37114e-08, 0, 0, 0, 1, -12, 6.33, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.285, -1.43592e-07, 0, 0, 0, 1, -12, 7.365, 0 )
 
 [node name="JunctionFloor2" parent="TowerCoolantRiser/TowerCoolantRiser_L2" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 8.58, 0 )
@@ -315,7 +315,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg2" parent="TowerCoolantRiser/TowerCoolantRiser_L3" instance=ExtResource( 1 )]
-transform = Transform( -9.83505e-08, -2.25, 0, 1, -4.37114e-08, 0, 0, 0, 1, -12, 10.83, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.285, -1.43592e-07, 0, 0, 0, 1, -12, 11.865, 0 )
 
 [node name="JunctionFloor3" parent="TowerCoolantRiser/TowerCoolantRiser_L3" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 13.08, 0 )
@@ -415,7 +415,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg3" parent="TowerCoolantRiser/TowerCoolantRiser_L4" instance=ExtResource( 1 )]
-transform = Transform( -9.83505e-08, -2.25, 0, 1, -4.37114e-08, 0, 0, 0, 1, -12, 15.33, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.285, -1.43592e-07, 0, 0, 0, 1, -12, 16.365, 0 )
 
 [node name="JunctionFloor4" parent="TowerCoolantRiser/TowerCoolantRiser_L4" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 17.58, 0 )
@@ -515,7 +515,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg4" parent="TowerCoolantRiser/TowerCoolantRiser_L5" instance=ExtResource( 1 )]
-transform = Transform( -9.83505e-08, -2.25, 0, 1, -4.37114e-08, 0, 0, 0, 1, -12, 19.83, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.285, -1.43592e-07, 0, 0, 0, 1, -12, 20.865, 0 )
 
 [node name="JunctionFloor5" parent="TowerCoolantRiser/TowerCoolantRiser_L5" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -12, 22.08, 0 )
@@ -935,7 +935,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg0East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1" instance=ExtResource( 1 )]
-transform = Transform( -8.91711e-08, -2.04, 0, 1, -4.37114e-08, 0, 0, 0, 1, 12, 2.04, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.075, -1.34413e-07, 0, 0, 0, 1, 12, 3.075, 0 )
 
 [node name="JunctionFloor1East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 12, 4.08, 0 )
@@ -1035,7 +1035,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg1East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2" instance=ExtResource( 1 )]
-transform = Transform( -9.83505e-08, -2.25, 0, 1, -4.37114e-08, 0, 0, 0, 1, 12, 6.33, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.285, -1.43592e-07, 0, 0, 0, 1, 12, 7.365, 0 )
 
 [node name="JunctionFloor2East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 12, 8.58, 0 )
@@ -1135,7 +1135,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg2East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3" instance=ExtResource( 1 )]
-transform = Transform( -9.83505e-08, -2.25, 0, 1, -4.37114e-08, 0, 0, 0, 1, 12, 10.83, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.285, -1.43592e-07, 0, 0, 0, 1, 12, 11.865, 0 )
 
 [node name="JunctionFloor3East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 12, 13.08, 0 )
@@ -1235,7 +1235,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg3East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4" instance=ExtResource( 1 )]
-transform = Transform( -9.83505e-08, -2.25, 0, 1, -4.37114e-08, 0, 0, 0, 1, 12, 15.33, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.285, -1.43592e-07, 0, 0, 0, 1, 12, 16.365, 0 )
 
 [node name="JunctionFloor4East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 12, 17.58, 0 )
@@ -1335,7 +1335,7 @@ flow_intensity = 1.5
 base_emission = 1.8
 
 [node name="RiserSeg4East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5" instance=ExtResource( 1 )]
-transform = Transform( -9.83505e-08, -2.25, 0, 1, -4.37114e-08, 0, 0, 0, 1, 12, 19.83, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 3.285, -1.43592e-07, 0, 0, 0, 1, 12, 20.865, 0 )
 
 [node name="JunctionFloor5East" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5" instance=ExtResource( 2 )]
 transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 12, 22.08, 0 )
