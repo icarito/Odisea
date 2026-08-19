@@ -1,8 +1,8 @@
 extends SceneTree
 
 # bake_pipe_network.gd — Merges each coolant "Pipes" group (CryoLoopWest, CryoLoopEast,
-# TowerCoolantRiser) in Dome_Intro into one combined MeshInstance plus one StaticBody
-# sub-scene, same pattern as tools/bake_scaffold_walkways.gd.
+# TowerCoolantRiser, TowerCoolantRiserEast, BridgeFloor5) in Dome_Intro into one combined
+# MeshInstance plus one StaticBody sub-scene, same pattern as tools/bake_scaffold_walkways.gd.
 #
 # Each group is built from several PipeSection/PipeTee instances, each with its own
 # MeshInstance + StaticBody/CollisionShape — one draw call and one collision object per
@@ -21,7 +21,7 @@ extends SceneTree
 #         core_v2/levels/interiors/DomeIntro_<Group>Pipes_body.tscn
 
 const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn"
-const GROUPS := ["CryoLoopWest", "CryoLoopEast", "TowerCoolantRiser"]
+const GROUPS := ["CryoLoopWest", "CryoLoopEast", "TowerCoolantRiser", "TowerCoolantRiserEast", "BridgeFloor5"]
 const OUT_DIR := "res://core_v2/levels/interiors/"
 
 var _texture_keys := {}
