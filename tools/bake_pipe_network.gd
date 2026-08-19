@@ -1,8 +1,12 @@
 extends SceneTree
 
-# bake_pipe_network.gd — Merges each coolant "Pipes" group (CryoLoopWest, CryoLoopEast,
-# TowerCoolantRiser, TowerCoolantRiserEast) in Dome_Intro into one combined MeshInstance plus
-# one StaticBody sub-scene, same pattern as tools/bake_scaffold_walkways.gd.
+# bake_pipe_network.gd — Merges each coolant "Pipes" group in Dome_Intro into one combined
+# MeshInstance plus one StaticBody sub-scene, same pattern as tools/bake_scaffold_walkways.gd.
+#
+# CryoLoopWest/CryoLoopEast bake as a single group each (no intermediate valves, no split
+# needed). TowerCoolantRiser/TowerCoolantRiserEast are split into 5 per-floor groups each
+# (_L1.._L5) since FD-270 partitioned the riser so every floor valve cuts its OWN segment's
+# flow_intensity instead of the whole riser's — see DomeIntro_PipeNetworkSource.tscn.
 #
 # No separate bridge/interconnect group: the two circuits meet directly where their Piso 5
 # semicircles close the ring (RingFloor5 west + RingFloor5East east complete one circle), with
@@ -21,11 +25,26 @@ extends SceneTree
 # subscene or this bake — they stay hand-placed and live in Dome_Intro.
 #
 # Run: godot3-bin --no-window -s tools/bake_pipe_network.gd
-# Output: core_v2/levels/interiors/DomeIntro_<Group>Pipes_baked.mesh
-#         core_v2/levels/interiors/DomeIntro_<Group>Pipes_body.tscn
+# Output: core_v2/levels/interiors/DomeIntro_<GroupName>Pipes_baked.mesh
+#         core_v2/levels/interiors/DomeIntro_<GroupName>Pipes_body.tscn
 
 const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn"
-const GROUPS := ["CryoLoopWest", "CryoLoopEast", "TowerCoolantRiser", "TowerCoolantRiserEast"]
+
+# Each entry: [output GroupName, node path to the PipeCoolantRun to bake].
+const GROUPS := [
+	["CryoLoopWest", "CryoLoopWest/Pipes"],
+	["CryoLoopEast", "CryoLoopEast/Pipes"],
+	["TowerCoolantRiserL1", "TowerCoolantRiser/TowerCoolantRiser_L1"],
+	["TowerCoolantRiserL2", "TowerCoolantRiser/TowerCoolantRiser_L2"],
+	["TowerCoolantRiserL3", "TowerCoolantRiser/TowerCoolantRiser_L3"],
+	["TowerCoolantRiserL4", "TowerCoolantRiser/TowerCoolantRiser_L4"],
+	["TowerCoolantRiserL5", "TowerCoolantRiser/TowerCoolantRiser_L5"],
+	["TowerCoolantRiserEastL1", "TowerCoolantRiserEast/TowerCoolantRiserEast_L1"],
+	["TowerCoolantRiserEastL2", "TowerCoolantRiserEast/TowerCoolantRiserEast_L2"],
+	["TowerCoolantRiserEastL3", "TowerCoolantRiserEast/TowerCoolantRiserEast_L3"],
+	["TowerCoolantRiserEastL4", "TowerCoolantRiserEast/TowerCoolantRiserEast_L4"],
+	["TowerCoolantRiserEastL5", "TowerCoolantRiserEast/TowerCoolantRiserEast_L5"],
+]
 const OUT_DIR := "res://core_v2/levels/interiors/"
 
 var _texture_keys := {}
@@ -62,17 +81,19 @@ func _run() -> void:
 		yield(self, "idle_frame")
 
 	var selected_group: String = OS.get_environment("ODISEA_BAKE_GROUP")
-	for group_name in GROUPS:
+	for entry in GROUPS:
+		var group_name: String = entry[0]
+		var node_path: String = entry[1]
 		if not selected_group.empty() and group_name != selected_group:
 			continue
-		_bake_group(root, group_name)
+		_bake_group(root, group_name, node_path)
 
 	quit(0)
 
-func _bake_group(root: Node, group_name: String) -> void:
-	var pipes: Spatial = root.get_node_or_null(group_name + "/Pipes")
+func _bake_group(root: Node, group_name: String, node_path: String) -> void:
+	var pipes: Spatial = root.get_node_or_null(node_path)
 	if pipes == null:
-		push_error("[bake_pipes] group not found: %s/Pipes" % group_name)
+		push_error("[bake_pipes] group not found: %s" % node_path)
 		return
 
 	if pipes.get_node_or_null("CombinedMesh") != null:
