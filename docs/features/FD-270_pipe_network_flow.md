@@ -273,19 +273,28 @@ dos tanques (`CoolantTank` x=-15, `CoolantTankEast` x=16,z=4). Diseño confirmad
   baja + pisos 1-5) → sumidero en Piso 5.
 - **Circuito ESTE**: `CoolantTankEast` → `CryoLoopEast` (Piso 1, y=8.1, mismo tratamiento) → riser
   central (lado este) → 6 válvulas por nivel → sumidero en Piso 5.
-- El riser central (`TowerCoolantRiser`+`TowerCoolantRiserEast`) lleva **dos tuberías paralelas**.
-  `RingFloorN`/`RingFloorNEast` (D7, resuelto): semicírculos de `PipeSection`+`PipeCoolantRun.gd`
-  (flujo de shader real, participan como tramos lógicos), radio 12.0 oeste / 12.6 este, 24
-  segmentos por círculo completo. Pisos 0-4: cada circuito cubre solo su mitad del anillo (12
-  segmentos). Piso 5: círculo completo por lado (24 segmentos), coherente con que ahí ya conecta
-  el puente. **No** son `CSGTorus` — el bake tool solo recolecta `MeshInstance`, y el flujo de
-  shader/topología lógica los necesita como tramos reales, no geometría CSG decorativa.
-- **Puente de interconexión en Piso 5**: 1 tramo + 1 `PipeValve`, `starts_active = false` por
-  defecto. Con el puente cerrado, cada circuito sigue siendo un árbol independiente sin ciclo — la
-  restricción dura de §1 se mantiene. Abrir el puente es puzle adicional (un tanque puede alimentar
-  al otro circuito); la mezcla de caudal por esa arista **no** la calcula el barrido O(n) del
-  adapter, ver D6.
-- Total: 6 + 6 + 1 (puente) = **13 válvulas**.
+- El riser central (`TowerCoolantRiser`+`TowerCoolantRiserEast`) lleva **dos tuberías paralelas**,
+  MISMO radio (12.0) ambos lados — no hace falta offset de radio porque cada lado solo cubre su
+  semicírculo (D7, resuelto: `PipeSection`+`PipeCoolantRun.gd`, flujo de shader real, tramos
+  lógicos, 24 segmentos por círculo completo). Pisos 0-4: cada circuito cubre solo su mitad del
+  anillo (12 segmentos). Piso 5: único piso que cierra CÍRCULO COMPLETO — el semicírculo oeste
+  (`RingFloor5`) y este (`RingFloor5East`) se tocan en sus dos extremos. **No** son `CSGTorus` — el
+  bake tool solo recolecta `MeshInstance`.
+  - **Corrección en vivo:** la primera geometría generó `RingFloor5`/`RingFloor5East` como DOS
+    círculos completos superpuestos (bug, no semicírculos complementarios) — corregido, cada uno
+    recortado a su mitad real.
+  - Juntas entre segmentos de arco (`Joint*`): NO `PipeTee` (visualmente ruidoso, 4 brazos) —
+    `PipeSection` corto orientado a la bisectriz del ángulo entre arcos vecinos.
+- **Interconexión entre circuitos (revisado — sin puente separado):** en uno de los dos puntos
+  donde el semicírculo oeste y este de Piso 5 se tocan (cerrando el círculo), vive `ValveInterlink`
+  (`starts_active = false`, cerrada por defecto) — reemplaza directamente lo que hubiera sido una
+  junta normal, sin tramo/puente adicional cruzando el diámetro del domo (una primera versión sí
+  tenía ese puente largo — `BridgeFloor5`, 4 `PipeSection` escalados — se eliminó por completo,
+  redundante una vez que el círculo cerrado de Piso 5 ya conecta ambos lados físicamente). Con la
+  válvula cerrada, cada circuito sigue siendo un árbol independiente sin ciclo (§1). Abrirla es
+  puzle adicional (un tanque puede alimentar al otro circuito); la mezcla de caudal por esa arista
+  **no** la calcula el barrido O(n) del adapter, ver D6.
+- Total: 6 (oeste) + 6 (este) + 1 (`ValveInterlink`) = **13 válvulas**.
 - 2-3 fugas activas por partida se sortean en runtime con seed determinista (`RandomLeakSeeder`,
   nuevo, ver tarea JM1) entre las ~12 fugas candidatas de autoría (una por piso por circuito).
 
