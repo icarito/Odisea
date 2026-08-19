@@ -314,6 +314,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/cryo/CoolantLeak.gd"
 }, {
+"base": "Control",
+"class": "CoolantSchematicPanel",
+"language": "GDScript",
+"path": "res://core_v2/things/CoolantSchematicPanel.gd"
+}, {
 "base": "StaticBody",
 "class": "CoolantTank",
 "language": "GDScript",
@@ -2211,6 +2216,7 @@ _global_script_class_icons={
 "CoolantFogAdapter": "",
 "CoolantLab": "",
 "CoolantLeak": "",
+"CoolantSchematicPanel": "",
 "CoolantTank": "",
 "CryoVentBase": "",
 "CylinderRotator": "",

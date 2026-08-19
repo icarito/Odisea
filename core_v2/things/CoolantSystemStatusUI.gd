@@ -50,12 +50,6 @@ func _ready() -> void:
 	_setup_tank_card()
 
 
-func _physics_process(_delta: float) -> void:
-	if Engine.editor_hint:
-		return
-	_update_tank_display()
-
-
 func _make_card(title: String) -> VBoxContainer:
 	# El fondo/borde de la columna ya lo pinta el nodo "Background" de la escena (mismo
 	# theme retro_scifi.tres heredado): anidar otro Panel con estilo propio aca adentro se
@@ -87,6 +81,7 @@ func _setup_tank_card() -> void:
 	if sources.empty():
 		var gauge := _add_tank_row(body, "TANQUE")
 		_tank_label = gauge.value_label
+		_update_gauge(gauge, 1.0)
 	else:
 		for tank in sources:
 			var suffix := "" if sources.size() < 2 else (" ESTE" if "east" in tank.name.to_lower() else " OESTE")
@@ -96,7 +91,15 @@ func _setup_tank_card() -> void:
 			if _tank_label == null:
 				_tank_label = gauge.value_label
 
-	_update_tank_display()
+			var level: float = float(tank.get("tank_level")) if "tank_level" in tank else 1.0
+			_update_gauge(gauge, level)
+			# El display es static_content dentro de un HoloTerminalV2 (Viewport en
+			# UPDATE_DISABLED): sin esto, cada tanque poleaba su nivel a 60Hz por frame de
+			# fisica para un dato que cambia unas pocas veces por partida. CoolantTank ya
+			# emite level_changed — conectarse ahi deja el panel en reposo (0 costo de CPU)
+			# salvo cuando el nivel realmente cambia.
+			if tank.has_signal("level_changed") and not tank.is_connected("level_changed", self, "_on_tank_level_changed"):
+				tank.connect("level_changed", self, "_on_tank_level_changed", [tank])
 
 
 # Mismo lenguaje visual que RoomDialsPanel._draw_dial(): titulo arriba, arco grande centrado,
@@ -126,35 +129,29 @@ func _add_tank_row(body: VBoxContainer, title: String) -> Node:
 	return gauge
 
 
-func _update_tank_display() -> void:
-	if _tank_gauges.empty():
-		if _tank_label != null and _tank_label.text != "100%":
-			_tank_label.text = "100%"
-			_tank_label.add_color_override("font_color", COLOR_OPEN)
-			_request_redraw()
-		return
+func _on_tank_level_changed(new_level: float, tank: Node) -> void:
+	var gauge: Node = _tank_gauges.get(tank)
+	if gauge != null:
+		_update_gauge(gauge, new_level)
 
-	for tank in _tank_gauges:
-		var gauge: Node = _tank_gauges[tank]
-		if gauge == null or not is_instance_valid(tank):
-			continue
-		var level: float = float(tank.get("tank_level")) if "tank_level" in tank else 1.0
-		if not is_equal_approx(gauge.level, level):
-			gauge.level = level
-			gauge.update()
-			_request_redraw()
 
-		var label: Label = gauge.value_label
-		var tank_text := "%d%%" % int(round(level * 100.0))
-		if label.text != tank_text:
-			label.text = tank_text
-			_request_redraw()
-		if level > 0.5:
-			label.add_color_override("font_color", COLOR_OPEN)
-		elif level > 0.15:
-			label.add_color_override("font_color", COLOR_WARN)
-		else:
-			label.add_color_override("font_color", COLOR_CLOSED)
+func _update_gauge(gauge: Node, level: float) -> void:
+	if not is_equal_approx(gauge.level, level):
+		gauge.level = level
+		gauge.update()
+		_request_redraw()
+
+	var label: Label = gauge.value_label
+	var tank_text := "%d%%" % int(round(level * 100.0))
+	if label.text != tank_text:
+		label.text = tank_text
+		_request_redraw()
+	if level > TANK_LEVEL_WARN:
+		label.add_color_override("font_color", COLOR_OPEN)
+	elif level > TANK_LEVEL_CRITICAL:
+		label.add_color_override("font_color", COLOR_WARN)
+	else:
+		label.add_color_override("font_color", COLOR_CLOSED)
 
 
 func _sort_by_floor_name(a: Node, b: Node) -> bool:

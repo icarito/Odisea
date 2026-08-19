@@ -41,35 +41,45 @@ const CONTENT_LEFT := X_WEST - 32.0
 const CONTENT_WIDTH := (X_EAST + 40.0) - CONTENT_LEFT
 
 var _connected_valves := []
-var _last_state_hash := 0
 
 
 func _ready() -> void:
+	# Este panel vive dentro de un HoloTerminalV2 con static_content=true (Viewport en
+	# UPDATE_DISABLED): antes recalculaba un hash sobre 13 valvulas + 24 fisuras CADA
+	# frame de fisica, con reflection dinamica (.get()/.call()/has_method()) para
+	# detectar si algo cambio. El caudal solo cambia cuando el jugador toca una valvula
+	# o una fuga cruza de estado — ambos ya emiten señal. Conectarse a esas señales deja
+	# el panel en reposo (0 costo de CPU) salvo cuando el diagrama realmente cambia.
 	_setup_valve_connections()
+	_setup_fissure_connections()
 	update()
-
-
-func _physics_process(_delta: float) -> void:
-	if Engine.editor_hint:
-		return
-	var current_hash: int = _compute_state_hash()
-	if current_hash != _last_state_hash:
-		_last_state_hash = current_hash
-		update()
-		_request_redraw()
 
 
 func _setup_valve_connections() -> void:
 	var valves: Array = get_tree().get_nodes_in_group("coolant_valve")
 	for valve in valves:
 		if is_instance_valid(valve) and valve.has_signal("valve_state_changed"):
-			if not valve.is_connected("valve_state_changed", self, "_on_valve_state_changed"):
-				valve.connect("valve_state_changed", self, "_on_valve_state_changed")
+			if not valve.is_connected("valve_state_changed", self, "_on_state_changed"):
+				valve.connect("valve_state_changed", self, "_on_state_changed")
 				_connected_valves.append(valve)
 
 
-func _on_valve_state_changed(_is_open: bool = false) -> void:
-	_last_state_hash = _compute_state_hash()
+func _setup_fissure_connections() -> void:
+	var patch_points: Array = get_tree().get_nodes_in_group("gloo_patchable")
+	for patch_point in patch_points:
+		if not is_instance_valid(patch_point):
+			continue
+		if patch_point.has_signal("patch_applied") and not patch_point.is_connected("patch_applied", self, "_on_state_changed"):
+			patch_point.connect("patch_applied", self, "_on_state_changed")
+		if patch_point.has_signal("patch_expired") and not patch_point.is_connected("patch_expired", self, "_on_state_changed"):
+			patch_point.connect("patch_expired", self, "_on_state_changed")
+		var leak = patch_point.get("_leak") if "_leak" in patch_point else null
+		if leak and is_instance_valid(leak) and leak.has_signal("state_changed"):
+			if not leak.is_connected("state_changed", self, "_on_state_changed"):
+				leak.connect("state_changed", self, "_on_state_changed")
+
+
+func _on_state_changed(_arg = null) -> void:
 	update()
 	_request_redraw()
 
@@ -301,25 +311,6 @@ func _get_valve_color(valve_node: Node, is_live: bool) -> Color:
 		return COLOR_VALVE_OPEN
 	else:
 		return COLOR_VALVE_CLOSED
-
-
-func _compute_state_hash() -> int:
-	var h := 0
-	var valves: Array = get_tree().get_nodes_in_group("coolant_valve")
-	for v in valves:
-		if is_instance_valid(v):
-			var active: bool = bool(v.get("is_active")) if "is_active" in v else false
-			h = h * 31 + (1 if active else 0)
-
-	var patch_points: Array = get_tree().get_nodes_in_group("gloo_patchable")
-	for p in patch_points:
-		if is_instance_valid(p):
-			var patched: bool = p.call("is_patched") if p.has_method("is_patched") else false
-			var firm: bool = p.call("is_firmly_patched") if p.has_method("is_firmly_patched") else false
-			var leak = p.get("_leak") if "_leak" in p else null
-			var st: int = int(leak.call("get_state")) if (leak and is_instance_valid(leak) and leak.has_method("get_state")) else 0
-			h = h * 31 + (1 if patched else 0) + (2 if firm else 0) + st * 10
-	return h
 
 
 func _sort_by_floor_name(a: Node, b: Node) -> bool:

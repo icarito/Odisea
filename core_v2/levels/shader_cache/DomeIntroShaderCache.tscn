@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://addons/gd-shader-cache/src/ShaderCache.gd" type="Script" id=1]
+
+[node name="DomeIntroShaderCache" type="Spatial"]
+script = ExtResource( 1 )
+active = false
+scene_path = "res://core_v2/levels/interiors/Dome_Intro.tscn"
+cache_packed_scene_recusively = true
+cache_material_in_animation_player = true
+active_frame_count = 4

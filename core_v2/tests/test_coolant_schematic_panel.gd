@@ -63,9 +63,3 @@ func test_panel_draw_with_live_valves_and_fissures() -> void:
 	valve_east.queue_free()
 	valve_interlink.queue_free()
 	assert_bool(true).is_true()
-
-
-func test_panel_physics_process_state_hash_change() -> void:
-	_panel._physics_process(0.016)
-	_panel.notification(CanvasItem.NOTIFICATION_DRAW)
-	assert_bool(true).is_true()

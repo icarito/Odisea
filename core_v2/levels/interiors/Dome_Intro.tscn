@@ -3261,12 +3261,14 @@ script = ExtResource( 5002 )
 room_path = NodePath("/root/Dome_Intro/DomeRoom3D")
 
 [node name="Beacon" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay" instance=ExtResource( 396 )]
-transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0.85, -0.25 )
+transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 2.4, 0.15 )
+starts_active = false
 light_activation_distance = 20.0
 
 [node name="BeaconSpot" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay" instance=ExtResource( 397 )]
-transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0.85, -0.25 )
+transform = Transform( 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 2.4, 0.15 )
 visible = false
+starts_active = false
 light_activation_distance = 20.0
 
 [node name="ElevatorAnchor" type="Position3D" parent="."]
