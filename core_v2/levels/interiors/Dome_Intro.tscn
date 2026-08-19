@@ -131,6 +131,7 @@
 [ext_resource path="res://core_v2/systems/pipe/PipeNetworkResource.gd" type="Script" id=391]
 [ext_resource path="res://core_v2/systems/cryo/CoolantFlowAdapter.gd" type="Script" id=392]
 [ext_resource path="res://core_v2/systems/room/Room3D.tscn" type="PackedScene" id=393]
+[ext_resource path="res://core_v2/systems/cryo/RandomLeakSeeder.gd" type="Script" id=5001]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1Pipes_baked.mesh" type="ArrayMesh" id=510]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1Pipes_body.tscn" type="PackedScene" id=511]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL2Pipes_baked.mesh" type="ArrayMesh" id=512]
@@ -860,6 +861,12 @@ height = 0.05
 radial_segments = 12
 
 [node name="Dome_Intro" type="Spatial"]
+
+[node name="RandomLeakSeeder" type="Node" parent="."]
+script = ExtResource( 5001 )
+seed = 42
+leak_count = 2
+candidate_leak_paths = [ NodePath("TowerCoolantRiser/LeakWestFloor0"), NodePath("CryoLoopWest/LeakWestFloor1"), NodePath("TowerCoolantRiser/LeakWestFloor2"), NodePath("TowerCoolantRiser/LeakWestFloor3"), NodePath("TowerCoolantRiser/LeakWestFloor4"), NodePath("TowerCoolantRiser/LeakWestFloor5"), NodePath("TowerCoolantRiser/LeakWestRing0"), NodePath("TowerCoolantRiser/LeakWestRing1"), NodePath("TowerCoolantRiser/LeakWestRing2"), NodePath("TowerCoolantRiser/LeakWestRing3"), NodePath("TowerCoolantRiser/LeakWestRing4"), NodePath("TowerCoolantRiser/LeakWestRing5"), NodePath("TowerCoolantRiserEast/LeakEastFloor0"), NodePath("CryoLoopEast/LeakEastFloor1"), NodePath("TowerCoolantRiserEast/LeakEastFloor2"), NodePath("TowerCoolantRiserEast/LeakEastFloor3"), NodePath("TowerCoolantRiserEast/LeakEastFloor4"), NodePath("TowerCoolantRiserEast/LeakEastFloor5"), NodePath("TowerCoolantRiserEast/LeakEastRing0"), NodePath("TowerCoolantRiserEast/LeakEastRing1"), NodePath("TowerCoolantRiserEast/LeakEastRing2"), NodePath("TowerCoolantRiserEast/LeakEastRing3"), NodePath("TowerCoolantRiserEast/LeakEastRing4"), NodePath("TowerCoolantRiserEast/LeakEastRing5") ]
 
 [node name="Pilot_v2" parent="." instance=ExtResource( 21 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 4.7, 8 )
