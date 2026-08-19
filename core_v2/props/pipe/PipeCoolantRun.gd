@@ -167,6 +167,11 @@ func _apply() -> void:
 		# instancia, así que acá se apaga use_local_axis para que el shader lo respete
 		# — salvo que use_local_axis_override lo pida (grupo de arcos curvos, ver export).
 		_material.set_shader_param("use_local_axis", use_local_axis_override)
+		# Un grupo horneado (bake_pipe_network.gd) fusiona varios tramos en un CombinedMesh:
+		# WORLD_MATRIX ya no sirve para recuperar el eje de cada tramo original, asi que el
+		# shader debe leerlo de COLOR (horneado por-vertice en bake-time) en vez de calcularlo
+		# el mismo en runtime.
+		_material.set_shader_param("use_baked_axis", has_node("CombinedMesh"))
 		_material.set_shader_param("flow_phase", _phase)
 		_material.set_shader_param("pipe_alpha", pipe_alpha)
 		_material.set_shader_param("emission_strength", base_emission * flow_intensity)

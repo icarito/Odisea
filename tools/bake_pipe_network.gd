@@ -32,15 +32,14 @@ const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_PipeNetwo
 
 # Each entry: [output GroupName, node path to the PipeCoolantRun to bake].
 #
-# FD-270 v2→v3: los anillos curvos (RingFloorN/RingFloorNEast, TowerCoolantRiser_LN_Ring
-# en la fuente) YA NO se hornean. El bake fusiona todos los Arc/Joint del anillo en un
-# solo MeshInstance, y pipe_coolant.shader calcula pipe_axis en el vértice usando
-# WORLD_MATRIX — la matriz del MeshInstance combinado completo, no la de cada arco
-# original. Resultado: el eje de flujo queda mal por tramo (flujo perpendicular al tubo,
-# hide_caps descarta caras que no debería). Los anillos ahora se instancian como nodos
-# individuales (un MeshInstance+StaticBody por Arc/Joint) directo en Dome_Intro.tscn, así
-# cada uno conserva su propio WORLD_MATRIX real. Solo los tramos rectos del riser
-# (RiserSegN + JunctionFloorN, use_local_axis_override=false) siguen horneándose acá.
+# FD-270 v2→v3→v4: los anillos curvos (RingFloorN/RingFloorNEast, TowerCoolantRiser_LN_Ring
+# en la fuente) dejaron de hornearse en v3 porque pipe_coolant.shader calculaba pipe_axis
+# en el vértice usando WORLD_MATRIX — la matriz del MeshInstance combinado completo, no la
+# de cada arco original, así que el eje de flujo quedaba mal por tramo tras fusionar.
+# v4 restaura el bake: el eje de cada arco se hornea por-vértice como COLOR (ver
+# _append_transformed_surface), y el shader lo lee de ahí cuando use_baked_axis está
+# activo (PipeCoolantRun.gd lo detecta solo por la presencia de CombinedMesh) en vez de
+# derivarlo de WORLD_MATRIX en runtime — evita el bug sin perder el ahorro de draw calls.
 const GROUPS := [
 	["CryoLoopWest", "CryoLoopWest/Pipes"],
 	["CryoLoopEast", "CryoLoopEast/Pipes"],
@@ -54,6 +53,16 @@ const GROUPS := [
 	["TowerCoolantRiserEastL3", "TowerCoolantRiserEast/TowerCoolantRiserEast_L3"],
 	["TowerCoolantRiserEastL4", "TowerCoolantRiserEast/TowerCoolantRiserEast_L4"],
 	["TowerCoolantRiserEastL5", "TowerCoolantRiserEast/TowerCoolantRiserEast_L5"],
+	["TowerCoolantRiserL1Ring", "TowerCoolantRiser/TowerCoolantRiser_L1_Ring"],
+	["TowerCoolantRiserL2Ring", "TowerCoolantRiser/TowerCoolantRiser_L2_Ring"],
+	["TowerCoolantRiserL3Ring", "TowerCoolantRiser/TowerCoolantRiser_L3_Ring"],
+	["TowerCoolantRiserL4Ring", "TowerCoolantRiser/TowerCoolantRiser_L4_Ring"],
+	["TowerCoolantRiserL5Ring", "TowerCoolantRiser/TowerCoolantRiser_L5_Ring"],
+	["TowerCoolantRiserEastL1Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring"],
+	["TowerCoolantRiserEastL2Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring"],
+	["TowerCoolantRiserEastL3Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring"],
+	["TowerCoolantRiserEastL4Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring"],
+	["TowerCoolantRiserEastL5Ring", "TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring"],
 ]
 const OUT_DIR := "res://core_v2/levels/interiors/"
 
@@ -303,6 +312,18 @@ func _append_transformed_surface(st: SurfaceTool, mesh: Mesh, surf_idx: int, xfo
 	var normal_basis: Basis = xform.basis.inverse().transposed()
 	var has_cap_axis: bool = cap_axis_local.length() > 0.001
 
+	# pipe_coolant.shader necesita el eje de ESTE tramo en espacio de mundo (mismo calculo
+	# que WORLD_MATRIX * vec4(0,1,0,0) hacia antes de fusionar), horneado por-vertice como
+	# COLOR: una vez fusionados varios tramos en un solo MeshInstance, WORLD_MATRIX pasa a
+	# ser una unica matriz para toda la malla combinada y el eje por-tramo se pierde.
+	var pipe_axis_world: Vector3 = xform.basis.xform(Vector3(0, 1, 0)).normalized()
+	var baked_axis_color := Color(
+		pipe_axis_world.x * 0.5 + 0.5,
+		pipe_axis_world.y * 0.5 + 0.5,
+		pipe_axis_world.z * 0.5 + 0.5,
+		1.0
+	)
+
 	var tri_indices: Array = []
 	if indices != null and (indices as PoolIntArray).size() > 0:
 		for idx in (indices as PoolIntArray):
@@ -324,10 +345,12 @@ func _append_transformed_surface(st: SurfaceTool, mesh: Mesh, surf_idx: int, xfo
 				continue
 		for idx in [i0, i1, i2]:
 			_add_vertex(st, verts[idx], normals[idx] if normals != null else null,
-				uvs[idx] if uvs != null else null, tangents, idx, xform, normal_basis, uv_scale, uv_offset)
+				uvs[idx] if uvs != null else null, tangents, idx, xform, normal_basis, uv_scale, uv_offset,
+				baked_axis_color)
 
 func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, tangents, source_index: int, xform: Transform, normal_basis: Basis,
-		uv_scale: Vector2 = Vector2(1, 1), uv_offset: Vector2 = Vector2(0, 0)) -> void:
+		uv_scale: Vector2 = Vector2(1, 1), uv_offset: Vector2 = Vector2(0, 0),
+		baked_axis_color = null) -> void:
 	if uv != null:
 		st.add_uv(Vector2(uv.x * uv_scale.x + uv_offset.x, uv.y * uv_scale.y + uv_offset.y))
 	if n != null:
@@ -341,4 +364,6 @@ func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, tangents, source_index: int
 		if xform.basis.determinant() < 0.0:
 			handedness *= -1.0
 		st.add_tangent(Plane(tangent, handedness))
+	if baked_axis_color != null:
+		st.add_color(baked_axis_color)
 	st.add_vertex(xform.xform(v))

@@ -2659,7 +2659,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/PolyHavenImport/plugin.cfg", "res://addons/gd-shader-cache/plugin.cfg", "res://addons/mixing-desk/plugin.cfg", "res://addons/odyssey_circuit_editor/plugin.cfg" )
+enabled=PoolStringArray(  )
 
 [gdunit3]
 

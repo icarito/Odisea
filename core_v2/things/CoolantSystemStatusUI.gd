@@ -48,6 +48,12 @@ var _tank_gauges := {}  # tank -> TankGauge
 
 func _ready() -> void:
 	_setup_tank_card()
+	# Sin _physics_process el panel ya no tiene un primer frame "gratis" que dispare
+	# request_redraw() por su cuenta. _update_gauge() en _setup_tank_card() no lo llama si
+	# el nivel inicial coincide con el default del gauge (100%, el caso comun al arrancar
+	# con los tanques llenos) — sin este pedido explicito el Viewport padre (UPDATE_DISABLED,
+	# static_content) nunca pinta su primer frame.
+	_request_redraw()
 
 
 func _make_card(title: String) -> VBoxContainer:

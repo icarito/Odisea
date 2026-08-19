@@ -19,6 +19,12 @@ uniform vec4 flow_color : hint_color = vec4(0.35, 0.92, 0.98, 1.0);
 uniform vec3 flow_dir = vec3(1.0, 0.0, 0.0);
 uniform bool use_local_axis = true;
 uniform bool hide_caps = true;
+// Un MeshInstance horneado fusiona varios tramos con distinta rotación original en una
+// sola malla: WORLD_MATRIX pasa a ser una única matriz para TODO el mesh combinado, así
+// que ya no sirve para recuperar el eje de CADA tramo (ver bake_pipe_network.gd). Con
+// use_baked_axis, el eje se lee de COLOR, horneado por-vértice en bake-time con el
+// transform real de cada tramo, antes de fusionar.
+uniform bool use_baked_axis = false;
 
 // Eje del tramo, calculado una vez por vértice.
 varying vec3 pipe_axis;
@@ -108,8 +114,15 @@ float calculate_crack_pattern(vec3 p) {
 }
 
 void vertex() {
-	// El largo del cilindro es su Y local; llevado a mundo da el eje real de ESTE tramo.
-	pipe_axis = normalize((WORLD_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+	if (use_baked_axis) {
+		// COLOR.rgb trae el eje ya calculado en bake-time con el transform real de CADA
+		// tramo original (bake_pipe_network.gd), remapeado de [-1,1] a [0,1] para caber en
+		// un atributo de color (COLOR.a queda libre, en 1.0).
+		pipe_axis = normalize(COLOR.rgb * 2.0 - 1.0);
+	} else {
+		// El largo del cilindro es su Y local; llevado a mundo da el eje real de ESTE tramo.
+		pipe_axis = normalize((WORLD_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+	}
 }
 
 void fragment() {

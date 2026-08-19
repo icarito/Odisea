@@ -53,6 +53,13 @@ func _ready() -> void:
 	_setup_valve_connections()
 	_setup_fissure_connections()
 	update()
+	# Sin _physics_process el panel ya no tiene un primer frame "gratis" que dispare
+	# request_redraw() por su cuenta (asi corria antes, cada tick de fisica). El Viewport
+	# padre esta en UPDATE_DISABLED (static_content) y solo redibuja cuando se lo piden
+	# explicitamente: sin este pedido inicial, el primer contenido nunca llega a pintarse
+	# si nada cambia de estado despues del arranque (fugas en HEALTHY, sin partidas con
+	# fuga activa desde el primer segundo).
+	_request_redraw()
 
 
 func _setup_valve_connections() -> void:
