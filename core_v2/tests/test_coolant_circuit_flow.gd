@@ -203,32 +203,19 @@ func test_manometer_reading_reflects_pressure() -> void:
 	assert_float(manometer.get_pressure()).is_equal_approx(1.25, 0.01)
 
 
-func test_status_ui_displays_tank_and_fissures() -> void:
+func test_status_ui_displays_tank_level() -> void:
 	var tank = auto_free(CoolantTankScript.new())
 	tank.tank_level = 0.8
 	add_child(tank)
 
-	var patch_point = auto_free(LeakPatchPointScript.new())
-	add_child(patch_point)
-
-	var ui_panel = Panel.new()
-	ui_panel.name = "Panel"
-	var center = CenterContainer.new()
-	center.name = "CenterContainer"
-	var vbox = VBoxContainer.new()
-	vbox.name = "VBoxContainer"
 	var rows = VBoxContainer.new()
 	rows.name = "Rows"
 
-	vbox.add_child(rows)
-	center.add_child(vbox)
-	ui_panel.add_child(center)
-
 	var ui = auto_free(CoolantSystemStatusUIScript.new())
-	ui.add_child(ui_panel)
+	ui.add_child(rows)
 	add_child(ui)
 
-	_step_tree([tank, patch_point, ui], 0.1)
+	_step_tree([tank, ui], 0.1)
 
 	assert_bool(ui._tank_label != null).is_true()
 	assert_str(ui._tank_label.text).is_equal("80%")
@@ -281,51 +268,3 @@ func test_snapshot_determinism() -> void:
 	assert_float(adapter.get_computed_speed()).is_equal_approx(speed_adv, 0.0001)
 	assert_float(patch_point.get_patch_time_remaining()).is_equal_approx(remaining_adv, 0.0001)
 
-
-# Un tramo despresurizado NO esta sellado: la valvula corto el caudal, el cano sigue roto.
-# El tablero lo mostraba en verde como "SELLADA" porque miraba solo get_leak_intensity(),
-# que es 0 tanto en WARNING como en DEPRESSURIZED. Es la confusion que FD-266 vino a
-# eliminar, sobreviviendo en el unico lugar donde el jugador la lee.
-func test_status_ui_distinguishes_depressurized_from_sealed() -> void:
-	var leak = auto_free(CoolantLeakScript.new())
-	add_child(leak)
-
-	var patch_point = auto_free(LeakPatchPointScript.new())
-	add_child(patch_point)
-	patch_point.set("_leak", leak)
-
-	var ui_panel = Panel.new()
-	ui_panel.name = "Panel"
-	var center = CenterContainer.new()
-	center.name = "CenterContainer"
-	var vbox = VBoxContainer.new()
-	vbox.name = "VBoxContainer"
-	var rows = VBoxContainer.new()
-	rows.name = "Rows"
-	vbox.add_child(rows)
-	center.add_child(vbox)
-	ui_panel.add_child(center)
-
-	var ui = auto_free(CoolantSystemStatusUIScript.new())
-	ui.add_child(ui_panel)
-	add_child(ui)
-	_step_tree([leak, patch_point, ui], 0.1)
-
-	var label: Label = ui._fissure_labels[patch_point]
-
-	leak.trigger_leak()
-	leak._set_state(CoolantLeak.State.LEAKING)
-	_step_tree([leak, patch_point, ui], 0.1)
-	assert_str(label.text).is_equal("FUGA ACTIVA")
-
-	# Cerrar la valvula: sin caudal, pero la fisura sigue ahi.
-	leak.depressurize()
-	_step_tree([leak, patch_point, ui], 0.1)
-	assert_int(leak.get_state()).is_equal(CoolantLeak.State.DEPRESSURIZED)
-	assert_str(label.text).is_not_equal("SELLADA")
-
-	# Y la condensacion previa tampoco es "sellada".
-	leak.reset()
-	leak._set_state(CoolantLeak.State.WARNING)
-	_step_tree([leak, patch_point, ui], 0.1)
-	assert_str(label.text).is_not_equal("SELLADA")

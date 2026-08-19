@@ -146,6 +146,8 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5Pipes_body.tscn" type="PackedScene" id=519]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconV2.tscn" type="PackedScene" id=396]
 [ext_resource path="res://core_v2/props/decor/EmergencyBeaconSpotV2.tscn" type="PackedScene" id=397]
+[ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=520]
+[ext_resource path="res://assets/fonts/Heading_Font.tres" type="DynamicFont" id=521]
 
 [sub_resource type="ShaderMaterial" id=341]
 shader = ExtResource( 6 )
@@ -3213,19 +3215,48 @@ static_content = true
 [node name="TerminalUI" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport"]
 visible = false
 
+[node name="TitleBar" type="HBoxContainer" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport"]
+anchor_right = 1.0
+margin_top = 16.0
+margin_bottom = 68.0
+theme = ExtResource( 520 )
+alignment = 1
+
+[node name="Label" type="Label" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport/TitleBar"]
+size_flags_horizontal = 3
+margin_right = 1280.0
+margin_bottom = 52.0
+custom_fonts/font = ExtResource( 521 )
+text = "CIRCUITO DE FRIO"
+align = 1
+valign = 1
+
 [node name="CoolantSystemStatusUI" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport" instance=ExtResource( 380 )]
 anchor_right = 0.4
+anchor_top = 0.0
+margin_top = 76.0
+margin_right = -10.0
+theme = ExtResource( 520 )
 
 [node name="CoolantSchematicPanel" type="Control" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport"]
 anchor_left = 0.4
 anchor_right = 0.7
+anchor_top = 0.0
 anchor_bottom = 1.0
+margin_top = 76.0
+margin_left = 10.0
+margin_right = -10.0
+theme = ExtResource( 520 )
 script = ExtResource( 5003 )
 
 [node name="RoomDialsPanel" type="Control" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport"]
 anchor_left = 0.7
 anchor_right = 1.0
+anchor_top = 0.0
 anchor_bottom = 1.0
+margin_top = 76.0
+margin_left = 10.0
+theme = ExtResource( 520 )
 script = ExtResource( 5002 )
 room_path = NodePath("/root/Dome_Intro/DomeRoom3D")
 

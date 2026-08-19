@@ -44,6 +44,7 @@ var _start_intensity: float = 0.0
 var _has_been_sealed: bool = false
 var _is_provisionally_patched: bool = false
 var _flow_adapter: Node = null
+var _room: Node = null
 
 
 func _ready() -> void:
@@ -56,6 +57,11 @@ func _ready() -> void:
 
 	if flow_adapter_path != null and not flow_adapter_path.is_empty():
 		_flow_adapter = get_node_or_null(flow_adapter_path)
+
+	if room_path != null and not room_path.is_empty():
+		_room = get_node_or_null(room_path)
+	# Sin room_path explicito (caso comun: docenas de fugas autoria en Dome_Intro), _room se
+	# resuelve de forma perezosa en _apply_room_deltas() -- ver ahi el porque.
 
 	if starts_leaking:
 		trigger_leak()
@@ -250,14 +256,24 @@ func _set_state(new_state: int) -> void:
 
 
 func _apply_room_deltas(delta: float) -> void:
-	if _leak_intensity <= 0.0 or room_path == null or room_path.is_empty():
+	if _leak_intensity <= 0.0:
 		return
-	var room = get_node_or_null(room_path)
-	if room != null:
-		if room.has_method("add_temperature"):
-			room.call("add_temperature", -leak_temp_rate * _leak_intensity * delta)
-		if room.has_method("add_contamination"):
-			room.call("add_contamination", leak_contam_rate * _leak_intensity * delta)
+
+	# Resolucion perezosa: en Dome_Intro las ~24 fugas de autoria cuelgan de
+	# TowerCoolantRiser/CryoLoopWest/etc, declarados en el .tscn ANTES que DomeRoom3D, asi
+	# que en _ready() el grupo room_3d todavia estaba vacio. Para cuando el primer frame de
+	# fuga activa llega aca (via _physics_process), el arbol entero ya cargo.
+	if _room == null and (room_path == null or room_path.is_empty()):
+		var rooms := get_tree().get_nodes_in_group("room_3d")
+		if not rooms.empty():
+			_room = rooms[0]
+
+	if _room == null or not is_instance_valid(_room):
+		return
+	if _room.has_method("add_temperature"):
+		_room.call("add_temperature", -leak_temp_rate * _leak_intensity * delta)
+	if _room.has_method("add_contamination"):
+		_room.call("add_contamination", leak_contam_rate * _leak_intensity * delta)
 
 
 func _on_valve_state_changed(is_open: bool) -> void:

@@ -1,85 +1,150 @@
 extends Control
 
-# CoolantSystemStatusUI.gd - Displays live status of valves, tank supply, and pipe fissures (FD-264 §4).
-
-# Preload explicito en vez de depender del class_name global: en export, el compilador de
-# bytecode puede resolver el cache de clases globales en un orden distinto al del editor, y
-# referenciar CoolantLeak.State sin esta dependencia declarada puede dejar un .gdc invalido
-# para ESTE script en el PCK exportado (visto en el nightly build 402: "Loader poll failed"
-# al cargar Dome_Intro.tscn, con el .gdc de este archivo sin poder decodificarse).
-const CoolantLeak = preload("res://core_v2/systems/cryo/CoolantLeak.gd")
-
-onready var _rows_container: VBoxContainer = get_node("Panel/CenterContainer/VBoxContainer/Rows")
+# CoolantSystemStatusUI.gd - Displays live status of tank supply (FD-264 §4, FD-270).
+# Valvulas y fisuras se retiraron de esta tabla: ambos estados ya se leen en el diagrama
+# esquematico (CoolantSchematicPanel) y listarlos ademas en texto era doble informacion.
 
 const COLOR_OPEN := Color( 0.1, 1, 0.3 )
 const COLOR_CLOSED := Color( 1, 0.15, 0.1 )
 const COLOR_WARN := Color( 1, 0.8, 0.1 )
 
-var _row_labels := {}  # valve -> Label
+# Umbrales de nivel de tanque: por debajo de WARN entra en amarillo, por debajo de CRITICAL
+# en rojo. Mismos valores que ya decidian el color del texto, ahora tambien marcados en el
+# gauge como referencia visual de "nivel seguro".
+const TANK_LEVEL_WARN := 0.5
+const TANK_LEVEL_CRITICAL := 0.15
+
+# Arco de nivel de tanque, mismo lenguaje visual que RoomDialsPanel._draw_dial(): reemplaza
+# el "80%" suelto por una lectura de un vistazo, la etiqueta de texto se mantiene al lado.
+class TankGauge extends Control:
+	var level: float = 1.0
+	var value_label: Label = null
+
+	func _draw() -> void:
+		var radius: float = min(rect_size.x, rect_size.y) * 0.5 - 4.0
+		var center: Vector2 = rect_size * 0.5
+		var start_angle := deg2rad(135.0)
+		var total_sweep := deg2rad(270.0)
+		var color: Color = COLOR_OPEN if level > TANK_LEVEL_WARN else (COLOR_WARN if level > TANK_LEVEL_CRITICAL else COLOR_CLOSED)
+
+		draw_arc(center, radius, start_angle, start_angle + total_sweep, 32, Color(0.2, 0.22, 0.25, 0.8), 7.0)
+		if level > 0.001:
+			draw_arc(center, radius, start_angle, start_angle + level * total_sweep, 32, color, 8.0)
+
+		# Marca de "nivel seguro": tick radial en el umbral bajo el cual el tanque pasa a
+		# advertencia, para leer a simple vista cuanto margen queda antes de la zona amarilla.
+		_draw_threshold_tick(center, radius, start_angle, total_sweep, TANK_LEVEL_WARN, Color(0.9, 0.9, 0.95, 0.9))
+
+	func _draw_threshold_tick(center: Vector2, radius: float, start_angle: float, total_sweep: float, threshold: float, tick_color: Color) -> void:
+		var angle: float = start_angle + threshold * total_sweep
+		var dir := Vector2(cos(angle), sin(angle))
+		draw_line(center + dir * (radius - 7.0), center + dir * (radius + 7.0), tick_color, 2.0)
+
+onready var _cards_container: VBoxContainer = get_node("Rows")
+
 var _tank_label: Label = null
-var _tank_labels := {}  # tank -> Label
-var _fissure_labels := {} # patch_point -> Label
+var _tank_gauges := {}  # tank -> TankGauge
 
 
 func _ready() -> void:
-	_setup_tank_row()
-	_setup_valve_rows()
-	_setup_fissure_rows()
+	_setup_tank_card()
 
 
 func _physics_process(_delta: float) -> void:
 	if Engine.editor_hint:
 		return
 	_update_tank_display()
-	_update_fissure_displays()
+
+
+func _make_card(title: String) -> VBoxContainer:
+	# El fondo/borde de la columna ya lo pinta el nodo "Background" de la escena (mismo
+	# theme retro_scifi.tres heredado): anidar otro Panel con estilo propio aca adentro se
+	# veia como una card vacia flotando encima del contenido real.
+	var inner := VBoxContainer.new()
+	inner.name = "Body"
+	inner.add_constant_override("separation", 10)
+	inner.size_flags_horizontal = SIZE_EXPAND_FILL
+
+	var title_label := Label.new()
+	title_label.text = title
+	title_label.align = Label.ALIGN_CENTER
+	title_label.size_flags_horizontal = SIZE_EXPAND_FILL
+	inner.add_child(title_label)
+
+	_cards_container.add_child(inner)
+	return inner
 
 
 # Una fila por tanque. Con FD-266 el nivel baja solo donde hay una fuga presurizada, asi
 # que cada rama drena por su cuenta: mostrar unicamente sources[0] escondia justo el dato
 # que le dice al jugador que rama se esta desangrando.
-func _setup_tank_row() -> void:
+func _setup_tank_card() -> void:
 	var sources := get_tree().get_nodes_in_group("coolant_source")
 	sources.sort_custom(self, "_sort_by_floor_name")
 
+	var body := _make_card("NIVEL DE TANQUES")
+
 	if sources.empty():
-		_tank_label = _add_tank_row("NIVEL DE TANQUE")
+		var gauge := _add_tank_row(body, "TANQUE")
+		_tank_label = gauge.value_label
 	else:
 		for tank in sources:
-			var suffix := "" if sources.size() < 2 else " " + _floor_label(tank).replace("Tank", "").to_upper()
-			var label := _add_tank_row("NIVEL DE TANQUE" + suffix)
-			_tank_labels[tank] = label
+			var suffix := "" if sources.size() < 2 else (" ESTE" if "east" in tank.name.to_lower() else " OESTE")
+			var gauge := _add_tank_row(body, "TANQUE" + suffix)
+			_tank_gauges[tank] = gauge
 			# _tank_label sigue apuntando al primero: es la referencia que ya usan los tests.
 			if _tank_label == null:
-				_tank_label = label
+				_tank_label = gauge.value_label
 
 	_update_tank_display()
 
 
-func _add_tank_row(title: String) -> Label:
-	var tank_row := HBoxContainer.new()
+# Mismo lenguaje visual que RoomDialsPanel._draw_dial(): titulo arriba, arco grande centrado,
+# valor debajo -- en vez de una fila angosta, para que el gauge use el mismo tamano que los
+# dials de temperatura/presion/toxicidad de la columna vecina.
+func _add_tank_row(body: VBoxContainer, title: String) -> Node:
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGN_CENTER
+	col.add_constant_override("separation", 6)
+
 	var title_label := Label.new()
 	title_label.text = title
-	tank_row.add_child(title_label)
+	title_label.align = Label.ALIGN_CENTER
+	col.add_child(title_label)
+
+	var gauge := TankGauge.new()
+	gauge.rect_min_size = Vector2(110, 110)
+	gauge.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(gauge)
+
 	var value_label := Label.new()
-	value_label.align = Label.ALIGN_RIGHT
-	tank_row.add_child(value_label)
-	_rows_container.add_child(tank_row)
-	return value_label
+	value_label.align = Label.ALIGN_CENTER
+	col.add_child(value_label)
+	gauge.value_label = value_label
+
+	body.add_child(col)
+	return gauge
 
 
 func _update_tank_display() -> void:
-	if _tank_labels.empty():
+	if _tank_gauges.empty():
 		if _tank_label != null and _tank_label.text != "100%":
 			_tank_label.text = "100%"
 			_tank_label.add_color_override("font_color", COLOR_OPEN)
 			_request_redraw()
 		return
 
-	for tank in _tank_labels:
-		var label: Label = _tank_labels[tank]
-		if label == null or not is_instance_valid(tank):
+	for tank in _tank_gauges:
+		var gauge: Node = _tank_gauges[tank]
+		if gauge == null or not is_instance_valid(tank):
 			continue
 		var level: float = float(tank.get("tank_level")) if "tank_level" in tank else 1.0
+		if not is_equal_approx(gauge.level, level):
+			gauge.level = level
+			gauge.update()
+			_request_redraw()
+
+		var label: Label = gauge.value_label
 		var tank_text := "%d%%" % int(round(level * 100.0))
 		if label.text != tank_text:
 			label.text = tank_text
@@ -90,72 +155,6 @@ func _update_tank_display() -> void:
 			label.add_color_override("font_color", COLOR_WARN)
 		else:
 			label.add_color_override("font_color", COLOR_CLOSED)
-
-
-func _setup_valve_rows() -> void:
-	var valves := get_tree().get_nodes_in_group("coolant_valve")
-	valves.sort_custom(self, "_sort_by_floor_name")
-	for valve in valves:
-		var row := _make_row(valve)
-		_rows_container.add_child(row)
-		if not valve.is_connected("valve_state_changed", self, "_on_valve_state_changed"):
-			valve.connect("valve_state_changed", self, "_on_valve_state_changed", [valve])
-		_update_row(valve, valve.is_active)
-
-
-func _setup_fissure_rows() -> void:
-	var patch_points := get_tree().get_nodes_in_group("gloo_patchable")
-	patch_points.sort_custom(self, "_sort_by_floor_name")
-	for patch_point in patch_points:
-		var row := HBoxContainer.new()
-		var name_label := Label.new()
-		name_label.text = "FISURA " + _floor_label(patch_point).replace("Floor_", "PISO ").replace("Leak", "").replace("_Patch", "").to_upper()
-		row.add_child(name_label)
-		var state_label := Label.new()
-		state_label.align = Label.ALIGN_RIGHT
-		row.add_child(state_label)
-		_fissure_labels[patch_point] = state_label
-		_rows_container.add_child(row)
-	_update_fissure_displays()
-
-
-func _update_fissure_displays() -> void:
-	for patch_point in _fissure_labels:
-		var label: Label = _fissure_labels[patch_point]
-		if label == null or not is_instance_valid(patch_point):
-			continue
-		var is_patched: bool = patch_point.call("is_patched") if patch_point.has_method("is_patched") else false
-		var is_firm: bool = patch_point.call("is_firmly_patched") if patch_point.has_method("is_firmly_patched") else false
-		var leak_node = patch_point.get("_leak") if "_leak" in patch_point else null
-		var leak_state: int = CoolantLeak.State.HEALTHY
-		if leak_node and is_instance_valid(leak_node) and leak_node.has_method("get_state"):
-			leak_state = leak_node.call("get_state")
-
-		# El estado manda, no la intensidad. Mirando solo get_leak_intensity() > 0, tanto la
-		# condensacion previa (WARNING, intensidad 0) como un tramo despresurizado (la valvula
-		# corto el caudal pero el cano SIGUE roto) caian en "SELLADA" en verde — justo la
-		# confusion que FD-266 vino a eliminar, ahora en el tablero del jugador.
-		var text := "SELLADA"
-		var color := COLOR_OPEN
-		if is_patched:
-			text = "PARCHEADA" if is_firm else "PARCHE PROVISORIO"
-			color = COLOR_OPEN if is_firm else COLOR_WARN
-		else:
-			match leak_state:
-				CoolantLeak.State.WARNING:
-					text = "CONDENSACION"
-					color = COLOR_WARN
-				CoolantLeak.State.LEAKING:
-					text = "FUGA ACTIVA"
-					color = COLOR_CLOSED
-				CoolantLeak.State.DEPRESSURIZED:
-					text = "ROTA - SIN PRESION"
-					color = COLOR_WARN
-
-		if label.text != text:
-			label.text = text
-			_request_redraw()
-		label.add_color_override("font_color", color)
 
 
 func _sort_by_floor_name(a: Node, b: Node) -> bool:
@@ -170,31 +169,6 @@ func _floor_label(node: Node) -> String:
 	if parent != null and parent.name.begins_with("Floor_"):
 		return parent.name
 	return node.name
-
-
-func _make_row(valve: Node) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	var name_label := Label.new()
-	name_label.text = _floor_label(valve).replace("Floor_", "PISO ")
-	row.add_child(name_label)
-	var state_label := Label.new()
-	state_label.align = Label.ALIGN_RIGHT
-	row.add_child(state_label)
-	_row_labels[valve] = state_label
-	return row
-
-
-func _on_valve_state_changed(is_open: bool, valve: Node) -> void:
-	_update_row(valve, is_open)
-	_request_redraw()
-
-
-func _update_row(valve: Node, is_open: bool) -> void:
-	var label: Label = _row_labels.get(valve)
-	if label == null:
-		return
-	label.text = "VALVULA ABIERTA" if is_open else "VALVULA CERRADA"
-	label.add_color_override("font_color", COLOR_OPEN if is_open else COLOR_CLOSED)
 
 
 # Este panel vive dentro del Viewport de un HoloTerminalV2 con static_content=true (ver

@@ -26,7 +26,19 @@ const X_EAST := 220.0
 const Y_BOTTOM := 270.0
 const Y_STEP := 40.0
 const X_INTERLINK := 150.0
-const Y_INTERLINK := 190.0 # Height of Floor 2
+# ValveInterlink vive en el circulo cerrado de Piso 5 (el ultimo, §7.1 del FD-270),
+# no en Piso 2 -- ahi es donde oeste y este se tocan fisicamente.
+const Y_INTERLINK := Y_BOTTOM - float(NUM_FLOORS - 1) * Y_STEP # Height of last floor
+
+# Inset de la card respecto al borde de su columna: mismo criterio visual que
+# CoolantSystemStatusUI.tscn (margen 24) y RoomDialsPanel (CARD_MARGIN).
+const CARD_MARGIN := 24.0
+
+# Extension real del contenido dibujado, para centrarlo en el ancho disponible de la card.
+# CONTENT_LEFT = la etiqueta "P0" queda a X_WEST - 32; CONTENT_WIDTH = hasta la etiqueta al
+# lado este de X_EAST (X_EAST + 40).
+const CONTENT_LEFT := X_WEST - 32.0
+const CONTENT_WIDTH := (X_EAST + 40.0) - CONTENT_LEFT
 
 var _connected_valves := []
 var _last_state_hash := 0
@@ -63,6 +75,26 @@ func _on_valve_state_changed(_is_open: bool = false) -> void:
 
 
 func _draw() -> void:
+	# Mismo theme "ship OS" que el resto de terminales (retro_scifi.tres, Panel/styles/panel):
+	# este Control dibuja a mano, no es un Panel, asi que el fondo/borde holografico hay que
+	# pedirselo al theme heredado y pintarlo nosotros mismos.
+	# La card ocupa el rect propio MENOS un respiro CARD_MARGIN en cada borde: si se pinta el
+	# rect completo, tres columnas vecinas se ven como un solo bloque de color pegado, no
+	# como tres cards separadas.
+	var panel_style: StyleBox = get_stylebox("panel", "Panel")
+	var half_gap := CARD_MARGIN * 0.5
+	if panel_style != null:
+		var inset := Rect2(Vector2(half_gap, half_gap), rect_size - Vector2(CARD_MARGIN, CARD_MARGIN))
+		panel_style.draw(get_canvas_item(), inset)
+
+	# El resto del diagrama va desplazado adentro del borde de la card, en vez de pegado al
+	# filo que acaba de pintar panel_style. El contenido dibujado ocupa un ancho fijo de
+	# CONTENT_WIDTH (de la etiqueta "P0" a la izquierda de X_WEST hasta la etiqueta al lado
+	# este de X_EAST): centrarlo en el ancho disponible en vez de pegarlo al borde izquierdo.
+	var available_width: float = rect_size.x - CARD_MARGIN * 2.0
+	var center_offset: float = max((available_width - CONTENT_WIDTH) * 0.5, 0.0)
+	draw_set_transform(Vector2(CARD_MARGIN + center_offset - CONTENT_LEFT, CARD_MARGIN), 0.0, Vector2.ONE)
+
 	var valves: Array = get_tree().get_nodes_in_group("coolant_valve")
 	var patch_points: Array = get_tree().get_nodes_in_group("gloo_patchable")
 

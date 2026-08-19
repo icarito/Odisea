@@ -5,12 +5,16 @@ class_name RoomDialsPanel
 
 export(NodePath) var room_path: NodePath
 
+# Inset de la card respecto al borde de su columna: mismo criterio visual que
+# CoolantSystemStatusUI.tscn (margen 24) y CoolantSchematicPanel (CARD_MARGIN).
+const CARD_MARGIN := 24.0
+
 var _room: Node = null
 
 
 func _ready() -> void:
 	if rect_min_size == Vector2.ZERO:
-		rect_min_size = Vector2(300, 120)
+		rect_min_size = Vector2(160, 420)
 
 	_room = get_node_or_null(room_path)
 	if _room != null:
@@ -49,13 +53,34 @@ func _normalize_contamination(cont: float) -> float:
 # --- DRAWING ---
 
 func _draw() -> void:
+	# Mismo theme "ship OS" que el resto de terminales (retro_scifi.tres, Panel/styles/panel):
+	# este Control dibuja a mano, no es un Panel, asi que el fondo/borde holografico hay que
+	# pedirselo al theme heredado y pintarlo nosotros mismos.
+	# La card ocupa el rect propio MENOS un respiro CARD_MARGIN en cada borde: si se pinta el
+	# rect completo, tres columnas vecinas se ven como un solo bloque de color pegado, no
+	# como tres cards separadas.
+	var panel_style: StyleBox = get_stylebox("panel", "Panel")
+	var half_gap := CARD_MARGIN * 0.5
+	if panel_style != null:
+		var inset := Rect2(Vector2(half_gap, half_gap), rect_size - Vector2(CARD_MARGIN, CARD_MARGIN))
+		panel_style.draw(get_canvas_item(), inset)
+
 	var font: Font = get_font("font")
 
-	# Layout parameters for 3 dials horizontal layout (300x120 base)
-	var panel_width: float = max(rect_size.x, 300.0)
-	var section_w: float = panel_width / 3.0
-	var radius: float = min(section_w * 0.32, 35.0)
-	var center_y: float = 55.0
+	# El resto del dibujo va desplazado adentro del borde de la card (mismo half_gap que el
+	# fondo, mas un respiro de contenido), en vez de pegado al filo que acaba de pintar
+	# panel_style.
+	var content_offset: float = half_gap + 16.0
+	draw_set_transform(Vector2(content_offset, content_offset), 0.0, Vector2.ONE)
+
+	# Layout de 3 dials apilados en vertical: la columna del HangingDisplay es angosta y
+	# alta, en fila horizontal los 3 dials quedaban apretados contra un ancho chico en vez
+	# de aprovechar el largo disponible.
+	var panel_width: float = max(rect_size.x - content_offset * 2.0, 120.0)
+	var panel_height: float = max(rect_size.y - content_offset * 2.0, 300.0)
+	var section_h: float = panel_height / 3.0
+	var radius: float = min(min(panel_width * 0.35, section_h * 0.32), 55.0)
+	var center_x: float = panel_width * 0.5
 
 	var neutral_color := Color(0.4, 0.4, 0.45)
 
@@ -65,6 +90,7 @@ func _draw() -> void:
 	var max_temp := 40.0
 	var temp_color := neutral_color
 	var temp_str := "-- °C"
+	var temp_safe_norm := -1.0
 
 	if _room != null and is_instance_valid(_room):
 		temp_val = float(_room.get("temperature")) if "temperature" in _room else 20.0
@@ -73,6 +99,9 @@ func _draw() -> void:
 		min_temp = lethal_cold
 		max_temp = freezing_point + 40.0
 		temp_str = "%.1f°C" % temp_val
+		# El limite seguro es donde empieza a congelar, no el frio letal (ese es el extremo
+		# 0.0 de la escala, una marca ahi pegada al borde no aporta nada).
+		temp_safe_norm = _normalize_temperature(freezing_point, min_temp, max_temp)
 
 		var is_lethal: bool = _room.call("is_lethal_cold") if _room.has_method("is_lethal_cold") else false
 		var is_freezing: bool = _room.call("is_freezing") if _room.has_method("is_freezing") else false
@@ -85,19 +114,21 @@ func _draw() -> void:
 			temp_color = Color(0.2, 0.95, 0.4) # Green
 
 	var temp_norm := _normalize_temperature(temp_val, min_temp, max_temp)
-	_draw_dial(Vector2(section_w * 0.5, center_y), radius, temp_norm, temp_color, "TEMP", temp_str, font)
+	_draw_dial(Vector2(center_x, section_h * 0.5), radius, temp_norm, temp_color, "TEMP", temp_str, font, temp_safe_norm)
 
 	# 2. Pressure Dial
 	var pres_val := 1.0
 	var max_pres := 2.88
 	var pres_color := neutral_color
 	var pres_str := "-- atm"
+	var pres_safe_norm := -1.0
 
 	if _room != null and is_instance_valid(_room):
 		pres_val = float(_room.get("pressure")) if "pressure" in _room else 1.0
 		var overpressure: float = float(_room.get("overpressure")) if "overpressure" in _room else 2.4
 		max_pres = overpressure * 1.2
 		pres_str = "%.2f atm" % pres_val
+		pres_safe_norm = _normalize_pressure(overpressure, max_pres)
 
 		var is_overpressured: bool = _room.call("is_overpressured") if _room.has_method("is_overpressured") else false
 		if is_overpressured:
@@ -106,16 +137,19 @@ func _draw() -> void:
 			pres_color = Color(0.2, 0.95, 0.4) # Green
 
 	var pres_norm := _normalize_pressure(pres_val, max_pres)
-	_draw_dial(Vector2(section_w * 1.5, center_y), radius, pres_norm, pres_color, "PRES", pres_str, font)
+	_draw_dial(Vector2(center_x, section_h * 1.5), radius, pres_norm, pres_color, "PRES", pres_str, font, pres_safe_norm)
 
 	# 3. Contamination ("Toxicidad") Dial
 	var cont_val := 0.0
 	var cont_color := neutral_color
 	var cont_str := "-- %"
+	var cont_safe_norm := -1.0
 
 	if _room != null and is_instance_valid(_room):
 		cont_val = float(_room.get("contamination")) if "contamination" in _room else 0.0
 		cont_str = "%d%%" % int(round(cont_val * 100.0))
+		var hazard_threshold: float = float(_room.get("hazard_threshold")) if "hazard_threshold" in _room else 0.7
+		cont_safe_norm = _normalize_contamination(hazard_threshold)
 
 		var is_hazard: bool = _room.call("is_hazard_active") if _room.has_method("is_hazard_active") else false
 		var is_fog: bool = _room.call("is_fog_active") if _room.has_method("is_fog_active") else false
@@ -128,10 +162,10 @@ func _draw() -> void:
 			cont_color = Color(0.2, 0.95, 0.4) # Green
 
 	var cont_norm := _normalize_contamination(cont_val)
-	_draw_dial(Vector2(section_w * 2.5, center_y), radius, cont_norm, cont_color, "TOX", cont_str, font)
+	_draw_dial(Vector2(center_x, section_h * 2.5), radius, cont_norm, cont_color, "TOX", cont_str, font, cont_safe_norm)
 
 
-func _draw_dial(center: Vector2, radius: float, value_norm: float, color: Color, title: String, val_str: String, font: Font) -> void:
+func _draw_dial(center: Vector2, radius: float, value_norm: float, color: Color, title: String, val_str: String, font: Font, safe_threshold_norm: float = -1.0) -> void:
 	var start_angle := deg2rad(135.0)
 	var total_sweep := deg2rad(270.0)
 	var end_angle := start_angle + total_sweep
@@ -145,6 +179,13 @@ func _draw_dial(center: Vector2, radius: float, value_norm: float, color: Color,
 	if value_norm > 0.001:
 		var val_end_angle := start_angle + value_norm * total_sweep
 		draw_arc(center, radius, start_angle, val_end_angle, 32, color, arc_width + 1.0)
+
+	# Marca de "nivel seguro": tick radial en el umbral de peligro (hazard/overpressure/etc)
+	# de este dial, para leer a simple vista cuanto margen queda antes de la zona de riesgo.
+	if safe_threshold_norm >= 0.0:
+		var tick_angle: float = start_angle + clamp(safe_threshold_norm, 0.0, 1.0) * total_sweep
+		var tick_dir := Vector2(cos(tick_angle), sin(tick_angle))
+		draw_line(center + tick_dir * (radius - 6.0), center + tick_dir * (radius + 6.0), Color(0.9, 0.9, 0.95, 0.9), 2.0)
 
 	# Needle
 	var needle_angle := start_angle + value_norm * total_sweep
