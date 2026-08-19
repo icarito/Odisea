@@ -385,6 +385,26 @@ del `core_v2` exige que la capa visual no entre en el estado lógico.
      riesgo no aplica hoy pero anotar si se agrega transparencia después.
 
   `[DECIDIR]` si se implementa esta noche (mejora opcional al cierre) o queda para otra sesión.
+- **D10 — Sistema viejo de FD-261 en `Dome_Intro.tscn` (encontrado en vivo).** Ya existe en la
+  escena real un sistema previo, más simple: 5 `CoolantValve` (una por `ScaffoldHubTower/Floor_N`,
+  grupo `coolant_valve`) TODAS conectadas por señal a DOS `CoolantLeak` lógicas únicas
+  (`CoolantLeakWestController`/`CoolantLeakEastController`, en realidad instancias directas de
+  `CoolantLeak.gd`, mal nombradas "Controller") — cualquier válvula de cualquier piso
+  abre/cierra AMBAS fugas globales, sin topología ordenada. Es literalmente el bug H1 que FD-270
+  documenta como motivación. `CoolantLeakWest`/`CoolantLeakEast` (efecto de partículas visual,
+  script distinto) reaccionan a esas señales; `HangingDisplay.activated` dispara
+  `trigger_leak()` en ambos controllers (demo/gancho narrativo simple).
+
+  **Decisión tomada esta noche (conservadora, sin Sebastián despierto para confirmar):** NO se
+  borra el sistema viejo. El nuevo sistema FD-270 (`ValveWestFloor0`..`5`, `ValveEastFloor0`..`5`,
+  `PipeNetworkResource`+`CoolantFlowAdapter` x2) se instancia EN PARALELO, con nombres de nodo
+  disjuntos — no hay colisión de NodePaths. Quedan dos sistemas de válvulas/fugas coexistiendo en
+  la misma escena hasta que Sebastián decida si el viejo se retira, se fusiona (ej. las mismas 5
+  `CoolantValve` de `Floor_N` podrían RECABLEARSE para ser las válvulas reales del circuito nuevo,
+  eliminando la duplicación visual de dos juegos de válvulas en el mismo piso), o se deja como
+  vestigio narrativo separado. `[DECIDIR]` — revisar jugando antes de mergear a main; el estado
+  actual es seguro (nada roto, ambos sistemas funcionan independientes) pero probablemente no es
+  el diseño final deseado.
 
 #### §7.2 — Reparto de ejecución de la migración (sesión 2026-08-19)
 
