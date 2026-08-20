@@ -160,6 +160,82 @@
 			padding: 0 2px;
 		}
 		#odisea-toast-close:hover { color: #93a0b4; }
+
+		/* Native-suggestion card: a quiet, dismissible hint anchored bottom-right
+		   that points the visitor to the best native build for their OS. It never
+		   blocks the loader or the engine, and can be closed with the × button. */
+		#odisea-native {
+			position: fixed;
+			bottom: 16px;
+			right: 16px;
+			max-width: min(360px, calc(100vw - 32px));
+			background: #0b1019;
+			border: 1px solid #2a3650;
+			border-left: 3px solid #7f9bc7;
+			border-radius: 4px;
+			box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+			padding: 13px 15px;
+			font-family: system-ui, sans-serif;
+			z-index: 15;
+			display: none;
+			transform: translateY(12px);
+			opacity: 0;
+			transition: opacity 0.3s linear, transform 0.3s ease-out;
+		}
+		#odisea-native.visible {
+			display: block;
+			transform: translateY(0);
+			opacity: 1;
+		}
+		#odisea-native-head {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-bottom: 6px;
+		}
+		#odisea-native-title {
+			color: #cfd7e3;
+			font-size: 13px;
+			font-weight: 600;
+			letter-spacing: 0.02em;
+		}
+		#odisea-native-msg {
+			color: #93a0b4;
+			font-size: 12px;
+			line-height: 1.5;
+		}
+		#odisea-native-foot {
+			margin-top: 10px;
+			display: flex;
+			align-items: center;
+			justify-content: flex-end;
+			gap: 12px;
+		}
+		#odisea-native-link {
+			display: inline-block;
+			background: #aabbcc;
+			color: #0b1019;
+			border: none;
+			border-radius: 2px;
+			padding: 7px 14px;
+			font-size: 12px;
+			font-weight: 600;
+			text-decoration: none;
+			cursor: pointer;
+		}
+		#odisea-native-link:hover { background: #c3d2e2; }
+		#odisea-native-close {
+			background: none;
+			border: none;
+			color: #56627a;
+			font: inherit;
+			font-size: 16px;
+			line-height: 1;
+			cursor: pointer;
+			padding: 0 2px;
+			margin-left: auto;
+		}
+		#odisea-native-close:hover { color: #93a0b4; }
 	</style>
 $GODOT_HEAD_INCLUDE
 </head>
@@ -199,6 +275,16 @@ $GODOT_HEAD_INCLUDE
 			<h2 id="odisea-modal-title" style="margin-bottom:12px; color:#eee; font-size:18px; font-weight:600;">Actualización requerida</h2>
 			<div id="odisea-modal-msg" style="font-size:14px; line-height:1.5; margin-bottom:24px; color:#93a0b4;">Se requiere una actualización de seguridad para continuar.</div>
 			<button id="odisea-modal-ok" style="background:#aabbcc; color:#0b1019; border:none; padding:12px 20px; border-radius:2px; font-weight:600; cursor:pointer; width:100%; font-size:14px;">Actualizar ahora</button>
+		</div>
+	</div>
+	<div id="odisea-native" role="dialog" aria-live="polite" aria-label="Sugerencia de descarga nativa">
+		<div id="odisea-native-head">
+			<span id="odisea-native-title">Mejor en nativo</span>
+			<button id="odisea-native-close" type="button" aria-label="Cerrar">×</button>
+		</div>
+		<div id="odisea-native-msg"></div>
+		<div id="odisea-native-foot">
+			<a id="odisea-native-link" href="#" target="_blank" rel="noopener"></a>
 		</div>
 	</div>
 	<script src="$GODOT_URL"></script>
@@ -813,6 +899,148 @@ $GODOT_HEAD_INCLUDE
 		}
 
 		startOdisea();
+	</script>
+	<script>
+		// ================================================================
+		// Native-build suggestion: detect the visitor's OS and surface a
+		// quiet, dismissible card with the best native build for it — the
+		// latest GitHub nightly download for desktop, the APK for Android,
+		// and TestFlight for iOS. It never auto-redirects and never blocks
+		// the web build; it only offers a link.
+		// ================================================================
+		(function() {
+			var TESTFLIGHT_URL = "https://testflight.apple.com/join/DegSFeFU";
+			var RELEASES_PAGE = "https://github.com/icarito/Odisea/releases/tag/nightly";
+			var RELEASES_API = "https://api.github.com/repos/icarito/Odisea/releases/tags/nightly";
+
+			var nativeEl = document.getElementById("odisea-native");
+			if (!nativeEl) return;
+
+			var nativeMsgEl = document.getElementById("odisea-native-msg");
+			var nativeLinkEl = document.getElementById("odisea-native-link");
+
+			function detectPlatform() {
+				var ua = navigator.userAgent || "";
+				var platform = (navigator.platform || "").toLowerCase();
+				var maxTouch = (typeof navigator.maxTouchPoints === "number") ? navigator.maxTouchPoints : 0;
+				var macLike = /(macintosh|mac os x|mac_os)/i.test(ua) || /mac/i.test(platform);
+
+				// iPadOS 13+ reports as a Mac in the UA; touch points disambiguate.
+				if (/iphone|ipod|ipad/i.test(ua) || (macLike && maxTouch > 1)) return "ios";
+				if (/android/i.test(ua)) return "android";
+				if (/windows/i.test(ua) || /win/i.test(platform)) return "windows";
+				if (macLike) return "macos";
+				if (/linux/i.test(ua) || /x11/i.test(platform)) return "linux";
+				return "unknown";
+			}
+
+			function matchAsset(assets, platform, arm) {
+				var pattern = null;
+				if (platform === "windows") pattern = /^Odisea-Tech-Demo-Windows-[^/]*\.zip$/;
+				else if (platform === "macos") pattern = /^Odisea-Tech-Demo-macOS-[^/]*\.zip$/;
+				else if (platform === "android") pattern = /^Odisea-Tech-Demo-Android-[^/]*\.apk$/;
+				else if (platform === "linux") {
+					pattern = arm
+						? /^Odisea-Tech-Demo-Linux-ARM64-[^/]*\.zip$/
+						: /^Odisea-Tech-Demo-Linux-\d[^/]*\.zip$/;
+				}
+				if (!pattern) return null;
+				for (var i = 0; i < assets.length; i++) {
+					if (pattern.test(assets[i].name)) return assets[i];
+				}
+				return null;
+			}
+
+			function fetchDirectUrl(platform, arm) {
+				return fetch(RELEASES_API).then(function(response) {
+					if (!response.ok) throw new Error("HTTP " + response.status);
+					return response.json();
+				}).then(function(release) {
+					var asset = matchAsset((release && release.assets) || [], platform, arm);
+					return asset ? asset.browser_download_url : null;
+				}).catch(function(err) {
+					console.warn("[ODiSEA] Native download lookup failed:", err);
+					return null;
+				});
+			}
+
+			function isArmLinux(cb) {
+				var platform = (navigator.platform || "").toLowerCase();
+				if (/aarch64|arm64|armv8/i.test(platform)) return cb(true);
+				if (/x86_64|amd64|x64/i.test(platform)) return cb(false);
+				var uad = navigator.userAgentData;
+				if (uad && typeof uad.getHighEntropyValues === "function") {
+					uad.getHighEntropyValues(["architecture"]).then(function(h) {
+						var arch = (h && h.architecture) ? String(h.architecture).toLowerCase() : "";
+						cb(/arm/i.test(arch));
+					}).catch(function() { cb(false); });
+				} else {
+					cb(false);
+				}
+			}
+
+			function showCard(platform, href) {
+				var msg = "";
+				var label = "";
+				if (platform === "ios") {
+					msg = "La experiencia alpha de Odisea es mejor en la app nativa. Prueba la versión de iOS desde TestFlight.";
+					label = "Abrir TestFlight";
+				} else if (platform === "android") {
+					msg = "La experiencia alpha de Odisea es mejor en la app nativa. Descarga el APK de la última nightly.";
+					label = "Descargar APK";
+				} else if (platform === "windows") {
+					msg = "La experiencia alpha de Odisea es mejor en la versión nativa para Windows.";
+					label = "Descargar nightly";
+				} else if (platform === "macos") {
+					msg = "La experiencia alpha de Odisea es mejor en la versión nativa para macOS.";
+					label = "Descargar nightly";
+				} else if (platform === "linux") {
+					msg = "La experiencia alpha de Odisea es mejor en la versión nativa para Linux.";
+					label = "Descargar nightly";
+				} else {
+					msg = "La experiencia alpha de Odisea es mejor en la versión nativa.";
+					label = "Ver nightly en GitHub";
+				}
+
+				nativeMsgEl.textContent = msg;
+				nativeLinkEl.textContent = label;
+				nativeLinkEl.href = href;
+				nativeEl.classList.add("visible");
+			}
+
+			document.getElementById("odisea-native-close").addEventListener("click", function() {
+				nativeEl.classList.remove("visible");
+			});
+
+			var platform = detectPlatform();
+			var fallbackUrl = (platform === "ios") ? TESTFLIGHT_URL : RELEASES_PAGE;
+			var finalUrl = null;
+			var shown = false;
+
+			function show() {
+				if (shown) return;
+				shown = true;
+				showCard(platform, finalUrl || fallbackUrl);
+			}
+
+			// Resolve the direct download URL (desktop/Android only); iOS and
+			// unknown platforms already have a fixed destination.
+			if (platform !== "ios" && platform !== "unknown") {
+				var armPromise = (platform === "linux")
+					? new Promise(function(res) { isArmLinux(res); })
+					: Promise.resolve(false);
+				armPromise.then(function(arm) {
+					return fetchDirectUrl(platform, arm);
+				}).then(function(url) {
+					finalUrl = url || fallbackUrl;
+					if (shown) nativeLinkEl.href = finalUrl;
+				});
+			}
+
+			// Surface the card after a short delay so the loading screen
+			// establishes itself first.
+			setTimeout(show, 3000);
+		})();
 	</script>
 </body>
 </html>

@@ -165,6 +165,7 @@
 [ext_resource path="res://core_v2/things/CoolantSchematicPanel.gd" type="Script" id=5003]
 [ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=5004]
 [ext_resource path="res://assets/fonts/Heading_Font.tres" type="DynamicFont" id=5005]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntroBakeLightsPlaceholder.gd" type="Script" id=5006]
 
 [sub_resource type="BoxShape" id=3]
 extents = Vector3( 1.65, 1.65, 0.08 )
@@ -3563,7 +3564,8 @@ mesh = ExtResource( 98 )
 
 [node name="StaticBody" parent="SpiralWalkways" instance=ExtResource( 38 )]
 
-[node name="DomeIntroBakeLights" parent="." instance=ExtResource( 366 )]
+[node name="DomeIntroBakeLights" parent="." instance_placeholder="res://core_v2/levels/interiors/DomeIntro_BakeLights.tscn"]
+script = ExtResource( 5006 )
 
 [node name="HubExitLights" type="Spatial" parent="."]
 script = ExtResource( 28 )
@@ -4882,7 +4884,7 @@ transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 3, 0
 light_color = Color( 0.807843, 0.85098, 0.847059, 1 )
 light_energy = 0.5
 light_bake_mode = 2
-shadow_enabled = true
+shadow_enabled = false
 directional_shadow_mode = 0
 
 [node name="BakedLightmap" type="BakedLightmap" parent="."]

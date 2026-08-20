@@ -145,6 +145,9 @@ var visual_push_correction: float = 0.0
 var _push_correction_smoothed: float = 0.0
 
 var _push_target: Spatial = null
+# Cache del target "pushable" mas cercano en _interact_area, ver _update_push_state():
+# throttlear get_overlapping_bodies() a cada 8 ticks en vez de siempre.
+var _push_best_target_cached: Node = null
 var _ledge_regrab_cooldown := 0.0
 var _ladder_regrab_cooldown := 0.0
 var _jump_was_pressed := false
@@ -2037,16 +2040,25 @@ func _update_push_state(dt: float, input: InputDataV2):
 		_apply_visual_push_correction(raw_push_correction, dt)
 		return
 
-	var bodies = _interact_area.get_overlapping_bodies()
-	var best_target = null
-	var min_dist = 999.0
-
-	for body in bodies:
-		if is_instance_valid(body) and body.is_in_group("pushable"):
-			var dist = global_transform.origin.distance_squared_to(body.global_transform.origin)
-			if dist < min_dist:
-				min_dist = dist
-				best_target = body
+	# get_overlapping_bodies() consulta el broadphase de fisica igual que
+	# _get_interaction_overlaps() (linea ~1827), que ya cachea su resultado y solo
+	# vuelve a consultar cada 8 ticks. Esta funcion hacia la MISMA consulta sin
+	# ese throttle, TODOS los ticks, sin importar si hay algo empujable cerca (que
+	# es la inmensa mayoria del tiempo) — confirmado en vivo: apagar el
+	# _physics_process completo del jugador daba +62% de fps en Dome_Intro. El
+	# throttle solo cachea CUAL es el mejor target; la logica de direccion/empuje
+	# de mas abajo, que si depende del input de ESTE frame, sigue corriendo siempre.
+	if Engine.get_physics_frames() % 8 == 0 or not is_instance_valid(_push_best_target_cached):
+		var bodies = _interact_area.get_overlapping_bodies()
+		var min_dist = 999.0
+		_push_best_target_cached = null
+		for body in bodies:
+			if is_instance_valid(body) and body.is_in_group("pushable"):
+				var dist = global_transform.origin.distance_squared_to(body.global_transform.origin)
+				if dist < min_dist:
+					min_dist = dist
+					_push_best_target_cached = body
+	var best_target = _push_best_target_cached
 
 	if best_target:
 		# Check intention: Are we trying to move towards it?

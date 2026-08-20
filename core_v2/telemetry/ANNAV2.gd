@@ -279,6 +279,116 @@ func _get_proc_counts() -> Dictionary:
 	_cached_proc_counts = {"physics": physics_count, "process": process_count}
 	return _cached_proc_counts
 
+var _debug_toggled_nodes := []
+
+# Diagnostico temporal FD-270: apaga/prende _physics_process y _process de TODOS
+# los nodos de la escena actual de un tirón, para bisectar si el costo fijo por
+# tick esta en scripts de escena (69 nodos con physics activo) o en el motor.
+func debug_toggle_all_scene_processing(enable: bool) -> Dictionary:
+	var scene = get_tree().current_scene
+	if scene == null:
+		return {"error": "no_scene"}
+	if not enable:
+		_debug_toggled_nodes.clear()
+		var stack := [scene]
+		var count = 0
+		while not stack.empty():
+			var node: Node = stack.pop_back()
+			var was_physics = node.is_physics_processing()
+			var was_process = node.is_processing()
+			if was_physics or was_process:
+				_debug_toggled_nodes.append([weakref(node), was_physics, was_process])
+				if was_physics:
+					node.set_physics_process(false)
+				if was_process:
+					node.set_process(false)
+				count += 1
+			for child in node.get_children():
+				stack.push_back(child)
+		return {"disabled": count}
+	else:
+		var restored = 0
+		for entry in _debug_toggled_nodes:
+			var wr = entry[0]
+			var node = wr.get_ref()
+			if node != null and is_instance_valid(node):
+				if entry[1]:
+					node.set_physics_process(true)
+				if entry[2]:
+					node.set_process(true)
+				restored += 1
+		_debug_toggled_nodes.clear()
+		return {"restored": restored}
+
+# Como debug_toggle_all_scene_processing pero solo sobre nodos cuyo script
+# (por resource_path) contiene alguno de los substrings dados, para bisectar
+# CUAL tipo de componente pesa sin tener que ubicar rutas de nodo a mano.
+func debug_toggle_by_script_match(substrings: Array, enable: bool) -> Dictionary:
+	var scene = get_tree().current_scene
+	if scene == null:
+		return {"error": "no_scene"}
+	if not enable:
+		_debug_toggled_nodes.clear()
+		var stack := [scene]
+		var count = 0
+		var by_match := {}
+		while not stack.empty():
+			var node: Node = stack.pop_back()
+			var scr = node.get_script()
+			if scr != null:
+				var path = String(scr.resource_path)
+				var matched = false
+				for s in substrings:
+					if path.find(String(s)) != -1:
+						matched = true
+						break
+				if matched:
+					var was_physics = node.is_physics_processing()
+					var was_process = node.is_processing()
+					if was_physics or was_process:
+						_debug_toggled_nodes.append([weakref(node), was_physics, was_process])
+						if was_physics:
+							node.set_physics_process(false)
+						if was_process:
+							node.set_process(false)
+						count += 1
+						by_match[path] = by_match.get(path, 0) + 1
+			for child in node.get_children():
+				stack.push_back(child)
+		return {"disabled": count, "by_script": by_match}
+	else:
+		var restored = 0
+		for entry in _debug_toggled_nodes:
+			var wr = entry[0]
+			var node = wr.get_ref()
+			if node != null and is_instance_valid(node):
+				if entry[1]:
+					node.set_physics_process(true)
+				if entry[2]:
+					node.set_process(true)
+				restored += 1
+		_debug_toggled_nodes.clear()
+		return {"restored": restored}
+
+# Lista todos los scripts distintos con al menos un nodo procesando, y cuántos
+# nodos de ese script lo hacen. Para ver de un vistazo qué componente domina antes
+# de bisectar con debug_toggle_by_script_match.
+func debug_list_processing_scripts() -> Dictionary:
+	var scene = get_tree().current_scene
+	if scene == null:
+		return {"error": "no_scene"}
+	var counts := {}
+	var stack := [scene]
+	while not stack.empty():
+		var node: Node = stack.pop_back()
+		if node.is_physics_processing() or node.is_processing():
+			var scr = node.get_script()
+			var key = String(scr.resource_path) if scr != null else "<no_script:%s>" % node.get_class()
+			counts[key] = counts.get(key, 0) + 1
+		for child in node.get_children():
+			stack.push_back(child)
+	return counts
+
 func _update_telemetry():
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	

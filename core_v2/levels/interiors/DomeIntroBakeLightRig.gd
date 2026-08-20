@@ -6,6 +6,14 @@ extends Spatial
 export(bool) var bake_rig_enabled := false setget set_bake_rig_enabled
 
 func _ready() -> void:
+	# Red de seguridad: en el uso normal este nodo NUNCA llega a instanciarse fuera
+	# del editor — Dome_Intro.tscn lo referencia con instance_placeholder= (ver
+	# DomeIntroBakeLightsPlaceholder.gd), asi que en juego real el motor ni siquiera
+	# crea las ~106 Light hijas. Si alguien vuelve a instance= directo por error, este
+	# queue_free() sigue evitando que iluminen o pesen en el arbol de culling.
+	if not Engine.editor_hint and not bake_rig_enabled:
+		queue_free()
+		return
 	_apply_bake_state()
 
 func set_bake_rig_enabled(value: bool) -> void:

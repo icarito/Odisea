@@ -232,6 +232,19 @@ func _generate_fence():
     poles_mm.mesh = pole_mesh
     poles_mm.instance_count = panel_count + 1
 
+    # Un StaticBody por poste y otro por panel eran hasta 2*(panel_count)+1 objetos de
+    # fisica separados por reja (28 para 14 paneles) — cada uno se registra en el
+    # broadphase de Bullet aunque el render ya este fusionado en un MultiMesh/malla
+    # unica arriba. Medido en Dome_Intro: el broadphase paga por objeto registrado
+    # aunque nada se mueva (ver CollisionCullManager.gd, mismo mecanismo). Un solo
+    # StaticBody compartido con TODAS las CollisionShape como hijas es un compound
+    # shape para Bullet — sigue siendo la misma geometria de colision, un solo objeto.
+    var fence_body := StaticBody.new()
+    fence_body.name = "FenceBody"
+    fence_body.collision_layer = PROP_LAYER
+    fence_body.collision_mask = 255
+    _container.add_child(fence_body)
+
     var points = []
     for i in range(panel_count + 1):
         var offset = (float(i) / float(panel_count)) * total_length
@@ -243,18 +256,13 @@ func _generate_fence():
         pos.y += height * 0.5
         poles_mm.set_instance_transform(i, Transform(Basis(), pos))
 
-        var p_body = StaticBody.new()
-        p_body.name = "PoleBody_%d" % i
-        p_body.collision_layer = PROP_LAYER
-        p_body.collision_mask = 255
         var p_col = CollisionShape.new()
         var p_cyl = CylinderShape.new()
         p_cyl.radius = pole_radius
         p_cyl.height = height
         p_col.shape = p_cyl
-        p_body.add_child(p_col)
-        p_body.translation = pos
-        _container.add_child(p_body)
+        p_col.translation = pos
+        fence_body.add_child(p_col)
 
     var poles_node := MultiMeshInstance.new()
     poles_node.name = "Poles"
@@ -293,20 +301,12 @@ func _generate_fence():
         _append_panel(st, quad, panel_xform, tiling)
         hay_panel = true
 
-        var body = StaticBody.new()
-        body.name = "FenceBarrier_%d" % i
-        body.collision_layer = PROP_LAYER
-        body.collision_mask = 255
         var col_shape = CollisionShape.new()
         var box = BoxShape.new()
         box.extents = Vector3(segment_len * 0.5, height * 0.5, 0.02)
         col_shape.shape = box
-        body.add_child(col_shape)
-        
-        body.translation = center
-        body.transform = Transform(panel_basis, center)
-                
-        _container.add_child(body)
+        col_shape.transform = Transform(panel_basis, center)
+        fence_body.add_child(col_shape)
 
     if hay_panel:
         st.generate_tangents()

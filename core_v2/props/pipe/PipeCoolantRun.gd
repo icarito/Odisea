@@ -66,7 +66,16 @@ export(float) var collar_radius_margin := 0.03
 export(float) var collar_height := 0.12
 export(Color) var collar_color := Color(0.18, 0.2, 0.23, 1.0)
 
+# LOD: de lejos el brillo del flujo no se nota (el propio shader ya se apaga por
+# distancia, ver pipe_coolant.shader LOD_FAR), así que dejar de acumular fase tampoco
+# se nota. Mismo patrón que AirlockLOD.gd — solo toca _physics_process, nunca colisión.
+export(bool) var distance_lod_enabled := true
+export(float, 5.0, 100.0, 1.0) var lod_distance := 12.0
+export(float, 0.0, 20.0, 0.5) var lod_hysteresis := 4.0
+export(int, 1, 60) var lod_frames_between_checks := 10
+
 var _material: ShaderMaterial = null
+var _lod = null
 # El shader trata flow_phase == 0.0 como "sin override, animar con TIME" (lo usa
 # PipeRun.gd para conducciones decorativas sin lógica de caudal). PipeCoolantRun SÍ
 # controla el caudal, así que _phase nunca debe caer justo en ese sentinel — si el
@@ -82,10 +91,29 @@ func _ready() -> void:
 	_apply()
 	if add_entry_collar:
 		_spawn_entry_collar()
+	if distance_lod_enabled and not Engine.editor_hint:
+		var lod_script = load("res://core_v2/systems/PhysicsProcessLOD.gd")
+		_lod = lod_script.new(_lod_world_position(), get_tree(), lod_distance, lod_hysteresis, lod_frames_between_checks)
+		var budget = get_node_or_null("/root/AdaptiveVisualBudget")
+		if budget != null and budget.has_method("register_consumer"):
+			budget.register_consumer(self, "_on_visual_budget_level_changed")
+
+
+# AdaptiveVisualBudget arranca en 0 y sube de a poco si el dispositivo aguanta (nunca
+# instancia ni destruye nada — esta corrida ya existe siempre, solo se ensancha o
+# acorta el radio del LOD de distancia ya creado en _ready()).
+func _on_visual_budget_level_changed(level: int, max_level: int) -> void:
+	if _lod == null:
+		return
+	var floor_distance: float = min(lod_distance, 4.0)
+	var t: float = float(level) / float(max(max_level, 1))
+	_lod.set_distance(lerp(floor_distance, lod_distance, t))
 
 
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
+		return
+	if _lod != null and not _lod.should_process():
 		return
 	# La fase se acumula acá y se manda al shader; el shader no multiplica TIME por la
 	# velocidad. Esa es la diferencia entre frenar y congelar: la fase sigue siendo
@@ -181,6 +209,24 @@ func _apply() -> void:
 		_material.set_shader_param("hide_caps", hide_caps)
 
 	_assign_to_meshes(self)
+
+
+# Posicion de mundo real para el LOD de distancia. Un tramo bakeado (CombinedMesh,
+# ver bake_pipe_network.gd) fusiona varios tramos originales en un solo MeshInstance
+# cuya transform de NODO queda en la identidad — el offset real vive en los VERTICES
+# del mesh. global_transform.origin de self da (0,0,0) en ese caso, asi que el LOD
+# comparado contra eso "siempre esta cerca" sin importar donde este el jugador. El
+# AABB del CombinedMesh (en su espacio local, que coincide con mundo cuando el nodo
+# esta en identidad) da el centro real. Un tramo sin hornear no tiene este problema:
+# su MeshInstance sigue la transform normal del nodo, asi que global_transform.origin
+# alcanza.
+func _lod_world_position() -> Vector3:
+	var combined := get_node_or_null("CombinedMesh") as MeshInstance
+	if combined != null and combined.mesh != null:
+		var aabb: AABB = combined.mesh.get_aabb()
+		var center_local: Vector3 = aabb.position + aabb.size * 0.5
+		return combined.global_transform.xform(center_local)
+	return global_transform.origin
 
 
 const _COLLAR_NAME := "_EntryCollar"

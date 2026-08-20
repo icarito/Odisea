@@ -23,6 +23,12 @@ extends Node
 # 1.70% de los pixeles cambia mas de 12/255.
 #
 # Solo movil a proposito: en escritorio sobra presupuesto y no hay razon para degradar.
+#
+# Salta las luces invisibles (DomeIntroBakeLightRig y equivalentes: el rig completo de
+# luces exclusivas del pase BakedLightmap, forzado a visible=false en runtime — nunca
+# cuestan fillrate, asi que recortarles el rango es trabajo puro sin ningun ahorro).
+# Sin este filtro, el autoload registraba y tocaba ~106 luces invisibles en Dome_Intro
+# ademas de las que si iluminan.
 
 const DISABLE_ENV := "ODISEA_DISABLE_LIGHT_BUDGET"
 const MOBILE_ENV := "ODISEA_FORCE_MOBILE_PROFILE"
@@ -145,7 +151,7 @@ func _aplicar() -> void:
 	var pila := [raiz]
 	while not pila.empty():
 		var n: Node = pila.pop_back()
-		if n is Light and not _originales.has(n):
+		if n is Light and (n as Light).visible and not _originales.has(n):
 			var actual := _rango_de(n as Light)
 			# El rango original se guarda ANTES de tocarlo. Sin esto, un segundo escaneo
 			# volveria a multiplicar sobre el valor ya reducido y las luces se apagarian

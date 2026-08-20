@@ -16,6 +16,13 @@ export(float, 5.0, 60.0, 1.0) var pool_fps_floor := 24.0
 export(float, 5.0, 90.0, 1.0) var pool_fps_ceiling := 45.0
 export(float, 0.05, 1.0, 0.05) var min_pool_fraction := 0.25
 export(float, 0.25, 5.0, 0.25) var pool_adapt_interval := 1.5
+# LOD: de lejos el gas es apenas unos pixeles borrosos, así que congelarlo (dejar de
+# simular, no de dibujar) no se nota. Mismo patrón que AirlockLOD.gd — solo toca
+# _physics_process, nunca colisión, para no meter drift en replays deterministas.
+export(bool) var distance_lod_enabled := true
+export(float, 5.0, 100.0, 1.0) var lod_distance := 12.0
+export(float, 0.0, 20.0, 0.5) var lod_hysteresis := 4.0
+export(int, 1, 60) var lod_frames_between_checks := 10
 export(float) var default_max_lifetime := 6.0
 export(float) var default_base_scale := 2.2
 export(float) var viscosity := 0.8
@@ -66,6 +73,7 @@ var _hidden_transform := Transform.IDENTITY
 var _gas_material: ShaderMaterial = null
 # Límite visual opcional, en coordenadas locales. INF conserva el comportamiento normal.
 var vertical_ceiling_y := INF
+var _lod = null
 
 func _init():
 	add_to_group("replay_sync")
@@ -76,6 +84,12 @@ func _ready():
 	_setup_pool()
 	_apply_pool_limit(_initial_pool_limit())
 	_sync_all_instances()
+	if distance_lod_enabled:
+		var lod_script = load("res://core_v2/systems/PhysicsProcessLOD.gd")
+		_lod = lod_script.new(global_transform.origin, get_tree(), lod_distance, lod_hysteresis, lod_frames_between_checks)
+		var budget = get_node_or_null("/root/AdaptiveVisualBudget")
+		if budget != null and budget.has_method("register_consumer"):
+			budget.register_consumer(self, "_on_visual_budget_level_changed")
 
 func _ensure_multimesh_instance() -> void:
 	multimesh_instance = get_node_or_null("GasMultiMeshInstance")
@@ -191,6 +205,18 @@ func _apply_pool_limit(limit: int) -> void:
 		_scale_boost = min(mobile_scale_compensation, sqrt(coverage))
 
 
+# AdaptiveVisualBudget arranca en 0 y sube de a poco si el dispositivo aguanta (nunca
+# instancia ni destruye nada — esta instancia ya existe siempre, solo se ensancha o
+# acorta el radio del LOD de distancia ya creado en _ready()). level 0 = solo lo que
+# el jugador toca de cerca; level == max_level = el lod_distance configurado por nivel.
+func _on_visual_budget_level_changed(level: int, max_level: int) -> void:
+	if _lod == null:
+		return
+	var floor_distance: float = min(lod_distance, 4.0)
+	var t: float = float(level) / float(max(max_level, 1))
+	_lod.set_distance(lerp(floor_distance, lod_distance, t))
+
+
 func _adapt_pool_to_fps(delta: float) -> void:
 	if not adaptive_pool_on_mobile or not _is_mobile_profile():
 		return
@@ -211,6 +237,8 @@ func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
 	_adapt_pool_to_fps(delta)
+	if _lod != null and not _lod.should_process():
+		return
 	step(delta)
 
 func step(delta: float) -> void:

@@ -1399,6 +1399,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/qodot/game_definitions/fgd/solid_classes/physics.gd"
 }, {
+"base": "Reference",
+"class": "PhysicsProcessLOD",
+"language": "GDScript",
+"path": "res://core_v2/systems/PhysicsProcessLOD.gd"
+}, {
 "base": "Spatial",
 "class": "PilotAnimatorV2",
 "language": "GDScript",
@@ -2433,6 +2438,7 @@ _global_script_class_icons={
 "PedestalButton": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",
+"PhysicsProcessLOD": "",
 "PilotAnimatorV2": "",
 "PipeCoolantRun": "",
 "PipeManometer": "",
@@ -2640,6 +2646,7 @@ FrostVignetteManager="*res://core_v2/autoloads/FrostVignetteManager.gd"
 CollisionCullManager="*res://core_v2/autoloads/CollisionCullManager.gd"
 MobileLightBudget="*res://core_v2/systems/MobileLightBudget.gd"
 AdaptiveRenderScale="*res://core_v2/systems/AdaptiveRenderScale.gd"
+AdaptiveVisualBudget="*res://core_v2/systems/AdaptiveVisualBudget.gd"
 DebugConsoleManager="*res://core_v2/autoloads/DebugConsoleManager.gd"
 
 [debug]
