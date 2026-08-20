@@ -4791,7 +4791,7 @@ shape = ExtResource( 349 )
 [node name="IceLevel" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
-auto_start = false
+auto_start = true
 use_mobile_color_pbr = false
 ice_height_fog_enabled = true
 room_path = NodePath("../DomeRoom3D")
