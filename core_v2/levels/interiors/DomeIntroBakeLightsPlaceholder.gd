@@ -10,9 +10,21 @@ extends InstancePlaceholder
 # las formas de colision de Bullet, solo que este se paga aunque nunca se dibujen).
 #
 # Un InstancePlaceholder es casi gratis: no crea los hijos hasta que algo llama
-# create_instance()/replace_by_instance(). En juego real eso nunca pasa. En el
-# editor (para poder abrir el rig y re-hornear) SI hace falta, asi que este script
-# se materializa solo cuando Engine.editor_hint es true.
-func _ready() -> void:
-	if Engine.editor_hint:
+# create_instance()/replace_by_instance(). En juego real eso nunca pasa.
+#
+# IMPORTANTE: NO auto-materializar en _ready(). Engine.editor_hint es true tanto
+# con el editor abierto en modo edicion como al correr la escena con F5 desde el
+# editor (el proceso hijo hereda el flag) — no distingue "quiero editar el rig" de
+# "estoy jugando". Auto-materializar ahi convertia cada F5 en un resave de facto:
+# las 107 Light reales quedaban en el arbol en memoria y, si el editor volcaba ese
+# estado a disco, disparaba el bug de pack() con Viewport anidado que borra nodos
+# con owner roto (HangingDisplay/Viewport/TerminalUI). Ver memoria
+# project_fd270_pack_owner_bug.
+#
+# Materializar es ahora una accion explicita: tildar "Materialize For Editing" en
+# el Inspector cuando de verdad haga falta abrir el rig para retocarlo/hornear.
+export(bool) var materialize_for_editing := false setget _set_materialize_for_editing
+
+func _set_materialize_for_editing(value: bool) -> void:
+	if value and Engine.editor_hint:
 		replace_by_instance()
