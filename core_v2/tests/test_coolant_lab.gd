@@ -109,17 +109,19 @@ func test_scene_wiring_supports_shader_and_gloo() -> void:
 	yield(_runner.simulate_frames(10), "completed")
 	var lab = _runner.scene()
 
-	# 1. El shader de coolant tiene que llegar al cano. PipeCoolantRun solo pinta
-	#    MeshInstance: con un CSGBox de cuerpo, el cano queda gris. Ese era el bug, asi
-	#    que lo que importa verificar es que el cuerpo del cano SEA un MeshInstance.
-	assert_bool(lab.get_node("PipeRunWest/Visual") is MeshInstance).is_true()
-	assert_bool(lab.get_node("PipeRunEast/Visual") is MeshInstance).is_true()
+	# 1. El shader de coolant tiene que llegar al cano. Cada rama se divide en
+	#    segmentos; S3 es el tramo que contiene la fuga y que referencia el patch point.
+	#    PipeCoolantRun solo pinta MeshInstance: con un CSGBox de cuerpo, el cano queda gris.
+	var pipe_west = lab.get_node("PipeRunWest_S3")
+	var pipe_east = lab.get_node("PipeRunEast_S3")
+	assert_bool(pipe_west.get_node("Visual") is MeshInstance).is_true()
+	assert_bool(pipe_east.get_node("Visual") is MeshInstance).is_true()
 
 	# El material se lee del script, no de MeshInstance.get_surface_material(): el binario
 	# headless de CI usa el rasterizer dummy, donde la malla reporta 0 superficies y tanto
 	# set_ como get_surface_material() fallan por indice. El estado del nodo si es fiable.
-	var mat_west = lab.get_node("PipeRunWest").get("_material")
-	var mat_east = lab.get_node("PipeRunEast").get("_material")
+	var mat_west = pipe_west.get("_material")
+	var mat_east = pipe_east.get("_material")
 	assert_object(mat_west).is_not_null()
 	assert_bool(mat_west is ShaderMaterial).is_true()
 
