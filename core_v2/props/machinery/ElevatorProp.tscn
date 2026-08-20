@@ -150,6 +150,7 @@ mesh = SubResource( 20 )
 material/0 = ExtResource( 7 )
 
 [node name="StaticBody" type="StaticBody" parent="MetalFence/Path2/CSGCylinder"]
+collision_layer = 64
 
 [node name="CollisionShape" type="CollisionShape" parent="MetalFence/Path2/CSGCylinder/StaticBody"]
 shape = SubResource( 21 )
