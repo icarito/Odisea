@@ -92,6 +92,23 @@ func test_death_cover_freezes_the_world_until_it_clears() -> void:
 		yield(clear_state, "completed")
 	assert_bool(get_tree().paused).is_false()
 
+# La caída por muerte necesita simular durante el cierre visual; solo después se congela
+# el mundo para la confirmación/respawn.
+func test_death_cover_can_pause_after_closing() -> void:
+	var manager = get_tree().root.get_node_or_null("ScreenEffectsManager")
+	assert_object(manager).is_not_null()
+
+	manager.reset(true)
+	var cover_state = manager.begin_death_cover({"duration": 0.0, "pause_on_complete": false})
+	if cover_state is GDScriptFunctionState:
+		yield(cover_state, "completed")
+	assert_bool(get_tree().paused).is_true()
+
+	var clear_state = manager.end_death_cover({"duration": 0.0})
+	if clear_state is GDScriptFunctionState:
+		yield(clear_state, "completed")
+	assert_bool(get_tree().paused).is_false()
+
 # La pausa del árbol es compartida: si el jugador ya estaba en el menú de pausa cuando
 # murió, el cover no debe quedarse con la llave y despausar el juego al reaparecer.
 func test_death_cover_does_not_steal_a_pause_it_did_not_set() -> void:
