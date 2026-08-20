@@ -11,12 +11,14 @@ func _make_section(starts_rising: bool = false) -> Spatial:
 	var section = auto_free(PressureSectionScript.new())
 	section.starts_rising = starts_rising
 	add_child(section)
+	section.set_physics_process(false)
 	return section
 
 
 func _make_dial(section: Spatial) -> Spatial:
 	var dial = auto_free(PurgeDialScript.new())
 	add_child(dial)
+	dial.set_physics_process(false)
 	if section != null:
 		dial.section_path = dial.get_path_to(section)
 	return dial

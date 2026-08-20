@@ -84,7 +84,7 @@ func _physics_process(delta: float) -> void:
 			else:
 				_pressure = 1.0
 
-			if _state_timer >= recover_duration or _pressure <= 1.0:
+			if _state_timer >= recover_duration:
 				_pressure = 1.0
 				_has_blown_out = false
 				_set_state(State.NOMINAL)
