@@ -16,9 +16,9 @@ func _make_section(starts_rising: bool = false) -> Spatial:
 
 func _make_dial(section: Spatial) -> Spatial:
 	var dial = auto_free(PurgeDialScript.new())
-	if section != null:
-		dial.section_path = section.get_path()
 	add_child(dial)
+	if section != null:
+		dial.section_path = dial.get_path_to(section)
 	return dial
 
 
