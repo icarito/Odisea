@@ -374,7 +374,8 @@ func _on_player_killed():
 
 	var screen_fx = get_node_or_null("/root/ScreenEffectsManager")
 	if screen_fx and screen_fx.has_method("begin_death_cover"):
-		var death_cover = screen_fx.begin_death_cover()
+		# El ragdoll necesita una ventana física completa antes de congelar el mundo.
+		var death_cover = screen_fx.begin_death_cover({"duration": 3.4, "pause_on_complete": false})
 		if death_cover is GDScriptFunctionState:
 			yield(death_cover, "completed")
 

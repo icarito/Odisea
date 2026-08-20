@@ -94,6 +94,11 @@ func _on_body_exited(body: Node):
 		_player_body = null
 
 func set_active(value: bool):
+	# Una fisura puede seguir logicamente LEAKING aunque el hielo ya haya cubierto su
+	# emisor visual. LeakFissureVisual vuelve a pedir set_active(true) en ese estado;
+	# sin esta guarda el audio se reiniciaba y cortaba cada tick de fisica.
+	if value and _is_submerged():
+		return
 	is_active = value
 	_set_visuals_active(is_active)
 	if _collision_shape:
@@ -133,6 +138,10 @@ func _sync_ice_level() -> void:
 	var systems: Array = get_tree().get_nodes_in_group("ice_level") if get_tree() else []
 	if not systems.empty():
 		_ice_level = systems[0]
+
+func _is_submerged() -> bool:
+	_sync_ice_level()
+	return is_instance_valid(_ice_level) and _ice_level.ice_height >= global_transform.origin.y
 
 func extinguish():
 	set_active(false)

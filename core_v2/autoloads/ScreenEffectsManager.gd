@@ -24,11 +24,19 @@ func begin_death_cover(params: Dictionary = {}):
 		return null
 	_script_cinematic_depth = 0
 	_set_level_audio_muted(true)
-	_set_world_paused(true)
+	var pause_on_complete: bool = bool(params.get("pause_on_complete", true))
+	if pause_on_complete:
+		_set_world_paused(true)
 	if _overlay.has_method("set_cinematic_bars_enabled"):
 		_overlay.set_cinematic_bars_enabled(false, true)
 	if _overlay.has_method("begin_death_cover"):
-		return _overlay.begin_death_cover(params)
+		var cover = _overlay.begin_death_cover(params)
+		if not pause_on_complete:
+			if cover is GDScriptFunctionState:
+				yield(cover, "completed")
+			_set_world_paused(true)
+			return null
+		return cover
 	return null
 
 func end_death_cover(params: Dictionary = {}):
@@ -101,9 +109,8 @@ func _set_level_audio_muted(muted: bool) -> void:
 		audio.set_level_audio_muted(muted)
 
 # Morir congela el mundo: el hielo deja de subir, las partículas quedan quietas y nada
-# puede seguir dañando mientras el jugador mira la pantalla de muerte. El overlay vive en
-# OverlayUIManager (PAUSE_MODE_PROCESS), así que el fundido y la tecla de confirmación
-# siguen funcionando con el árbol pausado.
+# puede seguir dañando mientras el jugador mira la pantalla de muerte. El cover puede
+# postergar esa pausa para dejar ver el desplome; el overlay sigue en PAUSE_MODE_PROCESS.
 func _set_world_paused(paused: bool) -> void:
 	var tree = get_tree()
 	if not tree:

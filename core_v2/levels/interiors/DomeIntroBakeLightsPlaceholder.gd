@@ -21,10 +21,5 @@ extends InstancePlaceholder
 # con owner roto (HangingDisplay/Viewport/TerminalUI). Ver memoria
 # project_fd270_pack_owner_bug.
 #
-# Materializar es ahora una accion explicita: tildar "Materialize For Editing" en
-# el Inspector cuando de verdad haga falta abrir el rig para retocarlo/hornear.
-export(bool) var materialize_for_editing := false setget _set_materialize_for_editing
-
-func _set_materialize_for_editing(value: bool) -> void:
-	if value and Engine.editor_hint:
-		replace_by_instance()
+# Nunca materializar desde Dome_Intro: abrir DomeIntro_BakeLights.tscn directamente
+# para retocar el rig. Eso mantiene el owner del Viewport ajeno al pack del nivel.

@@ -12,6 +12,7 @@ export(Array, NodePath) var candidate_leak_paths := []
 
 # --- INTERNAL STATE ---
 var _active_leak_paths: Array = []
+var _is_activated: bool = false
 
 
 func _get_property_list() -> Array:
@@ -43,6 +44,16 @@ func _ready() -> void:
 	if _active_leak_paths.empty():
 		_draw_active_leaks()
 
+	# La escena empieza sana: ColdRuptureEvent decide cuándo liberar la selección.
+	# Mantener el sorteo listo conserva el seed para una activación explícita/replay.
+
+
+func activate_leaks() -> void:
+	if _is_activated:
+		return
+	if _active_leak_paths.empty():
+		_draw_active_leaks()
+	_is_activated = true
 	_activate_leaks()
 
 
@@ -111,7 +122,8 @@ func get_snapshot() -> Dictionary:
 		str_paths.append(str(path))
 	return {
 		"seed": seed_value,
-		"active_leak_paths": str_paths
+		"active_leak_paths": str_paths,
+		"is_activated": _is_activated
 	}
 
 
@@ -124,5 +136,7 @@ func restore_snapshot(data: Dictionary) -> void:
 			_active_leak_paths = []
 			for p in paths_raw:
 				_active_leak_paths.append(NodePath(str(p)))
-		if is_inside_tree():
-			_activate_leaks()
+	if data.has("is_activated"):
+		_is_activated = bool(data["is_activated"])
+	if _is_activated and is_inside_tree():
+		_activate_leaks()

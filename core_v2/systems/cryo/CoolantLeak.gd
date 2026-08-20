@@ -12,7 +12,7 @@ enum State { HEALTHY, WARNING, LEAKING, SEALED, DEPRESSURIZED }
 
 # --- EXPORTED PROPERTIES ---
 # If true, the system starts leaking (in WARNING state) on _ready()
-export(bool) var starts_leaking: bool = true
+export(bool) var starts_leaking: bool = false
 # Duration in seconds of condensation warning phase before leak starts
 export(float) var warning_duration: float = 4.0
 # Duration in seconds for leak intensity to ramp up from 0 to 1
