@@ -129,6 +129,7 @@ var _ots_camera_follow_weight := 0.0
 var velocity := Vector3()
 var is_pushing: bool = false
 var is_crouching: bool = false
+var is_ragdoll: bool = false
 var ice_submersion_depth := 0.0
 var last_input: InputDataV2 = null
 var _was_pushing: bool = false
@@ -436,6 +437,7 @@ func restore_snapshot(data: Dictionary) -> void:
 		_camera_rig_was_grounded = true
 
 func full_reset() -> void:
+	end_ragdoll()
 	velocity = Vector3.ZERO
 	frames_since_last_snap = ACROBATIC_WINDOW_FRAMES + 1
 	last_input_vector = Vector3.ZERO
@@ -683,6 +685,7 @@ func _ready():
 	_setup_crouch_collision()
 	_setup_multi_tool()
 	_setup_thermal_resistance()
+	call_deferred("_ensure_physical_bones")
 	call_deferred("_apply_weak_visual_policy_if_needed_deferred")
 	call_deferred("_apply_camera_particle_policy")
 
@@ -722,9 +725,120 @@ func _setup_thermal_resistance() -> void:
 	if frost_vignette_manager and frost_vignette_manager.has_method("bind_suit"):
 		frost_vignette_manager.bind_suit(suit)
 
+func _get_skeleton() -> Skeleton:
+	var skel = get_node_or_null("Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton")
+	if skel and skel is Skeleton:
+		return skel as Skeleton
+	var found = find_node("Skeleton", true, false)
+	if found and found is Skeleton:
+		return found as Skeleton
+	return null
+
+func _ensure_physical_bones() -> void:
+	var skel := _get_skeleton()
+	if not skel:
+		return
+	for child in skel.get_children():
+		if child is PhysicalBone:
+			return
+
+	var bone_configs = [
+		{"name": "DEF-hips", "shape": "capsule", "radius": 0.16, "height": 0.22, "joint": PhysicalBone.JOINT_TYPE_PIN, "mass": 5.0},
+		{"name": "DEF-spine001", "shape": "capsule", "radius": 0.15, "height": 0.2, "joint": PhysicalBone.JOINT_TYPE_CONE, "swing": 30.0, "twist": 20.0, "mass": 3.0},
+		{"name": "DEF-spine002", "shape": "capsule", "radius": 0.15, "height": 0.2, "joint": PhysicalBone.JOINT_TYPE_CONE, "swing": 30.0, "twist": 20.0, "mass": 3.0},
+		{"name": "DEF-spine003", "shape": "capsule", "radius": 0.15, "height": 0.2, "joint": PhysicalBone.JOINT_TYPE_CONE, "swing": 30.0, "twist": 20.0, "mass": 3.0},
+		{"name": "DEF-head", "shape": "sphere", "radius": 0.13, "height": 0.0, "joint": PhysicalBone.JOINT_TYPE_CONE, "swing": 40.0, "twist": 30.0, "mass": 2.0},
+		{"name": "DEF-upper_armL", "shape": "capsule", "radius": 0.08, "height": 0.26, "joint": PhysicalBone.JOINT_TYPE_CONE, "swing": 60.0, "twist": 40.0, "mass": 1.5},
+		{"name": "DEF-forearmL", "shape": "capsule", "radius": 0.07, "height": 0.26, "joint": PhysicalBone.JOINT_TYPE_HINGE, "min": -100.0, "max": 0.0, "mass": 1.2},
+		{"name": "DEF-upper_armR", "shape": "capsule", "radius": 0.08, "height": 0.26, "joint": PhysicalBone.JOINT_TYPE_CONE, "swing": 60.0, "twist": 40.0, "mass": 1.5},
+		{"name": "DEF-forearmR", "shape": "capsule", "radius": 0.07, "height": 0.26, "joint": PhysicalBone.JOINT_TYPE_HINGE, "min": -100.0, "max": 0.0, "mass": 1.2},
+		{"name": "DEF-thighL", "shape": "capsule", "radius": 0.11, "height": 0.36, "joint": PhysicalBone.JOINT_TYPE_CONE, "swing": 60.0, "twist": 30.0, "mass": 3.0},
+		{"name": "DEF-shinL", "shape": "capsule", "radius": 0.09, "height": 0.36, "joint": PhysicalBone.JOINT_TYPE_HINGE, "min": 0.0, "max": 110.0, "mass": 2.0},
+		{"name": "DEF-thighR", "shape": "capsule", "radius": 0.11, "height": 0.36, "joint": PhysicalBone.JOINT_TYPE_CONE, "swing": 60.0, "twist": 30.0, "mass": 3.0},
+		{"name": "DEF-shinR", "shape": "capsule", "radius": 0.09, "height": 0.36, "joint": PhysicalBone.JOINT_TYPE_HINGE, "min": 0.0, "max": 110.0, "mass": 2.0},
+	]
+
+	for cfg in bone_configs:
+		var bone_idx = skel.find_bone(cfg.name)
+		if bone_idx == -1:
+			continue
+		var pb = PhysicalBone.new()
+		pb.name = "PhysicalBone_" + cfg.name
+		pb.bone_name = cfg.name
+		pb.mass = cfg.get("mass", 2.0)
+		pb.friction = 0.8
+		pb.bounce = 0.1
+		pb.joint_type = cfg.joint
+
+		if cfg.joint == PhysicalBone.JOINT_TYPE_CONE:
+			pb.set("joint_constraints/swing_span", cfg.get("swing", 45.0))
+			pb.set("joint_constraints/twist_span", cfg.get("twist", 30.0))
+		elif cfg.joint == PhysicalBone.JOINT_TYPE_HINGE:
+			pb.set("joint_constraints/angular_limit_enabled", true)
+			pb.set("joint_constraints/angular_limit_lower", cfg.get("min", -90.0))
+			pb.set("joint_constraints/angular_limit_upper", cfg.get("max", 90.0))
+
+		var cs = CollisionShape.new()
+		if cfg.shape == "capsule":
+			var cap = CapsuleShape.new()
+			cap.radius = cfg.radius
+			cap.height = cfg.height
+			cs.shape = cap
+		else:
+			var sph = SphereShape.new()
+			sph.radius = cfg.radius
+			cs.shape = sph
+		pb.add_child(cs)
+		skel.add_child(pb)
+
+func begin_ragdoll() -> void:
+	if is_ragdoll:
+		return
+	is_ragdoll = true
+
+	var skel = _get_skeleton()
+	if skel:
+		_ensure_physical_bones()
+
+	if _body_collision_shape and is_instance_valid(_body_collision_shape):
+		_body_collision_shape.disabled = true
+	else:
+		var main_cs = get_node_or_null("CollisionShape")
+		if main_cs:
+			main_cs.disabled = true
+
+	if animator and is_instance_valid(animator) and animator.has_method("pause_for_ragdoll"):
+		animator.pause_for_ragdoll()
+
+	if skel:
+		skel.physical_bones_start_simulation()
+		var init_vel = velocity
+		if init_vel.length_squared() > 0.001:
+			for child in skel.get_children():
+				if child is PhysicalBone:
+					child.apply_central_impulse(init_vel * child.mass)
+
+func end_ragdoll() -> void:
+	if not is_ragdoll:
+		return
+	is_ragdoll = false
+
+	var skel = _get_skeleton()
+	if skel:
+		skel.physical_bones_stop_simulation()
+
+	if _body_collision_shape and is_instance_valid(_body_collision_shape):
+		_body_collision_shape.disabled = false
+	else:
+		var main_cs = get_node_or_null("CollisionShape")
+		if main_cs:
+			main_cs.disabled = false
+
+	if animator and is_instance_valid(animator) and animator.has_method("resume_from_ragdoll"):
+		animator.resume_from_ragdoll()
+
 func _on_suit_breached() -> void:
-	# El componente del traje no sabe de respawn: la muerte la resuelve el TeleportSystem,
-	# la misma vía que usa KillZoneV2.
+	begin_ragdoll()
 	var teleport_system = get_tree().get_root().find_node("TeleportSystem", true, false)
 	if teleport_system and teleport_system.has_method("_on_player_killed"):
 		teleport_system._on_player_killed()
@@ -2160,6 +2274,8 @@ func _apply_push_constraint(dt: float) -> void:
 			movement_logic.horizontal_velocity = h_vel
 
 func step(dt: float, input: InputDataV2) -> void:
+	if is_ragdoll:
+		return
 	if input_locked:
 		input = InputDataV2.new()
 		velocity = Vector3.ZERO
@@ -2998,6 +3114,7 @@ func _get_move_direction_rl_fast(input_vector: Vector2) -> Vector3:
 	return right * input_vector.x + forward * (-input_vector.y)
 
 func teleport_to(target_transform: Transform) -> void:
+	end_ragdoll()
 	# print("[PlayerController] teleport_to called. Target: ", target_transform.origin, " Rot: ", target_transform.basis.get_euler())
 	global_transform = target_transform
 	velocity = Vector3.ZERO

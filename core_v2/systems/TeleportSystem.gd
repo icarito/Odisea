@@ -364,6 +364,14 @@ func _on_player_killed():
 	var pc_path = player_controller.get_path() if is_instance_valid(player_controller) else "null"
 	print("[TeleportSystem] player_controller:", player_controller, " path=", pc_path)
 
+	if not is_instance_valid(player_controller):
+		var pilot = get_tree().get_root().find_node("Pilot", true, false)
+		if is_instance_valid(pilot):
+			player_controller = pilot
+
+	if is_instance_valid(player_controller) and player_controller.has_method("begin_ragdoll"):
+		player_controller.begin_ragdoll()
+
 	var screen_fx = get_node_or_null("/root/ScreenEffectsManager")
 	if screen_fx and screen_fx.has_method("begin_death_cover"):
 		var death_cover = screen_fx.begin_death_cover()
