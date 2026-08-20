@@ -20,7 +20,9 @@ func test_mobile_ui_manager_runtime_touch_detection() -> void:
 
 	mgr._input(touch_event)
 
-	assert_bool(mgr.is_mobile()).is_true()
+	# is_mobile() es "la plataforma es Android/iOS", no cambia con un touch en desktop.
+	# is_touch_active() sí prende con el touch, y es lo que controla la UI movil.
+	assert_bool(mgr.is_mobile()).is_false()
 	assert_bool(mgr.is_touch_active()).is_true()
 	assert_object(mgr._mobile_ui).is_not_null()
 	assert_bool(mgr._mobile_ui.visible).is_true()

@@ -34,6 +34,52 @@ func _start_shader_warmup() -> void:
 	if _started:
 		return
 	_started = true
+
+	# El .tscn del cache (shader_cache_scene_path) trae su propio campo scene_path
+	# (ver ShaderCache.gd) apuntando al .tscn REAL que va a instanciar de nuevo para
+	# forzar la compilacion de sus shaders. Si ese .tscn real es la escena YA activa
+	# ahora mismo (el gate de arranque puede tardar tanto que el jugador salte del
+	# Menu a esa escena antes de que este trigger dispare), el load() sincronico del
+	# cache choca con la carga en curso de esa misma escena ("Cyclic reference?"),
+	# devuelve null, y el add_child(null) siguiente crashea con SIGSEGV en release
+	# (en debug solo tira el error y sigue). La escena real ya va a compilar sus
+	# propios shaders al renderizarse, asi que el warmup es puramente redundante en
+	# ese caso — no hace falta reintentar, solo saltarlo.
+	var cache_packed = load(shader_cache_scene_path)
+	var target_scene_path: String = ""
+	if cache_packed != null:
+		var cache_state = cache_packed.get_state()
+		for i in cache_state.get_node_property_count(0):
+			if cache_state.get_node_property_name(0, i) == "scene_path":
+				target_scene_path = String(cache_state.get_node_property_value(0, i))
+				break
+	var current_scene = get_tree().current_scene
+	var current_scene_path: String = current_scene.filename if is_instance_valid(current_scene) else ""
+	# Ademas de "ya es la escena activa", Menu._ready() dispara SceneManager.
+	# request_scene_preload() de esta MISMA escena en su propio call_deferred, en
+	# paralelo a este trigger (los dos nacen de Menu._ready()). Un load() sincronico
+	# acá mientras ese preload asincronico esta a mitad de camino pisa la misma
+	# carrera ("Cyclic reference?" -> null -> SIGSEGV). SceneManager ya va a dejar
+	# la escena precargada o en curso de estarlo: cachear shaders de nuevo ahi es
+	# tan redundante como en el caso de la escena activa.
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	var preload_conflict := false
+	if target_scene_path != "" and is_instance_valid(scene_manager):
+		if scene_manager.has_method("is_scene_preloading") and scene_manager.is_scene_preloading(target_scene_path):
+			preload_conflict = true
+		elif scene_manager.has_method("has_preloaded_scene") and scene_manager.has_preloaded_scene(target_scene_path):
+			preload_conflict = true
+	if target_scene_path != "" and (target_scene_path == current_scene_path or preload_conflict):
+		var startup_trace_skip = get_node_or_null("/root/StartupTrace")
+		if startup_trace_skip and startup_trace_skip.has_method("mark"):
+			startup_trace_skip.mark("shader_warmup_skipped_active_scene", {
+				"path": shader_cache_scene_path,
+				"target": target_scene_path,
+				"reason": "preload_conflict" if preload_conflict else "current_scene"
+			})
+		queue_free()
+		return
+
 	var startup_trace = get_node_or_null("/root/StartupTrace")
 	if startup_trace and startup_trace.has_method("mark"):
 		startup_trace.mark("shader_warmup_started", {

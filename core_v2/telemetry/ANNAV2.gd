@@ -30,6 +30,13 @@ var _custom_points := {}
 # The network thread only sends at 10Hz anyway, so gathering at 60Hz was wasted main-thread
 # work. Lower the interval for finer local capture; raise it to reduce ANNA's per-frame cost.
 var TELEMETRY_INTERVAL_MS := 100 # 10Hz
+
+# Diagnostico temporal FD-270: cuenta nodos con _physics_process/_process activos.
+# Recorrer 2600+ nodos a 10Hz seria mas caro que lo que mide, asi que va aparte
+# con su propio throttle y se cachea entre llamadas.
+const PROC_COUNT_INTERVAL_MS := 2000
+var _last_proc_count_ms := 0
+var _cached_proc_counts := {"physics": 0, "process": 0}
 # When the game is paused or the window loses focus the user has stepped away and
 # nothing measurable is happening: FPS, position and hotzones all describe a frozen
 # (and OS-throttled) game. We send one last heartbeat flagging the state and then
@@ -250,6 +257,28 @@ func _process(_delta):
 	if _perf_profiling_enabled:
 		_perf_monitor.profiling_end("ANNAV2")
 
+func _get_proc_counts() -> Dictionary:
+	var now = OS.get_ticks_msec()
+	if now - _last_proc_count_ms < PROC_COUNT_INTERVAL_MS:
+		return _cached_proc_counts
+	_last_proc_count_ms = now
+	var scene = get_tree().current_scene
+	if scene == null:
+		return _cached_proc_counts
+	var physics_count = 0
+	var process_count = 0
+	var stack := [scene]
+	while not stack.empty():
+		var node: Node = stack.pop_back()
+		if node.is_physics_processing():
+			physics_count += 1
+		if node.is_processing():
+			process_count += 1
+		for child in node.get_children():
+			stack.push_back(child)
+	_cached_proc_counts = {"physics": physics_count, "process": process_count}
+	return _cached_proc_counts
+
 func _update_telemetry():
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	
@@ -298,11 +327,14 @@ func _update_telemetry():
 
 	player_data["tick"] = Engine.get_idle_frames() # Or physics frames if preferred
 
+	var proc_counts = _get_proc_counts()
 	player_data["perf"] = {
 		"dc": Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME),
 		"obj": Performance.get_monitor(Performance.RENDER_OBJECTS_IN_FRAME),
 		"vtx": Performance.get_monitor(Performance.RENDER_VERTICES_IN_FRAME),
-		"nodes": Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+		"nodes": Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
+		"phys_proc": proc_counts.physics,
+		"proc": proc_counts.process
 	}
 
 	# Merge controller-registered custom data points (e.g. jump_count, state flags)

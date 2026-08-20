@@ -17,7 +17,11 @@ var _tracked_controller_manager: Node = null
 func _ready() -> void:
 	layer = 100
 	
-	_is_mobile = (OS.has_touchscreen_ui_hint() or OS.get_name() == "Android" or OS.get_name() == "iOS") and OS.get_name() != "Switch"
+	# En desktop con pantalla tactil (ej. un notebook con touch), has_touchscreen_ui_hint()
+	# ya da true al arrancar y la UI movil aparecia sin que el jugador tocara nada. Solo
+	# Android/iOS arrancan mobile de una; el resto de plataformas tactiles se activan
+	# recien con el primer touch real, via _input() mas abajo.
+	_is_mobile = OS.get_name() == "Android" or OS.get_name() == "iOS"
 	_is_touch_active = _is_mobile
 	_touch_idle_timer = 0.0
 	
@@ -31,8 +35,11 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		_touch_idle_timer = 0.0
-		if not _is_touch_active or not _is_mobile:
-			_is_mobile = true
+		if not _is_touch_active:
+			# _is_mobile queda intacto: es "la plataforma es Android/iOS", no "hay touch
+			# ahora". Un touch en desktop (notebook con pantalla tactil) solo prende
+			# _is_touch_active, asi que decae solo con el idle-timeout en _process() sin
+			# dejar al jugador pegado en modo movil el resto de la sesion.
 			_is_touch_active = true
 			if not is_instance_valid(_mobile_ui):
 				_spawn_mobile_ui()
@@ -90,7 +97,7 @@ func _refresh_mobile_ui_visibility() -> void:
 		return
 	var non_playable := _is_non_playable_scene()
 	var paused := get_tree().paused
-	var show_skip := _is_mobile and _is_touch_active and _is_script_cinematic_active() and not non_playable and not paused
+	var show_skip := _is_touch_active and _is_script_cinematic_active() and not non_playable and not paused
 	# During a legacy cinematic (input blocked), show only the skip button so the
 	# player can skip. Camera-zone-only cinematics keep the full UI (handled below).
 	if show_skip:
@@ -101,7 +108,7 @@ func _refresh_mobile_ui_visibility() -> void:
 		_reset_move_joystick()
 		return
 	var was_visible := _mobile_ui.visible
-	_mobile_ui.visible = _is_mobile and _is_touch_active and not _is_cinematic_active and not non_playable and not paused
+	_mobile_ui.visible = _is_touch_active and not _is_cinematic_active and not non_playable and not paused
 	if _mobile_ui.visible:
 		_mobile_ui.set_skip_visible(false)
 		_mobile_ui.set_zero_g_mode(_is_zero_g)
@@ -160,7 +167,7 @@ func _process(delta: float) -> void:
 			_notify_input_provider_touch_active(false)
 			_refresh_mobile_ui_visibility()
 
-	if not _is_mobile or not is_instance_valid(_mobile_ui):
+	if not is_instance_valid(_mobile_ui):
 		return
 	_track_player_controller_manager()
 	_refresh_mobile_ui_visibility()
@@ -234,7 +241,7 @@ func is_mobile() -> bool:
 	return _is_mobile
 
 func is_touch_active() -> bool:
-	return _is_mobile and _is_touch_active
+	return _is_touch_active
 
 func get_reserved_overlay_margins(padding: float = 16.0) -> Dictionary:
 	var margins = {

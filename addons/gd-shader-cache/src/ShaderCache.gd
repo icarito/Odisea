@@ -92,6 +92,15 @@ func clear_cache(value=true):
 		node.queue_free()
 
 func _cache_scene(packed_scene):
+	# load(scene_path) puede devolver null si el recurso ya esta siendo cargado por
+	# otro sitio en simultaneo ("Resource ... is already being loaded. Cyclic
+	# reference?", ResourceLoader). En debug eso solo tira un error y sigue; en
+	# release, .instance() sobre null e add_child(null) mas abajo son SIGSEGV fatal.
+	# La escena real de todas formas va a compilar sus propios shaders al
+	# renderizarse, asi que perder este warmup puntual no rompe nada.
+	if packed_scene == null:
+		printerr("ShaderCache: no se pudo cargar la escena a cachear (recurso ya en carga en otro lado); se omite este warmup.")
+		return
 	var scene = packed_scene.instance()
 	_virtual_tree.root.add_child(scene)
 	_cache_node(scene, {"owner_path": packed_scene.resource_path})

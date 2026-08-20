@@ -173,6 +173,7 @@ toggle_mode = true
 action_mode = 0
 text = "ACT"
 script = ExtResource( 4 )
+dims_when_unavailable = true
 action_name = "interact"
 
 [node name="CrouchButton" type="Button" parent="Container/ActionButtons"]

@@ -219,4 +219,51 @@ android-install: android-debug-signed
 	adb install -r -d "$(ANDROID_TEST_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all bake export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies
+# Build RELEASE (no --export-debug) para descartar overhead de debug build como causa
+# de un problema de performance. Mismo flujo de firma que android-debug-signed, pero
+# un APK release NO es debuggable: adb install -d (downgrade) no funciona sobre el, asi
+# que usa un versionCode mas alto que cualquier nightly real para instalar sin -d.
+ANDROID_RELEASE_APK ?= build/android/odisea_release.apk
+ANDROID_RELEASE_VERSION_CODE ?= 999999999
+
+android-release-signed:
+	@[ -f "$(ANDROID_UPDATE_KEYSTORE)" ] || (echo "ERROR: no existe $(ANDROID_UPDATE_KEYSTORE) — hace falta la llave de firma real, no la generes de nuevo" && exit 1)
+	@[ -f "$(ANDROID_SIGNING_SECRETS)" ] || (echo "ERROR: falta $(ANDROID_SIGNING_SECRETS)" && exit 1)
+	@[ -n "$(ANDROID_BUILD_TOOLS)" ] || (echo "ERROR: no encontre build-tools bajo \$$ANDROID_HOME ($$ANDROID_HOME)" && exit 1)
+	@mkdir -p build/android
+	@set -e; \
+	cp export_presets.cfg /tmp/odisea_export_presets_release.cfg.bak; \
+	trap 'mv /tmp/odisea_export_presets_release.cfg.bak export_presets.cfg; rm -f build_meta.json' EXIT; \
+	sed -i -E 's|^version/code = .*|version/code = $(ANDROID_RELEASE_VERSION_CODE)|' export_presets.cfg; \
+	sed -i -E 's|^version/name = .*|version/name = "0.0.0-releasetest.$(ANDROID_RELEASE_VERSION_CODE)"|' export_presets.cfg; \
+	sed -i -E 's|^keystore/release = .*|keystore/release = "res://android/debug.keystore"|' export_presets.cfg; \
+	sed -i -E 's|^keystore/release_user = .*|keystore/release_user = "androiddebugkey"|' export_presets.cfg; \
+	sed -i -E 's|^keystore/release_password = .*|keystore/release_password = "android"|' export_presets.cfg; \
+	python3 scripts/inject_build_meta.py \
+		--commit "$$(git rev-parse --short HEAD 2>/dev/null || echo local)" \
+		--build-id "$(ANDROID_RELEASE_VERSION_CODE)" \
+		--channel "$(ANDROID_TEST_CHANNEL)" \
+		--version "0.0.0-releasetest.$(ANDROID_RELEASE_VERSION_CODE)" \
+		--official-host "odisea.educa.juegos" \
+		--out-json "build_meta.json"; \
+	$(GODOT) --editor --quit --headless >/dev/null 2>&1 || true; \
+	$(GODOT) --no-window --export "Android" "$(ANDROID_RELEASE_APK)" --headless; \
+	test -s "$(ANDROID_RELEASE_APK)" || (echo "ERROR: export no produjo $(ANDROID_RELEASE_APK)" && exit 1)
+	@set -e; \
+	eval "$$(grep -E '^[A-Z_][A-Z0-9_]*=' "$(ANDROID_SIGNING_SECRETS)")"; \
+	UNSIGNED="$(ANDROID_RELEASE_APK).unsigned"; ALIGNED="$(ANDROID_RELEASE_APK).aligned"; \
+	mv "$(ANDROID_RELEASE_APK)" "$$UNSIGNED"; \
+	"$(ANDROID_BUILD_TOOLS)/zipalign" -p -f 4 "$$UNSIGNED" "$$ALIGNED"; \
+	"$(ANDROID_BUILD_TOOLS)/apksigner" sign --ks "$(ANDROID_UPDATE_KEYSTORE)" --ks-key-alias "$$ANDROID_KEY_ALIAS" --ks-pass "pass:$$ANDROID_KEYSTORE_PASSWORD" --key-pass "pass:$$ANDROID_KEY_PASSWORD" --out "$(ANDROID_RELEASE_APK)" "$$ALIGNED"; \
+	rm -f "$$UNSIGNED" "$$ALIGNED"; \
+	"$(ANDROID_BUILD_TOOLS)/apksigner" verify "$(ANDROID_RELEASE_APK)"
+	@$(MAKE) --no-print-directory android-clean-asset-copies
+	@echo "OK: $(ANDROID_RELEASE_APK) firmado con la llave de produccion (build RELEASE, no debug)."
+
+# Sin -d: un APK release no es debuggable, asi que el versionCode alto (999999999)
+# alcanza para pasar por encima de cualquier nightly sin necesitarlo.
+android-install-release: android-release-signed
+	adb install -r "$(ANDROID_RELEASE_APK)"
+	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
+
+.PHONY: all bake export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release

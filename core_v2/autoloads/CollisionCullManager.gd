@@ -26,14 +26,17 @@ export(float, 5.0, 200.0, 1.0) var cull_radius := 15.0
 # que un prop en el limite no oscile encendiendose y apagandose.
 export(float, 1.0, 50.0, 1.0) var hysteresis := 8.0
 export(int, 1, 30) var frames_between_scans := 8
-# Apagado por defecto. Lo reemplaza IceSubmergedCuller, que resuelve el mismo problema
-# mejor: hundirse bajo el hielo es monotono, asi que apaga cada forma una sola vez y no
-# vuelve a tocarla. Este, en cambio, prende y apaga formas todo el tiempo, y ese churn
-# re-registra las formas en el espacio de fisica y perturba el orden de resolucion de
-# contactos (13 mm de drift en un replay que sin el da 0.0000 m). Medido, ahorra 5.9% de
-# fisica: no paga ese riesgo. Ademas los dos escriben sobre el mismo `disabled`, asi que
-# tenerlos juntos haria que este resucite formas que el hielo ya sepulto.
-export(bool) var enabled := false
+# Reactivado (FD-270): en Dome_Intro, IceSubmergedCuller no cullea nada (el hielo esta
+# por debajo de toda la geometria), asi que sin este sistema no hay ningun culling de
+# colision activo. Medido en Redmi Note 9 Pro sobre Dome_Intro: pausar el arbol (mismo
+# render, cero fisica) sube 7fps a 60fps — el broadphase sobre las ~913 formas Prop
+# registradas es el costo dominante, muy por encima del 5.9%/13mm de drift documentado
+# originalmente (medido en otra escena/config). Ese drift sigue siendo un riesgo real
+# para replays deterministas: si aparece, la mitigacion es correr con
+# ODISEA_DISABLE_COLLISION_CULL=1 para esa grabacion, no volver a false por default.
+# Los dos siguen escribiendo el mismo `disabled`: donde SI hay hielo, IceSubmergedCuller
+# manda (ver su comentario), y este no debe resucitar formas que el hielo ya sepulto.
+export(bool) var enabled := true
 
 const DISABLE_ENV := "ODISEA_DISABLE_COLLISION_CULL"
 const ShapeBounds := preload("res://core_v2/systems/collision/ShapeBounds.gd")

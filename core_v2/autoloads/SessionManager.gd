@@ -1426,6 +1426,17 @@ func _unhandled_input(event):
 		if event is InputEventMouseButton and event.pressed and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
 			if not get_tree().paused and not OS.has_feature("Server") and OS.is_window_focused():
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+				# set_mouse_mode(CAPTURED) hace un warp del cursor al centro de la
+				# ventana, y Godot emite un InputEventMouseMotion sintético con ese
+				# salto como .relative. En pantalla táctil, Godot además emula un
+				# click de mouse por cada touch (emulate_mouse_from_touch), así que
+				# CUALQUIER toque recapturaba y ese warp se leía como un gesto real
+				# de apuntado — un panel táctil abierto (selector de piso, etc.)
+				# terminaba "eligiendo" al azar según dónde estaba el cursor antes
+				# del warp. Descartar el próximo motion evita el salto fantasma sin
+				# tocar el resto del flujo de captura/mouse-look normal.
+				if is_instance_valid(player) and player.has_method("ignore_next_mouse_motion"):
+					player.ignore_next_mouse_motion()
 
 
 var _replay_frame := 0

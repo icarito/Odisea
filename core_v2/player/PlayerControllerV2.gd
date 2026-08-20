@@ -220,9 +220,6 @@ var _multi_tool_hand_bone_idx := -1
 
 var _current_interactable: Node = null
 var _current_interaction_prompt := ""
-var _nearby_interactables: Array = []
-var _cached_all_interactables: Array = []
-var _interactables_cache_frames: int = 30
 onready var interact_config = get_node_or_null("Logic/Interact")
 
 const INTERACT_ACTION_NAME := "interact"
@@ -237,6 +234,10 @@ var _touch_tap_index := -1
 var _touch_tap_start_time := 0
 var _touch_tap_start_pos := Vector2.ZERO
 var _ignore_emulated_mouse_until := 0
+# set_mouse_mode(CAPTURED) warpea el cursor al centro de la ventana y Godot emite
+# un InputEventMouseMotion sintetico con ese salto como .relative. Sin descartar
+# ese primer motion, se lee como un gesto real de mouse-look/apuntado.
+var _ignore_next_mouse_motion := false
 
 # Input
 var input_provider
@@ -1852,34 +1853,15 @@ func _process_interaction(input: InputDataV2):
 	var best_target = _best_interaction_target_cached
 	var crouch_ledge_target = _crouch_ledge_target_cached
 	var crouch_ladder_target = _crouch_ladder_target_cached
-	var h_color = Color.cyan
-	var p_color = Color(0, 1, 1, 0.15)
-	var p_radius_sq = 36.0 # 6m default
-	if interact_config:
-		h_color = interact_config.highlight_color
-		p_color = interact_config.proximity_color
-		p_radius_sq = interact_config.proximity_radius * interact_config.proximity_radius
 
 	if best_target:
 		var text = _get_interaction_prompt(best_target)
 		if _current_interactable != best_target:
-			# Clear highlight from previous target
-			if _current_interactable and is_instance_valid(_current_interactable):
-				if _current_interactable.has_method("set_highlighted"):
-					_current_interactable.set_highlighted(false)
-			
 			_current_interactable = best_target
 			_current_interaction_prompt = text
 			emit_signal("interactable_in_range", text)
 			_show_interaction_prompt(text)
-			
-			# Apply full highlight to new target
-			if best_target.has_method("set_highlighted"):
-				best_target.set_highlighted(true, h_color)
-			# Ensure it doesn't have proximity glow if it's the main target
-			if best_target.has_method("set_proximity_highlight"):
-				best_target.set_proximity_highlight(false)
-			
+
 			var can_auto_trigger = not best_target.get("_auto_triggered") or not best_target.get("one_off")
 			if _candidate_can_interact(best_target) and best_target.get("auto_interact") and not best_target.is_active and can_auto_trigger:
 				if best_target.has_method("set_active"):
@@ -1925,44 +1907,6 @@ func _process_interaction(input: InputDataV2):
 	else:
 		_clear_interactable()
 
-	# --- Proximity Glow Logic ---
-	# Handle objects that are nearby but not the current best_target
-	_interactables_cache_frames += 1
-	if _interactables_cache_frames >= 30:
-		_interactables_cache_frames = 0
-		_cached_all_interactables = get_tree().get_nodes_in_group("interactable")
-		var dict = {}
-		for obj in _cached_all_interactables:
-			dict[obj] = true
-		for focusable in get_tree().get_nodes_in_group("focusable"):
-			if not dict.has(focusable):
-				_cached_all_interactables.append(focusable)
-				dict[focusable] = true
-
-	var new_nearby = []
-	for obj in _cached_all_interactables:
-		if not is_instance_valid(obj) or obj == _current_interactable:
-			continue
-		
-		if not _candidate_is_actionable(obj):
-			continue
-		
-		# Proximity check
-		var d_sq = global_transform.origin.distance_squared_to(obj.global_transform.origin)
-		if d_sq < p_radius_sq:
-			new_nearby.append(obj)
-			if not obj in _nearby_interactables:
-				if obj.has_method("set_proximity_highlight"):
-					obj.set_proximity_highlight(true, p_color)
-	
-	# Clear proximity from objects no longer nearby
-	for obj in _nearby_interactables:
-		if is_instance_valid(obj) and not obj in new_nearby and obj != _current_interactable:
-			if obj.has_method("set_proximity_highlight"):
-				obj.set_proximity_highlight(false)
-	
-	_nearby_interactables = new_nearby
-
 func _get_interaction_overlaps() -> Array:
 	var overlaps := []
 	if not _interact_area:
@@ -1975,17 +1919,6 @@ func _clear_interactable():
 	if _current_interactable != null and is_instance_valid(_current_interactable):
 		if "_auto_triggered" in _current_interactable and not _current_interactable.get("one_off"):
 			_current_interactable._auto_triggered = false
-		
-		# Remove highlight when going out of range
-		if _current_interactable.has_method("set_highlighted"):
-			_current_interactable.set_highlighted(false)
-		
-		# Restore proximity glow if still nearby
-		if interact_config and is_instance_valid(_current_interactable):
-			var d_sq = global_transform.origin.distance_squared_to(_current_interactable.global_transform.origin)
-			if d_sq < (interact_config.proximity_radius * interact_config.proximity_radius):
-				if _current_interactable.has_method("set_proximity_highlight"):
-					_current_interactable.set_proximity_highlight(true, interact_config.proximity_color)
 
 		_current_interactable = null
 		_current_interaction_prompt = ""
@@ -2004,6 +1937,9 @@ func _is_over_touch_control(screen_position: Vector2) -> bool:
 			if node.get_global_rect().has_point(screen_position):
 				return true
 	return false
+
+func ignore_next_mouse_motion() -> void:
+	_ignore_next_mouse_motion = true
 
 func _trigger_touch_interact() -> void:
 	Input.action_press("interact")
@@ -2049,7 +1985,9 @@ func _input(event):
 			return
 
 	if event is InputEventMouseMotion:
-		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		if _ignore_next_mouse_motion:
+			_ignore_next_mouse_motion = false
+		elif Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 			if input_provider:
 				input_provider.mouse_delta_accum += event.relative
 

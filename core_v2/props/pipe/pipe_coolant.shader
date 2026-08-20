@@ -77,9 +77,20 @@ float noise(vec3 x) {
 				   mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 
+// LOD_NEAR: por debajo de esto, ruido de 2 octavas (detalle fino visible de cerca).
+// LOD_FAR: por encima de esto, nada de ruido — el caño es un tubo liso con la emision
+// base. El jugador nota el flujo a metros, no a decenas de metros; en un domo abierto sin
+// oclusion la mayoria de los ~114 meshes del riser estan siempre en pantalla, asi que
+// pagar noise()/discard/grieta por fragmento en el 90% que rara vez se mira de cerca es
+// el costo que mas duele en GLES2/Adreno.
+const float LOD_NEAR = 10.0;
+const float LOD_FAR = 20.0;
+
+// El caller ya filtra dist > LOD_FAR antes de llamar esto (fragment() ni siquiera arma
+// world_pos/coord en ese caso), asi que solo queda decidir 1 vs 2 octavas.
 float fbm_lod(vec3 p, float dist) {
 	float v = 0.6 * noise(p);
-	if (dist < 15.0) {
+	if (dist < LOD_NEAR) {
 		p *= 2.0;
 		v += 0.4 * noise(p);
 	}
@@ -126,28 +137,44 @@ void vertex() {
 }
 
 void fragment() {
+	// VERTEX llega en espacio de vista: su largo YA es la distancia real al ojo, sin
+	// ninguna transformacion extra. Calcularla primero deja gatear TODO lo caro del
+	// fragmento (discard de tapas, ruido, grieta) por LOD, en vez de solo el ruido.
+	float dist = length(VERTEX);
+
 	// Tapas del cilindro fuera: con el caño translúcido se ven como discos por dentro. En
 	// un caño opaco no molestan y encima son la cara del extremo, así que es opcional.
-	if (hide_caps) {
+	// Lejos (> LOD_FAR) ni se calcula: una tapa visible a 20+ metros es imperceptible, y
+	// el discard + el producto punto que lo decide no valen su costo ahi.
+	if (hide_caps && dist < LOD_FAR) {
 		vec3 world_normal = normalize((CAMERA_MATRIX * vec4(NORMAL, 0.0)).xyz);
 		if (abs(dot(world_normal, pipe_axis)) > 0.8) {
 			discard;
 		}
 	}
-	// VERTEX llega en espacio de vista; CAMERA_MATRIX lo lleva a mundo.
-	vec3 world_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	vec3 axis = use_local_axis ? pipe_axis : flow_dir;
-	float dist = length(VERTEX);
-	float phase = (flow_phase != 0.0) ? flow_phase : (TIME * 0.7);
-	vec3 coord = world_pos * noise_scale - axis * phase;
-	float n = fbm_lod(coord, dist);
+	// Lejos, fbm_lod() ya devuelve un valor fijo (0.5) sin tocar noise(): world_pos/coord
+	// solo alimentan ese calculo (y fissure_center mas abajo, ya gateado por LOD_FAR
+	// tambien), asi que calcular la matriz de camara completa ahi es puro desperdicio.
+	vec3 world_pos = vec3(0.0);
+	float n = 0.5;
+	if (dist < LOD_FAR) {
+		// VERTEX llega en espacio de vista; CAMERA_MATRIX lo lleva a mundo.
+		world_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		vec3 axis = use_local_axis ? pipe_axis : flow_dir;
+		float phase = (flow_phase != 0.0) ? flow_phase : (TIME * 0.7);
+		vec3 coord = world_pos * noise_scale - axis * phase;
+		n = fbm_lod(coord, dist);
+	}
 	float flow = smoothstep(0.5 - flow_contrast * 0.5, 0.5 + flow_contrast * 0.5, n);
 
 	vec3 current_albedo = mix(base_color.rgb, flow_color.rgb * 0.5, flow * 0.4);
 	vec3 current_emission = flow_color.rgb * (base_glow + flow * emission_strength);
 
-	// Aplica efecto visual de fisura/grieta si hay intensidad activa (FD-268)
-	if (fissure_intensity > 0.001) {
+	// La grieta tampoco se calcula lejos: a mas de LOD_FAR el patron fragmentado de
+	// calculate_crack_pattern (3 dot+sin con domain warping) es indistinguible de una
+	// mancha, y sigue viendose la fuga por el jet de particulas (LeakFissureVisual), no
+	// por el detalle del cano.
+	if (fissure_intensity > 0.001 && dist < LOD_FAR) {
 		float dist_to_fissure = distance(world_pos, fissure_center);
 		if (dist_to_fissure < fissure_radius) {
 			float mask = (1.0 - smoothstep(fissure_radius * 0.4, fissure_radius, dist_to_fissure)) * fissure_intensity;
