@@ -117,6 +117,6 @@ func _draw() -> void:
 
 	if font:
 		var p_val_str := str(stepify(pressure * 5.0, 0.1)) + " BAR"
-		var text_size := font.get_string_size(p_val_str)
+		var text_size: Vector2 = font.get_string_size(p_val_str)
 		var text_pos := center + Vector2(-text_size.x * 0.5, radius * 0.52)
 		draw_string(font, text_pos, p_val_str, Color(0.9, 0.95, 1.0, 0.95))
