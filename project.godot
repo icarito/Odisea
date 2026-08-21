@@ -3023,7 +3023,6 @@ quality/shadows/filter_mode=2
 quality/shadows/filter_mode.mobile=1
 quality/reflections/high_quality_ggx=false
 quality/shading/force_vertex_shading.mobile=false
-misc/mesh_storage/split_stream=true
 quality/shading/use_physical_light_attenuation=true
 batching/options/single_rect_fallback=true
 batching/parameters/max_join_item_commands=32
