@@ -119,6 +119,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/anna/AnnaNPCController.gd"
 }, {
+"base": "Reference",
+"class": "AnnotationManager",
+"language": "GDScript",
+"path": "res://addons/gdscript_complexity/gd3/annotation_manager.gd"
+}, {
 "base": "GdUnitArgumentMatcher",
 "class": "AnyArgumentMatcher",
 "language": "GDScript",
@@ -138,6 +143,11 @@ _global_script_classes=[ {
 "class": "AppRegistry",
 "language": "GDScript",
 "path": "res://core_v2/ui/retro/app_registry.gd"
+}, {
+"base": "Reference",
+"class": "AsyncAnalyzer",
+"language": "GDScript",
+"path": "res://addons/gdscript_complexity/gd3/async_analyzer.gd"
 }, {
 "base": "Spatial",
 "class": "AuxPowerBus",
@@ -168,6 +178,11 @@ _global_script_classes=[ {
 "class": "BlowoutImpulse",
 "language": "GDScript",
 "path": "res://core_v2/systems/atmosphere/BlowoutImpulse.gd"
+}, {
+"base": "Object",
+"class": "CacheManager",
+"language": "GDScript",
+"path": "res://addons/gdscript_complexity/src/cache_manager.gd"
 }, {
 "base": "ValueProvider",
 "class": "CallBackValueProvider",
@@ -288,6 +303,21 @@ _global_script_classes=[ {
 "class": "Comparator",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/Comparator.gd"
+}, {
+"base": "Control",
+"class": "ComplexityDockPanel",
+"language": "GDScript",
+"path": "res://addons/gdscript_complexity/gd3/dock_panel.gd"
+}, {
+"base": "WindowDialog",
+"class": "ComplexityHelpDialog",
+"language": "GDScript",
+"path": "res://addons/gdscript_complexity/gd3/help_dialog.gd"
+}, {
+"base": "WindowDialog",
+"class": "ConfigDialog",
+"language": "GDScript",
+"path": "res://addons/gdscript_complexity/gd3/config_dialog.gd"
 }, {
 "base": "Spatial",
 "class": "ContinuousRotatorV2",
@@ -528,6 +558,11 @@ _global_script_classes=[ {
 "class": "Fuzzers",
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/Fuzzers.gd"
+}, {
+"base": "Object",
+"class": "GDScriptTokenizer",
+"language": "GDScript",
+"path": "res://addons/gdscript_complexity/src/gd3/tokenizer.gd"
 }, {
 "base": "Area",
 "class": "GasArea3D",
@@ -1704,6 +1739,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/ui/radial/RadialSelectorV2.gd"
 }, {
+"base": "PropBaseV2",
+"class": "RadiatorProp",
+"language": "GDScript",
+"path": "res://core_v2/props/machinery/RadiatorProp.gd"
+}, {
 "base": "Node",
 "class": "RandomLeakSeeder",
 "language": "GDScript",
@@ -2197,16 +2237,19 @@ _global_script_class_icons={
 "AirlockZoneV2": "",
 "AnnaInterface": "",
 "AnnaNPCController": "",
+"AnnotationManager": "",
 "AnyArgumentMatcher": "",
 "AnyBuildInTypeArgumentMatcher": "",
 "AnyClazzArgumentMatcher": "",
 "AppRegistry": "",
+"AsyncAnalyzer": "",
 "AuxPowerBus": "",
 "AuxPowerSequence": "",
 "BGMZoneV2": "",
 "BackForthMovement": "",
 "BaseZoneV2": "",
 "BlowoutImpulse": "",
+"CacheManager": "",
 "CallBackValueProvider": "",
 "Callable": "",
 "CameraInspectorPlugin": "",
@@ -2231,6 +2274,9 @@ _global_script_class_icons={
 "CmdOptions": "",
 "ColdRuptureEvent": "",
 "Comparator": "",
+"ComplexityDockPanel": "",
+"ComplexityHelpDialog": "",
+"ConfigDialog": "",
 "ContinuousRotatorV2": "",
 "ControllerManager": "",
 "CoolantFlowAdapter": "",
@@ -2279,6 +2325,7 @@ _global_script_class_icons={
 "Fuzzer": "",
 "FuzzerTool": "",
 "Fuzzers": "",
+"GDScriptTokenizer": "",
 "GasArea3D": "",
 "GasParticleManager": "",
 "GdAssertMessages": "",
@@ -2514,6 +2561,7 @@ _global_script_class_icons={
 "RPCMessage": "",
 "RadialScatter": "",
 "RadialSelectorV2": "",
+"RadiatorProp": "",
 "RandomLeakSeeder": "",
 "RayCastSensor3D": "",
 "RaycastSensor2D": "",
@@ -2684,7 +2732,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/odisea_gizmos/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/gdscript_complexity/plugin.cfg", "res://addons/odisea_gizmos/plugin.cfg" )
 
 [gdunit3]
 
@@ -2975,6 +3023,7 @@ quality/shadows/filter_mode=2
 quality/shadows/filter_mode.mobile=1
 quality/reflections/high_quality_ggx=false
 quality/shading/force_vertex_shading.mobile=false
+misc/mesh_storage/split_stream=true
 quality/shading/use_physical_light_attenuation=true
 batching/options/single_rect_fallback=true
 batching/parameters/max_join_item_commands=32

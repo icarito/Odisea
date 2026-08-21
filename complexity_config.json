@@ -1,0 +1,26 @@
+{
+	"include": [
+		"res://**/*.gd"
+	],
+	"exclude": [
+		"res://.git/**",
+		"res://.godot/**",
+		"res://node_modules/**",
+		"res://addons/gdscript_complexity/**",
+		"res://addons/**/test/**",
+		"res://tests/**",
+		"res://cli/**",
+		"res://examples/**"
+	],
+	"cc": {
+		"threshold_warn": 10,
+		"threshold_fail": 20
+	},
+	"cog": {
+		"threshold_warn": 15,
+		"threshold_fail": 30
+	},
+	"parser": {
+		"parser_mode": "balanced"
+	}
+}

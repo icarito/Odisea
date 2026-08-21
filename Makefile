@@ -32,12 +32,38 @@ export: export-linux-arm64 export-pck
 
 all: render
 
-# Rehornea la red de tuberías de refrigerante (FD-270) desde
-# core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn a los .mesh/.tscn
-# combinados que instancia Dome_Intro.tscn. Correr tras editar la fuente.
+# Rehornea los recursos procedurales de Dome_Intro. El bake final de
+# BakedLightmap sigue corriendo dentro del
+# editor (Godot 3); al terminar, el EditorScript llama bake-lightmap-postprocess.
 bake:
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_pipe_network.gd
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_scaffold_walkways.gd
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_dome_intro_hub_floors.gd
+	$(MAKE) --no-print-directory bake-lightmap-postprocess
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
+	python3 scripts/check_tracked_imports.py
+
+# Aplica el look cyan/oscuro sobre el PNG crudo recocido. Valores por defecto
+# aproximan la referencia que ya estaba versionada; se pueden ajustar asi:
+# make bake-lightmap-postprocess DOME_LIGHTMAP_BRIGHTNESS=18
+DOME_LIGHTMAP_PATH ?= core_v2/levels/interiors/TerraceMesh.png
+DOME_LIGHTMAP_TINT ?= 008da3
+DOME_LIGHTMAP_COLORIZE ?= 85
+DOME_LIGHTMAP_BRIGHTNESS ?= 15
+bake-lightmap-postprocess:
+	DOME_LIGHTMAP_PATH="$(DOME_LIGHTMAP_PATH)" DOME_LIGHTMAP_TINT="$(DOME_LIGHTMAP_TINT)" \
+	DOME_LIGHTMAP_COLORIZE="$(DOME_LIGHTMAP_COLORIZE)" DOME_LIGHTMAP_BRIGHTNESS="$(DOME_LIGHTMAP_BRIGHTNESS)" \
+	sh tools/postprocess_dome_intro_lightmap.sh
+
+# Reimporta solo los assets de escena importados para aplicar split_stream.
+# Los .mesh nativos no pasan por el importador. Los artefactos se respaldan en
+# build/split-stream-reimport-backup antes de abrir Godot en modo import.
+reimport-split-stream-meshes:
+	bash tools/prepare_split_stream_mesh_reimport.sh
+	GODOT_BIN="$(GODOT)" bash tools/run_split_stream_mesh_reimport.sh
+	bash tools/verify_split_stream_mesh_reimport.sh
+	python3 scripts/check_tracked_imports.py
+	python3 scripts/check_critical_import_artifacts.py
 
 dashboard-dev:
 	@set -a; \
@@ -267,4 +293,4 @@ android-install-release: android-release-signed
 	adb install -r "$(ANDROID_RELEASE_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all bake export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
+.PHONY: all bake bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release

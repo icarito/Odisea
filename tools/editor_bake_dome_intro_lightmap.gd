@@ -8,6 +8,7 @@ extends EditorScript
 # reemplaza el recurso activo; Git conserva los estados anteriores.
 const EXPECTED_SCENE := "Dome_Intro"
 const BAKE_PATH := "res://core_v2/levels/interiors/Dome_Intro.lmbake"
+const POSTPROCESS_TARGET := "bake-lightmap-postprocess"
 
 func _run() -> void:
 	var dome: Node = get_scene()
@@ -19,12 +20,20 @@ func _run() -> void:
 	if rig == null or lightmap == null:
 		push_error("[dome_lightmap] faltan DomeIntroBakeLights o BakedLightmap.")
 		return
+	var directional: DirectionalLight = dome.get_node_or_null("DirectionalLight") as DirectionalLight
+	var directional_shadow_enabled: bool = directional.shadow_enabled if directional != null else false
+	var directional_bake_mode: int = directional.light_bake_mode if directional != null else Light.BAKE_DISABLED
 	# Todas las luces del rig participan como All, aunque sean invisibles: en
 	# Godot 3 la visibilidad no decide el bake. El estado se restaura al final.
 	rig.set("bake_rig_enabled", true)
 	for child in rig.get_children():
 		if child is Light:
 			(child as Light).light_bake_mode = Light.BAKE_ALL
+	# El usuario puede desactivar las sombras en runtime para inspeccionar solo
+	# el resultado horneado. Durante el bake se fuerzan, sin persistir ese cambio.
+	if directional != null:
+		directional.light_bake_mode = Light.BAKE_ALL
+		directional.shadow_enabled = true
 	lightmap.quality = BakedLightmap.BAKE_QUALITY_LOW
 	lightmap.atlas_generate = false # Dome_Intro excede un atlas 4096; funciona en GLES2.
 	lightmap.use_denoiser = true
@@ -39,9 +48,19 @@ func _run() -> void:
 	for child in rig.get_children():
 		if child is Light:
 			(child as Light).light_bake_mode = Light.BAKE_DISABLED
+	if directional != null:
+		directional.light_bake_mode = directional_bake_mode
+		directional.shadow_enabled = directional_shadow_enabled
 	if result != BakedLightmap.BAKE_ERROR_OK:
 		push_error("[dome_lightmap] bake falló: %d" % result)
 		return
+	var output := []
+	var project_path: String = ProjectSettings.globalize_path("res://")
+	var postprocess_result: int = OS.execute("make", ["--no-print-directory", "-C", project_path, POSTPROCESS_TARGET], true, output, true)
+	if postprocess_result != 0:
+		push_error("[dome_lightmap] bake listo, pero fallo el postproceso ImageMagick: %s" % PoolStringArray(output).join("\n"))
+		return
+	get_editor_interface().get_resource_filesystem().scan_sources()
 	get_editor_interface().get_resource_filesystem().scan()
 	get_editor_interface().mark_scene_as_unsaved()
 	print("[dome_lightmap] PASS. El bake activo se actualizó; valida y crea el siguiente commit.")

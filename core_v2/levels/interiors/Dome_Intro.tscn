@@ -5000,14 +5000,13 @@ environment = ExtResource( 20 )
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 3, 0 )
 light_color = Color( 0.807843, 0.85098, 0.847059, 1 )
 light_energy = 0.5
-light_bake_mode = 2
 shadow_enabled = true
 directional_shadow_mode = 0
 
 [node name="BakedLightmap" type="BakedLightmap" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 15, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.7, 0 )
 layers = 1023
-extents = Vector3( 30, 20, 30 )
+extents = Vector3( 33, 20, 33 )
 use_hdr = false
 atlas_generate = false
 environment_mode = 1
