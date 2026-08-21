@@ -87,7 +87,7 @@
       "reason": "Dome_Intro.tscn (FIRST_GAME_SCENE del menu) lo referencia como ext_resource: sin el .mp3str la escena entera no carga y test_menu_checkpoint_flow falla."
     },
     {
-      "path": "core_v2/SpaceShip_Engine_Large_Loop_00.mp3.import",
+      "path": "assets/sfx/motor_electrico.mp3.import",
       "required_sidecars": [
         ".md5"
       ],

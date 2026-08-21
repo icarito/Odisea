@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/motor_electrico.mp3-00eeb2faa7105096d9b71e375d5f4642.mp3str"
+
+[deps]
+
+source_file="res://assets/sfx/motor_electrico.mp3"
+dest_files=[ "res://.import/motor_electrico.mp3-00eeb2faa7105096d9b71e375d5f4642.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0
