@@ -253,18 +253,35 @@ func step(delta: float) -> void:
 	var coolant_flow_active: bool = coolant_flow_amount > 0.0001
 	var room_is_freezing := false
 	var room_is_cold_for_damage := true
+	var room_is_warm := false
+	var room: Node = null
 	if room_path != null and not room_path.is_empty():
-		var room = get_node_or_null(room_path)
+		room = get_node_or_null(room_path)
 		if room != null:
 			var room_temp: float = float(room.get("temperature"))
 			var freeze_pt: float = float(room.get("freezing_point"))
 			room_is_freezing = room_temp <= freeze_pt
 			room_is_cold_for_damage = room_temp < freeze_pt
+			room_is_warm = room_temp > freeze_pt
 			if room_is_freezing and coolant_flow_active:
 				if not is_running:
 					start()
 			elif is_running:
 				stop()
+
+	# Cerrar las fugas conserva el hielo. Solo una fuente de calor que lleve la sala
+	# por encima del umbral lo derrite y libera el vapor ambiental heredado de FD-269.
+	if room_is_warm:
+		if ice_height > start_height:
+			ice_height = max(start_height, ice_height - melt_speed * delta)
+			if room != null and room.has_method("add_contamination"):
+				room.call("add_contamination", evap_contamination_rate * delta)
+			emit_signal("ice_height_changed", ice_height)
+			_update_ice_collider()
+			_update_ice_fog()
+			_update_submerged_lights()
+			_update_debug_visuals()
+		return
 
 	# Una válvula cerrada o un tanque vacío conserva el volumen que ya se congeló;
 	# no se derrite ni sigue persiguiendo refrigerante drenado antes del cierre.
