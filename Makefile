@@ -32,14 +32,19 @@ export: export-linux-arm64 export-pck
 
 all: render
 
-# Rehornea los recursos procedurales de Dome_Intro. El bake final de
-# BakedLightmap sigue corriendo dentro del
-# editor (Godot 3); al terminar, el EditorScript llama bake-lightmap-postprocess.
+# En Godot 3, BakedLightmap sólo puede hornearse dentro del editor. Abrí
+# Dome_Intro.tscn y ejecutá tools/editor_bake_dome_intro_lightmap.gd; ese
+# EditorScript invoca bake-lightmap-postprocess al terminar correctamente.
 bake:
+	@echo "[bake] Abre Dome_Intro.tscn y ejecuta tools/editor_bake_dome_intro_lightmap.gd en Godot."
+
+# Regeneración explícita de la geometría procedimental. No es parte del bake
+# del lightmap: puede cambiar muchos recursos .mesh y debe correrse sólo al
+# editar sus escenas fuente.
+bake-dome-geometry:
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_pipe_network.gd
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_scaffold_walkways.gd
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_dome_intro_hub_floors.gd
-	$(MAKE) --no-print-directory bake-lightmap-postprocess
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
 	python3 scripts/check_tracked_imports.py
 
@@ -293,4 +298,4 @@ android-install-release: android-release-signed
 	adb install -r "$(ANDROID_RELEASE_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all bake bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
+.PHONY: all bake bake-dome-geometry bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
