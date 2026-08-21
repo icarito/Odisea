@@ -47,7 +47,7 @@ func _step_tree(nodes: Array, seconds: float) -> void:
 				node._physics_process(STEP)
 
 
-# 1. Closing valve dissipates leak intensity to 0 without SEALED; reopening returns to LEAKING without WARNING
+# 1. Closing valve depressurizes without SEALED; reopening restores an existing rupture.
 func test_valve_depressurizes_without_sealing() -> void:
 	var valve = auto_free(PipeValveScript.new())
 	valve.starts_active = true
@@ -80,7 +80,7 @@ func test_valve_depressurizes_without_sealing() -> void:
 	assert_float(leak.get_leak_intensity()).is_equal(0.0)
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.DEPRESSURIZED)
 
-	# Re-open valve -> returns directly to LEAKING
+	# Re-open valve -> restores the existing fissure without another warning.
 	var warning_count := [0]
 	leak.connect("warning_started", self, "_count_event", [warning_count])
 
@@ -89,7 +89,7 @@ func test_valve_depressurizes_without_sealing() -> void:
 	_step_tree([valve, leak], 0.05)
 
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.LEAKING)
-	assert_int(warning_count[0]).is_equal(0) # Bypassed WARNING phase
+	assert_int(warning_count[0]).is_equal(0)
 
 
 # 2. Tank drains only while leaks are active/pressurized; closing valve stops draining
@@ -389,7 +389,7 @@ func test_circuit_set_active_depressurizes_instead_of_sealing() -> void:
 	assert_int(leak.get_state()).is_equal(CoolantLeak.State.DEPRESSURIZED)
 	assert_bool(leak.get("_has_been_sealed")).is_false()
 
-	# Y reabrir vuelve a soltar la fuga: el cano nunca se reparo solo.
+	# Reabrir el circuito restaura la fisura ya rota, sin sellarla.
 	leak.set_active(true)
 	assert_int(leak.get_state()).is_equal(CoolantLeak.State.LEAKING)
 

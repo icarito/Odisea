@@ -158,7 +158,7 @@ func test_pipe_valve_integration_depressurizes_without_sealing() -> void:
 	leak.valve_path = valve.get_path()
 	add_child(leak)
 
-	leak.set_active(true)
+	leak.trigger_leak()
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.WARNING)
 
 	_step_leak(leak, leak.warning_duration + 0.5)
@@ -171,11 +171,27 @@ func test_pipe_valve_integration_depressurizes_without_sealing() -> void:
 
 	_step_leak(leak, leak.dissipate_duration + 0.5)
 	assert_float(leak.get_leak_intensity()).is_equal(0.0)
-	# Re-opening valve re-triggers leak immediately without WARNING
+	# Re-opening restores an already ruptured, depressurized fissure.
 	valve.emit_signal("valve_state_changed", true)
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.LEAKING)
 
 	leak.reset()
+	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.HEALTHY)
+	assert_float(leak.get_leak_intensity()).is_equal(0.0)
+
+
+func test_valve_cycle_never_triggers_a_healthy_leak() -> void:
+	var valve = auto_free(DummyValve.new())
+	valve.name = "DummyValve"
+	add_child(valve)
+
+	var leak = auto_free(CoolantLeakScript.new())
+	leak.valve_path = valve.get_path()
+	add_child(leak)
+
+	valve.emit_signal("valve_state_changed", false)
+	valve.emit_signal("valve_state_changed", true)
+
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.HEALTHY)
 	assert_float(leak.get_leak_intensity()).is_equal(0.0)
 

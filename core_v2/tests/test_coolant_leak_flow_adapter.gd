@@ -107,7 +107,7 @@ func test_leak_without_flow_adapter_preserves_single_valve_behavior() -> void:
 	leak.valve_path = valve.get_path()
 	add_child(leak)
 
-	leak.set_active(true)
+	leak.trigger_leak()
 	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.WARNING)
 
 	_step_leak(leak, leak.warning_duration + 0.5)
