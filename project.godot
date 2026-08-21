@@ -2950,15 +2950,17 @@ common/max_physics_steps_per_frame=4
 
 [rendering]
 
+quality/filters/sharpen_intensity=0.5
 quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
-threads/thread_model=0
+threads/thread_model=2
 vram_compression/import_bptc=true
 vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
 quality/shadows/filter_mode=2
 quality/shadows/filter_mode.mobile=1
+quality/reflections/high_quality_ggx=false
 quality/shading/force_vertex_shading.mobile=false
 quality/shading/use_physical_light_attenuation=true
 batching/options/single_rect_fallback=true
@@ -2970,7 +2972,6 @@ gles3/shaders/shader_compilation_mode.web=2
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
 quality/filters/msaa=1
 quality/filters/use_fxaa=true
-quality/filters/use_debanding=true
 environment/default_environment="res://default_env.tres"
 batching/options/use_batching.iOS=false
 quality/filters/msaa.web=0

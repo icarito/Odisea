@@ -141,6 +141,8 @@ func check_for_updates() -> void:
 	]
 
 	var http = HTTPRequest.new()
+	# El chequeo ocurre al abrir el menú: DNS/TLS no debe competir con el render/input.
+	http.use_threads = true
 	add_child(http)
 	http.connect("request_completed", self, "_on_check_completed", [http, channel, platform])
 
@@ -1258,6 +1260,7 @@ func _cleanup_stale_apks():
 
 func _redirect_check(url, channel, platform):
 	var http = HTTPRequest.new()
+	http.use_threads = true
 	add_child(http)
 	http.connect("request_completed", self, "_on_check_completed", [http, channel, platform])
 	# Mismo Accept que el check directo, o el destino del redirect daría 400.
