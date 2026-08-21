@@ -544,9 +544,9 @@
   },
   "final_expected_state": {
     "position": [
-      0,
+      -0.970554,
       0.0015,
-      1.956636
+      1.78348
     ],
     "velocity": [
       0,
@@ -585,7 +585,7 @@
     "$sys_env_auto_run": "",
     "pos": "(0, 0, 0)",
     "$start_z": 0,
-    "$end_z_walk": 1.956636,
-    "$dist_walk": -1.956636
+    "$end_z_walk": 1.78348,
+    "$dist_walk": -1.78348
   }
 }

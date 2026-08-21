@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 # TestSuite for CoolantLeak (FD-256 / FD-255 / FD-266)
 
 const CoolantLeakScript = preload("res://core_v2/systems/cryo/CoolantLeak.gd")
+const IceLevelScript = preload("res://core_v2/systems/ice/IceLevel.gd")
 const STEP := 1.0 / 60.0
 
 class DummyValve extends Spatial:
@@ -55,6 +56,30 @@ func test_full_time_cycle_transitions_and_intensity_ramp_up() -> void:
 	# Full ramp up
 	_step_leak(leak, leak.ramp_up_duration * 0.6)
 	assert_float(leak.get_leak_intensity()).is_equal_approx(1.0, 0.0001)
+
+
+func test_ice_temporarily_caps_and_releases_a_leak() -> void:
+	var ice = auto_free(IceLevelScript.new())
+	ice.auto_start = false
+	ice.debug_draw = false
+	add_child(ice)
+	var leak = _make_leak()
+	leak.warning_duration = 0.0
+	leak.ramp_up_duration = 0.0
+	leak.translation.y = 4.0
+	leak.trigger_leak()
+	leak._physics_process(STEP)
+	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.LEAKING)
+
+	ice.ice_height = 4.1
+	leak._physics_process(STEP)
+	assert_bool(leak.is_ice_capped()).is_true()
+	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.DEPRESSURIZED)
+
+	ice.ice_height = 3.0
+	leak._physics_process(STEP)
+	assert_bool(leak.is_ice_capped()).is_false()
+	assert_int(leak.get_state()).is_equal(CoolantLeakScript.State.LEAKING)
 
 
 func test_seal_during_warning_returns_to_healthy() -> void:

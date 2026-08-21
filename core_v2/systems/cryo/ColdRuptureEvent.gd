@@ -5,6 +5,9 @@ class_name ColdRuptureEvent
 # The rupture owns gameplay state only; explosion lifetime is presentation-only.
 
 export(NodePath) var trigger_area_path: NodePath
+# El selector vive separado de este disparador: conserva la selección seeded en el
+# snapshot y evita que Dome_Intro tenga una lista de fugas fija por accidente.
+export(NodePath) var leak_seeder_path: NodePath
 export(Array, NodePath) var candidate_leak_paths: Array = []
 export(PackedScene) var explosion_scene: PackedScene
 export(Array, Vector3) var explosion_positions: Array = []
@@ -31,14 +34,8 @@ func trigger() -> void:
 	consumed = true
 	_trigger_camera_shake()
 	_play_sound(rupture_sound_path)
-	_spawn_explosions(explosion_positions, 1.0)
-	_activated_leak_paths = []
-	for path_value in candidate_leak_paths:
-		var leak: Node = _get_target_node(path_value)
-		if leak == null or not leak.has_method("trigger_leak"):
-			continue
-		leak.call("trigger_leak")
-		_activated_leak_paths.append(NodePath(str(path_value)))
+	_activate_leaks()
+	_spawn_explosions(_get_rupture_positions(explosion_positions), 1.0)
 	_aftershock_remaining = max(aftershock_delay, 0.0)
 	_aftershock_fired = false
 
@@ -61,6 +58,42 @@ func _resolve_trigger_area() -> void:
 		_trigger_area.connect("body_entered", self, "_on_trigger_body_entered")
 
 
+func _activate_leaks() -> void:
+	_activated_leak_paths = []
+	var seeder: Node = _get_target_node(leak_seeder_path)
+	if seeder == null:
+		var parent: Node = get_parent()
+		seeder = parent.get_node_or_null("RandomLeakSeeder") if parent != null else null
+	if seeder != null and seeder.has_method("activate_leaks"):
+		seeder.call("activate_leaks")
+		if seeder.has_method("get_active_leak_paths"):
+			_activated_leak_paths = seeder.call("get_active_leak_paths")
+		return
+
+	# Compatibilidad con escenas anteriores que todavía no tengan un seeder.
+	for path_value in candidate_leak_paths:
+		var leak: Node = _get_target_node(path_value)
+		if leak == null or not leak.has_method("trigger_leak"):
+			continue
+		leak.call("trigger_leak")
+		_activated_leak_paths.append(NodePath(str(path_value)))
+
+
+func _get_rupture_positions(fallback_positions: Array) -> Array:
+	var positions: Array = []
+	for path_value in _activated_leak_paths:
+		var leak: Node = _get_target_node(path_value)
+		if leak is Spatial:
+			positions.append(to_local((leak as Spatial).global_transform.origin))
+	if not positions.empty():
+		return positions
+	# El centro del domo no contiene una línea de coolant: nunca usarlo como origen.
+	for position in fallback_positions:
+		if position is Vector3 and (position as Vector3).length_squared() > 0.01:
+			positions.append(position)
+	return positions
+
+
 func _on_trigger_body_entered(body: Node) -> void:
 	if body != null and body.is_in_group("player"):
 		trigger()
@@ -74,7 +107,7 @@ func _trigger_camera_shake() -> void:
 
 func _play_aftershock() -> void:
 	_play_sound(aftershock_sound_path)
-	_spawn_explosions(aftershock_positions, 0.55)
+	_spawn_explosions(_get_rupture_positions(aftershock_positions), 0.55)
 	var cinematic_manager: Node = get_node_or_null("/root/CinematicManager")
 	if cinematic_manager != null and cinematic_manager.has_method("trigger_camera_shake"):
 		cinematic_manager.call("trigger_camera_shake", 0.45, 0.06, 20.0, 0.8)

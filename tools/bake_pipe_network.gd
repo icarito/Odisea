@@ -29,6 +29,8 @@ extends SceneTree
 #         core_v2/levels/interiors/DomeIntro_<GroupName>Pipes_body.tscn
 
 const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn"
+const VISUAL_BAKE_PATH := "res://core_v2/levels/interiors/DomeIntro_PipeNetworkVisualBake.tres"
+const DomeIntroPipeVisualBake = preload("res://core_v2/levels/interiors/DomeIntroPipeVisualBake.gd")
 
 # Each entry: [output GroupName, node path to the PipeCoolantRun to bake].
 #
@@ -106,8 +108,19 @@ func _run() -> void:
 		if not selected_group.empty() and group_name != selected_group:
 			continue
 		_bake_group(root, group_name, node_path)
+	_bake_visual_authoring(root)
 
 	quit(0)
+
+
+func _bake_visual_authoring(source_root: Node) -> void:
+	var visual_bake = DomeIntroPipeVisualBake.new()
+	visual_bake.orient_leaks_inward = bool(source_root.get("orient_leaks_inward"))
+	visual_bake.orient_valves_inward = bool(source_root.get("orient_valves_inward"))
+	if ResourceSaver.save(VISUAL_BAKE_PATH, visual_bake) != OK:
+		push_error("[bake_pipes] failed to save %s" % VISUAL_BAKE_PATH)
+		return
+	print("[bake_pipes] visual authoring -> %s" % VISUAL_BAKE_PATH)
 
 func _bake_group(root: Node, group_name: String, node_path: String) -> void:
 	var pipes: Spatial = root.get_node_or_null(node_path)

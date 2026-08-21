@@ -69,6 +69,23 @@ func test_no_leak_fissure_inactive() -> void:
 		assert_float(mat.get_shader_param("fissure_intensity")).is_equal(0.0)
 
 
+func test_fissure_mist_is_not_distance_culled() -> void:
+	var emitter: Area = _visual.get_node("MistFrost") as Area
+	var manager: Spatial = _visual.get_node("MistFrost/GasParticleManager") as Spatial
+	var spray: CPUParticles = _visual.get_node("SprayParticles") as CPUParticles
+
+	assert_bool(emitter.get("preserve_full_particle_visibility")).is_true()
+	assert_float(emitter.get("particle_alpha")).is_equal(0.22)
+	assert_bool(emitter.get("use_particle_dither")).is_true()
+	assert_float(spray.color.a).is_equal_approx(0.38, 0.001)
+	assert_bool(manager.get("distance_lod_enabled")).is_false()
+	assert_bool(manager.get("use_dither")).is_true()
+	assert_bool(manager.get("adaptive_pool_on_mobile")).is_false()
+	assert_float(manager.get("mobile_pool_scale")).is_equal(1.0)
+	assert_float(manager.get("min_pool_fraction")).is_equal(1.0)
+	assert_float(manager.get("particle_cull_margin")).is_equal(96.0)
+
+
 func test_active_leak_fissure_visuals() -> void:
 	# Se fuerza el estado directo con _set_state() y se llama _resolve_references()/
 	# _update_visuals() a mano, en vez de esperar a que _physics_process() los dispare via

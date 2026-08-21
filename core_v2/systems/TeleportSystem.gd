@@ -426,27 +426,38 @@ func _on_player_killed():
 	var target_transform = null
 	var target_yaw = null
 	var target_pitch = null
-	# 2. Si hay checkpoint en slot 'last', usarlo
-	if checkpoint_res and "last" in checkpoint_res.slots:
+	# 2. El checkpoint de la sesión es la fuente de verdad: restaura el mismo estado
+	# replay_sync (Room3D, IceLevel, tanques, válvulas) que había al activar el punto.
+	# El recurso persistido queda sólo como fallback para continuar una partida vieja.
+	var checkpoint_manager = get_node_or_null("/root/CheckpointManager")
+	if checkpoint_manager and checkpoint_manager.has_method("get_respawn_transform"):
+		var runtime_respawn: Dictionary = checkpoint_manager.get_respawn_transform()
+		if runtime_respawn.has("position"):
+			target_yaw = float(runtime_respawn.get("yaw", 0.0))
+			target_pitch = float(runtime_respawn.get("pitch", 0.0))
+			target_transform = Transform(Basis(Vector3.UP, target_yaw), runtime_respawn["position"])
+			print("[TeleportSystem] Respawn restaurando checkpoint replay_sync de sesión.")
+
+	# 3. Si no existe estado de sesión, usar el último checkpoint persistido.
+	if target_transform == null and checkpoint_res and "last" in checkpoint_res.slots:
 		var slot = checkpoint_res.slots["last"]
 		if typeof(slot) == TYPE_DICTIONARY:
 			target_transform = slot.get("transform", null)
 			target_yaw = slot.get("yaw", null)
 			target_pitch = slot.get("pitch", null)
-			var checkpoint_manager = get_node_or_null("/root/CheckpointManager")
-			if checkpoint_manager and checkpoint_manager.has_method("restore_elevator_state"):
-				checkpoint_manager.restore_elevator_state(slot.get("elevator_snapshot", {}))
+			if checkpoint_manager and checkpoint_manager.has_method("restore_replay_sync_state"):
+				checkpoint_manager.restore_replay_sync_state(slot.get("replay_snapshot", {}))
 		else:
 			target_transform = slot
 		print("[TeleportSystem] Respawn usando último checkpoint registrado.")
-	# 3. Si hay SpawnPointV2 en la escena, usarlo
+	# 4. Si hay SpawnPointV2 en la escena, usarlo
 	if not target_transform:
 		var spawn = get_tree().current_scene.find_node("SpawnPointV2", true, false) if get_tree().current_scene else null
 		print("[TeleportSystem] Buscando SpawnPointV2:", spawn)
 		if spawn:
 			target_transform = spawn.global_transform
 			print("[TeleportSystem] Respawn usando SpawnPointV2.")
-	# 4. Si no hay nada, usar el spawn inicial absoluto cacheado o la posición inicial del player (fallback)
+	# 5. Si no hay nada, usar el spawn inicial absoluto cacheado o la posición inicial del player (fallback)
 	if not target_transform:
 		if initial_spawn_transform != null:
 			target_transform = initial_spawn_transform
@@ -606,11 +617,15 @@ func _on_checkpoint_reached(transform):
 	if persistence_manager and persistence_manager.has_method("get_checkpoint_resource"):
 		var checkpoint_res = persistence_manager.get_checkpoint_resource(scene_path)
 		if checkpoint_res:
+			var replay_snapshot: Dictionary = {}
+			var checkpoint_manager = get_node_or_null("/root/CheckpointManager")
+			if checkpoint_manager and checkpoint_manager.has_method("capture_replay_sync_state"):
+				replay_snapshot = checkpoint_manager.capture_replay_sync_state()
 			var checkpoint_data = {
 				"transform": transform,
 				"yaw": player_controller.get("yaw") if "yaw" in player_controller else 0.0,
 				"pitch": player_controller.get("pitch") if "pitch" in player_controller else 0.0,
-				"elevator_snapshot": CheckpointManager.capture_elevator_state()
+				"replay_snapshot": replay_snapshot
 			}
 			checkpoint_res.slots["last"] = checkpoint_data
 			checkpoint_res.property_list_changed_notify() # Forzar a Godot a marcar el recurso como modificado

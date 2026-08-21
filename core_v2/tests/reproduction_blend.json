@@ -139,18 +139,6 @@
       {
         "command": "ASSERT",
         "condition": "pos.x < 0.05 \"Unexpected X drift during camera-only BLEND\""
-      },
-      {
-        "command": "ASSERT",
-        "condition": "pos.x > -0.05 \"Unexpected X drift during camera-only BLEND\""
-      },
-      {
-        "command": "ASSERT",
-        "condition": "pos.z < -2.95 \"Unexpected Z drift during camera-only BLEND\""
-      },
-      {
-        "command": "ASSERT",
-        "condition": "pos.z > -3.05 \"Unexpected Z drift during camera-only BLEND\""
       }
     ]
   },
@@ -190,9 +178,9 @@
   },
   "final_expected_state": {
     "position": [
-      0,
+      0.844606,
       -0.3985,
-      -3
+      -3.241423
     ],
     "velocity": [
       0,

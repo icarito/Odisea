@@ -37,6 +37,7 @@ all: render
 # combinados que instancia Dome_Intro.tscn. Correr tras editar la fuente.
 bake:
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_pipe_network.gd
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
 
 dashboard-dev:
 	@set -a; \

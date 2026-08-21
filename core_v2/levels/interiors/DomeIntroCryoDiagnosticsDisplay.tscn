@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/props/controls/WallTerminal.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsUI.tscn" type="PackedScene" id=2]
+
+; This wrapper owns the Viewport override. Dome_Intro only instances this scene,
+; so light-bake/editor packing never needs to repack children below WallTerminal.
+[node name="HangingDisplay" instance=ExtResource( 1 )]
+is_interactable = true
+screen_resolution = Vector2( 1280, 816 )
+active = true
+static_content = true
+
+[node name="TerminalUI" parent="Viewport"]
+visible = false
+
+[node name="CryoDiagnosticsUI" parent="Viewport" instance=ExtResource( 2 )]

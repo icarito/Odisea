@@ -23,6 +23,10 @@ export(bool) var distance_lod_enabled := true
 export(float, 5.0, 100.0, 1.0) var lod_distance := 12.0
 export(float, 0.0, 20.0, 0.5) var lod_hysteresis := 4.0
 export(int, 1, 60) var lod_frames_between_checks := 10
+# El MultiMesh no actualiza su AABB a partir de las instancias que se mueven. Los
+# emisores que ocupan una zona amplia pueden ampliar este margen desde su escena para
+# que el frustum no corte la pluma antes que las propias particulas expiren.
+export(float, 0.0, 256.0, 1.0) var particle_cull_margin := 32.0
 export(float) var default_max_lifetime := 6.0
 export(float) var default_base_scale := 2.2
 export(float) var viscosity := 0.8
@@ -99,7 +103,7 @@ func _ensure_multimesh_instance() -> void:
 		add_child(multimesh_instance)
 
 	multimesh_instance.cast_shadow = 0 # GeometryInstance.SHADOW_CASTING_SETTING_OFF
-	multimesh_instance.extra_cull_margin = 32.0
+	multimesh_instance.extra_cull_margin = particle_cull_margin
 
 	multimesh = multimesh_instance.multimesh
 	if multimesh == null:
@@ -120,6 +124,24 @@ func _ensure_multimesh_instance() -> void:
 		multimesh.mesh = quad
 
 	_ensure_material()
+
+
+# Para marcadores jugables no se permite que un presupuesto visual reduzca la pluma.
+# Se llama desde el emisor padre: las propiedades de nodos heredados pueden aplicarse
+# después de que este hijo ya entró a _ready().
+func set_full_visibility_mode(value: bool) -> void:
+	if not value:
+		return
+	distance_lod_enabled = false
+	adaptive_pool_on_mobile = false
+	mobile_pool_scale = 1.0
+	min_pool_fraction = 1.0
+	particle_cull_margin = max(particle_cull_margin, 96.0)
+	_lod = null
+	if multimesh_instance != null:
+		multimesh_instance.extra_cull_margin = particle_cull_margin
+	if not particles.empty():
+		_apply_pool_limit(particles.size())
 
 func _ensure_material() -> void:
 	if multimesh_instance.material_override is ShaderMaterial:

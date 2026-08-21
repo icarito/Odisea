@@ -23,6 +23,7 @@ export(NodePath) var leak_path: NodePath
 export(NodePath) var patch_point_path: NodePath
 export(NodePath) var pipe_run_path: NodePath
 export(float, 0.1, 2.0) var fissure_radius: float = 0.35
+export(Vector3) var spray_direction: Vector3 = Vector3.UP setget set_spray_direction
 
 var _leak: Object = null
 var _patch_point: Object = null
@@ -54,6 +55,7 @@ var _references_resolved := false
 
 func _ready() -> void:
 	add_to_group("replay_sync")
+	_apply_spray_direction()
 	_resolve_references()
 	_update_visuals()
 	# PERF: en Dome_Intro hay ~24 fisuras de autoria y solo 2-3 activas por partida — el
@@ -115,6 +117,23 @@ func _physics_process(_delta: float) -> void:
 func set_enabled(value: bool) -> void:
 	enabled = value
 	_update_visuals()
+
+
+func set_spray_direction(value: Vector3) -> void:
+	if value.length_squared() <= 0.000001:
+		return
+	spray_direction = value.normalized()
+	_apply_spray_direction()
+
+
+func _apply_spray_direction() -> void:
+	if spray_direction.length_squared() <= 0.000001:
+		spray_direction = Vector3.UP
+	var direction: Vector3 = spray_direction.normalized()
+	if _spray_particles:
+		_spray_particles.direction = direction
+	if _mist_frost:
+		_mist_frost.set("emission_direction", direction)
 
 
 func _update_visuals() -> void:

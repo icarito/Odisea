@@ -36,25 +36,38 @@ script = ExtResource( 1 )
 [node name="SprayParticles" type="CPUParticles" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 0 )
 emitting = false
-amount = 8
+amount = 18
 lifetime = 0.7
+visibility_aabb = AABB( -8, -2, -8, 16, 14, 16 )
 mesh = SubResource( 2 )
 direction = Vector3( 0, 1, 0 )
 spread = 20.0
 gravity = Vector3( 0, -1.8, 0 )
-initial_velocity = 1.6
+initial_velocity = 2.4
 initial_velocity_random = 0.3
 tangential_accel_random = 0.5
 scale_amount = 2.2
-color = Color( 1, 1, 1, 0.4 )
+color = Color( 1, 1, 1, 0.38 )
 
 [node name="MistFrost" parent="." instance=ExtResource( 3 )]
 is_active = false
 emission_radius = 0.2
-particles_per_second = 10
-emission_height = 0.05
+particles_per_second = 18
+emission_height = 0.08
+emission_speed = 1.15
+particle_alpha = 0.22
+use_particle_dither = true
+preserve_full_particle_visibility = true
 
 [node name="GasParticleManager" parent="MistFrost" index="1"]
+# Una fuga activa es una señal jugable. No participa de LOD por distancia ni de
+# reducción adaptativa del pool: desde lejos debe seguir teniendo una pluma legible.
+distance_lod_enabled = false
+# La pluma es el marcador del puzzle: de lejos puede simplificarse, pero nunca
+# desaparecer antes de que el jugador pueda ubicar la fisura.
+default_max_lifetime = 2.6
+default_base_scale = 1.9
+default_color = Color( 0.96, 0.985, 1, 0.46 )
 viscosity = 0.25
 collide_with_world = true
 world_collision_mask = 1

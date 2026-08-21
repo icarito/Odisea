@@ -37,6 +37,10 @@ func _update_speed() -> void:
 		anim_speed = 1.0
 
 func _ready():
+	# Se declara aquí también, aunque InteractableBaseV2 lo herede: una válvula nunca
+	# puede perder sincronización de replay si cambia su clase base en el futuro. Los
+	# checkpoints usan este mismo grupo; no existe una ruta paralela para válvulas.
+	add_to_group("replay_sync")
 	_wheel = get_node_or_null("Wheel")
 	_indicator = get_node_or_null("StatusIndicator/StatusLight")
 	if _indicator == null:

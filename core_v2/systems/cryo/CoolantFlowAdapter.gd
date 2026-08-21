@@ -8,6 +8,10 @@ class_name CoolantFlowAdapter
 export(Resource) var network
 export(String) var branch_id: String = ""
 
+# Los adaptadores de anillo comparten topología solo para animar el shader. No son
+# otro circuito físico y por tanto no pueden vaciar el mismo tanque una segunda vez.
+export(bool) var drain_tank: bool = true
+
 export(float, 0.0, 4.0) var normal_flow_speed: float = 0.7
 export(float, 0.0, 3.0) var normal_flow_intensity: float = 1.0
 
@@ -36,7 +40,7 @@ func _physics_process(delta: float) -> void:
 	if _tank != null and "tank_level" in _tank:
 		tank_level = float(_tank.tank_level)
 
-	if delta > 0.0 and _tank != null and tank_level > 0.0:
+	if drain_tank and delta > 0.0 and _tank != null and tank_level > 0.0:
 		var total_leak_drain := 0.0
 		var carrying := 1.0 if tank_level > 0.0 else 0.0
 
@@ -58,7 +62,10 @@ func _physics_process(delta: float) -> void:
 
 		if total_leak_drain > 0.0 and "drain_rate" in _tank:
 			var drain_rate: float = float(_tank.get("drain_rate"))
-			var drain: float = total_leak_drain * drain_rate * delta
+			# drain_rate representa unidades físicas/segundo. Un tanque con más
+			# criocoolant tarda proporcionalmente más en vaciarse.
+			var capacity: float = float(_tank.get("coolant_capacity")) if "coolant_capacity" in _tank else 1.0
+			var drain: float = total_leak_drain * drain_rate * delta / max(capacity, 0.0001)
 			_tank.set_tank_level(max(0.0, tank_level - drain))
 
 	# Recompute flow if leaks are ramping up/down, tank level moved, or a valve state changed
@@ -132,6 +139,8 @@ func _resolve_references() -> void:
 		var pipe_run_node: Node = _get_target_node(pipe_run_path)
 		var valve_node: Node = _get_target_node(valve_path)
 		var leak_node: Node = _get_target_node(leak_path)
+		if leak_node != null and leak_node.has_method("set_flow_adapter"):
+			leak_node.call("set_flow_adapter", self)
 
 		if valve_node != null and valve_node.has_signal("valve_state_changed"):
 			if not valve_node.is_connected("valve_state_changed", self, "_on_valve_state_changed"):

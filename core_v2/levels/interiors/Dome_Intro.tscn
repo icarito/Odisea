@@ -1,4 +1,4 @@
-[gd_scene load_steps=235 format=2]
+[gd_scene load_steps=239 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
@@ -121,7 +121,7 @@
 [ext_resource path="res://core_v2/props/signage/SignagePanel.tscn" type="PackedScene" id=367]
 [ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=369]
 [ext_resource path="res://core_v2/props/pipe/PipeMetal.tres" type="Material" id=370]
-[ext_resource path="res://core_v2/props/controls/WallTerminal.tscn" type="PackedScene" id=371]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsDisplay.tscn" type="PackedScene" id=371]
 [ext_resource path="res://core_v2/props/pipe/PipeValve.tscn" type="PackedScene" id=372]
 [ext_resource path="res://core_v2/systems/cryo/CoolantLeak.gd" type="Script" id=373]
 [ext_resource path="res://core_v2/props/controls/SuspendedTerminalRig.gd" type="Script" id=376]
@@ -164,7 +164,8 @@
 [ext_resource path="res://assets/flipbook_particles/assets/explosions/explosion_03/explosion_03.tscn" type="PackedScene" id=5008]
 [ext_resource path="res://assets/sfx/explode.wav" type="AudioStream" id=5009]
 [ext_resource path="res://assets/sfx/explodemini.wav" type="AudioStream" id=5010]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsUI.tscn" type="PackedScene" id=5011]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntroPipeVisualApplier.gd" type="Script" id=5012]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntro_PipeNetworkVisualBake.tres" type="Resource" id=5013]
 
 [sub_resource type="BoxShape" id=564]
 extents = Vector3( 10, 5, 2 )
@@ -200,6 +201,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.8
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -224,6 +226,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.8
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -245,6 +248,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -266,6 +270,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -290,6 +295,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -311,6 +317,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -335,6 +342,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -356,6 +364,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -380,6 +389,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -401,6 +411,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -425,6 +436,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -446,6 +458,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -475,6 +488,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -496,6 +510,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -520,6 +535,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -541,6 +557,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -565,6 +582,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -586,6 +604,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -610,6 +629,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -631,6 +651,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -655,6 +676,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -676,6 +698,7 @@ shader_param/use_baked_axis = true
 shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 2.7
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -1104,6 +1127,10 @@ shape = SubResource( 564 )
 [node name="RandomLeakSeeder" type="Node" parent="."]
 script = ExtResource( 5001 )
 candidate_leak_paths = [ NodePath("TowerCoolantRiser/LeakWestFloor0"), NodePath("CryoLoopWest/LeakWestFloor1"), NodePath("TowerCoolantRiser/LeakWestFloor2"), NodePath("TowerCoolantRiser/LeakWestFloor3"), NodePath("TowerCoolantRiser/LeakWestFloor4"), NodePath("TowerCoolantRiser/LeakWestFloor5"), NodePath("TowerCoolantRiser/LeakWestRing0"), NodePath("TowerCoolantRiser/LeakWestRing1"), NodePath("TowerCoolantRiser/LeakWestRing2"), NodePath("TowerCoolantRiser/LeakWestRing3"), NodePath("TowerCoolantRiser/LeakWestRing4"), NodePath("TowerCoolantRiser/LeakWestRing5"), NodePath("TowerCoolantRiserEast/LeakEastFloor0"), NodePath("CryoLoopEast/LeakEastFloor1"), NodePath("TowerCoolantRiserEast/LeakEastFloor2"), NodePath("TowerCoolantRiserEast/LeakEastFloor3"), NodePath("TowerCoolantRiserEast/LeakEastFloor4"), NodePath("TowerCoolantRiserEast/LeakEastFloor5"), NodePath("TowerCoolantRiserEast/LeakEastRing0"), NodePath("TowerCoolantRiserEast/LeakEastRing1"), NodePath("TowerCoolantRiserEast/LeakEastRing2"), NodePath("TowerCoolantRiserEast/LeakEastRing3"), NodePath("TowerCoolantRiserEast/LeakEastRing4"), NodePath("TowerCoolantRiserEast/LeakEastRing5") ]
+
+[node name="PipeNetworkVisualAuthoring" type="Node" parent="."]
+script = ExtResource( 5012 )
+visual_bake = ExtResource( 5013 )
 
 [node name="Pilot_v2" parent="." instance=ExtResource( 21 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 4.7, 8 )
@@ -2202,10 +2229,10 @@ pipe_run_path = NodePath("../../TowerCoolantRiser_L1")
 [node name="LeakWestRing1" type="Spatial" parent="TowerCoolantRiser"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 4.08, 0 )
 script = ExtResource( 373 )
-valve_path = NodePath("../ValveWestFloor0")
-room_path = NodePath("../../DomeRoom3D")
 warning_duration = 0.35
 ramp_up_duration = 0.8
+valve_path = NodePath("../ValveWestFloor0")
+room_path = NodePath("../../DomeRoom3D")
 leak_temp_rate = 0.5
 
 [node name="CableAnchor" type="Position3D" parent="TowerCoolantRiser/LeakWestRing1"]
@@ -3142,10 +3169,10 @@ pipe_run_path = NodePath("../../TowerCoolantRiserEast_L1")
 [node name="LeakEastRing1" type="Spatial" parent="TowerCoolantRiserEast"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 4.08, 0 )
 script = ExtResource( 373 )
-valve_path = NodePath("../ValveEastFloor0")
-room_path = NodePath("../../DomeRoom3D")
 warning_duration = 0.35
 ramp_up_duration = 0.8
+valve_path = NodePath("../ValveEastFloor0")
+room_path = NodePath("../../DomeRoom3D")
 leak_temp_rate = 0.5
 
 [node name="CableAnchor" type="Position3D" parent="TowerCoolantRiserEast/LeakEastRing1"]
@@ -3479,11 +3506,17 @@ network = SubResource( 398 )
 branch_id = "east_ring_visual"
 
 [node name="DomeRoom3D" parent="." instance=ExtResource( 393 )]
+recover_from_inactive_coolant_leaks = true
+coolant_temperature_recovery_rate = 0.25
 
 [node name="CoolantTank" parent="." instance=ExtResource( 379 )]
 transform = Transform( 2.2, 0, 0, 0, 1.5, 0, 0, 0, 2.2, -15, 0, 0 )
+coolant_capacity = 1.0
+drain_rate = 0.008333333
 
 [node name="CoolantTankEast" parent="." instance=ExtResource( 379 )]
+coolant_capacity = 1.0
+drain_rate = 0.008333333
 transform = Transform( 2.3, 0, 0, 0, 2.3, 0, 0, 0, 2.3, 16, 0, 4 )
 
 [node name="TankRiserEast" type="CSGCylinder" parent="."]
@@ -3570,15 +3603,6 @@ max_distance = 28.0
 
 [node name="HangingDisplay" parent="SuspendedCryoDiagnostics/Carriage" instance=ExtResource( 371 )]
 transform = Transform( 1.55, 0, 0, 0, -1.55, 0, 0, 0, -1.55, 0, 2.05, 0 )
-is_interactable = true
-screen_resolution = Vector2( 1280, 816 )
-active = true
-static_content = true
-
-[node name="TerminalUI" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport"]
-visible = false
-
-[node name="CryoDiagnosticsUI" parent="SuspendedCryoDiagnostics/Carriage/HangingDisplay/Viewport" instance=ExtResource( 5011 )]
 
 [node name="ElevatorAnchor" type="Position3D" parent="."]
 transform = Transform( 0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, -6.5436, 0, 15.0598 )
@@ -4857,8 +4881,9 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
 auto_start = false
 use_mobile_color_pbr = false
-ice_height_fog_enabled = true
+ice_height_fog_enabled = false
 room_path = NodePath("../DomeRoom3D")
+max_coolant_height = 18.0
 
 [node name="IceObjectFreezer" type="Node" parent="IceLevel"]
 script = ExtResource( 99 )
@@ -4948,7 +4973,7 @@ transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 3, 0
 light_color = Color( 0.807843, 0.85098, 0.847059, 1 )
 light_energy = 0.5
 light_bake_mode = 2
-shadow_enabled = false
+shadow_enabled = true
 directional_shadow_mode = 0
 
 [node name="BakedLightmap" type="BakedLightmap" parent="."]

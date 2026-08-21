@@ -1,232 +1,51 @@
-[gd_scene load_steps=22 format=2]
+[gd_scene load_steps=5 format=2]
 
-[ext_resource path="res://core_v2/components/CameraZone.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=2]
-[ext_resource path="res://core_v2/visual/HoloScreen.shader" type="Shader" id=4]
-[ext_resource path="res://core_v2/visual/CinematicRig.gd" type="Script" id=6]
-[ext_resource path="res://core_v2/things/DebugConsoleHUD.gd" type="Script" id=7]
-[ext_resource path="res://assets/sfx/phase.wav" type="AudioStream" id=8]
-[ext_resource path="res://assets/sfx/electronic-buzzing-sound-29464.mp3" type="AudioStream" id=9]
-[ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=11]
-[ext_resource path="res://core_v2/things/HoloTerminalViewportInput.gd" type="Script" id=12]
+[ext_resource path="res://core_v2/things/DebugConsoleHUD.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/things/HoloTerminalViewportInput.gd" type="Script" id=2]
 
-[sub_resource type="BoxShape" id=18]
-extents = Vector3( 0.15, 0.15, 0.175 )
-
-[sub_resource type="SpatialMaterial" id=6]
-albedo_color = Color( 0.8, 0.8, 0.8, 1 )
-metallic = 1.0
-roughness = 0.4
-
-[sub_resource type="SpatialMaterial" id=9]
-flags_transparent = true
-params_billboard_mode = 1
-albedo_color = Color( 0, 0.890196, 1, 1 )
-
-[sub_resource type="QuadMesh" id=10]
-material = SubResource( 9 )
-size = Vector2( 0.01, 0.05 )
-
-[sub_resource type="SpatialMaterial" id=8]
-flags_transparent = true
-albedo_color = Color( 0, 1, 1, 0.5 )
-emission_enabled = true
-emission = Color( 0, 1, 1, 1 )
-emission_energy = 2.0
-emission_operator = 0
-emission_on_uv2 = false
-
-[sub_resource type="ViewportTexture" id=22]
-
-[sub_resource type="ShaderMaterial" id=7]
-shader = ExtResource( 4 )
-shader_param/albedo = Color( 0.643137, 0.933333, 1, 0.14902 )
-shader_param/emission_energy = 3.0
-shader_param/alpha_scissor_threshold = 0.0
-shader_param/hologram_alpha = 0.45
-shader_param/flip_h = false
-shader_param/flip_v = false
-shader_param/back_flip_h = false
-shader_param/back_flip_v = false
-shader_param/texture_albedo = SubResource( 22 )
-
-[sub_resource type="BoxShape" id=1]
-extents = Vector3( 0.5, 0.35, 0.25 )
-
-[sub_resource type="SpatialMaterial" id=19]
+[sub_resource type="SpatialMaterial" id=1]
+render_priority = 100
 flags_transparent = true
 flags_unshaded = true
-albedo_color = Color( 0, 0.835294, 1, 0.109804 )
-
-[sub_resource type="BoxShape" id=21]
-extents = Vector3( 1.5, 2, 1.5 )
-
-[sub_resource type="Curve3D" id=14]
-_data = {
-"points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -1.374, 0.19433, 0.639461, 0, 0, 0, 0, 0, 0, 2.626, 0.19433, 0.639461 ),
-"tilts": PoolRealArray( 0, 0 )
-}
-
-[sub_resource type="Animation" id=15]
-length = 5.0
-tracks/0/type = "value"
-tracks/0/path = NodePath("PathFollow:unit_offset")
-tracks/0/interp = 1
-tracks/0/loop_wrap = false
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/keys = {
-"times": PoolRealArray( 0, 5 ),
-"transitions": PoolRealArray( 1, 1 ),
-"update": 0,
-"values": [ 0.0, 1.0 ]
-}
+params_depth_draw_mode = 1
+albedo_color = Color( 0.75, 0.95, 1, 0.94 )
+uv1_scale = Vector3( 1, -1, 1 )
+uv1_offset = Vector3( 0, 1, 0 )
+emission_enabled = true
+emission = Color( 0.08, 0.32, 0.4, 1 )
+emission_energy = 0.35
 
 [node name="DebugConsoleHUD" type="KinematicBody"]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 0 )
-collision_layer = 2
-collision_mask = 0
-script = ExtResource( 7 )
+script = ExtResource( 1 )
 is_interactable = false
 interaction_text = ""
-anim_duration = 0.5
 slide_height = 0.0
 use_cinematic_zone = false
 close_on_exit_zone = false
 allow_focus_mode = false
+enable_ui_interaction = true
+screen_resolution = Vector2( 800, 450 )
 hud_cfg_attach_to_active_camera = true
 hud_cfg_attach_as_child = true
-hud_cfg_attach_transition_time = 0.45
+hud_cfg_attach_transition_time = 0.2
 hud_cfg_screen_y = 0.5
 hud_cfg_screen_depth = 0.8
 hud_cfg_screen_scale = 0.45
-hud_cfg_interaction_radius = 6.0
-
-[node name="CollisionShape" type="CollisionShape" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0 )
-shape = SubResource( 18 )
-
-[node name="BaseMesh" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0 )
-use_collision = true
-width = 0.3
-height = 0.3
-depth = 0.35
-material = SubResource( 6 )
-
-[node name="HoloParticles" type="CPUParticles" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0 )
-emitting = false
-amount = 12
-randomness = 1.0
-lifetime_randomness = 1.0
-mesh = SubResource( 10 )
-emission_shape = 2
-emission_box_extents = Vector3( 0.5, 0, 0.005 )
-direction = Vector3( 0, 1, 0 )
-spread = 0.0
-gravity = Vector3( 0, 0, 0 )
-initial_velocity = 0.5
-radial_accel = 1.0
-scale_amount = 0.5
-color = Color( 0, 1, 1, 0.501961 )
-
-[node name="ProjectorMesh" type="CSGBox" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0 )
-visible = false
-width = 0.9
-height = 0.02
-depth = 0.05
-material = SubResource( 8 )
+hud_cfg_interaction_radius = 0.0
 
 [node name="ScreenContainer" type="Spatial" parent="."]
-transform = Transform( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.25 )
 visible = false
 
 [node name="ScreenMesh" type="CSGBox" parent="ScreenContainer"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, 0 )
 invert_faces = true
 width = 0.8
 height = 0.6
-depth = 0.02
-material = SubResource( 7 )
+depth = 0.01
+material = SubResource( 1 )
 
 [node name="Viewport" type="Viewport" parent="."]
-size = Vector2( 1024, 768 )
+size = Vector2( 800, 450 )
 transparent_bg = true
 render_target_update_mode = 0
 gui_disable_input = true
-script = ExtResource( 12 )
-
-[node name="InteractableEntity" type="Area" parent="."]
-
-[node name="CollisionShape" type="CollisionShape" parent="InteractableEntity"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0 )
-shape = SubResource( 1 )
-
-[node name="CinematicSetup" type="Spatial" parent="."]
-transform = Transform( 1, 0, 1.74846e-07, 0, 1, 0, -1.74846e-07, 0, 1, 0, 0, 0 )
-
-[node name="CameraZone" type="Area" parent="CinematicSetup"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, -0.5 )
-collision_layer = 0
-collision_mask = 2
-script = ExtResource( 1 )
-debug_color = Color( 0, 0.835294, 1, 0.109804 )
-debug_render = false
-zone_extents = Vector3( 1.5, 2, 1.5 )
-cinematic_rig_path = NodePath("../CinematicPathRig")
-
-[node name="_ZoneDebugMesh" type="MeshInstance" parent="CinematicSetup/CameraZone"]
-visible = false
-material_override = SubResource( 19 )
-cast_shadow = 0
-
-[node name="CollisionShape" type="CollisionShape" parent="CinematicSetup/CameraZone"]
-shape = SubResource( 21 )
-
-[node name="CinematicPathRig" type="Path" parent="CinematicSetup"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.626, 1.40493, -5.63946 )
-curve = SubResource( 14 )
-script = ExtResource( 11 )
-track_player = true
-follow_player_on_path = true
-preview_position = 0.5
-
-[node name="PathFollow" type="PathFollow" parent="CinematicSetup/CinematicPathRig"]
-transform = Transform( 0.494984, 0, 0.868895, 0, 1, 0, -0.868901, 0, 0.494981, 0.626091, 0.19433, 0.639461 )
-offset = 2.00097
-rotation_mode = 0
-loop = false
-
-[node name="Camera" type="Camera" parent="CinematicSetup/CinematicPathRig/PathFollow"]
-transform = Transform( -0.500003, 0, 0.866028, 0, 1, 0, -0.86603, 0, -0.500001, 0, 0.5, 0 )
-current = true
-near = 0.1
-far = 1000.0
-
-[node name="AnimationPlayer" type="AnimationPlayer" parent="CinematicSetup/CinematicPathRig"]
-anims/dolly = SubResource( 15 )
-
-[node name="FocusedRig" type="Spatial" parent="CinematicSetup" groups=["cinematic_rigs"]]
-transform = Transform( -1, 0, 8.74228e-08, 2.24118e-09, 0.999672, 0.0256359, -8.7394e-08, 0.0256359, -0.999672, 0, 0.15, -0.1 )
-script = ExtResource( 6 )
-transition_time = 0.3
-
-[node name="Camera" type="Camera" parent="CinematicSetup/FocusedRig"]
-
-[node name="SFX PowerUp" type="AudioStreamPlayer3D" parent="."]
-stream = ExtResource( 8 )
-max_distance = 25.0
 script = ExtResource( 2 )
-trigger_mode = "OneShotActive"
-
-[node name="SFX Hum" type="AudioStreamPlayer3D" parent="."]
-stream = ExtResource( 9 )
-unit_db = -6.0
-max_distance = 15.0
-script = ExtResource( 2 )
-loop_sample = true
-
-[connection signal="body_entered" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_entered"]
-[connection signal="body_exited" from="CinematicSetup/CameraZone" to="." method="_on_camera_zone_body_exited"]

@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=2]
+[gd_scene load_steps=31 format=2]
 
 [ext_resource path="res://core_v2/scenes/CoolantLab.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/pipe/CoolantTank.tscn" type="PackedScene" id=4]
@@ -16,7 +16,6 @@
 [ext_resource path="res://core_v2/systems/cryo/LeakFissureVisual.tscn" type="PackedScene" id=20]
 [ext_resource path="res://core_v2/systems/pipe/PipeNetworkResource.gd" type="Script" id=21]
 [ext_resource path="res://core_v2/props/controls/Manometer.tscn" type="PackedScene" id=23]
-[ext_resource path="res://core_v2/things/CoolantSystemStatusUI.tscn" type="PackedScene" id=24]
 
 [sub_resource type="Environment" id=2]
 background_mode = 1
@@ -44,11 +43,13 @@ shader = ExtResource( 15 )
 shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
 shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
 shader_param/flow_dir = Vector3( 1, 0, 0 )
-shader_param/use_local_axis = true
+shader_param/use_local_axis = false
 shader_param/hide_caps = true
+shader_param/use_baked_axis = false
 shader_param/noise_scale = 1.6
-shader_param/flow_phase = 0.0
+shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.4
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -68,11 +69,13 @@ shader = ExtResource( 15 )
 shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
 shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
 shader_param/flow_dir = Vector3( 1, 0, 0 )
-shader_param/use_local_axis = true
+shader_param/use_local_axis = false
 shader_param/hide_caps = true
+shader_param/use_baked_axis = false
 shader_param/noise_scale = 1.6
-shader_param/flow_phase = 0.0
+shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.4
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -88,11 +91,13 @@ shader = ExtResource( 15 )
 shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
 shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
 shader_param/flow_dir = Vector3( 1, 0, 0 )
-shader_param/use_local_axis = true
+shader_param/use_local_axis = false
 shader_param/hide_caps = true
+shader_param/use_baked_axis = false
 shader_param/noise_scale = 1.6
-shader_param/flow_phase = 0.0
+shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.4
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -108,11 +113,13 @@ shader = ExtResource( 15 )
 shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
 shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
 shader_param/flow_dir = Vector3( 1, 0, 0 )
-shader_param/use_local_axis = true
+shader_param/use_local_axis = false
 shader_param/hide_caps = true
+shader_param/use_baked_axis = false
 shader_param/noise_scale = 1.6
-shader_param/flow_phase = 0.0
+shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.4
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -181,11 +188,13 @@ shader = ExtResource( 15 )
 shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
 shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
 shader_param/flow_dir = Vector3( -1, 0, 0 )
-shader_param/use_local_axis = true
+shader_param/use_local_axis = false
 shader_param/hide_caps = true
+shader_param/use_baked_axis = false
 shader_param/noise_scale = 1.6
-shader_param/flow_phase = 0.0
+shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.4
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -201,11 +210,13 @@ shader = ExtResource( 15 )
 shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
 shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
 shader_param/flow_dir = Vector3( -1, 0, 0 )
-shader_param/use_local_axis = true
+shader_param/use_local_axis = false
 shader_param/hide_caps = true
+shader_param/use_baked_axis = false
 shader_param/noise_scale = 1.6
-shader_param/flow_phase = 0.0
+shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.4
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -221,11 +232,13 @@ shader = ExtResource( 15 )
 shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
 shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
 shader_param/flow_dir = Vector3( -1, 0, 0 )
-shader_param/use_local_axis = true
+shader_param/use_local_axis = false
 shader_param/hide_caps = true
+shader_param/use_baked_axis = false
 shader_param/noise_scale = 1.6
-shader_param/flow_phase = 0.0
+shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.4
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -241,11 +254,13 @@ shader = ExtResource( 15 )
 shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
 shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
 shader_param/flow_dir = Vector3( -1, 0, 0 )
-shader_param/use_local_axis = true
+shader_param/use_local_axis = false
 shader_param/hide_caps = true
+shader_param/use_baked_axis = false
 shader_param/noise_scale = 1.6
-shader_param/flow_phase = 0.0
+shader_param/flow_phase = 0.0001
 shader_param/emission_strength = 1.4
+shader_param/flow_intensity = 1.0
 shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 0.88
 shader_param/flow_contrast = 0.55
@@ -588,11 +603,6 @@ is_interactable = true
 screen_resolution = Vector2( 1280, 816 )
 active = true
 static_content = true
-
-[node name="TerminalUI" parent="StatusTerminal/Viewport"]
-visible = false
-
-[node name="CoolantSystemStatusUI" parent="StatusTerminal/Viewport" instance=ExtResource( 24 )]
 
 [node name="UI" type="CanvasLayer" parent="."]
 

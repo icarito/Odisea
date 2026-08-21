@@ -34,7 +34,9 @@ uniform float noise_scale = 1.6;
 // en vez de multiplicar TIME por la velocidad acá: así frenar no produce un salto del
 // patrón, porque la fase es continua aunque la velocidad cambie.
 uniform float flow_phase = 0.0;
-uniform float emission_strength = 1.4;
+uniform float emission_strength = 1.0;
+// 0 es una conducción apagada: conserva metal oscuro, sin albedo cyan ni emisión.
+uniform float flow_intensity : hint_range(0.0, 1.0) = 1.0;
 // Brillo propio del caño donde NO hay veta. Sin esto el fondo del patrón cae a negro.
 uniform float base_glow = 0.45;
 uniform float pipe_alpha = 0.88;
@@ -167,8 +169,11 @@ void fragment() {
 	}
 	float flow = smoothstep(0.5 - flow_contrast * 0.5, 0.5 + flow_contrast * 0.5, n);
 
-	vec3 current_albedo = mix(base_color.rgb, flow_color.rgb * 0.5, flow * 0.4);
-	vec3 current_emission = flow_color.rgb * (base_glow + flow * emission_strength);
+	float active = clamp(flow_intensity, 0.0, 1.0);
+	vec3 idle_albedo = base_color.rgb * 0.42;
+	vec3 flowing_albedo = mix(base_color.rgb, flow_color.rgb * 0.55, flow * 0.72);
+	vec3 current_albedo = mix(idle_albedo, flowing_albedo, active);
+	vec3 current_emission = flow_color.rgb * active * (base_glow + flow * emission_strength);
 
 	// La grieta tampoco se calcula lejos: a mas de LOD_FAR el patron fragmentado de
 	// calculate_crack_pattern (3 dot+sin con domain warping) es indistinguible de una

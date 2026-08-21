@@ -7,10 +7,39 @@ uniform int atlas_rows = 8;
 uniform float frames_per_second = 16.0;
 uniform vec2 atlas_size = vec2(1024.0, 1024.0);
 uniform float frame_padding_px = 1.5;
+uniform bool use_dither = false;
 
 varying vec4 instance_color;
 varying float particle_age;
 varying float particle_frame_time;
+
+float bayer4(vec2 p) {
+	vec2 q = floor(mod(p, 4.0));
+	float x = q.x;
+	float y = q.y;
+	if (y < 0.5) {
+		if (x < 0.5) return 0.03125;
+		if (x < 1.5) return 0.53125;
+		if (x < 2.5) return 0.15625;
+		return 0.65625;
+	}
+	if (y < 1.5) {
+		if (x < 0.5) return 0.78125;
+		if (x < 1.5) return 0.28125;
+		if (x < 2.5) return 0.90625;
+		return 0.40625;
+	}
+	if (y < 2.5) {
+		if (x < 0.5) return 0.21875;
+		if (x < 1.5) return 0.71875;
+		if (x < 2.5) return 0.09375;
+		return 0.59375;
+	}
+	if (x < 0.5) return 0.96875;
+	if (x < 1.5) return 0.46875;
+	if (x < 2.5) return 0.84375;
+	return 0.34375;
+}
 
 void vertex() {
 	instance_color = COLOR;
@@ -37,9 +66,18 @@ void fragment() {
 	vec2 atlas_uv = local_uv * frame_size + vec2(mod(frame, columns), floor(frame / columns)) * frame_size;
 	vec4 tex = texture(smoke_atlas, atlas_uv);
 	float age_fade = smoothstep(0.0, 0.08, particle_age) * (1.0 - smoothstep(0.72, 1.0, particle_age));
-	// El atlas aporta solo la silueta. El vapor mantiene color blanco y alpha suave,
-	// sin ordered dither ni corte binario.
+	// El atlas aporta la silueta. En la fisura, el dither transforma alpha en
+	// cobertura: evita que muchas capas transparentes oculten por completo a Elías.
+	float alpha = tex.a * instance_color.a * age_fade * 0.82;
 	ALBEDO = instance_color.rgb;
 	EMISSION = instance_color.rgb * 0.035;
-	ALPHA = tex.a * instance_color.a * age_fade * 0.82;
+	if (use_dither) {
+		vec2 pos = FRAGCOORD.xy + floor(mod(TIME * 12.0, 4.0));
+		if (alpha < bayer4(pos)) {
+			discard;
+		}
+		ALPHA = 1.0;
+	} else {
+		ALPHA = alpha;
+	}
 }

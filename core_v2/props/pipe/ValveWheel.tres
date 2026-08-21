@@ -2,6 +2,11 @@
 
 [resource]
 resource_name = "ValveWheel"
-albedo_color = Color( 0.82, 0.22, 0.08, 1 )
+albedo_color = Color( 0.95, 0.08, 0.025, 1 )
 metallic = 0.7
 roughness = 0.32
+emission_enabled = true
+emission = Color( 0.3, 0.01, 0.002, 1 )
+emission_energy = 0.35
+emission_operator = 0
+emission_on_uv2 = false

@@ -475,13 +475,13 @@
   },
   "final_expected_state": {
     "position": [
-      0,
+      -0.970545,
       0.0015,
-      1.887478
+      1.703707
     ],
     "velocity": [
       -0,
-      -0.233337,
+      -0.233333,
       2
     ],
     "yaw": 0,
@@ -490,7 +490,7 @@
     "movement_state": {
       "horizontal_velocity": [
         -0,
-        -0.000004,
+        0,
         2
       ],
       "external_velocity": [

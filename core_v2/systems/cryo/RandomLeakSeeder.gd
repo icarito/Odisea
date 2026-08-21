@@ -57,6 +57,10 @@ func activate_leaks() -> void:
 	_activate_leaks()
 
 
+func get_active_leak_paths() -> Array:
+	return _active_leak_paths.duplicate()
+
+
 func _draw_active_leaks() -> void:
 	if candidate_leak_paths.empty():
 		_active_leak_paths = []
@@ -65,7 +69,13 @@ func _draw_active_leaks() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 
-	var shuffled := candidate_leak_paths.duplicate()
+	# Los anillos son la continuidad visual del riser; las fugas de gameplay son los
+	# nodos Floor, que sí pertenecen a una rama con tanque y válvula.
+	var selectable: Array = []
+	for candidate in candidate_leak_paths:
+		if str(candidate).find("Ring") == -1:
+			selectable.append(candidate)
+	var shuffled := selectable
 	for i in range(shuffled.size() - 1, 0, -1):
 		var j: int = rng.randi_range(0, i)
 		var tmp = shuffled[i]

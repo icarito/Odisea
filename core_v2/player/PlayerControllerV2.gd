@@ -685,7 +685,6 @@ func _ready():
 	_setup_crouch_collision()
 	_setup_multi_tool()
 	_setup_thermal_resistance()
-	call_deferred("_ensure_physical_bones")
 	call_deferred("_apply_weak_visual_policy_if_needed_deferred")
 	call_deferred("_apply_camera_particle_policy")
 
@@ -740,6 +739,9 @@ func _ensure_physical_bones() -> void:
 		return
 	for child in skel.get_children():
 		if child is PhysicalBone:
+			# Los huesos se preparan al cargar al piloto, pero solo el ragdoll puede
+			# dejarlos simulando. Sin esta parada, sus colliders quedan junto al spawn.
+			skel.physical_bones_stop_simulation()
 			return
 
 	var bone_configs = [
@@ -790,6 +792,9 @@ func _ensure_physical_bones() -> void:
 			cs.shape = sph
 		pb.add_child(cs)
 		skel.add_child(pb)
+	# PhysicalBone puede conservar simulacion al entrar al arbol. El estado normal
+	# del piloto siempre arranca sin ragdoll; begin_ragdoll() los activa al morir.
+	skel.physical_bones_stop_simulation()
 
 func begin_ragdoll() -> void:
 	if is_ragdoll:
@@ -819,13 +824,11 @@ func begin_ragdoll() -> void:
 					child.apply_central_impulse(init_vel * child.mass)
 
 func end_ragdoll() -> void:
-	if not is_ragdoll:
-		return
 	is_ragdoll = false
 
 	var skel = _get_skeleton()
 	if skel:
-		skel.physical_bones_stop_simulation()
+		_clear_physical_bones(skel)
 
 	if _body_collision_shape and is_instance_valid(_body_collision_shape):
 		_body_collision_shape.disabled = false
@@ -836,6 +839,17 @@ func end_ragdoll() -> void:
 
 	if animator and is_instance_valid(animator) and animator.has_method("resume_from_ragdoll"):
 		animator.resume_from_ragdoll()
+
+
+func _clear_physical_bones(skel: Skeleton) -> void:
+	# No se preparan huesos físicos al spawn: tenerlos dormidos igualmente deja cuerpos
+	# residuales en el origen si una instancia anterior fue reserializada por el editor.
+	# Se crean sólo al morir y se retiran por completo al volver al control normal.
+	skel.physical_bones_stop_simulation()
+	for child in skel.get_children():
+		if child is PhysicalBone:
+			skel.remove_child(child)
+			child.queue_free()
 
 func _on_suit_breached() -> void:
 	begin_ragdoll()

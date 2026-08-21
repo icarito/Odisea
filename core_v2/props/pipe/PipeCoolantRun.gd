@@ -42,6 +42,10 @@ export(float, 0.05, 6.0) var speed_ramp := 1.6
 export(float, 0.0, 3.0) var flow_intensity := 1.0 setget set_flow_intensity
 # Emisión a intensidad 1.0. La intensidad la escala.
 export(float, 0.0, 4.0) var base_emission := 1.4
+# Multiplicador final de la emisión en régimen. Mantiene las tuberías legibles sin
+# convertir la sala en una fuente de luz: el estado apagado no emite y el activo usa
+# como máximo esta fracción de los valores legacy de escena.
+export(float, 0.0, 1.0) var active_emission_scale := 0.42
 # Color del caño en reposo y color del fluido que corre por dentro. Por defecto, cian de
 # criocoolant; una corrida de atmósfera usa blanco/rojo y una de plasma, ámbar. Es lo que
 # permite reusar la misma corrida de tubería para los cuatro sistemas.
@@ -202,7 +206,10 @@ func _apply() -> void:
 		_material.set_shader_param("use_baked_axis", has_node("CombinedMesh"))
 		_material.set_shader_param("flow_phase", _phase)
 		_material.set_shader_param("pipe_alpha", pipe_alpha)
-		_material.set_shader_param("emission_strength", base_emission * flow_intensity)
+		var active_flow: float = clamp(flow_intensity, 0.0, 1.0)
+		_material.set_shader_param("flow_intensity", active_flow)
+		_material.set_shader_param("base_glow", 0.035 * active_flow)
+		_material.set_shader_param("emission_strength", base_emission * active_emission_scale * active_flow)
 		_material.set_shader_param("noise_scale", noise_scale)
 		_material.set_shader_param("base_color", base_color)
 		_material.set_shader_param("flow_color", flow_color)

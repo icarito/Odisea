@@ -93,6 +93,15 @@ export(bool) var debug_readout := false
 export(NodePath) var room_path: NodePath
 export(float) var melt_speed := 0.3
 export(float) var evap_contamination_rate := 0.08
+# El hielo representa el refrigerante que efectivamente salió de los tanques. Si no
+# hay tanques en la escena conserva el comportamiento ambiental anterior.
+export(bool) var cap_rise_by_coolant_volume := true
+# Techo de la columna de criocoolant; Dome_Intro lo calibra al piso cinco. La cantidad
+# total de los tanques decide qué fracción de este máximo ya salió de la instalación.
+export(float) var max_coolant_height := 18.0
+# Fallo visual de luces dinámicas bajo la superficie; no toca la iluminación baked.
+export(bool) var fail_submerged_lights := true
+export(float) var light_submersion_margin := 0.1
 
 var ice_height := 0.0
 var ice_speed := 0.0
@@ -199,7 +208,11 @@ export(float) var respawn_safety_margin := 3.0
 # jugador murió muy arriba, el hielo sigue estando alto, solo se le da margen justo al
 # checkpoint. Determinista: mismo respawn_y siempre da el mismo clamp.
 func ensure_safe_for_respawn(respawn_y: float) -> void:
-	var max_allowed: float = respawn_y - respawn_safety_margin
+	# La línea inicial es el piso lógico y visual del sistema. Bajarlo por debajo de
+	# start_height para ganar margen entierra IceSurface y deja un respawn sin hielo
+	# visible; un spawn por debajo de esa base debe corregirse en el SpawnPoint, no
+	# deformar el estado del nivel.
+	var max_allowed: float = max(start_height, respawn_y - respawn_safety_margin)
 	if ice_height > max_allowed:
 		ice_height = max_allowed
 		emit_signal("ice_height_changed", ice_height)
@@ -236,47 +249,79 @@ func _is_hotzone_playback() -> bool:
 # Avance determinista de la linea de hielo. Separado de _physics_process para que el
 # replay pueda invocarlo con el delta grabado en vez del delta real del frame.
 func step(delta: float) -> void:
+	var coolant_flow_amount: float = _get_coolant_leak_flow()
+	var coolant_flow_active: bool = coolant_flow_amount > 0.0001
+	var room_is_freezing := false
+	var room_is_cold_for_damage := true
 	if room_path != null and not room_path.is_empty():
 		var room = get_node_or_null(room_path)
 		if room != null:
 			var room_temp: float = float(room.get("temperature"))
 			var freeze_pt: float = float(room.get("freezing_point"))
-			if room_temp <= freeze_pt:
+			room_is_freezing = room_temp <= freeze_pt
+			room_is_cold_for_damage = room_temp < freeze_pt
+			if room_is_freezing and coolant_flow_active:
 				if not is_running:
 					start()
-			else:
-				if is_running:
-					stop()
-				if ice_height > start_height:
-					ice_height = max(start_height, ice_height - melt_speed * delta)
-					if room.has_method("add_contamination"):
-						room.call("add_contamination", evap_contamination_rate * delta)
-					emit_signal("ice_height_changed", ice_height)
-					_update_ice_collider()
-					_update_debug_visuals()
+			elif is_running:
+				stop()
+
+	# Una válvula cerrada o un tanque vacío conserva el volumen que ya se congeló;
+	# no se derrite ni sigue persiguiendo refrigerante drenado antes del cierre.
+	if not coolant_flow_active:
+		if is_running:
+			stop()
+		# El hielo detenido sigue siendo letal mientras la sala permanezca bajo cero.
+		if room_is_cold_for_damage:
+			_scan_vulnerable_bodies(delta)
+		return
 
 	if not is_running:
 		return
 
+	# El volumen fugado es el techo del hielo, no una orden de teletransportar la
+	# superficie. Al cruzar 0°C puede haber refrigerante ya drenado: alcanzarlo en un
+	# tick ocultaba el piso de hielo y dejaba a Elías dentro del volumen.
+	var coolant_height: float = _get_coolant_height_cap()
 	elapsed += delta
 	var base_rise_speed: float = base_speed + accel * elapsed
 	var rise_pulse: float = sin(elapsed * TAU * rise_twitch_frequency) * 0.68
 	rise_pulse += sin(elapsed * TAU * rise_twitch_frequency * 2.37 + 1.9) * 0.32
 	ice_speed = base_rise_speed * clamp(1.0 + rise_pulse * rise_twitch_amount, 0.55, 1.45)
+	# Cada fuga activa añade caudal al volumen que se congela: dos fugas plenas suben
+	# el doble que una, y las rampas de CoolantLeak se reflejan sin saltos visuales.
+	ice_speed *= coolant_flow_amount
+	if coolant_height != INF:
+		var previous_height: float = ice_height
+		# Drenar es irreversible; si un tanque se rellena por una corrección externa no
+		# hacemos desaparecer hielo. El derretimiento sigue siendo responsabilidad de
+		# Room3D cuando la temperatura vuelve a estar sobre freezing_point.
+		var target_height: float = max(ice_height, coolant_height)
+		ice_height = min(target_height, ice_height + ice_speed * delta)
+		if is_equal_approx(ice_height, target_height):
+			stop()
+		_update_ice_collider()
+		_update_ice_fog()
+		_update_submerged_lights()
+		if ice_height > previous_height:
+			_emit_cracks_until_current_height()
+			emit_signal("ice_height_changed", ice_height)
+			if room_is_cold_for_damage:
+				_scan_vulnerable_bodies(delta)
+			_update_debug_visuals()
+		return
+
 	ice_height += ice_speed * delta
 	_update_ice_collider()
 	_update_ice_fog()
-	if is_instance_valid(_crack_player) and ice_height >= _next_crack_height:
-		var crack_angle := randf() * TAU
-		var crack_radius := debug_plane_radius * sqrt(randf())
-		_crack_player.transform.origin = Vector3(cos(crack_angle) * crack_radius, ice_height, sin(crack_angle) * crack_radius)
-		_crack_player.play()
-		_next_crack_height += max(crack_interval, 0.1)
+	_update_submerged_lights()
+	_emit_cracks_until_current_height()
 	if max_height > start_height:
 		ice_height = min(ice_height, max_height)
 
 	emit_signal("ice_height_changed", ice_height)
-	_scan_vulnerable_bodies(delta)
+	if room_is_cold_for_damage:
+		_scan_vulnerable_bodies(delta)
 	_update_debug_visuals()
 
 	if debug_readout:
@@ -284,6 +329,82 @@ func step(delta: float) -> void:
 		if _readout_timer >= 1.0:
 			_readout_timer = 0.0
 			print("[IceLevel] height=%.2f speed=%.3f elapsed=%.1f" % [ice_height, ice_speed, elapsed])
+
+
+func _emit_cracks_until_current_height() -> void:
+	if not is_instance_valid(_crack_player):
+		return
+	while ice_height >= _next_crack_height:
+		# La posición es solo presentación; la altura y el estado de gameplay no
+		# dependen de este efecto audiovisual.
+		var crack_angle := randf() * TAU
+		var crack_radius := debug_plane_radius * sqrt(randf())
+		_crack_player.transform.origin = Vector3(cos(crack_angle) * crack_radius, ice_height, sin(crack_angle) * crack_radius)
+		_crack_player.play()
+		_next_crack_height += max(crack_interval, 0.1)
+
+
+func _get_coolant_height_cap() -> float:
+	if not cap_rise_by_coolant_volume or get_tree() == null:
+		return INF
+	var tanks: Array = get_tree().get_nodes_in_group("coolant_source")
+	if tanks.empty():
+		return INF
+	var total_capacity := 0.0
+	var remaining_coolant := 0.0
+	for tank in tanks:
+		if not is_instance_valid(tank) or not ("tank_level" in tank):
+			continue
+		var capacity: float = float(tank.get("coolant_capacity")) if "coolant_capacity" in tank else 1.0
+		capacity = max(capacity, 0.0)
+		total_capacity += capacity
+		remaining_coolant += clamp(float(tank.get("tank_level")), 0.0, 1.0) * capacity
+	if total_capacity <= 0.0:
+		return INF
+	var leaked_fraction: float = clamp((total_capacity - remaining_coolant) / total_capacity, 0.0, 1.0)
+	return start_height + max(max_coolant_height, 0.0) * leaked_fraction
+
+
+func _get_coolant_leak_flow() -> float:
+	if get_tree() == null:
+		return 0.0
+	var tanks: Array = get_tree().get_nodes_in_group("coolant_source")
+	if tanks.empty():
+		# Escenas atmosféricas legacy sin tanques conservan la subida por temperatura.
+		return 1.0
+	var has_coolant := false
+	for tank in tanks:
+		if is_instance_valid(tank) and "tank_level" in tank and float(tank.get("tank_level")) > 0.0001:
+			has_coolant = true
+			break
+	if not has_coolant:
+		return 0.0
+	var leaks: Array = get_tree().get_nodes_in_group("coolant_leak")
+	if leaks.empty():
+		# Conserva compatibilidad con escenas/tests que aún no usan CoolantLeak.
+		return 1.0
+	var total_flow := 0.0
+	for leak in leaks:
+		if is_instance_valid(leak) and leak.has_method("get_leak_intensity"):
+			total_flow += max(0.0, float(leak.call("get_leak_intensity")))
+	return total_flow
+
+
+func _update_submerged_lights() -> void:
+	if not fail_submerged_lights or get_tree() == null:
+		return
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return
+	var pending: Array = [scene]
+	while not pending.empty():
+		var node: Node = pending.pop_back()
+		if node is Light and not (node is DirectionalLight):
+			var light: Light = node as Light
+			if light.global_transform.origin.y + light_submersion_margin <= ice_height:
+				light.visible = false
+		for child in node.get_children():
+			pending.append(child)
 
 func _process(delta: float) -> void:
 	if Engine.editor_hint or not is_running:
@@ -468,4 +589,10 @@ func restore_snapshot(data: Dictionary) -> void:
 	elapsed = float(data.get("elapsed", 0.0))
 	is_running = bool(data.get("is_running", auto_start))
 	emit_signal("ice_height_changed", ice_height)
+	# IceVisualBand es presentación y no entra al snapshot. Al restaurar una altura de
+	# checkpoint debe vaciar sus partículas viejas y tomar esta altura de inmediato.
+	emit_signal("ice_visuals_reset")
 	_update_debug_visuals()
+	_update_ice_collider()
+	_update_ice_fog()
+	_update_submerged_lights()

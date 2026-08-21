@@ -19,6 +19,10 @@ export(float) var overpressure: float = 2.4
 # --- EXPORTED DAMAGE TUNING ---
 export(float) var cold_damage_per_second: float = 15.0
 export(float) var vapor_damage_per_second: float = 20.0
+# En Dome_Intro, al cerrar ambas fugas el ambiente se recupera lentamente hasta 0°C.
+# Queda apagado por defecto para no alterar otras salas/hazards.
+export(bool) var recover_from_inactive_coolant_leaks: bool = false
+export(float, 0.0, 10.0) var coolant_temperature_recovery_rate: float = 0.25
 
 # --- SIGNALS ---
 signal temperature_changed(new_value)
@@ -51,6 +55,7 @@ func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
 
+	_recover_temperature_without_coolant_flow(delta)
 	_evaluate_thresholds(true)
 	_apply_environmental_hazards(delta)
 
@@ -91,6 +96,18 @@ func set_contamination(val: float) -> void:
 		contamination = val
 		emit_signal("contamination_changed", contamination)
 		_evaluate_thresholds(true)
+
+
+func _recover_temperature_without_coolant_flow(delta: float) -> void:
+	if not recover_from_inactive_coolant_leaks or temperature >= freezing_point:
+		return
+	if get_tree() == null:
+		return
+	for leak in get_tree().get_nodes_in_group("coolant_leak"):
+		if is_instance_valid(leak) and leak.has_method("get_leak_intensity"):
+			if float(leak.call("get_leak_intensity")) > 0.0001:
+				return
+	set_temperature(min(freezing_point, temperature + coolant_temperature_recovery_rate * delta))
 
 
 # --- QUERY HELPERS ---
@@ -195,6 +212,9 @@ func get_snapshot() -> Dictionary:
 
 
 func restore_snapshot(data: Dictionary) -> void:
+	var old_temperature: float = temperature
+	var old_pressure: float = pressure
+	var old_contamination: float = contamination
 	if data.has("temperature"):
 		temperature = float(data["temperature"])
 	if data.has("pressure"):
@@ -214,3 +234,12 @@ func restore_snapshot(data: Dictionary) -> void:
 		_is_overpressured = bool(data["is_overpressured"])
 
 	_evaluate_thresholds(false)
+	# Snapshot restoration bypasses the setters to restore the replay state atomically.
+	# Re-emit the value notifications afterward so terminal dials redraw their cached
+	# Viewport texture with the restored Room3D values.
+	if not is_equal_approx(old_temperature, temperature):
+		emit_signal("temperature_changed", temperature)
+	if not is_equal_approx(old_pressure, pressure):
+		emit_signal("pressure_changed", pressure)
+	if not is_equal_approx(old_contamination, contamination):
+		emit_signal("contamination_changed", contamination)

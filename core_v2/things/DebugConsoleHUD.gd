@@ -22,7 +22,17 @@ func _ready() -> void:
 	if Engine.editor_hint:
 		return
 	_mount_shell()
+	_bind_plain_screen_material()
 	_setup_debug_hud()
+
+func _bind_plain_screen_material() -> void:
+	var screen_mesh: CSGBox = get_node_or_null("ScreenContainer/ScreenMesh") as CSGBox
+	var viewport: Viewport = get_node_or_null("Viewport") as Viewport
+	if screen_mesh == null or viewport == null:
+		return
+	var material: Material = screen_mesh.material
+	if material is SpatialMaterial:
+		(material as SpatialMaterial).albedo_texture = viewport.get_texture()
 
 func _ensure_console_singleton() -> void:
 	var tree = get_tree()

@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 const IceLevelScript = preload("res://core_v2/systems/ice/IceLevel.gd")
 const IceObjectFreezerScript = preload("res://core_v2/systems/ice/IceObjectFreezer.gd")
 const FrostVignetteScene = preload("res://core_v2/ui/overlay/FrostVignette.tscn")
+const Room3DScript = preload("res://core_v2/systems/room/Room3D.gd")
 const STEP := 1.0 / 60.0
 
 class DummyBody extends Spatial:
@@ -14,6 +15,24 @@ class DummyPlayer extends KinematicBody:
 		add_to_group("ice_vulnerable")
 	func set_ice_submersion(_depth: float) -> void:
 		pass
+
+class DummyTank extends Node:
+	var tank_level: float = 1.0
+	var coolant_capacity: float = 1.0
+
+	func _init(level: float) -> void:
+		tank_level = level
+		add_to_group("coolant_source")
+
+class DummyLeak extends Node:
+	var intensity: float = 0.0
+
+	func _init(value: float) -> void:
+		intensity = value
+		add_to_group("coolant_leak")
+
+	func get_leak_intensity() -> float:
+		return intensity
 
 func _make_level(auto_start: bool = true) -> Node:
 	var level = auto_free(IceLevelScript.new())
@@ -35,6 +54,20 @@ func test_ice_rise_and_snapshot_are_deterministic() -> void:
 		level._physics_process(STEP)
 	level.restore_snapshot(snapshot)
 	assert_float(level.ice_height).is_equal_approx(expected_height, 0.0000001)
+
+
+func test_snapshot_restore_repositions_the_ice_collider() -> void:
+	var level = _make_level(false)
+	level.ice_height = 0.0
+	var snapshot: Dictionary = level.get_snapshot()
+	level.ice_height = 12.0
+	level._update_ice_collider()
+	var resets := [0]
+	level.connect("ice_visuals_reset", self, "_count_reset", [resets])
+	level.restore_snapshot(snapshot)
+	var collider: StaticBody = level.get_node("IceCollider")
+	assert_float(collider.global_transform.origin.y).is_equal_approx(-0.1, 0.001)
+	assert_int(resets[0]).is_equal(1)
 
 func test_frost_contact_uses_band_and_core_multiplier() -> void:
 	var level = _make_level(false)
@@ -65,6 +98,17 @@ func test_respawn_safety_keeps_checkpoint_above_frost() -> void:
 	assert_float(level.ice_height).is_equal_approx(7.0, 0.0001)
 	assert_float(level.get_frost_ceiling()).is_less_equal(10.0)
 
+
+func test_respawn_safety_never_hides_ice_below_its_start_height() -> void:
+	var level = _make_level(false)
+	level.start_height = 0.0
+	level.respawn_safety_margin = 3.0
+	level.ice_height = 2.0
+
+	level.ensure_safe_for_respawn(1.0)
+
+	assert_float(level.ice_height).is_equal_approx(level.start_height, 0.0001)
+
 func test_rising_ice_remains_a_walkable_platform() -> void:
 	var level = _make_level(false)
 	var collider: StaticBody = level.get_node("IceCollider")
@@ -76,6 +120,124 @@ func test_rising_ice_remains_a_walkable_platform() -> void:
 	level._update_ice_collider()
 	assert_float(collider.global_transform.origin.y).is_equal_approx(-0.1, 0.001)
 	assert_int(collider.collision_layer).is_equal(1)
+
+
+func test_coolant_volume_caps_the_ice_and_leaves_the_last_floor() -> void:
+	var west: DummyTank = auto_free(DummyTank.new(0.0))
+	var east: DummyTank = auto_free(DummyTank.new(1.0))
+	add_child(west)
+	add_child(east)
+	var level = _make_level(false)
+	level.base_speed = 20.0
+	level.max_coolant_height = 18.0
+	level.start()
+
+	# Un tanque agotado aporta exactamente media columna: sin fuga en el otro,
+	# la superficie no puede seguir subiendo.
+	level.step(1.0)
+	assert_float(level.ice_height).is_equal_approx(9.0, 0.001)
+	assert_bool(level.is_running).is_false()
+
+	# Si ambos se vacían ya no hay caudal: conserva la altura alcanzada, no persigue
+	# el volumen pendiente ni se derrite.
+	east.tank_level = 0.0
+	level.start()
+	level.step(1.0)
+	assert_float(level.ice_height).is_equal_approx(9.0, 0.001)
+	assert_bool(level.is_running).is_false()
+
+
+func test_coolant_volume_rises_visibly_instead_of_jumping_to_drained_height() -> void:
+	var west: DummyTank = auto_free(DummyTank.new(0.0))
+	var east: DummyTank = auto_free(DummyTank.new(1.0))
+	add_child(west)
+	add_child(east)
+	var level = _make_level(false)
+	level.base_speed = 0.15
+	level.max_coolant_height = 18.0
+	level.start()
+
+	level.step(1.0)
+
+	assert_float(level.ice_height).is_greater(0.0)
+	assert_float(level.ice_height).is_less(9.05)
+	assert_bool(level.is_running).is_true()
+
+
+func test_coolant_capacity_calculates_the_maximum_ice_height() -> void:
+	var small: DummyTank = auto_free(DummyTank.new(0.0))
+	small.coolant_capacity = 1.0
+	var large: DummyTank = auto_free(DummyTank.new(0.0))
+	large.coolant_capacity = 3.0
+	add_child(small)
+	add_child(large)
+	var level = _make_level(false)
+	level.max_coolant_height = 8.0
+
+	assert_float(level._get_coolant_height_cap()).is_equal_approx(8.0, 0.0001)
+
+
+func test_closed_or_empty_coolant_flow_stops_ice_without_lowering_it() -> void:
+	var tank: DummyTank = auto_free(DummyTank.new(1.0))
+	add_child(tank)
+	var leak: DummyLeak = auto_free(DummyLeak.new(0.0))
+	add_child(leak)
+	var level = _make_level(false)
+	level.ice_height = 4.0
+	level.start()
+
+	level.step(1.0)
+
+	assert_float(level.ice_height).is_equal_approx(4.0, 0.0001)
+	assert_bool(level.is_running).is_false()
+
+	tank.tank_level = 0.0
+	leak.intensity = 1.0
+	level.start()
+	level.step(1.0)
+	assert_float(level.ice_height).is_equal_approx(4.0, 0.0001)
+	assert_bool(level.is_running).is_false()
+
+
+func test_static_ice_keeps_damaging_while_room_is_freezing() -> void:
+	var room = auto_free(Room3DScript.new())
+	room.name = "ColdRoom"
+	room.temperature = -1.0
+	add_child(room)
+	var tank: DummyTank = auto_free(DummyTank.new(0.0))
+	add_child(tank)
+	var level = _make_level(false)
+	level.room_path = NodePath("../ColdRoom")
+	level.ice_height = 4.0
+	var body: DummyBody = auto_free(DummyBody.new())
+	body.translation.y = 3.0
+	add_child(body)
+	var contacts := []
+	level.connect("frost_contact", self, "_collect_contact", [contacts])
+
+	level.step(STEP)
+
+	assert_bool(level.is_running).is_false()
+	assert_int(contacts.size()).is_equal(1)
+
+
+func test_ice_rise_speed_scales_with_active_leak_count() -> void:
+	var tank: DummyTank = auto_free(DummyTank.new(0.5))
+	add_child(tank)
+	var first_leak: DummyLeak = auto_free(DummyLeak.new(1.0))
+	var second_leak: DummyLeak = auto_free(DummyLeak.new(1.0))
+	add_child(first_leak)
+	add_child(second_leak)
+	var level = _make_level(false)
+	level.base_speed = 0.2
+	level.rise_twitch_amount = 0.0
+	level.max_coolant_height = 18.0
+	level.start()
+
+	level.step(1.0)
+
+	assert_float(level.ice_speed).is_equal_approx(0.4, 0.0001)
+	assert_float(level.ice_height).is_equal_approx(0.4, 0.0001)
 
 # Al reaparecer el mundo está pausado (no corre _physics_process), así que el clamp de
 # ensure_safe_for_respawn tiene que dejar el colisionador y el visual al día por sí mismo:

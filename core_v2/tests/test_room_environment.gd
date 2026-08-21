@@ -6,6 +6,16 @@ extends GdUnitTestSuite
 const Room3DScript = preload("res://core_v2/systems/room/Room3D.gd")
 const STEP := 1.0 / 60.0
 
+class DummyCoolantLeak extends Node:
+	var intensity: float = 0.0
+
+	func _init(value: float) -> void:
+		intensity = value
+		add_to_group("coolant_leak")
+
+	func get_leak_intensity() -> float:
+		return intensity
+
 
 func _step_room(room, seconds: float) -> void:
 	var steps := int(round(seconds / STEP))
@@ -155,6 +165,12 @@ func test_snapshot_restore_determinism() -> void:
 	assert_bool(room.is_freezing()).is_false()
 
 	# Restore snapshot
+	var temperature_signals := [0]
+	var pressure_signals := [0]
+	var contamination_signals := [0]
+	room.connect("temperature_changed", self, "_on_signal_event", [temperature_signals])
+	room.connect("pressure_changed", self, "_on_signal_event", [pressure_signals])
+	room.connect("contamination_changed", self, "_on_signal_event", [contamination_signals])
 	room.restore_snapshot(snapshot)
 
 	assert_float(room.temperature).is_equal(-15.0)
@@ -162,6 +178,28 @@ func test_snapshot_restore_determinism() -> void:
 	assert_float(room.contamination).is_equal(0.5)
 	assert_bool(room.is_freezing()).is_true()
 	assert_bool(room.is_fog_active()).is_true()
+	assert_int(temperature_signals[0]).is_equal(1)
+	assert_int(pressure_signals[0]).is_equal(1)
+	assert_int(contamination_signals[0]).is_equal(1)
+
+
+func test_cold_room_recovers_only_after_coolant_leaks_stop() -> void:
+	var room = auto_free(Room3DScript.new())
+	room.temperature = -2.0
+	room.recover_from_inactive_coolant_leaks = true
+	room.coolant_temperature_recovery_rate = 1.0
+	add_child(room)
+	var leak: DummyCoolantLeak = auto_free(DummyCoolantLeak.new(1.0))
+	add_child(leak)
+
+	room._physics_process(1.0)
+	assert_float(room.temperature).is_equal_approx(-2.0, 0.0001)
+
+	leak.intensity = 0.0
+	room._physics_process(1.0)
+	assert_float(room.temperature).is_equal_approx(-1.0, 0.0001)
+	room._physics_process(2.0)
+	assert_float(room.temperature).is_equal_approx(0.0, 0.0001)
 
 
 func _on_signal_event(_arg, sink: Array) -> void:

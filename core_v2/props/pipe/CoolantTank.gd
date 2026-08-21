@@ -5,6 +5,9 @@ class_name CoolantTank
 # Manages coolant supply level and baseline pressure without causing player defeat when empty.
 
 export(float, 0.0, 1.0) var tank_level: float = 1.0 setget set_tank_level
+# Cantidad física de criocoolant que representa el tanque lleno. IceLevel suma estas
+# unidades, de modo que el tope responde al volumen de fuentes de la escena.
+export(float, 0.0, 1000.0) var coolant_capacity: float = 1.0
 # drain_rate es la tasa base de vaciado por segundo cuando la fuga está al 100% (default ~0.015 => ~66s para vaciarse entero)
 export(float, 0.0, 10.0) var drain_rate: float = 0.015
 
@@ -64,11 +67,14 @@ func _update_visuals() -> void:
 func get_snapshot() -> Dictionary:
 	return {
 		"tank_level": tank_level,
+		"coolant_capacity": coolant_capacity,
 		"drain_rate": drain_rate
 	}
 
 
 func restore_snapshot(data: Dictionary) -> void:
+	if data.has("coolant_capacity"):
+		coolant_capacity = max(0.0, float(data["coolant_capacity"]))
 	if data.has("drain_rate"):
 		drain_rate = float(data["drain_rate"])
 	if data.has("tank_level"):

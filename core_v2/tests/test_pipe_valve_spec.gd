@@ -19,6 +19,7 @@ func test_valve_manometer_integration() -> void:
 
 	# Initial state
 	assert_bool(valve.is_active).is_false()
+	assert_bool(valve.is_in_group("replay_sync")).is_true()
 	assert_float(mano.pressure_value).is_equal(0.0)
 
 	# Interact with valve

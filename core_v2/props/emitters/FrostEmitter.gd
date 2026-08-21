@@ -10,6 +10,16 @@ export(float) var tick_interval: float = 0.5
 export(float) var emission_radius: float = 0.5
 export(int) var particles_per_second: float = 30
 export(float) var emission_height: float = 1.5
+export(Vector3) var emission_direction: Vector3 = Vector3.UP
+export(float) var emission_speed: float = 0.75
+# Alpha por particula de vapor. Las fisuras usan un valor menor para que Elías siga
+# leyéndose dentro de la pluma sin cambiar su alcance ni apagarla desde lejos.
+export(float, 0.0, 1.0, 0.01) var particle_alpha: float = 0.38
+# Activa dither de cobertura una vez que el material del manager ya está creado.
+export(bool) var use_particle_dither: bool = false
+# Las fisuras activas son marcadores de puzzle: conservan toda la pluma, sin LOD de
+# distancia ni reducción dinámica del pool. Los emisores ambientales conservan false.
+export(bool) var preserve_full_particle_visibility: bool = false
 # Volumen (dB) del audio ambiente a intensidad 0 y a intensidad 1. set_intensity()
 # interpola entre los dos — así una fuga que recién empieza a gotear no suena igual
 # de fuerte que una a régimen pleno.
@@ -35,6 +45,10 @@ func _ready():
 	_set_visuals_active(is_active)
 	if _collision_shape:
 		_collision_shape.disabled = not is_active
+	if preserve_full_particle_visibility and _manager:
+		_manager.set_full_visibility_mode(true)
+	if use_particle_dither and _manager:
+		_manager.set_use_dither(true)
 
 	# PERF: en Dome_Intro hay ~24 FrostEmitter (uno por fisura de autoria), la mayoria
 	# arrancan is_active=false (ver LeakFissureVisual.tscn) y solo se activan si su fuga
@@ -67,13 +81,20 @@ func _physics_process(delta: float) -> void:
 
 func _spawn_frost_particle() -> void:
 	_emit_counter += 1
-	var offset := Vector3(
-		(_hashed_unit(_emit_counter) - 0.5) * emission_radius,
-		emission_height,
-		(_hashed_unit(_emit_counter + 7919) - 0.5) * emission_radius
-	)
-	var index := _manager.emit_particle(offset)
-	_manager.set_particle_combustion(index, true, Color(0.96, 0.985, 1.0, 0.38))
+	var direction: Vector3 = emission_direction.normalized()
+	if direction.length_squared() <= 0.000001:
+		direction = Vector3.UP
+	var lateral_a: Vector3 = direction.cross(Vector3.UP)
+	if lateral_a.length_squared() <= 0.000001:
+		lateral_a = direction.cross(Vector3.RIGHT)
+	lateral_a = lateral_a.normalized()
+	var lateral_b: Vector3 = direction.cross(lateral_a).normalized()
+	var lateral_offset := lateral_a * ((_hashed_unit(_emit_counter) - 0.5) * emission_radius)
+	lateral_offset += lateral_b * ((_hashed_unit(_emit_counter + 7919) - 0.5) * emission_radius)
+	var offset: Vector3 = direction * emission_height + lateral_offset
+	var velocity: Vector3 = direction * emission_speed + lateral_offset * 0.35
+	var index := _manager.emit_particle(offset, velocity)
+	_manager.set_particle_combustion(index, true, Color(0.96, 0.985, 1.0, particle_alpha))
 
 func _hashed_unit(index: int) -> float:
 	var h := int(index) & 0x7fffffff

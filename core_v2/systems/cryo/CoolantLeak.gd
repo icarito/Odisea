@@ -45,10 +45,16 @@ var _has_been_sealed: bool = false
 var _is_provisionally_patched: bool = false
 var _flow_adapter: Node = null
 var _room: Node = null
+var _ice_capped: bool = false
+# Distingue el corte temporal del hielo de una válvula cerrada: ambos quedan
+# DEPRESSURIZED, pero sólo el primero debe reabrir al bajar la superficie.
+var _depressurized_by_ice: bool = false
+const ICE_CAP_SUBMERSION_MARGIN := 0.05
 
 
 func _ready() -> void:
 	add_to_group("replay_sync")
+	add_to_group("coolant_leak")
 
 	if valve_path != null and not valve_path.is_empty():
 		var valve = get_node_or_null(valve_path)
@@ -74,6 +80,13 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
+	_refresh_ice_cap()
+	if _ice_capped and (_state == State.WARNING or _state == State.LEAKING):
+		_depressurized_by_ice = true
+		depressurize()
+	elif not _ice_capped and _depressurized_by_ice:
+		_depressurized_by_ice = false
+		trigger_leak()
 
 	match _state:
 		State.HEALTHY:
@@ -86,6 +99,9 @@ func _physics_process(delta: float) -> void:
 				_set_state(State.LEAKING)
 
 		State.LEAKING:
+			if _ice_capped:
+				depressurize()
+				return
 			# El tanque vacío corta el caudal igual que una válvula cerrada — el mismo
 			# adapter ya lo modela (compute_flow multiplica por tank_level), así que
 			# reusar is_pressurized_at() cubre ambos casos sin duplicar la lectura del
@@ -121,7 +137,7 @@ func _physics_process(delta: float) -> void:
 				var valve = get_node_or_null(valve_path)
 				if valve != null and "is_active" in valve:
 					own_valve_open = bool(valve.get("is_active"))
-			if own_valve_open and _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at"):
+			if not _ice_capped and own_valve_open and _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at"):
 				if bool(_flow_adapter.call("is_pressurized_at", self)):
 					trigger_leak()
 					return
@@ -158,6 +174,14 @@ func get_leak_intensity() -> float:
 	return _leak_intensity
 
 
+func set_flow_adapter(adapter: Node) -> void:
+	_flow_adapter = adapter
+
+
+func is_ice_capped() -> bool:
+	return _ice_capped
+
+
 func is_depressurized() -> bool:
 	return _state == State.DEPRESSURIZED
 
@@ -171,6 +195,10 @@ func set_provisionally_patched(value: bool) -> void:
 
 
 func trigger_leak() -> void:
+	if _ice_capped:
+		if _state == State.WARNING or _state == State.LEAKING:
+			depressurize()
+		return
 	if valve_path != null and not valve_path.is_empty():
 		var valve = get_node_or_null(valve_path)
 		if valve != null and "is_active" in valve and not bool(valve.get("is_active")):
@@ -230,6 +258,8 @@ func depressurize() -> void:
 func reset() -> void:
 	_has_been_sealed = false
 	_is_provisionally_patched = false
+	_ice_capped = false
+	_depressurized_by_ice = false
 	_leak_intensity = 0.0
 	_start_intensity = 0.0
 	_state_timer = 0.0
@@ -294,6 +324,20 @@ func _apply_room_deltas(delta: float) -> void:
 		_room.call("add_contamination", leak_contam_rate * _leak_intensity * delta)
 
 
+func _refresh_ice_cap() -> void:
+	if get_tree() == null:
+		return
+	var ice_systems: Array = get_tree().get_nodes_in_group("ice_level")
+	var capped := false
+	if not ice_systems.empty():
+		var ice = ice_systems[0]
+		if is_instance_valid(ice) and "ice_height" in ice:
+			# La superficie al nivel exacto del origen no tapa la boquilla todavía; evitar
+			# ese empate mantiene activas las fugas del suelo hasta que queden sumergidas.
+			capped = float(ice.get("ice_height")) > global_transform.origin.y + ICE_CAP_SUBMERSION_MARGIN
+	_ice_capped = capped
+
+
 func _on_valve_state_changed(is_open: bool) -> void:
 	# La válvula corta el caudal, no repara el caño: mientras la fuga no esté arreglada,
 	# abrirla vuelve a soltar coolant y cerrarla despresuriza el tramo.
@@ -315,7 +359,9 @@ func get_snapshot() -> Dictionary:
 		"leak_intensity": _leak_intensity,
 		"start_intensity": _start_intensity,
 		"has_been_sealed": _has_been_sealed,
-		"is_provisionally_patched": _is_provisionally_patched
+		"is_provisionally_patched": _is_provisionally_patched,
+		"ice_capped": _ice_capped,
+		"depressurized_by_ice": _depressurized_by_ice
 	}
 
 
@@ -332,3 +378,6 @@ func restore_snapshot(data: Dictionary) -> void:
 		_has_been_sealed = bool(data["has_been_sealed"])
 	if data.has("is_provisionally_patched"):
 		_is_provisionally_patched = bool(data["is_provisionally_patched"])
+	if data.has("ice_capped"):
+		_ice_capped = bool(data["ice_capped"])
+	_depressurized_by_ice = bool(data.get("depressurized_by_ice", false))

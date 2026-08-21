@@ -16,17 +16,17 @@ func test_begin_ragdoll_activates_simulation_and_disables_collision() -> void:
 	assert_object(cs).is_not_null()
 	assert_bool(cs.disabled).is_false()
 
-	pilot.begin_ragdoll()
+	var skel = pilot.get_node_or_null("Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton") as Skeleton
+	assert_object(skel).is_not_null()
+	assert_int(_physical_bone_count(skel)).is_equal(0)
 
+	pilot.begin_ragdoll()
 	assert_bool(pilot.is_ragdoll).is_true()
 	assert_bool(cs.disabled).is_true()
 
 	var animator = pilot.get_node_or_null("Visual/Pivot")
 	assert_object(animator).is_not_null()
 	assert_bool(animator.is_ragdoll).is_true()
-
-	var skel = pilot.get_node_or_null("Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton") as Skeleton
-	assert_object(skel).is_not_null()
 	var pb_count = 0
 	for child in skel.get_children():
 		if child is PhysicalBone:
@@ -50,6 +50,8 @@ func test_end_ragdoll_restores_state() -> void:
 
 	var animator = pilot.get_node_or_null("Visual/Pivot")
 	assert_bool(animator.is_ragdoll).is_false()
+	var skel = pilot.get_node_or_null("Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton") as Skeleton
+	assert_int(_physical_bone_count(skel)).is_equal(0)
 
 	pilot.free()
 
@@ -74,3 +76,11 @@ func test_full_reset_clears_ragdoll() -> void:
 	assert_bool(pilot.is_ragdoll).is_false()
 
 	pilot.free()
+
+
+func _physical_bone_count(skeleton: Skeleton) -> int:
+	var count := 0
+	for child in skeleton.get_children():
+		if child is PhysicalBone:
+			count += 1
+	return count
