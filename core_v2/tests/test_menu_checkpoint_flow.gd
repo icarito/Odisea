@@ -3,7 +3,7 @@ extends GdUnitTestSuite
 const PersistenceManagerScript = preload("res://core_v2/autoloads/PersistenceManager.gd")
 const MenuScript = preload("res://core_v2/ui/Menu.gd")
 const DOME_INTRO := "res://core_v2/levels/interiors/Dome_Intro.tscn"
-const DOME_ENGINE_LOOP := "res://core_v2/SpaceShip_Engine_Large_Loop_00.mp3"
+const DOME_ENGINE_LOOP := "res://assets/sfx/motor_electrico.mp3"
 const TEST_DIRECTORY_WITH_LAST := "user://test_menu_checkpoint_flow_last"
 const TEST_DIRECTORY_WITHOUT_LAST := "user://test_menu_checkpoint_flow_empty"
 
