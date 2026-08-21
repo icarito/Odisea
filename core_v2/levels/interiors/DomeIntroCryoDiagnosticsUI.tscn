@@ -1,0 +1,58 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://core_v2/things/CoolantSystemStatusUI.tscn" type="PackedScene" id=1]
+[ext_resource path="res://core_v2/things/RoomDialsPanel.gd" type="Script" id=2]
+[ext_resource path="res://core_v2/things/CoolantSchematicPanel.gd" type="Script" id=3]
+[ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=4]
+[ext_resource path="res://assets/fonts/Heading_Font.tres" type="DynamicFont" id=5]
+
+; Kept outside Dome_Intro.tscn because Godot's scene packer can drop owned Controls
+; below the HoloTerminal Viewport when the baked-light placeholder is materialized.
+[node name="CryoDiagnosticsUI" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TitleBar" type="HBoxContainer" parent="."]
+anchor_right = 1.0
+margin_top = 16.0
+margin_bottom = 68.0
+theme = ExtResource( 4 )
+alignment = 1
+
+[node name="Label" type="Label" parent="TitleBar"]
+size_flags_horizontal = 3
+margin_right = 1280.0
+margin_bottom = 52.0
+custom_fonts/font = ExtResource( 5 )
+text = "CIRCUITO DE FRIO"
+align = 1
+valign = 1
+
+[node name="CoolantSystemStatusUI" parent="." instance=ExtResource( 1 )]
+anchor_right = 0.4
+anchor_top = 0.0
+margin_top = 76.0
+margin_right = -10.0
+theme = ExtResource( 4 )
+
+[node name="CoolantSchematicPanel" type="Control" parent="."]
+anchor_left = 0.4
+anchor_right = 0.7
+anchor_top = 0.0
+anchor_bottom = 1.0
+margin_top = 76.0
+margin_left = 10.0
+margin_right = -10.0
+theme = ExtResource( 4 )
+script = ExtResource( 3 )
+
+[node name="RoomDialsPanel" type="Control" parent="."]
+anchor_left = 0.7
+anchor_right = 1.0
+anchor_top = 0.0
+anchor_bottom = 1.0
+margin_top = 76.0
+margin_left = 10.0
+theme = ExtResource( 4 )
+script = ExtResource( 2 )
+room_path = NodePath("/root/Dome_Intro/DomeRoom3D")

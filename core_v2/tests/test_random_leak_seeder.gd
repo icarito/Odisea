@@ -126,6 +126,11 @@ func test_leak_activation_on_nodes() -> void:
 
 	for path_str in active_paths:
 		var node = root.get_node(path_str)
+		assert_bool(node.leak_triggered).is_false()
+
+	seeder.activate_leaks()
+	for path_str in active_paths:
+		var node = root.get_node(path_str)
 		assert_bool(node.leak_triggered).is_true()
 
 

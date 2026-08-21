@@ -129,6 +129,7 @@ var current_push_time: float = 0.0
 var _override_sequence_id: int = 0
 var _transition_freeze_frames: int = 0  # inhibit all animation updates during scene transitions
 var _transition_freeze_until_grounded: bool = false
+var is_ragdoll: bool = false
 
 # --- FOOTSTEPS ---
 var _distance_accumulator: float = 0.0
@@ -275,11 +276,26 @@ func _restore_animation_tree_after_override() -> void:
 		if playback:
 			playback.start("Grounded")
 
+func pause_for_ragdoll() -> void:
+	is_ragdoll = true
+	if animation_tree and is_instance_valid(animation_tree):
+		animation_tree.active = false
+	if anim_player and is_instance_valid(anim_player):
+		anim_player.stop(false)
+	_clear_hand_ik_overrides()
+
+func resume_from_ragdoll() -> void:
+	is_ragdoll = false
+	if animation_tree and is_instance_valid(animation_tree):
+		animation_tree.active = true
+
 func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	"""
 	Actualiza todos los aspectos visuales del personaje.
 	Debe ser llamado manualmente por el controlador después de cada 'step' de física.
 	"""
+	if is_ragdoll:
+		return
 	if _transition_freeze_frames > 0 or _transition_freeze_until_grounded:
 		if _transition_freeze_frames > 0:
 			_transition_freeze_frames -= 1
