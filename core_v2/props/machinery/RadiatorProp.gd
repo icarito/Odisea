@@ -5,19 +5,21 @@ class_name RadiatorProp
 # RadiatorProp.gd
 # Industrial wall-mounted radiator prop with incandescent heat glow.
 # FD-272: Exposes continuous heat_level (0..1) with deterministic emissive visual feedback.
+# Drives heat_level from anim_progress (InteractableBaseV2 contract).
 
 signal heat_level_changed(level)
 
 export(float, 0.0, 1.0) var heat_level: float = 0.0 setget set_heat_level
 export(float, 0.1, 5.0) var width: float = 1.2 setget set_width
 export(float, 0.1, 5.0) var height: float = 0.8 setget set_height
-export(float, 0.05, 1.0) var depth: float = 0.12 setget set_depth
-export(int, 2, 32) var fin_count: int = 10 setget set_fin_count
-export(float, 0.0, 10.0) var max_emission_energy: float = 4.0 setget set_max_emission_energy
+export(float, 0.05, 1.0) var depth: float = 0.15 setget set_depth
+export(int, 2, 32) var fin_count: int = 12 setget set_fin_count
+export(int, 2, 16) var element_count: int = 5 setget set_element_count
+export(float, 0.0, 20.0) var max_emission_energy: float = 8.0 setget set_max_emission_energy
 
-var _mat_duplicated: bool = false
 var _frame_mesh_node: MeshInstance = null
 var _fins_mesh_node: MeshInstance = null
+var _elements_mesh_node: MeshInstance = null
 var _omni_light: OmniLight = null
 
 const EMISSIVE_TRESPATH = "res://core_v2/props/machinery/RadiatorEmissive.tres"
@@ -31,17 +33,21 @@ func _ready():
 		add_to_group("replay_sync")
 	_cache_nodes()
 	_update_geometry()
-	_update_emissive_material()
+	_update_visuals()
 
 func _cache_nodes() -> void:
 	_frame_mesh_node = get_node_or_null("FrameMesh") as MeshInstance
 	_fins_mesh_node = get_node_or_null("FinsMesh") as MeshInstance
+	_elements_mesh_node = get_node_or_null("ElementsMesh") as MeshInstance
 	_omni_light = get_node_or_null("OmniLight") as OmniLight
 
 func set_heat_level(value: float) -> void:
 	var clamped: float = clamp(value, 0.0, 1.0)
 	var changed: bool = not is_equal_approx(heat_level, clamped)
 	heat_level = clamped
+	anim_progress = clamped
+	target_progress = clamped
+	is_active = (clamped > 0.01)
 	_update_emissive_material()
 	if changed:
 		emit_signal("heat_level_changed", heat_level)
@@ -66,6 +72,11 @@ func set_fin_count(v: int) -> void:
 	if is_inside_tree():
 		_update_geometry()
 
+func set_element_count(v: int) -> void:
+	element_count = int(clamp(v, 2, 16))
+	if is_inside_tree():
+		_update_geometry()
+
 func set_max_emission_energy(v: float) -> void:
 	max_emission_energy = max(v, 0.0)
 	if is_inside_tree():
@@ -75,62 +86,70 @@ func get_heat_color(level: float) -> Color:
 	level = clamp(level, 0.0, 1.0)
 	if level <= 0.0:
 		return Color(0.0, 0.0, 0.0, 1.0)
-	elif level < 0.35:
-		var t: float = level / 0.35
-		return Color(0.0, 0.0, 0.0, 1.0).linear_interpolate(Color(0.85, 0.05, 0.0, 1.0), t)
-	elif level < 0.7:
-		var t: float = (level - 0.35) / 0.35
-		return Color(0.85, 0.05, 0.0, 1.0).linear_interpolate(Color(1.0, 0.4, 0.0, 1.0), t)
+	elif level < 0.25:
+		var t: float = level / 0.25
+		return Color(0.0, 0.0, 0.0, 1.0).linear_interpolate(Color(0.7, 0.02, 0.0, 1.0), t)
+	elif level < 0.6:
+		var t: float = (level - 0.25) / 0.35
+		return Color(0.7, 0.02, 0.0, 1.0).linear_interpolate(Color(1.0, 0.3, 0.0, 1.0), t)
+	elif level < 0.85:
+		var t: float = (level - 0.6) / 0.25
+		return Color(1.0, 0.3, 0.0, 1.0).linear_interpolate(Color(1.0, 0.7, 0.15, 1.0), t)
 	else:
-		var t: float = (level - 0.7) / 0.3
-		return Color(1.0, 0.4, 0.0, 1.0).linear_interpolate(Color(1.0, 0.85, 0.55, 1.0), t)
+		var t: float = (level - 0.85) / 0.15
+		return Color(1.0, 0.7, 0.15, 1.0).linear_interpolate(Color(1.0, 0.95, 0.75, 1.0), t)
 
 func _update_visuals() -> void:
 	._update_visuals()
+	# Driven by anim_progress (InteractableBaseV2 contract)
+	var prev_heat := heat_level
+	heat_level = clamp(anim_progress, 0.0, 1.0)
+	if not is_equal_approx(prev_heat, heat_level):
+		emit_signal("heat_level_changed", heat_level)
 	_update_emissive_material()
 
 func _update_emissive_material() -> void:
 	if not is_inside_tree():
 		return
 
-	if not _fins_mesh_node:
-		_fins_mesh_node = get_node_or_null("FinsMesh") as MeshInstance
+	_cache_nodes()
 
 	var heat_color: Color = get_heat_color(heat_level)
 	var emission_energy: float = heat_level * max_emission_energy
 
-	if _fins_mesh_node:
-		var mat = _get_or_create_fins_material()
+	# Update fins and elements emissive material
+	var nodes_to_update := [_fins_mesh_node, _elements_mesh_node]
+	for mesh_node in nodes_to_update:
+		if not mesh_node:
+			continue
+		var mat = _get_or_create_emissive_material(mesh_node)
 		if mat is SpatialMaterial:
 			mat.emission_enabled = (heat_level > 0.001)
 			mat.emission = heat_color
 			mat.emission_energy = emission_energy
 			if heat_level > 0.001:
-				var bright_albedo: Color = Color(0.2, 0.2, 0.2, 1.0).linear_interpolate(heat_color, 0.3)
+				var bright_albedo: Color = Color(0.15, 0.15, 0.15, 1.0).linear_interpolate(heat_color, 0.45)
 				mat.albedo_color = bright_albedo
 			else:
-				mat.albedo_color = Color(0.2, 0.2, 0.2, 1.0)
+				mat.albedo_color = Color(0.15, 0.15, 0.15, 1.0)
 		elif mat is ShaderMaterial:
 			mat.set_shader_param("emission_enabled", heat_level > 0.001)
 			mat.set_shader_param("emission_energy", emission_energy)
 			mat.set_shader_param("emission_color", heat_color)
 
-	if not _omni_light:
-		_omni_light = get_node_or_null("OmniLight") as OmniLight
-
 	if _omni_light:
 		_omni_light.visible = (heat_level > 0.01)
 		_omni_light.light_color = heat_color
-		_omni_light.light_energy = heat_level * 1.5
-		_omni_light.omni_range = max(width, height) * 2.5
+		_omni_light.light_energy = heat_level * 5.0
+		_omni_light.omni_range = max(width, height) * 3.5
 
-func _get_or_create_fins_material() -> Material:
-	if not _fins_mesh_node:
+func _get_or_create_emissive_material(mesh_node: MeshInstance) -> Material:
+	if not mesh_node:
 		return null
 
-	var mat = _fins_mesh_node.material_override
+	var mat = mesh_node.material_override
 	if not mat:
-		mat = _fins_mesh_node.get_surface_material(0)
+		mat = mesh_node.get_surface_material(0)
 
 	if not mat:
 		if ResourceLoader.exists(EMISSIVE_TRESPATH):
@@ -139,12 +158,12 @@ func _get_or_create_fins_material() -> Material:
 			mat = SpatialMaterial.new()
 			mat.emission_enabled = true
 
-	if mat and not _mat_duplicated:
+	if mat and not mesh_node.has_meta("_material_is_unique"):
 		mat = mat.duplicate()
-		_fins_mesh_node.material_override = mat
-		_mat_duplicated = true
+		mesh_node.set_meta("_material_is_unique", true)
+		mesh_node.material_override = mat
 
-	return mat
+	return mesh_node.material_override
 
 # --- SNAPSHOT SYSTEM (replay_sync) ---
 
@@ -164,6 +183,8 @@ func _update_geometry() -> void:
 	_cache_nodes()
 	if _frame_mesh_node:
 		_frame_mesh_node.mesh = _generate_frame_mesh()
+	if _elements_mesh_node:
+		_elements_mesh_node.mesh = _generate_elements_mesh()
 	if _fins_mesh_node:
 		_fins_mesh_node.mesh = _generate_fins_mesh()
 
@@ -171,22 +192,66 @@ func _generate_frame_mesh() -> ArrayMesh:
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	var border: float = min(min(width, height) * 0.08, 0.06)
+	var border: float = min(min(width, height) * 0.08, 0.07)
 
-	# Frame Bezel (4 outer bars)
+	# Outer Frame Bezel (4 outer bars)
 	_add_box(st, Vector3(0, (height - border) * 0.5, depth * 0.5), Vector3(width, border, depth))
 	_add_box(st, Vector3(0, -(height - border) * 0.5, depth * 0.5), Vector3(width, border, depth))
 	_add_box(st, Vector3(-(width - border) * 0.5, 0, depth * 0.5), Vector3(border, height - 2.0 * border, depth))
 	_add_box(st, Vector3((width - border) * 0.5, 0, depth * 0.5), Vector3(border, height - 2.0 * border, depth))
 
-	# Backing plate (wall heat shield)
-	_add_box(st, Vector3(0, 0, 0.005), Vector3(width - 2.0 * border, height - 2.0 * border, 0.01))
+	# Industrial Mounting Flanges & Corner Bolts
+	var flange_w: float = border * 0.8
+	var flange_h: float = border * 0.8
+	var flange_d: float = depth * 0.3
+	_add_box(st, Vector3(-(width * 0.5) + flange_w * 0.5, (height * 0.5) - flange_h * 0.5, depth * 0.65), Vector3(flange_w, flange_h, flange_d))
+	_add_box(st, Vector3((width * 0.5) - flange_w * 0.5, (height * 0.5) - flange_h * 0.5, depth * 0.65), Vector3(flange_w, flange_h, flange_d))
+	_add_box(st, Vector3(-(width * 0.5) + flange_w * 0.5, -(height * 0.5) + flange_h * 0.5, depth * 0.65), Vector3(flange_w, flange_h, flange_d))
+	_add_box(st, Vector3((width * 0.5) - flange_w * 0.5, -(height * 0.5) + flange_h * 0.5, depth * 0.65), Vector3(flange_w, flange_h, flange_d))
 
-	# Horizontal support rails
-	var rail_h: float = 0.015
-	var rail_d: float = 0.02
-	_add_box(st, Vector3(0, (height * 0.5) - border - rail_h, depth * 0.5), Vector3(width - 2.0 * border, rail_h, rail_d))
-	_add_box(st, Vector3(0, -(height * 0.5) + border + rail_h, depth * 0.5), Vector3(width - 2.0 * border, rail_h, rail_d))
+	# Thermal Shield Backing (wall shield plate)
+	_add_box(st, Vector3(0, 0, 0.01), Vector3(width - 2.0 * border, height - 2.0 * border, 0.02))
+
+	# Recessed Backing Vent Slots / Grooves
+	var slot_count: int = 6
+	var slot_h: float = (height - 2.0 * border) / (slot_count * 2.0)
+	for k in range(slot_count):
+		var y_pos: float = lerp(-(height * 0.35), (height * 0.35), float(k) / float(slot_count - 1))
+		_add_box(st, Vector3(0, y_pos, 0.022), Vector3(width - 3.0 * border, slot_h, 0.008))
+
+	# Support Rails (top and bottom inner mounting bars)
+	var rail_h: float = 0.02
+	var rail_d: float = 0.025
+	_add_box(st, Vector3(0, (height * 0.5) - border - rail_h * 0.5, depth * 0.5), Vector3(width - 2.0 * border, rail_h, rail_d))
+	_add_box(st, Vector3(0, -(height * 0.5) + border + rail_h * 0.5, depth * 0.5), Vector3(width - 2.0 * border, rail_h, rail_d))
+
+	st.generate_normals()
+	return st.commit()
+
+func _generate_elements_mesh() -> ArrayMesh:
+	# Incandescent heating coils / rods running horizontally behind fins
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	var border: float = min(min(width, height) * 0.08, 0.07)
+	var inner_w: float = width - 2.0 * border - 0.02
+	var inner_h: float = height - 2.0 * border - 0.04
+	var rod_r: float = 0.012
+	var rod_center_z: float = depth * 0.35
+
+	# Central incandescent core block
+	_add_box(st, Vector3(0, 0, depth * 0.25), Vector3(inner_w * 0.7, inner_h * 0.6, 0.025))
+
+	# Horizontal Heating Rods
+	if element_count <= 1:
+		_add_box(st, Vector3(0, 0, rod_center_z), Vector3(inner_w, rod_r * 2.0, rod_r * 2.0))
+	else:
+		var start_y: float = -inner_h * 0.42
+		var end_y: float = inner_h * 0.42
+		for j in range(element_count):
+			var t: float = float(j) / float(element_count - 1)
+			var y_pos: float = lerp(start_y, end_y, t)
+			_add_box(st, Vector3(0, y_pos, rod_center_z), Vector3(inner_w, rod_r * 2.0, rod_r * 2.0))
 
 	st.generate_normals()
 	return st.commit()
@@ -195,18 +260,18 @@ func _generate_fins_mesh() -> ArrayMesh:
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	var border: float = min(min(width, height) * 0.08, 0.06)
+	var border: float = min(min(width, height) * 0.08, 0.07)
 	var inner_w: float = width - 2.0 * border
-	var inner_h: float = height - 2.0 * border - 0.04
-	var fin_w: float = min(inner_w / (fin_count * 2.5), 0.025)
-	var fin_d: float = depth * 0.75
-	var fin_center_z: float = depth * 0.45
+	var inner_h: float = height - 2.0 * border - 0.03
+	var fin_w: float = min(inner_w / (fin_count * 2.2), 0.025)
+	var fin_d: float = depth * 0.6
+	var fin_center_z: float = depth * 0.65
 
 	if fin_count <= 1:
 		_add_box(st, Vector3(0, 0, fin_center_z), Vector3(fin_w, inner_h, fin_d))
 	else:
-		var start_x: float = -inner_w * 0.42
-		var end_x: float = inner_w * 0.42
+		var start_x: float = -inner_w * 0.44
+		var end_x: float = inner_w * 0.44
 		for i in range(fin_count):
 			var t: float = float(i) / float(fin_count - 1)
 			var x_pos: float = lerp(start_x, end_x, t)

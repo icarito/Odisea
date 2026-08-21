@@ -14,8 +14,48 @@ func test_radiator_scene_instantiation() -> void:
 
 	assert_bool(radiator.is_in_group("replay_sync")).is_true()
 	assert_object(radiator.get_node_or_null("FrameMesh")).is_not_null()
+	assert_object(radiator.get_node_or_null("ElementsMesh")).is_not_null()
 	assert_object(radiator.get_node_or_null("FinsMesh")).is_not_null()
 	assert_object(radiator.get_node_or_null("OmniLight")).is_not_null()
+
+	radiator.queue_free()
+	yield(get_tree(), "idle_frame")
+
+func test_interaction_drives_heat_level() -> void:
+	var host = _scene_host()
+	var radiator = RadiatorScene.instance()
+	host.add_child(radiator)
+	yield(get_tree(), "idle_frame")
+
+	assert_float(radiator.heat_level).is_equal(0.0)
+	assert_bool(radiator.is_active).is_false()
+
+	var state := [false, -1.0]
+	radiator.connect("heat_level_changed", self, "_on_heat_level_changed", [state])
+
+	# Interact -> set_active(true)
+	radiator.interact()
+	assert_bool(radiator.is_active).is_true()
+
+	# Step physics to advance anim_progress and heat_level
+	radiator.step(0.5)
+	assert_float(radiator.heat_level).is_equal(0.5)
+	assert_bool(state[0]).is_true()
+	assert_float(state[1]).is_equal(0.5)
+
+	radiator.step(0.6)
+	assert_float(radiator.heat_level).is_equal(1.0)
+	assert_float(radiator.anim_progress).is_equal(1.0)
+
+	# Interact again -> set_active(false)
+	radiator.interact()
+	assert_bool(radiator.is_active).is_false()
+
+	radiator.step(0.5)
+	assert_float(radiator.heat_level).is_equal(0.5)
+
+	radiator.step(0.6)
+	assert_float(radiator.heat_level).is_equal(0.0)
 
 	radiator.queue_free()
 	yield(get_tree(), "idle_frame")
@@ -32,6 +72,7 @@ func test_heat_level_clamping_and_signal() -> void:
 	# Test set to 0.5
 	radiator.set_heat_level(0.5)
 	assert_float(radiator.heat_level).is_equal(0.5)
+	assert_float(radiator.anim_progress).is_equal(0.5)
 	assert_bool(state[0]).is_true()
 	assert_float(state[1]).is_equal(0.5)
 
@@ -39,6 +80,7 @@ func test_heat_level_clamping_and_signal() -> void:
 	state[0] = false
 	radiator.set_heat_level(1.8)
 	assert_float(radiator.heat_level).is_equal(1.0)
+	assert_float(radiator.anim_progress).is_equal(1.0)
 	assert_bool(state[0]).is_true()
 	assert_float(state[1]).is_equal(1.0)
 
@@ -46,6 +88,7 @@ func test_heat_level_clamping_and_signal() -> void:
 	state[0] = false
 	radiator.set_heat_level(-0.4)
 	assert_float(radiator.heat_level).is_equal(0.0)
+	assert_float(radiator.anim_progress).is_equal(0.0)
 	assert_bool(state[0]).is_true()
 	assert_float(state[1]).is_equal(0.0)
 
@@ -58,7 +101,6 @@ func test_heat_level_visual_interpolation_smoothness() -> void:
 	host.add_child(radiator)
 	yield(get_tree(), "idle_frame")
 
-	# Test colors at cardinal points
 	var color_0: Color = radiator.get_heat_color(0.0)
 	var color_03: Color = radiator.get_heat_color(0.3)
 	var color_07: Color = radiator.get_heat_color(0.7)
@@ -69,7 +111,7 @@ func test_heat_level_visual_interpolation_smoothness() -> void:
 	assert_float(color_0.g).is_equal(0.0)
 	assert_float(color_0.b).is_equal(0.0)
 
-	# Red should increase from 0 -> 0.3 -> 0.7 -> 1.0
+	# Red should increase
 	assert_bool(color_03.r > color_0.r).is_true()
 	assert_bool(color_07.r >= color_03.r).is_true()
 	assert_bool(color_1.r >= color_07.r).is_true()
@@ -77,7 +119,6 @@ func test_heat_level_visual_interpolation_smoothness() -> void:
 	# Green/White component increases at highest heat
 	assert_bool(color_1.g > color_03.g).is_true()
 
-	# Smooth step-by-step progression without jumps or NaN
 	var prev_r: float = 0.0
 	var steps: int = 20
 	for i in range(steps + 1):
@@ -110,8 +151,8 @@ func test_determinism_and_snapshot() -> void:
 
 	radiator2.restore_snapshot(snapshot)
 	assert_float(radiator2.heat_level).is_equal(0.82)
+	assert_float(radiator2.anim_progress).is_equal(0.82)
 
-	# Visual check: both should produce identical color
 	var col1: Color = radiator1.get_heat_color(radiator1.heat_level)
 	var col2: Color = radiator2.get_heat_color(radiator2.heat_level)
 	assert_float(col1.r).is_equal(col2.r)

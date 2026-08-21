@@ -1,0 +1,28 @@
+LEVEL res://core_v2/scenes/PropStage.tscn
+WAIT 1.0
+
+SECTION "Setup"
+    IF $sys_env_prop_path == "" GOTO LoadDefault
+    LOAD_PROP $sys_env_prop_path
+    GOTO StartValidation
+
+SECTION "LoadDefault"
+    PRINT "Loading RadiatorProp"
+    LOAD_PROP "res://core_v2/props/machinery/RadiatorProp.tscn"
+
+SECTION "StartValidation"
+    WAIT 1.0
+    SCREENSHOT 0_idle
+
+    # Trigger Activation (heats up radiator)
+    INTERACT target=prop
+    WAIT 0.5
+    SCREENSHOT 1_mid
+
+    WAIT 1.5
+    SCREENSHOT 2_active
+
+    # Deactivate (cools down)
+    INTERACT target=prop
+    WAIT 1.5
+    SCREENSHOT 3_off
