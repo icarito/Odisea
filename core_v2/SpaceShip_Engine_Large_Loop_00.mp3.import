@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/SpaceShip_Engine_Large_Loop_00.mp3-559e6e16c12ffc5ef11882e764390c39.mp3str"
+
+[deps]
+
+source_file="res://core_v2/SpaceShip_Engine_Large_Loop_00.mp3"
+dest_files=[ "res://.import/SpaceShip_Engine_Large_Loop_00.mp3-559e6e16c12ffc5ef11882e764390c39.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0

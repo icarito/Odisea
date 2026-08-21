@@ -4,21 +4,22 @@
 
 [resource]
 shader = ExtResource( 1 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
+shader_param/base_color = Color( 0.615686, 0.0156863, 0.368627, 1 )
+shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
 shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
 shader_param/flow_dir = Vector3( 1, 0, 0 )
 shader_param/use_local_axis = true
-shader_param/hide_caps = false
 shader_param/use_baked_axis = false
-shader_param/noise_scale = 1.6
 shader_param/flow_phase = 0.0
 shader_param/emission_strength = 1.4
 shader_param/flow_intensity = 1.0
-shader_param/base_glow = 0.45
 shader_param/pipe_alpha = 1.0
-shader_param/flow_contrast = 0.55
 shader_param/metallic_amount = 0.5
 shader_param/roughness_amount = 0.35
+shader_param/flow_noise_amount = 0.12
+shader_param/noise_scale = 1.6
+shader_param/hide_caps = false
+shader_param/base_glow = 0.45
 shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0

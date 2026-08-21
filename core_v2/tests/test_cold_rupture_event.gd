@@ -11,11 +11,16 @@ func test_trigger_is_one_shot_and_snapshot_restores_the_same_leaks() -> void:
 	var leak: Spatial = auto_free(CoolantLeakScript.new())
 	leak.name = "Leak"
 	root.add_child(leak)
+	var trigger_area: Area = auto_free(Area.new())
+	trigger_area.name = "TriggerArea"
+	root.add_child(trigger_area)
 	var rupture: Spatial = auto_free(ColdRuptureEventScript.new())
 	rupture.name = "Rupture"
 	rupture.candidate_leak_paths = [NodePath("../Leak")]
+	rupture.trigger_area_path = NodePath("../TriggerArea")
 	root.add_child(rupture)
 
+	rupture.trigger()
 	rupture.trigger()
 	assert_bool(rupture.consumed).is_true()
 	assert_int(leak.get_state()).is_equal(CoolantLeak.State.WARNING)
@@ -55,10 +60,15 @@ func test_trigger_uses_seeded_leak_selection_when_present() -> void:
 	root.add_child(seeder)
 	var rupture: Spatial = auto_free(ColdRuptureEventScript.new())
 	rupture.leak_seeder_path = NodePath("../Seeder")
+	rupture.leak_activation_interval = 0.1
 	root.add_child(rupture)
 
 	rupture.trigger()
 	var paths: Array = rupture.get_snapshot()["activated_leak_paths"]
+	assert_int(paths.size()).is_equal(1)
+	assert_int(rupture.get_snapshot()["pending_leak_paths"].size()).is_equal(1)
+	rupture._physics_process(0.1)
+	paths = rupture.get_snapshot()["activated_leak_paths"]
 	assert_int(paths.size()).is_equal(2)
 	for path_value in paths:
 		var leak: Node = rupture._get_target_node(NodePath(path_value))

@@ -4,12 +4,17 @@ class_name RoomDialsPanel
 # RoomDialsPanel.gd - Control drawing live temperature, pressure, and toxicity dials from a Room3D node (FD-270).
 
 export(NodePath) var room_path: NodePath
+# La textura del HangingDisplay se ve desde varios metros: las lecturas necesitan más
+# peso que las etiquetas decorativas. Se puede afinar por instancia desde Inspector.
+export(float, 0.75, 2.0) var dial_title_scale: float = 1.12
+export(float, 0.75, 2.0) var dial_value_scale: float = 1.35
 
 # Inset de la card respecto al borde de su columna: mismo criterio visual que
 # CoolantSystemStatusUI.tscn (margen 24) y CoolantSchematicPanel (CARD_MARGIN).
 const CARD_MARGIN := 24.0
 
 var _room: Node = null
+var _draw_content_origin: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -77,7 +82,8 @@ func _draw() -> void:
 	# fondo, mas un respiro de contenido), en vez de pegado al filo que acaba de pintar
 	# panel_style.
 	var content_offset: float = half_gap + 16.0
-	draw_set_transform(Vector2(content_offset, content_offset), 0.0, Vector2.ONE)
+	_draw_content_origin = Vector2(content_offset, content_offset)
+	draw_set_transform(_draw_content_origin, 0.0, Vector2.ONE)
 
 	# Layout de 3 dials apilados en vertical: la columna del HangingDisplay es angosta y
 	# alta, en fila horizontal los 3 dials quedaban apretados contra un ancho chico en vez
@@ -204,12 +210,20 @@ func _draw_dial(center: Vector2, radius: float, value_norm: float, color: Color,
 	if font != null:
 		var title_size := font.get_string_size(title)
 		var title_pos := Vector2(center.x - title_size.x * 0.5, center.y - radius - 8.0)
-		draw_string(font, title_pos, title, Color(0.7, 0.75, 0.8))
+		_draw_scaled_text(font, title, title_pos, Color(0.7, 0.75, 0.8), dial_title_scale)
 
 		# Value String (below dial)
 		var val_size := font.get_string_size(val_str)
 		var val_pos := Vector2(center.x - val_size.x * 0.5, center.y + radius + 16.0)
-		draw_string(font, val_pos, val_str, Color.white)
+		_draw_scaled_text(font, val_str, val_pos, Color.white, dial_value_scale)
+
+
+func _draw_scaled_text(font: Font, text: String, position: Vector2, color: Color, scale: float) -> void:
+	# draw_set_transform reemplaza el transform actual; restauramos el origen de la card
+	# enseguida para que las líneas y diales siguientes sigan en coordenadas locales.
+	draw_set_transform(_draw_content_origin + position, 0.0, Vector2.ONE * scale)
+	draw_string(font, Vector2.ZERO, text, color)
+	draw_set_transform(_draw_content_origin, 0.0, Vector2.ONE)
 
 
 # Este panel vive dentro del Viewport de un HoloTerminalV2 con static_content=true (ver

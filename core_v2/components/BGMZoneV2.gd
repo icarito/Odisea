@@ -9,12 +9,18 @@ export(float, 0.1, 4.0) var pitch_scale = 1.0
 export(float, -80, 24) var volume_db = 0.0
 
 func _on_zone_entered(_body: Node):
-	if not Engine.editor_hint:
+	# Una zona vacía es una delimitación de cabina/authoring, no una orden de silenciar
+	# la BGM que ya está sonando en la sala contenedora.
+	if not Engine.editor_hint and has_bgm_content():
 		AudioManager.register_zone(self)
 
 func _on_zone_exited(_body: Node):
 	if not Engine.editor_hint:
 		AudioManager.unregister_zone(self)
+
+
+func has_bgm_content() -> bool:
+	return bgm_stream != null or not song_name.strip_edges().empty()
 
 func get_volume() -> float:
 	# Returns the physical volume of the zone for priority sorting.

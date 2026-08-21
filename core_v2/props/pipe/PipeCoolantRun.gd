@@ -40,17 +40,23 @@ export(float, 0.0, 4.0) var flow_speed := 0.7 setget set_flow_speed
 export(float, 0.05, 6.0) var speed_ramp := 1.6
 # Intensidad de la emisión: 0 = caño apagado (sistema sin coolant), 1 = régimen normal.
 export(float, 0.0, 3.0) var flow_intensity := 1.0 setget set_flow_intensity
+# Duración visual de encendido/apagado. El caudal lógico sigue cambiando de inmediato;
+# solo el material hace una transición corta para que la red no parpadee al cerrar una válvula.
+export(float, 0.05, 6.0) var intensity_ramp := 0.65
 # Emisión a intensidad 1.0. La intensidad la escala.
 export(float, 0.0, 4.0) var base_emission := 1.4
 # Multiplicador final de la emisión en régimen. Mantiene las tuberías legibles sin
 # convertir la sala en una fuente de luz: el estado apagado no emite y el activo usa
 # como máximo esta fracción de los valores legacy de escena.
-export(float, 0.0, 1.0) var active_emission_scale := 0.42
+export(float, 0.0, 1.0) var active_emission_scale := 0.32
 # Color del caño en reposo y color del fluido que corre por dentro. Por defecto, cian de
 # criocoolant; una corrida de atmósfera usa blanco/rojo y una de plasma, ámbar. Es lo que
 # permite reusar la misma corrida de tubería para los cuatro sistemas.
 export(Color) var base_color := Color(0.06, 0.22, 0.35, 1.0) setget set_base_color
+export(Color) var flow_edge_color := Color(0.08, 0.45, 0.62, 1.0) setget set_flow_edge_color
 export(Color) var flow_color := Color(0.35, 0.92, 0.98, 1.0) setget set_flow_color
+# Microvariacion del borde del flujo. Se desvanece con el LOD para preservar la lectura lejana.
+export(float, 0.0, 0.4) var flow_noise_amount := 0.12 setget set_flow_noise_amount
 # Tamaño del patrón de ruido en metros.
 export(float, 0.1, 6.0) var noise_scale := 1.6 setget set_noise_scale
 # Transparencia del caño: 1.0 opaco. Un poco por debajo deja intuir el volumen interno.
@@ -88,10 +94,12 @@ var _lod = null
 # caudal. Un offset ínfimo evita el choque sin cambiar el patrón visual.
 var _phase: float = 0.0001
 var _current_speed: float = 0.0
+var _current_flow_intensity: float = 0.0
 
 
 func _ready() -> void:
 	_current_speed = flow_speed
+	_current_flow_intensity = clamp(flow_intensity, 0.0, 1.0)
 	_apply()
 	if add_entry_collar:
 		_spawn_entry_collar()
@@ -117,23 +125,19 @@ func _on_visual_budget_level_changed(level: int, max_level: int) -> void:
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
-	if _lod != null and not _lod.should_process():
-		return
-	# La fase se acumula acá y se manda al shader; el shader no multiplica TIME por la
-	# velocidad. Esa es la diferencia entre frenar y congelar: la fase sigue siendo
-	# continua mientras la velocidad baja.
-	_current_speed = _approach(_current_speed, flow_speed, delta)
-	if abs(_current_speed) < 0.0001 and abs(flow_speed) < 0.0001:
-		return
-	_phase += delta * _current_speed
-	if _material:
-		_material.set_shader_param("flow_phase", _phase)
+	# La fase y la intensidad continúan actualizándose también en LOD lejano: la versión
+	# distante es deliberadamente simple, pero debe seguir leyendo como fluido en marcha.
+	_current_speed = _approach(_current_speed, flow_speed, delta, speed_ramp)
+	_current_flow_intensity = _approach(_current_flow_intensity, clamp(flow_intensity, 0.0, 1.0), delta, intensity_ramp)
+	if abs(_current_speed) >= 0.0001 or abs(flow_speed) >= 0.0001:
+		_phase += delta * _current_speed
+	_update_flow_material()
 
 
-func _approach(current: float, target: float, delta: float) -> float:
-	if speed_ramp <= 0.0:
+func _approach(current: float, target: float, delta: float, ramp_duration: float) -> float:
+	if ramp_duration <= 0.0:
 		return target
-	var step: float = delta / speed_ramp * max(1.0, abs(target - current))
+	var step: float = delta / ramp_duration * max(1.0, abs(target - current))
 	if current < target:
 		return min(current + step, target)
 	return max(current - step, target)
@@ -159,8 +163,18 @@ func set_base_color(v: Color) -> void:
 	_apply()
 
 
+func set_flow_edge_color(v: Color) -> void:
+	flow_edge_color = v
+	_apply()
+
+
 func set_flow_color(v: Color) -> void:
 	flow_color = v
+	_apply()
+
+
+func set_flow_noise_amount(v: float) -> void:
+	flow_noise_amount = clamp(v, 0.0, 0.4)
 	_apply()
 
 
@@ -206,16 +220,24 @@ func _apply() -> void:
 		_material.set_shader_param("use_baked_axis", has_node("CombinedMesh"))
 		_material.set_shader_param("flow_phase", _phase)
 		_material.set_shader_param("pipe_alpha", pipe_alpha)
-		var active_flow: float = clamp(flow_intensity, 0.0, 1.0)
-		_material.set_shader_param("flow_intensity", active_flow)
-		_material.set_shader_param("base_glow", 0.035 * active_flow)
-		_material.set_shader_param("emission_strength", base_emission * active_emission_scale * active_flow)
+		_update_flow_material()
 		_material.set_shader_param("noise_scale", noise_scale)
 		_material.set_shader_param("base_color", base_color)
+		_material.set_shader_param("flow_edge_color", flow_edge_color)
 		_material.set_shader_param("flow_color", flow_color)
+		_material.set_shader_param("flow_noise_amount", flow_noise_amount)
 		_material.set_shader_param("hide_caps", hide_caps)
 
 	_assign_to_meshes(self)
+
+
+func _update_flow_material() -> void:
+	if _material == null:
+		return
+	_material.set_shader_param("flow_phase", _phase)
+	_material.set_shader_param("flow_intensity", _current_flow_intensity)
+	_material.set_shader_param("base_glow", 0.035 * _current_flow_intensity)
+	_material.set_shader_param("emission_strength", base_emission * active_emission_scale)
 
 
 # Posicion de mundo real para el LOD de distancia. Un tramo bakeado (CombinedMesh,

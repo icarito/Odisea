@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/Silent Void.mp3-ccb8182cbd2dd1730599abbcfff7338f.mp3str"
+
+[deps]
+
+source_file="res://assets/music/act0/Silent Void.mp3"
+dest_files=[ "res://.import/Silent Void.mp3-ccb8182cbd2dd1730599abbcfff7338f.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0

@@ -13,6 +13,11 @@ export(PackedScene) var explosion_scene: PackedScene
 export(Array, Vector3) var explosion_positions: Array = []
 export(Array, Vector3) var aftershock_positions: Array = []
 export(float) var aftershock_delay: float = 0.65
+# La primera fuga abre con la rotura; las demás se liberan de a una en física para
+# que el jugador identifique cada falla. Cero conserva la activación simultánea legacy.
+export(float, 0.0, 10.0) var leak_activation_interval: float = 2.0
+export(float, 0.1, 8.0) var initial_explosion_scale: float = 1.0
+export(float, 0.1, 8.0) var staggered_explosion_scale: float = 0.8
 export(NodePath) var rupture_sound_path: NodePath
 export(NodePath) var aftershock_sound_path: NodePath
 
@@ -21,33 +26,59 @@ var _activated_leak_paths: Array = []
 var _trigger_area: Area = null
 var _aftershock_remaining: float = -1.0
 var _aftershock_fired: bool = false
+var _pending_leak_paths: Array = []
+var _next_leak_activation_remaining: float = -1.0
 
 
 func _ready() -> void:
 	add_to_group("replay_sync")
 	_resolve_trigger_area()
+	_set_trigger_area_monitoring(not consumed)
 
 
 func trigger() -> void:
 	if consumed:
 		return
 	consumed = true
+	_set_trigger_area_monitoring(false)
 	_trigger_camera_shake()
-	_play_sound(rupture_sound_path)
-	_activate_leaks()
-	_spawn_explosions(_get_rupture_positions(explosion_positions), 1.0)
-	_aftershock_remaining = max(aftershock_delay, 0.0)
-	_aftershock_fired = false
+	_prepare_leaks()
+	var first_leak: Node = null
+	if leak_activation_interval <= 0.0:
+		while not _pending_leak_paths.empty():
+			var activated_leak: Node = _activate_next_leak()
+			if first_leak == null:
+				first_leak = activated_leak
+	else:
+		first_leak = _activate_next_leak()
+		if not _pending_leak_paths.empty():
+			_next_leak_activation_remaining = leak_activation_interval
+	_play_sound_at_source(rupture_sound_path, first_leak)
+	_spawn_explosions(_get_rupture_positions(explosion_positions), initial_explosion_scale)
+	if aftershock_delay >= 0.0:
+		_aftershock_remaining = aftershock_delay
+		_aftershock_fired = false
+	else:
+		_aftershock_remaining = -1.0
+		_aftershock_fired = true
 
 
 func _physics_process(delta: float) -> void:
-	if not consumed or _aftershock_fired or _aftershock_remaining < 0.0:
+	if not consumed:
 		return
-	_aftershock_remaining -= delta
-	if _aftershock_remaining <= 0.0:
-		_aftershock_remaining = 0.0
-		_aftershock_fired = true
-		_play_aftershock()
+	if not _aftershock_fired and _aftershock_remaining >= 0.0:
+		_aftershock_remaining -= delta
+		if _aftershock_remaining <= 0.0:
+			_aftershock_remaining = 0.0
+			_aftershock_fired = true
+			_play_aftershock()
+	if _pending_leak_paths.empty() or _next_leak_activation_remaining < 0.0:
+		return
+	_next_leak_activation_remaining -= delta
+	if _next_leak_activation_remaining <= 0.0:
+		var activated_leak: Node = _activate_next_leak(true)
+		_play_sound_at_source(aftershock_sound_path, activated_leak)
+		_next_leak_activation_remaining = leak_activation_interval if not _pending_leak_paths.empty() else -1.0
 
 
 func _resolve_trigger_area() -> void:
@@ -58,25 +89,44 @@ func _resolve_trigger_area() -> void:
 		_trigger_area.connect("body_entered", self, "_on_trigger_body_entered")
 
 
-func _activate_leaks() -> void:
+func _set_trigger_area_monitoring(enabled: bool) -> void:
+	if _trigger_area != null:
+		# body_entered se emite mientras Area está bloqueada por el step de física.
+		# Aplicarlo diferido conserva el one-shot sin provocar el error de C++.
+		_trigger_area.set_deferred("monitoring", enabled)
+
+
+func _prepare_leaks() -> void:
 	_activated_leak_paths = []
+	_pending_leak_paths = []
 	var seeder: Node = _get_target_node(leak_seeder_path)
 	if seeder == null:
 		var parent: Node = get_parent()
 		seeder = parent.get_node_or_null("RandomLeakSeeder") if parent != null else null
-	if seeder != null and seeder.has_method("activate_leaks"):
-		seeder.call("activate_leaks")
-		if seeder.has_method("get_active_leak_paths"):
-			_activated_leak_paths = seeder.call("get_active_leak_paths")
+	if seeder != null and seeder.has_method("get_active_leak_paths"):
+		var selected_paths: Array = seeder.call("get_active_leak_paths")
+		for path_value in selected_paths:
+			_pending_leak_paths.append(NodePath(str(path_value)))
 		return
 
 	# Compatibilidad con escenas anteriores que todavía no tengan un seeder.
 	for path_value in candidate_leak_paths:
-		var leak: Node = _get_target_node(path_value)
-		if leak == null or not leak.has_method("trigger_leak"):
-			continue
-		leak.call("trigger_leak")
-		_activated_leak_paths.append(NodePath(str(path_value)))
+		_pending_leak_paths.append(NodePath(str(path_value)))
+
+
+func _activate_next_leak(spawn_visual: bool = false) -> Node:
+	if _pending_leak_paths.empty():
+		return null
+	var path_value: NodePath = _pending_leak_paths.pop_front()
+	var leak: Node = _get_target_node(path_value)
+	if leak == null or not leak.has_method("trigger_leak"):
+		return null
+	leak.call("trigger_leak")
+	_activated_leak_paths.append(path_value)
+	if spawn_visual and leak is Spatial:
+		var local_position: Vector3 = to_local((leak as Spatial).global_transform.origin)
+		_spawn_explosions([local_position], staggered_explosion_scale)
+	return leak
 
 
 func _get_rupture_positions(fallback_positions: Array) -> Array:
@@ -97,6 +147,13 @@ func _get_rupture_positions(fallback_positions: Array) -> Array:
 func _on_trigger_body_entered(body: Node) -> void:
 	if body != null and body.is_in_group("player"):
 		trigger()
+		call_deferred("_refresh_bgm_after_rupture")
+
+
+func _refresh_bgm_after_rupture() -> void:
+	var audio_manager: Node = get_node_or_null("/root/AudioManager")
+	if audio_manager != null and audio_manager.has_method("refresh_bgm_from_zones"):
+		audio_manager.call("refresh_bgm_from_zones", 0.0)
 
 
 func _trigger_camera_shake() -> void:
@@ -121,12 +178,23 @@ func _play_sound(sound_path: NodePath) -> void:
 		sound.call("play")
 
 
+func _play_sound_at_source(sound_path: NodePath, source: Node) -> void:
+	if source is Spatial:
+		var sound: Node = get_node_or_null(sound_path)
+		if sound is Spatial:
+			(sound as Spatial).global_transform.origin = (source as Spatial).global_transform.origin
+	_play_sound(sound_path)
+
+
 func _spawn_explosions(positions: Array, scale_factor: float) -> void:
 	if explosion_scene == null or get_tree() == null:
 		return
+	var world_parent: Node = get_tree().current_scene
+	if world_parent == null:
+		world_parent = get_tree().root
 	for position in positions:
 		var explosion: Node = explosion_scene.instance()
-		get_tree().root.add_child(explosion)
+		world_parent.add_child(explosion)
 		if explosion is Spatial:
 			explosion.global_transform.origin = global_transform.xform(position)
 			explosion.scale = Vector3.ONE * scale_factor
@@ -163,9 +231,14 @@ func get_snapshot() -> Dictionary:
 	var paths: Array = []
 	for path_value in _activated_leak_paths:
 		paths.append(str(path_value))
+	var pending_paths: Array = []
+	for path_value in _pending_leak_paths:
+		pending_paths.append(str(path_value))
 	return {
 		"consumed": consumed,
 		"activated_leak_paths": paths,
+		"pending_leak_paths": pending_paths,
+		"next_leak_activation_remaining": _next_leak_activation_remaining,
 		"aftershock_remaining": _aftershock_remaining,
 		"aftershock_fired": _aftershock_fired
 	}
@@ -175,10 +248,16 @@ func restore_snapshot(data: Dictionary) -> void:
 	consumed = bool(data.get("consumed", false))
 	_aftershock_remaining = float(data.get("aftershock_remaining", -1.0))
 	_aftershock_fired = bool(data.get("aftershock_fired", true))
+	_next_leak_activation_remaining = float(data.get("next_leak_activation_remaining", -1.0))
 	_activated_leak_paths = []
+	_pending_leak_paths = []
 	if data.has("activated_leak_paths") and data["activated_leak_paths"] is Array:
 		for path_value in data["activated_leak_paths"]:
 			_activated_leak_paths.append(NodePath(str(path_value)))
+	if data.has("pending_leak_paths") and data["pending_leak_paths"] is Array:
+		for path_value in data["pending_leak_paths"]:
+			_pending_leak_paths.append(NodePath(str(path_value)))
+	_set_trigger_area_monitoring(not consumed)
 	if consumed:
 		for path_value in _activated_leak_paths:
 			var leak: Node = _get_target_node(path_value)

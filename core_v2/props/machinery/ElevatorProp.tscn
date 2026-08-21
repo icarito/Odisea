@@ -23,20 +23,20 @@ extents = Vector3( 1.8, 3, 1.8 )
 [sub_resource type="BoxShape" id=7]
 extents = Vector3( 1.8, 1.6, 1.8 )
 
-[sub_resource type="BoxShape" id=8]
+[sub_resource type="BoxShape" id=22]
 extents = Vector3( 1.5, 3, 1.5 )
+
+[sub_resource type="Curve3D" id=23]
+_data = {
+"points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -0.974657, -4.44925e-08, -0.0433385, 0, 0, 0, 0, 0, 0, -1.97465, -8.80818e-08, -0.0405459, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117, 0, 0, 0, 0, 0, 0, 1.02534, 4.26861e-08, -0.0489235 ),
+"tilts": PoolRealArray( 0, 0, 0, 0, 0, 0 )
+}
 
 [sub_resource type="CubeMesh" id=20]
 size = Vector3( 4.4, 0.2, 4.4 )
 
 [sub_resource type="BoxShape" id=21]
 extents = Vector3( 2.2, 0.1, 2.2 )
-
-[sub_resource type="Curve3D" id=9]
-_data = {
-"points": PoolVector3Array( 0, 0, 0, 0, 0, 0, -0.974657, -4.44925e-08, -0.0433385, 0, 0, 0, 0, 0, 0, -1.97465, -8.80818e-08, -0.0405459, 0, 0, 0, 0, 0, 0, -1.99105, -2.64295e-07, -4.06668, 0, 0, 0, 0, 0, 0, 2.01416, -8.85692e-08, -4.0517, 0, 0, 0, 0, 0, 0, 2.02533, 8.62756e-08, -0.0517117, 0, 0, 0, 0, 0, 0, 1.02534, 4.26861e-08, -0.0489235 ),
-"tilts": PoolRealArray( 0, 0, 0, 0, 0, 0 )
-}
 
 [node name="ElevatorProp" type="Spatial"]
 script = ExtResource( 1 )
@@ -95,7 +95,7 @@ debug_render = false
 zone_extents = Vector3( 1.5, 3, 1.5 )
 
 [node name="CollisionShape" type="CollisionShape" parent="Platform/BGMZoneV2"]
-shape = SubResource( 8 )
+shape = SubResource( 22 )
 
 [node name="SFX Move" type="AudioStreamPlayer3D" parent="Platform"]
 stream = ExtResource( 10 )
@@ -142,7 +142,7 @@ panel_count = 14
 height = 15.5
 
 [node name="Path2" parent="MetalFence" index="0"]
-curve = SubResource( 9 )
+curve = SubResource( 23 )
 
 [node name="CSGCylinder" type="MeshInstance" parent="MetalFence/Path2" index="0"]
 transform = Transform( 1, 0, 0, 3.55271e-14, 1, 3.63182e-14, 0, 8.04912e-16, 1, -0.0058718, 15.5, -2.10247 )

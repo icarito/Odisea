@@ -93,6 +93,21 @@ func test_valve_closure_ramps_speed_and_reduces_intensity() -> void:
 	assert_float(adapter.get_computed_speed()).is_equal(0.7)
 
 
+func test_pipe_visual_intensity_fades_when_flow_stops() -> void:
+	var pipe_run = auto_free(PipeCoolantRunScript.new())
+	pipe_run.flow_intensity = 1.0
+	pipe_run.intensity_ramp = 0.5
+	add_child(pipe_run)
+
+	pipe_run.set_flow_intensity(0.0)
+	pipe_run._physics_process(0.25)
+	assert_float(pipe_run._current_flow_intensity).is_greater(0.0)
+	assert_float(pipe_run._current_flow_intensity).is_less(1.0)
+
+	pipe_run._physics_process(0.3)
+	assert_float(pipe_run._current_flow_intensity).is_equal_approx(0.0, 0.001)
+
+
 func test_fissure_and_provisional_gloo_patch_decay_cycle() -> void:
 	var tank = auto_free(CoolantTankScript.new())
 	tank.tank_level = 1.0
@@ -267,4 +282,3 @@ func test_snapshot_determinism() -> void:
 
 	assert_float(adapter.get_computed_speed()).is_equal_approx(speed_adv, 0.0001)
 	assert_float(patch_point.get_patch_time_remaining()).is_equal_approx(remaining_adv, 0.0001)
-

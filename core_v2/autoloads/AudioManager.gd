@@ -345,6 +345,26 @@ func reset():
 		_tween.stop_all()
 	_restore_default_spatial_listener()
 
+
+# Reinicia la BGM de las zonas vigentes desde el compás inicial sin perder qué zona
+# contiene al jugador. El respawn no reinstancia BGMZoneV2, por eso reset() no sirve:
+# borraría sus zonas activas y dejaría la sala sin música hasta otra entrada física.
+func restart_bgm_from_active_zones() -> void:
+	_zone_playback_positions.clear()
+	_active_zone = null
+	if _tween:
+		_tween.stop_all()
+	if _mdm_instance and _mdm_instance.has_method("stop"):
+		_mdm_instance.call("stop")
+	if _active_player:
+		_active_player.stop()
+		_active_player = null
+	if _bgm_player_1:
+		_bgm_player_1.stop()
+	if _bgm_player_2:
+		_bgm_player_2.stop()
+	_update_bgm()
+
 func fade_out_current_bgm(duration: float = 0.35) -> void:
 	var time = max(0.0, duration)
 	if _mdm_instance and _mdm_instance.has_method("stop") and _active_player == null:

@@ -2684,7 +2684,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PoolStringArray(  )
+enabled=PoolStringArray( "res://addons/odisea_gizmos/plugin.cfg" )
 
 [gdunit3]
 

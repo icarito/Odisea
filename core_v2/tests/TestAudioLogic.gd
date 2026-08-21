@@ -9,6 +9,15 @@ func test_bgm_zone_inheritance():
 	assert_bool(zone.has_method("get_volume")).is_true()
 	zone.free()
 
+
+func test_empty_bgm_zone_does_not_override_parent_music():
+	var zone = BGMZoneScript.new()
+	assert_bool(zone.has_bgm_content()).is_false()
+	zone.song_name = "cabin_theme"
+	assert_bool(zone.has_bgm_content()).is_true()
+	zone.free()
+
+
 func test_audio_manager_sorting():
 	var am = AudioManagerScript.new()
 

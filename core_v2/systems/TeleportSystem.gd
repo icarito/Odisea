@@ -383,6 +383,11 @@ func _on_player_killed():
 	var session_mgr = get_node_or_null("/root/SessionManager")
 	if session_mgr:
 		session_mgr.is_respawning = true
+	# La zona BGM sigue vigente durante la muerte; reiniciarla ahora conserva la misma
+	# sala, pero el tema empieza limpio cuando se despeja el DeathCover.
+	var audio_manager = get_node_or_null("/root/AudioManager")
+	if audio_manager and audio_manager.has_method("restart_bgm_from_active_zones"):
+		audio_manager.restart_bgm_from_active_zones()
 	if screen_fx and screen_fx.has_method("wait_for_death_confirm"):
 		var death_confirm = screen_fx.wait_for_death_confirm()
 		if death_confirm is GDScriptFunctionState:
