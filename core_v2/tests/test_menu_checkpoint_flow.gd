@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 const PersistenceManagerScript = preload("res://core_v2/autoloads/PersistenceManager.gd")
 const MenuScript = preload("res://core_v2/ui/Menu.gd")
 const DOME_INTRO := "res://core_v2/levels/interiors/Dome_Intro.tscn"
+const DOME_ENGINE_LOOP := "res://core_v2/SpaceShip_Engine_Large_Loop_00.mp3"
 const TEST_DIRECTORY_WITH_LAST := "user://test_menu_checkpoint_flow_last"
 const TEST_DIRECTORY_WITHOUT_LAST := "user://test_menu_checkpoint_flow_empty"
 
@@ -12,8 +13,11 @@ func before_test() -> void:
 func after_test() -> void:
 	_cleanup_test_directories()
 
-func test_new_game_targets_dome_intro() -> void:
+func test_first_game_scene_loads_and_instances() -> void:
 	assert_str(MenuScript.FIRST_GAME_SCENE).is_equal(DOME_INTRO)
+	# El stream vive en un BGMZone de Dome_Intro. Validarlo antes del PackedScene
+	# convierte un artifact .mp3str ausente en una falla directa y diagnosticable.
+	assert_object(load(DOME_ENGINE_LOOP)).is_not_null()
 	var dome_scene := load(DOME_INTRO) as PackedScene
 	assert_object(dome_scene).is_not_null()
 	var dome: Node = auto_free(dome_scene.instance())

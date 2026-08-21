@@ -2963,7 +2963,6 @@ common/max_physics_steps_per_frame=4
 
 [rendering]
 
-quality/filters/sharpen_intensity=0.5
 quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
@@ -2974,8 +2973,10 @@ vram_compression/import_pvrtc=true
 quality/shadows/filter_mode=2
 quality/shadows/filter_mode.mobile=1
 quality/reflections/high_quality_ggx=false
+quality/shading/force_vertex_shading=true
 quality/shading/force_vertex_shading.mobile=false
 quality/shading/use_physical_light_attenuation=true
+quality/spatial_partitioning/render_tree_balance=0.48
 batching/options/single_rect_fallback=true
 batching/parameters/max_join_item_commands=32
 batching/parameters/batch_buffer_size=32768
@@ -2988,5 +2989,5 @@ quality/filters/use_fxaa=true
 environment/default_environment="res://default_env.tres"
 batching/options/use_batching.iOS=false
 quality/filters/msaa.web=0
-quality/shading/force_vertex_shading.Android=false
+quality/shading/force_vertex_shading.Android=true
 quality/filters/msaa.Android=0
