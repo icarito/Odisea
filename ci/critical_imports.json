@@ -87,6 +87,13 @@
       "reason": "Dome_Intro.tscn (FIRST_GAME_SCENE del menu) lo referencia como ext_resource: sin el .mp3str la escena entera no carga y test_menu_checkpoint_flow falla."
     },
     {
+      "path": "core_v2/SpaceShip_Engine_Large_Loop_00.mp3.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "BGMZone de Dome_Intro.tscn (FIRST_GAME_SCENE): sin este .mp3str el parser no puede cargar la escena."
+    },
+    {
       "path": "core_v2/audio/footsteps/ice/FEETHmn-GRAVEL_AUDIOELK-Fs Gravel Shoes Outdoors 56_AUDIOELK_AUDIOELK.wav.import",
       "required_sidecars": [
         ".md5"
