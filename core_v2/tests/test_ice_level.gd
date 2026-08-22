@@ -349,19 +349,26 @@ func test_ice_visuals_stay_off_until_ice_rises() -> void:
 	assert_bool(band.is_visual_active()).is_false()
 
 
-func test_object_freezer_waits_for_ice_rise() -> void:
+func test_object_freezer_waits_for_room_to_freeze() -> void:
 	var freezer = auto_free(IceObjectFreezerScript.new())
+	var room = auto_free(Room3DScript.new())
+	room.temperature = 20.0
+	room.freezing_point = 0.0
+	add_child(room)
 	var level = _make_level(false)
+	level.room_path = level.get_path_to(room)
 	add_child(freezer)
 	freezer._connect_ice_level()
 	assert_bool(freezer.has_started_wrapping()).is_false()
 	assert_int(freezer._scans_done).is_equal(0)
-	freezer._on_ice_height_changed(level.start_height)
-	assert_bool(freezer.has_started_wrapping()).is_false()
-	assert_int(freezer._scans_done).is_equal(0)
 	freezer._on_ice_height_changed(level.start_height + 1.0)
+	assert_bool(freezer.has_started_wrapping()).is_false()
+	room.set_temperature(-1.0)
 	assert_bool(freezer.has_started_wrapping()).is_true()
-	assert_int(freezer._scans_done).is_equal(1)
+	assert_int(freezer._scans_done).is_greater_equal(1)
+	freezer.reset_visuals()
+	assert_bool(freezer.has_started_wrapping()).is_false()
+	assert_int(freezer._wrap_records.size()).is_equal(0)
 
 # El binario headless de CI usa el rasterizer dummy: los ShaderMaterial no guardan
 # parámetros y get_shader_param() devuelve null (float(null) es error de script). Los

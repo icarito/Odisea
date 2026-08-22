@@ -215,8 +215,10 @@ func _configure_cpu() -> void:
 		_cpu.initial_velocity = max(frost_rise_speed, 0.08)
 		_cpu.gravity = Vector3(0.0, 0.12, 0.0)
 	_cpu.initial_velocity_random = 0.4
-	_cpu.scale_amount = max(frost_scale * 0.35, 0.4)
+	_cpu.scale_amount = max(frost_scale, 1.0)
 	_cpu.scale_amount_random = clamp(frost_scale_variance, 0.0, 1.0)
+	_cpu.anim_speed = 1.0
+	_cpu.anim_offset_random = 1.0
 	_cpu.color = cool_color.linear_interpolate(hot_color, clamp(temperature_variance, 0.0, 1.0) * 0.5)
 	_cpu.extra_cull_margin = 40.0
 	if _cpu.mesh == null:
@@ -234,6 +236,6 @@ func _configure_cpu() -> void:
 			mat.albedo_texture = atlas
 		mat.albedo_color = Color(1, 1, 1, 0.82)
 		var quad := QuadMesh.new()
-		quad.size = Vector2(1, 1)
+		quad.size = Vector2(2.2, 2.2)
 		quad.material = mat
 		_cpu.mesh = quad
