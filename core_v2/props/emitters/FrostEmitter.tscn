@@ -18,7 +18,7 @@ shape = SubResource( 1 )
 
 [node name="GasParticleManager" type="Spatial" parent="."]
 script = ExtResource( 2 )
-pool_size = 12
+pool_size = 8
 default_max_lifetime = 1.8
 default_base_scale = 1.8
 viscosity = 0.72

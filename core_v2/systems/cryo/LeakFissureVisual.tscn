@@ -36,7 +36,7 @@ script = ExtResource( 1 )
 [node name="SprayParticles" type="CPUParticles" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 0 )
 emitting = false
-amount = 18
+amount = 6
 lifetime = 0.7
 mesh = SubResource( 2 )
 direction = Vector3( 0, 1, 0 )
@@ -49,9 +49,10 @@ scale_amount = 2.2
 color = Color( 1, 1, 1, 0.38 )
 
 [node name="MistFrost" parent="." instance=ExtResource( 3 )]
+transform = Transform( 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0 )
 is_active = false
 emission_radius = 0.2
-particles_per_second = 18
+particles_per_second = 6
 emission_height = 0.08
 emission_speed = 1.15
 particle_alpha = 0.22
