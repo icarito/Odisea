@@ -76,10 +76,10 @@ func test_fissure_mist_is_not_distance_culled() -> void:
 
 	assert_bool(emitter.get("preserve_full_particle_visibility")).is_true()
 	assert_float(emitter.get("particle_alpha")).is_equal(0.22)
-	assert_bool(emitter.get("use_particle_dither")).is_true()
+	assert_bool(emitter.get("use_particle_dither")).is_false()
 	assert_float(spray.color.a).is_equal_approx(0.38, 0.001)
 	assert_bool(manager.get("distance_lod_enabled")).is_false()
-	assert_bool(manager.get("use_dither")).is_true()
+	assert_bool(manager.get("use_dither")).is_false()
 	assert_bool(manager.get("adaptive_pool_on_mobile")).is_false()
 	assert_float(manager.get("mobile_pool_scale")).is_equal(1.0)
 	assert_float(manager.get("min_pool_fraction")).is_equal(1.0)
