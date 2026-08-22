@@ -383,6 +383,10 @@ func _add_prism_sides(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vect
 
 func _add_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 	for point in [a, b, c, a, c, d]:
+		# UV1 neutro: estas superficies son de color plano (sin textura), pero el
+		# lightmapper descarta una malla si solo ALGUNAS surfaces tienen UV1
+		# (lightmapper_cpu.cpp:1635 compara uv.size() contra points.size()).
+		surface_tool.add_uv(Vector2.ZERO)
 		surface_tool.add_vertex(point)
 
 # Same triangulation as _add_quad but stamps a planar XZ UV per vertex (in meters,

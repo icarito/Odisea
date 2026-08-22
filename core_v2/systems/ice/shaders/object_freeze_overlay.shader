@@ -203,5 +203,5 @@ void fragment() {
 	// guaranteed stable frame to frame. Accepted tradeoff: the light-dependent flicker from
 	// shaded PBR was worse than this queue's potential sort instability. Floor kept at 0.5
 	// (not 0.0) so fogged-out patches read as thin/translucent ice, not fully absent.
-	ALPHA = clamp(coverage + rim * 0.5, 0.0, 1.0);
+	ALPHA = clamp(coverage + rim * 0.5, 0.0, 0.5);
 }

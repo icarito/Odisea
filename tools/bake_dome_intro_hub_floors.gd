@@ -43,6 +43,7 @@ extends SceneTree
 const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_HubTowerSource.tscn"
 const TOWER_PATH := "ScaffoldHubTower"
 const OUT_DIR := "res://core_v2/levels/interiors/"
+const LIGHTMAP_TEXEL_SIZE := 0.2
 # Todos los pisos del hub, no solo el 5: comparten la geometria de deck de
 # ScaffoldHubRing, asi que cualquier cambio ahi hay que re-hornearlo en los cinco.
 const FLOORS := ["Floor_1", "Floor_2", "Floor_3", "Floor_4", "Floor_5"]
@@ -136,6 +137,11 @@ func _bake_floor(root: Node, floor_name: String) -> bool:
 
 	var out_mesh: String = OUT_DIR + "Dome_Intro_%s_baked.mesh" % floor_name
 	var out_shape: String = OUT_DIR + "Dome_Intro_%s_baked.shape" % floor_name
+	# Sin UV2 el BakedLightmap ignora la geometria: los pisos del hub no proyectan
+	# sombra sobre la terraza ni reciben la luz cocinada. Se genera sobre la malla
+	# completa (todas las surfaces), igual que en bake_scaffold_walkways.gd.
+	if not _generate_lightmap_uv2(visual.mesh, out_mesh):
+		return false
 	if ResourceSaver.save(out_mesh, visual.mesh) != OK:
 		push_error("[bake_floors] no pude guardar %s" % out_mesh)
 		return false
@@ -149,4 +155,12 @@ func _bake_floor(root: Node, floor_name: String) -> bool:
 	print("[bake_floors] %s: %d superficies, %d verts, openings=%s docks=%s -> %s" % [
 		floor_name, visual.mesh.get_surface_count(), verts,
 		str(ring.outer_openings_deg), str(ring.outer_opening_docks), out_mesh.get_file()])
+	return true
+
+
+func _generate_lightmap_uv2(mesh: ArrayMesh, mesh_path: String) -> bool:
+	var result: int = mesh.lightmap_unwrap(Transform.IDENTITY, LIGHTMAP_TEXEL_SIZE)
+	if result != OK:
+		push_error("[bake_floors] no pude generar UV2 para %s (error %d)" % [mesh_path, result])
+		return false
 	return true

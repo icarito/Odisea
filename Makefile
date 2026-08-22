@@ -32,12 +32,50 @@ export: export-linux-arm64 export-pck
 
 all: render
 
-# Rehornea la red de tuberías de refrigerante (FD-270) desde
-# core_v2/levels/interiors/DomeIntro_PipeNetworkSource.tscn a los .mesh/.tscn
-# combinados que instancia Dome_Intro.tscn. Correr tras editar la fuente.
+# En Godot 3, BakedLightmap sólo puede hornearse dentro del editor. Abrí
+# Dome_Intro.tscn y ejecutá tools/editor_bake_dome_intro_lightmap.gd; ese
+# EditorScript invoca bake-lightmap-postprocess al terminar correctamente.
 bake:
-	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_pipe_network.gd
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
+	@echo "[bake] Abre Dome_Intro.tscn y ejecuta tools/editor_bake_dome_intro_lightmap.gd en Godot."
+
+# Regeneración explícita de la geometría procedimental. No es parte del bake
+# del lightmap: puede cambiar muchos recursos .mesh y debe correrse sólo al
+# editar sus escenas fuente.
+bake-dome-geometry:
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_pipe_network.gd
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_scaffold_walkways.gd
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_dome_intro_hub_floors.gd
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
+	python3 scripts/check_tracked_imports.py
+
+# Aplica el look cyan/oscuro a TODOS los PNG referenciados por el .lmbake recién
+# recocido. Valores por defecto aproximan la referencia ya versionada; ajustar:
+# make bake-lightmap-postprocess DOME_LIGHTMAP_BRIGHTNESS=18
+DOME_LIGHTMAP_PATH ?=
+DOME_LIGHTMAP_DATA_PATH ?= core_v2/levels/interiors/Dome_Intro.lmbake
+DOME_LIGHTMAP_TINT ?= 008da3
+DOME_LIGHTMAP_COLORIZE ?= 85
+DOME_LIGHTMAP_BRIGHTNESS ?= 15
+# El piso debe conservar contraste para leer la luz direccional y sus sombras.
+DOME_LIGHTMAP_FLOOR_COLORIZE ?= 35
+DOME_LIGHTMAP_FLOOR_BRIGHTNESS ?= 65
+bake-lightmap-postprocess:
+	DOME_LIGHTMAP_PATH="$(DOME_LIGHTMAP_PATH)" DOME_LIGHTMAP_DATA_PATH="$(DOME_LIGHTMAP_DATA_PATH)" \
+	DOME_LIGHTMAP_TINT="$(DOME_LIGHTMAP_TINT)" DOME_LIGHTMAP_COLORIZE="$(DOME_LIGHTMAP_COLORIZE)" \
+	DOME_LIGHTMAP_BRIGHTNESS="$(DOME_LIGHTMAP_BRIGHTNESS)" DOME_LIGHTMAP_FLOOR_COLORIZE="$(DOME_LIGHTMAP_FLOOR_COLORIZE)" \
+	DOME_LIGHTMAP_FLOOR_BRIGHTNESS="$(DOME_LIGHTMAP_FLOOR_BRIGHTNESS)" DOME_LIGHTMAP_FORCE="$(DOME_LIGHTMAP_FORCE)" \
+	sh tools/postprocess_dome_intro_lightmap.sh
+
+# Reimporta solo los assets de escena importados para aplicar split_stream.
+# Los .mesh nativos no pasan por el importador. Los artefactos se respaldan en
+# build/split-stream-reimport-backup antes de abrir Godot en modo import.
+reimport-split-stream-meshes:
+	bash tools/prepare_split_stream_mesh_reimport.sh
+	GODOT_BIN="$(GODOT)" bash tools/run_split_stream_mesh_reimport.sh
+	bash tools/verify_split_stream_mesh_reimport.sh
+	python3 scripts/check_tracked_imports.py
+	python3 scripts/check_critical_import_artifacts.py
 
 dashboard-dev:
 	@set -a; \
@@ -267,4 +305,4 @@ android-install-release: android-release-signed
 	adb install -r "$(ANDROID_RELEASE_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all bake export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
+.PHONY: all bake bake-dome-geometry bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release

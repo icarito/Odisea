@@ -278,8 +278,10 @@ func _init() -> void:
 							vcount += child.multimesh.mesh.surface_get_array_len(si)
 						mesh_name += " (%d verts)" % vcount
 					print("[mobile] %s -> %s" % [child.name, mesh_name])
-		var terrace_mesh: Node = scene.get_node_or_null("Terrace/TerraceMesh")
-		if terrace_mesh != null and terrace_mesh.mesh != null:
+		for terrace_name in ["TerraceFloor", "DomeShell"]:
+			var terrace_mesh: Node = scene.get_node_or_null("Terrace/%s" % terrace_name)
+			if terrace_mesh == null or terrace_mesh.mesh == null:
+				continue
 			for si in range(terrace_mesh.mesh.get_surface_count()):
 				var m: Material = terrace_mesh.get_surface_material(si)
 				if m == null:
@@ -287,7 +289,7 @@ func _init() -> void:
 				var np := "SIN next_pass (no envuelto)"
 				if m != null and m.next_pass != null:
 					np = "CON next_pass de hielo"
-				print("[mobile] Terrace surf %d -> %s" % [si, np])
+				print("[mobile] %s surf %d -> %s" % [terrace_name, si, np])
 
 	# Estado del presupuesto de particulas por manager.
 	if _env("DBG_POOLS", "") != "":

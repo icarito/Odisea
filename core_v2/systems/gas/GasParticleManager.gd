@@ -16,13 +16,16 @@ export(float, 5.0, 60.0, 1.0) var pool_fps_floor := 24.0
 export(float, 5.0, 90.0, 1.0) var pool_fps_ceiling := 45.0
 export(float, 0.05, 1.0, 0.05) var min_pool_fraction := 0.25
 export(float, 0.25, 5.0, 0.25) var pool_adapt_interval := 1.5
-# LOD: de lejos el gas es apenas unos pixeles borrosos, así que congelarlo (dejar de
-# simular, no de dibujar) no se nota. Mismo patrón que AirlockLOD.gd — solo toca
-# _physics_process, nunca colisión, para no meter drift en replays deterministas.
+# LOD: de lejos el gas es apenas unos pixeles borrosos. Se deja de simular el
+# MultiMesh (sin tocar colisión: replay) y se reemplaza por un CPUParticles
+# barato en la dirección media de la pluma.
 export(bool) var distance_lod_enabled := true
 export(float, 5.0, 100.0, 1.0) var lod_distance := 12.0
 export(float, 0.0, 20.0, 0.5) var lod_hysteresis := 4.0
 export(int, 1, 60) var lod_frames_between_checks := 10
+export(bool) var lod_cpu_enabled := true
+export(int, 4, 64) var lod_cpu_amount := 12
+export(bool) var force_cpu_lod := false
 # El MultiMesh no actualiza su AABB a partir de las instancias que se mueven. Los
 # emisores que ocupan una zona amplia pueden ampliar este margen desde su escena para
 # que el frustum no corte la pluma antes que las propias particulas expiren.
@@ -78,6 +81,9 @@ var _gas_material: ShaderMaterial = null
 # Límite visual opcional, en coordenadas locales. INF conserva el comportamiento normal.
 var vertical_ceiling_y := INF
 var _lod = null
+var _cpu_lod: CPUParticles = null
+var _cpu_lod_active := false
+var _lod_direction := Vector3(0.0, 1.0, 0.0)
 
 func _init():
 	add_to_group("replay_sync")
@@ -94,6 +100,8 @@ func _ready():
 		var budget = get_node_or_null("/root/AdaptiveVisualBudget")
 		if budget != null and budget.has_method("register_consumer"):
 			budget.register_consumer(self, "_on_visual_budget_level_changed")
+	if force_cpu_lod:
+		_set_cpu_lod_active(true)
 
 func _ensure_multimesh_instance() -> void:
 	multimesh_instance = get_node_or_null("GasMultiMeshInstance")
@@ -133,11 +141,13 @@ func set_full_visibility_mode(value: bool) -> void:
 	if not value:
 		return
 	distance_lod_enabled = false
+	force_cpu_lod = false
 	adaptive_pool_on_mobile = false
 	mobile_pool_scale = 1.0
 	min_pool_fraction = 1.0
 	particle_cull_margin = max(particle_cull_margin, 96.0)
 	_lod = null
+	_set_cpu_lod_active(false)
 	if multimesh_instance != null:
 		multimesh_instance.extra_cull_margin = particle_cull_margin
 	if not particles.empty():
@@ -259,12 +269,109 @@ func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
 	_adapt_pool_to_fps(delta)
-	if _lod != null and not _lod.should_process():
+	var use_cpu_lod: bool = force_cpu_lod
+	if not use_cpu_lod and _lod != null and not _lod.should_process():
+		use_cpu_lod = lod_cpu_enabled
+		if not lod_cpu_enabled:
+			return
+	if use_cpu_lod:
+		_set_cpu_lod_active(true)
 		return
+	_set_cpu_lod_active(false)
 	step(delta)
 
+func is_cpu_lod_active() -> bool:
+	return _cpu_lod_active
+
+func _set_cpu_lod_active(active: bool) -> void:
+	if _cpu_lod_active == active:
+		return
+	_cpu_lod_active = active
+	if active:
+		_capture_lod_direction()
+		_ensure_cpu_lod()
+		_apply_cpu_lod_from_particles()
+		if multimesh_instance != null:
+			multimesh_instance.visible = false
+		if _cpu_lod != null:
+			_cpu_lod.emitting = true
+	else:
+		if _cpu_lod != null:
+			_cpu_lod.emitting = false
+		if multimesh_instance != null:
+			multimesh_instance.visible = true
+
+func _capture_lod_direction() -> void:
+	var acc := Vector3.ZERO
+	var count := 0
+	var limit: int = _effective_pool()
+	for i in range(limit):
+		if not bool(particles[i]["active"]):
+			continue
+		acc += Vector3(particles[i]["velocity"])
+		count += 1
+	if count > 0 and acc.length_squared() > 0.0001:
+		_lod_direction = acc / float(count)
+		return
+	var gravity_y := _get_local_gravity_y()
+	if buoyancy * gravity_y > 0.0:
+		_lod_direction = Vector3(0.0, 1.0, 0.0)
+	else:
+		_lod_direction = Vector3(0.0, -1.0, 0.0)
+
+func _ensure_cpu_lod() -> void:
+	_cpu_lod = get_node_or_null("LODParticles") as CPUParticles
+	if _cpu_lod != null:
+		return
+	_cpu_lod = CPUParticles.new()
+	_cpu_lod.name = "LODParticles"
+	_cpu_lod.emitting = false
+	_cpu_lod.amount = int(clamp(lod_cpu_amount, 4, 64))
+	_cpu_lod.lifetime = max(default_max_lifetime, 0.2)
+	_cpu_lod.lifetime_randomness = 0.35
+	_cpu_lod.explosiveness = 0.0
+	_cpu_lod.local_coords = true
+	_cpu_lod.cast_shadow = 0
+	_cpu_lod.emission_shape = CPUParticles.EMISSION_SHAPE_SPHERE
+	_cpu_lod.emission_sphere_radius = clamp(volume_radius * 0.35, 0.4, 3.0)
+	_cpu_lod.spread = 28.0
+	_cpu_lod.flag_align_y = false
+	_cpu_lod.extra_cull_margin = max(particle_cull_margin, 8.0)
+	var mat := SpatialMaterial.new()
+	mat.flags_transparent = true
+	mat.flags_unshaded = true
+	mat.flags_do_not_receive_shadows = true
+	mat.vertex_color_use_as_albedo = true
+	mat.params_billboard_mode = SpatialMaterial.BILLBOARD_PARTICLES
+	mat.particles_anim_h_frames = 8
+	mat.particles_anim_v_frames = 8
+	mat.particles_anim_loop = true
+	var atlas = load(default_atlas_path)
+	if atlas:
+		mat.albedo_texture = atlas
+	mat.albedo_color = Color(1, 1, 1, 0.85)
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1, 1)
+	quad.material = mat
+	_cpu_lod.mesh = quad
+	add_child(_cpu_lod)
+
+func _apply_cpu_lod_from_particles() -> void:
+	if _cpu_lod == null:
+		return
+	var direction: Vector3 = _lod_direction
+	if direction.length_squared() < 0.0001:
+		direction = Vector3(0.0, 1.0, 0.0)
+	var speed: float = direction.length()
+	_cpu_lod.direction = direction.normalized()
+	_cpu_lod.initial_velocity = clamp(speed, 0.25, 4.0)
+	_cpu_lod.initial_velocity_random = 0.35
+	_cpu_lod.gravity = Vector3(0.0, clamp(-buoyancy * 1.2, -4.0, 4.0), 0.0)
+	_cpu_lod.scale_amount = max(default_base_scale * 0.85, 0.2)
+	_cpu_lod.color = default_color
+
 func step(delta: float) -> void:
-	if multimesh == null:
+	if _cpu_lod_active or multimesh == null:
 		return
 
 	var gravity_y := _get_local_gravity_y()
@@ -418,7 +525,8 @@ func emit_particle(local_position: Vector3, local_velocity: Vector3 = Vector3.ZE
 	p["anim_offset"] = _get_deterministic_anim_offset(index)
 	p["anim_speed_mod"] = 0.5 + _get_deterministic_anim_offset(index + 1234) * 1.5
 	particles[index] = p
-	_sync_instance(index)
+	if not _cpu_lod_active:
+		_sync_instance(index)
 	return index
 
 func _get_deterministic_anim_offset(index: int) -> float:

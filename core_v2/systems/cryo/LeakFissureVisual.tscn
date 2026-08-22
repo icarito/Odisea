@@ -38,7 +38,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 0 )
 emitting = false
 amount = 18
 lifetime = 0.7
-visibility_aabb = AABB( -8, -2, -8, 16, 14, 16 )
 mesh = SubResource( 2 )
 direction = Vector3( 0, 1, 0 )
 spread = 20.0
@@ -56,21 +55,7 @@ particles_per_second = 18
 emission_height = 0.08
 emission_speed = 1.15
 particle_alpha = 0.22
-use_particle_dither = true
 preserve_full_particle_visibility = true
-
-[node name="GasParticleManager" parent="MistFrost" index="1"]
-# Una fuga activa es una señal jugable. No participa de LOD por distancia ni de
-# reducción adaptativa del pool: desde lejos debe seguir teniendo una pluma legible.
-distance_lod_enabled = false
-# La pluma es el marcador del puzzle: de lejos puede simplificarse, pero nunca
-# desaparecer antes de que el jugador pueda ubicar la fisura.
-default_max_lifetime = 2.6
-default_base_scale = 1.9
-default_color = Color( 0.96, 0.985, 1, 0.46 )
-viscosity = 0.25
-collide_with_world = true
-world_collision_mask = 1
 
 [node name="GlooMesh" type="MeshInstance" parent="."]
 visible = false

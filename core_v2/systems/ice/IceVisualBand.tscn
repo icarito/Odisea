@@ -1,21 +1,17 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=2 format=2]
 
 [ext_resource path="res://core_v2/systems/ice/IceVisualBand.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=2]
 
 [node name="IceVisualBand" type="Spatial"]
 script = ExtResource( 1 )
 frost_rise_speed = 1.4
 
-[node name="GasParticleManager" type="Spatial" parent="."]
-script = ExtResource( 2 )
-pool_size = 96
-default_max_lifetime = 1.4
-default_base_scale = 3.2
-viscosity = 0.45
-buoyancy = -1.6
-default_color = Color( 0.65, 0.88, 1, 0.7 )
-ignition_color = Color( 0.25, 0.65, 1, 0.85 )
-collide_with_world = false
-flipbook_frames_per_second = 32.0
-default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_02/textures/smoke_02.tga"
+[node name="CPUParticles" type="CPUParticles" parent="."]
+emitting = false
+amount = 24
+lifetime = 0.55
+cast_shadow = 0
+direction = Vector3( 0, 1, 0 )
+spread = 16.0
+gravity = Vector3( 0, 0.12, 0 )
+initial_velocity = 1.4

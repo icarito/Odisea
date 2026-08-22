@@ -40,6 +40,7 @@ extends SceneTree
 const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_CriopodsSource.tscn"
 const OUT_DIR := "res://core_v2/levels/interiors/"
 const FRAGMENT_PATH := OUT_DIR + "DomeIntro_Criopods.nodes"
+const LIGHTMAP_TEXEL_SIZE := 0.2
 
 # Ruta relativa dentro del criopod -> nombre de la capa horneada. El orden importa
 # solo para que el fragmento salga legible.
@@ -154,6 +155,8 @@ func _bake_ring(ring: Spatial) -> bool:
 				merged.surface_set_material(merged.get_surface_count() - 1, _shared_material(mat, layer.name))
 
 		var out_mesh: String = OUT_DIR + "DomeIntro_%s_%s.mesh" % [ring.name, layer.name]
+		if not _generate_lightmap_uv2(merged, out_mesh):
+			return false
 		if ResourceSaver.save(out_mesh, merged) != OK:
 			push_error("[bake_criopods] no pude guardar %s" % out_mesh)
 			return false
@@ -187,6 +190,16 @@ func _bake_ring(ring: Spatial) -> bool:
 	linea.append("colision=%d cajas" % cajas)
 
 	print("[bake_criopods] " + linea.join("  "))
+	return true
+
+
+# Cada anillo ya es una malla estatica por capa. UV2 permite que sus carcasas
+# reciban sombra cocinada sin recuperar los cientos de nodos de origen.
+func _generate_lightmap_uv2(mesh: ArrayMesh, mesh_path: String) -> bool:
+	var result: int = mesh.lightmap_unwrap(Transform.IDENTITY, LIGHTMAP_TEXEL_SIZE)
+	if result != OK:
+		push_error("[bake_criopods] no pude generar UV2 para %s (error %d)" % [mesh_path, result])
+		return false
 	return true
 
 

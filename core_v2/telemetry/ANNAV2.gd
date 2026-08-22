@@ -746,6 +746,15 @@ func _cmd_reload_resource(id, args):
 		_send_response(id, false, {"error": "resource not found: " + str(path)})
 
 func _cmd_screenshot(id, _args):
+	var pause_layer = get_tree().root.get_node_or_null("PauseMenuLayer")
+	var pause_was_visible := false
+	var should_restore_pause := false
+	if pause_layer and is_instance_valid(pause_layer) and pause_layer is CanvasItem:
+		pause_was_visible = pause_layer.visible
+		if pause_was_visible:
+			pause_layer.visible = false
+			should_restore_pause = true
+
 	yield(get_tree(), "idle_frame")
 	yield(VisualServer, "frame_post_draw")
 
@@ -756,6 +765,10 @@ func _cmd_screenshot(id, _args):
 
 	var buffer = img.save_png_to_buffer()
 	var b64 = Marshalls.raw_to_base64(buffer)
+
+	if should_restore_pause and pause_layer and is_instance_valid(pause_layer):
+		pause_layer.visible = pause_was_visible
+
 	_send_response(id, true, {"result": b64})
 
 func _cmd_teleport_player(id, args):

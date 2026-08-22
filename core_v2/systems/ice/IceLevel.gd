@@ -30,7 +30,8 @@ export(float) var accel := 0.0
 export(float, 0.0, 0.5) var rise_twitch_amount := 0.08
 export(float) var rise_twitch_frequency := 0.85
 # Y inicial de la línea de hielo.
-export(float) var start_height := 0.0
+export(float) var start_height := -0.2
+
 # Techo opcional de la subida. Menor o igual a start_height = sin techo.
 export(float) var max_height := 0.0
 # Profundidad superficial que Elías puede pisar antes de recibir daño.
@@ -566,8 +567,12 @@ func _make_debug_plane(node_name: String, color: Color, density: float) -> MeshI
 
 func _update_debug_visuals() -> void:
 	if is_instance_valid(_debug_plane):
-		_debug_plane.visible = debug_draw
-		if debug_draw:
+		# La superficie de hielo no debe dibujarse hasta que el hielo arranca a subir:
+		# apagada al inicio evita el z-fighting contra el piso del domo. debug_draw
+		# la fuerza visible para calibrar ice_height sin esperar el descenso térmico.
+		var show_surface: bool = debug_draw or ice_height > start_height
+		_debug_plane.visible = show_surface
+		if show_surface:
 			var t := _debug_plane.transform
 			t.origin = Vector3(0.0, to_local(Vector3(0.0, ice_height, 0.0)).y, 0.0)
 			_debug_plane.transform = t

@@ -18,6 +18,9 @@ class_name IceObjectFreezer
 # sin necesitar INSTANCE_CUSTOM ni curar el batching.
 
 const ICE_FREEZABLE_GROUP := "ice_freezable"
+# Excluye solo una parte de un prop congelable. Dome_Intro lo usa para que el piso
+# conserve el lightmap y las sombras, mientras las paredes del domo sí se congelan.
+const NO_FREEZE_OVERLAY_GROUP := "no_ice_material_overlay"
 const FREEZE_SHADER := preload("res://core_v2/systems/ice/shaders/object_freeze_overlay.shader")
 const MOBILE_MAX_WRAPPED_HEIGHT := 8.0
 
@@ -35,11 +38,13 @@ export(int) var scan_attempts := 4
 export(float) var scan_interval := 0.35
 
 var _ice_level: Node = null
+var _room: Node = null
 var _shared_material: ShaderMaterial = null
 var _wrapped_meshes := {}
-# Material base -> copia con el overlay de hielo encadenado. Ver _wrapped_copy_of.
 var _wrapped_material_cache := {}
+var _wrap_records: Array = []
 var _scans_done := 0
+var _activated := false
 
 func _ready() -> void:
 	if Engine.editor_hint:
@@ -60,23 +65,15 @@ func _ready() -> void:
 	if dither_manager != null:
 		dither_manager.register_material(_shared_material)
 	call_deferred("_connect_ice_level")
-	_schedule_scan()
 
-func _schedule_scan() -> void:
-	if _scans_done >= scan_attempts:
+func _wrap_now() -> void:
+	if not is_instance_valid(self) or not _activated or get_tree() == null:
 		return
 	_scans_done += 1
-	var timer := get_tree().create_timer(scan_interval)
-	timer.connect("timeout", self, "_run_scan")
-
-func _run_scan() -> void:
-	if not is_instance_valid(self):
-		return
 	var roots := get_tree().get_nodes_in_group(ICE_FREEZABLE_GROUP)
 	for root in roots:
 		if is_instance_valid(root):
 			_wrap_recursive(root)
-	_schedule_scan()
 
 func _connect_ice_level() -> void:
 	if not get_tree():
@@ -89,7 +86,86 @@ func _connect_ice_level() -> void:
 		return
 	if not _ice_level.is_connected("ice_height_changed", self, "_on_ice_height_changed"):
 		var _err = _ice_level.connect("ice_height_changed", self, "_on_ice_height_changed")
+	if _ice_level.has_signal("ice_visuals_reset") and not _ice_level.is_connected("ice_visuals_reset", self, "reset_visuals"):
+		var _err_reset = _ice_level.connect("ice_visuals_reset", self, "reset_visuals")
+	_connect_room()
 	_on_ice_height_changed(float(_ice_level.ice_height))
+	_sync_activation()
+
+func has_started_wrapping() -> bool:
+	return _activated
+
+func _connect_room() -> void:
+	_room = null
+	if is_instance_valid(_ice_level):
+		var path = _ice_level.get("room_path")
+		if path != null and not NodePath(str(path)).is_empty():
+			_room = _ice_level.get_node_or_null(path)
+	if _room == null and get_tree() != null:
+		var rooms: Array = get_tree().get_nodes_in_group("room_3d")
+		if not rooms.empty():
+			_room = rooms[0]
+	if not is_instance_valid(_room):
+		return
+	if _room.has_signal("freezing_changed") and not _room.is_connected("freezing_changed", self, "_on_room_freezing_changed"):
+		_room.connect("freezing_changed", self, "_on_room_freezing_changed")
+
+func _room_is_freezing() -> bool:
+	if not is_instance_valid(_room):
+		return false
+	if _room.has_method("is_freezing"):
+		return bool(_room.is_freezing())
+	var room_temp: float = float(_room.get("temperature"))
+	var freeze_pt: float = float(_room.get("freezing_point"))
+	return room_temp <= freeze_pt
+
+func _on_room_freezing_changed(_is_freezing: bool) -> void:
+	_sync_activation()
+
+func _ice_has_risen() -> bool:
+	if not is_instance_valid(_ice_level):
+		return false
+	return float(_ice_level.ice_height) > float(_ice_level.start_height) + 0.001
+
+func _sync_activation() -> void:
+	if _room_is_freezing():
+		if _activated:
+			return
+		_activated = true
+		_wrap_now()
+		call_deferred("_wrap_now")
+		return
+	_unwrap_all()
+
+func reset_visuals() -> void:
+	if is_instance_valid(_ice_level):
+		_on_ice_height_changed(float(_ice_level.ice_height))
+	if _room_is_freezing() and _ice_has_risen():
+		return
+	_unwrap_all()
+
+func _unwrap_all() -> void:
+	for record in _wrap_records:
+		if typeof(record) != TYPE_DICTIONARY:
+			continue
+		var node: Node = record.get("node")
+		if not is_instance_valid(node):
+			continue
+		var kind: String = String(record.get("kind", ""))
+		var original: Material = record.get("material")
+		var index: int = int(record.get("index", 0))
+		if kind == "mesh" and node is MeshInstance:
+			node.set_surface_material(index, original)
+		elif kind == "mm_override" and node is MultiMeshInstance:
+			node.material_override = original
+		elif kind == "mm_mesh" and node is MultiMeshInstance and node.multimesh != null and node.multimesh.mesh != null:
+			node.multimesh.mesh.surface_set_material(index, original)
+	_wrap_records.clear()
+	_wrapped_meshes.clear()
+	_wrapped_material_cache.clear()
+	_cutout_materials.clear()
+	_activated = false
+	_scans_done = 0
 
 func _on_ice_height_changed(height: float) -> void:
 	if is_instance_valid(_shared_material):
@@ -99,6 +175,8 @@ func _on_ice_height_changed(height: float) -> void:
 			overlay.set_shader_param("ice_height_world", height)
 
 func _wrap_recursive(node: Node) -> void:
+	if node.is_in_group(NO_FREEZE_OVERLAY_GROUP):
+		return
 	if node is MeshInstance and node.mesh != null:
 		if _min_world_y(node) <= max_wrap_height and not _is_oversized_mobile_mesh(node):
 			_wrap_mesh_instance(node)
@@ -173,6 +251,13 @@ func _wrap_mesh_instance(instance: MeshInstance) -> void:
 			continue
 		if not _can_wrap_material(base_material):
 			continue
+		var instance_override: Material = instance.get_surface_material(i)
+		_wrap_records.append({
+			"node": instance,
+			"kind": "mesh",
+			"index": i,
+			"material": instance_override
+		})
 		instance.set_surface_material(i, _wrapped_copy_of(base_material))
 
 func _wrap_multimesh_instance(instance: MultiMeshInstance) -> void:
@@ -183,6 +268,12 @@ func _wrap_multimesh_instance(instance: MultiMeshInstance) -> void:
 	if instance.material_override != null:
 		if not _can_wrap_material(instance.material_override):
 			return
+		_wrap_records.append({
+			"node": instance,
+			"kind": "mm_override",
+			"index": 0,
+			"material": instance.material_override
+		})
 		instance.material_override = _wrapped_copy_of(instance.material_override)
 		return
 	var mesh: Mesh = instance.multimesh.mesh
@@ -194,6 +285,12 @@ func _wrap_multimesh_instance(instance: MultiMeshInstance) -> void:
 			continue
 		if not _can_wrap_material(base_material):
 			continue
+		_wrap_records.append({
+			"node": instance,
+			"kind": "mm_mesh",
+			"index": i,
+			"material": base_material
+		})
 		mesh.surface_set_material(i, _wrapped_copy_of(base_material))
 
 # Duplicate before chaining next_pass: many props share one base material across every
