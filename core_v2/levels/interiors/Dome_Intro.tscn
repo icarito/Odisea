@@ -1,4 +1,4 @@
-[gd_scene load_steps=243 format=2]
+[gd_scene load_steps=242 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
@@ -13,7 +13,6 @@
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=15]
 [ext_resource path="res://core_v2/systems/ice/IceLevel.gd" type="Script" id=16]
 [ext_resource path="res://core_v2/systems/ice/IceVisualBand.gd" type="Script" id=17]
-[ext_resource path="res://core_v2/systems/gas/GasParticleManager.gd" type="Script" id=18]
 [ext_resource path="res://core_v2/systems/ice/shaders/transparent_ice.shader" type="Shader" id=19]
 [ext_resource path="res://scenes/common/space_environment/Environment_DomeIntro.tres" type="Environment" id=20]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=21]
@@ -4966,21 +4965,6 @@ wall_emission_ratio = 0.42
 hot_color = Color( 0.86, 0.94, 1, 0.46 )
 cool_color = Color( 0.68, 0.84, 0.98, 0.38 )
 
-[node name="GasParticleManager" type="Spatial" parent="IceVisualBand"]
-script = ExtResource( 18 )
-pool_size = 48
-default_max_lifetime = 0.55
-default_base_scale = 4.8
-viscosity = 0.45
-buoyancy = -1.6
-default_color = Color( 0.96, 0.985, 1, 0.34 )
-ignition_color = Color( 0.9, 0.97, 1, 0.38 )
-collide_with_world = false
-flipbook_frames_per_second = 20.0
-use_dither = false
-shader_path = "res://core_v2/systems/ice/shaders/frost_flipbook.shader"
-default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_02/textures/smoke_02.tga"
-
 [node name="FrostMistCrown" type="Spatial" parent="."]
 script = ExtResource( 17 )
 ring_radius = 26.0
@@ -4993,20 +4977,6 @@ frost_scale = 2.8
 is_smoke_crown = true
 smoke_height_offset = 1.8
 smoke_lateral_speed = 0.04
-
-[node name="GasParticleManager" type="Spatial" parent="FrostMistCrown"]
-script = ExtResource( 18 )
-pool_size = 28
-default_max_lifetime = 2.8
-default_base_scale = 3.4
-viscosity = 0.7
-buoyancy = -0.12
-default_color = Color( 0.98, 0.995, 1, 0.32 )
-collide_with_world = false
-flipbook_frames_per_second = 6.0
-use_dither = false
-shader_path = "res://core_v2/systems/ice/shaders/frost_flipbook.shader"
-default_atlas_path = "res://assets/flipbook_particles/assets/smokes/smoke_01/textures/smoke_01.tga"
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 20 )

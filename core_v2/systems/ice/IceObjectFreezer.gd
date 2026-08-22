@@ -43,6 +43,7 @@ var _wrapped_meshes := {}
 # Material base -> copia con el overlay de hielo encadenado. Ver _wrapped_copy_of.
 var _wrapped_material_cache := {}
 var _scans_done := 0
+var _activated := false
 
 func _ready() -> void:
 	if Engine.editor_hint:
@@ -63,7 +64,6 @@ func _ready() -> void:
 	if dither_manager != null:
 		dither_manager.register_material(_shared_material)
 	call_deferred("_connect_ice_level")
-	_schedule_scan()
 
 func _schedule_scan() -> void:
 	if _scans_done >= scan_attempts:
@@ -94,12 +94,23 @@ func _connect_ice_level() -> void:
 		var _err = _ice_level.connect("ice_height_changed", self, "_on_ice_height_changed")
 	_on_ice_height_changed(float(_ice_level.ice_height))
 
+func has_started_wrapping() -> bool:
+	return _activated
+
+func _ice_has_risen(height: float) -> bool:
+	if not is_instance_valid(_ice_level):
+		return false
+	return height > float(_ice_level.start_height) + 0.001
+
 func _on_ice_height_changed(height: float) -> void:
 	if is_instance_valid(_shared_material):
 		_shared_material.set_shader_param("ice_height_world", height)
 	for overlay in _cutout_materials:
 		if is_instance_valid(overlay):
 			overlay.set_shader_param("ice_height_world", height)
+	if not _activated and _ice_has_risen(height):
+		_activated = true
+		_schedule_scan()
 
 func _wrap_recursive(node: Node) -> void:
 	if node.is_in_group(NO_FREEZE_OVERLAY_GROUP):

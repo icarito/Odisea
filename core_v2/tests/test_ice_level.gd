@@ -330,6 +330,39 @@ func test_object_freezer_does_not_fill_cutout_or_procedural_surfaces() -> void:
 	assert_bool(freezer._can_wrap_material(procedural)).is_false()
 	assert_bool(freezer._can_wrap_material(solid)).is_true()
 
+
+func test_ice_visuals_stay_off_until_ice_rises() -> void:
+	var IceVisualBandScript = preload("res://core_v2/systems/ice/IceVisualBand.gd")
+	var level = _make_level(false)
+	var band = auto_free(IceVisualBandScript.new())
+	add_child(band)
+	band._connect_ice_level()
+	assert_bool(band.is_visual_active()).is_false()
+	assert_bool(band.is_using_cpu_particles()).is_true()
+	var cpu: CPUParticles = band.get_node_or_null("CPUParticles")
+	assert_object(cpu).is_not_null()
+	band._on_ice_height_changed(level.start_height)
+	assert_bool(band.is_visual_active()).is_false()
+	band._on_ice_height_changed(level.start_height + 1.0)
+	assert_bool(band.is_visual_active()).is_true()
+	band.reset_visuals()
+	assert_bool(band.is_visual_active()).is_false()
+
+
+func test_object_freezer_waits_for_ice_rise() -> void:
+	var freezer = auto_free(IceObjectFreezerScript.new())
+	var level = _make_level(false)
+	add_child(freezer)
+	freezer._connect_ice_level()
+	assert_bool(freezer.has_started_wrapping()).is_false()
+	assert_int(freezer._scans_done).is_equal(0)
+	freezer._on_ice_height_changed(level.start_height)
+	assert_bool(freezer.has_started_wrapping()).is_false()
+	assert_int(freezer._scans_done).is_equal(0)
+	freezer._on_ice_height_changed(level.start_height + 1.0)
+	assert_bool(freezer.has_started_wrapping()).is_true()
+	assert_int(freezer._scans_done).is_equal(1)
+
 # El binario headless de CI usa el rasterizer dummy: los ShaderMaterial no guardan
 # parámetros y get_shader_param() devuelve null (float(null) es error de script). Los
 # valores se asertan sobre el estado del nodo; el material se revisa solo donde el
