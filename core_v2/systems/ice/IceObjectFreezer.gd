@@ -18,6 +18,9 @@ class_name IceObjectFreezer
 # sin necesitar INSTANCE_CUSTOM ni curar el batching.
 
 const ICE_FREEZABLE_GROUP := "ice_freezable"
+# Excluye solo una parte de un prop congelable. Dome_Intro lo usa para que el piso
+# conserve el lightmap y las sombras, mientras las paredes del domo sí se congelan.
+const NO_FREEZE_OVERLAY_GROUP := "no_ice_material_overlay"
 const FREEZE_SHADER := preload("res://core_v2/systems/ice/shaders/object_freeze_overlay.shader")
 const MOBILE_MAX_WRAPPED_HEIGHT := 8.0
 
@@ -99,6 +102,8 @@ func _on_ice_height_changed(height: float) -> void:
 			overlay.set_shader_param("ice_height_world", height)
 
 func _wrap_recursive(node: Node) -> void:
+	if node.is_in_group(NO_FREEZE_OVERLAY_GROUP):
+		return
 	if node is MeshInstance and node.mesh != null:
 		if _min_world_y(node) <= max_wrap_height and not _is_oversized_mobile_mesh(node):
 			_wrap_mesh_instance(node)

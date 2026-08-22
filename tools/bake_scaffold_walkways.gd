@@ -28,6 +28,7 @@ const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_ScaffoldS
 const GROUPS := ["SpiralStairs", "HubSpokes", "SpiralWalkways"]
 const OUT_DIR := "res://core_v2/levels/interiors/"
 const SECTOR_COUNT := 8
+const LIGHTMAP_TEXEL_SIZE := 0.2
 const FOOTSTEP_SURFACE_SCRIPT := "res://core_v2/systems/footsteps/footstep_surface.gd"
 const FOOTSTEP_PROFILE_METAL := "res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres"
 
@@ -303,9 +304,22 @@ func _save_visual_sectors(group_name: String, combined: ArrayMesh) -> bool:
 		if sector_mesh.get_surface_count() == 0:
 			continue
 		var sector_path: String = OUT_DIR + "DomeIntro_%s_sector_%02d.mesh" % [group_name, sector_index]
+		if not _generate_lightmap_uv2(sector_mesh, sector_path):
+			return false
 		if ResourceSaver.save(sector_path, sector_mesh) != OK:
 			push_error("[bake_walkways] failed to save %s" % sector_path)
 			return false
+	return true
+
+
+# Los sectores ya estan fusionados para reducir draw calls. Generar UV2 sobre cada
+# sector, en vez de sobre la malla completa, mantiene el atlas acotado y permite
+# que BakedLightmap incluya las sombras de la DirectionalLight.
+func _generate_lightmap_uv2(mesh: ArrayMesh, mesh_path: String) -> bool:
+	var result: int = mesh.lightmap_unwrap(Transform.IDENTITY, LIGHTMAP_TEXEL_SIZE)
+	if result != OK:
+		push_error("[bake_walkways] no pude generar UV2 para %s (error %d)" % [mesh_path, result])
+		return false
 	return true
 
 # Firma estable del CONTENIDO de un material. Dos materiales generados por

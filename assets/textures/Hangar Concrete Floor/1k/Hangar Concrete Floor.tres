@@ -7,6 +7,7 @@
 [ext_resource path="res://assets/textures/Hangar Concrete Floor/1k/textures/hangar_concrete_floor_ao_1k.png" type="Texture" id=5]
 
 [resource]
+params_cull_mode = 1
 albedo_texture = ExtResource( 2 )
 roughness_texture = ExtResource( 3 )
 normal_enabled = true

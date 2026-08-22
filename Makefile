@@ -36,6 +36,7 @@ all: render
 # Dome_Intro.tscn y ejecutá tools/editor_bake_dome_intro_lightmap.gd; ese
 # EditorScript invoca bake-lightmap-postprocess al terminar correctamente.
 bake:
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
 	@echo "[bake] Abre Dome_Intro.tscn y ejecuta tools/editor_bake_dome_intro_lightmap.gd en Godot."
 
 # Regeneración explícita de la geometría procedimental. No es parte del bake
@@ -48,16 +49,22 @@ bake-dome-geometry:
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
 	python3 scripts/check_tracked_imports.py
 
-# Aplica el look cyan/oscuro sobre el PNG crudo recocido. Valores por defecto
-# aproximan la referencia que ya estaba versionada; se pueden ajustar asi:
+# Aplica el look cyan/oscuro a TODOS los PNG referenciados por el .lmbake recién
+# recocido. Valores por defecto aproximan la referencia ya versionada; ajustar:
 # make bake-lightmap-postprocess DOME_LIGHTMAP_BRIGHTNESS=18
-DOME_LIGHTMAP_PATH ?= core_v2/levels/interiors/TerraceMesh.png
+DOME_LIGHTMAP_PATH ?=
+DOME_LIGHTMAP_DATA_PATH ?= core_v2/levels/interiors/Dome_Intro.lmbake
 DOME_LIGHTMAP_TINT ?= 008da3
 DOME_LIGHTMAP_COLORIZE ?= 85
 DOME_LIGHTMAP_BRIGHTNESS ?= 15
+# El piso debe conservar contraste para leer la luz direccional y sus sombras.
+DOME_LIGHTMAP_FLOOR_COLORIZE ?= 35
+DOME_LIGHTMAP_FLOOR_BRIGHTNESS ?= 65
 bake-lightmap-postprocess:
-	DOME_LIGHTMAP_PATH="$(DOME_LIGHTMAP_PATH)" DOME_LIGHTMAP_TINT="$(DOME_LIGHTMAP_TINT)" \
-	DOME_LIGHTMAP_COLORIZE="$(DOME_LIGHTMAP_COLORIZE)" DOME_LIGHTMAP_BRIGHTNESS="$(DOME_LIGHTMAP_BRIGHTNESS)" \
+	DOME_LIGHTMAP_PATH="$(DOME_LIGHTMAP_PATH)" DOME_LIGHTMAP_DATA_PATH="$(DOME_LIGHTMAP_DATA_PATH)" \
+	DOME_LIGHTMAP_TINT="$(DOME_LIGHTMAP_TINT)" DOME_LIGHTMAP_COLORIZE="$(DOME_LIGHTMAP_COLORIZE)" \
+	DOME_LIGHTMAP_BRIGHTNESS="$(DOME_LIGHTMAP_BRIGHTNESS)" DOME_LIGHTMAP_FLOOR_COLORIZE="$(DOME_LIGHTMAP_FLOOR_COLORIZE)" \
+	DOME_LIGHTMAP_FLOOR_BRIGHTNESS="$(DOME_LIGHTMAP_FLOOR_BRIGHTNESS)" DOME_LIGHTMAP_FORCE="$(DOME_LIGHTMAP_FORCE)" \
 	sh tools/postprocess_dome_intro_lightmap.sh
 
 # Reimporta solo los assets de escena importados para aplicar split_stream.
