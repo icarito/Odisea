@@ -668,13 +668,26 @@ jobs:
           # preset so the built APK installs over a previous one without an
           # uninstall. These keys live only in the Android preset block.
           echo "Android versionCode=$ANDROID_VERSION_CODE versionName=$ANDROID_VERSION_NAME"
-          sed -i -E "s|^version/code = .*|version/code = ${ANDROID_VERSION_CODE}|" export_presets.cfg
-          sed -i -E "s|^version/name = .*|version/name = \"${ANDROID_VERSION_NAME}\"|" export_presets.cfg
+          # Godot 3 writes these keys without spaces around '='. The previous
+          # `version/code = ` pattern never matched, so the APK kept 999999999.
+          python3 - "$ANDROID_VERSION_CODE" "$ANDROID_VERSION_NAME" <<'PY'
+          import re, sys
+          code, name = sys.argv[1], sys.argv[2]
+          path = "export_presets.cfg"
+          text = open(path).read()
+          text2, n_code = re.subn(r'(?m)^version/code\s*=\s*.*$', 'version/code=%s' % code, text, count=1)
+          text2, n_name = re.subn(r'(?m)^version/name\s*=\s*.*$', 'version/name="%s"' % name.replace('\\', '\\\\').replace('"', '\\"'), text2, count=1)
+          if n_code != 1 or n_name != 1:
+              sys.stderr.write("::error::Failed to stamp Android version (code=%s name=%s)\n" % (n_code, n_name))
+              sys.exit(1)
+          open(path, 'w').write(text2)
+          PY
+          grep -E '^version/(code|name)=' export_presets.cfg
           # Godot 3.6.2 can mis-detect the checked-in custom build during its
           # headless filesystem scan. In that state, explicit SDK overrides make
           # preset validation abort before Gradle starts. The Android template's
           # config.gradle already supplies these values, so omit only the overrides.
-          sed -i -E '/^custom_build\/(min_sdk|target_sdk) = /d' export_presets.cfg
+          sed -i -E '/^custom_build\/(min_sdk|target_sdk)[[:space:]]*=/d' export_presets.cfg
 
       # El Gradle wrapper y su distribución se cachean en los pasos
       # "Cache Gradle wrapper" y "Pre-cache Gradle distribution" más abajo,

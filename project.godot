@@ -3011,6 +3011,7 @@ common/max_physics_steps_per_frame=4
 
 [rendering]
 
+quality/filters/sharpen_intensity=0.5
 quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
