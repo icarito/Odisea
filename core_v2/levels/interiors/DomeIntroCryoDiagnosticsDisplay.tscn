@@ -1,17 +1,31 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://core_v2/props/controls/WallTerminal.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsUI.tscn" type="PackedScene" id=2]
 
-; This wrapper owns the Viewport override. Dome_Intro only instances this scene,
-; so light-bake/editor packing never needs to repack children below WallTerminal.
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 1.5, 2, 1.5 )
+
 [node name="HangingDisplay" instance=ExtResource( 1 )]
 is_interactable = true
 screen_resolution = Vector2( 1280, 816 )
 active = true
 static_content = true
 
-[node name="TerminalUI" parent="Viewport"]
-visible = false
+[node name="HoloParticles" parent="ProjectorMesh" index="0"]
+amount = 6
 
-[node name="CryoDiagnosticsUI" parent="Viewport" instance=ExtResource( 2 )]
+[node name="Viewport" parent="." index="4"]
+size = Vector2( 1280, 816 )
+render_target_update_mode = 1
+
+[node name="CryoDiagnosticsUI" parent="Viewport" index="0" instance=ExtResource( 2 )]
+
+[node name="CollisionShape" parent="CinematicSetup/CameraZone" index="2"]
+shape = SubResource( 1 )
+
+[node name="PathFollow" parent="CinematicSetup/CinematicPathRig" index="0"]
+transform = Transform( 5.56355e-14, 1.49157e-07, 0.999992, 3.72999e-07, 1, -1.49156e-07, -0.999999, 3.73e-07, 0, 0.625122, 0.19433, 0.639461 )
+
+[node name="LookAt" parent="CinematicSetup/CinematicPathRig/PathFollow/Camera" index="0"]
+transform = Transform( 0.933801, -0.00673025, -0.357728, -2.72645e-07, 0.999823, -0.0188113, 0.357791, 0.0175661, 0.933637, 0, 0, 0 )

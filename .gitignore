@@ -29,11 +29,11 @@ android/build/local.properties
 android/build/build/
 android/build/.gradle/
 # .import folder contains imported assets (stex, etc) - generated but large
-.import/
+#.import/
 # Allow tracking of Qodot .map import artifacts for CI cold-export
 !.import/*.map-*.md5
 !.import/*.map-*.tres
-*.stex
+#*.stex
 # Note: *.import files are now tracked for Colab compatibility
 
 # Test snapshots are generated artifacts and should not be committed by default.

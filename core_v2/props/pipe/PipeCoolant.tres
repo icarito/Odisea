@@ -4,9 +4,9 @@
 
 [resource]
 shader = ExtResource( 1 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.387619, 0.653674, 0.746094, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 1, 0, 0 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = false

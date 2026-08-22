@@ -52,9 +52,9 @@ export(float, 0.0, 1.0) var active_emission_scale := 0.32
 # Color del caño en reposo y color del fluido que corre por dentro. Por defecto, cian de
 # criocoolant; una corrida de atmósfera usa blanco/rojo y una de plasma, ámbar. Es lo que
 # permite reusar la misma corrida de tubería para los cuatro sistemas.
-export(Color) var base_color := Color(0.06, 0.22, 0.35, 1.0) setget set_base_color
-export(Color) var flow_edge_color := Color(0.08, 0.45, 0.62, 1.0) setget set_flow_edge_color
-export(Color) var flow_color := Color(0.35, 0.92, 0.98, 1.0) setget set_flow_color
+export(Color) var base_color := Color(0.01, 0.15, 0.35, 1.0) setget set_base_color
+export(Color) var flow_edge_color := Color(0.01, 0.587, 1.0, 1.0) setget set_flow_edge_color
+export(Color) var flow_color := Color(1.0, 1.0, 1.0, 1.0) setget set_flow_color
 # Microvariacion del borde del flujo. Se desvanece con el LOD para preservar la lectura lejana.
 export(float, 0.0, 0.4) var flow_noise_amount := 0.12 setget set_flow_noise_amount
 # Tamaño del patrón de ruido en metros.

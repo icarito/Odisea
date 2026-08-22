@@ -39,7 +39,7 @@ albedo_color = Color( 0, 0.890196, 1, 1 )
 material = SubResource( 9 )
 size = Vector2( 0.01, 0.05 )
 
-[sub_resource type="ViewportTexture" id=22]
+[sub_resource type="ViewportTexture" id=20]
 
 [sub_resource type="ShaderMaterial" id=7]
 shader = ExtResource( 4 )
@@ -47,6 +47,7 @@ shader_param/albedo = Color( 0.643137, 0.933333, 1, 0.15 )
 shader_param/emission_energy = 3.0
 shader_param/alpha_scissor_threshold = 0.0
 shader_param/hologram_alpha = 0.4
+shader_param/ink_level = 0.45
 shader_param/flip_h = false
 shader_param/flip_v = true
 shader_param/back_flip_h = false
@@ -55,7 +56,7 @@ shader_param/aligned_flip_h = false
 shader_param/aligned_flip_v = true
 shader_param/flip_h_when_viewed_from_back = false
 shader_param/flip_v_when_viewed_from_back = true
-shader_param/texture_albedo = SubResource( 22 )
+shader_param/texture_albedo = SubResource( 20 )
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 1.35, 0.95, 0.35 )

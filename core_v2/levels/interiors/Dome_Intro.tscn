@@ -214,6 +214,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="SphereShape" id=347]
 radius = 0.35
@@ -240,6 +244,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=567]
 shader = ExtResource( 6 )
@@ -263,6 +271,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=568]
 shader = ExtResource( 6 )
@@ -286,6 +298,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=2]
 radius = 0.2
@@ -312,6 +328,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=570]
 shader = ExtResource( 6 )
@@ -335,6 +355,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=530]
 radius = 0.2
@@ -361,6 +385,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=572]
 shader = ExtResource( 6 )
@@ -384,6 +412,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=531]
 radius = 0.2
@@ -410,6 +442,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=574]
 shader = ExtResource( 6 )
@@ -433,6 +469,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=532]
 radius = 0.2
@@ -459,6 +499,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=576]
 shader = ExtResource( 6 )
@@ -482,6 +526,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=533]
 radius = 0.2
@@ -513,6 +561,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=578]
 shader = ExtResource( 6 )
@@ -536,6 +588,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=534]
 radius = 0.2
@@ -562,6 +618,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=580]
 shader = ExtResource( 6 )
@@ -585,6 +645,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=535]
 radius = 0.2
@@ -611,6 +675,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=582]
 shader = ExtResource( 6 )
@@ -634,6 +702,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=536]
 radius = 0.2
@@ -660,6 +732,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=584]
 shader = ExtResource( 6 )
@@ -683,6 +759,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=537]
 radius = 0.2
@@ -709,6 +789,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=586]
 shader = ExtResource( 6 )
@@ -732,6 +816,10 @@ shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35
 shader_param/fissure_intensity = 0.0
 shader_param/crack_scale = 2.5
+shader_param/voronoi_scale = 14.0
+shader_param/water_noise_scale = 0.21
+shader_param/water_speed = 0.7
+shader_param/axial_stretch = 0.55
 
 [sub_resource type="CylinderShape" id=538]
 radius = 0.2
@@ -1080,7 +1168,7 @@ shader_param/texture_scale = 0.115
 shader_param/uv_offset = Vector2( 0, 0 )
 shader_param/surface_radius = 31.45
 shader_param/low_end_mobile = false
-shader_param/mobile_color_pbr = false
+shader_param/mobile_color_pbr = true
 shader_param/lod_strength = 0.35
 shader_param/detail_distance = 22.0
 shader_param/detail_fade = 10.0
@@ -1104,7 +1192,7 @@ shader_param/texture_scale = 0.085
 shader_param/uv_offset = Vector2( 0, 0 )
 shader_param/surface_radius = 31.45
 shader_param/low_end_mobile = false
-shader_param/mobile_color_pbr = false
+shader_param/mobile_color_pbr = true
 shader_param/lod_strength = 0.35
 shader_param/detail_distance = 22.0
 shader_param/detail_fade = 10.0
@@ -1129,6 +1217,8 @@ explosion_scene = ExtResource( 5008 )
 explosion_positions = [ Vector3( -12, 4.08, 0 ), Vector3( 12, 4.08, 0 ), Vector3( 0, 5, 0 ) ]
 aftershock_positions = [ Vector3( 0, 5, 0 ) ]
 aftershock_delay = -1.0
+initial_explosion_scale = 3.0
+staggered_explosion_scale = 2.0
 rupture_sound_path = NodePath("RuptureSound")
 aftershock_sound_path = NodePath("AftershockSound")
 
@@ -3553,6 +3643,7 @@ drain_rate = 0.00833333
 
 [node name="TankRiserEast" type="CSGCylinder" parent="."]
 transform = Transform( 1, 0, 0, 0, 0.1543, 0.988, 0, -0.988, 0.1543, 16, 7.7875, 2 )
+use_collision = true
 radius = 0.2
 height = 4.05
 sides = 12
@@ -3560,6 +3651,7 @@ material = ExtResource( 370 )
 
 [node name="TankRiser" type="CSGCylinder" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 4.9875, 0 )
+use_collision = true
 radius = 0.15
 height = 0.225
 sides = 12
