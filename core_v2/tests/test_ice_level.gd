@@ -118,7 +118,7 @@ func test_rising_ice_remains_a_walkable_platform() -> void:
 	player.translation.y = 1.01
 	level.ice_height = 0.02
 	level._update_ice_collider()
-	assert_float(collider.global_transform.origin.y).is_equal_approx(-0.1, 0.001)
+	assert_float(collider.global_transform.origin.y).is_equal_approx(level.start_height - 0.1, 0.001)
 	assert_int(collider.collision_layer).is_equal(1)
 
 
@@ -135,7 +135,7 @@ func test_coolant_volume_caps_the_ice_and_leaves_the_last_floor() -> void:
 	# Un tanque agotado aporta exactamente media columna: sin fuga en el otro,
 	# la superficie no puede seguir subiendo.
 	level.step(1.0)
-	assert_float(level.ice_height).is_equal_approx(9.0, 0.001)
+	assert_float(level.ice_height).is_equal_approx(level.start_height + 9.0, 0.001)
 	assert_bool(level.is_running).is_false()
 
 	# Si ambos se vacían ya no hay caudal: conserva la altura alcanzada, no persigue
@@ -143,7 +143,7 @@ func test_coolant_volume_caps_the_ice_and_leaves_the_last_floor() -> void:
 	east.tank_level = 0.0
 	level.start()
 	level.step(1.0)
-	assert_float(level.ice_height).is_equal_approx(9.0, 0.001)
+	assert_float(level.ice_height).is_equal_approx(level.start_height + 9.0, 0.001)
 	assert_bool(level.is_running).is_false()
 
 
@@ -159,8 +159,8 @@ func test_coolant_volume_rises_visibly_instead_of_jumping_to_drained_height() ->
 
 	level.step(1.0)
 
-	assert_float(level.ice_height).is_greater(0.0)
-	assert_float(level.ice_height).is_less(9.05)
+	assert_float(level.ice_height).is_greater(level.start_height)
+	assert_float(level.ice_height).is_less(level.start_height + 9.05)
 	assert_bool(level.is_running).is_true()
 
 
@@ -174,7 +174,7 @@ func test_coolant_capacity_calculates_the_maximum_ice_height() -> void:
 	var level = _make_level(false)
 	level.max_coolant_height = 8.0
 
-	assert_float(level._get_coolant_height_cap()).is_equal_approx(8.0, 0.0001)
+	assert_float(level._get_coolant_height_cap()).is_equal_approx(level.start_height + 8.0, 0.0001)
 
 
 func test_closed_or_empty_coolant_flow_stops_ice_without_lowering_it() -> void:
@@ -237,7 +237,7 @@ func test_ice_rise_speed_scales_with_active_leak_count() -> void:
 	level.step(1.0)
 
 	assert_float(level.ice_speed).is_equal_approx(0.4, 0.0001)
-	assert_float(level.ice_height).is_equal_approx(0.4, 0.0001)
+	assert_float(level.ice_height).is_equal_approx(level.start_height + 0.4, 0.0001)
 
 # Al reaparecer el mundo está pausado (no corre _physics_process), así que el clamp de
 # ensure_safe_for_respawn tiene que dejar el colisionador y el visual al día por sí mismo:
