@@ -1,0 +1,725 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v3.6.27",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "modular_fire_escape_railing_middle",
+      "translation": [
+        -0.006468772888183594,
+        5.758929252624512,
+        0.3275086581707001
+      ]
+    },
+    {
+      "mesh": 1,
+      "name": "modular_fire_escape_platform_railing",
+      "translation": [
+        -0.15419864654541016,
+        5.907587051391602,
+        0.11070463061332703
+      ]
+    },
+    {
+      "mesh": 2,
+      "name": "modular_fire_escape_platform_middle",
+      "translation": [
+        -0.08171079307794571,
+        4.051665782928467,
+        0.08335098624229431
+      ]
+    },
+    {
+      "mesh": 3,
+      "name": "modular_fire_escape_stairs",
+      "translation": [
+        0.053811073303222656,
+        1.505383014678955,
+        0.3754459023475647
+      ]
+    },
+    {
+      "mesh": 4,
+      "name": "modular_fire_escape_ladder_bottom",
+      "translation": [
+        3.8720922470092773,
+        1.4273784160614014,
+        0.6102287769317627
+      ]
+    },
+    {
+      "mesh": 5,
+      "name": "modular_fire_escape_railing_bottom",
+      "translation": [
+        0.020870208740234375,
+        -1.1871733665466309,
+        0.3409194350242615
+      ]
+    },
+    {
+      "mesh": 6,
+      "name": "modular_fire_escape_platform_bottom",
+      "translation": [
+        -0.12125623971223831,
+        -2.953573703765869,
+        0.12541243433952332
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "modular_fire_escape_01",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "modular_fire_escape_02",
+      "normalTexture": {
+        "index": 3
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 4
+        },
+        "metallicRoughnessTexture": {
+          "index": 5
+        }
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "modular_fire_escape_01",
+      "normalTexture": {
+        "index": 6
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 7
+        },
+        "metallicRoughnessTexture": {
+          "index": 8
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Plane.013",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Cube.209",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Cube.168",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "indices": 11,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "name": "Cube.195",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 12,
+            "NORMAL": 13,
+            "TEXCOORD_0": 14
+          },
+          "indices": 15,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Cube.424",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 16,
+            "NORMAL": 17,
+            "TEXCOORD_0": 18
+          },
+          "indices": 19,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "name": "Plane.100",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 20,
+            "NORMAL": 21,
+            "TEXCOORD_0": 22
+          },
+          "indices": 23,
+          "material": 2
+        }
+      ]
+    },
+    {
+      "name": "Cube.427",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 24,
+            "NORMAL": 25,
+            "TEXCOORD_0": 26
+          },
+          "indices": 27,
+          "material": 1
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 4
+    },
+    {
+      "sampler": 0,
+      "source": 5
+    },
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "modular_fire_escape_01_nor_gl",
+      "uri": "textures/modular_fire_escape_01_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "modular_fire_escape_01_diff",
+      "uri": "textures/modular_fire_escape_01_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "modular_fire_escape_01_metal-modular_fire_escape_01_rough",
+      "uri": "textures/modular_fire_escape_01_arm_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "modular_fire_escape_02_nor_gl",
+      "uri": "textures/modular_fire_escape_02_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "modular_fire_escape_02_diff",
+      "uri": "textures/modular_fire_escape_02_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "modular_fire_escape_02_metal-modular_fire_escape_02_rough",
+      "uri": "textures/modular_fire_escape_02_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 1122,
+      "max": [
+        2.357786178588867,
+        0.3490593731403351,
+        0.2743040919303894
+      ],
+      "min": [
+        -2.353515148162842,
+        -0.6350723505020142,
+        -1.1123706102371216
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 1122,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 1122,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 2796,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 646,
+      "max": [
+        1.5480709075927734,
+        0.08178088068962097,
+        0.4800770878791809
+      ],
+      "min": [
+        -0.6859081983566284,
+        -0.9039342999458313,
+        -0.2503022849559784
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 646,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 646,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 2136,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 2128,
+      "max": [
+        2.4739248752593994,
+        0.07219137996435165,
+        0.5143040418624878
+      ],
+      "min": [
+        -2.319169282913208,
+        -0.7002280950546265,
+        -0.8501280546188354
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 2128,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 2128,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5123,
+      "count": 3732,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 12,
+      "componentType": 5126,
+      "count": 6312,
+      "max": [
+        1.3329527378082275,
+        1.602830410003662,
+        0.22933493554592133
+      ],
+      "min": [
+        -1.6616860628128052,
+        -2.4026947021484375,
+        -1.1422228813171387
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 13,
+      "componentType": 5126,
+      "count": 6312,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 14,
+      "componentType": 5126,
+      "count": 6312,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 15,
+      "componentType": 5123,
+      "count": 17430,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 16,
+      "componentType": 5126,
+      "count": 880,
+      "max": [
+        0.3882277011871338,
+        2.900987148284912,
+        0.02567407488822937
+      ],
+      "min": [
+        -0.38674554228782654,
+        -3.5648844242095947,
+        -0.03873976320028305
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 17,
+      "componentType": 5126,
+      "count": 880,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 18,
+      "componentType": 5126,
+      "count": 880,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 19,
+      "componentType": 5123,
+      "count": 1896,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 20,
+      "componentType": 5126,
+      "count": 1234,
+      "max": [
+        2.3304474353790283,
+        0.2951616942882538,
+        0.281961590051651
+      ],
+      "min": [
+        -2.3808536529541016,
+        -0.6889700889587402,
+        -1.1257812976837158
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 21,
+      "componentType": 5126,
+      "count": 1234,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 22,
+      "componentType": 5126,
+      "count": 1234,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 23,
+      "componentType": 5123,
+      "count": 3108,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 24,
+      "componentType": 5126,
+      "count": 1660,
+      "max": [
+        2.51347017288208,
+        0.07743102312088013,
+        0.4722425937652588
+      ],
+      "min": [
+        -2.2796239852905273,
+        -0.6949884295463562,
+        -0.8921895027160645
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 25,
+      "componentType": 5126,
+      "count": 1660,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 26,
+      "componentType": 5126,
+      "count": 1660,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 27,
+      "componentType": 5123,
+      "count": 2868,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 13464,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13464,
+      "byteOffset": 13464,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 8976,
+      "byteOffset": 26928,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 5592,
+      "byteOffset": 35904,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7752,
+      "byteOffset": 41496,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7752,
+      "byteOffset": 49248,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 5168,
+      "byteOffset": 57000,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4272,
+      "byteOffset": 62168,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 25536,
+      "byteOffset": 66440,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 25536,
+      "byteOffset": 91976,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 17024,
+      "byteOffset": 117512,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7464,
+      "byteOffset": 134536,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 75744,
+      "byteOffset": 142000,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 75744,
+      "byteOffset": 217744,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 50496,
+      "byteOffset": 293488,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 34860,
+      "byteOffset": 343984,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10560,
+      "byteOffset": 378844,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10560,
+      "byteOffset": 389404,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 7040,
+      "byteOffset": 399964,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 3792,
+      "byteOffset": 407004,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14808,
+      "byteOffset": 410796,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14808,
+      "byteOffset": 425604,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 9872,
+      "byteOffset": 440412,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 6216,
+      "byteOffset": 450284,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19920,
+      "byteOffset": 456500,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19920,
+      "byteOffset": 476420,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 13280,
+      "byteOffset": 496340,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 5736,
+      "byteOffset": 509620,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 515356,
+      "uri": "modular_fire_escape.bin"
+    }
+  ]
+}

@@ -2,18 +2,18 @@
 
 importer="scene"
 type="PackedScene"
-path="res://.import/industrial_wall_lamp_1k.gltf-7136047d4c08c0b89564c49ff528ba4d.scn"
+path="res://.import/industrial_coffee_table_1k.gltf-6bfd81eb4b29f8810152e554512041bc.scn"
 
 [deps]
 
-source_file="res://assets/models/Industrial Wall Lamp/1k/industrial_wall_lamp_1k.gltf"
-dest_files=[ "res://.import/industrial_wall_lamp_1k.gltf-7136047d4c08c0b89564c49ff528ba4d.scn" ]
+source_file="res://assets/models/Industrial Coffee Table/1k/industrial_coffee_table_1k.gltf"
+dest_files=[ "res://.import/industrial_coffee_table_1k.gltf-6bfd81eb4b29f8810152e554512041bc.scn" ]
 
 [params]
 
 nodes/root_type="Spatial"
 nodes/root_name="Scene Root"
-nodes/root_scale=1.139
+nodes/root_scale=1.0
 nodes/custom_script=""
 nodes/storage=0
 nodes/use_legacy_names=false

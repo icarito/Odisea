@@ -1,0 +1,165 @@
+{
+  "asset": {
+    "generator": "Khronos glTF Blender I/O v4.5.48",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "industrial_coffee_table",
+      "rotation": [
+        0.7071068286895752,
+        0,
+        0,
+        0.7071068286895752
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "industrial_coffee_table",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Cylinder.001",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/jpeg",
+      "name": "industrial_coffee_table_nor_gl",
+      "uri": "textures/industrial_coffee_table_nor_gl_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "industrial_coffee_table_diff",
+      "uri": "textures/industrial_coffee_table_diff_1k.jpg"
+    },
+    {
+      "mimeType": "image/jpeg",
+      "name": "industrial_coffee_table_metal-industrial_coffee_table_rough",
+      "uri": "textures/industrial_coffee_table_arm_1k.jpg"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 33975,
+      "max": [
+        0.3925403654575348,
+        0.3789639472961426,
+        1.668930025289228e-7
+      ],
+      "min": [
+        -0.38572409749031067,
+        -0.37896424531936646,
+        -0.638421893119812
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 33975,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 33975,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 123900,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 407700,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 407700,
+      "byteOffset": 407700,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 271800,
+      "byteOffset": 815400,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 247800,
+      "byteOffset": 1087200,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 1335000,
+      "uri": "industrial_coffee_table.bin"
+    }
+  ]
+}

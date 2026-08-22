@@ -1,7 +1,8 @@
-[gd_scene load_steps=242 format=2]
+[gd_scene load_steps=243 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
+[ext_resource path="res://assets/Radiator.glb" type="PackedScene" id=3]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=4]
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro.lmbake" type="BakedLightmapData" id=5]
 [ext_resource path="res://core_v2/props/pipe/pipe_coolant.shader" type="Shader" id=6]
@@ -194,9 +195,9 @@ extents = Vector3( 2.85, 0.12, 4 )
 
 [sub_resource type="ShaderMaterial" id=565]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 1, 0, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -224,9 +225,9 @@ radius = 0.35
 
 [sub_resource type="ShaderMaterial" id=566]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( -1, 0, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -251,9 +252,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=567]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -278,9 +279,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=568]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -308,9 +309,9 @@ radius = 0.2
 
 [sub_resource type="ShaderMaterial" id=569]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -335,9 +336,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=570]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -365,9 +366,9 @@ radius = 0.2
 
 [sub_resource type="ShaderMaterial" id=571]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -392,9 +393,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=572]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -422,9 +423,9 @@ radius = 0.2
 
 [sub_resource type="ShaderMaterial" id=573]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -449,9 +450,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=574]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -479,9 +480,9 @@ radius = 0.2
 
 [sub_resource type="ShaderMaterial" id=575]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -506,9 +507,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=576]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0.130526, 0, -0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -541,9 +542,9 @@ height = 0.3
 
 [sub_resource type="ShaderMaterial" id=577]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -568,9 +569,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=578]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -598,9 +599,9 @@ radius = 0.2
 
 [sub_resource type="ShaderMaterial" id=579]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -625,9 +626,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=580]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -655,9 +656,9 @@ radius = 0.2
 
 [sub_resource type="ShaderMaterial" id=581]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -682,9 +683,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=582]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -712,9 +713,9 @@ radius = 0.2
 
 [sub_resource type="ShaderMaterial" id=583]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -739,9 +740,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=584]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -769,9 +770,9 @@ radius = 0.2
 
 [sub_resource type="ShaderMaterial" id=585]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( 0, 1, 0 )
 shader_param/use_local_axis = false
 shader_param/use_baked_axis = true
@@ -796,9 +797,9 @@ shader_param/axial_stretch = 0.55
 
 [sub_resource type="ShaderMaterial" id=586]
 shader = ExtResource( 6 )
-shader_param/base_color = Color( 0.06, 0.22, 0.35, 1 )
-shader_param/flow_edge_color = Color( 0.08, 0.45, 0.62, 1 )
-shader_param/flow_color = Color( 0.35, 0.92, 0.98, 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/flow_color = Color( 1, 1, 1, 1 )
 shader_param/flow_dir = Vector3( -0.130526, 0, 0.991445 )
 shader_param/use_local_axis = true
 shader_param/use_baked_axis = true
@@ -5101,6 +5102,9 @@ bgm_stream = ExtResource( 9 )
 [node name="CollisionShape" type="CollisionShape" parent="BGMZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.6918, 0 )
 shape = SubResource( 590 )
+
+[node name="Radiator" parent="." instance=ExtResource( 3 )]
+transform = Transform( -2.18557e-07, 5, 0, -5, -2.18557e-07, 0, 0, 0, 5, -0.508493, 15.1, -0.600256 )
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
