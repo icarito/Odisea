@@ -26,6 +26,7 @@ import base64
 import json
 import logging
 import os
+import re
 import socket
 import time
 import uuid
@@ -493,10 +494,38 @@ class OdiseaPeer:
         expr = request.query.get("expr")
         if not expr:
             return web.json_response({"error": "missing_expr"}, status=400)
+        validation_error = self._validate_eval_expr(expr)
+        if validation_error:
+            return web.json_response({"error": "invalid_expr", "message": validation_error}, status=400)
         player_id = request.query.get("player_id")
         resp, status = await self._run_command(
             "execute_script", {"script": "return " + expr}, player_id)
         return web.json_response(resp, status=status)
+
+    def _validate_eval_expr(self, expr: str) -> Optional[str]:
+        """Reject statement-like input; /eval is expression-only by design."""
+        if not isinstance(expr, str):
+            return "expr must be a string"
+        clean = expr.strip()
+        if not clean:
+            return "expr is empty"
+        if len(clean) > 512:
+            return "expr too long (max 512 chars)"
+
+        # Keep /eval as a single expression to avoid parser edge-cases and side effects.
+        if "\n" in clean or ";" in clean:
+            return "multi-line or ';' statements are not allowed in /eval"
+
+        lowered = clean.lower()
+        blocked_keywords = (
+            "var", "const", "func", "class", "class_name", "extends", "while",
+            "for", "match", "yield", "return", "break", "continue", "pass"
+        )
+        for keyword in blocked_keywords:
+            if re.search(r"(^|\\W)" + re.escape(keyword) + r"($|\\W)", lowered):
+                return f"unsupported token in /eval: {keyword}"
+
+        return None
 
     async def handle_command_batch(self, request):
         """Run an ordered list of commands in one call; great for capturing a repro.
