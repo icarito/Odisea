@@ -67,7 +67,7 @@ func _notification(what):
 		_set_music_focus_paused(true)
 	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
 		_set_focus_audio_muted(false)
-		_set_music_focus_paused(false)
+		_set_music_focus_paused(get_tree().paused)
 
 func _exit_tree() -> void:
 	var tree = get_tree()
