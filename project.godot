@@ -295,6 +295,11 @@ _global_script_classes=[ {
 "path": "res://addons/gdUnit3/src/cmd/CmdOptions.gd"
 }, {
 "base": "Spatial",
+"class": "ColdRuptureDirector",
+"language": "GDScript",
+"path": "res://core_v2/systems/cryo/ColdRuptureDirector.gd"
+}, {
+"base": "Spatial",
 "class": "ColdRuptureEvent",
 "language": "GDScript",
 "path": "res://core_v2/systems/cryo/ColdRuptureEvent.gd"
@@ -2272,6 +2277,7 @@ _global_script_class_icons={
 "CmdConsole": "",
 "CmdOption": "",
 "CmdOptions": "",
+"ColdRuptureDirector": "",
 "ColdRuptureEvent": "",
 "Comparator": "",
 "ComplexityDockPanel": "",
@@ -3022,7 +3028,6 @@ vram_compression/import_pvrtc=true
 quality/shadows/filter_mode=2
 quality/shadows/filter_mode.mobile=1
 quality/reflections/high_quality_ggx=false
-quality/shading/force_vertex_shading=true
 quality/shading/force_vertex_shading.mobile=false
 quality/shading/use_physical_light_attenuation=true
 quality/spatial_partitioning/render_tree_balance=0.48
@@ -3038,5 +3043,5 @@ quality/filters/use_fxaa=true
 environment/default_environment="res://default_env.tres"
 batching/options/use_batching.iOS=false
 quality/filters/msaa.web=0
-quality/shading/force_vertex_shading.Android=true
 quality/filters/msaa.Android=0
+quality/shading/force_vertex_shading.Android=true
