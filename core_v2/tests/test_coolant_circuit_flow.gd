@@ -282,3 +282,57 @@ func test_snapshot_determinism() -> void:
 
 	assert_float(adapter.get_computed_speed()).is_equal_approx(speed_adv, 0.0001)
 	assert_float(patch_point.get_patch_time_remaining()).is_equal_approx(remaining_adv, 0.0001)
+
+
+# El medio toro de cada piso cuelga del riser: una fisura ahi se apaga a si misma, pero
+# no puede cortar el tronco ni los pisos de arriba. En serie (como estaba) una fuga de
+# anillo dejaba negro medio circuito que no tenia nada que ver con ella.
+func test_spur_leak_does_not_starve_the_trunk_above_it() -> void:
+	var tank = auto_free(CoolantTankScript.new())
+	tank.tank_level = 1.0
+	add_child(tank)
+
+	var trunk_low = auto_free(PipeCoolantRunScript.new())
+	add_child(trunk_low)
+	var ring = auto_free(PipeCoolantRunScript.new())
+	add_child(ring)
+	var trunk_high = auto_free(PipeCoolantRunScript.new())
+	add_child(trunk_high)
+
+	var ring_leak = auto_free(CoolantLeakScript.new())
+	ring_leak.starts_leaking = false
+	ring_leak.warning_duration = 0.0
+	ring_leak.ramp_up_duration = 0.0
+	add_child(ring_leak)
+
+	var net: Resource = auto_free(Resource.new())
+	net.set_script(PipeNetworkResourceScript)
+	net.set("branches", {
+		"main": {
+			"tank": tank.get_path(),
+			"segments": [
+				{"pipe_run": trunk_low.get_path(), "valve": NodePath(""), "leak": NodePath(""), "flow_dir": Vector3.UP},
+				{"pipe_run": ring.get_path(), "valve": NodePath(""), "leak": ring_leak.get_path(), "flow_dir": Vector3.RIGHT, "spur": true},
+				{"pipe_run": trunk_high.get_path(), "valve": NodePath(""), "leak": NodePath(""), "flow_dir": Vector3.UP}
+			]
+		}
+	})
+
+	var adapter = auto_free(CoolantFlowAdapterScript.new())
+	adapter.network = net
+	adapter.branch_id = "main"
+	add_child(adapter)
+
+	adapter.compute_flow()
+	assert_float(adapter.get_segment_flow(1)).is_equal_approx(1.0, 0.001)
+	assert_float(adapter.get_segment_flow(2)).is_equal_approx(1.0, 0.001)
+
+	ring_leak.trigger_leak()
+	_step_tree([ring_leak], 0.2)
+	adapter.compute_flow()
+
+	# El anillo se queda seco...
+	assert_float(adapter.get_segment_flow(1)).is_less(0.01)
+	# ...pero el tronco de arriba sigue con caudal pleno.
+	assert_float(adapter.get_segment_flow(2)).is_equal_approx(1.0, 0.001)
+	assert_float(adapter.get_segment_inflow(2)).is_equal_approx(1.0, 0.001)

@@ -15,6 +15,13 @@ var _mdm_instance: Node = null # MixingDeskMusic instance
 var _mds_instance: Node = null # MixingDeskSound instance (if used globally)
 var _music_paused_by_focus := false
 var _music_paused_by_menu := false
+
+# Cancion pedida a mano (crossfade_to_song). Mientras este fijada MANDA sobre las zonas:
+# _update_bgm() no puede volver a derivar la BGM del BGMZoneV2 que contenga al jugador.
+# Sin esto cualquier evento de zona (entrar al ascensor, cambiar de piso) devolvia la
+# musica de la sala encima de la que habia pedido el guion, aunque siguiera sonando.
+var _song_override := ""
+var _song_override_volume_db := 0.0
 var _active_zone: Node = null
 var _zone_playback_positions := {}
 var _headless_audio_muted := false
@@ -233,6 +240,11 @@ func _update_bgm():
 	if is_music_paused():
 		return
 
+	# Hay una cancion fijada a mano: las zonas no opinan hasta que se la suelte con
+	# clear_song_override().
+	if _song_override != "":
+		return
+
 	# Zona vacía transitoria (p.ej. la cabina del ascensor mientras sube y sale de los
 	# límites del BGMZoneV2 de la sala): no hay zona activa, pero eso no es una orden
 	# de silenciar. Solo una zona con contenido propio puede cortar la música; que no
@@ -331,6 +343,8 @@ func _crossfade_to(stream, pitch, vol, time, zone = null):
 	
 func reset():
 	_save_active_zone_playback()
+	_song_override = ""
+	_song_override_volume_db = 0.0
 	_active_zones.clear()
 	_active_zone = null
 	_zone_playback_positions.clear()
@@ -366,6 +380,12 @@ func restart_bgm_from_active_zones() -> void:
 		_bgm_player_1.stop()
 	if _bgm_player_2:
 		_bgm_player_2.stop()
+	# El respawn arranca limpio con la musica de la zona. Si el motivo del override sigue
+	# vigente (una fuga que el checkpoint restaura abierta), lo vuelve a fijar quien lo
+	# decide — ColdRuptureDirector al restaurar su snapshot — no este metodo: reinstalarlo
+	# a ciegas aca dejaba el latido sonando en respawns donde ya no habia ninguna fuga.
+	_song_override = ""
+	_song_override_volume_db = 0.0
 	_update_bgm()
 
 func fade_out_current_bgm(duration: float = 0.35) -> void:
@@ -390,6 +410,7 @@ func refresh_bgm_from_zones(_fade_in_time: float = 0.35) -> void:
 
 func crossfade_to_song(song_name: String, fade_time: float = 1.0, volume_db: float = 0.0) -> void:
 	if song_name == "":
+		_song_override = ""
 		_crossfade_to(null, 1.0, volume_db, fade_time)
 		return
 
@@ -401,6 +422,8 @@ func crossfade_to_song(song_name: String, fade_time: float = 1.0, volume_db: flo
 	if file.file_exists(path):
 		var stream = load(path)
 		if stream is AudioStream:
+			_song_override = song_name
+			_song_override_volume_db = volume_db
 			_crossfade_to(stream, 1.0, volume_db, fade_time)
 		else:
 			printerr("[AudioManager] Failed to load AudioStream from: ", path)
@@ -423,6 +446,24 @@ func set_music_paused_by_menu(paused: bool) -> void:
 		_resume_mdm_music()
 		_update_bgm()
 
+# Suelta la cancion fijada y devuelve la BGM a las zonas activas. Lo llama quien la fijo
+# cuando su motivo termino (en Dome_Intro: cuando ya no queda ninguna fuga viva).
+func clear_song_override(fade_time: float = 1.0) -> void:
+	if _song_override == "":
+		return
+	_song_override = ""
+	_song_override_volume_db = 0.0
+	if _active_zones.empty():
+		# Sin zonas de las que derivar, apagar lo que quedo sonando por el override.
+		_crossfade_to(null, 1.0, 0.0, fade_time)
+		return
+	_update_bgm()
+
+
+func get_song_override() -> String:
+	return _song_override
+
+
 func _set_music_focus_paused(paused: bool) -> void:
 	if _music_paused_by_focus == paused:
 		return
@@ -437,7 +478,23 @@ func _set_music_focus_paused(paused: bool) -> void:
 	elif was_paused and not now_paused:
 		_resume_internal_bgm_players()
 		_resume_mdm_music()
-		_update_bgm()
+		# _update_bgm() vuelve a derivar la BGM de las zonas activas, y eso PISA lo que
+		# estaba sonando: una cancion puesta a mano con crossfade_to_song() (el latido de
+		# la rotura, por ejemplo) no pertenece a ninguna zona, asi que al despausar o
+		# recuperar el foco se volvia siempre a la cancion de la zona. Los players solo
+		# quedaron en stream_paused: si alguno sigue sonando, no hay nada que re-derivar.
+		if not _is_any_bgm_playing():
+			_update_bgm()
+
+
+func _is_any_bgm_playing() -> bool:
+	if _mdm_instance != null and _mdm_instance.has_method("is_playing"):
+		if bool(_mdm_instance.call("is_playing")):
+			return true
+	for player in [_bgm_player_1, _bgm_player_2]:
+		if player != null and player.playing:
+			return true
+	return false
 
 func _pause_internal_bgm_players() -> void:
 	if _tween:

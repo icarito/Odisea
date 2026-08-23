@@ -73,14 +73,18 @@ func _on_zone_entered(body: Node):
 	var is_json_replay = session and session.is_replaying and not session.is_recording
 	var is_respawning = session and session.is_respawning
 	
+	var ran := false
 	if script_file != "" and not is_json_replay and not is_respawning:
 		_run_oys_on_body(body, script_file)
-	
-	if trigger_once:
-		# We don't disconnect signals here because BaseZoneV2 handles them
-		# and we might want exit_script to still work? 
-		# But "trigger_once" usually means the whole thing dies.
-		# For now, let's just make sure we don't trigger ENTER again.
+		ran = true
+
+	# trigger_once solo se gasta si el script REALMENTE corrio. Consumirlo tambien cuando
+	# se salteo (respawn, replay JSON puro) quemaba el disparador para el resto de la
+	# partida sin ningun aviso: bastaba con que un respawn pasara por la zona una vez para
+	# que la cinematica no volviera a dispararse nunca aunque el jugador reentrara.
+	if trigger_once and ran:
+		# No desconectamos señales: de eso se encarga BaseZoneV2, y exit_script_file
+		# tiene que poder seguir corriendo.
 		script_file = ""
 
 func _on_zone_exited(body: Node):

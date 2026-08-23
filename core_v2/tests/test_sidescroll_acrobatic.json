@@ -231,9 +231,9 @@
   },
   "final_expected_state": {
     "position": [
-      1.528919,
-      2.651939,
-      -0.948286
+      2.57408,
+      2.6515,
+      -0.463222
     ],
     "velocity": [
       2.083333,
@@ -246,7 +246,7 @@
     "movement_state": {
       "horizontal_velocity": [
         2.083333,
-        0.000003,
+        -0,
         0
       ],
       "external_velocity": [

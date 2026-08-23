@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 # test_cold_rupture_director.gd - Unit & integration tests for ColdRuptureDirector and OYS integration.
 
 const ColdRuptureDirectorScript = preload("res://core_v2/systems/cryo/ColdRuptureDirector.gd")
+const CoolantLeakScript = preload("res://core_v2/systems/cryo/CoolantLeak.gd")
 const OYSTriggerScript = preload("res://core_v2/components/OYSTrigger.gd")
 const RandomLeakSeederScript = preload("res://core_v2/systems/cryo/RandomLeakSeeder.gd")
 
@@ -54,3 +55,101 @@ func test_oys_trigger_script_clears_file_on_trigger() -> void:
 	assert_bool(trigger.script_file != "").is_true()
 	trigger.trigger_from_script(trigger)
 	assert_bool(trigger.script_file == "").is_true()
+
+
+# Regla del domo: mientras quede una fuga viva suena el latido; cuando la ultima se
+# parchea o se queda sin presion, la musica vuelve a la de la zona.
+func test_leak_state_drives_the_dome_music() -> void:
+	var am = get_node("/root/AudioManager")
+	assert_object(am).is_not_null()
+	am.reset()
+
+	var director = auto_free(ColdRuptureDirectorScript.new())
+	director.name = "ColdRuptureDirectorMusic"
+	add_child(director)
+
+	var leak: Spatial = auto_free(CoolantLeakScript.new())
+	leak.warning_duration = 0.0
+	leak.ramp_up_duration = 0.0
+	add_child(leak)
+
+	director._connect_leak_music()
+	assert_str(am.get_song_override()).is_equal("")
+
+	leak.trigger_leak()
+	assert_str(am.get_song_override()).is_equal(director.leak_song)
+
+	# Parche firme: la fuga se sella y la calma vuelve.
+	leak.seal()
+	leak._physics_process(leak.dissipate_duration + 0.1)
+	assert_bool(director.has_active_leak()).is_false()
+	assert_str(am.get_song_override()).is_equal("")
+
+	am.reset()
+
+
+# Cerrar la valvula aguas arriba (DEPRESSURIZED) tambien cuenta como "sin fuga activa".
+func test_depressurized_leak_returns_to_calm_music() -> void:
+	var am = get_node("/root/AudioManager")
+	am.reset()
+
+	var director = auto_free(ColdRuptureDirectorScript.new())
+	director.name = "ColdRuptureDirectorValve"
+	add_child(director)
+
+	var leak: Spatial = auto_free(CoolantLeakScript.new())
+	leak.warning_duration = 0.0
+	leak.ramp_up_duration = 0.0
+	add_child(leak)
+
+	director._connect_leak_music()
+	leak.trigger_leak()
+	assert_str(am.get_song_override()).is_equal(director.leak_song)
+
+	leak.depressurize()
+	assert_str(am.get_song_override()).is_equal("")
+
+	am.reset()
+
+
+# El respawn arranca con la musica de la zona; si el checkpoint restaura fugas abiertas,
+# el director vuelve a pedir el latido al restaurar su snapshot (esta en 'replay_sync').
+func test_respawn_returns_to_zone_music_and_snapshot_restores_the_heartbeat() -> void:
+	var am = get_node("/root/AudioManager")
+	am.reset()
+
+	var director = auto_free(ColdRuptureDirectorScript.new())
+	director.name = "ColdRuptureDirectorRespawn"
+	add_child(director)
+
+	var leak: Spatial = auto_free(CoolantLeakScript.new())
+	leak.name = "LeakForRespawn"
+	leak.warning_duration = 0.0
+	leak.ramp_up_duration = 0.0
+	add_child(leak)
+
+	director._connect_leak_music()
+	leak.trigger_leak()
+	assert_str(am.get_song_override()).is_equal(director.leak_song)
+
+	var snapshot: Dictionary = director.get_snapshot()
+	assert_bool(bool(snapshot["leak_music"])).is_true()
+
+	# Lo que hace el respawn: soltar el override y volver a la musica de la zona.
+	am.restart_bgm_from_active_zones()
+	assert_str(am.get_song_override()).is_equal("")
+
+	# El checkpoint trae la fuga abierta: el director la reconoce y vuelve a pedir latido.
+	director.restore_snapshot(snapshot)
+	director._sync_leak_music()
+	assert_bool(director.has_active_leak()).is_true()
+	assert_str(am.get_song_override()).is_equal(director.leak_song)
+
+	# Y si el respawn no tiene fugas vivas, se queda con la musica de la zona.
+	leak.seal()
+	leak._physics_process(leak.dissipate_duration + 0.1)
+	am.restart_bgm_from_active_zones()
+	director._sync_leak_music()
+	assert_str(am.get_song_override()).is_equal("")
+
+	am.reset()

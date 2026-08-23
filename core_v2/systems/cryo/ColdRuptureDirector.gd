@@ -20,6 +20,9 @@ func _ready() -> void:
 	var sm = get_node_or_null("/root/SessionManager")
 	if sm and sm.has_method("register_oys_actor"):
 		sm.register_oys_actor("ColdRupture", self)
+	# Diferido: las CoolantLeak del nivel todavia no entraron al grupo cuando este _ready
+	# corre (estan declaradas mas abajo en el .tscn).
+	call_deferred("_connect_leak_music")
 
 
 func _exit_tree() -> void:
@@ -93,10 +96,71 @@ func focus_next_leak() -> Vector3:
 	return last_explosion_pos
 
 
+# Se conserva como actuador OYS por compatibilidad, pero ya no es quien decide: la musica
+# la manda el estado del circuito (ver _sync_leak_music). Forzarla a mano desde el guion
+# dejaba el latido sonando despues de parchear la ultima fuga.
 func crossfade_heartbeat() -> void:
+	_sync_leak_music(true)
+
+
+# --- MUSICA SEGUN EL ESTADO DEL CIRCUITO ---
+# Regla del domo: mientras quede UNA fuga viva (WARNING o LEAKING) suena el latido; en
+# cuanto la ultima se parchea, se sella o se queda sin presion porque cerraron su valvula
+# (DEPRESSURIZED), la musica vuelve a la de la zona. El disparador es el estado de las
+# fugas, no el guion: asi un parche o una valvula devuelven la calma sin que el .oys
+# tenga que preverlo, y volver a romperse vuelve a traer el latido.
+
+export(String) var leak_song: String = "Mechanical Heartbeat.mp3"
+export(float) var leak_song_fade: float = 4.0
+export(float) var leak_song_volume_db: float = -12.0
+export(float) var calm_song_fade: float = 3.0
+
+func _connect_leak_music() -> void:
+	if get_tree() == null:
+		return
+	for leak in get_tree().get_nodes_in_group("coolant_leak"):
+		if not is_instance_valid(leak) or not leak.has_signal("state_changed"):
+			continue
+		if not leak.is_connected("state_changed", self, "_on_leak_state_changed_for_music"):
+			leak.connect("state_changed", self, "_on_leak_state_changed_for_music")
+	_sync_leak_music()
+
+
+func _on_leak_state_changed_for_music(_new_state: int = 0) -> void:
+	_sync_leak_music()
+
+
+# La fuente de verdad es el override del AudioManager, no una bandera propia: el respawn
+# lo suelta para arrancar con la musica de la zona, y una bandera local se quedaba creyendo
+# que el latido seguia fijado, asi que nunca lo volvia a pedir.
+func _sync_leak_music(force: bool = false) -> void:
 	var am = get_node_or_null("/root/AudioManager")
-	if am and am.has_method("crossfade_to_song"):
-		am.crossfade_to_song("Mechanical Heartbeat.mp3", 4.0, -12.0)
+	if am == null or not am.has_method("get_song_override"):
+		return
+	var active: bool = has_active_leak()
+	var pinned: bool = String(am.call("get_song_override")) == leak_song
+	if active == pinned and not force:
+		return
+	if active:
+		if am.has_method("crossfade_to_song"):
+			am.crossfade_to_song(leak_song, leak_song_fade, leak_song_volume_db)
+	elif am.has_method("clear_song_override"):
+		am.clear_song_override(calm_song_fade)
+
+
+# Una fuga "viva" es la que todavia esta soltando refrigerante o a punto de hacerlo.
+# SEALED (parcheada en firme) y DEPRESSURIZED (valvula cerrada aguas arriba) no cuentan:
+# son justamente los dos finales que el jugador puede provocar.
+func has_active_leak() -> bool:
+	if get_tree() == null:
+		return false
+	for leak in get_tree().get_nodes_in_group("coolant_leak"):
+		if not is_instance_valid(leak) or not leak.has_method("get_state"):
+			continue
+		var state: int = int(leak.call("get_state"))
+		if state == CoolantLeak.State.WARNING or state == CoolantLeak.State.LEAKING:
+			return true
+	return false
 
 
 # --- INTERNAL HELPERS ---
@@ -179,7 +243,10 @@ func get_snapshot() -> Dictionary:
 		"consumed": consumed,
 		"last_explosion_pos": [last_explosion_pos.x, last_explosion_pos.y, last_explosion_pos.z],
 		"activated_leak_paths": activated_str,
-		"pending_leak_paths": pending_str
+		"pending_leak_paths": pending_str,
+		# Derivado del estado de las fugas, no una fuente paralela: se guarda para que una
+		# grabacion pueda verificar que la musica del replay coincide con la de la corrida.
+		"leak_music": has_active_leak()
 	}
 
 
@@ -206,3 +273,9 @@ func restore_snapshot(data: Dictionary) -> void:
 			if leak_node != null and leak_node.has_method("trigger_leak"):
 				leak_node.call("trigger_leak")
 		focus_last_explosion()
+
+	# La musica es parte del estado que este director restaura (esta en 'replay_sync'):
+	# el respawn suelta el override para arrancar con la musica de la zona, asi que si el
+	# checkpoint trae fugas abiertas hay que volver a pedir el latido aca. Diferido porque
+	# las CoolantLeak recien restauradas todavia no terminaron de fijar su estado.
+	call_deferred("_sync_leak_music")

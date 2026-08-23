@@ -608,6 +608,11 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			for _i in range(wait_frames):
 				if stop_requested or my_id != execution_id:
 					break
+				# El host puede desaparecer MIENTRAS esperamos (cambio de escena, el
+				# jugador liberado al terminar un test): sin este corte la vuelta
+				# siguiente llamaba get_tree() sobre una instancia ya liberada.
+				if not is_instance_valid(host_node) or not host_node.is_inside_tree():
+					break
 				if fast_forward and _i > 0:
 					break
 				yield (host_node.get_tree(), "physics_frame")

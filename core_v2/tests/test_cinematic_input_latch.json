@@ -252,30 +252,30 @@
   },
   "final_expected_state": {
     "position": [
-      -1.895012,
+      -1.366383,
       0.0015,
-      11.200918
+      11.581148
     ],
     "velocity": [
-      -0.211701,
-      -0.23396,
-      6.996798
+      -0.121608,
+      -0.232346,
+      6.998944
     ],
     "yaw": 0,
     "pitch": 0,
     "base_spring_length_3d": 2.5,
     "movement_state": {
       "horizontal_velocity": [
-        -0.211701,
-        -0.000627,
-        6.996798
+        -0.121608,
+        0.000987,
+        6.998944
       ],
       "external_velocity": [
         0,
         0,
         0
       ],
-      "camera_input_timer": 1.116667,
+      "camera_input_timer": 1.033333,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
@@ -292,7 +292,7 @@
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
     "$start_x": 0,
-    "$end_x": -1.895012,
-    "$delta_x": -1.895012
+    "$end_x": -1.366383,
+    "$delta_x": -1.366383
   }
 }

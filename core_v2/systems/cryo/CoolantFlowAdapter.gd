@@ -41,24 +41,18 @@ func _physics_process(delta: float) -> void:
 		tank_level = float(_tank.tank_level)
 
 	if drain_tank and delta > 0.0 and _tank != null and tank_level > 0.0:
+		# El caudal que llega a cada tramo ya lo resolvio compute_flow() en _segment_inflows,
+		# incluidos los ramales en paralelo. Rehacer la cadena aca duplicaba ese recorrido y,
+		# como no conocia los spurs, hacia drenar al tanque por una topologia distinta de la
+		# que se ve en los canos.
 		var total_leak_drain := 0.0
-		var carrying := 1.0 if tank_level > 0.0 else 0.0
-
 		for i in range(_resolved_segments.size()):
-			var seg = _resolved_segments[i]
-			var valve = seg.get("valve")
-			if valve != null and not _is_valve_open(valve):
-				carrying = 0.0
-
-			var leak = seg.get("leak")
-			var leak_intensity := 0.0
-			if leak != null and leak.has_method("get_leak_intensity"):
-				leak_intensity = float(leak.call("get_leak_intensity"))
-
-			if carrying > 0.0 and leak_intensity > 0.0:
-				total_leak_drain += carrying * leak_intensity
-
-			carrying = carrying * (1.0 - leak_intensity)
+			var leak = _resolved_segments[i].get("leak")
+			if leak == null or not leak.has_method("get_leak_intensity"):
+				continue
+			var leak_intensity: float = float(leak.call("get_leak_intensity"))
+			if leak_intensity > 0.0:
+				total_leak_drain += get_segment_inflow(i) * leak_intensity
 
 		if total_leak_drain > 0.0 and "drain_rate" in _tank:
 			var drain_rate: float = float(_tank.get("drain_rate"))
@@ -155,6 +149,7 @@ func _resolve_references() -> void:
 				leak_node.connect("state_changed", self, "_on_leak_state_changed")
 
 		_resolved_segments.append({
+			"spur": bool(seg_data.get("spur", false)),
 			"pipe_run": pipe_run_node,
 			"valve": valve_node,
 			"leak": leak_node,
@@ -183,25 +178,35 @@ func compute_flow() -> void:
 
 	for i in range(num_segments):
 		var seg = _resolved_segments[i]
+		# Un RAMAL (medio toro de piso, bucle de criopods) cuelga del tronco: se lleva
+		# caudal, pero lo que no consume no vuelve a la columna. Antes iba en serie, asi
+		# que una fisura en el anillo de un piso apagaba el riser entero por encima y los
+		# anillos de todos los pisos siguientes — canos que no tienen nada que ver con esa
+		# fuga. Un spur ni corta ni reduce el tronco: solo se apaga a si mismo.
+		var is_spur: bool = bool(seg.get("spur", false))
 		var valve = seg.get("valve")
+		var inflow: float = carrying
 		if valve != null and not _is_valve_open(valve):
-			carrying = 0.0
+			inflow = 0.0
+		if not is_spur:
+			carrying = inflow
 
 		# El caudal de ENTRADA es lo que trae el tramo anterior, antes de que la
 		# fuga de ESTE tramo lo consuma. Es lo que responde "¿hay presión empujando
 		# contra la fisura?" — con la fuga a intensidad plena, el caudal de salida
 		# cae a ~0 pero la entrada sigue llena, y es la entrada la que decide si el
 		# parche puede ser firme (H6 / is_pressurized_at).
-		_segment_inflows[i] = carrying
+		_segment_inflows[i] = inflow
 
-		var f := carrying
+		var f := inflow
 		var leak = seg.get("leak")
 		if leak != null and leak.has_method("get_leak_intensity"):
 			var leak_intensity: float = float(leak.call("get_leak_intensity"))
-			f = carrying * (1.0 - leak_intensity)
+			f = inflow * (1.0 - leak_intensity)
 
 		_segment_flows[i] = f
-		carrying = f
+		if not is_spur:
+			carrying = f
 
 		# Empujar la presion a la fuga en vez de que ella la consulte por tick: compute_flow
 		# es el unico punto donde este valor puede cambiar, asi que es la fuente de verdad.

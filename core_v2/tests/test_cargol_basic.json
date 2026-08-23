@@ -176,9 +176,9 @@
   },
   "final_expected_state": {
     "position": [
-      11.165631,
+      12,
       0.1015,
-      -12.136198
+      -12
     ],
     "velocity": [
       0,

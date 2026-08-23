@@ -20,6 +20,17 @@ const COLOR_OFFLINE_VALVE := Color(0.5, 0.5, 0.5, 0.8)
 const COLOR_OFFLINE_PIPE := Color(0.35, 0.35, 0.35, 0.5)
 const COLOR_TEXT := Color(0.8, 0.9, 1.0, 0.85)
 
+# Refrigerante corriendo por dentro del cano: se pinta ENCIMA del trazo de estado, con
+# ancho y alfa proporcionales al caudal, para que un tramo sin caudal (valvula cerrada
+# aguas abajo, tanque vacio) se lea apagado aunque el cano en si este sano.
+const COLOR_FLOW := Color(0.35, 0.95, 1.0, 1.0)
+const COLOR_DRY := Color(0.28, 0.32, 0.38, 0.85)
+
+# Parpadeo de fisuras. El panel vive en un Viewport UPDATE_DISABLED, asi que redibujar
+# cuesta: solo se pide mientras HAY algo parpadeando, y a 5 Hz, no por frame.
+const BLINK_HZ := 2.5
+const BLINK_REDRAW_INTERVAL := 0.2
+
 const NUM_FLOORS := 6
 const X_WEST := 80.0
 const X_EAST := 220.0
@@ -41,6 +52,9 @@ const CONTENT_LEFT := X_WEST - 32.0
 const CONTENT_WIDTH := (X_EAST + 40.0) - CONTENT_LEFT
 
 var _connected_valves := []
+var _blink_phase := 0.0
+var _blink_accum := 0.0
+var _blink_on := false
 
 
 func _ready() -> void:
@@ -50,6 +64,7 @@ func _ready() -> void:
 	# detectar si algo cambio. El caudal solo cambia cuando el jugador toca una valvula
 	# o una fuga cruza de estado — ambos ya emiten señal. Conectarse a esas señales deja
 	# el panel en reposo (0 costo de CPU) salvo cuando el diagrama realmente cambia.
+	set_process(false)
 	_setup_valve_connections()
 	_setup_fissure_connections()
 	update()
@@ -125,62 +140,176 @@ func _draw() -> void:
 
 	# Map fissures to pipe segment states
 	var segment_states: Dictionary = _map_fissures_to_segments(patch_points)
-	var west_states = segment_states.get("west", [])
-	var east_states = segment_states.get("east", [])
+	var west_states: Array = segment_states.get("west", [])
+	var east_states: Array = segment_states.get("east", [])
+	var west_rings: Array = segment_states.get("west_rings", [])
+	var east_rings: Array = segment_states.get("east_rings", [])
 	var interlink_state = segment_states.get("interlink", CoolantLeak.State.HEALTHY)
 
-	# Draw Header / Side text if font is available
+	# Caudal por tramo: el mismo modelo que CoolantFlowAdapter, sobre la abstraccion de
+	# pisos del diagrama. El medio toro de cada piso es un RAMAL: se alimenta del tronco
+	# pero lo que le pasa no frena la columna de arriba.
+	var west_flow: Dictionary = _solve_column_flow(west_valves, west_states, west_rings, _tank_level("west"))
+	var east_flow: Dictionary = _solve_column_flow(east_valves, east_states, east_rings, _tank_level("east"))
+
 	var font = get_font("font")
 	if font != null:
-		draw_string(font, Vector2(X_WEST - 18, 25), "WEST", COLOR_TEXT)
-		draw_string(font, Vector2(X_EAST - 14, 25), "EAST", COLOR_TEXT)
+		draw_string(font, Vector2(X_WEST - 18, 25), "OESTE", COLOR_TEXT)
+		draw_string(font, Vector2(X_EAST - 14, 25), "ESTE", COLOR_TEXT)
 		draw_string(font, Vector2(X_INTERLINK - 16, Y_INTERLINK - 12), "LINK", COLOR_TEXT)
 
-	# 1. Draw West Column vertical pipe segments
+	# 1-2. Columnas verticales (riser). Tramo i = del piso i al piso i+1.
 	for i in range(NUM_FLOORS - 1):
-		var pos_a := Vector2(X_WEST, Y_BOTTOM - float(i) * Y_STEP)
-		var pos_b := Vector2(X_WEST, Y_BOTTOM - float(i + 1) * Y_STEP)
-		var seg_state = west_states[i] if i < west_states.size() else CoolantLeak.State.HEALTHY
-		var col: Color = _get_pipe_color(int(seg_state), is_live)
-		draw_line(pos_a, pos_b, col, 3.5, true)
+		var y_a: float = Y_BOTTOM - float(i) * Y_STEP
+		var y_b: float = Y_BOTTOM - float(i + 1) * Y_STEP
+		_draw_pipe(Vector2(X_WEST, y_a), Vector2(X_WEST, y_b),
+			int(west_states[i]) if i < west_states.size() else CoolantLeak.State.HEALTHY,
+			float(west_flow["trunk"][i]), is_live, 3.5)
+		_draw_pipe(Vector2(X_EAST, y_a), Vector2(X_EAST, y_b),
+			int(east_states[i]) if i < east_states.size() else CoolantLeak.State.HEALTHY,
+			float(east_flow["trunk"][i]), is_live, 3.5)
 
-	# 2. Draw East Column vertical pipe segments
+	# 3. Medio toro por piso: cada riser alimenta su mitad y ambas se encuentran en el
+	# centro. Antes solo se dibujaba el puente del piso 5, asi que el diagrama no mostraba
+	# los anillos donde de hecho ocurre la mitad de las fisuras.
+	for f in range(1, NUM_FLOORS):
+		var y: float = Y_BOTTOM - float(f) * Y_STEP
+		var mid := Vector2(X_INTERLINK, y)
+		var is_link: bool = f == NUM_FLOORS - 1
+		var w_state: int = int(west_rings[f]) if f < west_rings.size() else CoolantLeak.State.HEALTHY
+		var e_state: int = int(east_rings[f]) if f < east_rings.size() else CoolantLeak.State.HEALTHY
+		if is_link:
+			w_state = _more_severe_state(w_state, int(interlink_state))
+			e_state = _more_severe_state(e_state, int(interlink_state))
+		_draw_pipe(Vector2(X_WEST, y), mid, w_state, float(west_flow["ring"][f]), is_live, 3.0)
+		_draw_pipe(Vector2(X_EAST, y), mid, e_state, float(east_flow["ring"][f]), is_live, 3.0)
+
+	# 4-5. Valvulas de cada columna.
+	for i in range(NUM_FLOORS):
+		var pos_w := Vector2(X_WEST, Y_BOTTOM - float(i) * Y_STEP)
+		var pos_e := Vector2(X_EAST, Y_BOTTOM - float(i) * Y_STEP)
+		draw_circle(pos_w, 6.5, _get_valve_color(west_valves[i] if i < west_valves.size() else null, is_live))
+		draw_circle(pos_e, 6.5, _get_valve_color(east_valves[i] if i < east_valves.size() else null, is_live))
+		if font != null:
+			draw_string(font, Vector2(X_WEST - 32, pos_w.y + 4), "P%d" % i, COLOR_TEXT)
+			draw_string(font, Vector2(X_EAST + 12, pos_e.y + 4), "P%d" % i, COLOR_TEXT)
+
+	# 6. Valvula de interconexion.
+	draw_circle(Vector2(X_INTERLINK, Y_INTERLINK), 7.5, _get_valve_color(interlink_valve, is_live))
+
+	# 7. Marcador de fisura sobre cada tramo comprometido, parpadeando.
+	var blinking := false
 	for i in range(NUM_FLOORS - 1):
-		var pos_a := Vector2(X_EAST, Y_BOTTOM - float(i) * Y_STEP)
-		var pos_b := Vector2(X_EAST, Y_BOTTOM - float(i + 1) * Y_STEP)
-		var seg_state = east_states[i] if i < east_states.size() else CoolantLeak.State.HEALTHY
-		var col: Color = _get_pipe_color(int(seg_state), is_live)
-		draw_line(pos_a, pos_b, col, 3.5, true)
+		var y_mid: float = Y_BOTTOM - (float(i) + 0.5) * Y_STEP
+		blinking = _draw_fissure_marker(Vector2(X_WEST, y_mid), int(west_states[i]), is_live) or blinking
+		blinking = _draw_fissure_marker(Vector2(X_EAST, y_mid), int(east_states[i]), is_live) or blinking
+	for f in range(1, NUM_FLOORS):
+		var y_r: float = Y_BOTTOM - float(f) * Y_STEP
+		var x_w: float = (X_WEST + X_INTERLINK) * 0.5
+		var x_e: float = (X_EAST + X_INTERLINK) * 0.5
+		blinking = _draw_fissure_marker(Vector2(x_w, y_r), int(west_rings[f]) if f < west_rings.size() else 0, is_live) or blinking
+		blinking = _draw_fissure_marker(Vector2(x_e, y_r), int(east_rings[f]) if f < east_rings.size() else 0, is_live) or blinking
 
-	# 3. Draw Interlink horizontal bridge segments
-	var pos_west_bridge := Vector2(X_WEST, Y_INTERLINK)
-	var pos_east_bridge := Vector2(X_EAST, Y_INTERLINK)
-	var pos_interlink := Vector2(X_INTERLINK, Y_INTERLINK)
-	var bridge_col: Color = _get_pipe_color(int(interlink_state), is_live)
-	draw_line(pos_west_bridge, pos_interlink, bridge_col, 3.0, true)
-	draw_line(pos_interlink, pos_east_bridge, bridge_col, 3.0, true)
+	_set_blinking(blinking)
 
-	# 4. Draw West Column valve points
-	for i in range(NUM_FLOORS):
-		var pos := Vector2(X_WEST, Y_BOTTOM - float(i) * Y_STEP)
-		var valve_node = west_valves[i] if i < west_valves.size() else null
-		var v_col: Color = _get_valve_color(valve_node, is_live)
-		draw_circle(pos, 6.5, v_col)
-		if font != null:
-			draw_string(font, Vector2(X_WEST - 32, pos.y + 4), "P%d" % i, COLOR_TEXT)
 
-	# 5. Draw East Column valve points
-	for i in range(NUM_FLOORS):
-		var pos := Vector2(X_EAST, Y_BOTTOM - float(i) * Y_STEP)
-		var valve_node = east_valves[i] if i < east_valves.size() else null
-		var v_col: Color = _get_valve_color(valve_node, is_live)
-		draw_circle(pos, 6.5, v_col)
-		if font != null:
-			draw_string(font, Vector2(X_EAST + 12, pos.y + 4), "P%d" % i, COLOR_TEXT)
+# Nivel del tanque de una rama, para que una columna sin refrigerante se lea seca aunque
+# sus valvulas esten abiertas. Sin tanques en escena (tests, CoolantLab) asume lleno.
+func _tank_level(side: String) -> float:
+	var tanks: Array = get_tree().get_nodes_in_group("coolant_source")
+	var fallback := -1.0
+	for tank in tanks:
+		if not is_instance_valid(tank) or not ("tank_level" in tank):
+			continue
+		var level: float = clamp(float(tank.get("tank_level")), 0.0, 1.0)
+		var is_east: bool = "east" in tank.name.to_lower()
+		if (side == "east") == is_east:
+			return level
+		if fallback < 0.0:
+			fallback = level
+	return fallback if fallback >= 0.0 else 1.0
 
-	# 6. Draw Interlink valve point
-	var il_col: Color = _get_valve_color(interlink_valve, is_live)
-	draw_circle(pos_interlink, 7.5, il_col)
+
+# Mismo modelo que CoolantFlowAdapter.compute_flow(): la valvula del piso i corta el tramo
+# que sube del piso i al i+1, la fisura de un tramo consume su caudal, y el medio toro del
+# piso i+1 es un RAMAL alimentado por lo que sale de ese tramo.
+func _solve_column_flow(valves: Array, trunk_states: Array, ring_states: Array, tank_level: float) -> Dictionary:
+	var trunk := []
+	var ring := []
+	for _i in range(NUM_FLOORS):
+		ring.append(0.0)
+	var carrying: float = clamp(tank_level, 0.0, 1.0)
+	for i in range(NUM_FLOORS - 1):
+		var valve = valves[i] if i < valves.size() else null
+		if valve != null and is_instance_valid(valve) and "is_active" in valve and not bool(valve.get("is_active")):
+			carrying = 0.0
+		var t_state: int = int(trunk_states[i]) if i < trunk_states.size() else CoolantLeak.State.HEALTHY
+		carrying = carrying * (1.0 - _leak_loss(t_state))
+		trunk.append(carrying)
+		var r_state: int = int(ring_states[i + 1]) if i + 1 < ring_states.size() else CoolantLeak.State.HEALTHY
+		ring[i + 1] = carrying * (1.0 - _leak_loss(r_state))
+	return {"trunk": trunk, "ring": ring}
+
+
+func _leak_loss(state: int) -> float:
+	if state == CoolantLeak.State.LEAKING:
+		return 1.0
+	return 0.0
+
+
+# Trazo de un tramo: base opaca con el color de su estado, y encima el refrigerante que
+# realmente circula. Una fisura activa pulsa entre su color y blanco.
+func _draw_pipe(from: Vector2, to: Vector2, state: int, flow: float, is_live: bool, width: float) -> void:
+	var base_col: Color = _get_pipe_color(state, is_live) if is_live else COLOR_OFFLINE_PIPE
+	if is_live and _is_compromised(state):
+		base_col = base_col.linear_interpolate(Color(1, 1, 1, 1), _blink_pulse() * 0.55)
+	elif is_live and flow <= 0.001:
+		base_col = COLOR_DRY
+	draw_line(from, to, base_col, width, true)
+	if is_live and flow > 0.001:
+		var flow_col := COLOR_FLOW
+		flow_col.a = 0.25 + 0.6 * flow
+		draw_line(from, to, flow_col, width * (0.3 + 0.35 * flow), true)
+
+
+func _draw_fissure_marker(pos: Vector2, state: int, is_live: bool) -> bool:
+	if not is_live or not _is_compromised(state):
+		return false
+	var pulse: float = _blink_pulse()
+	var col: Color = COLOR_PIPE_LEAKING if state == CoolantLeak.State.LEAKING else COLOR_PIPE_WARNING
+	col.a = 0.35 + 0.65 * pulse
+	draw_circle(pos, 4.0 + 3.0 * pulse, col)
+	return true
+
+
+func _is_compromised(state: int) -> bool:
+	return state == CoolantLeak.State.LEAKING or state == CoolantLeak.State.WARNING
+
+
+func _blink_pulse() -> float:
+	return 0.5 + 0.5 * sin(_blink_phase * TAU * BLINK_HZ)
+
+
+# El parpadeo es lo unico que necesita redibujos periodicos: se enciende solo mientras hay
+# una fisura viva y se apaga en cuanto se sella, para que el Viewport vuelva a su reposo.
+func _set_blinking(active: bool) -> void:
+	if _blink_on == active:
+		return
+	_blink_on = active
+	set_process(active)
+	if not active:
+		_blink_phase = 0.0
+		_blink_accum = 0.0
+
+
+func _process(delta: float) -> void:
+	_blink_phase += delta
+	_blink_accum += delta
+	if _blink_accum < BLINK_REDRAW_INTERVAL:
+		return
+	_blink_accum = 0.0
+	update()
+	_request_redraw()
 
 
 func _map_valves_to_layout(valves: Array) -> Dictionary:
@@ -226,11 +355,20 @@ func _map_valves_to_layout(valves: Array) -> Dictionary:
 
 
 func _map_fissures_to_segments(patch_points: Array) -> Dictionary:
+	# Dos familias de fisura por rama: las del TRONCO (Leak<Lado>Floor<N>, entrada del tramo
+	# que sube del piso N al N+1) y las del MEDIO TORO de cada piso (Leak<Lado>Ring<N>).
+	# Antes ambas caian al mismo array y, peor, _extract_floor_index() no reconocia "ring",
+	# asi que TODAS las fisuras de anillo se pintaban en el piso 0.
 	var west_states := []
 	var east_states := []
-	for i in range(NUM_FLOORS - 1):
+	var west_rings := []
+	var east_rings := []
+	for _i in range(NUM_FLOORS - 1):
 		west_states.append(CoolantLeak.State.HEALTHY)
 		east_states.append(CoolantLeak.State.HEALTHY)
+	for _i in range(NUM_FLOORS):
+		west_rings.append(CoolantLeak.State.HEALTHY)
+		east_rings.append(CoolantLeak.State.HEALTHY)
 	var interlink_state = CoolantLeak.State.HEALTHY
 
 	for patch_point in patch_points:
@@ -254,28 +392,40 @@ func _map_fissures_to_segments(patch_points: Array) -> Dictionary:
 
 		var label_str: String = _floor_label(patch_point).to_lower() + " " + patch_point.name.to_lower()
 		var floor_idx: int = _extract_floor_index(label_str)
+		var is_ring: bool = "ring" in label_str
 
 		if "interlink" in label_str:
 			interlink_state = _more_severe_state(int(interlink_state), int(effective_state))
-		elif "east" in label_str:
-			var seg_idx: int = int(clamp(floor_idx, 0, NUM_FLOORS - 2))
-			east_states[seg_idx] = _more_severe_state(int(east_states[seg_idx]), int(effective_state))
+			continue
+
+		var is_east: bool = "east" in label_str
+		if is_ring:
+			# El anillo del piso 0 no existe (el primer medio toro esta bajo el piso 1).
+			var ring_idx: int = int(clamp(floor_idx, 1, NUM_FLOORS - 1))
+			var rings: Array = east_rings if is_east else west_rings
+			rings[ring_idx] = _more_severe_state(int(rings[ring_idx]), int(effective_state))
 		else:
-			# Default to West circuit or matched floor
 			var seg_idx: int = int(clamp(floor_idx, 0, NUM_FLOORS - 2))
-			west_states[seg_idx] = _more_severe_state(int(west_states[seg_idx]), int(effective_state))
+			var states: Array = east_states if is_east else west_states
+			states[seg_idx] = _more_severe_state(int(states[seg_idx]), int(effective_state))
 
 	return {
 		"west": west_states,
 		"east": east_states,
+		"west_rings": west_rings,
+		"east_rings": east_rings,
 		"interlink": interlink_state
 	}
 
 
+# Reconoce tanto "floor<N>"/"piso<N>" (tronco) como "ring<N>" (medio toro): sin la variante
+# ring, cada fisura de anillo devolvia 0 y se dibujaba en la planta baja.
 func _extract_floor_index(text: String) -> int:
 	for i in range(NUM_FLOORS):
-		if ("floor_" + str(i)) in text or ("floor" + str(i)) in text or ("piso_" + str(i)) in text or ("piso" + str(i)) in text:
-			return i
+		var n := str(i)
+		for prefix in ["floor_", "floor", "piso_", "piso", "ring_", "ring"]:
+			if (prefix + n) in text:
+				return i
 	return 0
 
 

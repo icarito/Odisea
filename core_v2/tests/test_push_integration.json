@@ -76,10 +76,10 @@
       }
     },
     {
-      "hold": 65
+      "hold": 59
     },
     {
-      "frame": 84,
+      "frame": 78,
       "input": {
         "move_vec": [
           0,
@@ -195,24 +195,13 @@
       {
         "command": "ASSERT",
         "condition": "$count < 50 \"Timeout: Failed to enter pushing state\""
-      }
-    ],
-    "54": [
-      {
-        "command": "MATH",
-        "var": "$count",
-        "expression": "= $count + 1"
-      },
-      {
-        "command": "ASSERT",
-        "condition": "$count < 50 \"Timeout: Failed to enter pushing state\""
       },
       {
         "command": "PRINT",
         "message": "Pilot entered pushing state!"
       }
     ],
-    "84": [
+    "78": [
       {
         "command": "PRINT",
         "message": "Verifying alignment..."
@@ -226,7 +215,7 @@
         "condition": "$yaw_deg > -5.0 \"Alignment Error: Yaw too negative\""
       }
     ],
-    "97": [
+    "91": [
       {
         "command": "PRINT",
         "message": "Verifying exit state..."
@@ -236,7 +225,7 @@
         "message": "Test Passed: Push Integration Success"
       }
     ],
-    "110": [
+    "104": [
 
     ]
   },
@@ -624,9 +613,9 @@
   },
   "final_expected_state": {
     "position": [
-      -0.970882,
+      -0.000443,
       0.0015,
-      1.753832
+      1.704073
     ],
     "velocity": [
       0,
@@ -647,7 +636,7 @@
         0,
         0
       ],
-      "camera_input_timer": 1.833333,
+      "camera_input_timer": 1.733333,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
@@ -663,6 +652,6 @@
   "oys_variables": {
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
-    "$count": 6
+    "$count": 5
   }
 }

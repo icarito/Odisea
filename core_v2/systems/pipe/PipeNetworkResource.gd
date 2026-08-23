@@ -12,7 +12,12 @@ class_name PipeNetworkResource
 #   "pipe_run": NodePath,   # el PipeCoolantRun de este tramo
 #   "valve": NodePath,      # opcional (puede ser NodePath vacío): válvula EN LA ENTRADA de este tramo
 #   "leak": NodePath,       # opcional (puede ser NodePath vacío): fisura EN LA ENTRADA de este tramo
-#   "flow_dir": Vector3     # dirección de este tramo, en coordenadas de mundo
+#   "flow_dir": Vector3,    # dirección de este tramo, en coordenadas de mundo
+#   "spur": bool            # opcional (default false): RAMAL colgado del tronco (medio toro
+#                           # de piso, bucle de criopods). Toma caudal del tramo anterior,
+#                           # pero lo que le pasa no vuelve a la columna: su válvula y su
+#                           # fisura solo lo afectan a él, nunca a lo que sigue aguas arriba.
+#                           # Va DESPUÉS del tramo de tronco que lo alimenta.
 # }
 export(Dictionary) var branches := {}
 

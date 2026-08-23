@@ -152,3 +152,53 @@ func test_mobile_web_audio_policy_keeps_unbounded_players_mixing():
 
 	player.free()
 	am.free()
+
+
+# Una cancion puesta a mano (crossfade_to_song) no pertenece a ninguna zona: al despausar
+# o recuperar el foco, _update_bgm() la pisaba con la cancion de la zona activa.
+func test_focus_resume_keeps_the_song_that_was_playing():
+	var am = auto_free(AudioManagerScript.new())
+	add_child(am)
+
+	var zone = auto_free(BGMZoneScript.new())
+	zone.song_name = "cabin_theme"
+	zone.zone_extents = Vector3(5, 5, 5)
+	add_child(zone)
+	am._active_zones.append(zone)
+
+	# Cancion manual sonando, sin zona asociada (lo que hace crossfade_to_song).
+	am._active_player = am._bgm_player_1
+	am._bgm_player_1.stream = AudioStreamSample.new()
+	am._bgm_player_1.play()
+	am._active_zone = null
+
+	am._set_music_focus_paused(true)
+	assert_bool(am._music_paused_by_focus).is_true()
+
+	am._set_music_focus_paused(false)
+
+	assert_bool(am._music_paused_by_focus).is_false()
+	# Sigue el mismo player: no se re-derivo la BGM de la zona.
+	assert_bool(am._active_player == am._bgm_player_1).is_true()
+	assert_bool(am._bgm_player_1.playing).is_true()
+	assert_bool(am._active_zone == null).is_true()
+
+
+# Si nada sobrevivio a la pausa (por ejemplo la BGM se corto), si hay que volver a
+# derivarla de las zonas: el guard no puede dejar la escena en silencio.
+func test_focus_resume_rebuilds_bgm_when_nothing_survived():
+	var am = auto_free(AudioManagerScript.new())
+	add_child(am)
+
+	var zone = auto_free(BGMZoneScript.new())
+	zone.bgm_stream = AudioStreamSample.new()
+	zone.zone_extents = Vector3(5, 5, 5)
+	add_child(zone)
+	am._active_zones.append(zone)
+
+	am._set_music_focus_paused(true)
+	am._set_music_focus_paused(false)
+
+	# Sin players sonando, _update_bgm() corrio y adopto la zona.
+	assert_bool(am._active_zone == zone).is_true()
+	assert_bool(am._active_player != null).is_true()

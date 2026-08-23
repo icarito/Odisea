@@ -12,7 +12,6 @@ VCAMERA_BLEND name="RuptureCam" duration=1.2 look_at="RuptureFocus"
 WAIT 0.6
 CALL ColdRupture "spawn_explosion"
 CAMERA_SHAKE duration=0.5 amplitude=0.12 frequency=28 roll=1.5
-CALL ColdRupture "crossfade_heartbeat"
 WAIT 2.0
 VCAMERA_RETURN duration=0.8
 INTERACTIVE

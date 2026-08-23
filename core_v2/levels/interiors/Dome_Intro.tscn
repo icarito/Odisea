@@ -857,60 +857,66 @@ script = ExtResource( 391 )
 branches = {
 "west": {
 "segments": [ {
-"flow_dir": Vector3( 1, 0, 0 ),
-"leak": NodePath("CryoLoopWest/LeakWestFloor1"),
-"pipe_run": NodePath("CryoLoopWest/Pipes"),
-"valve": NodePath("")
-}, {
 "flow_dir": Vector3( 0, 1, 0 ),
 "leak": NodePath("TowerCoolantRiser/LeakWestFloor0"),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L1"),
 "valve": NodePath("TowerCoolantRiser/ValveWestFloor0")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiser/LeakWestRing0"),
+"flow_dir": Vector3( -1, 0, 0 ),
+"leak": NodePath("CryoLoopWest/LeakWestFloor1"),
+"pipe_run": NodePath("CryoLoopWest/Pipes"),
+"spur": true,
+"valve": NodePath("")
+}, {
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiser/LeakWestRing1"),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L1_Ring"),
-"valve": NodePath("TowerCoolantRiser/ValveWestFloor0")
+"spur": true,
+"valve": NodePath("")
 }, {
 "flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiser/LeakWestFloor2"),
+"leak": NodePath(""),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L2"),
 "valve": NodePath("TowerCoolantRiser/ValveWestFloor1")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiser/LeakWestRing1"),
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiser/LeakWestRing2"),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L2_Ring"),
-"valve": NodePath("TowerCoolantRiser/ValveWestFloor1")
+"spur": true,
+"valve": NodePath("")
 }, {
 "flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiser/LeakWestFloor3"),
+"leak": NodePath("TowerCoolantRiser/LeakWestFloor2"),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L3"),
 "valve": NodePath("TowerCoolantRiser/ValveWestFloor2")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiser/LeakWestRing2"),
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiser/LeakWestRing3"),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L3_Ring"),
-"valve": NodePath("TowerCoolantRiser/ValveWestFloor2")
+"spur": true,
+"valve": NodePath("")
 }, {
 "flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiser/LeakWestFloor4"),
+"leak": NodePath("TowerCoolantRiser/LeakWestFloor3"),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L4"),
 "valve": NodePath("TowerCoolantRiser/ValveWestFloor3")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiser/LeakWestRing3"),
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiser/LeakWestRing4"),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L4_Ring"),
-"valve": NodePath("TowerCoolantRiser/ValveWestFloor3")
+"spur": true,
+"valve": NodePath("")
 }, {
 "flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiser/LeakWestFloor5"),
+"leak": NodePath("TowerCoolantRiser/LeakWestFloor4"),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L5"),
 "valve": NodePath("TowerCoolantRiser/ValveWestFloor4")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiser/LeakWestRing4"),
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiser/LeakWestRing5"),
 "pipe_run": NodePath("TowerCoolantRiser/TowerCoolantRiser_L5_Ring"),
-"valve": NodePath("TowerCoolantRiser/ValveWestFloor4")
+"spur": true,
+"valve": NodePath("")
 } ],
 "tank": NodePath("CoolantTank")
 }
@@ -921,60 +927,66 @@ script = ExtResource( 391 )
 branches = {
 "east": {
 "segments": [ {
-"flow_dir": Vector3( -1, 0, 0 ),
-"leak": NodePath("CryoLoopEast/LeakEastFloor1"),
-"pipe_run": NodePath("CryoLoopEast/Pipes"),
-"valve": NodePath("")
-}, {
 "flow_dir": Vector3( 0, 1, 0 ),
 "leak": NodePath("TowerCoolantRiserEast/LeakEastFloor0"),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L1"),
 "valve": NodePath("TowerCoolantRiserEast/ValveEastFloor0")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiserEast/LeakEastRing0"),
+"flow_dir": Vector3( 1, 0, 0 ),
+"leak": NodePath("CryoLoopEast/LeakEastFloor1"),
+"pipe_run": NodePath("CryoLoopEast/Pipes"),
+"spur": true,
+"valve": NodePath("")
+}, {
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiserEast/LeakEastRing1"),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring"),
-"valve": NodePath("TowerCoolantRiserEast/ValveEastFloor0")
+"spur": true,
+"valve": NodePath("")
 }, {
 "flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiserEast/LeakEastFloor2"),
+"leak": NodePath(""),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L2"),
 "valve": NodePath("TowerCoolantRiserEast/ValveEastFloor1")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiserEast/LeakEastRing1"),
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiserEast/LeakEastRing2"),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring"),
-"valve": NodePath("TowerCoolantRiserEast/ValveEastFloor1")
+"spur": true,
+"valve": NodePath("")
 }, {
 "flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiserEast/LeakEastFloor3"),
+"leak": NodePath("TowerCoolantRiserEast/LeakEastFloor2"),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L3"),
 "valve": NodePath("TowerCoolantRiserEast/ValveEastFloor2")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiserEast/LeakEastRing2"),
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiserEast/LeakEastRing3"),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring"),
-"valve": NodePath("TowerCoolantRiserEast/ValveEastFloor2")
+"spur": true,
+"valve": NodePath("")
 }, {
 "flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiserEast/LeakEastFloor4"),
+"leak": NodePath("TowerCoolantRiserEast/LeakEastFloor3"),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L4"),
 "valve": NodePath("TowerCoolantRiserEast/ValveEastFloor3")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiserEast/LeakEastRing3"),
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiserEast/LeakEastRing4"),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring"),
-"valve": NodePath("TowerCoolantRiserEast/ValveEastFloor3")
+"spur": true,
+"valve": NodePath("")
 }, {
 "flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiserEast/LeakEastFloor5"),
+"leak": NodePath("TowerCoolantRiserEast/LeakEastFloor4"),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L5"),
 "valve": NodePath("TowerCoolantRiserEast/ValveEastFloor4")
 }, {
-"flow_dir": Vector3( 0, 1, 0 ),
-"leak": NodePath("TowerCoolantRiserEast/LeakEastRing4"),
+"flow_dir": Vector3( 0, 0, 1 ),
+"leak": NodePath("TowerCoolantRiserEast/LeakEastRing5"),
 "pipe_run": NodePath("TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring"),
-"valve": NodePath("TowerCoolantRiserEast/ValveEastFloor4")
+"spur": true,
+"valve": NodePath("")
 } ],
 "tank": NodePath("CoolantTankEast")
 }
@@ -1259,7 +1271,7 @@ script = ExtResource( 5023 )
 [node name="RandomLeakSeeder" type="Node" parent="."]
 script = ExtResource( 5001 )
 randomize_on_start = true
-candidate_leak_paths = [ NodePath("TowerCoolantRiser/LeakWestFloor0"), NodePath("CryoLoopWest/LeakWestFloor1"), NodePath("TowerCoolantRiser/LeakWestFloor2"), NodePath("TowerCoolantRiser/LeakWestFloor3"), NodePath("TowerCoolantRiser/LeakWestFloor4"), NodePath("TowerCoolantRiser/LeakWestFloor5"), NodePath("TowerCoolantRiser/LeakWestRing0"), NodePath("TowerCoolantRiser/LeakWestRing1"), NodePath("TowerCoolantRiser/LeakWestRing2"), NodePath("TowerCoolantRiser/LeakWestRing3"), NodePath("TowerCoolantRiser/LeakWestRing4"), NodePath("TowerCoolantRiser/LeakWestRing5"), NodePath("TowerCoolantRiserEast/LeakEastFloor0"), NodePath("CryoLoopEast/LeakEastFloor1"), NodePath("TowerCoolantRiserEast/LeakEastFloor2"), NodePath("TowerCoolantRiserEast/LeakEastFloor3"), NodePath("TowerCoolantRiserEast/LeakEastFloor4"), NodePath("TowerCoolantRiserEast/LeakEastFloor5"), NodePath("TowerCoolantRiserEast/LeakEastRing0"), NodePath("TowerCoolantRiserEast/LeakEastRing1"), NodePath("TowerCoolantRiserEast/LeakEastRing2"), NodePath("TowerCoolantRiserEast/LeakEastRing3"), NodePath("TowerCoolantRiserEast/LeakEastRing4"), NodePath("TowerCoolantRiserEast/LeakEastRing5") ]
+candidate_leak_paths = [ NodePath("TowerCoolantRiser/LeakWestFloor0"), NodePath("CryoLoopWest/LeakWestFloor1"), NodePath("TowerCoolantRiser/LeakWestFloor2"), NodePath("TowerCoolantRiser/LeakWestFloor3"), NodePath("TowerCoolantRiser/LeakWestFloor4"), NodePath("TowerCoolantRiser/LeakWestRing1"), NodePath("TowerCoolantRiser/LeakWestRing2"), NodePath("TowerCoolantRiser/LeakWestRing3"), NodePath("TowerCoolantRiser/LeakWestRing4"), NodePath("TowerCoolantRiser/LeakWestRing5"), NodePath("TowerCoolantRiserEast/LeakEastFloor0"), NodePath("CryoLoopEast/LeakEastFloor1"), NodePath("TowerCoolantRiserEast/LeakEastFloor2"), NodePath("TowerCoolantRiserEast/LeakEastFloor3"), NodePath("TowerCoolantRiserEast/LeakEastFloor4"), NodePath("TowerCoolantRiserEast/LeakEastRing1"), NodePath("TowerCoolantRiserEast/LeakEastRing2"), NodePath("TowerCoolantRiserEast/LeakEastRing3"), NodePath("TowerCoolantRiserEast/LeakEastRing4"), NodePath("TowerCoolantRiserEast/LeakEastRing5") ]
 
 [node name="PipeNetworkVisualAuthoring" type="Node" parent="."]
 script = ExtResource( 5012 )
@@ -2470,7 +2482,7 @@ patch_point_path = NodePath("..")
 pipe_run_path = NodePath("../../TowerCoolantRiser_L4_Ring")
 
 [node name="LeakWestRing5" type="Spatial" parent="TowerCoolantRiser"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 22.08, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 22.08, 0 )
 script = ExtResource( 373 )
 valve_path = NodePath("../ValveWestFloor4")
 room_path = NodePath("../../DomeRoom3D")
@@ -2479,7 +2491,7 @@ leak_temp_rate = 0.6
 [node name="CableAnchor" type="Position3D" parent="TowerCoolantRiser/LeakWestRing5"]
 
 [node name="LeakWestRing5_Patch" type="Spatial" parent="TowerCoolantRiser"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 22.08, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 22.08, 0 )
 script = ExtResource( 389 )
 leak_path = NodePath("../LeakWestRing5")
 target_pipe_run_path = NodePath("../TowerCoolantRiser_L5_Ring")
