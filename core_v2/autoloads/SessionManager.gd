@@ -531,8 +531,36 @@ func _tick_replay_watchdog(provider) -> void:
 		printerr("[SessionManager] WATCHDOG: Replay stalled at input %d/%d. Forcing termination." % [current_index, buffer_size])
 		_finish_and_validate()
 
+# --- SEED DE PARTIDA ---
+# Un unico entero del que baja todo lo sorteado de la corrida (hoy: donde aparecen las
+# fugas de coolant). El azar se consume UNA sola vez, aca, y de ahi en adelante todo es
+# determinista: los sistemas que sortean piden este seed en vez de llamar a randomize()
+# por su cuenta, que es lo que romperia el replay.
+#
+# Reproducibilidad: cada sistema copia run_seed a su propio estado y lo guarda en su
+# snapshot de 'replay_sync' (RandomLeakSeeder.get_snapshot lo hace), asi que una grabacion
+# reproduce exactamente la partida que se jugo sin que este autoload tenga que participar.
+# Con ODISEA_RUN_SEED=<n> se fija a mano para repetir una partida concreta.
+var run_seed: int = 0
+
+const RUN_SEED_ENV := "ODISEA_RUN_SEED"
+
+
+func _inicializar_run_seed() -> void:
+	var forzado := OS.get_environment(RUN_SEED_ENV)
+	if forzado != "" and forzado.is_valid_integer():
+		run_seed = int(forzado)
+		print("[SessionManager] run_seed = %d (fijado por %s)" % [run_seed, RUN_SEED_ENV])
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	run_seed = int(rng.randi())
+	print("[SessionManager] run_seed = %d" % run_seed)
+
+
 func _ready():
 	_last_physics_frame = Engine.get_physics_frames()
+	_inicializar_run_seed()
 	_rl_mode = OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]
 	var bypass_env = OS.get_environment("ANNA_RL_BYPASS_SESSION_MANAGER").to_lower()
 	if bypass_env != "":
