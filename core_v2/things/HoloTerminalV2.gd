@@ -106,6 +106,11 @@ var _current_player_dither := 0.0
 var _last_applied_dither := 0.0
 var _cached_player_material: ShaderMaterial = null
 
+# Radio físico (mundo) del cuerpo de Elías, sumado al cono cámara→pantalla en
+# _update_player_screen_occlusion(): sin este margen el cono se cierra a radio 0
+# justo en el ojo de la cámara, y Elías parado ahí nunca ocluiría nada.
+export(float) var player_occlusion_body_radius := 0.4
+
 func _ready():
 	interaction_text = "Toggle Terminal"
 	set("focus_text", "Focus Terminal")
@@ -1252,27 +1257,36 @@ func _update_player_screen_occlusion(delta: float) -> void:
 	if is_active:
 		var screen_container = get_node_or_null("ScreenContainer")
 		if screen_container and screen_container.visible and screen_container.scale.length_squared() > 0.01:
-			var screen_mesh = get_node_or_null("ScreenContainer/ScreenMesh") as Spatial
-			var cam = _resolve_active_camera()
-			var player = _find_player() as Spatial
+			var screen_mesh := get_node_or_null("ScreenContainer/ScreenMesh") as Spatial
+			var cam: Camera = _resolve_active_camera()
+			var player := _find_player() as Spatial
 			if screen_mesh and cam and player:
-				var cam_pos = cam.global_transform.origin
-				var screen_pos = screen_mesh.global_transform.origin
-				var player_pos = player.global_transform.origin + Vector3(0.0, 1.0, 0.0)
+				var screen_pos := screen_mesh.global_transform.origin
+				var player_pos := player.global_transform.origin + Vector3(0.0, 1.0, 0.0)
+				var cam_pos := cam.global_transform.origin
 
-				var cam_to_screen = screen_pos - cam_pos
-				var dist_cam_screen = cam_to_screen.length()
+				var cam_to_screen := screen_pos - cam_pos
+				var dist_cam_screen := cam_to_screen.length()
 				if dist_cam_screen > 0.1:
-					var dir = cam_to_screen / dist_cam_screen
-					var cam_to_player = player_pos - cam_pos
-					var t = cam_to_player.dot(dir)
+					var dir := cam_to_screen / dist_cam_screen
+					var cam_to_player := player_pos - cam_pos
+					var t := cam_to_player.dot(dir)
 
-					if t > 0.1 and t < dist_cam_screen - 0.1:
-						var proj = cam_pos + dir * t
-						var dist_radial = player_pos.distance_to(proj)
-						var radius := 0.85
-						if dist_radial < radius:
-							target_dither = (1.0 - (dist_radial / radius)) * 0.85
+					# t entre la cámara y la pantalla (con un margen del radio del jugador,
+					# para no descartar a Elías parado justo pegado al vidrio).
+					if t > 0.1 and t < dist_cam_screen + player_occlusion_body_radius:
+						var proj := cam_pos + dir * t
+						var dist_radial := player_pos.distance_to(proj)
+						# Cono real anclado en la cámara (radio 0 en el ojo) y abierto hasta el
+						# ancho físico de la pantalla en su propio plano — no un radio de mundo
+						# fijo. Como se recalcula con cam_pos/dir cada frame, se ajusta solo al
+						# zoom y al ángulo del OTS: más cerca del ojo exige estar más centrado,
+						# más cerca de la pantalla admite todo su ancho real.
+						var screen_half_width: float = _get_screen_half_width(screen_mesh)
+						var taper := clamp(t / dist_cam_screen, 0.0, 1.0)
+						var cone_radius: float = lerp(0.0, screen_half_width, taper) + player_occlusion_body_radius
+						if dist_radial < cone_radius:
+							target_dither = (1.0 - (dist_radial / cone_radius)) * 0.85
 
 	if abs(_current_player_dither - target_dither) > 0.001:
 		_current_player_dither = lerp(_current_player_dither, target_dither, clamp(delta * 12.0, 0.0, 1.0))
@@ -1283,6 +1297,20 @@ func _update_player_screen_occlusion(delta: float) -> void:
 
 	if _current_player_dither > 0.001 or _last_applied_dither > 0.001:
 		_apply_player_holo_dither(_current_player_dither)
+
+
+
+# Ancho real de la pantalla en el mundo, leído de su propia geometría (CSGBox) en
+# vez de asumir un tamaño fijo — pantallas angostas (WallTerminal estándar) y
+# anchas (paneles múltiples como el HangingDisplay de diagnóstico criogénico)
+# necesitan un cono distinto, y este dato ya vive en el nodo, no hace falta
+# adivinarlo.
+func _get_screen_half_width(screen_mesh: Spatial) -> float:
+	var local_half_width := 1.0
+	if screen_mesh is CSGBox:
+		local_half_width = max((screen_mesh as CSGBox).width, (screen_mesh as CSGBox).height) * 0.5
+	var scale := screen_mesh.global_transform.basis.get_scale()
+	return local_half_width * max(scale.x, scale.y)
 
 
 func _apply_player_holo_dither(amount: float) -> void:
