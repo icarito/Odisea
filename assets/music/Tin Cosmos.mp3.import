@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/Tin Cosmos.mp3-9fa189c4540523c76835fe9a14c4792b.mp3str"
+
+[deps]
+
+source_file="res://assets/music/Tin Cosmos.mp3"
+dest_files=[ "res://.import/Tin Cosmos.mp3-9fa189c4540523c76835fe9a14c4792b.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0

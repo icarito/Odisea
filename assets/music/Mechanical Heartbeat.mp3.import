@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/Mechanical Heartbeat.mp3-24ed056623e2ed57d7042ed0752ddd15.mp3str"
+
+[deps]
+
+source_file="res://assets/music/Mechanical Heartbeat.mp3"
+dest_files=[ "res://.import/Mechanical Heartbeat.mp3-24ed056623e2ed57d7042ed0752ddd15.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0
