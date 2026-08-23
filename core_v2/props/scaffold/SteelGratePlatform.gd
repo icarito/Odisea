@@ -632,6 +632,7 @@ func _add_grate_deck() -> void:
 	var deck = MeshInstance.new()
 	deck.name = "DeckGrate"
 	deck.layers = PROP_VISUAL_LAYER
+	deck.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
 	var mesh_size = Vector2(
 		max(platform_width - tube_radius * 2.0, tube_radius * 2.0) + tube_radius * GRATE_OVERLAP_WITH_FRAME,
 		max(platform_depth - tube_radius * 2.0, tube_radius * 2.0) + tube_radius * GRATE_OVERLAP_WITH_FRAME
@@ -688,7 +689,7 @@ func _add_hazard_strip(node_name: String, half_width: float, edge_sign: float) -
 	var strip := MeshInstance.new()
 	strip.name = node_name
 	strip.layers = PROP_VISUAL_LAYER
-	strip.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	strip.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
 	strip.use_in_baked_light = true
 	strip.mesh = mesh
 	_visual_root.add_child(strip)
@@ -811,6 +812,7 @@ func _add_rail_panel(node_name: String, bottom_a: Vector3, bottom_b: Vector3, to
 	var panel = MeshInstance.new()
 	panel.name = node_name
 	panel.layers = PROP_VISUAL_LAYER
+	panel.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
 	panel.mesh = mesh
 	panel.material_override = _fence_material
 	_visual_root.add_child(panel)
@@ -847,6 +849,7 @@ func _add_tube_between(node_name: String, start: Vector3, end: Vector3, material
 	var mesh_instance = MeshInstance.new()
 	mesh_instance.name = node_name
 	mesh_instance.layers = PROP_VISUAL_LAYER
+	mesh_instance.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
 	mesh_instance.mesh = _get_cylinder_mesh(length)
 	mesh_instance.transform = Transform(_basis_from_y_axis(dir.normalized()), (start + end) * 0.5)
 	mesh_instance.material_override = material
@@ -856,6 +859,7 @@ func _add_joint_cap(node_name: String, pos: Vector3, material: Material) -> void
 	var mesh_instance = MeshInstance.new()
 	mesh_instance.name = node_name
 	mesh_instance.layers = PROP_VISUAL_LAYER
+	mesh_instance.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
 	mesh_instance.mesh = _get_sphere_mesh()
 	mesh_instance.translation = pos
 	mesh_instance.material_override = material

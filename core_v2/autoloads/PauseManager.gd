@@ -3,6 +3,7 @@ extends Node
 var pause_menu_scene_path = "res://core_v2/ui/PauseMenu.tscn"
 var pause_menu_instance = null
 var _uptime_frames: int = 0
+var _paused_by_focus: bool = false
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
@@ -25,6 +26,8 @@ func _notification(what: int) -> void:
 	# reanudar por un rebote de foco del compositor.
 	elif what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
 		_pause_on_focus_loss()
+	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
+		_on_focus_in()
 
 func _can_pause_in_current_scene() -> bool:
 	var current_scene = get_tree().current_scene
@@ -43,7 +46,14 @@ func _pause_on_focus_loss() -> void:
 		return
 	if not _can_pause_in_current_scene():
 		return
-	pause()
+	_paused_by_focus = true
+	get_tree().paused = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	_refresh_mobile_ui()
+
+func _on_focus_in() -> void:
+	if _paused_by_focus:
+		pause()
 
 func _is_automated_run() -> bool:
 	if OS.has_feature("Server"):
@@ -108,6 +118,7 @@ func _finish_pause() -> void:
 	_refresh_mobile_ui()
 
 func resume():
+	_paused_by_focus = false
 	get_tree().paused = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	if pause_menu_instance:

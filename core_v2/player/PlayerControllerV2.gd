@@ -2079,6 +2079,11 @@ func _trigger_touch_interact() -> void:
 		yield(tree, "physics_frame")
 	Input.action_release("interact")
 
+func _notification(what: int) -> void:
+	if what == MainLoop.NOTIFICATION_WM_SIZE_CHANGED:
+		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+			_ignore_next_mouse_motion = true
+
 func _input(event):
 	var session_recording = false
 	var sm = get_node_or_null("/root/SessionManager")
