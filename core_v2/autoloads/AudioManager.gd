@@ -36,12 +36,12 @@ func _ready():
 	_apply_headless_audio_mute(_headless_audio_muted)
 
 	_bgm_player_1 = AudioStreamPlayer.new()
-	_bgm_player_1.bus = "Master"
+	_bgm_player_1.bus = "Music"
 	_bgm_player_1.name = "BGMPlayer1"
 	add_child(_bgm_player_1)
 
 	_bgm_player_2 = AudioStreamPlayer.new()
-	_bgm_player_2.bus = "Master"
+	_bgm_player_2.bus = "Music"
 	_bgm_player_2.name = "BGMPlayer2"
 	add_child(_bgm_player_2)
 
