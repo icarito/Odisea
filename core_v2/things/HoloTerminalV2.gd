@@ -102,6 +102,9 @@ var _hud_last_particle_dir := Vector3.ZERO
 var _focus_camera_request_id := -1
 var _resolved_cursor_sensitivity := 1.0
 var _resolved_viewport_scale := 1.0
+var _current_player_dither := 0.0
+var _last_applied_dither := 0.0
+var _cached_player_material: ShaderMaterial = null
 
 func _ready():
 	interaction_text = "Toggle Terminal"
@@ -463,7 +466,11 @@ func request_redraw() -> void:
 
 
 func _wants_continuous_step() -> bool:
-	return static_content and _pending_redraw
+	if static_content and _pending_redraw:
+		return true
+	if is_active or _current_player_dither > 0.001:
+		return true
+	return false
 
 
 func _ease_out_cubic(t: float) -> float:
@@ -904,6 +911,8 @@ func _on_console_quit_requested() -> void:
 
 func _exit_tree() -> void:
 	_release_focus_camera_request()
+	if _last_applied_dither > 0.0:
+		_apply_player_holo_dither(0.0)
 
 
 func _physics_process(delta: float) -> void:
@@ -911,6 +920,8 @@ func _physics_process(delta: float) -> void:
 
 	if _hud_transition_active:
 		_step_hud_transition(delta)
+
+	_update_player_screen_occlusion(delta)
 
 	if not attach_to_active_camera or not is_active or _hud_attachment_suspended:
 		return
@@ -1234,3 +1245,85 @@ func get_camera_rig_component() -> Node:
 
 func get_hud_bridge_component() -> Node:
 	return _hud_bridge_component
+
+
+func _update_player_screen_occlusion(delta: float) -> void:
+	var target_dither := 0.0
+	if is_active:
+		var screen_container = get_node_or_null("ScreenContainer")
+		if screen_container and screen_container.visible and screen_container.scale.length_squared() > 0.01:
+			var screen_mesh = get_node_or_null("ScreenContainer/ScreenMesh") as Spatial
+			var cam = _resolve_active_camera()
+			var player = _find_player() as Spatial
+			if screen_mesh and cam and player:
+				var cam_pos = cam.global_transform.origin
+				var screen_pos = screen_mesh.global_transform.origin
+				var player_pos = player.global_transform.origin + Vector3(0.0, 1.0, 0.0)
+
+				var cam_to_screen = screen_pos - cam_pos
+				var dist_cam_screen = cam_to_screen.length()
+				if dist_cam_screen > 0.1:
+					var dir = cam_to_screen / dist_cam_screen
+					var cam_to_player = player_pos - cam_pos
+					var t = cam_to_player.dot(dir)
+
+					if t > 0.1 and t < dist_cam_screen - 0.1:
+						var proj = cam_pos + dir * t
+						var dist_radial = player_pos.distance_to(proj)
+						var radius := 0.85
+						if dist_radial < radius:
+							target_dither = (1.0 - (dist_radial / radius)) * 0.85
+
+	if abs(_current_player_dither - target_dither) > 0.001:
+		_current_player_dither = lerp(_current_player_dither, target_dither, clamp(delta * 12.0, 0.0, 1.0))
+		if abs(_current_player_dither - target_dither) < 0.005:
+			_current_player_dither = target_dither
+	else:
+		_current_player_dither = target_dither
+
+	if _current_player_dither > 0.001 or _last_applied_dither > 0.001:
+		_apply_player_holo_dither(_current_player_dither)
+
+
+func _apply_player_holo_dither(amount: float) -> void:
+	_last_applied_dither = amount
+	var mat = _get_player_shader_material()
+	if mat:
+		mat.set_shader_param("holo_dither_amount", amount)
+
+
+func _get_player_shader_material() -> ShaderMaterial:
+	if is_instance_valid(_cached_player_material):
+		return _cached_player_material
+	var player = _find_player()
+	if player == null or not is_instance_valid(player):
+		return null
+	var mesh = player.get_node_or_null("Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton/Mesh_0001") as MeshInstance
+	if mesh == null:
+		var pivot = player.get_node_or_null("Visual/Pivot")
+		if pivot:
+			mesh = _find_first_mesh_instance(pivot)
+	if mesh:
+		if mesh.material_override is ShaderMaterial:
+			_cached_player_material = mesh.material_override as ShaderMaterial
+			return _cached_player_material
+		if mesh.mesh and mesh.mesh.get_surface_count() > 0:
+			var mat = mesh.get_surface_material(0)
+			if mat is ShaderMaterial:
+				_cached_player_material = mat as ShaderMaterial
+				return _cached_player_material
+			var surf_mat = mesh.mesh.surface_get_material(0)
+			if surf_mat is ShaderMaterial:
+				_cached_player_material = surf_mat as ShaderMaterial
+				return _cached_player_material
+	return null
+
+
+func _find_first_mesh_instance(node: Node) -> MeshInstance:
+	if node is MeshInstance:
+		return node as MeshInstance
+	for child in node.get_children():
+		var res = _find_first_mesh_instance(child)
+		if res:
+			return res
+	return null

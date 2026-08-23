@@ -133,3 +133,20 @@ func test_console_quit_command_closes_holoterminal() -> void:
 	assert_bool(holo.is_active).is_false()
 
 	yield (_teardown_scene_root(scene), "completed")
+
+func test_holoterminal_player_occlusion_dither_when_active() -> void:
+	var scene = _setup_scene_root()
+	var holo = HoloTerminalScene.instance()
+	scene.add_child(holo)
+	yield (get_tree(), "idle_frame")
+
+	# Inactive terminal should have 0 dither target
+	holo.call("_update_player_screen_occlusion", 0.016)
+	assert_float(holo.get("_current_player_dither")).is_equal(0.0)
+
+	# Activated terminal without player/camera in line-of-sight should still stay at 0
+	holo.set_active(true, true)
+	holo.call("_update_player_screen_occlusion", 0.016)
+	assert_float(holo.get("_current_player_dither")).is_equal(0.0)
+
+	yield (_teardown_scene_root(scene), "completed")
