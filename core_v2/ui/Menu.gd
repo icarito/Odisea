@@ -1,6 +1,7 @@
 extends Control
 
 const FIRST_GAME_SCENE := "res://core_v2/levels/interiors/Dome_Intro.tscn"
+const MENU_BGM_PATH := "res://assets/music/Tin Cosmos.mp3"
 
 export var enable_touch_buttons := true
 
@@ -13,8 +14,10 @@ onready var quit_button = find_node("Quit")
 onready var options_menu = $OptionsMenu
 onready var version_label = get_node_or_null("VersionLabel")
 var _continue_scene_path := ""
+var _menu_bgm_player: AudioStreamPlayer = null
 
 func _ready():
+	_setup_and_play_bgm()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 	# FD-228: Confirm stable boot for UpdateManager
@@ -89,7 +92,28 @@ func _on_Options_pressed():
 func _on_Quit_pressed():
 	get_tree().quit()
 
+func _exit_tree() -> void:
+	_stop_bgm()
+
+func _setup_and_play_bgm() -> void:
+	if ResourceLoader.exists(MENU_BGM_PATH):
+		var stream = load(MENU_BGM_PATH) as AudioStream
+		if stream:
+			_menu_bgm_player = AudioStreamPlayer.new()
+			_menu_bgm_player.name = "MenuBGM"
+			_menu_bgm_player.stream = stream
+			_menu_bgm_player.bus = "Music"
+			_menu_bgm_player.autoplay = false
+			add_child(_menu_bgm_player)
+			_menu_bgm_player.play()
+
+func _stop_bgm() -> void:
+	if _menu_bgm_player and is_instance_valid(_menu_bgm_player):
+		if _menu_bgm_player.playing:
+			_menu_bgm_player.stop()
+
 func _start_game(scene_path):
+	_stop_bgm()
 	# Avoid double-triggering if a button is pressed twice during the fade.
 	for b in [new_game_button, continue_button, options_button, quit_button]:
 		if b:

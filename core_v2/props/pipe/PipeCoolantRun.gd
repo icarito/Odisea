@@ -96,10 +96,22 @@ var _phase: float = 0.0001
 var _current_speed: float = 0.0
 var _current_flow_intensity: float = 0.0
 
+var _sfx_player: AudioStreamPlayer3D = null
+var _was_flowing: bool = false
+var _stream_on: AudioStream = null
+var _stream_off: AudioStream = null
+
 
 func _ready() -> void:
 	_current_speed = flow_speed
 	_current_flow_intensity = clamp(flow_intensity, 0.0, 1.0)
+	_was_flowing = _current_flow_intensity > 0.0001
+	if not Engine.editor_hint:
+		_stream_on = load("res://assets/sfx/steam hiss.wav")
+		_stream_off = load("res://assets/sfx/metal1.wav")
+		_sfx_player = AudioStreamPlayer3D.new()
+		_sfx_player.bus = "SFX"
+		add_child(_sfx_player)
 	_apply()
 	if add_entry_collar:
 		_spawn_entry_collar()
@@ -136,6 +148,16 @@ func _physics_process(delta: float) -> void:
 		return
 	_current_speed = _approach(_current_speed, flow_speed, delta, speed_ramp)
 	_current_flow_intensity = _approach(_current_flow_intensity, target_intensity, delta, intensity_ramp)
+
+	var is_flowing := _current_flow_intensity > 0.0001
+	if is_flowing != _was_flowing:
+		_was_flowing = is_flowing
+		if _sfx_player != null:
+			var stream_to_play = _stream_on if is_flowing else _stream_off
+			if stream_to_play != null:
+				_sfx_player.stream = stream_to_play
+				_sfx_player.play()
+
 	if abs(_current_speed) >= 0.0001 or abs(flow_speed) >= 0.0001:
 		_phase += delta * _current_speed
 	_update_flow_material()
