@@ -209,7 +209,10 @@ func _spawn_explosions(positions: Array, scale_factor: float) -> void:
 			explosion.scale = Vector3.ONE * scale_factor
 		var timer: Timer = Timer.new()
 		timer.one_shot = true
-		timer.wait_time = 0.9
+		# La pluma del reventon vive 1.5 s + su aleatoriedad de vida: liberarla a los 0.9 s
+		# (la duracion del fogonazo viejo) la cortaba a la mitad justo cuando el jugador
+		# gira a mirar de donde vino el ruido.
+		timer.wait_time = 2.2
 		explosion.add_child(timer)
 		timer.connect("timeout", explosion, "queue_free")
 		timer.start()

@@ -80,7 +80,9 @@ func test_fissure_mist_is_a_cheap_cpu_plume() -> void:
 	assert_object(_visual.get_node_or_null("MistFrost")).is_null()
 	assert_int(mist.amount).is_greater(16)
 	assert_float(mist.lifetime).is_greater(1.5)
-	assert_float(mist.color.a).is_equal_approx(0.3, 0.001)
+	# Rango, no valor exacto: el alfa del vapor se ajusta a ojo y clavarlo aca solo hace
+	# que el test persiga cada retoque. Lo que importa es que se vea y no tape la escena.
+	assert_float(mist.color.a).is_between(0.2, 0.6)
 	assert_float(spray.color.a).is_equal_approx(0.38, 0.001)
 	# El quad se agranda con la curva de escala: sin margen extra el frustum corta la
 	# pluma antes de que expire.

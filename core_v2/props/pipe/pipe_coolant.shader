@@ -34,6 +34,31 @@ uniform float crack_scale = 2.5;
 // Superficie tipo agua. voronoi_scale alto = celdas chicas (18 en el original 2D).
 uniform float voronoi_scale = 14.0;
 uniform float water_noise_scale = 0.21;
+// Campo de ruido horneado (pipe_flow_noise.tres). Sustituye al hash con sin(): random2
+// costaba 2 senos por llamada, y el warp la invocaba 32 veces por pixel (8 octavas x 4
+// esquinas) mas 18 mas el voronoi. Con la textura es una lectura por octava/celda.
+uniform sampler2D flow_noise : hint_black;
+
+// Receta hash-free para grietas (FD-268, GLES2/mediump): abs(sin()) para crestas
+// angulares, domain warping anguloso para que quiebren en angulo, y cobertura angosta
+// para fragmentar las lineas en segmentos. Se perdio en un refactor posterior y el cano
+// roto quedo marcado solo por un oscurecimiento; esto devuelve la grieta con su brillo.
+// Solo se evalua DENTRO del radio de una fisura activa: el cano sano no paga nada.
+float calculate_crack_pattern(vec3 p) {
+	vec3 warp = vec3(
+		abs(sin(dot(p, vec3(12.3, 7.1, 3.4)))),
+		abs(sin(dot(p, vec3(4.5, 15.2, 8.7)))),
+		abs(sin(dot(p, vec3(9.1, 2.8, 14.6))))
+	);
+	vec3 wp = p + (warp - 0.5) * 0.45;
+	float c1 = abs(sin(dot(wp, vec3(22.0, 14.0, 8.0))));
+	float c2 = abs(sin(dot(wp, vec3(-15.0, 25.0, 11.0))));
+	float c3 = abs(sin(dot(wp, vec3(10.0, -18.0, 24.0))));
+	float crests = min(min(c1, c2), c3);
+	float line_pattern = 1.0 - smoothstep(0.0, 0.12, crests);
+	float coverage = smoothstep(0.35, 0.75, abs(sin(dot(p, vec3(7.3, 11.1, 5.9)))));
+	return line_pattern * coverage;
+}
 uniform float water_speed = 0.7;
 uniform float axial_stretch = 0.55;
 
@@ -43,19 +68,11 @@ const float LOD_NEAR = 9.0;
 const float LOD_FAR = 28.0;
 
 
-vec2 random2(vec2 pos) {
-	return fract(sin(vec2(dot(pos, vec2(12.9898, 78.233)), dot(pos, vec2(-148.998, -65.233)))) * 43758.5453);
-}
-
+// El filtrado bilineal de la textura hace el mismo trabajo que las cuatro esquinas
+// interpoladas a mano, gratis y en hardware. 1/64 mapea una celda de ruido cada 64
+// unidades de pos, que es la escala que tenia el hash.
 float value_noise2(vec2 pos) {
-	vec2 p = floor(pos);
-	vec2 f = fract(pos);
-	float v00 = random2(p).x;
-	float v10 = random2(p + vec2(1.0, 0.0)).x;
-	float v01 = random2(p + vec2(0.0, 1.0)).x;
-	float v11 = random2(p + vec2(1.0, 1.0)).x;
-	vec2 u = f * f * (3.0 - 2.0 * f);
-	return mix(mix(v00, v10, u.x), mix(v01, v11, u.x), u.y);
+	return texture(flow_noise, pos * 0.015625).r;
 }
 
 float voronoi2(vec2 v) {
@@ -65,7 +82,7 @@ float voronoi2(vec2 v) {
 	for (int y = -1; y <= 1; y++) {
 		for (int x = -1; x <= 1; x++) {
 			vec2 n = vec2(float(x), float(y));
-			vec2 p = random2(v_floor + n);
+			vec2 p = texture(flow_noise, (v_floor + n) * 0.015625).rg;
 			min_dist = min(min_dist, distance(v_fract, p + n));
 		}
 	}
@@ -150,8 +167,20 @@ void fragment() {
 	if (fissure_intensity > 0.001) {
 		float fissure_distance = distance(world_pos, fissure_center);
 		float fissure_mask = (1.0 - smoothstep(fissure_radius * 0.45, fissure_radius, fissure_distance)) * fissure_intensity;
-		current_albedo = mix(current_albedo, vec3(0.01, 0.04, 0.08), fissure_mask);
-		current_emission *= 1.0 - fissure_mask * 0.9;
+		// La grieta se dibuja en world_pos igual que su centro: el mesh horneado esta
+		// rotado respecto del nodo, asi que en espacio local caia a metros del cano.
+		// RELATIVO al centro de la fisura, no world_pos crudo. En mundo las coordenadas
+		// valen decenas de metros: multiplicadas por 18 los dot() de la receta caen en
+		// cientos de radianes y los sin() alias an a ruido gris en vez de dibujar lineas.
+		// Centrado, el patron vive en +-fissure_radius*18 y las crestas se leen.
+		float crack = calculate_crack_pattern((world_pos - fissure_center) * 18.0);
+		vec3 crack_dark = vec3(0.01, 0.04, 0.08);
+		vec3 crack_glow = flow_color.rgb * 3.5;
+		// El caudal se escapa por la rotura: la emision normal cae hacia la fisura...
+		current_emission = mix(current_emission, current_emission * 0.2, fissure_mask);
+		// ...y la grieta misma queda oscura con los bordes helados brillando.
+		current_albedo = mix(current_albedo, crack_dark, fissure_mask * crack);
+		current_emission = mix(current_emission, crack_glow, fissure_mask * crack * 0.95);
 	}
 
 	ALBEDO = current_albedo;

@@ -345,7 +345,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 1, -4 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1, -4 )
 
 [node name="LeakWest" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, -4 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.16, -4 )
 script = ExtResource( 6 )
 starts_leaking = true
 valve_path = NodePath("../ValveWest_2")
@@ -354,7 +354,7 @@ flow_adapter_path = NodePath("../CoolantFlowAdapterWest")
 [node name="CableAnchor" type="Position3D" parent="LeakWest"]
 
 [node name="LeakWest_Patch" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, -4 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.16, -4 )
 script = ExtResource( 7 )
 leak_path = NodePath("../LeakWest")
 target_pipe_run_path = NodePath("../PipeRunWest_S3")
@@ -474,7 +474,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, 2 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 2 )
 
 [node name="LeakEast" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 2 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 1.16, 2 )
 script = ExtResource( 6 )
 starts_leaking = true
 valve_path = NodePath("../ValveEast_2")
@@ -483,7 +483,7 @@ flow_adapter_path = NodePath("../CoolantFlowAdapterEast")
 [node name="CableAnchor" type="Position3D" parent="LeakEast"]
 
 [node name="LeakEast_Patch" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 2 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 1.16, 2 )
 script = ExtResource( 7 )
 leak_path = NodePath("../LeakEast")
 target_pipe_run_path = NodePath("../PipeRunEast_S3")

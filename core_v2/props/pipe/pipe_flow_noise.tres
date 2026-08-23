@@ -1,0 +1,17 @@
+[gd_resource type="NoiseTexture" load_steps=2 format=2]
+
+; Campo de ruido horneado para el warp del shader de coolant. Reemplaza al hash con sin()
+; que se evaluaba 64 veces por pixel: una lectura de textura por octava en vez de 8 senos.
+; seamless=true es obligatorio: el shader lo muestrea con UV que se repiten al infinito.
+
+[sub_resource type="OpenSimplexNoise" id=1]
+seed = 42
+octaves = 1
+period = 32.0
+persistence = 0.5
+
+[resource]
+width = 256
+height = 256
+seamless = true
+noise = SubResource( 1 )
