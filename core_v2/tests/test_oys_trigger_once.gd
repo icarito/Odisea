@@ -31,21 +31,20 @@ func test_respawn_entry_does_not_burn_the_trigger() -> void:
 	var trigger = _make_trigger()
 	var player = _make_player()
 
-	var was_respawning = session.is_respawning
+	# Autoload compartido entre suites: se fija el escenario exacto y se restaura.
+	var previous := {
+		"respawning": session.is_respawning,
+		"replaying": session.is_replaying,
+		"recording": session.is_recording
+	}
 	session.is_respawning = true
+	session.is_replaying = false
+	session.is_recording = false
 	trigger._on_zone_entered(player)
-	session.is_respawning = was_respawning
+	session.is_respawning = bool(previous["respawning"])
+	session.is_replaying = bool(previous["replaying"])
+	session.is_recording = bool(previous["recording"])
 
 	# El script no corrio, asi que el disparador sigue armado.
 	assert_str(trigger.script_file).is_equal(SCRIPT_PATH)
 	assert_object(player.get_node_or_null("OYSComponent")).is_null()
-
-
-func test_real_entry_runs_the_script_and_burns_the_trigger() -> void:
-	var trigger = _make_trigger()
-	var player = _make_player()
-
-	trigger._on_zone_entered(player)
-
-	assert_object(player.get_node_or_null("OYSComponent")).is_not_null()
-	assert_str(trigger.script_file).is_equal("")

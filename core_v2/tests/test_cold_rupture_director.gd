@@ -51,10 +51,33 @@ func test_oys_trigger_script_clears_file_on_trigger() -> void:
 	add_child(trigger)
 	yield(get_tree(), "idle_frame")
 
+	# El SessionManager es un autoload COMPARTIDO por las 50 suites del run de CI, y
+	# is_respawning / is_replaying deciden si el disparador ejecuta o saltea el script.
+	# Este caso asegura que una entrada NORMAL quema trigger_once, asi que tiene que
+	# declarar que la entrada es normal en vez de heredar lo que dejo otra suite.
+	var session = get_node_or_null("/root/SessionManager")
+	var previous := {}
+	if session != null:
+		previous = {
+			"respawning": session.is_respawning,
+			"replaying": session.is_replaying,
+			"recording": session.is_recording
+		}
+		session.is_respawning = false
+		session.is_replaying = false
+		session.is_recording = false
+
 	trigger.script_file = "res://core_v2/levels/interiors/cold_rupture.oys"
 	assert_bool(trigger.script_file != "").is_true()
 	trigger.trigger_from_script(trigger)
-	assert_bool(trigger.script_file == "").is_true()
+	var cleared: bool = trigger.script_file == ""
+
+	if session != null:
+		session.is_respawning = bool(previous["respawning"])
+		session.is_replaying = bool(previous["replaying"])
+		session.is_recording = bool(previous["recording"])
+
+	assert_bool(cleared).is_true()
 
 
 # Regla del domo: mientras quede una fuga viva suena el latido; cuando la ultima se

@@ -608,10 +608,13 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			for _i in range(wait_frames):
 				if stop_requested or my_id != execution_id:
 					break
-				# El host puede desaparecer MIENTRAS esperamos (cambio de escena, el
+				# El host puede ser LIBERADO mientras esperamos (cambio de escena, el
 				# jugador liberado al terminar un test): sin este corte la vuelta
 				# siguiente llamaba get_tree() sobre una instancia ya liberada.
-				if not is_instance_valid(host_node) or not host_node.is_inside_tree():
+				# Solo se corta por instancia liberada, NO por estar fuera del arbol:
+				# el player se re-parenta durante teleports y ese hueco de un frame no
+				# puede acortar un WAIT, o el replay diverge de la corrida grabada.
+				if not is_instance_valid(host_node):
 					break
 				if fast_forward and _i > 0:
 					break
