@@ -277,6 +277,7 @@ func _build_compact_ring() -> void:
 	var visual := MeshInstance.new()
 	visual.name = "CombinedMesh"
 	visual.layers = 64
+	visual.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
 	visual.mesh = mesh
 	add_child(visual)
 	var body := StaticBody.new()
@@ -502,6 +503,7 @@ func _collapse_segments() -> void:
 		var instance := MultiMeshInstance.new()
 		instance.name = "Batch_%d" % batch_root.get_child_count()
 		instance.layers = 64
+		instance.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
 		instance.multimesh = multimesh
 		instance.material_override = data["material"]
 		batch_root.add_child(instance)
