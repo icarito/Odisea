@@ -1,8 +1,9 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://core_v2/systems/cryo/LeakFissureVisual.gd" type="Script" id=1]
 [ext_resource path="res://assets/flipbook_particles/assets/clouds/textures/cloud_01.tga" type="Texture" id=2]
-[ext_resource path="res://core_v2/props/emitters/FrostEmitter.tscn" type="PackedScene" id=3]
+[ext_resource path="res://assets/flipbook_particles/assets/smokes/smoke_01/textures/smoke_01.tga" type="Texture" id=3]
+[ext_resource path="res://assets/sfx/sfx100v2_loop_ambient_01.ogg" type="AudioStream" id=4]
 
 [sub_resource type="SpatialMaterial" id=1]
 flags_transparent = true
@@ -18,6 +19,25 @@ albedo_texture = ExtResource( 2 )
 [sub_resource type="QuadMesh" id=2]
 material = SubResource( 1 )
 size = Vector2( 0.3, 0.3 )
+
+; Pluma de vapor: el quad nace chico en la boca de la fisura, se abre rapido y se
+; disipa. Es lo que hace que el chorro se lea desde el otro lado del domo.
+[sub_resource type="Curve" id=7]
+_data = [ Vector2( 0, 0.25 ), 0.0, 0.0, 0, 0, Vector2( 0.35, 1 ), 0.0, 0.0, 0, 0, Vector2( 1, 0.55 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="SpatialMaterial" id=8]
+flags_transparent = true
+flags_unshaded = true
+vertex_color_use_as_albedo = true
+params_billboard_mode = 3
+particles_anim_h_frames = 8
+particles_anim_v_frames = 8
+particles_anim_loop = true
+albedo_texture = ExtResource( 3 )
+
+[sub_resource type="QuadMesh" id=9]
+material = SubResource( 8 )
+size = Vector2( 1.1, 1.1 )
 
 [sub_resource type="SpatialMaterial" id=5]
 albedo_color = Color( 0.82, 0.85, 0.75, 1 )
@@ -48,15 +68,36 @@ tangential_accel_random = 0.5
 scale_amount = 2.2
 color = Color( 1, 1, 1, 0.38 )
 
-[node name="MistFrost" parent="." instance=ExtResource( 3 )]
-transform = Transform( 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0 )
-is_active = false
-emission_radius = 0.2
-particles_per_second = 6
-emission_height = 0.08
-emission_speed = 1.15
-particle_alpha = 0.22
-preserve_full_particle_visibility = true
+; MistParticles reemplaza al FrostEmitter+GasParticleManager que vivia aca (FD-270 perf):
+; la fisura solo necesita un chorro que se vea de lejos, no un volumen de gas simulado con
+; colision y pool por particula. El GasArea3D/GasParticleManager queda para los puzles de
+; gas, donde el volumen SI es gameplay.
+[node name="MistParticles" type="CPUParticles" parent="."]
+emitting = false
+amount = 26
+lifetime = 2.2
+lifetime_randomness = 0.35
+extra_cull_margin = 8.0
+mesh = SubResource( 9 )
+emission_shape = 1
+emission_sphere_radius = 0.18
+direction = Vector3( 0, 1, 0 )
+spread = 14.0
+gravity = Vector3( 0, -0.35, 0 )
+initial_velocity = 3.2
+initial_velocity_random = 0.4
+damping = 1.1
+scale_amount = 1.4
+scale_amount_random = 0.4
+scale_amount_curve = SubResource( 7 )
+color = Color( 0.86, 0.96, 1, 0.3 )
+anim_offset_random = 1.0
+
+[node name="FissureSound" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource( 4 )
+unit_db = -12.0
+unit_size = 3.0
+max_distance = 40.0
 
 [node name="GlooMesh" type="MeshInstance" parent="."]
 visible = false

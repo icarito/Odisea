@@ -127,8 +127,15 @@ func _physics_process(delta: float) -> void:
 		return
 	# La fase y la intensidad continúan actualizándose también en LOD lejano: la versión
 	# distante es deliberadamente simple, pero debe seguir leyendo como fluido en marcha.
+	var target_intensity: float = clamp(flow_intensity, 0.0, 1.0)
+	# Corrida en reposo (sin caudal y sin rampa pendiente): no hay fase que avanzar ni
+	# uniform que cambie. Dome_Intro tiene decenas de corridas así — escribirles cuatro
+	# shader params por tick es puro costo sin diferencia visual.
+	if _current_speed == flow_speed and _current_flow_intensity == target_intensity \
+			and abs(_current_speed) < 0.0001:
+		return
 	_current_speed = _approach(_current_speed, flow_speed, delta, speed_ramp)
-	_current_flow_intensity = _approach(_current_flow_intensity, clamp(flow_intensity, 0.0, 1.0), delta, intensity_ramp)
+	_current_flow_intensity = _approach(_current_flow_intensity, target_intensity, delta, intensity_ramp)
 	if abs(_current_speed) >= 0.0001 or abs(flow_speed) >= 0.0001:
 		_phase += delta * _current_speed
 	_update_flow_material()
@@ -148,14 +155,17 @@ func set_flow_dir(v: Vector3) -> void:
 	_apply()
 
 
+# PERF: flow_speed y flow_intensity son OBJETIVOS de rampa que _physics_process ya
+# persigue y vuelca al material cada tick. _apply() acá era gratis solo en el editor:
+# en runtime CoolantFlowAdapter los llama por tramo en cada frame de física mientras
+# hay una fuga, y cada llamada rehacía la asignación recursiva de material a todas las
+# mallas de la corrida (768 _assign_to_meshes en 32 frames en el profiler de Dome_Intro).
 func set_flow_speed(v: float) -> void:
 	flow_speed = v
-	_apply()
 
 
 func set_flow_intensity(v: float) -> void:
 	flow_intensity = clamp(v, 0.0, 3.0)
-	_apply()
 
 
 func set_base_color(v: Color) -> void:

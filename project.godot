@@ -2714,6 +2714,7 @@ MobileLightBudget="*res://core_v2/systems/MobileLightBudget.gd"
 AdaptiveRenderScale="*res://core_v2/systems/AdaptiveRenderScale.gd"
 AdaptiveVisualBudget="*res://core_v2/systems/AdaptiveVisualBudget.gd"
 DebugConsoleManager="*res://core_v2/autoloads/DebugConsoleManager.gd"
+_FrameProbe="*res://core_v2/autoloads/_FrameProbe.gd"
 
 [debug]
 

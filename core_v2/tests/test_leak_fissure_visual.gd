@@ -69,21 +69,22 @@ func test_no_leak_fissure_inactive() -> void:
 		assert_float(mat.get_shader_param("fissure_intensity")).is_equal(0.0)
 
 
-func test_fissure_mist_is_not_distance_culled() -> void:
-	var emitter: Area = _visual.get_node("MistFrost") as Area
-	var manager: Spatial = _visual.get_node("MistFrost/GasParticleManager") as Spatial
+func test_fissure_mist_is_a_cheap_cpu_plume() -> void:
+	# FD-270 perf: la fisura dejo de instanciar FrostEmitter/GasParticleManager (volumen de
+	# gas simulado, un pool por fisura x24 en Dome_Intro) y usa un CPUParticles. Lo que la
+	# prueba cuida es que siga siendo un chorro visible de lejos: sin LOD de distancia que
+	# lo apague y con un AABB de visibilidad mas grande que el propio quad.
+	var mist: CPUParticles = _visual.get_node("MistParticles") as CPUParticles
 	var spray: CPUParticles = _visual.get_node("SprayParticles") as CPUParticles
 
-	assert_bool(emitter.get("preserve_full_particle_visibility")).is_true()
-	assert_float(emitter.get("particle_alpha")).is_equal(0.22)
-	assert_bool(emitter.get("use_particle_dither")).is_false()
+	assert_object(_visual.get_node_or_null("MistFrost")).is_null()
+	assert_int(mist.amount).is_greater(16)
+	assert_float(mist.lifetime).is_greater(1.5)
+	assert_float(mist.color.a).is_equal_approx(0.3, 0.001)
 	assert_float(spray.color.a).is_equal_approx(0.38, 0.001)
-	assert_bool(manager.get("distance_lod_enabled")).is_false()
-	assert_bool(manager.get("use_dither")).is_false()
-	assert_bool(manager.get("adaptive_pool_on_mobile")).is_false()
-	assert_float(manager.get("mobile_pool_scale")).is_equal(1.0)
-	assert_float(manager.get("min_pool_fraction")).is_equal(1.0)
-	assert_float(manager.get("particle_cull_margin")).is_equal(96.0)
+	# El quad se agranda con la curva de escala: sin margen extra el frustum corta la
+	# pluma antes de que expire.
+	assert_float(mist.extra_cull_margin).is_greater(1.0)
 
 
 func test_active_leak_fissure_visuals() -> void:

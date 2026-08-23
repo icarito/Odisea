@@ -21,7 +21,7 @@ extends SceneTree
 #      SpatialMaterial.
 #
 # Run: godot3-bin --no-window -s tools/bake_signage_panels.gd
-# Output: core_v2/levels/interiors/DomeIntro_SignageAtlas.tres (ImageTexture)
+# Output: core_v2/levels/interiors/DomeIntro_SignageAtlas.res (ImageTexture, binario)
 #         core_v2/levels/interiors/DomeIntro_SignagePanels_baked.mesh
 #         core_v2/levels/interiors/DomeIntro_SignagePanels_body.tscn
 
@@ -101,7 +101,11 @@ func _run() -> void:
 
 	var atlas_tex := ImageTexture.new()
 	atlas_tex.create_from_image(atlas_img, 0)
-	var atlas_path := OUT_DIR + "DomeIntro_SignageAtlas.tres"
+	# Binario (.res), no texto (.tres): el atlas es 2048x1232 RGBA8, y como .tres el
+	# motor lo escribe como ~36 MB de bytes en ASCII decimal que tardaban 4.3 s en
+	# parsearse al cargar Dome_Intro (medido con --verbose). El mismo contenido en
+	# binario carga en centesimas y ocupa un tercio en el pck.
+	var atlas_path := OUT_DIR + "DomeIntro_SignageAtlas.res"
 	if ResourceSaver.save(atlas_path, atlas_tex) != OK:
 		push_error("[bake_signage] failed to save %s" % atlas_path)
 		quit(1)

@@ -25,6 +25,10 @@ export(NodePath) var pipe_run_path: NodePath
 export(float, 0.1, 2.0) var fissure_radius: float = 0.35
 export(Vector3) var spray_direction: Vector3 = Vector3.UP setget set_spray_direction
 
+# Volumen del audio de fuga a intensidad 0 y a intensidad 1 (heredado de FrostEmitter).
+const SOUND_DB_MIN := -12.0
+const SOUND_DB_MAX := 10.0
+
 var _leak: Object = null
 var _patch_point: Object = null
 var _pipe_run: Object = null
@@ -46,7 +50,8 @@ var _spray_emitting_decision: bool = false
 var _mist_emitting_decision: bool = false
 
 onready var _spray_particles: CPUParticles = get_node_or_null("SprayParticles")
-onready var _mist_frost: Node = get_node_or_null("MistFrost")
+onready var _mist_particles: CPUParticles = get_node_or_null("MistParticles")
+onready var _sound: AudioStreamPlayer3D = get_node_or_null("FissureSound")
 onready var _gloo_mesh: MeshInstance = get_node_or_null("GlooMesh")
 
 
@@ -132,8 +137,8 @@ func _apply_spray_direction() -> void:
 	var direction: Vector3 = spray_direction.normalized()
 	if _spray_particles:
 		_spray_particles.direction = direction
-	if _mist_frost:
-		_mist_frost.set("emission_direction", direction)
+	if _mist_particles:
+		_mist_particles.direction = direction
 
 
 func _update_visuals() -> void:
@@ -203,8 +208,14 @@ func _update_visuals() -> void:
 
 	# Volumen del vapor proporcional a la intensidad real de la fuga, tapada o no —
 	# 0 cuando está parchada, la misma curva que ya gobierna la grieta del caño.
-	if _mist_frost != null and _mist_frost.has_method("set_intensity"):
-		_mist_frost.set_intensity(0.0 if is_patched else leak_intensity)
+	var intensity: float = 0.0 if is_patched else clamp(leak_intensity, 0.0, 1.0)
+	if _sound != null:
+		_sound.unit_db = lerp(SOUND_DB_MIN, SOUND_DB_MAX, intensity)
+	# La pluma se achica con la fuga en vez de cortar de golpe (misma curva que gobierna
+	# la grieta del cano). Escalar el nodo escala emision y quads a la vez.
+	if _mist_particles != null:
+		var s: float = max(0.05, intensity)
+		_mist_particles.scale = Vector3(s, s, s)
 
 
 func _set_particles_emitting(spray_active: bool, mist_active: bool) -> void:
@@ -212,11 +223,15 @@ func _set_particles_emitting(spray_active: bool, mist_active: bool) -> void:
 	_mist_emitting_decision = mist_active
 	if _spray_particles != null:
 		_spray_particles.emitting = spray_active
-	# FrostEmitter.set_active() ya maneja on/off del GasParticleManager y del audio
-	# ambiente (para el sonido de la fuga) — sin reset por "amount" ni loop propio.
-	if _mist_frost != null and _mist_frost.has_method("set_active"):
-		if _mist_frost.is_active != mist_active:
-			_mist_frost.set_active(mist_active)
+	if _mist_particles != null and _mist_particles.emitting != mist_active:
+		_mist_particles.emitting = mist_active
+	# El audio ambiente sigue a la pluma. Solo se toca en el flanco: reasignar playing
+	# cada tick reiniciaba el loop y se oia como un chasquido.
+	if _sound != null and _sound.playing != mist_active:
+		if mist_active:
+			_sound.play()
+		else:
+			_sound.stop()
 
 
 func get_fissure_intensity() -> float:

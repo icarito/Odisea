@@ -3679,6 +3679,7 @@ pitch_speed = 1.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 26.55, 0 )
 use_collision = true
 collision_layer = 64
+collision_mask = 3
 width = 7.2
 height = 0.24
 depth = 0.38
@@ -3688,6 +3689,7 @@ material = ExtResource( 7 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.35, 21.45, 0 )
 use_collision = true
 collision_layer = 64
+collision_mask = 3
 width = 0.14
 height = 10.2
 depth = 0.14
@@ -3697,6 +3699,7 @@ material = ExtResource( 7 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.35, 21.45, 0 )
 use_collision = true
 collision_layer = 64
+collision_mask = 3
 width = 0.14
 height = 10.2
 depth = 0.14
@@ -3706,6 +3709,7 @@ material = ExtResource( 7 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 21.45, 0 )
 use_collision = true
 collision_layer = 64
+collision_mask = 3
 width = 0.22
 height = 10.2
 depth = 0.22
@@ -3718,6 +3722,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 14, 0 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.35, 0 )
 use_collision = true
 collision_layer = 64
+collision_mask = 3
 width = 7.2
 height = 0.24
 depth = 0.38
@@ -3733,6 +3738,7 @@ attenuation_filter_db = -30.0
 [node name="HangingDisplay" parent="SuspendedCryoDiagnostics/Carriage" instance=ExtResource( 371 )]
 transform = Transform( 1.55, 0, 0, 0, -1.55, 0, 0, 0, -1.55, 0, 2.05, 0 )
 collision_layer = 64
+collision_mask = 3
 
 [node name="ElevatorAnchor" type="Position3D" parent="."]
 transform = Transform( 0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, -6.5436, 0, 15.0598 )
@@ -5104,7 +5110,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.6918, 0 )
 shape = SubResource( 590 )
 
 [node name="Radiator" parent="." instance=ExtResource( 3 )]
-transform = Transform( -2.18557e-07, 5, 0, -5, -2.18557e-07, 0, 0, 0, 5, -0.508493, 15.1, -0.600256 )
+transform = Transform( -2.18557e-07, 5, 0, -5, -2.18557e-07, 0, 0, 0, 5, -0.508493, 9.1, -0.600256 )
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
