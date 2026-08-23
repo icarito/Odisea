@@ -385,6 +385,25 @@ func refresh_bgm_from_zones(_fade_in_time: float = 0.35) -> void:
 	# Zone update already carries fade_time and crossfade logic.
 	_update_bgm()
 
+func crossfade_to_song(song_name: String, fade_time: float = 1.0) -> void:
+	if song_name == "":
+		_crossfade_to(null, 1.0, 0.0, fade_time)
+		return
+
+	var path = "res://assets/music/" + song_name
+	var file = File.new()
+	if not file.file_exists(path) and not path.ends_with(".mp3") and not path.ends_with(".ogg") and not path.ends_with(".wav"):
+		path += ".mp3"
+
+	if file.file_exists(path):
+		var stream = load(path)
+		if stream is AudioStream:
+			_crossfade_to(stream, 1.0, 0.0, fade_time)
+		else:
+			printerr("[AudioManager] Failed to load AudioStream from: ", path)
+	else:
+		printerr("[AudioManager] Music file not found: ", path)
+
 func _set_music_focus_paused(paused: bool) -> void:
 	if _music_paused_by_focus == paused:
 		return
