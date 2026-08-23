@@ -76,9 +76,8 @@ func _ready():
 		if platform.has_signal("stopped") and not platform.is_connected("stopped", self , "_on_platform_stopped"):
 			platform.connect("stopped", self , "_on_platform_stopped")
 
-	# Open door at starting floor
-	if not Engine.editor_hint:
-		_open_door(current_floor)
+	# Las puertas parten cerradas (is_active=false por defecto en InteractableBaseV2):
+	# se abren al llamar el ascensor a un piso, no al arrancar la escena.
 	_cache_stop_heights()
 	if not Engine.editor_hint:
 		call_deferred("_refresh_occlusion")
