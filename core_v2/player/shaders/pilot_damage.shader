@@ -22,6 +22,7 @@ uniform float freeze_front_softness : hint_range(0.01, 0.5) = 0.14;
 // alcance de todas, y en los tramos oscuros el personaje se perdia contra el fondo. Suma
 // sobre el ALBEDO ya calculado, asi que respeta el tinte de escarcha y de dano.
 uniform float self_illum : hint_range(0.0, 2.0) = 0.35;
+uniform float holo_dither_amount : hint_range(0.0, 1.0) = 0.0;
 
 varying vec3 world_position;
 varying float local_y;
@@ -43,12 +44,24 @@ float noise(vec2 p) {
 	return mix(mix(a, b, local.x), mix(c, d, local.x), local.y);
 }
 
+// Interleaved gradient noise for holo screen occlusion dither
+float ign(vec2 p) {
+	return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
+}
+
 void vertex() {
 	world_position = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	local_y = VERTEX.y;
 }
 
 void fragment() {
+	if (holo_dither_amount > 0.001) {
+		float dither_threshold = ign(FRAGCOORD.xy);
+		if (dither_threshold < holo_dither_amount * 0.85) {
+			discard;
+		}
+	}
+
 	vec2 uv = UV * crack_density;
 	float n0 = noise(uv + vec2(TIME * 0.1, -TIME * 0.06));
 	float n1 = noise(uv * 1.93 + vec2(-4.2, 7.1));
