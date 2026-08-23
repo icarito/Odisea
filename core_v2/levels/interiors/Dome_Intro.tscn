@@ -165,6 +165,8 @@
 [ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=5020]
 [ext_resource path="res://core_v2/systems/cryo/ColdRuptureDirector.gd" type="Script" id=5021]
 [ext_resource path="res://addons/virtualcamera/VCameras/VCamera.gd" type="Script" id=5022]
+[ext_resource path="res://addons/virtualcamera/TransformModifiers/LookAt.gd" type="Script" id=5023]
+[ext_resource path="res://assets/sfx/Alarm_Loop_01.wav" type="AudioStream" id=5024]
 [ext_resource path="res://assets/sfx/explode.wav" type="AudioStream" id=5009]
 [ext_resource path="res://assets/sfx/explodemini.wav" type="AudioStream" id=5010]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntroPipeVisualApplier.gd" type="Script" id=5012]
@@ -1210,7 +1212,7 @@ extents = Vector3( 33, 20, 33 )
 script = ExtResource( 5021 )
 leak_seeder_path = NodePath("../RandomLeakSeeder")
 rupture_focus_path = NodePath("../RuptureFocus")
-alarm_sound_path = NodePath("RuptureSound")
+alarm_sound_path = NodePath("AlarmSound")
 explosion_scene = ExtResource( 5008 )
 explosion_scale = 3.0
 
@@ -1225,6 +1227,12 @@ stream = ExtResource( 5010 )
 unit_db = -2.0
 unit_size = 36.0
 max_distance = 64.0
+
+[node name="AlarmSound" type="AudioStreamPlayer3D" parent="ColdRuptureDirector"]
+stream = ExtResource( 5024 )
+unit_db = 0.0
+unit_size = 40.0
+max_distance = 80.0
 
 [node name="RuptureFocus" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
@@ -1245,6 +1253,9 @@ shape = SubResource( 564 )
 ]]
 transform = Transform( 0.984808, 0, -0.173648, 0, 1, 0, 0.173648, 0, 0.984808, 5, 21.7, 10 )
 script = ExtResource( 5022 )
+
+[node name="LookAt" type="Spatial" parent="RuptureCam"]
+script = ExtResource( 5023 )
 
 [node name="RandomLeakSeeder" type="Node" parent="."]
 script = ExtResource( 5001 )
