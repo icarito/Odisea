@@ -28,6 +28,10 @@ export(NodePath) var shaft_fence_path = NodePath("MetalFence")
 export(NodePath) var shaft_cap_path = NodePath("MetalFence/Path2/CSGCylinder")
 export(float) var shaft_fence_headroom := 5.5
 
+enum State { IDLE, WAIT_DOOR_CLOSE, MOVING, WAIT_OPEN }
+
+var state = State.IDLE
+var wait_remaining := 0.0
 var requests = []
 var current_floor = 0
 var target_floor = -1
@@ -226,21 +230,49 @@ func _on_floor_request(floor_idx):
 		actual_floor = current_floor + 1
 		if actual_floor > max_f:
 			actual_floor = 0
-			
 
 	# Log request
 	if not requests.has(actual_floor):
-		if actual_floor == current_floor and not is_moving:
-			# Already at floor, maybe open doors (omitted for now)
+		if actual_floor == current_floor and state == State.IDLE and not is_moving:
+			# Already at floor, open door
+			_open_door(current_floor)
 			return
 
 		requests.append(actual_floor)
 		# Sort for simple deterministic order (0->1->2)
 		requests.sort()
-		_process_queue()
+		set_physics_process(true)
+		if state == State.IDLE:
+			_process_queue()
+
+func step(dt: float) -> void:
+	.step(dt)
+	_tick_state(dt)
+
+func _wants_continuous_step() -> bool:
+	return state != State.IDLE or not requests.empty()
+
+func _tick_state(dt: float) -> void:
+	match state:
+		State.WAIT_DOOR_CLOSE:
+			wait_remaining -= dt
+			if wait_remaining <= 0.0:
+				wait_remaining = 0.0
+				_start_moving_to_target()
+		State.WAIT_OPEN:
+			wait_remaining -= dt
+			if wait_remaining <= 0.0:
+				wait_remaining = 0.0
+				state = State.IDLE
+				_process_queue()
+		State.IDLE:
+			if not requests.empty() and not is_moving:
+				_process_queue()
+		State.MOVING:
+			pass
 
 func _process_queue():
-	if is_moving or requests.empty() or not platform:
+	if state != State.IDLE or is_moving or requests.empty() or not platform:
 		return
 
 	target_floor = requests.pop_front()
@@ -249,18 +281,36 @@ func _process_queue():
 		# Close door at current floor before departing
 		if current_floor != -1 and current_floor != target_floor:
 			_close_door(current_floor)
-			if not Engine.editor_hint:
-				yield (get_tree().create_timer(0.9), "timeout")
-		var target_height = floor_nodes[target_floor].global_transform.origin.y
-		_start_move_sfx()
-		platform.move_to(target_height)
-		is_moving = true
-		_emit_floor_state()
+			state = State.WAIT_DOOR_CLOSE
+			wait_remaining = _get_door_close_duration(current_floor)
+		else:
+			_start_moving_to_target()
 	else:
 		is_moving = false
 		_stop_move_sfx()
-		requests.pop_front()
 		_process_queue()
+
+func _get_door_close_duration(floor_idx: int) -> float:
+	if floor_doors.has(floor_idx) and is_instance_valid(floor_doors[floor_idx]):
+		var door = floor_doors[floor_idx]
+		if "anim_duration" in door and float(door.anim_duration) > 0.0:
+			return float(door.anim_duration)
+	return 0.9
+
+func _start_moving_to_target() -> void:
+	if not floor_nodes.has(target_floor) or not platform:
+		is_moving = false
+		state = State.IDLE
+		_stop_move_sfx()
+		_process_queue()
+		return
+
+	var target_height = floor_nodes[target_floor].global_transform.origin.y
+	_start_move_sfx()
+	platform.move_to(target_height)
+	is_moving = true
+	state = State.MOVING
+	_emit_floor_state()
 
 func _on_arrived(height):
 	is_moving = false
@@ -279,10 +329,8 @@ func _on_arrived(height):
 	target_floor = current_floor
 	_emit_floor_state()
 
-	# Process any pending requests after a brief pause
-	if not Engine.editor_hint:
-		yield (get_tree().create_timer(1.0), "timeout")
-		_process_queue()
+	state = State.WAIT_OPEN
+	wait_remaining = door_open_wait
 
 func _on_platform_stopped():
 	_stop_move_sfx()
@@ -331,6 +379,8 @@ func get_snapshot() -> Dictionary:
 	snap["current_floor"] = current_floor
 	snap["target_floor"] = target_floor
 	snap["is_moving"] = is_moving
+	snap["state"] = state
+	snap["wait_remaining"] = wait_remaining
 	return snap
 
 func restore_snapshot(data: Dictionary) -> void:
@@ -345,8 +395,14 @@ func _apply_snapshot(data: Dictionary) -> void:
 	current_floor = int(data.get("current_floor", current_floor))
 	target_floor = int(data.get("target_floor", target_floor))
 	is_moving = bool(data.get("is_moving", is_moving))
+	if data.has("state"):
+		state = int(data["state"])
+	else:
+		state = State.MOVING if is_moving else State.IDLE
+	wait_remaining = float(data.get("wait_remaining", 0.0))
 	.restore_snapshot(data)
 	if is_moving:
 		_start_move_sfx()
 	else:
 		_stop_move_sfx()
+	set_physics_process(true)

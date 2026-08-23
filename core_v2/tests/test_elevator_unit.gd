@@ -46,6 +46,73 @@ func test_elevator_controller_request_queues_floor():
 	controller.free()
 
 
+func test_elevator_controller_deterministic_wait_and_door_open_wait_tuning():
+	var elevator = auto_free(preload("res://core_v2/props/machinery/ElevatorProp.tscn").instance())
+	elevator.floor_heights = [0.0, 5.0]
+	elevator.door_open_wait = 1.5
+	add_child(elevator)
+	yield(await_idle_frame(), "completed")
+
+	# Request floor 1
+	elevator.request_floor(1)
+
+	# Should close door first (WAIT_DOOR_CLOSE state)
+	assert_int(elevator.state).is_equal(elevator.State.WAIT_DOOR_CLOSE)
+	assert_float(elevator.wait_remaining).is_greater(0.0)
+
+	# Advance time past door close duration (0.8s for ElevatorDoor)
+	elevator.step(0.85)
+	assert_int(elevator.state).is_equal(elevator.State.MOVING)
+	assert_bool(elevator.is_moving).is_true()
+
+	# Simulate arrival at floor 1
+	var platform = elevator.get_node("Platform")
+	platform.global_transform.origin.y = 5.0
+	elevator._on_arrived(5.0)
+
+	# Should be in WAIT_OPEN state with exact wait_remaining from door_open_wait
+	assert_int(elevator.state).is_equal(elevator.State.WAIT_OPEN)
+	assert_float(elevator.wait_remaining).is_equal(1.5)
+
+	# Step 1 second: wait remaining drops to 0.5s, state stays WAIT_OPEN
+	elevator.step(1.0)
+	assert_int(elevator.state).is_equal(elevator.State.WAIT_OPEN)
+	assert_float(elevator.wait_remaining).is_equal(0.5)
+
+	# Step another 0.5s: wait completes, transitions to IDLE
+	elevator.step(0.5)
+	assert_int(elevator.state).is_equal(elevator.State.IDLE)
+	assert_float(elevator.wait_remaining).is_equal(0.0)
+
+
+func test_elevator_controller_snapshot_preserves_wait_state():
+	var elevator = auto_free(preload("res://core_v2/props/machinery/ElevatorProp.tscn").instance())
+	elevator.floor_heights = [0.0, 5.0]
+	add_child(elevator)
+	yield(await_idle_frame(), "completed")
+
+	elevator.state = elevator.State.WAIT_OPEN
+	elevator.wait_remaining = 1.25
+	elevator.current_floor = 1
+	elevator.target_floor = 1
+	elevator.requests = [0]
+
+	var snap = elevator.get_snapshot()
+
+	var restored = auto_free(preload("res://core_v2/props/machinery/ElevatorProp.tscn").instance())
+	add_child(restored)
+	yield(await_idle_frame(), "completed")
+	restored.restore_snapshot(snap)
+
+	assert_int(restored.state).is_equal(elevator.State.WAIT_OPEN)
+	assert_float(restored.wait_remaining).is_equal(1.25)
+
+	# Step restored controller for 1.25s: should finish wait and process next request (floor 0)
+	restored.step(1.25)
+	assert_int(restored.state).is_equal(restored.State.WAIT_DOOR_CLOSE)
+	assert_array(restored.requests).is_empty()
+
+
 # Each landing's call button owns its own indicator material. _sync_floors clones
 # the template floor with Node.duplicate(), which shares resources, so all six
 # landings used to light up together; and once the button moved to the prop layer
