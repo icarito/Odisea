@@ -103,7 +103,15 @@ func reset_visuals() -> void:
 	_display_height = _target_height
 	_height_initialized = true
 	if _cpu != null:
+		# emitting=false solo corta la EMISION: las particulas ya en vuelo siguen
+		# viviendo su lifetime y se veian sobre el respawn. restart() desactiva el
+		# buffer entero, que es lo unico que las borra de golpe en Godot 3.
+		_cpu.restart()
 		_cpu.emitting = false
+	# Forzar la rama completa de _sync_activation: si no, su guard de "sin cambios"
+	# vuelve sin re-encender la emision que acabamos de apagar.
+	_visuals_active = false
+	set_process(false)
 	_sync_activation()
 
 func _ice_has_risen(height: float) -> bool:

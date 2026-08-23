@@ -77,6 +77,22 @@ func focus_last_explosion() -> void:
 		focus_target.global_transform.origin = last_explosion_pos
 
 
+func focus_next_leak() -> Vector3:
+	# Deja RuptureFocus sobre la PROXIMA fuga sin detonarla, para que la camara
+	# pueda encuadrarla antes de la explosion.
+	if _pending_leak_paths.empty() and not consumed:
+		_prepare_leaks()
+		consumed = true
+
+	if not _pending_leak_paths.empty():
+		var leak_node = _get_target_node(_pending_leak_paths[0])
+		if leak_node is Spatial:
+			last_explosion_pos = (leak_node as Spatial).global_transform.origin
+
+	focus_last_explosion()
+	return last_explosion_pos
+
+
 func crossfade_heartbeat() -> void:
 	var am = get_node_or_null("/root/AudioManager")
 	if am and am.has_method("crossfade_to_song"):

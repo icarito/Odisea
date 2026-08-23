@@ -1812,15 +1812,30 @@ func _configure_vcamera_targets(vcam: Node, inst: Dictionary) -> void:
 	if inst.has("look_at"):
 		var look_raw := String(inst.get("look_at", ""))
 		var look_mod = vcam.get_node_or_null("LookAt")
-		if look_mod and "look_at_target" in look_mod:
-			if _is_vcamera_target_clear_token(look_raw):
+		if _is_vcamera_target_clear_token(look_raw):
+			if look_mod and "look_at_target" in look_mod:
 				look_mod.look_at_target = NodePath("")
-			else:
-				var look_target = _resolve_vcamera_target(look_raw)
-				if look_target and look_target.is_inside_tree():
+		else:
+			var look_target = _resolve_vcamera_target(look_raw)
+			if look_target and look_target.is_inside_tree() and look_target is Spatial:
+				if look_mod and "look_at_target" in look_mod:
 					look_mod.look_at_target = look_target.get_path()
-				else:
-					printerr("[OYS] VCAMERA: look_at target '%s' not found" % look_raw)
+				# VCameraBrain interpola directamente contra vcam.global_transform
+				# (ver VCameraBrain.gd snap_transition/process_transition). Un LookAt
+				# hijo solo gira SU PROPIO transform — nunca el del VCamera padre —
+				# así que look_at_target ahí, solo, no mueve la cámara ni un grado.
+				# Reorientar el vcam mismo es lo único que el Brain lee, y el blend
+				# de VCAMERA (duration=...) ya lo suaviza sin necesitar nada más.
+				if vcam is Spatial:
+					var look_pos: Vector3 = (look_target as Spatial).global_transform.origin
+					if look_mod and "look_at_offset" in look_mod:
+						look_pos += look_mod.look_at_offset
+					var vcam_spatial := vcam as Spatial
+					var to_target := look_pos - vcam_spatial.global_transform.origin
+					if to_target.length_squared() > 0.0001 and to_target.normalized().abs() != Vector3.UP:
+						vcam_spatial.look_at(look_pos, Vector3.UP)
+			else:
+				printerr("[OYS] VCAMERA: look_at target '%s' not found" % look_raw)
 
 func _cache_vcamera_scene_defaults(vcam: Node) -> void:
 	if not is_instance_valid(vcam):

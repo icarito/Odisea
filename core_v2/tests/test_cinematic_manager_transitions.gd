@@ -543,3 +543,48 @@ func test_vcamera_blend_updates_request_and_avoids_reactivation_loop():
 
 	cm.reset()
 	yield (_teardown_root(root), "completed")
+
+
+func test_first_vcamera_activation_blends_from_player_camera():
+	# VCamera.enabled arranca en true, asi que el VCameraBrain ya venia "siguiendo"
+	# a la vcam desde el frame 1 de la escena: cuando el manager la activa de verdad,
+	# last_active_vcamera == vcam y su transition_time esta saturado, asi que
+	# _physics_process haria snap_transition y la entrada se veria como teletransporte.
+	var cm = get_node(CM_PATH)
+	assert_object(cm).is_not_null()
+
+	cm.reset()
+	var root = _setup_root()
+	var player_data = _setup_player_with_camera(root)
+	var player_cam: Camera = player_data["camera"]
+	var vcam_data = _setup_vcamera_nodes(root)
+	var brain = vcam_data["brain"]
+	var intro_far = vcam_data["a"]
+	intro_far.priority = 100
+
+	yield (get_tree(), "physics_frame")
+
+	# Saturar el brain como en una escena que lleva rato corriendo: ya esta pegado
+	# a la vcam y su transition_time llego al tope.
+	brain._physics_process(intro_far.transition_time * 2.0)
+	assert_bool(brain.last_active_vcamera == intro_far).is_true()
+	assert_float(brain.global_transform.origin.distance_to(intro_far.global_transform.origin)).is_less(0.001)
+
+	var player_origin: Vector3 = player_cam.global_transform.origin
+	var vcam_origin: Vector3 = intro_far.global_transform.origin
+	var total: float = player_origin.distance_to(vcam_origin)
+	assert_float(total).is_greater(1.0)
+
+	var req_id: int = int(cm.activate_vcamera(intro_far, 1.0))
+	assert_int(req_id).is_greater(0)
+	cm.step(1.0 / 60.0)
+
+	# Justo despues de activar, el brain arranca en la camara saliente...
+	assert_float(brain.global_transform.origin.distance_to(player_origin)).is_less(0.001)
+
+	# ...y un frame de fisica despues debe haber avanzado poco, no saltado al destino.
+	yield (get_tree(), "physics_frame")
+	assert_float(brain.global_transform.origin.distance_to(player_origin)).is_less(total * 0.5)
+
+	cm.reset()
+	yield (_teardown_root(root), "completed")

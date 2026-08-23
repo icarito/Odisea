@@ -1,14 +1,17 @@
 CINEMATIC
 ZOOM amount=-0.2 duration=0.6
 WAIT 1.2
+CALL ColdRupture "focus_next_leak"
+VCAMERA name="RuptureCam" duration=1.8 look_at="RuptureFocus"
+WAIT 0.7
 CALL ColdRupture "spawn_explosion"
 CAMERA_SHAKE duration=0.4 amplitude=0.1 frequency=30 roll=1.2
-CALL ColdRupture "focus_last_explosion"
-VCAMERA name="RuptureCam" duration=0.6 look_at="RuptureFocus"
-WAIT 0.8
+WAIT 1.2
+CALL ColdRupture "focus_next_leak"
+VCAMERA_BLEND name="RuptureCam" duration=1.2 look_at="RuptureFocus"
+WAIT 0.6
 CALL ColdRupture "spawn_explosion"
 CAMERA_SHAKE duration=0.5 amplitude=0.12 frequency=28 roll=1.5
-VCAMERA name="RuptureCam" duration=0.5 look_at="RuptureFocus"
 CALL ColdRupture "crossfade_heartbeat"
 WAIT 2.0
 VCAMERA_RETURN duration=0.8

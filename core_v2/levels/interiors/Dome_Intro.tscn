@@ -166,6 +166,7 @@
 [ext_resource path="res://core_v2/systems/cryo/ColdRuptureDirector.gd" type="Script" id=5021]
 [ext_resource path="res://addons/virtualcamera/VCameras/VCamera.gd" type="Script" id=5022]
 [ext_resource path="res://addons/virtualcamera/TransformModifiers/LookAt.gd" type="Script" id=5023]
+[ext_resource path="res://addons/virtualcamera/VCameraBrain.gd" type="Script" id=5025]
 [ext_resource path="res://assets/sfx/Alarm_Loop_01.wav" type="AudioStream" id=5024]
 [ext_resource path="res://assets/sfx/explode.wav" type="AudioStream" id=5009]
 [ext_resource path="res://assets/sfx/explodemini.wav" type="AudioStream" id=5010]
@@ -1208,6 +1209,10 @@ extents = Vector3( 33, 20, 33 )
 
 [node name="Dome_Intro" type="Spatial"]
 
+[node name="VCameraBrain" type="Camera" parent="."]
+process_priority = -1000
+script = ExtResource( 5025 )
+
 [node name="ColdRuptureDirector" type="Spatial" parent="."]
 script = ExtResource( 5021 )
 leak_seeder_path = NodePath("../RandomLeakSeeder")
@@ -1245,7 +1250,7 @@ shape = SubResource( 564 )
 [node name="RuptureCam" type="Spatial" parent="." groups=[
 "vcamera",
 ]]
-transform = Transform( 0.984808, 0, -0.173648, 0, 1, 0, 0.173648, 0, 0.984808, 5, 21.7, 10 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 24, 0 )
 script = ExtResource( 5022 )
 
 [node name="LookAt" type="Spatial" parent="RuptureCam"]

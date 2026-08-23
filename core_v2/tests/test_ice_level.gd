@@ -379,3 +379,26 @@ func _exposes_shader_param(material: ShaderMaterial, param: String) -> bool:
 
 func _collect_contact(body: Node, dps: float, in_core: bool, contacts: Array) -> void:
 	contacts.append({"body": body, "dps": dps, "in_core": in_core})
+
+# El stream de fractura dura 7 s: al respawnear seguia sonando encima del intento nuevo.
+# Y el cursor de cracks quedaba en la altura vieja, mudo hasta volver a treparla.
+func test_respawn_silences_the_ice_crack_and_rearms_its_cursor() -> void:
+	var level = auto_free(IceLevelScript.new())
+	level.auto_start = false
+	level.debug_draw = false
+	var crack := AudioStreamPlayer3D.new()
+	crack.name = "IceCrackSound"
+	crack.stream = load("res://assets/sfx/voicebosch-ice-crackling-168594.mp3")
+	level.add_child(crack)
+	add_child(level)
+
+	level.respawn_safety_margin = 3.0
+	level.crack_interval = 2.5
+	level.ice_height = 20.0
+	crack.play()
+	assert_bool(crack.playing).is_true()
+
+	level.ensure_safe_for_respawn(10.0)
+
+	assert_bool(crack.playing).is_false()
+	assert_float(level._next_crack_height).is_equal_approx(level.ice_height + level.crack_interval, 0.0001)

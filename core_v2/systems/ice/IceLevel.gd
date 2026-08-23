@@ -159,10 +159,20 @@ func reset() -> void:
 	elapsed = 0.0
 	is_running = auto_start
 	emit_signal("ice_height_changed", ice_height)
-	emit_signal("ice_visuals_reset")
+	_reset_ice_visuals()
 	_update_debug_visuals()
 	_update_ice_collider()
 	_update_ice_fog()
+
+# Todo camino que resetea la presentacion (reset, respawn, restore de checkpoint) tiene
+# que callar la fractura en curso y re-armar el cursor de cracks contra la altura nueva:
+# el stream dura 7 s y sobrevivia al respawn sonando encima del intento siguiente, y el
+# cursor viejo quedaba por encima de la linea, mudo hasta volver a treparla.
+func _reset_ice_visuals() -> void:
+	if is_instance_valid(_crack_player):
+		_crack_player.stop()
+	_next_crack_height = ice_height + max(crack_interval, 0.1)
+	emit_signal("ice_visuals_reset")
 
 # Altura del tope de la zona de frío: por encima de esto no hay daño alguno.
 func get_frost_ceiling() -> float:
@@ -222,7 +232,7 @@ func ensure_safe_for_respawn(respawn_y: float) -> void:
 		_update_ice_fog()
 	# Siempre, aun sin clamp: la escarcha adherida y las partículas del intento anterior
 	# quedaron a la altura donde murió Elías, no donde reaparece.
-	emit_signal("ice_visuals_reset")
+	_reset_ice_visuals()
 
 # Consulta barata para props destructibles y lógica externa.
 func is_point_frozen(point: Vector3) -> bool:
@@ -668,7 +678,7 @@ func restore_snapshot(data: Dictionary) -> void:
 	emit_signal("ice_height_changed", ice_height)
 	# IceVisualBand es presentación y no entra al snapshot. Al restaurar una altura de
 	# checkpoint debe vaciar sus partículas viejas y tomar esta altura de inmediato.
-	emit_signal("ice_visuals_reset")
+	_reset_ice_visuals()
 	_update_debug_visuals()
 	_update_ice_collider()
 	_update_ice_fog()

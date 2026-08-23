@@ -233,6 +233,11 @@ func activate_vcamera(vcam: Node, duration: float = 1.0, ease_type: float = -2.0
 	
 	_find_or_create_vcam_brain()
 	
+	# Re-emitir la MISMA VCamera (segundo VCAMERA tras mover su look_at) debe
+	# re-blendear desde la pose actual del brain: si no, el guard idempotente de
+	# _handle_vcam_request la deja pegada y la reorientacion se ve como corte seco.
+	_restart_vcam_blend(vcam, duration)
+
 	var to_remove = []
 	for id in _active_requests:
 		if _active_requests[id].source == _vcam_source:
@@ -269,7 +274,9 @@ func blend_to_vcamera(vcam: Node, duration: float = 1.0) -> void:
 	
 	if _vcam_active_camera and is_instance_valid(_vcam_active_camera):
 		_vcam_active_camera.priority = 0
-	
+
+	_restart_vcam_blend(vcam, duration)
+
 	vcam.enabled = true
 	vcam.priority = 100
 	vcam.transition_time = scaled_duration
@@ -305,6 +312,29 @@ func blend_to_vcamera(vcam: Node, duration: float = 1.0) -> void:
 			"transition_time": duration
 		}
 		request_camera_mode(ControlMode.FREE, payload, _vcam_source, 15)
+
+func _restart_vcam_blend(vcam: Node, duration: float) -> void:
+	# El VCameraBrain solo arranca una transicion cuando cambia de VCamera
+	# (last_active_vcamera != vcam). Si se reactiva/reblendea la misma camara,
+	# hay que reiniciar la interpolacion a mano desde donde esta el brain.
+	if not (vcam and is_instance_valid(vcam)):
+		return
+	if _vcam_active_camera != vcam:
+		return
+	var scaled := _scaled_mode_transition_duration(duration)
+	if scaled <= 0.0:
+		return
+	if not (_vcam_brain and is_instance_valid(_vcam_brain) and _vcam_brain.has_method("begin_transition")):
+		return
+	vcam.transition_time = scaled
+	_vcam_blend_duration = scaled
+	_vcam_blend_elapsed = 0.0
+	_current_state = CameraModeState.VCAM_BLENDING
+	_vcam_brain.call("begin_transition", vcam)
+	_log_transition("vcam_reblend_same", {
+		"vcam": vcam.name,
+		"duration": scaled
+	})
 
 func deactivate_vcamera(duration: float = 1.0) -> void:
 	var scaled_duration := _scaled_mode_transition_duration(duration)
@@ -746,7 +776,7 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 
 	# Handle VCamera requests
 	if target_vcam and target_req and target_req.source == _vcam_source:
-		_handle_vcam_request(target_vcam, target_req.payload, transition_time)
+		_handle_vcam_request(target_vcam, target_req.payload, transition_time, _dt)
 		return
 
 	# Detect Change
@@ -862,7 +892,7 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 			active_rig = null
 			_current_state = CameraModeState.FREE_ACTIVE
 
-func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> void:
+func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float, dt: float = 0.0) -> void:
 	var old_cam = get_active_camera()
 	var scaled_duration := _scaled_mode_transition_duration(duration)
 	_find_or_create_vcam_brain()
@@ -885,6 +915,16 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> v
 					"state": _current_state
 				})
 		_vcam_blend_duration = max(0.0, scaled_duration)
+		# La request de vcam queda activa indefinidamente (no es one-shot), así que
+		# este guard corre TODOS los frames mientras dura — es el único lugar que
+		# sigue tocando el FSM una vez activado. Sin este avance, _current_state se
+		# quedaba pegado en VCAM_BLENDING para siempre porque la rama "steady state"
+		# de más abajo (la que hacía este mismo cómputo) nunca se alcanzaba.
+		if _current_state == CameraModeState.VCAM_BLENDING:
+			_vcam_blend_elapsed += max(0.0, dt)
+			if _vcam_blend_elapsed >= _vcam_blend_duration:
+				_current_state = CameraModeState.VCAM_ACTIVE
+				_vcam_blend_elapsed = 0.0
 		return
 
 	if not _vcam_brain:
@@ -917,6 +957,13 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float) -> v
 	if scaled_duration > 0.0 and old_cam and is_instance_valid(old_cam):
 		_vcam_brain.global_transform = old_cam.global_transform
 		_vcam_brain.fov = old_cam.fov
+		# VCamera.enabled arranca en true, asi que el brain ya venia "siguiendo"
+		# esta vcam desde el frame 1 de la escena: last_active_vcamera == vcam y su
+		# transition_time esta saturado, asi que _physics_process haria snap_transition
+		# y la primera entrada se veria como teletransporte. Arrancar la interpolacion
+		# a mano desde la pose que acabamos de sembrar (la camara saliente).
+		if _vcam_brain.has_method("begin_transition"):
+			_vcam_brain.call("begin_transition", vcam)
 	else:
 		# Snap to VCamera pose immediately for fast-forward/hard cuts.
 		_snap_vcamera_brain_to_active()

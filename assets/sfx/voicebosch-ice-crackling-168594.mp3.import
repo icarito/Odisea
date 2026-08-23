@@ -11,5 +11,5 @@ dest_files=[ "res://.import/voicebosch-ice-crackling-168594.mp3-1ecf3f6aea92881c
 
 [params]
 
-loop=true
+loop=false
 loop_offset=0
