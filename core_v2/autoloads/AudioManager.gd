@@ -415,11 +415,12 @@ func crossfade_to_song(song_name: String, fade_time: float = 1.0, volume_db: flo
 		return
 
 	var path = "res://assets/music/" + song_name
-	var file = File.new()
-	if not file.file_exists(path) and not path.ends_with(".mp3") and not path.ends_with(".ogg") and not path.ends_with(".wav"):
+	if not (path.ends_with(".mp3") or path.ends_with(".ogg") or path.ends_with(".wav")):
 		path += ".mp3"
 
-	if file.file_exists(path):
+	# ResourceLoader.exists respeta los remaps de .import; File.file_exists da falso
+	# en builds exportados porque el .mp3 fuente no viaja en el PCK.
+	if ResourceLoader.exists(path):
 		var stream = load(path)
 		if stream is AudioStream:
 			_song_override = song_name
