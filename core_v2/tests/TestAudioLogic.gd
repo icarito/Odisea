@@ -62,6 +62,58 @@ func test_mobile_web_audio_policy_pauses_out_of_range_players():
 	player.free()
 	am.free()
 
+func test_music_paused_by_menu_alone():
+	var am = AudioManagerScript.new()
+	assert_bool(am.is_music_paused()).is_false()
+
+	am.set_music_paused_by_menu(true)
+	assert_bool(am.is_music_paused()).is_true()
+
+	am.set_music_paused_by_menu(false)
+	assert_bool(am.is_music_paused()).is_false()
+
+	am.free()
+
+func test_music_pause_focus_and_menu_combinations():
+	var am = AudioManagerScript.new()
+
+	# Case 1: Menu pause -> Focus lost -> Focus gained -> Menu resume
+	am.set_music_paused_by_menu(true)
+	assert_bool(am.is_music_paused()).is_true()
+
+	am._set_music_focus_paused(true)
+	assert_bool(am.is_music_paused()).is_true()
+
+	am._set_music_focus_paused(false)
+	assert_bool(am.is_music_paused()).is_true() # Still paused by menu!
+
+	am.set_music_paused_by_menu(false)
+	assert_bool(am.is_music_paused()).is_false()
+
+	# Case 2: Focus lost -> Menu pause -> Focus gained -> Menu resume
+	am._set_music_focus_paused(true)
+	assert_bool(am.is_music_paused()).is_true()
+
+	am.set_music_paused_by_menu(true)
+	assert_bool(am.is_music_paused()).is_true()
+
+	am._set_music_focus_paused(false)
+	assert_bool(am.is_music_paused()).is_true() # Still paused by menu!
+
+	am.set_music_paused_by_menu(false)
+	assert_bool(am.is_music_paused()).is_false()
+
+	# Case 3: Redundant calls (idempotency)
+	am.set_music_paused_by_menu(true)
+	am.set_music_paused_by_menu(true)
+	assert_bool(am.is_music_paused()).is_true()
+
+	am.set_music_paused_by_menu(false)
+	am.set_music_paused_by_menu(false)
+	assert_bool(am.is_music_paused()).is_false()
+
+	am.free()
+
 func test_mobile_web_audio_policy_keeps_unbounded_players_mixing():
 	var am = AudioManagerScript.new()
 	var player = AudioStreamPlayer3D.new()

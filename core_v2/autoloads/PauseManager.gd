@@ -106,6 +106,9 @@ func _finish_pause() -> void:
 	if pause_menu_instance.has_method("on_show"):
 		pause_menu_instance.on_show()
 	_refresh_mobile_ui()
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr and audio_mgr.has_method("set_music_paused_by_menu"):
+		audio_mgr.set_music_paused_by_menu(true)
 
 func resume():
 	get_tree().paused = false
@@ -113,6 +116,9 @@ func resume():
 	if pause_menu_instance:
 		pause_menu_instance.hide()
 	_refresh_mobile_ui()
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr and audio_mgr.has_method("set_music_paused_by_menu"):
+		audio_mgr.set_music_paused_by_menu(false)
 
 func _refresh_mobile_ui() -> void:
 	# Show/hide the on-screen touch controls in sync with pause state. They live on
