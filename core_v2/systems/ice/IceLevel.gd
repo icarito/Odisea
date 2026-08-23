@@ -408,8 +408,25 @@ func _get_coolant_leak_flow() -> float:
 	return total_flow
 
 
-func _update_submerged_lights() -> void:
-	if not fail_submerged_lights or get_tree() == null:
+# Indice de luces ordenado por altura + cursor, en vez de recorrer el arbol entero.
+# Esto se llama en CADA tick mientras el hielo sube, y recorrer los ~2400 nodos de
+# Dome_Intro armando un Array por tick marcaba 81 ms de 84 en el profiler (el mayor costo
+# del frame despues de la rotura). Como la respuesta solo depende de la altura del hielo,
+# alcanza con ordenar las luces una vez y mover un cursor: mismo patron que
+# IceSubmergedCuller, que ya resolvia esto para las colisiones.
+#
+# ponytail: el indice se arma una sola vez. Una luz que se INSTANCIE despues (el fogonazo
+# de una explosion) o que BAJE hasta el hielo no queda contemplada; si algun dia hace falta,
+# reindexar en el mismo evento que la crea, no volver a barrer por tick.
+var _light_entries: Array = []
+var _light_cursor: int = 0
+var _lights_indexed := false
+
+
+func _index_submerged_lights() -> void:
+	_light_entries = []
+	_light_cursor = 0
+	if get_tree() == null:
 		return
 	var scene: Node = get_tree().current_scene
 	if scene == null:
@@ -419,10 +436,43 @@ func _update_submerged_lights() -> void:
 		var node: Node = pending.pop_back()
 		if node is Light and not (node is DirectionalLight):
 			var light: Light = node as Light
-			if light.global_transform.origin.y + light_submersion_margin <= ice_height:
-				light.visible = false
+			_light_entries.append({
+				"light": light,
+				"y": light.global_transform.origin.y + light_submersion_margin,
+				"apagada_por_nosotros": false
+			})
 		for child in node.get_children():
 			pending.append(child)
+	_light_entries.sort_custom(self, "_por_altura_de_luz")
+	_lights_indexed = true
+
+
+func _por_altura_de_luz(a, b) -> bool:
+	return a.y < b.y
+
+
+func _update_submerged_lights() -> void:
+	if not fail_submerged_lights or get_tree() == null:
+		return
+	if not _lights_indexed:
+		_index_submerged_lights()
+	# El hielo subio: apagar lo que quedo sepultado.
+	while _light_cursor < _light_entries.size() and _light_entries[_light_cursor].y <= ice_height:
+		var e = _light_entries[_light_cursor]
+		if is_instance_valid(e.light) and e.light.visible:
+			e.light.visible = false
+			e.apagada_por_nosotros = true
+		_light_cursor += 1
+	# El hielo bajo (derretimiento, o restore de un checkpoint): devolver SOLO las que
+	# apagamos nosotros, para no pisar a quien las haya apagado por otro motivo
+	# (MobileLightBudget, por ejemplo). El codigo anterior nunca las devolvia: una vez
+	# sepultada, la luz quedaba apagada aunque el hielo se derritiera del todo.
+	while _light_cursor > 0 and _light_entries[_light_cursor - 1].y > ice_height:
+		_light_cursor -= 1
+		var e2 = _light_entries[_light_cursor]
+		if is_instance_valid(e2.light) and e2.apagada_por_nosotros:
+			e2.light.visible = true
+			e2.apagada_por_nosotros = false
 
 func _process(delta: float) -> void:
 	if Engine.editor_hint or not is_running:

@@ -68,10 +68,14 @@ func _physics_process(delta: float) -> void:
 			var drain: float = total_leak_drain * drain_rate * delta / max(capacity, 0.0001)
 			_tank.set_tank_level(max(0.0, tank_level - drain))
 
-	# Recompute flow if leaks are ramping up/down, tank level moved, or a valve state changed
+	# Recompute flow only when una ENTRADA cambio: nivel de tanque, estado de valvula o
+	# intensidad de alguna fuga. El gate anterior era "hay alguna fuga activa", que despues
+	# de la rotura es verdadero para siempre: con la intensidad ya saturada en 1.0 y las
+	# valvulas quietas, se recalculaba la rama entera y se reescribian los 22 PipeCoolantRun
+	# en cada tick sin que el resultado cambiara nunca.
 	var tank_level_changed := _tank != null and "tank_level" in _tank and tank_level != _last_tank_level
 	_last_tank_level = tank_level
-	if _has_active_leaks() or tank_level_changed or _has_valve_changed():
+	if _leak_intensities_changed() or tank_level_changed or _has_valve_changed():
 		compute_flow()
 
 
@@ -199,6 +203,11 @@ func compute_flow() -> void:
 		_segment_flows[i] = f
 		carrying = f
 
+		# Empujar la presion a la fuga en vez de que ella la consulte por tick: compute_flow
+		# es el unico punto donde este valor puede cambiar, asi que es la fuente de verdad.
+		if leak != null and leak.has_method("set_pressurized"):
+			leak.call("set_pressurized", _segment_inflows[i] > 0.0)
+
 		var pr = seg.get("pipe_run")
 		if pr != null:
 			if pr.has_method("set_flow_speed"):
@@ -277,13 +286,20 @@ func _is_valve_open(valve: Node) -> bool:
 	return true
 
 
-func _has_active_leaks() -> bool:
+# Una fuga en rampa cambia su intensidad cada tick y hay que seguirla; una ya saturada
+# (o sellada en 0.0) no mueve nada aguas abajo. Comparar contra la ultima intensidad vista
+# distingue los dos casos, que es lo que el gate viejo no hacia.
+func _leak_intensities_changed() -> bool:
+	var changed := false
 	for seg in _resolved_segments:
 		var leak = seg.get("leak")
-		if leak != null and leak.has_method("get_leak_intensity"):
-			if float(leak.call("get_leak_intensity")) > 0.0:
-				return true
-	return false
+		if leak == null or not leak.has_method("get_leak_intensity"):
+			continue
+		var intensity: float = float(leak.call("get_leak_intensity"))
+		if intensity != seg.get("_last_intensity", -1.0):
+			seg["_last_intensity"] = intensity
+			changed = true
+	return changed
 
 
 func _has_valve_changed() -> bool:
@@ -320,5 +336,8 @@ func restore_snapshot(data: Dictionary) -> void:
 					pr.call("set_flow_speed", normal_flow_speed * f)
 				if pr.has_method("set_flow_intensity"):
 					pr.call("set_flow_intensity", normal_flow_intensity * f)
+			var lk = _resolved_segments[i].get("leak")
+			if lk != null and lk.has_method("set_pressurized"):
+				lk.call("set_pressurized", get_segment_inflow(i) > 0.0)
 	if data.has("segment_inflows"):
 		_segment_inflows = (data["segment_inflows"] as Array).duplicate()

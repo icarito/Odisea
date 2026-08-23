@@ -106,10 +106,9 @@ func _physics_process(delta: float) -> void:
 			# adapter ya lo modela (compute_flow multiplica por tank_level), así que
 			# reusar is_pressurized_at() cubre ambos casos sin duplicar la lectura del
 			# tanque acá.
-			if _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at"):
-				if not bool(_flow_adapter.call("is_pressurized_at", self)):
-					_set_state(State.DEPRESSURIZED)
-					return
+			if _flow_adapter != null and not is_pressurized():
+				_set_state(State.DEPRESSURIZED)
+				return
 			_state_timer += delta
 			if _is_provisionally_patched:
 				if dissipate_duration > 0.0:
@@ -133,10 +132,9 @@ func _physics_process(delta: float) -> void:
 				var valve = get_node_or_null(valve_path)
 				if valve != null and "is_active" in valve:
 					own_valve_open = bool(valve.get("is_active"))
-			if not _ice_capped and own_valve_open and _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at"):
-				if bool(_flow_adapter.call("is_pressurized_at", self)):
-					trigger_leak()
-					return
+			if not _ice_capped and own_valve_open and _flow_adapter != null and is_pressurized():
+				trigger_leak()
+				return
 			_state_timer += delta
 			if dissipate_duration > 0.0:
 				var progress: float = clamp(_state_timer / dissipate_duration, 0.0, 1.0)
@@ -174,6 +172,34 @@ func set_flow_adapter(adapter: Node) -> void:
 	_flow_adapter = adapter
 
 
+# El caudal lo calcula el adapter; preguntarle "hay presion en mi tramo?" en cada tick de
+# fisica lo obligaba a re-resolver NodePaths segmento por segmento para responder siempre lo
+# mismo. Ahora el adapter empuja el dato cuando su calculo cambia (compute_flow), que es la
+# unica vez que puede cambiar, y la fuga lee esta copia. Default true: mientras el adapter
+# no haya resuelto su topologia no hay evidencia de despresurizacion (mismo criterio que
+# tenia is_pressurized_at).
+var _pressurized := true
+
+
+var _pressure_pushed := false
+
+
+func set_pressurized(value: bool) -> void:
+	_pressurized = value
+	_pressure_pushed = true
+
+
+# Repliegue para un adapter que no empuja (los mocks de test, o cualquier implementacion
+# externa): se le pregunta como antes. Con CoolantFlowAdapter real esto corre a lo sumo
+# hasta su primer compute_flow, que empuja y deja el polling apagado para siempre.
+func is_pressurized() -> bool:
+	if _pressure_pushed or _flow_adapter == null:
+		return _pressurized
+	if _flow_adapter.has_method("is_pressurized_at"):
+		return bool(_flow_adapter.call("is_pressurized_at", self))
+	return _pressurized
+
+
 func is_ice_capped() -> bool:
 	return _ice_capped
 
@@ -201,10 +227,9 @@ func trigger_leak() -> void:
 			_set_state(State.DEPRESSURIZED)
 			return
 
-	if _flow_adapter != null and _flow_adapter.has_method("is_pressurized_at"):
-		if not bool(_flow_adapter.call("is_pressurized_at", self)):
-			_set_state(State.DEPRESSURIZED)
-			return
+	if _flow_adapter != null and not is_pressurized():
+		_set_state(State.DEPRESSURIZED)
+		return
 
 	# Reabrir mientras está despresurizado vuelve a la fuga sin pasar por el aviso:
 	# el caño sigue roto, no hay nada que anticipar de nuevo.
@@ -318,13 +343,21 @@ func _apply_room_deltas(delta: float) -> void:
 		_room.call("add_contamination", leak_contam_rate * _leak_intensity * delta)
 
 
+# El nodo de hielo es uno solo y no cambia en toda la partida: buscarlo por grupo en cada
+# tick de fisica (y por cada fuga activa) era asignar un Array por tick para releer siempre
+# el mismo nodo. Se cachea y solo se rebusca si dejo de ser valido (cambio de escena).
+var _ice_level_cached: Node = null
+
+
 func _refresh_ice_cap() -> void:
-	if get_tree() == null:
-		return
-	var ice_systems: Array = get_tree().get_nodes_in_group("ice_level")
+	if not is_instance_valid(_ice_level_cached):
+		if get_tree() == null:
+			return
+		var ice_systems: Array = get_tree().get_nodes_in_group("ice_level")
+		_ice_level_cached = ice_systems[0] if not ice_systems.empty() else null
 	var capped := false
-	if not ice_systems.empty():
-		var ice = ice_systems[0]
+	if true:
+		var ice = _ice_level_cached
 		if is_instance_valid(ice) and "ice_height" in ice:
 			# La superficie al nivel exacto del origen no tapa la boquilla todavía; evitar
 			# ese empate mantiene activas las fugas del suelo hasta que queden sumergidas.

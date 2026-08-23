@@ -241,10 +241,18 @@ func _apply() -> void:
 	_assign_to_meshes(self)
 
 
+# flow_phase avanza con el caudal y hay que escribirla siempre; las otras tres solo se
+# mueven mientras la intensidad esta en rampa. Con dos fugas abiertas y 22 corridas, escribir
+# las cuatro en cada tick eran ~66 uniforms por frame que no cambiaban de valor.
+var _last_written_intensity: float = -1.0
+
 func _update_flow_material() -> void:
 	if _material == null:
 		return
 	_material.set_shader_param("flow_phase", _phase)
+	if _current_flow_intensity == _last_written_intensity:
+		return
+	_last_written_intensity = _current_flow_intensity
 	_material.set_shader_param("flow_intensity", _current_flow_intensity)
 	_material.set_shader_param("base_glow", 0.035 * _current_flow_intensity)
 	_material.set_shader_param("emission_strength", base_emission * active_emission_scale)
