@@ -42,6 +42,7 @@ func _ready() -> void:
 	_mount_terminal_app()
 	_center_terminal_window()
 	call_deferred("_center_terminal_window")
+	get_viewport().connect("size_changed", self, "_on_window_size_changed")
 	_update_clock_label()
 	set_process(true)
 	
@@ -56,9 +57,8 @@ func _process(delta: float) -> void:
 		_clock_accum = 0.0
 		_update_clock_label()
 
-func _notification(what: int) -> void:
-	if what == 1008: # NOTIFICATION_WM_SIZE_CHANGED in Godot 3.x
-		call_deferred("_center_terminal_window")
+func _on_window_size_changed() -> void:
+	call_deferred("_center_terminal_window")
 
 func _apply_theme() -> void:
 	if not retro_theme:

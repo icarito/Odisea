@@ -303,10 +303,6 @@ func _notification(what):
 		# el foco (cambio de ventana, alt-tab, etc.).
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	elif what == MainLoop.NOTIFICATION_WM_SIZE_CHANGED:
-		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
-			if is_instance_valid(player) and player.has_method("ignore_next_mouse_motion"):
-				player.ignore_next_mouse_motion()
 
 func _wants_mouse_capture() -> bool:
 	# Condiciones bajo las cuales el gameplay quiere el mouse capturado.

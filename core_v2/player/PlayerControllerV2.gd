@@ -546,6 +546,7 @@ func _env_enabled(name: String, default_value: bool = false) -> bool:
 	return raw.to_lower() in ["1", "true", "yes", "on"]
 
 func _ready():
+	get_viewport().connect("size_changed", self, "_on_window_size_changed")
 	_rl_mode = _env_enabled("ANNA_RL_MODE", false)
 	_rl_fast_controller = _rl_mode and _env_enabled("ANNA_RL_FAST_CONTROLLER", false)
 	_rl_strip_visual_rig = _rl_mode and _env_enabled("ANNA_RL_STRIP_VISUAL_RIG", false)
@@ -2079,10 +2080,12 @@ func _trigger_touch_interact() -> void:
 		yield(tree, "physics_frame")
 	Input.action_release("interact")
 
-func _notification(what: int) -> void:
-	if what == MainLoop.NOTIFICATION_WM_SIZE_CHANGED:
-		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
-			_ignore_next_mouse_motion = true
+# Godot 3 no tiene notificacion de resize en MainLoop: llega por la senal
+# "size_changed" del viewport. Al redimensionar con el mouse capturado, el
+# cursor se reposiciona y Godot emite un motion sintetico con ese salto.
+func _on_window_size_changed() -> void:
+	if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		_ignore_next_mouse_motion = true
 
 func _input(event):
 	var session_recording = false

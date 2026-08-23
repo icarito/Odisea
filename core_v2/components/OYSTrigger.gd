@@ -51,6 +51,17 @@ func _update_label():
 	label.modulate = debug_color
 	label.modulate.a = 1.0
 
+func trigger_from_script(body: Node = null) -> void:
+	if body == null and get_tree():
+		var players = get_tree().get_nodes_in_group("player")
+		if not players.empty():
+			body = players[0]
+
+	if body == null:
+		body = self
+
+	_on_zone_entered(body)
+
 func _on_zone_entered(body: Node):
 	emit_signal("trigger_activated", body)
 	

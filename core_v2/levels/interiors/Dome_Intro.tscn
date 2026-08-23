@@ -162,6 +162,9 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntroBakeLightsPlaceholder.gd" type="Script" id=5006]
 [ext_resource path="res://core_v2/systems/cryo/ColdRuptureEvent.gd" type="Script" id=5007]
 [ext_resource path="res://core_v2/systems/cryo/CryoRuptureBurst.tscn" type="PackedScene" id=5008]
+[ext_resource path="res://core_v2/components/OYSTrigger.gd" type="Script" id=5020]
+[ext_resource path="res://core_v2/systems/cryo/ColdRuptureDirector.gd" type="Script" id=5021]
+[ext_resource path="res://addons/virtualcamera/VCameras/VCamera.gd" type="Script" id=5022]
 [ext_resource path="res://assets/sfx/explode.wav" type="AudioStream" id=5009]
 [ext_resource path="res://assets/sfx/explodemini.wav" type="AudioStream" id=5010]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntroPipeVisualApplier.gd" type="Script" id=5012]
@@ -1203,38 +1206,45 @@ extents = Vector3( 33, 20, 33 )
 
 [node name="Dome_Intro" type="Spatial"]
 
-[node name="ColdRuptureEvent" type="Spatial" parent="."]
-script = ExtResource( 5007 )
-trigger_area_path = NodePath("TriggerArea")
-candidate_leak_paths = [ NodePath("TowerCoolantRiser/LeakWestRing1"), NodePath("TowerCoolantRiserEast/LeakEastRing1") ]
+[node name="ColdRuptureDirector" type="Spatial" parent="."]
+script = ExtResource( 5021 )
+leak_seeder_path = NodePath("../RandomLeakSeeder")
+rupture_focus_path = NodePath("../RuptureFocus")
+alarm_sound_path = NodePath("RuptureSound")
 explosion_scene = ExtResource( 5008 )
-explosion_positions = [ Vector3( -12, 4.08, 0 ), Vector3( 12, 4.08, 0 ), Vector3( 0, 5, 0 ) ]
-aftershock_positions = [ Vector3( 0, 5, 0 ) ]
-aftershock_delay = -1.0
-initial_explosion_scale = 3.0
-staggered_explosion_scale = 2.0
-rupture_sound_path = NodePath("RuptureSound")
-aftershock_sound_path = NodePath("AftershockSound")
+explosion_scale = 3.0
 
-[node name="RuptureSound" type="AudioStreamPlayer3D" parent="ColdRuptureEvent"]
+[node name="RuptureSound" type="AudioStreamPlayer3D" parent="ColdRuptureDirector"]
 stream = ExtResource( 5009 )
 unit_db = -1.0
 unit_size = 42.0
 max_distance = 72.0
 
-[node name="AftershockSound" type="AudioStreamPlayer3D" parent="ColdRuptureEvent"]
+[node name="AftershockSound" type="AudioStreamPlayer3D" parent="ColdRuptureDirector"]
 stream = ExtResource( 5010 )
 unit_db = -2.0
 unit_size = 36.0
 max_distance = 64.0
 
-[node name="TriggerArea" type="Area" parent="ColdRuptureEvent"]
+[node name="RuptureFocus" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
+
+[node name="ColdRuptureTrigger" type="Area" parent="."]
 transform = Transform( 0.984808, 0, -0.173648, 0, 1, 0, 0.173648, 0, 0.984808, 5, 21.7, 5 )
 collision_layer = 2
+script = ExtResource( 5020 )
+script_file = "res://core_v2/levels/interiors/cold_rupture.oys"
+trigger_once = true
 
-[node name="CollisionShape" type="CollisionShape" parent="ColdRuptureEvent/TriggerArea"]
+[node name="CollisionShape" type="CollisionShape" parent="ColdRuptureTrigger"]
 transform = Transform( 0.999999, 0, 2.98023e-08, 0, 1, 0, -2.98023e-08, 0, 0.999999, -3.41829, 1.5, 3.64901 )
 shape = SubResource( 564 )
+
+[node name="RuptureCam" type="Spatial" parent="." groups=[
+"vcamera",
+]]
+transform = Transform( 0.984808, 0, -0.173648, 0, 1, 0, 0.173648, 0, 0.984808, 5, 21.7, 10 )
+script = ExtResource( 5022 )
 
 [node name="RandomLeakSeeder" type="Node" parent="."]
 script = ExtResource( 5001 )
