@@ -6,7 +6,6 @@ class_name ColdRuptureDirector
 
 export(NodePath) var leak_seeder_path: NodePath
 export(NodePath) var rupture_focus_path: NodePath
-export(NodePath) var alarm_sound_path: NodePath
 export(PackedScene) var explosion_scene: PackedScene
 export(float, 0.1, 8.0) var explosion_scale: float = 2.0
 
@@ -31,18 +30,6 @@ func _exit_tree() -> void:
 
 # --- OYS ACTUATOR METHODS ---
 
-func play_alarm() -> void:
-	if alarm_sound_path != null and not alarm_sound_path.is_empty():
-		var alarm_node = get_node_or_null(alarm_sound_path)
-		if alarm_node != null and alarm_node.has_method("play"):
-			alarm_node.call("play")
-			return
-
-	var am = get_node_or_null("/root/AudioManager")
-	if am and am.has_method("play_sound"):
-		am.play_sound("Alarm")
-
-
 func spawn_explosion() -> Vector3:
 	if _pending_leak_paths.empty() and not consumed:
 		_prepare_leaks()
@@ -62,8 +49,20 @@ func spawn_explosion() -> Vector3:
 	last_explosion_pos = explosion_pos
 	focus_last_explosion()
 	_instantiate_explosion_effect(last_explosion_pos)
+	_play_explosion_sound()
 
 	return last_explosion_pos
+
+
+func _play_explosion_sound() -> void:
+	# La primera explosión suena a RuptureSound (grande); las siguientes, a AftershockSound
+	# (más chica). _activated_leak_paths ya cuenta explosiones reales (con fuga), así que
+	# no hace falta un contador propio que se desincronice en restore_snapshot().
+	var sound_node_name := "RuptureSound" if _activated_leak_paths.size() <= 1 else "AftershockSound"
+	var sound = get_node_or_null(sound_node_name)
+	if sound and sound.has_method("play"):
+		sound.global_transform.origin = last_explosion_pos
+		sound.play()
 
 
 func focus_last_explosion() -> void:
@@ -81,7 +80,7 @@ func focus_last_explosion() -> void:
 func crossfade_heartbeat() -> void:
 	var am = get_node_or_null("/root/AudioManager")
 	if am and am.has_method("crossfade_to_song"):
-		am.crossfade_to_song("Mechanical Heartbeat.mp3", 1.5)
+		am.crossfade_to_song("Mechanical Heartbeat.mp3", 4.0, -12.0)
 
 
 # --- INTERNAL HELPERS ---

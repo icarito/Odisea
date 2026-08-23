@@ -1212,7 +1212,6 @@ extents = Vector3( 33, 20, 33 )
 script = ExtResource( 5021 )
 leak_seeder_path = NodePath("../RandomLeakSeeder")
 rupture_focus_path = NodePath("../RuptureFocus")
-alarm_sound_path = NodePath("AlarmSound")
 explosion_scene = ExtResource( 5008 )
 explosion_scale = 3.0
 
@@ -1228,12 +1227,6 @@ unit_db = -2.0
 unit_size = 36.0
 max_distance = 64.0
 
-[node name="AlarmSound" type="AudioStreamPlayer3D" parent="ColdRuptureDirector"]
-stream = ExtResource( 5024 )
-unit_db = 0.0
-unit_size = 40.0
-max_distance = 80.0
-
 [node name="RuptureFocus" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
 
@@ -1243,6 +1236,7 @@ collision_layer = 2
 script = ExtResource( 5020 )
 script_file = "res://core_v2/levels/interiors/cold_rupture.oys"
 trigger_once = true
+debug_render = false
 
 [node name="CollisionShape" type="CollisionShape" parent="ColdRuptureTrigger"]
 transform = Transform( 0.999999, 0, 2.98023e-08, 0, 1, 0, -2.98023e-08, 0, 0.999999, -3.41829, 1.5, 3.64901 )

@@ -1,5 +1,4 @@
 CINEMATIC
-CALL ColdRupture "play_alarm"
 ZOOM amount=-0.2 duration=0.6
 WAIT 1.2
 CALL ColdRupture "spawn_explosion"
@@ -9,6 +8,7 @@ VCAMERA name="RuptureCam" duration=0.6 look_at="RuptureFocus"
 WAIT 0.8
 CALL ColdRupture "spawn_explosion"
 CAMERA_SHAKE duration=0.5 amplitude=0.12 frequency=28 roll=1.5
+VCAMERA name="RuptureCam" duration=0.5 look_at="RuptureFocus"
 CALL ColdRupture "crossfade_heartbeat"
 WAIT 2.0
 VCAMERA_RETURN duration=0.8
