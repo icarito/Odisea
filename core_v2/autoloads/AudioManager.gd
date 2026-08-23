@@ -229,24 +229,23 @@ func _update_bgm():
 	if _music_paused_by_focus:
 		return
 
+	# Zona vacía transitoria (p.ej. la cabina del ascensor mientras sube y sale de los
+	# límites del BGMZoneV2 de la sala): no hay zona activa, pero eso no es una orden
+	# de silenciar. Solo una zona con contenido propio puede cortar la música; que no
+	# haya ninguna zona registrada deja sonando lo que ya sonaba.
+	if _active_zones.empty():
+		return
+
 	# Sort zones by priority (volume)
 	_active_zones.sort_custom(self, "_sort_zones")
 
-	var top_zone = null
-	var target_stream = null
-	var target_song = ""
-	var target_pitch = 1.0
-	var target_volume = 0.0
-	var fade_time = 1.0
-
-	if _active_zones.size() > 0:
-		var top = _active_zones[0]
-		top_zone = top
-		target_stream = top.bgm_stream
-		target_song = top.song_name
-		target_pitch = top.pitch_scale
-		target_volume = top.volume_db
-		fade_time = top.fade_time
+	var top = _active_zones[0]
+	var top_zone = top
+	var target_stream = top.bgm_stream
+	var target_song = top.song_name
+	var target_pitch = top.pitch_scale
+	var target_volume = top.volume_db
+	var fade_time = top.fade_time
 
 	if top_zone != _active_zone:
 		_save_active_zone_playback()

@@ -511,6 +511,8 @@ func _find_environment() -> Environment:
 	var world := get_node_or_null("../WorldEnvironment") as WorldEnvironment
 	return world.environment if world else null
 
+const ICE_FOOTSTEP_PROFILE := preload("res://core_v2/audio/footsteps/footstep_profile_ice.tres")
+
 func _ensure_ice_collider() -> void:
 	_ice_collider = get_node_or_null("IceCollider") as StaticBody
 	if _ice_collider == null:
@@ -522,6 +524,9 @@ func _ensure_ice_collider() -> void:
 		shape_node.shape = BoxShape.new()
 		_ice_collider.add_child(shape_node)
 		add_child(_ice_collider)
+	# Elías pisa esta placa una vez el hielo sube por encima del piso real: sin esto
+	# FootstepDetector caía al fallback genérico también sobre hielo ya subido.
+	_ice_collider.set_meta("footstep_profile", ICE_FOOTSTEP_PROFILE)
 	# La placa que se pisa debe llegar tan lejos como el disco visible: si se queda
 	# corta, junto a la pared se ve hielo pero se cae al piso de abajo. Es una caja
 	# (cubre de más en las diagonales), pero ahí la pared del domo ya frena al jugador.

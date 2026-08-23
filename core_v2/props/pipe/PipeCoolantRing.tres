@@ -5,7 +5,6 @@
 
 [resource]
 shader = ExtResource( 1 )
-shader_param/flow_noise = ExtResource( 2 )
 shader_param/base_color = Color( 0.615686, 0.0156863, 0.368627, 1 )
 shader_param/flow_edge_color = Color( 0.01, 0.587, 1, 1 )
 shader_param/flow_color = Color( 1, 1, 1, 1 )
@@ -30,3 +29,4 @@ shader_param/voronoi_scale = 14.0
 shader_param/water_noise_scale = 0.21
 shader_param/water_speed = 0.7
 shader_param/axial_stretch = 0.55
+shader_param/flow_noise = ExtResource( 2 )
