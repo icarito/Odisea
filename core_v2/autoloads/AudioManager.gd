@@ -14,6 +14,7 @@ var _active_zones := []
 var _mdm_instance: Node = null # MixingDeskMusic instance
 var _mds_instance: Node = null # MixingDeskSound instance (if used globally)
 var _music_paused_by_focus := false
+var _music_paused_by_menu := false
 var _active_zone: Node = null
 var _zone_playback_positions := {}
 var _headless_audio_muted := false
@@ -225,8 +226,11 @@ func unregister_zone(zone):
 		_active_zones.erase(zone)
 		_update_bgm()
 
+func is_music_paused() -> bool:
+	return _music_paused_by_focus or _music_paused_by_menu
+
 func _update_bgm():
-	if _music_paused_by_focus:
+	if is_music_paused():
 		return
 
 	# Sort zones by priority (volume)
@@ -277,7 +281,7 @@ func _sort_zones(a, b):
 	return false
 
 func _crossfade_to(stream, pitch, vol, time, zone = null):
-	if _music_paused_by_focus:
+	if is_music_paused():
 		return
 
 	# If MDM was playing, stop it?
@@ -385,16 +389,34 @@ func refresh_bgm_from_zones(_fade_in_time: float = 0.35) -> void:
 	# Zone update already carries fade_time and crossfade logic.
 	_update_bgm()
 
+func set_music_paused_by_menu(paused: bool) -> void:
+	if _music_paused_by_menu == paused:
+		return
+
+	var was_paused = is_music_paused()
+	_music_paused_by_menu = paused
+	var now_paused = is_music_paused()
+
+	if now_paused and not was_paused:
+		_pause_internal_bgm_players()
+		_pause_mdm_music()
+	elif was_paused and not now_paused:
+		_resume_internal_bgm_players()
+		_resume_mdm_music()
+		_update_bgm()
+
 func _set_music_focus_paused(paused: bool) -> void:
 	if _music_paused_by_focus == paused:
 		return
 
+	var was_paused = is_music_paused()
 	_music_paused_by_focus = paused
+	var now_paused = is_music_paused()
 
-	if paused:
+	if now_paused and not was_paused:
 		_pause_internal_bgm_players()
 		_pause_mdm_music()
-	else:
+	elif was_paused and not now_paused:
 		_resume_internal_bgm_players()
 		_resume_mdm_music()
 		_update_bgm()
