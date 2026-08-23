@@ -63,7 +63,16 @@ func trigger() -> void:
 		_aftershock_fired = true
 
 
+# SessionManager apaga _physics_process en TODOS los nodos de 'replay_sync' al grabar y al
+# reproducir, porque espera manejarlos con step() centralizado (ver _get_replay_sync_nodes).
+# Sin step(), los temporizadores de este evento quedaban congelados justo en esos dos modos:
+# la segunda fuga escalonada y la replica nunca llegaban, y el replay divergia de la corrida
+# grabada. CoolantLeak se salva porque se re-habilita solo al dispararse; este no.
 func _physics_process(delta: float) -> void:
+	step(delta)
+
+
+func step(delta: float) -> void:
 	if not consumed:
 		return
 	if not _aftershock_fired and _aftershock_remaining >= 0.0:
