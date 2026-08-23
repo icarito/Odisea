@@ -100,9 +100,22 @@ func _is_disabled_for_current_run() -> bool:
 	var disable_rl = disable_in_rl.to_lower() in ["1", "true", "yes", "on"]
 	return in_rl and disable_rl
 
+func _is_scene_transitioning() -> bool:
+	var sm = get_node_or_null("/root/SceneManager")
+	if sm == null:
+		return false
+	return sm.has_method("is_transitioning") and sm.is_transitioning()
+
 func _process(_delta):
 	if _profiling_enabled:
 		profiling_start("PerformanceMonitor")
+
+	if get_tree().paused or _is_scene_transitioning():
+		_last_process_tick_usec = 0
+		_last_fps = Performance.get_monitor(Performance.TIME_FPS)
+		if _profiling_enabled:
+			profiling_end("PerformanceMonitor")
+		return
 
 	# Optimization for HTML5/Mobile: throttle metric gathering to 10Hz
 	if OS.get_name() == "HTML5" or OS.has_touchscreen_ui_hint():
