@@ -48,3 +48,17 @@ func test_respawn_entry_does_not_burn_the_trigger() -> void:
 	# El script no corrio, asi que el disparador sigue armado.
 	assert_str(trigger.script_file).is_equal(SCRIPT_PATH)
 	assert_object(player.get_node_or_null("OYSComponent")).is_null()
+
+
+func test_snapshot_rearms_trigger_after_respawn() -> void:
+	var trigger = _make_trigger()
+
+	# El respawn restaura el snapshot 'replay_sync' del checkpoint: si el trigger no
+	# pertenece al grupo, CheckpointManager ni lo mira y se queda gastado.
+	assert_bool(trigger.is_in_group("replay_sync")).is_true()
+
+	var snapshot: Dictionary = trigger.get_snapshot()
+	trigger.script_file = "" # como lo deja trigger_once al gastarse
+	trigger.restore_snapshot(snapshot)
+
+	assert_str(trigger.script_file).is_equal(SCRIPT_PATH)

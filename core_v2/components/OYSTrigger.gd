@@ -19,6 +19,11 @@ func _init():
 func _ready():
 	._ready()
 	add_to_group("OYSTrigger")
+	# El respawn devuelve el mundo al snapshot 'replay_sync' del checkpoint (CheckpointManager).
+	# Sin esto el trigger quedaba fuera de esa restauracion: si trigger_once ya se habia
+	# gastado, morir y reaparecer antes del disparador dejaba la cinematica muerta para
+	# siempre, porque script_file seguia vacio mientras el resto del mundo si rebobinaba.
+	add_to_group("replay_sync")
 	if debug_color == Color(0, 1, 0, 0.2): # Default Green
 		set_debug_color(Color(0.8, 0.2, 0.8, 0.3)) # Magenta/Purple
 	_update_label()
@@ -86,6 +91,18 @@ func _on_zone_entered(body: Node):
 		# No desconectamos señales: de eso se encarga BaseZoneV2, y exit_script_file
 		# tiene que poder seguir corriendo.
 		script_file = ""
+
+# --- SNAPSHOT SYSTEM (replay_sync) ---
+# Lo unico con estado propio del trigger es que scripts le quedan por correr: trigger_once
+# los vacia al gastarse.
+func get_snapshot() -> Dictionary:
+	return {"script_file": script_file, "exit_script_file": exit_script_file}
+
+func restore_snapshot(data: Dictionary) -> void:
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	script_file = String(data.get("script_file", script_file))
+	exit_script_file = String(data.get("exit_script_file", exit_script_file))
 
 func _on_zone_exited(body: Node):
 	var comp = body.get_node_or_null("OYSComponent")
