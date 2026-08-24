@@ -12,11 +12,14 @@ extends Node
 #   2. Si el lightmap horneado cargo de verdad  -> la linea LIGHTMAP del panel.
 
 var _label: Label
+var _holder: Spatial = null
+var _probe := ""
 
 func _ready() -> void:
 	_build_panel()
 	# Un frame para que el nivel termine de montar camara y BakedLightmap.
 	yield(get_tree(), "idle_frame")
+	_build_shader_probe()
 	_label.text = _report()
 
 func _build_panel() -> void:
@@ -70,6 +73,74 @@ func _node_line(label: String, path: String) -> String:
 	]
 
 
+# --- Sonda del shader de oclusion -------------------------------------------------
+# El dither estable no alcanzo. Quedan dos causas dentro del mismo shader y hay que
+# separarlas: que no compile/linkee en iOS (el objeto no se dibuja nunca) o que
+# compile y el cono descarte de mas. Tres quads lo deciden:
+#   A control  : unshaded, sabemos que se dibuja
+#   B shader/off: el shader REAL con is_active=0 -> ningun discard posible
+#   C shader/on : el shader REAL con el cono lejos -> no deberia descartar
+# A y B y C -> el shader esta sano, el problema es el cono.
+# A solo     -> el shader no se dibuja en iOS: compila mal o excede limites.
+
+func _build_shader_probe() -> void:
+	var cam := get_viewport().get_camera()
+	if cam == null:
+		_probe = "PROBE: sin camara"
+		return
+	_holder = Spatial.new()
+	add_child(_holder)
+
+	var control := SpatialMaterial.new()
+	control.flags_unshaded = true
+	control.albedo_color = Color(0.2, 1.0, 0.3)
+
+	var sh: Shader = load("res://shaders/prop_dither_occlusion.gdshader")
+	if sh == null:
+		_probe = "PROBE: el .gdshader NO CARGA"
+		return
+
+	var off := ShaderMaterial.new()
+	off.shader = sh
+	off.set_shader_param("albedo", Color(1.0, 0.4, 0.0))
+	off.set_shader_param("is_active", 0.0)
+	# Emision para que no dependa de que haya luz donde este parado el jugador: si el
+	# quad esta apagado es porque el shader no dibuja, no porque el rincon sea oscuro.
+	off.set_shader_param("emission_enabled", true)
+	off.set_shader_param("emission_color", Color(1.0, 0.4, 0.0))
+	off.set_shader_param("emission_energy", 1.0)
+
+	var on := ShaderMaterial.new()
+	on.shader = sh
+	on.set_shader_param("albedo", Color(0.2, 0.4, 1.0))
+	on.set_shader_param("is_active", 1.0)
+	# Cono a mil metros de aca: ningun fragmento deberia caer adentro.
+	on.set_shader_param("camera_pos", Vector3(1000, 1000, 1000))
+	on.set_shader_param("player_pos", Vector3(1000, 1000, 1002))
+	on.set_shader_param("hole_radius", 0.5)
+	on.set_shader_param("emission_enabled", true)
+	on.set_shader_param("emission_color", Color(0.2, 0.4, 1.0))
+	on.set_shader_param("emission_energy", 1.0)
+
+	var mats := [control, off, on]
+	for i in range(mats.size()):
+		var mi := MeshInstance.new()
+		var quad := QuadMesh.new()
+		quad.size = Vector2(0.18, 0.18)
+		mi.mesh = quad
+		mi.material_override = mats[i]
+		mi.cast_shadow = MeshInstance.SHADOW_CASTING_SETTING_OFF
+		mi.translation = Vector3(-0.25 + 0.25 * i, -0.35, -1.2)
+		_holder.add_child(mi)
+	_probe = "PROBE: A=control(verde) B=shader/off(naranja) C=shader/on(azul)"
+	set_process(true)
+
+func _process(_delta: float) -> void:
+	var cam := get_viewport().get_camera()
+	if cam != null and _holder != null:
+		_holder.global_transform = cam.global_transform
+
+
 # --- Reporte -----------------------------------------------------------------------
 
 func _report() -> String:
@@ -95,6 +166,7 @@ func _report() -> String:
 	lines.append(_node_line("CriopodGlass", "Spatial/Criopods1/Glass"))
 	lines.append(_node_line("CriopodShell", "Spatial/Criopods1/Shell"))
 	lines.append(_node_line("ScaffoldF1", "ScaffoldHubTower/Floor_1/CombinedMesh"))
+	lines.append(_probe)
 	lines.append(_lightmap_report())
 	return PoolStringArray(lines).join("\n")
 
