@@ -105,12 +105,25 @@ func set_occlusion_params(radius: float, params: Dictionary = {}) -> void:
 		_shader_params[key] = params[key]
 
 
+# El dither estable no es cosa de Android: cualquier GLES2 movil corre el fragment
+# shader en mediump, y ahi el hash IGN se degrada con FRAGCOORD grande (la pantalla del
+# iPhone son 2532 px: dot(FRAGCOORD, ...) llega a ~170, donde mediump resuelve de a
+# 0.125 y el fract() sale cuantizado). Atado a "Android" solo, iOS corria por la rama
+# rota y los props que maneja este manager desaparecian.
+static func _wants_stable_dither(os_name: String) -> bool:
+	return os_name in ["Android", "iOS"]
+
+
 func register_material(mat: ShaderMaterial) -> void:
 	# Dictionary lookup instead of Array.has(): the linear scan made scene load
 	# O(n^2) over thousands of materials.
 	if mat and not _registered_lookup.has(mat):
 		_registered_lookup[mat] = true
 		_registered_materials.append(mat)
+		# Al REGISTRAR y no al convertir: por aca pasan tambien los materiales que ya
+		# traen el shader de oclusion desde la escena, que no pasan por la conversion
+		# y por eso nunca recibian la bandera en ninguna plataforma.
+		mat.set_shader_param("stable_mobile_dither", _wants_stable_dither(OS.get_name()))
 
 
 # --- Scene scanning --------------------------------------------------------
@@ -427,7 +440,6 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 	# Initial occlusion params
 	new_mat.set_shader_param("hole_radius", _hole_radius)
 	new_mat.set_shader_param("is_active", 1.0)
-	new_mat.set_shader_param("stable_mobile_dither", OS.get_name() == "Android")
 	for key in _shader_params:
 		new_mat.set_shader_param(key, _shader_params[key])
 
