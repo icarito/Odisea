@@ -174,7 +174,6 @@
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_PipeNetworkVisualBake.tres" type="Resource" id=5013]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerraceFloor_baked.mesh" type="ArrayMesh" id=5014]
 [ext_resource path="res://core_v2/levels/interiors/DomeShell_baked.mesh" type="ArrayMesh" id=5015]
-[ext_resource path="res://core_v2/levels/diag/RenderDiag.tscn" type="PackedScene" id=5031]
 
 [sub_resource type="BoxShape" id=564]
 extents = Vector3( 8, 5, 4 )
@@ -5118,9 +5117,6 @@ bgm_stream = ExtResource( 9 )
 [node name="CollisionShape" type="CollisionShape" parent="BGMZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.6918, 0 )
 shape = SubResource( 590 )
-
-[node name="RenderDiag" parent="." instance=ExtResource( 5031 )]
-enabled = true
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
