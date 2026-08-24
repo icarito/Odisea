@@ -15,6 +15,8 @@ const QUAD_SIZE := 0.18
 const QUAD_DISTANCE := -1.2
 
 var _label: Label
+var _holder: Spatial = null
+var _quads := 0
 
 func _ready() -> void:
 	_build_panel()
@@ -88,9 +90,12 @@ void fragment() { ALBEDO = vec3(1.0, 0.2, 0.8); ALPHA = 0.6; }
 	]
 
 func _build_quads() -> void:
-	var cam := get_viewport().get_camera()
-	if cam == null:
-		return
+	# Los quads NO cuelgan de la camara: Dome_Intro alterna VCameras y al cambiar la
+	# activa se irian con la vieja. Un holder propio que se pega a la camara del
+	# viewport cada frame sobrevive los cambios, y asi que un quad no aparezca
+	# significa que el material no se dibuja, no que el nodo se quedo en otro lado.
+	_holder = Spatial.new()
+	add_child(_holder)
 	var variants := _material_variants()
 	var span := QUAD_SIZE * 1.4
 	var start := -span * (variants.size() - 1) * 0.5
@@ -102,7 +107,14 @@ func _build_quads() -> void:
 		mi.material_override = variants[i][1]
 		mi.cast_shadow = MeshInstance.SHADOW_CASTING_SETTING_OFF
 		mi.translation = Vector3(start + span * i, -0.35, QUAD_DISTANCE)
-		cam.add_child(mi)
+		_holder.add_child(mi)
+	_quads = variants.size()
+	set_process(true)
+
+func _process(_delta: float) -> void:
+	var cam := get_viewport().get_camera()
+	if cam != null and _holder != null:
+		_holder.global_transform = cam.global_transform
 
 # --- Reporte -----------------------------------------------------------------------
 
@@ -122,7 +134,8 @@ func _report() -> String:
 		OS.has_feature("mobile"), OS.has_feature("iOS"),
 		OS.has_feature("pvrtc"), OS.has_feature("etc"), OS.has_feature("etc2"),
 	])
-	lines.append("quads: opaco blend scissor blend+unsh glass shader")
+	var cam := get_viewport().get_camera()
+	lines.append("quads: n=%d cam=%s | opaco blend scissor blend+unsh glass shader" % [_quads, cam.name if cam else "NULL"])
 	lines.append(_lightmap_report())
 	return PoolStringArray(lines).join("\n")
 
