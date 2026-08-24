@@ -11,18 +11,12 @@ extends Node
 #   1. Que configuracion de material se dibuja  -> la fila de quads frente a la camara.
 #   2. Si el lightmap horneado cargo de verdad  -> la linea LIGHTMAP del panel.
 
-const QUAD_SIZE := 0.18
-const QUAD_DISTANCE := -1.2
-
 var _label: Label
-var _holder: Spatial = null
-var _quads := 0
 
 func _ready() -> void:
 	_build_panel()
 	# Un frame para que el nivel termine de montar camara y BakedLightmap.
 	yield(get_tree(), "idle_frame")
-	_build_quads()
 	_label.text = _report()
 
 func _build_panel() -> void:
@@ -40,81 +34,41 @@ func _build_panel() -> void:
 	_label.margin_top = 8
 	layer.add_child(_label)
 
-# --- Quads: una configuracion de material por columna -------------------------------
-# Todas comparten geometria y color. Lo unico que cambia es el modo de material, asi
-# que la que falte en la captura es exactamente la que iOS no dibuja.
+# --- Censo del arbol ------------------------------------------------------------
+# La matriz de materiales ya dio negativo: ninguna configuracion falla en iOS. La
+# pregunta ahora es si los objetos que faltan estan en el arbol y visibles, o si
+# directamente no llegaron. Comparar estos numeros contra la linea base de escritorio
+# separa "no cargo" de "cargo pero no se rasteriza".
 
-func _material_variants() -> Array:
-	var opaque := SpatialMaterial.new()
-	opaque.flags_unshaded = true
-	opaque.albedo_color = Color(0.2, 1.0, 0.3)
+func _census(node: Node, acc: Dictionary) -> void:
+	if node is MeshInstance:
+		acc["mi"] += 1
+		if node.mesh == null:
+			acc["nullmesh"] += 1
+		else:
+			acc["surf"] += node.mesh.get_surface_count()
+			if node.is_visible_in_tree():
+				acc["vis"] += 1
+	for child in node.get_children():
+		_census(child, acc)
 
-	var blend := SpatialMaterial.new()
-	blend.flags_transparent = true
-	blend.albedo_color = Color(1.0, 0.5, 0.1, 0.55)
-
-	var scissor := SpatialMaterial.new()
-	scissor.flags_transparent = true
-	scissor.params_use_alpha_scissor = true
-	scissor.params_alpha_scissor_threshold = 0.5
-	scissor.albedo_color = Color(0.3, 0.6, 1.0, 1.0)
-
-	var blend_unshaded := SpatialMaterial.new()
-	blend_unshaded.flags_transparent = true
-	blend_unshaded.flags_unshaded = true
-	blend_unshaded.albedo_color = Color(1.0, 1.0, 0.2, 0.55)
-
-	# Igual que el vidrio del criopod: transparente, metalico y con cull apagado.
-	var glass := SpatialMaterial.new()
-	glass.flags_transparent = true
-	glass.params_cull_mode = SpatialMaterial.CULL_DISABLED
-	glass.metallic = 1.0
-	glass.albedo_color = Color(0.29, 0.51, 0.61, 0.49)
-
-	var shader_mat := ShaderMaterial.new()
-	var sh := Shader.new()
-	sh.code = """
-shader_type spatial;
-render_mode blend_mix, unshaded;
-void fragment() { ALBEDO = vec3(1.0, 0.2, 0.8); ALPHA = 0.6; }
-"""
-	shader_mat.shader = sh
-
-	return [
-		["opaco", opaque],
-		["blend", blend],
-		["scissor", scissor],
-		["blend+unsh", blend_unshaded],
-		["glass", glass],
-		["shader", shader_mat],
+func _node_line(label: String, path: String) -> String:
+	var scene = get_tree().current_scene
+	var n = scene.get_node_or_null(path) if scene else null
+	if n == null:
+		n = get_tree().get_root().find_node(path.get_file(), true, false)
+	if n == null:
+		return "%s: NO EXISTE" % label
+	if not (n is MeshInstance):
+		return "%s: no es MeshInstance" % label
+	if n.mesh == null:
+		return "%s: vis=%s SIN MESH" % [label, n.is_visible_in_tree()]
+	var aabb = n.mesh.get_aabb()
+	return "%s: vis=%s surf=%d aabb=%.1f layers=%d" % [
+		label, n.is_visible_in_tree(), n.mesh.get_surface_count(),
+		aabb.size.length(), n.layers,
 	]
 
-func _build_quads() -> void:
-	# Los quads NO cuelgan de la camara: Dome_Intro alterna VCameras y al cambiar la
-	# activa se irian con la vieja. Un holder propio que se pega a la camara del
-	# viewport cada frame sobrevive los cambios, y asi que un quad no aparezca
-	# significa que el material no se dibuja, no que el nodo se quedo en otro lado.
-	_holder = Spatial.new()
-	add_child(_holder)
-	var variants := _material_variants()
-	var span := QUAD_SIZE * 1.4
-	var start := -span * (variants.size() - 1) * 0.5
-	for i in range(variants.size()):
-		var mi := MeshInstance.new()
-		var quad := QuadMesh.new()
-		quad.size = Vector2(QUAD_SIZE, QUAD_SIZE)
-		mi.mesh = quad
-		mi.material_override = variants[i][1]
-		mi.cast_shadow = MeshInstance.SHADOW_CASTING_SETTING_OFF
-		mi.translation = Vector3(start + span * i, -0.35, QUAD_DISTANCE)
-		_holder.add_child(mi)
-	_quads = variants.size()
-	set_process(true)
-
-func _process(_delta: float) -> void:
-	var cam := get_viewport().get_camera()
-	if cam != null and _holder != null:
-		_holder.global_transform = cam.global_transform
 
 # --- Reporte -----------------------------------------------------------------------
 
@@ -134,8 +88,13 @@ func _report() -> String:
 		OS.has_feature("mobile"), OS.has_feature("iOS"),
 		OS.has_feature("pvrtc"), OS.has_feature("etc"), OS.has_feature("etc2"),
 	])
-	var cam := get_viewport().get_camera()
-	lines.append("quads: n=%d cam=%s | opaco blend scissor blend+unsh glass shader" % [_quads, cam.name if cam else "NULL"])
+	var acc := {"mi": 0, "vis": 0, "nullmesh": 0, "surf": 0}
+	var scene = get_tree().current_scene
+	_census(scene if scene else get_tree().get_root(), acc)
+	lines.append("MESHES: total=%d visibles=%d sin_mesh=%d surf=%d" % [acc["mi"], acc["vis"], acc["nullmesh"], acc["surf"]])
+	lines.append(_node_line("CriopodGlass", "Spatial/Criopods1/Glass"))
+	lines.append(_node_line("CriopodShell", "Spatial/Criopods1/Shell"))
+	lines.append(_node_line("ScaffoldF1", "ScaffoldHubTower/Floor_1/CombinedMesh"))
 	lines.append(_lightmap_report())
 	return PoolStringArray(lines).join("\n")
 
