@@ -11,9 +11,9 @@ extends Node
 #   1. Que configuracion de material se dibuja  -> la fila de quads frente a la camara.
 #   2. Si el lightmap horneado cargo de verdad  -> la linea LIGHTMAP del panel.
 
-# Apagado por defecto: el nodo puede quedarse en la escena sin costo ni panel encima
-# del juego. Se prende poniendo enabled=true en la instancia (unica via en iOS, que no
-# tiene como pasar variables de entorno) o con ODISEA_RENDER_DIAG=1 en escritorio.
+# Apagado por defecto, y ademas restringido a iOS: la investigacion de las superficies
+# que no se dibujan es alla, y asi el panel no aparece encima del juego en escritorio ni
+# en Android aunque la instancia quede con enabled=true en la escena.
 export(bool) var enabled := false
 
 const ENV_FLAG := "ODISEA_RENDER_DIAG"
@@ -25,8 +25,15 @@ var _probe := ""
 static func _env_wants_diag(value: String) -> bool:
 	return value.to_lower().strip_edges() in ["1", "true", "yes", "on"]
 
+# La variable de entorno manda en cualquier plataforma: es la unica forma de mirar el
+# panel en escritorio, donde se toma la linea base contra la que se compara el aparato.
+static func _wants_diag(os_name: String, enabled_flag: bool, env_value: String) -> bool:
+	if _env_wants_diag(env_value):
+		return true
+	return enabled_flag and os_name == "iOS"
+
 func _ready() -> void:
-	if not (enabled or _env_wants_diag(OS.get_environment(ENV_FLAG))):
+	if not _wants_diag(OS.get_name(), enabled, OS.get_environment(ENV_FLAG)):
 		# Nada de panel, nada de quads, nada de _process.
 		queue_free()
 		return
