@@ -62,10 +62,14 @@ func _ready():
 	call_deferred("_find_mixing_desk")
 
 func _notification(what):
-	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
+	# En movil el par FOCUS_OUT/FOCUS_IN no es simetrico: iOS y Android avisan que la
+	# app se va con WM_FOCUS_OUT o APP_PAUSED, pero al volver suelen mandar APP_RESUMED
+	# sin un WM_FOCUS_IN. Escuchando solo el par de foco, un FOCUS_OUT sin su pareja
+	# dejaba el bus master muteado para el resto de la sesion.
+	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT or what == MainLoop.NOTIFICATION_APP_PAUSED:
 		_set_focus_audio_muted(true)
 		_set_music_focus_paused(true)
-	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
+	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN or what == MainLoop.NOTIFICATION_APP_RESUMED:
 		_set_focus_audio_muted(false)
 		_set_music_focus_paused(get_tree().paused)
 
