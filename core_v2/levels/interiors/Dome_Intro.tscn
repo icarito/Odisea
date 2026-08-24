@@ -5120,6 +5120,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.6918, 0 )
 shape = SubResource( 590 )
 
 [node name="RenderDiag" parent="." instance=ExtResource( 5031 )]
+enabled = true
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]

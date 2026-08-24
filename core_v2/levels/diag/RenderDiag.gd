@@ -11,11 +11,25 @@ extends Node
 #   1. Que configuracion de material se dibuja  -> la fila de quads frente a la camara.
 #   2. Si el lightmap horneado cargo de verdad  -> la linea LIGHTMAP del panel.
 
+# Apagado por defecto: el nodo puede quedarse en la escena sin costo ni panel encima
+# del juego. Se prende poniendo enabled=true en la instancia (unica via en iOS, que no
+# tiene como pasar variables de entorno) o con ODISEA_RENDER_DIAG=1 en escritorio.
+export(bool) var enabled := false
+
+const ENV_FLAG := "ODISEA_RENDER_DIAG"
+
 var _label: Label
 var _holder: Spatial = null
 var _probe := ""
 
+static func _env_wants_diag(value: String) -> bool:
+	return value.to_lower().strip_edges() in ["1", "true", "yes", "on"]
+
 func _ready() -> void:
+	if not (enabled or _env_wants_diag(OS.get_environment(ENV_FLAG))):
+		# Nada de panel, nada de quads, nada de _process.
+		queue_free()
+		return
 	_build_panel()
 	# Un frame para que el nivel termine de montar camara y BakedLightmap.
 	yield(get_tree(), "idle_frame")
