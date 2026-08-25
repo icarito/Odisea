@@ -997,8 +997,17 @@ jobs:
             "$G_BIN" --version
             echo "=== Available Apple Distribution identities ==="
             security find-identity -v -p codesigning | sed -E 's/(\"Apple Distribution:[^\"]*\").*/\1/'
-            echo "=== Running signed iOS export ==="
-            "$G_BIN" --no-window --export "${{ matrix.preset }}" "$OUT" --headless 2>&1 | tee /tmp/godot_ios.log || true
+            # TEMPORAL - diagnostico de la iluminacion en iOS. ANNAV2 bloquea TODO
+            # comando remoto en un build de release (_can_execute_remote_command), asi
+            # que en release no hay forma de leer el estado del render en el dispositivo:
+            # ni el log del driver, ni que material/lightmap termino teniendo una malla.
+            # En debug se habilita execute_script y se puede consultar en vivo.
+            # Android ya se exporta asi (--export-debug, mas arriba).
+            #
+            # VOLVER a --export en cuanto se cierre el bug: un build debug es mas pesado,
+            # mas lento, y queda scripteable en remoto desde el central mientras dure.
+            echo "=== Running signed iOS export (DEBUG - diagnostico temporal) ==="
+            "$G_BIN" --no-window --export-debug "${{ matrix.preset }}" "$OUT" --headless 2>&1 | tee /tmp/godot_ios.log || true
           else
             "$G_BIN" --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
           fi
