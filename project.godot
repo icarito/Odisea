@@ -3017,10 +3017,15 @@ common/max_physics_steps_per_frame=4
 
 [logging]
 
-# Solo iOS y temporal: en un build de tienda no hay consola, y los errores de
-# compilacion de shaders del driver solo viven en el log del motor. Con esto quedan
-# en user://logs/godot.log, legible desde el propio juego.
-file_logging/enable_file_logging.iOS=true
+# Temporal: en un build de tienda no hay consola, y los errores de compilacion de
+# shaders del driver solo viven en el log del motor. Con esto quedan en
+# user://logs/godot.log, legible desde el propio juego (LogOverlay.gd).
+#
+# Va SIN sufijo de plataforma a proposito. Con ".iOS" el archivo no se creaba: el motor
+# lee esta clave en Main::setup(), muy temprano, y el override por feature no llegaba a
+# aplicarse. En escritorio el default de Godot ya es true (".pc"), asi que ponerlo
+# global solo agrega el log en movil, que es donde lo necesitamos.
+file_logging/enable_file_logging=true
 
 [rendering]
 
