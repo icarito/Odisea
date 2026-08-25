@@ -50,7 +50,52 @@ func _ready() -> void:
 	_label.text = "LOG OVERLAY: leyendo en %ds..." % int(READ_DELAY)
 	layer.add_child(_label)
 	call_deferred("_build_shading_probe")
+	call_deferred("_reassign_lightmaps")
 	set_process(true)
+
+
+# La sonda de sombreado ya mostro que la iluminacion por pixel funciona en iOS (los dos
+# planos degradan igual que en escritorio), y el censo mostro que de las 39 mallas
+# horneadas solo UNA tiene material con mas de una textura. O sea que no hay agotamiento
+# de unidades de textura: el shader de esas mallas es albedo + lightmap y nada mas.
+#
+# Lo que queda es la ASIGNACION del lightmap. BakedLightmap la hace al entrar al arbol
+# resolviendo la ruta de cada usuario contra si mismo; si esa resolucion falla, o si el
+# renderer de iOS ignora la asignacion, el resultado se ve igual: albedo crudo.
+#
+# Esta prueba la rehace a mano y cuenta que paso:
+#   reasignados=39 y aparece el verde -> era la asignacion (timing o rutas)
+#   reasignados=39 y sigue morado     -> el renderer de iOS ignora el lightmap; es
+#                                        limitacion del motor, no del proyecto
+#   reasignados<39                    -> hay rutas que no resuelven, y el numero dice
+#                                        cuantas
+var _lm_ok := 0
+var _lm_fail := 0
+
+func _reassign_lightmaps() -> void:
+	var baked = _find_baked(get_tree().get_root())
+	if baked == null or baked.light_data == null:
+		_lm_fail = -1
+		return
+	var data = baked.light_data
+	for i in range(data.get_user_count()):
+		var tex = data.get_user_lightmap(i)
+		var node = baked.get_node_or_null(data.get_user_path(i))
+		if tex == null or node == null or not (node is VisualInstance):
+			_lm_fail += 1
+			continue
+		VisualServer.instance_set_use_lightmap(
+			node.get_instance(), baked.get_instance(), tex.get_rid(), -1, Rect2(0, 0, 1, 1))
+		_lm_ok += 1
+
+func _find_baked(node: Node):
+	if node is BakedLightmap:
+		return node
+	for child in node.get_children():
+		var found = _find_baked(child)
+		if found != null:
+			return found
+	return null
 
 
 # Dos planos IGUALES salvo en cantidad de vertices, con su propia luz, frente a la
@@ -134,7 +179,9 @@ func _read_report() -> String:
 	if not f.file_exists(path):
 		# Que no este el archivo ya nos costo un build. Si vuelve a faltar, que al menos
 		# diga que SI hay en user://, para saber si el problema es el setting o la ruta.
-		return "LOG OVERLAY\nNO EXISTE %s\nenable=%s\nuser:// -> %s\nuser://logs -> %s" % [
+		return "LOG OVERLAY  lightmap ok=%d fallos=%d\nNO EXISTE %s\nenable=%s\nuser:// -> %s\nuser://logs -> %s" % [
+			_lm_ok,
+			_lm_fail,
 			path,
 			ProjectSettings.get_setting("logging/file_logging/enable_file_logging"),
 			_list_dir("user://"),
@@ -156,7 +203,8 @@ func _read_report() -> String:
 				break
 	f.close()
 
-	var head := "LOG OVERLAY  lineas=%d  interesantes=%d" % [total, hits.size()]
+	var head := "LOG OVERLAY  lineas=%d  interesantes=%d  lightmap ok=%d fallos=%d" % [
+		total, hits.size(), _lm_ok, _lm_fail]
 	if hits.empty():
 		# Que no haya ni un error tambien es un resultado: los shaders linkean y el
 		# problema esta en la asignacion, no en la compilacion.
