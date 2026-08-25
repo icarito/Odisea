@@ -57,7 +57,24 @@ var _shader_params: Dictionary = {
 	"floor_protect_radius": 1.0
 }
 
+# Los props que este manager convierte son EXACTAMENTE los que no se dibujan en iOS:
+# del criopod sobrevive solo PersonCards, que esta en "no_occlusion" y por eso no pasa
+# por aca. El shader en si compila y dibuja (verificado en el dispositivo con tres quads
+# de sonda), pero la sonda no llevaba texturas ni lightmap: el material real declara tres
+# samplers -- dentro de un if sobre un uniform, o sea que no se pueden optimizar -- y a
+# eso el motor le suma lightmap y sombras. iOS GLES2 garantiza 8 unidades de textura en
+# el fragment shader; Adreno y escritorio dan 16 o 32.
+#
+# Apagado en iOS se pierde el agujero de dither (los props no se vuelven translucidos
+# cuando tapan al jugador) pero se ven, que es bastante mejor que lo contrario.
+static func _wants_occlusion_dither(os_name: String) -> bool:
+	return os_name != "iOS"
+
+
 func _ready() -> void:
+	if not _wants_occlusion_dither(OS.get_name()):
+		set_process(false)
+		return
 	call_deferred("_scan_scene_tree")
 	get_tree().connect("node_added", self, "_on_node_added")
 

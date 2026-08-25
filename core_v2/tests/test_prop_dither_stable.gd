@@ -17,3 +17,11 @@ func test_desktop_keeps_the_cheaper_hash() -> void:
 	assert_bool(PropDitherManagerScript._wants_stable_dither("X11")).is_false()
 	assert_bool(PropDitherManagerScript._wants_stable_dither("Windows")).is_false()
 	assert_bool(PropDitherManagerScript._wants_stable_dither("OSX")).is_false()
+
+
+func test_ios_no_convierte_props_al_shader_de_oclusion() -> void:
+	# Los props convertidos son los que no se dibujan en el dispositivo; apagado en iOS
+	# conservan su SpatialMaterial original.
+	assert_bool(PropDitherManagerScript._wants_occlusion_dither("iOS")).is_false()
+	assert_bool(PropDitherManagerScript._wants_occlusion_dither("Android")).is_true()
+	assert_bool(PropDitherManagerScript._wants_occlusion_dither("X11")).is_true()
