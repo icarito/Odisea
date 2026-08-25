@@ -178,6 +178,31 @@ func _json_print_normalized(data, indent := "") -> String:
 	normalized = _normalize_negative_zero_in_place(normalized)
 	return JSON.print(normalized, indent)
 
+# Devuelve el final del log del motor. Existe para poder leerlo desde execute_script
+# remoto, que solo admite expresiones de UNA linea: los errores de compilacion de
+# shaders del driver no llegan a ningun otro lado en un dispositivo sin consola.
+#   get_node("/root/SessionManager").read_log_tail(40, "ERROR")
+func read_log_tail(max_lines: int = 40, filter_text: String = "") -> Array:
+	var path := String(ProjectSettings.get_setting("logging/file_logging/log_path"))
+	if path == "":
+		path = "user://logs/godot.log"
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		return ["(no se pudo abrir %s)" % path]
+	var out := []
+	while not f.eof_reached():
+		var line := f.get_line()
+		if filter_text != "" and line.findn(filter_text) == -1:
+			continue
+		out.append(line)
+		if out.size() > max_lines * 4:
+			out = out.slice(out.size() - max_lines, out.size() - 1)
+	f.close()
+	if out.size() > max_lines:
+		out = out.slice(out.size() - max_lines, out.size() - 1)
+	return out
+
+
 func _get_replay_sync_nodes() -> Array:
 	if _replay_sync_cache_dirty:
 		var all_nodes = get_tree().get_nodes_in_group("replay_sync")
