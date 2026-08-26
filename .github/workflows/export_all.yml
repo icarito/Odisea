@@ -957,22 +957,51 @@ jobs:
           # pass can silently leave assets unimported (godot exits 0 either
           # way, which is why this used to be `|| true`). scripts/godot_import_smoke.sh
           # hit exactly this and works around it by dropping --quit and giving
-          # the async import real time; do the same here, looped until nothing
-          # is missing so a slow first pass gets to finish across attempts
-          # instead of being taken as good enough.
+          # the async import real time.
+          #
+          # Without --quit godot never exits on its own -- it just sits there as an
+          # idle editor once done, so waiting for a fixed timeout means EVERY run pays
+          # the full timeout even on a cache hit with nothing to import (measured: a
+          # cold Android/ETC2 reimport that actually finished in well under 1200s still
+          # cost the full 1200s, run 33013255678, because nothing polled for "done" —
+          # it just waited to be killed). Poll the artifact check instead and stop as
+          # soon as it's satisfied; IMPORT_TIMEOUT_SEC is only the safety-net ceiling
+          # for a genuinely stuck import, not the expected duration.
           IMPORT_TIMEOUT_SEC=1200
+          IMPORT_POLL_SEC=20
+          IMPORT_SETTLE_SEC=15
           IMPORT_MAX_ATTEMPTS=3
           import_clean=0
           for attempt in $(seq 1 "$IMPORT_MAX_ATTEMPTS"); do
-            echo "=== Import attempt ${attempt}/${IMPORT_MAX_ATTEMPTS} (timeout ${IMPORT_TIMEOUT_SEC}s) ==="
-            if timeout "${IMPORT_TIMEOUT_SEC}s" "$G_BIN" -e --headless --no-window --audio-driver Dummy; then
-              rc=0
-            else
-              rc=$?
+            echo "=== Import attempt ${attempt}/${IMPORT_MAX_ATTEMPTS} (polling every ${IMPORT_POLL_SEC}s, ceiling ${IMPORT_TIMEOUT_SEC}s) ==="
+            "$G_BIN" -e --headless --no-window --audio-driver Dummy &
+            godot_pid=$!
+            waited=0
+            attempt_clean=0
+            while kill -0 "$godot_pid" 2>/dev/null; do
+              if python3 scripts/check_import_artifacts_present.py --mode all --strict --fail-on-missing-textures >/dev/null 2>&1; then
+                echo "Artifacts complete after ~${waited}s; letting in-flight writes settle ${IMPORT_SETTLE_SEC}s before stopping the import early."
+                sleep "$IMPORT_SETTLE_SEC"
+                attempt_clean=1
+                break
+              fi
+              if [ "$waited" -ge "$IMPORT_TIMEOUT_SEC" ]; then
+                echo "Still incomplete after ${IMPORT_TIMEOUT_SEC}s; giving up on this attempt."
+                break
+              fi
+              sleep "$IMPORT_POLL_SEC"
+              waited=$((waited + IMPORT_POLL_SEC))
+            done
+            if kill -0 "$godot_pid" 2>/dev/null; then
+              kill "$godot_pid" 2>/dev/null || true
             fi
-            if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ]; then
-              echo "::warning::Import pass ${attempt} exited with code ${rc} (verifying artifacts anyway)"
+            wait "$godot_pid" 2>/dev/null || true
+            if [ "$attempt_clean" -eq 1 ]; then
+              import_clean=1
+              break
             fi
+            # The process may also have exited on its own (unexpected without --quit,
+            # but don't loop forever on it either way) -- re-check once before retrying.
             if python3 scripts/check_import_artifacts_present.py --mode all --strict --fail-on-missing-textures; then
               import_clean=1
               break
