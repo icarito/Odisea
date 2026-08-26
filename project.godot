@@ -3031,6 +3031,14 @@ file_logging/max_log_files=3
 
 quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
+; iOS en GLES3. El proyecto esta en GLES2 por los Android viejos, no por iOS: el A15
+; soporta GLES3 de sobra. En GLES2 el bake horneado NO se aplica en iOS aunque la
+; asignacion entre bien (ok=39 fallos=0 forzandola a mano) y el log del driver no
+; reporte un solo error de shader. Agotado GLES2, esta es la salida limpia.
+;
+; fallback_to_gles2=true es la red: si GLES3 no inicializa, el motor vuelve a GLES2
+; solo y el build sigue siendo el de siempre, no uno roto.
+quality/driver/driver_name.iOS="GLES3"
 quality/intended_usage/framebuffer_allocation.mobile=2
 threads/thread_model=0
 vram_compression/import_bptc=true
