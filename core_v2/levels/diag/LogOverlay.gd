@@ -65,12 +65,18 @@ func _ready() -> void:
 # resolviendo la ruta de cada usuario contra si mismo; si esa resolucion falla, o si el
 # renderer de iOS ignora la asignacion, el resultado se ve igual: albedo crudo.
 #
-# Esta prueba la rehace a mano y cuenta que paso:
-#   reasignados=39 y aparece el verde -> era la asignacion (timing o rutas)
-#   reasignados=39 y sigue morado     -> el renderer de iOS ignora el lightmap; es
-#                                        limitacion del motor, no del proyecto
-#   reasignados<39                    -> hay rutas que no resuelven, y el numero dice
-#                                        cuantas
+# Esta prueba lo censaba a mano y ademas REASIGNABA el lightmap nativo via
+# VisualServer.instance_set_use_lightmap con la textura real, para ver si el problema
+# era la asignacion o el renderer. Eso ya se contesto: el renderer de iOS lo rompe (por
+# eso existe IOSLightmapFallback.gd, que apaga esa asignacion nativa a proposito con
+# RID() vacios y la reemplaza por su propio shader via EMISSION). Como los dos nodos se
+# activan con el mismo gate de iOS y ambos difieren su _ready() con call_deferred, el
+# orden entre ellos no esta garantizado: si esta sonda corre despues del fallback,
+# REACTIVA el lightmap nativo roto que el fallback acababa de apagar -- eso es luces que
+# cambian con el angulo de camara y el error de shader "_get_uniform ... !version" que
+# reaparecieron al arreglar los assets faltantes. Ahora solo cuenta, no reasigna.
+#   reasignados=39 -> la asignacion resuelve para las 39 (el numero dice cuantas)
+#   reasignados<39 -> hay rutas que no resuelven, y el numero dice cuantas
 var _lm_ok := 0
 var _lm_fail := 0
 
@@ -86,8 +92,6 @@ func _reassign_lightmaps() -> void:
 		if tex == null or node == null or not (node is VisualInstance):
 			_lm_fail += 1
 			continue
-		VisualServer.instance_set_use_lightmap(
-			node.get_instance(), baked.get_instance(), tex.get_rid(), -1, Rect2(0, 0, 1, 1))
 		_lm_ok += 1
 
 func _find_baked(node: Node):
