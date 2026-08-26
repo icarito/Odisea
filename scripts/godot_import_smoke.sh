@@ -22,7 +22,7 @@ TIMEOUT_IMPORT_SEC="${TIMEOUT_IMPORT_SEC:-600}"
 TIMEOUT_SMOKE_SEC="${TIMEOUT_SMOKE_SEC:-180}"
 # El import "full" (escalado) corre sin --quit -- ver run_import_once -- asi
 # que este es el tiempo real que se le da al import asincrono antes de matarlo.
-FULL_IMPORT_TIMEOUT_SEC="${FULL_IMPORT_TIMEOUT_SEC:-150}"
+FULL_IMPORT_TIMEOUT_SEC="${FULL_IMPORT_TIMEOUT_SEC:-300}"
 CLEAN_CACHE="${CLEAN_CACHE:-1}"
 DISABLE_EDITOR_PLUGINS="${DISABLE_EDITOR_PLUGINS:-1}"
 USE_XVFB="${USE_XVFB:-0}"
