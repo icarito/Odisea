@@ -936,6 +936,17 @@ jobs:
           # Use 'godot' if 'godot3-server' is not set (container environment)
           G_BIN="${GODOT_BIN:-godot}"
 
+          # android runs this step inside a container (barichello/godot-ci), which has
+          # its own git with no safe.directory entry for the checked-out workspace.
+          # actions/checkout only configures that for the HOST's git, not the
+          # container's, so any git call from here (including the ones
+          # check_import_artifacts_present.py shells out to below) fails with "detected
+          # dubious ownership" (exit 128) -- discovered the hard way when that made the
+          # verify step below crash on every attempt, burning all 3 retries x 1200s
+          # regardless of whether the import had actually finished (run 33008546386).
+          # No-op on the other platforms' bare runners, where it's already trusted.
+          git config --global --add safe.directory "$(pwd)"
+
           # Complete platform-specific imports before packaging. The restored
           # .import cache can be partial or come from an older commit, and a
           # single texture changing ANYWHERE invalidates this platform's whole
