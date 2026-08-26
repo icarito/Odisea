@@ -106,6 +106,34 @@
         ".md5"
       ],
       "reason": "footstep_profile_ice.tres cuelga de Dome_Intro.tscn; sin el .sample la escena no carga."
+    },
+    {
+      "path": "core_v2/levels/interiors/Sector_003.png.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Lightmap de Dome_Intro.tscn (bake(dome)/Rebake lights); sin el .stex el bake no aparece en el device pero la escena carga igual, asi que el smoke test no lo detecta como fatal (32987947699)."
+    },
+    {
+      "path": "core_v2/levels/interiors/Sector_053.png.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Lightmap de Dome_Intro.tscn (bake(dome)/Rebake lights); sin el .stex el bake no aparece en el device pero la escena carga igual, asi que el smoke test no lo detecta como fatal (32987947699)."
+    },
+    {
+      "path": "core_v2/levels/interiors/Sector_062.png.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Lightmap de Dome_Intro.tscn (bake(dome)/Rebake lights); sin el .stex el bake no aparece en el device pero la escena carga igual, asi que el smoke test no lo detecta como fatal (32987947699)."
+    },
+    {
+      "path": "core_v2/levels/interiors/Sector_072.png.import",
+      "required_sidecars": [
+        ".md5"
+      ],
+      "reason": "Lightmap de Dome_Intro.tscn (bake(dome)/Rebake lights); sin el .stex el bake no aparece en el device pero la escena carga igual, asi que el smoke test no lo detecta como fatal (32987947699)."
     }
   ]
 }
