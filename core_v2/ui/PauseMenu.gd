@@ -11,7 +11,11 @@ onready var options_menu = get_node_or_null("OptionsMenu")
 func _ready():
 	_connect_signals()
 	_update_version_label()
-	if quit_button and OS.get_name() == "HTML5":
+	# Ni HTML5 ni iOS deben mostrar "salir": en la web no hay a donde salir, y en iOS
+	# Apple desaconseja explicitamente que una app se cierre sola (ademas el boton no
+	# funcionaba alla). Si se agrega otra plataforma sin cierre, va en esta lista y en
+	# la gemela de Menu.gd.
+	if quit_button and OS.get_name() in ["HTML5", "iOS"]:
 		quit_button.visible = false
 	if resume_button:
 		resume_button.grab_focus()
