@@ -118,7 +118,7 @@ def _check_added(repo_root: Path, base_sha: str, allowlist: Set[str]) -> int:
 	return 1
 
 
-def _check_all(repo_root: Path, allowlist: Set[str], strict: bool) -> int:
+def _check_all(repo_root: Path, allowlist: Set[str], strict: bool, fail_on_missing_textures: bool = False) -> int:
 	manifests = _tracked_import_manifests(repo_root)
 	missing: List[tuple[Path, List[str]]] = []
 	for manifest_rel in manifests:
@@ -138,7 +138,14 @@ def _check_all(repo_root: Path, allowlist: Set[str], strict: bool) -> int:
 		print("[import-artifacts] %d manifiesto(s): todos con artefacto en disco" % len(manifests))
 		return 0
 
-	blocking = [(rel, dests) for rel, dests in missing if not _is_tolerated(dests)]
+	# Las texturas se toleran por defecto: un .stex ausente no tumba la escena en
+	# CI (ver docs/engineering/CI_Asset_Strategy.md). --fail-on-missing-textures
+	# lo activa para el pipeline de export real, donde SI importa: un lightmap sin
+	# .stex se empaqueta en blanco y nadie se entera hasta verlo en el dispositivo.
+	blocking = [
+		(rel, dests) for rel, dests in missing
+		if not _is_tolerated(dests) or fail_on_missing_textures
+	]
 	print(
 		"[import-artifacts] %d asset(s) sin artefacto en disco (%d texturas tolerables, %d no)"
 		% (len(missing), len(missing) - len(blocking), len(blocking))
@@ -159,6 +166,11 @@ def main() -> int:
 	parser.add_argument("--mode", choices=["added", "all"], default="all")
 	parser.add_argument("--base", help="Base commit for --mode added.")
 	parser.add_argument("--strict", action="store_true", help="Make --mode all fail on blocking gaps.")
+	parser.add_argument(
+		"--fail-on-missing-textures",
+		action="store_true",
+		help="Don't tolerate missing .stex in --mode all --strict (for real export pipelines, not the CI smoke test).",
+	)
 	parser.add_argument("--allowlist", default=DEFAULT_ALLOWLIST_PATH.as_posix())
 	args = parser.parse_args()
 
@@ -173,7 +185,7 @@ def main() -> int:
 			print("[import-artifacts] base %s no disponible en este checkout; se omite el chequeo" % args.base)
 			return 0
 		return _check_added(repo_root, args.base, allowlist)
-	return _check_all(repo_root, allowlist, args.strict)
+	return _check_all(repo_root, allowlist, args.strict, args.fail_on_missing_textures)
 
 
 if __name__ == "__main__":

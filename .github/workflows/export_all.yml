@@ -937,9 +937,42 @@ jobs:
           G_BIN="${GODOT_BIN:-godot}"
 
           # Complete platform-specific imports before packaging. The restored
-          # .import cache can be partial or come from an older commit; exporting
-          # directly would then omit otherwise valid audio/texture artifacts.
-          "$G_BIN" --editor --quit --headless || true
+          # .import cache can be partial or come from an older commit, and a
+          # single texture changing ANYWHERE invalidates this platform's whole
+          # cache (see "Cache .import (per platform)" above), forcing a full
+          # reimport. `--quit` kills EditorFileSystem's async import thread
+          # after the first main-loop iteration (per --help) — before it
+          # finishes writing a new/large asset's artifact — so a single quiet
+          # pass can silently leave assets unimported (godot exits 0 either
+          # way, which is why this used to be `|| true`). scripts/godot_import_smoke.sh
+          # hit exactly this and works around it by dropping --quit and giving
+          # the async import real time; do the same here, looped until nothing
+          # is missing so a slow first pass gets to finish across attempts
+          # instead of being taken as good enough.
+          IMPORT_TIMEOUT_SEC=1200
+          IMPORT_MAX_ATTEMPTS=3
+          import_clean=0
+          for attempt in $(seq 1 "$IMPORT_MAX_ATTEMPTS"); do
+            echo "=== Import attempt ${attempt}/${IMPORT_MAX_ATTEMPTS} (timeout ${IMPORT_TIMEOUT_SEC}s) ==="
+            if timeout "${IMPORT_TIMEOUT_SEC}s" "$G_BIN" -e --headless --no-window --audio-driver Dummy; then
+              rc=0
+            else
+              rc=$?
+            fi
+            if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ]; then
+              echo "::warning::Import pass ${attempt} exited with code ${rc} (verifying artifacts anyway)"
+            fi
+            if python3 scripts/check_import_artifacts_present.py --mode all --strict --fail-on-missing-textures; then
+              import_clean=1
+              break
+            fi
+            echo "Import pass ${attempt} left artifacts missing; retrying with a warmed cache..."
+          done
+
+          if [ "$import_clean" -ne 1 ]; then
+            echo "::error::Import never finished after ${IMPORT_MAX_ATTEMPTS} attempts — some assets still have no artifact on disk (see [import-artifacts] list above). Shipping now would silently omit them from the build."
+            exit 1
+          fi
 
           case "${{ matrix.platform }}" in
             linux_x64) OUT="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
@@ -1060,6 +1093,13 @@ jobs:
             "res://core_v2/levels/interiors/Dome_Intro.tscn"
             "res://core_v2/levels/interiors/DomeTerrace_baked.mesh"
             "res://core_v2/levels/interiors/DomeTerrace_baked.shape"
+            # Dome_Intro lightmap textures (bake(dome)/Rebake lights): the exact
+            # regression this audit exists to catch — a texture missing its .stex
+            # doesn't crash the scene, it just ships with no lightmap, silently.
+            "res://.import/Sector_003.png-b941f2d090ba19e9fb929e758807bcbc.stex"
+            "res://.import/Sector_053.png-de5bccc5cd2f2d1ff05680ffc62627cf.stex"
+            "res://.import/Sector_062.png-e79e1433d20a2f6d3b3e82d7c33ecb71.stex"
+            "res://.import/Sector_072.png-d92fc45b5227f03316d4ba03be516944.stex"
           )
           for resource in "${REQUIRED_RESOURCES[@]}"; do
             if ! grep -Fqx "$resource" "$AUDIT_DIR/resources.txt"; then
