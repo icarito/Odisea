@@ -1,14 +1,15 @@
 extends Node
 
-# Muestra en pantalla el final del log del motor. SOLO iOS.
+# Muestra en pantalla el final del log del motor. Apagado por defecto; se prende con
+# la opcion "Overlay de log" en Opciones (SettingsManager.log_overlay_enabled) o con
+# la variable de entorno de abajo para una corrida suelta.
 #
-# En iOS no hay consola ni comandos remotos: ANNAV2 los bloquea en release, y en debug
-# el build no se puede archivar para distribucion (xcodebuild: "ARCHIVE FAILED"). Los
-# errores de compilacion de shaders del driver solo viven en user://logs/godot.log, que
-# se activa con logging/file_logging/enable_file_logging.iOS.
-#
-# Uso: instanciar LogOverlay.tscn en la escena del nivel y sacarlo al terminar. En
-# escritorio y Android se libera solo sin dibujar nada.
+# Pensado sobre todo para iOS: ahi no hay consola ni comandos remotos (ANNAV2 los
+# bloquea en release, y en debug el build no se puede archivar para distribucion --
+# xcodebuild: "ARCHIVE FAILED"). Los errores de compilacion de shaders del driver solo
+# viven en user://logs/godot.log, que se activa con
+# logging/file_logging/enable_file_logging.iOS. Sirve igual en cualquier plataforma
+# una vez activado, para depurar sin reinstalar con la variable de entorno.
 
 # Segundos antes de leer: los shaders se compilan al renderizar los primeros frames,
 # asi que leer en _ready mostraria un log sin los errores que interesan.
@@ -25,13 +26,15 @@ var _label: Label
 var _elapsed := 0.0
 var _done := false
 
-static func _wants_overlay(os_name: String, env_value: String) -> bool:
+static func _wants_overlay(env_value: String, setting_enabled: bool) -> bool:
 	if env_value.to_lower().strip_edges() in ["1", "true", "yes", "on"]:
 		return true
-	return os_name == "iOS"
+	return setting_enabled
 
 func _ready() -> void:
-	if not _wants_overlay(OS.get_name(), OS.get_environment(ENV_FLAG)):
+	var sm = get_node_or_null("/root/SettingsManager")
+	var setting_enabled: bool = sm != null and sm.log_overlay_enabled
+	if not _wants_overlay(OS.get_environment(ENV_FLAG), setting_enabled):
 		queue_free()
 		return
 	var layer := CanvasLayer.new()

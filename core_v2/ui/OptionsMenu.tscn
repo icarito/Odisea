@@ -172,6 +172,13 @@ text = "Compartir telemetría anónima"
 pressed = true
 hint_tooltip = "Envía métricas técnicas de rendimiento y uso para ayudar a mejorar el juego."
 
+[node name="LogOverlayLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+text = "Overlay de log en pantalla"
+
+[node name="LogOverlayToggle" type="CheckButton" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+pressed = false
+hint_tooltip = "Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola."
+
 [node name="Back" type="Button" parent="CenterContainer/PanelContainer/VBoxContainer"]
 margin_top = 446.0
 margin_right = 586.0

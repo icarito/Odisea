@@ -10,6 +10,7 @@ onready var resolution_option = find_node("ResolutionOption")
 onready var render_scale_option = find_node("RenderScaleOption")
 onready var vsync_option = find_node("VsyncOption")
 onready var telemetry_toggle = find_node("TelemetryToggle")
+onready var log_overlay_toggle = find_node("LogOverlayToggle")
 onready var back_button = find_node("Back")
 
 # Internal render resolutions (the game renders here and is stretched to the
@@ -120,6 +121,7 @@ func _load_ui_values():
 	invert_y_toggle.pressed = sm.invert_y
 	vibration_toggle.pressed = sm.vibration
 	telemetry_toggle.pressed = sm.telemetry_enabled
+	log_overlay_toggle.pressed = sm.log_overlay_enabled
 
 	fullscreen_option.selected = 1 if sm.fullscreen else 0
 	vsync_option.selected = 1 if sm.vsync else 0
@@ -145,6 +147,7 @@ func _connect_signals():
 	render_scale_option.connect("item_selected", self, "_on_render_scale_selected")
 	vsync_option.connect("item_selected", self, "_on_vsync_selected")
 	telemetry_toggle.connect("toggled", self, "_on_telemetry_toggled")
+	log_overlay_toggle.connect("toggled", self, "_on_log_overlay_toggled")
 	back_button.connect("pressed", self, "_on_back_pressed")
 
 func _on_master_volume_changed(value):
@@ -205,6 +208,11 @@ func _on_telemetry_toggled(button_pressed: bool) -> void:
 		sm.telemetry_enabled = button_pressed
 		sm.apply_privacy_settings()
 		sm.save_settings()
+
+func _on_log_overlay_toggled(button_pressed):
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm:
+		sm.log_overlay_enabled = button_pressed
 
 func _on_back_pressed():
 	var sm = get_node_or_null("/root/SettingsManager")

@@ -20,6 +20,11 @@ var render_resolution = Vector2(800, 600)
 var render_scale: float = 1.0
 var vsync = true
 var telemetry_enabled: bool = true
+# Overlay de log en pantalla (core_v2/levels/diag/LogOverlay.gd). Antes se
+# autoactivaba en iOS (unica plataforma sin consola/comandos remotos); ahora
+# arranca apagado en todas y esta opcion lo prende a pedido, en cualquier
+# plataforma, para depurar sin necesitar la variable de entorno.
+var log_overlay_enabled: bool = false
 
 func _ready():
 	load_settings()
@@ -48,6 +53,7 @@ func load_settings():
 	))
 	vsync = _config.get_value("display", "vsync", true)
 	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", true)
+	log_overlay_enabled = _config.get_value("debug", "log_overlay_enabled", false)
 
 func save_settings():
 	_config.set_value("audio", "master_volume", master_volume)
@@ -62,6 +68,7 @@ func save_settings():
 	_config.set_value("display", "render_scale", render_scale)
 	_config.set_value("display", "vsync", vsync)
 	_config.set_value("privacy", "telemetry_enabled", telemetry_enabled)
+	_config.set_value("debug", "log_overlay_enabled", log_overlay_enabled)
 
 	var err = _config.save(SETTINGS_PATH)
 	if err != OK:
