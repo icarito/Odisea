@@ -1,6 +1,16 @@
 shader_type spatial;
 render_mode depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 
+// --- Lightmap horneado aplicado a mano (solo iOS) ---------------------------------
+// Godot ata su lightmap a "max_texture_image_units - 4": unidad 12 en Android, 4 en
+// iOS, donde choca con las texturas del material y con screen/depth_texture. La
+// colision es silenciosa (sin error de linkeo) y el bake no se dibuja. El aplicador
+// (IOSLightmapFallback.gd) setea estos dos uniforms para muestrearlo aca, en una
+// unidad secuencial. Con energia 0 esto no hace NADA: en escritorio y Android sigue
+// mandando el camino nativo del motor.
+uniform sampler2D lightmap_tex : hint_albedo;
+uniform float lightmap_energy = 0.0;
+
 // Dome wall texturing that ignores the mesh's own UVs (Qodot planar-projects each
 // face independently against its own texture axis, so a tiling texture applied
 // straight to those UVs shows a visible seam at every wall segment boundary,
@@ -78,4 +88,8 @@ void fragment() {
 	AO = ao;
 	AO_LIGHT_AFFECT = 0.0;
 	NORMAL = normalize(t * tex_normal.x + b * tex_normal.y + n * tex_normal.z);
+
+	if (lightmap_energy > 0.0) {
+		EMISSION += ALBEDO * texture(lightmap_tex, UV2).rgb * lightmap_energy;
+	}
 }

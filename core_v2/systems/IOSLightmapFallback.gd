@@ -52,13 +52,30 @@ func _apply() -> void:
 			skipped += 1
 			continue
 		var mi := node as MeshInstance
+		# Apagar el lightmap del motor en esta instancia: no se dibuja igual, y libera la
+		# unidad de textura 4, que es donde lo ata y donde chocaria con nuestro sampler.
+		VisualServer.instance_set_use_lightmap(mi.get_instance(), RID(), RID(), -1, Rect2(0, 0, 1, 1))
 		for s in range(mi.mesh.get_surface_count()):
 			var source = mi.get_surface_material(s)
 			if source == null:
 				source = mi.mesh.surface_get_material(s)
-			var mat := _build(source, tex, energy)
-			mi.set_surface_material(s, mat)
-			applied += 1
+			if source is ShaderMaterial:
+				# Los shaders del proyecto ya traen los uniforms: NO se reemplaza el
+				# material. Reemplazarlo se llevaba puestas texturas, tiling, dither y
+				# parallax -- 84 de las 92 superficies horneadas son ShaderMaterial.
+				# Se setea sin preguntar: Shader.has_param() no sirve como gate (devuelve
+				# false hasta para uniforms que existen, porque necesita que el servidor
+				# de render haya compilado el shader). Setear un uniform que el shader no
+				# declara no hace nada, asi que es seguro.
+				var sh := source as ShaderMaterial
+				sh.set_shader_param("lightmap_tex", tex)
+				sh.set_shader_param("lightmap_energy", energy)
+				applied += 1
+			elif source is SpatialMaterial:
+				mi.set_surface_material(s, _build(source, tex, energy))
+				applied += 1
+			else:
+				skipped += 1
 
 	Engine.set_meta(META_KEY, applied)
 	print("[IOSLightmap] superficies=%d omitidas=%d energy=%.2f" % [applied, skipped, energy])

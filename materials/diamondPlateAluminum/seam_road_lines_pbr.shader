@@ -1,5 +1,15 @@
 shader_type spatial;
 
+// --- Lightmap horneado aplicado a mano (solo iOS) ---------------------------------
+// Godot ata su lightmap a "max_texture_image_units - 4": unidad 12 en Android, 4 en
+// iOS, donde choca con las texturas del material y con screen/depth_texture. La
+// colision es silenciosa (sin error de linkeo) y el bake no se dibuja. El aplicador
+// (IOSLightmapFallback.gd) setea estos dos uniforms para muestrearlo aca, en una
+// unidad secuencial. Con energia 0 esto no hace NADA: en escritorio y Android sigue
+// mandando el camino nativo del motor.
+uniform sampler2D lightmap_tex : hint_albedo;
+uniform float lightmap_energy = 0.0;
+
 // Variante PBR de las juntas de seguridad de Dome_Intro. El patrón conserva
 // amarillo/negro industrial; las bandas amarillas toman el desgaste RoadLines.
 render_mode blend_mix, depth_draw_alpha_prepass, cull_disabled;
@@ -98,4 +108,8 @@ void fragment() {
 	NORMALMAP = texture(normal_texture, pbr_uv).rgb;
 	NORMALMAP_DEPTH = normal_scale * stripe;
 	ALPHA = 1.0;
+
+	if (lightmap_energy > 0.0) {
+		EMISSION += ALBEDO * texture(lightmap_tex, UV2).rgb * lightmap_energy;
+	}
 }
