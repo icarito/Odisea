@@ -7,13 +7,23 @@ LIGHTMAP_PATH="${DOME_LIGHTMAP_PATH:-}"
 LIGHTMAP_DATA_PATH="${DOME_LIGHTMAP_DATA_PATH:-core_v2/levels/interiors/Dome_Intro.lmbake}"
 TINT="${DOME_LIGHTMAP_TINT:-008da3}"
 COLORIZE="${DOME_LIGHTMAP_COLORIZE:-85}"
-BRIGHTNESS="${DOME_LIGHTMAP_BRIGHTNESS:-15}"
+BRIGHTNESS="${DOME_LIGHTMAP_BRIGHTNESS:-24}"
 # TerraceFloor necesita contraste para que la luz direccional y sus sombras
 # sobrevivan el grading. El domo y los props conservan el look más intenso.
 FLOOR_COLORIZE="${DOME_LIGHTMAP_FLOOR_COLORIZE:-35}"
-FLOOR_BRIGHTNESS="${DOME_LIGHTMAP_FLOOR_BRIGHTNESS:-65}"
+FLOOR_BRIGHTNESS="${DOME_LIGHTMAP_FLOOR_BRIGHTNESS:-75}"
+# Desenfoque gaussiano en pixeles del lightmap (0 = apagado). Suaviza el borde duro de
+# las sombras horneadas, que a esta resolucion (muchos lightmaps son de 118 a 270 px)
+# se ve escalonado. Se aplica ANTES del tinte para no arrastrar el color.
+BLUR="${DOME_LIGHTMAP_BLUR:-1.2}"
 STAMP_DIR="${DOME_LIGHTMAP_STAMP_DIR:-build/lightmap-postprocess}"
 FORCE="${DOME_LIGHTMAP_FORCE:-0}"
+# Retocar el look sin volver a hornear. FORCE=1 significa "acabo de hornear": guarda la
+# salida CRUDA en RAW_DIR y procesa desde ahi. RETUNE=1 vuelve a procesar desde esa
+# copia cruda con otros parametros, sin re-hornear y sin apilar el tinte sobre si mismo,
+# que es lo que obligaba a un bake completo para cambiar un numero.
+RETUNE="${DOME_LIGHTMAP_RETUNE:-0}"
+RAW_DIR="${DOME_LIGHTMAP_RAW_DIR:-build/lightmap-raw}"
 
 case "${TINT}" in
 	\#*) ;;
@@ -24,7 +34,7 @@ if ! command -v magick >/dev/null 2>&1; then
 	echo "[dome_lightmap_post] ERROR: ImageMagick 7 ('magick') no esta instalado." >&2
 	exit 1
 fi
-mkdir -p "${STAMP_DIR}"
+mkdir -p "${STAMP_DIR}" "${RAW_DIR}"
 
 # BakedLightmap genera una textura por MeshInstance cuando el atlas está
 # desactivado. La lista se extrae del .lmbake recién creado, en vez de asumir que
@@ -52,14 +62,25 @@ while IFS= read -r image_path; do
 	fi
 	stamp_path="${STAMP_DIR}/$(basename "${image_path}").sha256"
 	current_hash="$(sha256sum "${image_path}" | awk '{print $1}')"
-	if [ -f "${stamp_path}" ] && [ "${current_hash}" = "$(tr -d '[:space:]' < "${stamp_path}")" ]; then
+	# El sello no aplica cuando se esta retocando el look: ahi la fuente es la copia
+	# cruda, no la imagen actual, y justamente queremos reprocesarla con otros numeros.
+	if [ "${RETUNE}" != "1" ] && [ -f "${stamp_path}" ] && [ "${current_hash}" = "$(tr -d '[:space:]' < "${stamp_path}")" ]; then
 		echo "[dome_lightmap_post] sin cambios crudos; se conserva ${image_path}"
 		continue
 	fi
 	# El PNG ya procesado se versiona. Sin una señal explícita de que BakedLightmap
 	# acaba de sobrescribirlo, no se puede distinguir de una salida cruda en un clone
 	# nuevo y aplicarle el look otra vez lo oscurece indebidamente.
-	if [ "${FORCE}" != "1" ]; then
+	raw_path="${RAW_DIR}/$(basename "${image_path}")"
+	if [ "${RETUNE}" = "1" ]; then
+		if [ ! -f "${raw_path}" ]; then
+			echo "[dome_lightmap_post] sin copia cruda de $(basename "${image_path}"); hornea una vez y vuelve a intentar" >&2
+			continue
+		fi
+	elif [ "${FORCE}" = "1" ]; then
+		# Recien horneado: esta imagen ES la salida cruda. Se guarda antes de tocarla.
+		cp -f "${image_path}" "${raw_path}"
+	else
 		echo "[dome_lightmap_post] sin bake nuevo confirmado; se conserva ${image_path}"
 		continue
 	fi
@@ -69,12 +90,22 @@ while IFS= read -r image_path; do
 		colorize="${FLOOR_COLORIZE}"
 		brightness="${FLOOR_BRIGHTNESS}"
 	fi
+	blur_args=""
+	if [ "${BLUR}" != "0" ]; then
+		blur_args="-blur 0x${BLUR}"
+	fi
 	temp_path="$(mktemp "${image_path}.postprocess.XXXXXX")"
-	magick "${image_path}" \
+	# PNG24 es obligatorio: sin eso ImageMagick elige paleta para estas imagenes y los
+	# lightmaps quedaban cuantizados (12 de 41 con solo 16 colores), lo que arruina
+	# justamente el degradado que un lightmap tiene que aportar.
+	magick "${raw_path}" \
+		${blur_args} \
 		-fill "${TINT}" -colorize "${colorize}%" \
 		-modulate "${brightness},100,100" \
-		"${temp_path}"
+		-type TrueColor \
+		-strip \
+		"PNG24:${temp_path}"
 	mv -f "${temp_path}" "${image_path}"
 	sha256sum "${image_path}" | awk '{print $1}' > "${stamp_path}"
-	echo "[dome_lightmap_post] PASS. tint=${TINT} colorize=${colorize}% brightness=${brightness}% -> ${image_path}"
+	echo "[dome_lightmap_post] PASS. tint=${TINT} colorize=${colorize}% brightness=${brightness}% blur=${BLUR} -> ${image_path}"
 done < "${PATHS_FILE}"
