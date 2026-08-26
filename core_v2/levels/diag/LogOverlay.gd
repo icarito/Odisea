@@ -12,9 +12,10 @@ extends Node
 
 # Segundos antes de leer: los shaders se compilan al renderizar los primeros frames,
 # asi que leer en _ready mostraria un log sin los errores que interesan.
-const READ_DELAY := 6.0
-const MAX_LINES := 14
+const READ_DELAY := 15.0
+const MAX_LINES := 10
 const ENV_FLAG := "ODISEA_LOG_OVERLAY"
+const META_MANUAL := "ios_lightmap_applied"
 
 # Se muestran solo las lineas que contengan alguno de estos. Un log completo no entra
 # en una pantalla y lo que importa es lo que el driver tenga para decir.
@@ -49,6 +50,7 @@ func _ready() -> void:
 	_label.autowrap = true
 	_label.text = "LOG OVERLAY: leyendo en %ds..." % int(READ_DELAY)
 	layer.add_child(_label)
+	print("[LOGCANARY] overlay activo, si esta linea aparece el logger captura")
 	call_deferred("_build_shading_probe")
 	call_deferred("_reassign_lightmaps")
 	set_process(true)
@@ -191,20 +193,34 @@ func _read_report() -> String:
 		return "LOG OVERLAY\nno se pudo abrir %s" % path
 
 	var hits := []
+	var raw := []
+	var canary := false
 	var total := 0
 	while not f.eof_reached():
 		var line := f.get_line()
 		if line.strip_edges() == "":
 			continue
 		total += 1
+		raw.append(line)
+		if raw.size() > 40:
+			raw.remove(0)
+		if line.find("LOGCANARY") != -1:
+			canary = true
 		for k in KEYWORDS:
 			if line.find(k) != -1:
 				hits.append(line)
 				break
 	f.close()
 
-	var head := "LOG OVERLAY  lineas=%d  interesantes=%d  lightmap ok=%d fallos=%d" % [
-		total, hits.size(), _lm_ok, _lm_fail]
+	var head := "LOG lineas=%d int=%d canario=%s | lm ok=%d fallo=%d | manual=%s" % [
+		total, hits.size(), "SI" if canary else "NO",
+		_lm_ok, _lm_fail, str(Engine.get_meta(META_MANUAL)) if Engine.has_meta(META_MANUAL) else "?"]
+	# Cola CRUDA ademas de la filtrada: si el log llega corto, hay que ver que trae de
+	# verdad y no solo lo que pasa el filtro.
+	var tail = raw
+	if tail.size() > 6:
+		tail = tail.slice(tail.size() - 6, tail.size() - 1)
+	head += "\n-- cola --\n" + PoolStringArray(tail).join("\n")
 	if hits.empty():
 		# Que no haya ni un error tambien es un resultado: los shaders linkean y el
 		# problema esta en la asignacion, no en la compilacion.

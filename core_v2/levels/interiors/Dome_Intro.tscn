@@ -173,6 +173,7 @@
 [ext_resource path="res://addons/virtualcamera/TransformModifiers/LookAt.gd" type="Script" id=5023]
 [ext_resource path="res://addons/virtualcamera/VCameraBrain.gd" type="Script" id=5025]
 [ext_resource path="res://core_v2/levels/diag/LogOverlay.tscn" type="PackedScene" id=5031]
+[ext_resource path="res://core_v2/systems/IOSLightmapFallback.tscn" type="PackedScene" id=5032]
 
 [sub_resource type="BoxShape" id=539]
 extents = Vector3( 8, 5, 4 )
@@ -5120,6 +5121,8 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.6918, 0 )
 shape = SubResource( 565 )
 
 [node name="LogOverlay" parent="." instance=ExtResource( 5031 )]
+
+[node name="IOSLightmapFallback" parent="." instance=ExtResource( 5032 )]
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
