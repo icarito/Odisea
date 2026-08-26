@@ -6,6 +6,7 @@
 
 [resource]
 shader = ExtResource( 1 )
+shader_param/lightmap_energy = 0.0
 shader_param/roughnessInside = 0.0
 shader_param/roughnessOutside = 1.0
 shader_param/specularInside = 1.0

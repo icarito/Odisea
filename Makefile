@@ -55,15 +55,15 @@ bake-dome-geometry:
 DOME_LIGHTMAP_PATH ?=
 DOME_LIGHTMAP_DATA_PATH ?= core_v2/levels/interiors/Dome_Intro.lmbake
 DOME_LIGHTMAP_TINT ?= 008da3
-DOME_LIGHTMAP_COLORIZE ?= 85
+DOME_LIGHTMAP_COLORIZE ?= 70
 DOME_LIGHTMAP_BRIGHTNESS ?= 24
 # Desenfoque gaussiano, en pixeles del lightmap (0 lo apaga). Suaviza el escalonado
 # de las sombras horneadas, que a 118-270 px de textura se nota bastante.
-DOME_LIGHTMAP_BLUR ?= 1.2
+DOME_LIGHTMAP_BLUR ?= 2.5
 # RETUNE=1 reprocesa desde la copia cruda: cambia el look sin re-hornear.
 DOME_LIGHTMAP_RETUNE ?=
 # El piso debe conservar contraste para leer la luz direccional y sus sombras.
-DOME_LIGHTMAP_FLOOR_COLORIZE ?= 35
+DOME_LIGHTMAP_FLOOR_COLORIZE ?= 28
 DOME_LIGHTMAP_FLOOR_BRIGHTNESS ?= 75
 bake-lightmap-postprocess:
 	DOME_LIGHTMAP_PATH="$(DOME_LIGHTMAP_PATH)" DOME_LIGHTMAP_DATA_PATH="$(DOME_LIGHTMAP_DATA_PATH)" \

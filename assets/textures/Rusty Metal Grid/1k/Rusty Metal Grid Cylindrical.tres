@@ -9,6 +9,7 @@
 
 [resource]
 shader = ExtResource( 1 )
+shader_param/lightmap_energy = 0.0
 shader_param/dome_center = Vector3( 0, 0, 0 )
 shader_param/radial_repeats = 48.0
 shader_param/vertical_scale = 3.65

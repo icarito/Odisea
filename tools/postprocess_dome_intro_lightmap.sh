@@ -6,16 +6,16 @@ set -eu
 LIGHTMAP_PATH="${DOME_LIGHTMAP_PATH:-}"
 LIGHTMAP_DATA_PATH="${DOME_LIGHTMAP_DATA_PATH:-core_v2/levels/interiors/Dome_Intro.lmbake}"
 TINT="${DOME_LIGHTMAP_TINT:-008da3}"
-COLORIZE="${DOME_LIGHTMAP_COLORIZE:-85}"
+COLORIZE="${DOME_LIGHTMAP_COLORIZE:-70}"
 BRIGHTNESS="${DOME_LIGHTMAP_BRIGHTNESS:-24}"
 # TerraceFloor necesita contraste para que la luz direccional y sus sombras
 # sobrevivan el grading. El domo y los props conservan el look más intenso.
-FLOOR_COLORIZE="${DOME_LIGHTMAP_FLOOR_COLORIZE:-35}"
+FLOOR_COLORIZE="${DOME_LIGHTMAP_FLOOR_COLORIZE:-28}"
 FLOOR_BRIGHTNESS="${DOME_LIGHTMAP_FLOOR_BRIGHTNESS:-75}"
 # Desenfoque gaussiano en pixeles del lightmap (0 = apagado). Suaviza el borde duro de
 # las sombras horneadas, que a esta resolucion (muchos lightmaps son de 118 a 270 px)
 # se ve escalonado. Se aplica ANTES del tinte para no arrastrar el color.
-BLUR="${DOME_LIGHTMAP_BLUR:-1.2}"
+BLUR="${DOME_LIGHTMAP_BLUR:-2.5}"
 STAMP_DIR="${DOME_LIGHTMAP_STAMP_DIR:-build/lightmap-postprocess}"
 FORCE="${DOME_LIGHTMAP_FORCE:-0}"
 # Retocar el look sin volver a hornear. FORCE=1 significa "acabo de hornear": guarda la
@@ -44,7 +44,16 @@ trap 'rm -f "${PATHS_FILE}"' EXIT HUP INT TERM
 if [ -n "${LIGHTMAP_PATH}" ]; then
 	printf '%s\n' "${LIGHTMAP_PATH}" > "${PATHS_FILE}"
 elif [ -f "${LIGHTMAP_DATA_PATH}" ]; then
+	# strings solo sirve si el .lmbake quedo SIN comprimir. Al recocer, Godot lo guarda
+	# comprimido (firma RSCC) y la extraccion devolvia cero rutas, con lo cual el
+	# postproceso abortaba justo despues de un bake, que es cuando mas se lo necesita.
 	strings -a "${LIGHTMAP_DATA_PATH}" | sed -n 's#^res://\(.*\.png\)$#\1#p' > "${PATHS_FILE}"
+	if [ ! -s "${PATHS_FILE}" ]; then
+		echo "[dome_lightmap_post] .lmbake comprimido; pidiendo las rutas a Godot"
+		"${GODOT_BIN:-godot3-bin}" --path . --no-window -s tools/dump_lightmap_paths.gd \
+			-- "--data=res://${LIGHTMAP_DATA_PATH}" 2>/dev/null \
+			| sed -n 's#^res://\(.*\.png\)$#\1#p' > "${PATHS_FILE}" || true
+	fi
 else
 	echo "[dome_lightmap_post] ERROR: no existe ${LIGHTMAP_DATA_PATH}" >&2
 	exit 1
