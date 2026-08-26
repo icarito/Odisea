@@ -5095,11 +5095,11 @@ environment = ExtResource( 20 )
 
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
 transform = Transform( 1, 0, 0, 0, -0.0348995, 0.999391, 0, -0.999391, -0.0348995, 0, 3, 0 )
-visible = false
 light_color = Color( 0.807843, 0.85098, 0.847059, 1 )
 light_energy = 0.7
 light_indirect_energy = 0.7
 light_bake_mode = 2
+shadow_enabled = true
 directional_shadow_mode = 0
 directional_shadow_depth_range = 1
 directional_shadow_max_distance = 30.0
