@@ -72,19 +72,23 @@ func test_audio_manager_bgm_players_use_music_bus():
 
 	am.free()
 
-func test_menu_bgm_uses_music_bus_and_lifecycle():
+func test_menu_bgm_plays_via_audio_manager():
+	# Menu.gd ya no crea su propio AudioStreamPlayer: delega en el autoload
+	# AudioManager (compartido con el resto del juego) para poder crossfadear al
+	# arrancar partida sin que quede sonando musica duplicada.
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	assert_object(audio_mgr).is_not_null()
+
 	var menu_scene = load("res://scenes/Menu.tscn") as PackedScene
 	assert_object(menu_scene).is_not_null()
 	var menu = menu_scene.instance()
 	add_child(menu)
 
-	var bgm_player = menu.get_node_or_null("MenuBGM") as AudioStreamPlayer
-	assert_object(bgm_player).is_not_null()
-	assert_str(bgm_player.bus).is_equal("Music")
-	assert_bool(bgm_player.playing).is_true()
-
-	menu._stop_bgm()
-	assert_bool(bgm_player.playing).is_false()
+	assert_bool(menu.has_node("MenuBGM")).is_false()
+	assert_object(audio_mgr._active_player).is_not_null()
+	assert_str(audio_mgr._active_player.stream.resource_path).contains("Tin Cosmos")
+	# set_override=false: una BGMZoneV2 real debe poder tomar el control mas tarde.
+	assert_str(audio_mgr.get_song_override()).is_equal("")
 
 	menu.queue_free()
 

@@ -133,7 +133,12 @@ func goto_scene(path: String, params: Dictionary = {}):
 
 	_capture_player_state_for_transition()
 	_disable_input_for_transition()
-	_fade_audio_out(float(_transition_params.get("audio_fade_out", default_audio_fade_out)))
+	# skip_audio_fade: quien pidio la transicion ya esta manejando la musica a mano
+	# (p.ej. Menu.gd crossfadeando hacia la BGM del nivel de destino durante la carga).
+	# audio_fade_out=0.0 NO sirve para esto: fade_out_current_bgm(0.0) corta de
+	# inmediato el _active_player en vez de dejarlo en paz.
+	if not bool(_transition_params.get("skip_audio_fade", false)):
+		_fade_audio_out(float(_transition_params.get("audio_fade_out", default_audio_fade_out)))
 	emit_signal("transition_started", _next_scene_path, _transition_params)
 
 	var transition_layer = _get_transition_layer()
@@ -188,7 +193,7 @@ func goto_scene(path: String, params: Dictionary = {}):
 		_finalize_failed_transition(_load_error)
 		return false
 
-	_fade_audio_in(float(_transition_params.get("audio_fade_in", default_audio_fade_in)))
+	_fade_audio_in(float(_transition_params.get("audio_fade_in", default_audio_fade_in)), bool(_transition_params.get("skip_audio_fade", false)))
 
 	if transition_layer:
 		if use_fade and transition_layer.has_method("play"):
@@ -869,7 +874,7 @@ func _fade_audio_out(duration: float) -> void:
 	if audio and audio.has_method("fade_out_current_bgm"):
 		audio.fade_out_current_bgm(max(0.0, duration))
 
-func _fade_audio_in(duration: float) -> void:
+func _fade_audio_in(duration: float, skip_bgm_refresh: bool = false) -> void:
 	var audio = get_node_or_null("/root/AudioManager")
 	if not audio:
 		return
@@ -877,6 +882,8 @@ func _fade_audio_in(duration: float) -> void:
 	# mute del nivel quedaría pegado. La escena nueva siempre entra con audio.
 	if audio.has_method("set_level_audio_muted"):
 		audio.set_level_audio_muted(false)
+	if skip_bgm_refresh:
+		return
 	if audio.has_method("refresh_bgm_from_zones"):
 		audio.refresh_bgm_from_zones(max(0.0, duration))
 

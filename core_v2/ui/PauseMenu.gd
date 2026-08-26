@@ -57,6 +57,12 @@ func _on_main_menu_pressed():
 	var pm = get_node_or_null("/root/PauseManager")
 	if pm:
 		pm.resume()
+	# Menu.tscn arranca su propia BGM ("Tin Cosmos.mp3") por fuera de AudioManager;
+	# sin este reset, la BGM de la zona en la que estaba el jugador (reanudada por
+	# pm.resume() de arriba) seguia sonando encima.
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr:
+		audio_mgr.reset()
 	get_tree().change_scene("res://scenes/Menu.tscn")
 
 func _on_quit_pressed():

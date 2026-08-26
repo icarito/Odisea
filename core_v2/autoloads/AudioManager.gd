@@ -412,7 +412,12 @@ func refresh_bgm_from_zones(_fade_in_time: float = 0.35) -> void:
 	# Zone update already carries fade_time and crossfade logic.
 	_update_bgm()
 
-func crossfade_to_song(song_name: String, fade_time: float = 1.0, volume_db: float = 0.0) -> void:
+# set_override=false hace un crossfade "de paso": no fija _song_override, asi que en
+# cuanto una BGMZoneV2 con el mismo stream se registre (p.ej. al terminar de cargar el
+# nivel de destino) _update_bgm() vuelve a tomar el control normal por zonas sin cortar
+# el audio (mismo stream = ajuste suave, no reinicio). Lo usa Menu.gd para arrancar la
+# musica del nivel durante la pantalla de carga, antes de que exista la zona.
+func crossfade_to_song(song_name: String, fade_time: float = 1.0, volume_db: float = 0.0, set_override: bool = true) -> void:
 	if song_name == "":
 		_song_override = ""
 		_crossfade_to(null, 1.0, volume_db, fade_time)
@@ -427,8 +432,9 @@ func crossfade_to_song(song_name: String, fade_time: float = 1.0, volume_db: flo
 	if ResourceLoader.exists(path):
 		var stream = load(path)
 		if stream is AudioStream:
-			_song_override = song_name
-			_song_override_volume_db = volume_db
+			if set_override:
+				_song_override = song_name
+				_song_override_volume_db = volume_db
 			_crossfade_to(stream, 1.0, volume_db, fade_time)
 		else:
 			printerr("[AudioManager] Failed to load AudioStream from: ", path)

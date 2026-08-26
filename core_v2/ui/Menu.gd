@@ -1,7 +1,11 @@
 extends Control
 
 const FIRST_GAME_SCENE := "res://core_v2/levels/interiors/Dome_Intro.tscn"
-const MENU_BGM_PATH := "res://assets/music/Tin Cosmos.mp3"
+const MENU_BGM := "Tin Cosmos"
+# Debe coincidir con el bgm_stream de BGMZoneV2 en Dome_Intro.tscn (mismo path
+# res://assets/music/<nombre>) para que el crossfade arrancado aqui empalme sin corte
+# cuando la zona real se registre al terminar de cargar el nivel.
+const FIRST_GAME_BGM := "Elias... wake"
 
 export var enable_touch_buttons := true
 
@@ -14,10 +18,11 @@ onready var quit_button = find_node("Quit")
 onready var options_menu = $OptionsMenu
 onready var version_label = get_node_or_null("VersionLabel")
 var _continue_scene_path := ""
-var _menu_bgm_player: AudioStreamPlayer = null
 
 func _ready():
-	_setup_and_play_bgm()
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr:
+		audio_mgr.crossfade_to_song(MENU_BGM, 1.0, 0.0, false)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 	# FD-228: Confirm stable boot for UpdateManager
@@ -96,28 +101,16 @@ func _on_Options_pressed():
 func _on_Quit_pressed():
 	get_tree().quit()
 
-func _exit_tree() -> void:
-	_stop_bgm()
-
-func _setup_and_play_bgm() -> void:
-	if ResourceLoader.exists(MENU_BGM_PATH):
-		var stream = load(MENU_BGM_PATH) as AudioStream
-		if stream:
-			_menu_bgm_player = AudioStreamPlayer.new()
-			_menu_bgm_player.name = "MenuBGM"
-			_menu_bgm_player.stream = stream
-			_menu_bgm_player.bus = "Music"
-			_menu_bgm_player.autoplay = false
-			add_child(_menu_bgm_player)
-			_menu_bgm_player.play()
-
-func _stop_bgm() -> void:
-	if _menu_bgm_player and is_instance_valid(_menu_bgm_player):
-		if _menu_bgm_player.playing:
-			_menu_bgm_player.stop()
-
 func _start_game(scene_path):
-	_stop_bgm()
+	# Si el destino es el nivel inicial, arrancar ya su musica (crossfade sin fijar
+	# override) para que vaya sonando durante la pantalla de carga en vez de esperar a
+	# que la BGMZoneV2 del nivel se registre. Otros destinos (Continue a mitad de
+	# partida) dejan que SceneManager haga su fade-out/in por defecto y que la propia
+	# zona decida la musica al cargar.
+	if scene_path == FIRST_GAME_SCENE:
+		var audio_mgr = get_node_or_null("/root/AudioManager")
+		if audio_mgr:
+			audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
 	# Avoid double-triggering if a button is pressed twice during the fade.
 	for b in [new_game_button, continue_button, options_button, quit_button]:
 		if b:
@@ -134,13 +127,19 @@ func _on_fade_out_complete(_object, _key, scene_path):
 		# Gameplay scenes are heavy to load. Show the same loading
 		# screen + progress bar the BootLoader uses, otherwise the player stares at a
 		# frozen black fade with no feedback during the long interactive load.
-		scene_manager.goto_scene(scene_path, {
+		var params := {
 			"transition": "loading",
 			"show_loading": true,
 			"show_progress": true,
 			"loading_message": "Cargando...",
 			"fade_out": 0.0,
 			"fade_in": 0.25
-		})
+		}
+		if scene_path == FIRST_GAME_SCENE:
+			# El fade-out/in automatico de SceneManager cortaria o reiniciaria el
+			# crossfade a FIRST_GAME_BGM que ya arrancamos en _start_game(); dejarlo
+			# vivir solo, la BGMZoneV2 del nivel lo toma sin corte al registrarse.
+			params["skip_audio_fade"] = true
+		scene_manager.goto_scene(scene_path, params)
 	else:
 		get_tree().change_scene(scene_path)

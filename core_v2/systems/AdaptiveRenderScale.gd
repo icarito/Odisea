@@ -54,6 +54,14 @@ export(float, 0.5, 10.0, 0.5) var enfriamiento := 2.0
 # Los primeros segundos de una escena estan dominados por la carga, no por el rendimiento
 # real; el watchdog de SessionManager ya se comio ese falso positivo ("LOW FPS DETECTED (1.0)").
 export(float, 0.0, 30.0, 0.5) var gracia_al_iniciar := 5.0
+# Escalones a bajar de una sola vez apenas arranca un VCamera del grupo
+# "cinematic_heavy" (ej. RuptureCam en cold_rupture.oys): esas tomas cortan a un
+# angulo ya conocido como caro (medido: domo entero desde arriba, draw calls x3,
+# fps a pique el tiempo completo) y esperar fps_bajar/segundos_para_bajar significa
+# sufrir la toma entera a 2-5 fps antes de reaccionar. El nivel marca de antemano
+# cuales tomas son caras (mismo patron que light_budget_aggressive en
+# MobileLightBudget.gd); las demas cinematicas no se tocan.
+export(int, 0, 4) var cinematic_drop_steps := 2
 
 # La escala que el jugador eligio a mano es el TECHO: se puede bajar de ahi cuando el
 # dispositivo sufre, y se puede volver hasta ahi, pero nunca por encima.
@@ -65,6 +73,7 @@ var _espera := 0.0
 var _gracia := 0.0
 var _escena: Node = null
 var _ajustes: Node = null
+var _indice_pre_cinematica := -1
 
 
 func _ready() -> void:
@@ -88,6 +97,37 @@ func _tomar_techo() -> void:
 	_techo = float(_ajustes.render_scale)
 	_indice = _indice_mas_cercano(_techo)
 	_gracia = gracia_al_iniciar
+	var cm := get_node_or_null("/root/CinematicManager")
+	if cm != null:
+		cm.connect("cinematic_started", self, "_on_cinematic_started")
+		cm.connect("cinematic_stopped", self, "_on_cinematic_stopped")
+
+
+# El nombre que llega en la señal no alcanza para mirar el grupo: hay que resolver
+# el nodo. get_active_vcamera() ya devuelve el que acaba de activarse (seteado antes
+# de emitir la señal); si vino de un rig legacy en vez de VCamera, no hay nodo activo
+# de vcamera y simplemente no matchea "cinematic_heavy" — ninguna toma legacy usa ese
+# grupo hoy.
+func _on_cinematic_started(_rig_id) -> void:
+	if not enabled or _ajustes == null or _en_replay():
+		return
+	var cm := get_node_or_null("/root/CinematicManager")
+	if cm == null or not cm.has_method("get_active_vcamera"):
+		return
+	var vcam = cm.get_active_vcamera()
+	if vcam == null or not is_instance_valid(vcam) or not vcam.is_in_group("cinematic_heavy"):
+		return
+	if _indice_pre_cinematica == -1:
+		_indice_pre_cinematica = _indice
+	_aplicar(min(ESCALAS.size() - 1, _indice + cinematic_drop_steps))
+
+
+func _on_cinematic_stopped() -> void:
+	# No hay snap-back: la toma caro ya termino, pero el jugador puede seguir en la
+	# misma zona densa (ej. justo debajo del domo tras la ruptura). Dejar que la
+	# rampa normal de segundos_para_subir confirme que el fps aguanta antes de subir,
+	# en vez de arriesgarse a otro tiron por resetear el framebuffer de una.
+	_indice_pre_cinematica = -1
 
 
 func _indice_mas_cercano(valor: float) -> int:
