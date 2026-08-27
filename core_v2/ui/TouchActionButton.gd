@@ -16,9 +16,12 @@ var _player: Node = null
 
 func _ready() -> void:
 	add_to_group("touch_control")
+	# _process() se auto-habilita porque el script lo define (Godot 3.x), asi que
+	# hay que apagarlo explicitamente para los botones que no dimean: si no,
+	# igual encuentran al player y se conectan a sus senales de interactuable.
+	set_process(dims_when_unavailable)
 	if dims_when_unavailable:
 		modulate = _DIM_MODULATE
-		set_process(true)
 	# Sin esto, tocar el boton le da foco de teclado/gamepad y Godot dibuja el
 	# StyleBox "focus" del tema por defecto (un rectangulo recto) encima del
 	# StyleBox redondeado del boton hasta que otro control se lo saca. Estos
