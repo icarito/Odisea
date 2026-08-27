@@ -172,7 +172,6 @@
 [ext_resource path="res://addons/virtualcamera/VCameras/VCamera.gd" type="Script" id=5022]
 [ext_resource path="res://addons/virtualcamera/TransformModifiers/LookAt.gd" type="Script" id=5023]
 [ext_resource path="res://addons/virtualcamera/VCameraBrain.gd" type="Script" id=5025]
-[ext_resource path="res://core_v2/levels/diag/LogOverlay.tscn" type="PackedScene" id=5031]
 [ext_resource path="res://core_v2/systems/IOSLightmapFallback.tscn" type="PackedScene" id=5032]
 
 [sub_resource type="BoxShape" id=539]
@@ -5124,8 +5123,6 @@ bgm_stream = ExtResource( 9 )
 [node name="CollisionShape" type="CollisionShape" parent="BGMZoneV2"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.6918, 0 )
 shape = SubResource( 565 )
-
-[node name="LogOverlay" parent="." instance=ExtResource( 5031 )]
 
 [node name="IOSLightmapFallback" parent="." instance=ExtResource( 5032 )]
 

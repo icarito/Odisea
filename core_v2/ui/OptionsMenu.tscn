@@ -179,6 +179,13 @@ text = "Overlay de log en pantalla"
 pressed = false
 hint_tooltip = "Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola."
 
+[node name="ErrorReportsLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+text = "Enviar reportes de error"
+
+[node name="ErrorReportsToggle" type="CheckButton" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+pressed = true
+hint_tooltip = "Manda al servidor las líneas de error del log al cerrar la sesión, para poder diagnosticar fallas que solo pasan en su dispositivo."
+
 [node name="PropDitherLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
 text = "Ver a través de los objetos"
 

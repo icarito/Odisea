@@ -20,11 +20,16 @@ var render_resolution = Vector2(800, 600)
 var render_scale: float = 1.0
 var vsync = true
 var telemetry_enabled: bool = true
-# Overlay de log en pantalla (core_v2/levels/diag/LogOverlay.gd). Antes se
-# autoactivaba en iOS (unica plataforma sin consola/comandos remotos); ahora
-# arranca apagado en todas y esta opcion lo prende a pedido, en cualquier
-# plataforma, para depurar sin necesitar la variable de entorno.
+# Overlay de log en pantalla (core_v2/levels/diag/LogOverlay.gd). NO se persiste a
+# proposito: es una herramienta de la sesion activa. Si se guardara, un arranque con
+# problemas dejaria el overlay prendido para siempre y encima taparia la pantalla justo
+# cuando el jugador quiere jugar. Cada arranque empieza apagado; la opcion de Opciones
+# y ODISEA_LOG_OVERLAY lo prenden para esta corrida nada mas.
 var log_overlay_enabled: bool = false
+# Enviar al central las lineas de error del log al terminar la sesion
+# (core_v2/telemetry/ErrorLogReporter.gd). Va junto a telemetry_enabled porque es el
+# mismo trato con el jugador: datos de diagnostico, no de juego.
+var error_reports_enabled: bool = true
 # Agujero de dither: los props que tapan al jugador se vuelven translucidos
 # (core_v2/autoloads/PropDitherManager.gd). Estuvo apagado a la fuerza en iOS mientras
 # se buscaba por que los props no se dibujaban ahi; la causa era el lightmap del motor,
@@ -58,7 +63,7 @@ func load_settings():
 	))
 	vsync = _config.get_value("display", "vsync", true)
 	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", true)
-	log_overlay_enabled = _config.get_value("debug", "log_overlay_enabled", false)
+	error_reports_enabled = _config.get_value("privacy", "error_reports_enabled", true)
 	prop_dither_enabled = _config.get_value("display", "prop_dither_enabled", true)
 
 func save_settings():
@@ -74,7 +79,7 @@ func save_settings():
 	_config.set_value("display", "render_scale", render_scale)
 	_config.set_value("display", "vsync", vsync)
 	_config.set_value("privacy", "telemetry_enabled", telemetry_enabled)
-	_config.set_value("debug", "log_overlay_enabled", log_overlay_enabled)
+	_config.set_value("privacy", "error_reports_enabled", error_reports_enabled)
 	_config.set_value("display", "prop_dither_enabled", prop_dither_enabled)
 
 	var err = _config.save(SETTINGS_PATH)

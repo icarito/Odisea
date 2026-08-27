@@ -175,6 +175,14 @@ AUTH_LOCKOUT = int(os.environ.get("CENTRAL_AUTH_LOCKOUT", 300))
 WEB_TELEMETRY_FILE = os.environ.get("CENTRAL_WEB_TELEMETRY_FILE", "./data/web_telemetry.jsonl")
 WEB_TELEMETRY_MAX_BYTES = int(os.environ.get("CENTRAL_WEB_TELEMETRY_MAX_BYTES", 4096))
 WEB_TELEMETRY_RATE_MAX = int(os.environ.get("CENTRAL_WEB_TELEMETRY_RATE_MAX", 20))
+
+# Lineas de error del log del motor que manda el juego (ErrorLogReporter.gd). Van a un
+# JSONL igual que la telemetria web: son para leer con grep cuando alguien reporta que
+# "en mi telefono no se ve", no para el dashboard.
+CLIENT_LOG_FILE = os.environ.get("CENTRAL_CLIENT_LOG_FILE", "./data/client_logs.jsonl")
+CLIENT_LOG_MAX_BYTES = int(os.environ.get("CENTRAL_CLIENT_LOG_MAX_BYTES", 64 * 1024))
+CLIENT_LOG_MAX_LINES = int(os.environ.get("CENTRAL_CLIENT_LOG_MAX_LINES", 40))
+CLIENT_LOG_MAX_LINE_CHARS = int(os.environ.get("CENTRAL_CLIENT_LOG_MAX_LINE_CHARS", 400))
 WEB_TELEMETRY_RATE_WINDOW = int(os.environ.get("CENTRAL_WEB_TELEMETRY_RATE_WINDOW", 60))
 
 # --- Logging ---
@@ -907,6 +915,61 @@ class OdiseaCentral:
             if hasattr(self, "_game_version_cache"):
                 return web.json_response(self._game_version_cache[1], headers={"Access-Control-Allow-Origin": "*"})
             return web.json_response({"error": "failed_to_fetch_version"}, status=502, headers={"Access-Control-Allow-Origin": "*"})
+
+    async def handle_client_log(self, request):
+        """Error lines from a game client's engine log (ErrorLogReporter.gd).
+
+        Same ingest token as hotzone uploads, so a build that can already upload
+        captures can upload its errors too and nothing new has to be provisioned.
+        Everything is capped -- body, line count, line length -- because the client
+        decides how much to send and a device stuck in an error loop should not be
+        able to fill the disk.
+        """
+        guard = self._auth_guard(request, scope="ingest")
+        if guard is not None:
+            return guard
+
+        try:
+            raw = await request.content.read(CLIENT_LOG_MAX_BYTES + 1)
+            if len(raw) > CLIENT_LOG_MAX_BYTES:
+                return web.json_response({"error": "payload_too_large"}, status=413)
+            data = json.loads(raw.decode("utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("not an object")
+            lines = data.get("lines")
+            if not isinstance(lines, list) or not lines:
+                raise ValueError("no lines")
+        except Exception as e:
+            logger.warning(f"Rejected client log from {self._client_ip(request)}: {e}")
+            return web.json_response({"error": "bad_request"}, status=400)
+
+        def _clean(value, limit):
+            return "".join(c for c in str(value) if c.isprintable())[:limit]
+
+        record = {
+            "received_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "ip": self._client_ip(request),
+            "player_id": _clean(data.get("player_id", ""), 64),
+            "session_id": _clean(data.get("session_id", ""), 64),
+            "platform": _clean(data.get("platform", ""), 32),
+            "version": _clean(data.get("version", ""), 64),
+            "gpu": _clean(data.get("gpu", ""), 128),
+            "lines": [_clean(l, CLIENT_LOG_MAX_LINE_CHARS) for l in lines[:CLIENT_LOG_MAX_LINES]],
+        }
+
+        try:
+            os.makedirs(os.path.dirname(CLIENT_LOG_FILE) or ".", exist_ok=True)
+            with open(CLIENT_LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception as e:
+            logger.error(f"Failed to persist client log: {e}")
+            return web.json_response({"error": "storage"}, status=500)
+
+        logger.info(
+            "Client log: %s lines from %s (%s, %s)",
+            len(record["lines"]), record["player_id"], record["platform"], record["version"],
+        )
+        return web.json_response({"ok": True, "stored": len(record["lines"])})
 
     async def handle_web_telemetry(self, request):
         """Unauthenticated loader metrics from the HTML shell (fire and forget).
@@ -3934,6 +3997,7 @@ class OdiseaCentral:
             web.delete('/api/player-tags/{player_id}', self.handle_player_tag_delete),
             web.get('/game/version', self.handle_game_version),
             web.get('/game/updates/v1/manifest', self.handle_update_manifest),
+            web.post('/client-log', self.handle_client_log),
             web.post('/telemetry', self.handle_web_telemetry),
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),

@@ -32,6 +32,9 @@ extends Node
 
 const DISABLE_ENV := "ODISEA_DISABLE_ADAPTIVE_SCALE"
 const MOBILE_ENV := "ODISEA_FORCE_MOBILE_PROFILE"
+# Lo estampa BootLoader: milisegundos del arranque del proceso hasta que Boot.tscn esta
+# listo. Ver _indice_por_arranque().
+const BOOT_MS_META := "odisea_boot_ms"
 
 # De mejor a peor. El piso es 0.5 porque es el clamp de SettingsManager, y mas abajo el texto
 # de los menus deja de leerse.
@@ -62,6 +65,17 @@ export(float, 0.0, 30.0, 0.5) var gracia_al_iniciar := 5.0
 # cuales tomas son caras (mismo patron que light_budget_aggressive en
 # MobileLightBudget.gd); las demas cinematicas no se tocan.
 export(int, 0, 4) var cinematic_drop_steps := 2
+
+# Estimacion inicial por tiempo de arranque. Sin esto, un telefono de gama baja juega la
+# primera escena entera a 100% y recien baja despues de segundos_para_bajar, que es
+# justo el tramo donde peor se ve. El tiempo de boot no mide fillrate -- que es lo que
+# limita a estos aparatos -- pero separa bien "maquina lenta" de "maquina rapida", y la
+# rampa normal de fps corrige en segundos si el aparato resulta mejor.
+# NUMEROS DE CALIBRACION: medir en el aparato con el print de abajo y ajustar. Referencia
+# tomada en el Redmi Note 9 Pro; un escritorio arranca muy por debajo del primer escalon.
+export(float, 0.0, 30000.0, 100.0) var boot_ms_a_085 := 2500.0
+export(float, 0.0, 30000.0, 100.0) var boot_ms_a_075 := 4500.0
+export(float, 0.0, 30000.0, 100.0) var boot_ms_a_060 := 8000.0
 
 # La escala que el jugador eligio a mano es el TECHO: se puede bajar de ahi cuando el
 # dispositivo sufre, y se puede volver hasta ahi, pero nunca por encima.
@@ -97,6 +111,7 @@ func _tomar_techo() -> void:
 	_techo = float(_ajustes.render_scale)
 	_indice = _indice_mas_cercano(_techo)
 	_gracia = gracia_al_iniciar
+	_arrancar_segun_boot()
 	var cm := get_node_or_null("/root/CinematicManager")
 	if cm != null:
 		cm.connect("cinematic_started", self, "_on_cinematic_started")
@@ -128,6 +143,31 @@ func _on_cinematic_stopped() -> void:
 	# rampa normal de segundos_para_subir confirme que el fps aguanta antes de subir,
 	# en vez de arriesgarse a otro tiron por resetear el framebuffer de una.
 	_indice_pre_cinematica = -1
+
+
+# Solo BAJA: si el jugador eligio 0.75 a mano, un arranque rapido no lo sube a 1.0. El
+# techo sigue siendo suyo y la rampa normal se encarga de volver hasta ahi.
+func _arrancar_segun_boot() -> void:
+	if not Engine.has_meta(BOOT_MS_META):
+		return
+	var arranque := float(Engine.get_meta(BOOT_MS_META))
+	var sugerido := _indice_por_arranque(arranque, boot_ms_a_085, boot_ms_a_075, boot_ms_a_060)
+	if sugerido <= _indice:
+		return
+	print("[AdaptiveRenderScale] arranque %d ms -> empieza en %.2f" % [int(arranque), ESCALAS[sugerido]])
+	_aplicar(sugerido)
+
+
+static func _indice_por_arranque(boot_ms: float, a085: float, a075: float, a060: float) -> int:
+	if boot_ms <= 0.0:
+		return 0
+	if boot_ms >= a060:
+		return 3
+	if boot_ms >= a075:
+		return 2
+	if boot_ms >= a085:
+		return 1
+	return 0
 
 
 func _indice_mas_cercano(valor: float) -> int:

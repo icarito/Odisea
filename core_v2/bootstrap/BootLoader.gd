@@ -9,15 +9,22 @@ export(int, 0, 60) var scene_manager_wait_frames := 12
 var _started := false
 var _fallback_started := false
 
+# Cuanto tardo el proceso en llegar hasta aca. Es lo unico que se sabe del aparato
+# ANTES de dibujar el primer frame -- mide CPU, disco y el armado de los autoloads
+# juntos -- y AdaptiveRenderScale lo lee para arrancar ya reducido en una maquina lenta
+# en vez de esperar a que el jugador sufra la primera escena entera.
+const BOOT_MS_META := "odisea_boot_ms"
+
 func _ready() -> void:
 	if Engine.editor_hint:
 		return
+	Engine.set_meta(BOOT_MS_META, OS.get_ticks_msec())
 	
 	# FD-234: Initialize version label from ProjectSettings
 	var VersionLabelHelper = load("res://core_v2/ui/VersionLabel.gd")
 	if VersionLabelHelper:
 		version_label = VersionLabelHelper.get_formatted_version()
-	_mark_trace("boot_scene_ready", {"target_scene": startup_scene_path})
+	_mark_trace("boot_scene_ready", {"target_scene": startup_scene_path, "boot_ms": Engine.get_meta(BOOT_MS_META)})
 	# Android hotzone deep link: if the app was launched via odisea://replay,
 	# route straight to the replay player instead of the normal boot flow.
 	var deep_link := _get_replay_deep_link()

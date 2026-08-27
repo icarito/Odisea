@@ -1,238 +1,255 @@
 extends Node
 
-# Muestra en pantalla el final del log del motor. Apagado por defecto; se prende con
-# la opcion "Overlay de log" en Opciones (SettingsManager.log_overlay_enabled) o con
-# la variable de entorno de abajo para una corrida suelta.
+# Lector del log del motor en pantalla. Autoload: arranca dormido y solo construye la
+# UI cuando se prende la opcion "Overlay de log" en Opciones
+# (SettingsManager.log_overlay_enabled) o la variable de entorno de abajo.
 #
-# Pensado sobre todo para iOS: ahi no hay consola ni comandos remotos (ANNAV2 los
-# bloquea en release, y en debug el build no se puede archivar para distribucion --
-# xcodebuild: "ARCHIVE FAILED"). Los errores de compilacion de shaders del driver solo
-# viven en user://logs/godot.log, que se activa con
-# logging/file_logging/enable_file_logging.iOS. Sirve igual en cualquier plataforma
-# una vez activado, para depurar sin reinstalar con la variable de entorno.
+# Pensado sobre todo para moviles: ahi no hay consola ni comandos remotos (ANNAV2 los
+# bloquea en release, y en iOS debug el build no se puede archivar para distribucion --
+# xcodebuild: "ARCHIVE FAILED"). Los errores del driver solo viven en
+# user://logs/godot.log, que ya esta activo en todas las plataformas
+# (logging/file_logging/enable_file_logging).
+#
+# Es de SESION: la opcion no se persiste, asi que el proximo arranque vuelve apagado.
+# Cerrar el panel tambien la apaga, para que nada lo vuelva a abrir solo.
+#
+# Las sondas de diagnostico que vivian aca (dos planos para separar iluminacion por
+# vertice de normales rotas, y el censo de usuarios del BakedLightmap) se fueron: esas
+# dos preguntas ya estan contestadas -- ver core_v2/systems/IOSLightmapFallback.gd y el
+# presupuesto de varyings en shaders/prop_dither_occlusion.gdshader.
 
-# Segundos antes de leer: los shaders se compilan al renderizar los primeros frames,
-# asi que leer en _ready mostraria un log sin los errores que interesan.
-const READ_DELAY := 15.0
-const MAX_LINES := 10
 const ENV_FLAG := "ODISEA_LOG_OVERLAY"
-const META_MANUAL := "ios_lightmap_applied"
+const LOG_PATH_FALLBACK := "user://logs/godot.log"
+const REFRESH_SECONDS := 1.0
+const MAX_LINES := 200
+const FONT_DATA := preload("res://assets/fonts/Ac437_OlivettiThin_8x16.ttf")
 
-# Se muestran solo las lineas que contengan alguno de estos. Un log completo no entra
-# en una pantalla y lo que importa es lo que el driver tenga para decir.
-const KEYWORDS := ["ERROR", "error", "shader", "Shader", "SHADER", "WARNING", "GLES", "lightmap"]
+# Se muestran solo las lineas que contengan alguno de estos. Un log completo no entra en
+# una pantalla y lo que importa es lo que el motor y el driver tengan para decir.
+const KEYWORDS := ["ERROR", "error", "SCRIPT ERROR", "shader", "Shader", "SHADER",
+	"WARNING", "GLES", "lightmap", "Failed", "failed"]
 
-var _label: Label
+# Alto del panel como fraccion de la pantalla, anclado ARRIBA. No es pantalla completa a
+# proposito: el overlay se usa MIENTRAS se juega, para ver que dice el driver al entrar a
+# una zona. Arriba y no abajo porque abajo viven el joystick y los botones tactiles.
+const PANEL_HEIGHT_RATIO := 0.42
+# Tamano de fuente en pixeles a 600 px de alto de viewport. Se reescala con el viewport
+# real, que con stretch "viewport" es render_resolution * render_scale: sin esto el
+# texto crece en pantalla justo cuando AdaptiveRenderScale baja la escala, y el log
+# termina tapando el juego.
+const FONT_SIZE_AT_600 := 13.0
+const FONT_SIZE_MIN := 8
+const FONT_SIZE_MAX := 40
+
+var _layer: CanvasLayer = null
+var _text: RichTextLabel = null
+var _title: Label = null
+var _close: Button = null
+var _font: DynamicFont = null
 var _elapsed := 0.0
-var _done := false
+var _read_pos := 0
+var _shown := 0
+var _aviso_sin_log := false
+var _log_path := ""
+
 
 static func _wants_overlay(env_value: String, setting_enabled: bool) -> bool:
 	if env_value.to_lower().strip_edges() in ["1", "true", "yes", "on"]:
 		return true
 	return setting_enabled
 
+
 func _ready() -> void:
-	var sm = get_node_or_null("/root/SettingsManager")
-	var setting_enabled: bool = sm != null and sm.log_overlay_enabled
-	if not _wants_overlay(OS.get_environment(ENV_FLAG), setting_enabled):
-		queue_free()
-		return
-	var layer := CanvasLayer.new()
-	layer.layer = 128
-	add_child(layer)
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.75)
-	bg.anchor_right = 1.0
-	bg.anchor_bottom = 1.0
-	layer.add_child(bg)
-	_label = Label.new()
-	_label.anchor_right = 1.0
-	_label.anchor_bottom = 1.0
-	_label.margin_left = 10
-	_label.margin_top = 8
-	_label.autowrap = true
-	_label.text = "LOG OVERLAY: leyendo en %ds..." % int(READ_DELAY)
-	layer.add_child(_label)
-	print("[LOGCANARY] overlay activo, si esta linea aparece el logger captura")
-	call_deferred("_build_shading_probe")
-	call_deferred("_reassign_lightmaps")
 	set_process(true)
 
 
-# La sonda de sombreado ya mostro que la iluminacion por pixel funciona en iOS (los dos
-# planos degradan igual que en escritorio), y el censo mostro que de las 39 mallas
-# horneadas solo UNA tiene material con mas de una textura. O sea que no hay agotamiento
-# de unidades de textura: el shader de esas mallas es albedo + lightmap y nada mas.
-#
-# Lo que queda es la ASIGNACION del lightmap. BakedLightmap la hace al entrar al arbol
-# resolviendo la ruta de cada usuario contra si mismo; si esa resolucion falla, o si el
-# renderer de iOS ignora la asignacion, el resultado se ve igual: albedo crudo.
-#
-# Esta prueba lo censaba a mano y ademas REASIGNABA el lightmap nativo via
-# VisualServer.instance_set_use_lightmap con la textura real, para ver si el problema
-# era la asignacion o el renderer. Eso ya se contesto: el renderer de iOS lo rompe (por
-# eso existe IOSLightmapFallback.gd, que apaga esa asignacion nativa a proposito con
-# RID() vacios y la reemplaza por su propio shader via EMISSION). Como los dos nodos se
-# activan con el mismo gate de iOS y ambos difieren su _ready() con call_deferred, el
-# orden entre ellos no esta garantizado: si esta sonda corre despues del fallback,
-# REACTIVA el lightmap nativo roto que el fallback acababa de apagar -- eso es luces que
-# cambian con el angulo de camara y el error de shader "_get_uniform ... !version" que
-# reaparecieron al arreglar los assets faltantes. Ahora solo cuenta, no reasigna.
-#   reasignados=39 -> la asignacion resuelve para las 39 (el numero dice cuantas)
-#   reasignados<39 -> hay rutas que no resuelven, y el numero dice cuantas
-var _lm_ok := 0
-var _lm_fail := 0
-
-func _reassign_lightmaps() -> void:
-	var baked = _find_baked(get_tree().get_root())
-	if baked == null or baked.light_data == null:
-		_lm_fail = -1
-		return
-	var data = baked.light_data
-	for i in range(data.get_user_count()):
-		var tex = data.get_user_lightmap(i)
-		var node = baked.get_node_or_null(data.get_user_path(i))
-		if tex == null or node == null or not (node is VisualInstance):
-			_lm_fail += 1
-			continue
-		_lm_ok += 1
-
-func _find_baked(node: Node):
-	if node is BakedLightmap:
-		return node
-	for child in node.get_children():
-		var found = _find_baked(child)
-		if found != null:
-			return found
-	return null
+func _settings():
+	return get_node_or_null("/root/SettingsManager")
 
 
-# Dos planos IGUALES salvo en cantidad de vertices, con su propia luz, frente a la
-# camara. Separa las dos causas que quedan y que desde afuera se ven igual:
-#
-#   el subdividido degrada suave y el plano entero no  -> iluminacion POR VERTICE
-#   los dos se ven igual de mal (planos, o uno negro)  -> NORMALES rotas
-#   los dos degradan suave                             -> la iluminacion esta bien
-#                                                         aca y el problema es del
-#                                                         lightmap de las mallas
-func _build_shading_probe() -> void:
-	var cam := get_viewport().get_camera()
-	if cam == null:
-		return
-	var holder := Spatial.new()
-	cam.add_child(holder)
-	holder.translation = Vector3(0, -0.30, -1.4)
+func _enabled() -> bool:
+	var sm = _settings()
+	return _wants_overlay(OS.get_environment(ENV_FLAG), sm != null and sm.log_overlay_enabled)
 
-	var mat := SpatialMaterial.new()
-	mat.albedo_color = Color(0.85, 0.85, 0.85)
-	mat.roughness = 1.0
-	mat.metallic = 0.0
-
-	for i in range(2):
-		var plane := PlaneMesh.new()
-		plane.size = Vector2(0.5, 0.5)
-		# 0 subdivisiones = 4 vertices; 24 = una malla densa. Misma superficie.
-		plane.subdivide_width = 0 if i == 0 else 24
-		plane.subdivide_depth = 0 if i == 0 else 24
-		var mi := MeshInstance.new()
-		mi.mesh = plane
-		mi.material_override = mat
-		mi.cast_shadow = MeshInstance.SHADOW_CASTING_SETTING_OFF
-		mi.rotation_degrees = Vector3(90, 0, 0) # el plano mira a la camara
-		mi.translation = Vector3(-0.32 + 0.64 * i, 0, 0)
-		holder.add_child(mi)
-
-	# Luz propia, para no depender de como este iluminado el lugar. Calibrada contra una
-	# captura en escritorio: tiene que quedar un degradado CLARO a lo ancho del plano,
-	# ni saturado en blanco ni tan tenue que no se distinga.
-	var light := OmniLight.new()
-	light.omni_range = 0.55
-	light.light_energy = 1.1
-	light.omni_attenuation = 1.0
-	light.translation = Vector3(0, 0.34, 0.16)
-	light.shadow_enabled = false
-	holder.add_child(light)
 
 func _process(delta: float) -> void:
-	if _done:
+	var want := _enabled()
+	if want and _layer == null:
+		_build()
+	elif not want and _layer != null:
+		_teardown()
+	if _layer == null:
 		return
 	_elapsed += delta
-	if _elapsed < READ_DELAY:
+	if _elapsed < REFRESH_SECONDS:
 		return
-	_done = true
-	set_process(false)
-	_label.text = _read_report()
-
-func _list_dir(dir_path: String) -> String:
-	var d := Directory.new()
-	if d.open(dir_path) != OK:
-		return "(no abre)"
-	var names := []
-	d.list_dir_begin(true, true)
-	var n := d.get_next()
-	while n != "" and names.size() < 8:
-		names.append(n)
-		n = d.get_next()
-	d.list_dir_end()
-	if names.empty():
-		return "(vacio)"
-	return PoolStringArray(names).join(", ")
+	_elapsed = 0.0
+	_pump()
 
 
-func _read_report() -> String:
-	var path := String(ProjectSettings.get_setting("logging/file_logging/log_path"))
-	if path == "":
-		path = "user://logs/godot.log"
+# --- UI ---------------------------------------------------------------------------
 
+func _build() -> void:
+	_log_path = String(ProjectSettings.get_setting("logging/file_logging/log_path"))
+	if _log_path == "":
+		_log_path = LOG_PATH_FALLBACK
+	_read_pos = 0
+	_shown = 0
+	_aviso_sin_log = false
+
+	_font = DynamicFont.new()
+	_font.font_data = FONT_DATA
+
+	_layer = CanvasLayer.new()
+	_layer.layer = 128
+	add_child(_layer)
+
+	var panel := PanelContainer.new()
+	panel.anchor_right = 1.0
+	panel.anchor_bottom = PANEL_HEIGHT_RATIO
+	panel.margin_left = 8
+	panel.margin_top = 8
+	panel.margin_right = -8
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.82)
+	style.border_color = Color(0.35, 0.85, 0.45, 0.7)
+	style.set_border_width_all(1)
+	for m in [MARGIN_LEFT, MARGIN_TOP, MARGIN_RIGHT, MARGIN_BOTTOM]:
+		style.set_default_margin(m, 6)
+	panel.add_stylebox_override("panel", style)
+	# El overlay vive en la capa 128, por encima de la UI tactil (MobileUI usa 10 y 100).
+	# Si el panel captura el toque, se come todo lo que quede debajo suyo. Nada del
+	# overlay recibe input salvo la X: por eso tampoco hay seleccion de texto ni scroll
+	# a mano en el log -- el scroll se sigue solo.
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_layer.add_child(panel)
+
+	var rows := VBoxContainer.new()
+	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(rows)
+
+	_title = Label.new()
+	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_title.text = "LOG"
+	rows.add_child(_title)
+
+	_text = RichTextLabel.new()
+	_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_text.scroll_following = true
+	_text.selection_enabled = false
+	_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rows.add_child(_text)
+
+	# La X cuelga del CanvasLayer, NO del panel: asi su unico ancestro no es un Control y
+	# no depende de como resuelva el motor un hijo que para el input dentro de padres que
+	# lo ignoran. Es el unico nodo del overlay que recibe toques.
+	_close = Button.new()
+	_close.text = "X"
+	_close.anchor_left = 1.0
+	_close.anchor_right = 1.0
+	_close.hint_tooltip = "Cerrar el overlay de log (tambien apaga la opcion)"
+	_close.connect("pressed", self, "_on_close_pressed")
+	_layer.add_child(_close)
+
+	_apply_font_size()
+	var vp := get_viewport()
+	if vp != null and not vp.is_connected("size_changed", self, "_apply_font_size"):
+		vp.connect("size_changed", self, "_apply_font_size")
+
+	_pump()
+
+
+func _teardown() -> void:
+	var vp := get_viewport()
+	if vp != null and vp.is_connected("size_changed", self, "_apply_font_size"):
+		vp.disconnect("size_changed", self, "_apply_font_size")
+	if _layer != null:
+		_layer.queue_free()
+	_layer = null
+	_text = null
+	_title = null
+	_close = null
+	_font = null
+
+
+func _on_close_pressed() -> void:
+	var sm = _settings()
+	if sm != null:
+		sm.log_overlay_enabled = false
+	_teardown()
+
+
+func _apply_font_size() -> void:
+	if _font == null:
+		return
+	var vp := get_viewport()
+	var height: float = vp.size.y if vp != null else 600.0
+	var size := int(round(FONT_SIZE_AT_600 * height / 600.0))
+	_font.size = int(clamp(size, FONT_SIZE_MIN, FONT_SIZE_MAX))
+	if _text != null:
+		_text.add_font_override("normal_font", _font)
+	if _title != null:
+		_title.add_font_override("font", _font)
+	if _close != null:
+		_close.add_font_override("font", _font)
+		# Blanco tactil: un "X" del tamano del texto es imposible de acertar con el dedo.
+		# El piso va en fraccion del viewport, no en pixeles fijos: con stretch "viewport"
+		# un minimo absoluto crece en pantalla justo cuando baja el render_scale, que es
+		# lo contrario de lo que hace el texto.
+		var lado: float = max(_font.size * 2.4, height * 0.05)
+		_close.rect_min_size = Vector2(lado, lado)
+		_close.margin_left = -lado - 12
+		_close.margin_right = -12
+		_close.margin_top = 12
+		_close.margin_bottom = 12 + lado
+
+
+# --- Lectura incremental -----------------------------------------------------------
+
+# Se relee SOLO lo que crecio desde la ultima pasada: el log del motor no para de crecer
+# y releerlo entero cada segundo cuesta mas que lo que se muestra.
+func _pump() -> void:
+	if _text == null:
+		return
 	var f := File.new()
-	if not f.file_exists(path):
-		# Que no este el archivo ya nos costo un build. Si vuelve a faltar, que al menos
-		# diga que SI hay en user://, para saber si el problema es el setting o la ruta.
-		return "LOG OVERLAY  lightmap ok=%d fallos=%d\nNO EXISTE %s\nenable=%s\nuser:// -> %s\nuser://logs -> %s" % [
-			_lm_ok,
-			_lm_fail,
-			path,
-			ProjectSettings.get_setting("logging/file_logging/enable_file_logging"),
-			_list_dir("user://"),
-			_list_dir("user://logs"),
-		]
-	if f.open(path, File.READ) != OK:
-		return "LOG OVERLAY\nno se pudo abrir %s" % path
-
-	var hits := []
-	var raw := []
-	var canary := false
-	var total := 0
+	if not f.file_exists(_log_path):
+		if not _aviso_sin_log:
+			_aviso_sin_log = true
+			_text.clear()
+			_text.add_text("no existe %s\n(file_logging = %s)" % [
+				_log_path, ProjectSettings.get_setting("logging/file_logging/enable_file_logging")])
+		return
+	if f.open(_log_path, File.READ) != OK:
+		return
+	var length := int(f.get_len())
+	# El motor rota los logs: si el archivo encogio, arrancar de cero.
+	if length < _read_pos:
+		_read_pos = 0
+	if length == _read_pos:
+		f.close()
+		return
+	f.seek(_read_pos)
+	var nuevas := []
 	while not f.eof_reached():
 		var line := f.get_line()
 		if line.strip_edges() == "":
 			continue
-		total += 1
-		raw.append(line)
-		if raw.size() > 40:
-			raw.remove(0)
-		if line.find("LOGCANARY") != -1:
-			canary = true
 		for k in KEYWORDS:
 			if line.find(k) != -1:
-				hits.append(line)
+				nuevas.append(line)
 				break
+	_read_pos = length
 	f.close()
 
-	var head := "LOG lineas=%d int=%d canario=%s | lm ok=%d fallo=%d | manual=%s" % [
-		total, hits.size(), "SI" if canary else "NO",
-		_lm_ok, _lm_fail, str(Engine.get_meta(META_MANUAL)) if Engine.has_meta(META_MANUAL) else "?"]
-	# Cola CRUDA ademas de la filtrada: si el log llega corto, hay que ver que trae de
-	# verdad y no solo lo que pasa el filtro.
-	var tail = raw
-	if tail.size() > 6:
-		tail = tail.slice(tail.size() - 6, tail.size() - 1)
-	head += "\n-- cola --\n" + PoolStringArray(tail).join("\n")
-	if hits.empty():
-		# Que no haya ni un error tambien es un resultado: los shaders linkean y el
-		# problema esta en la asignacion, no en la compilacion.
-		return head + "\n(sin errores ni warnings en el log)"
-	var shown = hits
-	if shown.size() > MAX_LINES:
-		shown = shown.slice(shown.size() - MAX_LINES, shown.size() - 1)
-	return head + "\n" + PoolStringArray(shown).join("\n")
+	if _aviso_sin_log:
+		_aviso_sin_log = false
+		_text.clear()
+	for line in nuevas:
+		_text.add_text(line + "\n")
+		_shown += 1
+	# El RichTextLabel guarda todo lo que se le mete; sin tope, una sesion larga con un
+	# error por frame se come la memoria.
+	while _text.get_line_count() > MAX_LINES:
+		_text.remove_line(0)
+	if _title != null:
+		_title.text = "LOG  %s  lineas=%d" % [_log_path.get_file(), _shown]
