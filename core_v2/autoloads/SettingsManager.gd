@@ -25,6 +25,11 @@ var telemetry_enabled: bool = true
 # arranca apagado en todas y esta opcion lo prende a pedido, en cualquier
 # plataforma, para depurar sin necesitar la variable de entorno.
 var log_overlay_enabled: bool = false
+# Agujero de dither: los props que tapan al jugador se vuelven translucidos
+# (core_v2/autoloads/PropDitherManager.gd). Estuvo apagado a la fuerza en iOS mientras
+# se buscaba por que los props no se dibujaban ahi; la causa era el lightmap del motor,
+# no este shader. Queda como opcion para poder apagarlo en el dispositivo sin otro build.
+var prop_dither_enabled: bool = true
 
 func _ready():
 	load_settings()
@@ -54,6 +59,7 @@ func load_settings():
 	vsync = _config.get_value("display", "vsync", true)
 	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", true)
 	log_overlay_enabled = _config.get_value("debug", "log_overlay_enabled", false)
+	prop_dither_enabled = _config.get_value("display", "prop_dither_enabled", true)
 
 func save_settings():
 	_config.set_value("audio", "master_volume", master_volume)
@@ -69,6 +75,7 @@ func save_settings():
 	_config.set_value("display", "vsync", vsync)
 	_config.set_value("privacy", "telemetry_enabled", telemetry_enabled)
 	_config.set_value("debug", "log_overlay_enabled", log_overlay_enabled)
+	_config.set_value("display", "prop_dither_enabled", prop_dither_enabled)
 
 	var err = _config.save(SETTINGS_PATH)
 	if err != OK:

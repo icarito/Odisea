@@ -57,25 +57,46 @@ var _shader_params: Dictionary = {
 	"floor_protect_radius": 1.0
 }
 
-# Los props que este manager convierte son EXACTAMENTE los que no se dibujan en iOS:
-# del criopod sobrevive solo PersonCards, que esta en "no_occlusion" y por eso no pasa
-# por aca. El shader en si compila y dibuja (verificado en el dispositivo con tres quads
-# de sonda), pero la sonda no llevaba texturas ni lightmap: el material real declara tres
-# samplers -- dentro de un if sobre un uniform, o sea que no se pueden optimizar -- y a
-# eso el motor le suma lightmap y sombras. iOS GLES2 garantiza 8 unidades de textura en
-# el fragment shader; Adreno y escritorio dan 16 o 32.
+# El agujero de dither estuvo apagado en iOS porque los props que este manager convierte
+# eran justo los que no se dibujaban ahi. La causa real resulto ser otra y ya esta
+# arreglada: el motor ataba SU lightmap a la unidad de textura "max_units - 4", que en
+# iOS (8 unidades) cae en la 4, en el medio de las texturas del material. Ver
+# IOSLightmapFallback.gd y core_v2/visual/lightmap_manual.shader.
 #
-# Apagado en iOS se pierde el agujero de dither (los props no se vuelven translucidos
-# cuando tapan al jugador) pero se ven, que es bastante mejor que lo contrario.
-static func _wants_occlusion_dither(os_name: String) -> bool:
-	return os_name != "iOS"
+# La prueba de que este shader si corre en el dispositivo son las 66 superficies
+# horneadas de Dome_Intro que ya lo traen dentro del .mesh: se dibujan bien hoy.
+#
+# Mientras el gate fue por plataforma, en iOS nada las registraba, asi que:
+#   - los andamios nunca se volvian translucidos (nadie escribia is_active), y
+#   - los props sin hornear -- piso y techo del ascensor -- se quedaban con su
+#     SpatialMaterial original en vez del camino que usan las demas plataformas.
+#
+# Ahora es una opcion, prendida por defecto en todas. La variable de entorno y el
+# toggle de Opciones permiten comparar A/B en el dispositivo sin gastar otro build.
+const ENV_FLAG := "ODISEA_PROP_DITHER"
+
+static func _wants_occlusion_dither(env_value: String, setting_enabled: bool) -> bool:
+	var flag: String = env_value.to_lower().strip_edges()
+	if flag in ["0", "false", "no", "off"]:
+		return false
+	if flag in ["1", "true", "yes", "on"]:
+		return true
+	return setting_enabled
 
 
 func _ready() -> void:
-	if not _wants_occlusion_dither(OS.get_name()):
+	# Diferido: SettingsManager entra al arbol DESPUES que este autoload, asi que en
+	# _ready todavia no se puede leer la opcion.
+	call_deferred("_start")
+
+
+func _start() -> void:
+	var sm = get_node_or_null("/root/SettingsManager")
+	var setting_enabled: bool = sm == null or sm.prop_dither_enabled
+	if not _wants_occlusion_dither(OS.get_environment(ENV_FLAG), setting_enabled):
 		set_process(false)
 		return
-	call_deferred("_scan_scene_tree")
+	_scan_scene_tree()
 	get_tree().connect("node_added", self, "_on_node_added")
 
 
