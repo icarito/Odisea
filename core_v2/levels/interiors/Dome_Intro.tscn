@@ -1262,7 +1262,7 @@ script_file = "res://core_v2/levels/interiors/cold_rupture.oys"
 transform = Transform( 0.999999, 0, 2.98023e-08, 0, 1, 0, -2.98023e-08, 0, 0.999999, -3.41829, 1.5, 3.64901 )
 shape = SubResource( 539 )
 
-[node name="RuptureCam" type="Spatial" parent="." groups=["vcamera", "cinematic_heavy"]]
+[node name="RuptureCam" type="Spatial" parent="." groups=["cinematic_heavy", "vcamera"]]
 process_priority = -1000
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 24, 0 )
 script = ExtResource( 5022 )
