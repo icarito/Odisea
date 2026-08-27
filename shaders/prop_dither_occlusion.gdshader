@@ -54,17 +54,23 @@ uniform float transparency_max : hint_range(0.0, 1.0) = 0.95;
 uniform float floor_protect_radius : hint_range(0.5, 5.0) = 1.0;
 uniform bool stable_mobile_dither = false;
 
-varying vec3 world_pos;
-varying vec3 world_normal;
+// UN SOLO varying. iOS/PowerVR GLES2 garantiza 8 varying vectors y scene.glsl ya se
+// come casi todos; este shader tuvo 2 hasta el 2026-05-30 y paso a 4 en 23a32022
+// ("Fixes for scaffold field", que agrego local_pos + instance_uv_extent para
+// use_world_uv). Desde entonces las superficies que convierte no se dibujan en iOS,
+// mientras que card_parallax y seam_road_lines_pbr -- mismo GLES2, MAS samplers, con
+// discard -- se dibujan bien con 2 varyings. La cuenta de samplers estaba descartada;
+// la de varyings no se habia mirado.
+//
+// world_pos y world_normal se reconstruyen en fragment: ahi VERTEX y NORMAL estan en
+// espacio de vista y CAMERA_MATRIX los lleva a mundo. Es el MISMO valor, solo que
+// calculado en vez de interpolado. local_pos no se puede reconstruir sin invertir
+// WORLD_MATRIX, asi que se queda: es el unico que sobrevive.
 varying vec3 local_pos;
-varying vec2 instance_uv_extent;
 
 void vertex() {
 	local_pos = VERTEX;
-	instance_uv_extent = vec2(length(WORLD_MATRIX[0].xyz), length(WORLD_MATRIX[2].xyz));
 	UV = UV * uv1_scale.xy + uv1_offset.xy;
-	world_pos = (WORLD_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	world_normal = normalize((WORLD_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 
 // Interleaved gradient noise — smooth, no tiling, cheap (no sin/hash)
@@ -84,6 +90,9 @@ float bayer4(vec2 p) {
 }
 
 void fragment() {
+	vec3 world_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 world_normal = normalize((CAMERA_MATRIX * vec4(NORMAL, 0.0)).xyz);
+
 	// --- Cone occlusion discard FIRST — skip all PBR work on hidden fragments ---
 	if (is_active > 0.5) {
 		vec3 cam_to_player = player_pos - camera_pos;
@@ -121,6 +130,7 @@ void fragment() {
 	vec2 sample_uv = UV;
 	if (use_world_uv) {
 		vec3 abs_normal = abs(world_normal);
+		vec2 instance_uv_extent = vec2(length(WORLD_MATRIX[0].xyz), length(WORLD_MATRIX[2].xyz));
 		vec2 planar_uv;
 		vec2 extent;
 		if (abs_normal.y >= abs_normal.x && abs_normal.y >= abs_normal.z) {

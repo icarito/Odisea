@@ -34,3 +34,30 @@ func test_la_variable_de_entorno_manda_sobre_la_opcion() -> void:
 	assert_bool(PropDitherManagerScript._wants_occlusion_dither("off", true)).is_false()
 	assert_bool(PropDitherManagerScript._wants_occlusion_dither("1", false)).is_true()
 	assert_bool(PropDitherManagerScript._wants_occlusion_dither(" ON ", false)).is_true()
+
+
+# El presupuesto de varyings es lo que rompio iOS en silencio: el shader tuvo 2 hasta
+# 23a32022, que subio a 4 para use_world_uv, y desde entonces las superficies que el
+# manager convierte no se dibujaban en el dispositivo. iOS/PowerVR GLES2 solo garantiza
+# 8 varying vectors y scene.glsl ya se come casi todos. card_parallax y
+# seam_road_lines_pbr, con MAS samplers y tambien con discard, se dibujan bien con 2.
+const MAX_VARYINGS := 2
+const SHADERS := [
+	"res://shaders/prop_dither_occlusion.gdshader",
+	"res://shaders/prop_dither_occlusion_double_sided.gdshader",
+	"res://shaders/prop_dither_occlusion_unshaded.gdshader",
+]
+
+func test_los_shaders_de_oclusion_no_se_pasan_del_presupuesto_de_varyings() -> void:
+	for path in SHADERS:
+		var f := File.new()
+		assert_int(f.open(path, File.READ)).is_equal(OK)
+		var code := f.get_as_text()
+		f.close()
+		var n := 0
+		for line in code.split("\n"):
+			if line.strip_edges().begins_with("varying "):
+				n += 1
+		assert_int(n).override_failure_message(
+			"%s declara %d varyings; el maximo seguro en iOS GLES2 es %d" % [path, n, MAX_VARYINGS]
+		).is_less_equal(MAX_VARYINGS)
