@@ -4,8 +4,8 @@
 #
 # It keeps a DEDICATED clone (separate from the interactive ~/.openclaw workspace),
 # hard-resets it to origin/main, copies central assets into the runtime dir
-# (~/anna-central), and restarts the systemd service. The Expo dashboard is
-# built and deployed by GitHub Actions from its own repository.
+# (~/anna-central), rebuilds the dashboard bundle when it changed, and restarts
+# the systemd service.
 #
 # Designed to run detached: it survives odisea-central restarting mid-deploy.
 #
@@ -63,6 +63,7 @@ cd "$REPO_DIR"
 
 log "fetching origin"
 git fetch --prune origin
+
 
 log "hard-resetting to origin/$BRANCH"
 git checkout -q "$BRANCH" 2>/dev/null || git checkout -q -b "$BRANCH" "origin/$BRANCH"
@@ -140,8 +141,57 @@ cp "$REPO_DIR/odisea_central.py" "$DEPLOY_DIR/odisea_central.py"
 cp "$REPO_DIR/scripts/import_ghosts_to_sqlite.py" "$DEPLOY_DIR/scripts/import_ghosts_to_sqlite.py"
 cp "$REPO_DIR/scripts/import_nginx_geo.py" "$DEPLOY_DIR/scripts/import_nginx_geo.py"
 chmod +x "$DEPLOY_DIR/scripts/import_nginx_geo.py"
-log "leaving dashboard static assets untouched (deployed by GitHub Actions)"
 
+# --- Dashboard -------------------------------------------------------------------
+# Este paso NO existia: el script decia "lo despliega GitHub Actions desde su propio
+# repo", que era cierto con el dashboard de Expo y dejo de serlo cuando prod volvio al
+# PWA de Vite que vive en dashboard/ DE ESTE repo. Mientras tanto el webhook actualizaba
+# el servicio y estampaba igual ODISEA_DASHBOARD_VERSION con el SHA nuevo, asi que
+# /health anunciaba version nueva sirviendo un bundle de agosto -- y el dashboard abierto
+# se recargaba solo para volver a lo mismo.
+#
+# Todo lo que entra al bundle pasa por el build, dashboard/public/ incluido: sin este
+# paso un scene-data nuevo (Dome_Intro.json) queda 404 en prod aunque este commiteado.
+DASHBOARD_SRC="$REPO_DIR/dashboard"
+DASHBOARD_DEST="$DEPLOY_DIR/static/dashboard"
+# De que commit salio el bundle que hay servido. Se compara contra ESO y no contra el
+# commit desplegado anterior: si el bundle quedo atrasado (deploy a medias, o el bundle
+# viejo de cuando este paso no existia), un push que no toca dashboard/ igual lo tiene
+# que rehacer. Sin marcador -> se rehace.
+BUNDLE_SHA=""
+if [ -f "$DASHBOARD_DEST/.deployed_sha" ]; then
+  BUNDLE_SHA="$(cat "$DASHBOARD_DEST/.deployed_sha" 2>/dev/null || true)"
+fi
+if [ ! -d "$DASHBOARD_SRC" ]; then
+  log "no hay dashboard/ en el checkout, se omite el bundle"
+elif [ -n "$BUNDLE_SHA" ] && git diff --quiet "$BUNDLE_SHA" "$FULL_SHA" -- dashboard/ 2>/dev/null; then
+  log "dashboard sin cambios desde $BUNDLE_SHA, se reusa el bundle actual"
+else
+  log "building dashboard bundle"
+  (
+    cd "$DASHBOARD_SRC"
+    pnpm install --frozen-lockfile
+    VITE_DASHBOARD_VERSION="$NEW_SHA" pnpm run build
+  )
+  # Swap atomico DENTRO de $DEPLOY_DIR/static, igual que el Makefile: mv solo es
+  # atomico en el mismo filesystem, y asi index.html nunca queda apuntando a assets
+  # hasheados que ya se reemplazaron.
+  STAGE="$DEPLOY_DIR/static/.dashboard.stage"
+  rm -rf "$STAGE" "$DASHBOARD_DEST.old"
+  cp -a "$DASHBOARD_SRC/dist" "$STAGE"
+  echo "$FULL_SHA" > "$STAGE/.deployed_sha"
+  # if explicito y no `[ -d ] && mv`: con set -e, un test falso al final de una lista
+  # && corta el script, y la primera vez el destino todavia no existe.
+  if [ -d "$DASHBOARD_DEST" ]; then
+    mv "$DASHBOARD_DEST" "$DASHBOARD_DEST.old"
+  fi
+  mv "$STAGE" "$DASHBOARD_DEST"
+  rm -rf "$DASHBOARD_DEST.old"
+  log "dashboard bundle desplegado ($NEW_SHA)"
+fi
+
+# El sello de version va DESPUES del bundle a proposito: si el build falla, `set -e`
+# corta aca y no se anuncia una version que nadie puede recibir.
 log "writing systemd build metadata"
 sudo mkdir -p "/etc/systemd/system/${SERVICE}.d"
 sudo tee "/etc/systemd/system/${SERVICE}.d/version.conf" >/dev/null <<EOF

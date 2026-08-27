@@ -171,15 +171,24 @@ export const useTelemetry = () => {
     const hist = ensureHistory(pid, now);
     hist.lastTick = Number(hb.player?.tick ?? hist.lastTick ?? 0);
 
+    // Buffers en memoria del grafico en vivo (LiveCombinedChart los lee de history[pid]).
+    // Se llenan SIEMPRE y en cada heartbeat. Antes esto vivia dentro del `else` de
+    // `if (sample)`, o sea que solo corria cuando el heartbeat NO se podia convertir en
+    // muestra persistible -- y heartbeatToSample() solo devuelve null si falta la
+    // posicion. Con el juego andando normal la posicion siempre viene, asi que el `else`
+    // no corria nunca, los buffers quedaban vacios toda la sesion de la pagina y el
+    // grafico se quedaba en "Esperando datos en vivo..." aunque los heartbeats llegaran
+    // (los otros paneles leen `heartbeats`, no `history`, por eso parecia que solo
+    // fallaba el grafico). Solo se llenaba al recargar, desde lo que hubiera en IndexedDB.
+    hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
+    hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
+
+    // Persistir es otra cosa y mantiene su propio ritmo: sirve para rehidratar el
+    // grafico al recargar la pagina, no para dibujarlo ahora.
     ghostTick.current[pid] = (ghostTick.current[pid] || 0) + 1;
     if (ghostTick.current[pid] % GHOST_STORE_EVERY === 0) {
       const sample = heartbeatToSample(pid, hb);
-      if (sample) {
-        saveHeartbeatSamples([sample]).catch(() => {});
-      } else {
-        hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
-        hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
-      }
+      if (sample) saveHeartbeatSamples([sample]).catch(() => {});
     }
 
     const lastEvent = hist.events[hist.events.length - 1];

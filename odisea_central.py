@@ -183,6 +183,14 @@ CLIENT_LOG_FILE = os.environ.get("CENTRAL_CLIENT_LOG_FILE", "./data/client_logs.
 CLIENT_LOG_MAX_BYTES = int(os.environ.get("CENTRAL_CLIENT_LOG_MAX_BYTES", 64 * 1024))
 CLIENT_LOG_MAX_LINES = int(os.environ.get("CENTRAL_CLIENT_LOG_MAX_LINES", 40))
 CLIENT_LOG_MAX_LINE_CHARS = int(os.environ.get("CENTRAL_CLIENT_LOG_MAX_LINE_CHARS", 400))
+
+# Cache de /ghosts/stats. La consulta recorre la tabla entera de heartbeats (2.15 GB en
+# prod) y tarda ~10s, y el dashboard la pide una vez por minuto POR PESTANA abierta: sin
+# cache, dos pestanas ya dejan la base ocupada todo el tiempo y las stats "en vivo" se
+# ven como que no cargan. Los numeros son agregados historicos: 60s de desfase no se
+# notan. Es lo unico que baja esto de segundos a instantaneo -- pulir la consulta no
+# alcanza (ver el comentario en query_scenes).
+STATS_CACHE_TTL = float(os.environ.get("CENTRAL_STATS_CACHE_TTL", 60))
 WEB_TELEMETRY_RATE_WINDOW = int(os.environ.get("CENTRAL_WEB_TELEMETRY_RATE_WINDOW", 60))
 
 # --- Logging ---
@@ -529,6 +537,8 @@ class OdiseaCentral:
         self.pending_commands: Dict[str, asyncio.Future] = {}  # command_id -> Future
         self.web_telemetry_rate: Dict[str, List[float]] = {}  # ip -> [request timestamps]
         self.low_fps_sessions: Dict[str, float] = {}  # session_id -> start_time_of_low_fps
+        self._stats_cache: Dict[tuple, dict] = {}  # (include_server, include_tests) -> {ts, payload}
+        self._stats_lock = asyncio.Lock()
         self.geo_recorded_sessions: Set[str] = set()  # session_ids already geo-recorded this run
         self.geo_pending_lookup: Dict[str, str] = {}  # ip_hash -> raw IP awaiting geolocation (memory-only)
         self.scene_geometry_cache: Dict[str, dict] = {}  # scene -> {"mtime": float, "data": dict, "grid": dict}
@@ -2468,6 +2478,11 @@ class OdiseaCentral:
         include_tests = self._include_flag(request, "include_tests")
         visible_sql = self._visibility_sql(include_server, include_tests)
 
+        cache_key = (include_server, include_tests)
+        cached = self._stats_cache.get(cache_key)
+        if cached is not None and time.time() - cached["ts"] < STATS_CACHE_TTL:
+            return web.json_response(cached["payload"])
+
         try:
             def fetch():
                 conn = self._get_db()
@@ -2476,36 +2491,25 @@ class OdiseaCentral:
 
                 # Per-scene stats as requested: total_ghosts, total_sessions, oldest_ts, newest_ts, memory_mb_avg
                 #
-                # El arranque de cada sesion se calcula UNA vez por sesion en un CTE en
-                # vez de con la subconsulta correlacionada de _PAST_WARMUP, que se
-                # evaluaba por fila. Sobre una copia de la tabla de prod (2.6M filas):
-                # 14.2s -> 5.6s, con resultado identico fila por fila. Un indice extra
-                # sobre (session_id, player_id, timestamp) NO ayuda -- medido, 1.0x --
-                # porque el UNIQUE(player_id, session_id, timestamp) ya cubre la
-                # subconsulta; lo caro era repetirla 2.6M veces.
+                # Aca vivio un rato un rewrite del warmup con CTE + JOIN, para no evaluar
+                # la subconsulta correlacionada por fila. En un banco sintetico de 2.6M
+                # filas daba 2x... pero ese banco tenia 8 columnas y 479 MB y era CPU-bound,
+                # y la tabla de prod tiene 37 columnas y 2.15 GB y es I/O-bound: medido
+                # contra produccion salio 11.8s de mediana contra 10.0s del original, o sea
+                # PEOR. Dos recorridos de la tabla cuestan mas que uno con sondas al indice.
+                # Revertido. Si esto hay que acelerarlo de verdad, es cacheando la respuesta
+                # o manteniendo una tabla agregada por sesion, no puliendo la consulta.
                 query_scenes = f"""
-                -- Las columnas del CTE van renombradas: {visible_sql} usa player_id y
-                -- session_id SIN calificar, y con los nombres originales el JOIN los
-                -- vuelve ambiguos. El handler traga la excepcion y devuelve [], asi que
-                -- el error se veria como "no hay estadisticas", no como un error.
-                WITH session_starts AS (
-                    SELECT player_id AS s_player_id, session_id AS s_session_id,
-                           MIN(timestamp) AS start_ts
-                    FROM heartbeats
-                    GROUP BY player_id, session_id
-                )
                 SELECT
-                    h.scene as scene,
+                    scene,
                     COUNT(*) as total_ghosts,
-                    COUNT(DISTINCT h.session_id) as total_sessions,
-                    MIN(h.timestamp) as oldest_ts,
-                    MAX(h.timestamp) as newest_ts,
-                    AVG(h.memory_mb) as memory_mb_avg
-                FROM heartbeats h
-                JOIN session_starts s
-                    ON s.s_player_id = h.player_id AND s.s_session_id = h.session_id
-                WHERE {visible_sql} AND h.timestamp >= s.start_ts + {WARMUP_SECONDS}
-                GROUP BY h.scene
+                    COUNT(DISTINCT session_id) as total_sessions,
+                    MIN(timestamp) as oldest_ts,
+                    MAX(timestamp) as newest_ts,
+                    AVG(memory_mb) as memory_mb_avg
+                FROM heartbeats
+                WHERE {visible_sql} AND {_PAST_WARMUP}
+                GROUP BY scene
                 """
                 cursor.execute(query_scenes)
                 scene_stats = [dict(row) for row in cursor.fetchall()]
@@ -2608,7 +2612,16 @@ class OdiseaCentral:
                     }
                 }
 
-            stats = await self._run_query(fetch)
+            # Single-flight: la consulta tarda ~10s y el dashboard la pide por pestana.
+            # Sin el lock, N pestanas lanzan N recorridos completos de la tabla en
+            # paralelo y se estorban entre ellas. Con el lock, la primera consulta y
+            # las demas esperan y se llevan el resultado recien cacheado.
+            async with self._stats_lock:
+                cached = self._stats_cache.get(cache_key)
+                if cached is not None and time.time() - cached["ts"] < STATS_CACHE_TTL:
+                    return web.json_response(cached["payload"])
+                stats = await self._run_query(fetch)
+                self._stats_cache[cache_key] = {"ts": time.time(), "payload": stats}
             return web.json_response(stats)
         except Exception as e:
             logger.warning(f"{request.path}: stats query failed ({e})")
