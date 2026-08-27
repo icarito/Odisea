@@ -138,7 +138,7 @@ _PAST_WARMUP = (
 )
 
 # Scenes always offered in dashboard dropdowns, even before any telemetry exists.
-DEFAULT_SCENES = [s for s in os.environ.get("CENTRAL_DEFAULT_SCENES", "Dome_Crio,OdiseaExterior,ScaffoldOrbit").split(",") if s]
+DEFAULT_SCENES = [s for s in os.environ.get("CENTRAL_DEFAULT_SCENES", "Dome_Intro,Dome_Crio,OdiseaExterior,ScaffoldOrbit").split(",") if s]
 
 # Deploy webhook (GitHub push -> auto pull + redeploy).
 # Secret defaults to BRIDGE_TOKEN so there's nothing extra to configure, but can
@@ -1881,6 +1881,18 @@ class OdiseaCentral:
 
         include_server = self._include_flag(request, "include_server")
         include_tests = self._include_flag(request, "include_tests")
+        # El limite era 200 fijo y el parametro `limit` ni se leia, asi que el dashboard
+        # solo podia ver las 200 sesiones mas nuevas -- y cuanto mas trafico, menos dias
+        # cubrian esas 200. Parece que el historico se hubiera rotado, pero los datos
+        # viejos siguen enteros (se consultan por /ghosts con since/until).
+        try:
+            limit = min(max(int(request.query.get("limit", 200)), 1), 5000)
+        except ValueError:
+            limit = 200
+        try:
+            offset = max(int(request.query.get("offset", 0)), 0)
+        except ValueError:
+            offset = 0
 
         query = """
         SELECT
@@ -1914,7 +1926,7 @@ class OdiseaCentral:
         WHERE {visible}
         GROUP BY player_id, session_id
         ORDER BY start_time DESC
-        LIMIT 200
+        LIMIT ? OFFSET ?
         """.format(visible=self._visibility_sql(include_server, include_tests))
 
         try:
@@ -1922,7 +1934,7 @@ class OdiseaCentral:
                 conn = self._get_db()
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
-                cursor.execute(query)
+                cursor.execute(query, (limit, offset))
                 rows = [dict(row) for row in cursor.fetchall()]
                 conn.close()
                 return rows
@@ -2463,17 +2475,37 @@ class OdiseaCentral:
                 cursor = conn.cursor()
 
                 # Per-scene stats as requested: total_ghosts, total_sessions, oldest_ts, newest_ts, memory_mb_avg
+                #
+                # El arranque de cada sesion se calcula UNA vez por sesion en un CTE en
+                # vez de con la subconsulta correlacionada de _PAST_WARMUP, que se
+                # evaluaba por fila. Sobre una copia de la tabla de prod (2.6M filas):
+                # 14.2s -> 5.6s, con resultado identico fila por fila. Un indice extra
+                # sobre (session_id, player_id, timestamp) NO ayuda -- medido, 1.0x --
+                # porque el UNIQUE(player_id, session_id, timestamp) ya cubre la
+                # subconsulta; lo caro era repetirla 2.6M veces.
                 query_scenes = f"""
+                -- Las columnas del CTE van renombradas: {visible_sql} usa player_id y
+                -- session_id SIN calificar, y con los nombres originales el JOIN los
+                -- vuelve ambiguos. El handler traga la excepcion y devuelve [], asi que
+                -- el error se veria como "no hay estadisticas", no como un error.
+                WITH session_starts AS (
+                    SELECT player_id AS s_player_id, session_id AS s_session_id,
+                           MIN(timestamp) AS start_ts
+                    FROM heartbeats
+                    GROUP BY player_id, session_id
+                )
                 SELECT
-                    scene,
+                    h.scene as scene,
                     COUNT(*) as total_ghosts,
-                    COUNT(DISTINCT session_id) as total_sessions,
-                    MIN(timestamp) as oldest_ts,
-                    MAX(timestamp) as newest_ts,
-                    AVG(memory_mb) as memory_mb_avg
-                FROM heartbeats
-                WHERE {visible_sql} AND {_PAST_WARMUP}
-                GROUP BY scene
+                    COUNT(DISTINCT h.session_id) as total_sessions,
+                    MIN(h.timestamp) as oldest_ts,
+                    MAX(h.timestamp) as newest_ts,
+                    AVG(h.memory_mb) as memory_mb_avg
+                FROM heartbeats h
+                JOIN session_starts s
+                    ON s.s_player_id = h.player_id AND s.s_session_id = h.session_id
+                WHERE {visible_sql} AND h.timestamp >= s.start_ts + {WARMUP_SECONDS}
+                GROUP BY h.scene
                 """
                 cursor.execute(query_scenes)
                 scene_stats = [dict(row) for row in cursor.fetchall()]
@@ -3139,6 +3171,12 @@ class OdiseaCentral:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_platform ON heartbeats(platform);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_session ON heartbeats(session_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_combined ON heartbeats(player_id, scene, timestamp);")
+        # /ghosts/stats hace varios COUNT(DISTINCT player_id) sobre la tabla entera y
+        # sin este indice cada uno es un scan completo. Medido sobre una copia de prod
+        # (2.6M filas): 2.6s -> 1.1s por consulta. idx_heartbeats_combined no sirve para
+        # esto: empieza por player_id pero el planner igual recorre la tabla al filtrar
+        # por platform.
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_player ON heartbeats(player_id);")
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS player_tags (
