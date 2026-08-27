@@ -144,6 +144,8 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
         <div className="flex flex-col gap-2 border-x-4 border-b-4 border-black bg-bg-primary/40 p-2 sm:p-3">
           {visibleSessions.map((s, idx) => {
             const avgFps = Number(s.avg_fps) || 0;
+            // Solo lo traen las filas vivas fusionadas (ver el merge en App.tsx).
+            const fpsNow = s.fps_now == null ? null : Number(s.fps_now);
             const tone = perfTone(avgFps);
             const scenesVisited = sceneCount(s.scenes_visited);
             const isSelected = selectedSessionId && s.session_id === selectedSessionId;
@@ -226,8 +228,19 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                     )}
                   </span>
                 </span>
-                <span className={`shrink-0 border-2 px-2 py-1 text-[0.625rem] font-black ${tone.badge}`}>
-                  {avgFps.toFixed(1)}
+                {/* El badge es SIEMPRE el promedio de la sesion, viva o no. En una sesion
+                    viva el valor del instante va al lado y se lee como tal: mezclarlos en
+                    el mismo numero era justo la ambiguedad -- ordenar por FPS comparaba
+                    promedios contra fotos de un frame. */}
+                <span className="flex shrink-0 items-center gap-1">
+                  {s.live && fpsNow != null && (
+                    <span className="text-[0.5625rem] font-mono text-text-muted" title="FPS ahora mismo">
+                      {fpsNow.toFixed(0)} ahora
+                    </span>
+                  )}
+                  <span className={`border-2 px-2 py-1 text-[0.625rem] font-black ${tone.badge}`} title="FPS promedio de la sesión">
+                    {avgFps.toFixed(1)}
+                  </span>
                 </span>
                 {onPlayHotzone && sessionHotzones.length > 0 && (
                   <button
@@ -279,6 +292,9 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                     <SessionMeta label="Escena(s)" value={scenesVisited} />
                     <SessionMeta label="Plataforma" value={platMeta?.label || plat || 'unknown'} />
                     <SessionMeta label="Avg FPS" value={avgFps.toFixed(1)} />
+                {s.live && fpsNow != null && (
+                  <SessionMeta label="FPS ahora" value={fpsNow.toFixed(0)} />
+                )}
                     <SessionMeta
                       label={s.live ? 'Uptime' : 'Duración'}
                       value={s.live
