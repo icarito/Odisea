@@ -73,6 +73,11 @@ export(float) var climb_hand_ik_upper_arm_weight = 0.0
 export(float) var climb_hand_ik_forearm_weight = 0.18
 export(float) var climb_hand_ik_max_step_deg = 4.0
 export(bool) var enable_climbing_ik = false
+# --- HEAD LOOK ---
+export(bool) var enable_head_look = true
+export(float) var head_look_yaw_limit_deg = 55.0
+export(float) var head_look_pitch_limit_deg = 35.0
+export(float) var head_look_lerp_speed = 8.0
 # Duración en segundos durante la cual consideramos que el salto acaba de iniciarse (buffer)
 export var jump_buffer_duration: float = 0.18
 export var debug_push_gizmo: bool = false
@@ -88,6 +93,9 @@ var _debug_sphere: MeshInstance = null
 var _hand_l_gizmo: MeshInstance = null
 var _hand_r_gizmo: MeshInstance = null
 var _skeleton: Skeleton = null
+var _head_look_yaw := 0.0
+var _head_look_pitch := 0.0
+var _head_look_active := false
 var _skeleton_base_translation := Vector3.ZERO
 var _skeleton_base_basis := Basis()
 onready var jump_sfx: SFXComponentV2 = get_node_or_null("JumpSFX")
@@ -578,6 +586,8 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 	else:
 		_clear_hand_ik_overrides()
 
+	_update_head_look(is_climbing or is_hanging)
+
 	# Selección entre JumpLoop y FloatLoop: usar JumpLoop si saltamos recientemente
 	# o si hay entrada de movimiento significativa.
 	var use_jump_loop: bool = (time_since_jump < 0.25) or (move_vec_length > 0.3)
@@ -773,6 +783,51 @@ func _clear_hand_chain_override(bone_name: String) -> void:
 		var upper_arm_idx = _skeleton.get_bone_parent(forearm_idx)
 		if upper_arm_idx != -1:
 			_clear_bone_override(upper_arm_idx)
+
+func _update_head_look(suppressed: bool) -> void:
+	if not _skeleton:
+		return
+	var head_idx = _skeleton.find_bone("DEF-head")
+	if head_idx == -1:
+		return
+
+	var camera = get_viewport().get_camera() if is_inside_tree() else null
+	if suppressed or not enable_head_look or camera == null:
+		if _head_look_active:
+			_clear_bone_override(head_idx)
+			_head_look_active = false
+			_head_look_yaw = 0.0
+			_head_look_pitch = 0.0
+		return
+
+	# Marco del cuerpo en espacio del esqueleto. El modelo mira hacia +Z del pivot
+	# (misma convencion que _get_multi_tool_forward en PlayerControllerV2).
+	var skel_basis_inv: Basis = _skeleton.global_transform.basis.inverse()
+	var fwd: Vector3 = (skel_basis_inv * global_transform.basis.z).normalized()
+	var up: Vector3 = (skel_basis_inv * global_transform.basis.y).normalized()
+	var right: Vector3 = up.cross(fwd).normalized()
+
+	var aim: Vector3 = (skel_basis_inv * -camera.global_transform.basis.z).normalized()
+	var target_yaw := 0.0
+	var target_pitch := 0.0
+	# Con la camara detras, atan2 salta entre +PI y -PI y el clamp haria que la cabeza
+	# se tire de un limite al otro. En ese caso la devolvemos a neutro.
+	if aim.dot(fwd) > 0.0:
+		target_yaw = clamp(atan2(aim.dot(right), aim.dot(fwd)), -deg2rad(head_look_yaw_limit_deg), deg2rad(head_look_yaw_limit_deg))
+		target_pitch = clamp(asin(clamp(aim.dot(up), -1.0, 1.0)), -deg2rad(head_look_pitch_limit_deg), deg2rad(head_look_pitch_limit_deg))
+
+	var t: float = clamp(head_look_lerp_speed * _last_anim_dt, 0.0, 1.0)
+	_head_look_yaw = lerp(_head_look_yaw, target_yaw, t)
+	_head_look_pitch = lerp(_head_look_pitch, target_pitch, t)
+
+	# Aditivo sobre la pose animada: gira la cabeza en su sitio, sin alinear ningun eje
+	# del hueso (DEF-headtip apunta a la coronilla, no a la mirada).
+	# no_override: get_bone_global_pose() ya trae el override del frame anterior, y
+	# rotarlo otra vez acumula sin limite.
+	var pose: Transform = _skeleton.get_bone_global_pose_no_override(head_idx)
+	pose.basis = Basis(up, _head_look_yaw) * Basis(right, -_head_look_pitch) * pose.basis
+	_skeleton.set_bone_global_pose_override(head_idx, pose, 1.0, true)
+	_head_look_active = true
 
 func _clear_bone_override(bone_idx: int) -> void:
 	if bone_idx < 0:

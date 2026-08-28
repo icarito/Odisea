@@ -1,4 +1,4 @@
-[gd_scene load_steps=246 format=2]
+[gd_scene load_steps=245 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
