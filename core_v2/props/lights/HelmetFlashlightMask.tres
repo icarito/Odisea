@@ -1,0 +1,5 @@
+[gd_resource type="StreamTexture" format=2]
+
+[resource]
+flags = 7
+load_path = "res://core_v2/props/lights/HelmetFlashlightMask.png"
