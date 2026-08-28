@@ -41,6 +41,7 @@ shader_param/freeze_min_y = -1.05
 shader_param/freeze_max_y = 1.25
 shader_param/freeze_front_softness = 0.14
 shader_param/self_illum = 0.5
+shader_param/holo_dither_amount = 0.0
 shader_param/albedo_texture = ExtResource( 68 )
 shader_param/normal_texture = ExtResource( 69 )
 shader_param/roughness_texture = ExtResource( 70 )

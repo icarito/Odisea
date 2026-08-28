@@ -95,6 +95,12 @@ float bayer4(vec2 p) {
 }
 
 void fragment() {
+	// cull_disabled draws both faces of a single-sided flat quad (the grate
+	// deck), but NORMAL is still whatever the front face had — a fragment
+	// seen from underneath needs it flipped, or lighting/reflections treat
+	// the surface as facing away from the viewer on that side (looks flat,
+	// no specular, no probe reflection) even though the front side is correct.
+	NORMAL = FRONT_FACING ? NORMAL : -NORMAL;
 	vec3 world_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 world_normal = normalize((CAMERA_MATRIX * vec4(NORMAL, 0.0)).xyz);
 

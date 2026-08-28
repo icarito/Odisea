@@ -446,10 +446,15 @@ func _build_materials() -> void:
 			clamp(grate_color.b * grate_brightness, 0.0, 1.0),
 			grate_color.a
 		)
-		# Let the base .tres metallic/roughness values through — they give the
-		# steel look. Only clamp to avoid going fully mirror-like.
-		g.metallic = clamp(g.metallic, 0.3, 0.9)
-		g.roughness = clamp(g.roughness, 0.35, 0.75)
+		# Steel deck should read as polished metal via DIRECT light specular —
+		# these interiors have no sky/ReflectionProbe, so anything above ~0.6
+		# metallic goes flat/dark everywhere a light isn't hitting it directly
+		# (metallic starves diffuse albedo in favor of reflections that, without
+		# an env source, aren't there). metallic_specular still boosts the
+		# direct-light highlight itself.
+		g.metallic = clamp(g.metallic, 0.45, 0.6)
+		g.roughness = clamp(g.roughness, 0.2, 0.35)
+		g.metallic_specular = 0.9
 
 	_fence_material = load("res://textures/trenchbroom/metal_fence_panel.tres").duplicate()
 	if not _fence_material:

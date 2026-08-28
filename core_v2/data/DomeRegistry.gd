@@ -72,6 +72,20 @@ var _registry := {
 		"display_name": "Criogenia",
 		"spawn_id_from_exterior": "from_dome_03",
 		"spawn_id_from_interior": "from_exterior_dome_03"
+	},
+	"dome_prologue": {
+		"interior_scene": "res://core_v2/levels/interiors/Dome_Prologue.tscn",
+		"facade_scene": "res://core_v2/levels/facades/DomeFacade_01.tscn",
+		"facade_lod_scene": "res://models/lod/DomeFacade_01_LOD.glb",
+		"facade_lod_mesh_node": "DomeLOD",
+		"facade_lod_scale": DEFAULT_FACADE_LOD_SCALE,
+		"facade_lod_spawn_offset": Vector3(0, 0.3, 0),
+		"facade_spawn_offset": Vector3(0, 0.3, 0),
+		"spiral_index": 0,
+		"plate_index": 3,
+		"display_name": "Prólogo",
+		"spawn_id_from_exterior": "from_dome_prologue",
+		"spawn_id_from_interior": "from_exterior_dome_prologue"
 	}
 }
 

@@ -398,16 +398,17 @@ func _is_occlusion_shader(shader: Shader) -> bool:
 
 
 func _can_apply_occlusion_dither(mat: SpatialMaterial) -> bool:
-	if mat.flags_transparent:
-		# El alpha scissor NO es transparencia real: recorta el fragmento y lo que
-		# queda se dibuja opaco. Godot 3 igual exige flags_transparent para
-		# habilitarlo, asi que rechazar todo flags_transparent dejaba fuera de la
-		# oclusion a las rejillas (steel grate) en toda la escena — decks de
-		# SteelGratePlatform, pisos de ScaffoldHubRing y los combinados horneados.
-		# El shader de dither ya implementa el scissor (use_alpha_scissor), solo
-		# que este gate impedia que llegara a usarse.
-		return mat.params_use_alpha_scissor
-	return true
+	# Godot 3 exige flags_transparent para el alpha scissor de las rejillas
+	# (steel grate, malla del ascensor), aunque el recorte no es transparencia
+	# real. Antes se aceptaba ese caso para incluirlas en la oclusion — pero
+	# confirmado en vivo: el material original SpatialMaterial refleja bien un
+	# ReflectionProbe, y el ShaderMaterial de dither convertido no, en rejillas
+	# CULL_DISABLED y CULL_BACK por igual (steel grate y la malla del ascensor).
+	# Causa aun no identificada; no parece ser el cull_mode. Se dejan con su
+	# SpatialMaterial original: pierden el fundido de oclusion camara-jugador,
+	# pero mallas/rejillas rara vez quedan entre camara y jugador de la forma
+	# que ese efecto existe para resolver.
+	return not mat.flags_transparent
 
 
 func _has_albedo_map(source: SpatialMaterial) -> bool:

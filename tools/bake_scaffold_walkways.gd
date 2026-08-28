@@ -167,7 +167,28 @@ func _bake_group(root: Node, group_name: String) -> void:
 		if mat != null:
 			mat = _save_shared_material(group_name, i, mat)
 			st.set_material(mat)
-		st.commit(combined)
+
+		# The grate deck surface must read as a walkable floor (normal facing
+		# up). generate_normals() derives direction purely from triangle
+		# winding, and some source instances (steep corner-height offsets, e.g.
+		# SpiralStairs' inclined decks) produce a winding that yields a
+		# downward normal even without a mirrored transform — the same failure
+		# mode as the HubSpokes mirror bug, different trigger. Rather than
+		# chase the exact winding rule for every corner-offset combination,
+		# just flip whatever comes out upside-down for this one surface type.
+		if mat is SpatialMaterial and (mat as SpatialMaterial).params_use_alpha_scissor:
+			var tmp := ArrayMesh.new()
+			st.commit(tmp)
+			var arrays: Array = tmp.surface_get_arrays(0)
+			var normals: PoolVector3Array = arrays[Mesh.ARRAY_NORMAL]
+			for v in range(normals.size()):
+				if normals[v].y < 0.0:
+					normals[v] = -normals[v]
+			arrays[Mesh.ARRAY_NORMAL] = normals
+			combined.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+			combined.surface_set_material(combined.get_surface_count() - 1, mat)
+		else:
+			st.commit(combined)
 
 	# Collision: reuse each platform's own CollisionShape resources (a clean
 	# ConvexPolygonShape per deck plus a few CylinderShapes per leg) instead of
@@ -414,15 +435,36 @@ func _append_transformed_surface(st: SurfaceTool, mesh: Mesh, surf_idx: int, xfo
 	var tangents = arrays[Mesh.ARRAY_TANGENT]
 	var indices = arrays[Mesh.ARRAY_INDEX]
 	var normal_basis: Basis = xform.basis.inverse().transposed()
+	# Un source instance mirrorado (determinante negativo, p.ej. los Spoke_N de
+	# HubSpokes) invierte el handedness: el mismo orden de vertices que antes
+	# daba una cara "de frente" ahora da una cara "de espaldas" en espacio de
+	# mundo. Las normales explicitas de _add_vertex ya lo compensan bien (la
+	# formula inversa-transpuesta es correcta para reflexiones), pero el
+	# generate_normals() de mas abajo las pisa por completo y las recalcula
+	# SOLO a partir del winding — asi que si el winding no se invierte aca, esas
+	# normales recalculadas quedan mirando para el lado que no es. Invertir el
+	# orden de cada triangulo deja el winding consistente para ese paso.
+	var flip_winding: bool = xform.basis.determinant() < 0.0
 
 	if indices != null and (indices as PoolIntArray).size() > 0:
-		for idx in (indices as PoolIntArray):
-			_add_vertex(st, verts[idx], normals[idx] if normals != null else null,
-				uvs[idx] if uvs != null else null, tangents, idx, xform, normal_basis, uv_scale, uv_offset)
+		var idx_array := indices as PoolIntArray
+		var tri_count := idx_array.size() / 3
+		for t in range(tri_count):
+			var i0 := t * 3
+			var order = [0, 2, 1] if flip_winding else [0, 1, 2]
+			for o in order:
+				var idx: int = idx_array[i0 + o]
+				_add_vertex(st, verts[idx], normals[idx] if normals != null else null,
+					uvs[idx] if uvs != null else null, tangents, idx, xform, normal_basis, uv_scale, uv_offset)
 	else:
-		for i in range(verts.size()):
-			_add_vertex(st, verts[i], normals[i] if normals != null else null,
-				uvs[i] if uvs != null else null, tangents, i, xform, normal_basis, uv_scale, uv_offset)
+		var tri_count := verts.size() / 3
+		for t in range(tri_count):
+			var i0 := t * 3
+			var order = [0, 2, 1] if flip_winding else [0, 1, 2]
+			for o in order:
+				var i: int = i0 + o
+				_add_vertex(st, verts[i], normals[i] if normals != null else null,
+					uvs[i] if uvs != null else null, tangents, i, xform, normal_basis, uv_scale, uv_offset)
 
 func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, tangents, source_index: int, xform: Transform, normal_basis: Basis,
 		uv_scale: Vector2 = Vector2(1, 1), uv_offset: Vector2 = Vector2(0, 0)) -> void:
