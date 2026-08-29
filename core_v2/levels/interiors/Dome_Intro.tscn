@@ -909,12 +909,12 @@ branches = {
 
 [sub_resource type="ShaderMaterial" id=252]
 shader = ExtResource( 19 )
-shader_param/albedo = Color( 0.878431, 0.94902, 1, 0.619608 )
-shader_param/deep_color = Color( 0.14, 0.3, 0.46, 1 )
-shader_param/crack_strength = 0.44
-shader_param/opacity = 0.4
-shader_param/freeze_progress = 0.32
-shader_param/emission_boost = 0.2
+shader_param/albedo = Color( 0.88, 0.95, 1, 0.62 )
+shader_param/deep_color = Color( 0.141176, 0.301961, 0.458824, 1 )
+shader_param/crack_strength = 0.36
+shader_param/opacity = 0.56
+shader_param/freeze_progress = 0.238
+shader_param/emission_boost = 0.0
 shader_param/texture_scale = 0.115
 shader_param/uv_offset = Vector2( 0, 0 )
 shader_param/surface_radius = 31.45
@@ -4063,11 +4063,11 @@ transform = Transform( 0.149173, 0, -0.988811, 0, 1, 0, 0.988811, 0, 0.149173, 7
 shape = ExtResource( 349 )
 
 [node name="IceLevel" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 script = ExtResource( 16 )
 start_height = 0.0
 auto_start = false
 debug_draw = false
+draw_frost_ceiling = true
 room_path = NodePath("../Dome_Base/DomeRoom3D")
 evap_contamination_rate = 0.02
 
@@ -4084,7 +4084,6 @@ unit_size = 12.0
 max_distance = 60.0
 
 [node name="IceSurface" type="MeshInstance" parent="IceLevel"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0 )
 visible = false
 sorting_offset = 100.0
 material_override = SubResource( 252 )

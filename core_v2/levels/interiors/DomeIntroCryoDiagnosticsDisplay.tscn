@@ -9,7 +9,7 @@ extents = Vector3( 1.5, 2, 1.5 )
 [node name="HangingDisplay" instance=ExtResource( 1 )]
 is_interactable = true
 screen_resolution = Vector2( 1280, 816 )
-active = true
+starts_active = true
 static_content = true
 
 [node name="HoloParticles" parent="ProjectorMesh" index="0"]
