@@ -110,7 +110,6 @@ target_airlock_path = NodePath("Airlock_West")
 zone_dir = Vector3( 0, 0, 1 )
 
 [node name="Lighting" type="Spatial" parent="."]
-visible = false
 
 [node name="OmniLight" type="OmniLight" parent="Lighting"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, 0 )

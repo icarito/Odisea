@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=2]
+[gd_scene load_steps=37 format=2]
 
 [ext_resource path="res://core_v2/player/PlayerControllerV2.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/actors/PilotAnimatorV2.gd" type="Script" id=3]
@@ -20,7 +20,32 @@
 [ext_resource path="res://core_v2/player/OverTheShoulder.gd" type="Script" id=63]
 [ext_resource path="res://core_v2/player/ZeroGravitySettings.gd" type="Script" id=65]
 [ext_resource path="res://core_v2/player/effects/PilotDamageFX.gd" type="Script" id=66]
+[ext_resource path="res://core_v2/player/shaders/pilot_damage.shader" type="Shader" id=67]
+[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_diff_1k.png" type="Texture" id=68]
+[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_nor_gl_1k.png" type="Texture" id=69]
+[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_rough_1k.png" type="Texture" id=70]
+[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_ao_1k.png" type="Texture" id=71]
 [ext_resource path="res://core_v2/props/lights/HelmetFlashlight.tscn" type="PackedScene" id=72]
+
+[sub_resource type="ShaderMaterial" id=121]
+shader = ExtResource( 67 )
+shader_param/normal_scale = 1.0
+shader_param/base_color = Color( 1, 1, 1, 1 )
+shader_param/frost_color = Color( 0.96, 0.98, 1, 1 )
+shader_param/crack_color = Color( 1, 1, 1, 1 )
+shader_param/base_metallic = 0.22
+shader_param/base_roughness = 0.9
+shader_param/damage_amount = 0.0
+shader_param/pulse = 0.0
+shader_param/crack_density = 11.0
+shader_param/freeze_min_y = -1.05
+shader_param/freeze_max_y = 1.25
+shader_param/freeze_front_softness = 0.14
+shader_param/self_illum = 0.5
+shader_param/albedo_texture = ExtResource( 68 )
+shader_param/normal_texture = ExtResource( 69 )
+shader_param/roughness_texture = ExtResource( 70 )
+shader_param/ao_texture = ExtResource( 71 )
 
 [sub_resource type="SpatialMaterial" id=122]
 flags_transparent = true
@@ -138,6 +163,9 @@ climb_visual_lateral_offset = 0.12
 
 [node name="Skeleton" parent="Visual/Pivot" instance=ExtResource( 9 )]
 
+[node name="Mesh_0001" parent="Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton" index="0"]
+material/0 = SubResource( 121 )
+
 [node name="AnimationPlayer" parent="Visual/Pivot/Skeleton" index="1"]
 reset_on_save = false
 playback_default_blend_time = 0.5
@@ -147,6 +175,7 @@ script = ExtResource( 66 )
 
 [node name="DamageMist" type="CPUParticles" parent="Visual/Pivot/DamageFX"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0 )
+cast_shadow = 0
 emitting = false
 amount = 54
 lifetime = 1.6
@@ -164,6 +193,7 @@ color = Color( 0.99, 0.995, 1, 0.42 )
 
 [node name="FootFrostMist" type="CPUParticles" parent="Visual/Pivot/DamageFX"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0 )
+cast_shadow = 0
 emitting = false
 preprocess = 0.08
 mesh = SubResource( 124 )
@@ -273,6 +303,7 @@ far = 10000.0
 
 [node name="SpaceDust" type="CPUParticles" parent="CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera"]
 transform = Transform( -1, -3.54569e-08, 1.46774e-07, 4.26326e-14, 0.972039, 0.23482, -1.50996e-07, 0.23482, -0.972039, 4.1845e-08, -0.377084, -0.277126 )
+cast_shadow = 0
 amount = 50
 local_coords = false
 mesh = SubResource( 66 )
@@ -285,8 +316,7 @@ initial_velocity_random = 0.6
 color = Color( 0.172549, 0.607843, 0.615686, 1 )
 
 [node name="HelmetFlashlight" parent="." instance=ExtResource( 72 )]
-spot_angle = 40.0
-scan_mode = true
+spot_angle = 22.0
 shadow_enabled = true
 
 [node name="GroundRay" type="RayCast" parent="."]

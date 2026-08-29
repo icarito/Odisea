@@ -31,5 +31,4 @@ glow_intensity = 1.0
 glow_bloom = 1.0
 glow_blend_mode = 0
 glow_hdr_threshold = 0.9
-adjustment_enabled = true
 adjustment_brightness = 0.5

@@ -816,7 +816,8 @@ func _update_head_look(suppressed: bool) -> void:
 		target_yaw = clamp(atan2(aim.dot(right), aim.dot(fwd)), -deg2rad(head_look_yaw_limit_deg), deg2rad(head_look_yaw_limit_deg))
 		target_pitch = clamp(asin(clamp(aim.dot(up), -1.0, 1.0)), -deg2rad(head_look_pitch_limit_deg), deg2rad(head_look_pitch_limit_deg))
 
-	var t: float = clamp(head_look_lerp_speed * _last_anim_dt, 0.0, 1.0)
+	# 1 - exp(-k*dt): identico a cualquier dt, a diferencia de clamp(k*dt).
+	var t: float = 1.0 - exp(-head_look_lerp_speed * _last_anim_dt)
 	_head_look_yaw = lerp(_head_look_yaw, target_yaw, t)
 	_head_look_pitch = lerp(_head_look_pitch, target_pitch, t)
 
