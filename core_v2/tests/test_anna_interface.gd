@@ -96,6 +96,7 @@ func _setup_rl_context(runner) -> Dictionary:
 
 	var anna = AnnaInterface.new()
 	scene.add_child(anna)
+	anna.set_controlled_player(pilot)
 	yield (runner.simulate_frames(2), "completed")
 
 	var target = Area.new()
@@ -152,14 +153,11 @@ func test_anna_special_scene_has_required_layout() -> void:
 	assert_bool(near.global_transform.origin.z > 0.0).is_true()
 
 func test_anna_interface_returns_fallback_collisions_without_player() -> void:
-	var sm = get_node_or_null("/root/SessionManager")
-	assert_object(sm).is_not_null()
-
-	var previous_player = sm.player
-	sm.player = null
-
 	var anna = AnnaInterface.new()
 	get_tree().root.add_child(anna)
+	var unusable_player := Node.new()
+	get_tree().root.add_child(unusable_player)
+	anna.set_controlled_player(unusable_player)
 	yield (get_tree(), "idle_frame")
 
 	var obs = anna.get_observation()
@@ -169,7 +167,7 @@ func test_anna_interface_returns_fallback_collisions_without_player() -> void:
 	for dist in obs["collisions"]:
 		assert_float(float(dist)).is_equal(20.0)
 
-	sm.player = previous_player
+	yield (_free_node(unusable_player), "completed")
 	yield (_free_node(anna), "completed")
 
 func test_anna_interface_detects_nearby_interactable_and_applies_recorded_input() -> void:
@@ -193,6 +191,7 @@ func test_anna_interface_detects_nearby_interactable_and_applies_recorded_input(
 
 	var anna = AnnaInterface.new()
 	scene.add_child(anna)
+	anna.set_controlled_player(pilot)
 	yield (runner.simulate_frames(2), "completed")
 
 	var obs = anna.get_observation()
@@ -704,6 +703,7 @@ func test_rl_scene_choose_episode_override_is_applied() -> void:
 
 	var anna = AnnaInterface.new()
 	scene.add_child(anna)
+	anna.set_controlled_player(pilot)
 	yield (runner.simulate_frames(2), "completed")
 
 	anna.reset_simulation()
@@ -738,11 +738,11 @@ func test_rl_spawn_random_yaw_toggle_controls_reset_heading() -> void:
 
 	var anna = AnnaInterface.new()
 	scene.add_child(anna)
+	anna.set_controlled_player(pilot)
 	yield (runner.simulate_frames(2), "completed")
 
 	anna._rl_spawn_random_yaw = false
 	anna.reset_simulation()
-	yield (runner.simulate_frames(1), "completed")
 	var yaw_fixed = pilot.global_transform.basis.get_euler().y
 	assert_float(abs(yaw_fixed)).is_less_equal(0.001)
 
@@ -750,7 +750,6 @@ func test_rl_spawn_random_yaw_toggle_controls_reset_heading() -> void:
 	var seen_non_zero := false
 	for _i in range(6):
 		anna.reset_simulation()
-		yield (runner.simulate_frames(1), "completed")
 		var yaw_now = pilot.global_transform.basis.get_euler().y
 		if abs(yaw_now) > 0.05:
 			seen_non_zero = true

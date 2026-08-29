@@ -33,19 +33,18 @@ func step(_dt: float):
 	if Engine.editor_hint: return
 
 	var bodies = get_overlapping_bodies()
-	var global_wind = global_transform.basis.xform(wind_velocity)
 	for body in bodies:
-		if not is_instance_valid(body):
-			continue
-		if body.has_method("set_external_velocity"):
-			body.set_external_velocity(global_wind)
-			if body.has_method("set_external_source_is_static"):
-				# Treat wind as a DYNAMIC flow field (conveyor-like)
-				# This ensures PlayerControllerV2 applies it even when on the floor (overcoming friction)
-				body.set_external_source_is_static(false)
-		elif body is RigidBody:
-			if (body as RigidBody).mode != RigidBody.MODE_STATIC:
-				(body as RigidBody).apply_central_impulse(global_wind * _dt)
+		_apply_wind_to_body(body, _dt)
+
+func _apply_wind_to_body(body: Node, dt: float) -> void:
+	if not is_instance_valid(body): return
+	var global_wind := global_transform.basis.xform(wind_velocity)
+	if body.has_method("set_external_velocity"):
+		body.set_external_velocity(global_wind)
+		if body.has_method("set_external_source_is_static"):
+			body.set_external_source_is_static(false)
+	elif body is RigidBody and (body as RigidBody).mode != RigidBody.MODE_STATIC:
+		(body as RigidBody).apply_central_impulse(global_wind * dt)
 
 func _physics_process(delta):
 	step(delta)

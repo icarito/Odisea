@@ -6,6 +6,7 @@ const PlayerControllerScript = preload("res://core_v2/player/PlayerControllerV2.
 func _setup_root() -> Node:
 	var root := Spatial.new()
 	root.name = "PlayerCrouchCollisionRoot"
+	root.translation = Vector3(10000.0, 10000.0, 10000.0)
 	get_tree().root.add_child(root)
 	return root
 

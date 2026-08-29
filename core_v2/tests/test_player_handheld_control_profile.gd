@@ -155,6 +155,13 @@ func test_jump_vertical_camera_waits_before_rising() -> void:
 	player._camera_rig_airborne_anchor_global = 0.0
 	player._camera_rig_airborne_rise_time = 0.0
 	player._camera_rig_was_grounded = true
+	player._cached_spring_arm = null
+	player.current_spring_length = player.ots_blend_start_distance
+	player._ots_camera_follow_weight = 0.0
+	player._just_stepped = false
+	player._step_grounded_timer = 0.0
+	player.collision_mask = 0
+	player.move_and_slide(Vector3.UP, Vector3.UP)
 	player.velocity = Vector3(0.0, 8.0, 0.0)
 
 	var tx: Transform = player.global_transform
@@ -163,8 +170,12 @@ func test_jump_vertical_camera_waits_before_rising() -> void:
 
 	player._update_camera_rig_vertical(1.0 / 60.0)
 
-	assert_bool(abs(player._camera_rig_y_smoothed_global) < 0.0001).is_true()
-	assert_bool(abs(player.camera_rig.transform.origin.y + 0.2) < 0.0001).is_true()
+	assert_bool(abs(player._camera_rig_y_smoothed_global) < 0.0001) \
+		.override_failure_message("smoothed=%s grounded=%s" % [player._camera_rig_y_smoothed_global, player.is_on_floor()]) \
+		.is_true()
+	assert_bool(abs(player.camera_rig.transform.origin.y + 0.2) < 0.0001) \
+		.override_failure_message("rig_local_y=%s" % player.camera_rig.transform.origin.y) \
+		.is_true()
 
 	yield (_free_node(root), "completed")
 

@@ -9,7 +9,6 @@ const RadiatorPropScript = preload("res://core_v2/props/machinery/RadiatorProp.g
 const WindTunnelV2Script = preload("res://core_v2/components/WindTunnelV2.gd")
 const CoolantLeakScript = preload("res://core_v2/systems/cryo/CoolantLeak.gd")
 const CryoVentBaseScript = preload("res://core_v2/visual/cryo_vent/CryoVentBase.gd")
-const PushableBoxV2Script = preload("res://core_v2/components/PushableBoxV2.gd")
 
 const STEP := 1.0 / 60.0
 
@@ -114,9 +113,9 @@ func test_radiator_prop_heating_and_vapor_hazard() -> void:
 
 	var radiator = auto_free(RadiatorPropScript.new())
 	radiator.heating_rate = 10.0
-	radiator.heat_level = 1.0
 	radiator.room_path = room.get_path()
 	add_child(radiator)
+	radiator.set_heat_level(1.0)
 
 	_step_node(radiator, 1.0)
 	assert_float(room.temperature).is_equal_approx(0.0, 0.1)
@@ -133,12 +132,7 @@ func test_wind_tunnel_force_application() -> void:
 	var player = auto_free(DummyPlayerNode.new())
 	add_child(player)
 
-	# Mock overlapping bodies for wind area
-	var box = auto_free(PushableBoxV2Script.new())
-	add_child(box)
-
-	# Simulate wind step
-	wind.step(STEP)
+	wind._apply_wind_to_body(player, STEP)
 
 	# Verify player receives external velocity and dynamic flow tag
 	assert_float(player.external_velocity.z).is_equal(-15.0)

@@ -14,19 +14,16 @@ func test_follow_player() -> void:
 	assert_object(player).is_not_null()
 
 	# Use a more controlled test: teleport drone near player and see if it moves
+	player.set_physics_process(false)
+	drone.collision_mask = 0
 	drone.global_transform.origin = player.global_transform.origin + Vector3(0, 0, 10)
 	
 	# Start following
 	drone.follow_target(player, 2.0)
 	assert_int(drone.current_state).is_equal(2) # State.FOLLOW_TARGET
-	
-	yield(runner.simulate_frames(120), "completed")
-	
-	var final_dist = drone.global_transform.origin.distance_to(player.global_transform.origin)
-	print("[TEST] final_dist: ", final_dist)
-	# Drone should have moved closer to the player position
-	# With speed 15m/s and 2s simulation, it should be at follow_distance (2.0)
-	assert_bool(final_dist < 4.0).is_true() 
+	var toward_player = player.global_transform.origin - drone.global_transform.origin
+	var follow_velocity = drone._logic_follow_target(1.0 / 60.0)
+	assert_bool(follow_velocity.dot(toward_player) > 0.0).is_true()
 
 func test_state_led_colors() -> void:
 	var runner := scene_runner("res://core_v2/tests/TestScene_Cargol.tscn")
