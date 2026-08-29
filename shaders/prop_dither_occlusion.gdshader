@@ -90,6 +90,10 @@ float bayer4(vec2 p) {
 }
 
 void fragment() {
+	// cull_back means FRONT_FACING is always true here in practice, but keep
+	// this in sync with prop_dither_occlusion_double_sided.gdshader (see that
+	// file's header comment) rather than let the two drift apart again.
+	NORMAL = FRONT_FACING ? NORMAL : -NORMAL;
 	vec3 world_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	vec3 world_normal = normalize((CAMERA_MATRIX * vec4(NORMAL, 0.0)).xyz);
 

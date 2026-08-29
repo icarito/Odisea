@@ -1783,8 +1783,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           duration: 0,
           scenes_visited: p.scene ? [p.scene] : [],
           scene: p.scene,
+          // avg_* aca son un FALLBACK: valen solo mientras la sesion no tenga nada
+          // escrito en SQLite todavia. Apenas hay fila persistida, el merge de
+          // filteredHistoricalSessions la usa de base y estos quedan pisados por los
+          // promedios de verdad. El valor del instante vive aparte, en fps_now/mem_now,
+          // para que avg_fps no cambie de significado segun la fila.
           avg_fps: p.fps ?? 0,
           avg_mem: p.memory_mb ?? 0,
+          fps_now: p.fps ?? null,
+          mem_now: p.memory_mb ?? null,
           live: true,
         };
       })
@@ -1815,9 +1822,38 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const filteredHistoricalSessions = useMemo(() => {
     const liveIds = new Set(liveSessionRows.map((s) => s.session_id).filter(Boolean));
+    const persistedById = new Map<string, any>();
+    for (const s of historicalSessions) {
+      if (s.session_id) persistedById.set(s.session_id, s);
+    }
+    // Una sesion viva que ya tiene heartbeats en SQLite existe DOS veces y con dos
+    // verdades distintas: la persistida trae los agregados reales (promedio de fps,
+    // duracion, todas las escenas, version, commit) y la sintetizada del heartbeat trae
+    // solo el instante (duracion 0, escena actual, fps de un frame). Antes la viva
+    // reemplazaba a la persistida, asi que mientras la sesion estaba en curso la columna
+    // FPS dejaba de ser un promedio (y ordenar por FPS comparaba promedios contra fotos
+    // de un frame), el filtro por escena no veia las escenas anteriores, y la sesion
+    // aportaba 0 al tiempo jugado por escena. Ahora se fusionan: la persistida es la
+    // base y encima va solo lo que unicamente sabe el heartbeat.
     const merged = [
-      ...liveSessionRows,
-      // Drop persisted rows that are still live (avoid duplicate of the same session).
+      ...liveSessionRows.map((live) => {
+        const past = live.session_id ? persistedById.get(live.session_id) : undefined;
+        // Sesion recien arrancada: todavia no hay nada escrito, la viva es todo lo que hay.
+        if (!past) return live;
+        const scenes = Array.from(new Set([...sessionScenes(past), ...sessionScenes(live)]));
+        return {
+          ...past,
+          live: true,
+          scene: live.scene,
+          scenes_visited: scenes,
+          fps_now: live.fps_now,
+          mem_now: live.mem_now,
+          display_name: live.display_name || past.display_name,
+          color: live.color || past.color,
+          start_time: past.start_time ?? live.start_time,
+        };
+      }),
+      // Las persistidas que NO estan vivas van tal cual.
       ...historicalSessions.filter((s) => !liveIds.has(s.session_id)),
     ];
     // Min-duration excludes very short (bootup-only) sessions, but live rows

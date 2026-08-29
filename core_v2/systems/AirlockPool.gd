@@ -18,6 +18,19 @@ class_name AirlockPool
 const DISABLE_ENV := "ODISEA_DISABLE_AIRLOCK_POOL"
 const CHAMBER_SCENE := preload("res://core_v2/props/doors/AirlockChamber.tscn")
 
+# DISABLED: como estaba antes con enabled=false — ningun shell tiene mecanica, el domo
+#   no tiene salida.
+# SINGLE: exactamente un airlock funcional, en single_shell_path. Se monta una vez al
+#   arrancar y se queda ahi para siempre: no hay jugador que seguir ni distancia que
+#   revisar, asi que ni siquiera corre _physics_process. Para un nivel que solo necesita
+#   una salida, es mas barato que POOL (que igual paga el chequeo de distancia).
+# POOL: comportamiento original — un chamber compartido salta al shell mas cercano entre
+#   los que haya en la escena.
+enum Mode { DISABLED, SINGLE, POOL }
+export(Mode) var mode := Mode.POOL
+# Solo se usa en modo SINGLE. Relativo a este nodo (p.ej. "../Airlock_North").
+export(NodePath) var single_shell_path := NodePath()
+
 # Radio al que se monta el airlock completo. Tiene que superar con holgura lo que el jugador
 # recorra entre dos evaluaciones, o llegaria a la camara antes de que exista su interior.
 # En Dome_Intro los airlocks estan a radio ~32 del centro: pasado ese valor habria siempre
@@ -27,19 +40,16 @@ export(float, 5.0, 100.0, 1.0) var activation_distance := 18.0
 # quedarse justo en el limite no haga aparecer y desaparecer el interior.
 export(float, 1.0, 30.0, 1.0) var hysteresis := 6.0
 export(int, 1, 30) var frames_between_checks := 6
-# En true, el jugador que se acerca a cualquiera de los cuatro shells se encuentra con un
-# airlock completo y funcional, con su transicion a OdiseaExterior. Estuvo en false un
-# tiempo, cuando los cuatro airlocks de Dome_Intro estaban congelados y no se entraba a
-# ninguno: montar el interior era pagar por algo que nadie usaba. Pero con el pool apagado
-# el domo no tiene NINGUNA salida —los shells son cilindro y colision, sin mecanica—, y un
-# domo del que no se puede salir no es un nivel.
+# En POOL o SINGLE, el jugador se encuentra con un airlock completo y funcional, con su
+# transicion a OdiseaExterior. En DISABLED el domo no tiene NINGUNA salida —los shells son
+# cilindro y colision, sin mecanica—; usarlo solo si el nivel de verdad no necesita salida
+# (o la resuelve por otro medio), porque un domo del que no se puede salir no es un nivel.
 #
-# El costo: montar un airlock funcional cambia la fisica y la logica a su alrededor
+# El costo de POOL/SINGLE: montar un airlock funcional cambia la fisica y la logica a su alrededor
 # —aparecen sus dos Area y sus scripts, y AirlockZoneV2 toca la camara—, y eso degrada la
 # reproduccion exacta de un replay: medido, 0.13 m de drift montando contra 0.0015 m con
 # solo los shells. Si hace falta un replay exacto (un benchmark, un test de determinismo),
 # apagarlo por escena o exportar ODISEA_DISABLE_AIRLOCK_POOL=1.
-export(bool) var enabled := true
 
 var _shells := []
 var _chamber: Spatial = null
@@ -52,8 +62,8 @@ func _ready() -> void:
 	if Engine.editor_hint:
 		return
 	if OS.get_environment(DISABLE_ENV) in ["1", "true", "yes", "on"]:
-		enabled = false
-	if not enabled:
+		mode = Mode.DISABLED
+	if mode == Mode.DISABLED:
 		# Deshabilitado no debe instanciar nada. Antes se creaba igual el AirlockChamber
 		# completo y se aparcaba invisible: desperdicio, y ademas sus materiales quedaban
 		# registrados en PropDitherManager, que les escribe uniforms cada frame. Un shader
@@ -75,6 +85,17 @@ func _preparar() -> void:
 	# sin tener que componer jerarquias distintas.
 	var padre: Node = _shells[0].get_parent()
 	padre.add_child(_chamber)
+
+	if mode == Mode.SINGLE:
+		var unico: Spatial = get_node_or_null(single_shell_path) as Spatial
+		if unico != null and unico in _shells:
+			# Se monta una vez y se queda: no hay jugador que seguir ni distancia que
+			# revisar, asi que ni siquiera vale la pena correr _physics_process.
+			_montar(unico)
+			set_physics_process(false)
+			return
+		push_warning("AirlockPool: single_shell_path no resuelve a un shell valido; usando modo POOL.")
+
 	_desmontar()
 
 
@@ -97,7 +118,7 @@ func _buscar_shells() -> Array:
 
 
 func _physics_process(_delta: float) -> void:
-	if not enabled or _chamber == null:
+	if mode != Mode.POOL or _chamber == null:
 		return
 	_frames += 1
 	if _frames < frames_between_checks:
@@ -198,5 +219,5 @@ func get_stats() -> Dictionary:
 	return {
 		"shells": _shells.size(),
 		"montado": _montado.name if _montado != null and is_instance_valid(_montado) else "",
-		"enabled": enabled,
+		"mode": mode,
 	}

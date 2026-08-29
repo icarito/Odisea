@@ -258,7 +258,7 @@ func _build_compact_ring() -> void:
 	deck_tool.commit(mesh)
 	frame_tool.set_material(_compact_material(frame_color, 1.0))
 	frame_tool.commit(mesh)
-	rail_tool.set_material(_compact_material(rail_color, 1.0))
+	rail_tool.set_material(_compact_material(rail_color, 1.0, true))
 	rail_tool.commit(mesh)
 	if hazard_tool != null:
 		# La tira se posa siempre sobre el deck horizontal. No usar normales del
@@ -405,9 +405,39 @@ func _add_rail_edge(surface_tool: SurfaceTool, start: Vector3, end: Vector3, gap
 		var a: Vector3 = start.linear_interpolate(end, span.x)
 		var b: Vector3 = start.linear_interpolate(end, span.y)
 		for height_ratio in [0.0, 0.5, 1.0]:
-			_add_beam(surface_tool, a + Vector3.UP * rail_height * height_ratio, b + Vector3.UP * rail_height * height_ratio, tube_radius * 2.0)
-		_add_beam(surface_tool, a, a + Vector3.UP * rail_height, tube_radius * 2.0)
-		_add_beam(surface_tool, b, b + Vector3.UP * rail_height, tube_radius * 2.0)
+			_add_round_beam(surface_tool, a + Vector3.UP * rail_height * height_ratio, b + Vector3.UP * rail_height * height_ratio, tube_radius * 2.0)
+		_add_round_beam(surface_tool, a, a + Vector3.UP * rail_height, tube_radius * 2.0)
+		_add_round_beam(surface_tool, b, b + Vector3.UP * rail_height, tube_radius * 2.0)
+
+# Round tube cross-section for the rail (the ramp/stairs use an actual
+# CylinderMesh for this; the hub ring bakes everything into one combined
+# mesh via SurfaceTool, so this approximates the same round-tube look with
+# an N-sided prism instead of SteelGratePlatform's square _add_beam boxes).
+func _add_round_beam(surface_tool: SurfaceTool, start: Vector3, end: Vector3, diameter: float, sides: int = 10) -> void:
+	var direction: Vector3 = end - start
+	if direction.length_squared() <= 0.0001:
+		return
+	var y_axis: Vector3 = direction.normalized()
+	var helper: Vector3 = Vector3.FORWARD if abs(y_axis.dot(Vector3.UP)) > 0.99 else Vector3.UP
+	var x_axis: Vector3 = helper.cross(y_axis).normalized()
+	var z_axis: Vector3 = x_axis.cross(y_axis).normalized()
+	var radius := diameter * 0.5
+	var ring_start := []
+	var ring_end := []
+	for i in range(sides):
+		var angle := TAU * float(i) / float(sides)
+		var offset: Vector3 = x_axis * cos(angle) * radius + z_axis * sin(angle) * radius
+		ring_start.append(start + offset)
+		ring_end.append(end + offset)
+	for i in range(sides):
+		var j := (i + 1) % sides
+		_add_quad(surface_tool, ring_start[i], ring_start[j], ring_end[j], ring_end[i])
+		for point in [start, ring_start[j], ring_start[i]]:
+			surface_tool.add_uv(Vector2.ZERO)
+			surface_tool.add_vertex(point)
+		for point in [end, ring_end[i], ring_end[j]]:
+			surface_tool.add_uv(Vector2.ZERO)
+			surface_tool.add_vertex(point)
 
 func _add_beam(surface_tool: SurfaceTool, start: Vector3, end: Vector3, width: float) -> void:
 	var direction: Vector3 = end - start
@@ -452,15 +482,35 @@ func _grate_deck_material() -> Material:
 			clamp(grate_color.b * grate_brightness, 0.0, 1.0),
 			grate_color.a
 		)
-		g.metallic = clamp(g.metallic, 0.3, 0.9)
-		g.roughness = clamp(g.roughness, 0.35, 0.75)
+		# Match SteelGratePlatform.gd's grate treatment (ramp/stairs): these
+		# interiors have no sky/ReflectionProbe, so pushing metallic much past
+		# 0.6 goes flat/dark anywhere a direct light isn't hitting it.
+		g.metallic = clamp(g.metallic, 0.45, 0.6)
+		g.roughness = clamp(g.roughness, 0.2, 0.35)
+		g.metallic_specular = 0.9
 	return material
 
-func _compact_material(color: Color, brightness: float) -> SpatialMaterial:
+func _compact_material(color: Color, brightness: float, is_rail: bool = false) -> SpatialMaterial:
 	var material := SpatialMaterial.new()
 	material.albedo_color = Color(color.r * brightness, color.g * brightness, color.b * brightness, color.a)
-	material.roughness = 0.72
-	material.metallic = 0.65
+	if is_rail:
+		# Match SteelGratePlatform.gd's rail treatment (ramp/stairs): under mostly
+		# indirect/baked light, a fully metallic rail reads as gray regardless of
+		# albedo. Less metal + a tenue emission keep the hazard color visible.
+		material.metallic = 0.32
+		material.roughness = 0.44
+		material.emission_enabled = true
+		material.emission = material.albedo_color * 0.18
+		# ponytail: the hand-rolled beam builder (_add_prism_between/_add_quad)
+		# has a winding-order bug on some rail faces — invisible under the old
+		# dull/non-metallic look, but glaring now that it's shiny+emissive
+		# (you see the inner face instead of the outer one). Real fix is
+		# correcting the winding in _add_prism_between; this just disables
+		# culling so both faces draw and the near one wins on depth.
+		material.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	else:
+		material.roughness = 0.72
+		material.metallic = 0.65
 	return material
 
 # SteelGratePlatform is convenient authoring geometry but each instance expands
