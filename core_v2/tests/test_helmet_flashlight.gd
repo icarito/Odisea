@@ -18,9 +18,19 @@ func test_helmet_flashlight_instantiation_and_defaults():
 	# MobileLightBudget contract: range must be < 6.0m
 	assert_float(spot.spot_range).is_less(6.0)
 	assert_bool(spot.shadow_enabled).is_false()
-	assert_bool(flashlight.enabled).is_true()
-	assert_bool(spot.visible).is_true()
-	assert_bool(cone.visible).is_true()
+
+	# La linterna arranca APAGADA: el prologo abre a oscuras y encenderla es del jugador.
+	assert_bool(flashlight.enabled).is_false()
+	assert_bool(spot.visible).is_false()
+	assert_bool(cone.visible).is_false()
+
+	# El mesh del haz debe cerrar contra el disco iluminado: spot_angle en Godot es el
+	# SEMI-angulo, y usarlo como apertura total dejaba el cono a la mitad de ancho.
+	var far_radius: float = tan(deg2rad(spot.spot_angle)) * spot.spot_range
+	assert_float(cone.scale.x).is_equal_approx(far_radius, 0.001)
+	# ...y nacer en la lampara, no en la SpotLight adelantada por muzzle_offset.
+	var apex_z: float = cone.translation.z + cone.scale.y * 0.5
+	assert_float(apex_z).is_equal_approx(0.0, 0.001)
 
 
 func test_helmet_flashlight_toggle_visibility():
@@ -32,20 +42,22 @@ func test_helmet_flashlight_toggle_visibility():
 	var spot: SpotLight = flashlight.get_node("SpotLight")
 	var cone: MeshInstance = flashlight.get_node("VolumetricCone")
 
-	flashlight.toggle()
-	assert_bool(flashlight.enabled).is_false()
-	assert_bool(spot.visible).is_false()
-	assert_bool(cone.visible).is_false()
-
+	# Arranca apagada, asi que el primer toggle la enciende.
 	flashlight.toggle()
 	assert_bool(flashlight.enabled).is_true()
 	assert_bool(spot.visible).is_true()
 	assert_bool(cone.visible).is_true()
 
+	flashlight.toggle()
+	assert_bool(flashlight.enabled).is_false()
+	assert_bool(spot.visible).is_false()
+	assert_bool(cone.visible).is_false()
+
 
 func test_helmet_flashlight_scan_mode_scroll():
 	var packed: PackedScene = load("res://core_v2/props/lights/HelmetFlashlight.tscn")
 	var flashlight = auto_free(packed.instance())
+	flashlight.enabled = true # _process corta temprano si esta apagada
 	flashlight.scan_mode = true
 	flashlight.scan_speed = 3.0
 	add_child(flashlight)
