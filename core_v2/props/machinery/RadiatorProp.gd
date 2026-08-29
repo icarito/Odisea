@@ -16,7 +16,10 @@ export(float, 0.05, 1.0) var depth: float = 0.15 setget set_depth
 export(int, 2, 32) var fin_count: int = 12 setget set_fin_count
 export(int, 2, 16) var element_count: int = 5 setget set_element_count
 export(float, 0.0, 20.0) var max_emission_energy: float = 8.0 setget set_max_emission_energy
+export(NodePath) var room_path: NodePath
+export(float, 0.0, 50.0) var heating_rate: float = 5.0
 
+var _room: Node = null
 var _frame_mesh_node: MeshInstance = null
 var _fins_mesh_node: MeshInstance = null
 var _elements_mesh_node: MeshInstance = null
@@ -98,6 +101,26 @@ func get_heat_color(level: float) -> Color:
 	else:
 		var t: float = (level - 0.85) / 0.15
 		return Color(1.0, 0.7, 0.15, 1.0).linear_interpolate(Color(1.0, 0.95, 0.75, 1.0), t)
+
+func step(dt: float) -> void:
+	.step(dt)
+	_apply_room_heating(dt)
+
+func _wants_continuous_step() -> bool:
+	return heat_level > 0.001
+
+func _apply_room_heating(delta: float) -> void:
+	if heat_level <= 0.001 or heating_rate <= 0.0:
+		return
+	if _room == null:
+		if room_path != null and not room_path.is_empty():
+			_room = get_node_or_null(room_path)
+		else:
+			var rooms := get_tree().get_nodes_in_group("room_3d") if get_tree() else []
+			if not rooms.empty():
+				_room = rooms[0]
+	if is_instance_valid(_room) and _room.has_method("add_temperature"):
+		_room.call("add_temperature", heating_rate * heat_level * delta)
 
 func _update_visuals() -> void:
 	._update_visuals()
