@@ -14,7 +14,7 @@ func _step_lab(lab: Spatial, seconds: float) -> void:
 
 func _step_children_recursive(node: Node, dt: float) -> void:
 	for child in node.get_children():
-		if child.has_method("_physics_process") and not child.is_physics_processing():
+		if child.has_method("_physics_process"):
 			child.call("_physics_process", dt)
 		_step_children_recursive(child, dt)
 
