@@ -80,8 +80,8 @@ func test_threshold_crossings_and_signals() -> void:
 	room.set_temperature(-10.0)
 	assert_int(freezing_signals[0]).is_equal(1)
 
-	# 2) Temperature drops to lethal cold (<= -25.0)
-	room.set_temperature(-30.0)
+	# 2) Temperature drops to lethal cold (<= -50.0)
+	room.set_temperature(-55.0)
 	assert_bool(room.is_lethal_cold()).is_true()
 	assert_int(lethal_signals[0]).is_equal(1)
 

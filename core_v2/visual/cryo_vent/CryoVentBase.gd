@@ -23,6 +23,9 @@ func set_color_phase(val: float) -> void:
 func _update_active_state() -> void:
 	visible = is_active
 
+func _ready() -> void:
+	add_to_group("cryo_vent")
+
 func _update_intensity() -> void:
 	pass
 
