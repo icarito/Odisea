@@ -77,8 +77,17 @@ func test_volumetric_cone_shader_backwards_compatibility():
 	var shader: Shader = load("res://core_v2/visual/volumetric_cone.shader")
 	assert_object(shader).is_not_null()
 
-	var mat: ShaderMaterial = ShaderMaterial.new()
-	mat.shader = shader
-	mat.set_shader_param("use_mask", false)
+	# El binario headless de CI usa el rasterizer dummy (ver test_leak_fissure_visual.gd):
+	# un ShaderMaterial.new() no registra uniforms, asi que get_shader_param() devuelve
+	# null incluso recien seteado. get_code() TAMPOCO sirve: pasa por el VisualServer y
+	# ahi vuelve vacio. Se lee el archivo, que es puro filesystem.
+	var f := File.new()
+	assert_int(f.open("res://core_v2/visual/volumetric_cone.shader", File.READ)).is_equal(OK)
+	var code: String = f.get_as_text()
+	f.close()
 
-	assert_bool(mat.get_shader_param("use_mask")).is_false()
+	# SearchLightV2 comparte este shader: las extensiones tienen que ser OPCIONALES, o sea
+	# que sus defaults deben ser no-op para quien no las asigna.
+	assert_bool(code.find("uniform bool use_mask = false;") != -1).is_true()
+	assert_bool(code.find("uniform float uv_length_scale : hint_range(0.5, 4.0) = 1.0;") != -1).is_true()
+	assert_bool(code.find("uniform float edge_softness : hint_range(0.0, 1.0) = 0.0;") != -1).is_true()
