@@ -149,6 +149,7 @@ godot3-bin --no-window -s tools/qodot_export_fgd.gd       # regenera Qodot.fgd
 godot3-bin --no-window -s tools/qodot_validate.gd         # FGD + texturas + qodot_map.gd
 godot3-bin --no-window -s tools/qodot_wiring_smoke.gd     # cableado targetname -> target
 godot3-bin --no-window -s tools/qodot_build_smoke.gd      # todos los .map generan geometria
+python3 tools/check_resource_refs.py                      # ningun ext_resource colgado
 godot3-bin --no-window -s tools/qodot_export_trenchbroom_config.gd  # instala GameConfig.cfg + plantilla en TrenchBroom
 ```
 

@@ -40,6 +40,7 @@ Cualquier edicion a mano de `Qodot.fgd` se pierde en la siguiente regeneracion.
 | `bash scripts/link_trenchbroom_fgd.sh` | enlaza el `.fgd` a `~/.TrenchBroom/games/Odisea` |
 | `godot3-bin --no-window -s tools/qodot_export_trenchbroom_config.gd` | instala `GameConfig.cfg` + `Icon.png` + `initial_valve.map` en `~/.TrenchBroom/games/Odisea` |
 | `godot3-bin --no-window -s tools/qodot_build_smoke.gd` | construye todos los `.map` y falla si alguno no genera geometria |
+| `python3 tools/check_resource_refs.py` | toda ruta `res://` de los `.tscn`/`.tres` apunta a un archivo real |
 
 ## Actualizar TrenchBroom
 
@@ -183,6 +184,19 @@ ahi y conviene no reintroducir:
 
 1. `textures/<grupo>/<nombre>.png`. **Sin espacios** en el archivo ni en la carpeta:
    Qodot no los lee.
+
+   Si estas **renombrando o moviendo** una textura que ya existe, actualiza a quien la
+   referencia en el mismo paso y comprobalo:
+
+   ```bash
+   grep -rn "nombre viejo" --include=*.tscn --include=*.tres --include=*.map .
+   python3 tools/check_resource_refs.py
+   ```
+
+   Un `ext_resource` colgado no da error al renombrar: la escena deja de cargar y te
+   enteras cuando falla un test lejano con un mensaje que no nombra el archivo. Paso al
+   pasar `purple 2.png` a `purple_2.png`, que se llevo puesto `TestScene_v2.tscn` y con
+   el los 12 tests de determinismo.
 2. Opcional, un override de material con **el mismo nombre**:
    `textures/<grupo>/<nombre>.tres` (`SpatialMaterial` o `ShaderMaterial`).
 3. Opcional, variantes Auto-PBR en una subcarpeta con el nombre de la textura:
@@ -281,7 +295,49 @@ desde TrenchBroom conviene el camino A.
 godot3-bin --no-window -s tools/qodot_validate.gd
 godot3-bin --no-window -s tools/qodot_wiring_smoke.gd
 godot3-bin --no-window -s tools/qodot_build_smoke.gd
+python3 tools/check_resource_refs.py
 ```
+
+### PELIGRO: construir un QodotMap dentro de un .tscn borra nodos
+
+Un `QodotMap` que vive dentro de una escena (`Room3DLab.tscn`, `Dome_Crio.tscn`, ...)
+escribe el resultado del build **en esa escena**. Al guardar, el editor de Godot
+reserializa el `.tscn` entero, y en esa pasada **borra nodos en silencio**.
+
+Ya paso: el commit `99d95065` agrego ~450 nodos `entity_0_*` a `Room3DLab.tscn` y de
+paso se llevo puestos siete:
+
+| nodo perdido | donde |
+|---|---|
+| `Ceiling` | `Rooms/ControlRoom/GlassShell` |
+| `ObservationDeck`, `AccessRamp`, `DeckGlassRail` | `Rooms/ControlRoom` |
+| `RoomDialsPanel_Control` / `_Cryo` / `_Plasma` | dentro del `Viewport` de cada HoloTerminal |
+
+Los tres paneles son el caso peor y el mas facil de perder: son hijos agregados dentro
+de un `Viewport` que a su vez esta dentro de una **escena instanciada**, y se serializan
+con `index="0"`. Es el mismo modo de falla que se documento en FD-270 con
+`PackedScene.pack()`.
+
+El editor tambien poda las propiedades que valen lo mismo que su default
+(`width = 2.0`, `debug_render = true`) y reordena las demas. Eso es inofensivo y
+ensucia el diff; lo que hay que cazar son los `[node ...]` que desaparecen.
+
+**Antes de commitear un build de QodotMap, mira que nodos se fueron:**
+
+```bash
+git diff core_v2/scenes/TuEscena.tscn | grep "^-\[node"
+```
+
+Si esa linea imprime algo, el guardado borro nodos. Restauralos empalmando el bloque
+desde la version anterior — nunca reserializando la escena entera:
+
+```bash
+git show HEAD~1:core_v2/scenes/TuEscena.tscn   # de aca sale el bloque
+```
+
+Ojo con los ids: el editor **renumera** `ext_resource` y `sub_resource` al reserializar,
+asi que un `ExtResource( 7 )` del texto viejo casi seguro apunta a otra cosa en el nuevo.
+Hay que reasignar los ids al empalmar.
 
 ### El brush que compila y no existe
 

@@ -479,6 +479,10 @@
         "snap_rot": true,
         "snap_deg": 1
       },
+      "/root/TestScene/ExampleTrigger": {
+        "script_file": "res://core_v2/scripts/helloTrigger.oys",
+        "exit_script_file": ""
+      },
       "/root/TestScene/HoloTerminalV2": {
         "active": false,
         "used": false,

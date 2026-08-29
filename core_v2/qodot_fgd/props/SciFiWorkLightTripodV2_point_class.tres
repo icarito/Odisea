@@ -36,7 +36,7 @@ class_property_descriptions = {
 }
 meta_properties = {
 "color": Color( 1, 0.95, 0.7, 1 ),
-"size": AABB( -10, -13, -1, 14, 13, 40 )
+"size": AABB( -8, -13, -1, 14, 13, 38 )
 }
 node_options = "----------------------------------------------------------------"
 node_class = ""

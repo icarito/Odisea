@@ -29,7 +29,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROPS_FGD = os.path.join(REPO, "core_v2", "qodot_fgd", "props", "*.tres")
 
 SCALE = 16.0      # inverse_scale_factor de QodotMap
-MIN_SPAN = 4.0    # 0.25 m: por debajo de esto la caja no se agarra en TrenchBroom
+MIN_SPAN = 1.0    # 1 u = 6.25 cm: solo para que un plano puro no quede degenerado
 HUGE = 1024.0     # 64 m: se reporta para revision manual, no se corrige solo
 
 SIZE_RE = re.compile(r'("size": )AABB\([^)]*\)')
@@ -47,6 +47,10 @@ def quake_box(godot_aabb):
     # la caja nunca quede mas chica que el prop.
     qmin = [math.floor(v) for v in qmin]
     qmax = [math.ceil(v) for v in qmax]
+    # Solo se rellena un eje que quedo en cero (un plano puro). Ensanchar mas seria
+    # contraproducente: core_v2/tests/test_new_prop_contracts.gd exige que la caja no
+    # pase de 4x el volumen VISUAL del prop, y un piso de 0.25 m rompe esa regla en
+    # cuanto el prop es mas fino que 6 cm.
     for i in range(3):
         if qmax[i] - qmin[i] < MIN_SPAN:
             c = (qmax[i] + qmin[i]) / 2.0
@@ -88,7 +92,13 @@ def main():
             continue
 
         entry = audit.get(ext[m_scene.group(1)])
-        box = entry.get("aabb_union") if entry else None
+        # La silueta VISUAL, no la union con la colision. En varios props el colisionador
+        # es un volumen de interaccion 2-4x mas grueso que la malla (los marcadores de
+        # piso, la luz empotrada), y meterlo infla la caja del editor por encima de lo
+        # que permite test_new_prop_contracts.gd. Es tambien lo que el diseñador ve.
+        box = None
+        if entry:
+            box = entry.get("aabb_visual") or entry.get("aabb_collision")
         if not box:
             print("--  %-44s sin medicion (emisor puro / geometria en runtime)" % name)
             skipped += 1

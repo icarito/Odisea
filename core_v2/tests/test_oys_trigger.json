@@ -127,6 +127,10 @@
   },
   "meta": {
     "world_start_state": {
+      "/root/TestOcclusionScene/ExampleTrigger": {
+        "script_file": "res://core_v2/scripts/checkTrigger.oys",
+        "exit_script_file": ""
+      },
       "/root/TestOcclusionScene/Pilot/ControllerManager": {
         "controller_mode": -1,
         "gravity_mode": 0
