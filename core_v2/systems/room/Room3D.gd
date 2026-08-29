@@ -240,7 +240,7 @@ func _is_near_active_coolant_source(player_pos: Vector3) -> bool:
 		if is_instance_valid(leak) and leak is Spatial:
 			var intensity: float = float(leak.call("get_leak_intensity")) if leak.has_method("get_leak_intensity") else 0.0
 			if intensity > 0.01:
-				if (leak as Spatial).global_transform.origin.distance_squared_to(player_pos) <= prox_sq:
+				if (leak as Spatial).global_transform.origin.distance_squared_to(player_pos) < prox_sq:
 					return true
 
 	# 2. Active unsealed LeakPatchPoints
@@ -251,7 +251,7 @@ func _is_near_active_coolant_source(player_pos: Vector3) -> bool:
 				var associated_leak = patch.get("_leak") if "_leak" in patch else null
 				if is_instance_valid(associated_leak) and associated_leak.has_method("get_leak_intensity"):
 					if float(associated_leak.call("get_leak_intensity")) > 0.01:
-						if (patch as Spatial).global_transform.origin.distance_squared_to(player_pos) <= prox_sq:
+						if (patch as Spatial).global_transform.origin.distance_squared_to(player_pos) < prox_sq:
 							return true
 
 	# 3. Active CryoVents
@@ -259,7 +259,7 @@ func _is_near_active_coolant_source(player_pos: Vector3) -> bool:
 		if is_instance_valid(vent) and vent is Spatial:
 			var is_active: bool = bool(vent.get("is_active")) if "is_active" in vent else false
 			if is_active:
-				if (vent as Spatial).global_transform.origin.distance_squared_to(player_pos) <= prox_sq:
+				if (vent as Spatial).global_transform.origin.distance_squared_to(player_pos) < prox_sq:
 					return true
 
 	return false
