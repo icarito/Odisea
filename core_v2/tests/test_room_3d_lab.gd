@@ -42,6 +42,32 @@ func test_lab_scene_instantiation_and_nodes() -> void:
 	assert_float(lab.plasma_room.pressure).is_equal(2.8)
 	assert_bool(lab.plasma_room.is_overpressured()).is_true()
 
+	for airlock in [lab.airlock_1, lab.airlock_2, lab.airlock_3]:
+		assert_float(airlock.global_transform.origin.y).is_equal_approx(1.3, 0.001)
+	assert_float(lab.airlock_1.transform.basis.z.dot(Vector3(0.5, 0.0, 0.866025))).is_equal_approx(1.0, 0.001)
+	assert_float(lab.airlock_2.transform.basis.z.dot(Vector3(-0.5, 0.0, 0.866025))).is_equal_approx(1.0, 0.001)
+
+	for room in [lab.control_room, lab.cryo_room, lab.plasma_room]:
+		assert_bool(room is Area).is_true()
+		assert_bool(room.debug_render).is_true()
+		assert_object(room.get_node("CollisionShape").shape).is_instanceof(BoxShape)
+	assert_object(lab.get_node("Rooms/ControlRoom/ObservationDeck")).is_not_null()
+	assert_int(lab.get_node("Rooms/ControlRoom/GlassShell").get_child_count()).is_equal(4)
+	assert_int(lab.get_node("Rooms/CryoChamber/Walls").get_child_count()).is_equal(6)
+	assert_int(lab.get_node("Rooms/PlasmaChamber/Walls").get_child_count()).is_equal(6)
+	assert_bool(lab.get_node("HoloTerminals/TerminalTelemetry").is_active).is_true()
+	for terminal_name in ["TerminalTelemetry", "TerminalCameras", "TerminalAirlocks"]:
+		var terminal: Node = lab.get_node("HoloTerminals/" + terminal_name)
+		assert_float(terminal.get_node("ScreenContainer").scale.length()).is_equal_approx(sqrt(3.0), 0.001)
+		assert_bool(terminal.get_node("Viewport").get_child_count() > 0).is_true()
+	for panel_path in [
+		"HoloTerminals/TerminalTelemetry/Viewport/RoomDialsPanel_Control",
+		"HoloTerminals/TerminalCameras/Viewport/RoomDialsPanel_Cryo",
+		"HoloTerminals/TerminalAirlocks/Viewport/RoomDialsPanel_Plasma",
+	]:
+		var panel: Node = lab.get_node(panel_path)
+		assert_object(panel._room).is_not_null()
+
 func test_overpressure_airlock_locking_and_purge() -> void:
 	var lab: Spatial = auto_free(Room3DLabScene.instance())
 	add_child(lab)

@@ -7,7 +7,7 @@ shader_type spatial;
 // (depth_draw_opaque) no escribe profundidad en la pasada transparente, que es lo que
 // corresponde para hielo; el orden contra las particulas de escarcha lo resuelve el
 // render_priority del material en la escena.
-render_mode blend_mix, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode blend_mix, cull_back, unshaded;
 
 // Superficie económica: una sola lectura de textura en coordenadas de mundo.
 // El Fresnel es deliberadamente leve para que el dibujo no cambie con la cámara.
@@ -89,7 +89,7 @@ void fragment() {
 	NORMALMAP = normal_texel;
 	NORMALMAP_DEPTH = 0.34;
 	ROUGHNESS = mix(roughness_texel, 0.86, freeze_progress);
-	SPECULAR = mix(0.38, 0.26, freeze_progress);
+	SPECULAR = 0.0;
 	AO = mix(1.0, ao_texel, 0.55);
 	EMISSION = vec3(0.55, 0.78, 1.0) * cracks * 0.004 * emission_boost;
 

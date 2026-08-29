@@ -1,4 +1,4 @@
-extends Spatial
+extends BaseZoneV2
 class_name Room3D
 
 # Room3D.gd - Environmental state per room (temperature, pressure, contamination) for FD-269.
@@ -51,6 +51,7 @@ var _is_overpressured: bool = false
 
 
 func _ready() -> void:
+	._ready()
 	add_to_group("replay_sync")
 	add_to_group("room_3d")
 	_evaluate_thresholds(false)

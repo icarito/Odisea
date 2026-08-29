@@ -55,4 +55,4 @@ margin_top = 76.0
 margin_left = 10.0
 theme = ExtResource( 4 )
 script = ExtResource( 2 )
-room_path = NodePath("/root/Dome_Intro/DomeRoom3D")
+room_path = NodePath("/root/Dome_Intro/Dome_Base/DomeRoom3D")

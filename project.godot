@@ -1789,10 +1789,15 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/ui/parts/RichTextLabelExt.gd"
 }, {
-"base": "Spatial",
+"base": "BaseZoneV2",
 "class": "Room3D",
 "language": "GDScript",
 "path": "res://core_v2/systems/room/Room3D.gd"
+}, {
+"base": "Spatial",
+"class": "Room3DLab",
+"language": "GDScript",
+"path": "res://core_v2/scenes/Room3DLab.gd"
 }, {
 "base": "Control",
 "class": "RoomDialsPanel",
@@ -2577,6 +2582,7 @@ _global_script_class_icons={
 "RichTextEffectBackground": "",
 "RichTextLabelExt": "",
 "Room3D": "",
+"Room3DLab": "",
 "RoomDialsPanel": "",
 "RotatingObjectV2": "",
 "SFXComponentV2": "",
