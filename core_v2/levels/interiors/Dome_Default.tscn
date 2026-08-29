@@ -1,16 +1,16 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=4]
+[ext_resource path="res://scenes/common/space_environment/Environment_InteriorLab.tres" type="Environment" id=5]
 
 [node name="Dome_Default" type="Spatial"]
 
 [node name="SpawnPointV2" type="Position3D" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
 script = ExtResource( 1 )
-spawn_id = ""
 
 [node name="Terrace" type="StaticBody" parent="."]
 
@@ -40,7 +40,6 @@ __meta__ = {
 
 [node name="AirlockZoneV2" parent="Airlock_North" index="14"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
-target_spawn_id = ""
 target_airlock_path = NodePath("Airlock_North")
 zone_dir = Vector3( 0, 0, 1 )
 
@@ -63,7 +62,6 @@ __meta__ = {
 
 [node name="AirlockZoneV2" parent="Airlock_South" index="14"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
-target_spawn_id = ""
 target_airlock_path = NodePath("Airlock_South")
 zone_dir = Vector3( 0, 0, 1 )
 
@@ -86,7 +84,6 @@ __meta__ = {
 
 [node name="AirlockZoneV2" parent="Airlock_East" index="14"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
-target_spawn_id = ""
 target_airlock_path = NodePath("Airlock_East")
 zone_dir = Vector3( 0, 0, 1 )
 
@@ -109,7 +106,6 @@ __meta__ = {
 
 [node name="AirlockZoneV2" parent="Airlock_West" index="14"]
 target_scene = "res://core_v2/levels/OdiseaExterior.tscn"
-target_spawn_id = ""
 target_airlock_path = NodePath("Airlock_West")
 zone_dir = Vector3( 0, 0, 1 )
 
@@ -120,6 +116,9 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, 0 )
 light_color = Color( 0.9, 0.95, 1, 1 )
 light_energy = 1.5
 omni_range = 4096.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 5 )
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]
