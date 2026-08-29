@@ -30,6 +30,10 @@ export(NodePath) var outer_status_light_path
 export(NodePath) var inner_status_light_path
 export(NodePath) var status_label_path
 
+export(NodePath) var room_a_path
+export(NodePath) var room_b_path
+export(float, 0.0, 5.0) var pressure_equalize_rate: float = 0.5
+
 const DOOR_CLOSED_EPSILON := 0.05
 const STATUS_OFF := Color(0.05, 0.08, 0.08, 1.0)
 const STATUS_READY := Color(0.0, 1.0, 0.18, 1.0)
@@ -51,6 +55,8 @@ var _transition_button: Node = null
 var _outer_status_light: Node = null
 var _inner_status_light: Node = null
 var _status_label: Node = null
+var _room_a: Node = null
+var _room_b: Node = null
 var _pressurize_active := false
 var _transition_ready := false
 var _waiting_entry_door_name := ""
@@ -95,6 +101,10 @@ func _ready():
 		_inner_status_light = get_node_or_null(inner_status_light_path)
 	if status_label_path:
 		_status_label = get_node_or_null(status_label_path)
+	if room_a_path:
+		_room_a = get_node_or_null(room_a_path)
+	if room_b_path:
+		_room_b = get_node_or_null(room_b_path)
 	_configure_transition_button()
 
 	if _chamber_zone:
@@ -137,12 +147,23 @@ func _update_beacons():
 
 # --- INTERACTION API ---
 
+func is_overpressure_locked() -> bool:
+	if is_instance_valid(_room_a):
+		if (_room_a.has_method("is_overpressured") and _room_a.is_overpressured()) or ("pressure" in _room_a and float(_room_a.get("pressure")) > 2.4):
+			return true
+	if is_instance_valid(_room_b):
+		if (_room_b.has_method("is_overpressured") and _room_b.is_overpressured()) or ("pressure" in _room_b and float(_room_b.get("pressure")) > 2.4):
+			return true
+	return false
+
 func interact():
-	if state != State.IDLE:
+	if state != State.IDLE or is_overpressure_locked():
 		return
 	interact_outer()
 
 func request_door_interaction(door_name: String) -> bool:
+	if is_overpressure_locked():
+		return false
 	var normalized := door_name.strip_edges().to_lower()
 	if normalized != "inner":
 		normalized = "outer"
@@ -168,6 +189,8 @@ func request_door_interaction(door_name: String) -> bool:
 	return false
 
 func request_transition_pressurization(entry_door_name: String = "") -> bool:
+	if is_overpressure_locked():
+		return false
 	if _pressurize_active or _transition_ready:
 		return false
 	if state != State.PRESSURIZING:
@@ -192,7 +215,7 @@ func request_transition_pressurization(entry_door_name: String = "") -> bool:
 	return true
 
 func start_cycle(cycling_in: bool = true) -> bool:
-	if Engine.editor_hint:
+	if Engine.editor_hint or is_overpressure_locked():
 		return false
 	if state != State.IDLE:
 		return false
@@ -213,7 +236,7 @@ func start_cycle(cycling_in: bool = true) -> bool:
 	return true
 
 func start_transition_cycle(entry_door_name: String = "outer", immediate_close: bool = false) -> bool:
-	if Engine.editor_hint:
+	if Engine.editor_hint or is_overpressure_locked():
 		return false
 	if not _can_start_transition_cycle():
 		return false
@@ -341,11 +364,15 @@ func resume_exit_open_auto_reset() -> void:
 		_update_physics_processing()
 
 func interact_outer():
+	if is_overpressure_locked():
+		return
 	if state == State.IDLE:
 		_is_cycling_in = true
 		_start_entry()
 
 func interact_inner():
+	if is_overpressure_locked():
+		return
 	if state == State.IDLE:
 		_is_cycling_in = false
 		_start_entry()
@@ -385,6 +412,10 @@ func _on_body_entered(body):
 func step(dt: float):
 	if Engine.editor_hint: return
 	_time_in_state += dt
+	_process_environmental_propagation(dt)
+
+	if is_overpressure_locked():
+		_update_airlock_affordances()
 
 	if _label_linger_timer > 0.0:
 		_label_linger_timer -= dt
@@ -534,10 +565,30 @@ func _reset_standalone_exit_to_idle() -> void:
 	emit_signal("airlock_cycle_completed")
 	_update_physics_processing()
 
+func _process_environmental_propagation(dt: float) -> void:
+	if not is_instance_valid(_room_a) or not is_instance_valid(_room_b):
+		return
+	if state != State.ENTRY_OPEN and state != State.EXIT_OPEN:
+		return
+	var rate: float = pressure_equalize_rate * dt
+	var temp_diff: float = float(_room_b.get("temperature")) - float(_room_a.get("temperature"))
+	var press_diff: float = float(_room_b.get("pressure")) - float(_room_a.get("pressure"))
+	var cont_diff: float = float(_room_b.get("contamination")) - float(_room_a.get("contamination"))
+
+	if abs(temp_diff) > 0.001 and _room_a.has_method("add_temperature") and _room_b.has_method("add_temperature"):
+		_room_a.call("add_temperature", temp_diff * rate)
+		_room_b.call("add_temperature", -temp_diff * rate)
+	if abs(press_diff) > 0.001 and _room_a.has_method("add_pressure") and _room_b.has_method("add_pressure"):
+		_room_a.call("add_pressure", press_diff * rate)
+		_room_b.call("add_pressure", -press_diff * rate)
+	if abs(cont_diff) > 0.001 and _room_a.has_method("add_contamination") and _room_b.has_method("add_contamination"):
+		_room_a.call("add_contamination", cont_diff * rate)
+		_room_b.call("add_contamination", -cont_diff * rate)
+
 func _update_physics_processing() -> void:
 	if Engine.editor_hint:
 		return
-	var should_process := _label_linger_timer > 0.0
+	var should_process := _label_linger_timer > 0.0 or is_instance_valid(_room_a) or is_instance_valid(_room_b)
 	if state == State.ENTRY_OPEN:
 		should_process = should_process or timer > 0.0
 	elif state == State.PRESSURIZING:
@@ -654,6 +705,17 @@ func _update_airlock_affordances() -> void:
 	var inner_color := STATUS_OFF
 	var label_text := ""
 	var label_visible := false
+
+	if is_overpressure_locked():
+		outer_color = STATUS_BLOCKED
+		inner_color = STATUS_BLOCKED
+		label_text = "Bloqueo de Presión Crítica"
+		label_visible = true
+		_apply_status_light(_outer_status_light, outer_color, true)
+		_apply_status_light(_inner_status_light, inner_color, true)
+		_set_status_label(label_text, label_visible)
+		_update_button_interactable()
+		return
 
 	if state == State.ENTRY_OPEN:
 		if _entry_door_name_for_cycle() == "outer":
