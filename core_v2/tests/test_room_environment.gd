@@ -111,7 +111,7 @@ func test_threshold_crossings_and_signals() -> void:
 # 3. Environmental hazard damage ticks
 func test_environmental_hazard_damage() -> void:
 	var room = auto_free(Room3DScript.new())
-	room.temperature = -30.0 # Lethal cold
+	room.temperature = -60.0 # Lethal cold (below -50 threshold)
 	room.contamination = 0.8 # Vapor hazard
 	room.cold_damage_per_second = 10.0
 	room.vapor_damage_per_second = 20.0
