@@ -45,7 +45,10 @@ func test_lab_scene_instantiation_and_nodes() -> void:
 func test_overpressure_airlock_locking_and_purge() -> void:
 	var lab: Spatial = auto_free(Room3DLabScene.instance())
 	add_child(lab)
-	_step_lab(lab, 0.1)
+
+	# Initial state is latched synchronously in _ready(); do NOT step here —
+	# the linked PressureSection would immediately start venting the 2.8 bar
+	# plasma room and defeat the overpressure lock we're asserting.
 
 	# Airlock 1 (Control <-> Cryo) should NOT be overpressure locked
 	assert_bool(lab.airlock_1.is_overpressure_locked()).is_false()
