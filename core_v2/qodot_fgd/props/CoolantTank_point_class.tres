@@ -1,0 +1,34 @@
+[gd_resource type="Resource" load_steps=5 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/pipe/CoolantTank.tscn" type="PackedScene" id=2]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/targetname_base_class.tres" type="Resource" id=3]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/target_base_class.tres" type="Resource" id=4]
+
+[resource]
+script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
+classname = "pipe_coolant_tank"
+description = "Tanque de refrigerante. Es la fuente del circuito: su nivel cae mientras haya una fuga abierta aguas abajo."
+qodot_internal = false
+base_classes = [ ExtResource( 3 ), ExtResource( 4 ) ]
+class_properties = {
+"coolant_capacity": 100.0,
+"drain_rate": 1.0,
+"tank_level": 1.0
+}
+class_property_descriptions = {
+"coolant_capacity": "Capacidad total en litros",
+"drain_rate": "Litros por segundo que pierde con la fuga abierta",
+"tank_level": "Nivel inicial, 0..1"
+}
+meta_properties = {
+"color": Color( 0.3, 0.55, 0.8, 1 ),
+"size": AABB( -19, -19, 0, 19, 28, 55 )
+}
+node_options = "----------------------------------------------------------------"
+node_class = ""
+transient_node = false
+scene = "CoolantTank"
+scene_file = ExtResource( 2 )
+scripting = "----------------------------------------------------------------"

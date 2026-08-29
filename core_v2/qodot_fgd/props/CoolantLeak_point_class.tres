@@ -1,0 +1,42 @@
+[gd_resource type="Resource" load_steps=5 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/cryo/CoolantLeak.gd" type="Script" id=2]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/targetname_base_class.tres" type="Resource" id=3]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/target_base_class.tres" type="Resource" id=4]
+
+[resource]
+script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
+classname = "sys_coolant_leak"
+description = "Ancla invisible: fuga de refrigerante. Corre aviso -> fuga -> disipacion y baja la temperatura de la sala mientras esta abierta."
+qodot_internal = false
+base_classes = [ ExtResource( 3 ), ExtResource( 4 ) ]
+class_properties = {
+"auto_restart": 0,
+"dissipate_duration": 5.0,
+"leak_contam_rate": 0.1,
+"leak_temp_rate": 5.0,
+"ramp_up_duration": 3.0,
+"starts_leaking": 0,
+"warning_duration": 4.0
+}
+class_property_descriptions = {
+"auto_restart": "1 = vuelve a abrirse sola tras sellarse",
+"dissipate_duration": "Segundos que tarda en disiparse al sellarse",
+"leak_contam_rate": "Contaminacion por segundo que aporta",
+"leak_temp_rate": "Grados por segundo que le saca a la sala",
+"ramp_up_duration": "Segundos hasta el caudal maximo",
+"starts_leaking": "1 = la fuga arranca abierta",
+"warning_duration": "Segundos de aviso antes de que arranque la fuga"
+}
+meta_properties = {
+"color": Color( 0.3, 0.8, 0.9, 1 ),
+"size": AABB( -8, -8, -8, 8, 8, 8 )
+}
+node_options = "----------------------------------------------------------------"
+node_class = ""
+transient_node = false
+scene = "CoolantLeak"
+scripting = "----------------------------------------------------------------"
+script_class = ExtResource( 2 )

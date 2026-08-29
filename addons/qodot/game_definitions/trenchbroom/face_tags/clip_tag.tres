@@ -7,5 +7,5 @@ script = ExtResource( 1 )
 tag_name = "Clip"
 tag_attributes = [ "transparent" ]
 tag_match_type = 0
-tag_pattern = "clip"
+tag_pattern = "special/clip"
 texture_name = ""

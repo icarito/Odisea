@@ -1,0 +1,13 @@
+[remap]
+
+importer="qodot.map"
+type="Resource"
+path="res://.import/initial_valve.map-c7c3b2fcabbed09106b3cd81c596bdf9.tres"
+
+[deps]
+
+source_file="res://maps/templates/initial_valve.map"
+dest_files=[ "res://.import/initial_valve.map-c7c3b2fcabbed09106b3cd81c596bdf9.tres" ]
+
+[params]
+

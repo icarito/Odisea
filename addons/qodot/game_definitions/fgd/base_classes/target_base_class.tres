@@ -10,13 +10,12 @@ description = ""
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-
+"target": ""
 }
 class_property_descriptions = {
-
+"target": "targetname de la entidad a activar. Vacio = sin cablear."
 }
 meta_properties = {
-
 }
 node_options = "----------------------------------------------------------------"
 node_class = ""

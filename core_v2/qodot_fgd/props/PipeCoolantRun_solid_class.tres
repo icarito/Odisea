@@ -1,0 +1,46 @@
+[gd_resource type="Resource" load_steps=5 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_solid_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/pipe/PipeCoolantRun.gd" type="Script" id=2]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/targetname_base_class.tres" type="Resource" id=3]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/target_base_class.tres" type="Resource" id=4]
+
+[resource]
+script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
+classname = "pipe_coolant_run"
+description = "Brush de corrida de refrigerante: aplica el shader de flujo a la geometria del propio brush. flow_speed en 0 apaga el flujo sin borrar el material."
+qodot_internal = false
+base_classes = [ ExtResource( 3 ), ExtResource( 4 ) ]
+class_properties = {
+"add_entry_collar": 1,
+"base_emission": 1.4,
+"distance_lod_enabled": 1,
+"flow_dir": Vector3( 1, 0, 0 ),
+"flow_intensity": 1.0,
+"flow_speed": 0.7,
+"pipe_alpha": 0.88
+}
+class_property_descriptions = {
+"add_entry_collar": "1 = agrega un collar en la boca de entrada",
+"base_emission": "Emision del tubo en reposo",
+"distance_lod_enabled": "1 = apaga el proceso del flujo a distancia",
+"flow_dir": "Direccion del flujo en ejes locales",
+"flow_intensity": "Intensidad del flujo, 0..1",
+"flow_speed": "Velocidad del flujo, 0 = detenido",
+"pipe_alpha": "Opacidad del tubo"
+}
+meta_properties = {
+
+}
+node_options = "----------------------------------------------------------------"
+node_class = "StaticBody"
+transient_node = false
+spawn = "----------------------------------------------------------------"
+spawn_type = 2
+visual_build = "----------------------------------------------------------------"
+build_visuals = true
+collision_build = "----------------------------------------------------------------"
+collision_shape_type = 1
+scripting = "----------------------------------------------------------------"
+script_class = ExtResource( 2 )

@@ -166,8 +166,11 @@ func build_class_text() -> String:
 
 ## Matches tag key enum to the String name used in .cfg
 static func get_match_key(tag_match_type: int) -> String:
+	# TrenchBroom renombro "texture" -> "material" en el .cfg version 9 (es el token que
+	# usan sus propios games/*/GameConfig.cfg). Con "texture" el editor rechaza el
+	# archivo entero: "Unexpected smart tag match type 'texture'".
 	var tag_keys = {
-		0: "texture",
+		0: "material",
 		1: "contentflag",
 		2: "surfaceflag",
 		3: "surfaceparm",
@@ -195,7 +198,9 @@ func parse_tags(tags: Array) -> String:
 
 		if brush_tag.texture_name != "":
 			tags_str += ",\n"
-			tags_str += "\t\t\t\t\"texture\": \"%s\"" % brush_tag.texture_name
+			# Mismo renombre: la clave que fija la textura al activar el tag tambien
+			# paso a llamarse "material".
+			tags_str += "\t\t\t\t\"material\": \"%s\"" % brush_tag.texture_name
 
 		tags_str += "\n"
 

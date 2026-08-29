@@ -1,0 +1,32 @@
+[gd_resource type="Resource" load_steps=5 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/cryo/LeakPatchPoint.gd" type="Script" id=2]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/targetname_base_class.tres" type="Resource" id=3]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/target_base_class.tres" type="Resource" id=4]
+
+[resource]
+script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
+classname = "sys_leak_patch_point"
+description = "Ancla invisible: punto parcheable de una fuga. El parche de gloo es temporal; el firme necesita que la presion del tramo haya bajado del umbral."
+qodot_internal = false
+base_classes = [ ExtResource( 3 ), ExtResource( 4 ) ]
+class_properties = {
+"firm_patch_pressure_threshold": 0.2,
+"gloo_patch_duration": 15.0
+}
+class_property_descriptions = {
+"firm_patch_pressure_threshold": "Presion maxima para poder aplicar el parche firme",
+"gloo_patch_duration": "Segundos que aguanta el parche temporal"
+}
+meta_properties = {
+"color": Color( 0.4, 0.85, 0.6, 1 ),
+"size": AABB( -8, -8, -8, 8, 8, 8 )
+}
+node_options = "----------------------------------------------------------------"
+node_class = ""
+transient_node = false
+scene = "LeakPatchPoint"
+scripting = "----------------------------------------------------------------"
+script_class = ExtResource( 2 )

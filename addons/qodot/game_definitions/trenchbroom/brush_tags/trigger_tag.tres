@@ -8,4 +8,4 @@ tag_name = "Trigger"
 tag_attributes = [ "transparent" ]
 tag_match_type = 4
 tag_pattern = "trigger*"
-texture_name = "trigger"
+texture_name = "special/trigger"

@@ -1,7 +1,9 @@
 @BaseClass = Target[
+	target(string) : "targetname de la entidad a activar. Vacio = sin cablear."  : ""
 ]
 
 @BaseClass = Targetname[
+	targetname(string) : "Nombre de esta entidad. Otra entidad la cablea poniendo este nombre en su campo target."  : ""
 ]
 
 @BaseClass color(255 255 40) = Light[
@@ -82,191 +84,133 @@
 	trigger_signal_delay(float) : ""  : "0"
 ]
 
-@PointClass color(204 204 204) size(-8 -8 -8, 8 8 8) = prop_door_iris : "Iris Door" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(204 204 204) size(-8 -58 -58, 8 58 58) base(Targetname, Target) = prop_door_iris : "Iris Door" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(204 204 204) size(-8 -8 -8, 8 8 8) = prop_door_vertical : "Vertical Door" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(204 204 204) size(-24 -56 -2, 24 56 162) base(Targetname, Target) = prop_door_vertical : "Vertical Door" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(204 204 204) size(-8 -8 -8, 8 8 8) = prop_lever : "A standard switch/lever." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(204 204 204) size(-4 -10 0, 4 10 32) base(Targetname, Target) = prop_lever : "A standard switch/lever." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the lever starts in active state"  : 0
 ]
 
-@PointClass color(255 255 204) size(-2 -10 -2, 2 10 2) = light_ceiling : "Fluorescent Light Ceiling" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
-	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+@PointClass color(255 255 204) size(-16 -17 -2, 16 17 2) base(Targetname, Target) = light_ceiling : "Fluorescent Light Ceiling" [
 	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
 	base_emission_energy(float) : "Emission brightness on the mesh (0-12)"  : "2.6"
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the light"  : "204 229 255"
 	light_energy(float) : "Light brightness (0-10)"  : "1.35"
 	light_range(float) : "Light reach distance (0-30)"  : "14"
 	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
 ]
 
-@PointClass color(255 255 204) size(-2 -10 -2, 2 10 2) = light_flickering : "Fluorescent Light Flickering" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
-	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+@PointClass color(255 255 204) size(-16 -17 -2, 16 17 2) base(Targetname, Target) = light_flickering : "Fluorescent Light Flickering" [
 	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
 	base_emission_energy(float) : "Emission brightness on the mesh (0-12)"  : "2.3"
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	flicker_enabled(integer) : "Set to 1 to enable flickering, 0 for off"  : 1
 	flicker_intensity(float) : "Flicker brightness intensity variance (0-1)"  : "0.5"
 	flicker_speed(float) : "Flicker speed (frequency)"  : "10"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the light"  : "204 229 255"
 	light_energy(float) : "Light brightness (0-10)"  : "1.15"
 	light_range(float) : "Light reach distance (0-30)"  : "11.5"
 	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
 ]
 
-@PointClass color(204 102 51) size(-16 -16 -16, 16 16 16) = prop_door_heavy_blast : "Heavy Blast Door" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(204 102 51) size(-4 -32 0, 4 33 65) base(Targetname, Target) = prop_door_heavy_blast : "Heavy Blast Door" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(204 153 51) size(-32 -32 -2, 32 32 2) = prop_door_floor_hatch : "Floor Hatch" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(204 153 51) size(-36 -36 -2, 36 36 4) base(Targetname, Target) = prop_door_floor_hatch : "Floor Hatch" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the hatch starts open"  : 0
 ]
 
-@PointClass color(153 153 77) size(-8 -8 -2, 8 8 2) = prop_pressure_plate : "Pressure Plate" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(153 153 77) size(-20 -20 -2, 20 20 2) base(Targetname, Target) = prop_pressure_plate : "Pressure Plate" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the plate starts pressed"  : 0
 ]
 
-@PointClass color(77 204 77) size(-4 -4 -4, 4 4 4) = prop_pedestal_button : "Interactive pedestal button. Can be momentary or toggle." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(77 204 77) size(-4 -4 0, 4 4 18) base(Targetname, Target) = prop_pedestal_button : "Interactive pedestal button. Can be momentary or toggle." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
-	starts_active(integer) : "Set to 1 if the button starts active"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	momentary(integer) : "Set to 1 for momentary (auto-reset) mode"  : 0
 	momentary_duration(float) : "Seconds before momentary button resets"  : "0.5"
+	starts_active(integer) : "Set to 1 if the button starts active"  : 0
 ]
 
-@PointClass color(128 128 204) size(-16 -16 -4, 16 16 4) = prop_moving_platform : "Moving Platform" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(128 128 204) size(-40 -40 -2, 40 40 2) base(Targetname, Target) = prop_moving_platform : "Moving Platform" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the platform starts moving"  : 0
 ]
 
-@PointClass color(128 178 204) size(-8 -8 -8, 8 8 8) = prop_industrial_fan : "Industrial fan that pushes objects in its forward direction." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(128 178 204) size(-4 -20 -20, 4 20 20) base(Targetname, Target) = prop_industrial_fan : "Industrial fan that pushes objects in its forward direction." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
-	starts_active(integer) : "Set to 1 if the fan starts on"  : 1
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	rotation_speed(float) : "Blade rotation speed in radians/sec"  : "15"
+	starts_active(integer) : "Set to 1 if the fan starts on"  : 1
 	wind_force(float) : "Wind push force strength"  : "10"
 ]
 
-@PointClass color(255 51 51) size(-2 -2 -2, 2 2 2) = prop_laser_tripwire : "Laser tripwire that activates when beam is broken." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
-	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
-	beam_length(float) : "Length of the laser beam"  : "4"
+@PointClass color(255 51 51) size(-2 -34 -4, 2 34 4) base(Targetname, Target) = prop_laser_tripwire : "Laser tripwire that activates when beam is broken." [
 	beam_color(color255) : "Color of the laser beam"  : "255 0 0"
+	beam_length(float) : "Length of the laser beam"  : "4"
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 ]
 
-@PointClass color(128 128 128) size(-2 -16 -4, 2 16 4) = prop_metal_fence : "Path-based metallic fence." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(128 128 128) size(-66 -33 0, 1 34 41) base(Targetname, Target) = prop_metal_fence : "Path-based metallic fence." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	fence_color(color255) : "Color of the fence metal"  : "89 89 89"
 	height(float) : "Fence height in units"  : "2.5"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	panel_count(integer) : "Number of fence panels"  : 8
 	path_length(float) : "Total length of the fence path"  : "8"
 ]
 
-@PointClass color(166 179 191) size(-24 0 -24, 24 40 24) = prop_steel_grate_platform : "Steel grate platform with collision for catwalks and maintenance pads." [
-	is_interactable(integer) : "Decorative structural prop"  : 0
-	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
-	back_height_offset(float) : "Height offset applied to the back edge for ramps" : "0"
-	deck_frame_thickness(float) : "Thickness of the deck frame in units"  : "0.1"
-	frame_color(color255) : "Color of the structural tubes and deck frame"  : "46 48 54"
-	front_height_offset(float) : "Height offset applied to the front edge for ramps" : "0"
-	platform_depth(float) : "Platform depth in units"  : "3"
-	platform_height(float) : "Height from floor to the walking deck"  : "1.6"
-	platform_width(float) : "Platform width in units"  : "3"
-	rail_back_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the back opening" : "0.5"
-	rail_back(integer) : "Set to 1 to close the back side with a rail"  : 1
-	rail_back_opening_width(float) : "Centered opening width on the back rail"  : "0"
-	rail_color(color255) : "Color of the rails and gate posts"  : "46 48 54"
-	rail_front_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the front opening" : "0.5"
-	rail_front(integer) : "Set to 1 to close the front side with a rail"  : 1
-	rail_front_opening_width(float) : "Centered opening width on the front rail"  : "0"
-	rail_height(float) : "Guard rail height above the deck"  : "1.1"
-	rail_infill_enabled(integer) : "Set to 1 to generate transparent mesh infill on rails"  : 1
-	rail_left_opening_gravity(float) : "0 front bias, 1 back bias for the left opening" : "0.5"
-	rail_left(integer) : "Set to 1 to close the left side with a rail"  : 0
-	rail_left_opening_width(float) : "Centered opening width on the left rail"  : "0"
-	rail_mid_ratio(float) : "Height ratio for the mid rail between deck and top rail"  : "0.5"
-	rail_right_opening_gravity(float) : "0 front bias, 1 back bias for the right opening" : "0.5"
-	rail_right(integer) : "Set to 1 to close the right side with a rail"  : 0
-	rail_right_opening_width(float) : "Centered opening width on the right rail"  : "0"
-	tube_radius(float) : "Radius of the cylindrical scaffold tubes"  : "0.07"
-]
-
-@PointClass color(179 184 194) size(-48 0 -16, 48 56 16) = prop_scaffold_walkway : "Long scaffold walkway with steel grate deck and side rails." [
-	is_interactable(integer) : "Decorative structural prop"  : 0
-	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
-	back_height_offset(float) : "Height offset applied to the back edge for ramps" : "0"
-	deck_frame_thickness(float) : "Thickness of the deck frame in units"  : "0.12"
-	frame_color(color255) : "Color of the structural tubes and deck frame"  : "46 48 54"
-	front_height_offset(float) : "Height offset applied to the front edge for ramps" : "0"
-	platform_depth(float) : "Walkway depth in units"  : "2"
-	platform_height(float) : "Height from floor to the walking deck"  : "2.4"
-	platform_width(float) : "Walkway length in units"  : "6"
-	rail_back_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the back opening" : "0.5"
-	rail_back(integer) : "Set to 1 to close the back side with a rail"  : 1
-	rail_back_opening_width(float) : "Centered opening width on the back rail"  : "0"
-	rail_color(color255) : "Color of the rails and gate posts"  : "46 48 54"
-	rail_front_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the front opening" : "0.5"
-	rail_front(integer) : "Set to 1 to close the front side with a rail"  : 1
-	rail_front_opening_width(float) : "Centered opening width on the front rail"  : "0"
-	rail_height(float) : "Guard rail height above the deck"  : "1.15"
-	rail_infill_enabled(integer) : "Set to 1 to generate transparent mesh infill on rails"  : 1
-	rail_left_opening_gravity(float) : "0 front bias, 1 back bias for the left opening" : "0.5"
-	rail_left(integer) : "Set to 1 to close the left side with a rail"  : 0
-	rail_left_opening_width(float) : "Centered opening width on the left rail"  : "0"
-	rail_mid_ratio(float) : "Height ratio for the mid rail between deck and top rail"  : "0.5"
-	rail_right_opening_gravity(float) : "0 front bias, 1 back bias for the right opening" : "0.5"
-	rail_right(integer) : "Set to 1 to close the right side with a rail"  : 0
-	rail_right_opening_width(float) : "Centered opening width on the right rail"  : "0"
-	tube_radius(float) : "Radius of the cylindrical scaffold tubes"  : "0.08"
-]
-
-@PointClass color(255 255 204) size(-1 -1 -5, 1 1 5) = light_wall : "Fluorescent Wall Light" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
-	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+@PointClass color(255 255 204) size(-8 -2 -8, 8 2 8) base(Targetname, Target) = light_wall : "Fluorescent Wall Light" [
 	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
 	base_emission_energy(float) : "Emission brightness on the mesh (0-12)"  : "2.4"
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	flicker_enabled(integer) : "Set to 1 to enable flickering, 0 for off"  : 0
 	flicker_intensity(float) : "Flicker brightness intensity variance (0-1)"  : "0.5"
 	flicker_speed(float) : "Flicker speed (frequency)"  : "10"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the light"  : "204 229 255"
 	light_energy(float) : "Light brightness (0-10)"  : "1.25"
 	light_range(float) : "Light reach distance (0-30)"  : "10"
 	starts_active(integer) : "Set to 1 if the light is on, 0 for off"  : 1
 ]
 
-@PointClass color(255 178 77) size(-6 -6 -3, 6 6 3) = light_box : "Sci-Fi Box Light" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(255 178 77) size(-7 -7 -4, 7 7 4) base(Targetname, Target) = light_box : "Sci-Fi Box Light" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the light"  : "255 138 46"
 	light_energy_max(float) : "Maximum light energy (0-8)"  : "2"
 	light_range(float) : "Light reach distance (0.5-10)"  : "5"
 ]
 
-@PointClass color(255 229 153) size(-2 -2 -14, 2 2 0) = light_hanging : "Sci-Fi Hanging Light with sway" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(255 229 153) size(-3 -2 -15, 2 3 1) base(Targetname, Target) = light_hanging : "Sci-Fi Hanging Light with sway" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the light"  : "229 217 178"
 	light_energy_max(float) : "Maximum light energy (0-8)"  : "2.4"
 	light_range(float) : "Light reach distance (0.5-12)"  : "7"
@@ -275,38 +219,38 @@
 	sway_speed(float) : "Speed of swaying (0.5-5)"  : "1"
 ]
 
-@PointClass color(204 128 255) size(-2 -2 -2, 2 2 2) = light_sphere : "Sci-Fi Sphere Light" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(204 128 255) size(-8 -8 -1, 8 8 15) base(Targetname, Target) = light_sphere : "Sci-Fi Sphere Light" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the light"  : "201 110 255"
 	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
 ]
 
-@PointClass color(178 255 77) size(-1 -1 -3, 1 1 3) = light_static : "Sci-Fi Static Light" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(178 255 77) size(-4 -2 -4, 4 2 4) base(Targetname, Target) = light_static : "Sci-Fi Static Light" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the light"  : "163 255 29"
 	light_energy_max(float) : "Maximum light energy (0-5)"  : "2"
 ]
 
-@PointClass color(153 204 255) size(-1 -1 -3, 1 1 3) = light_floating : "Sci-Fi Floating Light with patrol option" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(153 204 255) size(-4 -2 -4, 4 2 4) base(Targetname, Target) = light_floating : "Sci-Fi Floating Light with patrol option" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	float_amplitude(float) : "Floating bob amplitude"  : "0.2"
 	float_speed(float) : "Floating bob speed"  : "2"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	is_patrolling(integer) : "Set to 1 if light should patrol"  : 0
 	patrol_speed(float) : "Patrol movement speed"  : "2"
 ]
 
-@PointClass color(51 128 255) size(-32 -32 -2, 32 32 2) = light_floor_panel : "Sci-Fi Floor Panel with glowing grid" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(51 128 255) size(-32 -32 -4, 32 32 0) base(Targetname, Target) = light_floor_panel : "Sci-Fi Floor Panel with glowing grid" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	grid_color(color255) : "Color of the grid lines"  : "26 102 204"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 ]
 
-@PointClass color(77 153 255) size(-2 -32 -6, 2 32 6) = light_path : "Sci-Fi Light Path - arc of small lights" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(77 153 255) size(-2 -33 -1, 2 33 14) base(Targetname, Target) = light_path : "Sci-Fi Light Path - arc of small lights" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the lights"  : "51 128 255"
 	light_count(integer) : "Number of lights along the path (2-50)"  : 8
 	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
@@ -316,22 +260,22 @@
 	show_bulbs(integer) : "Set to 1 to show bulb meshes"  : 1
 ]
 
-@PointClass color(255 153 51) size(-3 -3 -3, 3 3 3) = light_volumetric : "Volumetric Glow Light with pulse" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(255 153 51) size(-4 -4 -4, 4 4 4) base(Targetname, Target) = light_volumetric : "Volumetric Glow Light with pulse" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	glow_color(color255) : "Color of the glow"  : "255 128 0"
 	glow_intensity(float) : "Glow brightness (0.1-10)"  : "3"
-	pulse_speed(float) : "Pulse animation speed (0-10)"  : "1"
-	pulse_amount(float) : "Amount of pulsing (0-1)"  : "0.3"
-	light_range(float) : "Light reach distance"  : "4"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_energy(float) : "Light energy"  : "2"
+	light_range(float) : "Light reach distance"  : "4"
+	pulse_amount(float) : "Amount of pulsing (0-1)"  : "0.3"
+	pulse_speed(float) : "Pulse animation speed (0-10)"  : "1"
 ]
 
-@PointClass color(255 102 26) size(-4 0 -4, 4 8 4) = light_emergency_beacon : "Emergency Beacon with rotating light" [
+@PointClass color(255 102 26) size(-4 -4 0, 4 4 7) base(Targetname, Target) = light_emergency_beacon : "Emergency Beacon with rotating light" [
+	_color(color255) : "Native TrenchBroom light color"  : "255 18 0"
 	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
 	auto_interact(integer) : "Set to 1 for automatic player activation, 0 for manual/no interaction"  : 0
-	_color(color255) : "Native TrenchBroom light color"  : "255 18 0"
 	beacon_color(color255) : "Legacy alias for _color; kept for existing maps"  : "255 18 0"
 	dome_emission_energy(float) : "Beacon dome emission brightness (0-12)"  : "3"
 	enable_shadows(integer) : "Set to 1 to block light with level geometry, 0 for cheaper non-shadowed light"  : 1
@@ -353,108 +297,108 @@
 	visual_tick_interval_frames(integer) : "Visual update cadence in physics frames; 1 is smoothest"  : 2
 ]
 
-@PointClass color(255 229 77) size(-1 -1 -1, 1 1 1) = prop_spark_emitter : "Spark particle emitter with timing controls." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
-	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
-	spark_color(color255) : "Color of the sparks"  : "255 204 51"
+@PointClass color(255 229 77) size(-1 -1 -1, 1 1 1) base(Targetname, Target) = prop_spark_emitter : "Spark particle emitter with timing controls." [
 	brightness(float) : "Spark brightness (0-3)"  : "1"
-	emission_rate(float) : "Particles per second"  : "10"
-	is_active(integer) : "Set to 1 if emitter is on"  : 1
-	interval(float) : "Seconds between bursts (0=continuous)"  : "0"
-	interval_random(float) : "Random variation added to interval"  : "0"
 	duration(float) : "Duration of each burst"  : "0.1"
-]
-
-@PointClass color(178 178 178) size(-2 -2 -2, 2 2 2) = prop_leak_emitter : "Smoke/steam leak emitter with timing controls." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+	emission_rate(float) : "Particles per second"  : "10"
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
-	is_active(integer) : "Set to 1 if emitter starts on"  : 1
-	timeout(float) : "Initial delay before first emission"  : "0"
 	interval(float) : "Seconds between bursts (0=continuous)"  : "0"
 	interval_random(float) : "Random variation added to interval"  : "0"
+	is_active(integer) : "Set to 1 if emitter is on"  : 1
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+	spark_color(color255) : "Color of the sparks"  : "255 204 51"
+]
+
+@PointClass color(178 178 178) size(-2 -12 -12, 2 12 12) base(Targetname, Target) = prop_leak_emitter : "Smoke/steam leak emitter with timing controls." [
 	duration(float) : "Duration of each burst"  : "1"
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	fadeout_time(float) : "Seconds for smoke to fade out"  : "5"
+	interval(float) : "Seconds between bursts (0=continuous)"  : "0"
+	interval_random(float) : "Random variation added to interval"  : "0"
+	is_active(integer) : "Set to 1 if emitter starts on"  : 1
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+	timeout(float) : "Initial delay before first emission"  : "0"
 ]
 
-@PointClass color(0 255 153) size(-3 -3 -3, 3 3 3) = prop_hologram_projector : "Holographic projector with scanlines." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
-	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
-	hologram_color(color255) : "Color of the hologram"  : "0 255 128"
-	scanline_speed(float) : "Scanline animation speed (0-10)"  : "2"
-	scanline_density(float) : "Number of scanlines (1-50)"  : "20"
-	flicker_speed(float) : "Flicker speed (0-20)"  : "5"
-	base_alpha(float) : "Base transparency (0-1)"  : "0.7"
+@PointClass color(0 255 153) size(-8 -8 -1, 8 8 25) base(Targetname, Target) = prop_hologram_projector : "Holographic projector with scanlines." [
 	active(integer) : "Set to 1 if projector is on"  : 1
+	base_alpha(float) : "Base transparency (0-1)"  : "0.7"
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	flicker_speed(float) : "Flicker speed (0-20)"  : "5"
+	hologram_color(color255) : "Color of the hologram"  : "0 255 128"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+	scanline_density(float) : "Number of scanlines (1-50)"  : "20"
+	scanline_speed(float) : "Scanline animation speed (0-10)"  : "2"
 ]
 
-@PointClass color(77 153 255) size(-2 -16 -16, 2 16 16) = prop_shield : "Sci-Fi energy shield barrier." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(77 153 255) size(-20 -20 0, 20 20 39) base(Targetname, Target) = prop_shield : "Sci-Fi energy shield barrier." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	shield_energy(float) : "Shield energy/brightness (0-5)"  : "2"
 ]
 
-@PointClass color(204 77 255) size(-8 -8 -8, 8 8 8) = prop_plasma_generator : "Plasma generator with pulsing light core." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(204 77 255) size(-16 -16 -4, 16 16 58) base(Targetname, Target) = prop_plasma_generator : "Plasma generator with pulsing light core." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 ]
 
-@PointClass color(102 102 204) size(-16 -16 -16, 16 16 16) = prop_elevator : "Multi-floor elevator system." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(102 102 204) size(-35 -37 -3, 36 50 250) base(Targetname, Target) = prop_elevator : "Multi-floor elevator system." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if elevator starts active"  : 0
 ]
 
-@PointClass color(77 128 178) size(-16 -16 -16, 16 16 16) = prop_airlock : "Airlock chamber." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(77 128 178) size(-72 -56 -63, 72 57 54) base(Targetname, Target) = prop_airlock : "Airlock chamber." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if airlock starts active"  : 0
 ]
 
-@PointClass color(153 128 77) size(-8 -16 -6, 8 16 6) = prop_conveyor : "Conveyor belt system." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(153 128 77) size(-32 -72 -11, 35 72 33) base(Targetname, Target) = prop_conveyor : "Conveyor belt system." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if conveyor starts running"  : 1
 ]
 
-@PointClass color(102 204 102) size(-4 -4 -4, 4 4 4) = prop_cargol_drone : "Cargol Drone that follows the player when activated." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(102 204 102) size(-8 -8 40, 8 8 56) base(Targetname, Target) = prop_cargol_drone : "Cargol Drone that follows the player when activated." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	follow_distance(float) : "Distance the drone maintains from player"  : "3"
 	hover_height(float) : "Height at which the drone hovers"  : "3"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 ]
 
-@PointClass color(255 229 0) size(-2 -8 -2, 2 8 2) = prop_hazard_tape : "Hazard warning tape following a path." [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(255 229 0) size(-2 -41 0, 2 41 24) base(Targetname, Target) = prop_hazard_tape : "Hazard warning tape following a path." [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	panel_count(integer) : "Number of tape panels (2-20)"  : 6
 	panel_height(float) : "Height of each tape panel (0.3-3)"  : "1.5"
 	path_height(float) : "Height offset of the tape path"  : "0"
 	path_length(float) : "Total length of hazard tape (0.5-20)"  : "5"
 ]
 
-@PointClass color(38 217 255) size(-10 -37 0, 10 37 61) = prop_door_scifi_double_sideways : "Sci-Fi Double Sideways Door" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(38 217 255) size(-5 -35 -2, 6 35 58) base(Targetname, Target) = prop_door_scifi_double_sideways : "Sci-Fi Double Sideways Door" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(38 191 255) size(-10 -37 0, 10 37 61) = prop_door_scifi_vertical : "Sci-Fi Vertical Door" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(38 191 255) size(-5 -36 -2, 6 36 62) base(Targetname, Target) = prop_door_scifi_vertical : "Sci-Fi Vertical Door" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(38 229 242) size(-10 -37 0, 10 37 61) = prop_door_scifi_double_vertical : "Sci-Fi Double Vertical Door" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(38 229 242) size(-5 -36 -3, 6 36 60) base(Targetname, Target) = prop_door_scifi_double_vertical : "Sci-Fi Double Vertical Door" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	starts_active(integer) : "Set to 1 if the door starts open"  : 0
 ]
 
-@PointClass color(255 229 153) size(-6 -6 0, 6 6 18) = light_work : "Sci-Fi Work Light" [
+@PointClass color(255 229 153) size(-6 -6 0, 6 6 18) base(Targetname, Target) = light_work : "Sci-Fi Work Light" [
 	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the reflector"  : "255 229 178"
 	light_energy_max(float) : "Maximum light energy (0-10)"  : "4"
 	light_range(float) : "Beam distance (1-100)"  : "15"
@@ -462,21 +406,21 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(255 242 178) size(-13 -13 0, 13 13 38) = light_work_tripod : "Sci-Fi Tripod Flood Light" [
+@PointClass color(255 242 178) size(-10 -13 -1, 14 13 40) base(Targetname, Target) = light_work_tripod : "Sci-Fi Tripod Flood Light" [
 	angle(angle) : "Yaw rotation in degrees"  : "0"
 	angles(string) : "Pitch Yaw Roll rotation in degrees"  : "0 0 0"
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
 	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 0
-	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 1
 	light_color(color255) : "Color of the flood light"  : "255 242 204"
-	light_energy_max(float) : "Maximum light energy (0-16)"  : "12"
+	light_energy_max(float) : "Maximum light energy (0-10)"  : "12"
 	light_range(float) : "Beam distance (1-100)"  : "32"
 	spot_angle(float) : "Spot cone angle (1-90)"  : "60"
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(51 178 255) size(-2 -4 -8, 8 4 8) = light_wall_sconce : "Sci-Fi Wall Sconce" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(51 178 255) size(-3 -4 -8, 7 4 8) base(Targetname, Target) = light_wall_sconce : "Sci-Fi Wall Sconce" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the sconce"  : "51 153 255"
 	light_energy_max(float) : "Maximum light energy (0-10)"  : "3"
 	light_range(float) : "Beam distance (1-100)"  : "8"
@@ -484,9 +428,9 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(26 217 255) size(-4 -4 0, 4 4 2) = light_path_marker : "Sci-Fi Floor Path Marker" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(26 217 255) size(-4 -4 -1, 4 4 3) base(Targetname, Target) = light_path_marker : "Sci-Fi Floor Path Marker" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
 	light_range(float) : "Glow distance (0.5-8)"  : "1.5"
 	marker_color(color255) : "Color of the floor marker"  : "0 204 255"
@@ -494,9 +438,9 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(255 204 51) size(-5 -5 0, 5 5 3) = light_path_arrow : "Sci-Fi Arrow Path Marker" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(255 204 51) size(-5 -5 -1, 6 5 4) base(Targetname, Target) = light_path_arrow : "Sci-Fi Arrow Path Marker" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_energy_max(float) : "Maximum light energy (0-5)"  : "1.5"
 	light_range(float) : "Glow distance (0.5-8)"  : "2"
 	marker_color(color255) : "Color of the arrow marker"  : "255 204 0"
@@ -504,20 +448,190 @@
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(255 229 166) size(-3 -3 0, 3 3 2) = light_recessed_floor : "Sci-Fi Recessed Floor Light" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(255 229 166) size(-3 -3 -1, 3 3 3) base(Targetname, Target) = light_recessed_floor : "Sci-Fi Recessed Floor Light" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the recessed floor light"  : "255 242 204"
 	light_energy_max(float) : "Maximum light energy (0-10)"  : "5"
 	light_range(float) : "Beam distance (1-100)"  : "6"
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
 ]
 
-@PointClass color(204 229 255) size(-2 -4 -3, 2 4 3) = light_recessed_wall : "Sci-Fi Recessed Wall Light" [
-	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+@PointClass color(204 229 255) size(-2 -4 -2, 3 4 2) base(Targetname, Target) = light_recessed_wall : "Sci-Fi Recessed Wall Light" [
 	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 1
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
 	light_color(color255) : "Color of the recessed wall light"  : "255 255 255"
 	light_energy_max(float) : "Maximum light energy (0-10)"  : "6"
 	light_range(float) : "Beam distance (1-100)"  : "8"
 	starts_active(integer) : "Set to 1 if the light starts on"  : 1
+]
+
+@PointClass color(166 178 191) size(-25 -25 0, 25 25 45) base(Targetname, Target) = prop_steel_grate_platform : "Steel grate platform with collision for catwalks and maintenance pads." [
+	back_height_offset(float) : "Height offset applied to the back edge for ramps"  : "0"
+	deck_frame_thickness(float) : "Thickness of the deck frame in units"  : "0.1"
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	frame_color(color255) : "Color of the structural tubes and deck frame"  : "46 48 54"
+	front_height_offset(float) : "Height offset applied to the front edge for ramps"  : "0"
+	grate_brightness(float) : "Brightness multiplier applied to grate_color"  : "0.72"
+	grate_color(color255) : "Tint color of the steel grate material"  : "107 117 128"
+	grate_pattern_angle_degrees(float) : "UV rotation for the metal grate pattern in degrees"  : "18"
+	grate_pattern_shear(float) : "Small UV shear for a less rigid metal grate pattern"  : "0.12"
+	is_interactable(integer) : "Decorative structural prop"  : 0
+	platform_depth(float) : "Platform depth in units"  : "3"
+	platform_height(float) : "Height from floor to the walking deck"  : "1.6"
+	platform_width(float) : "Platform width in units"  : "3"
+	rail_back(integer) : "Set to 1 to close the back side with a rail"  : 1
+	rail_back_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the back opening"  : "0.5"
+	rail_back_opening_width(float) : "Centered opening width on the back rail"  : "0"
+	rail_color(color255) : "Color of the rails and gate posts"  : "46 48 54"
+	rail_front(integer) : "Set to 1 to close the front side with a rail"  : 1
+	rail_front_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the front opening"  : "0.5"
+	rail_front_opening_width(float) : "Centered opening width on the front rail"  : "0"
+	rail_height(float) : "Guard rail height above the deck"  : "1.1"
+	rail_infill_enabled(integer) : "Set to 1 to generate transparent mesh infill on rails"  : 1
+	rail_left(integer) : "Set to 1 to close the left side with a rail"  : 0
+	rail_left_opening_gravity(float) : "0 front bias, 1 back bias for the left opening"  : "0.5"
+	rail_left_opening_width(float) : "Centered opening width on the left rail"  : "0"
+	rail_mid_ratio(float) : "Height ratio for the mid rail between deck and top rail"  : "0.5"
+	rail_right(integer) : "Set to 1 to close the right side with a rail"  : 0
+	rail_right_opening_gravity(float) : "0 front bias, 1 back bias for the right opening"  : "0.5"
+	rail_right_opening_width(float) : "Centered opening width on the right rail"  : "0"
+	tube_radius(float) : "Radius of the cylindrical scaffold tubes"  : "0.07"
+]
+
+@PointClass color(178 184 194) size(-81 -25 0, 81 25 26) base(Targetname, Target) = prop_scaffold_walkway : "Long scaffold walkway with steel grate deck and side rails." [
+	back_height_offset(float) : "Height offset applied to the back edge for ramps"  : "0"
+	deck_frame_thickness(float) : "Thickness of the deck frame in units"  : "0.12"
+	enable_shadows(integer) : "Set to 1 to enable dynamic shadows on child lights, 0 for cheaper non-shadowed lighting"  : 0
+	frame_color(color255) : "Color of the structural tubes and deck frame"  : "46 48 54"
+	front_height_offset(float) : "Height offset applied to the front edge for ramps"  : "0"
+	grate_brightness(float) : "Brightness multiplier applied to grate_color"  : "0.72"
+	grate_color(color255) : "Tint color of the steel grate material"  : "107 117 128"
+	grate_pattern_angle_degrees(float) : "UV rotation for the metal grate pattern in degrees"  : "0"
+	grate_pattern_shear(float) : "Small UV shear for a less rigid metal grate pattern"  : "0"
+	is_interactable(integer) : "Decorative structural prop"  : 0
+	platform_depth(float) : "Walkway depth in units"  : "2"
+	platform_height(float) : "Height from floor to the walking deck"  : "2.4"
+	platform_width(float) : "Walkway length in units"  : "6"
+	rail_back(integer) : "Set to 1 to close the back side with a rail"  : 1
+	rail_back_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the back opening"  : "0.5"
+	rail_back_opening_width(float) : "Centered opening width on the back rail"  : "0"
+	rail_color(color255) : "Color of the rails and gate posts"  : "46 48 54"
+	rail_front(integer) : "Set to 1 to close the front side with a rail"  : 1
+	rail_front_opening_gravity(float) : "0 left/front bias, 1 right/back bias for the front opening"  : "0.5"
+	rail_front_opening_width(float) : "Centered opening width on the front rail"  : "0"
+	rail_height(float) : "Guard rail height above the deck"  : "1.15"
+	rail_infill_enabled(integer) : "Set to 1 to generate transparent mesh infill on rails"  : 1
+	rail_left(integer) : "Set to 1 to close the left side with a rail"  : 0
+	rail_left_opening_gravity(float) : "0 front bias, 1 back bias for the left opening"  : "0.5"
+	rail_left_opening_width(float) : "Centered opening width on the left rail"  : "0"
+	rail_mid_ratio(float) : "Height ratio for the mid rail between deck and top rail"  : "0.5"
+	rail_right(integer) : "Set to 1 to close the right side with a rail"  : 0
+	rail_right_opening_gravity(float) : "0 front bias, 1 back bias for the right opening"  : "0.5"
+	rail_right_opening_width(float) : "Centered opening width on the right rail"  : "0"
+	tube_radius(float) : "Radius of the cylindrical scaffold tubes"  : "0.08"
+]
+
+@PointClass color(77 229 204) size(-4 -8 -20, 4 8 12) base(Targetname, Target) = holo_terminal : "Terminal holografico deslizante. Emite activated/deactivated al abrirse y cerrarse; es el nodo por el que una sala expone su diagnostico." [
+	enable_ui_interaction(integer) : "1 = el jugador puede operar la UI de la pantalla"  : 1
+	interaction_text(string) : "Texto del prompt de interaccion"  : "Toggle Terminal"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+	slide_height(float) : "Altura que sube la pantalla al abrirse, en metros"  : "1.2"
+	slide_speed(float) : "Velocidad de despliegue"  : "2"
+	starts_active(integer) : "Set to 1 si el prop arranca activo"  : 0
+	static_content(integer) : "1 = pantalla fija sin UI interactiva"  : 0
+]
+
+@PointClass color(89 153 217) size(-4 -16 -4, 4 16 4) base(Targetname, Target) = pipe_section : "Tramo recto de caneria. Decorativo: el flujo lo pinta un pipe_coolant_run que lo tenga de hijo." [
+]
+
+@PointClass color(89 153 217) size(-4 -4 -4, 4 16 16) base(Targetname, Target) = pipe_corner : "Codo de caneria de 90 grados." [
+]
+
+@PointClass color(89 153 217) size(-4 -16 -16, 4 16 16) base(Targetname, Target) = pipe_tee : "Bifurcacion en T de la red de canerias." [
+]
+
+@PointClass color(102 191 229) size(-4 -7 -7, 8 7 8) base(Targetname, Target) = pipe_valve : "Valvula de paso. Interactuable: emite activated al abrir y deactivated al cerrar. Es una de las DOS puertas de una fuga (la otra es set_active del grafo OCLS)." [
+	interaction_text(string) : "Texto del prompt de interaccion"  : "Girar valvula"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+	starts_active(integer) : "1 = la valvula arranca abierta"  : 0
+	valve_speed(float) : "Velocidad de giro del volante"  : "1"
+]
+
+@PointClass color(102 191 229) size(-2 -5 -10, 2 5 5) base(Targetname, Target) = pipe_manometer : "Manometro de linea. Lee la presion del tramo al que apunta y mueve la aguja; es el feedback visible del circuito de refrigerante." [
+	max_pressure(float) : "Presion a fondo de escala"  : "3"
+	needle_max_angle_deg(float) : "Recorrido angular de la aguja"  : "240"
+	segment_index(integer) : "Indice del tramo de caneria que mide"  : 0
+]
+
+@PointClass color(77 140 204) size(-19 -19 0, 19 28 55) base(Targetname, Target) = pipe_coolant_tank : "Tanque de refrigerante. Es la fuente del circuito: su nivel cae mientras haya una fuga abierta aguas abajo." [
+	coolant_capacity(float) : "Capacidad total en litros"  : "100"
+	drain_rate(float) : "Litros por segundo que pierde con la fuga abierta"  : "1"
+	tank_level(float) : "Nivel inicial, 0..1"  : "1"
+]
+
+@PointClass color(217 115 77) size(-1 -10 -7, 4 10 7) base(Targetname, Target) = prop_radiator : "Radiador de sala. heat_level sube con la temperatura del ambiente y enciende la emision de las aletas." [
+	element_count(integer) : "Cantidad de elementos del radiador"  : 5
+	fin_count(integer) : "Cantidad de aletas"  : 12
+	heat_level(float) : "Calor inicial, 0..1"  : "0"
+	heating_rate(float) : "Grados por segundo que aporta a la sala cuando esta activo"  : "5"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 0
+	starts_active(integer) : "Set to 1 si el prop arranca activo"  : 0
+]
+
+@PointClass color(128 178 204) size(-36 -36 -36, 36 36 36) base(Targetname, Target) = prop_ventilation_turbine : "Turbina de ventilacion de conducto. Emite activated/deactivated; se cablea a un pipe_valve o a una palanca por targetname." [
+	interaction_text(string) : "Texto del prompt de interaccion"  : "Interact"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+	starts_active(integer) : "Set to 1 si el prop arranca activo"  : 0
+]
+
+@PointClass color(204 178 89) size(-4 -4 0, 4 4 16) base(Targetname, Target) = prop_pressure_pump : "Bomba de mano: se sostiene la interaccion y el piston sube. Al completar el ciclo emite activated." [
+	hold_duration(float) : "Segundos de sostener para completar un ciclo"  : "1.6"
+	interaction_text(string) : "Texto del prompt de interaccion"  : "Bombear"
+	is_interactable(integer) : "Set to 1 if the player can interact with this prop, 0 for decorative/circuit-only"  : 1
+	piston_travel(float) : "Recorrido del piston en metros"  : "0.12"
+	release_rate(float) : "Fraccion por segundo que cae el progreso al soltar"  : "0.8"
+	repeatable(integer) : "1 = se puede volver a bombear tras completar"  : 1
+]
+
+@PointClass color(229 128 51) size(-8 -8 -8, 8 8 8) base(Targetname, Target) = sys_pressure_section : "Ancla invisible: sector de presion. Corre la secuencia aviso -> chispa -> estallido y emite blowout(radius, force). No tiene geometria: la sala son los brushes de alrededor." [
+	blowout_force(float) : "Fuerza del empuje del estallido"  : "12"
+	blowout_radius(float) : "Radio del empuje del estallido, en metros"  : "6"
+	critical_pressure(float) : "Presion a la que estalla"  : "2.4"
+	recover_duration(float) : "Segundos que tarda en estabilizarse tras purgar"  : "3"
+	rise_needs_input(integer) : "1 = solo sube si algo lo dispara"  : 0
+	spark_duration(float) : "Segundos de chispa antes del estallido"  : "2.5"
+	starts_rising(integer) : "1 = el sector arranca subiendo de presion"  : 0
+	warning_duration(float) : "Segundos de parpadeo de aviso antes de la chispa"  : "8"
+]
+
+@PointClass color(229 153 51) size(-8 -8 -8, 8 8 8) base(Targetname) = sys_purge_dial : "Ancla invisible: dial de sintonia de la purga. Emite dial_locked cuando el valor queda dentro de la tolerancia el tiempo pedido. NO hereda Target: su export `target` es el valor objetivo del dial y la FGD lo pisaria." [
+	hold_duration(float) : "Segundos que hay que sostener dentro de la zona"  : "1.2"
+	target(float) : "Valor objetivo del dial, 0..1 (NO es un cableado)"  : "0.62"
+	tolerance(float) : "Ancho de la zona valida alrededor del objetivo"  : "0.06"
+]
+
+@PointClass color(77 204 229) size(-8 -8 -8, 8 8 8) base(Targetname, Target) = sys_coolant_leak : "Ancla invisible: fuga de refrigerante. Corre aviso -> fuga -> disipacion y baja la temperatura de la sala mientras esta abierta." [
+	auto_restart(integer) : "1 = vuelve a abrirse sola tras sellarse"  : 0
+	dissipate_duration(float) : "Segundos que tarda en disiparse al sellarse"  : "5"
+	leak_contam_rate(float) : "Contaminacion por segundo que aporta"  : "0.1"
+	leak_temp_rate(float) : "Grados por segundo que le saca a la sala"  : "5"
+	ramp_up_duration(float) : "Segundos hasta el caudal maximo"  : "3"
+	starts_leaking(integer) : "1 = la fuga arranca abierta"  : 0
+	warning_duration(float) : "Segundos de aviso antes de que arranque la fuga"  : "4"
+]
+
+@PointClass color(102 217 153) size(-8 -8 -8, 8 8 8) base(Targetname, Target) = sys_leak_patch_point : "Ancla invisible: punto parcheable de una fuga. El parche de gloo es temporal; el firme necesita que la presion del tramo haya bajado del umbral." [
+	firm_patch_pressure_threshold(float) : "Presion maxima para poder aplicar el parche firme"  : "0.2"
+	gloo_patch_duration(float) : "Segundos que aguanta el parche temporal"  : "15"
+]
+
+@SolidClass base(Targetname, Target) = pipe_coolant_run : "Brush de corrida de refrigerante: aplica el shader de flujo a la geometria del propio brush. flow_speed en 0 apaga el flujo sin borrar el material." [
+	add_entry_collar(integer) : "1 = agrega un collar en la boca de entrada"  : 1
+	base_emission(float) : "Emision del tubo en reposo"  : "1.4"
+	distance_lod_enabled(integer) : "1 = apaga el proceso del flujo a distancia"  : 1
+	flow_dir(string) : "Direccion del flujo en ejes locales"  : "1 0 0"
+	flow_intensity(float) : "Intensidad del flujo, 0..1"  : "1"
+	flow_speed(float) : "Velocidad del flujo, 0 = detenido"  : "0.7"
+	pipe_alpha(float) : "Opacidad del tubo"  : "0.88"
 ]

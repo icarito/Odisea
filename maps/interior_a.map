@@ -4,14 +4,14 @@
 {
 "mapversion" "220"
 "classname" "worldspawn"
-"_tb_textures" "textures;textures/prototype_textures"
+"_tb_textures" "textures;textures/prototype_textures;textures/kenney_prototype_textures/dark;textures/kenney_prototype_textures/green;textures/kenney_prototype_textures/light;textures/kenney_prototype_textures/orange;textures/kenney_prototype_textures/purple;textures/kenney_prototype_textures/red;textures/special;textures/trenchbroom"
 // brush 0: simple floor reference for Interior_A.tscn
 {
-( -128 -128 0 ) ( 128 -128 0 ) ( -128 128 0 ) prototype_textures/gray [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( -128 -128 -16 ) ( -128 128 -16 ) ( 128 -128 -16 ) prototype_textures/gray [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
-( -128 -128 -16 ) ( 128 -128 -16 ) ( -128 -128 0 ) prototype_textures/gray [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 128 -128 -16 ) ( 128 128 -16 ) ( 128 -128 0 ) prototype_textures/gray [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( 128 128 -16 ) ( -128 128 -16 ) ( 128 128 0 ) prototype_textures/gray [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
-( -128 128 -16 ) ( -128 -128 -16 ) ( -128 128 0 ) prototype_textures/gray [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( -128 128 0 ) ( -128 -128 0 ) ( -128 128 -16 ) prototype_textures/gray [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 128 -128 -16 ) ( -128 -128 -16 ) ( 128 -128 0 ) prototype_textures/gray [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 128 128 -16 ) ( -128 128 -16 ) ( 128 -128 -16 ) prototype_textures/gray [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 128 -128 0 ) ( -128 -128 0 ) ( 128 128 0 ) prototype_textures/gray [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 128 128 0 ) ( -128 128 0 ) ( 128 128 -16 ) prototype_textures/gray [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 128 -128 0 ) ( 128 128 0 ) ( 128 -128 -16 ) prototype_textures/gray [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
 }
 }

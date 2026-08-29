@@ -1,0 +1,33 @@
+[gd_resource type="Resource" load_steps=4 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/atmosphere/PurgeDial.gd" type="Script" id=2]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/targetname_base_class.tres" type="Resource" id=3]
+
+[resource]
+script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
+classname = "sys_purge_dial"
+description = "Ancla invisible: dial de sintonia de la purga. Emite dial_locked cuando el valor queda dentro de la tolerancia el tiempo pedido. NO hereda Target: su export `target` es el valor objetivo del dial y la FGD lo pisaria."
+qodot_internal = false
+base_classes = [ ExtResource( 3 ) ]
+class_properties = {
+"hold_duration": 1.2,
+"target": 0.62,
+"tolerance": 0.06
+}
+class_property_descriptions = {
+"hold_duration": "Segundos que hay que sostener dentro de la zona",
+"target": "Valor objetivo del dial, 0..1 (NO es un cableado)",
+"tolerance": "Ancho de la zona valida alrededor del objetivo"
+}
+meta_properties = {
+"color": Color( 0.9, 0.6, 0.2, 1 ),
+"size": AABB( -8, -8, -8, 8, 8, 8 )
+}
+node_options = "----------------------------------------------------------------"
+node_class = ""
+transient_node = false
+scene = "PurgeDial"
+scripting = "----------------------------------------------------------------"
+script_class = ExtResource( 2 )

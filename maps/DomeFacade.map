@@ -2,7 +2,7 @@
 // Format: Standard
 // entity 0
 {
-"_tb_textures" "textures;textures/kenney_prototype_textures/dark;textures/kenney_prototype_textures/light;textures/kenney_prototype_textures/purple;textures/kenney_prototype_textures/red;textures/prototype_textures"
+"_tb_textures" "textures;textures/kenney_prototype_textures/dark;textures/kenney_prototype_textures/light;textures/kenney_prototype_textures/purple;textures/kenney_prototype_textures/red;textures/prototype_textures;textures/kenney_prototype_textures/green;textures/kenney_prototype_textures/orange;textures/special;textures/trenchbroom"
 "classname" "worldspawn"
 "_tb_mod" "materials;textures;assets"
 // brush 0

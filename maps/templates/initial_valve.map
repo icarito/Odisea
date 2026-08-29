@@ -1,0 +1,70 @@
+// Game: Odisea
+// Format: Valve
+//
+// Plantilla de mapa nuevo. TrenchBroom la copia en File > New (la declara
+// "initialmap" en GameConfig.cfg). Existe para una sola cosa: que un mapa nuevo
+// arranque con TODAS las colecciones de textura habilitadas, porque _tb_textures
+// se guarda por mapa y una carpeta nueva no aparece sola en el browser.
+//
+// Fuente en el repo: maps/templates/initial_valve.map
+// La instala tools/qodot_export_trenchbroom_config.gd
+// entity 0
+{
+"mapversion" "220"
+"classname" "worldspawn"
+"_tb_textures" "textures/kenney_prototype_textures/dark;textures/kenney_prototype_textures/green;textures/kenney_prototype_textures/light;textures/kenney_prototype_textures/orange;textures/kenney_prototype_textures/purple;textures/kenney_prototype_textures/red;textures/prototype_textures;textures/special;textures/trenchbroom"
+// piso
+{
+( -256 256 0 ) ( -256 -256 0 ) ( -256 256 -16 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 -256 -16 ) ( -256 -256 -16 ) ( 256 -256 0 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 256 -16 ) ( -256 256 -16 ) ( 256 -256 -16 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 256 -256 0 ) ( -256 -256 0 ) ( 256 256 0 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 256 256 0 ) ( -256 256 0 ) ( 256 256 -16 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 -256 0 ) ( 256 256 0 ) ( 256 -256 -16 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// techo
+{
+( -256 256 208 ) ( -256 -256 208 ) ( -256 256 192 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 -256 192 ) ( -256 -256 192 ) ( 256 -256 208 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 256 192 ) ( -256 256 192 ) ( 256 -256 192 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 256 -256 208 ) ( -256 -256 208 ) ( 256 256 208 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 256 256 208 ) ( -256 256 208 ) ( 256 256 192 ) kenney_prototype_textures/dark/texture_07 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 -256 208 ) ( 256 256 208 ) ( 256 -256 192 ) kenney_prototype_textures/dark/texture_07 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// pared oeste
+{
+( -272 256 192 ) ( -272 -256 192 ) ( -272 256 0 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( -256 -256 0 ) ( -272 -256 0 ) ( -256 -256 192 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( -256 256 0 ) ( -272 256 0 ) ( -256 -256 0 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( -256 -256 192 ) ( -272 -256 192 ) ( -256 256 192 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( -256 256 192 ) ( -272 256 192 ) ( -256 256 0 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( -256 -256 192 ) ( -256 256 192 ) ( -256 -256 0 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// pared este
+{
+( 256 256 192 ) ( 256 -256 192 ) ( 256 256 0 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 272 -256 0 ) ( 256 -256 0 ) ( 272 -256 192 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 272 256 0 ) ( 256 256 0 ) ( 272 -256 0 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 272 -256 192 ) ( 256 -256 192 ) ( 272 256 192 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 272 256 192 ) ( 256 256 192 ) ( 272 256 0 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 272 -256 192 ) ( 272 256 192 ) ( 272 -256 0 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// pared sur
+{
+( -256 -256 192 ) ( -256 -272 192 ) ( -256 -256 0 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 -272 0 ) ( -256 -272 0 ) ( 256 -272 192 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 -256 0 ) ( -256 -256 0 ) ( 256 -272 0 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 256 -272 192 ) ( -256 -272 192 ) ( 256 -256 192 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 256 -256 192 ) ( -256 -256 192 ) ( 256 -256 0 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 -272 192 ) ( 256 -256 192 ) ( 256 -272 0 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+// pared norte
+{
+( -256 272 192 ) ( -256 256 192 ) ( -256 272 0 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 256 0 ) ( -256 256 0 ) ( 256 256 192 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 272 0 ) ( -256 272 0 ) ( 256 256 0 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 256 256 192 ) ( -256 256 192 ) ( 256 272 192 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 0.125 0.125
+( 256 272 192 ) ( -256 272 192 ) ( 256 272 0 ) kenney_prototype_textures/dark/texture_04 [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+( 256 256 192 ) ( 256 272 192 ) ( 256 256 0 ) kenney_prototype_textures/dark/texture_04 [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 0.125 0.125
+}
+}

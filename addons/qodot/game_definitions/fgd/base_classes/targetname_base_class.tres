@@ -10,13 +10,12 @@ description = ""
 qodot_internal = false
 base_classes = [  ]
 class_properties = {
-"targetname": null
+"targetname": ""
 }
 class_property_descriptions = {
-
+"targetname": "Nombre de esta entidad. Otra entidad la cablea poniendo este nombre en su campo target."
 }
 meta_properties = {
-
 }
 node_options = "----------------------------------------------------------------"
 node_class = ""

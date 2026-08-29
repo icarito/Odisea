@@ -1,0 +1,25 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=2]
+
+[ext_resource path="res://shaders/psx_lit_transparent.shader" type="Shader" id=1]
+[ext_resource path="res://textures/prototype_textures/gray.png" type="Texture" id=2]
+
+; PLANTILLA transparente — no la usa ninguna cara todavia. Copiala junto a la textura y
+; renombrala igual que el .png para que Qodot la tome como override de material:
+;
+;   textures/<grupo>/<nombre>.png
+;   textures/<grupo>/<nombre>.tres   <- esta copia, con albedoTex apuntando al .png
+;
+; Prioridad de Qodot: override .tres -> textura plana -> Auto-PBR.
+;
+; OJO: los brushes del proyecto hoy se construyen con el default_material de cada
+; QodotMap (un SpatialMaterial con AO). Poner un override psx_lit sobre una textura
+; que ya usan los .map le cambia el aspecto a TODOS los niveles que la pisen: es una
+; decision de arte, no de tooling.
+[resource]
+shader = ExtResource( 1 )
+shader_param/precision_multiplier = 1.0
+shader_param/modulate_color = Color( 1, 1, 1, 1 )
+shader_param/uv_scale = Vector2( 1, 1 )
+shader_param/uv_offset = Vector2( 0, 0 )
+shader_param/uv_pan_velocity = Vector2( 0, 0 )
+shader_param/albedoTex = ExtResource( 2 )

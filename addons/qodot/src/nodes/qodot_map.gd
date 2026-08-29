@@ -1590,9 +1590,18 @@ func connect_signals() -> void:
 
 		var target_nodes := get_nodes_by_targetname(entity_properties['target'])
 		for target_node in target_nodes:
+			if target_node == entity_node:
+				continue
 			connect_signal(entity_node, target_node)
 
 func connect_signal(entity_node: Node, target_node: Node) -> void:
+	# Las point classes con scene_file instancian el .tscn del prop, cuya raiz no es un
+	# QodotEntity y por lo tanto no tiene `properties`. Leerlo a ciegas revienta apenas
+	# alguien apunta a un prop en vez de a un signal/receiver.
+	if not 'properties' in target_node:
+		_connect_trigger(entity_node, target_node)
+		return
+
 	if target_node.properties['classname'] == 'signal':
 		var signal_name = target_node.properties['signal_name']
 
@@ -1607,11 +1616,21 @@ func connect_signal(entity_node: Node, target_node: Node) -> void:
 			for target_node in target_nodes:
 				entity_node.connect(signal_name, target_node, receiver_name, [], CONNECT_PERSIST)
 	else:
-		var signal_list = entity_node.get_signal_list()
-		for signal_dict in signal_list:
-			if signal_dict['name'] == 'trigger':
-				entity_node.connect("trigger", target_node, "use", [], CONNECT_PERSIST)
-				break
+		_connect_trigger(entity_node, target_node)
+
+# Cableado directo entidad -> entidad. Ademas de `trigger`, acepta el par
+# activated/deactivated que usan los props del Core: es el mismo contrato que consume
+# LogicCircuitManager, asi que un prop cableado en TrenchBroom y uno cableado por
+# CircuitGraphResource hablan el mismo idioma.
+func _connect_trigger(entity_node: Node, target_node: Node) -> void:
+	if entity_node.has_signal("trigger") and target_node.has_method("use"):
+		entity_node.connect("trigger", target_node, "use", [], CONNECT_PERSIST)
+		return
+
+	if entity_node.has_signal("activated") and target_node.has_method("set_active"):
+		entity_node.connect("activated", target_node, "set_active", [true], CONNECT_PERSIST)
+		if entity_node.has_signal("deactivated"):
+			entity_node.connect("deactivated", target_node, "set_active", [false], CONNECT_PERSIST)
 
 func remove_transient_nodes() -> void:
 	for entity_idx in range(0, entity_nodes.size()):
@@ -1638,6 +1657,13 @@ func remove_transient_nodes() -> void:
 
 func get_nodes_by_targetname(targetname: String) -> Array:
 	var nodes := []
+
+	# Un nombre vacio no es "todas": apply_properties inyecta los defaults de la FGD,
+	# asi que con `targetname` declarado en su base class TODAS las entidades llegan
+	# aca con targetname == "". Sin esta guarda, una entidad con `target` en blanco se
+	# cablea contra el mapa entero.
+	if targetname.strip_edges() == "":
+		return nodes
 
 	for node_idx in range(0, entity_nodes.size()):
 		var node = entity_nodes[node_idx]

@@ -134,6 +134,24 @@ Despues de cambios visuales, mostrar capturas al usuario antes de cerrar la iter
 
 Artefactos en `test_output/ui/`.
 
+## Niveles: Qodot / TrenchBroom
+
+Convenciones y flujo (agregar un prop, una textura, cablear a un circuito, re-exportar
+el FGD): `docs/tooling/QODOT_PIPELINE.md`. Estado y auditoria:
+`docs/tooling/QODOT_INTEGRATION_AUDIT.md`.
+
+`Qodot.fgd` es GENERADO desde los `.tres`; no editarlo a mano.
+
+```bash
+godot3-bin --no-window -s tools/qodot_audit_props.gd      # mide AABB y exports reales
+python3 tools/qodot_sync_point_class_sizes.py             # corrige meta_properties.size
+godot3-bin --no-window -s tools/qodot_export_fgd.gd       # regenera Qodot.fgd
+godot3-bin --no-window -s tools/qodot_validate.gd         # FGD + texturas + qodot_map.gd
+godot3-bin --no-window -s tools/qodot_wiring_smoke.gd     # cableado targetname -> target
+godot3-bin --no-window -s tools/qodot_build_smoke.gd      # todos los .map generan geometria
+godot3-bin --no-window -s tools/qodot_export_trenchbroom_config.gd  # instala GameConfig.cfg + plantilla en TrenchBroom
+```
+
 ## Assets e imports
 
 Si se tocan assets, manifests o imports:

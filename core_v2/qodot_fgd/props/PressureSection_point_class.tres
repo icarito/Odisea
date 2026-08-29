@@ -1,0 +1,44 @@
+[gd_resource type="Resource" load_steps=5 format=2]
+
+[ext_resource path="res://addons/qodot/src/resources/game-definitions/fgd/qodot_fgd_point_class.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/systems/atmosphere/PressureSection.gd" type="Script" id=2]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/targetname_base_class.tres" type="Resource" id=3]
+[ext_resource path="res://addons/qodot/game_definitions/fgd/base_classes/target_base_class.tres" type="Resource" id=4]
+
+[resource]
+script = ExtResource( 1 )
+class_options = "----------------------------------------------------------------"
+classname = "sys_pressure_section"
+description = "Ancla invisible: sector de presion. Corre la secuencia aviso -> chispa -> estallido y emite blowout(radius, force). No tiene geometria: la sala son los brushes de alrededor."
+qodot_internal = false
+base_classes = [ ExtResource( 3 ), ExtResource( 4 ) ]
+class_properties = {
+"blowout_force": 12.0,
+"blowout_radius": 6.0,
+"critical_pressure": 2.4,
+"recover_duration": 3.0,
+"rise_needs_input": 0,
+"spark_duration": 2.5,
+"starts_rising": 0,
+"warning_duration": 8.0
+}
+class_property_descriptions = {
+"blowout_force": "Fuerza del empuje del estallido",
+"blowout_radius": "Radio del empuje del estallido, en metros",
+"critical_pressure": "Presion a la que estalla",
+"recover_duration": "Segundos que tarda en estabilizarse tras purgar",
+"rise_needs_input": "1 = solo sube si algo lo dispara",
+"spark_duration": "Segundos de chispa antes del estallido",
+"starts_rising": "1 = el sector arranca subiendo de presion",
+"warning_duration": "Segundos de parpadeo de aviso antes de la chispa"
+}
+meta_properties = {
+"color": Color( 0.9, 0.5, 0.2, 1 ),
+"size": AABB( -8, -8, -8, 8, 8, 8 )
+}
+node_options = "----------------------------------------------------------------"
+node_class = ""
+transient_node = false
+scene = "PressureSection"
+scripting = "----------------------------------------------------------------"
+script_class = ExtResource( 2 )
