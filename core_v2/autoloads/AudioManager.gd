@@ -10,6 +10,17 @@ var _bgm_player_2: AudioStreamPlayer
 var _active_player: AudioStreamPlayer = null
 var _tween: Tween
 
+signal beat(beat_number)
+signal measure(measure_number)
+signal downbeat(measure_number)
+
+export(float, 1.0, 300.0, 1.0) var bpm: float = 120.0
+export(int, 1, 16) var time_signature: int = 4
+export(float, 0.0, 60.0, 0.01) var beat_offset: float = 0.0
+
+var _last_beat_int: int = -1
+var _last_beat_float_raw: float = 0.0
+
 var _active_zones := []
 var _mdm_instance: Node = null # MixingDeskMusic instance
 var _mds_instance: Node = null # MixingDeskSound instance (if used globally)
@@ -226,6 +237,53 @@ func _find_mixing_desk():
 
 func _physics_process(_delta):
 	_update_spatial_listener_for_cinematics()
+	_track_beat()
+
+func _track_beat() -> void:
+	if not _active_player or not _active_player.is_playing():
+		_last_beat_int = -1
+		_last_beat_float_raw = 0.0
+		return
+	
+	if _music_paused_by_focus:
+		return
+
+	var pos: float = _active_player.get_playback_position()
+	var effective_pos: float = max(0.0, pos - beat_offset)
+	var current_beat_float: float = effective_pos * (bpm / 60.0)
+	var current_beat_int: int = int(floor(current_beat_float))
+
+	# First initialization
+	if _last_beat_int == -1:
+		# Set to one beat before the current one to allow emitting the current beat
+		# on the first poll without a full catch-up burst.
+		_last_beat_int = current_beat_int - 1
+		_last_beat_float_raw = current_beat_float
+
+	# Loop or large backward seek detection
+	if current_beat_float < _last_beat_float_raw - 0.1:
+		_last_beat_int = current_beat_int
+		_last_beat_float_raw = current_beat_float
+		return
+
+	# Large forward jump detection (e.g. seek or stutter > 1 second)
+	if current_beat_float > _last_beat_float_raw + (bpm / 60.0) * 2.0:
+		_last_beat_int = current_beat_int
+		_last_beat_float_raw = current_beat_float
+		return
+
+	if current_beat_int > _last_beat_int:
+		# Catch-up logic for small gaps
+		for n in range(_last_beat_int + 1, current_beat_int + 1):
+			emit_signal("beat", n)
+			if n % time_signature == 0:
+				var m = n / time_signature
+				emit_signal("measure", m)
+				emit_signal("downbeat", m)
+		
+		_last_beat_int = current_beat_int
+
+	_last_beat_float_raw = current_beat_float
 
 func register_zone(zone):
 	if not _active_zones.has(zone):
@@ -324,6 +382,13 @@ func _crossfade_to(stream, pitch, vol, time, zone = null):
 		next_player.volume_db = -80 # Start silent
 		next_player.play()
 		_seek_player_to_zone_position(next_player, zone)
+		
+		# Re-initialize beat counters for the new player to current position immediately
+		# to prevent catching up from 0.
+		var pos: float = next_player.get_playback_position()
+		var effective_pos: float = max(0.0, pos - beat_offset)
+		_last_beat_float_raw = effective_pos * (bpm / 60.0)
+		_last_beat_int = int(floor(_last_beat_float_raw))
 
 		_tween.stop_all()
 		_tween.interpolate_property(next_player, "volume_db", -80, vol, time, Tween.TRANS_LINEAR, Tween.EASE_IN_OUT)
