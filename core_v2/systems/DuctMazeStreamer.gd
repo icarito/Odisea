@@ -40,7 +40,7 @@ const DUCT_LAYER := 1 << 6 # bit 6 = layer 7 (Prop)
 # visible wall so the surface collides correctly from BOTH sides (a fat slab would make the
 # player flying OUTSIDE the duct stop metres early, or wedge between neighbouring tubes).
 # A touch thicker than the 0.35 m visual wall to resist zero-G tunnelling without ballooning.
-const DUCT_WALL_DEPTH := 0.6
+const DUCT_WALL_DEPTH := 1.2
 
 # Resource paths
 const HULL_MAT_PATH := "res://core_v2/props/duct/DuctHull.tres"
@@ -453,19 +453,24 @@ func make_junction(id: String, connections: Array) -> Spatial:
 	hub.material_override = _hull_mat()
 	root.add_child(hub)
 
-	# Collision for the hub: a TRIMESH of the pierced shell itself (exact, hollow, with the
-	# mouths open) instead of a box approximation. Box floor/walls left the player clipping
-	# the curved sphere where the square collider and the round mesh disagreed; the trimesh
-	# matches the visual wall exactly so you can't pass through it (FD-052 hollow-collision
-	# lesson: tubes/arcs/spheres need create_trimesh_shape, not primitive shapes).
+	# Collision for the hub: a 3-ring cage of box facets instead of a trimesh. Trimesh is
+	# prone to zero-G tunneling. The cage uses 3 rings (equator, +/- 45 deg) to approximate
+	# the sphere while keeping ports open.
 	var hub_body = StaticBody.new()
 	hub_body.name = "HubCollision"
 	hub_body.collision_layer = DUCT_LAYER
 	hub_body.collision_mask = 255
-	var hub_col = CollisionShape.new()
-	hub_col.shape = hub.mesh.create_trimesh_shape()
-	hub_body.add_child(hub_col)
 	root.add_child(hub_body)
+
+	var ring_angles = [0.0, PI/4.0, -PI/4.0]
+	for lat in ring_angles:
+		var ring_radius = hub_radius * cos(lat)
+		var ring_y = hub_radius * sin(lat)
+		# Base rotation Basis(Vector3.RIGHT, -PI/2) maps local Z (axial) to global Y.
+		var xform = Transform(Basis(Vector3.RIGHT, -PI/2.0), Vector3(0, ring_y, 0))
+		# Half length covers the vertical gap between rings.
+		var half_len = hub_radius * 0.45
+		_add_facet_ring_skipping(hub_body, ring_radius, half_len, xform, hole_dirs, mouth_half_angle)
 
 	# Arms bridge from the HUB SURFACE to the cell boundary. AXIAL arms (FORWARD/BACK ==
 	# ±local Z) are straight; TANGENTIAL arms (RIGHT/LEFT == ±local X) CURVE around the
@@ -542,15 +547,24 @@ func make_arc_arm(dir_sign: float, span_deg: float, start_deg: float, radius: fl
 	mesh.mesh = _build_arc_arm_mesh(R, radius, duct_wall_thickness, start_rad, end_rad, dir_sign)
 	mesh.material_override = _hull_mat()
 	arm.add_child(mesh)
-	# Trimesh collision straight off the curved hull (exact hollow wall, no clipping) — the
-	# box-segment approximation let the player catch/pass between segments on the curve.
+	# Collision for the arc arm: multiple facet rings along the curve instead of trimesh.
 	var body = StaticBody.new()
 	body.collision_layer = DUCT_LAYER
 	body.collision_mask = 255
-	var col = CollisionShape.new()
-	col.shape = mesh.mesh.create_trimesh_shape()
-	body.add_child(col)
 	arm.add_child(body)
+
+	var segments_c: int = 8
+	var total_span_rad: float = deg2rad(span_deg)
+	var segment_len: float = (R * total_span_rad) / segments_c
+	for i in range(segments_c):
+		var u: float = lerp(start_rad, end_rad, (float(i) + 0.5) / segments_c)
+		var center := _arc_point(R, u, dir_sign)
+		var fwd := _arc_forward(u, dir_sign)
+		var axial := Vector3(0, 0, 1)
+		var rad: Vector3 = fwd.cross(axial).normalized()
+		var seg_xform := Transform(Basis(rad, axial, fwd), center)
+		_add_facet_ring(body, radius, segment_len * 0.5 + DUCT_WALL_DEPTH * 0.2, seg_xform)
+
 	# End collar at the outer mouth (where it meets the neighbour arc tile).
 	_add_arc_arm_collar(arm, R, radius, end_rad, dir_sign)
 	return arm
@@ -740,11 +754,15 @@ func make_capsule(connections: Array, _gy: int, has_airlock_port: bool = false) 
 	hub_body.name = "CapsuleShellCollision"
 	hub_body.collision_layer = DUCT_LAYER
 	hub_body.collision_mask = 255
-	var hub_col = CollisionShape.new()
-	hub_col.name = "CollisionShape"
-	hub_col.shape = hub.mesh.create_trimesh_shape()
-	hub_body.add_child(hub_col)
 	root.add_child(hub_body)
+
+	var ring_angles = [0.0, PI/4.0, -PI/4.0]
+	for lat in ring_angles:
+		var ring_radius = hub_radius * cos(lat)
+		var ring_y = hub_radius * sin(lat)
+		var xform = Transform(Basis(Vector3.RIGHT, -PI/2.0), Vector3(0, ring_y, 0))
+		var half_len = hub_radius * 0.45
+		_add_facet_ring_skipping(hub_body, ring_radius, half_len, xform, hole_dirs, mouth_half_angle)
 
 	var mouth_rim_z := hub_radius * cos(mouth_half_angle)
 	var rim_overlap := duct_wall_thickness
@@ -1113,7 +1131,7 @@ func _add_collision_cylinder(root: Node, length: float, radius: float) -> Static
 	# visual tube — invisible and fine.
 	return _add_hollow_trimesh_collision(root, length, radius)
 
-const DUCT_COLLISION_FACETS := 8
+const DUCT_COLLISION_FACETS := 12
 
 # Name kept for its callers (make_arm / make_duct_radial / make_incline). Builds a RING of
 # tangent box slabs around the round bore (tube runs along local Z). Four axis-aligned boxes
@@ -1147,13 +1165,46 @@ func _add_facet_ring(body: StaticBody, radius: float, half_len: float, xform: Tr
 		# extents: x = facet width (around bore), y = wall thickness (radial), z = tube length.
 		box.extents = Vector3(facet_half_w, wall * 0.5, half_len)
 		shape.shape = box
-		# Inner face slightly INSIDE the bore (radius - small inset) so the flat chord never
+		# Inner face slightly OUTSIDE the bore (radius + small inset) so the flat chord never
 		# leaves a sliver where the round bore bulges past it; outer face at ~radius+wall.
-		var centre := outward * (radius - 0.05 + wall * 0.5)
+		var centre := outward * (radius + 0.05 + wall * 0.5)
 		# Local frame: the slab's local Y points radially outward (along `outward`), local Z
 		# stays the tube axis, local X is the tangent.
 		var tangent := Vector3(-sin(a), cos(a), 0)
 		var local := Transform(Basis(tangent, outward, Vector3(0, 0, 1)), centre)
+		shape.transform = xform * local
+		body.add_child(shape)
+
+# Same as _add_facet_ring but skips facets that fall within the cone of a mouth hole.
+# Used for hubs/capsules to keep ports open.
+func _add_facet_ring_skipping(body: StaticBody, radius: float, half_len: float, xform: Transform, hole_dirs: Array, mouth_half_angle: float) -> void:
+	var wall: float = DUCT_WALL_DEPTH
+	# Multiplier 1.2 ensures facets overlap slightly to close edges without blocking mouths.
+	var facet_half_w: float = (PI * radius / DUCT_COLLISION_FACETS) * 1.2
+	var cos_thresh: float = cos(mouth_half_angle)
+	for i in range(DUCT_COLLISION_FACETS):
+		var a: float = TAU * i / DUCT_COLLISION_FACETS
+		var local_outward: Vector3 = Vector3(cos(a), sin(a), 0)
+
+		# Use the global position of the facet to determine its radial direction from the hub centre
+		var facet_pos_global: Vector3 = xform.xform(local_outward * radius)
+		var global_outward: Vector3 = facet_pos_global.normalized()
+
+		var in_hole: bool = false
+		for hd in hole_dirs:
+			if global_outward.dot(hd) >= cos_thresh:
+				in_hole = true
+				break
+		if in_hole:
+			continue
+
+		var shape = CollisionShape.new()
+		var box = BoxShape.new()
+		box.extents = Vector3(facet_half_w, wall * 0.5, half_len)
+		shape.shape = box
+		var centre := local_outward * (radius + 0.05 + wall * 0.5)
+		var tangent := Vector3(-sin(a), cos(a), 0)
+		var local := Transform(Basis(tangent, local_outward, Vector3(0, 0, 1)), centre)
 		shape.transform = xform * local
 		body.add_child(shape)
 
