@@ -1,0 +1,27 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=2]
+
+[ext_resource path="res://core_v2/props/pipe/pipe_coolant_fresnel.shader" type="Shader" id=1]
+[ext_resource path="res://core_v2/props/pipe/pipe_flow_noise.tres" type="Texture" id=2]
+
+[resource]
+shader = ExtResource( 1 )
+shader_param/base_color = Color( 0.01, 0.15, 0.35, 1 )
+shader_param/fresnel_color = Color( 0.01, 0.587, 1, 1 )
+shader_param/invert_fresnel = false
+shader_param/fresnel_power = 4.0
+shader_param/fresnel_gain = 4.5
+shader_param/pipe_roughness = 0.2
+shader_param/pipe_metallic = 0.3
+shader_param/flow_noise = ExtResource( 2 )
+shader_param/relief = 0.55
+shader_param/scale_around = 2.2
+shader_param/scale_along = 1.6
+shader_param/flow_speed = 0.7
+shader_param/flow_dir = Vector3( 1, 0, 0 )
+shader_param/use_local_axis = true
+shader_param/use_baked_axis = false
+shader_param/flow_intensity = 1.0
+shader_param/emission_strength = 1.4
+shader_param/direction_marks = 0.22
+shader_param/direction_marks_scale = 1.25
+shader_param/direction_marks_sharpness = 2.2

@@ -43,6 +43,13 @@ extends SceneTree
 const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_HubTowerSource.tscn"
 const TOWER_PATH := "ScaffoldHubTower"
 const OUT_DIR := "res://core_v2/levels/interiors/"
+
+# Prefijo de los archivos horneados. Sin la variable de entorno se mantiene el
+# nombre historico de Dome_Intro; una variante del modulo de criogenia lo cambia y
+# hornea a archivos propios sin pisar los de Dome_Intro. Va junto con
+# ODISEA_BAKE_SOURCE, que elige la escena fuente.
+const DEFAULT_OUT_PREFIX := "Dome_Intro"
+var _prefix := DEFAULT_OUT_PREFIX
 const LIGHTMAP_TEXEL_SIZE := 0.2
 # Todos los pisos del hub, no solo el 5: comparten la geometria de deck de
 # ScaffoldHubRing, asi que cualquier cambio ahi hay que re-hornearlo en los cinco.
@@ -52,6 +59,9 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	_prefix = OS.get_environment("ODISEA_BAKE_PREFIX")
+	if _prefix.empty():
+		_prefix = DEFAULT_OUT_PREFIX
 	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
 	if source_path.empty():
 		source_path = DEFAULT_SOURCE_PATH
@@ -89,7 +99,7 @@ func _share_materials(mesh: ArrayMesh) -> void:
 			continue
 		var signature: String = _material_signature(mat)
 		if not _shared_materials.has(signature):
-			var path: String = OUT_DIR + "Dome_Intro_HubRing_mat_%02d.material" % _shared_materials.size()
+			var path: String = OUT_DIR + _prefix + "_HubRing_mat_%02d.material" % _shared_materials.size()
 			if ResourceSaver.save(path, mat) != OK:
 				push_error("[bake_floors] no pude guardar %s" % path)
 				continue
@@ -135,8 +145,8 @@ func _bake_floor(root: Node, floor_name: String) -> bool:
 	# batching entre pisos. Se guardan una vez y se referencian desde los cinco.
 	_share_materials(visual.mesh)
 
-	var out_mesh: String = OUT_DIR + "Dome_Intro_%s_baked.mesh" % floor_name
-	var out_shape: String = OUT_DIR + "Dome_Intro_%s_baked.shape" % floor_name
+	var out_mesh: String = OUT_DIR + _prefix + "_%s_baked.mesh" % floor_name
+	var out_shape: String = OUT_DIR + _prefix + "_%s_baked.shape" % floor_name
 	# Sin UV2 el BakedLightmap ignora la geometria: los pisos del hub no proyectan
 	# sombra sobre la terraza ni reciben la luz cocinada. Se genera sobre la malla
 	# completa (todas las surfaces), igual que en bake_scaffold_walkways.gd.

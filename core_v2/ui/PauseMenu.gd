@@ -8,6 +8,8 @@ onready var quit_button = find_node("Quit")
 onready var version_label = find_node("VersionLabel")
 onready var options_menu = get_node_or_null("OptionsMenu")
 
+var _minimal: bool = false
+
 func _ready():
 	_connect_signals()
 	_update_version_label()
@@ -15,10 +17,28 @@ func _ready():
 	# Apple desaconseja explicitamente que una app se cierre sola (ademas el boton no
 	# funcionaba alla). Si se agrega otra plataforma sin cierre, va en esta lista y en
 	# la gemela de Menu.gd.
-	if quit_button and OS.get_name() in ["HTML5", "iOS"]:
-		quit_button.visible = false
+	_apply_platform_visibility()
 	if resume_button:
 		resume_button.grab_focus()
+
+func _apply_platform_visibility():
+	if quit_button and OS.get_name() in ["HTML5", "iOS"]:
+		quit_button.visible = false
+
+# Sin foco de ventana el menú se reduce al título "PAUSA" sobre el juego, para
+# poder tomar capturas limpias. PauseManager lo restaura con el primer input.
+func set_minimal(on: bool) -> void:
+	_minimal = on
+	var title = find_node("Title")
+	if title == null:
+		return
+	if on and is_instance_valid(options_menu):
+		options_menu.hide()
+	for n in title.get_parent().get_children():
+		n.visible = n == title or not on
+	if not on:
+		_apply_platform_visibility()
+	color.a = 0.0 if on else 0.588235
 
 func _update_version_label():
 	if version_label:
@@ -80,7 +100,7 @@ func on_show():
 
 func _input(event):
 	var options_open: bool = is_instance_valid(options_menu) and options_menu.visible
-	if visible and not options_open:
+	if visible and not options_open and not _minimal:
 		if event.is_action_pressed("ui_cancel"):
 			_on_resume_pressed()
 			get_tree().set_input_as_handled()

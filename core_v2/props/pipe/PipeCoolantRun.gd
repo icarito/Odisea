@@ -71,6 +71,10 @@ export(bool) var hide_caps := true
 # shader descarta la tapa plana, pero no el anillo del borde entre dos mallas distintas,
 # que se nota como una costura. El último tramo de una rama (contra el sumidero) no
 # necesita nada del lado de salida porque ahí no hay otra malla con la que chocar.
+# Con las piezas del kit modular (PipeKit) el cano ya trae su PBR horneado del
+# asset. Poner esto en false deja ese material y NO pinta el de fluido: el run
+# sigue sirviendo para la logica (caudal, fugas, señales), solo que no repinta.
+export(bool) var apply_flow_material := true
 export(bool) var add_entry_collar := true
 export(float) var collar_radius_margin := 0.03
 export(float) var collar_height := 0.12
@@ -355,6 +359,8 @@ func _find_cylinder_visual(node: Node) -> MeshInstance:
 
 
 func _assign_to_meshes(node: Node) -> void:
+	if not apply_flow_material:
+		return
 	for child in node.get_children():
 		# Los collares y demás herrajes cuelgan del tramo para que el oclusor por dither
 		# los alcance (entra por el StaticBody del tramo), pero son metal: si se les pinta

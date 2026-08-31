@@ -27,6 +27,13 @@ extends SceneTree
 const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_ScaffoldSource.tscn"
 const GROUPS := ["SpiralStairs", "HubSpokes", "SpiralWalkways"]
 const OUT_DIR := "res://core_v2/levels/interiors/"
+
+# Prefijo de los archivos horneados. Sin la variable de entorno se mantiene el
+# nombre historico de Dome_Intro; una variante del modulo de criogenia lo cambia y
+# hornea a archivos propios sin pisar los de Dome_Intro. Va junto con
+# ODISEA_BAKE_SOURCE, que elige la escena fuente.
+const DEFAULT_OUT_PREFIX := "DomeIntro"
+var _prefix := DEFAULT_OUT_PREFIX
 const SECTOR_COUNT := 8
 const LIGHTMAP_TEXEL_SIZE := 0.2
 const FOOTSTEP_SURFACE_SCRIPT := "res://core_v2/systems/footsteps/footstep_surface.gd"
@@ -39,6 +46,9 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	_prefix = OS.get_environment("ODISEA_BAKE_PREFIX")
+	if _prefix.empty():
+		_prefix = DEFAULT_OUT_PREFIX
 	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
 	if source_path.empty():
 		source_path = DEFAULT_SOURCE_PATH
@@ -206,7 +216,7 @@ func _bake_group(root: Node, group_name: String) -> void:
 		var cs_to_group: Transform = group_xform_inv * cs.global_transform
 		collision_shapes.append([cs.shape, cs_to_group])
 
-	var out_mesh_path := OUT_DIR + "DomeIntro_%s_baked.mesh" % group_name
+	var out_mesh_path := OUT_DIR + _prefix + "_%s_baked.mesh" % group_name
 	if ResourceSaver.save(out_mesh_path, combined) != OK:
 		push_error("[bake_walkways] failed to save %s" % out_mesh_path)
 		return
@@ -242,7 +252,7 @@ func _bake_group(root: Node, group_name: String) -> void:
 
 	var body_packed := PackedScene.new()
 	body_packed.pack(body)
-	var out_body_path := OUT_DIR + "DomeIntro_%s_body.tscn" % group_name
+	var out_body_path := OUT_DIR + _prefix + "_%s_body.tscn" % group_name
 	if ResourceSaver.save(out_body_path, body_packed) != OK:
 		push_error("[bake_walkways] failed to save %s" % out_body_path)
 		return
@@ -258,7 +268,7 @@ func _bake_group(root: Node, group_name: String) -> void:
 # en la malla combinada y en cada sector, y el runtime carga UNA sola instancia
 # compartida por todos.
 func _save_shared_material(group_name: String, index: int, mat: Material) -> Material:
-	var path: String = OUT_DIR + "DomeIntro_%s_mat_%02d.material" % [group_name, index]
+	var path: String = OUT_DIR + _prefix + "_%s_mat_%02d.material" % [group_name, index]
 	if ResourceSaver.save(path, mat) != OK:
 		push_error("[bake_walkways] failed to save %s" % path)
 		return mat
@@ -324,7 +334,7 @@ func _save_visual_sectors(group_name: String, combined: ArrayMesh) -> bool:
 			st.commit(sector_mesh)
 		if sector_mesh.get_surface_count() == 0:
 			continue
-		var sector_path: String = OUT_DIR + "DomeIntro_%s_sector_%02d.mesh" % [group_name, sector_index]
+		var sector_path: String = OUT_DIR + _prefix + "_%s_sector_%02d.mesh" % [group_name, sector_index]
 		if not _generate_lightmap_uv2(sector_mesh, sector_path):
 			return false
 		if ResourceSaver.save(sector_path, sector_mesh) != OK:

@@ -22,6 +22,17 @@ uniform float metallic_amount = 0.5;
 uniform float roughness_amount = 0.35;
 uniform float flow_noise_amount : hint_range(0.0, 0.4) = 0.12;
 
+// Marca direccional. Las celdas de voronoi son SIMETRICAS: corriendo hacia un lado
+// o hacia el otro se ven exactamente igual, asi que el patron dice que hay caudal
+// pero no hacia donde. Esto suma un diente de sierra a lo largo del eje con perfil
+// asimetrico —frente abrupto, cola que se apaga—, que es lo unico que desambigua el
+// sentido. En 0.0 el shader se comporta como antes.
+uniform float direction_marks : hint_range(0.0, 1.0) = 0.35;
+// Marcas por metro de cano.
+uniform float direction_marks_scale : hint_range(0.05, 3.0) = 0.45;
+// Cuanto se acorta la cola. Mas alto = cabeza mas corta y mas marcada.
+uniform float direction_marks_sharpness : hint_range(1.0, 8.0) = 3.0;
+
 uniform float noise_scale = 1.6;
 uniform bool hide_caps = true;
 uniform float base_glow = 0.035;
@@ -154,6 +165,14 @@ void fragment() {
 	float water = clamp(1.0 - f * f * f, 0.0, 1.0);
 	float foam = 1.0 - water;
 
+	// El frente viaja HACIA +axis, igual que el scroll de las celdas: al crecer la
+	// fase, el punto donde fract() vuelve a cero avanza en ese sentido.
+	float head = 0.0;
+	if (direction_marks > 0.001) {
+		float saw = fract(along * direction_marks_scale - phase * water_speed * 0.5);
+		head = pow(1.0 - saw, direction_marks_sharpness) * direction_marks;
+	}
+
 	float active = clamp(flow_intensity, 0.0, 1.0);
 	vec3 idle_albedo = base_color.rgb * 0.34;
 	vec3 foam_color = mix(vec3(1.0), flow_color.rgb, 0.15);
@@ -161,8 +180,10 @@ void fragment() {
 	vec3 flowing_albedo = mix(foam_color, water_color, water);
 	vec3 current_albedo = mix(idle_albedo, flowing_albedo, active);
 	float far_readability = mix(0.9, 1.15, far_lod);
+	// La marca se suma a la espuma: mantiene la paleta y no inventa un color nuevo.
 	vec3 current_emission = mix(foam_color, water_color, water)
-		* active * (base_glow + foam * emission_strength * far_readability);
+		* active * (base_glow + (foam + head) * emission_strength * far_readability);
+	current_albedo = mix(current_albedo, foam_color, head * active * 0.6);
 
 	if (fissure_intensity > 0.001) {
 		float fissure_distance = distance(world_pos, fissure_center);

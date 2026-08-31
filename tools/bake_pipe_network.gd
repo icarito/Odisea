@@ -43,6 +43,9 @@ const DomeIntroPipeVisualBake = preload("res://core_v2/levels/interiors/DomeIntr
 # activo (PipeCoolantRun.gd lo detecta solo por la presencia de CombinedMesh) en vez de
 # derivarlo de WORLD_MATRIX en runtime — evita el bug sin perder el ahorro de draw calls.
 const GROUPS := [
+	# Las vueltas de la serpentina y el cruce oeste-este cuelgan del TRONCO, no de un
+	# piso: sin estos tres grupos su geometria no se hornea nunca y en el juego se ven
+	# los anillos sueltos, sin nada que los conecte entre pisos.
 	["CryoLoopWest", "CryoLoopWest/Pipes"],
 	["CryoLoopEast", "CryoLoopEast/Pipes"],
 	["TowerCoolantRiserL1", "TowerCoolantRiser/TowerCoolantRiser_L1"],
@@ -68,12 +71,22 @@ const GROUPS := [
 ]
 const OUT_DIR := "res://core_v2/levels/interiors/"
 
+# Prefijo de los archivos horneados. Sin la variable de entorno se mantiene el
+# nombre historico de Dome_Intro; una variante del modulo de criogenia lo cambia y
+# hornea a archivos propios sin pisar los de Dome_Intro. Va junto con
+# ODISEA_BAKE_SOURCE, que elige la escena fuente.
+const DEFAULT_OUT_PREFIX := "DomeIntro"
+var _prefix := DEFAULT_OUT_PREFIX
+
 var _texture_keys := {}
 
 func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	_prefix = OS.get_environment("ODISEA_BAKE_PREFIX")
+	if _prefix.empty():
+		_prefix = DEFAULT_OUT_PREFIX
 	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
 	if source_path.empty():
 		source_path = DEFAULT_SOURCE_PATH
@@ -205,7 +218,7 @@ func _bake_group(root: Node, group_name: String, node_path: String) -> void:
 		var cs_to_group: Transform = group_xform_inv * cs.global_transform
 		collision_shapes.append([cs.shape, cs_to_group])
 
-	var out_mesh_path := OUT_DIR + "DomeIntro_%sPipes_baked.mesh" % group_name
+	var out_mesh_path := OUT_DIR + _prefix + "_%sPipes_baked.mesh" % group_name
 	if ResourceSaver.save(out_mesh_path, combined) != OK:
 		push_error("[bake_pipes] failed to save %s" % out_mesh_path)
 		return
@@ -225,7 +238,7 @@ func _bake_group(root: Node, group_name: String, node_path: String) -> void:
 
 	var body_packed := PackedScene.new()
 	body_packed.pack(body)
-	var out_body_path := OUT_DIR + "DomeIntro_%sPipes_body.tscn" % group_name
+	var out_body_path := OUT_DIR + _prefix + "_%sPipes_body.tscn" % group_name
 	if ResourceSaver.save(out_body_path, body_packed) != OK:
 		push_error("[bake_pipes] failed to save %s" % out_body_path)
 		return
@@ -237,7 +250,7 @@ func _bake_group(root: Node, group_name: String, node_path: String) -> void:
 		group_name, combined.get_surface_count(), vcount, collision_shapes.size(), out_mesh_path, out_body_path])
 
 func _save_shared_material(group_name: String, index: int, mat: Material) -> Material:
-	var path: String = OUT_DIR + "DomeIntro_%sPipes_mat_%02d.material" % [group_name, index]
+	var path: String = OUT_DIR + _prefix + "_%sPipes_mat_%02d.material" % [group_name, index]
 	if ResourceSaver.save(path, mat) != OK:
 		push_error("[bake_pipes] failed to save %s" % path)
 		return mat
@@ -294,11 +307,16 @@ func _neutralized_material(mat: Material) -> Material:
 	if not (mat is SpatialMaterial):
 		return mat
 	var sm := mat as SpatialMaterial
-	if sm.uv1_scale == Vector3(1, 1, 1) and sm.uv1_offset == Vector3.ZERO:
+	# COLOR hornea el eje de cada tramo (use_baked_axis del shader coolant). Con el
+	# material plano del kit ese COLOR multiplica el albedo: verticales verdes,
+	# horizontales magenta. El ShaderMaterial lee COLOR sin este flag, asi que off.
+	if sm.uv1_scale == Vector3(1, 1, 1) and sm.uv1_offset == Vector3.ZERO \
+			and not sm.vertex_color_use_as_albedo:
 		return mat
 	var copy := sm.duplicate() as SpatialMaterial
 	copy.uv1_scale = Vector3(1, 1, 1)
 	copy.uv1_offset = Vector3.ZERO
+	copy.vertex_color_use_as_albedo = false
 	return copy
 
 func _collect_collision_shapes(node: Node, out_list: Array) -> void:
@@ -309,6 +327,11 @@ func _collect_collision_shapes(node: Node, out_list: Array) -> void:
 
 func _collect_mesh_instances(node: Node, out_list: Array) -> void:
 	if node is MeshInstance:
+		# Marcadores y decoracion runtime: no son circuito. SectionCenter es el
+		# marcador del centro de cada lazo; _EntryCollar lo spawnea PipeCoolantRun
+		# en runtime (con su material plano azul) y no debe quedar horneado.
+		if node.name == "SectionCenter" or node.name == "_EntryCollar":
+			return
 		out_list.append(node)
 	for child in node.get_children():
 		_collect_mesh_instances(child, out_list)

@@ -26,6 +26,9 @@ target_spawn_id = "from_dome_prologue"
 [node name="Airlock_West" parent="Dome_Base" index="7"]
 target_spawn_id = "from_dome_prologue"
 
+[node name="WallLights" parent="Dome_Base" index="17"]
+light_pool_size = 0
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 2 )
 

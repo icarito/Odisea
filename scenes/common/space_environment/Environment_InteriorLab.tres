@@ -2,7 +2,7 @@
 
 [resource]
 background_mode = 1
-background_color = Color( 0.004, 0.003, 0.012, 1 )
+background_color = Color( 0.101961, 0.101961, 0.101961, 1 )
 fog_color = Color( 0.018, 0.014, 0.032, 1 )
 fog_sun_color = Color( 0.117647, 0.0941176, 0.0470588, 1 )
 fog_depth_curve = 1.66435

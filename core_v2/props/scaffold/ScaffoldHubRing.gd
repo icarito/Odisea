@@ -50,6 +50,26 @@ export(Array, float) var outer_opening_docks := [] setget set_outer_opening_dock
 # 0 removes that segment's rail entirely instead of splitting it.
 export(float, 0.0, 100.0, 0.1) var opening_width := 2.0 setget set_opening_width
 
+# Indices de sector (0..sides-1) que no se construyen: ni deck, ni baranda de arco,
+# ni franja, ni columna. Sirve para abrir rutas alternativas a traves del anillo, o
+# para calar el anillo entero intercalando sectores.
+#
+# El borde RADIAL que queda expuesto contra el hueco se cierra con baranda propia
+# (respetando rail_outer, que es la bandera de proteccion contra caida), y la
+# columna del sector vecino se conserva: si no, el deck que sigue en pie queda con
+# una esquina al aire y sin apoyo.
+export(Array, int) var skipped_sides := [] setget set_skipped_sides
+
+# Caños verticales que atraviesan el deck, como Vector2(angulo_grados, radio). Si
+# una baranda radial cae en ese angulo se le abre un hueco a ese radio en vez de
+# cruzar el caño por el medio.
+#
+# Hace falta porque los risers de coolant estan en 180 y 0, que son bordes EXACTOS
+# de la grilla de 45 grados: cualquier `skipped_sides` que termine ahi pone la
+# baranda justo sobre el caño (distancia medida: 0.000 m).
+export(Array) var radial_rail_pass_throughs := [] setget set_radial_rail_pass_throughs
+export(float) var radial_rail_pass_clearance := 0.45 setget set_radial_rail_pass_clearance
+
 export(float, 0.04, 2.0, 0.01) var tube_radius := 0.07 setget set_tube_radius
 export(float, 0.04, 2.0, 0.01) var deck_frame_thickness := 0.10 setget set_deck_frame_thickness
 export(float, 0.0, 20.0, 0.05) var rail_height := 1.1 setget set_rail_height
@@ -142,6 +162,48 @@ func set_opening_width(value: float) -> void:
 	opening_width = max(value, 0.0)
 	_queue_build()
 
+func set_skipped_sides(value: Array) -> void:
+	skipped_sides = value
+	_queue_build()
+
+func set_radial_rail_pass_throughs(value: Array) -> void:
+	radial_rail_pass_throughs = value
+	_queue_build()
+
+func set_radial_rail_pass_clearance(value: float) -> void:
+	radial_rail_pass_clearance = max(value, 0.0)
+	_queue_build()
+
+# Huecos (como razon 0..1 sobre el tramo interior->exterior) para los caños que
+# cruzan la baranda radial de ESE angulo. La baranda va del corner interior al
+# exterior, asi que el radio se proyecta linealmente sobre ese tramo.
+func _pass_through_gaps(angle_deg: float, r_inner: float, r_outer: float) -> Array:
+	var gaps := []
+	var span: float = r_outer - r_inner
+	if span <= 0.001:
+		return gaps
+	for entry in radial_rail_pass_throughs:
+		if not (entry is Vector2):
+			continue
+		if abs(_shortest_arc(float(entry.x) - angle_deg)) > 0.5:
+			continue
+		var half: float = radial_rail_pass_clearance * 0.5
+		gaps.append(Vector2(
+			clamp((float(entry.y) - half - r_inner) / span, 0.0, 1.0),
+			clamp((float(entry.y) + half - r_inner) / span, 0.0, 1.0)))
+	return gaps
+
+# Acepta indices fuera de rango o negativos: un patron intercalado se escribe mas
+# comodo como [1, 3, 5, 7] que teniendo que normalizar a mano contra sides.
+func _is_skipped(index: int) -> bool:
+	if skipped_sides.empty():
+		return false
+	var normalized: int = int(fposmod(index, sides))
+	for entry in skipped_sides:
+		if int(fposmod(int(entry), sides)) == normalized:
+			return true
+	return false
+
 func set_tube_radius(value: float) -> void:
 	tube_radius = value
 	_queue_build()
@@ -223,6 +285,8 @@ func _build_compact_ring() -> void:
 	var deck_bottom: float = max(0.0, platform_height - deck_frame_thickness)
 
 	for index in range(sides):
+		if _is_skipped(index):
+			continue
 		var a0: float = sector * float(index)
 		var a1: float = sector * float(index + 1)
 		var inner_a := Vector3(cos(a0) * inner_corner, deck_top, sin(a0) * inner_corner)
@@ -246,6 +310,19 @@ func _build_compact_ring() -> void:
 		if hazard_tool != null:
 			_add_outer_hazard_strip(hazard_tool, outer_a, outer_b, deck_top)
 		_add_beam(frame_tool, Vector3(outer_a.x, support_base_local_y, outer_a.z), outer_a, tube_radius * 2.0)
+		# Bordes radiales contra un sector ausente. Sin gaps: el hueco YA es la
+		# abertura, cortarle una puerta a esta baranda seria abrir hacia el vacio.
+		if rail_outer and _is_skipped(index - 1):
+			_add_rail_edge(rail_tool, inner_a, outer_a,
+				_pass_through_gaps(rad2deg(a0), inner_corner, outer_corner))
+		if rail_outer and _is_skipped(index + 1):
+			_add_rail_edge(rail_tool, inner_b, outer_b,
+				_pass_through_gaps(rad2deg(a1), inner_corner, outer_corner))
+			# El bucle pone una columna por sector en SU esquina `a`, o sea que la
+			# esquina `b` la aportaba el sector siguiente. Si ese no existe, hay que
+			# ponerla aca o el deck queda volado.
+			_add_beam(frame_tool, Vector3(outer_b.x, support_base_local_y, outer_b.z),
+				outer_b, tube_radius * 2.0)
 
 	deck_top_tool.generate_normals()
 	deck_tool.generate_normals()

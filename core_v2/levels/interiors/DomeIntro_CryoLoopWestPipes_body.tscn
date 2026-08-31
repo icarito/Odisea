@@ -8,13 +8,5 @@ collision_layer = 64
 collision_mask = 255
 
 [node name="Collision_0" type="CollisionShape" parent="."]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, -2, 0, 0 )
-shape = SubResource( 2 )
-
-[node name="Collision_1" type="CollisionShape" parent="."]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0 )
-shape = SubResource( 2 )
-
-[node name="Collision_2" type="CollisionShape" parent="."]
-transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 2, 0, 0 )
+transform = Transform( -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 4.44089e-16, 0, 1, 0, 0, 0 )
 shape = SubResource( 2 )

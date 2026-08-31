@@ -39,7 +39,14 @@ extends SceneTree
 
 const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/DomeIntro_CriopodsSource.tscn"
 const OUT_DIR := "res://core_v2/levels/interiors/"
-const FRAGMENT_PATH := OUT_DIR + "DomeIntro_Criopods.nodes"
+
+# Prefijo de los archivos horneados. Sin la variable de entorno se mantiene el
+# nombre historico de Dome_Intro; una variante del modulo de criogenia lo cambia y
+# hornea a archivos propios sin pisar los de Dome_Intro. Va junto con
+# ODISEA_BAKE_SOURCE, que elige la escena fuente.
+const DEFAULT_OUT_PREFIX := "DomeIntro"
+var _prefix := DEFAULT_OUT_PREFIX
+var _fragment_path := ""  # OUT_DIR + <prefijo>_Criopods.nodes, ver _run()
 const LIGHTMAP_TEXEL_SIZE := 0.2
 
 # Ruta relativa dentro del criopod -> nombre de la capa horneada. El orden importa
@@ -61,6 +68,10 @@ func _init() -> void:
 
 
 func _run() -> void:
+	_prefix = OS.get_environment("ODISEA_BAKE_PREFIX")
+	if _prefix.empty():
+		_prefix = DEFAULT_OUT_PREFIX
+	_fragment_path = OUT_DIR + _prefix + "_Criopods.nodes"
 	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
 	if source_path.empty():
 		source_path = DEFAULT_SOURCE_PATH
@@ -154,7 +165,7 @@ func _bake_ring(ring: Spatial) -> bool:
 			if mat != null:
 				merged.surface_set_material(merged.get_surface_count() - 1, _shared_material(mat, layer.name))
 
-		var out_mesh: String = OUT_DIR + "DomeIntro_%s_%s.mesh" % [ring.name, layer.name]
+		var out_mesh: String = OUT_DIR + _prefix + "_%s_%s.mesh" % [ring.name, layer.name]
 		if not _generate_lightmap_uv2(merged, out_mesh):
 			return false
 		if ResourceSaver.save(out_mesh, merged) != OK:
@@ -231,7 +242,7 @@ func _bake_collision(ring: Spatial, items: Array, to_ring: Transform) -> int:
 		return -1
 
 	if _box_shape_path == "":
-		var path: String = OUT_DIR + "DomeIntro_Criopod_box.shape"
+		var path: String = OUT_DIR + _prefix + "_Criopod_box.shape"
 		if ResourceSaver.save(path, formas[0].shape) != OK:
 			push_error("[bake_criopods] no pude guardar %s" % path)
 			return -1
@@ -282,7 +293,7 @@ func _shared_material(mat: Material, layer_name: String) -> Material:
 		return mat
 	var firma: String = _material_signature(mat)
 	if not _shared_materials.has(firma):
-		var path: String = OUT_DIR + "DomeIntro_Criopod_%s.material" % layer_name
+		var path: String = OUT_DIR + _prefix + "_Criopod_%s.material" % layer_name
 		if ResourceSaver.save(path, mat) != OK:
 			push_error("[bake_criopods] no pude guardar %s" % path)
 			return mat
@@ -331,8 +342,8 @@ func _f(v: float) -> String:
 
 func _write_fragment() -> void:
 	var f := File.new()
-	if f.open(FRAGMENT_PATH, File.WRITE) != OK:
-		push_error("[bake_criopods] no pude escribir %s" % FRAGMENT_PATH)
+	if f.open(_fragment_path, File.WRITE) != OK:
+		push_error("[bake_criopods] no pude escribir %s" % _fragment_path)
 		return
 	# Cabecera: las rutas que el splicer tiene que dar de alta como ext_resource, en el
 	# mismo orden que los indices emitidos arriba.
@@ -342,4 +353,4 @@ func _write_fragment() -> void:
 	f.store_string(_fragment.join("\n"))
 	f.close()
 	print("[bake_criopods] fragmento -> %s (%d ext_resources)" % [
-		FRAGMENT_PATH, _ext_resources.size()])
+		_fragment_path, _ext_resources.size()])

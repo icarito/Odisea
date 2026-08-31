@@ -47,216 +47,6 @@ ao_texture_channel = 2
 [node name="Spatial" type="Spatial" parent="." groups=["ice_freezable"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0 )
 
-[node name="Criopods1" type="Spatial" parent="Spatial"]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0 )
-script = ExtResource( 1 )
-target_scene = ExtResource( 2 )
-item_count = 40
-radius = 8.0
-blocked_angle_ranges_deg = [ Vector2( -4.4, 4.4 ), Vector2( 85.6, 94.4 ), Vector2( 170, 185 ), Vector2( 265.6, 274.4 ), Vector2( 105.322, 123.922 ) ]
-rotation_y = 180.0
-rand_rotation_amount = 0.0
-rebuild_baked_items = true
-deferred_build = false
-
-[node name="Item_1" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.156434, 0, -0.987688, 0, 1, 0, 0.987688, 0, -0.156434, 7.90151, 0, 1.25148 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_2" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.309017, 0, -0.951057, 0, 1, 0, 0.951057, 0, -0.309017, 7.60845, 0, 2.47214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_3" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.45399, 0, -0.891007, 0, 1, 0, 0.891007, 0, -0.45399, 7.12805, 0, 3.63192 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_4" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.587785, 0, -0.809017, 0, 1, 0, 0.809017, 0, -0.587785, 6.47214, 0, 4.70228 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_5" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, -0.707107, 5.65685, 0, 5.65685 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_6" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.809017, 0, -0.587785, 0, 1, 0, 0.587785, 0, -0.809017, 4.70228, 0, 6.47214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_7" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.891006, 0, -0.453991, 0, 1, 0, 0.453991, 0, -0.891006, 3.63192, 0, 7.12805 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_8" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.951057, 0, -0.309017, 0, 1, 0, 0.309017, 0, -0.951057, 2.47214, 0, 7.60845 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_9" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.987688, 0, -0.156435, 0, 1, 0, 0.156435, 0, -0.987688, 1.25148, 0, 7.90151 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_11" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.987688, 0, 0.156434, 0, 1, 0, -0.156434, 0, -0.987688, -1.25148, 0, 7.90151 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_14" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, -0.809017, -4.70228, 0, 6.47214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_15" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, -5.65685, 0, 5.65685 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_16" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.587785, 0, 0.809017, 0, 1, 0, -0.809017, 0, -0.587785, -6.47214, 0, 4.70228 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_17" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.453991, 0, 0.891006, 0, 1, 0, -0.891006, 0, -0.453991, -7.12805, 0, 3.63192 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_18" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( -0.309017, 0, 0.951057, 0, 1, 0, -0.951057, 0, -0.309017, -7.60845, 0, 2.47214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_21" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.156434, 0, 0.987688, 0, 1, 0, -0.987688, 0, 0.156434, -7.90151, 0, -1.25148 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_22" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.309017, 0, 0.951056, 0, 1, 0, -0.951056, 0, 0.309017, -7.60845, 0, -2.47214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_23" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.45399, 0, 0.891007, 0, 1, 0, -0.891007, 0, 0.45399, -7.12805, 0, -3.63192 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_24" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.587785, 0, 0.809017, 0, 1, 0, -0.809017, 0, 0.587785, -6.47214, 0, -4.70228 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_25" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, -5.65685, 0, -5.65685 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_26" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.809017, 0, 0.587785, 0, 1, 0, -0.587785, 0, 0.809017, -4.70228, 0, -6.47214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_27" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.891006, 0, 0.453991, 0, 1, 0, -0.453991, 0, 0.891006, -3.63192, 0, -7.12805 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_28" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.951056, 0, 0.309017, 0, 1, 0, -0.309017, 0, 0.951056, -2.47214, 0, -7.60845 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_29" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.987688, 0, 0.156435, 0, 1, 0, -0.156435, 0, 0.987688, -1.25148, 0, -7.90151 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_31" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.987688, 0, -0.156434, 0, 1, 0, 0.156434, 0, 0.987688, 1.25148, 0, -7.90151 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_32" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.951056, 0, -0.309017, 0, 1, 0, 0.309017, 0, 0.951056, 2.47214, 0, -7.60845 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_33" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.891007, 0, -0.45399, 0, 1, 0, 0.45399, 0, 0.891007, 3.63192, 0, -7.12805 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_34" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.809017, 0, -0.587785, 0, 1, 0, 0.587785, 0, 0.809017, 4.70228, 0, -6.47214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_35" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 5.65685, 0, -5.65685 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_36" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.587785, 0, -0.809017, 0, 1, 0, 0.809017, 0, 0.587785, 6.47214, 0, -4.70228 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_37" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.45399, 0, -0.891007, 0, 1, 0, 0.891007, 0, 0.45399, 7.12805, 0, -3.63192 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_38" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.309017, 0, -0.951056, 0, 1, 0, 0.951056, 0, 0.309017, 7.60845, 0, -2.47214 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
-[node name="Item_39" type="MeshInstance" parent="Spatial/Criopods1" instance=ExtResource( 2 )]
-transform = Transform( 0.156435, 0, -0.987688, 0, 1, 0, 0.987688, 0, 0.156435, 7.90151, 0, -1.25148 )
-use_in_baked_light = true
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
-
 [node name="Criopods2" type="Spatial" parent="Spatial"]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 4.5, 0 )
 script = ExtResource( 1 )
@@ -264,7 +54,7 @@ target_scene = ExtResource( 2 )
 item_count = 40
 radius = 8.0
 start_angle_deg = 1.457
-blocked_angle_ranges_deg = [ Vector2( 231.057, 239.857 ), Vector2( 105.322, 123.922 ), Vector2( 170, 190 ), Vector2( -4.4, 4.4 ) ]
+blocked_angle_ranges_deg = [ Vector2( 231.057, 239.857 ), Vector2( 105.322, 123.922 ), Vector2( 170, 190 ), Vector2( -4.4, 4.4 ), Vector2( 131, 184 ), Vector2( 125.5, 129.5 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
 rebuild_baked_items = true
@@ -487,7 +277,7 @@ target_scene = ExtResource( 2 )
 item_count = 40
 radius = 8.0
 start_angle_deg = 1.344
-blocked_angle_ranges_deg = [ Vector2( 284.944, 293.744 ), Vector2( 105.322, 123.922 ), Vector2( 170, 190 ), Vector2( -4.4, 4.4 ) ]
+blocked_angle_ranges_deg = [ Vector2( 284.944, 293.744 ), Vector2( 105.322, 123.922 ), Vector2( 170, 190 ), Vector2( -4.4, 4.4 ), Vector2( 131, 229 ), Vector2( 125.3, 129.3 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
 rebuild_baked_items = true
@@ -710,7 +500,7 @@ target_scene = ExtResource( 2 )
 item_count = 40
 radius = 8.0
 start_angle_deg = 1.171
-blocked_angle_ranges_deg = [ Vector2( 338.771, 347.571 ), Vector2( 105.322, 123.922 ), Vector2( 170, 190 ), Vector2( -4.4, 4.4 ) ]
+blocked_angle_ranges_deg = [ Vector2( 338.771, 347.571 ), Vector2( 105.322, 123.922 ), Vector2( 170, 190 ), Vector2( -4.4, 4.4 ), Vector2( 221, 274 ), Vector2( 350.2, 354.2 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
 rebuild_baked_items = true
@@ -933,7 +723,7 @@ target_scene = ExtResource( 2 )
 item_count = 40
 radius = 8.0
 start_angle_deg = 0.902
-blocked_angle_ranges_deg = [ Vector2( 32.502, 41.302 ), Vector2( 105.322, 123.922 ), Vector2( 170, 185 ), Vector2( -4.4, 4.4 ) ]
+blocked_angle_ranges_deg = [ Vector2( 32.502, 41.302 ), Vector2( 105.322, 123.922 ), Vector2( 170, 185 ), Vector2( -4.4, 4.4 ), Vector2( 221, 319 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
 rebuild_baked_items = true
@@ -1156,7 +946,7 @@ target_scene = ExtResource( 2 )
 item_count = 40
 radius = 8.0
 start_angle_deg = 0.421
-blocked_angle_ranges_deg = [ Vector2( 86.021, 123.922 ), Vector2( 170, 185 ), Vector2( -4.4, 4.4 ) ]
+blocked_angle_ranges_deg = [ Vector2( 86.021, 123.922 ), Vector2( 170, 185 ), Vector2( -4.4, 4.4 ), Vector2( 311, 364 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
 rebuild_baked_items = true

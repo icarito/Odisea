@@ -3,7 +3,7 @@ extends Node
 var pause_menu_scene_path = "res://core_v2/ui/PauseMenu.tscn"
 var pause_menu_instance = null
 var _uptime_frames: int = 0
-var _paused_by_focus: bool = false
+var _menu_hidden_by_focus: bool = false
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
@@ -21,13 +21,12 @@ func _notification(what: int) -> void:
 		_toggle_pause()
 	# Al perder el foco de la ventana (alt-tab, cambio de app, etc.) pausamos el
 	# juego en vez de solo silenciar el audio. El AudioManager ya silencia con su
-	# propio handler de foco; aquí detenemos la simulación. No reanudamos solo con
-	# FOCUS_IN: el jugador decide cuándo continuar desde el menú de pausa, evitando
-	# reanudar por un rebote de foco del compositor.
+	# propio handler de foco; aquí detenemos la simulación. Mientras no haya foco el
+	# menú se reduce a la etiqueta "PAUSA" (para poder tomar capturas limpias) y
+	# vuelve completo con el primer input. No reanudamos solo con FOCUS_IN: el
+	# jugador decide cuándo continuar desde el menú de pausa.
 	elif what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
 		_pause_on_focus_loss()
-	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
-		_on_focus_in()
 
 func _can_pause_in_current_scene() -> bool:
 	var current_scene = get_tree().current_scene
@@ -38,22 +37,27 @@ func _can_pause_in_current_scene() -> bool:
 	return fname.find("Menu.tscn") == -1 and fname.find("Boot.tscn") == -1
 
 func _pause_on_focus_loss() -> void:
-	if get_tree().paused:
-		return
 	if _uptime_frames < 120:
 		return
 	if _is_automated_run():
 		return
 	if not _can_pause_in_current_scene():
 		return
-	_paused_by_focus = true
-	get_tree().paused = true
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	_refresh_mobile_ui()
-
-func _on_focus_in() -> void:
-	if _paused_by_focus:
+	_menu_hidden_by_focus = true
+	if get_tree().paused:
+		_apply_menu_visibility()
+	else:
 		pause()
+
+func _apply_menu_visibility() -> void:
+	if pause_menu_instance and pause_menu_instance.has_method("set_minimal"):
+		pause_menu_instance.set_minimal(_menu_hidden_by_focus)
+
+func _restores_menu(event: InputEvent) -> bool:
+	if event is InputEventKey or event is InputEventMouseButton \
+			or event is InputEventJoypadButton or event is InputEventScreenTouch:
+		return event.pressed
+	return false
 
 func _is_automated_run() -> bool:
 	if OS.has_feature("Server"):
@@ -65,6 +69,12 @@ func _is_automated_run() -> bool:
 	return false
 
 func _input(event):
+	# Primer input tras recuperar el foco: devolver el menú completo, sin actuar.
+	if _menu_hidden_by_focus and get_tree().paused and _restores_menu(event):
+		_menu_hidden_by_focus = false
+		_apply_menu_visibility()
+		get_tree().set_input_as_handled()
+		return
 	if not event.is_action_pressed("ui_cancel"):
 		return
 	if not _can_pause_in_current_scene():
@@ -115,13 +125,14 @@ func _finish_pause() -> void:
 	pause_menu_instance.show()
 	if pause_menu_instance.has_method("on_show"):
 		pause_menu_instance.on_show()
+	_apply_menu_visibility()
 	_refresh_mobile_ui()
 	var audio_mgr = get_node_or_null("/root/AudioManager")
 	if audio_mgr and audio_mgr.has_method("set_music_paused_by_menu"):
 		audio_mgr.set_music_paused_by_menu(true)
 
 func resume():
-	_paused_by_focus = false
+	_menu_hidden_by_focus = false
 	get_tree().paused = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	if pause_menu_instance:

@@ -49,6 +49,62 @@ bake-dome-geometry:
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
 	python3 scripts/check_tracked_imports.py
 
+# --- Variantes del modulo de criogenia -------------------------------------
+#
+# Una variante es un juego propio de escenas fuente y de mallas horneadas, con su
+# prefijo, para no pisar las de Dome_Intro. Convencion de nombres, con VARIANT=X:
+#
+#   fuente : core_v2/levels/interiors/X_{HubTower,Criopods,Scaffold,PipeNetwork}Source.tscn
+#   salida : core_v2/levels/interiors/X_*.mesh / .shape / .material / .nodes
+#
+# Sin VARIANT los scripts usan sus valores historicos (DomeIntro / Dome_Intro), o
+# sea que `make bake-dome-geometry` sigue horneando Dome_Intro exactamente igual.
+#
+#   make dome-variant-sources VARIANT=DomePrologue   # copia las fuentes de Dome_Intro
+#   ...editar las X_*Source.tscn en el editor...
+#   make bake-dome-variant VARIANT=DomePrologue      # hornea solo las que existan
+VARIANT ?=
+VARIANT_DIR := core_v2/levels/interiors
+VARIANT_SOURCES := HubTower Criopods Scaffold PipeNetwork
+
+dome-variant-sources:
+	@test -n "$(VARIANT)" || { echo "uso: make dome-variant-sources VARIANT=DomePrologue"; exit 1; }
+	@for s in $(VARIANT_SOURCES); do \
+		src="$(VARIANT_DIR)/DomeIntro_$${s}Source.tscn"; \
+		dst="$(VARIANT_DIR)/$(VARIANT)_$${s}Source.tscn"; \
+		if [ -e "$$dst" ]; then echo "[variant] ya existe $$dst (no se toca)"; \
+		else cp "$$src" "$$dst" && echo "[variant] $$dst"; fi; \
+	done
+
+# Vista rapida SIN hornear: arma una escena temporal con las fuentes de la
+# variante, fuerza el rebuild de los generadores y saca fotos. Es el lazo corto
+# para decidir un patron; hornear recien cuando el patron ya esta elegido.
+#   make preview-dome-variant VARIANT=DomeDefault
+PREVIEW_ANGLES ?= 20,110,200,290
+PREVIEW_OUT ?= /tmp/preview
+preview-dome-variant:
+	@test -n "$(VARIANT)" || { echo "uso: make preview-dome-variant VARIANT=DomeDefault"; exit 1; }
+	GODOT="$(GODOT)" python3 tools/preview_dome_variant.py "$(VARIANT)" \
+		--angles "$(PREVIEW_ANGLES)" --out "$(PREVIEW_OUT)"
+
+# Cada fuente que exista se hornea con ODISEA_BAKE_SOURCE + ODISEA_BAKE_PREFIX.
+# Las que falten se saltean: una variante puede reusar la geometria de Dome_Intro
+# para lo que no cambio.
+bake-dome-variant:
+	@test -n "$(VARIANT)" || { echo "uso: make bake-dome-variant VARIANT=DomePrologue"; exit 1; }
+	@set -e; \
+	bake() { \
+		src="$(VARIANT_DIR)/$(VARIANT)_$$1Source.tscn"; \
+		if [ ! -e "$$src" ]; then echo "[variant] sin $$src, salteo $$2"; return 0; fi; \
+		echo "[variant] $$src -> $(VARIANT)_*"; \
+		ODISEA_BAKE_SOURCE="res://$$src" ODISEA_BAKE_PREFIX="$(VARIANT)" \
+			$(GODOT) --path . $(EXPORT_FLAGS) -s "$$2"; \
+	}; \
+	bake PipeNetwork tools/bake_pipe_network.gd; \
+	bake Scaffold tools/bake_scaffold_walkways.gd; \
+	bake HubTower tools/bake_dome_intro_hub_floors.gd; \
+	bake Criopods tools/bake_dome_intro_criopods.gd
+
 # Aplica el look cyan/oscuro a TODOS los PNG referenciados por el .lmbake recién
 # recocido. Valores por defecto aproximan la referencia ya versionada; ajustar:
 # make bake-lightmap-postprocess DOME_LIGHTMAP_BRIGHTNESS=18 DOME_LIGHTMAP_BLUR=2
@@ -311,4 +367,4 @@ android-install-release: android-release-signed
 	adb install -r "$(ANDROID_RELEASE_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all bake bake-dome-geometry bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
+.PHONY: all bake bake-dome-geometry dome-variant-sources bake-dome-variant preview-dome-variant bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release

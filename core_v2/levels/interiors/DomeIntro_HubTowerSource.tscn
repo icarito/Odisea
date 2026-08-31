@@ -508,6 +508,8 @@ hazard_strip_material = ExtResource( 3 )
 outer_openings_deg = [ Vector2( 231.058, 239.856 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
 rail_color = Color( 1, 0.56, 0.06, 1 )
+skipped_sides = [ 3 ]
+radial_rail_pass_throughs = [ Vector2( 180, 12 ) ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_1"]
 layers = 64
@@ -535,6 +537,7 @@ hazard_strip_material = ExtResource( 3 )
 outer_openings_deg = [ Vector2( 284.945, 293.743 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
 rail_color = Color( 1, 0.56, 0.06, 1 )
+skipped_sides = [ 3, 4 ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_2"]
 layers = 64
@@ -562,6 +565,7 @@ hazard_strip_material = ExtResource( 3 )
 outer_openings_deg = [ Vector2( 338.772, 347.57 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
 rail_color = Color( 1, 0.56, 0.06, 1 )
+skipped_sides = [ 5 ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_3"]
 layers = 64
@@ -589,6 +593,7 @@ hazard_strip_material = ExtResource( 3 )
 outer_openings_deg = [ Vector2( 32.5033, 41.3007 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
 rail_color = Color( 1, 0.56, 0.06, 1 )
+skipped_sides = [ 5, 6 ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_4"]
 layers = 64
@@ -616,6 +621,8 @@ hazard_strip_material = ExtResource( 3 )
 outer_openings_deg = [ Vector2( 90, 123 ) ]
 outer_opening_docks = [ 0.0 ]
 rail_color = Color( 1, 0.56, 0.06, 1 )
+skipped_sides = [ 7 ]
+radial_rail_pass_throughs = [ Vector2( 0, 12 ) ]
 
 [node name="CombinedMesh" type="MeshInstance" parent="ScaffoldHubTower/Floor_5"]
 layers = 64

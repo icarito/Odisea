@@ -29,6 +29,7 @@ Ciclo completo de una feature: `/fd-new` → `/enrich` → `/deliver` → `/fd-v
 | --- | --- | --- | --- | --- |
 | `run-odisea` | `docs/agents/tooling.md` | `.claude/skills/run-odisea/SKILL.md` | `.kilo/command/odisea-test.md`, `.kilo/command/odisea-eval.md` | Tests, eval headless, UI, props, runtime. |
 | `odisea-telemetry` | `docs/agents/tooling.md` | `.claude/skills/odisea-telemetry/SKILL.md` | `.kilo/command/odisea-telemetry.md` | Peer `:4999`, status, eval, inspect, screenshot. |
+| `dome-bake` | `docs/agents/dome_source_mapping.md` | `.claude/skills/dome-bake/SKILL.md` | - | Horneado del domo de criogenia: fuentes, bakers, splice y trampas. |
 | `prop-visualizer` | `docs/agents/tooling.md` | `.claude/skills/prop-visualizer/SKILL.md` | `.kilo/command/odisea-prop.md` | Crear e iterar props con screenshots. |
 
 ## Como agregar un workflow nuevo

@@ -21,7 +21,10 @@ func _apply_visual_authoring() -> void:
 func _apply_recursive(node: Node) -> void:
 	if node.name == "FissureVisual" and bool(visual_bake.get("orient_leaks_inward")):
 		_apply_leak_direction(node)
-	elif node.name.begins_with("Valve") and node is Spatial and bool(visual_bake.get("orient_valves_inward")):
+	elif node.name.begins_with("Valve") and node is Spatial and node.is_in_group("coolant_valve") and bool(visual_bake.get("orient_valves_inward")):
+		# El filtro por nombre solo alcanza a la RAIZ de la valvula: `ValveBody`
+		# (hijo MeshInstance del kit) tambien empieza con "Valve" y, de pasar el
+		# filtro, perderia la escala x4 del kit al sobreescribirle la basis.
 		_apply_valve_facing(node as Spatial)
 	for child in node.get_children():
 		_apply_recursive(child)

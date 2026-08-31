@@ -1,0 +1,76 @@
+[gd_scene load_steps=5 format=2]
+
+; PipeValveKit — valvula del kit modular con la logica de PipeValve.gd.
+;
+; SIN rotacion interna: la pieza corre sobre +Y local desde su origen, que es la
+; convencion del kit (pivote en la BASE). Las instancias en Dome_Intro traen la
+; orientacion; antes yo compensaba con rotaciones aca adentro para reusar los
+; transforms de la PipeValve vieja, y encadenar esas rotaciones fue la causa de que
+; el prop apareciera desarmado varias veces.
+;
+; Escala x4 = el mismo factor que PipeRoute.grosor (kit Ø0.10 -> domo Ø0.40).
+; PipeValve.gd busca `Wheel` y `StatusIndicator/StatusLight`, y gira Wheel.rotation.z.
+
+[ext_resource path="res://core_v2/props/pipe/PipeValve.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=7]
+[ext_resource path="res://assets/sfx/metal2.wav" type="AudioStream" id=8]
+[ext_resource path="res://core_v2/props/pipe/kit/PipeValveKit_body.mesh" type="ArrayMesh" id=9]
+[ext_resource path="res://core_v2/props/pipe/kit/PipeValveKit_wheel.mesh" type="ArrayMesh" id=10]
+
+[sub_resource type="CylinderShape" id=3]
+radius = 0.45
+height = 1.6
+
+[sub_resource type="CylinderShape" id=5]
+radius = 0.36
+height = 0.22
+
+[sub_resource type="CubeMesh" id=13]
+size = Vector3( 0.09, 0.09, 0.09 )
+
+[sub_resource type="SpatialMaterial" id=14]
+flags_unshaded = true
+albedo_color = Color( 0.1, 1, 0.3, 1 )
+
+[node name="PipeValve" type="Spatial"]
+script = ExtResource( 1 )
+interaction_text = "Turn Valve"
+anim_duration = 0.5
+starts_active = true
+
+[node name="ValveBody" type="MeshInstance" parent="."]
+transform = Transform( 4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0 )
+mesh = ExtResource( 9 )
+
+[node name="Wheel" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0008, 0.7984, 0.674 )
+
+[node name="WheelMesh" type="MeshInstance" parent="Wheel"]
+transform = Transform( 4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0 )
+mesh = ExtResource( 10 )
+
+[node name="StaticBody" type="StaticBody" parent="Wheel"]
+collision_layer = 64
+
+[node name="CollisionShape" type="CollisionShape" parent="Wheel/StaticBody"]
+shape = SubResource( 5 )
+
+[node name="StatusIndicator" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.152, 0.35 )
+
+[node name="StatusLight" type="MeshInstance" parent="StatusIndicator" groups=[
+"no_occlusion",
+]]
+mesh = SubResource( 13 )
+material/0 = SubResource( 14 )
+
+[node name="BaseStaticBody" type="StaticBody" parent="."]
+collision_layer = 64
+
+[node name="CollisionShape" type="CollisionShape" parent="BaseStaticBody"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0 )
+shape = SubResource( 3 )
+
+[node name="SFXComponentV2" type="AudioStreamPlayer3D" parent="."]
+script = ExtResource( 7 )
+stream = ExtResource( 8 )

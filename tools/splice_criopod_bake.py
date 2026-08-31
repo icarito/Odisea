@@ -195,7 +195,8 @@ def main():
     if not salida.endswith("\n"):
         salida += "\n"
 
-    print("nodos reemplazados: %d -> %d" % (viejos, len(cuerpo_fragmento) and 1))
+    nuevos = sum(1 for l in cuerpo_fragmento if l.startswith("[node "))
+    print("nodos reemplazados: %d -> %d" % (viejos, nuevos))
     print("ext_resource nuevos: %d" % len(nuevos_ext))
     print("recursos huerfanos borrados: %d" % len(borrados))
     for l in borrados:

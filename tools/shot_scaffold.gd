@@ -121,7 +121,7 @@ func _run() -> void:
 			yield(VisualServer, "frame_post_draw")
 			var img: Image = vp.get_texture().get_data()
 			img.flip_y()
-			var path: String = "%s_%s_%s.png" % [out_prefix, target_name, angle_text]
+			var path: String = "%s_%s_%s.png" % [out_prefix, target_name.replace("/", "_"), angle_text]
 			var err: int = img.save_png(path)
 			print("SHOT:%s@%s saved=%s path=%s" % [target_name, angle_text, str(err == OK), path])
 		_restore(hidden)
