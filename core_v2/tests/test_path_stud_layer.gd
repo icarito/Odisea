@@ -84,6 +84,7 @@ func test_scifi_light_path_v2_integrates_stud_layer():
 func test_light_path_v2_integrates_stud_layer():
 	var path: LightPathV2 = auto_free(LightPathV2.new())
 	path.spacing = 2.0
+	path.enable_stud_layer = true
 	add_child(path)
 
 	var wp0 := Position3D.new()

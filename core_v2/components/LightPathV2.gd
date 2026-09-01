@@ -19,6 +19,11 @@ class_name LightPathV2
 const PLAYER_GROUP := "player"
 const MARKERS_NAME := "Markers"
 const STUD_LAYER_NAME := "PathStudLayer"
+# Grate decks are a flat alpha-scissor plane, not real 3D bars: a stud sitting at
+# the same height_offset as the flat marker quad ends up depth-tested behind the
+# deck's opaque texels and reads as hidden under the floor. Studs need extra
+# clearance the flat quad never needed.
+const STUD_EXTRA_LIFT := 0.05
 
 const PathStudLayerScript = preload("res://core_v2/components/PathStudLayer.gd")
 
@@ -59,6 +64,11 @@ export(int, LAYERS_3D_RENDER) var light_cull_mask := 1048575
 # waypoint, which is what an "exit here" cluster wants.
 export(float, 0.0, 40.0, 0.1) var spacing := 2.0
 export(float, 0.05, 4.0, 0.01) var marker_size := 0.35
+# 1.0 = square (original behaviour). >1.0 stretches the marker along its rotated
+# length axis instead of its width, for a diamond-tile look rather than a plain
+# square glow card.
+export(float, 0.25, 4.0, 0.05) var marker_length_scale := 1.0
+export(float, -180.0, 180.0, 1.0) var marker_rotation_degrees := 0.0
 # Floor markers lie flat; a fixture up on a wall has to face the camera or it is
 # invisible edge-on. Billboarding happens in the vertex shader, so the whole set is
 # still one draw call.
@@ -111,7 +121,13 @@ export(bool) var rebuild_baked_items := false
 # extra MultiMesh built at runtime from the same "Markers" child — never baked into
 # the scene, so it costs nothing to add to levels that already shipped their
 # LightPathV2 markers baked.
-export(bool) var enable_stud_layer := true setget set_enable_stud_layer
+# Defaults OFF: this class is shared by every marker trail in the game, including
+# wall-mounted light strips that were never meant to grow floor studs. Opt in per
+# instance (Dome_Base's SpokeLightPath does) rather than surprising every other
+# LightPathV2 in the project. Also gates the per-instance tangent-rotation pass
+# (see _align_markers_to_tangent) for the same reason — other trails were tuned
+# with identity-rotated markers and shouldn't silently re-orient.
+export(bool) var enable_stud_layer := false setget set_enable_stud_layer
 
 var _marker_heights := []
 var _lit_count := -1
@@ -166,6 +182,27 @@ func set_enable_stud_layer(value: bool) -> void:
 	if is_inside_tree():
 		_update_stud_layer()
 
+# Rotates each existing marker instance in place (position untouched) to face the
+# local tangent between its neighbours. A scene that already ships baked Markers
+# never runs build() again (see _ready()), so that per-instance rotation has to
+# happen here at runtime instead — this only rewrites the live MultiMesh, never
+# the .tscn, so it carries no re-bake risk.
+func _align_markers_to_tangent() -> void:
+	var markers: MultiMeshInstance = get_node_or_null(MARKERS_NAME) as MultiMeshInstance
+	if markers == null or markers.multimesh == null:
+		return
+	var count: int = markers.multimesh.instance_count
+	var positions := []
+	for index in range(count):
+		positions.append(markers.multimesh.get_instance_transform(index).origin)
+	for index in range(count):
+		var forward: Vector3 = Vector3.ZERO
+		if index < count - 1:
+			forward = positions[index + 1] - positions[index]
+		elif index > 0:
+			forward = positions[index] - positions[index - 1]
+		markers.multimesh.set_instance_transform(index, Transform(_tangent_basis(forward), positions[index]))
+
 # Adds (or hides) a PathStudLayer child targeting this node's own "Markers" child.
 # Runtime-only: never given an owner, so it is not written back into the .tscn —
 # baked marker scenes pick it up on load without a re-bake.
@@ -174,6 +211,7 @@ func _update_stud_layer() -> void:
 		if is_instance_valid(_stud_layer):
 			_stud_layer.visible = false
 		return
+	_align_markers_to_tangent()
 	if not is_instance_valid(_stud_layer):
 		_stud_layer = get_node_or_null(STUD_LAYER_NAME)
 		if _stud_layer == null:
@@ -181,7 +219,42 @@ func _update_stud_layer() -> void:
 			_stud_layer.name = STUD_LAYER_NAME
 			add_child(_stud_layer)
 	_stud_layer.visible = true
-	_stud_layer.rebuild_from_target()
+	var markers: MultiMeshInstance = get_node_or_null(MARKERS_NAME) as MultiMeshInstance
+	if markers == null or markers.multimesh == null:
+		return
+	# The stud fully replaces the flat glow card visually once it's on — showing
+	# both reads as two overlapping markers. The card's own colour/lit-limit logic
+	# (_apply_lit_limit) keeps running underneath; only its render output is off.
+	markers.visible = false
+	# Markers and PathStudLayer are both direct children of this node with no local
+	# transform of their own, so their instance transforms already share one space —
+	# no world/local conversion needed.
+	# build() already aligns each marker's rotation to the path's local tangent
+	# (see there) — reuse that directly instead of recomputing it from positions,
+	# so the stud's crosswise orientation always matches the marker under it.
+	var transforms := []
+	for index in range(markers.multimesh.instance_count):
+		var xform: Transform = markers.multimesh.get_instance_transform(index)
+		xform.origin += Vector3.UP * STUD_EXTRA_LIFT
+		transforms.append(xform)
+	_stud_layer.set_transforms(transforms)
+
+# Rotation that points local Z along `forward`, tilting to match a ramp's incline
+# rather than flattening it away — a stud on a slope should lie flush with the
+# slope, not float level over it. Falls back to identity when there is no
+# meaningful direction (single-point run) or `forward` is too close to vertical
+# for looking_at()'s up-hint to resolve (an elevator's stacked exit markers climb
+# straight up, which is a real case here, not just a theoretical edge).
+# Shared by build()'s markers and _update_stud_layer()'s studs so both read the
+# corridor's actual heading instead of a world-space-fixed angle that only
+# happens to be right on one spoke of a radial layout.
+static func _tangent_basis(forward: Vector3) -> Basis:
+	if forward.length_squared() <= 0.0001:
+		return Basis()
+	var normalized: Vector3 = forward.normalized()
+	if abs(normalized.dot(Vector3.UP)) > 0.98:
+		return Basis()
+	return Transform().looking_at(normalized, Vector3.UP).basis
 
 func _queue_build() -> void:
 	if not auto_build or not is_inside_tree() or _build_queued:
@@ -207,8 +280,7 @@ func _process(delta: float) -> void:
 	if _snap_pending:
 		_snap_pending = false
 		_snap_markers_to_surface()
-		if is_instance_valid(_stud_layer):
-			_stud_layer.rebuild_from_target()
+		_update_stud_layer()
 	_apply_lit_limit(INF if always_lit else _player.global_transform.origin.y + lead_height)
 	_drive_lights()
 	_drive_fixture_lod()
@@ -327,14 +399,18 @@ func _sample_run(waypoints: Array) -> Array:
 
 func _marker_mesh() -> Mesh:
 	var quad := QuadMesh.new()
-	quad.size = Vector2(marker_size, marker_size)
+	quad.size = Vector2(marker_size, marker_size * marker_length_scale)
 	if marker_billboard:
 		# A billboard has to keep facing +Z for the shader to turn it toward the
 		# camera; laying it flat first would defeat that.
 		return quad
 	var tool_mesh := SurfaceTool.new()
 	tool_mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
-	tool_mesh.append_from(quad, 0, Transform(Basis(Vector3.RIGHT, -PI * 0.5), Vector3.ZERO))
+	# In-plane rotation (around the quad's own normal, Z) happens BEFORE the flip
+	# to horizontal (around X) — reversing the order would tilt the rotation axis
+	# instead of spinning the marker where it lies.
+	var basis := Basis(Vector3.RIGHT, -PI * 0.5) * Basis(Vector3.BACK, deg2rad(marker_rotation_degrees))
+	tool_mesh.append_from(quad, 0, Transform(basis, Vector3.ZERO))
 	return tool_mesh.commit()
 
 func _marker_material() -> SpatialMaterial:

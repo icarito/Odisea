@@ -17,7 +17,7 @@ enum LightState {
 
 export(LightState) var light_state: int = LightState.FULL setget set_light_state
 export(NodePath) var target_path_node: NodePath setget set_target_path_node
-export(Color) var lit_color := Color(0.4, 0.85, 1.0, 1.0) setget set_lit_color
+export(Color) var lit_color := Color(0.95, 0.25, 0.15, 1.0) setget set_lit_color
 export(Color) var base_color := Color(0.2, 0.22, 0.25, 1.0) setget set_base_color
 export(int, 2, 10) var low_power_stride := 3 setget set_low_power_stride
 export(float, 0.1, 5.0) var blink_speed := 1.5
@@ -181,72 +181,107 @@ func _update_stud_colors() -> void:
 				else:
 					mm.set_instance_color(i, base_color)
 
-# Generates flattened hemisphere / beveled disc mesh (< 200 triangles)
-# Radius = 0.14m, Height = 0.04m. 8 radial segments x 3 rings = 48 triangles.
-# Bumped up from the original 0.08m/0.025m (FD-285 spec): at that size the stud was
-# smaller than a single grate-deck cell and read as invisible in actual play.
+# Generates a small rectangular frustum (truncated pyramid): wide base, narrower
+# flat top, slanted sides. Long axis runs along local X — LightPathV2 orients each
+# instance's local Z to the path's tangent (see _update_stud_layer), so a stud
+# elongated on X sits crosswise to the corridor, like a real road stud laid across
+# the direction of travel rather than a tile running lengthwise with it.
+# Base 0.18m x 0.09m, top 0.15m x 0.076m, height 0.018m: low and flat rather than
+# a tall dome, closer to a real road-stud's squat profile.
 static func generate_stud_mesh() -> Mesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	var radial_segments := 8
-	var rings := 3
-	var radius := 0.14
-	var height := 0.04
+	var base_x := 0.115
+	var base_z := 0.058
+	var top_x := 0.095
+	var top_z := 0.048
+	var height := 0.02
 
-	for r in range(rings + 1):
-		var v_ratio := float(r) / float(rings)
-		var ring_angle := v_ratio * (PI * 0.5)
-		var ring_y := cos(ring_angle) * height
-		var ring_r := sin(ring_angle) * radius
+	var base := [
+		Vector3(-base_x, 0, -base_z), Vector3(base_x, 0, -base_z),
+		Vector3(base_x, 0, base_z), Vector3(-base_x, 0, base_z),
+	]
+	var top := [
+		Vector3(-top_x, height, -top_z), Vector3(top_x, height, -top_z),
+		Vector3(top_x, height, top_z), Vector3(-top_x, height, top_z),
+	]
 
-		for s in range(radial_segments):
-			var u_ratio := float(s) / float(radial_segments)
-			var rad_angle := u_ratio * TAU
-			var x := cos(rad_angle) * ring_r
-			var z := sin(rad_angle) * ring_r
-
-			var norm := Vector3(x, ring_y * 2.0, z).normalized()
-			st.add_normal(norm)
-			st.add_uv(Vector2(u_ratio, v_ratio))
-			st.add_vertex(Vector3(x, ring_y, z))
-
-	for r in range(rings):
-		for s in range(radial_segments):
-			var next_s := (s + 1) % radial_segments
-			var current_row := r * radial_segments
-			var next_row := (r + 1) * radial_segments
-
-			var i0 := current_row + s
-			var i1 := current_row + next_s
-			var i2 := next_row + s
-			var i3 := next_row + next_s
-
-			st.add_index(i0)
-			st.add_index(i1)
-			st.add_index(i2)
-
-			st.add_index(i1)
-			st.add_index(i3)
-			st.add_index(i2)
+	_add_quad(st, top[0], top[1], top[2], top[3], Vector3.UP)
+	for i in range(4):
+		var j := (i + 1) % 4
+		var normal: Vector3 = (base[i] + base[j] - top[i] - top[j]).normalized()
+		_add_quad(st, base[i], base[j], top[j], top[i], normal)
 
 	return st.commit()
 
-# Material: Opaque metallic base + GLES2-safe fresnel rim
+
+static func _add_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, normal: Vector3) -> void:
+	# Standard 0..1 quad UVs regardless of the face's world size, so the reflector
+	# texture below reads as a full grid of lens cells on every face instead of a
+	# few near-zero texels sampled from the texture's corner.
+	var verts := [a, b, c, a, c, d]
+	var uvs := [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 0), Vector2(1, 1), Vector2(0, 1)]
+	for i in range(6):
+		st.add_normal(normal)
+		st.add_uv(uvs[i])
+		st.add_vertex(verts[i])
+
+const REFLECTOR_TEXTURE_SIZE := 32
+const REFLECTOR_GRID := 4
+
+# Cube-corner reflector sheeting (the "bicycle reflector" look): a tight grid of
+# small round lens cells, bright core fading to a dark seam between cells, instead
+# of one flat wash of colour. Grayscale so vertex_color_use_as_albedo + emission
+# both tint it per light_state without a second texture.
+static func create_reflector_texture() -> ImageTexture:
+	var image := Image.new()
+	image.create(REFLECTOR_TEXTURE_SIZE, REFLECTOR_TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	image.lock()
+	var cell: float = float(REFLECTOR_TEXTURE_SIZE) / float(REFLECTOR_GRID)
+	for y in range(REFLECTOR_TEXTURE_SIZE):
+		for x in range(REFLECTOR_TEXTURE_SIZE):
+			var cx: float = fmod(float(x), cell) / cell - 0.5
+			var cy: float = fmod(float(y), cell) / cell - 0.5
+			var dist: float = Vector2(cx, cy).length() * 2.0
+			var level: float = pow(clamp(1.0 - dist, 0.0, 1.0), 1.5)
+			# Narrower range than the first pass (was 0.3..1.0): a near-white core
+			# next to a near-black seam read as glassy/translucent rather than an
+			# opaque moulded-plastic reflector.
+			var v: float = lerp(0.42, 0.8, level)
+			image.set_pixel(x, y, Color(v, v, v, 1.0))
+	image.unlock()
+	var texture := ImageTexture.new()
+	texture.create_from_image(image, Texture.FLAG_FILTER | Texture.FLAG_REPEAT)
+	return texture
+
+# Material: low-gloss plastic housing + reflector-sheeting texture (albedo AND
+# emission), GLES2-safe (opaque, no real transparency).
 static func create_stud_material() -> SpatialMaterial:
 	var mat := SpatialMaterial.new()
+	var reflector := create_reflector_texture()
 	mat.flags_unshaded = false
 	mat.vertex_color_use_as_albedo = true
 	mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
-	mat.metallic = 0.6
-	mat.roughness = 0.3
+	mat.albedo_texture = reflector
+	# Road-stud housings are moulded plastic, not chrome: low metallic keeps the
+	# flat wash of white/cyan from the old fully-metallic version from clipping.
+	mat.metallic = 0.05
+	mat.roughness = 0.45
 	mat.rim_enabled = true
-	mat.rim = 1.0
+	mat.rim = 0.2
 	mat.rim_tint = 0.5
 	mat.emission_enabled = true
-	mat.emission = Color(0.2, 0.5, 0.8, 1.0)
-	# 0.5 read as basically off against the deck's own texture/ambient in play; a
-	# fresnel-only rim on a metallic disc needs a strong push to read at a glance.
-	mat.emission_energy = 3.0
+	# Fixed material colour, NOT tinted by the per-instance vertex color (that only
+	# drives albedo) — it stayed blue even after lit_color changed to red until
+	# this got updated too. Matches lit_color's default reflector-red.
+	mat.emission = Color(0.95, 0.25, 0.15, 1.0)
+	mat.emission_texture = reflector
+	# Only the bright lens cells glow — the dark seams between them stay dark —
+	# so it reads as a cluster of tiny reflective points instead of one flat glow.
+	# 0.2 read as barely-there — the red light nearby didn't visibly trace back to
+	# the stud. Middle ground between that and 1.8-3.0, which clipped to a glassy
+	# white/washed-out blob.
+	mat.emission_energy = 0.7
 	mat.emission_on_uv2 = false
 	return mat
