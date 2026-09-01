@@ -38,6 +38,7 @@ all: render
 bake:
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
 	@echo "[bake] Abre Dome_Intro.tscn y ejecuta tools/editor_bake_dome_intro_lightmap.gd en Godot."
+	@echo "[bake] FD-284: DOME_BAKE_MODE=full|dark elige el destino lightmaps/<modo>/<Escena>.lmbake."
 
 # Regeneración explícita de la geometría procedimental. No es parte del bake
 # del lightmap: puede cambiar muchos recursos .mesh y debe correrse sólo al
@@ -111,23 +112,55 @@ bake-dome-variant:
 DOME_LIGHTMAP_PATH ?=
 DOME_LIGHTMAP_DATA_PATH ?= core_v2/levels/interiors/Dome_Intro.lmbake
 DOME_LIGHTMAP_TINT ?= 008da3
-DOME_LIGHTMAP_COLORIZE ?= 70
-DOME_LIGHTMAP_BRIGHTNESS ?= 24
+DOME_LIGHTMAP_COLORIZE ?= 22
+DOME_LIGHTMAP_BRIGHTNESS ?= 55
 # Desenfoque gaussiano, en pixeles del lightmap (0 lo apaga). Suaviza el escalonado
 # de las sombras horneadas, que a 118-270 px de textura se nota bastante.
 DOME_LIGHTMAP_BLUR ?= 2.5
+# Contraste sigmoidal del lightmap (0 lo apaga). Separa los focos de los wall lights
+# del fondo sin re-hornear; BRIGHTNESS levanta todo por igual y aplana justamente eso.
+DOME_LIGHTMAP_CONTRAST ?= 6
+DOME_LIGHTMAP_CONTRAST_MIDPOINT ?= 40
 # RETUNE=1 reprocesa desde la copia cruda: cambia el look sin re-hornear.
 DOME_LIGHTMAP_RETUNE ?=
 # El piso debe conservar contraste para leer la luz direccional y sus sombras.
-DOME_LIGHTMAP_FLOOR_COLORIZE ?= 28
+DOME_LIGHTMAP_FLOOR_COLORIZE ?= 16
 DOME_LIGHTMAP_FLOOR_BRIGHTNESS ?= 75
+# FD-284: cada modo de bake (full/dark) tiene su propia carpeta de sello y de copia
+# cruda. Compartirlas haria que el sello de un modo saltee el postproceso del otro,
+# porque los PNG por malla se llaman igual en los dos.
+DOME_LIGHTMAP_STAMP_DIR ?= build/lightmap-postprocess
+DOME_LIGHTMAP_RAW_DIR ?= build/lightmap-raw
 bake-lightmap-postprocess:
 	DOME_LIGHTMAP_PATH="$(DOME_LIGHTMAP_PATH)" DOME_LIGHTMAP_DATA_PATH="$(DOME_LIGHTMAP_DATA_PATH)" \
+	DOME_LIGHTMAP_STAMP_DIR="$(DOME_LIGHTMAP_STAMP_DIR)" DOME_LIGHTMAP_RAW_DIR="$(DOME_LIGHTMAP_RAW_DIR)" \
 	DOME_LIGHTMAP_TINT="$(DOME_LIGHTMAP_TINT)" DOME_LIGHTMAP_COLORIZE="$(DOME_LIGHTMAP_COLORIZE)" \
 	DOME_LIGHTMAP_BRIGHTNESS="$(DOME_LIGHTMAP_BRIGHTNESS)" DOME_LIGHTMAP_FLOOR_COLORIZE="$(DOME_LIGHTMAP_FLOOR_COLORIZE)" \
 	DOME_LIGHTMAP_FLOOR_BRIGHTNESS="$(DOME_LIGHTMAP_FLOOR_BRIGHTNESS)" DOME_LIGHTMAP_FORCE="$(DOME_LIGHTMAP_FORCE)" \
 	DOME_LIGHTMAP_BLUR="$(DOME_LIGHTMAP_BLUR)" DOME_LIGHTMAP_RETUNE="$(DOME_LIGHTMAP_RETUNE)" \
+	DOME_LIGHTMAP_CONTRAST="$(DOME_LIGHTMAP_CONTRAST)" DOME_LIGHTMAP_CONTRAST_MIDPOINT="$(DOME_LIGHTMAP_CONTRAST_MIDPOINT)" \
 	sh tools/postprocess_dome_intro_lightmap.sh
+
+# FD-284. Probar un look en UN comando. Hace las dos mitades que hay que hacer siempre
+# juntas y que por separado no se notan:
+#   1. el retune desde la copia cruda (sin RETUNE=1 el sello conserva todo y no pasa nada)
+#   2. el reimport (sin esto Godot sigue leyendo el .stex viejo y tampoco se ve nada)
+#
+#   make retune-lightmap DOME_LIGHTMAP_BRIGHTNESS=50
+#   make retune-lightmap DOME_LIGHTMAP_BRIGHTNESS=50 DOME_LIGHTMAP_COLORIZE=18
+#
+# Las variables de linea de comandos ganan sobre los ?= de arriba y se propagan al
+# sub-make, asi que no hace falta editar este archivo para experimentar.
+retune-lightmap:
+	$(MAKE) --no-print-directory bake-lightmap-postprocess DOME_LIGHTMAP_RETUNE=1
+	$(MAKE) --no-print-directory reimport-lightmap
+
+# El editor tiene que terminar el scan: con --quit lo aborta a mitad y el .stex queda
+# viejo. Por eso se lo deja correr con timeout; salir por timeout es lo esperado.
+reimport-lightmap:
+	@echo "[lightmap] reimportando texturas..."
+	-@timeout 300s $(GODOT) --path . $(EXPORT_FLAGS) --audio-driver Dummy -e >/dev/null 2>&1
+	@echo "[lightmap] listo. Si tenes el editor abierto: Proyecto > Recargar proyecto actual."
 
 # Reimporta solo los assets de escena importados para aplicar split_stream.
 # Los .mesh nativos no pasan por el importador. Los artefactos se respaldan en

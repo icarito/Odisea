@@ -752,6 +752,7 @@ multimesh = ExtResource( 14 )
 script = ExtResource( 10 )
 light_pool_size = 1
 light_range = 18.0
+light_energy = 0.8
 light_follow_radius = 24.0
 spacing = 0.0
 marker_size = 4.0

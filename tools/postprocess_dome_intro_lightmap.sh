@@ -16,6 +16,20 @@ FLOOR_BRIGHTNESS="${DOME_LIGHTMAP_FLOOR_BRIGHTNESS:-75}"
 # las sombras horneadas, que a esta resolucion (muchos lightmaps son de 118 a 270 px)
 # se ve escalonado. Se aplica ANTES del tinte para no arrastrar el color.
 BLUR="${DOME_LIGHTMAP_BLUR:-2.5}"
+# Contraste sigmoidal (0 = apagado). Sube los focos de los wall lights y hunde la
+# penumbra, en vez de levantar todo por igual como hace BRIGHTNESS. Es la perilla
+# para "que se note de donde viene la luz" sin volver a hornear: en el bake los
+# fixtures YA son las zonas claras, asi que separarlas del fondo equivale a subirles
+# la energia. Se aplica DESPUES del blur y ANTES del tinte, para no sesgar el color.
+CONTRAST="${DOME_LIGHTMAP_CONTRAST:-0}"
+# Punto medio del sigmoide, en %. Por debajo de 50 protege las sombras (sube solo los
+# focos); por encima hunde mas la penumbra. Un lightmap oscuro quiere un medio bajo.
+CONTRAST_MIDPOINT="${DOME_LIGHTMAP_CONTRAST_MIDPOINT:-40}"
+# FD-284: el bake destino se elige con DOME_LIGHTMAP_DATA_PATH (por ejemplo
+# core_v2/levels/interiors/lightmaps/dark/Dome_Intro.lmbake). Cada modo necesita SU
+# propio STAMP_DIR y RAW_DIR: con atlas apagado los PNG por malla se llaman igual en
+# los dos modos, asi que compartir carpeta haria que el sello de uno saltee el
+# postproceso del otro y que la copia cruda de uno se procese como la del otro.
 STAMP_DIR="${DOME_LIGHTMAP_STAMP_DIR:-build/lightmap-postprocess}"
 FORCE="${DOME_LIGHTMAP_FORCE:-0}"
 # Retocar el look sin volver a hornear. FORCE=1 significa "acabo de hornear": guarda la
@@ -64,6 +78,9 @@ if [ ! -s "${PATHS_FILE}" ]; then
 	exit 1
 fi
 
+# Contador de imagenes realmente procesadas. El bucle NO corre en subshell (la
+# redireccion desde archivo no crea uno, a diferencia de un pipe), asi que sobrevive.
+processed=0
 while IFS= read -r image_path; do
 	if [ ! -f "${image_path}" ]; then
 		echo "[dome_lightmap_post] ERROR: no existe ${image_path}" >&2
@@ -103,18 +120,34 @@ while IFS= read -r image_path; do
 	if [ "${BLUR}" != "0" ]; then
 		blur_args="-blur 0x${BLUR}"
 	fi
+	contrast_args=""
+	if [ "${CONTRAST}" != "0" ]; then
+		contrast_args="-sigmoidal-contrast ${CONTRAST}x${CONTRAST_MIDPOINT}%"
+	fi
 	temp_path="$(mktemp "${image_path}.postprocess.XXXXXX")"
 	# PNG24 es obligatorio: sin eso ImageMagick elige paleta para estas imagenes y los
 	# lightmaps quedaban cuantizados (12 de 41 con solo 16 colores), lo que arruina
 	# justamente el degradado que un lightmap tiene que aportar.
 	magick "${raw_path}" \
 		${blur_args} \
+		${contrast_args} \
 		-fill "${TINT}" -colorize "${colorize}%" \
 		-modulate "${brightness},100,100" \
 		-type TrueColor \
 		-strip \
 		"PNG24:${temp_path}"
 	mv -f "${temp_path}" "${image_path}"
+	processed=$((processed + 1))
 	sha256sum "${image_path}" | awk '{print $1}' > "${stamp_path}"
-	echo "[dome_lightmap_post] PASS. tint=${TINT} colorize=${colorize}% brightness=${brightness}% blur=${BLUR} -> ${image_path}"
+	echo "[dome_lightmap_post] PASS. tint=${TINT} colorize=${colorize}% brightness=${brightness}% blur=${BLUR} contrast=${CONTRAST}x${CONTRAST_MIDPOINT}% -> ${image_path}"
 done < "${PATHS_FILE}"
+
+# Cambiar un numero del look y ver que "no pasa nada" es el error mas facil de cometer
+# con este script: el sello conserva las imagenes salvo que se le diga explicitamente
+# que se esta retocando. Antes salia en silencio con codigo 0.
+if [ "${processed}" = "0" ] && [ "${RETUNE}" != "1" ] && [ "${FORCE}" != "1" ]; then
+	echo "" >&2
+	echo "[dome_lightmap_post] NO SE PROCESO NINGUNA IMAGEN." >&2
+	echo "  Para cambiar el look sin re-hornear, usa:  make retune-lightmap DOME_LIGHTMAP_BRIGHTNESS=50" >&2
+	echo "  (equivale a RETUNE=1 + el reimport de Godot, que tambien hace falta)" >&2
+fi

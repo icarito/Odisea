@@ -10,7 +10,7 @@ bake_rig_enabled = false
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 28.2055, 3.87006, 11.6831 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -18,7 +18,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 28.1671, 6.90076, 11.6672 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -26,7 +26,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.061, 11.4121, 11.2091 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -34,7 +34,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 25.2968, 15.8526, 10.4783 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -42,7 +42,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 22.6828, 20.304, 9.39549 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -50,7 +50,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.6787, 24.7695, 7.73695 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -58,7 +58,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 16.4969, 26.2253, 6.83323 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -66,7 +66,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.7181, 28.154, 5.68219 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -74,7 +74,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0069, 29.3501, 4.55921 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -82,7 +82,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.22817, 30.4098, 3.40821 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -90,7 +90,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.52094, 31.1107, 2.28688 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -98,7 +98,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.6831, 3.87006, 28.2055 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -106,7 +106,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.6672, 6.90076, 28.1671 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -114,7 +114,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.2091, 11.4121, 27.061 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -122,7 +122,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.4783, 15.8526, 25.2968 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -130,7 +130,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.39549, 20.304, 22.6828 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -138,7 +138,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.73695, 24.7695, 18.6787 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -146,7 +146,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.83323, 26.2253, 16.4969 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -154,7 +154,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.68219, 28.154, 13.7181 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -162,7 +162,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.55921, 29.3501, 11.0069 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -170,7 +170,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.40821, 30.4098, 8.22817 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -178,7 +178,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.28688, 31.1107, 5.52094 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -186,7 +186,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6831, 3.87006, 28.2055 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -194,7 +194,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6672, 6.90076, 28.1671 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -202,7 +202,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.2091, 11.4121, 27.061 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -210,7 +210,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.4783, 15.8526, 25.2968 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -218,7 +218,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.39549, 20.304, 22.6828 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -226,7 +226,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7.73695, 24.7695, 18.6787 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -234,7 +234,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.83323, 26.2253, 16.4969 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -242,7 +242,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.68219, 28.154, 13.7181 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -250,7 +250,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.55921, 29.3501, 11.0069 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -258,7 +258,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.40821, 30.4099, 8.22817 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -266,7 +266,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.28688, 31.1107, 5.52094 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -274,7 +274,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -28.2055, 3.87006, 11.6831 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -282,7 +282,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -28.1671, 6.90076, 11.6672 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -290,7 +290,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -27.061, 11.4121, 11.2091 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -298,7 +298,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2968, 15.8526, 10.4783 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -306,7 +306,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22.6828, 20.304, 9.39549 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -314,7 +314,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.6787, 24.7695, 7.73695 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -322,7 +322,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -16.4969, 26.2253, 6.83323 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -330,7 +330,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -13.7181, 28.1539, 5.68219 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -338,7 +338,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.0069, 29.3501, 4.55921 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -346,7 +346,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.22817, 30.4099, 3.40821 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -354,7 +354,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.52094, 31.1107, 2.28688 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -362,7 +362,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -28.2055, 3.87006, -11.6831 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -370,7 +370,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -28.1671, 6.90076, -11.6672 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -378,7 +378,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -27.061, 11.4121, -11.2091 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -386,7 +386,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -25.2968, 15.8526, -10.4783 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -394,7 +394,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -22.6828, 20.304, -9.39549 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -402,7 +402,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -18.6787, 24.7695, -7.73695 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -410,7 +410,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -16.4969, 26.2253, -6.83323 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -418,7 +418,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -13.7181, 28.1539, -5.68219 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -426,7 +426,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.0069, 29.3501, -4.55921 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -434,7 +434,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -8.22817, 30.4098, -3.40821 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -442,7 +442,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.52094, 31.1107, -2.28688 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -450,7 +450,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6831, 3.87006, -28.2055 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -458,7 +458,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6672, 6.90076, -28.1671 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -466,7 +466,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -11.2091, 11.4121, -27.061 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -474,7 +474,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -10.4783, 15.8526, -25.2968 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -482,7 +482,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -9.39549, 20.304, -22.6828 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -490,7 +490,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7.73695, 24.7695, -18.6787 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -498,7 +498,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -6.83323, 26.2253, -16.4969 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -506,7 +506,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.68219, 28.154, -13.7181 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -514,7 +514,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -4.55921, 29.3501, -11.0069 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -522,7 +522,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.40821, 30.4099, -8.22817 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -530,7 +530,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.28688, 31.1107, -5.52094 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -538,7 +538,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.6831, 3.87006, -28.2055 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -546,7 +546,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.6672, 6.90076, -28.1671 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -554,7 +554,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.2091, 11.4121, -27.061 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -562,7 +562,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 10.4783, 15.8526, -25.2968 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -570,7 +570,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 9.39549, 20.304, -22.6828 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -578,7 +578,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 7.73695, 24.7695, -18.6787 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -586,7 +586,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 6.83323, 26.2253, -16.4969 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -594,7 +594,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.68219, 28.154, -13.7181 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -602,7 +602,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.55921, 29.3501, -11.0069 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -610,7 +610,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.40821, 30.4099, -8.22817 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -618,7 +618,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.28688, 31.1107, -5.52094 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -626,7 +626,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 28.2055, 3.87006, -11.6831 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -634,7 +634,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 28.1671, 6.90076, -11.6672 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -642,7 +642,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 27.061, 11.4121, -11.2091 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -650,7 +650,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 25.2968, 15.8526, -10.4783 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -658,7 +658,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 22.6828, 20.304, -9.39549 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -666,7 +666,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 18.6787, 24.7695, -7.73695 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -674,7 +674,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 16.4969, 26.2253, -6.83323 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -682,7 +682,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 13.7181, 28.154, -5.68219 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -690,7 +690,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 11.0069, 29.3501, -4.55921 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -698,7 +698,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.22817, 30.4098, -3.40821 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
@@ -706,7 +706,7 @@ omni_range = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.52094, 31.1107, -2.28688 )
 visible = false
 light_color = Color( 0.72, 0.84, 1, 1 )
-light_energy = 0.72
+light_energy = 1.5
 light_bake_mode = 0
 omni_range = 8.0
 
