@@ -182,15 +182,17 @@ func _update_stud_colors() -> void:
 					mm.set_instance_color(i, base_color)
 
 # Generates flattened hemisphere / beveled disc mesh (< 200 triangles)
-# Radius = 0.08m, Height = 0.025m. 8 radial segments x 3 rings = 48 triangles.
+# Radius = 0.14m, Height = 0.04m. 8 radial segments x 3 rings = 48 triangles.
+# Bumped up from the original 0.08m/0.025m (FD-285 spec): at that size the stud was
+# smaller than a single grate-deck cell and read as invisible in actual play.
 static func generate_stud_mesh() -> Mesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
 	var radial_segments := 8
 	var rings := 3
-	var radius := 0.08
-	var height := 0.025
+	var radius := 0.14
+	var height := 0.04
 
 	for r in range(rings + 1):
 		var v_ratio := float(r) / float(rings)
@@ -236,13 +238,15 @@ static func create_stud_material() -> SpatialMaterial:
 	mat.flags_unshaded = false
 	mat.vertex_color_use_as_albedo = true
 	mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
-	mat.metallic = 0.85
-	mat.roughness = 0.25
+	mat.metallic = 0.6
+	mat.roughness = 0.3
 	mat.rim_enabled = true
 	mat.rim = 1.0
 	mat.rim_tint = 0.5
 	mat.emission_enabled = true
 	mat.emission = Color(0.2, 0.5, 0.8, 1.0)
-	mat.emission_energy = 0.5
+	# 0.5 read as basically off against the deck's own texture/ambient in play; a
+	# fresnel-only rim on a metallic disc needs a strong push to read at a glance.
+	mat.emission_energy = 3.0
 	mat.emission_on_uv2 = false
 	return mat
