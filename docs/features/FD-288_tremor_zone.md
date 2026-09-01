@@ -1,10 +1,10 @@
 # FD-288: Tremor zone (temblor ambiental con impulso físico determinista)
 
-**Status:** Planned
+**Status:** Completed
 **Priority:** Medium
 **Effort:** Small
 **Created:** 2026-09-01
-**Completed:** -
+**Completed:** 2026-09-01
 
 ## Problem
 
