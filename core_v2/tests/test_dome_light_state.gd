@@ -33,11 +33,18 @@ func _fake_load(path: String):
 	return data
 
 
+const SHIPPED_BAKE := "res://core_v2/levels/interiors/Dome_Intro.lmbake"
+
+
 func _make_dome(dome_name: String) -> Node:
 	var root: Spatial = auto_free(Spatial.new())
 	root.name = dome_name
 	var baked := BakedLightmap.new()
 	baked.name = "BakedLightmap"
+	# PLENO reusa el bake que la escena ya trae, asi que el nodo tiene que venir con uno.
+	var shipped := BakedLightmapData.new()
+	shipped.take_over_path(SHIPPED_BAKE)
+	baked.light_data = shipped
 	root.add_child(baked)
 	var path := LightPathV2.new()
 	path.name = "WallLights"
@@ -60,7 +67,7 @@ func test_estados_cambian_el_bake_y_emiten_la_senal():
 	assert_int(manager.get_state()).is_equal(2)
 	assert_array(_state_changes).is_equal([[1, 2]])
 	assert_str(manager.get_active_bake_path()).is_equal(
-		"res://core_v2/levels/interiors/lightmaps/full/Dome_Intro.lmbake")
+		SHIPPED_BAKE)
 
 	manager.set_state(0)  # OSCURAS
 	assert_str(manager.get_active_bake_path()).is_equal(
@@ -143,7 +150,7 @@ func test_snapshot_lleva_el_enum_y_el_hash_del_bake():
 	var snap: Dictionary = manager.get_snapshot()
 	assert_int(int(snap["dome_light_state"])).is_equal(2)
 	assert_int(int(snap["dome_bake_hash"])).is_equal(
-		"res://core_v2/levels/interiors/lightmaps/full/Dome_Intro.lmbake".hash())
+		SHIPPED_BAKE.hash())
 
 	manager.set_state(0)
 	assert_int(int(manager.get_snapshot()["dome_bake_hash"])).is_not_equal(int(snap["dome_bake_hash"]))

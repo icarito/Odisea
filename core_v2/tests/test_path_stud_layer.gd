@@ -80,3 +80,31 @@ func test_scifi_light_path_v2_integrates_stud_layer():
 
 	path_prop.set_active(true, true) # anim_progress = 1.0, immediate
 	assert_int(stud_layer.light_state).is_equal(PathStudLayerScript.LightState.FULL)
+
+func test_light_path_v2_integrates_stud_layer():
+	var path: LightPathV2 = auto_free(LightPathV2.new())
+	path.spacing = 2.0
+	add_child(path)
+
+	var wp0 := Position3D.new()
+	wp0.translation = Vector3(0, 0, 0)
+	path.add_child(wp0)
+	var wp1 := Position3D.new()
+	wp1.translation = Vector3(8, 0, 0)
+	path.add_child(wp1)
+
+	path.build()
+	yield(get_tree(), "idle_frame")
+
+	var markers: MultiMeshInstance = path.get_node_or_null("Markers")
+	assert_object(markers).is_not_null()
+
+	var stud_layer = path.get_node_or_null("PathStudLayer")
+	assert_object(stud_layer).is_not_null()
+
+	var mm_node: MultiMeshInstance = stud_layer.get_node_or_null("StudMultiMesh")
+	assert_object(mm_node).is_not_null()
+	assert_int(mm_node.multimesh.instance_count).is_equal(markers.multimesh.instance_count)
+
+	path.enable_stud_layer = false
+	assert_bool(stud_layer.visible).is_false()

@@ -1439,6 +1439,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/PolyHavenImport/page.gd"
 }, {
+"base": "Spatial",
+"class": "PathStudLayer",
+"language": "GDScript",
+"path": "res://core_v2/components/PathStudLayer.gd"
+}, {
 "base": "PropBaseV2",
 "class": "PedestalButton",
 "language": "GDScript",
@@ -2521,6 +2526,7 @@ _global_script_class_icons={
 "OysStatus": "",
 "OysTransit": "",
 "Page": "",
+"PathStudLayer": "",
 "PedestalButton": "",
 "PhysicsBall": "",
 "PhysicsEntity": "",

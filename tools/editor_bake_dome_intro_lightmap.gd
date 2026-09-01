@@ -16,14 +16,16 @@ extends EditorScript
 #         resolución. Estado OSCURAS, y la base sobre la que BAJO CONSUMO pone
 #         su pool runtime de luces cercanas.
 #
-# Cada modo hornea a su propia carpeta porque BakedLightmap con atlas apagado
-# escribe un PNG por MeshInstance junto al .lmbake: compartir carpeta haría que
-# el dark pisara las texturas del full.
+# `full` hornea EN SU SITIO, sobre el .lmbake que la escena ya referencia. Sacarlo a
+# un archivo aparte duplicaba 58 MB por nada y hacia que scripts/check_added_file_sizes.sh
+# rechazara el archivo nuevo (limite 50 MB). DomeLightState en PLENO reusa ese mismo
+# recurso, asi que no hay nada que copiar.
 #
-#   res://core_v2/levels/interiors/lightmaps/<modo>/<Escena>.lmbake
+# `dark` si necesita carpeta propia: con atlas apagado BakedLightmap escribe un PNG por
+# MeshInstance junto al .lmbake, y los nombres se repiten entre modos.
 #
-# El bake histórico res://core_v2/levels/interiors/Dome_Intro.lmbake NO se toca:
-# queda como respaldo y sigue siendo el que la escena referencia por defecto.
+#   full  ->  el light_data que la escena ya trae (in situ)
+#   dark  ->  res://core_v2/levels/interiors/lightmaps/dark/<Escena>.lmbake
 
 const BAKE_DIR := "res://core_v2/levels/interiors/lightmaps"
 const MODE_ENV := "DOME_BAKE_MODE"
@@ -50,7 +52,14 @@ func _run() -> void:
 		push_error("[dome_lightmap] %s no tiene un nodo BakedLightmap." % dome.name)
 		return
 
-	var bake_path: String = "%s/%s/%s.lmbake" % [BAKE_DIR, mode, dome.name]
+	var bake_path := ""
+	if mode == "full":
+		if lightmap.light_data == null or lightmap.light_data.resource_path == "":
+			push_error("[dome_lightmap] %s no tiene un light_data con ruta; hornea una vez a mano." % dome.name)
+			return
+		bake_path = lightmap.light_data.resource_path
+	else:
+		bake_path = "%s/%s/%s.lmbake" % [BAKE_DIR, mode, dome.name]
 	var directory := Directory.new()
 	if directory.make_dir_recursive(bake_path.get_base_dir()) != OK:
 		push_error("[dome_lightmap] no pude crear %s" % bake_path.get_base_dir())
@@ -118,8 +127,14 @@ func _run() -> void:
 		"use_color": lightmap.use_color,
 		"bounces": lightmap.bounces,
 		"default_texels_per_unit": lightmap.default_texels_per_unit,
+		"capture_enabled": lightmap.capture_enabled,
 		"light_data": lightmap.light_data,
 	}
+	# El octree de capture es el 99.99% del .lmbake (58.129.272 de 58.136.190 bytes) y
+	# en este proyecto no aporta NADA: medido sobre el frame, apagar el lightmap dejando
+	# la capture da media 14.2914, y soltar light_data entero —que se lleva tambien la
+	# capture— da 14.2819. Diferencia: 0.01 sobre 255. Es una via de GLES3 y esto es GLES2.
+	lightmap.capture_enabled = false
 	# Las barras y plataformas de ScaffoldHubTower proyectan sombras estrechas.
 	# LOW + denoiser las suaviza hasta borrarlas sobre la terraza; MEDIUM conserva
 	# esa penumbra sin afectar el coste de render en runtime.
@@ -150,10 +165,12 @@ func _run() -> void:
 		directional.shadow_enabled = directional_state["shadow_enabled"]
 	if temporary_rig != null:
 		temporary_rig.free()
-	# bake() deja su producto en light_data. La escena tiene que seguir enviando
-	# el bake que ya referencia: DomeLightState hace el swap en runtime, y dejar
-	# el .lmbake oscuro pegado a la escena la enviaría a oscuras siempre.
+	# En `dark`, bake() dejo su producto pegado en light_data y hay que devolver el que
+	# la escena referencia: si no, el nivel saldria a oscuras siempre. En `full` el
+	# producto ES el bake de la escena (se horneo in situ), asi que se conserva.
 	for key in lightmap_state:
+		if key == "light_data" and mode == "full":
+			continue
 		lightmap.set(key, lightmap_state[key])
 
 	if result != BakedLightmap.BAKE_ERROR_OK:

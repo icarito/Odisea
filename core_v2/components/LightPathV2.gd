@@ -18,6 +18,9 @@ class_name LightPathV2
 
 const PLAYER_GROUP := "player"
 const MARKERS_NAME := "Markers"
+const STUD_LAYER_NAME := "PathStudLayer"
+
+const PathStudLayerScript = preload("res://core_v2/components/PathStudLayer.gd")
 
 export(NodePath) var waypoint_source
 # Some waypoint nodes sit at their own base with the walkable surface declared as a
@@ -104,6 +107,11 @@ export(float, 0.5, 10.0, 0.5) var fixture_lod_fallback_seconds := 2.0
 
 export(bool) var auto_build := true
 export(bool) var rebuild_baked_items := false
+# Small reflective road studs (FD-285) drawn alongside the breadcrumb markers, one
+# extra MultiMesh built at runtime from the same "Markers" child — never baked into
+# the scene, so it costs nothing to add to levels that already shipped their
+# LightPathV2 markers baked.
+export(bool) var enable_stud_layer := true setget set_enable_stud_layer
 
 var _marker_heights := []
 var _lit_count := -1
@@ -112,6 +120,7 @@ var _player: Spatial = null
 var _build_queued := false
 var _snap_pending := false
 var _lights := []
+var _stud_layer = null
 var _activation_sound_player: AudioStreamPlayer3D = null
 var _activation_sound_cooldown := 1.0
 var _activation_sound_pending_delay := -1.0
@@ -134,6 +143,7 @@ func _ready() -> void:
 		return
 	if get_child_count() == 0 or rebuild_baked_items:
 		build()
+	_update_stud_layer()
 	if activation_sound:
 		_activation_sound_player = AudioStreamPlayer3D.new()
 		_activation_sound_player.name = "ActivationSound"
@@ -150,6 +160,28 @@ func _ready() -> void:
 func set_waypoint_source(value: NodePath) -> void:
 	waypoint_source = value
 	_queue_build()
+
+func set_enable_stud_layer(value: bool) -> void:
+	enable_stud_layer = value
+	if is_inside_tree():
+		_update_stud_layer()
+
+# Adds (or hides) a PathStudLayer child targeting this node's own "Markers" child.
+# Runtime-only: never given an owner, so it is not written back into the .tscn —
+# baked marker scenes pick it up on load without a re-bake.
+func _update_stud_layer() -> void:
+	if not enable_stud_layer:
+		if is_instance_valid(_stud_layer):
+			_stud_layer.visible = false
+		return
+	if not is_instance_valid(_stud_layer):
+		_stud_layer = get_node_or_null(STUD_LAYER_NAME)
+		if _stud_layer == null:
+			_stud_layer = PathStudLayerScript.new()
+			_stud_layer.name = STUD_LAYER_NAME
+			add_child(_stud_layer)
+	_stud_layer.visible = true
+	_stud_layer.rebuild_from_target()
 
 func _queue_build() -> void:
 	if not auto_build or not is_inside_tree() or _build_queued:
@@ -175,6 +207,8 @@ func _process(delta: float) -> void:
 	if _snap_pending:
 		_snap_pending = false
 		_snap_markers_to_surface()
+		if is_instance_valid(_stud_layer):
+			_stud_layer.rebuild_from_target()
 	_apply_lit_limit(INF if always_lit else _player.global_transform.origin.y + lead_height)
 	_drive_lights()
 	_drive_fixture_lod()
@@ -215,6 +249,7 @@ func build() -> void:
 	if scene_owner:
 		instance.owner = scene_owner
 	_cache_marker_heights()
+	_update_stud_layer()
 
 # Waypoints in world space: this node's Position3D children, or the children of
 # waypoint_source when one is given.

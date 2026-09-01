@@ -12,7 +12,12 @@ extends Node
 # Solo agrega: no toca gameplay, no reemplaza a MobileLightBudget ni a
 # SceneLighting, y no emite ninguna señal existente.
 #
-# El nombre del bake NO está hardcodeado. Sale del nombre de la escena raíz:
+# El nombre del bake NO está hardcodeado.
+#
+# PLENO reusa el bake que la escena YA trae (el `light_data` con el que carga), en vez
+# de un archivo aparte: duplicarlo costaba 58 MB de .lmbake por nada, y ademas hacia que
+# el chequeo de tamaño de scripts/check_added_file_sizes.sh rechazara el archivo nuevo.
+# Los demas modos salen del nombre de la escena raíz:
 #
 #   res://core_v2/levels/interiors/lightmaps/<modo>/<Escena>.lmbake
 #
@@ -27,6 +32,8 @@ signal state_changed(old, new)
 
 const BAKE_DIR := "res://core_v2/levels/interiors/lightmaps"
 const MODE_BY_STATE := {OSCURAS: "dark", BAJO: "dark", PLENO: "full"}
+# PLENO no tiene carpeta propia: es el bake que la escena referencia de fabrica.
+const MODE_SHIPPED := "full"
 
 # BAJO es el comportamiento previo a FD-284: arrancar en otro estado cambiaría el
 # look del domo sin que nadie lo haya pedido.
@@ -37,6 +44,9 @@ var root_override: Node = null
 var bake_loader: FuncRef = null
 
 var _active_bake_path := ""
+# Ruta del .lmbake con el que la escena vino cargada. Se lee una sola vez por escena,
+# ANTES del primer swap, porque despues light_data ya no es el original.
+var _shipped_bake_path := ""
 var _pool_sizes := {}  # LightPathV2 -> light_pool_size original
 var _scene: Node = null
 var _flicker_depth := 0.0
@@ -91,6 +101,7 @@ func apply() -> void:
 		_scene = root
 		_pool_sizes.clear()
 		_active_bake_path = ""
+		_shipped_bake_path = ""
 	_apply_bake(root)
 	_apply_pool(root)
 
@@ -105,7 +116,13 @@ func _apply_bake(root: Node) -> void:
 	var baked: BakedLightmap = _find_baked(root)
 	if baked == null:
 		return  # Escena sin lightmap horneado (Dome_Prologue): nada que intercambiar.
-	var path: String = "%s/%s/%s.lmbake" % [BAKE_DIR, MODE_BY_STATE[state], root.name]
+	if _shipped_bake_path == "" and baked.light_data != null:
+		_shipped_bake_path = baked.light_data.resource_path
+		_active_bake_path = _shipped_bake_path
+	var mode: String = MODE_BY_STATE[state]
+	var path: String = _shipped_bake_path if mode == MODE_SHIPPED else "%s/%s/%s.lmbake" % [BAKE_DIR, mode, root.name]
+	if path == "":
+		return  # La escena no traia bake y este modo no tiene archivo propio.
 	if path == _active_bake_path:
 		return
 	if bake_loader == null and not ResourceLoader.exists(path):
