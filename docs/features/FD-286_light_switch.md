@@ -1,10 +1,10 @@
 # FD-286: Light switch + light group (interruptor de luz conmutable)
 
-**Status:** Planned
+**Status:** Completed
 **Priority:** High
 **Effort:** Small
 **Created:** 2026-09-01
-**Completed:** -
+**Completed:** 2026-09-01
 
 ## Problem
 
