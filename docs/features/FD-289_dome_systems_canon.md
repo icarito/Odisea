@@ -18,6 +18,15 @@ que sale toda implementación de domo del Acto I.
 No es un FD de "si algún día": es la especificación de lo que **falta para completar el
 MVP del domo jugable**, partiendo de lo que ya existe.
 
+**Decisión canónica (2026-09-01):** `Dome_Intro.tscn` es la base del vertical slice.
+`Dome_Crio.tscn` (con su `Basement` + `MaintenanceElevator` + `Airlock_Basement`) es
+**legacy** y no se reutiliza. El blast door se construye **nuevo** (base mecánica
+`FloorHatch.tscn`, modelos/assets propios). El sótano es un **hangar de mantenimiento
+grande** que incorpora `PushableBoxV2` y `Conveyor` a los puzzles, y **vive en una escena
+separada** (no dentro de `Dome_Intro`): la nave tendrá múltiples domos con sótanos
+variados, así que el template de sistemas del domo es fijo y el hangar es la parte
+intercambiable por domo.
+
 ## 2. Lo que ya existe (punto de partida)
 
 | Sistema | Assets construidos | Estado |
@@ -27,8 +36,12 @@ MVP del domo jugable**, partiendo de lo que ya existe.
 | Criocoolant | `CoolantLeak`, `CoolantTank`, `CoolantFlowAdapter`, `CoolantFogAdapter`, `LeakPatchPoint`, `LeakFissureVisual`, `ColdRuptureDirector` (OYS), `IceLevel`/`IceVisualBand` | Lógica de fuga/parche/drenaje lista (FD-266); falta conectar al domo real |
 | Plasma | `PlasmaConduit` (NOMINAL→OVERHEATING→VENTING→REROUTED), `PlasmaRoute`, `PlasmaExhaust.tscn` (nozzle real), `FireSystem`/`FireEmitter` | Máquina de estados lista; falta conectar al domo real |
 | Atmósfera | `PressureSection`, `BlowoutImpulse`, `PurgeDial`, `PressurePump` prop, `AirlockPool`, `GasParticleManager` | Componentes sueltos; no hay red de ductos física |
-| Energía | `AuxPowerBus` (OFFLINE→RESTORING→POWERED), `SealedDoorLock`, `LogicCircuitManager` + `CircuitGraphResource` + `CircuitCable` + `CircuitTerminalBridge`, `LeverV2`, `HeavyBlastDoor.tscn` | Bus y puerta sellada listos; falta cablear al domo real |
-| Layout físico | `Dome_Base.tscn` (torre central, escaleras, spokes, ascensor), `Dome_Intro.tscn` (criopods, pipes, señalización), `Dome_Prologue.tscn` (variante sin criopods) | Geometría horneada lista |
+| Energía | `AuxPowerBus` (OFFLINE→RESTORING→POWERED), `SealedDoorLock`, `LogicCircuitManager` + `CircuitGraphResource` + `CircuitCable` + `CircuitTerminalBridge`, `LeverV2`, `HeavyBlastDoor.tscn` (legacy) | Bus y puerta sellada listos; falta cablear al domo real |
+| Puzzle físico | `PushableBoxV2` (RigidBody determinista), `Conveyor` + `ConveyorCarrousel` (Area con `speed_x`) | Listos; se incorporan al hangar del sótano |
+| Puertas/compuertas | `FloorHatch.tscn` (trampilla de piso con `HatchDoor` KinematicBody) | Base mecánica del blast door nuevo |
+| Layout físico | `Dome_Base.tscn` (torre central, escaleras, spokes), `Dome_Intro.tscn` (criopods, pipes, señalización), `Dome_Prologue.tscn` (variante sin criopods) | Geometría horneada lista |
+| Hangar / Sótano | Escena separada por domo (p. ej. `Dome_Intro_Hangar.tscn`), blockout de hangar de mantenimiento | A construir; reutiliza `PushableBoxV2` + `Conveyor` |
+| Descenso | Plataforma móvil de carga + rampa de servicio en el pozo del blast door | A construir (`HangarPlatform` nuevo) |
 | Cámara/VFX | `CinematicManager.trigger_camera_shake`, `TremorZoneV2` (FD-288, delegado), `WindTunnelV2` (empuje direccional), `SceneLighting` (flicker global) | Listo o en progreso |
 
 ## 3. Reglas de arquitectura (canonizadas de FD-283)
@@ -56,7 +69,7 @@ existe.
 | **Criocoolant** | Tubos (`PipeRoute` kit) | `CoolantTank` | Criopods, **reactor** (chaqueta) | Cian | `#00E5FF` |
 | **Plasma** | Tubos (mismo kit) | **Reactor** (salida `PlasmaGenerator`) | Bus eléctrico | Ámbar | `#FF8F00` |
 | **Aire** | Ductos (mayor diámetro) | `PressurePump` | Interior del domo | Blanco/Rojo | `#FF5252` |
-| **Energía** | Cables (`CircuitCable`) | Bus (alimentado por reactor) | Máquinas, manómetros, plataforma | Verde | `#00FF88` |
+| **Energía** | Cables (`CircuitCable`) | Bus (alimentado por reactor) | Máquinas, manómetros, blast door | Verde | `#00FF88` |
 
 - Las redes se **cruzan visualmente** (nivel de máquinas), nunca comparten estado simulado.
 - El acople entre redes es solo por **eventos guionizados del timeline** (máx. 2-3 por domo).
@@ -70,7 +83,7 @@ El reactor es el corazón del domo:
 - **Produce el plasma** que alimenta el bus eléctrico. `PlasmaGenerator` se reutiliza como
   su salida visible.
 - **SCRAM**: si falta coolant al reactor → se sobrecalienta → derriba el bus. Consecuencia:
-  se apagan manómetros holo, máquinas eléctricas y la plataforma de descenso.
+  se apagan manómetros holo, máquinas eléctricas y el blast door.
 - Es un **nodo lógico** con requisito (`caudal de coolant en rango`) y consecuencia
   guionizada. No se simula la generación; no es un minijuego.
 - Set dressing a fondo: columna central visible desde la entrada, tubos de plasma saliendo
@@ -93,13 +106,19 @@ Gramática: **un solo verbo por máquina**, consistente en todo el domo. El colo
 red; la forma dice la acción. Glosario fijo en español (interruptor, fusible, palanca,
 válvula, bomba, purga, parche, manómetro, extractor, costura). Código en inglés.
 
+**Extensión del hangar (puzzles físicos):** en el sótano se añaden `PushableBoxV2` (empujar
+cajas para bloquear/desbloquear, tapar respiraderos, activar placas de presión) y
+`Conveyor` (cintas que transportan cajas o al jugador hacia/desde puntos de puzzle). Estos
+son **verbos físicos adicionales** que conviven con los 8 verbos de máquina; no rompen la
+gramática de "un verbo por máquina" porque operan sobre el espacio, no sobre una red.
+
 ## 4. Layout vertical del domo (canónico)
 
 ```
 ────── ANILLO SUPERIOR (entrada + hábitat) ──────
 │  Criopods en el perímetro (6 rings de 40)     │
 │  El jugador entra aquí y ve el domo entero    │
-│  La plataforma de descenso es visible abajo   │
+│  El blast door del piso es visible abajo      │
 │  Luz: PLENO (al final) / OSCURAS (al inicio)  │
 ├────────────────────────────────────────────────┤
 │              NIVEL DE MÁQUINAS                 │
@@ -118,31 +137,34 @@ válvula, bomba, purga, parche, manómetro, extractor, costura). Código en ingl
 │  Visible desde la entrada                     │
 │  Altura: ~Y=2 a Y=8                           │
 ├────────────────────────────────────────────────┤
-│              BLAST DOOR (BASE)                 │
-│  Puerta gigante de contención                 │
+│       BLAST DOOR (compuerta de piso, NUEVO)    │
+│  Trampilla gigante de contención              │
+│  Base mecánica: FloorHatch ×N (modelos nuevos)│
 │  Requisito: 4 redes HEALTHY                   │
 │  Al abrirse revela el pozo de descenso        │
+│  (plataforma móvil de carga + rampa)          │
 │  Altura: ~Y=0                                 │
-├────────────────────────────────────────────────┤
-│         PLATAFORMA DE DESCENSO                 │
-│  Pozo central → cambio de escena              │
-│  Verbo: "bajar"                               │
-│  Requisito: 4 redes HEALTHY + blast door open │
-│  Arranque: beat jugable (luces + shake)       │
-│  Altura: Y<0 (subterráneo)                    │
+├═══════════════ change_scene ══════════════════┤
+│         SÓTANO / HANGAR (escena separada)      │
+│  Hangar de mantenimiento, grande y abierto    │
+│  Puzzles: PushableBoxV2 + Conveyor            │
+│  Esclusa de salida al exterior al fondo       │
+│  Varía por domo (template de sistemas fijo)   │
 └────────────────────────────────────────────────┘
 ```
 
 **Ruta crítica del jugador:**
 
-1. Entrar (anillo superior) — ver el domo oscuro, plataforma abajo inalcanzable.
+1. Entrar (anillo superior) — ver el domo oscuro, el blast door abajo inalcanzable.
 2. Bajar al nivel de máquinas — encontrar las 4 redes en fallo.
 3. Restaurar equilibrio — secuencia guiada por el timeline.
-4. Las 4 redes HEALTHY → blast door se abre.
-5. Accionar plataforma → beat de arranque → `change_scene` a la base.
+4. Las 4 redes HEALTHY → blast door se abre (compuerta de piso).
+5. Descender por el pozo — **plataforma móvil de carga** (cinemática) o **rampa de servicio** (peatonal, sin espera) → `change_scene` al hangar (escena separada).
+6. Hangar — puzzles físicos (cajas + cintas) abriendo la ruta a la esclusa.
+7. Esclusa al exterior → salir del domo.
 
-La plataforma se **ve desde la entrada** para que el jugador sepa desde el minuto uno
-que el objetivo es bajar. La luz del pozo cambia de rojo (muerta) → ámbar (restaurando)
+El blast door se **ve desde la entrada** para que el jugador sepa desde el minuto uno
+que el objetivo es bajar. La luz de su borde cambia de rojo (muerta) → ámbar (restaurando)
 → verde/cian (lista) conforme se reparan los sistemas.
 
 ## 5. Beat sheet: timeline de restauración del domo
@@ -150,7 +172,7 @@ que el objetivo es bajar. La luz del pozo cambia de rojo (muerta) → ámbar (re
 ### Beat 1 — Llegada (OSCURAS)
 
 - El jugador entra al domo. Luces: `OSCURAS` (solo bake oscuro, cero runtime lights).
-- Manómetros apagados, plataforma abajo con luz roja tenue.
+- Manómetros apagados, blast door abajo con luz roja tenue.
 - Objetivo legible: "bajar" es imposible ahora — hay que encender el domo.
 - **Interacción inicial:** accionar el interruptor principal (palanca de energía). No
   funciona — el bus está muerto. El manómetro de energía titila en rojo.
@@ -194,13 +216,31 @@ que el objetivo es bajar. La luz del pozo cambia de rojo (muerta) → ámbar (re
 - **Recompensa:** extractores arrancan, el aire se despeja, manómetro de aire marca verde.
 - Redes: **4/4 HEALTHY** → equilibrio alcanzado.
 
-### Beat 6 — Blast Door + Plataforma
+### Beat 6 — Blast Door + descenso (plataforma móvil + rampa → change_scene)
 
-- Las 4 redes HEALTHY disparan la apertura del blast door (animación de 2-3 segundos,
-  sonido mecánico pesado, shake de cámara vía `TremorZoneV2`).
-- Con la puerta abierta, el jugador accede al pozo de descenso.
-- **Interacción:** accionar plataforma → beat de arranque (luces del pozo ciclan, tremor
-  fuerte, sonido de maquinaria) → `change_scene` a la base.
+- Las 4 redes HEALTHY disparan la apertura del blast door (compuerta de piso, animación
+  de 2-3 segundos, sonido mecánico pesado, shake de cámara vía `TremorZoneV2`).
+- Con la compuerta abierta, el pozo revela **dos vías de descenso**:
+  - **Plataforma móvil de carga** (`HangarPlatform`, nueva): el jugador se sube y desciende
+    lentamente (tremor + ruido mecánico). Ruta cinemática; al llegar abajo cruza el trigger
+    → `change_scene` al hangar.
+  - **Rampa de servicio** (nueva): vía peatonal paralela, sin espera, para bajar caminando.
+- Ambas vías terminan en el mismo trigger de transición (frontera interior→interior, sin airlock).
+
+### Beat 7 — Hangar (puzzles físicos)
+
+- El hangar (escena separada) está a oscuras y parcialmente colapsado; el equipo de
+  mantenimiento quedó desordenado (cajas, cintas, escombros).
+- **Puzzles:** empujar `PushableBoxV2` para tapar un respiradero activo / activar una
+  placa de presión / hacer de puente; usar `Conveyor` para mover una caja pesada o
+  desplazarse hasta una repisa.
+- **Recompensa:** se despeja la ruta hasta la esclusa de salida.
+
+### Beat 8 — Esclusa al exterior
+
+- La esclusa del hangar (misma `AirlockChamber` que las puertas N/S/E/W) se presuriza y
+  abre → `ScaffoldOrbit` / `OdiseaExterior` (el anillo exterior, domos como LOD).
+- Fin del vertical slice del domo.
 
 ### Resumen de tiempos estimados
 
@@ -211,8 +251,10 @@ que el objetivo es bajar. La luz del pozo cambia de rojo (muerta) → ámbar (re
 | 3 | Energía | 1-2 min |
 | 4 | Plasma | 2-3 min |
 | 5 | Aire + Blast Door | 1-2 min |
-| 6 | Plataforma | 30-45 s |
-| **Total** | | **7-12 min** |
+| 6 | Blast door abre + descenso | 20-30 s |
+| 7 | Hangar (cajas + cintas) | 2-4 min |
+| 8 | Esclusa al exterior | 20-30 s |
+| **Total** | | **10-16 min** |
 
 ## 6. Estados del domo y su representación visual
 
@@ -221,27 +263,27 @@ que el objetivo es bajar. La luz del pozo cambia de rojo (muerta) → ámbar (re
 | Estado | Bake | Runtime lights | Cuándo |
 |---|---|---|---|
 | `OSCURAS` | `Dome_Intro_dark.lmbake` | 0 | Beat 1 (llegada) |
-| `BAJO` | `Dome_Intro_dark.lmbake` | Pool (3-4 luces) | Beats 2-4 (restaurando) |
-| `PLENO` | `Dome_Intro_full.lmbake` | 0 | Beat 5+ (equilibrio) |
+| `BAJO` | `Dome_Intro_dark.lmbake` | Pool (3-4 luces) | Beats 2-5 (restaurando) |
+| `PLENO` | `Dome_Intro_full.lmbake` | 0 | Beat 6+ (equilibrio) |
 
 Transiciones de luz:
 - Beat 1→2: `OSCURAS` → `BAJO` (al primer intento del interruptor, se activa el pool
   de emergencia).
-- Beat 5: `BAJO` → `PLENO` (al alcanzar equilibrio, el domo entero se ilumina).
+- Beat 6: `BAJO` → `PLENO` (al alcanzar equilibrio, el domo entero se ilumina).
 
-### 6.2 Efectos de la plataforma
+### 6.2 Efectos del blast door (semáforo de progreso)
 
-La luz del pozo central es el "semáforo" del progreso global:
+La luz del borde del blast door es el "semáforo" del progreso global:
 
-| Redes HEALTHY | Color del pozo | Significado |
+| Redes HEALTHY | Color del borde | Significado |
 |---|---|---|
 | 0 | Rojo tenue (apagado) | Nada funciona |
 | 1-2 | Ámbar pulsante | Restaurando |
 | 3 | Ámbar fijo | Casi listo |
-| 4 | Verde → Cian estable | Plataforma lista |
+| 4 | Verde → Cian estable | Blast door listo |
 
-Cuando el blast door se abre, el pozo ilumina la escena desde abajo (luz volumétrica
-barata vía el bake `PLENO` o un `OmniLight` grande).
+Cuando el blast door se abre, la luz del hangar ilumina el domo desde abajo (luz
+volumétrica barata vía el bake `PLENO` o un `OmniLight` grande).
 
 ### 6.3 Cámara y feedback
 
@@ -250,7 +292,7 @@ barata vía el bake `PLENO` o un `OmniLight` grande).
 | Blowout de presión | Shake fuerte | `TremorZoneV2` (FD-288) |
 | Arranque del reactor | Shake sostenido + glow pulsante | `TremorZoneV2` + `PlasmaConduit` |
 | Apertura blast door | Shake + sonido | `TremorZoneV2` + SFX |
-| Arranque plataforma | Shake progresivo + fade | `TremorZoneV2` + `SceneLighting` |
+| Caída de caja / cinta | Impacto + sonido | `PushableBoxV2` + SFX |
 
 ## 7. Componentes nuevos necesarios (no existen hoy)
 
@@ -262,9 +304,9 @@ Autoload o nodo en `Dome_Base`. Responsabilidades:
   este domo).
 - Maneja el contador de redes HEALTHY (0-4).
 - Dispara los eventos del timeline en orden (beat 2→3→4→5).
-- Cuando 4/4 HEALTHY, dispara `blast_door_open` y `platform_ready`.
+- Cuando 4/4 HEALTHY, dispara `blast_door_open` y `hangar_ready`.
 - Expone `get_snapshot()`/`restore_snapshot()` para determinismo Core V2.
-- Señal `platform_activated` → `SceneManager.load_scene(target)`.
+- Señal `airlock_exit` → `SceneManager.load_scene(target)`.
 
 ### 7.2 `DomeEnvConfig` resource (nuevo, 1 archivo `.tres`)
 
@@ -279,9 +321,10 @@ DomeEnvConfig.tres:
     {beat=4, event="plasma_healthy", action="enable_air_system"},
     {beat=5, event="air_healthy", action="open_blast_door"},
   ]
-  platform_target_scene = "res://core_v2/levels/Base_Nivel_1.tscn"
+  hangar_scene = "res://core_v2/levels/interiors/Dome_Intro_Hangar.tscn"
+  hangar_spawn_id = "from_dome_intro_platform"
+  exterior_airlock_scene = "res://core_v2/components/ScaffoldOrbit.tscn"
   blast_door_path = NodePath("../Doors/BlastDoor")
-  platform_path = NodePath("../Platform/Descenso")
 ```
 
 Dome_Intro y Dome_Prologue comparten el mismo `.tres` o cada uno tiene el suyo.
@@ -309,21 +352,39 @@ Vive en `Dome_Base`; `DomeSystemDirector` lo consulta.
 
 ### 7.4 `BlastDoorController` (nuevo, 1 archivo)
 
-Controla la puerta gigante de la base. Extiende `DualSlidingObjectV2` (mismo patrón
-que `HeavyBlastDoor.tscn` pero a escala de domo: 8-12 m de ancho).
+Controla la **compuerta de piso** gigante de la base. Base mecánica: `FloorHatch.tscn`
+(trampilla con `HatchDoor` KinematicBody), pero a escala de hangar (8-12 m) y con
+modelos/assets **nuevos** (no los CSG de FloorHatch; paneles de contención, bisagras,
+sellos, luces de borde).
 
 - Abre al recibir señal `DomeSystemDirector.blast_door_open`.
-- Animación de apertura + sonido.
+- La apertura es **horizontal** (compuerta de piso que pivota/se desliza revelando el pozo
+  de descenso), no una puerta deslizante vertical tipo `DualSlidingObjectV2`.
+- Animación de apertura + sonido + luces de borde (semáforo §6.2).
 - Snapshot-able.
 
-### 7.5 `DomePlatform` (nuevo, 1 archivo)
+### 7.5 Transición blast door → hangar (change_scene, patrón AirlockZoneV2)
 
-Nodo de la plataforma de descenso:
+El hangar es una **escena separada**. La transición reutiliza el patrón de cambio de
+escena ya establecido (`AirlockZoneV2`: `target_scene` + `target_spawn_id` +
+`target_airlock_path`), como un `HangarTransition` o una `Area` de transición equivalente
+en el pozo del blast door.
 
-- Verbo "bajar" (usa `InteractableBaseV2`).
-- Solo interactuable cuando `platform_ready = true`.
-- Al activarse: sequencia de arranque (luces, tremor, sonido) → `change_scene`.
-- Snapshot-able.
+- El blast door abre → el jugador desciende por una **plataforma móvil de carga** o por
+  una **rampa de servicio** paralela hasta el fondo del pozo → cruza el trigger →
+  `change_scene` a la escena del hangar.
+- **Sin airlock** en esta frontera: domo y hangar son ambos interiores presurizados; es
+  un cambio de escena puro, no un ciclo de presurización.
+- El hangar es **intercambiable por domo**: cada domo apunta a su propia escena de hangar
+  (variada) mientras el rig de sistemas del domo es el mismo template.
+- El spawn del hangar se identifica como `from_dome_intro_platform` (uno por domo).
+- **Componentes nuevos del descenso** (ver §7.9): `HangarPlatform` (plataforma móvil
+  determinista, snapshot-able) y una rampa de servicio estática en el pozo.
+
+> **Regla de reutilización (razón del change_scene):** la nave tendrá múltiples domos
+> con sótanos variados. El template de sistemas (anillo + máquinas + reactor + blast
+> door) es compartido; lo que varía por domo es el hangar. Separarlos en escenas hace
+> trivial mezclar y combinar domos y sótanos sin duplicar geometría ni lógica.
 
 ### 7.6 `Fusible` prop (nuevo: 1 `.tscn` + 1 `.gd`)
 
@@ -333,7 +394,20 @@ Prop faltante del vocabulario de máquinas (FD-283 §vocabulario):
 - Tiene un socket del que se saca y al que se vuelve a poner.
 - Se usa en el beat de energía (restaurar un circuito quemado).
 
-### 7.7 Integraciones de sistemas existentes al domo
+### 7.7 Hangar (nuevo: 1 escena separada + blockout + puzzles)
+
+- **Escena propia** (`Dome_Intro_Hangar.tscn` u homólogo por domo): recibe el
+  `change_scene` desde el blast door del domo. Es el punto de variación por domo.
+- **Blockout:** hangar de mantenimiento grande y abierto, con dos niveles (piso +
+  repisas/catwalks), iluminación de trabajo (tripodes `light_work_tripod`).
+- **Puzzles físicos** con assets ya existentes:
+  - `PushableBoxV2`: tapar respiraderos, activar placas de presión, hacer de puente.
+  - `Conveyor`/`ConveyorCarrousel`: mover cajas pesadas, desplazar al jugador, alimentar
+    un punto de entrega.
+- **Salida:** una `AirlockChamber` al fondo → `ScaffoldOrbit`/`OdiseaExterior` (spawn
+  `from_dome_intro_hangar`). Única frontera presurizada→vacío.
+
+### 7.8 Integraciones de sistemas existentes al domo
 
 Esto no son archivos nuevos, es **cableado**: conectar los componentes que ya existen
 a los nodos del domo real.
@@ -345,6 +419,18 @@ a los nodos del domo real.
 | Aire | `PressurePump` + `PurgeTuner` + `PressureSection` | Posicionar bomba, purga y manómetro de aire; sin ductos físicos (el gas es área) |
 | Energía | `AuxPowerBus` + `SealedDoorLock` + palancas | Cablear bus → `BlastDoorController`, colocar secuencia de paneles |
 
+### 7.9 Descenso al hangar (nuevo: `HangarPlatform` + rampa de servicio)
+
+- **`HangarPlatform`** (1 `.gd` + 1 `.tscn`): plataforma móvil de carga en el pozo del
+  blast door. Cuerpo determinista con estados `TOP`/`DESCENDING`/`BOTTOM`, snapshot-able
+  (`get_snapshot`/`restore_snapshot`, grupo `replay_sync`). El jugador se sube y se activa
+  (botón o `Area` de pie) para bajar; tremor vía `TremorZoneV2`/`CinematicManager` durante
+  el descenso.
+- **Rampa de servicio**: rampa estática paralela a la plataforma, vía peatonal sin espera.
+  Ambas terminan en el mismo `Area` de transición (`HangarTransition`).
+- Ambas vías desembocan en el trigger que dispara `change_scene` al hangar
+  (`DomeEnvConfig.hangar_scene`), spawn `from_dome_intro_platform`.
+
 ## 8. Lo que NO está en este FD (backlog explícito)
 
 - Simulación física de redes entrelazadas (presión compartida, temperatura, causalidad
@@ -353,7 +439,11 @@ a los nodos del domo real.
 - Ductos físicos para la red de aire (se usa `GasArea3D`).
 - Más de 4 redes.
 - Modo 2.5D, Actos II-IV, cooperativo.
-- Trayecto completo de la plataforma (solo `change_scene`).
+- Reutilizar `MaintenanceElevator` de `Dome_Crio` (es legacy). La **plataforma móvil de
+  descenso** se construye nueva (`HangarPlatform`). El paso domo→hangar sigue siendo un
+  `change_scene` de escena, no una simulación física continua del ascensor.
+- El hangar como parte del mismo mapa del domo (es escena separada para permitir sótanos
+  variados por domo).
 - `DomeEnvConfig` como editor visual (es un `.tres` a mano, suficiente para MVP).
 
 ## 9. Plan de implementación (8 tareas, delegables a Jules)
@@ -366,13 +456,15 @@ Pequeño, sin dependencias. 30-60 min.
 Archivo: `core_v2/systems/dome/DomeSystemDirector.gd` + entry en `project.godot`
 Depende de T1. Implementa la máquina de beats. 1-2 h.
 
-### T3 — `BlastDoorController`
-Archivo: `core_v2/props/doors/BlastDoorController.gd` + `.tscn`
-Usa `HeavyBlastDoor.tscn` como base, escala ×3. 1 h.
+### T3 — `BlastDoorController` + pozo de descenso (plataforma + rampa)
+Archivos: `core_v2/props/doors/BlastDoorController.gd` + `.tscn`, `HangarPlatform.gd` + `.tscn`
+Base mecánica `FloorHatch.tscn`, modelos nuevos, apertura horizontal. Pozo con plataforma
+móvil de carga + rampa de servicio. 3 h.
 
-### T4 — `DomePlatform`
-Archivo: `core_v2/props/controls/DomePlatform.gd` + `.tscn`
-InteractableBaseV2 + transición. 1 h.
+### T4 — Blockout del hangar como escena separada
+Archivo: `core_v2/levels/interiors/Dome_Intro_Hangar.tscn`
+Hangar + rampa de descenso + trigger de spawn + colocación de `PushableBoxV2` y `Conveyor`
++ esclusa de salida. 2-3 h.
 
 ### T5 — `FusibleV2`
 Archivos: `core_v2/props/controls/FusibleV2.gd` + `.tscn`
@@ -386,19 +478,19 @@ Conectar señales a `DomeNetworkStatus`. 2-3 h (mitad posicionamiento, mitad se�
 Posicionar bus, paneles, bomba, purga. Conectar a `DomeNetworkStatus`. 2-3 h.
 
 ### T8 — Integración completa + test del timeline
-Test headless del ciclo completo: beat 1→6. Ajustes de tiempos, valores exportados. 2 h.
+Test headless del ciclo completo: beat 1→8. Ajustes de tiempos, valores exportados. 2 h.
 
 ### Orden de delegación
 T1 → T2 → (T3, T4, T5 en paralelo) → (T6, T7 en paralelo) → T8.
 
-**Total estimado:** 12-16 h de trabajo de implementación, delegables en 4-5 sesiones de Jules.
+**Total estimado:** 14-18 h de trabajo de implementación, delegables en 4-5 sesiones de Jules.
 
 ## 10. Verificación
 
 1. `./runtest.sh -a ./core_v2/tests/test_dome_systems.gd` — ciclo completo headless
-   de los 6 beats, determinismo con snapshot/restore.
+   de los 8 beats, determinismo con snapshot/restore.
 2. `Dome_Intro.tscn` abierta en el editor: sin errores de script, sin nodos rotos.
-3. Timeline manual: entrar al domo, seguir los 6 beats, la plataforma hace
+3. Timeline manual: entrar al domo, seguir los 8 beats, la esclusa hace
    `change_scene` correctamente.
 4. `DomeSystemDirector` snapshot/restore: guardar a mitad de beat 3, restaurar,
    continuar → mismo resultado.
@@ -418,8 +510,13 @@ T1 → T2 → (T3, T4, T5 en paralelo) → (T6, T7 en paralelo) → T8.
 | Manómetro | `PipeManometer` (lectura), `Manometer` (genérico) |
 | Extractor / Radiador | `ExtractorV2` (nuevo) |
 | Costura | Se refiere a la junta física; en código es `LeakFissureVisual` |
-| Plataforma | `DomePlatform` |
-| Puerta de contención | `BlastDoorController` |
+| Compuerta de piso / Blast door | `BlastDoorController` |
+| Plataforma de descenso | `HangarPlatform` |
+| Rampa de servicio | static mesh en el pozo (no es un nodo) |
+| Hangar / Sótano | `Dome_Intro_Hangar.tscn` (escena separada, variada por domo) |
+| Caja empujable | `PushableBoxV2` |
+| Cinta transportadora | `Conveyor` / `ConveyorCarrousel` |
+| Esclusa de salida | `AirlockChamber` → `ScaffoldOrbit` / `OdiseaExterior` |
 | Reactor | Nodo lógico en `DomeSystemDirector`, set dressing visual |
 | SCRAM | Evento guionizado, no es un nodo |
 | Bus (eléctrico) | `AuxPowerBus` |
