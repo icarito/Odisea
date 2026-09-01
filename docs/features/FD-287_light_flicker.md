@@ -1,10 +1,10 @@
 # FD-287: Reusable light flicker component (parpadeo determinista)
 
-**Status:** Planned
+**Status:** Completed
 **Priority:** Medium
 **Effort:** Small
 **Created:** 2026-09-01
-**Completed:** -
+**Completed:** 2026-09-01
 
 ## Problem
 
