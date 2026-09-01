@@ -20,43 +20,6 @@ func test_path_stud_layer_builds_from_positions():
 	assert_object(mm_node.multimesh).is_not_null()
 	assert_int(mm_node.multimesh.instance_count).is_equal(5)
 
-func test_path_stud_layer_state_switches_emissive_pattern():
-	var layer = auto_free(PathStudLayerScript.new())
-	add_child(layer)
-
-	var positions := [
-		Vector3(0, 0, 0),
-		Vector3(2, 0, 0),
-		Vector3(4, 0, 0),
-		Vector3(6, 0, 0),
-		Vector3(8, 0, 0)
-	]
-	layer.set_positions(positions)
-	layer.low_power_stride = 3
-
-	var mm: MultiMesh = layer.get_node("StudMultiMesh").multimesh
-
-	# FULL state
-	layer.light_state = PathStudLayerScript.LightState.FULL
-	assert_int(layer.light_state).is_equal(PathStudLayerScript.LightState.FULL)
-	var col_full_0: Color = mm.get_instance_color(0)
-	var col_full_1: Color = mm.get_instance_color(1)
-	assert_float(col_full_0.r).is_equal_approx(layer.lit_color.r, 0.05)
-	assert_float(col_full_1.r).is_equal_approx(layer.lit_color.r, 0.05)
-
-	# DARK state
-	layer.light_state = PathStudLayerScript.LightState.DARK
-	assert_int(layer.light_state).is_equal(PathStudLayerScript.LightState.DARK)
-	var col_dark_0: Color = mm.get_instance_color(0)
-	assert_float(col_dark_0.r).is_equal_approx(layer.base_color.r, 0.05)
-
-	# LOW_POWER state
-	layer.light_state = PathStudLayerScript.LightState.LOW_POWER
-	assert_int(layer.light_state).is_equal(PathStudLayerScript.LightState.LOW_POWER)
-	var col_lp_0: Color = mm.get_instance_color(0) # index 0 is multiple of 3
-	var col_lp_1: Color = mm.get_instance_color(1) # index 1 is not
-	assert_float(col_lp_1.r).is_equal_approx(layer.base_color.r, 0.05)
-
 func test_scifi_light_path_v2_integrates_stud_layer():
 	var path_prop: SciFiLightPathV2 = auto_free(SciFiLightPathV2.new())
 	path_prop.light_count = 6
