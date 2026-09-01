@@ -735,6 +735,48 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 			if manager and manager.has_method("stop_camera_shake"):
 				manager.stop_camera_shake()
 
+		"TREMOR":
+			var duration := float(inst.get("duration", 1.0))
+			var amplitude := float(inst.get("amplitude", 0.05))
+			var frequency := float(inst.get("frequency", 10.0))
+			var seed_val := int(inst.get("seed", 0))
+
+			var zones = host_node.get_tree().get_nodes_in_group("tremor_zone")
+			var camera_feedback_handled := false
+			for zone in zones:
+				if not is_instance_valid(zone):
+					continue
+				if "duration" in zone: zone.duration = duration
+				if "camera_amplitude" in zone: zone.camera_amplitude = amplitude
+				if "frequency" in zone: zone.frequency = frequency
+				if "seed" in zone: zone.seed = seed_val
+				if zone.has_method("set_active"):
+					zone.set_active(true)
+				else:
+					zone.is_active = true
+				if "camera_amplitude" in zone and float(zone.camera_amplitude) > 0.0:
+					camera_feedback_handled = true
+
+			# If no active tremor_zone handled camera shake, trigger global camera shake
+			if not camera_feedback_handled and amplitude > 0.0:
+				var manager = host_node.get_node_or_null("/root/CinematicManager")
+				if manager and manager.has_method("trigger_camera_shake"):
+					manager.trigger_camera_shake(duration, amplitude, frequency)
+
+		"TREMOR_STOP":
+			var zones = host_node.get_tree().get_nodes_in_group("tremor_zone")
+			for zone in zones:
+				if not is_instance_valid(zone):
+					continue
+				if zone.has_method("set_active"):
+					zone.set_active(false)
+				else:
+					zone.is_active = false
+
+			var manager = host_node.get_node_or_null("/root/CinematicManager")
+			if manager and manager.has_method("stop_camera_shake"):
+				manager.stop_camera_shake()
+
 		"VCAMERA":
 			var vcam_name = inst.get("name", "")
 			var duration = _fast_forwarded_duration_seconds(float(inst.get("duration", 1.0)))
@@ -2078,6 +2120,7 @@ func _record_live_instruction_event(inst: Dictionary) -> void:
 		"CINEMATIC_START", "CINEMATIC_STOP",
 		"VCAMERA", "VCAMERA_BLEND", "VCAMERA_RETURN",
 		"VCAMERA_SHAKE", "CAMERA_SHAKE", "CAMERA_SHAKE_STOP",
+		"TREMOR", "TREMOR_STOP",
 		"PLAY_SOUND", "SET_TIME_SCALE", "PRINT", "PLAY_ANIM", "HINT", "HINT_CLEAR",
 		"TELEPORT"
 	]:
