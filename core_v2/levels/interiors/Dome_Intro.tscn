@@ -1,6 +1,6 @@
 [gd_scene load_steps=124 format=2]
 
-[ext_resource path="res://core_v2/levels/interiors/Dome_Intro.lmbake" type="BakedLightmapData" id=5]
+[ext_resource path="res://core_v2/levels/interiors/lightmaps/full/Dome_Intro.lmbake" type="BakedLightmapData" id=1]
 [ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=7]
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=8]
 [ext_resource path="res://assets/music/Elias... wake.mp3" type="AudioStream" id=9]
@@ -3168,7 +3168,7 @@ bounce_indirect_energy = 0.67
 use_hdr = false
 atlas_generate = false
 environment_mode = 1
-light_data = ExtResource( 5 )
+light_data = ExtResource( 1 )
 
 [node name="BGMZoneV2" type="Area" parent="."]
 script = ExtResource( 8 )
@@ -3181,3 +3181,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.6918, 0 )
 shape = SubResource( 540 )
 
 [node name="IOSLightmapFallback" parent="." instance=ExtResource( 5032 )]
+
+[node name="ReflectionProbe" type="ReflectionProbe" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
+extents = Vector3( 35, 16, 35 )
