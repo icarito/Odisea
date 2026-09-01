@@ -12,11 +12,15 @@ export(float, 0.0, 5.0) var light_energy_max := 1.5
 export(bool) var show_bulbs := true
 export(float, 0.5, 20.0) var path_length := 4.0 # Length of the default arc
 export(float, 0.0, 2.0) var path_height := 0.8 # Height of the default arc
+export(bool) var enable_stud_layer := true setget set_enable_stud_layer
+
+const PathStudLayerScript = preload("res://core_v2/components/PathStudLayer.gd")
 
 var _path_node: Path = null
 var _lights: Array = []
 var _bulbs: Array = []
 var _lights_container: Spatial = null
+var _stud_layer = null
 
 func _ready():
 	._ready()
@@ -47,8 +51,14 @@ func _ready():
 		_lights_container.name = "LightsContainer"
 		add_child(_lights_container)
 	
+	_update_stud_layer()
 	_generate_lights()
 	_update_visuals()
+
+func set_enable_stud_layer(v: bool) -> void:
+	enable_stud_layer = v
+	if is_inside_tree():
+		_update_stud_layer()
 
 func set_light_count(v: int) -> void:
 	light_count = v
@@ -94,9 +104,11 @@ func _generate_lights():
 	if total_length < 0.01:
 		return
 	
+	var stud_positions := []
 	for i in range(light_count):
 		var offset = (float(i) / float(light_count - 1)) * total_length if light_count > 1 else 0.0
 		var pos = curve.interpolate_baked(offset)
+		stud_positions.append(pos)
 		
 		# Create light
 		var omni = OmniLight.new()
@@ -130,6 +142,21 @@ func _generate_lights():
 			_lights_container.add_child(bulb)
 			_bulbs.append(bulb)
 
+	if _stud_layer:
+		_stud_layer.set_positions(stud_positions)
+
+func _update_stud_layer() -> void:
+	if enable_stud_layer:
+		if _stud_layer == null:
+			_stud_layer = get_node_or_null("PathStudLayer")
+			if _stud_layer == null:
+				_stud_layer = PathStudLayerScript.new()
+				_stud_layer.name = "PathStudLayer"
+				add_child(_stud_layer)
+		_stud_layer.visible = true
+	elif _stud_layer != null:
+		_stud_layer.visible = false
+
 func _update_visuals() -> void:
 	._update_visuals()
 	var t = anim_progress
@@ -139,3 +166,10 @@ func _update_visuals() -> void:
 	for bulb in _bulbs:
 		if is_instance_valid(bulb) and bulb.material_override is SpatialMaterial:
 			bulb.material_override.emission_energy = t * 3.0
+	if is_instance_valid(_stud_layer):
+		if t <= 0.05:
+			_stud_layer.light_state = PathStudLayerScript.LightState.DARK
+		elif t < 0.8:
+			_stud_layer.light_state = PathStudLayerScript.LightState.LOW_POWER
+		else:
+			_stud_layer.light_state = PathStudLayerScript.LightState.FULL
