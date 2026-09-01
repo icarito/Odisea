@@ -16,7 +16,7 @@ export(bool) var shadow_enabled := false setget set_shadow_enabled
 # esto es una silueta negra. 0.0 lo apaga (una luz dinamica menos en movil).
 export(float, 0.0, 4.0) var fill_energy := 0.6 setget set_fill_energy
 export(float, 0.2, 4.0) var fill_range := 1.4 setget set_fill_range
-export(Texture) var mask_texture: Texture = preload("res://core_v2/props/lights/HelmetFlashlightMask.png")
+export(Texture) var mask_texture: Texture = null
 export(Vector2) var mask_tiling := Vector2(1.0, 4.0)
 export(NodePath) var skeleton_path := NodePath("Visual/Pivot/Skeleton/Skinned_Mesh_0/Skeleton")
 export(NodePath) var visual_pivot_path := NodePath("Visual/Pivot")
@@ -51,6 +51,8 @@ var _aim_initialized := false
 
 
 func _ready() -> void:
+	if mask_texture == null and ResourceLoader.exists("res://core_v2/props/lights/HelmetFlashlightMask.png"):
+		mask_texture = load("res://core_v2/props/lights/HelmetFlashlightMask.png")
 	if _volumetric_cone and _volumetric_cone.get_surface_material(0):
 		_material = _volumetric_cone.get_surface_material(0).duplicate()
 		_volumetric_cone.set_surface_material(0, _material)
