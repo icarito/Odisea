@@ -6,7 +6,15 @@ const GRID_RESOLUTION := 72.0
 
 func _init() -> void:
 	var source: ArrayMesh = load(SOURCE) as ArrayMesh
-	var arrays: Array = source.surface_get_arrays(0)
+	var lod := ArrayMesh.new()
+	for surface_index in range(source.get_surface_count()):
+		_add_decimated_surface(source, surface_index, lod)
+	lod.resource_name = "IndustrialWallLampLOD"
+	var result: int = ResourceSaver.save(TARGET, lod)
+	quit(result)
+
+func _add_decimated_surface(source: ArrayMesh, surface_index: int, lod: ArrayMesh) -> void:
+	var arrays: Array = source.surface_get_arrays(surface_index)
 	var vertices: PoolVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var normals: PoolVector3Array = arrays[Mesh.ARRAY_NORMAL]
 	var uvs: PoolVector2Array = arrays[Mesh.ARRAY_TEX_UV]
@@ -56,10 +64,6 @@ func _init() -> void:
 	output[Mesh.ARRAY_NORMAL] = out_normals
 	output[Mesh.ARRAY_TEX_UV] = out_uvs
 	output[Mesh.ARRAY_INDEX] = out_indices
-	var lod := ArrayMesh.new()
 	lod.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, output)
-	lod.surface_set_material(0, source.surface_get_material(0))
-	lod.resource_name = "IndustrialWallLampLOD"
-	var result: int = ResourceSaver.save(TARGET, lod)
-	print("LOD vertices %d -> %d, triangles %d -> %d" % [vertices.size(), out_vertices.size(), indices.size() / 3, out_indices.size() / 3])
-	quit(result)
+	lod.surface_set_material(lod.get_surface_count() - 1, source.surface_get_material(surface_index))
+	print("LOD surface %d vertices %d -> %d, triangles %d -> %d" % [surface_index, vertices.size(), out_vertices.size(), indices.size() / 3, out_indices.size() / 3])

@@ -1031,10 +1031,9 @@ puntos = PoolVector3Array( -3, 0, 0, 3, 0, 0 )
 
 [node name="Route" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L1_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 5, 6, 11 )
-tes_ramas = PoolVector3Array( 0.987688, 0.000000, 0.156434, 0.000000, -1.000000, 0.000000, 0.000000, 1.000000, 0.000000 )
-puntos = PoolVector3Array( -1.25434, 4.60000, -11.93426, -4.30042, 4.60000, -11.20297, -7.05342, 4.60000, -9.70820, -9.32575, 4.60000, -7.55184, -10.96255, 4.60000, -4.88084, -11.85226, 4.60000, -1.87721, -12.00000, 4.60000, 0.00000, -11.59111, 4.60000, 3.10583, -10.39230, 4.60000, 6.00000, -8.48528, 4.60000, 8.48528, -6.00000, 4.60000, 10.39230, -3.10583, 4.60000, 11.59111  )
-
+tes = PoolIntArray( 2 )
+tes_ramas = PoolVector3Array( 0, -1, 0 )
+puntos = PoolVector3Array( -11.465086, 4.6, -1.8158878, -11.85226, 4.6, -1.87721, -12, 4.6, 0, -11.59111, 4.6, 3.10583, -10.3923, 4.6, 6, -8.48528, 4.6, 8.48528, -6, 4.6, 10.3923, -3.10583, 4.6, 11.59111, -3.10583, 4.992, 11.59111 )
 [node name="Route" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L2"]
 script = ExtResource( 10 )
 puntos = PoolVector3Array( -3.10582, 4.99200, 11.59111, -3.10582, 6.15000, 11.59111  )
@@ -1046,10 +1045,7 @@ puntos = PoolVector3Array( -3.10582, 7.75000, 11.59111, -3.10582, 8.70800, 11.59
 
 [node name="Route" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L2_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 6, 11 )
-tes_ramas = PoolVector3Array( 0.000000, 1.000000, 0.000000, 0.000000, -1.000000, 0.000000 )
-puntos = PoolVector3Array( -1.25434, 9.10000, -11.93426, -4.30042, 9.10000, -11.20297, -7.05342, 9.10000, -9.70820, -9.32575, 9.10000, -7.55184, -10.96255, 9.10000, -4.88084, -11.85226, 9.10000, -1.87721, -12.00000, 9.10000, 0.00000, -11.59111, 9.10000, 3.10583, -10.39230, 9.10000, 6.00000, -8.48528, 9.10000, 8.48528, -6.00000, 9.10000, 10.39230, -3.10583, 9.10000, 11.59111  )
-
+puntos = PoolVector3Array( -12, 9.492, 0, -12, 9.1, 0, -11.59111, 9.1, 3.10583, -10.3923, 9.1, 6, -8.48528, 9.1, 8.48528, -6, 9.1, 10.3923, -3.10583, 9.1, 11.59111, -3.10583, 8.708, 11.59111 )
 [node name="Route" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L3"]
 script = ExtResource( 10 )
 puntos = PoolVector3Array( -12.00000, 9.49200, 0.00000, -12.00000, 10.65000, 0.00000  )
@@ -1061,10 +1057,7 @@ puntos = PoolVector3Array( -12.00000, 12.25000, 0.00000, -12.00000, 13.20800, 0.
 
 [node name="Route" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L3_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 6, 11 )
-tes_ramas = PoolVector3Array( 0.000000, -1.000000, 0.000000, 0.000000, 1.000000, 0.000000 )
-puntos = PoolVector3Array( -1.25434, 13.60000, -11.93426, -4.30042, 13.60000, -11.20297, -7.05342, 13.60000, -9.70820, -9.32575, 13.60000, -7.55184, -10.96255, 13.60000, -4.88084, -11.85226, 13.60000, -1.87721, -12.00000, 13.60000, 0.00000, -11.59111, 13.60000, 3.10583, -10.39230, 13.60000, 6.00000, -8.48528, 13.60000, 8.48528, -6.00000, 13.60000, 10.39230, -3.10583, 13.60000, 11.59111  )
-
+puntos = PoolVector3Array( -12, 13.208, 0, -12, 13.6, 0, -11.59111, 13.6, 3.10583, -10.3923, 13.6, 6, -8.48528, 13.6, 8.48528, -6, 13.6, 10.3923, -3.10583, 13.6, 11.59111, -3.10583, 13.992, 11.59111 )
 [node name="Route" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L4"]
 script = ExtResource( 10 )
 puntos = PoolVector3Array( -3.10582, 13.99200, 11.59111, -3.10582, 15.15000, 11.59111  )
@@ -1076,10 +1069,7 @@ puntos = PoolVector3Array( -3.10582, 16.75000, 11.59111, -3.10582, 17.70800, 11.
 
 [node name="Route" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L4_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 6, 11 )
-tes_ramas = PoolVector3Array( 0.000000, 1.000000, 0.000000, 0.000000, -1.000000, 0.000000 )
-puntos = PoolVector3Array( -1.25434, 18.10000, -11.93426, -4.30042, 18.10000, -11.20297, -7.05342, 18.10000, -9.70820, -9.32575, 18.10000, -7.55184, -10.96255, 18.10000, -4.88084, -11.85226, 18.10000, -1.87721, -12.00000, 18.10000, 0.00000, -11.59111, 18.10000, 3.10583, -10.39230, 18.10000, 6.00000, -8.48528, 18.10000, 8.48528, -6.00000, 18.10000, 10.39230, -3.10583, 18.10000, 11.59111  )
-
+puntos = PoolVector3Array( -12, 18.492, 0, -12, 18.1, 0, -11.59111, 18.1, 3.10583, -10.3923, 18.1, 6, -8.48528, 18.1, 8.48528, -6, 18.1, 10.3923, -3.10583, 18.1, 11.59111, -3.10583, 17.708, 11.59111 )
 [node name="Route" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L5"]
 script = ExtResource( 10 )
 puntos = PoolVector3Array( -12.00000, 18.49200, 0.00000, -12.00000, 19.65000, 0.00000  )
@@ -1091,20 +1081,12 @@ puntos = PoolVector3Array( -12.00000, 21.25000, 0.00000, -12.00000, 22.20800, 0.
 
 [node name="Route" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 6, 11 )
-tes_ramas = PoolVector3Array( 0.000000, -1.000000, 0.000000, 0.000000, 1.000000, 0.000000 )
-puntos = PoolVector3Array( -1.25434, 22.60000, -11.93426, -4.30042, 22.60000, -11.20297, -7.05342, 22.60000, -9.70820, -9.32575, 22.60000, -7.55184, -10.96255, 22.60000, -4.88084, -11.85226, 22.60000, -1.87721, -12.00000, 22.60000, 0.00000, -11.59111, 22.60000, 3.10583, -10.39230, 22.60000, 6.00000, -8.48528, 22.60000, 8.48528, -6.00000, 22.60000, 10.39230, -3.10583, 22.60000, 11.59111  )
-
-[node name="Route2" type="Spatial" parent="TowerCoolantRiser/TowerCoolantRiser_L5_Ring"]
-script = ExtResource( 10 )
-puntos = PoolVector3Array( -3.10582, 22.99200, 11.59111, -3.10582, 24.15000, 11.59111  )
-
+puntos = PoolVector3Array( -12, 22.208, 0, -12, 22.6, 0, -11.59111, 22.6, 3.10583, -10.3923, 22.6, 6, -8.48528, 22.6, 8.48528, -6, 22.6, 10.3923, -3.10583, 22.6, 11.59111 )
 [node name="Route" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 5, 6, 11 )
-tes_ramas = PoolVector3Array( -0.970296, 0.000000, -0.241922, 0.000000, -1.000000, 0.000000, 0.000000, 1.000000, 0.000000 )
-puntos = PoolVector3Array( 1.25434, 4.60000, 11.93426, 4.10424, 4.60000, 11.27631, 6.71031, 4.60000, 9.94845, 8.91774, 4.60000, 8.02957, 10.59537, 4.60000, 5.63366, 11.64355, 4.60000, 2.90306, 12.00000, 4.60000, 0.00000, 11.59111, 4.60000, -3.10583, 10.39230, 4.60000, -6.00000, 8.48528, 4.60000, -8.48528, 6.00000, 4.60000, -10.39230, 3.10583, 4.60000, -11.59111  )
-
+tes = PoolIntArray( 2 )
+tes_ramas = PoolVector3Array( 0, -1, 0 )
+puntos = PoolVector3Array( 11.263194, 4.6, 2.8082266, 11.64355, 4.6, 2.90306, 12, 4.6, 0, 11.59111, 4.6, -3.10583, 10.3923, 4.6, -6, 8.48528, 4.6, -8.48528, 6, 4.6, -10.3923, 3.10583, 4.6, -11.59111, 3.10583, 4.992, -11.59111 )
 [node name="Route" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2"]
 script = ExtResource( 10 )
 puntos = PoolVector3Array( 3.10582, 4.99200, -11.59111, 3.10582, 6.15000, -11.59111  )
@@ -1116,10 +1098,7 @@ puntos = PoolVector3Array( 3.10582, 7.75000, -11.59111, 3.10582, 8.70800, -11.59
 
 [node name="Route" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 6, 11 )
-tes_ramas = PoolVector3Array( 0.000000, 1.000000, 0.000000, 0.000000, -1.000000, 0.000000 )
-puntos = PoolVector3Array( 1.25434, 9.10000, 11.93426, 4.10424, 9.10000, 11.27631, 6.71031, 9.10000, 9.94845, 8.91774, 9.10000, 8.02957, 10.59537, 9.10000, 5.63366, 11.64355, 9.10000, 2.90306, 12.00000, 9.10000, 0.00000, 11.59111, 9.10000, -3.10583, 10.39230, 9.10000, -6.00000, 8.48528, 9.10000, -8.48528, 6.00000, 9.10000, -10.39230, 3.10583, 9.10000, -11.59111  )
-
+puntos = PoolVector3Array( 12, 9.492, 0, 12, 9.1, 0, 11.59111, 9.1, -3.10583, 10.3923, 9.1, -6, 8.48528, 9.1, -8.48528, 6, 9.1, -10.3923, 3.10583, 9.1, -11.59111, 3.10583, 8.708, -11.59111 )
 [node name="Route" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3"]
 script = ExtResource( 10 )
 puntos = PoolVector3Array( 12.00000, 9.49200, 0.00000, 12.00000, 10.65000, 0.00000  )
@@ -1131,10 +1110,7 @@ puntos = PoolVector3Array( 12.00000, 12.25000, 0.00000, 12.00000, 13.20800, 0.00
 
 [node name="Route" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 6, 11 )
-tes_ramas = PoolVector3Array( 0.000000, -1.000000, 0.000000, 0.000000, 1.000000, 0.000000 )
-puntos = PoolVector3Array( 1.25434, 13.60000, 11.93426, 4.10424, 13.60000, 11.27631, 6.71031, 13.60000, 9.94845, 8.91774, 13.60000, 8.02957, 10.59537, 13.60000, 5.63366, 11.64355, 13.60000, 2.90306, 12.00000, 13.60000, 0.00000, 11.59111, 13.60000, -3.10583, 10.39230, 13.60000, -6.00000, 8.48528, 13.60000, -8.48528, 6.00000, 13.60000, -10.39230, 3.10583, 13.60000, -11.59111  )
-
+puntos = PoolVector3Array( 12, 13.208, 0, 12, 13.6, 0, 11.59111, 13.6, -3.10583, 10.3923, 13.6, -6, 8.48528, 13.6, -8.48528, 6, 13.6, -10.3923, 3.10583, 13.6, -11.59111, 3.10583, 13.992, -11.59111 )
 [node name="Route" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4"]
 script = ExtResource( 10 )
 puntos = PoolVector3Array( 3.10582, 13.99200, -11.59111, 3.10582, 15.15000, -11.59111  )
@@ -1146,10 +1122,7 @@ puntos = PoolVector3Array( 3.10582, 16.75000, -11.59111, 3.10582, 17.70800, -11.
 
 [node name="Route" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 6, 11 )
-tes_ramas = PoolVector3Array( 0.000000, 1.000000, 0.000000, 0.000000, -1.000000, 0.000000 )
-puntos = PoolVector3Array( 1.25434, 18.10000, 11.93426, 4.10424, 18.10000, 11.27631, 6.71031, 18.10000, 9.94845, 8.91774, 18.10000, 8.02957, 10.59537, 18.10000, 5.63366, 11.64355, 18.10000, 2.90306, 12.00000, 18.10000, 0.00000, 11.59111, 18.10000, -3.10583, 10.39230, 18.10000, -6.00000, 8.48528, 18.10000, -8.48528, 6.00000, 18.10000, -10.39230, 3.10583, 18.10000, -11.59111  )
-
+puntos = PoolVector3Array( 12, 18.492, 0, 12, 18.1, 0, 11.59111, 18.1, -3.10583, 10.3923, 18.1, -6, 8.48528, 18.1, -8.48528, 6, 18.1, -10.3923, 3.10583, 18.1, -11.59111, 3.10583, 17.708, -11.59111 )
 [node name="Route" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5"]
 script = ExtResource( 10 )
 puntos = PoolVector3Array( 12.00000, 18.49200, 0.00000, 12.00000, 19.65000, 0.00000  )
@@ -1162,10 +1135,4 @@ puntos = PoolVector3Array( 12.00000, 21.25000, 0.00000, 12.00000, 22.20800, 0.00
 
 [node name="Route" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring"]
 script = ExtResource( 10 )
-tes = PoolIntArray( 6, 11 )
-tes_ramas = PoolVector3Array( 0.000000, -1.000000, 0.000000, 0.000000, 1.000000, 0.000000 )
-puntos = PoolVector3Array( 1.25434, 22.60000, 11.93426, 4.10424, 22.60000, 11.27631, 6.71031, 22.60000, 9.94845, 8.91774, 22.60000, 8.02957, 10.59537, 22.60000, 5.63366, 11.64355, 22.60000, 2.90306, 12.00000, 22.60000, 0.00000, 11.59111, 22.60000, -3.10583, 10.39230, 22.60000, -6.00000, 8.48528, 22.60000, -8.48528, 6.00000, 22.60000, -10.39230, 3.10583, 22.60000, -11.59111  )
-
-[node name="Route2" type="Spatial" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5_Ring"]
-script = ExtResource( 10 )
-puntos = PoolVector3Array( 3.10582, 22.99200, -11.59111, 3.10582, 24.15000, -11.59111  )
+puntos = PoolVector3Array( 12, 22.208, 0, 12, 22.6, 0, 11.59111, 22.6, -3.10583, 10.3923, 22.6, -6, 8.48528, 22.6, -8.48528, 6, 22.6, -10.3923, 3.10583, 22.6, -11.59111 )

@@ -23,7 +23,7 @@ const STUD_LAYER_NAME := "PathStudLayer"
 # the same height_offset as the flat marker quad ends up depth-tested behind the
 # deck's opaque texels and reads as hidden under the floor. Studs need extra
 # clearance the flat quad never needed.
-const STUD_EXTRA_LIFT := 0.05
+const STUD_EXTRA_LIFT := 0.02
 
 const PathStudLayerScript = preload("res://core_v2/components/PathStudLayer.gd")
 

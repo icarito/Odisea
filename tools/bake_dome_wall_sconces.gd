@@ -14,7 +14,7 @@ const FIXTURE_SCALE := 2.0
 const WALL_OFFSET := 0.30
 const SECTOR_COUNT := 8
 const BULB_OFFSET := Vector3(0.0, 0.0, 0.11)
-const GLOW_SCALE := 0.35
+const GLOW_SCALE := 1.8
 
 func _init() -> void:
 	var packed: PackedScene = load(DOME_SCENE) as PackedScene
@@ -22,7 +22,7 @@ func _init() -> void:
 		_fail("Could not load Dome_Intro")
 		return
 	var root: Node = packed.instance()
-	var markers: MultiMeshInstance = root.get_node("WallLights/Markers") as MultiMeshInstance
+	var markers: MultiMeshInstance = root.get_node("Dome_Base/WallLights/Markers") as MultiMeshInstance
 	if markers == null or markers.multimesh == null:
 		root.free()
 		_fail("WallLights/Markers has no baked MultiMesh")

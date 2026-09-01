@@ -31,25 +31,34 @@ const COLOR_DRY := Color(0.28, 0.32, 0.38, 0.85)
 const BLINK_HZ := 2.5
 const BLINK_REDRAW_INTERVAL := 0.2
 
+# Vistas ortograficas del circuito real (FD-270, serpentina de dos rieles):
+# ALZADO arriba (columnas de riser con valvulas y tramos de piso) y PLANTA abajo
+# (proyeccion en planta: rieles en az 180/0 y 105/285, arcos de piso, bucles CryoLoop
+# y tanques). Sin interlink: la interconexion oeste-este ya no existe fisicamente;
+# si alguna escena trae una valvula interlink, se dibuja como diamante en P5.
 const NUM_FLOORS := 6
-const X_WEST := 80.0
-const X_EAST := 220.0
-const Y_BOTTOM := 270.0
-const Y_STEP := 40.0
-const X_INTERLINK := 150.0
-# ValveInterlink vive en el circulo cerrado de Piso 5 (el ultimo, §7.1 del FD-270),
-# no en Piso 2 -- ahi es donde oeste y este se tocan fisicamente.
-const Y_INTERLINK := Y_BOTTOM - float(NUM_FLOORS - 1) * Y_STEP # Height of last floor
-
-# Inset de la card respecto al borde de su columna: mismo criterio visual que
-# CoolantSystemStatusUI.tscn (margen 24) y RoomDialsPanel (CARD_MARGIN).
+const X_WEST := 64.0
+const X_EAST := 204.0
+const Y_BOTTOM := 252.0
+const Y_STEP := 36.0
+const RUN_LEN := 58.0
 const CARD_MARGIN := 24.0
 
+# Planta: origen del domo y escala. Las coordenadas de mundo (x,z) se proyectan
+# a (cx + x*S, cy + z*S): planta mirando hacia abajo, +X derecha, +Z hacia abajo.
+const PLANTA_CY := 420.0
+const PLANTA_S := 7.2
+const AZ_W_RAIL := 180.0   # riser oeste (Rail-A)
+const AZ_E_RAIL := 0.0     # riser este
+const AZ_W_TEE := 105.0    # fin de linea oeste (Rail-B)
+const AZ_E_RAIL_B := 285.0 # fin de linea este
+const AZ_HUB_W := 189.0    # T del bucle CryoLoop oeste (piso 2)
+const AZ_HUB_E := 14.0     # T del bucle este
+const DOME_R := 12.0
+
 # Extension real del contenido dibujado, para centrarlo en el ancho disponible de la card.
-# CONTENT_LEFT = la etiqueta "P0" queda a X_WEST - 32; CONTENT_WIDTH = hasta la etiqueta al
-# lado este de X_EAST (X_EAST + 40).
-const CONTENT_LEFT := X_WEST - 32.0
-const CONTENT_WIDTH := (X_EAST + 40.0) - CONTENT_LEFT
+const CONTENT_LEFT := 24.0
+const CONTENT_WIDTH := 300.0
 
 var _connected_valves := []
 var _blink_phase := 0.0
@@ -121,8 +130,7 @@ func _draw() -> void:
 
 	# El resto del diagrama va desplazado adentro del borde de la card, en vez de pegado al
 	# filo que acaba de pintar panel_style. El contenido dibujado ocupa un ancho fijo de
-	# CONTENT_WIDTH (de la etiqueta "P0" a la izquierda de X_WEST hasta la etiqueta al lado
-	# este de X_EAST): centrarlo en el ancho disponible en vez de pegarlo al borde izquierdo.
+	# CONTENT_WIDTH: centrarlo en el ancho disponible en vez de pegarlo al borde izquierdo.
 	var available_width: float = rect_size.x - CARD_MARGIN * 2.0
 	var center_offset: float = max((available_width - CONTENT_WIDTH) * 0.5, 0.0)
 	draw_set_transform(Vector2(CARD_MARGIN + center_offset - CONTENT_LEFT, CARD_MARGIN), 0.0, Vector2.ONE)
@@ -147,16 +155,32 @@ func _draw() -> void:
 	var interlink_state = segment_states.get("interlink", CoolantLeak.State.HEALTHY)
 
 	# Caudal por tramo: el mismo modelo que CoolantFlowAdapter, sobre la abstraccion de
-	# pisos del diagrama. El medio toro de cada piso es un RAMAL: se alimenta del tronco
+	# pisos del diagrama. La linea de piso de cada nivel es un RAMAL: se alimenta del tronco
 	# pero lo que le pasa no frena la columna de arriba.
 	var west_flow: Dictionary = _solve_column_flow(west_valves, west_states, west_rings, _tank_level("west"))
 	var east_flow: Dictionary = _solve_column_flow(east_valves, east_states, east_rings, _tank_level("east"))
 
 	var font = get_font("font")
+	var blinking := false
+	blinking = _draw_alzado(west_valves, east_valves, interlink_valve, west_states, east_states,
+		west_rings, east_rings, west_flow, east_flow, interlink_state, is_live, font) or blinking
+	blinking = _draw_planta(patch_points, west_rings, east_rings, west_flow, east_flow, is_live) or blinking
+
+	_set_blinking(blinking)
+
+
+# Vista ortografica ALZADO: las dos columnas de riser con sus valvulas, y el tramo de
+# piso de cada nivel corriendo hacia adentro hasta su T de fin en Rail-B. Ya no hay
+# medio-toros que se encuentren en un LINK central: esa interconexion no existe.
+func _draw_alzado(west_valves: Array, east_valves: Array, interlink_valve,
+		west_states: Array, east_states: Array, west_rings: Array, east_rings: Array,
+		west_flow: Dictionary, east_flow: Dictionary, interlink_state: int,
+		is_live: bool, font) -> bool:
+	var blinking := false
 	if font != null:
-		draw_string(font, Vector2(X_WEST - 18, 25), "OESTE", COLOR_TEXT)
-		draw_string(font, Vector2(X_EAST - 14, 25), "ESTE", COLOR_TEXT)
-		draw_string(font, Vector2(X_INTERLINK - 16, Y_INTERLINK - 12), "LINK", COLOR_TEXT)
+		draw_string(font, Vector2(X_WEST - 20, 16), "OESTE", COLOR_TEXT)
+		draw_string(font, Vector2(X_EAST - 14, 16), "ESTE", COLOR_TEXT)
+		draw_string(font, Vector2(X_WEST - 40, Y_BOTTOM + Y_STEP + 6), "ALZADO", COLOR_TEXT)
 
 	# 1-2. Columnas verticales (riser). Tramo i = del piso i al piso i+1.
 	for i in range(NUM_FLOORS - 1):
@@ -169,20 +193,26 @@ func _draw() -> void:
 			int(east_states[i]) if i < east_states.size() else CoolantLeak.State.HEALTHY,
 			float(east_flow["trunk"][i]), is_live, 3.5)
 
-	# 3. Medio toro por piso: cada riser alimenta su mitad y ambas se encuentran en el
-	# centro. Antes solo se dibujaba el puente del piso 5, asi que el diagrama no mostraba
-	# los anillos donde de hecho ocurre la mitad de las fisuras.
+	# 3. Tramo de piso por nivel: del riser hacia adentro hasta Rail-B, donde la linea
+	# termina en su T (la geometria real: no hay loop que cruce al otro lado).
 	for f in range(1, NUM_FLOORS):
 		var y: float = Y_BOTTOM - float(f) * Y_STEP
-		var mid := Vector2(X_INTERLINK, y)
-		var is_link: bool = f == NUM_FLOORS - 1
 		var w_state: int = int(west_rings[f]) if f < west_rings.size() else CoolantLeak.State.HEALTHY
 		var e_state: int = int(east_rings[f]) if f < east_rings.size() else CoolantLeak.State.HEALTHY
-		if is_link:
-			w_state = _more_severe_state(w_state, int(interlink_state))
-			e_state = _more_severe_state(e_state, int(interlink_state))
-		_draw_pipe(Vector2(X_WEST, y), mid, w_state, float(west_flow["ring"][f]), is_live, 3.0)
-		_draw_pipe(Vector2(X_EAST, y), mid, e_state, float(east_flow["ring"][f]), is_live, 3.0)
+		var dir_w := Vector2(1, 0)
+		var dir_e := Vector2(-1, 0)
+		_draw_pipe(Vector2(X_WEST, y), Vector2(X_WEST, y) + dir_w * RUN_LEN, w_state,
+			float(west_flow["ring"][f]), is_live, 3.0)
+		_draw_pipe(Vector2(X_EAST, y), Vector2(X_EAST, y) + dir_e * RUN_LEN, e_state,
+			float(east_flow["ring"][f]), is_live, 3.0)
+		# T de fin (Rail-B): vareta perpendicular al tramo.
+		var end_w := Vector2(X_WEST, y) + dir_w * RUN_LEN
+		var end_e := Vector2(X_EAST, y) + dir_e * RUN_LEN
+		draw_line(end_w + Vector2(0, -4), end_w + Vector2(0, 4), COLOR_OFFLINE_PIPE, 2.0, true)
+		draw_line(end_e + Vector2(0, -4), end_e + Vector2(0, 4), COLOR_OFFLINE_PIPE, 2.0, true)
+		# La fisura del anillo vive pegada al riser (az 180): marcador al inicio del tramo.
+		blinking = _draw_fissure_marker(Vector2(X_WEST + 12, y), w_state, is_live) or blinking
+		blinking = _draw_fissure_marker(Vector2(X_EAST - 12, y), e_state, is_live) or blinking
 
 	# 4-5. Valvulas de cada columna.
 	for i in range(NUM_FLOORS):
@@ -194,23 +224,156 @@ func _draw() -> void:
 			draw_string(font, Vector2(X_WEST - 32, pos_w.y + 4), "P%d" % i, COLOR_TEXT)
 			draw_string(font, Vector2(X_EAST + 12, pos_e.y + 4), "P%d" % i, COLOR_TEXT)
 
-	# 6. Valvula de interconexion.
-	draw_circle(Vector2(X_INTERLINK, Y_INTERLINK), 7.5, _get_valve_color(interlink_valve, is_live))
+	# 6. Valvula de interconexion: solo si la escena trae una (el domo ya no la tiene).
+	if interlink_valve != null and is_instance_valid(interlink_valve):
+		var mid := Vector2((X_WEST + X_EAST) * 0.5, Y_BOTTOM - float(NUM_FLOORS - 1) * Y_STEP)
+		draw_circle(mid, 7.5, _get_valve_color(interlink_valve, is_live))
+		if _is_compromised(int(interlink_state)):
+			blinking = _draw_fissure_marker(mid, int(interlink_state), is_live) or blinking
 
-	# 7. Marcador de fisura sobre cada tramo comprometido, parpadeando.
-	var blinking := false
+	# 7. Marcador de fisura del tronco sobre cada tramo comprometido, parpadeando.
 	for i in range(NUM_FLOORS - 1):
 		var y_mid: float = Y_BOTTOM - (float(i) + 0.5) * Y_STEP
 		blinking = _draw_fissure_marker(Vector2(X_WEST, y_mid), int(west_states[i]), is_live) or blinking
 		blinking = _draw_fissure_marker(Vector2(X_EAST, y_mid), int(east_states[i]), is_live) or blinking
-	for f in range(1, NUM_FLOORS):
-		var y_r: float = Y_BOTTOM - float(f) * Y_STEP
-		var x_w: float = (X_WEST + X_INTERLINK) * 0.5
-		var x_e: float = (X_EAST + X_INTERLINK) * 0.5
-		blinking = _draw_fissure_marker(Vector2(x_w, y_r), int(west_rings[f]) if f < west_rings.size() else 0, is_live) or blinking
-		blinking = _draw_fissure_marker(Vector2(x_e, y_r), int(east_rings[f]) if f < east_rings.size() else 0, is_live) or blinking
+	return blinking
 
-	_set_blinking(blinking)
+
+# Vista ortografica PLANTA: proyeccion superior del domo. Rieles en az 180/0
+# (Rail-A, los risers) y 105/285 (Rail-B, el fin de cada linea), arcos de piso por
+# nivel, bucles CryoLoop del piso 2 y tanques con su nivel. Los marcadores de fuga
+# de anillo se dibujan en su posicion real del mundo.
+func _draw_planta(patch_points: Array, west_rings: Array, east_rings: Array,
+		west_flow: Dictionary, east_flow: Dictionary, is_live: bool) -> bool:
+	var cx := CONTENT_LEFT + CONTENT_WIDTH * 0.5
+	var cy := PLANTA_CY
+	var blinking := false
+
+	# Cascaron del domo y cruz de centro, de referencia.
+	draw_arc(Vector2(cx, cy), DOME_R * PLANTA_S, 0.0, TAU, 64, Color(COLOR_OFFLINE_PIPE, 0.55), 1.5, true)
+	draw_line(Vector2(cx - 5, cy), Vector2(cx + 5, cy), Color(COLOR_OFFLINE_PIPE, 0.55), 1.0, true)
+	draw_line(Vector2(cx, cy - 5), Vector2(cx, cy + 5), Color(COLOR_OFFLINE_PIPE, 0.55), 1.0, true)
+
+	# Rieles: el riser es un punto en planta (tubo vertical); Rail-B una vareta.
+	var rail_w := _planta_pt(-DOME_R, 0.0)
+	var rail_e := _planta_pt(DOME_R, 0.0)
+	draw_circle(rail_w, 4.0, COLOR_OFFLINE_PIPE)
+	draw_circle(rail_e, 4.0, COLOR_OFFLINE_PIPE)
+	draw_circle(_planta_pt(-DOME_R * cos(deg2rad(180.0 - AZ_W_TEE)), DOME_R * sin(deg2rad(180.0 - AZ_W_TEE))), 2.5, Color(COLOR_OFFLINE_PIPE, 0.8))
+	draw_circle(_planta_pt(DOME_R * cos(deg2rad(180.0 - AZ_W_TEE)), -DOME_R * sin(deg2rad(180.0 - AZ_W_TEE))), 2.5, Color(COLOR_OFFLINE_PIPE, 0.8))
+
+	# Arcos de piso: se abanican +-4 px por nivel para poder leerlos apilados; en la
+	# geometria real todos viven a r=12.
+	for f in range(1, NUM_FLOORS):
+		var r_f: float = (DOME_R * PLANTA_S) + float(f - 3) * 4.0
+		var w_state: int = int(west_rings[f]) if f < west_rings.size() else CoolantLeak.State.HEALTHY
+		var e_state: int = int(east_rings[f]) if f < east_rings.size() else CoolantLeak.State.HEALTHY
+		var w_col: Color = _get_pipe_color(w_state, is_live)
+		var e_col: Color = _get_pipe_color(e_state, is_live)
+		if is_live and _is_compromised(w_state):
+			w_col = w_col.linear_interpolate(Color(1, 1, 1, 1), _blink_pulse() * 0.55)
+		if is_live and _is_compromised(e_state):
+			e_col = e_col.linear_interpolate(Color(1, 1, 1, 1), _blink_pulse() * 0.55)
+		var flow_w: float = float(west_flow["ring"][f])
+		var flow_e: float = float(east_flow["ring"][f])
+		if is_live and flow_w <= 0.001:
+			w_col = COLOR_DRY
+		if is_live and flow_e <= 0.001:
+			e_col = COLOR_DRY
+		# Oeste: az 105 -> 189 (el tramo remanente hasta la T del bucle en el piso 2);
+		# resto de pisos: az 105 -> 180. Este espejado: az 285 -> 374 / 360.
+		var start_w := AZ_W_TEE
+		var end_w := AZ_W_RAIL if f != 1 else AZ_HUB_W
+		var start_e := AZ_E_RAIL_B
+		var end_e := AZ_E_RAIL + 360.0 if f != 1 else AZ_HUB_E + 360.0
+		draw_arc(Vector2(cx, cy), r_f, deg2rad(start_w), deg2rad(end_w), 24, w_col, 2.5, true)
+		draw_arc(Vector2(cx, cy), r_f, deg2rad(start_e), deg2rad(end_e), 24, e_col, 2.5, true)
+		if is_live and flow_w > 0.001:
+			draw_arc(Vector2(cx, cy), r_f, deg2rad(start_w), deg2rad(end_w), 24,
+				Color(COLOR_FLOW.r, COLOR_FLOW.g, COLOR_FLOW.b, 0.25 + 0.5 * flow_w), 1.0, true)
+		if is_live and flow_e > 0.001:
+			draw_arc(Vector2(cx, cy), r_f, deg2rad(start_e), deg2rad(end_e), 24,
+				Color(COLOR_FLOW.r, COLOR_FLOW.g, COLOR_FLOW.b, 0.25 + 0.5 * flow_e), 1.0, true)
+
+	# Bucles CryoLoop del piso 2: ramal desde su T (az 189 / 14) hasta la posicion real
+	# de la fuga del bucle, y un circulito marcando el bucle.
+	for hub in [{"az": AZ_HUB_W, "tag": "westfloor1", "rings": west_rings}, {"az": AZ_HUB_E, "tag": "eastfloor1", "rings": east_rings}]:
+		var leak_pos = _planta_hub_pos(patch_points, str(hub["tag"]))
+		if leak_pos == null:
+			continue
+		var t0 := _planta_pt(DOME_R * cos(deg2rad(float(hub["az"]))), DOME_R * sin(deg2rad(float(hub["az"]))))
+		var state_hub: int = int(hub["rings"][1]) if 1 < (hub["rings"] as Array).size() else CoolantLeak.State.HEALTHY
+		draw_line(t0, leak_pos, _get_pipe_color(state_hub, is_live), 2.0, true)
+		draw_circle(leak_pos, 3.5, _get_pipe_color(state_hub, is_live))
+		blinking = _draw_fissure_marker(leak_pos, state_hub, is_live) or blinking
+
+	# Tanques: circulo con relleno proporcional al nivel.
+	for tank in get_tree().get_nodes_in_group("coolant_source"):
+		if not is_instance_valid(tank) or not ("tank_level" in tank):
+			continue
+		var pos = tank.get("global_position") if tank is Spatial else null
+		if pos == null:
+			continue
+		var tp := Vector2(cx + float(pos.x) * PLANTA_S, cy + float(pos.z) * PLANTA_S)
+		var level: float = clamp(float(tank.get("tank_level")), 0.0, 1.0)
+		draw_circle(tp, 2.5 * PLANTA_S, Color(COLOR_OFFLINE_PIPE, 0.4))
+		draw_arc(tp, 2.5 * PLANTA_S, 0.0, TAU, 32, COLOR_TEXT, 1.5, true)
+		if level > 0.01:
+			draw_circle(tp, (2.5 * PLANTA_S - 2.0) * level, Color(COLOR_FLOW.r, COLOR_FLOW.g, COLOR_FLOW.b, 0.45))
+
+	# Marcadores de fuga de anillo en su posicion real, sobre el arco de su piso.
+	for patch_point in patch_points:
+		if not is_instance_valid(patch_point):
+			continue
+		var label_str: String = _floor_label(patch_point).to_lower() + " " + patch_point.name.to_lower()
+		if "interlink" in label_str or not ("ring" in label_str):
+			continue
+		var pos = patch_point.get("global_position") if patch_point is Spatial else null
+		if pos == null:
+			continue
+		var floor_idx: int = _extract_floor_index(label_str)
+		var ring_idx: int = int(clamp(floor_idx, 1, NUM_FLOORS - 1))
+		var leak_node = patch_point.get("_leak") if "_leak" in patch_point else null
+		var leak_state = CoolantLeak.State.HEALTHY
+		if leak_node and is_instance_valid(leak_node) and leak_node.has_method("get_state"):
+			leak_state = leak_node.call("get_state")
+		var is_patched: bool = patch_point.call("is_patched") if patch_point.has_method("is_patched") else false
+		var is_firm: bool = patch_point.call("is_firmly_patched") if patch_point.has_method("is_firmly_patched") else false
+		if is_patched:
+			leak_state = CoolantLeak.State.HEALTHY if is_firm else CoolantLeak.State.WARNING
+		var r_f: float = (DOME_R * PLANTA_S) + float(ring_idx - 3) * 4.0
+		var az := rad2deg(atan2(float(pos.z), float(pos.x)))
+		if az < 0.0:
+			az += 360.0
+		var mp := Vector2(cx + r_f * cos(deg2rad(az)), cy + r_f * sin(deg2rad(az)))
+		blinking = _draw_fissure_marker(mp, int(leak_state), is_live) or blinking
+
+	var font = get_font("font")
+	if font != null:
+		draw_string(font, Vector2(cx - DOME_R * PLANTA_S - 26, PLANTA_CY + DOME_R * PLANTA_S + 30), "PLANTA", COLOR_TEXT)
+	return blinking
+
+
+# Punto de planta para coordenadas de mundo (x, z).
+func _planta_pt(x_m: float, z_m: float) -> Vector2:
+	return Vector2(CONTENT_LEFT + CONTENT_WIDTH * 0.5 + x_m * PLANTA_S, PLANTA_CY + z_m * PLANTA_S)
+
+
+# Posicion en planta del bucle CryoLoop de un lado: la fuga "Floor1" de esa rama
+# vive sobre el bucle. Null si la escena no la trae (tests, CoolantLab).
+func _planta_hub_pos(patch_points: Array, tag: String):
+	for patch_point in patch_points:
+		if not is_instance_valid(patch_point):
+			continue
+		var label_str: String = _floor_label(patch_point).to_lower() + " " + patch_point.name.to_lower()
+		var is_east: bool = "east" in label_str
+		if (tag == "eastfloor1") != is_east:
+			continue
+		var pos = patch_point.get("global_position") if patch_point is Spatial else null
+		if pos != null:
+			return Vector2(CONTENT_LEFT + CONTENT_WIDTH * 0.5 + float(pos.x) * PLANTA_S,
+				PLANTA_CY + float(pos.z) * PLANTA_S)
+	return null
 
 
 # Nivel del tanque de una rama, para que una columna sin refrigerante se lea seca aunque

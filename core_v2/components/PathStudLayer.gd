@@ -17,7 +17,7 @@ enum LightState {
 
 export(LightState) var light_state: int = LightState.FULL setget set_light_state
 export(NodePath) var target_path_node: NodePath setget set_target_path_node
-export(Color) var lit_color := Color(0.95, 0.25, 0.15, 1.0) setget set_lit_color
+export(Color) var lit_color := Color(0.55, 0.06, 0.04, 1.0) setget set_lit_color
 export(Color) var base_color := Color(0.2, 0.22, 0.25, 1.0) setget set_base_color
 export(int, 2, 10) var low_power_stride := 3 setget set_low_power_stride
 export(float, 0.1, 5.0) var blink_speed := 1.5
@@ -248,7 +248,7 @@ static func create_reflector_texture() -> ImageTexture:
 			# Narrower range than the first pass (was 0.3..1.0): a near-white core
 			# next to a near-black seam read as glassy/translucent rather than an
 			# opaque moulded-plastic reflector.
-			var v: float = lerp(0.42, 0.8, level)
+			var v: float = lerp(0.32, 0.55, level)
 			image.set_pixel(x, y, Color(v, v, v, 1.0))
 	image.unlock()
 	var texture := ImageTexture.new()
@@ -275,13 +275,13 @@ static func create_stud_material() -> SpatialMaterial:
 	# Fixed material colour, NOT tinted by the per-instance vertex color (that only
 	# drives albedo) — it stayed blue even after lit_color changed to red until
 	# this got updated too. Matches lit_color's default reflector-red.
-	mat.emission = Color(0.95, 0.25, 0.15, 1.0)
+	mat.emission = Color(0.55, 0.06, 0.04, 1.0)
 	mat.emission_texture = reflector
 	# Only the bright lens cells glow — the dark seams between them stay dark —
 	# so it reads as a cluster of tiny reflective points instead of one flat glow.
 	# 0.2 read as barely-there — the red light nearby didn't visibly trace back to
 	# the stud. Middle ground between that and 1.8-3.0, which clipped to a glassy
 	# white/washed-out blob.
-	mat.emission_energy = 0.7
+	mat.emission_energy = 0.45
 	mat.emission_on_uv2 = false
 	return mat
