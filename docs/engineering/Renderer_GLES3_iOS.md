@@ -11,7 +11,7 @@
 |---|---|---|---|
 | Desktop (Linux/Win/macOS) | GLES3 (default del motor, sin override global) | — | `mode=2` (async + cache binaria) |
 | iOS | GLES3 (estándar del motor) | `driver_name.iOS="GLES3"` | **`mode=0` (síncrono) — CONTRACTO** |
-| Android | GLES3 con fallback automático a GLES2 | `fallback_to_gles2=true` | `mode.mobile=2` (riesgo, ver §6) |
+| Android | GLES3 con fallback automático a GLES2 | `fallback_to_gles2=true` + **`framebuffer_allocation.Android=3`** | **`mode=0` (síncrono) — precaución, re-evaluar** |
 | Web/HTML5 | GLES3 (WebGL2) | — | `mode.web=2` (riesgo conocido, ver §6) |
 
 Nunca borrar `quality/driver/fallback_to_gles2=true`: es la red de seguridad si GLES3 no
@@ -57,11 +57,53 @@ que era GLES3-only era el sistema async/ubershader.
 El motor **bloquea** hasta tener el shader listo en vez de saltarse el mesh; si un shader
 falla de verdad, el error aparece en el log. Commit `27bea2aa`.
 
+## 3b. Android: artefactos de framebuffer (causa real: `framebuffer_allocation`)
+
+Primer test GLES3 en Android (Redmi Note 9 Pro, Adreno 618, 2026-09-02): **el framebuffer
+entero se veía como una grilla de franjas repetidas** (contenido de pantalla duplicado en
+mosaico, Elías incluido), + lentitud e inestabilidad.
+
+**Diagnóstico por A/B en device** (build debug + peer vía `adb reverse tcp:4999 tcp:4999`):
+
+| Test | Resultado |
+|---|---|
+| `shader_compilation_mode.Android=0` (sync) | Artefactos persisten → **no** era async/ubershader |
+| `ReflectionProbe.visible = false` | Artefactos persisten → no era el probe |
+| `Viewport.usage = USAGE_3D_NO_EFFECTS` (live) | **Artefactos desaparecen al instante**, 39 fps (antes 24-30), draw calls 196→87 |
+
+**Causa raíz**: `quality/intended_usage/framebuffer_allocation.mobile=2` ("3D" — FBO
+completo con attachments de efectos). Adreno 618 no lo soporta bien en GLES3 y tilea el
+render target. El default móvil del motor es `3` ("3D Without Effects") justamente por
+esto. iOS (Apple GL) sí tolera `2`.
+
+**Fix**: `framebuffer_allocation.Android=3` en project.godot (después de `.mobile`, que
+gana la última línea que matchea). Costo: en Android no se reservan los buffers de
+efectos de pantalla (glow/SSR/DOF dependen de ellos — el look sin glow es el default
+móvil del motor; en el device además SessionManager ya los apagaba por FPS bajo).
+
+**Nota sobre el modo de compilación**: `.Android=0` quedó aplicado como precaución (el
+test con async+ubershader nunca se hizo con el FBO corregido). Re-evaluar async en
+Android después, junto con el warmup por escena (§5).
+
+## 3c. Web: arranque lento (esperado, por diseño de GLES3 en WebGL2)
+
+- WebGL2 **no soporta program binaries** (`program_binary_supported=false` en
+  `JAVASCRIPT_ENABLED`) → el cache binario de shaders (modo 2) está OFF en web: **cada
+  carga compila todo de nuevo**. Es inherente a GLES3-web, no un bug del proyecto.
+- El async (KHR_parallel_shader_compile en browsers) deja bootear mientras compila, pero
+  el tiempo total no baja. Con `mode.web=0` el arranque bloquearía más antes del primer
+  frame (y arriesga context-loss en devices débiles) — por eso web queda en 2 por ahora.
+- Mitigación real si web vuelve al alcance: reducir variantes de shader (menos materiales
+  únicos) y/o warmup en la pantalla de carga.
+
 ## 4. Reglas operativas
 
 - **No subir `shader_compilation_mode.iOS` a ≥1** sin un warmup de shaders por escena
-  (compilar las variantes durante la pantalla de carga). Volver a async ahí reintroduce
-  meshes invisibles sin diagnóstico.
+  (compilar las variantes durante la pantalla de carga). En iOS reintroduce meshes
+  invisibles sin diagnóstico. `.Android=0` es precaución: re-evaluar con el FBO corregido.
+- **No tocar `framebuffer_allocation.Android`**: volver a `2` ("3D") en Adreno tilea el
+  framebuffer completo (mosaico). Si algún día se quiere glow/efectos en Android, es con
+  warmup y prueba en device, no con este setting.
 - En `project.godot` la **última línea cuyo feature tag matchea gana**
   (`project_settings.cpp::_set` procesa en orden de archivo). Por eso `.iOS=0` va DESPUÉS
   de `.mobile`/`.web`. No reordenar esas líneas.
@@ -112,12 +154,18 @@ falla de verdad, el error aparece en el log. Commit `27bea2aa`.
 ## 6. Si reaparece (checklist)
 
 1. Confirmar el renderer en telemetría/overlay: `render_diag.video_driver == "GLES3"`.
-2. Overlay de log: buscar `Async. shader compilation:` del boot. Si dice ON en iOS, alguien
-   tocó `shader_compilation_mode.iOS` — volver a 0.
-3. Si con mode 0 hay meshes invisibles **con** errores de shader en el log: es un shader
+2. Overlay de log: buscar `Async. shader compilation:` del boot. Si dice ON en iOS o
+   Android, alguien tocó `shader_compilation_mode.iOS/.Android` — volver a 0.
+3. Síntoma guía: **meshes invisibles** = iOS (Apple GL, camino async/ubershader);
+   **framebuffer tileado en mosaico** = Android (Adreno, `framebuffer_allocation`).
+4. Si con mode 0 hay meshes invisibles **con** errores de shader en el log: es un shader
    del proyecto — leer el log completo (`user://logs/godot.log`) y arreglar el shader, no
    el renderer.
-4. Si con mode 0 hay meshes invisibles **sin** errores: sospechar del vertex path GLES3
+5. Si con mode 0 hay meshes invisibles **sin** errores: sospechar del vertex path GLES3
    (octaédrico o textura de huesos). Siguiente paso preparado: `meshes/octahedral_compression=false`
    + reimport en los 5 `.glb` (Pilot, Programmer, Radiator, Misc_Heater, DomeFacade_01_LOD).
    No tocar las dos cosas a la vez.
+6. Herramienta clave para Android: `adb reverse tcp:4999 tcp:4999` + relanzar la app →
+   ANNAV2 hace upgrade al peer local y el build debug da **todos** los comandos en vivo
+   (screenshots, eval, set_property) sin relay por el central. El log completo del motor
+   se lee con `adb logcat`.
