@@ -29,8 +29,8 @@ height = 1.0
 [sub_resource type="ShaderMaterial" id=2]
 shader = ExtResource( 2 )
 shader_param/color = Color( 0.85, 0.95, 1, 1 )
-shader_param/alpha_multiplier = 1.0
-shader_param/falloff_exponent = 2.0
+shader_param/alpha_multiplier = 0.4
+shader_param/falloff_exponent = 2.6
 shader_param/use_mask = true
 shader_param/mask_scroll = 0.0
 shader_param/mask_tiling = Vector2( 1, 4 )

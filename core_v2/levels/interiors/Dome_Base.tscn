@@ -274,7 +274,7 @@ script = ExtResource( 1 )
 [node name="Terrace" type="StaticBody" parent="."]
 
 [node name="TerraceFloor" type="MeshInstance" parent="Terrace"]
-layers = 64
+layers = 65
 cast_shadow = 0
 use_in_baked_light = true
 lightmap_scale = 1

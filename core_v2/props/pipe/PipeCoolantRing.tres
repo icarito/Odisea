@@ -23,10 +23,6 @@ shader_param/direction_marks_scale = 0.45
 shader_param/direction_marks_sharpness = 3.0
 shader_param/noise_scale = 1.6
 shader_param/hide_caps = false
-; GLES3 renderiza emision en lineal HDR sin el clamp LDR de GLES2: con base_glow 0.45
-; + marcas, el pico llegaba a ~2.6 de luminancia lineal y cruzaba el glow_hdr_threshold
-; (2.0 en los envs) -> halo rojo exagerado en cada anillo. En GLES2 el clamp lo dejaba
-; en ~0.88 gamma (sin halo). Estos valores apuntan al mismo look: picos ~1.6 lineal.
 shader_param/base_glow = 0.15
 shader_param/fissure_center = Vector3( 0, 0, 0 )
 shader_param/fissure_radius = 0.35

@@ -466,6 +466,10 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	_update_climb_visual_state(dt)
 	_update_climb_pose_correction(dt)
 	_advance_animation_tree_if_manual(dt)
+	var traversal = controller.get("traversal_logic") if controller else null
+	var traversal_suppressed: bool = traversal != null and (traversal.is_climbing or traversal.is_hanging)
+	var is_sprinting: bool = controller.last_input != null and controller.last_input.sprint
+	_update_head_look(traversal_suppressed, is_sprinting)
 
 	was_on_floor_last_frame = is_on_floor and not (controller.traversal_logic.is_climbing if controller and controller.get("traversal_logic") else false) and not (controller.traversal_logic.is_hanging if controller and controller.get("traversal_logic") else false)
 
@@ -585,8 +589,6 @@ func update_animation_parameters(velocity: Vector3, is_on_floor: bool, move_vec_
 		_update_climbing_ik()
 	else:
 		_clear_hand_ik_overrides()
-
-	_update_head_look(is_climbing or is_hanging)
 
 	# Selección entre JumpLoop y FloatLoop: usar JumpLoop si saltamos recientemente
 	# o si hay entrada de movimiento significativa.
@@ -784,7 +786,7 @@ func _clear_hand_chain_override(bone_name: String) -> void:
 		if upper_arm_idx != -1:
 			_clear_bone_override(upper_arm_idx)
 
-func _update_head_look(suppressed: bool) -> void:
+func _update_head_look(suppressed: bool, return_to_neutral: bool = false) -> void:
 	if not _skeleton:
 		return
 	var head_idx = _skeleton.find_bone("DEF-head")
@@ -812,7 +814,7 @@ func _update_head_look(suppressed: bool) -> void:
 	var target_pitch := 0.0
 	# Con la camara detras, atan2 salta entre +PI y -PI y el clamp haria que la cabeza
 	# se tire de un limite al otro. En ese caso la devolvemos a neutro.
-	if aim.dot(fwd) > 0.0:
+	if not return_to_neutral and aim.dot(fwd) > 0.0:
 		target_yaw = clamp(atan2(aim.dot(right), aim.dot(fwd)), -deg2rad(head_look_yaw_limit_deg), deg2rad(head_look_yaw_limit_deg))
 		target_pitch = clamp(asin(clamp(aim.dot(up), -1.0, 1.0)), -deg2rad(head_look_pitch_limit_deg), deg2rad(head_look_pitch_limit_deg))
 
