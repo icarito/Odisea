@@ -505,3 +505,11 @@ Android sí sigue descubriendo peers en la LAN (no requiere permiso).
 
 - Todo lo nuevo se pregunta: ¿Está en el Acto I? ¿Es necesario para el Vertical Slice? Si no, va al backlog.
 - El historial de commits muestra un patrón claro: cada vez que el MVP se acerca, aparece algo nuevo. Defender el scope con datos, no con opinión.
+
+### 11.9 Renderer GLES3 en iOS (confirmado en device)
+
+- El proyecto corre **GLES3 en todas las plataformas** (GLES2 solo como `fallback_to_gles2`). La pila de workarounds GLES2-iOS quedó obsoleta: `IOSLightmapFallback.gd` es opt-in (`ODISEA_MANUAL_LIGHTMAP=1`).
+- **`shader_compilation_mode.iOS=0` es un contrato**: async+ubershader (modo ≥1) en GLES3 escondía meshes sin loguear NADA en device (Pilot_V2 y los `.glb` invisibles, log limpio). No subirlo a async en iOS sin warmup de shaders por escena. Causa raíz, evidencia y checklist: `docs/engineering/Renderer_GLES3_iOS.md`.
+- Diagnóstico rápido en device: Opciones → Overlay de log (lee `user://logs/godot.log`). El boot siempre imprime `Async. shader compilation: ...` y `Shader cache: ...` — esa línea dice qué camino tomó el driver. iOS exporta siempre en release (comandos remotos ANNAV2 bloqueados): el diagnóstico es el overlay, no telemetría.
+- En `project.godot` gana la **última** línea de override cuyo feature tag matchea (se procesa en orden de archivo). `.iOS` debe quedar después de `.mobile`/`.web` — no reordenar.
+- Bug de clases "silencioso": log limpio + mesh invisible = fallo del camino de fallback del motor (ubershader), no shader roto. Antes de culpar al material, verificar el renderer y el modo de compilación.

@@ -81,8 +81,9 @@ plano sin comprimir). Trackearlas todas cuadruplica el costo en git sin benefici
 - `s3tc` — Desktop Linux/Windows/macOS y HTML5. **Se trackea.**
 - `etc` — Android GLES2. **Se trackea.**
 - `pvrtc` — iOS, que sí se exporta. **Se trackea.**
-- `etc2` — Android **GLES3**. El proyecto corre en GLES2, así que nunca se carga.
-  **No se trackea.** Si algún día se migra a GLES3, hay que sumarla.
+- `etc2` — Android **GLES3**. Desde el 2026-09-01 el proyecto corre GLES3 en todas las
+  plataformas (ver `Renderer_GLES3_iOS.md`), así que **sí se carga**: trackear las
+  `.etc2.stex` nuevas (empezaron a entrar con `dff33286`).
 - plano — fallback; se trackea cuando el importador lo genera.
 
 Los sets PBR nuevos (1k, cinco mapas cada uno) además se importan con
