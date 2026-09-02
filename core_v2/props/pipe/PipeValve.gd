@@ -88,7 +88,7 @@ func _update_visuals() -> void:
 			mat.albedo_color = color
 			mat.emission = color
 			mat.emission_enabled = true
-			mat.emission_energy = 2.5
+			mat.emission_energy = 1.0
 
 func _on_animation_completed() -> void:
 	._on_animation_completed()

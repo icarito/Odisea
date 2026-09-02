@@ -3072,11 +3072,9 @@ common/max_physics_steps_per_frame=4
 
 [rendering]
 
-quality/driver/fallback_to_gles2=true
 quality/intended_usage/framebuffer_allocation.mobile=2
 threads/thread_model=0
 vram_compression/import_bptc=true
-vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
 quality/shadows/filter_mode=2
 quality/shadows/filter_mode.mobile=1
