@@ -676,11 +676,11 @@ light_pool_size = 1
 light_energy = 1.2
 spacing = 0.0
 marker_size = 0.5
-enable_stud_layer = true
 lit_color = Color( 1, 0.14, 0.1, 1 )
 dim_color = Color( 0.1, 0.012, 0.008, 1 )
 lead_height = 1.2
 activation_sound_volume_db = 18.0
+enable_stud_layer = true
 
 [node name="Exit_0" type="Position3D" parent="HubExitLights"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2495, 0.2, 11.4544 )
@@ -716,11 +716,11 @@ light_pool_size = 1
 light_range = 7.0
 light_energy = 1.2
 marker_size = 0.34
-enable_stud_layer = true
 lit_color = Color( 1, 0.14, 0.1, 1 )
 dim_color = Color( 0.1, 0.012, 0.008, 1 )
 lead_height = 3.0
 activation_sound_volume_db = 18.0
+enable_stud_layer = true
 
 [node name="Markers" type="MultiMeshInstance" parent="RampLightPath"]
 layers = 64
@@ -741,11 +741,11 @@ spacing = 1.6
 marker_size = 0.16
 marker_length_scale = 1.8
 marker_rotation_degrees = 45.0
-enable_stud_layer = true
 lit_color = Color( 1, 0.14, 0.1, 1 )
 dim_color = Color( 0.1, 0.012, 0.008, 1 )
 lead_height = 2.0
 activation_sound_volume_db = 18.0
+enable_stud_layer = true
 
 [node name="Markers" type="MultiMeshInstance" parent="SpokeLightPath"]
 layers = 64
@@ -761,7 +761,6 @@ light_energy = 0.8
 light_follow_radius = 24.0
 spacing = 0.0
 marker_size = 4.0
-marker_billboard = true
 lit_color = Color( 0.72, 0.84, 1, 1 )
 dim_color = Color( 0.721569, 0.839216, 1, 1 )
 always_lit = true
@@ -776,6 +775,7 @@ fixture_high_mesh = ExtResource( 24 )
 fixture_lod_mesh = ExtResource( 25 )
 fixture_lod_distance = 1.0
 fixture_cull_distance = 22.0
+rebuild_baked_items = true
 
 [node name="Markers" type="MultiMeshInstance" parent="WallLights"]
 visible = false

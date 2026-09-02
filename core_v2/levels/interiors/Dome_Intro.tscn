@@ -2358,4 +2358,6 @@ shape = SubResource( 540 )
 
 [node name="ReflectionProbe" type="ReflectionProbe" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
+intensity = 0.6
 extents = Vector3( 35, 16, 35 )
+cull_mask = 1047616

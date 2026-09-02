@@ -42,6 +42,11 @@ script = ExtResource( 1 )
 enabled = false
 
 [node name="SpotLight" type="SpotLight" parent="."]
+; Cull mask completo (default es solo capa 1): el piso de la terraza, el dome shell y
+; los props viven en la capa visual 64 (PROP_VISUAL_LAYER), y sin esto la linterna los
+; ignora. Era latente en GLES2 (el bake tapaba la falta de luz dinamica) y GLES3 lo
+; hizo visible.
+light_cull_mask = 1048575
 light_color = Color( 0.85, 0.95, 1, 1 )
 light_energy = 7.0
 spot_range = 5.9
@@ -50,6 +55,7 @@ spot_angle = 22.0
 spot_angle_attenuation = 2.14355
 
 [node name="FillLight" type="OmniLight" parent="."]
+light_cull_mask = 1048575
 light_color = Color( 0.85, 0.95, 1, 1 )
 light_energy = 0.6
 light_specular = 0.2
