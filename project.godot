@@ -1234,10 +1234,25 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/controls/LeverV2.gd"
 }, {
+"base": "Node",
+"class": "LightFlicker",
+"language": "GDScript",
+"path": "res://core_v2/components/LightFlicker.gd"
+}, {
+"base": "Node",
+"class": "LightGroup",
+"language": "GDScript",
+"path": "res://core_v2/components/LightGroup.gd"
+}, {
 "base": "Spatial",
 "class": "LightPathV2",
 "language": "GDScript",
 "path": "res://core_v2/components/LightPathV2.gd"
+}, {
+"base": "InteractableBaseV2",
+"class": "LightSwitchV2",
+"language": "GDScript",
+"path": "res://core_v2/props/controls/LightSwitchV2.gd"
 }, {
 "base": "Area",
 "class": "LiquidLayer",
@@ -2485,7 +2500,10 @@ _global_script_class_icons={
 "LeakFissureVisual": "",
 "LeakPatchPoint": "",
 "LeverV2": "",
+"LightFlicker": "",
+"LightGroup": "",
 "LightPathV2": "",
+"LightSwitchV2": "",
 "LiquidLayer": "",
 "LocalTime": "",
 "LogicCircuitManager": "",
@@ -3056,6 +3074,18 @@ common/max_physics_steps_per_frame=4
 
 quality/driver/driver_name="GLES2"
 quality/driver/fallback_to_gles2=true
+; iOS corre GLES3 (camino estandar del motor: lightmap nativo, SpatialMaterial, mismo
+; dither de props que escritorio). GLES2 en iOS expone 8 unidades de textura: el motor
+; ata el lightmap nativo a max-4 (=4) y los samplers de material arrancan en 0, asi que
+; materiales con 3+ samplers chocan con las sondes de reflexion y con 5+ con el
+; lightmap/screen/depth. Medido en el dispositivo: asignacion ok=39 fallos=0, log sin
+; un solo error de shader, y el bake igual ausente; la pila de workarounds GLES2
+; (IOSLightmapFallback, uniforms de lightmap, presupuesto de varyings, bayer) nunca
+; dejo de dar sintomas. En GLES3 el bake si se aplico (build 559a0429). El A15 soporta
+; GLES3 de sobra; el proyecto sigue en GLES2 por Android viejo y web.
+; fallback_to_gles2=true es la red: si GLES3 no inicializa, el motor vuelve a GLES2
+; solo y el build queda como el de hoy, no roto.
+quality/driver/driver_name.iOS="GLES3"
 quality/intended_usage/framebuffer_allocation.mobile=2
 threads/thread_model=0
 vram_compression/import_bptc=true

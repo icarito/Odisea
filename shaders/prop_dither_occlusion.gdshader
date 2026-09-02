@@ -7,7 +7,7 @@
 shader_type spatial;
 render_mode cull_back;
 
-// --- Lightmap horneado aplicado a mano (solo iOS) ---------------------------------
+// --- Lightmap horneado aplicado a mano (opt-in: ODISEA_MANUAL_LIGHTMAP=1) ----------
 // Godot ata su lightmap a "max_texture_image_units - 4": unidad 12 en Android, 4 en
 // iOS, donde choca con las texturas del material y con screen/depth_texture. La
 // colision es silenciosa (sin error de linkeo) y el bake no se dibuja.

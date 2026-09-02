@@ -145,9 +145,10 @@ func _apply_bake(root: Node) -> void:
 		return
 	baked.light_data = data
 	_active_bake_path = path
-	# En iOS el motor no dibuja el lightmap y IOSLightmapFallback lo aplica a mano
-	# sobre los materiales. Cambiar light_data sin reaplicarlo deja las superficies
-	# con el bake anterior muestreado desde el shader.
+	# El camino manual de lightmap es hoy opt-in (ODISEA_MANUAL_LIGHTMAP=1): iOS corre
+	# GLES3, donde el lightmap nativo del motor si se dibuja. Si un build trae la
+	# variable, IOSLightmapFallback reaplica el bake sobre los materiales; cambiar
+	# light_data sin reaplicarlo dejaria el bake anterior muestreado desde el shader.
 	var fallback: Node = _find_named(root, "IOSLightmapFallback")
 	if fallback != null and fallback.has_method("_apply"):
 		fallback.call_deferred("_apply")
