@@ -3088,6 +3088,10 @@ batching/parameters/batch_buffer_size=32768
 gles3/shaders/shader_compilation_mode=2
 gles3/shaders/shader_compilation_mode.mobile=2
 gles3/shaders/shader_compilation_mode.web=2
+; iOS en GLES3: async+ubershader escondia meshes sin loguear nada (el Pilot y los .glb
+; no se veian). Con 0 (sincronico) el motor bloquea en vez de saltarse el mesh: si algo
+; falla, el error aparece en el log; y el ubershader deja de usarse del todo.
+gles3/shaders/shader_compilation_mode.iOS=0
 environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
 quality/filters/msaa=1
 quality/filters/use_fxaa=true
