@@ -128,7 +128,7 @@ func _ice_has_risen() -> bool:
 	return float(_ice_level.ice_height) > float(_ice_level.start_height) + 0.001
 
 func _sync_activation() -> void:
-	if _room_is_freezing():
+	if _room_is_freezing() and _ice_has_risen():
 		if _activated:
 			return
 		_activated = true
@@ -173,6 +173,7 @@ func _on_ice_height_changed(height: float) -> void:
 	for overlay in _cutout_materials:
 		if is_instance_valid(overlay):
 			overlay.set_shader_param("ice_height_world", height)
+	_sync_activation()
 
 func _wrap_recursive(node: Node) -> void:
 	if node.is_in_group(NO_FREEZE_OVERLAY_GROUP):
