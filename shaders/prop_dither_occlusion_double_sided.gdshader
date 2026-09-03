@@ -10,7 +10,7 @@
 // SI EDITA prop_dither_occlusion.gdshader, replique el cambio aca.
 
 shader_type spatial;
-render_mode cull_disabled, blend_mix, depth_draw_never;
+render_mode cull_disabled;
 
 // --- Lightmap horneado aplicado a mano (opt-in: ODISEA_MANUAL_LIGHTMAP=1) ----------
 // Godot ata su lightmap a "max_texture_image_units - 4": unidad 12 en Android, 4 en
@@ -61,8 +61,6 @@ uniform float transparency_min : hint_range(0.0, 1.0) = 0.3;
 uniform float transparency_max : hint_range(0.0, 1.0) = 0.95;
 uniform float floor_protect_radius : hint_range(0.5, 5.0) = 1.0;
 uniform bool stable_mobile_dither = false;
-uniform vec4 ghost_tint : hint_color = vec4(0.05, 0.07, 0.11, 1.0);
-uniform float ghost_alpha_min : hint_range(0.0, 1.0) = 0.3;
 
 // UN SOLO varying. iOS/PowerVR GLES2 garantiza 8 varying vectors y scene.glsl ya se
 // come casi todos; este shader tuvo 2 hasta el 2026-05-30 y paso a 4 en 23a32022
@@ -100,7 +98,6 @@ float bayer4(vec2 p) {
 }
 
 void fragment() {
-	float ghost_k = 0.0;
 	// cull_disabled draws both faces of a single-sided flat quad (the grate
 	// deck), but NORMAL is still whatever the front face had — a fragment
 	// seen from underneath needs it flipped, or lighting/reflections treat
@@ -132,7 +129,12 @@ void fragment() {
 
 				if (!floor_under && !ceiling_above) {
 					float depth_in_cone = 1.0 - (dist_radial / cylinder_radius);
-					ghost_k = clamp(depth_in_cone * 1.4, 0.0, 0.8);
+					float transparency = mix(transparency_min, transparency_max, depth_in_cone);
+					// IGN: smooth gradient noise, no tiling, no sin(), cheaper than Bayer+hash
+					float threshold = stable_mobile_dither ? bayer4(FRAGCOORD.xy) : ign(FRAGCOORD.xy);
+					if (threshold < transparency) {
+						discard;
+					}
 				}
 			}
 		}
@@ -202,8 +204,4 @@ void fragment() {
 	if (lightmap_energy > 0.0) {
 		EMISSION += ALBEDO * texture(lightmap_tex, UV2).rgb * lightmap_energy;
 	}
-
-	ALBEDO = mix(ALBEDO, ghost_tint.rgb, ghost_k);
-	EMISSION *= 1.0 - ghost_k;
-	ALPHA = mix(1.0, ghost_alpha_min, ghost_k);
 }

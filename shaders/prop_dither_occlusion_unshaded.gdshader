@@ -8,7 +8,7 @@
 // scene lighting once PropDitherManager wraps it. `render_mode` is fixed per shader file
 // in Godot 3 (can't toggle at runtime), so this is a separate file instead of a uniform.
 shader_type spatial;
-render_mode cull_back, unshaded, blend_mix, depth_draw_never;
+render_mode cull_back, unshaded;
 
 uniform vec4 albedo : hint_color = vec4(1.0);
 uniform sampler2D texture_albedo : hint_albedo;
@@ -34,8 +34,6 @@ uniform float transparency_min : hint_range(0.0, 1.0) = 0.3;
 uniform float transparency_max : hint_range(0.0, 1.0) = 0.95;
 uniform float floor_protect_radius : hint_range(0.5, 5.0) = 1.0;
 uniform bool stable_mobile_dither = false;
-uniform vec4 ghost_tint : hint_color = vec4(0.05, 0.07, 0.11, 1.0);
-uniform float ghost_alpha_min : hint_range(0.0, 1.0) = 0.3;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -60,7 +58,6 @@ float bayer4(vec2 p) {
 }
 
 void fragment() {
-	float ghost_k = 0.0;
 	if (is_active > 0.5) {
 		vec3 cam_to_player = player_pos - camera_pos;
 		float dist_cam_player = length(cam_to_player);
@@ -82,7 +79,11 @@ void fragment() {
 
 				if (!floor_under && !ceiling_above) {
 					float depth_in_cone = 1.0 - (dist_radial / cylinder_radius);
-					ghost_k = clamp(depth_in_cone * 1.4, 0.0, 0.8);
+					float transparency = mix(transparency_min, transparency_max, depth_in_cone);
+					float threshold = stable_mobile_dither ? bayer4(FRAGCOORD.xy) : ign(FRAGCOORD.xy);
+					if (threshold < transparency) {
+						discard;
+					}
 				}
 			}
 		}
@@ -102,8 +103,4 @@ void fragment() {
 			EMISSION = emission_color.rgb * emission_energy;
 		}
 	}
-
-	ALBEDO = mix(ALBEDO, ghost_tint.rgb, ghost_k);
-	EMISSION *= 1.0 - ghost_k;
-	ALPHA = mix(1.0, ghost_alpha_min, ghost_k);
 }
