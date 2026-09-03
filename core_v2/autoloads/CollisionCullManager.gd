@@ -26,14 +26,38 @@ export(float, 5.0, 200.0, 1.0) var cull_radius := 15.0
 # que un prop en el limite no oscile encendiendose y apagandose.
 export(float, 1.0, 50.0, 1.0) var hysteresis := 8.0
 export(int, 1, 30) var frames_between_scans := 8
-# Reactivado (FD-270): en Dome_Intro, IceSubmergedCuller no cullea nada (el hielo esta
-# por debajo de toda la geometria), asi que sin este sistema no hay ningun culling de
-# colision activo. Medido en Redmi Note 9 Pro sobre Dome_Intro: pausar el arbol (mismo
-# render, cero fisica) sube 7fps a 60fps — el broadphase sobre las ~913 formas Prop
-# registradas es el costo dominante, muy por encima del 5.9%/13mm de drift documentado
-# originalmente (medido en otra escena/config). Ese drift sigue siendo un riesgo real
-# para replays deterministas: si aparece, la mitigacion es correr con
-# ODISEA_DISABLE_COLLISION_CULL=1 para esa grabacion, no volver a false por default.
+# Apagado EN MOVIL (medido 2026-09-03); en desktop se queda prendido, ver abajo. Lo que se reactivo en FD-270 se apoyaba en una
+# inferencia equivocada: "pausar el arbol sube 7fps a 60fps, luego el broadphase es el costo
+# dominante". Pausar el arbol tambien apaga TODOS los _physics_process, incluido el de este
+# mismo sistema, asi que esa medicion no separaba una cosa de la otra.
+#
+# Medido de nuevo en el mismo Redmi Note 9 Pro, con el replay determinista
+# replay_1788458596 sobre Dome_Intro (corridas completas, alternando A/B/A, y con la
+# configuracion puesta ANTES de cargar el nivel para que el primer barrido no contamine):
+#
+#   enabled = true    fps med 37-38   draw med 266-267   ms_fisica med 13.8-14.4
+#   enabled = false   fps med 39-41   draw med 204-206   ms_fisica med 11.8-14.2
+#
+# O sea que cullear cuesta mas de lo que ahorra: el sistema se paga a si mismo ~2 ms de
+# fisica y encima el frame dibuja ~60 objetos mas. Subir frames_between_scans a 60 (menos
+# barridos, mismo culling) no cambia nada: 38 fps y 266 draw calls igual, asi que el costo
+# NO esta en la frecuencia del barrido sino en tener las formas culleadas.
+#
+# Queda abierto por que apagar formas de COLISION mueve los draw calls. En desktop, en
+# cambio, prender y apagar este sistema a mitad de una corrida no cambia ni un draw call
+# ni un vertice, y la fisica alli cuesta 1.2 ms: no es un problema de esa plataforma.
+#
+# El ahorro que motivo el sistema sigue siendo real y esta medido arriba (apagar a mano las
+# 383 formas Prop baja ~4 ms): si alguien lo retoma, el camino es un culleo de una sola vez
+# al cargar el nivel, no una reevaluacion por tick.
+#
+# Por que sigue prendido en desktop y no se apaga en todos lados: la grabacion de
+# determinismo test_locomocion_strafe.oys quedo grabada CON el culling activo y sin el
+# deriva 5.74 m (umbral 0.01), o sea que el jugador de esa grabacion atraviesa un prop que
+# sin culling es solido. Eso apunta a un agujero real del sistema — una forma que no vuelve
+# a habilitarse a tiempo — pero arreglarlo o regrabar el fixture es otra tarea. Apagarlo
+# solo donde cuesta deja el desktop y el test como estaban.
+#
 # Los dos siguen escribiendo el mismo `disabled`: donde SI hay hielo, IceSubmergedCuller
 # manda (ver su comentario), y este no debe resucitar formas que el hielo ya sepulto.
 export(bool) var enabled := true
@@ -56,6 +80,10 @@ var _has_evaluated := false
 
 func _ready() -> void:
 	if OS.get_environment(DISABLE_ENV) in ["1", "true", "yes", "on"]:
+		enabled = false
+		set_physics_process(false)
+		return
+	if OS.has_feature("mobile"):
 		enabled = false
 		set_physics_process(false)
 		return
