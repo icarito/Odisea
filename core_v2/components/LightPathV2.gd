@@ -58,6 +58,12 @@ export(float, 0.1, 20.0, 0.1) var snap_probe := 2.5
 export(int, 0, 12) var light_pool_size := 0
 export(float, 0.5, 40.0, 0.1) var light_range := 6.0
 export(float, 0.0, 8.0, 0.05) var light_energy := 1.1
+# Los tubos de refrigerante y el metal del domo son PBR con textura ARM: su
+# rugosidad ronda 0.56, lo bastante pulido para que el especular GGX de GLES3
+# devuelva una franja quemada donde GLES2 devolvia un brillo suave. Bajar el
+# especular de la luz apaga esa franja sin tocar el albedo ni el metallic (que
+# en un metal con textura no se puede tocar sin volverlo medio-plastico).
+export(float, 0.0, 1.0, 0.05) var light_specular := 0.35
 export(float, 1.0, 80.0, 0.5) var light_follow_radius := 16.0
 export(int, LAYERS_3D_RENDER) var light_cull_mask := 1048575
 # Distance between markers along the path. 0 places exactly one marker per
@@ -427,6 +433,12 @@ func _marker_material() -> SpatialMaterial:
 	if marker_billboard:
 		material.params_billboard_mode = SpatialMaterial.BILLBOARD_ENABLED
 		material.params_billboard_keep_scale = true
+		# El quad se clava en la pared o el prop que tiene detras y el corte se ve.
+		# proximity_fade lo desvanece contra lo que hay en el depth buffer — el
+		# truco de "soft particle". Necesita DEPTH_TEXTURE, o sea GLES3; en GLES2
+		# esto era simplemente imposible y por eso el recorte se veia.
+		material.proximity_fade_enable = true
+		material.proximity_fade_distance = 0.6
 		# Without a falloff a billboard reads as a hard square rather than a glow.
 		# Generated rather than shipped as an asset: it is 64x64 and built once.
 		material.albedo_texture = _glow_texture()
@@ -700,6 +712,7 @@ func _ensure_light_pool() -> void:
 		light.omni_range = light_range
 		light.light_energy = light_energy
 		light.light_color = lit_color
+		light.light_specular = light_specular
 		light.light_cull_mask = light_cull_mask
 		light.shadow_enabled = false
 		light.visible = false

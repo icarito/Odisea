@@ -180,6 +180,8 @@ params_cull_mode = 2
 params_billboard_mode = 1
 params_billboard_keep_scale = true
 albedo_texture = SubResource( 16 )
+proximity_fade_enable = true
+proximity_fade_distance = 0.6
 
 [sub_resource type="QuadMesh" id=18]
 size = Vector2( 1.6, 1.6 )
