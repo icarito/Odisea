@@ -67,3 +67,12 @@ func test_las_mascaras_de_canales_cubren_mrao_y_arm() -> void:
 	assert_bool(PropDitherManagerScript._channel_mask(0) == Color(1, 0, 0, 0)).is_true()
 	assert_bool(PropDitherManagerScript._channel_mask(1) == Color(0, 1, 0, 0)).is_true()
 	assert_bool(PropDitherManagerScript._channel_mask(2) == Color(0, 0, 1, 0)).is_true()
+
+
+func test_double_sided_no_protege_caras_internas_como_piso() -> void:
+	var f := File.new()
+	assert_int(f.open(SHADERS[1], File.READ)).is_equal(OK)
+	var code := f.get_as_text()
+	f.close()
+	assert_bool(code.find("bool floor_under   = FRONT_FACING &&") >= 0).is_true()
+	assert_bool(code.find("bool ceiling_above = FRONT_FACING &&") >= 0).is_true()
