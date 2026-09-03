@@ -17,6 +17,11 @@ const LEVER_OUT := "res://assets/models/industrial_lever/"
 const PEDESTAL_SRC := "res://assets/models/palanca_pedestal/palanca_pedestal.glb"
 const PEDESTAL_OUT := "res://assets/models/palanca_pedestal/"
 const PEDESTAL_HANDLE := "Circle001"
+# El material importado del .glb trae las texturas embebidas (~9 MB). Hay que referenciar
+# el .material externo: si se toma el material del .scn importado (sin resource_path),
+# ResourceSaver lo embebe y cada .mesh se lleva su propia copia de las texturas.
+const PEDESTAL_MATERIAL := "res://assets/models/palanca_pedestal/Material_001.material"
+const LEVER_MATERIAL := "res://assets/models/industrial_lever/lver.material"
 
 func _init():
 	_bake_lever()
@@ -29,7 +34,7 @@ func _bake_pedestal() -> void:
 	st_static.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var st_handle := SurfaceTool.new()
 	st_handle.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var material: Material = null
+	var material: Material = _external_material(PEDESTAL_MATERIAL)
 	var handle_found := false
 
 	for mi in _all_meshes(root):
@@ -60,6 +65,12 @@ func _bake_pedestal() -> void:
 		var err = ResourceSaver.save(path, mesh)
 		var aabb: AABB = mesh.get_aabb()
 		print("[t] %s tris=%d min=%s max=%s err=%d" % [path, mesh.surface_get_array_len(0) / 3, str(aabb.position), str(aabb.end), err])
+
+func _external_material(path: String) -> Material:
+	if not ResourceLoader.exists(path):
+		printerr("[bake] material externo ausente: ", path)
+		return null
+	return load(path) as Material
 
 func _all_meshes(node: Node) -> Array:
 	var out := []
@@ -99,7 +110,9 @@ func _bake_lever() -> void:
 	var groups: Array = _components(verts, indices)
 	print("[t] components=", groups.size())
 
-	var material: Material = mi.get_surface_material(0)
+	var material: Material = _external_material(LEVER_MATERIAL)
+	if material == null:
+		material = mi.get_surface_material(0)
 	if material == null:
 		material = mi.mesh.surface_get_material(0)
 

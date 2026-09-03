@@ -14,10 +14,10 @@ script = ExtResource( 1 )
 interaction_text = "Accionar palanca"
 anim_duration = 0.5
 handle_path = NodePath("HandlePivot")
-hinge_origin = Vector3( 0.126, 1.2, 0.16 )
-hinge_axis = Vector3( 1, 0, 0 )
+hinge_origin = Vector3( 0.129, 1.196, 0.16 )
+hinge_axis = Vector3( 0, 0, 1 )
 angle_off_deg = 0.0
-angle_on_deg = -45.0
+angle_on_deg = -40.0
 
 [node name="BodyMesh" type="MeshInstance" parent="."]
 mesh = ExtResource( 2 )
