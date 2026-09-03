@@ -1,6 +1,7 @@
-[gd_scene load_steps=124 format=2]
+[gd_scene load_steps=125 format=2]
 
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro.lmbake" type="BakedLightmapData" id=1]
+[ext_resource path="res://core_v2/props/doors/FreeAirlockDoor.tscn" type="PackedScene" id=2]
 [ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=7]
 [ext_resource path="res://core_v2/components/BGMZoneV2.gd" type="Script" id=8]
 [ext_resource path="res://assets/music/Elias... wake.mp3" type="AudioStream" id=9]
@@ -2359,3 +2360,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16, 0 )
 intensity = 0.6
 extents = Vector3( 35, 16, 35 )
 cull_mask = 1047616
+
+[node name="FreeAirlockDoor" parent="." instance=ExtResource( 2 )]
+transform = Transform( 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 1.1, 5 )

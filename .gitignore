@@ -35,6 +35,7 @@ android/build/.gradle/
 !.import/*.map-*.tres
 *.stex
 # Note: *.import files are now tracked for Colab compatibility
+assets/_unused/*
 
 # Test snapshots are generated artifacts and should not be committed by default.
 core_v2/tests/*.json

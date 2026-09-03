@@ -3,7 +3,6 @@
 [resource]
 background_mode = 1
 background_color = Color( 0.0588235, 0.109804, 0.105882, 1 )
-ambient_light_color = Color( 0.0392157, 0.0980392, 0.133333, 1 )
 ambient_light_energy = 0.2
 ambient_light_sky_contribution = 0.0
 fog_enabled = true
@@ -16,13 +15,10 @@ fog_depth_curve = 1.45
 fog_height_min = 1.0
 fog_height_max = -4.0
 tonemap_mode = 2
-tonemap_exposure = 0.95
-tonemap_white = 2.0
 dof_blur_far_enabled = true
 dof_blur_far_distance = 25.0
 dof_blur_far_transition = 2.0
 dof_blur_far_amount = 0.09
-dof_blur_far_quality = 0
 glow_enabled = true
 glow_levels/3 = false
 glow_levels/7 = true
@@ -30,5 +26,4 @@ glow_bloom = 0.4
 glow_blend_mode = 0
 glow_hdr_threshold = 2.0
 glow_hdr_luminance_cap = 0.5
-glow_high_quality = true
 adjustment_brightness = 0.5

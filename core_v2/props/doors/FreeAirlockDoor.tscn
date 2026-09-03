@@ -1,0 +1,43 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/props/doors/FreeAirlockDoor.gd" type="Script" id=1]
+[ext_resource path="res://assets/models/free_airlock_door/free_airlock_door.glb" type="PackedScene" id=2]
+[ext_resource path="res://assets/sfx/freesound_community-heavy-mechancial-door-open-6934.mp3" type="AudioStream" id=3]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=4]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 0.55, 2.5, 0.3 )
+
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 1.95, 2.35, 0.22 )
+
+[node name="FreeAirlockDoor" type="Spatial"]
+script = ExtResource( 1 )
+interaction_text = "Abrir compuerta"
+anim_duration = 2.7
+
+[node name="AirlockDoorModel" parent="." instance=ExtResource( 2 )]
+
+[node name="Frame" type="StaticBody" parent="."]
+
+[node name="JambLeft" type="CollisionShape" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 2.5, 0.05 )
+shape = SubResource( 1 )
+
+[node name="JambRight" type="CollisionShape" parent="Frame"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 2.5, 0.05 )
+shape = SubResource( 1 )
+
+[node name="DoorBlocker" type="StaticBody" parent="."]
+
+[node name="CollisionShape" type="CollisionShape" parent="DoorBlocker"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.35, 0.15 )
+shape = SubResource( 2 )
+
+[node name="SFX Door" type="AudioStreamPlayer3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0 )
+stream = ExtResource( 3 )
+unit_size = 8.0
+max_distance = 25.0
+script = ExtResource( 4 )
+trigger_mode = "Interact"
