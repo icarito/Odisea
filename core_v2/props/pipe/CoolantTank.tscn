@@ -38,7 +38,7 @@ metallic = 0.1
 roughness = 0.2
 emission_enabled = true
 emission = Color( 0, 0.85, 1, 1 )
-emission_energy = 2.2
+emission_energy = 1.4
 emission_operator = 0
 emission_on_uv2 = false
 
