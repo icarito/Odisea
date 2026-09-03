@@ -61,3 +61,9 @@ func test_los_shaders_de_oclusion_no_se_pasan_del_presupuesto_de_varyings() -> v
 		assert_int(n).override_failure_message(
 			"%s declara %d varyings; el maximo seguro en iOS GLES2 es %d" % [path, n, MAX_VARYINGS]
 		).is_less_equal(MAX_VARYINGS)
+
+
+func test_las_mascaras_de_canales_cubren_mrao_y_arm() -> void:
+	assert_bool(PropDitherManagerScript._channel_mask(0) == Color(1, 0, 0, 0)).is_true()
+	assert_bool(PropDitherManagerScript._channel_mask(1) == Color(0, 1, 0, 0)).is_true()
+	assert_bool(PropDitherManagerScript._channel_mask(2) == Color(0, 0, 1, 0)).is_true()

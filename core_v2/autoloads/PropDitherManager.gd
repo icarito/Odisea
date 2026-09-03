@@ -448,10 +448,19 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 	new_mat.set_shader_param("roughness", source.roughness)
 	new_mat.set_shader_param("specular", source.metallic_specular)
 
-	# MRAO texture (metallic_texture is typically the MRAO map)
+	# Packed PBR texture. Imported ARM maps declare their metallic/roughness
+	# channels on SpatialMaterial; preserve those channels in the dither shader.
 	if source.metallic_texture:
 		new_mat.set_shader_param("texture_metallic_roughness_ao", source.metallic_texture)
 		new_mat.set_shader_param("has_mrao_map", true)
+		if source.roughness_texture == source.metallic_texture:
+			var metallic_channel: int = source.metallic_texture_channel
+			var roughness_channel: int = source.roughness_texture_channel
+			if metallic_channel in [0, 1, 2] and roughness_channel in [0, 1, 2] \
+				and metallic_channel != roughness_channel:
+				new_mat.set_shader_param("mrao_metallic_mask", _channel_mask(metallic_channel))
+				new_mat.set_shader_param("mrao_roughness_mask", _channel_mask(roughness_channel))
+				new_mat.set_shader_param("mrao_ao_mask", _channel_mask(3 - metallic_channel - roughness_channel))
 	else:
 		new_mat.set_shader_param("has_mrao_map", false)
 
@@ -483,3 +492,15 @@ func _convert_spatial_to_dither(source: SpatialMaterial) -> ShaderMaterial:
 		new_mat.set_shader_param(key, _shader_params[key])
 
 	return new_mat
+
+
+static func _channel_mask(channel: int) -> Color:
+	match channel:
+		1:
+			return Color(0, 1, 0, 0)
+		2:
+			return Color(0, 0, 1, 0)
+		3:
+			return Color(0, 0, 0, 1)
+		_:
+			return Color(1, 0, 0, 0)

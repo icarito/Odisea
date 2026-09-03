@@ -32,6 +32,9 @@ uniform float specular : hint_range(0,1) = 0.5;
 uniform float metallic : hint_range(0,1) = 0.0;
 uniform float roughness : hint_range(0,1) = 1.0;
 uniform sampler2D texture_metallic_roughness_ao : hint_white;
+uniform vec4 mrao_metallic_mask = vec4(1.0, 0.0, 0.0, 0.0);
+uniform vec4 mrao_roughness_mask = vec4(0.0, 1.0, 0.0, 0.0);
+uniform vec4 mrao_ao_mask = vec4(0.0, 0.0, 1.0, 0.0);
 uniform sampler2D texture_normal : hint_normal;
 uniform float normal_scale : hint_range(-2.0, 2.0) = 1.0;
 uniform bool has_normal_map = false;
@@ -177,9 +180,9 @@ void fragment() {
 
 	if (has_mrao_map) {
 		vec4 mrao = texture(texture_metallic_roughness_ao, UV);
-		METALLIC = mrao.r * metallic;
-		ROUGHNESS = mrao.g;
-		AO = mrao.b;
+		METALLIC = dot(mrao, mrao_metallic_mask) * metallic;
+		ROUGHNESS = dot(mrao, mrao_roughness_mask) * roughness;
+		AO = dot(mrao, mrao_ao_mask);
 		AO_LIGHT_AFFECT = 0.0;
 	}
 
