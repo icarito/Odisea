@@ -109,3 +109,32 @@ func test_player_stays_crouched_without_headroom() -> void:
 	assert_bool(player._resolve_crouch_state(false)).is_false()
 
 	yield(_teardown_root(root), "completed")
+
+
+func test_crouch_lowers_camera_rig_and_zooms_in() -> void:
+	var root = _setup_root()
+	var player = _setup_player(root)
+	yield(get_tree(), "idle_frame")
+
+	var rig: Spatial = player.get_node("CameraRig")
+	player.base_rig_y = rig.transform.origin.y
+	player._camera_rig_y_initialized = true
+	player._camera_rig_y_smoothed_global = player.global_transform.origin.y + player.base_rig_y
+
+	var standing_y = rig.transform.origin.y
+	assert_bool(abs(player._crouch_camera_drop()) < 0.0001).is_true()
+
+	player.is_crouching = true
+	var expected_drop = player._standing_capsule_total_height - player._crouched_capsule_total_height
+	assert_bool(abs(player._crouch_camera_drop() - expected_drop) < 0.0001).is_true()
+
+	for _i in range(60):
+		player._update_camera_rig_vertical(1.0 / 60.0)
+	assert_bool(rig.transform.origin.y < standing_y - (expected_drop * 0.9)).is_true()
+
+	player.is_crouching = false
+	for _i in range(60):
+		player._update_camera_rig_vertical(1.0 / 60.0)
+	assert_bool(abs(rig.transform.origin.y - standing_y) < 0.05).is_true()
+
+	yield(_teardown_root(root), "completed")

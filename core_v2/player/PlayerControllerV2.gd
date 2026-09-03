@@ -72,6 +72,8 @@ export(bool) var debug_stair_state := false
 export(bool) var debug_acrobatic_probe := false
 export(float, 0.2, 1.0) var crouch_collider_height_ratio := 0.55
 export(float) var crouch_headroom_margin := 0.03
+export(float, 0.0, 1.0) var crouch_camera_drop_ratio := 1.0
+export(float, 0.3, 1.0) var crouch_camera_zoom_ratio := 0.8
 
 var _step_grounded_timer := 0.0
 var _just_stepped := false
@@ -1269,7 +1271,10 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 
 func _update_camera_view(dt: float) -> void:
 	if (not _rl_skip_camera_updates) and _cached_spring_arm:
-		current_spring_length = lerp(current_spring_length, base_spring_length_3d, 4.0 * dt)
+		var arm_target := base_spring_length_3d
+		if is_crouching:
+			arm_target *= clamp(crouch_camera_zoom_ratio, 0.3, 1.0)
+		current_spring_length = lerp(current_spring_length, arm_target, 4.0 * dt)
 		_cached_spring_arm.spring_length = current_spring_length
 
 	if (not _rl_skip_camera_updates) and _cached_cam and abs(_cached_cam.fov - base_fov) > 0.01:
@@ -1288,7 +1293,7 @@ func _update_camera_rig_vertical(dt: float) -> void:
 		_camera_rig_was_grounded = true
 		return
 
-	var target_global_y := global_transform.origin.y + base_rig_y
+	var target_global_y := global_transform.origin.y + base_rig_y - _crouch_camera_drop()
 	var ots_follow_weight := _update_ots_camera_follow_weight(dt)
 	var grounded := is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
 	var step_transition := _just_stepped or _step_grounded_timer > 0.0
@@ -1331,6 +1336,16 @@ func _update_camera_rig_vertical(dt: float) -> void:
 
 	# Convert smoothed global Y back to local offset
 	camera_rig.transform.origin.y = _camera_rig_y_smoothed_global - global_transform.origin.y
+
+func _crouch_camera_drop() -> float:
+	# Camera follows the head down: the collider keeps its feet and loses
+	# (standing - crouched) total height, so the head drops by that same delta.
+	if not is_crouching:
+		return 0.0
+	var delta := _standing_capsule_total_height - _crouched_capsule_total_height
+	if delta <= 0.0:
+		return 0.0
+	return delta * clamp(crouch_camera_drop_ratio, 0.0, 1.0)
 
 func _update_ots_camera_follow_weight(dt: float) -> float:
 	var start_len := max(ots_blend_start_distance, ots_blend_full_distance + 0.001)
