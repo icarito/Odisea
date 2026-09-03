@@ -36,6 +36,7 @@ var _transition_started_ms := 0
 var _loader_last_progress_ms := 0
 var _loader_last_stage := -1
 var _last_transition_abort_reason := ""
+var _transition_swap_started := false
 var _pending_scene_path := ""
 var _pending_transition_params: Dictionary = {}
 var _boot_fade_consumed := false
@@ -130,6 +131,7 @@ func goto_scene(path: String, params: Dictionary = {}):
 	_loader_last_stage = -1
 	_unlock()
 	_last_transition_abort_reason = ""
+	_transition_swap_started = false
 
 	_capture_player_state_for_transition()
 	_disable_input_for_transition()
@@ -455,6 +457,9 @@ func _emit_progress(progress_01: float) -> void:
 
 func _set_new_scene(resource: PackedScene):
 	_report_transition("instancing")
+	# A partir de aca la carga termino: matar la transicion (watchdog) solo puede
+	# dejar el arbol a mitad del swap (current_scene=null -> pantalla negra).
+	_transition_swap_started = true
 	if resource == null:
 		_load_error = "Scene resource is null"
 		return
@@ -915,6 +920,7 @@ func _reset_runtime_state() -> void:
 	_unlock()
 	_is_transitioning = false
 	_transition_started_ms = 0
+	_transition_swap_started = false
 	_loader_last_progress_ms = 0
 	_loader_last_stage = -1
 	_next_scene_path = ""
@@ -928,7 +934,9 @@ func _get_effective_poll_budget_ms() -> int:
 	return int(poll_budget_ms)
 
 func _get_effective_transition_timeout_ms() -> int:
-	var timeout_s := hyper_low_transition_timeout_s if OS.get_name() == "iOS" else transition_timeout_s
+	# Moviles (iOS y Android) usan el tier hyper-low: la carga fria + _ready de
+	# Dome_Intro supera largamente el default de 9s en telefonos.
+	var timeout_s := hyper_low_transition_timeout_s if OS.get_name() == "iOS" or OS.get_name() == "Android" else transition_timeout_s
 	timeout_s = max(3.0, timeout_s)
 	return int(timeout_s * 1000.0)
 
@@ -988,6 +996,11 @@ func _should_show_loading(mode: String) -> bool:
 
 func _check_transition_timeout() -> void:
 	if not _is_transitioning:
+		return
+	# El watchdog existe para recuperar una carga trabada. Una vez que el swap empezo
+	# (instancing/_ready/fade) el reset solo rompe: en Android Dome_Intro tarda 40s+
+	# en _ready a 1 fps y el reset a mitad del swap deja current_scene=null.
+	if _transition_swap_started:
 		return
 	var timeout_ms = _get_effective_transition_timeout_ms()
 	if _transition_started_ms <= 0:

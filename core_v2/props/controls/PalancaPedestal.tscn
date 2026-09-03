@@ -1,0 +1,42 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://core_v2/props/controls/HingedLeverV2.gd" type="Script" id=1]
+[ext_resource path="res://assets/models/palanca_pedestal/PalancaPedestalBody.mesh" type="ArrayMesh" id=2]
+[ext_resource path="res://assets/models/palanca_pedestal/PalancaPedestalHandle.mesh" type="ArrayMesh" id=3]
+[ext_resource path="res://assets/sfx/sfx100v2_switch_02.ogg" type="AudioStream" id=4]
+[ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=5]
+
+[sub_resource type="BoxShape" id=1]
+extents = Vector3( 0.281, 0.693, 0.206 )
+
+[node name="PalancaPedestal" type="Spatial"]
+script = ExtResource( 1 )
+interaction_text = "Accionar palanca"
+anim_duration = 0.5
+handle_path = NodePath("HandlePivot")
+hinge_origin = Vector3( 0.126, 1.2, 0.16 )
+hinge_axis = Vector3( 1, 0, 0 )
+angle_off_deg = 0.0
+angle_on_deg = -45.0
+
+[node name="BodyMesh" type="MeshInstance" parent="."]
+mesh = ExtResource( 2 )
+
+[node name="HandlePivot" type="Spatial" parent="."]
+
+[node name="HandleMesh" type="MeshInstance" parent="HandlePivot"]
+mesh = ExtResource( 3 )
+
+[node name="Body" type="StaticBody" parent="."]
+
+[node name="CollisionShape" type="CollisionShape" parent="Body"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.031, 0.693, 0.216 )
+shape = SubResource( 1 )
+
+[node name="SFX Lever" type="AudioStreamPlayer3D" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.126, 1.2, 0.16 )
+stream = ExtResource( 4 )
+unit_size = 4.0
+max_distance = 12.0
+script = ExtResource( 5 )
+trigger_mode = "Interact"

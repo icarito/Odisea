@@ -1105,6 +1105,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/things/HelmetHUDV2.gd"
 }, {
 "base": "InteractableBaseV2",
+"class": "HingedLeverV2",
+"language": "GDScript",
+"path": "res://core_v2/props/controls/HingedLeverV2.gd"
+}, {
+"base": "InteractableBaseV2",
 "class": "HoldInteractableV2",
 "language": "GDScript",
 "path": "res://core_v2/components/HoldInteractableV2.gd"
@@ -2479,6 +2484,7 @@ _global_script_class_icons={
 "GripPoint": "",
 "HazardTape": "",
 "HelmetHUDV2": "",
+"HingedLeverV2": "",
 "HoldInteractableV2": "",
 "HoloTerminalV2": "",
 "ISensor2D": "",

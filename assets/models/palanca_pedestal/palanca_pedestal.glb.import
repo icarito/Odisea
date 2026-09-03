@@ -2,18 +2,18 @@
 
 importer="scene"
 type="PackedScene"
-path="res://.import/industrial_electricitys_lever.glb-f4ff42580d8f90cc784759ad7f5a267b.scn"
+path="res://.import/palanca_pedestal.glb-98f90a414b22c745f7c9dec440b5a53f.scn"
 
 [deps]
 
-source_file="res://assets/models/industrial_electricitys_lever.glb"
-dest_files=[ "res://.import/industrial_electricitys_lever.glb-f4ff42580d8f90cc784759ad7f5a267b.scn" ]
+source_file="res://assets/models/palanca_pedestal/palanca_pedestal.glb"
+dest_files=[ "res://.import/palanca_pedestal.glb-98f90a414b22c745f7c9dec440b5a53f.scn" ]
 
 [params]
 
 nodes/root_type="Spatial"
-nodes/root_name="Scene Root"
-nodes/root_scale=1.0
+nodes/root_name="PalancaPedestalModel"
+nodes/root_scale=0.004
 nodes/custom_script=""
 nodes/storage=0
 nodes/use_legacy_names=false
