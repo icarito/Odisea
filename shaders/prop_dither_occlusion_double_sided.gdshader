@@ -124,9 +124,8 @@ void fragment() {
 			if (dist_radial < cylinder_radius && cylinder_radius > 0.01) {
 				float horizontal_dist = length(world_pos.xz - player_pos.xz);
 				bool near_h = horizontal_dist < floor_protect_radius;
-				// Back faces are pipe interiors, never the floor/ceiling to protect.
-				bool floor_under   = FRONT_FACING && world_normal.y >  0.5 && camera_pos.y > world_pos.y && near_h && world_pos.y < (player_pos.y - 0.5);
-				bool ceiling_above = FRONT_FACING && world_normal.y < -0.5 && camera_pos.y < world_pos.y && near_h && world_pos.y > (player_pos.y + 2.0);
+				bool floor_under   = world_normal.y >  0.5 && camera_pos.y > world_pos.y && near_h && world_pos.y < (player_pos.y - 0.5);
+				bool ceiling_above = world_normal.y < -0.5 && camera_pos.y < world_pos.y && near_h && world_pos.y > (player_pos.y + 2.0);
 
 				if (!floor_under && !ceiling_above) {
 					float depth_in_cone = 1.0 - (dist_radial / cylinder_radius);
