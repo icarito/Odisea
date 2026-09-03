@@ -1,4 +1,4 @@
-[gd_scene load_steps=95 format=2]
+[gd_scene load_steps=96 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
@@ -63,6 +63,7 @@
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro_Floor_5_baked.shape" type="Shape" id=61]
 [ext_resource path="res://core_v2/systems/AirlockPool.gd" type="Script" id=62]
 [ext_resource path="res://core_v2/systems/room/Room3D.tscn" type="PackedScene" id=63]
+[ext_resource path="res://core_v2/levels/interiors/Dome_Base.gd" type="Script" id=66]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerraceFloor_baked.mesh" type="ArrayMesh" id=64]
 [ext_resource path="res://core_v2/levels/interiors/DomeShell_baked.mesh" type="ArrayMesh" id=65]
 
@@ -265,6 +266,7 @@ transform_array = PoolVector3Array( 1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4, 31.11, 0, 1,
 color_array = PoolColorArray( 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1, 0.776471, 0.894118, 1, 1 )
 
 [node name="Dome_Base" type="Spatial"]
+script = ExtResource( 66 )
 
 [node name="Pilot_v2" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 4.7, 8 )

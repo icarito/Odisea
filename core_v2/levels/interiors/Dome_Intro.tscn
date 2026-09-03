@@ -393,6 +393,7 @@ script = ExtResource( 5012 )
 visual_bake = ExtResource( 5013 )
 
 [node name="Dome_Base" parent="." instance=ExtResource( 6000 )]
+baked_geometry_casts_shadows = false
 
 [node name="EnvironmentalSignage" type="Spatial" parent="."]
 
@@ -2330,8 +2331,7 @@ light_indirect_energy = 0.7
 light_bake_mode = 2
 shadow_enabled = true
 directional_shadow_mode = 0
-directional_shadow_depth_range = 1
-directional_shadow_max_distance = 30.0
+directional_shadow_max_distance = 12.0
 
 [node name="BakedLightmap" type="BakedLightmap" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 15, 0 )
