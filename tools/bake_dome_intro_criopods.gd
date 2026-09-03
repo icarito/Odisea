@@ -54,7 +54,7 @@ const LIGHTMAP_TEXEL_SIZE := 0.2
 const LAYERS := [
 	{"path": ".", "name": "shell", "node": "Shell", "no_occlusion": false},
 	{"path": "Interior/Glass", "name": "glass", "node": "Glass", "no_occlusion": false},
-	{"path": "PersonCard2", "name": "cards", "node": "PersonCards", "no_occlusion": true},
+	{"path": "PersonCard2", "name": "cards", "node": "PersonCards", "no_occlusion": false},
 ]
 
 var _shared_materials := {}  # firma de contenido -> ruta del .material en disco
