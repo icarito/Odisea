@@ -216,6 +216,13 @@ func _process(delta: float) -> void:
 	if _gracia > 0.0:
 		_gracia -= delta
 		return
+	# Durante la carga (overlay/nada dibujado) el fps mide 60 de mentira y disparaba
+	# la subida de pool (y su recompilacion de shaders, 50-90 ms) justo al entrar a
+	# la escena pesada. Sin contenido dibujado no se decide nada: ni subir ni bajar.
+	if VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME) < 10:
+		_bajo_fps = 0.0
+		_alto_fps = 0.0
+		return
 	var fps := float(Performance.get_monitor(Performance.TIME_FPS))
 	if not _solo_subida and fps < pool_fps_floor:
 		_alto_fps = 0.0

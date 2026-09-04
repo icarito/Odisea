@@ -3,6 +3,33 @@ extends GdUnitTestSuite
 const MobileUIManagerScript = preload("res://core_v2/autoloads/MobileUIManager.gd")
 const InputProviderV2Script = preload("res://core_v2/input/InputProviderV2.gd")
 const PlayerControllerV2Script = preload("res://core_v2/player/PlayerControllerV2.gd")
+const VirtualJoystickScene = preload("res://addons/virtual_joystick/virtual_joystick.tscn")
+
+
+func test_virtual_joystick_stays_centered_after_ui_scale_change() -> void:
+	var holder: Control = auto_free(Control.new())
+	holder.rect_size = Vector2(800, 600)
+	get_tree().root.add_child(holder)
+	var joystick: Control = VirtualJoystickScene.instance()
+	joystick.rect_scale = Vector2(0.9, 0.9)
+	holder.add_child(joystick)
+	yield(get_tree(), "idle_frame")
+
+	# Reproduce el cambio de render scale que antes dejaba cacheado el centro viejo.
+	holder.rect_scale = Vector2(0.6, 0.6)
+	holder.force_update_transform()
+	var base: Control = joystick.get_node("Base")
+	var tip: Control = base.get_node("Tip")
+	var center: Vector2 = base.get_global_transform_with_canvas().xform(base.rect_size / 2.0)
+	var expected_travel: float = 50.0 * 0.9 * 0.6
+
+	for direction in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+		joystick._update_joystick(center + direction * 1000.0)
+		tip.force_update_transform()
+		var tip_center: Vector2 = tip.get_global_transform_with_canvas().xform(tip.rect_size / 2.0)
+		assert_float(tip_center.distance_to(center + direction * expected_travel)).is_less(0.01)
+		assert_float(joystick.get_output().distance_to(direction)).is_less(0.01)
+	joystick.reset()
 
 func test_mobile_ui_manager_runtime_touch_detection() -> void:
 	var mgr = MobileUIManagerScript.new()

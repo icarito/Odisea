@@ -193,7 +193,12 @@ func _instantiate_explosion_effect(pos: Vector3) -> void:
 
 	if explosion is Spatial:
 		explosion.global_transform.origin = pos
-		explosion.scale = Vector3.ONE * explosion_scale
+		# En movil el reventon cubre media pantalla de quads aditivos en el pico del
+		# flash; escala al nodo entero en vez de tocar las curvas por particula.
+		var efectiva: float = explosion_scale
+		if OS.get_name() in ["Android", "iOS"] or OS.get_environment("ODISEA_FORCE_MOBILE_PROFILE") in ["1", "true", "yes", "on"]:
+			efectiva *= 0.65
+		explosion.scale = Vector3.ONE * efectiva
 
 	var timer: Timer = Timer.new()
 	timer.one_shot = true

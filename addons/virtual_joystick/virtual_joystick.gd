@@ -50,8 +50,6 @@ var _touch_index : int = -1
 onready var _base := $Base
 onready var _tip := $Base/Tip
 
-onready var _base_radius = _base.rect_size * _base.get_global_transform_with_canvas().get_scale() / 2
-
 onready var _base_default_position : Vector2 = _base.rect_position
 onready var _tip_default_position : Vector2 = _tip.rect_position
 
@@ -85,8 +83,8 @@ func _input(event: InputEvent) -> void:
 func _move_base(new_position: Vector2) -> void:
 	_base.rect_global_position = new_position - _base.rect_pivot_offset * get_global_transform_with_canvas().get_scale()
 
-func _move_tip(new_position: Vector2) -> void:
-	_tip.rect_global_position = new_position - _tip.rect_pivot_offset * _base.get_global_transform_with_canvas().get_scale()
+func _move_tip(offset: Vector2) -> void:
+	_tip.rect_position = _tip_default_position + offset
 
 func _is_point_inside_joystick_area(point: Vector2) -> bool:
 	var x: bool = point.x >= rect_global_position.x and point.x <= rect_global_position.x + (rect_size.x * get_global_transform_with_canvas().get_scale().x)
@@ -94,25 +92,23 @@ func _is_point_inside_joystick_area(point: Vector2) -> bool:
 	return x and y
 
 func _is_point_inside_base(point: Vector2) -> bool:
-	var center : Vector2 = _base.rect_global_position + _base_radius
-	var vector : Vector2 = point - center
-	if vector.length_squared() <= _base_radius.x * _base_radius.x:
-		return true
-	else:
-		return false
+	var local_point : Vector2 = _base.get_global_transform_with_canvas().affine_inverse().xform(point)
+	var radius : float = min(_base.rect_size.x, _base.rect_size.y) / 2.0
+	return (local_point - _base.rect_size / 2.0).length_squared() <= radius * radius
 
 func _update_joystick(touch_position: Vector2) -> void:
-	var center : Vector2 = _base.rect_global_position + _base_radius
-	var vector : Vector2 = touch_position - center
-	vector = vector.limit_length(clampzone_size)
+	var local_touch : Vector2 = _base.get_global_transform_with_canvas().affine_inverse().xform(touch_position)
+	var vector : Vector2 = local_touch - _base.rect_size / 2.0
+	var max_travel : float = min(clampzone_size, min(_base.rect_size.x - _tip.rect_size.x, _base.rect_size.y - _tip.rect_size.y) / 2.0)
+	vector = vector.limit_length(max_travel)
 	
-	_move_tip(center + vector)
+	_move_tip(vector)
 	
 	if vector.length_squared() > deadzone_size * deadzone_size:
 		_pressed = true
 		var normalized = vector.normalized()
 		var length = vector.length()
-		var normalized_length = (length - deadzone_size) / (clampzone_size - deadzone_size)
+		var normalized_length = (length - deadzone_size) / (max_travel - deadzone_size)
 		normalized_length = clamp(normalized_length, 0.0, 1.0)
 		var curved_length = pow(normalized_length, response_curve)
 		_output = normalized * curved_length

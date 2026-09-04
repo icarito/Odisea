@@ -54,6 +54,18 @@ onready var _mist_particles: CPUParticles = get_node_or_null("MistParticles")
 onready var _sound: AudioStreamPlayer3D = get_node_or_null("FissureSound")
 onready var _gloo_mesh: MeshInstance = get_node_or_null("GlooMesh")
 
+# Presupuesto movil del vapor: 26 quads de ~1.5 m de niebla cubren ~una pantalla
+# entera de fillrate por fisura en el Redmi Note 9 Pro (medido: el evento de ruptura
+# baja el frame de ~16 ms a ~40 ms). Menos particulas y quads mas chicos mantienen
+# la lectura de la pluma a la distancia con la mitad del overdraw.
+var _mist_amount_mobile := 14
+var _mist_scale_cap_mobile := 0.75
+
+func _is_mobile_profile() -> bool:
+	if OS.get_environment("ODISEA_FORCE_MOBILE_PROFILE") in ["1", "true", "yes", "on"]:
+		return true
+	return OS.get_name() in ["Android", "iOS"]
+
 
 var _references_resolved := false
 
@@ -62,6 +74,8 @@ func _ready() -> void:
 	add_to_group("replay_sync")
 	_apply_spray_direction()
 	_resolve_references()
+	if _mist_particles != null and _is_mobile_profile():
+		_mist_particles.amount = _mist_amount_mobile
 	_update_visuals()
 	# PERF: en Dome_Intro hay ~24 fisuras de autoria y solo 2-3 activas por partida — el
 	# resto se queda en HEALTHY toda la partida. _sync_physics_process() decide si sigue
@@ -212,9 +226,12 @@ func _update_visuals() -> void:
 	if _sound != null:
 		_sound.unit_db = lerp(SOUND_DB_MIN, SOUND_DB_MAX, intensity)
 	# La pluma se achica con la fuga en vez de cortar de golpe (misma curva que gobierna
-	# la grieta del cano). Escalar el nodo escala emision y quads a la vez.
+	# la grieta del cano). Escalar el nodo escala emision y quads a la vez. En movil el
+	# techo de escala ademas recorta el quad base (overdraw, ver _ready).
 	if _mist_particles != null:
 		var s: float = max(0.05, intensity)
+		if _is_mobile_profile():
+			s = min(s, _mist_scale_cap_mobile)
 		_mist_particles.scale = Vector3(s, s, s)
 
 

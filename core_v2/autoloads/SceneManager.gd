@@ -21,6 +21,10 @@ export(float, 3.0, 180.0) var hyper_low_transition_timeout_s := 35.0
 export(bool) var boot_fade_in_enabled := true
 export(float, 0.0, 5.0) var boot_fade_in_duration := 0.55
 export(int, 0, 10) var boot_fade_in_wait_frames := 1
+# NO activar el loader en worker thread: ResourceInteractiveLoader.poll() compila
+# shaders (GLES3) desde el hilo y racea contra el main (segfault verificado en
+# shader_gles3.cpp:642 con X11 + GdUnit; mismo riesgo en Android). La via segura en
+# 3.6.2 es el poll por presupuesto de frame en el main.
 export(bool) var threaded_resource_loading := false
 
 var _loader = null

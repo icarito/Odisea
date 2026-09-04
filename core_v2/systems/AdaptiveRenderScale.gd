@@ -211,6 +211,12 @@ func _process(delta: float) -> void:
 	var fps := float(Performance.get_monitor(Performance.TIME_FPS))
 	if fps <= 0.0:
 		return
+	# Overlay de carga = nada dibujado: fps de mentira que suben o bajan la escala
+	# en falso. Solo se decide con contenido realmente dibujado.
+	if VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME) < 10:
+		_bajo = 0.0
+		_alto = 0.0
+		return
 
 	if fps < fps_bajar:
 		_bajo += delta

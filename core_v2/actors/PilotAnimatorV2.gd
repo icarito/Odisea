@@ -96,6 +96,8 @@ var _skeleton: Skeleton = null
 var _head_look_yaw := 0.0
 var _head_look_pitch := 0.0
 var _head_look_active := false
+# Acumulo el sprint sostenido para el debounce del neutral (ver step_animator).
+var _sprint_neutral_hold := 0.0
 var _skeleton_base_translation := Vector3.ZERO
 var _skeleton_base_basis := Basis()
 onready var jump_sfx: SFXComponentV2 = get_node_or_null("JumpSFX")
@@ -154,6 +156,10 @@ var _climb_pose_blend := 0.0
 var _was_climbing_anim_last_frame := false
 const FOOTSTEP_STOP_GRACE_SEC := 0.18
 const MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW := 1.0 / 12.0
+# Paso normal del arbol manual: el de fisica. step_animator corre cada tick de
+# fisica, asi que el acumulador alcanza el umbral en cada tick y el arbol avanza
+# en el mismo reloj que los overrides de huesos.
+const MANUAL_ANIMTREE_STEP_INTERVAL := 1.0 / 60.0
 const ANIM_PARAM_FLOAT_EPSILON := 0.0005
 const ANIM_BLEND_PARAM_FLOAT_EPSILON := 0.035
 
@@ -413,7 +419,9 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 				# el ángulo en Y debe ser atan2(local_look.x, local_look.z) + PI
 				var target_angle = atan2(local_look.x, local_look.z) + PI
 				if dt > 0:
-					rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * 1.5 * dt)
+					# 1 - exp(-k*dt): invariante al dt acumulado del throttle hyper-low
+					# (k*dt pelado llega a >1.0 y lerp_angle sobrepasa el target: wobble).
+					rotation.y = lerp_angle(rotation.y, target_angle, 1.0 - exp(-rotation_lerp_speed * 1.5 * dt))
 				else:
 					rotation.y = target_angle
 		elif controller.get("is_pushing"):
@@ -441,7 +449,10 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 
 				var target_angle = atan2(local_wish.x, local_wish.z)
 				if dt > 0: # Suavizado en modo LIVE.
-					rotation.y = lerp_angle(rotation.y, target_angle, rotation_lerp_speed * dt)
+					# 1 - exp(-k*dt), misma forma que _update_head_look(): con el dt
+					# acumulado del throttle hyper-low (dt*5), k*dt se acerca a 1 y el
+					# giro del cuerpo titila al correr en fps bajos.
+					rotation.y = lerp_angle(rotation.y, target_angle, 1.0 - exp(-rotation_lerp_speed * dt))
 				else: # Aplicación instantánea en modo REPLAY.
 					rotation.y = target_angle
 
@@ -469,7 +480,13 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	var traversal = controller.get("traversal_logic") if controller else null
 	var traversal_suppressed: bool = traversal != null and (traversal.is_climbing or traversal.is_hanging)
 	var is_sprinting: bool = controller.last_input != null and controller.last_input.sprint
-	_update_head_look(traversal_suppressed, is_sprinting)
+	# Debounce del neutral: el flicker de sprint (stick virtual rondando el umbral de
+	# auto-sprint) alternaba return_to_neutral y el override de la cabeza titilaba.
+	if is_sprinting:
+		_sprint_neutral_hold += dt
+	else:
+		_sprint_neutral_hold = 0.0
+	_update_head_look(traversal_suppressed, _sprint_neutral_hold >= 0.15)
 
 	was_on_floor_last_frame = is_on_floor and not (controller.traversal_logic.is_climbing if controller and controller.get("traversal_logic") else false) and not (controller.traversal_logic.is_hanging if controller and controller.get("traversal_logic") else false)
 
@@ -1264,14 +1281,19 @@ func _is_hyper_low_runtime() -> bool:
 	return forced_device.find("anbernic") != -1
 
 func _configure_animation_runtime_policy() -> void:
-	_manual_animtree_step_enabled = _is_hyper_low_runtime()
+	# Manual SIEMPRE: el override de huesos (head-look, IK) se escribe en el paso de
+	# fisica embebiendo la pose animada leida en ese instante. Con el AnimationTree en
+	# IDLE la pose avanza por frame de render, asi que a fps bajos la cabeza renderiza
+	# con la pose del frame anterior — hasta ~66 ms de desfase del ciclo de caminado —
+	# y el cuello se ve sacudirse arriba-abajo (shear que crece con el frame time).
+	# Avanzando el arbol dentro de step_animator, esqueleto y overrides corren en un
+	# solo reloj (60 Hz de fisica) a cualquier fps de render. En Anbernic se conserva
+	# el throttle de 12 Hz del intervalo hyper-low.
+	_manual_animtree_step_enabled = true
 	if animation_tree == null:
 		return
 	_anim_tree_param_cache.clear()
-	if _manual_animtree_step_enabled:
-		animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_MANUAL
-	else:
-		animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_IDLE
+	animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_MANUAL
 
 func _set_anim_tree_param(path: String, value, float_epsilon := ANIM_PARAM_FLOAT_EPSILON) -> void:
 	if animation_tree == null:
@@ -1292,7 +1314,9 @@ func _advance_animation_tree_if_manual(dt: float) -> void:
 	if animation_tree == null or not animation_tree.active:
 		return
 	_manual_animtree_step_accum += max(0.0, dt)
-	if _manual_animtree_step_accum < MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW:
+	# Anbernic throttlea el avance a 12 Hz; el resto avanza al paso de fisica (60 Hz).
+	var interval := MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW if _is_hyper_low_runtime() else MANUAL_ANIMTREE_STEP_INTERVAL
+	if _manual_animtree_step_accum < interval:
 		return
 	var step_dt = _manual_animtree_step_accum
 	_manual_animtree_step_accum = 0.0

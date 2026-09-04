@@ -433,14 +433,10 @@ func _marker_material() -> SpatialMaterial:
 	if marker_billboard:
 		material.params_billboard_mode = SpatialMaterial.BILLBOARD_ENABLED
 		material.params_billboard_keep_scale = true
-		# El quad se clava en la pared o el prop que tiene detras y el corte se ve.
-		# proximity_fade lo desvanece contra lo que hay en el depth buffer — el
-		# truco de "soft particle". Necesita DEPTH_TEXTURE, o sea GLES3; en GLES2
-		# esto era simplemente imposible y por eso el recorte se veia.
-		material.proximity_fade_enable = true
-		material.proximity_fade_distance = 0.6
+		# Sin proximity_fade: compara contra la depth texture y a partir de ~20 m la
+		# precision del z-buffer (16 bit en movil) supera la ventana de fade — el quad
+		# desaparece entero a distancia. La textura de glow radial ya suaviza el borde.
 		# Without a falloff a billboard reads as a hard square rather than a glow.
-		# Generated rather than shipped as an asset: it is 64x64 and built once.
 		material.albedo_texture = _glow_texture()
 	return material
 

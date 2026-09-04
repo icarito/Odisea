@@ -11,6 +11,9 @@ var playback_buffer := []
 var playback_index := 0
 var mouse_delta_accum := Vector2()
 var zoom_delta_accum := 0.0
+# Latch del auto-sprint analogico (histeresis 0.85/0.7): evita el flicker de sprint
+# cuando la deflexion del stick virtual ronda el umbral.
+var _auto_sprint_engaged := false
 var move_response_curve: Curve
 var camera_response_curve: Curve
 var hardware_input_enabled := true
@@ -230,8 +233,17 @@ func _read_live_input() -> InputDataV2:
 		
 		# --- VIRTUAL/ANALOG AUTO SPRINT ---
 		# Keep auto sprint for analog-like input, but do not force sprint for digital keyboard vectors.
-		if not _is_digital_move_vector(move_source_vec) and d.move_vec.length() > 0.85:
-			d.sprint = true
+		# Con histeresis: en el borde (~0.85) la deflexion del stick oscila y hace titilar
+		# sprint frame a frame; el flicker alternaba return_to_neutral del head-look del
+		# animador y se veia como wobble de la cabeza en fps bajos.
+		if not _is_digital_move_vector(move_source_vec):
+			var move_speed: float = d.move_vec.length()
+			if move_speed > 0.85:
+				_auto_sprint_engaged = true
+			elif move_speed < 0.7:
+				_auto_sprint_engaged = false
+			if _auto_sprint_engaged:
+				d.sprint = true
 
 		# Acumula y consume mouse_delta localmente
 		var mouse_d = Vector2(_q(mouse_delta_accum.x), _q(-mouse_delta_accum.y))
