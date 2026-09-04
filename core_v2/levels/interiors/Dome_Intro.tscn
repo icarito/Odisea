@@ -1,4 +1,4 @@
-[gd_scene load_steps=125 format=2]
+[gd_scene load_steps=105 format=2]
 
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro.lmbake" type="BakedLightmapData" id=1]
 [ext_resource path="res://core_v2/props/doors/FreeAirlockDoor.tscn" type="PackedScene" id=2]
@@ -72,25 +72,15 @@
 [ext_resource path="res://core_v2/systems/pipe/PipeNetworkResource.gd" type="Script" id=391]
 [ext_resource path="res://core_v2/systems/cryo/CoolantFlowAdapter.gd" type="Script" id=392]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL1Pipes_baked.mesh" type="ArrayMesh" id=500]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL1Pipes_body.tscn" type="PackedScene" id=501]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL2Pipes_baked.mesh" type="ArrayMesh" id=502]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL2Pipes_body.tscn" type="PackedScene" id=503]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL3Pipes_baked.mesh" type="ArrayMesh" id=504]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL3Pipes_body.tscn" type="PackedScene" id=505]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL4Pipes_baked.mesh" type="ArrayMesh" id=506]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL4Pipes_body.tscn" type="PackedScene" id=507]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5Pipes_baked.mesh" type="ArrayMesh" id=508]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserL5Pipes_body.tscn" type="PackedScene" id=509]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1Pipes_baked.mesh" type="ArrayMesh" id=510]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL1Pipes_body.tscn" type="PackedScene" id=511]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL2Pipes_baked.mesh" type="ArrayMesh" id=512]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL2Pipes_body.tscn" type="PackedScene" id=513]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL3Pipes_baked.mesh" type="ArrayMesh" id=514]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL3Pipes_body.tscn" type="PackedScene" id=515]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL4Pipes_baked.mesh" type="ArrayMesh" id=516]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL4Pipes_body.tscn" type="PackedScene" id=517]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5Pipes_baked.mesh" type="ArrayMesh" id=518]
-[ext_resource path="res://core_v2/levels/interiors/DomeIntro_TowerCoolantRiserEastL5Pipes_body.tscn" type="PackedScene" id=519]
 [ext_resource path="res://core_v2/systems/cryo/RandomLeakSeeder.gd" type="Script" id=5001]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntroBakeLightsPlaceholder.gd" type="Script" id=5006]
 [ext_resource path="res://core_v2/systems/cryo/CryoRuptureBurst.tscn" type="PackedScene" id=5008]
@@ -520,8 +510,6 @@ apply_flow_material = false
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L1"]
 mesh = ExtResource( 500 )
 
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L1" instance=ExtResource( 501 )]
-
 [node name="TowerCoolantRiser_L1_Ring" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0.130526, 0, -0.991445 )
@@ -572,8 +560,6 @@ apply_flow_material = false
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L2"]
 mesh = ExtResource( 502 )
 
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L2" instance=ExtResource( 503 )]
-
 [node name="TowerCoolantRiser_L2_Ring" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0.130526, 0, -0.991445 )
@@ -619,8 +605,6 @@ apply_flow_material = false
 
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L3"]
 mesh = ExtResource( 504 )
-
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L3" instance=ExtResource( 505 )]
 
 [node name="TowerCoolantRiser_L3_Ring" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
@@ -668,8 +652,6 @@ apply_flow_material = false
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L4"]
 mesh = ExtResource( 506 )
 
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L4" instance=ExtResource( 507 )]
-
 [node name="TowerCoolantRiser_L4_Ring" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
 flow_dir = Vector3( 0.130526, 0, -0.991445 )
@@ -715,8 +697,6 @@ apply_flow_material = false
 
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiser/TowerCoolantRiser_L5"]
 mesh = ExtResource( 508 )
-
-[node name="StaticBody" parent="TowerCoolantRiser/TowerCoolantRiser_L5" instance=ExtResource( 509 )]
 
 [node name="TowerCoolantRiser_L5_Ring" type="Spatial" parent="TowerCoolantRiser"]
 script = ExtResource( 369 )
@@ -1026,8 +1006,6 @@ apply_flow_material = false
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1"]
 mesh = ExtResource( 510 )
 
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L1" instance=ExtResource( 511 )]
-
 [node name="TowerCoolantRiserEast_L1_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
 flow_dir = Vector3( -0.130526, 0, 0.991445 )
@@ -1078,8 +1056,6 @@ apply_flow_material = false
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2"]
 mesh = ExtResource( 512 )
 
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L2" instance=ExtResource( 513 )]
-
 [node name="TowerCoolantRiserEast_L2_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
 flow_dir = Vector3( -0.130526, 0, 0.991445 )
@@ -1125,8 +1101,6 @@ apply_flow_material = false
 
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3"]
 mesh = ExtResource( 514 )
-
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L3" instance=ExtResource( 515 )]
 
 [node name="TowerCoolantRiserEast_L3_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
@@ -1174,8 +1148,6 @@ apply_flow_material = false
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4"]
 mesh = ExtResource( 516 )
 
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L4" instance=ExtResource( 517 )]
-
 [node name="TowerCoolantRiserEast_L4_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )
 flow_dir = Vector3( -0.130526, 0, 0.991445 )
@@ -1221,8 +1193,6 @@ apply_flow_material = false
 
 [node name="CombinedMesh" type="MeshInstance" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5"]
 mesh = ExtResource( 518 )
-
-[node name="StaticBody" parent="TowerCoolantRiserEast/TowerCoolantRiserEast_L5" instance=ExtResource( 519 )]
 
 [node name="TowerCoolantRiserEast_L5_Ring" type="Spatial" parent="TowerCoolantRiserEast"]
 script = ExtResource( 369 )

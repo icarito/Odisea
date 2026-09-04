@@ -107,7 +107,7 @@ text = "PRESURIZANDO"
 
 [node name="ChamberZone" type="Area" parent="."]
 collision_layer = 0
-collision_mask = 2147483647
+collision_mask = 2
 
 [node name="CollisionShape" type="CollisionShape" parent="ChamberZone"]
 shape = SubResource( 5 )
@@ -115,7 +115,7 @@ shape = SubResource( 5 )
 [node name="AirlockZoneV2" type="Area" parent="."]
 visible = false
 collision_layer = 0
-collision_mask = 2147483647
+collision_mask = 2
 script = ExtResource( 3 )
 debug_color = Color( 0, 0.75, 1, 0.18 )
 debug_render = false

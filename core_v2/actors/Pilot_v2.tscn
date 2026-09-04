@@ -91,7 +91,7 @@ size = Vector2( 0.1, 0.1 )
 
 [node name="Pilot" type="KinematicBody"]
 collision_layer = 2
-collision_mask = 255
+collision_mask = 79
 script = ExtResource( 2 )
 joy_look_sensitivity = 5.0
 push_force = 9.0
@@ -236,7 +236,7 @@ parameters/Jump/Transition/current = 0
 
 [node name="InteractArea" type="Area" parent="Visual/Pivot"]
 collision_layer = 16
-collision_mask = 255
+collision_mask = 87
 monitorable = false
 
 [node name="CollisionShape" type="CollisionShape" parent="Visual/Pivot/InteractArea"]

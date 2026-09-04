@@ -113,9 +113,12 @@ func _ready():
 	_configure_transition_button()
 
 	if _chamber_zone:
-		# Force detection of player (all layers)
+		# Solo necesita ver al jugador (capa 2): _on_body_entered filtra por grupo
+		# "player". La mascara total (2147483647) ponia la zona a parear contra TODO
+		# el entorno y los props cercanos; broadphase sin filtrar era el sobrecosto
+		# medido en el banco sintetico.
 		_chamber_zone.monitoring = true
-		_chamber_zone.collision_mask = 2147483647
+		_chamber_zone.collision_mask = 2
 
 		if not _chamber_zone.is_connected("body_entered", self, "_on_body_entered"):
 			_chamber_zone.connect("body_entered", self, "_on_body_entered")
