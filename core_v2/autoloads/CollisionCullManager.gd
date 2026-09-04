@@ -26,37 +26,39 @@ export(float, 5.0, 200.0, 1.0) var cull_radius := 15.0
 # que un prop en el limite no oscile encendiendose y apagandose.
 export(float, 1.0, 50.0, 1.0) var hysteresis := 8.0
 export(int, 1, 30) var frames_between_scans := 8
-# Apagado EN MOVIL (medido 2026-09-03); en desktop se queda prendido, ver abajo. Lo que se reactivo en FD-270 se apoyaba en una
-# inferencia equivocada: "pausar el arbol sube 7fps a 60fps, luego el broadphase es el costo
-# dominante". Pausar el arbol tambien apaga TODOS los _physics_process, incluido el de este
-# mismo sistema, asi que esa medicion no separaba una cosa de la otra.
+# Sigue PRENDIDO, y en movil es donde mas rinde. Queda escrito porque hoy me equivoque en
+# los dos sentidos y el error es facil de repetir.
 #
-# Medido de nuevo en el mismo Redmi Note 9 Pro, con el replay determinista
-# replay_1788458596 sobre Dome_Intro (corridas completas, alternando A/B/A, y con la
-# configuracion puesta ANTES de cargar el nivel para que el primer barrido no contamine):
+# Primero medi "enabled = false vs true" mandando la propiedad por telemetria, y salia que
+# apagarlo era mejor (40 fps contra 37). Estaba confundido: para cuando llegaba el
+# set_property, _ready ya habia corrido y el PRIMER barrido ya habia culleado las formas.
+# Ese "apagado" era en realidad "culleado una vez y despues sin reevaluar": tenia el
+# beneficio del culling y ninguno de sus costos.
 #
-#   enabled = true    fps med 37-38   draw med 266-267   ms_fisica med 13.8-14.4
-#   enabled = false   fps med 39-41   draw med 204-206   ms_fisica med 11.8-14.2
+# Con el perfil de corrida instrumentado, mismo Redmi Note 9 Pro y mismo replay
+# determinista (replay_1788458596 sobre Dome_Intro, 3252 frames):
 #
-# O sea que cullear cuesta mas de lo que ahorra: el sistema se paga a si mismo ~2 ms de
-# fisica y encima el frame dibuja ~60 objetos mas. Subir frames_between_scans a 60 (menos
-# barridos, mismo culling) no cambia nada: 38 fps y 266 draw calls igual, asi que el costo
-# NO esta en la frecuencia del barrido sino en tener las formas culleadas.
+#   culler vivo               fps med 36    este sistema: 0.272 ms por tick
+#   culler que nunca corre    fps med 16
 #
-# Queda abierto por que apagar formas de COLISION mueve los draw calls. En desktop, en
-# cambio, prender y apagar este sistema a mitad de una corrida no cambia ni un draw call
-# ni un vertice, y la fisica alli cuesta 1.2 ms: no es un problema de esa plataforma.
+# Veinte fps. El barrido por tick cuesta 0.27 ms; no cullear cuesta ~20 fps de broadphase
+# sobre las formas Prop registradas. La conclusion de FD-270 era correcta.
 #
-# El ahorro que motivo el sistema sigue siendo real y esta medido arriba (apagar a mano las
-# 383 formas Prop baja ~4 ms): si alguien lo retoma, el camino es un culleo de una sola vez
-# al cargar el nivel, no una reevaluacion por tick.
+# La otra pata del error, para no repetirla: "pausar el arbol sube 7fps a 60fps" tampoco
+# probaba que el broadphase fuera el costo dominante, porque pausar apaga TODOS los
+# _physics_process, incluido el de este sistema. Las dos veces el problema fue el mismo:
+# comparar configuraciones que no diferian solo en lo que yo creia.
 #
-# Por que sigue prendido en desktop y no se apaga en todos lados: la grabacion de
-# determinismo test_locomocion_strafe.oys quedo grabada CON el culling activo y sin el
-# deriva 5.74 m (umbral 0.01), o sea que el jugador de esa grabacion atraviesa un prop que
-# sin culling es solido. Eso apunta a un agujero real del sistema — una forma que no vuelve
-# a habilitarse a tiempo — pero arreglarlo o regrabar el fixture es otra tarea. Apagarlo
-# solo donde cuesta deja el desktop y el test como estaban.
+# Donde SI hay algo que ganar en movil: el reparto del tick en ese telefono es
+# SessionManager 3.43 ms (ahi adentro va el jugador durante un replay), PipeCoolantRun
+# 0.33 ms entre sus 22 nodos, este sistema 0.27 ms, los interactables ~0 (el culling de
+# FD-224 los apaga), y quedan ~11 ms sin instrumentar entre el paso del servidor de fisica
+# y los _physics_process que todavia no se miden.
+#
+# Nota aparte, sin resolver: la grabacion test_locomocion_strafe.oys quedo grabada CON el
+# culling activo y sin el deriva 5.74 m contra un umbral de 0.01. O sea que su jugador
+# atraviesa un prop que sin culling es solido: hay una forma que no vuelve a habilitarse a
+# tiempo. Es un agujero real del sistema, no del test.
 #
 # Los dos siguen escribiendo el mismo `disabled`: donde SI hay hielo, IceSubmergedCuller
 # manda (ver su comentario), y este no debe resucitar formas que el hielo ya sepulto.
@@ -80,10 +82,6 @@ var _has_evaluated := false
 
 func _ready() -> void:
 	if OS.get_environment(DISABLE_ENV) in ["1", "true", "yes", "on"]:
-		enabled = false
-		set_physics_process(false)
-		return
-	if OS.has_feature("mobile"):
 		enabled = false
 		set_physics_process(false)
 		return
