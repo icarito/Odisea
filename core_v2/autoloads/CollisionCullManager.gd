@@ -49,11 +49,20 @@ export(int, 1, 30) var frames_between_scans := 8
 # _physics_process, incluido el de este sistema. Las dos veces el problema fue el mismo:
 # comparar configuraciones que no diferian solo en lo que yo creia.
 #
-# Donde SI hay algo que ganar en movil: el reparto del tick en ese telefono es
-# SessionManager 3.43 ms (ahi adentro va el jugador durante un replay), PipeCoolantRun
-# 0.33 ms entre sus 22 nodos, este sistema 0.27 ms, los interactables ~0 (el culling de
-# FD-224 los apaga), y quedan ~11 ms sin instrumentar entre el paso del servidor de fisica
-# y los _physics_process que todavia no se miden.
+# Donde esta el costo de verdad, ya medido con el perfil completo (mismo telefono, mismo
+# replay, ms_physics 13.39 de mediana):
+#
+#   servidor de fisica    7.81 ms/tick   <- 58% del tick
+#   scripts (todos)       5.58 ms/tick
+#     SessionManager        3.38          (el jugador va adentro durante un replay)
+#     PipeCoolantRun        0.33          (22 nodos)
+#     KinematicArm3D        0.26
+#     este sistema          0.24
+#     el resto              < 0.15 c/u
+#
+# O sea que el broadphase sobre las formas estaticas es el item mas grande del tick, y por
+# eso cullear vale 20 fps mientras el barrido que lo decide cuesta 0.24 ms. Lo que queda
+# por exprimir en movil es tener menos formas o mas simples, no afinar scripts.
 #
 # Nota aparte, sin resolver: la grabacion test_locomocion_strafe.oys quedo grabada CON el
 # culling activo y sin el deriva 5.74 m contra un umbral de 0.01. O sea que su jugador
