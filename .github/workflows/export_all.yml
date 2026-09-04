@@ -448,9 +448,22 @@ jobs:
           test -f "$REQUIRED_TEMPLATE" || { echo "::error::Missing export template: $REQUIRED_TEMPLATE"; exit 1; }
 
           if [ "${{ matrix.platform }}" = "html5" ]; then
-            # The "HTML5 Threads" preset reads the webassembly_release.zip slot;
-            # swap in the threads template so Godot picks it up.
-            cp "$TPL_DIR/webassembly_threads_release.zip" "$TPL_DIR/webassembly_release.zip"
+            # Plantilla propia: Godot 3.6.2 con UNA linea cambiada en
+            # drivers/gles3/shaders/scene.glsl (el `vec3 pad` del bloque
+            # DirectionalLightData partido en tres floats). Sin eso el bloque mide 400
+            # para el driver y 384 para el motor, y WebGL2 descarta TODO draw que lo ate:
+            # en web se perdian el traje del piloto, tuberias, tanques y airlocks.
+            # Ver docs/agents/web_gles3_directional_light.md; el parche y el script que la
+            # reproduce estan en tools/godot_web_template/.
+            #
+            # El preset "HTML5 Threads" (variant/export_type=1) lee el slot _threads_
+            # (platform/javascript/export/export.cpp::_get_template_name), asi que la
+            # plantilla va ahi. Se pisa siempre, incluso con TPL_DIR cacheado.
+            TPL_URL="https://github.com/icarito/Odisea/releases/download/godot-web-template-3.6.2-ubo1/webassembly_threads_release.zip"
+            TPL_SHA="46d6c6ed07db86649cc53330e664b30e6fc7343ee8913ef51ef072e18b393977"
+            curl -fSL -o /tmp/web_template.zip "$TPL_URL"
+            echo "$TPL_SHA  /tmp/web_template.zip" | sha256sum -c -
+            cp /tmp/web_template.zip "$TPL_DIR/webassembly_threads_release.zip"
           fi
 
           echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
