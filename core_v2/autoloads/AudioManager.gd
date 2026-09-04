@@ -38,6 +38,11 @@ const HEADLESS_MUTE_ENV := "ODISEA_MUTE_AUDIO_HEADLESS"
 const FORCE_MUTE_ENV := "ODISEA_FORCE_MUTE_AUDIO"
 const MOBILE_WEB_MASTER_GAIN_DB := -6.0
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func _ready():
 	_configure_runtime_audio_safeguards()
 	_headless_audio_muted = _should_mute_audio_for_runtime()
@@ -225,6 +230,19 @@ func _find_mixing_desk():
 	_mds_instance = root.find_node("MixingDeskSound", true, false)
 
 func _physics_process(_delta):
+	# Envoltorio de perfilado (ver PerformanceMonitor.perfil_corrida_iniciar): el cuerpo
+	# puede tener varios return, asi que se mide desde afuera y no por dentro.
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("AudioManager")
+		_paso_fisica(_delta)
+		_pm_perfil.perfil_fin("AudioManager")
+		return
+	_paso_fisica(_delta)
+
+func _paso_fisica(_delta):
 	_update_spatial_listener_for_cinematics()
 
 func register_zone(zone):

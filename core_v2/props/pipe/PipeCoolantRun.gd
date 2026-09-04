@@ -106,6 +106,11 @@ var _stream_on: AudioStream = null
 var _stream_off: AudioStream = null
 
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y con 22 nodos
+# ese costo alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func _ready() -> void:
 	_current_speed = flow_speed
 	_current_flow_intensity = clamp(flow_intensity, 0.0, 1.0)
@@ -141,11 +146,13 @@ func _on_visual_budget_level_changed(level: int, max_level: int) -> void:
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
-	var _pm = get_node_or_null("/root/PerformanceMonitor")
-	if _pm != null and _pm.perfil_corrida_activo():
-		_pm.perfil_inicio("PipeCoolantRun")
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("PipeCoolantRun")
 		_paso(delta)
-		_pm.perfil_fin("PipeCoolantRun")
+		_pm_perfil.perfil_fin("PipeCoolantRun")
 		return
 	_paso(delta)
 

@@ -39,6 +39,11 @@ var _display_base_pitch: float = 0.0
 
 var _player: Spatial = null
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func _ready() -> void:
 	if _display != null:
 		_display_base_pitch = _display.rotation.x
@@ -47,6 +52,19 @@ func _ready() -> void:
 	_invert_hanging_display_image()
 
 func _physics_process(delta: float) -> void:
+	# Envoltorio de perfilado (ver PerformanceMonitor.perfil_corrida_iniciar): el cuerpo
+	# puede tener varios return, asi que se mide desde afuera y no por dentro.
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("SuspendedTerminalRig")
+		_paso_fisica(delta)
+		_pm_perfil.perfil_fin("SuspendedTerminalRig")
+		return
+	_paso_fisica(delta)
+
+func _paso_fisica(delta: float) -> void:
 	if Engine.editor_hint or _carriage == null:
 		return
 	if not is_instance_valid(_player):

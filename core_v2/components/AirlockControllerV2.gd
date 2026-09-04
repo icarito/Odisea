@@ -68,6 +68,11 @@ var _standalone_exit_player_inside := false
 var _label_linger_text := ""
 const LABEL_LINGER_SECONDS := 1.5
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func _ready():
 	add_to_group("replay_sync")
 	add_to_group("airlock_chamber")
@@ -825,6 +830,19 @@ func _find_door_state_node(door: Node) -> Node:
 	return null
 
 func _physics_process(delta):
+	# Envoltorio de perfilado (ver PerformanceMonitor.perfil_corrida_iniciar): el cuerpo
+	# puede tener varios return, asi que se mide desde afuera y no por dentro.
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("AirlockControllerV2")
+		_paso_fisica(delta)
+		_pm_perfil.perfil_fin("AirlockControllerV2")
+		return
+	_paso_fisica(delta)
+
+func _paso_fisica(delta):
 	step(delta)
 
 # --- SNAPSHOT ---

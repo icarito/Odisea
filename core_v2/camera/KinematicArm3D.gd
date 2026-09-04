@@ -109,6 +109,11 @@ var _previous_arm_origin := Vector3.ZERO
 var _has_previous_arm_origin := false
 var _transition_grace_frames := 0  # suppresses all collision after scene entry
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func set_collider_shape(shape: Shape) -> void:
 	collider_shape = shape
 	if is_instance_valid(kinematic_body):
@@ -252,6 +257,19 @@ func is_zoom_out_blocked() -> bool:
 	return _zoom_out_blocked
 
 func _physics_process(delta):
+	# Envoltorio de perfilado (ver PerformanceMonitor.perfil_corrida_iniciar): el cuerpo
+	# puede tener varios return, asi que se mide desde afuera y no por dentro.
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("KinematicArm3D")
+		_paso_fisica(delta)
+		_pm_perfil.perfil_fin("KinematicArm3D")
+		return
+	_paso_fisica(delta)
+
+func _paso_fisica(delta):
 	# Sync target_length with spring_length just in case someone modifies spring_length directly.
 	target_length = spring_length
 

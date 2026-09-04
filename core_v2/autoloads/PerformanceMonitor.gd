@@ -478,10 +478,26 @@ var _perfil_corrida := {}      # { clave: { usec, llamadas } }
 var _perfil_inicio := {}       # { clave: usec de la llamada abierta }
 var _perfil_corrida_on := false
 
+const SentinelaPerfil := preload("res://core_v2/systems/PerfilTickSentinela.gd")
+var _sentinelas_listas := false
+
 func perfil_corrida_iniciar() -> void:
 	_perfil_corrida.clear()
 	_perfil_inicio.clear()
+	_crear_sentinelas()
 	_perfil_corrida_on = true
+
+# Dos nodos en los extremos del orden de _physics_process: lo que quede entre ellos son
+# los scripts, y TIME_PHYSICS_PROCESS menos eso es el paso del servidor de fisica.
+func _crear_sentinelas() -> void:
+	if _sentinelas_listas:
+		return
+	for es_fin in [false, true]:
+		var s = SentinelaPerfil.new()
+		s.name = "SentinelaFin" if es_fin else "SentinelaInicio"
+		s.es_fin = es_fin
+		add_child(s)
+	_sentinelas_listas = true
 
 func perfil_corrida_activo() -> bool:
 	return _perfil_corrida_on

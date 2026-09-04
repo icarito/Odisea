@@ -250,6 +250,11 @@ var input_provider
 var camera_input_locked := false
 var input_locked := false setget set_input_locked
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func set_input_locked(v: bool) -> void:
 	input_locked = v
 	if input_locked:
@@ -3093,11 +3098,13 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 
 func _physics_process(_delta):
 	# Envoltorio de perfilado: el cuerpo tiene varios return, asi que se mide desde afuera.
-	var pm = get_node_or_null("/root/PerformanceMonitor")
-	if pm != null and pm.perfil_corrida_activo():
-		pm.perfil_inicio("PlayerControllerV2")
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("PlayerControllerV2")
 		_paso_fisica(_delta)
-		pm.perfil_fin("PlayerControllerV2")
+		_pm_perfil.perfil_fin("PlayerControllerV2")
 		return
 	_paso_fisica(_delta)
 

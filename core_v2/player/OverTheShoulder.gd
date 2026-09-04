@@ -106,6 +106,11 @@ var _player: KinematicBody = null
 var _spring_arm = null
 var _ots_offset_parent: Spatial = null
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func _ready():
 	_player = get_parent().get_parent() as KinematicBody
 	if not _player:
@@ -124,6 +129,19 @@ func _ready():
 			_ots_offset_parent = _spring_arm.get_parent() as Spatial
 
 func _physics_process(delta: float):
+	# Envoltorio de perfilado (ver PerformanceMonitor.perfil_corrida_iniciar): el cuerpo
+	# puede tener varios return, asi que se mide desde afuera y no por dentro.
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("OverTheShoulder")
+		_paso_fisica(delta)
+		_pm_perfil.perfil_fin("OverTheShoulder")
+		return
+	_paso_fisica(delta)
+
+func _paso_fisica(delta: float):
 	if not _player or not _spring_arm:
 		return
 

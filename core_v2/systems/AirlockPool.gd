@@ -58,6 +58,11 @@ var _player: Spatial = null
 var _frames := 0
 
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func _ready() -> void:
 	if Engine.editor_hint:
 		return
@@ -118,6 +123,19 @@ func _buscar_shells() -> Array:
 
 
 func _physics_process(_delta: float) -> void:
+	# Envoltorio de perfilado (ver PerformanceMonitor.perfil_corrida_iniciar): el cuerpo
+	# puede tener varios return, asi que se mide desde afuera y no por dentro.
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("AirlockPool")
+		_paso_fisica(_delta)
+		_pm_perfil.perfil_fin("AirlockPool")
+		return
+	_paso_fisica(_delta)
+
+func _paso_fisica(_delta: float) -> void:
 	if mode != Mode.POOL or _chamber == null:
 		return
 	_frames += 1

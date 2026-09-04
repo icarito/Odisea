@@ -16,6 +16,11 @@ var default_replay_snapshot: Dictionary = {}
 var _default_snapshot_scene_id: int = 0
 var _default_snapshot_ice_path: String = ""
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func _ready() -> void:
 	# El autoload entra al árbol antes que la escena del nivel. El snapshot inicial se
 	# toma en el primer tick físico de ESA escena, cuando ya terminaron todos los _ready()
@@ -24,6 +29,19 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	# Envoltorio de perfilado (ver PerformanceMonitor.perfil_corrida_iniciar): el cuerpo
+	# puede tener varios return, asi que se mide desde afuera y no por dentro.
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("CheckpointManager")
+		_paso_fisica(_delta)
+		_pm_perfil.perfil_fin("CheckpointManager")
+		return
+	_paso_fisica(_delta)
+
+func _paso_fisica(_delta: float) -> void:
 	var scene: Node = get_tree().current_scene
 	if scene == null:
 		return

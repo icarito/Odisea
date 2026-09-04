@@ -11,6 +11,11 @@ var transition_start_fov : float
 var transition_start_near : float
 var transition_start_far : float
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func get_highest_priority_vcamera() -> VCamera:
 	var cam = last_active_vcamera if last_active_vcamera and last_active_vcamera.enabled else null
 	var highest_priority = 0 if cam == null else cam.priority
@@ -49,6 +54,19 @@ func snap_transition(vcam : VCamera):
 	far = vcam.far
 
 func _physics_process(delta : float):
+	# Envoltorio de perfilado (ver PerformanceMonitor.perfil_corrida_iniciar): el cuerpo
+	# puede tener varios return, asi que se mide desde afuera y no por dentro.
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("VCameraBrain")
+		_paso_fisica(delta)
+		_pm_perfil.perfil_fin("VCameraBrain")
+		return
+	_paso_fisica(delta)
+
+func _paso_fisica(delta : float):
 	var vcam = get_highest_priority_vcamera()
 	if vcam == null:
 		return

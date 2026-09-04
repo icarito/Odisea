@@ -80,6 +80,11 @@ var _last_eval_pos := Vector3.ZERO
 var _has_evaluated := false
 
 
+# Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
+# alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
+var _pm_perfil = null
+var _pm_perfil_buscado := false
+
 func _ready() -> void:
 	if OS.get_environment(DISABLE_ENV) in ["1", "true", "yes", "on"]:
 		enabled = false
@@ -105,11 +110,13 @@ func _on_tree_changed() -> void:
 func _physics_process(_delta: float) -> void:
 	if not enabled or not is_inside_tree():
 		return
-	var pm = get_node_or_null("/root/PerformanceMonitor")
-	if pm != null and pm.perfil_corrida_activo():
-		pm.perfil_inicio("CollisionCullManager")
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if _pm_perfil != null and _pm_perfil._perfil_corrida_on:
+		_pm_perfil.perfil_inicio("CollisionCullManager")
 		_paso_fisica()
-		pm.perfil_fin("CollisionCullManager")
+		_pm_perfil.perfil_fin("CollisionCullManager")
 		return
 	_paso_fisica()
 
