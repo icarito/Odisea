@@ -1792,14 +1792,56 @@ func _physics_process(_dt):
 
 	if pm and pm.has_method("profiling_end"): pm.profiling_end("SessionManager")
 
+# Segundos de gracia despues de que la escena queda lista. Los primeros frames de una
+# escena grande estan siempre por el piso — compilar shaders, construir BVHs, instanciar
+# props — y sin esta espera la mitigacion se dispara SIEMPRE al arrancar. Medido en el
+# Redmi Note 9 Pro: "LOW FPS DETECTED (1.0)" en el primer frame, con el juego despues
+# corriendo a 40.
+const MITIGACION_GRACIA_SEC := 6.0
+# Cuanto tiene que sostenerse el fps bueno antes de devolver los efectos. Mas largo que la
+# caida para no oscilar: apagar y prender glow recompila shaders.
+const MITIGACION_RECUPERAR_SEC := 8.0
+
+var _mitigacion_desde_msec := 0
+var _mitigacion_fps_bueno_desde := 0.0
+var _mitigacion_previo := {}
+
 func _check_performance_mitigation() -> void:
+	if _mitigacion_desde_msec == 0:
+		_mitigacion_desde_msec = OS.get_ticks_msec()
+	if OS.get_ticks_msec() - _mitigacion_desde_msec < int(MITIGACION_GRACIA_SEC * 1000.0):
+		return
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	if fps < 30.0 and not _performance_mitigation_active:
 		_apply_dynamic_performance_mitigation()
+		_mitigacion_fps_bueno_desde = 0.0
 	elif fps > 45.0 and _performance_mitigation_active:
-		# Optionally restore settings if performance improves significantly?
-		# For stability, maybe better to stay in mitigation mode.
-		pass
+		# Antes esto era un `pass` con un comentario que decia "mejor quedarse en modo
+		# mitigacion". El costo real de esa decision: un tiron puntual dejaba el resto de
+		# la sesion sin glow, sin correccion de color y con la escala de render al 80%,
+		# para siempre y sin manera de volver.
+		var ahora := OS.get_ticks_msec() / 1000.0
+		if _mitigacion_fps_bueno_desde <= 0.0:
+			_mitigacion_fps_bueno_desde = ahora
+		elif ahora - _mitigacion_fps_bueno_desde >= MITIGACION_RECUPERAR_SEC:
+			_revertir_mitigacion()
+	elif _performance_mitigation_active:
+		_mitigacion_fps_bueno_desde = 0.0
+
+func _revertir_mitigacion() -> void:
+	_performance_mitigation_active = false
+	_mitigacion_fps_bueno_desde = 0.0
+	if _mitigacion_previo.has("escala"):
+		OS.set_environment(MOBILE_WEB_RENDER_SCALE_ENV, str(_mitigacion_previo["escala"]))
+		_apply_mobile_web_render_scale()
+	var env: Environment = _active_environment()
+	if env != null and _mitigacion_previo.has("glow"):
+		env.glow_enabled = _mitigacion_previo["glow"]
+		env.adjustment_enabled = _mitigacion_previo["adjustment"]
+		env.dof_blur_far_enabled = _mitigacion_previo["dof_far"]
+		env.dof_blur_near_enabled = _mitigacion_previo["dof_near"]
+	_mitigacion_previo.clear()
+	print("[SessionManager] Mitigacion revertida: fps sostenido, vuelven glow/adjustment/DOF y la escala")
 
 func _apply_dynamic_performance_mitigation() -> void:
 	_performance_mitigation_active = true
@@ -1807,6 +1849,7 @@ func _apply_dynamic_performance_mitigation() -> void:
 
 	# 1. Reduce render scale further
 	var current_scale = _read_clamped_mobile_web_scale(OS.get_environment(MOBILE_WEB_RENDER_SCALE_ENV))
+	_mitigacion_previo["escala"] = current_scale
 	var mitigated_scale = current_scale * 0.8
 	OS.set_environment(MOBILE_WEB_RENDER_SCALE_ENV, str(mitigated_scale))
 	_apply_mobile_web_render_scale()
@@ -1819,6 +1862,10 @@ func _apply_dynamic_performance_mitigation() -> void:
 	# sobre el Environment que el viewport esta usando de verdad.
 	var env: Environment = _active_environment()
 	if env != null:
+		_mitigacion_previo["glow"] = env.glow_enabled
+		_mitigacion_previo["adjustment"] = env.adjustment_enabled
+		_mitigacion_previo["dof_far"] = env.dof_blur_far_enabled
+		_mitigacion_previo["dof_near"] = env.dof_blur_near_enabled
 		env.glow_enabled = false
 		env.adjustment_enabled = false
 		# El DOF far es un pase de pantalla completa: bajar su amount no ahorra nada, hay
