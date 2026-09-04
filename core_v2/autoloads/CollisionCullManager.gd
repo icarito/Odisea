@@ -107,6 +107,15 @@ func _on_tree_changed() -> void:
 func _physics_process(_delta: float) -> void:
 	if not enabled or not is_inside_tree():
 		return
+	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if pm != null and pm.perfil_corrida_activo():
+		pm.perfil_inicio("CollisionCullManager")
+		_paso_fisica()
+		pm.perfil_fin("CollisionCullManager")
+		return
+	_paso_fisica()
+
+func _paso_fisica() -> void:
 
 	# Un respawn o un teleport mueve al jugador de golpe. Con una evaluacion cada N frames,
 	# durante esos frames las formas de su nuevo destino siguen apagadas y el jugador

@@ -141,6 +141,15 @@ func _on_visual_budget_level_changed(level: int, max_level: int) -> void:
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
 		return
+	var _pm = get_node_or_null("/root/PerformanceMonitor")
+	if _pm != null and _pm.perfil_corrida_activo():
+		_pm.perfil_inicio("PipeCoolantRun")
+		_paso(delta)
+		_pm.perfil_fin("PipeCoolantRun")
+		return
+	_paso(delta)
+
+func _paso(delta: float) -> void:
 	# La fase y la intensidad continúan actualizándose también en LOD lejano: la versión
 	# distante es deliberadamente simple, pero debe seguir leyendo como fluido en marcha.
 	var target_intensity: float = clamp(flow_intensity, 0.0, 1.0)

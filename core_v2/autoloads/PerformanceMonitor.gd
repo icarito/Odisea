@@ -213,11 +213,15 @@ func _expected_fps() -> float:
 # --- Instrumentation API ---
 
 func profiling_start(name: String):
+	if _perfil_corrida_on:
+		perfil_inicio(name)
 	if not _profiling_enabled: return
 	_profiling_stats[name] = _profiling_stats.get(name, {"sum": 0, "count": 0, "start": 0})
 	_profiling_stats[name]["start"] = OS.get_ticks_usec()
 
 func profiling_end(name: String):
+	if _perfil_corrida_on:
+		perfil_fin(name)
 	if not _profiling_enabled: return
 	if not _profiling_stats.has(name): return
 	var duration = OS.get_ticks_usec() - _profiling_stats[name]["start"]
@@ -458,6 +462,64 @@ func _should_log_lag_spike(now_msec: int, drop: float) -> bool:
 		return true
 	var interval_msec := int(LAG_LOG_INTERVAL_SEC * 1000.0)
 	return now_msec - _last_lag_log_time_msec >= interval_msec
+
+# --- Perfil de una corrida entera ---
+#
+# El acumulador de measure_start/measure_end se limpia en cada muestra (arriba, paso 5),
+# asi que sirve para "quien esta pesado ahora" pero no para "en que se fue el tick a lo
+# largo de una corrida". Esto ultimo es lo que hace falta para repartir los ~11 ms de
+# fisica que cuesta un tick en un telefono de gama media, donde el servidor de fisica no
+# hace nada (cero cuerpos activos) y todo el costo es GDScript.
+#
+# Lo enciende SessionManager cuando se pide traza de replay, y se vuelca junto con la
+# traza: una corrida del mismo replay determinista da el reparto completo, sin red en el
+# medio (medir por HTTP compila un GDScript por consulta y perturba lo que mide).
+var _perfil_corrida := {}      # { clave: { usec, llamadas } }
+var _perfil_inicio := {}       # { clave: usec de la llamada abierta }
+var _perfil_corrida_on := false
+
+func perfil_corrida_iniciar() -> void:
+	_perfil_corrida.clear()
+	_perfil_inicio.clear()
+	_perfil_corrida_on = true
+
+func perfil_corrida_activo() -> bool:
+	return _perfil_corrida_on
+
+# Devuelve el reparto ordenado de mayor a menor y apaga el perfil.
+func perfil_corrida_terminar() -> Array:
+	_perfil_corrida_on = false
+	var filas := []
+	for clave in _perfil_corrida:
+		var e = _perfil_corrida[clave]
+		var llamadas: int = int(e["llamadas"])
+		filas.append({
+			"sistema": clave,
+			"ms_total": float(e["usec"]) / 1000.0,
+			"llamadas": llamadas,
+			"ms_por_llamada": (float(e["usec"]) / float(max(1, llamadas))) / 1000.0
+		})
+	filas.sort_custom(self, "_perfil_desc")
+	return filas
+
+func perfil_inicio(clave: String) -> void:
+	if not _perfil_corrida_on:
+		return
+	_perfil_inicio[clave] = OS.get_ticks_usec()
+
+func perfil_fin(clave: String) -> void:
+	if not _perfil_corrida_on or not _perfil_inicio.has(clave):
+		return
+	var usec: int = OS.get_ticks_usec() - int(_perfil_inicio[clave])
+	_perfil_inicio.erase(clave)
+	if not _perfil_corrida.has(clave):
+		_perfil_corrida[clave] = {"usec": 0, "llamadas": 0}
+	_perfil_corrida[clave]["usec"] += usec
+	_perfil_corrida[clave]["llamadas"] += 1
+
+func _perfil_desc(a, b):
+	return a["ms_total"] > b["ms_total"]
+
 
 func _get_top_heavy_nodes() -> Array:
 	var list = []

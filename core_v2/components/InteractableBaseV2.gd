@@ -364,4 +364,9 @@ func restore_snapshot(data: Dictionary) -> void:
 # --- PHYSICS PROCESS ---
 
 func _physics_process(delta: float) -> void:
+	if _perf_monitor != null and _perf_monitor.perfil_corrida_activo():
+		_perf_monitor.perfil_inicio("Interactables")
+		step(delta)
+		_perf_monitor.perfil_fin("Interactables")
+		return
 	step(delta)

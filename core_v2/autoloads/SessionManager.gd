@@ -1991,6 +1991,10 @@ func load_and_play(path: String, perf_label: String = ""):
 	_replay_perf = []
 	_replay_perf_label = perf_label
 	_replay_perf_on = perf_label != "" or OS.get_environment("ODISEA_REPLAY_PERF") in ["1", "true", "yes", "on"]
+	if _replay_perf_on:
+		var pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+		if pm_perfil != null and pm_perfil.has_method("perfil_corrida_iniciar"):
+			pm_perfil.perfil_corrida_iniciar()
 	_session_run_id += 1
 	var my_run_id = _session_run_id
 	if is_instance_valid(CinematicManager) and CinematicManager.has_method("reset"):
@@ -2552,9 +2556,16 @@ func _volcar_perf(etiqueta: String) -> void:
 	if f.open(REPLAY_PERF_PATH, File.WRITE) != OK:
 		printerr("[SessionManager] No se pudo escribir ", REPLAY_PERF_PATH)
 		return
+	# Reparto del tick entre los sistemas instrumentados. Lo que no aparece aca es
+	# "todo lo demas": comparar contra ms_physics de las muestras.
+	var perfiles := []
+	var pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	if pm_perfil != null and pm_perfil.has_method("perfil_corrida_terminar"):
+		perfiles = pm_perfil.perfil_corrida_terminar()
 	f.store_string(JSON.print({
 		"etiqueta": etiqueta,
 		"frames": _replay_perf.size(),
+		"perfiles": perfiles,
 		"muestras": _replay_perf,
 	}))
 	f.close()

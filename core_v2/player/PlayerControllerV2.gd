@@ -3092,6 +3092,16 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 	return result
 
 func _physics_process(_delta):
+	# Envoltorio de perfilado: el cuerpo tiene varios return, asi que se mide desde afuera.
+	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if pm != null and pm.perfil_corrida_activo():
+		pm.perfil_inicio("PlayerControllerV2")
+		_paso_fisica(_delta)
+		pm.perfil_fin("PlayerControllerV2")
+		return
+	_paso_fisica(_delta)
+
+func _paso_fisica(_delta):
 	_tick_arrival_cam_trace()
 	if _exit_log_frames > 0:
 		_exit_log_frames -= 1
