@@ -810,6 +810,18 @@ jobs:
       # The exporter packages every texture destination named by a cached .import
       # manifest. Normalize this disposable CI checkout so stale ETC/PVRTC outputs
       # from another platform cannot inflate a desktop PCK.
+      # El cache de .import/ trae la variante "de escritorio" de cada textura en BPTC
+      # (el proyecto importa con import_bptc=true). Ningun navegador soporta BPTC y Godot
+      # elige ese slot en cuanto el driver anuncia S3TC, que es lo que hace WebGL2: la
+      # textura no sube ("image->is_compressed()" en rasterizer_storage_gles3.cpp) y el
+      # material se dibuja sin ella. El trim de formatos de arriba ya puso bptc=False para
+      # html5, pero Godot no reimporta una textura cuyo fuente no cambio; hay que borrarle
+      # el artefacto para que la regenere como DXT. Solo borra lo que de verdad es BPTC,
+      # asi que en cuanto el cache tiene DXT esto queda en no-op.
+      - name: Drop BPTC texture artifacts (web needs DXT)
+        if: matrix.platform == 'html5'
+        run: python3 scripts/drop_bptc_web_artifacts.py
+
       - name: Limit cached VRAM texture variants
         run: python3 scripts/limit_vram_import_formats.py "${{ matrix.platform }}"
 

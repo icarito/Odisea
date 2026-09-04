@@ -22,7 +22,10 @@ PLATFORM_FORMATS = {
 	"macos": {"s3tc"},
 	"linux_arm64": {"s3tc", "etc"},
 	"android": {"s3tc", "etc", "etc2"},
-	"html5": {"s3tc", "etc"},
+	# El trim de formatos del workflow genera s3tc (DXT, tras drop_bptc_web_artifacts.py)
+	# y etc2; ETC1 no se genera para web, listarlo aca solo dejaba manifests apuntando a un
+	# archivo inexistente.
+	"html5": {"s3tc", "etc2"},
 	"ios": {"s3tc", "etc", "etc2", "pvrtc"},
 }
 
