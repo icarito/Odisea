@@ -122,6 +122,60 @@ Con 40 slots el paso es 9°, o sea **5 pods por cada sector de 45° del hub**.
 `Floor_5`). Un sector `k` salteado en el hub se tapa en los criopods con
 `Vector2(45*k, 45*(k+1))`.
 
+## Colisión de los pisos del hub: es una malla aparte, no la visual
+
+Desde 2026-09-03 el `CombinedCollision` de cada piso **no** es una copia de la malla
+visual. `ScaffoldHubRing` construye dos cosas:
+
+- **visual**: deck de rejilla + deck + marco + baranda de tubos redondos (10 lados) +
+  franja hazard.
+- **colisión**: deck + marco + **parapeto** — una pared delgada del alto de la baranda por
+  cada tramo, con la misma partición en huecos. Nunca lleva la franja hazard, porque es una
+  marca sobre el deck y elevaría el piso.
+
+Por qué: la baranda de tubos eran ~200 triángulos por tramo y el **95 %** de los triángulos
+de colisión del hub. Los cinco pisos pasaron de **18 026 a 1 858 triángulos** de colisión
+(casi 10×) sin tocar un píxel de la visual. El parapeto además cierra los huecos entre
+pasamanos, por los que un cuerpo chico podía colarse.
+
+Dos consecuencias al trabajar acá:
+
+1. **Tocar la baranda visual ya no cambia la colisión** y viceversa. Si se mueve un tramo,
+   hay que verificar los dos: `_add_rail_edge` (visual) y `_add_rail_parapet` (colisión) se
+   alimentan de la misma lista de huecos, así que basta con no romper esa simetría.
+2. **Cambiar la geometría de colisión invalida las grabaciones previas** que pasen por el
+   hub. Medido en el cambio del parapeto: el mismo replay determinista derivó 0.142 m
+   respecto de su grabación anterior (no es una caída: la Y final coincide, el jugador roza
+   la baranda distinto contra una pared que contra cinco tubos).
+
+### Cómo rehornear y verificar
+
+```bash
+godot3-bin --path . --no-window -s tools/bake_dome_intro_hub_floors.gd   # los 5 pisos
+make bake-dome-geometry                                                  # pipes + scaffold + hub
+```
+
+Después del horneado, tres chequeos en orden de rapidez:
+
+```bash
+# 1. triángulos de colisión por piso (los .shape son el producto)
+godot3-bin --path . --no-window -s <script que cargue Dome_Intro_Floor_N_baked.shape
+                                    e imprima get_faces().size() / 3>
+
+# 2. que el jugador siga sin caerse: el replay recorre la torre hasta y=22.7
+DBG_REPLAY=user://replay_1788458596.json godot3-bin --path . -s tools/dbg_replay_run.gd
+
+# 3. los fixtures de determinismo, DE A UNO
+./runtest.sh --oys test_locomocion_strafe
+./runtest.sh --oys test_push_clipping
+```
+
+El punto 3 va de a uno a propósito: corriendo la suite entera (32 replays en un proceso)
+esos dos fixtures fallan por lentitud del proceso, con drift 5.742307 y 0.250259
+respectivamente — los mismos números siempre. Aislados pasan. Es fragilidad del banco, no
+del cambio que se esté probando; no interpretar esos dos como regresión sin repetirlos
+aislados.
+
 ## `ScaffoldHubRing.skipped_sides`
 
 Índices de sector que no se construyen (ni deck, ni baranda de arco, ni franja, ni
