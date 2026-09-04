@@ -1835,13 +1835,18 @@ func _revertir_mitigacion() -> void:
 		OS.set_environment(MOBILE_WEB_RENDER_SCALE_ENV, str(_mitigacion_previo["escala"]))
 		_apply_mobile_web_render_scale()
 	var env: Environment = _active_environment()
-	if env != null and _mitigacion_previo.has("glow"):
+	var restore_effects := _should_restore_expensive_effects(OS.get_name())
+	if env != null and _mitigacion_previo.has("glow") and restore_effects:
 		env.glow_enabled = _mitigacion_previo["glow"]
 		env.adjustment_enabled = _mitigacion_previo["adjustment"]
 		env.dof_blur_far_enabled = _mitigacion_previo["dof_far"]
 		env.dof_blur_near_enabled = _mitigacion_previo["dof_near"]
 	_mitigacion_previo.clear()
-	print("[SessionManager] Mitigacion revertida: fps sostenido, vuelven glow/adjustment/DOF y la escala")
+	print("[SessionManager] Mitigacion revertida: fps sostenido; efectos caros %s" % ("restaurados" if restore_effects else "quedan apagados en Android"))
+
+func _should_restore_expensive_effects(os_name: String) -> bool:
+	# En Android, reactivar estos pases recompila shaders y convierte la recuperacion en otro spike.
+	return os_name != "Android"
 
 func _apply_dynamic_performance_mitigation() -> void:
 	_performance_mitigation_active = true

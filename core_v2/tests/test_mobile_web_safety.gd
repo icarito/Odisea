@@ -22,6 +22,14 @@ func test_session_manager_computes_downscaled_mobile_web_render_size() -> void:
 
 	sm.free()
 
+func test_android_mitigation_does_not_recompile_expensive_effects() -> void:
+	var sm = SessionManagerScript.new()
+
+	assert_bool(sm._should_restore_expensive_effects("Android")).is_false()
+	assert_bool(sm._should_restore_expensive_effects("HTML5")).is_true()
+
+	sm.free()
+
 func test_mobile_web_safety_defaults_to_medium_profile() -> void:
 	var sm = SessionManagerScript.new()
 	var prev_profile = OS.get_environment("ODISEA_GRAPHICS_PROFILE")
