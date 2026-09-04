@@ -1652,7 +1652,11 @@ func _setup_interact_area():
 	_interact_area.name = "InteractArea"
 	_interact_area.monitorable = false
 	_interact_area.monitoring = true
-	_interact_area.collision_mask = 255
+	# Mismo valor que el InteractArea de Pilot_v2.tscn: 87 = 1|2|4|16|64. Sin bit 1
+	# algunos interactuables (FreeAirlockDoor, ValveWheel del hatch) dejan de verse:
+	# resuelven por bodies propios en la capa por defecto. Sin 8/32/128: nada solido
+	# vive ahi y nunca fue interactuable.
+	_interact_area.collision_mask = 87
 	var shape = CollisionShape.new()
 	var box = BoxShape.new()
 	box.extents = Vector3(1.5, 1.0, interact_distance / 2.0) # Widened to maintain contact when off-center
