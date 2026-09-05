@@ -2792,10 +2792,6 @@ window/handheld/orientation="sensor_landscape"
 window/stretch/mode="viewport"
 window/stretch/aspect="expand"
 
-[editor_plugins]
-
-enabled=PoolStringArray(  )
-
 [gdunit3]
 
 settings/test/test_root_folder="core_v2/tests"

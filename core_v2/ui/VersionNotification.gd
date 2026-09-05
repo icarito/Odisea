@@ -67,16 +67,11 @@ func _on_update_available(info: Dictionary):
 		type = "Delta"
 	var size_mb = artifact.get("size", 0) / (1024.0 * 1024.0)
 
-	# Pre-bajar en background ya, para que el clic de confirmación aplique al
-	# instante (la barra solo se muestra al confirmar). Desktop: solo si es delta
-	# (descarga chica). Android: siempre, porque hoy no hay delta y el APK completo
-	# es justamente lo que más tarda si se espera a que el usuario confirme. Ni
-	# web ni iOS, que delegan a shell/store en vez de bajar un artifact acá.
+	# Pre-bajar solo los deltas chicos de desktop. En Android, bajar un APK completo
+	# sin confirmación compite con el juego por CPU, red y almacenamiento.
 	var platform = OS.get_name()
 	if UpdateManager.get_status() == "available":
-		if platform == "Android":
-			UpdateManager.begin_update(true)
-		elif _is_delta_update and platform != "HTML5" and platform != "iOS":
+		if _is_delta_update and platform != "Android" and platform != "HTML5" and platform != "iOS":
 			UpdateManager.begin_update()
 
 	# Tabla "burocrática" alineada (fuente monospace del tema retro): compara el build

@@ -777,7 +777,7 @@ fixture_high_mesh = ExtResource( 24 )
 fixture_lod_mesh = ExtResource( 25 )
 fixture_lod_distance = 1.0
 fixture_cull_distance = 22.0
-rebuild_baked_items = true
+rebuild_baked_items = false
 
 [node name="Markers" type="MultiMeshInstance" parent="WallLights"]
 visible = false

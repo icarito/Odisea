@@ -473,6 +473,7 @@ func _set_new_scene(resource: PackedScene):
 		_load_error = "Could not instance scene %s" % _next_scene_path
 		return
 	_report_transition("instance_created")
+	_prepare_android_environment(new_scene, OS.get_name())
 
 	var tree := get_tree()
 	var old_scene := tree.current_scene
@@ -501,12 +502,16 @@ func _set_new_scene(resource: PackedScene):
 		tree.root.add_child(new_scene)
 		tree.current_scene = new_scene
 
+	_report_transition("tree_attached")
 	yield(tree, "idle_frame")
+	_report_transition("first_idle_frame")
 	if not seamless:
 		yield(tree, "idle_frame")
+	_report_transition("initial_frames_ready")
 
 	emit_signal("pre_spawn_state", _next_scene_path, new_scene, _transition_params)
 
+	_report_transition("spawn_started")
 	var prep_state = _apply_spawn_and_state(new_scene)
 	if prep_state is GDScriptFunctionState:
 		yield(prep_state, "completed")
@@ -518,6 +523,24 @@ func _set_new_scene(resource: PackedScene):
 	# across frames so they don't instance everything in the arrival frame — that
 	# bulk instancing is the load spike felt as a freeze on scene transition.
 	call_deferred("_drive_deferred_builds")
+
+
+func _prepare_android_environment(scene: Node, os_name: String) -> void:
+	if os_name != "Android":
+		return
+	var pending: Array = [scene]
+	while not pending.empty():
+		var node: Node = pending.pop_back()
+		if node is WorldEnvironment and node.environment != null:
+			# Preparar antes de entrar al World; conservar el recurso compartido del nivel.
+			var environment: Environment = node.environment.duplicate()
+			environment.glow_enabled = false
+			environment.adjustment_enabled = false
+			environment.dof_blur_far_enabled = false
+			environment.dof_blur_near_enabled = false
+			node.environment = environment
+		for child in node.get_children():
+			pending.append(child)
 
 # Generic incremental driver: any node in the "deferred_build" group that exposes
 # begin_deferred_build()/deferred_build_step()/has_pending_deferred_items() gets
@@ -945,6 +968,9 @@ func _get_effective_transition_timeout_ms() -> int:
 	return int(timeout_s * 1000.0)
 
 func _report_transition(stage: String, error: String = "", progress: float = -1.0) -> void:
+	# Log persistente: el heartbeat puede saltarse etapas durante un bloqueo del render.
+	if stage in ["instancing", "instance_created", "tree_attached", "first_idle_frame", "initial_frames_ready", "spawn_started", "scene_ready", "completed"]:
+		print("[SceneStartup] %s %s elapsed_ms=%d" % [_next_scene_path, stage, max(0, OS.get_ticks_msec() - _transition_started_ms)])
 	var telemetry = get_node_or_null("/root/ANNAV2")
 	if telemetry == null or not telemetry.has_method("register_telemetry_point"):
 		return
