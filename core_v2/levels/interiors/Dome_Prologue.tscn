@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://core_v2/levels/interiors/Dome_Base.tscn" type="PackedScene" id=1]
 [ext_resource path="res://scenes/common/space_environment/Environment_InteriorLab.tres" type="Environment" id=2]
+[ext_resource path="res://core_v2/props/machinery/walking_cargo_transporter_rig.tscn" type="PackedScene" id=3]
 
 [node name="Dome_Prologue" type="Spatial"]
 
@@ -31,6 +32,12 @@ light_pool_size = 0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 2 )
+
+[node name="walking_cargo_transporter_rig" parent="." instance=ExtResource( 3 )]
+transform = Transform( 0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01, 0.182846, -0.117982, 2.57125 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0 )
 
 [editable path="Dome_Base"]
 [editable path="Dome_Base/Airlock_North"]
