@@ -13,20 +13,23 @@ extends Spatial
 const STANCE_PHASE := 0.5
 
 export(bool) var walking := true  # si camina o sostiene la pose de reposo
-export(float, 0.0, 4.0) var walk_speed := 0.8  # avance sobre el piso en m/s
-export(float, 0.4, 4.0) var cycle_time := 2.0  # duracion del ciclo de paso en s
-export(float, 0.0, 1.5) var step_height := 0.3  # altura del arco de swing en m
+export(float, 0.0, 4.0) var walk_speed := 0.6  # avance sobre el piso en m/s
+export(float, 0.4, 4.0) var cycle_time := 1.2  # duracion del ciclo de paso en s
+export(float, 0.0, 1.5) var step_height := 0.25  # altura del arco de swing en m
+export(float, 0.0, 1.0) var crouch_m := 0.15  # agachado del cuerpo al caminar (m)
 export var forward_local := Vector3(0, 0, 1)  # avance en espacio local del rig
 
 var _time := 0.0
 var _rig: Spatial
 var _legs := []
 var _forward := Vector3(0, 0, 1)
+var _units_per_m := 1.0
 
 func _ready() -> void:
 	add_to_group("replay_sync")
 	_rig = find_node("Rig", true, false)
 	_forward = forward_local.normalized()
+	_units_per_m = 1.0 / max(0.000001, _rig.global_transform.basis.get_scale().y)
 	for s in ["L", "R"]:
 		var hip: Spatial = _rig.get_node("Hip" + s)
 		var knee: Spatial = hip.get_node("Knee" + s)
@@ -52,6 +55,10 @@ func _physics_process(delta: float) -> void:
 	if walking:
 		_time += delta
 		global_transform.origin += fw * walk_speed * delta
+		# agachado: baja el cuerpo para que las rodillas tengan rango de paso
+		_rig.position.y = -crouch_m * _units_per_m
+	else:
+		_rig.position.y = 0.0
 	var stride := walk_speed * cycle_time
 	for leg in _legs:
 		_solve_leg(leg, _foot_target(leg, stride, fw))
@@ -61,12 +68,14 @@ func _foot_target(leg: Dictionary, stride: float, fw: Vector3) -> Vector2:
 		return leg.rest_target_2d
 	var phase := fmod(_time / cycle_time + leg.offset, 1.0)
 	if phase < STANCE_PHASE:
-		return Vector2(leg.planted.y, leg.planted.z)
+		var stance_local: Vector3 = _to_local(leg.planted)
+		return Vector2(stance_local.y, stance_local.z)
 	var sp: float = (phase - STANCE_PHASE) / STANCE_PHASE
 	var swing_to: Vector3 = leg.swing_from + fw * stride
 	var pos: Vector3 = leg.swing_from.linear_interpolate(swing_to, sp)
 	pos.y = leg.planted.y + step_height * sin(sp * PI)
-	return Vector2(pos.y, pos.z)
+	var swing_local: Vector3 = _to_local(pos)
+	return Vector2(swing_local.y, swing_local.z)
 
 func _solve_leg(leg: Dictionary, target_2d: Vector2) -> void:
 	var h2: Vector2 = leg.h2
@@ -92,6 +101,9 @@ func _signed_angle(rest: Vector2, desired: Vector2) -> float:
 	var cross: float = rest.x * desired.y - rest.y * desired.x
 	var dot: float = rest.dot(desired)
 	return atan2(cross, dot)
+
+func _to_local(world: Vector3) -> Vector3:
+	return _rig.global_transform.affine_inverse() * world
 
 # ---- snapshot (replay) ----
 

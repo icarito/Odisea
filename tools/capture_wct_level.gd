@@ -53,7 +53,7 @@ func _idle(_delta: float) -> bool:
 	if _frames == int(__capture_frame):
 		var img: Image = root.get_texture().get_data()
 		img.flip_y()
-		img.save_png("/tmp/kilo/diag_spike/%s.png" % _out_name)
-		print("[CaptureWCT] guardado /tmp/kilo/diag_spike/%s.png (frames=%d)" % [_out_name, _frames])
+		img.save_png("test_output/props/%s.png" % _out_name)
+		print("[CaptureWCT] guardado test_output/props/%s.png (frames=%d)" % [_out_name, _frames])
 		return true
 	return false
