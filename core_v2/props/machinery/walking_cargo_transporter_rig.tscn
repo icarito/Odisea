@@ -1,9 +1,10 @@
-[gd_scene load_steps=33 format=2]
+[gd_scene load_steps=34 format=2]
 
 [ext_resource path="res://core_v2/props/machinery/textures/walking_cargo_transporter_normal.png" type="Texture" id=1]
-[ext_resource path="res://core_v2/props/machinery/textures/walking_cargo_transporter_emission.png" type="Texture" id=2]
+[ext_resource path="res://core_v2/props/machinery/WalkingCargoTransporterRig.gd" type="Script" id=2]
 [ext_resource path="res://core_v2/props/machinery/textures/walking_cargo_transporter_albedo.png" type="Texture" id=3]
 [ext_resource path="res://core_v2/props/machinery/textures/walking_cargo_transporter_orm.png" type="Texture" id=4]
+[ext_resource path="res://core_v2/props/machinery/textures/walking_cargo_transporter_emission.png" type="Texture" id=5]
 
 [sub_resource type="ConvexPolygonShape" id=541]
 points = PoolVector3Array( -262.532, -682.084, -199.611, -316.382, -762.881, -280.374, -289.465, -762.881, -280.374, -397.166, -601.343, -388.085, -370.217, -762.881, -172.683, -262.532, -601.343, -361.158, -397.166, -574.404, -307.281, -262.532, -682.084, -361.158, -370.217, -682.084, -172.683, -289.465, -574.404, -307.281, -262.532, -735.943, -172.683, -397.166, -655.201, -361.158, -235.599, -709.023, -307.281, -235.599, -655.201, -280.374, -262.532, -762.881, -199.611, -289.465, -574.404, -361.158, -289.465, -682.084, -172.683, -316.382, -628.263, -388.085, -262.532, -601.343, -280.374 )
@@ -76,7 +77,7 @@ emission = Color( 0, 0, 0, 1 )
 emission_energy = 1.0
 emission_operator = 0
 emission_on_uv2 = false
-emission_texture = ExtResource( 2 )
+emission_texture = ExtResource( 5 )
 normal_enabled = true
 normal_scale = 1.0
 normal_texture = ExtResource( 1 )
@@ -212,8 +213,13 @@ surfaces/0 = {
 "vertex_count": 2883
 }
 
-[node name="walking_cargo_transporter" type="Spatial"]
-transform = Transform( 0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01, -0.61865, -0.160069, -1.64132 )
+[node name="walking_cargo_transporter_rig" type="Spatial"]
+script = ExtResource( 2 )
+walking = true
+walk_speed = 0.8
+cycle_time = 2.0
+step_height = 0.3
+forward_local = Vector3( 0, 0, 1 )
 
 [node name="Sketchfab_model" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 2.22045e-16, 1, 0, -1, 2.22045e-16, 0, 0, 0 )

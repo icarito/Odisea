@@ -18,6 +18,11 @@ func _init() -> void:
 	var packed: PackedScene = load(SRC)
 	assert(packed != null)
 	var root: Node = packed.instance()
+	root.name = "walking_cargo_transporter_rig"
+	# el rig se entrega en unidades del modelo, sin transform heredado:
+	# el nivel coloca y escala la instancia.
+	root.transform = Transform.IDENTITY
+	root.set_script(load("res://core_v2/props/machinery/WalkingCargoTransporterRig.gd"))
 
 	var mi: MeshInstance = null
 	var stack := [root]
