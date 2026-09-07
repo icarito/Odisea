@@ -105,6 +105,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ steps.ctx.outputs.head_sha }}
+      # Los 8 presets tienen que empaquetar lo mismo: si divergen, una sola
+      # plataforma sale sin un asset y no se nota hasta que un jugador abre la
+      # escena. Vale mas fallar aca que gastar 8 builds (y una subida a
+      # TestFlight) para descubrirlo despues.
+      - name: Validate export presets
+        run: python3 scripts/check_export_presets.py
       - id: meta
         env:
           REF_NAME: ${{ steps.ctx.outputs.ref_name }}
