@@ -8,15 +8,16 @@ extends Spatial
 #   LegsJoined/Rig/{Body, HipL->KneeL->(ShinL, FootL), HipR->...}
 # Las articulaciones rotan sobre el eje X: el mecanismo de cada pierna es
 # planar en (Y,Z) con los desfases X de cada segmento constantes. La rodilla
-# apunta hacia +Z del modelo (pierna digitigrada).
+# dobla hacia -Z del modelo (hacia atras), el pie queda nivelado.
 
 const STANCE_PHASE := 0.5
 
 export(bool) var walking := true  # si camina o sostiene la pose de reposo
-export(float, 0.0, 4.0) var walk_speed := 0.6  # avance sobre el piso en m/s
-export(float, 0.4, 4.0) var cycle_time := 1.2  # duracion del ciclo de paso en s
+export(float, 0.0, 4.0) var walk_speed := 0.7  # avance sobre el piso en m/s
+export(float, 0.4, 4.0) var cycle_time := 1.5  # duracion del ciclo de paso en s (paso mas largo = andar pesado)
 export(float, 0.0, 1.5) var step_height := 0.25  # altura del arco de swing en m
-export(float, 0.0, 1.0) var crouch_m := 0.15  # agachado del cuerpo al caminar (m)
+export(float, 0.0, 1.0) var crouch_m := 0.35  # agachado del cuerpo al caminar (m)
+export(float, 0.0, 0.5) var bob_m := 0.06  # oscilacion vertical de la plataforma al caminar (m)
 export var forward_local := Vector3(0, 0, 1)  # avance en espacio local del rig
 
 var _time := 0.0
@@ -33,12 +34,13 @@ func _ready() -> void:
 	for s in ["L", "R"]:
 		var hip: Spatial = _rig.get_node("Hip" + s)
 		var knee: Spatial = hip.get_node("Knee" + s)
-		var foot: Spatial = knee.get_node("Foot" + s)
+		var shin: Spatial = knee.get_node("Shin" + s)
+		var foot: Spatial = shin.get_node("Foot" + s)
 		var rest1_2d := Vector2(knee.translation.y, knee.translation.z)
 		var rest2_2d := Vector2(foot.translation.y, foot.translation.z)
 		var rest_ankle_2d := Vector2(hip.translation.y, hip.translation.z) + rest1_2d + rest2_2d
 		_legs.append({
-			"hip": hip, "knee": knee, "foot": foot,
+			"hip": hip, "knee": knee, "shin": shin, "foot": foot,
 			"l1": rest1_2d.length(),
 			"l2": rest2_2d.length(),
 			"rest1_2d": rest1_2d,
@@ -48,15 +50,18 @@ func _ready() -> void:
 			"planted": foot.global_transform.origin,
 			"swing_from": foot.global_transform.origin,
 			"offset": 0.0 if s == "L" else 0.5,
+			"phase_prev": 0.0 if s == "L" else 0.5,
 		})
 
 func _physics_process(delta: float) -> void:
 	var fw := (global_transform.basis * forward_local).normalized()
+	var phase_l := fmod(_time / cycle_time, 1.0)
 	if walking:
 		_time += delta
 		global_transform.origin += fw * walk_speed * delta
-		# agachado: baja el cuerpo para que las rodillas tengan rango de paso
-		_rig.position.y = -crouch_m * _units_per_m
+		# agachado + bob: baja el cuerpo y oscila con cada paso
+		var bob := -bob_m * _units_per_m * (0.5 - 0.5 * cos(4.0 * PI * phase_l))
+		_rig.position.y = -crouch_m * _units_per_m + bob
 	else:
 		_rig.position.y = 0.0
 	var stride := walk_speed * cycle_time
@@ -67,15 +72,28 @@ func _foot_target(leg: Dictionary, stride: float, fw: Vector3) -> Vector2:
 	if not walking:
 		return leg.rest_target_2d
 	var phase := fmod(_time / cycle_time + leg.offset, 1.0)
+	_gait_transitions(leg, phase, stride, fw)
 	if phase < STANCE_PHASE:
 		var stance_local: Vector3 = _to_local(leg.planted)
 		return Vector2(stance_local.y, stance_local.z)
 	var sp: float = (phase - STANCE_PHASE) / STANCE_PHASE
-	var swing_to: Vector3 = leg.swing_from + fw * stride
-	var pos: Vector3 = leg.swing_from.linear_interpolate(swing_to, sp)
+	var sp_smooth: float = sp - sin(sp * TAU) / TAU
+	var pos: Vector3 = leg.swing_from.linear_interpolate(leg.planted, sp_smooth)
 	pos.y = leg.planted.y + step_height * sin(sp * PI)
 	var swing_local: Vector3 = _to_local(pos)
 	return Vector2(swing_local.y, swing_local.z)
+
+# Maquina de estados del paso: al iniciar el swing se re-plantan los pies
+# stride adelante (antes quedaban clavados en el punto del _ready para
+# siempre y el cuerpo se alejaba estirando las patas tras el clamp).
+func _gait_transitions(leg: Dictionary, phase: float, stride: float, fw: Vector3) -> void:
+	var prev: float = leg.phase_prev
+	if prev < STANCE_PHASE and phase >= STANCE_PHASE:
+		leg.swing_from = leg.planted
+		leg.planted = leg.planted + fw * stride
+	elif prev > phase:
+		leg.phase_prev = 0.0
+	leg.phase_prev = phase
 
 func _solve_leg(leg: Dictionary, target_2d: Vector2) -> void:
 	var h2: Vector2 = leg.h2
@@ -84,14 +102,15 @@ func _solve_leg(leg: Dictionary, target_2d: Vector2) -> void:
 	var dir := d_vec.normalized()
 	var cos_a: float = (leg.l1 * leg.l1 + d * d - leg.l2 * leg.l2) / (2.0 * leg.l1 * d)
 	var a: float = acos(clamp(cos_a, -1.0, 1.0))
+	# la rodilla (el perno de la biela) dobla hacia +Z (adelante, como el modelo)
 	var knee2d: Vector2 = h2 + _rot2d(dir, -a) * leg.l1
 
 	var hip: Spatial = leg.hip
 	var knee: Spatial = leg.knee
 	var foot: Spatial = leg.foot
-	hip.rotation.x = -_signed_angle(leg.rest1_2d, knee2d - h2)
+	hip.rotation.x = _signed_angle(leg.rest1_2d, knee2d - h2)
 	var dir_shin := (target_2d - knee2d).normalized()
-	knee.rotation.x = -_signed_angle(leg.rest2_2d, dir_shin) - hip.rotation.x
+	knee.rotation.x = _signed_angle(leg.rest2_2d, dir_shin) - hip.rotation.x
 	foot.rotation.x = -(hip.rotation.x + knee.rotation.x)
 
 func _rot2d(v: Vector2, a: float) -> Vector2:

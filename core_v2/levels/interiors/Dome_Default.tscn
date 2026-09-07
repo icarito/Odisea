@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
 [ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=4]
-[ext_resource path="res://scenes/common/space_environment/Environment_InteriorLab.tres" type="Environment" id=5]
+[ext_resource path="res://core_v2/props/machinery/walking_cargo_transporter_rig.tscn" type="PackedScene" id=6]
+[ext_resource path="res://assets/models/brt_bus_platform_low-poly.tscn" type="PackedScene" id=7]
 
 [node name="Dome_Default" type="Spatial"]
 
@@ -117,8 +118,14 @@ light_color = Color( 0.9, 0.95, 1, 1 )
 light_energy = 1.5
 omni_range = 4096.0
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = ExtResource( 5 )
+[node name="walking_cargo_transporter_rig" parent="." instance=ExtResource( 6 )]
+transform = Transform( 0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01, 0.182846, -0.117982, 2.57125 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0 )
+
+[node name="brt_bus_platform_low-poly" parent="." instance=ExtResource( 7 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 26.1431, -0.5, 0 )
 
 [editable path="Airlock_North"]
 [editable path="Airlock_South"]

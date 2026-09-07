@@ -41,6 +41,12 @@ func _idle(_delta: float) -> bool:
 		_foot_init = true
 	_foot_min.y = min(_foot_min.y, fw.y)
 	_foot_max.y = max(_foot_max.y, fw.y)
+	if _frames == 30 or _frames == 90 or _frames == 150:
+		var hip: Spatial = _walker.find_node("HipL", true, false)
+		var knee: Spatial = _walker.find_node("KneeL", true, false)
+		print("[Dbg] f=%d foot_y=%.4f hip_rot=%.3f knee_rot=%.3f hip_tr=%.3f,%.3f knee_tr=%.3f,%.3f" % [
+			_frames, fw.y, hip.rotation.x, knee.rotation.x,
+			hip.translation.x, hip.translation.y, knee.translation.x, knee.translation.y])
 	if _walker._time >= SIM_SECONDS:
 		_results.append(_walker.get_snapshot())
 		_walker.get_parent().queue_free()
