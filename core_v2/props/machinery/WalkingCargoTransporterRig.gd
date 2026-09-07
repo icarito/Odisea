@@ -18,6 +18,7 @@ export(float, 0.4, 4.0) var cycle_time := 1.5  # duracion del ciclo de paso en s
 export(float, 0.0, 1.5) var step_height := 0.25  # altura del arco de swing en m
 export(float, 0.0, 1.0) var crouch_m := 0.35  # agachado del cuerpo al caminar (m)
 export(float, 0.0, 0.5) var bob_m := 0.06  # oscilacion vertical de la plataforma al caminar (m)
+export(float, 0.0, 3.0) var knee_bend := 1.0  # cuanto dobla el perno con el alcance (0 = triangulo rigido)
 export var forward_local := Vector3(0, 0, 1)  # avance en espacio local del rig
 
 var _time := 0.0
@@ -36,16 +37,23 @@ func _ready() -> void:
 		var knee: Spatial = hip.get_node("Knee" + s)
 		var shin: Spatial = knee.get_node("Shin" + s)
 		var foot: Spatial = shin.get_node("Foot" + s)
+		# los tres huesos, cada uno relativo a su padre:
+		#   rest1 = perno - eje de cadera (el muslo)
+		#   rest2 = gota - perno (la canilla)
+		#   rest3 = tobillo - gota (la pata baja)
 		var rest1_2d := Vector2(knee.translation.y, knee.translation.z)
-		var rest2_2d := Vector2(foot.translation.y, foot.translation.z)
-		var rest_ankle_2d := Vector2(hip.translation.y, hip.translation.z) + rest1_2d + rest2_2d
+		var rest2_2d := Vector2(shin.translation.y, shin.translation.z)
+		var rest3_2d := Vector2(foot.translation.y, foot.translation.z)
+		var rest_ankle_2d := Vector2(hip.translation.y, hip.translation.z) + rest1_2d + rest2_2d + rest3_2d
+		var h2 := Vector2(hip.translation.y, hip.translation.z)
 		_legs.append({
 			"hip": hip, "knee": knee, "shin": shin, "foot": foot,
-			"l1": rest1_2d.length(),
-			"l2": rest2_2d.length(),
 			"rest1_2d": rest1_2d,
 			"rest2_2d": rest2_2d,
-			"h2": Vector2(hip.translation.y, hip.translation.z),
+			"rest3_2d": rest3_2d,
+			"l_shin": rest3_2d.length(),
+			"h2": h2,
+			"d_rest": (rest_ankle_2d - h2).length(),
 			"rest_target_2d": rest_ankle_2d,
 			"planted": foot.global_transform.origin,
 			"swing_from": foot.global_transform.origin,
@@ -97,21 +105,38 @@ func _gait_transitions(leg: Dictionary, phase: float, stride: float, fw: Vector3
 
 func _solve_leg(leg: Dictionary, target_2d: Vector2) -> void:
 	var h2: Vector2 = leg.h2
-	var d_vec := target_2d - h2
-	var d: float = clamp(d_vec.length(), abs(leg.l1 - leg.l2) + 1.0, (leg.l1 + leg.l2) * 0.999)
-	var dir := d_vec.normalized()
-	var cos_a: float = (leg.l1 * leg.l1 + d * d - leg.l2 * leg.l2) / (2.0 * leg.l1 * d)
-	var a: float = acos(clamp(cos_a, -1.0, 1.0))
-	# la rodilla (el perno de la biela) dobla hacia +Z (adelante, como el modelo)
-	var knee2d: Vector2 = h2 + _rot2d(dir, -a) * leg.l1
+	var k2off: Vector2 = leg.rest1_2d   # el perno, relativo al eje de cadera
+	var k3off: Vector2 = leg.rest2_2d   # la gota, relativa al perno
+	var aoff: Vector2 = leg.rest3_2d    # el tobillo, relativo a la gota
+	var l_shin: float = leg.l_shin
 
+	var d_vec := target_2d - h2
+	var reach: float = d_vec.length()
+
+	# 1. el perno (la primera rodilla, invertida) dobla con el alcance que se
+	#    le pide a la pierna: al estirarse se despliega, al comprimirse se
+	#    pliega. Sin esto los huesos 1 y 2 forman un triangulo rigido y la
+	#    cadena degenera en dos huesos.
+	var knee_a: float = clamp(-knee_bend * (reach - leg.d_rest) / l_shin, -1.2, 1.2)
+	# el hueso virtual cadera -> gota, ya doblado por el perno
+	var upper: Vector2 = k2off + _rot2d(k3off, knee_a)
+	var l_upper: float = upper.length()
+
+	# 2. el 2-huesos sobre (hueso virtual, canilla): coloca la gota
+	var d: float = clamp(reach, abs(l_upper - l_shin) + 1.0, (l_upper + l_shin) * 0.999)
+	var dir := d_vec.normalized()
+	var cos_a: float = (l_upper * l_upper + d * d - l_shin * l_shin) / (2.0 * l_upper * d)
+	var a: float = acos(clamp(cos_a, -1.0, 1.0))
+	var k3_dir: Vector2 = _rot2d(dir, a)
+	var k3_pos: Vector2 = h2 + k3_dir * l_upper
+
+	# 3. las tres rotaciones + el tobillo que nivela el ski
 	var hip: Spatial = leg.hip
-	var knee: Spatial = leg.knee
-	var foot: Spatial = leg.foot
-	hip.rotation.x = _signed_angle(leg.rest1_2d, knee2d - h2)
-	var dir_shin := (target_2d - knee2d).normalized()
-	knee.rotation.x = _signed_angle(leg.rest2_2d, dir_shin) - hip.rotation.x
-	foot.rotation.x = -(hip.rotation.x + knee.rotation.x)
+	hip.rotation.x = _signed_angle(upper, k3_dir)
+	leg.knee.rotation.x = knee_a
+	var shin_dir: Vector2 = (target_2d - k3_pos).normalized()
+	leg.shin.rotation.x = _signed_angle(aoff, shin_dir) - (hip.rotation.x + knee_a)
+	leg.foot.rotation.x = -(hip.rotation.x + knee_a + leg.shin.rotation.x)
 
 func _rot2d(v: Vector2, a: float) -> Vector2:
 	return Vector2(v.x * cos(a) - v.y * sin(a), v.x * sin(a) + v.y * cos(a))
