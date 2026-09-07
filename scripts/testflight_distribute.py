@@ -6,6 +6,13 @@ internos hasta que alguien lo mueve a mano al grupo externo. Este script hace es
 paso con la App Store Connect API: espera a que Apple termine de procesar el
 build y lo agrega a todos los grupos externos.
 
+Agregar es aditivo: la API no des-promueve nada sola. Apple deja compartir hasta
+100 builds y cada uno caduca a los 90 dias, asi que un nightly diario no llega al
+tope -- pero cualquier dia con dos builds si, dentro de esa ventana. Por eso el
+script deja en cada grupo externo solo los KEEP_IN_GROUP mas recientes y saca el
+resto DEL GRUPO (no los expira: siguen visibles para testers internos y caducan
+solos).
+
 Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_P8, BUNDLE_ID, BUILD_NUMBER.
 """
 
@@ -24,6 +31,9 @@ POLL_INTERVAL_S = 60
 # Si el build ni siquiera aparece en este plazo, es que no se subió (la pata iOS se
 # saltó por falta de secrets): salir limpio en vez de agotar los 45 minutos.
 NOT_FOUND_GRACE_S = 10 * 60
+# Cuantos builds quedan disponibles en cada grupo externo. Los testers instalan
+# el ultimo; los anteriores son para poder volver atras si el nuevo sale mal.
+KEEP_IN_GROUP = 5
 
 
 def token() -> str:
@@ -44,7 +54,7 @@ def token() -> str:
 
 def call(method: str, path: str, body: dict | None = None) -> dict:
     req = urllib.request.Request(
-        f"{API}{path}",
+        path if path.startswith("http") else f"{API}{path}",
         method=method,
         data=json.dumps(body).encode() if body is not None else None,
         headers={
@@ -60,8 +70,32 @@ def call(method: str, path: str, body: dict | None = None) -> dict:
         raise SystemExit(f"ASC {method} {path} -> {exc.code}: {exc.read().decode()}") from exc
 
 
+def call_all(path: str) -> list[dict]:
+    """Sigue links.next hasta agotar la coleccion."""
+    out: list[dict] = []
+    while path:
+        page = call("GET", path)
+        out.extend(page.get("data", []))
+        path = page.get("links", {}).get("next", "")
+    return out
+
+
 def external_group_ids(groups: list[dict]) -> list[str]:
     return [g["id"] for g in groups if not g["attributes"].get("isInternalGroup")]
+
+
+def stale_build_ids(builds: list[dict], keep: int, protected: str) -> list[str]:
+    """Los ids a sacar del grupo: todo lo viejo salvo los `keep` mas recientes.
+
+    `protected` es el build que acabamos de promover; nunca se saca, aunque la
+    fecha de subida venga vacia y quede al fondo del orden.
+    """
+    ordenados = sorted(
+        builds,
+        key=lambda b: b.get("attributes", {}).get("uploadedDate") or "",
+        reverse=True,
+    )
+    return [b["id"] for b in ordenados[keep:] if b["id"] != protected]
 
 
 def main() -> int:
@@ -110,6 +144,18 @@ def main() -> int:
             {"data": [{"type": "builds", "id": build_id}]},
         )
         print(f"build {build_number} -> grupo externo '{name}'")
+
+        sobran = stale_build_ids(
+            call_all(f"/v1/betaGroups/{gid}/builds?limit=200"), KEEP_IN_GROUP, build_id
+        )
+        if sobran:
+            call(
+                "DELETE",
+                f"/v1/betaGroups/{gid}/relationships/builds",
+                {"data": [{"type": "builds", "id": b} for b in sobran]},
+            )
+        print(f"  '{name}': {len(sobran)} build(s) viejo(s) fuera del grupo, "
+              f"quedan los {KEEP_IN_GROUP} mas recientes")
     return 0
 
 
@@ -121,6 +167,15 @@ def self_test() -> int:
     ]
     assert external_group_ids(groups) == ["ext", "old"], external_group_ids(groups)
     assert external_group_ids([]) == []
+
+    def b(i, fecha):
+        return {"id": i, "attributes": {"uploadedDate": fecha}}
+
+    builds = [b("v1", "2026-01-01"), b("v3", "2026-03-01"), b("v2", "2026-02-01")]
+    assert stale_build_ids(builds, 2, "v3") == ["v1"]
+    assert stale_build_ids(builds, 5, "v3") == []          # menos que el tope: nada que sacar
+    assert stale_build_ids(builds, 1, "v1") == ["v2"]      # el protegido no sale aunque sea viejo
+    assert stale_build_ids([b("x", None)], 0, "otro") == ["x"]   # sin fecha, igual se ordena
     print("self-test OK")
     return 0
 
