@@ -1264,6 +1264,12 @@ jobs:
           # blocked. We disable it by forcing the interceptor to pass through.
           mkdir -p build/vercel
           cp -a build/html5/* build/vercel/
+          # El .pck crudo pasó 1 GiB, que es el límite duro de subida por archivo de
+          # Vercel. Solo va el .pck.gz (~390 MB): el loader parcheado por
+          # minimize_html_export.py pide siempre el .gz primero y solo cae al crudo si
+          # falta DecompressionStream, que Safari tiene desde 16.4 — y este mirror
+          # existe justamente para Safari/iOS.
+          rm -f build/vercel/index.pck
           cp vercel.json build/vercel/vercel.json
           # Neutralize the Pages interceptor: inject an early pass-through at the top
           # of the window.fetch override so every asset resolves to its original
@@ -1547,6 +1553,37 @@ jobs:
             --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
           echo "macOS TestFlight upload accepted; Apple will now process build $MAC_BUILD_NUMBER."
 
+  # altool sube el IPA pero lo deja solo para testers internos; mover el build al
+  # grupo externo era el último paso manual. Va en ubuntu (no en el runner macOS)
+  # porque hay que esperar ~15-30 min a que Apple procese el build y los minutos de
+  # macOS cuestan 10x. Si la pata iOS no subió nada, el script sale limpio a los 10 min.
+  testflight-external:
+    needs: [prep, export]
+    runs-on: ubuntu-latest
+    if: ${{ needs.prep.outputs.ref_name == 'main' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'ios') && github.repository == 'icarito/Odisea' }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prep.outputs.head_sha }}
+
+      - name: Distribute build to external TestFlight groups
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          BUNDLE_ID: juegos.educa.odisea
+          BUILD_NUMBER: ${{ needs.prep.outputs.build_seq }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_API_KEY_P8" ]; then
+            echo "App Store Connect secrets missing — skipping TestFlight distribution."
+            exit 0
+          fi
+          pip install --quiet "pyjwt[crypto]"
+          python3 scripts/testflight_distribute.py
+
   deploy-web:
     needs: [prep, export]
     runs-on: ubuntu-latest
@@ -1621,7 +1658,8 @@ jobs:
           # (unlike the Netlify deploy, where they live on GitHub Pages).
           test -s vercel-build/index.html || { echo "::error::Missing Vercel index.html"; exit 1; }
           test -s vercel-build/index.wasm || { echo "::error::Missing Vercel index.wasm (threaded engine)"; exit 1; }
-          test -s vercel-build/index.pck || { echo "::error::Missing Vercel index.pck"; exit 1; }
+          test -s vercel-build/index.pck.gz || { echo "::error::Missing Vercel index.pck.gz"; exit 1; }
+          test ! -e vercel-build/index.pck || { echo "::error::Raw index.pck must not be uploaded to Vercel (1GB per-file limit)"; exit 1; }
           test -s vercel-build/vercel.json || { echo "::error::Missing vercel.json"; exit 1; }
           grep -q "ODISEA_VERCEL_SAME_ORIGIN" vercel-build/index.html || { echo "::error::Pages interceptor not neutralized in Vercel index.html"; exit 1; }
 
@@ -1676,7 +1714,13 @@ jobs:
   deltas:
     needs: [prep, export]
     runs-on: ubuntu-latest
+    # DESACTIVADO (2026-09-07): no producía nada útil hace meses — los últimos
+    # .patch.gz publicados son de los builds 244 y 400 y ya vamos por 522. El job
+    # igual bajaba ~400 MB de .pck.gz por plataforma en cada corrida. El resto del
+    # pipeline degrada solo: sin artifact 'update-deltas', el manifest sale sin
+    # delta y el cliente baja el full. Para reactivarlo, quitar el `false &&`.
     if: |
+      false &&
       needs.prep.outputs.target_platform == 'all' &&
       (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.ref_name == 'release' || needs.prep.outputs.is_dispatch == 'true') &&
       github.repository == 'icarito/Odisea'
