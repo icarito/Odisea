@@ -1264,11 +1264,12 @@ jobs:
           # blocked. We disable it by forcing the interceptor to pass through.
           mkdir -p build/vercel
           cp -a build/html5/* build/vercel/
-          # El .pck crudo pasó 1 GiB, que es el límite duro de subida por archivo de
-          # Vercel. Solo va el .pck.gz (~390 MB): el loader parcheado por
+          # Solo va el .pck.gz, nunca el crudo: el loader parcheado por
           # minimize_html_export.py pide siempre el .gz primero y solo cae al crudo si
           # falta DecompressionStream, que Safari tiene desde 16.4 — y este mirror
-          # existe justamente para Safari/iOS.
+          # existe justamente para Safari/iOS. Subir el crudo era además lo que
+          # reventaba el límite de 1 GiB por archivo de Vercel cuando el pck pesaba
+          # 1024 MB (ver el recorte de include_filter en export_presets.cfg).
           rm -f build/vercel/index.pck
           cp vercel.json build/vercel/vercel.json
           # Neutralize the Pages interceptor: inject an early pass-through at the top
