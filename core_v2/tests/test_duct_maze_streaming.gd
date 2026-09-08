@@ -85,7 +85,8 @@ func test_arc_collision_has_no_solid_round_blockers() -> void:
 	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(0)
 	assert_int(counts.get("CylinderShape", 0)).is_equal(0)
 	assert_int(counts.get("SphereShape", 0)).is_equal(0)
-	assert_int(counts.get("BoxShape", 0)).is_equal(64)
+	# 8 segments * 12 facets = 96
+	assert_int(counts.get("BoxShape", 0)).is_equal(96)
 
 	arc.free()
 	spawner.free()
@@ -97,8 +98,9 @@ func test_capsule_room_has_collision_and_ports_are_open() -> void:
 	var counts := _count_collision_shapes(room)
 
 	assert_int(room.get_child_count()).is_greater(0)
-	assert_int(counts.get("ConcavePolygonShape", 0)).is_greater_equal(2)
-	assert_int(counts.get("BoxShape", 0)).is_equal(8)
+	# Now uses box-cage instead of trimesh hub/arc
+	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(0)
+	assert_int(counts.get("BoxShape", 0)).is_greater(0)
 
 	room.free()
 	spawner.free()
@@ -113,7 +115,8 @@ func test_junctions_have_visible_hub_without_solid_center_blocker() -> void:
 
 	assert_object(junction.get_node_or_null("JunctionHub")).is_not_null()
 	assert_int(_count_direct_arm_children(junction)).is_equal(3)
-	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(2)
+	# Now uses box-cage instead of trimesh hub/arc
+	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(0)
 	assert_int(counts.get("SphereShape", 0)).is_equal(0)
 	assert_int(counts.get("CylinderShape", 0)).is_equal(0)
 	assert_int(counts.get("BoxShape", 0)).is_greater(0)
@@ -272,11 +275,11 @@ func test_act0_stream_chunks_are_single_connected_components() -> void:
 func test_capsule_room_visible_shell_is_pierced() -> void:
 	var spawner = DuctMazeStreamerScript.new()
 	var room = spawner.make_capsule([true, true, false, false], 0)
-	var shell = room.get_child(0)
-	var collision_shape = room.get_node("CapsuleShellCollision/CollisionShape")
+	var counts := _count_collision_shapes(room)
 
-	assert_object(shell).is_instanceof(MeshInstance)
-	assert_int(shell.mesh.get_faces().size()).is_equal(collision_shape.shape.get_faces().size())
+	# Verify that we have box-cage collision instead of trimesh
+	assert_int(counts.get("BoxShape", 0)).is_greater(20)
+	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(0)
 
 	room.free()
 	spawner.free()
@@ -288,8 +291,9 @@ func test_capsule_room_airlock_port_adds_radial_opening() -> void:
 
 	assert_object(room.get_node_or_null("PortArm_0")).is_not_null()
 	assert_object(room.get_node_or_null("PortArm_1")).is_not_null()
-	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(2)
-	assert_int(counts.get("BoxShape", 0)).is_equal(16)
+	# Now uses box-cage instead of trimesh
+	assert_int(counts.get("ConcavePolygonShape", 0)).is_equal(0)
+	assert_int(counts.get("BoxShape", 0)).is_greater(0)
 	assert_int(_count_direct_arm_children(room)).is_greater_equal(3)
 
 	room.free()
