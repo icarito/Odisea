@@ -10,7 +10,7 @@ export(NodePath) var target_path: NodePath
 export(float) var base_intensity: float = 1.0
 export(float, 0.0, 1.0) var on_ratio: float = 0.85
 export(float, 0.1, 30.0) var period: float = 0.9
-export(int) var seed: int = 0 setget set_seed
+export(int) var flicker_seed: int = 0 setget set_seed
 export(bool) var only_when_active: bool = true
 
 var _target: Node = null
@@ -31,11 +31,11 @@ func _ready() -> void:
 	_refresh_process_state()
 
 func set_seed(v: int) -> void:
-	seed = v
+	flicker_seed = v
 	_init_rng()
 
 func _init_rng() -> void:
-	_rng.seed = seed
+	_rng.seed = flicker_seed
 
 func _resolve_target() -> void:
 	if target_path and not target_path.is_empty():
@@ -181,7 +181,7 @@ func calculate_factor(t: float) -> float:
 	var cycle_idx: int = int(floor(t / safe_period))
 	var cycle_t: float = (t - cycle_idx * safe_period) / safe_period
 
-	var cycle_seed: int = hash(seed + cycle_idx * 1013904223)
+	var cycle_seed: int = hash(flicker_seed + cycle_idx * 1013904223)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = cycle_seed
 	var r1: float = rng.randf()
@@ -259,12 +259,12 @@ func _restore_base_values() -> void:
 func get_snapshot() -> Dictionary:
 	return {
 		"time_acc": _time_acc,
-		"seed": seed
+		"seed": flicker_seed
 	}
 
 func restore_snapshot(data: Dictionary) -> void:
 	_time_acc = data.get("time_acc", 0.0)
-	seed = data.get("seed", seed)
+	flicker_seed = data.get("seed", flicker_seed)
 	_init_rng()
 	_resolve_target()
 	_refresh_process_state()

@@ -12,6 +12,7 @@ export(bool) var trigger_once = true
 export(bool) var center_player_on_enter = false
 
 func _init():
+	collision_mask = 2 # OYS triggers listen for the player layer.
 	# Pausar el procesamiento hasta que el arbol de la escena este completamente listo.
 	# Esto es crucial para los tests, para evitar race conditions al cargar la escena.
 	set_physics_process(false)

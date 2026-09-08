@@ -46,6 +46,7 @@ func test_director_registers_and_handles_oys_calls() -> void:
 
 func test_oys_trigger_script_clears_file_on_trigger() -> void:
 	var trigger = OYSTriggerScript.new()
+	assert_int(trigger.collision_mask).is_equal(2)
 	trigger.script_file = ""
 	trigger.trigger_once = true
 	add_child(trigger)

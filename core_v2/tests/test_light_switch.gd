@@ -2,7 +2,7 @@ extends GdUnitTestSuite
 
 const LightSwitchScene := preload("res://core_v2/props/controls/LightSwitchV2.tscn")
 const LightGroupScript := preload("res://core_v2/components/LightGroup.gd")
-const SciFiStaticLightScene := preload("res://core_v2/props/scifi_lights/SciFiStaticLightV2.tscn")
+const SciFiStaticLightScene := preload("res://core_v2/props/lights/SciFiStaticLightV2.tscn")
 
 func _scene_host() -> Node:
 	return get_tree().current_scene if get_tree().current_scene else self

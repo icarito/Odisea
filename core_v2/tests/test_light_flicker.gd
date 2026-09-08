@@ -28,17 +28,17 @@ class SpatialLightTarget:
 
 func test_seed_reproducibility():
 	var flicker1 := LightFlicker.new()
-	flicker1.seed = 12345
+	flicker1.flicker_seed = 12345
 	flicker1.period = 0.8
 	flicker1.on_ratio = 0.75
 
 	var flicker2 := LightFlicker.new()
-	flicker2.seed = 12345
+	flicker2.flicker_seed = 12345
 	flicker2.period = 0.8
 	flicker2.on_ratio = 0.75
 
 	var flicker_diff := LightFlicker.new()
-	flicker_diff.seed = 99999
+	flicker_diff.flicker_seed = 99999
 	flicker_diff.period = 0.8
 	flicker_diff.on_ratio = 0.75
 
@@ -61,22 +61,21 @@ func test_seed_reproducibility():
 	assert_array(sequence1).is_not_equal(sequence_diff)
 
 func test_snapshot_restore_roundtrip():
-	var flicker := auto_free(LightFlicker.new())
-	flicker.seed = 42
+	var flicker = auto_free(LightFlicker.new())
+	flicker.flicker_seed = 42
 	flicker.period = 1.0
 
-	var target := auto_free(MethodTarget.new())
+	var target = auto_free(MethodTarget.new())
 	add_child(target)
+	flicker.target_path = NodePath("../" + target.name)
 	add_child(flicker)
-	flicker.target_path = flicker.get_path_to(target)
 
 	flicker.step(0.5)
 	var factor_mid = target.last_multiplier
 	assert_float(factor_mid).is_greater_equal(0.0)
 
 	var snapshot = flicker.get_snapshot()
-	assert_dict(snapshot).has_key("time_acc")
-	assert_dict(snapshot).has_key("seed")
+	assert_dict(snapshot).contains_keys(["time_acc", "seed"])
 	assert_int(snapshot["seed"]).is_equal(42)
 
 	# Advance time further
@@ -90,24 +89,24 @@ func test_snapshot_restore_roundtrip():
 	assert_float(factor_restored).is_equal(factor_mid)
 
 func test_target_method_contract_modulation():
-	var flicker := auto_free(LightFlicker.new())
-	var target := auto_free(MethodTarget.new())
+	var flicker = auto_free(LightFlicker.new())
+	var target = auto_free(MethodTarget.new())
 	add_child(target)
+	flicker.target_path = NodePath("../" + target.name)
 	add_child(flicker)
-	flicker.target_path = flicker.get_path_to(target)
 
 	flicker.step(0.2)
 	assert_float(target.last_multiplier).is_greater_equal(0.0)
 
 func test_light_energy_and_material_emission_modulation():
-	var flicker := auto_free(LightFlicker.new())
-	flicker.seed = 777
+	var flicker = auto_free(LightFlicker.new())
+	flicker.flicker_seed = 777
 	flicker.base_intensity = 1.5
 
-	var target := auto_free(SpatialLightTarget.new())
+	var target = auto_free(SpatialLightTarget.new())
 	add_child(target)
+	flicker.target_path = NodePath("../" + target.name)
 	add_child(flicker)
-	flicker.target_path = flicker.get_path_to(target)
 	yield(get_tree(), "idle_frame")
 
 	flicker.step(0.1)
@@ -125,13 +124,13 @@ func test_light_energy_and_material_emission_modulation():
 	assert_float(mat.emission_energy).is_equal_approx(3.0 * factor, 0.001)
 
 func test_only_when_active_culling_restores_base_values():
-	var flicker := auto_free(LightFlicker.new())
+	var flicker = auto_free(LightFlicker.new())
 	flicker.only_when_active = true
 
-	var target := auto_free(SpatialLightTarget.new())
+	var target = auto_free(SpatialLightTarget.new())
 	add_child(target)
+	flicker.target_path = NodePath("../" + target.name)
 	add_child(flicker)
-	flicker.target_path = flicker.get_path_to(target)
 	yield(get_tree(), "idle_frame")
 
 	# Step while active
