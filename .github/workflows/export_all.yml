@@ -537,21 +537,29 @@ jobs:
               if member not in src.namelist():
                   raise SystemExit("iphone.zip has no " + member)
               pbxproj = src.read(member).decode("utf-8")
+              # Dos formas de plantilla. La stock de 3.6.2 traia el valor ya
+              # escrito; la de Box3D (3.6.4-rc) trae el placeholder
+              # $os_deployment_target, que el exportador sustituye al exportar.
+              # Sustituirlo aca fija el minimo antes de que el exportador elija.
+              setting = "IPHONEOS_DEPLOYMENT_TARGET = %s;" % target
               hits = pbxproj.count("IPHONEOS_DEPLOYMENT_TARGET = ")
-              if hits == 0:
-                  raise SystemExit("No IPHONEOS_DEPLOYMENT_TARGET found in " + member)
-              patched = re.sub(
-                  r"IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;",
-                  "IPHONEOS_DEPLOYMENT_TARGET = %s;" % target,
-                  pbxproj,
-              )
+              placeholders = pbxproj.count("$os_deployment_target")
+              if hits:
+                  patched = re.sub(r"IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;", setting, pbxproj)
+                  how = "%d valores reescritos" % hits
+              elif placeholders:
+                  patched = pbxproj.replace("$os_deployment_target", setting)
+                  how = "%d placeholders sustituidos" % placeholders
+              else:
+                  raise SystemExit(
+                      "Ni IPHONEOS_DEPLOYMENT_TARGET ni $os_deployment_target en " + member)
               with zipfile.ZipFile(patched_path, "w") as dst:
                   for info in src.infolist():
                       data = patched.encode("utf-8") if info.filename == member else src.read(info)
                       dst.writestr(info, data, compress_type=info.compress_type)
 
           shutil.move(patched_path, template)
-          print("iOS deployment target set to %s (%d entries in project.pbxproj)" % (target, hits))
+          print("iOS deployment target set to %s (%s)" % (target, how))
           PY
 
       - name: iOS Certificates Setup
