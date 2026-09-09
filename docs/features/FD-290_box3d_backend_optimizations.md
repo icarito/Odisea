@@ -1,10 +1,12 @@
 # FD-290: Optimizaciones del backend Box3D y fruta al alcance de la mano para Odisea
-**Status:** Open **Priority:** High **Effort:** Medium **Created:** 2026-09-09 **Reusa:** godot-box3d-3 v0.2.0 (módulo custom), CollisionCullManager, FakeShadow, KinematicArm3D, GasParticleManager
+**Status:** In Progress **Priority:** High **Effort:** Medium **Created:** 2026-09-09 **Reusa:** godot-box3d-3 v0.2.0 (módulo custom), CollisionCullManager, FakeShadow, KinematicArm3D, GasParticleManager
 
 > **Notas de Odiseo:**
 > 1. Este FD documenta el lado *Odisea* del estudio hecho en `icarito/godot-box3d-3` (el módulo ya salió optimizado en **v0.2.0**). Cada punto cita archivo y línea del estado del código de hoy; los milisegundos citados vienen de `core_v2/autoloads/CollisionCullManager.gd` (Redmi Note 9 Pro, GLES2), el perfil más restrictivo del proyecto.
 > 2. **No cambia gameplay ni determinismo:** todo lo propuesto es de rendimiento y de higiene de carga. Los replays `.oys` existentes siguen siendo la vara.
 > 3. Numeración: FD-290 estaba libre en `FEATURE_INDEX.md` al momento de crearlo.
+> 4. **2026-09-09 — primer lote aterrizado** (ver "Landed" al final): retiro de CollisionCullManager en Box3D, cache de trimesh por Mesh, cast único en KinematicArm3D, presupuesto de raycasts de gas, lookups cacheados, FakeShadow (resolución ARM + query directa + cache de malla). El deriva 5.74 m del strafe **ya no reproduce** con el culler apagado (verificado con `ODISEA_DISABLE_COLLISION_CULL=1`): la grabación actual es válida sin culling.
+> 5. **2026-09-09 — segundo lote:** camino Box3D de PushableBoxV2 (sleeping en vez de kinematic, sin snap rotacional — Sebastián confirmó que el snap era el parche de determinismo, no gameplay).
 
 ## Problem
 
@@ -64,3 +66,35 @@ Con Box3D las formas estáticas no cuestan por iterar. Apagar el manager elimina
 2. Suite completa: `./runtest.sh` (pytest → gdUnit) sin drift > 0.01 en los replays de determinismo.
 3. A/B de rendimiento móvil antes/después de cada item: el perfil de `CollisionCullManager` como línea base (servidor de física 7.81 ms/tick en Redmi Note 9 Pro); objetivo: servidor de física < 3 ms/tick y cero culling de props.
 4. Carga de `Dome_Intro` (import + primer frame) con y sin cache de trimesh en el streamer de ductos.
+
+## Landed — 2026-09-09 (primer lote)
+
+Verificado con `./runtest.sh` local (Bullet, binario stock 3.6.2) y replays de locomoción/push en verde, con y sin culling (`ODISEA_DISABLE_COLLISION_CULL=1`). El backend Box3D no existe en el binario local; la CI determinista (override.cfg → Box3D) es la que ejercita el retiro del culler.
+
+1. **CollisionCullManager retirado en Box3D** (`core_v2/autoloads/CollisionCullManager.gd`): `_ready()` lee `physics/3d/physics_engine` de ProjectSettings (cubre override.cfg de la CI determinista, el append de export_all.yml y el dev local) y se apaga solo en `Box3D`: sin `_physics_process`, sin barrido, sin culling (y con él, el agujero del strafe deja de existir). Bajo Bullet el comportamiento es byte a byte el histórico. `ODISEA_FORCE_COLLISION_CULL=1` re-lo prende en Box3D para el A/B del punto 3; `get_stats()` reporta `bullet_backend`.
+2. **Cache de trimesh por Mesh** (`core_v2/systems/collision/ShapeBounds.gd::trimesh_shape_of`): la forma se guarda como meta del propio recurso Mesh (vive y muere con él, sin entradas huérfanas ni reuso de instance_id). Consumidores: `DuctMazeStreamer.gd` (hub :466, arco :551, cápsula :745), `ScaffoldHubRing.gd` (:367, también acelera el horneado del editor), `CircuitCable.gd` (reemplaza `create_trimesh_collision()`). Además el brazo en arco del streamer ahora cachea su malla por parámetros (era el único builder fuera de `_mesh_cache`).
+3. **KinematicArm3D: un `cast_motion` por tick** (`core_v2/camera/KinematicArm3D.gd`): el hit directo y el lookahead derivan del mismo `safe_fraction` (`_cast_shape_safe_fraction`); la distancia del primer bloqueo es propiedad de la escena a lo largo del rayo, así que un solo barrido reproduce exactamente los dos valores (incluidos los guards 0.9999 de cada uno). El motion lookahead conserva su cast propio (sondea desde el origen futuro del pivote: otro rayo).
+4. **Presupuesto de raycasts de gas** (`core_v2/systems/gas/GasParticleManager.gd`): `raycast_budget_per_tick = 64` (0 = sin tope). `_prepare_ray_budget()` calcula la velocidad efectiva una sola vez por tick y raycastea solo las K candidatas más rápidas (selección determinista por velocidad, sin aleatoriedad); el resto se mueve balístico ese tick.
+5. **Lookups cacheados**: `SessionManager.gd` resuelve `/root/PerformanceMonitor` una vez (antes: por cada tick de física); `PlayerControllerV2.gd` cachea `/root/SessionManager` en modo replay.
+6. **FakeShadow** (`core_v2/visual/FakeShadow.gd`): (a) `grid_resolution` capped a 6×6 en Android (el fallback cheap de Linux-ARM se queda como estaba); (b) la grilla ya no son 64 nodos `RayCast` con `force_raycast_update`: una pasada de `intersect_ray` sobre offsets precomputados, exclusión del actor via array; (c) la malla se regenera solo si alguna celda cruzó `snap_amount` o cambió el patrón de huecos (`_mesh_needs_rebuild`).
+7. **PushableBoxV2 camino Box3D** (`core_v2/components/PushableBoxV2.gd`): sleeping en vez de `MODE_KINEMATIC` y sin snap rotacional (ver sección dedicada abajo); Bullet intacto; A/B con `ODISEA_PUSHABLE_LEGACY=1`.
+
+### Strafe sin culling (nota corregida)
+
+La nota histórica (deriva 5.74 m de `test_locomocion_strafe` al re-replay sin culling) **ya no reproduce**: hoy, con `ODISEA_DISABLE_COLLISION_CULL=1`, el replay pasa con drift 0. La grabación actual es compatible con el culler apagado, así que la CI determinista (Box3D, culler auto-apagado) queda verde sin re-grabar nada.
+
+### Arranque en navegador (Dome_Intro / Menu)
+
+El freeze del tab está dominado por costos de motor que GDScript no puede mover: fetch del pck desde IndexedDB, decodificación de sub-recursos dentro de `load_interactive` (ya cede entre recursos) y compilación GLES3 de shaders en el primer draw (single-thread en HTML5). Lo que ya baja el pico con este lote: sin nodos RayCast de FakeShadow al spawnear el Pilot y sin BVHs duplicados de trimesh. Pendiente (requiere decisión de assets, §7): variante más chica del backdrop `HelmetView_HI-RES.png` (850 KB de .stex) para web.
+
+### PushableBoxV2 en Box3D (implementado en el segundo lote)
+
+El híbrido Rigid↔Kinematic y el snap rotacional de 90° eran parches para la falta de determinismo de Bullet (confirmado por Sebastián: el snap no es gameplay, era el truco). Con el solver de Box3D (single-thread, substeps fijos, determinista) el determinismo lo da el motor, así que el camino Box3D simplifica:
+
+- **La caja nunca sale de `MODE_RIGID`.** `_settle()` redondea la pose (paridad con el legado), zeroes velocidades y duerme el cuerpo (`sleeping = true`) — costo de solver ~0 como kinematic, pero collider sólido con respuesta de física estándar.
+- **Sin snap rotacional y sin slerp** (`_target_basis` nunca se arma en este camino). Bajo Bullet el híbrido con snap queda byte a byte intacto.
+- **Despertar con paridad completa:** el push del jugador ya llamaba `wake_up()` proactivamente (`PlayerControllerV2._update_push_state`), `set_external_velocity` (conveyors/plataformas), `WakeArea.body_entered/exited` y el sondeo throttleado `_check_kinematic_wakeup` (cada 3 frames) cubren el caso kinematic-toque-no-despierta igual que el legado.
+- **Snapshots compatibles:** `get_snapshot` escribe `mode: RIGID` en este camino; `restore_snapshot` mapea un `MODE_KINEMATIC` legado a rigido dormido (misma pose congelada), así que grabaciones viejas se restauran sin romper.
+- **A/B:** `ODISEA_PUSHABLE_LEGACY=1` fuerza el camino histórico también en Box3D.
+
+Validación: `test_push_integration` y `test_push_clipping` en verde con el camino Box3D activo (PASS 1 re-graba el .json con la dinámica nueva; PASS 2 verifica grabación-vs-replay, así que el cambio de dinámica no necesita re-grabación manual). La equivalencia de trayectorias Bullet↔Box3D en CI la dan la re-grabación del PASS 1 y la paridad de semántica que valida el módulo (27/27 escenas de aceptación).

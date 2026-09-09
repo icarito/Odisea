@@ -4,6 +4,14 @@ tool
 
 # PushableBoxV2.gd - Hybrid Deterministic Object
 # Transitions between Rigid (physics) and Kinematic (resting) modes.
+#
+# FD-290 camino Box3D: el snap rotacional y el congelado kinematic eran parches para la
+# falta de determinismo de Bullet (el snap a 90 grados evitaba que el reposo del solver
+# derivara entre grabacion y replay). Con el solver de Box3D (single-thread, substeps
+# fijos) el determinismo lo da el motor, asi que en ese backend la caja SIEMPRE es
+# RigidBody: al asentarse duerme (sleeping, costo de solver ~0, collider solido) y el
+# snap rotacional no se aplica. Bajo Bullet el hibrido historico queda intacto.
+# ODISEA_PUSHABLE_LEGACY=1 fuerza el camino historico tambien en Box3D (para el A/B).
 
 export(float) var settle_threshold = 0.2
 export(int) var settle_frames = 15
@@ -33,16 +41,31 @@ var _perf_monitor = null
 var _wake_check_frame_countdown = 0
 var _support_normal := Vector3.UP
 var _has_support_contact := false
+# Camino Box3D (FD-290): rigido siempre, reposo via sleeping, sin snap rotacional.
+var _box3d := false
 
 func _init():
 	add_to_group("pushable")
 	add_to_group("replay_sync")
+
+func _detect_box3d_backend() -> bool:
+	# Misma lectura que CollisionCullManager: ProjectSettings devuelve el override si
+	# existe (override.cfg de la CI determinista o el append de export_all.yml).
+	var setting := "physics/3d/physics_engine"
+	if ProjectSettings.has_setting(setting):
+		return String(ProjectSettings.get_setting(setting)).to_lower() == "box3d"
+	return false
 
 func _ready():
 	# Configuración inicial: empezamos como rígido para que caiga
 	mode = RigidBody.MODE_RIGID
 	contact_monitor = true
 	contacts_reported = 4
+
+	var legacy_env := OS.get_environment("ODISEA_PUSHABLE_LEGACY")
+	_box3d = _detect_box3d_backend() and not (legacy_env in ["1", "true", "yes", "on"])
+	if _box3d and debug:
+		print("[PushableBoxV2] Backend Box3D: modo sleeping, sin snap rotacional (FD-290).")
 	
 	_update_size()
 	_setup_impact_players()
@@ -72,7 +95,18 @@ func step(dt):
 	if _perf_monitor and _perf_monitor.has_method("measure_start"):
 		_perf_monitor.measure_start(self, "step")
 
-	if mode == RigidBody.MODE_RIGID:
+	if _box3d:
+		# FD-290: nunca sale de MODE_RIGID. Dormida, el solver no la simula y la unica
+		# actividad es el sondeo barato de despertar (throttleado igual que el legado).
+		if sleeping:
+			if _wake_check_frame_countdown <= 0:
+				_check_kinematic_wakeup()
+				_wake_check_frame_countdown = max(0, wake_check_interval_frames - 1)
+			else:
+				_wake_check_frame_countdown -= 1
+		else:
+			_handle_rigid_logic(dt)
+	elif mode == RigidBody.MODE_RIGID:
 		_handle_rigid_logic(dt)
 	elif mode == RigidBody.MODE_KINEMATIC:
 		# Throttle expensive overlap scans when box is sleeping/kinematic.
@@ -187,6 +221,19 @@ func _settle():
 	# Round position to 4 decimals for determinism
 	global_transform.origin = _round_vec3(global_transform.origin, 4)
 	
+	if _box3d:
+		# FD-290: congelar via sleeping del motor. Sin cambio de modo y sin snap
+		# rotacional: el determinismo lo da el solver de Box3D, no el freeze.
+		linear_velocity = Vector3.ZERO
+		angular_velocity = Vector3.ZERO
+		_frames_below_threshold = 0
+		if _sfx_drag and _sfx_drag.playing:
+			_sfx_drag.stop_sfx()
+		_refresh_support_contact_probe()
+		_refresh_wake_area()
+		sleeping = true
+		return
+	
 	if snap_rotation:
 		# Calculate Target Basis
 		var euler = global_transform.basis.get_euler()
@@ -218,6 +265,16 @@ func _settle():
 	_refresh_wake_area()
 
 func wake_up():
+	if _box3d:
+		if sleeping:
+			if debug:
+				print("[PushableBoxV2] Wake up!")
+			sleeping = false
+			_wake_check_frame_countdown = 0
+			# Dar un pequeño empujón o resetear frames para evitar re-settle inmediato
+			_frames_below_threshold = 0
+			_refresh_support_contact_probe()
+		return
 	if mode == RigidBody.MODE_KINEMATIC:
 		if debug:
 			print("[PushableBoxV2] Wake up!")
@@ -305,14 +362,14 @@ func _get_global_height():
 func _on_body_entered(body):
 	_try_play_impact_sfx(body)
 
-	if mode == RigidBody.MODE_KINEMATIC:
+	if mode == RigidBody.MODE_KINEMATIC or (_box3d and sleeping):
 		if _should_wake_from_body(body):
 			wake_up()
 
 func _on_body_exited(_body):
 	if not wake_on_body_exit:
 		return
-	if mode == RigidBody.MODE_KINEMATIC:
+	if mode == RigidBody.MODE_KINEMATIC or (_box3d and sleeping):
 		if debug:
 			print("[PushableBoxV2] Body exited, waking up to check gravity.")
 		wake_up()
@@ -397,7 +454,7 @@ func _try_play_impact_sfx(body):
 
 # Soporte para plataforma/conveyor o empuje directo del jugador
 func set_external_velocity(vel):
-	if mode == RigidBody.MODE_KINEMATIC:
+	if mode == RigidBody.MODE_KINEMATIC or (_box3d and sleeping):
 		wake_up()
 	else:
 		_refresh_support_contact_probe()
@@ -485,7 +542,17 @@ func _apply_snapshot(data):
 	if data.has("snap_deg"):
 		rotation_snap_degrees = data["snap_deg"]
 	
-	if mode == RigidBody.MODE_RIGID:
+	if _box3d:
+		# FD-290: en el camino Box3D nunca queda kinematic. Un snapshot legado (hibrido
+		# Bullet) con MODE_KINEMATIC se representa como rigido dormido: misma pose
+		# congelada, cero velocidades, misma respuesta a los despertares.
+		if mode == RigidBody.MODE_KINEMATIC:
+			mode = RigidBody.MODE_RIGID
+			_target_basis = null
+			sleeping = true
+		else:
+			sleeping = false
+	elif mode == RigidBody.MODE_RIGID:
 		sleeping = false
 
 func _physics_process(delta):

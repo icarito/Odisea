@@ -48,6 +48,11 @@ export(bool) var collide_with_world := true
 # Skip the per-particle world raycast when a particle is moving slower than this (settled
 # gas can't collide with anything new). Set to 0.0 to restore exact per-frame raycasting.
 export(float) var raycast_min_speed := 0.05
+# FD-290: tope de raycasts por tick. El gate de raycast_min_speed amortigua pero no acota:
+# una ráfaga recién emitida raycastea TODAS sus partículas por tick. Con presupuesto, solo
+# las K más rápidas raycastean (selección determinista por velocidad) y el resto se mueve
+# balístico ese tick. 0 = sin tope (comportamiento histórico).
+export(int, 0, 4096) var raycast_budget_per_tick := 64
 export(int, LAYERS_3D_PHYSICS) var world_collision_mask := 1
 export(float) var collision_margin := 0.08
 export(float) var collision_damping := 0.28
@@ -84,6 +89,11 @@ var _lod = null
 var _cpu_lod: CPUParticles = null
 var _cpu_lod_active := false
 var _lod_direction := Vector3(0.0, 1.0, 0.0)
+# Presupuesto de raycasts (FD-290): buffers reutilizados, sin alocaciones por tick.
+var _frame_velocity: Array = []
+var _ray_take: Array = []
+var _ray_cand: Array = []
+var _ray_speeds: Array = []
 
 func _init():
 	add_to_group("replay_sync")
@@ -376,15 +386,16 @@ func step(delta: float) -> void:
 
 	var gravity_y := _get_local_gravity_y()
 	var friction := clamp(1.0 - viscosity * delta, 0.0, 1.0)
+	_prepare_ray_budget(delta, gravity_y, friction)
 
 	for i in range(_effective_pool()):
 		var p: Dictionary = particles[i]
 		if not bool(p["active"]):
 			continue
 
-		var velocity: Vector3 = p["velocity"]
-		velocity.y += buoyancy * gravity_y * delta
-		velocity *= friction
+		# Velocidad efectiva ya calculada por _prepare_ray_budget (misma aritmética, una
+		# sola vez por partícula y por tick).
+		var velocity: Vector3 = _frame_velocity[i]
 
 		var position: Vector3 = p["position"]
 		# Camino rapido: cuando no hay consulta de colision posible, el movimiento es una
@@ -392,7 +403,9 @@ func step(delta: float) -> void:
 		# Dictionary nuevo POR PARTICULA Y POR FRAME. Con los cuatro managers de Dome_Intro
 		# (todos con collide_with_world = false) eso eran ~10k asignaciones de heap por
 		# segundo, con su boxing de Variant, para un resultado identico a position += v*dt.
-		if _needs_collision_query(velocity):
+		# FD-290: ademas del gate por velocidad, solo raycastean las K mas rapidas del
+		# presupuesto; el resto se mueve balistico ese tick y espera turno.
+		if _ray_take[i] and _needs_collision_query(velocity):
 			var move_result: Dictionary = _move_particle_with_collision(position, velocity, delta)
 			position = move_result["position"]
 			velocity = move_result["velocity"]
@@ -456,6 +469,49 @@ func _needs_collision_query(local_velocity: Vector3) -> bool:
 	if raycast_min_speed > 0.0 and local_velocity.length_squared() < raycast_min_speed * raycast_min_speed:
 		return false
 	return local_velocity.length_squared() > 0.000001
+
+
+# FD-290: presupuesto de raycasts por tick. Calcula la velocidad efectiva (flotacion +
+# friccion, la misma aritmetica del paso de siempre) de cada particula activa una sola vez
+# y marca en _ray_take a las K candidatas mas rapidas; el resto se mueve balistico este
+# tick. Sin aleatoriedad: la seleccion por velocidad es determinista y reproducible.
+func _prepare_ray_budget(delta: float, gravity_y: float, friction: float) -> void:
+	var limit := _effective_pool()
+	if _frame_velocity.size() < limit:
+		_frame_velocity.resize(limit)
+	if _ray_take.size() < limit:
+		_ray_take.resize(limit)
+	_ray_cand.clear()
+	_ray_speeds.clear()
+	for i in range(limit):
+		_ray_take[i] = false
+		if not bool(particles[i]["active"]):
+			continue
+		var velocity: Vector3 = particles[i]["velocity"]
+		velocity.y += buoyancy * gravity_y * delta
+		velocity *= friction
+		_frame_velocity[i] = velocity
+		if _needs_collision_query(velocity):
+			_ray_cand.append(i)
+			_ray_speeds.append(velocity.length_squared())
+
+	var budget := raycast_budget_per_tick
+	if budget <= 0 or _ray_cand.size() <= budget:
+		for c in range(_ray_cand.size()):
+			_ray_take[_ray_cand[c]] = true
+		return
+	# Seleccion parcial de los K mas rapidos: K pasadas sobre los candidatos marcando al
+	# mejor de cada pasada. Eligir por length_squared conserva el orden por velocidad.
+	for _k in range(budget):
+		var best := -1
+		for c in range(_ray_cand.size()):
+			if _ray_take[_ray_cand[c]]:
+				continue
+			if best < 0 or _ray_speeds[c] > _ray_speeds[best]:
+				best = c
+		if best < 0:
+			break
+		_ray_take[_ray_cand[best]] = true
 
 
 func _move_particle_with_collision(local_position: Vector3, local_velocity: Vector3, delta: float) -> Dictionary:

@@ -15,6 +15,27 @@ extends Reference
 # que el jugador esta tocando.
 const RADIO_DESCONOCIDO := 100.0
 
+# FD-290: create_trimesh_shape() levanta un BVH nuevo por llamada. Para mallas que se
+# repiten (streamer de ductos, hub rings, cables) eso multiplica el pico de carga por
+# copias identicas. La forma se cachea como meta del PROPIO recurso Mesh: vive y muere con
+# el, no hay entradas huerfanas ni riesgo de reuso de instance_id, y los consumers que
+# cargan la misma malla compartida deduplican gratis.
+const TRIMESH_META := "odisea_trimesh_shape"
+
+
+static func trimesh_shape_of(mesh: Mesh) -> ConcavePolygonShape:
+	if mesh == null:
+		return null
+	if mesh.has_meta(TRIMESH_META):
+		var cached = mesh.get_meta(TRIMESH_META)
+		if cached is ConcavePolygonShape:
+			return cached
+	if mesh.get_surface_count() == 0:
+		return null
+	var shape: ConcavePolygonShape = mesh.create_trimesh_shape()
+	mesh.set_meta(TRIMESH_META, shape)
+	return shape
+
 
 static func radius_of(node: CollisionShape) -> float:
 	if node == null:

@@ -64,17 +64,31 @@ export(int, 1, 30) var frames_between_scans := 8
 # eso cullear vale 20 fps mientras el barrido que lo decide cuesta 0.24 ms. Lo que queda
 # por exprimir en movil es tener menos formas o mas simples, no afinar scripts.
 #
-# Nota aparte, sin resolver: la grabacion test_locomocion_strafe.oys quedo grabada CON el
-# culling activo y sin el deriva 5.74 m contra un umbral de 0.01. O sea que su jugador
-# atraviesa un prop que sin culling es solido: hay una forma que no vuelve a habilitarse a
-# tiempo. Es un agujero real del sistema, no del test.
+# Nota aparte, sin resolver bajo Bullet: la grabacion test_locomocion_strafe.oys quedo
+# grabada CON el culling activo y sin el deriva 5.74 m contra un umbral de 0.01. O sea que
+# su jugador atraviesa un prop que sin culling es solido: hay una forma que no vuelve a
+# habilitarse a tiempo. Es un agujero real del sistema, no del test.
 #
 # Los dos siguen escribiendo el mismo `disabled`: donde SI hay hielo, IceSubmergedCuller
 # manda (ver su comentario), y este no debe resucitar formas que el hielo ya sepulto.
+#
+# FD-290: con Box3D todo lo anterior queda obsoleto. El broadphase de Box3D no refittea
+# AABBs de cuerpos estaticos, asi que el costo que este manager amortiguaba (7.81 ms del
+# tick movil, 58%) desaparece y el culling se queda sin motivo de ser -- mientras que su
+# bug del strafe sigue estando. Por eso en backend Box3D el manager se apaga solo (y el
+# replay strafe, grabado atravesando el prop, vuelve a ser valido). Bajo Bullet el
+# comportamiento es identico al historico: culling prendido.
 export(bool) var enabled := true
 
 const DISABLE_ENV := "ODISEA_DISABLE_COLLISION_CULL"
+const FORCE_ENV := "ODISEA_FORCE_COLLISION_CULL"
 const ShapeBounds := preload("res://core_v2/systems/collision/ShapeBounds.gd")
+
+# Backend activo segun ProjectSettings. La CI determinista lo declara en override.cfg y
+# la CI de export lo agrega a project.godot; en dev queda "Bullet" (o "DEFAULT", que en
+# Godot 3 tambien es Bullet). get_setting devuelve el override si existe, asi que esta
+# lectura cubre los tres casos sin APIs del motor (Godot 3 no expone el servidor activo).
+var _backend_bullet := true
 
 # { CollisionShape: { "body": StaticBody, "pos": Vector3, "culled": bool } }
 var _tracked := []
@@ -99,9 +113,28 @@ func _ready() -> void:
 		enabled = false
 		set_physics_process(false)
 		return
+	# FD-290: en Box3D el broadphase no refittea AABBs de estaticos y el culling no tiene
+	# motivo de ser (y conserva su bug del strafe). El env de fuerza queda para el A/B de
+	# rendimiento que pide la verificacion del FD. Bajo Bullet no cambia nada.
+	_backend_bullet = _detect_backend_bullet()
+	if not _backend_bullet:
+		if OS.get_environment(FORCE_ENV) in ["1", "true", "yes", "on"]:
+			_backend_bullet = true
+		else:
+			enabled = false
+			set_physics_process(false)
+			print("[CollisionCullManager] Backend Box3D: culling de props apagado (FD-290).")
+			return
 	var tree := get_tree()
 	if tree != null:
 		var _err = tree.connect("tree_changed", self, "_on_tree_changed")
+
+
+func _detect_backend_bullet() -> bool:
+	var setting := "physics/3d/physics_engine"
+	if ProjectSettings.has_setting(setting):
+		return String(ProjectSettings.get_setting(setting)).to_lower() != "box3d"
+	return true
 
 
 func _on_tree_changed() -> void:
@@ -220,4 +253,5 @@ func get_stats() -> Dictionary:
 		"culled": _culled_count,
 		"radius": cull_radius,
 		"enabled": enabled,
+		"bullet_backend": _backend_bullet,
 	}

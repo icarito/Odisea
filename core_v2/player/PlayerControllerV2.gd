@@ -254,6 +254,9 @@ var input_locked := false setget set_input_locked
 # alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
 var _pm_perfil = null
 var _pm_perfil_buscado := false
+# Cache FD-290: mismo patron para SessionManager en modo replay (resuelto una sola vez).
+var _sm_cache = null
+var _sm_resuelto := false
 
 func set_input_locked(v: bool) -> void:
 	input_locked = v
@@ -3119,7 +3122,12 @@ func _paso_fisica(_delta):
 	if is_replay_mode:
 		# During SessionManager-driven recording/replay, physics stepping is centralized there.
 		# For standalone tests with manual external_input, keep local stepping enabled.
-		var sm = get_node_or_null("/root/SessionManager")
+		# Cache FD-290: el autoload vive toda la sesion; buscarlo por path en cada tick
+		# cuesta lo que un replay usa para perder pasos de fisica y derivar.
+		if not _sm_resuelto:
+			_sm_resuelto = true
+			_sm_cache = get_node_or_null("/root/SessionManager")
+		var sm = _sm_cache
 		if sm and sm.player == self:
 			if sm.is_recording:
 				return

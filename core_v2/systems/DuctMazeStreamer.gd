@@ -52,6 +52,9 @@ const VALVE_PATH := "res://core_v2/props/pipe/PipeValve.tscn"
 const AIRLOCK_CHAMBER_PATH := "res://core_v2/props/doors/AirlockChamber.tscn"
 const IRIS_DOOR_PATH := "res://core_v2/props/doors/IrisDoorV2.tscn"
 const FORWARD_INTERACT_SCRIPT = preload("res://core_v2/components/ForwardInteract.gd")
+# FD-290: cache de ConcavePolygonShape por Mesh (create_trimesh_shape levanta un BVH por
+# llamada; con mallas compartidas del cache de arriba se duplicaba por chunk streamado).
+const ShapeBounds = preload("res://core_v2/systems/collision/ShapeBounds.gd")
 
 var _resource_cache := {}
 var _mesh_cache := {}
@@ -463,7 +466,7 @@ func make_junction(id: String, connections: Array) -> Spatial:
 	hub_body.collision_layer = DUCT_LAYER
 	hub_body.collision_mask = 255
 	var hub_col = CollisionShape.new()
-	hub_col.shape = hub.mesh.create_trimesh_shape()
+	hub_col.shape = ShapeBounds.trimesh_shape_of(hub.mesh)
 	hub_body.add_child(hub_col)
 	root.add_child(hub_body)
 
@@ -539,7 +542,13 @@ func make_arc_arm(dir_sign: float, span_deg: float, start_deg: float, radius: fl
 	var start_rad := deg2rad(start_deg)
 	var end_rad := deg2rad(start_deg + span_deg)
 	var mesh = MeshInstance.new()
-	mesh.mesh = _build_arc_arm_mesh(R, radius, duct_wall_thickness, start_rad, end_rad, dir_sign)
+	# Misma cache que las demas piezas: los brazos en arco repiten sus parametros en cada
+	# junction del mismo tipo, y sin cache cada chunk streamado reconstruye la malla Y (con
+	# el trimesh) su BVH (FD-290).
+	var arc_key := "arc_arm_%f_%f_%f_%f_%d" % [R, radius, start_rad, end_rad, int(dir_sign)]
+	if not _mesh_cache.has(arc_key):
+		_mesh_cache[arc_key] = _build_arc_arm_mesh(R, radius, duct_wall_thickness, start_rad, end_rad, dir_sign)
+	mesh.mesh = _mesh_cache[arc_key]
 	mesh.material_override = _hull_mat()
 	arm.add_child(mesh)
 	# Trimesh collision straight off the curved hull (exact hollow wall, no clipping) — the
@@ -548,7 +557,7 @@ func make_arc_arm(dir_sign: float, span_deg: float, start_deg: float, radius: fl
 	body.collision_layer = DUCT_LAYER
 	body.collision_mask = 255
 	var col = CollisionShape.new()
-	col.shape = mesh.mesh.create_trimesh_shape()
+	col.shape = ShapeBounds.trimesh_shape_of(mesh.mesh)
 	body.add_child(col)
 	arm.add_child(body)
 	# End collar at the outer mouth (where it meets the neighbour arc tile).
@@ -742,7 +751,7 @@ func make_capsule(connections: Array, _gy: int, has_airlock_port: bool = false) 
 	hub_body.collision_mask = 255
 	var hub_col = CollisionShape.new()
 	hub_col.name = "CollisionShape"
-	hub_col.shape = hub.mesh.create_trimesh_shape()
+	hub_col.shape = ShapeBounds.trimesh_shape_of(hub.mesh)
 	hub_body.add_child(hub_col)
 	root.add_child(hub_body)
 

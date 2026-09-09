@@ -1524,8 +1524,17 @@ func _process(_delta: float) -> void:
 	if _ticks_history.size() > HISTORY_SIZE:
 		_ticks_history.pop_front()
 
+# Cache FD-290: buscar el autoload por path en CADA tick de fisica se paga en cada replay
+# (mismo patron que PlayerControllerV2/KinematicArm3D con su PerformanceMonitor). Los
+# autoloads viven toda la sesion, asi que una resolucion basta.
+var _pm_prof = null
+var _pm_prof_buscado := false
+
 func _physics_process(_dt):
-	var pm = get_node_or_null("/root/PerformanceMonitor")
+	if not _pm_prof_buscado:
+		_pm_prof_buscado = true
+		_pm_prof = get_node_or_null("/root/PerformanceMonitor")
+	var pm = _pm_prof
 	if pm and pm.has_method("profiling_start"): pm.profiling_start("SessionManager")
 
 	# In RL lock-step runs, AnnaBridge drives the simulation and SessionManager

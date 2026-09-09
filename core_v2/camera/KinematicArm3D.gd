@@ -318,7 +318,22 @@ func _paso_fisica(delta):
 		rendered_length = _advance_clear_length(delta)
 		final_target = _clamp_target_below_ceiling(arm_origin + global_transform.basis.z * rendered_length, arm_origin)
 	else:
-		safe_hit_length = _cast_shape_hit_length(arm_origin, arm_motion, desired_length)
+		# FD-290: el hit directo y el lookahead comparten UN solo cast_motion. La distancia
+		# del primer bloqueo es propiedad de la escena a lo largo del rayo (no del largo
+		# sondeado), asi que la fraccion del barrido mas largo reproduce exactamente los dos
+		# valores que daban los dos casts, incluido el guard de 0.9999 de cada uno.
+		# Suprimido por gracia de transicion (los primeros frames tras entrar a escena)
+		# para no pre-retraer hacia las paredes del airlock de destino.
+		var la_active := _transition_grace_frames <= 0 and collision_lookahead_factor > 1.001 and _collision_latched_length < 0.0
+		var la_len := target_length * collision_lookahead_factor
+		var probe_margin := collision_padding + CONTACT_PROBE_SLACK
+		var probe_length := desired_length
+		if la_active and la_len > probe_length:
+			probe_length = la_len
+		var probe_fraction := _cast_shape_safe_fraction(arm_origin, global_transform.basis.z, probe_length)
+		var probe_hit_distance := probe_length * probe_fraction
+		if probe_hit_distance < 0.9999 * (desired_length + probe_margin):
+			safe_hit_length = clamp(probe_hit_distance - collision_padding, 0.0, desired_length)
 		if safe_hit_length >= 0.0:
 			_collision_miss_timer = 0.0
 			var hit_length := safe_hit_length
@@ -341,14 +356,14 @@ func _paso_fisica(delta):
 				rendered_length = resolved_hit_length
 		else:
 			rendered_length = _advance_clear_length(delta)
-			# Lookahead: probe beyond target_length to anticipate upcoming walls.
+			# Lookahead: probe beyond target_length to anticipate upcoming walls, derived
+			# from the same fraction as the direct hit (see FD-290 note above).
 			# Suppressed for a few frames after scene entry (_transition_grace_frames > 0)
 			# so the arm doesn't pre-retract toward the destination airlock walls before
 			# the player has moved out — that causes a visible lerp-yank on arrival.
-			if _transition_grace_frames <= 0 and collision_lookahead_factor > 1.001 and _collision_latched_length < 0.0:
-				var la_len := target_length * collision_lookahead_factor
-				var la_hit := _cast_shape_hit_length(arm_origin, global_transform.basis.z * la_len, la_len)
-				if la_hit >= 0.0 and la_hit < rendered_length:
+			if la_active and probe_hit_distance < 0.9999 * (la_len + probe_margin):
+				var la_hit := clamp(probe_hit_distance - collision_padding, 0.0, la_len)
+				if la_hit < rendered_length:
 					var pre_t := clamp(collision_lookahead_speed * delta, 0.0, 1.0)
 					rendered_length = lerp(rendered_length, la_hit, pre_t)
 					current_length = rendered_length
@@ -370,19 +385,34 @@ func _paso_fisica(delta):
 	_previous_arm_origin = arm_origin
 	_has_previous_arm_origin = true
 
-func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_length: float) -> float:
+func _cast_shape_safe_fraction(arm_origin: Vector3, direction: Vector3, probe_length: float) -> float:
 	var world = get_world()
 	if world == null:
-		return -1.0
+		return 1.0
 	var space_state = world.direct_space_state
 	if space_state == null or collider_shape == null:
-		return -1.0
+		return 1.0
+	if probe_length <= 0.0001:
+		return 1.0
 
 	var params := PhysicsShapeQueryParameters.new()
 	params.set_shape(collider_shape)
 	params.transform = Transform(global_transform.basis, arm_origin)
 	params.collision_mask = collision_mask
 	params.exclude = _excluded_objects
+
+	# Barrer MÁS ALLÁ de la longitud pedida (ver _cast_shape_hit_length): el margen extra
+	# mantiene el contacto sostenido en reposo dentro del barrido.
+	var probe_motion := direction.normalized() * probe_length
+	var motion_result = space_state.cast_motion(params, probe_motion)
+	if motion_result.empty():
+		return 1.0
+	return float(motion_result[0])
+
+func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_length: float) -> float:
+	var motion_length := arm_motion.length()
+	if motion_length <= 0.0001:
+		return -1.0
 
 	# Barrer MÁS ALLÁ de la longitud pedida. El hit devuelto ya tiene el padding
 	# restado, así que un arm en reposo contra un muro queda exactamente a padding
@@ -394,25 +424,16 @@ func _cast_shape_hit_length(arm_origin: Vector3, arm_motion: Vector3, desired_le
 	# sobre la superficie en reposo y safe_fraction cae en el guard de 0.9999, que
 	# es el mismo miss que se quiere evitar. El slack asegura que el contacto
 	# sostenido caiga con holgura dentro del barrido y se reporte como hit real.
-	var motion_length := arm_motion.length()
-	if motion_length <= 0.0001:
-		return -1.0
 	var probe_margin := collision_padding + CONTACT_PROBE_SLACK
 	var probe_length := motion_length + probe_margin
-	var probe_motion := arm_motion * (probe_length / motion_length)
-
-	var motion_result = space_state.cast_motion(params, probe_motion)
-	if motion_result.empty():
-		return -1.0
-
-	var safe_fraction := float(motion_result[0])
+	var safe_fraction := _cast_shape_safe_fraction(arm_origin, arm_motion, probe_length)
 	if safe_fraction >= 0.9999:
 		return -1.0
 
 	# El barrido es más largo que desired_length, así que la fracción se escala
 	# sobre el largo sondeado y recién ahí se descuenta el padding. El clamp evita
 	# que un hit dentro del margen extra extienda el arm más allá de su objetivo.
-	var hit_distance := ((desired_length + probe_margin) * safe_fraction) - collision_padding
+	var hit_distance := (probe_length * safe_fraction) - collision_padding
 	# NO se sube el hit a min_length. min_length limita cuánto se ENCOGE el arm por
 	# zoom, pero un obstáculo más cercano que min_length es una colisión real: forzar
 	# el largo a 0.65 ahí empuja la cámara a través de la pared. Pasa contra la cúpula,

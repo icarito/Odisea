@@ -14,6 +14,9 @@ class_name ScaffoldHubRing
 const SEGMENT_SCENE := preload("res://core_v2/props/scaffold/SteelGratePlatform.tscn")
 const FOOTSTEP_PROFILE := preload("res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres")
 const FOOTSTEP_SURFACE_SCRIPT := preload("res://core_v2/systems/footsteps/footstep_surface.gd")
+# FD-290: trimesh cacheado por Mesh en vez de un BVH nuevo por build (mismo helper del
+# streamer de ductos; en horneado del editor deduplica re-builds del mismo anillo).
+const SHAPE_BOUNDS := preload("res://core_v2/systems/collision/ShapeBounds.gd")
 # Same grate material SteelGratePlatform uses, so hub floors don't read as blank
 # slabs next to the authored platforms.
 const GRATE_MATERIAL_PATH := "res://textures/trenchbroom/steel_grate_platform.tres"
@@ -364,7 +367,7 @@ func _build_compact_ring() -> void:
 	add_child(body)
 	var collision := CollisionShape.new()
 	collision.name = "CombinedCollision"
-	collision.shape = collision_mesh.create_trimesh_shape()
+	collision.shape = SHAPE_BOUNDS.trimesh_shape_of(collision_mesh)
 	body.add_child(collision)
 	var footstep_surface := Spatial.new()
 	footstep_surface.name = "FootstepSurface"

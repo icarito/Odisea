@@ -23,7 +23,17 @@ export(Vector3) var anchor_offset: Vector3 = Vector3(0, 0, 0)
 # Include Entorno (1), NPC-Friendly (3, legacy), and Prop (7) so moving platforms/elevators receive the shadow.
 export(int) var ground_collision_mask: int = 69
 
-var _rays: Array = [] # Linear array of rays
+var _rays: Array = [] # Legacy: ya sin nodos RayCast de grilla (FD-290); queda vacío
+# FD-290: la grilla ya no son 64 nodos RayCast con force_raycast_update por celda; es una
+# pasada de intersect_ray sobre offsets precomputados. Resultados por celda:
+var _ray_offsets := PoolVector3Array()
+var _offset_step := -1.0
+var _hit_points := PoolVector3Array()
+var _hit_flags := PoolIntArray()
+var _last_heights := PoolRealArray()
+var _last_flags := PoolIntArray()
+var _exclude_list: Array = []
+var _mesh_needs_rebuild := true
 var _mesh_tool: SurfaceTool
 var _actor_excluded = false
 var _disable_runtime := false
@@ -52,6 +62,11 @@ func _ready() -> void:
 		shadow_mode = "cheap"
 		update_every_n_frames = max(update_every_n_frames, 6)
 		grid_resolution = min(grid_resolution, 8)
+	elif OS.get_name() == "Android":
+		# FD-290 (a): en ARM movil el modo grid baja de 8x8 a 6x6 en vez de saltar a
+		# cheap. Con la pasada directa de intersect_ray y el rebuild condicionado, la
+		# sombra se mantiene fiel a menos costo de fisica y de SurfaceTool.
+		grid_resolution = min(grid_resolution, 6)
 
 	# Continue with setup
 	_mesh_tool = SurfaceTool.new()
@@ -89,22 +104,33 @@ func _detect_arm_architecture() -> bool:
 	return false
 
 func _create_rays() -> void:
-	# Clean up existing if any (though usually clean on ready)
+	# (FD-290) Ya no se crean nodos RayCast para la grilla: los offsets se arman bajo
+	# demanda en _rebuild_grid_offsets() y las consultas son intersect_ray directos.
 	for c in get_children():
 		if c is RayCast:
 			c.queue_free()
 	_rays.clear()
+	_ray_offsets.resize(grid_resolution * grid_resolution)
+	_rebuild_grid_offsets(_grid_step())
 
+
+func _grid_step() -> float:
+	return snap_amount if snap_amount > 0.001 else 0.1
+
+
+func _rebuild_grid_offsets(step: float) -> void:
+	_offset_step = step
+	var grid_width := step * float(grid_resolution - 1)
+	var start_offset := -grid_width * 0.5
+	var idx := 0
 	for z in range(grid_resolution):
 		for x in range(grid_resolution):
-			var r = RayCast.new()
-			r.name = "Ray_%d_%d" % [x, z]
-			r.enabled = true
-			# Match player ground probing by default: terrain/floor mask.
-			r.collision_mask = ground_collision_mask
-			r.cast_to = Vector3(0, -max_distance, 0)
-			add_child(r)
-			_rays.append(r)
+			# Mismo levantamiento de 1.0 m que tenia cada RayCast: cubre origenes del
+			# actor a nivel de piso o ligeramente enterrados.
+			_ray_offsets[idx] = Vector3(start_offset + float(x) * step, 1.0, start_offset + float(z) * step)
+			idx += 1
+	_hit_points.resize(_ray_offsets.size())
+	_hit_flags.resize(_ray_offsets.size())
 
 func _process(_delta: float) -> void:
 	if _disable_runtime:
@@ -172,10 +198,9 @@ func _process(_delta: float) -> void:
 		_refresh_cheap_shadow(center_pos, parent_rot_y)
 		return
 
-	# Update Ray Positions
-	# Perfect Pixel Alignment:
-	# Force the grid step to match the snap_amount (or a multiple)
-	# This ensures vertices always land on the "world grid", avoiding diagonal artifacts/beating.
+	# Update Shader Params
+	# Perfect Pixel Alignment: the grid step matches snap_amount (or fallback), so mesh
+	# UVs keep landing on the world grid without diagonal artifacts.
 	
 	var step = snap_amount
 	if step <= 0.001: step = 0.1 # Fallback
@@ -187,7 +212,6 @@ func _process(_delta: float) -> void:
 	# size is derived.
 	
 	var grid_width = step * (grid_resolution - 1)
-	var start_offset = - grid_width / 2.0
 	
 	# Update Shader Params
 	if material_override:
@@ -209,20 +233,56 @@ func _process(_delta: float) -> void:
 			# We might need to invert it depending on setup.
 			material_override.set_shader_param("texture_rotation", -rot_y)
 	
-	var ray_idx = 0
-	for z in range(grid_resolution):
-		for x in range(grid_resolution):
-			var local_x = start_offset + (x * step)
-			var local_z = start_offset + (z * step)
-			
-			var r = _rays[ray_idx]
-			# Raise ray origin by 1.0m to handle cases where parent origin is floor-level or clipping
-			r.transform.origin = Vector3(local_x, 1.0, local_z)
-			r.cast_to = Vector3(0, -max_distance - 1.0, 0)
-			r.force_raycast_update()
-			ray_idx += 1
-
+	# FD-290: una sola pasada de intersect_ray sobre la grilla, sin nodos RayCast ni
+	# force_raycast_update. La malla se regenera solo si alguna celda cruzo snap_amount.
+	_refresh_grid_hits()
 	_generate_mesh()
+
+
+func _refresh_grid_hits() -> void:
+	var step := _grid_step()
+	if step != _offset_step or _ray_offsets.size() != grid_resolution * grid_resolution:
+		_rebuild_grid_offsets(step)
+	var count := _ray_offsets.size()
+	var space := get_world().direct_space_state
+	var drop := max_distance + 1.0
+	if space == null:
+		for idx in range(count):
+			_hit_flags[idx] = 0
+			_hit_points[idx] = global_transform.origin + _ray_offsets[idx]
+	else:
+		for idx in range(count):
+			var from: Vector3 = global_transform.origin + _ray_offsets[idx]
+			var to := Vector3(from.x, from.y - drop, from.z)
+			var result: Dictionary = space.intersect_ray(from, to, _exclude_list, ground_collision_mask, true, false)
+			if result.empty():
+				_hit_flags[idx] = 0
+				_hit_points[idx] = from
+			else:
+				_hit_flags[idx] = 1
+				_hit_points[idx] = result.get("position", from)
+
+	# Cache de malla (FD-290 c): si ninguna celda cambio mas que snap_amount y no cambio
+	# el patron de huecos, el SurfaceTool no corre. La copia a _last_* es por elemento,
+	# sin duplicar pools por refresh.
+	var rebuild := true
+	if _last_heights.size() == count:
+		rebuild = false
+		for idx in range(count):
+			var valid_now := _hit_flags[idx] == 1
+			if valid_now != (_last_flags[idx] == 1):
+				rebuild = true
+				break
+			if valid_now and abs(_hit_points[idx].y - _last_heights[idx]) > snap_amount:
+				rebuild = true
+				break
+	if _last_heights.size() != count:
+		_last_heights.resize(count)
+		_last_flags.resize(count)
+	for idx in range(count):
+		_last_flags[idx] = _hit_flags[idx]
+		_last_heights[idx] = _hit_points[idx].y if _hit_flags[idx] == 1 else 0.0
+	_mesh_needs_rebuild = rebuild
 
 func _refresh_cheap_shadow(center_pos: Vector3, parent_rot_y: float) -> void:
 	if _cheap_ray:
@@ -273,13 +333,19 @@ func _handle_exclusions() -> void:
 			p = p.get_parent()
 	
 	if actor:
-		for r in _rays:
-			r.add_exception(actor)
+		# FD-290: la exclusion del actor viaja en el array de exclude de cada intersect_ray
+		# de la grilla; el modo cheap sigue usando su RayCast nodo.
+		_exclude_list.clear()
+		_exclude_list.append(actor)
 		if _cheap_ray:
 			_cheap_ray.add_exception(actor)
 		_actor_excluded = true
 
 func _generate_mesh() -> void:
+	# Cache de malla (FD-290 c): _refresh_grid_hits decide si algo cruzo snap_amount; si
+	# nada cruzo, la malla anterior sigue siendo exacta y el SurfaceTool no corre.
+	if not _mesh_needs_rebuild:
+		return
 	# Voxel/Manhattan Meshing Strategy
 	# Treat each ray hit as the center of a flat horizontal tile.
 	# Connect adjacent tiles with vertical "skirts" to form a solid step-mesh.
@@ -299,16 +365,15 @@ func _generate_mesh() -> void:
 	for z in range(grid_resolution):
 		for x in range(grid_resolution):
 			var idx = z * grid_resolution + x
-			var r = _rays[idx]
 			
 			var center_pos = Vector3.ZERO
 			var is_gap = false
 			
-			if r.is_colliding():
-				center_pos = to_local(r.get_collision_point())
+			if _hit_flags[idx] == 1:
+				center_pos = to_local(_hit_points[idx])
 			else:
 				# Miss - Push down to max distance
-				var r_origin = r.transform.origin
+				var r_origin: Vector3 = _ray_offsets[idx]
 				center_pos = Vector3(r_origin.x, -max_distance, r_origin.z)
 				is_gap = true
 				
@@ -371,8 +436,7 @@ func _generate_mesh() -> void:
 			# Right Neighbor (X+)
 			if x < grid_resolution - 1:
 				var idx_right = z * grid_resolution + (x + 1)
-				var r_right = _rays[idx_right]
-				var pos_right = _get_hit_pos(r_right)
+				var pos_right = _get_hit_pos(idx_right)
 				var dy = pos_right.y - center_pos.y
 				
 				if abs(dy) > 0.01 and abs(dy) < (skirt_limit + 0.1):
@@ -457,8 +521,7 @@ func _generate_mesh() -> void:
 			# Bottom Neighbor (Z+)
 			if z < grid_resolution - 1:
 				var idx_down = (z + 1) * grid_resolution + x
-				var r_down = _rays[idx_down]
-				var pos_down = _get_hit_pos(r_down)
+				var pos_down = _get_hit_pos(idx_down)
 				var dy = pos_down.y - center_pos.y
 				
 				if abs(dy) > 0.01 and abs(dy) < (skirt_limit + 0.1):
@@ -529,13 +592,14 @@ func _generate_mesh() -> void:
 						_add_quad(v_top_l, v_top_r, v_bot_r, v_bot_l, c_top_l, c_top_r, c_bot_r, c_bot_l, uv__br, uv__bl, uv__bl, uv__br, Vector3.FORWARD)
 
 	self.mesh = _mesh_tool.commit()
+	_mesh_needs_rebuild = false
 
-func _get_hit_pos(r: RayCast) -> Vector3:
-	if r.is_colliding():
-		return to_local(r.get_collision_point())
+func _get_hit_pos(idx: int) -> Vector3:
+	if _hit_flags[idx] == 1:
+		return to_local(_hit_points[idx])
 	
-	var ro = r.transform.origin
-	return Vector3(ro.x, -max_distance, ro.z)
+	var off: Vector3 = _ray_offsets[idx]
+	return Vector3(off.x, -max_distance, off.z)
 
 
 func _add_quad(v1, v2, v3, v4, c1, c2, c3, c4, uv1, uv2, uv3, uv4, normal: Vector3):

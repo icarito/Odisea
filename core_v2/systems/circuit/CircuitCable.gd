@@ -2,6 +2,9 @@ extends PropBaseV2
 class_name CircuitCable
 
 const TubeBuilder = preload("res://core_v2/systems/pipe/TubeBuilder.gd")
+# FD-290: trimesh cacheado por Mesh en vez de un BVH nuevo por cable (mismo helper que el
+# streamer de ductos y ScaffoldHubRing).
+const ShapeBounds = preload("res://core_v2/systems/collision/ShapeBounds.gd")
 
 # CircuitCable.gd
 # Procedurally generated cable that connects circuit nodes.
@@ -91,8 +94,18 @@ func _build_mesh():
 	# arma en _ready() antes de que init_from_curve() aplique la real) generate_tube_mesh()
 	# puede devolver una malla sin superficies validas. create_trimesh_collision() no tolera
 	# eso: falla con "Condition '!static_body' is true" porque nunca llega a crear el cuerpo.
+	# El helper del FD-290 valida lo mismo y ademas reutiliza el ConcavePolygonShape cuando
+	# dos cables comparten malla.
 	if mesh_inst.mesh != null and mesh_inst.mesh.get_surface_count() > 0:
-		mesh_inst.create_trimesh_collision()
+		var shape := ShapeBounds.trimesh_shape_of(mesh_inst.mesh)
+		if shape != null:
+			var body := StaticBody.new()
+			body.name = "CableVis_col"
+			var col := CollisionShape.new()
+			col.shape = shape
+			body.add_child(col)
+			mesh_inst.add_child(body)
+			body.owner = mesh_inst.owner
 
 
 func _setup_hurtbox():
