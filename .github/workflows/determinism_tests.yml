@@ -33,7 +33,7 @@ env:
   # Determinism is the reason: Box3D steps single-threaded with a fixed
   # sub-step count, which is what these tests are checking for.
   GODOT_VERSION: 3.6.4.rc.box3d
-  BOX3D_RELEASE: v0.1.0
+  BOX3D_RELEASE: v0.1.1
   GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   ANNA_V2_NO_CENTRAL: "1"
