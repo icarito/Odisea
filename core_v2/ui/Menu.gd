@@ -118,15 +118,17 @@ func _on_Quit_pressed():
 	get_tree().quit()
 
 func _start_game(scene_path):
-	# Si el destino es el nivel inicial, arrancar ya su musica (crossfade sin fijar
-	# override) para que vaya sonando durante la pantalla de carga en vez de esperar a
-	# que la BGMZoneV2 del nivel se registre. Otros destinos (Continue a mitad de
-	# partida) dejan que SceneManager haga su fade-out/in por defecto y que la propia
-	# zona decida la musica al cargar.
-	if scene_path == FIRST_GAME_SCENE:
-		var audio_mgr = get_node_or_null("/root/AudioManager")
-		if audio_mgr:
-			audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
+	# Lo PRIMERO, en el mismo frame del click: la pantalla de carga. Lo que sigue
+	# bloquea el hilo principal a ratos (cargar la BGM, instanciar el nivel, el
+	# primer frame dibujado), y sin esto el menu se queda quieto y el click parece
+	# perdido. El overlay vive en layer 1000, encima del fundido del menu, asi que
+	# sobrevive al fade a negro que arranca abajo y empalma con el que SceneManager
+	# vuelve a pedir en goto_scene().
+	var transition_layer = get_node_or_null("/root/TransitionLayer")
+	if transition_layer and transition_layer.has_method("show_loading"):
+		transition_layer.show_loading("Cargando...", true, "")
+		if transition_layer.has_method("set_loading_progress"):
+			transition_layer.set_loading_progress(0.0)
 	# Avoid double-triggering if a button is pressed twice during the fade.
 	for b in [new_game_button, continue_button, options_button, quit_button]:
 		if b:
@@ -136,6 +138,22 @@ func _start_game(scene_path):
 	tween.start()
 	if not tween.is_connected("tween_completed", self, "_on_fade_out_complete"):
 		tween.connect("tween_completed", self, "_on_fade_out_complete", [scene_path], CONNECT_ONESHOT)
+	# Si el destino es el nivel inicial, arrancar ya su musica (crossfade sin fijar
+	# override) para que vaya sonando durante la pantalla de carga en vez de esperar a
+	# que la BGMZoneV2 del nivel se registre. Otros destinos (Continue a mitad de
+	# partida) dejan que SceneManager haga su fade-out/in por defecto y que la propia
+	# zona decida la musica al cargar.
+	if scene_path == FIRST_GAME_SCENE:
+		_start_first_game_bgm()
+
+# crossfade_to_song() hace un load() sincronico del mp3 (AudioManager.gd): la
+# primera vez cuesta cientos de ms y caia justo en el frame del click. Un frame
+# despues, con la pantalla de carga ya dibujada, ese mismo costo no se ve.
+func _start_first_game_bgm() -> void:
+	yield(get_tree(), "idle_frame")
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr:
+		audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
 
 func _on_fade_out_complete(_object, _key, scene_path):
 	var scene_manager = get_node_or_null("/root/SceneManager")
