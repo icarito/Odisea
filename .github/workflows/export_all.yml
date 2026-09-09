@@ -429,7 +429,6 @@ jobs:
         env:
           # Godot carrying the Box3D physics module (icarito/godot-box3d-3).
           BOX3D_RELEASE: v0.1.0
-          BOX3D_TEMPLATE_VERSION: 3.6.4.rc.custom_build
         run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
             TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
@@ -484,13 +483,13 @@ jobs:
             *)           BOX3D_FILES="" ;;
           esac
 
+          # Slots are published loose alongside the .tpz precisely so a job can
+          # take its own without downloading half a gigabyte of platforms it
+          # will never export to.
           if [ -n "$BOX3D_FILES" ]; then
-            curl -fSL -o /tmp/box3d_tpz.zip \
-              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/Godot-Box3D-export-templates-${BOX3D_TEMPLATE_VERSION}.tpz"
-            rm -rf /tmp/box3d_tpz
-            unzip -oq /tmp/box3d_tpz.zip -d /tmp/box3d_tpz
             for f in $BOX3D_FILES; do
-              cp "/tmp/box3d_tpz/templates/$f" "$TPL_DIR/$f"
+              curl -fSL -o "$TPL_DIR/$f" \
+                "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/$f"
               chmod +x "$TPL_DIR/$f" || true
             done
             echo "Box3D templates installed: $BOX3D_FILES"
