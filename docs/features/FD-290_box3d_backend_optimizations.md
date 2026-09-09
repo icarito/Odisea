@@ -7,6 +7,7 @@
 > 3. Numeración: FD-290 estaba libre en `FEATURE_INDEX.md` al momento de crearlo.
 > 4. **2026-09-09 — primer lote aterrizado** (ver "Landed" al final): retiro de CollisionCullManager en Box3D, cache de trimesh por Mesh, cast único en KinematicArm3D, presupuesto de raycasts de gas, lookups cacheados, FakeShadow (resolución ARM + query directa + cache de malla). El deriva 5.74 m del strafe **ya no reproduce** con el culler apagado (verificado con `ODISEA_DISABLE_COLLISION_CULL=1`): la grabación actual es válida sin culling.
 > 5. **2026-09-09 — segundo lote:** camino Box3D de PushableBoxV2 (sleeping en vez de kinematic, sin snap rotacional — Sebastián confirmó que el snap era el parche de determinismo, no gameplay).
+> 6. **2026-09-09 — tercer lote (noche):** carga web medida y optimizada con Playwright + Thorium (ver "Arranque en navegador — segundo lote"): `shader_compilation_mode.web=2`, warmup de Dome_Intro cableado desde el Menu, batching en el addon. Menu → Dome_Intro: 26–29 s → 6.1 s.
 
 ## Problem
 
@@ -77,24 +78,46 @@ Verificado con `./runtest.sh` local (Bullet, binario stock 3.6.2) y replays de l
 4. **Presupuesto de raycasts de gas** (`core_v2/systems/gas/GasParticleManager.gd`): `raycast_budget_per_tick = 64` (0 = sin tope). `_prepare_ray_budget()` calcula la velocidad efectiva una sola vez por tick y raycastea solo las K candidatas más rápidas (selección determinista por velocidad, sin aleatoriedad); el resto se mueve balístico ese tick.
 5. **Lookups cacheados**: `SessionManager.gd` resuelve `/root/PerformanceMonitor` una vez (antes: por cada tick de física); `PlayerControllerV2.gd` cachea `/root/SessionManager` en modo replay.
 6. **FakeShadow** (`core_v2/visual/FakeShadow.gd`): (a) `grid_resolution` capped a 6×6 en Android (el fallback cheap de Linux-ARM se queda como estaba); (b) la grilla ya no son 64 nodos `RayCast` con `force_raycast_update`: una pasada de `intersect_ray` sobre offsets precomputados, exclusión del actor via array; (c) la malla se regenera solo si alguna celda cruzó `snap_amount` o cambió el patrón de huecos (`_mesh_needs_rebuild`).
-7. **PushableBoxV2 camino Box3D** (`core_v2/components/PushableBoxV2.gd`): sleeping en vez de `MODE_KINEMATIC` y sin snap rotacional (ver sección dedicada abajo); Bullet intacto; A/B con `ODISEA_PUSHABLE_LEGACY=1`.
+7. **PushableBoxV2 camino Box3D** (`core_v2/components/PushableBoxV2.gd`): sleeping en vez de `MODE_KINEMATIC` y sin snap rotacional — **OPT-IN** con `ODISEA_PUSHABLE_SLEEP=1` (ver sección dedicada; el default volvió al legado por drift en la CI de Box3D).
+8. **Warmup de shaders de Dome_Intro desde el Menu** (`core_v2/ui/Menu.gd::_spawn_shader_warmup` + `ShaderWarmupTrigger.gd`): el trigger ahora ESPERA a que el preload de SceneManager termine (`wait_preload_conflict`) y cachea igual, en el Menu y en background. Antes se saltaba el warmup por la carrera del load() síncrono, así que `DomeIntroShaderCache.tscn` no estaba cableado en ninguna escena.
+9. **Compilación por lotes en el addon** (`addons/gd-shader-cache/src/ShaderCache.gd`): `materials_per_frame` (0 = legado) revela las quads de a N por frame; `DomeIntroShaderCache.tscn` usa 6. Con async OFF evita el mega-stall de un solo frame.
+10. **`shader_compilation_mode.web=2`** en project.godot: habilita async+cache en navegadores con `KHR_parallel_shader_compile` (el motor registra default `.web=0` en `servers/visual_server.cpp:2793`). Degradación grácil: Firefox/Safari sin la extensión caen al camino síncrono de siempre.
+
+### Números finales (Thorium headful, build local Box3D v0.2.0, flujo Menu → NUEVA PARTIDA)
+
+| Métrica | Baseline (producción) | Con este lote | Delta |
+|---|---|---|---|
+| Transición Menu → Dome_Intro (`completed` elapsed) | 26.3–28.6 s | **6.1 s** | ~4.5× |
+| Stall `tree_attached → first_idle_frame` | 25.7 s | **4.9 s** | ~5× |
+| Warmup de ~90 programas GLES3 en el Menu | n/a (no corría) | ~20 s síncronos con async OFF / background con async ON | — |
+
+El arranque del Menu en sí (~1.8 s de transición) no cambió; el resto del tiempo hasta el click es fetch+parse del pck (419 MB local; en producción lo absorbe el cache del CDN y el shell de `odisea_shell.html`).
 
 ### Strafe sin culling (nota corregida)
 
 La nota histórica (deriva 5.74 m de `test_locomocion_strafe` al re-replay sin culling) **ya no reproduce**: hoy, con `ODISEA_DISABLE_COLLISION_CULL=1`, el replay pasa con drift 0. La grabación actual es compatible con el culler apagado, así que la CI determinista (Box3D, culler auto-apagado) queda verde sin re-grabar nada.
 
-### Arranque en navegador (Dome_Intro / Menu)
+### Arranque en navegador (Dome_Intro / Menu) — segundo lote, medido con Playwright + Thorium
+
+Instrumentación: export HTML5 Threads local con el binario/editor Box3D v0.2.0 (`~/Descargas/godot.box3d.linux.x86_64.editor` + templates del release en `templates/3.6.4.rc/`), servido localmente con COOP/COEP, medido con Playwright sobre `/usr/bin/thorium-browser-avx2` (headful, GPU) usando el replay box3d (`replay_1788458596.json`, `--replay`) y el flujo real Menu → NUEVA PARTIDA (clic en canvas + Enter). Marcadores: `[SceneStartup] <scene> completed` de SceneManager y las métricas del shell (`loader_start` / `player_released`).
+
+Hallazgos (todos reproducidos, screenshots en `/tmp/kilo/webmeasure/shots/`):
+
+1. **El stall de Dome_Intro era ~26 s en web** (`tree_attached → first_idle_frame`): compilación síncrona de ~90 programas GLES3. Desktop con cache: 2.9 s.
+2. **El motor registra `shader_compilation_mode.web = 0` por defecto** (`servers/visual_server.cpp:2793`, `GLOBAL_DEF(...mode.web, 0)`): el override `.web` silencia async en web aunque project.godot declare 2. Por eso el boot web imprimía `Async. shader compilation: OFF` (síncrono, sin cache) mientras desktop/Android corren async.
+3. **Con `shader_compilation_mode.web=2`** (Chromium expone `KHR_parallel_shader_compile`): boot imprime `Async. shader compilation: ON (full native support)` y la transición a Dome_Intro baja de **26.3 s → 6.1 s (~4.5×)**; el stall de first_idle_frame, de 25.7 s → 4.9 s. Los ubershaders renderizan en el primer frame y los programas reales se compilan en background — **verificado visualmente**: criopods, rejas, Pilot y luces correctos a los +6/+22 s (capturas `final1_dome*.png`). El contrato `iOS=0` (ubershaders esconden meshes en GL móvil) NO aplica a web/ANGLE en Chromium; Firefox/Safari sin la extensión caen al camino síncrono de siempre (degradación grácil). Pendiente de verificación visual en Firefox antes de darlo por cerrado.
+4. **El shell de deploy secuestra `fetch` y baja el pck/wasm de GitHub Pages** (`core_v2/telemetry/html/odisea_shell.html`, `PAGES_BASE`): toda medición local debe neutralizarlo o se mide el pck de producción.
+5. El warmup de quads (`ShaderCache`) NO reduce el stall web por sí solo: las quads del menu compilan las variantes base, pero el primer draw real necesita variantes distintas (sombras, fog, alpha) y recompila igual (medido: warmup completo antes del click, stall 25.3 s). Con async ON el warmup pasa a ser un *pre-submitter* de programas a la cola de background — útil, no crítico.
+6. Error `image->is_compressed() ... WebGL INVALID_ENUM` (76 ocurrencias): artefacto del export local (variantes de textura regeneradas por el editor 3.6.4.rc); el pck de CI/producción no lo muestra (base4: 0 errores). No bloquea.
+
+Cambios aterrizados: `shader_compilation_mode.web=2` en project.godot (la CI lo pisa por plataforma si hace falta), warmup de Dome_Intro cableado desde `Menu._spawn_shader_warmup()` (el trigger ahora ESPERA el preload en vez de saltarse el warmup — `wait_preload_conflict`), y `materials_per_frame` en `ShaderCache.gd` (revelado por lotes para no congelar el menu cuando el camino es síncrono).
+
+### Arranque en navegador (Dome_Intro / Menu) — primer análisis
 
 El freeze del tab está dominado por costos de motor que GDScript no puede mover: fetch del pck desde IndexedDB, decodificación de sub-recursos dentro de `load_interactive` (ya cede entre recursos) y compilación GLES3 de shaders en el primer draw (single-thread en HTML5). Lo que ya baja el pico con este lote: sin nodos RayCast de FakeShadow al spawnear el Pilot y sin BVHs duplicados de trimesh. Pendiente (requiere decisión de assets, §7): variante más chica del backdrop `HelmetView_HI-RES.png` (850 KB de .stex) para web.
 
-### PushableBoxV2 en Box3D (implementado en el segundo lote)
+### PushableBoxV2 en Box3D (segundo lote — camino sleeping OPT-IN)
 
-El híbrido Rigid↔Kinematic y el snap rotacional de 90° eran parches para la falta de determinismo de Bullet (confirmado por Sebastián: el snap no es gameplay, era el truco). Con el solver de Box3D (single-thread, substeps fijos, determinista) el determinismo lo da el motor, así que el camino Box3D simplifica:
+El híbrido Rigid↔Kinematic y el snap rotacional de 90° eran parches para la falta de determinismo de Bullet (confirmado por Sebastián: el snap no es gameplay, era el truco). Con el solver de Box3D el determinismo lo da el motor, así que se implementó el camino Box3D: la caja nunca sale de `MODE_RIGID`, `_settle()` duerme el cuerpo (`sleeping = true`) en vez de congelarse kinematic, y el snap rotacional no se aplica. En la CI determinista con el motor Box3D real, el camino sleeping agregó drift 0.051 en `test_push_clipping` (umbral 0.03) entre la grabación (PASS 1) y el replay (PASS 2): el reposo via sleeping interactúa distinto con el island management de Box3D entre corridas. En Bullet local es determinista (suite 140/140 con el camino activo). El falló PRE-EXISTE en la CI para `test_cargol_basic`/`test_cargol_starter` (asserts OYS, falla idéntica en 351cff5a sin estos cambios) — es un tema del módulo/escena, no de este FD. Siguiente paso del camino sleeping: A/B con el módulo (¿despertar por contacto del jugador contra cuerpo dormido se resuelve igual en PASS1/PASS2?), y ver si v0.2.1 lo limpia.
 
-- **La caja nunca sale de `MODE_RIGID`.** `_settle()` redondea la pose (paridad con el legado), zeroes velocidades y duerme el cuerpo (`sleeping = true`) — costo de solver ~0 como kinematic, pero collider sólido con respuesta de física estándar.
-- **Sin snap rotacional y sin slerp** (`_target_basis` nunca se arma en este camino). Bajo Bullet el híbrido con snap queda byte a byte intacto.
-- **Despertar con paridad completa:** el push del jugador ya llamaba `wake_up()` proactivamente (`PlayerControllerV2._update_push_state`), `set_external_velocity` (conveyors/plataformas), `WakeArea.body_entered/exited` y el sondeo throttleado `_check_kinematic_wakeup` (cada 3 frames) cubren el caso kinematic-toque-no-despierta igual que el legado.
-- **Snapshots compatibles:** `get_snapshot` escribe `mode: RIGID` en este camino; `restore_snapshot` mapea un `MODE_KINEMATIC` legado a rigido dormido (misma pose congelada), así que grabaciones viejas se restauran sin romper.
-- **A/B:** `ODISEA_PUSHABLE_LEGACY=1` fuerza el camino histórico también en Box3D.
-
-Validación: `test_push_integration` y `test_push_clipping` en verde con el camino Box3D activo (PASS 1 re-graba el .json con la dinámica nueva; PASS 2 verifica grabación-vs-replay, así que el cambio de dinámica no necesita re-grabación manual). La equivalencia de trayectorias Bullet↔Box3D en CI la dan la re-grabación del PASS 1 y la paridad de semántica que valida el módulo (27/27 escenas de aceptación).
+Resto del diseño (cuando se reactive): el push del jugador ya llamaba `wake_up()` proactivo, `set_external_velocity`/`WakeArea`/sondeo cubren despertar con paridad, y `restore_snapshot` mapea snapshots legados `MODE_KINEMATIC` a rigido dormido. Bullet queda byte a byte intacto; `ODISEA_PUSHABLE_LEGACY=1` no hace falta ya (el legado ES el default).

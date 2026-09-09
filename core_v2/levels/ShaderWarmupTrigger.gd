@@ -4,6 +4,13 @@ export(String, FILE, "*.tscn,*.scn") var shader_cache_scene_path := "res://core_
 export(bool) var run_in_tests := false
 export(bool) var wait_for_startup_gate := true
 export(int, 0, 1200) var startup_wait_max_frames := 720
+# FD-290: si el SceneManager esta PRECARGANDO la escena objetivo, esperar a que
+# termine y cachear igual (en el Menu, en segundo plano) en lugar de saltarse el
+# warmup. El objetivo del warmup es justamente compilar ANTES del primer draw
+# real; saltarlo por la precarga deja el stall de shaders en el arranque del
+# nivel (medido: ~27 s en WebGL1/2 hasta first_idle_frame de Dome_Intro).
+export(bool) var wait_preload_conflict := true
+export(int, 0, 3600) var preload_wait_max_frames := 1200
 
 var _started := false
 
@@ -55,30 +62,52 @@ func _start_shader_warmup() -> void:
 				break
 	var current_scene = get_tree().current_scene
 	var current_scene_path: String = current_scene.filename if is_instance_valid(current_scene) else ""
-	# Ademas de "ya es la escena activa", Menu._ready() dispara SceneManager.
-	# request_scene_preload() de esta MISMA escena en su propio call_deferred, en
-	# paralelo a este trigger (los dos nacen de Menu._ready()). Un load() sincronico
-	# acá mientras ese preload asincronico esta a mitad de camino pisa la misma
-	# carrera ("Cyclic reference?" -> null -> SIGSEGV). SceneManager ya va a dejar
-	# la escena precargada o en curso de estarlo: cachear shaders de nuevo ahi es
-	# tan redundante como en el caso de la escena activa.
+	# "Ya es la escena activa" sigue siendo skip puro. El conflicto con la precarga
+	# de Menu._ready() (ver arriba) se resuelve ESPERANDO: cuando el preload de
+	# SceneManager termina, el recurso queda cacheado y el load() del warmup es un
+	# cache hit instantaneo, sin carrera posible.
 	var scene_manager = get_node_or_null("/root/SceneManager")
-	var preload_conflict := false
+	var preloading := false
 	if target_scene_path != "" and is_instance_valid(scene_manager):
-		if scene_manager.has_method("is_scene_preloading") and scene_manager.is_scene_preloading(target_scene_path):
-			preload_conflict = true
-		elif scene_manager.has_method("has_preloaded_scene") and scene_manager.has_preloaded_scene(target_scene_path):
-			preload_conflict = true
-	if target_scene_path != "" and (target_scene_path == current_scene_path or preload_conflict):
+		if scene_manager.has_method("is_scene_preloading"):
+			preloading = scene_manager.is_scene_preloading(target_scene_path)
+	if target_scene_path != "" and target_scene_path == current_scene_path:
 		var startup_trace_skip = get_node_or_null("/root/StartupTrace")
 		if startup_trace_skip and startup_trace_skip.has_method("mark"):
 			startup_trace_skip.mark("shader_warmup_skipped_active_scene", {
 				"path": shader_cache_scene_path,
 				"target": target_scene_path,
-				"reason": "preload_conflict" if preload_conflict else "current_scene"
+				"reason": "current_scene"
 			})
 		queue_free()
 		return
+	if preloading and wait_preload_conflict:
+		var waited := 0
+		var startup_trace_wait = get_node_or_null("/root/StartupTrace")
+		while is_instance_valid(self) and is_instance_valid(scene_manager) \
+				and scene_manager.has_method("is_scene_preloading") \
+				and scene_manager.is_scene_preloading(target_scene_path) \
+				and waited < preload_wait_max_frames:
+			yield(get_tree(), "idle_frame")
+			waited += 1
+		if startup_trace_wait and startup_trace_wait.has_method("mark"):
+			startup_trace_wait.mark("shader_warmup_preload_wait_done", {
+				"path": shader_cache_scene_path,
+				"target": target_scene_path,
+				"frames": waited
+			})
+		if not is_instance_valid(self):
+			return
+		if is_instance_valid(scene_manager) and scene_manager.has_method("is_scene_preloading") \
+				and scene_manager.is_scene_preloading(target_scene_path):
+			# Preload nunca termino: mejor no pelear con el load() sincronico.
+			if startup_trace_wait and startup_trace_wait.has_method("mark"):
+				startup_trace_wait.mark("shader_warmup_skipped_preload_timeout", {
+					"path": shader_cache_scene_path,
+					"target": target_scene_path
+				})
+			queue_free()
+			return
 
 	var startup_trace = get_node_or_null("/root/StartupTrace")
 	if startup_trace and startup_trace.has_method("mark"):

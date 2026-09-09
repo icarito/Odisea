@@ -63,7 +63,14 @@ func _ready():
 	contacts_reported = 4
 
 	var legacy_env := OS.get_environment("ODISEA_PUSHABLE_LEGACY")
-	_box3d = _detect_box3d_backend() and not (legacy_env in ["1", "true", "yes", "on"])
+	# FD-290 (segundo lote): el camino sleeping quedo OPT-IN. En la CI determinista con
+	# el motor Box3D real agrego drift 0.051 en test_push_clipping (umbral 0.03): el
+	# reposo via sleeping interactua distinto con el island management de Box3D entre la
+	# grabacion y el replay. En Bullet-local es determinista (suite 140/140). Hasta que
+	# el modulo diga por que, el hibrido legado manda en todos los backends.
+	var sleep_env := OS.get_environment("ODISEA_PUSHABLE_SLEEP")
+	_box3d = _detect_box3d_backend() and (sleep_env in ["1", "true", "yes", "on"]) \
+			and not (legacy_env in ["1", "true", "yes", "on"])
 	if _box3d and debug:
 		print("[PushableBoxV2] Backend Box3D: modo sleeping, sin snap rotacional (FD-290).")
 	

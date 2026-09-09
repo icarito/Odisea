@@ -58,6 +58,22 @@ func _ready():
 				temp_buttons.append(b)
 		handler.buttons = temp_buttons
 	call_deferred("_request_first_scene_preload")
+	call_deferred("_spawn_shader_warmup")
+
+# FD-290: warmup de shaders de la primera escena de juego mientras el jugador esta
+# en el Menu. El trigger espera a que el preload de Dome_Intro termine (evita la
+# carrera del load() sincronico) y recien ahi compila, de a lotes, en background.
+# Con esto el primer draw del nivel no paga los ~90 programas GLES3 (medido en
+# WebGL: ~27 s de stall hasta first_idle_frame sin warmup).
+func _spawn_shader_warmup():
+	if Engine.editor_hint:
+		return
+	var trigger := preload("res://core_v2/levels/ShaderWarmupTrigger.gd").new()
+	trigger.name = "DomeIntroShaderWarmup"
+	trigger.shader_cache_scene_path = "res://core_v2/levels/shader_cache/DomeIntroShaderCache.tscn"
+	trigger.wait_for_startup_gate = true
+	trigger.wait_preload_conflict = true
+	add_child(trigger)
 
 func _request_first_scene_preload() -> void:
 	yield(get_tree(), "idle_frame")

@@ -12,6 +12,10 @@ export(String, FILE, "*.tscn, *.scn") var scene_path = ""
 export var cache_packed_scene_recusively = true # Cache every PackedScene from script variable
 export var cache_material_in_animation_player = true # Cache every unique materials from animation key
 export var active_frame_count = 2
+# FD-290 (web/Android): 0 = legado (todas las quads visibles en el primer frame activo, y
+# el driver compila TODOS los programas en un solo stall). Con N>0, las quads se revelan
+# de a N por frame: el costo de compilacion se reparte y el menu sigue respirando.
+export var materials_per_frame := 0
 
 var local_to_scene_materials_node setget, get_local_to_scene_materials_node
 var materials_node setget , get_materials_node
@@ -25,6 +29,7 @@ var _multi_mesh
 var _materials = []
 var _particles_materials = {}
 var _meshes = {}
+var _pending_reveal: Array = []
 
 
 func _ready():
@@ -37,6 +42,22 @@ func _process(delta):
 	if Engine.editor_hint:
 		return
 	
+	if not _pending_reveal.empty():
+		var batch := materials_per_frame if materials_per_frame > 0 else _pending_reveal.size()
+		var revealed := 0
+		while revealed < batch and not _pending_reveal.empty():
+			var node = _pending_reveal.pop_front()
+			if is_instance_valid(node):
+				node.visible = true
+				# Las particulas solo emiten cuando su lote queda revelado.
+				if node is Particles:
+					node.emitting = true
+			revealed += 1
+		# Mientras queden lotes por revelar, el countdown se renueva: el total de
+		# frames activos pasa a ser lotes + active_frame_count.
+		_frame_countdown = active_frame_count
+		return
+
 	if _frame_countdown > 0:
 		_frame_countdown -= 1
 	else:
@@ -80,6 +101,7 @@ func clear_cache(value=true):
 	_materials.clear()
 	_particles_materials.clear()
 	_meshes.clear()
+	_pending_reveal.clear()
 	var to_free = []
 	to_free.append(get_node_or_null("LocalToSceneMaterials"))
 	to_free.append(get_node_or_null("Materials"))
@@ -195,6 +217,11 @@ func _cache_material(node, material, extra={}):
 		if parent:
 			parent.add_child(geometry_instance)
 			geometry_instance.set_owner(self)
+			if not Engine.editor_hint and materials_per_frame > 0:
+				# Lote diferido: la quad se crea oculta y el _process la revela de a
+				# materials_per_frame por frame (ver set_active y _process).
+				geometry_instance.visible = false
+				_pending_reveal.append(geometry_instance)
 
 # Add the process material and the material from particles
 func _cache_particle_material(node, material, proc_mat, extra={}):
@@ -228,6 +255,11 @@ func _cache_particle_material(node, material, proc_mat, extra={}):
 	var particles = new_particles(node, material, proc_mat)
 	get_particles_materials_node(true).add_child(particles)
 	particles.set_owner(self)
+	if not Engine.editor_hint and materials_per_frame > 0:
+		# Lote diferido: oculta ahora; el _process la revela y recien ahi emite.
+		particles.visible = false
+		particles.emitting = false
+		_pending_reveal.append(particles)
 
 # Create mesh instance for any class inherited from GeometryInstance
 func new_mesh_instance(node, material):
@@ -285,7 +317,13 @@ func set_active(v):
 	set_process(active)
 	if active:
 		_frame_countdown = active_frame_count
-		emit_particles()
+		# En modo batched las quads entran ocultas y se revelan por lotes (los
+		# materiales ya estan registrados); emitir todas las particulas de golpe en
+		# set_active romperia ese reparto.
+		if materials_per_frame <= 0:
+			emit_particles()
+	else:
+		_pending_reveal.clear()
 
 func get_local_to_scene_materials_node(create_if_null=false):
 	if not is_instance_valid(local_to_scene_materials_node):

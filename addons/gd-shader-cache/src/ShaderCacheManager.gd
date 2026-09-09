@@ -4,6 +4,7 @@ signal compiled(cache_path)
 
 var _compiled_cache_paths = []
 var _disable_in_remote_debug := false
+var _compile_started_ms := 0
 const REMOTE_DEBUG_FLAGS := ["--remote-debug"]
 
 
@@ -42,6 +43,8 @@ func compile(cache_packed_scene):
 		return
 
 	cache_scene.connect("compiled", self, "_on_cache_compiled", [cache_path, cache_scene], CONNECT_ONESHOT)
+	print("[ShaderCacheManager] compiling: ", cache_path, " (batch=", cache_scene.get("materials_per_frame") if cache_scene.get("materials_per_frame") != null else 0, ")")
+	_compile_started_ms = OS.get_ticks_msec()
 	_prepare_cache_scene(cache_scene, cache_path)
 
 func _prepare_cache_scene(cache_scene, cache_path: String) -> void:
@@ -61,6 +64,7 @@ func _on_cache_scene_built(cache_scene, cache_path: String) -> void:
 func _on_cache_compiled(cache_path, cache_scene):
 	_compiled_cache_paths.append(cache_path)
 	cache_scene.queue_free()
+	print("[ShaderCacheManager] compiled: ", cache_path, " elapsed_ms=", max(0, OS.get_ticks_msec() - _compile_started_ms))
 	emit_signal("compiled", cache_path)
 
 func spawn_cache(cache_packed_scene):
