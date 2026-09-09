@@ -2726,7 +2726,7 @@ boot_splash/image="res://assets/splash.png"
 boot_splash/use_filter=false
 config/icon="res://assets/odisea_icon.png"
 config/quit_on_go_back=false
-config/version="v0.3.2"
+config/version="v0.4.0"
 
 [audio]
 
