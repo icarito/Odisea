@@ -1647,14 +1647,19 @@ jobs:
             --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
           echo "macOS TestFlight upload accepted; Apple will now process build $MAC_BUILD_NUMBER."
 
-  # altool sube el IPA pero lo deja solo para testers internos; mover el build al
-  # grupo externo era el último paso manual. Va en ubuntu (no en el runner macOS)
-  # porque hay que esperar ~15-30 min a que Apple procese el build y los minutos de
-  # macOS cuestan 10x. Si la pata iOS no subió nada, el script sale limpio a los 10 min.
+  # altool sube el IPA (y el .pkg de macOS) pero los deja solo para testers
+  # internos; mover el build al grupo externo era el último paso manual. Va en
+  # ubuntu (no en el runner macOS) porque hay que esperar ~15-30 min a que Apple
+  # procese el build y los minutos de macOS cuestan 10x. Si una plataforma no
+  # subió nada, el script la descarta a los 10 min y sigue con la otra.
+  #
+  # always() + los result explícitos: upload-macos se saltea cuando el run es
+  # solo-iOS, y una dependencia salteada arrastraría a este job al skip.
+  # Tampoco se le exige éxito: si la pata macOS falla, iOS igual se distribuye.
   testflight-external:
-    needs: [prep, export]
+    needs: [prep, export, upload-macos]
     runs-on: ubuntu-latest
-    if: ${{ needs.prep.outputs.ref_name == 'main' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'ios') && github.repository == 'icarito/Odisea' }}
+    if: ${{ always() && needs.prep.result == 'success' && needs.export.result == 'success' && needs.prep.outputs.ref_name == 'main' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'ios' || needs.prep.outputs.target_platform == 'macos') && github.repository == 'icarito/Odisea' }}
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -1669,6 +1674,9 @@ jobs:
           ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
           BUNDLE_ID: juegos.educa.odisea
           BUILD_NUMBER: ${{ needs.prep.outputs.build_seq }}
+          # iOS y macOS son la misma app en App Store Connect y comparten número
+          # de build: el script las separa por plataforma del preReleaseVersion.
+          PLATFORMS: ${{ needs.prep.outputs.target_platform == 'ios' && 'IOS' || needs.prep.outputs.target_platform == 'macos' && 'MAC_OS' || 'IOS,MAC_OS' }}
         run: |
           set -euo pipefail
           if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_API_KEY_P8" ]; then
