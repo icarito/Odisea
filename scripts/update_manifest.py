@@ -232,7 +232,7 @@ def cmd_generate(args):
         },
         "delta_artifacts": [],
         "release_notes_url": release_notes_url,
-        "downloads_page": "https://icarito.github.io/odisea-neon-dreams/#downloads"
+        "downloads_page": "https://odisea.educa.juegos/#/downloads"
     }
 
     payload_json = json.dumps(payload, sort_keys=True, separators=(',', ':'))
