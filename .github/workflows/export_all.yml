@@ -457,34 +457,26 @@ jobs:
           fi
           test -f "$REQUIRED_TEMPLATE" || { echo "::error::Missing export template: $REQUIRED_TEMPLATE"; exit 1; }
 
-          if [ "${{ matrix.platform }}" = "html5" ]; then
-            # Plantilla propia: Godot 3.6.2 con UNA linea cambiada en
-            # drivers/gles3/shaders/scene.glsl (el `vec3 pad` del bloque
-            # DirectionalLightData partido en tres floats). Sin eso el bloque mide 400
-            # para el driver y 384 para el motor, y WebGL2 descarta TODO draw que lo ate:
-            # en web se perdian el traje del piloto, tuberias, tanques y airlocks.
-            # Ver docs/agents/web_gles3_directional_light.md; el parche y el script que la
-            # reproduce estan en tools/godot_web_template/.
-            #
-            # El preset "HTML5 Threads" (variant/export_type=1) lee el slot _threads_
-            # (platform/javascript/export/export.cpp::_get_template_name), asi que la
-            # plantilla va ahi. Se pisa siempre, incluso con TPL_DIR cacheado.
-            TPL_URL="https://github.com/icarito/Odisea/releases/download/godot-web-template-3.6.2-ubo1/webassembly_threads_release.zip"
-            TPL_SHA="46d6c6ed07db86649cc53330e664b30e6fc7343ee8913ef51ef072e18b393977"
-            curl -fSL -o /tmp/web_template.zip "$TPL_URL"
-            echo "$TPL_SHA  /tmp/web_template.zip" | sha256sum -c -
-            cp /tmp/web_template.zip "$TPL_DIR/webassembly_threads_release.zip"
-          fi
+          # The web template used to be rebuilt here for one reason: the
+          # DirectionalLightData std140 fix in drivers/gles3/shaders/scene.glsl.
+          # The Box3D builds carry that same patch (godot-box3d-3/patches/), so
+          # the override below covers it and this no longer has to be a separate
+          # artifact. See docs/agents/web_gles3_directional_light.md for what the
+          # symptom looked like: the pilot suit, pipes, tanks and airlocks
+          # disappearing because WebGL2 rejected every draw binding the block.
 
           # Same idea as the web template above: the stock .tpz is installed
-          # first so every slot exists, then the slots we have a Box3D build for
-          # are overwritten. Only these two platforms have one so far -- the rest
-          # keep stock templates and therefore keep running Bullet, which is why
-          # the backend is selected per platform below and not in project.godot.
+          # first so every slot exists, then the slot for this platform is
+          # overwritten with the Box3D build. Every platform we export to has
+          # one, so the whole release runs the same physics engine.
           case "${{ matrix.platform }}" in
-            linux_x64) BOX3D_FILES="linux_x11_64_release linux_x11_64_debug" ;;
-            windows)   BOX3D_FILES="windows_64_release.exe windows_64_debug.exe" ;;
-            *)         BOX3D_FILES="" ;;
+            linux_x64)   BOX3D_FILES="linux_x11_64_release linux_x11_64_debug" ;;
+            linux_arm64) BOX3D_FILES="linux_x11_arm64_release linux_x11_arm64_debug" ;;
+            windows)     BOX3D_FILES="windows_64_release.exe windows_64_debug.exe" ;;
+            macos)       BOX3D_FILES="osx.zip" ;;
+            ios)         BOX3D_FILES="iphone.zip" ;;
+            html5)       BOX3D_FILES="webassembly_threads_release.zip webassembly_threads_debug.zip webassembly_release.zip webassembly_debug.zip" ;;
+            *)           BOX3D_FILES="" ;;
           esac
 
           if [ -n "$BOX3D_FILES" ]; then
