@@ -29,7 +29,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GODOT_VERSION: 3.6.2-stable
+  # Godot carrying the Box3D physics module, published by icarito/godot-box3d-3.
+  # Determinism is the reason: Box3D steps single-threaded with a fixed
+  # sub-step count, which is what these tests are checking for.
+  GODOT_VERSION: 3.6.4.rc.box3d
+  BOX3D_RELEASE: v0.1.0
   GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   ANNA_V2_NO_CENTRAL: "1"
@@ -69,19 +73,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-
 
-      - name: Setup Godot 3.6.2
+      - name: Setup Godot (Box3D build)
         run: |
           set -euo pipefail
           TARGET_DIR="${GODOT_CACHE_DIR}/${GODOT_VERSION}"
           TARGET_BIN="${TARGET_DIR}/godot"
           mkdir -p "$TARGET_DIR"
           if [ ! -x "$TARGET_BIN" ]; then
-            wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux_headless.64.zip"
-            unzip -q "Godot_v${GODOT_VERSION}_linux_headless.64.zip"
-            mv "Godot_v${GODOT_VERSION}_linux_headless.64" "$TARGET_BIN"
+            # platform=server build: links no X11, so it runs on a bare runner
+            # exactly like the stock linux_headless binary it replaces.
+            curl -fSL -o "$TARGET_BIN" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
             chmod +x "$TARGET_BIN"
           fi
           sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
+          godot --version
+
+      # Selecting the backend from a project setting would switch it for every
+      # job and every export too. override.cfg is read next to project.godot and
+      # is not committed, so the switch lives in this workflow alone.
+      - name: Select the Box3D physics backend
+        run: |
+          set -euo pipefail
+          printf '[physics]\n\n3d/physics_engine="Box3D"\n' > override.cfg
+          cat override.cfg
 
       - name: Set up Python
         uses: actions/setup-python@v7

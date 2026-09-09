@@ -426,6 +426,10 @@ jobs:
 
       - name: Install Templates
         if: matrix.platform != 'android'
+        env:
+          # Godot carrying the Box3D physics module (icarito/godot-box3d-3).
+          BOX3D_RELEASE: v0.1.0
+          BOX3D_TEMPLATE_VERSION: 3.6.4.rc.custom_build
         run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
             TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
@@ -472,7 +476,42 @@ jobs:
             cp /tmp/web_template.zip "$TPL_DIR/webassembly_threads_release.zip"
           fi
 
+          # Same idea as the web template above: the stock .tpz is installed
+          # first so every slot exists, then the slots we have a Box3D build for
+          # are overwritten. Only these two platforms have one so far -- the rest
+          # keep stock templates and therefore keep running Bullet, which is why
+          # the backend is selected per platform below and not in project.godot.
+          case "${{ matrix.platform }}" in
+            linux_x64) BOX3D_FILES="linux_x11_64_release linux_x11_64_debug" ;;
+            windows)   BOX3D_FILES="windows_64_release.exe windows_64_debug.exe" ;;
+            *)         BOX3D_FILES="" ;;
+          esac
+
+          if [ -n "$BOX3D_FILES" ]; then
+            curl -fSL -o /tmp/box3d_tpz.zip \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/Godot-Box3D-export-templates-${BOX3D_TEMPLATE_VERSION}.tpz"
+            rm -rf /tmp/box3d_tpz
+            unzip -oq /tmp/box3d_tpz.zip -d /tmp/box3d_tpz
+            for f in $BOX3D_FILES; do
+              cp "/tmp/box3d_tpz/templates/$f" "$TPL_DIR/$f"
+              chmod +x "$TPL_DIR/$f" || true
+            done
+            echo "Box3D templates installed: $BOX3D_FILES"
+            echo "BOX3D_ACTIVE=1" >> "$GITHUB_ENV"
+          fi
+
           echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
+
+      # Only where a Box3D template was installed. An exported game reads the
+      # backend from project.godot, and a stock template falls back to Bullet in
+      # silence, so setting it for every platform would claim a backend four of
+      # the seven do not have. Written at build time, never committed.
+      - name: Select the Box3D physics backend
+        if: env.BOX3D_ACTIVE == '1'
+        run: |
+          set -euo pipefail
+          printf '\n[physics]\n\n3d/physics_engine="Box3D"\n' >> project.godot
+          tail -4 project.godot
 
       # Apple exige MinimumOSVersion >= 15.0 para todas las apps iOS a partir de
       # la primavera de 2027. Godot 3.6 no expone la version minima como opcion de
