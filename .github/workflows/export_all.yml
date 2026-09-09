@@ -465,10 +465,15 @@ jobs:
           # symptom looked like: the pilot suit, pipes, tanks and airlocks
           # disappearing because WebGL2 rejected every draw binding the block.
 
-          # Same idea as the web template above: the stock .tpz is installed
-          # first so every slot exists, then the slot for this platform is
-          # overwritten with the Box3D build. Every platform we export to has
-          # one, so the whole release runs the same physics engine.
+          # The stock .tpz is installed first so every slot exists, then this
+          # platform's slot is overwritten with the Box3D build -- the same
+          # arrangement the web template used, a stock exporter driving a custom
+          # template, which is why the exporter binary is left alone.
+          #
+          # Android is absent on purpose: this project uses Godot's Custom Build,
+          # so its APK comes from the android/build tree in the repo rather than
+          # from a template slot. Pointing it at Box3D means regenerating that
+          # tree from the matching android_source.zip, which is its own change.
           case "${{ matrix.platform }}" in
             linux_x64)   BOX3D_FILES="linux_x11_64_release linux_x11_64_debug" ;;
             linux_arm64) BOX3D_FILES="linux_x11_arm64_release linux_x11_arm64_debug" ;;
@@ -496,8 +501,8 @@ jobs:
 
       # Only where a Box3D template was installed. An exported game reads the
       # backend from project.godot, and a stock template falls back to Bullet in
-      # silence, so setting it for every platform would claim a backend four of
-      # the seven do not have. Written at build time, never committed.
+      # silence, so committing the setting would claim a backend the Android
+      # build does not have yet. Written at build time instead.
       - name: Select the Box3D physics backend
         if: env.BOX3D_ACTIVE == '1'
         run: |
