@@ -49,7 +49,7 @@ MANIFEST_CACHE_TTL_S = 60  # frescura del manifest cacheado (antes 300)
 # reportaba entonces "godot-web-template-3.6.2-ubo1" como version del juego.
 # El tag nightly es ademas lo que ya usa el proxy de manifests mas abajo.
 GITHUB_RELEASES_URL = "https://api.github.com/repos/icarito/Odisea/releases/tags/nightly"
-DOWNLOADS_PAGE_URL = "https://icarito.github.io/odisea-neon-dreams/#downloads"
+DOWNLOADS_PAGE_URL = "https://odisea.educa.juegos/#/downloads"
 WEB_URL = "https://odisea-game.netlify.app"
 
 # PWA Push Notifications (FD-167)
