@@ -1,0 +1,771 @@
+{
+  "buffer": [
+    {
+      "snapshot": {
+        "position": [
+          0,
+          0.5,
+          0
+        ],
+        "velocity": [
+          0,
+          -0.001,
+          0
+        ],
+        "yaw": 0,
+        "pitch": 0,
+        "base_spring_length_3d": 2.5,
+        "movement_state": {
+          "horizontal_velocity": [
+            0,
+            0,
+            0
+          ],
+          "external_velocity": [
+            0,
+            0,
+            0
+          ],
+          "camera_input_timer": 0,
+          "is_tank_turn_mode": true,
+          "current_turn_time": 0,
+          "_mouse_used_this_move": false
+        },
+        "controller_mode": -1,
+        "gravity_mode": 0,
+        "jump_state": {
+          "coyote_timer": 0,
+          "jump_buffer_timer": 0,
+          "is_jumping": false
+        }
+      }
+    },
+    {
+      "frame": 0,
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": -0.069444,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "interact_held": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
+        "cargol_ability": false,
+        "hardware_mouse_active": false,
+        "analog_move_active": false
+      }
+    },
+    {
+      "hold": 34
+    },
+    {
+      "frame": 35,
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "interact_held": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
+        "cargol_ability": false,
+        "hardware_mouse_active": false,
+        "analog_move_active": false
+      }
+    },
+    {
+      "hold": 29
+    },
+    {
+      "frame": 65,
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0.055556,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "interact_held": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
+        "cargol_ability": false,
+        "hardware_mouse_active": false,
+        "analog_move_active": false
+      }
+    },
+    {
+      "hold": 71
+    },
+    {
+      "frame": 137,
+      "input": {
+        "move_vec": [
+          0,
+          0
+        ],
+        "mouse_delta": [
+          0,
+          0
+        ],
+        "zoom_delta": 0,
+        "fov_override": -1,
+        "jump": false,
+        "sprint": false,
+        "crouch": false,
+        "interact": false,
+        "interact_held": false,
+        "focus": false,
+        "rotate_left": false,
+        "rotate_right": false,
+        "roll_left": false,
+        "roll_right": false,
+        "tool_fire_primary": false,
+        "tool_fire_secondary": false,
+        "tool_next_mode": false,
+        "tool_prev_mode": false,
+        "cargol_ability": false,
+        "hardware_mouse_active": false,
+        "analog_move_active": false
+      }
+    },
+    {
+      "hold": 59
+    }
+  ],
+  "events": {
+    "0": [
+      {
+        "command": "SET",
+        "var": "pos",
+        "value": "(0, 0.5, 0)"
+      },
+      {
+        "command": "SET",
+        "var": "$base0",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot",
+          "base_spring_length_3d"
+        ]
+      },
+      {
+        "command": "SET",
+        "var": "$cmode",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "CinematicManager",
+          "current_control_mode"
+        ]
+      },
+      {
+        "command": "SET",
+        "var": "$rl",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot",
+          "_rl_fast_controller"
+        ]
+      },
+      {
+        "command": "SET",
+        "var": "$cm",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot",
+          "current_spring_length"
+        ]
+      },
+      {
+        "command": "PRINT",
+        "message": "antes: base=$base0 rl=$rl cur_spring=$cm cmode=$cmode"
+      }
+    ],
+    "35": [
+
+    ],
+    "65": [
+      {
+        "command": "SET",
+        "var": "$base",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot",
+          "base_spring_length_3d"
+        ]
+      },
+      {
+        "command": "SET",
+        "var": "$in_len",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm",
+          "current_length"
+        ]
+      },
+      {
+        "command": "SET",
+        "var": "$in_zoom",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot",
+          "external_input"
+        ]
+      },
+      {
+        "command": "PRINT",
+        "message": "len tras zoom in: $in_len base=$base in=$in_zoom"
+      },
+      {
+        "command": "ASSERT",
+        "condition": "$in_len < 1.8 \"el zoom in no acerco la camara\""
+      }
+    ],
+    "137": [
+
+    ],
+    "197": [
+      {
+        "command": "SET",
+        "var": "$out_len",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm",
+          "current_length"
+        ]
+      },
+      {
+        "command": "SET",
+        "var": "$blocked",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm",
+          "_zoom_out_blocked"
+        ]
+      },
+      {
+        "command": "SET",
+        "var": "$latch",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm",
+          "_collision_latched_length"
+        ]
+      },
+      {
+        "command": "SET",
+        "var": "$excl",
+        "func": "GET_NODE_PROP",
+        "args": [
+          "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm",
+          "_excluded_objects"
+        ]
+      },
+      {
+        "command": "PRINT",
+        "message": "len tras zoom out: $out_len blocked=$blocked latch=$latch excl=$excl"
+      },
+      {
+        "command": "ASSERT",
+        "condition": "$out_len > 2.2 \"BUG FD-290: la camara no vuelve a alejarse tras zoom in\""
+      }
+    ]
+  },
+  "meta": {
+    "world_start_state": {
+      "/root/TestScene/Boxes/PushableBoxV2": {
+        "pos": [
+          6.365,
+          1,
+          -0.2596
+        ],
+        "rot": [
+          0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1,
+        "sleeping": false
+      },
+      "/root/TestScene/Boxes/PushableBoxV3": {
+        "pos": [
+          21.067101,
+          1,
+          5.1545
+        ],
+        "rot": [
+          0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1,
+        "sleeping": false
+      },
+      "/root/TestScene/Boxes/PushableBoxV4": {
+        "pos": [
+          19.1544,
+          1,
+          8.6931
+        ],
+        "rot": [
+          0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1,
+        "sleeping": false
+      },
+      "/root/TestScene/Boxes/PushableBoxV5": {
+        "pos": [
+          16.285299,
+          1,
+          25.525299
+        ],
+        "rot": [
+          0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1,
+        "sleeping": false
+      },
+      "/root/TestScene/Boxes/PushableBoxV6": {
+        "pos": [
+          17.7199,
+          1,
+          21.508499
+        ],
+        "rot": [
+          0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1,
+        "sleeping": false
+      },
+      "/root/TestScene/Boxes/PushableBoxV7": {
+        "pos": [
+          16.2388,
+          3,
+          25.5222
+        ],
+        "rot": [
+          0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1,
+        "sleeping": false
+      },
+      "/root/TestScene/Boxes/PushableBoxV8": {
+        "pos": [
+          22.434,
+          1,
+          9.2493
+        ],
+        "rot": [
+          0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1,
+        "sleeping": false
+      },
+      "/root/TestScene/Boxes/PushableBoxV9": {
+        "pos": [
+          22.387501,
+          3,
+          9.2462
+        ],
+        "rot": [
+          0,
+          0,
+          0
+        ],
+        "vel": [
+          0,
+          0,
+          0
+        ],
+        "ang": [
+          0,
+          0,
+          0
+        ],
+        "mode": 0,
+        "fbt": 0,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "snap_rot": true,
+        "snap_deg": 1,
+        "sleeping": false
+      },
+      "/root/TestScene/ExampleTrigger": {
+        "script_file": "res://core_v2/scripts/helloTrigger.oys",
+        "exit_script_file": ""
+      },
+      "/root/TestScene/HoloTerminalV2": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0
+      },
+      "/root/TestScene/HoloTerminalV2/CinematicSetup/CinematicPathRig": {
+        "is_active": false,
+        "target_offset": 0,
+        "last_deactivate_time": 0,
+        "unit_offset": 0.5,
+        "current_animation": "",
+        "playback_position": 0
+      },
+      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          0,
+          0,
+          0
+        ]
+      },
+      "/root/TestScene/Level/MovingPlatforms/Lever_MovingPlatform2/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          0,
+          0,
+          0
+        ]
+      },
+      "/root/TestScene/Lever/LeverBase/RotatingLever": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_rot": [
+          0,
+          0,
+          0
+        ]
+      },
+      "/root/TestScene/Lever/LeverConveyor": {
+        "pos": [
+          0.69854,
+          0.2,
+          44.991001
+        ],
+        "speed_x": 3,
+        "length": 8,
+        "width": 3,
+        "require_on_floor": false,
+        "rigid_force_multiplier": 10,
+        "occupancy_detection": true,
+        "debounce_time": 0.2,
+        "idle_speed_ratio": 0.1,
+        "stripe_dark_color": [
+          0.14,
+          0.15,
+          0.16,
+          1
+        ],
+        "stripe_light_color": [
+          0.48,
+          0.42,
+          0.16,
+          1
+        ],
+        "stripe_emission": 0.015,
+        "stripe_tiling": 4,
+        "stripe_fill": 0.42,
+        "is_active": false,
+        "internal_speed": 0,
+        "visual_speed": 0,
+        "visual_phase": 0,
+        "occupancy_hold_timer": 0,
+        "occupied": false,
+        "feedback_state": "disabled"
+      },
+      "/root/TestScene/Pilot/ControllerManager": {
+        "controller_mode": -1,
+        "gravity_mode": 0
+      },
+      "/root/TestScene/Pilot/Logic/SuitThermalResistance": {
+        "integrity": 100,
+        "is_breached": false,
+        "regen_delay_timer": 0
+      },
+      "/root/TestScene/SlidingDrawer": {
+        "active": false,
+        "used": false,
+        "auto_triggered": false,
+        "progress": 0,
+        "target": 0,
+        "start_pos": [
+          -2.30146,
+          0.875,
+          39.991001
+        ]
+      },
+      "CinematicManager": {
+        "current_control_mode": 0,
+        "latched_camera_basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "latched_control_mode": 0,
+        "latch_active": false,
+        "camera_mode_state": 0,
+        "active_rig_path": "",
+        "vcam_active_path": "",
+        "current_camera_path": "/root/TestScene/Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm/Camera"
+      }
+    },
+    "scene_path": "res://core_v2/levels/TestScene_v2.tscn"
+  },
+  "final_expected_state": {
+    "position": [
+      0,
+      0.006111,
+      0
+    ],
+    "velocity": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "pitch": 0,
+    "base_spring_length_3d": 0.6,
+    "movement_state": {
+      "horizontal_velocity": [
+        0,
+        0,
+        0
+      ],
+      "external_velocity": [
+        0,
+        0,
+        0
+      ],
+      "camera_input_timer": 3.283333,
+      "is_tank_turn_mode": true,
+      "current_turn_time": 0,
+      "_mouse_used_this_move": false
+    },
+    "controller_mode": 0,
+    "gravity_mode": 0,
+    "jump_state": {
+      "coyote_timer": 0.15,
+      "jump_buffer_timer": 0,
+      "is_jumping": false
+    }
+  },
+  "oys_variables": {
+    "$sys_env_prop_path": "",
+    "$sys_env_auto_run": "",
+    "$base0": 2.5,
+    "$cmode": 0,
+    "$rl": false,
+    "$cm": 2.5,
+    "$base": 0.6,
+    "$in_len": 0.75259,
+    "$in_zoom": "[Reference:89993]",
+    "$out_len": 0.559426,
+    "$blocked": true,
+    "$latch": 0.559426,
+    "$excl": [
+      "Pilot:[KinematicBody:88819]"
+    ]
+  }
+}

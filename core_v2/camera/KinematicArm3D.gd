@@ -330,9 +330,9 @@ func _paso_fisica(delta):
 		var la_active := _transition_grace_frames <= 0 and collision_lookahead_factor > 1.001 and _collision_latched_length < 0.0
 		var la_len := target_length * collision_lookahead_factor
 		var probe_margin := collision_padding + CONTACT_PROBE_SLACK
-		var probe_length := desired_length
-		if la_active and la_len > probe_length:
-			probe_length = la_len
+		var probe_length := desired_length + probe_margin
+		if la_active and la_len > desired_length:
+			probe_length = la_len + probe_margin
 		var probe_fraction := _cast_shape_safe_fraction(arm_origin, global_transform.basis.z, probe_length)
 		var probe_hit_distance := probe_length * probe_fraction
 		# DIAG temporal FD-290 (ODISEA_ARM_DEBUG=1): identificar QUE bloquea el cast
