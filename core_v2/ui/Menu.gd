@@ -66,7 +66,7 @@ func _ready():
 # Con esto el primer draw del nivel no paga los ~90 programas GLES3 (medido en
 # WebGL: ~27 s de stall hasta first_idle_frame sin warmup).
 func _spawn_shader_warmup():
-	if Engine.editor_hint:
+	if Engine.editor_hint or OS.get_name() != "HTML5":
 		return
 	var trigger := preload("res://core_v2/levels/ShaderWarmupTrigger.gd").new()
 	trigger.name = "DomeIntroShaderWarmup"
@@ -134,7 +134,7 @@ func _start_game(scene_path):
 		if b:
 			b.disabled = true
 	tween.stop_all()
-	tween.interpolate_property(fade_rect, "modulate:a", fade_rect.modulate.a, 1.0, 0.5, Tween.TRANS_LINEAR, Tween.EASE_IN)
+	tween.interpolate_property(fade_rect, "modulate:a", fade_rect.modulate.a, 1.0, 0.85, Tween.TRANS_QUAD, Tween.EASE_IN)
 	tween.start()
 	if not tween.is_connected("tween_completed", self, "_on_fade_out_complete"):
 		tween.connect("tween_completed", self, "_on_fade_out_complete", [scene_path], CONNECT_ONESHOT)
@@ -167,7 +167,7 @@ func _on_fade_out_complete(_object, _key, scene_path):
 			"show_progress": true,
 			"loading_message": "Cargando...",
 			"fade_out": 0.0,
-			"fade_in": 0.25
+			"fade_in": 3.0
 		}
 		if scene_path == FIRST_GAME_SCENE:
 			# El fade-out/in automatico de SceneManager cortaria o reiniciaria el

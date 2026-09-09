@@ -551,13 +551,16 @@ func _set_new_scene(resource: PackedScene):
 	if prep_state is GDScriptFunctionState:
 		yield(prep_state, "completed")
 
-	emit_signal("scene_ready", _next_scene_path, new_scene, _transition_params)
-	_report_transition("scene_ready")
-
 	# Spread heavy deferred-build nodes (e.g. RadialScatter with dozens of items)
 	# across frames so they don't instance everything in the arrival frame — that
-	# bulk instancing is the load spike felt as a freeze on scene transition.
-	call_deferred("_drive_deferred_builds")
+	# bulk instancing is the load spike felt as a freeze on scene transition. Keep
+	# the loading vignette up until this visible content is complete.
+	var deferred_state = _drive_deferred_builds()
+	if deferred_state is GDScriptFunctionState:
+		yield(deferred_state, "completed")
+
+	emit_signal("scene_ready", _next_scene_path, new_scene, _transition_params)
+	_report_transition("scene_ready")
 
 
 func _prepare_android_environment(scene: Node, os_name: String) -> void:

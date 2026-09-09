@@ -68,6 +68,9 @@ func _ready():
 	_is_web = OS.has_feature("web")
 	if _is_disabled_for_current_run():
 		hotzone_enabled = false
+		set_process(false)
+		print("[HotzoneRecorder] Disabled: strong hardware profile required")
+		return
 	_ensure_dir()
 	_setup_http()
 	_ambient_enabled = not (OS.get_environment("ODISEA_HOTZONE_AMBIENT").to_lower() in ["0", "false", "no", "off"])
@@ -79,12 +82,17 @@ func _ready():
 func _is_disabled_for_current_run() -> bool:
 	if _is_testing:
 		return false
+	var hard_disable = OS.get_environment("ODISEA_DISABLE_HOTZONES").to_lower()
+	if hard_disable in ["1", "true", "yes", "on"]:
+		return true
 	# Headless/dedicated server runs average ~6 fps with no real player; their low
 	# FPS is not a gameplay hotzone, so never record or upload from them.
 	if OS.has_feature("Server"):
 		return true
-	var hard_disable = OS.get_environment("ODISEA_DISABLE_HOTZONES").to_lower()
-	return hard_disable in ["1", "true", "yes", "on"]
+	return not _is_strong_hardware_profile(OS.get_environment("ODISEA_GRAPHICS_PROFILE"))
+
+static func _is_strong_hardware_profile(profile: String) -> bool:
+	return profile.to_lower().strip_edges() == "high"
 
 func _exit_tree():
 	if _save_thread and _save_thread_busy:
