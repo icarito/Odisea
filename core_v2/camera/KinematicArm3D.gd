@@ -105,6 +105,8 @@ var _ceiling_latch_active := false
 var _ceiling_latch_hold_timer := 0.0
 var _excluded_objects: Array = []
 var _zoom_out_blocked := false
+# DIAG temporal FD-290: ODISEA_ARM_DEBUG=1 imprime el collider que bloquea el cast.
+var _arm_debug := false
 var _previous_arm_origin := Vector3.ZERO
 var _has_previous_arm_origin := false
 var _transition_grace_frames := 0  # suppresses all collision after scene entry
@@ -177,6 +179,7 @@ func _exit_tree():
 
 func _ready():
 	set_physics_process(false)
+	_arm_debug = OS.get_environment("ODISEA_ARM_DEBUG") in ["1", "true", "yes", "on"]
 	target_length = spring_length
 	current_length = spring_length
 	_collision_latched_length = -1.0
@@ -332,6 +335,18 @@ func _paso_fisica(delta):
 			probe_length = la_len
 		var probe_fraction := _cast_shape_safe_fraction(arm_origin, global_transform.basis.z, probe_length)
 		var probe_hit_distance := probe_length * probe_fraction
+		# DIAG temporal FD-290 (ODISEA_ARM_DEBUG=1): identificar QUE bloquea el cast
+		# cuando el zoom out queda clavado. Sin impacto en runtime normal.
+		if _arm_debug and probe_fraction < 0.9999:
+			var space_dbg = get_world().direct_space_state
+			var dbg_params := PhysicsShapeQueryParameters.new()
+			dbg_params.set_shape(collider_shape)
+			dbg_params.transform = Transform(global_transform.basis, arm_origin + global_transform.basis.z * (probe_hit_distance + 0.01))
+			dbg_params.collision_mask = collision_mask
+			var dbg_hits = space_dbg.intersect_shape(dbg_params, 4)
+			for h in dbg_hits:
+				var c = h.get("collider")
+				print("[ARM_DEBUG] hit d=", probe_hit_distance, " collider=", c.name if c and c is Node else c, " rid=", h.get("rid"))
 		if probe_hit_distance < 0.9999 * (desired_length + probe_margin):
 			safe_hit_length = clamp(probe_hit_distance - collision_padding, 0.0, desired_length)
 		if safe_hit_length >= 0.0:
@@ -498,6 +513,18 @@ func _advance_clear_length(delta: float) -> float:
 			global_transform.basis.z * verify_length,
 			verify_length
 		)
+		if _arm_debug:
+			var v_space = get_world().direct_space_state
+			var v_params := PhysicsShapeQueryParameters.new()
+			v_params.set_shape(collider_shape)
+			v_params.transform = Transform(global_transform.basis, verify_origin + global_transform.basis.z * (verify_hit + 0.01) if verify_hit >= 0.0 else Transform(Basis(), verify_origin).origin * Vector3(1, 1, 1))
+			v_params.collision_mask = collision_mask
+			var v_at := verify_hit + 0.01 if verify_hit >= 0.0 else 1.0
+			v_params.transform = Transform(global_transform.basis, verify_origin + global_transform.basis.z * v_at)
+			var v_hits = v_space.intersect_shape(v_params, 4)
+			for vh in v_hits:
+				var vc = vh.get("collider")
+				print("[ARM_DEBUG] verify hit=", verify_hit, " collider=", vc.name if vc and vc is Node else vc)
 		if verify_hit >= 0.0:
 			# El obstáculo sigue ahí: refrescar el latch en vez de liberarlo.
 			_collision_miss_timer = 0.0
