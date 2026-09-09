@@ -3111,3 +3111,4 @@ quality/filters/msaa.iOS=0
 quality/intended_usage/framebuffer_allocation.Android=3
 gles3/shaders/shader_compilation_mode.iOS=0
 gles3/shaders/shader_compilation_mode.Android=2
+gles3/shaders/shader_cache_size_mb.mobile=512
