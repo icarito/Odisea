@@ -428,7 +428,7 @@ jobs:
         if: matrix.platform != 'android'
         env:
           # Godot carrying the Box3D physics module (icarito/godot-box3d-3).
-          BOX3D_RELEASE: v0.1.1
+          BOX3D_RELEASE: v0.2.0
         run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
             TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
