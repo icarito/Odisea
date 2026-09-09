@@ -43,7 +43,12 @@ VALID_CHANNELS = {"release", "nightly"}
 MANIFEST_ACCEPT_HEADER = "application/vnd.odisea.update-manifest.v1+json"
 MANIFEST_CACHE_TTL_S = 60  # frescura del manifest cacheado (antes 300)
 
-GITHUB_RELEASES_URL = "https://api.github.com/repos/icarito/Odisea/releases/latest"
+# El tag fijo "nightly", no /releases/latest. GitHub excluye los prereleases de
+# "latest", y el nightly ES un prerelease: /latest devolvia el unico release
+# estable que habia en el repo, que era la plantilla web de Godot. /game/version
+# reportaba entonces "godot-web-template-3.6.2-ubo1" como version del juego.
+# El tag nightly es ademas lo que ya usa el proxy de manifests mas abajo.
+GITHUB_RELEASES_URL = "https://api.github.com/repos/icarito/Odisea/releases/tags/nightly"
 DOWNLOADS_PAGE_URL = "https://icarito.github.io/odisea-neon-dreams/#downloads"
 WEB_URL = "https://odisea-game.netlify.app"
 
@@ -907,7 +912,10 @@ class OdiseaCentral:
                     return json.loads(response.read().decode())
 
             data = await asyncio.get_running_loop().run_in_executor(None, fetch)
-            version = data.get("tag_name", "v0.0.0")
+            # El tag es el literal "nightly", asi que la version sale del titulo:
+            # "Nightly 2026-09-09 · 0.4.0-nightly.528+907048d" -> lo que sigue al punto.
+            title = data.get("name") or ""
+            version = title.split("·")[-1].strip() if "·" in title else data.get("tag_name", "v0.0.0")
             release_url = data.get("html_url", "")
 
             version_info = {
