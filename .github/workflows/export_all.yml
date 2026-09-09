@@ -536,7 +536,11 @@ jobs:
       - name: Select the Box3D physics backend
         if: env.BOX3D_ACTIVE == '1'
         run: |
-          set -euo pipefail
+          # set -eu, NO -o pipefail: desde que Android entra por aca, este paso
+          # corre dentro del contenedor del matrix, que no trae bash. Actions cae
+          # entonces a "sh -e {0}" y dash aborta con "Illegal option -o pipefail".
+          # No hay ninguna tuberia en estas dos lineas, asi que no se pierde nada.
+          set -eu
           printf '\n[physics]\n\n3d/physics_engine="Box3D"\n' >> project.godot
           tail -4 project.godot
 
