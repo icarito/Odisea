@@ -401,6 +401,32 @@ jobs:
           fi
           echo "GODOT_BIN=godot3-server" >> $GITHUB_ENV
 
+      # Android cannot ride the stock 3.6.2 exporter: the custom-build plugin
+      # aborts when android/.build_version disagrees with the exporting binary's
+      # own version, and the committed android/build tree now carries the Box3D
+      # 3.6.4.rc Box3D template (android/.build_version now reads 3.6.4.rc,
+      # the engine's VERSION_FULL_CONFIG). A Box3D
+      # binary also matches the engine the APK will actually run, so the
+      # .import cache is produced by the same engine version as every other
+      # platform's runtime.
+      - name: Install Godot (Android, Box3D)
+        if: matrix.platform == 'android'
+        env:
+          BOX3D_RELEASE: v0.2.0
+        run: |
+          GODOT_DIR="$HOME/.local/bin"
+          mkdir -p "$GODOT_DIR"
+          if [ ! -x "$GODOT_DIR/godot-box3d-headless" ]; then
+            curl -fSL -o /tmp/godot-box3d \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
+            chmod +x /tmp/godot-box3d
+            # Keep the binary out of the workspace so import caches and Godot's
+            # filesystem scans never see it.
+            mv /tmp/godot-box3d "$GODOT_DIR/godot-box3d-headless"
+          fi
+          "$GODOT_DIR/godot-box3d-headless" --version
+          echo "GODOT_BIN=$GODOT_DIR/godot-box3d-headless" >> "$GITHUB_ENV"
+
       - name: Install Godot (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -468,11 +494,6 @@ jobs:
           # platform's slot is overwritten with the Box3D build -- the same
           # arrangement the web template used, a stock exporter driving a custom
           # template, which is why the exporter binary is left alone.
-          #
-          # Android is absent on purpose: this project uses Godot's Custom Build,
-          # so its APK comes from the android/build tree in the repo rather than
-          # from a template slot. Pointing it at Box3D means regenerating that
-          # tree from the matching android_source.zip, which is its own change.
           case "${{ matrix.platform }}" in
             linux_x64)   BOX3D_FILES="linux_x11_64_release linux_x11_64_debug" ;;
             linux_arm64) BOX3D_FILES="linux_x11_arm64_release linux_x11_arm64_debug" ;;
@@ -498,10 +519,20 @@ jobs:
 
           echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
 
+      # Android runs Godot's Custom Build: the engine inside the APK is the
+      # godot-lib.*.aar committed in android/build/libs/, which the repo
+      # carries from the matching godot-box3d-3 release's android_source.zip
+      # (see android/.build_version). No template download is needed here;
+      # flipping BOX3D_ACTIVE makes the backend selection below apply to the
+      # exported pck too, matching the engine that will run it.
+      - name: Select the Box3D backend for Android
+        if: matrix.platform == 'android'
+        run: echo "BOX3D_ACTIVE=1" >> "$GITHUB_ENV"
+
       # Only where a Box3D template was installed. An exported game reads the
       # backend from project.godot, and a stock template falls back to Bullet in
-      # silence, so committing the setting would claim a backend the Android
-      # build does not have yet. Written at build time instead.
+      # silence. Written at build time instead of committing it, so the presets
+      # stay honest about which binaries can run Box3D.
       - name: Select the Box3D physics backend
         if: env.BOX3D_ACTIVE == '1'
         run: |
@@ -675,7 +706,9 @@ jobs:
           ls "$ANDROID_HOME/platforms" 2>/dev/null || echo "No platforms"
 
           # Install missing SDK components required by android/build/config.gradle:
-          #   ndkVersion 28.1.13356709, buildTools 35.0.0, compileSdk/targetSdk 35
+          #   ndkVersion 29.0.14206865, buildTools 36.1.0, compileSdk/targetSdk 36
+          # (android/build now carries the Box3D 3.6.4.rc template,
+          # which moved past the 3.6.2 stock values.)
           SDKMANAGER=""
           for p in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
                    "$ANDROID_HOME/tools/bin/sdkmanager"; do
@@ -685,7 +718,7 @@ jobs:
             echo "Using sdkmanager: $SDKMANAGER"
             yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
             # Install only what's missing (idempotent)
-            "$SDKMANAGER" "ndk;28.1.13356709" "build-tools;35.0.0" "platforms;android-35" 2>&1 | tail -5 || true
+            "$SDKMANAGER" "ndk;29.0.14206865" "build-tools;36.1.0" "platforms;android-36" 2>&1 | tail -5 || true
           else
             echo "::warning::sdkmanager not found; skipping SDK component install"
           fi
@@ -848,8 +881,15 @@ jobs:
       - name: Stable project hash for import cache
         id: pghash
         run: |
+          # Android imports with the Box3D 3.6.4 binary (Install Godot
+          # (Android, Box3D)); every other platform keeps the stock 3.6.2.
+          if [ "${{ matrix.platform }}" = "android" ]; then
+            GODOT_KEY="godot=3.6.4.rc.box3d"
+          else
+            GODOT_KEY="godot=3.6.2"
+          fi
           H=$({
-            echo "godot=3.6.2"
+            echo "$GODOT_KEY"
             grep -E '^vram_compression/import_(bptc|etc|etc2|pvrtc)=' project.godot | sort
           } | sha256sum | cut -d' ' -f1)
           echo "hash=$H" >> "$GITHUB_OUTPUT"

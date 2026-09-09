@@ -19,18 +19,19 @@
         android:glEsVersion="0x00020000"
         android:required="true" />
 
-    <!-- Required for GitHub-sideloaded APK updates on Android 8+. The user still
-         explicitly grants "install unknown apps" permission to Odisea. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
 <!-- Custom user permissions XML added by add-ons. It's recommended to add them from the export preset, though. -->
 <!--CHUNK_USER_PERMISSIONS_BEGIN-->
 <!--CHUNK_USER_PERMISSIONS_END-->
 
+    <!-- Required for GitHub-sideloaded APK updates on Android 8+. The user still
+         explicitly grants "install unknown apps" permission to Odisea. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+
     <!-- Any tag in this line after android:icon will be erased when doing custom builds. -->
     <!-- If you want to add tags manually, do before it. -->
     <!-- WARNING: This should stay on a single line until the parsing code is improved. See GH-32414. -->
-    <application android:label="@string/godot_project_name_string" android:allowBackup="false" android:isGame="true" android:hasFragileUserData="false" android:requestLegacyExternalStorage="false" tools:ignore="GoogleAppIndexingWarning" android:icon="@mipmap/icon">
+    <application android:label="@string/godot_project_name_string" android:allowBackup="false" android:isGame="true" android:hasFragileUserData="false" android:requestLegacyExternalStorage="false" tools:ignore="GoogleAppIndexingWarning" android:icon="@mipmap/icon" >
 
         <!-- Records the version of the Godot editor used for building -->
         <meta-data
@@ -108,7 +109,6 @@
                 platforms. -->
                 <category android:name="com.oculus.intent.category.VR" />
             </intent-filter>
-
             <!-- Hotzone replay deep link: the dashboard opens odisea://replay?url=<signed>
                  so a hotzone capture can be played in the installed native build instead of
                  the web (Netlify) shell. The OdiseaDeepLink plugin reads this Intent's data
