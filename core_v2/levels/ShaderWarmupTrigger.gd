@@ -11,6 +11,12 @@ export(int, 0, 1200) var startup_wait_max_frames := 720
 # nivel (medido: ~27 s en WebGL1/2 hasta first_idle_frame de Dome_Intro).
 export(bool) var wait_preload_conflict := true
 export(int, 0, 3600) var preload_wait_max_frames := 1200
+# Compilar bloquea el hilo principal de a lotes. Si eso pasa mientras el Menu esta
+# vivo, el fundido de salida se traba a mitad y se lee como un cuelgue. Con
+# autostart=false el trigger queda armado y espera a begin(), que se llama cuando ya
+# hay una pantalla de progreso cubriendo: la de consentimiento de primera partida, o
+# la de carga una vez que el fundido termino.
+export(bool) var autostart := true
 
 var _started := false
 
@@ -21,6 +27,15 @@ func _ready() -> void:
 		queue_free()
 		return
 	if not run_in_tests and _is_test_suite():
+		return
+	if not autostart:
+		return
+	call_deferred("_start_shader_warmup_when_ready")
+
+# Arranca el warmup si todavia no arranco. Idempotente: los dos llamadores posibles
+# (consentimiento y fin del fundido) pueden dispararlo sin coordinarse.
+func begin() -> void:
+	if _started:
 		return
 	call_deferred("_start_shader_warmup_when_ready")
 

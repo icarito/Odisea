@@ -3,6 +3,10 @@ tool
 extends Spatial
 
 signal compiled()
+# Cuantos lotes quedan por revelar. La pantalla de consentimiento de primera
+# partida (core_v2/ui/FirstRunConsent.gd) dibuja con esto una barra real: lo que
+# se esta esperando es exactamente esta cola, no un temporizador inventado.
+signal progress(done, total)
 
 export var cache_scene_btn = false setget cache_scene
 export var clear_cache_btn = false setget clear_cache
@@ -30,6 +34,7 @@ var _materials = []
 var _particles_materials = {}
 var _meshes = {}
 var _pending_reveal: Array = []
+var _reveal_total := 0
 
 
 func _ready():
@@ -56,13 +61,23 @@ func _process(delta):
 		# Mientras queden lotes por revelar, el countdown se renueva: el total de
 		# frames activos pasa a ser lotes + active_frame_count.
 		_frame_countdown = active_frame_count
+		if _reveal_total > 0:
+			emit_signal("progress", _reveal_total - _pending_reveal.size(), _reveal_total)
 		return
 
 	if _frame_countdown > 0:
 		_frame_countdown -= 1
 	else:
+		if _reveal_total > 0:
+			emit_signal("progress", _reveal_total, _reveal_total)
 		emit_signal("compiled")
 		set_active(false)
+
+# 0.0 si todavia no hay nada encolado, 1.0 cuando no queda nada por revelar.
+func get_progress() -> float:
+	if _reveal_total <= 0:
+		return 0.0
+	return clamp(float(_reveal_total - _pending_reveal.size()) / float(_reveal_total), 0.0, 1.0)
 
 func emit_particles():
 	particles_materials_node = get_particles_materials_node()
@@ -317,6 +332,11 @@ func set_active(v):
 	set_process(active)
 	if active:
 		_frame_countdown = active_frame_count
+		# La cola ya quedo armada por cache_scene(); este es el tamaño contra el que
+		# se mide el avance, y se fija aca porque a partir de ahora solo se vacia.
+		_reveal_total = _pending_reveal.size()
+		if _reveal_total > 0:
+			emit_signal("progress", 0, _reveal_total)
 		# En modo batched las quads entran ocultas y se revelan por lotes (los
 		# materiales ya estan registrados); emitir todas las particulas de golpe en
 		# set_active romperia ese reparto.

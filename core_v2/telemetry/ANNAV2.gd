@@ -69,6 +69,12 @@ func _ready():
 		print("[ANNAV2] Replay mode detected — telemetry disabled for this session.")
 		return
 
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm and "telemetry_enabled" in sm:
+		_telemetry_enabled = sm.telemetry_enabled
+	else:
+		_telemetry_enabled = false
+
 	# Optimization for HTML5/Weak hardware
 	if OS.get_name() == "HTML5" or OS.has_touchscreen_ui_hint():
 		TELEMETRY_INTERVAL_MS = 200 # 5Hz for web
@@ -118,11 +124,12 @@ func _ready():
 		if proto == "https:":
 			_net_thread.set_scheme("wss")
 
-	_net_thread.start(_command_queue, _player_id, _session_id, _build_info.get("game_version", Constants.GAME_VERSION))
+	if _telemetry_enabled:
+		_net_thread.start(_command_queue, _player_id, _session_id, _build_info.get("game_version", Constants.GAME_VERSION))
 	_init_capture_from_env()
 	_perf_monitor = get_node_or_null("/root/PerformanceMonitor")
 	_perf_profiling_enabled = _perf_monitor and "_profiling_enabled" in _perf_monitor and _perf_monitor._profiling_enabled
-	print("[ANNAV2] Initialized. PlayerID: ", _player_id, " SessionID: ", _session_id)
+	print("[ANNAV2] Initialized. Telemetry: ", _telemetry_enabled, " PlayerID: ", _player_id, " SessionID: ", _session_id)
 
 # Disable telemetry for this session, tearing down the network thread if it has
 # already started. Idempotent. Called by HotzonePlayer for the runtime paths that

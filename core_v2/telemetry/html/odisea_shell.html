@@ -612,6 +612,16 @@ $GODOT_HEAD_INCLUDE
 		var TELEMETRY_ENDPOINTS = [
 			"/api/telemetry"
 		];
+		var consentKey = "odisea_telemetry_consent";
+		var consentState = (function() {
+			try {
+				var val = localStorage.getItem(consentKey);
+				if (val === "granted" || val === "denied") return val;
+			} catch (e) {}
+			return null;
+		})();
+		var pendingMetrics = [];
+
 		var sessionId = (function() {
 			try {
 				var buf = new Uint32Array(2);
@@ -627,6 +637,11 @@ $GODOT_HEAD_INCLUDE
 		function sendMetric(payload, endpointIndex) {
 			endpointIndex = endpointIndex || 0;
 			if (endpointIndex >= TELEMETRY_ENDPOINTS.length) return;
+			if (consentState === "denied") return;
+			if (consentState === null) {
+				pendingMetrics.push({ payload: payload, endpointIndex: endpointIndex });
+				return;
+			}
 			try {
 				fetch(TELEMETRY_ENDPOINTS[endpointIndex], {
 					method: "POST",
@@ -659,6 +674,22 @@ $GODOT_HEAD_INCLUDE
 					session_id: sessionId,
 					total_ms: Date.now() - loaderStartMs
 				});
+			},
+			setTelemetryConsent: function(accepted) {
+				var newState = accepted ? "granted" : "denied";
+				consentState = newState;
+				try {
+					localStorage.setItem(consentKey, newState);
+				} catch (e) {}
+				if (accepted) {
+					var queue = pendingMetrics.slice();
+					pendingMetrics = [];
+					for (var i = 0; i < queue.length; i++) {
+						sendMetric(queue[i].payload, queue[i].endpointIndex);
+					}
+				} else {
+					pendingMetrics = [];
+				}
 			},
 			pendingRunbin: null
 		};
