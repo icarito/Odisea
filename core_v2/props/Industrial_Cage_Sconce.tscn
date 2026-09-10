@@ -7,7 +7,6 @@
 
 [sub_resource type="SpatialMaterial" id=1]
 resource_name = "industrial_caged_sconce"
-vertex_color_use_as_albedo = true
 params_cull_mode = 2
 albedo_texture = ExtResource( 4 )
 metallic = 1.0
@@ -21,7 +20,6 @@ emission_energy = 1.0
 emission_operator = 0
 emission_on_uv2 = false
 emission_texture = ExtResource( 2 )
-normal_enabled = true
 normal_scale = 1.0
 normal_texture = ExtResource( 1 )
 
