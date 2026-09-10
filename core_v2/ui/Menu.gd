@@ -118,17 +118,14 @@ func _on_Quit_pressed():
 	get_tree().quit()
 
 func _start_game(scene_path):
-	# Lo PRIMERO, en el mismo frame del click: la pantalla de carga. Lo que sigue
-	# bloquea el hilo principal a ratos (cargar la BGM, instanciar el nivel, el
-	# primer frame dibujado), y sin esto el menu se queda quieto y el click parece
-	# perdido. El overlay vive en layer 1000, encima del fundido del menu, asi que
-	# sobrevive al fade a negro que arranca abajo y empalma con el que SceneManager
-	# vuelve a pedir en goto_scene().
-	var transition_layer = get_node_or_null("/root/TransitionLayer")
-	if transition_layer and transition_layer.has_method("show_loading"):
-		transition_layer.show_loading("Cargando...", true, "")
-		if transition_layer.has_method("set_loading_progress"):
-			transition_layer.set_loading_progress(0.0)
+	# La pantalla de carga NO se muestra aca. El overlay vive en layer 1000, encima
+	# del fundido del menu, y su texto y su barra son opacos: revelarlos en el frame
+	# del click los pega sobre el menu todavia visible durante los 0.85 s que dura el
+	# fade de abajo. Se revela al terminar ese fade, que es cuando la pantalla ya esta
+	# negra -- lo hace goto_scene() en _on_fade_out_complete(), que pide show_loading.
+	# El click igual se siente atendido: los botones se deshabilitan y el fundido
+	# arranca en el mismo frame. (Y si el hilo principal se bloquea cargando la BGM,
+	# una barra tampoco se animaria: el bloqueo se lleva el frame entero.)
 	# Avoid double-triggering if a button is pressed twice during the fade.
 	for b in [new_game_button, continue_button, options_button, quit_button]:
 		if b:
@@ -148,7 +145,7 @@ func _start_game(scene_path):
 
 # crossfade_to_song() hace un load() sincronico del mp3 (AudioManager.gd): la
 # primera vez cuesta cientos de ms y caia justo en el frame del click. Un frame
-# despues, con la pantalla de carga ya dibujada, ese mismo costo no se ve.
+# despues, con el fundido del menu ya en marcha, ese mismo costo no se ve.
 func _start_first_game_bgm() -> void:
 	yield(get_tree(), "idle_frame")
 	var audio_mgr = get_node_or_null("/root/AudioManager")

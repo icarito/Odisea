@@ -1094,7 +1094,8 @@ func _force_reset_stuck_transition(reason: String) -> void:
 		if transition_layer.has_method("hide_loading"):
 			transition_layer.hide_loading()
 		if transition_layer.has_method("play"):
-			transition_layer.play("fade_in", {"duration": 0.0})
+			# Recovering from a stall: uncover now, don't wait on the renderer.
+			transition_layer.play("fade_in", {"duration": 0.0, "wait_for_shaders": false})
 	_restore_input_after_transition()
 	_reset_runtime_state()
 

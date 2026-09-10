@@ -3110,5 +3110,6 @@ quality/shading/force_vertex_shading.Android=false
 quality/shading/force_vertex_shading.iOS=false
 quality/filters/msaa.iOS=0
 quality/intended_usage/framebuffer_allocation.Android=3
+quality/gi_probes/enabled=false
 gles3/shaders/shader_compilation_mode.iOS=0
 gles3/shaders/shader_compilation_mode.Android=2
