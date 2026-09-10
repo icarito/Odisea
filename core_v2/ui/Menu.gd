@@ -66,7 +66,14 @@ func _ready():
 # Con esto el primer draw del nivel no paga los ~90 programas GLES3 (medido en
 # WebGL: ~27 s de stall hasta first_idle_frame sin warmup).
 func _spawn_shader_warmup():
-	if Engine.editor_hint or OS.get_name() != "HTML5":
+	if Engine.editor_hint:
+		return
+	# Android entra recien ahora. Hasta que el ubershader de escena dejo de exceder
+	# el presupuesto de samplers del driver (Adreno rechazaba el link), precalentar
+	# ahi solo habria compilado programas que fallaban. Con el ubershader enlazando,
+	# el mismo stall que se midio en WebGL aparece en el celular: el arranque en frio
+	# de Dome_Intro paga ~90 programas GLES3 de a uno.
+	if not OS.get_name() in ["HTML5", "Android"]:
 		return
 	var trigger := preload("res://core_v2/levels/ShaderWarmupTrigger.gd").new()
 	trigger.name = "DomeIntroShaderWarmup"
