@@ -1,7 +1,8 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/ui/FirstRunConsent.gd" type="Script" id=1]
 [ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=2]
+[ext_resource path="res://assets/fonts/Workbench-Regular-VariableFont_BLED,SCAN.ttf" type="DynamicFontData" id=3]
 
 ; El ProgressBar del tema pinta el relleno MAS OSCURO que el fondo, asi que al 100%
 ; se lee como vacio -- justo al reves de lo que esta pantalla necesita. Estos dos
@@ -16,6 +17,14 @@ border_color = Color( 0.24, 0.55, 0.65, 1 )
 
 [sub_resource type="StyleBoxFlat" id=2]
 bg_color = Color( 0.26, 0.72, 0.85, 1 )
+
+; La pregunta es lo unico que el jugador tiene que responder: va un punto mas grande
+; que el cuerpo para que se lea como pregunta y no como otra linea del aviso.
+[sub_resource type="DynamicFont" id=3]
+size = 21
+outline_size = 1
+outline_color = Color( 0.0980392, 0.0470588, 0.145098, 0.466667 )
+font_data = ExtResource( 3 )
 
 [node name="FirstRunConsent" type="ColorRect"]
 anchor_right = 1.0
@@ -76,9 +85,7 @@ text = "Mientras juegas, Odisea puede enviarnos datos técnicos anónimos: los c
 
 Si el rendimiento cae durante varios segundos seguidos, se guarda además un fragmento breve de ese tramo —los controles que usaste y tu recorrido— para poder reproducirlo después y encontrar la causa.
 
-El juego no envía tu ubicación. Como en cualquier conexión a internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto.
-
-Puedes cambiar esta decisión cuando quieras desde Opciones."
+El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto."
 autowrap = true
 
 [node name="Foot" type="VBoxContainer" parent="TelemetryPanel"]
@@ -86,7 +93,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 margin_left = 40.0
-margin_top = -212.0
+margin_top = -258.0
 margin_right = -40.0
 margin_bottom = -18.0
 custom_constants/separation = 10
@@ -109,9 +116,16 @@ rect_min_size = Vector2( 0, 32 )
 text = "VER EL AVISO COMPLETO"
 
 [node name="ChoiceBox" type="VBoxContainer" parent="TelemetryPanel/Foot"]
-custom_constants/separation = 8
+custom_constants/separation = 10
 
-[node name="Question" type="Label" parent="TelemetryPanel/Foot/ChoiceBox"]
+[node name="QuestionWrap" type="MarginContainer" parent="TelemetryPanel/Foot/ChoiceBox"]
+custom_constants/margin_right = 0
+custom_constants/margin_top = 6
+custom_constants/margin_left = 0
+custom_constants/margin_bottom = 6
+
+[node name="Question" type="Label" parent="TelemetryPanel/Foot/ChoiceBox/QuestionWrap"]
+custom_fonts/font = SubResource( 3 )
 text = "¿Aceptas enviar telemetría?"
 align = 1
 
@@ -128,3 +142,7 @@ text = "NO ENVIAR"
 rect_min_size = Vector2( 0, 44 )
 size_flags_horizontal = 3
 text = "SÍ, ACEPTO"
+
+[node name="Footnote" type="Label" parent="TelemetryPanel/Foot/ChoiceBox"]
+text = "Puedes cambiar esta decisión cuando quieras desde Opciones."
+align = 1

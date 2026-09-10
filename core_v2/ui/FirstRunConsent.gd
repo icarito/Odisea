@@ -94,9 +94,12 @@ func _on_transition_completed(path, _scene, _params) -> void:
 func _announce_ready() -> void:
 	_ready_announced = true
 	set_process(false)
-	_progress.value = 100.0
+	# La barra y su rotulo desaparecen en vez de anunciar "Listo": ya no hay nada que
+	# esperar, y dejarlos ahi compite con la pregunta, que es lo unico que queda por
+	# hacer en la pantalla.
+	_progress.visible = false
 	if _progress_label:
-		_progress_label.text = "Listo."
+		_progress_label.visible = false
 	_choice_box.visible = true
 	# Aceptar es la opcion por defecto: queda enfocada para que el mando o el teclado
 	# la activen sin navegar. Rechazar esta al lado, del mismo tamaño y visible desde
