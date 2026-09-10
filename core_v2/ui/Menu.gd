@@ -59,6 +59,22 @@ func _ready():
 		handler.buttons = temp_buttons
 	call_deferred("_request_first_scene_preload")
 	call_deferred("_spawn_shader_warmup")
+	_check_privacy_consent()
+
+func _check_privacy_consent():
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm and sm.has_method("needs_privacy_consent") and sm.needs_privacy_consent():
+		var dialog_scene = load("res://core_v2/ui/PrivacyConsentDialog.tscn")
+		if dialog_scene:
+			var dialog = dialog_scene.instance()
+			add_child(dialog)
+			dialog.connect("consent_completed", self, "_on_privacy_consent_completed")
+
+func _on_privacy_consent_completed(_accepted: bool):
+	if continue_button.visible and not continue_button.disabled:
+		continue_button.grab_focus()
+	else:
+		new_game_button.grab_focus()
 
 # FD-290: warmup de shaders de la primera escena de juego mientras el jugador esta
 # en el Menu. El trigger espera a que el preload de Dome_Intro termine (evita la

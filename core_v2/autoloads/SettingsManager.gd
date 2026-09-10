@@ -19,7 +19,8 @@ var fullscreen = true
 var render_resolution = Vector2(800, 600)
 var render_scale: float = 1.0
 var vsync = true
-var telemetry_enabled: bool = true
+var telemetry_enabled: bool = false
+var consent_asked: bool = false
 # Overlay de log en pantalla (core_v2/levels/diag/LogOverlay.gd). NO se persiste a
 # proposito: es una herramienta de la sesion activa. Si se guardara, un arranque con
 # problemas dejaria el overlay prendido para siempre y encima taparia la pantalla justo
@@ -29,7 +30,7 @@ var log_overlay_enabled: bool = false
 # Enviar al central las lineas de error del log al terminar la sesion
 # (core_v2/telemetry/ErrorLogReporter.gd). Va junto a telemetry_enabled porque es el
 # mismo trato con el jugador: datos de diagnostico, no de juego.
-var error_reports_enabled: bool = true
+var error_reports_enabled: bool = false
 # Agujero de dither: los props que tapan al jugador se vuelven translucidos
 # (core_v2/autoloads/PropDitherManager.gd). Estuvo apagado a la fuerza en iOS mientras
 # se buscaba por que los props no se dibujaban ahi; la causa era el lightmap del motor,
@@ -44,6 +45,9 @@ func load_settings():
 	var err = _config.load(SETTINGS_PATH)
 	if err != OK:
 		print("[SettingsManager] No se pudo cargar el archivo de configuración, usando valores por defecto.")
+		telemetry_enabled = false
+		error_reports_enabled = false
+		consent_asked = false
 		return
 
 	master_volume = _config.get_value("audio", "master_volume", 1.0)
@@ -62,8 +66,9 @@ func load_settings():
 		_config.get_value("display", "android_render_scale", default_render_scale)
 	))
 	vsync = _config.get_value("display", "vsync", true)
-	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", true)
-	error_reports_enabled = _config.get_value("privacy", "error_reports_enabled", true)
+	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", false)
+	error_reports_enabled = _config.get_value("privacy", "error_reports_enabled", false)
+	consent_asked = _config.get_value("privacy", "consent_asked", true)
 	prop_dither_enabled = _config.get_value("display", "prop_dither_enabled", true)
 
 func save_settings():
@@ -80,11 +85,15 @@ func save_settings():
 	_config.set_value("display", "vsync", vsync)
 	_config.set_value("privacy", "telemetry_enabled", telemetry_enabled)
 	_config.set_value("privacy", "error_reports_enabled", error_reports_enabled)
+	_config.set_value("privacy", "consent_asked", consent_asked)
 	_config.set_value("display", "prop_dither_enabled", prop_dither_enabled)
 
 	var err = _config.save(SETTINGS_PATH)
 	if err != OK:
 		printerr("[SettingsManager] Error al guardar configuración: ", err)
+
+func needs_privacy_consent() -> bool:
+	return not consent_asked
 
 func apply_all_settings():
 	apply_audio_settings()
@@ -95,6 +104,9 @@ func apply_privacy_settings() -> void:
 	var telemetry = get_node_or_null("/root/ANNAV2")
 	if telemetry and telemetry.has_method("set_telemetry_enabled"):
 		telemetry.set_telemetry_enabled(telemetry_enabled)
+	if OS.has_feature("JavaScript") and Engine.has_singleton("JavaScript"):
+		var js_cmd = "window.OdiseaShell && window.OdiseaShell.setTelemetryConsent && window.OdiseaShell.setTelemetryConsent(%s);" % ("true" if telemetry_enabled else "false")
+		JavaScript.eval(js_cmd, true)
 
 func apply_audio_settings():
 	_set_bus_volume("Master", master_volume)
