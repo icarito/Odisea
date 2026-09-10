@@ -1,6 +1,9 @@
 extends Spatial
 
 signal compiled(cache_path)
+# Relay del avance de la escena de cache activa, para que una UI pueda dibujarlo
+# sin conocer al nodo ShaderCache ni a su cola interna.
+signal progress(done, total)
 
 var _compiled_cache_paths = []
 var _disable_in_remote_debug := false
@@ -43,6 +46,8 @@ func compile(cache_packed_scene):
 		return
 
 	cache_scene.connect("compiled", self, "_on_cache_compiled", [cache_path, cache_scene], CONNECT_ONESHOT)
+	if cache_scene.has_signal("progress"):
+		cache_scene.connect("progress", self, "_on_cache_progress")
 	print("[ShaderCacheManager] compiling: ", cache_path, " (batch=", cache_scene.get("materials_per_frame") if cache_scene.get("materials_per_frame") != null else 0, ")")
 	_compile_started_ms = OS.get_ticks_msec()
 	_prepare_cache_scene(cache_scene, cache_path)
@@ -60,6 +65,9 @@ func _on_cache_scene_built(cache_scene, cache_path: String) -> void:
 		return
 	if cache_scene.has_method("set_active"):
 		cache_scene.set_active(true)
+
+func _on_cache_progress(done, total) -> void:
+	emit_signal("progress", done, total)
 
 func _on_cache_compiled(cache_path, cache_scene):
 	_compiled_cache_paths.append(cache_path)

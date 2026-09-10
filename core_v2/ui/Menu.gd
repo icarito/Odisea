@@ -59,22 +59,6 @@ func _ready():
 		handler.buttons = temp_buttons
 	call_deferred("_request_first_scene_preload")
 	call_deferred("_spawn_shader_warmup")
-	_check_privacy_consent()
-
-func _check_privacy_consent():
-	var sm = get_node_or_null("/root/SettingsManager")
-	if sm and sm.has_method("needs_privacy_consent") and sm.needs_privacy_consent():
-		var dialog_scene = load("res://core_v2/ui/PrivacyConsentDialog.tscn")
-		if dialog_scene:
-			var dialog = dialog_scene.instance()
-			add_child(dialog)
-			dialog.connect("consent_completed", self, "_on_privacy_consent_completed")
-
-func _on_privacy_consent_completed(_accepted: bool):
-	if continue_button.visible and not continue_button.disabled:
-		continue_button.grab_focus()
-	else:
-		new_game_button.grab_focus()
 
 # FD-290: warmup de shaders de la primera escena de juego mientras el jugador esta
 # en el Menu. El trigger espera a que el preload de Dome_Intro termine (evita la
@@ -96,7 +80,16 @@ func _spawn_shader_warmup():
 	trigger.shader_cache_scene_path = "res://core_v2/levels/shader_cache/DomeIntroShaderCache.tscn"
 	trigger.wait_for_startup_gate = true
 	trigger.wait_preload_conflict = true
+	# Armado, no arrancado. Compilar traba el hilo principal de a lotes, y hacerlo con
+	# el Menu a la vista congela el fundido de salida a mitad de camino. Lo dispara
+	# quien ya tenga una pantalla encima: la de consentimiento, o el fin del fundido.
+	trigger.autostart = false
 	add_child(trigger)
+
+func begin_shader_warmup() -> void:
+	var trigger = get_node_or_null("DomeIntroShaderWarmup")
+	if trigger and trigger.has_method("begin"):
+		trigger.begin()
 
 func _request_first_scene_preload() -> void:
 	yield(get_tree(), "idle_frame")
@@ -141,6 +134,37 @@ func _on_Quit_pressed():
 	get_tree().quit()
 
 func _start_game(scene_path):
+	# FD-292: la primera vez, el consentimiento va ANTES del fundido, no al abrir el
+	# menu. Dos razones. Una, se pregunta cuando el jugador ya decidio jugar, que es
+	# cuando la pregunta viene al caso. Dos, el arranque en frio del primer nivel
+	# compila alrededor de noventa programas GLES3 de a uno; ese rato existe igual, y
+	# asi se gasta leyendo en vez de mirando una barra sola.
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm and sm.has_method("needs_privacy_consent") and sm.needs_privacy_consent():
+		_show_first_run_consent(scene_path)
+		return
+	_begin_start_game(scene_path)
+
+func _show_first_run_consent(scene_path) -> void:
+	for b in [new_game_button, continue_button, options_button, quit_button]:
+		if b:
+			b.disabled = true
+	var packed = load("res://core_v2/ui/FirstRunConsent.tscn")
+	if packed == null:
+		# Sin la pantalla no hay forma de preguntar; arrancar igual y dejar la
+		# telemetria apagada, que es el lado seguro de no haber preguntado.
+		printerr("[Menu] No se pudo cargar FirstRunConsent.tscn; se arranca sin preguntar.")
+		_begin_start_game(scene_path)
+		return
+	var screen = packed.instance()
+	screen.target_scene_path = String(scene_path)
+	screen.connect("consent_completed", self, "_on_first_run_consent_done", [scene_path], CONNECT_ONESHOT)
+	add_child(screen)
+
+func _on_first_run_consent_done(_accepted: bool, scene_path) -> void:
+	_begin_start_game(scene_path)
+
+func _begin_start_game(scene_path):
 	# La pantalla de carga NO se muestra aca. El overlay vive en layer 1000, encima
 	# del fundido del menu, y su texto y su barra son opacos: revelarlos en el frame
 	# del click los pega sobre el menu todavia visible durante los 0.85 s que dura el
@@ -176,6 +200,8 @@ func _start_first_game_bgm() -> void:
 		audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
 
 func _on_fade_out_complete(_object, _key, scene_path):
+	# Pantalla ya cubierta: desde aca un lote de compilacion no se ve como un tiron.
+	begin_shader_warmup()
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager and scene_manager.has_method("goto_scene"):
 		# Gameplay scenes are heavy to load. Show the same loading

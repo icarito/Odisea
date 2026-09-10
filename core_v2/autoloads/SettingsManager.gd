@@ -68,6 +68,10 @@ func load_settings():
 	vsync = _config.get_value("display", "vsync", true)
 	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", false)
 	error_reports_enabled = _config.get_value("privacy", "error_reports_enabled", false)
+	# El default es true a proposito, y solo aplica cuando el archivo YA existe: una
+	# instalacion vieja tiene su preferencia guardada de antes y no se le vuelve a
+	# preguntar ni se le cambia nada. Una instalacion nueva no llega hasta aca (el
+	# load() falla mas arriba y deja consent_asked en false), que es cuando se pregunta.
 	consent_asked = _config.get_value("privacy", "consent_asked", true)
 	prop_dither_enabled = _config.get_value("display", "prop_dither_enabled", true)
 
