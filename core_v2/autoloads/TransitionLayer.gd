@@ -130,9 +130,18 @@ func play(animation_name: String, params: Dictionary = {}):
 			# ocultan ahora, con la pantalla todavia cubierta, no al final del fundido:
 			# la regla es que el cartel de carga solo se ve sobre negro.
 			hide_loading()
+			# El fundido de entrada descubre la escena aunque la cola de shaders siga
+			# drenando -- el tope de _await_shader_settle es un tope, no una garantia.
+			# La viñeta toma la posta ahi: cierra los bordes mientras entra lo que
+			# falta y se abre sola cuando el renderizador se aquieta.
+			var settle_pending := bool(params.get("wait_for_shaders", true)) and not _renderer_is_quiet()
+			if settle_pending:
+				_show_settle_vignette()
 			var in_state = _fade_to_alpha(0.0, in_duration)
 			if in_state is GDScriptFunctionState:
 				yield(in_state, "completed")
+			if settle_pending:
+				_hold_settle_vignette()
 			emit_signal("transition_finished")
 			return
 		"loading_screen_show":
@@ -172,12 +181,64 @@ func set_loading_progress(progress_01: float) -> void:
 func is_animating() -> bool:
 	return _is_animating
 
+func _renderer_is_quiet() -> bool:
+	return VisualServer.get_render_info(VisualServer.INFO_SHADER_COMPILES_IN_FRAME) == 0
+
+# Reutiliza las barras cinematograficas de ScreenEffectsManager en vez de dibujar una
+# viñeta propia: el juego ya tiene ese lenguaje visual y el jugador ya lo asocia con
+# "esto es una escena, no un error". Se cierran al descubrir y se abren cuando el
+# renderizador deja de compilar.
+func _show_settle_vignette() -> void:
+	var fx = get_node_or_null("/root/ScreenEffectsManager")
+	if fx and fx.has_method("show_script_cinematic_bars"):
+		fx.show_script_cinematic_bars()
+
+func _hide_settle_vignette() -> void:
+	var fx = get_node_or_null("/root/ScreenEffectsManager")
+	if fx and fx.has_method("hide_script_cinematic_bars"):
+		fx.hide_script_cinematic_bars()
+
+# Sostiene las barras hasta que el renderizador deja de compilar. Con su propio tope:
+# si un driver nunca llega a cero --paso en Adreno con el ubershader-- la escena no
+# puede quedarse enmarcada para siempre.
+func _hold_settle_vignette() -> void:
+	var tree := get_tree()
+	if tree == null:
+		_hide_settle_vignette()
+		return
+	var timeout := 20.0
+	if ProjectSettings.has_setting("odisea/transition/vignette_hold_timeout"):
+		timeout = float(ProjectSettings.get_setting("odisea/transition/vignette_hold_timeout"))
+	var deadline := OS.get_ticks_msec() + int(max(0.0, timeout) * 1000.0)
+	var quiet := 0
+	while quiet < shader_settle_quiet_frames:
+		if OS.get_ticks_msec() >= deadline:
+			break
+		yield(tree, "idle_frame")
+		if not is_instance_valid(self):
+			return
+		if _renderer_is_quiet():
+			quiet += 1
+		else:
+			quiet = 0
+	_hide_settle_vignette()
+
 # Returns a GDScriptFunctionState only when it actually waits; callers check.
 func _await_shader_settle():
 	var tree := get_tree()
 	if tree == null or shader_settle_timeout <= 0.0:
 		return
-	var deadline := OS.get_ticks_msec() + int(shader_settle_timeout * 1000.0)
+	# El techo sale de project.godot para poder moverlo por plataforma sin recompilar
+	# (odisea/transition/shader_settle_timeout, con override .Android). Android
+	# materializa una variante encolada por frame, asi que su cola tarda mucho mas en
+	# aquietarse que la de escritorio: medido en el Redmi, 45 s no alcanzaban y el
+	# fusible terminaba mandando el tiempo total -- el jugador esperaba mirando un
+	# aviso ya leido. Es un tope, no una meta: al vencer se descubre igual, y con el
+	# batching lo que falta entra de a poco en vez de en un tiron.
+	var timeout := shader_settle_timeout
+	if ProjectSettings.has_setting("odisea/transition/shader_settle_timeout"):
+		timeout = float(ProjectSettings.get_setting("odisea/transition/shader_settle_timeout"))
+	var deadline := OS.get_ticks_msec() + int(max(0.0, timeout) * 1000.0)
 	var quiet := 0
 	while quiet < shader_settle_quiet_frames:
 		if OS.get_ticks_msec() >= deadline:

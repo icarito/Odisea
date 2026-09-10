@@ -35,6 +35,8 @@ import org.godotengine.godot.FullScreenGodotApp;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.view.WindowManager;
 
 /**
  * Template activity for Godot Android custom builds.
@@ -45,6 +47,12 @@ public class GodotApp extends FullScreenGodotApp {
 	// constructed (the normal launch ordering). The plugin drains this in its
 	// constructor; onNewIntent (app already running) feeds the plugin directly.
 	private static String sPendingDeepLink = "";
+
+	// Brightness floor for the game window. Long scene loads (menu -> dome) left
+	// the screen untouched long enough for power management to dim it, even with
+	// the engine's keep-screen-on flag (battery-saver / adaptive dimming ignore
+	// FLAG_KEEP_SCREEN_ON on some OEMs). Tuned up from 0.6 if still dim.
+	private static final float BRIGHTNESS_FLOOR = 0.6f;
 
 	/** Drained by OdiseaDeepLink's constructor for the launch Intent. */
 	public static String takePendingDeepLink() {
@@ -57,9 +65,26 @@ public class GodotApp extends FullScreenGodotApp {
 	public void onCreate(Bundle savedInstanceState) {
 		setTheme(R.style.GodotAppMainTheme);
 		super.onCreate(savedInstanceState);
+		keepScreenAwakeAndBright();
 		// The launch Intent arrives before the engine constructs the
 		// OdiseaDeepLink plugin, so stash the odisea:// URI for it to pick up.
 		stashDeepLink(getIntent());
+	}
+
+	/**
+	 * Keeps the screen on and pins a brightness floor while the game is the
+	 * visible window. FLAG_KEEP_SCREEN_ON stops the idle timeout; the window
+	 * screenBrightness attribute stops OEM battery-saver / adaptive dimming,
+	 * which ignore that flag. Never lowers brightness below the user's setting.
+	 */
+	private void keepScreenAwakeAndBright() {
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+		int systemBrightness = Settings.System.getInt(
+				getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, 128);
+		float floor = Math.max(systemBrightness / 255.0f, BRIGHTNESS_FLOOR);
+		WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+		layoutParams.screenBrightness = floor;
+		getWindow().setAttributes(layoutParams);
 	}
 
 	@Override

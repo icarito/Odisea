@@ -3070,6 +3070,13 @@ file_logging/max_log_files=3
 
 project/assembly_name="Odisea"
 
+[odisea]
+
+transition/shader_settle_timeout=4.0
+transition/shader_settle_timeout.Android=2.0
+transition/vignette_hold_timeout=20.0
+transition/vignette_hold_timeout.Android=40.0
+
 [physics]
 
 common/physics_jitter_fix=0.0
@@ -3102,6 +3109,7 @@ environment/default_clear_color=Color( 0.137255, 0.219608, 0.282353, 1 )
 quality/filters/msaa=1
 quality/filters/use_fxaa=true
 environment/default_environment="res://default_env.tres"
+quality/gi_probes/enabled=false
 quality/driver/driver_name.iOS="GLES3"
 batching/options/use_batching.iOS=false
 quality/filters/msaa.web=0
@@ -3110,7 +3118,8 @@ quality/shading/force_vertex_shading.Android=false
 quality/shading/force_vertex_shading.iOS=false
 quality/filters/msaa.iOS=0
 quality/intended_usage/framebuffer_allocation.Android=3
-quality/gi_probes/enabled=false
 gles3/shaders/shader_compilation_mode.iOS=0
-gles3/shaders/shader_compilation_mode.Android=2
+gles3/shaders/shader_compilation_mode.Android=0
 gles3/shaders/async_compilation_starts_enabled.Android=false
+gles3/shaders/cache_conditioned_variants.Android=true
+gles3/shaders/shader_cache_always.Android=true

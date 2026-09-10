@@ -41,6 +41,8 @@ var _transition_done := false
 var _ready_announced := false
 
 func _ready() -> void:
+	# Sigue procesando con el arbol pausado: es quien tiene que despausarlo.
+	pause_mode = Node.PAUSE_MODE_PROCESS
 	_telemetry_panel.visible = false
 	_choice_box.visible = false
 	set_process(false)
@@ -103,6 +105,32 @@ func _announce_ready() -> void:
 	if _progress_label:
 		_progress_label.visible = false
 	_choice_box.visible = true
+	# Los botones aparecen inertes y se arman medio segundo despues. Medido en el
+	# Redmi: sin esta ventana, la decision se registraba sola en el mismo instante en
+	# que aparecian -- el nivel corre detras de esta pantalla y algun evento suyo
+	# alcanzaba al boton recien enfocado. Una eleccion de privacidad que se contesta
+	# sin que nadie la conteste no vale nada, asi que el foco llega despues.
+	_accept_button.disabled = true
+	_decline_button.disabled = true
+	# El nivel ya termino de cargar, asi que a partir de aca puede pausarse sin
+	# frenar nada: la cola de shaders sigue drenando porque la avanza el rasterizador,
+	# no el arbol. Pausar es lo que impide que el juego conteste por el jugador --
+	# corriendo detras, alguna de sus entradas alcanzaba al boton enfocado y la
+	# decision se registraba sola (medido en el Redmi, dos veces seguidas). De paso
+	# MobileUIManager esconde los controles tactiles cuando el arbol esta pausado.
+	var tree := get_tree()
+	if tree:
+		tree.paused = true
+	_arm_choice()
+
+func _arm_choice() -> void:
+	var tree := get_tree()
+	if tree:
+		yield(tree.create_timer(0.5), "timeout")
+	if not is_instance_valid(self):
+		return
+	_accept_button.disabled = false
+	_decline_button.disabled = false
 	# Aceptar es la opcion por defecto: queda enfocada para que el mando o el teclado
 	# la activen sin navegar. Rechazar esta al lado, del mismo tamaño y visible desde
 	# el primer momento, asi que el atajo no esconde la alternativa.
@@ -116,6 +144,9 @@ func _on_choice(accepted: bool) -> void:
 		sm.consent_asked = true
 		sm.save_settings()
 		sm.apply_privacy_settings()
+	var tree := get_tree()
+	if tree:
+		tree.paused = false
 	emit_signal("consent_completed", accepted)
 	# Liberar el CanvasLayer entero, no solo esta pantalla: al descubrirla, el nivel
 	# ya esta cargado y dibujando detras.
