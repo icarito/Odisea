@@ -1008,7 +1008,20 @@ func _get_effective_transition_timeout_ms() -> int:
 func _report_transition(stage: String, error: String = "", progress: float = -1.0) -> void:
 	# Log persistente: el heartbeat puede saltarse etapas durante un bloqueo del render.
 	if SWAP_STAGE_PROGRESS.has(stage):
-		print("[SceneStartup] %s %s elapsed_ms=%d" % [_next_scene_path, stage, max(0, OS.get_ticks_msec() - _transition_started_ms)])
+		# objects es del frame ANTERIOR (render_info se cierra al fin de frame), asi
+		# que en el hito posterior a un tramo bloqueante dice si ese tramo llego a
+		# dibujar. texmb/vrammb miden cuanto subio a la GPU: sirven para separar
+		# "esta compilando shaders" de "esta subiendo texturas".
+		# INFO_SHADER_COMPILES_IN_FRAME no sirve aca: el motor lo llena con
+		# active_compiles_count, o sea trabajo async en vuelo, y Android va sincrono.
+		print("[SceneStartup] %s %s elapsed_ms=%d objects=%d texmb=%.1f vrammb=%.1f" % [
+			_next_scene_path,
+			stage,
+			max(0, OS.get_ticks_msec() - _transition_started_ms),
+			VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME),
+			Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0,
+			Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
+		])
 		# Cada hito es el ultimo instante con el hilo principal libre antes del
 		# tramo bloqueante que sigue, asi que es el unico lugar donde mover la
 		# barra alcanza a dibujarse. La barra avanza a saltos, no interpolada:
