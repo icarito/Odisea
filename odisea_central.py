@@ -173,6 +173,15 @@ DEPLOY_DASHBOARD_REPOS = {
     ).split(",") if p.strip()
 }
 
+# Release events (published/edited) for this repo refresh the landing's
+# nightly.json via NIGHTLY_REFRESH_SCRIPT — cuts the download-link staleness
+# window from up-to-5-min (cron) to seconds once assets are consistent.
+# Case-insensitive full_name match; set NIGHTLY_REFRESH_SCRIPT="" to disable.
+DEPLOY_RELEASE_REPO = os.environ.get("DEPLOY_RELEASE_REPO", "icarito/odisea").lower()
+NIGHTLY_REFRESH_SCRIPT = os.environ.get(
+    "NIGHTLY_REFRESH_SCRIPT", "/usr/local/bin/odisea-nightly-refresh"
+)
+
 AUTH_MAX_FAILS = int(os.environ.get("CENTRAL_AUTH_MAX_FAILS", 8))
 AUTH_FAIL_WINDOW = int(os.environ.get("CENTRAL_AUTH_FAIL_WINDOW", 60))
 AUTH_LOCKOUT = int(os.environ.get("CENTRAL_AUTH_LOCKOUT", 300))
@@ -3004,7 +3013,8 @@ class OdiseaCentral:
 
         Configure on GitHub: Settings -> Webhooks -> Payload URL
         https://odisea.educa.juegos/webhook/deploy, Content type application/json,
-        Secret = the bridge token (or DEPLOY_WEBHOOK_SECRET), events = "Just the push event".
+        Secret = the bridge token (or DEPLOY_WEBHOOK_SECRET), events = "push and release"
+        (release events refresh the landing's nightly.json, see handle_release_webhook).
         """
         if not DEPLOY_WEBHOOK_SECRET:
             return web.json_response({"error": "deploy webhook disabled"}, status=503)
@@ -3024,6 +3034,8 @@ class OdiseaCentral:
         event = request.headers.get("X-GitHub-Event", "")
         if event == "ping":
             return web.json_response({"ok": True, "pong": True})
+        if event == "release":
+            return self.handle_release_webhook(body)
         if event != "push":
             return web.json_response({"ok": True, "ignored": f"event={event}"})
 
@@ -3081,6 +3093,45 @@ class OdiseaCentral:
             return web.json_response({"error": str(e)}, status=500)
 
         return web.json_response({"ok": True, "deploying": True, "ref": ref})
+
+    def handle_release_webhook(self, body: bytes):
+        """GitHub release events: refresh the landing's nightly.json.
+
+        The publish flow edits the release BEFORE uploading the new assets and
+        deleting the old ones, so the refresh script runs detached with
+        --watch (it retries until the release name and its assets agree).
+        The 5-min cron stays as the safety net.
+        """
+        if not NIGHTLY_REFRESH_SCRIPT:
+            return web.json_response({"ok": True, "ignored": "nightly refresh disabled"})
+        try:
+            payload = json.loads(body or b"{}")
+        except json.JSONDecodeError:
+            payload = {}
+        repo_full = str((payload.get("repository") or {}).get("full_name") or "")
+        if repo_full.lower() != DEPLOY_RELEASE_REPO:
+            return web.json_response({"ok": True, "ignored": f"repo={repo_full or 'unknown'}"})
+        action = str(payload.get("action") or "")
+        if action not in ("published", "edited"):
+            return web.json_response({"ok": True, "ignored": f"release.{action}"})
+        if not os.path.exists(NIGHTLY_REFRESH_SCRIPT):
+            logger.error("release webhook: script not found at %s", NIGHTLY_REFRESH_SCRIPT)
+            return web.json_response({"error": "nightly refresh script not found"}, status=500)
+        log_path = NIGHTLY_REFRESH_SCRIPT + ".log"
+        logger.info("release webhook: refreshing nightly.json (action=%s)", action)
+        try:
+            with open(log_path, "ab") as logf:
+                subprocess.Popen(
+                    ["/usr/bin/sudo", "-n", "/bin/bash", NIGHTLY_REFRESH_SCRIPT, "--watch"],
+                    stdout=logf,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL,
+                    start_new_session=True,  # detach from this process group
+                )
+        except Exception as e:
+            logger.error("release webhook: failed to spawn nightly refresh (%s)", e)
+            return web.json_response({"error": str(e)}, status=500)
+        return web.json_response({"ok": True, "nightly_refresh": "triggered", "action": action})
 
     async def _db_worker(self):
         """Background worker for SQLite writes (performance fix)."""

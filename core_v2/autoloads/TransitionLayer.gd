@@ -6,6 +6,16 @@ signal transition_finished
 export(float, 0.0, 3.0) var default_fade_out_duration := 0.35
 export(float, 0.0, 3.0) var default_fade_in_duration := 0.35
 
+# Uncovering as soon as the scene is in the tree shows it before the driver has
+# built the programs its materials need: the geometry arrives untextured and pops
+# in over the next seconds. Hold the cover until the renderer stops compiling.
+# Bounded on purpose -- a driver that refuses a variant never reaches zero (Adreno
+# rejects the scene ubershader outright), and an unbounded wait hangs the
+# transition. The timeout is the knob: raise it on a slow device, set it to 0 to
+# uncover immediately.
+export(float, 0.0, 15.0) var shader_settle_timeout := 4.0
+export(int, 1, 30) var shader_settle_quiet_frames := 4
+
 var _overlay: ColorRect = null
 var _loading_root: Control = null
 var _loading_label: Label = null
@@ -95,15 +105,26 @@ func play(animation_name: String, params: Dictionary = {}):
 	match String(animation_name).to_lower():
 		"fade_out":
 			var out_duration := float(params.get("duration", default_fade_out_duration))
+			# The loading text and bar are opaque, but the overlay behind them is still
+			# transparent while the fade runs, so revealing them now pastes them over
+			# the live game. Hold them until the screen is actually covered.
+			var want_loading := false
 			if _loading_root:
-				_loading_root.visible = bool(params.get("show_loading", _loading_root.visible))
+				want_loading = bool(params.get("show_loading", _loading_root.visible))
+				_loading_root.visible = false
 			var out_state = _fade_to_alpha(1.0, out_duration)
 			if out_state is GDScriptFunctionState:
 				yield(out_state, "completed")
+			if _loading_root:
+				_loading_root.visible = want_loading
 			emit_signal("transition_covered_screen")
 			return
 		"fade_in":
 			var in_duration := float(params.get("duration", default_fade_in_duration))
+			if bool(params.get("wait_for_shaders", true)):
+				var settle_state = _await_shader_settle()
+				if settle_state is GDScriptFunctionState:
+					yield(settle_state, "completed")
 			var in_state = _fade_to_alpha(0.0, in_duration)
 			if in_state is GDScriptFunctionState:
 				yield(in_state, "completed")
@@ -146,6 +167,22 @@ func set_loading_progress(progress_01: float) -> void:
 
 func is_animating() -> bool:
 	return _is_animating
+
+# Returns a GDScriptFunctionState only when it actually waits; callers check.
+func _await_shader_settle():
+	var tree := get_tree()
+	if tree == null or shader_settle_timeout <= 0.0:
+		return
+	var deadline := OS.get_ticks_msec() + int(shader_settle_timeout * 1000.0)
+	var quiet := 0
+	while quiet < shader_settle_quiet_frames:
+		if OS.get_ticks_msec() >= deadline:
+			return
+		yield(tree, "idle_frame")
+		if VisualServer.get_render_info(VisualServer.INFO_SHADER_COMPILES_IN_FRAME) > 0:
+			quiet = 0
+		else:
+			quiet += 1
 
 func _fade_to_alpha(target_alpha: float, duration: float):
 	if not _overlay:

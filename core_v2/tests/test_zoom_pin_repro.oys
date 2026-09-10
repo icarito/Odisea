@@ -1,0 +1,30 @@
+// Repro FD-290: zoom in -> zoom out queda bloqueado (reporte en vivo, Box3D).
+// Guardia de regresion del zoom de camara (KinematicArm3D + gate del controller).
+
+SECTION "Zoom in then out"
+    SET $base0 GET_NODE_PROP "Pilot" "base_spring_length_3d"
+    SET $cmode GET_NODE_PROP "CinematicManager" "current_control_mode"
+    SET $rl GET_NODE_PROP "Pilot" "_rl_fast_controller"
+    SET $cm GET_NODE_PROP "Pilot" "current_spring_length"
+    PRINT "antes: base=$base0 rl=$rl cur_spring=$cm cmode=$cmode"
+
+    // Zoom in profundo
+    ZOOM -2.5 0.6
+    WAIT 0.5
+    SET $base GET_NODE_PROP "Pilot" "base_spring_length_3d"
+    SET $in_len GET_NODE_PROP "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm" "current_length"
+    SET $in_zoom GET_NODE_PROP "Pilot" "external_input"
+    PRINT "len tras zoom in: $in_len base=$base in=$in_zoom"
+    ASSERT $in_len < 1.8 "el zoom in no acerco la camara"
+
+    // Intentar alejar
+    ZOOM 4.0 1.2
+    WAIT 1.0
+    SET $out_len GET_NODE_PROP "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm" "current_length"
+    SET $blocked GET_NODE_PROP "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm" "_zoom_out_blocked"
+    SET $latch GET_NODE_PROP "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm" "_collision_latched_length"
+    SET $excl GET_NODE_PROP "Pilot/CameraRig/Yaw/Pitch/OTS_Offset/SpringArm" "_excluded_objects"
+    PRINT "len tras zoom out: $out_len blocked=$blocked latch=$latch excl=$excl"
+    ASSERT $out_len > 2.2 "BUG FD-290: la camara no vuelve a alejarse tras zoom in"
+    ASSERT $blocked == false "BUG FD-290: _zoom_out_blocked sigue en true"
+END

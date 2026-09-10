@@ -84,6 +84,13 @@ func _on_privacy_consent_completed(_accepted: bool):
 func _spawn_shader_warmup():
 	if Engine.editor_hint:
 		return
+	# Android entra recien ahora. Hasta que el ubershader de escena dejo de exceder
+	# el presupuesto de samplers del driver (Adreno rechazaba el link), precalentar
+	# ahi solo habria compilado programas que fallaban. Con el ubershader enlazando,
+	# el mismo stall que se midio en WebGL aparece en el celular: el arranque en frio
+	# de Dome_Intro paga ~90 programas GLES3 de a uno.
+	if not OS.get_name() in ["HTML5", "Android"]:
+		return
 	var trigger := preload("res://core_v2/levels/ShaderWarmupTrigger.gd").new()
 	trigger.name = "DomeIntroShaderWarmup"
 	trigger.shader_cache_scene_path = "res://core_v2/levels/shader_cache/DomeIntroShaderCache.tscn"
@@ -134,24 +141,39 @@ func _on_Quit_pressed():
 	get_tree().quit()
 
 func _start_game(scene_path):
+	# La pantalla de carga NO se muestra aca. El overlay vive en layer 1000, encima
+	# del fundido del menu, y su texto y su barra son opacos: revelarlos en el frame
+	# del click los pega sobre el menu todavia visible durante los 0.85 s que dura el
+	# fade de abajo. Se revela al terminar ese fade, que es cuando la pantalla ya esta
+	# negra -- lo hace goto_scene() en _on_fade_out_complete(), que pide show_loading.
+	# El click igual se siente atendido: los botones se deshabilitan y el fundido
+	# arranca en el mismo frame. (Y si el hilo principal se bloquea cargando la BGM,
+	# una barra tampoco se animaria: el bloqueo se lleva el frame entero.)
+	# Avoid double-triggering if a button is pressed twice during the fade.
+	for b in [new_game_button, continue_button, options_button, quit_button]:
+		if b:
+			b.disabled = true
+	tween.stop_all()
+	tween.interpolate_property(fade_rect, "modulate:a", fade_rect.modulate.a, 1.0, 0.85, Tween.TRANS_QUAD, Tween.EASE_IN)
+	tween.start()
+	if not tween.is_connected("tween_completed", self, "_on_fade_out_complete"):
+		tween.connect("tween_completed", self, "_on_fade_out_complete", [scene_path], CONNECT_ONESHOT)
 	# Si el destino es el nivel inicial, arrancar ya su musica (crossfade sin fijar
 	# override) para que vaya sonando durante la pantalla de carga en vez de esperar a
 	# que la BGMZoneV2 del nivel se registre. Otros destinos (Continue a mitad de
 	# partida) dejan que SceneManager haga su fade-out/in por defecto y que la propia
 	# zona decida la musica al cargar.
 	if scene_path == FIRST_GAME_SCENE:
-		var audio_mgr = get_node_or_null("/root/AudioManager")
-		if audio_mgr:
-			audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
-	# Avoid double-triggering if a button is pressed twice during the fade.
-	for b in [new_game_button, continue_button, options_button, quit_button]:
-		if b:
-			b.disabled = true
-	tween.stop_all()
-	tween.interpolate_property(fade_rect, "modulate:a", fade_rect.modulate.a, 1.0, 0.5, Tween.TRANS_LINEAR, Tween.EASE_IN)
-	tween.start()
-	if not tween.is_connected("tween_completed", self, "_on_fade_out_complete"):
-		tween.connect("tween_completed", self, "_on_fade_out_complete", [scene_path], CONNECT_ONESHOT)
+		_start_first_game_bgm()
+
+# crossfade_to_song() hace un load() sincronico del mp3 (AudioManager.gd): la
+# primera vez cuesta cientos de ms y caia justo en el frame del click. Un frame
+# despues, con el fundido del menu ya en marcha, ese mismo costo no se ve.
+func _start_first_game_bgm() -> void:
+	yield(get_tree(), "idle_frame")
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr:
+		audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
 
 func _on_fade_out_complete(_object, _key, scene_path):
 	var scene_manager = get_node_or_null("/root/SceneManager")
@@ -165,7 +187,7 @@ func _on_fade_out_complete(_object, _key, scene_path):
 			"show_progress": true,
 			"loading_message": "Cargando...",
 			"fade_out": 0.0,
-			"fade_in": 0.25
+			"fade_in": 3.0
 		}
 		if scene_path == FIRST_GAME_SCENE:
 			# El fade-out/in automatico de SceneManager cortaria o reiniciaria el

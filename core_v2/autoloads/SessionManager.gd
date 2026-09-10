@@ -1943,6 +1943,11 @@ func start_recording():
 		"scene": get_tree().current_scene.filename,
 		"world_snapshot": {}
 	}
+	# FD-290: identificar con qué backend de física se grabó. Los replays solo son
+	# comparables entre corridas del mismo motor (la CI determinista lo declara via
+	# override.cfg / project.godot), así que la meta lo estampa explícito.
+	var engine_key := "physics/3d/physics_engine"
+	replay_meta["physics_engine"] = String(ProjectSettings.get_setting(engine_key)) if ProjectSettings.has_setting(engine_key) else "Bullet"
 
 	# --- Resetear nodos replay_sync a estado inicial ---
 	var sync_nodes = _get_replay_sync_nodes()

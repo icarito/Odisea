@@ -1,0 +1,10 @@
+// FD-290 (reporte Sebastian): cajas que empiezan en el aire aparecen asleep en
+// Box3D y no despiertan solas. PushableBoxV2 spawnea a y=5 en esta escena (4m
+// sobre el piso): despierta, la gravedad la baja en el primer medio segundo.
+
+SECTION "Midair box must fall"
+    WAIT 0.5
+    SET $box_y GET_NODE_POS_Y "PushableBox"
+    PRINT "PushableBox y tras 0.5s: $box_y (spawn 1.5, reposo 1.0)"
+    ASSERT $box_y < 1.4 "la caja colgando 0.5m no cayo: asleep al spawn?"
+END

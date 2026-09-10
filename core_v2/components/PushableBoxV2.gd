@@ -63,14 +63,11 @@ func _ready():
 	contacts_reported = 4
 
 	var legacy_env := OS.get_environment("ODISEA_PUSHABLE_LEGACY")
-	# FD-290 (segundo lote): el camino sleeping quedo OPT-IN. En la CI determinista con
-	# el motor Box3D real agrego drift 0.051 en test_push_clipping (umbral 0.03): el
-	# reposo via sleeping interactua distinto con el island management de Box3D entre la
-	# grabacion y el replay. En Bullet-local es determinista (suite 140/140). Hasta que
-	# el modulo diga por que, el hibrido legado manda en todos los backends.
-	var sleep_env := OS.get_environment("ODISEA_PUSHABLE_SLEEP")
-	_box3d = _detect_box3d_backend() and (sleep_env in ["1", "true", "yes", "on"]) \
-			and not (legacy_env in ["1", "true", "yes", "on"])
+	# FD-290: camino sleeping DEFAULT en Box3D. El drift 0.051 que lo habia mandado a
+	# opt-in era un bug de snapshot (no persistia el flag sleeping; el restore despertaba
+	# la caja y el solver la movia distinto entre PASS 1 y PASS 2), corregido arriba con
+	# la clave "sleeping". ODISEA_PUSHABLE_LEGACY=1 queda como off-switch para el A/B.
+	_box3d = _detect_box3d_backend() and not (legacy_env in ["1", "true", "yes", "on"])
 	if _box3d and debug:
 		print("[PushableBoxV2] Backend Box3D: modo sleeping, sin snap rotacional (FD-290).")
 	
@@ -498,7 +495,7 @@ func _integrate_forces(state) -> void:
 
 func get_snapshot():
 	var rot = global_transform.basis.get_euler()
-	return {
+	var snapshot := {
 		"pos": [global_transform.origin.x, global_transform.origin.y, global_transform.origin.z],
 		"rot": [rot.x, rot.y, rot.z],
 		"vel": [linear_velocity.x, linear_velocity.y, linear_velocity.z],
@@ -509,6 +506,13 @@ func get_snapshot():
 		"snap_rot": snap_rotation,
 		"snap_deg": rotation_snap_degrees
 	}
+	# FD-290: en el camino Box3D el estado congelado es (RIGID + sleeping). Sin este
+	# flag, el restore despierta la caja y el solver la micro-mueve distinto que en la
+	# grabacion -> drift entre PASS 1 y PASS 2 (0.051 medido en test_push_clipping).
+	# En el camino legado el modo KINEMATIC ya captura el congelado; el flag viaja
+	# igual para que los snapshots sean uniformes.
+	snapshot["sleeping"] = sleeping
+	return snapshot
 
 func restore_snapshot(data):
 	if not is_inside_tree():
@@ -552,13 +556,15 @@ func _apply_snapshot(data):
 	if _box3d:
 		# FD-290: en el camino Box3D nunca queda kinematic. Un snapshot legado (hibrido
 		# Bullet) con MODE_KINEMATIC se representa como rigido dormido: misma pose
-		# congelada, cero velocidades, misma respuesta a los despertares.
+		# congelada, cero velocidades, misma respuesta a los despertares. El flag
+		# "sleeping" del snapshot manda cuando viene (snapshots Box3D); sin el, un
+		# snapshot rigido despierta (comportamiento legado) y un kinematic duerme.
 		if mode == RigidBody.MODE_KINEMATIC:
 			mode = RigidBody.MODE_RIGID
 			_target_basis = null
-			sleeping = true
+			sleeping = bool(data["sleeping"]) if data.has("sleeping") else true
 		else:
-			sleeping = false
+			sleeping = bool(data["sleeping"]) if data.has("sleeping") else false
 	elif mode == RigidBody.MODE_RIGID:
 		sleeping = false
 

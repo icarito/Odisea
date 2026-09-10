@@ -2378,6 +2378,36 @@ func _call_func(func_name: String, args: Array):
 			elif node and node is Node2D:
 				return node.position.y
 			return 0.0
+		"GET_NODE_PROP":
+			# FD-290: getter generico de propiedades para tests (SET $v GET_NODE_PROP
+			# "Path/To/Node" "property_name"). "Pilot/sub/ruta" resuelve relativo al
+			# player VIVO de SessionManager (evita nodos renombrados @X@N al
+			# re-instanciar la escena entre PASS 1 y PASS 2); "Nombre" resuelve por
+			# find_node como GET_NODE_POS_X.
+			var prop_path = args[0].replace("\"", "")
+			var prop_name = args[1].replace("\"", "") if args.size() > 1 else ""
+			var node = null
+			if prop_path.begins_with("Pilot/"):
+				var session_rel = host_node.get_node_or_null("/root/SessionManager")
+				if session_rel and is_instance_valid(session_rel) and session_rel.has_method("get"):
+					var p_rel = session_rel.get("player")
+					if is_instance_valid(p_rel):
+						node = p_rel.get_node_or_null(prop_path.substr(6))
+			elif prop_path == "Pilot":
+				var session_prop = host_node.get_node_or_null("/root/SessionManager")
+				if session_prop and is_instance_valid(session_prop) and session_prop.has_method("get"):
+					node = session_prop.get("player")
+			if not node:
+				node = host_node.get_tree().root.find_node(prop_path, true, false)
+			if node == null:
+				printerr("[OYS ERROR] GET_NODE_PROP: nodo no encontrado: ", prop_path)
+				return 0.0
+			if prop_name in node:
+				return node.get(prop_name)
+			if node.has_method("get_" + prop_name):
+				return node.call("get_" + prop_name)
+			printerr("[OYS ERROR] GET_NODE_PROP: propiedad no encontrada: ", prop_path, ".", prop_name)
+			return 0.0
 		"GET_NODE_Z", "GET_NODE_POS_Z":
 			var path = args[0].replace("\"", "")
 			# Prefer SessionManager.player when path is the Pilot alias to ensure we

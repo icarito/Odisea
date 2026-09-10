@@ -27,6 +27,36 @@ export(int, 0, 10) var boot_fade_in_wait_frames := 1
 # 3.6.2 es el poll por presupuesto de frame en el main.
 export(bool) var threaded_resource_loading := false
 
+# La barra de carga reparte su recorrido entre las dos mitades reales del viaje.
+# El cargador de recursos solo llega hasta LOAD_PROGRESS_SHARE; el resto es para
+# el swap (instanciar, _ready, primer frame dibujado), que es donde se va casi
+# todo el tiempo cuando la escena venia precargada desde el Menu -- ahi la carga
+# tarda 0 ms, la barra saltaba a 100% de una y se quedaba clavada ahi el resto.
+#
+# Medido en Dome_Intro (desktop, Iris Xe, cache de shaders del driver caliente),
+# primera entrada del proceso, ms desde goto_scene():
+#   instance_created 105 | tree_attached 275 | first_idle_frame 3485
+#   initial_frames_ready 3523 | scene_ready 3530 | completed 3701
+# Casi todo (3.2 s de 3.7 s) esta en UN solo tramo: el primer frame dibujado de la
+# escena. Ahi no corre GDScript, asi que la barra no puede animarse: se queda
+# quieta en el valor de tree_attached hasta que el frame termina. Que la meseta
+# caiga en ~0.5 y no en 100% es justamente el punto. Achicarla es otro problema
+# (mas cobertura del warmup de shaders), no un problema de la barra.
+#
+# Los pesos son una calibracion, no una verdad: en otra maquina el reparto cambia
+# y estos numeros son la perilla para reajustarlo.
+const LOAD_PROGRESS_SHARE := 0.45
+const SWAP_STAGE_PROGRESS := {
+	"instancing": 0.45,
+	"instance_created": 0.47,
+	"tree_attached": 0.49,
+	"first_idle_frame": 0.96,
+	"initial_frames_ready": 0.97,
+	"spawn_started": 0.97,
+	"scene_ready": 0.98,
+	"completed": 1.0,
+}
+
 var _loader = null
 var _loaded_scene: PackedScene = null
 var _load_error := ""
@@ -169,17 +199,17 @@ func goto_scene(path: String, params: Dictionary = {}):
 
 	if supplied_preloaded_scene and supplied_preloaded_scene is PackedScene:
 		_loaded_scene = supplied_preloaded_scene
-		_emit_progress(1.0)
+		_emit_load_progress(1.0)
 	elif has_preloaded_scene(_next_scene_path):
 		_loaded_scene = get_preloaded_scene(_next_scene_path)
-		_emit_progress(1.0)
+		_emit_load_progress(1.0)
 	else:
 		while is_scene_preloading(_next_scene_path):
 			_report_transition("waiting_preload")
 			yield(get_tree(), "idle_frame")
 		if has_preloaded_scene(_next_scene_path):
 			_loaded_scene = get_preloaded_scene(_next_scene_path)
-			_emit_progress(1.0)
+			_emit_load_progress(1.0)
 		else:
 			_start_loader(_next_scene_path)
 			while _is_loading:
@@ -234,7 +264,7 @@ func _start_loader(path: String) -> void:
 	_loader_last_progress_ms = OS.get_ticks_msec()
 	_loader_last_stage = -1
 	_unlock()
-	_emit_progress(0.0)
+	_emit_load_progress(0.0)
 
 func _lock() -> void:
 	if _loader_mutex != null:
@@ -345,9 +375,9 @@ func _drain_loader_progress() -> void:
 		stage_count = max(1, stage)
 	_unlock()
 	if loaded and not loading:
-		_emit_progress(1.0)
+		_emit_load_progress(1.0)
 	elif loading and stage >= 0:
-		_emit_progress(float(stage) / float(stage_count))
+		_emit_load_progress(float(stage) / float(stage_count))
 
 func _poll_loader() -> void:
 	if not _is_loading or _loader == null:
@@ -363,13 +393,13 @@ func _poll_loader() -> void:
 			if stage != _loader_last_stage:
 				_loader_last_stage = stage
 				_loader_last_progress_ms = OS.get_ticks_msec()
-			_emit_progress(float(stage) / float(stage_count))
+			_emit_load_progress(float(stage) / float(stage_count))
 		elif err == ERR_FILE_EOF:
 			var resource = _loader.get_resource()
 			_loader_last_progress_ms = OS.get_ticks_msec()
 			if resource and resource is PackedScene:
 				_loaded_scene = resource
-				_emit_progress(1.0)
+				_emit_load_progress(1.0)
 			else:
 				_load_error = "Loaded resource is not a PackedScene: %s" % _next_scene_path
 			_is_loading = false
@@ -438,7 +468,7 @@ func _poll_scene_preload() -> void:
 			if stage != _loader_last_stage:
 				_loader_last_stage = stage
 				_loader_last_progress_ms = OS.get_ticks_msec()
-			_emit_progress(float(stage) / float(stage_count))
+			_emit_load_progress(float(stage) / float(stage_count))
 		return
 	_preload_loaders.erase(path)
 	if err == ERR_FILE_EOF:
@@ -450,6 +480,11 @@ func _poll_scene_preload() -> void:
 		_preload_errors[path] = "loaded_resource_is_not_scene"
 		return
 	_preload_errors[path] = "loader_poll_failed_%d" % err
+
+# Progreso del cargador de recursos: se comprime en la primera parte de la barra
+# para dejarle la segunda al swap (ver SWAP_STAGE_PROGRESS).
+func _emit_load_progress(progress_01: float) -> void:
+	_emit_progress(clamp(progress_01, 0.0, 1.0) * LOAD_PROGRESS_SHARE)
 
 func _emit_progress(progress_01: float) -> void:
 	var p := clamp(progress_01, 0.0, 1.0)
@@ -516,13 +551,16 @@ func _set_new_scene(resource: PackedScene):
 	if prep_state is GDScriptFunctionState:
 		yield(prep_state, "completed")
 
-	emit_signal("scene_ready", _next_scene_path, new_scene, _transition_params)
-	_report_transition("scene_ready")
-
 	# Spread heavy deferred-build nodes (e.g. RadialScatter with dozens of items)
 	# across frames so they don't instance everything in the arrival frame — that
-	# bulk instancing is the load spike felt as a freeze on scene transition.
-	call_deferred("_drive_deferred_builds")
+	# bulk instancing is the load spike felt as a freeze on scene transition. Keep
+	# the loading vignette up until this visible content is complete.
+	var deferred_state = _drive_deferred_builds()
+	if deferred_state is GDScriptFunctionState:
+		yield(deferred_state, "completed")
+
+	emit_signal("scene_ready", _next_scene_path, new_scene, _transition_params)
+	_report_transition("scene_ready")
 
 
 func _prepare_android_environment(scene: Node, os_name: String) -> void:
@@ -969,8 +1007,13 @@ func _get_effective_transition_timeout_ms() -> int:
 
 func _report_transition(stage: String, error: String = "", progress: float = -1.0) -> void:
 	# Log persistente: el heartbeat puede saltarse etapas durante un bloqueo del render.
-	if stage in ["instancing", "instance_created", "tree_attached", "first_idle_frame", "initial_frames_ready", "spawn_started", "scene_ready", "completed"]:
+	if SWAP_STAGE_PROGRESS.has(stage):
 		print("[SceneStartup] %s %s elapsed_ms=%d" % [_next_scene_path, stage, max(0, OS.get_ticks_msec() - _transition_started_ms)])
+		# Cada hito es el ultimo instante con el hilo principal libre antes del
+		# tramo bloqueante que sigue, asi que es el unico lugar donde mover la
+		# barra alcanza a dibujarse. La barra avanza a saltos, no interpolada:
+		# durante el primer frame de la escena no corre GDScript.
+		_emit_progress(float(SWAP_STAGE_PROGRESS[stage]))
 	var telemetry = get_node_or_null("/root/ANNAV2")
 	if telemetry == null or not telemetry.has_method("register_telemetry_point"):
 		return
@@ -1051,7 +1094,8 @@ func _force_reset_stuck_transition(reason: String) -> void:
 		if transition_layer.has_method("hide_loading"):
 			transition_layer.hide_loading()
 		if transition_layer.has_method("play"):
-			transition_layer.play("fade_in", {"duration": 0.0})
+			# Recovering from a stall: uncover now, don't wait on the renderer.
+			transition_layer.play("fade_in", {"duration": 0.0, "wait_for_shaders": false})
 	_restore_input_after_transition()
 	_reset_runtime_state()
 

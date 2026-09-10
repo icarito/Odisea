@@ -27,6 +27,11 @@ func before_test():
 func after_test():
 	recorder.free()
 
+func test_hotzones_require_strong_hardware_profile():
+	assert_bool(HotzoneRecorderScript._is_strong_hardware_profile("")).is_false()
+	assert_bool(HotzoneRecorderScript._is_strong_hardware_profile("medium")).is_false()
+	assert_bool(HotzoneRecorderScript._is_strong_hardware_profile("HIGH")).is_true()
+
 func test_ring_buffer_ordering():
 	recorder.hotzone_buffer_frames = 5
 	var input = InputDataV2.new()
