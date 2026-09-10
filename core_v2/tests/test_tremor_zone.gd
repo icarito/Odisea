@@ -9,14 +9,14 @@ const OYS_InterpreterScript = preload("res://core_v2/systems/OYS_Interpreter.gd"
 const STEP := 1.0 / 60.0
 
 class DummyPlayerNode extends Spatial:
-	var external_velocity: Vector3 = Vector3.ZERO
+	var _external_velocity: Vector3 = Vector3.ZERO
 	var is_external_static: bool = true
 
 	func set_external_velocity(v: Vector3) -> void:
-		external_velocity = v
+		_external_velocity = v
 
 	func get_external_velocity() -> Vector3:
-		return external_velocity
+		return _external_velocity
 
 	func set_external_source_is_static(val: bool) -> void:
 		is_external_static = val
@@ -86,8 +86,8 @@ func test_player_and_rigid_body_impulses() -> void:
 	tremor._apply_impulse_to_body(player, expected_impulse, STEP)
 	tremor._apply_impulse_to_body(box, expected_impulse, STEP)
 
-	assert_float(player.external_velocity.x).is_equal_approx(expected_impulse.x, 0.0001)
-	assert_float(player.external_velocity.z).is_equal_approx(expected_impulse.z, 0.0001)
+	assert_float(player.get_external_velocity().x).is_equal_approx(expected_impulse.x, 0.0001)
+	assert_float(player.get_external_velocity().z).is_equal_approx(expected_impulse.z, 0.0001)
 	assert_bool(player.is_external_static).is_false()
 
 	assert_int(box.impulses.size()).is_equal(1)
