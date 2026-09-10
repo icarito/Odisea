@@ -13,6 +13,7 @@ onready var fade_rect: ColorRect = $CanvasLayer/ColorRect
 onready var tween: Tween = $Tween
 onready var new_game_button = find_node("NewGame")
 onready var continue_button = find_node("Continue")
+onready var remote_control_button = find_node("RemoteControl")
 onready var options_button = find_node("Options")
 onready var quit_button = find_node("Quit")
 onready var options_menu = $OptionsMenu
@@ -31,6 +32,7 @@ func _ready():
 
 	_check_save_game()
 	_connect_signals()
+	_setup_remote_control()
 	_initialize_version_label()
 
 	# Ni HTML5 ni iOS deben mostrar "salir": en la web no hay a donde salir, y en iOS
@@ -108,11 +110,32 @@ func _initialize_version_label():
 		if VersionLabelHelper:
 			version_label.text = VersionLabelHelper.get_formatted_version()
 
+func _setup_remote_control():
+	var rcm = get_node_or_null("/root/RemoteControlManager")
+	if rcm:
+		rcm.connect("pairing_prompt_requested", self, "_on_remote_pairing_prompt_requested")
+
+func _on_remote_pairing_prompt_requested(device_name: String, pin: String, callback: FuncRef):
+	var dialog_script = load("res://core_v2/ui/RemotePairingDialog.gd")
+	if dialog_script:
+		var dialog = load("res://core_v2/ui/RemotePairingDialog.tscn").instance()
+		add_child(dialog)
+		dialog.prompt_pairing(device_name, pin, callback)
+
 func _connect_signals():
 	new_game_button.connect("pressed", self, "_on_NewGame_pressed")
 	continue_button.connect("pressed", self, "_on_Continue_pressed")
+	if remote_control_button:
+		remote_control_button.connect("pressed", self, "_on_RemoteControl_pressed")
 	options_button.connect("pressed", self, "_on_Options_pressed")
 	quit_button.connect("pressed", self, "_on_Quit_pressed")
+
+func _on_RemoteControl_pressed():
+	var packed = load("res://core_v2/ui/RemoteControlMenu.tscn")
+	if packed:
+		var menu = packed.instance()
+		add_child(menu)
+		menu.open_menu()
 
 func _on_NewGame_pressed():
 	_start_game(FIRST_GAME_SCENE)

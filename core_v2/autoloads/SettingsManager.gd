@@ -31,6 +31,8 @@ var log_overlay_enabled: bool = false
 # (core_v2/telemetry/ErrorLogReporter.gd). Va junto a telemetry_enabled porque es el
 # mismo trato con el jugador: datos de diagnostico, no de juego.
 var error_reports_enabled: bool = false
+# Control remoto habilitado
+var remote_control_enabled: bool = true
 # Agujero de dither: los props que tapan al jugador se vuelven translucidos
 # (core_v2/autoloads/PropDitherManager.gd). Estuvo apagado a la fuerza en iOS mientras
 # se buscaba por que los props no se dibujaban ahi; la causa era el lightmap del motor,
@@ -66,6 +68,7 @@ func load_settings():
 		_config.get_value("display", "android_render_scale", default_render_scale)
 	))
 	vsync = _config.get_value("display", "vsync", true)
+	remote_control_enabled = _config.get_value("network", "remote_control_enabled", true)
 	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", false)
 	error_reports_enabled = _config.get_value("privacy", "error_reports_enabled", false)
 	# El default es true a proposito, y solo aplica cuando el archivo YA existe: una
@@ -87,6 +90,7 @@ func save_settings():
 	_config.set_value("display", "render_resolution", render_resolution)
 	_config.set_value("display", "render_scale", render_scale)
 	_config.set_value("display", "vsync", vsync)
+	_config.set_value("network", "remote_control_enabled", remote_control_enabled)
 	_config.set_value("privacy", "telemetry_enabled", telemetry_enabled)
 	_config.set_value("privacy", "error_reports_enabled", error_reports_enabled)
 	_config.set_value("privacy", "consent_asked", consent_asked)
