@@ -125,10 +125,14 @@ func play(animation_name: String, params: Dictionary = {}):
 				var settle_state = _await_shader_settle()
 				if settle_state is GDScriptFunctionState:
 					yield(settle_state, "completed")
+			# El texto y la barra son opacos, asi que sostenerlos mientras el negro se
+			# desvanece los deja pegados sobre el juego que va apareciendo detras. Se
+			# ocultan ahora, con la pantalla todavia cubierta, no al final del fundido:
+			# la regla es que el cartel de carga solo se ve sobre negro.
+			hide_loading()
 			var in_state = _fade_to_alpha(0.0, in_duration)
 			if in_state is GDScriptFunctionState:
 				yield(in_state, "completed")
-			hide_loading()
 			emit_signal("transition_finished")
 			return
 		"loading_screen_show":

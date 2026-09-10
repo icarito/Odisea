@@ -21,7 +21,7 @@ bg_color = Color( 0.26, 0.72, 0.85, 1 )
 anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource( 2 )
-color = Color( 0, 0, 0, 0.92 )
+color = Color( 0, 0, 0, 1 )
 script = ExtResource( 1 )
 
 [node name="IntroPanel" type="CenterContainer" parent="."]
@@ -72,11 +72,13 @@ align = 1
 
 [node name="Body" type="Label" parent="TelemetryPanel/TextArea/VBox"]
 size_flags_vertical = 3
-text = "Odisea puede enviar datos tecnicos anonimos durante la partida: cuantos cuadros por segundo alcanza el aparato, en que escena cae el rendimiento, y el detalle de un error si el juego falla.
+text = "Mientras se juega, Odisea puede enviar datos tecnicos anonimos: cuadros por segundo, memoria, en que escena y en que punto del mapa esta el personaje, hacia donde mira la camara, y el detalle de un error si el juego falla.
 
-Sirve para una sola cosa: encontrar donde el juego anda mal en aparatos reales, que es algo que no se ve desde una computadora de desarrollo. Esta misma pantalla existe por eso: la telemetria mostro cuanto tardaba en abrir el primer nivel en un telefono.
+Cuando el rendimiento cae de forma sostenida se graba ademas un fragmento corto de esos segundos --los controles que se usaron y el recorrido-- para poder repetirlo despues y encontrar que lo puso lento.
 
-No se guarda nada personal: ni nombre, ni correo, ni ubicacion, ni lo que ocurre en la partida. La decision se puede cambiar cuando se quiera desde Opciones."
+El juego no envia ninguna ubicacion. Como en cualquier conexion a internet, el servidor ve la direccion IP y de ahi deduce una ciudad aproximada; la IP no se guarda tal cual. No se pide ni se almacena nombre, correo ni ningun dato de contacto.
+
+La decision se puede cambiar cuando se quiera desde Opciones."
 autowrap = true
 
 [node name="Foot" type="VBoxContainer" parent="TelemetryPanel"]
