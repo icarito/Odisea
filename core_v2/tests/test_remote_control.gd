@@ -18,10 +18,13 @@ func test_protocol_serialize_and_parse():
 	assert_int(int(decoded.get("ws_port", 0))).is_equal(10443)
 
 func test_pair_request_and_result_messages():
-	var req = RemoteProtocol.create_pair_request("Phone 1", "123456")
+	var req = RemoteProtocol.create_pair_request("Phone 1")
 	assert_str(req.get("type", "")).is_equal("pair_request")
 	assert_str(req.get("device_name", "")).is_equal("Phone 1")
-	assert_str(req.get("pin", "")).is_equal("123456")
+
+	var pair_pin = RemoteProtocol.create_pair_pin("654321")
+	assert_str(pair_pin.get("type", "")).is_equal("pair_pin")
+	assert_str(pair_pin.get("pin", "")).is_equal("654321")
 
 	var res_ok = RemoteProtocol.create_pair_result(true, "token_abc_123")
 	assert_bool(bool(res_ok.get("ok", false))).is_true()

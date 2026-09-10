@@ -31,10 +31,16 @@ static func create_announce_payload(session_name: String, version: String, ws_po
 static func is_valid_announce(dict: Dictionary) -> bool:
 	return dict.get("app", "") == APP_ID and int(dict.get("proto", 0)) == PROTO_VERSION and dict.has("ws_port") and dict.has("session_name")
 
-static func create_pair_request(device_name: String, pin: String) -> Dictionary:
+static func create_pair_request(device_name: String, pin: String = "") -> Dictionary:
 	return {
 		"type": "pair_request",
 		"device_name": device_name,
+		"pin": pin
+	}
+
+static func create_pair_pin(pin: String) -> Dictionary:
+	return {
+		"type": "pair_pin",
 		"pin": pin
 	}
 

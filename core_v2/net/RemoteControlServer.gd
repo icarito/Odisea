@@ -150,6 +150,11 @@ func _handle_pair_request(id: int, dict: Dictionary) -> void:
 	_pairing_peer_id = id
 	_pairing_timer = 0.0
 
+	# Enviar pair_pin al cliente antes de emitir la señal para el diálogo en el host
+	if _ws_server.has_peer(id):
+		var pin_msg = RemoteProtocol.create_pair_pin(_active_pin)
+		_ws_server.get_peer(id).put_packet(RemoteProtocol.encode_json(pin_msg).to_utf8())
+
 	var cb = funcref(self, "_on_pairing_decision")
 
 	emit_signal("client_pair_requested", device_name, _active_pin, cb)

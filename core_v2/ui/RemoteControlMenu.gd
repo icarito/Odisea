@@ -6,8 +6,8 @@ signal closed()
 
 onready var status_label: Label = $VBox/StatusLabel
 onready var sessions_item_list: ItemList = $VBox/SessionsItemList
-onready var pin_edit: LineEdit = $VBox/HBoxPin/PinEdit
-onready var pair_button: Button = $VBox/HBoxPin/PairButton
+onready var pin_display_label: Label = $VBox/VBoxPin/HBoxPin/PinDisplayLabel
+onready var pair_button: Button = $VBox/VBoxPin/HBoxPin/PairButton
 onready var refresh_button: Button = $VBox/HBoxActions/RefreshButton
 onready var back_button: Button = $VBox/HBoxActions/BackButton
 onready var log_text: TextEdit = $VBox/LogText
@@ -31,6 +31,7 @@ func _ready():
 	if RemoteControlManager and RemoteControlManager.discovery:
 		RemoteControlManager.discovery.connect("sessions_updated", self, "_on_sessions_updated")
 		RemoteControlManager.client.connect("connection_state_changed", self, "_on_connection_state_changed")
+		RemoteControlManager.client.connect("pair_pin_received", self, "_on_pair_pin_received")
 		RemoteControlManager.client.connect("pair_result_received", self, "_on_pair_result_received")
 		RemoteControlManager.client.connect("ui_directive_received", self, "_on_ui_directive_received")
 
@@ -66,11 +67,6 @@ func _on_pair_pressed() -> void:
 		_log("Por favor selecciona una sesión válida de la lista.")
 		return
 
-	var pin = pin_edit.text.strip_edges() if pin_edit else ""
-	if pin.length() != 6 or not pin.is_valid_integer():
-		_log("Ingrese un PIN válido de 6 dígitos.")
-		return
-
 	var session = _discovered_map[_selected_key]
 	var ip = session.get("ip", "")
 	var ws_port = session.get("ws_port", 10443)
@@ -80,15 +76,20 @@ func _on_pair_pressed() -> void:
 	if RemoteControlManager and RemoteControlManager.client:
 		var client = RemoteControlManager.client
 		if client.is_connected_to_host():
-			client.request_pairing(pin)
+			client.request_pairing()
 		else:
 			if not client.is_connected("connection_state_changed", self, "_on_client_connected_for_pairing"):
-				client.connect("connection_state_changed", self, "_on_client_connected_for_pairing", [pin], CONNECT_ONESHOT)
+				client.connect("connection_state_changed", self, "_on_client_connected_for_pairing", [], CONNECT_ONESHOT)
 			client.connect_to_host(ip, ws_port, sensor_port, OS.get_name() + " Device")
 
-func _on_client_connected_for_pairing(status_text: String, is_connected: bool, pin: String) -> void:
+func _on_client_connected_for_pairing(status_text: String, is_connected: bool) -> void:
 	if is_connected and RemoteControlManager and RemoteControlManager.client:
-		RemoteControlManager.client.request_pairing(pin)
+		RemoteControlManager.client.request_pairing()
+
+func _on_pair_pin_received(pin: String) -> void:
+	if pin_display_label:
+		pin_display_label.text = "PIN: %s" % pin
+	_log("PIN de emparejamiento recibido: %s" % pin)
 
 func _on_sessions_updated(sessions: Dictionary) -> void:
 	_discovered_map = sessions

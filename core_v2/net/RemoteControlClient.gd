@@ -3,6 +3,7 @@ extends Node
 # RemoteControlClient.gd - Client running on phone/tablet to connect to ODISEA host.
 
 signal connection_state_changed(status_text, is_connected)
+signal pair_pin_received(pin)
 signal pair_result_received(ok, reason)
 signal ui_directive_received(op, payload)
 
@@ -52,7 +53,7 @@ func _do_connect() -> void:
 		emit_signal("connection_state_changed", "Error de conexión", false)
 		_schedule_reconnect()
 
-func request_pairing(pin: String) -> void:
+func request_pairing(pin: String = "") -> void:
 	if not _is_connected:
 		return
 	var msg = RemoteProtocol.create_pair_request(_device_name, pin)
@@ -141,6 +142,9 @@ func _on_ws_data_received() -> void:
 	var type = dict.get("type", "")
 
 	match type:
+		"pair_pin":
+			var pin = String(dict.get("pin", ""))
+			emit_signal("pair_pin_received", pin)
 		"pair_result":
 			var ok = bool(dict.get("ok", false))
 			if ok:
