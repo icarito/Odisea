@@ -98,7 +98,10 @@ func _announce_ready() -> void:
 	if _progress_label:
 		_progress_label.text = "Listo."
 	_choice_box.visible = true
-	# A proposito sin grab_focus(): que ninguno de los dos arranque preseleccionado.
+	# Aceptar es la opcion por defecto: queda enfocada para que el mando o el teclado
+	# la activen sin navegar. Rechazar esta al lado, del mismo tamaño y visible desde
+	# el primer momento, asi que el atajo no esconde la alternativa.
+	_accept_button.grab_focus()
 
 func _on_choice(accepted: bool) -> void:
 	var sm = get_node_or_null("/root/SettingsManager")

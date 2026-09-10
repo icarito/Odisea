@@ -35,19 +35,19 @@ rect_min_size = Vector2( 560, 0 )
 custom_constants/separation = 18
 
 [node name="Title" type="Label" parent="IntroPanel/Panel/VBox"]
-text = "ANTES DE EMPEZAR"
+text = "PROTOCOLO DE ABORDAJE"
 align = 1
 
 [node name="Text" type="Label" parent="IntroPanel/Panel/VBox"]
 rect_min_size = Vector2( 520, 0 )
-text = "Es la primera partida en este aparato.
+text = "Primer acceso registrado en esta terminal.
 
-Mientras Odisea prepara el primer nivel, hay algo corto para leer: de que datos puede enviarnos el juego, y para que. Al terminar la preparacion se podra decidir."
+Antes de asignarte una cápsula, el Arca necesita que leas el aviso que sigue y respondas una pregunta. Léelo con calma: solo se te preguntará esta vez."
 autowrap = true
 
 [node name="OkButton" type="Button" parent="IntroPanel/Panel/VBox"]
 rect_min_size = Vector2( 0, 40 )
-text = "ENTENDIDO"
+text = "CONTINUAR"
 
 [node name="TelemetryPanel" type="Control" parent="."]
 anchor_right = 1.0
@@ -67,18 +67,18 @@ custom_constants/margin_left = 8
 custom_constants/separation = 14
 
 [node name="Title" type="Label" parent="TelemetryPanel/TextArea/VBox"]
-text = "QUE NOS ENVIA ODISEA"
+text = "AVISO DE PRIVACIDAD"
 align = 1
 
 [node name="Body" type="Label" parent="TelemetryPanel/TextArea/VBox"]
 size_flags_vertical = 3
-text = "Mientras se juega, Odisea puede enviar datos tecnicos anonimos: cuadros por segundo, memoria, en que escena y en que punto del mapa esta el personaje, hacia donde mira la camara, y el detalle de un error si el juego falla.
+text = "Mientras juegas, Odisea puede enviarnos datos técnicos anónimos: los cuadros por segundo que alcanza tu equipo, la memoria que usa, en qué escena y en qué punto del mapa te encuentras, hacia dónde miras y el detalle de cualquier error.
 
-Cuando el rendimiento cae de forma sostenida se graba ademas un fragmento corto de esos segundos --los controles que se usaron y el recorrido-- para poder repetirlo despues y encontrar que lo puso lento.
+Si el rendimiento cae durante varios segundos seguidos, se guarda además un fragmento breve de ese tramo —los controles que usaste y tu recorrido— para poder reproducirlo después y encontrar la causa.
 
-El juego no envia ninguna ubicacion. Como en cualquier conexion a internet, el servidor ve la direccion IP y de ahi deduce una ciudad aproximada; la IP no se guarda tal cual. No se pide ni se almacena nombre, correo ni ningun dato de contacto.
+El juego no envía tu ubicación. Como en cualquier conexión a internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto.
 
-La decision se puede cambiar cuando se quiera desde Opciones."
+Puedes cambiar esta decisión cuando quieras desde Opciones."
 autowrap = true
 
 [node name="Foot" type="VBoxContainer" parent="TelemetryPanel"]
@@ -86,13 +86,13 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 margin_left = 40.0
-margin_top = -170.0
+margin_top = -212.0
 margin_right = -40.0
 margin_bottom = -18.0
 custom_constants/separation = 10
 
 [node name="ProgressLabel" type="Label" parent="TelemetryPanel/Foot"]
-text = "Preparando el primer nivel..."
+text = "Preparando el primer nivel…"
 align = 1
 
 [node name="Progress" type="ProgressBar" parent="TelemetryPanel/Foot"]
@@ -106,18 +106,25 @@ percent_visible = false
 
 [node name="PrivacyLinkButton" type="Button" parent="TelemetryPanel/Foot"]
 rect_min_size = Vector2( 0, 32 )
-text = "VER POLITICA DE PRIVACIDAD COMPLETA"
+text = "VER EL AVISO COMPLETO"
 
-[node name="ChoiceBox" type="HBoxContainer" parent="TelemetryPanel/Foot"]
+[node name="ChoiceBox" type="VBoxContainer" parent="TelemetryPanel/Foot"]
+custom_constants/separation = 8
+
+[node name="Question" type="Label" parent="TelemetryPanel/Foot/ChoiceBox"]
+text = "¿Aceptas enviar telemetría?"
+align = 1
+
+[node name="Buttons" type="HBoxContainer" parent="TelemetryPanel/Foot/ChoiceBox"]
 custom_constants/separation = 20
 alignment = 1
 
-[node name="AcceptButton" type="Button" parent="TelemetryPanel/Foot/ChoiceBox"]
+[node name="DeclineButton" type="Button" parent="TelemetryPanel/Foot/ChoiceBox/Buttons"]
 rect_min_size = Vector2( 0, 44 )
 size_flags_horizontal = 3
-text = "ACEPTAR Y JUGAR"
+text = "NO ENVIAR"
 
-[node name="DeclineButton" type="Button" parent="TelemetryPanel/Foot/ChoiceBox"]
+[node name="AcceptButton" type="Button" parent="TelemetryPanel/Foot/ChoiceBox/Buttons"]
 rect_min_size = Vector2( 0, 44 )
 size_flags_horizontal = 3
-text = "NO ENVIAR Y JUGAR"
+text = "SÍ, ACEPTO"
