@@ -119,7 +119,7 @@ Usar tres capas separadas:
 | FD-264 | Lógica de circuitos de coolant (grafo de flujo OCLS) | Design | Medium | P0 |
 | FD-269 | Room3D — estado ambiental por habitación (temp/presión/contaminación) | Design | Medium | P0 |
 | FD-280 | Linterna de casco — Spotlight con máscara holográfica | Implemented | Small | P1 |
-| FD-294 | Remote Play — HoloTerminals en el teléfono (pairing con sesión PC) | Deferred | Large | P2 |
+| FD-294 | Control Remoto — compañero telefónico para sesiones ODISEA (discovery UDP + emparejamiento + WS) | In Progress | Large | P1 |
 | FD-295 | HUD persistente de sistemas (indicadores para puzzles) | Planned | Medium | P1 |
 
 ## Completed / Archived
