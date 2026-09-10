@@ -50,6 +50,8 @@ const SWAP_STAGE_PROGRESS := {
 	"instancing": 0.45,
 	"instance_created": 0.47,
 	"tree_attached": 0.49,
+	"probe_no_draw": 0.94,
+	"probe_physics_on": 0.95,
 	"first_idle_frame": 0.96,
 	"initial_frames_ready": 0.97,
 	"spawn_started": 0.97,
@@ -538,6 +540,27 @@ func _set_new_scene(resource: PackedScene):
 		tree.current_scene = new_scene
 
 	_report_transition("tree_attached")
+	# SONDA TEMPORAL (medicion del hueco de carga en Android). Entre tree_attached y
+	# first_idle_frame se van ~29 s y no sabemos de que. Agregar la escena oculta,
+	# dejar pasar un frame y recien ahi mostrarla parte ese hueco en dos mitades que
+	# si se pueden atribuir: lo que corre sin dibujar nada (fisica, colisiones,
+	# _ready diferidos) y lo que cuesta el primer dibujado (compilar programas).
+	var _probe = ProjectSettings.has_setting("odisea/debug/split_load_frame") and bool(ProjectSettings.get_setting("odisea/debug/split_load_frame"))
+	if _probe and new_scene is Spatial:
+		# Segundo escalon: ademas de no dibujar, apagar el servidor de fisica. Si el
+		# tramo sin dibujado se desploma, lo que costaba era construir las formas de
+		# colision; si no se mueve, es otra cosa.
+		var _no_phys = ProjectSettings.has_setting("odisea/debug/split_load_frame_no_physics") and bool(ProjectSettings.get_setting("odisea/debug/split_load_frame_no_physics"))
+		new_scene.visible = false
+		if _no_phys:
+			PhysicsServer.set_active(false)
+		yield(tree, "idle_frame")
+		_report_transition("probe_no_draw")
+		if _no_phys:
+			PhysicsServer.set_active(true)
+			yield(tree, "idle_frame")
+			_report_transition("probe_physics_on")
+		new_scene.visible = true
 	yield(tree, "idle_frame")
 	_report_transition("first_idle_frame")
 	if not seamless:
