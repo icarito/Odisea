@@ -97,17 +97,24 @@ margin_bottom = 90.0
 rect_min_size = Vector2( 0, 40 )
 text = "CONTINUAR"
 
-[node name="Options" type="Button" parent="VBoxContainer"]
+[node name="RemoteControl" type="Button" parent="VBoxContainer"]
 margin_top = 100.0
 margin_right = 200.0
 margin_bottom = 140.0
 rect_min_size = Vector2( 0, 40 )
-text = "OPCIONES"
+text = "CONTROL REMOTO"
 
-[node name="Quit" type="Button" parent="VBoxContainer"]
+[node name="Options" type="Button" parent="VBoxContainer"]
 margin_top = 150.0
 margin_right = 200.0
 margin_bottom = 190.0
+rect_min_size = Vector2( 0, 40 )
+text = "OPCIONES"
+
+[node name="Quit" type="Button" parent="VBoxContainer"]
+margin_top = 200.0
+margin_right = 200.0
+margin_bottom = 240.0
 rect_min_size = Vector2( 0, 40 )
 text = "SALIR"
 
