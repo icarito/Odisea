@@ -32,6 +32,21 @@ remoto. El PC es la fuente de verdad; el teléfono envía eventos de input.
 4. **Item de menú principal**: "Vincular dispositivo" con QR + estado.
 5. **Auth mínima**: token efímero del pairing; nadie más en la LAN controla la nave.
 
+### Extensión natural: sensores del teléfono como input
+
+Una vez existe el canal de input remoto, acelerómetro y giroscopio son solo
+otro tipo de evento en el protocolo (no un sistema nuevo):
+
+- El lado teléfono es barato: Godot 3 ya expone `Input.get_accelerometer()` y
+  `Input.get_gyroscope()` en móvil; se transmiten como eventos continuos
+  (throttled, ej. 30 Hz) o como deltas de orientación.
+- Casos de uso candidatos: volante/orientación para pilotar la nave,
+  apuntado por movimiento para la Multi-tool, "mirar alrededor" en paneles.
+- Costo real (post-MVP): diseño de UX (qué controla cada sensor, dead zones),
+  calibración y opción de apagarlo — no infraestructura.
+- Queda FUERA del alcance inicial de FD-294: primero espejo de UI + tap;
+  sensores en una pasada 2 del remote play.
+
 ### Considered Options
 
 - **Option A: DroidPad / protocolos genéricos** — Pros: cero protocolo propio.
