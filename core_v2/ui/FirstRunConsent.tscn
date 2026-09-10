@@ -68,7 +68,7 @@ anchor_bottom = 1.0
 margin_left = 40.0
 margin_top = 28.0
 margin_right = -40.0
-margin_bottom = -186.0
+margin_bottom = -262.0
 custom_constants/margin_right = 8
 custom_constants/margin_left = 8
 
@@ -88,21 +88,21 @@ Si el rendimiento cae durante varios segundos seguidos, se guarda además un fra
 El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto."
 autowrap = true
 
-[node name="Foot" type="VBoxContainer" parent="TelemetryPanel"]
+[node name="Loading" type="VBoxContainer" parent="TelemetryPanel"]
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 margin_left = 40.0
-margin_top = -258.0
+margin_top = -250.0
 margin_right = -40.0
-margin_bottom = -18.0
-custom_constants/separation = 10
+margin_bottom = -198.0
+custom_constants/separation = 8
 
-[node name="ProgressLabel" type="Label" parent="TelemetryPanel/Foot"]
+[node name="ProgressLabel" type="Label" parent="TelemetryPanel/Loading"]
 text = "Preparando el primer nivel…"
 align = 1
 
-[node name="Progress" type="ProgressBar" parent="TelemetryPanel/Foot"]
+[node name="Progress" type="ProgressBar" parent="TelemetryPanel/Loading"]
 rect_min_size = Vector2( 0, 22 )
 custom_styles/fg = SubResource( 2 )
 custom_styles/bg = SubResource( 1 )
@@ -111,9 +111,24 @@ step = 0.1
 value = 0.0
 percent_visible = false
 
-[node name="PrivacyLinkButton" type="Button" parent="TelemetryPanel/Foot"]
-rect_min_size = Vector2( 0, 32 )
-text = "VER EL AVISO COMPLETO"
+[node name="Foot" type="VBoxContainer" parent="TelemetryPanel"]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 40.0
+margin_top = -186.0
+margin_right = -40.0
+margin_bottom = -16.0
+custom_constants/separation = 10
+
+[node name="LinkRow" type="HBoxContainer" parent="TelemetryPanel/Foot"]
+alignment = 1
+
+[node name="PrivacyLinkButton" type="LinkButton" parent="TelemetryPanel/Foot/LinkRow"]
+text = "Ver Política de Privacidad completa"
+
+[node name="LinkGap" type="Control" parent="TelemetryPanel/Foot"]
+rect_min_size = Vector2( 0, 16 )
 
 [node name="ChoiceBox" type="VBoxContainer" parent="TelemetryPanel/Foot"]
 custom_constants/separation = 10

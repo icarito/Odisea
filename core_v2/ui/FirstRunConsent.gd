@@ -29,7 +29,9 @@ onready var _telemetry_panel: Control = find_node("TelemetryPanel")
 onready var _ok_button: Button = find_node("OkButton")
 onready var _accept_button: Button = find_node("AcceptButton")
 onready var _decline_button: Button = find_node("DeclineButton")
-onready var _privacy_link: Button = find_node("PrivacyLinkButton")
+# LinkButton, no Button: se dibuja como texto subrayado para que el enlace al aviso
+# completo no compita visualmente con la decision que si hay que tomar.
+onready var _privacy_link: BaseButton = find_node("PrivacyLinkButton")
 onready var _progress: ProgressBar = find_node("Progress")
 onready var _progress_label: Label = find_node("ProgressLabel")
 onready var _choice_box: Control = find_node("ChoiceBox")
