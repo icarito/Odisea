@@ -412,7 +412,7 @@ jobs:
       - name: Install Godot (Android, Box3D)
         if: matrix.platform == 'android'
         env:
-          BOX3D_RELEASE: v0.2.1
+          BOX3D_RELEASE: v0.2.2
         run: |
           GODOT_DIR="$HOME/.local/bin"
           mkdir -p "$GODOT_DIR"
@@ -454,7 +454,7 @@ jobs:
         if: matrix.platform != 'android'
         env:
           # Godot carrying the Box3D physics module (icarito/godot-box3d-3).
-          BOX3D_RELEASE: v0.2.1
+          BOX3D_RELEASE: v0.2.2
         run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
             TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"

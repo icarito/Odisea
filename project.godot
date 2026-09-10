@@ -3113,3 +3113,4 @@ quality/intended_usage/framebuffer_allocation.Android=3
 quality/gi_probes/enabled=false
 gles3/shaders/shader_compilation_mode.iOS=0
 gles3/shaders/shader_compilation_mode.Android=2
+gles3/shaders/async_compilation_starts_enabled.Android=false
