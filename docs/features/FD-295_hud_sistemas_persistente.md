@@ -1,10 +1,15 @@
 # FD-295: HUD persistente de sistemas — indicadores siempre visibles para puzzles
 
-**Status:** Planned
+**Status:** Superseded by FD-296 (OdiseaOS)
 **Priority:** P1
 **Effort:** Medium
 **Created:** 2026-09-10
-**Completed:** -
+**Completed:** 2026-09-11 (absorbida en FD-296)
+
+> **Nota (2026-09-11):** esta FD fue absorbida por `FD-296_odisea_os.md`. El HUD
+> persistente de sistemas pasa a ser la pantalla "Sistemas de nave" de OdiseaOS
+> con su widget resumen; el patrón se generaliza a cualquier interactuable
+> (HUDables). Se conserva el contenido original como historial.
 
 ## Problem
 

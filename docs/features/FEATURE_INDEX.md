@@ -120,7 +120,8 @@ Usar tres capas separadas:
 | FD-269 | Room3D — estado ambiental por habitación (temp/presión/contaminación) | Design | Medium | P0 |
 | FD-280 | Linterna de casco — Spotlight con máscara holográfica | Implemented | Small | P1 |
 | FD-294 | Control Remoto — compañero telefónico para sesiones ODISEA (discovery UDP + emparejamiento + WS) | In Progress | Large | P1 |
-| FD-295 | HUD persistente de sistemas (indicadores para puzzles) | Planned | Medium | P1 |
+| FD-295 | HUD persistente de sistemas (indicadores para puzzles) | Superseded by FD-296 | Medium | P1 |
+| FD-296 | OdiseaOS — sistema operativo del traje (modo HUD + widgets + HUDables) | Design | Large | P1 |
 
 ## Completed / Archived
 
