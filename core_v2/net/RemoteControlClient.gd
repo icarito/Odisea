@@ -12,6 +12,12 @@ var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 export var sensor_send_interval: float = 0.033 # ~30 Hz
 export var reconnect_delay: float = 2.0
 export var sensor_streaming_enabled: bool = false
+# Sin PIN del host en este plazo (reconectando cada reconnect_delay), el emparejamiento
+# falla con motivo en vez de quedar "Conectando..." para siempre.
+export var pairing_response_timeout: float = 15.0
+# Con el PIN ya mostrado, el host tiene 30 s para decidir (RemoteControlServer.pairing_timeout)
+# y avisa al vencer; esto cubre que el host se cierre sin avisar.
+export var pairing_decision_timeout: float = 35.0
 
 var _ws_client = WebSocketClient.new()
 var _sensor_udp = PacketPeerUDP.new()
@@ -28,6 +34,10 @@ var _is_reconnecting: bool = false
 var _auto_reconnect: bool = true
 var _reconnect_timer: float = 0.0
 var _sensor_timer: float = 0.0
+var _pairing_pending: bool = false
+var _pairing_pin_received: bool = false
+var _pairing_timer: float = 0.0
+var _pairing_pin: String = ""
 
 func _ready():
 	_ws_client.connect("connection_established", self, "_on_ws_connected")
@@ -54,11 +64,35 @@ func _do_connect() -> void:
 		emit_signal("connection_state_changed", "Error de conexión", false)
 		_schedule_reconnect()
 
+# Punto de entrada unico para emparejar: conecta si hace falta y deja el pedido pendiente.
+func pair_with(p_ip: String, p_ws_port: int, p_sensor_port: int, p_device_name: String) -> void:
+	if not _is_connected or _host_ip != p_ip or _ws_port != p_ws_port:
+		if _ws_client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
+			_ws_client.disconnect_from_host()
+		_is_connected = false
+		_is_paired = false
+		connect_to_host(p_ip, p_ws_port, p_sensor_port, p_device_name)
+	request_pairing()
+
+# El pedido queda pendiente hasta que el host conteste: si todavia no hay conexion, sale
+# en _on_ws_connected, y cada reconexion lo reenvia mientras no haya PIN.
 func request_pairing(pin: String = "") -> void:
+	_pairing_pending = true
+	_pairing_pin_received = false
+	_pairing_timer = 0.0
+	_pairing_pin = pin
+	_send_pair_request()
+
+func _send_pair_request() -> void:
 	if not _is_connected:
 		return
-	var msg = RemoteProtocol.create_pair_request(_device_name, pin)
+	var msg = RemoteProtocol.create_pair_request(_device_name, _pairing_pin)
 	_ws_client.get_peer(1).put_packet(RemoteProtocol.encode_json(msg).to_utf8())
+
+func _fail_pairing(reason: String) -> void:
+	_pairing_pending = false
+	disconnect_from_host()
+	emit_signal("pair_result_received", false, reason)
 
 func send_touch_input(payload: Dictionary) -> void:
 	send_input("touch", payload)
@@ -84,6 +118,9 @@ func send_sensor_input(input_type: String, payload: Dictionary) -> void:
 
 func disconnect_from_host() -> void:
 	_auto_reconnect = false
+	# Una reconexion ya programada volvia a conectar despues de desconectar a proposito.
+	_is_reconnecting = false
+	_pairing_pending = false
 	_is_connected = false
 	_is_paired = false
 	_ws_client.disconnect_from_host()
@@ -92,6 +129,13 @@ func disconnect_from_host() -> void:
 func _process(delta: float) -> void:
 	if _ws_client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 		_ws_client.poll()
+
+	if _pairing_pending:
+		_pairing_timer += delta
+		if _pairing_pin_received and _pairing_timer >= pairing_decision_timeout:
+			_fail_pairing("el otro dispositivo dejó de responder")
+		elif not _pairing_pin_received and _pairing_timer >= pairing_response_timeout:
+			_fail_pairing("el otro dispositivo no responde. Revise que la partida siga abierta y que ambos estén en la misma red wifi")
 
 	if _is_reconnecting:
 		_reconnect_timer += delta
@@ -120,13 +164,19 @@ func _sample_and_send_sensors(delta: float) -> void:
 func _on_ws_connected(_protocol: String) -> void:
 	print("[RemoteControlClient] WebSocket connected to ", _host_ip)
 	_is_connected = true
-	emit_signal("connection_state_changed", "Conectado. Ingrese PIN", true)
+	emit_signal("connection_state_changed", "Conectado", true)
+	# Reintento: cada (re)conexion reenvia el pedido mientras el host no haya contestado.
+	if _pairing_pending and not _pairing_pin_received:
+		_send_pair_request()
 
 func _on_ws_closed(_was_clean_close: bool) -> void:
 	_is_connected = false
 	_is_paired = false
 	print("[RemoteControlClient] Connection closed")
-	if _auto_reconnect:
+	# Con el PIN ya en pantalla del host no se reenvia: saldria un segundo dialogo alla.
+	if _pairing_pending and _pairing_pin_received:
+		_fail_pairing("se cortó la conexión con el otro dispositivo")
+	elif _auto_reconnect:
 		emit_signal("connection_state_changed", "Reconectando...", false)
 		_schedule_reconnect()
 	else:
@@ -146,24 +196,25 @@ func _schedule_reconnect() -> void:
 
 func _on_ws_data_received() -> void:
 	var pkt = _ws_client.get_peer(1).get_packet()
-	var pkt_str = pkt.get_string_from_utf8()
-	var dict = RemoteProtocol.decode_json(pkt_str)
-	var type = dict.get("type", "")
+	_handle_message(RemoteProtocol.decode_json(pkt.get_string_from_utf8()))
 
-	match type:
+func _handle_message(dict: Dictionary) -> void:
+	match dict.get("type", ""):
 		"pair_pin":
 			var pin = String(dict.get("pin", ""))
+			_pairing_pin_received = true
+			_pairing_timer = 0.0
 			emit_signal("pair_pin_received", pin)
 		"pair_result":
-			var ok = bool(dict.get("ok", false))
-			if ok:
+			if bool(dict.get("ok", false)):
+				_pairing_pending = false
 				_session_token = String(dict.get("token", ""))
 				_is_paired = true
 				emit_signal("connection_state_changed", "Emparejado y conectado", true)
+				emit_signal("pair_result_received", true, "")
 			else:
-				_is_paired = false
-				emit_signal("connection_state_changed", "Error de emparejamiento", true)
-			emit_signal("pair_result_received", ok, String(dict.get("reason", "")))
+				# Desconecta: el proximo intento arranca limpio, sin reconexiones de este.
+				_fail_pairing(String(dict.get("reason", "")))
 		"ui":
 			emit_signal("ui_directive_received", String(dict.get("op", "")), dict.get("payload", {}))
 		"ping":

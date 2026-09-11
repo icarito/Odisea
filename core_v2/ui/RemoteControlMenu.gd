@@ -138,18 +138,10 @@ func _on_pair_pressed() -> void:
 
 	_log("Conectando a %s:%d..." % [ip, ws_port])
 	if RemoteControlManager and RemoteControlManager.client:
-		var client = RemoteControlManager.client
-		if client.is_connected_to_host():
-			client.request_pairing()
-		else:
-			if not client.is_connected("connection_state_changed", self, "_on_client_connected_for_pairing"):
-				client.connect("connection_state_changed", self, "_on_client_connected_for_pairing", [], CONNECT_ONESHOT)
-			# Es lo que ve el host en el dialogo de permiso: "icarito-pc (Linux)".
-			client.connect_to_host(ip, ws_port, sensor_port, RemoteProtocol.device_label())
-
-func _on_client_connected_for_pairing(status_text: String, is_connected: bool) -> void:
-	if is_connected and RemoteControlManager and RemoteControlManager.client:
-		RemoteControlManager.client.request_pairing()
+		# El cliente reintenta hasta que el host conteste y, si no, avisa por
+		# pair_result_received con el motivo. device_label es lo que ve el host en el
+		# dialogo de permiso: "icarito-pc (Linux)".
+		RemoteControlManager.client.pair_with(ip, ws_port, sensor_port, RemoteProtocol.device_label())
 
 func _on_pair_pin_received(pin: String) -> void:
 	if pin_display_label:

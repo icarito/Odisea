@@ -17,6 +17,11 @@ var _was_captured: bool = false
 func _ready() -> void:
 	_remote_control_manager = get_node_or_null("/root/RemoteControlManager")
 	_input_provider = InputProviderV2.new()
+	# La musica del Menu seguia sonando: aca el juego suena en la otra pantalla. Al
+	# volver, Menu.gd la arranca de nuevo en su _ready.
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr:
+		audio_mgr.fade_out_current_bgm(1.0)
 	exit_confirm.connect("confirmed", self, "_on_exit_confirmed")
 	exit_confirm.get_ok().text = "Salir"
 	exit_confirm.get_cancel().text = "Cancelar"

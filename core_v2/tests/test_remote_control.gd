@@ -136,6 +136,56 @@ func test_discovery_lists_each_host_once():
 	assert_bool(discovery._register_announce("", announce)).is_false()
 	discovery.free()
 
+var _pair_results: Array = []
+
+func _on_pair_result(ok: bool, reason: String) -> void:
+	_pair_results.append([ok, reason])
+
+func _make_pairing_client() -> Node:
+	var client = RemoteControlClient.new()
+	add_child(client)
+	_pair_results.clear()
+	client.connect("pair_result_received", self, "_on_pair_result")
+	return client
+
+func test_pairing_fails_with_reason_when_host_silent():
+	var client = _make_pairing_client()
+	# Sin conexion: queda pendiente (se enviaria al conectar) en vez de perderse.
+	client.request_pairing()
+	assert_bool(client._pairing_pending).is_true()
+	client._process(client.pairing_response_timeout - 1.0)
+	assert_int(_pair_results.size()).is_equal(0)
+	client._process(2.0)
+	assert_int(_pair_results.size()).is_equal(1)
+	assert_bool(_pair_results[0][0]).is_false()
+	assert_str(_pair_results[0][1]).contains("no responde")
+	assert_bool(client._pairing_pending).is_false()
+	client.queue_free()
+
+func test_pairing_waits_for_host_decision_after_pin():
+	var client = _make_pairing_client()
+	client.request_pairing()
+	client._handle_message({"type": "pair_pin", "pin": "123456"})
+	# Con el PIN en pantalla del host rige el plazo largo, no el de respuesta.
+	client._process(client.pairing_response_timeout + 1.0)
+	assert_int(_pair_results.size()).is_equal(0)
+	client._process(client.pairing_decision_timeout)
+	assert_int(_pair_results.size()).is_equal(1)
+	assert_str(_pair_results[0][1]).contains("dejó de responder")
+	client.queue_free()
+
+func test_pairing_result_from_host_ends_attempt():
+	var client = _make_pairing_client()
+	client.request_pairing()
+	client._handle_message({"type": "pair_pin", "pin": "123456"})
+	client._handle_message({"type": "pair_result", "ok": true, "token": "tok"})
+	assert_bool(client._pairing_pending).is_false()
+	assert_bool(client._is_paired).is_true()
+	assert_bool(_pair_results[0][0]).is_true()
+	client._process(client.pairing_decision_timeout + 1.0)
+	assert_int(_pair_results.size()).is_equal(1)
+	client.queue_free()
+
 func test_device_label_names_os():
 	assert_str(RemoteProtocol.device_label()).contains(RemoteProtocol.os_label())
 

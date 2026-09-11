@@ -94,7 +94,9 @@ func _process(delta: float) -> void:
 	if _pairing_peer_id != -1:
 		_pairing_timer += delta
 		if _pairing_timer >= pairing_timeout:
-			_reject_pairing(_pairing_peer_id, "Timeout de emparejamiento (30 s)")
+			_reject_pairing(_pairing_peer_id, "nadie respondió la solicitud a tiempo")
+			# Sin esto el rechazo se reenviaba cada frame hasta que el dialogo cerraba.
+			_pairing_peer_id = -1
 
 func _process_sensor_udp(delta: float) -> void:
 	while _sensor_udp.get_available_packet_count() > 0:
@@ -143,7 +145,7 @@ func _handle_pair_request(id: int, dict: Dictionary) -> void:
 	_peers[id]["device_name"] = device_name
 
 	if _pairing_peer_id != -1 and _pairing_peer_id != id:
-		_send_pair_result(id, false, "", "Servidor ocupado con otra solicitud")
+		_send_pair_result(id, false, "", "el otro dispositivo está atendiendo otra solicitud")
 		return
 
 	_active_pin = generate_pin()
@@ -172,7 +174,7 @@ func _on_pairing_decision(accepted: bool) -> void:
 		_send_pair_result(peer_id, true, _active_token, "")
 		emit_signal("client_connected", _peers[peer_id]["device_name"])
 	else:
-		_reject_pairing(peer_id, "Rechazado por el host")
+		_reject_pairing(peer_id, "la solicitud fue rechazada en el otro dispositivo")
 
 func _reject_pairing(peer_id: int, reason: String) -> void:
 	_send_pair_result(peer_id, false, "", reason)
