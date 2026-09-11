@@ -3,6 +3,8 @@ extends Spatial
 # MultiToolV2.gd
 # Main controller for the Multi-Tool.
 
+signal tool_state_changed()
+
 enum Mode {
 	LASER,
 	GLOO
@@ -58,7 +60,8 @@ const GlooProjectileScene = preload("res://core_v2/player/MultiToolGloo.tscn")
 func _ready():
 	_apply_exported_settings()
 	_update_mode_visuals()
-	_laser.set_firing(false)
+	if _laser:
+		_laser.set_firing(false)
 	add_to_group("replay_sync")
 
 func step(dt: float, input):
@@ -82,6 +85,7 @@ func step(dt: float, input):
 				_fire_gloo()
 
 	# Clean up any freed projectiles from our list
+	var prev_count: int = _active_gloo_projectiles.size()
 	var i = 0
 	while i < _active_gloo_projectiles.size():
 		if not is_instance_valid(_active_gloo_projectiles[i]):
@@ -89,6 +93,9 @@ func step(dt: float, input):
 		else:
 			i += 1
 	
+	if _active_gloo_projectiles.size() != prev_count:
+		emit_signal("tool_state_changed")
+
 	if _ui and _ui.has_method("update_info"):
 		_ui.update_info(current_mode, _active_gloo_projectiles.size(), max_gloo_projectiles)
 
@@ -101,6 +108,7 @@ func _switch_mode(dir: int):
 		_handle_laser_input(false)
 	
 	_update_mode_visuals()
+	emit_signal("tool_state_changed")
 
 func _update_mode_visuals():
 	if not _model: return
@@ -150,6 +158,28 @@ func _fire_gloo():
 		var oldest = _active_gloo_projectiles.pop_front()
 		if is_instance_valid(oldest):
 			oldest.fade_out()
+
+	emit_signal("tool_state_changed")
+
+# --- PUBLIC QUERY API FOR SUITOS / MULTITOOL SCREEN ---
+# Note: MultiToolV2 currently has no real thermal heat simulation (only export configs
+# in MultiToolLaser). Heat is intentionally excluded from state readouts.
+
+func get_mode_name() -> String:
+	match current_mode:
+		Mode.LASER: return "LASER"
+		Mode.GLOO: return "GLOO"
+	return "LASER"
+
+func get_charge_info() -> Dictionary:
+	var active_count := 0
+	for p in _active_gloo_projectiles:
+		if is_instance_valid(p):
+			active_count += 1
+	return {
+		"active": active_count,
+		"max": max_gloo_projectiles
+	}
 
 func get_snapshot() -> Dictionary:
 	var proj_paths = []
