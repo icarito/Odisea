@@ -67,13 +67,9 @@ func test_detection_logic_robust() -> void:
 	drone._check_detection(0.1)
 	assert_int(drone.current_state).is_not_equal(4) # Not Alert (4)
 	
-	# Player close (raycast will likely hit nothing in headless without world setup, 
-	# but DDCDrone check logic now requires hitting the player specifically)
-	# In headless tests without environment, intersect_ray might return empty or hit something unexpected.
-	# We'll assume the test environment is simple enough.
-	
+	# Player close: with a collider on the player, the raycast hits it and the
+	# drone must go straight to Alert (Box3D returns the hit in headless too).
 	player.global_transform.origin = Vector3(5, 0, 0)
-	# We might need to mock the raycast or ensure there's a collision shape on player
 	var shape = CollisionShape.new()
 	var box = BoxShape.new()
 	box.extents = Vector3(1, 1, 1)
@@ -81,13 +77,7 @@ func test_detection_logic_robust() -> void:
 	player.add_child(shape)
 	
 	drone._check_detection(0.1)
-	# In headless, intersect_ray usually returns empty if nothing is in the world.
-	# Our code: if not result.empty() and result.collider == _player_ref:
-	# So it WON'T detect unless there is world state.
-	
-	# For unit testing the logic, we might need a more controlled way or just verify it doesn't crash
-	# and handles the 'empty' case as non-detection.
-	assert_int(drone.current_state).is_not_equal(4) 
+	assert_int(drone.current_state).is_equal(4) # Alert (4)
 	
 	drone.free()
 	player.free()
