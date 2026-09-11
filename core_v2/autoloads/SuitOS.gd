@@ -1,8 +1,13 @@
 extends Node
 
 # SuitOS.gd - Core suit operating system autoload for OdiseaOS (FD-296)
-# Manages screen module registration, slot scoring (Slot A = auto, Slot B = pinned),
+# Manages screen module registration, slot scoring (Slot A = auto), pinned screen selection (Slot B),
 # F1 data contract actions, haptic bus, and persistence state.
+#
+# Slot A relevance threshold:
+# min_relevance_a (default 0.0, const MIN_RELEVANCE_A = 0.0) defines the minimum relevance score required
+# for a screen to occupy Slot A. If all registered screens have relevance <= min_relevance_a,
+# Slot A remains empty ({}) and widget_changed("slot_a", {}) is emitted.
 
 signal screen_registered(id)
 signal screen_unregistered(id)
@@ -12,6 +17,10 @@ signal widget_changed(slot, snapshot)
 signal hud_mode_changed(active)
 signal haptic(kind, intensity)
 
+const MIN_RELEVANCE_A: float = 0.0
+
+export(float) var min_relevance_a: float = MIN_RELEVANCE_A
+
 var _screens: Dictionary = {} # Maps String (screen_id) -> Object
 var _context: Dictionary = {}
 var _hud_mode_active: bool = false
@@ -19,6 +28,16 @@ var _active_screen_id: String = ""
 var _pinned_screen_id: String = ""
 var _slot_snapshots: Dictionary = {"slot_a": {}, "slot_b": {}}
 var _last_snapshots_cache: Dictionary = {}
+
+func _ready() -> void:
+	add_to_group("replay_sync")
+	var pm = get_node_or_null("/root/PersistenceManager")
+	if pm != null and pm.has_method("register_system"):
+		pm.register_system("suit_os", self)
+	else:
+		# TODO: PersistenceManager currently manages scene CheckpointResource files and entity lifecycle tracking.
+		# When PersistenceManager introduces generic system state registration (register_system), connect SuitOS here.
+		pass
 
 func register_screen(screen: Object) -> void:
 	if screen == null:
@@ -165,8 +184,17 @@ func restore_state(data: Dictionary) -> void:
 		_pinned_screen_id = String(data["pinned_screen_id"])
 	if data.has("last_snapshots") and typeof(data["last_snapshots"]) == TYPE_DICTIONARY:
 		for k in data["last_snapshots"].keys():
-			_last_snapshots_cache[k] = data["last_snapshots"][k].duplicate(true)
+			var snap = data["last_snapshots"][k]
+			if typeof(snap) == TYPE_DICTIONARY:
+				_last_snapshots_cache[k] = snap.duplicate(true)
+
 	reevaluate_slots()
+
+func get_snapshot() -> Dictionary:
+	return save_state()
+
+func restore_snapshot(data: Dictionary) -> void:
+	restore_state(data)
 
 func _on_screen_state_changed(id: String) -> void:
 	_update_screen_snapshot_cache(id)
@@ -188,13 +216,15 @@ func _update_screen_snapshot_cache(id: String) -> Dictionary:
 	if not is_instance_valid(screen):
 		return {}
 
-	var snap: Dictionary = {}
+	var source_snap: Dictionary = {}
 	if screen.has_method("widget_snapshot"):
-		snap = screen.widget_snapshot()
+		source_snap = screen.widget_snapshot()
 	elif screen.has_method("get_widget_snapshot"):
-		snap = screen.get_widget_snapshot()
+		source_snap = screen.get_widget_snapshot()
 	else:
-		snap = {"proto": 1, "id": id, "source": "online"}
+		source_snap = {"proto": 1, "id": id, "source": "online"}
+
+	var snap: Dictionary = source_snap.duplicate(true)
 
 	if not snap.has("proto"):
 		snap["proto"] = 1
@@ -207,7 +237,7 @@ func _update_screen_snapshot_cache(id: String) -> Dictionary:
 
 func _reevaluate_slot_a() -> void:
 	var best_id: String = ""
-	var max_rel: float = -1.0
+	var max_rel: float = min_relevance_a
 
 	for id in _screens.keys():
 		var screen = _screens[id]
@@ -224,7 +254,7 @@ func _reevaluate_slot_a() -> void:
 			best_id = id
 
 	var new_snap: Dictionary = {}
-	if not best_id.empty() and max_rel >= 0.0:
+	if not best_id.empty() and max_rel > min_relevance_a:
 		new_snap = _update_screen_snapshot_cache(best_id)
 
 	var current_snap = _slot_snapshots.get("slot_a", {})

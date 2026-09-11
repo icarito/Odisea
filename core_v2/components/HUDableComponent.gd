@@ -68,11 +68,12 @@ func widget_snapshot() -> Dictionary:
 	if is_instance_valid(parent) and parent.has_method("get_hud_snapshot"):
 		var parent_snap = parent.get_hud_snapshot()
 		if typeof(parent_snap) == TYPE_DICTIONARY:
-			if not parent_snap.has("proto"):
-				parent_snap["proto"] = 1
-			if not parent_snap.has("id"):
-				parent_snap["id"] = screen_id()
-			return parent_snap
+			var snap: Dictionary = parent_snap.duplicate(true)
+			if not snap.has("proto"):
+				snap["proto"] = 1
+			if not snap.has("id"):
+				snap["id"] = screen_id()
+			return snap
 
 	return {
 		"proto": 1,

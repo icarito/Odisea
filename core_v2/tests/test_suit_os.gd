@@ -10,6 +10,7 @@ class DummyScreen:
 	var _title: String
 	var _relevance_val: float
 	var _allowed: Array
+	var internal_dict: Dictionary = {"custom_field": "initial"}
 	var action_executed: bool = false
 	var last_action_op: String = ""
 	var last_action_args: Dictionary = {}
@@ -46,13 +47,11 @@ class DummyScreen:
 		return {"ok": false, "error": "Invalid action"}
 
 	func widget_snapshot() -> Dictionary:
-		return {
-			"proto": 1,
-			"id": _id,
-			"title": _title,
-			"relevance": _relevance_val,
-			"source": "online"
-		}
+		internal_dict["proto"] = 1
+		internal_dict["id"] = _id
+		internal_dict["title"] = _title
+		internal_dict["relevance"] = _relevance_val
+		return internal_dict
 
 	func trigger_state_change() -> void:
 		emit_signal("state_changed")
@@ -61,6 +60,7 @@ var _received_haptic: Array = []
 
 func before_test() -> void:
 	_received_haptic.clear()
+	SuitOS.min_relevance_a = SuitOS.MIN_RELEVANCE_A
 	SuitOS.unpin_screen()
 	SuitOS.close_screen()
 	SuitOS.set_hud_mode_active(false)
@@ -101,6 +101,19 @@ func test_automatic_slot_scoring_slot_a() -> void:
 
 	slot_a = SuitOS.get_slot_snapshot("slot_a")
 	assert_str(slot_a.get("id", "")).is_equal("screen_1")
+
+func test_slot_a_relevance_threshold_zero_leaves_slot_empty() -> void:
+	var screen1: DummyScreen = auto_free(DummyScreen.new("zero_rel_screen", "Zero Rel", 0.0))
+	SuitOS.register_screen(screen1)
+
+	# Relevance <= min_relevance_a (0.0) -> Slot A must be empty
+	var slot_a = SuitOS.get_slot_snapshot("slot_a")
+	assert_bool(slot_a.empty()).is_true()
+
+	# Boost relevance > 0.0 -> Slot A populates
+	SuitOS.update_context_key("zero_rel_screen_relevance", 0.5)
+	slot_a = SuitOS.get_slot_snapshot("slot_a")
+	assert_str(slot_a.get("id", "")).is_equal("zero_rel_screen")
 
 func test_pinned_slot_b_and_offline_fallback() -> void:
 	var screen1: DummyScreen = auto_free(DummyScreen.new("screen_1", "Screen 1", 0.5))
@@ -166,19 +179,47 @@ func test_hud_mode_and_open_close_screen() -> void:
 	SuitOS.close_screen()
 	assert_str(SuitOS.get_active_screen_id()).is_empty()
 
-func test_persistence_state() -> void:
+func test_persistence_save_restore_preserves_pin_and_offline_source() -> void:
 	var screen1: DummyScreen = auto_free(DummyScreen.new("screen_1", "Screen 1", 0.5))
 	SuitOS.register_screen(screen1)
 	SuitOS.pin_screen("screen_1")
 
-	var state = SuitOS.save_state()
-	assert_str(state.get("pinned_screen_id", "")).is_equal("screen_1")
+	# Screen is registered -> Slot B is online
+	assert_str(SuitOS.get_slot_snapshot("slot_b").get("source", "")).is_equal("online")
 
+	# Unregister screen1 -> Slot B becomes offline
+	SuitOS.unregister_screen("screen_1")
+	assert_str(SuitOS.get_slot_snapshot("slot_b").get("source", "")).is_equal("offline")
+
+	# Save state
+	var saved_state = SuitOS.save_state()
+
+	# Clear local pin
 	SuitOS.unpin_screen()
 	assert_str(SuitOS.get_pinned_screen_id()).is_empty()
 
-	SuitOS.restore_state(state)
+	# Restore state -> should restore pinned screen_1 and set source to offline since screen_1 is not currently registered
+	SuitOS.restore_state(saved_state)
 	assert_str(SuitOS.get_pinned_screen_id()).is_equal("screen_1")
+	assert_str(SuitOS.get_slot_snapshot("slot_b").get("source", "")).is_equal("offline")
+
+	# Re-register screen1 -> Slot B should automatically resolve back to online
+	SuitOS.register_screen(screen1)
+	assert_str(SuitOS.get_slot_snapshot("slot_b").get("source", "")).is_equal("online")
+
+func test_snapshot_aliasing_prevention() -> void:
+	var screen1: DummyScreen = auto_free(DummyScreen.new("screen_1", "Screen 1", 0.7))
+	SuitOS.register_screen(screen1)
+
+	# Get slot snapshot and mutate it
+	var snap = SuitOS.get_slot_snapshot("slot_a")
+	snap["source"] = "MUTATED"
+	snap["custom_field"] = "MUTATED_FIELD"
+
+	# Re-fetch snapshot and verify source object internal_dict was not corrupted
+	var snap_fresh = SuitOS.get_slot_snapshot("slot_a")
+	assert_str(snap_fresh.get("source", "")).is_equal("online")
+	assert_str(screen1.internal_dict.get("custom_field", "")).is_equal("initial")
 
 func _on_haptic_event(kind: String, intensity: float) -> void:
 	_received_haptic.append({"kind": kind, "intensity": intensity})
