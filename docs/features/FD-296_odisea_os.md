@@ -142,10 +142,14 @@ nodos, NodePaths ni referencias a objetos fuera de su árbol.
   patrón register/unregister de `InteractionMarker`.
 - **Slot A (automático):** fuente con mayor `relevance(context)` vigente.
   **Slot B (fijado):** `pin(screen_id)` / `unpin()` desde el modo HUD.
-- **Persistencia al HUD:** el pin y el último snapshot de cada slot se guardan
-  vía `PersistenceManager`. Al cargar partida, SuitOS re-resuelve por
-  `screen_id`; si la fuente no existe en la escena actual, el slot muestra el
-  último snapshot con `"source": "offline"` (nunca desaparece en silencio).
+- **Persistencia al HUD (RESUELTA — opción b):** `SuitOS` ya pertenece al grupo
+  `replay_sync` y expone `get_snapshot()`/`restore_snapshot()`. `CheckpointManager.capture_replay_sync_state()`
+  recoge ese snapshot y `TeleportSystem` lo guarda dentro de
+  `CheckpointResource.slots["last"]` (mismo camino que el resto del estado determinista).
+  El pin y el último snapshot de cada slot viajan con el checkpoint existente: **no**
+  hace falta API nueva en `PersistenceManager`. Al restaurar, SuitOS re-resuelve por
+  `screen_id`; si la fuente no existe en la escena actual, el slot muestra el último
+  snapshot con `"source": "offline"` (nunca desaparece en silencio).
 - Señales de salida: `screen_registered(id)`, `screen_unregistered(id)`,
   `widget_changed(slot, snapshot)`, `hud_mode_changed(active)`,
   `haptic(kind, intensity)`.
