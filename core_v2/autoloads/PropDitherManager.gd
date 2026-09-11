@@ -29,6 +29,11 @@ var _duct_hull_shader: Shader = preload("res://core_v2/props/duct/shaders/duct_h
 # Las placas RoadLines conservan su PBR propio; este shader implementa el
 # mismo contrato de oclusion y solo necesita que el manager lo alimente.
 var _seam_road_lines_shader: Shader = preload("res://materials/diamondPlateAluminum/seam_road_lines_pbr.shader")
+# La reja del hueco del ascensor. Vivia como dos sub_resource Shader identicos dentro de
+# ElevatorDoor.tscn, cada uno con el meta odisea_occlusion_uniforms; al unificarlos en un
+# archivo se perdio ese meta, porque un .shader es texto plano y no guarda metadata. Va
+# por identidad, que es justamente para lo que los otros dos de arriba estan preloadeados.
+var _elevator_fence_shader: Shader = preload("res://core_v2/props/doors/elevator_fence.shader")
 var _registered_materials: Array = []
 var _registered_lookup: Dictionary = {}  # ShaderMaterial -> true (O(1) dedupe on register)
 # Every per-frame uniform this manager writes (player_pos/camera_pos/is_active/hole_radius)
@@ -385,7 +390,7 @@ func _is_occlusion_shader(shader: Shader) -> bool:
 	if shader == _dither_shader or shader == _dither_shader_double_sided \
 		or shader == _dither_shader_unshaded \
 		or shader == _parallax_shader or shader == _duct_hull_shader \
-		or shader == _seam_road_lines_shader:
+		or shader == _seam_road_lines_shader or shader == _elevator_fence_shader:
 		return true
 	if shader.has_meta(OCCLUSION_UNIFORMS_META):
 		return true

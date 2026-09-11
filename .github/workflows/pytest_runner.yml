@@ -33,7 +33,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      GODOT_VERSION: 3.6.2-stable
+      # El runtime de CI sale del fork, no de godotengine: el binario stock no trae el
+      # modulo Box3D y el proyecto cae a Bullet en silencio. Version en .github/box3d_release.
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
       ANNA_V2_NO_CENTRAL: "1"
     permissions:
@@ -61,22 +62,23 @@ jobs:
         id: godot_bin_cache
         uses: actions/cache@v6
         with:
-          path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
-          key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-${{ github.workflow }}-${{ github.job }}
+          path: ${{ env.GODOT_CACHE_DIR }}/box3d/godot
+          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}-${{ github.workflow }}-${{ github.job }}
           restore-keys: |
-            ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-
-            ${{ runner.os }}-godot-bin-
+            ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}-
+            ${{ runner.os }}-godot-box3d-
 
-      - name: Setup Godot 3.6.2
+      - name: Setup Godot (Box3D fork)
         run: |
           set -euo pipefail
-          TARGET_DIR="${GODOT_CACHE_DIR}/${GODOT_VERSION}"
+          BOX3D_RELEASE="$(cat .github/box3d_release)"
+          echo "BOX3D_RELEASE=$BOX3D_RELEASE" >> "$GITHUB_ENV"
+          TARGET_DIR="${GODOT_CACHE_DIR}/box3d"
           TARGET_BIN="${TARGET_DIR}/godot"
           mkdir -p "$TARGET_DIR"
           if [ ! -x "$TARGET_BIN" ]; then
-            wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux_headless.64.zip"
-            unzip -q "Godot_v${GODOT_VERSION}_linux_headless.64.zip"
-            mv "Godot_v${GODOT_VERSION}_linux_headless.64" "$TARGET_BIN"
+            curl -fSL -o "$TARGET_BIN" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
             chmod +x "$TARGET_BIN"
           fi
           sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
@@ -127,7 +129,7 @@ jobs:
           echo "godot_project_cache_hit=${{ steps.godot_project_cache.outputs.cache-hit }}"
           echo "godot_bin_cache_hit=${{ steps.godot_bin_cache.outputs.cache-hit }}"
           echo "venv_cache_hit=${{ steps.venv_cache.outputs.cache-hit }}"
-          ls -la "${GODOT_CACHE_DIR}/${GODOT_VERSION}" || true
+          ls -la "${GODOT_CACHE_DIR}/box3d" || true
 
       # El checkout es shallow (fetch-depth 1): el commit base no está en el clon y
       # los chequeos que diffean contra él quedaban inertes ("fatal: bad object" →
@@ -260,7 +262,8 @@ jobs:
     timeout-minutes: 30
     continue-on-error: true
     env:
-      GODOT_VERSION: 3.6.2-stable
+      # El runtime de CI sale del fork, no de godotengine: el binario stock no trae el
+      # modulo Box3D y el proyecto cae a Bullet en silencio. Version en .github/box3d_release.
       GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
     permissions:
       contents: read
@@ -273,22 +276,23 @@ jobs:
         id: godot_bin_cache_raw
         uses: actions/cache@v6
         with:
-          path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
-          key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-${{ github.workflow }}-${{ github.job }}
+          path: ${{ env.GODOT_CACHE_DIR }}/box3d/godot
+          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}-${{ github.workflow }}-${{ github.job }}
           restore-keys: |
-            ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-
-            ${{ runner.os }}-godot-bin-
+            ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}-
+            ${{ runner.os }}-godot-box3d-
 
-      - name: Setup Godot 3.6.2
+      - name: Setup Godot (Box3D fork)
         run: |
           set -euo pipefail
-          TARGET_DIR="${GODOT_CACHE_DIR}/${GODOT_VERSION}"
+          BOX3D_RELEASE="$(cat .github/box3d_release)"
+          echo "BOX3D_RELEASE=$BOX3D_RELEASE" >> "$GITHUB_ENV"
+          TARGET_DIR="${GODOT_CACHE_DIR}/box3d"
           TARGET_BIN="${TARGET_DIR}/godot"
           mkdir -p "$TARGET_DIR"
           if [ ! -x "$TARGET_BIN" ]; then
-            wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux_headless.64.zip"
-            unzip -q "Godot_v${GODOT_VERSION}_linux_headless.64.zip"
-            mv "Godot_v${GODOT_VERSION}_linux_headless.64" "$TARGET_BIN"
+            curl -fSL -o "$TARGET_BIN" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
             chmod +x "$TARGET_BIN"
           fi
           sudo install -m 755 "$TARGET_BIN" /usr/local/bin/godot
@@ -323,7 +327,7 @@ jobs:
         run: |
           echo "godot_bin_cache_hit=${{ steps.godot_bin_cache_raw.outputs.cache-hit }}"
           echo "venv_cache_hit=${{ steps.venv_cache_raw.outputs.cache-hit }}"
-          ls -la "${GODOT_CACHE_DIR}/${GODOT_VERSION}" || true
+          ls -la "${GODOT_CACHE_DIR}/box3d" || true
 
       - name: Run Pytest (raw-oys)
         env:

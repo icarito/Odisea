@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GODOT_VERSION: 3.6.2-stable
+  # Runtime del fork (modulo Box3D); release en .github/box3d_release.
   EXPORT_NAME: Odisea
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -53,13 +53,16 @@ jobs:
             godot-stress-${{ runner.os }}-v4-
             godot-stress-${{ runner.os }}-v3-
 
-      - name: Setup Godot
+      - name: Setup Godot (Box3D fork)
         run: |
-          # Install Godot 3.6.2 manually
-          wget -q https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip
-          unzip -q Godot_v3.6.2-stable_linux_headless.64.zip
-          sudo mv Godot_v3.6.2-stable_linux_headless.64 /usr/local/bin/godot
-          sudo chmod +x /usr/local/bin/godot
+          set -euo pipefail
+          # El binario stock no trae el modulo Box3D y el proyecto cae a Bullet en
+          # silencio -- inaceptable justo aca, donde se mide rendimiento de fisica.
+          BOX3D_RELEASE="$(cat .github/box3d_release)"
+          curl -fSL -o /tmp/godot-box3d \
+            "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
+          sudo install -m 755 /tmp/godot-box3d /usr/local/bin/godot
+          godot --version
 
           # Install runtime dependencies for xvfb/godot
           sudo apt-get update
