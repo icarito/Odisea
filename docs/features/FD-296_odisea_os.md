@@ -99,9 +99,9 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
    métodos aditivos: `get_tree().paused` + audio `set_music_paused_by_menu`,
    **sin** instanciar `PauseMenu`). Decisión tomada con Sebastián: el modo HUD
    local es la consola del traje, el mundo espera — input limpio,
-   determinismo intacto. La transición animada a primera persona de
-   `HelmetHUDV2` (~0.45 s) queda como pulido posterior, no bloquea esta
-   rebanada.
+   determinismo intacto. **La transición 3D es entrega de F3** (decisión de
+   Sebastián, 2026-09-11): la pantalla llega al casco con el mismo movimiento
+   de `HelmetHUDV2` (ver 3b), no aparece de golpe.
 3. **Overlay full-screen** en `OverlayUIManager.ensure_overlay("HudModeOverlay",
    ..., SLOT_MODAL)` (sin CanvasLayer nuevo):
    a. **Selector radial** de pantallas (se abre **manteniendo TAB ≥ 0.4 s**;
@@ -111,12 +111,35 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
       determinista). Slot A = automática, Slot B = fijada; confirmar sobre
       una pantalla la fija como pin (y esa pasa a ser la "última pantalla"
       que abre el tap). Con una sola pantalla se selecciona sola.
-   b. **Vista de la pantalla seleccionada**: instancia `view_scene()` del
-      HUDable. Para `HoloTerminalHUDable`, `view_scene()` reutiliza la UI
-      interna del terminal (`CryoDiagnosticsUI.tscn`, la que ya renderiza el
-      Viewport del HangingDisplay) — sin duplicar lógica ni usar
-      ViewportTexture del mundo. Si `view_scene()` es null → fallback al
-      widget ampliado. Sin pantallas registradas → placeholder "SIN PANTALLAS".
+   b. **Vista de la pantalla seleccionada — presentador 3D con transición**:
+      no es un Control 2D que aparece de golpe. Se instancia un **presentador**
+      (`extends HoloTerminalV2`, *config-only*, mismo patrón que
+      `HelmetHUDV2`: `hud_cfg_attach_to_active_camera = true`,
+      `hud_cfg_attach_as_child = true`, `hud_cfg_attach_transition_time ≈ 0.45`)
+      cuyo `ScreenMesh`/Viewport aloja el `view_scene()` del HUDable. Al abrir,
+      `TerminalHUDBridge` re-parenta el `ScreenMesh` a la cámara activa y
+      **anima** la transform desde su posición en el mundo hasta el casco
+      (`_attach_to_camera(camera, animate=true)`); al cerrar, vuelve con la
+      misma animación al revés. Es la transición diégetica ya probada de
+      `HelmetHUDV2`/`DebugConsoleHUD`, **sin tocar `HoloTerminalV2.gd`**
+      (subclase + config, exactamente como `HelmetHUDV2`).
+      - El presentador debe colocarse en la **posición del terminal de origen**
+        (cuando el HUDable la tenga) para que la lectura sea "la pantalla se
+        desprende del terminal y viene a tu casco"; si no, entra desde el
+        frente de la cámara.
+      - El presentador (o su bridge) debe procesar **durante la pausa**
+        (`pause_mode = PAUSE_MODE_PROCESS`): el mundo ya está pausado cuando
+        corre la animación.
+      - El **radial y las etiquetas de slot siguen siendo 2D** en el overlay
+        `SLOT_MODAL`; el presentador es solo la pantalla diegética. No nace un
+        segundo sistema de presentación: el overlay sigue siendo
+        `OverlayUIManager`.
+      - `view_scene()` sigue siendo del HUDable: para `HoloTerminalHUDable`
+        reutiliza la UI interna del terminal (`CryoDiagnosticsUI.tscn`, la que
+        ya renderiza el Viewport del HangingDisplay) — sin duplicar lógica ni
+        usar `ViewportTexture` **del mundo** (el Viewport del presentador es
+        propio). Si `view_scene()` es null → fallback al widget ampliado en el
+        overlay. Sin pantallas registradas → placeholder "SIN PANTALLAS".
 4. Al salir (segunda TAB, ESC o `ui_cancel`): `remove_overlay` + reanuda + HUD
    vuelve a modo widget. El menú de pausa normal (ESC) sigue en `PauseManager`
    intacto.
@@ -404,7 +427,9 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
 1. **Transición**: TAB entra/sale del modo HUD; el mundo pausa sin instanciar
    `PauseMenu`, se abre el overlay en SLOT_MODAL, y **no** se disparan inputs
    del mundo (regresión del bug "OK pesca Partida Nueva"). ESC abre el menú
-   de pausa normal como siempre.
+   de pausa normal como siempre. La vista **anima** su entrada al casco
+   (bridge, ~0.45 s) y vuelve al cerrar; con el mundo ya pausado la animación
+   corre igual (`PAUSE_MODE_PROCESS`).
 1b. **Tap vs. hold**: tap (< 0.4 s) abre la última pantalla pinneada; hold
    (≥ 0.4 s) abre el radial; en modo pantalla, tap cierra y hold abre el
    radial. Con el input grabado aplicado en replay, el resultado es el mismo
