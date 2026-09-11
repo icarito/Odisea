@@ -122,6 +122,8 @@ Usar tres capas separadas:
 | FD-294 | Control Remoto — compañero telefónico para sesiones ODISEA (discovery UDP + emparejamiento + WS) | In Progress | Large | P1 |
 | FD-295 | HUD persistente de sistemas (indicadores para puzzles) | Superseded by FD-296 | Medium | P1 |
 | FD-296 | OdiseaOS — sistema operativo del traje (modo HUD + widgets + HUDables) | Design | Large | P1 |
+| FD-297 | Transiciones seamless hacia la pantalla en cuestión (foco de terminal vs. primera persona) | Design | Medium | P1 |
+| FD-298 | Pantalla de linterna (batería retro en slot + botón de encendido en el widget) | Design | Small | P1 |
 
 ## Completed / Archived
 
