@@ -87,9 +87,11 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
    rebanada.
 3. **Overlay full-screen** en `OverlayUIManager.ensure_overlay("HudModeOverlay",
    ..., SLOT_MODAL)` (sin CanvasLayer nuevo):
-   a. **Selector lineal** de pantallas registradas en `SuitOS` (Slot A =
-      automática, Slot B = fijada). Flechas ↑/↓ cambian selección; Enter fija
-      como pin (Slot B); ESC/TAB/`ui_cancel` sale. Con una sola pantalla se
+   a. **Selector radial** de pantallas (reuso `RadialSelectorV2`, mismo patrón
+      de `ElevatorFloorSelector`: el gesto apunta, click/`ui_accept` confirma,
+      `ui_cancel` sale; no roba cursor ni corta cámara, lee del stream de
+      input para replay determinista). Slot A = automática, Slot B = fijada;
+      confirmar sobre una pantalla la fija como pin. Con una sola pantalla se
       selecciona sola.
    b. **Vista de la pantalla seleccionada**: instancia `view_scene()` del
       HUDable. Para `HoloTerminalHUDable`, `view_scene()` reutiliza la UI
@@ -271,9 +273,9 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
 - **F3 — en diseño (pendiente delegar):** modo HUD local. Entrada por acción
   `hud_mode` (TAB, añadida al input map); pausa vía `PauseManager` (métodos
   aditivos, **sin** instanciar `PauseMenu`); overlay full-screen en
-  `OverlayUIManager.ensure_overlay(..., SLOT_MODAL)`; selector **lineal** de
-  pantallas (↑/↓ cambian selección, Enter fija pin en Slot B, ESC/TAB sale;
-  v1 **sin** radial — `RadialSelectorV2` queda como pulido posterior); vista
+  `OverlayUIManager.ensure_overlay(..., SLOT_MODAL)`; selector **radial** de
+  pantallas (reuso `RadialSelectorV2` con el patrón de `ElevatorFloorSelector`:
+  gesto apunta, confirmar fija pin en Slot B, `ui_cancel`/ESC/TAB sale); vista
   = `view_scene()` del HUDable (para `HoloTerminalHUDable` reusa la UI
   interna del terminal; si null → fallback al widget ampliado; sin pantallas
   → placeholder "SIN PANTALLAS"); slot A/B reales en pantalla.
@@ -302,8 +304,6 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
   `scene_directive` listo.
 - Hápticos más allá de tremor.
 - Widgets configurables por el jugador (posición/tamaño).
-- Selector radial de pantallas (`RadialSelectorV2`, aim-driven) — pulido de
-  F3 sobre la lista lineal de v1.
 
 ## Files to Modify
 
