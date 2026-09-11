@@ -112,14 +112,64 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
 - Se ocultan en cinemáticas y menús.
 - Toggle de accesibilidad en Settings.
 
-#### 6. Control Remoto (integración con FD-294)
+#### 6. Control Remoto (integración con FD-294) — **F4**
 
-- El teléfono corre **siempre en modo HUD**: vista completa de la pantalla
-  activa + radial propio. Sin pausa (overlay en vivo).
-- Reuso del protocolo FD-294: `scene_directive{kind:"ui"|"screen"}` para
-  empujar pantallas al teléfono; `input{touch,accel,gyro}` ya definido.
-- El HUD local y el remoto comparten el mismo registro de pantallas
-  (`SuitOS`) pero **estado independiente** (pantalla activa remota ≠ local).
+El stack remoto de FD-294 **ya está en `main`** (`core_v2/net/*`,
+`core_v2/ui/RemoteControl*`, autoload `RemoteControlManager`): el host publica
+por UDP, empareja por PIN y abre el canal WS de control (`ui`, `input`);
+`RemoteControlHome.gd` es hoy la pantalla del teléfono (solo los avisos de
+conexión/pausa + botón Salir, con `_raw_passthrough` de teclado/mouse en
+desktop y `InputProviderV2` en táctil).
+
+**Principio (aporta el dato, no el transporte):** el teléfono corre el **mismo
+binario** que el host. El "Viewport correcto" **no** se transmite —el host no
+manda `ViewportTexture`—: el teléfono **instancia y renderiza su propio**
+`view_scene()` de la pantalla activa y lo **hidrata** con el snapshot que llega
+por el protocolo. Estado remoto **independiente** del local: la pantalla activa
+en el teléfono ≠ la del HUD local; **sin pausa** (el teléfono no pausa la
+partida de la PC), overlay **en vivo**.
+
+**Dos capas en el teléfono:**
+
+- **Pantalla home (siempre visible):** los **widgets** de Slot A/B
+  (`widget_changed(slot, snapshot)` → `widget_scene()`) más los **controles
+  móviles** que ya existen: joystick de movimiento, cámara por arrastre/zoom
+  (`MobileUIManager._touch_camera`) y botón de acción (`InputProviderV2`,
+  FD-263). Es el `RemoteControlHome.gd` actual **más** un host de widgets.
+- **Modo pantalla:** al elegir pantalla se muestra `view_scene()` a pantalla
+  completa (el teléfono **sí** puede ampliar: el canvas es el suyo). El radial
+  del teléfono **reusa `RadialSelectorV2`** (mismo patrón `ElevatorFloorSelector`
+  que F3) para elegir la pantalla activa y fijarla como pin local.
+
+**Protocolo — solo aditivo** (F4 no cambia nada de FD-294; agrega `op`s al
+canal `ui` que ya existe):
+
+| Dirección | `op` | Payload |
+|---|---|---|
+| host→teléfono | `screen_list` | `[{id, title, icon, relevance}]` al emparejar y al cambiar el registro |
+| host→teléfono | `screen_active` | `{id, title, view:"scene"\|"widget", snapshot:{...}}` al cambiar la pantalla remota |
+| host→teléfono | `screen_data` | `{id, snapshot:{...}}` (estado puntual sin cambiar de pantalla) |
+| host→teléfono | `haptic` | `{kind, intensity}` (ver §7) |
+| teléfono→host | `remote_action` | `{screen_id, op, args}` — validado contra `allowed_actions` y ejecutado con `perform_action()` |
+| teléfono→host | `screen_select` | `{id}` — el radial del teléfono pide empujar esa pantalla |
+
+Transporte: `RemoteControlServer.send_ui_directive(op, payload)` (canal `ui`
+**existente**) y `RemoteControlClient.ui_directive_received` en el teléfono.
+**No se crea canal nuevo.** `screen_active`/`screen_data` **reemplazan** al
+`scene_directive{kind}` que mencionaba la versión previa de esta sección (aquel
+no llevaba datos ni snapshot).
+
+**Reglas:**
+
+- El host **solo empuja** lo que el teléfono puede entender: `screen_id`,
+  `title`, `icon` y snapshots **JSON-safe** (mismo contrato de SuitOS).
+- El teléfono **no** recibe nodos, texturas ni rutas de escena del host: las
+  rutas de `view_scene()`/`widget_scene()` son del **propio** build del teléfono.
+- Widgets y vista del teléfono se **hidratan** con snapshots; el teléfono nunca
+  escribe estado del host salvo por `remote_action` (gateado por
+  `allowed_actions`).
+- **Nada de `HoloTerminalV2.gd`, `RemoteControl*` salvo lo aditivo aquí
+  descrito, `Menu*`, cámara ni `PauseManager`.** F4 **no** toca `project.godot`.
 - Multisesión (varios teléfonos, cada uno independiente): **backlog**.
 
 #### 7. Vibración / hápticos
@@ -279,8 +329,15 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
   = `view_scene()` del HUDable (para `HoloTerminalHUDable` reusa la UI
   interna del terminal; si null → fallback al widget ampliado; sin pantallas
   → placeholder "SIN PANTALLAS"); slot A/B reales en pantalla.
-- **F4:** `screen_data` + `remote_action` + `haptic{tremor}` en el protocolo
-  FD-294.
+- **F4 — en diseño (pendiente delegar):** Control Remoto como cliente HUD.
+  Pantalla **home** del teléfono con widgets de Slot A/B + controles móviles
+  (joystick/cámara/acción ya existentes); **modo pantalla** con `view_scene()`
+  renderizado e hidratado en el teléfono; radial propio (reuso
+  `RadialSelectorV2`); protocolo **aditivo** al canal `ui` de FD-294
+  (`screen_list`, `screen_active`/`screen_data`, `haptic`) y `remote_action`
+  validado por `allowed_actions`; sin pausa (overlay en vivo); estado remoto
+  independiente del local. Detalle en la sección "Control Remoto (integración
+  con FD-294)".
 
 ### Considered Options
 
@@ -337,6 +394,12 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
 5. **Remoto**: el teléfono muestra modo HUD en vivo mientras el juego corre
    en la PC (sin pausa); el HUD local y el remoto tienen pantallas
    independientes.
+5b. **Remoto — home y modo pantalla**: el teléfono abre en su **home** con los
+   widgets de Slot A/B y los controles móviles; al elegir con su radial, el
+   **modo pantalla** renderiza `view_scene()` **en el teléfono** con los datos
+   del snapshot (cambiar el estado en la PC refresca el teléfono sin
+   retransmitir video); `remote_action` del teléfono se ejecuta en el host solo
+   si el HUDable lo declara en `allowed_actions`.
 6. **Escalado**: widgets legibles y 60 fps en desktop, WebGL y móvil (Control
    2D sobre viewport 3D, sin viewports extra).
 7. **Hápticos**: al integrarse FD-288, un Tremor vibra el teléfono remoto
