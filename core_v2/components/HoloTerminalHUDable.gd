@@ -4,10 +4,17 @@ class_name HoloTerminalHUDable
 # HoloTerminalHUDable.gd - HoloTerminal bridge component for SuitOS / OdiseaOS (FD-296 F1.5)
 # Exposes a HoloTerminalV2 instance as a HUDable screen source without modifying HoloTerminalV2.gd.
 
+const DefaultWidgetScene = preload("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
+
 export(NodePath) var terminal_path: NodePath = NodePath("")
 
 var _last_active: bool = false
 var _last_focused: bool = false
+
+func widget_scene() -> PackedScene:
+	if hud_widget_scene != null:
+		return hud_widget_scene
+	return DefaultWidgetScene
 
 func _physics_process(_delta: float) -> void:
 	var terminal = _get_terminal()
@@ -48,6 +55,7 @@ func widget_snapshot() -> Dictionary:
 	var is_focused_val: bool = false
 	var pos_array: Array = [0.0, 0.0, 0.0]
 	var title_val: String = screen_title()
+	var status_text_val: String = "ESTADO: OPERATIVO"
 
 	if is_instance_valid(terminal):
 		if terminal.has_method("get_is_open"):
@@ -64,12 +72,20 @@ func widget_snapshot() -> Dictionary:
 			var origin: Vector3 = (terminal as Spatial).global_transform.origin
 			pos_array = [origin.x, origin.y, origin.z]
 
+		if not is_active_val:
+			status_text_val = "ESTADO: INACTIVO"
+		elif is_focused_val:
+			status_text_val = "MODO: FOCO ACTIVO"
+		else:
+			status_text_val = "DIAGNOSTICO: ONLINE"
+
 	return {
 		"proto": 1,
 		"id": screen_id(),
 		"title": title_val,
 		"active": is_active_val,
 		"focused": is_focused_val,
+		"status_text": status_text_val,
 		"position": pos_array,
 		"source": "online"
 	}

@@ -1,9 +1,10 @@
 extends GdUnitTestSuite
 
-# test_suitos_widget_host.gd - Integration tests for SuitOSWidgetHost and HangingDisplay (FD-296 F1.5)
+# test_suitos_widget_host.gd - Integration tests for SuitOSWidgetHost, HangingDisplay, and auto-mounting (FD-296 F1.5)
 
 const HUDableComponentScript = preload("res://core_v2/components/HUDableComponent.gd")
 const SuitOSWidgetHostScript = preload("res://core_v2/ui/hud/SuitOSWidgetHost.gd")
+const HoloTerminalWidgetScript = preload("res://core_v2/ui/hud/HoloTerminalWidget.gd")
 
 var _widget_host: Node = null
 var _overlay_mgr = null
@@ -27,6 +28,10 @@ func before_test() -> void:
 func after_test() -> void:
 	if is_instance_valid(_widget_host):
 		_widget_host.free()
+
+func test_suitos_auto_mounts_driver_and_widget_host() -> void:
+	assert_object(SuitOS.get_node_or_null("SuitOSContextDriver")).is_not_null()
+	assert_object(SuitOS.get_node_or_null("SuitOSWidgetHost")).is_not_null()
 
 func test_widget_changed_mounts_and_unmounts_overlay() -> void:
 	var dummy_screen = auto_free(HUDableComponentScript.new())
@@ -74,13 +79,18 @@ func test_hanging_display_registration_and_slot_flow() -> void:
 	var slot_a_snap: Dictionary = SuitOS.get_slot_snapshot("slot_a")
 	assert_str(String(slot_a_snap.get("id", ""))).is_equal(screen_id)
 
+	var slot_hud = _overlay_mgr.get_slot(_overlay_mgr.SLOT_HUD)
+	var widget_a = slot_hud.get_node_or_null("SuitOS_Widget_slot_a")
+	assert_object(widget_a).is_not_null()
+	assert_object(widget_a.get_script()).is_equal(HoloTerminalWidgetScript)
+
 	# Pin to Slot B
 	SuitOS.pin_screen(screen_id)
 	var slot_b_snap: Dictionary = SuitOS.get_slot_snapshot("slot_b")
 	assert_str(String(slot_b_snap.get("id", ""))).is_equal(screen_id)
 
-	var slot_hud = _overlay_mgr.get_slot(_overlay_mgr.SLOT_HUD)
 	var widget_b = slot_hud.get_node_or_null("SuitOS_Widget_slot_b")
 	assert_object(widget_b).is_not_null()
+	assert_object(widget_b.get_script()).is_equal(HoloTerminalWidgetScript)
 
 	SuitOS.unpin_screen()
