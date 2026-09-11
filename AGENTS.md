@@ -74,9 +74,13 @@ Consecuencias prácticas:
 - Usar `_nombre` para miembros de uso interno (no hay private/protected).
 
 > [!IMPORTANT] BINARIO DE GODOT
-> Usar siempre el alias `godot3-bin` para ejecutar Godot 3.6. El comando `godot` puede apuntar a Godot 4,
-> lo que causará errores de sintaxis (`yield` vs `await`). El error `Index 1 is out of bounds (count = 1)`
-> aparece *siempre* al arrancar y **no** es un problema de nuestro código.
+> Todos los scripts del repo (`runtest.sh`, `godot_import_smoke.sh`, `test_prop.sh`, etc.) resuelven
+> el binario vía `tools/godot_bin.sh`, que devuelve **el último editor compilado de nuestro fork**
+> (`godot3-box3d/godot/bin/godot.x11.opt.tools.64`) — el único que conoce Box3D y los settings propios.
+> El 3.6.2 upstream no los conoce y puede pisar `project.godot` al guardar: no usar nunca para tests,
+> imports ni edición. Override manual: `ODISEA_GODOT_BIN=...` (o `GODOT_BIN=...` en los scripts).
+> El comando `godot` puede apuntar a Godot 4 y causará errores de sintaxis (`yield` vs `await`).
+> El error `Index 1 is out of bounds (count = 1)` aparece *siempre* al arrancar y **no** es un problema de nuestro código.
 
 ### 2.3 Cámara y controles
 

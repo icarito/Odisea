@@ -7,7 +7,7 @@ set -e
 
 PRESET_NAME="${1:-Linux/X11 x86_64}"
 OUTPUT_DIR="${2:-build}"
-GODOT_BIN="${GODOT_BIN:-godot3-bin}"
+GODOT_BIN="${GODOT_BIN:-$(sh "$(dirname "$0")/../tools/godot_bin.sh")}"
 PROJECT_PATH="${PROJECT_PATH:-.}"
 
 echo "🚀 Iniciando exportación CI..."

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GODOT_BIN="${GODOT_BIN:-godot3-bin}"
+GODOT_BIN="${GODOT_BIN:-$(sh "$(dirname "$0")/tools/godot_bin.sh")}"
 SCENE="${GHOST_SCENE:-res://core_v2/levels/TestSceneGhost.tscn}"
 SCRIPT_PATH="${GHOST_OYS_SCRIPT:-./core_v2/scripts/test_ghost_smoke.oys}"
 

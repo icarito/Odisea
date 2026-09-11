@@ -2,7 +2,7 @@
 # scripts/run_core_tests.sh
 # Runs core tests for the drone fixes and stealth logic.
 
-export GODOT_BIN=${GODOT_BIN:-"godot3-bin"}
+export GODOT_BIN=${GODOT_BIN:-$(sh "$(dirname "$0")/../tools/godot_bin.sh")}
 
 ./runtest.sh --runner gdunit \
     -a res://core_v2/tests/test_ddc_drone.gd \

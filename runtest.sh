@@ -23,7 +23,7 @@
 #     grep -E "(PASSED|FAILED|ERROR|Total|Exit code)" ./reports/gdunit_runner.log
 
 if [ -z "$GODOT_BIN" ]; then
-    GODOT_BIN="godot3-bin"
+    GODOT_BIN="$(sh "$(dirname "$0")/tools/godot_bin.sh")"
 fi
 
 # Por defecto: en sesión gráfica usar solo --no-window; sin DISPLAY forzar headless.

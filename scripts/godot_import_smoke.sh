@@ -11,7 +11,7 @@ is_truthy() {
   [[ "${v}" == "1" || "${v}" == "true" || "${v}" == "yes" || "${v}" == "on" ]]
 }
 
-GODOT_BIN="${GODOT_BIN:-godot3-bin}"
+GODOT_BIN="${GODOT_BIN:-$(sh "$(dirname "$0")/../tools/godot_bin.sh")}"
 PROJECT_PATH="."
 IMPORT_LOG="reports/import_resources.log"
 IMPORT_RETRY_LOG="reports/import_resources_retry.log"

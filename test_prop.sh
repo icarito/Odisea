@@ -10,7 +10,7 @@
 TARGET_PROP=""
 RETURN_BASE64=false
 SHOW_LATEST=false
-GODOT_BIN="godot3-bin" 
+GODOT_BIN="$(sh "$(dirname "$0")/tools/godot_bin.sh")" 
 PROJECT_PATH="$(pwd)"
 OUTPUT_DIR="$PROJECT_PATH/test_output/props"
 VALIDATOR_SCRIPT="res://core_v2/scripts/prop_validator.oys"

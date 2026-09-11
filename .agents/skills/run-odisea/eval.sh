@@ -25,7 +25,7 @@
 #   - Filter your own output with a tag, e.g. print("[x] ...") then grep '\[x\]'.
 set -euo pipefail
 
-GODOT_BIN="${GODOT_BIN:-godot3-bin}"
+GODOT_BIN="${GODOT_BIN:-$(sh "$(dirname "$0")/../../../tools/godot_bin.sh")}"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"  # repo root (src/)
 export ODISEA_FORCE_MUTE_AUDIO=1
 
