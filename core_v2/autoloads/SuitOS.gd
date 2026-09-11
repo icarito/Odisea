@@ -25,6 +25,9 @@ signal haptic(kind, intensity)
 
 const MIN_RELEVANCE_A: float = 0.0
 
+const ContextDriverScript = preload("res://core_v2/autoloads/SuitOSContextDriver.gd")
+const WidgetHostScene = preload("res://core_v2/ui/hud/SuitOSWidgetHost.tscn")
+
 export(float) var min_relevance_a: float = MIN_RELEVANCE_A
 
 var _screens: Dictionary = {} # Maps String (screen_id) -> Object
@@ -35,8 +38,13 @@ var _pinned_screen_id: String = ""
 var _slot_snapshots: Dictionary = {"slot_a": {}, "slot_b": {}}
 var _last_snapshots_cache: Dictionary = {}
 
+var _context_driver: Node = null
+var _widget_host: Node = null
+
 func _ready() -> void:
 	add_to_group("replay_sync")
+	_ensure_runtime_subsystems()
+
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager and not scene_manager.is_connected("pre_scene_swap", self, "_on_pre_scene_swap"):
 		scene_manager.connect("pre_scene_swap", self, "_on_pre_scene_swap")
@@ -48,6 +56,21 @@ func _ready() -> void:
 		# TODO: PersistenceManager currently manages scene CheckpointResource files and entity lifecycle tracking.
 		# When PersistenceManager introduces generic system state registration (register_system), connect SuitOS here.
 		pass
+
+func _ensure_runtime_subsystems() -> void:
+	if not is_instance_valid(_context_driver):
+		_context_driver = get_node_or_null("SuitOSContextDriver")
+		if _context_driver == null:
+			_context_driver = ContextDriverScript.new()
+			_context_driver.name = "SuitOSContextDriver"
+			add_child(_context_driver)
+
+	if not is_instance_valid(_widget_host):
+		_widget_host = get_node_or_null("SuitOSWidgetHost")
+		if _widget_host == null and WidgetHostScene != null:
+			_widget_host = WidgetHostScene.instance()
+			_widget_host.name = "SuitOSWidgetHost"
+			add_child(_widget_host)
 
 func register_screen(screen: Object) -> void:
 	if screen == null:
