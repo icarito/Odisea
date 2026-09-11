@@ -3089,18 +3089,25 @@ func _try_step_up(motion: Vector3) -> Dictionary:
 		var forward_test = move_and_collide(move_dir * probe_distance, true, true, true)
 		advanced_x = move_dir * probe_distance
 		if forward_test:
-			advanced_x = forward_test.travel
-		check_pos = step_up_pos + advanced_x
-		global_transform.origin = check_pos
-		var down_collision = move_and_collide(Vector3.DOWN * (step_height + 0.1), true, true, true)
+			# Una baranda queda a la altura del torso una vez levantados: su
+			# contacto no es piso y su travel (contaminado por la depenetracion
+			# del motor al arrancar en contacto) no sirve como avance del escalon.
+			if forward_test.normal.y <= 0.7:
+				can_try_step = false
+			else:
+				advanced_x = forward_test.travel
+		if can_try_step:
+			check_pos = step_up_pos + advanced_x
+			global_transform.origin = check_pos
+			var down_collision = move_and_collide(Vector3.DOWN * (step_height + 0.1), true, true, true)
+			if down_collision != null and down_collision.normal.y > 0.7:
+				var step_surface_y = check_pos.y - down_collision.travel.length()
+				var height_gain = step_surface_y - origin.y
+				# Allow a tiny tolerance for collision rounding around configured step height.
+				if height_gain > 0.01 and height_gain <= step_height + 0.02:
+					result.stepped = true
+					result.position = Vector3(origin.x + advanced_x.x, step_surface_y, origin.z + advanced_x.z)
 		global_transform.origin = old_pos
-		if down_collision != null and down_collision.normal.y > 0.7:
-			var step_surface_y = check_pos.y - down_collision.travel.length()
-			var height_gain = step_surface_y - origin.y
-			# Allow a tiny tolerance for collision rounding around configured step height.
-			if height_gain > 0.01 and height_gain <= step_height + 0.02:
-				result.stepped = true
-				result.position = Vector3(origin.x + advanced_x.x, step_surface_y, origin.z + advanced_x.z)
 		
 	collision_mask = old_mask # Restore original mask
 	return result
