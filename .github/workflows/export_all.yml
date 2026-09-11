@@ -396,7 +396,9 @@ jobs:
       - name: Install Godot (Linux, Box3D)
         if: runner.os == 'Linux'
         run: |
-          set -euo pipefail
+          # Sin pipefail: el job de Android corre en el contenedor godot-ci, cuyo
+          # shell por defecto es sh (dash), y ahi "set -o pipefail" es ilegal.
+          set -eu
           BOX3D_RELEASE="$(cat .github/box3d_release)"
           echo "BOX3D_RELEASE=$BOX3D_RELEASE" >> "$GITHUB_ENV"
           GODOT_DIR="$HOME/.local/bin"
@@ -441,11 +443,18 @@ jobs:
           # Linux lo exporta el paso de instalacion; macOS, que no tiene binario del
           # fork, lo lee del mismo archivo.
           BOX3D_RELEASE="${BOX3D_RELEASE:-$(cat .github/box3d_release)}"
+          # Godot busca las plantillas en templates/<major.minor.patch.status> de SU
+          # PROPIA version. El exportador de Linux es el binario del fork (3.6.4.rc) y
+          # el de macOS sigue siendo el stock (3.6.2.stable): la carpeta sale del
+          # binario, no se escribe a mano. Con 3.6.2.stable fijo, el exportador del
+          # fork no encontraba ninguna plantilla y el export salia sin artefacto.
+          TPL_VERSION="$("$GODOT_BIN" --version | cut -d. -f1-4)"
           if [ "$RUNNER_OS" == "macOS" ]; then
-            TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
+            TPL_DIR="$HOME/Library/Application Support/Godot/templates/$TPL_VERSION"
           else
-            TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+            TPL_DIR="$HOME/.local/share/godot/templates/$TPL_VERSION"
           fi
+          echo "Plantillas en: $TPL_DIR (exportador $("$GODOT_BIN" --version))"
 
           case "${{ matrix.platform }}" in
             macos) REQUIRED_TEMPLATE="$TPL_DIR/osx.zip" ;;
