@@ -76,18 +76,30 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
 
 #### 4. Modo HUD (local, inmersivo)
 
-1. Jugador activa modo HUD → transición a primera persona (reuso del attach
-   animado de `HelmetHUDV2`, ~0.45 s).
-2. **El mundo pausa** (`get_tree().paused = true`; la UI del HUD corre con
-   `pause_mode = PAUSE_MODE_PROCESS`). Decisión tomada con Sebastián: el modo
-   HUD local es la consola del traje, el mundo espera — input limpio, sin
-   pelea de mouse, determinismo intacto.
-3. **Selector radial** de pantallas (reuso `RadialSelectorV2`: aim-driven, no
-   roba cursor ni corta cámara).
-4. Pantalla completa seleccionada. Puntero de mouse si hay mouse; si no,
-   navegación por radial/teclas.
-5. Al salir: reanuda juego + transición de regreso a tercera persona + HUD
-   vuelve a modo widget.
+1. **Entrada: TAB** (acción `hud_mode`, añadida al input map del proyecto).
+   Solo si la escena permite pausar y no hay menú abierto.
+2. **El mundo pausa vía `PauseManager`** (`pause_hud_mode()`/`resume_hud_mode()`,
+   métodos aditivos: `get_tree().paused` + audio `set_music_paused_by_menu`,
+   **sin** instanciar `PauseMenu`). Decisión tomada con Sebastián: el modo HUD
+   local es la consola del traje, el mundo espera — input limpio,
+   determinismo intacto. La transición animada a primera persona de
+   `HelmetHUDV2` (~0.45 s) queda como pulido posterior, no bloquea esta
+   rebanada.
+3. **Overlay full-screen** en `OverlayUIManager.ensure_overlay("HudModeOverlay",
+   ..., SLOT_MODAL)` (sin CanvasLayer nuevo):
+   a. **Selector lineal** de pantallas registradas en `SuitOS` (Slot A =
+      automática, Slot B = fijada). Flechas ↑/↓ cambian selección; Enter fija
+      como pin (Slot B); ESC/TAB/`ui_cancel` sale. Con una sola pantalla se
+      selecciona sola.
+   b. **Vista de la pantalla seleccionada**: instancia `view_scene()` del
+      HUDable. Para `HoloTerminalHUDable`, `view_scene()` reutiliza la UI
+      interna del terminal (`CryoDiagnosticsUI.tscn`, la que ya renderiza el
+      Viewport del HangingDisplay) — sin duplicar lógica ni usar
+      ViewportTexture del mundo. Si `view_scene()` es null → fallback al
+      widget ampliado. Sin pantallas registradas → placeholder "SIN PANTALLAS".
+4. Al salir (segunda TAB, ESC o `ui_cancel`): `remove_overlay` + reanuda + HUD
+   vuelve a modo widget. El menú de pausa normal (ESC) sigue en `PauseManager`
+   intacto.
 
 #### 5. Slots de widgets (juego normal)
 
@@ -206,7 +218,8 @@ desprende `ScreenContainer/ScreenMesh` y lo monta frente a la cámara (ease
 0.45 s, `hud_screen_*`). Sin cambios.
 2. **Widget en slot (nuevo):** SuitOS dibuja el widget compacto con el mismo
 snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
-3. **Modo HUD full-screen (F3):** el radial la abre; reusa el bridge.
+3. **Modo HUD full-screen (F3):** TAB abre el overlay en `SLOT_MODAL`; la
+   vista reusa la UI interna del terminal (p. ej. `CryoDiagnosticsUI`).
 
 **Cómo se implementa (sin tocar las 1357 líneas de `HoloTerminalV2`):**
 
@@ -233,8 +246,9 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
   contratos + tests `test_suit_os.gd` / `test_hudable.gd`, con corte por
   `SceneManager.pre_scene_swap` (patrón `DebugConsoleManager`). Verificado
   localmente: 15/15 tests verdes.
-- **F1.5 — esta delegación (Jules):** primera **rebanada visible**. Objetivo:
-  poder *ver* un widget cambiar por relevancia sin F3 ni F4.
+- **F1.5 — HECHA (Jules, PR #335 ↔ `feature/FD-296-f1.5-visible-slice`):**
+  primera **rebanada visible**. Objetivo: poder *ver* un widget cambiar por
+  relevancia sin F3 ni F4.
   1. `HoloTerminalHUDable.gd` (wrapper de la sección anterior).
   2. `SuitOSWidgetHost.gd` + escena: escucha `widget_changed(slot, snapshot)`
      y monta `widget_scene()` en `OverlayUIManager.ensure_overlay(..., SLOT_HUD)`;
@@ -250,10 +264,19 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
   5. Test de integración: registrar → cambiar contexto simulado → el snapshot
      de Slot A cambia; pin → Slot B persiste. **No toca** RemoteControl*,
      Menu*, PauseManager, pausa, cámara ni `HoloTerminalV2`.
-- **F2:** `ShipSystemBus` + pantalla "Sistemas de nave" (hereda FD-295) +
-  estado de `MultiToolV2` + migrar `CargolHUD` a pantalla registrable.
-- **F3:** modo HUD local (transición 1ra persona + pausa vía `PauseManager` +
-  radial `RadialSelectorV2`) + slot A/B reales en pantalla.
+- **F2 — DELEGADA (Jules, sesión `7684582746836048852` ↔
+  `feature/FD-296-f2-ship-systems`):** `ShipSystemBus` + pantalla "Sistemas de
+  nave" (hereda FD-295) + estado de `MultiToolV2` + migrar `CargolHUD` a
+  pantalla registrable.
+- **F3 — en diseño (pendiente delegar):** modo HUD local. Entrada por acción
+  `hud_mode` (TAB, añadida al input map); pausa vía `PauseManager` (métodos
+  aditivos, **sin** instanciar `PauseMenu`); overlay full-screen en
+  `OverlayUIManager.ensure_overlay(..., SLOT_MODAL)`; selector **lineal** de
+  pantallas (↑/↓ cambian selección, Enter fija pin en Slot B, ESC/TAB sale;
+  v1 **sin** radial — `RadialSelectorV2` queda como pulido posterior); vista
+  = `view_scene()` del HUDable (para `HoloTerminalHUDable` reusa la UI
+  interna del terminal; si null → fallback al widget ampliado; sin pantallas
+  → placeholder "SIN PANTALLAS"); slot A/B reales en pantalla.
 - **F4:** `screen_data` + `remote_action` + `haptic{tremor}` en el protocolo
   FD-294.
 
@@ -279,6 +302,8 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
   `scene_directive` listo.
 - Hápticos más allá de tremor.
 - Widgets configurables por el jugador (posición/tamaño).
+- Selector radial de pantallas (`RadialSelectorV2`, aim-driven) — pulido de
+  F3 sobre la lista lineal de v1.
 
 ## Files to Modify
 
@@ -299,15 +324,16 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
 
 0. **Corte por escena**: cambiar de escena con una pantalla activa no deja
    HUDs huérfanos (mismo patrón que `DebugConsoleManager`).
-1. **Transición**: entrar a modo HUD hace transición a 1ra persona, el mundo
-   pausa, se abre el radial, y **no** se disparan inputs del mundo (regresión
-   del bug "OK pesca Partida Nueva").
+1. **Transición**: TAB entra/sale del modo HUD; el mundo pausa sin instanciar
+   `PauseMenu`, se abre el overlay en SLOT_MODAL, y **no** se disparan inputs
+   del mundo (regresión del bug "OK pesca Partida Nueva"). ESC abre el menú
+   de pausa normal como siempre.
 2. **Relevancia**: despressurizar una línea de criocoolant → el widget
    automático cambia a Sistemas de nave sin abrir nada.
 3. **Slot fijado**: pin de una pantalla persiste entre escenas y al cargar
    partida (sync con save/replay determinista).
 4. **HUDable**: una HoloTerminal del Módulo Criogenia registra su pantalla y
-   aparece en el radial.
+   aparece en el selector del modo HUD (TAB).
 5. **Remoto**: el teléfono muestra modo HUD en vivo mientras el juego corre
    en la PC (sin pausa); el HUD local y el remoto tienen pantallas
    independientes.
