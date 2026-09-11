@@ -4,6 +4,12 @@ extends Node
 # Manages screen module registration, slot scoring (Slot A = auto), pinned screen selection (Slot B),
 # F1 data contract actions, haptic bus, and persistence state.
 #
+# Ownership & Architecture Notes:
+# - Pause & Android Back: Owned strictly by PauseManager. SuitOS NEVER sets get_tree().paused directly.
+# - Presentation: Widget layout/presentation is delegated to OverlayUIManager (slot 'HUD').
+# - Scene Cut: Listens to SceneManager 'pre_scene_swap' signal to close active screens and clear
+#   relevance context on scene transitions. Registered screens auto-unregister via _exit_tree().
+#
 # Slot A relevance threshold:
 # min_relevance_a (default 0.0, const MIN_RELEVANCE_A = 0.0) defines the minimum relevance score required
 # for a screen to occupy Slot A. If all registered screens have relevance <= min_relevance_a,
@@ -31,6 +37,10 @@ var _last_snapshots_cache: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("replay_sync")
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager and not scene_manager.is_connected("pre_scene_swap", self, "_on_pre_scene_swap"):
+		scene_manager.connect("pre_scene_swap", self, "_on_pre_scene_swap")
+
 	var pm = get_node_or_null("/root/PersistenceManager")
 	if pm != null and pm.has_method("register_system"):
 		pm.register_system("suit_os", self)
@@ -195,6 +205,10 @@ func get_snapshot() -> Dictionary:
 
 func restore_snapshot(data: Dictionary) -> void:
 	restore_state(data)
+
+func _on_pre_scene_swap(_old_scene: Node = null, _new_scene: Node = null, _params: Dictionary = {}) -> void:
+	close_screen()
+	set_context({})
 
 func _on_screen_state_changed(id: String) -> void:
 	_update_screen_snapshot_cache(id)

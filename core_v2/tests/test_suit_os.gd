@@ -64,6 +64,7 @@ func before_test() -> void:
 	SuitOS.unpin_screen()
 	SuitOS.close_screen()
 	SuitOS.set_hud_mode_active(false)
+	SuitOS.set_context({})
 	for id in SuitOS.get_registered_screens():
 		SuitOS.unregister_screen(id)
 
@@ -220,6 +221,23 @@ func test_snapshot_aliasing_prevention() -> void:
 	var snap_fresh = SuitOS.get_slot_snapshot("slot_a")
 	assert_str(snap_fresh.get("source", "")).is_equal("online")
 	assert_str(screen1.internal_dict.get("custom_field", "")).is_equal("initial")
+
+func test_pre_scene_swap_closes_active_screen_and_resets_context() -> void:
+	var screen1: DummyScreen = auto_free(DummyScreen.new("screen_1", "Screen 1", 0.5))
+	SuitOS.register_screen(screen1)
+	SuitOS.open_screen("screen_1")
+	SuitOS.set_context({"level": "cryo_01", "hazard": true})
+
+	assert_str(SuitOS.get_active_screen_id()).is_equal("screen_1")
+	assert_bool(SuitOS.get_context().empty()).is_false()
+
+	# Trigger pre_scene_swap handler
+	SuitOS._on_pre_scene_swap()
+
+	# Active screen is closed, context is reset to empty, screen remains registered
+	assert_str(SuitOS.get_active_screen_id()).is_empty()
+	assert_bool(SuitOS.get_context().empty()).is_true()
+	assert_bool(SuitOS.has_screen("screen_1")).is_true()
 
 func _on_haptic_event(kind: String, intensity: float) -> void:
 	_received_haptic.append({"kind": kind, "intensity": intensity})
