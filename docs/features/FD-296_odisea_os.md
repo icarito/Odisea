@@ -168,12 +168,38 @@ v1 = push completo del snapshot; binario/deltas solo si el perfil lo exige.
 Los hápticos (`haptic{kind}`) son eventos de salida del núcleo, nunca de las
 pantallas.
 
+### Integración con sistemas existentes (quién manda qué)
+
+**Regla:** OdiseaOS aporta el **registro y los datos**; NO crea un segundo
+sistema de presentación, pausa ni transporte. Cada responsabilidad que ya
+tiene dueño se delega.
+
+| Sistema existente | Qué aporta | Rol en OdiseaOS |
+|---|---|---|
+| `OverlayUIManager` (slots `Passive`/`HUD`/`Modal`, layer 115, `PROCESS`) | Contenedor de overlays con re-instanciación y manejo de `queue_free` ya resueltos | **Presentador de slots.** Los widgets de Slot A/B se montan acá (slot `HUD`). SuitOS no crea CanvasLayer propio. |
+| `TerminalHUDBridge` + `HelmetHUDV2` | Attach a cámara activa, transición 0.45 s, radio de interacción, auto-close, bridge de input | **Presentador del modo HUD.** `view_scene()` se acopla por este bridge. `HelmetHUDV2` deja de ser un sistema aparte: pasa a ser *una pantalla más* del registro. |
+| `PauseManager` | Dueño de la pausa Y del back de Android (`WM_GO_BACK_REQUEST`, `quit_on_go_back(false)`) | **Dueño de la pausa.** F3 le pide pausa a `PauseManager`; SuitOS **nunca** hace `get_tree().paused = true` por su cuenta. |
+| `DebugConsoleManager` | Autoload que spawnea HUD, `pause_mode = PROCESS`, cierra en `pre_scene_swap`, y usa acción de input **propia** (documenta el bug del "input doble" por compartir `toggle_debug_menu`) | **Plantilla a copiar.** SuitOS replica el corte por escena y NO reclama la acción del debug console. Cada pantalla declara su propia acción de input. |
+| `PlayerHintManager` | Overlay persistente con expiración, dedupe y refresh montado en `OverlayUIManager` slot `HUD` | **Patrón del widget persistente** (Slot B). |
+| `CargolHUD` (`add_to_group("hud")`) | HUD ad-hoc del estado del dron | **Renovar en F2:** Cargol es una pantalla registrable; el grupo `"hud"` se retira. |
+| `RemoteControlServer.send_ui_directive(op, payload)` (canal `ui` del protocolo) | Canal de directivas ya existente en FD-294 | **Transporte remoto.** F4 mapea `screen_data` a `send_ui_directive`, no a un canal nuevo. |
+| `RuntimeControlManager` (autoload) | Host activo sólo en escenas de gameplay (`_is_gameplay_scene`) | Confirma que el layout local vs. remoto ya viene decidido por escena; SuitOS no reimplementa esa detección. |
+| `EventBus` | ❌ **No existe como autoload** (`/root/EventBus` se consulta en `SignagePanel`/`AreaInfoScreen` pero no está en `project.godot`) | Aclaración: las señales de `SuitOS` **son** el bus de OdiseaOS. Si el proyecto adopta un `EventBus` global, SuitOS se suscribe — no lo crea. |
+
+**Nada se supersede en F1–F2.** El riesgo real de FD-296 no es dejar atrás
+sistemas, es **crear un segundo sistema paralelo** de HUD, pausa y transporte.
+Los contratos de datos (snapshots, `allowed_actions`, `perform_action`) son
+propios de SuitOS; la presentación y la pausa se delegan a los sistemas de
+arriba.
+
 ### Fases de implementación
 
 - **F1 — esta delegación (Jules):** `SuitOS.gd` + `HUDableComponent.gd`
   (patrón `InteractableEntity`) + contratos de esta sección + tests
-  `test_suit_os.gd` / `test_hudable.gd` con fuentes dummy. **No toca**
-  RemoteControl*, Menu*, pausa ni cámara.
+  `test_suit_os.gd` / `test_hudable.gd` con fuentes dummy. Incluye el corte
+  por escena (`SceneManager.pre_scene_swap` → cerrar pantalla activa y limpiar
+  slots), replicando `DebugConsoleManager`. **No toca** RemoteControl*,
+  Menu*, PauseManager, pausa ni cámara.
 - **F2:** `ShipSystemBus` + pantalla "Sistemas de nave" (hereda FD-295) +
   estado de `MultiToolV2`.
 - **F3:** modo HUD local (transición 1ra persona + pausa + radial
@@ -206,7 +232,7 @@ pantallas.
 
 ## Files to Modify
 
-- `core_v2/autoloads/SuitOS.gd` (nuevo autoload: registro, scorer, slots, señales, haptic bus)
+- `core_v2/autoloads/SuitOS.gd` (nuevo autoload: registro, scorer, slots, señales, haptic bus, corte por `pre_scene_swap`)
 - `core_v2/components/HUDableComponent.gd` (nuevo: vista + widget + registro, patrón `InteractionMarker`)
 - `core_v2/components/shared/InteractableEntity.gd` (integrar HUDable opcional)
 - `core_v2/things/SystemStatusHUD.gd` + `.tscn` (pantalla Sistemas de nave; hereda de FD-295)
@@ -221,6 +247,8 @@ pantallas.
 
 ## Verification
 
+0. **Corte por escena**: cambiar de escena con una pantalla activa no deja
+   HUDs huérfanos (mismo patrón que `DebugConsoleManager`).
 1. **Transición**: entrar a modo HUD hace transición a 1ra persona, el mundo
    pausa, se abre el radial, y **no** se disparan inputs del mundo (regresión
    del bug "OK pesca Partida Nueva").
