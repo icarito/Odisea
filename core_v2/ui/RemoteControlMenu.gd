@@ -5,11 +5,11 @@ extends Control
 signal closed()
 
 onready var status_label: Label = $VBox/StatusLabel
-onready var sessions_item_list: ItemList = $VBox/SessionsItemList
-onready var pin_display_label: Label = $VBox/VBoxPin/HBoxPin/PinDisplayLabel
-onready var pair_button: Button = $VBox/VBoxPin/HBoxPin/PairButton
+onready var hosts: VBoxContainer = $VBox/SessionsScroll/Hosts
+onready var pin_display_label: Label = $VBox/PinDisplayLabel
 onready var refresh_button: Button = $VBox/HBoxActions/RefreshButton
 onready var back_button: Button = $VBox/HBoxActions/BackButton
+onready var log_toggle: Button = $VBox/LogToggle
 onready var log_text: TextEdit = $VBox/LogText
 
 var RemoteControlManager = null
@@ -23,10 +23,8 @@ func _ready():
 		refresh_button.connect("pressed", self, "_on_refresh_pressed")
 	if back_button:
 		back_button.connect("pressed", self, "_on_back_pressed")
-	if pair_button:
-		pair_button.connect("pressed", self, "_on_pair_pressed")
-	if sessions_item_list:
-		sessions_item_list.connect("item_selected", self, "_on_session_selected")
+	if log_toggle:
+		log_toggle.connect("pressed", self, "_on_log_toggle")
 
 	if RemoteControlManager and RemoteControlManager.discovery:
 		RemoteControlManager.discovery.connect("sessions_updated", self, "_on_sessions_updated")
@@ -37,6 +35,8 @@ func _ready():
 
 func open_menu() -> void:
 	show()
+	log_text.hide()
+	log_toggle.text = "Ver registro"
 	_log("Aquí aparecen las sesiones de ODISEA en curso en tu red local. Selecciona una y pulsa Emparejar.")
 	if RemoteControlManager and RemoteControlManager.discovery:
 		RemoteControlManager.discovery.start_discovery()
@@ -56,11 +56,13 @@ func _on_refresh_pressed() -> void:
 func _on_back_pressed() -> void:
 	close_menu()
 
-func _on_session_selected(index: int) -> void:
-	var metadata = sessions_item_list.get_item_metadata(index)
-	if metadata is String:
-		_selected_key = metadata
-		_log("Sesión seleccionada: %s" % _selected_key)
+func _on_host_pressed(key: String) -> void:
+	_selected_key = key
+	_on_pair_pressed()
+
+func _on_log_toggle() -> void:
+	log_text.visible = not log_text.visible
+	log_toggle.text = "Ocultar registro" if log_text.visible else "Ver registro"
 
 func _on_pair_pressed() -> void:
 	if _selected_key == "" or not _discovered_map.has(_selected_key):
@@ -93,9 +95,10 @@ func _on_pair_pin_received(pin: String) -> void:
 
 func _on_sessions_updated(sessions: Dictionary) -> void:
 	_discovered_map = sessions
-	if not sessions_item_list:
+	if not hosts:
 		return
-	sessions_item_list.clear()
+	for child in hosts.get_children():
+		child.queue_free()
 
 	var keys = sessions.keys()
 	if keys.size() == 0:
@@ -105,26 +108,24 @@ func _on_sessions_updated(sessions: Dictionary) -> void:
 	status_label.text = "Sesiones encontradas: %d" % keys.size()
 	for key in keys:
 		var s = sessions[key]
-		var text = "%s (%s) - %s" % [s.get("session_name", "Odisea"), s.get("version", "v0.4.0"), s.get("ip", "")]
-		var idx = sessions_item_list.add_item(text)
-		sessions_item_list.set_item_metadata(idx, key)
+		var button := Button.new()
+		button.text = "%s\n%s" % [s.get("session_name", "Odisea Host"), s.get("version", "v0.4.0")]
+		button.rect_min_size = Vector2(0, 72)
+		button.connect("pressed", self, "_on_host_pressed", [key])
+		hosts.add_child(button)
 
 func _on_connection_state_changed(status_text: String, _is_connected: bool) -> void:
 	_log("Estado red: " + status_text)
 
 func _on_pair_result_received(ok: bool, reason: String) -> void:
 	if ok:
-		_log("¡EMPAREJAMIENTO EXITOSO! Dispositivo listo.")
+		RemoteControlManager.discovery.stop_discovery()
+		get_tree().change_scene("res://core_v2/ui/RemoteControlHome.tscn")
 	else:
 		_log("Emparejamiento rechazado: " + reason)
 
 func _on_ui_directive_received(op: String, payload: Dictionary) -> void:
 	_log("UI DIRECTIVE [%s]: %s" % [op, String(payload)])
-
-func _gui_input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch and event.pressed:
-		if RemoteControlManager and RemoteControlManager.client:
-			RemoteControlManager.client.send_touch_input({"x": event.position.x, "y": event.position.y})
 
 func _log(msg: String) -> void:
 	if log_text:

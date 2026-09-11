@@ -6,6 +6,10 @@ var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 var RemoteDiscovery = load("res://core_v2/net/RemoteDiscovery.gd")
 var RemoteControlServer = load("res://core_v2/net/RemoteControlServer.gd")
 var RemoteControlClient = load("res://core_v2/net/RemoteControlClient.gd")
+var RemoteControlManager = load("res://core_v2/net/RemoteControlManager.gd")
+var RemotePairingDialogScene = load("res://core_v2/ui/RemotePairingDialog.tscn")
+var RemoteControlHomeScene = load("res://core_v2/ui/RemoteControlHome.tscn")
+var RemoteControlMenuScene = load("res://core_v2/ui/RemoteControlMenu.tscn")
 
 func test_protocol_serialize_and_parse():
 	var announce = RemoteProtocol.create_announce_payload("Test Session", "v0.4.0", 10443, 10444)
@@ -79,3 +83,33 @@ func test_server_pin_generation():
 	assert_bool(pin2.is_valid_integer()).is_true()
 
 	server.queue_free()
+
+func test_hosting_is_limited_to_gameplay_scenes():
+	var manager = RemoteControlManager.new()
+	assert_bool(manager._is_gameplay_scene("res://scenes/Menu.tscn")).is_false()
+	assert_bool(manager._is_gameplay_scene("res://core_v2/bootstrap/Boot.tscn")).is_false()
+	assert_bool(manager._is_gameplay_scene("res://core_v2/ui/RemoteControlHome.tscn")).is_false()
+	assert_bool(manager._is_gameplay_scene("res://core_v2/levels/interiors/Dome_Intro.tscn")).is_true()
+	manager.free()
+
+func test_pairing_popup_hide_waits_for_confirmation():
+	var dialog = RemotePairingDialogScene.instance()
+	add_child(dialog)
+	dialog._active = true
+	dialog._on_popup_hide()
+	assert_bool(dialog._active).is_true()
+	dialog._finish(false)
+	dialog.queue_free()
+
+func test_remote_home_scene_loads():
+	var home = RemoteControlHomeScene.instance()
+	assert_object(home).is_not_null()
+	home.free()
+
+func test_discovered_hosts_are_large_buttons():
+	var menu = RemoteControlMenuScene.instance()
+	add_child(menu)
+	menu._on_sessions_updated({"host": {"session_name": "ODISEA-DESKTOP", "version": "v0.4.0"}})
+	assert_int(menu.hosts.get_child_count()).is_equal(1)
+	assert_str(menu.hosts.get_child(0).text).contains("ODISEA-DESKTOP")
+	menu.queue_free()

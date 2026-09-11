@@ -48,6 +48,10 @@ func _on_confirmed() -> void:
 
 func _on_popup_hide() -> void:
 	if _active:
+		call_deferred("_reject_if_still_active")
+
+func _reject_if_still_active() -> void:
+	if _active:
 		_finish(false)
 
 func _finish(accepted: bool) -> void:

@@ -2176,6 +2176,8 @@ func inject_input(data: Dictionary) -> void:
 	else:
 		external_input = input
 		external_input_provided = true
+	if input_provider:
+		input_provider.last_input = external_input
 
 func _accumulate_input(target: InputDataV2, source: InputDataV2) -> void:
 	target.move_vec += source.move_vec

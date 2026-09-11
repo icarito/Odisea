@@ -11,6 +11,7 @@ var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 
 export var sensor_send_interval: float = 0.033 # ~30 Hz
 export var reconnect_delay: float = 2.0
+export var sensor_streaming_enabled: bool = false
 
 var _ws_client = WebSocketClient.new()
 var _sensor_udp = PacketPeerUDP.new()
@@ -65,6 +66,12 @@ func send_touch_input(payload: Dictionary) -> void:
 	var msg = RemoteProtocol.create_input_message("touch", payload, _session_token)
 	_ws_client.get_peer(1).put_packet(RemoteProtocol.encode_json(msg).to_utf8())
 
+func send_input_data(payload: Dictionary) -> void:
+	if not _is_paired:
+		return
+	var msg = RemoteProtocol.create_input_message("input_data", payload, _session_token)
+	_ws_client.get_peer(1).put_packet(RemoteProtocol.encode_json(msg).to_utf8())
+
 func send_sensor_input(input_type: String, payload: Dictionary) -> void:
 	if not _is_paired:
 		return
@@ -91,7 +98,7 @@ func _process(delta: float) -> void:
 			_is_reconnecting = false
 			_do_connect()
 
-	if _is_paired:
+	if _is_paired and sensor_streaming_enabled:
 		_sample_and_send_sensors(delta)
 
 func _sample_and_send_sensors(delta: float) -> void:

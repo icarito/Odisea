@@ -2731,6 +2731,7 @@ config/version="v0.4.0"
 [audio]
 
 output_latency.web=100
+driver/output_latency.Android=50
 
 [autoload]
 
@@ -3071,6 +3072,15 @@ file_logging/max_log_files=3
 
 project/assembly_name="Odisea"
 
+[odisea]
+
+debug/split_load_frame=false
+debug/split_load_frame_no_physics=false
+transition/shader_settle_timeout=4.0
+transition/shader_settle_timeout.Android=2.0
+transition/vignette_hold_timeout=20.0
+transition/vignette_hold_timeout.Android=40.0
+
 [physics]
 
 common/physics_jitter_fix=0.0
@@ -3088,6 +3098,7 @@ vram_compression/import_etc=true
 vram_compression/import_pvrtc=true
 quality/shadows/filter_mode=2
 quality/shadows/filter_mode.mobile=1
+quality/gi_probes/enabled=false
 quality/reflections/high_quality_ggx=false
 quality/shading/force_vertex_shading.mobile=false
 quality/shading/use_physical_light_attenuation=true
@@ -3111,6 +3122,12 @@ quality/shading/force_vertex_shading.Android=false
 quality/shading/force_vertex_shading.iOS=false
 quality/filters/msaa.iOS=0
 quality/intended_usage/framebuffer_allocation.Android=3
-quality/gi_probes/enabled=false
 gles3/shaders/shader_compilation_mode.iOS=0
 gles3/shaders/shader_compilation_mode.Android=2
+gles3/shaders/async_compilation_starts_enabled.Android=false
+gles3/shaders/cache_conditioned_variants.Android=true
+gles3/shaders/shader_cache_always.Android=true
+quality/shadow_atlas/size.Android=2048
+quality/directional_shadow/size.Android=2048
+limits/rendering/max_lights_per_object.Android=4
+quality/filters/anisotropic_filter_level.Android=1
