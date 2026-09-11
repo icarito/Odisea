@@ -448,13 +448,20 @@ jobs:
           # el de macOS sigue siendo el stock (3.6.2.stable): la carpeta sale del
           # binario, no se escribe a mano. Con 3.6.2.stable fijo, el exportador del
           # fork no encontraba ninguna plantilla y el export salia sin artefacto.
-          TPL_VERSION="$("$GODOT_BIN" --version | cut -d. -f1-4)"
+          # Solo el patron de version: el Godot stock de macOS imprime una segunda
+          # linea ("0: <ruta del binario>") y ese salto de linea, colado en TPL_DIR,
+          # rompia el GITHUB_ENV. Tambien cubre versiones sin patch ("3.6.stable").
+          TPL_VERSION="$("$GODOT_BIN" --version 2>/dev/null | grep -Eo '^[0-9]+\.[0-9]+(\.[0-9]+)?\.[a-z0-9]+' | head -n 1)"
+          if [ -z "$TPL_VERSION" ]; then
+            echo "::error::No pude leer la version de $GODOT_BIN:"; "$GODOT_BIN" --version || true
+            exit 1
+          fi
           if [ "$RUNNER_OS" == "macOS" ]; then
             TPL_DIR="$HOME/Library/Application Support/Godot/templates/$TPL_VERSION"
           else
             TPL_DIR="$HOME/.local/share/godot/templates/$TPL_VERSION"
           fi
-          echo "Plantillas en: $TPL_DIR (exportador $("$GODOT_BIN" --version))"
+          echo "Plantillas en: $TPL_DIR"
 
           case "${{ matrix.platform }}" in
             macos) REQUIRED_TEMPLATE="$TPL_DIR/osx.zip" ;;
