@@ -42,6 +42,18 @@ func view_scene() -> PackedScene:
 func widget_scene() -> PackedScene:
 	return hud_widget_scene
 
+# FD-297: Origen de la transicion de la vista en modo HUD.
+# Devuelve {} si no hay origen especial (=> transicion a primera persona).
+# Si hay origen: { "kind": "focus_rig", "path": NodePath(...) } o
+#                 { "kind": "world_position", "position": Vector3(...) }
+func view_transition_origin() -> Dictionary:
+	var parent = get_parent()
+	if is_instance_valid(parent) and parent.has_method("get_hud_view_transition_origin"):
+		var parent_origin = parent.get_hud_view_transition_origin()
+		if typeof(parent_origin) == TYPE_DICTIONARY:
+			return parent_origin
+	return {}
+
 func relevance(context: Dictionary = {}) -> float:
 	var parent = get_parent()
 	if is_instance_valid(parent) and parent.has_method("get_hud_relevance"):

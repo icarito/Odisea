@@ -32,6 +32,8 @@ var _mouse_aim_active: bool = false
 var _confirm_was_down: bool = true
 var _touch_index: int = -1
 var _touch_start: Vector2 = Vector2.ZERO
+var _active_focused_screen: Object = null
+var _transition_t: float = 0.0
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -70,7 +72,17 @@ func _open_radial() -> void:
 	_selector.get_node("Indicator").visible = pinned >= 0
 	_selector.set_level(max(pinned, 0))
 
-func _physics_process(_delta: float) -> void:
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		_cleanup_focus()
+
+func _exit_tree() -> void:
+	_cleanup_focus()
+
+func _physics_process(delta: float) -> void:
+	if _transition_t < 1.0 and _view_host != null:
+		_transition_t = min(1.0, _transition_t + delta / 0.35)
+		_view_host.modulate.a = lerp(0.0, 1.0, _transition_t)
 	_drive_from_stream(_frame_input())
 
 # La muestra del tick. get_input() una sola vez por tick de fisica: es este overlay el que
@@ -142,7 +154,23 @@ func _on_option_selected(index: int) -> void:
 	_show_view(suit_os.get_screen(id), suit_os.get_slot_snapshot("slot_b"))
 
 func _show_view(screen: Object, snapshot: Dictionary) -> void:
-	var scene: PackedScene = screen.view_scene() if screen.has_method("view_scene") else null
+	_transition_t = 0.0
+	if _view_host != null:
+		_view_host.modulate.a = 0.0
+
+	var origin: Dictionary = {}
+	if screen != null and screen.has_method("view_transition_origin"):
+		origin = screen.view_transition_origin()
+
+	if origin.get("kind", "") == "focus_rig":
+		_cleanup_focus()
+		_active_focused_screen = screen
+		if screen.has_method("enter_focus_mode"):
+			screen.enter_focus_mode()
+	else:
+		_cleanup_focus()
+
+	var scene: PackedScene = screen.view_scene() if screen != null and screen.has_method("view_scene") else null
 	if scene != null:
 		var view: Control = scene.instance()
 		_view_host.add_child(view)
@@ -188,7 +216,14 @@ func _slot_title(snapshot: Dictionary) -> String:
 		title += " [OFFLINE]"
 	return title
 
+func _cleanup_focus() -> void:
+	if is_instance_valid(_active_focused_screen):
+		if _active_focused_screen.has_method("exit_focus_mode"):
+			_active_focused_screen.exit_focus_mode()
+	_active_focused_screen = null
+
 func _exit() -> void:
+	_cleanup_focus()
 	# SuitOS saca el overlay de SLOT_MODAL y le devuelve la pausa a PauseManager.
 	_suit_os().close_hud_mode()
 

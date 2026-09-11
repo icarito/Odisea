@@ -130,6 +130,15 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
       - El presentador (o su bridge) debe procesar **durante la pausa**
         (`pause_mode = PAUSE_MODE_PROCESS`): el mundo ya está pausado cuando
         corre la animación.
+      - **Transición según el origen (FD-297)**: cada `HUDableComponent` declara
+        su origen mediante `view_transition_origin() -> Dictionary`:
+        - **HoloTerminal** (`HoloTerminalHUDable` cuando tiene `allow_focus_mode`
+          y `FocusedRig` existente): devuelve `{"kind": "focus_rig", "path": NodePath(...)}`.
+          El modo HUD le pide foco al terminal (`enter_focus_mode()`), activando su
+          cámara de foco (`FocusedRig/Camera`) vía `CinematicManager`; al cerrar, se
+          libera el foco (`exit_focus_mode()`).
+        - **Sistema / prop ad hoc** (sin rig): devuelve `{}` → transición a primera
+          persona (el casco).
       - El **radial y las etiquetas de slot siguen siendo 2D** en el overlay
         `SLOT_MODAL`; el presentador es solo la pantalla diegética. No nace un
         segundo sistema de presentación: el overlay sigue siendo

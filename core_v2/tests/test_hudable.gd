@@ -101,6 +101,11 @@ func test_hudable_parent_delegation() -> void:
 
 	get_tree().root.remove_child(parent)
 
+func test_view_transition_origin_default_returns_empty_dict() -> void:
+	var comp = auto_free(HUDableComponentScript.new())
+	var origin: Dictionary = comp.view_transition_origin()
+	assert_dict(origin).is_empty()
+
 func test_interactable_entity_integration() -> void:
 	var entity: InteractableEntity = auto_free(InteractableEntity.new())
 	var comp = auto_free(HUDableComponentScript.new())

@@ -231,6 +231,40 @@ func test_empty_registry_shows_placeholder() -> void:
 	assert_bool(overlay._selector.is_open()).is_false()
 
 
+class MockFocusScreen:
+	extends HUDableComponent
+
+	var enter_called: bool = false
+	var exit_called: bool = false
+	var mock_origin: Dictionary = {}
+
+	func view_transition_origin() -> Dictionary:
+		return mock_origin
+
+	func enter_focus_mode() -> void:
+		enter_called = true
+
+	func exit_focus_mode() -> void:
+		exit_called = true
+
+func test_focus_rig_origin_triggers_enter_and_exit_focus_mode() -> void:
+	var mock = auto_free(MockFocusScreen.new())
+	mock.hud_screen_id = "test:focus"
+	mock.hud_screen_title = "Focus Screen"
+	mock.mock_origin = {"kind": "focus_rig", "path": NodePath("Test/Path")}
+	add_child(mock)
+
+	assert_array(SuitOS.get_registered_screens()).contains(["test:focus"])
+	assert_dict(mock.view_transition_origin()).is_equal({"kind": "focus_rig", "path": NodePath("Test/Path")})
+
+	SuitOS.open_hud_mode()
+	assert_bool(mock.enter_called).is_true()
+	assert_bool(mock.exit_called).is_false()
+
+	SuitOS.close_hud_mode()
+	yield(await_idle_frame(), "completed")
+	assert_bool(mock.exit_called).is_true()
+
 func test_suitos_snapshot_restore_intact() -> void:
 	_screen("test:a", "Alpha")
 	SuitOS.pin_screen("test:a")

@@ -121,6 +121,39 @@ func view_size() -> Vector2:
 	var viewport = terminal.get_node_or_null("Viewport") if is_instance_valid(terminal) else null
 	return (viewport as Viewport).size if viewport is Viewport else Vector2.ZERO
 
+# FD-297: Devuelve la camara de foco del terminal si este permite modo foco y el rig existe.
+func view_transition_origin() -> Dictionary:
+	var terminal = _get_terminal()
+	if is_instance_valid(terminal):
+		var allow_focus: bool = false
+		if terminal.has_method("can_focus"):
+			allow_focus = terminal.can_focus()
+		elif "allow_focus_mode" in terminal:
+			allow_focus = bool(terminal.get("allow_focus_mode"))
+
+		if allow_focus:
+			var focused_rig = terminal.get_node_or_null("CinematicSetup/FocusedRig")
+			if is_instance_valid(focused_rig) and focused_rig.is_inside_tree():
+				return {
+					"kind": "focus_rig",
+					"path": focused_rig.get_path()
+				}
+	return {}
+
+func enter_focus_mode() -> void:
+	var terminal = _get_terminal()
+	if is_instance_valid(terminal):
+		if terminal.has_method("focus"):
+			terminal.focus()
+		elif terminal.has_method("_enter_focus_mode"):
+			terminal._enter_focus_mode()
+
+func exit_focus_mode() -> void:
+	var terminal = _get_terminal()
+	if is_instance_valid(terminal):
+		if terminal.has_method("_exit_focus_mode"):
+			terminal._exit_focus_mode()
+
 func relevance(context: Dictionary = {}) -> float:
 	var rel: float = default_relevance
 
