@@ -10,6 +10,8 @@ extends Node
 # - Scene Cut: Listens to SceneManager 'pre_scene_swap' signal to close active screens and clear
 #   relevance context on scene transitions. Registered screens auto-unregister via _exit_tree().
 #
+# Slot A never duplicates Slot B: the pinned screen is excluded from Slot A scoring.
+#
 # Slot A relevance threshold:
 # min_relevance_a (default 0.0, const MIN_RELEVANCE_A = 0.0) defines the minimum relevance score required
 # for a screen to occupy Slot A. If all registered screens have relevance <= min_relevance_a,
@@ -196,13 +198,15 @@ func close_screen() -> void:
 func get_active_screen_id() -> String:
 	return _active_screen_id
 
+# Fijar o soltar tambien reevalua Slot A: la pantalla fijada sale de la competencia de A (o
+# vuelve a ella), porque una misma pantalla nunca ocupa los dos slots.
 func pin_screen(id: String) -> void:
 	_pinned_screen_id = id
-	_reevaluate_slot_b()
+	reevaluate_slots()
 
 func unpin_screen() -> void:
 	_pinned_screen_id = ""
-	_reevaluate_slot_b()
+	reevaluate_slots()
 
 func get_pinned_screen_id() -> String:
 	return _pinned_screen_id
@@ -320,7 +324,8 @@ func _reevaluate_slot_a() -> void:
 
 	for id in _screens.keys():
 		var screen = _screens[id]
-		if not is_instance_valid(screen):
+		# La fijada ya esta en Slot B: A muestra la mas relevante de las demas, nunca un duplicado.
+		if not is_instance_valid(screen) or id == _pinned_screen_id:
 			continue
 		var rel: float = 0.0
 		if screen.has_method("relevance"):

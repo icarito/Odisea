@@ -241,3 +241,24 @@ func test_pre_scene_swap_closes_active_screen_and_resets_context() -> void:
 
 func _on_haptic_event(kind: String, intensity: float) -> void:
 	_received_haptic.append({"kind": kind, "intensity": intensity})
+
+func test_pinned_screen_never_duplicates_in_slot_a() -> void:
+	var top: DummyScreen = auto_free(DummyScreen.new("screen_top", "Top", 0.9))
+	var second: DummyScreen = auto_free(DummyScreen.new("screen_second", "Second", 0.5))
+	SuitOS.register_screen(top)
+	SuitOS.register_screen(second)
+	assert_str(SuitOS.get_slot_snapshot("slot_a").get("id", "")).is_equal("screen_top")
+
+	# Fijar la que A mostraba: B la toma y A pasa a la siguiente mas relevante.
+	SuitOS.pin_screen("screen_top")
+	assert_str(SuitOS.get_slot_snapshot("slot_b").get("id", "")).is_equal("screen_top")
+	assert_str(SuitOS.get_slot_snapshot("slot_a").get("id", "")).is_equal("screen_second")
+
+	# Con solo la fijada disponible, A queda vacio antes que repetirla.
+	SuitOS.unregister_screen("screen_second")
+	assert_bool(SuitOS.get_slot_snapshot("slot_a").empty()).is_true()
+
+	# Soltarla la devuelve a la competencia de A.
+	SuitOS.unpin_screen()
+	assert_str(SuitOS.get_slot_snapshot("slot_a").get("id", "")).is_equal("screen_top")
+	SuitOS.unregister_screen("screen_top")
