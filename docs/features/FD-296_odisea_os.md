@@ -77,7 +77,24 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
 #### 4. Modo HUD (local, inmersivo)
 
 1. **Entrada: TAB** (acción `hud_mode`, añadida al input map del proyecto).
-   Solo si la escena permite pausar y no hay menú abierto.
+   Solo si la escena permite pausar y no hay menú abierto. **Tap vs. hold**
+   (máquina de estados, umbral **0.4 s** — no 2 s: con el mundo pausado la
+   espera larga se siente rota):
+   - `CERRADO` + TAB down: soltar antes de 0.4 s → abre la **última pantalla
+     seleccionada** (la pinneada si existe, si no la automática); mantener
+     ≥ 0.4 s → abre el **selector radial**.
+   - `ABIERTO` (pantalla) + TAB down: soltar antes → **cierra**; mantener →
+     abre el **radial** para cambiar de pantalla sin cerrar.
+   - **El umbral se evalúa desde el stream de input grabado** (timestamp del
+     press vs. el release), nunca con `Input.is_action_pressed` en vivo —
+     mismo criterio que el selector radial: si no, el replay del modo HUD
+     diverge.
+   - **Hint de descubrimiento una vez** ("Mantén TAB para cambiar de
+     pantalla"): el hold es invisible; sin hint, nadie lo descubre. Se apaga
+     tras el primer uso.
+   - Con una sola pantalla registrada (caso de `Dome_Intro` al cerrar F3) el
+     tap cubre casi todo el uso y el radial se ejercita poco — eso **baja**
+     el riesgo de la rebanada.
 2. **El mundo pausa vía `PauseManager`** (`pause_hud_mode()`/`resume_hud_mode()`,
    métodos aditivos: `get_tree().paused` + audio `set_music_paused_by_menu`,
    **sin** instanciar `PauseMenu`). Decisión tomada con Sebastián: el modo HUD
@@ -87,12 +104,13 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
    rebanada.
 3. **Overlay full-screen** en `OverlayUIManager.ensure_overlay("HudModeOverlay",
    ..., SLOT_MODAL)` (sin CanvasLayer nuevo):
-   a. **Selector radial** de pantallas (reuso `RadialSelectorV2`, mismo patrón
-      de `ElevatorFloorSelector`: el gesto apunta, click/`ui_accept` confirma,
-      `ui_cancel` sale; no roba cursor ni corta cámara, lee del stream de
-      input para replay determinista). Slot A = automática, Slot B = fijada;
-      confirmar sobre una pantalla la fija como pin. Con una sola pantalla se
-      selecciona sola.
+   a. **Selector radial** de pantallas (se abre **manteniendo TAB ≥ 0.4 s**;
+      reuso `RadialSelectorV2`, mismo patrón de `ElevatorFloorSelector`: el
+      gesto apunta, click/`ui_accept` confirma, `ui_cancel` sale; no roba
+      cursor ni corta cámara, lee del stream de input para replay
+      determinista). Slot A = automática, Slot B = fijada; confirmar sobre
+      una pantalla la fija como pin (y esa pasa a ser la "última pantalla"
+      que abre el tap). Con una sola pantalla se selecciona sola.
    b. **Vista de la pantalla seleccionada**: instancia `view_scene()` del
       HUDable. Para `HoloTerminalHUDable`, `view_scene()` reutiliza la UI
       interna del terminal (`CryoDiagnosticsUI.tscn`, la que ya renderiza el
@@ -321,11 +339,13 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
   nave" (hereda FD-295) + estado de `MultiToolV2` + migrar `CargolHUD` a
   pantalla registrable.
 - **F3 — en diseño (pendiente delegar):** modo HUD local. Entrada por acción
-  `hud_mode` (TAB, añadida al input map); pausa vía `PauseManager` (métodos
-  aditivos, **sin** instanciar `PauseMenu`); overlay full-screen en
-  `OverlayUIManager.ensure_overlay(..., SLOT_MODAL)`; selector **radial** de
-  pantallas (reuso `RadialSelectorV2` con el patrón de `ElevatorFloorSelector`:
-  gesto apunta, confirmar fija pin en Slot B, `ui_cancel`/ESC/TAB sale); vista
+  `hud_mode` (TAB, añadida al input map) con **tap = última pantalla, hold
+  ≥ 0.4 s = radial** (evaluado desde el stream de input grabado, no en vivo);
+  pausa vía `PauseManager` (métodos aditivos, **sin** instanciar `PauseMenu`);
+  overlay full-screen en `OverlayUIManager.ensure_overlay(..., SLOT_MODAL)`;
+  selector **radial** de pantallas (reuso `RadialSelectorV2` con el patrón de
+  `ElevatorFloorSelector`: gesto apunta, confirmar fija pin en Slot B y esa
+  pasa a ser la "última", `ui_cancel`/ESC/TAB sale); vista
   = `view_scene()` del HUDable (para `HoloTerminalHUDable` reusa la UI
   interna del terminal; si null → fallback al widget ampliado; sin pantallas
   → placeholder "SIN PANTALLAS"); slot A/B reales en pantalla.
@@ -385,6 +405,11 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
    `PauseMenu`, se abre el overlay en SLOT_MODAL, y **no** se disparan inputs
    del mundo (regresión del bug "OK pesca Partida Nueva"). ESC abre el menú
    de pausa normal como siempre.
+1b. **Tap vs. hold**: tap (< 0.4 s) abre la última pantalla pinneada; hold
+   (≥ 0.4 s) abre el radial; en modo pantalla, tap cierra y hold abre el
+   radial. Con el input grabado aplicado en replay, el resultado es el mismo
+   (sin divergencia por leer el estado en vivo). El hint de descubrimiento
+   aparece una sola vez.
 2. **Relevancia**: despressurizar una línea de criocoolant → el widget
    automático cambia a Sistemas de nave sin abrir nada.
 3. **Slot fijado**: pin de una pantalla persiste entre escenas y al cargar
