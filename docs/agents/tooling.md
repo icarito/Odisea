@@ -4,13 +4,17 @@ Resumen operativo de herramientas. La referencia de reglas sigue siendo `AGENTS.
 
 ## Godot
 
-Usar siempre:
+Usar siempre el fork con Box3D:
 
 ```bash
-godot3-bin
+tools/godot            # wrapper: ejecuta lo que resuelve tools/godot_bin.sh
 ```
 
-No usar `godot`, porque puede apuntar a Godot 4 y romper sintaxis GDScript 1.x.
+`tools/godot_bin.sh` imprime la ruta del editor construido del fork (y lo reconstruye
+si el fork cambio). Nunca `godot3-bin`: es el 3.6.2 stock, sin Box3D (cae a Bullet en
+silencio), no exporta Android y borra settings de `project.godot`. Tampoco `godot`, que
+puede ser Godot 4. VSCode (`godotTools.editorPath.godot3`), el `GODOT` del Makefile y el
+hook pre-push ya apuntan a `tools/godot`.
 
 ## Tests
 
@@ -47,7 +51,7 @@ Variables utiles:
 
 - `EVAL_RAW=1`: output completo de Godot.
 - `EVAL_TIMEOUT=<s>`: timeout, default 90s.
-- `GODOT_BIN`: override del binario, default `godot3-bin`.
+- `GODOT_BIN`: override del binario, default `tools/godot_bin.sh` (fork con Box3D).
 
 Gotchas:
 
@@ -142,14 +146,14 @@ el FGD): `docs/tooling/QODOT_PIPELINE.md`. Estado y auditoria:
 `Qodot.fgd` es GENERADO desde los `.tres`; no editarlo a mano.
 
 ```bash
-godot3-bin --no-window -s tools/qodot_audit_props.gd      # mide AABB y exports reales
+tools/godot --no-window -s tools/qodot_audit_props.gd      # mide AABB y exports reales
 python3 tools/qodot_sync_point_class_sizes.py             # corrige meta_properties.size
-godot3-bin --no-window -s tools/qodot_export_fgd.gd       # regenera Qodot.fgd
-godot3-bin --no-window -s tools/qodot_validate.gd         # FGD + texturas + qodot_map.gd
-godot3-bin --no-window -s tools/qodot_wiring_smoke.gd     # cableado targetname -> target
-godot3-bin --no-window -s tools/qodot_build_smoke.gd      # todos los .map generan geometria
+tools/godot --no-window -s tools/qodot_export_fgd.gd       # regenera Qodot.fgd
+tools/godot --no-window -s tools/qodot_validate.gd         # FGD + texturas + qodot_map.gd
+tools/godot --no-window -s tools/qodot_wiring_smoke.gd     # cableado targetname -> target
+tools/godot --no-window -s tools/qodot_build_smoke.gd      # todos los .map generan geometria
 python3 tools/check_resource_refs.py                      # ningun ext_resource colgado
-godot3-bin --no-window -s tools/qodot_export_trenchbroom_config.gd  # instala GameConfig.cfg + plantilla en TrenchBroom
+tools/godot --no-window -s tools/qodot_export_trenchbroom_config.gd  # instala GameConfig.cfg + plantilla en TrenchBroom
 ```
 
 ## Assets e imports
@@ -159,7 +163,7 @@ Si se tocan assets, manifests o imports:
 ```bash
 python3 scripts/check_tracked_imports.py
 python3 scripts/check_critical_import_artifacts.py
-scripts/godot_import_smoke.sh --godot-bin godot3-bin --project-path . --clean-cache 0 --import-mode quick
+scripts/godot_import_smoke.sh --godot-bin tools/godot --project-path . --clean-cache 0 --import-mode quick
 ```
 
 No borrar `.import/` como cache: contiene artefactos versionados criticos.

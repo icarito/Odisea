@@ -54,10 +54,9 @@ fi
 
 GODOT_BIN="${GODOT_BIN:-}"
 if [[ -z "${GODOT_BIN}" ]]; then
-  if command -v godot3-bin >/dev/null 2>&1; then
-    GODOT_BIN="godot3-bin"
-  else
-    echo "[odisea-pre-push] WARNING: no Godot 3 binary found; skipped smoke. Set GODOT_BIN or install godot3-bin." >&2
+  # El fork con Box3D (tools/godot_bin.sh), nunca godot3-bin stock.
+  if ! GODOT_BIN="$(sh tools/godot_bin.sh)"; then
+    echo "[odisea-pre-push] WARNING: no pude resolver el Godot del fork (tools/godot_bin.sh); skipped smoke." >&2
     exit 0
   fi
 fi

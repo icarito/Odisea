@@ -300,12 +300,12 @@ Reglas operativas:
 ```shell
 python3 scripts/check_tracked_imports.py            # valida todos los manifests trackeados
 python3 scripts/check_critical_import_artifacts.py  # valida imports críticos versionados
-scripts/godot_import_smoke.sh --godot-bin godot3-bin --project-path . --clean-cache 0 --import-mode quick
+scripts/godot_import_smoke.sh --godot-bin tools/godot --project-path . --clean-cache 0 --import-mode quick
 scripts/install_git_hooks.sh                        # instala hooks repo-managed
 ```
 
 - `pre-commit`: valida manifests de archivos staged + imports críticos staged.
-- `pre-push`: valida todos los manifests trackeados + imports críticos, y corre smoke rápido si hay cambios de assets y existe `godot3-bin`.
+- `pre-push`: valida todos los manifests trackeados + imports críticos, y corre smoke rápido si hay cambios de assets (con el fork, via `tools/godot_bin.sh`).
 - Escapes: `ODISEA_SKIP_IMPORT_HOOKS=1` (desactiva hooks), `ODISEA_SKIP_PREPUSH_SMOKE=1` (salta solo el smoke del pre-push).
 
 ---

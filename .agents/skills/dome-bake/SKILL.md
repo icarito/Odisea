@@ -24,11 +24,11 @@ make preview-dome-variant VARIANT=DomeIntro
 
 # 2. hornear geometria — minutos
 make bake-dome-geometry                       # pipes + scaffold + hub floors
-godot3-bin --path . --no-window -s tools/bake_dome_intro_criopods.gd
+tools/godot --path . --no-window -s tools/bake_dome_intro_criopods.gd
 python3 tools/splice_criopod_bake.py          # SOLO criopods, ver abajo
 
 # 3. verificar
-godot3-bin --path . --no-window -s tools/check_hub_ring_skipped_sides.gd
+tools/godot --path . --no-window -s tools/check_hub_ring_skipped_sides.gd
 ```
 
 En el editor el lazo es inmediato: los `Floor_N` no sobreescriben `auto_build`,

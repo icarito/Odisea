@@ -24,7 +24,7 @@ Si hay conflicto, gana este orden: instrucciones del usuario actual, `AGENTS.md`
 
 ## Invariantes que no se negocian
 
-- Godot 3.6 con GDScript 1.x. Usar `godot3-bin`, no `godot`.
+- Godot 3.6 con GDScript 1.x. Usar `tools/godot` (fork con Box3D); nunca `godot3-bin` (stock) ni `godot`.
 - Todo codigo nuevo o refactorizado va en `core_v2/`.
 - No romper inmersion: la camara no salta, no rota 180 grados y no cambia de rig al entrar/salir de modos.
 - Sistema de coordenadas no estandar: `+Z = BACK`, `-Z = FORWARD`.

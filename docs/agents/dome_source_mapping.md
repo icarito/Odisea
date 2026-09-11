@@ -95,13 +95,13 @@ huérfanos.
 Correr cada baker dos veces seguidas y comparar hash de los artefactos
 producidos; deben ser idénticos. Comando por grupo (ver `Makefile`,
 target `bake-dome-geometry` para pipe/scaffold/hub — criopods y signage se
-corren manualmente con `godot3-bin --path . --no-window -s tools/bake_dome_intro_criopods.gd`
+corren manualmente con `tools/godot --path . --no-window -s tools/bake_dome_intro_criopods.gd`
 y `... -s tools/bake_signage_panels.gd` respectivamente):
 
 ```sh
-godot3-bin --path . --no-window -s tools/bake_scaffold_walkways.gd
+tools/godot --path . --no-window -s tools/bake_scaffold_walkways.gd
 sha1sum core_v2/levels/interiors/DomeIntro_*_sector_*.mesh > /tmp/run1.sha1
-godot3-bin --path . --no-window -s tools/bake_scaffold_walkways.gd
+tools/godot --path . --no-window -s tools/bake_scaffold_walkways.gd
 sha1sum core_v2/levels/interiors/DomeIntro_*_sector_*.mesh > /tmp/run2.sha1
 diff /tmp/run1.sha1 /tmp/run2.sha1  # debe estar vacío
 ```
@@ -151,7 +151,7 @@ Dos consecuencias al trabajar acá:
 ### Cómo rehornear y verificar
 
 ```bash
-godot3-bin --path . --no-window -s tools/bake_dome_intro_hub_floors.gd   # los 5 pisos
+tools/godot --path . --no-window -s tools/bake_dome_intro_hub_floors.gd   # los 5 pisos
 make bake-dome-geometry                                                  # pipes + scaffold + hub
 ```
 
@@ -159,11 +159,11 @@ Después del horneado, tres chequeos en orden de rapidez:
 
 ```bash
 # 1. triángulos de colisión por piso (los .shape son el producto)
-godot3-bin --path . --no-window -s <script que cargue Dome_Intro_Floor_N_baked.shape
+tools/godot --path . --no-window -s <script que cargue Dome_Intro_Floor_N_baked.shape
                                     e imprima get_faces().size() / 3>
 
 # 2. que el jugador siga sin caerse: el replay recorre la torre hasta y=22.7
-DBG_REPLAY=user://replay_1788458596.json godot3-bin --path . -s tools/dbg_replay_run.gd
+DBG_REPLAY=user://replay_1788458596.json tools/godot --path . -s tools/dbg_replay_run.gd
 
 # 3. los fixtures de determinismo, DE A UNO
 ./runtest.sh --oys test_locomocion_strafe
@@ -186,7 +186,7 @@ huérfana se repone. Acepta índices negativos o fuera de rango.
 Los criopods se paran sobre estos decks (r = 12, con el deck de 6 a 13): un sector
 salteado **sin** su bloqueo en los criopods deja 5 pods por piso flotando.
 
-Check: `godot3-bin --path . --no-window -s tools/check_hub_ring_skipped_sides.gd`
+Check: `tools/godot --path . --no-window -s tools/check_hub_ring_skipped_sides.gd`
 
 ## Kit modular de caneria (nuevo)
 

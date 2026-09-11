@@ -1,6 +1,8 @@
 # Makefile para Odisea Digest
 
-GODOT ?= godot3-bin
+# El fork con Box3D, nunca godot3-bin (stock: sin Box3D, no exporta Android y borra
+# settings de project.godot). tools/godot lo resuelve y lo reconstruye si hace falta.
+GODOT ?= $(CURDIR)/tools/godot
 EXPORT_FLAGS := --no-window
 NETLIFY_SITE_ID ?= $$(grep NETLIFY_SITE_ID .env 2>/dev/null | cut -d= -f2)
 NETLIFY_AUTH_TOKEN ?= $$(grep NETLIFY_AUTH_TOKEN .env 2>/dev/null | cut -d= -f2)

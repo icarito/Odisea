@@ -12,7 +12,7 @@ Codex-native operational details and historical ANNA notes.
 1. **Direct invocation** — `.Codex/skills/run-odisea/eval.sh` runs GDScript inside a
    real headless SceneTree so you can import-and-call internal code (generators,
    rotators, parsers) and print results. **Fastest path, and the layer most PRs here
-   touch** — this codebase is mostly internal systems. Needs only `godot3-bin` on PATH.
+   touch** — this codebase is mostly internal systems. Needs only the Box3D fork, via `tools/godot`.
 2. **Headless validation harnesses** — `test_prop.sh` (prop screenshots), `test_ui.sh`
    (UI screenshots), `runtest.sh` (OYS determinism + GdUnit3 suites). Deterministic, no
    live game needed, produce PNGs / pass-fail.
@@ -28,9 +28,9 @@ All paths below are relative to the repo root (`src/`). The driver lives at
 ## Prerequisites
 
 ```bash
-# Godot 3.6.x must be on PATH as godot3-bin
-which godot3-bin   # verify
-godot3-bin --version   # expect: 3.6.x.stable
+# Always the Box3D fork: tools/godot runs what tools/godot_bin.sh resolves (and rebuilds).
+# NEVER godot3-bin: stock 3.6.2, no Box3D, cannot export Android, strips project.godot settings.
+tools/godot --version   # expect: 3.6.4.rc.custom_build...
 ```
 
 No additional apt packages are needed — Godot ships its own renderer (Mesa OpenGL ES 2.0 works on Linux).
@@ -79,7 +79,7 @@ Tag your prints (`print("[t] ...")`) so they stand out from any residual engine 
 This is also how to **syntax-check** a script without an editor:
 
 ```bash
-godot3-bin --no-window --check-only -s core_v2/systems/WorldRotator.gd 2>&1 | grep -i "parse error"
+tools/godot --no-window --check-only -s core_v2/systems/WorldRotator.gd 2>&1 | grep -i "parse error"
 # (no output = clean; a "DomeRegistry isn't declared" line is a harmless autoload-not-loaded artifact in isolation)
 ```
 
@@ -109,7 +109,7 @@ bridge_connect {"host": "127.0.0.1", "port": 5000}
 ```
 bridge_launch {
   "project_path": ".",
-  "godot_exe": "godot3-bin",
+  "godot_exe": "tools/godot",
   "headless": false
 }
 ```
@@ -338,9 +338,9 @@ Expected: OYS tests print `PASSED` and exit 0. Full suite prints `✅ Todos los 
 - **OYS test replay takes ~80s** — Each `--oys` test runs two phases: record + replay. This is normal.
 - **`run/main_scene`** in `project.godot` is `res://core_v2/bootstrap/Boot.tscn`, not the Menu scene listed in some older docs.
 - **Editing a `.gd` does NOT update a web/HTML5 build until you re-export the `.pck`** — GDScript is packed into `index.pck`. The "Run in Browser" editor button exports a temp `.pck` to a system dir (not `build/`), and browsers cache it aggressively. To confirm the loaded `.pck` has your code: `grep -a "<a-string-from-your-edit>" build/index.pck` (absent = stale export). Hard-reload (Ctrl+Shift+R) after re-exporting.
-- **The container's `godot3-bin` reports `OS.has_feature("threads") == False`** — same as a non-threads HTML5 export. Code gated on threads (e.g. `ScaffoldWFCThreaded`) takes its no-thread fallback both here and in the non-threads web build. Useful: you can reproduce no-thread behaviour headlessly.
+- **The container's `tools/godot` reports `OS.has_feature("threads") == False`** — same as a non-threads HTML5 export. Code gated on threads (e.g. `ScaffoldWFCThreaded`) takes its no-thread fallback both here and in the non-threads web build. Useful: you can reproduce no-thread behaviour headlessly.
 - **`--check-only` against a script that uses an autoload class in isolation** prints e.g. `DomeRegistry isn't declared in the current scope` — that's the autoload not being loaded for a bare check, not a real error. Filter those; a true parse error says `Parse Error:` / `parse error`.
-- **`godot3-bin --no-window` leaks ObjectDB/Resources at exit** when a script instances a scene without freeing it (`instances leaked at exit`, `_first != nullptr`). Harmless for one-shot eval scripts; `eval.sh` filters it.
+- **`tools/godot --no-window` leaks ObjectDB/Resources at exit** when a script instances a scene without freeing it (`instances leaked at exit`, `_first != nullptr`). Harmless for one-shot eval scripts; `eval.sh` filters it.
 - **Headless GUI export/reimport via `--editor --quit` is unreliable** — it often closes before reimporting changed `.import` files. To force a texture reimport, delete the cached `.import/<name>-*.stex` and let the editor regenerate, or reimport from the open editor; verify with `ls .import/<name>-*.stex`.
 
 ## Prop design iteration loop

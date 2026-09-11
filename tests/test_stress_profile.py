@@ -11,7 +11,7 @@ STRESS_OYS = REPO_ROOT / "core_v2" / "tests" / "stress" / "run_stress.oys"
 
 @pytest.mark.odisea_stress
 def test_stress__run_stress_oys():
-    godot_bin = "godot3-bin"
+    godot_bin = str(REPO_ROOT / "tools" / "godot")  # fork con Box3D, nunca godot3-bin stock
     if os.path.sep in godot_bin:
         pass
     elif not any(

@@ -19,7 +19,7 @@
             "allowedModels": []
         }
     },
-    "godotTools.editorPath.godot3": "/usr/bin/godot3-bin",
+    "godotTools.editorPath.godot3": "tools/godot",
     "python.defaultInterpreterPath": "",
     "python.testing.pytestArgs": [
         "-q",
