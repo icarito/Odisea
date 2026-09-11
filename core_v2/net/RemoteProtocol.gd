@@ -88,7 +88,7 @@ static func create_pair_result(ok: bool, token: String = "", reason: String = ""
 	}
 
 static func create_ui_message(op: String, payload: Dictionary) -> Dictionary:
-	# op: "message", "prompt", "clear"
+	# op: "message", "prompt", "clear", "host_paused" ({paused: bool})
 	return {
 		"type": "ui",
 		"op": op,
@@ -173,6 +173,15 @@ static func decode_event(d: Dictionary, viewport_size: Vector2) -> InputEvent:
 	ev.meta = bool(d.get("me", false))
 	ev.command = bool(d.get("cm", false))
 	return ev
+
+# Ultimo mensaje del host al cerrar la partida a proposito: el control se va sin reintentar.
+static func create_session_end() -> Dictionary:
+	return {"type": "session_end"}
+
+# El control vuelve tras un corte sin aviso con el token de la sesion; el host contesta
+# con pair_result (ok si el token sigue vigente).
+static func create_resume(token: String) -> Dictionary:
+	return {"type": "resume", "token": token}
 
 static func create_ping() -> Dictionary:
 	return {"type": "ping"}

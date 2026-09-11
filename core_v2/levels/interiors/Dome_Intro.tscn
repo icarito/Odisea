@@ -355,6 +355,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0 )
 [node name="ColdRuptureTrigger" type="Area" parent="."]
 transform = Transform( 0.984808, 0, -0.173648, 0, 1, 0, 0.173648, 0, 0.984808, 5, 21.7, 5 )
 collision_layer = 2
+collision_mask = 2
 script = ExtResource( 5020 )
 debug_color = Color( 0.8, 0.2, 0.8, 0.3 )
 debug_render = false

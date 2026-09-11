@@ -17,6 +17,8 @@ onready var quit_button = find_node("Quit")
 onready var options_menu = $OptionsMenu
 onready var version_label = get_node_or_null("VersionLabel")
 var _continue_scene_path := ""
+# estado -> [estilo dorado, estilo gris] del boton de control remoto
+var _remote_styles: Dictionary = {}
 
 func _ready():
 	var audio_mgr = get_node_or_null("/root/AudioManager")
@@ -129,6 +131,68 @@ func _setup_remote_control():
 	var rcm = get_node_or_null("/root/RemoteControlManager")
 	if rcm:
 		rcm.connect("pairing_prompt_requested", self, "_on_remote_pairing_prompt_requested")
+	if not remote_control_button:
+		return
+	# El boton se ve gris mientras no hay ninguna partida anunciandose en la red, y toma
+	# su dorado cuando aparece una. Nunca se deshabilita: tocarlo sin partidas muestra
+	# la explicacion de que hace falta otro dispositivo en la misma wifi.
+	for state in ["normal", "hover", "pressed"]:
+		var gold: StyleBoxFlat = remote_control_button.get_stylebox(state)
+		_remote_styles[state] = [gold, _grayscale(gold)]
+	_set_remote_host_found(false)
+	# El Menu escucha la red mientras esta abierto (no solo con el panel del control
+	# remoto a la vista); lo apaga en _exit_tree.
+	if rcm and rcm.discovery:
+		rcm.discovery.connect("sessions_updated", self, "_on_remote_sessions_updated")
+		rcm.discovery.start_discovery()
+		_set_remote_host_found(not rcm.discovery.discovered_sessions.empty())
+
+func _exit_tree() -> void:
+	var rcm = get_node_or_null("/root/RemoteControlManager")
+	if rcm and rcm.discovery:
+		rcm.discovery.stop_discovery()
+
+func _on_remote_sessions_updated(sessions: Dictionary) -> void:
+	_set_remote_host_found(not sessions.empty())
+	_try_resume_remote_session(sessions)
+
+# Una sesion de control remoto que se cayo por falta de conexion se retoma sola cuando
+# ese host vuelve a anunciarse: el host todavia reconoce el token, asi que no hay PIN.
+func _try_resume_remote_session(sessions: Dictionary) -> void:
+	var rcm = get_node_or_null("/root/RemoteControlManager")
+	if not rcm or not rcm.client or _is_starting_game():
+		return
+	for session in sessions.values():
+		if rcm.client.can_resume(session):
+			if not rcm.client.is_connected("connection_restored", self, "_on_remote_session_resumed"):
+				rcm.client.connect("connection_restored", self, "_on_remote_session_resumed", [], CONNECT_ONESHOT)
+			rcm.client.resume_session(session)
+			return
+
+func _on_remote_session_resumed() -> void:
+	if _is_starting_game():
+		# El jugador eligio arrancar su propia partida mientras se retomaba: gana eso.
+		get_node("/root/RemoteControlManager").client.disconnect_from_host()
+		return
+	get_tree().change_scene("res://core_v2/ui/RemoteControlHome.tscn")
+
+# _begin_start_game y el consentimiento deshabilitan los botones al arrancar.
+func _is_starting_game() -> bool:
+	return new_game_button.disabled
+
+func _set_remote_host_found(found: bool) -> void:
+	for state in _remote_styles:
+		remote_control_button.add_stylebox_override(state, _remote_styles[state][0 if found else 1])
+	remote_control_button.hint_tooltip = "Control remoto: hay una partida en la red" if found else "Control remoto: no se detectan partidas en la red"
+
+# Misma luminancia, sin tinte: el hover del gris sigue viendose mas claro que el reposo.
+static func _grayscale(sb: StyleBoxFlat) -> StyleBoxFlat:
+	var gray := sb.duplicate() as StyleBoxFlat
+	for prop in ["bg_color", "border_color"]:
+		var c: Color = sb.get(prop)
+		var l: float = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+		gray.set(prop, Color(l, l, l, c.a))
+	return gray
 
 func _on_remote_pairing_prompt_requested(device_name: String, pin: String, callback: FuncRef):
 	var dialog_script = load("res://core_v2/ui/RemotePairingDialog.gd")

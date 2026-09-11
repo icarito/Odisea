@@ -186,6 +186,191 @@ func test_pairing_result_from_host_ends_attempt():
 	assert_int(_pair_results.size()).is_equal(1)
 	client.queue_free()
 
+var _session_end_reasons: Array = []
+var _lost: int = 0
+var _restored: int = 0
+
+func _on_session_ended(reason: String) -> void:
+	_session_end_reasons.append(reason)
+
+func _on_lost() -> void:
+	_lost += 1
+
+func _on_restored() -> void:
+	_restored += 1
+
+func _make_paired_client() -> Node:
+	var client = _make_pairing_client()
+	_session_end_reasons.clear()
+	_lost = 0
+	_restored = 0
+	client.connect("session_ended", self, "_on_session_ended")
+	client.connect("connection_lost", self, "_on_lost")
+	client.connect("connection_restored", self, "_on_restored")
+	client._auto_reconnect = true
+	client.request_pairing()
+	client._handle_message({"type": "pair_result", "ok": true, "token": "tok"})
+	return client
+
+func test_host_session_end_closes_control_at_once():
+	var client = _make_paired_client()
+	client._handle_message({"type": "session_end"})
+	assert_array(_session_end_reasons).has_size(1)
+	assert_str(_session_end_reasons[0]).contains("cerró la partida")
+	assert_bool(client._is_reconnecting).is_false()
+	assert_int(_lost).is_equal(0)
+	client.queue_free()
+
+func test_drop_without_notice_retries_and_resumes():
+	var client = _make_paired_client()
+	# Corte sin session_end (wifi): no termina, reintenta con el token.
+	client._on_ws_closed(false)
+	assert_int(_lost).is_equal(1)
+	assert_array(_session_end_reasons).is_empty()
+	assert_bool(client._is_reconnecting).is_true()
+	assert_bool(client.is_resuming()).is_true()
+	# Otro cierre durante el reintento no vuelve a avisar.
+	client._on_ws_error()
+	assert_int(_lost).is_equal(1)
+	# El host acepta el token: la sesion sigue.
+	client._handle_message({"type": "pair_result", "ok": true, "token": "tok"})
+	assert_int(_restored).is_equal(1)
+	assert_bool(client._is_paired).is_true()
+	assert_bool(client.is_resuming()).is_false()
+	client.queue_free()
+
+func test_drop_without_notice_gives_up_after_resume_timeout():
+	var client = _make_paired_client()
+	client._on_ws_closed(false)
+	client._process(client.session_resume_timeout - 1.0)
+	assert_array(_session_end_reasons).is_empty()
+	assert_float(client.get_resume_time_left()).is_less_equal(1.0)
+	client._process(2.0)
+	assert_array(_session_end_reasons).has_size(1)
+	assert_str(_session_end_reasons[0]).contains("No se pudo recuperar")
+	assert_bool(client._is_reconnecting).is_false()
+	client.queue_free()
+
+func test_session_lost_by_timeout_resumes_when_host_returns():
+	var client = _make_paired_client()
+	client._host_id = "h1"
+	client._on_ws_closed(false)
+	client._process(client.session_resume_timeout + 1.0)
+	assert_array(_session_end_reasons).has_size(1)
+	# Nadie cerro la sesion: el mismo host (y solo ese) la puede retomar.
+	assert_bool(client.can_resume({"key": "h1"})).is_true()
+	assert_bool(client.can_resume({"key": "otro"})).is_false()
+	# Cerrar el panel del control remoto no la olvida.
+	client.cancel_pairing()
+	assert_bool(client.can_resume({"key": "h1"})).is_true()
+	client.resume_session({"key": "h1", "ip": "127.0.0.1", "ws_port": 1, "sensor_port": 2})
+	assert_bool(client.is_resuming()).is_true()
+	assert_str(client._session_token).is_equal("tok")
+	client._handle_resume_result(true)
+	assert_int(_restored).is_equal(1)
+	assert_bool(client._is_paired).is_true()
+	client.disconnect_from_host()
+	client.queue_free()
+
+func test_closed_or_abandoned_sessions_are_not_resumed():
+	var client = _make_paired_client()
+	client._host_id = "h1"
+	client._handle_message({"type": "session_end"})
+	assert_bool(client.can_resume({"key": "h1"})).is_false()
+	var other = _make_paired_client()
+	other._host_id = "h1"
+	other._on_ws_closed(false)
+	other._process(other.session_resume_timeout + 1.0)
+	# El jugador sale a proposito del control: no vuelve solo despues.
+	other.disconnect_from_host()
+	assert_bool(other.can_resume({"key": "h1"})).is_false()
+	client.queue_free()
+	other.queue_free()
+
+func test_menu_resumes_lost_session_when_host_reappears():
+	var rcm = get_node_or_null("/root/RemoteControlManager")
+	if rcm == null:
+		return
+	var menu = load("res://scenes/Menu.tscn").instance()
+	add_child(menu)
+	rcm.client._resumable_token = "tok"
+	rcm.client._host_id = "h1"
+	menu._on_remote_sessions_updated({"h1": {"key": "h1", "ip": "127.0.0.1", "ws_port": 1, "sensor_port": 2}})
+	assert_bool(rcm.client.is_resuming()).is_true()
+	rcm.client.disconnect_from_host()
+	menu.queue_free()
+
+func test_host_pause_is_remembered_by_client():
+	var client = _make_paired_client()
+	client._handle_message({"type": "ui", "op": "host_paused", "payload": {"paused": true}})
+	assert_bool(client.host_paused).is_true()
+	client._handle_message({"type": "ui", "op": "host_paused", "payload": {"paused": false}})
+	assert_bool(client.host_paused).is_false()
+	client.queue_free()
+
+func test_silent_host_is_detected_by_heartbeat():
+	var client = _make_paired_client()
+	client._is_connected = true
+	client._last_rx_msec = OS.get_ticks_msec() - int(client.heartbeat_timeout * 1000.0) - 1000
+	client._process(0.01)
+	assert_int(_lost).is_equal(1)
+	assert_bool(client.is_resuming()).is_true()
+	client.queue_free()
+
+var _stalled: int = 0
+
+func _on_stalled(_device_name: String) -> void:
+	_stalled += 1
+
+func test_server_flags_silent_control_once():
+	var server = RemoteControlServer.new()
+	add_child(server)
+	_stalled = 0
+	server.connect("client_stalled", self, "_on_stalled")
+	var old: int = OS.get_ticks_msec() - int(server.client_stall_timeout * 1000.0) - 1000
+	server._peers[1] = {"device_name": "pc", "paired": true, "token": "tok", "last_rx": old, "stalled": false}
+	server._peers[2] = {"device_name": "sin emparejar", "paired": false, "token": "", "last_rx": old, "stalled": false}
+	server._check_stalled_peers()
+	server._check_stalled_peers()
+	# Solo el emparejado, y una sola vez hasta que vuelva a hablar.
+	assert_int(_stalled).is_equal(1)
+	server.queue_free()
+
+func test_server_resumes_only_the_active_token():
+	var server = RemoteControlServer.new()
+	add_child(server)
+	server._active_token = "tok"
+	server._peers[1] = {"device_name": "old", "paired": true, "token": "tok"}
+	server._peers[2] = {"device_name": "pc", "paired": false, "token": ""}
+	server._peers[3] = {"device_name": "otro", "paired": false, "token": ""}
+	server._handle_resume(2, {"token": "tok"})
+	assert_bool(server._peers[2]["paired"]).is_true()
+	# La conexion vieja del mismo token se descarta.
+	assert_bool(server._peers.has(1)).is_false()
+	server._handle_resume(3, {"token": "otro-token"})
+	assert_bool(server._peers[3]["paired"]).is_false()
+	server.queue_free()
+
+func test_menu_remote_button_lights_up_with_a_host():
+	var menu = load("res://scenes/Menu.tscn").instance()
+	add_child(menu)
+	var button: Button = menu.remote_control_button
+	var gold: StyleBoxFlat = menu._remote_styles["normal"][0]
+	var gray: StyleBoxFlat = menu._remote_styles["normal"][1]
+	assert_float(gray.bg_color.r).is_equal(gray.bg_color.g)
+	assert_float(gray.bg_color.g).is_equal(gray.bg_color.b)
+
+	menu._on_remote_sessions_updated({})
+	assert_object(button.get_stylebox("normal")).is_same(gray)
+	assert_bool(button.disabled).is_false()
+
+	menu._on_remote_sessions_updated({"h": {"session_name": "pc"}})
+	assert_object(button.get_stylebox("normal")).is_same(gold)
+
+	menu._on_remote_sessions_updated({})
+	assert_object(button.get_stylebox("normal")).is_same(gray)
+	menu.queue_free()
+
 func test_device_label_names_os():
 	assert_str(RemoteProtocol.device_label()).contains(RemoteProtocol.os_label())
 

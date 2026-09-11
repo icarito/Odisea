@@ -24,6 +24,8 @@ var _mouse_mode_before_pairing: int = Input.MOUSE_MODE_VISIBLE
 # Si el control se desconecta o pierde el foco sin mandar el key-up, el host se quedaria
 # con la tecla pegada (el jugador corriendo solo).
 var _remote_held: Dictionary = {}
+# Ultimo estado de pausa avisado a los controles; -1 fuerza reenviarlo.
+var _sent_paused: int = -1
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
@@ -47,12 +49,34 @@ func _ready():
 	server.connect("client_pair_requested", self, "_on_server_pair_requested")
 	server.connect("input_received", self, "_on_server_input_received")
 	server.connect("client_disconnected", self, "_on_server_client_disconnected")
+	server.connect("client_stalled", self, "_on_server_client_disconnected")
+	server.connect("client_connected", self, "_on_server_client_connected")
 
 	_apply_settings()
 	call_deferred("_sync_host_for_scene")
 
 func _process(_delta: float) -> void:
 	_sync_host_for_scene()
+	_sync_pause_to_controls()
+
+# El control remoto muestra cuando la partida esta en pausa aca (menu de pausa, perdida
+# de foco, dialogo de emparejamiento). Solo se manda al cambiar, y de nuevo a cada
+# control que se empareja o retoma (_on_server_client_connected).
+func _sync_pause_to_controls() -> void:
+	if not is_host_active:
+		return
+	var paused: int = int(get_tree().paused)
+	if paused != _sent_paused:
+		_sent_paused = paused
+		server.send_ui_directive("host_paused", {"paused": paused == 1})
+
+func _on_server_client_connected(_device_name: String) -> void:
+	_sent_paused = -1
+
+# Cerrar la app (Salir, quit) tambien es cerrar la partida: el control recibe session_end
+# y se va en vez de reintentar 30 s. Si el sistema mata el proceso no hay aviso posible.
+func _exit_tree() -> void:
+	stop_host_services()
 
 func _apply_settings() -> void:
 	var sm = get_node_or_null("/root/SettingsManager")
@@ -63,7 +87,12 @@ func _apply_settings() -> void:
 
 func _sync_host_for_scene() -> void:
 	var scene = get_tree().current_scene
-	var scene_path: String = scene.filename if scene else ""
+	# A mitad de un cambio de escena SceneManager deja current_scene en null un frame:
+	# eso no es "salir del juego". Apagar ahi cortaba al control remoto en cada cambio
+	# de nivel (y el control se cierra solo cuando se le cae la sesion).
+	if scene == null:
+		return
+	var scene_path: String = scene.filename
 	var should_host: bool = remote_control_enabled and _is_gameplay_scene(scene_path)
 	if should_host and not is_host_active:
 		start_host_services()

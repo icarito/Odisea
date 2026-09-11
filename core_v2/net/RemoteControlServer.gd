@@ -6,12 +6,17 @@ signal client_pair_requested(device_name, pin, callback)
 signal client_connected(device_name)
 signal client_disconnected(device_name)
 signal input_received(input_type, payload)
+# Un control emparejado dejo de hablar (ni pings) sin cerrar la conexion: wifi caido.
+# Lo que tenia apretado hay que soltarlo ya, no cuando TCP se rinda minutos despues.
+signal client_stalled(device_name)
 
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 
 export var ws_port: int = 10443
 export var sensor_udp_port: int = 10444
 export var pairing_timeout: float = 30.0
+# El control manda un ping por segundo (RemoteControlClient.heartbeat_interval).
+export var client_stall_timeout: float = 3.0
 
 var _ws_server = WebSocketServer.new()
 var _sensor_udp = PacketPeerUDP.new()
@@ -29,13 +34,16 @@ var _last_sensor_timestamp: float = 0.0
 var _sensor_active: bool = false
 export var sensor_timeout: float = 2.0
 
-func start_server(p_ws_port: int = 10443, p_sensor_port: int = 10444) -> bool:
-	ws_port = p_ws_port
-	sensor_udp_port = p_sensor_port
-
+# En _ready y no en start_server: el host se apaga y se prende en cada ida y vuelta
+# entre el menu y el juego, y reconectar tiraba "already connected" cada vez.
+func _ready() -> void:
 	_ws_server.connect("client_connected", self, "_on_ws_client_connected")
 	_ws_server.connect("client_disconnected", self, "_on_ws_client_disconnected")
 	_ws_server.connect("data_received", self, "_on_ws_data_received")
+
+func start_server(p_ws_port: int = 10443, p_sensor_port: int = 10444) -> bool:
+	ws_port = p_ws_port
+	sensor_udp_port = p_sensor_port
 
 	var err = _ws_server.listen(ws_port)
 	if err != OK:
@@ -53,9 +61,15 @@ func start_server(p_ws_port: int = 10443, p_sensor_port: int = 10444) -> bool:
 func stop_server() -> void:
 	if not _server_started:
 		return
+	# Ultimo mensaje: el control sabe que la partida se cerro a proposito y no se queda
+	# reintentando. El poll lo empuja al socket antes de que stop() lo cierre.
+	_broadcast_to_paired(RemoteProtocol.encode_json(RemoteProtocol.create_session_end()))
+	_ws_server.poll()
 	_ws_server.stop()
 	_sensor_udp.close()
 	_peers.clear()
+	# Una sesion cerrada no se puede retomar con su token.
+	_active_token = ""
 	_server_started = false
 
 func generate_pin() -> String:
@@ -98,6 +112,17 @@ func _process(delta: float) -> void:
 			# Sin esto el rechazo se reenviaba cada frame hasta que el dialogo cerraba.
 			_pairing_peer_id = -1
 
+	_check_stalled_peers()
+
+func _check_stalled_peers() -> void:
+	var now: int = OS.get_ticks_msec()
+	for peer_id in _peers:
+		var peer: Dictionary = _peers[peer_id]
+		if peer.get("paired", false) and not peer.get("stalled", false) \
+				and now - int(peer.get("last_rx", now)) > int(client_stall_timeout * 1000.0):
+			peer["stalled"] = true
+			emit_signal("client_stalled", peer.get("device_name", ""))
+
 func _process_sensor_udp(delta: float) -> void:
 	while _sensor_udp.get_available_packet_count() > 0:
 		var pkt = _sensor_udp.get_packet()
@@ -116,7 +141,7 @@ func _process_sensor_udp(delta: float) -> void:
 
 func _on_ws_client_connected(id: int, _protocol: String) -> void:
 	print("[RemoteControlServer] WS client connected ID ", id)
-	_peers[id] = {"device_name": "Dispositivo Móvil", "paired": false, "token": ""}
+	_peers[id] = {"device_name": "Dispositivo Móvil", "paired": false, "token": "", "last_rx": OS.get_ticks_msec(), "stalled": false}
 
 func _on_ws_client_disconnected(id: int, _was_clean_close: bool) -> void:
 	print("[RemoteControlServer] WS client disconnected ID ", id)
@@ -131,14 +156,36 @@ func _on_ws_data_received(id: int) -> void:
 	var pkt_str = packet.get_string_from_utf8()
 	var dict = RemoteProtocol.decode_json(pkt_str)
 	var type = dict.get("type", "")
+	if _peers.has(id):
+		_peers[id]["last_rx"] = OS.get_ticks_msec()
+		_peers[id]["stalled"] = false
 
 	match type:
 		"pair_request":
 			_handle_pair_request(id, dict)
+		"resume":
+			_handle_resume(id, dict)
 		"input":
 			_handle_input(id, dict)
 		"ping":
 			_ws_server.get_peer(id).put_packet(RemoteProtocol.encode_json(RemoteProtocol.create_pong()).to_utf8())
+
+# Control que vuelve tras un corte sin aviso: con el token vigente sigue la misma sesion,
+# sin PIN ni dialogo. La conexion vieja (si el host nunca vio que se cayo) se descarta.
+func _handle_resume(id: int, dict: Dictionary) -> void:
+	var token := String(dict.get("token", ""))
+	if token == "" or token != _active_token or not _peers.has(id):
+		_send_pair_result(id, false, "", "la sesión ya no existe")
+		return
+	for other_id in _peers.keys():
+		if other_id != id and _peers[other_id].get("token", "") == token:
+			_peers.erase(other_id)
+			if _ws_server.has_peer(other_id):
+				_ws_server.disconnect_peer(other_id)
+	_peers[id]["paired"] = true
+	_peers[id]["token"] = token
+	_send_pair_result(id, true, token, "")
+	emit_signal("client_connected", _peers[id]["device_name"])
 
 func _handle_pair_request(id: int, dict: Dictionary) -> void:
 	var device_name = dict.get("device_name", "Dispositivo Móvil")

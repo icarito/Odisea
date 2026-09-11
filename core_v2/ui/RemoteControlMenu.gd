@@ -55,14 +55,16 @@ func open_menu() -> void:
 	log_text.hide()
 	log_toggle.text = "Ver registro"
 	back_button.grab_focus()
-	_restart_search()
+	# El Menu ya viene escuchando la red (su boton se colorea con eso): se arranca con lo
+	# que ya se detecto, sin vaciarlo y esperar el proximo anuncio.
+	_restart_search(false)
 
 func close_menu() -> void:
 	hide()
-	if RemoteControlManager and RemoteControlManager.discovery:
-		RemoteControlManager.discovery.stop_discovery()
-		# Sin esto el cliente queda reintentando conectarse para siempre en segundo plano.
-		RemoteControlManager.client.disconnect_from_host()
+	# discovery sigue: es del Menu. Sin esto el cliente queda reintentando conectarse
+	# para siempre en segundo plano (una sesion guardada para retomar no se toca).
+	if RemoteControlManager and RemoteControlManager.client:
+		RemoteControlManager.client.cancel_pairing()
 	emit_signal("closed")
 	# Menu instancia uno nuevo cada vez; oculto seguiria escuchando discovery y
 	# auto-emparejando por su cuenta.
@@ -77,7 +79,8 @@ func _input(event: InputEvent) -> void:
 			close_menu()
 		get_tree().set_input_as_handled()
 
-func _restart_search() -> void:
+# flush=true ("Buscar de nuevo") descarta lo detectado y espera anuncios frescos.
+func _restart_search(flush: bool = true) -> void:
 	_attempted_key = ""
 	_awaiting_confirm = false
 	connect_confirm.hide()
@@ -85,8 +88,12 @@ func _restart_search() -> void:
 	sessions_scroll.hide()
 	status_label.text = SEARCH_HINT
 	if RemoteControlManager and RemoteControlManager.discovery:
-		RemoteControlManager.discovery.stop_discovery()
-		RemoteControlManager.discovery.start_discovery()
+		var discovery = RemoteControlManager.discovery
+		if flush:
+			discovery.stop_discovery()
+		discovery.start_discovery()
+		if not flush:
+			_on_sessions_updated(discovery.discovered_sessions)
 
 func _on_refresh_pressed() -> void:
 	_log("Buscando sesiones en la red...")
@@ -141,7 +148,7 @@ func _on_pair_pressed() -> void:
 		# El cliente reintenta hasta que el host conteste y, si no, avisa por
 		# pair_result_received con el motivo. device_label es lo que ve el host en el
 		# dialogo de permiso: "icarito-pc (Linux)".
-		RemoteControlManager.client.pair_with(ip, ws_port, sensor_port, RemoteProtocol.device_label())
+		RemoteControlManager.client.pair_with(ip, ws_port, sensor_port, RemoteProtocol.device_label(), _selected_key)
 
 func _on_pair_pin_received(pin: String) -> void:
 	if pin_display_label:
@@ -163,7 +170,11 @@ func _on_sessions_updated(sessions: Dictionary) -> void:
 	var keys = sessions.keys()
 	# Con una sola partida no hay nada que elegir: se pasa directo a confirmarla.
 	sessions_scroll.visible = keys.size() > 1
-	if _attempted_key == "":
+	# Menu.gd retoma sola una sesion cortada cuando su host reaparece: no se pregunta.
+	var client = RemoteControlManager.client if RemoteControlManager else null
+	if client and client.is_resuming():
+		status_label.text = "Retomando la sesión anterior..."
+	elif _attempted_key == "":
 		match keys.size():
 			0:
 				status_label.text = SEARCH_HINT
