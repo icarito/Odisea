@@ -13,9 +13,13 @@
 # siguiente uso reconstruya; build.sh reaplica los patches desde un checkout limpio,
 # asi que el editor resultante coincide exacto con el fork.
 #
+# Sin checkout del fork (CI, cloud) baja el binario del release de
+# .github/box3d_release a ~/.cache/odisea-godot/<release>/.
+#
 # Variables:
-#   ODISEA_GODOT_BIN  override explicito, sin chequeos
-#   ODISEA_FORK_DIR   checkout de godot-box3d-3 (el clon de godot va al lado)
+#   ODISEA_GODOT_BIN    override explicito, sin chequeos
+#   ODISEA_FORK_DIR     checkout de godot-box3d-3 (el clon de godot va al lado)
+#   ODISEA_GODOT_CACHE  donde guardar el binario del release
 #   SCONS_CACHE       se respeta si esta definido
 #
 # La salida de la build va a stderr: stdout es solo la ruta, porque los scripts
@@ -29,9 +33,32 @@ fi
 FORK_DIR="${ODISEA_FORK_DIR:-/run/media/icarito/DATA/icarito/Proyectos/godot3-box3d/godot-box3d-3}"
 BIN="$(dirname "$FORK_DIR")/godot/bin/godot.x11.opt.tools.64"
 
+# Sin checkout del fork (CI, sesiones cloud): el binario del release que fija
+# .github/box3d_release, bajado una vez a un cache. Headless si no hay display --
+# es un build platform=server, corre en un runner pelado --; el editor si lo hay.
 if [ ! -x "$FORK_DIR/scripts/build.sh" ]; then
-    echo "godot_bin: no encuentro el fork en $FORK_DIR (defina ODISEA_FORK_DIR)." >&2
-    exit 1
+    RELEASE="$(cat "$(dirname "$0")/../.github/box3d_release" 2>/dev/null)"
+    if [ -z "$RELEASE" ]; then
+        echo "godot_bin: sin fork en $FORK_DIR y sin .github/box3d_release." >&2
+        exit 1
+    fi
+    if [ -n "$DISPLAY" ]; then FLAVOR=editor; else FLAVOR=headless; fi
+    CACHE="${ODISEA_GODOT_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/odisea-godot}/$RELEASE"
+    REL_BIN="$CACHE/godot.box3d.linux.x86_64.$FLAVOR"
+    if [ ! -x "$REL_BIN" ]; then
+        mkdir -p "$CACHE"
+        echo "godot_bin: bajando $FLAVOR de godot-box3d-3 $RELEASE..." >&2
+        if ! curl -fsSL -o "$REL_BIN.part" \
+            "https://github.com/icarito/godot-box3d-3/releases/download/$RELEASE/godot.box3d.linux.x86_64.$FLAVOR"; then
+            rm -f "$REL_BIN.part"
+            echo "godot_bin: no pude bajar el binario del release $RELEASE." >&2
+            exit 1
+        fi
+        chmod +x "$REL_BIN.part"
+        mv "$REL_BIN.part" "$REL_BIN"
+    fi
+    printf '%s\n' "$REL_BIN"
+    exit 0
 fi
 
 is_stale() {
