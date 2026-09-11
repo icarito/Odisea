@@ -11,7 +11,6 @@ var _notification_timer := 0.0
 onready var notification_label: Label = get_node_or_null("NotificationLabel")
 
 func _ready() -> void:
-	add_to_group("hud")
 	set_process(true)
 	
 	# Fallback if tscn wasn't used or nodes are missing
