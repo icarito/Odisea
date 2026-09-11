@@ -1119,6 +1119,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/things/HoloTerminalV2.gd"
 }, {
+"base": "Node",
+"class": "HUDableComponent",
+"language": "GDScript",
+"path": "res://core_v2/components/HUDableComponent.gd"
+}, {
 "base": "Node2D",
 "class": "ISensor2D",
 "language": "GDScript",
@@ -2487,6 +2492,7 @@ _global_script_class_icons={
 "HingedLeverV2": "",
 "HoldInteractableV2": "",
 "HoloTerminalV2": "",
+"HUDableComponent": "",
 "ISensor2D": "",
 "ISensor3D": "",
 "IceLevel": "",
@@ -2778,6 +2784,7 @@ AdaptiveRenderScale="*res://core_v2/systems/AdaptiveRenderScale.gd"
 AdaptiveVisualBudget="*res://core_v2/systems/AdaptiveVisualBudget.gd"
 DebugConsoleManager="*res://core_v2/autoloads/DebugConsoleManager.gd"
 RemoteControlManager="*res://core_v2/net/RemoteControlManager.gd"
+SuitOS="*res://core_v2/autoloads/SuitOS.gd"
 
 [debug]
 
