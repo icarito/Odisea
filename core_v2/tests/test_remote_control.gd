@@ -109,7 +109,85 @@ func test_remote_home_scene_loads():
 func test_discovered_hosts_are_large_buttons():
 	var menu = RemoteControlMenuScene.instance()
 	add_child(menu)
-	menu._on_sessions_updated({"host": {"session_name": "ODISEA-DESKTOP", "version": "v0.4.0"}})
-	assert_int(menu.hosts.get_child_count()).is_equal(1)
-	assert_str(menu.hosts.get_child(0).text).contains("ODISEA-DESKTOP")
+	var sessions = {
+		"a": {"session_name": "ODISEA-DESKTOP", "version": "v0.4.0", "os": "Linux"},
+		"b": {"session_name": "ODISEA-TABLET", "version": "v0.4.0"}
+	}
+	menu._on_sessions_updated(sessions)
+	# Dos actualizaciones en el mismo frame no deben dejar los botones viejos colgados.
+	menu._on_sessions_updated(sessions)
+	assert_bool(menu.sessions_scroll.visible).is_true()
+	assert_int(menu.hosts.get_child_count()).is_equal(2)
+	assert_str(menu.hosts.get_child(0).text).contains("ODISEA-")
+	assert_str(menu._session_title(sessions["a"])).is_equal("ODISEA-DESKTOP\nLinux · Odisea v0.4.0")
+	assert_str(menu._session_title(sessions["b"])).is_equal("ODISEA-TABLET\nOdisea v0.4.0")
 	menu.queue_free()
+
+func test_discovery_lists_each_host_once():
+	var discovery = RemoteDiscovery.new()
+	var announce = RemoteProtocol.create_announce_payload("pc", "v0.4.0", 10443, 10444, "abc123", "Linux")
+	# Mismo host oido por dos interfaces: una sola sesion, con la ultima IP.
+	assert_bool(discovery._register_announce("192.168.1.10", announce)).is_true()
+	assert_bool(discovery._register_announce("10.0.0.5", announce)).is_true()
+	assert_int(discovery.discovered_sessions.size()).is_equal(1)
+	assert_str(discovery.discovered_sessions["abc123"]["ip"]).is_equal("10.0.0.5")
+	assert_str(discovery.discovered_sessions["abc123"]["os"]).is_equal("Linux")
+	# Sin IP de origen no hay a donde conectar: no se lista.
+	assert_bool(discovery._register_announce("", announce)).is_false()
+	discovery.free()
+
+func test_device_label_names_os():
+	assert_str(RemoteProtocol.device_label()).contains(RemoteProtocol.os_label())
+
+func test_single_session_pairs_without_selection():
+	var menu = RemoteControlMenuScene.instance()
+	add_child(menu)
+	# Sin "ip" _on_pair_pressed corta antes de tocar la red.
+	menu._on_sessions_updated({"host": {"session_name": "ODISEA-DESKTOP", "version": "v0.4.0"}})
+	assert_bool(menu.sessions_scroll.visible).is_false()
+	assert_int(menu.hosts.get_child_count()).is_equal(0)
+	assert_str(menu._attempted_key).is_equal("host")
+	# Antes de conectar, confirmacion en el cliente.
+	assert_bool(menu.connect_confirm.visible).is_true()
+	assert_str(menu.connect_confirm.dialog_text).contains("ODISEA-DESKTOP")
+	assert_float(menu.connect_confirm.get_ok().rect_min_size.y).is_greater_equal(44.0)
+	# Otro anuncio de la misma partida no vuelve a preguntar.
+	menu.connect_confirm.hide()
+	menu._awaiting_confirm = true
+	menu._on_sessions_updated({"host": {"session_name": "ODISEA-DESKTOP", "version": "v0.4.0"}})
+	menu._on_connect_confirmed()
+	assert_bool(menu.connect_confirm.visible).is_false()
+	assert_str(menu.status_label.text).contains("Conectando con ODISEA-DESKTOP")
+	menu.queue_free()
+
+func test_no_sessions_explains_same_wifi():
+	var menu = RemoteControlMenuScene.instance()
+	add_child(menu)
+	menu._on_sessions_updated({})
+	assert_bool(menu.sessions_scroll.visible).is_false()
+	assert_str(menu.status_label.text).contains("misma red wifi")
+	menu.queue_free()
+
+func test_raw_event_roundtrip_keeps_modifiers():
+	var key := InputEventKey.new()
+	key.physical_scancode = KEY_SHIFT
+	key.pressed = true
+	key.shift = true
+	var wire = RemoteProtocol.decode_json(RemoteProtocol.encode_json(RemoteProtocol.encode_event(key, Vector2(800, 600))))
+	var back = RemoteProtocol.decode_event(wire, Vector2(1600, 900))
+	assert_bool(back is InputEventKey).is_true()
+	assert_int(back.physical_scancode).is_equal(KEY_SHIFT)
+	assert_bool(back.pressed).is_true()
+	assert_bool(back.shift).is_true()
+	assert_bool(back.is_action_pressed("run")).is_true()
+
+	var click := InputEventMouseButton.new()
+	click.button_index = BUTTON_RIGHT
+	click.pressed = true
+	click.position = Vector2(400, 300)
+	var mb = RemoteProtocol.decode_event(RemoteProtocol.encode_event(click, Vector2(800, 600)), Vector2(1600, 900))
+	assert_vector2(mb.position).is_equal(Vector2(800, 450))
+	assert_bool(mb.is_action_pressed("ui_cancel")).is_true()
+
+	assert_object(RemoteProtocol.decode_event({"k": "Object(Node)"}, Vector2(800, 600))).is_null()
+	assert_bool(RemoteProtocol.encode_event(InputEventMouseMotion.new(), Vector2(800, 600)).empty()).is_true()

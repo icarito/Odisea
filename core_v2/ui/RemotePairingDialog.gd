@@ -13,9 +13,10 @@ var _time_left: float = 30.0
 var _active: bool = false
 
 func _ready():
-	window_title = "Solicitud de Control Remoto"
+	window_title = "Control remoto"
 	get_ok().text = "Permitir"
 	get_cancel().text = "Rechazar"
+	preload("res://core_v2/ui/DialogButtons.gd").fit_for_touch(self)
 	connect("confirmed", self, "_on_confirmed")
 	connect("popup_hide", self, "_on_popup_hide")
 
@@ -25,11 +26,11 @@ func prompt_pairing(device_name: String, pin: String, callback: FuncRef = null) 
 	_active = true
 
 	if device_label:
-		device_label.text = "¿Permitir control remoto desde '%s'?" % device_name
+		device_label.text = "«%s» quiere controlar esta partida. Permita solo si muestra este mismo PIN:" % device_name
 	if pin_label:
-		pin_label.text = "PIN DE EMPAREJAMIENTO: %s" % pin
+		pin_label.text = "PIN: %s" % pin
 	if timer_label:
-		timer_label.text = "Tiempo restante: 30 s"
+		timer_label.text = "Se rechaza sola en 30 s."
 
 	popup_centered(Vector2(450, 220))
 
@@ -38,7 +39,7 @@ func _process(delta: float) -> void:
 		return
 	_time_left -= delta
 	if timer_label:
-		timer_label.text = "Tiempo restante: %d s" % int(max(0, ceil(_time_left)))
+		timer_label.text = "Se rechaza sola en %d s." % int(max(0, ceil(_time_left)))
 
 	if _time_left <= 0.0:
 		_finish(false)

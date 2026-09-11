@@ -43,26 +43,39 @@ func _process(delta: float) -> void:
 func _read_packets() -> void:
 	var updated = false
 	while _udp.get_available_packet_count() > 0:
-		var ip = _udp.get_packet_ip()
+		# get_packet() PRIMERO: es quien carga la IP de origen. Leerla antes daba la del
+		# paquete anterior (vacia en el primero): el mismo host aparecia como ":10443" y
+		# como "ip:10443", y con dos hosts las IP se cruzaban.
 		var packet = _udp.get_packet()
-		var pkt_str = packet.get_string_from_utf8()
-		var dict = RemoteProtocol.decode_json(pkt_str)
-		if RemoteProtocol.is_valid_announce(dict):
-			var ws_port = int(dict.get("ws_port", 10443))
-			var key = "%s:%d" % [ip, ws_port]
-			discovered_sessions[key] = {
-				"key": key,
-				"ip": ip,
-				"session_name": dict.get("session_name", "Odisea Session"),
-				"version": dict.get("version", "v0.4.0"),
-				"ws_port": ws_port,
-				"sensor_port": int(dict.get("sensor_port", 10444)),
-				"last_seen": OS.get_system_time_msecs()
-			}
+		var ip = _udp.get_packet_ip()
+		var dict = RemoteProtocol.decode_json(packet.get_string_from_utf8())
+		if _register_announce(ip, dict):
 			updated = true
 
 	if updated:
 		emit_signal("sessions_updated", discovered_sessions)
+
+func _register_announce(ip: String, dict: Dictionary) -> bool:
+	if ip == "" or not RemoteProtocol.is_valid_announce(dict):
+		return false
+	var ws_port = int(dict.get("ws_port", 10443))
+	# Un host que llega por varias IP (cable + wifi) es uno solo. Se queda la ultima IP
+	# oida: cualquiera que haya traido el broadcast es alcanzable. ip:puerto queda solo
+	# para hosts viejos que no mandan host_id.
+	var key = String(dict.get("host_id", ""))
+	if key == "":
+		key = "%s:%d" % [ip, ws_port]
+	discovered_sessions[key] = {
+		"key": key,
+		"ip": ip,
+		"session_name": dict.get("session_name", "Odisea Session"),
+		"version": dict.get("version", ""),
+		"os": String(dict.get("os", "")),
+		"ws_port": ws_port,
+		"sensor_port": int(dict.get("sensor_port", 10444)),
+		"last_seen": OS.get_system_time_msecs()
+	}
+	return true
 
 func _cleanup_stale_sessions(_delta: float) -> void:
 	var now = OS.get_system_time_msecs()

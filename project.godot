@@ -3131,3 +3131,4 @@ quality/shadow_atlas/size.Android=2048
 quality/directional_shadow/size.Android=2048
 limits/rendering/max_lights_per_object.Android=4
 quality/filters/anisotropic_filter_level.Android=1
+gles3/shaders/shader_compilation_mode.Android=2

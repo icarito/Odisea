@@ -14,11 +14,12 @@ func _process(_delta: float) -> void:
 		_uptime_frames += 1
 
 func _notification(what: int) -> void:
-	# En Android el botón "back" envía WM_GO_BACK_REQUEST. Lo interceptamos para
-	# abrir/cerrar el menú de pausa en vez de salir de la app.
+	# En Android el botón "back" envía WM_GO_BACK_REQUEST (sin evento de tecla). Se
+	# traduce a ui_cancel para que haga lo mismo que Esc: cierra lo que esté abierto
+	# (Opciones, control remoto, terminal, pausa) y en juego abre la pausa. Antes solo
+	# alternaba la pausa, así que en el menú principal no cerraba Opciones.
 	if what == MainLoop.NOTIFICATION_WM_GO_BACK_REQUEST:
-		print("[PauseManager] WM_GO_BACK_REQUEST -> toggle pause")
-		_toggle_pause()
+		_send_ui_cancel()
 	# Al perder el foco de la ventana (alt-tab, cambio de app, etc.) pausamos el
 	# juego en vez de solo silenciar el audio. El AudioManager ya silencia con su
 	# propio handler de foco; aquí detenemos la simulación. Mientras no haya foco el
@@ -28,13 +29,22 @@ func _notification(what: int) -> void:
 	elif what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
 		_pause_on_focus_loss()
 
+func _send_ui_cancel() -> void:
+	for pressed in [true, false]:
+		var ev := InputEventAction.new()
+		ev.action = "ui_cancel"
+		ev.pressed = pressed
+		Input.parse_input_event(ev)
+
 func _can_pause_in_current_scene() -> bool:
 	var current_scene = get_tree().current_scene
 	if current_scene == null:
 		return false
 	var fname := String(current_scene.filename)
-	# No pausar en el menú principal ni en el boot.
-	return fname.find("Menu.tscn") == -1 and fname.find("Boot.tscn") == -1
+	# No pausar en el menú principal ni en el boot. Tampoco en la pantalla del control
+	# remoto: ahí Esc es del juego controlado (se reenvía al host) y no hay nada que pausar.
+	return fname.find("Menu.tscn") == -1 and fname.find("Boot.tscn") == -1 \
+		and fname.find("RemoteControlHome.tscn") == -1
 
 func _pause_on_focus_loss() -> void:
 	if _uptime_frames < 120:

@@ -5,6 +5,7 @@
 [node name="RemoteControlHome" type="Control"]
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 script = ExtResource( 1 )
 
 [node name="Background" type="ColorRect" parent="."]
@@ -26,7 +27,8 @@ anchor_left = 0.2
 anchor_top = 0.16
 anchor_right = 0.8
 anchor_bottom = 0.22
-text = "Usa los controles móviles normales para jugar a distancia."
+text = "Use los controles táctiles para jugar en la otra pantalla."
+autowrap = true
 align = 1
 
 [node name="ExitLayer" type="CanvasLayer" parent="."]
@@ -40,6 +42,7 @@ margin_top = 20.0
 margin_right = -20.0
 margin_bottom = 65.0
 rect_min_size = Vector2(130, 50)
+focus_mode = 0
 text = "Salir"
 
 [node name="ExitConfirm" type="ConfirmationDialog" parent="."]

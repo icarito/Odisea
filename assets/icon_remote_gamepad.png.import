@@ -2,15 +2,15 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/icon_plugin_script.png-88505c036c31db5179df12dfc59c4c7d.stex"
+path="res://.import/icon_remote_gamepad.png-2d411db51f32b61b4619ec0dcd43b952.stex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/icon_plugin_script.png"
-dest_files=[ "res://.import/icon_plugin_script.png-88505c036c31db5179df12dfc59c4c7d.stex" ]
+source_file="res://assets/icon_remote_gamepad.png"
+dest_files=[ "res://.import/icon_remote_gamepad.png-2d411db51f32b61b4619ec0dcd43b952.stex" ]
 
 [params]
 

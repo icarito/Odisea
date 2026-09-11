@@ -32,8 +32,9 @@ align = 1
 margin_top = 30.0
 margin_right = 760.0
 margin_bottom = 50.0
-text = "Buscando sesiones en la red local..."
+text = "Buscando partidas..."
 align = 1
+autowrap = true
 
 [node name="SessionsScroll" type="ScrollContainer" parent="VBox"]
 margin_top = 60.0
@@ -69,7 +70,7 @@ margin_left = 260.0
 margin_right = 370.0
 margin_bottom = 30.0
 rect_min_size = Vector2( 110, 0 )
-text = "Refrescar"
+text = "Buscar de nuevo"
 
 [node name="BackButton" type="Button" parent="VBox/HBoxActions"]
 margin_left = 390.0
@@ -77,3 +78,10 @@ margin_right = 500.0
 margin_bottom = 30.0
 rect_min_size = Vector2( 110, 0 )
 text = "Volver"
+
+[node name="ConnectConfirm" type="ConfirmationDialog" parent="."]
+margin_right = 420.0
+margin_bottom = 180.0
+popup_exclusive = true
+window_title = "Control remoto"
+dialog_autowrap = true

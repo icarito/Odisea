@@ -7,8 +7,6 @@ const MENU_BGM := "Tin Cosmos"
 # cuando la zona real se registre al terminar de cargar el nivel.
 const FIRST_GAME_BGM := "Elias... wake"
 
-export var enable_touch_buttons := true
-
 onready var fade_rect: ColorRect = $CanvasLayer/ColorRect
 onready var tween: Tween = $Tween
 onready var new_game_button = find_node("NewGame")
@@ -42,25 +40,28 @@ func _ready():
 	if quit_button and OS.get_name() in ["HTML5", "iOS"]:
 		quit_button.visible = false
 
+	# Fade in al cargar. Mientras dura, el fundido se traga clics y toques y ningun boton
+	# tiene foco: el cambio de escena que trae hasta aca (OK de "Salir" del control remoto,
+	# Menu principal de la pausa) carga sincronico, y el toque impaciente que el jugador
+	# repite durante esa carga llega recien ahora, justo sobre NUEVA PARTIDA.
+	fade_rect.modulate.a = 1.0
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	tween.interpolate_property(fade_rect, "modulate:a", 1.0, 0.0, 1.0, Tween.TRANS_LINEAR, Tween.EASE_IN)
+	tween.connect("tween_all_completed", self, "_on_fade_in_complete", [], CONNECT_ONESHOT)
+	tween.start()
+
+	call_deferred("_request_first_scene_preload")
+	call_deferred("_spawn_shader_warmup")
+
+func _on_fade_in_complete() -> void:
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_focus_default_button()
+
+func _focus_default_button() -> void:
 	if continue_button.visible and not continue_button.disabled:
 		continue_button.grab_focus()
 	else:
 		new_game_button.grab_focus()
-
-	# Fade in al cargar
-	fade_rect.modulate.a = 1.0
-	tween.interpolate_property(fade_rect, "modulate:a", 1.0, 0.0, 1.0, Tween.TRANS_LINEAR, Tween.EASE_IN)
-	tween.start()
-
-	if enable_touch_buttons:
-		var handler = $TouchCanvasLayer/TouchHandler
-		var temp_buttons = []
-		for b in [new_game_button, continue_button, options_button, quit_button]:
-			if b and b.visible:
-				temp_buttons.append(b)
-		handler.buttons = temp_buttons
-	call_deferred("_request_first_scene_preload")
-	call_deferred("_spawn_shader_warmup")
 
 # FD-290: warmup de shaders de la primera escena de juego mientras el jugador esta
 # en el Menu. El trigger espera a que el preload de Dome_Intro termine (evita la
@@ -149,6 +150,7 @@ func _on_RemoteControl_pressed():
 	if packed:
 		var menu = packed.instance()
 		add_child(menu)
+		menu.connect("closed", self, "_focus_default_button")
 		menu.open_menu()
 
 func _on_NewGame_pressed():

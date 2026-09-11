@@ -1,24 +1,23 @@
-[gd_scene load_steps=15 format=2]
+[gd_scene load_steps=14 format=2]
 
 [ext_resource path="res://scenes/CoverScene.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/ui/Menu.gd" type="Script" id=2]
 [ext_resource path="res://assets/fonts/Heading_Font.tres" type="DynamicFont" id=3]
 [ext_resource path="res://assets/HelmetView_HI-RES.png" type="Texture" id=9]
-[ext_resource path="res://core_v2/ui/TouchButtonHandler.gd" type="Script" id=10]
 [ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=11]
 [ext_resource path="res://core_v2/ui/OptionsMenu.tscn" type="PackedScene" id=12]
 [ext_resource path="res://assets/fonts/SixtyFour_Regular_24.tres" type="DynamicFont" id=13]
 [ext_resource path="res://assets/fonts/SixtyFour_Regular_20.tres" type="DynamicFont" id=15]
 [ext_resource path="res://core_v2/ui/UIScaleCompensator.gd" type="Script" id=16]
-[ext_resource path="res://assets/icon_plugin_script.png" type="Texture" id=17]
+[ext_resource path="res://assets/icon_remote_gamepad.png" type="Texture" id=17]
 
 [sub_resource type="StyleBoxFlat" id=1]
-bg_color = Color( 0.72, 0.58, 0.12, 0.85 )
+bg_color = Color( 0.62, 0.5, 0.105, 1 )
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color( 0.95, 0.82, 0.35, 0.9 )
+border_color = Color( 0.95, 0.82, 0.35, 1 )
 corner_radius_top_left = 36
 corner_radius_top_right = 36
 corner_radius_bottom_right = 36
@@ -29,7 +28,7 @@ content_margin_right = 14.0
 content_margin_bottom = 14.0
 
 [sub_resource type="StyleBoxFlat" id=2]
-bg_color = Color( 0.92, 0.78, 0.22, 0.95 )
+bg_color = Color( 0.875, 0.742, 0.21, 1 )
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
@@ -172,14 +171,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 color = Color( 0, 0, 0, 1 )
-
-[node name="TouchCanvasLayer" type="CanvasLayer" parent="."]
-
-[node name="TouchHandler" type="Control" parent="TouchCanvasLayer"]
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-script = ExtResource( 10 )
 
 [node name="Tween" type="Tween" parent="."]
 

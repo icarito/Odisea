@@ -61,15 +61,17 @@ func request_pairing(pin: String = "") -> void:
 	_ws_client.get_peer(1).put_packet(RemoteProtocol.encode_json(msg).to_utf8())
 
 func send_touch_input(payload: Dictionary) -> void:
-	if not _is_paired:
-		return
-	var msg = RemoteProtocol.create_input_message("touch", payload, _session_token)
-	_ws_client.get_peer(1).put_packet(RemoteProtocol.encode_json(msg).to_utf8())
+	send_input("touch", payload)
 
 func send_input_data(payload: Dictionary) -> void:
+	send_input("input_data", payload)
+
+# Por WebSocket (TCP) y no por el UDP de sensores: un key-up perdido o desordenado deja
+# la tecla pegada en el host.
+func send_input(input_type: String, payload: Dictionary) -> void:
 	if not _is_paired:
 		return
-	var msg = RemoteProtocol.create_input_message("input_data", payload, _session_token)
+	var msg = RemoteProtocol.create_input_message(input_type, payload, _session_token)
 	_ws_client.get_peer(1).put_packet(RemoteProtocol.encode_json(msg).to_utf8())
 
 func send_sensor_input(input_type: String, payload: Dictionary) -> void:

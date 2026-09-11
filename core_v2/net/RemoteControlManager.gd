@@ -9,6 +9,7 @@ var RemoteAnnouncer = load("res://core_v2/net/RemoteAnnouncer.gd")
 var RemoteDiscovery = load("res://core_v2/net/RemoteDiscovery.gd")
 var RemoteControlServer = load("res://core_v2/net/RemoteControlServer.gd")
 var RemoteControlClient = load("res://core_v2/net/RemoteControlClient.gd")
+var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 
 var announcer: Node = null
 var discovery: Node = null
@@ -19,6 +20,10 @@ var is_host_active: bool = false
 var remote_control_enabled: bool = true
 var _paused_for_pairing: bool = false
 var _mouse_mode_before_pairing: int = Input.MOUSE_MODE_VISIBLE
+# id -> payload de soltar, por cada tecla/boton/eje que el control remoto dejo apretado.
+# Si el control se desconecta o pierde el foco sin mandar el key-up, el host se quedaria
+# con la tecla pegada (el jugador corriendo solo).
+var _remote_held: Dictionary = {}
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
@@ -41,6 +46,7 @@ func _ready():
 
 	server.connect("client_pair_requested", self, "_on_server_pair_requested")
 	server.connect("input_received", self, "_on_server_input_received")
+	server.connect("client_disconnected", self, "_on_server_client_disconnected")
 
 	_apply_settings()
 	call_deferred("_sync_host_for_scene")
@@ -74,7 +80,9 @@ func start_host_services(session_name: String = "") -> void:
 	if is_host_active:
 		return
 	if session_name == "":
-		session_name = OS.get_environment("HOSTNAME").strip_edges()
+		# $HOSTNAME casi nunca llega a una app grafica (y en Android no existe): todos
+		# los hosts se anunciaban como "Odisea Host".
+		session_name = RemoteProtocol.device_hostname()
 		if session_name == "":
 			session_name = "Odisea Host"
 
@@ -88,6 +96,7 @@ func stop_host_services() -> void:
 		return
 	announcer.stop_announcing()
 	server.stop_server()
+	_release_remote_inputs()
 	is_host_active = false
 	print("[RemoteControlManager] Host services stopped")
 
@@ -117,11 +126,47 @@ func _on_pairing_completed(_accepted: bool, dialog: Node) -> void:
 	dialog.queue_free()
 
 func _on_server_input_received(input_type: String, payload: Dictionary) -> void:
-	print("[RemoteControlManager] Input received: ", input_type, " ", payload)
-	if input_type == "input_data":
-		var session = get_node_or_null("/root/SessionManager")
-		var player = session.player if session else null
-		var input_provider = player.input_provider if player and "input_provider" in player else null
-		if player and input_provider and input_provider.hardware_input_enabled and player.has_method("inject_input"):
-			player.inject_input(payload)
+	var session = get_node_or_null("/root/SessionManager")
+	var player = session.player if session and is_instance_valid(session.player) else null
+	var input_provider = player.input_provider if player and "input_provider" in player else null
+	match input_type:
+		"input_data":
+			if input_provider and input_provider.hardware_input_enabled and player.has_method("inject_input"):
+				player.inject_input(payload)
+		"event":
+			_apply_remote_event(payload)
+		"mouse_delta":
+			# El mouse del otro lado ya esta capturado; aca se suma directo al acumulador
+			# que llena PlayerControllerV2._input, que en un host tactil nunca ve el
+			# mouse como capturado y descartaria el movimiento.
+			if input_provider:
+				input_provider.mouse_delta_accum += Vector2(float(payload.get("x", 0.0)), float(payload.get("y", 0.0)))
+		"release_all":
+			_release_remote_inputs()
 	emit_signal("remote_input_received", input_type, payload)
+
+# El evento entra como si fuera hardware local: todo el InputMap (ui_*, pausa, zoom,
+# modificadores) se comporta igual que con el teclado propio del host.
+func _apply_remote_event(payload: Dictionary) -> void:
+	var ev: InputEvent = RemoteProtocol.decode_event(payload, get_tree().root.get_visible_rect().size)
+	if ev == null:
+		return
+	var id: String = "%s:%d:%d" % [payload.get("k", ""), int(payload.get("sc", payload.get("b", payload.get("a", 0)))), int(payload.get("psc", 0))]
+	if bool(payload.get("p", false)) or abs(float(payload.get("v", 0.0))) > 0.0:
+		var release: Dictionary = payload.duplicate()
+		release["p"] = false
+		release["e"] = false
+		release["v"] = 0.0
+		_remote_held[id] = release
+	else:
+		_remote_held.erase(id)
+	Input.parse_input_event(ev)
+
+func _release_remote_inputs() -> void:
+	var viewport_size: Vector2 = get_tree().root.get_visible_rect().size
+	for release in _remote_held.values():
+		Input.parse_input_event(RemoteProtocol.decode_event(release, viewport_size))
+	_remote_held.clear()
+
+func _on_server_client_disconnected(_device_name: String) -> void:
+	_release_remote_inputs()

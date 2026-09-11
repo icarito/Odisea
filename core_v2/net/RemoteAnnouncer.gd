@@ -3,6 +3,7 @@ extends Node
 # RemoteAnnouncer.gd - Sends UDP broadcast packets every ~2 seconds advertising the active session.
 
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
+var VersionLabel = load("res://core_v2/ui/VersionLabel.gd")
 
 export var broadcast_port: int = 10442
 export var broadcast_interval: float = 2.0
@@ -13,9 +14,14 @@ var _timer: float = 0.0
 var _active: bool = false
 var _ws_port: int = 10443
 var _sensor_port: int = 10444
+var _host_id: String = ""
 
 func _ready():
 	_udp.set_broadcast_enabled(true)
+	# Por proceso, no por maquina: OS.get_unique_id() no esta implementado en Linux.
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	_host_id = "%08x%08x" % [rng.randi(), rng.randi()]
 
 func start_announcing(p_session_name: String = "", p_ws_port: int = 10443, p_sensor_port: int = 10444) -> void:
 	if p_session_name != "":
@@ -37,8 +43,9 @@ func _process(delta: float) -> void:
 		_send_broadcast()
 
 func _send_broadcast() -> void:
-	var version = ProjectSettings.get_setting("application/config/version") if ProjectSettings.has_setting("application/config/version") else "v0.4.0"
-	var payload = RemoteProtocol.create_announce_payload(session_name, str(version), _ws_port, _sensor_port)
+	# config/version es un placeholder fijo; la version real sale de build_meta.
+	var version: String = VersionLabel.get_formatted_version()
+	var payload = RemoteProtocol.create_announce_payload(session_name, version, _ws_port, _sensor_port, _host_id, RemoteProtocol.os_label())
 	var json_str = RemoteProtocol.encode_json(payload)
 	var bytes = json_str.to_utf8()
 	_udp.set_dest_address("255.255.255.255", broadcast_port)
