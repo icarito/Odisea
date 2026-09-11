@@ -27,6 +27,8 @@ const MIN_RELEVANCE_A: float = 0.0
 
 const ContextDriverScript = preload("res://core_v2/autoloads/SuitOSContextDriver.gd")
 const WidgetHostScene = preload("res://core_v2/ui/hud/SuitOSWidgetHost.tscn")
+const HudModeOverlayScene = preload("res://core_v2/ui/hud/HudModeOverlay.tscn")
+const HUD_MODE_OVERLAY := "HudModeOverlay"
 
 export(float) var min_relevance_a: float = MIN_RELEVANCE_A
 
@@ -137,6 +139,42 @@ func set_hud_mode_active(active: bool) -> void:
 func is_hud_mode_active() -> bool:
 	return _hud_mode_active
 
+# FD-296 F3 — modo HUD local. Vive aca porque SuitOS ya es el dueño de hud_mode_changed y
+# del estado del modo; la pausa se le pide a PauseManager y la presentacion a
+# OverlayUIManager (SLOT_MODAL), asi que no nace un segundo sistema de ninguna de las dos.
+# SuitOS hereda la pausa: este _input solo corre con el mundo andando (con el menu de
+# pausa abierto TAB no hace nada). El cierre lo dispara el overlay, que procesa en pausa.
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("hud_mode") and open_hud_mode():
+		get_tree().set_input_as_handled()
+
+func open_hud_mode() -> bool:
+	var pause_mgr = get_node_or_null("/root/PauseManager")
+	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
+	if _hud_mode_active or pause_mgr == null or overlay_mgr == null:
+		return false
+	if not pause_mgr.pause_hud_mode():
+		return false
+	# null = el overlay anterior sigue en queue_free (TAB repetido en un mismo frame).
+	# Nunca dejar el mundo pausado sin UI que lo despause.
+	if overlay_mgr.ensure_overlay(HUD_MODE_OVERLAY, HudModeOverlayScene, overlay_mgr.SLOT_MODAL) == null:
+		pause_mgr.resume_hud_mode()
+		return false
+	set_hud_mode_active(true)
+	return true
+
+func close_hud_mode() -> void:
+	if not _hud_mode_active:
+		return
+	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
+	if overlay_mgr != null:
+		overlay_mgr.remove_overlay(HUD_MODE_OVERLAY, overlay_mgr.SLOT_MODAL)
+	close_screen()
+	var pause_mgr = get_node_or_null("/root/PauseManager")
+	if pause_mgr != null:
+		pause_mgr.resume_hud_mode()
+	set_hud_mode_active(false)
+
 func open_screen(id: String) -> bool:
 	if not has_screen(id):
 		return false
@@ -228,6 +266,7 @@ func restore_snapshot(data: Dictionary) -> void:
 	restore_state(data)
 
 func _on_pre_scene_swap(_old_scene: Node = null, _new_scene: Node = null, _params: Dictionary = {}) -> void:
+	close_hud_mode()
 	close_screen()
 	set_context({})
 

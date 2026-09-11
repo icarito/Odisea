@@ -4,6 +4,9 @@ var pause_menu_scene_path = "res://core_v2/ui/PauseMenu.tscn"
 var pause_menu_instance = null
 var _uptime_frames: int = 0
 var _menu_hidden_by_focus: bool = false
+# FD-296 F3: el mundo esta pausado por el modo HUD, no por el menu. Mientras dure,
+# ui_cancel (ESC/back) es del overlay del modo HUD y no abre ni cierra la pausa.
+var _hud_mode_paused: bool = false
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
@@ -51,7 +54,7 @@ func _pause_on_focus_loss() -> void:
 		return
 	if _is_automated_run():
 		return
-	if not _can_pause_in_current_scene():
+	if not _can_pause_in_current_scene() or _hud_mode_paused:
 		return
 	_menu_hidden_by_focus = true
 	if get_tree().paused:
@@ -79,6 +82,8 @@ func _is_automated_run() -> bool:
 	return false
 
 func _input(event):
+	if _hud_mode_paused:
+		return
 	# Primer input tras recuperar el foco: devolver el menú completo, sin actuar.
 	if _menu_hidden_by_focus and get_tree().paused and _restores_menu(event):
 		_menu_hidden_by_focus = false
@@ -151,6 +156,34 @@ func resume():
 	var audio_mgr = get_node_or_null("/root/AudioManager")
 	if audio_mgr and audio_mgr.has_method("set_music_paused_by_menu"):
 		audio_mgr.set_music_paused_by_menu(false)
+
+# FD-296 F3: pausa del modo HUD. Congela el mundo como pause(), pero sin PauseMenu y
+# sin tocar el mouse: el radial lee el gesto con el mouse capturado. Devuelve false si
+# no se puede pausar (menu/boot, o el juego ya estaba pausado por otra cosa).
+func pause_hud_mode() -> bool:
+	if _hud_mode_paused or get_tree().paused or not _can_pause_in_current_scene():
+		return false
+	_hud_mode_paused = true
+	get_tree().paused = true
+	_refresh_mobile_ui()
+	_set_music_paused_by_menu(true)
+	return true
+
+func resume_hud_mode() -> void:
+	if not _hud_mode_paused:
+		return
+	_hud_mode_paused = false
+	get_tree().paused = false
+	_refresh_mobile_ui()
+	_set_music_paused_by_menu(false)
+
+func is_hud_mode_paused() -> bool:
+	return _hud_mode_paused
+
+func _set_music_paused_by_menu(paused: bool) -> void:
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr and audio_mgr.has_method("set_music_paused_by_menu"):
+		audio_mgr.set_music_paused_by_menu(paused)
 
 func _refresh_mobile_ui() -> void:
 	# Show/hide the on-screen touch controls in sync with pause state. They live on

@@ -90,11 +90,36 @@ func widget_snapshot() -> Dictionary:
 		"source": "online"
 	}
 
+# FD-296 F3: la vista full-screen es la MISMA UI que el terminal ya dibuja en su Viewport
+# (en el HangingDisplay, DomeIntroCryoDiagnosticsUI.tscn), instanciada otra vez en el
+# overlay en lugar de mostrar la ViewportTexture del mundo. Solo con static_content: ahi la
+# UI es un dashboard que se alimenta solo (grupos, rutas absolutas) y la copia muestra lo
+# mismo. La consola interactiva la maneja HoloTerminalV2 desde afuera y una copia quedaria
+# muerta, asi que ese caso devuelve null y el modo HUD cae al widget ampliado.
 func view_scene() -> PackedScene:
+	if hud_view_scene != null:
+		return hud_view_scene
+	var terminal = _get_terminal()
+	if not is_instance_valid(terminal) or not ("static_content" in terminal) or not terminal.static_content:
+		return null
+	var viewport = terminal.get_node_or_null("Viewport")
+	if viewport == null:
+		return null
+	for child in viewport.get_children():
+		if child is Control and not child.is_queued_for_deletion() and not child.filename.empty():
+			return load(child.filename) as PackedScene
 	return null
 
 func view_is_source() -> bool:
-	return true
+	return view_scene() == null
+
+# Resolucion de diseño de la vista: la del Viewport del terminal (1280x816 en el
+# HangingDisplay). El overlay la instancia a ese tamaño y la escala entera; estirada al
+# espacio de UI del juego (stretch viewport, ~1067x600) los diales se salen de sus paneles.
+func view_size() -> Vector2:
+	var terminal = _get_terminal()
+	var viewport = terminal.get_node_or_null("Viewport") if is_instance_valid(terminal) else null
+	return (viewport as Viewport).size if viewport is Viewport else Vector2.ZERO
 
 func relevance(context: Dictionary = {}) -> float:
 	var rel: float = default_relevance
