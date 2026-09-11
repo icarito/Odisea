@@ -48,6 +48,22 @@ func test_view_scene_null_and_view_is_source_true() -> void:
 	assert_object(_hudable.view_scene()).is_null()
 	assert_bool(_hudable.view_is_source()).is_true()
 
+func test_view_transition_origin_focus_rig() -> void:
+	var origin_default: Dictionary = _hudable.view_transition_origin()
+	assert_bool(origin_default.empty()).is_true()
+
+	_terminal.allow_focus_mode = true
+	var cine_setup = Spatial.new()
+	cine_setup.name = "CinematicSetup"
+	var focused_rig = Spatial.new()
+	focused_rig.name = "FocusedRig"
+	cine_setup.add_child(focused_rig)
+	_terminal.add_child(cine_setup)
+
+	var origin_focus: Dictionary = _hudable.view_transition_origin()
+	assert_str(String(origin_focus.get("kind", ""))).is_equal("focus_rig")
+	assert_object(origin_focus.get("path", null)).is_not_null()
+
 func test_relevance_monotonic_with_distance() -> void:
 	_terminal.translation = Vector3(0, 0, 0)
 	_hudable.default_relevance = 0.1

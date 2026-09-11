@@ -333,6 +333,36 @@ func test_veil_is_light_and_only_behind_the_radial() -> void:
 	assert_bool(dim.is_visible_in_tree()).is_true()
 
 
+class FocusableDummyScreen:
+	extends HUDableComponent
+
+	var enter_called: bool = false
+	var exit_called: bool = false
+
+	func view_transition_origin() -> Dictionary:
+		return {"kind": "focus_rig", "path": NodePath("DummyRig")}
+
+	func enter_focus_mode() -> void:
+		enter_called = true
+
+	func exit_focus_mode() -> void:
+		exit_called = true
+
+
+func test_transition_origin_focus_rig_triggers_enter_and_exit_focus() -> void:
+	var screen = auto_free(FocusableDummyScreen.new())
+	screen.hud_screen_id = "test:focus"
+	screen.hud_screen_title = "Focus Screen"
+	add_child(screen)
+
+	var overlay = _open_and_play([UP])
+	assert_bool(screen.enter_called).is_true()
+	assert_bool(screen.exit_called).is_false()
+
+	overlay._cleanup_focus()
+	assert_bool(screen.exit_called).is_true()
+
+
 func test_suitos_snapshot_restore_intact() -> void:
 	_screen("test:a", "Alpha")
 	SuitOS.pin_screen("test:a")
