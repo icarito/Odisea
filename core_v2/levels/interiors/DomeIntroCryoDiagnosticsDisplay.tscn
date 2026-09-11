@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=5 format=2]
 
 [ext_resource path="res://core_v2/props/controls/WallTerminal.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsUI.tscn" type="PackedScene" id=2]
+[ext_resource path="res://core_v2/components/HoloTerminalHUDable.gd" type="Script" id=3]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 1.5, 2, 1.5 )
@@ -29,3 +30,7 @@ transform = Transform( 5.56355e-14, 1.49157e-07, 0.999992, 3.72999e-07, 1, -1.49
 
 [node name="LookAt" parent="CinematicSetup/CinematicPathRig/PathFollow/Camera" index="0"]
 transform = Transform( 0.933801, -0.00673025, -0.357728, -2.72645e-07, 0.999823, -0.0188113, 0.357791, 0.0175661, 0.933637, 0, 0, 0 )
+
+[node name="HoloTerminalHUDable" type="Node" parent="." index="5"]
+script = ExtResource( 3 )
+hud_screen_title = "Cryo Diagnostics"
