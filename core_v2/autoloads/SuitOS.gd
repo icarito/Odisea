@@ -49,13 +49,11 @@ func _ready() -> void:
 	if scene_manager and not scene_manager.is_connected("pre_scene_swap", self, "_on_pre_scene_swap"):
 		scene_manager.connect("pre_scene_swap", self, "_on_pre_scene_swap")
 
-	var pm = get_node_or_null("/root/PersistenceManager")
-	if pm != null and pm.has_method("register_system"):
-		pm.register_system("suit_os", self)
-	else:
-		# TODO: PersistenceManager currently manages scene CheckpointResource files and entity lifecycle tracking.
-		# When PersistenceManager introduces generic system state registration (register_system), connect SuitOS here.
-		pass
+	# Persistence: SuitOS participates in the 'replay_sync' contract (add_to_group("replay_sync") above).
+	# CheckpointManager.capture_replay_sync_state() collects get_snapshot() from every node in that group and
+	# restore_replay_sync_state() calls restore_snapshot() back; TeleportSystem stores that snapshot inside
+	# CheckpointResource.slots["last"]. No PersistenceManager registration API is required: the pinned screen
+	# and widget snapshots travel with the existing save/replay checkpoint, so CONTINUE and replay stay in sync.
 
 func _ensure_runtime_subsystems() -> void:
 	if not is_instance_valid(_context_driver):
