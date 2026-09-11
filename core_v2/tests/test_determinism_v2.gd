@@ -243,9 +243,13 @@ static func _get_replay_paths() -> Array:
 		raw_files = _scan_for_files([".oys"])
 	
 	# El escaneo ya trae solo .oys, asi que no hay redundancia .json que filtrar.
-	var final_results = []
+	var paths := []
 	for pair in raw_files:
-		final_results.append(pair)
+		paths.append(pair[0])
+	paths.sort()
+	var final_results = []
+	for path in paths:
+		final_results.append([path])
 		
 	return final_results
 
@@ -305,6 +309,10 @@ static func _oys_has_directive(path: String, directive: String) -> bool:
 
 var _current_test_scene: Node = null
 
+func _reset_gravity_world() -> void:
+	GravityWorld.set_gravity_blend(0.0)
+	GravityWorld.set_gravity_mode(GravityWorld.default_mode)
+
 func _get_scene_for_test(path: String) -> String:
 	var scene_path = "res://core_v2/levels/TestScene_v2.tscn"
 	if path.ends_with(".oys"):
@@ -346,6 +354,7 @@ func test_replay(path: String, test_parameters = _get_replay_paths()) -> void:
 	SessionManager.is_replaying = false
 	SessionManager.player = null
 	SessionManager.oys_assert_failed = false
+	_reset_gravity_world()
 
 	# Llamar tras encontrar player y antes de cada replay
 	if path.ends_with(".json"):
@@ -683,6 +692,7 @@ func after():
 	SessionManager.buffer = []
 	SessionManager.final_expected_state = null
 	SessionManager.player = null
+	_reset_gravity_world()
 	
 	# Limpieza manual de la escena
 	if is_instance_valid(_current_test_scene):
