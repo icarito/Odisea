@@ -60,7 +60,14 @@ func apply() -> void:
 
 # Escala de render vigente (1.0 cuando no hay reduccion o no hay SettingsManager).
 func _ui_scale() -> float:
-	var settings := get_node_or_null("/root/SettingsManager")
+	return scale_for(self)
+
+# La misma escala para quien acomoda Controls sueltos por su cuenta en vez de ser el target
+# (SuitOSWidgetHost ubica los widgets de slot en pixeles fijos).
+static func scale_for(node: Node) -> float:
+	if node == null or not node.is_inside_tree():
+		return 1.0
+	var settings = node.get_node_or_null("/root/SettingsManager")
 	if settings == null:
 		return 1.0
 	return clamp(float(settings.render_scale), 0.5, 1.0)

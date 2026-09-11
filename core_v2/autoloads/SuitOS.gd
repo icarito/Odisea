@@ -10,6 +10,8 @@ extends Node
 # - Scene Cut: Listens to SceneManager 'pre_scene_swap' signal to close active screens and clear
 #   relevance context on scene transitions. Registered screens auto-unregister via _exit_tree().
 #
+# Slot A never duplicates Slot B: the pinned screen is excluded from Slot A scoring.
+#
 # Slot A relevance threshold:
 # min_relevance_a (default 0.0, const MIN_RELEVANCE_A = 0.0) defines the minimum relevance score required
 # for a screen to occupy Slot A. If all registered screens have relevance <= min_relevance_a,
@@ -148,7 +150,9 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("hud_mode") and open_hud_mode():
 		get_tree().set_input_as_handled()
 
-func open_hud_mode() -> bool:
+# radial: abrir directo en el selector (hold del boton tactil, que no pasa por el stream). Con
+# TAB el overlay decide tap/hold solo, contando muestras del stream.
+func open_hud_mode(radial: bool = false) -> bool:
 	var pause_mgr = get_node_or_null("/root/PauseManager")
 	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
 	if _hud_mode_active or pause_mgr == null or overlay_mgr == null:
@@ -157,10 +161,13 @@ func open_hud_mode() -> bool:
 		return false
 	# null = el overlay anterior sigue en queue_free (TAB repetido en un mismo frame).
 	# Nunca dejar el mundo pausado sin UI que lo despause.
-	if overlay_mgr.ensure_overlay(HUD_MODE_OVERLAY, HudModeOverlayScene, overlay_mgr.SLOT_MODAL) == null:
+	var overlay: Node = overlay_mgr.ensure_overlay(HUD_MODE_OVERLAY, HudModeOverlayScene, overlay_mgr.SLOT_MODAL)
+	if overlay == null:
 		pause_mgr.resume_hud_mode()
 		return false
 	set_hud_mode_active(true)
+	if radial:
+		overlay.show_radial()
 	return true
 
 func close_hud_mode() -> void:
@@ -191,13 +198,15 @@ func close_screen() -> void:
 func get_active_screen_id() -> String:
 	return _active_screen_id
 
+# Fijar o soltar tambien reevalua Slot A: la pantalla fijada sale de la competencia de A (o
+# vuelve a ella), porque una misma pantalla nunca ocupa los dos slots.
 func pin_screen(id: String) -> void:
 	_pinned_screen_id = id
-	_reevaluate_slot_b()
+	reevaluate_slots()
 
 func unpin_screen() -> void:
 	_pinned_screen_id = ""
-	_reevaluate_slot_b()
+	reevaluate_slots()
 
 func get_pinned_screen_id() -> String:
 	return _pinned_screen_id
@@ -315,7 +324,8 @@ func _reevaluate_slot_a() -> void:
 
 	for id in _screens.keys():
 		var screen = _screens[id]
-		if not is_instance_valid(screen):
+		# La fijada ya esta en Slot B: A muestra la mas relevante de las demas, nunca un duplicado.
+		if not is_instance_valid(screen) or id == _pinned_screen_id:
 			continue
 		var rel: float = 0.0
 		if screen.has_method("relevance"):

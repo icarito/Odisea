@@ -1,0 +1,63 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://core_v2/things/HelmetHUDV2.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/visual/HoloScreen.shader" type="Shader" id=2]
+
+[sub_resource type="ShaderMaterial" id=1]
+resource_local_to_scene = true
+render_priority = 100
+shader = ExtResource( 2 )
+shader_param/albedo = Color( 0.301961, 0.470588, 0.505882, 0.15 )
+shader_param/emission_energy = 3.0
+shader_param/alpha_scissor_threshold = 0.0
+shader_param/hologram_alpha = 1.0
+shader_param/ink_level = 0.686
+shader_param/flip_h = false
+shader_param/flip_v = true
+shader_param/back_flip_h = false
+shader_param/back_flip_v = false
+shader_param/aligned_flip_h = false
+shader_param/aligned_flip_v = true
+shader_param/flip_h_when_viewed_from_back = false
+shader_param/flip_v_when_viewed_from_back = true
+
+[node name="HudViewPresenter" type="KinematicBody"]
+pause_mode = 2
+collision_layer = 0
+collision_mask = 0
+script = ExtResource( 1 )
+is_interactable = false
+interaction_text = ""
+slide_height = 0.0
+use_cinematic_zone = false
+close_on_exit_zone = false
+allow_focus_mode = false
+enable_ui_interaction = false
+screen_resolution = Vector2( 1280, 816 )
+hud_cfg_attach_to_active_camera = true
+hud_cfg_attach_as_child = true
+hud_cfg_attach_transition_time = 0.45
+hud_cfg_screen_y = 0.5
+hud_cfg_screen_depth = 0.5
+hud_cfg_screen_scale = 0.5
+hud_cfg_interaction_radius = 0.0
+hud_cfg_auto_close_out_of_range = false
+hud_cfg_focus_on_activate = false
+hud_cfg_background_alpha = 0.15
+hud_cfg_background_emission = 3.0
+
+[node name="ScreenContainer" type="Spatial" parent="."]
+visible = false
+
+[node name="ScreenMesh" type="CSGBox" parent="ScreenContainer"]
+invert_faces = true
+width = 0.44
+height = 0.28
+depth = 0.001
+material = SubResource( 1 )
+
+[node name="Viewport" type="Viewport" parent="."]
+size = Vector2( 1280, 816 )
+transparent_bg = true
+render_target_update_mode = 0
+gui_disable_input = true

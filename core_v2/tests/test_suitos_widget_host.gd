@@ -94,3 +94,35 @@ func test_hanging_display_registration_and_slot_flow() -> void:
 	assert_object(widget_b.get_script()).is_equal(HoloTerminalWidgetScript)
 
 	SuitOS.unpin_screen()
+
+# Slot A y Slot B tienen filas fijas en la misma esquina: no se pisan, y B no se mueve si A
+# queda vacio (el layout no depende de cuantos slots haya).
+func test_slots_stack_in_fixed_rows_without_overlap() -> void:
+	var auto_screen = auto_free(HUDableComponentScript.new())
+	auto_screen.hud_screen_id = "test:auto"
+	auto_screen.default_relevance = 0.9
+	auto_screen.hud_widget_scene = preload("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
+	add_child(auto_screen)
+	var pinned_screen = auto_free(HUDableComponentScript.new())
+	pinned_screen.hud_screen_id = "test:pinned"
+	pinned_screen.hud_widget_scene = preload("res://core_v2/ui/hud/SystemStatusWidget.tscn")
+	add_child(pinned_screen)
+	SuitOS.set_context({})
+	SuitOS.pin_screen("test:pinned")
+
+	var slot_hud = _overlay_mgr.get_slot(_overlay_mgr.SLOT_HUD)
+	var widget_a: Control = slot_hud.get_node("SuitOS_Widget_slot_a")
+	var widget_b: Control = slot_hud.get_node("SuitOS_Widget_slot_b")
+	var rect_a := Rect2(widget_a.rect_position, widget_a.rect_size * widget_a.rect_scale)
+	var rect_b := Rect2(widget_b.rect_position, widget_b.rect_size * widget_b.rect_scale)
+	assert_bool(rect_a.intersects(rect_b)).override_failure_message("A %s pisa a B %s" % [rect_a, rect_b]).is_false()
+	assert_float(widget_a.rect_position.x).is_equal(widget_b.rect_position.x)
+	assert_bool(rect_b.position.y > rect_a.position.y).is_true()
+
+	var b_position: Vector2 = widget_b.rect_position
+	SuitOS.unregister_screen(auto_screen) # Slot A vacio
+	yield(await_idle_frame(), "completed")
+	assert_vector2(slot_hud.get_node("SuitOS_Widget_slot_b").rect_position).is_equal(b_position)
+
+	SuitOS.unpin_screen()
+	SuitOS.unregister_screen(pinned_screen)
