@@ -5,6 +5,15 @@ class_name SuitOSWidgetHost
 # Listens to SuitOS.widget_changed(slot, snapshot) and mounts/updates widget overlays
 # via OverlayUIManager without creating its own CanvasLayer.
 
+const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
+
+# Cada slot tiene su fila FIJA en la misma esquina (arriba a la izquierda): A arriba, B debajo.
+# B no sube cuando A esta vacio, asi el layout es el mismo con uno o dos slots.
+const SLOT_ROWS := ["slot_a", "slot_b"]
+const SLOT_ROW_HEIGHT := 96.0 # el widget mas alto hoy (SystemStatusWidget) mide 90
+const SLOT_GAP := 8.0
+const SLOT_PADDING := 16.0
+
 var _active_screen_ids: Dictionary = {} # slot -> screen_id
 
 func _ready() -> void:
@@ -15,6 +24,8 @@ func _ready() -> void:
 
 		_on_widget_changed("slot_a", suit_os.get_slot_snapshot("slot_a"))
 		_on_widget_changed("slot_b", suit_os.get_slot_snapshot("slot_b"))
+	if not get_viewport().is_connected("size_changed", self, "_relayout"):
+		get_viewport().connect("size_changed", self, "_relayout")
 
 func _exit_tree() -> void:
 	if has_node("/root/SuitOS"):
@@ -72,6 +83,7 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 				overlay.update_snapshot(snapshot)
 			elif overlay.has_method("set_snapshot"):
 				overlay.set_snapshot(snapshot)
+			_place(overlay, slot)
 	else:
 		var slot_hud = overlay_mgr.get_slot(overlay_mgr.SLOT_HUD)
 		if is_instance_valid(slot_hud):
@@ -79,6 +91,34 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 			label.name = overlay_name
 			label.text = _format_fallback_text(snapshot)
 			slot_hud.add_child(label)
+			_place(label, slot)
+
+# Fila del slot, dentro del safe area (incluye lo que reservan los controles moviles) y con la
+# escala de UIScaleCompensator: en pixeles fijos el widget creceria al bajar render_scale.
+func _place(widget: Node, slot: String) -> void:
+	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
+	var row: int = SLOT_ROWS.find(slot)
+	if overlay_mgr == null or row < 0 or not (widget is Control):
+		return
+	var control: Control = widget as Control
+	var margins: Dictionary = overlay_mgr.get_safe_margins(SLOT_PADDING)
+	var k: float = UIScaleCompensatorScript.scale_for(self)
+	var height: float = max(control.get_combined_minimum_size().y, 1.0)
+	var fit: float = min(1.0, SLOT_ROW_HEIGHT / height) # nunca invade la fila vecina
+	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	control.rect_scale = Vector2.ONE * fit * k
+	control.rect_position = Vector2(float(margins["left"]),
+		float(margins["top"]) + row * (SLOT_ROW_HEIGHT + SLOT_GAP) * k)
+
+func _relayout() -> void:
+	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
+	var slot_hud = overlay_mgr.get_slot(overlay_mgr.SLOT_HUD) if overlay_mgr != null else null
+	if not is_instance_valid(slot_hud):
+		return
+	for slot in SLOT_ROWS:
+		var widget = slot_hud.get_node_or_null("SuitOS_Widget_" + slot)
+		if is_instance_valid(widget) and not widget.is_queued_for_deletion():
+			_place(widget, slot)
 
 func _remove_overlay_for_slot(slot: String) -> void:
 	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")

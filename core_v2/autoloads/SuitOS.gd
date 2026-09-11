@@ -148,7 +148,9 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("hud_mode") and open_hud_mode():
 		get_tree().set_input_as_handled()
 
-func open_hud_mode() -> bool:
+# radial: abrir directo en el selector (hold del boton tactil, que no pasa por el stream). Con
+# TAB el overlay decide tap/hold solo, contando muestras del stream.
+func open_hud_mode(radial: bool = false) -> bool:
 	var pause_mgr = get_node_or_null("/root/PauseManager")
 	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
 	if _hud_mode_active or pause_mgr == null or overlay_mgr == null:
@@ -157,10 +159,13 @@ func open_hud_mode() -> bool:
 		return false
 	# null = el overlay anterior sigue en queue_free (TAB repetido en un mismo frame).
 	# Nunca dejar el mundo pausado sin UI que lo despause.
-	if overlay_mgr.ensure_overlay(HUD_MODE_OVERLAY, HudModeOverlayScene, overlay_mgr.SLOT_MODAL) == null:
+	var overlay: Node = overlay_mgr.ensure_overlay(HUD_MODE_OVERLAY, HudModeOverlayScene, overlay_mgr.SLOT_MODAL)
+	if overlay == null:
 		pause_mgr.resume_hud_mode()
 		return false
 	set_hud_mode_active(true)
+	if radial:
+		overlay.show_radial()
 	return true
 
 func close_hud_mode() -> void:

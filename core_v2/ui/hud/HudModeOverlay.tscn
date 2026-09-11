@@ -19,18 +19,21 @@ mouse_filter = 2
 theme = ExtResource( 3 )
 script = ExtResource( 1 )
 
-[node name="Dim" type="ColorRect" parent="."]
-anchor_right = 1.0
-anchor_bottom = 1.0
-color = Color( 0, 0.05, 0.08, 0.88 )
-
 [node name="RadialSelector" parent="." instance=ExtResource( 2 )]
 margin_bottom = -56.0
 option_size = Vector2( 400, 48 )
 option_font = SubResource( 2 )
+show_indicator = false
 
 [node name="Title" parent="RadialSelector"]
 visible = false
+
+[node name="Dim" type="ColorRect" parent="RadialSelector" index="0"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_bottom = 56.0
+mouse_filter = 2
+color = Color( 0, 0.05, 0.08, 0.4 )
 
 [node name="ViewHost" type="Control" parent="."]
 anchor_right = 1.0
@@ -46,6 +49,9 @@ visible = false
 anchor_right = 1.0
 anchor_bottom = 1.0
 custom_colors/font_color = Color( 0.42, 0.68, 0.76, 1 )
+custom_colors/font_color_shadow = Color( 0, 0.05, 0.08, 0.9 )
+custom_constants/shadow_offset_x = 1
+custom_constants/shadow_offset_y = 2
 text = "SIN PANTALLAS"
 align = 1
 valign = 1
@@ -59,4 +65,24 @@ margin_top = -48.0
 margin_right = -24.0
 margin_bottom = -12.0
 custom_colors/font_color = Color( 0.607843, 0.992157, 0.580392, 1 )
+custom_colors/font_color_shadow = Color( 0, 0.05, 0.08, 0.9 )
+custom_constants/shadow_offset_x = 1
+custom_constants/shadow_offset_y = 2
+valign = 1
+
+[node name="Hint" type="Label" parent="."]
+visible = false
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 24.0
+margin_top = -84.0
+margin_right = -24.0
+margin_bottom = -52.0
+custom_colors/font_color = Color( 0, 0.835294, 1, 1 )
+custom_colors/font_color_shadow = Color( 0, 0.05, 0.08, 0.9 )
+custom_constants/shadow_offset_x = 1
+custom_constants/shadow_offset_y = 2
+text = "Mantén TAB para cambiar de pantalla"
+align = 1
 valign = 1

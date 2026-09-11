@@ -67,6 +67,9 @@ export(Color) var option_color := Color(0.42, 0.68, 0.76, 1.0)
 export(Color) var option_color_hover := Color(1.0, 1.0, 1.0, 1.0)
 # The needle reads as state, not as choice, so it stays off the selection cyan.
 export(Color) var indicator_color := Color(0.607843, 0.992157, 0.580392, 0.9)
+# The needle only means something where there is a state to read (the elevator car's
+# level). A pure chooser (the OdiseaOS HUD screen picker) turns it off.
+export(bool) var show_indicator := true
 export(float) var readout_slide_time := 0.45
 # How far the numbers travel when the level changes, as a multiple of the label
 # height. Around one full height reads as a strip scrolling past a window.
@@ -200,6 +203,11 @@ func announce_readout_text(text: String, direction: int) -> void:
 		incoming, "modulate", Color(1, 1, 1, 0), Color(1, 1, 1, 1),
 		readout_slide_time * 0.8, Tween.TRANS_LINEAR, Tween.EASE_IN_OUT)
 	_readout_tween.start()
+
+
+func set_indicator_visible(value: bool) -> void:
+	show_indicator = value
+	_update_indicator()
 
 
 func set_level(level: float) -> void:
@@ -391,7 +399,7 @@ func _angle_for_level(level: float) -> float:
 func _update_indicator() -> void:
 	if _indicator == null:
 		return
-	_indicator.visible = _option_count > 1
+	_indicator.visible = show_indicator and _option_count > 1
 	_indicator.position = rect_size / 2.0
 	_indicator.rotation = _angle_for_level(_level)
 

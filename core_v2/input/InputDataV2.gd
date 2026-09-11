@@ -30,6 +30,9 @@ var hardware_mouse_active := false # True when real mouse hardware contributed t
 # donde salio el movimiento, y resolverlo mirando el dispositivo en el momento de reproducir
 # haria que el mismo replay se comportara distinto en escritorio que en Android.
 var analog_move_active := false
+# TAB del modo HUD (FD-296), sostenido. Viaja en el stream para que el tap/hold (umbral 0.4 s)
+# se decida contando muestras grabadas y no leyendo Input en vivo: el replay no diverge.
+var hud_mode := false
 
 func _canonical_float(v: float) -> float:
 	# Avoid noisy JSON diffs from signed zero (-0.0 vs 0.0).
@@ -58,7 +61,8 @@ func to_dict() -> Dictionary:
 		"tool_prev_mode": tool_prev_mode,
 		"cargol_ability": cargol_ability,
 		"hardware_mouse_active": hardware_mouse_active,
-		"analog_move_active": analog_move_active
+		"analog_move_active": analog_move_active,
+		"hud_mode": hud_mode
 	}
 
 func is_equal_to(other) -> bool:
@@ -103,6 +107,8 @@ func is_equal_to(other) -> bool:
 	if hardware_mouse_active != other.hardware_mouse_active:
 		return false
 	if analog_move_active != other.analog_move_active:
+		return false
+	if hud_mode != other.hud_mode:
 		return false
 	return true
 
@@ -150,3 +156,5 @@ func from_dict(d: Dictionary) -> void:
 		hardware_mouse_active = d["hardware_mouse_active"]
 	if d.has("analog_move_active"):
 		analog_move_active = d["analog_move_active"]
+	if d.has("hud_mode"):
+		hud_mode = d["hud_mode"]
