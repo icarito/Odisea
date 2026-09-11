@@ -116,6 +116,71 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
   aterrice — la vibración no es una feature suelta, es la respuesta háptica
   de un evento del bus. Otros eventos hápticos: backlog.
 
+### Contratos (F1) — datos separados de presentación
+
+**Regla de oro:** todo lo que viaja a los slots, al modo HUD o al Control
+Remoto es **data pura serializable** (JSON-safe). Ninguna pantalla expone
+nodos, NodePaths ni referencias a objetos fuera de su árbol.
+
+#### Fuente de pantalla (contrato que implementa cada HUDable)
+
+| Miembro | Contrato |
+|---|---|
+| `screen_id() -> String` | Identificador único y estable entre sesiones y saves. Cambiarlo = migración explícita. |
+| `screen_title() / screen_icon()` | Copy e ícono para el radial. |
+| `widget_snapshot() -> Dictionary` | Estado del widget: **solo** String/int/float/bool/Array/Dictionary (Vector3 → arrays). Incluye `"proto": 1`. Snapshot completo e idempotente (no deltas en v1): el teléfono re-renderiza con cada mensaje. |
+| `view_scene() -> PackedScene` | Pantalla completa para modo HUD local. |
+| `widget_scene() -> PackedScene` | Widget compacto para slots locales (escala con UIScaleCompensator). |
+| `relevance(context) -> float` | 0..1 para el slot automático. Función pura, determinista, sin efectos secundarios. |
+| `allowed_actions() -> Array[String]` | Whitelist de operaciones. Única puerta de entrada, igual para input local y remoto. |
+| `perform_action(op, args) -> Dictionary` | Valida `op` contra `allowed_actions()`; devuelve `{ok, result}` o `{ok: false, error}`. |
+| señal `state_changed()` | SuitOS re-consulta `widget_snapshot()` al emitirse. |
+
+#### SuitOS (autoload) — registro, slots, persistencia
+
+- `register_screen(screen)` / `unregister_screen(id)`: idempotentes, mismo
+  patrón register/unregister de `InteractionMarker`.
+- **Slot A (automático):** fuente con mayor `relevance(context)` vigente.
+  **Slot B (fijado):** `pin(screen_id)` / `unpin()` desde el modo HUD.
+- **Persistencia al HUD:** el pin y el último snapshot de cada slot se guardan
+  vía `PersistenceManager`. Al cargar partida, SuitOS re-resuelve por
+  `screen_id`; si la fuente no existe en la escena actual, el slot muestra el
+  último snapshot con `"source": "offline"` (nunca desaparece en silencio).
+- Señales de salida: `screen_registered(id)`, `screen_unregistered(id)`,
+  `widget_changed(slot, snapshot)`, `hud_mode_changed(active)`,
+  `haptic(kind, intensity)`.
+- **Solo lectura de fuentes.** Toda escritura al mundo pasa exclusivamente por
+  `perform_action` de la fuente — mismo camino para input local y remoto
+  (compatible con determinismo/replay: las acciones son eventos, como el
+  resto del input).
+
+#### Despliegue en dos modos (mismo contrato)
+
+| Modo | Presentación | Datos | Entrada |
+|---|---|---|---|
+| Local — modo HUD | `view_scene` acoplada vía HelmetHUDV2, mundo pausado | snapshot vivo | mouse/touch + `perform_action` |
+| Local — slots | `widget_scene` + UIScaleCompensator | `widget_changed(slot, snapshot)` | solo lectura (pin desde modo HUD) |
+| Remoto (teléfono) | JSON UI del protocolo FD-294 (`screen_data{id, snapshot}`) | el mismo snapshot | `remote_action{op, args}` → `perform_action` |
+
+El Control Remoto vive siempre en "modo HUD" con pantalla activa propia:
+comparte el registro de `SuitOS` pero **no** su estado local. Sincronización
+v1 = push completo del snapshot; binario/deltas solo si el perfil lo exige.
+Los hápticos (`haptic{kind}`) son eventos de salida del núcleo, nunca de las
+pantallas.
+
+### Fases de implementación
+
+- **F1 — esta delegación (Jules):** `SuitOS.gd` + `HUDableComponent.gd`
+  (patrón `InteractableEntity`) + contratos de esta sección + tests
+  `test_suit_os.gd` / `test_hudable.gd` con fuentes dummy. **No toca**
+  RemoteControl*, Menu*, pausa ni cámara.
+- **F2:** `ShipSystemBus` + pantalla "Sistemas de nave" (hereda FD-295) +
+  estado de `MultiToolV2`.
+- **F3:** modo HUD local (transición 1ra persona + pausa + radial
+  `RadialSelectorV2`).
+- **F4:** `screen_data` + `remote_action` + `haptic{tremor}` en el protocolo
+  FD-294.
+
 ### Considered Options
 
 - **Option A: HUD diegético puro (solo terminales físicos)** — desechado:
