@@ -46,7 +46,7 @@ ARCHIVOS PROHIBIDOS: escenas de nivel, autoloads, cualquier archivo de otra tare
 REGLAS: Godot 3.6 / GDScript 1.x (yield, no await). Todo en core_v2/.
         [contratos aplicables del FD: determinismo, cámara, GLES2...]
 ACEPTACIÓN: [el comando o test que debe pasar]
-PROCEDIMIENTO: leer → hipótesis → cambio mínimo → ./runtest.sh -a <test> → reportar
+PROCEDIMIENTO: leer → hipótesis → cambio mínimo → pytest focalizado del test afectado → reportar
 ```
 
 Varias tareas locales a la vez solo si sus `ARCHIVOS PERMITIDOS` son disjuntos.
@@ -106,7 +106,7 @@ Revisión en chunks digeribles, por archivo o subsistema, con riesgos explícito
 llevárselo a Sebastián, verificar de verdad:
 
 ```bash
-./runtest.sh -a ./core_v2/tests/<test relevante>.gd
+./.venv/bin/pytest tests/test_odisea_runner.py -k test_gd__core_v2_tests_test_<relevante>_gd
 ./test_prop.sh --target="<Prop>" --base64      # props: siempre mostrar las capturas
 ./test_ui.sh --scene=<Escena> --base64         # UI
 ```
@@ -129,7 +129,7 @@ valores (densidad, duración, color), aplicarlo en el momento y volver a mostrar
 
 ## 6. Cerrar
 
-1. Suite completa: `./runtest.sh`.
+1. Verificar que la suite completa de CI pase; no correrla localmente por defecto. Ejecutar solo los tests puntuales de cada tarea durante la entrega.
 2. Merge de los PR de Jules **solo con OK explícito** de Sebastián.
 3. `/fd-verify` contra la sección `## Verification` del FD.
 4. `/fd-close` — archivar y actualizar changelog.

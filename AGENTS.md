@@ -28,7 +28,7 @@ Al desarrollador le obsesiona la inmersión. Esto significa:
 
 **Cambios pequeños, no reescrituras.** No reescribas archivos completos. Cambios de 5-10 líneas por bug. Cada cambio debe tener una hipótesis clara antes de implementarse.
 
-**Después de cada cambio:** corré los tests. El proyecto tiene una suite de tests que debe pasar antes de considerar un cambio completo.
+**Después de cada cambio:** corré solo los tests puntuales que cubren lo tocado. La suite completa se ejecuta en CI; no la lances localmente salvo que la tarea lo pida explícitamente.
 
 **No duplicar sistemas existentes.** Si el juego ya tiene un sistema de cámara, zoom, spring arm o input, úsalo en lugar de crear uno nuevo. Extendelo antes de reemplazarlo.
 
@@ -214,32 +214,28 @@ Si el `drift` entre la posición final del replay y la esperada supera un umbral
 
 ## 6. TESTS Y VALIDACIÓN
 
-### 6.1 Antes de hacer merge
+### 6.1 Ejecución selectiva local
 
-Ejecutar la suite completa para verificar que no se rompió nada:
-
-```shell
-./runtest.sh                          # recomendado (corre en paralelo)
-./runtest.sh -a ./core_v2/tests//     # equivalente explícito para core_v2
-```
-
-Si algún test falla, corregirlo antes de considerar el trabajo terminado.
-
-### 6.2 Ejecución selectiva (más rápido durante el desarrollo)
-
-Si sabés qué test cubre tu cambio, corrélo primero:
+Localmente, correr solo el test o tests que cubren el cambio; no la suite completa. Usar pytest como runner headless por defecto: permite seleccionar por archivo o por nodo y ejecuta los mismos GdUnit/OYS:
 
 ```shell
-./runtest.sh -a ./core_v2/tests/test_mi_feature.gd
+./.venv/bin/pytest tests/test_odisea_runner.py -k test_gd__core_v2_tests_test_mi_feature_gd
+./.venv/bin/pytest tests/test_modulo.py
 ```
 
-**Solo corré TODOS los tests al final**, justo antes de mergear.
+Usar `--collect-only` para encontrar el nodo pytest correspondiente antes de ejecutarlo:
+
+```shell
+./.venv/bin/pytest tests/test_odisea_runner.py --collect-only -q -k test_mi_feature
+```
+
+La suite completa queda a cargo de CI. `runtest.sh` sigue disponible para invocaciones directas o cuando la tarea pida su salida específica.
 
 Tests principales:
 - `./runtest.sh -a ./core_v2/tests/test_gravity_modes.gd` — modos de gravedad y zero-g
 - `./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd` — determinismo del Core
 
-### 6.3 Leer el output de los tests
+### 6.2 Leer el output de los tests
 
 El output siempre se guarda en `./reports/gdunit_runner.log`. Si el terminal no lo muestra (común con agentes), leer el archivo:
 
@@ -247,7 +243,7 @@ El output siempre se guarda en `./reports/gdunit_runner.log`. Si el terminal no 
 grep -E "(PASSED|FAILED|ERROR|Total|Exit code|SCRIPT ERROR)" ./reports/gdunit_runner.log
 ```
 
-### 6.4 Tests OYS
+### 6.3 Tests OYS
 
 ```shell
 ./runtest.sh --oys test_salto_vertical
@@ -255,7 +251,7 @@ grep -E "(PASSED|FAILED|ERROR|Total|Exit code|SCRIPT ERROR)" ./reports/gdunit_ru
 
 Después de cada cambio, correr los tests relevantes al sistema modificado y verificar visualmente en el editor. Si la verificación visual revela bugs nuevos, escribir un test OYS o GdUnit que los capture antes de continuar.
 
-### 6.5 Performance Monitoring & Stress Tests
+### 6.4 Performance Monitoring & Stress Tests
 
 El proyecto incluye un sistema de telemetría de performance y un harness de stress para prevenir regresiones.
 
@@ -269,14 +265,14 @@ El proyecto incluye un sistema de telemetría de performance y un harness de str
 # Resultados en ~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json (Linux)
 ```
 
-### 6.6 Verificación de Props
+### 6.5 Verificación de Props
 
 Al trabajar con Props o elementos interactuables:
 1. **Ejecución**: `./test_prop.sh --target="NombreDelProp" --base64` para capturar estados visuales. Si existe `NombreDelProp.oys` junto al `.tscn` (o en `core_v2/scripts/` / `core_v2/tests/`), se ejecuta automáticamente.
 2. **Reporte**: mostrar las capturas al usuario inmediatamente después de cualquier cambio en el asset.
 3. **Iteración**: no considerar un asset terminado hasta que el usuario confirme que las capturas son correctas.
 
-### 6.7 Pipeline de UI (DebugOverlay / Workbench)
+### 6.6 Pipeline de UI (DebugOverlay / Workbench)
 
 Al iterar UI retro (Workbench, ventanas, terminal):
 

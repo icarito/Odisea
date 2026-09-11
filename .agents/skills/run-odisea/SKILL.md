@@ -219,13 +219,28 @@ Full test log is saved to `reports/gdunit_<timestamp>.log`. If terminal output i
 cat reports/gdunit_runner.log | tail -100
 ```
 
-## Run All GdUnit3 Tests (agent path)
+## Local test selection (agent path)
+
+Run only the GdUnit, OYS, or Python test(s) directly affected by the change. Do not run the full suite locally unless the task explicitly requires it. Use pytest headlessly by default:
+
+```bash
+./.venv/bin/pytest tests/test_odisea_runner.py -k test_gd__core_v2_tests_test_<relevant>_gd
+./.venv/bin/pytest tests/test_<module>.py
+```
+
+Discover a GdUnit/OYS pytest node first when needed:
+
+```bash
+./.venv/bin/pytest tests/test_odisea_runner.py --collect-only -q -k <relevant>
+```
+
+## Run All GdUnit3 Tests (CI only)
 
 ```bash
 ./runtest.sh -a ./core_v2/tests/
 ```
 
-This uses the pytest delegate (parallel, 3 workers) when available, or falls back to GdUnit3 directly.
+Do not use this locally as a default; use a selected pytest node instead.
 
 ## ANNA V2 Telemetry Capture (local, bridge-independent)
 
@@ -303,7 +318,7 @@ Open the project in Godot Editor 3.6.x and press F5. Main scene: `res://core_v2/
 
 ```bash
 ./runtest.sh --oys test_salto_vertical   # single fast OYS test (~80s)
-./runtest.sh -a ./core_v2/tests/         # full suite (long)
+./.venv/bin/pytest tests/test_odisea_runner.py -k test_gd__core_v2_tests_test_<relevant>_gd
 ```
 
 Expected: OYS tests print `PASSED` and exit 0. Full suite prints `✅ Todos los tests pasaron`.
