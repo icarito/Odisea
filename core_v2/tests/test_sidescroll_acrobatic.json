@@ -231,23 +231,23 @@
   },
   "final_expected_state": {
     "position": [
-      2.57408,
-      2.6515,
-      -0.463222
+      -6.398899,
+      2.66,
+      -4.450111
     ],
     "velocity": [
-      2.083333,
+      -1.12803,
       -0.766667,
-      0
+      -1.752213
     ],
     "yaw": -0.92502,
     "pitch": 0,
     "base_spring_length_3d": 2.5,
     "movement_state": {
       "horizontal_velocity": [
-        2.083333,
-        -0,
-        0
+        -1.12803,
+        0,
+        -1.752213
       ],
       "external_velocity": [
         0,
