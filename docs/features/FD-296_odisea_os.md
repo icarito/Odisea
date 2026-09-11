@@ -192,18 +192,64 @@ Los contratos de datos (snapshots, `allowed_actions`, `perform_action`) son
 propios de SuitOS; la presentación y la pausa se delegan a los sistemas de
 arriba.
 
+### HoloTerminals como pantallas montables (F1.5)
+
+Un `HoloTerminalV2` (y su heredero `WallTerminal`, p. ej. el `HangingDisplay`
+de `Dome_Intro`) expone **la misma pantalla en tres formas**:
+
+1. **Inmersiva (ya existe):** el jugador se acerca → `TerminalHUDBridge`
+desprende `ScreenContainer/ScreenMesh` y lo monta frente a la cámara (ease
+0.45 s, `hud_screen_*`). Sin cambios.
+2. **Widget en slot (nuevo):** SuitOS dibuja el widget compacto con el mismo
+snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
+3. **Modo HUD full-screen (F3):** el radial la abre; reusa el bridge.
+
+**Cómo se implementa (sin tocar las 1357 líneas de `HoloTerminalV2`):**
+
+- Nuevo `core_v2/components/HoloTerminalHUDable.gd`, que **extiende
+  `HUDableComponent`** y recibe por `export(NodePath)` el terminal fuente. Mismo
+  patrón que `InteractableEntity` + `InteractionMarker`: componente aparte que
+  se cuelga del terminal.
+- `screen_id()` deriva de una ruta **estable y única** (p. ej.
+  `"holoterminal:<owner.scene_file_path>"` o un `export(String) screen_id`
+  explícito). **No** usar índices de árbol ni posiciones: rompería la
+  persistencia entre saves.
+- `widget_snapshot()` lee el estado que el terminal **ya publica** (el
+  `HangingDisplay` ya tiene `CoolantSystemStatusUI` con señales de nivel por
+  tanque). Solo lectura; nada de nodos ni NodePaths en el dict.
+- `view_scene()` devuelve `null` y se marca `view_is_source` (la vista es el
+  propio terminal, no una escena aparte).
+- La **forma inmersiva queda intacta**: el componente es aditivo, no migra
+  `HoloTerminalV2` en esta fase.
+
 ### Fases de implementación
 
-- **F1 — esta delegación (Jules):** `SuitOS.gd` + `HUDableComponent.gd`
-  (patrón `InteractableEntity`) + contratos de esta sección + tests
-  `test_suit_os.gd` / `test_hudable.gd` con fuentes dummy. Incluye el corte
-  por escena (`SceneManager.pre_scene_swap` → cerrar pantalla activa y limpiar
-  slots), replicando `DebugConsoleManager`. **No toca** RemoteControl*,
-  Menu*, PauseManager, pausa ni cámara.
+- **F1 — HECHA (Jules, PR #334 ↔ `feature/FD-296-suitos-core`):**
+  `SuitOS.gd` + `HUDableComponent.gd` (patrón `InteractableEntity`) +
+  contratos + tests `test_suit_os.gd` / `test_hudable.gd`, con corte por
+  `SceneManager.pre_scene_swap` (patrón `DebugConsoleManager`). Verificado
+  localmente: 15/15 tests verdes.
+- **F1.5 — esta delegación (Jules):** primera **rebanada visible**. Objetivo:
+  poder *ver* un widget cambiar por relevancia sin F3 ni F4.
+  1. `HoloTerminalHUDable.gd` (wrapper de la sección anterior).
+  2. `SuitOSWidgetHost.gd` + escena: escucha `widget_changed(slot, snapshot)`
+     y monta `widget_scene()` en `OverlayUIManager.ensure_overlay(..., SLOT_HUD)`;
+     reemplaza el nodo del slot al cambiar el snapshot (sin recrear el slot B
+     si el `screen_id` no cambió). Si `widget_scene()` es `null`, cae a un
+     render de texto del snapshot (útil para probar sin arte).
+  3. `SuitOSContextDriver.gd`: alimenta `set_context({...})` desde
+     `get_tree().get_nodes_in_group("player")` — distancia del jugador a cada
+     fuente y `focus_id` si hay. Palanca: la fuente más cercana sube su
+     relevancia; alejarse la baja. **Solo lectura del mundo.**
+  4. `HangingDisplay` de `Dome_Intro.tscn` registrado como primera pantalla
+     real (componente colgado del terminal existente).
+  5. Test de integración: registrar → cambiar contexto simulado → el snapshot
+     de Slot A cambia; pin → Slot B persiste. **No toca** RemoteControl*,
+     Menu*, PauseManager, pausa, cámara ni `HoloTerminalV2`.
 - **F2:** `ShipSystemBus` + pantalla "Sistemas de nave" (hereda FD-295) +
-  estado de `MultiToolV2`.
-- **F3:** modo HUD local (transición 1ra persona + pausa + radial
-  `RadialSelectorV2`).
+  estado de `MultiToolV2` + migrar `CargolHUD` a pantalla registrable.
+- **F3:** modo HUD local (transición 1ra persona + pausa vía `PauseManager` +
+  radial `RadialSelectorV2`) + slot A/B reales en pantalla.
 - **F4:** `screen_data` + `remote_action` + `haptic{tremor}` en el protocolo
   FD-294.
 
