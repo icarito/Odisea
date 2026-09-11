@@ -48,6 +48,11 @@
             android:name="org.godotengine.plugin.v1.OdiseaUpdater"
             android:value="com.godot.game.OdiseaUpdater" />
 
+        <!-- Android 12+ game mode: prefer the performance profile while playing. -->
+        <meta-data
+            android:name="android.app.game_mode_config"
+            android:resource="@xml/game_mode_config" />
+
         <provider
             android:name="com.godot.game.OdiseaUpdateFileProvider"
             android:authorities="${applicationId}.updateprovider"

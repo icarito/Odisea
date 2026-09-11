@@ -34,7 +34,11 @@ import org.godotengine.godot.FullScreenGodotApp;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.view.Display;
+import android.view.WindowManager;
 
 /**
  * Template activity for Godot Android custom builds.
@@ -45,6 +49,17 @@ public class GodotApp extends FullScreenGodotApp {
 	// constructed (the normal launch ordering). The plugin drains this in its
 	// constructor; onNewIntent (app already running) feeds the plugin directly.
 	private static String sPendingDeepLink = "";
+
+	// Brightness floor for the game window. Long scene loads (menu -> dome) left
+	// the screen untouched long enough for power management to dim it, even with
+	// the engine's keep-screen-on flag (battery-saver / adaptive dimming ignore
+	// FLAG_KEEP_SCREEN_ON on some OEMs). Tuned up from 0.6 if still dim.
+	private static final float BRIGHTNESS_FLOOR = 0.6f;
+
+	// On 90/120 Hz panels, rendering at the panel's full refresh only adds heat
+	// and thermal throttling (the engine has no frame-rate cap on Android):
+	// pin the display mode closest to this refresh rate. No-op on 60 Hz panels.
+	private static final float TARGET_REFRESH_HZ = 60.0f;
 
 	/** Drained by OdiseaDeepLink's constructor for the launch Intent. */
 	public static String takePendingDeepLink() {
@@ -57,9 +72,58 @@ public class GodotApp extends FullScreenGodotApp {
 	public void onCreate(Bundle savedInstanceState) {
 		setTheme(R.style.GodotAppMainTheme);
 		super.onCreate(savedInstanceState);
+		keepScreenAwakeAndBright();
+		pinDisplayRefreshRate();
 		// The launch Intent arrives before the engine constructs the
 		// OdiseaDeepLink plugin, so stash the odisea:// URI for it to pick up.
 		stashDeepLink(getIntent());
+	}
+
+	/**
+	 * Keeps the screen on and pins a brightness floor while the game is the
+	 * visible window. FLAG_KEEP_SCREEN_ON stops the idle timeout; the window
+	 * screenBrightness attribute stops OEM battery-saver / adaptive dimming,
+	 * which ignore that flag. Never lowers brightness below the user's setting.
+	 */
+	private void keepScreenAwakeAndBright() {
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+		int systemBrightness = Settings.System.getInt(
+				getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, 128);
+		float floor = Math.max(systemBrightness / 255.0f, BRIGHTNESS_FLOOR);
+		WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+		layoutParams.screenBrightness = floor;
+		getWindow().setAttributes(layoutParams);
+	}
+
+	/**
+	 * Pins the display to the mode closest to TARGET_REFRESH_HZ with the same
+	 * resolution as the default mode. preferredDisplayModeId needs API 23;
+	 * below that (or on panels without higher-rate modes) it is a no-op.
+	 */
+	private void pinDisplayRefreshRate() {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+			return;
+		}
+		Display display = getWindowManager().getDefaultDisplay();
+		Display.Mode current = display.getMode();
+		Display.Mode best = current;
+		float bestDelta = Float.MAX_VALUE;
+		for (Display.Mode mode : display.getSupportedModes()) {
+			if (mode.getPhysicalWidth() != current.getPhysicalWidth()
+					|| mode.getPhysicalHeight() != current.getPhysicalHeight()) {
+				continue;
+			}
+			float delta = Math.abs(mode.getRefreshRate() - TARGET_REFRESH_HZ);
+			if (delta < bestDelta) {
+				bestDelta = delta;
+				best = mode;
+			}
+		}
+		if (best.getModeId() != current.getModeId()) {
+			WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+			layoutParams.preferredDisplayModeId = best.getModeId();
+			getWindow().setAttributes(layoutParams);
+		}
 	}
 
 	@Override

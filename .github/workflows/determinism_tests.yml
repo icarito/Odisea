@@ -32,8 +32,7 @@ env:
   # Godot carrying the Box3D physics module, published by icarito/godot-box3d-3.
   # Determinism is the reason: Box3D steps single-threaded with a fixed
   # sub-step count, which is what these tests are checking for.
-  GODOT_VERSION: 3.6.4.rc.box3d
-  BOX3D_RELEASE: v0.2.0
+  # La release sale de .github/box3d_release, compartida con los demas workflows.
   GODOT_CACHE_DIR: ${{ github.workspace }}/.ci-cache/godot
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   ANNA_V2_NO_CENTRAL: "1"
@@ -68,15 +67,16 @@ jobs:
       - name: Cache Godot binary
         uses: actions/cache@v6
         with:
-          path: ${{ env.GODOT_CACHE_DIR }}/${{ env.GODOT_VERSION }}/godot
-          key: ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-determinism
-          restore-keys: |
-            ${{ runner.os }}-godot-bin-${{ env.GODOT_VERSION }}-
+          # La clave lleva el hash de la release: con la version fija de antes, subir
+          # de release seguia restaurando el binario viejo del cache.
+          path: ${{ env.GODOT_CACHE_DIR }}/box3d/godot
+          key: ${{ runner.os }}-godot-box3d-${{ hashFiles('.github/box3d_release') }}-determinism
 
       - name: Setup Godot (Box3D build)
         run: |
           set -euo pipefail
-          TARGET_DIR="${GODOT_CACHE_DIR}/${GODOT_VERSION}"
+          BOX3D_RELEASE="$(cat .github/box3d_release)"
+          TARGET_DIR="${GODOT_CACHE_DIR}/box3d"
           TARGET_BIN="${TARGET_DIR}/godot"
           mkdir -p "$TARGET_DIR"
           if [ ! -x "$TARGET_BIN" ]; then

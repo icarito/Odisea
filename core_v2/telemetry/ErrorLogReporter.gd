@@ -48,10 +48,11 @@ func _ready() -> void:
 	_log_path = String(ProjectSettings.get_setting("logging/file_logging/log_path"))
 	if _log_path == "":
 		_log_path = LOG_PATH_FALLBACK
-	_http = HTTPRequest.new()
-	_http.use_threads = true
-	add_child(_http)
-	_http.connect("request_completed", self, "_on_completed")
+	if OS.get_name() != "HTML5":
+		_http = HTTPRequest.new()
+		_http.use_threads = true
+		add_child(_http)
+		_http.connect("request_completed", self, "_on_completed")
 	set_process(true)
 
 
@@ -137,6 +138,12 @@ func _flush() -> void:
 	var token := _token()
 	if token != "":
 		headers.append("Authorization: Bearer " + token)
+	if OS.get_name() == "HTML5":
+		var shell = JavaScript.get_interface("OdiseaShell")
+		if shell != null and shell.reportClientLog(url, token, JSON.print(payload)):
+			_sent += _pending.size()
+			_pending = []
+		return
 	_busy = true
 	var err := _http.request(url, headers, true, HTTPClient.METHOD_POST, JSON.print(payload))
 	if err != OK:

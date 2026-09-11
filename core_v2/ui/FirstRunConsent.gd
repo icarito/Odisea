@@ -1,25 +1,26 @@
 extends ColorRect
 
 # FD-292 / FD-290. Pantalla de primera partida: pide el consentimiento de telemetria
-# mientras el juego compila los shaders de la primera escena.
+# mientras el primer nivel se carga de verdad.
 #
-# El orden no es cosmetico. Un arranque en frio de Dome_Intro paga alrededor de
-# noventa programas GLES3 de a uno, y ese costo hay que pagarlo igual; lo unico que
-# se elige es si el jugador lo mira como una pantalla congelada o como el rato en que
-# lee de que se trata la telemetria. Por eso la barra que avanza abajo es real: sale
-# de la cola del warmup (ShaderCacheManager.progress), no de un temporizador. Si la
-# maquina es rapida, el texto se lee igual y los botones aparecen enseguida.
+# La barra sale de SceneManager.transition_progress, o sea de la carga real de la
+# escena. Un intento anterior media el warmup de shaders en vez de eso, y el jugador
+# terminaba esperando dos veces: la barra llegaba al final, aceptaba, y recien ahi el
+# nivel empezaba su propia carga de casi cuarenta segundos. El warmup compila los
+# ubershaders, pero lo que tarda al entrar son las variantes reales, que se compilan
+# igual. Ahora la espera es una sola y es la que importa.
 #
-# Los dos botones aparecen JUNTOS y recien al 100%. Ninguno viene preseleccionado:
-# la espera sirve para que la decision se tome leyendo, no para empujarla.
+# Esta pantalla sobrevive al cambio de escena: cuelga de un CanvasLayer propio en la
+# raiz, no del Menu, porque el Menu se libera a mitad de la carga.
+#
+# Los dos botones aparecen JUNTOS y recien al final. Ninguno viene preseleccionado.
 
 signal consent_completed(accepted)
+# Pedido de arrancar la carga del nivel: lo atiende el Menu, que es quien sabe como
+# encadenar su fundido y el crossfade de musica.
+signal loading_requested
 
 const PRIVACY_URL := "https://odisea.educa.juegos/privacidad"
-
-# Cuanto del recorrido de la barra ocupa cada mitad. La precarga de la escena termina
-# mucho antes que el warmup, asi que se lleva la porcion chica.
-const PRELOAD_SHARE := 0.25
 
 export(String) var target_scene_path := ""
 
@@ -28,17 +29,20 @@ onready var _telemetry_panel: Control = find_node("TelemetryPanel")
 onready var _ok_button: Button = find_node("OkButton")
 onready var _accept_button: Button = find_node("AcceptButton")
 onready var _decline_button: Button = find_node("DeclineButton")
-onready var _privacy_link: Button = find_node("PrivacyLinkButton")
+# LinkButton, no Button: se dibuja como texto subrayado para que el enlace al aviso
+# completo no compita visualmente con la decision que si hay que tomar.
+onready var _privacy_link: BaseButton = find_node("PrivacyLinkButton")
 onready var _progress: ProgressBar = find_node("Progress")
 onready var _progress_label: Label = find_node("ProgressLabel")
 onready var _choice_box: Control = find_node("ChoiceBox")
 
-var _warm_done := 0
-var _warm_total := 0
-var _warm_finished := false
+var _progress_01 := 0.0
+var _transition_done := false
 var _ready_announced := false
 
 func _ready() -> void:
+	# Sigue procesando con el arbol pausado: es quien tiene que despausarlo.
+	pause_mode = Node.PAUSE_MODE_PROCESS
 	_telemetry_panel.visible = false
 	_choice_box.visible = false
 	set_process(false)
@@ -49,12 +53,12 @@ func _ready() -> void:
 	if _privacy_link:
 		_privacy_link.connect("pressed", self, "_on_privacy_link_pressed")
 
-	var warm = get_node_or_null("/root/ShaderCacheManager")
-	if warm:
-		if warm.has_signal("progress"):
-			warm.connect("progress", self, "_on_warm_progress")
-		if warm.has_signal("compiled"):
-			warm.connect("compiled", self, "_on_warm_compiled")
+	var sm = get_node_or_null("/root/SceneManager")
+	if sm:
+		if sm.has_signal("transition_progress"):
+			sm.connect("transition_progress", self, "_on_transition_progress")
+		if sm.has_signal("transition_completed"):
+			sm.connect("transition_completed", self, "_on_transition_completed")
 
 	_ok_button.grab_focus()
 
@@ -62,12 +66,11 @@ func _on_ok_pressed() -> void:
 	_intro_panel.visible = false
 	_telemetry_panel.visible = true
 	_progress.value = 0.0
-	# Recien ahora se compila. Antes de este punto el Menu esta a la vista y un lote
-	# de compilacion se veria como un tiron; a partir de aca esta pantalla lo tapa y
-	# el rato tiene una barra que lo explica.
-	var menu = get_parent()
-	if menu and menu.has_method("begin_shader_warmup"):
-		menu.begin_shader_warmup()
+	_ok_button.disabled = true
+	# Recien ahora arranca la carga del nivel. Antes de este punto el Menu esta a la
+	# vista y compilar shaders se veria como un tiron; a partir de aca esta pantalla
+	# lo tapa entero.
+	emit_signal("loading_requested")
 	set_process(true)
 	_refresh_progress()
 
@@ -75,37 +78,63 @@ func _process(_delta: float) -> void:
 	_refresh_progress()
 
 func _refresh_progress() -> void:
-	var preload_done := 1.0
-	var sm = get_node_or_null("/root/SceneManager")
-	if sm and target_scene_path != "" and sm.has_method("is_scene_preloading"):
-		if sm.is_scene_preloading(target_scene_path):
-			preload_done = 0.0
-
-	var warm_done := 1.0
-	if not _warm_finished:
-		warm_done = float(_warm_done) / float(_warm_total) if _warm_total > 0 else 0.0
-
-	var total: float = preload_done * PRELOAD_SHARE + warm_done * (1.0 - PRELOAD_SHARE)
-	_progress.value = clamp(total, 0.0, 1.0) * 100.0
-
-	if total >= 1.0 and not _ready_announced:
+	var shown: float = 1.0 if _transition_done else _progress_01
+	_progress.value = clamp(shown, 0.0, 1.0) * 100.0
+	if _transition_done and not _ready_announced:
 		_announce_ready()
 
-func _on_warm_progress(done: int, total: int) -> void:
-	_warm_done = done
-	_warm_total = total
+func _on_transition_progress(path, progress) -> void:
+	if target_scene_path != "" and String(path) != target_scene_path:
+		return
+	# La barra no retrocede: durante el swap el reporte puede saltar hacia atras y
+	# eso se lee como si algo hubiera fallado.
+	_progress_01 = max(_progress_01, float(progress))
 
-func _on_warm_compiled(_cache_path) -> void:
-	_warm_finished = true
+func _on_transition_completed(path, _scene, _params) -> void:
+	if target_scene_path != "" and String(path) != target_scene_path:
+		return
+	_transition_done = true
 
 func _announce_ready() -> void:
 	_ready_announced = true
 	set_process(false)
-	_progress.value = 100.0
+	# La barra y su rotulo desaparecen en vez de anunciar "Listo": ya no hay nada que
+	# esperar, y dejarlos ahi compite con la pregunta, que es lo unico que queda por
+	# hacer en la pantalla.
+	_progress.visible = false
 	if _progress_label:
-		_progress_label.text = "Listo."
+		_progress_label.visible = false
 	_choice_box.visible = true
-	# A proposito sin grab_focus(): que ninguno de los dos arranque preseleccionado.
+	# Los botones aparecen inertes y se arman medio segundo despues. Medido en el
+	# Redmi: sin esta ventana, la decision se registraba sola en el mismo instante en
+	# que aparecian -- el nivel corre detras de esta pantalla y algun evento suyo
+	# alcanzaba al boton recien enfocado. Una eleccion de privacidad que se contesta
+	# sin que nadie la conteste no vale nada, asi que el foco llega despues.
+	_accept_button.disabled = true
+	_decline_button.disabled = true
+	# El nivel ya termino de cargar, asi que a partir de aca puede pausarse sin
+	# frenar nada: la cola de shaders sigue drenando porque la avanza el rasterizador,
+	# no el arbol. Pausar es lo que impide que el juego conteste por el jugador --
+	# corriendo detras, alguna de sus entradas alcanzaba al boton enfocado y la
+	# decision se registraba sola (medido en el Redmi, dos veces seguidas). De paso
+	# MobileUIManager esconde los controles tactiles cuando el arbol esta pausado.
+	var tree := get_tree()
+	if tree:
+		tree.paused = true
+	_arm_choice()
+
+func _arm_choice() -> void:
+	var tree := get_tree()
+	if tree:
+		yield(tree.create_timer(0.5), "timeout")
+	if not is_instance_valid(self):
+		return
+	_accept_button.disabled = false
+	_decline_button.disabled = false
+	# Aceptar es la opcion por defecto: queda enfocada para que el mando o el teclado
+	# la activen sin navegar. Rechazar esta al lado, del mismo tamaño y visible desde
+	# el primer momento, asi que el atajo no esconde la alternativa.
+	_accept_button.grab_focus()
 
 func _on_choice(accepted: bool) -> void:
 	var sm = get_node_or_null("/root/SettingsManager")
@@ -115,8 +144,17 @@ func _on_choice(accepted: bool) -> void:
 		sm.consent_asked = true
 		sm.save_settings()
 		sm.apply_privacy_settings()
+	var tree := get_tree()
+	if tree:
+		tree.paused = false
 	emit_signal("consent_completed", accepted)
-	queue_free()
+	# Liberar el CanvasLayer entero, no solo esta pantalla: al descubrirla, el nivel
+	# ya esta cargado y dibujando detras.
+	var host := get_parent()
+	if host is CanvasLayer:
+		host.queue_free()
+	else:
+		queue_free()
 
 func _on_privacy_link_pressed() -> void:
 	OS.shell_open(PRIVACY_URL)

@@ -665,6 +665,18 @@ $GODOT_HEAD_INCLUDE
 		// and the player gains control in the first scene.
 		var playerReleasedSent = false;
 		window.OdiseaShell = {
+			reportClientLog: function(url, token, payload) {
+				fetch(url, {
+					method: "POST",
+					headers: {
+						"Authorization": "Bearer " + token,
+						"Content-Type": "application/json"
+					},
+					body: payload,
+					keepalive: true
+				}).catch(function() {});
+				return true;
+			},
 			playerReleased: function() {
 				if (playerReleasedSent) return;
 				playerReleasedSent = true;

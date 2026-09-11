@@ -108,7 +108,7 @@
       }
     },
     {
-      "hold": 96
+      "hold": 95
     }
   ],
   "events": {
@@ -135,7 +135,7 @@
         "phase": "start"
       }
     ],
-    "144": [
+    "143": [
       {
         "command": "ASSERT_SIGNAL",
         "signal": "player_killed",
@@ -144,7 +144,7 @@
         "phase": "check"
       }
     ],
-    "193": [
+    "192": [
       {
         "command": "PRINT",
         "message": "SUCCESS: player_killed signal was emitted!"
@@ -187,30 +187,30 @@
   },
   "final_expected_state": {
     "position": [
-      -0.000001,
-      -4.343047,
-      12.197448
+      0,
+      0.006111,
+      0
     ],
     "velocity": [
-      -0,
-      -10.733334,
-      1.749999
+      0,
+      0,
+      0
     ],
     "yaw": 0,
     "pitch": 0,
     "base_spring_length_3d": 2.5,
     "movement_state": {
       "horizontal_velocity": [
-        -0,
         0,
-        1.749999
+        0,
+        0
       ],
       "external_velocity": [
         0,
         0,
         0
       ],
-      "camera_input_timer": 2.4,
+      "camera_input_timer": 0.816667,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
@@ -218,7 +218,7 @@
     "controller_mode": 0,
     "gravity_mode": 0,
     "jump_state": {
-      "coyote_timer": 0,
+      "coyote_timer": 0.15,
       "jump_buffer_timer": 0,
       "is_jumping": false
     }

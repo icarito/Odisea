@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-GODOT_BIN="godot3-bin"
+GODOT_BIN="$(sh "$(dirname "$0")/tools/godot_bin.sh")"
 PROJECT_PATH="."
 PLAYER_SCENE="core_v2/tools/HotzonePlayer.tscn"
 # user://pending_hotzones/ resolves here for the "Odisea" project on Linux.

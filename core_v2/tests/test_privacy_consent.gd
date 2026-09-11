@@ -21,11 +21,11 @@ func test_los_botones_estan_ocultos_hasta_el_100():
 	assert_bool(screen._choice_box.visible).is_false()
 	screen._on_ok_pressed()
 	assert_bool(screen._telemetry_panel.visible).is_true()
-	# Con el warmup a medias no debe poder elegirse todavia.
-	screen._on_warm_progress(1, 10)
+	# Con la carga a medias no debe poder elegirse todavia.
+	screen._on_transition_progress(screen.target_scene_path, 0.4)
 	screen._refresh_progress()
 	assert_bool(screen._choice_box.visible).is_false()
-	screen._on_warm_compiled("")
+	screen._on_transition_completed(screen.target_scene_path, null, {})
 	screen._refresh_progress()
 	assert_bool(screen._choice_box.visible).is_true()
 

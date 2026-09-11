@@ -14,21 +14,20 @@ No usar `godot`, porque puede apuntar a Godot 4 y romper sintaxis GDScript 1.x.
 
 ## Tests
 
-Suite completa:
+En desarrollo local, ejecutar solamente los tests puntuales afectados; la suite completa corresponde a CI. Usar pytest headless por defecto para GdUnit/OYS y Python, seleccionando el nodo o archivo afectado:
 
 ```bash
-./runtest.sh
-./runtest.sh -a ./core_v2/tests/
+./.venv/bin/pytest tests/test_odisea_runner.py -k test_gd__core_v2_tests_test_gravity_modes_gd
+./.venv/bin/pytest tests/test_modulo.py
 ```
 
-Tests principales:
+Descubrir el nodo de un test GdUnit/OYS antes de correrlo:
 
 ```bash
-./runtest.sh -a ./core_v2/tests/test_gravity_modes.gd
-./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd
-./runtest.sh --oys test_salto_vertical
-./runtest.sh --stress
+./.venv/bin/pytest tests/test_odisea_runner.py --collect-only -q -k test_gravity_modes
 ```
+
+`runtest.sh` sigue disponible para invocaciones directas o cuando se necesite su salida específica.
 
 Leer resultados si el terminal no muestra todo:
 

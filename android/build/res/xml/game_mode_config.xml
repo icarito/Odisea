@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ GameManager: the system may use the performance game profile
+     while playing (skips battery interventions on supporting OEMs). -->
+<game-mode-config
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:supportsPerformanceGameMode="true"
+    android:supportsBatteryGameMode="true" />

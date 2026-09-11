@@ -1,7 +1,8 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/ui/FirstRunConsent.gd" type="Script" id=1]
 [ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=2]
+[ext_resource path="res://assets/fonts/Workbench-Regular-VariableFont_BLED,SCAN.ttf" type="DynamicFontData" id=3]
 
 ; El ProgressBar del tema pinta el relleno MAS OSCURO que el fondo, asi que al 100%
 ; se lee como vacio -- justo al reves de lo que esta pantalla necesita. Estos dos
@@ -17,11 +18,19 @@ border_color = Color( 0.24, 0.55, 0.65, 1 )
 [sub_resource type="StyleBoxFlat" id=2]
 bg_color = Color( 0.26, 0.72, 0.85, 1 )
 
+; La pregunta es lo unico que el jugador tiene que responder: va un punto mas grande
+; que el cuerpo para que se lea como pregunta y no como otra linea del aviso.
+[sub_resource type="DynamicFont" id=3]
+size = 21
+outline_size = 1
+outline_color = Color( 0.0980392, 0.0470588, 0.145098, 0.466667 )
+font_data = ExtResource( 3 )
+
 [node name="FirstRunConsent" type="ColorRect"]
 anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource( 2 )
-color = Color( 0, 0, 0, 0.92 )
+color = Color( 0, 0, 0, 1 )
 script = ExtResource( 1 )
 
 [node name="IntroPanel" type="CenterContainer" parent="."]
@@ -35,19 +44,19 @@ rect_min_size = Vector2( 560, 0 )
 custom_constants/separation = 18
 
 [node name="Title" type="Label" parent="IntroPanel/Panel/VBox"]
-text = "ANTES DE EMPEZAR"
+text = "PROTOCOLO DE ABORDAJE"
 align = 1
 
 [node name="Text" type="Label" parent="IntroPanel/Panel/VBox"]
 rect_min_size = Vector2( 520, 0 )
-text = "Es la primera partida en este aparato.
+text = "Primer acceso registrado en esta terminal.
 
-Mientras Odisea prepara el primer nivel, hay algo corto para leer: de que datos puede enviarnos el juego, y para que. Al terminar la preparacion se podra decidir."
+Antes de asignarte una cápsula, el Arca necesita que leas el aviso que sigue y respondas una pregunta. Léelo con calma: solo se te preguntará esta vez."
 autowrap = true
 
 [node name="OkButton" type="Button" parent="IntroPanel/Panel/VBox"]
 rect_min_size = Vector2( 0, 40 )
-text = "ENTENDIDO"
+text = "CONTINUAR"
 
 [node name="TelemetryPanel" type="Control" parent="."]
 anchor_right = 1.0
@@ -59,7 +68,7 @@ anchor_bottom = 1.0
 margin_left = 40.0
 margin_top = 28.0
 margin_right = -40.0
-margin_bottom = -186.0
+margin_bottom = -262.0
 custom_constants/margin_right = 8
 custom_constants/margin_left = 8
 
@@ -67,33 +76,33 @@ custom_constants/margin_left = 8
 custom_constants/separation = 14
 
 [node name="Title" type="Label" parent="TelemetryPanel/TextArea/VBox"]
-text = "QUE NOS ENVIA ODISEA"
+text = "AVISO DE PRIVACIDAD"
 align = 1
 
 [node name="Body" type="Label" parent="TelemetryPanel/TextArea/VBox"]
 size_flags_vertical = 3
-text = "Odisea puede enviar datos tecnicos anonimos durante la partida: cuantos cuadros por segundo alcanza el aparato, en que escena cae el rendimiento, y el detalle de un error si el juego falla.
+text = "Mientras juegas, Odisea puede enviarnos datos técnicos anónimos: los cuadros por segundo que alcanza tu equipo, la memoria que usa, en qué escena y en qué punto del mapa te encuentras, hacia dónde miras y el detalle de cualquier error.
 
-Sirve para una sola cosa: encontrar donde el juego anda mal en aparatos reales, que es algo que no se ve desde una computadora de desarrollo. Esta misma pantalla existe por eso: la telemetria mostro cuanto tardaba en abrir el primer nivel en un telefono.
+Si el rendimiento cae durante varios segundos seguidos, se guarda además un fragmento breve de ese tramo —los controles que usaste y tu recorrido— para poder reproducirlo después y encontrar la causa.
 
-No se guarda nada personal: ni nombre, ni correo, ni ubicacion, ni lo que ocurre en la partida. La decision se puede cambiar cuando se quiera desde Opciones."
+El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto."
 autowrap = true
 
-[node name="Foot" type="VBoxContainer" parent="TelemetryPanel"]
+[node name="Loading" type="VBoxContainer" parent="TelemetryPanel"]
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 margin_left = 40.0
-margin_top = -170.0
+margin_top = -250.0
 margin_right = -40.0
-margin_bottom = -18.0
-custom_constants/separation = 10
+margin_bottom = -198.0
+custom_constants/separation = 8
 
-[node name="ProgressLabel" type="Label" parent="TelemetryPanel/Foot"]
-text = "Preparando el primer nivel..."
+[node name="ProgressLabel" type="Label" parent="TelemetryPanel/Loading"]
+text = "Preparando el primer nivel…"
 align = 1
 
-[node name="Progress" type="ProgressBar" parent="TelemetryPanel/Foot"]
+[node name="Progress" type="ProgressBar" parent="TelemetryPanel/Loading"]
 rect_min_size = Vector2( 0, 22 )
 custom_styles/fg = SubResource( 2 )
 custom_styles/bg = SubResource( 1 )
@@ -102,20 +111,53 @@ step = 0.1
 value = 0.0
 percent_visible = false
 
-[node name="PrivacyLinkButton" type="Button" parent="TelemetryPanel/Foot"]
-rect_min_size = Vector2( 0, 32 )
-text = "VER POLITICA DE PRIVACIDAD COMPLETA"
+[node name="Foot" type="VBoxContainer" parent="TelemetryPanel"]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 40.0
+margin_top = -186.0
+margin_right = -40.0
+margin_bottom = -16.0
+custom_constants/separation = 10
 
-[node name="ChoiceBox" type="HBoxContainer" parent="TelemetryPanel/Foot"]
+[node name="LinkRow" type="HBoxContainer" parent="TelemetryPanel/Foot"]
+alignment = 1
+
+[node name="PrivacyLinkButton" type="LinkButton" parent="TelemetryPanel/Foot/LinkRow"]
+text = "Ver Política de Privacidad completa"
+
+[node name="LinkGap" type="Control" parent="TelemetryPanel/Foot"]
+rect_min_size = Vector2( 0, 16 )
+
+[node name="ChoiceBox" type="VBoxContainer" parent="TelemetryPanel/Foot"]
+custom_constants/separation = 10
+
+[node name="QuestionWrap" type="MarginContainer" parent="TelemetryPanel/Foot/ChoiceBox"]
+custom_constants/margin_right = 0
+custom_constants/margin_top = 6
+custom_constants/margin_left = 0
+custom_constants/margin_bottom = 6
+
+[node name="Question" type="Label" parent="TelemetryPanel/Foot/ChoiceBox/QuestionWrap"]
+custom_fonts/font = SubResource( 3 )
+text = "¿Aceptas enviar telemetría?"
+align = 1
+
+[node name="Buttons" type="HBoxContainer" parent="TelemetryPanel/Foot/ChoiceBox"]
 custom_constants/separation = 20
 alignment = 1
 
-[node name="AcceptButton" type="Button" parent="TelemetryPanel/Foot/ChoiceBox"]
+[node name="DeclineButton" type="Button" parent="TelemetryPanel/Foot/ChoiceBox/Buttons"]
 rect_min_size = Vector2( 0, 44 )
 size_flags_horizontal = 3
-text = "ACEPTAR Y JUGAR"
+text = "NO ENVIAR"
 
-[node name="DeclineButton" type="Button" parent="TelemetryPanel/Foot/ChoiceBox"]
+[node name="AcceptButton" type="Button" parent="TelemetryPanel/Foot/ChoiceBox/Buttons"]
 rect_min_size = Vector2( 0, 44 )
 size_flags_horizontal = 3
-text = "NO ENVIAR Y JUGAR"
+text = "SÍ, ACEPTO"
+
+[node name="Footnote" type="Label" parent="TelemetryPanel/Foot/ChoiceBox"]
+text = "Puedes cambiar esta decisión cuando quieras desde Opciones."
+align = 1

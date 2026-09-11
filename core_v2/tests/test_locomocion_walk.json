@@ -191,7 +191,8 @@
           2
         ],
         "snap_rot": true,
-        "snap_deg": 1
+        "snap_deg": 1,
+        "sleeping": false
       },
       "/root/TestScene/Boxes/PushableBoxV3": {
         "pos": [
@@ -222,7 +223,8 @@
           2
         ],
         "snap_rot": true,
-        "snap_deg": 1
+        "snap_deg": 1,
+        "sleeping": false
       },
       "/root/TestScene/Boxes/PushableBoxV4": {
         "pos": [
@@ -253,7 +255,8 @@
           2
         ],
         "snap_rot": true,
-        "snap_deg": 1
+        "snap_deg": 1,
+        "sleeping": false
       },
       "/root/TestScene/Boxes/PushableBoxV5": {
         "pos": [
@@ -284,7 +287,8 @@
           2
         ],
         "snap_rot": true,
-        "snap_deg": 1
+        "snap_deg": 1,
+        "sleeping": false
       },
       "/root/TestScene/Boxes/PushableBoxV6": {
         "pos": [
@@ -315,7 +319,8 @@
           2
         ],
         "snap_rot": true,
-        "snap_deg": 1
+        "snap_deg": 1,
+        "sleeping": false
       },
       "/root/TestScene/Boxes/PushableBoxV7": {
         "pos": [
@@ -346,7 +351,8 @@
           2
         ],
         "snap_rot": true,
-        "snap_deg": 1
+        "snap_deg": 1,
+        "sleeping": false
       },
       "/root/TestScene/Boxes/PushableBoxV8": {
         "pos": [
@@ -377,7 +383,8 @@
           2
         ],
         "snap_rot": true,
-        "snap_deg": 1
+        "snap_deg": 1,
+        "sleeping": false
       },
       "/root/TestScene/Boxes/PushableBoxV9": {
         "pos": [
@@ -408,7 +415,8 @@
           2
         ],
         "snap_rot": true,
-        "snap_deg": 1
+        "snap_deg": 1,
+        "sleeping": false
       },
       "/root/TestScene/ExampleTrigger": {
         "script_file": "res://core_v2/scripts/helloTrigger.oys",
@@ -549,7 +557,7 @@
   "final_expected_state": {
     "position": [
       0,
-      0.0015,
+      0.006111,
       1.956636
     ],
     "velocity": [

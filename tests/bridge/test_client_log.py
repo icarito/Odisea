@@ -18,7 +18,12 @@ def log_file(tmp_path, monkeypatch):
 def central_app():
     central = OdiseaCentral()
     app = web.Application()
-    app.add_routes([web.post("/client-log", central.handle_client_log)])
+    app.on_response_prepare.append(central._on_prepare)
+    app.add_routes([
+        web.post("/client-log", central.handle_client_log),
+        web.options("/client-log", central.handle_client_log_options),
+        web.get("/client-logs", central.handle_client_logs_list),
+    ])
     return app
 
 
@@ -45,7 +50,17 @@ async def test_rejects_without_token(aiohttp_client, central_app, log_file):
     client = await aiohttp_client(central_app)
     resp = await client.post("/client-log", json=_payload())
     assert resp.status == 401
+    assert (await client.get("/client-logs")).status == 401
     assert not log_file.exists()
+
+
+@pytest.mark.asyncio
+async def test_client_log_preflight_allows_authenticated_json(aiohttp_client, central_app):
+    client = await aiohttp_client(central_app)
+    resp = await client.options("/client-log")
+    assert resp.status == 204
+    assert resp.headers["Access-Control-Allow-Origin"] == "*"
+    assert "Authorization" in resp.headers["Access-Control-Allow-Headers"]
 
 
 @pytest.mark.asyncio
@@ -53,6 +68,7 @@ async def test_stores_lines(aiohttp_client, central_app, auth_headers, log_file)
     client = await aiohttp_client(central_app)
     resp = await client.post("/client-log", headers=auth_headers, json=_payload())
     assert resp.status == 200
+    assert resp.headers["Access-Control-Allow-Origin"] == "*"
     assert (await resp.json())["stored"] == 2
 
     record = json.loads(log_file.read_text(encoding="utf-8").strip())
@@ -60,6 +76,19 @@ async def test_stores_lines(aiohttp_client, central_app, auth_headers, log_file)
     assert record["player_id"] == "abc123"
     assert record["lines"][0] == "ERROR: shader link failed"
     assert record["received_at"]
+
+
+@pytest.mark.asyncio
+async def test_lists_newest_client_logs_without_ip(aiohttp_client, central_app, auth_headers, log_file):
+    client = await aiohttp_client(central_app)
+    await client.post("/client-log", headers=auth_headers, json=_payload(player_id="first"))
+    await client.post("/client-log", headers=auth_headers, json=_payload(player_id="latest"))
+
+    resp = await client.get("/client-logs?limit=1", headers=auth_headers)
+    assert resp.status == 200
+    records = await resp.json()
+    assert records[0]["player_id"] == "latest"
+    assert "ip" not in records[0]
 
 
 @pytest.mark.asyncio

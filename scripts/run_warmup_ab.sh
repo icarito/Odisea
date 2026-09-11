@@ -11,7 +11,7 @@ set -euo pipefail
 #   case A -> ODISEA_DISABLE_SHADER_WARMUP=0
 #   case B -> ODISEA_DISABLE_SHADER_WARMUP=1
 
-GODOT_BIN="${GODOT_BIN:-godot3-bin}"
+GODOT_BIN="${GODOT_BIN:-$(sh "$(dirname "$0")/../tools/godot_bin.sh")}"
 OYS_SCRIPT="${OYS_SCRIPT:-res://core_v2/tests/perf/warmup_ab_base_terrace.oys}"
 RUNS="${RUNS:-3}"
 GODOT_FLAGS="${GODOT_FLAGS---no-window}"
@@ -41,7 +41,7 @@ Usage:
   ./scripts/run_warmup_ab.sh [oys_script_path]
 
 Environment:
-  GODOT_BIN        Godot binary (default: godot3-bin)
+  GODOT_BIN        Godot binary (default: tools/godot_bin.sh)
   OYS_SCRIPT       OYS script path (default: warmup_ab_base_terrace.oys)
   RUNS             Runs per case (default: 3)
   GODOT_FLAGS      Extra Godot flags (default: --no-window)

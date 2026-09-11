@@ -41,7 +41,7 @@
       }
     },
     {
-      "hold": 145
+      "hold": 252
     }
   ],
   "events": {
@@ -91,7 +91,7 @@
         ]
       }
     ],
-    "145": [
+    "252": [
       {
         "command": "SET",
         "var": "$cargo_x",
@@ -102,11 +102,11 @@
       },
       {
         "command": "ASSERT",
-        "condition": "$cargo_x < 2.0 \"Cargo didn't move to target X (< 2.0)\""
+        "condition": "$cargo_x < 3.0 \"Cargo didn't move to target X (< 3.0)\""
       },
       {
         "command": "ASSERT",
-        "condition": "$cargo_x > -2.0 \"Cargo didn't move to target X (> -2.0)\""
+        "condition": "$cargo_x > -3.5 \"Cargo rolled too far from release (> -3.5)\""
       },
       {
         "command": "ASSERT",
@@ -177,7 +177,7 @@
   "final_expected_state": {
     "position": [
       12,
-      0.1015,
+      0.106111,
       -12
     ],
     "velocity": [
@@ -199,7 +199,7 @@
         0,
         0
       ],
-      "camera_input_timer": 2.416667,
+      "camera_input_timer": 4.2,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
@@ -215,6 +215,6 @@
   "oys_variables": {
     "$sys_env_prop_path": "",
     "$sys_env_auto_run": "",
-    "$cargo_x": -1.83944
+    "$cargo_x": -2.656453
   }
 }

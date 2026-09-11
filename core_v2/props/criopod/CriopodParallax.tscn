@@ -8,7 +8,6 @@
 
 [sub_resource type="SpatialMaterial" id=219]
 resource_name = "DisplayCase_2_mat"
-vertex_color_use_as_albedo = true
 params_cull_mode = 2
 albedo_color = Color( 0.906332, 0.906332, 0.906332, 1 )
 metallic = 0.75
@@ -47,7 +46,6 @@ ao_texture_channel = 2
 [sub_resource type="SpatialMaterial" id=31]
 resource_name = "DisplayCase_2_glass"
 flags_transparent = true
-vertex_color_use_as_albedo = true
 params_cull_mode = 2
 albedo_color = Color( 0.905882, 0.905882, 0.905882, 0.572549 )
 albedo_texture = ExtResource( 4 )

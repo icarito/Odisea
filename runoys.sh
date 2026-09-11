@@ -15,7 +15,7 @@ if [ ! -f "$OYS_FILE" ]; then
 fi
 
 if [ -z "$GODOT_BIN" ]; then
-    GODOT_BIN="godot3-bin"
+    GODOT_BIN="$(sh "$(dirname "$0")/tools/godot_bin.sh")"
 fi
 
 # Extract LEVEL from the .oys file

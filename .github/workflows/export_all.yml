@@ -387,33 +387,20 @@ jobs:
             ${{ runner.os }}-godot-all-${{ hashFiles('**/project.godot') }}-
             ${{ runner.os }}-godot-all-
 
-      - name: Install Godot (Linux)
-        if: runner.os == 'Linux' && matrix.platform != 'android'
+      # Todas las plataformas Linux exportan con el binario del fork, no solo Android.
+      # Android nunca pudo usar el exportador stock (el plugin de custom build aborta si
+      # android/.build_version no coincide con la version del binario), pero desktop y
+      # web lo venian usando, con dos consecuencias: el stock no declara las settings
+      # del fork y las BORRA de project.godot al abrir el proyecto, asi que esos builds
+      # salian sin ellas; y el cache .import quedaba hecho por otro motor.
+      - name: Install Godot (Linux, Box3D)
+        if: runner.os == 'Linux'
         run: |
-          GODOT_DIR="$HOME/.local/bin"
-          mkdir -p "$GODOT_DIR"
-          echo "$GODOT_DIR" >> "$GITHUB_PATH"
-          if [ ! -f "$GODOT_DIR/godot3-server" ]; then
-            curl -fSL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_linux_headless.64.zip"
-            unzip -o /tmp/godot.zip -d "$GODOT_DIR/"
-            chmod +x "$GODOT_DIR/Godot_v3.6.2-stable_linux_headless.64"
-            ln -sf "$GODOT_DIR/Godot_v3.6.2-stable_linux_headless.64" "$GODOT_DIR/godot3-server"
-          fi
-          echo "GODOT_BIN=godot3-server" >> $GITHUB_ENV
-
-      # Android cannot ride the stock 3.6.2 exporter: the custom-build plugin
-      # aborts when android/.build_version disagrees with the exporting binary's
-      # own version, and the committed android/build tree now carries the Box3D
-      # 3.6.4.rc Box3D template (android/.build_version now reads 3.6.4.rc,
-      # the engine's VERSION_FULL_CONFIG). A Box3D
-      # binary also matches the engine the APK will actually run, so the
-      # .import cache is produced by the same engine version as every other
-      # platform's runtime.
-      - name: Install Godot (Android, Box3D)
-        if: matrix.platform == 'android'
-        env:
-          BOX3D_RELEASE: v0.2.1
-        run: |
+          # Sin pipefail: el job de Android corre en el contenedor godot-ci, cuyo
+          # shell por defecto es sh (dash), y ahi "set -o pipefail" es ilegal.
+          set -eu
+          BOX3D_RELEASE="$(cat .github/box3d_release)"
+          echo "BOX3D_RELEASE=$BOX3D_RELEASE" >> "$GITHUB_ENV"
           GODOT_DIR="$HOME/.local/bin"
           mkdir -p "$GODOT_DIR"
           if [ ! -x "$GODOT_DIR/godot-box3d-headless" ]; then
@@ -452,15 +439,29 @@ jobs:
 
       - name: Install Templates
         if: matrix.platform != 'android'
-        env:
-          # Godot carrying the Box3D physics module (icarito/godot-box3d-3).
-          BOX3D_RELEASE: v0.2.1
         run: |
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            TPL_DIR="$HOME/Library/Application Support/Godot/templates/3.6.2.stable"
-          else
-            TPL_DIR="$HOME/.local/share/godot/templates/3.6.2.stable"
+          # Linux lo exporta el paso de instalacion; macOS, que no tiene binario del
+          # fork, lo lee del mismo archivo.
+          BOX3D_RELEASE="${BOX3D_RELEASE:-$(cat .github/box3d_release)}"
+          # Godot busca las plantillas en templates/<major.minor.patch.status> de SU
+          # PROPIA version. El exportador de Linux es el binario del fork (3.6.4.rc) y
+          # el de macOS sigue siendo el stock (3.6.2.stable): la carpeta sale del
+          # binario, no se escribe a mano. Con 3.6.2.stable fijo, el exportador del
+          # fork no encontraba ninguna plantilla y el export salia sin artefacto.
+          # Solo el patron de version: el Godot stock de macOS imprime una segunda
+          # linea ("0: <ruta del binario>") y ese salto de linea, colado en TPL_DIR,
+          # rompia el GITHUB_ENV. Tambien cubre versiones sin patch ("3.6.stable").
+          TPL_VERSION="$("$GODOT_BIN" --version 2>/dev/null | grep -Eo '^[0-9]+\.[0-9]+(\.[0-9]+)?\.[a-z0-9]+' | head -n 1)"
+          if [ -z "$TPL_VERSION" ]; then
+            echo "::error::No pude leer la version de $GODOT_BIN:"; "$GODOT_BIN" --version || true
+            exit 1
           fi
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            TPL_DIR="$HOME/Library/Application Support/Godot/templates/$TPL_VERSION"
+          else
+            TPL_DIR="$HOME/.local/share/godot/templates/$TPL_VERSION"
+          fi
+          echo "Plantillas en: $TPL_DIR"
 
           case "${{ matrix.platform }}" in
             macos) REQUIRED_TEMPLATE="$TPL_DIR/osx.zip" ;;

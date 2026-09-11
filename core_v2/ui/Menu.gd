@@ -88,7 +88,21 @@ func _spawn_shader_warmup():
 	trigger.autostart = false
 	add_child(trigger)
 
+# Enciende la compilacion asincronica. Antes de este punto -- arranque y menu -- el
+# ubershader no cubre nada y solo cuesta: medido en un Redmi Note 9 Pro, 26
+# ubershaders a ~0.8 s cada uno antes de que el menu llegue a aparecer. Con el async
+# dormido ese mismo arranque son 1.4 s.
+func enable_async_shader_compilation() -> void:
+	if VisualServer.has_method("set_shader_async_compilation_enabled"):
+		VisualServer.set_shader_async_compilation_enabled(true)
+
+# El warmup va aparte porque tiene un requisito que el encendido no tiene: ShaderCache
+# cuelga su escena de la camara activa (spawn_cache), asi que solo funciona mientras el
+# Menu sigue en pie. Llamarlo al terminar el fundido devolvia "Failed to instance cache
+# scene": para entonces la escena ya se esta intercambiando y no hay camara. Por eso lo
+# dispara la pantalla de consentimiento, que corre con el Menu todavia vivo detras.
 func begin_shader_warmup() -> void:
+	enable_async_shader_compilation()
 	var trigger = get_node_or_null("DomeIntroShaderWarmup")
 	if trigger and trigger.has_method("begin"):
 		trigger.begin()
@@ -181,10 +195,23 @@ func _show_first_run_consent(scene_path) -> void:
 		return
 	var screen = packed.instance()
 	screen.target_scene_path = String(scene_path)
-	screen.connect("consent_completed", self, "_on_first_run_consent_done", [scene_path], CONNECT_ONESHOT)
-	add_child(screen)
+	# Cuelga de la raiz, no del Menu: el Menu se libera a mitad de la carga y se
+	# llevaria la pantalla puesta. El layer va por encima del 1000 de TransitionLayer
+	# para que ni el fundido ni el cartel de carga asomen por debajo.
+	var host := CanvasLayer.new()
+	host.name = "FirstRunConsentLayer"
+	host.layer = 2000
+	host.add_child(screen)
+	get_tree().root.add_child(host)
+	screen.connect("loading_requested", self, "_on_first_run_loading_requested", [scene_path], CONNECT_ONESHOT)
 
-func _on_first_run_consent_done(_accepted: bool, scene_path) -> void:
+# El jugador leyo la primera pantalla y toco ENTENDIDO: recien ahora se carga el
+# nivel, con la pantalla de consentimiento cubriendo el trabajo. No se dispara el
+# warmup de shaders: compila ubershaders que la carga real vuelve a no aprovechar, y
+# el jugador terminaba esperando dos veces (medido: barra al 100%, y despues 37 s mas
+# hasta el primer frame de Dome_Intro).
+func _on_first_run_loading_requested(scene_path) -> void:
+	enable_async_shader_compilation()
 	_begin_start_game(scene_path)
 
 func _begin_start_game(scene_path):
@@ -223,20 +250,25 @@ func _start_first_game_bgm() -> void:
 		audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
 
 func _on_fade_out_complete(_object, _key, scene_path):
-	# Pantalla ya cubierta: desde aca un lote de compilacion no se ve como un tiron.
-	begin_shader_warmup()
+	# Pantalla ya cubierta: desde aca compilar no se ve como un tiron. Solo el
+	# encendido -- el warmup necesita la camara del Menu, que a esta altura ya no esta.
+	enable_async_shader_compilation()
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager and scene_manager.has_method("goto_scene"):
 		# Gameplay scenes are heavy to load. Show the same loading
 		# screen + progress bar the BootLoader uses, otherwise the player stares at a
 		# frozen black fade with no feedback during the long interactive load.
+		# Cuando la pantalla de consentimiento esta arriba, ella ES el cartel de carga:
+		# mostrar el de TransitionLayer por debajo solo apila dos barras que cuentan lo
+		# mismo, y la de abajo asoma al final del fundido.
+		var covered := is_instance_valid(get_tree().root.get_node_or_null("FirstRunConsentLayer"))
 		var params := {
 			"transition": "loading",
-			"show_loading": true,
-			"show_progress": true,
+			"show_loading": not covered,
+			"show_progress": not covered,
 			"loading_message": "Cargando...",
 			"fade_out": 0.0,
-			"fade_in": 3.0
+			"fade_in": 0.0 if covered else 3.0
 		}
 		if scene_path == FIRST_GAME_SCENE:
 			# El fade-out/in automatico de SceneManager cortaria o reiniciaria el
