@@ -998,6 +998,38 @@ class OdiseaCentral:
         )
         return web.json_response({"ok": True, "stored": len(record["lines"])})
 
+    async def handle_client_logs_list(self, request):
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        try:
+            limit = min(max(int(request.query.get("limit", 50)), 1), 100)
+        except ValueError:
+            limit = 50
+
+        records = []
+        try:
+            with open(CLIENT_LOG_FILE, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                size = f.tell()
+                f.seek(max(0, size - 1048576))
+                lines = f.read().decode("utf-8", "replace").splitlines()
+            if size > 1048576 and lines:
+                lines = lines[1:]
+            for line in lines[-limit:]:
+                try:
+                    record = json.loads(line)
+                    record.pop("ip", None)
+                    records.append(record)
+                except (TypeError, json.JSONDecodeError):
+                    pass
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            logger.error(f"Failed reading client logs: {e}")
+        return web.json_response(list(reversed(records)))
+
     async def handle_web_telemetry(self, request):
         """Unauthenticated loader metrics from the HTML shell (fire and forget).
 
@@ -1093,6 +1125,13 @@ class OdiseaCentral:
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "POST, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type",
+        })
+
+    async def handle_client_log_options(self, request):
+        return web.Response(status=204, headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type",
         })
 
     async def handle_vapid_public_key(self, request):
@@ -4108,6 +4147,8 @@ class OdiseaCentral:
             web.get('/game/version', self.handle_game_version),
             web.get('/game/updates/v1/manifest', self.handle_update_manifest),
             web.post('/client-log', self.handle_client_log),
+            web.options('/client-log', self.handle_client_log_options),
+            web.get('/client-logs', self.handle_client_logs_list),
             web.post('/telemetry', self.handle_web_telemetry),
             web.get('/telemetry/web', self.handle_web_telemetry_list),
             web.options('/telemetry', self.handle_web_telemetry_options),

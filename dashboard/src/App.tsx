@@ -27,6 +27,7 @@ import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
 import { HotzonePlayerModal, prefetchHotzoneEngine } from './components/HotzonePlayerModal';
 import { DeploymentHistory, type WorkflowRun } from './components/DeploymentHistory';
+import { ClientLogs } from './components/ClientLogs';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
 import { useUrlNavigation } from './hooks/useUrlNavigation';
@@ -1064,7 +1065,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // Filters side drawer (platform + scene).
   const [showFilters, setShowFilters] = useState(false);
   // Top-stripe inner tab on the Dashboard view (live combined chart vs sessions).
-  const [dashStripeTab, setDashStripeTab] = useState<'live' | 'sessions' | 'versions'>('live');
+  const [dashStripeTab, setDashStripeTab] = useState<'live' | 'sessions' | 'versions' | 'logs'>('live');
   const viewport3DPreloaded = useRef(false);
 
   // Playback loading flag (history -> playback fetch).
@@ -2404,8 +2405,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   <div className="flex h-full flex-col bg-bg-card/40">
                     <div className="flex shrink-0">
                       {(activeHistory
-                        ? ([['live', 'FPS / Memoria'], ['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
-                        : ([['sessions', 'Sesiones'], ['versions', 'Versiones']] as const)
+                        ? ([['live', 'FPS / Memoria'], ['sessions', 'Sesiones'], ['versions', 'Versiones'], ['logs', 'Errores cliente']] as const)
+                        : ([['sessions', 'Sesiones'], ['versions', 'Versiones'], ['logs', 'Errores cliente']] as const)
                       ).map(([id, label]) => {
                         const effectiveTab = activeHistory ? dashStripeTab : (dashStripeTab === 'live' ? 'sessions' : dashStripeTab);
                         return (
@@ -2422,6 +2423,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     <div className="min-h-0 flex-1 p-3">
                       {activeHistory && dashStripeTab === 'live' ? (
                         <LiveCombinedChart history={activeHistory} />
+                      ) : dashStripeTab === 'logs' ? (
+                        <ClientLogs />
                       ) : dashStripeTab === 'versions' ? (
                         <CommitsFpsChart sessions={filteredDashboardSessions} commits={commits} />
                       ) : (

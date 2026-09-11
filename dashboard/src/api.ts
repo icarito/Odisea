@@ -36,6 +36,11 @@ export async function getWebTelemetry() {
   return response.json();
 }
 
+export async function getClientLogs() {
+  const response = await apiFetch("/client-logs?limit=50");
+  return response.json();
+}
+
 export async function getGhosts(scene?: string, platform?: string, since?: number) {
   let url = "/ghosts?";
   if (scene) url += `scene=${scene}&`;
