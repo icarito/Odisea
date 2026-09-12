@@ -69,7 +69,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {
@@ -104,7 +105,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {
@@ -187,30 +189,30 @@
   },
   "final_expected_state": {
     "position": [
-      0,
-      0.006111,
-      0
+      -0.000005,
+      -4.142868,
+      12.147075
     ],
     "velocity": [
-      0,
-      0,
-      0
+      -0,
+      -10.5,
+      1.833332
     ],
     "yaw": 0,
     "pitch": 0,
     "base_spring_length_3d": 2.5,
     "movement_state": {
       "horizontal_velocity": [
+        -0,
         0,
-        0,
-        0
+        1.833332
       ],
       "external_velocity": [
         0,
         0,
         0
       ],
-      "camera_input_timer": 0.816667,
+      "camera_input_timer": 2.383333,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
@@ -218,7 +220,7 @@
     "controller_mode": 0,
     "gravity_mode": 0,
     "jump_state": {
-      "coyote_timer": 0.15,
+      "coyote_timer": 0,
       "jump_buffer_timer": 0,
       "is_jumping": false
     }
