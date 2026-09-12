@@ -35,6 +35,9 @@ var _confirm_was_down: bool = true # sostenido al abrir: ese boton no confirma
 var _touch_index: int = -1
 var _touch_start: Vector2 = Vector2.ZERO
 var _active_focused_screen: Object = null
+var _pending_focus_screen: Object = null
+var _pending_focus_camera: Camera = null
+var _pending_swap_screen: Object = null
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -80,6 +83,7 @@ func show_screen_id(id: String) -> void:
 	_show_screen(id)
 
 func _physics_process(_delta: float) -> void:
+	_mount_focused_screen_if_ready()
 	var input = _frame_input()
 	if input == null:
 		return
@@ -119,8 +123,8 @@ func _drive_from_stream(input) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		# Lo que hace PlayerControllerV2._input, que ahora esta pausado.
-		if InputProviderV2.is_emulated_from_touch(event):
-			return # el dedo ya apunta el radial por InputEventScreenDrag, mas abajo
+		if _touch_index >= 0:
+			return # es un dedo: ya apunta el radial por InputEventScreenDrag, mas abajo
 		if input_provider != null and "mouse_delta_accum" in input_provider:
 			input_provider.mouse_delta_accum += event.relative
 		return
@@ -203,13 +207,17 @@ func _show_screen(id: String) -> void:
 		print("[DEBUG] HudModeOverlay: focus_rig origin detectado, llamando enter_focus_mode")
 		_cleanup_focus()
 		_active_focused_screen = screen
+		_pending_focus_screen = screen
+		var rig = get_node_or_null(origin.get("path", NodePath("")))
+		_pending_focus_camera = rig.get_node_or_null("Camera") as Camera if is_instance_valid(rig) else null
+		_view_host.visible = false
 		if screen.has_method("enter_focus_mode"):
 			screen.enter_focus_mode()
+		_mount_focused_screen_if_ready()
 	else:
 		_cleanup_focus()
-
-	var snapshot: Dictionary = screen.widget_snapshot() if screen.has_method("widget_snapshot") else {"id": id}
-	_mount.show(screen, snapshot, _view_host)
+		var snapshot: Dictionary = screen.widget_snapshot() if screen.has_method("widget_snapshot") else {"id": id}
+		_mount.show(screen, snapshot, _view_host)
 	# El hold es invisible: se avisa una vez, hasta el primer uso, y solo si hay a donde cambiar.
 	_hint.visible = _screen_ids.size() > 1 and not Gesture.hold_discovered()
 
@@ -225,10 +233,44 @@ func _slot_title(snapshot: Dictionary) -> String:
 	return title + (" [OFFLINE]" if String(snapshot.get("source", "")) == "offline" else "")
 
 func _cleanup_focus() -> void:
+	_pending_focus_screen = null
+	_pending_focus_camera = null
+	_pending_swap_screen = null
+	if VisualServer.is_connected("frame_post_draw", self, "_complete_focus_swap"):
+		VisualServer.disconnect("frame_post_draw", self, "_complete_focus_swap")
 	if is_instance_valid(_active_focused_screen):
+		if _active_focused_screen.has_method("set_source_view_visible"):
+			_active_focused_screen.set_source_view_visible(true)
 		if _active_focused_screen.has_method("exit_focus_mode"):
 			_active_focused_screen.exit_focus_mode()
 	_active_focused_screen = null
+
+func _mount_focused_screen_if_ready() -> void:
+	if not is_instance_valid(_pending_focus_screen):
+		return
+	if is_instance_valid(_pending_focus_camera) and not _pending_focus_camera.current:
+		return
+	var screen: Object = _pending_focus_screen
+	_pending_focus_screen = null
+	_pending_focus_camera = null
+	var snapshot: Dictionary = screen.widget_snapshot() if screen.has_method("widget_snapshot") else {}
+	_mount.show(screen, snapshot, _view_host, true)
+	if is_instance_valid(_mount.get_presenter()):
+		_pending_swap_screen = screen
+		VisualServer.connect("frame_post_draw", self, "_complete_focus_swap", [], CONNECT_ONESHOT)
+		return
+	_complete_focus_swap(screen)
+
+func _complete_focus_swap(screen: Object = null) -> void:
+	if screen == null:
+		screen = _pending_swap_screen
+	_pending_swap_screen = null
+	if not is_instance_valid(screen):
+		return
+	_mount.reveal_presenter()
+	if screen.has_method("set_source_view_visible"):
+		screen.set_source_view_visible(false)
+	_view_host.visible = true
 
 func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseManager
 	_cleanup_focus()

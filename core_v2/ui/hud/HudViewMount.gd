@@ -15,6 +15,7 @@ const FREE_DELAY := 0.6
 
 var _presenter: Spatial = null
 var _widget: Control = null
+var _presenter_snapped: bool = false
 
 func is_showing() -> bool:
 	return is_instance_valid(_presenter) or is_instance_valid(_widget)
@@ -25,10 +26,18 @@ func get_presenter() -> Spatial:
 func get_widget() -> Control:
 	return _widget if is_instance_valid(_widget) else null
 
-func show(screen: Object, snapshot: Dictionary, host: Control) -> void:
+func reveal_presenter() -> void:
+	if not is_instance_valid(_presenter):
+		return
+	var mesh = _presenter._get_hud_attach_target() if _presenter.has_method("_get_hud_attach_target") else _presenter.get_node_or_null("ScreenContainer/ScreenMesh")
+	if is_instance_valid(mesh):
+		mesh.visible = true
+	_presenter.set_physics_process(true)
+
+func show(screen: Object, snapshot: Dictionary, host: Control, snap_to_camera: bool = false) -> void:
 	close()
 	var scene: PackedScene = screen.view_scene() if screen.has_method("view_scene") else null
-	if scene == null or not _open_presenter(scene, screen, snapshot, host):
+	if scene == null or not _open_presenter(scene, screen, snapshot, host, snap_to_camera):
 		_open_widget(screen, snapshot, host)
 
 func close() -> void:
@@ -36,11 +45,15 @@ func close() -> void:
 		_widget.queue_free()
 	_widget = null
 	if is_instance_valid(_presenter):
-		_presenter.set_active(false)
-		_presenter.get_tree().create_timer(FREE_DELAY, true).connect("timeout", _presenter, "queue_free")
+		if _presenter_snapped:
+			_presenter.queue_free()
+		else:
+			_presenter.set_active(false)
+			_presenter.get_tree().create_timer(FREE_DELAY, true).connect("timeout", _presenter, "queue_free")
 	_presenter = null
+	_presenter_snapped = false
 
-func _open_presenter(scene: PackedScene, screen: Object, snapshot: Dictionary, host: Control) -> bool:
+func _open_presenter(scene: PackedScene, screen: Object, snapshot: Dictionary, host: Control, snap_to_camera: bool) -> bool:
 	var world: Node = host.get_tree().current_scene
 	if world == null:
 		return false
@@ -48,18 +61,32 @@ func _open_presenter(scene: PackedScene, screen: Object, snapshot: Dictionary, h
 	var design: Vector2 = screen.view_size() if screen.has_method("view_size") else Vector2.ZERO
 	if design.x > 0.0 and design.y > 0.0:
 		presenter.screen_resolution = design # antes del _ready: de ahi sale el tamaño del Viewport
+	if snap_to_camera:
+		presenter.hud_cfg_attach_transition_time = 0.0
+		presenter.hud_cfg_screen_depth = 1.0
+		presenter.hud_cfg_background_alpha = 0.0
+		presenter.hud_cfg_ui_bridge_requires_focus = false
+		presenter.enable_ui_interaction = true
 	var mesh: CSGBox = presenter.get_node("ScreenContainer/ScreenMesh")
 	mesh.width = mesh.height * presenter.screen_resolution.x / presenter.screen_resolution.y
 	world.add_child(presenter)
+	var viewport: Viewport = presenter.get_node("Viewport")
+	if design.x > 0.0 and design.y > 0.0:
+		viewport.size = design # ya viene resuelta por la fuente; no aplicar otra vez el ajuste del jugador
 	presenter.global_transform.origin = _origin(snapshot, host)
 	# No es parte del mundo simulado (igual que DebugConsoleHUD) ni recibe input: ESC es del overlay.
 	presenter.remove_from_group("replay_sync")
 	var view: Control = scene.instance()
-	presenter.get_node("Viewport").add_child(view)
+	viewport.add_child(view)
 	view.set_anchors_and_margins_preset(Control.PRESET_WIDE)
 	presenter.set_active(true)
-	presenter.set_process_input(false)
+	if snap_to_camera:
+		mesh.visible = false
+		viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+		presenter.set_physics_process(false)
+	presenter.set_process_input(snap_to_camera)
 	_presenter = presenter
+	_presenter_snapped = snap_to_camera
 	return true
 
 # "La pantalla se desprende del terminal y viene a tu casco": arranca donde esta la fuente.

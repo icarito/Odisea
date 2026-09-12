@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=5 format=2]
 
 [ext_resource path="res://core_v2/things/HelmetHUDV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/visual/HoloScreen.shader" type="Shader" id=2]
+[ext_resource path="res://core_v2/things/HoloTerminalViewportInput.gd" type="Script" id=3]
 
 [sub_resource type="ShaderMaterial" id=1]
 resource_local_to_scene = true
@@ -61,3 +62,4 @@ size = Vector2( 1280, 816 )
 transparent_bg = true
 render_target_update_mode = 0
 gui_disable_input = true
+script = ExtResource( 3 )

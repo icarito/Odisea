@@ -3,12 +3,22 @@ extends CanvasLayer
 const MobileUI = preload("res://core_v2/ui/MobileUI.tscn")
 
 export(float) var touch_idle_timeout := 15.0
+const TOUCH_POINTER_GRACE_MSEC := 250
+# En desktop el jugador tiene el mouse a mano: el modo tactil se suelta enseguida. El timeout
+# largo del export sigue siendo el del telefono, donde solo sirve para auto-ocultar la UI.
+const DESKTOP_TOUCH_IDLE_TIMEOUT := 2.0
+# El puntero fantasma del touch tambien manda motion; el mouse de verdad se mueve de a mas de
+# un par de pixeles, el fantasma en modo capturado se movia de a uno.
+const MOUSE_WAKE_PIXELS := 2.0
 
 var _mobile_ui: CanvasLayer = null
 var _touch_camera: TouchCameraControls = null
 var _is_mobile := false
 var _is_touch_active := false
 var _touch_idle_timer := 0.0
+var _touch_pointer_until := 0
+var _touch_trackers := [] # controles tactiles que llevan su propio _touch_index
+var _mouse_capture_suspended := false
 var _is_cinematic_active := false
 var _cinematic_manager: Node = null
 var _is_zero_g := false
@@ -33,9 +43,9 @@ func _ready() -> void:
 	set_process(true)
 
 func _input(event: InputEvent) -> void:
-	_drop_emulated_mouse_actions(event)
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		_touch_idle_timer = 0.0
+		_touch_pointer_until = OS.get_ticks_msec() + TOUCH_POINTER_GRACE_MSEC
 		if not _is_touch_active:
 			# _is_mobile queda intacto: es "la plataforma es Android/iOS", no "hay touch
 			# ahora". Un touch en desktop (notebook con pantalla tactil) solo prende
@@ -46,20 +56,79 @@ func _input(event: InputEvent) -> void:
 				_spawn_mobile_ui()
 			_notify_input_provider_touch_active(true)
 			_refresh_mobile_ui_visibility()
+		_suspend_mouse_capture()
+	elif event is InputEventMouseMotion and _is_touch_active and not _is_mobile:
+		# Histeresis: el mouse de verdad recupera el mando en el acto, sin esperar el timeout.
+		# El puntero fantasma del touch tambien manda motion, asi que se descarta con la ventana
+		# del dedo (y con el umbral, por si llega un motion suelto justo despues).
+		if not is_pointer_from_touch() and event.relative.length() > MOUSE_WAKE_PIXELS:
+			_deactivate_touch()
+			_restore_mouse_capture()
 
-# El click fantasma del mouse emulado (ver InputProviderV2.is_emulated_from_touch) tambien
-# entra al InputMap, y el provider poleaba ese estado: en desktop con pantalla tactil, arrastrar
-# el joystick disparaba tool_fire_primary (unica accion en el boton izquierdo) sin soltar. El
-# evento sigue viajando a la UI -es lo que hace clickeables a los Button en tactil-; aca solo se
-# limpia el estado de la accion, que es lo unico que lee el gameplay.
-func _drop_emulated_mouse_actions(event: InputEvent) -> void:
-	if not (event is InputEventMouseButton) or not event.pressed:
+# Solo apaga el MODO tactil (UI y pistas). El grab NO se devuelve aca a proposito: si volviera
+# con el timeout, la proxima pulsacion se perderia otra vez -es el bug que arregla
+# _suspend_mouse_capture()- porque el grab se roba la secuencia antes de que nadie la vea. El
+# puntero se recupera cuando se mueve el mouse de verdad, que es cuando hace falta.
+func _deactivate_touch() -> void:
+	_is_touch_active = false
+	_reset_move_joystick()
+	_notify_input_provider_touch_active(false)
+	_refresh_mobile_ui_visibility()
+
+
+# Capturar el mouse (MOUSE_MODE_CAPTURED) hace XGrabPointer, y con un grab de puntero activo X11
+# le entrega la secuencia tactil al cliente que tiene el grab: al oyente de touch le llega un
+# TouchEnd apenas el dedo se mueve, asi que el joystick se resetea solo -"se pierde el touch al
+# arrastrar"- y el resto del gesto aparece como motion de mouse. En modo tactil no hace falta
+# capturar: HIDDEN esconde el cursor SIN grab (solo CAPTURED y CONFINED* graban), asi el arrastre
+# llega completo. SessionManager._wants_mouse_capture() deja de reafirmar mientras dure.
+func _suspend_mouse_capture() -> void:
+	if _is_mobile:
+		return # Android/iOS nunca captura; ahi no hay grab que soltar
+	if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+		_mouse_capture_suspended = true
+
+
+func is_mouse_capture_suspended() -> bool:
+	return _mouse_capture_suspended
+
+
+func _restore_mouse_capture() -> void:
+	if not _mouse_capture_suspended:
 		return
-	if not InputProviderV2.is_emulated_from_touch(event):
-		return
-	for action in InputMap.get_actions():
-		if InputMap.event_is_action(event, action):
-			Input.action_release(action)
+	_mouse_capture_suspended = false
+	if Input.get_mouse_mode() == Input.MOUSE_MODE_HIDDEN:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+func _any_touch_control_held() -> bool:
+	for ctrl in _touch_trackers:
+		if is_instance_valid(ctrl) and ctrl._touch_index != -1:
+			return true
+	return false
+
+
+func _collect_touch_trackers(node: Node) -> void:
+	if "_touch_index" in node:
+		_touch_trackers.append(node)
+	for child in node.get_children():
+		_collect_touch_trackers(child)
+
+
+# El servidor X emula un puntero a partir del touch y NO lo suprime: XI2 solo lo hace si el
+# cliente pide los eventos tactiles en el dispositivo master, y Godot los pide en XIAllDevices.
+# Asi que cada toque en una pantalla tactil de escritorio llega ADEMAS como click y motion de
+# mouse REAL (device 0: ni el device ni el evento lo delatan; el emulado propio de Godot, que si
+# trae device -1, ni siquiera dispara acciones porque el InputMap filtra por device). Eso prendia
+# tool_fire_primary -la unica accion en el boton izquierdo- con cada arrastre del joystick, y
+# movia la camara doble, porque el arrastre ya entra por TouchCameraControls.
+# Lo unico que delata al fantasma es que hay un dedo apoyado. Es una ventana de tiempo y no un
+# contador de dedos a proposito: con el arbol pausado este _input no corre, y un contador se
+# quedaria trabado en "hay un dedo" para siempre. La gracia cubre que el click del X server
+# llega un toque despues del TouchEnd.
+func is_pointer_from_touch() -> bool:
+	return OS.get_ticks_msec() < _touch_pointer_until
 
 
 func _notify_input_provider_touch_active(active: bool) -> void:
@@ -73,6 +142,8 @@ func _spawn_mobile_ui() -> void:
 	
 	_mobile_ui = MobileUI.instance()
 	add_child(_mobile_ui)
+	_touch_trackers.clear()
+	_collect_touch_trackers(_mobile_ui)
 	
 	_touch_camera = _get_touch_camera_control()
 	if _touch_camera:
@@ -175,13 +246,20 @@ func set_replay_mode(active: bool) -> void:
 		_refresh_mobile_ui_visibility()
 
 func _process(delta: float) -> void:
+	# Los controles tactiles se COMEN el evento: set_input_as_handled() corta el grupo _input
+	# (SceneTree::_call_input_pause sale del bucle) y este autoload es el PADRE de todos ellos,
+	# o sea el ultimo en la fila. Arrastrando el joystick, _input() de aca no ve un solo touch:
+	# ni se abria la ventana del puntero fantasma ni se reseteaba el idle-timeout (a los 15 s de
+	# arrastre continuo la UI movil se apagaba sola). Se les pregunta a ellos, que llevan el dedo
+	# apoyado en su propio _touch_index.
+	if _any_touch_control_held():
+		_touch_idle_timer = 0.0
+		_touch_pointer_until = OS.get_ticks_msec() + TOUCH_POINTER_GRACE_MSEC
+		_suspend_mouse_capture()
 	if _is_touch_active:
 		_touch_idle_timer += delta
-		if _touch_idle_timer >= touch_idle_timeout:
-			_is_touch_active = false
-			_reset_move_joystick()
-			_notify_input_provider_touch_active(false)
-			_refresh_mobile_ui_visibility()
+		if _touch_idle_timer >= (touch_idle_timeout if _is_mobile else DESKTOP_TOUCH_IDLE_TIMEOUT):
+			_deactivate_touch()
 
 	if not is_instance_valid(_mobile_ui):
 		return

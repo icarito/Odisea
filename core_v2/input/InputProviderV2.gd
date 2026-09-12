@@ -49,16 +49,19 @@ func _init() -> void:
 	pass
 
 
-# El motor emula un mouse a partir del touch (input_devices/pointing/emulate_mouse_from_touch)
-# y NO se puede apagar: los Button del motor solo leen InputEventMouseButton, sin la emulacion
-# no hay menu ni pausa tactiles. Ese puntero fantasma llega con device -1 (DEVICE_ID_TOUCH_MOUSE);
-# el mouse real nunca. Hay que ignorarlo donde alimenta la mirada: el arrastre tactil ya entra
-# por TouchCameraControls, y sumarlo de nuevo movia la camara doble (y al reves, porque el touch
-# invierte X) y prendia hardware_mouse_active en desktop con pantalla tactil.
-const DEVICE_ID_TOUCH_MOUSE := -1
-
-static func is_emulated_from_touch(event: InputEvent) -> bool:
-	return event != null and event.device == DEVICE_ID_TOUCH_MOUSE
+# En una pantalla tactil de escritorio cada toque llega TAMBIEN como mouse real (ver
+# MobileUIManager.is_pointer_from_touch): el click fantasma prendia tool_fire_primary con cada
+# arrastre del joystick y el motion movia la camara doble, porque el arrastre ya entra por
+# add_touch_camera_drag(). Nada en el evento lo delata; lo unico que lo delata es que hay un dedo
+# apoyado, y eso lo sabe MobileUIManager. Aca vive el acceso porque es el unico punto por donde
+# el gameplay lee el mouse (polling de acciones y mouse_delta_accum).
+static func pointer_is_from_touch() -> bool:
+	var loop = Engine.get_main_loop()
+	if loop == null or loop.root == null:
+		return false
+	var mgr = loop.root.get_node_or_null("MobileUIManager")
+	return is_instance_valid(mgr) and mgr.has_method("is_pointer_from_touch") \
+		and mgr.is_pointer_from_touch()
 
 
 # Universal input getter
@@ -213,7 +216,9 @@ func _read_live_input() -> InputDataV2:
 		d.rotate_right = _action_pressed("rotate_right")
 		d.roll_left = _action_pressed("zero_g_roll_left")
 		d.roll_right = _action_pressed("zero_g_roll_right")
-		d.tool_fire_primary = _action_pressed("tool_fire_primary")
+		# tool_fire_primary es la unica accion en el boton izquierdo, que es el que aprieta el
+		# puntero fantasma del touch en cada toque.
+		d.tool_fire_primary = _action_pressed("tool_fire_primary") and not pointer_is_from_touch()
 		d.tool_fire_secondary = _action_pressed("tool_fire_secondary")
 		d.tool_next_mode = _action_just_pressed("tool_next_mode")
 		d.tool_prev_mode = _action_just_pressed("tool_prev_mode")
