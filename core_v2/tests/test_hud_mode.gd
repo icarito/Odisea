@@ -340,8 +340,12 @@ func test_holoterminal_view_is_a_hologram_presenter() -> void:
 	assert_object(overlay._mount._shared_screen).is_equal(display.get_node("HoloTerminalHUDable"))
 	assert_bool(source_viewport.get("_ui_mode_active")).is_true()
 	var cursor_start: Vector2 = source_viewport.get("_cursor_position")
+	# La sensibilidad sale de PlayerUISettings (1.8 con jugador, 1.0 sin el): el delta se
+	# escala con ella, no es fijo.
+	var sensitivity: float = float(source_viewport.cursor_sensitivity)
 	source_viewport.process_mouse_motion(Vector2(24.0, 12.0))
-	assert_vector2(source_viewport.get("_cursor_position")).is_equal(cursor_start + Vector2(24.0, 12.0))
+	assert_vector2(source_viewport.get("_cursor_position")) \
+		.is_equal(cursor_start + Vector2(24.0, 12.0) * sensitivity)
 	var persisted_cursor: Vector2 = source_viewport.get("_cursor_position")
 	source_viewport.set_ui_mode(false)
 	assert_bool(source_viewport.get("_cursor_visual").visible).is_false()

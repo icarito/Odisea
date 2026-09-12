@@ -761,7 +761,7 @@ func _enter_focus_mode():
 	if not _focused_rig:
 		print("[HoloTerminalV2] Cannot enter focus mode: FocusedRig not found")
 		return
-		_is_focused = true
+	_is_focused = true
 	_set_player_input_blocked(true)
 	print("[HoloTerminalV2] Entering focus mode, activating FocusedRig")
 	_request_focus_camera_rig(_focused_rig)
