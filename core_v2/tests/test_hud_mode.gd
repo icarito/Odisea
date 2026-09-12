@@ -123,6 +123,7 @@ func test_tab_pauses_without_pause_menu_and_ui_cancel_exits() -> void:
 	assert_object(overlay.get_parent()).is_equal(_overlay_mgr.get_slot(_overlay_mgr.SLOT_MODAL))
 	assert_int(overlay.pause_mode).is_equal(Node.PAUSE_MODE_PROCESS)
 	assert_bool(get_tree().paused).is_true()
+	assert_int(CinematicManager.pause_mode).is_equal(Node.PAUSE_MODE_PROCESS)
 	assert_bool(PauseManager.is_hud_mode_paused()).is_true()
 	assert_object(PauseManager.pause_menu_instance).is_null()
 	# ESC con el modo HUD abierto no es de PauseManager: no toca la pausa ni abre el menu.
@@ -240,6 +241,36 @@ func test_hold_hint_shows_until_first_use() -> void:
 
 	overlay = _open_and_play([UP])
 	assert_bool(overlay._hint.visible).is_false()
+
+
+func _touch(pressed: bool) -> InputEventScreenTouch:
+	var ev := InputEventScreenTouch.new()
+	ev.pressed = pressed
+	return ev
+
+
+# En el telefono no hay TAB: el widget del slot es el boton. Tap = la pantalla de ESE slot.
+func test_widget_tap_opens_the_screen_of_that_slot() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	host._active_screen_ids["slot_b"] = "test:b"
+	var widget: Control = auto_free(Control.new())
+	host._on_widget_gui_input(_touch(true), widget, "slot_b")
+	host._on_widget_gui_input(_touch(false), widget, "slot_b")
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
+	_play(_overlay(), [UP]) # el dedo ya se solto: eso no es un tap que cierre
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+
+
+func test_widget_hold_opens_the_radial() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	host._press_msec = OS.get_ticks_msec() - 500 # > HOLD_MSEC
+	host._on_widget_gui_input(_touch(false), auto_free(Control.new()), "slot_a")
+	assert_bool(_overlay()._selector.is_open()).is_true()
 
 
 func test_touch_hold_opens_the_radial_directly() -> void:

@@ -215,7 +215,7 @@ anims/dolly = SubResource( 15 )
 [node name="FocusedRig" type="Spatial" parent="CinematicSetup" groups=["cinematic_rigs"]]
 transform = Transform( -1, 0, 8.74228e-08, 0, 1, 0, -8.74228e-08, 0, -1, 0, 1.7, -2.2 )
 script = ExtResource( 6 )
-transition_time = 0.3
+transition_time = 0.45
 
 [node name="Camera" type="Camera" parent="CinematicSetup/FocusedRig"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.45 )

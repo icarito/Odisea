@@ -761,6 +761,7 @@ func _enter_focus_mode():
 	if not _focused_rig:
 		print("[HoloTerminalV2] Cannot enter focus mode: FocusedRig not found")
 		return
+	print("[DEBUG] _enter_focus_mode: _focused_rig=", _focused_rig, " is_focused=", _is_focused)
 	
 	_is_focused = true
 	_set_player_input_blocked(true)
@@ -878,6 +879,8 @@ func _request_focus_camera_rig(rig: Node) -> void:
 		# Keep player movement stable while entering/exiting terminal focus.
 		"latch_on_enter": true,
 		"latch_on_exit": true,
+		# Avoid the ambiguous vertical flip when blending to a terminal rig 180 degrees away.
+		"terminal_focus_lateral": true,
 	}
 	_focus_camera_request_id = CinematicManager.request_camera_mode(
 		CinematicManager.ControlMode.LOCKED_VIEW,
@@ -885,6 +888,7 @@ func _request_focus_camera_rig(rig: Node) -> void:
 		"terminal_focus_" + name,
 		12
 	)
+	print("[DEBUG] _request_focus_camera_rig: request_id=", _focus_camera_request_id)
 
 func _release_focus_camera_request() -> void:
 	if _focus_camera_request_id == -1:

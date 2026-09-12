@@ -150,9 +150,10 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("hud_mode") and open_hud_mode():
 		get_tree().set_input_as_handled()
 
-# radial: abrir directo en el selector (hold del boton tactil, que no pasa por el stream). Con
-# TAB el overlay decide tap/hold solo, contando muestras del stream.
-func open_hud_mode(radial: bool = false) -> bool:
+# radial / screen_id: abrir directo en el selector o en una pantalla (hold y tap sobre el
+# widget del slot, que no pasan por el stream). Con TAB el overlay decide tap/hold solo,
+# contando muestras del stream.
+func open_hud_mode(radial: bool = false, screen_id: String = "") -> bool:
 	var pause_mgr = get_node_or_null("/root/PauseManager")
 	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
 	if _hud_mode_active or pause_mgr == null or overlay_mgr == null:
@@ -168,6 +169,8 @@ func open_hud_mode(radial: bool = false) -> bool:
 	set_hud_mode_active(true)
 	if radial:
 		overlay.show_radial()
+	elif has_screen(screen_id):
+		overlay.show_screen_id(screen_id)
 	return true
 
 func close_hud_mode() -> void:

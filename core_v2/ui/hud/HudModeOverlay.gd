@@ -54,7 +54,7 @@ func _ready() -> void:
 	suit_os.connect("widget_changed", self, "_refresh_slots")
 	var mobile: Node = get_node_or_null("/root/MobileUIManager")
 	if mobile != null and mobile.is_touch_active():
-		_hint.text = "Mantén HUD para elegir pantalla"
+		_hint.text = "Mantén el widget para elegir pantalla"
 	# El TAB que abrio el modo HUD sigue apretado: tap o hold se decide con las muestras.
 	_gesture.begin_held()
 	_refresh_slots()
@@ -67,11 +67,17 @@ func _exit_tree() -> void:
 	_cleanup_focus()
 	_mount.close()
 
-# Entrada directa al radial (hold del boton tactil, que no pasa por el stream).
+# Entrada directa al radial (hold sobre el widget del slot, que no pasa por el stream).
 func show_radial() -> void:
 	_gesture.consume()
 	_opened = true
 	_open_radial()
+
+# Entrada directa a una pantalla (tap sobre el widget de su slot).
+func show_screen_id(id: String) -> void:
+	_gesture.consume()
+	_opened = true
+	_show_screen(id)
 
 func _physics_process(_delta: float) -> void:
 	var input = _frame_input()
@@ -192,6 +198,7 @@ func _show_screen(id: String) -> void:
 		origin = screen.view_transition_origin()
 
 	if origin.get("kind", "") == "focus_rig":
+		print("[DEBUG] HudModeOverlay: focus_rig origin detectado, llamando enter_focus_mode")
 		_cleanup_focus()
 		_active_focused_screen = screen
 		if screen.has_method("enter_focus_mode"):

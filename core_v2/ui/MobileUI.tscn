@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=2]
+[gd_scene load_steps=19 format=2]
 
 [ext_resource path="res://addons/virtual_joystick/virtual_joystick.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/ui/TouchCameraControls.gd" type="Script" id=2]
@@ -9,7 +9,6 @@
 [ext_resource path="res://assets/target.png" type="Texture" id=7]
 [ext_resource path="res://assets/icon_jump.png" type="Texture" id=8]
 [ext_resource path="res://assets/download.png" type="Texture" id=9]
-[ext_resource path="res://core_v2/ui/hud/TouchHudButton.gd" type="Script" id=10]
 
 [sub_resource type="DynamicFont" id=10]
 size = 18
@@ -306,20 +305,3 @@ custom_styles/normal = SubResource( 2 )
 text = "SALTAR"
 script = ExtResource( 4 )
 action_name = "skip"
-
-[node name="HudButton" type="Button" parent="Container"]
-anchor_left = 1.0
-anchor_right = 1.0
-margin_left = -120.0
-margin_top = 20.0
-margin_right = -20.0
-margin_bottom = 70.0
-grow_horizontal = 0
-rect_min_size = Vector2( 0, 50 )
-custom_fonts/font = SubResource( 10 )
-custom_styles/pressed = SubResource( 3 )
-custom_styles/normal = SubResource( 2 )
-toggle_mode = true
-action_mode = 0
-text = "HUD"
-script = ExtResource( 10 )

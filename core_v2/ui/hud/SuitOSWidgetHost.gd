@@ -13,8 +13,12 @@ const SLOT_ROWS := ["slot_a", "slot_b"]
 const SLOT_ROW_HEIGHT := 96.0 # el widget mas alto hoy (SystemStatusWidget) mide 90
 const SLOT_GAP := 8.0
 const SLOT_PADDING := 16.0
+# En el telefono no hay TAB: el widget del slot ES el boton. Tap = su pantalla,
+# hold (mismo umbral que TAB) = radial. Sale con el back de Android.
+const HOLD_MSEC := 400
 
 var _active_screen_ids: Dictionary = {} # slot -> screen_id
+var _press_msec: int = 0
 
 func _ready() -> void:
 	if has_node("/root/SuitOS"):
@@ -109,6 +113,7 @@ func _place(widget: Node, slot: String) -> void:
 	control.rect_scale = Vector2.ONE * fit * k
 	control.rect_position = Vector2(float(margins["left"]),
 		float(margins["top"]) + row * (SLOT_ROW_HEIGHT + SLOT_GAP) * k)
+	_make_tappable(control, slot)
 
 func _relayout() -> void:
 	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
@@ -141,3 +146,41 @@ func _format_fallback_text(snapshot: Dictionary) -> String:
 	if source == "offline":
 		return "[OFFLINE] %s: %s%s" % [title, active_str, focus_str]
 	return "[HUD] %s: %s%s" % [title, active_str, focus_str]
+
+# El widget entero recibe el toque: los hijos se apagan para que el pick no se quede
+# en un Label o en el punto de estado de 8 px.
+func _make_tappable(control: Control, slot: String) -> void:
+	control.mouse_filter = Control.MOUSE_FILTER_STOP
+	for child in control.get_children():
+		_ignore_mouse(child)
+	if not control.is_connected("gui_input", self, "_on_widget_gui_input"):
+		control.connect("gui_input", self, "_on_widget_gui_input", [control, slot])
+
+func _ignore_mouse(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_ignore_mouse(child)
+
+# ponytail: el hold se mide con el reloj, no con el stream — el widget no aprieta ninguna
+# accion y no hay muestra grabada que contar. Si el modo HUD entra al replay, el tap tendria
+# que empujar hud_mode al stream como TAB.
+func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> void:
+	var pressed: bool = false
+	if event is InputEventScreenTouch:
+		pressed = event.pressed
+	elif event is InputEventMouseButton and event.button_index == BUTTON_LEFT:
+		pressed = event.pressed
+	else:
+		return
+	control.accept_event() # que el toque no arrastre tambien la camara
+	if pressed:
+		_press_msec = OS.get_ticks_msec()
+		return
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os == null:
+		return
+	if OS.get_ticks_msec() - _press_msec >= HOLD_MSEC:
+		suit_os.open_hud_mode(true)
+	else:
+		suit_os.open_hud_mode(false, String(_active_screen_ids.get(slot, "")))
