@@ -1,0 +1,9 @@
+{
+    "prefix": "odsa",
+    "api": "PortMasterV3",
+    "name": "Odisea Nightly",
+    "url": "https://github.com/icarito/Odisea/releases/download/nightly/ports.json",
+    "last_checked": null,
+    "version": 2,
+    "data": {}
+}

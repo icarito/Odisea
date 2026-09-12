@@ -22,7 +22,7 @@ var _continue_scene_path := ""
 var _remote_styles: Dictionary = {}
 
 func _ready():
-	add_child(VirtualMouse.new())
+	VirtualMouse.attach_to(self)
 	var audio_mgr = get_node_or_null("/root/AudioManager")
 	if audio_mgr:
 		audio_mgr.crossfade_to_song(MENU_BGM, 1.0, 0.0, false)
@@ -202,9 +202,6 @@ func _on_remote_pairing_prompt_requested(device_name: String, pin: String, callb
 		var dialog = load("res://core_v2/ui/RemotePairingDialog.tscn").instance()
 		add_child(dialog)
 		dialog.prompt_pairing(device_name, pin, callback)
-		var cursor = get_node_or_null("VirtualMouse")
-		if cursor and cursor.has_method("bring_to_front"):
-			cursor.bring_to_front()
 
 func _connect_signals():
 	new_game_button.connect("pressed", self, "_on_NewGame_pressed")

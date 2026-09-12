@@ -32,10 +32,10 @@ align = 1
 autowrap = true
 
 [node name="WidgetHost" type="VBoxContainer" parent="."]
-anchor_left = 0.02
-anchor_top = 0.14
-anchor_right = 0.4
-anchor_bottom = 0.75
+margin_left = 16.0
+margin_top = 140.0
+margin_right = 376.0
+margin_bottom = 560.0
 mouse_filter = 2
 
 [node name="HUDButton" type="Button" parent="."]

@@ -76,7 +76,10 @@ PORTMASTER_HOST ?= root@angel.local
 PORTMASTER_DEST ?= /storage/roms/ports
 
 portmaster-install: portmaster
-	rsync -av --delete --exclude conf/ --exclude dev.sh --exclude log.txt \
+	# --no-owner/--no-group: la SD del handheld no soporta chown, y sin esto rsync
+	# transfiere todo bien pero sale con codigo 23 y voltea el make.
+	rsync -av --delete --no-owner --no-group \
+		--exclude conf/ --exclude dev.sh --exclude log.txt \
 		ports/Odisea.sh ports/odisea "$(PORTMASTER_HOST):$(PORTMASTER_DEST)/"
 	@echo "Instalado en $(PORTMASTER_HOST):$(PORTMASTER_DEST)/odisea"
 
@@ -358,8 +361,8 @@ android-debug-signed:
 	@set -e; \
 	cp export_presets.cfg /tmp/odisea_export_presets.cfg.bak; \
 	trap 'mv /tmp/odisea_export_presets.cfg.bak export_presets.cfg; rm -f build_meta.json' EXIT; \
-	sed -i -E 's|^version/code = .*|version/code = $(ANDROID_TEST_VERSION_CODE)|' export_presets.cfg; \
-	sed -i -E 's|^version/name = .*|version/name = "0.0.0-localtest.$(ANDROID_TEST_VERSION_CODE)"|' export_presets.cfg; \
+	sed -i -E 's|^version/code *=.*|version/code=$(ANDROID_TEST_VERSION_CODE)|' export_presets.cfg; \
+	sed -i -E 's|^version/name *=.*|version/name="0.0.0-localtest.$(ANDROID_TEST_VERSION_CODE)"|' export_presets.cfg; \
 	python3 scripts/inject_build_meta.py \
 		--commit "$$(git rev-parse --short HEAD 2>/dev/null || echo local)" \
 		--build-id "$(ANDROID_TEST_VERSION_CODE)" \
@@ -418,11 +421,11 @@ android-release-signed:
 	@set -e; \
 	cp export_presets.cfg /tmp/odisea_export_presets_release.cfg.bak; \
 	trap 'mv /tmp/odisea_export_presets_release.cfg.bak export_presets.cfg; rm -f build_meta.json' EXIT; \
-	sed -i -E 's|^version/code = .*|version/code = $(ANDROID_RELEASE_VERSION_CODE)|' export_presets.cfg; \
-	sed -i -E 's|^version/name = .*|version/name = "0.0.0-releasetest.$(ANDROID_RELEASE_VERSION_CODE)"|' export_presets.cfg; \
-	sed -i -E 's|^keystore/release = .*|keystore/release = "res://android/debug.keystore"|' export_presets.cfg; \
-	sed -i -E 's|^keystore/release_user = .*|keystore/release_user = "androiddebugkey"|' export_presets.cfg; \
-	sed -i -E 's|^keystore/release_password = .*|keystore/release_password = "android"|' export_presets.cfg; \
+	sed -i -E 's|^version/code *=.*|version/code=$(ANDROID_RELEASE_VERSION_CODE)|' export_presets.cfg; \
+	sed -i -E 's|^version/name *=.*|version/name="0.0.0-releasetest.$(ANDROID_RELEASE_VERSION_CODE)"|' export_presets.cfg; \
+	sed -i -E 's|^keystore/release *=.*|keystore/release="res://android/debug.keystore"|' export_presets.cfg; \
+	sed -i -E 's|^keystore/release_user *=.*|keystore/release_user="androiddebugkey"|' export_presets.cfg; \
+	sed -i -E 's|^keystore/release_password *=.*|keystore/release_password="android"|' export_presets.cfg; \
 	python3 scripts/inject_build_meta.py \
 		--commit "$$(git rev-parse --short HEAD 2>/dev/null || echo local)" \
 		--build-id "$(ANDROID_RELEASE_VERSION_CODE)" \

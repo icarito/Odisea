@@ -68,11 +68,22 @@ func _send_screen_list() -> void:
 		if is_instance_valid(screen):
 			var title: String = screen.screen_title() if screen.has_method("screen_title") else String(id)
 			var rel: float = screen.relevance(context) if screen.has_method("relevance") else 0.0
-			screens_list.append({
+			var entry: Dictionary = {
 				"id": id,
 				"title": title,
 				"relevance": rel
-			})
+			}
+			# El control remoto no tiene estas pantallas registradas (no corre el mundo),
+			# asi que no puede resolver ni su widget ni sus datos: sin esto mostraba la
+			# ruta cruda como nombre y "EN ESPERA" como estado. Los dos lados corren el
+			# mismo build, asi que la ruta de la escena le sirve tal cual.
+			if screen.has_method("widget_scene"):
+				var widget_scene = screen.widget_scene()
+				if widget_scene != null:
+					entry["widget"] = widget_scene.resource_path
+			if screen.has_method("widget_snapshot"):
+				entry["snapshot"] = screen.widget_snapshot()
+			screens_list.append(entry)
 
 	server.send_ui_directive("screen_list", screens_list)
 
@@ -151,8 +162,21 @@ func _refresh_remote_active_screen() -> void:
 	var screen = suit_os.get_screen(_remote_active_screen_id)
 	var title: String = screen.screen_title() if screen.has_method("screen_title") else _remote_active_screen_id
 	var view_type: String = "widget"
-	if screen.has_method("view_scene") and screen.view_scene() != null:
-		view_type = "scene"
+	# La vista completa (la UI del terminal) es una escena en disco cuando el contenido es
+	# estatico. El control no la puede resolver por su cuenta -- no tiene la pantalla
+	# registrada -- asi que viaja la ruta y su resolucion de diseño. Si la pantalla presta
+	# su Viewport en vivo (view_is_source) no hay escena que mandar: alla solo va el widget.
+	var view_path: String = ""
+	var view_size: Array = []
+	if screen.has_method("view_scene"):
+		var view_scene = screen.view_scene()
+		if view_scene != null:
+			view_type = "scene"
+			view_path = view_scene.resource_path
+			if screen.has_method("view_size"):
+				var design: Vector2 = screen.view_size()
+				if design.x > 0.0 and design.y > 0.0:
+					view_size = [design.x, design.y]
 
 	var snap: Dictionary = {}
 	if screen.has_method("widget_snapshot"):
@@ -162,6 +186,8 @@ func _refresh_remote_active_screen() -> void:
 		"id": _remote_active_screen_id,
 		"title": title,
 		"view": view_type,
+		"view_scene": view_path,
+		"view_size": view_size,
 		"snapshot": snap
 	})
 

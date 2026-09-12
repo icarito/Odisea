@@ -95,3 +95,69 @@ func test_bridge_sends_haptic_directive():
 
 	bridge.queue_free()
 	server.queue_free()
+
+func test_bridge_sends_widget_scene_and_snapshot_in_screen_list():
+	var server = DummyServer.new()
+	add_child(server)
+
+	var bridge = SuitOSRemoteBridgeScript.new()
+	add_child(bridge)
+	bridge.set("server", server)
+
+	# El control remoto no tiene la pantalla registrada: sin la escena del widget y su
+	# snapshot mostraba la ruta cruda como nombre y "EN ESPERA" como estado.
+	var dummy_screen = auto_free(HUDableComponentScript.new())
+	dummy_screen.hud_screen_id = "test_screen_widget"
+	dummy_screen.hud_screen_title = "Linterna"
+	dummy_screen.hud_widget_scene = load("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
+	SuitOS.register_screen(dummy_screen)
+
+	server.last_directives.clear()
+	bridge._on_client_connected("Phone 1")
+
+	var entry: Dictionary = {}
+	for s in server.last_directives[0]["payload"]:
+		if String(s.get("id", "")) == "test_screen_widget":
+			entry = s
+	assert_bool(entry.empty()).is_false()
+	assert_str(String(entry.get("widget", ""))).is_equal("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
+	assert_bool(entry.get("snapshot") is Dictionary).is_true()
+	assert_str(String(entry["snapshot"].get("title", ""))).is_equal("Linterna")
+
+	SuitOS.unregister_screen("test_screen_widget")
+	bridge.queue_free()
+	server.queue_free()
+
+class DummyViewScreen extends HUDableComponent:
+	func view_size() -> Vector2:
+		return Vector2(1280.0, 816.0)
+
+func test_screen_active_carries_the_view_scene_and_its_design_size():
+	var server = DummyServer.new()
+	add_child(server)
+
+	var bridge = SuitOSRemoteBridgeScript.new()
+	add_child(bridge)
+	bridge.set("server", server)
+
+	var screen = auto_free(DummyViewScreen.new())
+	screen.hud_screen_id = "holoterminal:cryo"
+	screen.hud_screen_title = "Diagnostico de criogenia"
+	screen.hud_view_scene = load("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
+	SuitOS.register_screen(screen)
+
+	server.last_directives.clear()
+	bridge.set_remote_active_screen("holoterminal:cryo")
+
+	var active: Dictionary = {}
+	for d in server.last_directives:
+		if String(d["op"]) == "screen_active":
+			active = d["payload"]
+	assert_bool(active.empty()).is_false()
+	assert_str(String(active.get("view", ""))).is_equal("scene")
+	assert_str(String(active.get("view_scene", ""))).is_equal("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
+	assert_array(active.get("view_size", [])).is_equal([1280.0, 816.0])
+
+	SuitOS.unregister_screen("holoterminal:cryo")
+	bridge.queue_free()
+	server.queue_free()
