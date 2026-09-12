@@ -160,9 +160,13 @@ func test_hold_opens_the_radial_and_its_release_is_not_a_tap() -> void:
 	_screen("test:b", "Beta")
 	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS - 1))
 	assert_bool(overlay._selector.is_open()).is_false() # 0.38 s: todavia no
-	_play(overlay, _held(1) + [UP])
+	_play(overlay, _held(1))
 	assert_bool(overlay._selector.is_open()).is_true()
 	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+	# Soltar sin nada marcado y sin pantalla detras: el dial no se queda abierto. Y el release
+	# no fue un tap (un tap habria abierto la ultima pantalla).
+	_play(overlay, [UP])
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 	assert_str(SuitOS.get_active_screen_id()).is_empty()
 
 
@@ -172,10 +176,14 @@ func test_in_view_tap_closes_and_hold_switches_without_closing() -> void:
 	SuitOS.pin_screen("test:a")
 	var overlay = _open_and_play([UP])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
-	_play(overlay, _held(Gesture.HOLD_TICKS) + [UP])
+	_play(overlay, _held(Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
+	# Soltar sin nada marcado vuelve a la pantalla que habia: el hold cambia sin cerrar.
+	_play(overlay, [UP])
+	assert_bool(overlay._selector.is_open()).is_false()
 	assert_bool(SuitOS.is_hud_mode_active()).is_true()
-	# Tap en el radial (o en la vista): cierra y reanuda.
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
+	# Tap en la vista: cierra y reanuda.
 	_play(overlay, [{"hud_mode": true}, UP])
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 	assert_bool(get_tree().paused).is_false()
@@ -188,10 +196,44 @@ func test_tap_in_view_closes() -> void:
 	assert_bool(get_tree().paused).is_false()
 
 
-# Gesto hacia arriba (mouse_delta +Y = arriba) y click: con dos pantallas el dial pone la
-# primera a las 6 y la segunda a las 12, asi que elige la segunda.
+# Mantener TAB, apuntar hacia arriba (mouse_delta +Y = arriba) y soltar: con dos pantallas el
+# dial pone la primera a las 6 y la segunda a las 12, y soltar elige lo marcado.
 func _hold_and_pick_second() -> Array:
-	return _held(Gesture.HOLD_TICKS) + [UP, {"mouse_delta": [0.0, 12.0]}, {"tool_fire_primary": true}]
+	return _held(Gesture.HOLD_TICKS) + [{"hud_mode": true, "mouse_delta": [0.0, 12.0]}, UP]
+
+
+func test_pick_while_holding_is_a_peek_and_release_exits() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS)
+		+ [{"hud_mode": true, "mouse_delta": [0.0, 12.0]}, {"hud_mode": true, "tool_fire_primary": true}])
+	# Elegida con TAB todavia apretado: se entra y se usa (mouse virtual y clic)...
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
+	assert_bool(overlay._selector.is_open()).is_false()
+	# ...y soltar TAB sale del modo HUD.
+	_play(overlay, [UP])
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+func test_gesture_reports_the_release_that_ends_a_hold() -> void:
+	var g = Gesture.new()
+	for _i in range(Gesture.HOLD_TICKS - 1):
+		assert_int(g.feed(true)).is_equal(Gesture.NONE)
+	assert_int(g.feed(true)).is_equal(Gesture.HOLD)
+	assert_int(g.feed(true)).is_equal(Gesture.NONE) # sigue apretado
+	assert_int(g.feed(false)).is_equal(Gesture.HOLD_RELEASE)
+	assert_int(g.feed(false)).is_equal(Gesture.NONE)
+
+	# Un tap no es fin de hold.
+	assert_int(g.feed(true)).is_equal(Gesture.NONE)
+	assert_int(g.feed(false)).is_equal(Gesture.TAP)
+
+	# consume() olvida la pulsacion: su release tampoco cuenta como fin de hold.
+	for _i in range(Gesture.HOLD_TICKS):
+		g.feed(true)
+	g.consume()
+	assert_int(g.feed(false)).is_equal(Gesture.NONE)
 
 
 func test_radial_pick_by_stream_pins_and_persists() -> void:
@@ -450,3 +492,105 @@ func test_suitos_snapshot_restore_intact() -> void:
 	SuitOS.restore_snapshot(saved)
 	assert_str(SuitOS.get_pinned_screen_id()).is_equal("test:a")
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+func test_hud_widgets_hide_during_the_pause_menu_but_not_in_hud_mode() -> void:
+	# Los widgets viven en el slot HUD (capa 115) y quedaban dibujados encima del menu de pausa.
+	_screen("test:a", "Alpha", 0.9)
+	SuitOS.set_context({})
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	var widget = _overlay_mgr.get_slot(_overlay_mgr.SLOT_HUD).get_node_or_null("SuitOS_Widget_slot_a")
+	assert_object(widget).is_not_null()
+	assert_bool(widget.visible).is_true()
+
+	# Pausa del menu: se esconden.
+	get_tree().paused = true
+	host.refresh_for_pause()
+	assert_bool(widget.visible).is_false()
+
+	# Pausa del modo HUD: se ven (tocarlos cambia de pantalla).
+	PauseManager._hud_mode_paused = true
+	host.refresh_for_pause()
+	assert_bool(widget.visible).is_true()
+	PauseManager._hud_mode_paused = false
+
+	# Reanudar: vuelven.
+	get_tree().paused = false
+	host.refresh_for_pause()
+	assert_bool(widget.visible).is_true()
+
+
+
+func test_dragging_the_hud_touch_button_aims_the_dial_and_lifting_picks() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	MobileUIManager._spawn_mobile_ui()
+	var button = MobileUIManager._mobile_ui.get_node("Container/ActionButtons/HUDButton")
+
+	# Dedo apoyado y arrastrado hacia arriba antes del umbral del hold: el dial se abre ya y
+	# apunta a la segunda pantalla (las 12).
+	button.drag_vector = Vector2(0.0, -80.0)
+	var overlay = _open_and_play([{"hud_mode": true}, {"hud_mode": true}])
+	assert_bool(overlay._selector.is_open()).is_true()
+	assert_int(overlay._selector.get_hovered_index()).is_equal(1)
+
+	# Soltar el dedo: TAB suelto, elige lo marcado y se queda.
+	button.drag_vector = Vector2.ZERO
+	_play(overlay, [UP])
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+
+
+func test_promote_to_hold_turns_the_release_into_hold_release() -> void:
+	var g = Gesture.new()
+	assert_int(g.feed(true)).is_equal(Gesture.NONE)
+	g.promote_to_hold()
+	assert_int(g.feed(true)).is_equal(Gesture.NONE) # no dispara un segundo HOLD
+	assert_int(g.feed(false)).is_equal(Gesture.HOLD_RELEASE)
+
+
+
+func test_gamepad_and_tab_open_the_radial_without_the_virtual_mouse() -> void:
+	# Cualquier boton o eje de gamepad prende el mouse virtual: el boton del HUD o el stick para
+	# apuntar lo mostraban encima del dial, y con TAB no. Deben entrar igual.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	assert_bool(overlay._selector.is_open()).is_true()
+	var cursor = overlay._virtual_mouse
+	assert_bool(cursor.is_processing_input()).is_false() # el gamepad no lo activa
+	assert_bool(cursor.is_processing()).is_false()        # el stick no lo mueve
+	assert_bool(cursor.visible).is_false()
+
+	# Elegida una pantalla vuelve: ahi si sirve para hacer clic en su UI.
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, 12.0]}, UP])
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
+	assert_bool(cursor.is_processing_input()).is_true()
+	assert_bool(cursor.is_processing()).is_true()
+
+
+
+func test_widget_without_screen_frees_the_pointer_like_a_screen_cursor() -> void:
+	# Un hudable sin Pantalla muestra su widget ampliado; el terminal trae su propio cursor y el
+	# widget no: con el mouse capturado no habia con que hacerle clic.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	SuitOS.pin_screen("test:a")
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	var overlay = _open_and_play([UP])
+	assert_bool(is_instance_valid(overlay._mount.get_widget())).is_true()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_VISIBLE)
+
+	# El dial se apunta con el mouse capturado.
+	_play(overlay, _held(Gesture.HOLD_TICKS))
+	assert_bool(overlay._selector.is_open()).is_true()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
+
+	# Soltar sin elegir vuelve al widget: puntero libre otra vez.
+	_play(overlay, [UP])
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_VISIBLE)
+
+	# Salir devuelve el mouse como estaba.
+	overlay._exit()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)

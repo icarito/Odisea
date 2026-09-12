@@ -23,6 +23,8 @@ export(Curve) var camera_response_curve
 export(float, 0.0, 1.0) var tank_strafe_blend := 0.5 # 0.0 = pure strafe, 1.0 = pure tank turn
 export(float, 0.0, 1.0) var tank_turn_zone_end := 0.0 # 0.0 = continuous blend, 1.0 = binary tank turn, 0.75 = Pilot target
 export(float, 0.0, 1.0) var diagonal_turn_blend := 0.5 # Turning reduction multiplier when moving diagonally
+export(float, 0.0, 1.0) var stationary_turn_speed_multiplier := 1.0
+export(float, 0.0, 1.0) var tank_turn_stationary_axis_deadzone := 0.15
 
 # Slope Handling (inspired by Terrestrial Characters)
 export(float, 0, 90) var floor_max_angle_degrees := 45.0
@@ -148,17 +150,18 @@ func get_tank_yaw_delta(dt: float, move_vec: Vector2) -> float:
 			
 		var multiplier = -1.0
 		var active_blend = tank_strafe_blend
+		var turn_speed := tank_turn_speed
+		var is_stationary_turn := abs(move_vec.y) <= tank_turn_stationary_axis_deadzone
+		if is_stationary_turn:
+			turn_speed *= stationary_turn_speed_multiplier
 		
 		# Standard Tank Turn: Left/Right rotate character relative to its own axis.
 		# No inversion in reverse (classic tank behavior).
-		if move_vec.y > 0.01: # Backward (Z+)
-			multiplier = -1.0
-			active_blend = diagonal_turn_blend
-		elif move_vec.y < -0.01: # Forward (Z-)
+		if not is_stationary_turn: # Forward or backward intent beyond the stick deadzone.
 			multiplier = -1.0
 			active_blend = diagonal_turn_blend
 			
-		return move_vec.x * tank_turn_speed * speed_factor * active_blend * dt * multiplier
+		return move_vec.x * turn_speed * speed_factor * active_blend * dt * multiplier
 	
 	current_turn_time = 0.0
 	return 0.0

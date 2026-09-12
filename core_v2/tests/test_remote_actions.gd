@@ -26,6 +26,9 @@ class DummyServer extends Node:
 	var last_directives: Array = []
 	func send_ui_directive(op: String, payload) -> void:
 		last_directives.append({"op": op, "payload": payload})
+	# El bridge solo le habla a un control emparejado (SuitOSRemoteBridge._has_paired_client).
+	func has_paired_client() -> bool:
+		return true
 
 func test_remote_action_validation_and_execution():
 	var server = DummyServer.new()

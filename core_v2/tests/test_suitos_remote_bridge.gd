@@ -194,3 +194,30 @@ func test_screen_active_carries_the_view_scene_and_its_design_size():
 	SuitOS.unregister_screen("holoterminal:cryo")
 	bridge.queue_free()
 	server.queue_free()
+
+class RecordingScreen extends HUDableComponent:
+	var performed: Array = []
+	func perform_action(op: String, args: Dictionary = {}) -> Dictionary:
+		performed.append(op)
+		return {"ok": true}
+
+func test_remote_widget_actions_are_ignored_while_the_host_is_paused():
+	var bridge = SuitOSRemoteBridgeScript.new()
+	add_child(bridge)
+	var screen = auto_free(RecordingScreen.new())
+	screen.hud_screen_id = "player:flashlight"
+	screen.allowed_actions_list = ["toggle"]
+	SuitOS.register_screen(screen)
+	var action := {"screen_id": "player:flashlight", "op": "toggle", "args": {}}
+
+	# En pausa el mundo esta congelado: la linterna no se prende desde el control.
+	get_tree().paused = true
+	bridge._on_ui_directive_received("remote_action", action)
+	get_tree().paused = false
+	assert_array(screen.performed).is_empty()
+
+	bridge._on_ui_directive_received("remote_action", action)
+	assert_array(screen.performed).is_equal(["toggle"])
+
+	SuitOS.unregister_screen("player:flashlight")
+	bridge.queue_free()

@@ -124,9 +124,11 @@ tank_turn_curve = ExtResource( 10 )
 tank_turn_ramp_time = 0.0
 move_response_curve = ExtResource( 11 )
 camera_response_curve = ExtResource( 10 )
-tank_strafe_blend = 0.75
+tank_strafe_blend = 0.9
 tank_turn_zone_end = 0.75
 diagonal_turn_blend = 0.9
+stationary_turn_speed_multiplier = 0.625
+tank_turn_stationary_axis_deadzone = 0.15
 enable_slope_resistance = false
 slope_resistance_factor = 0.1
 

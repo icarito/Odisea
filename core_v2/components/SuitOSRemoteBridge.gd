@@ -120,6 +120,11 @@ func _on_ui_directive_received(op: String, payload) -> void:
 			set_remote_active_screen(target_id)
 
 		"remote_action":
+			# Con la partida en pausa el mundo esta congelado: un widget del control no la cambia
+			# (la linterna no se prende en pausa). Aca y no solo en el control, que puede tener
+			# el aviso de pausa atrasado.
+			if get_tree().paused:
+				return
 			if typeof(payload) == TYPE_DICTIONARY:
 				var dict: Dictionary = payload as Dictionary
 				var screen_id: String = String(dict.get("screen_id", ""))

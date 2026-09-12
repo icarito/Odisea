@@ -486,7 +486,12 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		_sprint_neutral_hold += dt
 	else:
 		_sprint_neutral_hold = 0.0
-	_update_head_look(traversal_suppressed, _sprint_neutral_hold >= 0.15)
+	var tank_turn_yaw_target := 0.0
+	if controller.last_input != null:
+		var movement = controller.get("movement_logic")
+		var stationary_axis_deadzone: float = movement.tank_turn_stationary_axis_deadzone if movement != null else 0.01
+		tank_turn_yaw_target = tank_turn_head_yaw(controller.last_input.move_vec, movement != null and movement.is_tank_turn_mode, head_look_yaw_limit_deg, stationary_axis_deadzone)
+	_update_head_look(traversal_suppressed, _sprint_neutral_hold >= 0.15, tank_turn_yaw_target)
 
 	was_on_floor_last_frame = is_on_floor and not (controller.traversal_logic.is_climbing if controller and controller.get("traversal_logic") else false) and not (controller.traversal_logic.is_hanging if controller and controller.get("traversal_logic") else false)
 
@@ -803,7 +808,12 @@ func _clear_hand_chain_override(bone_name: String) -> void:
 		if upper_arm_idx != -1:
 			_clear_bone_override(upper_arm_idx)
 
-func _update_head_look(suppressed: bool, return_to_neutral: bool = false) -> void:
+static func tank_turn_head_yaw(move_vec: Vector2, is_tank_turn_mode: bool, yaw_limit_deg: float, stationary_axis_deadzone: float = 0.01) -> float:
+	if not is_tank_turn_mode or abs(move_vec.x) <= 0.01 or abs(move_vec.y) > stationary_axis_deadzone:
+		return 0.0
+	return -sign(move_vec.x) * deg2rad(yaw_limit_deg)
+
+func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_turn_yaw_target: float = 0.0) -> void:
 	if not _skeleton:
 		return
 	var head_idx = _skeleton.find_bone("DEF-head")
@@ -831,7 +841,9 @@ func _update_head_look(suppressed: bool, return_to_neutral: bool = false) -> voi
 	var target_pitch := 0.0
 	# Con la camara detras, atan2 salta entre +PI y -PI y el clamp haria que la cabeza
 	# se tire de un limite al otro. En ese caso la devolvemos a neutro.
-	if not return_to_neutral and aim.dot(fwd) > 0.0:
+	if abs(tank_turn_yaw_target) > 0.0001:
+		target_yaw = tank_turn_yaw_target
+	elif not return_to_neutral and aim.dot(fwd) > 0.0:
 		target_yaw = clamp(atan2(aim.dot(right), aim.dot(fwd)), -deg2rad(head_look_yaw_limit_deg), deg2rad(head_look_yaw_limit_deg))
 		target_pitch = clamp(asin(clamp(aim.dot(up), -1.0, 1.0)), -deg2rad(head_look_pitch_limit_deg), deg2rad(head_look_pitch_limit_deg))
 

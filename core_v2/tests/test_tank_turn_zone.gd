@@ -65,3 +65,17 @@ func test_player_movement_strafe_mode_regression() -> void:
 	movement.is_tank_turn_mode = false
 	movement.process_movement(0.016, Vector2(0.5, 0.0), Basis.IDENTITY, false, true, false)
 	assert_float(movement.wish_direction.x).is_greater(0.0)
+
+func test_stationary_turn_speed_multiplier() -> void:
+	var movement: PlayerMovementV2 = auto_free(PlayerMovementV2.new())
+	add_child(movement)
+	movement.tank_turn_speed = 2.0
+	movement.tank_strafe_blend = 0.9
+	movement.diagonal_turn_blend = 0.9
+	movement.stationary_turn_speed_multiplier = 0.625
+	movement.tank_turn_stationary_axis_deadzone = 0.15
+
+	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2.RIGHT))).is_equal_approx(1.125, 0.0001)
+	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2(1.0, 0.1)))).is_equal_approx(1.125, 0.0001)
+	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2(1.0, 0.16)))).is_equal_approx(1.8, 0.0001)
+	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2(1.0, -1.0)))).is_equal_approx(1.8, 0.0001)

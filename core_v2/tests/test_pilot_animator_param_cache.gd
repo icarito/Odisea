@@ -41,3 +41,11 @@ func test_footsteps_do_not_accumulate_without_locomotion_intent() -> void:
 
 	animator.queue_free()
 	controller.queue_free()
+
+func test_stationary_tank_turn_head_looks_into_turn() -> void:
+	var yaw_limit := 55.0
+	assert_float(PilotAnimatorScript.tank_turn_head_yaw(Vector2.RIGHT, true, yaw_limit, 0.15)).is_equal_approx(-deg2rad(yaw_limit), 0.0001)
+	assert_float(PilotAnimatorScript.tank_turn_head_yaw(Vector2.LEFT, true, yaw_limit, 0.15)).is_equal_approx(deg2rad(yaw_limit), 0.0001)
+	assert_float(PilotAnimatorScript.tank_turn_head_yaw(Vector2(1.0, 0.1), true, yaw_limit, 0.15)).is_equal_approx(-deg2rad(yaw_limit), 0.0001)
+	assert_float(PilotAnimatorScript.tank_turn_head_yaw(Vector2(1.0, -1.0), true, yaw_limit, 0.15)).is_equal_approx(0.0, 0.0001)
+	assert_float(PilotAnimatorScript.tank_turn_head_yaw(Vector2.RIGHT, false, yaw_limit, 0.15)).is_equal_approx(0.0, 0.0001)

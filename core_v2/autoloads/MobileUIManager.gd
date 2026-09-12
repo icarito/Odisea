@@ -357,6 +357,16 @@ func is_point_on_touch_controls(point: Vector2) -> bool:
 			return true
 	return false
 
+# Cuanto se arrastro el dedo sobre el boton del HUD desde donde se apoyo (cero sin dedo). Lo
+# leen el modo HUD del host y el del control remoto para apuntar el dial como con un joystick.
+func hud_button_drag() -> Vector2:
+	if not is_instance_valid(_mobile_ui):
+		return Vector2.ZERO
+	var button = _mobile_ui.get_node_or_null("Container/ActionButtons/HUDButton")
+	if button == null or not ("drag_vector" in button):
+		return Vector2.ZERO
+	return button.drag_vector
+
 func get_reserved_overlay_margins(padding: float = 16.0) -> Dictionary:
 	var margins = {
 		"left": 0.0,

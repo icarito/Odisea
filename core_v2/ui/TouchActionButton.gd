@@ -7,6 +7,12 @@ export(String) var action_name := ""
 # interactable_in_range/out_of_range). Reemplaza al shader de highlight/
 # proximity que antes duplicaba meshes por cada prop en rango.
 export(bool) var dims_when_unavailable := false
+# Boton que se maneja como joystick (el del HUD): mientras el dedo siga apoyado la accion sigue
+# apretada aunque salga del boton, y drag_vector dice cuanto se arrastro desde donde se apoyo.
+# Con eso el modo HUD apunta el dial: apoyar, arrastrar, soltar para elegir.
+export(bool) var drag_to_aim := false
+var drag_vector := Vector2.ZERO
+var _press_position := Vector2.ZERO
 
 const _DIM_MODULATE := Color(0.5, 0.5, 0.5, 0.6)
 const _ACTIVE_MODULATE := Color(1, 1, 1, 1)
@@ -78,6 +84,8 @@ func _input(event: InputEvent) -> void:
 		if event.pressed:
 			if rect.has_point(event.position) and _touch_index == -1:
 				_touch_index = event.index
+				_press_position = event.position
+				drag_vector = Vector2.ZERO
 				_press()
 				get_tree().set_input_as_handled()
 		elif event.index == _touch_index:
@@ -87,6 +95,9 @@ func _input(event: InputEvent) -> void:
 	
 	elif event is InputEventScreenDrag:
 		if event.index == _touch_index:
+			if drag_to_aim:
+				drag_vector = event.position - _press_position
+				return
 			var rect = get_global_rect()
 			if not rect.has_point(event.position):
 				_release()
@@ -99,5 +110,6 @@ func _press() -> void:
 
 func _release() -> void:
 	pressed = false
+	drag_vector = Vector2.ZERO
 	if action_name != "":
 		Input.action_release(action_name)

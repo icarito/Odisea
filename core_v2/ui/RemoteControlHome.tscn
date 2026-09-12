@@ -60,20 +60,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="ExitLayer" type="CanvasLayer" parent="."]
-layer = 20
-
-[node name="ExitButton" type="Button" parent="ExitLayer"]
-anchor_left = 1.0
-anchor_right = 1.0
-margin_left = -150.0
-margin_top = 20.0
-margin_right = -20.0
-margin_bottom = 65.0
-rect_min_size = Vector2( 130, 50 )
-focus_mode = 0
-text = "Salir"
-
 [node name="ExitConfirm" type="ConfirmationDialog" parent="."]
 margin_right = 420.0
 margin_bottom = 160.0

@@ -36,6 +36,11 @@ var _confirm_was_down: bool = true # sostenido al abrir: ese boton no confirma
 var _touch_index: int = -1
 var _touch_start: Vector2 = Vector2.ZERO
 var _active_focused_screen: Object = null
+# El dial abierto por mantener TAB: mientras siga apretado es un cuasimodo (ver _release_tab_hold).
+var _tab_hold_active: bool = false
+# Modo del mouse antes de liberarlo para un widget de reemplazo; -1 = no esta liberado.
+var _mouse_mode_before_widget: int = -1
+var _picked_during_hold: bool = false
 var _pending_focus_screen: Object = null
 var _pending_focus_camera: Camera = null
 var _pending_swap_screen: Object = null
@@ -70,6 +75,7 @@ func _notification(what: int) -> void:
 func _exit_tree() -> void:
 	_cleanup_focus()
 	_mount.close()
+	_restore_widget_pointer()
 
 # Entrada directa al radial (hold sobre el widget del slot, que no pasa por el stream).
 func show_radial() -> void:
@@ -97,12 +103,36 @@ func _physics_process(_delta: float) -> void:
 		_open_last()
 	elif gesture == Gesture.HOLD and not _selector.is_open():
 		_opened = true
+		_tab_hold_active = true
+		_picked_during_hold = false
 		_open_radial()
+	_aim_with_hud_button(bool(input.hud_mode))
+	# Apuntar antes de resolver el release: la ultima muestra con TAB suelto todavia cuenta.
 	_drive_from_stream(input)
+	if gesture == Gesture.HOLD_RELEASE and _tab_hold_active:
+		_release_tab_hold()
 
 # La muestra del tick: get_input() una vez por tick (el proveedor del jugador esta pausado).
 func _frame_input():
 	return input_provider.get_input()
+
+# El boton tactil del HUD es un joystick: arrastrar el dedo desde donde se apoyo apunta el dial,
+# y soltarlo suelta TAB (elige lo marcado, _release_tab_hold). Si arrastra antes del umbral del
+# hold el dial se abre ya: un arrastre nunca es un tap. Sin boton o sin dedo, drag es cero.
+func _aim_with_hud_button(tab_down: bool) -> void:
+	var mobile: Node = get_node_or_null("/root/MobileUIManager")
+	var drag: Vector2 = mobile.hud_button_drag() if mobile != null and mobile.has_method("hud_button_drag") \
+		else Vector2.ZERO
+	if drag.length() < TOUCH_MIN_DRAG:
+		return
+	if tab_down and not _selector.is_open() and not _tab_hold_active:
+		_gesture.promote_to_hold()
+		_opened = true
+		_tab_hold_active = true
+		_picked_during_hold = false
+		_open_radial()
+	if _selector.is_open():
+		_point_at(drag)
 
 func _drive_from_stream(input) -> void:
 	if not _selector.is_open():
@@ -226,18 +256,60 @@ func _open_radial() -> void:
 		labels.append(screen.screen_title() if screen.has_method("screen_title") else id)
 	_selector.set_options(labels)
 	_selector.open()
+	_set_virtual_mouse_enabled(false)
+	_sync_widget_pointer() # el dial se apunta con el mouse capturado
 	_view_host.visible = false
 	_hint.visible = false
 	Gesture.mark_hold_discovered()
+
+# Soltar TAB tras el hold. Si ya se eligio con TAB apretado fue un vistazo: se entro, se uso
+# con el mouse virtual y el clic, y soltar sale del modo HUD. Si el dial sigue abierto, lo
+# marcado queda elegido (el dial no se queda abierto); sin nada marcado se vuelve a la
+# pantalla que habia, o se sale si no habia ninguna.
+func _release_tab_hold() -> void:
+	_tab_hold_active = false
+	if _picked_during_hold:
+		_picked_during_hold = false
+		_exit()
+		return
+	if not _selector.is_open():
+		return
+	if _selector.has_selection():
+		_selector.confirm() # -> _select, ya sin hold activo: la pantalla se queda
+	elif _mount.is_showing() or is_instance_valid(_active_focused_screen):
+		_selector.close()
+		_set_virtual_mouse_enabled(true)
+		# Visible salvo en una pantalla con foco, donde el cursor se dibuja dentro del Viewport.
+		_virtual_mouse.visible = not (is_instance_valid(_active_focused_screen) \
+			and _active_focused_screen.has_method("forward_view_input"))
+		_view_host.visible = true
+		_sync_widget_pointer()
+	else:
+		_exit()
 
 func _select(index: int) -> void:
 	var suit_os: Node = _suit_os()
 	if index < 0 or index >= _screen_ids.size():
 		return
+	if _tab_hold_active:
+		_picked_during_hold = true
 	suit_os.pin_screen(_screen_ids[index])
 	_show_screen(_screen_ids[index])
 
+# El mouse virtual es para usar una pantalla (clic en su UI), no para el dial, que se apunta con
+# el stick o el mouse. Se activa solo con cualquier boton o eje de gamepad: apretar el boton del
+# HUD o mover el stick para apuntar lo prendia encima del dial, y con TAB (teclado) no. Apagado
+# mientras el dial esta abierto, los dos entran igual.
+func _set_virtual_mouse_enabled(enabled: bool) -> void:
+	if not is_instance_valid(_virtual_mouse):
+		return
+	_virtual_mouse.set_process(enabled)
+	_virtual_mouse.set_process_input(enabled)
+	if not enabled:
+		_virtual_mouse.visible = false
+
 func _show_screen(id: String) -> void:
+	_set_virtual_mouse_enabled(true)
 	var suit_os: Node = _suit_os()
 	var screen: Object = suit_os.get_screen(id)
 	suit_os.open_screen(id)
@@ -264,6 +336,25 @@ func _show_screen(id: String) -> void:
 		_mount.show(screen, snapshot, _view_host)
 	# El hold es invisible: se avisa una vez, hasta el primer uso, y solo si hay a donde cambiar.
 	_hint.visible = _screen_ids.size() > 1 and not Gesture.hold_discovered()
+	_sync_widget_pointer()
+
+# Un hudable sin Pantalla muestra su widget ampliado, y a diferencia del terminal (que dibuja su
+# cursor dentro de su Viewport, forward_view_input) no trae puntero: el modo HUD deja el mouse
+# capturado y no habia con que hacerle clic. Mientras se ve el widget el mouse queda libre; con
+# gamepad lo toma el mouse virtual (habilitado en _show_screen). El dial lo vuelve a capturar.
+func _sync_widget_pointer() -> void:
+	if is_instance_valid(_mount.get_widget()) and not _selector.is_open():
+		if _mouse_mode_before_widget < 0:
+			_mouse_mode_before_widget = Input.get_mouse_mode()
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	else:
+		_restore_widget_pointer()
+
+func _restore_widget_pointer() -> void:
+	if _mouse_mode_before_widget < 0:
+		return
+	Input.set_mouse_mode(_mouse_mode_before_widget)
+	_mouse_mode_before_widget = -1
 
 # Narrativa ambiental, poco texto: solo que hay en cada slot (A automatico, B fijado).
 func _refresh_slots(_slot: String = "", _snapshot: Dictionary = {}) -> void:
@@ -321,6 +412,7 @@ func _complete_focus_swap(screen: Object = null) -> void:
 	_view_host.visible = true
 
 func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseManager
+	_restore_widget_pointer()
 	_cleanup_focus()
 	if is_instance_valid(_virtual_mouse):
 		_virtual_mouse.visible = false

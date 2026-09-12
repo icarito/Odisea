@@ -1489,8 +1489,10 @@ func _unhandled_input(event):
 		# Un toque nunca agarra el puntero: el clic que el sistema emula de cada toque llegaba
 		# aca en cuanto nada de la GUI lo detenia (la pantalla del control remoto deja pasar
 		# los toques), y con el grab puesto el arrastre tactil deja de llegar.
-		if event is InputEventMouseButton and event.pressed and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE \
-				and not _pointer_is_from_touch():
+		# Solo el clic izquierdo: el derecho es el que acaba de soltar el mouse (ui_cancel, arriba)
+		# y con cualquier boton lo recapturaba en el mismo evento.
+		if event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_LEFT \
+				and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE and not _pointer_is_from_touch():
 			if not get_tree().paused and not OS.has_feature("Server") and OS.is_window_focused():
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 				# set_mouse_mode(CAPTURED) hace un warp del cursor al centro de la

@@ -101,6 +101,7 @@ func on_show():
 func _input(event):
 	var options_open: bool = is_instance_valid(options_menu) and options_menu.visible
 	if visible and not options_open and not _minimal:
-		if event.is_action_pressed("ui_cancel"):
+		# El boton derecho tambien es ui_cancel, pero solo suelta el mouse: no reanuda.
+		if event.is_action_pressed("ui_cancel") and not event is InputEventMouseButton:
 			_on_resume_pressed()
 			get_tree().set_input_as_handled()

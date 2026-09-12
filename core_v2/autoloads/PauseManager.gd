@@ -107,13 +107,17 @@ func _input(event):
 	# abria el menu en vez de rechazar la solicitud.
 	if _pairing_prompt_open():
 		return
-	# Primer input tras recuperar el foco: devolver el menú completo, sin actuar.
+	# Primer input tras recuperar el foco. Un clic sobre el juego en pausa es "volver a jugar":
+	# reanuda. Cualquier otra entrada devuelve el menu completo, sin actuar.
 	if _menu_hidden_by_focus and get_tree().paused and _restores_menu(event):
-		_menu_hidden_by_focus = false
-		_apply_menu_visibility()
+		if event is InputEventMouseButton and event.button_index == BUTTON_LEFT:
+			resume()
+		else:
+			_menu_hidden_by_focus = false
+			_apply_menu_visibility()
 		get_tree().set_input_as_handled()
 		return
-	if not event.is_action_pressed("ui_cancel"):
+	if not is_pause_request(event):
 		return
 	if not _can_pause_in_current_scene():
 		return
@@ -123,6 +127,11 @@ func _input(event):
 		return
 	call_deferred("_toggle_pause")
 	get_tree().set_input_as_handled()
+
+# Pausar es ESC, el back de Android o el gamepad. El boton derecho del mouse tambien es
+# ui_cancel en el InputMap, pero es "soltar el mouse" (lo hace SessionManager), no pausar.
+static func is_pause_request(event: InputEvent) -> bool:
+	return event.is_action_pressed("ui_cancel") and not event is InputEventMouseButton
 
 func _toggle_pause() -> void:
 	if not _can_pause_in_current_scene():
@@ -214,3 +223,7 @@ func _refresh_mobile_ui() -> void:
 	var mobile = get_node_or_null("/root/MobileUIManager")
 	if mobile and mobile.has_method("refresh_for_pause"):
 		mobile.refresh_for_pause()
+	# Lo mismo para los widgets del HUD de SuitOS (capa 115, encima del menu de pausa).
+	var widget_host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
+	if widget_host and widget_host.has_method("refresh_for_pause"):
+		widget_host.refresh_for_pause()

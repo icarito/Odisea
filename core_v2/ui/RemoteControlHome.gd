@@ -28,6 +28,9 @@ const RADIAL_TOUCH_MIN_DRAG := 12.0
 # (HudModeOverlay.tscn): el dial del control se ve igual que el de la partida. Se
 # reescala la instancia, no la escena compartida.
 const RADIAL_OPTION_SIZE := Vector2(400.0, 48.0)
+# Resolucion de diseño de una Pantalla de hudable (screen_resolution de HudViewPresenter.tscn).
+# Un widget sin Pantalla ocupa ese mismo lugar: si no, se estiraba a todo el ViewHost.
+const DEFAULT_SCREEN_DESIGN := Vector2(1280.0, 816.0)
 const RADIAL_FONT_SIZE := 22
 const RADIAL_FONT_DATA := "res://assets/fonts/SixtyFour-Regular-FontData.tres"
 const RADIAL_DIM_COLOR := Color(0.0, 0.05, 0.08, 0.4)
@@ -123,7 +126,6 @@ func _ready() -> void:
 	exit_confirm.get_ok().text = "Salir"
 	exit_confirm.get_cancel().text = "Cancelar"
 	preload("res://core_v2/ui/DialogButtons.gd").fit_for_touch(exit_confirm)
-	$ExitLayer/ExitButton.connect("pressed", self, "_on_exit_pressed")
 
 	if view_host:
 		view_host.connect("resized", self, "_fit_view_node")
@@ -204,8 +206,10 @@ func _client() -> Node:
 	return _remote_control_manager.client if _remote_control_manager else null
 
 func _physics_process(_delta: float) -> void:
-	_step_tab_gesture()
+	# Apuntar antes del gesto: el tick en que se suelta TAB todavia mueve la marca.
 	_aim_radial_with_move_actions()
+	_step_tab_gesture()
+	_aim_radial_with_hud_button()
 	var client = _client()
 	if client == null:
 		return
@@ -276,6 +280,14 @@ func _input(event: InputEvent) -> void:
 	if event.is_action("hud_mode"):
 		get_tree().set_input_as_handled()
 		return
+	# Sin boton Salir: ESC en escritorio y back en Android (PauseManager lo traduce a una accion
+	# ui_cancel). Solo teclado y esa accion: en un gamepad B tambien es ui_cancel pero es saltar,
+	# y tiene que seguir viajando al host. Se come el press y el release (ESC ya no pausa el host).
+	if (event is InputEventKey or event is InputEventAction) and event.is_action("ui_cancel"):
+		if event.is_action_pressed("ui_cancel"):
+			_on_cancel_requested()
+		get_tree().set_input_as_handled()
+		return
 	# Boton secundario: suelta el mouse de esta ventana. Esta mapeado a ui_cancel, asi que
 	# reenviarlo pausaba la partida del host; y aca no soltaba nada, porque SessionManager
 	# lo suelta y lo recaptura con el mismo evento (es tambien un boton de mouse apretado).
@@ -323,13 +335,9 @@ func _watch_tap_outside_view(event: InputEvent) -> void:
 				and _is_outside_view(click.position):
 			_exit_hud_mode()
 
-# Fuera de la pantalla, y tampoco sobre un control virtual (el joystick caminando no cierra
-# nada) ni sobre Salir (que tiene lo suyo).
+# Fuera de la pantalla, y tampoco sobre un control virtual (el joystick caminando no cierra nada).
 func _is_outside_view(point: Vector2) -> bool:
-	if _view_screen_rect().has_point(point) or _is_on_virtual_controls(point):
-		return false
-	var exit_button: Control = get_node_or_null("ExitLayer/ExitButton") as Control
-	return exit_button == null or not exit_button.get_global_rect().has_point(point)
+	return not _view_screen_rect().has_point(point) and not _is_on_virtual_controls(point)
 
 # El area que ocupa la vista en pantalla: la textura escalada del Viewport, o el ViewHost
 # entero cuando se monto el widget sin tamaño de diseño.
@@ -337,16 +345,17 @@ func _view_screen_rect() -> Rect2:
 	var container = _view_viewport_container()
 	if container != null:
 		return Rect2(container.rect_global_position, container.rect_size * container.rect_scale)
+	# El widget de reemplazo cuenta como el lugar de la Pantalla: tocar fuera de el cierra.
+	var frame = _widget_placeholder_frame()
+	if frame != null:
+		var space: Rect2 = _screen_space_in(frame.rect_size)
+		return Rect2(frame.rect_global_position + space.position, space.size)
 	return view_host.get_global_rect() if view_host != null else Rect2()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _radial_is_open() and _raw_passthrough:
 		return
 	if not _raw_passthrough:
-		if event.is_action_pressed("ui_cancel"):
-			_on_exit_pressed()
-			get_tree().set_input_as_handled()
-			return
 		# Un gamepad fisico en un control tactil (handheld) no empuja acciones que
 		# _send_touch_actions vea como fuerza de move_*: su stick es un eje. Viaja como
 		# evento, el mismo camino que en escritorio.
@@ -380,6 +389,14 @@ func _on_camera_drag(delta: Vector2) -> void:
 
 func _on_camera_zoom(delta: float) -> void:
 	_touch_zoom += delta
+
+# Primero cierra la pantalla del HUD si hay una (como ESC en el modo HUD del host); si no,
+# pide confirmar la salida del control remoto.
+func _on_cancel_requested() -> void:
+	if _hud_mode_active():
+		_exit_hud_mode()
+	else:
+		_on_exit_pressed()
 
 func _on_exit_pressed() -> void:
 	if exit_confirm.visible:
@@ -475,7 +492,36 @@ func _step_tab_gesture() -> void:
 		else:
 			_open_last_screen()
 	elif gesture == TabGesture.HOLD and not _radial_is_open():
+		_tab_hold_active = true
+		_picked_during_hold = false
 		_open_radial()
+	elif gesture == TabGesture.HOLD_RELEASE and _tab_hold_active:
+		_release_tab_hold()
+
+# El dial abierto por mantener TAB es un cuasimodo, igual que en el host (HudModeOverlay):
+var _tab_hold_active: bool = false
+var _picked_during_hold: bool = false
+
+# Soltar TAB tras el hold. Si ya se eligio con TAB apretado fue un vistazo: soltar sale. Si el
+# dial sigue abierto, lo marcado queda elegido (el dial no se queda abierto); sin nada marcado
+# se cierra y vuelve la pantalla que habia, si habia una.
+func _release_tab_hold() -> void:
+	_tab_hold_active = false
+	if _picked_during_hold:
+		_picked_during_hold = false
+		_close_radial()
+		# Sin esperar el screen_active del host: se pudo soltar antes de que llegara, y con
+		# _exit_hud_mode (que mira la pantalla activa) la vista se abria despues de soltar.
+		var client = _client()
+		if client != null:
+			client.send_ui_directive("screen_select", {"id": ""})
+		return
+	if not _radial_is_open():
+		return
+	if _radial_selector.has_selection():
+		_radial_selector.confirm() # -> _on_radial_option_selected, ya sin hold: se queda
+	else:
+		_close_radial() # devuelve la vista si hay una pantalla abierta
 
 func _hud_mode_active() -> bool:
 	return _radial_is_open() or not String(_active_remote_screen.get("id", "")).empty()
@@ -502,6 +548,13 @@ func _open_last_screen() -> void:
 
 func _open_radial() -> void:
 	if not is_instance_valid(_radial_selector):
+		return
+	# Como el modo HUD del host (HudModeOverlay._open_radial): con una sola pantalla no hay
+	# nada que elegir y se entra directo; sin ninguna, no hay dial.
+	var screens: int = _radial_screen_ids().size()
+	if screens <= 1:
+		if screens == 1:
+			_on_radial_option_selected(0)
 		return
 	_update_radial_options()
 	_radial_touch_index = -1
@@ -620,6 +673,23 @@ func _aim_radial_with_move_actions() -> void:
 	if move.length() >= RADIAL_MOVE_DEADZONE:
 		_point_radial_at(move)
 
+# El boton tactil del HUD es un joystick, como en el host (HudModeOverlay._aim_with_hud_button):
+# arrastrar el dedo desde donde se apoyo apunta el dial y soltarlo elige (_release_tab_hold). Si
+# arrastra antes del umbral del hold el dial se abre ya: un arrastre nunca es un tap.
+func _aim_radial_with_hud_button() -> void:
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	var drag: Vector2 = mobile_ui.hud_button_drag() if mobile_ui != null and mobile_ui.has_method("hud_button_drag") \
+		else Vector2.ZERO
+	if drag.length() < RADIAL_TOUCH_MIN_DRAG:
+		return
+	if Input.is_action_pressed("hud_mode") and not _radial_is_open() and not _tab_hold_active:
+		_tab_gesture.promote_to_hold()
+		_tab_hold_active = true
+		_picked_during_hold = false
+		_open_radial()
+	if _radial_is_open():
+		_point_radial_at(drag)
+
 func _is_on_virtual_controls(point: Vector2) -> bool:
 	var mobile_ui = get_node_or_null("/root/MobileUIManager")
 	return mobile_ui != null and mobile_ui.has_method("is_point_on_touch_controls") \
@@ -631,14 +701,22 @@ func _point_radial_at(direction: Vector2) -> void:
 		return
 	_radial_selector.point_at(_radial_selector.rect_size * 0.5 + direction.normalized() * 100.0)
 
+# Las pantallas del dial, en el orden del host. Sin opcion de "cerrar": como en el host, se sale
+# tocando fuera, con ESC/back o soltando TAB.
+func _radial_screen_ids() -> Array:
+	var ids: Array = []
+	for item in _screen_list:
+		if typeof(item) == TYPE_DICTIONARY and not String(item.get("id", "")).empty():
+			ids.append(String(item["id"]))
+	return ids
+
 func _update_radial_options() -> void:
 	if not is_instance_valid(_radial_selector):
 		return
-	var labels: Array = ["[Cerrar Vista]"]
-	for item in _screen_list:
-		if typeof(item) == TYPE_DICTIONARY:
-			var sid: String = String(item.get("id", ""))
-			labels.append(String(item.get("title", sid)))
+	var labels: Array = []
+	for sid in _radial_screen_ids():
+		var title: String = _screen_list_field(sid, "title")
+		labels.append(title if not title.empty() else sid)
 	# El host reenvia screen_list en CADA cambio de widget (bateria, estado del terminal),
 	# o sea varias veces por segundo. set_options() libera las Labels y resetea el marcado,
 	# asi que reconstruir con las mismas etiquetas le sacaba el foco al dial abierto cada
@@ -649,20 +727,20 @@ func _update_radial_options() -> void:
 	_radial_selector.set_options(labels)
 
 func _on_radial_option_selected(index: int) -> void:
+	if _tab_hold_active:
+		_picked_during_hold = true
 	_close_radial()
 	var client = _client()
 	if client == null:
 		return
 
-	if index == 0:
-		client.send_ui_directive("screen_select", {"id": ""})
-	elif index - 1 < _screen_list.size():
-		var item = _screen_list[index - 1]
-		if typeof(item) == TYPE_DICTIONARY:
-			var sid: String = String(item.get("id", ""))
-			client.send_ui_directive("screen_select", {"id": sid})
-			# Confirmar fija la pantalla, como en el modo HUD: es la que reabre un tap.
-			pin_local_screen(sid)
+	var ids: Array = _radial_screen_ids()
+	if index < 0 or index >= ids.size():
+		return
+	var sid: String = ids[index]
+	client.send_ui_directive("screen_select", {"id": sid})
+	# Confirmar fija la pantalla, como en el modo HUD: es la que reabre un tap.
+	pin_local_screen(sid)
 
 func _on_radial_cancelled() -> void:
 	_close_radial()
@@ -670,14 +748,9 @@ func _on_radial_cancelled() -> void:
 # Un widget montado aca pide ejecutar una accion: la pantalla vive en el host, asi que
 # viaja por el canal (el bridge la resuelve contra su SuitOS). Lo llama HudWidgetAction.
 func perform_hud_widget_action(screen_id: String, op: String, args: Dictionary = {}) -> void:
-	var client = _client()
-	if client == null or screen_id.empty():
+	if screen_id.empty():
 		return
-	client.send_ui_directive("remote_action", {
-		"screen_id": screen_id,
-		"op": op,
-		"args": args
-	})
+	send_remote_action(screen_id, op, args)
 
 # --- Slot Evaluation & Widget Host ---
 
@@ -696,6 +769,10 @@ func _reevaluate_slots() -> void:
 	for item in _screen_list:
 		if typeof(item) == TYPE_DICTIONARY:
 			var sid: String = String(item.get("id", ""))
+			# Misma regla que SuitOS en el host: el slot A nunca repite al B, asi que la
+			# pantalla fijada no compite por el A.
+			if sid == _local_pinned_screen_id:
+				continue
 			var rel: float = float(item.get("relevance", 0.0))
 			if rel > max_rel:
 				max_rel = rel
@@ -916,6 +993,7 @@ func _active_view_design_size() -> Vector2:
 func _fit_view_node() -> void:
 	var container = _view_viewport_container()
 	if container == null:
+		_fit_widget_placeholder()
 		return
 	var design: Vector2 = _active_view_design_size()
 	var frame = container.get_parent()
@@ -929,6 +1007,31 @@ func _fit_view_node() -> void:
 	container.rect_scale = Vector2(factor, factor)
 	container.rect_position = (host - design * factor) * 0.5
 
+# Sin Pantalla: el widget ampliado de forma uniforme y centrado dentro del lugar que ocuparia una
+# Pantalla de DEFAULT_SCREEN_DESIGN, igual de grande que Criogenia y no a pantalla completa.
+func _fit_widget_placeholder() -> void:
+	var frame = _widget_placeholder_frame()
+	if frame == null or not is_instance_valid(_fullscreen_view_node):
+		return
+	var space: Rect2 = _screen_space_in(frame.rect_size)
+	var natural: Vector2 = _fullscreen_view_node.get_combined_minimum_size()
+	if space.size.x <= 0.0 or natural.x <= 0.0 or natural.y <= 0.0:
+		return
+	var factor: float = min(space.size.x / natural.x, space.size.y / natural.y)
+	_fullscreen_view_node.rect_size = natural
+	_fullscreen_view_node.rect_scale = Vector2(factor, factor)
+	_fullscreen_view_node.rect_position = space.position + (space.size - natural * factor) * 0.5
+
+# El rect que ocupa una Pantalla de DEFAULT_SCREEN_DESIGN calzada en host_size (como _fit_view_node).
+static func _screen_space_in(host_size: Vector2) -> Rect2:
+	if host_size.x <= 0.0 or host_size.y <= 0.0:
+		return Rect2()
+	var factor: float = min(host_size.x / DEFAULT_SCREEN_DESIGN.x, host_size.y / DEFAULT_SCREEN_DESIGN.y)
+	return Rect2((host_size - DEFAULT_SCREEN_DESIGN * factor) * 0.5, DEFAULT_SCREEN_DESIGN * factor)
+
+func _widget_placeholder_frame() -> Control:
+	return view_host.get_node_or_null("WidgetFrame") as Control if view_host != null else null
+
 func _view_viewport_container() -> ViewportContainer:
 	var frame = view_host.get_node_or_null("ViewFrame") if view_host != null else null
 	if frame == null:
@@ -937,11 +1040,14 @@ func _view_viewport_container() -> ViewportContainer:
 
 func _free_fullscreen_view() -> void:
 	_fullscreen_view_node = null
-	# El marco con su Viewport se va entero.
-	var frame = view_host.get_node_or_null("ViewFrame") if view_host != null else null
-	if frame != null:
-		view_host.remove_child(frame)
-		frame.queue_free()
+	if view_host == null:
+		return
+	# Una sola pantalla a la vez: todo lo que cuelga del ViewHost es la vista anterior, venga en
+	# su marco con Viewport (con tamaño de diseño, como Criogenia) o montada directo (un widget
+	# ampliado, como la linterna). Liberando solo el marco, la linterna quedaba dibujada detras.
+	for child in view_host.get_children():
+		view_host.remove_child(child)
+		child.queue_free()
 
 func _update_fullscreen_view() -> void:
 	if fullscreen_overlay == null or view_host == null:
@@ -1011,9 +1117,17 @@ func _update_fullscreen_view() -> void:
 			# El contenedor reparte tamaños en diferido: el calzado va despues.
 			call_deferred("_fit_view_node")
 		else:
-			node.set_anchors_and_margins_preset(Control.PRESET_WIDE)
-			view_host.add_child(node)
+			# Sin Pantalla: el widget ampliado va en su propio marco (a un hijo directo el
+			# MarginContainer le impone su tamaño) y se calza en _fit_widget_placeholder.
+			var widget_frame := Control.new()
+			widget_frame.name = "WidgetFrame"
+			widget_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			view_host.add_child(widget_frame)
+			widget_frame.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+			widget_frame.add_child(node)
+			node.set_anchors_preset(Control.PRESET_TOP_LEFT)
 			_fullscreen_view_node = node
+			call_deferred("_fit_view_node")
 		_hydrate_node(node, snap)
 
 func _set_node_screen_id(node: Node, sid: String) -> void:
@@ -1042,6 +1156,9 @@ func _hydrate_node(node: Node, snap: Dictionary) -> void:
 			label.text = "[REMOTE] " + title
 
 func send_remote_action(screen_id: String, op: String, args: Dictionary = {}) -> void:
+	# Con el host en pausa los widgets no mandan comandos (el host tambien los rechaza).
+	if _host_paused:
+		return
 	var client = _client()
 	if client != null:
 		client.send_ui_directive("remote_action", {

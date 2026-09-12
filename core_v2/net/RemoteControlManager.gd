@@ -192,6 +192,10 @@ func _on_pairing_completed(_accepted: bool, dialog: Node) -> void:
 		dialog.queue_free()
 
 func _on_server_input_received(input_type: String, payload: Dictionary) -> void:
+	# Jugar desde el control saca al host de la pausa: desde que ESC ya no viaja, es la forma de
+	# volver a la partida sin tocar la otra pantalla.
+	if _is_remote_activity(input_type, payload) and _host_pause_is_wakeable():
+		get_node("/root/PauseManager").resume()
 	var session = get_node_or_null("/root/SessionManager")
 	var player = session.player if session and is_instance_valid(session.player) else null
 	var input_provider = player.input_provider if player and "input_provider" in player else null
@@ -219,6 +223,31 @@ func _on_server_input_received(input_type: String, payload: Dictionary) -> void:
 		"release_all":
 			_release_remote_inputs()
 	emit_signal("remote_input_received", input_type, payload)
+
+# Actividad = alguien jugando: apretar algo o mover la camara. Un release no (el release_all
+# que manda el control al perder el foco reanudaria el host), ni el ruido de un stick en reposo.
+const REMOTE_ACTIVITY_AXIS_DEADZONE := 0.5
+
+func _is_remote_activity(input_type: String, payload: Dictionary) -> bool:
+	match input_type:
+		"event":
+			if String(payload.get("k", "")) == "jm":
+				return abs(float(payload.get("v", 0.0))) >= REMOTE_ACTIVITY_AXIS_DEADZONE
+			return bool(payload.get("p", false))
+		"mouse_delta", "touch_camera":
+			return abs(float(payload.get("x", 0.0))) + abs(float(payload.get("y", 0.0))) > 0.0
+	return false
+
+# Solo la pausa del menu (la de perder el foco incluida). No la del modo HUD del host, que es
+# de quien lo esta usando, ni la de un aviso de emparejamiento, que espera una respuesta.
+func _host_pause_is_wakeable() -> bool:
+	if not is_inside_tree() or not get_tree().paused or is_pairing_prompt_open():
+		return false
+	var pause_mgr = get_node_or_null("/root/PauseManager")
+	if pause_mgr == null or pause_mgr.is_hud_mode_paused():
+		return false
+	var menu = pause_mgr.get("pause_menu_instance")
+	return is_instance_valid(menu) and menu.visible
 
 # El evento entra como si fuera hardware local: todo el InputMap (ui_*, pausa, zoom,
 # modificadores) se comporta igual que con el teclado propio del host.

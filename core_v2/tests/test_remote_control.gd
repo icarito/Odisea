@@ -547,3 +547,48 @@ func test_pairing_prompt_sits_above_the_pause_menu_and_pause_yields():
 	# La solicitud pausa el arbol; que el test no lo deje pausado aunque falle algo arriba.
 	get_tree().paused = false
 	rcm.is_host_active = was_host_active
+
+# --- Jugar desde el control saca al host de la pausa ---
+
+func test_what_counts_as_remote_activity():
+	var mgr = auto_free(RemoteControlManager.new())
+	assert_bool(mgr._is_remote_activity("event", {"k": "act", "a": "jump", "p": true})).is_true()
+	assert_bool(mgr._is_remote_activity("event", {"k": "key", "sc": KEY_W, "p": true})).is_true()
+	assert_bool(mgr._is_remote_activity("touch_camera", {"x": 3.0, "y": 0.0, "zoom": 0.0})).is_true()
+	# Un release no: el release_all al perder el foco reanudaria el host.
+	assert_bool(mgr._is_remote_activity("event", {"k": "act", "a": "jump", "p": false})).is_false()
+	assert_bool(mgr._is_remote_activity("release_all", {})).is_false()
+	# Un stick en reposo con deriva tampoco.
+	assert_bool(mgr._is_remote_activity("event", {"k": "jm", "a": 0, "v": 0.2})).is_false()
+	assert_bool(mgr._is_remote_activity("event", {"k": "jm", "a": 0, "v": 0.8})).is_true()
+
+func test_remote_activity_resumes_the_pause_menu_but_not_hud_mode():
+	var rcm = get_node("/root/RemoteControlManager")
+	var previous_menu = PauseManager.pause_menu_instance
+	var menu := Control.new()
+	PauseManager.pause_menu_instance = menu
+	var press := {"k": "act", "a": "interact", "p": true, "s": 1.0}
+	var release := {"k": "act", "a": "interact", "p": false, "s": 0.0}
+
+	# Pausa del modo HUD del host: es de quien lo usa, no se toca.
+	get_tree().paused = true
+	PauseManager._hud_mode_paused = true
+	rcm._on_server_input_received("event", press)
+	assert_bool(get_tree().paused).is_true()
+	PauseManager._hud_mode_paused = false
+
+	# Un release con el menu abierto no despierta.
+	menu.show()
+	rcm._on_server_input_received("event", release)
+	assert_bool(get_tree().paused).is_true()
+
+	# Apretar algo desde el control, con el menu de pausa abierto: reanuda.
+	rcm._on_server_input_received("event", press)
+	assert_bool(get_tree().paused).is_false()
+	assert_bool(menu.visible).is_false()
+
+	rcm._on_server_input_received("event", release)
+	Input.flush_buffered_events()
+	get_tree().paused = false
+	PauseManager.pause_menu_instance = previous_menu
+	menu.free()

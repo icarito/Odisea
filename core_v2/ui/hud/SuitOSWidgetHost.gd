@@ -31,6 +31,24 @@ func _ready() -> void:
 	if not get_viewport().is_connected("size_changed", self, "_relayout"):
 		get_viewport().connect("size_changed", self, "_relayout")
 
+# PauseManager avisa al pausar y al reanudar. Los widgets viven en el slot HUD de
+# OverlayUIManager (capa 115), por encima del menu de pausa (capa 50): se esconden mientras
+# dura esa pausa. La del modo HUD no cuenta: ahi los widgets son parte del modo (tocarlos
+# cambia de pantalla).
+func refresh_for_pause() -> void:
+	var pause_mgr = get_node_or_null("/root/PauseManager")
+	var in_hud_mode: bool = pause_mgr != null and pause_mgr.has_method("is_hud_mode_paused") \
+		and pause_mgr.is_hud_mode_paused()
+	var hidden: bool = get_tree().paused and not in_hud_mode
+	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
+	var slot_hud = overlay_mgr.get_slot(overlay_mgr.SLOT_HUD) if overlay_mgr != null else null
+	if not is_instance_valid(slot_hud):
+		return
+	for slot in SLOT_ROWS:
+		var overlay = slot_hud.get_node_or_null("SuitOS_Widget_" + slot)
+		if is_instance_valid(overlay):
+			overlay.visible = not hidden
+
 func _exit_tree() -> void:
 	if has_node("/root/SuitOS"):
 		var suit_os = get_node("/root/SuitOS")
@@ -96,6 +114,8 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 			label.text = _format_fallback_text(snapshot)
 			slot_hud.add_child(label)
 			_place(label, slot)
+	# Un widget que se monta o cambia con el menu de pausa abierto tampoco se le dibuja encima.
+	refresh_for_pause()
 
 # Fila del slot, dentro del safe area (incluye lo que reservan los controles moviles) y con la
 # escala de UIScaleCompensator: en pixeles fijos el widget creceria al bajar render_scale.

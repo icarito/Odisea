@@ -106,6 +106,14 @@ func _home_with_dial(screens: Array = []) -> Control:
 		home._on_ui_directive("screen_list", screens)
 	return home
 
+# Dos pantallas: con una sola el dial no se abre (entra directo, como en el host). La de relleno
+# va primero, asi screen_a queda en la opcion de arriba (indice 1, las 12) y es la mas relevante.
+func _dial_screens() -> Array:
+	return [
+		{"id": "screen_z", "title": "Screen Z", "relevance": 0.1},
+		{"id": "screen_a", "title": "Screen A", "relevance": 0.9}
+	]
+
 func _touch(index: int, at: Vector2, pressed: bool) -> InputEventScreenTouch:
 	var ev := InputEventScreenTouch.new()
 	ev.index = index
@@ -155,7 +163,7 @@ func test_radial_uses_the_same_config_as_the_game_hud():
 	home.queue_free()
 
 func test_open_radial_hides_what_is_behind():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	assert_bool(home.widget_host.visible).is_true()
 
 	home._open_radial()
@@ -168,7 +176,7 @@ func test_open_radial_hides_what_is_behind():
 	home.queue_free()
 
 func test_radial_drag_and_release_selects_screen():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._open_radial()
 	assert_bool(home._radial_is_open()).is_true()
 	home._client().ui_directives.clear()
@@ -191,7 +199,7 @@ func test_radial_drag_and_release_selects_screen():
 	home.queue_free()
 
 func test_radial_tap_on_option_selects_it():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._open_radial()
 	home._client().ui_directives.clear()
 
@@ -207,7 +215,7 @@ func test_radial_tap_on_option_selects_it():
 	home.queue_free()
 
 func test_radial_tap_outside_closes_without_exit_dialog():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._open_radial()
 	home._client().ui_directives.clear()
 
@@ -222,7 +230,7 @@ func test_radial_tap_outside_closes_without_exit_dialog():
 	home.queue_free()
 
 func test_radial_ui_cancel_closes_dial_not_session():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._open_radial()
 
 	assert_bool(home._handle_radial_input(_action("ui_cancel"))).is_true()
@@ -234,7 +242,7 @@ func test_radial_ui_cancel_closes_dial_not_session():
 func test_open_dial_keeps_the_touch_stream_flowing():
 	# En tactil los controles virtuales no se apagan nunca: con el dial abierto el
 	# joystick sigue manejando al host (el dial solo toma el dedo que apunta).
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = false
 	var client = home._client()
 
@@ -249,7 +257,7 @@ func test_open_dial_keeps_the_touch_stream_flowing():
 
 func test_open_dial_suspends_mouse_forwarding_on_passthrough():
 	# Con teclado y mouse si: mandar el mouse giraria la camara del host mientras se apunta.
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true
 	var client = home._client()
 
@@ -262,7 +270,7 @@ func test_open_dial_suspends_mouse_forwarding_on_passthrough():
 	home.queue_free()
 
 func test_open_dial_releases_held_input_on_passthrough():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true # escritorio: los eventos crudos quedan apretados en el host
 	var client = home._client()
 	client.inputs.clear()
@@ -322,15 +330,19 @@ func _tab_tap(home) -> void:
 	Input.action_release("hud_mode")
 	home._step_tab_gesture()
 
+# Mantiene TAB hasta que sale el HOLD y lo deja apretado: el release es aparte (_tab_release),
+# porque soltar tras el hold ya significa algo (elegir o salir).
 func _tab_hold(home) -> void:
 	Input.action_press("hud_mode")
 	for _i in range(TabGestureScript.HOLD_TICKS + 1):
 		home._step_tab_gesture()
+
+func _tab_release(home) -> void:
 	Input.action_release("hud_mode")
 	home._step_tab_gesture()
 
 func test_tab_tap_opens_the_last_screen_and_taps_again_to_close():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._client().ui_directives.clear()
 
 	# Tap: abre la ultima pantalla (la del slot A si no hay ninguna fijada), sin dial.
@@ -352,7 +364,7 @@ func test_tab_tap_opens_the_last_screen_and_taps_again_to_close():
 	home.queue_free()
 
 func test_tab_hold_opens_the_radial():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._client().ui_directives.clear()
 
 	_tab_hold(home)
@@ -361,10 +373,49 @@ func test_tab_hold_opens_the_radial():
 	assert_bool(home._radial_is_open()).is_true()
 	assert_array(home._client().ui_directives).is_empty()
 
+	# Soltar sin nada marcado: el dial no se queda abierto.
+	_tab_release(home)
+	assert_bool(home._radial_is_open()).is_false()
+	assert_array(home._client().ui_directives).is_empty()
+
+	home.queue_free()
+
+func test_releasing_tab_picks_what_the_dial_has_marked():
+	var home = _home_with_dial(_dial_screens())
+	home._raw_passthrough = true
+	_tab_hold(home)
+	home._client().ui_directives.clear()
+
+	# Apunta hacia arriba (screen_a) con TAB todavia apretado, y suelta: queda elegida.
+	home._handle_radial_input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -40.0)))
+	home._handle_radial_input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -40.0)))
+	_tab_release(home)
+
+	assert_bool(home._radial_is_open()).is_false()
+	assert_array(_screen_selects(home)).is_equal(["screen_a"])
+
+	home.queue_free()
+
+func test_pick_while_holding_tab_is_a_peek_and_release_exits():
+	var home = _home_with_dial(_dial_screens())
+	home._raw_passthrough = true
+	_tab_hold(home)
+	home._client().ui_directives.clear()
+
+	# Elige con clic sin soltar TAB: se entra ya...
+	home._handle_radial_input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -40.0)))
+	home._handle_radial_input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -40.0)))
+	home._handle_radial_input(_click(VIEW_SIZE * 0.5))
+	assert_array(_screen_selects(home)).is_equal(["screen_a"])
+
+	# ...y soltar TAB sale, aunque el host todavia no haya confirmado la pantalla.
+	_tab_release(home)
+	assert_array(_screen_selects(home)).is_equal(["screen_a", ""])
+
 	home.queue_free()
 
 func test_tab_is_never_forwarded_to_the_host():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true
 	var client = home._client()
 	client.inputs.clear()
@@ -379,7 +430,7 @@ func test_tab_is_never_forwarded_to_the_host():
 
 # Hermano del anterior para el camino tactil: el boton del HUD tampoco viaja como accion.
 func test_hud_button_is_never_forwarded_as_an_action():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = false
 	var client = home._client()
 	client.inputs.clear()
@@ -417,7 +468,7 @@ func test_secondary_mouse_button_releases_mouse_instead_of_pausing_host():
 	home.queue_free()
 
 func test_radial_aims_with_relative_motion_while_mouse_is_captured():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true
 	home._open_radial()
 	home._client().ui_directives.clear()
@@ -445,7 +496,7 @@ func test_radial_aims_with_relative_motion_while_mouse_is_captured():
 	home.queue_free()
 
 func test_radial_keeps_every_input_while_open():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true # teclado y mouse: ahi el dial se queda con todo
 	home._open_radial()
 
@@ -464,7 +515,7 @@ func test_radial_keeps_every_input_while_open():
 	home.queue_free()
 
 func test_aim_resets_between_openings():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._open_radial()
 	home._handle_radial_input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -40.0)))
 	home._close_radial()
@@ -480,16 +531,17 @@ func test_aim_resets_between_openings():
 func test_repeated_screen_list_does_not_steal_the_dial_focus():
 	# El host reenvia screen_list en cada cambio de widget; el dial abierto no puede
 	# perder el marcado por eso (era lo que lo volvia inutilizable).
-	var screens: Array = [{"id": "screen_a", "title": "Screen A", "relevance": 0.9}]
-	var home = _home_with_dial(screens)
+	var home = _home_with_dial(_dial_screens())
 	home._open_radial()
 	home._handle_radial_input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -40.0)))
 	assert_int(home._radial_selector.get_hovered_index()).is_equal(1)
 
 	var label_before = home._radial_selector._buttons[1]
 	for _i in range(5):
-		home._on_ui_directive("screen_list", [{"id": "screen_a", "title": "Screen A",
-			"relevance": 0.4, "snapshot": {"proto": 1, "id": "screen_a", "battery": 80.0}}])
+		home._on_ui_directive("screen_list", [
+			{"id": "screen_z", "title": "Screen Z", "relevance": 0.1},
+			{"id": "screen_a", "title": "Screen A", "relevance": 0.4,
+				"snapshot": {"proto": 1, "id": "screen_a", "battery": 80.0}}])
 
 	assert_int(home._radial_selector.get_hovered_index()).is_equal(1)
 	# Y ni se reconstruyeron las Labels.
@@ -500,12 +552,11 @@ func test_repeated_screen_list_does_not_steal_the_dial_focus():
 	home.queue_free()
 
 func test_new_screen_in_the_list_does_rebuild_the_dial():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._open_radial()
-	assert_int(home._radial_selector._buttons.size()).is_equal(2) # [Cerrar Vista] + A
+	var home = _home_with_dial(_dial_screens())
+	home._update_radial_options()
+	assert_int(home._radial_selector._buttons.size()).is_equal(2) # solo pantallas, sin cerrar
 
-	home._on_ui_directive("screen_list", [
-		{"id": "screen_a", "title": "Screen A", "relevance": 0.9},
+	home._on_ui_directive("screen_list", _dial_screens() + [
 		{"id": "screen_b", "title": "Screen B", "relevance": 0.1}
 	])
 	assert_int(home._radial_selector._buttons.size()).is_equal(3)
@@ -637,7 +688,7 @@ func test_slot_widgets_are_placed_in_fixed_rows_without_overlap():
 	home.queue_free()
 
 func test_widget_tap_opens_its_screen():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._client().ui_directives.clear()
 	var widget = home._mounted_widgets.get("slot_a", null)
 	assert_object(widget).is_not_null()
@@ -657,7 +708,7 @@ func test_widget_tap_opens_its_screen():
 	home.queue_free()
 
 func test_widget_hold_opens_the_radial():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	var widget = home._mounted_widgets.get("slot_a", null)
 	assert_object(widget).is_not_null()
 
@@ -707,7 +758,7 @@ func _center_of(ctrl: Control) -> Vector2:
 
 func test_touch_on_the_joystick_passes_through_the_open_dial():
 	var joystick := _spawn_virtual_controls()
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = false
 	home._open_radial()
 
@@ -726,7 +777,7 @@ func test_touch_on_the_joystick_passes_through_the_open_dial():
 
 func test_second_finger_aims_while_the_joystick_is_held():
 	var joystick := _spawn_virtual_controls()
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = false
 	home._open_radial()
 	home._client().ui_directives.clear()
@@ -750,7 +801,7 @@ func test_second_finger_aims_while_the_joystick_is_held():
 func test_emulated_mouse_from_touch_does_not_drive_the_dial():
 	# En tactil el mouse que llega es el emulado de los toques: un arrastre del joystick
 	# no puede apuntar el dial, ni un toque en un boton confirmarlo.
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = false
 	home._open_radial()
 	home._client().ui_directives.clear()
@@ -870,7 +921,7 @@ func test_remote_control_never_attaches_a_virtual_mouse():
 	home.queue_free()
 
 func test_stick_aims_the_open_radial_without_a_mouse():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true # el Anbernic corre en modo escritorio, sin mouse
 	home._open_radial()
 	home._client().ui_directives.clear()
@@ -893,7 +944,7 @@ func test_stick_aims_the_open_radial_without_a_mouse():
 
 func test_stick_does_not_aim_the_dial_on_touch():
 	# En tactil el joystick virtual sigue caminando: el dial lo apunta el dedo.
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = false
 	home._open_radial()
 	Input.action_press("move_forward", 1.0)
@@ -904,15 +955,15 @@ func test_stick_does_not_aim_the_dial_on_touch():
 
 # --- Slots como en el host: arriba a la izquierda y tocables en el celular ---
 
-func test_touch_ui_draws_above_the_hud_and_exit_stays_on_top():
-	# La UI tactil se dibuja siempre encima de las pantallas del HUD; Salir, encima de todo.
+func test_touch_ui_draws_above_the_hud():
+	# La UI tactil se dibuja siempre encima de las pantallas del HUD.
 	var home = _home_with_dial()
 	var hud_layer: CanvasLayer = home.widget_host.get_parent() as CanvasLayer
 	assert_object(hud_layer).is_not_null()
 	var touch_ui = load("res://core_v2/ui/MobileUI.tscn").instance()
 	assert_int(hud_layer.layer).is_greater(0) # por encima de la escena (titulo, fondo)
 	assert_int(hud_layer.layer).is_less(touch_ui.layer)
-	assert_int(home.get_node("ExitLayer").layer).is_greater(touch_ui.layer)
+	assert_object(home.get_node_or_null("ExitLayer")).is_null() # sin boton Salir: ESC y back
 	touch_ui.free()
 	# La vista y el dial van en la misma capa que los slots.
 	assert_bool(home.fullscreen_overlay.get_parent() == hud_layer).is_true()
@@ -935,7 +986,7 @@ func test_touch_ui_lets_taps_through_only_while_the_remote_is_open():
 	home.free()
 
 func test_slot_stays_stuck_to_the_side_when_render_scale_changes_at_runtime():
-	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var home = _home_with_dial(_dial_screens())
 	var widget: Control = home._mounted_widgets["slot_a"]
 	var x_before: float = widget.rect_position.x
 	var before_scale: float = SettingsManager.render_scale
@@ -1078,4 +1129,224 @@ func test_home_shows_the_hud_the_host_sent_before_it_existed():
 	assert_str(home._get_node_screen_id(home._mounted_widgets["slot_a"])).is_equal("screen_a")
 
 	client.last_screen_list = null
+	home.queue_free()
+
+# --- Sin boton Salir: ESC en escritorio, back en Android ---
+
+func test_escape_asks_to_leave_when_no_screen_is_open():
+	var home = _home_with_dial(_dial_screens())
+	home._raw_passthrough = true
+	var client = home._client()
+	client.inputs.clear()
+	var esc := InputEventKey.new()
+	esc.scancode = KEY_ESCAPE
+	esc.pressed = true
+
+	home._input(esc)
+
+	assert_bool(home.exit_confirm.visible).is_true()
+	# Ya no pausa el host: no viaja.
+	for entry in client.inputs:
+		assert_str(String(entry["type"])).is_not_equal("event")
+	home.exit_confirm.hide()
+	home.queue_free()
+
+func test_android_back_closes_the_open_screen_first():
+	var home = _home_with_open_view()
+	# El back de Android llega como accion ui_cancel (PauseManager._send_ui_cancel).
+	home._input(_action("ui_cancel"))
+	assert_array(_screen_selects(home)).is_equal([""])
+	assert_bool(home.exit_confirm.visible).is_false()
+	home.queue_free()
+
+func test_gamepad_b_is_not_taken_as_leave():
+	# B es ui_cancel por defecto, pero en el juego es saltar: tiene que seguir viajando.
+	var home = _home_with_dial()
+	home._raw_passthrough = true
+	var b := InputEventJoypadButton.new()
+	b.button_index = JOY_BUTTON_1
+	b.pressed = true
+	home._input(b)
+	assert_bool(home.exit_confirm.visible).is_false()
+	home.queue_free()
+
+# --- Cuarto boton: TAB en tactil y gamepad ---
+
+func test_touch_ui_has_a_hud_button_on_the_left_of_the_diamond():
+	var touch_ui = load("res://core_v2/ui/MobileUI.tscn").instance()
+	var buttons = touch_ui.get_node("Container/ActionButtons")
+	var hud = buttons.get_node_or_null("HUDButton")
+	assert_object(hud).is_not_null()
+	assert_str(hud.action_name).is_equal("hud_mode")
+	assert_str(hud.icon.resource_path).is_equal("res://assets/icon_hud.png")
+	# Simetrico con Crouch (derecha): el rombo de los botones frontales de un gamepad.
+	var crouch = buttons.get_node("CrouchButton")
+	assert_float(hud.anchor_left).is_equal_approx(1.0 - crouch.anchor_left, 0.001)
+	assert_float(hud.anchor_top).is_equal_approx(crouch.anchor_top, 0.001)
+	touch_ui.free()
+
+func test_gamepad_left_face_button_is_hud_mode():
+	var x := InputEventJoypadButton.new()
+	x.button_index = JOY_BUTTON_2
+	x.pressed = true
+	assert_bool(x.is_action_pressed("hud_mode")).is_true()
+
+func test_slots_never_repeat_the_same_screen():
+	# Como SuitOS en el host: la pantalla fijada (B) no compite por el slot A.
+	var home = _home_with_dial([
+		{"id": "screen_a", "title": "Screen A", "relevance": 0.9},
+		{"id": "screen_b", "title": "Screen B", "relevance": 0.4}
+	])
+	home.pin_local_screen("screen_a") # la mas relevante, fijada
+
+	assert_str(home._get_node_screen_id(home._mounted_widgets["slot_b"])).is_equal("screen_a")
+	assert_str(home._get_node_screen_id(home._mounted_widgets["slot_a"])).is_equal("screen_b")
+
+	# Con una sola pantalla y fijada, el A queda vacio en vez de repetirla.
+	home._on_ui_directive("screen_list", [{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	assert_bool(home._mounted_widgets.has("slot_a")).is_false()
+	assert_bool(home._mounted_widgets.has("slot_b")).is_true()
+
+	home.queue_free()
+
+# --- El boton del HUD como joystick: apoyar, arrastrar para apuntar, soltar para elegir ---
+
+func _hud_button() -> Control:
+	_spawn_virtual_controls()
+	return MobileUIManager._mobile_ui.get_node("Container/ActionButtons/HUDButton") as Control
+
+func test_hud_button_keeps_tab_held_while_dragging_out_and_reports_the_drag():
+	var button := _hud_button()
+	var origin: Vector2 = _center_of(button)
+
+	button._input(_touch(7, origin, true))
+	assert_bool(Input.is_action_pressed("hud_mode")).is_true()
+	# Sale del boton arrastrando: sigue apretado (un boton comun se soltaria aca).
+	button._input(_drag(7, origin + Vector2(0.0, -150.0)))
+	assert_bool(Input.is_action_pressed("hud_mode")).is_true()
+	assert_vector2(button.drag_vector).is_equal(Vector2(0.0, -150.0))
+
+	button._input(_touch(7, origin + Vector2(0.0, -150.0), false))
+	assert_bool(Input.is_action_pressed("hud_mode")).is_false()
+	assert_vector2(button.drag_vector).is_equal(Vector2.ZERO)
+	_hide_virtual_controls()
+
+func test_dragging_the_hud_button_aims_the_dial_and_lifting_picks():
+	var button := _hud_button()
+	var home = _home_with_dial(_dial_screens())
+	home._raw_passthrough = false
+	home._client().ui_directives.clear()
+	var origin: Vector2 = _center_of(button)
+
+	# Apoyar y arrastrar hacia arriba: el dial se abre ya (sin esperar el hold) y apunta
+	# a la ultima opcion del arco, screen_a.
+	button._input(_touch(7, origin, true))
+	home._physics_process(0.016)
+	button._input(_drag(7, origin + Vector2(0.0, -120.0)))
+	home._physics_process(0.016)
+	assert_bool(home._radial_is_open()).is_true()
+	assert_int(home._radial_selector.get_hovered_index()).is_equal(1)
+
+	# Soltar el dedo suelta TAB: elige lo marcado.
+	button._input(_touch(7, origin + Vector2(0.0, -120.0), false))
+	home._physics_process(0.016)
+	assert_bool(home._radial_is_open()).is_false()
+	assert_array(_screen_selects(home)).is_equal(["screen_a"])
+
+	home.queue_free()
+	_hide_virtual_controls()
+
+func test_widgets_send_no_commands_while_the_host_is_paused():
+	var home = _home_with_dial([{"id": "player:flashlight", "title": "Linterna", "relevance": 0.9}])
+	home._client().ui_directives.clear()
+
+	home._on_ui_directive("host_paused", {"paused": true})
+	home.perform_hud_widget_action("player:flashlight", "toggle")
+	assert_array(home._client().ui_directives).is_empty()
+
+	home._on_ui_directive("host_paused", {"paused": false})
+	home.perform_hud_widget_action("player:flashlight", "toggle")
+	assert_int(home._client().ui_directives.size()).is_equal(1)
+
+	home.queue_free()
+
+func test_only_one_screen_view_at_a_time():
+	# Abrir Criogenia (con tamaño de diseño, en su marco) despues de la linterna (widget montado
+	# directo) dejaba la linterna dibujada detras.
+	var home = _home_with_dial([
+		{"id": "player:flashlight", "title": "Linterna", "relevance": 0.5,
+			"widget": "res://core_v2/ui/hud/FlashlightWidget.tscn"},
+		{"id": "holoterminal:cryo", "title": "Criogenia", "relevance": 0.9}
+	])
+	home._on_ui_directive("screen_active", {"id": "player:flashlight", "title": "Linterna",
+		"view": "widget", "view_scene": "", "view_size": [], "snapshot": {}})
+	assert_int(home.view_host.get_child_count()).is_equal(1)
+
+	home._on_ui_directive("screen_active", {"id": "holoterminal:cryo", "title": "Criogenia",
+		"view": "scene", "view_scene": "res://core_v2/ui/hud/HoloTerminalWidget.tscn",
+		"view_size": [1280.0, 816.0], "snapshot": {}})
+	assert_int(home.view_host.get_child_count()).is_equal(1)
+	assert_str(home.view_host.get_child(0).name).is_equal("ViewFrame")
+
+	# Y al reves: de Criogenia a la linterna tampoco queda el marco.
+	home._on_ui_directive("screen_active", {"id": "player:flashlight", "title": "Linterna",
+		"view": "widget", "view_scene": "", "view_size": [], "snapshot": {}})
+	assert_int(home.view_host.get_child_count()).is_equal(1)
+	assert_str(home.view_host.get_child(0).name).is_not_equal("ViewFrame")
+
+	home.queue_free()
+
+# --- Hudable sin Pantalla: el widget ampliado en el lugar de una Pantalla ---
+
+func test_default_screen_design_matches_the_hud_view_presenter():
+	# Leido del .tscn sin instanciarlo (es una escena 3D con script).
+	var state: SceneState = load("res://core_v2/ui/hud/HudViewPresenter.tscn").get_state()
+	var design = null
+	for i in range(state.get_node_property_count(0)):
+		if state.get_node_property_name(0, i) == "screen_resolution":
+			design = state.get_node_property_value(0, i)
+	assert_object(design).is_not_null()
+	assert_vector2(design).is_equal(load("res://core_v2/ui/RemoteControlHome.gd").DEFAULT_SCREEN_DESIGN)
+
+func test_widget_without_screen_uses_the_same_space_as_a_screen():
+	var home = _home_with_dial([{"id": "player:flashlight", "title": "Linterna", "relevance": 0.9,
+		"widget": "res://core_v2/ui/hud/FlashlightWidget.tscn"}])
+	home._on_ui_directive("screen_active", {"id": "player:flashlight", "title": "Linterna",
+		"view": "widget", "view_scene": "", "view_size": [], "snapshot": {}})
+	var frame: Control = home._widget_placeholder_frame()
+	assert_object(frame).is_not_null()
+	frame.rect_size = Vector2(640.0, 480.0)
+	home._fit_widget_placeholder()
+
+	# Una Pantalla de 1280x816 en 640x480 ocupa 640x408 centrada: ese es el lugar del widget.
+	var space: Rect2 = home._screen_space_in(frame.rect_size)
+	assert_vector2(space.size).is_equal(Vector2(640.0, 408.0))
+	var widget: Control = home._fullscreen_view_node
+	var drawn := Rect2(widget.rect_position, widget.rect_size * widget.rect_scale)
+	# Ampliado uniforme (sin estirar), adentro de ese lugar y tocando dos de sus bordes.
+	assert_float(widget.rect_scale.x).is_equal_approx(widget.rect_scale.y, 0.001)
+	assert_bool(space.grow(0.5).encloses(drawn)).is_true()
+	var fills_width: bool = abs(drawn.size.x - space.size.x) < 0.5
+	var fills_height: bool = abs(drawn.size.y - space.size.y) < 0.5
+	assert_bool(fills_width or fills_height).is_true()
+	# Y no a pantalla completa: tocar fuera de ese lugar cierra, como con una Pantalla.
+	assert_vector2(home._view_screen_rect().size).is_equal(space.size)
+
+	home.queue_free()
+
+func test_radial_has_only_screens_no_close_option():
+	var home = _home_with_dial(_dial_screens())
+	home._open_radial()
+	assert_int(home._radial_selector._buttons.size()).is_equal(2)
+	for button in home._radial_selector._buttons:
+		assert_bool(String(button.text).find("Cerrar") == -1).is_true()
+	home.queue_free()
+
+func test_single_screen_opens_directly_without_the_radial():
+	# Como el modo HUD del host: con una sola pantalla no hay nada que elegir.
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._client().ui_directives.clear()
+	home._open_radial()
+	assert_bool(home._radial_is_open()).is_false()
+	assert_array(_screen_selects(home)).is_equal(["screen_a"])
 	home.queue_free()
