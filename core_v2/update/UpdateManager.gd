@@ -97,6 +97,10 @@ func check_for_updates() -> void:
 		print("[UpdateManager] Replay en curso; se omite el chequeo de updates.")
 		_set_state(State.IDLE)
 		return
+	if updates_deferred_today():
+		print("[UpdateManager] Build de prueba local instalado hoy; el updater espera hasta mañana.")
+		_set_state(State.IDLE)
+		return
 	if _state != State.IDLE and _state != State.FAILED:
 		return
 	_set_state(State.CHECKING)
@@ -338,6 +342,35 @@ func _get_build_meta_value(key: String) -> String:
 		if _build_meta_cache.empty():
 			_build_meta_cache["_loaded"] = false
 	return str(_build_meta_cache.get(key, ""))
+
+# Un build de prueba local (make android-debug-signed / android-release-signed) se
+# instala a mano para depurar, y el updater tapando la pantalla a mitad de sesion es
+# justo lo que estorba. Se calla el dia que se instalo y aparece al dia siguiente, que
+# es cuando conviene volver al nightly. La fecha se guarda contra la version
+# empaquetada, asi que cada build de prueba nuevo se gana su propio dia de silencio.
+func updates_deferred_today() -> bool:
+	if not _is_local_test_build():
+		return false
+	var today: String = _today_string()
+	var seen: Dictionary = _local_state.get("local_test_first_seen", {})
+	var version: String = _get_build_meta_value("version")
+	if String(seen.get("version", "")) != version:
+		seen = {"version": version, "date": today}
+		_local_state["local_test_first_seen"] = seen
+		_save_json(STATE_FILE, _local_state)
+	# Fechas ISO: comparar como texto es comparar como fechas.
+	return today <= String(seen.get("date", today))
+
+
+func _is_local_test_build() -> bool:
+	var version: String = _get_build_meta_value("version")
+	return version.find("localtest") != -1 or version.find("releasetest") != -1
+
+
+func _today_string() -> String:
+	var d: Dictionary = OS.get_datetime()
+	return "%04d-%02d-%02d" % [int(d.get("year", 0)), int(d.get("month", 0)), int(d.get("day", 0))]
+
 
 func _is_source_checkout() -> bool:
 	if OS.get_environment("ODISEA_ENABLE_UPDATES_IN_DEV") in ["1", "true", "yes", "on"]:

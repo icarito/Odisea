@@ -10,11 +10,13 @@ var RemoteDiscovery = load("res://core_v2/net/RemoteDiscovery.gd")
 var RemoteControlServer = load("res://core_v2/net/RemoteControlServer.gd")
 var RemoteControlClient = load("res://core_v2/net/RemoteControlClient.gd")
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
+var SuitOSRemoteBridge = load("res://core_v2/components/SuitOSRemoteBridge.gd")
 
 var announcer: Node = null
 var discovery: Node = null
 var server: Node = null
 var client: Node = null
+var bridge: Node = null
 
 var is_host_active: bool = false
 var remote_control_enabled: bool = true
@@ -29,6 +31,12 @@ var _sent_paused: int = -1
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
+	# HTML5: el navegador no puede ser servidor (WebSocketServer no es instanciable) ni
+	# hacer broadcast UDP para el descubrimiento. Sin hijos, todo el subsistema queda inerte.
+	if OS.has_feature("web"):
+		remote_control_enabled = false
+		set_process(false)
+		return
 	announcer = RemoteAnnouncer.new()
 	announcer.name = "RemoteAnnouncer"
 	add_child(announcer)
@@ -45,6 +53,12 @@ func _ready():
 	client = RemoteControlClient.new()
 	client.name = "RemoteControlClient"
 	add_child(client)
+
+	if SuitOSRemoteBridge != null:
+		bridge = SuitOSRemoteBridge.new()
+		bridge.name = "SuitOSRemoteBridge"
+		bridge.pause_mode = Node.PAUSE_MODE_PROCESS
+		add_child(bridge)
 
 	server.connect("client_pair_requested", self, "_on_server_pair_requested")
 	server.connect("input_received", self, "_on_server_input_received")
@@ -104,7 +118,7 @@ func _is_gameplay_scene(scene_path: String) -> bool:
 		and scene_path.find("RemoteControlHome.tscn") == -1
 
 func start_host_services(session_name: String = "") -> void:
-	if not remote_control_enabled:
+	if not remote_control_enabled or server == null:
 		return
 	if is_host_active:
 		return
@@ -126,6 +140,11 @@ func stop_host_services() -> void:
 	server.stop_server()
 	_release_remote_inputs()
 	is_host_active = false
+
+# Hay un control remoto emparejado desde esta misma maquina.
+func has_local_remote_control() -> bool:
+	return is_host_active and is_instance_valid(server) \
+		and server.has_method("has_local_paired_client") and server.has_local_paired_client()
 
 func set_remote_control_enabled(enabled: bool) -> void:
 	remote_control_enabled = enabled

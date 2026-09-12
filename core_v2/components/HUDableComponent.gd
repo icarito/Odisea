@@ -10,7 +10,7 @@ export(String) var hud_screen_id = ""
 export(String) var hud_screen_title = ""
 export(Texture) var hud_screen_icon = null
 export(float) var default_relevance = 0.0
-export(Array, String) var allowed_actions = []
+export(Array, String) var allowed_actions_list = []
 
 signal state_changed()
 
@@ -64,14 +64,14 @@ func allowed_actions() -> Array:
 	var parent = get_parent()
 	if is_instance_valid(parent) and parent.has_method("get_hud_allowed_actions"):
 		return parent.get_hud_allowed_actions()
-	return allowed_actions
+	return allowed_actions_list
 
 func perform_action(op: String, args: Dictionary = {}) -> Dictionary:
 	var parent = get_parent()
 	if is_instance_valid(parent) and parent.has_method("perform_hud_action"):
 		return parent.perform_hud_action(op, args)
 
-	if op in allowed_actions:
+	if op in allowed_actions_list:
 		return {"ok": true, "result": "action_executed"}
 	return {"ok": false, "error": "Action '%s' not supported" % op}
 

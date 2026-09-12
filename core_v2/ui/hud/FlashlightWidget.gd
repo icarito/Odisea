@@ -3,6 +3,8 @@ class_name FlashlightWidget
 
 # FlashlightWidget.gd - Compact HUD widget for Helmet Flashlight status (FD-298)
 
+const HudWidgetAction = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
+
 onready var _title_label: Label = get_node_or_null("Margin/VBox/Header/TitleLabel")
 onready var _status_dot: ColorRect = get_node_or_null("Margin/VBox/Header/StatusDot")
 onready var _meter_label: Label = get_node_or_null("Margin/VBox/MeterLabel")
@@ -78,7 +80,5 @@ func _format_battery_bar(val: float, max_val: float) -> String:
 	return "BAT: [%s]" % bar
 
 func _on_toggle_pressed() -> void:
-	if has_node("/root/SuitOS"):
-		var suit_os = get_node("/root/SuitOS")
-		if suit_os.has_method("perform_action"):
-			suit_os.perform_action("player:flashlight", "toggle")
+	# Puede estar montado en el HUD local o en el control remoto: HudWidgetAction decide.
+	HudWidgetAction.perform(self, "player:flashlight", "toggle")

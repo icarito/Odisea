@@ -56,11 +56,22 @@ func _pause_on_focus_loss() -> void:
 		return
 	if not _can_pause_in_current_scene() or _hud_mode_paused:
 		return
+	if _controlled_from_this_machine():
+		return
 	_menu_hidden_by_focus = true
 	if get_tree().paused:
 		_apply_menu_visibility()
 	else:
 		pause()
+
+# Con un control remoto emparejado en ESTA misma maquina, alternar entre la ventana del
+# juego y la del control es parte de jugar: pausar al perder el foco estorba y no protege
+# nada (el jugador sigue delante de la pantalla). Con el control en otro dispositivo la
+# pausa se mantiene: ahi perder el foco si es irse.
+func _controlled_from_this_machine() -> bool:
+	var rcm = get_node_or_null("/root/RemoteControlManager")
+	return rcm != null and rcm.has_method("has_local_remote_control") \
+		and rcm.has_local_remote_control()
 
 func _apply_menu_visibility() -> void:
 	if pause_menu_instance and pause_menu_instance.has_method("set_minimal"):

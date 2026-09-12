@@ -13,7 +13,16 @@ export(float, 0.75, 2.0) var dial_value_scale: float = 1.35
 # CoolantSystemStatusUI.tscn (margen 24) y CoolantSchematicPanel (CARD_MARGIN).
 const CARD_MARGIN := 24.0
 
+# Se dispara con cada cambio real de telemetría de la sala (Room3D emite solo con
+# cambio, guard is_equal_approx). El bus (HoloTerminalHUDable) la debounced antes de
+# propagar a la red; aca es local y barato.
+signal state_changed
+
 var _room: Node = null
+# Datos recibidos por apply_state() cuando este panel corre en el control remoto (no hay
+# Room3D ahí): misma forma que collect_state(). Con datos presentes se dibujan ellos; sin
+# ellos, los defaults de siempre.
+var _remote_room: Dictionary = {}
 var _draw_content_origin: Vector2 = Vector2.ZERO
 
 
@@ -41,9 +50,72 @@ func _ready() -> void:
 func _on_room_value_changed(_new_value = null) -> void:
 	update()
 	_request_redraw()
+	emit_signal("state_changed")
+
+
+# --- DATA BRIDGE (FD-296 F4: el control remoto dibuja de datos, no de mundo) ---
+
+# Lecturas normalizadas de la sala, JSON-safe. Solo si hay Room3D: sin mundo no hay
+# datos que inventar (el widget muestra sus defaults).
+func collect_state() -> Dictionary:
+	if _room == null or not is_instance_valid(_room):
+		return {}
+	return {
+		"temperature": _room_value("temperature", 20.0),
+		"pressure": _room_value("pressure", 1.0),
+		"contamination": _room_value("contamination", 0.0),
+		"lethal_cold": _room_value("lethal_cold", -25.0),
+		"freezing_point": _room_value("freezing_point", 0.0),
+		"overpressure": _room_value("overpressure", 2.4),
+		"hazard_threshold": _room_value("hazard_threshold", 0.7),
+		"flags": {
+			"lethal_cold": _room_check("is_lethal_cold", "lethal_cold", false),
+			"freezing": _room_check("is_freezing", "freezing", false),
+			"hazard": _room_check("is_hazard_active", "hazard", false),
+			"fog": _room_check("is_fog_active", "fog", false),
+			"overpressure": _room_check("is_overpressured", "overpressure", false)
+		}
+	}
+
+
+# Datos del host para dibujar aca: un update() y listo (mismo camino que los redraws).
+func apply_state(data: Dictionary) -> void:
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	_remote_room = data.duplicate(true)
+	update()
+	_request_redraw()
 
 
 # --- PURE NORMALIZATION HELPERS ---
+
+# Hay fuente de lecturas si hay Room3D en vivo o datos recibidos del host.
+func _has_room_or_data() -> bool:
+	return (_room != null and is_instance_valid(_room)) or not _remote_room.empty()
+
+
+func _room_value(key: String, fallback: float) -> float:
+	if _room != null and is_instance_valid(_room) and key in _room:
+		return float(_room.get(key))
+	if not _remote_room.empty() and _remote_room.has(key):
+		return float(_remote_room.get(key, fallback))
+	return fallback
+
+
+# Estado booleano: en vivo por metodo de consulta (el criterio ya vive en Room3D); en
+# remoto, por la copia de flags que viajo en el snapshot.
+func _room_check(method_name: String, flag_key: String, fallback: bool) -> bool:
+	if _room != null and is_instance_valid(_room):
+		if _room.has_method(method_name):
+			return bool(_room.call(method_name))
+		if flag_key in _room:
+			return bool(_room.get(flag_key))
+	if not _remote_room.empty():
+		var flags: Dictionary = _remote_room.get("flags", {}) if typeof(_remote_room.get("flags", {})) == TYPE_DICTIONARY else {}
+		if flags.has(flag_key):
+			return bool(flags.get(flag_key, fallback))
+	return fallback
+
 
 func _normalize_temperature(temp: float, min_temp: float = -25.0, max_temp: float = 40.0) -> float:
 	if is_equal_approx(min_temp, max_temp):
@@ -104,23 +176,18 @@ func _draw() -> void:
 	var temp_str := "-- °C"
 	var temp_safe_norm := -1.0
 
-	if _room != null and is_instance_valid(_room):
-		temp_val = float(_room.get("temperature")) if "temperature" in _room else 20.0
-		var lethal_cold: float = float(_room.get("lethal_cold")) if "lethal_cold" in _room else -25.0
-		var freezing_point: float = float(_room.get("freezing_point")) if "freezing_point" in _room else 0.0
-		min_temp = lethal_cold
-		max_temp = freezing_point + 40.0
+	if _has_room_or_data():
+		temp_val = _room_value("temperature", 20.0)
+		min_temp = _room_value("lethal_cold", -25.0)
+		max_temp = _room_value("freezing_point", 0.0) + 40.0
 		temp_str = "%.1f°C" % temp_val
 		# El limite seguro es donde empieza a congelar, no el frio letal (ese es el extremo
 		# 0.0 de la escala, una marca ahi pegada al borde no aporta nada).
-		temp_safe_norm = _normalize_temperature(freezing_point, min_temp, max_temp)
+		temp_safe_norm = _normalize_temperature(_room_value("freezing_point", 0.0), min_temp, max_temp)
 
-		var is_lethal: bool = _room.call("is_lethal_cold") if _room.has_method("is_lethal_cold") else false
-		var is_freezing: bool = _room.call("is_freezing") if _room.has_method("is_freezing") else false
-
-		if is_lethal:
+		if _room_check("is_lethal_cold", "lethal_cold", false):
 			temp_color = Color(1.0, 0.25, 0.15) # Red/Orange
-		elif is_freezing:
+		elif _room_check("is_freezing", "freezing", false):
 			temp_color = Color(0.35, 0.8, 1.0) # Light Cyan
 		else:
 			temp_color = Color(0.2, 0.95, 0.4) # Green
@@ -135,15 +202,14 @@ func _draw() -> void:
 	var pres_str := "-- atm"
 	var pres_safe_norm := -1.0
 
-	if _room != null and is_instance_valid(_room):
-		pres_val = float(_room.get("pressure")) if "pressure" in _room else 1.0
-		var overpressure: float = float(_room.get("overpressure")) if "overpressure" in _room else 2.4
+	if _has_room_or_data():
+		pres_val = _room_value("pressure", 1.0)
+		var overpressure: float = _room_value("overpressure", 2.4)
 		max_pres = overpressure * 1.2
 		pres_str = "%.2f atm" % pres_val
 		pres_safe_norm = _normalize_pressure(overpressure, max_pres)
 
-		var is_overpressured: bool = _room.call("is_overpressured") if _room.has_method("is_overpressured") else false
-		if is_overpressured:
+		if _room_check("is_overpressured", "overpressure", false):
 			pres_color = Color(1.0, 0.2, 0.2) # Red
 		else:
 			pres_color = Color(0.2, 0.95, 0.4) # Green
@@ -157,18 +223,14 @@ func _draw() -> void:
 	var cont_str := "-- %"
 	var cont_safe_norm := -1.0
 
-	if _room != null and is_instance_valid(_room):
-		cont_val = float(_room.get("contamination")) if "contamination" in _room else 0.0
+	if _has_room_or_data():
+		cont_val = _room_value("contamination", 0.0)
 		cont_str = "%d%%" % int(round(cont_val * 100.0))
-		var hazard_threshold: float = float(_room.get("hazard_threshold")) if "hazard_threshold" in _room else 0.7
-		cont_safe_norm = _normalize_contamination(hazard_threshold)
+		cont_safe_norm = _normalize_contamination(_room_value("hazard_threshold", 0.7))
 
-		var is_hazard: bool = _room.call("is_hazard_active") if _room.has_method("is_hazard_active") else false
-		var is_fog: bool = _room.call("is_fog_active") if _room.has_method("is_fog_active") else false
-
-		if is_hazard:
+		if _room_check("is_hazard_active", "hazard", false):
 			cont_color = Color(1.0, 0.2, 0.2) # Red
-		elif is_fog:
+		elif _room_check("is_fog_active", "fog", false):
 			cont_color = Color(1.0, 0.8, 0.15) # Yellow
 		else:
 			cont_color = Color(0.2, 0.95, 0.4) # Green

@@ -42,8 +42,7 @@ var _pending_swap_screen: Object = null
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
-	_virtual_mouse = VirtualMouse.new()
-	add_child(_virtual_mouse)
+	_virtual_mouse = VirtualMouse.attach_to(self)
 	_selector = get_node("RadialSelector")
 	_view_host = get_node("ViewHost")
 	_placeholder = get_node("Placeholder")

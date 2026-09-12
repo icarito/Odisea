@@ -1242,7 +1242,14 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 					if movement_logic.camera_input_timer > auto_align_delay:
 						var wish_dir = movement_logic.wish_direction
 						if wish_dir.length_squared() > 0.5:
-							var target_yaw = atan2(-wish_dir.x, -wish_dir.z)
+							# El rig lleva prefijo de 180 grados en Y: el forward visual de la
+							# camara es Basis(UP, yaw).z, no -basis.z. Alinear "mirando hacia
+							# donde camina el jugador" exige atan2(wish.x, wish.z); con los
+							# signos invertidos el target cae exactamente a PI del yaw actual,
+							# el gap queda en el borde de wrapf(-PI, PI) y lerp_angle gira en
+							# espiral a ~540 grados/s (ademas de ser caotico: el signo del paso
+							# depende de ulps de float y rompe el replay determinista).
+							var target_yaw = atan2(wish_dir.x, wish_dir.z)
 							yaw = lerp_angle(yaw, target_yaw, auto_align_speed * dt)
 			pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
 

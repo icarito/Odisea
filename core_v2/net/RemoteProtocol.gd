@@ -87,13 +87,48 @@ static func create_pair_result(ok: bool, token: String = "", reason: String = ""
 		"reason": reason
 	}
 
-static func create_ui_message(op: String, payload: Dictionary) -> Dictionary:
-	# op: "message", "prompt", "clear", "host_paused" ({paused: bool})
+static func create_ui_message(op: String, payload) -> Dictionary:
+	# op: "message", "prompt", "clear", "host_paused", "screen_list", "screen_active", "screen_data", "haptic", "remote_action", "screen_select"
 	return {
 		"type": "ui",
 		"op": op,
 		"payload": payload
 	}
+
+static func create_ui_screen_list(screens: Array) -> Dictionary:
+	return create_ui_message("screen_list", screens)
+
+static func create_ui_screen_active(id: String, title: String, view: String, snapshot: Dictionary) -> Dictionary:
+	return create_ui_message("screen_active", {
+		"id": id,
+		"title": title,
+		"view": view,
+		"snapshot": snapshot
+	})
+
+static func create_ui_screen_data(id: String, snapshot: Dictionary) -> Dictionary:
+	return create_ui_message("screen_data", {
+		"id": id,
+		"snapshot": snapshot
+	})
+
+static func create_ui_haptic(kind: String, intensity: float = 1.0) -> Dictionary:
+	return create_ui_message("haptic", {
+		"kind": kind,
+		"intensity": intensity
+	})
+
+static func create_ui_remote_action(screen_id: String, op: String, args: Dictionary = {}) -> Dictionary:
+	return create_ui_message("remote_action", {
+		"screen_id": screen_id,
+		"op": op,
+		"args": args
+	})
+
+static func create_ui_screen_select(id: String) -> Dictionary:
+	return create_ui_message("screen_select", {
+		"id": id
+	})
 
 static func create_input_message(input_type: String, payload: Dictionary, token: String = "") -> Dictionary:
 	# input_type: "input_data" (InputDataV2 de un control tactil), "event" (evento crudo,

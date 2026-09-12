@@ -812,15 +812,19 @@ jobs:
           # PortMaster, y ROCKNIX no tiene GL de escritorio (su libGL.so.1 es un
           # stub), asi que el handheld corre GLES2 y pide las variantes .etc.
           # Sin ETC1 las texturas comprimidas no cargan ahi.
-          # bptc, etc, etc2, pvrtc -> True = importar. S3TC siempre se genera.
+          # True = importar. s3tc TIENE que estar en el dict: lo que no se nombra aca no
+          # se escribe en project.godot y el motor lo deja en su default (true), asi que
+          # el pase de import del step Export lo regenera y limit_vram_import_formats.py
+          # no puede quitarlo. Ninguna GPU ARM soporta S3TC: en linux_arm64 eran 100 MB
+          # de .stex que el handheld nunca abre (medido en el .pck del nightly).
           fmts = {
-              "linux_x64":   dict(bptc=False, etc=False, etc2=False, pvrtc=False),
-              "windows":     dict(bptc=False, etc=False, etc2=False, pvrtc=False),
-              "macos":       dict(bptc=False, etc=False, etc2=False, pvrtc=False),
-              "linux_arm64": dict(bptc=False, etc=True,  etc2=True,  pvrtc=False),
-              "android":     dict(bptc=False, etc=False, etc2=True,  pvrtc=False),
-              "html5":       dict(bptc=False, etc=False, etc2=True,  pvrtc=False),
-              "ios":         dict(bptc=False, etc=False, etc2=True,  pvrtc=True),
+              "linux_x64":   dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
+              "windows":     dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
+              "macos":       dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
+              "linux_arm64": dict(s3tc=False, bptc=False, etc=True,  etc2=True,  pvrtc=False),
+              "android":     dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=False),
+              "html5":       dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=False),
+              "ios":         dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=True),
           }[platform]
 
           # 1) project.godot: ajustar vram_compression/import_* dentro de [rendering].
@@ -899,7 +903,7 @@ jobs:
           fi
           H=$({
             echo "$GODOT_KEY"
-            grep -E '^vram_compression/import_(bptc|etc|etc2|pvrtc)=' project.godot | sort
+            grep -E '^vram_compression/import_(s3tc|bptc|etc|etc2|pvrtc)=' project.godot | sort
           } | sha256sum | cut -d' ' -f1)
           echo "hash=$H" >> "$GITHUB_OUTPUT"
 
@@ -2149,6 +2153,19 @@ jobs:
           path: nightly_assets
           merge-multiple: true
 
+      # Indice de la fuente PortMaster (ver portmaster/README.md): es lo que lee
+      # harbourmaster en el handheld para ofrecer instalar/actualizar el port.
+      # Se genera acá y no en el job de export porque necesita el md5/size del zip
+      # final y la URL de descarga, que sale del tag del release.
+      - name: Generate PortMaster source index
+        run: |
+          set -euo pipefail
+          ZIP=$(find nightly_assets -type f -name "Odisea-PortMaster-*.zip" ! -name "*.images.zip" | head -n 1)
+          [ -n "$ZIP" ] || { echo "::error::No se encontró el zip de PortMaster en nightly_assets"; exit 1; }
+          tools/portmaster_source.py "$ZIP" \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/nightly" \
+            --out nightly_assets
+
       - name: Update Nightly Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -2220,6 +2237,12 @@ jobs:
           if [ "${#MANIFEST_FILES[@]}" -gt 0 ]; then
             gh release upload "$TAG" "${MANIFEST_FILES[@]}" --clobber
           fi
+
+          # 3b. El ports.json de la fuente PortMaster, con el mismo criterio que el
+          #     manifest: al final, cuando el zip y la captura a los que apunta ya
+          #     están subidos. Su URL es fija (tag "nightly"), así que el
+          #     .source.json del dispositivo no cambia nunca.
+          gh release upload "$TAG" nightly_assets/ports.json --clobber
 
           # 4. Limpiar binarios de commits viejos que quedaron en el release (sus
           #    nombres llevan el sha, así que no los pisa el --clobber del actual).

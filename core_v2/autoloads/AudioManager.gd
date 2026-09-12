@@ -72,11 +72,24 @@ func _notification(what):
 	# sin un WM_FOCUS_IN. Escuchando solo el par de foco, un FOCUS_OUT sin su pareja
 	# dejaba el bus master muteado para el resto de la sesion.
 	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT or what == MainLoop.NOTIFICATION_APP_PAUSED:
+		# Con un control remoto emparejado en esta misma maquina la ventana del juego
+		# puede estar en otro monitor, o detras de la del control, y se sigue jugando: el
+		# audio no se corta (mismo criterio que la pausa, PauseManager). APP_PAUSED no
+		# entra aca: ahi la app se fue al fondo de verdad.
+		if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT and _controlled_from_this_machine():
+			return
 		_set_focus_audio_muted(true)
 		_set_music_focus_paused(true)
 	elif what == MainLoop.NOTIFICATION_WM_FOCUS_IN or what == MainLoop.NOTIFICATION_APP_RESUMED:
 		_set_focus_audio_muted(false)
 		_set_music_focus_paused(get_tree().paused)
+
+# La decision vive en RemoteControlManager.has_local_remote_control(): control emparejado
+# corriendo en esta misma maquina.
+func _controlled_from_this_machine() -> bool:
+	var rcm = get_node_or_null("/root/RemoteControlManager")
+	return rcm != null and rcm.has_method("has_local_remote_control") \
+		and rcm.has_local_remote_control()
 
 func _exit_tree() -> void:
 	var tree = get_tree()

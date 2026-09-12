@@ -42,8 +42,13 @@ class TankGauge extends Control:
 
 onready var _cards_container: VBoxContainer = get_node("Rows")
 
+# Se dispara con cada cambio real de nivel (CoolantTank ya emite level_changed solo
+# entonces). El bus (HoloTerminalHUDable) la propaga al snapshot del terminal.
+signal state_changed
+
 var _tank_label: Label = null
-var _tank_gauges := {}  # tank -> TankGauge
+var _tank_gauges := {}  # tank -> TankGauge (vivo)
+var _gauge_order: Array = []  # gauges en orden de fila (vivo y remoto comparten esto)
 
 
 func _ready() -> void:
@@ -108,6 +113,61 @@ func _setup_tank_card() -> void:
 				tank.connect("level_changed", self, "_on_tank_level_changed", [tank])
 
 
+# --- DATA BRIDGE (FD-296 F4: el control remoto dibuja de datos, no de mundo) ---
+
+# Niveles por rama, JSON-safe, en el mismo orden de fila que dibuja el host.
+func collect_state() -> Dictionary:
+	var sources := get_tree().get_nodes_in_group("coolant_source")
+	if sources.empty():
+		return {}
+	sources.sort_custom(self, "_sort_by_floor_name")
+	var tanks: Array = []
+	for tank in sources:
+		tanks.append({
+			"east": "east" in tank.name.to_lower(),
+			"level": clamp(float(tank.get("tank_level")) if "tank_level" in tank else 1.0, 0.0, 1.0)
+		})
+	return {"tanks": tanks}
+
+
+# Datos del host para el modo remoto: mismas filas, mismos niveles. Rehace filas solo si
+# cambia la cantidad (un rebuild por cada screen_data seria tirar el layout a cada rato).
+func apply_state(data: Dictionary) -> void:
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	var tanks: Array = data.get("tanks", []) if typeof(data.get("tanks", [])) == TYPE_ARRAY else []
+	if tanks.empty():
+		return
+	if _gauge_order.size() != tanks.size():
+		_rebuild_rows(tanks)
+		return
+	for i in range(_gauge_order.size()):
+		_update_gauge(_gauge_order[i], float(tanks[i].get("level", 1.0)))
+
+
+func _rebuild_rows(tanks: Array) -> void:
+	for child in _cards_container.get_children():
+		_cards_container.remove_child(child)
+		child.queue_free()
+	_tank_gauges.clear()
+	_gauge_order.clear()
+	_tank_label = null
+
+	var body := _make_card("NIVEL DE TANQUES")
+	if tanks.empty():
+		var gauge := _add_tank_row(body, "TANQUE")
+		_tank_label = gauge.value_label
+		_update_gauge(gauge, 1.0)
+		return
+	for t in tanks:
+		var east := bool(t.get("east", false))
+		var suffix := "" if tanks.size() < 2 else (" ESTE" if east else " OESTE")
+		var gauge := _add_tank_row(body, "TANQUE" + suffix)
+		if _tank_label == null:
+			_tank_label = gauge.value_label
+		_update_gauge(gauge, float(t.get("level", 1.0)))
+
+
 # Mismo lenguaje visual que RoomDialsPanel._draw_dial(): titulo arriba, arco grande centrado,
 # valor debajo -- en vez de una fila angosta, para que el gauge use el mismo tamano que los
 # dials de temperatura/presion/toxicidad de la columna vecina.
@@ -130,6 +190,9 @@ func _add_tank_row(body: VBoxContainer, title: String) -> Node:
 	value_label.align = Label.ALIGN_CENTER
 	col.add_child(value_label)
 	gauge.value_label = value_label
+	# Referencia por fila: apply_state() del modo remoto actualiza niveles por indice,
+	# sin depender de los nodos de tanque (que en el control remoto no existen).
+	_gauge_order.append(gauge)
 
 	body.add_child(col)
 	return gauge
@@ -139,6 +202,7 @@ func _on_tank_level_changed(new_level: float, tank: Node) -> void:
 	var gauge: Node = _tank_gauges.get(tank)
 	if gauge != null:
 		_update_gauge(gauge, new_level)
+	emit_signal("state_changed")
 
 
 func _update_gauge(gauge: Node, level: float) -> void:

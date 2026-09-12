@@ -45,7 +45,7 @@ func _ready():
 
 	# Initial check
 	var pending = UpdateManager.get_current_update()
-	if not pending.empty():
+	if not pending.empty() and not UpdateManager.updates_deferred_today():
 		_on_update_available(pending)
 
 func _on_update_available(info: Dictionary):

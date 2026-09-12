@@ -61,7 +61,7 @@ func test_hudable_contract_defaults() -> void:
 	comp.hud_screen_id = "sys_default"
 	comp.hud_screen_title = "Default System"
 	comp.default_relevance = 0.45
-	comp.allowed_actions = ["reset", "calibrate"]
+	comp.allowed_actions_list = ["reset", "calibrate"]
 
 	assert_str(comp.screen_id()).is_equal("sys_default")
 	assert_str(comp.screen_title()).is_equal("Default System")
