@@ -4,6 +4,7 @@ var InputProviderV2 = preload("res://core_v2/input/InputProviderV2.gd")
 var RemoteProtocol = preload("res://core_v2/net/RemoteProtocol.gd")
 var RadialSelectorScene = preload("res://core_v2/ui/radial/RadialSelectorV2.tscn")
 var HoloTerminalWidgetScene = preload("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
+const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
 
 const SESSION_ENDED_NOTICE_SEC := 2.5
 

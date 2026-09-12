@@ -91,7 +91,11 @@ func _restart_search(flush: bool = true) -> void:
 		var discovery = RemoteControlManager.discovery
 		if flush:
 			discovery.stop_discovery()
-		discovery.start_discovery()
+		# Sin el socket de escucha no llega ningun anuncio: sin este aviso el menu se
+		# queda "Buscando partidas..." para siempre (tipico: otra instancia abierta).
+		if not discovery.start_discovery():
+			status_label.text = "No se pudo escuchar en el puerto %d. Cierre cualquier otra instancia de Odisea en este dispositivo y pulse Buscar de nuevo." % discovery.listen_port
+			return
 		if not flush:
 			_on_sessions_updated(discovery.discovered_sessions)
 
