@@ -34,6 +34,7 @@ var _mouse_aim_active: bool = false
 var _confirm_was_down: bool = true # sostenido al abrir: ese boton no confirma
 var _touch_index: int = -1
 var _touch_start: Vector2 = Vector2.ZERO
+var _active_focused_screen: Object = null
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -58,7 +59,12 @@ func _ready() -> void:
 	_gesture.begin_held()
 	_refresh_slots()
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		_cleanup_focus()
+
 func _exit_tree() -> void:
+	_cleanup_focus()
 	_mount.close()
 
 # Entrada directa al radial (hold del boton tactil, que no pasa por el stream).
@@ -180,6 +186,19 @@ func _show_screen(id: String) -> void:
 	suit_os.open_screen(id)
 	_selector.close()
 	_view_host.visible = true
+
+	var origin: Dictionary = {}
+	if screen != null and screen.has_method("view_transition_origin"):
+		origin = screen.view_transition_origin()
+
+	if origin.get("kind", "") == "focus_rig":
+		_cleanup_focus()
+		_active_focused_screen = screen
+		if screen.has_method("enter_focus_mode"):
+			screen.enter_focus_mode()
+	else:
+		_cleanup_focus()
+
 	var snapshot: Dictionary = screen.widget_snapshot() if screen.has_method("widget_snapshot") else {"id": id}
 	_mount.show(screen, snapshot, _view_host)
 	# El hold es invisible: se avisa una vez, hasta el primer uso, y solo si hay a donde cambiar.
@@ -196,7 +215,14 @@ func _slot_title(snapshot: Dictionary) -> String:
 	var title: String = String(snapshot.get("title", snapshot.get("id", "---")))
 	return title + (" [OFFLINE]" if String(snapshot.get("source", "")) == "offline" else "")
 
+func _cleanup_focus() -> void:
+	if is_instance_valid(_active_focused_screen):
+		if _active_focused_screen.has_method("exit_focus_mode"):
+			_active_focused_screen.exit_focus_mode()
+	_active_focused_screen = null
+
 func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseManager
+	_cleanup_focus()
 	_suit_os().close_hud_mode()
 
 func _suit_os() -> Node:
