@@ -35,6 +35,9 @@ que Apple revise el nuevo -- que puede tardar horas o dias. Por eso este script:
    pipeline de export) vuelve a chequear builds que quedaron pendientes de
    revision y los promueve al grupo apenas Apple los aprueba, sin esperar al
    proximo nightly.
+4. Apple revisa de a un build por tren: si otro sigue en revision, la solicitud
+   devuelve 422 ANOTHER_BUILD_IN_REVIEW. No es un error: el export sigue, y
+   `--promote` pide la revision del build mas nuevo cuando el tren se libera.
 
 Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_P8, BUNDLE_ID, BUILD_NUMBER,
 PLATFORMS (lista separada por comas, por defecto IOS).
@@ -143,6 +146,20 @@ def stale_build_ids(builds: list[dict], keep: int, protected: str) -> list[str]:
     return [b["id"] for b in ordenados[keep:] if b["id"] != protected]
 
 
+def newer_than_current(candidates: list[dict], current: list[dict]) -> list[dict]:
+    """Candidatos subidos despues del build vigente mas reciente, del mas nuevo al mas viejo.
+
+    Promover algo mas viejo que lo vigente seria ir para atras.
+    """
+    def fecha(b: dict) -> str:
+        return b.get("attributes", {}).get("uploadedDate") or ""
+
+    tope = max((fecha(b) for b in current), default="")
+    ids = {b["id"] for b in current}
+    return sorted((b for b in candidates if b["id"] not in ids and fecha(b) > tope),
+                  key=fecha, reverse=True)
+
+
 def wait_for_builds(app_id: str, build_number: str, platforms: list[str]) -> dict[str, dict]:
     """Espera a que Apple procese el build de cada plataforma. Devuelve {plataforma: build}.
 
@@ -198,8 +215,14 @@ def fetch_beta_review_state(build_id: str) -> str | None:
     return None
 
 
-def submit_beta_review(build_id: str) -> None:
-    """Pide a Apple la revision de este build. Idempotente: ignora un 409 (ya pedida)."""
+def submit_beta_review(build_id: str) -> bool:
+    """Pide a Apple la revision de este build. True si quedo pedida.
+
+    Idempotente: un 409 (ya pedida) cuenta como pedida. Apple revisa de a un build
+    por tren (misma version y plataforma): si otro sigue en revision responde 422
+    ANOTHER_BUILD_IN_REVIEW. Eso no es un error, es la cola de Apple -- devuelve
+    False y `--promote` lo vuelve a pedir cuando el otro termine.
+    """
     try:
         call(
             "POST",
@@ -208,8 +231,11 @@ def submit_beta_review(build_id: str) -> None:
                       "relationships": {"build": {"data": {"type": "builds", "id": build_id}}}}},
         )
     except SystemExit as exc:
+        if "ANOTHER_BUILD_IN_REVIEW" in str(exc):
+            return False
         if "-> 409" not in str(exc):
             raise
+    return True
 
 
 def declare_no_encryption(build_id: str) -> None:
@@ -293,7 +319,11 @@ def main() -> int:
 
         review_state = fetch_beta_review_state(build_id)
         if review_state is None:
-            submit_beta_review(build_id)
+            if not submit_beta_review(build_id):
+                print(f"build {build_number} ({platform}): otro build del mismo tren "
+                      "sigue en Beta App Review; `--promote` pedirá la revisión "
+                      "cuando termine.")
+                continue
             review_state = "WAITING_FOR_REVIEW"
             print(f"build {build_number} ({platform}): enviado a Beta App Review")
 
@@ -336,26 +366,42 @@ def promote() -> int:
         if not candidatos:
             continue
 
-        vigentes = {
-            b["id"]
+        vigentes = [
+            b
             for gid in targets
             for b in call_all(
                 f"/v1/builds?filter[betaGroups]={gid}"
                 f"&filter[preReleaseVersion.platform]={platform}&limit=200"
             )
-        }
+        ]
+        nuevos = newer_than_current(candidatos, vigentes)
+        if not nuevos:
+            continue  # el vigente ya es el mas nuevo, nada que hacer
+        estados = {b["id"]: fetch_beta_review_state(b["id"]) for b in nuevos}
 
-        # Solo el mas nuevo importa: si todavia no esta aprobado, uno mas viejo
-        # tampoco deberia reemplazar al build vigente (seria ir para atras).
-        newest = candidatos[0]
-        build_id = newest["id"]
-        build_number = newest["attributes"].get("version", build_id)
-        if build_id in vigentes:
-            continue  # ya es el vigente, nada que promover
-        if fetch_beta_review_state(build_id) == "APPROVED":
+        # Apple revisa de a un build por tren, asi que los nightly se encolan: se
+        # pide la revision solo del mas nuevo (los intermedios no hace falta
+        # revisarlos) y se reintenta cada corrida hasta que el tren se libere.
+        newest = nuevos[0]
+        newest_number = newest["attributes"].get("version", newest["id"])
+        if estados[newest["id"]] is None:
+            if needs_compliance_answer(newest):
+                declare_no_encryption(newest["id"])
+            if submit_beta_review(newest["id"]):
+                estados[newest["id"]] = "WAITING_FOR_REVIEW"
+                print(f"build {newest_number} ({platform}): enviado a Beta App Review")
+            else:
+                print(f"build {newest_number} ({platform}): otro build sigue en "
+                      "revisión; se reintenta en la próxima corrida")
+
+        # Promover el aprobado mas nuevo, aunque haya uno todavia mas nuevo en
+        # cola: sigue siendo avanzar respecto del vigente.
+        aprobado = next((b for b in nuevos if estados[b["id"]] == "APPROVED"), None)
+        if aprobado:
+            build_number = aprobado["attributes"].get("version", aprobado["id"])
             print(f"build {build_number} ({platform}): aprobado por Apple, "
                   "promoviendo al grupo externo")
-            assign_to_external_groups(groups, targets, platform, build_number, build_id)
+            assign_to_external_groups(groups, targets, platform, build_number, aprobado["id"])
     return 0
 
 
@@ -386,6 +432,33 @@ def self_test() -> int:
     assert stale_build_ids(builds, 5, "v3") == []          # menos que el tope: nada que sacar
     assert stale_build_ids(builds, 1, "v1") == ["v2"]      # el protegido no sale aunque sea viejo
     assert stale_build_ids([b("x", None)], 0, "otro") == ["x"]   # sin fecha, igual se ordena
+
+    ids = lambda bs: [x["id"] for x in bs]  # noqa: E731
+    # vigente v1; v2 y v3 son posteriores, del mas nuevo al mas viejo
+    assert ids(newer_than_current(builds, [b("v1", "2026-01-01")])) == ["v3", "v2"]
+    assert ids(newer_than_current(builds, [b("v3", "2026-03-01")])) == []   # nada mas nuevo
+    assert ids(newer_than_current(builds, [])) == ["v3", "v2", "v1"]        # grupo vacio
+    # grupos con vigentes distintos: manda el mas reciente
+    assert ids(newer_than_current(builds, [b("v1", "2026-01-01"), b("v2", "2026-02-01")])) == ["v3"]
+
+    # submit_beta_review: 422 de cola -> False, 409 -> True, otro error -> falla
+    global call
+    real_call = call
+    try:
+        for msg, esperado in (("-> 422: ANOTHER_BUILD_IN_REVIEW", False), ("-> 409: dup", True)):
+            def call(*_a, _m=msg, **_k):  # noqa: F811
+                raise SystemExit(f"ASC POST x {_m}")
+            assert submit_beta_review("b") is esperado, msg
+
+        def call(*_a, **_k):  # noqa: F811
+            raise SystemExit("ASC POST x -> 422: ENTITY_ERROR")
+        try:
+            submit_beta_review("b")
+            raise AssertionError("un 422 que no es de cola debe fallar")
+        except SystemExit:
+            pass
+    finally:
+        call = real_call
     print("self-test OK")
     return 0
 
