@@ -91,7 +91,8 @@ func _do_connect() -> void:
 	# discovery devuelve una IP IPv6 (link-local de Android es tipico), la URL
 	# queda malformada (ws://fe80::1:10443) y connect_to_url() falla en silencio.
 	var host := _host_ip
-	if host.contains(":") and not host.begins_with("["):
+	# find() y no contains(): String.contains() es de Godot 4.
+	if host.find(":") != -1 and not host.begins_with("["):
 		host = "[%s]" % host
 	var url = "ws://%s:%d" % [host, _ws_port]
 	var err = _ws_client.connect_to_url(url)
