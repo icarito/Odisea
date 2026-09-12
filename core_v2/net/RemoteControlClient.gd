@@ -81,7 +81,13 @@ func connect_to_host(p_ip: String, p_ws_port: int = 10443, p_sensor_port: int = 
 
 func _do_connect() -> void:
 	emit_signal("connection_state_changed", "Conectando...", false)
-	var url = "ws://%s:%d" % [_host_ip, _ws_port]
+	# IPv6 va entre corchetes en una URL: ws://[fe80::1]:10443. Sin esto, si el
+	# discovery devuelve una IP IPv6 (link-local de Android es tipico), la URL
+	# queda malformada (ws://fe80::1:10443) y connect_to_url() falla en silencio.
+	var host := _host_ip
+	if host.contains(":") and not host.begins_with("["):
+		host = "[%s]" % host
+	var url = "ws://%s:%d" % [host, _ws_port]
 	var err = _ws_client.connect_to_url(url)
 	if err != OK:
 		emit_signal("connection_state_changed", "Error de conexión", false)
