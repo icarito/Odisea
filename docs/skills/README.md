@@ -15,6 +15,7 @@ Indice general: `docs/agents/skills-index.md`.
 - `enrich.md`: enriquecer un FD hasta dejarlo ejecutable (assets, riesgos, plan de tareas).
 - `deliver.md`: ejecutar el plan (subagentes Sonnet + Jules + checkpoints en vivo).
 - `jules.md`: delegar tareas asincronas a Jules con `bin/jules-cli`.
+- `blender-bpy.md`: modelado 3D programatico con Blender (bpy) headless: render preview + GLB.
 
 Ciclo completo: `fd-new` → `enrich` → `deliver` → `fd-verify` → `fd-close`.
 

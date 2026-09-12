@@ -12,7 +12,7 @@ Para tareas con Feature Design, leer el FD en `docs/features/` y el workflow rel
 
 Reglas rapidas:
 
-- Usar `godot3-bin`.
+- Usar `tools/godot` (fork con Box3D); nunca `godot3-bin` (stock) ni `godot`.
 - Codigo nuevo en `core_v2/`.
 - Mantener camara, momentum y determinismo.
 - Usar telemetria ANNA V2 por peer HTTP `:4999`, no ANNA V1 para trabajo nuevo.
