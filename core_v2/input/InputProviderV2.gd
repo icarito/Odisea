@@ -49,6 +49,18 @@ func _init() -> void:
 	pass
 
 
+# El motor emula un mouse a partir del touch (input_devices/pointing/emulate_mouse_from_touch)
+# y NO se puede apagar: los Button del motor solo leen InputEventMouseButton, sin la emulacion
+# no hay menu ni pausa tactiles. Ese puntero fantasma llega con device -1 (DEVICE_ID_TOUCH_MOUSE);
+# el mouse real nunca. Hay que ignorarlo donde alimenta la mirada: el arrastre tactil ya entra
+# por TouchCameraControls, y sumarlo de nuevo movia la camara doble (y al reves, porque el touch
+# invierte X) y prendia hardware_mouse_active en desktop con pantalla tactil.
+const DEVICE_ID_TOUCH_MOUSE := -1
+
+static func is_emulated_from_touch(event: InputEvent) -> bool:
+	return event != null and event.device == DEVICE_ID_TOUCH_MOUSE
+
+
 # Universal input getter
 # Ultimo input entregado por get_input() en este frame. Existe para que otros sistemas
 # (consolas, menus de prop) puedan LEER el input del frame sin consumirlo: get_input()

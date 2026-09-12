@@ -2151,6 +2151,8 @@ func _input(event):
 			return
 
 	if event is InputEventMouseMotion:
+		if InputProviderV2.is_emulated_from_touch(event):
+			return # puntero emulado del touch: la camara tactil ya llega por TouchCameraControls
 		if _ignore_next_mouse_motion:
 			_ignore_next_mouse_motion = false
 		elif Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:

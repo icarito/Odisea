@@ -33,6 +33,7 @@ func _ready() -> void:
 	set_process(true)
 
 func _input(event: InputEvent) -> void:
+	_drop_emulated_mouse_actions(event)
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		_touch_idle_timer = 0.0
 		if not _is_touch_active:
@@ -45,6 +46,21 @@ func _input(event: InputEvent) -> void:
 				_spawn_mobile_ui()
 			_notify_input_provider_touch_active(true)
 			_refresh_mobile_ui_visibility()
+
+# El click fantasma del mouse emulado (ver InputProviderV2.is_emulated_from_touch) tambien
+# entra al InputMap, y el provider poleaba ese estado: en desktop con pantalla tactil, arrastrar
+# el joystick disparaba tool_fire_primary (unica accion en el boton izquierdo) sin soltar. El
+# evento sigue viajando a la UI -es lo que hace clickeables a los Button en tactil-; aca solo se
+# limpia el estado de la accion, que es lo unico que lee el gameplay.
+func _drop_emulated_mouse_actions(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton) or not event.pressed:
+		return
+	if not InputProviderV2.is_emulated_from_touch(event):
+		return
+	for action in InputMap.get_actions():
+		if InputMap.event_is_action(event, action):
+			Input.action_release(action)
+
 
 func _notify_input_provider_touch_active(active: bool) -> void:
 	var provider = _get_active_input_provider()

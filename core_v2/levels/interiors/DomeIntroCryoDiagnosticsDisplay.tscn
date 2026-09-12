@@ -27,6 +27,10 @@ render_target_update_mode = 1
 [node name="CollisionShape" parent="CinematicSetup/CameraZone" index="2"]
 shape = SubResource( 1 )
 
+[node name="FocusedRig" parent="CinematicSetup" index="3"]
+transform = Transform( 1, 0, 0, 0, -1, 0, 0, 0, -1, 0, 1.7, -2.85 )
+transition_time = 0.75
+
 [node name="PathFollow" parent="CinematicSetup/CinematicPathRig" index="0"]
 transform = Transform( 5.56355e-14, 1.49157e-07, 0.999992, 3.72999e-07, 1, -1.49156e-07, -0.999999, 3.73e-07, 0, 0.625122, 0.19433, 0.639461 )
 

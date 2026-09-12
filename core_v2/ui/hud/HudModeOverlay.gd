@@ -119,6 +119,8 @@ func _drive_from_stream(input) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		# Lo que hace PlayerControllerV2._input, que ahora esta pausado.
+		if InputProviderV2.is_emulated_from_touch(event):
+			return # el dedo ya apunta el radial por InputEventScreenDrag, mas abajo
 		if input_provider != null and "mouse_delta_accum" in input_provider:
 			input_provider.mouse_delta_accum += event.relative
 		return

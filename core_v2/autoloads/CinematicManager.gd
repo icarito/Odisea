@@ -66,7 +66,6 @@ var _transition_elapsed := 0.0
 var _transition_purpose := "" # "to_cinematic" | "to_free"
 var _transition_from_cam: Camera = null
 var _transition_to_cam: Camera = null
-var _transition_lateral_yaw_only := false
 var _transition_start_transform: Transform
 var _transition_start_fov: float
 var transition_debug_enabled := false
@@ -392,7 +391,7 @@ func deactivate_vcamera(duration: float = 1.0) -> void:
 				_vcam_brain.current = false
 
 			if from_cam and is_instance_valid(from_cam) and rig_cam and is_instance_valid(rig_cam) and resume_transition > 0.0 and from_cam != rig_cam:
-				_start_dynamic_transition(from_cam, rig_cam, resume_transition, "to_cinematic", bool(resume_payload.get("terminal_focus_lateral", false)))
+				_start_dynamic_transition(from_cam, rig_cam, resume_transition, "to_cinematic")
 			elif rig_cam and is_instance_valid(rig_cam):
 				rig_cam.current = true
 
@@ -407,7 +406,7 @@ func deactivate_vcamera(duration: float = 1.0) -> void:
 	if player_cam:
 		if from_cam and is_instance_valid(from_cam):
 			_align_player_rig_to_camera(from_cam, player_cam)
-			_start_dynamic_transition(from_cam, player_cam, scaled_duration, "to_free", bool(_active_payload.get("terminal_focus_lateral", false)))
+			_start_dynamic_transition(from_cam, player_cam, scaled_duration, "to_free")
 		else:
 			player_cam.current = true
 	
@@ -536,7 +535,7 @@ func _cancel_dynamic_transition(reason: String = "") -> void:
 	_transition_from_cam = null
 	_transition_to_cam = null
 
-func _start_dynamic_transition(from: Camera, to: Camera, duration: float, purpose: String = "to_free", lateral_yaw_only: bool = false):
+func _start_dynamic_transition(from: Camera, to: Camera, duration: float, purpose: String = "to_free"):
 	_cancel_dynamic_transition("restart_dynamic")
 	_cancel_plugin_transition()
 	_log_transition("dynamic_start", {
@@ -552,7 +551,6 @@ func _start_dynamic_transition(from: Camera, to: Camera, duration: float, purpos
 	_transition_purpose = purpose
 	_transition_from_cam = from
 	_transition_to_cam = to
-	_transition_lateral_yaw_only = lateral_yaw_only
 	_transition_start_transform = from.global_transform
 	_transition_start_fov = from.fov
 	
@@ -612,10 +610,6 @@ func _update_dynamic_transition(dt: float) -> void:
 		var target_tx = _transition_to_cam.global_transform
 		var target_fov = _transition_to_cam.fov
 		var new_tx = _transition_start_transform.interpolate_with(target_tx, t)
-		if _transition_lateral_yaw_only:
-			var from_yaw := atan2(_transition_start_transform.basis.z.x, _transition_start_transform.basis.z.z)
-			var to_yaw := atan2(target_tx.basis.z.x, target_tx.basis.z.z)
-			new_tx.basis = Basis(Vector3.UP, lerp_angle(from_yaw, to_yaw, t))
 		var new_fov = lerp(_transition_start_fov, target_fov, t)
 		cam_transition.camera3D.global_transform = new_tx
 		cam_transition.camera3D.fov = new_fov
@@ -829,7 +823,7 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 						})
 						# Use dynamic target so the blend keeps following the rig camera
 						# while player movement keeps updating it.
-						_start_dynamic_transition(old_cam, new_cam, enter_transition_time, "to_cinematic", bool(_active_payload.get("terminal_focus_lateral", false)))
+						_start_dynamic_transition(old_cam, new_cam, enter_transition_time, "to_cinematic")
 					else:
 						_cancel_plugin_transition()
 						_log_transition("to_cinematic_snap", {
@@ -872,7 +866,7 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 					_align_player_rig_to_camera(old_cam, player_cam)
 					if exit_transition_time > 0.0 and old_cam and old_cam != player_cam:
 						# Use custom dynamic transition for return
-						_start_dynamic_transition(old_cam, player_cam, exit_transition_time, "to_free", bool(_active_payload.get("terminal_focus_lateral", false)))
+						_start_dynamic_transition(old_cam, player_cam, exit_transition_time, "to_free")
 					else:
 						_cancel_plugin_transition()
 						_log_transition("to_free_snap", {
