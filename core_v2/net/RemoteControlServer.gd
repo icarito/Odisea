@@ -55,7 +55,6 @@ func start_server(p_ws_port: int = 10443, p_sensor_port: int = 10444) -> bool:
 		printerr("[RemoteControlServer] Sensor UDP failed to listen on port ", sensor_udp_port, " err=", udp_err)
 
 	_server_started = true
-	print("[RemoteControlServer] Control server listening WS port ", ws_port, ", UDP sensor port ", sensor_udp_port)
 	return true
 
 func stop_server() -> void:
@@ -137,14 +136,11 @@ func _process_sensor_udp(delta: float) -> void:
 
 	if _sensor_active and ((OS.get_ticks_msec() / 1000.0) - _last_sensor_timestamp) > sensor_timeout:
 		_sensor_active = false
-		print("[RemoteControlServer] Sensor stream active timeout (>2s). Device inactive.")
 
 func _on_ws_client_connected(id: int, _protocol: String) -> void:
-	print("[RemoteControlServer] WS client connected ID ", id)
 	_peers[id] = {"device_name": "Dispositivo Móvil", "paired": false, "token": "", "last_rx": OS.get_ticks_msec(), "stalled": false}
 
 func _on_ws_client_disconnected(id: int, _was_clean_close: bool) -> void:
-	print("[RemoteControlServer] WS client disconnected ID ", id)
 	var device_name = _peers.get(id, {}).get("device_name", "Desconocido")
 	_peers.erase(id)
 	if id == _pairing_peer_id:

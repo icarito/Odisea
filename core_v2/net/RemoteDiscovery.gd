@@ -22,7 +22,6 @@ func start_discovery() -> bool:
 		printerr("[RemoteDiscovery] Could not listen on port ", listen_port, " err=", err)
 		return false
 	_is_listening = true
-	print("[RemoteDiscovery] Listening for session broadcasts on port ", listen_port)
 	return true
 
 func stop_discovery() -> void:

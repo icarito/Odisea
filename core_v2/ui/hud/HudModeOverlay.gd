@@ -250,7 +250,6 @@ func _show_screen(id: String) -> void:
 		origin = screen.view_transition_origin()
 
 	if origin.get("kind", "") == "focus_rig":
-		print("[DEBUG] HudModeOverlay: focus_rig origin detectado, llamando enter_focus_mode")
 		_cleanup_focus()
 		_active_focused_screen = screen
 		_pending_focus_screen = screen

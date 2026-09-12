@@ -155,9 +155,6 @@ func forward_view_input(event: InputEvent) -> void:
 # FD-297: Devuelve la camara de foco del terminal si este permite modo foco y el rig existe.
 func view_transition_origin() -> Dictionary:
 	var terminal = _get_terminal()
-	print("[DEBUG] view_transition_origin: terminal=", is_instance_valid(terminal),
-		" can_focus=", terminal.can_focus() if is_instance_valid(terminal) else "N/A",
-		" focused_rig=", is_instance_valid(terminal.get_node_or_null("CinematicSetup/FocusedRig")) if is_instance_valid(terminal) else "N/A")
 	if is_instance_valid(terminal):
 		var allow_focus: bool = false
 		if terminal.has_method("can_focus"):
