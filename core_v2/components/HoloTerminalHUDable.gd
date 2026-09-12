@@ -12,6 +12,8 @@ var _last_active: bool = false
 var _last_focused: bool = false
 var _hidden_player_visual: Spatial = null
 var _player_visual_was_visible: bool = true
+var _shared_viewport: Viewport = null
+var _shared_viewport_update_mode: int = Viewport.UPDATE_DISABLED
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -98,12 +100,8 @@ func widget_snapshot() -> Dictionary:
 		"source": "online"
 	}
 
-# FD-296 F3: la vista full-screen es la MISMA UI que el terminal ya dibuja en su Viewport
-# (en el HangingDisplay, DomeIntroCryoDiagnosticsUI.tscn), instanciada otra vez en el
-# overlay en lugar de mostrar la ViewportTexture del mundo. Solo con static_content: ahi la
-# UI es un dashboard que se alimenta solo (grupos, rutas absolutas) y la copia muestra lo
-# mismo. La consola interactiva la maneja HoloTerminalV2 desde afuera y una copia quedaria
-# muerta, asi que ese caso devuelve null y el modo HUD cae al widget ampliado.
+# FD-296 F3: identifica la UI del Viewport para decidir si hay una vista completa. El HUD
+# reutiliza el Viewport original mediante borrow_viewport(); no instancia una segunda UI.
 func view_scene() -> PackedScene:
 	if hud_view_scene != null:
 		return hud_view_scene
@@ -128,6 +126,31 @@ func view_size() -> Vector2:
 	var terminal = _get_terminal()
 	var viewport = terminal.get_node_or_null("Viewport") if is_instance_valid(terminal) else null
 	return (viewport as Viewport).size if viewport is Viewport else Vector2.ZERO
+
+func borrow_viewport() -> Viewport:
+	if is_instance_valid(_shared_viewport):
+		return _shared_viewport
+	var terminal = _get_terminal()
+	var viewport = terminal.get_node_or_null("Viewport") if is_instance_valid(terminal) else null
+	if viewport is Viewport:
+		_shared_viewport = viewport
+		_shared_viewport_update_mode = viewport.render_target_update_mode
+		viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	return _shared_viewport
+
+func release_viewport() -> void:
+	if is_instance_valid(_shared_viewport):
+		_shared_viewport.render_target_update_mode = _shared_viewport_update_mode
+	_shared_viewport = null
+
+func forward_view_input(event: InputEvent) -> void:
+	if not is_instance_valid(_shared_viewport):
+		return
+	if _shared_viewport.has_method("set_use_system_mouse"):
+		_shared_viewport.set_use_system_mouse(Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED)
+	var terminal = _get_terminal()
+	if is_instance_valid(terminal) and terminal.has_method("_input"):
+		terminal._input(event)
 
 # FD-297: Devuelve la camara de foco del terminal si este permite modo foco y el rig existe.
 func view_transition_origin() -> Dictionary:
@@ -174,7 +197,12 @@ func set_source_view_visible(visible: bool) -> void:
 		mesh.visible = visible
 	var viewport = terminal.get_node_or_null("Viewport")
 	if viewport is Viewport:
-		viewport.render_target_update_mode = Viewport.UPDATE_ONCE if visible else Viewport.UPDATE_DISABLED
+		if visible:
+			viewport.render_target_update_mode = Viewport.UPDATE_ONCE
+		elif viewport == _shared_viewport:
+			viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+		else:
+			viewport.render_target_update_mode = Viewport.UPDATE_DISABLED
 	_set_player_visual_hidden(not visible, terminal)
 
 func _set_player_visual_hidden(hidden: bool, terminal: Node) -> void:

@@ -25,6 +25,7 @@ var _view_host: Control = null
 var _placeholder: Label = null
 var _slots_label: Label = null
 var _hint: Label = null
+var _virtual_mouse: Control = null
 var _screen_ids: Array = []
 var _gesture = Gesture.new()
 var _mount = ViewMount.new()
@@ -41,7 +42,8 @@ var _pending_swap_screen: Object = null
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
-	add_child(VirtualMouse.new())
+	_virtual_mouse = VirtualMouse.new()
+	add_child(_virtual_mouse)
 	_selector = get_node("RadialSelector")
 	_view_host = get_node("ViewHost")
 	_placeholder = get_node("Placeholder")
@@ -121,6 +123,10 @@ func _drive_from_stream(input) -> void:
 	_confirm_was_down = down
 
 func _input(event: InputEvent) -> void:
+	if (event is InputEventMouseMotion or event is InputEventMouseButton) \
+			and is_instance_valid(_active_focused_screen) \
+			and _active_focused_screen.has_method("forward_view_input"):
+		_active_focused_screen.forward_view_input(event)
 	if event is InputEventMouseMotion:
 		# Lo que hace PlayerControllerV2._input, que ahora esta pausado.
 		if _touch_index >= 0:
@@ -236,6 +242,8 @@ func _cleanup_focus() -> void:
 	_pending_focus_screen = null
 	_pending_focus_camera = null
 	_pending_swap_screen = null
+	if is_instance_valid(_virtual_mouse):
+		_virtual_mouse.visible = true
 	if VisualServer.is_connected("frame_post_draw", self, "_complete_focus_swap"):
 		VisualServer.disconnect("frame_post_draw", self, "_complete_focus_swap")
 	if is_instance_valid(_active_focused_screen):
@@ -268,12 +276,16 @@ func _complete_focus_swap(screen: Object = null) -> void:
 	if not is_instance_valid(screen):
 		return
 	_mount.reveal_presenter()
+	if screen.has_method("forward_view_input") and is_instance_valid(_virtual_mouse):
+		_virtual_mouse.visible = false # sigue generando eventos; el cursor se dibuja dentro del Viewport
 	if screen.has_method("set_source_view_visible"):
 		screen.set_source_view_visible(false)
 	_view_host.visible = true
 
 func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseManager
 	_cleanup_focus()
+	if is_instance_valid(_virtual_mouse):
+		_virtual_mouse.visible = false
 	_suit_os().close_hud_mode()
 
 func _suit_os() -> Node:

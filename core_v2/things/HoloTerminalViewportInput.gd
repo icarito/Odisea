@@ -21,7 +21,6 @@ func _ready() -> void:
 func set_ui_mode(active: bool) -> void:
 	_ui_mode_active = active
 	if active:
-		_cursor_position = get_visible_rect().size * 0.5
 		call_deferred("focus_command_input")
 	_ensure_cursor_visual()
 	if _cursor_visual:

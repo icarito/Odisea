@@ -300,6 +300,8 @@ func test_holoterminal_view_is_a_hologram_presenter() -> void:
 	add_child(display)
 	display.set_active(true, true)
 	display.get_node("ScreenContainer/ScreenMesh").visible = true
+	var source_viewport: Viewport = display.get_node("Viewport")
+	var source_update_mode: int = source_viewport.render_target_update_mode
 	var overlay = _open_and_play([UP]) # unica pantalla: tap = vista
 	# Primero se ve solo la pantalla diegetica mientras la camara llega al FocusedRig.
 	assert_object(overlay._mount.get_presenter()).is_null()
@@ -317,17 +319,24 @@ func test_holoterminal_view_is_a_hologram_presenter() -> void:
 	assert_int(presenter.pause_mode).is_equal(Node.PAUSE_MODE_PROCESS)
 	assert_bool(presenter.is_in_group("replay_sync")).is_false()
 	assert_bool(presenter.is_active).is_true()
-	assert_bool(presenter.is_ui_interactive()).is_true()
-	var viewport: Viewport = presenter.get_node("Viewport")
-	assert_bool(viewport.get("_ui_mode_active")).is_true()
-	assert_bool(presenter.is_processing_input()).is_true()
-	var cursor_start: Vector2 = viewport.get("_cursor_position")
-	viewport.process_mouse_motion(Vector2(24.0, 12.0))
-	assert_vector2(viewport.get("_cursor_position")).is_equal(cursor_start + Vector2(24.0, 12.0))
-	viewport.process_mouse_click(BUTTON_LEFT, true)
-	assert_int(viewport.get("_mouse_button_mask")).is_equal(BUTTON_MASK_LEFT)
-	assert_str(viewport.get_child(viewport.get_child_count() - 1).filename).is_equal(CRYO_UI_PATH)
-	assert_vector2(viewport.size).is_equal(display.get_node("Viewport").size)
+	assert_bool(presenter.is_ui_interactive()).is_false()
+	assert_bool(presenter.is_processing_input()).is_false()
+	assert_int(presenter.get_node("Viewport").render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+	assert_object(overlay._mount._shared_screen).is_equal(display.get_node("HoloTerminalHUDable"))
+	assert_bool(source_viewport.get("_ui_mode_active")).is_true()
+	var cursor_start: Vector2 = source_viewport.get("_cursor_position")
+	source_viewport.process_mouse_motion(Vector2(24.0, 12.0))
+	assert_vector2(source_viewport.get("_cursor_position")).is_equal(cursor_start + Vector2(24.0, 12.0))
+	var persisted_cursor: Vector2 = source_viewport.get("_cursor_position")
+	source_viewport.set_ui_mode(false)
+	assert_bool(source_viewport.get("_cursor_visual").visible).is_false()
+	source_viewport.set_ui_mode(true)
+	assert_vector2(source_viewport.get("_cursor_position")).is_equal(persisted_cursor)
+	assert_bool(source_viewport.get("_cursor_visual").visible).is_true()
+	source_viewport.process_mouse_click(BUTTON_LEFT, true)
+	assert_int(source_viewport.get("_mouse_button_mask")).is_equal(BUTTON_MASK_LEFT)
+	assert_str(source_viewport.get_node("CryoDiagnosticsUI").filename).is_equal(CRYO_UI_PATH)
+	assert_vector2(presenter.screen_resolution).is_equal(source_viewport.size)
 	# Sin piso de vidrio; la transparencia propia del canvas sigue en la textura.
 	assert_float(presenter.hud_cfg_background_alpha).is_equal_approx(0.0, 0.001)
 	assert_float(presenter.hud_cfg_background_emission).is_equal_approx(3.0, 0.001)
@@ -335,13 +344,15 @@ func test_holoterminal_view_is_a_hologram_presenter() -> void:
 	assert_float(presenter.hud_cfg_screen_depth).is_equal(1.0)
 	assert_bool(mesh.visible).is_true()
 	assert_bool(display.get_node("ScreenContainer/ScreenMesh").visible).is_false()
-	assert_int(display.get_node("Viewport").render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
+	assert_int(source_viewport.render_target_update_mode).is_equal(Viewport.UPDATE_ALWAYS)
 
 	# El reemplazo desaparece en el mismo frame; no vuelve a cruzarse con la fuente.
 	SuitOS.close_hud_mode()
 	yield(await_idle_frame(), "completed")
 	assert_bool(display.get_node("ScreenContainer/ScreenMesh").visible).is_true()
+	assert_int(source_viewport.render_target_update_mode).is_equal(source_update_mode)
 	assert_bool(is_instance_valid(presenter)).is_false()
+	assert_bool(is_instance_valid(mesh)).is_false()
 
 
 func test_view_falls_back_to_enlarged_widget_when_view_scene_is_null() -> void:
