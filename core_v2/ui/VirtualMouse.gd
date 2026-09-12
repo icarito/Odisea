@@ -67,13 +67,11 @@ func _input(event: InputEvent) -> void:
 			_ignore_warp_motion = false
 			return
 		if _active:
-			var relative: Vector2 = event.relative
-			if relative.length_squared() > 0.0:
-				_position += relative
-				_position.x = clamp(_position.x, 0.0, rect_size.x)
-				_position.y = clamp(_position.y, 0.0, rect_size.y)
+			if event.relative.length_squared() > 0.0:
+				_active = false
+				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+				_position = event.position
 				update()
-				_emit_motion(relative)
 		else:
 			_position = event.position
 			update()
