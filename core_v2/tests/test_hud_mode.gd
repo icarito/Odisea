@@ -298,36 +298,50 @@ func test_radial_hides_the_elevator_needle_but_the_dial_keeps_it() -> void:
 func test_holoterminal_view_is_a_hologram_presenter() -> void:
 	var display = auto_free(HangingDisplayScene.instance())
 	add_child(display)
+	display.set_active(true, true)
+	display.get_node("ScreenContainer/ScreenMesh").visible = true
 	var overlay = _open_and_play([UP]) # unica pantalla: tap = vista
+	# Primero se ve solo la pantalla diegetica mientras la camara llega al FocusedRig.
+	assert_object(overlay._mount.get_presenter()).is_null()
+	assert_bool(display.get_node("ScreenContainer/ScreenMesh").visible).is_true()
+	display.get_node("CinematicSetup/FocusedRig/Camera").current = true
+	overlay._physics_process(1.0 / 60.0)
 	var presenter = overlay._mount.get_presenter()
 	assert_object(presenter).is_not_null()
+	var mesh = presenter._get_hud_attach_target()
+	assert_object(mesh).is_not_null()
+	assert_bool(mesh.visible).is_false()
+	assert_bool(display.get_node("ScreenContainer/ScreenMesh").visible).is_true()
+	overlay._complete_focus_swap()
 	assert_object(presenter.get_parent()).is_equal(get_tree().current_scene)
 	assert_int(presenter.pause_mode).is_equal(Node.PAUSE_MODE_PROCESS)
 	assert_bool(presenter.is_in_group("replay_sync")).is_false()
 	assert_bool(presenter.is_active).is_true()
-	# Misma UI del terminal, en el Viewport PROPIO del presentador y a su resolucion de diseño.
+	assert_bool(presenter.is_ui_interactive()).is_true()
 	var viewport: Viewport = presenter.get_node("Viewport")
+	assert_bool(viewport.get("_ui_mode_active")).is_true()
+	assert_bool(presenter.is_processing_input()).is_true()
+	var cursor_start: Vector2 = viewport.get("_cursor_position")
+	viewport.process_mouse_motion(Vector2(24.0, 12.0))
+	assert_vector2(viewport.get("_cursor_position")).is_equal(cursor_start + Vector2(24.0, 12.0))
+	viewport.process_mouse_click(BUTTON_LEFT, true)
+	assert_int(viewport.get("_mouse_button_mask")).is_equal(BUTTON_MASK_LEFT)
 	assert_str(viewport.get_child(viewport.get_child_count() - 1).filename).is_equal(CRYO_UI_PATH)
-	assert_vector2(viewport.size).is_equal(Vector2(1280, 816))
-	# Lectura holografica del casco: vidrio casi transparente y tinta emisiva.
-	assert_float(presenter.hud_cfg_background_alpha).is_equal_approx(0.15, 0.001)
+	assert_vector2(viewport.size).is_equal(display.get_node("Viewport").size)
+	# Sin piso de vidrio; la transparencia propia del canvas sigue en la textura.
+	assert_float(presenter.hud_cfg_background_alpha).is_equal_approx(0.0, 0.001)
 	assert_float(presenter.hud_cfg_background_emission).is_equal_approx(3.0, 0.001)
-	# El ScreenMesh ya no cuelga del presentador si el bridge lo engancho a la camara.
-	var mesh = presenter._get_hud_attach_target()
-	assert_object(mesh).is_not_null()
-	var material: ShaderMaterial = mesh.material
-	# El binario headless usa el rasterizer dummy: los ShaderMaterial no guardan uniformes
-	# y get_shader_param() devuelve null. La config del casco ya se asierta sobre el nodo;
-	# el material se revisa solo donde el rasterizer si lo expone. Mismo criterio que
-	# test_ice_level.gd.
-	if _exposes_shader_param(material, "albedo"):
-		assert_float(material.get_shader_param("albedo").a).is_equal_approx(0.15, 0.001)
-		assert_float(material.get_shader_param("emission_energy")).is_equal_approx(3.0, 0.001)
+	assert_float(presenter.hud_cfg_attach_transition_time).is_equal(0.0)
+	assert_float(presenter.hud_cfg_screen_depth).is_equal(1.0)
+	assert_bool(mesh.visible).is_true()
+	assert_bool(display.get_node("ScreenContainer/ScreenMesh").visible).is_false()
+	assert_int(display.get_node("Viewport").render_target_update_mode).is_equal(Viewport.UPDATE_DISABLED)
 
-	# El overlay sale con queue_free: al final del frame cierra el presentador (se encoge y se va).
+	# El reemplazo desaparece en el mismo frame; no vuelve a cruzarse con la fuente.
 	SuitOS.close_hud_mode()
 	yield(await_idle_frame(), "completed")
-	assert_bool(presenter.is_active).is_false()
+	assert_bool(display.get_node("ScreenContainer/ScreenMesh").visible).is_true()
+	assert_bool(is_instance_valid(presenter)).is_false()
 
 
 func test_view_falls_back_to_enlarged_widget_when_view_scene_is_null() -> void:
@@ -406,10 +420,3 @@ func test_suitos_snapshot_restore_intact() -> void:
 	SuitOS.restore_snapshot(saved)
 	assert_str(SuitOS.get_pinned_screen_id()).is_equal("test:a")
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
-
-
-# El binario headless de CI usa el rasterizer dummy: los ShaderMaterial no guardan
-# parametros y get_shader_param() devuelve null (float(null) es error de script). Mismo
-# criterio que test_ice_level.gd / test_leak_fissure_visual.gd.
-func _exposes_shader_param(material, param: String) -> bool:
-	return material != null and material.get_shader_param(param) != null

@@ -10,6 +10,12 @@ export(NodePath) var terminal_path: NodePath = NodePath("")
 
 var _last_active: bool = false
 var _last_focused: bool = false
+var _hidden_player_visual: Spatial = null
+var _player_visual_was_visible: bool = true
+
+func _ready() -> void:
+	pause_mode = PAUSE_MODE_PROCESS
+	._ready()
 
 func widget_scene() -> PackedScene:
 	if hud_widget_scene != null:
@@ -21,6 +27,8 @@ func _physics_process(_delta: float) -> void:
 	if is_instance_valid(terminal):
 		var active_now: bool = terminal.get_is_open() if terminal.has_method("get_is_open") else bool(terminal.get("is_active"))
 		var focused_now: bool = terminal.is_focused() if terminal.has_method("is_focused") else false
+		if get_tree().paused and focused_now and terminal.has_method("_update_player_screen_occlusion"):
+			terminal._update_player_screen_occlusion(_delta)
 		if active_now != _last_active or focused_now != _last_focused:
 			_last_active = active_now
 			_last_focused = focused_now
@@ -156,6 +164,33 @@ func exit_focus_mode() -> void:
 	if is_instance_valid(terminal):
 		if terminal.has_method("_exit_focus_mode"):
 			terminal._exit_focus_mode()
+
+func set_source_view_visible(visible: bool) -> void:
+	var terminal = _get_terminal()
+	if not is_instance_valid(terminal):
+		return
+	var mesh = terminal.get_node_or_null("ScreenContainer/ScreenMesh")
+	if is_instance_valid(mesh):
+		mesh.visible = visible
+	var viewport = terminal.get_node_or_null("Viewport")
+	if viewport is Viewport:
+		viewport.render_target_update_mode = Viewport.UPDATE_ONCE if visible else Viewport.UPDATE_DISABLED
+	_set_player_visual_hidden(not visible, terminal)
+
+func _set_player_visual_hidden(hidden: bool, terminal: Node) -> void:
+	if not hidden:
+		if is_instance_valid(_hidden_player_visual):
+			_hidden_player_visual.visible = _player_visual_was_visible
+		_hidden_player_visual = null
+		return
+	if is_instance_valid(_hidden_player_visual):
+		return
+	var player = terminal._find_player() if terminal.has_method("_find_player") else null
+	var visual = player.get_node_or_null("Visual") as Spatial if is_instance_valid(player) else null
+	if is_instance_valid(visual):
+		_player_visual_was_visible = visual.visible
+		visual.visible = false
+		_hidden_player_visual = visual
 
 func relevance(context: Dictionary = {}) -> float:
 	var rel: float = default_relevance

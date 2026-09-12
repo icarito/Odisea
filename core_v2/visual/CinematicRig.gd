@@ -18,7 +18,7 @@ var camera: Camera = null
 var anim_player: AnimationPlayer = null
 var _is_active := false
 
-# Design-time camera position (captured once at _ready, never modified)
+# Design-time camera pose relative to the rig (captured once at _ready, never modified)
 var _design_transform: Transform = Transform()
 var _design_fov: float = 70.0
 
@@ -32,7 +32,7 @@ func _ready():
 	
 	# Capture design-time camera position ONCE at ready
 	if camera:
-		_design_transform = camera.global_transform
+		_design_transform = camera.transform
 		_design_fov = camera.fov
 
 
@@ -75,7 +75,7 @@ func activate(set_current: bool = true):
 	_is_active = true
 	
 	# Restore design-time position before activation
-	camera.global_transform = _design_transform
+	camera.transform = _design_transform
 	camera.fov = _design_fov
 	
 	if set_current:
