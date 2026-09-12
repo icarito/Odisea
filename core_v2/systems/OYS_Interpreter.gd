@@ -749,7 +749,7 @@ func _execute_instruction(inst: Dictionary, my_id: int):
 				if "duration" in zone: zone.duration = duration
 				if "camera_amplitude" in zone: zone.camera_amplitude = amplitude
 				if "frequency" in zone: zone.frequency = frequency
-				if "seed" in zone: zone.seed = seed_val
+				if "rng_seed" in zone: zone.rng_seed = seed_val
 				if zone.has_method("set_active"):
 					zone.set_active(true)
 				else:
