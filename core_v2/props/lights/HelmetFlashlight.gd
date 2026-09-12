@@ -36,6 +36,15 @@ export(float, 10.0, 170.0) var aim_limit_deg := 75.0
 # Suavizado del giro. Se aplica como 1 - exp(-k*dt), que es independiente del frame rate.
 export(float, 0.5, 40.0) var aim_lerp_speed := 9.0
 
+export(float) var battery_max := 100.0
+export(float) var battery_drain_per_second := 0.4
+export(float) var battery_low_threshold := 20.0
+
+var battery := battery_max
+var _last_emitted_battery := battery_max
+
+signal battery_changed(value, max_value)
+
 onready var _spot_light: SpotLight = $SpotLight
 onready var _volumetric_cone: MeshInstance = $VolumetricCone
 onready var _emitter: MeshInstance = $Emitter
@@ -70,6 +79,18 @@ func _ready() -> void:
 	set_enabled(enabled)
 
 
+func get_battery() -> float:
+	return battery
+
+
+func get_battery_max() -> float:
+	return battery_max
+
+
+func is_battery_low() -> bool:
+	return battery <= battery_low_threshold
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_flashlight"):
 		toggle()
@@ -84,6 +105,18 @@ func _process(delta: float) -> void:
 		_scroll_offset += delta * scan_speed
 		if _material:
 			_material.set_shader_param("mask_scroll", _scroll_offset)
+
+	if enabled and battery > 0.0:
+		var prev_battery := battery
+		battery = max(0.0, battery - battery_drain_per_second * delta)
+		if battery <= 0.0:
+			battery = 0.0
+			_last_emitted_battery = 0.0
+			emit_signal("battery_changed", battery, battery_max)
+			set_enabled(false)
+		elif abs(battery - _last_emitted_battery) >= 1.0 or (prev_battery > battery_low_threshold and battery <= battery_low_threshold):
+			_last_emitted_battery = battery
+			emit_signal("battery_changed", battery, battery_max)
 
 
 # En _physics_process, no en _process: la camara y el esqueleto se actualizan en el paso
@@ -147,6 +180,8 @@ func toggle() -> void:
 
 
 func set_enabled(val: bool) -> void:
+	if val and battery <= 0.0:
+		val = false
 	enabled = val
 	if is_inside_tree():
 		if _spot_light:
@@ -231,6 +266,7 @@ func _apply_light_params() -> void:
 	if _material:
 		_material.set_shader_param("color", light_color)
 		_material.set_shader_param("use_mask", scan_mode)
+		_material.set_shader_param("mask_scroll", _scroll_offset)
 		if mask_texture:
 			_material.set_shader_param("mask", mask_texture)
 		_material.set_shader_param("mask_tiling", mask_tiling)

@@ -1,7 +1,8 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://core_v2/props/lights/HelmetFlashlight.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/visual/volumetric_cone.shader" type="Shader" id=2]
+[ext_resource path="res://core_v2/things/FlashlightScreen.tscn" type="PackedScene" id=3]
 
 [sub_resource type="SpatialMaterial" id=3]
 albedo_color = Color( 0.09, 0.11, 0.13, 1 )
@@ -72,3 +73,5 @@ transform = Transform( 2.27829, 0, 0, 0, 0, -2.27829, 0, 5.5, 0, 0, 0, -2.75 )
 cast_shadow = 0
 mesh = SubResource( 1 )
 material/0 = SubResource( 2 )
+
+[node name="FlashlightScreen" parent="." instance=ExtResource( 3 )]
