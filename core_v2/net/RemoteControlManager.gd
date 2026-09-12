@@ -31,6 +31,12 @@ var _sent_paused: int = -1
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
+	# HTML5: el navegador no puede ser servidor (WebSocketServer no es instanciable) ni
+	# hacer broadcast UDP para el descubrimiento. Sin hijos, todo el subsistema queda inerte.
+	if OS.has_feature("web"):
+		remote_control_enabled = false
+		set_process(false)
+		return
 	announcer = RemoteAnnouncer.new()
 	announcer.name = "RemoteAnnouncer"
 	add_child(announcer)
@@ -112,7 +118,7 @@ func _is_gameplay_scene(scene_path: String) -> bool:
 		and scene_path.find("RemoteControlHome.tscn") == -1
 
 func start_host_services(session_name: String = "") -> void:
-	if not remote_control_enabled:
+	if not remote_control_enabled or server == null:
 		return
 	if is_host_active:
 		return

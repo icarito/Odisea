@@ -135,6 +135,9 @@ func _setup_remote_control():
 		rcm.connect("pairing_prompt_requested", self, "_on_remote_pairing_prompt_requested")
 	if not remote_control_button:
 		return
+	if rcm == null or rcm.discovery == null:
+		remote_control_button.hide()
+		return
 	# El boton se ve gris mientras no hay ninguna partida anunciandose en la red, y toma
 	# su dorado cuando aparece una. Nunca se deshabilita: tocarlo sin partidas muestra
 	# la explicacion de que hace falta otro dispositivo en la misma wifi.
