@@ -48,7 +48,7 @@ func test_flashlight_screen_registration_and_snapshot() -> void:
 
 	var snap: Dictionary = _screen.widget_snapshot()
 	assert_str(String(snap.get("id", ""))).is_equal("player:flashlight")
-	assert_str(String(snap.get("title", ""))).is_equal("LINTERNA")
+	assert_str(String(snap.get("title", ""))).is_equal("Linterna")
 	assert_dict(snap).contains_keys(["proto", "on", "battery", "battery_max", "low", "source"])
 	assert_bool(bool(snap.get("on", true))).is_false()
 
@@ -115,7 +115,7 @@ func test_flashlight_widget_ui_snapshot() -> void:
 	add_child(widget)
 
 	widget.update_snapshot({
-		"title": "LINTERNA",
+		"title": "Linterna",
 		"on": true,
 		"battery": 50.0,
 		"battery_max": 100.0,
@@ -123,13 +123,13 @@ func test_flashlight_widget_ui_snapshot() -> void:
 		"source": "online"
 	})
 
-	assert_str(title_lbl.text).is_equal("LINTERNA")
+	assert_str(title_lbl.text).is_equal("Linterna")
 	assert_str(btn.text).is_equal("APAGAR")
 	assert_bool(btn.disabled).is_false()
 	assert_str(meter_lbl.text).is_equal("BAT: [█████░░░░░]")
 
 	widget.update_snapshot({
-		"title": "LINTERNA",
+		"title": "Linterna",
 		"on": false,
 		"battery": 0.0,
 		"battery_max": 100.0,

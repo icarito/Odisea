@@ -514,6 +514,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/systems/fire/FireVisualBand.gd"
 }, {
+"base": "HUDableComponent",
+"class": "FlashlightScreen",
+"language": "GDScript",
+"path": "res://core_v2/things/FlashlightScreen.gd"
+}, {
+"base": "PanelContainer",
+"class": "FlashlightWidget",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/FlashlightWidget.gd"
+}, {
 "base": "PropBaseV2",
 "class": "FluorescentLight",
 "language": "GDScript",
@@ -2174,6 +2184,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/TransitionPortal.gd"
 }, {
+"base": "Area",
+"class": "TremorZoneV2",
+"language": "GDScript",
+"path": "res://core_v2/components/TremorZoneV2.gd"
+}, {
 "base": "Resource",
 "class": "TrenchBroomFaceAttrib",
 "language": "GDScript",
@@ -2426,6 +2441,8 @@ _global_script_class_icons={
 "FireEmitter": "",
 "FireSystem": "",
 "FireVisualBand": "",
+"FlashlightScreen": "",
+"FlashlightWidget": "",
 "FluorescentLight": "",
 "Follow": "",
 "FootstepDetector": "",
@@ -2758,6 +2775,7 @@ _global_script_class_icons={
 "TransitPod": "",
 "TransitStation": "",
 "TransitionPortal": "",
+"TremorZoneV2": "",
 "TrenchBroomFaceAttrib": "",
 "TrenchBroomFaceAttribDefaults": "",
 "TrenchBroomGameConfig": "",
@@ -3094,12 +3112,13 @@ cargol_ability={
 toggle_flashlight={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":76,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":11,"pressure":0.0,"pressed":false,"script":null)
  ]
 }
 hud_mode={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777218,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
+, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":9,"pressure":0.0,"pressed":false,"script":null)
+, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":10,"pressure":0.0,"pressed":false,"script":null)
  ]
 }
 

@@ -29,7 +29,7 @@ func test_registration_and_snapshot() -> void:
 
 	var snapshot = _screen.widget_snapshot()
 	assert_str(snapshot.get("id", "")).is_equal("ship:systems")
-	assert_str(snapshot.get("title", "")).is_equal("Sistemas de nave")
+	assert_str(snapshot.get("title", "")).is_equal("Domo")
 	assert_str(snapshot.get("source", "")).is_equal("online")
 	assert_dict(snapshot).contains_keys(["proto", "systems"])
 

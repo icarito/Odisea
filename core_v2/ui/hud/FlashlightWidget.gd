@@ -18,7 +18,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	set_snapshot(snapshot)
 
 func set_snapshot(snapshot: Dictionary) -> void:
-	var title: String = String(snapshot.get("title", "LINTERNA"))
+	var title: String = String(snapshot.get("title", "Linterna"))
 	var source: String = String(snapshot.get("source", "online"))
 	var on: bool = bool(snapshot.get("on", false))
 	var battery: float = float(snapshot.get("battery", 100.0))

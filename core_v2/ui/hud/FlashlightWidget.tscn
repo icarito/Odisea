@@ -41,7 +41,7 @@ margin_left = 12.0
 margin_right = 184.0
 margin_bottom = 14.0
 size_flags_horizontal = 3
-text = "LINTERNA"
+text = "Linterna"
 clip_text = true
 
 [node name="MeterLabel" type="Label" parent="Margin/VBox"]

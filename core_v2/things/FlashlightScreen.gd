@@ -9,7 +9,7 @@ export(NodePath) var flashlight_path: NodePath = NodePath("")
 
 func _init() -> void:
 	hud_screen_id = "player:flashlight"
-	hud_screen_title = "LINTERNA"
+	hud_screen_title = "Linterna"
 	hud_widget_scene = WidgetScene
 	default_relevance = 0.1
 	allowed_actions = ["toggle"]

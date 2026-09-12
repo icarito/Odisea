@@ -27,7 +27,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	set_snapshot(snapshot)
 
 func set_snapshot(snapshot: Dictionary) -> void:
-	var title: String = String(snapshot.get("title", "Sistemas de nave"))
+	var title: String = String(snapshot.get("title", "Domo"))
 	var source: String = String(snapshot.get("source", "online"))
 	var systems: Dictionary = snapshot.get("systems", {})
 

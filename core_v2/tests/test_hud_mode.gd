@@ -243,13 +243,28 @@ func test_hold_hint_shows_until_first_use() -> void:
 	assert_bool(overlay._hint.visible).is_false()
 
 
-func _touch(pressed: bool) -> InputEventScreenTouch:
+# En el telefono no hay TAB: el widget del slot es el boton. Tap = la pantalla de ESE slot.
+# Simetrico con abrir tocando el widget del slot: tocar fuera de la pantalla la cierra.
+func test_tap_outside_the_view_closes_the_hud_mode() -> void:
+	_screen("test:a", "Alpha") # sin view_scene: la vista es el widget ampliado, centrado
+	var overlay = _open_and_play([UP])
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+	var inside: Vector2 = overlay._view_screen_rect().position + overlay._view_screen_rect().size * 0.5
+	overlay._input(_touch(true, inside))
+	overlay._input(_touch(false, inside))
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+	overlay._input(_touch(true, Vector2.ZERO)) # la esquina nunca es la pantalla
+	overlay._input(_touch(false, Vector2.ZERO))
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+func _touch(pressed: bool, at: Vector2 = Vector2.ZERO) -> InputEventScreenTouch:
 	var ev := InputEventScreenTouch.new()
 	ev.pressed = pressed
+	ev.position = at
 	return ev
 
 
-# En el telefono no hay TAB: el widget del slot es el boton. Tap = la pantalla de ESE slot.
 func test_widget_tap_opens_the_screen_of_that_slot() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")

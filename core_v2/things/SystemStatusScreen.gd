@@ -9,7 +9,7 @@ export(NodePath) var bus_path: NodePath = NodePath("")
 
 func _init() -> void:
 	hud_screen_id = "ship:systems"
-	hud_screen_title = "Sistemas de nave"
+	hud_screen_title = "Domo"
 	hud_widget_scene = WidgetScene
 	default_relevance = 0.1
 

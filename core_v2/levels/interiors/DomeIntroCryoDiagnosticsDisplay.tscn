@@ -42,4 +42,4 @@ transform = Transform( 0.933801, -0.00673025, -0.357728, -2.72645e-07, 0.999823,
 
 [node name="HoloTerminalHUDable" type="Node" parent="." index="5"]
 script = ExtResource( 3 )
-hud_screen_title = "Cryo Diagnostics"
+hud_screen_title = "Criogenia"

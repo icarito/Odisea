@@ -140,6 +140,10 @@ func _input(event: InputEvent) -> void:
 			_touch_start = event.position
 		elif not event.pressed and event.index == _touch_index:
 			_touch_index = -1
+			if (event.position - _touch_start).length() < TOUCH_MIN_DRAG \
+					and _is_outside_view(event.position):
+				_exit()
+				get_tree().set_input_as_handled()
 		return
 	if event is InputEventScreenDrag:
 		# Todo el arrastre, no el ultimo delta (criterio de ElevatorFloorSelector).
@@ -149,6 +153,9 @@ func _input(event: InputEvent) -> void:
 	# TAB NO se lee aca: tap/hold sale del stream (_physics_process).
 	if event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed and _selector.is_open():
 		_selector.confirm()
+	elif event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed \
+			and _is_outside_view(event.position):
+		_exit()
 	elif event.is_action_pressed("ui_cancel"):
 		_exit()
 	elif event.is_action_pressed("ui_accept") and _selector.is_open():
@@ -156,6 +163,39 @@ func _input(event: InputEvent) -> void:
 	else:
 		return
 	get_tree().set_input_as_handled()
+
+# Tocar fuera de la pantalla la cierra, simetrico con tocar el widget del slot para abrirla.
+func _is_outside_view(pos: Vector2) -> bool:
+	if not _opened or _selector.is_open() or not _mount.is_showing():
+		return false
+	var rect: Rect2 = _view_screen_rect()
+	return rect.size.x > 0.0 and rect.size.y > 0.0 and not rect.has_point(pos)
+
+
+# El area que ocupa la vista en pantalla: el widget ampliado (2D) o, lo habitual, el cuadro del
+# presentador 3D proyectado con la camara.
+func _view_screen_rect() -> Rect2:
+	var widget: Control = _mount.get_widget()
+	if is_instance_valid(widget):
+		var scaled: Vector2 = widget.rect_size * widget.rect_scale
+		return Rect2(widget.rect_global_position + widget.rect_pivot_offset - scaled * 0.5, scaled)
+	var presenter: Spatial = _mount.get_presenter()
+	var camera: Camera = get_viewport().get_camera()
+	if presenter == null or camera == null:
+		return Rect2()
+	# El mesh puede estar reparentado a la camara (hud_attach_as_child), como en reveal_presenter.
+	var mesh = presenter._get_hud_attach_target() if presenter.has_method("_get_hud_attach_target") \
+		else presenter.get_node_or_null("ScreenContainer/ScreenMesh")
+	if not is_instance_valid(mesh) or not ("width" in mesh) or not ("height" in mesh):
+		return Rect2()
+	var half_w: float = float(mesh.width) * 0.5
+	var half_h: float = float(mesh.height) * 0.5
+	var xf: Transform = mesh.global_transform
+	var rect := Rect2(camera.unproject_position(xf.xform(Vector3(-half_w, -half_h, 0.0))), Vector2.ZERO)
+	for corner in [Vector3(half_w, -half_h, 0.0), Vector3(-half_w, half_h, 0.0), Vector3(half_w, half_h, 0.0)]:
+		rect = rect.expand(camera.unproject_position(xf.xform(corner)))
+	return rect
+
 
 # Solo cuenta el angulo; la magnitud fija saca del hub_epsilon aunque el dial no tenga tamaño.
 func _point_at(direction: Vector2) -> void:
