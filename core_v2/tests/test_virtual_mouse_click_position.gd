@@ -50,6 +50,14 @@ func test_injected_click_keeps_the_cursor_coordinates() -> void:
 	click.pressed = true
 	click.position = cursor._position
 	click.global_position = cursor._position
+	# Suites previas del mismo proceso (GdUnitSceneRunner, GUI de motion) dejan
+	# SceneTree.input_handled en true, y en CI headless no hay eventos de OS que lo
+	# reseteen. El root viewport delega en ese flag (handle_input_locally=false en
+	# SceneTree) y Viewport.input() corta la entrega: sin resetear, el click inyectado
+	# no llega a nadie. Un key event sin foco pasa por el dispatch real, que resetea
+	# el flag al inicio y nadie lo consume.
+	Input.parse_input_event(InputEventKey.new())
+	Input.flush_buffered_events()
 	cursor._emit_event(click)
 
 	assert_int(spy.seen.size()).is_equal(1)
