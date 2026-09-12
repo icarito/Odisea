@@ -812,15 +812,19 @@ jobs:
           # PortMaster, y ROCKNIX no tiene GL de escritorio (su libGL.so.1 es un
           # stub), asi que el handheld corre GLES2 y pide las variantes .etc.
           # Sin ETC1 las texturas comprimidas no cargan ahi.
-          # bptc, etc, etc2, pvrtc -> True = importar. S3TC siempre se genera.
+          # True = importar. s3tc TIENE que estar en el dict: lo que no se nombra aca no
+          # se escribe en project.godot y el motor lo deja en su default (true), asi que
+          # el pase de import del step Export lo regenera y limit_vram_import_formats.py
+          # no puede quitarlo. Ninguna GPU ARM soporta S3TC: en linux_arm64 eran 100 MB
+          # de .stex que el handheld nunca abre (medido en el .pck del nightly).
           fmts = {
-              "linux_x64":   dict(bptc=False, etc=False, etc2=False, pvrtc=False),
-              "windows":     dict(bptc=False, etc=False, etc2=False, pvrtc=False),
-              "macos":       dict(bptc=False, etc=False, etc2=False, pvrtc=False),
-              "linux_arm64": dict(bptc=False, etc=True,  etc2=True,  pvrtc=False),
-              "android":     dict(bptc=False, etc=False, etc2=True,  pvrtc=False),
-              "html5":       dict(bptc=False, etc=False, etc2=True,  pvrtc=False),
-              "ios":         dict(bptc=False, etc=False, etc2=True,  pvrtc=True),
+              "linux_x64":   dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
+              "windows":     dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
+              "macos":       dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
+              "linux_arm64": dict(s3tc=False, bptc=False, etc=True,  etc2=True,  pvrtc=False),
+              "android":     dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=False),
+              "html5":       dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=False),
+              "ios":         dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=True),
           }[platform]
 
           # 1) project.godot: ajustar vram_compression/import_* dentro de [rendering].
@@ -899,7 +903,7 @@ jobs:
           fi
           H=$({
             echo "$GODOT_KEY"
-            grep -E '^vram_compression/import_(bptc|etc|etc2|pvrtc)=' project.godot | sort
+            grep -E '^vram_compression/import_(s3tc|bptc|etc|etc2|pvrtc)=' project.godot | sort
           } | sha256sum | cut -d' ' -f1)
           echo "hash=$H" >> "$GITHUB_OUTPUT"
 

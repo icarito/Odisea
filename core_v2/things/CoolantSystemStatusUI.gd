@@ -42,8 +42,13 @@ class TankGauge extends Control:
 
 onready var _cards_container: VBoxContainer = get_node("Rows")
 
+# Se dispara con cada cambio real de nivel (CoolantTank ya emite level_changed solo
+# entonces). El bus (HoloTerminalHUDable) la propaga al snapshot del terminal.
+signal state_changed
+
 var _tank_label: Label = null
-var _tank_gauges := {}  # tank -> TankGauge
+var _tank_gauges := {}  # tank -> TankGauge (vivo)
+var _gauge_order: Array = []  # gauges en orden de fila (vivo y remoto comparten esto)
 
 
 func _ready() -> void:

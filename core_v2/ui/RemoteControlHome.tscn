@@ -38,14 +38,6 @@ margin_right = 376.0
 margin_bottom = 560.0
 mouse_filter = 2
 
-[node name="HUDButton" type="Button" parent="."]
-anchor_left = 0.02
-anchor_top = 0.88
-anchor_right = 0.25
-anchor_bottom = 0.96
-rect_min_size = Vector2( 120, 44 )
-text = "Pantallas HUD"
-
 [node name="FullScreenOverlay" type="Control" parent="."]
 visible = false
 anchor_right = 1.0
@@ -61,14 +53,6 @@ anchor_left = 0.05
 anchor_top = 0.05
 anchor_right = 0.95
 anchor_bottom = 0.85
-
-[node name="CloseViewButton" type="Button" parent="FullScreenOverlay"]
-anchor_left = 0.4
-anchor_top = 0.88
-anchor_right = 0.6
-anchor_bottom = 0.96
-rect_min_size = Vector2( 120, 44 )
-text = "Cerrar Vista"
 
 [node name="RadialOverlay" type="Control" parent="."]
 anchor_right = 1.0

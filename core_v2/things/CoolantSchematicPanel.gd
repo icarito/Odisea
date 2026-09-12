@@ -65,6 +65,14 @@ var _blink_phase := 0.0
 var _blink_accum := 0.0
 var _blink_on := false
 
+# Estado recibido por apply_state() cuando este panel corre en el control remoto (no hay
+# grupo coolant_valve ni gloo_patchable ahi): el mismo view model que collect_state()
+# arma del mundo en el host. Dibuja de el; sin datos, dibuja offline como siempre.
+var _remote_state: Dictionary = {}
+
+# El bus (HoloTerminalHUDable) propaga esto al snapshot del terminal.
+signal state_changed
+
 
 func _ready() -> void:
 	# Este panel vive dentro de un HoloTerminalV2 con static_content=true (Viewport en
@@ -113,6 +121,191 @@ func _setup_fissure_connections() -> void:
 func _on_state_changed(_arg = null) -> void:
 	update()
 	_request_redraw()
+	emit_signal("state_changed")
+
+
+# --- DATA BRIDGE (FD-296 F4: el control remoto dibuja del snapshot, no del mundo) ---
+
+# Estado efectivo de un punto de parche: el estado de su fuga, o el degradado que deja
+# un parche aun no firme. Es la misma regla que ya usaba el dibujo de planta y
+# _map_fissures_to_segments; unificada aca para que collect_state y el dibujo coincidan.
+func _effective_patch_state(patch_point) -> int:
+	var leak_node = patch_point.get("_leak") if "_leak" in patch_point else null
+	var leak_state = CoolantLeak.State.HEALTHY
+	if leak_node and is_instance_valid(leak_node) and leak_node.has_method("get_state"):
+		leak_state = leak_node.call("get_state")
+	if not (patch_point.has_method("is_patched") and patch_point.call("is_patched")):
+		return int(leak_state)
+	var is_firm: bool = patch_point.call("is_firmly_patched") if patch_point.has_method("is_firmly_patched") else false
+	return int(CoolantLeak.State.HEALTHY if is_firm else CoolantLeak.State.WARNING)
+
+
+func _valve_is_open(valve) -> bool:
+	if valve == null or not is_instance_valid(valve) or not ("is_active" in valve):
+		return true # sin valvula no hay nada que corte el caudal
+	return bool(valve.get("is_active"))
+
+
+func _valves_open_flags(valves: Array) -> Array:
+	var flags: Array = []
+	for valve in valves:
+		flags.append(_valve_is_open(valve))
+	return flags
+
+
+# Fugas de anillo para la planta: posicion real de mundo + estado efectivo, JSON-safe.
+func _collect_planta_leaks(patch_points: Array) -> Array:
+	var leaks: Array = []
+	for patch_point in patch_points:
+		if not is_instance_valid(patch_point):
+			continue
+		var label_str: String = _floor_label(patch_point).to_lower() + " " + patch_point.name.to_lower()
+		if "interlink" in label_str or not ("ring" in label_str):
+			continue
+		var pos = patch_point.get("global_position") if patch_point is Spatial else null
+		if pos == null:
+			continue
+		var floor_idx: int = _extract_floor_index(label_str)
+		leaks.append({
+			"pos": [float(pos.x), float(pos.z)],
+			"ring": int(clamp(floor_idx, 1, NUM_FLOORS - 1)),
+			"state": _effective_patch_state(patch_point)
+		})
+	return leaks
+
+
+# Posicion de la fuga del bucle CryoLoop de un lado (piso 2): mismo matcheo que usaba
+# el dibujo (primer punto de parche de ese lado). [] si la escena no la trae.
+func _collect_hub_pos(patch_points: Array, side: String) -> Array:
+	for patch_point in patch_points:
+		if not is_instance_valid(patch_point):
+			continue
+		var label_str: String = _floor_label(patch_point).to_lower() + " " + patch_point.name.to_lower()
+		if (side == "east") != ("east" in label_str):
+			continue
+		var pos = patch_point.get("global_position") if patch_point is Spatial else null
+		if pos != null:
+			return [float(pos.x), float(pos.z)]
+	return []
+
+
+# Tanques para la planta: posicion + nivel, JSON-safe.
+func _collect_tanks() -> Array:
+	var out: Array = []
+	for tank in get_tree().get_nodes_in_group("coolant_source"):
+		if not is_instance_valid(tank) or not ("tank_level" in tank):
+			continue
+		var pos = tank.get("global_position") if tank is Spatial else null
+		if pos == null:
+			continue
+		out.append({
+			"pos": [float(pos.x), float(pos.z)],
+			"level": clamp(float(tank.get("tank_level")), 0.0, 1.0)
+		})
+	return out
+
+
+# View model completo del circuito desde el mundo vivo. Es lo que viaja al control
+# remoto como snapshot["cryo"]["schematic"] y lo unico que el dibujo consume.
+func collect_state() -> Dictionary:
+	var valves: Array = get_tree().get_nodes_in_group("coolant_valve")
+	var patch_points: Array = get_tree().get_nodes_in_group("gloo_patchable")
+	if valves.empty() and patch_points.empty():
+		return {}
+
+	var layout: Dictionary = _map_valves_to_layout(valves)
+	var interlink_valve = layout.get("interlink", null)
+	var segment_states: Dictionary = _map_fissures_to_segments(patch_points)
+
+	return {
+		"is_live": true,
+		"west_open": _valves_open_flags(layout.get("west", [])),
+		"east_open": _valves_open_flags(layout.get("east", [])),
+		"has_interlink": interlink_valve != null and is_instance_valid(interlink_valve),
+		"interlink_open": _valve_is_open(interlink_valve),
+		"west_states": segment_states.get("west", []),
+		"east_states": segment_states.get("east", []),
+		"west_rings": segment_states.get("west_rings", []),
+		"east_rings": segment_states.get("east_rings", []),
+		"interlink_state": int(segment_states.get("interlink", CoolantLeak.State.HEALTHY)),
+		"tank_west": _tank_level("west"),
+		"tank_east": _tank_level("east"),
+		"tanks": _collect_tanks(),
+		"planta_leaks": _collect_planta_leaks(patch_points),
+		"hub_west": _collect_hub_pos(patch_points, "west"),
+		"hub_east": _collect_hub_pos(patch_points, "east")
+	}
+
+
+func apply_state(data: Dictionary) -> void:
+	if typeof(data) != TYPE_DICTIONARY or data.empty():
+		return
+	_remote_state = data.duplicate(true)
+	update()
+	_request_redraw()
+
+
+# El modelo de entrada del dibujo: mundo vivo si existe, si no los datos del host, y
+# solo si no hay nada, el circuito offline de siempre (tests, escenas sin circuito).
+func _gather_model() -> Dictionary:
+	var valves: Array = get_tree().get_nodes_in_group("coolant_valve")
+	var patch_points: Array = get_tree().get_nodes_in_group("gloo_patchable")
+	if (not valves.empty()) or (not patch_points.empty()):
+		return _build_live_model(valves, patch_points)
+	if not _remote_state.empty():
+		return _remote_state
+	return _offline_model()
+
+
+func _build_live_model(valves: Array, patch_points: Array) -> Dictionary:
+	var layout: Dictionary = _map_valves_to_layout(valves)
+	var interlink_valve = layout.get("interlink", null)
+	var segment_states: Dictionary = _map_fissures_to_segments(patch_points)
+	return {
+		"is_live": true,
+		"west_open": _valves_open_flags(layout.get("west", [])),
+		"east_open": _valves_open_flags(layout.get("east", [])),
+		"has_interlink": interlink_valve != null and is_instance_valid(interlink_valve),
+		"interlink_open": _valve_is_open(interlink_valve),
+		"west_states": segment_states.get("west", []),
+		"east_states": segment_states.get("east", []),
+		"west_rings": segment_states.get("west_rings", []),
+		"east_rings": segment_states.get("east_rings", []),
+		"interlink_state": int(segment_states.get("interlink", CoolantLeak.State.HEALTHY)),
+		"tank_west": _tank_level("west"),
+		"tank_east": _tank_level("east"),
+		"tanks": _collect_tanks(),
+		"planta_leaks": _collect_planta_leaks(patch_points),
+		"hub_west": _collect_hub_pos(patch_points, "west"),
+		"hub_east": _collect_hub_pos(patch_points, "east")
+	}
+
+
+func _offline_model() -> Dictionary:
+	var states := []
+	var rings := []
+	for _i in range(NUM_FLOORS - 1):
+		states.append(CoolantLeak.State.HEALTHY)
+	for _i in range(NUM_FLOORS):
+		rings.append(CoolantLeak.State.HEALTHY)
+	return {
+		"is_live": false,
+		"west_open": [], "east_open": [], "has_interlink": false, "interlink_open": true,
+		"west_states": states, "east_states": states.duplicate(),
+		"west_rings": rings, "east_rings": rings.duplicate(),
+		"interlink_state": CoolantLeak.State.HEALTHY,
+		"tank_west": 1.0, "tank_east": 1.0,
+		"tanks": _collect_tanks(),
+		"planta_leaks": [], "hub_west": [], "hub_east": []
+	}
+
+
+func _flows_for(model: Dictionary) -> Dictionary:
+	var west_flow: Dictionary = _solve_column_flow(model.get("west_open", []),
+		model.get("west_states", []), model.get("west_rings", []), float(model.get("tank_west", 1.0)))
+	var east_flow: Dictionary = _solve_column_flow(model.get("east_open", []),
+		model.get("east_states", []), model.get("east_rings", []), float(model.get("tank_east", 1.0)))
+	return {"west": west_flow, "east": east_flow}
 
 
 func _draw() -> void:
@@ -135,36 +328,13 @@ func _draw() -> void:
 	var center_offset: float = max((available_width - CONTENT_WIDTH) * 0.5, 0.0)
 	draw_set_transform(Vector2(CARD_MARGIN + center_offset - CONTENT_LEFT, CARD_MARGIN), 0.0, Vector2.ONE)
 
-	var valves: Array = get_tree().get_nodes_in_group("coolant_valve")
-	var patch_points: Array = get_tree().get_nodes_in_group("gloo_patchable")
-
-	var is_live: bool = (not valves.empty()) or (not patch_points.empty())
-
-	# Map valves to layout nodes
-	var layout: Dictionary = _map_valves_to_layout(valves)
-	var west_valves = layout.get("west", [])
-	var east_valves = layout.get("east", [])
-	var interlink_valve = layout.get("interlink", null)
-
-	# Map fissures to pipe segment states
-	var segment_states: Dictionary = _map_fissures_to_segments(patch_points)
-	var west_states: Array = segment_states.get("west", [])
-	var east_states: Array = segment_states.get("east", [])
-	var west_rings: Array = segment_states.get("west_rings", [])
-	var east_rings: Array = segment_states.get("east_rings", [])
-	var interlink_state = segment_states.get("interlink", CoolantLeak.State.HEALTHY)
-
-	# Caudal por tramo: el mismo modelo que CoolantFlowAdapter, sobre la abstraccion de
-	# pisos del diagrama. La linea de piso de cada nivel es un RAMAL: se alimenta del tronco
-	# pero lo que le pasa no frena la columna de arriba.
-	var west_flow: Dictionary = _solve_column_flow(west_valves, west_states, west_rings, _tank_level("west"))
-	var east_flow: Dictionary = _solve_column_flow(east_valves, east_states, east_rings, _tank_level("east"))
+	var model: Dictionary = _gather_model()
+	var flows: Dictionary = _flows_for(model)
 
 	var font = get_font("font")
 	var blinking := false
-	blinking = _draw_alzado(west_valves, east_valves, interlink_valve, west_states, east_states,
-		west_rings, east_rings, west_flow, east_flow, interlink_state, is_live, font) or blinking
-	blinking = _draw_planta(patch_points, west_rings, east_rings, west_flow, east_flow, is_live) or blinking
+	blinking = _draw_alzado(model, flows, font) or blinking
+	blinking = _draw_planta(model, flows, font) or blinking
 
 	_set_blinking(blinking)
 
@@ -172,11 +342,21 @@ func _draw() -> void:
 # Vista ortografica ALZADO: las dos columnas de riser con sus valvulas, y el tramo de
 # piso de cada nivel corriendo hacia adentro hasta su T de fin en Rail-B. Ya no hay
 # medio-toros que se encuentren en un LINK central: esa interconexion no existe.
-func _draw_alzado(west_valves: Array, east_valves: Array, interlink_valve,
-		west_states: Array, east_states: Array, west_rings: Array, east_rings: Array,
-		west_flow: Dictionary, east_flow: Dictionary, interlink_state: int,
-		is_live: bool, font) -> bool:
+# Consume el view model (valvulas como flags open/closed, estados como ints), no nodos:
+# asi el mismo dibujo sirve en el host (modelo del mundo) y en el control remoto
+# (modelo recibido por apply_state).
+func _draw_alzado(model: Dictionary, flows: Dictionary, font) -> bool:
 	var blinking := false
+	var is_live: bool = bool(model.get("is_live", false))
+	var west_open: Array = model.get("west_open", [])
+	var east_open: Array = model.get("east_open", [])
+	var west_states: Array = model.get("west_states", [])
+	var east_states: Array = model.get("east_states", [])
+	var west_rings: Array = model.get("west_rings", [])
+	var east_rings: Array = model.get("east_rings", [])
+	var west_flow: Dictionary = flows["west"]
+	var east_flow: Dictionary = flows["east"]
+	var interlink_state: int = int(model.get("interlink_state", CoolantLeak.State.HEALTHY))
 	if font != null:
 		draw_string(font, Vector2(X_WEST - 20, 16), "OESTE", COLOR_TEXT)
 		draw_string(font, Vector2(X_EAST - 14, 16), "ESTE", COLOR_TEXT)
@@ -218,36 +398,41 @@ func _draw_alzado(west_valves: Array, east_valves: Array, interlink_valve,
 	for i in range(NUM_FLOORS):
 		var pos_w := Vector2(X_WEST, Y_BOTTOM - float(i) * Y_STEP)
 		var pos_e := Vector2(X_EAST, Y_BOTTOM - float(i) * Y_STEP)
-		draw_circle(pos_w, 6.5, _get_valve_color(west_valves[i] if i < west_valves.size() else null, is_live))
-		draw_circle(pos_e, 6.5, _get_valve_color(east_valves[i] if i < east_valves.size() else null, is_live))
+		draw_circle(pos_w, 6.5, _valve_color(bool(west_open[i]) if i < west_open.size() else true, is_live))
+		draw_circle(pos_e, 6.5, _valve_color(bool(east_open[i]) if i < east_open.size() else true, is_live))
 		if font != null:
 			draw_string(font, Vector2(X_WEST - 32, pos_w.y + 4), "P%d" % i, COLOR_TEXT)
 			draw_string(font, Vector2(X_EAST + 12, pos_e.y + 4), "P%d" % i, COLOR_TEXT)
 
 	# 6. Valvula de interconexion: solo si la escena trae una (el domo ya no la tiene).
-	if interlink_valve != null and is_instance_valid(interlink_valve):
+	if bool(model.get("has_interlink", false)):
 		var mid := Vector2((X_WEST + X_EAST) * 0.5, Y_BOTTOM - float(NUM_FLOORS - 1) * Y_STEP)
-		draw_circle(mid, 7.5, _get_valve_color(interlink_valve, is_live))
+		draw_circle(mid, 7.5, _valve_color(bool(model.get("interlink_open", true)), is_live))
 		if _is_compromised(int(interlink_state)):
 			blinking = _draw_fissure_marker(mid, int(interlink_state), is_live) or blinking
 
 	# 7. Marcador de fisura del tronco sobre cada tramo comprometido, parpadeando.
 	for i in range(NUM_FLOORS - 1):
 		var y_mid: float = Y_BOTTOM - (float(i) + 0.5) * Y_STEP
-		blinking = _draw_fissure_marker(Vector2(X_WEST, y_mid), int(west_states[i]), is_live) or blinking
-		blinking = _draw_fissure_marker(Vector2(X_EAST, y_mid), int(east_states[i]), is_live) or blinking
+		blinking = _draw_fissure_marker(Vector2(X_WEST, y_mid), int(west_states[i]) if i < west_states.size() else CoolantLeak.State.HEALTHY, is_live) or blinking
+		blinking = _draw_fissure_marker(Vector2(X_EAST, y_mid), int(east_states[i]) if i < east_states.size() else CoolantLeak.State.HEALTHY, is_live) or blinking
 	return blinking
 
 
 # Vista ortografica PLANTA: proyeccion superior del domo. Rieles en az 180/0
 # (Rail-A, los risers) y 105/285 (Rail-B, el fin de cada linea), arcos de piso por
 # nivel, bucles CryoLoop del piso 2 y tanques con su nivel. Los marcadores de fuga
-# de anillo se dibujan en su posicion real del mundo.
-func _draw_planta(patch_points: Array, west_rings: Array, east_rings: Array,
-		west_flow: Dictionary, east_flow: Dictionary, is_live: bool) -> bool:
+# de anillo se dibujan en su posicion real del mundo (viajan en el modelo como [x,z]).
+func _draw_planta(model: Dictionary, flows: Dictionary, font) -> bool:
+	var blinking := false
+	var is_live: bool = bool(model.get("is_live", false))
+	var west_rings: Array = model.get("west_rings", [])
+	var east_rings: Array = model.get("east_rings", [])
+	var west_flow: Dictionary = flows["west"]
+	var east_flow: Dictionary = flows["east"]
+	var patch_points: Array = model.get("planta_leaks", [])
 	var cx := CONTENT_LEFT + CONTENT_WIDTH * 0.5
 	var cy := PLANTA_CY
-	var blinking := false
 
 	# Cascaron del domo y cruz de centro, de referencia.
 	draw_arc(Vector2(cx, cy), DOME_R * PLANTA_S, 0.0, TAU, 64, Color(COLOR_OFFLINE_PIPE, 0.55), 1.5, true)
@@ -297,52 +482,38 @@ func _draw_planta(patch_points: Array, west_rings: Array, east_rings: Array,
 
 	# Bucles CryoLoop del piso 2: ramal desde su T (az 189 / 14) hasta la posicion real
 	# de la fuga del bucle, y un circulito marcando el bucle.
-	for hub in [{"az": AZ_HUB_W, "tag": "westfloor1", "rings": west_rings}, {"az": AZ_HUB_E, "tag": "eastfloor1", "rings": east_rings}]:
-		var leak_pos = _planta_hub_pos(patch_points, str(hub["tag"]))
-		if leak_pos == null:
+	for hub in [{"az": AZ_HUB_W, "tag": "hub_west", "rings": west_rings}, {"az": AZ_HUB_E, "tag": "hub_east", "rings": east_rings}]:
+		var hub_pos: Array = model.get(str(hub["tag"]), [])
+		if hub_pos.size() < 2:
 			continue
+		var leak_pos := _planta_pt(float(hub_pos[0]), float(hub_pos[1]))
 		var t0 := _planta_pt(DOME_R * cos(deg2rad(float(hub["az"]))), DOME_R * sin(deg2rad(float(hub["az"]))))
 		var state_hub: int = int(hub["rings"][1]) if 1 < (hub["rings"] as Array).size() else CoolantLeak.State.HEALTHY
 		draw_line(t0, leak_pos, _get_pipe_color(state_hub, is_live), 2.0, true)
 		draw_circle(leak_pos, 3.5, _get_pipe_color(state_hub, is_live))
 		blinking = _draw_fissure_marker(leak_pos, state_hub, is_live) or blinking
 
-	# Tanques: circulo con relleno proporcional al nivel.
-	for tank in get_tree().get_nodes_in_group("coolant_source"):
-		if not is_instance_valid(tank) or not ("tank_level" in tank):
+	# Tanques: circulo con relleno proporcional al nivel (posiciones viajan en el modelo).
+	for tank in model.get("tanks", []):
+		var tpos: Array = tank.get("pos", [])
+		if tpos.size() < 2:
 			continue
-		var pos = tank.get("global_position") if tank is Spatial else null
-		if pos == null:
-			continue
-		var tp := Vector2(cx + float(pos.x) * PLANTA_S, cy + float(pos.z) * PLANTA_S)
-		var level: float = clamp(float(tank.get("tank_level")), 0.0, 1.0)
+		var tp := _planta_pt(float(tpos[0]), float(tpos[1]))
+		var level: float = clamp(float(tank.get("level", 1.0)), 0.0, 1.0)
 		draw_circle(tp, 2.5 * PLANTA_S, Color(COLOR_OFFLINE_PIPE, 0.4))
 		draw_arc(tp, 2.5 * PLANTA_S, 0.0, TAU, 32, COLOR_TEXT, 1.5, true)
 		if level > 0.01:
 			draw_circle(tp, (2.5 * PLANTA_S - 2.0) * level, Color(COLOR_FLOW.r, COLOR_FLOW.g, COLOR_FLOW.b, 0.45))
 
 	# Marcadores de fuga de anillo en su posicion real, sobre el arco de su piso.
-	for patch_point in patch_points:
-		if not is_instance_valid(patch_point):
+	for leak in patch_points:
+		var lpos: Array = leak.get("pos", [])
+		if lpos.size() < 2:
 			continue
-		var label_str: String = _floor_label(patch_point).to_lower() + " " + patch_point.name.to_lower()
-		if "interlink" in label_str or not ("ring" in label_str):
-			continue
-		var pos = patch_point.get("global_position") if patch_point is Spatial else null
-		if pos == null:
-			continue
-		var floor_idx: int = _extract_floor_index(label_str)
-		var ring_idx: int = int(clamp(floor_idx, 1, NUM_FLOORS - 1))
-		var leak_node = patch_point.get("_leak") if "_leak" in patch_point else null
-		var leak_state = CoolantLeak.State.HEALTHY
-		if leak_node and is_instance_valid(leak_node) and leak_node.has_method("get_state"):
-			leak_state = leak_node.call("get_state")
-		var is_patched: bool = patch_point.call("is_patched") if patch_point.has_method("is_patched") else false
-		var is_firm: bool = patch_point.call("is_firmly_patched") if patch_point.has_method("is_firmly_patched") else false
-		if is_patched:
-			leak_state = CoolantLeak.State.HEALTHY if is_firm else CoolantLeak.State.WARNING
+		var ring_idx: int = int(clamp(int(leak.get("ring", 1)), 1, NUM_FLOORS - 1))
+		var leak_state: int = int(leak.get("state", CoolantLeak.State.HEALTHY))
 		var r_f: float = (DOME_R * PLANTA_S) + float(ring_idx - 3) * 4.0
-		var az := rad2deg(atan2(float(pos.z), float(pos.x)))
+		var az := rad2deg(atan2(float(lpos[1]), float(lpos[0])))
 		if az < 0.0:
 			az += 360.0
 		var mp := Vector2(cx + r_f * cos(deg2rad(az)), cy + r_f * sin(deg2rad(az)))
@@ -357,23 +528,6 @@ func _draw_planta(patch_points: Array, west_rings: Array, east_rings: Array,
 # Punto de planta para coordenadas de mundo (x, z).
 func _planta_pt(x_m: float, z_m: float) -> Vector2:
 	return Vector2(CONTENT_LEFT + CONTENT_WIDTH * 0.5 + x_m * PLANTA_S, PLANTA_CY + z_m * PLANTA_S)
-
-
-# Posicion en planta del bucle CryoLoop de un lado: la fuga "Floor1" de esa rama
-# vive sobre el bucle. Null si la escena no la trae (tests, CoolantLab).
-func _planta_hub_pos(patch_points: Array, tag: String):
-	for patch_point in patch_points:
-		if not is_instance_valid(patch_point):
-			continue
-		var label_str: String = _floor_label(patch_point).to_lower() + " " + patch_point.name.to_lower()
-		var is_east: bool = "east" in label_str
-		if (tag == "eastfloor1") != is_east:
-			continue
-		var pos = patch_point.get("global_position") if patch_point is Spatial else null
-		if pos != null:
-			return Vector2(CONTENT_LEFT + CONTENT_WIDTH * 0.5 + float(pos.x) * PLANTA_S,
-				PLANTA_CY + float(pos.z) * PLANTA_S)
-	return null
 
 
 # Nivel del tanque de una rama, para que una columna sin refrigerante se lea seca aunque
@@ -395,16 +549,18 @@ func _tank_level(side: String) -> float:
 
 # Mismo modelo que CoolantFlowAdapter.compute_flow(): la valvula del piso i corta el tramo
 # que sube del piso i al i+1, la fisura de un tramo consume su caudal, y el medio toro del
-# piso i+1 es un RAMAL alimentado por lo que sale de ese tramo.
-func _solve_column_flow(valves: Array, trunk_states: Array, ring_states: Array, tank_level: float) -> Dictionary:
+# piso i+1 es un RAMAL alimentado por lo que sale de ese tramo. Las valvulas llegan como
+# flags open/closed (así viajan en el modelo): sin flag asume abierta, igual que una
+# valvula ausente en el grupo no cortaba nada.
+func _solve_column_flow(valve_open: Array, trunk_states: Array, ring_states: Array, tank_level: float) -> Dictionary:
 	var trunk := []
 	var ring := []
 	for _i in range(NUM_FLOORS):
 		ring.append(0.0)
 	var carrying: float = clamp(tank_level, 0.0, 1.0)
 	for i in range(NUM_FLOORS - 1):
-		var valve = valves[i] if i < valves.size() else null
-		if valve != null and is_instance_valid(valve) and "is_active" in valve and not bool(valve.get("is_active")):
+		var open: bool = bool(valve_open[i]) if i < valve_open.size() else true
+		if not open:
 			carrying = 0.0
 		var t_state: int = int(trunk_states[i]) if i < trunk_states.size() else CoolantLeak.State.HEALTHY
 		carrying = carrying * (1.0 - _leak_loss(t_state))
@@ -538,20 +694,7 @@ func _map_fissures_to_segments(patch_points: Array) -> Dictionary:
 		if not is_instance_valid(patch_point):
 			continue
 
-		var is_patched: bool = patch_point.call("is_patched") if patch_point.has_method("is_patched") else false
-		var is_firm: bool = patch_point.call("is_firmly_patched") if patch_point.has_method("is_firmly_patched") else false
-		var leak_node = patch_point.get("_leak") if "_leak" in patch_point else null
-		var leak_state = CoolantLeak.State.HEALTHY
-
-		if leak_node and is_instance_valid(leak_node) and leak_node.has_method("get_state"):
-			leak_state = leak_node.call("get_state")
-
-		var effective_state = leak_state
-		if is_patched:
-			if is_firm:
-				effective_state = CoolantLeak.State.HEALTHY
-			else:
-				effective_state = CoolantLeak.State.WARNING
+		var effective_state: int = _effective_patch_state(patch_point)
 
 		var label_str: String = _floor_label(patch_point).to_lower() + " " + patch_point.name.to_lower()
 		var floor_idx: int = _extract_floor_index(label_str)
@@ -622,15 +765,10 @@ func _get_pipe_color(leak_state: int, is_live: bool) -> Color:
 			return COLOR_PIPE_HEALTHY
 
 
-func _get_valve_color(valve_node: Node, is_live: bool) -> Color:
-	if not is_live or valve_node == null or not is_instance_valid(valve_node):
+func _valve_color(is_open: bool, is_live: bool) -> Color:
+	if not is_live:
 		return COLOR_OFFLINE_VALVE
-
-	var is_open: bool = bool(valve_node.get("is_active")) if "is_active" in valve_node else false
-	if is_open:
-		return COLOR_VALVE_OPEN
-	else:
-		return COLOR_VALVE_CLOSED
+	return COLOR_VALVE_OPEN if is_open else COLOR_VALVE_CLOSED
 
 
 func _sort_by_floor_name(a: Node, b: Node) -> bool:

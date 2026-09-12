@@ -93,6 +93,31 @@ func send_ui_directive(op: String, payload) -> void:
 	var msg = RemoteProtocol.create_ui_message(op, payload)
 	_broadcast_to_paired(RemoteProtocol.encode_json(msg))
 
+# Un control emparejado que corre en ESTA misma maquina (dos ventanas, se alternan con
+# alt-tab). Lo usa PauseManager para no pausar al perder el foco: ahi cambiar de ventana
+# es parte de manejar el juego, y el jugador no se fue a ningun lado.
+func has_local_paired_client() -> bool:
+	if not _server_started:
+		return false
+	for peer_id in _peers:
+		if not _peers[peer_id].get("paired", false):
+			continue
+		if is_local_address(_ws_server.get_peer_address(peer_id)):
+			return true
+	return false
+
+func is_local_address(address: String) -> bool:
+	if address == "":
+		return false
+	# Un cliente IPv4 sobre un socket IPv6 llega como ::ffff:127.0.0.1.
+	var addr := address
+	if addr.begins_with("::ffff:"):
+		addr = addr.substr(7, addr.length() - 7)
+	if addr.begins_with("127.") or addr == "::1" or addr == "0:0:0:0:0:0:0:1":
+		return true
+	# Misma maquina por su IP de red, no por loopback (es como se anuncia en la LAN).
+	return addr in IP.get_local_addresses()
+
 func _broadcast_to_paired(json_str: String) -> void:
 	for peer_id in _peers:
 		if _peers[peer_id].get("paired", false):

@@ -27,10 +27,8 @@ const RADIAL_AIM_DEADZONE := 8.0
 
 onready var exit_confirm: ConfirmationDialog = $ExitConfirm
 onready var widget_host: Container = $WidgetHost
-onready var hud_button: Button = $HUDButton
 onready var fullscreen_overlay: Control = $FullScreenOverlay
 onready var view_host: Container = $FullScreenOverlay/ViewHost
-onready var close_view_button: Button = $FullScreenOverlay/CloseViewButton
 onready var radial_overlay: Control = $RadialOverlay
 
 var _input_provider: InputProviderV2 = null
@@ -84,10 +82,6 @@ func _ready() -> void:
 	preload("res://core_v2/ui/DialogButtons.gd").fit_for_touch(exit_confirm)
 	$ExitLayer/ExitButton.connect("pressed", self, "_on_exit_pressed")
 
-	if hud_button:
-		hud_button.connect("pressed", self, "_on_hud_button_pressed")
-	if close_view_button:
-		close_view_button.connect("pressed", self, "_on_close_view_pressed")
 	if view_host:
 		view_host.connect("resized", self, "_fit_view_node")
 
@@ -169,7 +163,14 @@ func _physics_process(_delta: float) -> void:
 	if _radial_is_open():
 		return
 	if not _raw_passthrough:
-		client.send_input_data(_input_provider.get_input().to_dict())
+		var data: Dictionary = _input_provider.get_input().to_dict()
+		# El HUD es de ESTE dispositivo: lo abre _step_tab_gesture leyendo el Input local.
+		# Mandar hud_mode le pide al host abrir el suyo con el mismo boton. _input ya se
+		# come TAB y Select en el camino de eventos crudos (is_action cubre las tres
+		# vinculaciones de la accion); esta es la misma regla para el stream, donde el
+		# boton viaja como campo y no como evento.
+		data["hud_mode"] = false
+		client.send_input_data(data)
 	elif _mouse_delta != Vector2.ZERO:
 		client.send_input("mouse_delta", {"x": _mouse_delta.x, "y": _mouse_delta.y})
 		_mouse_delta = Vector2.ZERO
@@ -316,9 +317,6 @@ func _refresh_status() -> void:
 	else:
 		$Title.text = _title_text
 		$Hint.text = _hint_text
-
-func _on_hud_button_pressed() -> void:
-	_open_radial()
 
 # Mismo manejo que el modo HUD del juego (HudModeOverlay): un tap de TAB abre la ultima
 # pantalla y vuelve a cerrarla; el hold es el que saca el dial. La muestra sale de Input en
@@ -468,10 +466,7 @@ func _update_radial_options() -> void:
 	for item in _screen_list:
 		if typeof(item) == TYPE_DICTIONARY:
 			var sid: String = String(item.get("id", ""))
-			var title: String = String(item.get("title", sid))
-			if sid == _local_pinned_screen_id:
-				title += " [PIN]"
-			labels.append(title)
+			labels.append(String(item.get("title", sid)))
 	# El host reenvia screen_list en CADA cambio de widget (bateria, estado del terminal),
 	# o sea varias veces por segundo. set_options() libera las Labels y resetea el marcado,
 	# asi que reconstruir con las mismas etiquetas le sacaba el foco al dial abierto cada
@@ -511,11 +506,6 @@ func perform_hud_widget_action(screen_id: String, op: String, args: Dictionary =
 		"op": op,
 		"args": args
 	})
-
-func _on_close_view_pressed() -> void:
-	var client = _client()
-	if client != null:
-		client.send_ui_directive("screen_select", {"id": ""})
 
 # --- Slot Evaluation & Widget Host ---
 

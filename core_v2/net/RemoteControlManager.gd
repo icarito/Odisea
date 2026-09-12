@@ -135,6 +135,11 @@ func stop_host_services() -> void:
 	_release_remote_inputs()
 	is_host_active = false
 
+# Hay un control remoto emparejado desde esta misma maquina.
+func has_local_remote_control() -> bool:
+	return is_host_active and is_instance_valid(server) \
+		and server.has_method("has_local_paired_client") and server.has_local_paired_client()
+
 func set_remote_control_enabled(enabled: bool) -> void:
 	remote_control_enabled = enabled
 	_sync_host_for_scene()

@@ -172,7 +172,7 @@ func test_open_radial_hides_what_is_behind():
 
 func test_radial_drag_and_release_selects_screen():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._on_hud_button_pressed()
+	home._open_radial()
 	assert_bool(home._radial_is_open()).is_true()
 	home._client().ui_directives.clear()
 
@@ -195,7 +195,7 @@ func test_radial_drag_and_release_selects_screen():
 
 func test_radial_tap_on_option_selects_it():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._on_hud_button_pressed()
+	home._open_radial()
 	home._client().ui_directives.clear()
 
 	# La etiqueta de screen_a esta arriba del centro; un toque directo sobre ella elige.
@@ -211,7 +211,7 @@ func test_radial_tap_on_option_selects_it():
 
 func test_radial_tap_outside_closes_without_exit_dialog():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._on_hud_button_pressed()
+	home._open_radial()
 	home._client().ui_directives.clear()
 
 	# La esquina no es ninguna opcion: cierra el dial y NADA mas (no la sesion).
@@ -226,7 +226,7 @@ func test_radial_tap_outside_closes_without_exit_dialog():
 
 func test_radial_ui_cancel_closes_dial_not_session():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._on_hud_button_pressed()
+	home._open_radial()
 
 	assert_bool(home._handle_radial_input(_action("ui_cancel"))).is_true()
 	assert_bool(home._radial_is_open()).is_false()
@@ -243,7 +243,7 @@ func test_open_dial_suspends_input_forwarding():
 	home._physics_process(0.016)
 	assert_int(client.inputs.size()).is_equal(1) # control: con el dial cerrado si manda
 
-	home._on_hud_button_pressed()
+	home._open_radial()
 	client.inputs.clear()
 	home._physics_process(0.016)
 	assert_array(client.inputs).is_empty()
@@ -256,7 +256,7 @@ func test_open_dial_releases_held_input_on_passthrough():
 	var client = home._client()
 	client.inputs.clear()
 
-	home._on_hud_button_pressed()
+	home._open_radial()
 
 	assert_int(client.inputs.size()).is_equal(1)
 	assert_str(String(client.inputs[0]["type"])).is_equal("release_all")
@@ -366,6 +366,31 @@ func test_tab_is_never_forwarded_to_the_host():
 
 	home.queue_free()
 
+# Hermano del anterior para el OTRO camino: en tactil/gamepad el boton no viaja como
+# evento sino como campo del InputDataV2 que se manda por tick, asi que comerse el evento
+# en _input no alcanza.
+func test_hud_button_is_never_forwarded_in_the_input_stream():
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._raw_passthrough = false # el celu: se reenvia InputDataV2 por tick
+	# Proveedor en REPLAY con el boton apretado: el real lee el Input del proceso de test,
+	# donde hud_mode sale false y el test pasaria igual con el bug puesto.
+	var provider := InputProviderV2.new()
+	provider.mode = InputProviderV2.Mode.REPLAY
+	provider.playback_buffer = [{"hud_mode": true, "jump": true}]
+	home._input_provider = provider
+	var client = home._client()
+	client.inputs.clear()
+
+	home._physics_process(0.016)
+
+	assert_int(client.inputs.size()).is_equal(1)
+	var payload: Dictionary = client.inputs[0]["payload"]
+	assert_bool(bool(payload["hud_mode"])).is_false()
+	# Y el resto del stream sigue viajando: no se vacia el payload, se apaga un campo.
+	assert_bool(bool(payload["jump"])).is_true()
+
+	home.queue_free()
+
 func test_secondary_mouse_button_releases_mouse_instead_of_pausing_host():
 	var home = _home_with_dial()
 	home._raw_passthrough = true
@@ -389,7 +414,7 @@ func test_secondary_mouse_button_releases_mouse_instead_of_pausing_host():
 func test_radial_aims_with_relative_motion_while_mouse_is_captured():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
 	home._raw_passthrough = true
-	home._on_hud_button_pressed()
+	home._open_radial()
 	home._client().ui_directives.clear()
 
 	# Con el mouse CAPTURADO (asi se maneja al host) la posicion del evento no se mueve
@@ -416,7 +441,7 @@ func test_radial_aims_with_relative_motion_while_mouse_is_captured():
 
 func test_radial_keeps_every_input_while_open():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._on_hud_button_pressed()
+	home._open_radial()
 
 	# Con el dial abierto ningun evento sigue viaje: ni al host ni a la UI de abajo
 	# (boton de salir, joystick tactil).
@@ -434,13 +459,13 @@ func test_radial_keeps_every_input_while_open():
 
 func test_aim_resets_between_openings():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._on_hud_button_pressed()
+	home._open_radial()
 	home._handle_radial_input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -40.0)))
 	home._close_radial()
 	assert_vector2(home._radial_aim).is_equal(Vector2.ZERO)
 
 	# Reabrir no debe heredar el rumbo anterior (marcaria una opcion sin apuntar nada).
-	home._on_hud_button_pressed()
+	home._open_radial()
 	assert_vector2(home._radial_aim).is_equal(Vector2.ZERO)
 	assert_int(home._radial_selector.get_hovered_index()).is_equal(-1)
 
@@ -451,7 +476,7 @@ func test_repeated_screen_list_does_not_steal_the_dial_focus():
 	# perder el marcado por eso (era lo que lo volvia inutilizable).
 	var screens: Array = [{"id": "screen_a", "title": "Screen A", "relevance": 0.9}]
 	var home = _home_with_dial(screens)
-	home._on_hud_button_pressed()
+	home._open_radial()
 	home._handle_radial_input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -40.0)))
 	assert_int(home._radial_selector.get_hovered_index()).is_equal(1)
 
@@ -470,7 +495,7 @@ func test_repeated_screen_list_does_not_steal_the_dial_focus():
 
 func test_new_screen_in_the_list_does_rebuild_the_dial():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._on_hud_button_pressed()
+	home._open_radial()
 	assert_int(home._radial_selector._buttons.size()).is_equal(2) # [Cerrar Vista] + A
 
 	home._on_ui_directive("screen_list", [

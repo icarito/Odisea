@@ -20,7 +20,10 @@ PLATFORM_FORMATS = {
 	"linux_x64": {"s3tc"},
 	"windows": {"s3tc"},
 	"macos": {"s3tc"},
-	"linux_arm64": {"s3tc", "etc"},
+	# Sin s3tc (ninguna GPU ARM lo soporta) y CON etc2: tiene que coincidir con lo que
+	# genera el trim del workflow, o el manifest queda apuntando a un archivo inexistente
+	# (etc2) o pidiendo uno que ya no se genera (s3tc). GLES2 usa etc, GLES3 usa etc2.
+	"linux_arm64": {"etc", "etc2"},
 	"android": {"s3tc", "etc", "etc2"},
 	# El trim de formatos del workflow genera s3tc (DXT, tras drop_bptc_web_artifacts.py)
 	# y etc2; ETC1 no se genera para web, listarlo aca solo dejaba manifests apuntando a un
