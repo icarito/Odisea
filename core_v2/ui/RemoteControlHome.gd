@@ -101,9 +101,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	var client = _client()
 	if client == null:
 		return
-	var payload: Dictionary = RemoteProtocol.encode_event(event, get_viewport().get_visible_rect().size)
+	var payload: Dictionary = RemoteProtocol.encode_event(_event_for_host(event), get_viewport().get_visible_rect().size)
 	if not payload.empty():
 		client.send_input("event", payload)
+
+func _event_for_host(event: InputEvent) -> InputEvent:
+	if event is InputEventJoypadMotion and InputProviderV2.wants_handheld_axis_inversion() \
+			and (event as InputEventJoypadMotion).axis in [JOY_AXIS_0, JOY_AXIS_1, JOY_AXIS_2, JOY_AXIS_3]:
+		var corrected := event.duplicate() as InputEventJoypadMotion
+		corrected.axis_value = -corrected.axis_value
+		return corrected
+	return event
 
 func _notification(what: int) -> void:
 	# Al perder el foco el otro lado nunca recibiria los key-up de lo que quedo apretado.

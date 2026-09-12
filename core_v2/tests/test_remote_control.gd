@@ -106,6 +106,20 @@ func test_remote_home_scene_loads():
 	assert_object(home).is_not_null()
 	home.free()
 
+func test_anbernic_remote_inverts_stick_axes_before_sending():
+	var previous: String = OS.get_environment("ODISEA_DEVICE")
+	OS.set_environment("ODISEA_DEVICE", "anbernic")
+	var home = RemoteControlHomeScene.instance()
+	var motion := InputEventJoypadMotion.new()
+	motion.axis = JOY_AXIS_2
+	motion.axis_value = 0.75
+	var corrected: InputEventJoypadMotion = home._event_for_host(motion)
+	assert_float(corrected.axis_value).is_equal(-0.75)
+	assert_float(motion.axis_value).is_equal(0.75)
+	assert_float(RemoteProtocol.encode_event(corrected, Vector2(640, 480))["v"]).is_equal(-0.75)
+	home.free()
+	OS.set_environment("ODISEA_DEVICE", previous)
+
 func test_discovered_hosts_are_large_buttons():
 	var menu = RemoteControlMenuScene.instance()
 	add_child(menu)
