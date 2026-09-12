@@ -12,7 +12,7 @@ func _init() -> void:
 	hud_screen_title = "Linterna"
 	hud_widget_scene = WidgetScene
 	default_relevance = 0.1
-	allowed_actions = ["toggle"]
+	allowed_actions_list = ["toggle"]
 
 func _ready() -> void:
 	call_deferred("_bind_flashlight")
