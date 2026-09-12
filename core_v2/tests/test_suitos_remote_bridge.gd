@@ -7,6 +7,9 @@ const SuitOSRemoteBridgeScript = preload("res://core_v2/components/SuitOSRemoteB
 
 class DummyServer extends Node:
 	var last_directives: Array = []
+	var paired: bool = true
+	func has_paired_client() -> bool:
+		return paired
 	func send_ui_directive(op: String, payload) -> void:
 		last_directives.append({"op": op, "payload": payload})
 
@@ -92,6 +95,36 @@ func test_bridge_sends_haptic_directive():
 	assert_str(haptic_dir["op"]).is_equal("haptic")
 	assert_str(String(haptic_dir["payload"].get("kind", ""))).is_equal("heavy")
 	assert_float(float(haptic_dir["payload"].get("intensity", 0.0))).is_equal(0.75)
+
+	bridge.queue_free()
+	server.queue_free()
+
+func test_bridge_skips_widget_serialization_without_a_paired_client():
+	var server = DummyServer.new()
+	server.paired = false
+	add_child(server)
+
+	var bridge = SuitOSRemoteBridgeScript.new()
+	add_child(bridge)
+	bridge.set("server", server)
+	bridge._on_widget_changed("slot_a", {"id": "test"})
+
+	assert_array(server.last_directives).is_empty()
+	bridge.queue_free()
+	server.queue_free()
+
+func test_bridge_sends_only_the_changed_widget_data():
+	var server = DummyServer.new()
+	add_child(server)
+
+	var bridge = SuitOSRemoteBridgeScript.new()
+	add_child(bridge)
+	bridge.set("server", server)
+	bridge._on_widget_changed("slot_a", {"id": "test:terminal", "status_text": "ONLINE"})
+
+	assert_int(server.last_directives.size()).is_equal(1)
+	assert_str(String(server.last_directives[0]["op"])).is_equal("screen_data")
+	assert_str(String(server.last_directives[0]["payload"].get("id", ""))).is_equal("test:terminal")
 
 	bridge.queue_free()
 	server.queue_free()

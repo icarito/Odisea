@@ -4,11 +4,22 @@ var InputProviderV2 = preload("res://core_v2/input/InputProviderV2.gd")
 var RemoteProtocol = preload("res://core_v2/net/RemoteProtocol.gd")
 var RadialSelectorScene = preload("res://core_v2/ui/radial/RadialSelectorV2.tscn")
 var HoloTerminalWidgetScene = preload("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
-const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
 # El mismo tap/hold de TAB que el modo HUD del juego, para que se maneje igual.
 const TabGesture = preload("res://core_v2/ui/hud/HudTabGesture.gd")
 
 const SESSION_ENDED_NOTICE_SEC := 2.5
+# Lo que manda un control tactil: las acciones que empujan el joystick virtual y los
+# botones, como eventos (el mismo protocolo que el teclado del escritorio). El host deriva
+# de ahi lo demas igual que con controles locales: curva del stick, sprint automatico,
+# flancos. hud_mode no esta a proposito: el HUD es de este dispositivo.
+const FORWARDED_ANALOG_ACTIONS := ["move_left", "move_right", "move_forward", "move_backward"]
+const FORWARDED_BUTTON_ACTIONS := ["jump", "run", "crouch", "interact", "focus",
+	"rotate_left", "rotate_right", "zero_g_roll_left", "zero_g_roll_right",
+	"tool_fire_primary", "tool_fire_secondary", "tool_next_mode", "tool_prev_mode",
+	"cargol_ability"]
+# Sin cuantizar, el pulgar apoyado quieto igual cambia la fuerza en el ultimo decimal y
+# manda un evento por tick.
+const ANALOG_STRENGTH_STEP := 0.02
 # Un arrastre por debajo de esto es un toque, no un gesto de apuntado (umbral de
 # HudModeOverlay, que resuelve el mismo dial con los mismos dedos).
 const RADIAL_TOUCH_MIN_DRAG := 12.0
@@ -23,6 +34,8 @@ const RADIAL_DIM_COLOR := Color(0.0, 0.05, 0.08, 0.4)
 # Apuntado con mouse: un stick virtual sobre el dial. Solo cuenta el angulo, asi que el
 # radio es nada mas el tope del acumulado y la zona muerta el minimo para tener rumbo.
 const RADIAL_AIM_RADIUS := 120.0
+# Stick o WASD sobre el dial: por debajo de esto el stick en reposo haria titilar el rumbo.
+const RADIAL_MOVE_DEADZONE := 0.35
 const RADIAL_AIM_DEADZONE := 8.0
 
 # Layout de slots: las mismas filas FIJAS del host (SuitOSWidgetHost): A arriba, B
@@ -38,15 +51,23 @@ const WIDGET_HOLD_MSEC := 400
 const UIScaleCompensator = preload("res://core_v2/ui/UIScaleCompensator.gd")
 
 onready var exit_confirm: ConfirmationDialog = $ExitConfirm
-onready var widget_host: Control = $WidgetHost
-onready var fullscreen_overlay: Control = $FullScreenOverlay
-onready var view_host: Container = $FullScreenOverlay/ViewHost
-onready var radial_overlay: Control = $RadialOverlay
+# El HUD vive en HUDLayer (capa 5): por encima de la escena, DEBAJO de la UI tactil (capa 10),
+# que se dibuja siempre encima de las pantallas. Para que los widgets se puedan tocar igual,
+# mientras esta pantalla esta abierta el Container de MobileUI deja pasar el toque de GUI
+# (_let_touches_through_touch_ui): con su STOP por defecto se quedaba con todos.
+onready var widget_host: Control = $HUDLayer/WidgetHost
+onready var fullscreen_overlay: Control = $HUDLayer/FullScreenOverlay
+onready var view_host: Container = $HUDLayer/FullScreenOverlay/ViewHost
+onready var radial_overlay: Control = $HUDLayer/RadialOverlay
 
 var _input_provider: InputProviderV2 = null
 var _remote_control_manager: Node = null
 var _raw_passthrough: bool = not OS.get_name() in ["Android", "iOS"]
 var _mouse_delta: Vector2 = Vector2.ZERO
+# Ultima fuerza enviada por accion: solo viaja lo que cambio.
+var _sent_action_strength: Dictionary = {}
+var _touch_look: Vector2 = Vector2.ZERO
+var _touch_zoom: float = 0.0
 var _was_captured: bool = false
 var _title_text: String = ""
 var _hint_text: String = ""
@@ -73,10 +94,19 @@ var _widget_press_msec: int = 0
 var _slot_a_id: String = ""
 
 func _ready() -> void:
-	# La capa 100 de antes quedaba DEBAJO de OverlayUIManager (115) y ProtocolManager (120).
-	VirtualMouse.attach_to(self)
+	# Sin mouse virtual, a proposito: en un handheld se activaba con cualquier movimiento del
+	# stick y convertia A/B en clics locales (comiendoselos: nunca llegaban al host). El dial
+	# se apunta con el stick (_aim_radial_with_move_actions), como el modo HUD del host.
 	_remote_control_manager = get_node_or_null("/root/RemoteControlManager")
 	_input_provider = InputProviderV2.new()
+	_let_touches_through_touch_ui(true)
+	# Los slots se ubican en el espacio nominal de escala 1.0, como la UI tactil: con el
+	# render_scale bajo, un margen en pixeles fijos despegaba el slot del borde. El
+	# compensador se reaplica solo cuando cambia el viewport, tambien en runtime.
+	var compensator: Control = UIScaleCompensator.new()
+	compensator.name = "WidgetHostScale"
+	compensator.target_path = NodePath("../WidgetHost") # hermano en HUDLayer
+	$HUDLayer.add_child(compensator)
 
 	var audio_mgr = get_node_or_null("/root/AudioManager")
 	if audio_mgr:
@@ -114,6 +144,12 @@ func _ready() -> void:
 	if client:
 		_host_paused = client.host_paused
 		_refresh_status()
+		# Lo que el host mando mientras el control seguia en el menu (ver last_screen_list):
+		# al final del _ready, con el dial y el WidgetHost ya armados.
+		if client.get("last_screen_list") != null:
+			_on_ui_directive("screen_list", client.last_screen_list)
+		if client.get("last_screen_active") != null:
+			_on_ui_directive("screen_active", client.last_screen_active)
 
 	set_process(false)
 	call_deferred("_connect_touch_camera")
@@ -169,26 +205,62 @@ func _client() -> Node:
 
 func _physics_process(_delta: float) -> void:
 	_step_tab_gesture()
+	_aim_radial_with_move_actions()
 	var client = _client()
 	if client == null:
 		return
-	# Con el dial abierto la entrada es de aca, no del host. En tactil basta con dejar de
-	# mandar: PlayerControllerV2 consume external_input por tick y vuelve a su propio
-	# proveedor (quieto) en cuanto deja de llegar.
-	if _radial_is_open():
+	# Con teclado y mouse, el dial abierto se queda con la entrada: mandar el mouse giraria
+	# la camara del host mientras se apunta. En tactil NO: los controles virtuales siguen
+	# manejando al host mientras se elige pantalla (el dial solo toma el dedo que apunta, y
+	# ese no llega a TouchCameraControls).
+	if _radial_is_open() and _raw_passthrough:
 		return
 	if not _raw_passthrough:
-		var data: Dictionary = _input_provider.get_input().to_dict()
-		# El HUD es de ESTE dispositivo: lo abre _step_tab_gesture leyendo el Input local.
-		# Mandar hud_mode le pide al host abrir el suyo con el mismo boton. _input ya se
-		# come TAB y Select en el camino de eventos crudos (is_action cubre las tres
-		# vinculaciones de la accion); esta es la misma regla para el stream, donde el
-		# boton viaja como campo y no como evento.
-		data["hud_mode"] = false
-		client.send_input_data(data)
+		_send_touch_actions(client)
+		_send_touch_camera(client)
 	elif _mouse_delta != Vector2.ZERO:
 		client.send_input("mouse_delta", {"x": _mouse_delta.x, "y": _mouse_delta.y})
 		_mouse_delta = Vector2.ZERO
+
+func _send_touch_actions(client) -> void:
+	for action in FORWARDED_ANALOG_ACTIONS:
+		_send_action_if_changed(client, action, stepify(Input.get_action_strength(action), ANALOG_STRENGTH_STEP))
+	# El boton izquierdo (tool_fire_primary) tambien lo aprieta el puntero que el sistema
+	# emula de cada toque: arrastrar el joystick disparaba.
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	var from_touch: bool = mobile_ui != null and mobile_ui.has_method("is_pointer_from_touch") \
+		and mobile_ui.is_pointer_from_touch()
+	for action in FORWARDED_BUTTON_ACTIONS:
+		var down: bool = Input.is_action_pressed(action) if InputMap.has_action(action) else false
+		if action == "tool_fire_primary" and from_touch:
+			down = false
+		_send_action_if_changed(client, action, 1.0 if down else 0.0)
+
+func _send_action_if_changed(client, action: String, strength: float) -> void:
+	if not InputMap.has_action(action):
+		return
+	if is_equal_approx(float(_sent_action_strength.get(action, 0.0)), strength):
+		return
+	_sent_action_strength[action] = strength
+	var ev := InputEventAction.new()
+	ev.action = action
+	ev.pressed = strength > 0.0
+	ev.strength = strength
+	var payload: Dictionary = RemoteProtocol.encode_event(ev, Vector2.ZERO)
+	if not payload.empty():
+		client.send_input("event", payload)
+
+func _send_touch_camera(client) -> void:
+	if _touch_look == Vector2.ZERO and _touch_zoom == 0.0:
+		return
+	client.send_input("touch_camera", {"x": _touch_look.x, "y": _touch_look.y, "zoom": _touch_zoom})
+	_touch_look = Vector2.ZERO
+	_touch_zoom = 0.0
+
+# Lo que el host tiene apretado ya no es cierto (se solto todo, o se cayo y retomo la
+# sesion): lo que siga apretado aca se vuelve a mandar en el proximo tick.
+func _forget_sent_actions() -> void:
+	_sent_action_strength.clear()
 
 func _input(event: InputEvent) -> void:
 	# Antes que nada y antes que nadie: _input corre en orden inverso del arbol, asi que
@@ -197,6 +269,7 @@ func _input(event: InputEvent) -> void:
 	if _radial_is_open() and _handle_radial_input(event):
 		get_tree().set_input_as_handled()
 		return
+	_watch_tap_outside_view(event)
 	# TAB es el HUD de ESTE dispositivo, y tap o hold lo decide _step_tab_gesture leyendo
 	# Input (que no depende de que el evento siga viaje). Aca solo se lo come, para que no
 	# abra el modo HUD del host: lo unico que viaja alla es la eleccion (screen_select).
@@ -220,14 +293,65 @@ func _input(event: InputEvent) -> void:
 		_mouse_delta += (event as InputEventMouseMotion).relative
 	_was_captured = captured
 
+# Tocar fuera de la pantalla la cierra, como en el host (HudModeOverlay._is_outside_view): en
+# tactil no hay TAB, y sin esto no habia forma de salir de una pantalla. Solo un TOQUE: un
+# arrastre es la camara tactil y sigue girando sin cerrar nada. No se consume el evento (la
+# camara tactil lleva la cuenta de su dedo y se quedaria trabada sin el release).
+var _view_tap_index: int = -1
+var _view_tap_start: Vector2 = Vector2.ZERO
+
+func _watch_tap_outside_view(event: InputEvent) -> void:
+	if String(_active_remote_screen.get("id", "")).empty() or _radial_is_open():
+		_view_tap_index = -1
+		return
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			if _view_tap_index < 0 and _is_outside_view(touch.position):
+				_view_tap_index = touch.index
+				_view_tap_start = touch.position
+		elif touch.index == _view_tap_index:
+			_view_tap_index = -1
+			if (touch.position - _view_tap_start).length() < RADIAL_TOUCH_MIN_DRAG:
+				_exit_hud_mode()
+	elif _raw_passthrough and event is InputEventMouseButton:
+		# Con el mouse capturado la posicion esta congelada en el centro (dentro de la vista):
+		# solo cuenta con el cursor suelto, como un clic fuera en el host.
+		var click := event as InputEventMouseButton
+		if click.button_index == BUTTON_LEFT and click.pressed \
+				and Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED \
+				and _is_outside_view(click.position):
+			_exit_hud_mode()
+
+# Fuera de la pantalla, y tampoco sobre un control virtual (el joystick caminando no cierra
+# nada) ni sobre Salir (que tiene lo suyo).
+func _is_outside_view(point: Vector2) -> bool:
+	if _view_screen_rect().has_point(point) or _is_on_virtual_controls(point):
+		return false
+	var exit_button: Control = get_node_or_null("ExitLayer/ExitButton") as Control
+	return exit_button == null or not exit_button.get_global_rect().has_point(point)
+
+# El area que ocupa la vista en pantalla: la textura escalada del Viewport, o el ViewHost
+# entero cuando se monto el widget sin tamaño de diseño.
+func _view_screen_rect() -> Rect2:
+	var container = _view_viewport_container()
+	if container != null:
+		return Rect2(container.rect_global_position, container.rect_size * container.rect_scale)
+	return view_host.get_global_rect() if view_host != null else Rect2()
+
 func _unhandled_input(event: InputEvent) -> void:
-	if _radial_is_open():
+	if _radial_is_open() and _raw_passthrough:
 		return
 	if not _raw_passthrough:
 		if event.is_action_pressed("ui_cancel"):
 			_on_exit_pressed()
 			get_tree().set_input_as_handled()
-		return
+			return
+		# Un gamepad fisico en un control tactil (handheld) no empuja acciones que
+		# _send_touch_actions vea como fuerza de move_*: su stick es un eje. Viaja como
+		# evento, el mismo camino que en escritorio.
+		if not (event is InputEventJoypadButton or event is InputEventJoypadMotion):
+			return
 	var client = _client()
 	if client == null:
 		return
@@ -244,14 +368,18 @@ func _event_for_host(event: InputEvent) -> InputEvent:
 	return event
 
 func _notification(what: int) -> void:
-	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT and _raw_passthrough and _client():
+	# Se va el foco o la app al fondo: nada queda apretado alla. Vale para los dos modos,
+	# ahora que el tactil tambien deja estado sostenido en el host.
+	if (what == MainLoop.NOTIFICATION_WM_FOCUS_OUT or what == MainLoop.NOTIFICATION_APP_PAUSED) \
+			and _client():
 		_client().send_input("release_all", {})
+		_forget_sent_actions()
 
 func _on_camera_drag(delta: Vector2) -> void:
-	_input_provider.add_touch_camera_drag(delta)
+	_touch_look += delta
 
 func _on_camera_zoom(delta: float) -> void:
-	_input_provider.add_touch_camera_zoom(delta)
+	_touch_zoom += delta
 
 func _on_exit_pressed() -> void:
 	if exit_confirm.visible:
@@ -275,6 +403,9 @@ func _process(_delta: float) -> void:
 
 func _on_connection_restored() -> void:
 	set_process(false)
+	# Durante el corte el host solto lo que tenia apretado (client_stalled): lo que siga
+	# sostenido aca tiene que volver a viajar.
+	_forget_sent_actions()
 	_refresh_status()
 
 # --- F4 HUD Directives ---
@@ -383,12 +514,6 @@ func _open_radial() -> void:
 	var client = _client()
 	if client != null and _raw_passthrough:
 		client.send_input("release_all", {})
-	# El dedo que estaba en el joystick tampoco va a ver su propio release: el dial se
-	# queda con los toques. Sin esto queda apretado y al cerrar el dial el host arranca a
-	# caminar solo (mismo reseteo que hace MobileUIManager al pausar a mitad de arrastre).
-	var mobile_ui = get_node_or_null("/root/MobileUIManager")
-	if mobile_ui != null and mobile_ui.has_method("_reset_move_joystick"):
-		mobile_ui._reset_move_joystick()
 	# Mientras se elige no se ve lo de atras (el Dim tapa el fondo, y los slots y la vista
 	# se esconden): asi funciona el dial del modo HUD del juego.
 	if widget_host != null:
@@ -421,12 +546,16 @@ func _handle_radial_input(event: InputEvent) -> bool:
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
-			if _radial_touch_index < 0:
-				_radial_touch_index = touch.index
-				_radial_touch_start = touch.position
+			# Los controles virtuales no se apagan nunca: un dedo que empieza sobre el
+			# joystick o un boton es de ellos (se sigue caminando con el dial abierto), y
+			# tambien cualquier dedo extra mientras otro ya esta apuntando.
+			if _radial_touch_index >= 0 or _is_on_virtual_controls(touch.position):
+				return false
+			_radial_touch_index = touch.index
+			_radial_touch_start = touch.position
 			return true
 		if touch.index != _radial_touch_index:
-			return true # dedo que no estaba apuntando (o el que abrio el dial)
+			return false # dedo de un control virtual (o el que abrio el dial)
 		_radial_touch_index = -1
 		if (touch.position - _radial_touch_start).length() >= RADIAL_TOUCH_MIN_DRAG:
 			# Apunto arrastrando: al soltar se confirma lo que quedo marcado (confirm()
@@ -441,10 +570,17 @@ func _handle_radial_input(event: InputEvent) -> bool:
 
 	if event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
-		if drag.index == _radial_touch_index \
-				and (drag.position - _radial_touch_start).length() >= RADIAL_TOUCH_MIN_DRAG:
+		if drag.index != _radial_touch_index:
+			return false # el joystick arrastrando: sigue siendo suyo
+		if (drag.position - _radial_touch_start).length() >= RADIAL_TOUCH_MIN_DRAG:
 			_point_radial_at(drag.position - _radial_touch_start)
 		return true
+
+	if not _raw_passthrough:
+		# En tactil el mouse que llega es el emulado de los toques: un arrastre del joystick
+		# apuntaria el dial y un toque en un boton lo confirmaria. Y ninguna otra entrada es
+		# del dial: los controles virtuales siguen andando mientras se elige.
+		return false
 
 	if event is InputEventMouseMotion:
 		# El mouse esta CAPTURADO (asi se maneja al host) y ahi la posicion del evento
@@ -464,9 +600,30 @@ func _handle_radial_input(event: InputEvent) -> bool:
 		_radial_selector.confirm()
 		return true
 
-	# Todo lo demas tambien se queda aca: con el dial abierto la entrada es de este
-	# dispositivo, ni del host ni de la UI de abajo (boton de salir, joystick tactil).
+	# Con teclado y mouse todo lo demas tambien se queda aca: con el dial abierto la entrada
+	# es de este dispositivo, no del host (en tactil ya salio arriba).
 	return true
+
+# Sin mouse (un handheld con gamepad, o solo teclado) el dial se apunta con lo mismo que se
+# camina: el stick o WASD. Es lo que hace el modo HUD del host con move_vec. En tactil no:
+# ahi el joystick virtual sigue caminando y el dial lo apunta el dedo.
+func _aim_radial_with_move_actions() -> void:
+	if not _radial_is_open() or not _raw_passthrough:
+		return
+	var move := Vector2(
+		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
+		Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward"))
+	# Las acciones del InputMap no pasan por la correccion de ejes del handheld (la hace
+	# InputProviderV2 al leer el stick): mismo arreglo que tenia el mouse virtual.
+	if InputProviderV2.wants_handheld_axis_inversion():
+		move = -move
+	if move.length() >= RADIAL_MOVE_DEADZONE:
+		_point_radial_at(move)
+
+func _is_on_virtual_controls(point: Vector2) -> bool:
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	return mobile_ui != null and mobile_ui.has_method("is_point_on_touch_controls") \
+		and mobile_ui.is_point_on_touch_controls(point)
 
 # Solo cuenta el angulo: la magnitud fija saca del hub_epsilon aunque el arrastre sea corto.
 func _point_radial_at(direction: Vector2) -> void:
@@ -600,9 +757,48 @@ func _place_slot_widget(node: Control, slot: String) -> void:
 	var height: float = max(control.get_combined_minimum_size().y, 1.0)
 	var fit: float = min(1.0, SLOT_ROW_HEIGHT / height)
 	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	control.rect_scale = Vector2.ONE * fit * k
-	control.rect_position = Vector2(SLOT_PADDING, row * (SLOT_ROW_HEIGHT + SLOT_GAP) * k)
+	# WidgetHost ya esta compensado (WidgetHostScale): aca todo va en unidades nominales, sin k.
+	control.rect_scale = Vector2.ONE * fit
+	# Pegado al borde izquierdo, arriba, a cualquier render_scale. Sin las margenes de la UI
+	# tactil a proposito: esa se dibuja encima y el joystick esta abajo.
+	var inset: Vector2 = _safe_area_inset_nominal()
+	control.rect_position = Vector2(SLOT_PADDING + inset.x,
+		SLOT_PADDING + inset.y + row * (SLOT_ROW_HEIGHT + SLOT_GAP))
 	_make_widget_tappable(control, slot)
+
+# El recorte de la pantalla (camara en el borde), llevado a las unidades nominales del
+# WidgetHost: la safe area viene en pixeles de ventana y el HUD vive en el viewport escalado.
+func _safe_area_inset_nominal() -> Vector2:
+	var window: Vector2 = OS.window_size
+	if window.x <= 0.0 or window.y <= 0.0:
+		return Vector2.ZERO
+	var safe: Rect2 = OS.get_window_safe_area()
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var nominal: Vector2 = viewport_size / UIScaleCompensator.scale_for(self)
+	return Vector2(safe.position.x * nominal.x / window.x, safe.position.y * nominal.y / window.y)
+
+# Mientras esta pantalla esta abierta, el Container de pantalla completa de la UI tactil
+# no se queda con el toque de GUI (sus controles lo leen en _input y siguen andando). Solo
+# aca: en gameplay ese STOP evita que los clics que Android emula de cada toque lleguen a
+# SessionManager._unhandled_input, que recaptura el mouse.
+var _touch_ui_filter_before: int = -1
+
+func _let_touches_through_touch_ui(through: bool) -> void:
+	var mobile_ui = get_node_or_null("/root/MobileUIManager")
+	var touch_ui = mobile_ui.get("_mobile_ui") if mobile_ui != null else null
+	var container: Control = touch_ui.get_node_or_null("Container") as Control if is_instance_valid(touch_ui) else null
+	if container == null:
+		return
+	if through:
+		if _touch_ui_filter_before < 0:
+			_touch_ui_filter_before = container.mouse_filter
+		container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	elif _touch_ui_filter_before >= 0:
+		container.mouse_filter = _touch_ui_filter_before
+		_touch_ui_filter_before = -1
+
+func _exit_tree() -> void:
+	_let_touches_through_touch_ui(false)
 
 func _relayout_widgets() -> void:
 	for slot in SLOT_ROWS:

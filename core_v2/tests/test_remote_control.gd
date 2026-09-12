@@ -350,6 +350,24 @@ func test_server_flags_silent_control_once():
 	assert_int(_stalled).is_equal(1)
 	server.queue_free()
 
+func test_server_knows_when_a_client_is_paired():
+	var server = RemoteControlServer.new()
+	server._peers[1] = {"paired": false}
+	assert_bool(server.has_paired_client()).is_false()
+	server._peers[2] = {"paired": true}
+	assert_bool(server.has_paired_client()).is_true()
+	server.free()
+
+func test_server_throttles_idle_polling_but_not_a_connected_peer():
+	var server = RemoteControlServer.new()
+	server.idle_poll_interval = 0.05
+	assert_bool(server._should_poll(0.04)).is_false()
+	assert_bool(server._should_poll(0.01)).is_true()
+	assert_bool(server._should_poll(0.0)).is_false()
+	server._peers[1] = {"paired": false}
+	assert_bool(server._should_poll(0.0)).is_true()
+	server.free()
+
 func test_server_resumes_only_the_active_token():
 	var server = RemoteControlServer.new()
 	add_child(server)
@@ -440,3 +458,92 @@ func test_raw_event_roundtrip_keeps_modifiers():
 
 	assert_object(RemoteProtocol.decode_event({"k": "Object(Node)"}, Vector2(800, 600))).is_null()
 	assert_bool(RemoteProtocol.encode_event(InputEventMouseMotion.new(), Vector2(800, 600)).empty()).is_true()
+
+# --- Un solo protocolo: acciones como eventos ---
+
+func test_action_event_roundtrip_keeps_strength():
+	var ev := InputEventAction.new()
+	ev.action = "move_forward"
+	ev.pressed = true
+	ev.strength = 0.62
+	var wire = RemoteProtocol.decode_json(RemoteProtocol.encode_json(RemoteProtocol.encode_event(ev, Vector2(800, 600))))
+	var back = RemoteProtocol.decode_event(wire, Vector2(1600, 900))
+	assert_bool(back is InputEventAction).is_true()
+	assert_str(back.action).is_equal("move_forward")
+	assert_bool(back.pressed).is_true()
+	assert_float(back.strength).is_equal_approx(0.62, 0.001)
+
+func test_hud_mode_and_unknown_actions_never_travel():
+	# El HUD es de cada dispositivo; y un peer no inventa acciones que no estan en el InputMap.
+	for action in ["hud_mode", "no_existe"]:
+		var ev := InputEventAction.new()
+		ev.action = action
+		ev.pressed = true
+		assert_bool(RemoteProtocol.encode_event(ev, Vector2(800, 600)).empty()).is_true()
+		assert_object(RemoteProtocol.decode_event({"k": "act", "a": action, "p": true}, Vector2(800, 600))).is_null()
+
+func test_host_keeps_a_remote_action_held_until_its_release():
+	# El corazon del arreglo: el estado vive en el Input del host. Antes el tactil mandaba
+	# una foto por tick y un tick sin foto soltaba crouch/sprint (flancos falsos y caida de
+	# velocidad); ahora queda sostenido hasta que llega el contrario, como una tecla.
+	var mgr = auto_free(RemoteControlManager.new())
+	mgr._apply_remote_event({"k": "act", "a": "crouch", "p": true, "s": 1.0})
+	# parse_input_event va a un buffer que el motor vacia una vez por frame.
+	Input.flush_buffered_events()
+	assert_bool(Input.is_action_pressed("crouch")).is_true()
+	# Frames sin mensajes nuevos: sigue apretado (no hay "tick sin muestra" que lo suelte).
+	for _i in range(3):
+		Input.flush_buffered_events()
+		assert_bool(Input.is_action_pressed("crouch")).is_true()
+
+	mgr._apply_remote_event({"k": "act", "a": "crouch", "p": false, "s": 0.0})
+	Input.flush_buffered_events()
+	assert_bool(Input.is_action_pressed("crouch")).is_false()
+
+func test_host_releases_every_held_remote_action_on_disconnect():
+	# Sin add_child a proposito: en el arbol, _ready levanta el servidor en el proceso de test.
+	var mgr = auto_free(RemoteControlManager.new())
+	mgr._apply_remote_event({"k": "act", "a": "crouch", "p": true, "s": 1.0})
+	mgr._apply_remote_event({"k": "act", "a": "run", "p": true, "s": 1.0})
+	Input.flush_buffered_events()
+	# Control: de verdad quedaron apretadas (si no, soltar no probaria nada).
+	assert_bool(Input.is_action_pressed("crouch")).is_true()
+	assert_bool(Input.is_action_pressed("run")).is_true()
+	# Cada accion con su propio id: con int() compartian "act:0:0" y soltar una borraba otra.
+	assert_int(mgr._remote_held.size()).is_equal(2)
+
+	mgr._release_remote_inputs()
+	Input.flush_buffered_events()
+	assert_bool(Input.is_action_pressed("crouch")).is_false()
+	assert_bool(Input.is_action_pressed("run")).is_false()
+	assert_int(mgr._remote_held.size()).is_equal(0)
+
+# --- El aviso de emparejamiento tiene prioridad sobre la pausa ---
+
+func _noop_pairing(_accepted: bool) -> void:
+	pass
+
+func test_pairing_prompt_sits_above_the_pause_menu_and_pause_yields():
+	# Si la ventana perdio el foco mientras llegaba la solicitud, al volver el menu de pausa
+	# (CanvasLayer 50) tapaba el aviso y se comia el primer clic: no se podia aceptar.
+	# El autoload por ruta: en este archivo "RemoteControlManager" es el script cargado arriba.
+	var rcm = get_node("/root/RemoteControlManager")
+	var was_host_active: bool = rcm.is_host_active
+	rcm.is_host_active = true
+	rcm._on_server_pair_requested("Telefono", "123456", funcref(self, "_noop_pairing"))
+
+	var dialog = rcm._pairing_dialog
+	assert_object(dialog).is_not_null()
+	var layer = dialog.get_parent()
+	assert_bool(layer is CanvasLayer).is_true()
+	assert_int(layer.layer).is_greater(50) # por encima de PauseMenuLayer
+	assert_bool(rcm.is_pairing_prompt_open()).is_true()
+	assert_bool(PauseManager._pairing_prompt_open()).is_true()
+
+	dialog._finish(false)
+	assert_bool(rcm.is_pairing_prompt_open()).is_false()
+	assert_bool(PauseManager._pairing_prompt_open()).is_false()
+
+	# La solicitud pausa el arbol; que el test no lo deje pausado aunque falle algo arriba.
+	get_tree().paused = false
+	rcm.is_host_active = was_host_active

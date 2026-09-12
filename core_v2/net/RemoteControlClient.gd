@@ -61,6 +61,12 @@ var _host_id: String = ""
 var _resumable_token: String = ""
 # Ultimo estado de pausa que aviso el host (ui op "host_paused").
 var host_paused: bool = false
+# Ultima lista de pantallas y ultima pantalla activa del host. Llegan pegadas al pair_result,
+# cuando el control todavia esta en el menu (change_scene es diferido) y nadie las escucha; y
+# con el host en pausa no vuelven hasta que cambie un widget. Sin guardarlas el HUD del
+# control no aparecia. RemoteControlHome arranca desde aca, igual que con host_paused.
+var last_screen_list = null
+var last_screen_active = null
 
 func _ready():
 	_ws_client.connect("connection_established", self, "_on_ws_connected")
@@ -100,6 +106,9 @@ func pair_with(p_ip: String, p_ws_port: int, p_sensor_port: int, p_device_name: 
 	_host_id = p_host_id
 	_resumable_token = ""
 	host_paused = false
+	# Otra partida: lo que mostraba la anterior no vale.
+	last_screen_list = null
+	last_screen_active = null
 	if not _is_connected or _host_ip != p_ip or _ws_port != p_ws_port:
 		if _ws_client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 			_ws_client.disconnect_from_host()
@@ -158,9 +167,6 @@ func _fail_pairing(reason: String) -> void:
 
 func send_touch_input(payload: Dictionary) -> void:
 	send_input("touch", payload)
-
-func send_input_data(payload: Dictionary) -> void:
-	send_input("input_data", payload)
 
 # Por WebSocket (TCP) y no por el UDP de sensores: un key-up perdido o desordenado deja
 # la tecla pegada en el host.
@@ -345,6 +351,10 @@ func _handle_message(dict: Dictionary) -> void:
 			if op == "host_paused" and payload is Dictionary:
 				# Guardado: puede llegar mientras la pantalla del control todavia carga.
 				host_paused = bool(payload.get("paused", false))
+			elif op == "screen_list":
+				last_screen_list = payload
+			elif op == "screen_active":
+				last_screen_active = payload
 			emit_signal("ui_directive_received", op, payload)
 		"ping":
 			_send(RemoteProtocol.create_pong())

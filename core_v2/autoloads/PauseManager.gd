@@ -58,6 +58,9 @@ func _pause_on_focus_loss() -> void:
 		return
 	if _controlled_from_this_machine():
 		return
+	# La solicitud ya pauso el mundo; el menu encima solo taparia el aviso.
+	if _pairing_prompt_open():
+		return
 	_menu_hidden_by_focus = true
 	if get_tree().paused:
 		_apply_menu_visibility()
@@ -72,6 +75,10 @@ func _controlled_from_this_machine() -> bool:
 	var rcm = get_node_or_null("/root/RemoteControlManager")
 	return rcm != null and rcm.has_method("has_local_remote_control") \
 		and rcm.has_local_remote_control()
+
+func _pairing_prompt_open() -> bool:
+	var rcm = get_node_or_null("/root/RemoteControlManager")
+	return rcm != null and rcm.has_method("is_pairing_prompt_open") and rcm.is_pairing_prompt_open()
 
 func _apply_menu_visibility() -> void:
 	if pause_menu_instance and pause_menu_instance.has_method("set_minimal"):
@@ -94,6 +101,11 @@ func _is_automated_run() -> bool:
 
 func _input(event):
 	if _hud_mode_paused:
+		return
+	# Con un aviso de emparejamiento abierto la pausa se hace a un lado: el primer clic al
+	# volver el foco se lo comia para restaurar el menu (era el clic de "Permitir"), y Esc
+	# abria el menu en vez de rechazar la solicitud.
+	if _pairing_prompt_open():
 		return
 	# Primer input tras recuperar el foco: devolver el menú completo, sin actuar.
 	if _menu_hidden_by_focus and get_tree().paused and _restores_menu(event):

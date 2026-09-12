@@ -131,9 +131,9 @@ static func create_ui_screen_select(id: String) -> Dictionary:
 	})
 
 static func create_input_message(input_type: String, payload: Dictionary, token: String = "") -> Dictionary:
-	# input_type: "input_data" (InputDataV2 de un control tactil), "event" (evento crudo,
-	# ver encode_event), "mouse_delta" ({x, y} acumulado por tick), "release_all",
-	# "touch", "accel", "gyro"
+	# input_type: "event" (evento: tecla, boton o accion, ver encode_event), "mouse_delta"
+	# ({x, y} de un mouse capturado, acumulado por tick), "touch_camera" ({x, y, zoom} de
+	# TouchCameraControls, ya en unidades de camara), "release_all", "accel", "gyro"
 	return {
 		"type": "input",
 		"input_type": input_type,
@@ -147,6 +147,15 @@ static func create_input_message(input_type: String, payload: Dictionary, token:
 # porque las pantallas de los dos lados no miden lo mismo.
 static func encode_event(ev: InputEvent, viewport_size: Vector2) -> Dictionary:
 	var d: Dictionary = {}
+	if ev is InputEventAction:
+		# Un control tactil no tiene teclas: lo que tiene son acciones (el joystick virtual
+		# empuja move_* con fuerza analogica, los botones empujan jump/crouch). Viajan como
+		# evento igual que una tecla, asi el host guarda el estado en su Input hasta que
+		# llegue el contrario: agacharse o correr quedan sostenidos, como con teclado.
+		var act := ev as InputEventAction
+		if not is_forwardable_action(act.action):
+			return {}
+		return {"k": "act", "a": act.action, "p": act.pressed, "s": act.strength}
 	if ev is InputEventKey:
 		var k := ev as InputEventKey
 		d = {"k": "key", "sc": k.scancode, "psc": k.physical_scancode, "u": k.unicode, "p": k.pressed, "e": k.echo}
@@ -173,6 +182,15 @@ static func encode_event(ev: InputEvent, viewport_size: Vector2) -> Dictionary:
 static func decode_event(d: Dictionary, viewport_size: Vector2) -> InputEvent:
 	var ev: InputEventWithModifiers = null
 	match String(d.get("k", "")):
+		"act":
+			var action := String(d.get("a", ""))
+			if not is_forwardable_action(action):
+				return null
+			var act := InputEventAction.new()
+			act.action = action
+			act.pressed = bool(d.get("p", false))
+			act.strength = clamp(float(d.get("s", 1.0 if act.pressed else 0.0)), 0.0, 1.0)
+			return act
 		"key":
 			var k := InputEventKey.new()
 			k.scancode = int(d.get("sc", 0))
@@ -208,6 +226,11 @@ static func decode_event(d: Dictionary, viewport_size: Vector2) -> InputEvent:
 	ev.meta = bool(d.get("me", false))
 	ev.command = bool(d.get("cm", false))
 	return ev
+
+# Solo acciones que existen en el InputMap. hud_mode nunca: el HUD es de cada dispositivo,
+# y reenviarlo abria el modo HUD del host con el mismo boton.
+static func is_forwardable_action(action: String) -> bool:
+	return action != "" and action != "hud_mode" and InputMap.has_action(action)
 
 # Ultimo mensaje del host al cerrar la partida a proposito: el control se va sin reintentar.
 static func create_session_end() -> Dictionary:

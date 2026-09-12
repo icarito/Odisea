@@ -80,9 +80,6 @@ class DummyClient extends Node:
 	func send_input(input_type: String, payload: Dictionary) -> void:
 		inputs.append({"type": input_type, "payload": payload})
 
-	func send_input_data(payload: Dictionary) -> void:
-		inputs.append({"type": "input_data", "payload": payload})
-
 	func get_resume_time_left() -> float:
 		return 0.0
 
@@ -234,16 +231,30 @@ func test_radial_ui_cancel_closes_dial_not_session():
 
 	home.queue_free()
 
-func test_open_dial_suspends_input_forwarding():
+func test_open_dial_keeps_the_touch_stream_flowing():
+	# En tactil los controles virtuales no se apagan nunca: con el dial abierto el
+	# joystick sigue manejando al host (el dial solo toma el dedo que apunta).
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._raw_passthrough = false # el celu: se reenvia InputDataV2 por tick
+	home._raw_passthrough = false
 	var client = home._client()
 
+	home._open_radial()
 	client.inputs.clear()
+	Input.action_press("crouch")
 	home._physics_process(0.016)
-	assert_int(client.inputs.size()).is_equal(1) # control: con el dial cerrado si manda
+	Input.action_release("crouch")
+	assert_array(_acts(client, "crouch")).is_equal([true])
+
+	home.queue_free()
+
+func test_open_dial_suspends_mouse_forwarding_on_passthrough():
+	# Con teclado y mouse si: mandar el mouse giraria la camara del host mientras se apunta.
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._raw_passthrough = true
+	var client = home._client()
 
 	home._open_radial()
+	home._mouse_delta = Vector2(30.0, 0.0)
 	client.inputs.clear()
 	home._physics_process(0.016)
 	assert_array(client.inputs).is_empty()
@@ -366,28 +377,22 @@ func test_tab_is_never_forwarded_to_the_host():
 
 	home.queue_free()
 
-# Hermano del anterior para el OTRO camino: en tactil/gamepad el boton no viaja como
-# evento sino como campo del InputDataV2 que se manda por tick, asi que comerse el evento
-# en _input no alcanza.
-func test_hud_button_is_never_forwarded_in_the_input_stream():
+# Hermano del anterior para el camino tactil: el boton del HUD tampoco viaja como accion.
+func test_hud_button_is_never_forwarded_as_an_action():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	home._raw_passthrough = false # el celu: se reenvia InputDataV2 por tick
-	# Proveedor en REPLAY con el boton apretado: el real lee el Input del proceso de test,
-	# donde hud_mode sale false y el test pasaria igual con el bug puesto.
-	var provider := InputProviderV2.new()
-	provider.mode = InputProviderV2.Mode.REPLAY
-	provider.playback_buffer = [{"hud_mode": true, "jump": true}]
-	home._input_provider = provider
+	home._raw_passthrough = false
 	var client = home._client()
 	client.inputs.clear()
 
+	Input.action_press("hud_mode")
+	Input.action_press("jump")
 	home._physics_process(0.016)
+	Input.action_release("hud_mode")
+	Input.action_release("jump")
 
-	assert_int(client.inputs.size()).is_equal(1)
-	var payload: Dictionary = client.inputs[0]["payload"]
-	assert_bool(bool(payload["hud_mode"])).is_false()
-	# Y el resto del stream sigue viajando: no se vacia el payload, se apaga un campo.
-	assert_bool(bool(payload["jump"])).is_true()
+	assert_array(_acts(client, "hud_mode")).is_empty()
+	# Y el resto sigue viajando: no se corta el stream, se excluye una accion.
+	assert_array(_acts(client, "jump")).is_equal([true])
 
 	home.queue_free()
 
@@ -441,6 +446,7 @@ func test_radial_aims_with_relative_motion_while_mouse_is_captured():
 
 func test_radial_keeps_every_input_while_open():
 	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._raw_passthrough = true # teclado y mouse: ahi el dial se queda con todo
 	home._open_radial()
 
 	# Con el dial abierto ningun evento sigue viaje: ni al host ni a la UI de abajo
@@ -616,11 +622,14 @@ func test_slot_widgets_are_placed_in_fixed_rows_without_overlap():
 	assert_object(widget_b).is_not_null()
 
 	# Filas fijas (como SuitOSWidgetHost en el host): B abajo de A aunque quepa al lado.
+	# Pegado al borde en unidades nominales (el WidgetHost esta compensado por render_scale):
+	# SLOT_PADDING mas el recorte de pantalla, si lo hay.
+	var inset: Vector2 = home._safe_area_inset_nominal()
 	var pos_a: Vector2 = (widget_a as Control).rect_position
 	var pos_b: Vector2 = (widget_b as Control).rect_position
-	assert_float(pos_a.x).is_equal(home.SLOT_PADDING)
-	assert_float(pos_a.y).is_equal(0.0)
-	assert_float(pos_b.y).is_equal((home.SLOT_ROW_HEIGHT + home.SLOT_GAP) * (widget_b as Control).rect_scale.y)
+	assert_float(pos_a.x).is_equal_approx(home.SLOT_PADDING + inset.x, 0.01)
+	assert_float(pos_a.y).is_equal_approx(home.SLOT_PADDING + inset.y, 0.01)
+	assert_float(pos_b.y).is_equal_approx(pos_a.y + home.SLOT_ROW_HEIGHT + home.SLOT_GAP, 0.01)
 	# Con compensacion de escala ningun widget invade la fila del otro.
 	assert_float((widget_a as Control).rect_scale.y).is_less_equal(1.0)
 	assert_float(pos_b.y).is_greater_equal(pos_a.y + home.SLOT_ROW_HEIGHT * (widget_a as Control).rect_scale.y)
@@ -678,4 +687,395 @@ func test_widget_internal_buttons_stay_clickable():
 	if title_label != null:
 		assert_int((title_label as Label).mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
 
+	home.queue_free()
+
+# --- Controles virtuales con el dial abierto (tactil) ---
+
+func _spawn_virtual_controls() -> Control:
+	MobileUIManager._spawn_mobile_ui()
+	MobileUIManager._mobile_ui.visible = true
+	MobileUIManager._set_gameplay_controls_visible(true)
+	return MobileUIManager._mobile_ui.get_node("Container/MoveJoystick") as Control
+
+func _hide_virtual_controls() -> void:
+	if is_instance_valid(MobileUIManager._mobile_ui):
+		MobileUIManager._mobile_ui.visible = false
+
+func _center_of(ctrl: Control) -> Vector2:
+	var scale: Vector2 = ctrl.rect_scale
+	return ctrl.rect_global_position + Vector2(ctrl.rect_size.x * abs(scale.x), ctrl.rect_size.y * abs(scale.y)) * 0.5
+
+func test_touch_on_the_joystick_passes_through_the_open_dial():
+	var joystick := _spawn_virtual_controls()
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._raw_passthrough = false
+	home._open_radial()
+
+	# El dedo sobre el joystick es del joystick: el dial no lo reclama ni lo consume.
+	var on_joystick: Vector2 = _center_of(joystick)
+	assert_bool(MobileUIManager.is_point_on_touch_controls(on_joystick)).is_true()
+	assert_bool(home._handle_radial_input(_touch(0, on_joystick, true))).is_false()
+	assert_bool(home._handle_radial_input(_drag(0, on_joystick + Vector2(40.0, 0.0)))).is_false()
+	assert_int(home._radial_touch_index).is_equal(-1)
+	# Y soltarlo no cierra el dial (no era un toque fuera de las opciones).
+	assert_bool(home._handle_radial_input(_touch(0, on_joystick, false))).is_false()
+	assert_bool(home._radial_is_open()).is_true()
+
+	home.queue_free()
+	_hide_virtual_controls()
+
+func test_second_finger_aims_while_the_joystick_is_held():
+	var joystick := _spawn_virtual_controls()
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._raw_passthrough = false
+	home._open_radial()
+	home._client().ui_directives.clear()
+
+	# Dedo 0 caminando en el joystick, dedo 1 eligiendo en el dial: los dos a la vez.
+	home._handle_radial_input(_touch(0, _center_of(joystick), true))
+	var start := Vector2(600.0, 300.0)
+	assert_bool(MobileUIManager.is_point_on_touch_controls(start)).is_false()
+	assert_bool(home._handle_radial_input(_touch(1, start, true))).is_true()
+	assert_bool(home._handle_radial_input(_drag(1, start + Vector2(0.0, -120.0)))).is_true()
+	assert_bool(home._handle_radial_input(_drag(0, _center_of(joystick) + Vector2(30.0, 0.0)))).is_false()
+	home._handle_radial_input(_touch(1, start + Vector2(0.0, -120.0), false))
+
+	var sent: Array = home._client().ui_directives
+	assert_int(sent.size()).is_equal(1)
+	assert_str(String(sent[0]["payload"]["id"])).is_equal("screen_a")
+
+	home.queue_free()
+	_hide_virtual_controls()
+
+func test_emulated_mouse_from_touch_does_not_drive_the_dial():
+	# En tactil el mouse que llega es el emulado de los toques: un arrastre del joystick
+	# no puede apuntar el dial, ni un toque en un boton confirmarlo.
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._raw_passthrough = false
+	home._open_radial()
+	home._client().ui_directives.clear()
+
+	assert_bool(home._handle_radial_input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -80.0)))).is_false()
+	assert_int(home._radial_selector.get_hovered_index()).is_equal(-1)
+	assert_bool(home._handle_radial_input(_click(VIEW_SIZE * 0.5))).is_false()
+	assert_array(home._client().ui_directives).is_empty()
+	assert_bool(home._radial_is_open()).is_true()
+
+	home.queue_free()
+
+# --- Un solo protocolo: eventos de accion que dejan el estado sostenido en el host ---
+
+# Las acciones enviadas para una accion dada, como lista de "apretada?" en orden.
+func _acts(client, action: String) -> Array:
+	var out: Array = []
+	for entry in client.inputs:
+		if String(entry["type"]) != "event":
+			continue
+		var p: Dictionary = entry["payload"]
+		if String(p.get("k", "")) == "act" and String(p.get("a", "")) == action:
+			out.append(bool(p.get("p", false)))
+	return out
+
+func test_held_crouch_is_sent_once_not_every_tick():
+	# El bug: la foto por tick soltaba el crouch en cada hueco y el host sacaba flancos
+	# falsos. Ahora viaja el cambio: apretar una vez, soltar una vez.
+	var home = _home_with_dial()
+	home._raw_passthrough = false
+	var client = home._client()
+	client.inputs.clear()
+
+	Input.action_press("crouch")
+	for _i in range(5):
+		home._physics_process(0.016)
+	Input.action_release("crouch")
+	home._physics_process(0.016)
+	home._physics_process(0.016)
+
+	assert_array(_acts(client, "crouch")).is_equal([true, false])
+
+	home.queue_free()
+
+func test_analog_move_travels_as_strength_only_when_it_changes():
+	var home = _home_with_dial()
+	home._raw_passthrough = false
+	var client = home._client()
+	client.inputs.clear()
+
+	Input.action_press("move_forward", 0.62)
+	home._physics_process(0.016)
+	home._physics_process(0.016) # mismo pulgar: nada nuevo
+	Input.action_press("move_forward", 0.4)
+	home._physics_process(0.016)
+	Input.action_release("move_forward")
+	home._physics_process(0.016)
+
+	var strengths: Array = []
+	for entry in client.inputs:
+		var p: Dictionary = entry["payload"]
+		if String(p.get("a", "")) == "move_forward":
+			strengths.append(stepify(float(p["s"]), 0.01))
+	assert_array(strengths).is_equal([0.62, 0.4, 0.0])
+
+	home.queue_free()
+
+func test_touch_camera_travels_in_its_own_units_once_per_tick():
+	var home = _home_with_dial()
+	home._raw_passthrough = false
+	var client = home._client()
+	client.inputs.clear()
+
+	home._on_camera_drag(Vector2(3.0, -1.0))
+	home._on_camera_drag(Vector2(2.0, 4.0))
+	home._on_camera_zoom(0.5)
+	home._physics_process(0.016)
+	home._physics_process(0.016) # sin arrastre nuevo: no manda nada
+
+	var looks: Array = []
+	for entry in client.inputs:
+		if String(entry["type"]) == "touch_camera":
+			looks.append(entry["payload"])
+	assert_int(looks.size()).is_equal(1)
+	assert_float(float(looks[0]["x"])).is_equal(5.0)
+	assert_float(float(looks[0]["y"])).is_equal(3.0)
+	assert_float(float(looks[0]["zoom"])).is_equal(0.5)
+
+	home.queue_free()
+
+func test_losing_focus_releases_and_resends_what_is_still_held():
+	var home = _home_with_dial()
+	home._raw_passthrough = false
+	var client = home._client()
+	Input.action_press("run")
+	home._physics_process(0.016)
+	client.inputs.clear()
+
+	# Se va el foco: el host suelta todo...
+	home._notification(MainLoop.NOTIFICATION_WM_FOCUS_OUT)
+	assert_str(String(client.inputs[0]["type"])).is_equal("release_all")
+	# ...y lo que siga apretado aca vuelve a viajar, porque alla ya no lo esta.
+	home._physics_process(0.016)
+	Input.action_release("run")
+	assert_array(_acts(client, "run")).is_equal([true])
+
+	home.queue_free()
+
+# --- Sin mouse virtual: el dial se apunta con el stick ---
+
+func test_remote_control_never_attaches_a_virtual_mouse():
+	# En un handheld el mouse virtual se activaba con el stick y convertia A/B en clics
+	# locales que nunca llegaban al host.
+	var home = _home_with_dial()
+	assert_object(home.find_node("VirtualMouse", true, false)).is_null()
+	assert_object(home.find_node("VirtualMouseLayer", true, false)).is_null()
+	home.queue_free()
+
+func test_stick_aims_the_open_radial_without_a_mouse():
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._raw_passthrough = true # el Anbernic corre en modo escritorio, sin mouse
+	home._open_radial()
+	home._client().ui_directives.clear()
+
+	# Stick hacia arriba = la ultima opcion del arco (screen_a). Con la correccion de ejes
+	# del handheld el mismo gesto fisico llega invertido: se prueba el rumbo esperado.
+	var up: String = "move_backward" if InputProviderV2.wants_handheld_axis_inversion() else "move_forward"
+	Input.action_press(up, 1.0)
+	home._physics_process(0.016)
+	Input.action_release(up)
+	assert_int(home._radial_selector.get_hovered_index()).is_equal(1)
+
+	# A (ui_accept) confirma.
+	home._handle_radial_input(_action("ui_accept"))
+	var sent: Array = home._client().ui_directives
+	assert_int(sent.size()).is_equal(1)
+	assert_str(String(sent[0]["payload"]["id"])).is_equal("screen_a")
+
+	home.queue_free()
+
+func test_stick_does_not_aim_the_dial_on_touch():
+	# En tactil el joystick virtual sigue caminando: el dial lo apunta el dedo.
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._raw_passthrough = false
+	home._open_radial()
+	Input.action_press("move_forward", 1.0)
+	home._physics_process(0.016)
+	Input.action_release("move_forward")
+	assert_int(home._radial_selector.get_hovered_index()).is_equal(-1)
+	home.queue_free()
+
+# --- Slots como en el host: arriba a la izquierda y tocables en el celular ---
+
+func test_touch_ui_draws_above_the_hud_and_exit_stays_on_top():
+	# La UI tactil se dibuja siempre encima de las pantallas del HUD; Salir, encima de todo.
+	var home = _home_with_dial()
+	var hud_layer: CanvasLayer = home.widget_host.get_parent() as CanvasLayer
+	assert_object(hud_layer).is_not_null()
+	var touch_ui = load("res://core_v2/ui/MobileUI.tscn").instance()
+	assert_int(hud_layer.layer).is_greater(0) # por encima de la escena (titulo, fondo)
+	assert_int(hud_layer.layer).is_less(touch_ui.layer)
+	assert_int(home.get_node("ExitLayer").layer).is_greater(touch_ui.layer)
+	touch_ui.free()
+	# La vista y el dial van en la misma capa que los slots.
+	assert_bool(home.fullscreen_overlay.get_parent() == hud_layer).is_true()
+	assert_bool(home.radial_overlay.get_parent() == hud_layer).is_true()
+	home.queue_free()
+
+func test_touch_ui_lets_taps_through_only_while_the_remote_is_open():
+	# Con la UI tactil encima, su Container de pantalla completa (STOP) se quedaba con el
+	# toque y tocar un widget no abria nada. Se abre paso solo aca y se restaura al salir.
+	MobileUIManager._spawn_mobile_ui()
+	var container: Control = MobileUIManager._mobile_ui.get_node("Container")
+	container.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var home = RemoteControlHomeScene.instance()
+	add_child(home)
+	assert_int(container.mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
+
+	remove_child(home) # _exit_tree ya, no al final del frame
+	assert_int(container.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
+	home.free()
+
+func test_slot_stays_stuck_to_the_side_when_render_scale_changes_at_runtime():
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var widget: Control = home._mounted_widgets["slot_a"]
+	var x_before: float = widget.rect_position.x
+	var before_scale: float = SettingsManager.render_scale
+
+	# Baja el render en runtime: el compensador reescala el WidgetHost y el slot conserva su
+	# posicion nominal pegada al borde (antes el margen en pixeles fijos lo despegaba).
+	SettingsManager.render_scale = 0.6
+	home.get_node("HUDLayer/WidgetHostScale").apply()
+	home._relayout_widgets()
+	assert_float(home.widget_host.rect_scale.x).is_equal_approx(0.6, 0.001)
+	assert_float(widget.rect_position.x).is_equal_approx(x_before, 0.001)
+	assert_float(widget.rect_scale.x).is_less_equal(1.0) # sin k: la escala la pone el host
+
+	SettingsManager.render_scale = before_scale
+	home.get_node("HUDLayer/WidgetHostScale").apply()
+	home.queue_free()
+
+func test_touch_never_grabs_the_pointer():
+	# Un clic emulado de un toque no recaptura el mouse (el grab mata el arrastre tactil).
+	MobileUIManager._touch_pointer_until = OS.get_ticks_msec() + 1000
+	assert_bool(SessionManager._pointer_is_from_touch()).is_true()
+	MobileUIManager._touch_pointer_until = 0
+	assert_bool(SessionManager._pointer_is_from_touch()).is_false()
+
+
+# --- Salir de una pantalla tocando fuera, como en el host ---
+
+# Abre una pantalla con vista a resolucion de diseño y la calza, para tener un rect conocido.
+func _home_with_open_view(frame_size: Vector2 = Vector2(640.0, 480.0)):
+	var home = _home_with_dial([{"id": "holoterminal:cryo", "title": "Criogenia", "relevance": 0.9}])
+	home._on_ui_directive("screen_active", {
+		"id": "holoterminal:cryo", "title": "Criogenia", "view": "scene",
+		"view_scene": "res://core_v2/ui/hud/HoloTerminalWidget.tscn",
+		"view_size": [1280.0, 816.0], "snapshot": {"proto": 1, "id": "holoterminal:cryo"}
+	})
+	var container = home._view_viewport_container()
+	container.get_parent().rect_size = frame_size
+	home._fit_view_node()
+	home._client().ui_directives.clear()
+	return home
+
+func _screen_selects(home) -> Array:
+	var ids: Array = []
+	for d in home._client().ui_directives:
+		if String(d["op"]) == "screen_select":
+			ids.append(String(d["payload"]["id"]))
+	return ids
+
+func test_tap_outside_the_view_closes_it_on_touch():
+	# En tactil no hay TAB: sin esto no habia forma de salir de una pantalla.
+	var home = _home_with_open_view()
+	var outside: Vector2 = home._view_screen_rect().end + Vector2(4.0, 4.0)
+
+	home._input(_touch(0, outside, true))
+	home._input(_touch(0, outside, false))
+
+	assert_array(_screen_selects(home)).is_equal([""])
+	home.queue_free()
+
+func test_dragging_outside_the_view_is_camera_not_close():
+	var home = _home_with_open_view()
+	var outside: Vector2 = home._view_screen_rect().end + Vector2(4.0, 4.0)
+
+	home._input(_touch(0, outside, true))
+	home._input(_touch(0, outside + Vector2(60.0, 0.0), false))
+
+	assert_array(_screen_selects(home)).is_empty()
+	home.queue_free()
+
+func test_tap_inside_the_view_does_not_close_it():
+	var home = _home_with_open_view()
+	var inside: Vector2 = home._view_screen_rect().position + home._view_screen_rect().size * 0.5
+
+	home._input(_touch(0, inside, true))
+	home._input(_touch(0, inside, false))
+
+	assert_array(_screen_selects(home)).is_empty()
+	home.queue_free()
+
+func test_tap_on_a_virtual_control_does_not_close_the_view():
+	var joystick := _spawn_virtual_controls()
+	# Vista chica arriba: el joystick (abajo a la izquierda) queda fuera de ella, que es el caso
+	# que importa. Si cae dentro, la regla "dentro no cierra" ya lo cubre y no probaria nada.
+	var home = _home_with_open_view(Vector2(200.0, 150.0))
+	var on_joystick: Vector2 = _center_of(joystick)
+	# Control: el joystick de verdad esta fuera de la vista.
+	assert_bool(home._view_screen_rect().has_point(on_joystick)).is_false()
+
+	home._input(_touch(0, on_joystick, true))
+	home._input(_touch(0, on_joystick, false))
+
+	assert_array(_screen_selects(home)).is_empty()
+	home.queue_free()
+	_hide_virtual_controls()
+
+func test_click_outside_closes_only_with_the_cursor_released():
+	var home = _home_with_open_view()
+	home._raw_passthrough = true
+	var outside: Vector2 = home._view_screen_rect().end + Vector2(4.0, 4.0)
+
+	# Mouse capturado: su posicion no significa nada (esta congelada), no cierra.
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	home._input(_click(outside))
+	assert_array(_screen_selects(home)).is_empty()
+
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	home._input(_click(outside))
+	assert_array(_screen_selects(home)).is_equal([""])
+
+	home.queue_free()
+
+# --- La lista que llega mientras el control sigue en el menu ---
+
+func test_client_keeps_the_last_screen_list_and_active_screen():
+	var client = auto_free(load("res://core_v2/net/RemoteControlClient.gd").new())
+	client._handle_message({"type": "ui", "op": "screen_list",
+		"payload": [{"id": "screen_a", "title": "Screen A", "relevance": 0.9}]})
+	client._handle_message({"type": "ui", "op": "screen_active",
+		"payload": {"id": "screen_a", "title": "Screen A", "view": "widget", "snapshot": {}}})
+	assert_int((client.last_screen_list as Array).size()).is_equal(1)
+	assert_str(String(client.last_screen_active["id"])).is_equal("screen_a")
+
+	# Otra partida: no se arrastra la lista de la anterior.
+	client.pair_with("127.0.0.1", 1, 2, "test")
+	assert_object(client.last_screen_list).is_null()
+	assert_object(client.last_screen_active).is_null()
+
+func test_home_shows_the_hud_the_host_sent_before_it_existed():
+	# El host manda screen_list pegado al pair_result; el control todavia esta en el menu
+	# (change_scene es diferido) y la pantalla del control nunca lo escuchaba. Con el host en
+	# pausa no volvia a llegar: el HUD no aparecia.
+	var client = get_node("/root/RemoteControlManager").client
+	client.last_screen_list = [{"id": "screen_a", "title": "Screen A", "relevance": 0.9}]
+	client.last_screen_active = null
+
+	var home = RemoteControlHomeScene.instance()
+	add_child(home) # sin ningun ui directive entregado a esta pantalla
+
+	assert_bool(home._mounted_widgets.has("slot_a")).is_true()
+	assert_str(home._get_node_screen_id(home._mounted_widgets["slot_a"])).is_equal("screen_a")
+
+	client.last_screen_list = null
 	home.queue_free()

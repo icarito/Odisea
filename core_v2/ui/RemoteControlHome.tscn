@@ -31,30 +31,31 @@ text = "Use los controles táctiles para jugar en la otra pantalla."
 align = 1
 autowrap = true
 
-[node name="WidgetHost" type="Control" parent="."]
-margin_left = 16.0
-margin_top = 140.0
-margin_right = 376.0
-margin_bottom = 560.0
+[node name="HUDLayer" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="WidgetHost" type="Control" parent="HUDLayer"]
+anchor_right = 1.0
+anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="FullScreenOverlay" type="Control" parent="."]
+[node name="FullScreenOverlay" type="Control" parent="HUDLayer"]
 visible = false
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="OverlayBG" type="ColorRect" parent="FullScreenOverlay"]
+[node name="OverlayBG" type="ColorRect" parent="HUDLayer/FullScreenOverlay"]
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color( 0.02, 0.04, 0.08, 0.94 )
 
-[node name="ViewHost" type="MarginContainer" parent="FullScreenOverlay"]
+[node name="ViewHost" type="MarginContainer" parent="HUDLayer/FullScreenOverlay"]
 anchor_left = 0.05
 anchor_top = 0.05
 anchor_right = 0.95
 anchor_bottom = 0.85
 
-[node name="RadialOverlay" type="Control" parent="."]
+[node name="RadialOverlay" type="Control" parent="HUDLayer"]
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2

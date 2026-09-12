@@ -337,6 +337,26 @@ func is_mobile() -> bool:
 func is_touch_active() -> bool:
 	return _is_touch_active
 
+# El punto cae sobre un control virtual (joystick, botones de accion, de gravedad cero, saltar
+# cinematica). TouchCameraArea no cuenta: cubre la pantalla entera y es el fondo que arrastra
+# la camara, no un control. Lo usa quien quiere quedarse con un toque SIN apagar los controles
+# (el dial del control remoto), mirando donde empieza.
+func is_point_on_touch_controls(point: Vector2) -> bool:
+	if not is_instance_valid(_mobile_ui) or not _mobile_ui.visible:
+		return false
+	var container = _mobile_ui.get_node_or_null("Container")
+	if container == null:
+		return false
+	for ctrl in container.get_children():
+		if not (ctrl is Control) or ctrl.name == "TouchCameraArea" or not ctrl.is_visible_in_tree():
+			continue
+		# Mismo calculo de rect que _expand_overlay_margins (la escala del nodo cuenta).
+		var scale: Vector2 = ctrl.rect_scale
+		var size := Vector2(ctrl.rect_size.x * abs(scale.x), ctrl.rect_size.y * abs(scale.y))
+		if Rect2(ctrl.rect_global_position, size).has_point(point):
+			return true
+	return false
+
 func get_reserved_overlay_margins(padding: float = 16.0) -> Dictionary:
 	var margins = {
 		"left": 0.0,

@@ -220,8 +220,10 @@ func _on_pair_result_received(ok: bool, reason: String) -> void:
 		status_label.text = "No se pudo emparejar: %s.\nPulse Buscar de nuevo para reintentar." % reason
 		_log("Emparejamiento rechazado: " + reason)
 
-func _on_ui_directive_received(op: String, payload: Dictionary) -> void:
-	_log("UI DIRECTIVE [%s]: %s" % [op, String(payload)])
+# payload sin tipo: screen_list llega como Array, y con Dictionary el log de cada
+# cambio de widget era un "Cannot convert argument 2 from Array to Dictionary".
+func _on_ui_directive_received(op: String, payload) -> void:
+	_log("UI DIRECTIVE [%s]: %s" % [op, str(payload)])
 
 func _log(msg: String) -> void:
 	if log_text:

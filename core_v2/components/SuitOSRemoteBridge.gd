@@ -53,7 +53,7 @@ func _on_client_connected(_device_name: String) -> void:
 
 func _send_screen_list() -> void:
 	var server = _get_server()
-	if server == null:
+	if server == null or not server.has_method("has_paired_client") or not server.has_paired_client():
 		return
 
 	var suit_os = get_node_or_null("/root/SuitOS")
@@ -96,15 +96,20 @@ func _on_screen_unregistered(id: String) -> void:
 		set_remote_active_screen("")
 
 func _on_widget_changed(_slot: String, snapshot: Dictionary) -> void:
-	_send_screen_list()
+	if not _has_paired_client():
+		return
 	var snap_id: String = String(snapshot.get("id", ""))
-	if snap_id == _remote_active_screen_id and not _remote_active_screen_id.empty():
-		_send_screen_data(_remote_active_screen_id, snapshot)
+	if not snap_id.empty():
+		_send_screen_data(snap_id, snapshot)
 
 func _on_suitos_haptic(kind: String, intensity: float = 1.0) -> void:
 	var server = _get_server()
-	if server != null:
+	if server != null and _has_paired_client():
 		server.send_ui_directive("haptic", {"kind": kind, "intensity": intensity})
+
+func _has_paired_client() -> bool:
+	var server = _get_server()
+	return server != null and server.has_method("has_paired_client") and server.has_paired_client()
 
 func _on_ui_directive_received(op: String, payload) -> void:
 	match op:
@@ -136,7 +141,7 @@ func get_remote_active_screen_id() -> String:
 
 func _refresh_remote_active_screen() -> void:
 	var server = _get_server()
-	if server == null:
+	if server == null or not _has_paired_client():
 		return
 
 	if _remote_active_screen_id.empty():
@@ -193,7 +198,7 @@ func _refresh_remote_active_screen() -> void:
 
 func _send_screen_data(id: String, snapshot: Dictionary) -> void:
 	var server = _get_server()
-	if server != null:
+	if server != null and _has_paired_client():
 		server.send_ui_directive("screen_data", {
 			"id": id,
 			"snapshot": snapshot

@@ -28,6 +28,11 @@ var _mouse_mode_before_pairing: int = Input.MOUSE_MODE_VISIBLE
 var _remote_held: Dictionary = {}
 # Ultimo estado de pausa avisado a los controles; -1 fuerza reenviarlo.
 var _sent_paused: int = -1
+# El aviso de emparejamiento va por encima del menu de pausa (CanvasLayer 50): si la ventana
+# perdio el foco mientras llegaba la solicitud, al volver el menu lo tapaba y no se podia
+# aceptar. Ver tambien PauseManager, que se hace a un lado mientras este abierto.
+const PAIRING_DIALOG_LAYER := 60
+var _pairing_dialog: Node = null
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
@@ -160,27 +165,51 @@ func _on_server_pair_requested(device_name: String, pin: String, callback: FuncR
 	get_tree().paused = true
 	var dialog = load("res://core_v2/ui/RemotePairingDialog.tscn").instance()
 	dialog.pause_mode = Node.PAUSE_MODE_PROCESS
-	get_tree().root.add_child(dialog)
+	var layer := CanvasLayer.new()
+	layer.name = "RemotePairingLayer"
+	layer.layer = PAIRING_DIALOG_LAYER
+	layer.pause_mode = Node.PAUSE_MODE_PROCESS
+	get_tree().root.add_child(layer)
+	layer.add_child(dialog)
+	_pairing_dialog = dialog
 	dialog.connect("pairing_completed", self, "_on_pairing_completed", [dialog], CONNECT_ONESHOT)
 	dialog.prompt_pairing(device_name, pin, callback)
+
+# Hay una solicitud de emparejamiento esperando respuesta: tiene prioridad sobre la pausa.
+func is_pairing_prompt_open() -> bool:
+	return is_instance_valid(_pairing_dialog)
 
 func _on_pairing_completed(_accepted: bool, dialog: Node) -> void:
 	if _paused_for_pairing:
 		get_tree().paused = false
 		Input.set_mouse_mode(_mouse_mode_before_pairing)
 		_paused_for_pairing = false
-	dialog.queue_free()
+	_pairing_dialog = null
+	var layer = dialog.get_parent()
+	if layer is CanvasLayer and layer.name == "RemotePairingLayer":
+		layer.queue_free()
+	else:
+		dialog.queue_free()
 
 func _on_server_input_received(input_type: String, payload: Dictionary) -> void:
 	var session = get_node_or_null("/root/SessionManager")
 	var player = session.player if session and is_instance_valid(session.player) else null
 	var input_provider = player.input_provider if player and "input_provider" in player else null
 	match input_type:
-		"input_data":
-			if input_provider and input_provider.hardware_input_enabled and player.has_method("inject_input"):
-				player.inject_input(payload)
+		# Un solo protocolo para cualquier control, tactil o de escritorio: eventos que
+		# dejan el estado en el Input del host hasta que llega el contrario. Antes el tactil
+		# mandaba una foto de InputDataV2 por tick que el jugador consumia y olvidaba: un
+		# tick sin foto soltaba todo (caia la velocidad) y el controlador sacaba flancos
+		# falsos del hueco (el crouch sostenido se alternaba solo).
 		"event":
 			_apply_remote_event(payload)
+		"touch_camera":
+			# TouchCameraControls ya entrega unidades de camara: van por el mismo acumulador
+			# que usa el touch local, no por mouse_delta_accum (que invierte Y y aplica la
+			# sensibilidad del mouse).
+			if input_provider:
+				input_provider.add_touch_camera_drag(Vector2(float(payload.get("x", 0.0)), float(payload.get("y", 0.0))))
+				input_provider.add_touch_camera_zoom(float(payload.get("zoom", 0.0)))
 		"mouse_delta":
 			# El mouse del otro lado ya esta capturado; aca se suma directo al acumulador
 			# que llena PlayerControllerV2._input, que en un host tactil nunca ve el
@@ -194,22 +223,35 @@ func _on_server_input_received(input_type: String, payload: Dictionary) -> void:
 # El evento entra como si fuera hardware local: todo el InputMap (ui_*, pausa, zoom,
 # modificadores) se comporta igual que con el teclado propio del host.
 func _apply_remote_event(payload: Dictionary) -> void:
-	var ev: InputEvent = RemoteProtocol.decode_event(payload, get_tree().root.get_visible_rect().size)
+	var ev: InputEvent = RemoteProtocol.decode_event(payload, _viewport_size())
 	if ev == null:
 		return
-	var id: String = "%s:%d:%d" % [payload.get("k", ""), int(payload.get("sc", payload.get("b", payload.get("a", 0)))), int(payload.get("psc", 0))]
+	var id: String = _remote_held_id(payload)
 	if bool(payload.get("p", false)) or abs(float(payload.get("v", 0.0))) > 0.0:
 		var release: Dictionary = payload.duplicate()
 		release["p"] = false
 		release["e"] = false
 		release["v"] = 0.0
+		release["s"] = 0.0
 		_remote_held[id] = release
 	else:
 		_remote_held.erase(id)
 	Input.parse_input_event(ev)
 
+# Que quedo apretado, para soltarlo si el control se cae. En una accion "a" es su nombre (en
+# joypad es el eje): con int() todas las acciones compartian id y soltar una borraba otra.
+func _remote_held_id(payload: Dictionary) -> String:
+	var kind := String(payload.get("k", ""))
+	if kind == "act":
+		return "act:%s" % String(payload.get("a", ""))
+	return "%s:%d:%d" % [kind, int(payload.get("sc", payload.get("b", payload.get("a", 0)))), int(payload.get("psc", 0))]
+
+# Solo la posicion del mouse la necesita; una accion no, y fuera del arbol no hay viewport.
+func _viewport_size() -> Vector2:
+	return get_tree().root.get_visible_rect().size if is_inside_tree() else Vector2.ZERO
+
 func _release_remote_inputs() -> void:
-	var viewport_size: Vector2 = get_tree().root.get_visible_rect().size
+	var viewport_size: Vector2 = _viewport_size()
 	for release in _remote_held.values():
 		Input.parse_input_event(RemoteProtocol.decode_event(release, viewport_size))
 	_remote_held.clear()

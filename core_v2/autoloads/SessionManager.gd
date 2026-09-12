@@ -329,6 +329,10 @@ func _notification(what):
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
+func _pointer_is_from_touch() -> bool:
+	var mobile = get_node_or_null("/root/MobileUIManager")
+	return is_instance_valid(mobile) and mobile.has_method("is_pointer_from_touch") and mobile.is_pointer_from_touch()
+
 func _wants_mouse_capture() -> bool:
 	# Condiciones bajo las cuales el gameplay quiere el mouse capturado.
 	# No incluye el chequeo de foco: eso lo decide _reassert_mouse_capture.
@@ -1482,7 +1486,11 @@ func _unhandled_input(event):
 		# Que el clic haya llegado hasta aquí implica que la ventana tiene foco,
 		# pero lo verificamos igual para mantener una sola fuente de verdad.
 		# En pausa nunca recapturamos: el clic pertenece al menú de pausa.
-		if event is InputEventMouseButton and event.pressed and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
+		# Un toque nunca agarra el puntero: el clic que el sistema emula de cada toque llegaba
+		# aca en cuanto nada de la GUI lo detenia (la pantalla del control remoto deja pasar
+		# los toques), y con el grab puesto el arrastre tactil deja de llegar.
+		if event is InputEventMouseButton and event.pressed and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE \
+				and not _pointer_is_from_touch():
 			if not get_tree().paused and not OS.has_feature("Server") and OS.is_window_focused():
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 				# set_mouse_mode(CAPTURED) hace un warp del cursor al centro de la

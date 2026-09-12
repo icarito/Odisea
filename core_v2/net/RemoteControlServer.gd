@@ -18,6 +18,9 @@ export var sensor_udp_port: int = 10444
 export var pairing_timeout: float = 30.0
 # El control manda un ping por segundo (RemoteControlClient.heartbeat_interval).
 export var client_stall_timeout: float = 3.0
+# Sin ningun peer no hay input ni handshake que despachar cada frame. 20 Hz conserva una
+# conexion nueva con hasta 50 ms de demora y evita sondear dos sockets inactivos 60 veces/s.
+export var idle_poll_interval: float = 0.05
 
 var _ws_server = WebSocketServer.new()
 var _sensor_udp = PacketPeerUDP.new()
@@ -29,6 +32,7 @@ var _active_token: String = ""
 var _peers: Dictionary = {}
 var _pairing_peer_id: int = -1
 var _pairing_timer: float = 0.0
+var _idle_poll_timer: float = 0.0
 
 # Sensor streaming heartbeat tracking
 var _last_sensor_timestamp: float = 0.0
@@ -56,6 +60,7 @@ func start_server(p_ws_port: int = 10443, p_sensor_port: int = 10444) -> bool:
 		printerr("[RemoteControlServer] Sensor UDP failed to listen on port ", sensor_udp_port, " err=", udp_err)
 
 	_server_started = true
+	_idle_poll_timer = idle_poll_interval
 	return true
 
 func stop_server() -> void:
@@ -70,6 +75,7 @@ func stop_server() -> void:
 	_peers.clear()
 	# Una sesion cerrada no se puede retomar con su token.
 	_active_token = ""
+	_idle_poll_timer = 0.0
 	_server_started = false
 
 func generate_pin() -> String:
@@ -106,6 +112,12 @@ func has_local_paired_client() -> bool:
 			return true
 	return false
 
+func has_paired_client() -> bool:
+	for peer in _peers.values():
+		if peer.get("paired", false):
+			return true
+	return false
+
 func is_local_address(address: String) -> bool:
 	if address == "":
 		return false
@@ -126,6 +138,8 @@ func _broadcast_to_paired(json_str: String) -> void:
 func _process(delta: float) -> void:
 	if not _server_started:
 		return
+	if not _should_poll(delta):
+		return
 
 	_ws_server.poll()
 	_process_sensor_udp(delta)
@@ -138,6 +152,15 @@ func _process(delta: float) -> void:
 			_pairing_peer_id = -1
 
 	_check_stalled_peers()
+
+func _should_poll(delta: float) -> bool:
+	if not _peers.empty():
+		return true
+	_idle_poll_timer += delta
+	if _idle_poll_timer < idle_poll_interval:
+		return false
+	_idle_poll_timer = 0.0
+	return true
 
 func _check_stalled_peers() -> void:
 	var now: int = OS.get_ticks_msec()

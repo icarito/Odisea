@@ -19,7 +19,7 @@
             "allowedModels": []
         }
     },
-    "godotTools.editorPath.godot3": "tools/godot",
+    "godotTools.editorPath.godot3": "/run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/tools/godot",
     "python.defaultInterpreterPath": "",
     "python.testing.pytestArgs": [
         "-q",
