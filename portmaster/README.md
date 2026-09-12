@@ -1,0 +1,53 @@
+## Notes
+
+Odisea ships its own engine: `odisea.frt.aarch64`, a Godot 3.6 FRT build
+carrying the Box3D physics module the game asks for in its project settings.
+PortMaster's stock `frt_3.6` runtime also runs the game, but it falls back to
+Bullet silently. If you delete `odisea.frt.aarch64` the launcher uses that
+runtime instead, which is a convenient way to compare the two on the same
+hardware.
+
+The engine talks to the display through SDL2, which your firmware already
+provides — there is no X11 dependency.
+
+Saves and configuration live in `ports/odisea/conf/`. The launcher writes a log
+to `ports/odisea/log.txt` — attach it when reporting a problem.
+
+The port exports `ODISEA_DEVICE=anbernic`, which makes the game correct the
+handheld's inverted analog axes and drop to its low graphics profile. On a
+device where the sticks end up inverted, edit `Odisea.sh` and remove that line.
+
+## Controls
+
+| Button | Action |
+|--|--|
+| Left Analog | Move |
+| Right Analog | Camera |
+| D-Pad Left / Right | Step the camera around |
+| D-Pad Up / Down | Zoom in / out |
+| A | Crouch |
+| B | Jump |
+| Y | Interact |
+| R1 | Run (roll right in zero gravity) |
+| L1 | Roll left in zero gravity |
+| L2 / R2 | Tool secondary / primary fire |
+| Start | Flashlight (skips dialogue) |
+| Select | Debug overlay |
+
+The pause menu is keyboard-only in this build (Escape), so it is not reachable
+from the gamepad. Use the firmware's own quit hotkey to leave the game.
+
+## Development
+
+Create `ports/odisea/dev.sh` on the device to add engine flags without touching
+the packaged launcher — it is sourced just before the game starts:
+
+```bash
+GODOT_OPTS="$GODOT_OPTS --remote-debug 192.168.1.50:6007"
+export ANNA_ENABLED=1
+```
+
+## Thanks
+
+Built with Godot 3.6 and the FRT platform port. See `odisea/licenses/` for the
+credits of the third-party assets bundled in the game data.

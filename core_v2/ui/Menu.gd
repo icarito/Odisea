@@ -1,5 +1,6 @@
 extends Control
 
+const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
 const FIRST_GAME_SCENE := "res://core_v2/levels/interiors/Dome_Intro.tscn"
 const MENU_BGM := "Tin Cosmos"
 # Debe coincidir con el bgm_stream de BGMZoneV2 en Dome_Intro.tscn (mismo path
@@ -21,6 +22,7 @@ var _continue_scene_path := ""
 var _remote_styles: Dictionary = {}
 
 func _ready():
+	add_child(VirtualMouse.new())
 	var audio_mgr = get_node_or_null("/root/AudioManager")
 	if audio_mgr:
 		audio_mgr.crossfade_to_song(MENU_BGM, 1.0, 0.0, false)

@@ -24,33 +24,43 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.14, -3 )
 
 [node name="PushableBoxV2" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2587, 0.6, 1.3436 )
+sleeping = true
 
 [node name="PushableBoxV3" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2587, 0.6, 1.3436 )
+sleeping = true
 
 [node name="PushableBoxV4" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7587, 2.6, 1.3436 )
+sleeping = true
 
 [node name="PushableBoxV5" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.7413, 0.6, 1.3436 )
+sleeping = true
 
 [node name="PushableBoxV6" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 5.7413, 0.6, 1.3436 )
+sleeping = true
 
 [node name="PushableBoxV7" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 4.2413, 2.6, 1.3436 )
+sleeping = true
 
 [node name="PushableBoxV8" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2587, 4.6, 1.3436 )
+sleeping = true
 
 [node name="PushableBoxV9" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2.7413, 4.6, 1.3436 )
+sleeping = true
 
 [node name="PushableBoxV10" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2413, 6.6, 1.3436 )
+sleeping = true
 
 [node name="PushableBoxV11" parent="." instance=ExtResource( 6 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2413, 2.6, 1.3436 )
+sleeping = true
 
 [node name="SciFiWorkLightV2" parent="." instance=ExtResource( 2 )]
 transform = Transform( -0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, 7.2901, -0.4, -2.27052 )

@@ -129,16 +129,20 @@ func _is_digital_move_vector(v: Vector2) -> bool:
 
 
 
+# El handheld reporta los ejes del stick invertidos. La correccion depende solo del
+# entorno, no del estado del provider, asi que se resuelve sin instancia: VirtualMouse
+# lee las acciones cursor_* del InputMap directo (no pasa por step()) y necesita el
+# mismo signo, o el cursor de UI queda invertido mientras caminar y camara van bien.
+static func wants_handheld_axis_inversion() -> bool:
+	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
+	return _contains_any_hint(forced_device, ANBERNIC_DEVICE_HINTS)
+
 func _ensure_axis_profile_resolved() -> void:
 	if _axis_profile_resolved:
 		return
 
-	var detected_anbernic = false
-	var resolved_profile = "none"
-	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
-	if _contains_any_hint(forced_device, ANBERNIC_DEVICE_HINTS):
-		detected_anbernic = true
-		resolved_profile = "anbernic_env_invert_xy"
+	var detected_anbernic = wants_handheld_axis_inversion()
+	var resolved_profile = "anbernic_env_invert_xy" if detected_anbernic else "none"
 
 	_axis_profile_resolved = true
 	handheld_axis_correction_enabled = detected_anbernic
@@ -148,7 +152,7 @@ func _ensure_axis_profile_resolved() -> void:
 	_invert_joy_look_x = detected_anbernic
 	_invert_joy_look_y = detected_anbernic
 
-func _contains_any_hint(text: String, hints: Array) -> bool:
+static func _contains_any_hint(text: String, hints: Array) -> bool:
 	if text == "":
 		return false
 	for raw_hint in hints:

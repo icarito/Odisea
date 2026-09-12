@@ -120,6 +120,17 @@ func _start_boot_transition() -> void:
 	if _started:
 		return
 	_started = true
+	# Gancho de diagnostico: arrancar en una escena arbitraria sin recompilar ni
+	# re-exportar. Existe para bisecar en hardware donde no hay editor ni comandos
+	# remotos (los handhelds de PortMaster corren un build release). Si la ruta no
+	# esta en el .pck no se toca el arranque normal.
+	var forced_scene := OS.get_environment("ODISEA_BOOT_SCENE").strip_edges()
+	if forced_scene != "":
+		if ResourceLoader.exists(forced_scene):
+			print("[BootLoader] ODISEA_BOOT_SCENE override: %s" % forced_scene)
+			startup_scene_path = forced_scene
+		else:
+			printerr("[BootLoader] ODISEA_BOOT_SCENE no existe en el pack: %s" % forced_scene)
 	if startup_scene_path.strip_edges() == "":
 		printerr("[BootLoader] startup_scene_path is empty.")
 		return

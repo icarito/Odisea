@@ -12,6 +12,7 @@ extends Control
 
 const Gesture = preload("res://core_v2/ui/hud/HudTabGesture.gd")
 const ViewMount = preload("res://core_v2/ui/hud/HudViewMount.gd")
+const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
 # Mismos umbrales que ElevatorFloorSelector: se filtra ruido de angulo, no movimiento.
 const MOVE_GESTURE_DEADZONE_SQ := 0.02
 const MOUSE_GESTURE_DEADZONE := 3.0
@@ -36,6 +37,7 @@ var _touch_start: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
+	add_child(VirtualMouse.new())
 	_selector = get_node("RadialSelector")
 	_view_host = get_node("ViewHost")
 	_placeholder = get_node("Placeholder")
@@ -121,7 +123,9 @@ func _input(event: InputEvent) -> void:
 			_point_at(event.position - _touch_start)
 		return
 	# TAB NO se lee aca: tap/hold sale del stream (_physics_process).
-	if event.is_action_pressed("ui_cancel"):
+	if event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed and _selector.is_open():
+		_selector.confirm()
+	elif event.is_action_pressed("ui_cancel"):
 		_exit()
 	elif event.is_action_pressed("ui_accept") and _selector.is_open():
 		_selector.confirm()

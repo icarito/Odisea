@@ -209,6 +209,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/actors/CargolDroneV2.gd"
 }, {
+"base": "HUDableComponent",
+"class": "CargolScreen",
+"language": "GDScript",
+"path": "res://core_v2/things/CargolScreen.gd"
+}, {
+"base": "PanelContainer",
+"class": "CargolWidget",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/CargolWidget.gd"
+}, {
 "base": "GdUnitArgumentMatcher",
 "class": "ChainedArgumentMatcher",
 "language": "GDScript",
@@ -1094,6 +1104,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/helmet_view/grip_point/GripPoint.gd"
 }, {
+"base": "Node",
+"class": "HUDableComponent",
+"language": "GDScript",
+"path": "res://core_v2/components/HUDableComponent.gd"
+}, {
 "base": "PropBaseV2",
 "class": "HazardTape",
 "language": "GDScript",
@@ -1114,15 +1129,20 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/HoldInteractableV2.gd"
 }, {
+"base": "HUDableComponent",
+"class": "HoloTerminalHUDable",
+"language": "GDScript",
+"path": "res://core_v2/components/HoloTerminalHUDable.gd"
+}, {
 "base": "InteractableBaseV2",
 "class": "HoloTerminalV2",
 "language": "GDScript",
 "path": "res://core_v2/things/HoloTerminalV2.gd"
 }, {
-"base": "Node",
-"class": "HUDableComponent",
+"base": "PanelContainer",
+"class": "HoloTerminalWidget",
 "language": "GDScript",
-"path": "res://core_v2/components/HUDableComponent.gd"
+"path": "res://core_v2/ui/hud/HoloTerminalWidget.gd"
 }, {
 "base": "Node2D",
 "class": "ISensor2D",
@@ -1388,6 +1408,16 @@ _global_script_classes=[ {
 "class": "MetalFence",
 "language": "GDScript",
 "path": "res://core_v2/props/metal_fence/MetalFence.gd"
+}, {
+"base": "HUDableComponent",
+"class": "MultiToolScreen",
+"language": "GDScript",
+"path": "res://core_v2/things/MultiToolScreen.gd"
+}, {
+"base": "PanelContainer",
+"class": "MultiToolWidget",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/MultiToolWidget.gd"
 }, {
 "base": "VBoxContainer",
 "class": "NodeScan",
@@ -1984,6 +2014,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/meshbuilder/mesh_builder_panel/shape_creation_button.gd"
 }, {
+"base": "Node",
+"class": "ShipSystemBus",
+"language": "GDScript",
+"path": "res://core_v2/systems/ship/ShipSystemBus.gd"
+}, {
 "base": "Resource",
 "class": "SignalHandler",
 "language": "GDScript",
@@ -2035,9 +2070,29 @@ _global_script_classes=[ {
 "path": "res://addons/gdUnit3/src/fuzzers/StringFuzzer.gd"
 }, {
 "base": "Node",
+"class": "SuitOSContextDriver",
+"language": "GDScript",
+"path": "res://core_v2/autoloads/SuitOSContextDriver.gd"
+}, {
+"base": "Control",
+"class": "SuitOSWidgetHost",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/SuitOSWidgetHost.gd"
+}, {
+"base": "Node",
 "class": "SuitThermalResistance",
 "language": "GDScript",
 "path": "res://core_v2/player/components/SuitThermalResistance.gd"
+}, {
+"base": "HUDableComponent",
+"class": "SystemStatusScreen",
+"language": "GDScript",
+"path": "res://core_v2/things/SystemStatusScreen.gd"
+}, {
+"base": "PanelContainer",
+"class": "SystemStatusWidget",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/SystemStatusWidget.gd"
 }, {
 "base": "Node",
 "class": "TeleportSystem",
@@ -2310,6 +2365,8 @@ _global_script_class_icons={
 "CameraInspectorPlugin": "",
 "CameraZoneV2": "",
 "CargolDroneV2": "",
+"CargolScreen": "",
+"CargolWidget": "",
 "ChainedArgumentMatcher": "",
 "CheckZoneV2": "",
 "CheckpointResource": "",
@@ -2487,12 +2544,14 @@ _global_script_class_icons={
 "GravityAnchor": "",
 "GravityModes": "",
 "GripPoint": "",
+"HUDableComponent": "",
 "HazardTape": "",
 "HelmetHUDV2": "",
 "HingedLeverV2": "",
 "HoldInteractableV2": "",
+"HoloTerminalHUDable": "",
 "HoloTerminalV2": "",
-"HUDableComponent": "",
+"HoloTerminalWidget": "",
 "ISensor2D": "",
 "ISensor3D": "",
 "IceLevel": "",
@@ -2546,6 +2605,8 @@ _global_script_class_icons={
 "MeshBuilderSphere": "",
 "MeshBuilderTorus": "",
 "MetalFence": "",
+"MultiToolScreen": "",
+"MultiToolWidget": "",
 "NodeScan": "",
 "ONNXModel": "",
 "OYSComponent": "",
@@ -2665,6 +2726,7 @@ _global_script_class_icons={
 "SecurityCameraV2": "",
 "Shake": "",
 "ShapeCreationButton": "",
+"ShipSystemBus": "",
 "SignalHandler": "",
 "SlidingObjectV2": "",
 "SlimeLayer": "",
@@ -2675,7 +2737,11 @@ _global_script_class_icons={
 "SteelPlate": "",
 "StressTestRunner": "",
 "StringFuzzer": "",
+"SuitOSContextDriver": "",
+"SuitOSWidgetHost": "",
 "SuitThermalResistance": "",
+"SystemStatusScreen": "",
+"SystemStatusWidget": "",
 "TeleportSystem": "",
 "TerminalCameraRig": "",
 "TerminalHUDBridge": "",
@@ -3031,7 +3097,11 @@ toggle_flashlight={
 , Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":11,"pressure":0.0,"pressed":false,"script":null)
  ]
 }
-hud_mode={"deadzone": 0.5,"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777218,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]}
+hud_mode={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777218,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
+ ]
+}
 
 [input_devices]
 

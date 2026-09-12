@@ -20,8 +20,28 @@ resto DEL GRUPO (no los expira: siguen visibles para testers internos y caducan
 solos). La poda tambien es por plataforma: si no, cada build de macOS desalojaria
 uno de iOS y la retencion real seria la mitad.
 
+Todo build nuevo en un grupo externo requiere Beta App Review de Apple antes de
+que los testers puedan instalarlo. Agregarlo al grupo ANTES de esa aprobacion no
+lo hace instalable pero SI le saca su lugar al build anterior (ya aprobado) en la
+poda por KEEP_IN_GROUP, dejando a los testers externos sin build utilizable hasta
+que Apple revise el nuevo -- que puede tardar horas o dias. Por eso este script:
+
+1. Pide la revision (POST a betaAppReviewSubmissions) apenas el build esta VALID,
+   en vez de esperar a que alguien la pida a mano en la web.
+2. NO agrega el build a los grupos externos hasta que su revision este APPROVED.
+   Mientras tanto el build previo (ya aprobado) sigue siendo el vigente: nunca se
+   lo saca del grupo por un build que todavia no se puede instalar.
+3. Un modo `--promote` separado (pensado para un cron periodico, no atado al
+   pipeline de export) vuelve a chequear builds que quedaron pendientes de
+   revision y los promueve al grupo apenas Apple los aprueba, sin esperar al
+   proximo nightly.
+
 Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_P8, BUNDLE_ID, BUILD_NUMBER,
 PLATFORMS (lista separada por comas, por defecto IOS).
+
+`--promote` no usa BUILD_NUMBER: recorre los builds recientes de cada plataforma
+buscando el mas nuevo que ya este APPROVED y todavia no este en los grupos
+externos.
 """
 
 from __future__ import annotations
@@ -164,6 +184,34 @@ def wait_for_builds(app_id: str, build_number: str, platforms: list[str]) -> dic
     return found
 
 
+def fetch_beta_review_state(build_id: str) -> str | None:
+    """Estado de la revision de Apple para este build, o None si nunca se pidio.
+
+    `WAITING_FOR_REVIEW` | `IN_REVIEW` | `REJECTED` | `APPROVED`. Un build sin
+    Beta App Review Submission todavia no fue enviado a revisar (ni a mano en la
+    web ni por API) y no aparece en `included`.
+    """
+    data = call("GET", f"/v1/builds/{build_id}?include=betaAppReviewSubmission")
+    for item in data.get("included", []):
+        if item.get("type") == "betaAppReviewSubmissions":
+            return item.get("attributes", {}).get("betaReviewState")
+    return None
+
+
+def submit_beta_review(build_id: str) -> None:
+    """Pide a Apple la revision de este build. Idempotente: ignora un 409 (ya pedida)."""
+    try:
+        call(
+            "POST",
+            "/v1/betaAppReviewSubmissions",
+            {"data": {"type": "betaAppReviewSubmissions",
+                      "relationships": {"build": {"data": {"type": "builds", "id": build_id}}}}},
+        )
+    except SystemExit as exc:
+        if "-> 409" not in str(exc):
+            raise
+
+
 def declare_no_encryption(build_id: str) -> None:
     """Contesta por API que el build no usa criptografia no exenta.
 
@@ -179,6 +227,40 @@ def declare_no_encryption(build_id: str) -> None:
         {"data": {"type": "builds", "id": build_id,
                   "attributes": {"usesNonExemptEncryption": False}}},
     )
+
+
+def assign_to_external_groups(groups: list[dict], targets: list[str], platform: str,
+                               build_number: str, build_id: str) -> None:
+    """Agrega `build_id` a los grupos externos y poda los viejos de esa plataforma.
+
+    Solo se debe llamar con un build ya APPROVED por Apple: es el unico momento en
+    que reemplazar al build vigente no deja a los testers externos sin nada
+    instalable.
+    """
+    for gid in targets:
+        name = next(g["attributes"]["name"] for g in groups if g["id"] == gid)
+        call(
+            "POST",
+            f"/v1/betaGroups/{gid}/relationships/builds",
+            {"data": [{"type": "builds", "id": build_id}]},
+        )
+        print(f"build {build_number} ({platform}) -> grupo externo '{name}'")
+
+        # Solo los builds de ESTA plataforma compiten por los KEEP_IN_GROUP
+        # lugares: /v1/betaGroups/{id}/builds los devuelve todos mezclados.
+        en_grupo = call_all(
+            f"/v1/builds?filter[betaGroups]={gid}"
+            f"&filter[preReleaseVersion.platform]={platform}&limit=200"
+        )
+        sobran = stale_build_ids(en_grupo, KEEP_IN_GROUP, build_id)
+        if sobran:
+            call(
+                "DELETE",
+                f"/v1/betaGroups/{gid}/relationships/builds",
+                {"data": [{"type": "builds", "id": b} for b in sobran]},
+            )
+        print(f"  '{name}' ({platform}): {len(sobran)} build(s) viejo(s) fuera del "
+              f"grupo, quedan los {KEEP_IN_GROUP} mas recientes")
 
 
 def main() -> int:
@@ -209,30 +291,71 @@ def main() -> int:
             print(f"build {build_number} ({platform}): cumplimiento de exportación "
                   "respondido (sin criptografía no exenta)")
 
-        for gid in targets:
-            name = next(g["attributes"]["name"] for g in groups if g["id"] == gid)
-            call(
-                "POST",
-                f"/v1/betaGroups/{gid}/relationships/builds",
-                {"data": [{"type": "builds", "id": build_id}]},
-            )
-            print(f"build {build_number} ({platform}) -> grupo externo '{name}'")
+        review_state = fetch_beta_review_state(build_id)
+        if review_state is None:
+            submit_beta_review(build_id)
+            review_state = "WAITING_FOR_REVIEW"
+            print(f"build {build_number} ({platform}): enviado a Beta App Review")
 
-            # Solo los builds de ESTA plataforma compiten por los KEEP_IN_GROUP
-            # lugares: /v1/betaGroups/{id}/builds los devuelve todos mezclados.
-            en_grupo = call_all(
+        if review_state != "APPROVED":
+            print(f"build {build_number} ({platform}): revisión de Apple en estado "
+                  f"{review_state}; se deja el build externo anterior activo hasta "
+                  "que este se apruebe (ver `--promote`).")
+            continue
+
+        assign_to_external_groups(groups, targets, platform, build_number, build_id)
+    return 0
+
+
+def promote() -> int:
+    """Promueve al grupo externo el build mas nuevo ya APPROVED que quedo pendiente.
+
+    Pensado para correr en un cron independiente del pipeline de export: la
+    revision de Apple puede tardar mas que la ventana de ese job, asi que esto
+    la retoma sin esperar al proximo nightly.
+    """
+    bundle_id = os.environ["BUNDLE_ID"]
+    platforms = platforms_from_env(os.environ.get("PLATFORMS", ""))
+
+    apps = call("GET", f"/v1/apps?filter[bundleId]={bundle_id}&limit=1")["data"]
+    if not apps:
+        raise SystemExit(f"No app in App Store Connect for bundle id {bundle_id}")
+    app_id = apps[0]["id"]
+
+    groups = call("GET", f"/v1/betaGroups?filter[app]={app_id}&limit=200")["data"]
+    targets = external_group_ids(groups)
+    if not targets:
+        raise SystemExit("No external beta groups configured for this app")
+
+    for platform in platforms:
+        candidatos = call(
+            "GET",
+            f"/v1/builds?filter[app]={app_id}&filter[preReleaseVersion.platform]={platform}"
+            "&filter[processingState]=VALID&sort=-uploadedDate&limit=10",
+        )["data"]
+        if not candidatos:
+            continue
+
+        vigentes = {
+            b["id"]
+            for gid in targets
+            for b in call_all(
                 f"/v1/builds?filter[betaGroups]={gid}"
                 f"&filter[preReleaseVersion.platform]={platform}&limit=200"
             )
-            sobran = stale_build_ids(en_grupo, KEEP_IN_GROUP, build_id)
-            if sobran:
-                call(
-                    "DELETE",
-                    f"/v1/betaGroups/{gid}/relationships/builds",
-                    {"data": [{"type": "builds", "id": b} for b in sobran]},
-                )
-            print(f"  '{name}' ({platform}): {len(sobran)} build(s) viejo(s) fuera del "
-                  f"grupo, quedan los {KEEP_IN_GROUP} mas recientes")
+        }
+
+        # Solo el mas nuevo importa: si todavia no esta aprobado, uno mas viejo
+        # tampoco deberia reemplazar al build vigente (seria ir para atras).
+        newest = candidatos[0]
+        build_id = newest["id"]
+        build_number = newest["attributes"].get("version", build_id)
+        if build_id in vigentes:
+            continue  # ya es el vigente, nada que promover
+        if fetch_beta_review_state(build_id) == "APPROVED":
+            print(f"build {build_number} ({platform}): aprobado por Apple, "
+                  "promoviendo al grupo externo")
+            assign_to_external_groups(groups, targets, platform, build_number, build_id)
     return 0
 
 
@@ -268,4 +391,6 @@ def self_test() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(self_test() if "--self-test" in sys.argv else main())
+    if "--self-test" in sys.argv:
+        raise SystemExit(self_test())
+    raise SystemExit(promote() if "--promote" in sys.argv else main())

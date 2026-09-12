@@ -32,6 +32,54 @@ export-pck:
 export: export-linux-arm64 export-pck
 	@echo "Exported to ports/third.arm64 and ports/third.pck"
 
+# --- PortMaster (Anbernic y otros handhelds Linux/ARM) ---------------------
+#
+# El port NO embarca el binario arm64: corre sobre el runtime frt_3.6 que provee
+# PortMaster y solo carga nuestro .pck. Las fuentes del paquete estan en
+# portmaster/ (tracked); ports/ es salida generada (gitignored).
+#
+# El .pck es una regla de archivo a proposito: exportarlo tarda minutos y no hay
+# forma barata de saber si la escena cambio, asi que Make lo reusa si ya existe.
+# Para forzar una exportacion nueva: make -B portmaster (o borrar el .pck).
+PORTMASTER_PCK ?= build/linux_arm64/odisea.pck
+PORTMASTER_ZIP ?= ports/odisea.zip
+
+# Motor propio: Godot 3.6 FRT arm64 CON el modulo Box3D. El runtime frt_3.6 de
+# PortMaster es Godot stock y cae a Bullet en silencio. Se construye aparte, en
+# el fork:
+#
+#   podman build -t odisea-frt:arm64 -f <Dockerfile arm64> .   # una sola vez
+#   podman run --rm -v <godot3-box3d>:/work -w /work \
+#     -e GODOT_DIR=/work/godot odisea-frt:arm64 \
+#     /work/godot-box3d-3/scripts/build.sh frt-arm64-templates
+#   cp <godot3-box3d>/godot/bin/godot.frt.opt.arm64 $(PORTMASTER_ENGINE)
+#
+# Si el archivo no esta, el wildcard queda vacio y el paquete sale sin motor
+# propio (corre sobre el runtime, con Bullet). El script avisa cual de las dos.
+PORTMASTER_ENGINE ?= build/linux_arm64/odisea.frt.aarch64
+
+$(PORTMASTER_PCK):
+	@mkdir -p $(dir $@)
+	$(GODOT) --path . $(EXPORT_FLAGS) --export-pack "Linux/X11 ARM64" $@
+	test -s $@
+
+portmaster: $(PORTMASTER_PCK)
+	tools/build_portmaster.sh $(PORTMASTER_PCK) "$(PORTMASTER_ZIP)" $(wildcard $(PORTMASTER_ENGINE))
+
+# Copia el arbol ya armado al handheld. Requiere que la llave esté autorizada en
+# el dispositivo (ssh-copy-id root@angel.local una sola vez). Es rsync, no unzip:
+# --delete limpia sobras de una version anterior pero excluye conf/ (saves) y el
+# dev.sh local, asi que reinstalar no borra la partida ni la config de debug.
+# Si el CFW no trae rsync (varios son busybox pelado), reemplazar por:
+#   scp -r ports/Odisea.sh ports/odisea $(PORTMASTER_HOST):$(PORTMASTER_DEST)/
+PORTMASTER_HOST ?= root@angel.local
+PORTMASTER_DEST ?= /storage/roms/ports
+
+portmaster-install: portmaster
+	rsync -av --delete --exclude conf/ --exclude dev.sh --exclude log.txt \
+		ports/Odisea.sh ports/odisea "$(PORTMASTER_HOST):$(PORTMASTER_DEST)/"
+	@echo "Instalado en $(PORTMASTER_HOST):$(PORTMASTER_DEST)/odisea"
+
 all: render
 
 # En Godot 3, BakedLightmap sólo puede hornearse dentro del editor. Abrí
@@ -402,4 +450,4 @@ android-install-release: android-release-signed
 	adb install -r "$(ANDROID_RELEASE_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all bake bake-dome-geometry dome-variant-sources bake-dome-variant preview-dome-variant bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
+.PHONY: all bake bake-dome-geometry dome-variant-sources bake-dome-variant preview-dome-variant bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export portmaster portmaster-install export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release

@@ -1,0 +1,34 @@
+{
+  "version": 4,
+  "name": "odisea.zip",
+  "items": [
+    "Odisea.sh",
+    "odisea"
+  ],
+  "items_opt": [],
+  "attr": {
+    "title": "Odisea: El Arca Silenciosa",
+    "porter": [
+      "icarito"
+    ],
+    "desc": "A third-person 3D platformer aboard the silent colony ark Odisea. Play as Elias, waking alone in the cryogenic crypt: climb, jump and ride moving platforms through the derelict dome, restore the coolant loop, and read the story in the wreckage instead of in cutscenes.",
+    "desc_md": null,
+    "inst": "Ready to run out of the box, no additional files needed.",
+    "inst_md": null,
+    "genres": [
+      "platformer",
+      "puzzle"
+    ],
+    "image": null,
+    "rtr": true,
+    "exp": false,
+    "runtime": [
+      "frt_3.6.squashfs"
+    ],
+    "store": [],
+    "availability": "free",
+    "reqs": [],
+    "arch": [],
+    "min_glibc": ""
+  }
+}
