@@ -600,3 +600,82 @@ func test_widget_action_still_goes_to_local_suitos_without_a_remote_host():
 	assert_array(screen.performed).is_equal(["toggle"])
 
 	SuitOS.unregister_screen("player:flashlight")
+
+# --- Layout de slots y toques sobre widgets (paridad con el host) ---
+
+func test_slot_widgets_are_placed_in_fixed_rows_without_overlap():
+	var home = _home_with_dial([
+		{"id": "screen_a", "title": "Screen A", "relevance": 0.9},
+		{"id": "screen_b", "title": "Screen B", "relevance": 0.2}
+	])
+	home.pin_local_screen("screen_b") # el slot B solo se monta con pantalla fijada
+
+	var widget_a = home._mounted_widgets.get("slot_a", null)
+	var widget_b = home._mounted_widgets.get("slot_b", null)
+	assert_object(widget_a).is_not_null()
+	assert_object(widget_b).is_not_null()
+
+	# Filas fijas (como SuitOSWidgetHost en el host): B abajo de A aunque quepa al lado.
+	var pos_a: Vector2 = (widget_a as Control).rect_position
+	var pos_b: Vector2 = (widget_b as Control).rect_position
+	assert_float(pos_a.x).is_equal(home.SLOT_PADDING)
+	assert_float(pos_a.y).is_equal(0.0)
+	assert_float(pos_b.y).is_equal((home.SLOT_ROW_HEIGHT + home.SLOT_GAP) * (widget_b as Control).rect_scale.y)
+	# Con compensacion de escala ningun widget invade la fila del otro.
+	assert_float((widget_a as Control).rect_scale.y).is_less_equal(1.0)
+	assert_float(pos_b.y).is_greater_equal(pos_a.y + home.SLOT_ROW_HEIGHT * (widget_a as Control).rect_scale.y)
+
+	home.queue_free()
+
+func test_widget_tap_opens_its_screen():
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	home._client().ui_directives.clear()
+	var widget = home._mounted_widgets.get("slot_a", null)
+	assert_object(widget).is_not_null()
+
+	# Tap: press + release seguidos (muy por debajo del umbral de hold).
+	home._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), true), widget, "slot_a")
+	home._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), false), widget, "slot_a")
+
+	var sent: Array = home._client().ui_directives
+	assert_int(sent.size()).is_equal(1)
+	assert_str(sent[0]["op"]).is_equal("screen_select")
+	assert_str(String(sent[0]["payload"]["id"])).is_equal("screen_a")
+	# El tap ademas fija la pantalla: el proximo TAB corto la reabre (como en el host).
+	assert_str(home._local_pinned_screen_id).is_equal("screen_a")
+	assert_bool(home._radial_is_open()).is_false()
+
+	home.queue_free()
+
+func test_widget_hold_opens_the_radial():
+	var home = _home_with_dial([{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
+	var widget = home._mounted_widgets.get("slot_a", null)
+	assert_object(widget).is_not_null()
+
+	home._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), true), widget, "slot_a")
+	# El hold se mide con el reloj: simular un press que empezo hace 500 ms.
+	home._widget_press_msec = OS.get_ticks_msec() - home.WIDGET_HOLD_MSEC - 100
+	home._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), false), widget, "slot_a")
+
+	assert_bool(home._radial_is_open()).is_true()
+
+	home.queue_free()
+
+func test_widget_internal_buttons_stay_clickable():
+	# La linterna se enciende desde el widget: sus botones internos conservan la entrada
+	# aunque el cuerpo del widget sea el boton de abrir pantalla (a diferencia del host).
+	var home = _home_with_dial([{"id": "player:flashlight", "title": "Linterna", "relevance": 0.9,
+		"widget": "res://core_v2/ui/hud/FlashlightWidget.tscn"}])
+
+	var widget = home._mounted_widgets.get("slot_a", null)
+	assert_object(widget).is_not_null()
+	assert_int((widget as Control).mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
+	var toggle = (widget as Control).get_node_or_null("Margin/VBox/StatusRow/ToggleButton")
+	assert_object(toggle).is_not_null()
+	assert_int((toggle as BaseButton).mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
+	# Los labels en cambio no se quedan comiendo los toques.
+	var title_label = (widget as Control).get_node_or_null("Margin/VBox/Header/TitleLabel")
+	if title_label != null:
+		assert_int((title_label as Label).mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
+
+	home.queue_free()

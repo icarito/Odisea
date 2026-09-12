@@ -8,16 +8,73 @@ const DefaultWidgetScene = preload("res://core_v2/ui/hud/HoloTerminalWidget.tscn
 
 export(NodePath) var terminal_path: NodePath = NodePath("")
 
+# Telemetria de sala (temperatura/presion/toxicidad): Room3D emite por tick mientras se
+# recupera de una excursion de frio, y cada notificacion se convierte en un reenvio de
+# screen_list a todos los controles emparejados. El debounce junta la rafaga en 1
+# mensaje cada 500 ms; los eventos discretos del circuito (valvula, parche, fuga) van
+# directo, sin debounce.
+const CRYO_TELEMETRY_DEBOUNCE_SEC := 0.5
+
 var _last_active: bool = false
 var _last_focused: bool = false
 var _hidden_player_visual: Spatial = null
 var _player_visual_was_visible: bool = true
 var _shared_viewport: Viewport = null
 var _shared_viewport_update_mode: int = Viewport.UPDATE_DISABLED
+var _cryo_ui: Node = null
+var _cryo_debounce_pending: bool = false
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
 	._ready()
+	# Los paneles viven dentro del Viewport del terminal: en el mismo _ready pueden no
+	# estar listos todavia. Diferido, igual que el resto de lo que depende de hijos.
+	call_deferred("_connect_cryo_ui")
+
+func _exit_tree() -> void:
+	_disconnect_cryo_ui()
+
+# La UI de diagnostico (si el terminal la trae) es la unica fuente de lectura del mundo:
+# sus paneles ya se conectan a Room3D, valvulas y tanques con señales de cambio real.
+# Aca solo se reenvian esos cambios al bus (notify_state_changed -> SuitOS -> red).
+func _connect_cryo_ui() -> void:
+	var terminal = _get_terminal()
+	var viewport = terminal.get_node_or_null("Viewport") if is_instance_valid(terminal) else null
+	if viewport == null:
+		return
+	for child in viewport.get_children():
+		if child is Control and not child.is_queued_for_deletion() and child.has_method("collect_state"):
+			_cryo_ui = child
+			if child.has_signal("circuit_state_changed") \
+					and not child.is_connected("circuit_state_changed", self, "notify_state_changed"):
+				child.connect("circuit_state_changed", self, "notify_state_changed")
+			# Telemetria de sala: puede llegar por tick; se agrupa con debounce.
+			var dials = child.get_node_or_null("RoomDialsPanel")
+			if dials != null and dials.has_signal("state_changed") \
+					and not dials.is_connected("state_changed", self, "_on_cryo_telemetry_changed"):
+				dials.connect("state_changed", self, "_on_cryo_telemetry_changed")
+			return
+
+func _disconnect_cryo_ui() -> void:
+	if not is_instance_valid(_cryo_ui):
+		return
+	if _cryo_ui.has_signal("circuit_state_changed") \
+			and _cryo_ui.is_connected("circuit_state_changed", self, "notify_state_changed"):
+		_cryo_ui.disconnect("circuit_state_changed", self, "notify_state_changed")
+	var dials = _cryo_ui.get_node_or_null("RoomDialsPanel")
+	if dials != null and dials.has_signal("state_changed") \
+			and dials.is_connected("state_changed", self, "_on_cryo_telemetry_changed"):
+		dials.disconnect("state_changed", self, "_on_cryo_telemetry_changed")
+
+func _on_cryo_telemetry_changed(_arg = null) -> void:
+	if _cryo_debounce_pending:
+		return
+	_cryo_debounce_pending = true
+	get_tree().create_timer(CRYO_TELEMETRY_DEBOUNCE_SEC).connect("timeout", self, "_flush_cryo_debounce")
+
+func _flush_cryo_debounce() -> void:
+	_cryo_debounce_pending = false
+	notify_state_changed()
 
 func widget_scene() -> PackedScene:
 	if hud_widget_scene != null:
@@ -89,7 +146,7 @@ func widget_snapshot() -> Dictionary:
 		else:
 			status_text_val = "DIAGNOSTICO: ONLINE"
 
-	return {
+	var snap := {
 		"proto": 1,
 		"id": screen_id(),
 		"title": title_val,
@@ -99,6 +156,15 @@ func widget_snapshot() -> Dictionary:
 		"position": pos_array,
 		"source": "online"
 	}
+	# El estado del sistema que este terminal diagnostica (Criogenia: telemetria de sala,
+	# valvulas, fugas, tanques) viaja como datos. El control remoto renderiza lo mismo con
+	# las mismas escenas; nada de raster. Sin UI de diagnostico no hay clave: es un
+	# HoloTerminal generico.
+	if is_instance_valid(_cryo_ui) and _cryo_ui.has_method("collect_state"):
+		var cryo: Dictionary = _cryo_ui.call("collect_state")
+		if not cryo.empty():
+			snap["cryo"] = cryo
+	return snap
 
 # FD-296 F3: identifica la UI del Viewport para decidir si hay una vista completa. El HUD
 # reutiliza el Viewport original mediante borrow_viewport(); no instancia una segunda UI.

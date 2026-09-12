@@ -519,7 +519,6 @@ func _draw_planta(model: Dictionary, flows: Dictionary, font) -> bool:
 		var mp := Vector2(cx + r_f * cos(deg2rad(az)), cy + r_f * sin(deg2rad(az)))
 		blinking = _draw_fissure_marker(mp, int(leak_state), is_live) or blinking
 
-	var font = get_font("font")
 	if font != null:
 		draw_string(font, Vector2(cx - DOME_R * PLANTA_S - 26, PLANTA_CY + DOME_R * PLANTA_S + 30), "PLANTA", COLOR_TEXT)
 	return blinking

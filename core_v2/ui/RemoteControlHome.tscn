@@ -31,7 +31,7 @@ text = "Use los controles táctiles para jugar en la otra pantalla."
 align = 1
 autowrap = true
 
-[node name="WidgetHost" type="VBoxContainer" parent="."]
+[node name="WidgetHost" type="Control" parent="."]
 margin_left = 16.0
 margin_top = 140.0
 margin_right = 376.0

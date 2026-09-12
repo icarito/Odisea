@@ -25,8 +25,20 @@ const RADIAL_DIM_COLOR := Color(0.0, 0.05, 0.08, 0.4)
 const RADIAL_AIM_RADIUS := 120.0
 const RADIAL_AIM_DEADZONE := 8.0
 
+# Layout de slots: las mismas filas FIJAS del host (SuitOSWidgetHost): A arriba, B
+# debajo, sin subir si A queda vacio, y escaladas por render_scale. El control se ve
+# igual aunque el telefono baje la resolucion, y dos widgets nunca se superponen.
+const SLOT_ROWS := ["slot_a", "slot_b"]
+const SLOT_ROW_HEIGHT := 96.0 # el widget mas alto hoy (SystemStatusWidget) mide 90
+const SLOT_GAP := 8.0
+const SLOT_PADDING := 16.0
+# Hold sobre un widget = dial (mismo umbral que SuitOSWidgetHost usa alla).
+const WIDGET_HOLD_MSEC := 400
+
+const UIScaleCompensator = preload("res://core_v2/ui/UIScaleCompensator.gd")
+
 onready var exit_confirm: ConfirmationDialog = $ExitConfirm
-onready var widget_host: Container = $WidgetHost
+onready var widget_host: Control = $WidgetHost
 onready var fullscreen_overlay: Control = $FullScreenOverlay
 onready var view_host: Container = $FullScreenOverlay/ViewHost
 onready var radial_overlay: Control = $RadialOverlay
@@ -55,6 +67,7 @@ var _radial_touch_start: Vector2 = Vector2.ZERO
 var _radial_aim: Vector2 = Vector2.ZERO
 var _radial_labels: Array = []
 var _tab_gesture = TabGesture.new()
+var _widget_press_msec: int = 0
 # La pantalla que el slot A eligio por relevancia: es la que abre un tap de TAB si no hay
 # ninguna fijada.
 var _slot_a_id: String = ""
@@ -84,6 +97,8 @@ func _ready() -> void:
 
 	if view_host:
 		view_host.connect("resized", self, "_fit_view_node")
+	if widget_host and not get_viewport().is_connected("size_changed", self, "_relayout_widgets"):
+		get_viewport().connect("size_changed", self, "_relayout_widgets")
 
 	_setup_radial_selector()
 
@@ -571,7 +586,71 @@ func _mount_slot_widget(slot: String, screen_id: String) -> void:
 		node.name = "Widget_" + slot
 		widget_host.add_child(node)
 		_mounted_widgets[slot] = node
+		_place_slot_widget(node, slot)
 		_hydrate_node(node, snap)
+
+# Misma geometria que el host: fila fija por slot, arriba a la izquierda, nunca invadiendo
+# la fila vecina, con la escala compensada por render_scale (UIScaleCompensator).
+func _place_slot_widget(node: Control, slot: String) -> void:
+	var row: int = SLOT_ROWS.find(slot)
+	if row < 0 or not is_instance_valid(node) or not (node is Control):
+		return
+	var control: Control = node as Control
+	var k: float = UIScaleCompensator.scale_for(self)
+	var height: float = max(control.get_combined_minimum_size().y, 1.0)
+	var fit: float = min(1.0, SLOT_ROW_HEIGHT / height)
+	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	control.rect_scale = Vector2.ONE * fit * k
+	control.rect_position = Vector2(SLOT_PADDING, row * (SLOT_ROW_HEIGHT + SLOT_GAP) * k)
+	_make_widget_tappable(control, slot)
+
+func _relayout_widgets() -> void:
+	for slot in SLOT_ROWS:
+		var widget = _mounted_widgets.get(slot, null)
+		if is_instance_valid(widget):
+			_place_slot_widget(widget, slot)
+
+# El cuerpo del widget es el boton (tap = su pantalla, hold = dial), como en el host.
+# Diferencia deliberada: los botones internos (toggle de la linterna) conservan su
+# entrada, porque aca son utiles: en el host el widget entero abre el modo HUD y sus
+# hijos se apagan; en el control remoto el toggle viaja por el canal y funciona.
+func _make_widget_tappable(control: Control, slot: String) -> void:
+	control.mouse_filter = Control.MOUSE_FILTER_STOP
+	_silence_display_children(control)
+	if not control.is_connected("gui_input", self, "_on_widget_gui_input"):
+		control.connect("gui_input", self, "_on_widget_gui_input", [control, slot])
+
+func _silence_display_children(node: Node) -> void:
+	for child in node.get_children():
+		if child is BaseButton:
+			continue
+		if child is Control:
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_silence_display_children(child)
+
+func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> void:
+	var pressed := false
+	if event is InputEventScreenTouch:
+		pressed = (event as InputEventScreenTouch).pressed
+	elif event is InputEventMouseButton and (event as InputEventMouseButton).button_index == BUTTON_LEFT:
+		pressed = (event as InputEventMouseButton).pressed
+	else:
+		return
+	control.accept_event() # que el toque no arrastre tambien la camara
+	if pressed:
+		_widget_press_msec = OS.get_ticks_msec()
+		return
+	if OS.get_ticks_msec() - _widget_press_msec >= WIDGET_HOLD_MSEC:
+		_open_radial()
+		return
+	var sid: String = _get_node_screen_id(control)
+	if sid.empty():
+		return
+	var client = _client()
+	if client != null:
+		client.send_ui_directive("screen_select", {"id": sid})
+		# Confirmar en el widget fija la pantalla, como la eleccion en el dial.
+		pin_local_screen(sid)
 
 func _remove_slot_widget(slot: String) -> void:
 	if _mounted_widgets.has(slot):
