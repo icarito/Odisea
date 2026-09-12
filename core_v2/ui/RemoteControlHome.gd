@@ -1,6 +1,5 @@
 extends Control
 
-const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
 var InputProviderV2 = preload("res://core_v2/input/InputProviderV2.gd")
 var RemoteProtocol = preload("res://core_v2/net/RemoteProtocol.gd")
 
@@ -21,10 +20,6 @@ var _hint_text: String = ""
 var _host_paused: bool = false
 
 func _ready() -> void:
-	var virtual_cursor_layer := CanvasLayer.new()
-	virtual_cursor_layer.layer = 100
-	add_child(virtual_cursor_layer)
-	virtual_cursor_layer.add_child(VirtualMouse.new())
 	_remote_control_manager = get_node_or_null("/root/RemoteControlManager")
 	_input_provider = InputProviderV2.new()
 	# La musica del Menu seguia sonando: aca el juego suena en la otra pantalla. Al

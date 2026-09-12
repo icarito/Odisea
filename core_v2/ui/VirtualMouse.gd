@@ -19,6 +19,9 @@ var _invert_axes := false
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Popup/ConfirmationDialog es un subwindow top-level y se dibuja sobre los
+	# controles raiz, incluso en un CanvasLayer alto. El cursor debe serlo tambien.
+	set_as_toplevel(true)
 	anchor_right = 1.0
 	anchor_bottom = 1.0
 	_position = get_viewport_rect().size * 0.5
@@ -99,6 +102,11 @@ func _activate() -> void:
 	_active = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	update()
+
+func bring_to_front() -> void:
+	var parent := get_parent()
+	if parent:
+		parent.move_child(self, parent.get_child_count() - 1)
 
 func _emit_motion(relative: Vector2) -> void:
 	var motion := InputEventMouseMotion.new()
