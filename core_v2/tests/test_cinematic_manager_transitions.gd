@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 const CM_PATH := "/root/CinematicManager"
 const VCAMERA_SCRIPT := preload("res://addons/virtualcamera/VCameras/VCamera.gd")
 const VCAM_BRAIN_SCRIPT := preload("res://addons/virtualcamera/VCameraBrain.gd")
+const CINEMATIC_RIG_SCRIPT := preload("res://core_v2/visual/CinematicRig.gd")
 
 class DummyRig:
 	extends Spatial
@@ -136,6 +137,25 @@ func _setup_vcamera_nodes(root: Node) -> Dictionary:
 func _ease_transition_t(raw_t: float) -> float:
 	var t := clamp(raw_t, 0.0, 1.0)
 	return -0.5 * (cos(PI * t) - 1.0)
+
+
+func test_cinematic_rig_restores_camera_relative_to_moving_parent():
+	var root = _setup_root()
+	var rig: Spatial = CINEMATIC_RIG_SCRIPT.new()
+	var camera := Camera.new()
+	camera.name = "Camera"
+	camera.transform.origin = Vector3(0.0, 1.0, 2.0)
+	rig.add_child(camera)
+	root.add_child(rig)
+	yield (get_tree(), "idle_frame")
+
+	rig.global_transform.origin = Vector3(10.0, 3.0, -4.0)
+	camera.transform.origin = Vector3.ZERO
+	rig.activate(false)
+
+	assert_vector3(camera.transform.origin).is_equal(Vector3(0.0, 1.0, 2.0))
+	assert_vector3(camera.global_transform.origin).is_equal(Vector3(10.0, 4.0, -2.0))
+	yield (_teardown_root(root), "completed")
 
 
 func test_exit_transition_interrupted_by_new_zone_request():

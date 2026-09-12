@@ -21,6 +21,7 @@ export(float) var tank_turn_ramp_time := 0.5
 export(Curve) var move_response_curve
 export(Curve) var camera_response_curve
 export(float, 0.0, 1.0) var tank_strafe_blend := 0.5 # 0.0 = pure strafe, 1.0 = pure tank turn
+export(float, 0.0, 1.0) var tank_turn_zone_end := 0.0 # 0.0 = continuous blend, 1.0 = binary tank turn, 0.75 = Pilot target
 export(float, 0.0, 1.0) var diagonal_turn_blend := 0.5 # Turning reduction multiplier when moving diagonally
 
 # Slope Handling (inspired by Terrestrial Characters)
@@ -182,6 +183,14 @@ func restore_snapshot(data: Dictionary) -> void:
 	current_turn_time = data.get("current_turn_time", 0.0)
 	_mouse_used_this_move = data.get("_mouse_used_this_move", false)
 
+static func tank_lateral_input(x: float, zone_end: float, blend: float) -> float:
+	var ax := abs(x)
+	if ax <= zone_end:
+		return 0.0
+	else:
+		var ramp := clamp(inverse_lerp(zone_end, 1.0, ax), 0.0, 1.0)
+		return sign(x) * ramp * (1.0 - blend)
+
 func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, is_on_floor: bool, crouch: bool = false) -> void:
 	var speed_multiplier = 1.0
 	if crouch:
@@ -199,7 +208,7 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	
 	var lateral_input = move_vec.x
 	if is_tank_turn_mode:
-		lateral_input = move_vec.x * (1.0 - tank_strafe_blend)
+		lateral_input = tank_lateral_input(move_vec.x, tank_turn_zone_end, tank_strafe_blend)
 		
 	var wish_dir = forward * (-move_vec.y) + right * lateral_input
 	wish_direction = wish_dir.normalized() if wish_dir.length_squared() > 0.0 else Vector3.ZERO

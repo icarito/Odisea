@@ -1,0 +1,37 @@
+name: Promote approved TestFlight builds
+
+# La revisión de Apple (Beta App Review) puede tardar más que la ventana del
+# job que sube el build (ver export_all.yml -> testflight-external). Ese job
+# ya no espera a que Apple apruebe: pide la revisión y no toca los grupos
+# externos hasta que el build esté aprobado, para no dejar sin build utilizable
+# a los testers mientras tanto. Este cron retoma la promoción apenas Apple
+# aprueba, sin esperar al próximo nightly.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  promote:
+    if: ${{ github.repository == 'icarito/Odisea' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Promote newly-approved builds to external TestFlight groups
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          BUNDLE_ID: juegos.educa.odisea
+          PLATFORMS: IOS,MAC_OS
+        run: |
+          set -euo pipefail
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_API_KEY_P8" ]; then
+            echo "App Store Connect secrets missing — skipping TestFlight promotion."
+            exit 0
+          fi
+          pip install --quiet "pyjwt[crypto]"
+          python3 scripts/testflight_distribute.py --promote

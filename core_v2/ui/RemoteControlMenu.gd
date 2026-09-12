@@ -110,6 +110,9 @@ func _on_host_pressed(key: String) -> void:
 	connect_confirm.dialog_text = "¿Controlar esta partida?\n\n%s\n\nEn esa pantalla tendrán que permitirlo con un PIN." % _session_title(_discovered_map.get(key, {}))
 	status_label.text = "Confirme la conexión con %s." % _session_name(key)
 	connect_confirm.popup_centered()
+	var cursor = get_parent().get_node_or_null("VirtualMouse")
+	if cursor and cursor.has_method("bring_to_front"):
+		cursor.bring_to_front()
 
 func _on_connect_confirmed() -> void:
 	_awaiting_confirm = false

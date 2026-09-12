@@ -235,6 +235,7 @@ nodos, NodePaths ni referencias a objetos fuera de su árbol.
 | `screen_title() / screen_icon()` | Copy e ícono para el radial. |
 | `widget_snapshot() -> Dictionary` | Estado del widget: **solo** String/int/float/bool/Array/Dictionary (Vector3 → arrays). Incluye `"proto": 1`. Snapshot completo e idempotente (no deltas en v1): el teléfono re-renderiza con cada mensaje. |
 | `view_scene() -> PackedScene` | Pantalla completa para modo HUD local. |
+| `view_transition_origin() -> Dictionary` | Origen de transición (`{}` por defecto => primera persona; `{"kind":"focus_rig","path":NodePath(...)}` para rig de foco). |
 | `widget_scene() -> PackedScene` | Widget compacto para slots locales (escala con UIScaleCompensator). |
 | `relevance(context) -> float` | 0..1 para el slot automático. Función pura, determinista, sin efectos secundarios. |
 | `allowed_actions() -> Array[String]` | Whitelist de operaciones. Única puerta de entrada, igual para input local y remoto. |

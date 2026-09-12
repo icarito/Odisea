@@ -1,0 +1,71 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/ui/hud/FlashlightWidget.gd" type="Script" id=1]
+
+[node name="FlashlightWidget" type="PanelContainer"]
+margin_right = 210.0
+margin_bottom = 80.0
+rect_min_size = Vector2( 210, 80 )
+script = ExtResource( 1 )
+
+[node name="Margin" type="MarginContainer" parent="."]
+margin_left = 7.0
+margin_top = 7.0
+margin_right = 203.0
+margin_bottom = 73.0
+custom_constants/margin_right = 6
+custom_constants/margin_top = 4
+custom_constants/margin_left = 6
+custom_constants/margin_bottom = 4
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+margin_left = 6.0
+margin_top = 4.0
+margin_right = 190.0
+margin_bottom = 62.0
+custom_constants/separation = 2
+
+[node name="Header" type="HBoxContainer" parent="Margin/VBox"]
+margin_right = 184.0
+margin_bottom = 14.0
+
+[node name="StatusDot" type="ColorRect" parent="Margin/VBox/Header"]
+margin_top = 3.0
+margin_right = 8.0
+margin_bottom = 11.0
+rect_min_size = Vector2( 8, 8 )
+color = Color( 0.18, 0.88, 0.78, 0.9 )
+
+[node name="TitleLabel" type="Label" parent="Margin/VBox/Header"]
+margin_left = 12.0
+margin_right = 184.0
+margin_bottom = 14.0
+size_flags_horizontal = 3
+text = "Linterna"
+clip_text = true
+
+[node name="MeterLabel" type="Label" parent="Margin/VBox"]
+margin_top = 16.0
+margin_right = 184.0
+margin_bottom = 30.0
+text = "BAT: [██████████]"
+clip_text = true
+
+[node name="StatusRow" type="HBoxContainer" parent="Margin/VBox"]
+margin_top = 32.0
+margin_right = 184.0
+margin_bottom = 52.0
+
+[node name="StatusLabel" type="Label" parent="Margin/VBox/StatusRow"]
+margin_top = 3.0
+margin_right = 105.0
+margin_bottom = 17.0
+size_flags_horizontal = 3
+text = "ESTADO: APAGADA"
+clip_text = true
+
+[node name="ToggleButton" type="Button" parent="Margin/VBox/StatusRow"]
+margin_left = 109.0
+margin_right = 184.0
+margin_bottom = 20.0
+text = "ENCENDER"

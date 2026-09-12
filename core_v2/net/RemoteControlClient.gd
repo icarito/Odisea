@@ -238,7 +238,6 @@ func _sample_and_send_sensors(delta: float) -> void:
 			send_sensor_input("gyro", {"x": gyro.x, "y": gyro.y, "z": gyro.z})
 
 func _on_ws_connected(_protocol: String) -> void:
-	print("[RemoteControlClient] WebSocket connected to ", _host_ip)
 	_is_connected = true
 	_last_rx_msec = OS.get_ticks_msec()
 	emit_signal("connection_state_changed", "Conectado", true)
@@ -252,7 +251,6 @@ func _on_ws_closed(_was_clean_close: bool) -> void:
 	var was_paired: bool = _is_paired
 	_is_connected = false
 	_is_paired = false
-	print("[RemoteControlClient] Connection closed")
 	# Un cierre a proposito del host llega antes como session_end; esto es un corte.
 	if was_paired:
 		_lose_connection()
@@ -271,7 +269,6 @@ func _on_ws_error() -> void:
 	var was_paired: bool = _is_paired
 	_is_connected = false
 	_is_paired = false
-	print("[RemoteControlClient] Connection error")
 	if was_paired:
 		_lose_connection()
 	elif _resuming or _auto_reconnect:

@@ -2151,6 +2151,8 @@ func _input(event):
 			return
 
 	if event is InputEventMouseMotion:
+		if InputProviderV2.pointer_is_from_touch():
+			return # es un dedo, no el mouse: la camara tactil ya llega por TouchCameraControls
 		if _ignore_next_mouse_motion:
 			_ignore_next_mouse_motion = false
 		elif Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
@@ -3158,6 +3160,9 @@ func _paso_fisica(_delta):
 func set_external_velocity(v: Vector3) -> void:
 	if is_instance_valid(movement_logic):
 		movement_logic.set_external_velocity(v)
+
+func get_external_velocity() -> Vector3:
+	return movement_logic.external_velocity if is_instance_valid(movement_logic) else Vector3.ZERO
 
 func set_external_source_is_static(is_static: bool) -> void:
 	if is_instance_valid(movement_logic):

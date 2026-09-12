@@ -347,6 +347,12 @@ func _wants_mouse_capture() -> bool:
 	# restaura PauseManager.resume().
 	if get_tree().paused:
 		return false
+	# Con el touch en uso el grab del puntero es justo lo que rompe el touch: X11 le entrega la
+	# secuencia al cliente que tiene el grab y el arrastre nunca llega como ScreenDrag. Mientras
+	# MobileUIManager lo tenga suspendido, no reafirmar (el lo devuelve al volver el mouse).
+	var mobile = get_node_or_null("/root/MobileUIManager")
+	if is_instance_valid(mobile) and mobile.is_mouse_capture_suspended():
+		return false
 	# Si el usuario soltó el mouse a propósito (ui_cancel -> VISIBLE) y no estamos
 	# en captura, no lo reasaltamos por un mero FOCUS_IN; sólo reafirmamos si ya
 	# estaba capturado o si es la captura inicial. Ese estado lo maneja el caller.

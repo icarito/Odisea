@@ -59,6 +59,7 @@ func _detect_box3d_backend() -> bool:
 func _ready():
 	# Configuración inicial: empezamos como rígido para que caiga
 	mode = RigidBody.MODE_RIGID
+	sleeping = false
 	contact_monitor = true
 	contacts_reported = 4
 
@@ -79,9 +80,12 @@ func _ready():
 	
 	_sfx_drag = get_node_or_null("SFX Drag")
 	
-	# WakeArea para detectar presencia del jugador/otros y despertar
+	# Bullet necesita proximidad para despertar su camino kinematic. Box3D usa el
+	# contacto del RigidBody y no mantiene un Area adicional en el mundo.
 	var wake_area = get_node_or_null("WakeArea")
-	if wake_area:
+	if _box3d and wake_area:
+		wake_area.free()
+	elif wake_area:
 		wake_area.connect("body_entered", self, "_on_body_entered")
 		wake_area.connect("body_exited", self, "_on_body_exited")
 	

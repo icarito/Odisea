@@ -118,7 +118,6 @@ func start_host_services(session_name: String = "") -> void:
 	if server.start_server():
 		announcer.start_announcing(session_name, server.ws_port, server.sensor_udp_port)
 		is_host_active = true
-		print("[RemoteControlManager] Host services started successfully")
 
 func stop_host_services() -> void:
 	if not is_host_active:
@@ -127,7 +126,6 @@ func stop_host_services() -> void:
 	server.stop_server()
 	_release_remote_inputs()
 	is_host_active = false
-	print("[RemoteControlManager] Host services stopped")
 
 func set_remote_control_enabled(enabled: bool) -> void:
 	remote_control_enabled = enabled

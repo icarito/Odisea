@@ -807,13 +807,17 @@ jobs:
           # cada formato habilitado, para CADA textura. Generar formatos que la
           # plataforma no usa hacía el import ~14min (vs ~1-3min con lo justo).
           # El proyecto es GLES3: desktop usa S3TC; móvil/web usa ETC2; iOS conserva
-          # PVRTC. ETC1 queda apagado porque solo corresponde al fallback GLES2.
+          # PVRTC. ETC1 solo corresponde al fallback GLES2, y por eso sigue apagado
+          # en todas menos linux_arm64: ese .pck tambien alimenta el paquete
+          # PortMaster, y ROCKNIX no tiene GL de escritorio (su libGL.so.1 es un
+          # stub), asi que el handheld corre GLES2 y pide las variantes .etc.
+          # Sin ETC1 las texturas comprimidas no cargan ahi.
           # bptc, etc, etc2, pvrtc -> True = importar. S3TC siempre se genera.
           fmts = {
               "linux_x64":   dict(bptc=False, etc=False, etc2=False, pvrtc=False),
               "windows":     dict(bptc=False, etc=False, etc2=False, pvrtc=False),
               "macos":       dict(bptc=False, etc=False, etc2=False, pvrtc=False),
-              "linux_arm64": dict(bptc=False, etc=False, etc2=True,  pvrtc=False),
+              "linux_arm64": dict(bptc=False, etc=True,  etc2=True,  pvrtc=False),
               "android":     dict(bptc=False, etc=False, etc2=True,  pvrtc=False),
               "html5":       dict(bptc=False, etc=False, etc2=True,  pvrtc=False),
               "ios":         dict(bptc=False, etc=False, etc2=True,  pvrtc=True),
@@ -1455,6 +1459,28 @@ jobs:
           # por chunks y descomprime. -n: no guardar nombre/mtime (gzip determinista).
           gzip -9 -n -c "$PCK" > "$OUT.gz"
           echo "Staged update .pck: $OUT ($(du -h "$OUT" | cut -f1)) + .gz ($(du -h "$OUT.gz" | cut -f1))"
+
+      # Paquete PortMaster para handhelds Linux/ARM (Anbernic y companiia). NO lleva
+      # el binario arm64: corre sobre el runtime frt_3.6 que provee PortMaster y solo
+      # carga nuestro .pck. Sale a dist_portmaster/ y NO a dist/ para que no entre en
+      # el artifact de ARM64: el job 'manifests' le pasa ese directorio entero a
+      # update_manifest.py, que tomaria este .zip como el archivo de la plataforma.
+      - name: Package PortMaster port (ARM64)
+        if: matrix.platform == 'linux_arm64'
+        run: |
+          set -euo pipefail
+          PCK=$(find build/linux_arm64 -maxdepth 1 -name "*.pck" | head -n 1)
+          mkdir -p dist_portmaster
+          tools/build_portmaster.sh "$PCK" \
+            "dist_portmaster/Odisea-PortMaster-${{ needs.prep.outputs.version_slug }}.zip"
+
+      - name: Upload PortMaster Artifact
+        if: matrix.platform == 'linux_arm64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Odisea-PortMaster-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
+          path: dist_portmaster/*.zip
+          if-no-files-found: error
 
       - name: Upload Artifact
         if: steps.ios_gate.outputs.skip_ios != 'true'

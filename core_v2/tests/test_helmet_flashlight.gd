@@ -66,11 +66,22 @@ func test_helmet_flashlight_scan_mode_scroll():
 	var mat: ShaderMaterial = flashlight._material
 	assert_object(mat).is_not_null()
 
-	var initial_scroll: float = mat.get_shader_param("mask_scroll")
+	# El binario headless usa el rasterizer dummy: los ShaderMaterial no guardan
+	# uniformes y get_shader_param() devuelve null. El avance se asierta sobre el
+	# estado del nodo; el material se revisa solo donde el rasterizer si lo expone.
+	# Mismo criterio que test_ice_level.gd.
+	var initial_scroll: float = flashlight._scroll_offset
+	var initial_param: float = 0.0
+	if _exposes_shader_param(mat, "mask_scroll"):
+		initial_param = float(mat.get_shader_param("mask_scroll"))
 	flashlight._process(0.5)
 
-	var updated_scroll: float = mat.get_shader_param("mask_scroll")
-	assert_float(updated_scroll).is_equal_approx(initial_scroll + 1.5, 0.001)
+	# delta * scan_speed = 0.5 * 3.0. Se mide el delta alrededor de la llamada manual:
+	# el nodo esta en el arbol y sus propios frames tambien avanzan el offset.
+	assert_float(flashlight._scroll_offset - initial_scroll).is_equal_approx(1.5, 0.001)
+	if _exposes_shader_param(mat, "mask_scroll"):
+		var updated_scroll: float = float(mat.get_shader_param("mask_scroll"))
+		assert_float(updated_scroll - initial_param).is_equal_approx(1.5, 0.001)
 
 
 func test_volumetric_cone_shader_backwards_compatibility():
@@ -91,3 +102,10 @@ func test_volumetric_cone_shader_backwards_compatibility():
 	assert_bool(code.find("uniform bool use_mask = false;") != -1).is_true()
 	assert_bool(code.find("uniform float uv_length_scale : hint_range(0.5, 4.0) = 1.0;") != -1).is_true()
 	assert_bool(code.find("uniform float edge_softness : hint_range(0.0, 1.0) = 0.0;") != -1).is_true()
+
+
+# El binario headless de CI usa el rasterizer dummy: los ShaderMaterial no guardan
+# parametros y get_shader_param() devuelve null (float(null) es error de script). Mismo
+# criterio que test_ice_level.gd / test_leak_fissure_visual.gd.
+func _exposes_shader_param(material, param: String) -> bool:
+	return material != null and material.get_shader_param(param) != null

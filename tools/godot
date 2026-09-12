@@ -1,0 +1,8 @@
+#!/bin/sh
+# Ejecuta el Godot del fork con Box3D (el que resuelve tools/godot_bin.sh, reconstruido
+# si el fork cambio). Existe para lo que necesita un EJECUTABLE fijo y no un comando:
+# godotTools.editorPath.godot3 de VSCode, tasks, el GODOT del Makefile, un symlink en PATH.
+# Nunca usar godot3-bin: es el stock, sin Box3D, y borra settings de project.godot.
+SELF="$(readlink -f "$0")"
+BIN="$(sh "$(dirname "$SELF")/godot_bin.sh")" || exit 1
+exec "$BIN" "$@"

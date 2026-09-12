@@ -103,6 +103,9 @@ func _scaled_mode_transition_duration(duration: float) -> float:
 	return max(MIN_TRANSITION_DURATION, duration / MODE_TRANSITION_SPEED_MULT)
 
 func _ready():
+	# El HUD pausa el mundo, pero una transicion de camara solicitada desde su
+	# overlay debe seguir avanzando sobre la escena congelada.
+	pause_mode = Node.PAUSE_MODE_PROCESS
 	var env_debug = OS.get_environment("ODISEA_CAMERA_DEBUG").to_lower()
 	if env_debug == "":
 		transition_debug_enabled = false
@@ -576,8 +579,11 @@ func _start_dynamic_transition(from: Camera, to: Camera, duration: float, purpos
 func _start_dynamic_transform() -> Transform:
 	return _transition_start_transform
 
-func _process(_delta: float):
-	pass
+func _process(delta: float):
+	# En juego normal SessionManager llama step() en fisica. Durante HUD ese nodo
+	# esta pausado, asi que este es el unico tick de la transicion.
+	if get_tree().paused and is_active():
+		step(delta)
 
 func _update_dynamic_transition(dt: float) -> void:
 	if not _transition_active:

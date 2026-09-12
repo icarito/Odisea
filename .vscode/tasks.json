@@ -150,7 +150,7 @@
         {
             "label": "Run game (debug)",
             "type": "shell",
-            "command": "godot3-bin .",
+            "command": "tools/godot .",
             "inAgents": true
         },
         {

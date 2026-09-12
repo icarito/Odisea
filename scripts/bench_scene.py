@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-GODOT_BIN = "godot3-bin"
+GODOT_BIN = str(PROJECT_ROOT / "tools" / "godot")  # fork con Box3D, nunca godot3-bin stock
 BENCH_SCRIPT = "res://core_v2/tests/perf/bench_runner.gd"
 
 SCENES = {

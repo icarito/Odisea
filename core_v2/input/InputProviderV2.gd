@@ -49,6 +49,21 @@ func _init() -> void:
 	pass
 
 
+# En una pantalla tactil de escritorio cada toque llega TAMBIEN como mouse real (ver
+# MobileUIManager.is_pointer_from_touch): el click fantasma prendia tool_fire_primary con cada
+# arrastre del joystick y el motion movia la camara doble, porque el arrastre ya entra por
+# add_touch_camera_drag(). Nada en el evento lo delata; lo unico que lo delata es que hay un dedo
+# apoyado, y eso lo sabe MobileUIManager. Aca vive el acceso porque es el unico punto por donde
+# el gameplay lee el mouse (polling de acciones y mouse_delta_accum).
+static func pointer_is_from_touch() -> bool:
+	var loop = Engine.get_main_loop()
+	if loop == null or loop.root == null:
+		return false
+	var mgr = loop.root.get_node_or_null("MobileUIManager")
+	return is_instance_valid(mgr) and mgr.has_method("is_pointer_from_touch") \
+		and mgr.is_pointer_from_touch()
+
+
 # Universal input getter
 # Ultimo input entregado por get_input() en este frame. Existe para que otros sistemas
 # (consolas, menus de prop) puedan LEER el input del frame sin consumirlo: get_input()
@@ -129,16 +144,20 @@ func _is_digital_move_vector(v: Vector2) -> bool:
 
 
 
+# El handheld reporta los ejes del stick invertidos. La correccion depende solo del
+# entorno, no del estado del provider, asi que se resuelve sin instancia: VirtualMouse
+# lee las acciones cursor_* del InputMap directo (no pasa por step()) y necesita el
+# mismo signo, o el cursor de UI queda invertido mientras caminar y camara van bien.
+static func wants_handheld_axis_inversion() -> bool:
+	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
+	return _contains_any_hint(forced_device, ANBERNIC_DEVICE_HINTS)
+
 func _ensure_axis_profile_resolved() -> void:
 	if _axis_profile_resolved:
 		return
 
-	var detected_anbernic = false
-	var resolved_profile = "none"
-	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
-	if _contains_any_hint(forced_device, ANBERNIC_DEVICE_HINTS):
-		detected_anbernic = true
-		resolved_profile = "anbernic_env_invert_xy"
+	var detected_anbernic = wants_handheld_axis_inversion()
+	var resolved_profile = "anbernic_env_invert_xy" if detected_anbernic else "none"
 
 	_axis_profile_resolved = true
 	handheld_axis_correction_enabled = detected_anbernic
@@ -148,7 +167,7 @@ func _ensure_axis_profile_resolved() -> void:
 	_invert_joy_look_x = detected_anbernic
 	_invert_joy_look_y = detected_anbernic
 
-func _contains_any_hint(text: String, hints: Array) -> bool:
+static func _contains_any_hint(text: String, hints: Array) -> bool:
 	if text == "":
 		return false
 	for raw_hint in hints:
@@ -197,11 +216,14 @@ func _read_live_input() -> InputDataV2:
 		d.rotate_right = _action_pressed("rotate_right")
 		d.roll_left = _action_pressed("zero_g_roll_left")
 		d.roll_right = _action_pressed("zero_g_roll_right")
-		d.tool_fire_primary = _action_pressed("tool_fire_primary")
+		# tool_fire_primary es la unica accion en el boton izquierdo, que es el que aprieta el
+		# puntero fantasma del touch en cada toque.
+		d.tool_fire_primary = _action_pressed("tool_fire_primary") and not pointer_is_from_touch()
 		d.tool_fire_secondary = _action_pressed("tool_fire_secondary")
 		d.tool_next_mode = _action_just_pressed("tool_next_mode")
 		d.tool_prev_mode = _action_just_pressed("tool_prev_mode")
 		d.cargol_ability = _action_pressed("cargol_ability")
+		d.hud_mode = _action_pressed("hud_mode")
 
 		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0)

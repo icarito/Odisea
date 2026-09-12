@@ -362,9 +362,7 @@ def _run_raw_oys_file(test_file: Path, selected_runner: str, repo_root: Path, od
     if selected_runner != "raw-oys":
         pytest.skip("raw-oys runner not selected")
 
-    godot_bin = "godot3-bin"
-    if not _has_executable(godot_bin):
-        godot_bin = "godot"
+    godot_bin = str(repo_root / "tools" / "godot")  # fork con Box3D, nunca godot3-bin stock
 
     rel_file = test_file.relative_to(repo_root)
     cmd = [godot_bin]
