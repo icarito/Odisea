@@ -69,7 +69,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {

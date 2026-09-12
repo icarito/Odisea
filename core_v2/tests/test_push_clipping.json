@@ -69,7 +69,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {
@@ -101,7 +102,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {
@@ -136,7 +138,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {
@@ -171,7 +174,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {
@@ -206,7 +210,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {
@@ -241,7 +246,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {
@@ -276,7 +282,8 @@
         "tool_prev_mode": false,
         "cargol_ability": false,
         "hardware_mouse_active": false,
-        "analog_move_active": false
+        "analog_move_active": false,
+        "hud_mode": false
       }
     },
     {
@@ -472,16 +479,16 @@
   },
   "final_expected_state": {
     "position": [
-      1.405878,
+      1.548961,
       0.106111,
-      1.656233
+      0.253472
     ],
     "velocity": [
       0,
       0,
       0
     ],
-    "yaw": -1.555664,
+    "yaw": 2.042034,
     "pitch": 1.047198,
     "base_spring_length_3d": 2.5,
     "movement_state": {
@@ -496,7 +503,7 @@
         0
       ],
       "camera_input_timer": 1.566667,
-      "is_tank_turn_mode": true,
+      "is_tank_turn_mode": false,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
     },
