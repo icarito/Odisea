@@ -28,6 +28,7 @@ enum Command {
 	LOG,
 	TELEPORT,
 	CAMERA_SHAKE, CAMERA_SHAKE_STOP,
+	TREMOR, TREMOR_STOP,
 	PLAY_SOUND,
 	VCAMERA, VCAMERA_BLEND, VCAMERA_RETURN, VCAMERA_SHAKE,
 	ANNA_ENABLE, ANNA_DISABLE, ANNA_SET_TARGET, ANNA_DUMP,
@@ -671,6 +672,40 @@ static func parse_instruction(line: String) -> Dictionary:
 				data["intensity"] = named_intensity.to_float()
 		
 		"CAMERA_SHAKE_STOP":
+			pass
+
+		"TREMOR":
+			# TREMOR [duration] [amplitude] [frequency] [seed]
+			# TREMOR duration=1.0 amplitude=0.05 frequency=10.0 seed=0
+			data["duration"] = 1.0
+			data["amplitude"] = 0.05
+			data["frequency"] = 10.0
+			data["seed"] = 0
+			var positional = 0
+			for i in range(1, parts.size()):
+				var token = parts[i]
+				if token.find("=") != -1:
+					var kv = token.split("=", false, 1)
+					var k = kv[0].to_lower()
+					var v_str = kv[1] if kv.size() > 1 else ""
+					match k:
+						"duration", "dur", "time":
+							data["duration"] = v_str.to_float()
+						"amplitude", "amp", "strength":
+							data["amplitude"] = v_str.to_float()
+						"frequency", "freq", "speed":
+							data["frequency"] = v_str.to_float()
+						"seed":
+							data["seed"] = int(v_str)
+				else:
+					match positional:
+						0: data["duration"] = token.to_float()
+						1: data["amplitude"] = token.to_float()
+						2: data["frequency"] = token.to_float()
+						3: data["seed"] = int(token)
+					positional += 1
+
+		"TREMOR_STOP":
 			pass
 		
 		"VCAMERA":
