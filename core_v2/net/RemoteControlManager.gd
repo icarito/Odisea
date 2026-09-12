@@ -10,11 +10,13 @@ var RemoteDiscovery = load("res://core_v2/net/RemoteDiscovery.gd")
 var RemoteControlServer = load("res://core_v2/net/RemoteControlServer.gd")
 var RemoteControlClient = load("res://core_v2/net/RemoteControlClient.gd")
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
+var SuitOSRemoteBridge = load("res://core_v2/components/SuitOSRemoteBridge.gd")
 
 var announcer: Node = null
 var discovery: Node = null
 var server: Node = null
 var client: Node = null
+var bridge: Node = null
 
 var is_host_active: bool = false
 var remote_control_enabled: bool = true
@@ -45,6 +47,12 @@ func _ready():
 	client = RemoteControlClient.new()
 	client.name = "RemoteControlClient"
 	add_child(client)
+
+	if SuitOSRemoteBridge != null:
+		bridge = SuitOSRemoteBridge.new()
+		bridge.name = "SuitOSRemoteBridge"
+		bridge.pause_mode = Node.PAUSE_MODE_PROCESS
+		add_child(bridge)
 
 	server.connect("client_pair_requested", self, "_on_server_pair_requested")
 	server.connect("input_received", self, "_on_server_input_received")

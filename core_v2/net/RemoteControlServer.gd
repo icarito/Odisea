@@ -6,6 +6,7 @@ signal client_pair_requested(device_name, pin, callback)
 signal client_connected(device_name)
 signal client_disconnected(device_name)
 signal input_received(input_type, payload)
+signal ui_directive_received(op, payload)
 # Un control emparejado dejo de hablar (ni pings) sin cerrar la conexion: wifi caido.
 # Lo que tenia apretado hay que soltarlo ya, no cuando TCP se rinda minutos despues.
 signal client_stalled(device_name)
@@ -88,7 +89,7 @@ func generate_token() -> String:
 		token += chars[rng.randi_range(0, chars.length() - 1)]
 	return token
 
-func send_ui_directive(op: String, payload: Dictionary) -> void:
+func send_ui_directive(op: String, payload) -> void:
 	var msg = RemoteProtocol.create_ui_message(op, payload)
 	_broadcast_to_paired(RemoteProtocol.encode_json(msg))
 
@@ -163,6 +164,8 @@ func _on_ws_data_received(id: int) -> void:
 			_handle_resume(id, dict)
 		"input":
 			_handle_input(id, dict)
+		"ui":
+			_handle_ui_directive(id, dict)
 		"ping":
 			_ws_server.get_peer(id).put_packet(RemoteProtocol.encode_json(RemoteProtocol.create_pong()).to_utf8())
 
@@ -235,3 +238,12 @@ func _handle_input(id: int, dict: Dictionary) -> void:
 		return
 
 	emit_signal("input_received", dict.get("input_type", ""), dict.get("payload", {}))
+
+func _handle_ui_directive(id: int, dict: Dictionary) -> void:
+	var token = dict.get("token", "")
+	if not _peers.get(id, {}).get("paired", false):
+		return
+	if _active_token != "" and token != "" and token != _active_token:
+		return
+
+	emit_signal("ui_directive_received", String(dict.get("op", "")), dict.get("payload", {}))

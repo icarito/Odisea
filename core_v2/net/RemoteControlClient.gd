@@ -163,6 +163,13 @@ func send_input(input_type: String, payload: Dictionary) -> void:
 		return
 	_send(RemoteProtocol.create_input_message(input_type, payload, _session_token))
 
+func send_ui_directive(op: String, payload) -> void:
+	if not _is_paired:
+		return
+	var msg = RemoteProtocol.create_ui_message(op, payload)
+	msg["token"] = _session_token
+	_send(msg)
+
 func send_sensor_input(input_type: String, payload: Dictionary) -> void:
 	if not _is_paired:
 		return
