@@ -6,6 +6,27 @@ extends Node
 
 var server: Node = null # Explicit override for testing
 var _remote_active_screen_id: String = ""
+# Los widgets cambian a ritmo de juego: mandar screen_data por cada cambio
+# inundaba el WS del handheld (rwnd_limited, el control se veia "colgado"
+# por momentos). Se coalesce a un flush por pantalla cada intervalo.
+const SCREEN_DATA_FLUSH_INTERVAL := 0.1
+var _dirty_screens: Dictionary = {}
+
+func _process(_delta: float) -> void:
+	if _dirty_screens.empty():
+		return
+	if not _has_paired_client():
+		_dirty_screens.clear()
+		return
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os == null:
+		_dirty_screens.clear()
+		return
+	for id in _dirty_screens.keys():
+		var screen = suit_os.get_screen(id)
+		if is_instance_valid(screen) and screen.has_method("widget_snapshot"):
+			_send_screen_data(id, screen.widget_snapshot())
+	_dirty_screens.clear()
 
 func _ready() -> void:
 	_connect_suitos_signals()
@@ -114,7 +135,7 @@ func _on_widget_changed(_slot: String, snapshot: Dictionary) -> void:
 		return
 	var snap_id: String = String(snapshot.get("id", ""))
 	if not snap_id.empty():
-		_send_screen_data(snap_id, snapshot)
+		_dirty_screens[snap_id] = true
 
 func _on_suitos_haptic(kind: String, intensity: float = 1.0) -> void:
 	var server = _get_server()

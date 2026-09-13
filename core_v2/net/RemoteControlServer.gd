@@ -187,6 +187,12 @@ func _process_sensor_udp(delta: float) -> void:
 		_sensor_active = false
 
 func _on_ws_client_connected(id: int, _protocol: String) -> void:
+	# Sin nodelay, Nagle retenia ping/pong y directivas chicas detras de los
+	# dumps de pantallas: el control veia lag de 40-200 ms random.
+	if _ws_server.has_peer(id):
+		var peer = _ws_server.get_peer(id)
+		if peer != null and peer.has_method("set_no_delay"):
+			peer.set_no_delay(true)
 	_peers[id] = {"device_name": "Dispositivo Móvil", "paired": false, "token": "", "last_rx": OS.get_ticks_msec(), "stalled": false}
 
 func _on_ws_client_disconnected(id: int, _was_clean_close: bool) -> void:

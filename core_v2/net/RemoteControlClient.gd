@@ -269,6 +269,11 @@ func _sample_and_send_sensors(delta: float) -> void:
 func _on_ws_connected(_protocol: String) -> void:
 	_is_connected = true
 	_last_rx_msec = OS.get_ticks_msec()
+	# Nodelay: los pings del latido no deben quedarse en Nagle detras de lo que
+	# venga. El peer id 1 es siempre el servidor en el WebSocketClient de Godot 3.
+	var peer = _ws_client.get_peer(1)
+	if peer != null and peer.has_method("set_no_delay"):
+		peer.set_no_delay(true)
 	emit_signal("connection_state_changed", "Conectado", true)
 	if _resuming:
 		_send(RemoteProtocol.create_resume(_session_token))
