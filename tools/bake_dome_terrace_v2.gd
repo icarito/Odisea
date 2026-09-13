@@ -19,6 +19,24 @@ extends SceneTree
 const SRC_GLB := "res://assets/models/dome_terrace_v2/DomeTerraceV2.glb"
 const OUT_MESH := "res://core_v2/levels/interiors/DomeTerraceV2_baked.mesh"
 const OUT_SHAPE := "res://core_v2/levels/interiors/DomeTerraceV2_baked.shape"
+const WALL_SHADER_PATH := "res://core_v2/levels/interiors/shaders/dome_wall_cylindrical.shader"
+
+
+# La carcasa (M_BrushedSteelLight) recibe el shader cilíndrico que viajaba
+# embebido en la superficie 0 del mesh Qodot original: reconstruye UVs desde la
+# posición angular mundial (XZ) para texturizar la pared sin costuras por
+# segmento. Los params quedan en default del shader (= el mesh viejo, que tenía
+# todos los params sin setear). Los bores van en bucket oscuro aparte para no
+# smearingar el tiling a lo largo del túnel.
+func _material_for(material: Material) -> Material:
+	if material != null and material.resource_name == "M_BrushedSteelLight":
+		var shader: Shader = load(WALL_SHADER_PATH)
+		if shader != null:
+			var sm := ShaderMaterial.new()
+			sm.shader = shader
+			sm.resource_name = "DomeWallCylindrical"
+			return sm
+	return material
 
 
 func _init() -> void:
@@ -44,12 +62,25 @@ func _run() -> void:
 			var material: Material = mi.mesh.surface_get_material(s)
 			if material == null:
 				material = mi.get_surface_material(s)
-			var key := material.resource_path if material != null and material.resource_path != "" else ("emb:" + (material.resource_name if material != null else "NULL"))
+			# Clave por nombre normalizado (no por path): el import del GLB da
+			# paths distintos (::3, ::5) a instancias duplicadas del mismo
+			# material, y Blender añade sufijos .001/.002. Mismo nombre = mismo
+			# material plano aqui, asi que se fusionan en un solo bucket.
+			var key := "emb:NULL"
+			if material != null:
+				var name_norm := material.resource_name
+				if name_norm == "":
+					name_norm = material.resource_path.get_file()
+				while name_norm.length() > 4 \
+						and name_norm.substr(name_norm.length() - 4, 1) == "." \
+						and name_norm.substr(name_norm.length() - 3).is_valid_integer():
+					name_norm = name_norm.substr(0, name_norm.length() - 4)
+				key = "emb:" + name_norm
 			if not buckets.has(key):
 				var st := SurfaceTool.new()
 				st.begin(Mesh.PRIMITIVE_TRIANGLES)
 				if material != null:
-					st.set_material(material)
+					st.set_material(_material_for(material))
 				buckets[key] = st
 				order.append(key)
 			_append_surface(buckets[key], mi.mesh, s, xf)
