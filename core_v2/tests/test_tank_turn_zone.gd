@@ -100,5 +100,5 @@ func test_pilot_tank_calibration() -> void:
 	var movement: PlayerMovementV2 = pilot.get_node("Logic/Movement")
 	assert_float(movement.tank_strafe_blend).is_equal_approx(0.95, 0.0001)
 	assert_float(movement.tank_turn_zone_end).is_equal_approx(0.85, 0.0001)
-	assert_float(movement.stationary_turn_speed_multiplier).is_equal_approx(0.6, 0.0001)
-	assert_float(movement.tank_turn_stationary_axis_deadzone).is_equal_approx(0.5, 0.0001)
+	assert_float(movement.stationary_turn_speed_multiplier).is_equal_approx(0.8, 0.0001)
+	assert_float(movement.tank_turn_stationary_axis_deadzone).is_equal_approx(0.7, 0.0001)
