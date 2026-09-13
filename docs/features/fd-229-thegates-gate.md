@@ -59,3 +59,6 @@ Box3D viaja en el binario del renderer, no en el pack.
 - El renderer 3.6 todavía no está en el backend de TheGates: para probar end
   to end, el harness `serve.py` del PR hace de backend apuntando al asset
   `linux-3.6` del nocturno de godot-box3d-3.
+- Desde `v0.2.6-nightly5` el fork publica también `macos-3.6` y `windows-3.6`
+  (thegatesbrowser/thegates#2 y #3). Compilan, pero no se probaron aún contra un
+  launcher en Mac ni en Windows; en Linux Odisea corre completo.
