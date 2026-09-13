@@ -122,9 +122,35 @@ func test_bridge_sends_only_the_changed_widget_data():
 	bridge.set("server", server)
 	bridge._on_widget_changed("slot_a", {"id": "test:terminal", "status_text": "ONLINE"})
 
+	# Coalescing: el cambio viaja en el proximo flush, no inline.
+	assert_int(server.last_directives.size()).is_equal(0)
+	bridge._process(0.2)
+
 	assert_int(server.last_directives.size()).is_equal(1)
 	assert_str(String(server.last_directives[0]["op"])).is_equal("screen_data")
 	assert_str(String(server.last_directives[0]["payload"].get("id", ""))).is_equal("test:terminal")
+
+	bridge.queue_free()
+	server.queue_free()
+
+func test_bridge_coalesces_widget_updates_per_screen():
+	var server = DummyServer.new()
+	add_child(server)
+
+	var bridge = SuitOSRemoteBridgeScript.new()
+	add_child(bridge)
+	bridge.set("server", server)
+	bridge._on_widget_changed("slot_a", {"id": "test:terminal", "status_text": "ONLINE"})
+	bridge._on_widget_changed("slot_a", {"id": "test:terminal", "status_text": "BUSY"})
+	bridge._on_widget_changed("slot_b", {"id": "test:other", "status_text": "X"})
+
+	bridge._process(0.2)
+
+	# Una sola directiva por pantalla con el ULTIMO snapshot, no una por cambio.
+	assert_int(server.last_directives.size()).is_equal(2)
+	assert_str(String(server.last_directives[0]["payload"].get("id", ""))).is_equal("test:terminal")
+	assert_str(String(server.last_directives[0]["payload"]["snapshot"].get("status_text", ""))).is_equal("BUSY")
+	assert_str(String(server.last_directives[1]["payload"].get("id", ""))).is_equal("test:other")
 
 	bridge.queue_free()
 	server.queue_free()

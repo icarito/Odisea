@@ -8,24 +8,24 @@ var server: Node = null # Explicit override for testing
 var _remote_active_screen_id: String = ""
 # Los widgets cambian a ritmo de juego: mandar screen_data por cada cambio
 # inundaba el WS del handheld (rwnd_limited, el control se veia "colgado"
-# por momentos). Se coalesce a un flush por pantalla cada intervalo.
+# por momentos). Se coalesce: el ultimo snapshot por pantalla viaja en el
+# proximo flush, a lo sumo cada SCREEN_DATA_FLUSH_INTERVAL.
 const SCREEN_DATA_FLUSH_INTERVAL := 0.1
 var _dirty_screens: Dictionary = {}
+var _flush_timer: float = 0.0
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _dirty_screens.empty():
 		return
 	if not _has_paired_client():
 		_dirty_screens.clear()
 		return
-	var suit_os = get_node_or_null("/root/SuitOS")
-	if suit_os == null:
-		_dirty_screens.clear()
+	_flush_timer += delta
+	if _flush_timer < SCREEN_DATA_FLUSH_INTERVAL:
 		return
-	for id in _dirty_screens.keys():
-		var screen = suit_os.get_screen(id)
-		if is_instance_valid(screen) and screen.has_method("widget_snapshot"):
-			_send_screen_data(id, screen.widget_snapshot())
+	_flush_timer = 0.0
+	for id in _dirty_screens:
+		_send_screen_data(id, _dirty_screens[id])
 	_dirty_screens.clear()
 
 func _ready() -> void:
@@ -135,7 +135,7 @@ func _on_widget_changed(_slot: String, snapshot: Dictionary) -> void:
 		return
 	var snap_id: String = String(snapshot.get("id", ""))
 	if not snap_id.empty():
-		_dirty_screens[snap_id] = true
+		_dirty_screens[snap_id] = snapshot
 
 func _on_suitos_haptic(kind: String, intensity: float = 1.0) -> void:
 	var server = _get_server()
