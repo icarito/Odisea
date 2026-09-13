@@ -1091,10 +1091,13 @@ func test_click_outside_closes_only_with_the_cursor_released():
 	home._raw_passthrough = true
 	var outside: Vector2 = home._view_screen_rect().end + Vector2(4.0, 4.0)
 
-	# Mouse capturado: su posicion no significa nada (esta congelada), no cierra.
+	# Mouse capturado: su posicion no significa nada (esta congelada), no cierra. Solo donde el
+	# entorno captura de verdad: en el CI (--headless) set_mouse_mode no tiene efecto y el mouse
+	# queda VISIBLE, asi que esta mitad probaria el caso suelto.
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	home._input(_click(outside))
-	assert_array(_screen_selects(home)).is_empty()
+	if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		home._input(_click(outside))
+		assert_array(_screen_selects(home)).is_empty()
 
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	home._input(_click(outside))

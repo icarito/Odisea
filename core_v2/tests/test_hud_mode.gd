@@ -637,7 +637,11 @@ class TerminalSizedScreen extends Reference:
 		return Vector2(1280.0, 816.0)
 
 
-class RecordingVirtualMouse extends "res://core_v2/ui/VirtualMouse.gd":
+# Hereda de la constante y no de la ruta entre comillas: el runner del CI extrae nombres de clase
+# sacando espacios y con la ruta imprimia "Can't extract class name".
+const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
+
+class RecordingVirtualMouse extends VirtualMouseScript:
 	var emitted := []
 	func _emit_event(event: InputEvent) -> void:
 		emitted.append(event)
