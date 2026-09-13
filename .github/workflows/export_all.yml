@@ -1353,6 +1353,38 @@ jobs:
           cp build/html5/index.pck build/html5/index.pck.gz build/pages/
           cp build/html5/index.wasm build/html5/index.wasm.gz build/pages/threads/
 
+      - name: HTML5 Stage TheGates
+        if: matrix.platform == 'html5'
+        run: |
+          # TheGates (https://thegates.io), browser 3D, carga cada gate desde
+          # una URL: un .gate cuyos campos se resuelven relativos a su propio
+          # directorio (Url.join) mas el resource_pack. world.gate vive en la
+          # raiz de Pages, junto al index.pck que ESTE MISMO nightly publica,
+          # asi el launcher resuelve resource_pack same-origin sin duplicar
+          # el pack. godot_version="3.6" hace que el launcher pida al backend
+          # el renderer 3.6 (el que publica el nightly de icarito/godot-box3d-3
+          # como asset linux-3.6). Con la URL del gate bastan dos formas:
+          #   https://icarito.github.io/Odisea/world.gate
+          #   https://icarito.github.io/Odisea  (fix_gate_url agrega world.gate)
+          # El pck es el del preset HTML5 Threads, pero es portable: mismos
+          # filtros que los presets desktop y scripts fuente (export_mode 0),
+          # y Box3D viaja en el binario del renderer, no en el pack.
+          GATE_VERSION="${{ needs.prep.outputs.version }}"
+          cat > build/pages/world.gate <<GATE
+          [gate]
+
+          title = "Odisea: El Arca Silenciosa"
+          description = "Alfa jugable ${GATE_VERSION}"
+          icon = "thegates-icon.png"
+          image = "thegates-image.png"
+          resource_pack = "index.pck"
+          godot_version = "3.6"
+          discoverable = false
+          GATE
+          cp dashboard/public/pwa-192x192.png build/pages/thegates-icon.png
+          cp dashboard/public/pwa-512x512.png build/pages/thegates-image.png
+          test -s build/pages/world.gate || { echo "::error::world.gate no generado"; exit 1; }
+
       - name: HTML5 Stage Vercel
         if: matrix.platform == 'html5'
         run: |
