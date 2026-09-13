@@ -36,7 +36,7 @@ size = Vector3( 2.1, 0.2, 0.08 )
 
 [node name="DoorSingleVerticalV2" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Raise Security Door"
+interaction_text = "Subir puerta de seguridad"
 anim_duration = 0.85
 panel_left_path = NodePath("Panel")
 open_offset_left = Vector3( 0, 3.2, 0 )

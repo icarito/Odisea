@@ -189,12 +189,13 @@ func set_active(value: bool, immediate: bool = false) -> void:
 
 
 func get_interaction_prompt() -> String:
+	# Sin teclas en el texto (varian por dispositivo): solo la accion.
 	if not _is_open:
-		return "[F] %s" % [interaction_text]
+		return interaction_text
 	if auto_interact:
 		# An ambient panel has nothing to cancel: it is up for the whole ride.
-		return "[F] o click: confirmar nivel"
-	return "[F] o click: confirmar / [ESC] cancelar"
+		return "Confirmar nivel"
+	return "Confirmar nivel / Cancelar"
 
 
 func is_dial_open() -> bool:

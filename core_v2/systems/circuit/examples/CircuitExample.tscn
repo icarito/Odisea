@@ -56,7 +56,7 @@ cable_scene = SubResource( 2 )
 [node name="SourceProp" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0 )
 script = ExtResource( 3 )
-interaction_text = "Toggle Source"
+interaction_text = "Accionar fuente"
 
 [node name="Visual" type="CSGBox" parent="SourceProp"]
 width = 1.0
@@ -69,7 +69,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 [node name="TargetProp" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0 )
 script = ExtResource( 3 )
-interaction_text = "Target"
+interaction_text = "Objetivo"
 
 [node name="Visual" type="CSGBox" parent="TargetProp"]
 width = 1.0

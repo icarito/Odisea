@@ -36,7 +36,7 @@ size = Vector3( 2.12, 0.18, 0.08 )
 
 [node name="DoorDoubleVerticalV2" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Cycle Split Shutter"
+interaction_text = "Accionar compuerta doble"
 anim_duration = 0.8
 panel_left_path = NodePath("PanelTop")
 panel_right_path = NodePath("PanelBottom")

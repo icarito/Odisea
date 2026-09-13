@@ -57,7 +57,7 @@ depth = 0.7
 
 [node name="SlidingDoor" parent="." instance=ExtResource( 3 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0 )
-interaction_text = "Open Door"
+interaction_text = "Abrir puerta"
 anim_duration = 0.8
 slide_vector = Vector3( 0, 4, 0 )
 size = Vector3( 3, 5, 0.25 )

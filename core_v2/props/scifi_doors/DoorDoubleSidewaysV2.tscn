@@ -36,7 +36,7 @@ size = Vector3( 1.12, 0.2, 0.08 )
 
 [node name="DoorDoubleSidewaysV2" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Open Bulkhead"
+interaction_text = "Abrir mamparo"
 anim_duration = 0.9
 panel_left_path = NodePath("PanelLeft")
 panel_right_path = NodePath("PanelRight")

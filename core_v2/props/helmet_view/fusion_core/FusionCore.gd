@@ -8,7 +8,7 @@ class_name FusionCore
 # Interacting toggles the energy state (plasma shader + light).
 
 # --- PropBaseV2-like exports ---
-export(String) var interaction_text = "Activate"
+export(String) var interaction_text = "Activar"
 export var anim_duration = 1.0
 export var starts_active = false
 export var is_interactable = true

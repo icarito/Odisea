@@ -35,7 +35,7 @@ radius = 1.2
 collision_layer = 4
 collision_mask = 3
 script = ExtResource( 1 )
-interaction_text = "Toggle Shield"
+interaction_text = "Accionar escudo"
 starts_active = true
 
 [node name="EmitterBase" type="MeshInstance" parent="."]

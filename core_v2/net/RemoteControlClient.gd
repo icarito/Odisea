@@ -141,6 +141,13 @@ func _send(msg: Dictionary) -> void:
 func is_resuming() -> bool:
 	return _resuming
 
+# Cuanto hace que no llega nada del host (el latido hace ping cada heartbeat_interval). -1 sin
+# sesion. Con eso la pantalla del control muestra lag antes de que heartbeat_timeout la corte.
+func ms_since_last_rx() -> int:
+	if not _is_paired or not _is_connected:
+		return -1
+	return OS.get_ticks_msec() - _last_rx_msec
+
 func get_resume_time_left() -> float:
 	return max(0.0, session_resume_timeout - _resume_timer)
 

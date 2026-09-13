@@ -6,14 +6,14 @@ class_name InteractableBaseV2
 # Subclasses implement _update_visuals() for specific behavior.
 
 # --- EXPORTED TUNING ---
-export(String) var interaction_text := "Interact"
+export(String) var interaction_text := "Interactuar"
 export(float) var anim_duration := 1.0 # Seconds to complete animation
 export(bool) var starts_active := false setget set_starts_active # Initial logical state
 export(bool) var auto_interact := false # If true, automatically triggers when player is in range
 export(bool) var one_off := false # If true, can only be used once (manually or automatically)
 export(bool) var is_interactable := true setget set_is_interactable # If false, ignore player interaction
 export(bool) var is_focusable := false setget set_is_focusable # If true, player can target this for focus-only actions
-export(String) var focus_text := "Focus"
+export(String) var focus_text := "Enfocar"
 export(bool) var manual_toggle := true # If false, emit signal but don't toggle state automatically
 export(bool) var debug := false
 

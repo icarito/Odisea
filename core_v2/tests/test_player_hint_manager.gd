@@ -14,18 +14,18 @@ func before_test() -> void:
 func test_interaction_hint_is_visible_text_when_interactive() -> void:
 	var manager = PlayerHintManager.new()
 	add_child(manager)
-	manager.show_interaction_hint("[F] Open Door")
-	assert_str(manager.get_visible_text()).is_equal("[F] Open Door")
+	manager.show_interaction_hint("Abrir puerta")
+	assert_str(manager.get_visible_text()).is_equal("Abrir puerta")
 	manager.queue_free()
 
 func test_manual_hint_suppresses_interaction_until_cleared() -> void:
 	var manager = PlayerHintManager.new()
 	add_child(manager)
-	manager.show_interaction_hint("[F] Open Door")
+	manager.show_interaction_hint("Abrir puerta")
 	manager.show_manual_hint("Read the panel", 5.0)
 	assert_str(manager.get_visible_text()).is_equal("Read the panel")
 	manager.clear_manual_hint()
-	assert_str(manager.get_visible_text()).is_equal("[F] Open Door")
+	assert_str(manager.get_visible_text()).is_equal("Abrir puerta")
 	manager.queue_free()
 
 func test_manual_hint_duration_clamps_to_thirty_seconds() -> void:
@@ -41,11 +41,26 @@ func test_manual_hint_duration_clamps_to_thirty_seconds() -> void:
 func test_non_interactive_mode_hides_and_rejects_manual_hints() -> void:
 	var manager = PlayerHintManager.new()
 	add_child(manager)
-	manager.show_interaction_hint("[F] Open Door")
+	manager.show_interaction_hint("Abrir puerta")
 	manager.set_interactive(false)
 	assert_str(manager.get_visible_text()).is_equal("")
 	manager.show_manual_hint("Should not show", 5.0)
 	assert_str(String(manager.get("_manual_text"))).is_equal("")
 	manager.set_interactive(true)
-	assert_str(manager.get_visible_text()).is_equal("[F] Open Door")
+	assert_str(manager.get_visible_text()).is_equal("Abrir puerta")
 	manager.queue_free()
+
+
+func test_interaction_hint_sits_at_the_bottom_centered_with_a_bigger_font() -> void:
+	# Al pie de la pantalla (no arriba), centrado entre los controles, y en letra mas grande.
+	var overlay = load("res://core_v2/ui/overlay/PlayerHintOverlay.tscn").instance()
+	add_child(overlay)
+	overlay.set_hint_mode("hint")
+	overlay.set_hint_text("Abrir puerta")
+	var label: Label = overlay.get_node("HintLabel")
+	var viewport_size: Vector2 = overlay.get_viewport_rect().size
+	assert_int(label.align).is_equal(Label.ALIGN_CENTER)
+	assert_float(label.rect_position.y).is_greater(viewport_size.y * 0.5)
+	assert_float(label.rect_position.y + label.rect_size.y).is_less_equal(viewport_size.y)
+	assert_int((label.get_font("font") as DynamicFont).size).is_greater_equal(28)
+	overlay.free()

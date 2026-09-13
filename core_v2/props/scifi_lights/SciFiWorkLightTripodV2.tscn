@@ -35,7 +35,7 @@ extents = Vector3( 0.6, 1.25, 0.6 )
 
 [node name="SciFiWorkLightTripodV2" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Toggle Flood Light"
+interaction_text = "Accionar reflector"
 starts_active = true
 is_interactable = false
 light_energy_max = 6.0

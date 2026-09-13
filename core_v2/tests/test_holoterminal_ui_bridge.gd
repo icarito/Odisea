@@ -46,9 +46,9 @@ func test_holoterminal_can_be_focus_only_when_not_interactable() -> void:
 	assert_bool(holo.is_in_group("interactable")).is_false()
 	assert_bool(holo.is_in_group("focusable")).is_true()
 	assert_bool(holo.can_focus()).is_true()
-	assert_str(holo.get_interaction_prompt()).is_equal("[Z] Focus Terminal")
+	assert_str(holo.get_interaction_prompt()).is_equal("Usar terminal")
 	holo.set("_is_focused", true)
-	assert_str(holo.get_interaction_prompt()).is_equal("[ESC] Exit Terminal")
+	assert_str(holo.get_interaction_prompt()).is_equal("Salir de la terminal")
 
 	yield (_teardown_scene_root(scene), "completed")
 

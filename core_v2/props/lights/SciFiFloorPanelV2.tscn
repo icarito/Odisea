@@ -21,7 +21,7 @@ extents = Vector3( 2, 0.1, 2 )
 
 [node name="SciFiFloorPanelV2" type="StaticBody"]
 script = ExtResource( 1 )
-interaction_text = "Toggle Floor Panel"
+interaction_text = "Accionar panel de piso"
 
 [node name="MeshInstance" type="MeshInstance" parent="."]
 material_override = SubResource( 1 )

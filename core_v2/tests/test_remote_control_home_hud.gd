@@ -83,6 +83,10 @@ class DummyClient extends Node:
 	func get_resume_time_left() -> float:
 		return 0.0
 
+	var since_rx_ms: int = 100
+	func ms_since_last_rx() -> int:
+		return since_rx_ms
+
 class DummyManager extends Node:
 	var client: Node = null
 
@@ -1474,3 +1478,43 @@ class PressCounter extends Reference:
 	var count := 0
 	func on_pressed() -> void:
 		count += 1
+
+# --- Sin subtitulo ni ayudas: el fondo del gamepad dice el estado de la conexion ---
+
+func test_remote_screen_has_no_subtitle_and_the_radial_no_help_text():
+	var home = _home_with_dial(_dial_screens())
+	assert_object(home.get_node_or_null("Hint")).is_null()
+	home._open_radial()
+	# Como el dial del host: sin "Toque fuera para cerrar".
+	assert_str(String(home._radial_selector.get_node("Status").text)).is_equal("")
+	home.queue_free()
+
+func test_gamepad_background_waves_show_the_connection_state():
+	var home = _home_with_dial()
+	var art = home.get_node_or_null("StatusArt")
+	assert_object(art).is_not_null()
+	assert_object(art.get_node_or_null("Pad")).is_not_null()
+	var waves: TextureRect = art.get_node("Waves")
+	# Detras de todo lo demas: justo encima del color de fondo.
+	assert_int(art.get_index()).is_equal(home.get_node("Background").get_index() + 1)
+
+	home._client().since_rx_ms = 200
+	home._update_status_art(0.016)
+	assert_str(home._connection_state()).is_equal("ok")
+	assert_bool(waves.modulate.is_equal_approx(home.STATUS_WAVES_OK)).is_true()
+
+	# El pong del latido viene tarde: lag.
+	home._client().since_rx_ms = 2000
+	home._update_status_art(0.016)
+	assert_str(home._connection_state()).is_equal("lag")
+	assert_bool(waves.modulate.is_equal_approx(home.STATUS_WAVES_LAG)).is_true()
+
+	# Cortado y reintentando: rojo.
+	home._on_connection_lost()
+	home._update_status_art(0.3)
+	assert_str(home._connection_state()).is_equal("lost")
+	assert_float(waves.modulate.r).is_equal_approx(home.STATUS_WAVES_LOST.r, 0.001)
+	home._on_connection_restored()
+	assert_str(home._connection_state()).is_equal("lag") # vuelve a medir el latido
+
+	home.queue_free()

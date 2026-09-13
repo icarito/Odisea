@@ -52,7 +52,7 @@ extents = Vector3( 0.25, 0.45, 0.25 )
 
 [node name="SciFiWallSconceV2" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Toggle Sconce"
+interaction_text = "Accionar aplique"
 starts_active = true
 light_color = Color( 0.2, 0.6, 1, 1 )
 light_energy_max = 3.0

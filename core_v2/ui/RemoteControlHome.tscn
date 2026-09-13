@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://core_v2/ui/RemoteControlHome.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/ui/remote_control/remote_control_pad.png" type="Texture" id=2]
+[ext_resource path="res://core_v2/ui/remote_control/remote_control_waves.png" type="Texture" id=3]
 
 [node name="RemoteControlHome" type="Control"]
 anchor_right = 1.0
@@ -14,6 +16,33 @@ anchor_bottom = 1.0
 mouse_filter = 2
 color = Color( 0.04, 0.07, 0.1, 1 )
 
+[node name="StatusArt" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Pad" type="TextureRect" parent="StatusArt"]
+modulate = Color( 0.16, 0.21, 0.26, 1 )
+anchor_left = 0.2
+anchor_top = 0.15
+anchor_right = 0.8
+anchor_bottom = 0.9
+mouse_filter = 2
+texture = ExtResource( 2 )
+expand = true
+stretch_mode = 6
+
+[node name="Waves" type="TextureRect" parent="StatusArt"]
+modulate = Color( 0.25, 0.44, 0.48, 1 )
+anchor_left = 0.2
+anchor_top = 0.15
+anchor_right = 0.8
+anchor_bottom = 0.9
+mouse_filter = 2
+texture = ExtResource( 3 )
+expand = true
+stretch_mode = 6
+
 [node name="Title" type="Label" parent="."]
 anchor_left = 0.25
 anchor_top = 0.02
@@ -21,15 +50,6 @@ anchor_right = 0.75
 anchor_bottom = 0.08
 text = "CONTROL REMOTO CONECTADO"
 align = 1
-
-[node name="Hint" type="Label" parent="."]
-anchor_left = 0.2
-anchor_top = 0.08
-anchor_right = 0.8
-anchor_bottom = 0.12
-text = "Use los controles táctiles para jugar en la otra pantalla."
-align = 1
-autowrap = true
 
 [node name="HUDLayer" type="CanvasLayer" parent="."]
 layer = 5

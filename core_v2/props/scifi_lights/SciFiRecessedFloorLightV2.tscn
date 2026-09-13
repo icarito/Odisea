@@ -31,7 +31,7 @@ extents = Vector3( 0.15, 0.05, 0.15 )
 
 [node name="SciFiRecessedFloorLightV2" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Toggle Ground Light"
+interaction_text = "Accionar luz de piso"
 starts_active = true
 light_color = Color( 1, 0.95, 0.8, 1 )
 light_energy_max = 5.0

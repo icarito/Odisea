@@ -23,7 +23,7 @@ radius = 0.45
 
 [node name="PipeValve" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Turn Valve"
+interaction_text = "Girar válvula"
 anim_duration = 0.5
 starts_active = true
 

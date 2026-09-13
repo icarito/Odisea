@@ -338,13 +338,13 @@ hatch_path = NodePath("../Floor_Hatch/HatchDoor")
 
 [node name="ElevatorCallBasement" parent="." instance=ExtResource( 25 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, -24.6, 0 )
-interaction_text = "LLAMAR ASCENSOR"
+interaction_text = "Llamar ascensor"
 manual_toggle = false
 momentary = true
 
 [node name="ElevatorCallPlatform" parent="." instance=ExtResource( 25 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 3, 2.1 )
-interaction_text = "LLAMAR ASCENSOR"
+interaction_text = "Llamar ascensor"
 manual_toggle = false
 momentary = true
 

@@ -22,7 +22,7 @@ extents = Vector3( 0.22, 0.22, 0.22 )
 collision_layer = 4
 collision_mask = 3
 script = ExtResource( 1 )
-interaction_text = "Toggle Box Light"
+interaction_text = "Accionar luz"
 
 [node name="MeshInstance" type="MeshInstance" parent="."]
 material_override = SubResource( 2 )

@@ -228,12 +228,6 @@ var _current_interactable: Node = null
 var _current_interaction_prompt := ""
 onready var interact_config = get_node_or_null("Logic/Interact")
 
-const INTERACT_ACTION_NAME := "interact"
-const FOCUS_ACTION_NAME := "focus"
-const DEFAULT_ACTION_HINTS := {
-	"interact": "[F]",
-	"focus": "[Z]"
-}
 
 # Touch Tap Interact State
 var _touch_tap_index := -1
@@ -1936,17 +1930,16 @@ func _get_interaction_prompt(candidate: Node) -> String:
 		return ""
 	if candidate.has_method("get_interaction_prompt"):
 		return str(candidate.call("get_interaction_prompt"))
+	# Solo la accion, sin la tecla: no hay hints de teclas en la UI (varian por dispositivo, y en el
+	# control remoto el [F] del teclado del host no significa nada).
 	var parts := PoolStringArray()
 	if _candidate_can_interact(candidate):
 		var action_text = candidate.get("interaction_text")
-		parts.append("%s %s" % [_get_action_hint_label(INTERACT_ACTION_NAME), str(action_text) if action_text else "Interact"])
+		parts.append(str(action_text) if action_text else "Interactuar")
 	if _candidate_can_focus(candidate):
 		var focus_text = candidate.get("focus_text")
-		parts.append("%s %s" % [_get_action_hint_label(FOCUS_ACTION_NAME), str(focus_text) if focus_text else "Focus"])
+		parts.append(str(focus_text) if focus_text else "Enfocar")
 	return parts.join(" / ")
-
-func _get_action_hint_label(action_name: String) -> String:
-	return String(DEFAULT_ACTION_HINTS.get(action_name, "[?]"))
 
 func _show_interaction_prompt(text: String) -> void:
 	if text.strip_edges() == "":

@@ -3,7 +3,7 @@ extends KinematicBody
 # ForwardInteract.gd - Proxy for Interaction
 # Forwards interaction calls to parent and mirrors parent's state.
 
-var interaction_text = "Interact" setget set_interaction_text, get_interaction_text
+var interaction_text = "Interactuar" setget set_interaction_text, get_interaction_text
 var is_active = false setget , get_is_active
 var one_off = false setget , get_one_off
 var auto_interact = false setget , get_auto_interact

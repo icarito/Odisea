@@ -38,7 +38,7 @@ extents = Vector3( 0.2, 0.12, 0.05 )
 
 [node name="SciFiRecessedWallLightV2" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Toggle Wall Light"
+interaction_text = "Accionar luz de pared"
 starts_active = true
 light_color = Color( 1, 1, 1, 1 )
 light_energy_max = 6.0

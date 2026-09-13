@@ -19,7 +19,7 @@ func _ready():
 	._ready()
 	
 	if interaction_text == "Interact":
-		interaction_text = "Push Button"
+		interaction_text = "Pulsar botón"
 
 func _update_visuals() -> void:
 	if not _initialized:

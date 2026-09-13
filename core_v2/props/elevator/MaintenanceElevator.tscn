@@ -153,7 +153,7 @@ shape = SubResource( 6 )
 
 [node name="CallButton" parent="Platform" instance=ExtResource( 2 )]
 transform = Transform( 0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 1.15, 0.1, -1.15 )
-interaction_text = "SUBIR"
+interaction_text = "Subir"
 manual_toggle = false
 momentary = true
 

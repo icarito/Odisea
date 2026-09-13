@@ -4,8 +4,10 @@ const FALLBACK_FONT = preload("res://TinyFont.tres")
 
 export(float) var hint_margin_left := 24.0
 export(float) var hint_margin_top := 18.0
+# El hint de un interactuable va al pie de la pantalla, centrado entre los controles tactiles.
+export(float) var hint_margin_bottom := 28.0
 export(float) var max_width_ratio := 0.55
-export(int, 10, 36) var font_size := 18
+export(int, 10, 48) var font_size := 30
 export(Color) var font_color := Color(0.85, 1.0, 0.95)
 
 var _cached_font: DynamicFont = null
@@ -60,12 +62,32 @@ func _reflow() -> void:
 		top = viewport_size.y * 0.38
 		_label.align = Label.ALIGN_CENTER
 	else:
-		var usable_width := viewport_size.x - left - float(safe_margins.get("right", 0.0)) - hint_margin_left
+		# Al pie, centrado en el espacio que dejan libre el joystick y los botones tactiles (las
+		# margenes laterales ya los descuentan). La margen inferior no: la reservan esos mismos
+		# controles y subiria el hint a media pantalla. Solo el recorte fisico (safe area).
+		var side_left := float(safe_margins.get("left", 0.0))
+		var side_right := float(safe_margins.get("right", 0.0))
+		var usable_width := viewport_size.x - side_left - side_right - hint_margin_left * 2.0
 		max_width = max(180.0, min(usable_width, viewport_size.x * max_width_ratio))
-		_label.align = Label.ALIGN_LEFT
+		left = side_left + (viewport_size.x - side_left - side_right - max_width) * 0.5
+		_label.align = Label.ALIGN_CENTER
+		_label.rect_min_size = Vector2(max_width, 0.0)
+		_label.rect_size = Vector2(max_width, 0.0) # que recalcule el alto del texto envuelto
+		var height: float = max(_label.get_combined_minimum_size().y, float(font_size))
+		top = viewport_size.y - _bottom_inset() - hint_margin_bottom - height
 	_label.rect_position = Vector2(left, top)
 	_label.rect_min_size = Vector2(max_width, 0.0)
 	_label.rect_size = Vector2(max_width, max(_label.rect_size.y, 32.0))
+
+# Solo el recorte fisico de la pantalla abajo (barra de gestos), sin los controles tactiles.
+func _bottom_inset() -> float:
+	var viewport_size := get_viewport_rect().size
+	if not OS.has_method("get_window_safe_area") or viewport_size.y <= 0.0:
+		return 0.0
+	var safe: Rect2 = OS.get_window_safe_area()
+	if safe.size.y <= 0.0:
+		return 0.0
+	return max(0.0, viewport_size.y - (safe.position.y + safe.size.y))
 
 func _get_safe_margins() -> Dictionary:
 	var overlay_ui = get_node_or_null("/root/OverlayUIManager")

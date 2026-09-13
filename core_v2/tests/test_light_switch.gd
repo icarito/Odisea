@@ -13,7 +13,7 @@ func test_light_switch_interact_and_animation() -> void:
 	host.add_child(switch)
 	yield(get_tree(), "idle_frame")
 
-	assert_str(switch.interaction_text).is_equal("accionar")
+	assert_str(switch.interaction_text).is_equal("Accionar")
 	assert_bool(switch.is_active).is_false()
 	assert_float(switch.anim_progress).is_equal(0.0)
 

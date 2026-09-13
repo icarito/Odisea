@@ -42,7 +42,7 @@ emission_on_uv2 = false
 collision_layer = 4
 collision_mask = 3
 script = ExtResource( 1 )
-interaction_text = "Toggle Hanging Light"
+interaction_text = "Accionar lámpara colgante"
 starts_active = true
 
 [node name="CeilingMount" type="MeshInstance" parent="."]

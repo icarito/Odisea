@@ -10,7 +10,7 @@ size = Vector3( 2, 2, 0.25 )
 
 [node name="SlidingObjectV2" type="KinematicBody"]
 script = ExtResource( 1 )
-interaction_text = "Open"
+interaction_text = "Abrir"
 anim_duration = 0.5
 debug = false
 slide_vector = Vector3( 0, 2.5, 0 )

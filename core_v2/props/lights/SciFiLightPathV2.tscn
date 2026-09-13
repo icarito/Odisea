@@ -10,7 +10,7 @@ _data = {
 
 [node name="SciFiLightPathV2" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Toggle Light Path"
+interaction_text = "Accionar sendero de luz"
 
 [node name="Path" type="Path" parent="."]
 curve = SubResource( 1 )

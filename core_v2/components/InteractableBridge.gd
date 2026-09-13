@@ -10,7 +10,7 @@ export(NodePath) var source_node: NodePath # If empty, tries self or children
 export(NodePath) var target_node: NodePath
 export(String) var target_method := "set_active"
 export(bool) var debug := false
-export(String) var interaction_text := "Interact"
+export(String) var interaction_text := "Interactuar"
 export(bool) var is_interactable := true setget set_is_interactable
 
 # --- VISUAL HELPERS (Compatibility with Lever prefab) ---

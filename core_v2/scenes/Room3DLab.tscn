@@ -593,7 +593,7 @@ shape = SubResource( 3 )
 transform = Transform( -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 3 )
 starts_active = true
 is_focusable = true
-focus_text = "Focus Terminal"
+focus_text = "Usar terminal"
 static_content = true
 
 [node name="RoomDialsPanel_Control" type="Control" parent="HoloTerminals/TerminalTelemetry/Viewport" index="0"]
@@ -606,7 +606,7 @@ room_path = NodePath("../../../../Rooms/ControlRoom")
 transform = Transform( -0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, -0.965926, -3, 0, 3 )
 starts_active = true
 is_focusable = true
-focus_text = "Focus Terminal"
+focus_text = "Usar terminal"
 static_content = true
 
 [node name="RoomDialsPanel_Cryo" type="Control" parent="HoloTerminals/TerminalCameras/Viewport" index="0"]
@@ -619,7 +619,7 @@ room_path = NodePath("../../../../Rooms/CryoChamber")
 transform = Transform( -0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, -0.965926, 3, 0, 3 )
 starts_active = true
 is_focusable = true
-focus_text = "Focus Terminal"
+focus_text = "Usar terminal"
 static_content = true
 
 [node name="RoomDialsPanel_Plasma" type="Control" parent="HoloTerminals/TerminalAirlocks/Viewport" index="0"]

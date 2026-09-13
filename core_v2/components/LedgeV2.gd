@@ -5,7 +5,7 @@ extends StaticBody
 const TRAVERSAL_COLLISION_LAYER_BIT := 2
 
 export(float) var ledge_width := 2.0 setget set_ledge_width
-var interaction_text := "Grab Ledge"
+var interaction_text := "Agarrarse del borde"
 var is_interactable := true
 
 func _ready():

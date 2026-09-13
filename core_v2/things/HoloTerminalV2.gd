@@ -112,8 +112,8 @@ var _cached_player_material: ShaderMaterial = null
 export(float) var player_occlusion_body_radius := 0.4
 
 func _ready():
-	interaction_text = "Toggle Terminal"
-	set("focus_text", "Focus Terminal")
+	interaction_text = "Accionar terminal"
+	set("focus_text", "Usar terminal")
 	set_is_interactable(is_interactable)
 	set_is_focusable(allow_focus_mode)
 
@@ -311,14 +311,16 @@ func focus() -> void:
 
 func get_interaction_prompt() -> String:
 	var parts := PoolStringArray()
+	# Sin tecla: narrativa ambiental, sin hints de teclas (varian por dispositivo, y en el control
+	# remoto no significan nada).
 	if is_interactable:
-		parts.append("[F] %s" % [interaction_text if interaction_text.strip_edges() != "" else "Toggle Terminal"])
+		parts.append(interaction_text if interaction_text.strip_edges() != "" else "Accionar terminal")
 	if can_focus():
 		if _is_focused:
-			parts.append("[ESC] Exit Terminal")
+			parts.append("Salir de la terminal")
 		else:
 			var prompt_focus_text = get("focus_text")
-			parts.append("[Z] %s" % [str(prompt_focus_text) if prompt_focus_text else "Focus Terminal"])
+			parts.append(str(prompt_focus_text) if prompt_focus_text else "Usar terminal")
 	return parts.join(" / ")
 
 
@@ -584,11 +586,11 @@ func _update_ui_mode() -> void:
 			var use_system_mouse = hud_ui_bridge_use_system_mouse and _is_focused and Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
 			_viewport_input.set_use_system_mouse(use_system_mouse)
 		if not is_active:
-			interaction_text = "Show HUD"
+			interaction_text = "Mostrar pantalla"
 		elif _is_focused:
-			interaction_text = "Exit UI Bridge"
+			interaction_text = "Soltar pantalla"
 		else:
-			interaction_text = "Toggle UI Bridge"
+			interaction_text = "Alternar pantalla"
 		set_process_input(is_active and enable_ui_interaction)
 		return
 	
@@ -610,9 +612,9 @@ func _update_ui_mode() -> void:
 	
 	# Update interaction text based on auto_interact and focus state
 	if base_interactive and auto_interact:
-		interaction_text = "Focus Terminal" if not _is_focused else "Interacting..."
+		interaction_text = "Usar terminal" if not _is_focused else "Usando terminal"
 	else:
-		interaction_text = "Toggle Terminal"
+		interaction_text = "Accionar terminal"
 	
 	# Enable/disable input processing based on UI mode (either zone interaction or focus)
 	set_process_input(base_interactive)

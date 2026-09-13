@@ -34,7 +34,7 @@ height = 0.12
 
 [node name="SciFiPathMarkerV2" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Toggle Path Marker"
+interaction_text = "Accionar marcador"
 
 [node name="Body" type="MeshInstance" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, 0 )

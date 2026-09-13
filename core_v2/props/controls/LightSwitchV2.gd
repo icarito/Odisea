@@ -14,10 +14,10 @@ var _status_lens: MeshInstance = null
 var _owns_lens_material := false
 
 func _init() -> void:
-	interaction_text = "accionar"
+	interaction_text = "Accionar"
 
 func _ready() -> void:
-	interaction_text = "accionar"
+	interaction_text = "Accionar"
 	_find_nodes()
 	._ready()
 

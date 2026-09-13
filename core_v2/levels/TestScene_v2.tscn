@@ -186,7 +186,7 @@ cycle_duration = 6.0
 
 [node name="SlidingDrawer" parent="." instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.30146, 0.875, 39.991 )
-interaction_text = "Open Drawer"
+interaction_text = "Abrir cajón"
 size = Vector3( 1, 1.5, 0.8 )
 easing_type = 3
 
@@ -262,7 +262,7 @@ directional_shadow_mode = 2
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -7.07033, 2.38419e-07, 23.9388 )
 auto_interact = true
 is_focusable = true
-focus_text = "Focus Terminal"
+focus_text = "Usar terminal"
 screen_resolution = Vector2( 800, 600 )
 use_cinematic_zone = true
 close_on_exit_zone = true

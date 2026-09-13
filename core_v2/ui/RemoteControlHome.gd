@@ -9,6 +9,16 @@ const TabGesture = preload("res://core_v2/ui/hud/HudTabGesture.gd")
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 
 const SESSION_ENDED_NOTICE_SEC := 2.5
+# Fondo (StatusArt en el .tscn): el gamepad inalambrico apagado, y sus ondas dicen como esta la
+# conexion. Las texturas viven en core_v2/ui/remote_control/ a proposito: esta escena no esta en
+# export_files del preset, asi que Godot no arrastra sus dependencias, y en include_filter
+# assets/**/*.png no casa con un .png suelto en assets/. Ahi no se empaquetaban y la pantalla del
+# control no cargaba en el telefono (test_export_includes_preloaded_assets lo vigila).
+const STATUS_WAVES_OK := Color(0.25, 0.44, 0.48, 1.0)
+const STATUS_WAVES_LAG := Color(0.58, 0.44, 0.14, 1.0)
+const STATUS_WAVES_LOST := Color(0.58, 0.18, 0.18, 1.0)
+# Latido cada 1 s: sin respuesta en 1.6 s el pong viene tarde (lag); a los 3 s el cliente corta.
+const STATUS_LAG_MS := 1600
 # Lo que manda un control tactil: las acciones que empujan el joystick virtual y los
 # botones, como eventos (el mismo protocolo que el teclado del escritorio). El host deriva
 # de ahi lo demas igual que con controles locales: curva del stick, sprint automatico,
@@ -74,7 +84,9 @@ var _touch_look: Vector2 = Vector2.ZERO
 var _touch_zoom: float = 0.0
 var _was_captured: bool = false
 var _title_text: String = ""
-var _hint_text: String = ""
+var _status_waves: TextureRect = null
+var _connection_lost: bool = false
+var _status_blink: float = 0.0
 var _host_paused: bool = false
 
 # F4 HUD Client State
@@ -136,13 +148,12 @@ func _ready() -> void:
 	_setup_radial_selector()
 
 	if _raw_passthrough:
-		$Hint.text = "Controlando con teclado y mouse. El botón derecho libera el mouse; un clic lo vuelve a capturar. TAB abre las pantallas de este dispositivo."
 		var session_mgr = get_node_or_null("/root/SessionManager")
 		if session_mgr and session_mgr.has_method("_start_mouse_capture_retry"):
 			session_mgr._start_mouse_capture_retry()
 
 	_title_text = $Title.text
-	_hint_text = $Hint.text
+	_status_waves = $StatusArt/Waves
 	var client = _client()
 	if client:
 		_host_paused = client.host_paused
@@ -180,13 +191,7 @@ func _setup_radial_selector() -> void:
 	var title_label: Label = _radial_selector.get_node_or_null("Title") as Label
 	if title_label != null:
 		title_label.visible = false
-	var status_label: Label = _radial_selector.get_node_or_null("Status") as Label
-	if status_label != null:
-		status_label.add_font_override("font", _radial_font())
-	# Apuntar fuera del dial es la salida en mouse, pero con el dedo no hay puntero que
-	# mirar: sin este aviso el dial no se ve como algo que se pueda cerrar.
-	_radial_selector.set_status("Esc o botón derecho para cerrar" if _raw_passthrough \
-		else "Toque fuera para cerrar")
+	# Sin texto de ayuda: igual que el dial del modo HUD del host.
 	_radial_selector.connect("option_selected", self, "_on_radial_option_selected")
 	_radial_selector.connect("cancelled", self, "_on_radial_cancelled")
 
@@ -209,6 +214,7 @@ func _client() -> Node:
 	return _remote_control_manager.client if _remote_control_manager else null
 
 func _physics_process(_delta: float) -> void:
+	_update_status_art(_delta)
 	# Apuntar antes del gesto: el tick en que se suelta TAB todavia mueve la marca.
 	_aim_radial_with_move_actions()
 	_step_tab_gesture()
@@ -435,15 +441,16 @@ func _on_exit_confirmed() -> void:
 	_go_to_menu()
 
 func _on_connection_lost() -> void:
-	$Title.text = "SIN CONEXIÓN"
+	_connection_lost = true
 	set_process(true)
 
 func _process(_delta: float) -> void:
 	var client = _client()
 	var left: int = int(ceil(client.get_resume_time_left())) if client else 0
-	$Hint.text = "Se perdió la conexión con el otro dispositivo. Reintentando... (%d s)" % left
+	$Title.text = "SIN CONEXIÓN · %d s" % left
 
 func _on_connection_restored() -> void:
+	_connection_lost = false
 	set_process(false)
 	# Durante el corte el host solto lo que tenia apretado (client_stalled): lo que siga
 	# sostenido aca tiene que volver a viajar.
@@ -508,12 +515,30 @@ func _on_ui_directive(op: String, payload) -> void:
 					Input.vibrate_handheld(int(intensity * 100.0))
 
 func _refresh_status() -> void:
-	if _host_paused:
-		$Title.text = "PARTIDA EN PAUSA"
-		$Hint.text = "La partida está en pausa en el otro dispositivo." + (" Esc la reanuda." if _raw_passthrough else "")
-	else:
-		$Title.text = _title_text
-		$Hint.text = _hint_text
+	$Title.text = "PARTIDA EN PAUSA" if _host_paused else _title_text
+
+# ok / lag / lost. Lag: el pong del latido viene tarde. Lost: el cliente ya corto y reintenta.
+func _connection_state() -> String:
+	if _connection_lost:
+		return "lost"
+	var client = _client()
+	var since: int = client.ms_since_last_rx() if client != null and client.has_method("ms_since_last_rx") else -1
+	return "lag" if since >= STATUS_LAG_MS else "ok"
+
+func _update_status_art(delta: float) -> void:
+	if not is_instance_valid(_status_waves):
+		return
+	match _connection_state():
+		"lost":
+			# Titila: se esta reintentando.
+			_status_blink = fmod(_status_blink + delta, 1.0)
+			var color := STATUS_WAVES_LOST
+			color.a = 0.35 + 0.65 * abs(sin(_status_blink * PI))
+			_status_waves.modulate = color
+		"lag":
+			_status_waves.modulate = STATUS_WAVES_LAG
+		_:
+			_status_waves.modulate = STATUS_WAVES_OK
 
 # Mismo manejo que el modo HUD del juego (HudModeOverlay): un tap de TAB abre la ultima
 # pantalla y vuelve a cerrarla; el hold es el que saca el dial. La muestra sale de Input en

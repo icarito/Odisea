@@ -206,7 +206,7 @@ material = SubResource( 8 )
 [node name="ValveWheel" type="KinematicBody" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0.14, -1.5 )
 script = ExtResource( 1 )
-interaction_text = "Turn Valve"
+interaction_text = "Girar válvula"
 rotation_axis = Vector3( 0, 1, 0 )
 rotation_amount = 360.0
 

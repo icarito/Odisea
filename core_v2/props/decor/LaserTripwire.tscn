@@ -15,7 +15,7 @@ height = 4.0
 
 [node name="LaserTripwire" type="Spatial"]
 script = ExtResource( 1 )
-interaction_text = "Interact"
+interaction_text = "Interactuar"
 anim_duration = 1.0
 starts_active = false
 auto_interact = false

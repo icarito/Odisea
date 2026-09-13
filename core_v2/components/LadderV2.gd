@@ -10,7 +10,7 @@ export(float) var attach_depth := 0.35
 export(float) var rung_spacing := 0.42 setget set_rung_spacing
 export(float) var hand_grip_half_width := 0.34
 export(Color) var albedo_color := Color(0.78, 0.82, 0.88, 1.0) setget set_albedo_color
-var interaction_text := "Climb Ladder"
+var interaction_text := "Subir escalera"
 var is_interactable := true
 
 func _ready():

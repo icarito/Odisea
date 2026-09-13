@@ -10,7 +10,7 @@ size = Vector3( 0.2, 1, 0.1 )
 
 [node name="RotatingObjectV2" type="KinematicBody"]
 script = ExtResource( 1 )
-interaction_text = "Pull Lever"
+interaction_text = "Accionar palanca"
 anim_duration = 0.3
 rotation_amount = 45.0
 
