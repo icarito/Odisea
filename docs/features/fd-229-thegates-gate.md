@@ -36,6 +36,18 @@ URLs resultantes:
 - `https://icarito.github.io/Odisea/world.gate`
 - `https://icarito.github.io/Odisea` (el launcher agrega `world.gate` solo)
 
+Los otros destinos no tienen el `index.pck` crudo (Netlify lo toma de Pages;
+Vercel solo sube el `.gz` por el límite de 1 GiB por archivo), así que su
+`world.gate` lleva `resource_pack`, `icon` e `image` absolutos a Pages:
+
+- `https://odisea.netlify.app/world.gate` y `https://odisea-ios.vercel.app/world.gate`
+  — el mismo stage los escribe en `build/netlify/` y `build/vercel/`.
+- `https://odisea.educa.juegos/world.gate` — la landing del VPS no pasa por
+  este workflow: `scripts/nightly-refresh.sh` (instalado como
+  `/usr/local/bin/odisea-nightly-refresh`, cron + webhook de release) lo
+  escribe junto a `nightly.json` con la versión de la release. Tras cambiar el
+  script hay que reinstalarlo en el VPS.
+
 El pack del preset HTML5 Threads es portable: mismos filtros de recursos que
 los presets desktop y `script_export_mode=0` (scripts fuente), y la física
 Box3D viaja en el binario del renderer, no en el pack.

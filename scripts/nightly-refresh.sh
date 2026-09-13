@@ -54,12 +54,28 @@ out = {
     "sizes": sizes,
     "release_updated": d.get("updated_at"),
 }
-outpath = "/var/www/odisea-landing/nightly.json"
-fd, tmp = tempfile.mkstemp(dir=os.path.dirname(outpath))
-with os.fdopen(fd, "w") as f:
-    json.dump(out, f, indent=1)
-os.chmod(tmp, 0o644)
-os.replace(tmp, outpath)
+def write_atomic(outpath, write):
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(outpath))
+    with os.fdopen(fd, "w") as f:
+        write(f)
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, outpath)
+
+write_atomic("/var/www/odisea-landing/nightly.json", lambda f: json.dump(out, f, indent=1))
+# Gate de TheGates (FD-229): la landing no tiene el index.pck, que vive en
+# GitHub Pages, asi que los campos van absolutos. La version sigue a la release.
+pages = "https://icarito.github.io/Odisea/"
+gate = (
+    "[gate]\n\n"
+    'title = "Odisea: El Arca Silenciosa"\n'
+    'description = "Alfa jugable %s"\n'
+    'icon = "%sthegates-icon.png"\n'
+    'image = "%sthegates-image.png"\n'
+    'resource_pack = "%sindex.pck"\n'
+    'godot_version = "3.6"\n'
+    "discoverable = false\n"
+) % (version, pages, pages, pages)
+write_atomic("/var/www/odisea-landing/world.gate", lambda f: f.write(gate))
 PY
 }
 

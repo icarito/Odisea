@@ -1369,21 +1369,31 @@ jobs:
           # El pck es el del preset HTML5 Threads, pero es portable: mismos
           # filtros que los presets desktop y scripts fuente (export_mode 0),
           # y Box3D viaja en el binario del renderer, no en el pack.
+          # Netlify y Vercel no tienen el index.pck crudo (Netlify lo toma de
+          # Pages; Vercel solo sube el .gz por su limite de 1 GiB por archivo),
+          # asi que su world.gate apunta con URLs absolutas al pack de Pages.
           GATE_VERSION="${{ needs.prep.outputs.version }}"
-          cat > build/pages/world.gate <<GATE
+          PAGES_URL="https://icarito.github.io/Odisea/"
+          write_gate() { # write_gate <dir> <prefijo de URL de los assets>
+            mkdir -p "$1"
+            cat > "$1/world.gate" <<GATE
           [gate]
 
           title = "Odisea: El Arca Silenciosa"
           description = "Alfa jugable ${GATE_VERSION}"
-          icon = "thegates-icon.png"
-          image = "thegates-image.png"
-          resource_pack = "index.pck"
+          icon = "$2thegates-icon.png"
+          image = "$2thegates-image.png"
+          resource_pack = "$2index.pck"
           godot_version = "3.6"
           discoverable = false
           GATE
+            test -s "$1/world.gate" || { echo "::error::$1/world.gate no generado"; exit 1; }
+          }
+          write_gate build/pages ""
+          write_gate build/netlify "$PAGES_URL"
+          write_gate build/vercel "$PAGES_URL"
           cp dashboard/public/pwa-192x192.png build/pages/thegates-icon.png
           cp dashboard/public/pwa-512x512.png build/pages/thegates-image.png
-          test -s build/pages/world.gate || { echo "::error::world.gate no generado"; exit 1; }
 
       - name: HTML5 Stage Vercel
         if: matrix.platform == 'html5'
