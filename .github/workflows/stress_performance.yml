@@ -30,6 +30,9 @@ jobs:
   stress-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
     env:
       SIMULATE_REGRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_regression || 'false' }}
       FPS_TOLERANCE: ${{ github.event_name == 'workflow_dispatch' && inputs.fps_tolerance || '0.97' }}
@@ -158,17 +161,57 @@ jobs:
             f.write("\n")
           PY
 
-      - name: Restore Performance Cache
-        id: perf_cache_restore
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            performance_baseline.json
-            performance_history.json
-          key: performance-cache-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
-          restore-keys: |
-            performance-cache-${{ runner.os }}-${{ github.ref_name }}-
-            performance-cache-${{ runner.os }}-main-
+      # Historial y baseline salen de los artifacts de corridas previas, NO de
+      # actions/cache: el repo pasa el limite de 10 GB de cache y el LRU desalojaba
+      # este cache chico cada noche, dejando el historial en 1 corrida (sin grafico).
+      - name: Restore Performance History (previous run artifacts)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          prev_dir=/tmp/perf_prev
+          mkdir -p "$prev_dir"
+          list_runs() {
+            gh run list -R "$GITHUB_REPOSITORY" --workflow stress_performance.yml \
+              --branch "$1" --status completed -L 20 \
+              --json databaseId -q '.[].databaseId'
+          }
+          runs="$(list_runs "$GITHUB_REF_NAME" || true)"
+          [ -n "$runs" ] || runs="$(list_runs main || true)"
+          for id in $runs; do
+            [ "$id" = "$GITHUB_RUN_ID" ] && continue
+            gh run download "$id" -R "$GITHUB_REPOSITORY" -n performance-report \
+              -D "$prev_dir/$id" >/dev/null 2>&1 || echo "run $id: no performance-report"
+          done
+          python3 - "$prev_dir" <<'PY'
+          import json, os, sys
+          prev = sys.argv[1]
+          history, baseline = [], None
+          # gh run list devuelve lo mas nuevo primero; el historial va de viejo a nuevo.
+          for run_id in sorted(os.listdir(prev), key=int):
+              d = os.path.join(prev, run_id)
+              try:
+                  with open(os.path.join(d, "performance_current.json")) as f:
+                      current = json.load(f)
+              except Exception:
+                  continue
+              sha = ""
+              try:
+                  with open(os.path.join(d, "performance_history.json")) as f:
+                      sha = next((h.get("sha", "") for h in json.load(f) if str(h.get("run_id")) == run_id), "")
+              except Exception:
+                  pass
+              history.append({"sha": sha, "ref_name": "", "run_id": run_id, "timestamp_utc": "",
+                              "metrics": {i["tag"]: i for i in current if isinstance(i, dict) and i.get("tag")}})
+              if os.path.exists(os.path.join(d, "performance_baseline.json")):
+                  baseline = os.path.join(d, "performance_baseline.json")
+          with open("performance_history.json", "w") as f:
+              json.dump(history, f, indent=2)
+          if baseline:
+              with open(baseline) as src, open("performance_baseline.json", "w") as dst:
+                  dst.write(src.read())
+          print(f"history entries: {len(history)}, baseline: {baseline}")
+          PY
 
       - name: Run Stress Tests (Headless)
         run: |
@@ -213,15 +256,6 @@ jobs:
         if: github.ref == 'refs/heads/main' && env.SIMULATE_REGRESSION != 'true'
         run: |
           cp performance_current.json performance_baseline.json
-
-      - name: Save Performance Cache
-        if: always() && env.SIMULATE_REGRESSION != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: |
-            performance_baseline.json
-            performance_history.json
-          key: performance-cache-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Upload Artifacts
         if: always()
