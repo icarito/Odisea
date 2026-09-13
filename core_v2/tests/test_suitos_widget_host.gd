@@ -43,7 +43,7 @@ func test_widget_changed_mounts_and_unmounts_overlay() -> void:
 	SuitOS.register_screen(dummy_screen)
 	SuitOS.set_context({"player_position": [0, 0, 0]})
 
-	var slot_hud = _overlay_mgr.get_slot(_overlay_mgr.SLOT_HUD)
+	var slot_hud = _widget_host.get_widget_root()
 	assert_object(slot_hud).is_not_null()
 
 	var overlay_node = slot_hud.get_node_or_null("SuitOS_Widget_slot_a")
@@ -79,7 +79,7 @@ func test_hanging_display_registration_and_slot_flow() -> void:
 	var slot_a_snap: Dictionary = SuitOS.get_slot_snapshot("slot_a")
 	assert_str(String(slot_a_snap.get("id", ""))).is_equal(screen_id)
 
-	var slot_hud = _overlay_mgr.get_slot(_overlay_mgr.SLOT_HUD)
+	var slot_hud = _widget_host.get_widget_root()
 	var widget_a = slot_hud.get_node_or_null("SuitOS_Widget_slot_a")
 	assert_object(widget_a).is_not_null()
 	assert_object(widget_a.get_script()).is_equal(HoloTerminalWidgetScript)
@@ -110,7 +110,7 @@ func test_slots_stack_in_fixed_rows_without_overlap() -> void:
 	SuitOS.set_context({})
 	SuitOS.pin_screen("test:pinned")
 
-	var slot_hud = _overlay_mgr.get_slot(_overlay_mgr.SLOT_HUD)
+	var slot_hud = _widget_host.get_widget_root()
 	var widget_a: Control = slot_hud.get_node("SuitOS_Widget_slot_a")
 	var widget_b: Control = slot_hud.get_node("SuitOS_Widget_slot_b")
 	var rect_a := Rect2(widget_a.rect_position, widget_a.rect_size * widget_a.rect_scale)
@@ -151,3 +151,42 @@ func test_widget_buttons_stay_pressable_and_their_touch_does_not_open_hud_mode()
 	touch.pressed = false
 	host._on_widget_gui_input(touch, widget, "slot_b")
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+
+func test_widgets_stick_to_the_left_edge_at_any_render_scale() -> void:
+	# En el celular la margen que reserva la UI tactil (borde derecho del joystick) empujaba el
+	# widget a media pantalla. Va pegado al borde, con el padding en unidades nominales (x k).
+	# Se prueba _place sobre un widget propio: en este archivo conviven el host de SuitOS y el de
+	# before_test, que se pisan el overlay montado por widget_changed.
+	MobileUIManager._spawn_mobile_ui()
+	MobileUIManager._mobile_ui.visible = true
+	var widget := Label.new()
+	_widget_host.get_widget_root().add_child(widget)
+
+	var before_scale: float = SettingsManager.render_scale
+	for k in [1.0, 0.6]:
+		SettingsManager.render_scale = k
+		_widget_host._place(widget, "slot_b")
+		var inset: Vector2 = _widget_host._screen_cutout_inset()
+		assert_float(widget.rect_position.x).is_equal_approx(inset.x + _widget_host.SLOT_PADDING * k, 0.01)
+		assert_float(widget.rect_position.y).is_equal_approx(inset.y
+			+ (_widget_host.SLOT_PADDING + _widget_host.SLOT_ROW_HEIGHT + _widget_host.SLOT_GAP) * k, 0.01)
+		assert_float(widget.rect_scale.x).is_less_equal(k + 0.001)
+
+	SettingsManager.render_scale = before_scale
+	MobileUIManager._mobile_ui.visible = false
+	widget.free()
+
+
+
+func test_widgets_draw_below_the_touch_controls_the_pause_menu_and_the_hud_mode() -> void:
+	# Capa propia por debajo de la UI tactil (10), del menu de pausa (50) y de OverlayUIManager
+	# (115, donde viven el dial y la vista del modo HUD). Antes estaban en esa capa 115.
+	var layer = _widget_host.get_widget_root().get_parent()
+	assert_bool(layer is CanvasLayer).is_true()
+	var touch_ui = load("res://core_v2/ui/MobileUI.tscn").instance()
+	assert_int(layer.layer).is_less(touch_ui.layer)
+	assert_int(layer.layer).is_less(50)
+	assert_int(layer.layer).is_less(_overlay_mgr.layer)
+	touch_ui.free()

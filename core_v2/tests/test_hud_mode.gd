@@ -499,24 +499,24 @@ func test_hud_widgets_hide_during_the_pause_menu_but_not_in_hud_mode() -> void:
 	_screen("test:a", "Alpha", 0.9)
 	SuitOS.set_context({})
 	var host = SuitOS.get_node("SuitOSWidgetHost")
-	var widget = _overlay_mgr.get_slot(_overlay_mgr.SLOT_HUD).get_node_or_null("SuitOS_Widget_slot_a")
+	var widget = host.get_widget_root().get_node_or_null("SuitOS_Widget_slot_a")
 	assert_object(widget).is_not_null()
 	assert_bool(widget.visible).is_true()
 
 	# Pausa del menu: se esconden.
 	get_tree().paused = true
-	host.refresh_for_pause()
+	host.refresh_visibility()
 	assert_bool(widget.visible).is_false()
 
 	# Pausa del modo HUD: se ven (tocarlos cambia de pantalla).
 	PauseManager._hud_mode_paused = true
-	host.refresh_for_pause()
+	host.refresh_visibility()
 	assert_bool(widget.visible).is_true()
 	PauseManager._hud_mode_paused = false
 
 	# Reanudar: vuelven.
 	get_tree().paused = false
-	host.refresh_for_pause()
+	host.refresh_visibility()
 	assert_bool(widget.visible).is_true()
 
 
@@ -676,3 +676,23 @@ class PressCounter extends Reference:
 	var count := 0
 	func on_pressed() -> void:
 		count += 1
+
+
+
+func test_hud_widgets_hide_while_a_screen_is_open_but_not_with_only_the_dial() -> void:
+	# La pantalla abierta va encima de los widgets; con el holograma 3D ninguna capa 2D queda
+	# debajo de el, asi que se ocultan. Con solo el dial abierto se ven (el dial ya va encima).
+	_screen("test:a", "Alpha", 0.9)
+	_screen("test:b", "Beta")
+	SuitOS.set_context({})
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	var widget = host.get_widget_root().get_node_or_null("SuitOS_Widget_slot_a")
+	assert_object(widget).is_not_null()
+
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	assert_bool(overlay._selector.is_open()).is_true()
+	assert_bool(widget.visible).is_true()
+
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, 12.0]}, UP])
+	assert_str(SuitOS.get_active_screen_id()).is_not_empty()
+	assert_bool(widget.visible).is_false()

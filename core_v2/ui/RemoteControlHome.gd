@@ -66,9 +66,8 @@ const UIScaleCompensator = preload("res://core_v2/ui/UIScaleCompensator.gd")
 
 onready var exit_confirm: ConfirmationDialog = $ExitConfirm
 # El HUD vive en HUDLayer (capa 5): por encima de la escena, DEBAJO de la UI tactil (capa 10),
-# que se dibuja siempre encima de las pantallas. Para que los widgets se puedan tocar igual,
-# mientras esta pantalla esta abierta el Container de MobileUI deja pasar el toque de GUI
-# (_let_touches_through_touch_ui): con su STOP por defecto se quedaba con todos.
+# que se dibuja siempre encima de las pantallas. Los widgets se pueden tocar igual porque el
+# Container de MobileUI.tscn es MOUSE_FILTER_IGNORE (con el STOP por defecto se quedaba con todos).
 onready var widget_host: Control = $HUDLayer/WidgetHost
 onready var fullscreen_overlay: Control = $HUDLayer/FullScreenOverlay
 onready var view_host: Container = $HUDLayer/FullScreenOverlay/ViewHost
@@ -115,7 +114,6 @@ func _ready() -> void:
 	# se apunta con el stick (_aim_radial_with_move_actions), como el modo HUD del host.
 	_remote_control_manager = get_node_or_null("/root/RemoteControlManager")
 	_input_provider = InputProviderV2.new()
-	_let_touches_through_touch_ui(true)
 	# Los slots se ubican en el espacio nominal de escala 1.0, como la UI tactil: con el
 	# render_scale bajo, un margen en pixeles fijos despegaba el slot del borde. El
 	# compensador se reaplica solo cuando cambia el viewport, tambien en runtime.
@@ -914,28 +912,7 @@ func _safe_area_inset_nominal() -> Vector2:
 	var nominal: Vector2 = viewport_size / UIScaleCompensator.scale_for(self)
 	return Vector2(safe.position.x * nominal.x / window.x, safe.position.y * nominal.y / window.y)
 
-# Mientras esta pantalla esta abierta, el Container de pantalla completa de la UI tactil
-# no se queda con el toque de GUI (sus controles lo leen en _input y siguen andando). Solo
-# aca: en gameplay ese STOP evita que los clics que Android emula de cada toque lleguen a
-# SessionManager._unhandled_input, que recaptura el mouse.
-var _touch_ui_filter_before: int = -1
-
-func _let_touches_through_touch_ui(through: bool) -> void:
-	var mobile_ui = get_node_or_null("/root/MobileUIManager")
-	var touch_ui = mobile_ui.get("_mobile_ui") if mobile_ui != null else null
-	var container: Control = touch_ui.get_node_or_null("Container") as Control if is_instance_valid(touch_ui) else null
-	if container == null:
-		return
-	if through:
-		if _touch_ui_filter_before < 0:
-			_touch_ui_filter_before = container.mouse_filter
-		container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	elif _touch_ui_filter_before >= 0:
-		container.mouse_filter = _touch_ui_filter_before
-		_touch_ui_filter_before = -1
-
 func _exit_tree() -> void:
-	_let_touches_through_touch_ui(false)
 	# Al volver al menu no queda colgado el hint de la partida del otro dispositivo.
 	var hints = get_node_or_null("/root/PlayerHintManager")
 	if hints != null and hints.has_method("show_remote_hint"):

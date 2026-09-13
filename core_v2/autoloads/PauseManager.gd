@@ -225,5 +225,5 @@ func _refresh_mobile_ui() -> void:
 		mobile.refresh_for_pause()
 	# Lo mismo para los widgets del HUD de SuitOS (capa 115, encima del menu de pausa).
 	var widget_host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
-	if widget_host and widget_host.has_method("refresh_for_pause"):
-		widget_host.refresh_for_pause()
+	if widget_host and widget_host.has_method("refresh_visibility"):
+		widget_host.refresh_visibility()

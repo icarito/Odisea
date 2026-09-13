@@ -974,20 +974,13 @@ func test_touch_ui_draws_above_the_hud():
 	assert_bool(home.radial_overlay.get_parent() == hud_layer).is_true()
 	home.queue_free()
 
-func test_touch_ui_lets_taps_through_only_while_the_remote_is_open():
-	# Con la UI tactil encima, su Container de pantalla completa (STOP) se quedaba con el
-	# toque y tocar un widget no abria nada. Se abre paso solo aca y se restaura al salir.
-	MobileUIManager._spawn_mobile_ui()
-	var container: Control = MobileUIManager._mobile_ui.get_node("Container")
-	container.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var home = RemoteControlHomeScene.instance()
-	add_child(home)
-	assert_int(container.mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
-
-	remove_child(home) # _exit_tree ya, no al final del frame
-	assert_int(container.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
-	home.free()
+func test_touch_ui_container_never_eats_gui_taps():
+	# Con la UI tactil encima de las pantallas, su Container de pantalla completa (STOP por
+	# defecto) se quedaba con el toque: tocar un widget no abria nada. El joystick y los
+	# botones leen el toque en _input, no dependen de el.
+	var touch_ui = load("res://core_v2/ui/MobileUI.tscn").instance()
+	assert_int(touch_ui.get_node("Container").mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
+	touch_ui.free()
 
 func test_slot_stays_stuck_to_the_side_when_render_scale_changes_at_runtime():
 	var home = _home_with_dial(_dial_screens())
