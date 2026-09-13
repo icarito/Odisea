@@ -6,6 +6,7 @@ var RadialSelectorScene = preload("res://core_v2/ui/radial/RadialSelectorV2.tscn
 var HoloTerminalWidgetScene = preload("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
 # El mismo tap/hold de TAB que el modo HUD del juego, para que se maneje igual.
 const TabGesture = preload("res://core_v2/ui/hud/HudTabGesture.gd")
+const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 
 const SESSION_ENDED_NOTICE_SEC := 2.5
 # Lo que manda un control tactil: las acciones que empujan el joystick virtual y los
@@ -152,6 +153,8 @@ func _ready() -> void:
 			_on_ui_directive("screen_list", client.last_screen_list)
 		if client.get("last_screen_active") != null:
 			_on_ui_directive("screen_active", client.last_screen_active)
+		if client.get("last_hint") != null:
+			_on_ui_directive("hint", client.last_hint)
 
 	set_process(false)
 	call_deferred("_connect_touch_camera")
@@ -238,6 +241,11 @@ func _send_touch_actions(client) -> void:
 		var down: bool = Input.is_action_pressed(action) if InputMap.has_action(action) else false
 		if action == "tool_fire_primary" and from_touch:
 			down = false
+		if action == "tool_fire_primary" and _widget_view_widget() != null:
+			if down and not _widget_view_fire_was_down:
+				HudWidgetActionScript.press_focused_button(_widget_view_widget())
+			_widget_view_fire_was_down = down
+			down = false
 		_send_action_if_changed(client, action, 1.0 if down else 0.0)
 
 func _send_action_if_changed(client, action: String, strength: float) -> void:
@@ -266,7 +274,24 @@ func _send_touch_camera(client) -> void:
 func _forget_sent_actions() -> void:
 	_sent_action_strength.clear()
 
+# Donde cayo el ultimo toque o clic, en coordenadas de pantalla (_input las ve antes que la GUI).
+var _last_pointer_position: Vector2 = Vector2.ZERO
+var _widget_press_on_button: bool = false
+# Gatillo derecho del widget en modo pantalla; apretado al mostrarse no lo oprime.
+var _widget_view_fire_was_down: bool = true
+
 func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch or event is InputEventMouseButton:
+		_last_pointer_position = event.position
+	# Widget en modo pantalla: el gatillo derecho es su clic y no dispara en el host (jump y crouch
+	# si siguen viajando: aca el host no esta en pausa). El mouse no: su clic va a la GUI.
+	if _widget_view_widget() != null and not event is InputEventMouseButton \
+			and event.is_action("tool_fire_primary"):
+		# En tactil lo oprime _send_touch_actions, que lee el mismo gatillo del Input.
+		if _raw_passthrough and event.is_action_pressed("tool_fire_primary"):
+			HudWidgetActionScript.press_focused_button(_widget_view_widget())
+		get_tree().set_input_as_handled()
+		return
 	# Antes que nada y antes que nadie: _input corre en orden inverso del arbol, asi que
 	# esta escena ve el toque antes que los controles tactiles del autoload (que lo
 	# consumirian con set_input_as_handled y dejarian al dial sin entrada).
@@ -467,6 +492,15 @@ func _on_ui_directive(op: String, payload) -> void:
 						_active_remote_screen["snapshot"] = snap.duplicate(true)
 						_update_fullscreen_view()
 
+		"hint":
+			# El hint del interactuable que tiene delante el jugador en el host, con el mismo
+			# overlay y estilo que alla (PlayerHintManager local, que aca no tiene jugador).
+			if typeof(payload) == TYPE_DICTIONARY:
+				var hints = get_node_or_null("/root/PlayerHintManager")
+				if hints != null and hints.has_method("show_remote_hint"):
+					hints.show_remote_hint(String((payload as Dictionary).get("text", "")),
+						String((payload as Dictionary).get("mode", "hint")))
+
 		"haptic":
 			if typeof(payload) == TYPE_DICTIONARY:
 				var intensity: float = float((payload as Dictionary).get("intensity", 1.0))
@@ -588,6 +622,7 @@ func _close_radial() -> void:
 	# La vista vuelve solo si hay una pantalla abierta.
 	if fullscreen_overlay != null:
 		fullscreen_overlay.visible = not String(_active_remote_screen.get("id", "")).empty()
+		_focus_widget_view()
 
 # true = el evento era del dial y no sale de este dispositivo.
 func _handle_radial_input(event: InputEvent) -> bool:
@@ -876,6 +911,10 @@ func _let_touches_through_touch_ui(through: bool) -> void:
 
 func _exit_tree() -> void:
 	_let_touches_through_touch_ui(false)
+	# Al volver al menu no queda colgado el hint de la partida del otro dispositivo.
+	var hints = get_node_or_null("/root/PlayerHintManager")
+	if hints != null and hints.has_method("show_remote_hint"):
+		hints.show_remote_hint("")
 
 func _relayout_widgets() -> void:
 	for slot in SLOT_ROWS:
@@ -909,6 +948,15 @@ func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> 
 		pressed = (event as InputEventMouseButton).pressed
 	else:
 		return
+	# Un toque que empieza sobre un boton del widget (el toggle de la linterna) es del boton: no abre
+	# la pantalla ni el dial. La GUI de Godot 3 corta la propagacion en un control STOP solo para
+	# eventos de MOUSE: un InputEventScreenTouch sobre el boton sigue subiendo hasta el widget.
+	if pressed:
+		_widget_press_on_button = _pointer_on_widget_button(control)
+	if _widget_press_on_button:
+		if not pressed:
+			_widget_press_on_button = false
+		return
 	control.accept_event() # que el toque no arrastre tambien la camara
 	if pressed:
 		_widget_press_msec = OS.get_ticks_msec()
@@ -924,6 +972,9 @@ func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> 
 		client.send_ui_directive("screen_select", {"id": sid})
 		# Confirmar en el widget fija la pantalla, como la eleccion en el dial.
 		pin_local_screen(sid)
+
+func _pointer_on_widget_button(control: Control) -> bool:
+	return HudWidgetActionScript.pointer_on_button(control, _last_pointer_position)
 
 func _remove_slot_widget(slot: String) -> void:
 	if _mounted_widgets.has(slot):
@@ -1029,6 +1080,20 @@ static func _screen_space_in(host_size: Vector2) -> Rect2:
 	var factor: float = min(host_size.x / DEFAULT_SCREEN_DESIGN.x, host_size.y / DEFAULT_SCREEN_DESIGN.y)
 	return Rect2((host_size - DEFAULT_SCREEN_DESIGN * factor) * 0.5, DEFAULT_SCREEN_DESIGN * factor)
 
+# El widget ampliado de un hudable sin Pantalla, si es lo que se esta viendo.
+func _widget_view_widget() -> Control:
+	if fullscreen_overlay == null or not fullscreen_overlay.visible or _widget_placeholder_frame() == null:
+		return null
+	return _fullscreen_view_node as Control if is_instance_valid(_fullscreen_view_node) else null
+
+# Sin mouse: foco en su primer boton, para navegarlo con la cruceta y oprimirlo con el gatillo.
+func _focus_widget_view() -> void:
+	var widget: Control = _widget_view_widget()
+	if widget == null:
+		return
+	_widget_view_fire_was_down = true
+	HudWidgetActionScript.focus_first_button(widget)
+
 func _widget_placeholder_frame() -> Control:
 	return view_host.get_node_or_null("WidgetFrame") as Control if view_host != null else null
 
@@ -1128,6 +1193,7 @@ func _update_fullscreen_view() -> void:
 			node.set_anchors_preset(Control.PRESET_TOP_LEFT)
 			_fullscreen_view_node = node
 			call_deferred("_fit_view_node")
+			call_deferred("_focus_widget_view")
 		_hydrate_node(node, snap)
 
 func _set_node_screen_id(node: Node, sid: String) -> void:

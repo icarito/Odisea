@@ -14,6 +14,14 @@ var _manual_expires_at := 0.0
 var _status_expires_at := 0.0
 var _explicit_interactive := true
 var _refresh_timer: Timer = null
+# Hint que ya resolvio otro dispositivo (el host, visto desde el control remoto): se muestra tal
+# cual, sin volver a aplicar prioridades ni vencimientos (esos corren alla).
+var _remote_text := ""
+var _remote_mode := "hint"
+var _last_emitted := ["", ""]
+
+# Lo que se ve cambio (texto o modo). El control remoto lo replica (SuitOSRemoteBridge).
+signal visible_hint_changed(text, mode)
 
 func _ready() -> void:
 	_ensure_refresh_timer()
@@ -66,6 +74,16 @@ func clear_status_hint() -> void:
 	_status_expires_at = 0.0
 	_refresh_visible_hint()
 
+func show_remote_hint(text: String, mode: String = "hint") -> void:
+	_remote_text = text.strip_edges()
+	_remote_mode = mode if mode in ["hint", "status"] else "hint"
+	_refresh_visible_hint()
+
+func get_visible_mode() -> String:
+	if _remote_text != "":
+		return _remote_mode
+	return "status" if _status_text != "" else "hint"
+
 func set_interactive(enabled: bool) -> void:
 	_explicit_interactive = enabled
 	_refresh_visible_hint()
@@ -86,6 +104,8 @@ func get_visible_text() -> String:
 		return ""
 	_prune_expired_manual()
 	_prune_expired_status()
+	if _remote_text != "":
+		return _remote_text
 	if _status_text != "":
 		return _status_text
 	if _manual_text != "":
@@ -96,6 +116,10 @@ func _refresh_visible_hint() -> void:
 	_prune_expired_manual()
 	_prune_expired_status()
 	var text := get_visible_text()
+	var visible_mode := get_visible_mode() if text != "" else ""
+	if [text, visible_mode] != _last_emitted:
+		_last_emitted = [text, visible_mode]
+		emit_signal("visible_hint_changed", text, visible_mode)
 	if text == "":
 		if is_instance_valid(_overlay) and _overlay.has_method("clear_hint_text"):
 			_overlay.clear_hint_text()
@@ -104,7 +128,7 @@ func _refresh_visible_hint() -> void:
 		_warn_unavailable_once("show_hint")
 		return
 	if _overlay and _overlay.has_method("set_hint_text"):
-		var mode := "status" if _status_text != "" else "hint"
+		var mode := get_visible_mode()
 		if _overlay.has_method("set_hint_mode"):
 			_overlay.set_hint_mode(mode)
 		_overlay.set_hint_text(text)

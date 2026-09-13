@@ -6,6 +6,7 @@ class_name SuitOSWidgetHost
 # via OverlayUIManager without creating its own CanvasLayer.
 
 const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
+const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 
 # Cada slot tiene su fila FIJA en la misma esquina (arriba a la izquierda): A arriba, B debajo.
 # B no sube cuando A esta vacio, asi el layout es el mismo con uno o dos slots.
@@ -19,8 +20,13 @@ const HOLD_MSEC := 400
 
 var _active_screen_ids: Dictionary = {} # slot -> screen_id
 var _press_msec: int = 0
+# Donde cayo el ultimo toque o clic (pantalla) y si empezo sobre un boton del widget.
+var _last_pointer_position := Vector2.ZERO
+var _press_on_button := false
 
 func _ready() -> void:
+	# Solo para _input: el toque sobre un widget tambien cuenta con el modo HUD en pausa.
+	pause_mode = PAUSE_MODE_PROCESS
 	if has_node("/root/SuitOS"):
 		var suit_os = get_node("/root/SuitOS")
 		if not suit_os.is_connected("widget_changed", self, "_on_widget_changed"):
@@ -167,8 +173,9 @@ func _format_fallback_text(snapshot: Dictionary) -> String:
 		return "[OFFLINE] %s: %s%s" % [title, active_str, focus_str]
 	return "[HUD] %s: %s%s" % [title, active_str, focus_str]
 
-# El widget entero recibe el toque: los hijos se apagan para que el pick no se quede
-# en un Label o en el punto de estado de 8 px.
+# El widget entero recibe el toque: los hijos se apagan para que el pick no se quede en un
+# Label o en el punto de estado de 8 px. Los botones NO: el toggle de la linterna se oprime con
+# clic o con el dedo, igual que en el control remoto, y no abre la pantalla.
 func _make_tappable(control: Control, slot: String) -> void:
 	control.mouse_filter = Control.MOUSE_FILTER_STOP
 	for child in control.get_children():
@@ -177,10 +184,16 @@ func _make_tappable(control: Control, slot: String) -> void:
 		control.connect("gui_input", self, "_on_widget_gui_input", [control, slot])
 
 func _ignore_mouse(node: Node) -> void:
+	if node is BaseButton:
+		return
 	if node is Control:
 		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for child in node.get_children():
 		_ignore_mouse(child)
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch or event is InputEventMouseButton:
+		_last_pointer_position = event.position
 
 # ponytail: el hold se mide con el reloj, no con el stream — el widget no aprieta ninguna
 # accion y no hay muestra grabada que contar. Si el modo HUD entra al replay, el tap tendria
@@ -192,6 +205,13 @@ func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> 
 	elif event is InputEventMouseButton and event.button_index == BUTTON_LEFT:
 		pressed = event.pressed
 	else:
+		return
+	# Un toque que empieza sobre un boton del widget es del boton (HudWidgetAction.pointer_on_button).
+	if pressed:
+		_press_on_button = HudWidgetActionScript.pointer_on_button(control, _last_pointer_position)
+	if _press_on_button:
+		if not pressed:
+			_press_on_button = false
 		return
 	control.accept_event() # que el toque no arrastre tambien la camara
 	if pressed:

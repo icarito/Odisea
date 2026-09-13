@@ -126,3 +126,28 @@ func test_slots_stack_in_fixed_rows_without_overlap() -> void:
 
 	SuitOS.unpin_screen()
 	SuitOS.unregister_screen(pinned_screen)
+
+
+func test_widget_buttons_stay_pressable_and_their_touch_does_not_open_hud_mode():
+	# Como en el control remoto: el toggle de la linterna se oprime con clic o dedo, y ese toque
+	# no abre la pantalla (en Godot 3 un ScreenTouch sube por encima de un control STOP).
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	var widget: Control = auto_free(load("res://core_v2/ui/hud/FlashlightWidget.tscn").instance())
+	add_child(widget)
+	host._make_tappable(widget, "slot_b")
+	var toggle: Control = widget.get_node("Margin/VBox/StatusRow/ToggleButton")
+	assert_int(toggle.mouse_filter).is_not_equal(Control.MOUSE_FILTER_IGNORE)
+	assert_int(widget.get_node("Margin/VBox/StatusRow/StatusLabel").mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
+	yield(await_idle_frame(), "completed")
+
+	var xf: Transform2D = toggle.get_global_transform_with_canvas()
+	var on_button: Vector2 = xf.origin + toggle.rect_size * xf.get_scale() * 0.5
+	var touch := InputEventScreenTouch.new()
+	touch.position = on_button
+	touch.pressed = true
+	host._input(touch)
+	host._on_widget_gui_input(touch, widget, "slot_b")
+	touch = touch.duplicate()
+	touch.pressed = false
+	host._on_widget_gui_input(touch, widget, "slot_b")
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()

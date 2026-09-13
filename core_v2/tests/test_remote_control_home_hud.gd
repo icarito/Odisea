@@ -1185,11 +1185,12 @@ func test_touch_ui_has_a_hud_button_on_the_left_of_the_diamond():
 	assert_float(hud.anchor_top).is_equal_approx(crouch.anchor_top, 0.001)
 	touch_ui.free()
 
-func test_gamepad_left_face_button_is_hud_mode():
-	var x := InputEventJoypadButton.new()
-	x.button_index = JOY_BUTTON_2
-	x.pressed = true
-	assert_bool(x.is_action_pressed("hud_mode")).is_true()
+func test_gamepad_hud_button_is_hud_mode():
+	# El boton que eligio project.godot (JOY_BUTTON_3). Mismo evento que TAB.
+	var button := InputEventJoypadButton.new()
+	button.button_index = JOY_BUTTON_3
+	button.pressed = true
+	assert_bool(button.is_action_pressed("hud_mode")).is_true()
 
 func test_slots_never_repeat_the_same_screen():
 	# Como SuitOS en el host: la pantalla fijada (B) no compite por el slot A.
@@ -1350,3 +1351,126 @@ func test_single_screen_opens_directly_without_the_radial():
 	assert_bool(home._radial_is_open()).is_false()
 	assert_array(_screen_selects(home)).is_equal(["screen_a"])
 	home.queue_free()
+
+# --- El boton de un widget no abre su pantalla ---
+
+func test_tapping_the_button_inside_a_widget_does_not_open_its_screen():
+	var home = _home_with_dial([{"id": "player:flashlight", "title": "Linterna", "relevance": 0.9,
+		"widget": "res://core_v2/ui/hud/FlashlightWidget.tscn",
+		"snapshot": {"proto": 1, "id": "player:flashlight", "title": "Linterna", "on": false,
+			"battery": 90.0, "battery_max": 100.0, "source": "online"}}])
+	yield(await_idle_frame(), "completed") # los contenedores del widget reparten tamaños en diferido
+	var widget: Control = home._mounted_widgets["slot_a"]
+	var toggle: Control = widget.get_node("Margin/VBox/StatusRow/ToggleButton")
+	var xf: Transform2D = toggle.get_global_transform_with_canvas()
+	var on_button: Vector2 = xf.origin + toggle.rect_size * xf.get_scale() * 0.5
+	home._client().ui_directives.clear()
+
+	# Toque sobre el toggle: en Godot 3 el ScreenTouch sigue subiendo hasta el widget.
+	home._input(_touch(0, on_button, true))
+	home._on_widget_gui_input(_touch(0, on_button, true), widget, "slot_a")
+	home._input(_touch(0, on_button, false))
+	home._on_widget_gui_input(_touch(0, on_button, false), widget, "slot_a")
+	assert_array(_screen_selects(home)).is_empty()
+
+	# Control: tocar el cuerpo del widget (lejos del boton) si abre su pantalla.
+	var wxf: Transform2D = widget.get_global_transform_with_canvas()
+	var on_body: Vector2 = wxf.origin + Vector2(4.0, 4.0) * wxf.get_scale()
+	assert_bool(home._pointer_on_widget_button(widget)).is_true() # ultimo toque, sobre el boton
+	home._input(_touch(0, on_body, true))
+	home._on_widget_gui_input(_touch(0, on_body, true), widget, "slot_a")
+	home._input(_touch(0, on_body, false))
+	home._on_widget_gui_input(_touch(0, on_body, false), widget, "slot_a")
+	assert_array(_screen_selects(home)).is_equal(["player:flashlight"])
+
+	home.queue_free()
+
+# --- Hints de interactuables tambien en el control ---
+
+func test_hint_from_the_host_shows_on_the_remote_and_clears_on_exit():
+	var home = _home_with_dial()
+	home._on_ui_directive("hint", {"text": "Abrir compuerta", "mode": "hint"})
+	assert_str(PlayerHintManager.get_visible_text()).is_equal("Abrir compuerta")
+
+	home._on_ui_directive("hint", {"text": "", "mode": ""})
+	assert_str(PlayerHintManager.get_visible_text()).is_equal("")
+
+	# Uno que llego antes de que existiera la pantalla del control (pegado al emparejamiento).
+	var client = get_node("/root/RemoteControlManager").client
+	client.last_hint = {"text": "Encender consola", "mode": "status"}
+	var late = RemoteControlHomeScene.instance()
+	add_child(late)
+	assert_str(PlayerHintManager.get_visible_text()).is_equal("Encender consola")
+	assert_str(PlayerHintManager.get_visible_mode()).is_equal("status")
+
+	# Al salir del control no queda colgado en el menu.
+	remove_child(late)
+	assert_str(PlayerHintManager.get_visible_text()).is_equal("")
+	late.free()
+	client.last_hint = null
+	home.queue_free()
+
+# --- Widget en modo pantalla en el control: foco en su boton, gatillo derecho como clic ---
+
+func _home_with_flashlight_view():
+	var home = _home_with_dial([{"id": "player:flashlight", "title": "Linterna", "relevance": 0.9,
+		"widget": "res://core_v2/ui/hud/FlashlightWidget.tscn"}])
+	home._on_ui_directive("screen_active", {"id": "player:flashlight", "title": "Linterna",
+		"view": "widget", "view_scene": "", "view_size": [], "snapshot": {}})
+	return home
+
+func _joy(button: int, pressed: bool) -> InputEventJoypadButton:
+	var ev := InputEventJoypadButton.new()
+	ev.button_index = button
+	ev.pressed = pressed
+	return ev
+
+func test_widget_view_focuses_its_button_and_trigger_presses_it_on_gamepad():
+	var home = _home_with_flashlight_view()
+	home._raw_passthrough = true
+	yield(await_idle_frame(), "completed") # el foco va diferido, como el calzado
+	var toggle: Control = home._widget_view_widget().get_node("Margin/VBox/StatusRow/ToggleButton")
+	assert_bool(toggle.has_focus()).is_true()
+	var presses := PressCounter.new()
+	toggle.connect("pressed", presses, "on_pressed")
+	var client = home._client()
+	client.inputs.clear()
+
+	# Gatillo derecho (tool_fire_primary en el gamepad): oprime el boton y no dispara en el host.
+	home._input(_joy(JOY_BUTTON_7, true))
+	home._input(_joy(JOY_BUTTON_7, false))
+	assert_int(presses.count).is_equal(1)
+	home._unhandled_input(_joy(JOY_BUTTON_7, true))
+	assert_bool(get_viewport().is_input_handled()).is_true()
+
+	home.queue_free()
+
+func test_widget_view_trigger_on_touch_presses_once_and_keeps_jump_for_the_host():
+	var home = _home_with_flashlight_view()
+	home._raw_passthrough = false
+	yield(await_idle_frame(), "completed")
+	var toggle: Control = home._widget_view_widget().get_node("Margin/VBox/StatusRow/ToggleButton")
+	var presses := PressCounter.new()
+	toggle.connect("pressed", presses, "on_pressed")
+	var client = home._client()
+	client.inputs.clear()
+	home._widget_view_fire_was_down = false
+
+	Input.action_press("tool_fire_primary")
+	Input.action_press("jump")
+	home._physics_process(0.016)
+	home._physics_process(0.016) # sostenido: un solo clic
+	Input.action_release("tool_fire_primary")
+	Input.action_release("jump")
+	home._physics_process(0.016)
+
+	assert_int(presses.count).is_equal(1)
+	assert_array(_acts(client, "tool_fire_primary")).is_empty() # no dispara en el host
+	assert_array(_acts(client, "jump")).is_equal([true, false])  # aca el host no esta en pausa
+
+	home.queue_free()
+
+class PressCounter extends Reference:
+	var count := 0
+	func on_pressed() -> void:
+		count += 1

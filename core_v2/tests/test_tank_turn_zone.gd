@@ -1,6 +1,7 @@
 extends "res://addons/gdUnit3/src/GdUnitTestSuite.gd"
 
 const PlayerMovementV2 = preload("res://core_v2/player/PlayerMovementV2.gd")
+const PilotScene = preload("res://core_v2/actors/Pilot_v2.tscn")
 
 func test_tank_lateral_input_inside_zone() -> void:
 	# Inside turn zone (0 .. zone_end): lateral input must be strictly 0.0
@@ -70,12 +71,34 @@ func test_stationary_turn_speed_multiplier() -> void:
 	var movement: PlayerMovementV2 = auto_free(PlayerMovementV2.new())
 	add_child(movement)
 	movement.tank_turn_speed = 2.0
-	movement.tank_strafe_blend = 0.9
+	movement.tank_strafe_blend = 0.95
 	movement.diagonal_turn_blend = 0.9
-	movement.stationary_turn_speed_multiplier = 0.625
-	movement.tank_turn_stationary_axis_deadzone = 0.15
+	movement.stationary_turn_speed_multiplier = 0.6
+	movement.tank_turn_stationary_axis_deadzone = 0.5
 
-	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2.RIGHT))).is_equal_approx(1.125, 0.0001)
-	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2(1.0, 0.1)))).is_equal_approx(1.125, 0.0001)
-	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2(1.0, 0.16)))).is_equal_approx(1.8, 0.0001)
+	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2.RIGHT))).is_equal_approx(1.14, 0.0001)
+	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2(1.0, 0.49)))).is_equal_approx(1.14, 0.0001)
+	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2(1.0, 0.51)))).is_equal_approx(1.8, 0.0001)
 	assert_float(abs(movement.get_tank_yaw_delta(1.0, Vector2(1.0, -1.0)))).is_equal_approx(1.8, 0.0001)
+	assert_float(PlayerMovementV2.tank_lateral_input(0.85, 0.85, 0.95)).is_equal_approx(0.0, 0.0001)
+	assert_float(PlayerMovementV2.tank_lateral_input(1.0, 0.85, 0.95)).is_equal_approx(0.05, 0.0001)
+
+func test_tank_strafe_keeps_the_filtered_analog_magnitude() -> void:
+	var movement: PlayerMovementV2 = auto_free(PlayerMovementV2.new())
+	add_child(movement)
+	movement.move_speed = 2.0
+	movement.run_speed_multiplier = 3.5
+	movement.tank_turn_zone_end = 0.85
+	movement.tank_strafe_blend = 0.95
+	movement.is_tank_turn_mode = true
+
+	movement.process_movement(1.0, Vector2(1.0, 0.004), Basis.IDENTITY, true, true)
+	assert_float(movement.get_horizontal_velocity().length()).is_equal_approx(0.3511, 0.0001)
+
+func test_pilot_tank_calibration() -> void:
+	var pilot: Node = auto_free(PilotScene.instance())
+	var movement: PlayerMovementV2 = pilot.get_node("Logic/Movement")
+	assert_float(movement.tank_strafe_blend).is_equal_approx(0.95, 0.0001)
+	assert_float(movement.tank_turn_zone_end).is_equal_approx(0.85, 0.0001)
+	assert_float(movement.stationary_turn_speed_multiplier).is_equal_approx(0.6, 0.0001)
+	assert_float(movement.tank_turn_stationary_axis_deadzone).is_equal_approx(0.5, 0.0001)

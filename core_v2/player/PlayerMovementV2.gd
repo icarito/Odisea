@@ -210,12 +210,14 @@ func process_movement(dt: float, move_vec: Vector2, basis: Basis, sprint: bool, 
 	var right = basis.x
 	
 	var lateral_input = move_vec.x
+	var input_strength := 1.0
 	if is_tank_turn_mode:
 		lateral_input = tank_lateral_input(move_vec.x, tank_turn_zone_end, tank_strafe_blend)
+		input_strength = min(Vector2(lateral_input, move_vec.y).length(), 1.0)
 		
 	var wish_dir = forward * (-move_vec.y) + right * lateral_input
 	wish_direction = wish_dir.normalized() if wish_dir.length_squared() > 0.0 else Vector3.ZERO
-	wish_dir = wish_direction * target_speed
+	wish_dir = wish_direction * target_speed * input_strength
 	
 	# print("[PlayerMovementV2] move_vec=%s forward=%s wish_dir=%s" % [move_vec, forward, wish_dir])
 

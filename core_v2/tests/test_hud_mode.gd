@@ -541,6 +541,19 @@ func test_dragging_the_hud_touch_button_aims_the_dial_and_lifting_picks() -> voi
 	assert_bool(SuitOS.is_hud_mode_active()).is_true()
 
 
+func test_hud_touch_button_emits_the_same_event_as_tab() -> void:
+	MobileUIManager._spawn_mobile_ui()
+	var button = MobileUIManager._mobile_ui.get_node("Container/ActionButtons/HUDButton")
+	assert_int(button.pause_mode).is_equal(Node.PAUSE_MODE_PROCESS)
+
+	button._press()
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+	assert_bool(Input.is_action_pressed("hud_mode")).is_true()
+
+	button._release()
+	assert_bool(Input.is_action_pressed("hud_mode")).is_false()
+
+
 func test_promote_to_hold_turns_the_release_into_hold_release() -> void:
 	var g = Gesture.new()
 	assert_int(g.feed(true)).is_equal(Gesture.NONE)
@@ -562,35 +575,100 @@ func test_gamepad_and_tab_open_the_radial_without_the_virtual_mouse() -> void:
 	assert_bool(cursor.is_processing()).is_false()        # el stick no lo mueve
 	assert_bool(cursor.visible).is_false()
 
-	# Elegida una pantalla vuelve: ahi si sirve para hacer clic en su UI.
+	# Elegida una pantalla sin Pantalla propia (widget ampliado) sigue apagado: esa se navega
+	# entre sus botones, sin mouse (test_widget_screen_uses_button_focus...).
 	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, 12.0]}, UP])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
-	assert_bool(cursor.is_processing_input()).is_true()
-	assert_bool(cursor.is_processing()).is_true()
+	assert_bool(cursor.is_processing_input()).is_false()
 
 
 
-func test_widget_without_screen_frees_the_pointer_like_a_screen_cursor() -> void:
-	# Un hudable sin Pantalla muestra su widget ampliado; el terminal trae su propio cursor y el
-	# widget no: con el mouse capturado no habia con que hacerle clic.
-	_screen("test:a", "Alpha")
+func _widget_screen(id: String, title: String) -> Node:
+	var screen = _screen(id, title)
+	screen.hud_widget_scene = load("res://core_v2/ui/hud/FlashlightWidget.tscn")
+	return screen
+
+
+func test_widget_screen_uses_button_focus_and_trigger_jump_crouch_as_click() -> void:
+	# Un hudable sin Pantalla (la linterna) no usa mouse: foco en su boton y el clic sale del
+	# gatillo derecho, jump o crouch (en el host el modo HUD pausa: no hacen otra cosa).
+	_widget_screen("test:a", "Linterna")
 	_screen("test:b", "Beta")
 	SuitOS.pin_screen("test:a")
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	var overlay = _open_and_play([UP])
-	assert_bool(is_instance_valid(overlay._mount.get_widget())).is_true()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_VISIBLE)
+	var widget = overlay._mount.get_widget()
+	assert_bool(is_instance_valid(widget)).is_true()
+	var toggle = widget.get_node("Margin/VBox/StatusRow/ToggleButton")
+	assert_bool(toggle.has_focus()).is_true()
+	assert_bool(overlay._virtual_mouse.is_processing_input()).is_false() # sin mouse virtual
+	var presses := PressCounter.new()
+	toggle.connect("pressed", presses, "on_pressed")
 
-	# El dial se apunta con el mouse capturado.
-	_play(overlay, _held(Gesture.HOLD_TICKS))
-	assert_bool(overlay._selector.is_open()).is_true()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
+	_play(overlay, [{"tool_fire_primary": true}, UP, {"jump": true}, UP, {"crouch": true}, UP])
+	assert_int(presses.count).is_equal(3)
 
-	# Soltar sin elegir vuelve al widget: puntero libre otra vez.
-	_play(overlay, [UP])
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_VISIBLE)
+	# Sostenido no repite: un flanco, un clic.
+	presses.count = 0
+	_play(overlay, [{"crouch": true}, {"crouch": true}, {"crouch": true}, UP])
+	assert_int(presses.count).is_equal(1)
 
-	# Salir devuelve el mouse como estaba.
-	overlay._exit()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+func test_ui_accept_does_not_double_press_the_widget_button() -> void:
+	# A es crouch y ui_accept a la vez: la GUI no puede oprimirlo ademas del stream.
+	_widget_screen("test:a", "Linterna")
+	_screen("test:b", "Beta")
+	SuitOS.pin_screen("test:a")
+	var overlay = _open_and_play([UP])
+	overlay._input(_action("ui_accept"))
+	assert_bool(get_viewport().is_input_handled()).is_true()
+
+
+func test_focus_cursor_scale_crosses_the_terminal_like_the_screen() -> void:
+	_screen("test:a", "Alpha")
+	var overlay = _open_and_play([])
+	var terminal_like = auto_free(TerminalSizedScreen.new())
+	var root: Vector2 = overlay.get_viewport_rect().size
+	assert_vector2(overlay._focus_cursor_scale(terminal_like)).is_equal(Vector2(1280.0, 816.0) / root)
+	assert_vector2(overlay._focus_cursor_scale(null)).is_equal(Vector2.ONE)
+
+
+class TerminalSizedScreen extends Reference:
+	func view_size() -> Vector2:
+		return Vector2(1280.0, 816.0)
+
+
+class RecordingVirtualMouse extends "res://core_v2/ui/VirtualMouse.gd":
+	var emitted := []
+	func _emit_event(event: InputEvent) -> void:
+		emitted.append(event)
+
+
+func test_virtual_mouse_drives_a_holographic_screen_by_relative_motion() -> void:
+	# El terminal tiene su cursor en pixeles de SU Viewport: el cursor virtual no camina por la
+	# pantalla ni hace warp (con el mouse capturado, cada warp mandaba un salto de ida y vuelta).
+	var cursor = auto_free(RecordingVirtualMouse.new())
+	add_child(cursor)
+	cursor._active = true
+	cursor._invert_axes = false
+	Input.action_press("cursor_right", 1.0)
+
+	cursor._process(0.1)
+	var normal: Vector2 = cursor.emitted.back().relative
+	var position_after_normal: Vector2 = cursor._position
+
+	cursor.emitted.clear()
+	cursor._ignore_warp_motion = false # el warp de la pasada normal se limpia recien al frame siguiente
+	cursor.relative_target_scale = Vector2(2.0, 3.0)
+	cursor._process(0.1)
+	Input.action_release("cursor_right")
+
+	assert_int(cursor.emitted.size()).is_equal(1)
+	assert_float(cursor.emitted[0].relative.x).is_equal_approx(normal.x * 2.0, 0.01)
+	assert_vector2(cursor._position).is_equal(position_after_normal) # no camina por la pantalla
+	assert_bool(cursor._ignore_warp_motion).is_false() # sin warp
+
+
+class PressCounter extends Reference:
+	var count := 0
+	func on_pressed() -> void:
+		count += 1

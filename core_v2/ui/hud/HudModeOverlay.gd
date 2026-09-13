@@ -13,6 +13,7 @@ extends Control
 const Gesture = preload("res://core_v2/ui/hud/HudTabGesture.gd")
 const ViewMount = preload("res://core_v2/ui/hud/HudViewMount.gd")
 const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
+const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 # Mismos umbrales que ElevatorFloorSelector: se filtra ruido de angulo, no movimiento.
 const MOVE_GESTURE_DEADZONE_SQ := 0.02
 const MOUSE_GESTURE_DEADZONE := 3.0
@@ -38,8 +39,9 @@ var _touch_start: Vector2 = Vector2.ZERO
 var _active_focused_screen: Object = null
 # El dial abierto por mantener TAB: mientras siga apretado es un cuasimodo (ver _release_tab_hold).
 var _tab_hold_active: bool = false
-# Modo del mouse antes de liberarlo para un widget de reemplazo; -1 = no esta liberado.
-var _mouse_mode_before_widget: int = -1
+# Clic del widget en modo pantalla: ya estaba apretado al mostrarse (el confirm del dial o el
+# tap que lo abrio no lo oprime).
+var _widget_click_was_down: bool = true
 var _picked_during_hold: bool = false
 var _pending_focus_screen: Object = null
 var _pending_focus_camera: Camera = null
@@ -75,7 +77,6 @@ func _notification(what: int) -> void:
 func _exit_tree() -> void:
 	_cleanup_focus()
 	_mount.close()
-	_restore_widget_pointer()
 
 # Entrada directa al radial (hold sobre el widget del slot, que no pasa por el stream).
 func show_radial() -> void:
@@ -111,6 +112,7 @@ func _physics_process(_delta: float) -> void:
 	_drive_from_stream(input)
 	if gesture == Gesture.HOLD_RELEASE and _tab_hold_active:
 		_release_tab_hold()
+	_drive_widget_screen(input)
 
 # La muestra del tick: get_input() una vez por tick (el proveedor del jugador esta pausado).
 func _frame_input():
@@ -189,6 +191,8 @@ func _input(event: InputEvent) -> void:
 		_exit()
 	elif event.is_action_pressed("ui_accept") and _selector.is_open():
 		_selector.confirm()
+	elif event.is_action("ui_accept") and _widget_screen_showing():
+		pass # el boton lo oprime _drive_widget_screen: la GUI lo oprimiria otra vez
 	else:
 		return
 	get_tree().set_input_as_handled()
@@ -257,7 +261,6 @@ func _open_radial() -> void:
 	_selector.set_options(labels)
 	_selector.open()
 	_set_virtual_mouse_enabled(false)
-	_sync_widget_pointer() # el dial se apunta con el mouse capturado
 	_view_host.visible = false
 	_hint.visible = false
 	Gesture.mark_hold_discovered()
@@ -283,7 +286,7 @@ func _release_tab_hold() -> void:
 		_virtual_mouse.visible = not (is_instance_valid(_active_focused_screen) \
 			and _active_focused_screen.has_method("forward_view_input"))
 		_view_host.visible = true
-		_sync_widget_pointer()
+		_sync_widget_focus()
 	else:
 		_exit()
 
@@ -336,25 +339,33 @@ func _show_screen(id: String) -> void:
 		_mount.show(screen, snapshot, _view_host)
 	# El hold es invisible: se avisa una vez, hasta el primer uso, y solo si hay a donde cambiar.
 	_hint.visible = _screen_ids.size() > 1 and not Gesture.hold_discovered()
-	_sync_widget_pointer()
+	_sync_widget_focus()
 
-# Un hudable sin Pantalla muestra su widget ampliado, y a diferencia del terminal (que dibuja su
-# cursor dentro de su Viewport, forward_view_input) no trae puntero: el modo HUD deja el mouse
-# capturado y no habia con que hacerle clic. Mientras se ve el widget el mouse queda libre; con
-# gamepad lo toma el mouse virtual (habilitado en _show_screen). El dial lo vuelve a capturar.
-func _sync_widget_pointer() -> void:
-	if is_instance_valid(_mount.get_widget()) and not _selector.is_open():
-		if _mouse_mode_before_widget < 0:
-			_mouse_mode_before_widget = Input.get_mouse_mode()
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	else:
-		_restore_widget_pointer()
-
-func _restore_widget_pointer() -> void:
-	if _mouse_mode_before_widget < 0:
+# Un hudable sin Pantalla muestra su widget ampliado. No usa mouse: se navega entre sus botones
+# (cruceta o flechas, la navegacion de foco de la GUI) y se oprime el enfocado con el gatillo
+# derecho, jump, crouch o ui_accept. En el host el modo HUD pausa el mundo, asi que esas acciones
+# no hacen nada mas y quedan libres para eso.
+func _sync_widget_focus() -> void:
+	var widget = _mount.get_widget()
+	if not is_instance_valid(widget) or _selector.is_open():
 		return
-	Input.set_mouse_mode(_mouse_mode_before_widget)
-	_mouse_mode_before_widget = -1
+	_set_virtual_mouse_enabled(false)
+	_widget_click_was_down = true
+	HudWidgetActionScript.focus_first_button(widget)
+
+func _widget_screen_showing() -> bool:
+	return is_instance_valid(_mount.get_widget()) and not _selector.is_open()
+
+func _drive_widget_screen(input) -> void:
+	if not _widget_screen_showing():
+		return
+	# Un solo flanco para todo: A es crouch y ui_accept a la vez, y oprimir dos veces el toggle de
+	# la linterna en el mismo toque la dejaba como estaba.
+	var down: bool = bool(input.tool_fire_primary) or bool(input.jump) or bool(input.crouch) \
+		or Input.is_action_pressed("ui_accept")
+	if down and not _widget_click_was_down:
+		HudWidgetActionScript.press_focused_button(_mount.get_widget())
+	_widget_click_was_down = down
 
 # Narrativa ambiental, poco texto: solo que hay en cada slot (A automatico, B fijado).
 func _refresh_slots(_slot: String = "", _snapshot: Dictionary = {}) -> void:
@@ -373,6 +384,7 @@ func _cleanup_focus() -> void:
 	_pending_swap_screen = null
 	if is_instance_valid(_virtual_mouse):
 		_virtual_mouse.visible = true
+		_virtual_mouse.relative_target_scale = Vector2.ZERO
 	if VisualServer.is_connected("frame_post_draw", self, "_complete_focus_swap"):
 		VisualServer.disconnect("frame_post_draw", self, "_complete_focus_swap")
 	if is_instance_valid(_active_focused_screen):
@@ -381,6 +393,15 @@ func _cleanup_focus() -> void:
 		if _active_focused_screen.has_method("exit_focus_mode"):
 			_active_focused_screen.exit_focus_mode()
 	_active_focused_screen = null
+
+# El cursor virtual cruza el terminal en el mismo tiempo que cruza la pantalla: la resolucion
+# del Viewport del terminal sobre la del viewport de render.
+func _focus_cursor_scale(screen: Object) -> Vector2:
+	var design: Vector2 = screen.view_size() if screen != null and screen.has_method("view_size") else Vector2.ZERO
+	var root: Vector2 = get_viewport_rect().size
+	if design.x <= 0.0 or design.y <= 0.0 or root.x <= 0.0 or root.y <= 0.0:
+		return Vector2.ONE
+	return design / root
 
 func _mount_focused_screen_if_ready() -> void:
 	if not is_instance_valid(_pending_focus_screen):
@@ -407,12 +428,13 @@ func _complete_focus_swap(screen: Object = null) -> void:
 	_mount.reveal_presenter()
 	if screen.has_method("forward_view_input") and is_instance_valid(_virtual_mouse):
 		_virtual_mouse.visible = false # sigue generando eventos; el cursor se dibuja dentro del Viewport
+		# Y los genera en las unidades del terminal, sin warp (VirtualMouse.relative_target_scale).
+		_virtual_mouse.relative_target_scale = _focus_cursor_scale(screen)
 	if screen.has_method("set_source_view_visible"):
 		screen.set_source_view_visible(false)
 	_view_host.visible = true
 
 func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseManager
-	_restore_widget_pointer()
 	_cleanup_focus()
 	if is_instance_valid(_virtual_mouse):
 		_virtual_mouse.visible = false

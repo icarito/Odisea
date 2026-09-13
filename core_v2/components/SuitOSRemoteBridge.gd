@@ -10,6 +10,16 @@ var _remote_active_screen_id: String = ""
 func _ready() -> void:
 	_connect_suitos_signals()
 	_connect_server_signals()
+	var hints = get_node_or_null("/root/PlayerHintManager")
+	if hints != null and hints.has_signal("visible_hint_changed") \
+			and not hints.is_connected("visible_hint_changed", self, "_on_visible_hint_changed"):
+		hints.connect("visible_hint_changed", self, "_on_visible_hint_changed")
+
+# Los hints de los interactuables tambien se ven en el control: viaja el texto ya resuelto.
+func _on_visible_hint_changed(text: String, mode: String) -> void:
+	var server = _get_server()
+	if server != null and _has_paired_client():
+		server.send_ui_directive("hint", {"text": text, "mode": mode})
 
 func _connect_suitos_signals() -> void:
 	var suit_os = get_node_or_null("/root/SuitOS")
@@ -48,6 +58,10 @@ func _get_server() -> Node:
 
 func _on_client_connected(_device_name: String) -> void:
 	_send_screen_list()
+	var hints = get_node_or_null("/root/PlayerHintManager")
+	if hints != null and hints.has_method("get_visible_text"):
+		var text: String = hints.get_visible_text()
+		_on_visible_hint_changed(text, hints.get_visible_mode() if text != "" else "")
 	if not _remote_active_screen_id.empty():
 		_refresh_remote_active_screen()
 

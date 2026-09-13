@@ -28,6 +28,13 @@ var _invert_axes := false
 # render_scale y se estira a la pantalla: sin compensar, en el handheld el cursor sale
 # 1/escala mas grande y 1/escala mas rapido que la UI, que si esta compensada.
 var _ui_scale := 1.0
+# Con un destino holografico (la pantalla con foco del modo HUD) el cursor no camina por la
+# pantalla: su movimiento se entrega como relative, escalado a las unidades del destino, sin warp
+# ni tope. El terminal tiene su propio cursor en pixeles de SU Viewport (1280x816): movido en
+# pixeles de pantalla, este se frenaba en el borde de la pantalla antes de que el del terminal
+# llegara al suyo; y con el mouse capturado cada warp generaba un salto de ida y el re-centrado
+# otro de vuelta, que el terminal recibia como movimiento. ZERO = modo normal.
+var relative_target_scale := Vector2.ZERO
 
 # Cuelga un cursor en su propia capa, arriba de todo. Preferir esto a add_child() directo:
 # un cursor tapado por la UI que deberia poder clickear no sirve de nada.
@@ -82,8 +89,12 @@ func _process(delta: float) -> void:
 	var magnitude: float = direction.length()
 	if magnitude < DEADZONE:
 		return
+	var step: Vector2 = direction.normalized() * EXPONENTIAL_CURVE.interpolate(magnitude) * SPEED * _ui_scale * delta
+	if relative_target_scale != Vector2.ZERO:
+		_emit_motion(step * relative_target_scale)
+		return
 	var previous := _position
-	_position += direction.normalized() * EXPONENTIAL_CURVE.interpolate(magnitude) * SPEED * _ui_scale * delta
+	_position += step
 	# El viewport, no rect_size: bajo un UIScaleCompensator el rect del padre mide el
 	# espacio nominal (viewport/escala) y el cursor se iba fuera de la pantalla.
 	var bounds: Vector2 = get_viewport_rect().size

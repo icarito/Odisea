@@ -22,6 +22,10 @@ var _player: Node = null
 
 func _ready() -> void:
 	add_to_group("touch_control")
+	# El HUD pausa el arbol al presionar: este boton necesita recibir el release
+	# para no dejar hud_mode apretado.
+	if drag_to_aim:
+		pause_mode = Node.PAUSE_MODE_PROCESS
 	# _process() se auto-habilita porque el script lo define (Godot 3.x), asi que
 	# hay que apagarlo explicitamente para los botones que no dimean: si no,
 	# igual encuentran al player y se conectan a sus senales de interactuable.
@@ -105,11 +109,24 @@ func _input(event: InputEvent) -> void:
 
 func _press() -> void:
 	pressed = true
-	if action_name != "":
-		Input.action_press(action_name)
+	_set_action_pressed(true)
 
 func _release() -> void:
 	pressed = false
 	drag_vector = Vector2.ZERO
-	if action_name != "":
-		Input.action_release(action_name)
+	_set_action_pressed(false)
+
+func _set_action_pressed(is_pressed: bool) -> void:
+	if action_name == "":
+		return
+	if action_name != "hud_mode":
+		if is_pressed:
+			Input.action_press(action_name)
+		else:
+			Input.action_release(action_name)
+		return
+	var event := InputEventAction.new()
+	event.action = action_name
+	event.pressed = is_pressed
+	Input.parse_input_event(event)
+	Input.flush_buffered_events()

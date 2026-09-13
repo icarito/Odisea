@@ -221,3 +221,37 @@ func test_remote_widget_actions_are_ignored_while_the_host_is_paused():
 
 	SuitOS.unregister_screen("player:flashlight")
 	bridge.queue_free()
+
+class PairedServer extends Node:
+	var last_directives: Array = []
+	func send_ui_directive(op: String, payload) -> void:
+		last_directives.append({"op": op, "payload": payload})
+	func has_paired_client() -> bool:
+		return true
+
+func test_bridge_sends_the_resolved_hint_when_it_changes():
+	var server = auto_free(PairedServer.new())
+	add_child(server)
+	var bridge = SuitOSRemoteBridgeScript.new()
+	bridge.set("server", server)
+	add_child(bridge)
+
+	PlayerHintManager.show_interaction_hint("Tomar tarjeta")
+	var hints: Array = []
+	for d in server.last_directives:
+		if String(d["op"]) == "hint":
+			hints.append(d["payload"])
+	assert_int(hints.size()).is_equal(1)
+	assert_str(String(hints[0]["text"])).is_equal("Tomar tarjeta")
+	assert_str(String(hints[0]["mode"])).is_equal("hint")
+
+	# El mismo texto otra vez no reenvia (el refresh del hint corre seguido).
+	server.last_directives.clear()
+	PlayerHintManager.show_interaction_hint("Tomar tarjeta")
+	assert_array(server.last_directives).is_empty()
+
+	# Limpiarlo tambien viaja.
+	PlayerHintManager.clear_interaction_hint()
+	assert_str(String(server.last_directives.back()["payload"]["text"])).is_equal("")
+
+	bridge.queue_free()

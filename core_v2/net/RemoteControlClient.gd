@@ -67,6 +67,7 @@ var host_paused: bool = false
 # control no aparecia. RemoteControlHome arranca desde aca, igual que con host_paused.
 var last_screen_list = null
 var last_screen_active = null
+var last_hint = null
 
 func _ready():
 	_ws_client.connect("connection_established", self, "_on_ws_connected")
@@ -110,6 +111,7 @@ func pair_with(p_ip: String, p_ws_port: int, p_sensor_port: int, p_device_name: 
 	# Otra partida: lo que mostraba la anterior no vale.
 	last_screen_list = null
 	last_screen_active = null
+	last_hint = null
 	if not _is_connected or _host_ip != p_ip or _ws_port != p_ws_port:
 		if _ws_client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 			_ws_client.disconnect_from_host()
@@ -356,6 +358,8 @@ func _handle_message(dict: Dictionary) -> void:
 				last_screen_list = payload
 			elif op == "screen_active":
 				last_screen_active = payload
+			elif op == "hint":
+				last_hint = payload
 			emit_signal("ui_directive_received", op, payload)
 		"ping":
 			_send(RemoteProtocol.create_pong())
