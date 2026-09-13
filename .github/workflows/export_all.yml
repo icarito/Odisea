@@ -1392,8 +1392,9 @@ jobs:
           write_gate build/pages ""
           write_gate build/netlify "$PAGES_URL"
           write_gate build/vercel "$PAGES_URL"
-          cp dashboard/public/pwa-192x192.png build/pages/thegates-icon.png
-          cp dashboard/public/pwa-512x512.png build/pages/thegates-image.png
+          # El icono es el del proyecto (el favicon del shell web) y la imagen, el splash.
+          cp assets/odisea_icon.png build/pages/thegates-icon.png
+          cp assets/splash_HI-RES.png build/pages/thegates-image.png
 
       - name: HTML5 Stage Vercel
         if: matrix.platform == 'html5'

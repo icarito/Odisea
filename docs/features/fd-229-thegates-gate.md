@@ -28,8 +28,9 @@ cada nocturno):
 
 - `world.gate` — `resource_pack = "index.pck"` resuelve same-origin, sin
   duplicar el pack; `godot_version = "3.6"`.
-- `thegates-icon.png` / `thegates-image.png` — copias de los assets PWA del
-  dashboard.
+- `thegates-icon.png` / `thegates-image.png` — el icono del proyecto
+  (`assets/odisea_icon.png`, el mismo que usa de favicon el shell web) y el
+  splash (`assets/splash_HI-RES.png`).
 
 URLs resultantes:
 
