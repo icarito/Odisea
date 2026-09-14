@@ -497,6 +497,13 @@ func _crear_sentinelas() -> void:
 		s.name = "SentinelaFin" if es_fin else "SentinelaInicio"
 		s.es_fin = es_fin
 		add_child(s)
+	# Par idle: mismo mecanismo para el lado _process, clave distinta.
+	for es_fin in [false, true]:
+		var s = SentinelaPerfil.new()
+		s.name = "SentinelaIdleFin" if es_fin else "SentinelaIdleInicio"
+		s.es_fin = es_fin
+		s.es_idle = true
+		add_child(s)
 	_sentinelas_listas = true
 
 func perfil_corrida_activo() -> bool:

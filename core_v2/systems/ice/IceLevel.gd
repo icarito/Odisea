@@ -328,9 +328,12 @@ func step(delta: float) -> void:
 		ice_height = min(target_height, ice_height + ice_speed * delta)
 		if is_equal_approx(ice_height, target_height):
 			stop()
-		_update_ice_collider()
-		_update_ice_fog()
-		_update_submerged_lights()
+		# Updates visuales/fisicas solo cuando la altura movio: con la altura
+		# clavada en el target son no-ops idempotentes y quemaban el tick.
+		if ice_height != previous_height:
+			_update_ice_collider()
+			_update_ice_fog()
+			_update_submerged_lights()
 		if ice_height > previous_height:
 			_emit_cracks_until_current_height()
 			emit_signal("ice_height_changed", ice_height)
@@ -393,27 +396,40 @@ func _get_coolant_height_cap() -> float:
 	return start_height + max(max_coolant_height, 0.0) * leaked_fraction
 
 
+# Cache de miembros de grupos estables: el flujo se consulta CADA tick y los dos
+# lookups de grupo + el has_method x 20 fugas marcaban la mayor parte del step.
+# Mismos nodos en el mismo orden que el grupo, mismo resultado (replay determinista).
+var _flow_tanks_cache: Array = []
+var _flow_leaks_cache: Array = []
+var _flow_cache_ready := false
+
 func _get_coolant_leak_flow() -> float:
 	if get_tree() == null:
 		return 0.0
-	var tanks: Array = get_tree().get_nodes_in_group("coolant_source")
-	if tanks.empty():
+	if not _flow_cache_ready:
+		_flow_tanks_cache = get_tree().get_nodes_in_group("coolant_source")
+		_flow_leaks_cache = get_tree().get_nodes_in_group("coolant_leak")
+		_flow_cache_ready = true
+	if _flow_tanks_cache.empty():
 		# Escenas atmosféricas legacy sin tanques conservan la subida por temperatura.
 		return 1.0
 	var has_coolant := false
-	for tank in tanks:
+	for tank in _flow_tanks_cache:
 		if is_instance_valid(tank) and "tank_level" in tank and float(tank.get("tank_level")) > 0.0001:
 			has_coolant = true
 			break
+		elif not is_instance_valid(tank):
+			_flow_cache_ready = false # la escena cambio: re-listar
 	if not has_coolant:
 		return 0.0
-	var leaks: Array = get_tree().get_nodes_in_group("coolant_leak")
-	if leaks.empty():
+	if _flow_leaks_cache.empty():
 		# Conserva compatibilidad con escenas/tests que aún no usan CoolantLeak.
 		return 1.0
 	var total_flow := 0.0
-	for leak in leaks:
-		if is_instance_valid(leak) and leak.has_method("get_leak_intensity"):
+	for leak in _flow_leaks_cache:
+		if not is_instance_valid(leak):
+			_flow_cache_ready = false # la escena cambio: re-listar
+		elif leak.has_method("get_leak_intensity"):
 			total_flow += max(0.0, float(leak.call("get_leak_intensity")))
 	return total_flow
 

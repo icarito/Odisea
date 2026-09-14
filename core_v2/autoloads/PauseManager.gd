@@ -54,6 +54,11 @@ func _pause_on_focus_loss() -> void:
 		return
 	if _is_automated_run():
 		return
+	# Un replay es una reproducción, no una sesión jugable: perder el foco (alt-tab,
+	# tomar capturas, mirar la terminal) no debe congelar el playback. El visor ya
+	# silencia la telemetría y oculta el touch UI por su cuenta.
+	if _is_replay_playback():
+		return
 	if not _can_pause_in_current_scene() or _hud_mode_paused:
 		return
 	if _controlled_from_this_machine():
@@ -98,6 +103,14 @@ func _is_automated_run() -> bool:
 	if OS.get_environment("ANNA_RL_MODE").to_lower() in ["1", "true", "yes", "on"]:
 		return true
 	return false
+
+func _is_replay_playback() -> bool:
+	var session = get_node_or_null("/root/SessionManager")
+	if session == null:
+		return false
+	# JSON replay puro (is_replaying sin grabar) y playback de hotzone .bin.
+	return (session.is_replaying and not session.is_recording) \
+		or (("is_hotzone_playback" in session) and session.is_hotzone_playback)
 
 func _input(event):
 	if _hud_mode_paused:

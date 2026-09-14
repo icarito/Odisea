@@ -1261,6 +1261,11 @@ func get_hud_bridge_component() -> Node:
 
 
 func _update_player_screen_occlusion(delta: float) -> void:
+	# Terminal apagado y sin dither residual: nada que animar. Salir antes de los
+	# 4 lookups de nodos (ScreenContainer, ScreenMesh, camara, player) que corría
+	# cada tick por cada terminal del nivel aunque no hubiera pantalla viva.
+	if not is_active and _current_player_dither <= 0.001 and _last_applied_dither <= 0.001:
+		return
 	var target_dither := 0.0
 	if is_active:
 		var screen_container = get_node_or_null("ScreenContainer")

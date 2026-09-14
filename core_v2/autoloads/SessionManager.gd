@@ -225,6 +225,21 @@ func _sort_nodes_by_path(a: Node, b: Node) -> bool:
 		return true
 	return str(a.get_path()) < str(b.get_path())
 
+# Cache de claves de perfil por nodo sync: "Sync.<script>" (sin la traza encendida
+# no se consulta nunca).
+var _sync_step_claves := {}
+
+func _sync_step_clave(node: Node) -> String:
+	var id := node.get_instance_id()
+	if _sync_step_claves.has(id):
+		return _sync_step_claves[id]
+	var clave := "Sync.none"
+	var script = node.get_script()
+	if script != null and script.resource_path != "":
+		clave = "Sync." + String(script.resource_path.get_file())
+	_sync_step_claves[id] = clave
+	return clave
+
 func _on_node_added(node: Node):
 	if node.is_in_group("replay_sync"):
 		_replay_sync_cache_dirty = true
@@ -1716,7 +1731,12 @@ func _physics_process(_dt):
 		if _replay_frame == 0 and is_instance_valid(player) and "velocity" in player:
 			player.velocity = Vector3.ZERO
 
+		# Reparto fino del tick de replay: bookkeeping / player.step / sync nodes.
+		# Solo cuando hay traza de replay encendida (perfil_corrida_on), costo cero fuera.
+		var _perf_fino: bool = pm != null and pm._perfil_corrida_on
+
 		# Execute Logic Events (SET, MATH, ASSERT) for this frame (PRE-STEP)
+		if _perf_fino: pm.perfil_inicio("SM.bookkeeping")
 		_check_events_for_frame(_replay_frame)
 
 		if _replay_frame % 120 == 0 and _replay_frame >= 5:
@@ -1769,24 +1789,40 @@ func _physics_process(_dt):
 		
 		# Si no hay más inputs, terminar
 		if input == null:
+			if _perf_fino: pm.perfil_fin("SM.bookkeeping")
 			if not _is_waiting_for_respawn_validation:
 				print("[SessionManager] No more inputs, calling run_playback")
 				run_playback()
 			return
 
 		# Step player con el input si es válido
+		if _perf_fino: pm.perfil_fin("SM.bookkeeping")
 		if is_instance_valid(player) and player.has_method("step"):
+			if _perf_fino: pm.perfil_inicio("SM.player_step")
 			player.step(FIXED_DT, input)
-		
+			if _perf_fino: pm.perfil_fin("SM.player_step")
+
 		# Step plataformas
+		if _perf_fino: pm.perfil_inicio("SM.sync_nodes")
 		var sync_nodes = _get_replay_sync_nodes()
 		for node in sync_nodes:
 			if node != player and (not is_instance_valid(player) or not player.is_a_parent_of(node)) and node.has_method("step"):
-				node.step(FIXED_DT)
-		
+				if _perf_fino:
+					# Clave por script: reparte el costo de step() entre tipos de nodo
+					# sin instrumentar cada script. Cache por instancia.
+					var clave: String = _sync_step_clave(node)
+					pm.perfil_inicio(clave)
+					node.step(FIXED_DT)
+					pm.perfil_fin(clave)
+				else:
+					node.step(FIXED_DT)
+		if _perf_fino: pm.perfil_fin("SM.sync_nodes")
+
 		# Step CinematicManager if active
 		if is_instance_valid(CinematicManager) and CinematicManager.has_method("is_active") and CinematicManager.is_active():
+			if _perf_fino: pm.perfil_inicio("SM.cinematic")
 			CinematicManager.step(FIXED_DT)
+			if _perf_fino: pm.perfil_fin("SM.cinematic")
 
 		_replay_frame += 1
 		_total_replay_frames = _replay_frame
@@ -2604,7 +2640,11 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	_drift_validated = false
 	_replay_frame = 0
 	is_replaying = true
-	
+	# Capar el render al rate de fisica durante la reproduccion: la trayectoria grabada
+	# vive a 60 ticks/s y sin interpolacion un monitor a 120/144Hz muestrea ese ritmo con
+	# frames duplicados (camara "yanky") y el playback corre mas rapido que la grabacion.
+	Engine.target_fps = int(round(Engine.iterations_per_second)) if Engine.iterations_per_second > 0 else 60
+
 	print("▶️ Reproduciendo replay desde buffer...")
 
 
@@ -2685,6 +2725,7 @@ func _finish_and_validate():
 	_drift_validated = true
 	is_replaying = false
 	is_recording = false
+	Engine.target_fps = 0 # Unlock render cap del replay
 	_reset_replay_watchdog()
 	Engine.time_scale = 1.0
 	_ticks_history.clear()

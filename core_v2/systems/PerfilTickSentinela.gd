@@ -14,12 +14,21 @@ extends Node
 # PerformanceMonitor crea los dos; no se instancia a mano.
 
 export(bool) var es_fin := false
+# false = acota _physics_process ("· scripts del tick"); true = acota _process
+# ("· scripts del frame", lado idle). Los dos lados comparten mecanismo.
+export(bool) var es_idle := false
 
 var _monitor: Node = null
 
 func _ready() -> void:
 	_monitor = get_parent()
-	process_priority = 10000 if es_fin else -10000
+	var prioridad := 10000 if es_fin else -10000
+	process_priority = prioridad
+	if es_idle:
+		# process_priority ordena los _process igual que los _physics_process.
+		set_physics_process(false)
+	else:
+		set_process(false)
 
 func _physics_process(_delta: float) -> void:
 	if _monitor == null or not _monitor.perfil_corrida_activo():
@@ -28,3 +37,11 @@ func _physics_process(_delta: float) -> void:
 		_monitor.perfil_fin("· scripts del tick")
 	else:
 		_monitor.perfil_inicio("· scripts del tick")
+
+func _process(_delta: float) -> void:
+	if _monitor == null or not _monitor.perfil_corrida_activo():
+		return
+	if es_fin:
+		_monitor.perfil_fin("· scripts del frame")
+	else:
+		_monitor.perfil_inicio("· scripts del frame")

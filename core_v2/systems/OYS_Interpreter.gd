@@ -2122,7 +2122,12 @@ func _record_live_instruction_event(inst: Dictionary) -> void:
 		"VCAMERA_SHAKE", "CAMERA_SHAKE", "CAMERA_SHAKE_STOP",
 		"TREMOR", "TREMOR_STOP",
 		"PLAY_SOUND", "SET_TIME_SCALE", "PRINT", "PLAY_ANIM", "HINT", "HINT_CLEAR",
-		"TELEPORT"
+		"TELEPORT",
+		# CALL: los efectos de mundo (explosiones, fugas, puertas via directores)
+		# corren por CALL y el trigger NO re-ejecuta su script durante un JSON
+		# replay puro (gating en OYSTrigger._on_zone_entered). Sin grabar el CALL,
+		# el replay pierde esas interacciones y el mundo diverge de la grabacion.
+		"CALL"
 	]:
 		session.record_event(OYS_Parser.serialize_instruction(inst))
 

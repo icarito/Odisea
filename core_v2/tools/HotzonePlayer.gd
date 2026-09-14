@@ -342,6 +342,11 @@ func _start_replay():
 	_update_ui_frame()
 	_restore_frame_state(0)
 
+	# Capar el render al rate de grabacion (60 fps): los steps corren en _process
+	# (uno por frame renderizado), asi que en un monitor a 120/144Hz el playback
+	# corre mas rapido que la grabacion y la camara se ve yanky.
+	Engine.target_fps = 60
+
 	if warmup_sec > 0.0:
 		_is_warming_up = true
 		_warmup_remaining = warmup_sec
@@ -649,6 +654,7 @@ func restart_replay():
 	self.is_paused = false
 
 func _exit_tree():
+	Engine.target_fps = 0 # Unlock render cap del playback
 	_dump_perf_trace()
 	if SessionManager:
 		SessionManager.is_replaying = false

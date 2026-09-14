@@ -248,6 +248,8 @@ var input_locked := false setget set_input_locked
 # alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
 var _pm_perfil = null
 var _pm_perfil_buscado := false
+# Cache del ControllerManager para step(): evita get_node_or_null por tick.
+var _cm_cache = null
 # Cache FD-290: mismo patron para SessionManager en modo replay (resuelto una sola vez).
 var _sm_cache = null
 var _sm_resuelto := false
@@ -2389,7 +2391,13 @@ func step(dt: float, input: InputDataV2) -> void:
 			movement_logic.horizontal_velocity = Vector3.ZERO
 			movement_logic.wish_direction = Vector3.ZERO
 	last_input = input
-	var cm = get_node_or_null("ControllerManager")
+	# Cache FD-290: get_node_or_null por tick en el paso mas caliente del juego.
+	# El hijo es fijo (escena Pilot_v2); solo re-resolver si el cache apunta a un
+	# nodo invalido o a un hijo distinto (re-instancia de escena).
+	var cm = _cm_cache
+	if cm == null or not is_instance_valid(cm) or cm.get_parent() != self:
+		cm = get_node_or_null("ControllerManager")
+		_cm_cache = cm
 	if cm and cm.current_mode == cm.Mode.ZERO_GRAVITY:
 		var zgc = cm.zero_gravity_controller
 		if zgc and zgc.has_method("step_zero_g"):
