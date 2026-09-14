@@ -34,10 +34,13 @@ que Apple revise el nuevo -- que puede tardar horas o dias. Por eso este script:
 3. Un modo `--promote` separado (pensado para un cron periodico, no atado al
    pipeline de export) vuelve a chequear builds que quedaron pendientes de
    revision y los promueve al grupo apenas Apple los aprueba, sin esperar al
-   proximo nightly.
+   proximo nightly. Siempre queda publico el aprobado MAS NUEVO.
 4. Apple revisa de a un build por tren: si otro sigue en revision, la solicitud
-   devuelve 422 ANOTHER_BUILD_IN_REVIEW. No es un error: el export sigue, y
-   `--promote` pide la revision del build mas nuevo cuando el tren se libera.
+   devuelve 422 ANOTHER_BUILD_IN_REVIEW, y la API no tiene forma de retirar una
+   solicitud. Para que la revision la tenga siempre el build mas nuevo, el build
+   viejo que sigue WAITING_FOR_REVIEW se EXPIRA (nunca fue publico) y se pide la
+   revision del nuevo -- salvo que esa solicitud tenga menos de REVIEW_REFRESH_S
+   o Apple ya lo este revisando (IN_REVIEW): ahi se respeta la cola.
 
 Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_P8, BUNDLE_ID, BUILD_NUMBER,
 PLATFORMS (lista separada por comas, por defecto IOS).
@@ -55,6 +58,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 
 API = "https://api.appstoreconnect.apple.com"
 POLL_TIMEOUT_S = 45 * 60
@@ -66,6 +70,9 @@ NOT_FOUND_GRACE_S = 10 * 60
 # testers instalan el ultimo; los anteriores son para poder volver atras si el
 # nuevo sale mal.
 KEEP_IN_GROUP = 5
+# Una solicitud de revision mas nueva que esto no se reemplaza por un build aun
+# mas nuevo: cada reemplazo manda al build al fondo de la cola de Apple.
+REVIEW_REFRESH_S = 2 * 3600
 
 
 def token() -> str:
@@ -201,18 +208,56 @@ def wait_for_builds(app_id: str, build_number: str, platforms: list[str]) -> dic
     return found
 
 
-def fetch_beta_review_state(build_id: str) -> str | None:
-    """Estado de la revision de Apple para este build, o None si nunca se pidio.
+def review_submissions(page: dict) -> dict[str, dict | None]:
+    """{build_id: atributos de su betaAppReviewSubmission, o None si nunca se pidio}.
 
-    `WAITING_FOR_REVIEW` | `IN_REVIEW` | `REJECTED` | `APPROVED`. Un build sin
-    Beta App Review Submission todavia no fue enviado a revisar (ni a mano en la
-    web ni por API) y no aparece en `included`.
+    `page` es un listado de builds pedido con include=betaAppReviewSubmission.
     """
-    data = call("GET", f"/v1/builds/{build_id}?include=betaAppReviewSubmission")
-    for item in data.get("included", []):
-        if item.get("type") == "betaAppReviewSubmissions":
-            return item.get("attributes", {}).get("betaReviewState")
-    return None
+    subs = {i["id"]: i.get("attributes", {}) for i in page.get("included", [])
+            if i.get("type") == "betaAppReviewSubmissions"}
+    out = {}
+    for b in page.get("data", []):
+        rel = ((b.get("relationships") or {}).get("betaAppReviewSubmission") or {}).get("data")
+        out[b["id"]] = subs.get(rel["id"]) if rel else None
+    return out
+
+
+def review_state(subs: dict[str, dict | None], build_id: str) -> str | None:
+    return (subs.get(build_id) or {}).get("betaReviewState")
+
+
+def parse_date(value: str | None) -> datetime | None:
+    return datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
+
+
+def review_plan(builds: list[dict], subs: dict[str, dict | None],
+                now: datetime) -> tuple[str | None, list[str]]:
+    """(build a enviar a revision o None, builds pendientes a expirar antes).
+
+    `builds` va del mas nuevo al mas viejo. La revision le toca al mas nuevo,
+    salvo que ya la tenga (en cualquier estado), que Apple este revisando otro
+    (IN_REVIEW) o que la ultima solicitud pendiente tenga menos de REVIEW_REFRESH_S.
+    """
+    if not builds or subs.get(builds[0]["id"]) is not None:
+        return None, []
+    pendientes = [b for b in builds[1:]
+                  if review_state(subs, b["id"]) in ("WAITING_FOR_REVIEW", "IN_REVIEW")]
+    if any(review_state(subs, b["id"]) == "IN_REVIEW" for b in pendientes):
+        return None, []
+    ultima = max(
+        (parse_date((subs[b["id"]] or {}).get("submittedDate")
+                    or b["attributes"].get("uploadedDate")) for b in pendientes),
+        default=None,
+    )
+    if ultima and (now - ultima).total_seconds() < REVIEW_REFRESH_S:
+        return None, []
+    return builds[0]["id"], [b["id"] for b in pendientes]
+
+
+def expire_build(build_id: str) -> None:
+    """Expira el build: es la unica forma por API de sacarlo de la cola de revision."""
+    call("PATCH", f"/v1/builds/{build_id}",
+         {"data": {"type": "builds", "id": build_id, "attributes": {"expired": True}}})
 
 
 def submit_beta_review(build_id: str) -> bool:
@@ -289,119 +334,94 @@ def assign_to_external_groups(groups: list[dict], targets: list[str], platform: 
               f"grupo, quedan los {KEEP_IN_GROUP} mas recientes")
 
 
-def main() -> int:
-    bundle_id = os.environ["BUNDLE_ID"]
-    build_number = os.environ["BUILD_NUMBER"]
-    platforms = platforms_from_env(os.environ.get("PLATFORMS", ""))
-
+def app_and_groups(bundle_id: str) -> tuple[str, list[dict], list[str]]:
     apps = call("GET", f"/v1/apps?filter[bundleId]={bundle_id}&limit=1")["data"]
     if not apps:
         raise SystemExit(f"No app in App Store Connect for bundle id {bundle_id}")
     app_id = apps[0]["id"]
+    groups = call("GET", f"/v1/betaGroups?filter[app]={app_id}&limit=200")["data"]
+    targets = external_group_ids(groups)
+    if not targets:
+        raise SystemExit("No external beta groups configured for this app")
+    return app_id, groups, targets
+
+
+def sync_platform(app_id: str, groups: list[dict], targets: list[str], platform: str) -> None:
+    """Deja la revision en el build mas nuevo y publica el aprobado mas nuevo."""
+    # ponytail: ventana de 50 builds; un pendiente mas viejo que eso no se expira
+    # y la solicitud nueva vuelve con 422 (queda logueado).
+    page = call(
+        "GET",
+        f"/v1/builds?filter[app]={app_id}&filter[preReleaseVersion.platform]={platform}"
+        "&filter[processingState]=VALID&filter[expired]=false&sort=-uploadedDate&limit=50"
+        "&include=betaAppReviewSubmission",
+    )
+    builds = page["data"]
+    if not builds:
+        return
+    subs = review_submissions(page)
+    numero = {b["id"]: b["attributes"].get("version", b["id"]) for b in builds}
+    newest = builds[0]
+
+    submit_id, expirar = review_plan(builds, subs, datetime.now(timezone.utc))
+    if submit_id:
+        for bid in expirar:
+            expire_build(bid)
+            print(f"build {numero[bid]} ({platform}): expirado para cederle la revisión "
+                  f"a {numero[submit_id]}")
+        if needs_compliance_answer(newest):
+            declare_no_encryption(newest["id"])
+        if submit_beta_review(submit_id):
+            subs[submit_id] = {"betaReviewState": "WAITING_FOR_REVIEW"}
+            print(f"build {numero[submit_id]} ({platform}): enviado a Beta App Review")
+        else:
+            print(f"build {numero[submit_id]} ({platform}): Apple sigue con otro build del "
+                  "tren en revisión; se reintenta en la próxima corrida")
+    elif subs.get(newest["id"]) is None:
+        print(f"build {numero[newest['id']]} ({platform}): hay otra revisión en curso o "
+              "pedida hace menos de 2 h; se respeta la cola")
+
+    aprobado = next((b for b in builds if review_state(subs, b["id"]) == "APPROVED"), None)
+    if not aprobado:
+        return
+    vigentes = [
+        b
+        for gid in targets
+        for b in call_all(
+            f"/v1/builds?filter[betaGroups]={gid}"
+            f"&filter[preReleaseVersion.platform]={platform}&limit=200"
+        )
+    ]
+    if newer_than_current([aprobado], vigentes):
+        print(f"build {numero[aprobado['id']]} ({platform}): aprobado por Apple, "
+              "promoviendo al grupo externo")
+        assign_to_external_groups(groups, targets, platform, numero[aprobado["id"]],
+                                  aprobado["id"])
+
+
+def main() -> int:
+    build_number = os.environ["BUILD_NUMBER"]
+    platforms = platforms_from_env(os.environ.get("PLATFORMS", ""))
+    app_id, groups, targets = app_and_groups(os.environ["BUNDLE_ID"])
 
     # El build aparece casi enseguida pero queda en PROCESSING; no se puede asignar
     # a un grupo hasta que pase a VALID.
     found = wait_for_builds(app_id, build_number, platforms)
-    if not found:
-        return 0
-
-    groups = call("GET", f"/v1/betaGroups?filter[app]={app_id}&limit=200")["data"]
-    targets = external_group_ids(groups)
-    if not targets:
-        raise SystemExit("No external beta groups configured for this app")
-
     for platform, build in found.items():
-        build_id = build["id"]
         if needs_compliance_answer(build):
-            declare_no_encryption(build_id)
+            declare_no_encryption(build["id"])
             print(f"build {build_number} ({platform}): cumplimiento de exportación "
                   "respondido (sin criptografía no exenta)")
-
-        review_state = fetch_beta_review_state(build_id)
-        if review_state is None:
-            if not submit_beta_review(build_id):
-                print(f"build {build_number} ({platform}): otro build del mismo tren "
-                      "sigue en Beta App Review; `--promote` pedirá la revisión "
-                      "cuando termine.")
-                continue
-            review_state = "WAITING_FOR_REVIEW"
-            print(f"build {build_number} ({platform}): enviado a Beta App Review")
-
-        if review_state != "APPROVED":
-            print(f"build {build_number} ({platform}): revisión de Apple en estado "
-                  f"{review_state}; se deja el build externo anterior activo hasta "
-                  "que este se apruebe (ver `--promote`).")
-            continue
-
-        assign_to_external_groups(groups, targets, platform, build_number, build_id)
+        sync_platform(app_id, groups, targets, platform)
     return 0
 
 
 def promote() -> int:
-    """Promueve al grupo externo el build mas nuevo ya APPROVED que quedo pendiente.
-
-    Pensado para correr en un cron independiente del pipeline de export: la
-    revision de Apple puede tardar mas que la ventana de ese job, asi que esto
-    la retoma sin esperar al proximo nightly.
-    """
-    bundle_id = os.environ["BUNDLE_ID"]
+    """Cron independiente del export: la revision de Apple tarda mas que ese job."""
     platforms = platforms_from_env(os.environ.get("PLATFORMS", ""))
-
-    apps = call("GET", f"/v1/apps?filter[bundleId]={bundle_id}&limit=1")["data"]
-    if not apps:
-        raise SystemExit(f"No app in App Store Connect for bundle id {bundle_id}")
-    app_id = apps[0]["id"]
-
-    groups = call("GET", f"/v1/betaGroups?filter[app]={app_id}&limit=200")["data"]
-    targets = external_group_ids(groups)
-    if not targets:
-        raise SystemExit("No external beta groups configured for this app")
-
+    app_id, groups, targets = app_and_groups(os.environ["BUNDLE_ID"])
     for platform in platforms:
-        candidatos = call(
-            "GET",
-            f"/v1/builds?filter[app]={app_id}&filter[preReleaseVersion.platform]={platform}"
-            "&filter[processingState]=VALID&sort=-uploadedDate&limit=10",
-        )["data"]
-        if not candidatos:
-            continue
-
-        vigentes = [
-            b
-            for gid in targets
-            for b in call_all(
-                f"/v1/builds?filter[betaGroups]={gid}"
-                f"&filter[preReleaseVersion.platform]={platform}&limit=200"
-            )
-        ]
-        nuevos = newer_than_current(candidatos, vigentes)
-        if not nuevos:
-            continue  # el vigente ya es el mas nuevo, nada que hacer
-        estados = {b["id"]: fetch_beta_review_state(b["id"]) for b in nuevos}
-
-        # Apple revisa de a un build por tren, asi que los nightly se encolan: se
-        # pide la revision solo del mas nuevo (los intermedios no hace falta
-        # revisarlos) y se reintenta cada corrida hasta que el tren se libere.
-        newest = nuevos[0]
-        newest_number = newest["attributes"].get("version", newest["id"])
-        if estados[newest["id"]] is None:
-            if needs_compliance_answer(newest):
-                declare_no_encryption(newest["id"])
-            if submit_beta_review(newest["id"]):
-                estados[newest["id"]] = "WAITING_FOR_REVIEW"
-                print(f"build {newest_number} ({platform}): enviado a Beta App Review")
-            else:
-                print(f"build {newest_number} ({platform}): otro build sigue en "
-                      "revisión; se reintenta en la próxima corrida")
-
-        # Promover el aprobado mas nuevo, aunque haya uno todavia mas nuevo en
-        # cola: sigue siendo avanzar respecto del vigente.
-        aprobado = next((b for b in nuevos if estados[b["id"]] == "APPROVED"), None)
-        if aprobado:
-            build_number = aprobado["attributes"].get("version", aprobado["id"])
-            print(f"build {build_number} ({platform}): aprobado por Apple, "
-                  "promoviendo al grupo externo")
-            assign_to_external_groups(groups, targets, platform, build_number, aprobado["id"])
+        sync_platform(app_id, groups, targets, platform)
     return 0
 
 
@@ -440,6 +460,31 @@ def self_test() -> int:
     assert ids(newer_than_current(builds, [])) == ["v3", "v2", "v1"]        # grupo vacio
     # grupos con vigentes distintos: manda el mas reciente
     assert ids(newer_than_current(builds, [b("v1", "2026-01-01"), b("v2", "2026-02-01")])) == ["v3"]
+
+    # review_plan: la revision le toca al mas nuevo salvo cola reciente o IN_REVIEW
+    now = datetime(2026, 9, 14, 12, tzinfo=timezone.utc)
+    nb = [b("n3", "2026-09-14T10:00:00Z"), b("n2", "2026-09-13T10:00:00Z"),
+          b("n1", "2026-09-12T10:00:00Z")]
+
+    def sub(state, fecha=None):
+        return {"betaReviewState": state, "submittedDate": fecha}
+
+    assert review_plan(nb, {}, now) == ("n3", [])                         # cola libre
+    assert review_plan(nb, {"n2": sub("WAITING_FOR_REVIEW", "2026-09-14T08:00:00Z")},
+                       now) == ("n3", ["n2"])                             # pendiente viejo: se reemplaza
+    assert review_plan(nb, {"n2": sub("WAITING_FOR_REVIEW", "2026-09-14T11:00:00Z")},
+                       now) == (None, [])                                 # pedida hace 1 h: se espera
+    assert review_plan(nb, {"n2": sub("IN_REVIEW", "2026-09-13T11:00:00Z")},
+                       now) == (None, [])                                 # Apple revisando: no se corta
+    assert review_plan(nb, {"n3": sub("WAITING_FOR_REVIEW")}, now) == (None, [])   # ya la tiene
+    assert review_plan(nb, {"n2": sub("APPROVED"), "n1": sub("REJECTED")}, now) == ("n3", [])
+    assert review_plan([], {}, now) == (None, [])
+
+    page = {"data": [{"id": "x", "relationships": {"betaAppReviewSubmission": {"data": {"id": "s"}}}},
+                     {"id": "y", "relationships": {"betaAppReviewSubmission": {"data": None}}}],
+            "included": [{"type": "betaAppReviewSubmissions", "id": "s",
+                          "attributes": {"betaReviewState": "APPROVED"}}]}
+    assert review_submissions(page) == {"x": {"betaReviewState": "APPROVED"}, "y": None}
 
     # submit_beta_review: 422 de cola -> False, 409 -> True, otro error -> falla
     global call
