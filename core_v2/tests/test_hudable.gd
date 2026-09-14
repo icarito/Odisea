@@ -31,7 +31,7 @@ class CustomParent:
 		}
 
 func before_test() -> void:
-	SuitOS.unpin_screen()
+	SuitOS.clear_slots()
 	SuitOS.close_screen()
 	SuitOS.set_hud_mode_active(false)
 	for id in SuitOS.get_registered_screens():

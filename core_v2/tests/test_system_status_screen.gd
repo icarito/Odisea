@@ -10,8 +10,7 @@ var _bus = null
 var _screen = null
 
 func before_test() -> void:
-	SuitOS.min_relevance_a = SuitOS.MIN_RELEVANCE_A
-	SuitOS.unpin_screen()
+	SuitOS.clear_slots()
 	SuitOS.close_screen()
 	SuitOS.set_context({})
 	for id in SuitOS.get_registered_screens():
@@ -48,11 +47,6 @@ func test_relevance_boost_on_system_failure() -> void:
 
 	var rel_boosted = _screen.relevance()
 	assert_float(rel_boosted).is_greater(0.5)
-
-	# Check that Slot A picks up ship:systems due to high relevance
-	SuitOS.set_context({"player_position": [0, 0, 0]})
-	var slot_a = SuitOS.get_slot_snapshot("slot_a")
-	assert_str(slot_a.get("id", "")).is_equal("ship:systems")
 
 func test_dome_intro_scene_has_bus_and_screen() -> void:
 	var scene = load("res://core_v2/levels/interiors/Dome_Intro.tscn")

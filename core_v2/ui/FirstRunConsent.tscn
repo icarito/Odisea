@@ -92,29 +92,6 @@ Si el rendimiento cae durante varios segundos seguidos, se guarda además un fra
 El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto."
 autowrap = true
 
-[node name="Loading" type="VBoxContainer" parent="TelemetryPanel"]
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-margin_left = 40.0
-margin_top = -250.0
-margin_right = -40.0
-margin_bottom = -198.0
-custom_constants/separation = 8
-
-[node name="ProgressLabel" type="Label" parent="TelemetryPanel/Loading"]
-text = "Preparando el primer nivel…"
-align = 1
-
-[node name="Progress" type="ProgressBar" parent="TelemetryPanel/Loading"]
-rect_min_size = Vector2( 0, 22 )
-custom_styles/fg = SubResource( 2 )
-custom_styles/bg = SubResource( 1 )
-max_value = 100.0
-step = 0.1
-value = 0.0
-percent_visible = false
-
 [node name="Foot" type="VBoxContainer" parent="TelemetryPanel"]
 anchor_top = 1.0
 anchor_right = 1.0
@@ -124,6 +101,7 @@ margin_top = -186.0
 margin_right = -40.0
 margin_bottom = -16.0
 custom_constants/separation = 10
+alignment = 2
 
 [node name="LinkRow" type="HBoxContainer" parent="TelemetryPanel/Foot"]
 alignment = 1
@@ -133,6 +111,24 @@ text = "Ver Política de Privacidad completa"
 
 [node name="LinkGap" type="Control" parent="TelemetryPanel/Foot"]
 rect_min_size = Vector2( 0, 16 )
+
+; La barra ocupa el lugar de la pregunta, que la reemplaza al terminar la carga. Con el
+; Foot alineado abajo queda al pie: a media altura pisaba el cuerpo del aviso en 640x480.
+[node name="Loading" type="VBoxContainer" parent="TelemetryPanel/Foot"]
+custom_constants/separation = 8
+
+[node name="ProgressLabel" type="Label" parent="TelemetryPanel/Foot/Loading"]
+text = "Preparando el primer nivel…"
+align = 1
+
+[node name="Progress" type="ProgressBar" parent="TelemetryPanel/Foot/Loading"]
+rect_min_size = Vector2( 0, 22 )
+custom_styles/fg = SubResource( 2 )
+custom_styles/bg = SubResource( 1 )
+max_value = 100.0
+step = 0.1
+value = 0.0
+percent_visible = false
 
 [node name="ChoiceBox" type="VBoxContainer" parent="TelemetryPanel/Foot"]
 custom_constants/separation = 10

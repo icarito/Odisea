@@ -273,6 +273,14 @@ func _show_first_run_consent(scene_path) -> void:
 	host.name = "FirstRunConsentLayer"
 	host.layer = 2000
 	host.add_child(screen)
+	# El cursor virtual (capa 200) quedaba debajo de esta pantalla. Se muda con ella: un
+	# segundo cursor inyectaria cada evento dos veces, y este se iria con el Menu al
+	# liberarse. Queda arriba de la pantalla y se libera junto con ella.
+	var cursor_layer: CanvasLayer = get_node_or_null("VirtualMouseLayer")
+	if cursor_layer:
+		remove_child(cursor_layer)
+		cursor_layer.layer = host.layer + 1
+		host.add_child(cursor_layer)
 	get_tree().root.add_child(host)
 	screen.connect("loading_requested", self, "_on_first_run_loading_requested", [scene_path], CONNECT_ONESHOT)
 

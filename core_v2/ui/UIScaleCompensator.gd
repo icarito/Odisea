@@ -20,6 +20,11 @@ extends Control
 export(NodePath) var target_path: NodePath = NodePath("..")
 # Algunas UI ya estan diseñadas para el espacio reducido; permite desactivarlo por escena.
 export(bool) var enabled := true
+# Alto de la resolucion interna para la que esta dimensionada esta UI (0 = no compensar). Por
+# debajo, se encoge en la misma proporcion: la resolucion interna tambien se estira a la pantalla,
+# y a 640x480 los controles tactiles en pixeles fijos ocupaban un 25% mas que a 800x600 (la
+# resolucion por defecto). Por encima no crece: nada de lo ya ajustado cambia.
+export(float) var reference_height := 0.0
 
 var _target: Control = null
 var _applying := false
@@ -51,8 +56,11 @@ func apply() -> void:
 	_applying = true
 	var viewport := get_viewport()
 	if viewport != null:
-		var scale := _ui_scale()
 		var available: Vector2 = viewport.get_visible_rect().size
+		var scale := _ui_scale()
+		if reference_height > 0.0:
+			# Alto a escala 1.0: con aspect "expand" el alto es el de la resolucion elegida.
+			scale *= min(1.0, available.y / scale / reference_height)
 		_target.rect_position = Vector2.ZERO
 		_target.rect_size = available / scale
 		_target.rect_scale = Vector2(scale, scale)

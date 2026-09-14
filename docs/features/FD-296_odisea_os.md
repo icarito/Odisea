@@ -108,9 +108,15 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
       reuso `RadialSelectorV2`, mismo patrón de `ElevatorFloorSelector`: el
       gesto apunta, click/`ui_accept` confirma, `ui_cancel` sale; no roba
       cursor ni corta cámara, lee del stream de input para replay
-      determinista). Slot A = automática, Slot B = fijada; confirmar sobre
-      una pantalla la fija como pin (y esa pasa a ser la "última pantalla"
-      que abre el tap). Con una sola pantalla se selecciona sola.
+      determinista). Elegir con TAB **abre sin fijar**: nada se autoasigna a un
+      slot.
+      El tap de TAB abre la última pantalla abierta. Con una sola pantalla se
+      selecciona sola. **Zona muerta** en el centro del dial (vector acumulado
+      de mouse, stick en vivo, arrastre del dedo): soltar ahí no elige nada.
+   a2. **Teclas 1–4** (`hud_slot_N`, en el stream como `hud_slot`): tap abre la
+      pantalla de ese slot (tap de nuevo cierra; vacío = radial para ese slot);
+      hold abre el radial y lo elegido **se fija en ese slot**. El teleport de
+      depuración de `TeleportSystem` queda en 5–9 (y guardar en Ctrl+5–9).
    b. **Vista de la pantalla seleccionada — presentador 3D con transición**:
       no es un Control 2D que aparece de golpe. Se instancia un **presentador**
       (`extends HoloTerminalV2`, *config-only*, mismo patrón que
@@ -146,9 +152,20 @@ declararse **HUDable** (análogo al `marker_config` de `InteractableEntity`):
 
 #### 5. Slots de widgets (juego normal)
 
-- **2 slots en v1** (decisión: empezar simple; 3+ queda abierto a futuro):
-  - Slot A — **automático**: lo que el scorer considere más relevante.
-  - Slot B — **fijado por el jugador**: pin desde el modo HUD.
+- **4 slots numerados** (rediseño 2026-09-13; reglas en `core_v2/ui/hud/HudSlots.gd`):
+  - 1 y 2 arriba a la izquierda, 3 y 4 arriba a la derecha, en lugares fijos.
+  - **Solo el jugador llena un slot** (decisión 2026-09-13, reemplaza la
+    sugerencia por relevancia): tecla o widget del slot con el radial, o
+    arrastrando. Nada se autoasigna. Una pantalla nunca ocupa dos slots.
+  - Slot vacío = contorno semitransparente **inerte** (no responde al toque);
+    solo se ve como destino mientras se arrastra.
+  - **Touch**: tap = su pantalla; hold sin mover = radial para ese slot; hold y
+    mover = arrastrar (otro slot intercambia, el **reciclaje** arriba al centro
+    quita, soltar en otro lado lo devuelve); swipe hacia afuera (izquierda en
+    1–2, derecha en 3–4) vacía el slot. Un ítem del radial y el widget ampliado
+    de una pantalla sin vista diegética también se arrastran a un slot.
+  - Persistencia: `pinned_slots` (4 ids) en el snapshot `replay_sync`; un
+    `pinned_screen_id` de partidas viejas se carga en el slot 1.
 - Los widgets **se ajustan a la pantalla** (reuso `UIScaleCompensator`).
 - Se ocultan en cinemáticas y menús.
 - Toggle de accesibilidad en Settings.
@@ -400,7 +417,7 @@ snapshot, sin cámara ni attach. Es para ver el estado *sin* dejar de caminar.
 ### Fuera de alcance (backlog)
 
 - Multisesión remota independiente (N teléfonos).
-- 3+ slots de widgets.
+- 4 slots en el teléfono (`RemoteControlHome` sigue con A/B; fase 2 del rediseño).
 - Espejo de mapas/cámaras 3D (F2 de FD-294) — `SuitOS` deja el hook
   `scene_directive` listo.
 - Hápticos más allá de tremor.

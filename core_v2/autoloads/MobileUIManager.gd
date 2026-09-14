@@ -2,6 +2,10 @@ extends CanvasLayer
 
 const MobileUI = preload("res://core_v2/ui/MobileUI.tscn")
 
+# El modo tactil se prende con un toque y se apaga por inactividad (touch_idle_timeout). Lo escucha
+# quien se oculta junto con los controles tactiles (los widgets del HUD, SuitOSWidgetHost).
+signal touch_active_changed(active)
+
 export(float) var touch_idle_timeout := 15.0
 const TOUCH_POINTER_GRACE_MSEC := 250
 # En desktop el jugador tiene el mouse a mano: el modo tactil se suelta enseguida. El timeout
@@ -52,6 +56,7 @@ func _input(event: InputEvent) -> void:
 			# _is_touch_active, asi que decae solo con el idle-timeout en _process() sin
 			# dejar al jugador pegado en modo movil el resto de la sesion.
 			_is_touch_active = true
+			emit_signal("touch_active_changed", true)
 			if not is_instance_valid(_mobile_ui):
 				_spawn_mobile_ui()
 			_notify_input_provider_touch_active(true)
@@ -71,6 +76,7 @@ func _input(event: InputEvent) -> void:
 # puntero se recupera cuando se mueve el mouse de verdad, que es cuando hace falta.
 func _deactivate_touch() -> void:
 	_is_touch_active = false
+	emit_signal("touch_active_changed", false)
 	_reset_move_joystick()
 	_notify_input_provider_touch_active(false)
 	_refresh_mobile_ui_visibility()
@@ -350,8 +356,9 @@ func is_point_on_touch_controls(point: Vector2) -> bool:
 	for ctrl in container.get_children():
 		if not (ctrl is Control) or ctrl.name == "TouchCameraArea" or not ctrl.is_visible_in_tree():
 			continue
-		# Mismo calculo de rect que _expand_overlay_margins (la escala del nodo cuenta).
-		var scale: Vector2 = ctrl.rect_scale
+		# Mismo calculo de rect que _expand_overlay_margins (cuenta la escala global: la del nodo y
+		# la del Container, que UIScaleCompensator encoge por render_scale y resolucion).
+		var scale: Vector2 = ctrl.get_global_transform().get_scale()
 		var size := Vector2(ctrl.rect_size.x * abs(scale.x), ctrl.rect_size.y * abs(scale.y))
 		if Rect2(ctrl.rect_global_position, size).has_point(point):
 			return true
@@ -387,7 +394,7 @@ func _expand_overlay_margins(margins: Dictionary, ctrl: Control, viewport_size: 
 		return margins
 
 	var top_left = ctrl.rect_global_position
-	var scale = ctrl.rect_scale
+	var scale = ctrl.get_global_transform().get_scale()
 	var size = Vector2(ctrl.rect_size.x * abs(scale.x), ctrl.rect_size.y * abs(scale.y))
 	var bottom_right = top_left + size
 

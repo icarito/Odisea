@@ -176,6 +176,7 @@ script = ExtResource( 3 )
 [node name="UIScale" type="Control" parent="."]
 script = ExtResource( 5 )
 target_path = NodePath("../Container")
+reference_height = 600.0
 
 [node name="Container" type="Control" parent="."]
 anchor_right = 1.0

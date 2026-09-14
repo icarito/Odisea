@@ -56,20 +56,6 @@ text = "SIN PANTALLAS"
 align = 1
 valign = 1
 
-[node name="SlotsLabel" type="Label" parent="."]
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-margin_left = 24.0
-margin_top = -48.0
-margin_right = -24.0
-margin_bottom = -12.0
-custom_colors/font_color = Color( 0.607843, 0.992157, 0.580392, 1 )
-custom_colors/font_color_shadow = Color( 0, 0.05, 0.08, 0.9 )
-custom_constants/shadow_offset_x = 1
-custom_constants/shadow_offset_y = 2
-valign = 1
-
 [node name="Hint" type="Label" parent="."]
 visible = false
 anchor_top = 1.0

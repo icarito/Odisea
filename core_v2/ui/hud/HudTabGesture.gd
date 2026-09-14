@@ -10,9 +10,6 @@ enum { NONE, TAP, HOLD, HOLD_RELEASE }
 
 # 0.4 s a 60 muestras/s (FIXED_DT del replay). Con el mundo pausado, mas espera se siente rota.
 const HOLD_TICKS := 24
-# El hold es invisible: el overlay avisa ("Mantén TAB...") hasta que se usa una vez. Preferencia
-# del jugador, no estado de juego: vive en user://, fuera del snapshot de replay.
-const HINT_CFG := "user://suitos_hints.cfg"
 
 var _ticks: int = -1 # -1 = no hay pulsacion pendiente de decidir
 var _was_down: bool = false
@@ -57,13 +54,3 @@ func feed(down: bool) -> int:
 		_held = false
 	_was_down = down
 	return result
-
-static func hold_discovered() -> bool:
-	var cfg := ConfigFile.new()
-	return cfg.load(HINT_CFG) == OK and bool(cfg.get_value("hints", "hud_hold", false))
-
-static func mark_hold_discovered() -> void:
-	var cfg := ConfigFile.new()
-	cfg.load(HINT_CFG)
-	cfg.set_value("hints", "hud_hold", true)
-	cfg.save(HINT_CFG)

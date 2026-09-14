@@ -60,8 +60,7 @@ var _received_haptic: Array = []
 
 func before_test() -> void:
 	_received_haptic.clear()
-	SuitOS.min_relevance_a = SuitOS.MIN_RELEVANCE_A
-	SuitOS.unpin_screen()
+	SuitOS.clear_slots()
 	SuitOS.close_screen()
 	SuitOS.set_hud_mode_active(false)
 	SuitOS.set_context({})
@@ -87,54 +86,46 @@ func test_idempotent_registration() -> void:
 	assert_bool(SuitOS.has_screen("screen_1")).is_true()
 	assert_int(SuitOS.get_registered_screens().size()).is_equal(1)
 
-func test_automatic_slot_scoring_slot_a() -> void:
-	var screen1: DummyScreen = auto_free(DummyScreen.new("screen_1", "Screen 1", 0.2))
-	var screen2: DummyScreen = auto_free(DummyScreen.new("screen_2", "Screen 2", 0.8))
+func test_no_screen_is_ever_auto_assigned_to_a_slot() -> void:
+	# Ni por relevancia ni al cambiar el contexto: solo el jugador llena un slot.
+	var top: DummyScreen = auto_free(DummyScreen.new("screen_top", "Top", 0.9))
+	var second: DummyScreen = auto_free(DummyScreen.new("screen_second", "Second", 0.5))
+	SuitOS.register_screen(top)
+	SuitOS.register_screen(second)
+	SuitOS.update_context_key("screen_second_relevance", 0.95)
+	for i in range(4):
+		assert_bool(SuitOS.get_slot_snapshot("slot_%d" % (i + 1)).empty()).is_true()
+	# Vaciar o mover tampoco llena el slot que quedo libre.
+	SuitOS.pin_to_slot(0, "screen_second")
+	SuitOS.move_slot(0, 2)
+	assert_bool(SuitOS.get_slot_snapshot("slot_1").empty()).is_true()
+	SuitOS.clear_slot(2)
+	for i in range(4):
+		assert_str(SuitOS.slot_screen_id(i)).is_empty()
 
-	SuitOS.register_screen(screen1)
-	SuitOS.register_screen(screen2)
-
-	var slot_a = SuitOS.get_slot_snapshot("slot_a")
-	assert_str(slot_a.get("id", "")).is_equal("screen_2")
-
-	# Update context to make screen_1 more relevant
-	SuitOS.update_context_key("screen_1_relevance", 0.95)
-
-	slot_a = SuitOS.get_slot_snapshot("slot_a")
-	assert_str(slot_a.get("id", "")).is_equal("screen_1")
-
-func test_slot_a_relevance_threshold_zero_leaves_slot_empty() -> void:
-	var screen1: DummyScreen = auto_free(DummyScreen.new("zero_rel_screen", "Zero Rel", 0.0))
-	SuitOS.register_screen(screen1)
-
-	# Relevance <= min_relevance_a (0.0) -> Slot A must be empty
-	var slot_a = SuitOS.get_slot_snapshot("slot_a")
-	assert_bool(slot_a.empty()).is_true()
-
-	# Boost relevance > 0.0 -> Slot A populates
-	SuitOS.update_context_key("zero_rel_screen_relevance", 0.5)
-	slot_a = SuitOS.get_slot_snapshot("slot_a")
-	assert_str(slot_a.get("id", "")).is_equal("zero_rel_screen")
-
-func test_pinned_slot_b_and_offline_fallback() -> void:
+func test_pinned_slot_and_offline_fallback() -> void:
 	var screen1: DummyScreen = auto_free(DummyScreen.new("screen_1", "Screen 1", 0.5))
 	SuitOS.register_screen(screen1)
 
-	SuitOS.pin_screen("screen_1")
-	var slot_b = SuitOS.get_slot_snapshot("slot_b")
-	assert_str(slot_b.get("id", "")).is_equal("screen_1")
-	assert_str(slot_b.get("source", "")).is_equal("online")
+	SuitOS.pin_to_slot(2, "screen_1")
+	var slot_3 = SuitOS.get_slot_snapshot("slot_3")
+	assert_str(slot_3.get("id", "")).is_equal("screen_1")
+	assert_str(slot_3.get("source", "")).is_equal("online")
 
-	# Unregister screen -> slot B should keep last snapshot marked offline
+	# Unregister screen -> the slot keeps the last snapshot marked offline
 	SuitOS.unregister_screen("screen_1")
-	slot_b = SuitOS.get_slot_snapshot("slot_b")
-	assert_str(slot_b.get("id", "")).is_equal("screen_1")
-	assert_str(slot_b.get("source", "")).is_equal("offline")
+	slot_3 = SuitOS.get_slot_snapshot("slot_3")
+	assert_str(slot_3.get("id", "")).is_equal("screen_1")
+	assert_str(slot_3.get("source", "")).is_equal("offline")
 
-	# Unpin -> slot B becomes empty
-	SuitOS.unpin_screen()
-	slot_b = SuitOS.get_slot_snapshot("slot_b")
-	assert_bool(slot_b.empty()).is_true()
+	# Clear -> empty
+	SuitOS.clear_slot(2)
+	assert_bool(SuitOS.get_slot_snapshot("slot_3").empty()).is_true()
+
+func test_pin_to_slot_moves_the_screen_instead_of_duplicating_it() -> void:
+	SuitOS.pin_to_slot(0, "a")
+	SuitOS.pin_to_slot(3, "a")
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", "a"])
 
 func test_action_gate_and_validation() -> void:
 	var screen1: DummyScreen = auto_free(DummyScreen.new("screen_1", "Screen 1", 0.5, ["toggle"]))
@@ -183,42 +174,45 @@ func test_hud_mode_and_open_close_screen() -> void:
 func test_persistence_save_restore_preserves_pin_and_offline_source() -> void:
 	var screen1: DummyScreen = auto_free(DummyScreen.new("screen_1", "Screen 1", 0.5))
 	SuitOS.register_screen(screen1)
-	SuitOS.pin_screen("screen_1")
+	SuitOS.pin_to_slot(1, "screen_1")
 
-	# Screen is registered -> Slot B is online
-	assert_str(SuitOS.get_slot_snapshot("slot_b").get("source", "")).is_equal("online")
+	# Screen is registered -> the slot is online
+	assert_str(SuitOS.get_slot_snapshot("slot_2").get("source", "")).is_equal("online")
 
-	# Unregister screen1 -> Slot B becomes offline
+	# Unregister screen1 -> the slot becomes offline
 	SuitOS.unregister_screen("screen_1")
-	assert_str(SuitOS.get_slot_snapshot("slot_b").get("source", "")).is_equal("offline")
+	assert_str(SuitOS.get_slot_snapshot("slot_2").get("source", "")).is_equal("offline")
 
-	# Save state
 	var saved_state = SuitOS.save_state()
 
-	# Clear local pin
-	SuitOS.unpin_screen()
-	assert_str(SuitOS.get_pinned_screen_id()).is_empty()
+	SuitOS.clear_slots()
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", ""])
 
-	# Restore state -> should restore pinned screen_1 and set source to offline since screen_1 is not currently registered
+	# Restore -> screen_1 back in slot 2, offline since it is not registered
 	SuitOS.restore_state(saved_state)
-	assert_str(SuitOS.get_pinned_screen_id()).is_equal("screen_1")
-	assert_str(SuitOS.get_slot_snapshot("slot_b").get("source", "")).is_equal("offline")
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "screen_1", "", ""])
+	assert_str(SuitOS.get_slot_snapshot("slot_2").get("source", "")).is_equal("offline")
 
-	# Re-register screen1 -> Slot B should automatically resolve back to online
+	# Re-register screen1 -> resolves back to online
 	SuitOS.register_screen(screen1)
-	assert_str(SuitOS.get_slot_snapshot("slot_b").get("source", "")).is_equal("online")
+	assert_str(SuitOS.get_slot_snapshot("slot_2").get("source", "")).is_equal("online")
+
+func test_restore_of_a_two_slot_save_puts_the_pin_in_slot_1() -> void:
+	SuitOS.restore_state({"pinned_screen_id": "screen_old"})
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["screen_old", "", "", ""])
 
 func test_snapshot_aliasing_prevention() -> void:
 	var screen1: DummyScreen = auto_free(DummyScreen.new("screen_1", "Screen 1", 0.7))
 	SuitOS.register_screen(screen1)
+	SuitOS.pin_to_slot(0, "screen_1")
 
 	# Get slot snapshot and mutate it
-	var snap = SuitOS.get_slot_snapshot("slot_a")
+	var snap = SuitOS.get_slot_snapshot("slot_1")
 	snap["source"] = "MUTATED"
 	snap["custom_field"] = "MUTATED_FIELD"
 
 	# Re-fetch snapshot and verify source object internal_dict was not corrupted
-	var snap_fresh = SuitOS.get_slot_snapshot("slot_a")
+	var snap_fresh = SuitOS.get_slot_snapshot("slot_1")
 	assert_str(snap_fresh.get("source", "")).is_equal("online")
 	assert_str(screen1.internal_dict.get("custom_field", "")).is_equal("initial")
 
@@ -242,23 +236,13 @@ func test_pre_scene_swap_closes_active_screen_and_resets_context() -> void:
 func _on_haptic_event(kind: String, intensity: float) -> void:
 	_received_haptic.append({"kind": kind, "intensity": intensity})
 
-func test_pinned_screen_never_duplicates_in_slot_a() -> void:
-	var top: DummyScreen = auto_free(DummyScreen.new("screen_top", "Top", 0.9))
-	var second: DummyScreen = auto_free(DummyScreen.new("screen_second", "Second", 0.5))
-	SuitOS.register_screen(top)
-	SuitOS.register_screen(second)
-	assert_str(SuitOS.get_slot_snapshot("slot_a").get("id", "")).is_equal("screen_top")
-
-	# Fijar la que A mostraba: B la toma y A pasa a la siguiente mas relevante.
-	SuitOS.pin_screen("screen_top")
-	assert_str(SuitOS.get_slot_snapshot("slot_b").get("id", "")).is_equal("screen_top")
-	assert_str(SuitOS.get_slot_snapshot("slot_a").get("id", "")).is_equal("screen_second")
-
-	# Con solo la fijada disponible, A queda vacio antes que repetirla.
-	SuitOS.unregister_screen("screen_second")
-	assert_bool(SuitOS.get_slot_snapshot("slot_a").empty()).is_true()
-
-	# Soltarla la devuelve a la competencia de A.
-	SuitOS.unpin_screen()
-	assert_str(SuitOS.get_slot_snapshot("slot_a").get("id", "")).is_equal("screen_top")
-	SuitOS.unregister_screen("screen_top")
+func test_move_slot_swaps_the_two_slots() -> void:
+	SuitOS.pin_to_slot(0, "a")
+	SuitOS.pin_to_slot(2, "b")
+	SuitOS.move_slot(0, 2)
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["b", "", "a", ""])
+	SuitOS.move_slot(0, 3)
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "a", "b"])
+	# Un slot vacio no tiene nada que mover.
+	SuitOS.move_slot(0, 1)
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "a", "b"])

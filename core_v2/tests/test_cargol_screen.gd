@@ -16,8 +16,7 @@ var _screen = null
 var _hud = null
 
 func before_test() -> void:
-	SuitOS.min_relevance_a = SuitOS.MIN_RELEVANCE_A
-	SuitOS.unpin_screen()
+	SuitOS.clear_slots()
 	SuitOS.close_screen()
 	SuitOS.set_context({})
 	for id in SuitOS.get_registered_screens():

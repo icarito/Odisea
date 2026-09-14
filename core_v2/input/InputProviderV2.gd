@@ -224,6 +224,11 @@ func _read_live_input() -> InputDataV2:
 		d.tool_prev_mode = _action_just_pressed("tool_prev_mode")
 		d.cargol_ability = _action_pressed("cargol_ability")
 		d.hud_mode = _action_pressed("hud_mode")
+		d.hud_slot = 0
+		for n in range(1, 5): # HudSlots.COUNT; la primera sostenida gana
+			if _action_pressed("hud_slot_%d" % n):
+				d.hud_slot = n
+				break
 
 		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0)

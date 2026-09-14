@@ -196,3 +196,18 @@ func test_a_descent_scrolls_the_readout_upward() -> void:
 	assert_float(selector._readout_label.rect_position.y) \
 		.override_failure_message("descending must bring the new floor in from below") \
 		.is_greater(rest_y)
+
+
+func test_dead_zone_selects_nothing_and_zero_keeps_the_hub_hold() -> void:
+	var selector = _make(["1", "2", "3"])
+	_aim(selector, 3)
+	assert_int(selector.get_hovered_index()).is_equal(1)
+	# Sin zona muerta (el ascensor): cerca del centro se mantiene lo marcado.
+	selector.point_at(CENTER + Vector2(3.0, 0.0))
+	assert_int(selector.get_hovered_index()).is_equal(1)
+	# Con zona muerta: adentro no hay nada marcado, y confirmar no elige.
+	selector.dead_zone = 40.0
+	selector.point_at(CENTER + Vector2(30.0, 0.0))
+	assert_bool(selector.has_selection()).is_false()
+	selector.point_at(CENTER + Vector2(50.0, 0.0))
+	assert_int(selector.get_hovered_index()).is_equal(1)

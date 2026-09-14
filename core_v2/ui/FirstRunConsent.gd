@@ -33,7 +33,6 @@ onready var _decline_button: Button = find_node("DeclineButton")
 # completo no compita visualmente con la decision que si hay que tomar.
 onready var _privacy_link: BaseButton = find_node("PrivacyLinkButton")
 onready var _progress: ProgressBar = find_node("Progress")
-onready var _progress_label: Label = find_node("ProgressLabel")
 onready var _choice_box: Control = find_node("ChoiceBox")
 
 var _progress_01 := 0.0
@@ -101,9 +100,8 @@ func _announce_ready() -> void:
 	# La barra y su rotulo desaparecen en vez de anunciar "Listo": ya no hay nada que
 	# esperar, y dejarlos ahi compite con la pregunta, que es lo unico que queda por
 	# hacer en la pantalla.
-	_progress.visible = false
-	if _progress_label:
-		_progress_label.visible = false
+	# El contenedor entero: vacio pero visible, el Foot le seguiria reservando la separacion.
+	_progress.get_parent().visible = false
 	_choice_box.visible = true
 	# Los botones aparecen inertes y se arman medio segundo despues. Medido en el
 	# Redmi: sin esta ventana, la decision se registraba sola en el mismo instante en

@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 const HUDableComponentScript = preload("res://core_v2/components/HUDableComponent.gd")
 const SuitOSWidgetHostScript = preload("res://core_v2/ui/hud/SuitOSWidgetHost.gd")
 const HoloTerminalWidgetScript = preload("res://core_v2/ui/hud/HoloTerminalWidget.gd")
+const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
 
 var _widget_host: Node = null
 var _overlay_mgr = null
@@ -41,21 +42,22 @@ func test_widget_changed_mounts_and_unmounts_overlay() -> void:
 	add_child(dummy_screen)
 
 	SuitOS.register_screen(dummy_screen)
-	SuitOS.set_context({"player_position": [0, 0, 0]})
+	SuitOS.pin_to_slot(0, "test:dummy_screen")
 
 	var slot_hud = _widget_host.get_widget_root()
 	assert_object(slot_hud).is_not_null()
 
-	var overlay_node = slot_hud.get_node_or_null("SuitOS_Widget_slot_a")
+	var overlay_node = slot_hud.get_node_or_null("SuitOS_Widget_slot_1")
 	assert_object(overlay_node).is_not_null()
 	assert_bool(overlay_node is Label).is_true()
 	assert_str((overlay_node as Label).text).contains("Dummy Screen Title")
 
-	# Unregister -> empty snapshot -> remove_overlay
+	# Vaciar el slot -> empty snapshot -> remove_overlay (desregistrar lo dejaria offline, fijado)
+	SuitOS.clear_slot(0)
 	SuitOS.unregister_screen(dummy_screen)
 	yield(get_tree(), "idle_frame")
 
-	var freed_node = slot_hud.get_node_or_null("SuitOS_Widget_slot_a")
+	var freed_node = slot_hud.get_node_or_null("SuitOS_Widget_slot_1")
 	assert_bool(freed_node == null or freed_node.is_queued_for_deletion()).is_true()
 
 func test_hanging_display_registration_and_slot_flow() -> void:
@@ -73,59 +75,126 @@ func test_hanging_display_registration_and_slot_flow() -> void:
 	var screen_id: String = hudable_comp.screen_id()
 	assert_bool(SuitOS.has_screen(screen_id)).is_true()
 
-	# Move context close to HangingDisplay so Slot A picks it
-	SuitOS.set_context({"player_position": [1.0, 2.0, 3.0]})
+	SuitOS.pin_to_slot(0, screen_id)
 
-	var slot_a_snap: Dictionary = SuitOS.get_slot_snapshot("slot_a")
-	assert_str(String(slot_a_snap.get("id", ""))).is_equal(screen_id)
+	var slot_1_snap: Dictionary = SuitOS.get_slot_snapshot("slot_1")
+	assert_str(String(slot_1_snap.get("id", ""))).is_equal(screen_id)
 
 	var slot_hud = _widget_host.get_widget_root()
-	var widget_a = slot_hud.get_node_or_null("SuitOS_Widget_slot_a")
+	var widget_a = slot_hud.get_node_or_null("SuitOS_Widget_slot_1")
 	assert_object(widget_a).is_not_null()
 	assert_object(widget_a.get_script()).is_equal(HoloTerminalWidgetScript)
 
-	# Pin to Slot B
-	SuitOS.pin_screen(screen_id)
-	var slot_b_snap: Dictionary = SuitOS.get_slot_snapshot("slot_b")
-	assert_str(String(slot_b_snap.get("id", ""))).is_equal(screen_id)
+	# Pin to slot 3
+	SuitOS.pin_to_slot(2, screen_id)
+	var slot_3_snap: Dictionary = SuitOS.get_slot_snapshot("slot_3")
+	assert_str(String(slot_3_snap.get("id", ""))).is_equal(screen_id)
 
-	var widget_b = slot_hud.get_node_or_null("SuitOS_Widget_slot_b")
-	assert_object(widget_b).is_not_null()
-	assert_object(widget_b.get_script()).is_equal(HoloTerminalWidgetScript)
+	var widget_3 = slot_hud.get_node_or_null("SuitOS_Widget_slot_3")
+	assert_object(widget_3).is_not_null()
+	assert_object(widget_3.get_script()).is_equal(HoloTerminalWidgetScript)
 
-	SuitOS.unpin_screen()
+	SuitOS.clear_slots()
 
-# Slot A y Slot B tienen filas fijas en la misma esquina: no se pisan, y B no se mueve si A
-# queda vacio (el layout no depende de cuantos slots haya).
-func test_slots_stack_in_fixed_rows_without_overlap() -> void:
-	var auto_screen = auto_free(HUDableComponentScript.new())
-	auto_screen.hud_screen_id = "test:auto"
-	auto_screen.default_relevance = 0.9
-	auto_screen.hud_widget_scene = preload("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
-	add_child(auto_screen)
-	var pinned_screen = auto_free(HUDableComponentScript.new())
-	pinned_screen.hud_screen_id = "test:pinned"
-	pinned_screen.hud_widget_scene = preload("res://core_v2/ui/hud/SystemStatusWidget.tscn")
-	add_child(pinned_screen)
+# Cada slot tiene su lugar fijo: 1 y 2 a la izquierda, 3 y 4 a la derecha. No se pisan, y un
+# slot no se mueve si otro queda vacio.
+func test_slots_sit_in_fixed_places_without_overlap() -> void:
+	var widgets := {}
+	var screens := []
+	for i in range(4):
+		var screen = auto_free(HUDableComponentScript.new())
+		screen.hud_screen_id = "test:s%d" % i
+		screen.hud_widget_scene = preload("res://core_v2/ui/hud/SystemStatusWidget.tscn")
+		add_child(screen)
+		screens.append(screen)
+		SuitOS.pin_to_slot(i, screen.hud_screen_id)
 	SuitOS.set_context({})
-	SuitOS.pin_screen("test:pinned")
 
 	var slot_hud = _widget_host.get_widget_root()
-	var widget_a: Control = slot_hud.get_node("SuitOS_Widget_slot_a")
-	var widget_b: Control = slot_hud.get_node("SuitOS_Widget_slot_b")
-	var rect_a := Rect2(widget_a.rect_position, widget_a.rect_size * widget_a.rect_scale)
-	var rect_b := Rect2(widget_b.rect_position, widget_b.rect_size * widget_b.rect_scale)
-	assert_bool(rect_a.intersects(rect_b)).override_failure_message("A %s pisa a B %s" % [rect_a, rect_b]).is_false()
-	assert_float(widget_a.rect_position.x).is_equal(widget_b.rect_position.x)
-	assert_bool(rect_b.position.y > rect_a.position.y).is_true()
+	var rects := []
+	for i in range(4):
+		var widget: Control = slot_hud.get_node("SuitOS_Widget_slot_%d" % (i + 1))
+		widgets[i] = widget
+		rects.append(Rect2(widget.rect_position, widget.rect_size * widget.rect_scale))
+	for i in range(4):
+		for j in range(i + 1, 4):
+			assert_bool(rects[i].intersects(rects[j])) \
+				.override_failure_message("%d %s pisa a %d %s" % [i + 1, rects[i], j + 1, rects[j]]).is_false()
+	var width: float = _widget_host.get_viewport().get_visible_rect().size.x
+	# 1 y 2 a la izquierda, uno sobre otro; 3 y 4 a la derecha, uno sobre otro.
+	assert_float(rects[0].position.x).is_equal(rects[1].position.x)
+	assert_float(rects[2].position.x).is_equal(rects[3].position.x)
+	assert_bool(rects[0].position.x < width * 0.5).is_true()
+	assert_bool(rects[2].position.x > width * 0.5).is_true()
+	assert_bool(rects[1].position.y > rects[0].position.y).is_true()
+	assert_float(rects[2].position.y).is_equal(rects[0].position.y)
 
-	var b_position: Vector2 = widget_b.rect_position
-	SuitOS.unregister_screen(auto_screen) # Slot A vacio
+	var position_4: Vector2 = widgets[3].rect_position
+	SuitOS.clear_slot(2)
 	yield(await_idle_frame(), "completed")
-	assert_vector2(slot_hud.get_node("SuitOS_Widget_slot_b").rect_position).is_equal(b_position)
+	assert_vector2(slot_hud.get_node("SuitOS_Widget_slot_4").rect_position).is_equal(position_4)
 
-	SuitOS.unpin_screen()
-	SuitOS.unregister_screen(pinned_screen)
+	SuitOS.clear_slots()
+	for screen in screens:
+		SuitOS.unregister_screen(screen)
+
+
+func test_widgets_are_opaque_and_hide_with_the_idle_touch_controls() -> void:
+	var screen = auto_free(HUDableComponentScript.new())
+	screen.hud_screen_id = "test:opaque"
+	add_child(screen)
+	SuitOS.pin_to_slot(0, "test:opaque")
+	var widget: CanvasItem = _widget_host.get_widget_root().get_node("SuitOS_Widget_slot_1")
+	assert_float(widget.modulate.a).is_equal(1.0)
+
+	var was_mobile: bool = MobileUIManager._is_mobile
+	var was_active: bool = MobileUIManager._is_touch_active
+	MobileUIManager._is_mobile = true
+	MobileUIManager._is_touch_active = true
+	MobileUIManager.emit_signal("touch_active_changed", true)
+	assert_bool(widget.visible).is_true()
+	# Inactividad en el telefono: se van con los controles tactiles...
+	MobileUIManager._deactivate_touch()
+	assert_bool(widget.visible).is_false()
+	assert_bool(_widget_host.get_widget_root().get_node("SuitOS_Placeholder_slot_2").visible).is_false()
+	# ...y vuelven con el proximo toque.
+	MobileUIManager._is_touch_active = true
+	MobileUIManager.emit_signal("touch_active_changed", true)
+	assert_bool(widget.visible).is_true()
+
+	MobileUIManager._is_mobile = was_mobile
+	MobileUIManager._is_touch_active = was_active
+	MobileUIManager.emit_signal("touch_active_changed", was_active)
+	SuitOS.clear_slots()
+	SuitOS.unregister_screen(screen)
+
+
+func _pointer(pressed: bool, at: Vector2) -> InputEventScreenTouch:
+	var ev := InputEventScreenTouch.new()
+	ev.pressed = pressed
+	ev.position = at
+	return ev
+
+
+func _swipe(slot: String, from: Vector2, to: Vector2) -> void:
+	var widget: Control = auto_free(Control.new())
+	_widget_host._input(_pointer(true, from))
+	_widget_host._on_widget_gui_input(_pointer(true, from), widget, slot)
+	_widget_host._input(_pointer(false, to))
+	_widget_host._on_widget_gui_input(_pointer(false, to), widget, slot)
+
+
+func test_outward_swipe_empties_the_slot_and_inward_does_not() -> void:
+	SuitOS.pin_to_slot(0, "test:left")
+	SuitOS.pin_to_slot(3, "test:right")
+	# Hacia adentro (el 1 hacia la derecha): no vacia. Sin pantallas registradas tampoco abre nada.
+	_swipe("slot_1", Vector2(100, 50), Vector2(200, 50))
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["test:left", "", "", "test:right"])
+	# Hacia afuera: el 1 a la izquierda, el 4 a la derecha.
+	_swipe("slot_1", Vector2(100, 50), Vector2(10, 55))
+	_swipe("slot_4", Vector2(500, 50), Vector2(600, 45))
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", ""])
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 
 
 func test_widget_buttons_stay_pressable_and_their_touch_does_not_open_hud_mode():
@@ -134,7 +203,7 @@ func test_widget_buttons_stay_pressable_and_their_touch_does_not_open_hud_mode()
 	var host = SuitOS.get_node("SuitOSWidgetHost")
 	var widget: Control = auto_free(load("res://core_v2/ui/hud/FlashlightWidget.tscn").instance())
 	add_child(widget)
-	host._make_tappable(widget, "slot_b")
+	host._make_tappable(widget, "slot_2")
 	var toggle: Control = widget.get_node("Margin/VBox/StatusRow/ToggleButton")
 	assert_int(toggle.mouse_filter).is_not_equal(Control.MOUSE_FILTER_IGNORE)
 	assert_int(widget.get_node("Margin/VBox/StatusRow/StatusLabel").mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
@@ -146,33 +215,38 @@ func test_widget_buttons_stay_pressable_and_their_touch_does_not_open_hud_mode()
 	touch.position = on_button
 	touch.pressed = true
 	host._input(touch)
-	host._on_widget_gui_input(touch, widget, "slot_b")
+	host._on_widget_gui_input(touch, widget, "slot_2")
 	touch = touch.duplicate()
 	touch.pressed = false
-	host._on_widget_gui_input(touch, widget, "slot_b")
+	host._on_widget_gui_input(touch, widget, "slot_2")
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 
 
 
-func test_widgets_stick_to_the_left_edge_at_any_render_scale() -> void:
+func test_widgets_stick_to_their_edge_at_any_render_scale() -> void:
 	# En el celular la margen que reserva la UI tactil (borde derecho del joystick) empujaba el
-	# widget a media pantalla. Va pegado al borde, con el padding en unidades nominales (x k).
+	# widget a media pantalla. Va pegado a su borde, con el padding en unidades nominales (x k).
 	# Se prueba _place sobre un widget propio: en este archivo conviven el host de SuitOS y el de
 	# before_test, que se pisan el overlay montado por widget_changed.
 	MobileUIManager._spawn_mobile_ui()
 	MobileUIManager._mobile_ui.visible = true
 	var widget := Label.new()
+	widget.text = "widget"
 	_widget_host.get_widget_root().add_child(widget)
 
 	var before_scale: float = SettingsManager.render_scale
 	for k in [1.0, 0.6]:
 		SettingsManager.render_scale = k
-		_widget_host._place(widget, "slot_b")
-		var inset: Vector2 = _widget_host._screen_cutout_inset()
-		assert_float(widget.rect_position.x).is_equal_approx(inset.x + _widget_host.SLOT_PADDING * k, 0.01)
-		assert_float(widget.rect_position.y).is_equal_approx(inset.y
-			+ (_widget_host.SLOT_PADDING + _widget_host.SLOT_ROW_HEIGHT + _widget_host.SLOT_GAP) * k, 0.01)
+		var safe: Rect2 = _widget_host._safe_rect()
+		_widget_host._place(widget, "slot_2")
+		assert_float(widget.rect_position.x).is_equal_approx(safe.position.x + HudSlots.SLOT_PADDING * k, 0.01)
+		assert_float(widget.rect_position.y).is_equal_approx(safe.position.y
+			+ (HudSlots.SLOT_PADDING + HudSlots.SLOT_ROW_HEIGHT + HudSlots.SLOT_GAP) * k, 0.01)
 		assert_float(widget.rect_scale.x).is_less_equal(k + 0.001)
+		_widget_host._place(widget, "slot_3")
+		var right_edge: float = widget.rect_position.x + widget.rect_size.x * widget.rect_scale.x
+		assert_float(right_edge).is_equal_approx(safe.end.x - HudSlots.SLOT_PADDING * k, 0.01)
+		assert_float(widget.rect_position.y).is_equal_approx(safe.position.y + HudSlots.SLOT_PADDING * k, 0.01)
 
 	SettingsManager.render_scale = before_scale
 	MobileUIManager._mobile_ui.visible = false
@@ -190,3 +264,180 @@ func test_widgets_draw_below_the_touch_controls_the_pause_menu_and_the_hud_mode(
 	assert_int(layer.layer).is_less(50)
 	assert_int(layer.layer).is_less(_overlay_mgr.layer)
 	touch_ui.free()
+
+
+func test_empty_slots_show_only_in_hud_mode_or_while_dragging() -> void:
+	var root = _widget_host.get_widget_root()
+	for id in SuitOS.get_registered_screens():
+		SuitOS.unregister_screen(id)
+	SuitOS.clear_slots()
+	var placeholder: Control = root.get_node("SuitOS_Placeholder_slot_3")
+	var screen = auto_free(HUDableComponentScript.new())
+	screen.hud_screen_id = "test:pinned"
+	add_child(screen)
+	# Jugando: los vacios no se ven.
+	assert_bool(placeholder.visible).is_false()
+	# Arrastrando: se ven como destino.
+	_widget_host.show_drop_targets(true, -1)
+	assert_bool(placeholder.visible).is_true()
+	_widget_host.show_drop_targets(false)
+	assert_bool(placeholder.visible).is_false()
+	# En el modo HUD (solo el dial): se ven, del lado de su slot y sin texto.
+	SuitOS._hud_mode_active = true
+	_widget_host.refresh_visibility()
+	assert_bool(placeholder.visible).is_true()
+	assert_bool(placeholder.rect_position.x > _widget_host.get_viewport().get_visible_rect().size.x * 0.5).is_true()
+	assert_int(placeholder.get_child_count()).is_equal(0)
+	# Con un widget en el slot el contorno se oculta.
+	SuitOS.pin_to_slot(2, "test:pinned")
+	assert_bool(placeholder.visible).is_false()
+	SuitOS._hud_mode_active = false
+	SuitOS.clear_slots()
+	_widget_host.refresh_visibility()
+	assert_bool(placeholder.visible).is_false()
+	SuitOS.unregister_screen(screen)
+
+func test_a_right_slot_widget_that_grows_stays_against_its_edge() -> void:
+	var widget := Label.new()
+	widget.text = "corto"
+	_widget_host.get_widget_root().add_child(widget)
+	_widget_host._place(widget, "slot_4")
+	var safe: Rect2 = _widget_host._safe_rect()
+	var edge := func_right_edge(widget)
+	widget.text = "un texto bastante mas largo que el anterior"
+	yield(await_idle_frame(), "completed")
+	yield(await_idle_frame(), "completed")
+	assert_float(func_right_edge(widget)).is_equal_approx(edge, 0.5)
+	assert_float(func_right_edge(widget)).is_less_equal(safe.end.x)
+	widget.free()
+
+
+func func_right_edge(control: Control) -> float:
+	return control.rect_position.x + control.rect_size.x * control.rect_scale.x
+
+
+func _drag_widget(widget: Control, slot: String, to: Vector2) -> void:
+	var from: Vector2 = widget.get_global_rect().position + Vector2(10, 10)
+	_widget_host._input(_pointer(true, from))
+	_widget_host._on_widget_gui_input(_pointer(true, from), widget, slot)
+	_widget_host._press_msec = OS.get_ticks_msec() - 500 # pasado el hold
+	var drag := InputEventScreenDrag.new()
+	drag.position = to
+	_widget_host._input(drag)
+	assert_bool(_widget_host._dragging).is_true()
+	# Mientras se arrastra, el slot de abajo se ve como destino.
+	var target: int = _widget_host.slot_at(to)
+	if target >= 0:
+		assert_bool(_widget_host.get_widget_root().get_node("SuitOS_Placeholder_slot_%d" % (target + 1)).visible).is_true()
+	_widget_host._input(_pointer(false, to))
+	_widget_host._on_widget_gui_input(_pointer(false, to), widget, slot)
+	assert_bool(_widget_host._dragging).is_false()
+
+
+func test_dragging_a_widget_onto_another_slot_swaps_them_and_elsewhere_returns_it() -> void:
+	var screens := []
+	for id in ["test:a", "test:b"]:
+		var screen = auto_free(HUDableComponentScript.new())
+		screen.hud_screen_id = id
+		add_child(screen)
+		screens.append(screen)
+	SuitOS.pin_to_slot(0, "test:a")
+	SuitOS.pin_to_slot(2, "test:b")
+	var root = _widget_host.get_widget_root()
+	var widget: Control = root.get_node("SuitOS_Widget_slot_1")
+	assert_bool(widget.is_in_group("touch_control")).is_true() # la camara no toma ese toque
+
+	# Al medio de la pantalla (ningun slot): vuelve a su lugar, nada cambia.
+	var home: Vector2 = widget.rect_position
+	_drag_widget(widget, "slot_1", _widget_host.get_viewport().get_visible_rect().size * 0.5)
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["test:a", "", "test:b", ""])
+	assert_vector2(widget.rect_position).is_equal(home)
+
+	# Sobre el slot 3: intercambian.
+	var slot_3: Rect2 = _widget_host.slot_rect(2)
+	_drag_widget(widget, "slot_1", slot_3.position + slot_3.size * 0.5)
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["test:b", "", "test:a", ""])
+	SuitOS.clear_slots()
+	for screen in screens:
+		SuitOS.unregister_screen(screen)
+
+
+func test_dropping_a_dragged_widget_on_the_recycle_zone_removes_it() -> void:
+	var screen = auto_free(HUDableComponentScript.new())
+	screen.hud_screen_id = "test:a"
+	add_child(screen)
+	SuitOS.pin_to_slot(2, "test:a")
+	var widget: Control = _widget_host.get_widget_root().get_node("SuitOS_Widget_slot_3")
+	var recycle: Rect2 = _widget_host.recycle_rect()
+	var from: Vector2 = widget.get_global_rect().position + Vector2(10, 10)
+	_widget_host._input(_pointer(true, from))
+	_widget_host._on_widget_gui_input(_pointer(true, from), widget, "slot_3")
+	_widget_host._press_msec = OS.get_ticks_msec() - 500
+	var drag := InputEventScreenDrag.new()
+	drag.position = recycle.position + recycle.size * 0.5
+	_widget_host._input(drag)
+	# Aparece solo mientras se arrastra, y se enciende con el dedo encima.
+	assert_bool(_widget_host._recycle.visible).is_true()
+	assert_bool(_widget_host._recycle_hot).is_true()
+	_widget_host._input(_pointer(false, drag.position))
+	_widget_host._on_widget_gui_input(_pointer(false, drag.position), widget, "slot_3")
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", ""])
+	assert_bool(_widget_host._recycle.visible).is_false()
+	# Ningun slot se llena solo con lo que se quito.
+	for i in range(4):
+		assert_str(SuitOS.slot_screen_id(i)).is_empty()
+	SuitOS.unregister_screen(screen)
+
+
+func test_a_dragged_widget_is_not_snapped_back_while_its_data_changes() -> void:
+	var screen = auto_free(HUDableComponentScript.new())
+	screen.hud_screen_id = "test:a"
+	add_child(screen)
+	SuitOS.pin_to_slot(0, "test:a")
+	var widget: Control = _widget_host.get_widget_root().get_node("SuitOS_Widget_slot_1")
+	var from: Vector2 = widget.get_global_rect().position + Vector2(10, 10)
+	_widget_host._input(_pointer(true, from))
+	_widget_host._on_widget_gui_input(_pointer(true, from), widget, "slot_1")
+	_widget_host._press_msec = OS.get_ticks_msec() - 500
+	var drag := InputEventScreenDrag.new()
+	drag.position = from + Vector2(200, 150)
+	_widget_host._input(drag)
+	var held: Vector2 = widget.rect_position
+	# Llega un snapshot que lo redimensiona y hay un relayout: sigue donde esta el dedo.
+	widget.emit_signal("resized")
+	yield(await_idle_frame(), "completed")
+	_widget_host._relayout()
+	assert_vector2(widget.rect_position).is_equal(held)
+	# El reciclaje va arriba, lejos de la mano.
+	assert_bool(_widget_host.recycle_rect().position.y < _widget_host.get_viewport().get_visible_rect().size.y * 0.5).is_true()
+	_widget_host._input(_pointer(false, from))
+	_widget_host._on_widget_gui_input(_pointer(false, from), widget, "slot_1")
+	SuitOS.clear_slots()
+	SuitOS.unregister_screen(screen)
+
+
+
+class FakeZoomPlayer extends KinematicBody:
+	var base_spring_length_3d := 4.0
+	var _cinematic_zoom_target_fov := -1.0
+
+
+func test_zoom_ruler_shows_only_while_zooming_and_spreads_when_zooming_in() -> void:
+	var ruler = SuitOS.get_node("SuitOSWidgetHost").get_widget_root().get_node("ZoomRuler")
+	var player = auto_free(FakeZoomPlayer.new())
+	add_child(player)
+	var previous = SessionManager.player
+	SessionManager.player = player
+	ruler._process(0.016)
+	# Quieto: no se ve (tampoco al aparecer el jugador, que no es un zoom).
+	assert_bool(ruler.visible).is_false()
+	var level_far: float = ruler._level
+	player.base_spring_length_3d = 2.0 # acercar: la mitad de distancia, el doble de aumento
+	ruler._process(0.016)
+	assert_bool(ruler.visible).is_true()
+	assert_float(ruler._level - level_far).is_equal_approx(1.0, 0.001)
+	# Pasado el hold y el fundido sin cambios, se va.
+	ruler._last_change_msec = OS.get_ticks_msec() - ruler.HOLD_MSEC - ruler.FADE_MSEC - 10
+	ruler._process(0.016)
+	assert_bool(ruler.visible).is_false()
+	SessionManager.player = previous

@@ -33,6 +33,8 @@ var analog_move_active := false
 # TAB del modo HUD (FD-296), sostenido. Viaja en el stream para que el tap/hold (umbral 0.4 s)
 # se decida contando muestras grabadas y no leyendo Input en vivo: el replay no diverge.
 var hud_mode := false
+# Tecla de slot del HUD sostenida (1..4; 0 = ninguna). Mismo motivo que hud_mode.
+var hud_slot := 0
 
 func _canonical_float(v: float) -> float:
 	# Avoid noisy JSON diffs from signed zero (-0.0 vs 0.0).
@@ -62,7 +64,8 @@ func to_dict() -> Dictionary:
 		"cargol_ability": cargol_ability,
 		"hardware_mouse_active": hardware_mouse_active,
 		"analog_move_active": analog_move_active,
-		"hud_mode": hud_mode
+		"hud_mode": hud_mode,
+		"hud_slot": hud_slot
 	}
 
 func is_equal_to(other) -> bool:
@@ -109,6 +112,8 @@ func is_equal_to(other) -> bool:
 	if analog_move_active != other.analog_move_active:
 		return false
 	if hud_mode != other.hud_mode:
+		return false
+	if hud_slot != other.hud_slot:
 		return false
 	return true
 
@@ -158,3 +163,5 @@ func from_dict(d: Dictionary) -> void:
 		analog_move_active = d["analog_move_active"]
 	if d.has("hud_mode"):
 		hud_mode = d["hud_mode"]
+	if d.has("hud_slot"):
+		hud_slot = int(d["hud_slot"])

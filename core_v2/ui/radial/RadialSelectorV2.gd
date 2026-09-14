@@ -50,6 +50,10 @@ export(float, 0, 1) var option_radius := 0.65
 # current focus simply holds. Small enough that it is not a dead spot you can
 # feel — it only exists to stop the angle jittering at the singularity.
 export(float) var hub_epsilon := 6.0
+# A real dead zone, in dial pixels: aiming inside it selects nothing, so letting go there does
+# nothing. Zero (the elevator) keeps the hub_epsilon hold instead. The HUD screen picker uses
+# one because its aim is an accumulated vector the player can pull back to the middle.
+export(float) var dead_zone := 0.0
 
 # Ring geometry, in the addon shader's units. Its circle() test compares squared
 # distance, so the drawn radius is sqrt(width) / 2 of the ring box.
@@ -65,6 +69,15 @@ export(Color) var color_bg := Color(0.02, 0.15, 0.2, 0.0)
 export(Color) var color_fg := Color(0.0, 0.83, 1.0, 0.75)
 export(Color) var option_color := Color(0.42, 0.68, 0.76, 1.0)
 export(Color) var option_color_hover := Color(1.0, 1.0, 1.0, 1.0)
+# Draw every option's own slice of the ring (fill + outline), with the aimed-at one
+# lit, instead of the addon's lone highlight wedge. Without it the labels float over
+# whatever is behind the dial, which reads fine over the elevator's shaft but not over
+# a busy scene: the HUD screen picker turns it on.
+export(bool) var draw_option_slices := false
+export(Color) var slice_fill := Color(0.0, 0.05, 0.08, 0.5)
+export(Color) var slice_fill_hover := Color(0.0, 0.55, 0.7, 0.45)
+# Angular gap between neighbouring slices, in radians.
+export(float) var slice_gap := 0.04
 # The needle reads as state, not as choice, so it stays off the selection cyan.
 export(Color) var indicator_color := Color(0.607843, 0.992157, 0.580392, 0.9)
 # The needle only means something where there is a state to read (the elevator car's
@@ -94,6 +107,7 @@ var _focus_suppressed := false
 var _indicator: Polygon2D = null
 var _indicator_layer: Control = null
 var _readout_layer: Control = null
+var _slice_layer: Control = null
 var _readout_tween: Tween = null
 var _level := 0.0
 
@@ -109,6 +123,7 @@ func _ready() -> void:
 	_readout_tween.name = "ReadoutTween"
 	add_child(_readout_tween)
 	_build_radial()
+	_build_slice_layer()
 	_build_indicator()
 	_build_readout_label()
 	visible = false
@@ -252,6 +267,10 @@ func has_selection() -> bool:
 	return _hover_index != NONE
 
 
+func option_text(index: int) -> String:
+	return _buttons[index].text if index >= 0 and index < _buttons.size() else ""
+
+
 func get_hovered_index() -> int:
 	return _hover_index
 
@@ -262,6 +281,27 @@ func option_at(viewport_position: Vector2) -> int:
 	commit a choice."""
 	for i in range(_buttons.size()):
 		if _buttons[i].get_global_rect().has_point(viewport_position):
+			return i
+	return NONE
+
+
+func slice_at(viewport_position: Vector2) -> int:
+	"""The option under a direct pointer (a tap), in viewport coordinates: its label, or its
+	slice of the ring band. NONE anywhere else — past the ring, in its hole, or in the
+	part of the circle no slice covers — which is where a tap means dismiss, not pick."""
+	if not _is_open or _option_count <= 0:
+		return NONE
+	var label := option_at(viewport_position)
+	if label != NONE:
+		return label
+	var offset := viewport_position - get_global_rect().position - rect_size / 2.0
+	var ring := _ring_size()
+	var distance := offset.length()
+	if distance < sqrt(width_min) / 2.0 * ring or distance > sqrt(width_max) / 2.0 * ring:
+		return NONE
+	var heading := atan2(offset.y, offset.x)
+	for i in range(_option_count):
+		if abs(wrapf(heading - _index_to_screen_angle(i), -PI, PI)) <= _step() / 2.0:
 			return i
 	return NONE
 
@@ -309,7 +349,10 @@ func _index_at(position: Vector2) -> int:
 	# in is a heading. Anything else meant sweeping past a stop and getting
 	# nothing, which reads as the dial being broken rather than strict.
 	var offset := position - rect_size / 2.0
-	if offset.length() < hub_epsilon:
+	if dead_zone > 0.0:
+		if offset.length() < dead_zone:
+			return NONE
+	elif offset.length() < hub_epsilon:
 		return _hover_index # No usable heading at the singularity; hold.
 
 	var travelled: float = wrapf(FIRST_OPTION_ANGLE - atan2(offset.y, offset.x), 0.0, TAU)
@@ -433,9 +476,9 @@ func _set_arc(index: int) -> void:
 	var background = _radial.get_node_or_null("RadialMenu/Background") if _radial else null
 	if background == null or not (background.material is ShaderMaterial):
 		return
-	if index == NONE:
+	if index == NONE or draw_option_slices:
 		# The shader always paints an arc somewhere, so a zero width is the only
-		# way to say "nothing is selected".
+		# way to say "nothing is selected". With slices drawn, they carry the highlight.
 		background.material.set_shader_param("cursor_size", 0.0)
 		return
 	# The shader reads cursor_size as a half-width, so capping it at half a step
@@ -464,6 +507,57 @@ func _clear_options() -> void:
 
 func _on_resized() -> void:
 	_place_options()
+	if _slice_layer:
+		_slice_layer.update()
+
+
+# --- Option slices ---
+
+# Between the ring and the labels: the slices sit under the text they belong to.
+func _build_slice_layer() -> void:
+	if _slice_layer != null or _option_layer == null:
+		return
+	_slice_layer = Control.new()
+	_slice_layer.name = "Slices"
+	_slice_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_slice_layer)
+	move_child(_slice_layer, _option_layer.get_index())
+	_slice_layer.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	_slice_layer.connect("draw", self, "_draw_slices")
+
+
+# Each option owns the sector between the headings halfway to its neighbours, which is
+# exactly what _index_at hands it; the band is the addon ring's own (same sqrt as the needle).
+func _draw_slices() -> void:
+	if not draw_option_slices or _option_count <= 0:
+		return
+	var ring := _ring_size()
+	var inner: float = sqrt(width_min) / 2.0 * ring
+	var outer: float = sqrt(width_max) / 2.0 * ring
+	var center := rect_size / 2.0
+	var half: float = _step() / 2.0 - slice_gap / 2.0
+	for i in range(_option_count):
+		var angle := _index_to_screen_angle(i)
+		var hovered: bool = i == _hover_index
+		var points := _annular_sector(center, inner, outer, angle - half, angle + half)
+		_slice_layer.draw_colored_polygon(points, slice_fill_hover if hovered else slice_fill)
+		var outline := Color(color_fg.r, color_fg.g, color_fg.b, 0.9) if hovered \
+			else Color(option_color.r, option_color.g, option_color.b, 0.45)
+		var closed := PoolVector2Array(points)
+		closed.append(points[0])
+		_slice_layer.draw_polyline(closed, outline, 2.0 if hovered else 1.0, true)
+
+
+func _annular_sector(center: Vector2, inner: float, outer: float, from: float, to: float) -> PoolVector2Array:
+	var segments: int = int(max(6.0, ceil((to - from) / 0.06)))
+	var points := PoolVector2Array()
+	for k in range(segments + 1):
+		var a: float = lerp(from, to, float(k) / segments)
+		points.append(center + Vector2(cos(a), sin(a)) * outer)
+	for k in range(segments, -1, -1):
+		var a: float = lerp(from, to, float(k) / segments)
+		points.append(center + Vector2(cos(a), sin(a)) * inner)
+	return points
 
 
 func _place_options() -> void:
@@ -513,5 +607,7 @@ func _apply_hover(index: int, silent: bool) -> void:
 		_buttons[i].add_color_override("font_color", option_color_hover if is_hovered else option_color)
 		_buttons[i].rect_scale = Vector2(1.15, 1.15) if is_hovered else Vector2.ONE
 		_buttons[i].rect_pivot_offset = option_size / 2.0
+	if _slice_layer:
+		_slice_layer.update()
 	if changed and not silent:
 		emit_signal("option_hovered", index)

@@ -81,13 +81,14 @@ func _input(event):
 		get_tree().set_input_as_handled()
 		return
 
-	# Teclas directas [1-9] y SHIFT+[1-9] para slots
+	# Teclas directas [5-9] y CTRL+[5-9] para slots de checkpoint. 1-4 son de los slots del HUD
+	# (hud_slot_N), y la accion coincide aunque haya modificadores: tampoco se guarda con CTRL+1-4.
 	if event is InputEventKey and not event.echo:
 		var key_num = -1
 		# Godot keycodes: KEY_1 = 49 ... KEY_9 = 57
-		if event.scancode >= KEY_1 and event.scancode <= KEY_9:
+		if event.scancode >= KEY_5 and event.scancode <= KEY_9:
 			key_num = event.scancode - KEY_0 # 1..9
-		if key_num >= 1 and key_num <= 9:
+		if key_num >= 5 and key_num <= 9:
 			var is_save_shortcut = event.control or event.command
 			var has_other_modifiers = event.shift or event.alt or event.meta
 			if has_other_modifiers and not is_save_shortcut:
@@ -147,7 +148,7 @@ func _event_may_trigger_shortcut(event: InputEvent) -> bool:
 	var key := event as InputEventKey
 	if key.echo or not key.pressed:
 		return false
-	return key.scancode >= KEY_1 and key.scancode <= KEY_9
+	return key.scancode >= KEY_5 and key.scancode <= KEY_9
 
 func _is_ui_focus_active() -> bool:
 	var root = get_tree().root
