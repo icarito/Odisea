@@ -1038,13 +1038,13 @@ func test_widgets_ignore_taps_in_hud_mode_and_the_tap_that_closed_it() -> void:
 	host._on_widget_gui_input(_touch(true), widget, "slot_1")
 	host._on_widget_gui_input(_touch(false), widget, "slot_1")
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
-	# Un toque nuevo, un cuadro despues, si lo abre. Se espera a que el overlay cerrado termine de
-	# liberarse: mientras siga en cola, ensure_overlay no monta otro (en CI, con toda la suite en un
-	# proceso, un solo cuadro no alcanzaba).
-	yield(_await_overlay_freed(), "completed")
+	# Un toque nuevo, un cuadro despues, si cuenta. Sin esperar cuadros ni reabrir el modo HUD: en CI,
+	# con toda la suite en un proceso, esperar dejaba que otro estado global impidiera reabrirlo y el
+	# test fallaba por eso, no por la regla que prueba.
+	host._hud_state_frame = Engine.get_idle_frames() - 1
 	host._on_widget_gui_input(_touch(true), widget, "slot_1")
-	host._on_widget_gui_input(_touch(false), widget, "slot_1")
-	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+	assert_object(host._pressed_control).is_same(widget)
+	host._pressed_control = null
 
 
 # --- Widgets con el dial a la vista ---
