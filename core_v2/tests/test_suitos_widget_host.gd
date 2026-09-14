@@ -178,12 +178,13 @@ func _pointer(pressed: bool, at: Vector2) -> InputEventScreenTouch:
 	return ev
 
 
-func _swipe(slot: String, from: Vector2, to: Vector2) -> void:
+func _swipe(slot: String, from: Vector2, to: Vector2) -> Control:
 	var widget: Control = auto_free(Control.new())
 	_widget_host._input(_pointer(true, from))
 	_widget_host._on_widget_gui_input(_pointer(true, from), widget, slot)
 	_widget_host._input(_pointer(false, to))
 	_widget_host._on_widget_gui_input(_pointer(false, to), widget, slot)
+	return widget
 
 
 func test_outward_swipe_empties_the_slot_and_inward_does_not() -> void:
@@ -193,8 +194,17 @@ func test_outward_swipe_empties_the_slot_and_inward_does_not() -> void:
 	_swipe("slot_1", Vector2(100, 50), Vector2(200, 50))
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["test:left", "", "", "test:right"])
 	# Hacia afuera: el 1 a la izquierda, el 4 a la derecha.
-	_swipe("slot_1", Vector2(100, 50), Vector2(10, 55))
-	_swipe("slot_4", Vector2(500, 50), Vector2(600, 45))
+	var left := _swipe("slot_1", Vector2(100, 50), Vector2(10, 55))
+	assert_bool(_widget_host._exiting_controls.has(left)).is_true()
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["test:left", "", "", "test:right"])
+	yield(await_millis(int(_widget_host.SWIPE_EXIT_DURATION * 500.0)), "completed")
+	assert_float(left.rect_position.x).is_less(0.0)
+	assert_float(left.modulate.a).is_less(1.0)
+	yield(await_millis(int(_widget_host.SWIPE_EXIT_DURATION * 500.0) + 50), "completed")
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", "test:right"])
+	var right := _swipe("slot_4", Vector2(500, 50), Vector2(600, 45))
+	assert_bool(_widget_host._exiting_controls.has(right)).is_true()
+	yield(await_millis(int(_widget_host.SWIPE_EXIT_DURATION * 1000.0) + 50), "completed")
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", ""])
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 

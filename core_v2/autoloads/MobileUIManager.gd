@@ -63,16 +63,7 @@ func _input(event: InputEvent) -> void:
 		_touch_idle_timer = 0.0
 		_touch_pointer_until = OS.get_ticks_msec() + TOUCH_POINTER_GRACE_MSEC
 		if not _is_touch_active:
-			# _is_mobile queda intacto: es "la plataforma es Android/iOS", no "hay touch
-			# ahora". Un touch en desktop (notebook con pantalla tactil) solo prende
-			# _is_touch_active, asi que decae solo con el idle-timeout en _process() sin
-			# dejar al jugador pegado en modo movil el resto de la sesion.
-			_is_touch_active = true
-			emit_signal("touch_active_changed", true)
-			if not is_instance_valid(_mobile_ui):
-				_spawn_mobile_ui()
-			_notify_input_provider_touch_active(true)
-			_refresh_mobile_ui_visibility()
+			_activate_touch()
 		_suspend_mouse_capture()
 		if event is InputEventScreenTouch:
 			_track_clear_tap(event, was_touch_active)
@@ -125,6 +116,22 @@ func _deactivate_touch() -> void:
 	emit_signal("touch_active_changed", false)
 	_reset_move_joystick()
 	_notify_input_provider_touch_active(false)
+	_refresh_mobile_ui_visibility()
+
+
+func _activate_touch() -> void:
+	# _is_mobile queda intacto: es "la plataforma es Android/iOS", no "hay touch ahora".
+	# Esto tambien lo llama _process cuando joystick o botones consumieron el evento antes de
+	# que este autoload lo viera: si ya los estan usando, deben reaparecer en ese mismo frame.
+	_touch_idle_timer = 0.0
+	if _is_touch_active:
+		_refresh_mobile_ui_visibility()
+		return
+	_is_touch_active = true
+	emit_signal("touch_active_changed", true)
+	if not is_instance_valid(_mobile_ui):
+		_spawn_mobile_ui()
+	_notify_input_provider_touch_active(true)
 	_refresh_mobile_ui_visibility()
 
 
@@ -308,6 +315,8 @@ func _process(delta: float) -> void:
 		_touch_idle_timer = 0.0
 		_touch_pointer_until = OS.get_ticks_msec() + TOUCH_POINTER_GRACE_MSEC
 		_suspend_mouse_capture()
+		if not _is_touch_active:
+			_activate_touch()
 	if _is_touch_active:
 		_touch_idle_timer += delta
 		if _touch_idle_timer >= (touch_idle_timeout if _is_mobile else DESKTOP_TOUCH_IDLE_TIMEOUT):

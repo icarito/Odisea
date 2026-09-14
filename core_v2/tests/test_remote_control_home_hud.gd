@@ -178,6 +178,20 @@ func test_radial_tap_outside_closes_without_exit_dialog():
 
 	home.queue_free()
 
+func test_radial_tap_confirms_the_marked_option():
+	var home = _home_with_dial(_dial_screens())
+	var overlay = _open_dial(home)
+	# El mismo overlay sirve el HUD local y el control remoto: primero queda marcada
+	# Screen A desde el stick/mouse, despues un tap en el hueco la confirma.
+	overlay._point_at(Vector2(0.0, -overlay.AIM_RADIUS))
+	assert_int(overlay._selector.get_hovered_index()).is_equal(1)
+	var center: Vector2 = overlay._selector.get_global_rect().position + overlay._selector.rect_size * 0.5
+	overlay._input(_touch(0, center, true))
+	overlay._input(_touch(0, center, false))
+
+	assert_array(_screen_selects(home)).is_equal(["screen_a"])
+	home.queue_free()
+
 func test_radial_ui_cancel_closes_dial_not_session():
 	var home = _home_with_dial(_dial_screens())
 	var overlay = _open_dial(home)

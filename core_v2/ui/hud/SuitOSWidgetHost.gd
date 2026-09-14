@@ -17,6 +17,8 @@ const ZoomRulerScript = preload("res://core_v2/ui/hud/ZoomRuler.gd")
 const HOLD_MSEC := 400
 # Swipe hacia afuera (hacia el borde de su lado) vacia el slot. En pixeles nominales.
 const SWIPE_MIN := 48.0
+const SWIPE_EXIT_DURATION := 0.18
+const SWIPE_EXIT_DISTANCE := 96.0
 # Un slot vacio muestra un contorno del tamaño de un widget, inerte: solo es destino al arrastrar.
 const PLACEHOLDER_SIZE := Vector2(200, 72)
 # Mantener un widget (HOLD_MSEC) y mover el dedo lo levanta para soltarlo en otro slot. En pixeles
@@ -54,6 +56,7 @@ var _hud_state_frame := -1
 # Arrastre de un widget a otro slot (o de un item del radial, que maneja HudModeOverlay).
 var _dragging := false
 var _drag_origin := Vector2.ZERO
+var _exiting_controls := []
 var _drop_targets_visible := false
 var _highlighted_slot := -1
 var _recycle: Control = null
@@ -365,6 +368,8 @@ func _place(widget: Node, slot: String) -> void:
 	var index: int = HudSlots.index_of(slot)
 	if index < 0 or not is_instance_valid(widget) or not (widget is Control):
 		return
+	if _exiting_controls.has(widget):
+		return
 	# El que va en la mano no vuelve a su slot: sus datos cambian mientras se arrastra (la bateria de
 	# la linterna, cada cuadro), eso lo redimensiona, y reubicarlo lo tironeaba de vuelta.
 	if _dragging and widget == _pressed_control:
@@ -504,9 +509,31 @@ func _end_drag(control: Control, slot: String) -> void:
 		suit_os.move_slot(index, target)
 	elif suit_os != null and target < 0 \
 			and HudSlots.outward_swipe(index, _last_pointer_position - _press_position, swipe_min):
-		suit_os.clear_slot(index)
+		_animate_swipe_exit(control, index, _last_pointer_position - _press_position)
 	else:
 		_place(control, slot)
+
+func _animate_swipe_exit(control: Control, index: int, direction: Vector2) -> void:
+	_exiting_controls.append(control)
+	var tween := Tween.new()
+	tween.pause_mode = PAUSE_MODE_PROCESS
+	add_child(tween)
+	var from: Vector2 = control.rect_position
+	var distance: float = SWIPE_EXIT_DISTANCE * UIScaleCompensatorScript.scale_for(self)
+	var to: Vector2 = from + direction.normalized() * distance
+	var faded := control.modulate
+	faded.a = 0.0
+	tween.interpolate_property(control, "rect_position", from, to, SWIPE_EXIT_DURATION,
+		Tween.TRANS_QUAD, Tween.EASE_IN)
+	tween.interpolate_property(control, "modulate", control.modulate, faded, SWIPE_EXIT_DURATION,
+		Tween.TRANS_QUAD, Tween.EASE_IN)
+	tween.start()
+	yield(tween, "tween_all_completed")
+	_exiting_controls.erase(control)
+	var suit_os: Node = _backend()
+	if is_instance_valid(suit_os):
+		suit_os.clear_slot(index)
+	tween.queue_free()
 
 # No cuenta el resto del toque que abrio o cerro el modo HUD. Con el dial a la vista los widgets si
 # se tocan y se arrastran; con una pantalla abierta estan ocultos.
@@ -590,7 +617,7 @@ func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> 
 	var screen_id: String = String(_active_screen_ids.get(slot, ""))
 	var swipe_min: float = SWIPE_MIN * UIScaleCompensatorScript.scale_for(self)
 	if HudSlots.outward_swipe(index, _last_pointer_position - _press_position, swipe_min):
-		suit_os.clear_slot(index)
+		_animate_swipe_exit(control, index, _last_pointer_position - _press_position)
 	elif OS.get_ticks_msec() - _press_msec >= HOLD_MSEC:
 		pass # mantener sin mover no abre nada: mantener y mover arrastra
 	elif not suit_os.has_screen(screen_id):

@@ -5,7 +5,7 @@ extends Control
 # PauseManager.pause_hud_mode(), asi que corre en PAUSE_MODE_PROCESS.
 #
 # TAB (o el boton tactil del HUD): tap abre SIEMPRE el radial, desde el juego o sobre una pantalla
-# abierta; con el radial ya abierto, tap lo cierra sin elegir. Hold tambien lo abre, como cuasimodo:
+# abierta; con el radial ya abierto, un tap confirma lo marcado o lo cierra si no hay nada. Hold tambien lo abre, como cuasimodo:
 # soltar elige lo marcado. Elegir abre la pantalla sin fijarla: nada se autoasigna a un slot.
 # Teclas 1-4 (hud_slot): tap abre la pantalla de ese slot (o la cierra; vacio = radial) y hold
 # abre el radial que fija lo elegido EN ese slot. Con una sola pantalla no hay radial.
@@ -329,12 +329,16 @@ func _input(event: InputEvent) -> void:
 				_drag_from_handle = false # un toque al asa sin arrastrar no hace nada (ni cierra)
 				get_tree().set_input_as_handled()
 			elif tapped and _selector.is_open():
-				# Tocar un sector lo elige; tocar fuera del anillo cierra el dial sin elegir.
-				var picked: int = _selector.slice_at(event.position)
-				if picked != RadialSelectorV2.NONE:
-					_select(picked)
+				# Igual que un clic: si ya hay una opcion marcada, el tap la confirma.
+				# Sin foco, un toque directo aun puede elegir un sector o cerrar el dial.
+				if _selector.has_selection():
+					_selector.confirm()
 				else:
-					_dismiss_radial()
+					var picked: int = _selector.slice_at(event.position)
+					if picked != RadialSelectorV2.NONE:
+						_select(picked)
+					else:
+						_dismiss_radial()
 				get_tree().set_input_as_handled()
 			elif tapped and _is_outside_view(event.position):
 				_exit()

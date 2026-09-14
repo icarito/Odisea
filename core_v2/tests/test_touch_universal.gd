@@ -89,6 +89,25 @@ func test_mobile_ui_manager_idle_timeout() -> void:
 	mgr.queue_free()
 
 
+func test_using_a_hidden_virtual_joystick_makes_the_touch_ui_visible() -> void:
+	var mgr = MobileUIManagerScript.new()
+	get_tree().root.add_child(mgr)
+	mgr._is_mobile = true
+	mgr._is_touch_active = false
+	mgr._spawn_mobile_ui()
+	mgr._refresh_mobile_ui_visibility()
+	assert_bool(mgr._mobile_ui.visible).is_false()
+
+	var joystick = mgr._mobile_ui.get_node("Container/MoveJoystick")
+	joystick._touch_index = 0 # el joystick consumio el touch antes que MobileUIManager._input
+	mgr._process(0.016)
+
+	assert_bool(mgr.is_touch_active()).is_true()
+	assert_bool(mgr._mobile_ui.visible).is_true()
+	joystick.reset()
+	mgr.queue_free()
+
+
 func test_input_provider_touch_hint_sync() -> void:
 	var provider = InputProviderV2Script.new()
 	provider.set_touch_ui_hint(false)
