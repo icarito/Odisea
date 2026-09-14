@@ -195,13 +195,18 @@ partida de la PC), overlay **en vivo**.
   (`InputProviderV2`, FD-263). **Un HUD, dos backends** (2026-09-14): el
   teléfono monta el **mismo `SuitOSWidgetHost`** del juego con
   `backend = RemoteHudBackend` (mismo contrato que `SuitOS`; las pantallas
-  llegan por `screen_list`/`screen_data`/`screen_active`). Sus slots son
-  **independientes** de los del host (linterna en el 1, guardados en
-  `user://remote_hud.cfg`). Etapa 2: también `HudModeOverlay` con ese backend.
-- **Modo pantalla:** al elegir pantalla se muestra `view_scene()` a pantalla
-  completa (el teléfono **sí** puede ampliar: el canvas es el suyo). El radial
-  del teléfono **reusa `RadialSelectorV2`** (mismo patrón `ElevatorFloorSelector`
-  que F3) para elegir la pantalla activa y fijarla como pin local.
+  llegan por `screen_list`/`screen_data`/`screen_active`). Al conectar sus slots
+  **copian los del host** (ui op `slots`, una vez por conexión) y desde ahí son
+  **independientes**. Arriba, `ODISEAOS · <mapa>` (ui op `location`, nombre
+  de `DomeRegistry`).
+- **Modo HUD:** el **mismo `HudModeOverlay`** del juego, montado por
+  `RemoteHudBackend` en `HUDLayer` **sin pausa**: mismo dial (sectores, zona
+  muerta, tap del HUD), asa, arrastre a slots y widget ampliado. La vista de
+  una pantalla va en un `Viewport` 2D a su resolución de diseño
+  (`HudViewMount.view_2d`) en lugar del presentador 3D. Diferencias del
+  teléfono: sin mouse virtual, los toques sobre el joystick y los botones
+  virtuales siguen siendo de ellos, y en táctil el stick y el gatillo manejan
+  al host, no el dial (`drives_dial_with_gameplay_input`).
 
 **Protocolo — solo aditivo** (F4 no cambia nada de FD-294; agrega `op`s al
 canal `ui` que ya existe):

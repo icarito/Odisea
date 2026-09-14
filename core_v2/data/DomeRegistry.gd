@@ -100,6 +100,13 @@ func get_dome(dome_id: String) -> Dictionary:
 		return {}
 	return _build_default_dome_config(normalized, int(synthetic_slot["spiral_index"]), int(synthetic_slot["plate_index"]))
 
+# El nombre del domo cuyo interior es esta escena, o "" si no es el interior de ningun domo.
+func display_name_for_scene(scene_path: String) -> String:
+	for dome_id in _registry:
+		if String(_registry[dome_id].get("interior_scene", "")) == scene_path:
+			return String(_registry[dome_id].get("display_name", ""))
+	return ""
+
 func get_interior_scene(dome_id: String) -> String:
 	return _registry.get(dome_id, {}).get("interior_scene", "")
 

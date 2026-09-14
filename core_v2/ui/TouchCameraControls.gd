@@ -48,12 +48,19 @@ func _get_touch_controls() -> Array:
 		_cache_valid = true
 	return _touch_controls_cache
 
+# Un dedo que empieza sobre algo que se toca o se arrastra nunca es camara: los controles tactiles,
+# los widgets de los slots (tambien escalados, en su CanvasLayer) y lo que reclame un
+# touch_camera_blocker (el modo HUD: su dial, su asa y la pantalla abierta).
 func _is_over_control(pos: Vector2) -> bool:
 	for ctrl in _get_touch_controls():
-		if is_instance_valid(ctrl) and ctrl.is_inside_tree():
-			var rect = ctrl.get_global_rect()
-			if rect.has_point(pos):
+		if is_instance_valid(ctrl) and ctrl is Control and ctrl.is_visible_in_tree():
+			var xf: Transform2D = ctrl.get_global_transform_with_canvas()
+			var size: Vector2 = ctrl.rect_size * xf.get_scale()
+			if Rect2(xf.origin, size).abs().has_point(pos):
 				return true
+	for blocker in get_tree().get_nodes_in_group("touch_camera_blocker"):
+		if blocker.blocks_touch_camera(pos):
+			return true
 	return false
 
 func _handle_touch(event: InputEventScreenTouch) -> void:

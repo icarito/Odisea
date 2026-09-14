@@ -6,6 +6,8 @@ extends Node
 
 var server: Node = null # Explicit override for testing
 var _remote_active_screen_id: String = ""
+# El nombre del mapa que ya se le mando al control (ui op "location"): se reenvia al cambiar.
+var _sent_location: String = ""
 # Los widgets cambian a ritmo de juego: mandar screen_data por cada cambio
 # inundaba el WS del handheld (rwnd_limited, el control se veia "colgado"
 # por momentos). Se coalesce: el ultimo snapshot por pantalla viaja en el
@@ -78,7 +80,13 @@ func _get_server() -> Node:
 	return null
 
 func _on_client_connected(_device_name: String) -> void:
+	_sent_location = ""
 	_send_screen_list()
+	# El control arranca con los slots de la partida y desde ahi son suyos (RemoteHudBackend).
+	var suit_os = get_node_or_null("/root/SuitOS")
+	var server = _get_server()
+	if suit_os != null and server != null and _has_paired_client():
+		server.send_ui_directive("slots", {"pinned": suit_os.get_pinned_slots()})
 	var hints = get_node_or_null("/root/PlayerHintManager")
 	if hints != null and hints.has_method("get_visible_text"):
 		var text: String = hints.get_visible_text()
@@ -121,6 +129,21 @@ func _send_screen_list() -> void:
 			screens_list.append(entry)
 
 	server.send_ui_directive("screen_list", screens_list)
+	# Las pantallas se vuelven a registrar al cambiar de escena: ahi tambien cambia el mapa.
+	var location: String = location_name()
+	if location != _sent_location:
+		_sent_location = location
+		server.send_ui_directive("location", {"name": location})
+
+# El nombre del mapa donde esta el jugador: el del domo si la escena es su interior; si no, el de
+# la escena sin guiones bajos.
+func location_name() -> String:
+	var scene = get_tree().current_scene
+	if scene == null or scene.filename.empty():
+		return ""
+	var registry = get_node_or_null("/root/DomeRegistry")
+	var name: String = registry.display_name_for_scene(scene.filename) if registry != null else ""
+	return name if not name.empty() else scene.filename.get_file().get_basename().replace("_", " ")
 
 func _on_screen_registered(_id: String) -> void:
 	_send_screen_list()

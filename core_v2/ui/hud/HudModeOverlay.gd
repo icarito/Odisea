@@ -37,6 +37,15 @@ const HANDLE_SIZE := Vector2(64, 22)
 const HANDLE_GAP := 8.0
 
 var input_provider = null # InputProviderV2; LIVE salvo que un test inyecte uno en REPLAY
+# De donde salen las pantallas y los slots: SuitOS en el juego; RemoteHudBackend en el control
+# remoto, que lo monta sin pausa (el mundo sigue en el host). Se asigna antes de add_child.
+var backend: Node = null
+# En el juego el mouse virtual usa la pantalla abierta. En el control remoto no: en un handheld se
+# activaba con el stick y convertia A/B en clics locales que nunca llegaban al host.
+var use_virtual_mouse: bool = true
+# Con el mundo pausado el stick, el mouse y el gatillo quedan libres para el dial y el widget
+# ampliado. En un telefono no: el joystick y los botones virtuales siguen manejando al host.
+var drives_dial_with_gameplay_input: bool = true
 
 var _selector: Control = null
 var _view_host: Control = null
@@ -86,7 +95,8 @@ var _opened_on_press: bool = false
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
-	_virtual_mouse = VirtualMouse.attach_to(self)
+	if use_virtual_mouse:
+		_virtual_mouse = VirtualMouse.attach_to(self)
 	_selector = get_node("RadialSelector")
 	_selector.dead_zone = AIM_DEAD_ZONE
 	# Sin su sector del anillo el texto de cada opcion flota sobre la escena y no se lee como opcion.
@@ -99,11 +109,13 @@ func _ready() -> void:
 	_view_handle.visible = false
 	add_child(_view_handle)
 	_view_handle.connect("draw", self, "_draw_view_handle")
+	add_to_group("touch_camera_blocker")
 	if input_provider == null:
 		input_provider = InputProviderV2.new()
 	_selector.connect("option_selected", self, "_select")
 	_selector.connect("cancelled", self, "_exit")
 	var suit_os: Node = _suit_os()
+	_mount.view_2d = suit_os.get("presents_views_in_2d") == true
 	_screen_ids = suit_os.get_registered_screens()
 	_placeholder.visible = _screen_ids.empty()
 	# El TAB que abrio el modo HUD sigue apretado: tap o hold se decide con las muestras.
@@ -175,10 +187,12 @@ func _physics_process(_delta: float) -> void:
 		_begin_hold_radial(_key_slot)
 	_aim_with_hud_button(bool(input.hud_mode))
 	# Apuntar antes de resolver el release: la ultima muestra con TAB suelto todavia cuenta.
-	_drive_from_stream(input)
+	if drives_dial_with_gameplay_input:
+		_drive_from_stream(input)
 	if (gesture == Gesture.HOLD_RELEASE or slot_gesture == Gesture.HOLD_RELEASE) and _tab_hold_active:
 		_release_tab_hold()
-	_drive_widget_screen(input)
+	if drives_dial_with_gameplay_input:
+		_drive_widget_screen(input)
 
 # Una tecla de slot nueva toma el gesto solo si no hay otra sostenida.
 func _feed_slot_gesture(pressed_slot: int) -> int:
@@ -272,13 +286,15 @@ func _input(event: InputEvent) -> void:
 		_active_focused_screen.forward_view_input(event)
 	if event is InputEventMouseMotion:
 		# Lo que hace PlayerControllerV2._input, que ahora esta pausado.
-		if _touch_index >= 0:
+		if _touch_index >= 0 or not drives_dial_with_gameplay_input:
 			return # es un dedo: ya apunta el radial por InputEventScreenDrag, mas abajo
 		if input_provider != null and "mouse_delta_accum" in input_provider:
 			input_provider.mouse_delta_accum += event.relative
 		return
 	if event is InputEventScreenTouch:
-		if event.pressed and _touch_index < 0:
+		# Un dedo sobre el joystick o un boton virtual es de ellos: se sigue caminando con el dial
+		# abierto (en el control remoto; en el juego estan ocultos o no sirven en pausa).
+		if event.pressed and _touch_index < 0 and not _on_touch_controls(event.position):
 			_touch_index = event.index
 			_touch_start = event.position
 			_touch_press_msec = OS.get_ticks_msec()
@@ -488,9 +504,30 @@ func _draw_view_handle() -> void:
 		var y: float = size.y * (0.3 + 0.2 * i)
 		_view_handle.draw_line(Vector2(size.x * 0.3, y), Vector2(size.x * 0.7, y), line, 1.5, true)
 
+# El host de widgets de este mismo backend (el del juego cuelga de SuitOS; el del control, del home).
 func _widget_host() -> Node:
 	var suit_os: Node = _suit_os()
-	return suit_os.get_node_or_null("SuitOSWidgetHost") if suit_os != null else null
+	for host in get_tree().get_nodes_in_group("hud_widget_host"):
+		if host._backend() == suit_os:
+			return host
+	return null
+
+# TouchCameraControls: un dedo del modo HUD no gira la camara. Con el dial a la vista es del dial (o
+# de un widget); con una pantalla abierta, lo que cae en ella o en su asa (usarla, arrastrar su
+# widget). Fuera de la pantalla si es camara, y el joystick y los botones siguen siendo suyos.
+func blocks_touch_camera(point: Vector2) -> bool:
+	if is_queued_for_deletion() or _on_touch_controls(point):
+		return false
+	if _selector.is_open():
+		return true
+	if not _mount.is_showing():
+		return false
+	return is_on_view_handle(point) or _view_screen_rect().has_point(point)
+
+func _on_touch_controls(point: Vector2) -> bool:
+	var mobile: Node = get_node_or_null("/root/MobileUIManager")
+	return mobile != null and mobile.has_method("is_point_on_touch_controls") \
+		and mobile.is_point_on_touch_controls(point)
 
 # Tocar fuera de la pantalla la cierra, simetrico con tocar el widget del slot para abrirla.
 func _is_outside_view(pos: Vector2) -> bool:
@@ -503,6 +540,8 @@ func _is_outside_view(pos: Vector2) -> bool:
 # El area que ocupa la vista en pantalla: el widget ampliado (2D) o, lo habitual, el cuadro del
 # presentador 3D proyectado con la camara.
 func _view_screen_rect() -> Rect2:
+	if _mount.get_view_rect().size != Vector2.ZERO:
+		return _mount.get_view_rect()
 	var widget: Control = _mount.get_widget()
 	if is_instance_valid(widget):
 		# La transformacion dibujada: rect_global_position ya trae el corrimiento del pivote y la
@@ -582,8 +621,9 @@ func _dismiss_radial() -> void:
 	_selector.close()
 	_set_virtual_mouse_enabled(true)
 	# Visible salvo en una pantalla con foco, donde el cursor se dibuja dentro del Viewport.
-	_virtual_mouse.visible = not (is_instance_valid(_active_focused_screen) \
-		and _active_focused_screen.has_method("forward_view_input"))
+	if is_instance_valid(_virtual_mouse):
+		_virtual_mouse.visible = not (is_instance_valid(_active_focused_screen) \
+			and _active_focused_screen.has_method("forward_view_input"))
 	_view_host.visible = true
 	_sync_widget_focus()
 
@@ -729,4 +769,4 @@ func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseMan
 	_suit_os().close_hud_mode()
 
 func _suit_os() -> Node:
-	return get_node_or_null("/root/SuitOS")
+	return backend if is_instance_valid(backend) else get_node_or_null("/root/SuitOS")

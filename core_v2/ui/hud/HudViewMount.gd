@@ -5,8 +5,11 @@ extends Reference
 # que nace en el terminal de origen y TerminalHUDBridge engancha a la camara con la transicion
 # del casco; se lee como holograma por hud_cfg_background_alpha/emission. Si la pantalla presta
 # su Viewport, el presentador usa esa misma textura. Sin view_scene(): widget ampliado en 2D.
+# view_2d (el control remoto, que no tiene mundo ni camara): la vista va en un Viewport 2D a su
+# resolucion de diseño y lo que se escala es esa textura, como la arma el presentador.
 
 const PresenterScene = preload("res://core_v2/ui/hud/HudViewPresenter.tscn")
+const HoloScreen2DShader = preload("res://core_v2/visual/HoloScreen2D.shader")
 # Widget ampliado de un hudable sin pantalla completa. Era 3.0: se veia demasiado grande.
 const WIDGET_ZOOM := 1.8
 # Sin posicion de origen, el presentador arranca a esta distancia frente a la camara.
@@ -21,9 +24,20 @@ var _shared_screen: Object = null
 # La pantalla del widget ampliado: su state_changed lo refresca, como a los widgets de los slots (sin
 # esto, oprimir ENCENDER en el ampliado prendia la linterna pero su rotulo seguia en APAGADA).
 var _widget_screen: Object = null
+var view_2d: bool = false
+var _view_frame: Control = null
+var _view_node: Control = null
 
 func is_showing() -> bool:
-	return is_instance_valid(_presenter) or is_instance_valid(_widget)
+	return is_instance_valid(_presenter) or is_instance_valid(_widget) or is_instance_valid(_view_frame)
+
+# Donde se dibuja la vista 2D (view_2d), en pantalla; vacio si no hay.
+func get_view_rect() -> Rect2:
+	if not is_instance_valid(_view_frame):
+		return Rect2()
+	var container: Control = _view_frame.get_node("ViewViewport")
+	var xf: Transform2D = container.get_global_transform_with_canvas()
+	return Rect2(xf.origin, container.rect_size * xf.get_scale())
 
 func get_presenter() -> Spatial:
 	return _presenter if is_instance_valid(_presenter) else null
@@ -43,7 +57,11 @@ func reveal_presenter() -> void:
 func show(screen: Object, snapshot: Dictionary, host: Control, snap_to_camera: bool = false) -> void:
 	close()
 	var scene: PackedScene = screen.view_scene() if screen.has_method("view_scene") else null
-	if scene == null or not _open_presenter(scene, screen, snapshot, host, snap_to_camera):
+	var opened: bool = false
+	if scene != null:
+		opened = _open_view_2d(scene, screen, snapshot, host) if view_2d \
+			else _open_presenter(scene, screen, snapshot, host, snap_to_camera)
+	if not opened:
 		_open_widget(screen, snapshot, host)
 
 func close() -> void:
@@ -56,6 +74,10 @@ func close() -> void:
 	if is_instance_valid(_widget):
 		_widget.queue_free()
 	_widget = null
+	if is_instance_valid(_view_frame):
+		_view_frame.queue_free()
+	_view_frame = null
+	_view_node = null
 	if is_instance_valid(_presenter):
 		if _presenter_snapped:
 			_presenter.set_active(false) # devuelve el ScreenMesh reparentado antes de liberar el presentador
@@ -123,6 +145,86 @@ func _origin(snapshot: Dictionary, host: Control) -> Vector3:
 		return Vector3.ZERO
 	return camera.global_transform.origin - camera.global_transform.basis.z * FRONT_DISTANCE
 
+func _open_view_2d(scene: PackedScene, screen: Object, snapshot: Dictionary, host: Control) -> bool:
+	var design: Vector2 = screen.view_size() if screen.has_method("view_size") else Vector2.ZERO
+	if design.x <= 0.0 or design.y <= 0.0:
+		return false
+	var frame := Control.new()
+	frame.name = "ViewFrame"
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(frame)
+	frame.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	var container := ViewportContainer.new()
+	container.name = "ViewViewport"
+	# stretch=false: el Viewport se queda en su tamaño de diseño; se escala como se dibuja.
+	container.stretch = false
+	container.rect_size = design
+	container.mouse_filter = Control.MOUSE_FILTER_PASS
+	container.material = holo_material_2d()
+	var viewport := Viewport.new()
+	viewport.size = design
+	viewport.usage = Viewport.USAGE_2D
+	viewport.transparent_bg = true
+	viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	frame.add_child(container)
+	container.add_child(viewport)
+	var view: Control = scene.instance()
+	viewport.add_child(view)
+	view.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	_hydrate(view, snapshot)
+	_view_frame = frame
+	_view_node = view
+	frame.connect("resized", self, "fit_view_2d")
+	fit_view_2d()
+	_watch_screen(screen)
+	return true
+
+# El holograma del presentador en 2D: su shader de vidrio con los mismos valores, leidos de
+# HudViewPresenter.tscn (el alfa del vidrio es hud_cfg_background_alpha, como en HoloTerminalV2).
+static func holo_material_2d() -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = HoloScreen2DShader
+	var state: SceneState = PresenterScene.get_state()
+	var glass_alpha = null
+	for node in range(state.get_node_count()):
+		for i in range(state.get_node_property_count(node)):
+			var property: String = state.get_node_property_name(node, i)
+			var value = state.get_node_property_value(node, i)
+			if property == "hud_cfg_background_alpha":
+				glass_alpha = value
+			elif property == "material" and value is ShaderMaterial:
+				for param in ["albedo", "emission_energy", "hologram_alpha", "ink_level"]:
+					material.set_shader_param(param, value.get_shader_param(param))
+	if glass_alpha != null:
+		var albedo: Color = material.get_shader_param("albedo")
+		albedo.a = float(glass_alpha)
+		material.set_shader_param("albedo", albedo)
+	return material
+
+# Escalado uniforme por el lado que sobra, y centrado en el lugar de la vista.
+func fit_view_2d() -> void:
+	if not is_instance_valid(_view_frame):
+		return
+	var container: Control = _view_frame.get_node("ViewViewport")
+	var room: Vector2 = _view_frame.rect_size
+	var design: Vector2 = container.rect_size
+	if room.x <= 0.0 or room.y <= 0.0:
+		return
+	var factor: float = min(room.x / design.x, room.y / design.y)
+	container.rect_scale = Vector2(factor, factor)
+	container.rect_position = (room - design * factor) * 0.5
+
+func _hydrate(node: Node, snapshot: Dictionary) -> void:
+	if node.has_method("update_snapshot"):
+		node.update_snapshot(snapshot)
+	elif node.has_method("set_snapshot"):
+		node.set_snapshot(snapshot)
+
+func _watch_screen(screen: Object) -> void:
+	if screen.has_signal("state_changed") and not screen.is_connected("state_changed", self, "_on_widget_screen_changed"):
+		screen.connect("state_changed", self, "_on_widget_screen_changed")
+		_widget_screen = screen
+
 func _open_widget(screen: Object, snapshot: Dictionary, host: Control) -> void:
 	# Y si tampoco hay widget, el titulo.
 	var scene: PackedScene = screen.widget_scene() if screen.has_method("widget_scene") else null
@@ -137,12 +239,11 @@ func _open_widget(screen: Object, snapshot: Dictionary, host: Control) -> void:
 	widget.rect_pivot_offset = widget.rect_size * 0.5
 	widget.rect_scale = Vector2(WIDGET_ZOOM, WIDGET_ZOOM)
 	_widget = widget
-	if screen.has_signal("state_changed") and not screen.is_connected("state_changed", self, "_on_widget_screen_changed"):
-		screen.connect("state_changed", self, "_on_widget_screen_changed")
-		_widget_screen = screen
+	_watch_screen(screen)
 
 func _on_widget_screen_changed() -> void:
-	if not is_instance_valid(_widget) or not is_instance_valid(_widget_screen):
+	if not is_instance_valid(_widget_screen) or not _widget_screen.has_method("widget_snapshot"):
 		return
-	if _widget.has_method("update_snapshot") and _widget_screen.has_method("widget_snapshot"):
-		_widget.update_snapshot(_widget_screen.widget_snapshot())
+	for node in [_widget, _view_node]:
+		if is_instance_valid(node):
+			_hydrate(node, _widget_screen.widget_snapshot())

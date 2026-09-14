@@ -281,3 +281,35 @@ func test_bridge_sends_the_resolved_hint_when_it_changes():
 	assert_str(String(server.last_directives.back()["payload"]["text"])).is_equal("")
 
 	bridge.queue_free()
+
+func test_bridge_sends_the_map_name_once_per_change():
+	var server = DummyServer.new()
+	add_child(server)
+	var bridge = SuitOSRemoteBridgeScript.new()
+	add_child(bridge)
+	bridge.set("server", server)
+
+	bridge._on_client_connected("Phone 1")
+	var locations: Array = []
+	for d in server.last_directives:
+		if d["op"] == "location":
+			locations.append(d["payload"]["name"])
+	# Sin escena actual (el runner) no hay nombre y no viaja nada.
+	assert_array(locations).is_equal([] if bridge.location_name().empty() else [bridge.location_name()])
+	# Otra lista en el mismo mapa no lo repite.
+	bridge._send_screen_list()
+	var again: int = 0
+	for d in server.last_directives:
+		if d["op"] == "location":
+			again += 1
+	assert_int(again).is_equal(locations.size())
+	# Y el control arranca con los slots de la partida.
+	var slots: Array = []
+	for d in server.last_directives:
+		if d["op"] == "slots":
+			slots.append(d["payload"]["pinned"])
+	assert_array(slots).is_equal([SuitOS.get_pinned_slots()])
+	assert_str(DomeRegistry.display_name_for_scene("res://core_v2/levels/interiors/Dome_Intro.tscn")).is_equal("Domo de Entrada")
+
+	bridge.queue_free()
+	server.queue_free()

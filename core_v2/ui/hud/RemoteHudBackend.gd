@@ -2,7 +2,7 @@ extends Node
 
 # RemoteHudBackend.gd - El HUD del telefono (control remoto) con los mismos nodos que el del juego.
 #
-# SuitOSWidgetHost (y, en la etapa 2, HudModeOverlay) no hablan con SuitOS sino con un backend que
+# SuitOSWidgetHost y HudModeOverlay no hablan con SuitOS sino con un backend que
 # cumple su contrato: senales widget_changed/screen_registered/screen_unregistered/screen_opened/
 # screen_closed/hud_mode_changed; slots (get_slot_snapshot, get_pinned_slots, slot_screen_id,
 # pin_to_slot, move_slot, clear_slot, clear_slots); pantallas (get_registered_screens, has_screen,
@@ -11,9 +11,9 @@ extends Node
 # close_hud_mode, open_screen) y perform_action. En el juego ese backend es SuitOS; aca, esto.
 #
 # Las pantallas viven en el host y llegan por el canal (screen_list, screen_data, screen_active).
-# Los 4 slots son del telefono: independientes de los del host (decision de FD-296), con la
-# linterna en el 1 por defecto y guardados en user://. Mismas reglas que SuitOS (HudSlots): nada
-# se autoasigna y una pantalla nunca ocupa dos slots.
+# Los 4 slots son del telefono: al conectar copian los del host (ui op "slots") y desde ahi son
+# independientes (decision de FD-296). Antes de esa copia, la linterna en el 1. Mismas reglas que
+# SuitOS (HudSlots): nada se autoasigna y una pantalla nunca ocupa dos slots.
 
 signal widget_changed(slot, snapshot)
 signal screen_registered(id)
@@ -24,16 +24,11 @@ signal hud_mode_changed(active)
 
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
 const HoloTerminalWidgetScene = preload("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
+const HudModeOverlayScene = preload("res://core_v2/ui/hud/HudModeOverlay.tscn")
 const DEFAULT_PINS := ["player:flashlight", "", "", ""]
 # Distancia de camara de referencia para la regla del zoom: el telefono no tiene jugador, asi que
 # acumula el pellizco que manda al host (mas chico = mas cerca, como la del jugador).
 const ZOOM_START := 4.0
-
-# ponytail: fuera del editor nada mas, asi los tests (que instancian el control a cada rato) no
-# heredan ni ensucian los slots guardados; en un build exportado (el telefono) siempre guarda.
-# Si hace falta probar la persistencia desde el editor, poner persist y pins_path a mano.
-var persist: bool = not OS.has_feature("editor")
-var pins_path := "user://remote_hud.cfg"
 
 # RemoteControlHome: el canal, el dial y el estado de pausa del host.
 var home: Node = null
@@ -41,10 +36,19 @@ var screen_list: Array = []
 var snapshots: Dictionary = {}
 var active_screen: Dictionary = {}
 var zoom_level := ZOOM_START
+# El control no tiene mundo ni camara: la vista de una pantalla va en un Viewport 2D (HudViewMount).
+var presents_views_in_2d := true
 
 var _pinned: Array = DEFAULT_PINS.duplicate()
 var _slot_snapshots: Dictionary = {"slot_1": {}, "slot_2": {}, "slot_3": {}, "slot_4": {}}
 var _proxies: Dictionary = {}
+# El modo HUD del telefono: el mismo HudModeOverlay del juego, sin pausa.
+var _overlay: Control = null
+# La pantalla elegida aca. La del host (active_screen) llega despues, con su vista y su tamaño.
+var _selected_id := ""
+# Los slots del host se copian una sola vez: si el canal se corta y retoma, lo que se acomodo en el
+# telefono se queda.
+var _adopted_host_pins := false
 
 
 # Lo que el HUD compartido le pide a una pantalla, armado con lo que mando el host.
@@ -67,15 +71,13 @@ class RemoteScreenProxy extends Reference:
 		return backend.resolve_view_scene(id)
 
 	func view_size() -> Vector2:
-		return backend.active_view_size() if backend.get_active_screen_id() == id else Vector2.ZERO
+		return backend.active_view_size() if String(backend.active_screen.get("id", "")) == id else Vector2.ZERO
 
 	func widget_snapshot() -> Dictionary:
 		return backend.snapshot_for(id)
 
 
 func _ready() -> void:
-	if persist:
-		_load_pins()
 	reevaluate_slots()
 
 # --- Lo que llega del host ---
@@ -93,6 +95,9 @@ func apply_screen_list(list: Array) -> void:
 		if not sid.empty() and typeof(snap) == TYPE_DICTIONARY:
 			snapshots[sid] = (snap as Dictionary).duplicate(true)
 	var after: Array = get_registered_screens()
+	if is_hud_mode_active() and after != before:
+		_overlay._screen_ids = after
+		_overlay._placeholder.visible = after.empty()
 	reevaluate_slots()
 	for sid in after:
 		if not before.has(sid):
@@ -106,25 +111,26 @@ func apply_screen_data(sid: String, snap: Dictionary) -> void:
 	if sid.empty():
 		return
 	snapshots[sid] = snap.duplicate(true)
-	if sid == get_active_screen_id():
+	if sid == String(active_screen.get("id", "")):
 		active_screen["snapshot"] = snap.duplicate(true)
 	reevaluate_slots()
 	_notify_proxy(sid)
 
 func apply_screen_active(payload: Dictionary) -> void:
-	var previous: String = get_active_screen_id()
+	var previous: String = String(active_screen.get("id", ""))
 	active_screen = payload.duplicate(true)
-	var current: String = get_active_screen_id()
+	var current: String = String(active_screen.get("id", ""))
 	if previous == current:
 		return
-	if not previous.empty():
-		emit_signal("screen_closed", previous)
-	if not current.empty():
-		emit_signal("screen_opened", current)
-
-# El dial del telefono se abrio o se cerro (RemoteControlHome): los widgets y contornos se enteran.
-func notify_hud_state() -> void:
-	emit_signal("hud_mode_changed", is_hud_mode_active())
+	# El host cerro la pantalla que se estaba viendo aca (se fue de la escena): el modo HUD tambien.
+	if current.empty() and not _selected_id.empty() and previous == _selected_id:
+		close_hud_mode()
+		return
+	# Elegida aca y confirmada alla: con la vista del host (ruta y tamaño) ya se puede armar su
+	# Viewport en lugar del widget ampliado.
+	if is_hud_mode_active() and current == _selected_id and not _overlay._selector.is_open() \
+			and resolve_view_scene(current) != null:
+		_overlay.show_screen_id(current)
 
 func add_zoom(delta: float) -> void:
 	zoom_level = clamp(zoom_level + delta, 0.5, 50.0)
@@ -147,7 +153,7 @@ func slot_screen_id(index: int) -> String:
 
 func pin_to_slot(index: int, id: String) -> void:
 	_pinned = HudSlots.pin_to(_pinned, index, id)
-	_slots_changed()
+	reevaluate_slots()
 
 func move_slot(from: int, to: int) -> void:
 	if from == to or from < 0 or to < 0 or from >= HudSlots.COUNT or to >= HudSlots.COUNT:
@@ -158,17 +164,17 @@ func move_slot(from: int, to: int) -> void:
 	var displaced: String = String(_pinned[to])
 	_pinned[to] = moving
 	_pinned[from] = displaced
-	_slots_changed()
+	reevaluate_slots()
 
 func clear_slot(index: int) -> void:
 	if index < 0 or index >= HudSlots.COUNT:
 		return
 	_pinned[index] = ""
-	_slots_changed()
+	reevaluate_slots()
 
 func clear_slots() -> void:
 	_pinned = HudSlots.empty_pins()
-	_slots_changed()
+	reevaluate_slots()
 
 func reevaluate_slots() -> void:
 	for i in range(HudSlots.COUNT):
@@ -248,7 +254,7 @@ func resolve_view_scene(screen_id: String) -> PackedScene:
 			var scene = screen.view_scene()
 			if scene != null:
 				return scene
-	if get_active_screen_id() == screen_id:
+	if String(active_screen.get("id", "")) == screen_id:
 		var view_path: String = String(active_screen.get("view_scene", ""))
 		if not view_path.empty() and ResourceLoader.exists(view_path):
 			var remote_view = load(view_path)
@@ -265,25 +271,61 @@ func active_view_size() -> Vector2:
 # --- Modo HUD (el dial y la vista son del telefono; la eleccion viaja al host) ---
 
 func is_hud_mode_active() -> bool:
-	return home != null and is_instance_valid(home) and home.has_method("_hud_mode_active") \
-		and home._hud_mode_active()
+	return is_instance_valid(_overlay) and not _overlay.is_queued_for_deletion()
+
+# El dial del modo HUD a la vista (con teclado y mouse se queda con la entrada).
+func is_dial_open() -> bool:
+	return is_hud_mode_active() and _overlay._selector.is_open()
+
+func get_overlay() -> Control:
+	return _overlay if is_hud_mode_active() else null
 
 func get_active_screen_id() -> String:
-	return String(active_screen.get("id", ""))
+	return _selected_id
 
+# Como SuitOS.open_hud_mode, pero el overlay va en la pantalla del control y el mundo no se pausa.
 func open_hud_mode(radial: bool = false, screen_id: String = "", slot: int = -1) -> bool:
+	if is_hud_mode_active():
+		if not radial and has_screen(screen_id):
+			_overlay.show_screen_id(screen_id)
+			return true
+		return false
 	if home == null or not is_instance_valid(home):
 		return false
-	return home.open_hud_from_backend(radial, screen_id, slot)
+	_overlay = HudModeOverlayScene.instance()
+	_overlay.backend = self
+	_overlay.use_virtual_mouse = false
+	_overlay.drives_dial_with_gameplay_input = home.get("_raw_passthrough") == true
+	home.mount_hud_overlay(_overlay)
+	emit_signal("hud_mode_changed", true)
+	if radial:
+		_overlay.show_radial(slot)
+	elif has_screen(screen_id):
+		_overlay.show_screen_id(screen_id)
+	elif slot >= 0:
+		_overlay.show_for_slot(slot)
+	return true
 
 func close_hud_mode() -> void:
-	if home != null and is_instance_valid(home):
-		home._exit_hud_mode()
+	if not is_hud_mode_active():
+		return
+	_overlay.queue_free()
+	_overlay = null
+	if not _selected_id.empty():
+		var closed: String = _selected_id
+		_selected_id = ""
+		if home != null and is_instance_valid(home):
+			home.select_remote_screen("")
+		emit_signal("screen_closed", closed)
+	emit_signal("hud_mode_changed", false)
 
 func open_screen(id: String) -> bool:
 	if home == null or not is_instance_valid(home) or not has_screen(id):
 		return false
-	home.select_remote_screen(id)
+	if id != _selected_id:
+		_selected_id = id
+		home.select_remote_screen(id)
+		emit_signal("screen_opened", id)
 	return true
 
 func perform_action(screen_id: String, op: String, args: Dictionary = {}) -> Dictionary:
@@ -292,29 +334,16 @@ func perform_action(screen_id: String, op: String, args: Dictionary = {}) -> Dic
 	home.send_remote_action(screen_id, op, args)
 	return {"ok": true}
 
-# --- Persistencia de los slots del telefono ---
-
-func _slots_changed() -> void:
+func adopt_host_pins(pins: Array) -> void:
+	if _adopted_host_pins:
+		return
+	_adopted_host_pins = true
+	var copied: Array = HudSlots.empty_pins()
+	for i in range(min(pins.size(), HudSlots.COUNT)):
+		copied[i] = String(pins[i]) if pins[i] != null else ""
+	_pinned = copied
 	reevaluate_slots()
-	if persist:
-		_save_pins()
 
 func _notify_proxy(sid: String) -> void:
 	if _proxies.has(sid):
 		_proxies[sid].emit_signal("state_changed")
-
-func _load_pins() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(pins_path) != OK:
-		return
-	var saved = cfg.get_value("slots", "pinned", null)
-	if typeof(saved) != TYPE_ARRAY:
-		return
-	_pinned = HudSlots.empty_pins()
-	for i in range(min((saved as Array).size(), HudSlots.COUNT)):
-		_pinned[i] = String(saved[i]) if saved[i] != null else ""
-
-func _save_pins() -> void:
-	var cfg := ConfigFile.new()
-	cfg.set_value("slots", "pinned", _pinned)
-	cfg.save(pins_path)
