@@ -457,3 +457,22 @@ func test_a_pinned_slot_is_not_shown_where_no_screens_are_registered() -> void:
 	assert_bool(widget.visible).is_true()
 	SuitOS.clear_slots()
 	SuitOS.unregister_screen(screen)
+
+
+func test_a_slot_pinned_before_its_screen_exists_becomes_the_real_widget_when_it_arrives() -> void:
+	# La linterna por defecto se fija desde el menu, antes de que exista su pantalla: nacia como rotulo
+	# de reserva y se quedaba asi aunque la pantalla llegara despues.
+	for id in SuitOS.get_registered_screens():
+		SuitOS.unregister_screen(id)
+	SuitOS.pin_to_slot(0, "test:late")
+	var root = _widget_host.get_widget_root()
+	assert_bool(root.get_node("SuitOS_Widget_slot_1") is Label).is_true()
+	var screen = auto_free(HUDableComponentScript.new())
+	screen.hud_screen_id = "test:late"
+	screen.hud_widget_scene = preload("res://core_v2/ui/hud/FlashlightWidget.tscn")
+	add_child(screen)
+	var widget = root.get_node("SuitOS_Widget_slot_1")
+	assert_bool(widget is Label).is_false()
+	assert_str(widget.filename).is_equal("res://core_v2/ui/hud/FlashlightWidget.tscn")
+	SuitOS.clear_slots()
+	SuitOS.unregister_screen(screen)

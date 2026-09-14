@@ -1113,3 +1113,25 @@ func test_with_the_dial_open_a_widget_can_be_dragged_to_another_slot() -> void:
 	overlay._input(_touch(false, drag.position))
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", "test:a"])
 	assert_bool(overlay._selector.is_open()).is_true() # el dial sigue a la vista
+
+
+class ToggleScreen extends HUDableComponent:
+	var on := false
+	func widget_snapshot() -> Dictionary:
+		return {"proto": 1, "id": hud_screen_id, "title": hud_screen_title, "on": on, "source": "online"}
+
+
+func test_the_enlarged_widget_updates_when_its_screen_changes() -> void:
+	# Oprimir ENCENDER en el widget ampliado prendia la linterna pero el rotulo seguia en APAGADA.
+	var screen = auto_free(ToggleScreen.new())
+	screen.hud_screen_id = "test:toggle"
+	screen.hud_screen_title = "Linterna"
+	screen.hud_widget_scene = load("res://core_v2/ui/hud/FlashlightWidget.tscn")
+	add_child(screen)
+	var overlay = _open_screen_and_play("test:toggle", [UP])
+	var widget = overlay._mount.get_widget()
+	var status: Label = widget.get_node("Margin/VBox/StatusRow/StatusLabel")
+	var before: String = status.text
+	screen.on = true
+	screen.notify_state_changed()
+	assert_str(status.text).is_not_equal(before)

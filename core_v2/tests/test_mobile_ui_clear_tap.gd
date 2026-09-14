@@ -13,6 +13,7 @@ func before_test() -> void:
 	_was_active = MobileUIManager._is_touch_active
 	_was_mobile = MobileUIManager._is_mobile
 	MobileUIManager._is_mobile = true
+	MobileUIManager._is_touch_active = true # la UI tactil a la vista, salvo que el test diga otra cosa
 
 
 func after_test() -> void:
@@ -64,3 +65,17 @@ func test_tap_on_a_widget_does_not_hide_the_touch_ui() -> void:
 	MobileUIManager._input(_touch(false, on_widget))
 	assert_bool(MobileUIManager.is_touch_active()).is_true()
 	SuitOS.unregister_screen(screen)
+
+
+func test_tap_on_empty_screen_with_the_ui_hidden_shows_it_and_it_stays() -> void:
+	var empty := Vector2(400, 300)
+	MobileUIManager._deactivate_touch()
+	assert_bool(MobileUIManager.is_touch_active()).is_false()
+	MobileUIManager._input(_touch(true, empty))
+	MobileUIManager._input(_touch(false, empty))
+	# Estaba oculta: el toque la muestra y no la vuelve a ocultar.
+	assert_bool(MobileUIManager.is_touch_active()).is_true()
+	# Otro toque, ya a la vista: la oculta.
+	MobileUIManager._input(_touch(true, empty))
+	MobileUIManager._input(_touch(false, empty))
+	assert_bool(MobileUIManager.is_touch_active()).is_false()

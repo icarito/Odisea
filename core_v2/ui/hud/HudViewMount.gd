@@ -18,6 +18,9 @@ var _presenter: Spatial = null
 var _widget: Control = null
 var _presenter_snapped: bool = false
 var _shared_screen: Object = null
+# La pantalla del widget ampliado: su state_changed lo refresca, como a los widgets de los slots (sin
+# esto, oprimir ENCENDER en el ampliado prendia la linterna pero su rotulo seguia en APAGADA).
+var _widget_screen: Object = null
 
 func is_showing() -> bool:
 	return is_instance_valid(_presenter) or is_instance_valid(_widget)
@@ -47,6 +50,9 @@ func close() -> void:
 	if is_instance_valid(_shared_screen) and _shared_screen.has_method("release_viewport"):
 		_shared_screen.release_viewport()
 	_shared_screen = null
+	if is_instance_valid(_widget_screen) and _widget_screen.is_connected("state_changed", self, "_on_widget_screen_changed"):
+		_widget_screen.disconnect("state_changed", self, "_on_widget_screen_changed")
+	_widget_screen = null
 	if is_instance_valid(_widget):
 		_widget.queue_free()
 	_widget = null
@@ -131,3 +137,12 @@ func _open_widget(screen: Object, snapshot: Dictionary, host: Control) -> void:
 	widget.rect_pivot_offset = widget.rect_size * 0.5
 	widget.rect_scale = Vector2(WIDGET_ZOOM, WIDGET_ZOOM)
 	_widget = widget
+	if screen.has_signal("state_changed") and not screen.is_connected("state_changed", self, "_on_widget_screen_changed"):
+		screen.connect("state_changed", self, "_on_widget_screen_changed")
+		_widget_screen = screen
+
+func _on_widget_screen_changed() -> void:
+	if not is_instance_valid(_widget) or not is_instance_valid(_widget_screen):
+		return
+	if _widget.has_method("update_snapshot") and _widget_screen.has_method("widget_snapshot"):
+		_widget.update_snapshot(_widget_screen.widget_snapshot())

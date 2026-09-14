@@ -177,12 +177,17 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 		return
 
 	var prev_screen_id: String = String(_active_screen_ids.get(slot, ""))
+	var widget_scene: PackedScene = _widget_scene_for(screen_id)
 
 	if screen_id == prev_screen_id and not prev_screen_id.empty():
 		var slot_node = get_widget_root()
 		if is_instance_valid(slot_node):
 			var existing = slot_node.get_node_or_null(overlay_name)
-			if is_instance_valid(existing) and not existing.is_queued_for_deletion():
+			# Solo se actualiza en su lugar si sigue siendo lo mismo: un slot fijado antes de que su
+			# pantalla exista (la linterna por defecto, desde el menu) nace como rotulo de reserva, y
+			# cuando la pantalla aparece hay que cambiarlo por el widget de verdad.
+			var same_kind: bool = (existing is Label) == (widget_scene == null)
+			if is_instance_valid(existing) and not existing.is_queued_for_deletion() and same_kind:
 				if existing.has_method("update_snapshot"):
 					existing.update_snapshot(snapshot)
 				elif existing.has_method("set_snapshot"):
@@ -192,15 +197,6 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 				return
 
 	_remove_overlay_for_slot(slot)
-
-	var widget_scene: PackedScene = null
-	if has_node("/root/SuitOS"):
-		var suit_os = get_node("/root/SuitOS")
-		if suit_os.has_screen(screen_id):
-			var screen = suit_os.get_screen(screen_id)
-			if is_instance_valid(screen):
-				if screen.has_method("widget_scene"):
-					widget_scene = screen.widget_scene()
 
 	_active_screen_ids[slot] = screen_id
 
@@ -229,6 +225,13 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 
 # Uno por slot, fijo: se muestra u oculta (refresh_visibility), nunca se crea y destruye con cada
 # cambio de widget.
+func _widget_scene_for(screen_id: String) -> PackedScene:
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os == null or not suit_os.has_screen(screen_id):
+		return null
+	var screen = suit_os.get_screen(screen_id)
+	return screen.widget_scene() if is_instance_valid(screen) and screen.has_method("widget_scene") else null
+
 func _ensure_placeholder(slot: String) -> Control:
 	var existing = get_widget_root().get_node_or_null("SuitOS_Placeholder_" + slot)
 	if is_instance_valid(existing):

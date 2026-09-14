@@ -36,6 +36,7 @@ var _tracked_controller_manager: Node = null
 var _clear_tap_index := -1
 var _clear_tap_start := Vector2.ZERO
 var _clear_tap_msec := 0
+var _clear_tap_was_active := false
 
 func _ready() -> void:
 	layer = 100
@@ -56,6 +57,8 @@ func _ready() -> void:
 	set_process(true)
 
 func _input(event: InputEvent) -> void:
+	# Antes de que este mismo toque prenda el modo tactil: solo se despeja lo que ya estaba a la vista.
+	var was_touch_active := _is_touch_active
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		_touch_idle_timer = 0.0
 		_touch_pointer_until = OS.get_ticks_msec() + TOUCH_POINTER_GRACE_MSEC
@@ -72,7 +75,7 @@ func _input(event: InputEvent) -> void:
 			_refresh_mobile_ui_visibility()
 		_suspend_mouse_capture()
 		if event is InputEventScreenTouch:
-			_track_clear_tap(event)
+			_track_clear_tap(event, was_touch_active)
 	elif event is InputEventMouseMotion and _is_touch_active and not _is_mobile:
 		# Histeresis: el mouse de verdad recupera el mando en el acto, sin esperar el timeout.
 		# El puntero fantasma del touch tambien manda motion, asi que se descarta con la ventana
@@ -81,17 +84,19 @@ func _input(event: InputEvent) -> void:
 			_deactivate_touch()
 			_restore_mouse_capture()
 
-func _track_clear_tap(event: InputEventScreenTouch) -> void:
+# Con la UI oculta, el toque la muestra (y ahi queda); con la UI a la vista, la oculta.
+func _track_clear_tap(event: InputEventScreenTouch, was_touch_active: bool) -> void:
 	if event.pressed:
 		if _clear_tap_index == -1 and _is_empty_screen_point(event.position):
 			_clear_tap_index = event.index
 			_clear_tap_start = event.position
 			_clear_tap_msec = OS.get_ticks_msec()
+			_clear_tap_was_active = was_touch_active
 		return
 	if event.index != _clear_tap_index:
 		return
 	_clear_tap_index = -1
-	if OS.get_ticks_msec() - _clear_tap_msec <= CLEAR_TAP_MAX_MSEC \
+	if _clear_tap_was_active and OS.get_ticks_msec() - _clear_tap_msec <= CLEAR_TAP_MAX_MSEC \
 			and event.position.distance_to(_clear_tap_start) <= CLEAR_TAP_MAX_DISTANCE \
 			and not _player_has_interactable():
 		_deactivate_touch()
@@ -349,7 +354,9 @@ func _on_camera_zoom(delta: float) -> void:
 
 func _track_player_controller_manager() -> void:
 	var session = get_node_or_null("/root/SessionManager")
-	if not session or not session.player:
+	# is_instance_valid y no "not session.player": un jugador liberado (cambio de escena, o un test
+	# que lo dejo asignado) no es null, y usarlo tiraba SCRIPT ERROR en cada cuadro.
+	if not session or not is_instance_valid(session.player):
 		return
 	var player = session.player
 	var cm = player.get_node_or_null("ControllerManager")
@@ -369,7 +376,7 @@ func _on_controller_changed(mode: int) -> void:
 
 func _get_active_input_provider():
 	var session = get_node_or_null("/root/SessionManager")
-	if not session or not session.player:
+	if not session or not is_instance_valid(session.player):
 		return null
 	var player = session.player
 	if not ("input_provider" in player):
