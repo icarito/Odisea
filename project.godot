@@ -2872,6 +2872,7 @@ CollisionCullManager="*res://core_v2/autoloads/CollisionCullManager.gd"
 MobileLightBudget="*res://core_v2/systems/MobileLightBudget.gd"
 AdaptiveRenderScale="*res://core_v2/systems/AdaptiveRenderScale.gd"
 AdaptiveVisualBudget="*res://core_v2/systems/AdaptiveVisualBudget.gd"
+GLES3VendorGate="*res://core_v2/autoloads/GLES3VendorGate.gd"
 DebugConsoleManager="*res://core_v2/autoloads/DebugConsoleManager.gd"
 RemoteControlManager="*res://core_v2/net/RemoteControlManager.gd"
 SuitOS="*res://core_v2/autoloads/SuitOS.gd"
@@ -3124,6 +3125,26 @@ hud_mode={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777218,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
 , Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":3,"pressure":0.0,"pressed":false,"script":null)
+ ]
+}
+hud_slot_1={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":49,"unicode":0,"echo":false,"script":null)
+ ]
+}
+hud_slot_2={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":50,"unicode":0,"echo":false,"script":null)
+ ]
+}
+hud_slot_3={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":51,"unicode":0,"echo":false,"script":null)
+ ]
+}
+hud_slot_4={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":52,"unicode":0,"echo":false,"script":null)
  ]
 }
 
