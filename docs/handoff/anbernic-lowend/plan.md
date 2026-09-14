@@ -213,6 +213,22 @@ Una fila por corrida. Capturas en `/tmp/odisea_probe/`; copiar aquí solo las de
 | h2h3_prologue | H2+H3 `.mobile` | Dome_Prologue | 0 | 61 700 | 320 | 5 | 54 | 349 326 | parches **magenta** + recorte | falla nueva: magenta = sampler sin bindear; la config sí cambió el camino de render |
 | h2h3_dome_intro | H2+H3 `.mobile` | Dome_Intro | 0 | 82 886 | 134 | 2 | 194 | 321 402 | **~30% (sin cambio)** | −8k págs vs baseline; la cobertura no cede |
 | h5a_unshaded_live | debug_draw=1 en vivo, Dome_Intro cargado | Dome_Intro | 0 (10 s) | 81 989 | 146 | 2 | 194 | 321 402 | mismo recorte + magenta | el shader trivial no completa la cobertura → no es complejidad de fragment shader; test limpio desde boot pendiente (ver HANDOFF_SIGUIENTE.md) |
+| bisect_overdraw | debug_draw=2 (OVERDRAW) en vivo | Dome_Intro | 0 (5 s) | 83 675 | 188 | 2 | 97 | 176 412 | **100%** | el shader de debug del motor (sin texturas/luces) rasteriza TODO: el aborto vive solo en el camino de materiales que muestrea texturas |
+| bisect_albedo_white | material_override blanco unshaded (propagate_call interrumpido) | Dome_Intro | 0 (5 s) | 83 770 | 214 | 2 | 191 | 304 446 | geom. visible aún texturizada | el override no llegó a los meshes visibles; repetir con verificación por nodo |
+| h9_native_lightmap_dome_intro | reboot propio + lightmap manual OFF (gate congelado) | Dome_Intro | 0 (60 s) | 83 398 | 280 | 3 | 194 | 321 402 | **magenta a pantalla completa** | Sebastián: "intermitente azul por un rato" (clear color en carga) → sin manual, el nativo colisiona unidades (§11.9) y todo muestrea sin bind |
+
+### Descartes de Sebastián (knobs del blob, con evidencia temporal)
+
+- flush forzado (12 s, oscila parcial/casi vacío, 4 fps) — descartado y revertido.
+- Traza FRT: SDL llama eglSwapBuffers normal, sin swap/damage parcial → no es presentación.
+- far=10 (culling agresivo): el movimiento real no logra redraw sostenido — descartado, cámara en 10000.
+- CRC/Transaction Elimination OFF: la serie parte peor y estabiliza en el mismo recorte.
+- IDVS: no cambia cobertura ni fps.
+- Conclusión suya: "no queda un toggle de runtime honesto"; iteración ahora posible con autostart
+  de ES + reboot (Kilo puede reiniciar por SSH).
+- Hipótesis de Sebastián: bug de libmali disparado por la carga/sampling de texturas (el juego
+  corría bien al inicio del ciclo, sin las formas y texturas complejas). El test overdraw la
+  sostiene: sin sampling hay 100% de cobertura.
 
 ### Notas de medición (Fase 0)
 
