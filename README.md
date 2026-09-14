@@ -10,14 +10,6 @@ Odisea es un juego de plataformas 3D en tercera persona ambientado en una nave e
 - **docs/archived/**: Features descartados o legacy (ver notas en cada archivo).
 - **AGENTS.md**: Contratos de desarrollo, determinismo y normas de trabajo.
 
-## Contratos y Normas
-
-Consulta **AGENTS.md** para reglas de determinismo, contratos de agentes, y normas de desarrollo (commits pequeños, tests con GdUnit3, todo en core_v2, etc).
-
-## Operación
-
-- **Sistema de Actualización Segura (FD-228)**: guía operativa del mecanismo de updates (palancas de release, deberes del operador, rotación de clave, promoción a estable) en [core_v2/update/README.md](core_v2/update/README.md).
-
 ## Features Fundacionales (Canon)
 
 Las siguientes features están implementadas y documentadas en `docs/canon/`:
@@ -27,25 +19,6 @@ Las siguientes features están implementadas y documentadas en `docs/canon/`:
 - Refinamiento de gamefeel y mecánicas
 - Transición 2.5D sidescroller
 - Test battery y runner de regresión determinista
-
-## Los cuatro sistemas de la nave
-
-Criocoolant, plasma, atmósfera y energía auxiliar: los órganos industriales de la Odisea.
-Cada uno avisa antes de dañar, y se libera reordenándolo en vez de destruyéndolo.
-
-**→ [Guía de funcionamiento de los cuatro sistemas](docs/systems/four-ship-systems.md)** —
-qué hace cada uno, cómo está armado, cuál es la lógica de sus interruptores y dónde tocar
-para mejorarlo. Banco de pruebas: `core_v2/tests/TestShipSystems.tscn` (F6).
-
-Diseño: [FD-255](docs/features/FD-255_systems_master.md) y sus hijos FD-256 a FD-259. La lógica de flujo del coolant (grafo OCLS + puente visual) vive en [FD-264](docs/features/FD-264_coolant_flow_graph.md) — en diseño.
-
-## Integración de Agentes (ANNA V1 — DEPRECATED)
-
-La integración de agente externo A.N.N.A (bridge TCP + interfaz de observación/acción) está **deprecada** y preservada solo para compatibilidad con scripts RL legacy. Para telemetría y debugging moderno, consultar **AGENTS.md §9** (Telemetry).
-
-Documentación legacy:
-- `docs/features/archive/FD-008_anna_agent.md`
-- `core_v2/anna/README.md`
 
 ## Descarga e Instalación
 
