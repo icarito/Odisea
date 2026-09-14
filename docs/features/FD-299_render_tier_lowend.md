@@ -91,13 +91,16 @@ por-tier se confirma con el protocolo §11.10).
   - Environment sin post-process: fog/glow/dof/adjustment off + tonemap
     lineal — **ya implementado** en `GLES3VendorGate.gd` (extender de vendor
     "Mali" a tier `LOW`).
-  - **Lightmap manual**: el lightmap nativo de GLES3 ata la textura del bake a
-    `max_texture_image_units - 4` (unidad 12 en Mali-16), colisionando en
-    silencio con las texturas del material → el bake no se dibuja y el nivel
-    amanece negro (Dome_Intro: solo el HUD widget visible). `GLES3VendorGate`
-    activa el camino manual probado (`IOSLightmapFallback`,
-    `ODISEA_MANUAL_LIGHTMAP=1`) en los adapters del tier — verificado el
-    mecanismo en device por el equipo (el mismo bug de la era GLES2-iOS).
+  - **Lightmap manual (SOLO Mali verificado)**: el lightmap nativo de GLES3 ata
+    la textura del bake a `max_texture_image_units - 4` (unidad 12 en Mali-16),
+    colisionando en silencio con las texturas del material → el bake no se
+    dibuja y el nivel amanece negro (Dome_Intro: solo el HUD widget visible).
+    `GLES3VendorGate` activa el camino manual probado
+    (`IOSLightmapFallback`, `ODISEA_MANUAL_LIGHTMAP=1`) **únicamente cuando el
+    adapter es Mali-G31 verificado** — en Adreno GLES3 el shader manual (del
+    camino GLES2) muestrea 0 y rinde negro (probado en Redmi, 2026-09-14). El
+    "Forzar low end" del usuario NO activa el lightmap manual fuera de Mali:
+    en esos devices el camino nativo funciona y se conserva.
   - **No instanciar subtrees cosméticos**: decoración, VFX de ambiente y
     overlays de efectos marcados con el grupo `lowend_skip`. El gate los
     libera en `node_added` (corte automático, cero condiciones en gameplay).
