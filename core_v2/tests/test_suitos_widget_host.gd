@@ -22,6 +22,8 @@ func before_test() -> void:
 		_overlay_mgr.name = "OverlayUIManager"
 		root.add_child(_overlay_mgr)
 
+	# Sin la ultima posicion del puntero de otra suite (decide si un toque es de un boton del widget).
+	SuitOS.get_node("SuitOSWidgetHost")._last_pointer_position = Vector2(-10000, -10000)
 	_widget_host = SuitOSWidgetHostScript.new()
 	_widget_host.name = "SuitOSWidgetHost"
 	root.add_child(_widget_host)

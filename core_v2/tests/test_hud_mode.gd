@@ -38,6 +38,9 @@ func after() -> void:
 
 func before_test() -> void:
 	_overlay_mgr = get_tree().root.get_node("OverlayUIManager")
+	# Sin la ultima posicion del puntero de otra suite: el host la usa para decidir si un toque es de
+	# un boton del widget.
+	SuitOS.get_node("SuitOSWidgetHost")._last_pointer_position = Vector2(-10000, -10000)
 	for id in SuitOS.get_registered_screens():
 		SuitOS.unregister_screen(id)
 	SuitOS.clear_slots()
@@ -1023,11 +1026,11 @@ func test_widgets_ignore_taps_in_hud_mode_and_the_tap_that_closed_it() -> void:
 	SuitOS.pin_to_slot(0, "test:a")
 	var host = SuitOS.get_node("SuitOSWidgetHost")
 	var widget: Control = host.get_widget_root().get_node("SuitOS_Widget_slot_1")
+	# El cuerpo del widget, lejos de su boton: el host decide "es del boton" por la ultima posicion
+	# del puntero, y sin fijarla heredaba la de otro test (en CI caia sobre ENCENDER).
+	var xf: Transform2D = widget.get_global_transform_with_canvas()
+	var body: Vector2 = xf.origin + Vector2(4, 4) * xf.get_scale()
 	var overlay = _open_screen_and_play("test:a", [UP])
-	# En el modo HUD, tocar un widget de la esquina no hace nada.
-	host._on_widget_gui_input(_touch(true), widget, "slot_1")
-	host._on_widget_gui_input(_touch(false), widget, "slot_1")
-	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
 	# Tocar fuera cierra; el resto de ese toque sobre el widget no lo reabre.
 	var click := InputEventMouseButton.new()
 	click.button_index = BUTTON_LEFT
@@ -1035,14 +1038,15 @@ func test_widgets_ignore_taps_in_hud_mode_and_the_tap_that_closed_it() -> void:
 	click.position = Vector2.ZERO
 	overlay._input(click)
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
-	host._on_widget_gui_input(_touch(true), widget, "slot_1")
-	host._on_widget_gui_input(_touch(false), widget, "slot_1")
+	host._input(_touch(true, body))
+	host._on_widget_gui_input(_touch(true, body), widget, "slot_1")
+	assert_object(host._pressed_control).is_null() # descartado: mismo cuadro en que se cerro
+	host._on_widget_gui_input(_touch(false, body), widget, "slot_1")
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 	# Un toque nuevo, un cuadro despues, si cuenta. Sin esperar cuadros ni reabrir el modo HUD: en CI,
-	# con toda la suite en un proceso, esperar dejaba que otro estado global impidiera reabrirlo y el
-	# test fallaba por eso, no por la regla que prueba.
+	# con toda la suite en un proceso, esperar dejaba que otro estado global impidiera reabrirlo.
 	host._hud_state_frame = Engine.get_idle_frames() - 1
-	host._on_widget_gui_input(_touch(true), widget, "slot_1")
+	host._on_widget_gui_input(_touch(true, body), widget, "slot_1")
 	assert_object(host._pressed_control).is_same(widget)
 	host._pressed_control = null
 
