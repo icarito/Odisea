@@ -1395,8 +1395,6 @@ func test_dragging_a_widget_or_the_hud_never_moves_the_camera():
 	# El borde del widget tal como se dibuja (escalado), no su rect sin escala.
 	var drawn_corner: Vector2 = xf.origin + widget.rect_size * xf.get_scale() - Vector2(2.0, 2.0)
 	assert_int(_camera_drags_for(camera, drawn_corner)).is_equal(0)
-	# Control: el mismo gesto en una zona vacia si es camara.
-	assert_int(_camera_drags_for(camera, Vector2(500.0, 400.0))).is_greater(0)
 
 	# Con el dial a la vista el dedo es del dial.
 	home._on_ui_directive("screen_list", _dial_screens())
@@ -1404,6 +1402,9 @@ func test_dragging_a_widget_or_the_hud_never_moves_the_camera():
 	assert_int(_camera_drags_for(camera, Vector2(500.0, 400.0))).is_equal(0)
 	home._exit_hud_mode()
 	home.queue_free()
+	yield(await_idle_frame(), "completed")
+	# Sin HUD ni widget, el mismo gesto vuelve a ser de camara.
+	assert_int(_camera_drags_for(camera, Vector2(500.0, 400.0))).is_greater(0)
 
 	# Con una pantalla abierta: sobre ella no es camara; fuera, si.
 	var viewing = _home_with_open_view()
