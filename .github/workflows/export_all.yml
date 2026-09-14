@@ -956,8 +956,11 @@ jobs:
           if [ ! -f "$HDR_DIR/gdnative_api_struct.gen.h" ]; then
             echo "Fetching godot-headers (godot-3.6-stable)…"
             mkdir -p "$HDR_DIR"
-            curl -fsSL "https://github.com/godotengine/godot-headers/archive/refs/tags/godot-3.6-stable.tar.gz" \
-              | tar -xz -C "$HDR_DIR" --strip-components=1
+            HDR_ARCHIVE="$(mktemp)"
+            curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 20 \
+              -o "$HDR_ARCHIVE" "https://github.com/godotengine/godot-headers/archive/refs/tags/godot-3.6-stable.tar.gz"
+            tar -xzf "$HDR_ARCHIVE" -C "$HDR_DIR" --strip-components=1
+            rm -f "$HDR_ARCHIVE"
           fi
           test -f "$HDR_DIR/gdnative_api_struct.gen.h" || { echo "::error::godot-headers missing"; exit 1; }
 
