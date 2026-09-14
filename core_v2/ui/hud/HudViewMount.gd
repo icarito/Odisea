@@ -184,6 +184,10 @@ func _open_view_2d(scene: PackedScene, screen: Object, snapshot: Dictionary, hos
 static func holo_material_2d() -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = HoloScreen2DShader
+	material.set_shader_param("albedo", Color(0.301961, 0.470588, 0.505882, 0.15))
+	material.set_shader_param("emission_energy", 3.0)
+	material.set_shader_param("hologram_alpha", 1.0)
+	material.set_shader_param("ink_level", 0.686)
 	var state: SceneState = PresenterScene.get_state()
 	var glass_alpha = null
 	for node in range(state.get_node_count()):
@@ -194,7 +198,9 @@ static func holo_material_2d() -> ShaderMaterial:
 				glass_alpha = value
 			elif property == "material" and value is ShaderMaterial:
 				for param in ["albedo", "emission_energy", "hologram_alpha", "ink_level"]:
-					material.set_shader_param(param, value.get_shader_param(param))
+					var source_value = value.get_shader_param(param)
+					if source_value != null:
+						material.set_shader_param(param, source_value)
 	if glass_alpha != null:
 		var albedo: Color = material.get_shader_param("albedo")
 		albedo.a = float(glass_alpha)
