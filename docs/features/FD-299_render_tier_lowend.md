@@ -56,6 +56,30 @@ La excepción es la opción manual del jugador ("Forzar modo low end" en
 Opciones), que aplica el tier en cualquier hardware por decisión del dueño
 del dispositivo.
 
+### Parque ROCKNIX (stats oficiales, ~6509 devices activos, 2026-09)
+
+Clasificación por SoC (el `GL_RENDERER` reporta el modelo Mali tanto en blob
+como en panfrost, así que el match por substring funciona en ambos drivers):
+
+| SoC | GPU | Tier propuesto | Devices (est.) | Modelos típicos |
+|---|---|---|---|---|
+| RK3326 | **Mali-G31 MP2** | **LOW (gateado — verificado)** | 420 | RG351V/M/P, R33S, R36S, XU10, RGB10, ODROID Go2 |
+| Allwinner H700 | **Mali-G31 MP2** | **LOW (mismo GPU que RK3326 — gatear)** | 991 | RG35XX Plus/Pro/H/SP, RG28XX, RG34XX, RG40XX, CubeXX |
+| RK3566 | Mali-G52 MP2 | MID — **el 55% del parque, a verificar** | 3574 | RG353P/V/M/VS, RG503, RG ARC, RGB30, RGB20SX, RK2023, X55, RG DS |
+| RK3576 | Mali-G52 MC3 | MID | 77 | RG Vita Pro |
+| S922X | Mali-G52 MP6 | MID | 59 | ODROID Go Ultra |
+| RK3399 | Mali-T860 | LOW-MID (viejo, GLES 3.1) | 53 | RG552 |
+| SM6115 (SD680) | Adreno 610 | LOW-MID — a verificar | 50 | entry handhelds |
+| SM8250 (SD865) | Adreno 650 | MID-HIGH | 661 | Retroid, Odin-class |
+| SM8550 (SD8G2) | Adreno 740 | HIGH | 522 | AYN Thor, Odin2 |
+| SM8750 / SM8650 | Adreno 830/750 | HIGH | 72 | Odin3, KONKR |
+| RK3588 | Mali-G610 MP4 | HIGH | 30 | GameForce Ace |
+
+Lectura operativa: el gate Mali-G31 cubre ~21% del parque hoy (1411 devices);
+el **MID de Mali-G52 (RK3566) es el 55%** — habilitarlo requiere verificar en
+un device G52 real (el mismo env-strip puede ser suficiente, pero no se gatea
+sin prueba, por la regla de arriba).
+
 `HIGH` en desktop aunque el vendor diga Mali (no hay Mali desktop en la flota
 hoy; el match por adapter name evita falsos positivos). **UNKNOWN GLES3
 embebido → `LOW` conservador** hasta verificar en device (cada habilitación
