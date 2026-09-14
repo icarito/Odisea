@@ -33,6 +33,14 @@ class DummyCameraRig:
 	extends Spatial
 	var align_calls := 0
 	var sync_calls := 0
+	var view := {"yaw": 1.25, "pitch": -0.2}
+	var restored = null
+
+	func capture_camera_view() -> Dictionary:
+		return view.duplicate()
+
+	func restore_camera_view(saved: Dictionary) -> void:
+		restored = saved
 
 	func align_exit_from_cinematic(_target_cam: Camera) -> void:
 		align_calls += 1
@@ -607,4 +615,57 @@ func test_first_vcamera_activation_blends_from_player_camera():
 	assert_float(brain.global_transform.origin.distance_to(player_origin)).is_less(total * 0.5)
 
 	cm.reset()
+	yield (_teardown_root(root), "completed")
+
+
+
+func test_leaving_a_terminal_restores_the_players_view_and_returns_faster():
+	var cm = get_node(CM_PATH)
+	cm.reset()
+	cm.set_transition_debug(true)
+	cm.clear_transition_debug_events()
+	var root = _setup_root()
+	var nodes = _setup_player_with_camera(root)
+	var camera_rig = nodes["camera_rig"]
+	var rig: DummyRig = _setup_rig(root, "FocusedRig", Vector3(8, 3, 6))
+	yield (get_tree(), "idle_frame")
+
+	var req = cm.request_camera_mode(
+		cm.ControlMode.LOCKED_VIEW,
+		{"rig": rig, "transition_time": 1.0, "restore_view_on_exit": true, "exit_transition_scale": 0.5},
+		"terminal_focus_test",
+		12
+	)
+	cm.step(1.0 / 60.0)
+	# Mientras la terminal esta en foco el jugador "mira" a otro lado: la vuelta no debe usar eso.
+	camera_rig.view = {"yaw": -2.0, "pitch": 0.5}
+	cm.release_camera_request(req)
+	cm.step(1.0 / 60.0)
+
+	# Vuelve a la vista de antes de entrar, sin alinearse con la camara de la terminal.
+	assert_int(camera_rig.align_calls).is_equal(0)
+	assert_dict(camera_rig.restored).is_equal({"yaw": 1.25, "pitch": -0.2})
+	# Y mas rapido que la ida: la mitad de la transicion pedida.
+	var to_free := {}
+	for e in cm.get_transition_debug_events():
+		if e is Dictionary and e.get("event", "") == "dynamic_start" and e.get("data", {}).get("purpose", "") == "to_free":
+			to_free = e.get("data", {})
+	assert_float(float(to_free.get("duration", -1.0))).is_equal_approx(cm._scaled_mode_transition_duration(0.5), 0.001)
+	yield (_teardown_root(root), "completed")
+
+
+func test_leaving_a_camera_zone_without_the_flag_still_aligns_to_the_cinematic():
+	var cm = get_node(CM_PATH)
+	cm.reset()
+	var root = _setup_root()
+	var nodes = _setup_player_with_camera(root)
+	var camera_rig = nodes["camera_rig"]
+	var rig: DummyRig = _setup_rig(root, "ZoneRig", Vector3(8, 3, 6))
+	yield (get_tree(), "idle_frame")
+	var req = cm.request_camera_mode(cm.ControlMode.LOCKED_VIEW, {"rig": rig, "transition_time": 0.5}, "zone", 10)
+	cm.step(1.0 / 60.0)
+	cm.release_camera_request(req)
+	cm.step(1.0 / 60.0)
+	assert_int(camera_rig.align_calls).is_equal(1)
+	assert_object(camera_rig.restored).is_null()
 	yield (_teardown_root(root), "completed")

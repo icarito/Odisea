@@ -186,6 +186,9 @@ func _request_focus_camera_rig(rig: Node) -> void:
 		"transition_time": transition_time,
 		"latch_on_enter": true,
 		"latch_on_exit": true,
+		# Como HoloTerminalV2: salir de la terminal vuelve a la vista previa del jugador, mas rapido.
+		"restore_view_on_exit": true,
+		"exit_transition_scale": 0.6,
 	}
 	if has_node("/root/CinematicManager") or get_tree().root.has_node("CinematicManager"):
 		var cinematic_manager = get_tree().root.get_node("CinematicManager")

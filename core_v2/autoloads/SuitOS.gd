@@ -37,7 +37,10 @@ var _screens: Dictionary = {} # Maps String (screen_id) -> Object
 var _context: Dictionary = {}
 var _hud_mode_active: bool = false
 var _active_screen_id: String = ""
-var _pinned: Array = HudSlots.empty_pins()
+# Un HUD recien estrenado trae la linterna en el slot 1; lo demas lo arma el jugador. Una partida
+# guardada (restore_state) o clear_slots() mandan sobre esto.
+const DEFAULT_PINS := ["player:flashlight", "", "", ""]
+var _pinned: Array = DEFAULT_PINS.duplicate()
 var _slot_snapshots: Dictionary = {"slot_1": {}, "slot_2": {}, "slot_3": {}, "slot_4": {}}
 var _last_snapshots_cache: Dictionary = {}
 
@@ -161,7 +164,15 @@ func _input(event: InputEvent) -> void:
 func open_hud_mode(radial: bool = false, screen_id: String = "", slot: int = -1) -> bool:
 	var pause_mgr = get_node_or_null("/root/PauseManager")
 	var overlay_mgr = get_node_or_null("/root/OverlayUIManager")
-	if _hud_mode_active or pause_mgr == null or overlay_mgr == null:
+	if pause_mgr == null or overlay_mgr == null:
+		return false
+	if _hud_mode_active:
+		# Ya abierto: tocar un widget con el dial a la vista pasa a su pantalla.
+		var open_overlay = overlay_mgr.get_slot(overlay_mgr.SLOT_MODAL).get_node_or_null(HUD_MODE_OVERLAY)
+		if not radial and has_screen(screen_id) and is_instance_valid(open_overlay) \
+				and not open_overlay.is_queued_for_deletion():
+			open_overlay.show_screen_id(screen_id)
+			return true
 		return false
 	if not pause_mgr.pause_hud_mode():
 		return false

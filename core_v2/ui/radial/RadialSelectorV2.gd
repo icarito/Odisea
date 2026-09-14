@@ -384,6 +384,10 @@ func _build_radial() -> void:
 	_radial.width_min = width_min
 	_host.add_child(_radial)
 	_radial.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	# The addon's container (and what it builds inside) stops the mouse across the whole dial
+	# rect. Nothing here takes GUI input -- the owner aims and confirms -- and in the HUD mode
+	# it was swallowing taps meant for the slot widgets underneath.
+	_ignore_mouse_recursive(_radial)
 
 	# Cut the addon off from the OS pointer. Without this, every mouse motion
 	# rewrites its cursor from get_global_mouse_position(), which is frozen while
@@ -394,6 +398,13 @@ func _build_radial() -> void:
 	_radial.set_process_input(false)
 
 	_apply_ring_material()
+
+
+func _ignore_mouse_recursive(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_ignore_mouse_recursive(child)
 
 
 # The readout lives in our own layer rather than the addon's CenterNode, which is

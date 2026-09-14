@@ -51,6 +51,20 @@ static func focus_first_button(widget: Node) -> bool:
 			return true
 	return false
 
+# Oprime el boton del widget bajo el punto (pantalla), como un clic. Para cuando la GUI no entrega el
+# toque y hay que resolverlo a mano (el dial del modo HUD encima de los widgets).
+static func press_button_at(widget: Node, point: Vector2) -> bool:
+	for button in buttons_in(widget):
+		if not button.is_visible_in_tree() or button.disabled:
+			continue
+		var xf: Transform2D = button.get_global_transform_with_canvas()
+		if Rect2(xf.origin, button.rect_size * xf.get_scale()).has_point(point):
+			if button.toggle_mode:
+				button.pressed = not button.pressed
+			button.emit_signal("pressed")
+			return true
+	return false
+
 # Oprime el boton enfocado del widget, como un clic (el toggle de la linterna).
 static func press_focused_button(widget: Control) -> void:
 	if not is_instance_valid(widget) or not widget.is_inside_tree():

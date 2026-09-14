@@ -14,6 +14,12 @@ const DESKTOP_TOUCH_IDLE_TIMEOUT := 2.0
 # El puntero fantasma del touch tambien manda motion; el mouse de verdad se mueve de a mas de
 # un par de pixeles, el fantasma en modo capturado se movia de a uno.
 const MOUSE_WAKE_PIXELS := 2.0
+# Un toque corto en una zona vacia (ni control tactil, ni widget, ni algo con que interactuar)
+# oculta la UI tactil como si hubiera pasado el tiempo de inactividad: el jugador despeja la
+# pantalla a proposito. Arrastrar o cualquier otra actividad la vuelve a mostrar. Mismos umbrales
+# que el tap de interactuar de PlayerControllerV2.
+const CLEAR_TAP_MAX_MSEC := 350
+const CLEAR_TAP_MAX_DISTANCE := 24.0
 
 var _mobile_ui: CanvasLayer = null
 var _touch_camera: TouchCameraControls = null
@@ -27,6 +33,9 @@ var _is_cinematic_active := false
 var _cinematic_manager: Node = null
 var _is_zero_g := false
 var _tracked_controller_manager: Node = null
+var _clear_tap_index := -1
+var _clear_tap_start := Vector2.ZERO
+var _clear_tap_msec := 0
 
 func _ready() -> void:
 	layer = 100
@@ -62,6 +71,8 @@ func _input(event: InputEvent) -> void:
 			_notify_input_provider_touch_active(true)
 			_refresh_mobile_ui_visibility()
 		_suspend_mouse_capture()
+		if event is InputEventScreenTouch:
+			_track_clear_tap(event)
 	elif event is InputEventMouseMotion and _is_touch_active and not _is_mobile:
 		# Histeresis: el mouse de verdad recupera el mando en el acto, sin esperar el timeout.
 		# El puntero fantasma del touch tambien manda motion, asi que se descarta con la ventana
@@ -69,6 +80,34 @@ func _input(event: InputEvent) -> void:
 		if not is_pointer_from_touch() and event.relative.length() > MOUSE_WAKE_PIXELS:
 			_deactivate_touch()
 			_restore_mouse_capture()
+
+func _track_clear_tap(event: InputEventScreenTouch) -> void:
+	if event.pressed:
+		if _clear_tap_index == -1 and _is_empty_screen_point(event.position):
+			_clear_tap_index = event.index
+			_clear_tap_start = event.position
+			_clear_tap_msec = OS.get_ticks_msec()
+		return
+	if event.index != _clear_tap_index:
+		return
+	_clear_tap_index = -1
+	if OS.get_ticks_msec() - _clear_tap_msec <= CLEAR_TAP_MAX_MSEC \
+			and event.position.distance_to(_clear_tap_start) <= CLEAR_TAP_MAX_DISTANCE \
+			and not _player_has_interactable():
+		_deactivate_touch()
+
+# Nada que tocar ahi: ni un control tactil ni un widget de slot.
+func _is_empty_screen_point(point: Vector2) -> bool:
+	if is_point_on_touch_controls(point):
+		return false
+	var host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
+	return not (host != null and host.has_method("widget_at") and host.widget_at(point))
+
+# Con algo al alcance el toque es "interactuar" (PlayerControllerV2): no despeja la pantalla.
+func _player_has_interactable() -> bool:
+	var session = get_node_or_null("/root/SessionManager")
+	var player = session.get("player") if session != null else null
+	return is_instance_valid(player) and is_instance_valid(player.get("_current_interactable"))
 
 # Solo apaga el MODO tactil (UI y pistas). El grab NO se devuelve aca a proposito: si volviera
 # con el timeout, la proxima pulsacion se perderia otra vez -es el bug que arregla

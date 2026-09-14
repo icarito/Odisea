@@ -1091,6 +1091,29 @@ func snap_rig_to_camera_orbit(target_cam_pos: Vector3, target_fov: float = 70.0)
 	pitch_deg = rad2deg(pitch)
 
 
+# La vista del jugador (orbita, distancia y FOV) para volver a ella exactamente, p. ej. al salir de una
+# pantalla diegetica: CinematicManager la guarda al entrar (restore_view_on_exit) y la restaura al salir.
+func capture_camera_view() -> Dictionary:
+	return {"yaw": yaw, "pitch": pitch, "spring": base_spring_length_3d, "fov": base_fov}
+
+func restore_camera_view(view: Dictionary) -> void:
+	if input_provider and input_provider.has_method("clear_buffer"):
+		input_provider.clear_buffer()
+	yaw = float(view.get("yaw", yaw))
+	pitch = float(view.get("pitch", pitch))
+	base_spring_length_3d = float(view.get("spring", base_spring_length_3d))
+	base_fov = float(view.get("fov", base_fov))
+	if camera_rig:
+		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
+		camera_rig.force_update_transform()
+	if _cached_spring_arm:
+		current_spring_length = base_spring_length_3d
+		_cached_spring_arm.spring_length = base_spring_length_3d
+	if _cached_cam:
+		_cached_cam.fov = base_fov
+	yaw_deg = rad2deg(yaw)
+	pitch_deg = rad2deg(pitch)
+
 func align_exit_from_cinematic(target_cam: Camera) -> void:
 	"""
 	Aligns player rig heading from the cinematic camera but restores the
@@ -1645,11 +1668,18 @@ func _get_mantle_target_points() -> Dictionary:
 	}
 
 var _interact_area: Area = null
+# Cuanto del giro de la cabeza de Elias (head-look del animator) sigue la zona interactuable, a los
+# costados y arriba/abajo. Con 0 queda fija al frente del cuerpo: se tenia que girar el cuerpo
+# entero para que algo que se estaba mirando reaccionara.
+export(float, 0.0, 1.0) var interact_follows_head := 0.75
+var _interact_area_rest := Transform()
+var _interact_area_pivot := Vector3.ZERO
 
 func _setup_interact_area():
 	if _interact_area: return
 	if animator and animator.has_node("InteractArea"):
 		_interact_area = animator.get_node("InteractArea")
+		_remember_interact_area_rest()
 		return
 
 	_interact_area = Area.new()
@@ -1671,6 +1701,28 @@ func _setup_interact_area():
 		animator.add_child(_interact_area)
 	else:
 		add_child(_interact_area)
+	_remember_interact_area_rest()
+
+# La pose de la zona mirando al frente, y el punto a la altura de la cabeza sobre el que gira: girar
+# sobre los pies hundiria o levantaria la caja entera al mirar abajo o arriba.
+func _remember_interact_area_rest() -> void:
+	_interact_area_rest = _interact_area.transform
+	var head_height := 1.5
+	for child in _interact_area.get_children():
+		if child is CollisionShape:
+			head_height = child.transform.origin.y
+			break
+	_interact_area_pivot = _interact_area_rest.xform(Vector3(0.0, head_height, 0.0))
+
+# La zona interactuable sigue parcialmente a la cabeza. Empujando queda al frente del cuerpo: el
+# empuje depende de la direccion del cuerpo, y girar la camara no debe soltar lo que se empuja.
+func _aim_interact_area() -> void:
+	if not is_instance_valid(_interact_area) or not animator or not animator.has_method("get_head_look"):
+		return
+	var look: Vector2 = Vector2.ZERO if is_pushing else animator.get_head_look() * interact_follows_head
+	var turn := Basis(Vector3.UP, look.x) * Basis(Vector3.RIGHT, -look.y)
+	_interact_area.transform = Transform(turn * _interact_area_rest.basis,
+		_interact_area_pivot + turn.xform(_interact_area_rest.origin - _interact_area_pivot))
 
 func _setup_multi_tool():
 	if multi_tool and is_instance_valid(multi_tool):
@@ -1973,6 +2025,7 @@ func _process_interaction(input: InputDataV2):
 		# "nothing pressed" instead of crashing every physics frame on input.crouch below.
 		input = InputDataV2.new()
 	if not _interact_area: return
+	_aim_interact_area()
 
 	# PERF: Throttle heavy physics/search scans
 	# Invalidate stale cached targets (e.g. freed on scene change / prop destroy)

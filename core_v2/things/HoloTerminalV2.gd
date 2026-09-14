@@ -24,6 +24,9 @@ const MOBILE_WEB_HOLO_MIN_SIZE := Vector2(320, 240)
 export(bool) var use_extracted_camera_rig := false
 export(bool) var use_extracted_hud_bridge := false
 
+# La vuelta de la camara al salir de la terminal, como fraccion de la transicion de entrada.
+const FOCUS_EXIT_TRANSITION_SCALE := 0.6
+
 var _camera_rig_component: Node = null
 var _hud_bridge_component: Node = null
 
@@ -879,6 +882,10 @@ func _request_focus_camera_rig(rig: Node) -> void:
 		# Keep player movement stable while entering/exiting terminal focus.
 		"latch_on_enter": true,
 		"latch_on_exit": true,
+		# Al salir de la terminal se vuelve a la vista que tenia el jugador antes de accionarla (no a
+		# la orientacion de la camara de la terminal), y un poco mas rapido que la ida.
+		"restore_view_on_exit": true,
+		"exit_transition_scale": FOCUS_EXIT_TRANSITION_SCALE,
 	}
 	_focus_camera_request_id = CinematicManager.request_camera_mode(
 		CinematicManager.ControlMode.LOCKED_VIEW,

@@ -132,7 +132,8 @@ func refresh_visibility() -> void:
 	for i in range(HudSlots.COUNT):
 		var overlay = _widget_root.get_node_or_null("SuitOS_Widget_" + HudSlots.slot_key(i))
 		if is_instance_valid(overlay):
-			overlay.visible = not hidden
+			# Sin pantallas registradas (el menu) no hay HUD: un slot fijado no se muestra "offline".
+			overlay.visible = not hidden and has_screens
 		var placeholder = _widget_root.get_node_or_null("SuitOS_Placeholder_" + HudSlots.slot_key(i))
 		if is_instance_valid(placeholder):
 			# Un slot vacio solo se ve en el modo HUD (sin pantalla abierta) o como destino de un
@@ -495,13 +496,48 @@ func _end_drag(control: Control, slot: String) -> void:
 	else:
 		_place(control, slot)
 
-# En el modo HUD los widgets de la esquina no se tocan: el toque es del modo HUD (el dial, la
-# pantalla, o cerrarlo tocando afuera). Tampoco cuenta el resto del toque que lo abrio o lo cerro.
+# No cuenta el resto del toque que abrio o cerro el modo HUD. Con el dial a la vista los widgets si
+# se tocan y se arrastran; con una pantalla abierta estan ocultos.
 func _ignores_widget_taps() -> bool:
-	var suit_os = get_node_or_null("/root/SuitOS")
-	if suit_os != null and suit_os.is_hud_mode_active():
-		return true
 	return Engine.get_idle_frames() == _hud_state_frame
+
+# Un widget de slot visible bajo el punto (el modo HUD le deja ese toque: no es "fuera del dial").
+func widget_at(point: Vector2) -> bool:
+	return not _widget_hit(point).empty()
+
+func _widget_hit(point: Vector2) -> Array:
+	if not is_instance_valid(_widget_root):
+		return []
+	for i in range(HudSlots.COUNT):
+		var slot: String = HudSlots.slot_key(i)
+		var widget = _widget_root.get_node_or_null("SuitOS_Widget_" + slot)
+		if is_instance_valid(widget) and widget is Control and widget.is_visible_in_tree():
+			var xf: Transform2D = widget.get_global_transform_with_canvas()
+			if Rect2(xf.origin, widget.rect_size * xf.get_scale()).has_point(point):
+				return [widget, slot]
+	return []
+
+# Con el dial del modo HUD a la vista la GUI no le entregaba el toque al widget (medido en
+# Dome_Intro: ningun control recibia el evento). El overlay se lo pasa directo: tocarlo, arrastrarlo,
+# o su boton si el toque cae ahi.
+var _forwarded: Array = []
+
+func forward_touch(event: InputEventScreenTouch) -> bool:
+	if event.pressed:
+		_forwarded = _widget_hit(event.position)
+	if _forwarded.empty():
+		return false
+	var target: Array = _forwarded
+	_last_pointer_position = event.position
+	if not event.pressed:
+		_forwarded = []
+		if _press_on_button and not _dragging \
+				and (event.position - _press_position).length() < DRAG_START * UIScaleCompensatorScript.scale_for(self):
+			HudWidgetActionScript.press_button_at(target[0], event.position)
+	elif event.pressed:
+		_press_position = event.position
+	_on_widget_gui_input(event, target[0], target[1])
+	return true
 
 # ponytail: el hold se mide con el reloj, no con el stream — el widget no aprieta ninguna
 # accion y no hay muestra grabada que contar. Si el modo HUD entra al replay, el tap tendria
@@ -542,9 +578,10 @@ func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> 
 	var screen_id: String = String(_active_screen_ids.get(slot, ""))
 	var swipe_min: float = SWIPE_MIN * UIScaleCompensatorScript.scale_for(self)
 	if HudSlots.outward_swipe(index, _last_pointer_position - _press_position, swipe_min):
-		suit_os.clear_slot(index) # una sugerencia no esta fijada: no hay nada que vaciar
-	elif OS.get_ticks_msec() - _press_msec >= HOLD_MSEC or not suit_os.has_screen(screen_id):
-		# Hold, o un slot sin pantalla que abrir (contorno vacio, o fijada de otra escena).
-		suit_os.open_hud_mode(true, "", index)
+		suit_os.clear_slot(index)
+	elif OS.get_ticks_msec() - _press_msec >= HOLD_MSEC:
+		pass # mantener sin mover no abre nada: mantener y mover arrastra
+	elif not suit_os.has_screen(screen_id):
+		suit_os.open_hud_mode(true, "", index) # fijada a una pantalla de otra escena: a reasignar
 	else:
 		suit_os.open_hud_mode(false, String(_active_screen_ids.get(slot, "")))

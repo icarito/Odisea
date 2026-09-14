@@ -246,3 +246,10 @@ func test_move_slot_swaps_the_two_slots() -> void:
 	# Un slot vacio no tiene nada que mover.
 	SuitOS.move_slot(0, 1)
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "a", "b"])
+
+func test_a_fresh_hud_has_the_flashlight_in_slot_1() -> void:
+	var fresh = auto_free(load("res://core_v2/autoloads/SuitOS.gd").new()) # sin arbol: no corre _ready
+	assert_array(fresh.get_pinned_slots()).is_equal(["player:flashlight", "", "", ""])
+	# clear_slots vacia todo, la linterna incluida.
+	fresh.clear_slots()
+	assert_array(fresh.get_pinned_slots()).is_equal(["", "", "", ""])

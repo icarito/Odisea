@@ -861,6 +861,11 @@ func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_t
 	_skeleton.set_bone_global_pose_override(head_idx, pose, 1.0, true)
 	_head_look_active = true
 
+# Hacia donde gira la cabeza (x = yaw, y = pitch, radianes), ya suavizado y dentro de sus limites;
+# cero sin head-look. La zona interactuable del jugador la sigue (PlayerControllerV2).
+func get_head_look() -> Vector2:
+	return Vector2(_head_look_yaw, _head_look_pitch) if _head_look_active else Vector2.ZERO
+
 func _clear_bone_override(bone_idx: int) -> void:
 	if bone_idx < 0:
 		return

@@ -441,3 +441,19 @@ func test_zoom_ruler_shows_only_while_zooming_and_spreads_when_zooming_in() -> v
 	ruler._process(0.016)
 	assert_bool(ruler.visible).is_false()
 	SessionManager.player = previous
+
+
+func test_a_pinned_slot_is_not_shown_where_no_screens_are_registered() -> void:
+	# En el menu no hay pantallas: la linterna por defecto no debe aparecer como "offline".
+	for id in SuitOS.get_registered_screens():
+		SuitOS.unregister_screen(id)
+	SuitOS.pin_to_slot(0, "player:flashlight")
+	var widget: Control = _widget_host.get_widget_root().get_node("SuitOS_Widget_slot_1")
+	_widget_host.refresh_visibility()
+	assert_bool(widget.visible).is_false()
+	var screen = auto_free(HUDableComponentScript.new())
+	screen.hud_screen_id = "test:any"
+	add_child(screen)
+	assert_bool(widget.visible).is_true()
+	SuitOS.clear_slots()
+	SuitOS.unregister_screen(screen)

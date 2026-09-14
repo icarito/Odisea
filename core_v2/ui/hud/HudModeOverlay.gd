@@ -58,6 +58,9 @@ var _drag_ghost: Label = null # el item levantado, siguiendo al dedo
 var _view_drag_candidate: bool = false
 var _view_handle: Control = null
 var _drag_from_handle: bool = false
+# El toque cayo sobre un widget de slot con el dial a la vista: es del widget (tocarlo o arrastrarlo,
+# SuitOSWidgetHost), no del dial.
+var _touch_on_widget: bool = false
 var _dragging_view: bool = false
 var _active_focused_screen: Object = null
 # El dial abierto por mantener TAB: mientras siga apretado es un cuasimodo (ver _release_tab_hold).
@@ -279,6 +282,11 @@ func _input(event: InputEvent) -> void:
 			_touch_index = event.index
 			_touch_start = event.position
 			_touch_press_msec = OS.get_ticks_msec()
+			var host = _widget_host()
+			_touch_on_widget = _selector.is_open() and host != null and host.forward_touch(event)
+			if _touch_on_widget:
+				get_tree().set_input_as_handled()
+				return
 			_drag_option = _selector.slice_at(event.position)
 			_drag_from_handle = is_on_view_handle(event.position)
 			if _drag_from_handle:
@@ -289,7 +297,13 @@ func _input(event: InputEvent) -> void:
 		elif not event.pressed and event.index == _touch_index:
 			_touch_index = -1
 			var tapped: bool = (event.position - _touch_start).length() < TOUCH_MIN_DRAG
-			if is_instance_valid(_drag_ghost):
+			if _touch_on_widget:
+				_touch_on_widget = false # lo resuelve el widget (su pantalla, su boton, o el arrastre)
+				var host = _widget_host()
+				if host != null:
+					host.forward_touch(event)
+				get_tree().set_input_as_handled()
+			elif is_instance_valid(_drag_ghost):
 				_drop_option(event.position)
 				get_tree().set_input_as_handled()
 			elif _dragging_view:
@@ -313,7 +327,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventScreenDrag:
 		# Todo el arrastre, no el ultimo delta (criterio de ElevatorFloorSelector).
 		if event.index == _touch_index:
-			if _drive_option_drag(event.position) or _drive_view_drag(event.position):
+			if _touch_on_widget or _drive_option_drag(event.position) or _drive_view_drag(event.position):
 				return
 			_point_at(event.position - _touch_start)
 		return
@@ -322,8 +336,11 @@ func _input(event: InputEvent) -> void:
 		# El clic emulado de un toque no decide: el toque se resuelve al soltar (sector o fuera).
 		# Por el device y no solo por InputProviderV2.pointer_is_from_touch(): con el arbol pausado
 		# MobileUIManager no renueva esa ventana, y el clic del dedo cerraba el dial al apoyarlo.
-		if event.device != TOUCH_MOUSE_DEVICE and not InputProviderV2.pointer_is_from_touch():
-			_confirm_or_dismiss()
+		if event.device == TOUCH_MOUSE_DEVICE or InputProviderV2.pointer_is_from_touch():
+			# Y sigue de largo a la GUI: si el dedo cayo sobre un widget de slot, ese clic es el
+			# que lo oprime. Marcarlo como atendido dejaba al widget sin su toque.
+			return
+		_confirm_or_dismiss()
 	elif event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed \
 			and _is_outside_view(event.position):
 		_exit()

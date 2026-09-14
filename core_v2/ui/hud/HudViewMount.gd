@@ -7,7 +7,8 @@ extends Reference
 # su Viewport, el presentador usa esa misma textura. Sin view_scene(): widget ampliado en 2D.
 
 const PresenterScene = preload("res://core_v2/ui/hud/HudViewPresenter.tscn")
-const WIDGET_ZOOM := 3.0
+# Widget ampliado de un hudable sin pantalla completa. Era 3.0: se veia demasiado grande.
+const WIDGET_ZOOM := 1.8
 # Sin posicion de origen, el presentador arranca a esta distancia frente a la camara.
 const FRONT_DISTANCE := 1.5
 # Tiempo para que el presentador se encoja (anim_duration del casco) antes de liberarlo.

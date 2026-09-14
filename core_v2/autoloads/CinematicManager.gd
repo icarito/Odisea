@@ -801,6 +801,11 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 		# Update State
 		if target_rig and is_instance_valid(target_rig):
 			_active_payload = target_req.payload
+			# restore_view_on_exit: la vista del jugador de antes de entrar, para volver a ella.
+			if _active_payload.get("restore_view_on_exit", false) and not _active_payload.has("_saved_player_view"):
+				var view_owner = _find_player_view_owner(_find_player_camera())
+				if view_owner:
+					_active_payload["_saved_player_view"] = view_owner.capture_camera_view()
 			_current_state = CameraModeState.TRANSITION_TO_CINEMATIC
 			active_rig = target_rig
 			current_control_mode = target_mode
@@ -849,7 +854,10 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 			if exit_transition_time <= 0.0 and prev_rig and is_instance_valid(prev_rig):
 				if "transition_time" in prev_rig:
 					exit_transition_time = prev_rig.transition_time
+			# exit_transition_scale: la vuelta puede ser mas rapida que la ida (salir de una pantalla).
+			exit_transition_time *= float(_active_payload.get("exit_transition_scale", 1.0))
 			exit_transition_time = _scaled_mode_transition_duration(exit_transition_time)
+			var saved_view = _active_payload.get("_saved_player_view", null)
 
 			active_rig = null
 			current_control_mode = ControlMode.FREE
@@ -863,7 +871,13 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 				# Align player rig to the current cinematic POV before blending back.
 				# This avoids large sweeps to the old pre-cinematic angle on zone exit.
 				if old_cam and is_instance_valid(old_cam):
-					_align_player_rig_to_camera(old_cam, player_cam)
+					# Con la vista guardada se vuelve exactamente a donde estaba el jugador (salir de
+					# una pantalla diegetica conserva su orientacion); si no, la de la cinematica.
+					var view_owner = _find_player_view_owner(player_cam) if saved_view != null else null
+					if view_owner:
+						view_owner.restore_camera_view(saved_view)
+					else:
+						_align_player_rig_to_camera(old_cam, player_cam)
 					if exit_transition_time > 0.0 and old_cam and old_cam != player_cam:
 						# Use custom dynamic transition for return
 						_start_dynamic_transition(old_cam, player_cam, exit_transition_time, "to_free")
@@ -1033,6 +1047,16 @@ func _sync_player_cam_hierarchy(cam: Camera):
 			break
 		parent = parent.get_parent()
 
+
+func _find_player_view_owner(player_cam: Camera) -> Node:
+	if not player_cam or not is_instance_valid(player_cam):
+		return null
+	var parent = player_cam.get_parent()
+	while parent != null:
+		if parent.has_method("capture_camera_view") and parent.has_method("restore_camera_view"):
+			return parent
+		parent = parent.get_parent()
+	return null
 
 func _align_player_rig_to_camera(target_cam: Camera, player_cam: Camera) -> void:
 	if not target_cam or not is_instance_valid(target_cam):
