@@ -9,6 +9,8 @@ extends Reference
 # que la manda por el canal), va por ahi; si no, al SuitOS local, como siempre.
 
 static func perform(from: Node, screen_id: String, op: String, args: Dictionary = {}) -> void:
+	# Oprimir el boton de un widget se siente en el dispositivo que se toca, aunque la accion viaje.
+	preload("res://core_v2/ui/Haptics.gd").confirm()
 	var node: Node = from
 	while is_instance_valid(node):
 		if node.has_method("perform_hud_widget_action"):

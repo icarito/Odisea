@@ -9,6 +9,7 @@ const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
 const ZoomRulerScript = preload("res://core_v2/ui/hud/ZoomRuler.gd")
+const Haptics = preload("res://core_v2/ui/Haptics.gd")
 
 # Cada slot tiene su lugar FIJO (HudSlots.slot_position): 1 y 2 arriba a la izquierda, 3 y 4
 # arriba a la derecha. Ninguno se corre cuando otro esta vacio.
@@ -283,6 +284,8 @@ func _show_recycle(visible: bool, hot: bool = false) -> void:
 	_recycle.rect_size = rect.size
 	_recycle.visible = visible
 	get_widget_root().move_child(_recycle, get_widget_root().get_child_count() - 1)
+	if hot and not _recycle_hot:
+		Haptics.tick() # el dedo entro al reciclaje: soltar ahi lo quita
 	_recycle_hot = hot
 	_recycle.update()
 
@@ -349,6 +352,8 @@ func show_drop_targets(active: bool, highlighted_slot: int = -1) -> void:
 	_drop_targets_visible = active
 	var target: int = highlighted_slot if active else -1
 	if target != _highlighted_slot:
+		if target >= 0:
+			Haptics.tick() # el dedo entro a otro slot: soltar ahi cae en ese
 		for i in [_highlighted_slot, target]:
 			if i < 0:
 				continue
@@ -480,7 +485,7 @@ func _drive_drag(control: Control) -> void:
 		if OS.get_ticks_msec() - _press_msec < HOLD_MSEC or moved.length() < DRAG_START * k:
 			return
 		_dragging = true
-		Input.vibrate_handheld(HudSlots.LIFT_VIBRATION_MSEC)
+		Haptics.pulse(Haptics.LIFT_MSEC)
 		_drag_origin = control.rect_position
 		control.modulate.a = DRAG_ALPHA
 		get_widget_root().move_child(control, get_widget_root().get_child_count() - 1)
@@ -502,13 +507,14 @@ func _end_drag(control: Control, slot: String) -> void:
 	var swipe_min: float = SWIPE_MIN * UIScaleCompensatorScript.scale_for(self)
 	control.modulate.a = 1.0
 	if suit_os != null and over_recycle:
-		Input.vibrate_handheld(HudSlots.DROP_VIBRATION_MSEC)
+		Haptics.pulse(Haptics.DROP_MSEC)
 		suit_os.clear_slot(index)
 	elif suit_os != null and target >= 0 and target != index:
-		Input.vibrate_handheld(HudSlots.DROP_VIBRATION_MSEC)
+		Haptics.pulse(Haptics.DROP_MSEC)
 		suit_os.move_slot(index, target)
 	elif suit_os != null and target < 0 \
 			and HudSlots.outward_swipe(index, _last_pointer_position - _press_position, swipe_min):
+		Haptics.pulse(Haptics.DROP_MSEC)
 		_animate_swipe_exit(control, index, _last_pointer_position - _press_position)
 	else:
 		_place(control, slot)
@@ -617,6 +623,7 @@ func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> 
 	var screen_id: String = String(_active_screen_ids.get(slot, ""))
 	var swipe_min: float = SWIPE_MIN * UIScaleCompensatorScript.scale_for(self)
 	if HudSlots.outward_swipe(index, _last_pointer_position - _press_position, swipe_min):
+		Haptics.pulse(Haptics.DROP_MSEC)
 		_animate_swipe_exit(control, index, _last_pointer_position - _press_position)
 	elif OS.get_ticks_msec() - _press_msec >= HOLD_MSEC:
 		pass # mantener sin mover no abre nada: mantener y mover arrastra

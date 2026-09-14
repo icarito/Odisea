@@ -20,6 +20,7 @@ const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
 const UIScaleCompensator = preload("res://core_v2/ui/UIScaleCompensator.gd")
+const Haptics = preload("res://core_v2/ui/Haptics.gd")
 const EyeOpen = preload("res://core_v2/ui/remote_control/eye_open.svg")
 const EyeClosed = preload("res://core_v2/ui/remote_control/eye_closed.svg")
 # Mismos umbrales que ElevatorFloorSelector: se filtra ruido de angulo, no movimiento.
@@ -354,6 +355,7 @@ func _input(event: InputEvent) -> void:
 				# sin nada marcado cierra el dial.
 				var picked: int = _selector.slice_at(event.position)
 				if picked != RadialSelectorV2.NONE:
+					Haptics.confirm() # el toque directo no pasa por confirm(), que es el que vibra
 					_select(picked)
 				elif _selector.has_selection():
 					_selector.confirm()
@@ -405,7 +407,7 @@ func _drive_option_drag(position: Vector2) -> bool:
 		if not _drag_from_handle and (not _selector.is_open() \
 				or OS.get_ticks_msec() - _touch_press_msec < DRAG_HOLD_MSEC):
 			return false
-		Input.vibrate_handheld(HudSlots.LIFT_VIBRATION_MSEC)
+		Haptics.pulse(Haptics.LIFT_MSEC)
 		_drag_ghost = Label.new()
 		_drag_ghost.name = "DragGhost"
 		_drag_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -428,7 +430,7 @@ func _drop_option(position: Vector2) -> void:
 	var slot: int = host.slot_at(position) if host != null else -1
 	var from_handle: bool = _drag_from_handle
 	if slot >= 0:
-		Input.vibrate_handheld(HudSlots.DROP_VIBRATION_MSEC)
+		Haptics.pulse(Haptics.DROP_MSEC)
 		_suit_os().pin_to_slot(slot, _screen_ids[_drag_option])
 	_end_option_drag()
 	if slot >= 0 and from_handle:
@@ -455,7 +457,7 @@ func _drive_view_drag(position: Vector2) -> bool:
 				or (position - _touch_start).length() < TOUCH_MIN_DRAG:
 			return false
 		_dragging_view = true
-		Input.vibrate_handheld(HudSlots.LIFT_VIBRATION_MSEC)
+		Haptics.pulse(Haptics.LIFT_MSEC)
 		widget.rect_pivot_offset = Vector2.ZERO
 		widget.rect_scale = Vector2.ONE * UIScaleCompensator.scale_for(self)
 	widget.rect_global_position = position - widget.rect_size * widget.rect_scale * 0.5
@@ -476,7 +478,7 @@ func _drop_view(position: Vector2) -> void:
 	var suit_os: Node = _suit_os()
 	var id: String = suit_os.get_active_screen_id()
 	if slot >= 0 and suit_os.has_screen(id):
-		Input.vibrate_handheld(HudSlots.DROP_VIBRATION_MSEC)
+		Haptics.pulse(Haptics.DROP_MSEC)
 		suit_os.pin_to_slot(slot, id)
 		_exit()
 	elif suit_os.has_screen(id):

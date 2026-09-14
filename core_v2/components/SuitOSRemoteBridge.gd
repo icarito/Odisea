@@ -160,10 +160,10 @@ func _on_widget_changed(_slot: String, snapshot: Dictionary) -> void:
 	if not snap_id.empty():
 		_dirty_screens[snap_id] = snapshot
 
-func _on_suitos_haptic(kind: String, intensity: float = 1.0) -> void:
+func _on_suitos_haptic(kind: String, intensity: float = 1.0, duration: float = 0.1) -> void:
 	var server = _get_server()
 	if server != null and _has_paired_client():
-		server.send_ui_directive("haptic", {"kind": kind, "intensity": intensity})
+		server.send_ui_directive("haptic", {"kind": kind, "intensity": intensity, "duration": duration})
 
 func _has_paired_client() -> bool:
 	var server = _get_server()

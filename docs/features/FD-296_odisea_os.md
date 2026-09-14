@@ -241,11 +241,17 @@ no llevaba datos ni snapshot).
 
 #### 7. Vibración / hápticos
 
-- `SuitOS` emite eventos `haptic{kind}`; el canal remoto los traduce a
-  vibración del teléfono (protocolo FD-294).
-- **v1**: `haptic{tremor}` disparado por TremorZone (FD-288) cuando
-  aterrice — la vibración no es una feature suelta, es la respuesta háptica
-  de un evento del bus. Otros eventos hápticos: backlog.
+- Toda vibración pasa por `core_v2/ui/Haptics.gd`, que respeta la opción
+  **Vibración** (`SettingsManager.vibration`) y llega al teléfono
+  (`vibrate_handheld`) y a los mandos (`start_joy_vibration`).
+- **HUD** (en el dispositivo que se toca): un detente por opción marcada del
+  dial (también el del ascensor), un pulso al confirmar y al oprimir el botón de
+  un widget, un tick al entrar a otro slot o al reciclaje mientras se arrastra,
+  y levantar/soltar/swipe.
+- **Juego**: todo temblor de cámara (`CinematicManager.trigger_camera_shake`:
+  tremor, ruptura, cinemáticas OYS) llama `SuitOS.trigger_haptic("shake",
+  intensidad, duración)`, que vibra en el dispositivo local y viaja al control
+  remoto (`haptic{kind, intensity, duration}`); cada lado con su opción.
 
 ### Contratos (F1) — datos separados de presentación
 

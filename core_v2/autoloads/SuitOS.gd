@@ -23,9 +23,10 @@ signal screen_opened(id)
 signal screen_closed(id)
 signal widget_changed(slot, snapshot)
 signal hud_mode_changed(active)
-signal haptic(kind, intensity)
+signal haptic(kind, intensity, duration)
 
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
+const Haptics = preload("res://core_v2/ui/Haptics.gd")
 
 const ContextDriverScript = preload("res://core_v2/autoloads/SuitOSContextDriver.gd")
 const WidgetHostScene = preload("res://core_v2/ui/hud/SuitOSWidgetHost.tscn")
@@ -297,8 +298,12 @@ func perform_action(screen_id: String, op: String, args: Dictionary = {}) -> Dic
 	else:
 		return {"ok": false, "error": "Screen '%s' does not implement perform_action" % screen_id}
 
-func trigger_haptic(kind: String, intensity: float = 1.0) -> void:
-	emit_signal("haptic", kind, intensity)
+# Un evento del juego que se siente (hoy: todo temblor de camara, CinematicManager): vibra aca, en el
+# telefono o el mando de quien juega, y viaja al control remoto (SuitOSRemoteBridge). Cada lado
+# respeta su propia opcion de vibracion.
+func trigger_haptic(kind: String, intensity: float = 1.0, duration: float = 0.1) -> void:
+	Haptics.pulse(int(duration * 1000.0), intensity)
+	emit_signal("haptic", kind, intensity, duration)
 
 func save_state() -> Dictionary:
 	return {

@@ -33,6 +33,7 @@ signal option_selected(index)
 signal cancelled()
 
 const RadialMenuScript = preload("res://addons/radial_menu/RadialMenu.gd")
+const Haptics = preload("res://core_v2/ui/Haptics.gd")
 
 const NONE := -1
 # Screen-space angles (Y down). First option at 6 o'clock, last at 12, half a
@@ -327,6 +328,7 @@ func confirm() -> void:
 	# rather than picking whatever happens to be nearest.
 	if not _is_open or _hover_index == NONE:
 		return
+	Haptics.confirm()
 	emit_signal("option_selected", _hover_index)
 
 
@@ -621,4 +623,8 @@ func _apply_hover(index: int, silent: bool) -> void:
 	if _slice_layer:
 		_slice_layer.update()
 	if changed and not silent:
+		# Un detente por opcion marcada, como una perilla: se apunta sin mirar (en el control
+		# remoto la vista esta en la pantalla del host).
+		if index != NONE:
+			Haptics.tick()
 		emit_signal("option_hovered", index)

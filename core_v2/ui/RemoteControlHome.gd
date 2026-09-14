@@ -7,6 +7,7 @@ var RemoteProtocol = preload("res://core_v2/net/RemoteProtocol.gd")
 const SuitOSWidgetHostScene = preload("res://core_v2/ui/hud/SuitOSWidgetHost.tscn")
 const RemoteHudBackendScript = preload("res://core_v2/ui/hud/RemoteHudBackend.gd")
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
+const Haptics = preload("res://core_v2/ui/Haptics.gd")
 
 const SESSION_ENDED_NOTICE_SEC := 2.5
 const TITLE_PREFIX := "ODISEAOS"
@@ -350,9 +351,12 @@ func _on_ui_directive(op: String, payload) -> void:
 
 		"haptic":
 			if typeof(payload) == TYPE_DICTIONARY:
-				var intensity: float = float((payload as Dictionary).get("intensity", 1.0))
-				if OS.get_name() in ["Android", "iOS"]:
-					Input.vibrate_handheld(int(intensity * 100.0))
+				# Lo que se sintio en la partida (un temblor), en el telefono o el mando de aca, con la
+				# opcion de vibracion de este dispositivo. Un host viejo no manda duracion.
+				var dict: Dictionary = payload as Dictionary
+				var intensity: float = float(dict.get("intensity", 1.0))
+				var duration: float = float(dict.get("duration", intensity * 0.1))
+				Haptics.pulse(int(duration * 1000.0), intensity)
 
 func _refresh_status() -> void:
 	$Title.text = "PARTIDA EN PAUSA" if _host_paused else _title_text

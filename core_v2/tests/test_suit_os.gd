@@ -233,7 +233,7 @@ func test_pre_scene_swap_closes_active_screen_and_resets_context() -> void:
 	assert_bool(SuitOS.get_context().empty()).is_true()
 	assert_bool(SuitOS.has_screen("screen_1")).is_true()
 
-func _on_haptic_event(kind: String, intensity: float) -> void:
+func _on_haptic_event(kind: String, intensity: float, _duration: float = 0.1) -> void:
 	_received_haptic.append({"kind": kind, "intensity": intensity})
 
 func test_move_slot_swaps_the_two_slots() -> void:

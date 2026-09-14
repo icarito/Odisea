@@ -8,10 +8,6 @@ const COUNT := 4
 const SLOT_ROW_HEIGHT := 96.0 # el widget mas alto hoy (SystemStatusWidget) mide 90
 const SLOT_GAP := 8.0
 const SLOT_PADDING := 16.0
-# Vibracion del arrastre a un slot (widget o item del radial): al levantar y al soltar en un slot.
-# Local al dispositivo, no por SuitOS.trigger_haptic, que la reenvia al telefono emparejado.
-const LIFT_VIBRATION_MSEC := 40
-const DROP_VIBRATION_MSEC := 20
 
 static func slot_key(index: int) -> String:
 	return "slot_%d" % (index + 1)

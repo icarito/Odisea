@@ -652,6 +652,8 @@ func _finish_dynamic_transition():
 	if purpose == "to_free":
 		emit_signal("cinematic_stopped")
 
+const SHAKE_HAPTIC_FULL_AMPLITUDE := 0.12
+
 func trigger_camera_shake(duration: float = 0.35, amplitude: float = 0.08, frequency: float = 28.0, roll_degrees: float = 1.0) -> void:
 	if duration <= 0.0:
 		stop_camera_shake()
@@ -666,6 +668,11 @@ func trigger_camera_shake(duration: float = 0.35, amplitude: float = 0.08, frequ
 	var cam = get_active_camera()
 	if cam and is_instance_valid(cam):
 		_bind_shake_camera(cam)
+	# Todo temblor de camara (tremor, ruptura, cinematicas OYS) tambien se siente. Mas amplitud,
+	# vibracion mas fuerte en un mando; SHAKE_HAPTIC_FULL_AMPLITUDE es la de una ruptura.
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os != null and suit_os.has_method("trigger_haptic"):
+		suit_os.trigger_haptic("shake", clamp(_shake_amplitude / SHAKE_HAPTIC_FULL_AMPLITUDE, 0.2, 1.0), duration)
 
 func stop_camera_shake() -> void:
 	_shake_active = false
