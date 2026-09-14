@@ -64,6 +64,17 @@ func test_view_transition_origin_focus_rig() -> void:
 	assert_str(String(origin_focus.get("kind", ""))).is_equal("focus_rig")
 	assert_object(origin_focus.get("path", null)).is_not_null()
 
+func test_remote_focus_action_reuses_the_terminal_focus_toggle() -> void:
+	_terminal.allow_focus_mode = true
+	_terminal.enable_ui_interaction = true
+	_terminal.attach_to_active_camera = true
+
+	assert_array(_hudable.allowed_actions()).contains(["toggle_focus"])
+	assert_bool(bool(_hudable.perform_action("toggle_focus").get("focused", false))).is_true()
+	assert_bool(_terminal.is_focused()).is_true()
+	assert_bool(bool(_hudable.perform_action("toggle_focus").get("focused", true))).is_false()
+	assert_bool(_terminal.is_focused()).is_false()
+
 func test_relevance_monotonic_with_distance() -> void:
 	_terminal.translation = Vector3(0, 0, 0)
 	_hudable.default_relevance = 0.1

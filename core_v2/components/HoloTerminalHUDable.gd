@@ -120,6 +120,7 @@ func widget_snapshot() -> Dictionary:
 	var terminal = _get_terminal()
 	var is_active_val: bool = false
 	var is_focused_val: bool = false
+	var can_focus_val: bool = false
 	var pos_array: Array = [0.0, 0.0, 0.0]
 	var title_val: String = screen_title()
 	var status_text_val: String = "ESTADO: OPERATIVO"
@@ -134,6 +135,8 @@ func widget_snapshot() -> Dictionary:
 			is_focused_val = terminal.is_focused()
 		elif "_is_focused" in terminal:
 			is_focused_val = bool(terminal.get("_is_focused"))
+		if terminal.has_method("can_focus"):
+			can_focus_val = terminal.can_focus()
 
 		if terminal is Spatial:
 			var origin: Vector3 = (terminal as Spatial).global_transform.origin
@@ -152,6 +155,7 @@ func widget_snapshot() -> Dictionary:
 		"title": title_val,
 		"active": is_active_val,
 		"focused": is_focused_val,
+		"can_focus": can_focus_val,
 		"status_text": status_text_val,
 		"position": pos_array,
 		"source": "online"
@@ -250,6 +254,27 @@ func exit_focus_mode() -> void:
 	if is_instance_valid(terminal):
 		if terminal.has_method("_exit_focus_mode"):
 			terminal._exit_focus_mode()
+
+# La vista remota no entra al HUD local ni pausa el host. Esta accion queda reservada al
+# ojito del control: usa exactamente el mismo foco que el radial local de la pantalla.
+func allowed_actions() -> Array:
+	var actions: Array = .allowed_actions()
+	if not actions.has("toggle_focus"):
+		actions.append("toggle_focus")
+	return actions
+
+func perform_action(op: String, args: Dictionary = {}) -> Dictionary:
+	if op != "toggle_focus":
+		return .perform_action(op, args)
+	var terminal = _get_terminal()
+	if not is_instance_valid(terminal) or not terminal.has_method("can_focus") or not terminal.can_focus():
+		return {"ok": false, "error": "Terminal sin modo foco"}
+	if terminal.has_method("is_focused") and terminal.is_focused():
+		exit_focus_mode()
+	else:
+		enter_focus_mode()
+	notify_state_changed()
+	return {"ok": true, "focused": terminal.is_focused() if terminal.has_method("is_focused") else false}
 
 func set_source_view_visible(visible: bool) -> void:
 	var terminal = _get_terminal()

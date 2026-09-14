@@ -497,6 +497,31 @@ func test_full_screen_view_mounts_the_scene_the_host_sent():
 
 	home.queue_free()
 
+func test_terminal_camera_button_sends_focus_toggle_without_closing_remote_view():
+	var home = _home_with_open_view()
+	var overlay = home.hud_backend.get_overlay()
+	home._on_ui_directive("screen_active", {
+		"id": "holoterminal:cryo", "title": "Criogenia", "view": "scene",
+		"view_scene": "res://core_v2/ui/hud/HoloTerminalWidget.tscn", "view_size": [1280.0, 816.0],
+		"snapshot": {"proto": 1, "id": "holoterminal:cryo", "can_focus": true, "focused": false}
+	})
+	overlay._physics_process(0.016)
+	assert_bool(overlay._camera_focus_button.visible).is_true()
+
+	overlay._on_camera_focus_pressed()
+	var sent: Dictionary = home._client().ui_directives.back()
+	assert_str(String(sent["op"])).is_equal("remote_action")
+	assert_str(String(sent["payload"]["screen_id"])).is_equal("holoterminal:cryo")
+	assert_str(String(sent["payload"]["op"])).is_equal("toggle_focus")
+	assert_bool(home._hud_mode_active()).is_true()
+	assert_array(_screen_selects(home)).is_empty()
+	home._on_ui_directive("screen_active", {
+		"id": "holoterminal:cryo", "snapshot": {"proto": 1, "id": "holoterminal:cryo", "can_focus": true, "focused": true}
+	})
+	overlay._physics_process(0.016)
+	assert_bool(overlay._camera_focus_button.pressed).is_true()
+	home.queue_free()
+
 func test_view_without_scene_still_falls_back_to_the_widget():
 	# Una pantalla que presta su Viewport en vivo no se puede replicar: queda el widget ampliado.
 	var home = _home_with_flashlight_view()

@@ -120,6 +120,10 @@ func apply_screen_active(payload: Dictionary) -> void:
 	var previous: String = String(active_screen.get("id", ""))
 	active_screen = payload.duplicate(true)
 	var current: String = String(active_screen.get("id", ""))
+	var snapshot = active_screen.get("snapshot")
+	if not current.empty() and typeof(snapshot) == TYPE_DICTIONARY:
+		snapshots[current] = (snapshot as Dictionary).duplicate(true)
+		_notify_proxy(current)
 	if previous == current:
 		return
 	# El host cerro la pantalla que se estaba viendo aca (se fue de la escena): el modo HUD tambien.

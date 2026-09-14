@@ -19,6 +19,8 @@ const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
 const UIScaleCompensator = preload("res://core_v2/ui/UIScaleCompensator.gd")
+const EyeOpen = preload("res://core_v2/ui/remote_control/eye_open.svg")
+const EyeClosed = preload("res://core_v2/ui/remote_control/eye_closed.svg")
 # Mismos umbrales que ElevatorFloorSelector: se filtra ruido de angulo, no movimiento.
 const MOVE_GESTURE_DEADZONE_SQ := 0.02
 const MOUSE_GESTURE_DEADZONE := 3.0
@@ -35,6 +37,7 @@ const TOUCH_MOUSE_DEVICE := -1
 # Asa de la pantalla abierta: arrastrarla hasta un slot la ancla ahi. Pixeles nominales.
 const HANDLE_SIZE := Vector2(64, 22)
 const HANDLE_GAP := 8.0
+const CAMERA_FOCUS_SIZE := Vector2(56, 38)
 
 var input_provider = null # InputProviderV2; LIVE salvo que un test inyecte uno en REPLAY
 # De donde salen las pantallas y los slots: SuitOS en el juego; RemoteHudBackend en el control
@@ -66,6 +69,7 @@ var _drag_ghost: Label = null # el item levantado, siguiendo al dedo
 # Arrastre del widget ampliado (pantalla que es solo widget) hasta un slot.
 var _view_drag_candidate: bool = false
 var _view_handle: Control = null
+var _camera_focus_button: Button = null
 var _drag_from_handle: bool = false
 # El toque cayo sobre un widget de slot con el dial a la vista: es del widget (tocarlo o arrastrarlo,
 # SuitOSWidgetHost), no del dial.
@@ -109,6 +113,16 @@ func _ready() -> void:
 	_view_handle.visible = false
 	add_child(_view_handle)
 	_view_handle.connect("draw", self, "_draw_view_handle")
+	_camera_focus_button = Button.new()
+	_camera_focus_button.name = "CameraFocus"
+	_camera_focus_button.hint_tooltip = "Enfocar cámara del piloto"
+	_camera_focus_button.toggle_mode = true
+	_camera_focus_button.expand_icon = true
+	_camera_focus_button.icon = EyeOpen
+	_camera_focus_button.rect_min_size = CAMERA_FOCUS_SIZE
+	_camera_focus_button.visible = false
+	_camera_focus_button.connect("pressed", self, "_on_camera_focus_pressed")
+	add_child(_camera_focus_button)
 	add_to_group("touch_camera_blocker")
 	if input_provider == null:
 		input_provider = InputProviderV2.new()
@@ -153,6 +167,7 @@ func show_screen_id(id: String) -> void:
 func _physics_process(_delta: float) -> void:
 	_mount_focused_screen_if_ready()
 	_update_view_handle()
+	_update_camera_focus_button()
 	var input = _frame_input()
 	if input == null:
 		return
@@ -490,9 +505,40 @@ func _update_view_handle() -> void:
 		_view_handle.rect_size = size
 		_view_handle.update()
 
+func _update_camera_focus_button() -> void:
+	if not is_instance_valid(_camera_focus_button):
+		return
+	var screen: Object = _suit_os().get_screen(_suit_os().get_active_screen_id())
+	var snapshot: Dictionary = screen.widget_snapshot() if screen != null and screen.has_method("widget_snapshot") else {}
+	var remote_view: bool = _suit_os().get("presents_views_in_2d") == true
+	var show: bool = remote_view and not _selector.is_open() and _mount.is_showing() \
+		and String(snapshot.get("id", "")).begins_with("holoterminal:") and bool(snapshot.get("can_focus", false))
+	_camera_focus_button.visible = show
+	if not show:
+		return
+	var focused: bool = bool(snapshot.get("focused", false))
+	_camera_focus_button.set_pressed_no_signal(focused)
+	_camera_focus_button.icon = EyeClosed if focused else EyeOpen
+	_camera_focus_button.hint_tooltip = "Dejar de enfocar cámara del piloto" if focused else "Enfocar cámara del piloto"
+	var rect: Rect2 = _view_screen_rect()
+	var size: Vector2 = CAMERA_FOCUS_SIZE * UIScaleCompensator.scale_for(self)
+	_camera_focus_button.rect_size = size
+	_camera_focus_button.rect_position = Vector2(
+		clamp(rect.position.x + (rect.size.x - size.x) * 0.5, 0.0, get_viewport_rect().size.x - size.x),
+		rect.end.y + HANDLE_GAP * UIScaleCompensator.scale_for(self))
+
+func _on_camera_focus_pressed() -> void:
+	var id: String = _suit_os().get_active_screen_id()
+	if not id.empty():
+		_suit_os().perform_action(id, "toggle_focus")
+
 func is_on_view_handle(point: Vector2) -> bool:
 	return is_instance_valid(_view_handle) and _view_handle.visible \
 		and _view_handle.get_global_rect().grow(HANDLE_GAP * UIScaleCompensator.scale_for(self)).has_point(point)
+
+func _is_on_camera_focus_button(point: Vector2) -> bool:
+	return is_instance_valid(_camera_focus_button) and _camera_focus_button.visible \
+		and _camera_focus_button.get_global_rect().has_point(point)
 
 # Una pastilla con tres rayas de agarre.
 func _draw_view_handle() -> void:
@@ -526,7 +572,7 @@ func blocks_touch_camera(point: Vector2) -> bool:
 		return true
 	if not _mount.is_showing():
 		return false
-	return is_on_view_handle(point) or _view_screen_rect().has_point(point)
+	return is_on_view_handle(point) or _is_on_camera_focus_button(point) or _view_screen_rect().has_point(point)
 
 func _on_touch_controls(point: Vector2) -> bool:
 	var mobile: Node = get_node_or_null("/root/MobileUIManager")
@@ -535,7 +581,8 @@ func _on_touch_controls(point: Vector2) -> bool:
 
 # Tocar fuera de la pantalla la cierra, simetrico con tocar el widget del slot para abrirla.
 func _is_outside_view(pos: Vector2) -> bool:
-	if not _opened or _selector.is_open() or not _mount.is_showing() or is_on_view_handle(pos):
+	if not _opened or _selector.is_open() or not _mount.is_showing() or is_on_view_handle(pos) \
+			or _is_on_camera_focus_button(pos):
 		return false
 	var rect: Rect2 = _view_screen_rect()
 	return rect.size.x > 0.0 and rect.size.y > 0.0 and not rect.has_point(pos)
