@@ -195,3 +195,42 @@ async def test_update_manifest_503_origin_down(central, aiohttp_client, monkeypa
     }
     resp = await client.get('/game/updates/v1/manifest', headers=headers, params=params)
     assert resp.status == 503
+
+
+async def test_nightly_manifest_is_downloaded_without_the_rate_limited_api(central, monkeypatch):
+    # api.github.com sin token son 60 requests/h: agotado, el server servia un manifest viejo
+    # (stale-if-error) horas despues de publicado un nightly nuevo. El nightly se baja del link
+    # directo del release, que no cuenta contra ese limite.
+    import urllib.error
+    import urllib.request
+
+    content = make_signed_envelope({"build_id": "598"})
+    requested = []
+
+    class FakeResponse:
+        def __init__(self, body):
+            self.body = body
+        def read(self):
+            return self.body
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+
+    def fake_urlopen(req, timeout=10):
+        url = req.full_url
+        requested.append(url)
+        if "api.github.com" in url:
+            raise urllib.error.HTTPError(url, 403, "rate limit exceeded", {}, None)
+        if url.endswith("manifest-ios-arm64.json"):
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+        return FakeResponse(content)
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    entry = await central._get_manifest("nightly", "android", "arm64")
+    assert entry["content"] == content
+    assert requested == ["https://github.com/icarito/Odisea/releases/download/nightly/manifest-android-arm64.json"]
+
+    # Un manifest que el release no trae es 204 (not found), no 503 (origen caido).
+    assert await central._get_manifest("nightly", "ios", "arm64") == {}

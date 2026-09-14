@@ -777,36 +777,10 @@ class OdiseaCentral:
         try:
             import urllib.request
 
-            # 1. Fetch release metadata to find the asset URL
-            if channel == "release":
-                api_url = GITHUB_RELEASES_URL
-            else:
-                api_url = f"https://api.github.com/repos/icarito/Odisea/releases/tags/{channel}"
+            import urllib.error
 
             headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "Odisea-Central-Bridge"}
-
-            def fetch_json(url):
-                req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    return json.loads(response.read().decode())
-
-            release_data = await asyncio.get_running_loop().run_in_executor(None, fetch_json, api_url)
-
             asset_name = f"manifest-{platform}-{arch}.json"
-            asset_url = None
-            for asset in release_data.get("assets", []):
-                if asset.get("name") == asset_name:
-                    asset_url = asset.get("url")
-                    break
-
-            if not asset_url:
-                logger.info(f"Manifest asset {asset_name} not found in {channel} release")
-                # Mark as not found in cache too to avoid re-fetching for 5 min
-                self._manifest_cache[cache_key] = {"ts": now, "not_found": True}
-                return {}
-
-            # 2. Fetch the actual manifest content (the signed envelope)
-            # GitHub Assets API requires a different Accept header for raw data
             asset_headers = headers.copy()
             asset_headers["Accept"] = "application/octet-stream"
 
@@ -818,7 +792,40 @@ class OdiseaCentral:
                         raise ValueError("Manifest envelope too large")
                     return content
 
-            content = await asyncio.get_running_loop().run_in_executor(None, fetch_raw, asset_url)
+            if channel == "release":
+                # Sin tag fijo: hay que preguntarle a la API por el asset (hoy no se publica
+                # release estable, asi que este camino casi no corre).
+                def fetch_json(url):
+                    req = urllib.request.Request(url, headers=headers)
+                    with urllib.request.urlopen(req, timeout=10) as response:
+                        return json.loads(response.read().decode())
+
+                release_data = await asyncio.get_running_loop().run_in_executor(None, fetch_json, GITHUB_RELEASES_URL)
+                asset_url = None
+                for asset in release_data.get("assets", []):
+                    if asset.get("name") == asset_name:
+                        asset_url = asset.get("url")
+                        break
+            else:
+                # El canal ES el tag del release (el nightly se recrea siempre en "nightly"): el
+                # link de descarga directo no pasa por api.github.com. Por la API eran dos requests
+                # por manifest por minuto contra un limite de 60/h sin token; con el limite
+                # agotado todo caia en stale-if-error y el server ofrecio el build 581 durante
+                # horas despues de publicado el 598.
+                asset_url = f"https://github.com/icarito/Odisea/releases/download/{channel}/{asset_name}"
+
+            content = None
+            if asset_url:
+                try:
+                    content = await asyncio.get_running_loop().run_in_executor(None, fetch_raw, asset_url)
+                except urllib.error.HTTPError as e:
+                    if e.code != 404:
+                        raise
+
+            if content is None:
+                logger.info(f"Manifest asset {asset_name} not found in {channel} release")
+                self._manifest_cache[cache_key] = {"ts": now, "not_found": True}
+                return {}
 
             etag = hashlib.sha256(content).hexdigest()
             entry = {
