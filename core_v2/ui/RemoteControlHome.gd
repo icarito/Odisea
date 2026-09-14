@@ -119,7 +119,7 @@ func _connect_touch_camera() -> void:
 		mobile_ui._touch_camera.connect("camera_zoom", self, "_on_camera_zoom")
 
 func _client() -> Node:
-	return _remote_control_manager.client if _remote_control_manager else null
+	return _remote_control_manager.client if is_instance_valid(_remote_control_manager) else null
 
 func _physics_process(_delta: float) -> void:
 	_update_status_art(_delta)
