@@ -3,6 +3,17 @@ extends GdUnitTestSuite
 # test_remote_control_home_hud.gd - Tests for RemoteControlHome HUD UI client (FD-296 F4)
 
 var RemoteControlHomeScene = load("res://core_v2/ui/RemoteControlHome.tscn")
+var _homes := []
+
+func before_test() -> void:
+	_hide_virtual_controls()
+
+func after_test() -> void:
+	for home in _homes:
+		if is_instance_valid(home):
+			home.free()
+	_homes.clear()
+	_hide_virtual_controls()
 
 func test_remote_home_instantiates_slot_widgets():
 	# Los slots del telefono son suyos: la linterna en el 1 por defecto, y la lista del host no
@@ -65,6 +76,7 @@ func _home_with_dial(screens: Array = []) -> Control:
 	add_child(mgr)
 	var home = RemoteControlHomeScene.instance()
 	add_child(home)
+	_homes.append(home)
 	home._remote_control_manager = mgr
 	home.rect_size = VIEW_SIZE
 	if not screens.empty():
@@ -1384,15 +1396,6 @@ func _camera_drags_for(camera, from: Vector2) -> int:
 	camera.disconnect("camera_drag", counter, "on_drag")
 	return counter.drags
 
-func _free_camera_point(camera, excluded: Rect2 = Rect2()) -> Vector2:
-	var size: Vector2 = get_viewport().size
-	for x in [0.15, 0.5, 0.85]:
-		for y in [0.15, 0.5, 0.85]:
-			var point := Vector2(size.x * x, size.y * y)
-			if not excluded.has_point(point) and not camera._is_over_control(point):
-				return point
-	return Vector2(-1.0, -1.0)
-
 func test_dragging_a_widget_or_the_hud_never_moves_the_camera():
 	var camera = auto_free(TouchCameraControls.new())
 	add_child(camera)
@@ -1413,15 +1416,11 @@ func test_dragging_a_widget_or_the_hud_never_moves_the_camera():
 	home.queue_free()
 	yield(await_idle_frame(), "completed")
 	# Sin HUD ni widget, el mismo gesto vuelve a ser de camara.
-	var free_point := _free_camera_point(camera)
-	assert_vector2(free_point).is_not_equal(Vector2(-1.0, -1.0))
-	assert_int(_camera_drags_for(camera, free_point)).is_greater(0)
+	assert_int(_camera_drags_for(camera, Vector2(500.0, 400.0))).is_greater(0)
 
 	# Con una pantalla abierta: sobre ella no es camara; fuera, si.
 	var viewing = _home_with_open_view()
 	var rect: Rect2 = _view_rect(viewing)
 	assert_int(_camera_drags_for(camera, rect.position + rect.size * 0.5)).is_equal(0)
-	free_point = _free_camera_point(camera, rect)
-	assert_vector2(free_point).is_not_equal(Vector2(-1.0, -1.0))
-	assert_int(_camera_drags_for(camera, free_point)).is_greater(0)
+	assert_int(_camera_drags_for(camera, rect.end + Vector2(4.0, 4.0))).is_greater(0)
 	viewing.queue_free()
