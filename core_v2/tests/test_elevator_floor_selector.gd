@@ -320,3 +320,30 @@ func test_stepping_out_hands_the_distance_back() -> void:
 	assert_float(player.base_spring_length_3d) \
 		.override_failure_message("leaving should restore the rider's own distance") \
 		.is_equal(5.5)
+
+
+func test_the_dial_goes_inert_after_a_pick_until_the_car_arrives() -> void:
+	_selector.set_active(true)
+	yield(await_idle_frame(), "completed")
+	yield(await_idle_frame(), "completed")
+	_aim_at_option(3)
+	_left_click()
+	assert_int(_elevator.target_floor).is_equal(3)
+	# Durante el viaje mirar a otro lado y volver no rearma el dial (antes cada detente vibraba).
+	_selector._track_aim()
+	_aim_at_option(1)
+	assert_int(_dial.get_hovered_index()).is_equal(-1)
+	# Llego: unos segundos "FIN DEL TRAYECTO", sin elegir piso (ni vibrar) aunque apunte.
+	_selector._on_floor_state_changed(3, 3, false)
+	assert_str(_dial.get_node("Status").text).is_equal("FIN DEL TRAYECTO")
+	_selector._track_aim()
+	_aim_at_option(1)
+	assert_int(_dial.get_hovered_index()).is_equal(-1)
+	_selector.step(_selector.arrival_hold_sec - 0.1)
+	_aim_at_option(1)
+	assert_int(_dial.get_hovered_index()).is_equal(-1)
+	# Pasada la espera se puede elegir otra vez.
+	_selector.step(0.2)
+	assert_str(_dial.get_node("Status").text).is_not_equal("FIN DEL TRAYECTO")
+	_aim_at_option(1)
+	assert_int(_dial.get_hovered_index()).is_equal(1)

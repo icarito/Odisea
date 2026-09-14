@@ -103,6 +103,14 @@ var _screen_container: Spatial = null
 var _particles: CPUParticles = null
 var _is_open := false
 var _confirm_armed := false
+# Elegido un destino, el dial queda inerte hasta que el carro llega: mirar a otro lado ya no lo
+# rearma, asi que mover la camara durante el viaje no marca pisos ni vibra a cada detente.
+var _riding_to_pick := false
+# Al llegar se asume que el pasajero no quiere volver a mover el carro: unos segundos el dial dice
+# "FIN DEL TRAYECTO" y sigue inerte. Se descuenta en step() (tick fijo) para que el replay coincida.
+export(float) var arrival_hold_sec := 3.0
+const ARRIVAL_STATUS := "FIN DEL TRAYECTO"
+var _arrival_hold := 0.0
 var _current_floor := 0
 var _announced_floor := -1
 var _zoomed_player: Node = null
@@ -215,6 +223,8 @@ func _begin_dial() -> void:
 	_confirm_armed = false
 	_rebuild_options()
 	_mouse_aim_active = false
+	_riding_to_pick = false
+	_arrival_hold = 0.0
 	# Opens with nothing selected on purpose: the rider has to gesture at a stop.
 	_selector.open()
 	set_process_input(true)
@@ -225,6 +235,8 @@ func _end_dial() -> void:
 	if not _is_open:
 		return
 	_is_open = false
+	_riding_to_pick = false
+	_arrival_hold = 0.0
 	if _selector:
 		_selector.close()
 	set_process_input(false)
@@ -281,7 +293,7 @@ func _track_aim() -> void:
 	comes from the gesture (_drive_from_stream). Turning away drops the selection
 	and the gesture along with it, so a press with the panel out of view cannot
 	commit the floor the rider happened to have highlighted before turning."""
-	if _selector == null:
+	if _selector == null or _riding_to_pick:
 		return
 	if _is_projection_in_view():
 		return
@@ -578,6 +590,10 @@ func _resolve_labels() -> Array:
 
 
 func _on_option_selected(index: int) -> void:
+	# El piso donde ya esta el carro solo abre la puerta: no hay viaje que esperar.
+	var already_there: bool = _elevator != null and _elevator.has_method("is_car_moving") \
+		and not _elevator.is_car_moving() and index == _elevator.get_current_floor()
+	_riding_to_pick = not already_there
 	if _elevator and _elevator.has_method("request_floor"):
 		_elevator.request_floor(index)
 	_play_sfx("SFX Select")
@@ -617,7 +633,31 @@ func _on_floor_state_changed(current_floor: int, target_floor: int, is_moving: b
 	# The hub readout is driven by _track_level(), which follows the car's real
 	# height rather than waiting for arrival.
 	if not is_moving:
+		if _riding_to_pick and arrival_hold_sec > 0.0:
+			_arrival_hold = arrival_hold_sec
+			_selector.set_status(ARRIVAL_STATUS)
+			set_physics_process(true) # step() descuenta la espera aunque el panel este en reposo
+			return
+		_riding_to_pick = false
 		_selector.resume_focus()
+
+
+func step(dt: float) -> void:
+	.step(dt)
+	if _arrival_hold <= 0.0:
+		return
+	_arrival_hold -= dt
+	if _arrival_hold > 0.0:
+		return
+	_arrival_hold = 0.0
+	_riding_to_pick = false
+	if _selector:
+		_selector.resume_focus()
+		_selector.set_status(_describe_state(_current_floor, _current_floor, false))
+
+
+func _wants_continuous_step() -> bool:
+	return _arrival_hold > 0.0
 
 
 func _describe_state(current_floor: int, target_floor: int, is_moving: bool) -> String:
@@ -739,6 +779,8 @@ func get_snapshot() -> Dictionary:
 	return {
 		"is_open": _is_open,
 		"confirm_armed": _confirm_armed,
+		"riding_to_pick": _riding_to_pick,
+		"arrival_hold": _arrival_hold,
 		"current_floor": _current_floor,
 		"announced_floor": _announced_floor,
 	}
@@ -749,6 +791,8 @@ func restore_snapshot(data: Dictionary) -> void:
 		return
 	_is_open = bool(data.get("is_open", _is_open))
 	_confirm_armed = bool(data.get("confirm_armed", _confirm_armed))
+	_riding_to_pick = bool(data.get("riding_to_pick", _riding_to_pick))
+	_arrival_hold = float(data.get("arrival_hold", _arrival_hold))
 	_current_floor = int(data.get("current_floor", _current_floor))
 	_announced_floor = int(data.get("announced_floor", _announced_floor))
 	if is_inside_tree():

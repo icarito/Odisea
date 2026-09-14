@@ -70,14 +70,15 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
-      "hold": 58
+      "hold": 21
     },
     {
-      "frame": 59,
+      "frame": 22,
       "input": {
         "move_vec": [
           0,
@@ -106,11 +107,12 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
-      "hold": 29
+      "hold": 27
     }
   ],
   "events": {
@@ -121,10 +123,10 @@
         "value": "(0, 0.5, 0)"
       }
     ],
-    "59": [
+    "22": [
 
     ],
-    "89": [
+    "50": [
       {
         "command": "ASSERT",
         "condition": "pos.x > 1.0 \"Elías no hizo strafe a la izquierda (-X)\""
@@ -527,16 +529,16 @@
   },
   "final_expected_state": {
     "position": [
-      3.600726,
+      0,
       0.006111,
-      -1.489294
+      0
     ],
     "velocity": [
       0,
       0,
       0
     ],
-    "yaw": 1.475,
+    "yaw": 0.230026,
     "pitch": 0,
     "base_spring_length_3d": 2.5,
     "movement_state": {
@@ -550,7 +552,7 @@
         0,
         0
       ],
-      "camera_input_timer": 1.483333,
+      "camera_input_timer": 0.466667,
       "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false

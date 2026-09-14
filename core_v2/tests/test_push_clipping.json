@@ -70,7 +70,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -103,7 +104,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -139,7 +141,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -175,7 +178,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -211,7 +215,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -247,7 +252,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -283,7 +289,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -479,16 +486,16 @@
   },
   "final_expected_state": {
     "position": [
-      1.548961,
+      1.405725,
       0.106111,
-      0.253472
+      1.705671
     ],
     "velocity": [
       0,
       0,
       0
     ],
-    "yaw": 2.042034,
+    "yaw": -1.570796,
     "pitch": 1.047198,
     "base_spring_length_3d": 2.5,
     "movement_state": {
@@ -503,7 +510,7 @@
         0
       ],
       "camera_input_timer": 1.566667,
-      "is_tank_turn_mode": false,
+      "is_tank_turn_mode": true,
       "current_turn_time": 0,
       "_mouse_used_this_move": false
     },

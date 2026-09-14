@@ -70,7 +70,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -106,7 +107,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -142,7 +144,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {

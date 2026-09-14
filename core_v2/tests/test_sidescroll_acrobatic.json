@@ -70,7 +70,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -106,7 +107,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -142,7 +144,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -178,7 +181,8 @@
         "cargol_ability": false,
         "hardware_mouse_active": false,
         "analog_move_active": false,
-        "hud_mode": false
+        "hud_mode": false,
+        "hud_slot": 0
       }
     },
     {
@@ -235,23 +239,23 @@
   },
   "final_expected_state": {
     "position": [
-      -3.921683,
+      -5.930319,
       2.66,
-      -6.31075
+      -4.844199
     ],
     "velocity": [
-      -0.184837,
+      -0.899382,
       -0.766667,
-      -2.075834
+      -1.880012
     ],
-    "yaw": -1.4,
+    "yaw": -1.041503,
     "pitch": 0,
     "base_spring_length_3d": 2.5,
     "movement_state": {
       "horizontal_velocity": [
-        -0.184837,
+        -0.899382,
         0,
-        -2.075834
+        -1.880012
       ],
       "external_velocity": [
         0,
