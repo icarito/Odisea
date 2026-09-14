@@ -4,9 +4,10 @@ extends Control
 # Lo monta SuitOS.open_hud_mode() en OverlayUIManager (SLOT_MODAL) con el mundo pausado por
 # PauseManager.pause_hud_mode(), asi que corre en PAUSE_MODE_PROCESS.
 #
-# TAB (o el boton tactil del HUD): tap abre SIEMPRE el radial, desde el juego o sobre una pantalla
-# abierta; con el radial ya abierto, un tap confirma lo marcado o lo cierra si no hay nada. Hold tambien lo abre, como cuasimodo:
-# soltar elige lo marcado. Elegir abre la pantalla sin fijarla: nada se autoasigna a un slot.
+# TAB (o el boton tactil del HUD): desde el juego, tap abre el radial; con una pantalla abierta, tap
+# vuelve al jugador; con el radial ya abierto, un tap confirma lo marcado o lo cierra si no hay nada.
+# Hold abre el radial tambien sobre una pantalla (para cambiarla), como cuasimodo: soltar elige lo
+# marcado. Elegir abre la pantalla sin fijarla: nada se autoasigna a un slot.
 # Teclas 1-4 (hud_slot): tap abre la pantalla de ese slot (o la cierra; vacio = radial) y hold
 # abre el radial que fija lo elegido EN ese slot. Con una sola pantalla no hay radial.
 # El radial se apunta con un vector acumulado con zona muerta: soltar en el centro no elige nada. Tap/hold, gesto y click salen de InputDataV2
@@ -184,6 +185,10 @@ func _physics_process(_delta: float) -> void:
 			_dismiss_radial()
 			if not is_inside_tree() or is_queued_for_deletion():
 				return
+		elif _mount.is_showing() or is_instance_valid(_active_focused_screen):
+			# Desde una pantalla, el boton del HUD vuelve al jugador. Para cambiar de pantalla, hold.
+			_exit()
+			return
 		else:
 			_opened = true
 			_open_radial()
@@ -344,16 +349,16 @@ func _input(event: InputEvent) -> void:
 				_drag_from_handle = false # un toque al asa sin arrastrar no hace nada (ni cierra)
 				get_tree().set_input_as_handled()
 			elif tapped and _selector.is_open():
-				# Igual que un clic: si ya hay una opcion marcada, el tap la confirma.
-				# Sin foco, un toque directo aun puede elegir un sector o cerrar el dial.
-				if _selector.has_selection():
+				# Como en el ascensor: tocar un sector elige ese sector; tocar en cualquier otro lado
+				# con una opcion marcada (apuntada con el boton del HUD o arrastrando) la oprime, y
+				# sin nada marcado cierra el dial.
+				var picked: int = _selector.slice_at(event.position)
+				if picked != RadialSelectorV2.NONE:
+					_select(picked)
+				elif _selector.has_selection():
 					_selector.confirm()
 				else:
-					var picked: int = _selector.slice_at(event.position)
-					if picked != RadialSelectorV2.NONE:
-						_select(picked)
-					else:
-						_dismiss_radial()
+					_dismiss_radial()
 				get_tree().set_input_as_handled()
 			elif tapped and _is_outside_view(event.position):
 				_exit()
@@ -662,21 +667,10 @@ func _confirm_or_dismiss() -> void:
 	else:
 		_dismiss_radial()
 
-# Cerrar el dial sin elegir: se vuelve a la pantalla que habia, o se sale si no habia ninguna o si
-# la abrio esta misma pulsacion de tecla (soltar sin elegir no deja nada abierto).
+# Cerrar el dial sin elegir siempre sale del modo HUD.
 func _dismiss_radial() -> void:
-	if _opened_on_press or not (_mount.is_showing() or is_instance_valid(_active_focused_screen)):
-		_opened_on_press = false
-		_exit()
-		return
-	_selector.close()
-	_set_virtual_mouse_enabled(true)
-	# Visible salvo en una pantalla con foco, donde el cursor se dibuja dentro del Viewport.
-	if is_instance_valid(_virtual_mouse):
-		_virtual_mouse.visible = not (is_instance_valid(_active_focused_screen) \
-			and _active_focused_screen.has_method("forward_view_input"))
-	_view_host.visible = true
-	_sync_widget_focus()
+	_opened_on_press = false
+	_exit()
 
 func _select(index: int) -> void:
 	var suit_os: Node = _suit_os()

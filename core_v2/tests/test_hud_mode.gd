@@ -179,25 +179,33 @@ func test_hold_opens_the_radial_and_its_release_is_not_a_tap() -> void:
 	assert_str(SuitOS.get_active_screen_id()).is_empty()
 
 
-func test_tap_over_a_screen_opens_the_radial_and_a_second_tap_dismisses_it() -> void:
+func test_hold_over_a_screen_without_a_selection_exits_hud() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	var overlay = _open_screen_and_play("test:a", [UP])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
-	# Hold sin marcar nada: el dial se abre y soltar vuelve a la pantalla que habia.
+	# Hold sin marcar nada: el dial se abre y soltar sale del HUD.
 	_play(overlay, _held(Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
 	_play(overlay, [UP])
-	assert_bool(overlay._selector.is_open()).is_false()
-	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
-	# Tap sobre la pantalla: abre el radial (no cierra).
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+func test_tap_over_a_screen_goes_back_to_the_player() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_screen_and_play("test:a", [UP])
+	# Con varias pantallas tampoco abre el dial: vuelve al jugador.
 	_play(overlay, [{"hud_mode": true}, UP])
-	assert_bool(overlay._selector.is_open()).is_true()
-	assert_bool(SuitOS.is_hud_mode_active()).is_true()
-	# Otro tap con el dial abierto: lo cierra sin elegir y vuelve a la pantalla.
-	_play(overlay, [{"hud_mode": true}, UP])
-	assert_bool(overlay._selector.is_open()).is_false()
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+func test_gamepad_hud_tap_exits_a_single_open_screen() -> void:
+	_screen("test:a", "Alpha")
+	var overlay = _open_and_play([UP])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
+	_play(overlay, [{"hud_mode": true}, UP])
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 
 
 func test_tap_with_a_single_screen_opens_it_directly() -> void:
@@ -957,7 +965,7 @@ func test_click_with_nothing_marked_closes_the_radial_without_acting() -> void:
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", ""])
 
 
-func test_click_outside_the_radial_over_a_screen_returns_to_it() -> void:
+func test_click_outside_the_radial_over_a_screen_exits_hud() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	var overlay = _open_screen_and_play("test:a", [UP])
@@ -965,9 +973,7 @@ func test_click_outside_the_radial_over_a_screen_returns_to_it() -> void:
 	_play(overlay, _held(Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
 	_play(overlay, [{"hud_mode": true, "tool_fire_primary": true}])
-	assert_bool(overlay._selector.is_open()).is_false()
-	assert_bool(SuitOS.is_hud_mode_active()).is_true()
-	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 
 
 func test_touch_tap_on_a_slice_picks_it_and_outside_closes() -> void:
@@ -987,6 +993,31 @@ func test_touch_tap_on_a_slice_picks_it_and_outside_closes() -> void:
 	assert_bool(SuitOS.open_hud_mode(true)).is_true()
 	overlay = _overlay()
 	# La segunda opcion esta a las 12: tocar su sector la elige.
+	var top: Vector2 = center + Vector2(0.0, -mid)
+	overlay._input(_touch(true, top))
+	overlay._input(_touch(false, top))
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
+
+
+func test_touch_tap_with_a_marked_option_presses_it_like_the_elevator() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	assert_bool(SuitOS.open_hud_mode(true)).is_true()
+	var overlay = _overlay()
+	var sel = overlay._selector
+	var center: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
+	var mid: float = (sqrt(sel.width_min) + sqrt(sel.width_max)) / 4.0 * sel._ring_size()
+	# Marcada la de abajo (Alpha, a las 6): un tap fuera de los sectores la oprime.
+	overlay._point_at(Vector2(0.0, 100.0))
+	assert_int(sel.get_hovered_index()).is_equal(0)
+	overlay._input(_touch(true, center))
+	overlay._input(_touch(false, center))
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
+	assert_bool(sel.is_open()).is_false()
+
+	# Con una marcada, tocar OTRO sector elige ese sector, no la marcada.
+	overlay._open_radial()
+	overlay._point_at(Vector2(0.0, 100.0))
 	var top: Vector2 = center + Vector2(0.0, -mid)
 	overlay._input(_touch(true, top))
 	overlay._input(_touch(false, top))
