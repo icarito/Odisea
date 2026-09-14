@@ -45,7 +45,10 @@ var _manual_lightmap_synced := false
 func _on_node_added(node: Node) -> void:
 	if node is WorldEnvironment:
 		var gated := _gated_active or force_gate or _user_forced_low_end()
-		_sync_manual_lightmap(gated)
+		# El lightmap manual SOLO en adapters donde el camino nativo está roto
+		# (Mali-G31 verificado): es un shader del camino GLES2 y en Adreno
+		# GLES3 muestrea 0 → nivel negro. El force del usuario no lo activa.
+		_sync_manual_lightmap(_gated_active)
 		if gated:
 			strip_environment(node.environment)
 
