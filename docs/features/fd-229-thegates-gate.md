@@ -41,7 +41,7 @@ Los otros destinos no tienen el `index.pck` crudo (Netlify lo toma de Pages;
 Vercel solo sube el `.gz` por el límite de 1 GiB por archivo), así que su
 `world.gate` lleva `resource_pack`, `icon` e `image` absolutos a Pages:
 
-- `https://odisea.netlify.app/world.gate` y `https://odisea-ios.vercel.app/world.gate`
+- `https://odisea-game.netlify.app/world.gate` y `https://odisea-ios.vercel.app/world.gate`
   — el mismo stage los escribe en `build/netlify/` y `build/vercel/`.
 - `https://odisea.educa.juegos/world.gate` — la landing del VPS no pasa por
   este workflow: `scripts/nightly-refresh.sh` (instalado como
