@@ -31,7 +31,7 @@ func test_gate_strips_heavy_passes_when_known_adapter():
 
 func test_gate_leaves_environment_untouched_without_mali():
 	var gate = auto_free(GateScript.new())
-	gate.force_vendor_gate = false
+	gate.force_gate = false
 	add_child(gate)
 
 	var env = auto_free(Environment.new())
