@@ -209,6 +209,9 @@ Una fila por corrida. Capturas en `/tmp/odisea_probe/`; copiar aquí solo las de
 | h1_msaa_menu | H1: msaa=0, fxaa=off | Menu | 0 | 53 628 | 387 | 24 | 2 | 12 350 | OK (2D) | override verificado via eval (msaa=0) |
 | h1_msaa_prologue | H1: msaa=0, fxaa=off | Dome_Prologue | 0 | 69 154 | 290 | 5 | 86 | 161 352 | intermitente | igual que baseline debug |
 | h1_msaa_dome_intro | H1: msaa=0, fxaa=off | Dome_Intro | 0 | 91 573 | 106 | 2 | 194 | 321 402 | **~30% (sin cambio)** | H1 no mejora cobertura ni memoria GPU (91.5k vs 90.5k págs) |
+| h2h3_menu | H2+H3 `.mobile` (fb 3, sombras 1024/PCF0) | Menu | 0 | 48 934 | 378 | 29 | 2 | 12 350 | OK (2D) | −8k págs y +5 fps vs H1 en menú |
+| h2h3_prologue | H2+H3 `.mobile` | Dome_Prologue | 0 | 61 700 | 320 | 5 | 54 | 349 326 | parches **magenta** + recorte | falla nueva: magenta = sampler sin bindear; la config sí cambió el camino de render |
+| h2h3_dome_intro | H2+H3 `.mobile` | Dome_Intro | 0 | 82 886 | 134 | 2 | 194 | 321 402 | **~30% (sin cambio)** | −8k págs vs baseline; la cobertura no cede |
 
 ### Notas de medición (Fase 0)
 
@@ -220,12 +223,19 @@ Una fila por corrida. Capturas en `/tmp/odisea_probe/`; copiar aquí solo las de
   igual de rota.
 - El contexto GPU del kernel (~353-421 MB) es ~6× el VRAM que reporta Godot (71.7 MB en
   Dome_Intro, 10.3 MB en menú): ~350 MB son buffers del driver invisibles en `vrammb`.
-- **H1 (msaa=0 + fxaa=off) no cambia nada**: cobertura igual de rota y págs GPU idénticas
-  (91 573 vs 90 493). El MSAA del FBO no es el consumidor de memoria ni la causa del
-  recorte. Sospechoso principal ahora: shadow atlas + directional shadow a 4096 y el
-  framebuffer HDR (H3 y H2), y el agotamiento de CMA (64 MB totales, <1 MB libres) /
-  MemAvailable al mapear jobs del blob Mali.
-- **H2/H3 combinadas en un solo reinicio** (propuesto en Checkpoint 1): cada test cuesta
-  un relanzamiento manual de Sebastián; si la combinación mejora, bisecar después con un
-  reinicio más.
+- **H1 (msaa=0 + fxaa=off) no cambia nada** (probado 2×): cobertura igual de rota y págs GPU
+  idénticas (91 573 vs 90 493). El MSAA del FBO no es el consumidor de memoria ni la causa.
+- **Descubrimiento clave del fork:** FRT expone el feature tag **"mobile"** (`frt_godot.cc:171`:
+  X11, FRT, mobile, etc — "Android" NO). El motor registra GLOBAL_DEFS taggeadas `.mobile`
+  (`visual_server.cpp:2678-2711`) y el mapeo `feature_overrides` (`project_settings.cpp:199-237`)
+  hace que `_get()` resuelva al valor taggeado aunque el override haya seteado la clave plana.
+  **El override.cfg debe usar sufijo `.mobile`.**
+- **Corrección a la pre-exploración:** el Anbernic NO corre 4096/PCF13. Config efectiva hoy:
+  shadow atlas 2048 + directional 2048 + PCF5 + framebuffer HDR (project.godot pisa
+  `framebuffer_allocation.mobile` a 2; el default del fork es 3) + `force_vertex_shading.mobile=false`
+  (project.godot pisa el default true del fork) + 32 luces (`.Android=4` no aplica).
+- La corrida "H2+H3" con claves planas fue en la práctica solo H1 otra vez (sombras/HDR no
+  aplicaron: leídas 2048/2048/PCF5/HDR vía eval). Re-testeada con sufijo `.mobile`.
+- **H2/H3 combinadas en un solo reinicio** (aprobado por Sebastián en Checkpoint 1): cada test
+  cuesta un relanzamiento manual; si la combinación mejora, bisecar después con un reinicio más.
 - Corridas: TSV vivo en `/tmp/odisea_probe/results.tsv`; capturas junto a cada fila.
