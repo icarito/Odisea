@@ -212,6 +212,7 @@ Una fila por corrida. Capturas en `/tmp/odisea_probe/`; copiar aquí solo las de
 | h2h3_menu | H2+H3 `.mobile` (fb 3, sombras 1024/PCF0) | Menu | 0 | 48 934 | 378 | 29 | 2 | 12 350 | OK (2D) | −8k págs y +5 fps vs H1 en menú |
 | h2h3_prologue | H2+H3 `.mobile` | Dome_Prologue | 0 | 61 700 | 320 | 5 | 54 | 349 326 | parches **magenta** + recorte | falla nueva: magenta = sampler sin bindear; la config sí cambió el camino de render |
 | h2h3_dome_intro | H2+H3 `.mobile` | Dome_Intro | 0 | 82 886 | 134 | 2 | 194 | 321 402 | **~30% (sin cambio)** | −8k págs vs baseline; la cobertura no cede |
+| h5a_unshaded_live | debug_draw=1 en vivo, Dome_Intro cargado | Dome_Intro | 0 (10 s) | 81 989 | 146 | 2 | 194 | 321 402 | mismo recorte + magenta | el shader trivial no completa la cobertura → no es complejidad de fragment shader; test limpio desde boot pendiente (ver HANDOFF_SIGUIENTE.md) |
 
 ### Notas de medición (Fase 0)
 
