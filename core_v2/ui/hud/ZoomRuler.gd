@@ -26,6 +26,8 @@ var _level := 0.0 # log2 del aumento: +1 cada vez que el zoom se duplica
 var _last_metric := -1.0
 var _last_change_msec := -100000
 var _player_id := 0
+# El control remoto no tiene jugador: su backend da la metrica (zoom_metric) con el pellizco.
+var backend: Node = null
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -49,6 +51,8 @@ func _process(_delta: float) -> void:
 
 # Mas chico = mas cerca: distancia de camara, o tan(FOV/2) en una camara cinematica.
 func _zoom_metric() -> float:
+	if is_instance_valid(backend) and backend.has_method("zoom_metric"):
+		return backend.zoom_metric()
 	var session = get_node_or_null("/root/SessionManager")
 	var player = session.get("player") if session != null else null
 	if not is_instance_valid(player):

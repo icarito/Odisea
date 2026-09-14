@@ -5,41 +5,29 @@ extends GdUnitTestSuite
 var RemoteControlHomeScene = load("res://core_v2/ui/RemoteControlHome.tscn")
 
 func test_remote_home_instantiates_slot_widgets():
-	var home = RemoteControlHomeScene.instance()
-	add_child(home)
-
-	var screen_list = [
-		{"id": "screen_a", "title": "Screen A", "relevance": 0.9},
-		{"id": "screen_b", "title": "Screen B", "relevance": 0.2}
-	]
-
-	home._on_ui_directive("screen_list", screen_list)
-
-	# Slot A should mount screen_a (highest relevance)
-	assert_bool(home._mounted_widgets.has("slot_a")).is_true()
-	var widget_a = home._mounted_widgets["slot_a"]
-	assert_object(widget_a).is_not_null()
-	assert_str(home._get_node_screen_id(widget_a)).is_equal("screen_a")
+	# Los slots del telefono son suyos: la linterna en el 1 por defecto, y la lista del host no
+	# autoasigna nada a los demas.
+	var home = _home_with_dial([
+		{"id": "player:flashlight", "title": "Linterna"},
+		{"id": "screen_a", "title": "Screen A", "relevance": 0.9}
+	])
+	assert_array(home.hud_backend.get_pinned_slots()).is_equal(["player:flashlight", "", "", ""])
+	assert_object(_slot_widget(home, 0)).is_not_null()
+	assert_str(String(home.widget_host._active_screen_ids.get("slot_1", ""))).is_equal("player:flashlight")
+	for i in range(1, 4):
+		assert_object(_slot_widget(home, i)).is_null()
 
 	home.queue_free()
 
 func test_remote_home_pin_local_screen():
-	var home = RemoteControlHomeScene.instance()
-	add_child(home)
-
-	var screen_list = [
+	var home = _home_with_dial([
 		{"id": "screen_a", "title": "Screen A", "relevance": 0.9},
 		{"id": "screen_b", "title": "Screen B", "relevance": 0.2}
-	]
+	])
+	home.hud_backend.pin_to_slot(2, "screen_b")
 
-	home._on_ui_directive("screen_list", screen_list)
-	home.pin_local_screen("screen_b")
-
-	# Slot B should mount screen_b
-	assert_bool(home._mounted_widgets.has("slot_b")).is_true()
-	var widget_b = home._mounted_widgets["slot_b"]
-	assert_object(widget_b).is_not_null()
-	assert_str(home._get_node_screen_id(widget_b)).is_equal("screen_b")
+	assert_object(_slot_widget(home, 2)).is_not_null()
+	assert_str(String(home.widget_host._active_screen_ids.get("slot_3", ""))).is_equal("screen_b")
 
 	home.queue_free()
 
@@ -112,6 +100,9 @@ func _home_with_dial(screens: Array = []) -> Control:
 
 # Dos pantallas: con una sola el dial no se abre (entra directo, como en el host). La de relleno
 # va primero, asi screen_a queda en la opcion de arriba (indice 1, las 12) y es la mas relevante.
+func _slot_widget(home, index: int) -> Control:
+	return home.widget_host.get_widget_root().get_node_or_null("SuitOS_Widget_slot_%d" % (index + 1)) as Control
+
 func _dial_screens() -> Array:
 	return [
 		{"id": "screen_z", "title": "Screen Z", "relevance": 0.1},
@@ -168,14 +159,18 @@ func test_radial_uses_the_same_config_as_the_game_hud():
 
 func test_open_radial_hides_what_is_behind():
 	var home = _home_with_dial(_dial_screens())
-	assert_bool(home.widget_host.visible).is_true()
+	var root: Control = home.widget_host.get_widget_root()
+	assert_bool(home.hud_backend.is_hud_mode_active()).is_false()
+	assert_bool(root.get_node("SuitOS_Placeholder_slot_2").visible).is_false()
 
+	# El dial tapa la vista; los slots vacios muestran su contorno, como en el modo HUD del juego.
 	home._open_radial()
-	assert_bool(home.widget_host.visible).is_false()
 	assert_bool(home.fullscreen_overlay.visible).is_false()
+	assert_bool(home.hud_backend.is_hud_mode_active()).is_true()
+	assert_bool(root.get_node("SuitOS_Placeholder_slot_2").visible).is_true()
 
 	home._close_radial()
-	assert_bool(home.widget_host.visible).is_true()
+	assert_bool(root.get_node("SuitOS_Placeholder_slot_2").visible).is_false()
 
 	home.queue_free()
 
@@ -295,18 +290,18 @@ func test_slot_widget_uses_title_and_snapshot_from_screen_list():
 		"snapshot": {"proto": 1, "id": "holoterminal:Dome_Intro/HoloTerminal",
 			"title": "Terminal del domo", "active": true, "source": "online"}
 	}])
+	home.hud_backend.pin_to_slot(1, "holoterminal:Dome_Intro/HoloTerminal")
 
-	# El snapshot de la lista queda cacheado: es lo que le da nombre y estado al widget.
-	var cached: Dictionary = home._snapshots_cache.get("holoterminal:Dome_Intro/HoloTerminal", {})
+	# El snapshot de la lista queda guardado: es lo que le da nombre y estado al widget.
+	var cached: Dictionary = home.hud_backend.snapshots.get("holoterminal:Dome_Intro/HoloTerminal", {})
 	assert_str(String(cached.get("title", ""))).is_equal("Terminal del domo")
 	assert_bool(bool(cached.get("active", false))).is_true()
 
 	# Y la escena del widget se resuelve por la ruta que mando el host, no por el
 	# SuitOS local (que en el control no tiene ninguna pantalla registrada).
-	var scene = home._resolve_widget_scene("holoterminal:Dome_Intro/HoloTerminal")
-	assert_object(scene).is_not_null()
+	assert_object(home.hud_backend.resolve_widget_scene("holoterminal:Dome_Intro/HoloTerminal")).is_not_null()
 
-	var widget = home._mounted_widgets.get("slot_a", null)
+	var widget = _slot_widget(home, 1)
 	assert_object(widget).is_not_null()
 	var title_label = widget.get_node_or_null("Margin/VBox/Header/TitleLabel")
 	assert_object(title_label).is_not_null()
@@ -315,19 +310,15 @@ func test_slot_widget_uses_title_and_snapshot_from_screen_list():
 	home.queue_free()
 
 func test_slot_widget_falls_back_to_title_not_id():
-	# Sin snapshot (host viejo o pantalla recien registrada) igual se usa el titulo.
+	# Sin snapshot ni escena (host viejo o pantalla recien registrada) igual se usa el titulo.
 	var home = _home_with_dial([{"id": "player:flashlight", "title": "Linterna", "relevance": 0.5}])
 
-	var widget = home._mounted_widgets.get("slot_a", null)
-	assert_object(widget).is_not_null()
-	var label = widget.get_node_or_null("TitleLabel")
-	assert_object(label).is_not_null()
+	var label = _slot_widget(home, 0)
+	assert_bool(label is Label).is_true()
 	assert_str(label.text).contains("Linterna")
 	assert_bool(label.text.find("player:flashlight") == -1).is_true()
 
 	home.queue_free()
-
-# Un tap: apretar y soltar entre dos muestras. Un hold: seguir apretado HOLD_TICKS.
 func _tab_tap(home) -> void:
 	Input.action_press("hud_mode")
 	home._step_tab_gesture()
@@ -345,25 +336,16 @@ func _tab_release(home) -> void:
 	Input.action_release("hud_mode")
 	home._step_tab_gesture()
 
-func test_tab_tap_opens_the_last_screen_and_taps_again_to_close():
+func test_tab_tap_opens_the_radial_and_taps_again_to_close():
 	var home = _home_with_dial(_dial_screens())
 	home._client().ui_directives.clear()
 
-	# Tap: abre la ultima pantalla (la del slot A si no hay ninguna fijada), sin dial.
+	# Tap: siempre el dial, como el modo HUD del juego. Otro tap lo cierra sin elegir.
+	_tab_tap(home)
+	assert_bool(home._radial_is_open()).is_true()
 	_tab_tap(home)
 	assert_bool(home._radial_is_open()).is_false()
-	var sent: Array = home._client().ui_directives
-	assert_int(sent.size()).is_equal(1)
-	assert_str(String(sent[0]["payload"]["id"])).is_equal("screen_a")
-
-	# Con la pantalla abierta (la confirma el host), otro tap la cierra.
-	home._on_ui_directive("screen_active", {"id": "screen_a", "title": "Screen A",
-		"view": "widget", "snapshot": {}})
-	home._client().ui_directives.clear()
-	_tab_tap(home)
-	sent = home._client().ui_directives
-	assert_int(sent.size()).is_equal(1)
-	assert_str(String(sent[0]["payload"]["id"])).is_equal("")
+	assert_array(home._client().ui_directives).is_empty()
 
 	home.queue_free()
 
@@ -551,7 +533,7 @@ func test_repeated_screen_list_does_not_steal_the_dial_focus():
 	# Y ni se reconstruyeron las Labels.
 	assert_bool(home._radial_selector._buttons[1] == label_before).is_true()
 	# El snapshot nuevo si entra (la lista sigue alimentando los widgets).
-	assert_float(float(home._snapshots_cache["screen_a"].get("battery", 0.0))).is_equal(80.0)
+	assert_float(float(home.hud_backend.snapshots["screen_a"].get("battery", 0.0))).is_equal(80.0)
 
 	home.queue_free()
 
@@ -581,7 +563,7 @@ func test_full_screen_view_mounts_the_scene_the_host_sent():
 	})
 
 	assert_object(home._fullscreen_view_node).is_not_null()
-	assert_object(home._resolve_view_scene("holoterminal:cryo")).is_not_null()
+	assert_object(home.hud_backend.resolve_view_scene("holoterminal:cryo")).is_not_null()
 
 	# Igual que el host: la UI se dibuja en un Viewport a su resolucion de diseño y lo
 	# que se escala es la textura. Escalar el Control lo remuestrea contra el stretch del
@@ -622,7 +604,7 @@ func test_widget_button_sends_remote_action_instead_of_calling_local_suitos():
 			"on": false, "battery": 90.0, "battery_max": 100.0, "source": "online"}}])
 	home._client().ui_directives.clear()
 
-	var widget = home._mounted_widgets.get("slot_a", null)
+	var widget = _slot_widget(home, 0)
 	assert_object(widget).is_not_null()
 	var toggle = widget.get_node_or_null("Margin/VBox/StatusRow/ToggleButton")
 	assert_object(toggle).is_not_null()
@@ -664,74 +646,69 @@ func test_widget_action_still_goes_to_local_suitos_without_a_remote_host():
 
 # --- Layout de slots y toques sobre widgets (paridad con el host) ---
 
-func test_slot_widgets_are_placed_in_fixed_rows_without_overlap():
-	var home = _home_with_dial([
-		{"id": "screen_a", "title": "Screen A", "relevance": 0.9},
-		{"id": "screen_b", "title": "Screen B", "relevance": 0.2}
-	])
-	home.pin_local_screen("screen_b") # el slot B solo se monta con pantalla fijada
-
-	var widget_a = home._mounted_widgets.get("slot_a", null)
-	var widget_b = home._mounted_widgets.get("slot_b", null)
-	assert_object(widget_a).is_not_null()
-	assert_object(widget_b).is_not_null()
-
-	# Filas fijas (como SuitOSWidgetHost en el host): B abajo de A aunque quepa al lado.
-	# Pegado al borde en unidades nominales (el WidgetHost esta compensado por render_scale):
-	# SLOT_PADDING mas el recorte de pantalla, si lo hay.
-	var inset: Vector2 = home._safe_area_inset_nominal()
-	var pos_a: Vector2 = (widget_a as Control).rect_position
-	var pos_b: Vector2 = (widget_b as Control).rect_position
-	assert_float(pos_a.x).is_equal_approx(home.SLOT_PADDING + inset.x, 0.01)
-	assert_float(pos_a.y).is_equal_approx(home.SLOT_PADDING + inset.y, 0.01)
-	assert_float(pos_b.y).is_equal_approx(pos_a.y + home.SLOT_ROW_HEIGHT + home.SLOT_GAP, 0.01)
-	# Con compensacion de escala ningun widget invade la fila del otro.
-	assert_float((widget_a as Control).rect_scale.y).is_less_equal(1.0)
-	assert_float(pos_b.y).is_greater_equal(pos_a.y + home.SLOT_ROW_HEIGHT * (widget_a as Control).rect_scale.y)
+func test_slots_are_the_same_widget_host_as_the_game():
+	# Los slots del telefono son el SuitOSWidgetHost del juego con otro backend: lo que se pule
+	# alla (arrastre, reciclaje, swipe, contornos, ocultarse) llega aca sin copiarlo.
+	var home = _home_with_dial(_dial_screens())
+	assert_bool(home.widget_host is SuitOSWidgetHost).is_true()
+	assert_bool(home.widget_host.backend == home.hud_backend).is_true()
+	assert_bool(home.widget_host.is_in_group("hud_widget_host")).is_true()
+	# Y la regla del zoom sigue el pellizco del telefono, que no tiene jugador.
+	var ruler = home.widget_host.get_widget_root().get_node("ZoomRuler")
+	var before: float = ruler._zoom_metric()
+	home._on_camera_zoom(-1.0)
+	assert_float(ruler._zoom_metric()).is_less(before)
 
 	home.queue_free()
 
 func test_widget_tap_opens_its_screen():
 	var home = _home_with_dial(_dial_screens())
+	home.hud_backend.pin_to_slot(1, "screen_a")
 	home._client().ui_directives.clear()
-	var widget = home._mounted_widgets.get("slot_a", null)
+	var widget = _slot_widget(home, 1)
 	assert_object(widget).is_not_null()
+	var host = home.widget_host
+	host._last_pointer_position = Vector2(-10000, -10000)
 
 	# Tap: press + release seguidos (muy por debajo del umbral de hold).
-	home._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), true), widget, "slot_a")
-	home._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), false), widget, "slot_a")
+	host._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), true), widget, "slot_2")
+	host._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), false), widget, "slot_2")
 
-	var sent: Array = home._client().ui_directives
-	assert_int(sent.size()).is_equal(1)
-	assert_str(sent[0]["op"]).is_equal("screen_select")
-	assert_str(String(sent[0]["payload"]["id"])).is_equal("screen_a")
-	# El tap ademas fija la pantalla: el proximo TAB corto la reabre (como en el host).
-	assert_str(home._local_pinned_screen_id).is_equal("screen_a")
+	assert_array(_screen_selects(home)).is_equal(["screen_a"])
 	assert_bool(home._radial_is_open()).is_false()
+	# Abrir no cambia los slots.
+	assert_array(home.hud_backend.get_pinned_slots()).is_equal(["player:flashlight", "screen_a", "", ""])
 
 	home.queue_free()
 
-func test_widget_hold_opens_the_radial():
+func test_only_the_dial_opened_for_a_slot_pins_what_is_picked():
+	# La linterna (fijada por defecto) no esta en esta partida: tocarla abre el dial para su slot,
+	# y lo elegido queda ahi.
 	var home = _home_with_dial(_dial_screens())
-	var widget = home._mounted_widgets.get("slot_a", null)
-	assert_object(widget).is_not_null()
-
-	home._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), true), widget, "slot_a")
-	# El hold se mide con el reloj: simular un press que empezo hace 500 ms.
-	home._widget_press_msec = OS.get_ticks_msec() - home.WIDGET_HOLD_MSEC - 100
-	home._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), false), widget, "slot_a")
-
+	var host = home.widget_host
+	var widget = _slot_widget(home, 0)
+	host._last_pointer_position = Vector2(-10000, -10000)
+	host._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), true), widget, "slot_1")
+	host._on_widget_gui_input(_touch(0, Vector2(40.0, 20.0), false), widget, "slot_1")
 	assert_bool(home._radial_is_open()).is_true()
+	home._on_radial_option_selected(1)
+	assert_array(home.hud_backend.get_pinned_slots()).is_equal(["screen_a", "", "", ""])
+	assert_array(_screen_selects(home)).is_equal(["screen_a"])
+
+	# El dial de TAB solo abre: nada se autoasigna.
+	home._open_radial()
+	home._on_radial_option_selected(0)
+	assert_array(home.hud_backend.get_pinned_slots()).is_equal(["screen_a", "", "", ""])
 
 	home.queue_free()
 
 func test_widget_internal_buttons_stay_clickable():
 	# La linterna se enciende desde el widget: sus botones internos conservan la entrada
-	# aunque el cuerpo del widget sea el boton de abrir pantalla (a diferencia del host).
+	# aunque el cuerpo del widget sea el boton de abrir pantalla.
 	var home = _home_with_dial([{"id": "player:flashlight", "title": "Linterna", "relevance": 0.9,
 		"widget": "res://core_v2/ui/hud/FlashlightWidget.tscn"}])
 
-	var widget = home._mounted_widgets.get("slot_a", null)
+	var widget = _slot_widget(home, 0)
 	assert_object(widget).is_not_null()
 	assert_int((widget as Control).mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
 	var toggle = (widget as Control).get_node_or_null("Margin/VBox/StatusRow/ToggleButton")
@@ -960,16 +937,17 @@ func test_stick_does_not_aim_the_dial_on_touch():
 # --- Slots como en el host: arriba a la izquierda y tocables en el celular ---
 
 func test_touch_ui_draws_above_the_hud():
-	# La UI tactil se dibuja siempre encima de las pantallas del HUD.
+	# La UI tactil se dibuja siempre encima de las pantallas del HUD, y la vista y el dial encima
+	# de los widgets.
 	var home = _home_with_dial()
-	var hud_layer: CanvasLayer = home.widget_host.get_parent() as CanvasLayer
-	assert_object(hud_layer).is_not_null()
+	var hud_layer: CanvasLayer = home.get_node("HUDLayer")
+	var widget_layer: CanvasLayer = home.widget_host.get_widget_root().get_parent() as CanvasLayer
 	var touch_ui = load("res://core_v2/ui/MobileUI.tscn").instance()
-	assert_int(hud_layer.layer).is_greater(0) # por encima de la escena (titulo, fondo)
+	assert_int(widget_layer.layer).is_greater(0) # por encima de la escena (titulo, fondo)
+	assert_int(widget_layer.layer).is_less(hud_layer.layer)
 	assert_int(hud_layer.layer).is_less(touch_ui.layer)
 	assert_object(home.get_node_or_null("ExitLayer")).is_null() # sin boton Salir: ESC y back
 	touch_ui.free()
-	# La vista y el dial van en la misma capa que los slots.
 	assert_bool(home.fullscreen_overlay.get_parent() == hud_layer).is_true()
 	assert_bool(home.radial_overlay.get_parent() == hud_layer).is_true()
 	home.queue_free()
@@ -981,25 +959,6 @@ func test_touch_ui_container_never_eats_gui_taps():
 	var touch_ui = load("res://core_v2/ui/MobileUI.tscn").instance()
 	assert_int(touch_ui.get_node("Container").mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
 	touch_ui.free()
-
-func test_slot_stays_stuck_to_the_side_when_render_scale_changes_at_runtime():
-	var home = _home_with_dial(_dial_screens())
-	var widget: Control = home._mounted_widgets["slot_a"]
-	var x_before: float = widget.rect_position.x
-	var before_scale: float = SettingsManager.render_scale
-
-	# Baja el render en runtime: el compensador reescala el WidgetHost y el slot conserva su
-	# posicion nominal pegada al borde (antes el margen en pixeles fijos lo despegaba).
-	SettingsManager.render_scale = 0.6
-	home.get_node("HUDLayer/WidgetHostScale").apply()
-	home._relayout_widgets()
-	assert_float(home.widget_host.rect_scale.x).is_equal_approx(0.6, 0.001)
-	assert_float(widget.rect_position.x).is_equal_approx(x_before, 0.001)
-	assert_float(widget.rect_scale.x).is_less_equal(1.0) # sin k: la escala la pone el host
-
-	SettingsManager.render_scale = before_scale
-	home.get_node("HUDLayer/WidgetHostScale").apply()
-	home.queue_free()
 
 func test_touch_never_grabs_the_pointer():
 	# Un clic emulado de un toque no recaptura el mouse (el grab mata el arrastre tactil).
@@ -1119,14 +1078,17 @@ func test_home_shows_the_hud_the_host_sent_before_it_existed():
 	# (change_scene es diferido) y la pantalla del control nunca lo escuchaba. Con el host en
 	# pausa no volvia a llegar: el HUD no aparecia.
 	var client = get_node("/root/RemoteControlManager").client
-	client.last_screen_list = [{"id": "screen_a", "title": "Screen A", "relevance": 0.9}]
+	client.last_screen_list = [{"id": "player:flashlight", "title": "Linterna",
+		"widget": "res://core_v2/ui/hud/FlashlightWidget.tscn"}]
 	client.last_screen_active = null
 
 	var home = RemoteControlHomeScene.instance()
 	add_child(home) # sin ningun ui directive entregado a esta pantalla
 
-	assert_bool(home._mounted_widgets.has("slot_a")).is_true()
-	assert_str(home._get_node_screen_id(home._mounted_widgets["slot_a"])).is_equal("screen_a")
+	assert_bool(home.hud_backend.has_screen("player:flashlight")).is_true()
+	var widget = _slot_widget(home, 0)
+	assert_object(widget).is_not_null()
+	assert_bool(widget is Label).is_false() # el widget de verdad, no el rotulo de reserva
 
 	client.last_screen_list = null
 	home.queue_free()
@@ -1193,20 +1155,14 @@ func test_gamepad_hud_button_is_hud_mode():
 	assert_bool(button.is_action_pressed("hud_mode")).is_true()
 
 func test_slots_never_repeat_the_same_screen():
-	# Como SuitOS en el host: la pantalla fijada (B) no compite por el slot A.
-	var home = _home_with_dial([
-		{"id": "screen_a", "title": "Screen A", "relevance": 0.9},
-		{"id": "screen_b", "title": "Screen B", "relevance": 0.4}
-	])
-	home.pin_local_screen("screen_a") # la mas relevante, fijada
+	# Como SuitOS en el host (HudSlots.pin_to): fijar una pantalla en otro slot la mueve.
+	var home = _home_with_dial(_dial_screens())
+	home.hud_backend.pin_to_slot(1, "screen_a")
+	home.hud_backend.pin_to_slot(3, "screen_a")
 
-	assert_str(home._get_node_screen_id(home._mounted_widgets["slot_b"])).is_equal("screen_a")
-	assert_str(home._get_node_screen_id(home._mounted_widgets["slot_a"])).is_equal("screen_b")
-
-	# Con una sola pantalla y fijada, el A queda vacio en vez de repetirla.
-	home._on_ui_directive("screen_list", [{"id": "screen_a", "title": "Screen A", "relevance": 0.9}])
-	assert_bool(home._mounted_widgets.has("slot_a")).is_false()
-	assert_bool(home._mounted_widgets.has("slot_b")).is_true()
+	assert_array(home.hud_backend.get_pinned_slots()).is_equal(["player:flashlight", "", "", "screen_a"])
+	assert_object(_slot_widget(home, 1)).is_null()
+	assert_object(_slot_widget(home, 3)).is_not_null()
 
 	home.queue_free()
 
@@ -1360,27 +1316,27 @@ func test_tapping_the_button_inside_a_widget_does_not_open_its_screen():
 		"snapshot": {"proto": 1, "id": "player:flashlight", "title": "Linterna", "on": false,
 			"battery": 90.0, "battery_max": 100.0, "source": "online"}}])
 	yield(await_idle_frame(), "completed") # los contenedores del widget reparten tamaños en diferido
-	var widget: Control = home._mounted_widgets["slot_a"]
+	var widget: Control = _slot_widget(home, 0)
+	var host = home.widget_host
 	var toggle: Control = widget.get_node("Margin/VBox/StatusRow/ToggleButton")
 	var xf: Transform2D = toggle.get_global_transform_with_canvas()
 	var on_button: Vector2 = xf.origin + toggle.rect_size * xf.get_scale() * 0.5
 	home._client().ui_directives.clear()
 
 	# Toque sobre el toggle: en Godot 3 el ScreenTouch sigue subiendo hasta el widget.
-	home._input(_touch(0, on_button, true))
-	home._on_widget_gui_input(_touch(0, on_button, true), widget, "slot_a")
-	home._input(_touch(0, on_button, false))
-	home._on_widget_gui_input(_touch(0, on_button, false), widget, "slot_a")
+	host._input(_touch(0, on_button, true))
+	host._on_widget_gui_input(_touch(0, on_button, true), widget, "slot_1")
+	host._input(_touch(0, on_button, false))
+	host._on_widget_gui_input(_touch(0, on_button, false), widget, "slot_1")
 	assert_array(_screen_selects(home)).is_empty()
 
 	# Control: tocar el cuerpo del widget (lejos del boton) si abre su pantalla.
 	var wxf: Transform2D = widget.get_global_transform_with_canvas()
 	var on_body: Vector2 = wxf.origin + Vector2(4.0, 4.0) * wxf.get_scale()
-	assert_bool(home._pointer_on_widget_button(widget)).is_true() # ultimo toque, sobre el boton
-	home._input(_touch(0, on_body, true))
-	home._on_widget_gui_input(_touch(0, on_body, true), widget, "slot_a")
-	home._input(_touch(0, on_body, false))
-	home._on_widget_gui_input(_touch(0, on_body, false), widget, "slot_a")
+	host._input(_touch(0, on_body, true))
+	host._on_widget_gui_input(_touch(0, on_body, true), widget, "slot_1")
+	host._input(_touch(0, on_body, false))
+	host._on_widget_gui_input(_touch(0, on_body, false), widget, "slot_1")
 	assert_array(_screen_selects(home)).is_equal(["player:flashlight"])
 
 	home.queue_free()

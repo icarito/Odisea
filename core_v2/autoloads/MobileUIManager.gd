@@ -105,8 +105,10 @@ func _track_clear_tap(event: InputEventScreenTouch, was_touch_active: bool) -> v
 func _is_empty_screen_point(point: Vector2) -> bool:
 	if is_point_on_touch_controls(point):
 		return false
-	var host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
-	return not (host != null and host.has_method("widget_at") and host.widget_at(point))
+	for host in get_tree().get_nodes_in_group("hud_widget_host"):
+		if host.widget_at(point):
+			return false
+	return true
 
 # Con algo al alcance el toque es "interactuar" (PlayerControllerV2): no despeja la pantalla.
 func _player_has_interactable() -> bool:

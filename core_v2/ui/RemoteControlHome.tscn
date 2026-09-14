@@ -52,12 +52,7 @@ text = "CONTROL REMOTO CONECTADO"
 align = 1
 
 [node name="HUDLayer" type="CanvasLayer" parent="."]
-layer = 5
-
-[node name="WidgetHost" type="Control" parent="HUDLayer"]
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
+layer = 6
 
 [node name="FullScreenOverlay" type="Control" parent="HUDLayer"]
 visible = false

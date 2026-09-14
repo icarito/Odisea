@@ -60,6 +60,12 @@ var _recycle: Control = null
 var _recycle_hot := false
 var _press_on_button := false
 var _widget_root: Control = null
+# De donde salen slots y pantallas: SuitOS en el juego, RemoteHudBackend en el control remoto (que
+# lo asigna antes de add_child). Mismo contrato; ver RemoteHudBackend.gd.
+var backend: Node = null
+
+func _backend() -> Node:
+	return backend if is_instance_valid(backend) else get_node_or_null("/root/SuitOS")
 
 # Donde cuelgan los widgets (en la capa propia). Publico para los tests.
 func get_widget_root() -> Control:
@@ -76,14 +82,17 @@ func get_widget_root() -> Control:
 		# Las rallitas del zoom viven en la misma capa del HUD, abajo al centro.
 		var ruler: Control = ZoomRulerScript.new()
 		ruler.name = "ZoomRuler"
+		ruler.backend = _backend()
 		_widget_root.add_child(ruler)
 	return _widget_root
 
 func _ready() -> void:
 	# Solo para _input: el toque sobre un widget tambien cuenta con el modo HUD en pausa.
 	pause_mode = PAUSE_MODE_PROCESS
-	if has_node("/root/SuitOS"):
-		var suit_os = get_node("/root/SuitOS")
+	# MobileUIManager pregunta a todos los hosts si un toque cae sobre un widget.
+	add_to_group("hud_widget_host")
+	var suit_os = _backend()
+	if suit_os != null:
 		if not suit_os.is_connected("widget_changed", self, "_on_widget_changed"):
 			suit_os.connect("widget_changed", self, "_on_widget_changed")
 		# Abrir o cerrar una pantalla en el modo HUD cambia si los widgets se ven.
@@ -115,7 +124,7 @@ func refresh_visibility() -> void:
 	var pause_mgr = get_node_or_null("/root/PauseManager")
 	var in_hud_mode: bool = pause_mgr != null and pause_mgr.has_method("is_hud_mode_paused") \
 		and pause_mgr.is_hud_mode_paused()
-	var suit_os = get_node_or_null("/root/SuitOS")
+	var suit_os = _backend()
 	var screen_open: bool = suit_os != null and suit_os.is_hud_mode_active() \
 		and not String(suit_os.get_active_screen_id()).empty()
 	# En el telefono los widgets se van con los controles tactiles cuando no hay actividad, y vuelven
@@ -158,8 +167,8 @@ func _on_hud_state_changed(_arg = null) -> void:
 	refresh_visibility()
 
 func _exit_tree() -> void:
-	if has_node("/root/SuitOS"):
-		var suit_os = get_node("/root/SuitOS")
+	var suit_os = _backend()
+	if suit_os != null:
 		if suit_os.is_connected("widget_changed", self, "_on_widget_changed"):
 			suit_os.disconnect("widget_changed", self, "_on_widget_changed")
 
@@ -226,7 +235,7 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 # Uno por slot, fijo: se muestra u oculta (refresh_visibility), nunca se crea y destruye con cada
 # cambio de widget.
 func _widget_scene_for(screen_id: String) -> PackedScene:
-	var suit_os = get_node_or_null("/root/SuitOS")
+	var suit_os = _backend()
 	if suit_os == null or not suit_os.has_screen(screen_id):
 		return null
 	var screen = suit_os.get_screen(screen_id)
@@ -482,7 +491,7 @@ func _end_drag(control: Control, slot: String) -> void:
 	show_drop_targets(false)
 	var over_recycle: bool = recycle_rect().has_point(_last_pointer_position)
 	_show_recycle(false)
-	var suit_os = get_node_or_null("/root/SuitOS")
+	var suit_os = _backend()
 	var index: int = HudSlots.index_of(slot)
 	var target: int = slot_at(_last_pointer_position)
 	var swipe_min: float = SWIPE_MIN * UIScaleCompensatorScript.scale_for(self)
@@ -574,7 +583,7 @@ func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> 
 	if _dragging:
 		_end_drag(control, slot)
 		return
-	var suit_os = get_node_or_null("/root/SuitOS")
+	var suit_os = _backend()
 	if suit_os == null:
 		return
 	var index: int = HudSlots.index_of(slot)

@@ -189,11 +189,15 @@ partida de la PC), overlay **en vivo**.
 
 **Dos capas en el teléfono:**
 
-- **Pantalla home (siempre visible):** los **widgets** de Slot A/B
-  (`widget_changed(slot, snapshot)` → `widget_scene()`) más los **controles
-  móviles** que ya existen: joystick de movimiento, cámara por arrastre/zoom
-  (`MobileUIManager._touch_camera`) y botón de acción (`InputProviderV2`,
-  FD-263). Es el `RemoteControlHome.gd` actual **más** un host de widgets.
+- **Pantalla home (siempre visible):** los **4 slots** del teléfono más los
+  **controles móviles** que ya existen: joystick de movimiento, cámara por
+  arrastre/zoom (`MobileUIManager._touch_camera`) y botón de acción
+  (`InputProviderV2`, FD-263). **Un HUD, dos backends** (2026-09-14): el
+  teléfono monta el **mismo `SuitOSWidgetHost`** del juego con
+  `backend = RemoteHudBackend` (mismo contrato que `SuitOS`; las pantallas
+  llegan por `screen_list`/`screen_data`/`screen_active`). Sus slots son
+  **independientes** de los del host (linterna en el 1, guardados en
+  `user://remote_hud.cfg`). Etapa 2: también `HudModeOverlay` con ese backend.
 - **Modo pantalla:** al elegir pantalla se muestra `view_scene()` a pantalla
   completa (el teléfono **sí** puede ampliar: el canvas es el suyo). El radial
   del teléfono **reusa `RadialSelectorV2`** (mismo patrón `ElevatorFloorSelector`
