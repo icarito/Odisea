@@ -1,7 +1,8 @@
 # Investigación: 3D pintado a medias en el Anbernic RG351V (Mali-G31, libmali)
 
-**Estado al 2026-09-14 18:50:** causa aún sin confirmar. La hipótesis principal es que **el heap del
-tiler de libmali se satura por la cantidad de primitivas por frame**. La escena simple
+**Estado al 2026-09-14 19:00:** causa aún sin confirmar. La hipótesis principal es que **el tiler del
+G31 se satura por la carga de la escena por frame**. Panfrost no lo arregla, así que no es un bug
+exclusivo de libmali. La escena simple
 `TestScene_base.tscn` renderiza al 100% (milestone S0), así que el recorte depende de la complejidad
 de la escena y no de la configuración de render.
 
@@ -33,6 +34,7 @@ Resultados crudos: tabla "Resultados" de [plan.md](plan.md). Historial de prueba
 | Presentación, swap o damage parcial | traza de FRT y readback del motor | swap normal; el recorte ya está en el framebuffer |
 | Flush forzado, CRC/TE off, IDVS (knobs del blob) | Sebastián | no cambian la cobertura |
 | Muestreo de texturas en sí | S0 `TestScene_base` | el piloto texturizado y el piso se renderizan al 100% |
+| Bug exclusivo de libmali (blob) | H6: Panfrost (Mesa), Sebastián | no se arregla con Panfrost; el problema no es propio del blob |
 
 Nota sobre `0fa8d786` ("el aborto vive en el sampling"): la corrida de overdraw que cubrió el 100%
 dibujó **la mitad de draw calls y vértices** (dc 97, vtx 176k contra dc 191-194 y vtx 304-321k).
@@ -82,8 +84,12 @@ cnt=0,4,0  vm=0,229376,0  phys=0,3954,0  used=0,0,0
   - el cielo completo: 2 triángulos grandes que caen en bins de nivel alto, asignados antes;
   - el repintado al mover la cámara: menos primitivas en la vista;
   - los `DATA_INVALID_FAULT` y el `Failed to map memory on GPU` esporádicos.
-- Hay memoria libre (`MemAvailable` 130-310 MB), así que no parece un OOM del sistema: parece un
-  techo o un crecimiento que falla dentro de libmali g13p0 o kbase.
+- Hay memoria libre (`MemAvailable` 130-310 MB), así que no parece un OOM del sistema.
+- **Panfrost tampoco lo arregla.** Eso descarta un bug exclusivo del blob, pero no la saturación:
+  Panfrost también usa un heap de tiler acotado y, en Bifrost, puede no soportar el render
+  incremental cuando se llena. Si es saturación, es un límite del G31 con esta carga, común a los
+  dos drivers, y la salida es bajar la carga por frame, no cambiar de driver. Sigue abierta la
+  alternativa de que el disparador lo genere el motor (ver §3).
 - `strings` de `libmali-bifrost-g31-g13p0-wayland-gbm.so`: aparecen `EVENT_MEM_GROWTH_FAILED` y
   `EVENT_TILE_RANGE_FAULT`. Las únicas variables de entorno son `MALI_PLATFORM_CONFIG`,
   `MALI_DEBUG_CONFIG` y `MALI_VERSION_INFO`, sin documentar. No se encontró un knob de tamaño del tiler.
@@ -105,7 +111,7 @@ Que el disparador sea la **cantidad de materiales/programas o de texturas distin
      "vértices" de "primitivas por tile".
    - En cada punto registrar cobertura (grim), `mem_jit_phys` en ráfaga y faults.
 2. **H7 render_scale:** si es saturación del tiler, 0.5 debería mejorar la cobertura y 1.0 empeorarla.
-3. **H6 Panfrost** (`gpu.driver panfrost` + reboot del sistema): separa un bug del blob de un límite de hardware.
+3. ~~H6 Panfrost~~: probado por Sebastián, no sirve (ver descartes).
 4. **Mitigación, si se confirma la saturación:** presupuesto de primitivas visibles por debajo del
    umbral medido, en tier LOW:
    - `lowend_skip` sobre decoración;
