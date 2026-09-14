@@ -4,9 +4,9 @@ extends GdUnitTestSuite
 
 const GateScript = preload("res://core_v2/autoloads/GLES3VendorGate.gd")
 
-func test_gate_strips_heavy_passes_when_mali_active():
+func test_gate_strips_heavy_passes_when_known_adapter():
 	var gate = auto_free(GateScript.new())
-	gate.force_vendor_gate = true
+	gate.force_gate = true
 	add_child(gate)
 
 	var env = auto_free(Environment.new())

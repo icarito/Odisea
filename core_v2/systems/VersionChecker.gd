@@ -20,13 +20,20 @@ func _ready():
 	yield(get_tree().create_timer(5.0), "timeout")
 	check_for_updates()
 
-	# Loop de chequeo periódico.
+	# Loop de chequeo periódico. SOLO en el menú: el check y el diálogo compiten
+	# por CPU/IO con el juego (spikes de 666 ms en handhelds — FD-299). El que
+	# arranca en gameplay (menú → partida) sigue: la descarga en curso no se
+	# corta, solo no se DISPARA nada nuevo fuera del menú.
 	while is_inside_tree():
 		yield(get_tree().create_timer(PERIODIC_CHECK_INTERVAL_S), "timeout")
 		# Solo chequear si no hay un update ya en curso (descargando/listo); el
 		# UpdateManager ignora el check si no está IDLE/FAILED de todos modos.
-		if not has_update:
+		if not has_update and _is_in_menu():
 			check_for_updates()
+
+func _is_in_menu() -> bool:
+	var scene = get_tree().current_scene
+	return scene != null and scene.name == "Menu"
 
 func check_for_updates():
 	UpdateManager.check_for_updates()

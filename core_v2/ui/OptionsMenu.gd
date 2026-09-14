@@ -13,6 +13,7 @@ onready var telemetry_toggle = find_node("TelemetryToggle")
 onready var log_overlay_toggle = find_node("LogOverlayToggle")
 onready var error_reports_toggle = find_node("ErrorReportsToggle")
 onready var prop_dither_toggle = find_node("PropDitherToggle")
+onready var low_end_toggle = find_node("LowEndToggle")
 onready var back_button = find_node("Back")
 
 # Internal render resolutions (the game renders here and is stretched to the
@@ -126,6 +127,7 @@ func _load_ui_values():
 	log_overlay_toggle.pressed = sm.log_overlay_enabled
 	error_reports_toggle.pressed = sm.error_reports_enabled
 	prop_dither_toggle.pressed = sm.prop_dither_enabled
+	low_end_toggle.pressed = sm.low_end_forced
 
 	fullscreen_option.selected = 1 if sm.fullscreen else 0
 	vsync_option.selected = 1 if sm.vsync else 0
@@ -154,6 +156,7 @@ func _connect_signals():
 	log_overlay_toggle.connect("toggled", self, "_on_log_overlay_toggled")
 	error_reports_toggle.connect("toggled", self, "_on_error_reports_toggled")
 	prop_dither_toggle.connect("toggled", self, "_on_prop_dither_toggled")
+	low_end_toggle.connect("toggled", self, "_on_low_end_toggled")
 	back_button.connect("pressed", self, "_on_back_pressed")
 
 func _on_master_volume_changed(value):
@@ -230,6 +233,11 @@ func _on_prop_dither_toggled(button_pressed):
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm:
 		sm.prop_dither_enabled = button_pressed
+
+func _on_low_end_toggled(button_pressed):
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm:
+		sm.low_end_forced = button_pressed
 
 
 func _on_back_pressed():

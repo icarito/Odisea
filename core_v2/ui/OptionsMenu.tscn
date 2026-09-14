@@ -193,6 +193,12 @@ text = "Ver a través de los objetos"
 pressed = true
 hint_tooltip = "Los objetos que tapan al personaje se vuelven translúcidos. Se aplica al recargar la escena."
 
+[node name="LowEndLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+text = "Forzar modo low end"
+
+[node name="LowEndToggle" type="CheckButton" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+hint_tooltip = "Render conservador para dispositivos débiles: sin post-process del environment y con lightmap manual. Se aplica al recargar la escena."
+
 [node name="Back" type="Button" parent="CenterContainer/PanelContainer/VBoxContainer"]
 margin_top = 446.0
 margin_right = 586.0

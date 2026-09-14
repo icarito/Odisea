@@ -15,28 +15,52 @@ extends Node
 # no por escena: los levels siguen compartiendo sus .tres en desktop/iOS.
 
 const VENDOR_TAG := "mali"
+# SOLO adapters verificados en device (§11.10): un adapter desconocido NO se
+# gatea — nunca dejar caer un device por culpa de otro.
+const KNOWN_CONSERVATIVE_ADAPTERS := ["mali-g31"]
 
 # Test seam: fuerza el gate sin depender del adapter del runner headless.
-export var force_vendor_gate := false
+export var force_gate := false
 
-var _mali_active := false
+var _gated_active := false
 
 func _ready() -> void:
-	_detect_mali()
+	_detect_gate()
 	get_tree().connect("node_added", self, "_on_node_added")
 
-func _detect_mali() -> void:
+func _detect_gate() -> void:
 	var adapter := String(VisualServer.get_video_adapter_name()).to_lower()
 	var vendor := String(VisualServer.get_video_adapter_vendor()).to_lower()
-	_mali_active = adapter.find(VENDOR_TAG) != -1 or vendor.find(VENDOR_TAG) != -1
-	if _mali_active:
-		print("[GLES3VendorGate] Mali detectado (%s): ambiente conservador (sin fog/glow/dof/ACES)" % adapter)
+	for known in KNOWN_CONSERVATIVE_ADAPTERS:
+		if adapter.find(known) != -1 or vendor.find(known) != -1:
+			_gated_active = true
+			break
+	if _gated_active:
+		# El lightmap nativo colisiona de unidad en Mali (§11.10): el sync del
+		# camino manual lo maneja _sync_manual_lightmap al entrar los niveles.
+		print("[GLES3VendorGate] %s: ambiente conservador + lightmap manual" % adapter)
+
+var _manual_lightmap_synced := false
 
 func _on_node_added(node: Node) -> void:
-	if not (_mali_active or force_vendor_gate):
-		return
 	if node is WorldEnvironment:
-		strip_environment(node.environment)
+		var gated := _gated_active or force_gate or _user_forced_low_end()
+		_sync_manual_lightmap(gated)
+		if gated:
+			strip_environment(node.environment)
+
+# La opción de Opciones fuerza el gate en cualquier dispositivo.
+func _user_forced_low_end() -> bool:
+	var sm = get_node_or_null("/root/SettingsManager")
+	return sm != null and "low_end_forced" in sm and bool(sm.get("low_end_forced"))
+
+func _sync_manual_lightmap(gated: bool) -> void:
+	if gated and not _manual_lightmap_synced:
+		OS.set_environment("ODISEA_MANUAL_LIGHTMAP", "1")
+		_manual_lightmap_synced = true
+	elif not gated and _manual_lightmap_synced:
+		OS.set_environment("ODISEA_MANUAL_LIGHTMAP", "")
+		_manual_lightmap_synced = false
 
 func strip_environment(env: Environment) -> void:
 	if env == null:

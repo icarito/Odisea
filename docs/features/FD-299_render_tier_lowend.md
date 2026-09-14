@@ -45,9 +45,16 @@ hot code: el tier se **materializa en objetos y en decisiones de carga**.
 
 | Tier | Criterio inicial (a calibrar por device) | Dispositivos de referencia |
 |---|---|---|
-| `LOW` | GLES3 embebido + adapter "Mali-G3x" (Mali-G31 confirmado), VideoCore, llvmpipe | Anbernic RG35xx/503-class |
+- `LOW` | GLES3 embebido + adapter "Mali-G3x" (Mali-G31 confirmado), VideoCore, llvmpipe | Anbernic RG35xx/503-class |
 | `MID` | Mali-G52/G57, Adreno 6xx (los teléfonos del proyecto educativo) | Redmi Note 9 Pro (Adreno 619) |
 | `HIGH` | Desktop GL (x11/windows/macOS), Mali Valhall (G77/G610), Adreno 7xx | Desktop del estudio |
+
+**Regla de inclusión (decisión 2026-09-14): el tier solo gatea adapters
+explícitamente verificados en device** (hoy: Mali-G31 vía FRT). Un adapter
+desconocido **no** se gatea — nunca dejar caer un device por culpa de otro.
+La excepción es la opción manual del jugador ("Forzar modo low end" en
+Opciones), que aplica el tier en cualquier hardware por decisión del dueño
+del dispositivo.
 
 `HIGH` en desktop aunque el vendor diga Mali (no hay Mali desktop en la flota
 hoy; el match por adapter name evita falsos positivos). **UNKNOWN GLES3
@@ -60,6 +67,13 @@ por-tier se confirma con el protocolo §11.10).
   - Environment sin post-process: fog/glow/dof/adjustment off + tonemap
     lineal — **ya implementado** en `GLES3VendorGate.gd` (extender de vendor
     "Mali" a tier `LOW`).
+  - **Lightmap manual**: el lightmap nativo de GLES3 ata la textura del bake a
+    `max_texture_image_units - 4` (unidad 12 en Mali-16), colisionando en
+    silencio con las texturas del material → el bake no se dibuja y el nivel
+    amanece negro (Dome_Intro: solo el HUD widget visible). `GLES3VendorGate`
+    activa el camino manual probado (`IOSLightmapFallback`,
+    `ODISEA_MANUAL_LIGHTMAP=1`) en los adapters del tier — verificado el
+    mecanismo en device por el equipo (el mismo bug de la era GLES2-iOS).
   - **No instanciar subtrees cosméticos**: decoración, VFX de ambiente y
     overlays de efectos marcados con el grupo `lowend_skip`. El gate los
     libera en `node_added` (corte automático, cero condiciones en gameplay).
@@ -116,11 +130,17 @@ no por "es Mali"**; "Mali" a secas solo sirve como gate conservador inicial
 
 - `core_v2/autoloads/GLES3VendorGate.gd` (modify): agregar `RenderTier`
   (`LOW/MID/HIGH`), API `get_tier()`, extender el strip de environments al
-  tier LOW (ya hace fog/glow/dof/adjustment/tonemap), liberar grupos
-  `lowend_skip` en `node_added`.
-- `core_v2/tests/test_gles3_vendor_gate.gd` (modify): tests de tier + grupos.
+  tier LOW (ya hace fog/glow/dof/adjustment/tonemap), activar el lightmap
+  manual y liberar grupos `lowend_skip` en `node_added`.
+- `core_v2/systems/VersionChecker.gd` (modify): el check periódico de updates
+  **solo dispara en el menú** — nunca en gameplay (spikes de 666 ms).
+- `core_v2/autoloads/SettingsManager.gd` + `core_v2/ui/OptionsMenu.gd/.tscn`
+  (modify): opción de usuario **"Forzar modo low end"** (`low_end_forced`)
+  que fuerza el tier en cualquier dispositivo, sin depender del adapter.
 - `core_v2/update/UpdateManager.gd` (modify): diferir descargas a idle
   (menu/pausa) — hoy descarga 143 MB con el juego corriendo (spikes 666 ms).
+- `core_v2/autoloads/IOSLightmapFallback.gd` (sin cambios): el camino manual
+  probado se reutiliza tal cual — el gate setea su variable de entorno.
 - `core_v2/autoloads/SessionManager.gd` (modify): exponer el tier en el
   heartbeat ANNAV2 (telemetría del parque educativo).
 - `portmaster/Odisea.sh` (modify): quitar el gate de glxinfo (falso negativo;
