@@ -35,7 +35,10 @@ ZIP="$(realpath -m "${2:-$OUT/$PORT.zip}")"
 ENGINE="${3:-}"
 [ -s "$PCK" ] || { echo "ERROR: $PCK no existe o esta vacio" >&2; exit 1; }
 
-VERSION="$(python3 -c 'import json,sys;print(json.load(open("build_meta.json"))["game_version"])' 2>/dev/null \
+# En CI llega PORT_VERSION (lleva el numero de run: 0.4.0-nightly.601+sha); en el
+# checkout de CI no hay build_meta.json y git describe daba el sha "-dirty".
+VERSION="${PORT_VERSION:-}"
+[ -n "$VERSION" ] || VERSION="$(python3 -c 'import json,sys;print(json.load(open("build_meta.json"))["game_version"])' 2>/dev/null \
            || git describe --tags --always --dirty 2>/dev/null || echo local)"
 
 rm -rf "$OUT/$PORT" "$OUT/$SCRIPT"
@@ -61,6 +64,13 @@ if [ -n "$ENGINE" ]; then
   echo "Motor propio: $(basename "$ENGINE") ($(du -h "$ENGINE" | cut -f1)) -- port.json sin runtime, arch=aarch64"
 else
   echo "Sin binario propio: el port usara el runtime frt_3.6 de PortMaster (fisica Bullet, no Box3D)."
+fi
+
+# Numero de run de CI en el titulo: PortMaster detecta el update por el md5 del zip,
+# pero no muestra ninguna version; asi se ve cual nightly esta instalado.
+if [ -n "${PORT_BUILD:-}" ]; then
+  python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["attr"]["title"]+=f" (nightly {sys.argv[2]})"; json.dump(d,open(p,"w"),indent=2)' \
+    "$OUT/$PORT/port.json" "$PORT_BUILD"
 fi
 
 # La captura es requisito de PortMaster (4:3, minimo 640x480) pero no bloquea un

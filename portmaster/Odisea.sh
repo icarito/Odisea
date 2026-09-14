@@ -42,6 +42,10 @@ export LD_LIBRARY_PATH="/usr/lib:$GAMEDIR/lib:$LD_LIBRARY_PATH"
 # joystick y SessionManager baja el perfil grafico cuando ve este valor.
 export ODISEA_DEVICE=anbernic
 
+# Los updates llegan por PortMaster (fuente "Odisea Nightly"). El updater del
+# juego no puede relanzar FRT, asi que se apaga.
+export ODISEA_UPDATES_MANAGED_BY=PortMaster
+
 # Motor. El paquete trae nuestro propio binario FRT con el modulo Box3D, que es
 # el backend de fisica que el juego pide en project.godot. El runtime frt_3.6 de
 # PortMaster es Godot stock: arranca igual, pero cae a Bullet en silencio.
@@ -87,23 +91,9 @@ $GPTOKEYB "$(basename "$ENGINE")" -c "./odisea.gptk" &
 
 pm_platform_helper "$ENGINE"
 
-# Driver de video. ROCKNIX no tiene GL de escritorio (su libGL.so.1 es un stub y
-# glxinfo falla), asi que por defecto va GLES2. Pero FRT habla EGL/SDL2, no GLX:
-# que glxinfo falle no dice nada sobre GLES3, y la Mali-G31 soporta GLES 3.2.
-# ODISEA_VIDEO_DRIVER (tipicamente desde dev.sh) fuerza uno u otro para probar.
-if [ -z "$ODISEA_VIDEO_DRIVER" ]; then
-  if [[ "$CFW_NAME" = "ROCKNIX" ]] && ! glxinfo | grep -q "OpenGL version string"; then
-    ODISEA_VIDEO_DRIVER="GLES2"
-  fi
-fi
-
-if [ -n "$ODISEA_VIDEO_DRIVER" ]; then
-  echo "[Odisea] video driver: $ODISEA_VIDEO_DRIVER"
-  "$ENGINE" $GODOT_OPTS --video-driver "$ODISEA_VIDEO_DRIVER" --main-pack "odisea.pck"
-else
-  echo "[Odisea] video driver: (default del motor)"
-  "$ENGINE" $GODOT_OPTS --main-pack "odisea.pck"
-fi
+# Siempre GLES3: el juego es GLES3 y el paquete no trae texturas para GLES2.
+# FRT habla EGL/SDL2, asi que el stub de libGL de ROCKNIX no importa.
+"$ENGINE" $GODOT_OPTS --video-driver GLES3 --main-pack "odisea.pck"
 
 if [ -n "$mounted_runtime" ] && [[ "$PM_CAN_MOUNT" != "N" ]]; then
     $ESUDO umount "$mounted_runtime"

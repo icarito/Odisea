@@ -65,6 +65,9 @@ func _ready():
 	if _is_source_checkout():
 		print("[UpdateManager] Source checkout detected; packaged updates disabled for this run.")
 		return
+	if _updates_managed_externally():
+		print("[UpdateManager] Updates a cargo de %s; updater interno desactivado." % OS.get_environment("ODISEA_UPDATES_MANAGED_BY"))
+		return
 	_check_pending_boot()
 	_cleanup_staging()
 	_cleanup_stale_apks()
@@ -86,7 +89,7 @@ func _on_startup_gate_opened(_reason, _frames) -> void:
 	confirm_boot()
 
 func check_for_updates() -> void:
-	if _is_source_checkout():
+	if _is_source_checkout() or _updates_managed_externally():
 		_set_state(State.IDLE)
 		return
 	# Durante un replay de hotzone no se chequean updates: la descarga del manifest y su
@@ -370,6 +373,14 @@ func _is_local_test_build() -> bool:
 func _today_string() -> String:
 	var d: Dictionary = OS.get_datetime()
 	return "%04d-%02d-%02d" % [int(d.get("year", 0)), int(d.get("month", 0)), int(d.get("day", 0))]
+
+
+# El lanzador de un gestor de paquetes (PortMaster) lo exporta: ahi el gestor
+# reemplaza el paquete entero, y el runtime (FRT) no se puede relanzar desde el
+# juego -- le faltan --main-pack y el entorno que arma el lanzador. Tampoco se
+# cargan paquetes de user://: taparian el .pck nuevo que instala el gestor.
+func _updates_managed_externally() -> bool:
+	return OS.get_environment("ODISEA_UPDATES_MANAGED_BY") != ""
 
 
 func _is_source_checkout() -> bool:

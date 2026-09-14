@@ -807,11 +807,9 @@ jobs:
           # cada formato habilitado, para CADA textura. Generar formatos que la
           # plataforma no usa hacía el import ~14min (vs ~1-3min con lo justo).
           # El proyecto es GLES3: desktop usa S3TC; móvil/web usa ETC2; iOS conserva
-          # PVRTC. ETC1 solo corresponde al fallback GLES2, y por eso sigue apagado
-          # en todas menos linux_arm64: ese .pck tambien alimenta el paquete
-          # PortMaster, y ROCKNIX no tiene GL de escritorio (su libGL.so.1 es un
-          # stub), asi que el handheld corre GLES2 y pide las variantes .etc.
-          # Sin ETC1 las texturas comprimidas no cargan ahi.
+          # PVRTC. ETC1 solo corresponde al fallback GLES2, que no se usa en ningun
+          # lado: el paquete PortMaster (el .pck de linux_arm64) tambien arranca
+          # siempre en GLES3 (--video-driver GLES3 en portmaster/Odisea.sh).
           # True = importar. s3tc TIENE que estar en el dict: lo que no se nombra aca no
           # se escribe en project.godot y el motor lo deja en su default (true), asi que
           # el pase de import del step Export lo regenera y limit_vram_import_formats.py
@@ -821,7 +819,7 @@ jobs:
               "linux_x64":   dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
               "windows":     dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
               "macos":       dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
-              "linux_arm64": dict(s3tc=False, bptc=False, etc=True,  etc2=True,  pvrtc=False),
+              "linux_arm64": dict(s3tc=False, bptc=False, etc=False, etc2=True,  pvrtc=False),
               "android":     dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=False),
               "html5":       dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=False),
               "ios":         dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=True),
@@ -1510,19 +1508,26 @@ jobs:
           gzip -9 -n -c "$PCK" > "$OUT.gz"
           echo "Staged update .pck: $OUT ($(du -h "$OUT" | cut -f1)) + .gz ($(du -h "$OUT.gz" | cut -f1))"
 
-      # Paquete PortMaster para handhelds Linux/ARM (Anbernic y companiia). NO lleva
-      # el binario arm64: corre sobre el runtime frt_3.6 que provee PortMaster y solo
-      # carga nuestro .pck. Sale a dist_portmaster/ y NO a dist/ para que no entre en
-      # el artifact de ARM64: el job 'manifests' le pasa ese directorio entero a
-      # update_manifest.py, que tomaria este .zip como el archivo de la plataforma.
+      # Paquete PortMaster para handhelds Linux/ARM (Anbernic y companiia). Lleva el
+      # FRT arm64 del fork (con Box3D): el runtime frt_3.6 de PortMaster es Godot
+      # stock y cae a Bullet en silencio. Sale a dist_portmaster/ y NO a dist/ para
+      # que no entre en el artifact de ARM64: el job 'manifests' le pasa ese
+      # directorio entero a update_manifest.py, que tomaria este .zip como el archivo
+      # de la plataforma.
       - name: Package PortMaster port (ARM64)
         if: matrix.platform == 'linux_arm64'
+        env:
+          PORT_VERSION: ${{ needs.prep.outputs.version_slug }}
+          PORT_BUILD: ${{ needs.prep.outputs.build_seq }}
         run: |
           set -euo pipefail
           PCK=$(find build/linux_arm64 -maxdepth 1 -name "*.pck" | head -n 1)
+          FRT="$RUNNER_TEMP/odisea.frt.aarch64"
+          curl -fSL -o "$FRT" \
+            "https://github.com/icarito/godot-box3d-3/releases/download/$(cat .github/box3d_release)/godot.box3d.frt.arm64.release"
           mkdir -p dist_portmaster
           tools/build_portmaster.sh "$PCK" \
-            "dist_portmaster/Odisea-PortMaster-${{ needs.prep.outputs.version_slug }}.zip"
+            "dist_portmaster/Odisea-PortMaster-$PORT_VERSION.zip" "$FRT"
 
       - name: Upload PortMaster Artifact
         if: matrix.platform == 'linux_arm64'

@@ -34,8 +34,8 @@ export: export-linux-arm64 export-pck
 
 # --- PortMaster (Anbernic y otros handhelds Linux/ARM) ---------------------
 #
-# El port NO embarca el binario arm64: corre sobre el runtime frt_3.6 que provee
-# PortMaster y solo carga nuestro .pck. Las fuentes del paquete estan en
+# El port embarca el FRT arm64 del fork si esta en PORTMASTER_ENGINE (CI siempre lo
+# baja del release del fork); sin el corre sobre el runtime frt_3.6. Las fuentes del paquete estan en
 # portmaster/ (tracked); ports/ es salida generada (gitignored).
 #
 # El .pck es una regla de archivo a proposito: exportarlo tarda minutos y no hay
