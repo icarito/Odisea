@@ -30,10 +30,13 @@ const META_KEY := "ios_lightmap_applied"
 # lo declara, aunque nunca se ejecute.
 static func cutout_shader() -> Shader:
 	var sh := Shader.new()
-	sh.code = SHADER.code \
+	sh.code = cutout_code(SHADER.code)
+	return sh
+
+static func cutout_code(code: String) -> String:
+	return code \
 		.replace("shader_type spatial;", "shader_type spatial;\nrender_mode cull_disabled;\nuniform float alpha_scissor_threshold = 0.5;") \
 		.replace("\tALBEDO = base;", "\tif (albedo_color.a * tex.a < alpha_scissor_threshold) {\n\t\tdiscard;\n\t}\n\tALBEDO = base;")
-	return sh
 
 var _cutout_shader: Shader
 
