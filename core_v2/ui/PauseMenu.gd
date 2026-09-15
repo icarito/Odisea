@@ -13,7 +13,8 @@ onready var options_menu = get_node_or_null("OptionsMenu")
 var _minimal: bool = false
 
 func _ready():
-	VirtualMouse.attach_to(get_tree().root)
+	# El cursor cuelga de la raiz pero solo vive mientras este menu esta visible.
+	VirtualMouse.attach_to(get_tree().root, self)
 	_connect_signals()
 	_update_version_label()
 	# Ni HTML5 ni iOS deben mostrar "salir": en la web no hay a donde salir, y en iOS

@@ -17,6 +17,8 @@ var _auto_sprint_engaged := false
 var move_response_curve: Curve
 var camera_response_curve: Curve
 var hardware_input_enabled := true
+# D-pad como camara (camera_left/right/up/down). El modo HUD lo apaga en su propio proveedor.
+var digital_camera_enabled := true
 
 var joy_look_sensitivity := 15.0
 var joy_move_sensitivity := 1.0
@@ -293,8 +295,18 @@ func _read_live_input() -> InputDataV2:
 			mouse_d += joy_look * joy_look_sensitivity
 
 		# --- D-PAD CAMERA (Digital) ---
-		var digital_look_x = _action_strength("camera_right") - _action_strength("camera_left")
-		mouse_d.x += digital_look_x * joy_look_sensitivity
+		# En juego el D-pad es camara (izq/der gira, arriba/abajo inclina; +Y es arriba, como el
+		# stick). En el modo HUD el overlay la apaga: ahi el D-pad navega la UI (ui_*).
+		if digital_camera_enabled:
+			var digital_look := Vector2(
+				_action_strength("camera_right") - _action_strength("camera_left"),
+				_action_strength("camera_up") - _action_strength("camera_down")
+			)
+			# Mismo resguardo que el zoom digital: hay handhelds que comparten indices entre el
+			# click del stick y el D-pad, asi que con el stick de movimiento activo no inclina.
+			if joy_move.length() > 0.4:
+				digital_look.y = 0.0
+			mouse_d += digital_look * joy_look_sensitivity
 
 		# --- TOUCH CAMERA (from TouchCameraControls) ---
 		if _touch_camera_drag.length_squared() > 0.001:

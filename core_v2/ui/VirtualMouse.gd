@@ -38,9 +38,15 @@ var relative_target_scale := Vector2.ZERO
 
 # Cuelga un cursor en su propia capa, arriba de todo. Preferir esto a add_child() directo:
 # un cursor tapado por la UI que deberia poder clickear no sirve de nada.
-static func attach_to(parent: Node) -> Control:
+# El cursor es uno solo y puede colgar de la raiz (PauseMenu, RemotePairingDialog), pero solo vive
+# mientras alguna UI que lo pidio esta visible: `requester` (por defecto `parent`). Colgado de la
+# raiz y siempre activo, en pleno juego el stick izquierdo lo movia e inyectaba movimiento de
+# mouse — la camara seguia al stick — y A/B se volvian clicks consumidos.
+static func attach_to(parent: Node, requester: Node = null) -> Control:
+	var owner_node: Node = requester if requester != null else parent
 	for existing in parent.get_tree().get_nodes_in_group("virtual_mouse"):
 		if is_instance_valid(existing):
+			existing.add_requester(owner_node)
 			return existing as Control
 	var host := CanvasLayer.new()
 	host.name = "VirtualMouseLayer"
@@ -48,9 +54,23 @@ static func attach_to(parent: Node) -> Control:
 	var cursor: Control = load("res://core_v2/ui/VirtualMouse.gd").new()
 	cursor.name = "VirtualMouse"
 	cursor.add_to_group("virtual_mouse")
+	cursor.add_requester(owner_node)
 	host.add_child(cursor)
 	parent.add_child(host)
 	return cursor
+
+var _requesters := []
+
+func add_requester(node: Node) -> void:
+	if not node in _requesters:
+		_requesters.append(node)
+
+# Alguna UI que pidio el cursor sigue viva y visible (un Node sin dibujo, como un test, cuenta).
+func is_wanted() -> bool:
+	for node in _requesters:
+		if is_instance_valid(node) and (not node is CanvasItem or node.is_visible_in_tree()):
+			return true
+	return false
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -83,6 +103,12 @@ func _on_viewport_resized() -> void:
 
 func _process(delta: float) -> void:
 	if not _active:
+		return
+	if not is_wanted():
+		# La UI que lo pidio se cerro: no mover, no dibujar. El modo del mouse queda como esta
+		# (en juego lo maneja la camara).
+		_active = false
+		update()
 		return
 	var direction := Vector2(
 		Input.get_action_strength("cursor_right") - Input.get_action_strength("cursor_left"),
@@ -118,6 +144,8 @@ func _process(delta: float) -> void:
 	_emit_motion(_position - previous)
 
 func _input(event: InputEvent) -> void:
+	if not is_wanted():
+		return
 	if event is InputEventMouseMotion:
 		if _injecting_motion:
 			return

@@ -128,6 +128,8 @@ func _ready() -> void:
 	add_to_group("touch_camera_blocker")
 	if input_provider == null:
 		input_provider = InputProviderV2.new()
+	# En el modo HUD el D-pad es de la UI (ui_*): que no apunte el dial como si fuera la camara.
+	input_provider.digital_camera_enabled = false
 	_selector.connect("option_selected", self, "_select")
 	_selector.connect("cancelled", self, "_exit")
 	var suit_os: Node = _suit_os()

@@ -59,8 +59,8 @@ if *Render scale* is below 100%.
 |--|--|
 | Left Analog | Move |
 | Right Analog | Camera |
-| D-Pad Left / Right | Step the camera around |
-| D-Pad Up / Down | Zoom in / out |
+| D-Pad Left / Right | Turn the camera |
+| D-Pad Up / Down | Tilt the camera |
 | A | Crouch |
 | B | Jump |
 | Y | Interact |
@@ -69,6 +69,8 @@ if *Render scale* is below 100%.
 | L2 / R2 | Tool secondary / primary fire |
 | Start | Flashlight (skips dialogue) |
 | Select | Debug overlay |
+
+In the HUD screens the D-Pad moves between buttons instead of the camera.
 
 The pause menu is keyboard-only in this build (Escape), so it is not reachable
 from the gamepad. Use the firmware's own quit hotkey to leave the game.
