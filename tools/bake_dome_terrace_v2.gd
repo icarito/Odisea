@@ -29,6 +29,9 @@ const OUT_SHAPE := "res://core_v2/levels/interiors/DomeTerraceV2_baked.shape"
 const OUT_FLOOR_MESH := "res://core_v2/levels/interiors/DomeTerraceFloor_baked.mesh"
 const OUT_SHELL_MESH := "res://core_v2/levels/interiors/DomeShell_baked.mesh"
 const WALL_SHADER_PATH := "res://core_v2/levels/interiors/shaders/dome_wall_cylindrical.shader"
+# Material con el mapeo cilindrico completo: las 5 texturas (Rusty Metal Grid 1k)
+# y los params afinados a mano (radial_repeats, vertical_scale, depth, metal).
+const WALL_MATERIAL_PATH := "res://assets/textures/Rusty Metal Grid/1k/Rusty Metal Grid Cylindrical.tres"
 # Objetos de Blender que van al piso; el resto es carcasa.
 const FLOOR_NODES := ["DomeFloor", "HangarHoleRim"]
 # m/texel. El piso recibe las sombras del andamio y necesita más densidad (mismo
@@ -40,14 +43,20 @@ const SHELL_LIGHTMAP_TEXEL_SIZE := 0.15
 # La carcasa (M_BrushedSteelLight) recibe el shader cilíndrico que viajaba
 # embebido en la superficie 0 del mesh Qodot original: reconstruye UVs desde la
 # posición angular mundial (XZ) para texturizar la pared sin costuras por
-# segmento. Los params quedan en default del shader (= el mesh viejo, que tenía
-# todos los params sin setear). Los bores van en bucket oscuro aparte para no
-# smearingar el tiling a lo largo del túnel.
+# segmento. Partimos del .tres con las texturas y params afinados del domo
+# viejo (duplicado para poder mutar por-instancia sin tocar el recurso).
+# Los bores van en bucket oscuro aparte para no smearingar el tiling a lo
+# largo del túnel.
 func _material_for(material: Material) -> Material:
 	if material != null and material.resource_name == "M_BrushedSteelLight":
+		var sm := (load(WALL_MATERIAL_PATH) as ShaderMaterial).duplicate() as ShaderMaterial
+		if sm != null:
+			sm.resource_name = "DomeWallCylindrical"
+			return sm
+		# Fallback: material vacío con solo el shader (como antes del .tres).
 		var shader: Shader = load(WALL_SHADER_PATH)
 		if shader != null:
-			var sm := ShaderMaterial.new()
+			sm = ShaderMaterial.new()
 			sm.shader = shader
 			sm.resource_name = "DomeWallCylindrical"
 			return sm
