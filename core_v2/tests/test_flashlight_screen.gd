@@ -125,7 +125,7 @@ func test_flashlight_widget_ui_snapshot() -> void:
 	assert_str(title_lbl.text).is_equal("Linterna")
 	assert_str(btn.text).is_equal("APAGAR")
 	assert_bool(btn.disabled).is_false()
-	assert_str(meter_lbl.text).is_equal("BAT: [█████░░░░░]")
+	assert_str(meter_lbl.text).is_equal("BAT: [|||||.....]")
 
 	widget.update_snapshot({
 		"title": "Linterna",
@@ -137,5 +137,5 @@ func test_flashlight_widget_ui_snapshot() -> void:
 	})
 
 	assert_str(btn.text).is_equal("ENCENDER")
-	assert_str(status_lbl.text).is_equal("ESTADO: APAGADA")
-	assert_str(meter_lbl.text).is_equal("BAT: [░░░░░░░░░░]")
+	assert_str(status_lbl.text).is_equal("APAGADA")
+	assert_str(meter_lbl.text).is_equal("BAT: [..........]")
