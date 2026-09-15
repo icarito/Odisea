@@ -453,6 +453,8 @@ tenía 3.9 GB de core dumps de Odisea que impedían descargar la actualización.
 | **R9 Dome_Intro, binario release, entrando por el menú** | 4 fps, 30% cobertura | **12 fps, cobertura completa** (serie ×4), 0 faults, 99 dc, 194k vtx |
 
 Consecuencia para PortMaster: en ROCKNIX < 20260901 (libmali g13p0) y otros CFW con blobs viejos Dome_Intro
-va a verse cortado; vale avisarlo en el README del port. Siguiente paso posible: con g29p1 el lightmap nativo
-podría funcionar en Mali y dejar el camino manual de `GLES3VendorGate` (107 materiales duplicados) sin uso; hay que
-probarlo con un reinicio.
+va a verse cortado; vale avisarlo en el README del port. **L14 — lightmap nativo con g29p1 (probado):** con `_manual_lightmap_synced=true` antes de cargar Dome_Intro, el
+fallback se libera y queda el lightmap del motor. Ya **no sale magenta** (el blob nuevo arregló la colisión de
+unidad), cobertura buena (hub 76%, casquete 94%, 0 faults), pero **peor en todo lo demás**: 7.9 fps contra 10.7 del
+manual (debug, cámara del jugador), MemAvailable 132 MB contra ~250 MB, y el **piso del domo pierde su lightmap**
+(casi negro; el vínculo de BakedLightmapData con la malla local_to_scene). Se queda el camino manual.
