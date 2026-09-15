@@ -245,6 +245,34 @@ o su arquitectura de escena — no en los caminos de render probados. El domo pa
 (PR #347) reemplaza exactamente ese asset y renderiza 100%: la integración es además la
 solución del bug.
 
+### Perfil de performance (sesión de optimización, binario debug salvo donde se indica)
+
+- **La cobertura 3D está RESUELTA** con domo V2 + settings lowend: 0 faults sostenidos en
+  Dome_Default y DomeDefaultV2Test. El problema restante es puro fps: **2-7 fps en TODA
+  escena 3D cargada por sesión** (incluso TestScene_base con 8 draws: 4 fps), mientras el
+  menú corre a 45 y un árbol liberado con cámara+quad+20 esferas+cielo corre a 44-120.
+- GPU dvfs instantáneo: **8% busy** — no es GPU. Main thread: 97% de un core A35, wchan=0
+  (computa/spinnea en userspace). TIME_PROCESS 38 ms + TIME_PHYSICS 30 ms (debug) de
+  ~160-300 ms de frame: **~90-200 ms por frame quedan fuera de los monitores del engine**.
+- Bisect por liberación (eval en vivo): liberar el PILOT COMPLETO → 48 fps. Liberar sus
+  subtrees por separado (Logic, Visual, CollisionShape, AudioListener), apagar el
+  PhysicsServer, matar callbacks de current_scene, matar 7 autoloads, apagar el rig
+  VCameraSystem: **ninguno reproduce la recuperación por separado**. Hay interacción entre
+  el pilot y el flujo de sesión que solo el pause/free completo corta (pausa del árbol: 26 fps).
+- Descartes con medición: cajas del experimento (63 PushableBox removidas del nivel),
+  física 30Hz (activa), audio muteado, VCameraSystem process, autoloads de presupuesto.
+- La pista dura: **el costo existe solo cuando la sesión/gameScene está montada**; el mismo
+  contenido en un árbol sin sesión corre rápido. El paso siguiente es perfilar el frame
+  completo en device (perf o reloj por segmentos en el fork), no más bisect a ciegas.
+
+### Resultado integración domo V2 (PR #347)
+
+- Dome_Default con DomeTerraceV2_baked (4 superficies) + 4 airlocks + SpawnPointV2 en
+  (0,1,8): **cobertura 100% sostenida** (series con movimiento, audio mudo), 0 faults,
+  contexto GPU mínimo de la sesión (~195 MB), MemAvailable hasta 526 MB.
+- El experimento de cajas pushables fue removido del nivel (63 instancias — no es tier:
+  Sebastián lo ordenó; el experimento no pertenece al nivel).
+
 ### Descartes de Sebastián (knobs del blob, con evidencia temporal)
 
 - flush forzado (12 s, oscila parcial/casi vacío, 4 fps) — descartado y revertido.
