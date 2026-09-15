@@ -112,7 +112,7 @@ func _sync_host_for_scene() -> void:
 	if scene == null:
 		return
 	var scene_path: String = scene.filename
-	var should_host: bool = remote_control_enabled and _is_gameplay_scene(scene_path)
+	var should_host: bool = remote_control_enabled and _is_gameplay_scene(scene_path) and not _is_automated_session()
 	if should_host and not is_host_active:
 		start_host_services()
 	elif not should_host and is_host_active:
@@ -120,10 +120,18 @@ func _sync_host_for_scene() -> void:
 
 func _is_gameplay_scene(scene_path: String) -> bool:
 	return scene_path != "" and scene_path.find("Menu.tscn") == -1 and scene_path.find("Boot.tscn") == -1 \
-		and scene_path.find("RemoteControlHome.tscn") == -1
+		and scene_path.find("RemoteControlHome.tscn") == -1 and scene_path.find("HotzonePlayer.tscn") == -1
+
+func _is_automated_session() -> bool:
+	if OS.has_feature("Server"):
+		return true
+	if Engine.has_singleton("GdUnit3") and Engine.get_singleton("GdUnit3").is_test_suite():
+		return true
+	var session = get_node_or_null("/root/SessionManager") if is_inside_tree() else null
+	return session != null and (bool(session.get("is_cli_mode")) or bool(session.get("is_replaying")))
 
 func start_host_services(session_name: String = "") -> void:
-	if not remote_control_enabled or server == null:
+	if not remote_control_enabled or server == null or _is_automated_session():
 		return
 	if is_host_active:
 		return

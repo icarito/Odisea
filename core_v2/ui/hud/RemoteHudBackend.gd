@@ -185,7 +185,8 @@ func reevaluate_slots() -> void:
 		var id: String = String(_pinned[i])
 		var new_snap: Dictionary = {} if id.empty() else snapshot_for(id)
 		var key: String = HudSlots.slot_key(i)
-		if new_snap != _slot_snapshots.get(key, {}):
+		# hash(): != entre Dictionaries compara referencias en Godot 3 (ver SuitOS.reevaluate_slots).
+		if new_snap.hash() != _slot_snapshots.get(key, {}).hash():
 			_slot_snapshots[key] = new_snap.duplicate(true)
 			emit_signal("widget_changed", key, _slot_snapshots[key])
 

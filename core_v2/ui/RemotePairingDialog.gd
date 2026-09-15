@@ -1,5 +1,7 @@
 extends ConfirmationDialog
 
+const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
+
 # RemotePairingDialog.gd - Confirmation dialog shown on the host when a phone attempts to pair.
 
 signal pairing_completed(accepted)
@@ -13,10 +15,12 @@ var _time_left: float = 30.0
 var _active: bool = false
 
 func _ready():
+	VirtualMouse.attach_to(get_tree().root)
 	window_title = "Control remoto"
 	get_ok().text = "Permitir"
 	get_cancel().text = "Rechazar"
 	preload("res://core_v2/ui/DialogButtons.gd").fit_for_touch(self)
+	get_ok().grab_focus()
 	connect("confirmed", self, "_on_confirmed")
 	connect("popup_hide", self, "_on_popup_hide")
 
