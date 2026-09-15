@@ -330,3 +330,66 @@ solución del bug.
 - **H2/H3 combinadas en un solo reinicio** (aprobado por Sebastián en Checkpoint 1): cada test
   cuesta un relanzamiento manual; si la combinación mejora, bisecar después con un reinicio más.
 - Corridas: TSV vivo en `/tmp/odisea_probe/results.tsv`; capturas junto a cada fila.
+
+## Noche 2026-09-15 — nightly 604 (domo V2 + fork v0.3.0) en el Anbernic
+
+Protocolo nuevo, más confiable que las capturas sueltas:
+- **Entrar a Dome_Intro por `SceneManager.goto_scene` desde Dome_Default**, no con
+  `run/main_scene=Dome_Intro`. Arrancando directo en el nivel, `IOSLightmapFallback` corre su
+  `_ready` antes de que el gate sincronice `ODISEA_MANUAL_LIGHTMAP` y el nivel sale **magenta
+  entero** (artefacto del arranque, no lo ve un jugador que entra por el menú).
+- **Cobertura = cámara propia + 2 capturas con 0.4 m de jitter**: un píxel que no cambia entre
+  capturas es un tile viejo. La imagen puede quedar congelada entera durante minutos: la
+  cámara del jugador y `player.yaw` no sirven para comparar vistas.
+- `/eval` rechaza `;` incluso dentro de strings y corta en 512 caracteres.
+- En ROCKNIX `paste` no es coreutils: sube el texto a un pastebin. No usarlo en el device.
+
+### Fps: el problema era el tick de física, no el render
+
+Perfil por sistema en vivo (`PerformanceMonitor.perfil_corrida_iniciar()` por eval, binario
+debug v0.3.0, Dome_Intro):
+
+| Corrida | fps | ticks/s | ticks/frame | scripts/tick |
+|---|---|---|---|---|
+| R4 nightly 604, Dome_Default | 17-19 | — | — | — |
+| R5 nightly 604, Dome_Intro | 4 | 32 de 60 (54% tiempo real) | 8 (tope) | 17.8 ms |
+| sin ningún script de física | 18.2 | 60 | 3.3 | 0 (servidor Box3D ~4 ms) |
+| R6 30 Hz real + animator espaciado | 6.4 | 30 de 30 | 4.7 | 16.2 ms |
+
+- Espiral: con 17.8 ms de GDScript por tick y período de 16.7 ms, cada frame arrastra 8 ticks
+  (tope fijo en `main.cpp`; `physics/common/max_physics_steps_per_frame` **no existe** en 3.6).
+- La clave de física del `override.cfg` estaba mal (`physics/common/physics_fps` dentro de
+  `[physics]`): el motor seguía a 60 Hz. "Física 30Hz (activa)" de arriba nunca se aplicó.
+- Reparto del tick: PlayerControllerV2 6.9 (animator 2.7 de eso), PipeCoolantRun 22× 2.0,
+  Room3D 1.3, CoolantFlowAdapter 1.2, HoloTerminalV2 0.95, SuitOSContextDriver 0.7,
+  Interactables 0.74, KinematicArm3D 0.62, IceLevel 0.5, ShipSystemBus 0.4.
+- Sin efecto medible al apagarlos en vivo: AudioStreamPlayer3D (80), CPUParticles (47),
+  Tween (43), Viewports secundarios (4), ReflectionProbe.
+
+### Cobertura de Dome_Intro: sigue rota con el domo V2
+
+- El V2 **no** arregla Dome_Intro: la vista del hub (208 draws, 850k vtx) aborta tiles; la del
+  airlock (25 draws, 232k vtx) sale completa, en la misma sesión.
+- `dmesg`: "Failed to map memory on GPU" + `DATA_INVALID_FAULT` en ráfagas. Contexto GPU
+  83-95k páginas (Dome_Default 55k), CmaFree ~0 en ambos niveles (el CMA no discrimina).
+  MemAvailable 164-326 MB: tampoco es RAM general.
+- Aislado a una malla: con **solo TerraceFloor** en pantalla (2 draws) la vista del hub rompe con
+  sus materiales de `IOSLightmapFallback`, y renderiza completa con cualquier material único para
+  las dos superficies (incluido el mismo `lightmap_manual.shader` con la misma textura
+  2100×2148 y los mismos parámetros como override). Rompe la combinación de dos materiales
+  manuales distintos en la misma malla; la carcasa con dos materiales manuales no rompe.
+- Con la escena completa, arreglar el piso no alcanza, y sacar TODO el lightmap manual tampoco:
+  hay más disparadores. Subdividir el piso (triángulos de 30 m) no cambia nada.
+- Descartados: `shader_compilation_mode.mobile=0` (−6k páginas, sigue rota),
+  `quality/reflections/atlas_size=0` (−4..12k páginas, sigue rota), luminarias de pared
+  (`FixtureBatch_*`, 96k índices c/u, las re-muestra `LightPathV2` cada 0.25 s: ocultarlas a mano
+  no dura), pantallas con ViewportTexture, `SCREEN_TEXTURE`/`DEPTH_TEXTURE`.
+- La DirectionalLight visible con sombra es intencional (bf7eb637); apagar su sombra da +8% en
+  la vista del hub y ocultarla −33 draws. `verify_dome_intro_contract.gd` pide lo contrario.
+
+### Pendiente para decidir (Sebastián)
+
+1. Presupuesto de contenido del tier LOW para Dome_Intro (qué recortar u ofrecer como LOD).
+2. `cma=` más grande en la línea de arranque de ROCKNIX como prueba de causa (toca el boot del
+   device; no hecho sin aprobación).
+3. Espaciar en tier LOW los sistemas ambientales del tick (pipes, SuitOS, holo, bus).
