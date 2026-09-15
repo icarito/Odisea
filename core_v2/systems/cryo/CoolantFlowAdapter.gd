@@ -20,6 +20,8 @@ var _resolved_segments: Array = [] # Array of Dictionary {pipe_run, valve, leak,
 var _segment_flows: Array = [] # Array of float 0..1 — caudal DESPUES de la fuga del propio tramo (lo que se ve en el shader)
 var _segment_inflows: Array = [] # Array of float 0..1 — caudal que LLEGA al tramo, antes de que su propia fuga lo consuma
 var _last_tank_level: float = 1.0
+# Tier LOW: drenaje a 15 Hz con el delta acumulado (el nivel del tanque llega igual).
+var _paso_lowend = preload("res://core_v2/systems/LowTierTickStride.gd").new(self, 2)
 
 
 func _ready() -> void:
@@ -33,6 +35,9 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
+		return
+	delta = _paso_lowend.step(delta)
+	if delta < 0.0:
 		return
 
 	# Tank drain calculation for active leaks in this branch
