@@ -1,5 +1,7 @@
 extends ColorRect
 
+const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
+
 onready var resume_button = find_node("Resume")
 onready var restart_button = find_node("Restart")
 onready var options_button = find_node("Options")
@@ -11,6 +13,7 @@ onready var options_menu = get_node_or_null("OptionsMenu")
 var _minimal: bool = false
 
 func _ready():
+	VirtualMouse.attach_to(get_tree().root)
 	_connect_signals()
 	_update_version_label()
 	# Ni HTML5 ni iOS deben mostrar "salir": en la web no hay a donde salir, y en iOS

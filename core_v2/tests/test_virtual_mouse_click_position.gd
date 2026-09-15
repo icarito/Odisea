@@ -66,3 +66,12 @@ func test_injected_click_keeps_the_cursor_coordinates() -> void:
 
 	cursor.get_parent().queue_free()
 	spy.queue_free()
+
+func test_attach_to_reuses_the_existing_cursor() -> void:
+	var first: Control = VirtualMouseScript.attach_to(self)
+	var second: Control = VirtualMouseScript.attach_to(self)
+
+	assert_object(second).is_same(first)
+	assert_int(get_tree().get_nodes_in_group("virtual_mouse").size()).is_equal(1)
+
+	first.get_parent().queue_free()

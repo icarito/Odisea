@@ -39,11 +39,15 @@ var relative_target_scale := Vector2.ZERO
 # Cuelga un cursor en su propia capa, arriba de todo. Preferir esto a add_child() directo:
 # un cursor tapado por la UI que deberia poder clickear no sirve de nada.
 static func attach_to(parent: Node) -> Control:
+	for existing in parent.get_tree().get_nodes_in_group("virtual_mouse"):
+		if is_instance_valid(existing):
+			return existing as Control
 	var host := CanvasLayer.new()
 	host.name = "VirtualMouseLayer"
 	host.layer = LAYER
 	var cursor: Control = load("res://core_v2/ui/VirtualMouse.gd").new()
 	cursor.name = "VirtualMouse"
+	cursor.add_to_group("virtual_mouse")
 	host.add_child(cursor)
 	parent.add_child(host)
 	return cursor
