@@ -110,6 +110,8 @@ var _stream_off: AudioStream = null
 # ese costo alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
 var _pm_perfil = null
 var _pm_perfil_buscado := false
+# Tier LOW: el flujo es visual; a 15 Hz no se nota y son 22 corridas por tick.
+var _paso_lowend = preload("res://core_v2/systems/LowTierTickStride.gd").new(self, 2)
 
 func _ready() -> void:
 	_current_speed = flow_speed
@@ -145,6 +147,9 @@ func _on_visual_budget_level_changed(level: int, max_level: int) -> void:
 
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
+		return
+	delta = _paso_lowend.step(delta)
+	if delta < 0.0:
 		return
 	if not _pm_perfil_buscado:
 		_pm_perfil_buscado = true

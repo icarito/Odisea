@@ -36,9 +36,9 @@ func set_snapshot(snapshot: Dictionary) -> void:
 			elif status_text != "":
 				_status_label.text = status_text
 			elif is_active:
-				_status_label.text = "ESTADO: OPERATIVO"
+				_status_label.text = "OPERATIVO"
 			else:
-				_status_label.text = "ESTADO: EN ESPERA"
+				_status_label.text = "EN ESPERA"
 
 		if _mode_label != null:
 			if source == "offline":

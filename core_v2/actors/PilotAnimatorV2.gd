@@ -1293,9 +1293,12 @@ func _play_footstep():
 			player.pitch_scale = rand_range(0.9, 1.1)
 			player.play()
 
+# Tier LOW del gate (handheld lento detectado u opcion "low end"), no ODISEA_DEVICE: esa variable
+# la exporta el lanzador de PortMaster en todos los dispositivos para corregir los ejes del stick,
+# y un handheld rapido no tiene por que animar a 12 Hz.
 func _is_hyper_low_runtime() -> bool:
-	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
-	return forced_device.find("anbernic") != -1
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.is_low_tier()
 
 func _configure_animation_runtime_policy() -> void:
 	# Manual SIEMPRE: el override de huesos (head-look, IK) se escribe en el paso de

@@ -48,6 +48,8 @@ var _is_absolute_cryo: bool = false
 var _is_fog_active: bool = false
 var _is_hazard_active: bool = false
 var _is_overpressured: bool = false
+# Tier LOW: umbrales y dano a 15 Hz con el delta acumulado (el dano total no cambia).
+var _paso_lowend = preload("res://core_v2/systems/LowTierTickStride.gd").new(self, 2)
 
 
 func _ready() -> void:
@@ -59,6 +61,9 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if Engine.editor_hint:
+		return
+	delta = _paso_lowend.step(delta)
+	if delta < 0.0:
 		return
 
 	_recover_temperature_without_coolant_flow(delta)

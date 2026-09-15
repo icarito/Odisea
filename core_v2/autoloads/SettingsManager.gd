@@ -152,6 +152,27 @@ func _effective_vsync() -> bool:
 		return false
 	return vsync
 
+# Con stretch "viewport" la UI se dibuja a la misma resolucion que el 3D: a render_scale < 1
+# el texto de un menu sale pixelado (a 640x480 al 60% son 384x288 estirados). Mientras haya
+# una pantalla encima del mundo pausado (Opciones, modo HUD) se renderiza a escala 1.0 — el
+# 3D de fondo esta quieto y no hay nada que ahorrar — y al cerrarla vuelve la escala elegida.
+var _full_resolution_holders := {}
+
+func hold_full_resolution_ui(holder: Object, hold: bool) -> void:
+	var was_held := not _full_resolution_holders.empty()
+	if hold:
+		_full_resolution_holders[holder.get_instance_id()] = true
+	else:
+		_full_resolution_holders.erase(holder.get_instance_id())
+	if was_held != (not _full_resolution_holders.empty()):
+		apply_render_resolution()
+
+# La escala con la que se dibuja de verdad (la elegida, o 1.0 con una pantalla abierta).
+func effective_render_scale() -> float:
+	if not _full_resolution_holders.empty():
+		return 1.0
+	return clamp(render_scale, 0.5, 1.0)
+
 # Apply the internal render resolution. With stretch mode "viewport" the game
 # renders to render_resolution and the engine stretches it to the window, so
 # this works the same in fullscreen, windowed, web and Android.
@@ -159,7 +180,7 @@ func apply_render_resolution():
 	var tree = get_tree()
 	if tree == null:
 		return
-	var effective_resolution: Vector2 = render_resolution * clamp(render_scale, 0.5, 1.0)
+	var effective_resolution: Vector2 = render_resolution * effective_render_scale()
 	tree.set_screen_stretch(
 		SceneTree.STRETCH_MODE_VIEWPORT,
 		SceneTree.STRETCH_ASPECT_EXPAND,

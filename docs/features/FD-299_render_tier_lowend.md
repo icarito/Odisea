@@ -1,5 +1,7 @@
 # FD-299: Render Tier de low-end — gate por vendor para handhelds GLES3
 
+> Estado, alcance por dispositivo y hoja de ruta de fps: [docs/handoff/anbernic-lowend/README.md](../handoff/anbernic-lowend/README.md).
+
 **Status:** Planned
 **Priority:** High
 **Effort:** Medium

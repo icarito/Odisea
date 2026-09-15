@@ -1,5 +1,7 @@
 # Anbernic RG351V: 3D pintado a medias + low-end agresivo
 
+> **Resumen, alcance de cada ajuste y hoja de ruta: [README.md](README.md).** Este archivo es la bitácora cronológica.
+
 **Estado:** Fase 0 pendiente. **Ejecuta:** Kilo. **Revisan:** Claude + Sebastián.
 **Relacionado:** [FD-299](../../features/FD-299_render_tier_lowend.md), AGENTS.md §11.9 y §11.10.
 **Brief para el agente:** [HANDOFF_KILO.md](HANDOFF_KILO.md).
@@ -330,3 +332,131 @@ solución del bug.
 - **H2/H3 combinadas en un solo reinicio** (aprobado por Sebastián en Checkpoint 1): cada test
   cuesta un relanzamiento manual; si la combinación mejora, bisecar después con un reinicio más.
 - Corridas: TSV vivo en `/tmp/odisea_probe/results.tsv`; capturas junto a cada fila.
+
+## Noche 2026-09-15 — nightly 604 (domo V2 + fork v0.3.0) en el Anbernic
+
+Protocolo nuevo, más confiable que las capturas sueltas:
+- **Entrar a Dome_Intro por `SceneManager.goto_scene` desde Dome_Default**, no con
+  `run/main_scene=Dome_Intro`. Arrancando directo en el nivel, `IOSLightmapFallback` corre su
+  `_ready` antes de que el gate sincronice `ODISEA_MANUAL_LIGHTMAP` y el nivel sale **magenta
+  entero** (artefacto del arranque, no lo ve un jugador que entra por el menú).
+- **Cobertura = cámara propia + 2 capturas con 0.4 m de jitter**: un píxel que no cambia entre
+  capturas es un tile viejo. La imagen puede quedar congelada entera durante minutos: la
+  cámara del jugador y `player.yaw` no sirven para comparar vistas.
+- `/eval` rechaza `;` incluso dentro de strings y corta en 512 caracteres.
+- En ROCKNIX `paste` no es coreutils: sube el texto a un pastebin. No usarlo en el device.
+
+### Fps: el problema era el tick de física, no el render
+
+Perfil por sistema en vivo (`PerformanceMonitor.perfil_corrida_iniciar()` por eval, binario
+debug v0.3.0, Dome_Intro):
+
+| Corrida | fps | ticks/s | ticks/frame | scripts/tick |
+|---|---|---|---|---|
+| R4 nightly 604 (release), Dome_Default | 17-19 | 60 Hz | — | — |
+| R5 nightly 604, Dome_Intro | 4 | 32 de 60 (54% tiempo real) | 8 (tope) | 17.8 ms |
+| sin ningún script de física | 18.2 | 60 | 3.3 | 0 (servidor Box3D ~4 ms) |
+| R6 30 Hz real + animator espaciado | 6.4 | 30 de 30 | 4.7 | 16.2 ms |
+| **R7** + sistemas ambientales espaciados, **Dome_Default** | **27.1** | 30 de 30 | 1.1 | 8.2 ms |
+| R7, Dome_Intro (render parcial, fps optimista) | 15.2 | 30 de 30 | 2.0 | 15.0 ms |
+| **R8 mismo build, binario release**, Dome_Default | **28** | 30 Hz | — | — |
+
+- Espiral: con 17.8 ms de GDScript por tick y período de 16.7 ms, cada frame arrastra 8 ticks
+  (tope fijo en `main.cpp`; `physics/common/max_physics_steps_per_frame` **no existe** en 3.6).
+- La clave de física del `override.cfg` estaba mal (`physics/common/physics_fps` dentro de
+  `[physics]`): el motor seguía a 60 Hz. "Física 30Hz (activa)" de arriba nunca se aplicó.
+- Reparto del tick: PlayerControllerV2 6.9 (animator 2.7 de eso), PipeCoolantRun 22× 2.0,
+  Room3D 1.3, CoolantFlowAdapter 1.2, HoloTerminalV2 0.95, SuitOSContextDriver 0.7,
+  Interactables 0.74, KinematicArm3D 0.62, IceLevel 0.5, ShipSystemBus 0.4.
+- Sin efecto medible al apagarlos en vivo: AudioStreamPlayer3D (80), CPUParticles (47),
+  Tween (43), Viewports secundarios (4), ReflectionProbe.
+
+### Cobertura de Dome_Intro: sigue rota con el domo V2
+
+- El V2 **no** arregla Dome_Intro: la vista del hub (208 draws, 850k vtx) aborta tiles; la del
+  airlock (25 draws, 232k vtx) sale completa, en la misma sesión.
+- `dmesg`: "Failed to map memory on GPU" + `DATA_INVALID_FAULT` en ráfagas. Contexto GPU
+  83-95k páginas (Dome_Default 55k), CmaFree ~0 en ambos niveles (el CMA no discrimina).
+  MemAvailable 164-326 MB: tampoco es RAM general.
+- Aislado a una malla: con **solo TerraceFloor** en pantalla (2 draws) la vista del hub rompe con
+  sus materiales de `IOSLightmapFallback`, y renderiza completa con cualquier material único para
+  las dos superficies (incluido el mismo `lightmap_manual.shader` con la misma textura
+  2100×2148 y los mismos parámetros como override). Rompe la combinación de dos materiales
+  manuales distintos en la misma malla; la carcasa con dos materiales manuales no rompe.
+- Con la escena completa, arreglar el piso no alcanza, y sacar TODO el lightmap manual tampoco:
+  hay más disparadores. Subdividir el piso (triángulos de 30 m) no cambia nada.
+- Descartados: `shader_compilation_mode.mobile=0` (−6k páginas, sigue rota),
+  `quality/reflections/atlas_size=0` (−4..12k páginas, sigue rota), luminarias de pared
+  (`FixtureBatch_*`, 96k índices c/u, las re-muestra `LightPathV2` cada 0.25 s: ocultarlas a mano
+  no dura), pantallas con ViewportTexture, `SCREEN_TEXTURE`/`DEPTH_TEXTURE`.
+- La DirectionalLight visible con sombra es intencional (bf7eb637); apagar su sombra da +8% en
+  la vista del hub y ocultarla −33 draws. `verify_dome_intro_contract.gd` pide lo contrario.
+
+### Pendiente para decidir (Sebastián)
+
+1. Presupuesto de contenido del tier LOW para Dome_Intro (qué recortar u ofrecer como LOD).
+2. ~~`cma=` más grande~~ **Probado (L12, aprobado por Sebastián):** `cma=128M` en `/flash/boot.ini`
+   ("cma: Reserved 128 MiB"): la vista del hub sigue rota y "Failed to map" sigue subiendo. El
+   kernel presta el CMA a memoria movible, así que CmaFree≈0 no indicaba falta de contiguo para
+   el driver. boot.ini restaurado al original.
+3. Espaciar en tier LOW el escaneo de interacción y de zonas del player (hoy por tick, a propósito).
+
+## Driver del Mali: causa de la cobertura rota (2026-09-15)
+
+Pila del dispositivo (ROCKNIX **20250517**): kernel 6.12.17, `mali_kbase` **r52p0** (UK 11.49),
+userspace `libmali-bifrost-g31-`**`g13p0`** + `libmali-hook`. Mali-G31 r0p0, **VA de GPU de 33 bits** (8 GB).
+
+Cómo se vio (sin kprobes/ftrace en ese kernel; sí `CONFIG_DYNAMIC_DEBUG`):
+
+```sh
+echo "file mali_kbase_reg_track.c +p" > /sys/kernel/debug/dynamic_debug/control   # -p para apagar
+dmesg | grep "suitable region"
+cat /sys/kernel/debug/mali0/ctx/<pid>_1/{mem_zones,mem_jit_count,mem_jit_vm,mem_allocs}
+```
+
+- "Failed to map memory on GPU" sale de `kbase_mem_alloc` → `kbase_gpu_mmap` →
+  `kbase_add_va_region_rbtree`: **"Failed to find a suitable region: 94208 nr_pages"** (dev_dbg, invisible
+  por defecto). No es RAM ni CMA: es **espacio de VA**.
+- Zonas del contexto del juego: SAME_VA 6.75 GB, **CUSTOM_VA (JIT) 1 GB**, EXEC_VA 256 MB.
+- En la zona JIT: 16×8 MB + 2×80 MB + **1×368 MB** (heap del tiler con 2.4 MB comprometidos) = 656 MB
+  (`mem_jit_vm` pico 167936 págs). Huecos libres de 80/80/208 MB: el **segundo heap de 368 MB que g13p0
+  pide cada frame nunca entra**. Pasa también en Dome_Default (que sí renderiza); en Dome_Intro, con más
+  trabajo de tiler por frame, termina en `DATA_INVALID_FAULT` y tiles abortados.
+- `libmali` no expone perillas de JIT/heap (solo `MALI_DEBUG_CONFIG`/`MALI_PLATFORM_CONFIG` con claves internas).
+
+### Por dónde optimizar (de menor a mayor esfuerzo)
+
+1. **Actualizar ROCKNIX** (20260901): RK3326 pasó a `libmali` **g29p1** (JeffyCN, PR #3008, 2026-08) y kbase
+   r54p2. Un userspace 16 versiones más nuevo puede dimensionar el heap del tiler / JIT distinto. Sin tocar
+   el juego; repetir L1 (vista del hub con cámara propia) tras actualizar.
+2. **Panfrost** (Mesa) ya se probó y se congelaba (ver arriba); con Mesa más nuevo en ROCKNIX actual podría
+   valer otra prueba: no usa JIT de kbase.
+3. **Parche de kbase**: agrandar la zona JIT en `kbase_region_tracker_init_jit` (p. ej. forzar ≥ 4 GB; el juego
+   usa < 1 GB de SAME_VA). Requiere compilar `mali_kbase.ko` para el kernel exacto de ROCKNIX y distribuirlo:
+   solo para prueba de causa o para proponer upstream a ROCKNIX.
+4. **Del lado del juego** (mitiga, no arregla): menos trabajo de tiler por frame en vistas pesadas (primitivas que
+   cubren muchos tiles, draws), que es lo que convierte el fallo del segundo heap en tiles abortados.
+
+### L13 — ROCKNIX 20260901 lo resuelve (2026-09-15)
+
+Actualizado a ROCKNIX 20260901 (`next`, kernel 7.1.2, `mali_kbase` **r54p2**, `libmali` **g29p1**).
+Nota: el RG351V tenía dos SD; la de juegos (128 GB, partición exFAT de ArkOS) arrancó un ArkOS viejo al
+aplicar la actualización. Arrancar solo con la de 8 GB (ROCKNIX) la completó. Además `/storage/.cache/cores`
+tenía 3.9 GB de core dumps de Odisea que impedían descargar la actualización.
+
+| | ROCKNIX 20250517 (g13p0) | ROCKNIX 20260901 (g29p1) |
+|---|---|---|
+| Zona CUSTOM_VA (JIT) | 1 GB, llena por heaps de 368 MB | **no existe** (todo SAME_VA) |
+| mem_jit_count / mem_jit_vm | pico 19 / 656 MB | **0 / 0** |
+| Faults / "Failed to map" | cientos | **0 / 0** |
+| Vista hub de Dome_Intro (cámara propia, 208 draws, 850k vtx) | 7% celdas frescas (rota) | **91% (completa)** |
+| Dome_Intro, cámara del jugador, binario debug | 4 fps (render parcial) | **10.7 fps**, 30/30 ticks |
+| MemAvailable en Dome_Default | 164-326 MB | 448 MB |
+| **R9 Dome_Intro, binario release, entrando por el menú** | 4 fps, 30% cobertura | **12 fps, cobertura completa** (serie ×4), 0 faults, 99 dc, 194k vtx |
+
+Consecuencia para PortMaster: en ROCKNIX < 20260901 (libmali g13p0) y otros CFW con blobs viejos Dome_Intro
+va a verse cortado; vale avisarlo en el README del port. **L14 — lightmap nativo con g29p1 (probado):** con `_manual_lightmap_synced=true` antes de cargar Dome_Intro, el
+fallback se libera y queda el lightmap del motor. Ya **no sale magenta** (el blob nuevo arregló la colisión de
+unidad), cobertura buena (hub 76%, casquete 94%, 0 faults), pero **peor en todo lo demás**: 7.9 fps contra 10.7 del
+manual (debug, cámara del jugador), MemAvailable 132 MB contra ~250 MB, y el **piso del domo pierde su lightmap**
+(casi negro; el vínculo de BakedLightmapData con la malla local_to_scene). Se queda el camino manual.

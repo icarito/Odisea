@@ -24,8 +24,8 @@ var _replay_watchdog_frames := 0 # Safety counter for stalled replays/tests
 var _replay_watchdog_last_input_index := -1
 const EARLY_WEAK_HINT_ENV := "ODISEA_EARLY_WEAK_HARDWARE"
 const EARLY_WEAK_RAM_GB_CAP := 1.05
+# Sin "anbernic": el modelo de un RG353 (RK3566, 2 GB) tambien la contiene y no es lento.
 const EARLY_WEAK_DEVICE_HINTS := [
-	"anbernic",
 	"rg351",
 	"rk3326",
 	"mali",
@@ -1027,10 +1027,10 @@ func _read_process_cmdline() -> String:
 	file.close()
 	return raw
 
+# ODISEA_DEVICE no cuenta: el lanzador de PortMaster la exporta en todos los dispositivos (por los
+# ejes del stick). El lanzador marca los lentos con ODISEA_EARLY_WEAK_HARDWARE=1; sin ella decide la
+# huella del hardware (ARM con <= 1 GB, o un SoC conocido).
 func _detect_weak_hardware_early() -> bool:
-	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower()
-	if _contains_any_hint(forced_device, EARLY_WEAK_DEVICE_HINTS):
-		return true
 	var explicit_hint = OS.get_environment(EARLY_WEAK_HINT_ENV).to_lower()
 	if explicit_hint in ["1", "true", "yes", "on"]:
 		return true

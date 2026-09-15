@@ -44,6 +44,19 @@ func _ready():
 	get_viewport().connect("size_changed", self, "_fit_to_viewport")
 	_fit_to_viewport()
 	back_button.grab_focus()
+	# Abierto, el menu se dibuja a resolucion completa (ver SettingsManager.hold_full_resolution_ui).
+	connect("visibility_changed", self, "_hold_full_resolution")
+	_hold_full_resolution()
+
+func _hold_full_resolution() -> void:
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm and sm.has_method("hold_full_resolution_ui"):
+		sm.hold_full_resolution_ui(self, is_visible_in_tree())
+
+func _exit_tree() -> void:
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm and sm.has_method("hold_full_resolution_ui"):
+		sm.hold_full_resolution_ui(self, false)
 
 # Si el usuario descartó el diálogo de actualización, ofrecer aquí un acceso para
 # reabrirlo (requisito UX: el dismiss debe ser recuperable desde Opciones). El botón
@@ -238,6 +251,9 @@ func _on_low_end_toggled(button_pressed):
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm:
 		sm.low_end_forced = button_pressed
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate and gate.has_method("sync_physics_rate"):
+		gate.sync_physics_rate()
 
 
 func _on_back_pressed():

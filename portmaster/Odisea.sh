@@ -38,9 +38,22 @@ export XDG_DATA_HOME="$CONFDIR"
 export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 export LD_LIBRARY_PATH="/usr/lib:$GAMEDIR/lib:$LD_LIBRARY_PATH"
 
-# Perfil de input/graficos del handheld: InputProviderV2 invierte los ejes del
-# joystick y SessionManager baja el perfil grafico cuando ve este valor.
+# Ejes del stick: InputProviderV2 los invierte cuando ve este valor. Es solo input:
+# el rendimiento lo decide la deteccion de abajo.
 export ODISEA_DEVICE=anbernic
+
+# Handhelds lentos de la generacion RK3326 (Mali-G31, 1 GB): perfil bajo desde el
+# arranque (SessionManager) y ajustes de render que solo pueden ir en override.cfg.
+# En el resto de los dispositivos no se toca nada. Un override.cfg editado a mano
+# (sin la marca de lowend.cfg) se respeta siempre.
+if grep -qa "rockchip,rk3326" /proc/device-tree/compatible 2>/dev/null \
+   || grep -qs "Mali-G31" /sys/class/misc/mali0/device/gpuinfo; then
+  export ODISEA_EARLY_WEAK_HARDWARE=1
+  [ -f override.cfg ] || cp lowend.cfg override.cfg
+elif grep -qs "odisea-lowend-cfg\|FD-299: ajustes de arranque" override.cfg; then
+  # Copia de este archivo o el override.cfg que traian los nightlies anteriores.
+  rm -f override.cfg
+fi
 
 # Los updates llegan por PortMaster (fuente "Odisea Nightly"). El updater del
 # juego no puede relanzar FRT, asi que se apaga.

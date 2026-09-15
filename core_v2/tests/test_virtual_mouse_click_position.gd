@@ -75,3 +75,16 @@ func test_attach_to_reuses_the_existing_cursor() -> void:
 	assert_int(get_tree().get_nodes_in_group("virtual_mouse").size()).is_equal(1)
 
 	first.get_parent().queue_free()
+
+# Colgado de la raiz por un menu, el cursor solo vive mientras ese menu esta visible: en juego no
+# debe mover la camara con el stick ni convertir A/B en clicks.
+func test_cursor_is_inert_while_its_requester_is_hidden() -> void:
+	var menu := Control.new()
+	add_child(menu)
+	menu.hide()
+	var cursor: Control = VirtualMouseScript.attach_to(self, menu)
+	assert_bool(cursor.is_wanted()).is_false()
+	menu.show()
+	assert_bool(cursor.is_wanted()).is_true()
+	menu.queue_free()
+	cursor.get_parent().queue_free()

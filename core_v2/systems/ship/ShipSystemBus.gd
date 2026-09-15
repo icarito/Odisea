@@ -19,6 +19,8 @@ export(Dictionary) var sources: Dictionary = {
 }
 
 var _summary: Dictionary = {}
+# Tier LOW: el resumen de sistemas es UI; a 10 Hz alcanza.
+var _paso_lowend = preload("res://core_v2/systems/LowTierTickStride.gd").new(self, 3)
 
 func _ready() -> void:
 	add_to_group("replay_sync")
@@ -28,6 +30,8 @@ func _ready() -> void:
 
 func _physics_process(_delta: float) -> void:
 	if Engine.editor_hint:
+		return
+	if _paso_lowend.step(_delta) < 0.0:
 		return
 	evaluate_systems()
 
