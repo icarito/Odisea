@@ -195,22 +195,11 @@ func _action_just_pressed(action_name: String) -> bool:
 	return Input.is_action_just_pressed(action_name)
 
 
-var _segprof_on: bool = OS.get_environment("GD_SEGPROF") != ""
-var _segprof_n := 0
-var _segprof_acc := [0.0, 0.0, 0.0, 0.0]
-
-func _seg_mark(i: int, m0: float) -> void:
-	var m: float = Performance.get_monitor(Performance.MEMORY_STATIC) / 1024.0
-	_segprof_acc[i] += m - m0
-
 func _read_live_input() -> InputDataV2:
-	var _seg_m: float = Performance.get_monitor(Performance.MEMORY_STATIC) / 1024.0
 	var d = InputDataV2.new()
 
 	if hardware_input_enabled:
 		_ensure_axis_profile_resolved()
-		if _segprof_on:
-			_seg_mark(0, _seg_m)
 
 		var raw_move_vec = Vector2(
 			_action_strength("move_right") - _action_strength("move_left"),
@@ -240,9 +229,6 @@ func _read_live_input() -> InputDataV2:
 			if _action_pressed("hud_slot_%d" % n):
 				d.hud_slot = n
 				break
-		if _segprof_on:
-			var _seg_m2: float = Performance.get_monitor(Performance.MEMORY_STATIC) / 1024.0
-			_seg_mark(1, _seg_m2 - (Performance.get_monitor(Performance.MEMORY_STATIC) / 1024.0 - Performance.get_monitor(Performance.MEMORY_STATIC) / 1024.0))
 
 		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0)
