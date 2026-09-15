@@ -227,6 +227,21 @@ Una fila por corrida. Capturas en `/tmp/odisea_probe/`; copiar aquí solo las de
 | level_Dome_Base | nivel real del pack | Dome_Base | 0 (8 s) | 61 292 | 330 | 3 | 86 | 122 046 | negro total | |
 | dome_v2_test | **PR #347: domo paramétrico V2** (bake 4 superficies + 4 airlocks + SpawnPointV2) | DomeDefaultV2Test | 0 (serie 15 s) | 50 761 | 349 | 5 (release por medir) | 44 | 48 948 | **100% sostenida (serie×4 + movimiento)** | contexto GPU mínimo de la sesión (~198 MB); el player spawnea en (0,1,8) — integración V2 viable para low-end |
 
+### Matriz limpia de reboots (domo V2 integrado, sin cajas, audio Dummy, física 30Hz)
+
+| Run | Binario | Escena | fps | dc | vtx | Cobertura (serie) | Págs GPU | Nota |
+|---|---|---|---|---|---|---|---|---|
+| R1 | debug | Dome_Default (boot directo) | 6-7 | 25 | 32 664 | 100% | 34 708 | capturas dome_default_v2_noboxes2_* |
+| R2 | **release** | Dome_Default (boot directo) | **8-9** | 25 | 32 664 | 100% | 34 343 | captura R2_release_dome_v2.png; 543 MB libres |
+| R3 | release | Dome_Intro via menú (asset viejo) | pendiente | | | | | navegación: Sebastián (el menú solo llega a Dome_Intro) |
+
+- El pipeline 3D del blob ya no es el cuello de cobertura: 25 draws renderizan completos.
+- La brecha a 20 fps es main-thread (~110 ms/frame no-GPU, no tracked por el engine);
+  el audio va por Dummy (pipewire fuera del camino del juego — mejoró la reactividad).
+- Sebastián observó que los artefactos de tiles retornaron en una corrida CALIENTE con
+  transiciones encadenadas: tras reboots limpios no se han visto en R1/R2. Protocolo:
+  una medición por reboot, transiciones encadenadas solo como prueba de estrés.
+
 ### Descubrimiento de protocolo: tiles abortados = contenido stale
 
 Los tiles cuyo fragment job aborta NO muestran clear color: conservan lo último escrito ahí
