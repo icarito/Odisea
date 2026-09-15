@@ -216,6 +216,34 @@ Una fila por corrida. Capturas en `/tmp/odisea_probe/`; copiar aquí solo las de
 | bisect_overdraw | debug_draw=2 (OVERDRAW) en vivo | Dome_Intro | 0 (5 s) | 83 675 | 188 | 2 | 97 | 176 412 | **100%** | el shader de debug del motor (sin texturas/luces) rasteriza TODO: el aborto vive solo en el camino de materiales que muestrea texturas |
 | bisect_albedo_white | material_override blanco unshaded (propagate_call interrumpido) | Dome_Intro | 0 (5 s) | 83 770 | 214 | 2 | 191 | 304 446 | geom. visible aún texturizada | el override no llegó a los meshes visibles; repetir con verificación por nodo |
 | h9_native_lightmap_dome_intro | reboot propio + lightmap manual OFF (gate congelado) | Dome_Intro | 0 (60 s) | 83 398 | 280 | 3 | 194 | 321 402 | **magenta a pantalla completa** | Sebastián: "intermitente azul por un rato" (clear color en carga) → sin manual, el nativo colisiona unidades (§11.9) y todo muestrea sin bind |
+| s0_testscene_base | TestScene_base: CSGBox+Pilot+1 luz dir+shadows+ExteriorSpace (via PCK) | TestScene_base | 0 (15 s) | 67 909 | 254 | 4 | 8 | 25 428 | **100%** | primer rung verde del bisect |
+| s1a_ladder | +80 esferas (~165k vtx), 1 material PBR texturado | LadderS1a | 0 (10 s) | 64 401 | 250 | 3 | 156 | 1 860 024 | **100%** | draw count y vtx no disparan el aborto |
+| s1b_ladder | 80 materiales distintos sin textura | LadderS1b | 0 (10 s) | 62 357 | 237 | 2 | 138 | 1 647 828 | **100%** | la variedad de materiales no dispara el aborto |
+| s1d_ladder | 80 materiales + 56 texturas distintas | LadderS1d | 0 (10 s) | 63 021 | 393 | 5 | 138 | 1 647 828 | **100%** | primera generación referenciaba kenney green/red (excluidas del pack) → CANT_OPEN 19 y juego colgado; regenerado con pool filtrado |
+| s2a_ladder_domeenv | S1d + Environment_DomeIntro | LadderS2a | 0 | 65 727 | 196 | 2 | 141 | 1 672 644 | **100% sostenida** (serie×4 con movimiento) | el env del domo (con gate strip) no dispara el aborto |
+| s3_ladder_lightmap | S1d + ShaderMaterial lightmap_manual (UV2) por mesh | LadderS3 | 0 | 65 819 | 189 | 2 | 119 | 1 410 708 | **100%** | el camino del lightmap manual no dispara el aborto |
+| level_Dome_01 | nivel real del pack | Dome_01 | 0 (8 s) | 47 949 | 340 | 4 | 24 | 30 012 | 1 frame lleno y luego falla | Sebastián: "es mentira, solo tuvo un frame completo" → capturas aisladas mienten, series obligatorias |
+| level_Dome_Crio | nivel real del pack | Dome_Crio | 0 (8 s) | 47 449 | 334 | 3 | 245 | 89 037 | bloques púrpura + estrellas | tiles abortados conservan contenido previo: el púrpura es el cielo de Dome_01 (stale) |
+| level_Dome_Base | nivel real del pack | Dome_Base | 0 (8 s) | 61 292 | 330 | 3 | 86 | 122 046 | negro total | |
+| dome_v2_test | **PR #347: domo paramétrico V2** (bake 4 superficies + 4 airlocks + SpawnPointV2) | DomeDefaultV2Test | 0 (serie 15 s) | 50 761 | 349 | 5 (release por medir) | 44 | 48 948 | **100% sostenida (serie×4 + movimiento)** | contexto GPU mínimo de la sesión (~198 MB); el player spawnea en (0,1,8) — integración V2 viable para low-end |
+
+### Descubrimiento de protocolo: tiles abortados = contenido stale
+
+Los tiles cuyo fragment job aborta NO muestran clear color: conservan lo último escrito ahí
+(cielo de frames previos, contenido del nivel anterior, magenta del sentinel de textura sin
+bind de Mali). Por eso las capturas aisladas mienten y el patrón "cambia" entre corridas.
+Protocolo: serie de 4 shots con rotación de yaw entre shots (`ANNA_MOVE=1`), audio muteado
+(`AudioServer.set_bus_mute(0,true)`), y la métrica es cobertura SOSTENIDA.
+
+### Estado del bisect (escalera de features, todas vía PCK con push_scene_pck.sh)
+
+Funciona 100% en el blob: escena base + 80 draws + 165k vtx + 1 material texturado PBR;
+80 materiales distintos; 56 texturas distintas; Environment_DomeIntro; ShaderMaterial del
+lightmap manual. Rompe: TODOS los niveles reales del domo (Dome_01 con solo 24 draws rompe).
+La diferencia restante está en los assets/mallas horneadas del domo viejo (Qodot/DomeTerrace)
+o su arquitectura de escena — no en los caminos de render probados. El domo paramétrico V2
+(PR #347) reemplaza exactamente ese asset y renderiza 100%: la integración es además la
+solución del bug.
 
 ### Descartes de Sebastián (knobs del blob, con evidencia temporal)
 

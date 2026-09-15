@@ -1,0 +1,673 @@
+[gd_scene load_steps=85 format=2]
+
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=2]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_03.png" type="Texture" id=3]
+[sub_resource type="SphereMesh" id=1]
+radial_segments = 32
+rings = 64
+
+[sub_resource type="SpatialMaterial" id=200]
+albedo_color = Color( 0.20, 0.20, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=201]
+albedo_color = Color( 0.30, 0.20, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=202]
+albedo_color = Color( 0.40, 0.20, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=203]
+albedo_color = Color( 0.50, 0.20, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=204]
+albedo_color = Color( 0.60, 0.20, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=205]
+albedo_color = Color( 0.70, 0.20, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=206]
+albedo_color = Color( 0.80, 0.20, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=207]
+albedo_color = Color( 0.90, 0.20, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=208]
+albedo_color = Color( 0.20, 0.28, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=209]
+albedo_color = Color( 0.30, 0.28, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=210]
+albedo_color = Color( 0.40, 0.28, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=211]
+albedo_color = Color( 0.50, 0.28, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=212]
+albedo_color = Color( 0.60, 0.28, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=213]
+albedo_color = Color( 0.70, 0.28, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=214]
+albedo_color = Color( 0.80, 0.28, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=215]
+albedo_color = Color( 0.90, 0.28, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=216]
+albedo_color = Color( 0.20, 0.37, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=217]
+albedo_color = Color( 0.30, 0.37, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=218]
+albedo_color = Color( 0.40, 0.37, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=219]
+albedo_color = Color( 0.50, 0.37, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=220]
+albedo_color = Color( 0.60, 0.37, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=221]
+albedo_color = Color( 0.70, 0.37, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=222]
+albedo_color = Color( 0.80, 0.37, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=223]
+albedo_color = Color( 0.90, 0.37, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=224]
+albedo_color = Color( 0.20, 0.45, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=225]
+albedo_color = Color( 0.30, 0.45, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=226]
+albedo_color = Color( 0.40, 0.45, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=227]
+albedo_color = Color( 0.50, 0.45, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=228]
+albedo_color = Color( 0.60, 0.45, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=229]
+albedo_color = Color( 0.70, 0.45, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=230]
+albedo_color = Color( 0.80, 0.45, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=231]
+albedo_color = Color( 0.90, 0.45, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=232]
+albedo_color = Color( 0.20, 0.53, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=233]
+albedo_color = Color( 0.30, 0.53, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=234]
+albedo_color = Color( 0.40, 0.53, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=235]
+albedo_color = Color( 0.50, 0.53, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=236]
+albedo_color = Color( 0.60, 0.53, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=237]
+albedo_color = Color( 0.70, 0.53, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=238]
+albedo_color = Color( 0.80, 0.53, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=239]
+albedo_color = Color( 0.90, 0.53, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=240]
+albedo_color = Color( 0.20, 0.62, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=241]
+albedo_color = Color( 0.30, 0.62, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=242]
+albedo_color = Color( 0.40, 0.62, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=243]
+albedo_color = Color( 0.50, 0.62, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=244]
+albedo_color = Color( 0.60, 0.62, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=245]
+albedo_color = Color( 0.70, 0.62, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=246]
+albedo_color = Color( 0.80, 0.62, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=247]
+albedo_color = Color( 0.90, 0.62, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=248]
+albedo_color = Color( 0.20, 0.70, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=249]
+albedo_color = Color( 0.30, 0.70, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=250]
+albedo_color = Color( 0.40, 0.70, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=251]
+albedo_color = Color( 0.50, 0.70, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=252]
+albedo_color = Color( 0.60, 0.70, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=253]
+albedo_color = Color( 0.70, 0.70, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=254]
+albedo_color = Color( 0.80, 0.70, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=255]
+albedo_color = Color( 0.90, 0.70, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=256]
+albedo_color = Color( 0.20, 0.78, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=257]
+albedo_color = Color( 0.30, 0.78, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=258]
+albedo_color = Color( 0.40, 0.78, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=259]
+albedo_color = Color( 0.50, 0.78, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=260]
+albedo_color = Color( 0.60, 0.78, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=261]
+albedo_color = Color( 0.70, 0.78, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=262]
+albedo_color = Color( 0.80, 0.78, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=263]
+albedo_color = Color( 0.90, 0.78, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=264]
+albedo_color = Color( 0.20, 0.87, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=265]
+albedo_color = Color( 0.30, 0.87, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=266]
+albedo_color = Color( 0.40, 0.87, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=267]
+albedo_color = Color( 0.50, 0.87, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=268]
+albedo_color = Color( 0.60, 0.87, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=269]
+albedo_color = Color( 0.70, 0.87, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=270]
+albedo_color = Color( 0.80, 0.87, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=271]
+albedo_color = Color( 0.90, 0.87, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=272]
+albedo_color = Color( 0.20, 0.95, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=273]
+albedo_color = Color( 0.30, 0.95, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=274]
+albedo_color = Color( 0.40, 0.95, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=275]
+albedo_color = Color( 0.50, 0.95, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=276]
+albedo_color = Color( 0.60, 0.95, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=277]
+albedo_color = Color( 0.70, 0.95, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=278]
+albedo_color = Color( 0.80, 0.95, 0.40, 1 )
+
+[sub_resource type="SpatialMaterial" id=279]
+albedo_color = Color( 0.90, 0.95, 0.40, 1 )
+
+
+[node name="Ladder" type="Spatial"]
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 14, 16 )
+current = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 2 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
+transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0.96225, -0.0225575, -0.965926, 0.257834, 0, 10, 5 )
+light_energy = 0.8
+shadow_enabled = true
+
+[node name="Floor" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )
+use_collision = true
+width = 40.0
+height = 0.2
+depth = 40.0
+
+[node name="Pilot" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, -5 )
+
+[node name="Sphere000" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 200 )
+
+[node name="Sphere001" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 201 )
+
+[node name="Sphere002" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 202 )
+
+[node name="Sphere003" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 203 )
+
+[node name="Sphere004" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 204 )
+
+[node name="Sphere005" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 205 )
+
+[node name="Sphere006" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 206 )
+
+[node name="Sphere007" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 207 )
+
+[node name="Sphere008" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 208 )
+
+[node name="Sphere009" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 209 )
+
+[node name="Sphere010" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 210 )
+
+[node name="Sphere011" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 211 )
+
+[node name="Sphere012" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 212 )
+
+[node name="Sphere013" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 213 )
+
+[node name="Sphere014" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 214 )
+
+[node name="Sphere015" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 215 )
+
+[node name="Sphere016" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 216 )
+
+[node name="Sphere017" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 217 )
+
+[node name="Sphere018" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 218 )
+
+[node name="Sphere019" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 219 )
+
+[node name="Sphere020" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 220 )
+
+[node name="Sphere021" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 221 )
+
+[node name="Sphere022" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 222 )
+
+[node name="Sphere023" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 223 )
+
+[node name="Sphere024" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 224 )
+
+[node name="Sphere025" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 225 )
+
+[node name="Sphere026" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 226 )
+
+[node name="Sphere027" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 227 )
+
+[node name="Sphere028" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 228 )
+
+[node name="Sphere029" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 229 )
+
+[node name="Sphere030" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 230 )
+
+[node name="Sphere031" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 231 )
+
+[node name="Sphere032" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 232 )
+
+[node name="Sphere033" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 233 )
+
+[node name="Sphere034" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 234 )
+
+[node name="Sphere035" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 235 )
+
+[node name="Sphere036" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 236 )
+
+[node name="Sphere037" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 237 )
+
+[node name="Sphere038" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 238 )
+
+[node name="Sphere039" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 239 )
+
+[node name="Sphere040" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 240 )
+
+[node name="Sphere041" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 241 )
+
+[node name="Sphere042" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 242 )
+
+[node name="Sphere043" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 243 )
+
+[node name="Sphere044" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 244 )
+
+[node name="Sphere045" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 245 )
+
+[node name="Sphere046" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 246 )
+
+[node name="Sphere047" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 247 )
+
+[node name="Sphere048" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 248 )
+
+[node name="Sphere049" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 249 )
+
+[node name="Sphere050" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 250 )
+
+[node name="Sphere051" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 251 )
+
+[node name="Sphere052" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 252 )
+
+[node name="Sphere053" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 253 )
+
+[node name="Sphere054" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 254 )
+
+[node name="Sphere055" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 255 )
+
+[node name="Sphere056" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 256 )
+
+[node name="Sphere057" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 257 )
+
+[node name="Sphere058" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 258 )
+
+[node name="Sphere059" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 259 )
+
+[node name="Sphere060" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 260 )
+
+[node name="Sphere061" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 261 )
+
+[node name="Sphere062" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 262 )
+
+[node name="Sphere063" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 263 )
+
+[node name="Sphere064" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 264 )
+
+[node name="Sphere065" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 265 )
+
+[node name="Sphere066" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 266 )
+
+[node name="Sphere067" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 267 )
+
+[node name="Sphere068" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 268 )
+
+[node name="Sphere069" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 269 )
+
+[node name="Sphere070" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 270 )
+
+[node name="Sphere071" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 271 )
+
+[node name="Sphere072" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 272 )
+
+[node name="Sphere073" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 273 )
+
+[node name="Sphere074" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 274 )
+
+[node name="Sphere075" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 275 )
+
+[node name="Sphere076" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 276 )
+
+[node name="Sphere077" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 277 )
+
+[node name="Sphere078" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 278 )
+
+[node name="Sphere079" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 279 )

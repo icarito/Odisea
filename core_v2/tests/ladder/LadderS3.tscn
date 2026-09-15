@@ -1,0 +1,1154 @@
+[gd_scene load_steps=166 format=2]
+
+[ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
+[ext_resource path="res://scenes/common/space_environment/Environment_ExteriorSpace.tres" type="Environment" id=2]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_03.png" type="Texture" id=3]
+[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_diff_1k.png" type="Texture" id=400]
+[ext_resource path="res://assets/textures/Hangar Concrete Floor/1k/textures/hangar_concrete_floor_diff_1k.png" type="Texture" id=401]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_diff_1k.png" type="Texture" id=402]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=403]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_02.png" type="Texture" id=404]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_03.png" type="Texture" id=405]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_04.png" type="Texture" id=406]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_05.png" type="Texture" id=407]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_06.png" type="Texture" id=408]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_07.png" type="Texture" id=409]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_08.png" type="Texture" id=410]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_09.png" type="Texture" id=411]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_10.png" type="Texture" id=412]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_11.png" type="Texture" id=413]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_12.png" type="Texture" id=414]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_13.png" type="Texture" id=415]
+[ext_resource path="res://textures/kenney_prototype_textures/light/GuardrailTranslucent.png" type="Texture" id=416]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_01.png" type="Texture" id=417]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_02.png" type="Texture" id=418]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_03.png" type="Texture" id=419]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_04.png" type="Texture" id=420]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_05.png" type="Texture" id=421]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_06.png" type="Texture" id=422]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_07.png" type="Texture" id=423]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_08.png" type="Texture" id=424]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_09.png" type="Texture" id=425]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_10.png" type="Texture" id=426]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_11.png" type="Texture" id=427]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_12.png" type="Texture" id=428]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_13.png" type="Texture" id=429]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_01.png" type="Texture" id=430]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_02.png" type="Texture" id=431]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_03.png" type="Texture" id=432]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_04.png" type="Texture" id=433]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_05.png" type="Texture" id=434]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_06.png" type="Texture" id=435]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_07.png" type="Texture" id=436]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_08.png" type="Texture" id=437]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_09.png" type="Texture" id=438]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_10.png" type="Texture" id=439]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_11.png" type="Texture" id=440]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_12.png" type="Texture" id=441]
+[ext_resource path="res://textures/kenney_prototype_textures/orange/texture_13.png" type="Texture" id=442]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_01.png" type="Texture" id=443]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_02.png" type="Texture" id=444]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_03.png" type="Texture" id=445]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_04.png" type="Texture" id=446]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_05.png" type="Texture" id=447]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_06.png" type="Texture" id=448]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_07.png" type="Texture" id=449]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_08.png" type="Texture" id=450]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_09.png" type="Texture" id=451]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_10.png" type="Texture" id=452]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_11.png" type="Texture" id=453]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_12.png" type="Texture" id=454]
+[ext_resource path="res://textures/kenney_prototype_textures/purple/texture_13.png" type="Texture" id=455]
+[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_diff_1k.png" type="Texture" id=456]
+[ext_resource path="res://assets/textures/Hangar Concrete Floor/1k/textures/hangar_concrete_floor_diff_1k.png" type="Texture" id=457]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_diff_1k.png" type="Texture" id=458]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_01.png" type="Texture" id=459]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_02.png" type="Texture" id=460]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_03.png" type="Texture" id=461]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_04.png" type="Texture" id=462]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_05.png" type="Texture" id=463]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_06.png" type="Texture" id=464]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_07.png" type="Texture" id=465]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_08.png" type="Texture" id=466]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_09.png" type="Texture" id=467]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_10.png" type="Texture" id=468]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_11.png" type="Texture" id=469]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_12.png" type="Texture" id=470]
+[ext_resource path="res://textures/kenney_prototype_textures/dark/texture_13.png" type="Texture" id=471]
+[ext_resource path="res://textures/kenney_prototype_textures/light/GuardrailTranslucent.png" type="Texture" id=472]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_01.png" type="Texture" id=473]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_02.png" type="Texture" id=474]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_03.png" type="Texture" id=475]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_04.png" type="Texture" id=476]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_05.png" type="Texture" id=477]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_06.png" type="Texture" id=478]
+[ext_resource path="res://textures/kenney_prototype_textures/light/texture_07.png" type="Texture" id=479]
+[ext_resource path="res://core_v2/visual/lightmap_manual.shader" type="Shader" id=4]
+[sub_resource type="SphereMesh" id=1]
+radial_segments = 32
+rings = 64
+
+[sub_resource type="ShaderMaterial" id=200]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.20, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 400 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=201]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.20, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 401 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=202]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.20, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 402 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=203]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.20, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 403 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=204]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.20, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 404 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=205]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.20, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 405 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=206]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.20, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 406 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=207]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.20, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 407 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=208]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.28, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 408 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=209]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.28, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 409 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=210]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.28, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 410 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=211]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.28, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 411 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=212]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.28, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 412 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=213]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.28, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 413 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=214]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.28, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 414 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=215]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.28, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 415 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=216]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.37, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 416 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=217]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.37, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 417 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=218]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.37, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 418 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=219]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.37, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 419 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=220]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.37, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 420 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=221]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.37, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 421 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=222]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.37, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 422 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=223]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.37, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 423 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=224]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.45, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 424 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=225]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.45, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 425 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=226]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.45, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 426 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=227]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.45, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 427 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=228]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.45, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 428 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=229]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.45, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 429 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=230]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.45, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 430 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=231]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.45, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 431 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=232]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.53, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 432 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=233]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.53, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 433 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=234]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.53, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 434 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=235]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.53, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 435 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=236]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.53, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 436 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=237]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.53, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 437 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=238]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.53, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 438 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=239]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.53, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 439 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=240]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.62, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 440 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=241]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.62, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 441 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=242]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.62, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 442 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=243]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.62, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 443 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=244]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.62, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 444 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=245]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.62, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 445 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=246]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.62, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 446 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=247]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.62, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 447 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=248]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.70, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 448 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=249]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.70, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 449 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=250]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.70, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 450 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=251]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.70, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 451 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=252]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.70, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 452 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=253]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.70, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 453 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=254]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.70, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 454 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=255]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.70, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 455 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=256]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.78, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 456 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=257]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.78, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 457 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=258]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.78, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 458 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=259]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.78, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 459 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=260]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.78, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 460 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=261]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.78, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 461 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=262]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.78, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 462 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=263]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.78, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 463 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=264]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.87, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 464 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=265]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.87, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 465 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=266]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.87, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 466 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=267]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.87, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 467 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=268]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.87, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 468 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=269]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.87, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 469 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=270]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.87, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 470 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=271]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.87, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 471 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=272]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.20, 0.95, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 472 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=273]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.30, 0.95, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 473 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=274]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.40, 0.95, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 474 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=275]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.50, 0.95, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 475 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=276]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.60, 0.95, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 476 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=277]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.70, 0.95, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 477 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=278]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.80, 0.95, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 478 )
+shader_param/lightmap_energy = 1.0
+
+[sub_resource type="ShaderMaterial" id=279]
+shader = ExtResource( 4 )
+shader_param/albedo_color = Color( 0.90, 0.95, 0.40, 1 )
+shader_param/texture_albedo = ExtResource( 3 )
+shader_param/has_albedo_map = true
+shader_param/lightmap_tex = ExtResource( 479 )
+shader_param/lightmap_energy = 1.0
+
+
+[node name="Ladder" type="Spatial"]
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 14, 16 )
+current = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 2 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="WorldEnvironment"]
+transform = Transform( 0.996195, 3.82452e-09, 0.0871557, -0.0841859, 0.258819, 0.96225, -0.0225575, -0.965926, 0.257834, 0, 10, 5 )
+light_energy = 0.8
+shadow_enabled = true
+
+[node name="Floor" type="CSGBox" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0 )
+use_collision = true
+width = 40.0
+height = 0.2
+depth = 40.0
+
+[node name="Pilot" parent="." instance=ExtResource( 1 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, -5 )
+
+[node name="Sphere000" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 200 )
+
+[node name="Sphere001" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 201 )
+
+[node name="Sphere002" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 202 )
+
+[node name="Sphere003" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 203 )
+
+[node name="Sphere004" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 204 )
+
+[node name="Sphere005" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 205 )
+
+[node name="Sphere006" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 206 )
+
+[node name="Sphere007" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 207 )
+
+[node name="Sphere008" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, -12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 208 )
+
+[node name="Sphere009" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 209 )
+
+[node name="Sphere010" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 210 )
+
+[node name="Sphere011" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 211 )
+
+[node name="Sphere012" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 212 )
+
+[node name="Sphere013" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 213 )
+
+[node name="Sphere014" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 214 )
+
+[node name="Sphere015" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 215 )
+
+[node name="Sphere016" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 216 )
+
+[node name="Sphere017" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, -9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 217 )
+
+[node name="Sphere018" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 218 )
+
+[node name="Sphere019" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 219 )
+
+[node name="Sphere020" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 220 )
+
+[node name="Sphere021" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 221 )
+
+[node name="Sphere022" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 222 )
+
+[node name="Sphere023" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 223 )
+
+[node name="Sphere024" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 224 )
+
+[node name="Sphere025" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 225 )
+
+[node name="Sphere026" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, -6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 226 )
+
+[node name="Sphere027" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 227 )
+
+[node name="Sphere028" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 228 )
+
+[node name="Sphere029" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 229 )
+
+[node name="Sphere030" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 230 )
+
+[node name="Sphere031" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 231 )
+
+[node name="Sphere032" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 232 )
+
+[node name="Sphere033" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 233 )
+
+[node name="Sphere034" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 234 )
+
+[node name="Sphere035" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, -3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 235 )
+
+[node name="Sphere036" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 236 )
+
+[node name="Sphere037" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 237 )
+
+[node name="Sphere038" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 238 )
+
+[node name="Sphere039" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 239 )
+
+[node name="Sphere040" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 240 )
+
+[node name="Sphere041" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 241 )
+
+[node name="Sphere042" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 242 )
+
+[node name="Sphere043" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 243 )
+
+[node name="Sphere044" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, 0.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 244 )
+
+[node name="Sphere045" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 245 )
+
+[node name="Sphere046" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 246 )
+
+[node name="Sphere047" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 247 )
+
+[node name="Sphere048" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 248 )
+
+[node name="Sphere049" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 249 )
+
+[node name="Sphere050" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 250 )
+
+[node name="Sphere051" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 251 )
+
+[node name="Sphere052" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 252 )
+
+[node name="Sphere053" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, 3.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 253 )
+
+[node name="Sphere054" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 254 )
+
+[node name="Sphere055" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 255 )
+
+[node name="Sphere056" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 256 )
+
+[node name="Sphere057" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 257 )
+
+[node name="Sphere058" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 258 )
+
+[node name="Sphere059" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 259 )
+
+[node name="Sphere060" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 260 )
+
+[node name="Sphere061" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 261 )
+
+[node name="Sphere062" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, 6.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 262 )
+
+[node name="Sphere063" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 263 )
+
+[node name="Sphere064" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 264 )
+
+[node name="Sphere065" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 265 )
+
+[node name="Sphere066" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 266 )
+
+[node name="Sphere067" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 267 )
+
+[node name="Sphere068" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 268 )
+
+[node name="Sphere069" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 269 )
+
+[node name="Sphere070" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 270 )
+
+[node name="Sphere071" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 12.00, 1.44, 9.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 271 )
+
+[node name="Sphere072" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -12.00, 0.80, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 272 )
+
+[node name="Sphere073" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, -9.00, 1.12, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 273 )
+
+[node name="Sphere074" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, -6.00, 1.44, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 274 )
+
+[node name="Sphere075" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, -3.00, 0.80, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 275 )
+
+[node name="Sphere076" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 0.00, 1.12, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 276 )
+
+[node name="Sphere077" type="MeshInstance" parent="."]
+transform = Transform( 1.80, 0, 0, 0, 1.80, 0, 0, 0, 1.80, 3.00, 1.44, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 277 )
+
+[node name="Sphere078" type="MeshInstance" parent="."]
+transform = Transform( 1.00, 0, 0, 0, 1.00, 0, 0, 0, 1.00, 6.00, 0.80, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 278 )
+
+[node name="Sphere079" type="MeshInstance" parent="."]
+transform = Transform( 1.40, 0, 0, 0, 1.40, 0, 0, 0, 1.40, 9.00, 1.12, 12.00 )
+mesh = SubResource( 1 )
+material_override = SubResource( 279 )
