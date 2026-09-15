@@ -233,7 +233,7 @@ Una fila por corrida. Capturas en `/tmp/odisea_probe/`; copiar aquí solo las de
 |---|---|---|---|---|---|---|---|---|
 | R1 | debug | Dome_Default (boot directo) | 6-7 | 25 | 32 664 | 100% | 34 708 | capturas dome_default_v2_noboxes2_* |
 | R2 | **release** | Dome_Default (boot directo) | **8-9** | 25 | 32 664 | 100% | 34 343 | captura R2_release_dome_v2.png; 543 MB libres |
-| R3 | release | Dome_Intro via menú (asset viejo) | pendiente | | | | | navegación: Sebastián (el menú solo llega a Dome_Intro) |
+| R3 | release | Dome_Intro via menú (**asset viejo**) | **3-4** | 69 | 180 420 | **~75%, banda derecha negra** + transparencias que no terminan de dibujar (Sebastián) | 82 763 | 235 MB libres; el asset viejo es 2.5× más lento y rompe cobertura con contenido mínimo comparable |
 
 - El pipeline 3D del blob ya no es el cuello de cobertura: 25 draws renderizan completos.
 - La brecha a 20 fps es main-thread (~110 ms/frame no-GPU, no tracked por el engine);
@@ -241,6 +241,9 @@ Una fila por corrida. Capturas en `/tmp/odisea_probe/`; copiar aquí solo las de
 - Sebastián observó que los artefactos de tiles retornaron en una corrida CALIENTE con
   transiciones encadenadas: tras reboots limpios no se han visto en R1/R2. Protocolo:
   una medición por reboot, transiciones encadenadas solo como prueba de estrés.
+- **Conclusión de la matriz: el asset viejo del domo es el problema de fps y de cobertura;
+  el V2 (PR #347) los resuelve.** Dome_Intro/Prologue/Base quedan lentos hasta migrar
+  (requiere re-hornear lightmaps — seguimiento aparte según el propio PR).
 
 ### Descubrimiento de protocolo: tiles abortados = contenido stale
 
