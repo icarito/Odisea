@@ -393,6 +393,8 @@ debug v0.3.0, Dome_Intro):
 ### Pendiente para decidir (Sebastián)
 
 1. Presupuesto de contenido del tier LOW para Dome_Intro (qué recortar u ofrecer como LOD).
-2. `cma=` más grande en la línea de arranque de ROCKNIX como prueba de causa (toca el boot del
-   device; no hecho sin aprobación).
+2. ~~`cma=` más grande~~ **Probado (L12, aprobado por Sebastián):** `cma=128M` en `/flash/boot.ini`
+   ("cma: Reserved 128 MiB"): la vista del hub sigue rota y "Failed to map" sigue subiendo. El
+   kernel presta el CMA a memoria movible, así que CmaFree≈0 no indicaba falta de contiguo para
+   el driver. boot.ini restaurado al original.
 3. Espaciar en tier LOW el escaneo de interacción y de zonas del player (hoy por tick, a propósito).
