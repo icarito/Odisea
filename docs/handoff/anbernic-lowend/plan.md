@@ -398,3 +398,39 @@ debug v0.3.0, Dome_Intro):
    kernel presta el CMA a memoria movible, así que CmaFree≈0 no indicaba falta de contiguo para
    el driver. boot.ini restaurado al original.
 3. Espaciar en tier LOW el escaneo de interacción y de zonas del player (hoy por tick, a propósito).
+
+## Driver del Mali: causa de la cobertura rota (2026-09-15)
+
+Pila del dispositivo (ROCKNIX **20250517**): kernel 6.12.17, `mali_kbase` **r52p0** (UK 11.49),
+userspace `libmali-bifrost-g31-`**`g13p0`** + `libmali-hook`. Mali-G31 r0p0, **VA de GPU de 33 bits** (8 GB).
+
+Cómo se vio (sin kprobes/ftrace en ese kernel; sí `CONFIG_DYNAMIC_DEBUG`):
+
+```sh
+echo "file mali_kbase_reg_track.c +p" > /sys/kernel/debug/dynamic_debug/control   # -p para apagar
+dmesg | grep "suitable region"
+cat /sys/kernel/debug/mali0/ctx/<pid>_1/{mem_zones,mem_jit_count,mem_jit_vm,mem_allocs}
+```
+
+- "Failed to map memory on GPU" sale de `kbase_mem_alloc` → `kbase_gpu_mmap` →
+  `kbase_add_va_region_rbtree`: **"Failed to find a suitable region: 94208 nr_pages"** (dev_dbg, invisible
+  por defecto). No es RAM ni CMA: es **espacio de VA**.
+- Zonas del contexto del juego: SAME_VA 6.75 GB, **CUSTOM_VA (JIT) 1 GB**, EXEC_VA 256 MB.
+- En la zona JIT: 16×8 MB + 2×80 MB + **1×368 MB** (heap del tiler con 2.4 MB comprometidos) = 656 MB
+  (`mem_jit_vm` pico 167936 págs). Huecos libres de 80/80/208 MB: el **segundo heap de 368 MB que g13p0
+  pide cada frame nunca entra**. Pasa también en Dome_Default (que sí renderiza); en Dome_Intro, con más
+  trabajo de tiler por frame, termina en `DATA_INVALID_FAULT` y tiles abortados.
+- `libmali` no expone perillas de JIT/heap (solo `MALI_DEBUG_CONFIG`/`MALI_PLATFORM_CONFIG` con claves internas).
+
+### Por dónde optimizar (de menor a mayor esfuerzo)
+
+1. **Actualizar ROCKNIX** (20260901): RK3326 pasó a `libmali` **g29p1** (JeffyCN, PR #3008, 2026-08) y kbase
+   r54p2. Un userspace 16 versiones más nuevo puede dimensionar el heap del tiler / JIT distinto. Sin tocar
+   el juego; repetir L1 (vista del hub con cámara propia) tras actualizar.
+2. **Panfrost** (Mesa) ya se probó y se congelaba (ver arriba); con Mesa más nuevo en ROCKNIX actual podría
+   valer otra prueba: no usa JIT de kbase.
+3. **Parche de kbase**: agrandar la zona JIT en `kbase_region_tracker_init_jit` (p. ej. forzar ≥ 4 GB; el juego
+   usa < 1 GB de SAME_VA). Requiere compilar `mali_kbase.ko` para el kernel exacto de ROCKNIX y distribuirlo:
+   solo para prueba de causa o para proponer upstream a ROCKNIX.
+4. **Del lado del juego** (mitiga, no arregla): menos trabajo de tiler por frame en vistas pesadas (primitivas que
+   cubren muchos tiles, draws), que es lo que convierte el fallo del segundo heap en tiles abortados.
