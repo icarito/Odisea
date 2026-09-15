@@ -145,7 +145,12 @@ func _on_tree_changed() -> void:
 func _es_movil() -> bool:
 	if OS.get_environment(MOBILE_ENV) in ["1", "true", "yes", "on"]:
 		return true
-	return OS.get_name() in ["Android", "iOS"]
+	if OS.get_name() in ["Android", "iOS"]:
+		return true
+	# FD-299 3c: el tier LOW del gate (device low-end verificado u opcion del
+	# jugador) activa los mismos presupuestos que movil.
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.is_low_tier()
 
 
 func _programar_scan() -> void:

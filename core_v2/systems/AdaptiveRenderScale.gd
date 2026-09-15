@@ -184,7 +184,13 @@ func _indice_mas_cercano(valor: float) -> int:
 func _es_movil() -> bool:
 	if OS.get_environment(MOBILE_ENV) in ["1", "true", "yes", "on"]:
 		return true
-	return OS.get_name() in ["Android", "iOS"]
+	if OS.get_name() in ["Android", "iOS"]:
+		return true
+	# FD-299 3c: el tier LOW del gate activa los mismos presupuestos que movil.
+	# Piso fijo: si la realocacion del framebuffer provocara faults, se congela
+	# a 0.5 sin adaptacion (ver plan FD-299 3c).
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.is_low_tier()
 
 
 func _process(delta: float) -> void:

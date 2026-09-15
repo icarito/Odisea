@@ -48,3 +48,83 @@ func test_gate_leaves_environment_untouched_without_mali():
 	assert_bool(env.fog_enabled).is_true()
 	assert_bool(env.glow_enabled).is_true()
 	assert_int(env.tonemap_mode).is_equal(Environment.TONE_MAPPER_ACES)
+
+func test_is_low_tier_follows_force_gate():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = false
+	assert_bool(gate.is_low_tier()).is_false()
+	gate.force_gate = true
+	assert_bool(gate.is_low_tier()).is_true()
+
+func test_low_tier_strips_shadows_and_materials():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+
+	var mat = auto_free(SpatialMaterial.new())
+	mat.normal_enabled = true
+	mat.rim_enabled = true
+	mat.clearcoat_enabled = true
+	mat.ao_enabled = true
+	mat.depth_enabled = true
+	mat.subsurf_scatter_enabled = true
+	mat.flags_vertex_lighting = false
+
+	var mesh = auto_free(CubeMesh.new())
+	mesh.material = mat
+	var mi = auto_free(MeshInstance.new())
+	mi.mesh = mesh
+	# add_child dispara node_added: el tier LOW debe aplanar el material.
+	add_child(mi)
+
+	assert_bool(mi.cast_shadow == GeometryInstance.SHADOW_CASTING_SETTING_OFF).is_true()
+	assert_bool(mat.normal_enabled).is_false()
+	assert_bool(mat.rim_enabled).is_false()
+	assert_bool(mat.clearcoat_enabled).is_false()
+	assert_bool(mat.ao_enabled).is_false()
+	assert_bool(mat.depth_enabled).is_false()
+	assert_bool(mat.subsurf_scatter_enabled).is_false()
+	assert_bool(mat.flags_vertex_lighting).is_true()
+
+func test_low_tier_disables_light_shadows():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+
+	var light = auto_free(DirectionalLight.new())
+	light.shadow_enabled = true
+	add_child(light)
+
+	assert_bool(light.shadow_enabled).is_false()
+
+func test_low_tier_frees_lowend_skip_group():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+
+	var deco = auto_free(Spatial.new())
+	deco.add_to_group("lowend_skip", true)
+	add_child(deco)
+
+	assert_bool(deco.is_queued_for_deletion()).is_true()
+
+func test_untouched_nodes_keep_shadows_without_gate():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = false
+	add_child(gate)
+
+	var light = auto_free(DirectionalLight.new())
+	light.shadow_enabled = true
+	var mat = auto_free(SpatialMaterial.new())
+	mat.normal_enabled = true
+	var mesh = auto_free(CubeMesh.new())
+	mesh.material = mat
+	var mi = auto_free(MeshInstance.new())
+	mi.mesh = mesh
+	add_child(light)
+	add_child(mi)
+
+	# Sin tier LOW, escritorio conserva sombras y materiales completos.
+	assert_bool(light.shadow_enabled).is_true()
+	assert_bool(mat.normal_enabled).is_true()
+	assert_bool(mi.cast_shadow == GeometryInstance.SHADOW_CASTING_SETTING_OFF).is_false()

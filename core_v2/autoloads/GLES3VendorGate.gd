@@ -43,14 +43,50 @@ func _detect_gate() -> void:
 var _manual_lightmap_synced := false
 
 func _on_node_added(node: Node) -> void:
+	if node.is_in_group("lowend_skip"):
+		# Cortes cosmeticos declarativos (FD-299 3b): la escena marca la decoracion
+		# y el gate la libera. Nunca marcar subtrees con colision o gameplay.
+		node.queue_free()
 	if node is WorldEnvironment:
-		var gated := _gated_active or force_gate or _user_forced_low_end()
+		var gated := is_low_tier()
 		# El lightmap manual SOLO en adapters donde el camino nativo está roto
 		# (Mali-G31 verificado): es un shader del camino GLES2 y en Adreno
 		# GLES3 muestrea 0 → nivel negro. El force del usuario no lo activa.
 		_sync_manual_lightmap(_gated_active)
 		if gated:
 			strip_environment(node.environment)
+	elif is_low_tier():
+		_low_tier_node(node)
+
+# Tier LOW (FD-299 3b): decisiones una vez por nodo, sin monitores por frame.
+func is_low_tier() -> bool:
+	return _gated_active or force_gate or _user_forced_low_end()
+
+func _low_tier_node(node: Node) -> void:
+	if node is Light:
+		# El shadow atlas y el pase de sombras son el mayor costo por frame en
+		# el G31: sin sombras, la iluminacion queda por ambient + vertex.
+		node.shadow_enabled = false
+	elif node is GeometryInstance:
+		node.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+		if node is MeshInstance:
+			var mesh: Mesh = node.mesh
+			if mesh != null:
+				for s in range(mesh.get_surface_count()):
+					_low_tier_material(mesh.surface_get_material(s))
+	var mat = node.get("material_override") if node is GeometryInstance else null
+	_low_tier_material(mat)
+
+# Mutacion en memoria de recursos compartidos: nunca ResourceSaver.
+func _low_tier_material(mat) -> void:
+	if mat == null or not (mat is SpatialMaterial):
+		return
+	for prop in ["normal_enabled", "rim_enabled", "clearcoat_enabled", "ao_enabled",
+			"depth_enabled", "subsurf_scatter_enabled"]:
+		if prop in mat:
+			mat.set(prop, false)
+	if "flags_vertex_lighting" in mat:
+		mat.set("flags_vertex_lighting", true)
 
 # La opción de Opciones fuerza el gate en cualquier dispositivo.
 func _user_forced_low_end() -> bool:
