@@ -23,6 +23,23 @@ const SHADER := preload("res://core_v2/visual/lightmap_manual.shader")
 const ENV_FLAG := "ODISEA_MANUAL_LIGHTMAP"
 const META_KEY := "ios_lightmap_applied"
 
+# Rejillas (steel grate de las rampas del andamio): un quad de doble cara con recorte alfa.
+# El shader base culea la cara de atras y no recorta, asi que la rampa vista desde arriba
+# desaparecia. render_mode es fijo por archivo en Godot 3: la variante sale del mismo codigo.
+# El discard queda solo aca, fuera del shader base: en Mali apaga el early-z de todo lo que
+# lo declara, aunque nunca se ejecute.
+static func cutout_shader() -> Shader:
+	var sh := Shader.new()
+	sh.code = cutout_code(SHADER.code)
+	return sh
+
+static func cutout_code(code: String) -> String:
+	return code \
+		.replace("shader_type spatial;", "shader_type spatial;\nrender_mode cull_disabled;\nuniform float alpha_scissor_threshold = 0.5;") \
+		.replace("\tALBEDO = base;", "\tif (albedo_color.a * tex.a < alpha_scissor_threshold) {\n\t\tdiscard;\n\t}\n\tALBEDO = base;")
+
+var _cutout_shader: Shader
+
 static func _wants_fallback(_os_name: String, env_value: String) -> bool:
 	# El OS ya no decide: iOS corre GLES3 con el lightmap nativo. Solo la variable de
 	# entorno fuerza el camino manual, para A/B en el dispositivo. El parametro queda
@@ -100,6 +117,11 @@ func _build(source, lightmap: Texture, energy: float) -> ShaderMaterial:
 	mat.set_shader_param("lightmap_energy", energy)
 	if source is SpatialMaterial:
 		var sm := source as SpatialMaterial
+		if sm.params_cull_mode == SpatialMaterial.CULL_DISABLED or sm.params_use_alpha_scissor:
+			if _cutout_shader == null:
+				_cutout_shader = cutout_shader()
+			mat.shader = _cutout_shader
+			mat.set_shader_param("alpha_scissor_threshold", sm.params_alpha_scissor_threshold if sm.params_use_alpha_scissor else 0.0)
 		mat.set_shader_param("albedo_color", sm.albedo_color)
 		mat.set_shader_param("roughness_value", sm.roughness)
 		mat.set_shader_param("metallic_value", sm.metallic)
