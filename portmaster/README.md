@@ -14,8 +14,44 @@ Saves and configuration live in `ports/odisea/conf/`. The launcher writes a log
 to `ports/odisea/log.txt` — attach it when reporting a problem.
 
 The port exports `ODISEA_DEVICE=anbernic`, which makes the game correct the
-handheld's inverted analog axes and drop to its low graphics profile. On a
-device where the sticks end up inverted, edit `Odisea.sh` and remove that line.
+handheld's inverted analog axes. It only affects input. On a device where the
+sticks end up inverted, edit `Odisea.sh` and remove that line.
+
+## Firmware requirements
+
+On RK3326 devices (RG351V/P/M, R36S, RGB10, ODROID Go2 and similar, Mali-G31)
+**use ROCKNIX 20260901 or newer**. Earlier builds ship the old `libmali`
+g13p0 driver, which runs out of GPU address space in large scenes: parts of the
+screen stop drawing (a black or frozen block, sometimes magenta) and `dmesg`
+fills with `Failed to map memory on GPU` / `DATA_INVALID_FAULT`. ROCKNIX
+20260901 ships `libmali` g29p1, which fixes it. Other firmwares with an equally
+old Mali driver will show the same problem.
+
+If the ROCKNIX updater says there is not enough space, check
+`/storage/.cache/cores`: crash dumps pile up there and can fill the system
+partition. They are safe to delete.
+
+## Low-end devices
+
+The launcher detects the RK3326 generation (device tree `rockchip,rk3326`, or a
+Mali-G31 GPU) and only there:
+
+- copies `lowend.cfg` to `override.cfg`, with start-up render settings the
+  engine can only read at launch (no MSAA, smaller shadow maps, vertex shading,
+  fewer lights per object);
+- tells the game it is on weak hardware, so it starts with the low graphics
+  profile.
+
+Inside the game, the same devices (or any device with *Options -> Low end*
+enabled) run physics at 30 Hz and update ambient systems less often. Faster
+handhelds get none of this. An `override.cfg` you edit by hand is left alone.
+
+Measured on an Anbernic RG351V with ROCKNIX 20260901: Dome_Default ~28 fps,
+Dome_Intro ~12 fps.
+
+On a screen smaller than the internal render resolution, *Options* and
+full-screen HUD widgets are drawn at full resolution while they are open, even
+if *Render scale* is below 100%.
 
 ## Controls
 
@@ -71,6 +107,10 @@ the packaged launcher — it is sourced just before the game starts:
 GODOT_OPTS="$GODOT_OPTS --remote-debug 192.168.1.50:6007"
 export ANNA_ENABLED=1
 ```
+
+Performance notes, measurement protocol and the optimisation roadmap for these
+devices live in `docs/handoff/anbernic-lowend/README.md` in the game
+repository.
 
 ## Thanks
 

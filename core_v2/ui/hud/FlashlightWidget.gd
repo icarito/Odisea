@@ -36,7 +36,7 @@ func set_snapshot(snapshot: Dictionary) -> void:
 		if _meter_label != null:
 			_meter_label.text = "BAT: [----------]"
 		if _status_label != null:
-			_status_label.text = "ESTADO: OFFLINE"
+			_status_label.text = "OFFLINE"
 		if _toggle_button != null:
 			_toggle_button.disabled = true
 			_toggle_button.text = "OFFLINE"
@@ -54,9 +54,9 @@ func set_snapshot(snapshot: Dictionary) -> void:
 
 	if _status_label != null:
 		if on:
-			_status_label.text = "ESTADO: ENCENDIDA" if not low else "ESTADO: BATERÍA BAJA"
+			_status_label.text = "ENCENDIDA" if not low else "BAT. BAJA"
 		else:
-			_status_label.text = "ESTADO: APAGADA"
+			_status_label.text = "APAGADA"
 
 	if _meter_label != null:
 		_meter_label.text = _format_battery_bar(battery, battery_max)
@@ -66,18 +66,19 @@ func set_snapshot(snapshot: Dictionary) -> void:
 		if _meter_label.get_color("font_color") != meter_color:
 			_meter_label.add_color_override("font_color", meter_color)
 
+# ASCII: la fuente del tema no trae los bloques █/░ y la barra salia vacia ("BAT: []").
 func _format_battery_bar(val: float, max_val: float) -> String:
 	if max_val <= 0.0:
-		return "BAT: [░░░░░░░░░░]"
+		return "BAT: [..........]"
 	var ratio := clamp(val / max_val, 0.0, 1.0)
 	var total_segments := 10
 	var filled_segments := int(round(ratio * total_segments))
 	var bar := ""
 	for i in range(total_segments):
 		if i < filled_segments:
-			bar += "█"
+			bar += "|"
 		else:
-			bar += "░"
+			bar += "."
 	return "BAT: [%s]" % bar
 
 func _on_toggle_pressed() -> void:

@@ -136,6 +136,11 @@ func _ready() -> void:
 	_placeholder.visible = _screen_ids.empty()
 	# El TAB que abrio el modo HUD sigue apretado: tap o hold se decide con las muestras.
 	_gesture.begin_held()
+	# Con el mundo pausado detras, el widget en modo pantalla se dibuja a resolucion completa
+	# (a render_scale < 1 su texto salia pixelado). Ver SettingsManager.hold_full_resolution_ui.
+	var settings = get_node_or_null("/root/SettingsManager")
+	if settings and settings.has_method("hold_full_resolution_ui"):
+		settings.hold_full_resolution_ui(self, true)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
@@ -145,6 +150,9 @@ func _exit_tree() -> void:
 	_end_option_drag()
 	_cleanup_focus()
 	_mount.close()
+	var settings = get_node_or_null("/root/SettingsManager")
+	if settings and settings.has_method("hold_full_resolution_ui"):
+		settings.hold_full_resolution_ui(self, false)
 
 # Entrada directa al radial (hold sobre el widget del slot, que no pasa por el stream).
 func show_radial(slot: int = -1) -> void:

@@ -24,9 +24,22 @@ export var force_gate := false
 
 var _gated_active := false
 
+# FD-299: en tier LOW la fisica corre a 30 Hz. Medido en el Anbernic: con ~18 ms de GDScript
+# por tick, a 60 Hz cada frame arrastraba 8 ticks y el juego iba al 54% del tiempo real. El
+# paso del jugador se deriva de Engine.iterations_per_second, asi que no hay camara lenta.
+const LOW_TIER_PHYSICS_FPS := 30
+
 func _ready() -> void:
 	_detect_gate()
+	sync_physics_rate()
 	get_tree().connect("node_added", self, "_on_node_added")
+
+# Fuera del tier vuelve al valor del proyecto: desktop, CI y replays siguen a 60 Hz. Se llama
+# tambien al cambiar la opcion "low end" en el menu.
+func sync_physics_rate() -> void:
+	var target: int = LOW_TIER_PHYSICS_FPS if is_low_tier() else int(ProjectSettings.get_setting("physics/common/physics_fps"))
+	if Engine.iterations_per_second != target:
+		Engine.iterations_per_second = target
 
 func _detect_gate() -> void:
 	var adapter := String(VisualServer.get_video_adapter_name()).to_lower()

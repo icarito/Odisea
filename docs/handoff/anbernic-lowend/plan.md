@@ -1,5 +1,7 @@
 # Anbernic RG351V: 3D pintado a medias + low-end agresivo
 
+> **Resumen, alcance de cada ajuste y hoja de ruta: [README.md](README.md).** Este archivo es la bitácora cronológica.
+
 **Estado:** Fase 0 pendiente. **Ejecuta:** Kilo. **Revisan:** Claude + Sebastián.
 **Relacionado:** [FD-299](../../features/FD-299_render_tier_lowend.md), AGENTS.md §11.9 y §11.10.
 **Brief para el agente:** [HANDOFF_KILO.md](HANDOFF_KILO.md).

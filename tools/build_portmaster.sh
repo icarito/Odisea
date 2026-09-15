@@ -50,7 +50,7 @@ touch "$OUT/.gdignore"
 install -m 755 "$SRC/$SCRIPT" "$OUT/$SCRIPT"
 install -m 644 "$SRC/port.json" "$SRC/gameinfo.xml" "$SRC/README.md" "$OUT/$PORT/"
 install -m 644 "$SRC/$PORT.gptk" "$OUT/$PORT/"
-install -m 644 "$SRC/override.cfg" "$OUT/$PORT/"
+install -m 644 "$SRC/lowend.cfg" "$OUT/$PORT/"
 install -m 644 "$PCK" "$OUT/$PORT/$PORT.pck"
 install -m 644 CREDITS.md "$OUT/$PORT/licenses/CREDITS.md"
 echo "$VERSION" > "$OUT/$PORT/BUILD.txt"
@@ -86,9 +86,11 @@ fi
 # el directorio sin tocar el script, el port arranca y muere sin explicacion.
 grep -q "ports/$PORT\b" "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no apunta a ports/$PORT" >&2; exit 1; }
 grep -q "$PORT.pck" "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no carga $PORT.pck" >&2; exit 1; }
-# El override de handhelds (FD-299) viaja siempre: sin el, FRT corre con la
-# configuracion de escritorio (MSAA, HDR, sombras pesadas) y el GPU sufre.
-grep -q "framebuffer_allocation.mobile" "$OUT/$PORT/override.cfg" || { echo "ERROR: override.cfg sin el bloque FD-299" >&2; exit 1; }
+# Los ajustes de handhelds lentos (FD-299) viajan siempre: Odisea.sh los instala como
+# override.cfg solo en la generacion RK3326. Sin ellos ahi FRT corre con la configuracion de
+# escritorio (MSAA, HDR, sombras pesadas) y el GPU sufre.
+grep -q "framebuffer_allocation.mobile" "$OUT/$PORT/lowend.cfg" || { echo "ERROR: lowend.cfg sin el bloque FD-299" >&2; exit 1; }
+grep -q "cp lowend.cfg override.cfg" "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no instala lowend.cfg en los handhelds lentos" >&2; exit 1; }
 python3 -c "
 import json,sys
 a=json.load(open('$SRC/port.json'))

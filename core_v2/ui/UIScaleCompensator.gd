@@ -78,4 +78,7 @@ static func scale_for(node: Node) -> float:
 	var settings = node.get_node_or_null("/root/SettingsManager")
 	if settings == null:
 		return 1.0
+	# La efectiva: con Opciones o el modo HUD abiertos el render vuelve a 1.0 (SettingsManager).
+	if settings.has_method("effective_render_scale"):
+		return float(settings.effective_render_scale())
 	return clamp(float(settings.render_scale), 0.5, 1.0)

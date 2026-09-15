@@ -80,8 +80,9 @@ portmaster-install: portmaster
 	# transfiere todo bien pero sale con codigo 23 y voltea el make.
 	# Excludes dev: artefactos de la sesion de desarrollo que viven junto al port
 	# y no deben borrarse con --delete (binario debug del fork, backup del release).
+	# override.cfg lo genera Odisea.sh en el dispositivo (o se edita a mano): no viene en el paquete.
 	rsync -av --delete --no-owner --no-group \
-		--exclude conf/ --exclude dev.sh --exclude log.txt \
+		--exclude conf/ --exclude dev.sh --exclude log.txt --exclude override.cfg \
 		--exclude godot.box3d.frt.arm64.debug --exclude odisea.frt.aarch64.release \
 		ports/Odisea.sh ports/odisea "$(PORTMASTER_HOST):$(PORTMASTER_DEST)/"
 	@echo "Instalado en $(PORTMASTER_HOST):$(PORTMASTER_DEST)/odisea"

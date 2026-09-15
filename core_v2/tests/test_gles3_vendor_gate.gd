@@ -56,6 +56,18 @@ func test_is_low_tier_follows_force_gate():
 	gate.force_gate = true
 	assert_bool(gate.is_low_tier()).is_true()
 
+# Fisica a 30 Hz solo en tier LOW; fuera vuelve al valor del proyecto (desktop, CI y replays).
+func test_physics_rate_follows_low_tier():
+	var before: int = Engine.iterations_per_second
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	gate.sync_physics_rate()
+	assert_int(Engine.iterations_per_second).is_equal(GateScript.LOW_TIER_PHYSICS_FPS)
+	gate.force_gate = false
+	gate.sync_physics_rate()
+	assert_int(Engine.iterations_per_second).is_equal(int(ProjectSettings.get_setting("physics/common/physics_fps")))
+	Engine.iterations_per_second = before
+
 func test_low_tier_strips_shadows_and_materials():
 	var gate = auto_free(GateScript.new())
 	gate.force_gate = true
