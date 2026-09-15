@@ -16,7 +16,8 @@ def _principled(name, base=(0.5, 0.5, 0.5), metallic=0.0, roughness=0.5,
                 emission=None, emission_strength=1.0):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
-    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    # Por tipo, no por nombre: el nombre del nodo se localiza con el idioma del host.
+    bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
     bsdf.inputs["Base Color"].default_value = (*base, 1.0)
     bsdf.inputs["Metallic"].default_value = metallic
     bsdf.inputs["Roughness"].default_value = roughness

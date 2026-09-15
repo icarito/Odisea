@@ -2,7 +2,7 @@
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockShell.tscn" type="PackedScene" id=2]
-[ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=3]
+[ext_resource path="res://core_v2/levels/interiors/DomeTerraceV2_baked.shape" type="Shape" id=3]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubTower.tscn" type="PackedScene" id=4]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=5]
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=6]

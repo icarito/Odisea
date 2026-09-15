@@ -10,16 +10,31 @@ extends SceneTree
 #  - Superficies: una por material (acero claro, acero oscuro, amarillo, cian),
 #    agrupadas con SurfaceTool por bucket y commit() append al ArrayMesh.
 #  - La colisión sale del mismo GLB (create_trimesh_shape).
+#  - Además parte piso y carcasa en dos mallas con UV2 para el lightmap de
+#    Dome_Base (Terrace/TerraceFloor y Terrace/DomeShell). El piso va
+#    local_to_scene: Godot 3 pierde el vínculo con el BakedLightmapData si la
+#    malla externa se comparte.
 #
-# Run: godot3-bin --path . --no-window -s tools/bake_dome_terrace_v2.gd
+# Fuente: tools/dome_v2/scene_dome.py (Blender, regenerar según su docstring).
+# Run: tools/godot --path . --no-window -s tools/bake_dome_terrace_v2.gd
 # Output:
-#   core_v2/levels/interiors/DomeTerraceV2_baked.mesh
-#   core_v2/levels/interiors/DomeTerraceV2_baked.shape
+#   core_v2/levels/interiors/DomeTerraceV2_baked.mesh    (Dome_Default)
+#   core_v2/levels/interiors/DomeTerraceV2_baked.shape   (Dome_Default, Dome_Base)
+#   core_v2/levels/interiors/DomeTerraceFloor_baked.mesh (Dome_Base, UV2)
+#   core_v2/levels/interiors/DomeShell_baked.mesh        (Dome_Base, UV2)
 
 const SRC_GLB := "res://assets/models/dome_terrace_v2/DomeTerraceV2.glb"
 const OUT_MESH := "res://core_v2/levels/interiors/DomeTerraceV2_baked.mesh"
 const OUT_SHAPE := "res://core_v2/levels/interiors/DomeTerraceV2_baked.shape"
+const OUT_FLOOR_MESH := "res://core_v2/levels/interiors/DomeTerraceFloor_baked.mesh"
+const OUT_SHELL_MESH := "res://core_v2/levels/interiors/DomeShell_baked.mesh"
 const WALL_SHADER_PATH := "res://core_v2/levels/interiors/shaders/dome_wall_cylindrical.shader"
+# Objetos de Blender que van al piso; el resto es carcasa.
+const FLOOR_NODES := ["DomeFloor", "HangarHoleRim"]
+# m/texel. El piso recibe las sombras del andamio y necesita más densidad (mismo
+# valor que tenía el split del domo viejo); la carcasa es casi toda cara lisa.
+const FLOOR_LIGHTMAP_TEXEL_SIZE := 0.1
+const SHELL_LIGHTMAP_TEXEL_SIZE := 0.15
 
 
 # La carcasa (M_BrushedSteelLight) recibe el shader cilíndrico que viajaba
@@ -51,12 +66,14 @@ func _run() -> void:
 		return
 	var root: Spatial = scene.instance()
 
-	# Bucket por material (ruta si es externo, nombre si va embebido).
+	# Bucket por material (ruta si es externo, nombre si va embebido). Cada
+	# superficie va a la malla combinada y a la de su parte (piso / carcasa).
 	var buckets := {}
-	var order := []
+	var parts := {"floor": {}, "shell": {}}
 	var nodes := 0
 	for mi in _all_meshes(root):
 		nodes += 1
+		var part: Dictionary = parts["floor"] if _is_floor_node(mi) else parts["shell"]
 		var xf: Transform = _relative_transform(mi, root)
 		for s in range(mi.mesh.get_surface_count()):
 			var material: Material = mi.mesh.surface_get_material(s)
@@ -76,25 +93,37 @@ func _run() -> void:
 						and name_norm.substr(name_norm.length() - 3).is_valid_integer():
 					name_norm = name_norm.substr(0, name_norm.length() - 4)
 				key = "emb:" + name_norm
-			if not buckets.has(key):
-				var st := SurfaceTool.new()
-				st.begin(Mesh.PRIMITIVE_TRIANGLES)
-				if material != null:
-					st.set_material(_material_for(material))
-				buckets[key] = st
-				order.append(key)
-			_append_surface(buckets[key], mi.mesh, s, xf)
-	var out := ArrayMesh.new()
-	order.sort()
-	for key in order:
-		var st: SurfaceTool = buckets[key]
-		st.index()
-		st.commit(out)
+			for target in [buckets, part]:
+				if not target.has(key):
+					var st := SurfaceTool.new()
+					st.begin(Mesh.PRIMITIVE_TRIANGLES)
+					if material != null:
+						st.set_material(_material_for(material))
+					target[key] = st
+				_append_surface(target[key], mi.mesh, s, xf)
+	var out := _commit_buckets(buckets)
+	var floor_mesh := _commit_buckets(parts["floor"])
+	var shell_mesh := _commit_buckets(parts["shell"])
 
-	if out.get_surface_count() == 0:
-		push_error("[bake_v2] malla vacia")
+	if out.get_surface_count() == 0 or floor_mesh.get_surface_count() == 0 or shell_mesh.get_surface_count() == 0:
+		push_error("[bake_v2] malla vacia (combinada=%d piso=%d carcasa=%d)" % [
+			out.get_surface_count(), floor_mesh.get_surface_count(), shell_mesh.get_surface_count()])
 		quit(1)
 		return
+	if floor_mesh.lightmap_unwrap(Transform.IDENTITY, FLOOR_LIGHTMAP_TEXEL_SIZE) != OK \
+			or shell_mesh.lightmap_unwrap(Transform.IDENTITY, SHELL_LIGHTMAP_TEXEL_SIZE) != OK:
+		push_error("[bake_v2] fallo lightmap_unwrap")
+		quit(1)
+		return
+	floor_mesh.resource_local_to_scene = true
+	for pair in [[OUT_FLOOR_MESH, floor_mesh], [OUT_SHELL_MESH, shell_mesh]]:
+		pair[1].take_over_path(pair[0])
+		if ResourceSaver.save(pair[0], pair[1]) != OK:
+			push_error("[bake_v2] fallo guardando %s" % pair[0])
+			quit(1)
+			return
+		print("[bake_v2] %s: %d surfaces, lightmap %s" % [pair[0].get_file(),
+			pair[1].get_surface_count(), pair[1].lightmap_size_hint])
 	var aabb: AABB = out.get_aabb()
 	print("[bake_v2] aabb pos=%s size=%s" % [aabb.position, aabb.size])
 
@@ -117,6 +146,24 @@ func _run() -> void:
 	print("[bake_v2] OK: %d surfaces, %d triangulos, %d nodos fuente" % [
 		out.get_surface_count(), faces, nodes])
 	quit(0)
+
+
+func _commit_buckets(buckets: Dictionary) -> ArrayMesh:
+	var mesh := ArrayMesh.new()
+	var keys := buckets.keys()
+	keys.sort()
+	for key in keys:
+		var st: SurfaceTool = buckets[key]
+		st.index()
+		st.commit(mesh)
+	return mesh
+
+
+func _is_floor_node(mi: Node) -> bool:
+	for prefix in FLOOR_NODES:
+		if String(mi.name).begins_with(prefix):
+			return true
+	return false
 
 
 func _all_meshes(node: Node) -> Array:
