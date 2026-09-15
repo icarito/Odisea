@@ -41,6 +41,8 @@ func before_test() -> void:
 	# Sin la ultima posicion del puntero de otra suite: el host la usa para decidir si un toque es de
 	# un boton del widget.
 	SuitOS.get_node("SuitOSWidgetHost")._last_pointer_position = Vector2(-10000, -10000)
+	# Ni una cinematica que otra suite dejo abierta: esconde los widgets.
+	SuitOS.get_node("SuitOSWidgetHost")._cinematic_active = false
 	for id in SuitOS.get_registered_screens():
 		SuitOS.unregister_screen(id)
 	SuitOS.clear_slots()
