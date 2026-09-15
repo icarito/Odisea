@@ -450,3 +450,9 @@ tenía 3.9 GB de core dumps de Odisea que impedían descargar la actualización.
 | Vista hub de Dome_Intro (cámara propia, 208 draws, 850k vtx) | 7% celdas frescas (rota) | **91% (completa)** |
 | Dome_Intro, cámara del jugador, binario debug | 4 fps (render parcial) | **10.7 fps**, 30/30 ticks |
 | MemAvailable en Dome_Default | 164-326 MB | 448 MB |
+| **R9 Dome_Intro, binario release, entrando por el menú** | 4 fps, 30% cobertura | **12 fps, cobertura completa** (serie ×4), 0 faults, 99 dc, 194k vtx |
+
+Consecuencia para PortMaster: en ROCKNIX < 20260901 (libmali g13p0) y otros CFW con blobs viejos Dome_Intro
+va a verse cortado; vale avisarlo en el README del port. Siguiente paso posible: con g29p1 el lightmap nativo
+podría funcionar en Mali y dejar el camino manual de `GLES3VendorGate` (107 materiales duplicados) sin uso; hay que
+probarlo con un reinicio.
