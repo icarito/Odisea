@@ -5,13 +5,14 @@ cilíndricos concéntricos con la carcasa de los airlocks (sin gap) y agujero
 circular en el piso para la bajada al hangar.
 
 Iteración 2 — calibrada contra maps/DomeTerrace.obj (fuente original):
-  - Perfil medido del OBJ: tambor a radio pleno hasta ~10.2 m de altura;
-    casquete = esfera de R=33.15 con centro en z=-0.58 (apex 32.5 m).
-    La iteración 1 tamboreaba solo 5 m y apex 22 m -> pasarelas, escaleras,
-    piso 5, risers y criopods atravesaban la pared.
+  - Perfil medido del OBJ: tambor a radio pleno (r_int 30.75 / r_ext 31.35)
+    hasta ~10.1 m; casquete = esfera R=33.15 con centro en z=-0.58
+    (apex exterior 32.57 m), construido por la cara interior para quedar
+    tangente al tambor. La iteración 1 tamboreaba solo 5 m y apex 22 m ->
+    pasarelas, escaleras, piso 5, risers y criopods atravesaban la pared.
   - Bore airlock medido del OBJ: arco r~4.5 con centro z~4.3, piso plano en
-    z=0, túnel de 30.2 a 44.3 en el eje. Calza con AirlockShell instanciado
-    en Dome_Base.tscn a Y=3.4 (interior: techo +2.62, ancho +-2.85).
+    z=0, túnel desde x~30.2 (boca ~0.5 hacia adentro) hasta 44.3 en el eje.
+    Calza con AirlockShell instanciado en Dome_Base.tscn a Y=3.4.
 
 Env vars:
   DOME_CAM=ext   -> vista exterior 3/4 alta (render + GLB)
@@ -36,20 +37,26 @@ SELF_LIGHT = True
 
 # --- Dimensiones (metros, Z-up Blender -> glTF Y-up al exportar) ---
 # Perfil fiteado contra los vértices del OBJ original (ver docstring).
+# El casquete se construye por la cara INTERIOR (esfera R=CAP_RI) y el
+# modificador Solidify empuja el espesor hacia afuera: así la cara interior
+# es tangente al tambor (sin escalón en z=DRUM_H) y la exterior reproduce
+# la esfera medida (R=33.15, apex 32.57).
 R_IN = 30.75      # radio interior de pared (cara interior medida en el piso)
 WALL_T = 0.6      # espesor de pared (cara exterior medida ~31.35)
-DRUM_H = 10.19    # altura del tambor vertical: take-off del casquete
-CAP_RS = 33.15    # radio de la esfera del casquete (fit exacto)
-CAP_CY = -0.58    # centro Z de la esfera (apex = CY + RS = 32.57)
+CAP_RS = 33.15    # radio de la esfera EXTERIOR del casquete (fit del OBJ)
+CAP_CY = -0.58    # centro Z de la esfera (apex exterior = CY + RS = 32.57)
+CAP_RI = CAP_RS - WALL_T  # esfera interior (32.55): tangente al tambor
+DRUM_H = -CAP_CY + math.sqrt(CAP_RI**2 - R_IN**2)  # take-off tangente
 SEG = 48          # segmentos de revolución (low-poly: ~4 m por faceta)
 
 # --- Airlocks (N/S/E/O) ---
 # Dome_Base.tscn instancia AirlockShell con origen en (±32, 3.4)/(∓32, 3.4):
 # interior de la carcasa ancho ±2.85, techo +2.62, piso de seguridad -1.31.
-# Arco del bore medido del OBJ original: r~4.5, centro z~4.3, piso plano z=0.
+# Arco del bore medido del OBJ original: r~4.5, centro z~4.3, piso plano z=0,
+# boca sobresaliendo ~0.5 hacia el interior (túnel desde x~30.2).
 BORE_R = 4.6      # radio del arco del túnel
 BORE_CY = 4.2     # centro en altura del arco (topa del arco ~8.8, piso 0)
-BORE_IN = 29.0    # inicio del cutter en el eje (dentro de la cara interior)
+BORE_IN = 30.3    # inicio del cutter en el eje (boca ~0.45 dentro de R_IN)
 BORE_OUT = 36.3   # fin del cutter (cubre la OuterSeal del shell en 32+3.2)
 
 # --- Agujero de hangar en el piso ---
@@ -62,12 +69,17 @@ FLOOR_T = 1.625   # espesor del piso (igual al reborde original)
 
 
 def profile_points():
-    """Perfil (r, z) del cascarón: tambor + casquete esférico hasta el ápex."""
+    """Perfil (r, z) de la cara INTERIOR: tambor + casquete hasta el ápex.
+
+    DRUM_H se elige para que la esfera interior pase exactamente por
+    (R_IN, DRUM_H): transición tangente, sin escalón.
+    """
     pts = [(R_IN, 0.0), (R_IN, DRUM_H)]
     n = 12
+    apex_z = CAP_CY + CAP_RI
     for i in range(1, n + 1):
-        z = DRUM_H + (CAP_CY + CAP_RS - DRUM_H) * i / n
-        r = math.sqrt(max(CAP_RS * CAP_RS - (z - CAP_CY) ** 2, 0.0))
+        z = DRUM_H + (apex_z - DRUM_H) * i / n
+        r = math.sqrt(max(CAP_RI * CAP_RI - (z - CAP_CY) ** 2, 0.0))
         pts.append((r, z))
     return pts
 
@@ -166,10 +178,12 @@ def build():
         cutter = cyl(f"Bore_{dx}_{dy}", BORE_R, length,
                      (dx * mid, dy * mid, BORE_CY), rot=rot, seg=48)
         boolean_cut(shell, cutter)
+        # Piso plano del túnel en z=0: corta solo el panza del cilindro que
+        # baja de -0.4 (box de z=-1.2 a 0, ancho 2*BORE_R, todo el largo).
         flat = box(f"BoreFlat_{dx}_{dy}",
-                   (dx * mid, dy * mid, (BORE_CY - 2.0 + BORE_CY) / 2.0),
-                   ((length, BORE_R * 2, BORE_CY + 2.0) if dx != 0
-                    else (BORE_R * 2, length, BORE_CY + 2.0)))
+                   (dx * mid, dy * mid, -0.6),
+                   ((length, BORE_R * 2 + 0.2, 1.2) if dx != 0
+                    else (BORE_R * 2 + 0.2, length, 1.2)))
         boolean_cut(shell, flat)
 
     # Separa las paredes de los bores en su propio objeto: viajan con acero
