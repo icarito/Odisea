@@ -2,15 +2,15 @@
 
 [ext_resource path="res://core_v2/components/SpawnPointV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/AirlockChamber.tscn" type="PackedScene" id=2]
-[ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.mesh" type="ArrayMesh" id=3]
-[ext_resource path="res://core_v2/levels/interiors/DomeTerrace_baked.shape" type="Shape" id=4]
+[ext_resource path="res://core_v2/levels/interiors/DomeTerraceV2_baked.mesh" type="ArrayMesh" id=3]
+[ext_resource path="res://core_v2/levels/interiors/DomeTerraceV2_baked.shape" type="Shape" id=4]
 [ext_resource path="res://core_v2/components/PushableBoxV2.tscn" type="PackedScene" id=5]
 [ext_resource path="res://assets/models/brt_bus_platform_low-poly.tscn" type="PackedScene" id=7]
 
 [node name="Dome_Default" type="Spatial"]
 
 [node name="SpawnPointV2" type="Position3D" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 8 )
 script = ExtResource( 1 )
 
 [node name="Terrace" type="StaticBody" parent="."]
@@ -23,7 +23,7 @@ mesh = ExtResource( 3 )
 shape = ExtResource( 4 )
 
 [node name="Airlock_North" parent="." instance=ExtResource( 2 )]
-transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, -0.4, 3.4, -32 )
+transform = Transform( -1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 1.23, -32 )
 
 [node name="OuterDoor" parent="Airlock_North" index="10"]
 __meta__ = {
@@ -45,7 +45,7 @@ target_airlock_path = NodePath("Airlock_North")
 zone_dir = Vector3( 0, 0, 1 )
 
 [node name="Airlock_South" parent="." instance=ExtResource( 2 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 3.4, 32.3809 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 32.3809 )
 
 [node name="OuterDoor" parent="Airlock_South" index="10"]
 __meta__ = {
@@ -67,7 +67,7 @@ target_airlock_path = NodePath("Airlock_South")
 zone_dir = Vector3( 0, 0, 1 )
 
 [node name="Airlock_East" parent="." instance=ExtResource( 2 )]
-transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 32, 3.4, 0 )
+transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 32, 1.23, 0 )
 
 [node name="OuterDoor" parent="Airlock_East" index="10"]
 __meta__ = {
@@ -89,7 +89,7 @@ target_airlock_path = NodePath("Airlock_East")
 zone_dir = Vector3( 0, 0, 1 )
 
 [node name="Airlock_West" parent="." instance=ExtResource( 2 )]
-transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -32, 3.4, 0 )
+transform = Transform( -4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, -32, 1.23, 0 )
 
 [node name="OuterDoor" parent="Airlock_West" index="10"]
 __meta__ = {
