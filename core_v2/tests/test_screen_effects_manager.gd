@@ -139,3 +139,12 @@ func test_screen_effects_manager_skips_death_confirm_in_cli_mode() -> void:
 	var wait_state = manager.wait_for_death_confirm()
 	assert_bool(wait_state == null).is_true()
 	session.is_cli_mode = previous_cli_mode
+
+func test_reset_returns_the_hud_widgets_hidden_by_the_cinematic_bars() -> void:
+	var manager = get_tree().root.get_node_or_null("ScreenEffectsManager")
+	var host = get_tree().root.get_node_or_null("SuitOS/SuitOSWidgetHost")
+	assert_object(host).is_not_null()
+	manager.show_script_cinematic_bars(true)
+	assert_bool(host._cinematic_active).is_true()
+	manager.reset(true)
+	assert_bool(host._cinematic_active).is_false()

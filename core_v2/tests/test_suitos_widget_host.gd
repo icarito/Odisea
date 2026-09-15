@@ -170,6 +170,25 @@ func test_widgets_are_opaque_and_hide_with_the_idle_touch_controls() -> void:
 	SuitOS.clear_slots()
 	SuitOS.unregister_screen(screen)
 
+func test_widgets_hide_during_cinematics_and_return_afterwards() -> void:
+	var screen = auto_free(HUDableComponentScript.new())
+	screen.hud_screen_id = "test:cinematic_visibility"
+	add_child(screen)
+	SuitOS.pin_to_slot(0, "test:cinematic_visibility")
+	var widget: CanvasItem = _widget_host.get_widget_root().get_node("SuitOS_Widget_slot_1")
+	assert_bool(widget.visible).is_true()
+
+	_widget_host._on_cinematic_started("test_rig")
+	assert_bool(_widget_host._cinematic_active).is_true()
+	yield(await_millis(250), "completed")
+	assert_bool(widget.visible).is_false()
+	_widget_host._on_cinematic_stopped()
+	yield(await_millis(250), "completed")
+	assert_bool(widget.visible).is_true()
+
+	SuitOS.clear_slots()
+	SuitOS.unregister_screen(screen)
+
 
 func _pointer(pressed: bool, at: Vector2) -> InputEventScreenTouch:
 	var ev := InputEventScreenTouch.new()

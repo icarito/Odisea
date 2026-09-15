@@ -36,6 +36,8 @@ const RECYCLE_COLOR := Color(0.42, 0.68, 0.76, 0.85)
 const RECYCLE_COLOR_HOT := Color(1.0, 0.45, 0.35, 1.0)
 const WIDGET_BG := Color(0.05, 0.08, 0.1, 1.0)
 const WIDGET_BORDER := Color(0.24, 0.55, 0.65, 1.0)
+const CINEMATIC_SLIDE_DURATION := 0.18
+const CINEMATIC_SLIDE_DISTANCE := 180.0
 # Capa propia, por DEBAJO de la UI tactil (capa 10): el joystick y los botones se dibujan encima.
 # Antes vivian en el slot HUD de OverlayUIManager (capa 115), que comparten el modo HUD y los
 # avisos y no se puede bajar solo. Tambien quedan debajo del menu de pausa (50) y del modo HUD.
@@ -64,6 +66,8 @@ var _recycle: Control = null
 var _recycle_hot := false
 var _press_on_button := false
 var _widget_root: Control = null
+var _cinematic_active := false
+var _cinematic_tween: Tween = null
 # De donde salen slots y pantallas: SuitOS en el juego, RemoteHudBackend en el control remoto (que
 # lo asigna antes de add_child). Mismo contrato; ver RemoteHudBackend.gd.
 var backend: Node = null
@@ -115,6 +119,12 @@ func _ready() -> void:
 	if mobile != null and mobile.has_signal("touch_active_changed") \
 			and not mobile.is_connected("touch_active_changed", self, "_on_screens_changed"):
 		mobile.connect("touch_active_changed", self, "_on_screens_changed")
+	var cinematic_manager = get_node_or_null("/root/CinematicManager")
+	if cinematic_manager != null:
+		if not cinematic_manager.is_connected("cinematic_started", self, "_on_cinematic_started"):
+			cinematic_manager.connect("cinematic_started", self, "_on_cinematic_started")
+		if not cinematic_manager.is_connected("cinematic_stopped", self, "_on_cinematic_stopped"):
+			cinematic_manager.connect("cinematic_stopped", self, "_on_cinematic_stopped")
 	if not get_viewport().is_connected("size_changed", self, "_relayout"):
 		get_viewport().connect("size_changed", self, "_relayout")
 
@@ -137,7 +147,7 @@ func refresh_visibility() -> void:
 	var touch_idle: bool = mobile != null and mobile.is_mobile() and not mobile.is_touch_active() \
 		and not in_hud_mode
 	# Mientras se arrastra hacia un slot (tambien el widget de una pantalla abierta) se ven todos.
-	var hidden: bool = (get_tree().paused and not in_hud_mode) or touch_idle \
+	var hidden: bool = _cinematic_active or (get_tree().paused and not in_hud_mode) or touch_idle \
 		or (screen_open and not _drop_targets_visible)
 	var has_screens: bool = suit_os != null and not suit_os.get_registered_screens().empty()
 	if not is_instance_valid(_widget_root):
@@ -157,6 +167,72 @@ func refresh_visibility() -> void:
 
 func _on_screens_changed(_id = "") -> void:
 	refresh_visibility()
+
+func _on_cinematic_started(_rig_id = "") -> void:
+	set_cinematic_active(true)
+
+func _on_cinematic_stopped() -> void:
+	set_cinematic_active(false)
+
+func set_cinematic_active(active: bool) -> void:
+	if _cinematic_active == active:
+		return
+	_cinematic_active = active
+	_animate_cinematic_visibility(active)
+
+func _animate_cinematic_visibility(hide_widgets: bool) -> void:
+	if not is_instance_valid(_widget_root):
+		return
+	if is_instance_valid(_cinematic_tween):
+		_cinematic_tween.stop_all()
+		_cinematic_tween.queue_free()
+		_cinematic_tween = null
+	var tween := Tween.new()
+	tween.pause_mode = PAUSE_MODE_PROCESS
+	add_child(tween)
+	_cinematic_tween = tween
+	var controls := []
+	for i in range(HudSlots.COUNT):
+		for prefix in ["SuitOS_Widget_", "SuitOS_Placeholder_"]:
+			var control = _widget_root.get_node_or_null(prefix + HudSlots.slot_key(i))
+			if is_instance_valid(control) and control is Control:
+				controls.append([control, i])
+	for entry in controls:
+		var control: Control = entry[0]
+		var slot_index: int = entry[1]
+		var home: Vector2 = control.rect_position
+		var meta_key := "cinematic_home_position"
+		if hide_widgets:
+			control.set_meta(meta_key, home)
+			control.visible = true
+			var direction := -1.0 if slot_index < 2 else 1.0
+			var target := home + Vector2(direction * CINEMATIC_SLIDE_DISTANCE, 0.0)
+			tween.interpolate_property(control, "rect_position", home, target, CINEMATIC_SLIDE_DURATION,
+				Tween.TRANS_QUAD, Tween.EASE_IN)
+			var faded := control.modulate
+			faded.a = 0.0
+			tween.interpolate_property(control, "modulate", control.modulate, faded, CINEMATIC_SLIDE_DURATION,
+				Tween.TRANS_QUAD, Tween.EASE_IN)
+		else:
+			var target_home: Vector2 = control.get_meta(meta_key, control.rect_position)
+			control.rect_position = target_home + Vector2((-1.0 if slot_index < 2 else 1.0) * CINEMATIC_SLIDE_DISTANCE, 0.0)
+			control.modulate.a = 0.0
+			control.visible = true
+			tween.interpolate_property(control, "rect_position", control.rect_position, target_home, CINEMATIC_SLIDE_DURATION,
+				Tween.TRANS_QUAD, Tween.EASE_OUT)
+			var opaque := control.modulate
+			opaque.a = 1.0
+			tween.interpolate_property(control, "modulate", control.modulate, opaque, CINEMATIC_SLIDE_DURATION,
+				Tween.TRANS_QUAD, Tween.EASE_OUT)
+	tween.connect("tween_all_completed", self, "_on_cinematic_tween_completed", [hide_widgets], CONNECT_ONESHOT)
+	tween.start()
+
+func _on_cinematic_tween_completed(hide_widgets: bool) -> void:
+	if hide_widgets and _cinematic_active:
+		refresh_visibility()
+	elif not hide_widgets and not _cinematic_active:
+		refresh_visibility()
+	_cinematic_tween = null
 
 func _on_hud_state_changed(_arg = null) -> void:
 	_hud_state_frame = Engine.get_idle_frames()

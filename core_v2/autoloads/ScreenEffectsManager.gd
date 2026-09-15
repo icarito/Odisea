@@ -63,6 +63,8 @@ func wait_for_death_confirm(params: Dictionary = {}):
 
 func reset(immediate: bool = true) -> void:
 	_script_cinematic_depth = 0
+	# Sin esto un script que muestra las barras y termina en reset() dejaba los widgets escondidos.
+	_set_widget_host_cinematic(false)
 	_set_level_audio_muted(false)
 	_set_world_paused(false)
 	if not _ensure_overlay():
@@ -132,7 +134,13 @@ func _set_world_paused(paused: bool) -> void:
 	if mobile and mobile.has_method("refresh_for_pause"):
 		mobile.refresh_for_pause()
 
+func _set_widget_host_cinematic(enabled: bool) -> void:
+	var widget_host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
+	if widget_host and widget_host.has_method("set_cinematic_active"):
+		widget_host.set_cinematic_active(enabled)
+
 func _set_script_cinematic_visible(enabled: bool, immediate: bool) -> void:
+	_set_widget_host_cinematic(enabled)
 	if not _ensure_overlay():
 		_warn_unavailable_once("script_cinematic")
 		return

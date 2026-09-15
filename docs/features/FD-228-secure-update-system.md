@@ -651,6 +651,13 @@ archivo y se renombran. Si un JSON está corrupto:
 7. Al llegar establemente al menú principal, llamar
    `UpdateManager.confirm_boot()`.
 
+Antes de confirmar un pending, `UpdateManager` ejecuta un smoke test de los recursos
+críticos del primer flujo jugable (scripts base, HUD de linterna y `Dome_Intro`). Si
+cualquiera no existe o no puede compilarse, el paquete pending se revierte y el proceso
+se cierra: Godot no permite desmontar un PCK de forma segura en caliente. El siguiente
+arranque carga únicamente el paquete confirmado anterior, evitando dejar instalada una
+actualización que solo rompe al entrar al primer nivel.
+
 `confirm_boot()`:
 
 - Convierte pending en confirmado.

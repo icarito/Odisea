@@ -816,6 +816,7 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 			_current_state = CameraModeState.TRANSITION_TO_CINEMATIC
 			active_rig = target_rig
 			current_control_mode = target_mode
+			emit_signal("cinematic_started", active_rig.name if active_rig else "")
 			emit_signal("control_mode_changed", target_mode)
 
 			if active_rig and is_instance_valid(active_rig) and active_rig.has_method("activate"):
@@ -843,7 +844,6 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 						})
 						new_cam.current = true
 
-			emit_signal("cinematic_started", active_rig.name if active_rig else "")
 			_current_state = CameraModeState.CINEMATIC_ACTIVE # Assuming instant for logic flow if handled by plugin
 
 			if _active_payload.get("latch_on_enter", true):
@@ -868,6 +868,7 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 
 			active_rig = null
 			current_control_mode = ControlMode.FREE
+			emit_signal("cinematic_stopped")
 			emit_signal("control_mode_changed", ControlMode.FREE)
 
 			if prev_rig and is_instance_valid(prev_rig) and prev_rig.has_method("deactivate"):
@@ -896,7 +897,6 @@ func _update_mode_fsm(_dt: float, target_req: CameraRequest):
 						player_cam.current = true
 						_sync_player_cam_hierarchy(player_cam)
 
-			emit_signal("cinematic_stopped")
 			_current_state = CameraModeState.FREE_ACTIVE
 
 			if _active_payload.get("latch_on_exit", true):
@@ -996,6 +996,7 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float, dt: 
 		_snap_vcamera_brain_to_active()
 	
 	_vcam_brain.current = true
+	emit_signal("cinematic_started", vcam.name)
 
 	_log_transition("vcam_activate", {
 		"vcam": vcam.name,
@@ -1006,7 +1007,6 @@ func _handle_vcam_request(vcam: Node, payload: Dictionary, duration: float, dt: 
 	_engage_input_latch(old_cam)
 	
 	_current_state = CameraModeState.VCAM_BLENDING if scaled_duration > 0.0 else CameraModeState.VCAM_ACTIVE
-	emit_signal("cinematic_started", vcam.name)
 	emit_signal("control_mode_changed", ControlMode.FREE)
 
 func _refresh_vcamera_pose(vcam: Node) -> void:
