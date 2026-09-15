@@ -434,3 +434,19 @@ cat /sys/kernel/debug/mali0/ctx/<pid>_1/{mem_zones,mem_jit_count,mem_jit_vm,mem_
    solo para prueba de causa o para proponer upstream a ROCKNIX.
 4. **Del lado del juego** (mitiga, no arregla): menos trabajo de tiler por frame en vistas pesadas (primitivas que
    cubren muchos tiles, draws), que es lo que convierte el fallo del segundo heap en tiles abortados.
+
+### L13 — ROCKNIX 20260901 lo resuelve (2026-09-15)
+
+Actualizado a ROCKNIX 20260901 (`next`, kernel 7.1.2, `mali_kbase` **r54p2**, `libmali` **g29p1**).
+Nota: el RG351V tenía dos SD; la de juegos (128 GB, partición exFAT de ArkOS) arrancó un ArkOS viejo al
+aplicar la actualización. Arrancar solo con la de 8 GB (ROCKNIX) la completó. Además `/storage/.cache/cores`
+tenía 3.9 GB de core dumps de Odisea que impedían descargar la actualización.
+
+| | ROCKNIX 20250517 (g13p0) | ROCKNIX 20260901 (g29p1) |
+|---|---|---|
+| Zona CUSTOM_VA (JIT) | 1 GB, llena por heaps de 368 MB | **no existe** (todo SAME_VA) |
+| mem_jit_count / mem_jit_vm | pico 19 / 656 MB | **0 / 0** |
+| Faults / "Failed to map" | cientos | **0 / 0** |
+| Vista hub de Dome_Intro (cámara propia, 208 draws, 850k vtx) | 7% celdas frescas (rota) | **91% (completa)** |
+| Dome_Intro, cámara del jugador, binario debug | 4 fps (render parcial) | **10.7 fps**, 30/30 ticks |
+| MemAvailable en Dome_Default | 164-326 MB | 448 MB |
