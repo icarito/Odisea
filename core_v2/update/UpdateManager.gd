@@ -55,6 +55,21 @@ var _staged_artifacts := []
 # request_restart() la instale recién cuando el usuario confirme.
 var _prefetch_only := false
 var _pending_apk_path := ""
+var _pending_boot_loaded := false
+
+# Recursos que deben poder compilarse antes de confirmar un PCK. El menu puede arrancar
+# aunque una escena del primer nivel o un componente HUD tenga una referencia rota; sin
+# este smoke test el updater confirmaba un paquete incompleto y el siguiente boot heredaba
+# el error. Mantener la lista corta y centrada en el primer flujo jugable.
+const BOOT_SMOKE_RESOURCES := [
+	"res://core_v2/components/HUDableComponent.gd",
+	"res://core_v2/components/HoloTerminalHUDable.gd",
+	"res://core_v2/things/FlashlightScreen.gd",
+	"res://core_v2/things/FlashlightScreen.tscn",
+	"res://core_v2/props/lights/HelmetFlashlight.tscn",
+	"res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsDisplay.tscn",
+	"res://core_v2/levels/interiors/Dome_Intro.tscn"
+]
 
 func _ready():
 	_keyring = load("res://core_v2/update/UpdateKeyring.gd").new()
@@ -86,7 +101,29 @@ func _is_replaying() -> bool:
 
 
 func _on_startup_gate_opened(_reason, _frames) -> void:
+	if _pending_boot_loaded and not _validate_boot_resources():
+		_fail_pending_boot("boot_resource_smoke_failed")
+		return
 	confirm_boot()
+
+func _validate_boot_resources() -> bool:
+	for path in BOOT_SMOKE_RESOURCES:
+		if not ResourceLoader.exists(path):
+			print("[UpdateManager] Boot smoke missing resource: ", path)
+			return false
+		var resource = load(path)
+		if resource == null:
+			print("[UpdateManager] Boot smoke failed to load: ", path)
+			return false
+	return true
+
+func _fail_pending_boot(reason: String) -> void:
+	print("[UpdateManager] Pending update rejected after boot smoke: ", reason)
+	# No se puede desmontar un PCK en caliente. Se revierte el estado y se sale; el
+	# siguiente arranque cargara solamente el paquete confirmado anterior.
+	_rollback_pending()
+	_set_state(State.BLOCKED_CRITICAL)
+	get_tree().quit()
 
 func check_for_updates() -> void:
 	if _is_source_checkout() or _updates_managed_externally():
@@ -250,6 +287,18 @@ func _check_needs_binary_update(p: Dictionary) -> bool:
 	if OS.has_feature("web") or OS.get_name() == "Android" or OS.get_name() == "iOS":
 		return false
 
+	# project.godot no identifica al runtime de Godot: un cambio del fork puede
+	# requerir un binario nuevo aunque el proyecto no haya cambiado. Los manifiestos
+	# actuales traen el hash del binario full; usarlo como contrato de compatibilidad.
+	var remote_binary = p.get("binary_full_artifact", null)
+	if remote_binary is Dictionary and String(remote_binary.get("sha256", "")) != "":
+		var executable = OS.get_executable_path()
+		var file = File.new()
+		if file.file_exists(executable):
+			return file.get_sha256(executable) != String(remote_binary.get("sha256", ""))
+
+	# Compatibilidad con manifiestos antiguos que todavía no publicaban el hash del
+	# runtime: conservar el criterio anterior basado en project.godot.
 	var remote_godot_hash = p.get("project_godot_hash", "")
 	if remote_godot_hash == "":
 		return false
@@ -1135,6 +1184,8 @@ func _check_pending_boot():
 	if not _apply_packages(pending["package_ids"], pending.get("package_hashes", {})):
 		print("[UpdateManager] Pending package(s) failed to apply. Rolling back.")
 		_rollback_pending()
+	else:
+		_pending_boot_loaded = true
 
 func _apply_binary_update(info: Dictionary) -> bool:
 	var bin_path = PACKAGE_DIR + info.id + ".bin"

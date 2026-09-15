@@ -133,6 +133,9 @@ func _set_world_paused(paused: bool) -> void:
 		mobile.refresh_for_pause()
 
 func _set_script_cinematic_visible(enabled: bool, immediate: bool) -> void:
+	var widget_host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
+	if widget_host and widget_host.has_method("set_cinematic_active"):
+		widget_host.set_cinematic_active(enabled)
 	if not _ensure_overlay():
 		_warn_unavailable_once("script_cinematic")
 		return
