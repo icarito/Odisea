@@ -890,7 +890,10 @@ func _should_disable_auto_align_for_profile() -> bool:
 	return false
 
 func _should_throttle_animator_for_profile() -> bool:
-	return false
+	# FD-299: en el tier LOW (Mali-G31) el animator era ~2.7 ms de un tick de ~18 ms, y con
+	# el render por debajo de 12 fps la mayoria de esos pasos nunca llegaba a pantalla.
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.is_low_tier()
 
 func _apply_camera_particle_policy() -> void:
 	var dust = _get_camera_space_dust()
@@ -3213,10 +3216,14 @@ func _paso_fisica(_delta):
 	else:
 		input = input_provider.get_input()
 
+	# El paso vale lo que dura un tick real: 1/60 exacto con la frecuencia por defecto (replays
+	# y CI no cambian), 1/30 en PortMaster (override.cfg), donde con FIXED_DT fijo menos ticks
+	# por segundo eran camara lenta.
+	var dt := 1.0 / float(Engine.iterations_per_second)
 	if HotzoneRecorder:
-		HotzoneRecorder.record_frame(input, FIXED_DT)
+		HotzoneRecorder.record_frame(input, dt)
 
-	step(FIXED_DT, input)
+	step(dt, input)
 
 func set_external_velocity(v: Vector3) -> void:
 	if is_instance_valid(movement_logic):
