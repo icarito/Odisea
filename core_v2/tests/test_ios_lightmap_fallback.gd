@@ -25,3 +25,19 @@ func test_valores_apagados_de_la_variable_no_fuerzan_nada() -> void:
 	assert_bool(IOSLightmapFallbackScript._wants_fallback("iOS", "0")).is_false()
 	assert_bool(IOSLightmapFallbackScript._wants_fallback("iOS", " OFF ")).is_false()
 	assert_bool(IOSLightmapFallbackScript._wants_fallback("X11", "false")).is_false()
+
+
+# La rampa de rejilla del andamio es un quad de doble cara con recorte: con el shader base
+# (cull back, sin recorte) desaparecia vista desde arriba en el Anbernic.
+func test_rejilla_de_doble_cara_conserva_cull_y_recorte() -> void:
+	var grate := SpatialMaterial.new()
+	grate.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	grate.params_use_alpha_scissor = true
+	grate.params_alpha_scissor_threshold = 0.3
+	var fallback = auto_free(IOSLightmapFallbackScript.new())
+	var mat: ShaderMaterial = fallback._build(grate, ImageTexture.new(), 1.0)
+	assert_str(mat.shader.code).contains("render_mode cull_disabled")
+	assert_str(mat.shader.code).contains("discard")
+	assert_float(mat.get_shader_param("alpha_scissor_threshold")).is_equal_approx(0.3, 0.001)
+	var opaque: ShaderMaterial = fallback._build(SpatialMaterial.new(), ImageTexture.new(), 1.0)
+	assert_str(opaque.shader.code).not_contains("discard")
