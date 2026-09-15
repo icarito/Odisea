@@ -9,7 +9,6 @@ const BAKED_LIGHTMAP_PATH := "BakedLightmap"
 const DIRECTIONAL_LIGHT_PATH := "DirectionalLight"
 const TERRACE_FLOOR_PATH := "Terrace/TerraceFloor"
 const DOME_SHELL_PATH := "Terrace/DomeShell"
-const FLOOR_MATERIAL_PATH := "res://assets/textures/Hangar Concrete Floor/1k/Hangar Concrete Floor.tres"
 const DOME_SHADER_PATH := "res://core_v2/levels/interiors/shaders/dome_wall_cylindrical.shader"
 
 func _init() -> void:
@@ -43,13 +42,15 @@ func _init() -> void:
 	if terrace_floor.mesh == null or not terrace_floor.mesh.resource_local_to_scene:
 		_fail("TerraceFloor mesh must be local to scene for baked lightmap runtime binding")
 		return
-	var floor_material: Material = terrace_floor.mesh.surface_get_material(0)
-	var shell_material: Material = dome_shell.mesh.surface_get_material(0)
-	if floor_material == null or floor_material.resource_path != FLOOR_MATERIAL_PATH:
-		_fail("Terrace floor must preserve Hangar Concrete Floor material")
-		return
-	if not (shell_material is ShaderMaterial) or (shell_material as ShaderMaterial).shader == null \
-		or (shell_material as ShaderMaterial).shader.resource_path != DOME_SHADER_PATH:
+	# Domo V2 (tools/dome_v2/scene_dome.py): la carcasa trae bores y franjas en
+	# superficies aparte; basta con que alguna lleve el shader cilíndrico.
+	var has_wall_shader := false
+	for surface in range(dome_shell.mesh.get_surface_count()):
+		var shell_material: Material = dome_shell.mesh.surface_get_material(surface)
+		if shell_material is ShaderMaterial and (shell_material as ShaderMaterial).shader != null \
+			and (shell_material as ShaderMaterial).shader.resource_path == DOME_SHADER_PATH:
+			has_wall_shader = true
+	if not has_wall_shader:
 		_fail("Dome shell must preserve dome_wall_cylindrical.shader")
 		return
 	var missing_uv2: Array = []

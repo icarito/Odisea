@@ -500,6 +500,15 @@ func test_host_keeps_a_remote_action_held_until_its_release():
 	Input.flush_buffered_events()
 	assert_bool(Input.is_action_pressed("crouch")).is_false()
 
+func test_remote_host_is_disabled_during_automated_runs():
+	var manager = get_node("/root/RemoteControlManager")
+	var session = get_node("/root/SessionManager")
+	var was_cli_mode: bool = session.is_cli_mode
+	session.is_cli_mode = true
+	assert_bool(manager._is_automated_session()).is_true()
+	assert_bool(manager._is_gameplay_scene("res://core_v2/tools/HotzonePlayer.tscn")).is_false()
+	session.is_cli_mode = was_cli_mode
+
 func test_host_releases_every_held_remote_action_on_disconnect():
 	# Sin add_child a proposito: en el arbol, _ready levanta el servidor en el proceso de test.
 	var mgr = auto_free(RemoteControlManager.new())

@@ -108,6 +108,19 @@ requieren debug/editor build. Confirmar con:
 curl -s "localhost:4999/eval?expr=OS.is_debug_build()"
 ```
 
+## Push de escenas ad hoc a un juego corriendo (device)
+
+Empaquetar una escena local, subirla e inyectarla en el juego vivo (Anbernic o cualquier
+device con peer local) sin re-exportar:
+
+```bash
+tools/push_scene_pck.sh res://core_v2/tests/ladder/LadderS1a.tscn
+tools/push_scene_pck.sh res://<escena>.tscn res://<extra>.mesh --id mi_test  # extras fuera del pack principal
+```
+
+Documentación completa (requisitos del device, gotchas de spawn/escena, medición en serie):
+`.agents/skills/run-odisea/SKILL.md`, sección "Push an ad hoc scene to a running game".
+
 ## Props
 
 Validar y capturar estados:

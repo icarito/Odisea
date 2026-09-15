@@ -60,10 +60,11 @@ func set_snapshot(snapshot: Dictionary) -> void:
 
 	if _meter_label != null:
 		_meter_label.text = _format_battery_bar(battery, battery_max)
-		if low and on:
-			_meter_label.add_color_override("font_color", Color(1.0, 0.35, 0.2, 1.0))
-		else:
-			_meter_label.add_color_override("font_color", Color(0.85, 0.95, 1.0, 1.0))
+		# Solo si cambia: cada override redibuja el Label, y con la fuente con outline del tema
+		# el motor (3.6 stock) re-empaca en el atlas los glyphs sin contorno en cada dibujo.
+		var meter_color := Color(1.0, 0.35, 0.2, 1.0) if low and on else Color(0.85, 0.95, 1.0, 1.0)
+		if _meter_label.get_color("font_color") != meter_color:
+			_meter_label.add_color_override("font_color", meter_color)
 
 func _format_battery_bar(val: float, max_val: float) -> String:
 	if max_val <= 0.0:

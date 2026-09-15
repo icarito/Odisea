@@ -81,7 +81,11 @@ func _ready() -> void:
 func _is_mobile() -> bool:
 	if OS.get_environment(MOBILE_ENV) in ["1", "true", "yes", "on"]:
 		return true
-	return OS.get_name() in ["Android", "iOS"]
+	if OS.get_name() in ["Android", "iOS"]:
+		return true
+	# FD-299 3c: el tier LOW del gate activa los mismos presupuestos que movil.
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.is_low_tier()
 
 
 # node: el consumer. method: nombre del metodo a llamar como method(level:int, max_level:int).

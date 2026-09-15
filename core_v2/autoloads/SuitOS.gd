@@ -275,7 +275,9 @@ func reevaluate_slots() -> void:
 		if not String(_pinned[i]).empty():
 			new_snap = _pinned_snapshot(String(_pinned[i]))
 		var key: String = HudSlots.slot_key(i)
-		if new_snap != _slot_snapshots.get(key, {}):
+		# hash() y no !=: en Godot 3 != entre Dictionaries compara referencias, asi que cada
+		# set_context (un frame) re-emitia widget_changed y redibujaba el widget sin cambios.
+		if new_snap.hash() != _slot_snapshots.get(key, {}).hash():
 			_slot_snapshots[key] = new_snap.duplicate(true)
 			emit_signal("widget_changed", key, _slot_snapshots[key])
 

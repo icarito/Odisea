@@ -141,6 +141,52 @@ bridge_stop
 
 **Never call `bridge_stop` if Sebastian opened the game manually.**
 
+## Push an ad hoc scene to a running game (PCK injection, Anbernic/device path)
+
+Build a scene locally, pack it, upload it to a running game on a remote device, and have it
+load the scene — no full re-export, no reinstall. This is the iteration loop for the Anbernic
+(FD-299): edit `.tscn` → push → measure, in seconds.
+
+```bash
+tools/push_scene_pck.sh res://core_v2/tests/ladder/LadderS1a.tscn
+# extras: pack additional res:// files the scene needs and that are NOT in the main pack
+tools/push_scene_pck.sh res://core_v2/tests/ladder/DomeDefaultV2Test.tscn \
+  res://core_v2/levels/interiors/DomeTerraceV2_baked.mesh \
+  res://core_v2/levels/interiors/DomeTerraceV2_baked.shape --id dome_v2_test
+# --id sets the artifact name (default: scene basename + timestamp); --no-launch skips scene change
+```
+
+How it works: PCKPacker (fork editor, headless) packs the listed files → scp to
+`$PORTMASTER_DIR/conf/godot/app_userdata/Odisea/updates/packages/<id>.pck` plus a
+`<id>.json` sidecar with the sha256 (ANNAV2's dev override path for `reload_pck`) →
+POST `reload_pck {artifact_id, scene}` to the local peer → the game loads the pack and
+switches scene. Dependencies already in the main pack resolve by themselves; only pack
+what's new. A failed `change_scene` can wedge the game: reboot the device (Anbernic
+autostart relaunches the port) before retrying.
+
+Device prerequisites (Anbernic):
+- `PORTMASTER_HOST` (default `root@angel.local`; if mDNS is slow use the IP, e.g. `root@192.168.18.36`).
+- The port runs the **debug binary** via `dev.sh` (exports `ANNA_V2_BRIDGE=<desktop_ip>:4999`
+  and swaps `ENGINE` to `godot.box3d.frt.arm64.debug` from the fork release) so the peer
+  accepts commands. Original release binary backed up as `odisea.frt.aarch64.release`.
+- Local peer running on the desktop: `tools/ensure_peer.sh`.
+- Relaunches: `ssh $HOST 'systemctl reboot'` — ES autostart opens the game; wait ~110 s
+  for the Menu heartbeat on the peer.
+
+Scene-change gotchas:
+- `reload_pck` uses raw `change_scene` (no spawn flow, no player). Prefer pushing with
+  `--no-launch` and then driving `SceneManager.goto_scene('<res://path>')` via the peer's
+  `/eval` so the normal spawn flow runs (SceneManager instances the Pilot at SpawnPointV2).
+- Spawn check: heartbeat `position` stuck at `[0,0,0]` + `dc 0` = no player camera. Fix:
+  `get_node('/root/SceneManager')._ensure_player_in_current_scene(get_tree().current_scene)`.
+- Mute the device for headless test runs: `AudioServer.set_bus_mute(0, true)`.
+
+Measure (Anbernic): `tools/anbernic_probe.sh <etiqueta> [segundos] [shots]` — fault count
+(kernel-timestamp window), GPU pages, MemAvailable, central heartbeat, and a **grim series**
+(`shots>1`); `ANNA_MOVE=1` rotates Elías' yaw between shots so each shot is fresh content.
+One full frame can lie (a single completed frame then failure) — coverage must be judged
+on the series.
+
 ## Comunicar resultados visuales
 
 - Después de `capture_vision {"include_base64": true}` → mostrar la imagen inline en el chat inmediatamente.

@@ -1,0 +1,27 @@
+[remap]
+
+importer="scene"
+type="PackedScene"
+path="res://.import/DomeTerraceV2.glb-87d4c01042b1005ec7bf8ec08bd87dc9.scn"
+
+[deps]
+
+source_file="res://assets/models/dome_terrace_v2/DomeTerraceV2.glb"
+dest_files=[ "res://.import/DomeTerraceV2.glb-87d4c01042b1005ec7bf8ec08bd87dc9.scn" ]
+
+[params]
+
+nodes/root_type="Spatial"
+nodes/root_name="DomeTerraceV2"
+nodes/root_scale=1.0
+nodes/custom_script=""
+nodes/storage=0
+nodes/use_legacy_names=false
+materials/location=1
+materials/storage=0
+materials/keep_on_reimport=true
+meshes/octahedral_compression=true
+meshes/compress=4286
+meshes/ensure_tangents=true
+meshes/generate_lods=true
+meshes/lightmap_texel_size=0.1
