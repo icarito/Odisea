@@ -357,6 +357,7 @@ debug v0.3.0, Dome_Intro):
 | R6 30 Hz real + animator espaciado | 6.4 | 30 de 30 | 4.7 | 16.2 ms |
 | **R7** + sistemas ambientales espaciados, **Dome_Default** | **27.1** | 30 de 30 | 1.1 | 8.2 ms |
 | R7, Dome_Intro (render parcial, fps optimista) | 15.2 | 30 de 30 | 2.0 | 15.0 ms |
+| **R8 mismo build, binario release**, Dome_Default | **28** | 30 Hz | — | — |
 
 - Espiral: con 17.8 ms de GDScript por tick y período de 16.7 ms, cada frame arrastra 8 ticks
   (tope fijo en `main.cpp`; `physics/common/max_physics_steps_per_frame` **no existe** en 3.6).
@@ -394,4 +395,4 @@ debug v0.3.0, Dome_Intro):
 1. Presupuesto de contenido del tier LOW para Dome_Intro (qué recortar u ofrecer como LOD).
 2. `cma=` más grande en la línea de arranque de ROCKNIX como prueba de causa (toca el boot del
    device; no hecho sin aprobación).
-3. R6/R7 son con el binario debug (el release corre más rápido): repetir R7 en release.
+3. Espaciar en tier LOW el escaneo de interacción y de zonas del player (hoy por tick, a propósito).
