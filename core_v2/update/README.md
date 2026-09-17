@@ -188,6 +188,10 @@ curl -s -H "Accept: application/vnd.odisea.update-manifest.v1+json" \
 Notas:
 - Requiere el header `Accept: application/vnd.odisea.update-manifest.v1+json` (si no, `400 invalid_accept_header`).
 - El **arch** en el nombre es `x86_64`, no `linux_x64` (los manifiestos son `manifest-linux-x86_64.json`).
+- El build **experimental Wayland** (runtime FRT/SDL2 del fork) trae `variant=wayland` en su
+  `build_meta` y consulta `platform=linux_wayland` → `manifest-linux_wayland-x86_64.json`.
+  Tiene pck propio: el pck x11 le pisaría el `build_meta` empaquetado y perdería la marca.
+  Si el central aún no conoce `linux_wayland`, el cliente pausa el update (no cae al pck x11).
 - El **primer** request tras un build nuevo puede dar `504` (~10s) mientras el central
   baja el manifiesto de GitHub; reintente — luego responde en ~1s (cache 5 min).
 - `200` con `payload_b64` = manifiesto firmado servido. `204` = sin update. `400` con

@@ -38,7 +38,10 @@ def inflate_ws_frame(data: bytes) -> Optional[bytes]:
 # --- Configuration ---
 CENTRAL_HTTP_PORT = int(os.environ.get("CENTRAL_HTTP_PORT", 5003))
 
-VALID_PLATFORMS = {"linux", "windows", "macos", "android", "html5", "ios"}
+# linux_wayland: build experimental Linux con runtime FRT/SDL2 (variant=wayland en
+# build_meta). Manifiesto propio (manifest-linux_wayland-x86_64.json) para no bajarle
+# el .pck x11, que le borraria la marca wayland del build_meta empaquetado.
+VALID_PLATFORMS = {"linux", "linux_wayland", "windows", "macos", "android", "html5", "ios"}
 VALID_CHANNELS = {"release", "nightly"}
 MANIFEST_ACCEPT_HEADER = "application/vnd.odisea.update-manifest.v1+json"
 MANIFEST_CACHE_TTL_S = 60  # frescura del manifest cacheado (antes 300)

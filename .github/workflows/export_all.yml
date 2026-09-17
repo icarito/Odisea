@@ -352,6 +352,12 @@ jobs:
         run: |
           # FD-234: Inject version + hash + date into project.godot
           sed -i -E "s/^(application\/)?config\/version=\".*\"/config\/version=\"$VERSION\"/" project.godot
+          # Variante de runtime para el updater: el build Wayland (FRT/SDL2) se
+          # identifica con variant=wayland para consultar su propio manifest.
+          VARIANT=""
+          if [ "${{ matrix.platform }}" = "linux_x64_wayland" ]; then
+            VARIANT="wayland"
+          fi
           python3 scripts/inject_build_meta.py \
             --token "${{ secrets.ODISEA_CENTRAL_INGEST_TOKEN }}" \
             --commit "${{ needs.prep.outputs.head_sha }}" \
@@ -359,6 +365,7 @@ jobs:
             --channel "${{ needs.prep.outputs.channel }}" \
             --version "${{ needs.prep.outputs.version }}" \
             --official-host "odisea.educa.juegos" \
+            --variant "$VARIANT" \
             --out-js "build_meta.js" \
             --out-json "build_meta.json"
           python3 - <<'PY'
@@ -1498,7 +1505,7 @@ jobs:
           fi
 
       - name: Stage standalone .pck for in-app update (desktop)
-        if: matrix.platform == 'linux_x64' || matrix.platform == 'linux_arm64' || matrix.platform == 'windows'
+        if: matrix.platform == 'linux_x64' || matrix.platform == 'linux_x64_wayland' || matrix.platform == 'linux_arm64' || matrix.platform == 'windows'
         run: |
           # El export desktop usa embed_pck=false, así que junto al ejecutable queda
           # un .pck suelto. El update in-app hace hot-swap de ESE .pck (chunkeable y
@@ -1507,6 +1514,7 @@ jobs:
           VERSION="${{ needs.prep.outputs.version_slug }}"
           case "${{ matrix.platform }}" in
             linux_x64)   SRC="build/linux_x86_64" ;;
+            linux_x64_wayland) SRC="build/linux_x86_64" ;;
             linux_arm64) SRC="build/linux_arm64" ;;
             windows)     SRC="build/windows" ;;
           esac
@@ -1516,7 +1524,7 @@ jobs:
             ls -la "$SRC" || true
             exit 1
           fi
-          if [ "${{ matrix.platform }}" = "linux_x64" ] || [ "${{ matrix.platform }}" = "windows" ]; then
+          if [ "${{ matrix.platform }}" = "linux_x64" ] || [ "${{ matrix.platform }}" = "linux_x64_wayland" ] || [ "${{ matrix.platform }}" = "windows" ]; then
             python3 tools/audit_export_pck.py "$PCK" --desktop
           else
             python3 tools/audit_export_pck.py "$PCK"
@@ -2083,6 +2091,7 @@ jobs:
           # excluye explícitamente ARM64 para el caso x64.
           PLATFORMS=(
             "linux_x64:Odisea-Tech-Demo-Linux-*:linux:x86_64"
+            "linux_x64_wayland:Odisea-Tech-Demo-Wayland-Linux-*:linux_wayland:x86_64"
             "linux_arm64:Odisea-Tech-Demo-Linux-ARM64-*:linux:arm64"
             "windows:Odisea-Tech-Demo-Windows-*:windows:x86_64"
             "macos:Odisea-Tech-Demo-macOS-*:macos:universal"

@@ -175,6 +175,56 @@ async def test_update_manifest_304_not_modified(central, aiohttp_client, monkeyp
     resp = await client.get('/game/updates/v1/manifest', headers=headers, params=params)
     assert resp.status == 304
 
+async def test_update_manifest_accepts_linux_wayland(central, aiohttp_client, monkeypatch):
+    # El build experimental Wayland pide su propio manifest. Si VALID_PLATFORMS no
+    # lo incluyera, el central devolveria 400 y ese build quedaria sin updater.
+    app = web.Application()
+    app.router.add_get('/game/updates/v1/manifest', central.handle_update_manifest)
+    client = await aiohttp_client(app)
+
+    seen = {}
+
+    async def mock_get_manifest(self, channel, platform, arch):
+        seen["platform"] = platform
+        return {
+            "ts": time.time(),
+            "etag": "wayland-etag",
+            "content": make_signed_envelope({"build_id": "999"}),
+        }
+
+    monkeypatch.setattr(OdiseaCentral, "_get_manifest", mock_get_manifest)
+
+    headers = {"Accept": MANIFEST_ACCEPT_HEADER}
+    params = {
+        "channel": "nightly",
+        "platform": "linux_wayland",
+        "arch": "x86_64",
+        "current_version": "0.4.0",
+        "current_build_id": "12345",
+    }
+    resp = await client.get('/game/updates/v1/manifest', headers=headers, params=params)
+    assert resp.status == 200
+    assert seen["platform"] == "linux_wayland"
+
+
+async def test_update_manifest_400_invalid_platform(central, aiohttp_client):
+    app = web.Application()
+    app.router.add_get('/game/updates/v1/manifest', central.handle_update_manifest)
+    client = await aiohttp_client(app)
+
+    headers = {"Accept": MANIFEST_ACCEPT_HEADER}
+    params = {
+        "channel": "nightly",
+        "platform": "not_a_platform",
+        "arch": "x86_64",
+        "current_version": "0.4.0",
+        "current_build_id": "12345",
+    }
+    resp = await client.get('/game/updates/v1/manifest', headers=headers, params=params)
+    assert resp.status == 400
+    assert (await resp.json())["error"] == "invalid_platform"
+
+
 async def test_update_manifest_503_origin_down(central, aiohttp_client, monkeypatch):
     app = web.Application()
     app.router.add_get('/game/updates/v1/manifest', central.handle_update_manifest)

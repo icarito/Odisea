@@ -125,6 +125,23 @@ func _fail_pending_boot(reason: String) -> void:
 	_set_state(State.BLOCKED_CRITICAL)
 	get_tree().quit()
 
+# Plataforma del updater. El build experimental Wayland (runtime FRT/SDL2 del fork)
+# trae variant=wayland en su build_meta y tiene su propio manifest: bajar el .pck
+# del build x11 le pisaria el build_meta empaquetado (viaja dentro del .pck) y
+# perderia la marca tras aplicar el update, ademas de que el runtime/formato de
+# texturas difiere.
+func _resolve_platform() -> String:
+	var platform = "linux"
+	var os_name = OS.get_name()
+	if os_name == "Windows": platform = "windows"
+	elif os_name == "OSX": platform = "macos"
+	elif os_name == "Android": platform = "android"
+	elif os_name == "iOS": platform = "ios"
+	elif os_name == "HTML5": platform = "html5"
+	if platform == "linux" and _get_build_meta_value("variant") == "wayland":
+		platform = "linux_wayland"
+	return platform
+
 func check_for_updates() -> void:
 	if _is_source_checkout() or _updates_managed_externally():
 		_set_state(State.IDLE)
@@ -159,13 +176,8 @@ func check_for_updates() -> void:
 	if channel == "":
 		channel = "nightly"
 
-	var platform = "linux"
+	var platform = _resolve_platform()
 	var os_name = OS.get_name()
-	if os_name == "Windows": platform = "windows"
-	elif os_name == "OSX": platform = "macos"
-	elif os_name == "Android": platform = "android"
-	elif os_name == "iOS": platform = "ios"
-	elif os_name == "HTML5": platform = "html5"
 
 	var arch = "x86_64"
 	if OS.has_feature("arm64"):
@@ -215,6 +227,15 @@ func _on_check_completed(result, response_code, _headers, body, http, channel, p
 				return
 
 	if response_code == 204:
+		_set_state(State.IDLE)
+		return
+
+	if response_code == 400 and platform == "linux_wayland":
+		# Central anterior a que linux_wayland entrara en VALID_PLATFORMS. NO se cae
+		# al manifest linux a proposito: ese .pck no trae variant=wayland y el build
+		# dejaria de identificarse como wayland tras aplicar el update. Se reintenta
+		# solo, en el proximo check, contra el central actualizado.
+		print("[UpdateManager] Central sin soporte linux_wayland; update pausado.")
 		_set_state(State.IDLE)
 		return
 

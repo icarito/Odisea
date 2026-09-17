@@ -31,6 +31,9 @@ def main():
     parser.add_argument("--channel", nargs="?", default=CANARY_CHANNEL, const=CANARY_CHANNEL)
     parser.add_argument("--version", nargs="?", default=CANARY_VERSION, const=CANARY_VERSION)
     parser.add_argument("--official-host", nargs="?", default=CANARY_OFFICIAL_HOST, const=CANARY_OFFICIAL_HOST)
+    # Variante de build (ej. "wayland"): el updater la lee para elegir su propio
+    # manifest (linux_wayland) en vez del linux x11 generico.
+    parser.add_argument("--variant", default="")
     parser.add_argument("--out-js", help="Output path for build_meta.js")
     parser.add_argument("--out-json", help="Output path for build_meta.json")
 
@@ -44,6 +47,9 @@ def main():
         "version": _value_or_canary(args.version, CANARY_VERSION),
         "officialHost": _value_or_canary(args.official_host, CANARY_OFFICIAL_HOST)
     }
+    variant = str(args.variant or "").strip()
+    if variant:
+        meta["variant"] = variant
 
     for key, value in meta.items():
         if "canary" in value.lower() or value.startswith("unknown-"):
