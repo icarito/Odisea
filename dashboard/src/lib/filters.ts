@@ -21,7 +21,8 @@ export const normalizePlatform = (value: any): string | null => {
   // iOS builds report OS.get_name() == "iOS"; the handshake sends "ios".
   if (['iphone', 'ipad', 'ipados'].includes(normalized)) return 'ios';
   if (['win', 'win32', 'win64'].includes(normalized)) return 'windows';
-  if (['x11', 'linuxbsd', 'linux_x11'].includes(normalized)) return 'linux';
+  // "unix" es OS.get_name() en builds Linux sin servidor X11 (Wayland/FRT/custom).
+  if (['x11', 'linuxbsd', 'linux_x11', 'unix'].includes(normalized)) return 'linux';
   return normalized;
 };
 
