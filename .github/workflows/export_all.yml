@@ -143,6 +143,7 @@ jobs:
           fi
           ALL_PLATFORMS='[
             {"platform":"linux_x64","os":"ubuntu-latest","preset":"Linux/X11 x86_64","artifact_name":"Odisea-Tech-Demo-Linux"},
+            {"platform":"linux_x64_wayland","os":"ubuntu-latest","preset":"Linux/X11 x86_64","artifact_name":"Odisea-Tech-Demo-Wayland-Linux"},
             {"platform":"linux_arm64","os":"ubuntu-latest","preset":"Linux/X11 ARM64","artifact_name":"Odisea-Tech-Demo-Linux-ARM64"},
             {"platform":"windows","os":"ubuntu-latest","preset":"Windows Desktop","artifact_name":"Odisea-Tech-Demo-Windows"},
             {"platform":"macos","os":"ubuntu-latest","preset":"macOS Universal","artifact_name":"Odisea-Tech-Demo-macOS"},
@@ -160,7 +161,7 @@ jobs:
               PLATFORMS='[]'
               echo "::notice::[build:none] en el commit: se omite el export multiplataforma."
               ;;
-            linux_x64|linux_arm64|windows|macos|ios|android|html5)
+            linux_x64|linux_x64_wayland|linux_arm64|windows|macos|ios|android|html5)
               PLATFORMS=$(printf '%s' "$ALL_PLATFORMS" | jq -c --arg platform "$TARGET_PLATFORM" \
                 '[.[] | select(.platform == $platform)]')
               ;;
@@ -497,6 +498,7 @@ jobs:
           # template, which is why the exporter binary is left alone.
           case "${{ matrix.platform }}" in
             linux_x64)   BOX3D_FILES="linux_x11_64_release linux_x11_64_debug" ;;
+            linux_x64_wayland) BOX3D_FILES="" ;;  # rama FRT de abajo
             linux_arm64) BOX3D_FILES="linux_x11_arm64_release linux_x11_arm64_debug" ;;
             windows)     BOX3D_FILES="windows_64_release.exe windows_64_debug.exe" ;;
             macos)       BOX3D_FILES="osx.zip" ;;
@@ -508,7 +510,20 @@ jobs:
           # Slots are published loose alongside the .tpz precisely so a job can
           # take its own without downloading half a gigabyte of platforms it
           # will never export to.
-          if [ -n "$BOX3D_FILES" ]; then
+          #
+          # El build wayland x86_64 usa el runtime FRT/SDL2 del fork (desktop GL
+          # 3.3 core), que se publica con su propio nombre y no como slot x11: el
+          # exporter stock de Linux/X11 embebe el .pck sobre el template del slot,
+          # asi que se lo baja renombrado a linux_x11_64_release/debug.
+          if [ "${{ matrix.platform }}" = "linux_x64_wayland" ]; then
+            curl -fSL -o "$TPL_DIR/linux_x11_64_release" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.frt.x86_64.release"
+            curl -fSL -o "$TPL_DIR/linux_x11_64_debug" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.frt.x86_64.debug"
+            chmod +x "$TPL_DIR/linux_x11_64_release" "$TPL_DIR/linux_x11_64_debug" || true
+            echo "Box3D FRT x86_64 (Wayland) instalado como slots Linux: linux_x11_64_release linux_x11_64_debug"
+            echo "BOX3D_ACTIVE=1" >> "$GITHUB_ENV"
+          elif [ -n "$BOX3D_FILES" ]; then
             for f in $BOX3D_FILES; do
               curl -fSL -o "$TPL_DIR/$f" \
                 "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/$f"
@@ -817,6 +832,7 @@ jobs:
           # de .stex que el handheld nunca abre (medido en el .pck del nightly).
           fmts = {
               "linux_x64":   dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
+              "linux_x64_wayland": dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
               "windows":     dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
               "macos":       dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
               "linux_arm64": dict(s3tc=False, bptc=False, etc=False, etc2=True,  pvrtc=False),
@@ -1140,6 +1156,7 @@ jobs:
 
           case "${{ matrix.platform }}" in
             linux_x64) OUT="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
+            linux_x64_wayland) OUT="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
             linux_arm64) OUT="build/linux_arm64/Odisea-Tech-Demo.arm64" ;;
             windows) OUT="build/windows/Odisea-Tech-Demo.exe" ;;
             macos) OUT="build/macos/Odisea-Tech-Demo.zip" ;;

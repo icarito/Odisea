@@ -18,6 +18,8 @@ from pathlib import Path
 
 PLATFORM_FORMATS = {
 	"linux_x64": {"s3tc"},
+	# Runtime Wayland nativo (FRT/SDL2 x86_64): mismo camino GLES3 de escritorio.
+	"linux_x64_wayland": {"s3tc"},
 	"windows": {"s3tc"},
 	"macos": {"s3tc"},
 	# Sin s3tc (ninguna GPU ARM lo soporta) y CON etc2: tiene que coincidir con lo que
