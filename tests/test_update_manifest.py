@@ -141,6 +141,47 @@ def test_android_apk_is_an_installable_update(rsa_keys):
         assert payload["full_artifact"]["kind"] == "apk"
         assert payload["full_artifact"]["url"].endswith("Odisea-Android.apk")
 
+def test_runtime_binary_is_published_alongside_the_pck(rsa_keys):
+    import gzip
+    with tempfile.TemporaryDirectory() as artifacts_dir:
+        pck_gz = os.path.join(artifacts_dir, "Odisea-Tech-Demo-Linux-0.4.0.pck.gz")
+        with gzip.open(pck_gz, "wb") as f:
+            f.write(b"fake pck content")
+        runtime = os.path.join(artifacts_dir, "runtime-linux_x64-0.4.0")
+        with open(runtime, "wb") as f:
+            f.write(b"fake runtime binary")
+
+        manifest_path = os.path.join(artifacts_dir, "manifest.json")
+        subprocess.run([
+            "python3", "scripts/update_manifest.py", "generate",
+            "--artifacts-dir", artifacts_dir,
+            "--output", manifest_path,
+            "--key", rsa_keys["private_path"],
+            "--key-id", "test",
+            "--version", "0.4.0",
+            "--build-id", "700",
+            "--channel", "nightly",
+            "--platform", "linux",
+            "--arch", "x86_64",
+            "--base-url", "https://example.test/releases/download/nightly",
+            "--binary-path", runtime,
+        ], check=True)
+
+        with open(manifest_path, "r") as f:
+            envelope = json.load(f)
+        payload = json.loads(base64.b64decode(envelope["payload_b64"]).decode("utf-8"))
+
+        # El runtime nunca debe robarse el rol de artefacto principal: el update sigue
+        # siendo el .pck.gz.
+        assert payload["full_artifact"]["compression"] == "gzip"
+        assert payload["full_artifact"]["url"].endswith(".pck.gz")
+
+        binary = payload["binary_full_artifact"]
+        assert binary["kind"] == "binary"
+        assert binary["url"] == "https://example.test/releases/download/nightly/runtime-linux_x64-0.4.0"
+        assert binary["sha256"] == calculate_hashes(runtime)["sha256"]
+
+
 def test_tampered_payload(rsa_keys):
     with tempfile.TemporaryDirectory() as artifacts_dir:
         artifact_path = os.path.join(artifacts_dir, "Odisea.pck")

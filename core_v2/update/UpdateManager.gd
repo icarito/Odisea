@@ -625,9 +625,12 @@ func request_restart() -> void:
 		else:
 			# Linux/macOS: swap it now.
 			if not _apply_binary_update(pending["pending_binary"]):
-				# If swap failed, we can't really proceed with an incompatible PCK.
-				# The user will have to try again or we might need a rollback here.
-				print("[UpdateManager] Binary swap failed before restart.")
+				# Sin swap no se puede correr el .pck nuevo sobre el runtime viejo
+				# (mismatch): revertir el pending y no relanzar.
+				print("[UpdateManager] Binary swap failed before restart; rollback.")
+				_rollback_pending()
+				_on_error("binary_swap_failed", true)
+				return
 
 	if exe != "":
 		OS.execute(exe, [], false)
@@ -636,11 +639,15 @@ func request_restart() -> void:
 func _launch_windows_updater(info: Dictionary, exe_path: String) -> void:
 	var bin_path = ProjectSettings.globalize_path(PACKAGE_DIR + info.id + ".bin")
 	var abs_exe = ProjectSettings.globalize_path(exe_path)
+	var backup_path = ProjectSettings.globalize_path(UPDATE_DIR + "backup_binary")
 	var script_path = ProjectSettings.globalize_path(UPDATE_DIR + "updater.bat")
 
+	# El exe esta en uso hasta que el proceso muere: el .bat espera, guarda un backup
+	# (para el rollback de _rollback_pending) y recien ahi reemplaza y relanza.
 	var script_content = [
 		"@echo off",
 		"timeout /t 2 /nobreak > nul",
+		"copy /y \"%s\" \"%s\"" % [abs_exe, backup_path],
 		"copy /y \"%s\" \"%s\"" % [bin_path, abs_exe],
 		"start \"\" \"%s\"" % [abs_exe],
 		"del \"%%~f0\""
@@ -1196,9 +1203,18 @@ func _check_pending_boot():
 	if pending.has("pending_binary") and not pending["pending_binary"].empty():
 		var info = pending["pending_binary"]
 		if File.new().get_sha256(OS.get_executable_path()) != info.hash:
-			# Not updated yet? This could happen if the stub failed or on Linux if we just booted.
-			# Try applying it now as a fallback.
-			_apply_binary_update(info)
+			# El swap no ocurrio (stub de Windows fallido, o el proceso murio antes
+			# del restart). Reemplazar el archivo en disco NO cambia la imagen ya
+			# cargada: hay que relanzar para arrancar con el runtime nuevo ANTES de
+			# cargar su .pck, o el .pck nuevo correria sobre el runtime viejo.
+			if not _apply_binary_update(info):
+				print("[UpdateManager] Pending binary could not be applied; rolling back.")
+				_rollback_pending()
+				return
+			print("[UpdateManager] Runtime swapped; relaunching to apply update.")
+			OS.execute(OS.get_executable_path(), [], false)
+			get_tree().quit()
+			return
 
 	# Aplicar el pending; si FALLA (p.ej. el package no es un .pck válido, o falta),
 	# revertir YA al build instalado en vez de quedar en un estado roto y crashear.
@@ -1231,19 +1247,32 @@ func _apply_binary_update(info: Dictionary) -> bool:
 		d.remove(backup_path)
 
 	if OS.get_name() == "Windows":
-		# Direct replacement on Windows is usually locked.
+		# El exe esta en uso: no se puede reemplazar en caliente. Lo hace el .bat de
+		# _launch_windows_updater con el proceso ya muerto.
 		return d.copy(bin_path, exe_path) == OK
-	else:
-		# Linux/macOS atomic swap
-		if d.copy(exe_path, backup_path) != OK:
-			print("[UpdateManager] Failed to backup current binary.")
 
-		if d.rename(bin_path, exe_path) == OK:
-			if OS.get_name() == "Linux":
-				OS.execute("chmod", ["+x", exe_path], true)
-			print("[UpdateManager] Binary updated successfully.")
-			return true
+	# Linux/macOS: backup best-effort para el rollback, y swap del binario.
+	if d.copy(exe_path, backup_path) != OK:
+		print("[UpdateManager] Failed to backup current binary.")
 
+	if _replace_file(bin_path, exe_path):
+		if OS.get_name() == "Linux":
+			OS.execute("chmod", ["+x", exe_path], true)
+		print("[UpdateManager] Binary updated successfully.")
+		return true
+
+	return false
+
+# Reemplaza dst con src. Directory.rename usa rename(2): en Linux pisa el destino,
+# pero falla con EXDEV si src y dst estan en filesystems distintos (user:// suele
+# estar en $HOME y la instalacion en otro mount). Fallback: copiar y borrar origen.
+func _replace_file(src: String, dst: String) -> bool:
+	var d = Directory.new()
+	if d.rename(src, dst) == OK:
+		return true
+	if d.copy(src, dst) == OK:
+		d.remove(src)
+		return true
 	return false
 
 # Descarta el pending (boot fallido), borra sus packages no confirmados, y carga
@@ -1259,7 +1288,7 @@ func _rollback_pending() -> void:
 		var backup_path = UPDATE_DIR + "backup_binary"
 		var exe_path = OS.get_executable_path()
 		if d.file_exists(backup_path):
-			d.rename(backup_path, exe_path)
+			_replace_file(backup_path, exe_path)
 			if OS.get_name() == "Linux":
 				OS.execute("chmod", ["+x", exe_path], true)
 

@@ -1539,6 +1539,28 @@ jobs:
           gzip -9 -n -c "$PCK" > "$OUT.gz"
           echo "Staged update .pck: $OUT ($(du -h "$OUT" | cut -f1)) + .gz ($(du -h "$OUT.gz" | cut -f1))"
 
+      - name: Stage runtime binary for in-app update (desktop)
+        if: matrix.platform == 'linux_x64' || matrix.platform == 'linux_x64_wayland' || matrix.platform == 'linux_arm64' || matrix.platform == 'windows'
+        run: |
+          # El runtime (binario del fork: Box3D x11 o FRT/SDL2) cambia cuando se
+          # actualiza Box3D/FRT. El update in-app tiene que poder reemplazarlo ademas
+          # del .pck, o un build nuevo arranca con runtime viejo y se rompe. Se
+          # publica suelto y con la version en el nombre (como el .pck) para no pisar
+          # builds viejos; el hash queda en binary_full_artifact del manifest.
+          VERSION="${{ needs.prep.outputs.version_slug }}"
+          case "${{ matrix.platform }}" in
+            linux_x64)         SRC="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
+            linux_x64_wayland) SRC="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
+            linux_arm64)       SRC="build/linux_arm64/Odisea-Tech-Demo.arm64" ;;
+            windows)           SRC="build/windows/Odisea-Tech-Demo.exe" ;;
+          esac
+          test -f "$SRC" || { echo "::error::runtime no encontrado: $SRC"; ls -la "$(dirname "$SRC")" || true; exit 1; }
+          mkdir -p dist
+          OUT="dist/runtime-${{ matrix.platform }}-$VERSION"
+          cp "$SRC" "$OUT"
+          chmod +x "$OUT" || true
+          echo "Staged runtime: $OUT ($(du -h "$OUT" | cut -f1))"
+
       # Paquete PortMaster para handhelds Linux/ARM (Anbernic y companiia). Lleva el
       # FRT arm64 del fork (con Box3D): el runtime frt_3.6 de PortMaster es Godot
       # stock y cae a Bullet en silencio. Sale a dist_portmaster/ y NO a dist/ para
@@ -1578,6 +1600,7 @@ jobs:
             dist/*.apk
             dist/*.ipa
             dist/*.pck.gz
+            dist/runtime-*
           # Cada matrix export que llega aquí debe haber producido su paquete.
           # Fallar evita un run verde que publique un nightly incompleto.
           if-no-files-found: error
@@ -2085,18 +2108,20 @@ jobs:
           mkdir -p signed_manifests
 
           # Define platforms and their artifact names as seen in the 'export' job matrix
-          # Format: platform_arch:artifact_pattern:output_platform:output_arch
+          # Format: platform_arch:artifact_pattern:output_platform:output_arch:runtime_pattern
           # OJO: el patrón de linux_x64 NO debe matchear el de ARM64
           # (Odisea-Tech-Demo-Linux-* incluiría Linux-ARM64-*). El find de abajo
           # excluye explícitamente ARM64 para el caso x64.
+          # runtime_pattern = asset suelto del binario (binary_full_artifact); "-" para
+          # plataformas sin swap de runtime (macOS firmado, Android APK, web).
           PLATFORMS=(
-            "linux_x64:Odisea-Tech-Demo-Linux-*:linux:x86_64"
-            "linux_x64_wayland:Odisea-Tech-Demo-Wayland-Linux-*:linux_wayland:x86_64"
-            "linux_arm64:Odisea-Tech-Demo-Linux-ARM64-*:linux:arm64"
-            "windows:Odisea-Tech-Demo-Windows-*:windows:x86_64"
-            "macos:Odisea-Tech-Demo-macOS-*:macos:universal"
-            "android:Odisea-Tech-Demo-Android-*:android:arm64"
-            "html5:Odisea-Tech-Demo-Web-*:html5:wasm"
+            "linux_x64:Odisea-Tech-Demo-Linux-*:linux:x86_64:runtime-linux_x64-*"
+            "linux_x64_wayland:Odisea-Tech-Demo-Wayland-Linux-*:linux_wayland:x86_64:runtime-linux_x64_wayland-*"
+            "linux_arm64:Odisea-Tech-Demo-Linux-ARM64-*:linux:arm64:runtime-linux_arm64-*"
+            "windows:Odisea-Tech-Demo-Windows-*:windows:x86_64:runtime-windows-*"
+            "macos:Odisea-Tech-Demo-macOS-*:macos:universal:-"
+            "android:Odisea-Tech-Demo-Android-*:android:arm64:-"
+            "html5:Odisea-Tech-Demo-Web-*:html5:wasm:-"
           )
 
           VERSION="${{ needs.prep.outputs.version }}"
@@ -2126,7 +2151,7 @@ jobs:
           rm private.pem
 
           for entry in "${PLATFORMS[@]}"; do
-            IFS=":" read -r P_NAME P_PATTERN P_OUT P_ARCH <<< "$entry"
+            IFS=":" read -r P_NAME P_PATTERN P_OUT P_ARCH P_BIN_PATTERN <<< "$entry"
 
             # Find the directory for this artifact (artifact_name-version-sha).
             # Para linux_x64 excluir el dir de ARM64 (su patrón es un prefijo del de x64).
@@ -2138,6 +2163,16 @@ jobs:
 
             if [ -n "$ART_DIR" ]; then
               echo "Generating manifest for $P_NAME ($P_OUT/$P_ARCH) from $ART_DIR"
+              BIN_ARG=()
+              if [ -n "$P_BIN_PATTERN" ] && [ "$P_BIN_PATTERN" != "-" ]; then
+                BIN_PATH=$(find "$ART_DIR" -maxdepth 1 -name "$P_BIN_PATTERN" -type f | head -n 1)
+                if [ -z "$BIN_PATH" ]; then
+                  echo "::error::runtime binary not found for $P_NAME (pattern $P_BIN_PATTERN) in $ART_DIR"
+                  exit 1
+                fi
+                BIN_ARG=(--binary-path "$BIN_PATH")
+                echo "  runtime: $BIN_PATH"
+              fi
               python3 scripts/update_manifest.py generate \
                 --artifacts-dir "$ART_DIR" \
                 --output "signed_manifests/manifest-$P_OUT-$P_ARCH.json" \
@@ -2149,7 +2184,8 @@ jobs:
                 --platform "$P_OUT" \
                 --arch "$P_ARCH" \
                 --commit "$COMMIT" \
-                --base-url "$ARTIFACT_BASE_URL"
+                --base-url "$ARTIFACT_BASE_URL" \
+                "${BIN_ARG[@]}"
 
               # Si el job 'deltas' produjo un patch para esta plataforma, inyectarlo en
               # el manifest (re-firma el payload). El .patch.gz se publica como asset del
@@ -2271,7 +2307,7 @@ jobs:
           # Los .pck (target del update in-app) y los .patch.gz (delta bsdiff) van con
           # los binarios: el manifest apunta a ellos, así que deben existir ANTES de
           # subir el manifest.
-          mapfile -t BIN_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "*.ipa" -o -name "*.pck" -o -name "*.pck.gz" -o -name "*.patch.gz" -o -name "*.pem" \) -print | sort)
+          mapfile -t BIN_FILES < <(find nightly_assets -type f \( -name "*.zip" -o -name "*.apk" -o -name "*.ipa" -o -name "*.pck" -o -name "*.pck.gz" -o -name "*.patch.gz" -o -name "*.pem" -o -name "runtime-*" \) -print | sort)
           mapfile -t MANIFEST_FILES < <(find nightly_assets -type f -name "manifest-*.json" -print | sort)
           if [ "${#BIN_FILES[@]}" -eq 0 ]; then
             echo "::error::No binary artifacts found in nightly_assets"
@@ -2332,7 +2368,7 @@ jobs:
           KEEP_SHA="${{ needs.prep.outputs.version_slug }}"
           for old in $(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null); do
             case "$old" in
-              *.zip|*.apk|*.ipa|*.pck|*.pck.gz)
+              *.zip|*.apk|*.ipa|*.pck|*.pck.gz|runtime-*)
                 if [[ "$old" != *"$KEEP_SHA"* ]]; then
                   echo "Removing stale asset: $old"
                   gh release delete-asset "$TAG" "$old" --yes || true

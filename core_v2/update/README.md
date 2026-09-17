@@ -97,10 +97,19 @@ el flag correspondiente a `update_manifest.py generate`.
 
 | Plataforma | Qué hace el cliente |
 |---|---|
-| Linux / Windows / macOS | Descarga `.pck` por chunks, verifica SHA-256, stagea como pending_boot, reinicia y aplica. |
+| Linux / Windows / macOS | Descarga `.pck` por chunks, verifica SHA-256, stagea como pending_boot, reinicia y aplica. Si el manifest trae `binary_full_artifact` y el hash del ejecutable no coincide, **también baja y reemplaza el runtime**. |
 | Android | `kind=apk`: baja el APK completo en segundo plano apenas hay update (sin esperar confirmación), valida SHA-256, y recién al confirmar el usuario abre el intent del sistema para instalar. No carga PCK. APKs viejos en `user://updates/packages/` se purgan en cada boot (son de un solo uso, no hay bookkeeping de "confirmado" como los `.pck`). |
 | iOS | No descarga artifacts; muestra enlace a App Store / TestFlight. |
 | HTML5 | Delega en la shell: navega a `?build_id=xxx` (cache-busting). Sin verificación cripto (se sirve por HTTPS del dominio oficial). |
+
+> **Runtime (binario de Godot del fork).** El CI publica el ejecutable como asset
+> `runtime-<platform>-<version>` y lo referencia en `binary_full_artifact` para
+> `linux_x64`, `linux_x64_wayland`, `linux_arm64` y `windows`. El cliente solo lo baja
+> si el SHA-256 de su ejecutable difiere: si el fork (Box3D/FRT) no cambió, el binario
+> es byte-idéntico y no se re-descarga. Un cambio de runtime sin swap rompería el
+> arranque (pck nuevo sobre binario viejo), por eso el update es binario + pck.
+> macOS queda fuera: el `.app` va firmado y reemplazar el ejecutable invalidaría la
+> firma. Android ya actualiza el APK completo; iOS y web no aplican.
 
 ---
 
