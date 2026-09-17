@@ -1,0 +1,130 @@
+diff --git a/scene/3d/spatial.h b/scene/3d/spatial.h
+--- a/scene/3d/spatial.h
++++ b/scene/3d/spatial.h
+@@ -106,6 +106,7 @@
+ 		bool notify_transform : 1;
+ 
+ 		bool visible : 1;
++		bool visible_in_tree : 1;
+ 		bool disable_scale : 1;
+ 
+ 		bool merging_allowed : 1;
+@@ -130,6 +131,9 @@
+ 	void _notify_dirty();
+ 	void _propagate_transform_changed(Spatial *p_origin);
+ 
++	void _update_visible_in_tree();
++	bool _is_visible_in_tree_reference() const;
++	void _propagate_visible_in_tree(bool p_visible_in_tree);
+ 	void _propagate_visibility_changed();
+ 	void _propagate_merging_allowed(bool p_merging_allowed);
+ 
+@@ -245,7 +249,15 @@
+ 	bool is_visible() const;
+ 	void show();
+ 	void hide();
+-	bool is_visible_in_tree() const;
++	bool is_visible_in_tree() const {
++#if DEV_ENABLED
++		// As this is newly introduced, regression test the old method against the new in DEV builds.
++		// If no regressions, this can be removed after a beta.
++		bool visible = _is_visible_in_tree_reference();
++		ERR_FAIL_COND_V_MSG(data.visible_in_tree != visible, visible, "is_visible_in_tree regression detected, recovering.");
++#endif
++		return data.visible_in_tree;
++	}
+ 
+ 	void force_update_transform();
+ 
+diff --git a/scene/3d/spatial.cpp b/scene/3d/spatial.cpp
+--- a/scene/3d/spatial.cpp
++++ b/scene/3d/spatial.cpp
+@@ -157,6 +157,7 @@
+ 			} else {
+ 				data.C = nullptr;
+ 			}
++			_update_visible_in_tree();
+ 
+ 			if (data.toplevel && !Engine::get_singleton()->is_editor_hint()) {
+ 				if (data.parent) {
+@@ -191,6 +192,8 @@
+ 			data.parent = nullptr;
+ 			data.C = nullptr;
+ 			data.toplevel_active = false;
++
++			_update_visible_in_tree();
+ 			_disable_client_physics_interpolation();
+ 		} break;
+ 		case NOTIFICATION_ENTER_WORLD: {
+@@ -669,6 +672,36 @@
+ 	return data.viewport->find_world();
+ }
+ 
++void Spatial::_update_visible_in_tree() {
++	Spatial *parent = get_parent_spatial();
++
++	bool propagate_visible = parent ? parent->data.visible_in_tree : true;
++
++	// Only propagate visible when entering tree if we are visible.
++	propagate_visible &= is_visible();
++
++	_propagate_visible_in_tree(propagate_visible);
++}
++
++void Spatial::_propagate_visible_in_tree(bool p_visible_in_tree) {
++	// If any node is invisible, the propagation changes to invisible below.
++	p_visible_in_tree &= is_visible();
++
++	// No change.
++	if (data.visible_in_tree == p_visible_in_tree) {
++		return;
++	}
++
++	data.visible_in_tree = p_visible_in_tree;
++
++	for (int32_t n = 0; n < get_child_count(); n++) {
++		Spatial *s = Object::cast_to<Spatial>(get_child(n));
++		if (s) {
++			s->_propagate_visible_in_tree(p_visible_in_tree);
++		}
++	}
++}
++
+ void Spatial::_propagate_visibility_changed() {
+ 	notification(NOTIFICATION_VISIBILITY_CHANGED);
+ 	emit_signal(SceneStringNames::get_singleton()->visibility_changed);
+@@ -728,6 +761,10 @@
+ 		return;
+ 	}
+ 
++	bool parent_visible = get_parent_spatial() ? get_parent_spatial()->data.visible_in_tree : true;
++	if (parent_visible) {
++		_propagate_visible_in_tree(true);
++	}
+ 	_propagate_visibility_changed();
+ }
+ 
+@@ -742,10 +779,14 @@
+ 		return;
+ 	}
+ 
++	bool parent_visible = get_parent_spatial() ? get_parent_spatial()->data.visible_in_tree : true;
++	if (parent_visible) {
++		_propagate_visible_in_tree(false);
++	}
+ 	_propagate_visibility_changed();
+ }
+ 
+-bool Spatial::is_visible_in_tree() const {
++bool Spatial::_is_visible_in_tree_reference() const {
+ 	const Spatial *s = this;
+ 
+ 	while (s) {
+@@ -1058,6 +1099,7 @@
+ 	data.viewport = nullptr;
+ 	data.inside_world = false;
+ 	data.visible = true;
++	data.visible_in_tree = true;
+ 	data.disable_scale = false;
+ 	data.vi_visible = true;
+ 	data.merging_allowed = true;
