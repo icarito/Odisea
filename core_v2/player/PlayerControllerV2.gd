@@ -907,7 +907,10 @@ func _apply_weak_visual_policy_if_needed_deferred() -> void:
 	if not _should_force_unshaded_player_visuals():
 		return
 	var fake_shadow = get_node_or_null("Visual/Pivot/FakeShadow")
-	if fake_shadow and fake_shadow is MeshInstance:
+	# Con el backport de blob shadows el nodo no dibuja malla (la sombra real la
+	# proyecta el caster); no hay que re-mostrarlo acá.
+	var fake_shadow_is_blob: bool = fake_shadow != null and fake_shadow.has_method("is_blob_mode") and fake_shadow.is_blob_mode()
+	if fake_shadow and not fake_shadow_is_blob and fake_shadow is MeshInstance:
 		fake_shadow.visible = true
 		fake_shadow.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 		if fake_shadow.has_method("set_process"):

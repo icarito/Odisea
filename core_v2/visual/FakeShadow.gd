@@ -11,6 +11,10 @@ export(String, "cheap", "grid") var shadow_mode: String = "cheap"
 export(int) var grid_resolution: int = 20 # NxN rays (Increased for better detail)
 export(float) var max_distance: float = 6.0
 export(float, 0.0, 1.0) var base_opacity: float = 1.0
+# Sólo para la BlobShadow real: el caster es una esfera y su sombra mide
+# exactamente su radio, así que se agranda respecto de `radius` para que
+# cubra como la sombra legacy (que dibujaba un óvalo más ancho).
+export(float) var blob_radius_scale: float = 2.2
 export(float) var skirt_limit: float = 5.0 # Max height for skirts before we stop drawing them (avoid giant walls)
 export(float) var vertical_offset: float = 0.02
 export(float) var snap_amount: float = 0.1 # World Grid Size (10cm matches your 0.2m floors)
@@ -43,6 +47,12 @@ var _last_parent_pos := Vector3.ZERO
 var _last_parent_rot_y := 0.0
 var _cheap_ray: RayCast = null
 var _cheap_ground_y := 0.0
+# Blob shadow path (godot-box3d fork). When the engine exposes BlobShadow we
+# drop the generated "blanket" mesh and cast the real analytic shadow instead;
+# the rest of this script (and its exports) stays untouched for stock Godot.
+var _blob_mode := false
+var _blob_caster: Node = null
+var _blob_rig: Node = null
 
 func _ready() -> void:
 	var disable_env := OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW").to_lower()
@@ -56,6 +66,12 @@ func _ready() -> void:
 	if _disable_runtime:
 		visible = false
 		set_process(false)
+		return
+
+	# Prefer the real blob shadows when the running engine is the fork with the
+	# backport; the legacy grid/cheap machinery stays for stock Godot.
+	if _blob_shadows_supported():
+		_setup_blob_shadow()
 		return
 
 	if force_cheap_runtime:
@@ -93,6 +109,72 @@ func _ready() -> void:
 	
 	cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	set_as_toplevel(true)
+
+func _blob_shadows_supported() -> bool:
+	# Opt-out for A/B and for forcing the legacy path on the fork.
+	var off_env := OS.get_environment("ODISEA_DISABLE_BLOB_SHADOW").to_lower()
+	if off_env in ["1", "true", "yes", "on"]:
+		return false
+	return ClassDB.class_exists("BlobShadow") and ClassDB.class_exists("BlobFocus")
+
+func is_blob_mode() -> bool:
+	return _blob_mode
+
+func _setup_blob_shadow() -> void:
+	_blob_mode = true
+	# No generated blanket mesh: the cast is analytic.
+	mesh = null
+	material_override = null
+	cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	set_as_toplevel(true)
+
+	_blob_rig = _get_or_create_blob_rig()
+	_blob_caster = ClassDB.instance("BlobShadow")
+	_blob_caster.name = "BlobCaster"
+	_blob_caster.set("type", 0) # BlobShadow.BLOB_SHADOW_SPHERE
+	_blob_caster.call("set_radius", 0, max(0.05, radius * blob_radius_scale))
+	add_child(_blob_caster)
+	# Match the legacy look where the exports can: the rig owns the light, so
+	# the first actor that creates it also tunes intensity/hardness from its
+	# exports (they are the same across actors in practice).
+	if _blob_rig.has_method("set_light_param"):
+		_blob_rig.call("set_light_param", 2, clamp(base_opacity, 0.0, 1.0)) # INTENSITY
+		_blob_rig.call("set_light_param", 0, clamp(hardness, 0.0, 1.0)) # RANGE_HARDNESS
+	print("[FakeShadow] usando BlobShadow real (radius=", radius, ")")
+
+func _get_or_create_blob_rig() -> Node:
+	var tree := get_tree()
+	var host: Node = tree.current_scene
+	if host == null:
+		host = tree.root
+	# The first FakeShadow runs while the level is still setting up its
+	# children, so the rig is queued deferred; remember it on the host so the
+	# next actor in the same frame reuses it instead of creating a second one.
+	if host.has_meta("blob_shadow_rig"):
+		var pending = host.get_meta("blob_shadow_rig")
+		if is_instance_valid(pending):
+			return pending
+	for n in tree.get_nodes_in_group("blob_shadow_rig"):
+		if is_instance_valid(n):
+			host.set_meta("blob_shadow_rig", n)
+			return n
+	var rig = load("res://core_v2/visual/BlobShadowRig.gd").new()
+	rig.name = "BlobShadowRig"
+	host.set_meta("blob_shadow_rig", rig)
+	host.call_deferred("add_child", rig)
+	return rig
+
+func _process_blob_shadow() -> void:
+	var parent = get_parent()
+	if not parent:
+		return
+	if _blob_caster == null or not is_instance_valid(_blob_caster):
+		return
+	# At the base of the actor, never encompassing the mesh: the caster is a
+	# volume and would otherwise self-shadow the body it belongs to.
+	var center_pos = _get_anchor_center_pos(parent)
+	center_pos.y += max(0.02, vertical_offset)
+	_blob_caster.global_transform.origin = center_pos
 
 func _detect_arm_architecture() -> bool:
 	var file = File.new()
@@ -134,6 +216,9 @@ func _rebuild_grid_offsets(step: float) -> void:
 
 func _process(_delta: float) -> void:
 	if _disable_runtime:
+		return
+	if _blob_mode:
+		_process_blob_shadow()
 		return
 	var parent = get_parent()
 	if not parent: return
