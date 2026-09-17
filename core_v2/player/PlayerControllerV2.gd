@@ -253,6 +253,9 @@ var _cm_cache = null
 # Cache FD-290: mismo patron para SessionManager en modo replay (resuelto una sola vez).
 var _sm_cache = null
 var _sm_resuelto := false
+# Cache FD-301: mismo patron para SessionManager en _input() (resuelto una sola vez).
+var _sm_input = null
+var _sm_input_buscado := false
 
 func set_input_locked(v: bool) -> void:
 	input_locked = v
@@ -2177,7 +2180,10 @@ func _on_window_size_changed() -> void:
 
 func _input(event):
 	var session_recording = false
-	var sm = get_node_or_null("/root/SessionManager")
+	if not _sm_input_buscado:
+		_sm_input_buscado = true
+		_sm_input = get_node_or_null("/root/SessionManager")
+	var sm = _sm_input
 	if sm and sm.player == self and sm.is_recording:
 		session_recording = true
 	if (is_replay_mode and not session_recording) or camera_input_locked: return
