@@ -2279,7 +2279,7 @@ jobs:
       - name: Generate PortMaster source index
         run: |
           set -euo pipefail
-          ZIP=$(find nightly_assets -type f -name "Odisea-PortMaster-*.zip" ! -name "*.images.zip" | head -n 1)
+          ZIP=$(find nightly_assets -type f -name "Odisea-PortMaster-*.zip" ! -name "*.images.zip" -print -quit)
           [ -n "$ZIP" ] || { echo "::error::No se encontró el zip de PortMaster en nightly_assets"; exit 1; }
           tools/portmaster_source.py "$ZIP" \
             --base-url "https://github.com/${{ github.repository }}/releases/download/nightly" \
@@ -2329,7 +2329,10 @@ jobs:
           else
             RANGE="HEAD~20..HEAD"
           fi
-          git log --pretty=format:'- %s (%h)' "$RANGE" 2>/dev/null | grep -viE '^\- (Merge |chore: bump|temp|wip)' | head -40 >> body.md || echo "- (sin cambios listables)" >> body.md
+          # sed en vez de `head` a proposito: con pipefail, `head` cierra el pipe,
+          # grep recibe SIGPIPE ("write error: Broken pipe") y el step se ve como
+          # si hubiera fallado aunque el `|| echo` lo absorba.
+          git log --pretty=format:'- %s (%h)' "$RANGE" 2>/dev/null | grep -viE '^\- (Merge |chore: bump|temp|wip)' | sed -n '1,40p' >> body.md || echo "- (sin cambios listables)" >> body.md
           echo "" >> body.md
           echo "" >> body.md
           echo "### Artifacts" >> body.md
@@ -2348,20 +2351,40 @@ jobs:
               --prerelease --target "${{ needs.prep.outputs.head_sha }}"
           fi
 
+          # gh release upload devuelve 500 o se cuelga cada tanto (asset API de
+          # GitHub, nos pasó tambien publicando el motor). Archivo por archivo,
+          # con timeout y reintentos: un asset trabado ya no mata el nightly.
+          upload_asset() {
+            local f="$1" attempt
+            for attempt in 1 2 3 4 5; do
+              if timeout 900 gh release upload "$TAG" "$f" --clobber; then
+                return 0
+              fi
+              echo "::warning::reintento $attempt subiendo $(basename "$f")"
+              sleep 20
+            done
+            echo "::error::no se pudo subir $(basename "$f") despues de 5 intentos"
+            return 1
+          }
+
           # 2. Subir PRIMERO los binarios (clobber reemplaza los del commit anterior).
-          gh release upload "$TAG" "${BIN_FILES[@]}" --clobber
+          for f in "${BIN_FILES[@]}"; do
+            upload_asset "$f"
+          done
 
           # 3. Subir el manifest AL FINAL, ya con los binarios presentes. Recién acá
           #    el server puede servir un manifest cuyo download URL existe.
           if [ "${#MANIFEST_FILES[@]}" -gt 0 ]; then
-            gh release upload "$TAG" "${MANIFEST_FILES[@]}" --clobber
+            for f in "${MANIFEST_FILES[@]}"; do
+              upload_asset "$f"
+            done
           fi
 
           # 3b. El ports.json de la fuente PortMaster, con el mismo criterio que el
           #     manifest: al final, cuando el zip y la captura a los que apunta ya
           #     están subidos. Su URL es fija (tag "nightly"), así que el
           #     .source.json del dispositivo no cambia nunca.
-          gh release upload "$TAG" nightly_assets/ports.json --clobber
+          upload_asset nightly_assets/ports.json
 
           # 4. Limpiar binarios de commits viejos que quedaron en el release (sus
           #    nombres llevan el sha, así que no los pisa el --clobber del actual).
