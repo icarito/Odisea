@@ -21,6 +21,7 @@ on:
         options:
           - all
           - linux_x64
+          - wayland
           - linux_arm64
           - windows
           - macos
@@ -138,8 +139,13 @@ jobs:
             # nothing the game binaries ship (dashboard, central, docs, CI).
             COMMIT_MESSAGE=$(git log -1 --format=%B "$HEAD_SHA")
             COMMIT_TARGET=$(printf '%s\n' "$COMMIT_MESSAGE" | sed -nE \
-              's/.*\[build:(all|none|linux_x64|linux_arm64|windows|macos|ios|android|html5)\].*/\1/p' | tail -n 1)
+              's/.*\[build:(all|none|wayland|linux_x64|linux_x64_wayland|linux_arm64|windows|macos|ios|android|html5)\].*/\1/p' | tail -n 1)
             [ -z "$COMMIT_TARGET" ] || TARGET_PLATFORM="$COMMIT_TARGET"
+          fi
+          # `wayland` es el alias corto de `linux_x64_wayland`, para no rebuildear
+          # todo el nightly mientras se itera sobre el runtime FRT/SDL2.
+          if [ "$TARGET_PLATFORM" = "wayland" ]; then
+            TARGET_PLATFORM="linux_x64_wayland"
           fi
           ALL_PLATFORMS='[
             {"platform":"linux_x64","os":"ubuntu-latest","preset":"Linux/X11 x86_64","artifact_name":"Odisea-Tech-Demo-Linux"},
