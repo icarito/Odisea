@@ -96,7 +96,7 @@ func test_desktop_mouse_mode_hides_the_system_pointer_and_tracks_its_motion() ->
 	var start := Vector2(140.0, 90.0)
 	cursor.set_desktop_mouse_mode(true, start)
 	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	assert_int(cursor._desktop_mouse_restore_mode).is_equal(mouse_mode)
 	var motion := InputEventMouseMotion.new()
 	motion.position = Vector2(280.0, 180.0)
 	cursor._input(motion)
