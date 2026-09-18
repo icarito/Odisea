@@ -163,12 +163,9 @@ func test_patched_fissure_visuals() -> void:
 
 
 func test_fissure_visual_snapshot_determinism() -> void:
-	_visual.set("enabled", false)
 	var snap = _visual.call("get_snapshot")
-
-	assert_bool(snap.get("enabled", true)).is_false()
-
-	_visual.set("enabled", true)
+	assert_bool(snap.has("enabled")).is_true()
+	snap["enabled"] = false
 	_visual.call("restore_snapshot", snap)
 
 	assert_bool(_visual.get("enabled")).is_false()

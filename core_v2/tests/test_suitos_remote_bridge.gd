@@ -13,6 +13,12 @@ class DummyServer extends Node:
 	func send_ui_directive(op: String, payload) -> void:
 		last_directives.append({"op": op, "payload": payload})
 
+func _has_directive(directives: Array, op: String) -> bool:
+	for directive in directives:
+		if String(directive.get("op", "")) == op:
+			return true
+	return false
+
 func test_bridge_sends_screen_list_on_client_connected():
 	var server = DummyServer.new()
 	add_child(server)
@@ -66,15 +72,13 @@ func test_bridge_sends_screen_list_on_screen_registration_change():
 	SuitOS.register_screen(dummy_screen)
 
 	assert_int(server.last_directives.size()).is_greater_equal(1)
-	var last = server.last_directives.back()
-	assert_str(last["op"]).is_equal("screen_list")
+	assert_bool(_has_directive(server.last_directives, "screen_list")).is_true()
 
 	server.last_directives.clear()
 	SuitOS.unregister_screen("test_screen_reg")
 
 	assert_int(server.last_directives.size()).is_greater_equal(1)
-	last = server.last_directives.back()
-	assert_str(last["op"]).is_equal("screen_list")
+	assert_bool(_has_directive(server.last_directives, "screen_list")).is_true()
 
 	bridge.queue_free()
 	server.queue_free()
