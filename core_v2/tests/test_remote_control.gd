@@ -604,3 +604,19 @@ func test_remote_activity_resumes_the_pause_menu_but_not_hud_mode():
 	get_tree().paused = false
 	PauseManager.pause_menu_instance = previous_menu
 	menu.free()
+
+
+# Tier LOW: el control remoto no va; sin hijos ni host, aunque la escena sea gameplay.
+func test_low_tier_does_not_host_remote_control():
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	var prev_gate = false
+	if gate:
+		prev_gate = gate.force_gate
+		gate.force_gate = true
+	var manager = auto_free(RemoteControlManager.new())
+	add_child(manager)
+	assert_bool(manager.remote_control_enabled).is_false()
+	assert_object(manager.server).is_null()
+	assert_bool(manager.is_host_active).is_false()
+	if gate:
+		gate.force_gate = prev_gate

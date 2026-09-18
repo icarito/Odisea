@@ -39,6 +39,8 @@ Opciones activada.
 | Sombras apagadas y materiales simplificados | `GLES3VendorGate._low_tier_node()` | tier LOW |
 | Dither de props apagado por defecto (el toggle de Opciones lo reactiva) | `PropDitherManager._resolve_occlusion_dither()` | tier LOW, salvo que el jugador lo haya tocado |
 | Sombras falsas (blob/quad) apagadas por env | `GLES3VendorGate._sync_low_tier_env_hints()` | tier LOW |
+| Control remoto desactivado (sin host ni los 5 nodos de `_process`) | `RemoteControlManager._ready()` / `_is_low_tier()` | tier LOW |
+| Auto-fit del shaft del ascensor cada 3 ticks | `ElevatorDoor` + `LowTierTickStride` | tier LOW |
 | Lightmap manual (evita la colisión de unidad del lightmap nativo) | `GLES3VendorGate._sync_manual_lightmap()` + `IOSLightmapFallback` | solo Mali-G31 detectado |
 | Perfil gráfico bajo desde el arranque (`ODISEA_GRAPHICS_PROFILE=low`, sin scatter, sin warmup) | `SessionManager._detect_weak_hardware_early()` | `ODISEA_EARLY_WEAK_HARDWARE=1` o huella ARM con ≤1 GB o SoC conocido |
 | Ajustes de arranque de render (MSAA off, sombras 1024, vertex shading, 4 luces) | `portmaster/lowend.cfg`, que `Odisea.sh` copia a `override.cfg` | PortMaster en la generación RK3326 (device tree `rockchip,rk3326` o GPU Mali-G31) |
@@ -77,6 +79,25 @@ Verificado en device con el nightly `0.4.0-nightly.632+5ac94eb`, misma ventana t
 |---|---|---|---|
 | default tier LOW (dither off + sombras falsas off) | 3.99 (+53% vs 2.60) | 4 | 130 |
 | dither forzado ON por el jugador (`prop_dither_user_set=true`) | 2.69 | 3 | 144.5 |
+
+### CPU por tick: control remoto y auto-fit del ascensor (2026-09-18)
+
+- **Control remoto apagado en tier LOW** (`RemoteControlManager`): no se instancian los 5 nodos
+  (announcer/discovery/server/client/bridge) que corren `_process` por frame, ni hay host/UDP. En el
+  handheld no tiene sentido (no lo va a manejar nadie desde otro equipo).
+- **Auto-fit del shaft del ascensor cada 3 ticks** (`ElevatorDoor` + `LowTierTickStride`): el layout es
+  estático y los setters ya fuerzan el recálculo al cambiar.
+
+Medido con el replay (misma ventana), pck local deployado por SSH:
+
+| | proc/tick | phys/tick | ticks/s |
+|---|---|---|---|
+| antes (nightly, referencias de hoy) | ~30 ms | ~35 ms | ~4.0 |
+| después | 28 ms | 30 ms | 3.6-4.4 (ruido) |
+
+Baja el costo por tick (~7 ms), pero **el fps no se mueve**: el frame del replay está limitado por
+draws/driver, no por el tick de CPU. Sirve de headroom, no de fps; para fps hay que bajar draw calls /
+materiales (carril de contenido/geometría).
 
 ## Hoja de ruta: Dome_Intro de 12 a 20 fps
 

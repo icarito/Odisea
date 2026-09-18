@@ -25,6 +25,10 @@ const SHAFT_COLLISION_NAME := "ShaftFenceBody"
 const DEFAULT_SHAFT_WIDTH := 3.0
 
 var _last_fit_signature := ""
+# El auto-fit no cambia entre ticks (los setters y _ready fuerzan el recalculo cuando
+# el layout cambia): en tier LOW se corre cada 3 ticks y se ahorra el escaneo de
+# hermanos por frame. Fuera del tier el paso es 1.
+var _paso_lowend = preload("res://core_v2/systems/LowTierTickStride.gd").new(self, 3)
 
 func _ready() -> void:
 	._ready()
@@ -36,9 +40,12 @@ func _process(delta: float) -> void:
 	if Engine.editor_hint:
 		_fit_shaft_fence()
 
-func _physics_process(_delta: float) -> void:
-	if not Engine.editor_hint:
-		_fit_shaft_fence()
+func _physics_process(delta: float) -> void:
+	if Engine.editor_hint:
+		return
+	if _paso_lowend.step(delta) < 0.0:
+		return
+	_fit_shaft_fence()
 
 func set_auto_fit_shaft_fence(v: bool) -> void:
 	auto_fit_shaft_fence = v

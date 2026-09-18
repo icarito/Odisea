@@ -42,6 +42,14 @@ func _ready():
 		remote_control_enabled = false
 		set_process(false)
 		return
+	# Tier LOW (handheld lento): el control remoto no va. No se instancian los 5 nodos
+	# (announcer/discovery/server/client/bridge) que corren _process cada frame, no hay
+	# broadcast UDP ni puertos, y no se hostea aunque la escena sea gameplay.
+	if _is_low_tier():
+		remote_control_enabled = false
+		set_process(false)
+		print("[RemoteControlManager] tier LOW: control remoto desactivado")
+		return
 	announcer = RemoteAnnouncer.new()
 	announcer.name = "RemoteAnnouncer"
 	add_child(announcer)
@@ -130,8 +138,14 @@ func _is_automated_session() -> bool:
 	var session = get_node_or_null("/root/SessionManager") if is_inside_tree() else null
 	return session != null and (bool(session.get("is_cli_mode")) or bool(session.get("is_replaying")))
 
+# Handheld lento: el host de control remoto no tiene sentido (nadie lo va a manejar
+# desde otro equipo) y sus 5 nodos cuestan _process por frame.
+func _is_low_tier() -> bool:
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.has_method("is_low_tier") and gate.is_low_tier()
+
 func start_host_services(session_name: String = "") -> void:
-	if not remote_control_enabled or server == null or _is_automated_session():
+	if not remote_control_enabled or server == null or _is_automated_session() or _is_low_tier():
 		return
 	if is_host_active:
 		return
