@@ -9,6 +9,11 @@ var _config = ConfigFile.new()
 var master_volume = 1.0
 var music_volume = 1.0
 var sfx_volume = 1.0
+# Inversion manual de ejes analogos (Opciones -> Invertir X / Invertir Y).
+# No se detecta sola: un firmware que reporta los ejes al reves lo hace en los dos
+# sticks a la vez (movimiento y camara) y no hay huella fiable que lo delate. El
+# defecto es no invertir nada, asi el mismo paquete sirve en todos los handhelds.
+var invert_x = false
 var invert_y = false
 var vibration = true
 var fullscreen = true
@@ -60,6 +65,7 @@ func load_settings():
 	music_volume = _config.get_value("audio", "music_volume", 1.0)
 	sfx_volume = _config.get_value("audio", "sfx_volume", 1.0)
 
+	invert_x = _config.get_value("input", "invert_x", false)
 	invert_y = _config.get_value("input", "invert_y", false)
 	vibration = _config.get_value("input", "vibration", true)
 
@@ -88,6 +94,7 @@ func save_settings():
 	_config.set_value("audio", "music_volume", music_volume)
 	_config.set_value("audio", "sfx_volume", sfx_volume)
 
+	_config.set_value("input", "invert_x", invert_x)
 	_config.set_value("input", "invert_y", invert_y)
 	_config.set_value("input", "vibration", vibration)
 

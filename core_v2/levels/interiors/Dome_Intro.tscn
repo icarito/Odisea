@@ -1,4 +1,4 @@
-[gd_scene load_steps=114 format=2]
+[gd_scene load_steps=116 format=2]
 
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro.lmbake" type="BakedLightmapData" id=1]
 [ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=7]
@@ -1605,6 +1605,7 @@ attenuation_filter_db = -30.0
 transform = Transform( 1.55, 0, 0, 0, -1.55, 0, 0, 0, -1.55, 0, 2.05, 0 )
 collision_layer = 64
 collision_mask = 3
+is_focusable = true
 
 [node name="DomeIntroBakeLights" parent="." instance_placeholder="res://core_v2/levels/interiors/DomeIntro_BakeLights.tscn"]
 script = ExtResource( 5006 )

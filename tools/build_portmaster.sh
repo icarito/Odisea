@@ -8,7 +8,7 @@
 # declara arch aarch64 en vez de runtime. Sin el, el port corre sobre el runtime
 # stock y la fisica cae a Bullet en silencio.
 #
-# Fuentes (tracked): portmaster/  -- lanzador, port.json, gameinfo.xml, gptk, README.
+# Fuentes (tracked): portmaster/  -- lanzador, port.json, gameinfo.xml, ini, README.
 # Salida (gitignored): ports/  -- el arbol desempaquetado, listo para rsync al
 # dispositivo, mas el .zip para publicar.
 #
@@ -16,7 +16,7 @@
 #
 #   Odisea.sh
 #   odisea/
-#     odisea.pck  odisea.gptk  port.json  gameinfo.xml  README.md
+#     odisea.pck  odisea.ini  port.json  gameinfo.xml  README.md
 #     screenshot.png  BUILD.txt  licenses/
 #
 # Los mismos archivos fuente, con port.json/gameinfo.xml/screenshot en la raiz,
@@ -49,7 +49,7 @@ touch "$OUT/.gdignore"
 
 install -m 755 "$SRC/$SCRIPT" "$OUT/$SCRIPT"
 install -m 644 "$SRC/port.json" "$SRC/gameinfo.xml" "$SRC/README.md" "$OUT/$PORT/"
-install -m 644 "$SRC/$PORT.gptk" "$OUT/$PORT/"
+install -m 644 "$SRC/$PORT.ini" "$OUT/$PORT/"
 install -m 644 "$SRC/lowend.cfg" "$OUT/$PORT/"
 install -m 644 "$PCK" "$OUT/$PORT/$PORT.pck"
 install -m 644 CREDITS.md "$OUT/$PORT/licenses/CREDITS.md"
@@ -86,6 +86,9 @@ fi
 # el directorio sin tocar el script, el port arranca y muere sin explicacion.
 grep -q "ports/$PORT\b" "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no apunta a ports/$PORT" >&2; exit 1; }
 grep -q "$PORT.pck" "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no carga $PORT.pck" >&2; exit 1; }
+# Politica PortMaster: gptokeyb2 (.ini), no gptokeyb clasico (.gptk).
+grep -q 'GPTOKEYB2' "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no usa \$GPTOKEYB2" >&2; exit 1; }
+grep -q "$PORT.ini" "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no carga $PORT.ini" >&2; exit 1; }
 # Los ajustes de handhelds lentos (FD-299) viajan siempre: Odisea.sh los instala como
 # override.cfg solo en la generacion RK3326. Sin ellos ahi FRT corre con la configuracion de
 # escritorio (MSAA, HDR, sombras pesadas) y el GPU sufre.
@@ -97,6 +100,7 @@ a=json.load(open('$SRC/port.json'))
 assert a['items']==['$SCRIPT','$PORT'], a['items']
 assert a['name']=='$PORT.zip', a['name']
 assert a['attr']['runtime'], 'sin runtime: PortMaster no bajaria el engine'
+assert all(not r.endswith('.squashfs') for r in a['attr']['runtime']), 'runtime debe ser la clave del catalogo (frt_3.6), no el archivo (.squashfs)'
 "
 
 rm -f "$ZIP"

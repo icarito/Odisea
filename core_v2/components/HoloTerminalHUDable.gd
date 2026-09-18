@@ -148,7 +148,6 @@ func widget_snapshot() -> Dictionary:
 			status_text_val = "MODO: FOCO ACTIVO"
 		else:
 			status_text_val = "DIAGNOSTICO: ONLINE"
-
 	var snap := {
 		"proto": 1,
 		"id": screen_id(),

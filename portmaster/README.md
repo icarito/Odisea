@@ -8,14 +8,20 @@ runtime instead, which is a convenient way to compare the two on the same
 hardware.
 
 The engine talks to the display through SDL2, which your firmware already
-provides — there is no X11 dependency.
+provides: there is no X11 dependency.
 
 Saves and configuration live in `ports/odisea/conf/`. The launcher writes a log
-to `ports/odisea/log.txt` — attach it when reporting a problem.
+to `ports/odisea/log.txt`; attach it when reporting a problem.
 
-The port exports `ODISEA_DEVICE=anbernic`, which makes the game correct the
-handheld's inverted analog axes. It only affects input. On a device where the
-sticks end up inverted, edit `Odisea.sh` and remove that line.
+The game reads the controller itself (native Godot/FRT input), so the port does not
+map buttons through the gamepad mapper; that is only there for the Start+Select quit
+hotkey. FRT resolves the analog sticks through SDL's GameControllerDB, the same
+mapping PortMaster injects in `$sdl_controllerconfig`, so a device that the database
+describes correctly (including an inverted axis) just works, on its own and nowhere
+else. If your device is missing or wrong there, open *Options* and enable *Invertir X*
+and/or *Invertir Y*: those two toggles flip both the movement stick and the camera,
+which is what a firmware-level axis inversion needs. The default is no extra
+inversion for any device.
 
 ## Firmware requirements
 
@@ -80,7 +86,7 @@ from the gamepad. Use the firmware's own quit hotkey to leave the game.
 Odisea publishes itself as a PortMaster *source*, so PortMaster can install it
 and offer every nightly as an update instead of you copying files by hand.
 Copy `050_odisea.source.json` from this repo into PortMaster's config directory
-on the device — next to the `020_portmaster.source.json` that ships with it:
+on the device, next to the `020_portmaster.source.json` that ships with it:
 
 ```
 /roms/ports/PortMaster/config/050_odisea.source.json      # ArkOS, AmberELEC, ROCKNIX
@@ -103,7 +109,7 @@ of the zip changed.
 ## Development
 
 Create `ports/odisea/dev.sh` on the device to add engine flags without touching
-the packaged launcher — it is sourced just before the game starts:
+the packaged launcher; it is sourced just before the game starts:
 
 ```bash
 GODOT_OPTS="$GODOT_OPTS --remote-debug 192.168.1.50:6007"

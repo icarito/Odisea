@@ -1293,9 +1293,8 @@ func _play_footstep():
 			player.pitch_scale = rand_range(0.9, 1.1)
 			player.play()
 
-# Tier LOW del gate (handheld lento detectado u opcion "low end"), no ODISEA_DEVICE: esa variable
-# la exporta el lanzador de PortMaster en todos los dispositivos para corregir los ejes del stick,
-# y un handheld rapido no tiene por que animar a 12 Hz.
+# Tier LOW del gate (handheld lento detectado u opcion "low end"), no un string de dispositivo:
+# un handheld rapido no tiene por que animar a 12 Hz.
 func _is_hyper_low_runtime() -> bool:
 	var gate = get_node_or_null("/root/GLES3VendorGate")
 	return gate != null and gate.is_low_tier()

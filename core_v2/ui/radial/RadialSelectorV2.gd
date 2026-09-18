@@ -272,6 +272,11 @@ func option_text(index: int) -> String:
 	return _buttons[index].text if index >= 0 and index < _buttons.size() else ""
 
 
+func option_center(index: int) -> Vector2:
+	return _buttons[index].get_global_rect().get_center() if index >= 0 and index < _buttons.size() \
+		else get_global_rect().get_center()
+
+
 func get_hovered_index() -> int:
 	return _hover_index
 

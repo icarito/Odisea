@@ -26,20 +26,14 @@ var hardware_look_sensitivity := 1.0
 var touch_camera_sensitivity := 0.003
 const JOY_DEADZONE := 0.2
 const DIGITAL_ZOOM_SENSITIVITY := 0.1
-const ANBERNIC_DEVICE_HINTS := [
-	"anbernic",
-	"rg351",
-	"351",
-	"351v",
-	"351elec",
-	"gameforce"
-]
 
 var _touch_camera_drag := Vector2.ZERO
 var _touch_camera_zoom := 0.0
 var _axis_profile_resolved := false
 var _touch_ui_hint_resolved := false
 var _touch_ui_hint := false
+# Espejo de la preferencia del jugador (Opciones -> Invertir X / Invertir Y), solo
+# para diagnostico remoto. La correccion real la aplica axis_inversion().
 var _invert_joy_move_x := false
 var _invert_joy_move_y := false
 var _invert_joy_look_x := false
@@ -146,37 +140,47 @@ func _is_digital_move_vector(v: Vector2) -> bool:
 
 
 
-# El handheld reporta los ejes del stick invertidos. La correccion depende solo del
-# entorno, no del estado del provider, asi que se resuelve sin instancia: VirtualMouse
-# lee las acciones cursor_* del InputMap directo (no pasa por step()) y necesita el
-# mismo signo, o el cursor de UI queda invertido mientras caminar y camara van bien.
-static func wants_handheld_axis_inversion() -> bool:
-	var forced_device = OS.get_environment("ODISEA_DEVICE").to_lower().strip_edges()
-	return _contains_any_hint(forced_device, ANBERNIC_DEVICE_HINTS)
+# Inversion manual de los ejes analogos (Opciones -> Invertir X / Invertir Y).
+# Un firmware que reporta los ejes al reves lo hace en los dos sticks a la vez, asi
+# que la MISMA preferencia corrige movimiento y camara. No se detecta por dispositivo:
+# la huella no es fiable y el paquete tiene que ser universal. Default: sin invertir.
+# Se resuelve sin instancia porque VirtualMouse/RemoteControlHome leen las acciones
+# cursor_* del InputMap directo (no pasan por step()) y necesitan el mismo signo.
+static func axis_inversion() -> Vector2:
+	var sm = _settings_manager()
+	var ix := false
+	var iy := false
+	if sm != null:
+		if "invert_x" in sm:
+			ix = bool(sm.invert_x)
+		if "invert_y" in sm:
+			iy = bool(sm.invert_y)
+	return Vector2(-1.0 if ix else 1.0, -1.0 if iy else 1.0)
+
+static func wants_axis_inversion() -> bool:
+	var inv := axis_inversion()
+	return inv.x < 0.0 or inv.y < 0.0
+
+static func _settings_manager():
+	var loop = Engine.get_main_loop()
+	if loop == null or not (loop is SceneTree):
+		return null
+	var root = (loop as SceneTree).root
+	if root == null:
+		return null
+	return root.get_node_or_null("SettingsManager")
 
 func _ensure_axis_profile_resolved() -> void:
-	if _axis_profile_resolved:
-		return
-
-	var detected_anbernic = wants_handheld_axis_inversion()
-	var resolved_profile = "anbernic_env_invert_xy" if detected_anbernic else "none"
-
+	var inv := axis_inversion()
+	var has_x := inv.x < 0.0
+	var has_y := inv.y < 0.0
 	_axis_profile_resolved = true
-	handheld_axis_correction_enabled = detected_anbernic
-	handheld_axis_profile = resolved_profile if detected_anbernic else "none"
-	_invert_joy_move_x = detected_anbernic
-	_invert_joy_move_y = detected_anbernic
-	_invert_joy_look_x = detected_anbernic
-	_invert_joy_look_y = detected_anbernic
-
-static func _contains_any_hint(text: String, hints: Array) -> bool:
-	if text == "":
-		return false
-	for raw_hint in hints:
-		var hint = String(raw_hint).strip_edges().to_lower()
-		if hint != "" and text.find(hint) != -1:
-			return true
-	return false
+	handheld_axis_correction_enabled = has_x or has_y
+	handheld_axis_profile = "manual_invert_xy" if (has_x and has_y) else ("manual_invert_x" if has_x else ("manual_invert_y" if has_y else "none"))
+	_invert_joy_move_x = has_x
+	_invert_joy_move_y = has_y
+	_invert_joy_look_x = has_x
+	_invert_joy_look_y = has_y
 
 
 func _action_strength(action_name: String) -> float:
@@ -202,11 +206,17 @@ func _read_live_input() -> InputDataV2:
 
 	if hardware_input_enabled:
 		_ensure_axis_profile_resolved()
+		var axis_inv := axis_inversion()
 
 		var raw_move_vec = Vector2(
 			_action_strength("move_right") - _action_strength("move_left"),
 			_action_strength("move_backward") - _action_strength("move_forward")
 		)
+		# Las acciones move_* tambien leen el stick, y pueden ser el unico camino si el
+		# runtime no expone get_joy_axis. Se invierten igual, salvo el vector digital de
+		# teclado (0/1 exactos), para que la correccion cubra las dos fuentes.
+		if not _is_digital_move_vector(raw_move_vec):
+			raw_move_vec = Vector2(raw_move_vec.x * axis_inv.x, raw_move_vec.y * axis_inv.y)
 
 		d.jump = _action_pressed("jump")
 		d.sprint = _action_pressed("run")
@@ -233,12 +243,8 @@ func _read_live_input() -> InputDataV2:
 				break
 
 		# --- JOYSTICK SPRINT (Physical) ---
-		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0)
-		var joy_move_y = Input.get_joy_axis(0, JOY_AXIS_1)
-		if _invert_joy_move_x:
-			joy_move_x = - joy_move_x
-		if _invert_joy_move_y:
-			joy_move_y = - joy_move_y
+		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0) * axis_inv.x
+		var joy_move_y = Input.get_joy_axis(0, JOY_AXIS_1) * axis_inv.y
 		var joy_move = Vector2(
 			joy_move_x,
 			joy_move_y
@@ -282,10 +288,6 @@ func _read_live_input() -> InputDataV2:
 		# --- JOYSTICK CAMERA (Right Stick) ---
 		var joy_look_x = Input.get_joy_axis(0, JOY_AXIS_2)
 		var joy_look_y = Input.get_joy_axis(0, JOY_AXIS_3)
-		if _invert_joy_look_x:
-			joy_look_x = - joy_look_x
-		if _invert_joy_look_y:
-			joy_look_y = - joy_look_y
 		var joy_look = Vector2(
 			joy_look_x,
 			- joy_look_y
@@ -313,7 +315,9 @@ func _read_live_input() -> InputDataV2:
 			mouse_d += _touch_camera_drag
 			_touch_camera_drag = Vector2.ZERO
 
-		d.mouse_delta = mouse_d
+		# La inversion manual abarca el control completo (mouse, stick, D-pad y arrastre
+		# tactil): si el firmware da vuelta un stick, tambien da vuelta la camara.
+		d.mouse_delta = Vector2(mouse_d.x * axis_inv.x, mouse_d.y * axis_inv.y)
 
 		# --- ZOOM ---
 		var digital_zoom = (_action_strength("zoom_out") - _action_strength("zoom_in")) * DIGITAL_ZOOM_SENSITIVITY

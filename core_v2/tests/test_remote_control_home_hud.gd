@@ -136,6 +136,11 @@ func _click(at: Vector2) -> InputEventMouseButton:
 	ev.pressed = true
 	return ev
 
+func _release_click(at: Vector2) -> InputEventMouseButton:
+	var ev := _click(at)
+	ev.pressed = false
+	return ev
+
 func _action(action: String) -> InputEventAction:
 	var ev := InputEventAction.new()
 	ev.action = action
@@ -356,7 +361,7 @@ func test_releasing_tab_picks_what_the_dial_has_marked():
 
 	home.queue_free()
 
-func test_pick_while_holding_tab_is_a_peek_and_release_exits():
+func test_pick_while_holding_tab_keeps_the_screen_open_on_release():
 	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true
 	_tab_hold(home)
@@ -367,12 +372,46 @@ func test_pick_while_holding_tab_is_a_peek_and_release_exits():
 	overlay._input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -80.0)))
 	_tick(home)
 	overlay._input(_click(VIEW_SIZE * 0.5))
+	overlay._input(_release_click(VIEW_SIZE * 0.5))
 	assert_array(_screen_selects(home)).is_equal(["screen_a"])
 
-	# ...y soltar TAB sale, aunque el host todavia no haya confirmado la pantalla.
+	# Soltar HUD no cancela la pantalla mientras entra su transicion.
 	_tab_release(home)
-	assert_array(_screen_selects(home)).is_equal(["screen_a", ""])
+	assert_array(_screen_selects(home)).is_equal(["screen_a"])
+	assert_bool(home.hud_backend.is_hud_mode_active()).is_true()
 
+	home.queue_free()
+
+func test_mouse_dragging_a_radial_item_pins_it_to_a_slot():
+	var home = _home_with_dial(_dial_screens())
+	var overlay = _open_dial(home)
+	var item: Vector2 = _top_slice(overlay)
+	var drop: Vector2 = home.widget_host.slot_rect(0).get_center()
+
+	overlay._input(_click(item))
+	overlay._input(_motion(drop, drop - item))
+	overlay._input(_release_click(drop))
+
+	assert_str(home.hud_backend.slot_screen_id(0)).is_equal("screen_a")
+	home.queue_free()
+
+func test_captured_mouse_dragging_a_radial_item_pins_it_to_a_slot():
+	var home = _home_with_dial(_dial_screens())
+	var overlay = _open_dial(home)
+	var start: Vector2 = VIEW_SIZE * 0.5
+	var drop: Vector2 = home.widget_host.slot_rect(0).get_center()
+	var mouse_mode: int = Input.get_mouse_mode()
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	overlay._point_at(Vector2(0.0, -80.0))
+	overlay._input(_click(start))
+	assert_object(overlay._drag_ghost).is_not_null()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	overlay._input(_motion(drop, drop - start))
+	overlay._input(_release_click(drop))
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
+	Input.set_mouse_mode(mouse_mode)
+
+	assert_str(home.hud_backend.slot_screen_id(0)).is_equal("screen_a")
 	home.queue_free()
 
 func test_tab_is_never_forwarded_to_the_host():

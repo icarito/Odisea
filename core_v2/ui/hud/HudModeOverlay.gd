@@ -68,6 +68,10 @@ var _touch_start: Vector2 = Vector2.ZERO
 var _touch_press_msec: int = 0
 var _drag_option: int = -1 # el item del radial bajo el dedo al apoyarlo
 var _drag_ghost: Label = null # el item levantado, siguiendo al dedo
+var _mouse_drag_pending: bool = false
+var _mouse_drag_position: Vector2 = Vector2.ZERO
+var _mouse_drag_moved: bool = false
+var _restore_mouse_capture_after_drag: bool = false
 # Arrastre del widget ampliado (pantalla que es solo widget) hasta un slot.
 var _view_drag_candidate: bool = false
 var _view_handle: Control = null
@@ -306,16 +310,36 @@ func _drive_from_stream(input) -> void:
 		_stick_aiming = false
 		_point_at(Vector2.ZERO) # stick soltado: al centro, nada marcado
 	var down: bool = bool(input.tool_fire_primary)
-	if down and not _confirm_was_down:
+	# El clic del mouse tambien aparece en el stream como tool_fire_primary. Mientras su release
+	# decide click corto o drag, no puede confirmar el dial por adelantado.
+	if not _mouse_drag_pending and down and not _confirm_was_down:
 		_confirm_or_dismiss()
 	_confirm_was_down = down
 
 func _input(event: InputEvent) -> void:
-	if (event is InputEventMouseMotion or event is InputEventMouseButton) \
-			and is_instance_valid(_active_focused_screen) \
-			and _active_focused_screen.has_method("forward_view_input"):
-		_active_focused_screen.forward_view_input(event)
+	if use_virtual_mouse and event is InputEventMouseButton and event.button_index == BUTTON_RIGHT:
+		if event.pressed and is_instance_valid(_virtual_mouse):
+			_set_virtual_mouse_enabled(true)
+			_virtual_mouse.set_desktop_mouse_mode(true, event.position)
+		get_tree().set_input_as_handled()
+		return
+	if is_instance_valid(_active_focused_screen) and _active_focused_screen.has_method("forward_view_input"):
+		if event is InputEventKey and not event.is_action_pressed("ui_cancel"):
+			_active_focused_screen.forward_view_input(event)
+			get_tree().set_input_as_handled()
+			return
+		if event is InputEventMouseMotion or event is InputEventMouseButton:
+			_active_focused_screen.forward_view_input(event)
+			get_tree().set_input_as_handled()
+			return
 	if event is InputEventMouseMotion:
+		if _mouse_drag_pending and _drag_option >= 0:
+			var drag_position: Vector2 = _update_mouse_drag_position(event)
+			if _drive_option_drag(drag_position, false):
+				_mouse_drag_moved = _mouse_drag_moved \
+					or (drag_position - _touch_start).length() >= TOUCH_MIN_DRAG
+			get_tree().set_input_as_handled()
+			return
 		# Lo que hace PlayerControllerV2._input, que ahora esta pausado.
 		if _touch_index >= 0 or not drives_dial_with_gameplay_input:
 			return # es un dedo: ya apunta el radial por InputEventScreenDrag, mas abajo
@@ -384,15 +408,38 @@ func _input(event: InputEvent) -> void:
 			_point_at(event.position - _touch_start)
 		return
 	# TAB NO se lee aca: tap/hold sale del stream (_physics_process).
-	if event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed and _selector.is_open():
+	if event is InputEventMouseButton and event.button_index == BUTTON_LEFT and _selector.is_open():
 		# El clic emulado de un toque no decide: el toque se resuelve al soltar (sector o fuera).
 		# Por el device y no solo por InputProviderV2.pointer_is_from_touch(): con el arbol pausado
 		# MobileUIManager no renueva esa ventana, y el clic del dedo cerraba el dial al apoyarlo.
-		if event.device == TOUCH_MOUSE_DEVICE or InputProviderV2.pointer_is_from_touch():
+		if event.device == TOUCH_MOUSE_DEVICE \
+				or (Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED and InputProviderV2.pointer_is_from_touch()):
 			# Y sigue de largo a la GUI: si el dedo cayo sobre un widget de slot, ese clic es el
 			# que lo oprime. Marcarlo como atendido dejaba al widget sin su toque.
 			return
-		_confirm_or_dismiss()
+		if event.pressed:
+			# Igual que touch: el click corto confirma; si se mueve antes de soltar, lleva el
+			# item del dial hasta un slot.
+			_mouse_drag_pending = true
+			_drag_option = _selector.slice_at(event.position)
+			if _drag_option == RadialSelectorV2.NONE and _selector.has_selection():
+				_drag_option = _selector.get_hovered_index()
+			_mouse_drag_moved = false
+			_mouse_drag_position = _selector.option_center(_drag_option)
+			_touch_start = _mouse_drag_position
+			_touch_press_msec = OS.get_ticks_msec()
+			if _drag_option != RadialSelectorV2.NONE:
+				_selector.point_at(_mouse_drag_position)
+				_start_mouse_option_drag(_mouse_drag_position)
+		elif is_instance_valid(_drag_ghost):
+			var dragged: bool = _mouse_drag_moved
+			_drop_option(event.position)
+			if not dragged:
+				_confirm_or_dismiss()
+		elif _mouse_drag_pending:
+			_mouse_drag_pending = false
+			_drag_option = -1
+			_confirm_or_dismiss()
 	elif event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed \
 			and _is_outside_view(event.position):
 		_exit()
@@ -407,15 +454,15 @@ func _input(event: InputEvent) -> void:
 	get_tree().set_input_as_handled()
 
 # Levanta el item apretado cuando, pasado el hold, el dedo se mueve; desde ahi lo sigue y resalta el
-# slot de abajo. true mientras el dedo arrastra un item (no apunta el dial).
-func _drive_option_drag(position: Vector2) -> bool:
+# slot de abajo. El mouse lo levanta al oprimir para que se lea como un drag desde su propia opcion.
+func _drive_option_drag(position: Vector2, require_hold: bool = true, allow_stationary: bool = false) -> bool:
 	if not is_instance_valid(_drag_ghost):
 		if _drag_option < 0 or _drag_option >= _screen_ids.size() \
-				or (position - _touch_start).length() < TOUCH_MIN_DRAG:
+				or (not allow_stationary and (position - _touch_start).length() < TOUCH_MIN_DRAG):
 			return false
 		# Del dial hace falta el hold; el asa ya es para arrastrar.
 		if not _drag_from_handle and (not _selector.is_open() \
-				or OS.get_ticks_msec() - _touch_press_msec < DRAG_HOLD_MSEC):
+				or (require_hold and OS.get_ticks_msec() - _touch_press_msec < DRAG_HOLD_MSEC)):
 			return false
 		Haptics.pulse(Haptics.LIFT_MSEC)
 		_drag_ghost = Label.new()
@@ -431,6 +478,24 @@ func _drive_option_drag(position: Vector2) -> bool:
 	if host != null:
 		host.show_drop_targets(true, host.slot_at(position))
 	return true
+
+func _start_mouse_option_drag(position: Vector2) -> void:
+	if not _drive_option_drag(position, false, true):
+		return
+	_restore_mouse_capture_after_drag = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
+	if _restore_mouse_capture_after_drag:
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+		get_viewport().warp_mouse(position)
+
+func _update_mouse_drag_position(event: InputEventMouseMotion) -> Vector2:
+	if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
+		_mouse_drag_position = event.position
+		return _mouse_drag_position
+	_mouse_drag_position += event.relative
+	var size: Vector2 = get_viewport_rect().size
+	_mouse_drag_position.x = clamp(_mouse_drag_position.x, 0.0, size.x)
+	_mouse_drag_position.y = clamp(_mouse_drag_position.y, 0.0, size.y)
+	return _mouse_drag_position
 
 # Soltar el item levantado: sobre un slot lo fija ahi; en cualquier otro lado no pasa nada. Desde el
 # dial, el dial queda abierto para seguir asignando; desde el asa de una pantalla, anclarla cierra
@@ -451,7 +516,13 @@ func _end_option_drag() -> void:
 		_drag_ghost.queue_free()
 	_drag_ghost = null
 	_drag_option = -1
+	_mouse_drag_pending = false
+	_mouse_drag_position = Vector2.ZERO
+	_mouse_drag_moved = false
 	_drag_from_handle = false
+	if _restore_mouse_capture_after_drag:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	_restore_mouse_capture_after_drag = false
 	var host = _widget_host()
 	if host != null:
 		host.show_drop_targets(false)
@@ -658,15 +729,13 @@ func _open_radial(slot: int = -1) -> void:
 	_set_virtual_mouse_enabled(false)
 	_view_host.visible = false
 
-# Soltar TAB tras el hold. Si ya se eligio con TAB apretado fue un vistazo: se entro, se uso
-# con el mouse virtual y el clic, y soltar sale del modo HUD. Si el dial sigue abierto, lo
-# marcado queda elegido (el dial no se queda abierto); sin nada marcado se vuelve a la
-# pantalla que habia, o se sale si no habia ninguna.
+# Soltar TAB tras el hold conserva una pantalla ya elegida. Si el dial sigue abierto, lo marcado
+# queda elegido (el dial no se queda abierto); sin nada marcado se vuelve a la pantalla que habia,
+# o se sale si no habia ninguna.
 func _release_tab_hold() -> void:
 	_tab_hold_active = false
 	if _picked_during_hold:
 		_picked_during_hold = false
-		_exit()
 		return
 	if not _selector.is_open():
 		return
@@ -705,7 +774,11 @@ func _set_virtual_mouse_enabled(enabled: bool) -> void:
 		return
 	_virtual_mouse.set_process(enabled)
 	_virtual_mouse.set_process_input(enabled)
+	if enabled:
+		_virtual_mouse.visible = true
 	if not enabled:
+		if _virtual_mouse.has_method("set_desktop_mouse_mode"):
+			_virtual_mouse.set_desktop_mouse_mode(false)
 		_virtual_mouse.visible = false
 
 func _show_screen(id: String) -> void:
@@ -732,6 +805,15 @@ func _show_screen(id: String) -> void:
 		_mount_focused_screen_if_ready()
 	else:
 		_cleanup_focus()
+		if screen.has_method("view_requires_input") and screen.view_requires_input():
+			_active_focused_screen = screen
+			# El cursor compartido sigue recibiendo joystick, pero se dibuja dentro del
+			# Viewport de la pantalla enfocada.
+			if is_instance_valid(_virtual_mouse):
+				_virtual_mouse.visible = false
+				_virtual_mouse.relative_target_scale = _focus_cursor_scale(screen)
+			if screen.has_method("enter_focus_mode"):
+				screen.enter_focus_mode()
 		var snapshot: Dictionary = screen.widget_snapshot() if screen.has_method("widget_snapshot") else {"id": id}
 		_mount.show(screen, snapshot, _view_host)
 	_sync_widget_focus()
@@ -821,8 +903,7 @@ func _complete_focus_swap(screen: Object = null) -> void:
 func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseManager
 	_end_option_drag()
 	_cleanup_focus()
-	if is_instance_valid(_virtual_mouse):
-		_virtual_mouse.visible = false
+	_set_virtual_mouse_enabled(false)
 	_suit_os().close_hud_mode()
 
 func _suit_os() -> Node:

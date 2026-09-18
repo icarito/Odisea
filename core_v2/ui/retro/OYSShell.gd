@@ -65,8 +65,29 @@ func _connect_console() -> void:
 		_console.connect("logs_cleared", self, "_on_logs_cleared")
 	if not _console.is_connected("command_executed", self, "_on_command_executed"):
 		_console.connect("command_executed", self, "_on_command_executed")
-	if _status and is_instance_valid(_status):
-		_status.text = "READY"
+	var manager = _console_manager()
+	if manager != null and manager.has_signal("state_changed") \
+			and not manager.is_connected("state_changed", self, "_sync_status"):
+		manager.connect("state_changed", self, "_sync_status")
+	_sync_status()
+
+func _sync_status() -> void:
+	if _status == null or not is_instance_valid(_status):
+		return
+	var manager = _console_manager()
+	_status.text = String(manager.get("status_text")) if manager != null else "OK"
+
+func _set_status(value: String) -> void:
+	var manager = _console_manager()
+	if manager != null and manager.has_method("set_status_text"):
+		manager.set_status_text(value)
+	else:
+		_status.text = value
+
+func _console_manager() -> Node:
+	var viewport = get_parent()
+	var manager = viewport.get_parent() if is_instance_valid(viewport) else null
+	return manager if is_instance_valid(manager) and manager.has_method("set_status_text") else null
 
 func _exit_tree() -> void:
 	if _console and is_instance_valid(_console):
@@ -148,16 +169,16 @@ func _apply_autocomplete() -> void:
 	var candidates = _console.get_autocomplete_candidates(current)
 	if candidates.empty():
 		if _status and is_instance_valid(_status):
-			_status.text = "No suggestions"
+			_set_status("No suggestions")
 		return
 	if candidates.size() == 1:
 		_input.text = _replace_last_token(current, candidates[0])
 		_input.caret_position = _input.text.length()
 		if _status and is_instance_valid(_status):
-			_status.text = "Autocomplete: " + candidates[0]
+			_set_status("Autocomplete: " + candidates[0])
 		return
 	if _status and is_instance_valid(_status):
-		_status.text = "%d suggestions" % candidates.size()
+		_set_status("%d suggestions" % candidates.size())
 	_append_line("SYS", "Suggestions: " + ", ".join(candidates.slice(0, min(10, candidates.size()))), "#88CCFF")
 
 func _apply_history(direction: int) -> void:
@@ -207,7 +228,7 @@ func _on_logs_cleared() -> void:
 
 func _on_command_executed(_command: String, success: bool, message: String) -> void:
 	if _status and is_instance_valid(_status):
-		_status.text = "OK" if success else "ERR: %s" % message
+		_set_status("OK" if success else "ERR: %s" % message)
 
 func _append_log_entry(entry: Dictionary) -> void:
 	var tag = str(entry.get("tag", "SYS"))
@@ -271,7 +292,7 @@ func _init_font_scaling() -> void:
 func _change_font_size(delta: int) -> void:
 	_font_size = clamp(_font_size + delta, FONT_SIZE_MIN, FONT_SIZE_MAX)
 	_apply_font_overrides()
-	_status.text = "READY  FONT:%d" % _font_size
+	_set_status("OK  FONT:%d" % _font_size)
 
 func _apply_font_overrides() -> void:
 	if _font_data == null:

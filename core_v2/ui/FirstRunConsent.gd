@@ -1,5 +1,7 @@
 extends ColorRect
 
+const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
+
 # FD-292 / FD-290. Pantalla de primera partida: pide el consentimiento de telemetria
 # mientras el primer nivel se carga de verdad.
 #
@@ -42,6 +44,9 @@ var _ready_announced := false
 func _ready() -> void:
 	# Sigue procesando con el arbol pausado: es quien tiene que despausarlo.
 	pause_mode = Node.PAUSE_MODE_PROCESS
+	# El Menu puede desaparecer mientras esta pantalla permanece sobre la carga. Conserva el
+	# cursor compartido como solicitado por esta UI, incluso despues de liberar el Menu.
+	VirtualMouse.attach_to(self, self)
 	_telemetry_panel.visible = false
 	_choice_box.visible = false
 	set_process(false)

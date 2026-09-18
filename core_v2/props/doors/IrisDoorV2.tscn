@@ -2,7 +2,7 @@
 
 [ext_resource path="res://core_v2/components/InteractableBridge.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/IrisDoorV2.gd" type="Script" id=2]
-[ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=3]
+[ext_resource path="res://core_v2/props/doors/airlock_rusted.tres" type="Material" id=3]
 [ext_resource path="res://core_v2/props/doors/IrisFrameBaked.mesh" type="ArrayMesh" id=4]
 [ext_resource path="res://core_v2/props/doors/IrisFrameBaked.shape" type="Shape" id=5]
 

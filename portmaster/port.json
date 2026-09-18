@@ -23,10 +23,10 @@
     "rtr": true,
     "exp": false,
     "runtime": [
-      "frt_3.6.squashfs"
+      "frt_3.6"
     ],
     "store": [],
-    "availability": "free",
+    "availability": "full",
     "reqs": [],
     "arch": [],
     "min_glibc": ""

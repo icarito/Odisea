@@ -223,7 +223,7 @@ func _hold_and_pick_second() -> Array:
 	return _held(Gesture.HOLD_TICKS) + [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, UP]
 
 
-func test_pick_while_holding_is_a_peek_and_release_exits() -> void:
+func test_pick_while_holding_keeps_the_screen_open_on_release() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS)
@@ -232,9 +232,9 @@ func test_pick_while_holding_is_a_peek_and_release_exits() -> void:
 	assert_bool(SuitOS.is_hud_mode_active()).is_true()
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 	assert_bool(overlay._selector.is_open()).is_false()
-	# ...y soltar TAB sale del modo HUD.
+	# ...y soltar TAB no cancela la pantalla mientras entra su transicion.
 	_play(overlay, [UP])
-	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
 
 
 func test_gesture_reports_the_release_that_ends_a_hold() -> void:
@@ -875,6 +875,46 @@ func test_touch_emulated_click_does_not_close_the_radial() -> void:
 	click.device = -1
 	overlay._input(click)
 	assert_bool(overlay._selector.is_open()).is_true()
+
+
+func test_mouse_press_waits_for_release_before_confirming_the_radial() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	assert_bool(SuitOS.open_hud_mode(true)).is_true()
+	var overlay = _overlay()
+	overlay._point_at(Vector2(0.0, -overlay.AIM_RADIUS))
+	overlay._confirm_was_down = false
+	var click := InputEventMouseButton.new()
+	click.button_index = BUTTON_LEFT
+	click.pressed = true
+	click.position = overlay._selector.get_global_rect().position + overlay._selector.rect_size * 0.5
+	overlay._input(click)
+	var stream := InputDataV2.new()
+	stream.tool_fire_primary = true
+	overlay._drive_from_stream(stream)
+	assert_bool(overlay._selector.is_open()).is_true()
+	assert_str(SuitOS.get_active_screen_id()).is_empty()
+
+
+func test_right_mouse_releases_capture_to_the_desktop_controlled_hud_cursor() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play([UP])
+	var mouse_mode: int = Input.get_mouse_mode()
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	var right := InputEventMouseButton.new()
+	right.button_index = BUTTON_RIGHT
+	right.pressed = true
+	right.position = Vector2(120.0, 80.0)
+	overlay._input(right)
+	assert_bool(overlay._virtual_mouse.is_desktop_mouse_mode()).is_true()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	overlay._input(right)
+	assert_bool(overlay._virtual_mouse.is_desktop_mouse_mode()).is_true()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	overlay._exit()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
+	Input.set_mouse_mode(mouse_mode)
 
 
 func test_dragging_a_radial_item_onto_a_slot_pins_it_there() -> void:

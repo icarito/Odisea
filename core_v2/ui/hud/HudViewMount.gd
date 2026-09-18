@@ -94,9 +94,16 @@ func _open_presenter(scene: PackedScene, screen: Object, snapshot: Dictionary, h
 		return false
 	var presenter: Spatial = PresenterScene.instance()
 	var design: Vector2 = screen.view_size() if screen.has_method("view_size") else Vector2.ZERO
-	var shared_viewport: Viewport = screen.borrow_viewport() if snap_to_camera and screen.has_method("borrow_viewport") else null
+	var share_viewport: bool = snap_to_camera \
+		or (screen.has_method("view_requires_input") and screen.view_requires_input())
+	var shared_viewport: Viewport = screen.borrow_viewport() if share_viewport and screen.has_method("borrow_viewport") else null
 	if design.x > 0.0 and design.y > 0.0:
 		presenter.screen_resolution = design # antes del _ready: de ahi sale el tamaño del Viewport
+	if screen.has_method("view_hud_config"):
+		var config: Dictionary = screen.view_hud_config()
+		presenter.hud_cfg_screen_depth = float(config.get("depth", presenter.hud_cfg_screen_depth))
+		presenter.hud_cfg_screen_scale = float(config.get("scale", presenter.hud_cfg_screen_scale))
+		presenter.hud_cfg_background_alpha = float(config.get("background_alpha", presenter.hud_cfg_background_alpha))
 	if snap_to_camera:
 		presenter.hud_cfg_attach_transition_time = 0.0
 		presenter.hud_cfg_screen_depth = 1.0

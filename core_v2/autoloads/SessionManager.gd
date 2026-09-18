@@ -1027,9 +1027,9 @@ func _read_process_cmdline() -> String:
 	file.close()
 	return raw
 
-# ODISEA_DEVICE no cuenta: el lanzador de PortMaster la exporta en todos los dispositivos (por los
-# ejes del stick). El lanzador marca los lentos con ODISEA_EARLY_WEAK_HARDWARE=1; sin ella decide la
-# huella del hardware (ARM con <= 1 GB, o un SoC conocido).
+# El lanzador de PortMaster no marca el perfil por dispositivo: la unica pista externa es
+# ODISEA_EARLY_WEAK_HARDWARE=1. Sin ella decide la huella del hardware (ARM con <= 1 GB, o un
+# SoC conocido).
 func _detect_weak_hardware_early() -> bool:
 	var explicit_hint = OS.get_environment(EARLY_WEAK_HINT_ENV).to_lower()
 	if explicit_hint in ["1", "true", "yes", "on"]:

@@ -40,7 +40,7 @@ Opciones activada.
 | Lightmap manual (evita la colisión de unidad del lightmap nativo) | `GLES3VendorGate._sync_manual_lightmap()` + `IOSLightmapFallback` | solo Mali-G31 detectado |
 | Perfil gráfico bajo desde el arranque (`ODISEA_GRAPHICS_PROFILE=low`, sin scatter, sin warmup) | `SessionManager._detect_weak_hardware_early()` | `ODISEA_EARLY_WEAK_HARDWARE=1` o huella ARM con ≤1 GB o SoC conocido |
 | Ajustes de arranque de render (MSAA off, sombras 1024, vertex shading, 4 luces) | `portmaster/lowend.cfg`, que `Odisea.sh` copia a `override.cfg` | PortMaster en la generación RK3326 (device tree `rockchip,rk3326` o GPU Mali-G31) |
-| Inversión de ejes del stick (`ODISEA_DEVICE=anbernic`) | `InputProviderV2` | todos los dispositivos PortMaster (es input, no rendimiento) |
+| Inversión de ejes del stick | `GameControllerDB` (FRT abre `SDL_GameController`) | automático por GUID si el dispositivo está en el DB; *Invertir X/Y* en Opciones queda de fallback manual |
 
 UI (vale para cualquier perfil con render scale < 100%): con stretch "viewport" la UI se dibuja a la misma
 resolución que el 3D. Mientras Opciones o un widget en modo pantalla están abiertos, el render vuelve a

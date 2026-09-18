@@ -94,6 +94,19 @@ max_value = 1.0
 step = 0.05
 value = 1.0
 
+[node name="InvertXLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+margin_top = 105.0
+margin_right = 283.0
+margin_bottom = 128.0
+text = "Invertir X"
+
+[node name="InvertXToggle" type="CheckButton" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
+margin_left = 303.0
+margin_top = 99.0
+margin_right = 586.0
+margin_bottom = 135.0
+hint_tooltip = "Invierte los ejes analógicos horizontales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés."
+
 [node name="InvertYLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
 margin_top = 105.0
 margin_right = 283.0
@@ -105,6 +118,7 @@ margin_left = 303.0
 margin_top = 99.0
 margin_right = 586.0
 margin_bottom = 135.0
+hint_tooltip = "Invierte los ejes analógicos verticales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés."
 
 [node name="VibrationLabel" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/GridContainer"]
 margin_top = 151.0

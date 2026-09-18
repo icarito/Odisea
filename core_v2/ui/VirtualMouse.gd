@@ -20,10 +20,12 @@ const LAYER := 200
 
 var _position := Vector2.ZERO
 var _active := false
+var _desktop_mouse_mode := false
+var _desktop_mouse_restore_mode := Input.MOUSE_MODE_VISIBLE
 var _injecting_motion := false
 var _ignore_warp_motion := false
 var _skip_next_injected_motion := false
-var _invert_axes := false
+var _invert_axes := Vector2.ONE
 # Todo lo que el cursor mide esta en pixeles del viewport de render, que encoge con
 # render_scale y se estira a la pantalla: sin compensar, en el handheld el cursor sale
 # 1/escala mas grande y 1/escala mas rapido que la UI, que si esta compensada.
@@ -83,9 +85,9 @@ func _ready() -> void:
 	anchor_bottom = 1.0
 	_position = get_viewport_rect().size * 0.5
 	# Las acciones cursor_* salen del InputMap sin pasar por InputProviderV2.step(),
-	# que es donde se corrigen los ejes invertidos del handheld. Sin esto el cursor
-	# va al reves que caminar y la camara en el mismo aparato.
-	_invert_axes = InputProviderV2.wants_handheld_axis_inversion()
+	# que es donde se aplica la inversion manual de ejes (Opciones). Sin el mismo
+	# signo, el cursor va al reves que caminar y la camara en el mismo aparato.
+	_invert_axes = InputProviderV2.axis_inversion()
 	# set_screen_stretch() (SettingsManager.apply_render_resolution, AdaptiveRenderScale)
 	# redimensiona el viewport en vivo: la escala y el tope del cursor se recalculan ahi.
 	var viewport := get_viewport()
@@ -114,8 +116,10 @@ func _process(delta: float) -> void:
 		Input.get_action_strength("cursor_right") - Input.get_action_strength("cursor_left"),
 		Input.get_action_strength("cursor_down") - Input.get_action_strength("cursor_up")
 	)
-	if _invert_axes:
-		direction = -direction
+	# Se re-lee cada frame: la preferencia se puede cambiar en Opciones con una UI
+	# que tiene el cursor abierto (el PauseMenu).
+	_invert_axes = InputProviderV2.axis_inversion()
+	direction *= _invert_axes
 	var magnitude: float = direction.length()
 	if magnitude < DEADZONE:
 		return
@@ -147,6 +151,10 @@ func _input(event: InputEvent) -> void:
 	if not is_wanted():
 		return
 	if event is InputEventMouseMotion:
+		if _desktop_mouse_mode:
+			_position = event.position
+			update()
+			return
 		if _injecting_motion:
 			return
 		# SceneTree entrega input_event en el siguiente pase de input en algunos
@@ -188,7 +196,25 @@ func _activate() -> void:
 	if _active:
 		return
 	_active = true
+	visible = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	update()
+
+func is_desktop_mouse_mode() -> bool:
+	return _desktop_mouse_mode
+
+func set_desktop_mouse_mode(enabled: bool, position: Vector2 = Vector2.ZERO) -> void:
+	if enabled == _desktop_mouse_mode:
+		return
+	_desktop_mouse_mode = enabled
+	if enabled:
+		_desktop_mouse_restore_mode = Input.get_mouse_mode()
+		_active = false
+		_position = position
+		visible = true
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+	elif Input.get_mouse_mode() == Input.MOUSE_MODE_HIDDEN:
+		Input.set_mouse_mode(_desktop_mouse_restore_mode)
 	update()
 
 func _emit_motion(relative: Vector2) -> void:
@@ -213,6 +239,6 @@ func _clear_warp_motion() -> void:
 	_ignore_warp_motion = false
 
 func _draw() -> void:
-	if not _active:
+	if not _active and not _desktop_mouse_mode:
 		return
 	draw_texture_rect(CURSOR, Rect2(_position - HOTSPOT * _ui_scale, CURSOR.get_size() * _ui_scale), false)

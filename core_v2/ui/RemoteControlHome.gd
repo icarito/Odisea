@@ -245,12 +245,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		client.send_input("event", payload)
 
 func _event_for_host(event: InputEvent) -> InputEvent:
-	if event is InputEventJoypadMotion and InputProviderV2.wants_handheld_axis_inversion() \
-			and (event as InputEventJoypadMotion).axis in [JOY_AXIS_0, JOY_AXIS_1, JOY_AXIS_2, JOY_AXIS_3]:
-		var corrected := event.duplicate() as InputEventJoypadMotion
-		corrected.axis_value = -corrected.axis_value
-		return corrected
-	return event
+	if not (event is InputEventJoypadMotion):
+		return event
+	var motion: InputEventJoypadMotion = event as InputEventJoypadMotion
+	# Misma inversion manual que InputProviderV2 usa para el juego local: el host
+	# remoto recibe los ejes ya corregidos, igual que si fuera el stick del cliente.
+	var inv: Vector2 = InputProviderV2.axis_inversion()
+	var axis_sign: float = 1.0
+	if motion.axis in [JOY_AXIS_0, JOY_AXIS_2]:
+		axis_sign = inv.x
+	elif motion.axis in [JOY_AXIS_1, JOY_AXIS_3]:
+		axis_sign = inv.y
+	if axis_sign > 0.0:
+		return event
+	var corrected := event.duplicate() as InputEventJoypadMotion
+	corrected.axis_value = -corrected.axis_value
+	return corrected
 
 func _notification(what: int) -> void:
 	# Se va el foco o la app al fondo: nada queda apretado alla. Vale para los dos modos,

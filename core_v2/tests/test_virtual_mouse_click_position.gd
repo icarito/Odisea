@@ -88,3 +88,19 @@ func test_cursor_is_inert_while_its_requester_is_hidden() -> void:
 	assert_bool(cursor.is_wanted()).is_true()
 	menu.queue_free()
 	cursor.get_parent().queue_free()
+
+
+func test_desktop_mouse_mode_hides_the_system_pointer_and_tracks_its_motion() -> void:
+	var cursor: Control = VirtualMouseScript.attach_to(self)
+	var mouse_mode: int = Input.get_mouse_mode()
+	var start := Vector2(140.0, 90.0)
+	cursor.set_desktop_mouse_mode(true, start)
+	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(280.0, 180.0)
+	cursor._input(motion)
+	assert_vector2(cursor._position).is_equal(motion.position)
+	cursor.set_desktop_mouse_mode(false)
+	assert_int(Input.get_mouse_mode()).is_equal(mouse_mode)
+	cursor.get_parent().queue_free()

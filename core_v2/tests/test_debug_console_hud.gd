@@ -1,84 +1,21 @@
 extends GdUnitTestSuite
 
-const DebugConsoleHUDScene = preload("res://core_v2/props/decor/DebugConsoleHUD.tscn")
-const DebugConsoleManagerScript = preload("res://core_v2/autoloads/DebugConsoleManager.gd")
-
-func test_debug_console_mounts_oys_shell_in_viewport() -> void:
-	var hud = DebugConsoleHUDScene.instance()
-	get_tree().root.add_child(hud)
+func test_debug_console_is_a_hud_screen_with_its_statusbar_text() -> void:
 	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-
-	var viewport = hud.get_node_or_null("Viewport")
-	assert_object(viewport).is_not_null()
-	var shell = viewport.get_node_or_null("OYSShell")
-	assert_object(shell).is_not_null()
-
-	hud.queue_free()
-	yield(get_tree(), "idle_frame")
-
-func test_debug_console_is_not_interactable_nor_replay_synced() -> void:
-	var hud = DebugConsoleHUDScene.instance()
-	get_tree().root.add_child(hud)
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-
-	assert_bool(hud.is_in_group("interactable")).is_false()
-	assert_bool(hud.is_in_group("focusable")).is_false()
-	assert_bool(hud.is_in_group("replay_sync")).is_false()
-
-	hud.queue_free()
-	yield(get_tree(), "idle_frame")
-
-func test_debug_console_open_applies_debug_gating() -> void:
-	var hud = DebugConsoleHUDScene.instance()
-	get_tree().root.add_child(hud)
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-
-	hud.open_console()
-	assert_bool(hud.is_active).is_true()
-
-	var console = get_tree().root.get_node_or_null("OYS_Console")
-	assert_object(console).is_not_null()
-	assert_bool(bool(console.allow_cheats)).is_true()
-	assert_bool(bool(console.read_only)).is_false()
-
-	hud.close_console()
-	assert_bool(hud.is_active).is_false()
-
-	hud.queue_free()
-	yield(get_tree(), "idle_frame")
-
-func test_debug_console_toggle_opens_and_closes() -> void:
-	var hud = DebugConsoleHUDScene.instance()
-	get_tree().root.add_child(hud)
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-
-	hud.toggle_console()
-	assert_bool(hud.is_active).is_true()
-	hud.toggle_console()
-	assert_bool(hud.is_active).is_false()
-
-	hud.queue_free()
-	yield(get_tree(), "idle_frame")
-
-func test_manager_toggles_debug_console() -> void:
-	var manager = DebugConsoleManagerScript.new()
-	get_tree().root.add_child(manager)
-	yield(get_tree(), "idle_frame")
-
-	manager.toggle_console()
-	var hud = manager._get_or_spawn_hud()
-	assert_object(hud).is_not_null()
-	assert_bool(bool(hud.get("is_active"))).is_true()
-
-	manager.toggle_console()
-	assert_bool(bool(hud.get("is_active"))).is_false()
-
-	manager.queue_free()
-	if hud and is_instance_valid(hud):
-		hud.queue_free()
-	yield(get_tree(), "idle_frame")
-
+	var screen = get_node_or_null("/root/DebugConsoleManager")
+	assert_object(screen).is_not_null()
+	assert_str(screen.screen_id()).is_equal("system:console")
+	assert_str(String(screen.widget_snapshot().get("status_text", ""))).is_equal("OK")
+	assert_object(screen.widget_scene()).is_not_null()
+	assert_object(screen.view_scene()).is_not_null()
+	assert_bool(screen.view_requires_input()).is_true()
+	assert_object(screen.borrow_viewport()).is_not_null()
+	assert_float(float(screen.view_hud_config().get("background_alpha", 0.0))).is_equal_approx(0.42, 0.001)
+	screen.enter_focus_mode()
+	var cursor_before: Vector2 = screen._viewport._cursor_position
+	var motion := InputEventMouseMotion.new()
+	motion.relative = Vector2(12.0, -8.0)
+	screen.forward_view_input(motion)
+	assert_vector2(screen._viewport._cursor_position).is_equal(cursor_before + motion.relative)
+	screen.exit_focus_mode()
+	assert_bool(SuitOS.has_screen(screen.screen_id())).is_true()

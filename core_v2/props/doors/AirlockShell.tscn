@@ -1,10 +1,11 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://core_v2/props/doors/AirlockShell.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/airlock_baked/CylindricalShell.mesh" type="ArrayMesh" id=20]
 [ext_resource path="res://core_v2/props/doors/airlock_baked/CylindricalShell.shape" type="Shape" id=21]
 [ext_resource path="res://core_v2/props/doors/IrisFrameBaked.mesh" type="ArrayMesh" id=22]
 [ext_resource path="res://core_v2/props/doors/IrisFrameBaked.shape" type="Shape" id=23]
+[ext_resource path="res://core_v2/props/doors/airlock_rusted.tres" type="Material" id=40]
 
 [sub_resource type="BoxShape" id=3]
 extents = Vector3( 1.65, 1.65, 0.08 )
@@ -33,6 +34,7 @@ script = ExtResource( 1 )
 collision_layer = 130
 
 [node name="ShellMesh" type="MeshInstance" parent="CylindricalShell"]
+material_override = ExtResource( 40 )
 mesh = ExtResource( 20 )
 
 [node name="CollisionShape" type="CollisionShape" parent="CylindricalShell"]
@@ -44,6 +46,7 @@ transform = Transform( 0.78, 0, 0, 0, 0.78, 0, 0, 0, 0.78, 0, 0, 4.1 )
 [node name="Frame" type="StaticBody" parent="OuterSeal"]
 
 [node name="FrameMesh" type="MeshInstance" parent="OuterSeal/Frame"]
+material_override = ExtResource( 40 )
 mesh = ExtResource( 22 )
 
 [node name="CollisionShape" type="CollisionShape" parent="OuterSeal/Frame"]
@@ -67,6 +70,7 @@ transform = Transform( -0.78, -6.81898e-08, 0, 6.81898e-08, -0.78, 0, 0, 0, 0.78
 [node name="Frame" type="StaticBody" parent="InnerSeal"]
 
 [node name="FrameMesh" type="MeshInstance" parent="InnerSeal/Frame"]
+material_override = ExtResource( 40 )
 mesh = ExtResource( 22 )
 
 [node name="CollisionShape" type="CollisionShape" parent="InnerSeal/Frame"]

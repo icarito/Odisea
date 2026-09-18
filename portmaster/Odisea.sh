@@ -1,9 +1,4 @@
 #!/bin/bash
-# PORTMASTER: odisea.zip, Odisea.sh
-#
-# Basado en la plantilla canonica de PortMaster para runtime Godot 3.6 (frt_3.6).
-# No agregar aca banderas de desarrollo: para eso existe odisea/dev.sh (ver abajo),
-# que no viaja en el paquete publicado.
 
 XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
 
@@ -38,9 +33,8 @@ export XDG_DATA_HOME="$CONFDIR"
 export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 export LD_LIBRARY_PATH="/usr/lib:$GAMEDIR/lib:$LD_LIBRARY_PATH"
 
-# Ejes del stick: InputProviderV2 los invierte cuando ve este valor. Es solo input:
-# el rendimiento lo decide la deteccion de abajo.
-export ODISEA_DEVICE=anbernic
+# El mando se lee nativo (Godot/FRT). Ningun dispositivo se detecta: si un firmware
+# reporta los ejes al reves, el jugador lo corrige en Opciones -> Invertir X / Y.
 
 # Handhelds lentos de la generacion RK3326 (Mali-G31, 1 GB): perfil bajo desde el
 # arranque (SessionManager) y ajustes de render que solo pueden ir en override.cfg.
@@ -70,6 +64,9 @@ mounted_runtime=""
 if [ -f "$ENGINE_BIN" ]; then
   $ESUDO chmod +x "$ENGINE_BIN"
   ENGINE="$ENGINE_BIN"
+  # pkill matchea /proc/<pid>/comm, truncado a 15 chars: el nombre completo
+  # "odisea.frt.aarch64" nunca aparece entero y el kill switch queda muerto.
+  KILL_NAME="odisea"
 else
   runtime="frt_3.6"
   if [ ! -f "$controlfolder/libs/${runtime}.squashfs" ]; then
@@ -88,12 +85,15 @@ else
   PATH="$godot_dir:$PATH"
   mounted_runtime="$godot_dir"
   ENGINE="$runtime"
+  KILL_NAME="$runtime"
 fi
 
 # FRT usa Select como Force Quit por defecto; lo desactivamos.
 export FRT_NO_EXIT_SHORTCUTS=FRT_NO_EXIT_SHORTCUTS
 
-$GPTOKEYB "$(basename "$ENGINE")" -c "./odisea.gptk" &
+# gptokeyb2 no mapea nada a proposito (ver odisea.ini): el juego lee el pad
+# nativo. gptokeyb2 solo aporta el kill switch Start+Select.
+$GPTOKEYB2 "$KILL_NAME" -c "$GAMEDIR/odisea.ini" &
 
 # Gancho de desarrollo. Si existe odisea/dev.sh se sourcea aca, despues de que
 # PortMaster definio GODOT_OPTS y antes de lanzar el juego. Ahi van cosas como

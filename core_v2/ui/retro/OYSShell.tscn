@@ -68,4 +68,4 @@ margin_top = 334.0
 margin_right = 640.0
 margin_bottom = 360.0
 custom_colors/font_color = Color( 0.607843, 0.992157, 0.580392, 1 )
-text = "READY"
+text = "OK"

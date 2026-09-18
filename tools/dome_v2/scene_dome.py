@@ -10,9 +10,13 @@ Iteración 2 — calibrada contra maps/DomeTerrace.obj (fuente original):
     (apex exterior 32.57 m), construido por la cara interior para quedar
     tangente al tambor. La iteración 1 tamboreaba solo 5 m y apex 22 m ->
     pasarelas, escaleras, piso 5, risers y criopods atravesaban la pared.
-  - Bore airlock medido del OBJ: arco r~4.5 con centro z~4.3, piso plano en
-    z=0, túnel desde x~30.2 (boca ~0.5 hacia adentro) hasta 44.3 en el eje.
-    Calza con AirlockShell instanciado en Dome_Base.tscn a Y=3.4.
+  - Bore airlock calzado a la carcasa real (airlock_baked/CylindricalShell.mesh,
+    tubo facetado que Dome_Base/Dome_Default instancian con eje en Y=3.4): el
+    agujero va a r=3.10, dentro de la chapa (2.80 interior .. 3.34/3.50 exterior),
+    asi el borde del muro queda enterrado en el metal y no se ve ranura. El OBJ V1
+    traia un arco r~4.5 porque ahi el tunel era geometria propia; el cutter
+    booleano no agrega collarín, y un agujero mayor que la chapa deja anillo de
+    cielo visible desde adentro.
 
 Env vars:
   DOME_CAM=ext   -> vista exterior 3/4 alta (render + GLB)
@@ -50,12 +54,15 @@ DRUM_H = -CAP_CY + math.sqrt(CAP_RI**2 - R_IN**2)  # take-off tangente
 SEG = 48          # segmentos de revolución (low-poly: ~4 m por faceta)
 
 # --- Airlocks (N/S/E/O) ---
-# Dome_Base.tscn instancia AirlockShell con origen en (±32, 3.4)/(∓32, 3.4):
-# interior de la carcasa ancho ±2.85, techo +2.62, piso de seguridad -1.31.
-# Arco del bore medido del OBJ original: r~4.5, centro z~4.3, piso plano z=0,
-# boca sobresaliendo ~0.5 hacia el interior (túnel desde x~30.2).
-BORE_R = 4.6      # radio del arco del túnel
-BORE_CY = 4.2     # centro en altura del arco (topa del arco ~8.8, piso 0)
+# Dome_Base/Dome_Default instancian la carcasa con origen en (±32, 3.4)/(∓32, 3.4)
+# y su eje radial hacia adentro. Perfil medido en airlock_baked/CylindricalShell.mesh
+# cortando el plano medio del muro: la chapa (tubo facetado de 20 caras) va de
+# r=2.80 (circunradio interior) a r=3.34..3.50 (exterior). El agujero se corta a
+# r=3.10, DENTRO de esa chapa: asi el borde del muro queda enterrado en el metal
+# del airlock y no se ve ranura desde ningun lado. Un agujero mayor que la chapa
+# (r=3.6, antes r=4.6) deja un anillo de cielo visible.
+BORE_R = 3.1      # radio del arco del túnel (enterrado en la chapa 2.80..3.34)
+BORE_CY = 3.4     # centro en altura = centro del airlock
 BORE_IN = 30.3    # inicio del cutter en el eje (boca ~0.45 dentro de R_IN)
 BORE_OUT = 36.3   # fin del cutter (cubre la OuterSeal del shell en 32+3.2)
 
@@ -178,8 +185,9 @@ def build():
         cutter = cyl(f"Bore_{dx}_{dy}", BORE_R, length,
                      (dx * mid, dy * mid, BORE_CY), rot=rot, seg=48)
         boolean_cut(shell, cutter)
-        # Piso plano del túnel en z=0: corta solo el panza del cilindro que
-        # baja de -0.4 (box de z=-1.2 a 0, ancho 2*BORE_R, todo el largo).
+        # Piso plano del túnel en z=0. Con BORE_R=3.1 el arco ya topa en z=0.3
+        # (nunca baja del piso), así que este corte no toca la cascara; se deja
+        # como red de seguridad para radios mayores.
         flat = box(f"BoreFlat_{dx}_{dy}",
                    (dx * mid, dy * mid, -0.6),
                    ((length, BORE_R * 2 + 0.2, 1.2) if dx != 0
@@ -189,21 +197,29 @@ def build():
     # Separa las paredes de los bores en su propio objeto: viajan con acero
     # oscuro plano en el bake. El shader cilíndrico de la carcasa reconstruye
     # UVs desde la posición angular mundial y smearingaría la textura a lo
-    # largo del túnel radial. Criterio: distancia al eje del bore < BORE_R
-    # (atrapa el túnel aplanado, no el techo ni la pared).
+    # largo del túnel radial. Criterio: distancia al eje del bore < BORE_R Y
+    # normal perpendicular al eje (asi solo entra el túnel, no el tambor).
     bpy.context.view_layer.objects.active = shell
     bpy.ops.object.mode_set(mode='OBJECT')
     for f in shell.data.polygons:
         c = f.center
+        n = f.normal
         sel = False
         for (dx, dy) in dirs:
             if dx != 0:
                 perp = math.hypot(c.y, c.z - BORE_CY)
                 along = c.x * dx  # distancia firmada en el eje
+                axial = abs(n.x)
             else:
                 perp = math.hypot(c.x, c.z - BORE_CY)
                 along = c.y * dy
-            if perp < BORE_R + 0.05 and BORE_IN - 0.1 < along < BORE_OUT + 0.1:
+                axial = abs(n.y)
+            # La pared del tunel tiene la normal PERPENDICULAR al eje del bore.
+            # Sin este filtro el tambor entero alrededor de cada abertura (cuyas
+            # caras del meridiano tienen la normal paralela al eje) viajaba con
+            # acero oscuro y se veia como un panel liso arriba/abajo del airlock.
+            if perp < BORE_R + 0.05 and BORE_IN - 0.1 < along < BORE_OUT + 0.1 \
+                    and axial < 0.3:
                 sel = True
                 break
         f.select = sel
@@ -230,14 +246,14 @@ def build():
     rim.scale = (1.0, 1.0, 0.35)
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
 
-    # Barras cian flanqueando cada abertura de airlock (fuera del arco r=4.6)
+    # Barras cian flanqueando cada abertura de airlock (fuera del arco BORE_R)
     for (dx, dy) in dirs:
         for s in (1, -1):
             if dx != 0:
-                loc = (dx * (R_IN - 0.1), s * 5.3, BORE_CY)
+                loc = (dx * (R_IN - 0.1), s * (BORE_R + 0.7), BORE_CY)
                 size = (0.5, 0.35, 3.4)
             else:
-                loc = (s * 5.3, dy * (R_IN - 0.1), BORE_CY)
+                loc = (s * (BORE_R + 0.7), dy * (R_IN - 0.1), BORE_CY)
                 size = (0.35, 0.5, 3.4)
             strip = box(f"Strip_{dx}_{dy}_{s}", loc, size)
             strip.data.materials.append(mat_cyan)

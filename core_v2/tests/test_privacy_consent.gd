@@ -1,5 +1,7 @@
 extends "res://addons/gdUnit3/src/GdUnitTestSuite.gd"
 
+const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
+
 # FD-292. La pantalla se muestra al pulsar Nueva Partida la primera vez, no al abrir
 # el menu, y los botones de aceptar/rechazar recien aparecen cuando la barra llega al
 # final. Eso ultimo es lo que se cuida aca: si la eleccion pudiera hacerse antes, la
@@ -8,7 +10,7 @@ extends "res://addons/gdUnit3/src/GdUnitTestSuite.gd"
 func _make_screen():
 	var packed = load("res://core_v2/ui/FirstRunConsent.tscn")
 	assert_bool(packed != null).is_true()
-	var screen = packed.instance()
+	var screen = auto_free(packed.instance())
 	add_child(screen)
 	return screen
 
@@ -44,3 +46,17 @@ func test_rechazar_la_deja_apagada():
 	assert_bool(SettingsManager.error_reports_enabled).is_false()
 	assert_bool(SettingsManager.consent_asked).is_true()
 	assert_bool(SettingsManager.needs_privacy_consent()).is_false()
+
+
+func test_consent_keeps_the_shared_virtual_mouse_after_menu_hides():
+	var menu := Control.new()
+	get_tree().root.add_child(menu)
+	var cursor: Control = VirtualMouse.attach_to(menu)
+	var host := CanvasLayer.new()
+	get_tree().root.add_child(host)
+	var screen = load("res://core_v2/ui/FirstRunConsent.tscn").instance()
+	host.add_child(screen)
+	menu.hide()
+	assert_bool(cursor.is_wanted()).is_true()
+	host.free()
+	menu.free()

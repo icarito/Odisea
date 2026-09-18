@@ -3,6 +3,7 @@ extends ColorRect
 onready var master_slider = find_node("MasterSlider")
 onready var music_slider = find_node("MusicSlider")
 onready var sfx_slider = find_node("SFXSlider")
+onready var invert_x_toggle = find_node("InvertXToggle")
 onready var invert_y_toggle = find_node("InvertYToggle")
 onready var vibration_toggle = find_node("VibrationToggle")
 onready var fullscreen_option = find_node("FullscreenOption")
@@ -134,6 +135,7 @@ func _load_ui_values():
 	master_slider.value = sm.master_volume
 	music_slider.value = sm.music_volume
 	sfx_slider.value = sm.sfx_volume
+	invert_x_toggle.pressed = sm.invert_x
 	invert_y_toggle.pressed = sm.invert_y
 	vibration_toggle.pressed = sm.vibration
 	telemetry_toggle.pressed = sm.telemetry_enabled
@@ -159,6 +161,7 @@ func _connect_signals():
 	master_slider.connect("value_changed", self, "_on_master_volume_changed")
 	music_slider.connect("value_changed", self, "_on_music_volume_changed")
 	sfx_slider.connect("value_changed", self, "_on_sfx_volume_changed")
+	invert_x_toggle.connect("toggled", self, "_on_invert_x_toggled")
 	invert_y_toggle.connect("toggled", self, "_on_invert_y_toggled")
 	vibration_toggle.connect("toggled", self, "_on_vibration_toggled")
 	fullscreen_option.connect("item_selected", self, "_on_fullscreen_selected")
@@ -189,6 +192,11 @@ func _on_sfx_volume_changed(value):
 	if sm:
 		sm.sfx_volume = value
 		sm.apply_audio_settings()
+
+func _on_invert_x_toggled(button_pressed):
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm:
+		sm.invert_x = button_pressed
 
 func _on_invert_y_toggled(button_pressed):
 	var sm = get_node_or_null("/root/SettingsManager")

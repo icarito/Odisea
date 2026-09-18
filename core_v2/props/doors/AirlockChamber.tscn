@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=2]
+[gd_scene load_steps=26 format=2]
 
 [ext_resource path="res://core_v2/components/AirlockControllerV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/props/doors/IrisDoorV2.tscn" type="PackedScene" id=2]
@@ -18,6 +18,7 @@
 [ext_resource path="res://core_v2/props/doors/airlock_baked/ConduitLeft.mesh" type="ArrayMesh" id=29]
 [ext_resource path="res://core_v2/props/doors/airlock_baked/ConduitRight.mesh" type="ArrayMesh" id=30]
 [ext_resource path="res://core_v2/components/AirlockLOD.gd" type="Script" id=31]
+[ext_resource path="res://core_v2/props/doors/airlock_rusted.tres" type="Material" id=40]
 
 [sub_resource type="BoxShape" id=5]
 extents = Vector3( 2.5, 2.5, 4 )
@@ -50,6 +51,7 @@ status_label_path = NodePath("StatusLabel")
 collision_layer = 130
 
 [node name="ShellMesh" type="MeshInstance" parent="CylindricalShell"]
+material_override = ExtResource( 40 )
 mesh = ExtResource( 20 )
 
 [node name="CollisionShape" type="CollisionShape" parent="CylindricalShell"]
@@ -57,14 +59,17 @@ shape = ExtResource( 21 )
 
 [node name="Rib_Front" type="MeshInstance" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 2.5 )
+material_override = ExtResource( 40 )
 mesh = ExtResource( 22 )
 
 [node name="Rib_Center" type="MeshInstance" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0 )
+material_override = ExtResource( 40 )
 mesh = ExtResource( 23 )
 
 [node name="Rib_Back" type="MeshInstance" parent="."]
 transform = Transform( 1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -2.5 )
+material_override = ExtResource( 40 )
 mesh = ExtResource( 24 )
 
 [node name="Floor" type="MeshInstance" parent="."]
@@ -85,10 +90,12 @@ mesh = ExtResource( 28 )
 
 [node name="ConduitLeft" type="MeshInstance" parent="."]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -2.6, -0.4, 0 )
+material_override = ExtResource( 40 )
 mesh = ExtResource( 29 )
 
 [node name="ConduitRight" type="MeshInstance" parent="."]
 transform = Transform( -4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 2.6, -0.4, 0 )
+material_override = ExtResource( 40 )
 mesh = ExtResource( 30 )
 
 [node name="OuterDoor" parent="." instance=ExtResource( 2 )]
