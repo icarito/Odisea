@@ -124,6 +124,7 @@ Usar tres capas separadas:
 | FD-296 | OdiseaOS — sistema operativo del traje (modo HUD + widgets + HUDables) | In Progress | Large | P1 |
 | FD-297 | Transiciones seamless hacia la pantalla en cuestión (foco de terminal vs. primera persona) | Implemented | Medium | P1 |
 | FD-298 | Pantalla de linterna (batería retro en slot + botón de encendido en el widget) | Implemented | Small | P1 |
+| FD-304 | Interfaz diégetica de OdiseaOS con gamepad (slots, modo pantalla, acordes, drag y radial) | Design | Large | P1 |
 
 ## Completed / Archived
 
