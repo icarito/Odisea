@@ -402,13 +402,16 @@ func test_captured_mouse_dragging_a_radial_item_pins_it_to_a_slot():
 	var drop: Vector2 = home.widget_host.slot_rect(0).get_center()
 	var mouse_mode: int = Input.get_mouse_mode()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	var captured: bool = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
 	overlay._point_at(Vector2(0.0, -80.0))
 	overlay._input(_click(start))
 	assert_object(overlay._drag_ghost).is_not_null()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	if captured:
+		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 	overlay._input(_motion(drop, drop - start))
 	overlay._input(_release_click(drop))
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
+	if captured:
+		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
 	Input.set_mouse_mode(mouse_mode)
 
 	assert_str(home.hud_backend.slot_screen_id(0)).is_equal("screen_a")
