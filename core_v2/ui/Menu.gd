@@ -188,7 +188,7 @@ func _is_starting_game() -> bool:
 func _set_remote_host_found(found: bool) -> void:
 	for state in _remote_styles:
 		remote_control_button.add_stylebox_override(state, _remote_styles[state][0 if found else 1])
-	remote_control_button.hint_tooltip = "Control remoto: hay una partida en la red" if found else "Control remoto: no se detectan partidas en la red"
+	remote_control_button.hint_tooltip = tr("Control remoto: hay una partida en la red") if found else tr("Control remoto: no se detectan partidas en la red")
 
 # Misma luminancia, sin tinte: el hover del gris sigue viendose mas claro que el reposo.
 static func _grayscale(sb: StyleBoxFlat) -> StyleBoxFlat:

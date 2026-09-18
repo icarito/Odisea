@@ -1,0 +1,347 @@
+keys,es,en
+   CLOSE   ,   CLOSE   ,   CLOSE
+   NEXT   ,   NEXT   ,   NEXT
+%02d:%02d,%02d:%02d,%02d:%02d
+%d suggestions,%d suggestions,%d suggestions
+"%s
+%.1fms  N:%d  M:%d  L:%d  P:%d","%s
+%.1fms  N:%d  M:%d  L:%d  P:%d","%s
+%.1fms  N:%d  M:%d  L:%d  P:%d"
+%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: page   |   T: sort )
+%s Volviendo al menú...,%s Volviendo al menú...,%s Returning to menu...
+%s: %s,%s: %s,%s: %s
+2 cube,2 cube,2 cube
+<- Back,<- Back,<- Back
+AIRLOCK A,AIRLOCK A,AIRLOCK A
+AIRLOCK-01,AIRLOCK-01,AIRLOCK-01
+APAGADA,APAGADA,OFF
+APAGAR,APAGAR,TURN OFF
+"ASCENSOR
+N1","ASCENSOR
+N1","ELEVATOR
+L1"
+"ASCENSOR
+N2","ASCENSOR
+N2","ELEVATOR
+L2"
+"ASCENSOR
+N3","ASCENSOR
+N3","ELEVATOR
+L3"
+"ASCENSOR
+N4","ASCENSOR
+N4","ELEVATOR
+L4"
+"ASCENSOR
+N5","ASCENSOR
+N5","ELEVATOR
+L5"
+"ASCENSOR
+N6","ASCENSOR
+N6","ELEVATOR
+L6"
+ATMÓSFERA: --,ATMÓSFERA: --,ATMOSPHERE: --
+AUTO,AUTO,AUTO
+AVISO DE PRIVACIDAD,AVISO DE PRIVACIDAD,PRIVACY NOTICE
+Abrir instalador,Abrir instalador,Open installer
+Accionar,Accionar,Operate
+Accionar terminal,Accionar terminal,Operate terminal
+Activar,Activar,Activate
+Actualización disponible,Actualización disponible,Update available
+Actualizar ahora,Actualizar ahora,Update now
+Actualizar y reiniciar,Actualizar y reiniciar,Update and restart
+Alternar pantalla,Alternar pantalla,Toggle screen
+Autocomplete: ,Autocomplete: ,Autocomplete:
+BAT: [----------],BAT: [----------],BAT: [----------]
+BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||]
+Bombear,Bombear,Pump
+Build: unknown | Platform: unknown | Date: unknown,Build: unknown | Platform: unknown | Date: unknown,Build: unknown | Platform: unknown | Date: unknown
+Buscando partidas...,Buscando partidas...,Searching for games...
+Buscar de nuevo,Buscar de nuevo,Search again
+CAM: ,CAM: ,CAM:
+CARGA: --,CARGA: --,CHARGE: --
+CARGOL,CARGOL,CARGOL
+CARGOL CAÍDO,CARGOL CAÍDO,CARGOL DOWN
+CIRCUITO DE FRIO,CIRCUITO DE FRIO,COOLING CIRCUIT
+CONTINUAR,CONTINUAR,CONTINUE
+CONTROL REMOTO,CONTROL REMOTO,REMOTE CONTROL
+"CRIO
+AISLAR","CRIO
+AISLAR","CRYO
+ISOLATE"
+CRIO // C-02,CRIO // C-02,CRYO // C-02
+CRIO // C-03,CRIO // C-03,CRYO // C-03
+CRIOCOOLANT: --,CRIOCOOLANT: --,CRIOCOOLANT: --
+Calentando... %.1fs,Calentando... %.1fs,Heating... %.1fs
+Canal: release | Tipo: delta | Tamaño: 0 MB,Canal: release | Tipo: delta | Tamaño: 0 MB,Channel: release | Type: delta | Size: 0 MB
+Cancelar,Cancelar,Cancel
+"Capturado: %s | Duración: %.1fs
+Build: %s | Plataforma: %s | Tripulante: %s","Capturado: %s | Duración: %.1fs
+Build: %s | Plataforma: %s | Tripulante: %s","Captured: %s | Duration: %.1fs
+Build: %s | Platform: %s | Crew member: %s"
+Cargando...,Cargando...,Loading...
+Cerrar,Cerrar,Close
+Cerrar el overlay de log (tambien apaga la opcion),Cerrar el overlay de log (tambien apaga la opcion),Close log overlay (also disables option)
+Colapsar/expandir controles,Colapsar/expandir controles,Collapse/expand controls
+Color,Color,Color
+Compartir telemetría anónima,Compartir telemetría anónima,Share anonymous telemetry
+Conectando con %s...,Conectando con %s...,Connecting to %s...
+Conectar,Conectar,Connect
+Conexión cancelada. Elija una partida o pulse Buscar de nuevo.,Conexión cancelada. Elija una partida o pulse Buscar de nuevo.,Connection cancelled. Select a game or press Search again.
+Confirme la conexión con %s.,Confirme la conexión con %s.,Confirm connection with %s.
+Console not found,Console not found,Console not found
+Control remoto,Control remoto,Remote control
+Control remoto: hay una partida en la red,Control remoto: hay una partida en la red,Remote control: a game is available on the network
+Cuerpo de texto...,Cuerpo de texto...,Body text...
+DIRT,DIRT,DIRT
+Dejar de enfocar cámara del piloto,Dejar de enfocar cámara del piloto,Unfocus pilot camera
+Descargando captura...,Descargando captura...,Downloading recording...
+Domo,Domo,Dome
+EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA
+EMP ACTIVADO,EMP ACTIVADO,EMP ACTIVATED
+EMP LISTO,EMP LISTO,EMP READY
+EN ESPERA,EN ESPERA,STANDBY
+ENCENDER,ENCENDER,TURN ON
+ENCENDIDA,ENCENDIDA,ON
+ENERGÍA: --,ENERGÍA: --,POWER: --
+ENTER  —  OMITIR PRÓLOGO,ENTER  —  OMITIR PRÓLOGO,ENTER  —  SKIP PROLOGUE
+ERROR: ,ERROR: ,ERROR:
+ESTADO COOLANT,ESTADO COOLANT,COOLANT STATUS
+ESTADO COOLANT | OESTE: %s | ESTE: %s,ESTADO COOLANT | OESTE: %s | ESTE: %s,COOLANT STATUS | WEST: %s | EAST: %s
+"ESTE
+SALIDA","ESTE
+SALIDA","EAST
+EXIT"
+"En %s apareció una solicitud. Si muestra este mismo PIN, pulse Permitir.","En %s apareció una solicitud. Si muestra este mismo PIN, pulse Permitir.","A request appeared on %s. If it shows this same PIN, press Allow."
+Enfocar cámara del piloto,Enfocar cámara del piloto,Focus pilot camera
+Enviar reportes de error,Enviar reportes de error,Send error reports
+Envía métricas técnicas de rendimiento y uso para ayudar a mejorar el juego.,Envía métricas técnicas de rendimiento y uso para ayudar a mejorar el juego.,Sends technical performance and usage metrics to help improve the game.
+Error de actualización: %s,Error de actualización: %s,Update error: %s
+Escala de render,Escala de render,Render scale
+Escena: %s | Disparador: %s | FPS mín: %.1f | FPS med: %.1f,Escena: %s | Disparador: %s | FPS mín: %.1f | FPS med: %.1f,Scene: %s | Trigger: %s | Min FPS: %.1f | Avg FPS: %.1f
+FPS: ,FPS: ,FPS:
+FPS:000,FPS:000,FPS:000
+Forzar modo low end,Forzar modo low end,Force low-end mode
+Frame %d/%d — T: %.1fs / %.1fs,Frame %d/%d — T: %.1fs / %.1fs,Frame %d/%d — T: %.1fs / %.1fs
+Frame: 0/0,Frame: 0/0,Frame: 0/0
+GLOO ACTIVO: %d / %d,GLOO ACTIVO: %d / %d,ACTIVE GLOO: %d / %d
+GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d
+GLOO: 0/6,GLOO: 0/6,GLOO: 0/6
+GRASS,GRASS,GRASS
+Global Position: ,Global Position: ,Global Position:
+Global Position: N/A,Global Position: N/A,Global Position: N/A
+Glow postprocessing,Glow postprocessing,Glow post-processing
+HOTZONE PLAYER,HOTZONE PLAYER,HOTZONE PLAYER
+Hay %d partidas en su red. Elija cuál quiere controlar:,Hay %d partidas en su red. Elija cuál quiere controlar:,There are %d games on your network. Choose which one to control:
+HoloTerminal,HoloTerminal,HoloTerminal
+Information,Information,Information
+Interactuar,Interactuar,Interact
+Invertir Y,Invertir Y,Invert Y
+LA PARTIDA TERMINÓ,LA PARTIDA TERMINÓ,GAME OVER
+LASER: LISTO,LASER: LISTO,LASER: READY
+LISTO,LISTO,READY
+LOG,LOG,LOG
+LOG  %s  lineas=%d,LOG  %s  lineas=%d,LOG  %s  lines=%d
+Linterna,Linterna,Flashlight
+Los objetos que tapan al personaje se vuelven translúcidos. Se aplica al recargar la escena.,Los objetos que tapan al personaje se vuelven translúcidos. Se aplica al recargar la escena.,Objects obscuring the character become translucent. Applied on scene reload.
+MANUAL,MANUAL,MANUAL
+MENÚ PRINCIPAL,MENÚ PRINCIPAL,MAIN MENU
+METAL (Default),METAL (Default),METAL (Default)
+MODE: GLOO,MODE: GLOO,MODE: GLOO
+MODE: LASER,MODE: LASER,MODE: LASER
+MODO: %s,MODO: %s,MODE: %s
+MODO: LASER,MODO: LASER,MODE: LASER
+MODO: OFFLINE,MODO: OFFLINE,MODE: OFFLINE
+MULTI-TOOL,MULTI-TOOL,MULTI-TOOL
+"Manda al servidor las líneas de error del log al cerrar la sesión, para poder diagnosticar fallas que solo pasan en su dispositivo.","Manda al servidor las líneas de error del log al cerrar la sesión, para poder diagnosticar fallas que solo pasan en su dispositivo.",Sends log error lines to the server upon closing the session to diagnose issues specific to your device.
+Mantén TAB para cambiar de pantalla,Mantén TAB para cambiar de pantalla,Hold TAB to switch screen
+Modo Pantalla,Modo Pantalla,Screen Mode
+Mostrar pantalla,Mostrar pantalla,Show screen
+"Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola.","Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola.","Displays the tail of the engine log on screen, useful for debugging on devices without a console."
+Música,Música,Music
+NO ENVIAR,NO ENVIAR,DO NOT SEND
+"NORTE
+SALIDA","NORTE
+SALIDA","NORTH
+EXIT"
+NUEVA PARTIDA,NUEVA PARTIDA,NEW GAME
+No se pudo descargar (%s). Probá de nuevo.,No se pudo descargar (%s). Probá de nuevo.,Failed to download (%s). Try again.
+"No se pudo emparejar: %s.
+Pulse Buscar de nuevo para reintentar.","No se pudo emparejar: %s.
+Pulse Buscar de nuevo para reintentar.","Failed to pair: %s.
+Press Search again to retry."
+No se pudo escuchar en el puerto %d. Cierre cualquier otra instancia de Odisea en este dispositivo y pulse Buscar de nuevo.,No se pudo escuchar en el puerto %d. Cierre cualquier otra instancia de Odisea en este dispositivo y pulse Buscar de nuevo.,Could not listen on port %d. Close any other instances of Odisea on this device and press Search again.
+No suggestions,No suggestions,No suggestions
+Node Invalid,Node Invalid,Node Invalid
+OD-02 RESPALDO,OD-02 RESPALDO,OD-02 BACKUP
+OD-OS v4.21 | SURVEILLANCE,OD-OS v4.21 | SURVEILLANCE,OD-OS v4.21 | SURVEILLANCE
+ODISEA,ODISEA,ODISEA
+ODISEA OS,ODISEA OS,ODISEA OS
+ODISEAOS,ODISEAOS,ODISEAOS
+"OESTE
+CRIO","OESTE
+CRIO","WEST
+CRYO"
+OFF,OFF,OFF
+OFFLINE,OFFLINE,OFFLINE
+OK,OK,OK
+OPCIONES,OPCIONES,OPTIONS
+OPERATIVO,OPERATIVO,OPERATIONAL
+OXYGEN: ,OXYGEN: ,OXYGEN:
+OYSTrigger Example,OYSTrigger Example,OYSTrigger Example
+Ocultar registro,Ocultar registro,Hide log
+Odisea,Odisea,Odisea
+"OdiseaOS Workbench
+Godot 3.6 Retro UI
+
+Virtual terminals and runtime tools for Core_v2.","OdiseaOS Workbench
+Godot 3.6 Retro UI
+
+Virtual terminals and runtime tools for Core_v2.","OdiseaOS Workbench
+Godot 3.6 Retro UI
+
+Virtual terminals and runtime tools for Core_v2."
+Overlay de log en pantalla,Overlay de log en pantalla,On-screen log overlay
+PARTIDA EN PAUSA,PARTIDA EN PAUSA,GAME PAUSED
+PAUSA,PAUSA,PAUSE
+PAUSE,PAUSE,PAUSE
+PIN DE EMPAREJAMIENTO: ------,PIN DE EMPAREJAMIENTO: ------,PAIRING PIN: ------
+PIN: %s,PIN: %s,PIN: %s
+PIN: ------,PIN: ------,PIN: ------
+PLASMA: --,PLASMA: --,PLASMA: --
+PRESION SECTOR 04,PRESION SECTOR 04,PRESSURE SECTOR 04
+PRESSURE: ,PRESSURE: ,PRESSURE:
+PRESURIZANDO,PRESURIZANDO,PRESSURIZING
+PROTOCOL TITLE,PROTOCOL TITLE,PROTOCOL TITLE
+PROTOCOLO DE ABORDAJE,PROTOCOLO DE ABORDAJE,BOARDING PROTOCOL
+Pausado,Pausado,Paused
+Permitir,Permitir,Allow
+Preparando el primer nivel…,Preparando el primer nivel…,Preparing first level…
+Presiona %s o ESC para cerrar,Presiona %s o ESC para cerrar,Press %s or ESC to close
+Presiona E o ESC para cerrar,Presiona E o ESC para cerrar,Press E or ESC to close
+Prop Name,Prop Name,Prop Name
+Protocol body text goes here. This can be multiple lines.,Protocol body text goes here. This can be multiple lines.,Protocol body text goes here. This can be multiple lines.
+Puedes cambiar esta decisión cuando quieras desde Opciones.,Puedes cambiar esta decisión cuando quieras desde Opciones.,You can change this decision anytime in Options.
+Pulsar botón,Pulsar botón,Press button
+REACTOR: ,REACTOR: ,REACTOR:
+READY,READY,READY
+READY  FONT:%d,READY  FONT:%d,READY  FONT:%d
+REANUDAR,REANUDAR,RESUME
+REGISTRO COMPLETADO — Pausado,REGISTRO COMPLETADO — Pausado,RECORDING COMPLETE — Paused
+REINICIAR NIVEL,REINICIAR NIVEL,RESTART LEVEL
+RESTART,RESTART,RESTART
+RESUME,RESUME,RESUME
+RETORNANDO,RETORNANDO,RETURNING
+ROL ►,ROL ►,ROLL ►
+Rechazar,Rechazar,Deny
+Reduce la resolución interna para mejorar el rendimiento.,Reduce la resolución interna para mejorar el rendimiento.,Reduces internal resolution to improve performance.
+Refresh,Refresh,Refresh
+Render conservador para dispositivos débiles: sin post-process del environment y con lightmap manual. Se aplica al recargar la escena.,Render conservador para dispositivos débiles: sin post-process del environment y con lightmap manual. Se aplica al recargar la escena.,Conservative rendering for low-end devices: disables environment post-processing and uses manual lightmap. Applied on scene reload.
+Reproduciendo...,Reproduciendo...,Playing...
+Resolución interna,Resolución interna,Internal resolution
+Retomando la sesión anterior...,Retomando la sesión anterior...,Resuming previous session...
+SALIDA,SALIDA,EXIT
+SALIR,SALIR,QUIT
+SALTAR,SALTAR,SKIP
+SELECCIONE NIVEL,SELECCIONE NIVEL,SELECT LEVEL
+SEÑUELO ACTIVO,SEÑUELO ACTIVO,DECOY ACTIVE
+SFX,SFX,SFX
+SIN CONEXIÓN · %d s,SIN CONEXIÓN · %d s,OFFLINE · %d s
+SIN PANTALLAS,SIN PANTALLAS,NO SCREENS
+SISTEMA DE TRÁNSITO,SISTEMA DE TRÁNSITO,TRANSIT SYSTEM
+SISTEMA ESTABILIZADO,SISTEMA ESTABILIZADO,SYSTEM STABILIZED
+STONE,STONE,STONE
+"SUR
+SALIDA","SUR
+SALIDA","SOUTH
+EXIT"
+SURVEILLANCE,SURVEILLANCE,SURVEILLANCE
+SURVEILLANCE | BROWSE,SURVEILLANCE | BROWSE,SURVEILLANCE | BROWSE
+SURVEILLANCE | LIVE,SURVEILLANCE | LIVE,SURVEILLANCE | LIVE
+SYSTEM,SYSTEM,SYSTEM
+SYSTEM ERROR,SYSTEM ERROR,SYSTEM ERROR
+Salir,Salir,Quit
+Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0
+Se rechaza sola en %d s.,Se rechaza sola en %d s.,Auto-rejects in %d s.
+Se rechaza sola en 30 s.,Se rechaza sola en 30 s.,Auto-rejects in 30 s.
+Seleccionar nivel,Seleccionar nivel,Select level
+Sintonizar,Sintonizar,Tune
+Slope Test (15°),Slope Test (15°),Slope Test (15°)
+Solicitar Cápsula,Solicitar Cápsula,Request Pod
+Soltar pantalla,Soltar pantalla,Unfocus screen
+"Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse","Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse","Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse"
+Speed: %dx,Speed: %dx,Speed: %dx
+Speed: 1x,Speed: 1x,Speed: 1x
+Stair Test (0.2m steps),Stair Test (0.2m steps),Stair Test (0.2m steps)
+Steep Slope (30°),Steep Slope (30°),Steep Slope (30°)
+"SÍ, ACEPTO","SÍ, ACEPTO","YES, I AGREE"
+T-01,T-01,T-01
+TEMP %s  PRES %s  TOX %s,TEMP %s  PRES %s  TOX %s,TEMP %s  PRES %s  TOX %s
+TEMP: ,TEMP: ,TEMP:
+TERRACE A,TERRACE A,TERRACE A
+TITULO DEL PANEL,TITULO DEL PANEL,PANEL TITLE
+Test Scene,Test Scene,Test Scene
+Tiempo restante: 30 s,Tiempo restante: 30 s,Time remaining: 30 s
+Usar terminal,Usar terminal,Use terminal
+V-Sync,V-Sync,V-Sync
+VOLVER,VOLVER,BACK
+Ver Política de Privacidad completa,Ver Política de Privacidad completa,View full Privacy Policy
+Ver a través de los objetos,Ver a través de los objetos,See through objects
+Ver actualización disponible,Ver actualización disponible,View available update
+Ver en App Store,Ver en App Store,View on App Store
+Ver notas de la versión,Ver notas de la versión,View release notes
+Ver registro,Ver registro,View log
+Vibración,Vibración,Vibration
+Volumen General,Volumen General,Master Volume
+Volver,Volver,Back
+WOOD,WOOD,WOOD
+Window,Window,Window
+X Close,X Close,X Close
+[DISPONIBLE],[DISPONIBLE],[AVAILABLE]
+[EN FOCO],[EN FOCO],[FOCUSED]
+[INACTIVO],[INACTIVO],[INACTIVE]
+[SIN CONEXION],[SIN CONEXION],[OFFLINE]
+corto,corto,short
+cubemap camera,cubemap camera,cubemap camera
+debug,debug,debug
+debug_audio_texure,debug_audio_texure,debug_audio_texure
+debug_depth,debug_depth,debug_depth
+debug_material_id,debug_material_id,debug_material_id
+debug_scr_texture,debug_scr_texture,debug_scr_texture
+floor,floor,floor
+floor on cubemap,floor on cubemap,floor on cubemap
+"icarito
+odisea.educa.juegos","icarito
+odisea.educa.juegos","icarito
+odisea.educa.juegos"
+light color,light color,light color
+materialID viewport render scale,materialID viewport render scale,materialID viewport render scale
+more obj,more obj,more obj
+objects,objects,objects
+on,on,on
+resolution,resolution,resolution
+samples,samples,samples
+turn off,turn off,turn off
+un texto bastante mas largo que el anterior,un texto bastante mas largo que el anterior,a significantly longer text than the previous one
+update camera,update camera,update camera
+v0.0.0,v0.0.0,v0.0.0
+widget,widget,widget
+«%s» quiere controlar esta partida. Permita solo si muestra este mismo PIN:,«%s» quiere controlar esta partida. Permita solo si muestra este mismo PIN:,«%s» wants to control this game. Only allow if it shows this same PIN:
+¿Aceptas enviar telemetría?,¿Aceptas enviar telemetría?,Do you agree to send telemetry?
+"¿Controlar esta partida?
+
+%s
+
+En esa pantalla tendrán que permitirlo con un PIN.","¿Controlar esta partida?
+
+%s
+
+En esa pantalla tendrán que permitirlo con un PIN.","Control this game?
+
+%s
+
+On that screen, permission will need to be granted using a PIN."
+¿Permitir control remoto desde dispositivo?,¿Permitir control remoto desde dispositivo?,Allow remote control from device?
+¿Volver al menú y desconectar el control remoto?,¿Volver al menú y desconectar el control remoto?,Return to menu and disconnect remote control?
+▸ PRESIONE PARA LEER,▸ PRESIONE PARA LEER,▸ PRESS TO READ
+◄ ROL,◄ ROL,◄ ROLL

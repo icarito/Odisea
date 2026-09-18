@@ -175,14 +175,14 @@ func _build_datetime(version: String, issued_at: String) -> String:
 func _setup_severity_ui(severity: String):
 	modal_dim.show()
 	if severity == "security_critical":
-		close_button.text = "Salir"
+		close_button.text = tr("Salir")
 		if get_tree().current_scene and get_tree().current_scene.filename != "res://scenes/Menu.tscn":
 			var persistence = get_node_or_null("/root/PersistenceManager")
 			if persistence:
 				print("[VersionNotification] Critical update: saving state...")
 				persistence.save_checkpoint_resource(get_tree().current_scene.filename)
 	else:
-		close_button.text = "Cerrar"
+		close_button.text = tr("Cerrar")
 		close_button.show()
 
 	if not get_tree().paused:
@@ -197,14 +197,14 @@ func _setup_severity_ui(severity: String):
 func _update_action_button_text():
 	var platform = OS.get_name()
 	if platform == "Android":
-		action_button.text = "Abrir instalador"
+		action_button.text = tr("Abrir instalador")
 	elif platform == "HTML5":
-		action_button.text = "Actualizar ahora"
+		action_button.text = tr("Actualizar ahora")
 	elif platform == "iOS":
-		action_button.text = "Ver en App Store"
+		action_button.text = tr("Ver en App Store")
 	else:
 		# Desktop: un clic descarga (si falta) y reinicia para aplicar, sin más pasos.
-		action_button.text = "Actualizar y reiniciar"
+		action_button.text = tr("Actualizar y reiniciar")
 
 # Un único clic = confirmación total. Marca _user_confirmed para que, en cuanto la
 # descarga termine (update_ready), se aplique automáticamente sin un segundo clic.
@@ -265,10 +265,10 @@ func _on_update_failed(code, recoverable):
 	# qué pasó — indistinguible de que siguiera colgado en 0%. Mostrar SIEMPRE algo,
 	# y dejar reintentar con el mismo botón.
 	if recoverable:
-		metadata_label.text = "No se pudo descargar (%s). Probá de nuevo." % code
+		metadata_label.text = tr("No se pudo descargar (%s). Probá de nuevo.") % code
 		metadata_label.visible = true
 	else:
-		label.text = "Error de actualización: %s" % code
+		label.text = tr("Error de actualización: %s") % code
 
 func _on_close_pressed():
 	if _is_security_critical:

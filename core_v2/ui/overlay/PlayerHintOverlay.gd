@@ -33,7 +33,7 @@ func _notification(what: int) -> void:
 func set_hint_text(text: String) -> void:
 	if not _label:
 		return
-	_label.text = text
+	_label.text = tr(text)
 	_label.visible = text.strip_edges() != ""
 	_reflow()
 
