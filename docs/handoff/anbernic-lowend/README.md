@@ -40,6 +40,7 @@ Opciones activada.
 | Dither de props apagado por defecto (el toggle de Opciones lo reactiva) | `PropDitherManager._resolve_occlusion_dither()` | tier LOW, salvo que el jugador lo haya tocado |
 | Sombras falsas (blob/quad) apagadas por env | `GLES3VendorGate._sync_low_tier_env_hints()` | tier LOW |
 | Control remoto desactivado (sin host ni los 5 nodos de `_process`) | `RemoteControlManager._ready()` / `_is_low_tier()` | tier LOW |
+| Animator del player a 12 Hz **solo en idle**; al moverse avanza al paso de física (30 Hz) | `PilotAnimatorV2._advance_animation_tree_if_manual()` | tier LOW (idle) |
 | Auto-fit del shaft del ascensor cada 3 ticks | `ElevatorDoor` + `LowTierTickStride` | tier LOW |
 | Lightmap manual (evita la colisión de unidad del lightmap nativo) | `GLES3VendorGate._sync_manual_lightmap()` + `IOSLightmapFallback` | solo Mali-G31 detectado |
 | Perfil gráfico bajo desde el arranque (`ODISEA_GRAPHICS_PROFILE=low`, sin scatter, sin warmup) | `SessionManager._detect_weak_hardware_early()` | `ODISEA_EARLY_WEAK_HARDWARE=1` o huella ARM con ≤1 GB o SoC conocido |
@@ -98,6 +99,14 @@ Medido con el replay (misma ventana), pck local deployado por SSH:
 Baja el costo por tick (~7 ms), pero **el fps no se mueve**: el frame del replay está limitado por
 draws/driver, no por el tick de CPU. Sirve de headroom, no de fps; para fps hay que bajar draw calls /
 materiales (carril de contenido/geometría).
+
+### Animator: fluidez del player (2026-09-18)
+
+El throttle de 12 Hz del `AnimationTree` en tier LOW hacía que el player caminara a 12 Hz (se veía
+escalonado, muy por debajo del cap de 30 fps). Ahora el árbol avanza al **paso de física** (30 Hz en el
+handheld, que es el cap de render: cada frame dibuja una pose nueva) y sólo baja a 12 Hz cuando el player
+está **quieto y en piso**. Medido en el RG351V inyectando `move_forward` por `/eval`: idle `proc/phys`
+2/5 ms y moviéndose 2/5 ms, sin cambio medible; la animación en movimiento queda fluida.
 
 ## Hoja de ruta: Dome_Intro de 12 a 20 fps
 

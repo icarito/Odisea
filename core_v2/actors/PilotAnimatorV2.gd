@@ -476,7 +476,11 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 	update_animation_parameters(p_current_velocity, is_on_floor, controller.get_wish_direction().length())
 	_update_climb_visual_state(dt)
 	_update_climb_pose_correction(dt)
-	_advance_animation_tree_if_manual(dt)
+	# Solo se throttlea el arbol cuando el player esta quieto y en piso: al moverse,
+	# saltar o estar en zero-g avanza al paso de fisica (30 Hz en handheld = el cap de
+	# render, asi cada frame dibuja una pose nueva).
+	var idle_can_throttle: bool = is_on_floor and not has_locomotion_intent and not acrobatic_trigger_active and not _is_zero_g()
+	_advance_animation_tree_if_manual(dt, idle_can_throttle)
 	var traversal = controller.get("traversal_logic") if controller else null
 	var traversal_suppressed: bool = traversal != null and (traversal.is_climbing or traversal.is_hanging)
 	var is_sprinting: bool = controller.last_input != null and controller.last_input.sprint
@@ -1306,8 +1310,9 @@ func _configure_animation_runtime_policy() -> void:
 	# con la pose del frame anterior — hasta ~66 ms de desfase del ciclo de caminado —
 	# y el cuello se ve sacudirse arriba-abajo (shear que crece con el frame time).
 	# Avanzando el arbol dentro de step_animator, esqueleto y overrides corren en un
-	# solo reloj (60 Hz de fisica) a cualquier fps de render. En Anbernic se conserva
-	# el throttle de 12 Hz del intervalo hyper-low.
+	# solo reloj (60 Hz de fisica) a cualquier fps de render. En tier LOW el limite
+	# baja a 12 Hz solo en idle (ver _advance_animation_tree_if_manual): moverse
+	# mantiene el paso de fisica y no se ve escalonado.
 	_manual_animtree_step_enabled = true
 	if animation_tree == null:
 		return
@@ -1327,14 +1332,19 @@ func _set_anim_tree_param(path: String, value, float_epsilon := ANIM_PARAM_FLOAT
 	_anim_tree_param_cache[path] = value
 	animation_tree.set(path, value)
 
-func _advance_animation_tree_if_manual(dt: float) -> void:
+func _advance_animation_tree_if_manual(dt: float, idle_can_throttle: bool = false) -> void:
 	if not _manual_animtree_step_enabled:
 		return
 	if animation_tree == null or not animation_tree.active:
 		return
 	_manual_animtree_step_accum += max(0.0, dt)
-	# Anbernic throttlea el avance a 12 Hz; el resto avanza al paso de fisica (60 Hz).
-	var interval := MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW if _is_hyper_low_runtime() else MANUAL_ANIMTREE_STEP_INTERVAL
+	# Paso normal = el de fisica (30 Hz en el handheld, que es el cap de render: cada
+	# frame recibe una pose nueva). En tier LOW solo se baja a 12 Hz cuando el player
+	# esta quieto y en piso; caminar/correr/saltar/caer/trepar queda fluido, y el ahorro
+	# de CPU se conserva en el estado que nadie mira.
+	var interval := MANUAL_ANIMTREE_STEP_INTERVAL
+	if _is_hyper_low_runtime() and idle_can_throttle:
+		interval = MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW
 	if _manual_animtree_step_accum < interval:
 		return
 	var step_dt = _manual_animtree_step_accum
