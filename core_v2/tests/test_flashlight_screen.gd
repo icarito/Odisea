@@ -123,7 +123,7 @@ func test_flashlight_widget_ui_snapshot() -> void:
 	})
 
 	assert_str(title_lbl.text).is_equal("Linterna")
-	assert_str(btn.text).is_equal("APAGAR")
+	assert_str(btn.text).is_equal(tr("APAGAR"))
 	assert_bool(btn.disabled).is_false()
 	assert_str(meter_lbl.text).is_equal("BAT: [|||||.....]")
 
@@ -136,6 +136,6 @@ func test_flashlight_widget_ui_snapshot() -> void:
 		"source": "online"
 	})
 
-	assert_str(btn.text).is_equal("ENCENDER")
-	assert_str(status_lbl.text).is_equal("APAGADA")
+	assert_str(btn.text).is_equal(tr("ENCENDER"))
+	assert_str(status_lbl.text).is_equal(tr("APAGADA"))
 	assert_str(meter_lbl.text).is_equal("BAT: [..........]")
