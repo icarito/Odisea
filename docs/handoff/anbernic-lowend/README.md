@@ -37,6 +37,8 @@ Opciones activada.
 | Pipes, Room3D, coolant cada 2 ticks; contexto de SuitOS y bus de sistemas cada 3 | `LowTierTickStride` | tier LOW |
 | Presupuestos de luces, visuales y render scale adaptativo | `MobileLightBudget`, `AdaptiveVisualBudget`, `AdaptiveRenderScale` | móvil o tier LOW |
 | Sombras apagadas y materiales simplificados | `GLES3VendorGate._low_tier_node()` | tier LOW |
+| Dither de props apagado por defecto (el toggle de Opciones lo reactiva) | `PropDitherManager._resolve_occlusion_dither()` | tier LOW, salvo que el jugador lo haya tocado |
+| Sombras falsas (blob/quad) apagadas por env | `GLES3VendorGate._sync_low_tier_env_hints()` | tier LOW |
 | Lightmap manual (evita la colisión de unidad del lightmap nativo) | `GLES3VendorGate._sync_manual_lightmap()` + `IOSLightmapFallback` | solo Mali-G31 detectado |
 | Perfil gráfico bajo desde el arranque (`ODISEA_GRAPHICS_PROFILE=low`, sin scatter, sin warmup) | `SessionManager._detect_weak_hardware_early()` | `ODISEA_EARLY_WEAK_HARDWARE=1` o huella ARM con ≤1 GB o SoC conocido |
 | Ajustes de arranque de render (MSAA off, sombras 1024, vertex shading, 4 luces) | `portmaster/lowend.cfg`, que `Odisea.sh` copia a `override.cfg` | PortMaster en la generación RK3326 (device tree `rockchip,rk3326` o GPU Mali-G31) |
@@ -45,6 +47,29 @@ Opciones activada.
 UI (vale para cualquier perfil con render scale < 100%): con stretch "viewport" la UI se dibuja a la misma
 resolución que el 3D. Mientras Opciones o un widget en modo pantalla están abiertos, el render vuelve a
 escala 1.0 (`SettingsManager.hold_full_resolution_ui`) y al cerrarlos vuelve la escala elegida.
+
+## Bisección 2026-09-18 (replay determinista, release, RG351V)
+
+Método: replay de `Dome_Intro` grabado en desktop (6415 frames) corrido en el dispositivo vía el hook
+`odisea/dev.sh` (`--replay <json>`) más `ANNA_V2_BRIDGE` a un peer local; un reinicio por hipótesis y siempre
+la misma ventana de ticks (100→400) para que el tramo del nivel no ensucie la comparación.
+
+| Hipótesis | ticks/s | Δ | fps med |
+|---|---|---|---|
+| baseline | 2.60 | — | 3 |
+| `render_scale=0.6` | 3.18 | +22% | 3 |
+| `render_scale=0.5` y `render_resolution=640x480` | 3.17 | +22% | 3 |
+| **dither de props off** | **4.12** | **+58%** | 4 |
+| dither off + sombras falsas off | 4.43 | +70% | 5 |
+| dither off + scans de interacción/zonas off | 4.32 | +66% | 4 |
+| dither off + sombras + scans | 4.39 | +69% | 5 |
+
+Lectura: bajar resolución no pasa de ~0.6 y de 0.6 a 0.5 no cambia nada ⇒ **no es fillrate**; ocultando toda
+la geometría (`dc=0`, binario debug) el throughput se duplicaba, así que el render (draws/estado/driver) es
+~50% del frame y el resto es por-nodo/script/física. El dither es la palanca grande y barata porque agrega
+variantes de material (draw calls 144→128); las sombras falsas suman ~7%. Los scans de interacción/zonas
+suman poco y se descartan por gameplay. Por eso el tier LOW ahora trae dither apagado por defecto y sombras
+falsas apagadas; el toggle de Opciones sigue mandando.
 
 ## Hoja de ruta: Dome_Intro de 12 a 20 fps
 

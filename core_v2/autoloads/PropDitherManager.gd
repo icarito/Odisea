@@ -89,6 +89,22 @@ static func _wants_occlusion_dither(env_value: String, setting_enabled: bool) ->
 	return setting_enabled
 
 
+# En tier LOW el dither arranca apagado salvo que el jugador lo haya tocado a mano.
+# Medido en RG351V sobre un replay determinista de Dome_Intro: el costo de las
+# variantes de material del dither es ~+58% de ticks/s (144->128 draw calls), y no
+# depende de la resolucion. El toggle de Opciones sigue mandando via
+# prop_dither_user_set; el env ODISEA_PROP_DITHER sigue ganando para A/B.
+static func _resolve_occlusion_dither(env_value: String, setting_enabled: bool, low_tier: bool, user_set: bool) -> bool:
+	if low_tier and not user_set:
+		setting_enabled = false
+	return _wants_occlusion_dither(env_value, setting_enabled)
+
+
+func _is_low_tier() -> bool:
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.has_method("is_low_tier") and gate.is_low_tier()
+
+
 func _ready() -> void:
 	# Diferido: SettingsManager entra al arbol DESPUES que este autoload, asi que en
 	# _ready todavia no se puede leer la opcion.
@@ -98,7 +114,8 @@ func _ready() -> void:
 func _start() -> void:
 	var sm = get_node_or_null("/root/SettingsManager")
 	var setting_enabled: bool = sm == null or sm.prop_dither_enabled
-	if not _wants_occlusion_dither(OS.get_environment(ENV_FLAG), setting_enabled):
+	var user_set: bool = sm != null and bool(sm.get("prop_dither_user_set"))
+	if not _resolve_occlusion_dither(OS.get_environment(ENV_FLAG), setting_enabled, _is_low_tier(), user_set):
 		set_process(false)
 		return
 	_scan_scene_tree()

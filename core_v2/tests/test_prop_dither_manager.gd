@@ -60,3 +60,18 @@ func test_baked_hub_spokes_body_exposes_its_footstep_profile() -> void:
 
 	assert_bool(body.has_meta("footstep_profile")).is_true()
 	assert_object(body.get_meta("footstep_profile")).is_not_null()
+
+
+# Tier LOW: dither apagado por defecto (medido +58% en RG351V), salvo eleccion del jugador.
+func test_low_tier_defaults_occlusion_dither_off() -> void:
+	assert_bool(PropDitherManagerScript._resolve_occlusion_dither("", true, true, false)).is_false()
+
+func test_low_tier_respects_the_player_choice() -> void:
+	assert_bool(PropDitherManagerScript._resolve_occlusion_dither("", true, true, true)).is_true()
+
+func test_non_low_tier_keeps_the_default_on() -> void:
+	assert_bool(PropDitherManagerScript._resolve_occlusion_dither("", true, false, false)).is_true()
+
+func test_env_flag_wins_over_tier_and_setting() -> void:
+	assert_bool(PropDitherManagerScript._resolve_occlusion_dither("1", false, true, false)).is_true()
+	assert_bool(PropDitherManagerScript._resolve_occlusion_dither("0", true, false, true)).is_false()

@@ -140,3 +140,20 @@ func test_untouched_nodes_keep_shadows_without_gate():
 	assert_bool(light.shadow_enabled).is_true()
 	assert_bool(mat.normal_enabled).is_true()
 	assert_bool(mi.cast_shadow == GeometryInstance.SHADOW_CASTING_SETTING_OFF).is_false()
+
+
+# Tier LOW apaga las sombras falsas por env, antes de que las escenas las instancien.
+func test_low_tier_sets_fake_shadow_off_env():
+	var prev := OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW")
+	OS.set_environment("ODISEA_DISABLE_FAKE_SHADOW", "")
+
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = false
+	gate._sync_low_tier_env_hints()
+	assert_str(OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW")).is_equal("")
+
+	gate.force_gate = true
+	gate._sync_low_tier_env_hints()
+	assert_str(OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW")).is_equal("1")
+
+	OS.set_environment("ODISEA_DISABLE_FAKE_SHADOW", prev)

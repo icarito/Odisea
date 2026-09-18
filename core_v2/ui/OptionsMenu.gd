@@ -285,6 +285,8 @@ func _on_prop_dither_toggled(button_pressed):
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm:
 		sm.prop_dither_enabled = button_pressed
+		# Deja de valer el default de tier LOW: lo que el jugador eligio manda.
+		sm.prop_dither_user_set = true
 
 func _on_low_end_toggled(button_pressed):
 	var sm = get_node_or_null("/root/SettingsManager")

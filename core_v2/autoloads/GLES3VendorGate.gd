@@ -32,7 +32,15 @@ const LOW_TIER_PHYSICS_FPS := 30
 func _ready() -> void:
 	_detect_gate()
 	sync_physics_rate()
+	_sync_low_tier_env_hints()
 	get_tree().connect("node_added", self, "_on_node_added")
+
+# Hints de entorno del tier LOW que tienen que estar seteados ANTES de que las
+# escenas instancien sus nodos (leen el env en _ready). Hoy: las sombras falsas
+# (quads/raycast por prop) son ~+7% de ticks/s en RG351V y son cosmeticas.
+func _sync_low_tier_env_hints() -> void:
+	if is_low_tier():
+		OS.set_environment("ODISEA_DISABLE_FAKE_SHADOW", "1")
 
 # Fuera del tier vuelve al valor del proyecto: desktop, CI y replays siguen a 60 Hz. Se llama
 # tambien al cambiar la opcion "low end" en el menu.

@@ -43,6 +43,9 @@ var remote_control_enabled: bool = true
 # se buscaba por que los props no se dibujaban ahi; la causa era el lightmap del motor,
 # no este shader. Queda como opcion para poder apagarlo en el dispositivo sin otro build.
 var prop_dither_enabled: bool = true
+# Marca de "el jugador toco el toggle". En tier LOW el dither viene apagado por
+# defecto (costo medido en RG351V); si el jugador lo activo a mano, manda su valor.
+var prop_dither_user_set: bool = false
 # Forzar el tier de render LOW (FD-299): sin post-process del environment y con
 # lightmap manual. El GLES3VendorGate lo activa solo en adapters verificados
 # (Mali-G31 via FRT); esta opcion lo fuerza a mano en cualquier dispositivo.
@@ -89,6 +92,7 @@ func load_settings():
 	# load() falla mas arriba y deja consent_asked en false), que es cuando se pregunta.
 	consent_asked = _config.get_value("privacy", "consent_asked", true)
 	prop_dither_enabled = _config.get_value("display", "prop_dither_enabled", true)
+	prop_dither_user_set = _config.get_value("display", "prop_dither_user_set", false)
 	low_end_forced = _config.get_value("rendering", "low_end_forced", false)
 	ui_language = _config.get_value("locale", "ui_language", "auto")
 
@@ -110,6 +114,7 @@ func save_settings():
 	_config.set_value("privacy", "error_reports_enabled", error_reports_enabled)
 	_config.set_value("privacy", "consent_asked", consent_asked)
 	_config.set_value("display", "prop_dither_enabled", prop_dither_enabled)
+	_config.set_value("display", "prop_dither_user_set", prop_dither_user_set)
 	_config.set_value("rendering", "low_end_forced", low_end_forced)
 	_config.set_value("locale", "ui_language", ui_language)
 
