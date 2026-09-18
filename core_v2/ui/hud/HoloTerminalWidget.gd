@@ -32,23 +32,23 @@ func set_snapshot(snapshot: Dictionary) -> void:
 
 		if _status_label != null:
 			if source == "offline":
-				_status_label.text = "OFFLINE"
+				_status_label.text = tr("OFFLINE")
 			elif status_text != "":
-				_status_label.text = status_text
+				_status_label.text = tr(status_text)
 			elif is_active:
-				_status_label.text = "OPERATIVO"
+				_status_label.text = tr("OPERATIVO")
 			else:
-				_status_label.text = "EN ESPERA"
+				_status_label.text = tr("EN ESPERA")
 
 		if _mode_label != null:
 			if source == "offline":
-				_mode_label.text = "[SIN CONEXION]"
+				_mode_label.text = tr("[SIN CONEXION]")
 			elif is_focused:
-				_mode_label.text = "[EN FOCO]"
+				_mode_label.text = tr("[EN FOCO]")
 			elif is_active:
-				_mode_label.text = "[DISPONIBLE]"
+				_mode_label.text = tr("[DISPONIBLE]")
 			else:
-				_mode_label.text = "[INACTIVO]"
+				_mode_label.text = tr("[INACTIVO]")
 
 		# Estado del sistema que diagnostica el terminal (Criogenia), si el snapshot lo
 		# trae: lecturas de sala en la linea de estado, y el estado del circuito en la
@@ -72,7 +72,7 @@ func _apply_cryo_summary(cryo: Dictionary, status_label: Label, mode_label: Labe
 		var tox_str := "--%"
 		if room.has("contamination"):
 			tox_str = "%d%%" % int(round(float(room.get("contamination")) * 100.0))
-		status_label.text = "TEMP %s  PRES %s  TOX %s" % [temp_str, pres_str, tox_str]
+		status_label.text = tr("TEMP %s  PRES %s  TOX %s") % [temp_str, pres_str, tox_str]
 
 	if mode_label == null:
 		return

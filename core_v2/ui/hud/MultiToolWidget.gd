@@ -24,21 +24,21 @@ func set_snapshot(snapshot: Dictionary) -> void:
 		if _status_dot != null:
 			_status_dot.color = Color(0.5, 0.5, 0.5, 0.8)
 		if _mode_label != null:
-			_mode_label.text = "MODO: OFFLINE"
+			_mode_label.text = tr("MODO: OFFLINE")
 		if _charge_label != null:
-			_charge_label.text = "CARGA: --"
+			_charge_label.text = tr("CARGA: --")
 		return
 
 	if _status_dot != null:
 		_status_dot.color = Color(0.18, 0.88, 0.78, 0.9) if mode == "GLOO" else Color(1.0, 0.3, 0.1, 0.9)
 
 	if _mode_label != null:
-		_mode_label.text = "MODO: %s" % mode
+		_mode_label.text = tr("MODO: %s") % mode
 
 	if _charge_label != null:
 		var active_gloo: int = int(charge.get("active", 0))
 		var max_gloo: int = int(charge.get("max", 18))
 		if mode == "GLOO":
-			_charge_label.text = "GLOO ACTIVO: %d / %d" % [active_gloo, max_gloo]
+			_charge_label.text = tr("GLOO ACTIVO: %d / %d") % [active_gloo, max_gloo]
 		else:
-			_charge_label.text = "LASER: LISTO"
+			_charge_label.text = tr("LASER: LISTO")

@@ -47,6 +47,8 @@ var prop_dither_enabled: bool = true
 # lightmap manual. El GLES3VendorGate lo activa solo en adapters verificados
 # (Mali-G31 via FRT); esta opcion lo fuerza a mano en cualquier dispositivo.
 var low_end_forced: bool = false
+# Idioma de la interfaz ("auto"|"es"|"en").
+var ui_language: String = "auto"
 
 func _ready():
 	load_settings()
@@ -88,6 +90,7 @@ func load_settings():
 	consent_asked = _config.get_value("privacy", "consent_asked", true)
 	prop_dither_enabled = _config.get_value("display", "prop_dither_enabled", true)
 	low_end_forced = _config.get_value("rendering", "low_end_forced", false)
+	ui_language = _config.get_value("locale", "ui_language", "auto")
 
 func save_settings():
 	_config.set_value("audio", "master_volume", master_volume)
@@ -108,6 +111,7 @@ func save_settings():
 	_config.set_value("privacy", "consent_asked", consent_asked)
 	_config.set_value("display", "prop_dither_enabled", prop_dither_enabled)
 	_config.set_value("rendering", "low_end_forced", low_end_forced)
+	_config.set_value("locale", "ui_language", ui_language)
 
 	var err = _config.save(SETTINGS_PATH)
 	if err != OK:
@@ -117,9 +121,39 @@ func needs_privacy_consent() -> bool:
 	return not consent_asked
 
 func apply_all_settings():
+	apply_locale_settings()
 	apply_audio_settings()
 	apply_display_settings()
 	apply_privacy_settings()
+
+func resolve_effective_language() -> String:
+	if ui_language == "auto":
+		var sys_locale = OS.get_locale().to_lower()
+		if sys_locale.begins_with("es"):
+			return "es"
+		else:
+			return "en"
+	return ui_language
+
+func apply_locale_settings() -> void:
+	if not _has_translation("en"):
+		var trans = load("res://locale/ui_strings.en.translation") as Translation
+		if trans != null:
+			TranslationServer.add_translation(trans)
+			if not _has_translation("es"):
+				var trans_es = Translation.new()
+				trans_es.locale = "es"
+				for msg_key in trans.get_message_list():
+					trans_es.add_message(msg_key, msg_key)
+				TranslationServer.add_translation(trans_es)
+	var effective = resolve_effective_language()
+	TranslationServer.set_locale(effective)
+
+func _has_translation(locale_code: String) -> bool:
+	for loc in TranslationServer.get_loaded_locales():
+		if String(loc) == locale_code:
+			return true
+	return false
 
 func apply_privacy_settings() -> void:
 	var telemetry = get_node_or_null("/root/ANNAV2")
