@@ -71,6 +71,13 @@ variantes de material (draw calls 144→128); las sombras falsas suman ~7%. Los 
 suman poco y se descartan por gameplay. Por eso el tier LOW ahora trae dither apagado por defecto y sombras
 falsas apagadas; el toggle de Opciones sigue mandando.
 
+Verificado en device con el nightly `0.4.0-nightly.632+5ac94eb`, misma ventana ticks 100→400:
+
+| Estado | ticks/s | fps med | dc med |
+|---|---|---|---|
+| default tier LOW (dither off + sombras falsas off) | 3.99 (+53% vs 2.60) | 4 | 130 |
+| dither forzado ON por el jugador (`prop_dither_user_set=true`) | 2.69 | 3 | 144.5 |
+
 ## Hoja de ruta: Dome_Intro de 12 a 20 fps
 
 Presupuesto actual (release, 30 Hz): 12 fps son ~83 ms por frame. Con el juego en tiempo real hay ~2.5 ticks
