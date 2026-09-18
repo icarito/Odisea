@@ -389,6 +389,20 @@ conecte al peer, y lo lleva a la escena/posición pedida (`SceneManager.goto_sce
 + `teleport_player`). Headful para revisar **con** el usuario; headless para checks autónomos
 (no captura screenshots). No mata el editor abierto (`-e`).
 
+**Empujar una escena ad hoc a un device (RG351V/Anbernic) sin re-exportar:** un comando deja
+el equipo listo (engine debug del release del fork + peer + `dev.sh` con el bridge) y otro
+inyecta la escena por `reload_pck`; después se entra con `SceneManager.goto_scene`. Es el loop
+de iteración rápida para niveles/props:
+
+```bash
+export PORTMASTER_HOST=root@192.168.18.36          # opcional
+tools/push_scene_pck.sh --setup
+tools/push_scene_pck.sh res://core_v2/levels/RingHub_Level.tscn --no-launch
+tools/push_scene_pck.sh --restore                  # devolver el arranque normal
+```
+Detalle y gotchas: `.agents/skills/run-odisea/SKILL.md` ("Push an ad hoc scene…") y
+`docs/agents/tooling.md`.
+
 ### 9.2 Leer estado (observabilidad)
 
 ```bash

@@ -111,11 +111,25 @@ curl -s "localhost:4999/eval?expr=OS.is_debug_build()"
 ## Push de escenas ad hoc a un juego corriendo (device)
 
 Empaquetar una escena local, subirla e inyectarla en el juego vivo (Anbernic o cualquier
-device con peer local) sin re-exportar:
+device con peer local) sin re-exportar. La puesta a punto del device es un solo comando
+(idempotente: instala el engine debug del release del fork, arranca el peer, escribe
+`dev.sh` con el bridge y reinicia si hace falta):
 
 ```bash
-tools/push_scene_pck.sh res://core_v2/tests/ladder/LadderS1a.tscn
-tools/push_scene_pck.sh res://<escena>.tscn res://<extra>.mesh --id mi_test  # extras fuera del pack principal
+export PORTMASTER_HOST=root@192.168.18.36          # opcional; default root@angel.local
+tools/push_scene_pck.sh --setup                    # deja el RG351V listo para comandos ANNAV2
+tools/push_scene_pck.sh res://core_v2/levels/RingHub_Level.tscn --no-launch
+curl -s --get --data-urlencode \
+  "expr=get_node('/root/SceneManager').goto_scene('res://core_v2/levels/RingHub_Level.tscn')" \
+  "$ANNA_PEER_URL/eval"                            # entrar con el flujo de spawn normal
+tools/push_scene_pck.sh --restore                  # volver al arranque normal del port
+```
+
+Extras (archivos `res://` que NO están en el pack principal, ej. un environment nuevo):
+
+```bash
+tools/push_scene_pck.sh res://core_v2/levels/RingHub_Level.tscn \
+  res://scenes/common/space_environment/Environment_RingHub.tres --id mi_test
 ```
 
 Documentación completa (requisitos del device, gotchas de spawn/escena, medición en serie):

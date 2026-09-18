@@ -1,0 +1,14 @@
+LEVEL res://core_v2/levels/RingHub_Level.tscn
+WAIT 2.0
+GET_NODES_IN_GROUP "player" AS $players
+LOG "RingHub players=$players"
+GET_NODES_IN_GROUP "interactable" AS $interactables
+LOG "RingHub interactables=$interactables"
+SCREENSHOT "0_boot"
+INTERACT Criopod_Vert/RotatingObjectV2
+WAIT 1.5
+SCREENSHOT "1_criopod_mid"
+WAIT 2.0
+SCREENSHOT "2_criopod_open"
+LOG "RingHub_Level OK"
+QUIT

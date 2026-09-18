@@ -147,8 +147,32 @@ Build a scene locally, pack it, upload it to a running game on a remote device, 
 load the scene — no full re-export, no reinstall. This is the iteration loop for the Anbernic
 (FD-299): edit `.tscn` → push → measure, in seconds.
 
+### Quick start (turnkey, cualquier agente)
+
 ```bash
-tools/push_scene_pck.sh res://core_v2/tests/ladder/LadderS1a.tscn
+export PORTMASTER_HOST=root@192.168.18.36   # opcional; default root@angel.local (mDNS puede tardar)
+
+# 1) Deja el RG351V listo: peer local + engine DEBUG + dev.sh con el bridge + reinicio.
+tools/push_scene_pck.sh --setup
+
+# 2) Empuja la escena y entrá por el flujo normal (spawn del Pilot / SceneManager):
+tools/push_scene_pck.sh res://core_v2/levels/RingHub_Level.tscn --no-launch
+curl -s --get --data-urlencode \
+  "expr=get_node('/root/SceneManager').goto_scene('res://core_v2/levels/RingHub_Level.tscn')" \
+  "$ANNA_PEER_URL/eval"
+```
+
+`--setup` es idempotente: si ya hay un juego debug conectado, solo reescribe `dev.sh` y no
+reinicia. Cuando termines, devolvé el equipo al arranque normal:
+
+```bash
+tools/push_scene_pck.sh --restore
+```
+
+Sin `--no-launch`, `reload_pck` hace un `change_scene` crudo (sin spawn); sirve para escenas
+que ya traen su `Pilot` incrustado, como `RingHub_Level`.
+
+```bash
 # extras: pack additional res:// files the scene needs and that are NOT in the main pack
 tools/push_scene_pck.sh res://core_v2/tests/ladder/DomeDefaultV2Test.tscn \
   res://core_v2/levels/interiors/DomeTerraceV2_baked.mesh \
@@ -161,17 +185,15 @@ How it works: PCKPacker (fork editor, headless) packs the listed files → scp t
 `<id>.json` sidecar with the sha256 (ANNAV2's dev override path for `reload_pck`) →
 POST `reload_pck {artifact_id, scene}` to the local peer → the game loads the pack and
 switches scene. Dependencies already in the main pack resolve by themselves; only pack
-what's new. A failed `change_scene` can wedge the game: reboot the device (Anbernic
-autostart relaunches the port) before retrying.
+what's new. A failed `change_scene` can wedge the game: `tools/push_scene_pck.sh --setup`
+(reboot) before retrying.
 
-Device prerequisites (Anbernic):
-- `PORTMASTER_HOST` (default `root@angel.local`; if mDNS is slow use the IP, e.g. `root@192.168.18.36`).
-- The port runs the **debug binary** via `dev.sh` (exports `ANNA_V2_BRIDGE=<desktop_ip>:4999`
-  and swaps `ENGINE` to `godot.box3d.frt.arm64.debug` from the fork release) so the peer
-  accepts commands. Original release binary backed up as `odisea.frt.aarch64.release`.
-- Local peer running on the desktop: `tools/ensure_peer.sh`.
-- Relaunches: `ssh $HOST 'systemctl reboot'` — ES autostart opens the game; wait ~110 s
-  for the Menu heartbeat on the peer.
+Device prerequisites (las resuelve `--setup`):
+- `PORTMASTER_HOST` (default `root@angel.local`; si mDNS tarda usá la IP, ej. `root@192.168.18.36`).
+- El port corre el **binario debug** via `dev.sh` (exporta `ANNA_V2_BRIDGE=<ip_escritorio>:4999`
+  y pone `ENGINE` en `odisea.frt.debug.aarch64`, bajado del release pinneado del fork) para que
+  el peer acepte comandos. `--setup` lo baja, lo instala y escribe `dev.sh`.
+- Peer local del escritorio: `tools/ensure_peer.sh` (lo arranca `--setup`).
 
 Scene-change gotchas:
 - `reload_pck` uses raw `change_scene` (no spawn flow, no player). Prefer pushing with
