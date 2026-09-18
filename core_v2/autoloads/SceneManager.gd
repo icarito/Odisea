@@ -539,6 +539,15 @@ func _set_new_scene(resource: PackedScene):
 		tree.root.add_child(new_scene)
 		tree.current_scene = new_scene
 
+	# Interpolacion de fisica: al cambiar de escena el player/camara se reposicionan y en
+	# el swap seamless el player sobrevive en /root. Sin reset, el primer frame interpola
+	# desde el transform viejo y se ve el "yank" (tipico al cruzar el airlock).
+	if new_scene is Node:
+		new_scene.reset_physics_interpolation()
+	var _session = get_node_or_null("/root/SessionManager")
+	if _session != null and is_instance_valid(_session.player) and _session.player != new_scene:
+		_session.player.reset_physics_interpolation()
+
 	_report_transition("tree_attached")
 	# SONDA TEMPORAL (medicion del hueco de carga en Android). Entre tree_attached y
 	# first_idle_frame se van ~29 s y no sabemos de que. Agregar la escena oculta,

@@ -155,6 +155,10 @@ var _last_anim_dt := 0.0
 var _climb_pose_blend := 0.0
 var _was_climbing_anim_last_frame := false
 const FOOTSTEP_STOP_GRACE_SEC := 0.18
+# true = el AnimationTree avanza a mano desde step_animator (una pose por paso de
+# fisica). false = procesa solo en IDLE (por frame de render). Se dejo como switch
+# para A/B de fluidez a 30 fps.
+const MANUAL_ANIMTREE_STEP := false
 const MANUAL_ANIMTREE_STEP_INTERVAL_HYPER_LOW := 1.0 / 12.0
 # Paso normal del arbol manual: el de fisica. step_animator corre cada tick de
 # fisica, asi que el acumulador alcanza el umbral en cada tick y el arbol avanza
@@ -495,7 +499,12 @@ func step_animator(dt: float, p_current_velocity: Vector3) -> void:
 		var movement = controller.get("movement_logic")
 		var stationary_axis_deadzone: float = movement.tank_turn_stationary_axis_deadzone if movement != null else 0.01
 		tank_turn_yaw_target = tank_turn_head_yaw(controller.last_input.move_vec, movement != null and movement.is_tank_turn_mode, head_look_yaw_limit_deg, stationary_axis_deadzone)
-	_update_head_look(traversal_suppressed, _sprint_neutral_hold >= 0.15, tank_turn_yaw_target)
+	# En tier LOW el override de cabeza se escribe en fisica mientras el AnimationTree
+	# avanza en IDLE (por frame de render): a 30 fps van en relojes distintos y la
+	# cabeza se sacude. Ahi se apaga el head-look entero (tambien el tank-turn). En
+	# desktop/handheld rapido se mantiene.
+	var suppress_head_look: bool = traversal_suppressed or _is_hyper_low_runtime()
+	_update_head_look(suppress_head_look, _sprint_neutral_hold >= 0.15, tank_turn_yaw_target)
 
 	was_on_floor_last_frame = is_on_floor and not (controller.traversal_logic.is_climbing if controller and controller.get("traversal_logic") else false) and not (controller.traversal_logic.is_hanging if controller and controller.get("traversal_logic") else false)
 
@@ -1304,20 +1313,17 @@ func _is_hyper_low_runtime() -> bool:
 	return gate != null and gate.is_low_tier()
 
 func _configure_animation_runtime_policy() -> void:
-	# Manual SIEMPRE: el override de huesos (head-look, IK) se escribe en el paso de
-	# fisica embebiendo la pose animada leida en ese instante. Con el AnimationTree en
-	# IDLE la pose avanza por frame de render, asi que a fps bajos la cabeza renderiza
-	# con la pose del frame anterior — hasta ~66 ms de desfase del ciclo de caminado —
-	# y el cuello se ve sacudirse arriba-abajo (shear que crece con el frame time).
-	# Avanzando el arbol dentro de step_animator, esqueleto y overrides corren en un
-	# solo reloj (60 Hz de fisica) a cualquier fps de render. En tier LOW el limite
-	# baja a 12 Hz solo en idle (ver _advance_animation_tree_if_manual): moverse
-	# mantiene el paso de fisica y no se ve escalonado.
-	_manual_animtree_step_enabled = true
+	# ON  = el AnimationTree avanza a mano desde step_animator (una pose por paso de
+	#       fisica; overrides de huesos en el mismo reloj que el esqueleto).
+	# OFF = el AnimationTree procesa solo en IDLE (avanza por frame de render). A 30 fps
+	#       de render con fisica a 30 Hz el paso manual puede dar judder por desfase de
+	#       fase; con IDLE cada frame dibuja una pose nueva. Contra: los overrides de
+	#       cabeza/IK se escriben en fisica y pueden quedar un frame atras.
+	_manual_animtree_step_enabled = MANUAL_ANIMTREE_STEP
 	if animation_tree == null:
 		return
 	_anim_tree_param_cache.clear()
-	animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_MANUAL
+	animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_MANUAL if MANUAL_ANIMTREE_STEP else AnimationTree.ANIMATION_PROCESS_IDLE
 
 func _set_anim_tree_param(path: String, value, float_epsilon := ANIM_PARAM_FLOAT_EPSILON) -> void:
 	if animation_tree == null:

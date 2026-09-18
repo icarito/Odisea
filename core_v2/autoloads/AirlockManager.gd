@@ -261,6 +261,10 @@ func _pre_position_at_destination(player: Node, scene_root: Node, params: Dictio
 	player.global_transform = body_transform
 	if "velocity" in player:
 		player.velocity = Vector3.ZERO
+	# Interpolacion de fisica: el lift del airlock corre fuera del tick; sin reset el
+	# primer frame del destino interpola desde la sala de origen (el "yank" clasico).
+	if player is Node:
+		player.reset_physics_interpolation()
 	# Keep the base_spring_length_3d and current_spring_length from the source
 	# chamber (AirlockZoneV2 set them to AIRLOCK_OTS_SPRING_LENGTH ~1m).
 	# Resetting them to 7 would cause _update_camera_view to lerp from 7 toward

@@ -3304,3 +3304,7 @@ func teleport_to(target_transform: Transform) -> void:
 	set_camera_input_locked(false)
 	if input_provider and input_provider.has_method("clear_buffer"):
 		input_provider.clear_buffer()
+
+	# Con physics_interpolation activo el transform se interpola entre ticks: sin este
+	# reset, el teleport/spawn se ve como un barrido desde la posicion vieja.
+	reset_physics_interpolation()

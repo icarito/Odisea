@@ -3229,6 +3229,8 @@ func _handle_replay_teleport(cmd: Dictionary) -> void:
 		player.global_transform = tf
 		if "velocity" in player:
 			player.velocity = Vector3.ZERO
+		if player is Node:
+			player.reset_physics_interpolation()
 
 func _get_camera_relative_axis_sm(axis: String) -> float:
 	if not is_instance_valid(player) or not (player is Spatial):
@@ -3533,6 +3535,8 @@ func _set_player_prop(prop, val):
 		if typeof(pos_vec) == TYPE_VECTOR3:
 			player.global_transform.origin = pos_vec
 			if "velocity" in player: player.velocity = Vector3.ZERO
+			if player is Node:
+				player.reset_physics_interpolation()
 			
 			var ts = get_node_or_null("TeleportSystem")
 			if ts and ts.has_method("force_initial_spawn"):
@@ -4168,6 +4172,8 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 			player.global_transform = body_transform
 			if "velocity" in player:
 				player.velocity = Vector3.ZERO
+			if player is Node:
+				player.reset_physics_interpolation()
 			if "_post_teleport_snap_frames" in player:
 				player._post_teleport_snap_frames = 8
 			# Force camera rig Y initialized so snap works even on first frame.
@@ -4209,6 +4215,8 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 			player.teleport_to(body_transform)
 		else:
 			player.global_transform = body_transform
+			if player is Node:
+				player.reset_physics_interpolation()
 		_restore_transition_camera_state(state_data, exit_transform, target_airlock)
 		_snap_transition_visual(exit_transform, state_data, target_airlock)
 		_apply_airlock_relative_velocity(target_airlock, state_data)
@@ -4220,6 +4228,8 @@ func apply_scene_transition_state(target_spawn_id: String = "", state_data: Dict
 			player.teleport_to(spawn.global_transform)
 		else:
 			player.global_transform = spawn.global_transform
+			if player is Node:
+				player.reset_physics_interpolation()
 		_restore_transition_camera_state(state_data, spawn.global_transform, null)
 		_snap_transition_visual(spawn.global_transform, state_data, null)
 
