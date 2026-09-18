@@ -81,8 +81,8 @@ func _ready() -> void:
 		client.connect("ui_directive_received", self, "_on_ui_directive")
 
 	exit_confirm.connect("confirmed", self, "_on_exit_confirmed")
-	exit_confirm.get_ok().text = "Salir"
-	exit_confirm.get_cancel().text = "Cancelar"
+	exit_confirm.get_ok().text = tr("Salir")
+	exit_confirm.get_cancel().text = tr("Cancelar")
 	preload("res://core_v2/ui/DialogButtons.gd").fit_for_touch(exit_confirm)
 
 	if _raw_passthrough:
@@ -293,7 +293,7 @@ func _on_connection_lost() -> void:
 func _process(_delta: float) -> void:
 	var client = _client()
 	var left: int = int(ceil(client.get_resume_time_left())) if client else 0
-	$Title.text = "SIN CONEXIÓN · %d s" % left
+	$Title.text = tr("SIN CONEXIÓN · %d s") % left
 
 func _on_connection_restored() -> void:
 	_connection_lost = false
@@ -359,7 +359,7 @@ func _on_ui_directive(op: String, payload) -> void:
 				Haptics.pulse(int(duration * 1000.0), intensity)
 
 func _refresh_status() -> void:
-	$Title.text = "PARTIDA EN PAUSA" if _host_paused else _title_text
+	$Title.text = tr("PARTIDA EN PAUSA") if _host_paused else _title_text
 
 # ok / lag / lost. Lag: el pong del latido viene tarde. Lost: el cliente ya corto y reintenta.
 func _connection_state() -> String:
@@ -454,8 +454,8 @@ func _on_session_ended(reason: String) -> void:
 	set_physics_process(false)
 	exit_confirm.hide()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	$Title.text = "LA PARTIDA TERMINÓ"
-	$Hint.text = "%s Volviendo al menú..." % reason
+	$Title.text = tr("LA PARTIDA TERMINÓ")
+	$Hint.text = tr("%s Volviendo al menú...") % reason
 	get_tree().create_timer(SESSION_ENDED_NOTICE_SEC).connect("timeout", self, "_go_to_menu")
 
 func _go_to_menu() -> void:

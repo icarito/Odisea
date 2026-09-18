@@ -1,5 +1,6 @@
 extends ColorRect
 
+onready var language_option = find_node("LanguageOption")
 onready var master_slider = find_node("MasterSlider")
 onready var music_slider = find_node("MusicSlider")
 onready var sfx_slider = find_node("SFXSlider")
@@ -86,8 +87,17 @@ func _on_update_button_pressed():
 func _setup_options():
 	# Touch is also emulated as mouse input. Without an exclusive popup, the
 	# release can fall through the dropdown and press the setting underneath it.
-	for option in [fullscreen_option, resolution_option, render_scale_option, vsync_option]:
-		option.get_popup().set_exclusive(true)
+	for option in [language_option, fullscreen_option, resolution_option, render_scale_option, vsync_option]:
+		if option:
+			option.get_popup().set_exclusive(true)
+
+	if language_option:
+		language_option.set_message_translation(false)
+		language_option.get_popup().set_message_translation(false)
+		language_option.clear()
+		language_option.add_item("Auto")
+		language_option.add_item("Español")
+		language_option.add_item("English")
 
 	fullscreen_option.clear()
 	fullscreen_option.add_item("Ventana")
@@ -142,6 +152,13 @@ func _load_ui_values():
 	prop_dither_toggle.pressed = sm.prop_dither_enabled
 	low_end_toggle.pressed = sm.low_end_forced
 
+	if language_option:
+		match sm.ui_language:
+			"auto": language_option.selected = 0
+			"es": language_option.selected = 1
+			"en": language_option.selected = 2
+			_: language_option.selected = 0
+
 	fullscreen_option.selected = 1 if sm.fullscreen else 0
 	vsync_option.selected = 1 if sm.vsync else 0
 
@@ -156,6 +173,8 @@ func _load_ui_values():
 			break
 
 func _connect_signals():
+	if language_option:
+		language_option.connect("item_selected", self, "_on_language_selected")
 	master_slider.connect("value_changed", self, "_on_master_volume_changed")
 	music_slider.connect("value_changed", self, "_on_music_volume_changed")
 	sfx_slider.connect("value_changed", self, "_on_sfx_volume_changed")
@@ -171,6 +190,18 @@ func _connect_signals():
 	prop_dither_toggle.connect("toggled", self, "_on_prop_dither_toggled")
 	low_end_toggle.connect("toggled", self, "_on_low_end_toggled")
 	back_button.connect("pressed", self, "_on_back_pressed")
+
+func _on_language_selected(index: int) -> void:
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm:
+		var lang = "auto"
+		if index == 1:
+			lang = "es"
+		elif index == 2:
+			lang = "en"
+		sm.ui_language = lang
+		sm.apply_locale_settings()
+		sm.save_settings()
 
 func _on_master_volume_changed(value):
 	var sm = get_node_or_null("/root/SettingsManager")

@@ -3200,6 +3200,11 @@ toggle_optional_nodes={
 file_logging/enable_file_logging=true
 file_logging/max_log_files=3
 
+[locale]
+
+fallback="es"
+translations=PoolStringArray( "res://locale/ui_strings.en.translation" )
+
 [mono]
 
 project/assembly_name="Odisea"

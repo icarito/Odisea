@@ -30,8 +30,8 @@ var _awaiting_confirm: bool = false
 func _ready():
 	RemoteControlManager = get_node_or_null("/root/RemoteControlManager")
 
-	connect_confirm.get_ok().text = "Conectar"
-	connect_confirm.get_cancel().text = "Cancelar"
+	connect_confirm.get_ok().text = tr("Conectar")
+	connect_confirm.get_cancel().text = tr("Cancelar")
 	connect_confirm.connect("confirmed", self, "_on_connect_confirmed")
 	connect_confirm.connect("popup_hide", self, "_on_connect_confirm_hidden")
 	preload("res://core_v2/ui/DialogButtons.gd").fit_for_touch(connect_confirm)
@@ -53,7 +53,7 @@ func _ready():
 func open_menu() -> void:
 	show()
 	log_text.hide()
-	log_toggle.text = "Ver registro"
+	log_toggle.text = tr("Ver registro")
 	back_button.grab_focus()
 	# El Menu ya viene escuchando la red (su boton se colorea con eso): se arranca con lo
 	# que ya se detecto, sin vaciarlo y esperar el proximo anuncio.
@@ -94,7 +94,7 @@ func _restart_search(flush: bool = true) -> void:
 		# Sin el socket de escucha no llega ningun anuncio: sin este aviso el menu se
 		# queda "Buscando partidas..." para siempre (tipico: otra instancia abierta).
 		if not discovery.start_discovery():
-			status_label.text = "No se pudo escuchar en el puerto %d. Cierre cualquier otra instancia de Odisea en este dispositivo y pulse Buscar de nuevo." % discovery.listen_port
+			status_label.text = tr("No se pudo escuchar en el puerto %d. Cierre cualquier otra instancia de Odisea en este dispositivo y pulse Buscar de nuevo.") % discovery.listen_port
 			return
 		if not flush:
 			_on_sessions_updated(discovery.discovered_sessions)
@@ -111,13 +111,13 @@ func _on_host_pressed(key: String) -> void:
 	_selected_key = key
 	_attempted_key = key
 	_awaiting_confirm = true
-	connect_confirm.dialog_text = "¿Controlar esta partida?\n\n%s\n\nEn esa pantalla tendrán que permitirlo con un PIN." % _session_title(_discovered_map.get(key, {}))
-	status_label.text = "Confirme la conexión con %s." % _session_name(key)
+	connect_confirm.dialog_text = tr("¿Controlar esta partida?\n\n%s\n\nEn esa pantalla tendrán que permitirlo con un PIN.") % _session_title(_discovered_map.get(key, {}))
+	status_label.text = tr("Confirme la conexión con %s.") % _session_name(key)
 	connect_confirm.popup_centered()
 
 func _on_connect_confirmed() -> void:
 	_awaiting_confirm = false
-	status_label.text = "Conectando con %s..." % _session_name(_selected_key)
+	status_label.text = tr("Conectando con %s...") % _session_name(_selected_key)
 	_on_pair_pressed()
 
 # popup_hide puede llegar antes que confirmed (AcceptDialog se oculta y despues emite):
@@ -128,11 +128,11 @@ func _on_connect_confirm_hidden() -> void:
 func _cancel_if_unconfirmed() -> void:
 	if _awaiting_confirm:
 		_awaiting_confirm = false
-		status_label.text = "Conexión cancelada. Elija una partida o pulse Buscar de nuevo."
+		status_label.text = tr("Conexión cancelada. Elija una partida o pulse Buscar de nuevo.")
 
 func _on_log_toggle() -> void:
 	log_text.visible = not log_text.visible
-	log_toggle.text = "Ocultar registro" if log_text.visible else "Ver registro"
+	log_toggle.text = tr("Ocultar registro") if log_text.visible else tr("Ver registro")
 
 func _on_pair_pressed() -> void:
 	if _selected_key == "" or not _discovered_map.has(_selected_key):
@@ -156,9 +156,9 @@ func _on_pair_pressed() -> void:
 
 func _on_pair_pin_received(pin: String) -> void:
 	if pin_display_label:
-		pin_display_label.text = "PIN: %s" % pin
+		pin_display_label.text = tr("PIN: %s") % pin
 		pin_display_label.show()
-	status_label.text = "En %s apareció una solicitud. Si muestra este mismo PIN, pulse Permitir." % _session_name(_attempted_key)
+	status_label.text = tr("En %s apareció una solicitud. Si muestra este mismo PIN, pulse Permitir.") % _session_name(_attempted_key)
 	_log("PIN de emparejamiento recibido: %s" % pin)
 
 func _on_sessions_updated(sessions: Dictionary) -> void:
@@ -177,15 +177,15 @@ func _on_sessions_updated(sessions: Dictionary) -> void:
 	# Menu.gd retoma sola una sesion cortada cuando su host reaparece: no se pregunta.
 	var client = RemoteControlManager.client if RemoteControlManager else null
 	if client and client.is_resuming():
-		status_label.text = "Retomando la sesión anterior..."
+		status_label.text = tr("Retomando la sesión anterior...")
 	elif _attempted_key == "":
 		match keys.size():
 			0:
-				status_label.text = SEARCH_HINT
+				status_label.text = tr(SEARCH_HINT)
 			1:
 				_on_host_pressed(keys[0])
 			_:
-				status_label.text = "Hay %d partidas en su red. Elija cuál quiere controlar:" % keys.size()
+				status_label.text = tr("Hay %d partidas en su red. Elija cuál quiere controlar:") % keys.size()
 
 	if keys.size() < 2:
 		return
@@ -217,7 +217,7 @@ func _on_pair_result_received(ok: bool, reason: String) -> void:
 		get_tree().change_scene("res://core_v2/ui/RemoteControlHome.tscn")
 	else:
 		pin_display_label.hide()
-		status_label.text = "No se pudo emparejar: %s.\nPulse Buscar de nuevo para reintentar." % reason
+		status_label.text = tr("No se pudo emparejar: %s.\nPulse Buscar de nuevo para reintentar.") % reason
 		_log("Emparejamiento rechazado: " + reason)
 
 # payload sin tipo: screen_list llega como Array, y con Dictionary el log de cada

@@ -24,35 +24,35 @@ func set_snapshot(snapshot: Dictionary) -> void:
 		if _status_dot != null:
 			_status_dot.color = Color(0.5, 0.5, 0.5, 0.8)
 		if _status_label != null:
-			_status_label.text = "OFFLINE"
+			_status_label.text = tr("OFFLINE")
 		if _notif_label != null:
 			_notif_label.text = ""
 		return
 
-	var state_text := "OK"
+	var state_text := tr("OK")
 	var dot_color := Color(0.2, 0.6, 1.0, 0.9) # Blue
 
 	match drone_state:
 		0:
-			state_text = "LISTO"
+			state_text = tr("LISTO")
 			dot_color = Color(0.2, 0.6, 1.0, 0.9)
 		1:
-			state_text = "CARGANDO EMP"
+			state_text = tr("CARGANDO EMP")
 			dot_color = Color(1.0, 0.6, 0.0, 0.9)
 		2:
-			state_text = "DISPARANDO EMP"
+			state_text = tr("DISPARANDO EMP")
 			dot_color = Color(1.0, 1.0, 1.0, 0.9)
 		3:
-			state_text = "RECARGANDO EMP"
+			state_text = tr("RECARGANDO EMP")
 			dot_color = Color(0.8, 0.4, 0.0, 0.9)
 		4:
-			state_text = "SEÑUELO ACTIVO"
+			state_text = tr("SEÑUELO ACTIVO")
 			dot_color = Color(0.2, 1.0, 0.2, 0.9)
 		5:
-			state_text = "CARGOL CAÍDO"
+			state_text = tr("CARGOL CAÍDO")
 			dot_color = Color(1.0, 0.1, 0.1, 0.9)
 		6:
-			state_text = "RETORNANDO"
+			state_text = tr("RETORNANDO")
 			dot_color = Color(0.2, 1.0, 1.0, 0.9)
 
 	if _status_dot != null:

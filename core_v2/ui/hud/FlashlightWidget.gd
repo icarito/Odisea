@@ -36,15 +36,15 @@ func set_snapshot(snapshot: Dictionary) -> void:
 		if _meter_label != null:
 			_meter_label.text = "BAT: [----------]"
 		if _status_label != null:
-			_status_label.text = "OFFLINE"
+			_status_label.text = tr("OFFLINE")
 		if _toggle_button != null:
 			_toggle_button.disabled = true
-			_toggle_button.text = "OFFLINE"
+			_toggle_button.text = tr("OFFLINE")
 		return
 
 	if _toggle_button != null:
 		_toggle_button.disabled = false
-		_toggle_button.text = "APAGAR" if on else "ENCENDER"
+		_toggle_button.text = tr("APAGAR") if on else tr("ENCENDER")
 
 	if _status_dot != null:
 		if on:
@@ -54,9 +54,9 @@ func set_snapshot(snapshot: Dictionary) -> void:
 
 	if _status_label != null:
 		if on:
-			_status_label.text = "ENCENDIDA" if not low else "BAT. BAJA"
+			_status_label.text = tr("ENCENDIDA") if not low else tr("BAT. BAJA")
 		else:
-			_status_label.text = "APAGADA"
+			_status_label.text = tr("APAGADA")
 
 	if _meter_label != null:
 		_meter_label.text = _format_battery_bar(battery, battery_max)

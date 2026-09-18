@@ -58,7 +58,7 @@ func _ready() -> void:
 	_loading_label.anchor_top = 0.43
 	_loading_label.anchor_right = 0.75
 	_loading_label.anchor_bottom = 0.50
-	_loading_label.text = "Cargando..."
+	_loading_label.text = tr("Cargando...")
 	_loading_root.add_child(_loading_label)
 
 	_loading_subtitle = Label.new()
@@ -156,7 +156,7 @@ func play(animation_name: String, params: Dictionary = {}):
 
 func show_loading(message: String = "Cargando...", show_progress: bool = true, subtitle: String = "") -> void:
 	if _loading_label:
-		_loading_label.text = message
+		_loading_label.text = tr(message)
 	if _loading_subtitle:
 		_loading_subtitle.text = subtitle
 		_loading_subtitle.visible = subtitle != ""

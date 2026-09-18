@@ -16,9 +16,9 @@ var _active: bool = false
 
 func _ready():
 	VirtualMouse.attach_to(get_tree().root, self)
-	window_title = "Control remoto"
-	get_ok().text = "Permitir"
-	get_cancel().text = "Rechazar"
+	window_title = tr("Control remoto")
+	get_ok().text = tr("Permitir")
+	get_cancel().text = tr("Rechazar")
 	preload("res://core_v2/ui/DialogButtons.gd").fit_for_touch(self)
 	get_ok().grab_focus()
 	connect("confirmed", self, "_on_confirmed")
@@ -30,11 +30,11 @@ func prompt_pairing(device_name: String, pin: String, callback: FuncRef = null) 
 	_active = true
 
 	if device_label:
-		device_label.text = "«%s» quiere controlar esta partida. Permita solo si muestra este mismo PIN:" % device_name
+		device_label.text = tr("«%s» quiere controlar esta partida. Permita solo si muestra este mismo PIN:") % device_name
 	if pin_label:
-		pin_label.text = "PIN: %s" % pin
+		pin_label.text = tr("PIN: %s") % pin
 	if timer_label:
-		timer_label.text = "Se rechaza sola en 30 s."
+		timer_label.text = tr("Se rechaza sola en 30 s.")
 
 	popup_centered(Vector2(450, 220))
 
@@ -43,7 +43,7 @@ func _process(delta: float) -> void:
 		return
 	_time_left -= delta
 	if timer_label:
-		timer_label.text = "Se rechaza sola en %d s." % int(max(0, ceil(_time_left)))
+		timer_label.text = tr("Se rechaza sola en %d s.") % int(max(0, ceil(_time_left)))
 
 	if _time_left <= 0.0:
 		_finish(false)
