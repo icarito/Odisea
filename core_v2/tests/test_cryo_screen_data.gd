@@ -313,4 +313,4 @@ func test_widget_without_cryo_keeps_generic_text() -> void:
 
 	widget.set_snapshot({"proto": 1, "id": "x", "title": "Terminal", "active": false})
 	var status_label: Label = widget.get_node("Margin/VBox/StatusLabel")
-	assert_str(status_label.text).contains("EN ESPERA")
+	assert_str(status_label.text).contains(tr("EN ESPERA"))
