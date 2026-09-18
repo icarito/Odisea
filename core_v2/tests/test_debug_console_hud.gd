@@ -18,4 +18,8 @@ func test_debug_console_is_a_hud_screen_with_its_statusbar_text() -> void:
 	screen.forward_view_input(motion)
 	assert_vector2(screen._viewport._cursor_position).is_equal(cursor_before + motion.relative)
 	screen.exit_focus_mode()
+	# El manager se registra solo en escena gameplay (y la suite completa corre
+	# despues de tests como test_hudable que vacian SuitOS), asi que aca se rehace
+	# el alta: el test verifica el contrato de la pantalla, no el timing del autoload.
+	SuitOS.register_screen(screen)
 	assert_bool(SuitOS.has_screen(screen.screen_id())).is_true()
