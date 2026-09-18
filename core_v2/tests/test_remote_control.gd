@@ -427,7 +427,7 @@ func test_single_session_pairs_without_selection():
 	menu._on_sessions_updated({"host": {"session_name": "ODISEA-DESKTOP", "version": "v0.4.0"}})
 	menu._on_connect_confirmed()
 	assert_bool(menu.connect_confirm.visible).is_false()
-	assert_str(menu.status_label.text).contains("Conectando con ODISEA-DESKTOP")
+	assert_str(menu.status_label.text).contains(tr("Conectando con %s...") % "ODISEA-DESKTOP")
 	menu.queue_free()
 
 func test_no_sessions_explains_same_wifi():
