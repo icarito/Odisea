@@ -5,10 +5,22 @@ LOG "RingHub players=$players"
 GET_NODES_IN_GROUP "interactable" AS $interactables
 LOG "RingHub interactables=$interactables"
 SCREENSHOT "0_boot"
+FW 0.65s
+LEFT 15
+FW 0.65s
+LEFT 15
+FW 0.65s
+LEFT 15
+FW 0.65s
+LEFT 15
+SCREENSHOT "1_walk_ring"
+JUMP 0.2
+WAIT 0.8
+SCREENSHOT "2_jump"
 INTERACT Criopod_Vert/RotatingObjectV2
 WAIT 1.5
-SCREENSHOT "1_criopod_mid"
+SCREENSHOT "3_pod_mid"
 WAIT 2.0
-SCREENSHOT "2_criopod_open"
+SCREENSHOT "4_pod_open"
 LOG "RingHub_Level OK"
 QUIT

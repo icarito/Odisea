@@ -9,6 +9,11 @@
 #   tools/push_scene_pck.sh res://core_v2/levels/RingHub_Level.tscn --no-launch
 #   tools/push_scene_pck.sh res://tmp_ladder/s1a.tscn res://tmp_ladder/mat_extra.tres --id ladder1
 #
+#   --unique  expone la escena bajo res://.dev_push/<id>.tscn. Godot cachea por path:
+#             re-subir la MISMA res://escena sigue viendo la version vieja hasta
+#             reiniciar. Para iterar la misma escena en caliente, usar --unique y
+#             entrar a la ruta impresa (cada iteracion tiene su path).
+#
 # Puesta a punto del dispositivo (idempotente; reinicia el equipo):
 #   tools/push_scene_pck.sh --setup      # peer local + engine debug en el device + dev.sh + reboot
 #   tools/push_scene_pck.sh --restore    # saca dev.sh y vuelve al arranque normal
@@ -30,6 +35,7 @@ ARTIFACT=""
 NO_LAUNCH=0
 SETUP=0
 RESTORE=0
+UNIQUE=0
 ARGS=("$@")
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -37,6 +43,7 @@ while [ $# -gt 0 ]; do
     --no-launch) NO_LAUNCH=1; shift ;;
     --setup) SETUP=1; shift ;;
     --restore) RESTORE=1; shift ;;
+    --unique) UNIQUE=1; shift ;;
     -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     -*) echo "ERROR: opcion desconocida: $1" >&2; exit 1 ;;
     *) if [ -z "$SCENE" ]; then SCENE="$1"; else EXTRA_FILES+=("$1"); fi; shift ;;
@@ -125,7 +132,7 @@ fi
 
 if [ -z "$SCENE" ]; then
   [ "$SETUP" -eq 1 ] && exit 0
-  echo "uso: push_scene_pck.sh <res://escena.tscn> [extra...] [--id <id>] [--no-launch] | --setup | --restore" >&2
+  echo "uso: push_scene_pck.sh <res://escena.tscn> [extra...] [--id <id>] [--no-launch] [--unique] | --setup | --restore" >&2
   exit 1
 fi
 
@@ -140,6 +147,13 @@ SCENE_RELPATH="${SCENE#res://}"
 [ -f "$REPO_ROOT/$SCENE_RELPATH" ] || { echo "ERROR: no existe $REPO_ROOT/$SCENE_RELPATH" >&2; exit 1; }
 
 ARTIFACT="${ARTIFACT:-$(basename "$SCENE_RELPATH" .tscn)_$(date +%s)}"
+# Con --unique el pack expone la escena bajo un res:// nuevo por iteracion: Godot
+# cachea por path y reload_pck pisando el mismo res:// hace que la segunda subida
+# siga viendo la version vieja hasta reiniciar; el path unico evita el reboot.
+SCENE_LOAD="$SCENE"
+if [ "$UNIQUE" -eq 1 ]; then
+  SCENE_LOAD="res://.dev_push/$ARTIFACT.tscn"
+fi
 
 # 1. Empaquetar con PCKPacker via el editor del fork (res:// resuelve al repo).
 {
@@ -147,7 +161,11 @@ ARTIFACT="${ARTIFACT:-$(basename "$SCENE_RELPATH" .tscn)_$(date +%s)}"
   echo 'func _init() -> void:'
   echo -e "\tvar p := PCKPacker.new()"
   echo -e "\tp.pck_start(\"$TMP/$ARTIFACT.pck\")"
-  echo -e "\tp.add_file(\"res://$SCENE_RELPATH\", \"res://$SCENE_RELPATH\")"
+  if [ "$UNIQUE" -eq 1 ]; then
+    echo -e "\tp.add_file(\"$SCENE_LOAD\", \"res://$SCENE_RELPATH\")"
+  else
+    echo -e "\tp.add_file(\"res://$SCENE_RELPATH\", \"res://$SCENE_RELPATH\")"
+  fi
   for f in "${EXTRA_FILES[@]:-}"; do
     [ -n "$f" ] || continue
     case "$f" in res://*) ;; *) echo "ERROR: los extras deben ser rutas res://: $f" >&2; exit 1 ;; esac
@@ -169,7 +187,7 @@ ssh "$HOST" "printf '%s' '{\"sha256\": \"$SHA256\"}' > $USERROOT/updates/package
 # 3. Inyectar y (opcional) cambiar a la escena.
 INJECT="{\"artifact_id\":\"$ARTIFACT\""
 if [ "$NO_LAUNCH" -eq 0 ]; then
-  INJECT="$INJECT,\"scene\":\"$SCENE\""
+  INJECT="$INJECT,\"scene\":\"$SCENE_LOAD\""
 fi
 INJECT="$INJECT}"
 RESP=$(curl -s --max-time 60 -XPOST "$PEER/command" -H "Content-Type: application/json" \
@@ -178,8 +196,8 @@ echo "$RESP" | grep -q '"ok": *true' || { echo "ERROR: reload_pck fallo: $RESP" 
 
 echo "[push_scene_pck] $SCENE -> artifact $ARTIFACT ($SHA256) cargado en el juego"
 if [ "$NO_LAUNCH" -eq 0 ]; then
-  echo "[push_scene_pck] escena activa: $SCENE"
+  echo "[push_scene_pck] escena activa: $SCENE_LOAD"
 else
   echo "[push_scene_pck] para entrar con el flujo normal (spawn del Pilot):"
-  echo "  curl -s --get --data-urlencode \"expr=get_node('/root/SceneManager').goto_scene('$SCENE')\" \$ANNA_PEER_URL/eval"
+  echo "  curl -s --get --data-urlencode \"expr=get_node('/root/SceneManager').goto_scene('$SCENE_LOAD')\" \$ANNA_PEER_URL/eval"
 fi

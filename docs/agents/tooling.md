@@ -132,6 +132,14 @@ tools/push_scene_pck.sh res://core_v2/levels/RingHub_Level.tscn \
   res://scenes/common/space_environment/Environment_RingHub.tres --id mi_test
 ```
 
+Para **iterar la misma escena en caliente** usar `--unique`: expone la escena bajo
+`res://.dev_push/<id>.tscn` y hay que entrar a esa ruta (Godot cachea por path, así que
+re-subir la misma `res://` mostraría la versión vieja hasta reiniciar).
+
+```bash
+tools/push_scene_pck.sh res://core_v2/levels/RingHub_Level.tscn --no-launch --unique
+```
+
 Documentación completa (requisitos del device, gotchas de spawn/escena, medición en serie):
 `.agents/skills/run-odisea/SKILL.md`, sección "Push an ad hoc scene to a running game".
 

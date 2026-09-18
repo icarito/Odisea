@@ -169,6 +169,15 @@ reinicia. Cuando termines, devolvé el equipo al arranque normal:
 tools/push_scene_pck.sh --restore
 ```
 
+**Iterar la MISMA escena sin reiniciar:** Godot cachea por `res://` path; re-subir la misma
+ruta hace que el juego siga viendo la versión vieja. Para eso está `--unique`: expone la
+escena bajo `res://.dev_push/<id>.tscn` y hay que entrar a la ruta que imprime.
+
+```bash
+tools/push_scene_pck.sh res://core_v2/levels/RingHub_Level.tscn --no-launch --unique
+# -> entrar a res://.dev_push/RingHub_Level_<ts>.tscn (lo imprime el comando)
+```
+
 Sin `--no-launch`, `reload_pck` hace un `change_scene` crudo (sin spawn); sirve para escenas
 que ya traen su `Pilot` incrustado, como `RingHub_Level`.
 
