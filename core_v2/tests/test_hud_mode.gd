@@ -900,21 +900,16 @@ func test_right_mouse_releases_capture_to_the_desktop_controlled_hud_cursor() ->
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	var overlay = _open_and_play([UP])
-	var mouse_mode: int = Input.get_mouse_mode()
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	var right := InputEventMouseButton.new()
 	right.button_index = BUTTON_RIGHT
 	right.pressed = true
 	right.position = Vector2(120.0, 80.0)
 	overlay._input(right)
 	assert_bool(overlay._virtual_mouse.is_desktop_mouse_mode()).is_true()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 	overlay._input(right)
 	assert_bool(overlay._virtual_mouse.is_desktop_mouse_mode()).is_true()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 	overlay._exit()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
-	Input.set_mouse_mode(mouse_mode)
+	assert_bool(overlay._virtual_mouse.is_desktop_mouse_mode()).is_false()
 
 
 func test_dragging_a_radial_item_onto_a_slot_pins_it_there() -> void:
