@@ -606,7 +606,8 @@ func test_remote_activity_resumes_the_pause_menu_but_not_hud_mode():
 	menu.free()
 
 
-# Tier LOW: el control remoto no va; sin hijos ni host, aunque la escena sea gameplay.
+# Tier LOW: se cae el host, no el cliente. El handheld sigue sirviendo de mando para una
+# partida que corre en otra maquina.
 func test_low_tier_does_not_host_remote_control():
 	var gate = get_node_or_null("/root/GLES3VendorGate")
 	var prev_gate = false
@@ -615,8 +616,11 @@ func test_low_tier_does_not_host_remote_control():
 		gate.force_gate = true
 	var manager = auto_free(RemoteControlManager.new())
 	add_child(manager)
-	assert_bool(manager.remote_control_enabled).is_false()
 	assert_object(manager.server).is_null()
+	assert_object(manager.announcer).is_null()
 	assert_bool(manager.is_host_active).is_false()
+	# El cliente y el descubrimiento siguen en pie: el handheld puede conectarse a un host.
+	assert_object(manager.client).is_not_null()
+	assert_object(manager.discovery).is_not_null()
 	if gate:
 		gate.force_gate = prev_gate

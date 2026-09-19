@@ -42,42 +42,48 @@ func _ready():
 		remote_control_enabled = false
 		set_process(false)
 		return
-	# Tier LOW (handheld lento): el control remoto no va. No se instancian los 5 nodos
-	# (announcer/discovery/server/client/bridge) que corren _process cada frame, no hay
-	# broadcast UDP ni puertos, y no se hostea aunque la escena sea gameplay.
-	if _is_low_tier():
-		remote_control_enabled = false
-		set_process(false)
-		print("[RemoteControlManager] tier LOW: control remoto desactivado")
-		return
-	announcer = RemoteAnnouncer.new()
-	announcer.name = "RemoteAnnouncer"
-	add_child(announcer)
+	# Tier LOW (handheld lento): solo se cae el HOST. Nadie va a manejar el handheld
+	# desde otro equipo, y announcer/server/bridge cuestan _process por frame mas el
+	# broadcast UDP y los puertos. El CLIENTE si va: el handheld es un mando comodo
+	# para una partida que corre en otra maquina.
+	var low_tier := _is_low_tier()
+	if low_tier:
+		print("[RemoteControlManager] tier LOW: solo cliente (sin host)")
+	else:
+		announcer = RemoteAnnouncer.new()
+		announcer.name = "RemoteAnnouncer"
+		add_child(announcer)
 
 	discovery = RemoteDiscovery.new()
 	discovery.name = "RemoteDiscovery"
 	add_child(discovery)
 
-	server = RemoteControlServer.new()
-	server.name = "RemoteControlServer"
-	server.pause_mode = Node.PAUSE_MODE_PROCESS
-	add_child(server)
+	if not low_tier:
+		server = RemoteControlServer.new()
+		server.name = "RemoteControlServer"
+		server.pause_mode = Node.PAUSE_MODE_PROCESS
+		add_child(server)
 
 	client = RemoteControlClient.new()
 	client.name = "RemoteControlClient"
 	add_child(client)
 
-	if SuitOSRemoteBridge != null:
+	if SuitOSRemoteBridge != null and not low_tier:
 		bridge = SuitOSRemoteBridge.new()
 		bridge.name = "SuitOSRemoteBridge"
 		bridge.pause_mode = Node.PAUSE_MODE_PROCESS
 		add_child(bridge)
 
-	server.connect("client_pair_requested", self, "_on_server_pair_requested")
-	server.connect("input_received", self, "_on_server_input_received")
-	server.connect("client_disconnected", self, "_on_server_client_disconnected")
-	server.connect("client_stalled", self, "_on_server_client_disconnected")
-	server.connect("client_connected", self, "_on_server_client_connected")
+	if low_tier:
+		# _process solo sincroniza el host (escena y pausa): sin host no tiene nada que hacer.
+		set_process(false)
+
+	if server != null:
+		server.connect("client_pair_requested", self, "_on_server_pair_requested")
+		server.connect("input_received", self, "_on_server_input_received")
+		server.connect("client_disconnected", self, "_on_server_client_disconnected")
+		server.connect("client_stalled", self, "_on_server_client_disconnected")
+		server.connect("client_connected", self, "_on_server_client_connected")
 
 	_apply_settings()
 	call_deferred("_sync_host_for_scene")
@@ -138,8 +144,8 @@ func _is_automated_session() -> bool:
 	var session = get_node_or_null("/root/SessionManager") if is_inside_tree() else null
 	return session != null and (bool(session.get("is_cli_mode")) or bool(session.get("is_replaying")))
 
-# Handheld lento: el host de control remoto no tiene sentido (nadie lo va a manejar
-# desde otro equipo) y sus 5 nodos cuestan _process por frame.
+# Handheld lento: se apaga el HOST (nadie lo va a manejar desde otro equipo, y sus nodos
+# cuestan _process por frame). El cliente no pasa por aca: en LOW se instancia igual.
 func _is_low_tier() -> bool:
 	var gate = get_node_or_null("/root/GLES3VendorGate")
 	return gate != null and gate.has_method("is_low_tier") and gate.is_low_tier()

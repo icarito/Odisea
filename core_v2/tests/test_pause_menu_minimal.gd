@@ -55,6 +55,16 @@ func test_right_mouse_button_releases_the_mouse_but_never_pauses() -> void:
 	assert_bool(PauseManager.is_pause_request(esc)).is_true()
 
 
+func test_gamepad_start_pauses_and_no_longer_skips() -> void:
+	# Start (JOY_START) es el boton de pausa del mando; skip se corrio a X para no
+	# disparar las dos cosas en la misma pulsacion durante una cinematica.
+	var start := InputEventJoypadButton.new()
+	start.button_index = JOY_START
+	start.pressed = true
+	assert_bool(PauseManager.is_pause_request(start)).is_true()
+	assert_bool(start.is_action_pressed("skip")).is_false()
+
+
 func test_right_mouse_button_does_not_resume_from_the_full_menu() -> void:
 	var menu = PauseMenuScene.instance()
 	add_child(menu)

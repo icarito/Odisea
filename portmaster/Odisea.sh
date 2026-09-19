@@ -43,6 +43,10 @@ export LD_LIBRARY_PATH="/usr/lib:$GAMEDIR/lib:$LD_LIBRARY_PATH"
 if grep -qa "rockchip,rk3326" /proc/device-tree/compatible 2>/dev/null \
    || grep -qs "Mali-G31" /sys/class/misc/mali0/device/gpuinfo; then
   export ODISEA_EARLY_WEAK_HARDWARE=1
+  # Modo plano (albedo unshaded por superficie, FlatFake.shader): sin PBR ni lightmap,
+  # el color sale del material de cada superficie. Es la contraparte del gouraud que ya
+  # aplica el tier LOW. Se puede pisar desde dev.sh (0 lo apaga, 2 = unshaded con textura).
+  export ODISEA_UNSHADED="${ODISEA_UNSHADED:-3}"
   [ -f override.cfg ] || cp lowend.cfg override.cfg
 elif grep -qs "odisea-lowend-cfg\|FD-299: ajustes de arranque" override.cfg; then
   # Copia de este archivo o el override.cfg que traian los nightlies anteriores.

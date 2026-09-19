@@ -94,6 +94,7 @@ grep -q "$PORT.ini" "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no carga $PORT.ini"
 # escritorio (MSAA, HDR, sombras pesadas) y el GPU sufre.
 grep -q "framebuffer_allocation.mobile" "$OUT/$PORT/lowend.cfg" || { echo "ERROR: lowend.cfg sin el bloque FD-299" >&2; exit 1; }
 grep -q "cp lowend.cfg override.cfg" "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no instala lowend.cfg en los handhelds lentos" >&2; exit 1; }
+grep -q 'ODISEA_UNSHADED' "$OUT/$SCRIPT" || { echo "ERROR: $SCRIPT no activa el modo plano en los handhelds lentos" >&2; exit 1; }
 python3 -c "
 import json,sys
 a=json.load(open('$SRC/port.json'))
