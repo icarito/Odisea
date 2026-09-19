@@ -1265,14 +1265,29 @@ func _apply_binary_update(info: Dictionary) -> bool:
 
 # Reemplaza dst con src. Directory.rename usa rename(2): en Linux pisa el destino,
 # pero falla con EXDEV si src y dst estan en filesystems distintos (user:// suele
-# estar en $HOME y la instalacion en otro mount). Fallback: copiar y borrar origen.
+# estar en $HOME y la instalacion en otro mount). Copiar directo tampoco alcanza
+# cuando dst es el ejecutable en marcha: Linux devuelve ETXTBSY al abrirlo para
+# escritura. Estrategia: renombrar si se puede; si no, copiar a un temporal EN EL
+# DIRECTORIO DE dst (mismo filesystem) y renombrarlo sobre dst. rename(2) reemplaza
+# la entrada de directorio aunque el binario este ejecutandose (el proceso vivo
+# conserva el inode viejo).
 func _replace_file(src: String, dst: String) -> bool:
 	var d = Directory.new()
 	if d.rename(src, dst) == OK:
 		return true
-	if d.copy(src, dst) == OK:
+	var tmp = dst + ".new"
+	if d.file_exists(tmp):
+		d.remove(tmp)
+	if d.copy(src, tmp) != OK:
+		# Ultimo recurso: copiar directo (sirve si dst no esta en uso).
+		if d.copy(src, dst) == OK:
+			d.remove(src)
+			return true
+		return false
+	if d.rename(tmp, dst) == OK:
 		d.remove(src)
 		return true
+	d.remove(tmp)
 	return false
 
 # Descarta el pending (boot fallido), borra sus packages no confirmados, y carga
