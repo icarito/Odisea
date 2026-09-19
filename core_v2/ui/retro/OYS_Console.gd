@@ -683,11 +683,15 @@ func _cmd_nodescan(_argv: Array, _raw: String) -> Dictionary:
 func _cmd_joy_debug(_argv: Array, _raw: String) -> Dictionary:
 	add_log("SYS", "Joystick Debug Active. Press any button...")
 	var timer = get_tree().create_timer(10.0)
-	var count = 0
 	while timer.time_left > 0:
+		var pads := Input.get_connected_joypads()
+		if pads.empty():
+			add_log("SYS", "No joypads connected.")
+			break
+		var dev: int = pads[0]
 		for i in range(20): # Check first 20 buttons
-			if Input.is_joy_button_pressed(0, i):
-				add_log("SYS", "Joy Button Pressed: %d" % i)
+			if Input.is_joy_button_pressed(dev, i):
+				add_log("SYS", "Joy %d Button Pressed: %d" % [dev, i])
 				yield (get_tree().create_timer(0.2), "timeout") # avoid flood
 		yield (get_tree(), "idle_frame")
 	add_log("SYS", "Joystick Debug Ended.")

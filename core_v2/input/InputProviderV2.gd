@@ -41,6 +41,25 @@ var _invert_joy_look_y := false
 var handheld_axis_correction_enabled := false
 var handheld_axis_profile := "none"
 
+# El engine numera los pads en el orden en que los descubre y ese orden cambia
+# entre plataformas: en FRT/SDL un pad virtual (p. ej. el que crea un remapper de
+# usuarios) puede quedar despues del dispositivo crudo, y en X11 al reves. En vez
+# de hardcodear el device 0, agarramos el primer pad conectado; si no hay ninguno
+# devolvemos -1 y los ejes leen 0.
+var _primary_joypad := -1
+
+func _primary_joy() -> int:
+	var pads := Input.get_connected_joypads()
+	if pads.empty():
+		_primary_joypad = -1
+	elif not pads.has(_primary_joypad):
+		_primary_joypad = pads[0]
+	return _primary_joypad
+
+func _joy_axis(axis: int) -> float:
+	var d := _primary_joy()
+	return Input.get_joy_axis(d, axis) if d >= 0 else 0.0
+
 func _init() -> void:
 	pass
 
@@ -249,8 +268,8 @@ func _read_live_input() -> InputDataV2:
 			d.hud_nav = 1
 
 		# --- JOYSTICK SPRINT (Physical) ---
-		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0) * axis_inv.x
-		var joy_move_y = Input.get_joy_axis(0, JOY_AXIS_1) * axis_inv.y
+		var joy_move_x = _joy_axis(JOY_AXIS_0) * axis_inv.x
+		var joy_move_y = _joy_axis(JOY_AXIS_1) * axis_inv.y
 		var joy_move = Vector2(
 			joy_move_x,
 			joy_move_y
@@ -292,8 +311,8 @@ func _read_live_input() -> InputDataV2:
 		d.hardware_mouse_active = mouse_d.length() > 0.1
 
 		# --- JOYSTICK CAMERA (Right Stick) ---
-		var joy_look_x = Input.get_joy_axis(0, JOY_AXIS_2)
-		var joy_look_y = Input.get_joy_axis(0, JOY_AXIS_3)
+		var joy_look_x = _joy_axis(JOY_AXIS_2)
+		var joy_look_y = _joy_axis(JOY_AXIS_3)
 		var joy_look = Vector2(
 			joy_look_x,
 			- joy_look_y
