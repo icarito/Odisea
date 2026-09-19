@@ -246,18 +246,19 @@ la fila enfocada).
 
 ## Open Questions
 
-1. **Deny del 7º favorito vs. reemplazo.** El spec dice deny (la curaduría es
-   explícita). La alternativa es "reemplaza al menos relevante/usado", que es más
-   fluido pero le quita al jugador la decisión. ¿Se queda en deny?
-2. **Agrupado por inicial** ¿siempre visible, o solo cuando la lista pasa de N
+1. **Agrupado por inicial** ¿siempre visible, o solo cuando la lista pasa de N
    filas (p. ej. 8)? Recomendado: solo cuando pasa de N, para que hoy no agregue
    ruido.
-3. **Scroll analógico: ¿inercia pura o con snap obligatorio?** El spec pide snap
-   al detenerse. Si el jugador quiere pasar de largo rápido, el snap puede
-   sentirse pegajoso. Recomendado: snap solo por debajo de un umbral de velocidad.
+2. **Snap del scroll.** ¿Inercia pura o snap obligatorio al detenerse? **No se
+   decide en el documento: se decide en playtest.** Es una pregunta de tacto, no
+   de spec; la respuesta correcta está en sentir la lista, no en razonarla.
 
 ### Resueltas
 
+- **7º favorito — deny (Sebastián, 2026-09-19).** Con 6 favoritos, favoritear una
+  séptima fila produce deny visual (haptic + flash ámbar + "RADIAL LLENO"), sin
+  reemplazar nada. La curaduría es explícita: el jugador decide qué sale, no el
+  sistema.
 - **Búsqueda — diferida (2026-09-19).** Ver §3.4. Fuera de la primera entrega:
   solo sirve en desktop y el agrupado por inicial cubre el caso de hoy.
 - **`HudMenuChrome.gd` — descartado (2026-09-19).** Ver FD-306 §7. El drawer
