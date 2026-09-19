@@ -459,10 +459,12 @@ func test_secondary_mouse_button_releases_mouse_instead_of_pausing_host():
 	home._raw_passthrough = true
 	var client = home._client()
 	client.inputs.clear()
-	# Godot deja mouse_mode = CAPTURED aunque el grab falle (headless), asi que el
-	# estado inicial es valido para el test.
+	# Godot deja mouse_mode = CAPTURED aunque el grab falle en una ventana real; el binario
+	# headless de CI (Server) ignora set_mouse_mode y queda en VISIBLE, asi que el chequeo del
+	# modo nativo solo corre donde el driver lo honra (mismo guard que el test del radial).
 	var mouse_mode: int = Input.get_mouse_mode()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	var captured: bool = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
 
 	var ev := InputEventMouseButton.new()
 	ev.button_index = BUTTON_RIGHT
@@ -478,7 +480,8 @@ func test_secondary_mouse_button_releases_mouse_instead_of_pausing_host():
 			cursor = node as Control
 	assert_object(cursor).is_not_null()
 	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	if captured:
+		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 
 	VirtualMouseScript.set_pointer_released(false)
 	Input.set_mouse_mode(mouse_mode)
