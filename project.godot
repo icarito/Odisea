@@ -3203,7 +3203,7 @@ file_logging/max_log_files=3
 [locale]
 
 fallback="es"
-translations=PoolStringArray( "res://locale/ui_strings.en.translation" )
+translations=PoolStringArray( "res://locale/ui_strings.es.translation", "res://locale/ui_strings.en.translation", "res://locale/ui_strings.ko.translation", "res://locale/ui_strings.pt_BR.translation" )
 
 [mono]
 

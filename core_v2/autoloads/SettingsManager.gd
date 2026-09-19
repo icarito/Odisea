@@ -131,26 +131,27 @@ func apply_all_settings():
 	apply_display_settings()
 	apply_privacy_settings()
 
+# Un locale por columna de locale/ui_strings.csv. El "es" esta incluido: el
+# importer lo genera igual que a los demas (la clave ES el texto en español, asi
+# que la traduccion es la identidad) y ya no hace falta fabricarlo a mano.
+const UI_LOCALES = ["es", "en", "ko", "pt_BR"]
+
 func resolve_effective_language() -> String:
 	if ui_language == "auto":
 		var sys_locale = OS.get_locale().to_lower()
-		if sys_locale.begins_with("es"):
-			return "es"
-		else:
-			return "en"
+		for code in UI_LOCALES:
+			if sys_locale.begins_with(code.to_lower().split("_")[0]):
+				return code
+		return "en"
 	return ui_language
 
 func apply_locale_settings() -> void:
-	if not _has_translation("en"):
-		var trans = load("res://locale/ui_strings.en.translation") as Translation
+	for code in UI_LOCALES:
+		if _has_translation(code):
+			continue
+		var trans = load("res://locale/ui_strings.%s.translation" % code) as Translation
 		if trans != null:
 			TranslationServer.add_translation(trans)
-			if not _has_translation("es"):
-				var trans_es = Translation.new()
-				trans_es.locale = "es"
-				for msg_key in trans.get_message_list():
-					trans_es.add_message(msg_key, msg_key)
-				TranslationServer.add_translation(trans_es)
 	var effective = resolve_effective_language()
 	TranslationServer.set_locale(effective)
 

@@ -2,14 +2,13 @@
 
 importer="csv_translation"
 type="Translation"
-valid=true
-group_file="res://locale/ui_strings.en.translation"
-files=[ "res://locale/ui_strings.en.translation" ]
 
 [deps]
 
+files=[ "res://locale/ui_strings.es.translation", "res://locale/ui_strings.en.translation", "res://locale/ui_strings.ko.translation", "res://locale/ui_strings.pt_BR.translation" ]
+
 source_file="res://locale/ui_strings.csv"
-dest_files=[ "res://locale/ui_strings.en.translation" ]
+dest_files=[ "res://locale/ui_strings.es.translation", "res://locale/ui_strings.en.translation", "res://locale/ui_strings.ko.translation", "res://locale/ui_strings.pt_BR.translation" ]
 
 [params]
 

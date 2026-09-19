@@ -3,7 +3,8 @@
 tools/i18n_extract.py
 Automated string extraction tool for Odisea (Godot 3, GDScript 1.x / TSCN).
 Scans .gd and .tscn files (excluding addons/), extracts Spanish UI strings,
-and merges them idempotently into locale/ui_strings.csv (keys,es,en).
+and merges them idempotently into locale/ui_strings.csv, preserving every
+locale column already present in the header.
 """
 
 import sys
@@ -137,35 +138,41 @@ def scan_codebase(root_dir: Path) -> set:
 
     return extracted
 
-def load_existing_csv(csv_file: Path) -> dict:
+DEFAULT_HEADER = ["keys", "es", "en"]
+
+def load_existing_csv(csv_file: Path):
     """
-    Returns a dict: key -> en_translation
+    Returns (header, {key -> full row}). Any column beyond keys/es is preserved
+    verbatim, so hand-written locales (pt_BR, ko, ...) survive a re-extraction.
     """
-    existing = {}
     if not csv_file.exists():
-        return existing
+        return list(DEFAULT_HEADER), {}
 
     with open(csv_file, 'r', encoding='utf-8', newline='') as f:
         reader = csv.reader(f)
         header = next(reader, None)
         if not header:
-            return existing
+            return list(DEFAULT_HEADER), {}
+        rows = {}
         for row in reader:
             if not row:
                 continue
-            key = row[0]
-            en_val = row[2] if len(row) >= 3 else ""
-            existing[key] = en_val
-    return existing
+            rows[row[0]] = row
+    return header, rows
 
-def save_csv(csv_file: Path, keys_map: dict):
+def save_csv(csv_file: Path, header: list, keys_map: dict):
     csv_file.parent.mkdir(parents=True, exist_ok=True)
     sorted_keys = sorted(keys_map.keys())
     with open(csv_file, 'w', encoding='utf-8', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(["keys", "es", "en"])
+        writer.writerow(header)
         for key in sorted_keys:
-            writer.writerow([key, key, keys_map[key]])
+            row = list(keys_map[key])
+            # key is the Spanish text: columns 0 and 1 are always the key itself
+            row[0:2] = [key, key]
+            # pad/trim to the header width so every locale column keeps its slot
+            row += [""] * (len(header) - len(row))
+            writer.writerow(row[:len(header)])
 
 def main():
     print(f"[i18n_extract] Scanning codebase at {REPO_ROOT}...")
@@ -175,7 +182,7 @@ def main():
         print("[i18n_extract] ERROR: No UI strings extracted! Exiting with status 1.", file=sys.stderr)
         sys.exit(1)
 
-    existing_map = load_existing_csv(CSV_PATH)
+    header, existing_map = load_existing_csv(CSV_PATH)
 
     new_count = 0
     orphan_count = 0
@@ -187,16 +194,16 @@ def main():
         if k in existing_map:
             merged_map[k] = existing_map[k]
         else:
-            merged_map[k] = ""
+            merged_map[k] = [k, k] + [""] * (len(header) - 2)
             new_count += 1
 
     # Preserve orphans
-    for k, en_val in existing_map.items():
+    for k, row in existing_map.items():
         if k not in extracted_keys:
-            merged_map[k] = en_val
+            merged_map[k] = row
             orphan_count += 1
 
-    save_csv(CSV_PATH, merged_map)
+    save_csv(CSV_PATH, header, merged_map)
 
     total_keys = len(merged_map)
     print(f"[i18n_extract] Done.")

@@ -1,10 +1,10 @@
 # FD-308: Portugués de Brasil (pt_BR)
 
-**Status:** Design
+**Status:** Implemented
 **Priority:** P1
 **Effort:** Small
 **Created:** 2026-09-19
-**Completed:** -
+**Completed:** 2026-09-19 (junto con FD-309)
 **Parent:** FD-303 (i18n UI: extractor + inglés) · FD-296 (OdiseaOS)
 **Relacionadas:** FD-303 dejó "más idiomas / fuentes no-latinas" fuera de scope. Este FD **cierra el caso latino** de esa deuda.
 
@@ -266,3 +266,30 @@ Ideal: sumarlo a `asset_integrity.yml` como paso opcional.
    copiando claves porque el CSV nunca trajo una `es` real. Si el pipeline pasa a
    N-columnas, se puede simplificar. Cambio de comportamiento: prefiero
    preguntarlo antes de tocarlo.
+
+
+---
+
+## Implementado — correcciones a este diseño (2026-09-19, FD-309)
+
+Se entregó junto con el coreano. Tres cosas de este documento resultaron falsas o
+innecesarias al ejecutarlo:
+
+1. **§5 se equivoca: Godot 3 SÍ tiene fallback de fuente.** `DynamicFont` expone
+   `fallback/N` / `add_fallback()` y `DynamicFontAtSize::_find_char_with_font()`
+   recorre los fallbacks. No hizo falta `fontTools.merge` (opción a), ni dibujar
+   los 13 glifos (b), ni cambiar `TinyFont` (c). Una fuente de respaldo declarada
+   en los 17 `DynamicFont` del proyecto tapa los 13 acentos faltantes de Ac437 sin
+   tocar Ac437 ni el look del texto chico. Lo aplica
+   `tools/add_font_fallback.py --check`.
+2. **§1 se hizo tal cual.** El extractor es N-columnas y hay test de regresión
+   byte a byte para el caso de 3 columnas.
+3. **Open Question 3 resuelta: el `es` deja de fabricarse.** Con `compress=true`
+   el importer produce `PHashTranslation`, que no expone `get_message_list()`, así
+   que la fabricación era inviable; y es innecesaria, porque el CSV trae columna
+   `es` y el importer genera su `.translation`.
+
+Open Question 1 (qué opción de fuente) queda contestada por (1). Open Question 2
+(audiencia real) sigue abierta, pero ya no bloquea nada.
+
+El CSV tiene **289 filas**, no 347: el conteo de este FD era de una versión previa.

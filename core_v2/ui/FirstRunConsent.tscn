@@ -1,9 +1,10 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://core_v2/ui/FirstRunConsent.gd" type="Script" id=1]
 [ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=2]
 [ext_resource path="res://assets/fonts/Workbench-Regular-VariableFont_BLED,SCAN.ttf" type="DynamicFontData" id=3]
 [ext_resource path="res://core_v2/ui/UIScaleCompensator.gd" type="Script" id=4]
+[ext_resource path="res://assets/fonts/DungGeunMo.ttf" type="DynamicFontData" id=5]
 
 ; El ProgressBar del tema pinta el relleno MAS OSCURO que el fondo, asi que al 100%
 ; se lee como vacio -- justo al reves de lo que esta pantalla necesita. Estos dos
@@ -26,6 +27,7 @@ size = 21
 outline_size = 1
 outline_color = Color( 0.0980392, 0.0470588, 0.145098, 0.466667 )
 font_data = ExtResource( 3 )
+fallback/0 = ExtResource( 5 )
 
 [node name="FirstRunConsent" type="ColorRect"]
 anchor_right = 1.0

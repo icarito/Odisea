@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=2]
+[gd_scene load_steps=23 format=2]
 
 [ext_resource path="res://addons/virtual_joystick/virtual_joystick.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/ui/TouchCameraControls.gd" type="Script" id=2]
@@ -10,12 +10,14 @@
 [ext_resource path="res://assets/icon_jump.png" type="Texture" id=8]
 [ext_resource path="res://assets/download.png" type="Texture" id=9]
 [ext_resource path="res://assets/icon_hud.png" type="Texture" id=10]
+[ext_resource path="res://assets/fonts/DungGeunMo.ttf" type="DynamicFontData" id=11]
 
 [sub_resource type="DynamicFont" id=10]
 size = 18
 outline_size = 1
 outline_color = Color( 0.0980392, 0.0470588, 0.145098, 0.466667 )
 font_data = ExtResource( 6 )
+fallback/0 = ExtResource( 11 )
 
 [sub_resource type="StyleBoxFlat" id=5]
 bg_color = Color( 0.92, 0.78, 0.22, 0.95 )
