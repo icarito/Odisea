@@ -1,10 +1,23 @@
 # res://core_v2/tests/test_i18n.gd
 extends GdUnitTestSuite
 
+var _orig_lang: String = "auto"
+
 func before_test():
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm:
+		_orig_lang = sm.ui_language
 		sm.apply_locale_settings()
+
+func after_test():
+	# El locale es estado global del TranslationServer: si no se devuelve, la
+	# suite siguiente corre en el ultimo idioma que toco este archivo.
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm:
+		sm.ui_language = _orig_lang
+		sm.apply_locale_settings()
+	else:
+		TranslationServer.set_locale("es")
 
 func test_english_translation():
 	var sm = get_node_or_null("/root/SettingsManager")

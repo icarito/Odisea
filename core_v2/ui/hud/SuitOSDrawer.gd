@@ -283,10 +283,10 @@ func _draw_drawer() -> void:
 			tag = "OFFLINE"
 		if not tag.empty():
 			draw_string(font, rect.position + Vector2(rect.size.x - 96.0 * k, rect.size.y * 0.68),
-				tag, COLOR_AMBER if tag == "ALERTA" else Color(COLOR_DIM.r, COLOR_DIM.g, COLOR_DIM.b, 0.6))
+				tr(tag), COLOR_AMBER if tag == "ALERTA" else Color(COLOR_DIM.r, COLOR_DIM.g, COLOR_DIM.b, 0.6))
 	if is_denying():
 		draw_string(font, Vector2(rect_size.x * 0.5 - 70.0 * k, rect_size.y - 40.0 * k),
-			"RADIAL LLENO", COLOR_AMBER)
+			tr("RADIAL LLENO"), COLOR_AMBER)
 
 
 func _initial_of(index: int) -> String:

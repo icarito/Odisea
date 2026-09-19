@@ -22,7 +22,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 
 func set_snapshot(snapshot: Dictionary) -> void:
 	if _title_label != null:
-		_title_label.text = String(snapshot.get("title", "Criocápsulas"))
+		_title_label.text = tr(String(snapshot.get("title", "Criocápsulas")))
 	var pods: Array = snapshot.get("pods", []) if typeof(snapshot.get("pods", [])) == TYPE_ARRAY else []
 	var alarms: int = int(snapshot.get("alarms", 0))
 	var offline: bool = String(snapshot.get("source", "online")) == "offline"
@@ -49,9 +49,9 @@ func set_snapshot(snapshot: Dictionary) -> void:
 	if _summary_label != null:
 		# Sin roster declarado no se afirma ocupacion: decir "0/28 OCUP" en un arca de criogenia
 		# seria decir algo falso. Se informa lo que se sabe, que es cuantas capsulas hay.
-		var head: String = "%d/%d OCUP" % [occupied, pods.size()] if occupied > 0 \
-			else "%d CÁPSULAS" % pods.size()
-		_summary_label.text = "%s · %d ALERTA" % [head, alarms] if alarms > 0 else "%s · NOMINAL" % head
+		var head: String = tr("%d/%d OCUP") % [occupied, pods.size()] if occupied > 0 \
+			else tr("%d CÁPSULAS") % pods.size()
+		_summary_label.text = tr("%s · %d ALERTA") % [head, alarms] if alarms > 0 else tr("%s · NOMINAL") % head
 	if _pod_label != null:
 		_pod_label.text = _format_pod(pods, int(snapshot.get("focused", 0)))
 
@@ -63,7 +63,7 @@ func _format_pod(pods: Array, focused: int) -> String:
 	return "%s  %s  %s" % [
 		String(pod.get("id", "?")),
 		occupant if not occupant.empty() else tr("VACÍA"),
-		String(pod.get("status", "NOMINAL"))]
+		tr(String(pod.get("status", "NOMINAL")))]
 
 func _on_scan_pressed() -> void:
 	HudWidgetAction.perform(self, "ship:cryopods", "scan")

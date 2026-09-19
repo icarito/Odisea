@@ -2,7 +2,9 @@ keys,es,en,ko,pt_BR
    CLOSE   ,   CLOSE   ,   CLOSE,   닫기   ,   FECHAR   
    NEXT   ,   NEXT   ,   NEXT,   다음   ,   PRÓXIMO   
 %02d:%02d,%02d:%02d,%02d:%02d,%02d:%02d,%02d:%02d
+%d CÁPSULAS,%d CÁPSULAS,%d PODS,캡슐 %d개,%d CÁPSULAS
 %d suggestions,%d suggestions,%d suggestions,제안 %d개,%d sugestões
+%d/%d OCUP,%d/%d OCUP,%d/%d OCC,%d/%d 사용 중,%d/%d OCUP
 "%s
 %.1fms  N:%d  M:%d  L:%d  P:%d","%s
 %.1fms  N:%d  M:%d  L:%d  P:%d","%s
@@ -11,11 +13,15 @@ keys,es,en,ko,pt_BR
 %.1fms  N:%d  M:%d  L:%d  P:%d"
 %s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: 페이지   |   T: 정렬 ),%s     ( PgUp / PgDn: página   |   T: ordenar )
 %s Volviendo al menú...,%s Volviendo al menú...,%s Returning to menu...,%s 메뉴로 돌아갑니다...,%s Voltando ao menu...
+%s · %d ALERTA,%s · %d ALERTA,%s · %d ALERT,%s · 경보 %d,%s · %d ALERTA
+%s · NOMINAL,%s · NOMINAL,%s · NOMINAL,%s · 정상,%s · NOMINAL
 %s: %s,%s: %s,%s: %s,%s: %s,%s: %s
+0/28 OCUP · NOMINAL,0/28 OCUP · NOMINAL,0/28 OCC · NOMINAL,0/28 사용 중 · 정상,0/28 OCUP · NOMINAL
 2 cube,2 cube,2 cube,2 cube,2 cube
 <- Back,<- Back,<- Back,<- 뒤로,<- Voltar
 AIRLOCK A,AIRLOCK A,AIRLOCK A,에어록 A,COMPORTA A
 AIRLOCK-01,AIRLOCK-01,AIRLOCK-01,에어록-01,COMPORTA-01
+ALERTA,ALERTA,ALERT,경보,ALERTA
 APAGADA,APAGADA,OFF,꺼짐,DESLIGADA
 APAGAR,APAGAR,TURN OFF,끄기,DESLIGAR
 "ASCENSOR
@@ -113,6 +119,7 @@ Console not found,Console not found,Console not found,Console not found,Console 
 Control remoto,Control remoto,Remote control,원격 제어,Controle remoto
 Control remoto: hay una partida en la red,Control remoto: hay una partida en la red,Remote control: a game is available on the network,원격 제어: 네트워크에 게임이 있습니다,Controle remoto: há uma partida na rede
 Control remoto: no se detectan partidas en la red,Control remoto: no se detectan partidas en la red,Remote control: no games detected on the network,원격 제어: 네트워크에서 게임을 찾지 못했습니다,Controle remoto: nenhuma partida detectada na rede
+Criocápsulas,Criocápsulas,Cryopods,냉동 캡슐,Criocápsulas
 Cuerpo de texto...,Cuerpo de texto...,Body text...,본문 텍스트...,Corpo do texto...
 DIRT,DIRT,DIRT,흙,TERRA
 DISPARANDO EMP,DISPARANDO EMP,FIRING EMP,EMP 발사 중,DISPARANDO EMP
@@ -128,6 +135,7 @@ ENCENDIDA,ENCENDIDA,ON,켜짐,LIGADA
 ENERGÍA: --,ENERGÍA: --,POWER: --,전력: --,ENERGIA: --
 ENTER  —  OMITIR PRÓLOGO,ENTER  —  OMITIR PRÓLOGO,ENTER  —  SKIP PROLOGUE,ENTER  —  프롤로그 건너뛰기,ENTER  —  PULAR PRÓLOGO
 ERROR: ,ERROR: ,ERROR:,오류: ,ERRO: 
+ESCANEAR,ESCANEAR,SCAN,스캔,ESCANEAR
 ESTADO COOLANT,ESTADO COOLANT,COOLANT STATUS,냉각제 상태,ESTADO DO COOLANT
 ESTADO COOLANT | OESTE: %s | ESTE: %s,ESTADO COOLANT | OESTE: %s | ESTE: %s,COOLANT STATUS | WEST: %s | EAST: %s,냉각제 상태 | 서쪽: %s | 동쪽: %s,ESTADO DO COOLANT | OESTE: %s | LESTE: %s
 "ESTE
@@ -188,6 +196,7 @@ Mostrar pantalla,Mostrar pantalla,Show screen,화면 표시,Mostrar tela
 "Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola.","Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola.","Displays the tail of the engine log on screen, useful for debugging on devices without a console.",엔진 로그의 마지막 부분을 화면에 표시합니다. 콘솔이 없는 기기에서 디버깅할 때 유용합니다.,"Mostra o final do log do motor sobre a tela, útil para depurar em aparelhos sem console."
 Música,Música,Music,음악,Música
 NO ENVIAR,NO ENVIAR,DO NOT SEND,보내지 않음,NÃO ENVIAR
+NOMINAL,NOMINAL,NOMINAL,정상,NOMINAL
 "NORTE
 SALIDA","NORTE
 SALIDA","NORTH
@@ -256,6 +265,7 @@ PROTOCOL TITLE,PROTOCOL TITLE,PROTOCOL TITLE,프로토콜 제목,TÍTULO DO PROT
 PROTOCOLO DE ABORDAJE,PROTOCOLO DE ABORDAJE,BOARDING PROTOCOL,승선 프로토콜,PROTOCOLO DE ABORDAGEM
 Pausado,Pausado,Paused,일시 정지됨,Pausado
 Permitir,Permitir,Allow,허용,Permitir
+Pod_01  VACÍA  NOMINAL,Pod_01  VACÍA  NOMINAL,Pod_01  EMPTY  NOMINAL,Pod_01  비어 있음  정상,Pod_01  VAZIA  NOMINAL
 Preparando el primer nivel…,Preparando el primer nivel…,Preparing first level…,첫 레벨을 준비하는 중…,Preparando o primeiro nível…
 Presiona %s o ESC para cerrar,Presiona %s o ESC para cerrar,Press %s or ESC to close,%s 또는 ESC를 누르면 닫힙니다,Pressione %s ou ESC para fechar
 Presiona E o ESC para cerrar,Presiona E o ESC para cerrar,Press E or ESC to close,E 또는 ESC를 누르면 닫힙니다,Pressione E ou ESC para fechar
@@ -263,6 +273,7 @@ Prop Name,Prop Name,Prop Name,소품 이름,Nome do objeto
 Protocol body text goes here. This can be multiple lines.,Protocol body text goes here. This can be multiple lines.,Protocol body text goes here. This can be multiple lines.,프로토콜 본문이 여기에 들어갑니다. 여러 줄이 될 수 있습니다.,O corpo do protocolo vai aqui. Pode ter várias linhas.
 Puedes cambiar esta decisión cuando quieras desde Opciones.,Puedes cambiar esta decisión cuando quieras desde Opciones.,You can change this decision anytime in Options.,이 선택은 설정에서 언제든지 바꿀 수 있습니다.,Você pode mudar essa decisão quando quiser em Opções.
 Pulsar botón,Pulsar botón,Press button,버튼 누르기,Apertar botão
+RADIAL LLENO,RADIAL LLENO,RADIAL FULL,라디얼 가득 참,RADIAL CHEIO
 REACTOR: ,REACTOR: ,REACTOR:,원자로: ,REATOR: 
 READY,READY,READY,준비,PRONTO
 READY  FONT:%d,READY  FONT:%d,READY  FONT:%d,준비  FONT:%d,PRONTO  FONT:%d
@@ -327,6 +338,7 @@ Test Scene,Test Scene,Test Scene,테스트 장면,Cena de teste
 Tiempo restante: 30 s,Tiempo restante: 30 s,Time remaining: 30 s,남은 시간: 30초,Tempo restante: 30 s
 Usar terminal,Usar terminal,Use terminal,단말기 사용,Usar terminal
 V-Sync,V-Sync,V-Sync,수직 동기화,V-Sync
+VACÍA,VACÍA,EMPTY,비어 있음,VAZIA
 VOLVER,VOLVER,BACK,뒤로,VOLTAR
 Ver Política de Privacidad completa,Ver Política de Privacidad completa,View full Privacy Policy,개인정보 처리방침 전문 보기,Ver a Política de Privacidade completa
 Ver a través de los objetos,Ver a través de los objetos,See through objects,물체 투시,Ver através dos objetos

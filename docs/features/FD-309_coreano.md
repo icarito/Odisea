@@ -49,8 +49,8 @@ en la primera re-extracción. Ahora es agnóstico al número de columnas:
 
 - Header del CSV: `keys,es,en,ko`. `ko` sin país: `OS.get_locale()` en un sistema
   coreano devuelve `ko_KR` y `begins_with("ko")` alcanza.
-- 289 filas traducidas (las 280 de FD-303 más 9 claves que el extractor encontró
-  en `main` y que estaban sin traducir — esas se completaron también en `en`).
+- 301 filas traducidas (las 280 de FD-303, más 9 claves sin traducir que el
+  extractor encontró en `main`, más 12 de la bahía de criocápsulas de FD-304/307).
 - `locale/ui_strings.ko.translation` la genera el importer CSV de Godot.
 
 Reglas usadas:
@@ -109,7 +109,7 @@ El idioma es configuración local (`SettingsManager`) y no viaja por
 
 Una vez hecho §1 (extractor N-columnas) y §3 (el fallback cubre los 13 acentos),
 lo único que le faltaba a FD-308 era el texto. Entra en este PR: columna `pt_BR`
-de 289 filas y el mismo cableado. FD-308 queda **Implemented**.
+de 301 filas y el mismo cableado. FD-308 queda **Implemented**.
 
 Reglas pt-BR: "tela" no "ecrã", "arquivo" no "ficheiro", `você` como tratamiento,
 "aparelho" por "dispositivo". `pt_BR` (no `pt`) para que coincida con
@@ -168,8 +168,9 @@ desde FD-303. Quedan sincronizadas.
    `test_korean_translation`, `test_portuguese_translation` y
    `test_korean_font_has_hangul` (que también verifica `ã`/`õ`).
 5. **Placeholders.** Verificado por script al generar la columna: el multiset de
-   especificadores `%…` coincide entre clave y traducción en las 289 filas.
-6. **Cobertura.** Ninguna de las 289 filas queda vacía en `ko`.
+   especificadores `%…` coincide, **en orden**, entre clave y traducción en las
+   301 filas (el orden importa: `%s · %d ALERTA` se formatea con un array).
+6. **Cobertura.** Ninguna de las 301 filas queda vacía en ninguna columna.
 
 ## Deuda que este FD deja anotada (no resuelta)
 
@@ -179,3 +180,22 @@ desde FD-303. Quedan sincronizadas.
 - `core_v2/ui/retro/DebugOverlay.tscn` arma su `DynamicFont` en runtime desde
   `pixel_font_data`; el parcheador no lo alcanza. Muestra el log crudo del motor,
   que no se traduce, así que no afecta al coreano.
+
+
+## Seguimiento (2026-09-19): la bahía de criocápsulas
+
+Al rebasar sobre FD-304/307 aparecieron strings nuevos, y la mitad **no se podía
+traducir tal como estaban**: se formateaban primero y se asignaban después, así
+que el auto-`tr()` del `Label` nunca podía coincidir con la clave.
+
+- `CryoPodsWidget.gd` — se traduce el **formato**, no el resultado:
+  `tr("%s · %d ALERTA") % [...]` en vez de `"%s · %d ALERTA" % [...]`. Igual para
+  `%d/%d OCUP`, `%d CÁPSULAS`, `%s · NOMINAL`, el título y el estado de la cápsula.
+- `SuitOSDrawer.gd` — `draw_string()` **no** pasa por el auto-`tr()` de `Control`:
+  `tr(tag)` y `tr("RADIAL LLENO")` a mano.
+- Claves agregadas: las 10 que vio el extractor más `NOMINAL` y `ALERTA`, que
+  llegan por variable (`tr(tag)`) y por eso el extractor no las ve.
+- `test_i18n.gd` ahora **restaura el locale en `after_test()`**: era estado global
+  del `TranslationServer` y se filtraba a la suite siguiente (rompió
+  `test_cryopods_hudable`). Y ese test fija `es` en vez de heredar el idioma
+  que quedara puesto.

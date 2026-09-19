@@ -114,6 +114,9 @@ func test_a_is_the_primary_action_so_the_chord_can_reach_it() -> void:
 
 
 func test_the_widget_draws_from_the_snapshot_alone() -> void:
+	# El widget pasa por tr(): este test afirma el texto en español, asi que fija
+	# el idioma en vez de heredar el que dejo puesto otra suite.
+	TranslationServer.set_locale("es")
 	var widget = auto_free(CryoPodsWidgetScene.instance())
 	add_child(widget)
 	var bay = _bay(["Pod_01|Elías Vega|NOMINAL"], 28)
