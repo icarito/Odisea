@@ -742,7 +742,10 @@ func _drawer_rows() -> Array:
 
 
 func _open_drawer() -> void:
-	_selector.close()
+	# El unico cierre del dial que no tiene nada que lo tape en el mismo frame: el drawer entra
+	# encima mientras el anillo se retrae hacia el centro (FD-304 §8). Cerrar hacia una pantalla
+	# tiene que ser sincronico, y salir del modo HUD se lleva el overlay entero.
+	_selector.close_animated()
 	_placeholder.visible = false
 	_view_host.visible = false
 	if not is_instance_valid(_drawer):
