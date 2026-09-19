@@ -55,6 +55,11 @@ mono_crash.*
 replays/
 reports/
 test_output/
+# Desktop low-end test override (tools/launch_game.sh --lowend); generated at boot.
+override.cfg
+override.cfg.lowend-backup
+# Godot import cache used by CI workflows (GODOT_CACHE_DIR); regenerated, not source.
+.ci-cache/
 
 pupeteer/.venv/
 *.pyc

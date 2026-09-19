@@ -4,6 +4,25 @@ extends GdUnitTestSuite
 
 const GateScript = preload("res://core_v2/autoloads/GLES3VendorGate.gd")
 
+# La opcion "low end" de Opciones persiste en settings.cfg y el gate la lee del SettingsManager.
+# Ese estado del usuario no puede filtrarse a los tests: un runner con low_end_forced=true haria
+# fallar los casos "sin Mali el ambiente queda intacto". Se aisla y se restaura por test.
+var _saved_low_end_forced := false
+var _saved_low_end_present := false
+
+func before_test() -> void:
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm != null and "low_end_forced" in sm:
+		_saved_low_end_present = true
+		_saved_low_end_forced = bool(sm.get("low_end_forced"))
+		sm.set("low_end_forced", false)
+
+func after_test() -> void:
+	if _saved_low_end_present:
+		var sm = get_node_or_null("/root/SettingsManager")
+		if sm != null:
+			sm.set("low_end_forced", _saved_low_end_forced)
+
 func test_gate_strips_heavy_passes_when_known_adapter():
 	var gate = auto_free(GateScript.new())
 	gate.force_gate = true
@@ -55,6 +74,22 @@ func test_is_low_tier_follows_force_gate():
 	assert_bool(gate.is_low_tier()).is_false()
 	gate.force_gate = true
 	assert_bool(gate.is_low_tier()).is_true()
+
+# ODISEA_FORCE_LOW_TIER=1 es el override de desarrollo que usa
+# tools/launch_game.sh --lowend para probar el tier LOW en desktop.
+func test_env_override_forces_low_tier():
+	var gate = auto_free(GateScript.new())
+	var prev := OS.get_environment(GateScript.FORCE_LOW_TIER_ENV)
+
+	OS.set_environment(GateScript.FORCE_LOW_TIER_ENV, "1")
+	gate._env_forced_low_tier = gate._read_env_forced_low_tier()
+	assert_bool(gate.is_low_tier()).is_true()
+
+	OS.set_environment(GateScript.FORCE_LOW_TIER_ENV, "0")
+	gate._env_forced_low_tier = gate._read_env_forced_low_tier()
+	assert_bool(gate.is_low_tier()).is_false()
+
+	OS.set_environment(GateScript.FORCE_LOW_TIER_ENV, prev)
 
 # Fisica a 30 Hz solo en tier LOW; fuera vuelve al valor del proyecto (desktop, CI y replays).
 func test_physics_rate_follows_low_tier():

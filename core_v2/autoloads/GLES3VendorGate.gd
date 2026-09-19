@@ -398,7 +398,8 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 		glow = 0.4
 	elif ht.find("hazard") != -1 or ht.find("warning") != -1:
 		glow = 0.3
-	if emissive_glow > 0.0:
+	# El glow por emision solo aplica si el jugador NO eligio color por override.
+	if emissive_glow > 0.0 and ov.a <= 0.0:
 		glow = max(glow, emissive_glow)
 	# Regla por color: el bake del domo pinta el vidrio de los criopods con `mat_cyan`
 	# y no siempre el material se llama "glass". Si el color es cyan/teal o muy
