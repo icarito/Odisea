@@ -1247,3 +1247,268 @@ func test_the_enlarged_widget_updates_when_its_screen_changes() -> void:
 	screen.on = true
 	screen.notify_state_changed()
 	assert_str(status.text).is_not_equal(before)
+
+
+# --- Mando (FD-304) ---
+
+# Una pantalla que declara que hace cada boton de cara. Es el contrato nuevo de §4: opcional, y
+# cuando existe manda sobre la navegacion por foco de la GUI.
+class GamepadScreen:
+	extends HUDableComponent
+
+	var toggled: int = 0
+
+	func _init() -> void:
+		allowed_actions_list = ["toggle"]
+		hud_widget_scene = load("res://core_v2/ui/hud/FlashlightWidget.tscn")
+
+	func hud_gamepad_actions() -> Array:
+		return [{"button": "a", "op": "toggle", "label": "Encender/Apagar", "confirm": true}]
+
+	func perform_action(op: String, args: Dictionary = {}) -> Dictionary:
+		if op == "toggle":
+			toggled += 1
+			notify_state_changed()
+			return {"ok": true, "on": toggled % 2 == 1}
+		return {"ok": false, "error": "no"}
+
+
+func _gamepad_screen(id: String, title: String) -> Node:
+	var screen = auto_free(GamepadScreen.new())
+	screen.hud_screen_id = id
+	screen.hud_screen_title = title
+	add_child(screen)
+	return screen
+
+
+func test_the_shoulders_feed_the_slot_actions_of_the_hud_layer() -> void:
+	# FD-304 §1.1: 1 y 2 a la izquierda (L1/L2), 3 y 4 a la derecha (R1/R2), para que el hombro
+	# del lado sea el slot del lado. Con deadzone 0.5, como hud_mode.
+	var expected := {"hud_slot_1": JOY_L, "hud_slot_2": JOY_L2, "hud_slot_3": JOY_R, "hud_slot_4": JOY_R2}
+	for action in expected.keys():
+		var found := false
+		for event in InputMap.get_action_list(action):
+			if event is InputEventJoypadButton and event.button_index == expected[action]:
+				found = true
+		assert_bool(found) \
+			.override_failure_message("%s sin su boton de hombro" % action).is_true()
+		assert_float(InputMap.action_get_deadzone(action)).is_equal_approx(0.5, 0.001)
+
+
+func test_a_shoulder_never_opens_the_hud_mode_by_itself() -> void:
+	# Opcion A de la FD: los hombros solo significan "slot" DENTRO de la capa HUD. Fuera de ella
+	# siguen siendo zoom/run/roll/modo del multi-tool y no pueden abrir nada.
+	_screen("test:a", "Alpha")
+	var event := InputEventJoypadButton.new()
+	event.button_index = JOY_R
+	event.pressed = true
+	SuitOS._input(event)
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+	# La tecla 1-4 si abre, como siempre.
+	SuitOS._input(_action("hud_slot_3"))
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+
+
+func test_the_slot_frame_fills_while_the_shoulder_is_held_and_empties_if_let_go() -> void:
+	# FD-304 §3.1: el hold no puede ser invisible.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_slot_and_play(3, _slot_held(3, 6))
+	var early: float = overlay._hold_progress
+	assert_float(early).is_greater(0.0)
+	assert_float(early).is_less(1.0)
+	_play(overlay, _slot_held(3, 6))
+	assert_float(overlay._hold_progress).is_greater(early) # proporcional al tiempo
+	# Soltado antes del umbral: se vacia y no abre nada.
+	_play(overlay, [UP])
+	assert_float(overlay._hold_progress).is_equal_approx(0.0, 0.001)
+
+
+func test_a_declares_its_screen_action_and_the_gui_does_not_press_it_twice() -> void:
+	# FD-304 §4: con la pantalla abierta, A ejecuta la operacion que ella declara, por la misma
+	# ruta que su boton tactil (asi funciona igual en local y en el control remoto).
+	var screen = _gamepad_screen("test:a", "Linterna")
+	_screen("test:b", "Beta")
+	var overlay = _open_screen_and_play("test:a", [UP])
+	assert_bool(overlay._mount.is_showing()).is_true()
+	_play(overlay, [{"crouch": true}, UP])
+	assert_int(screen.toggled).is_equal(1)
+	# Sostenido no repite, y el boton enfocado del widget NO se oprime ademas: un flanco, una vez.
+	_play(overlay, [{"crouch": true}, {"crouch": true}, UP])
+	assert_int(screen.toggled).is_equal(2)
+
+
+func test_hold_a_shoulder_and_tap_a_performs_the_action_without_opening_the_screen() -> void:
+	# El acorde de §5: hold R1 (slot 3) + A alterna sin abrir su pantalla, y el dial no se cierra.
+	var screen = _gamepad_screen("test:a", "Linterna")
+	_screen("test:b", "Beta")
+	SuitOS.pin_to_slot(2, "test:a")
+	var overlay = _open_slot_and_play(3, _slot_held(3, Gesture.HOLD_TICKS))
+	assert_bool(overlay._selector.is_open()).is_true()
+	_play(overlay, [{"hud_slot": 3, "crouch": true}])
+	assert_int(screen.toggled).is_equal(1)
+	assert_str(SuitOS.get_active_screen_id()).is_empty() # no se abrio la pantalla
+	assert_bool(overlay._selector.is_open()).is_true() # el slot sigue en foco para encadenar
+
+
+func test_x_and_b_cancel_the_dial() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	assert_bool(overlay._selector.is_open()).is_true()
+	_play(overlay, [{"hud_mode": true, "interact": true}])
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+func test_the_dpad_steps_through_the_arc() -> void:
+	# FD-304 §7.2: ademas del stick, la cruceta recorre las opciones en pasos.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	_screen("test:c", "Charlie")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	assert_bool(overlay._selector.is_open()).is_true()
+	assert_int(overlay._selector.get_hovered_index()).is_equal(RadialSelectorV2.NONE)
+	# Sin nada marcado, el primer paso entra por el primer sector (a las 6), vaya donde vaya.
+	_play(overlay, [{"hud_mode": true, "hud_nav": -1}])
+	assert_int(overlay._selector.get_hovered_index()).is_equal(0)
+	# Sostenida no repite hasta pasar el umbral: un paso por pulsacion.
+	_play(overlay, [{"hud_mode": true, "hud_nav": -1}, {"hud_mode": true, "hud_nav": -1}])
+	assert_int(overlay._selector.get_hovered_index()).is_equal(0)
+	# Soltar y volver a pulsar si sube por el arco, y hacia abajo vuelve.
+	_play(overlay, [{"hud_mode": true}, {"hud_mode": true, "hud_nav": -1}])
+	assert_int(overlay._selector.get_hovered_index()).is_equal(1)
+	_play(overlay, [{"hud_mode": true}, {"hud_mode": true, "hud_nav": 1}])
+	assert_int(overlay._selector.get_hovered_index()).is_equal(0)
+	# Y no se pasa de los extremos del arco.
+	for _i in range(6):
+		_play(overlay, [{"hud_mode": true}, {"hud_mode": true, "hud_nav": -1}])
+	assert_int(overlay._selector.get_hovered_index()).is_equal(2)
+
+
+func test_with_the_hub_every_release_has_a_meaning() -> void:
+	# FD-304 §7.1 pedia una memoria corta para cuando soltar dejaba "nada elegido". Con el hub de
+	# FD-306 §1 ese estado no existe: apuntar en cualquier direccion cae en un sector, y el centro
+	# es el hub. Se prueba justamente eso, que no hay agujero donde soltar no signifique nada.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	_screen("test:c", "Charlie")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	var sel = overlay._selector
+	for hour in range(12):
+		var angle: float = (float(hour) / 12.0) * TAU - PI / 2.0
+		overlay._point_at(Vector2(cos(angle), sin(angle)) * overlay.AIM_RADIUS)
+		assert_int(sel.get_hovered_index()) \
+			.override_failure_message("agujero a las %d en punto" % hour) \
+			.is_not_equal(RadialSelectorV2.NONE)
+	# Y soltar el boton CON el stick todavia apuntando abre esa pantalla, sin ambiguedad. El
+	# stick no vuelve al centro porque se suelte el hombro: eso es soltar el stick, y entonces
+	# queda marcado el hub, que cierra (test_letting_go_on_the_hub_...).
+	var pushed := {"move_vec": [0.0, -1.0], "analog_move_active": true}
+	_play(overlay, [{"hud_mode": true, "move_vec": [0.0, -1.0], "analog_move_active": true}])
+	assert_bool(sel.has_selection()).is_true()
+	_play(overlay, [pushed])
+	assert_str(SuitOS.get_active_screen_id()).is_not_empty()
+
+
+func test_letting_go_on_the_hub_closes_without_opening_the_drawer() -> void:
+	# FD-306 §1.1: el movimiento reflejo de volver el stick al centro y soltar no puede tener
+	# consecuencias. Ahi vive el hub, pero soltar no lo elige.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	_play(overlay, [{"hud_mode": true, "move_vec": [0.0, -1.0], "analog_move_active": true}])
+	assert_bool(overlay._selector.has_selection()).is_true()
+	# Stick de vuelta al centro: queda marcado el hub, que no cuenta como seleccion.
+	_play(overlay, [{"hud_mode": true, "move_vec": [0.0, 0.0], "analog_move_active": true}])
+	assert_bool(overlay._selector.hub_hovered()).is_true()
+	assert_bool(overlay._selector.has_selection()).is_false()
+	_play(overlay, [UP])
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+func test_a_on_the_hub_opens_the_drawer_which_never_lists_itself() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	# Apuntar y volver al centro: el stick en el medio marca el hub.
+	_play(overlay, [
+		{"hud_mode": true, "move_vec": [0.0, -1.0], "analog_move_active": true},
+		{"hud_mode": true, "move_vec": [0.0, 0.0], "analog_move_active": true}])
+	assert_bool(overlay._selector.hub_hovered()).is_true()
+	_play(overlay, [{"hud_mode": true, "crouch": true}])
+	assert_bool(overlay._drawer_open()).is_true()
+	assert_bool(overlay._selector.is_open()).is_false()
+	# El "..." es chrome del overlay, no un HUDable registrado: no puede listarse a si mismo.
+	for row in overlay._drawer._rows:
+		assert_str(String(row["id"])).is_not_equal("...")
+	assert_int(overlay._drawer.row_count()).is_equal(2)
+
+
+func test_the_arc_is_ordered_by_relevance_when_it_opens() -> void:
+	# FD-306 §2: relevancia alta al primer sector (a las 6), que es el que el pulgar encuentra.
+	_screen("test:a", "Alpha", 0.0)
+	_screen("test:b", "Beta", 0.9)
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	assert_array(overlay._dial_ids).is_equal(["test:b", "test:a"])
+	assert_str(overlay._selector.option_id(0)).is_equal("test:b")
+
+
+func test_registering_a_screen_with_the_hud_open_reaches_the_list() -> void:
+	# FD-306 §5: el overlay leia el registry una sola vez en _ready().
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	assert_int(overlay._screen_ids.size()).is_equal(2)
+	_screen("test:c", "Charlie")
+	assert_int(overlay._screen_ids.size()).is_equal(3)
+	SuitOS.unregister_screen("test:c")
+	assert_int(overlay._screen_ids.size()).is_equal(2)
+
+
+func test_the_gamepad_script_replays_the_same_way_it_played() -> void:
+	# FD-304 §11: hombros y botones de cara entran por el stream, asi que el mismo guion tiene
+	# que dar el mismo resultado dos veces.
+	var script := _slot_held(3, Gesture.HOLD_TICKS) \
+		+ [{"hud_slot": 3, "move_vec": [0.0, -1.0], "analog_move_active": true},
+			{"move_vec": [0.0, -1.0], "analog_move_active": true}]
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	_open_slot_and_play(3, script)
+	var first: Array = [SuitOS.get_active_screen_id(), SuitOS.get_pinned_slots()]
+	SuitOS.close_hud_mode()
+	yield(_await_overlay_freed(), "completed")
+	SuitOS.clear_slots()
+
+	_open_slot_and_play(3, script)
+	assert_str(SuitOS.get_active_screen_id()).is_equal(first[0])
+	assert_array(SuitOS.get_pinned_slots()).is_equal(first[1])
+
+
+func test_hold_a_shoulder_and_push_the_stick_drags_that_widget_to_another_slot() -> void:
+	# FD-304 §6: el stick sustituye al puntero, no a la logica del arrastre. Con el hombro de un
+	# slot QUE YA TIENE pantalla, el stick levanta su widget en vez de apuntar el dial (para
+	# cambiarle la pantalla a ese slot esta la cruceta, §7.2).
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	SuitOS.pin_to_slot(2, "test:a")
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	# El hombro del slot 3 (indice 2), sostenido hasta que abre su dial fijado a ese slot.
+	var overlay = _open_slot_and_play(3, _slot_held(3, Gesture.HOLD_TICKS))
+	assert_bool(overlay._selector.is_open()).is_true()
+	assert_int(overlay._target_slot).is_equal(2)
+	assert_bool(overlay._stick_drag_armed()).is_true()
+
+	# Stick a la izquierda: el widget se levanta y el cursor cruza hasta el slot 1 (indice 0).
+	var push := {"hud_slot": 3, "move_vec": [-1.0, 0.0], "analog_move_active": true}
+	for _i in range(90):
+		_play(overlay, [push])
+		if host.slot_at(overlay._stick_cursor) == 0:
+			break
+	assert_bool(is_instance_valid(overlay._drag_ghost)) \
+		.override_failure_message("el stick no levanto el widget").is_true()
+	assert_int(host.slot_at(overlay._stick_cursor)).is_equal(0)
+
+	# Soltar el hombro lo suelta donde este: queda re-pinneado ahi y no duplicado.
+	_play(overlay, [{"move_vec": [-1.0, 0.0], "analog_move_active": true}])
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["test:a", "", "", ""])
+	assert_bool(is_instance_valid(overlay._drag_ghost)).is_false()

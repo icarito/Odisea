@@ -211,3 +211,106 @@ func test_dead_zone_selects_nothing_and_zero_keeps_the_hub_hold() -> void:
 	assert_bool(selector.has_selection()).is_false()
 	selector.point_at(CENTER + Vector2(50.0, 0.0))
 	assert_int(selector.get_hovered_index()).is_equal(1)
+
+
+# --- Hub central (FD-306 §1) ---
+
+func _make_with_hub(labels: Array) -> Control:
+	var selector = auto_free(SelectorScene.instance())
+	add_child(selector)
+	selector.rect_size = Vector2(SIZE, SIZE)
+	selector.hub_enabled = true
+	selector.set_options(labels)
+	selector.open()
+	return selector
+
+
+func test_the_centre_belongs_to_the_hub_not_to_nothing() -> void:
+	var selector = _make_with_hub(["1", "2", "3"])
+	selector.point_at(CENTER)
+	assert_int(selector.get_hovered_index()).is_equal(selector.HUB_INDEX)
+	assert_bool(selector.hub_hovered()).is_true()
+	# Marcar el hub NO es elegirlo: soltar ahi tiene que cerrar sin abrir nada, que es la misma
+	# red de seguridad que daba la zona muerta (FD-306 §1.1).
+	assert_bool(selector.has_selection()).is_false()
+
+
+func test_the_hub_is_confirmed_explicitly_never_by_letting_go() -> void:
+	var selector = _make_with_hub(["1", "2", "3"])
+	selector.connect("option_selected", self, "_on_option_selected")
+	_selected = -99
+	selector.point_at(CENTER)
+	# has_selection() es lo que mira el dueño para decidir entre confirmar y descartar al soltar.
+	assert_bool(selector.has_selection()).is_false()
+	# Confirmar explicito (A, o un tap sobre el hub) si lo elige.
+	selector.confirm()
+	assert_int(_selected).is_equal(selector.HUB_INDEX)
+
+
+func test_a_tap_on_the_hub_hits_the_hub_and_one_next_to_it_does_not() -> void:
+	var selector = _make_with_hub(["1", "2", "3"])
+	var origin: Vector2 = selector.get_global_rect().position
+	assert_int(selector.slice_at(origin + CENTER)).is_equal(selector.HUB_INDEX)
+	# Justo afuera del hitbox del hub, todavia en el hueco del anillo: ahi no hay nada que tocar.
+	assert_int(selector.slice_at(origin + CENTER + Vector2(selector.HUB_HIT_RADIUS + 8.0, 0.0))) \
+		.is_equal(RadialSelectorV2.NONE)
+
+
+func test_crossing_the_centre_on_the_way_to_a_sector_lands_on_the_sector() -> void:
+	# Un stick que pasa por el medio camino a apuntar otro sector no puede quedarse en el hub
+	# (FD-306 Verification 2): lo que vale es donde termina el gesto.
+	var selector = _make_with_hub(["1", "2", "3", "4"])
+	_aim(selector, 6)
+	selector.point_at(CENTER)
+	assert_bool(selector.hub_hovered()).is_true()
+	_aim(selector, 12)
+	assert_int(selector.get_hovered_index()).is_equal(3)
+	assert_bool(selector.hub_hovered()).is_false()
+
+
+func test_the_hub_alone_and_the_hub_with_one_option_do_not_break() -> void:
+	# Bordes de FD-306 §4: _step() divide por (n - 1) y con una sola opcion eso es cero.
+	var only_hub = _make_with_hub([])
+	only_hub.point_at(CENTER)
+	assert_int(only_hub.get_hovered_index()).is_equal(only_hub.HUB_INDEX)
+	only_hub.point_at(CENTER + Vector2(200.0, 0.0)) # sin opciones, todo sigue siendo el hub
+	assert_bool(only_hub.has_selection()).is_false()
+
+	var one = _make_with_hub(["1"])
+	_aim(one, 6)
+	assert_int(one.get_hovered_index()).is_equal(0)
+	one.point_at(CENTER)
+	assert_int(one.get_hovered_index()).is_equal(one.HUB_INDEX)
+
+
+func test_seven_items_is_the_worst_real_case_and_every_one_is_reachable() -> void:
+	# Seis favoritos + el hub: 30 grados por sector. Ese es el peor caso real, no diez.
+	var labels := []
+	for i in range(6):
+		labels.append("op%d" % i)
+	var selector = _make_with_hub(labels)
+	var reached := {}
+	for i in range(6):
+		var angle: float = selector.option_angle(i)
+		selector.point_at(CENTER + Vector2(cos(angle), sin(angle)) * (SIZE / 2.0 * 0.65))
+		reached[selector.get_hovered_index()] = true
+	assert_int(reached.size()).is_equal(6)
+	assert_bool(reached.has(selector.HUB_INDEX)).is_false()
+
+
+# --- set_options con items (FD-306 §3) ---
+
+func test_options_accept_dictionaries_without_breaking_the_string_contract() -> void:
+	# La regla innegociable §0: el ascensor le pasa Strings y eso no cambia.
+	var strings = _make(["1", "2", "3"])
+	assert_str(strings.option_text(0)).is_equal("1")
+	assert_str(strings.option_id(2)).is_equal("3")
+	assert_bool(strings.hub_enabled).is_false()
+
+	var items = _make([
+		{"id": "player:flashlight", "label": "Linterna"},
+		{"id": "ship:systems", "label": "Sistemas", "icon": null, "enabled": true}
+	])
+	assert_str(items.option_text(0)).is_equal("Linterna")
+	assert_str(items.option_id(0)).is_equal("player:flashlight")
+	assert_str(items.option_id(1)).is_equal("ship:systems")

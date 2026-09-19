@@ -123,9 +123,6 @@ var _dial_ids: Array = []
 # arrastrar algo que no esta en el arco.
 var _drag_id: String = ""
 var _drawer: Control = null
-# Ultima opcion marcada del dial: soltar apuntando fuera del dial confirma esa (memoria corta de
-# 1, FD-304 §7.1). El centro NO usa esta memoria: ahi vive el hub y soltar cierra sin elegir.
-var _last_hover: int = -1
 # Flancos de los botones de cara. Arrancan en true: el boton que abrio el modo HUD no acciona.
 var _face_was_down := {"a": true, "b": true, "x": true}
 var _nav_dir: int = 0
@@ -177,7 +174,6 @@ func _ready() -> void:
 	# En el modo HUD el D-pad es de la UI (ui_*): que no apunte el dial como si fuera la camara.
 	input_provider.digital_camera_enabled = false
 	_selector.connect("option_selected", self, "_select")
-	_selector.connect("option_hovered", self, "_on_option_hovered")
 	_selector.connect("cancelled", self, "_exit")
 	_hold_gauge = Control.new()
 	_hold_gauge.name = "HoldGauge"
@@ -350,6 +346,15 @@ func _open_on_press(slot: int) -> void:
 
 func _begin_hold_radial(slot: int) -> void:
 	_opened = true
+	if _opened_on_press:
+		# La pulsacion ya habia abierto la pantalla del slot por adelantado (es widget puro y no
+		# hay transicion de camara que disimule la espera). Que la pulsacion termine siendo un
+		# hold dice que no era eso lo que se queria: se deshace antes de abrir el dial, o el
+		# acorde de FD-304 §5 abriria justo la pantalla que promete no abrir.
+		_opened_on_press = false
+		_cleanup_focus()
+		_mount.close()
+		_suit_os().close_screen()
 	_tab_hold_active = true
 	_picked_during_hold = false
 	_open_radial(slot)
@@ -918,7 +923,6 @@ func _open_radial(slot: int = -1) -> void:
 	_target_slot = slot
 	_aim = Vector2.ZERO
 	_stick_aiming = false
-	_last_hover = RadialSelectorV2.NONE
 	_dial_ids = _dial_screen_ids()
 	if _dial_ids.size() == 1 and _screen_ids.size() <= 1:
 		# Una sola pantalla y nada mas que elegir: se abre directo, como siempre.
@@ -965,12 +969,9 @@ func _release_tab_hold() -> void:
 		return
 	if not _selector.is_open():
 		return
-	# FD-304 §7.1: con el stick, soltar apuntando fuera del dial no debe dejar "nada elegido";
-	# se confirma el ultimo sector marcado (memoria corta de 1). El centro NO usa esta memoria:
-	# ahi vive el hub, y soltar en el hub cierra sin elegir a proposito (FD-306 §1.1).
-	if not _selector.has_selection() and not _selector.hub_hovered() and _last_hover >= 0:
-		_select(_last_hover)
-		return
+	# FD-304 §7.1 pedia confirmar el ultimo sector marcado al soltar "apuntando a nada". Con el
+	# hub de FD-306 §1 ese estado ya no existe: cualquier direccion cae en un sector y el centro
+	# es el hub, donde soltar cierra sin elegir a proposito (§1.1). No hace falta memoria.
 	_confirm_or_dismiss() # con algo marcado -> _select, ya sin hold activo: la pantalla se queda
 
 # Oprimir con algo marcado lo elige; sin nada marcado (zona muerta, o fuera del dial) lo cierra.
@@ -1240,19 +1241,14 @@ func _drive_nav(input) -> void:
 	if step == 0 or not _selector.is_open() or _dial_ids.empty():
 		return
 	# Arriba en pantalla es avanzar por el arco (el primer sector esta a las 6, el ultimo a las 12).
+	# Sin nada marcado, el primer paso entra SIEMPRE por el primer sector, vaya para donde vaya:
+	# entrar por el otro extremo segun la direccion se siente como un salto, no como un paso.
 	var current: int = _selector.get_hovered_index()
 	var next: int = 0
 	if current >= 0:
 		next = int(clamp(current - step, 0, _dial_ids.size() - 1))
-	else:
-		next = _dial_ids.size() - 1 if step < 0 else 0
 	var angle: float = _selector.option_angle(next)
 	_point_at(Vector2(cos(angle), sin(angle)) * AIM_RADIUS)
-
-
-func _on_option_hovered(index: int) -> void:
-	if index >= 0:
-		_last_hover = index
 
 
 # --- Arrastre de un widget con el stick (FD-304 §6) ---

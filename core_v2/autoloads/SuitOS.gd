@@ -423,6 +423,11 @@ func restore_state(data: Dictionary) -> void:
 			if not fav.empty() and not _favorites.has(fav) and _favorites.size() < MAX_FAVORITES:
 				_favorites.append(fav)
 		_favorites_initialized = bool(data.get("favorites_initialized", true))
+	else:
+		# Un save viejo no tiene la clave: se trata como "todavia no hay curaduria" y los defaults
+		# se siembran una vez, en lugar de heredar los favoritos de la partida anterior.
+		_favorites = []
+		_favorites_initialized = false
 	if data.has("last_snapshots") and typeof(data["last_snapshots"]) == TYPE_DICTIONARY:
 		for k in data["last_snapshots"].keys():
 			var snap = data["last_snapshots"][k]
