@@ -89,6 +89,12 @@ func _run() -> void:
 		dither.set_process(false)
 		if is_connected("node_added", dither, "_on_node_added"):
 			disconnect("node_added", dither, "_on_node_added")
+	# Mismo motivo, peor: en tier LOW el gate muta los materiales COMPARTIDOS en
+	# memoria (_low_tier_material apaga transparencia/alpha scissor y prende vertex
+	# lighting) y al guardarlos el bake los persiste corruptos para todos los perfiles.
+	var gate = get_root().get_node_or_null("GLES3VendorGate")
+	if gate != null and gate.has_method("suspend_node_mutation"):
+		gate.suspend_node_mutation()
 
 	var root: Node = packed.instance()
 	get_root().add_child(root)

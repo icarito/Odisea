@@ -18,6 +18,9 @@ const VENDOR_TAG := "mali"
 # Modo plano unshaded: un shader de "shading falso" (lambert de una direccion en
 # espacio de camara + AO vertical) para que las formas se lean sin costo de PBR.
 const FLAT_FAKE_SHADER = preload("res://core_v2/visual/FlatFake.shader")
+# Variante cull_disabled para materiales fuente doble-lado (rejillas CULL_DISABLED):
+# el deck horneado puede tener winding hacia abajo y con cull_back desaparece.
+const FLAT_FAKE_DOUBLE_SIDED_SHADER = preload("res://core_v2/visual/FlatFakeDoubleSided.shader")
 # SOLO adapters verificados en device (§11.10): un adapter desconocido NO se
 # gatea — nunca dejar caer un device por culpa de otro.
 const KNOWN_CONSERVATIVE_ADAPTERS := ["mali-g31"]
@@ -32,6 +35,12 @@ const FORCE_LOW_TIER_ENV := "ODISEA_FORCE_LOW_TIER"
 
 var _gated_active := false
 var _env_forced_low_tier := false
+# Los tools de horneado (tools/bake_*.gd) instancian la escena fuente y guardan
+# los materiales recolectados. Si el gate corre en tier LOW, _low_tier_material
+# muta esos recursos COMPARTIDOS en memoria y el bake los persiste sin
+# transparencia ni alpha scissor: asi quedaron opacas las rejillas de los
+# andamios al rehornear en 57ae5b2d. El bake pide esto antes de instanciar.
+var _mutation_suspended := false
 
 # FD-299: en tier LOW la fisica corre a 30 Hz. Medido en el Anbernic: con ~18 ms de GDScript
 # por tick, a 60 Hz cada frame arrastraba 8 ticks y el juego iba al 54% del tiempo real. El
@@ -93,6 +102,8 @@ func _detect_gate() -> void:
 var _manual_lightmap_synced := false
 
 func _on_node_added(node: Node) -> void:
+	if _mutation_suspended:
+		return
 	if node.is_in_group("lowend_skip"):
 		# Cortes cosmeticos declarativos (FD-299 3b): la escena marca la decoracion
 		# y el gate la libera. Nunca marcar subtrees con colision o gameplay.
@@ -114,6 +125,19 @@ func _on_node_added(node: Node) -> void:
 # Tier LOW (FD-299 3b): decisiones una vez por nodo, sin monitores por frame.
 func is_low_tier() -> bool:
 	return _gated_active or force_gate or _user_forced_low_end() or _env_forced_low_tier
+
+# Congela toda mutacion del gate (materiales compartidos, sombras, environments)
+# mientras un tool offline recolecta geometria/materiales para hornear. Sin esto,
+# un bake corrido con ODISEA_FORCE_LOW_TIER=1 escribe la huella del tier LOW en
+# los .material compartidos y las rejillas quedan opacas para todos los perfiles.
+func suspend_node_mutation() -> void:
+	_mutation_suspended = true
+
+# Modo plano (ODISEA_UNSHADED 1/2/3): los materiales del mundo son unshaded y
+# saltean el pase de luz, asi que la blob shadow analitica (light.blob_shadow_*)
+# no los oscurece. FakeShadow lo consulta para usar el quad legacy en vez de la blob.
+func is_flat_mode() -> bool:
+	return _unshaded_mode != ""
 
 var _unshaded_mat: SpatialMaterial = null
 var _flat_cache := {}
@@ -341,12 +365,17 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 	var color := Color(0, 0, 0, 0)
 	var tex: Texture = null
 	var name_hint := hint
+	# El material fuente CULL_DISABLED (rejillas/decks) debe seguir viendose desde
+	# ambos lados: el quad horneado puede venir con winding invertido y con cull_back
+	# el piso caminable desaparece. El resto de los materiales queda cull_back.
+	var double_sided := false
 	# Los materiales del bake marcan su categoria con emision (barandas, vidrio
 	# `mat_cyan`, warning): si hay emision, se usa el tinte del albedo sin promediar
 	# la textura (que lo apagaba a gris) y se los enciende con glow.
 	var emissive_glow := -1.0
 	if source is SpatialMaterial:
 		var sm := source as SpatialMaterial
+		double_sided = sm.params_cull_mode == SpatialMaterial.CULL_DISABLED
 		color = sm.albedo_color
 		tex = sm.albedo_texture
 		name_hint += " " + str(sm.resource_path) + " " + str(sm.resource_name)
@@ -356,6 +385,8 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 	elif source is ShaderMaterial:
 		var sh := source as ShaderMaterial
 		name_hint += " " + str(sh.resource_path) + " " + str(sh.resource_name)
+		if sh.shader != null and sh.shader.code.find("cull_disabled") != -1:
+			double_sided = true
 		for n in ["albedo_color", "base_color", "color", "tint_color", "overlay_color"]:
 			var v = sh.get_shader_param(n)
 			if v is Color and v.a > 0.05:
@@ -414,11 +445,11 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 	if _flat_debug and not _flat_debug_seen.has(name_hint):
 		_flat_debug_seen[name_hint] = true
 		print("[FLATDBG] '", name_hint, "' -> ", color.to_html(), " glow=", glow)
-	var key := color.to_html() + "|" + str(glow) + "|" + str(tex.get_instance_id() if tex != null else 0)
+	var key := color.to_html() + "|" + str(glow) + "|" + str(tex.get_instance_id() if tex != null else 0) + "|" + str(double_sided)
 	if _flat_cache.has(key):
 		return _flat_cache[key]
 	var mat := ShaderMaterial.new()
-	mat.shader = FLAT_FAKE_SHADER
+	mat.shader = FLAT_FAKE_DOUBLE_SIDED_SHADER if double_sided else FLAT_FAKE_SHADER
 	# El uniform es vec3: pasar un Color no lo setea (queda el default gris).
 	mat.set_shader_param("albedo", Vector3(color.r, color.g, color.b))
 	mat.set_shader_param("glow", glow)

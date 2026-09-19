@@ -133,6 +133,36 @@ func test_low_tier_strips_shadows_and_materials():
 	assert_bool(mat.subsurf_scatter_enabled).is_false()
 	assert_bool(mat.flags_vertex_lighting).is_true()
 
+# Los tools de horneado (tools/bake_*.gd) llaman suspend_node_mutation() antes de
+# instanciar: si no, un bake corrido en tier LOW guarda los materiales COMPARTIDOS
+# ya mutados (transparencia/alpha scissor apagados) y las rejillas quedan opacas
+# para todos los perfiles.
+func test_suspend_node_mutation_freezes_low_tier_material_changes():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate.suspend_node_mutation()
+
+	var mat = auto_free(SpatialMaterial.new())
+	mat.flags_transparent = true
+	mat.params_use_alpha_scissor = true
+	mat.params_alpha_scissor_threshold = 0.46
+	mat.normal_enabled = true
+	mat.flags_vertex_lighting = false
+
+	var mesh = auto_free(CubeMesh.new())
+	mesh.material = mat
+	var mi = auto_free(MeshInstance.new())
+	mi.mesh = mesh
+	add_child(mi)
+
+	assert_bool(mat.flags_transparent).is_true()
+	assert_bool(mat.params_use_alpha_scissor).is_true()
+	assert_float(mat.params_alpha_scissor_threshold).is_equal_approx(0.46, 0.001)
+	assert_bool(mat.normal_enabled).is_true()
+	assert_bool(mat.flags_vertex_lighting).is_false()
+	assert_bool(mi.cast_shadow == GeometryInstance.SHADOW_CASTING_SETTING_OFF).is_false()
+
 func test_flat_mode_releases_the_material_override():
 	# El material_override le gana a los materiales por superficie: si el modo plano
 	# no lo suelta, el prop sigue dibujando el suyo (rejillas transparentes) y todo el
@@ -154,6 +184,41 @@ func test_flat_mode_releases_the_material_override():
 	assert_object(mi.material_override).is_null()
 	assert_object(mi.get_surface_material(0)).is_not_null()
 	assert_bool(mi.get_surface_material(0) is ShaderMaterial).is_true()
+
+
+func test_flat_mode_keeps_double_sided_decks():
+	# Las rejillas/decks de los andamios usan CULL_DISABLED y son un unico quad: al
+	# hornear, el winding puede quedar hacia abajo y con cull_back el piso caminable
+	# desaparece visto desde arriba (el jugador flota sobre una superficie invisible).
+	# El material plano debe conservar el doble lado de la fuente.
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._unshaded_mode = "3"
+	assert_bool(gate.is_flat_mode()).is_true()
+
+	var grate = auto_free(SpatialMaterial.new())
+	grate.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	var grate_mesh = auto_free(CubeMesh.new())
+	grate_mesh.material = grate
+	var grate_mi = auto_free(MeshInstance.new())
+	grate_mi.mesh = grate_mesh
+	add_child(grate_mi)
+
+	var flat_deck = grate_mi.get_surface_material(0)
+	assert_bool(flat_deck is ShaderMaterial).is_true()
+	assert_str((flat_deck as ShaderMaterial).shader.resource_path.get_file()).is_equal("FlatFakeDoubleSided.shader")
+
+	var frame = auto_free(SpatialMaterial.new())
+	var frame_mesh = auto_free(CubeMesh.new())
+	frame_mesh.material = frame
+	var frame_mi = auto_free(MeshInstance.new())
+	frame_mi.mesh = frame_mesh
+	add_child(frame_mi)
+
+	var flat_frame = frame_mi.get_surface_material(0)
+	assert_bool(flat_frame is ShaderMaterial).is_true()
+	assert_str((flat_frame as ShaderMaterial).shader.resource_path.get_file()).is_equal("FlatFake.shader")
 
 
 func test_flat_mode_leaves_the_pilot_shaded():

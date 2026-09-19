@@ -72,9 +72,16 @@ func _ready() -> void:
 	# Va ANTES del disable: el tier LOW apaga las sombras falsas (quads +
 	# raycasts por prop) pero la del piloto es gameplay, y la blob es analítica
 	# (sin mesh, sin raycasts), así que es la sombra más barata que hay.
+	# En modo plano (unshaded) la blob analítica no se ve: los materiales FlatFake
+	# saltean el pase de luz, así que el piso no la recibe. La sombra del piloto es
+	# gameplay, así que ahí se usa el quad legacy (transparente sobre el piso plano);
+	# el resto de los actores sigue con la blob y en tier LOW queda como estaba.
 	if _blob_shadows_supported():
-		_setup_blob_shadow()
-		return
+		if _flat_mode_active() and _is_pilot_owner():
+			_disable_runtime = false
+		else:
+			_setup_blob_shadow()
+			return
 
 	if _disable_runtime:
 		visible = false
@@ -123,6 +130,22 @@ func _blob_shadows_supported() -> bool:
 	if off_env in ["1", "true", "yes", "on"]:
 		return false
 	return ClassDB.class_exists("BlobShadow") and ClassDB.class_exists("BlobFocus")
+
+# El modo plano del tier LOW (ODISEA_UNSHADED) reemplaza los materiales del mundo
+# por FlatFake (unshaded): la blob shadow analítica vive en el pase de luz, así que
+# no oscurece esos materiales. Con modo plano se prefiere el quad legacy.
+func _flat_mode_active() -> bool:
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.has_method("is_flat_mode") and gate.is_flat_mode()
+
+# Solo la sombra del piloto es gameplay; las de props siguen el disable del tier LOW.
+func _is_pilot_owner() -> bool:
+	var node := get_parent()
+	while node != null:
+		if node.is_in_group("player"):
+			return true
+		node = node.get_parent()
+	return false
 
 func is_blob_mode() -> bool:
 	return _blob_mode
