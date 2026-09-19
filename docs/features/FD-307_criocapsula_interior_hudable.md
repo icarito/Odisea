@@ -47,6 +47,28 @@ pantalla de diagnóstico agregada (correcta tal cual), y la navegación por cáp
 individual vive acá. Pendiente: anotar la referencia cruzada en FD-304 §10 al
 implementar (una línea).
 
+### 0.1 Decisión (2026-09-19, Sebastián) — cada cápsula es su propio HUDable
+
+Corrección sobre lo implementado en FD-304 §10: **no** hay una pantalla agregada
+"Criocápsulas" como identidad de las cápsulas. **Cada cápsula es su propio
+HUDable, y solo mientras es interactuable**: al mirarla aparece su widget de
+contexto (FD-310) y al activarla se abre su vista (`ship:cryopod:<pod_id>`). No
+se registran 28 `Pod_NN` en el radial, y no hay un roster "Criocápsulas" que las
+represente a todas.
+
+Consecuencias de diseño:
+
+- El HUDable de una cápsula se ofrece **mientras el jugador la tiene como
+  interactuable en rango** (el `best_target` de `PlayerControllerV2`), no de
+  forma permanente. El registro/visibilidad de esa pantalla es dinámico y sigue
+  el ciclo de interacción (FD-310).
+- `CryoPodsHUDable.gd` (`ship:cryopods`, implementado en FD-304 §10) queda
+  **deprecado** para las cápsulas: se retira cuando entre `CryoPodHUDable`.
+  Su telemetría de sala (coolant) no se pierde: es del `ShipSystemBus`, que ya
+  tiene su propia pantalla de Sistemas de nave.
+- Esto resuelve la Open Question 3 de abajo (no hay que elegir entre "todas" y
+  "una vista re-apuntada": todas se ofrecen, pero de a una, la que se mira).
+
 ### 1. No hay que inventar cámara: el patrón ya existe
 
 `core_v2/levels/interiors/DomeIntroCryoDiagnosticsDisplay.tscn` es exactamente la
