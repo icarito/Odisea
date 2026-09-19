@@ -128,6 +128,7 @@ Usar tres capas separadas:
 | FD-305 | Drawer de apps y favoritos — el "..." del radial (lista alfabética, scroll analógico, curaduría) | Design | Medium | P1 |
 | FD-306 | Fixes estructurales del radial (hub central, orden por relevancia, iconos, escala y frescura) | Design | Medium | P1 |
 | FD-307 | Criocápsulas interactuables — cámara fija interior + holoterminal del ocupante | Design | Medium | P1 |
+| FD-308 | Portugués de Brasil (pt_BR) — tercera columna en el pipeline i18n + cableado de locale | Design | Small | P1 |
 
 ### Parking lot — fuera del Acto I (idea capturada, no implementar)
 
