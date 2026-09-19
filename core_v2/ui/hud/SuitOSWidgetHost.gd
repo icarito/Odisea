@@ -42,6 +42,12 @@ const CINEMATIC_SLIDE_DISTANCE := 180.0
 # Antes vivian en el slot HUD de OverlayUIManager (capa 115), que comparten el modo HUD y los
 # avisos y no se puede bajar solo. Tambien quedan debajo del menu de pausa (50) y del modo HUD.
 const WIDGET_LAYER := 5
+# FD-304 §9: un mapeo de mando que no se ve, no existe. Cada slot lleva la etiqueta de SU hombro,
+# del lado que le toca (1 y 2 a la izquierda = L1/L2; 3 y 4 a la derecha = R1/R2).
+const SHOULDER_LABELS := ["L1", "L2", "R1", "R2"]
+const SHOULDER_COLOR := Color(0.0, 0.835, 1.0, 0.85)
+const SHOULDER_DENY_COLOR := Color(1.0, 0.72, 0.23, 1.0)
+const DENY_MSEC := 450
 
 var _active_screen_ids: Dictionary = {} # slot -> screen_id
 var _press_msec: int = 0
@@ -68,6 +74,9 @@ var _press_on_button := false
 var _widget_root: Control = null
 var _cinematic_active := false
 var _cinematic_tween: Tween = null
+var _shoulders: Control = null
+var _deny_slot_index: int = -1
+var _deny_msec: int = -100000
 # De donde salen slots y pantallas: SuitOS en el juego, RemoteHudBackend en el control remoto (que
 # lo asigna antes de add_child). Mismo contrato; ver RemoteHudBackend.gd.
 var backend: Node = null
@@ -127,6 +136,47 @@ func _ready() -> void:
 			cinematic_manager.connect("cinematic_stopped", self, "_on_cinematic_stopped")
 	if not get_viewport().is_connected("size_changed", self, "_relayout"):
 		get_viewport().connect("size_changed", self, "_relayout")
+	_ensure_shoulders()
+
+# Las etiquetas van en su propia capa, encima de los widgets: dibujarlas dentro de cada widget
+# las ataria a su escala (un widget que encoge para entrar en la fila encogeria tambien su letra).
+func _ensure_shoulders() -> void:
+	if is_instance_valid(_shoulders) or not is_instance_valid(get_widget_root()):
+		return
+	_shoulders = Control.new()
+	_shoulders.name = "SuitOS_Shoulders"
+	_shoulders.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	get_widget_root().add_child(_shoulders)
+	_shoulders.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	_shoulders.connect("draw", self, "_draw_shoulders")
+
+# El tap de un slot vacio no abre nada: responde con este rechazo (FD-304 §3).
+func deny_slot(index: int) -> void:
+	_deny_slot_index = index
+	_deny_msec = OS.get_ticks_msec()
+	if is_instance_valid(_shoulders):
+		_shoulders.update()
+
+func _draw_shoulders() -> void:
+	# Con teclado la etiqueta del hombro es ruido: los slots se accionan con las teclas 1-4.
+	if Input.get_connected_joypads().empty():
+		return
+	var font: Font = get_font("font")
+	if font == null:
+		return
+	var k: float = UIScaleCompensatorScript.scale_for(self)
+	var denying: bool = OS.get_ticks_msec() - _deny_msec < DENY_MSEC
+	for i in range(HudSlots.COUNT):
+		var rect: Rect2 = slot_rect(i)
+		var hot: bool = denying and i == _deny_slot_index
+		var color: Color = SHOULDER_DENY_COLOR if hot else SHOULDER_COLOR
+		var text: String = SHOULDER_LABELS[i]
+		var width: float = font.get_string_size(text).x
+		var at := Vector2(rect.end.x - width - 4.0 * k, rect.position.y + 14.0 * k) if HudSlots.is_right(i) \
+			else Vector2(rect.position.x + 4.0 * k, rect.position.y + 14.0 * k)
+		_shoulders.draw_string(font, at, text, color)
+		if hot:
+			_shoulders.draw_rect(rect, color, false, 2.0)
 
 # Cuando se ven los widgets. PauseManager avisa al pausar y reanudar; SuitOS, al abrir o cerrar
 # una pantalla del modo HUD.
@@ -495,6 +545,8 @@ func _safe_rect() -> Rect2:
 func _relayout() -> void:
 	if not is_instance_valid(_widget_root):
 		return
+	if is_instance_valid(_shoulders):
+		_shoulders.update()
 	for i in range(HudSlots.COUNT):
 		var slot: String = HudSlots.slot_key(i)
 		var placeholder = _widget_root.get_node_or_null("SuitOS_Placeholder_" + slot)

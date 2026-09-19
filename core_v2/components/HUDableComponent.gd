@@ -60,6 +60,18 @@ func relevance(context: Dictionary = {}) -> float:
 		return float(parent.get_hud_relevance(context))
 	return default_relevance
 
+# FD-304 §4: que hace cada boton de cara con esta pantalla abierta. Vacio (el default) = sin
+# cambio de comportamiento: el overlay cae a la navegacion por foco de la GUI que ya existe.
+# Cada entrada: { "button": "a"|"b"|"x"|"y", "op": String, "label": String,
+#                 "icon": String, "enabled": bool, "confirm": bool }
+# "confirm": true marca la operacion primaria, que es la que ejecuta el acorde hombro + boton
+# sin abrir la pantalla (§5).
+func hud_gamepad_actions() -> Array:
+	var parent = get_parent()
+	if is_instance_valid(parent) and parent.has_method("get_hud_gamepad_actions"):
+		return parent.get_hud_gamepad_actions()
+	return []
+
 func allowed_actions() -> Array:
 	var parent = get_parent()
 	if is_instance_valid(parent) and parent.has_method("get_hud_allowed_actions"):

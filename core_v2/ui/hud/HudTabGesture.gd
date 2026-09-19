@@ -34,6 +34,11 @@ func promote_to_hold() -> void:
 	_ticks = -1
 	_held = true
 
+# Cuanto lleva cargada la pulsacion en curso, 0..1. Solo para dibujar el relleno del hold
+# (FD-304 §3.1): el hold no puede ser invisible. No decide nada, asi que no toca el replay.
+func progress() -> float:
+	return clamp(float(_ticks) / float(HOLD_TICKS), 0.0, 1.0) if _ticks >= 0 else 0.0
+
 func feed(down: bool) -> int:
 	var result: int = NONE
 	if down and not _was_down:

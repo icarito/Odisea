@@ -42,6 +42,14 @@ var _active_screen_id: String = ""
 # guardada (restore_state) o clear_slots() mandan sobre esto.
 const DEFAULT_PINS := ["player:flashlight", "", "", ""]
 var _pinned: Array = DEFAULT_PINS.duplicate()
+# FD-305 §2: el radial muestra SOLO los favoritos. Los slots son otra cosa y se llenan arrastrando.
+# El tope es del arco (FD-306 §4): con el hub son 7 items, 30 grados por sector, el peor caso real.
+const MAX_FAVORITES := 6
+const DEFAULT_FAVORITES := ["player:flashlight", "ship:systems"]
+var _favorites: Array = []
+# Distingue "save nuevo, sembrar los defaults" de "el jugador los borro a proposito". Sin esta
+# bandera el set por defecto reaparece cada vez que alguien limpia su lista.
+var _favorites_initialized: bool = false
 var _slot_snapshots: Dictionary = {"slot_1": {}, "slot_2": {}, "slot_3": {}, "slot_4": {}}
 var _last_snapshots_cache: Dictionary = {}
 
@@ -136,6 +144,83 @@ func get_registered_screens() -> Array:
 			result.append(id)
 	return result
 
+# --- Favoritos (FD-305 §2/§4) ---
+
+func get_favorites() -> Array:
+	_seed_favorites_if_new()
+	return _favorites.duplicate()
+
+func is_favorite(id: String) -> bool:
+	_seed_favorites_if_new()
+	return _favorites.has(id)
+
+# Devuelve true si el estado cambio. false = deny: la lista ya esta llena (el 7mo favorito no
+# reemplaza nada en silencio, FD-305 §2; quien llama pinta el rechazo).
+func toggle_favorite(id: String) -> bool:
+	_seed_favorites_if_new()
+	if id.empty():
+		return false
+	if _favorites.has(id):
+		_favorites.erase(id)
+		return true
+	if _favorites.size() >= MAX_FAVORITES:
+		return false
+	_favorites.append(id)
+	return true
+
+# Vacia la curaduria SIN volver a sembrar los defaults: "el jugador los borro a proposito".
+func clear_favorites() -> void:
+	_favorites = []
+	_favorites_initialized = true
+
+func favorites_are_full() -> bool:
+	_seed_favorites_if_new()
+	return _favorites.size() >= MAX_FAVORITES
+
+# El arco, ordenado por relevancia descendente con desempate alfabetico (FD-306 §2). El desempate
+# es obligatorio: sin el, dos pantallas con la misma relevancia (tipicamente 0.0 las dos) cambian
+# de lugar entre frames, porque el sort de GDScript no es estable.
+func get_favorites_ordered(context: Dictionary = {}) -> Array:
+	var ctx: Dictionary = context if not context.empty() else _context
+	var rows: Array = []
+	for id in get_favorites():
+		# Se filtra contra el registry AL MOSTRARSE, no al guardarse (FD-305 §4): un favorito de
+		# otro nivel sigue en el arco marcado offline mientras se le conozca el ultimo snapshot,
+		# y uno que nunca se vio (un default de una pantalla que esta partida no tiene) no ensucia
+		# el dial. En los dos casos la lista guardada queda intacta y el drawer los sigue listando.
+		if not has_screen(id) and not _last_snapshots_cache.has(id):
+			continue
+		var screen: Object = get_screen(id)
+		var rel: float = 0.0
+		if screen != null and screen.has_method("relevance"):
+			rel = float(screen.relevance(ctx))
+		rows.append({"id": id, "relevance": rel, "title": screen_title_of(id)})
+	rows.sort_custom(self, "_compare_favorites")
+	var ordered: Array = []
+	for row in rows:
+		ordered.append(String(row["id"]))
+	return ordered
+
+func _compare_favorites(a: Dictionary, b: Dictionary) -> bool:
+	if abs(float(a["relevance"]) - float(b["relevance"])) > 0.0001:
+		return float(a["relevance"]) > float(b["relevance"])
+	return String(a["title"]).nocasecmp_to(String(b["title"])) < 0
+
+# El titulo que ve el jugador; cae al ultimo snapshot conocido para un favorito offline y al id
+# si nunca se vio (un favorito nunca se pierde por cambiar de nivel).
+func screen_title_of(id: String) -> String:
+	var screen: Object = get_screen(id)
+	if screen != null and screen.has_method("screen_title"):
+		return String(screen.screen_title())
+	var cached: Dictionary = _last_snapshots_cache.get(id, {})
+	return String(cached.get("title", id))
+
+func _seed_favorites_if_new() -> void:
+	if _favorites_initialized:
+		return
+	_favorites_initialized = true
+	_favorites = DEFAULT_FAVORITES.duplicate()
+
 func set_hud_mode_active(active: bool) -> void:
 	if _hud_mode_active != active:
 		_hud_mode_active = active
@@ -152,6 +237,11 @@ func is_hud_mode_active() -> bool:
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("hud_mode") and open_hud_mode():
 		get_tree().set_input_as_handled()
+		return
+	# FD-304 §0/Opcion A: los hombros SOLO significan "slot" dentro de la capa HUD. Fuera de ella
+	# siguen siendo zoom/run/roll/modo del multi-tool, asi que un boton del mando nunca abre el
+	# modo HUD por si mismo (lo abre Y, hud_mode). Las teclas 1-4 si, como siempre.
+	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
 		return
 	for i in range(HudSlots.COUNT):
 		if event.is_action_pressed(HudSlots.action(i)) and open_hud_mode(false, "", i):
@@ -310,7 +400,9 @@ func trigger_haptic(kind: String, intensity: float = 1.0, duration: float = 0.1)
 func save_state() -> Dictionary:
 	return {
 		"pinned_slots": _pinned.duplicate(),
-		"last_snapshots": _last_snapshots_cache.duplicate(true)
+		"last_snapshots": _last_snapshots_cache.duplicate(true),
+		"favorite_screens": _favorites.duplicate(),
+		"favorites_initialized": _favorites_initialized
 	}
 
 func restore_state(data: Dictionary) -> void:
@@ -323,6 +415,14 @@ func restore_state(data: Dictionary) -> void:
 		# Partidas guardadas con los dos slots A/B: el pin de B pasa al slot 1.
 		_pinned = HudSlots.empty_pins()
 		_pinned[0] = String(data["pinned_screen_id"])
+	# Un save viejo (sin la clave) se trata como no inicializado: siembra los defaults una vez.
+	if data.has("favorite_screens") and typeof(data["favorite_screens"]) == TYPE_ARRAY:
+		_favorites = []
+		for id in data["favorite_screens"]:
+			var fav: String = String(id)
+			if not fav.empty() and not _favorites.has(fav) and _favorites.size() < MAX_FAVORITES:
+				_favorites.append(fav)
+		_favorites_initialized = bool(data.get("favorites_initialized", true))
 	if data.has("last_snapshots") and typeof(data["last_snapshots"]) == TYPE_DICTIONARY:
 		for k in data["last_snapshots"].keys():
 			var snap = data["last_snapshots"][k]

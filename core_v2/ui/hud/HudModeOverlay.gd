@@ -40,6 +40,20 @@ const TOUCH_MOUSE_DEVICE := -1
 const HANDLE_SIZE := Vector2(64, 22)
 const HANDLE_GAP := 8.0
 const CAMERA_FOCUS_SIZE := Vector2(56, 38)
+const DrawerScript = preload("res://core_v2/ui/hud/SuitOSDrawer.gd")
+# Botones de cara, tal como ya viajan en el stream (FD-304 §4): A = crouch, B = jump, X = interact,
+# Y = hud_mode. No se agrega ninguna accion nueva al mapa de entrada: la pantalla declara sus
+# operaciones con hud_gamepad_actions() y el overlay las despacha por HudWidgetAction.
+const FACE_FIELDS := {"a": "crouch", "b": "jump", "x": "interact"}
+# Paso de la cruceta por el arco: mismo umbral que el hold, para no inventar un tercer tempo.
+const NAV_REPEAT_MSEC := 400
+const NAV_RATE_MSEC := 110
+# Leyenda de los botones de cara: se va sola y vuelve con el primer input (patron de las leyendas
+# de interaccion). Solo con mando: no ensucia el HUD de quien juega con teclado.
+const LEGEND_VISIBLE_MSEC := 3000
+const LEGEND_PILL := Vector2(132, 26)
+# Cuanto recorre el cursor del arrastre por tick con el stick a fondo, en pixeles del viewport.
+const STICK_DRAG_SPEED := 14.0
 
 var input_provider = null # InputProviderV2; LIVE salvo que un test inyecte uno en REPLAY
 # De donde salen las pantallas y los slots: SuitOS en el juego; RemoteHudBackend en el control
@@ -102,13 +116,41 @@ var _key_slot_down: bool = false
 # La pulsacion de tecla en curso ya abrio su pantalla al oprimir (solo widget, sin vista diegetica):
 # su tap no la cierra, y un hold soltado sin elegir sale en vez de volver a ella.
 var _opened_on_press: bool = false
+# Lo que muestra el arco: los favoritos ordenados por relevancia (FD-305 §2, FD-306 §2). El
+# registry completo (_screen_ids) es lo que muestra el drawer.
+var _dial_ids: Array = []
+# Lo que se esta arrastrando, por id y no por indice: el asa de una pantalla abierta puede
+# arrastrar algo que no esta en el arco.
+var _drag_id: String = ""
+var _drawer: Control = null
+# Ultima opcion marcada del dial: soltar apuntando fuera del dial confirma esa (memoria corta de
+# 1, FD-304 §7.1). El centro NO usa esta memoria: ahi vive el hub y soltar cierra sin elegir.
+var _last_hover: int = -1
+# Flancos de los botones de cara. Arrancan en true: el boton que abrio el modo HUD no acciona.
+var _face_was_down := {"a": true, "b": true, "x": true}
+var _nav_dir: int = 0
+var _nav_msec: int = 0
+# Relleno del marco del slot mientras se mantiene su hombro (FD-304 §3.1): el hold no puede ser
+# invisible. Es solo dibujo, no lee input, y por eso no entra al replay.
+var _hold_gauge: Control = null
+var _hold_slot: int = -1
+var _hold_progress: float = 0.0
+var _legend: Control = null
+var _legend_actions: Array = []
+var _legend_msec: int = -100000
+# Cursor virtual del arrastre con stick: arranca en el centro del slot y el stick lo desplaza.
+var _stick_cursor: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
 	if use_virtual_mouse:
 		_virtual_mouse = VirtualMouse.attach_to(self)
 	_selector = get_node("RadialSelector")
-	_selector.dead_zone = AIM_DEAD_ZONE
+	# FD-306 §1: el centro ya no es un agujero sino el hub ("..." -> el drawer), con su propio radio.
+	# Por eso no se le pone dead_zone: apuntar al medio marca el hub, y SOLTAR ahi cierra sin elegir,
+	# que es la misma red de seguridad que daba la zona muerta.
+	_selector.hub_enabled = true
+	_selector.animate_transitions = true
 	# Sin su sector del anillo el texto de cada opcion flota sobre la escena y no se lee como opcion.
 	_selector.draw_option_slices = true
 	_view_host = get_node("ViewHost")
@@ -135,11 +177,28 @@ func _ready() -> void:
 	# En el modo HUD el D-pad es de la UI (ui_*): que no apunte el dial como si fuera la camara.
 	input_provider.digital_camera_enabled = false
 	_selector.connect("option_selected", self, "_select")
+	_selector.connect("option_hovered", self, "_on_option_hovered")
 	_selector.connect("cancelled", self, "_exit")
+	_hold_gauge = Control.new()
+	_hold_gauge.name = "HoldGauge"
+	_hold_gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hold_gauge.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	add_child(_hold_gauge)
+	_hold_gauge.connect("draw", self, "_draw_hold_gauge")
+	_legend = Control.new()
+	_legend.name = "GamepadLegend"
+	_legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_legend.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	add_child(_legend)
+	_legend.connect("draw", self, "_draw_legend")
 	var suit_os: Node = _suit_os()
 	_mount.view_2d = suit_os.get("presents_views_in_2d") == true
-	_screen_ids = suit_os.get_registered_screens()
-	_placeholder.visible = _screen_ids.empty()
+	# FD-306 §5: el overlay leia el registry una sola vez. Con el drawer eso pasa a ser un bug real,
+	# asi que se escucha el alta y la baja de pantallas y la lista se rehace conservando el foco.
+	for sig in ["screen_registered", "screen_unregistered"]:
+		if suit_os.has_signal(sig) and not suit_os.is_connected(sig, self, "_refresh_screens"):
+			suit_os.connect(sig, self, "_refresh_screens")
+	_refresh_screens()
 	# El TAB que abrio el modo HUD sigue apretado: tap o hold se decide con las muestras.
 	_gesture.begin_held()
 	# Con el mundo pausado detras, el widget en modo pantalla se dibuja a resolucion completa
@@ -156,6 +215,11 @@ func _exit_tree() -> void:
 	_end_option_drag()
 	_cleanup_focus()
 	_mount.close()
+	var suit_os: Node = _suit_os()
+	if is_instance_valid(suit_os):
+		for sig in ["screen_registered", "screen_unregistered"]:
+			if suit_os.has_signal(sig) and suit_os.is_connected(sig, self, "_refresh_screens"):
+				suit_os.disconnect(sig, self, "_refresh_screens")
 	var settings = get_node_or_null("/root/SettingsManager")
 	if settings and settings.has_method("hold_full_resolution_ui"):
 		settings.hold_full_resolution_ui(self, false)
@@ -188,6 +252,14 @@ func _physics_process(_delta: float) -> void:
 	if input == null:
 		return
 	var gesture: int = _gesture.feed(bool(input.hud_mode))
+	if _drawer_open():
+		# El drawer es una vista: Y sale del modo HUD (no vuelve al dial), como dice FD-305 §3.5.
+		if gesture == Gesture.TAP:
+			_exit()
+			return
+		_drive_drawer(input, _delta)
+		_update_hold_feedback()
+		return
 	if gesture == Gesture.TAP:
 		if _screen_ids.empty():
 			# Sin pantallas no hay dial: el tap que abrio muestra "SIN PANTALLAS", el siguiente sale.
@@ -224,10 +296,19 @@ func _physics_process(_delta: float) -> void:
 	# Apuntar antes de resolver el release: la ultima muestra con TAB suelto todavia cuenta.
 	if drives_dial_with_gameplay_input:
 		_drive_from_stream(input)
+		_drive_nav(input)
 	if (gesture == Gesture.HOLD_RELEASE or slot_gesture == Gesture.HOLD_RELEASE) and _tab_hold_active:
 		_release_tab_hold()
+	if not is_inside_tree() or is_queued_for_deletion():
+		return
 	if drives_dial_with_gameplay_input:
-		_drive_widget_screen(input)
+		# Si la pantalla abierta declara sus botones de cara, son suyos: la navegacion por foco de
+		# la GUI no puede oprimir el mismo boton otra vez en el mismo toque.
+		if not _drive_hud_buttons(input):
+			_drive_widget_screen(input)
+	if not is_inside_tree() or is_queued_for_deletion():
+		return
+	_update_hold_feedback()
 
 # Una tecla de slot nueva toma el gesto solo si no hay otra sostenida.
 func _feed_slot_gesture(pressed_slot: int) -> int:
@@ -243,7 +324,9 @@ func _tap_slot(slot: int) -> bool:
 	var id: String = suit_os.slot_screen_id(slot)
 	_opened = true
 	if not suit_os.has_screen(id):
-		_open_radial(slot) # vacio, o fijado a una pantalla de otra escena: a elegir para ese slot
+		# FD-304 §3: un tap no abre un menu. El slot vacio responde con un deny y el radial queda
+		# para el hold, que es la accion deliberada.
+		_deny_slot(slot)
 		return false
 	if id == suit_os.get_active_screen_id() and not _selector.is_open():
 		_exit()
@@ -301,6 +384,14 @@ func _drive_from_stream(input) -> void:
 		_point_at(_aim + gesture)
 		if gesture.length() >= MOUSE_GESTURE_DEADZONE:
 			_mouse_aim_active = true
+	# Hold de un hombro sobre un slot QUE YA TIENE pantalla: el stick no apunta el dial, levanta el
+	# widget y lo arrastra (FD-304 §6). Para cambiarle la pantalla a ese slot esta la cruceta, que
+	# recorre el arco (§7.2); el stick solo apunta el dial cuando el slot esta vacio y no hay nada
+	# que arrastrar. Asi el mismo hold hace las dos cosas sin que se pisen.
+	if _stick_drag_armed():
+		_drive_stick_drag(move, input)
+		_confirm_was_down = bool(input.tool_fire_primary)
+		return
 	if move.length_squared() > MOVE_GESTURE_DEADZONE_SQ \
 			and (input.analog_move_active or not _mouse_aim_active):
 		# WASD solo mientras no se movio el mouse (ElevatorFloorSelector). El stick es en vivo.
@@ -346,6 +437,15 @@ func _input(event: InputEvent) -> void:
 		if input_provider != null and "mouse_delta_accum" in input_provider:
 			input_provider.mouse_delta_accum += event.relative
 		return
+	if _drawer_open() and (event is InputEventScreenTouch or event is InputEventMouseButton):
+		# El drawer se usa tambien con el dedo y con el mouse: tocar una fila la abre (FD-305 §3.5).
+		if not event.pressed:
+			var row: int = _drawer.row_at(event.position)
+			if row >= 0:
+				_drawer.focus_row(row)
+				_drawer.activate()
+			get_tree().set_input_as_handled()
+		return
 	if event is InputEventScreenTouch:
 		# Un dedo sobre el joystick o un boton virtual es de ellos: se sigue caminando con el dial
 		# abierto (en el control remoto; en el juego estan ocultos o no sirven en pausa).
@@ -359,9 +459,11 @@ func _input(event: InputEvent) -> void:
 				get_tree().set_input_as_handled()
 				return
 			_drag_option = _selector.slice_at(event.position)
+			_drag_id = _dial_id_at(_drag_option)
 			_drag_from_handle = is_on_view_handle(event.position)
 			if _drag_from_handle:
-				_drag_option = _screen_ids.find(_suit_os().get_active_screen_id())
+				_drag_id = _suit_os().get_active_screen_id()
+				_drag_option = _dial_ids.find(_drag_id)
 			_view_drag_candidate = _widget_screen_showing() and not _drag_from_handle \
 				and _view_screen_rect().has_point(event.position) \
 				and not HudWidgetActionScript.pointer_on_button(_mount.get_widget(), event.position)
@@ -424,6 +526,7 @@ func _input(event: InputEvent) -> void:
 			_drag_option = _selector.slice_at(event.position)
 			if _drag_option == RadialSelectorV2.NONE and _selector.has_selection():
 				_drag_option = _selector.get_hovered_index()
+			_drag_id = _dial_id_at(_drag_option)
 			_mouse_drag_moved = false
 			_mouse_drag_position = _selector.option_center(_drag_option)
 			_touch_start = _mouse_drag_position
@@ -457,7 +560,7 @@ func _input(event: InputEvent) -> void:
 # slot de abajo. El mouse lo levanta al oprimir para que se lea como un drag desde su propia opcion.
 func _drive_option_drag(position: Vector2, require_hold: bool = true, allow_stationary: bool = false) -> bool:
 	if not is_instance_valid(_drag_ghost):
-		if _drag_option < 0 or _drag_option >= _screen_ids.size() \
+		if _drag_id.empty() \
 				or (not allow_stationary and (position - _touch_start).length() < TOUCH_MIN_DRAG):
 			return false
 		# Del dial hace falta el hold; el asa ya es para arrastrar.
@@ -468,7 +571,7 @@ func _drive_option_drag(position: Vector2, require_hold: bool = true, allow_stat
 		_drag_ghost = Label.new()
 		_drag_ghost.name = "DragGhost"
 		_drag_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_drag_ghost.text = _screen_title(_screen_ids[_drag_option])
+		_drag_ghost.text = _screen_title(_drag_id)
 		if _selector.option_font is Font:
 			_drag_ghost.add_font_override("font", _selector.option_font)
 		_drag_ghost.add_color_override("font_color", _selector.color_fg)
@@ -504,9 +607,14 @@ func _drop_option(position: Vector2) -> void:
 	var host = _widget_host()
 	var slot: int = host.slot_at(position) if host != null else -1
 	var from_handle: bool = _drag_from_handle
+	var recycled: bool = host != null and host.recycle_rect().has_point(position)
 	if slot >= 0:
 		Haptics.pulse(Haptics.DROP_MSEC)
-		_suit_os().pin_to_slot(slot, _screen_ids[_drag_option])
+		_suit_os().pin_to_slot(slot, _drag_id)
+	elif recycled:
+		# Soltar sobre la zona de reciclaje vacia el slot, igual que con el mouse (FD-304 §6).
+		Haptics.pulse(Haptics.DROP_MSEC)
+		_suit_os().clear_slot(_suit_os().get_pinned_slots().find(_drag_id))
 	_end_option_drag()
 	if slot >= 0 and from_handle:
 		_exit()
@@ -516,6 +624,7 @@ func _end_option_drag() -> void:
 		_drag_ghost.queue_free()
 	_drag_ghost = null
 	_drag_option = -1
+	_drag_id = ""
 	_mouse_drag_pending = false
 	_mouse_drag_position = Vector2.ZERO
 	_mouse_drag_moved = false
@@ -566,8 +675,99 @@ func _drop_view(position: Vector2) -> void:
 		_show_screen(id)
 
 func _screen_title(id: String) -> String:
-	var screen: Object = _suit_os().get_screen(id)
-	return screen.screen_title() if screen != null and screen.has_method("screen_title") else id
+	var suit_os: Node = _suit_os()
+	var screen: Object = suit_os.get_screen(id)
+	if screen != null and screen.has_method("screen_title"):
+		return screen.screen_title()
+	# Un favorito de otro nivel sigue teniendo nombre: sale del ultimo snapshot conocido.
+	if suit_os.has_method("screen_title_of"):
+		return String(suit_os.screen_title_of(id))
+	return id
+
+
+func _dial_id_at(index: int) -> String:
+	return String(_dial_ids[index]) if index >= 0 and index < _dial_ids.size() else ""
+
+
+# --- Frescura del registry (FD-306 §5) ---
+
+func _refresh_screens(_id: String = "") -> void:
+	var suit_os: Node = _suit_os()
+	if not is_instance_valid(suit_os):
+		return
+	_screen_ids = suit_os.get_registered_screens()
+	_placeholder.visible = _screen_ids.empty() and not _selector.is_open() and not _drawer_open()
+	if is_instance_valid(_drawer):
+		_drawer.set_rows(_drawer_rows())
+
+
+# --- Drawer (FD-305 §3) ---
+
+func _drawer_open() -> bool:
+	return is_instance_valid(_drawer) and _drawer.visible
+
+
+func _drawer_rows() -> Array:
+	var suit_os: Node = _suit_os()
+	var rows: Array = []
+	var seen := {}
+	# Todo el registry, mas los favoritos de otros niveles: un favorito offline se sigue viendo
+	# (marcado) para poder quitarlo, en vez de desaparecer al cambiar de escena.
+	var ids: Array = _screen_ids.duplicate()
+	if suit_os.has_method("get_favorites"):
+		for id in suit_os.get_favorites():
+			if not ids.has(id):
+				ids.append(id)
+	for id in ids:
+		if seen.has(id):
+			continue
+		seen[id] = true
+		var screen: Object = suit_os.get_screen(id)
+		var snapshot: Dictionary = {}
+		if screen != null and screen.has_method("widget_snapshot"):
+			snapshot = screen.widget_snapshot()
+		rows.append({
+			"id": id,
+			"title": _screen_title(id),
+			"source": "online" if screen != null else "offline",
+			"favorite": suit_os.has_method("is_favorite") and suit_os.is_favorite(id),
+			"alarm": bool(snapshot.get("alarm", false))
+		})
+	return rows
+
+
+func _open_drawer() -> void:
+	_selector.close()
+	_placeholder.visible = false
+	_view_host.visible = false
+	if not is_instance_valid(_drawer):
+		_drawer = DrawerScript.new()
+		_drawer.name = "SuitOSDrawer"
+		add_child(_drawer)
+		_drawer.connect("screen_chosen", self, "_on_drawer_chose")
+		_drawer.connect("favorite_toggled", self, "_on_drawer_favorited")
+	_drawer.visible = true
+	_drawer.set_rows(_drawer_rows())
+	_set_virtual_mouse_enabled(false)
+
+
+func _close_drawer() -> void:
+	if is_instance_valid(_drawer):
+		_drawer.visible = false
+	_placeholder.visible = _screen_ids.empty()
+
+
+func _on_drawer_chose(id: String) -> void:
+	_close_drawer()
+	if _target_slot >= 0:
+		_suit_os().pin_to_slot(_target_slot, id)
+	_show_screen(id)
+
+
+func _on_drawer_favorited(_id: String, _is_favorite: bool) -> void:
+	# El arco se rehace la proxima vez que se abra: reordenarlo mientras el drawer esta encima
+	# solo serviria para que cambie a espaldas del jugador.
+	pass
 
 # --- Asa de la pantalla abierta ---
 
@@ -711,33 +911,65 @@ func _point_at(aim: Vector2) -> void:
 	_aim = aim.limit_length(AIM_RADIUS)
 	_selector.point_at(_selector.rect_size * 0.5 + _aim)
 
+# El arco lo llenan los FAVORITOS, no el registry (FD-305 §2): el jugador decide que esta a mano.
+# Su orden es la relevancia del momento, resuelta UNA vez al abrir y no por frame, o las opciones
+# se reordenarian bajo el dedo (FD-306 §2). Lo demas vive en el drawer, detras del hub.
 func _open_radial(slot: int = -1) -> void:
 	_target_slot = slot
 	_aim = Vector2.ZERO
 	_stick_aiming = false
-	if _screen_ids.size() <= 1:
-		if _screen_ids.size() == 1:
-			_select(0)
+	_last_hover = RadialSelectorV2.NONE
+	_dial_ids = _dial_screen_ids()
+	if _dial_ids.size() == 1 and _screen_ids.size() <= 1:
+		# Una sola pantalla y nada mas que elegir: se abre directo, como siempre.
+		_select(0)
 		return
 	var suit_os: Node = _suit_os()
-	var labels: Array = []
-	for id in _screen_ids:
+	var items: Array = []
+	for id in _dial_ids:
 		var screen: Object = suit_os.get_screen(id)
-		labels.append(screen.screen_title() if screen.has_method("screen_title") else id)
-	_selector.set_options(labels)
+		var title: String = String(screen.screen_title()) if screen != null and screen.has_method("screen_title") \
+			else _screen_title(id)
+		items.append({
+			"id": id, "label": title,
+			"icon": screen.screen_icon() if screen != null and screen.has_method("screen_icon") else null,
+			"enabled": true
+		})
+	_selector.set_options(items)
 	_selector.open()
+	_placeholder.visible = _dial_ids.empty() and _screen_ids.empty()
 	_set_virtual_mouse_enabled(false)
 	_view_host.visible = false
+
+
+# Favoritos ordenados, filtrados por el backend. El control remoto no tiene favoritos propios:
+# ahi el arco sigue siendo el registry, como hasta ahora.
+func _dial_screen_ids() -> Array:
+	var suit_os: Node = _suit_os()
+	if suit_os != null and suit_os.has_method("get_favorites_ordered"):
+		return suit_os.get_favorites_ordered()
+	return _screen_ids.duplicate()
 
 # Soltar TAB tras el hold conserva una pantalla ya elegida. Si el dial sigue abierto, lo marcado
 # queda elegido (el dial no se queda abierto); sin nada marcado se vuelve a la pantalla que habia,
 # o se sale si no habia ninguna.
 func _release_tab_hold() -> void:
 	_tab_hold_active = false
+	if is_instance_valid(_drag_ghost):
+		# Se estaba arrastrando un widget con el stick: soltar el hombro lo suelta donde este.
+		_drop_option(_stick_cursor)
+		_picked_during_hold = false
+		return
 	if _picked_during_hold:
 		_picked_during_hold = false
 		return
 	if not _selector.is_open():
+		return
+	# FD-304 §7.1: con el stick, soltar apuntando fuera del dial no debe dejar "nada elegido";
+	# se confirma el ultimo sector marcado (memoria corta de 1). El centro NO usa esta memoria:
+	# ahi vive el hub, y soltar en el hub cierra sin elegir a proposito (FD-306 §1.1).
+	if not _selector.has_selection() and not _selector.hub_hovered() and _last_hover >= 0:
+		_select(_last_hover)
 		return
 	_confirm_or_dismiss() # con algo marcado -> _select, ya sin hold activo: la pantalla se queda
 
@@ -755,12 +987,18 @@ func _dismiss_radial() -> void:
 
 func _select(index: int) -> void:
 	var suit_os: Node = _suit_os()
-	if index < 0 or index >= _screen_ids.size():
+	if index == RadialSelectorV2.HUB_INDEX:
+		# El hub no es una app: es la puerta al resto. Elegirlo abre el drawer y deja el dial
+		# cerrado (el drawer es una vista, no un submenu del dial).
+		_picked_during_hold = _tab_hold_active
+		_open_drawer()
+		return
+	if index < 0 or index >= _dial_ids.size():
 		return
 	if _tab_hold_active:
 		_picked_during_hold = true
 	_opened_on_press = false
-	var id: String = _screen_ids[index]
+	var id: String = _dial_ids[index]
 	if _target_slot >= 0:
 		suit_os.pin_to_slot(_target_slot, id)
 	_show_screen(id)
@@ -905,6 +1143,226 @@ func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseMan
 	_cleanup_focus()
 	_set_virtual_mouse_enabled(false)
 	_suit_os().close_hud_mode()
+
+# --- Gamepad: botones de cara, cruceta y acordes (FD-304 §4/§5/§7) ---
+
+# Los tres flancos de una vez: leerlos por separado en distintas ramas dejaba alguno sin consumir
+# y el siguiente tick lo veia como pulsacion nueva.
+func _face_edges(input) -> Dictionary:
+	var edges := {}
+	for button in FACE_FIELDS:
+		var down: bool = bool(input.get(FACE_FIELDS[button]))
+		edges[button] = down and not _face_was_down[button]
+		_face_was_down[button] = down
+	return edges
+
+
+func _drive_hud_buttons(input) -> bool:
+	"""Devuelve true si los botones de cara son de la pantalla abierta: en ese caso la ruta GUI
+	por foco (_drive_widget_screen) no debe volver a oprimir nada."""
+	var edges: Dictionary = _face_edges(input)
+	if _selector.is_open():
+		if edges["x"] or edges["b"]:
+			_dismiss_radial()
+			return false
+		if edges["a"]:
+			# Acorde (§5): con el hombro sostenido sobre un slot, A ejecuta la operacion primaria
+			# de su pantalla sin abrirla. El dial NO se cierra: el slot sigue en foco.
+			if _tab_hold_active and _target_slot >= 0 and _perform_chord(_target_slot):
+				return false
+			_selector.confirm()
+		return false
+	return _dispatch_screen_action(edges)
+
+
+func _perform_chord(slot: int) -> bool:
+	var suit_os: Node = _suit_os()
+	var id: String = suit_os.slot_screen_id(slot)
+	var screen: Object = suit_os.get_screen(id)
+	if screen == null or not screen.has_method("hud_gamepad_actions"):
+		return false
+	for action in screen.hud_gamepad_actions():
+		if not bool(action.get("confirm", false)):
+			continue
+		HudWidgetActionScript.perform(self, id, String(action.get("op", "")), {})
+		Haptics.confirm()
+		_selector.flash_option(_dial_ids.find(id))
+		return true
+	return false
+
+
+# FD-304 §4: la pantalla declara que hace cada boton de cara y el overlay lo despacha por la misma
+# ruta que su boton tactil, asi que funciona igual en local y en el control remoto. Si no declara
+# nada, se cae a la navegacion por foco de la GUI que ya existia.
+func _dispatch_screen_action(edges: Dictionary) -> bool:
+	if not (_mount.is_showing() or is_instance_valid(_active_focused_screen)):
+		_legend_actions = []
+		return false
+	var suit_os: Node = _suit_os()
+	var id: String = suit_os.get_active_screen_id()
+	var screen: Object = suit_os.get_screen(id)
+	if screen == null or not screen.has_method("hud_gamepad_actions"):
+		_legend_actions = []
+		return false
+	var actions: Array = screen.hud_gamepad_actions()
+	if actions.empty():
+		_legend_actions = []
+		return false
+	if _legend_actions.hash() != actions.hash():
+		_legend_actions = actions
+		_legend_msec = OS.get_ticks_msec()
+	for action in actions:
+		if not bool(edges.get(String(action.get("button", "")).to_lower(), false)):
+			continue
+		if not bool(action.get("enabled", true)):
+			continue
+		HudWidgetActionScript.perform(self, id, String(action.get("op", "")), {})
+		_legend_msec = OS.get_ticks_msec()
+		break
+	# Los botones de cara son de esta pantalla aunque este tick no haya coincidido ninguno: si la
+	# GUI tambien los oprimiera, el toggle de la linterna se accionaria dos veces en un toque.
+	return true
+
+
+# La cruceta recorre el arco en pasos, con auto-repeat al mismo umbral que el hold.
+func _drive_nav(input) -> void:
+	var dir: int = int(input.hud_nav)
+	var now: int = OS.get_ticks_msec()
+	var step: int = 0
+	if dir == 0:
+		_nav_dir = 0
+	elif dir != _nav_dir:
+		_nav_dir = dir
+		_nav_msec = now
+		step = dir
+	elif now - _nav_msec >= NAV_REPEAT_MSEC and (now - _nav_msec - NAV_REPEAT_MSEC) % NAV_RATE_MSEC < 20:
+		step = dir
+	if step == 0 or not _selector.is_open() or _dial_ids.empty():
+		return
+	# Arriba en pantalla es avanzar por el arco (el primer sector esta a las 6, el ultimo a las 12).
+	var current: int = _selector.get_hovered_index()
+	var next: int = 0
+	if current >= 0:
+		next = int(clamp(current - step, 0, _dial_ids.size() - 1))
+	else:
+		next = _dial_ids.size() - 1 if step < 0 else 0
+	var angle: float = _selector.option_angle(next)
+	_point_at(Vector2(cos(angle), sin(angle)) * AIM_RADIUS)
+
+
+func _on_option_hovered(index: int) -> void:
+	if index >= 0:
+		_last_hover = index
+
+
+# --- Arrastre de un widget con el stick (FD-304 §6) ---
+
+func _stick_drag_armed() -> bool:
+	if not _tab_hold_active or _target_slot < 0 or not _selector.is_open():
+		return false
+	return _suit_os().has_screen(_suit_os().slot_screen_id(_target_slot))
+
+
+func _drive_stick_drag(move: Vector2, input) -> void:
+	var host = _widget_host()
+	if host == null:
+		return
+	if _drag_id.empty():
+		_drag_id = _suit_os().slot_screen_id(_target_slot)
+		_drag_option = _dial_ids.find(_drag_id)
+		_stick_cursor = host.slot_rect(_target_slot).get_center()
+		_touch_start = _stick_cursor
+		_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC # el hold ya se cumplio al abrir
+	if bool(input.analog_move_active) or move.length_squared() > MOVE_GESTURE_DEADZONE_SQ:
+		_stick_cursor += move.limit_length(1.0) * STICK_DRAG_SPEED
+		var size: Vector2 = get_viewport_rect().size
+		_stick_cursor.x = clamp(_stick_cursor.x, 0.0, size.x)
+		_stick_cursor.y = clamp(_stick_cursor.y, 0.0, size.y)
+	_drive_option_drag(_stick_cursor, false)
+
+
+# --- Deny del tap sobre un slot vacio (FD-304 §3) ---
+
+func _deny_slot(slot: int) -> void:
+	Haptics.pulse(Haptics.LIFT_MSEC)
+	var host = _widget_host()
+	if host != null and host.has_method("deny_slot"):
+		host.deny_slot(slot)
+
+
+# --- Relleno del hold y leyenda (FD-304 §3.1 / §9) ---
+
+func _update_hold_feedback() -> void:
+	var slot: int = _key_slot if _key_slot_down and not _selector.is_open() else -1
+	var progress: float = _slot_gesture.progress() if slot >= 0 else 0.0
+	if slot != _hold_slot or abs(progress - _hold_progress) > 0.001:
+		_hold_slot = slot
+		_hold_progress = progress
+		if is_instance_valid(_hold_gauge):
+			_hold_gauge.update()
+	if is_instance_valid(_legend):
+		_legend.update()
+
+
+func _draw_hold_gauge() -> void:
+	if _hold_slot < 0 or _hold_progress <= 0.0:
+		return
+	var host = _widget_host()
+	if host == null:
+		return
+	var rect: Rect2 = host.slot_rect(_hold_slot)
+	var color := Color(0.0, 0.835, 1.0, 0.9)
+	_hold_gauge.draw_rect(rect, Color(color.r, color.g, color.b, 0.15))
+	# El marco se llena como una barra proporcional al tiempo; soltar antes lo vacia solo.
+	_hold_gauge.draw_rect(Rect2(rect.position, Vector2(rect.size.x * _hold_progress, 3.0)), color)
+	_hold_gauge.draw_rect(rect, color, false, 2.0)
+
+
+func _draw_legend() -> void:
+	if _legend_actions.empty() or _selector.is_open() or _drawer_open():
+		return
+	if OS.get_ticks_msec() - _legend_msec > LEGEND_VISIBLE_MSEC:
+		return
+	if Input.get_connected_joypads().empty():
+		return # con teclado y mouse la leyenda es ruido
+	var font: Font = get_font("font")
+	if font == null:
+		return
+	var k: float = UIScaleCompensator.scale_for(self)
+	var pill: Vector2 = LEGEND_PILL * k
+	var rect: Rect2 = _view_screen_rect()
+	var total: float = pill.x * _legend_actions.size() + 8.0 * k * max(0, _legend_actions.size() - 1)
+	var origin := Vector2(rect_size.x * 0.5 - total * 0.5,
+		(rect.end.y + 12.0 * k) if rect.size.y > 0.0 else rect_size.y - pill.y - 24.0 * k)
+	for i in range(_legend_actions.size()):
+		var action: Dictionary = _legend_actions[i]
+		var at := Vector2(origin.x + i * (pill.x + 8.0 * k), origin.y)
+		_legend.draw_rect(Rect2(at, pill), Color(0.02, 0.1, 0.13, 0.85))
+		_legend.draw_rect(Rect2(at, pill), Color(0.0, 0.835, 1.0, 0.8), false, 1.0)
+		_legend.draw_string(font, at + Vector2(8.0 * k, pill.y * 0.7),
+			"%s  %s" % [String(action.get("button", "")).to_upper(), String(action.get("label", ""))],
+			Color(0.0, 0.835, 1.0, 1.0))
+
+
+# --- Drawer (FD-305 §3.5) ---
+
+func _drive_drawer(input, delta: float) -> void:
+	var edges: Dictionary = _face_edges(input)
+	if not is_instance_valid(_drawer):
+		return
+	_drawer.drive(-float(input.move_vec.y), int(input.hud_nav), delta)
+	if edges["a"]:
+		_drawer.activate()
+	elif edges["x"]:
+		_drawer.toggle_favorite(_suit_os())
+	elif edges["b"]:
+		# B vuelve: al dial si habia uno, o al juego si se entro directo.
+		_close_drawer()
+		if _dial_ids.empty():
+			_exit()
+		else:
+			_open_radial(_target_slot)
+
 
 func _suit_os() -> Node:
 	return backend if is_instance_valid(backend) else get_node_or_null("/root/SuitOS")

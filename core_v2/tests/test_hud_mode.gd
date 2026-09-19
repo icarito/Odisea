@@ -46,9 +46,25 @@ func before_test() -> void:
 	for id in SuitOS.get_registered_screens():
 		SuitOS.unregister_screen(id)
 	SuitOS.clear_slots()
+	# FD-305: el dial muestra los FAVORITOS, no el registry. Cada suite arranca sin curaduria y
+	# _screen() favoritea lo que registra, que es lo que estos casos siempre dieron por sentado.
+	SuitOS.clear_favorites()
+	SuitOS._last_snapshots_cache.clear()
+	# FD-305: el dial pasa a mostrar los FAVORITOS y no el registry. Esta suite es de la mecanica
+	# del dial, no de la curaduria (esa vive en test_hud_drawer.gd), asi que cada pantalla que se
+	# registra entra sola al arco y los casos siguen diciendo lo mismo que siempre dijeron.
+	if not SuitOS.is_connected("screen_registered", self, "_auto_favorite"):
+		SuitOS.connect("screen_registered", self, "_auto_favorite")
+
+
+func _auto_favorite(id: String) -> void:
+	if not SuitOS.is_favorite(id):
+		SuitOS.toggle_favorite(id)
 
 
 func after_test() -> void:
+	if SuitOS.is_connected("screen_registered", self, "_auto_favorite"):
+		SuitOS.disconnect("screen_registered", self, "_auto_favorite")
 	SuitOS.close_hud_mode()
 	SuitOS.clear_slots()
 	get_tree().paused = false
@@ -510,7 +526,9 @@ func test_suitos_snapshot_restore_intact() -> void:
 	_screen("test:a", "Alpha")
 	SuitOS.pin_to_slot(0, "test:a")
 	var saved: Dictionary = SuitOS.get_snapshot()
-	assert_array(saved.keys()).contains_exactly_in_any_order(["pinned_slots", "last_snapshots"])
+	# FD-305 §4: la curaduria viaja con el checkpoint, de forma aditiva sobre lo que ya habia.
+	assert_array(saved.keys()).contains_exactly_in_any_order(
+		["pinned_slots", "last_snapshots", "favorite_screens", "favorites_initialized"])
 	# JSON-safe: sobrevive ida y vuelta por JSON sin perder nada.
 	assert_str(to_json(parse_json(to_json(saved)))).is_equal(to_json(saved))
 
@@ -775,13 +793,28 @@ func test_slot_key_hold_moves_a_pinned_screen_instead_of_duplicating_it() -> voi
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "test:b", "", ""])
 
 
-func test_slot_key_tap_on_an_empty_slot_opens_the_radial_for_it() -> void:
+# FD-304 §3: un tap NO abre un menu. El slot vacio responde con un deny y no pasa nada mas; el
+# radial fijado a ese slot es el hold, que es la accion deliberada.
+func test_slot_key_tap_on_an_empty_slot_denies_instead_of_opening_the_radial() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	host._deny_slot_index = -1
 	var overlay = _open_slot_and_play(3, [UP])
+	assert_bool(overlay._selector.is_open()).is_false()
+	assert_str(SuitOS.get_active_screen_id()).is_empty()
+	assert_int(host._deny_slot_index).is_equal(2)
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", ""])
+
+
+# El hold del mismo slot vacio si abre el radial fijado a el, y lo elegido queda fijado ahi.
+func test_slot_key_hold_on_an_empty_slot_opens_the_radial_for_it() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_slot_and_play(3, _slot_held(3, Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
 	assert_int(overlay._target_slot).is_equal(2)
-	_play(overlay, [{"mouse_delta": [0.0, 60.0]}, {"tool_fire_primary": true}])
+	_play(overlay, [{"hud_slot": 3, "mouse_delta": [0.0, 60.0]}, UP])
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:b", ""])
 
 
@@ -1021,14 +1054,19 @@ func test_touch_tap_on_a_slice_picks_it_and_outside_closes() -> void:
 	var sel = overlay._selector
 	var center: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
 	var mid: float = (sqrt(sel.width_min) + sqrt(sel.width_max)) / 4.0 * sel._ring_size()
-	# Fuera del anillo (en su hueco): cierra sin elegir.
+	# FD-306 §1: el centro ya no es un hueco sino el hub, y tocarlo abre el drawer (sin salir).
 	overlay._input(_touch(true, center))
 	overlay._input(_touch(false, center))
-	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+	assert_bool(overlay._drawer_open()).is_true()
+	assert_bool(sel.is_open()).is_false()
 
+	SuitOS.close_hud_mode()
 	yield(_await_overlay_freed(), "completed")
 	assert_bool(SuitOS.open_hud_mode(true)).is_true()
 	overlay = _overlay()
+	sel = overlay._selector
+	center = sel.get_global_rect().position + sel.rect_size * 0.5
 	# La segunda opcion esta a las 12: tocar su sector la elige.
 	var top: Vector2 = center + Vector2(0.0, -mid)
 	overlay._input(_touch(true, top))
@@ -1044,11 +1082,13 @@ func test_touch_tap_with_a_marked_option_presses_it_like_the_elevator() -> void:
 	var sel = overlay._selector
 	var center: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
 	var mid: float = (sqrt(sel.width_min) + sqrt(sel.width_max)) / 4.0 * sel._ring_size()
-	# Marcada la de abajo (Alpha, a las 6): un tap fuera de los sectores la oprime.
+	# Marcada la de abajo (Alpha, a las 6): un tap fuera de los sectores la oprime. Fuera del hub
+	# (FD-306 §1): el centro tiene dueño y tocarlo abre el drawer, no oprime lo marcado.
+	var hollow: Vector2 = center + Vector2(90.0, 0.0)
 	overlay._point_at(Vector2(0.0, 100.0))
 	assert_int(sel.get_hovered_index()).is_equal(0)
-	overlay._input(_touch(true, center))
-	overlay._input(_touch(false, center))
+	overlay._input(_touch(true, hollow))
+	overlay._input(_touch(false, hollow))
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
 	assert_bool(sel.is_open()).is_false()
 

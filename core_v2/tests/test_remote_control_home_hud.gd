@@ -202,9 +202,12 @@ func test_radial_tap_confirms_the_marked_option():
 	# Screen A desde el stick/mouse, despues un tap en el hueco la confirma.
 	overlay._point_at(Vector2(0.0, -overlay.AIM_RADIUS))
 	assert_int(overlay._selector.get_hovered_index()).is_equal(1)
+	# En el hueco del anillo pero FUERA del hub: desde FD-306 §1 el centro tiene dueño (el "...")
+	# y tocarlo abre el drawer en vez de oprimir lo marcado.
 	var center: Vector2 = overlay._selector.get_global_rect().position + overlay._selector.rect_size * 0.5
-	overlay._input(_touch(0, center, true))
-	overlay._input(_touch(0, center, false))
+	var hollow: Vector2 = center + Vector2(90.0, 0.0)
+	overlay._input(_touch(0, hollow, true))
+	overlay._input(_touch(0, hollow, false))
 
 	assert_array(_screen_selects(home)).is_equal(["screen_a"])
 	home.queue_free()

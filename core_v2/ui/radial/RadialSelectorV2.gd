@@ -36,6 +36,11 @@ const RadialMenuScript = preload("res://addons/radial_menu/RadialMenu.gd")
 const Haptics = preload("res://core_v2/ui/Haptics.gd")
 
 const NONE := -1
+# FD-306 §1: el centro deja de ser un agujero y pasa a ser un item propio ("..." -> el drawer).
+# Nace inerte: sin hub_enabled el dial se comporta exactamente como hoy (regla §0, el ascensor).
+const HUB_INDEX := -2
+const HUB_RADIUS := 40.0
+const HUB_HIT_RADIUS := 34.0
 # Screen-space angles (Y down). First option at 6 o'clock, last at 12, half a
 # turn apart through 3 — so the arc climbs the right-hand side, which is the half
 # the over-the-shoulder camera keeps clear. Options run anticlockwise on screen,
@@ -55,6 +60,13 @@ export(float) var hub_epsilon := 6.0
 # nothing. Zero (the elevator) keeps the hub_epsilon hold instead. The HUD screen picker uses
 # one because its aim is an accumulated vector the player can pull back to the middle.
 export(float) var dead_zone := 0.0
+# FD-306 §1. Con el hub encendido el centro deja de ser "nada marcado": apuntar ahi marca el hub.
+# dead_zone se ignora (el hub ocupa ese radio) y point_at sigue vivo aunque no haya ninguna opcion.
+export(bool) var hub_enabled := false
+export(String) var hub_label := "..."
+# FD-304 §8: apertura en cascada, pulso idle, hover, flash de confirmacion y retract de cierre.
+# Puramente visual (no lee input, no entra al replay) y opt-in: el ascensor no las pide.
+export(bool) var animate_transitions := false
 
 # Ring geometry, in the addon shader's units. Its circle() test compares squared
 # distance, so the drawn radius is sqrt(width) / 2 of the ring box.
@@ -110,7 +122,12 @@ var _indicator_layer: Control = null
 var _readout_layer: Control = null
 var _slice_layer: Control = null
 var _readout_tween: Tween = null
+var _anim_tween: Tween = null
+var _idle_tween: Tween = null
+var _hub_label: Label = null
 var _level := 0.0
+# Lo que se paso a set_options, ya normalizado a { id, label, icon, enabled }.
+var _items: Array = []
 
 
 func _ready() -> void:
@@ -123,24 +140,38 @@ func _ready() -> void:
 	_readout_tween = Tween.new()
 	_readout_tween.name = "ReadoutTween"
 	add_child(_readout_tween)
+	_anim_tween = Tween.new()
+	_anim_tween.name = "AnimTween"
+	add_child(_anim_tween)
+	_idle_tween = Tween.new()
+	_idle_tween.name = "IdleTween"
+	_idle_tween.repeat = true
+	add_child(_idle_tween)
 	_build_radial()
 	_build_slice_layer()
 	_build_indicator()
 	_build_readout_label()
+	_build_hub()
 	visible = false
 	connect("resized", self, "_on_resized")
 
 
 # --- Public API ---
 
-func set_options(labels: Array) -> void:
-	"""Replace the dial contents. Labels are drawn as-is, in order."""
+func set_options(items: Array) -> void:
+	"""Replace the dial contents, in order. Each entry is either a String (the elevator, and
+	everything that predates FD-306) or a Dictionary { id, label, icon, enabled }. Strings are
+	wrapped, so no existing caller changes. El icono se guarda pero todavia no se dibuja: el
+	layout de icono + etiqueta esta diferido (FD-306 §3) hasta que exista el arte."""
 	if _option_layer == null:
 		return
 	_clear_options()
-	for label in labels:
+	_items = []
+	for entry in items:
+		_items.append(_normalize_item(entry))
+	for item in _items:
 		var option := Label.new()
-		option.text = String(label)
+		option.text = String(item["label"])
 		option.align = Label.ALIGN_CENTER
 		option.valign = Label.VALIGN_CENTER
 		option.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -153,6 +184,29 @@ func set_options(labels: Array) -> void:
 	_option_count = _buttons.size()
 	_place_options()
 	_apply_hover(NONE, true)
+
+
+static func _normalize_item(entry) -> Dictionary:
+	if typeof(entry) == TYPE_DICTIONARY:
+		var item: Dictionary = (entry as Dictionary).duplicate()
+		if not item.has("label"):
+			item["label"] = String(item.get("id", ""))
+		if not item.has("id"):
+			item["id"] = String(item["label"])
+		if not item.has("icon"):
+			item["icon"] = null
+		if not item.has("enabled"):
+			item["enabled"] = true
+		return item
+	return {"id": String(entry), "label": String(entry), "icon": null, "enabled": true}
+
+
+func option_id(index: int) -> String:
+	return String(_items[index]["id"]) if index >= 0 and index < _items.size() else ""
+
+
+func get_items() -> Array:
+	return _items.duplicate()
 
 
 func set_title(text: String) -> void:
@@ -239,13 +293,37 @@ func open() -> void:
 	# Nothing is picked until the player actually aims at an option.
 	_focus_suppressed = false
 	_apply_hover(NONE, true)
+	_play_open_animation()
 
 
 func close() -> void:
+	# Sincronico a proposito: hay codigo (y tests) que lee el velo del dial en el mismo frame en
+	# que una pantalla lo reemplaza. El retract visual es close_animated(), para los cierres que
+	# no tienen nada que los tape.
+	_stop_animations()
 	_is_open = false
 	visible = false
 	_focus_suppressed = false
 	_apply_hover(NONE, true)
+
+
+func close_animated() -> void:
+	"""FD-304 §8: el dial se retrae hacia el centro y recien ahi se apaga. Solo para cerrar sin
+	nada que lo tape (cancelar, descartar); con una pantalla entrando se usa close()."""
+	if not _is_open or not animate_transitions or not is_inside_tree():
+		close()
+		return
+	_is_open = false
+	_focus_suppressed = false
+	_apply_hover(NONE, true)
+	_stop_animations()
+	for layer in _animated_layers():
+		_anim_tween.interpolate_property(layer, "rect_scale", Vector2.ONE, Vector2.ONE * 0.88,
+			0.12, Tween.TRANS_CUBIC, Tween.EASE_IN)
+		_anim_tween.interpolate_property(layer, "modulate", Color(1, 1, 1, 1), Color(1, 1, 1, 0),
+			0.12, Tween.TRANS_LINEAR, Tween.EASE_IN)
+	_anim_tween.interpolate_callback(self, 0.12, "close")
+	_anim_tween.start()
 
 
 func suppress_focus() -> void:
@@ -265,10 +343,18 @@ func is_open() -> bool:
 
 
 func has_selection() -> bool:
-	return _hover_index != NONE
+	# El hub no cuenta: soltar con el centro marcado cierra el dial sin elegir, que es la red de
+	# seguridad que el hub le quito al centro (FD-306 §1.1). Confirmar explicito (A o tap) si lo elige.
+	return _hover_index != NONE and _hover_index != HUB_INDEX
+
+
+func hub_hovered() -> bool:
+	return _hover_index == HUB_INDEX
 
 
 func option_text(index: int) -> String:
+	if index == HUB_INDEX:
+		return hub_label
 	return _buttons[index].text if index >= 0 and index < _buttons.size() else ""
 
 
@@ -279,6 +365,18 @@ func option_center(index: int) -> Vector2:
 
 func get_hovered_index() -> int:
 	return _hover_index
+
+
+func option_angle(index: int) -> float:
+	"""Screen angle of an option, for owners that step through the arc instead of aiming at it
+	(la cruceta del modo HUD, FD-304 §7.2)."""
+	return _index_to_screen_angle(index)
+
+
+func flash_option(index: int) -> void:
+	"""Flash del sector elegido sin confirmarlo: el acorde del modo HUD ejecuta la operacion del
+	widget sin cerrar el dial, y sin este destello seria invisible (FD-304 §5)."""
+	_flash_selection(index)
 
 
 func option_at(viewport_position: Vector2) -> int:
@@ -295,7 +393,11 @@ func slice_at(viewport_position: Vector2) -> int:
 	"""The option under a direct pointer (a tap), in viewport coordinates: its label, or its
 	slice of the ring band. NONE anywhere else — past the ring, in its hole, or in the
 	part of the circle no slice covers — which is where a tap means dismiss, not pick."""
-	if not _is_open or _option_count <= 0:
+	if not _is_open:
+		return NONE
+	if hub_enabled and (viewport_position - get_global_rect().position - rect_size / 2.0).length() <= HUB_HIT_RADIUS:
+		return HUB_INDEX
+	if _option_count <= 0:
 		return NONE
 	var label := option_at(viewport_position)
 	if label != NONE:
@@ -314,7 +416,7 @@ func slice_at(viewport_position: Vector2) -> int:
 
 func point_at(viewport_position: Vector2) -> void:
 	"""Aim, in this dial's own viewport pixels. Off the dial clears the selection."""
-	if not _is_open or _option_count <= 0 or _focus_suppressed:
+	if not _is_open or _focus_suppressed or (_option_count <= 0 and not hub_enabled):
 		return
 	_apply_hover(_index_at(viewport_position), false)
 
@@ -330,10 +432,12 @@ func clear_pointer() -> void:
 
 func confirm() -> void:
 	# No selection means the gesture was never unambiguous: swallow the press
-	# rather than picking whatever happens to be nearest.
+	# rather than picking whatever happens to be nearest. El hub si se confirma asi (A o tap):
+	# lo que no lo elige es soltar (has_selection()).
 	if not _is_open or _hover_index == NONE:
 		return
 	Haptics.confirm()
+	_flash_selection(_hover_index)
 	emit_signal("option_selected", _hover_index)
 
 
@@ -356,11 +460,17 @@ func _index_at(position: Vector2) -> int:
 	# in is a heading. Anything else meant sweeping past a stop and getting
 	# nothing, which reads as the dial being broken rather than strict.
 	var offset := position - rect_size / 2.0
-	if dead_zone > 0.0:
+	if hub_enabled:
+		if offset.length() <= HUB_HIT_RADIUS:
+			return HUB_INDEX
+	elif dead_zone > 0.0:
 		if offset.length() < dead_zone:
 			return NONE
-	elif offset.length() < hub_epsilon:
+	if offset.length() < hub_epsilon:
 		return _hover_index # No usable heading at the singularity; hold.
+
+	if _option_count <= 0:
+		return HUB_INDEX if hub_enabled else NONE
 
 	var travelled: float = wrapf(FIRST_OPTION_ANGLE - atan2(offset.y, offset.x), 0.0, TAU)
 	if travelled > (ARC_SPAN + TAU) / 2.0:
@@ -494,7 +604,7 @@ func _set_arc(index: int) -> void:
 	var background = _radial.get_node_or_null("RadialMenu/Background") if _radial else null
 	if background == null or not (background.material is ShaderMaterial):
 		return
-	if index == NONE or draw_option_slices:
+	if index == NONE or index == HUB_INDEX or draw_option_slices:
 		# The shader always paints an arc somewhere, so a zero width is the only
 		# way to say "nothing is selected". With slices drawn, they carry the highlight.
 		background.material.set_shader_param("cursor_size", 0.0)
@@ -547,6 +657,7 @@ func _build_slice_layer() -> void:
 # Each option owns the sector between the headings halfway to its neighbours, which is
 # exactly what _index_at hands it; the band is the addon ring's own (same sqrt as the needle).
 func _draw_slices() -> void:
+	_draw_hub()
 	if not draw_option_slices or _option_count <= 0:
 		return
 	var ring := _ring_size()
@@ -587,6 +698,7 @@ func _place_options() -> void:
 		label.rect_pivot_offset = label.rect_size / 2.0
 		label.rect_scale = Vector2(readout_scale, readout_scale)
 		label.rect_position = _readout_rest_position()
+	_place_hub()
 	if _option_count <= 0 or _option_layer == null:
 		return
 	var center := rect_size / 2.0
@@ -616,10 +728,135 @@ func _shape_indicator() -> void:
 	_update_indicator()
 
 
+# --- Hub central (FD-306 §1) ---
+
+func _build_hub() -> void:
+	if _hub_label != null or _option_layer == null:
+		return
+	_hub_label = Label.new()
+	_hub_label.name = "Hub"
+	_hub_label.text = hub_label
+	_hub_label.align = Label.ALIGN_CENTER
+	_hub_label.valign = Label.VALIGN_CENTER
+	_hub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hub_label.rect_size = Vector2(HUB_RADIUS * 2.0, HUB_RADIUS * 2.0)
+	_hub_label.rect_pivot_offset = _hub_label.rect_size / 2.0
+	if option_font is Font:
+		_hub_label.add_font_override("font", option_font)
+	_option_layer.add_child(_hub_label)
+	_place_hub()
+
+
+func _place_hub() -> void:
+	if _hub_label == null:
+		return
+	_hub_label.visible = hub_enabled
+	_hub_label.text = hub_label
+	_hub_label.rect_position = rect_size / 2.0 - _hub_label.rect_size / 2.0
+
+
+func _draw_hub() -> void:
+	if not hub_enabled or _slice_layer == null:
+		return
+	var center := rect_size / 2.0
+	var hovered: bool = _hover_index == HUB_INDEX
+	_slice_layer.draw_circle(center, HUB_RADIUS, slice_fill_hover if hovered else slice_fill)
+	var outline := Color(color_fg.r, color_fg.g, color_fg.b, 0.9) if hovered \
+		else Color(option_color.r, option_color.g, option_color.b, 0.45)
+	var ring := PoolVector2Array()
+	for k in range(25):
+		var a: float = TAU * float(k) / 24.0
+		ring.append(center + Vector2(cos(a), sin(a)) * HUB_RADIUS)
+	_slice_layer.draw_polyline(ring, outline, 2.0 if hovered else 1.0, true)
+
+
+# --- Animaciones (FD-304 §8) ---
+
+# Lo que se anima: las tres capas del dial. NO el nodo raiz, del que cuelga el velo del modo HUD
+# (escalarlo escalaria tambien la pantalla que tapa).
+func _animated_layers() -> Array:
+	var layers: Array = []
+	for layer in [_host, _slice_layer, _option_layer]:
+		if is_instance_valid(layer):
+			layer.rect_pivot_offset = rect_size / 2.0
+			layers.append(layer)
+	return layers
+
+
+func _stop_animations() -> void:
+	if _anim_tween != null:
+		_anim_tween.stop_all()
+		_anim_tween.remove_all()
+	if _idle_tween != null:
+		_idle_tween.stop_all()
+		_idle_tween.remove_all()
+	for layer in [_host, _slice_layer, _option_layer]:
+		if is_instance_valid(layer):
+			layer.rect_scale = Vector2.ONE
+			layer.modulate = Color(1, 1, 1, 1)
+	if is_instance_valid(_hub_label):
+		_hub_label.modulate = Color(1, 1, 1, 1)
+
+
+func _play_open_animation() -> void:
+	if not animate_transitions or not is_inside_tree():
+		return
+	_stop_animations()
+	for layer in _animated_layers():
+		layer.rect_scale = Vector2.ONE * 0.85
+		layer.modulate = Color(1, 1, 1, 0)
+		_anim_tween.interpolate_property(layer, "rect_scale", Vector2.ONE * 0.85, Vector2.ONE,
+			0.16, Tween.TRANS_CUBIC, Tween.EASE_OUT)
+		_anim_tween.interpolate_property(layer, "modulate", Color(1, 1, 1, 0), Color(1, 1, 1, 1),
+			0.16, Tween.TRANS_LINEAR, Tween.EASE_OUT)
+	# Los sectores salen en cascada: un retraso por indice, para que el anillo se lea desplegandose.
+	for i in range(_buttons.size()):
+		_buttons[i].modulate = Color(1, 1, 1, 0)
+		_anim_tween.interpolate_property(_buttons[i], "modulate", Color(1, 1, 1, 0), Color(1, 1, 1, 1),
+			0.12, Tween.TRANS_LINEAR, Tween.EASE_OUT, 0.02 * i)
+	_anim_tween.interpolate_callback(self, 0.16 + 0.02 * _buttons.size(), "_start_idle_pulse")
+	_anim_tween.start()
+
+
+# Pulso holografico del anillo. El hub respira con el mismo tempo a la mitad de amplitud, para no
+# robarle foco al arco (FD-306 §6).
+func _start_idle_pulse() -> void:
+	if not _is_open or not animate_transitions or _idle_tween == null:
+		return
+	_idle_tween.remove_all()
+	if is_instance_valid(_slice_layer):
+		_idle_tween.interpolate_property(_slice_layer, "modulate:a", 1.0, 0.85,
+			0.8, Tween.TRANS_SINE, Tween.EASE_IN_OUT)
+		_idle_tween.interpolate_property(_slice_layer, "modulate:a", 0.85, 1.0,
+			0.8, Tween.TRANS_SINE, Tween.EASE_IN_OUT, 0.8)
+	if hub_enabled and is_instance_valid(_hub_label):
+		_idle_tween.interpolate_property(_hub_label, "modulate:a", 1.0, 0.93,
+			0.8, Tween.TRANS_SINE, Tween.EASE_IN_OUT)
+		_idle_tween.interpolate_property(_hub_label, "modulate:a", 0.93, 1.0,
+			0.8, Tween.TRANS_SINE, Tween.EASE_IN_OUT, 0.8)
+	_idle_tween.start()
+
+
+func _flash_selection(index: int) -> void:
+	if not animate_transitions or not is_inside_tree() or _anim_tween == null:
+		return
+	var target: CanvasItem = _hub_label if index == HUB_INDEX \
+		else (_buttons[index] if index >= 0 and index < _buttons.size() else null)
+	if not is_instance_valid(target):
+		return
+	_anim_tween.interpolate_property(target, "modulate", Color(2, 2, 2, 1), Color(1, 1, 1, 1),
+		0.2, Tween.TRANS_CUBIC, Tween.EASE_OUT)
+	_anim_tween.start()
+
+
 func _apply_hover(index: int, silent: bool) -> void:
 	var changed: bool = index != _hover_index
 	_hover_index = index
 	_set_arc(index)
+	if is_instance_valid(_hub_label):
+		var hub_hot: bool = index == HUB_INDEX
+		_hub_label.add_color_override("font_color", option_color_hover if hub_hot else option_color)
+		_hub_label.rect_scale = Vector2(1.12, 1.12) if hub_hot else Vector2.ONE
 	for i in range(_buttons.size()):
 		var is_hovered: bool = i == index
 		_buttons[i].add_color_override("font_color", option_color_hover if is_hovered else option_color)

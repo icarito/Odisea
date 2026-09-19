@@ -35,6 +35,11 @@ var analog_move_active := false
 var hud_mode := false
 # Tecla de slot del HUD sostenida (1..4; 0 = ninguna). Mismo motivo que hud_mode.
 var hud_slot := 0
+# Paso discreto por las opciones del HUD (cruceta): -1 arriba, +1 abajo, 0 nada. Sostenido, como
+# los dos de arriba y por el mismo motivo: el auto-repeat se cuenta con muestras grabadas.
+# En modo HUD la cruceta no es camara (InputProviderV2.digital_camera_enabled = false), asi que
+# no se pisa con nada.
+var hud_nav := 0
 
 func _canonical_float(v: float) -> float:
 	# Avoid noisy JSON diffs from signed zero (-0.0 vs 0.0).
@@ -65,7 +70,8 @@ func to_dict() -> Dictionary:
 		"hardware_mouse_active": hardware_mouse_active,
 		"analog_move_active": analog_move_active,
 		"hud_mode": hud_mode,
-		"hud_slot": hud_slot
+		"hud_slot": hud_slot,
+		"hud_nav": hud_nav
 	}
 
 func is_equal_to(other) -> bool:
@@ -114,6 +120,8 @@ func is_equal_to(other) -> bool:
 	if hud_mode != other.hud_mode:
 		return false
 	if hud_slot != other.hud_slot:
+		return false
+	if hud_nav != other.hud_nav:
 		return false
 	return true
 
@@ -165,3 +173,5 @@ func from_dict(d: Dictionary) -> void:
 		hud_mode = d["hud_mode"]
 	if d.has("hud_slot"):
 		hud_slot = int(d["hud_slot"])
+	if d.has("hud_nav"):
+		hud_nav = int(d["hud_nav"])

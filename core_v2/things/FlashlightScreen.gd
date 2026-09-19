@@ -76,6 +76,14 @@ func relevance(context: Dictionary = {}) -> float:
 
 	return clamp(rel, 0.0, 1.0)
 
+# FD-304 §4, caso de referencia: A enciende y apaga, sin entrar ni salir de nada. Al ser la
+# operacion primaria ("confirm"), es tambien la que ejecuta el acorde hold R1 + A (§5).
+func hud_gamepad_actions() -> Array:
+	return [{
+		"button": "a", "op": "toggle", "label": "Encender/Apagar",
+		"icon": "", "enabled": true, "confirm": true
+	}]
+
 func perform_action(op: String, args: Dictionary = {}) -> Dictionary:
 	if op == "toggle":
 		var fl = _get_flashlight()

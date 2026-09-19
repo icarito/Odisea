@@ -241,6 +241,12 @@ func _read_live_input() -> InputDataV2:
 			if _action_pressed("hud_slot_%d" % n):
 				d.hud_slot = n
 				break
+		# La cruceta, que en modo HUD no es camara: pasos por la lista del dial y del drawer.
+		d.hud_nav = 0
+		if _action_pressed("camera_up"):
+			d.hud_nav = -1
+		elif _action_pressed("camera_down"):
+			d.hud_nav = 1
 
 		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move_x = Input.get_joy_axis(0, JOY_AXIS_0) * axis_inv.x
