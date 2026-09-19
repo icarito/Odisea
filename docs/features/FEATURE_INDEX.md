@@ -129,6 +129,7 @@ Usar tres capas separadas:
 | FD-306 | Fixes estructurales del radial (hub central, orden por relevancia, iconos, escala y frescura) | Design | Medium | P1 |
 | FD-307 | Criocápsulas interactuables — cámara fija interior + holoterminal del ocupante | Design | Medium | P1 |
 | FD-308 | Portugués de Brasil (pt_BR) — tercera columna en el pipeline i18n + cableado de locale | Design | Small | P1 |
+| FD-309 | Placeholder hudable de interactables inertes (criopods y airlocks de `Dome_Intro`) — ficha "SIN DATOS" + roster de zona, sin swap | Design | Medium | P2 |
 
 ### Parking lot — fuera del Acto I (idea capturada, no implementar)
 
