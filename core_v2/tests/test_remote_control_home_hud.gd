@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 # test_remote_control_home_hud.gd - Tests for RemoteControlHome HUD UI client (FD-296 F4)
 
 var RemoteControlHomeScene = load("res://core_v2/ui/RemoteControlHome.tscn")
+const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 var _homes := []
 
 func before_test() -> void:
@@ -460,6 +461,7 @@ func test_secondary_mouse_button_releases_mouse_instead_of_pausing_host():
 	client.inputs.clear()
 	# Godot deja mouse_mode = CAPTURED aunque el grab falle (headless), asi que el
 	# estado inicial es valido para el test.
+	var mouse_mode: int = Input.get_mouse_mode()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 	var ev := InputEventMouseButton.new()
@@ -468,9 +470,20 @@ func test_secondary_mouse_button_releases_mouse_instead_of_pausing_host():
 	home._input(ev)
 
 	# El boton derecho esta mapeado a ui_cancel: reenviarlo pausaba la partida del host.
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_VISIBLE)
+	# Tampoco vuelve el cursor nativo: el puntero liberado lo dibuja el virtual.
 	assert_array(client.inputs).is_empty()
+	var cursor: Control = null
+	for node in get_tree().get_nodes_in_group("virtual_mouse"):
+		if is_instance_valid(node):
+			cursor = node as Control
+	assert_object(cursor).is_not_null()
+	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 
+	VirtualMouseScript.set_pointer_released(false)
+	Input.set_mouse_mode(mouse_mode)
+	if cursor != null and is_instance_valid(cursor.get_parent()):
+		cursor.get_parent().free()
 	home.queue_free()
 
 func test_radial_keeps_every_input_while_open():

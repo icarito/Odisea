@@ -1,6 +1,7 @@
 extends Node
 const FIXED_DT := 1.0 / 60.0
 const REPLAY_WATCHDOG_STALL_FRAMES := 900
+const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 
 # Medicion de presion de fisica (ticks de physics por frame de render).
 # Solo observa: NO toca Engine.time_scale. Bajar time_scale bajo carga hacia
@@ -395,6 +396,8 @@ func _reassert_mouse_capture() -> void:
 	# Reaplicar incondicionalmente: bajo XWayland un grab previo pudo haberse
 	# revocado sin notificar, así que volver a setearlo recupera el grab.
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	# Capturar de nuevo apaga el cursor virtual del puntero liberado.
+	VirtualMouseScript.set_pointer_released(false)
 
 # --- Captura inicial con reintentos (Wayland / XWayland) ---
 # Godot 3.6 (platform/x11/os_x11.cpp:1010) llama XGrabPointer y, si falla, sólo
@@ -1496,8 +1499,10 @@ func _unhandled_input(event):
 		is_menu = true
 	if not is_testing and not is_cli_mode and not is_menu:
 		if event.is_action_pressed("ui_cancel"):
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-		# Re-capturar al hacer click en la pantalla, solo si el cursor está visible.
+			# Soltar el puntero no muestra el nativo: se prende el cursor virtual. El jugador que
+			# aprieta Esc/clic derecho no es un mouse crudo, es la misma UI de siempre.
+			VirtualMouseScript.set_pointer_released(true)
+		# Re-capturar al hacer click en la pantalla, solo si el cursor está liberado.
 		# Que el clic haya llegado hasta aquí implica que la ventana tiene foco,
 		# pero lo verificamos igual para mantener una sola fuente de verdad.
 		# En pausa nunca recapturamos: el clic pertenece al menú de pausa.
@@ -1507,9 +1512,11 @@ func _unhandled_input(event):
 		# Solo el clic izquierdo: el derecho es el que acaba de soltar el mouse (ui_cancel, arriba)
 		# y con cualquier boton lo recapturaba en el mismo evento.
 		if event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_LEFT \
-				and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE and not _pointer_is_from_touch():
+				and Input.get_mouse_mode() == Input.MOUSE_MODE_HIDDEN and not _pointer_is_from_touch() \
+				and not VirtualMouseScript.is_ui_wanted():
 			if not get_tree().paused and not OS.has_feature("Server") and OS.is_window_focused():
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+				VirtualMouseScript.set_pointer_released(false)
 				# set_mouse_mode(CAPTURED) hace un warp del cursor al centro de la
 				# ventana, y Godot emite un InputEventMouseMotion sintético con ese
 				# salto como .relative. En pantalla táctil, Godot además emula un

@@ -104,3 +104,72 @@ func test_desktop_mouse_mode_hides_the_system_pointer_and_tracks_its_motion() ->
 	cursor.set_desktop_mouse_mode(false)
 	assert_int(Input.get_mouse_mode()).is_equal(mouse_mode)
 	cursor.get_parent().queue_free()
+
+
+# El mouse real siempre toma el control: moverlo cambia el cursor del gamepad por el virtual que
+# sigue al puntero, con el del sistema oculto. Antes se soltaba el grab y aparecia el nativo.
+func test_real_mouse_motion_switches_the_gamepad_cursor_to_desktop_mode() -> void:
+	var cursor: Control = VirtualMouseScript.attach_to(self)
+	var mouse_mode: int = Input.get_mouse_mode()
+	cursor._active = true
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(210.0, 160.0)
+	motion.relative = Vector2(6.0, 0.0)
+	cursor._input(motion)
+	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
+	assert_bool(cursor._active).is_false()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	cursor.set_desktop_mouse_mode(false)
+	Input.set_mouse_mode(mouse_mode)
+	cursor.get_parent().queue_free()
+
+
+func _clear_virtual_mice() -> void:
+	for node in get_tree().get_nodes_in_group("virtual_mouse"):
+		if is_instance_valid(node) and is_instance_valid(node.get_parent()):
+			node.get_parent().free()
+
+
+# El juego libera el puntero (ui_cancel / clic derecho) sin ninguna UI: el cursor global se prende
+# igual, en modo desktop, y se apaga al recapturar.
+func test_released_pointer_shows_the_virtual_cursor_with_no_ui() -> void:
+	_clear_virtual_mice()
+	var cursor: Control = VirtualMouseScript.ensure_global()
+	var mouse_mode: int = Input.get_mouse_mode()
+	VirtualMouseScript.set_pointer_released(true)
+	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
+	assert_bool(cursor.is_wanted()).is_true()
+	assert_bool(cursor.is_processing_input()).is_true()
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	# Si el juego habia recapturado, volver a soltar reafirma HIDDEN: antes el early-return lo
+	# dejaba dibujado pero con el puntero grabado (clavado en el centro).
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	VirtualMouseScript.set_pointer_released(true)
+	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	VirtualMouseScript.set_pointer_released(false)
+	assert_bool(cursor.is_wanted()).is_false()
+	assert_bool(cursor.is_desktop_mouse_mode()).is_false()
+	Input.set_mouse_mode(mouse_mode)
+	cursor.get_parent().free()
+
+
+# Estandar de popups: al mostrarse, el popup prende el cursor virtual (modo desktop) sin depender
+# de que el juego ya tuviera uno; al ocultarse, lo suelta.
+func test_popup_standard_shows_the_virtual_cursor_on_show() -> void:
+	_clear_virtual_mice()
+	var popup := Control.new()
+	add_child(popup)
+	popup.visible = false
+	var mouse_mode: int = Input.get_mouse_mode()
+	var cursor: Control = VirtualMouseScript.attach_popup(popup)
+	assert_bool(cursor.is_wanted()).is_false()
+	popup.visible = true
+	assert_bool(cursor.is_wanted()).is_true()
+	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
+	popup.visible = false
+	cursor._process(0.0)
+	assert_bool(cursor.is_wanted()).is_false()
+	assert_bool(cursor.is_desktop_mouse_mode()).is_false()
+	Input.set_mouse_mode(mouse_mode)
+	popup.free()
+	cursor.get_parent().free()

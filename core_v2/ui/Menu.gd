@@ -26,7 +26,9 @@ func _ready():
 	var audio_mgr = get_node_or_null("/root/AudioManager")
 	if audio_mgr:
 		audio_mgr.crossfade_to_song(MENU_BGM, 1.0, 0.0, false)
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# El cursor nativo no se muestra: arranca oculto y el virtual aparece al mover el mouse
+	# (VirtualMouse, modo desktop). Con gamepad el virtual lo maneja el stick.
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 
 	# FD-228: Confirm stable boot for UpdateManager
 	if get_node_or_null("/root/UpdateManager"):

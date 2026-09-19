@@ -15,7 +15,7 @@ var _time_left: float = 30.0
 var _active: bool = false
 
 func _ready():
-	VirtualMouse.attach_to(get_tree().root, self)
+	VirtualMouse.attach_popup(self)
 	window_title = tr("Control remoto")
 	get_ok().text = tr("Permitir")
 	get_cancel().text = tr("Rechazar")

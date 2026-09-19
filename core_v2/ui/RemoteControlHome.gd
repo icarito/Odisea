@@ -8,6 +8,7 @@ const SuitOSWidgetHostScene = preload("res://core_v2/ui/hud/SuitOSWidgetHost.tsc
 const RemoteHudBackendScript = preload("res://core_v2/ui/hud/RemoteHudBackend.gd")
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 const Haptics = preload("res://core_v2/ui/Haptics.gd")
+const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 
 const SESSION_ENDED_NOTICE_SEC := 2.5
 const TITLE_PREFIX := "ODISEAOS"
@@ -214,11 +215,12 @@ func _input(event: InputEvent) -> void:
 	# Boton secundario: suelta el mouse de esta ventana. Esta mapeado a ui_cancel, asi que
 	# reenviarlo pausaba la partida del host; y aca no soltaba nada, porque SessionManager
 	# lo suelta y lo recaptura con el mismo evento (es tambien un boton de mouse apretado).
-	# Un clic izquierdo lo vuelve a capturar, como antes.
+	# Un clic izquierdo lo vuelve a capturar, como antes. El nativo no se muestra: el puntero
+	# liberado lo dibuja el cursor virtual.
 	if _raw_passthrough and event is InputEventMouseButton \
 			and (event as InputEventMouseButton).button_index == BUTTON_RIGHT:
 		if (event as InputEventMouseButton).pressed:
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+			VirtualMouseScript.set_pointer_released(true)
 		get_tree().set_input_as_handled()
 		return
 	if not _raw_passthrough or not event is InputEventMouseMotion:
@@ -463,7 +465,9 @@ func _on_session_ended(reason: String) -> void:
 	set_process(false)
 	set_physics_process(false)
 	exit_confirm.hide()
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# Tampoco aca se muestra el nativo: el cursor virtual queda visible durante el aviso y el
+	# cambio al menu (que tambien usa el virtual).
+	VirtualMouseScript.set_pointer_released(true)
 	$Title.text = tr("LA PARTIDA TERMINÓ")
 	$Hint.text = tr("%s Volviendo al menú...") % reason
 	get_tree().create_timer(SESSION_ENDED_NOTICE_SEC).connect("timeout", self, "_go_to_menu")

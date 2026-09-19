@@ -189,7 +189,8 @@ func _on_server_pair_requested(device_name: String, pin: String, callback: FuncR
 		return
 	_paused_for_pairing = not get_tree().paused
 	_mouse_mode_before_pairing = Input.get_mouse_mode()
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# El nativo no se muestra: el dialogo de pairing prende el cursor virtual.
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	get_tree().paused = true
 	var dialog = load("res://core_v2/ui/RemotePairingDialog.tscn").instance()
 	dialog.pause_mode = Node.PAUSE_MODE_PROCESS

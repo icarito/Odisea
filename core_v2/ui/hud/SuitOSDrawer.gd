@@ -40,6 +40,9 @@ const REPEAT_RATE_MSEC := 90
 # Con menos filas que esto el agrupado por inicial es ruido y no ayuda a saltar.
 const GROUPING_MIN_ROWS := 8
 const DENY_MSEC := 600
+# La estrella de favorito vive en el margen izquierdo de la fila. Este ancho (nominal, escalado)
+# es su zona clickeable: ahi el clic alterna favorito; en el resto de la fila abre la pantalla.
+const STAR_HIT_WIDTH := 44.0
 
 const COLOR_DIM := Color(0.42, 0.68, 0.76, 1.0)
 const COLOR_HOT := Color(0.0, 0.835, 1.0, 1.0)
@@ -120,6 +123,24 @@ func focused_index() -> int:
 func focused_screen_id() -> String:
 	var i: int = focused_index()
 	return String(_rows[i]["id"]) if i >= 0 else ""
+
+
+func row_id(index: int) -> String:
+	return String(_rows[index]["id"]) if index >= 0 and index < _rows.size() else ""
+
+
+# Centro de la fila enfocada, para que el arrastre con el hombro arranque desde ahi.
+func focused_row_center() -> Vector2:
+	var k: float = UIScaleCompensator.scale_for(self)
+	var i: int = focused_index()
+	return _row_rect(i, k).get_center() if i >= 0 else rect_size * 0.5
+
+
+# Centro de la estrella de favorito de una fila.
+func favorite_center(index: int) -> Vector2:
+	var k: float = UIScaleCompensator.scale_for(self)
+	var rect: Rect2 = _row_rect(index, k)
+	return rect.position + Vector2(22.0 * k, rect.size.y * 0.5)
 
 
 # --- Navegacion ---
@@ -220,6 +241,17 @@ func row_at(point: Vector2) -> int:
 	return -1
 
 
+# La fila cuya estrella de favorito cae bajo el punto, o -1. La estrella se dibuja siempre (llena
+# si es favorito, contorno si no): el clic sobre ella alterna, el resto de la fila abre.
+func star_at(point: Vector2) -> int:
+	var k: float = UIScaleCompensator.scale_for(self)
+	for i in range(_rows.size()):
+		var rect: Rect2 = _row_rect(i, k)
+		if Rect2(rect.position, Vector2(STAR_HIT_WIDTH * k, rect.size.y)).has_point(point):
+			return i
+	return -1
+
+
 func focus_row(index: int) -> void:
 	if index < 0 or index >= _rows.size():
 		return
@@ -275,7 +307,9 @@ func _draw_drawer() -> void:
 		draw_string(font, rect.position + Vector2(44.0 * k, rect.size.y * 0.68),
 			String(row.get("title", row.get("id", ""))), text_color)
 		if bool(row.get("favorite", false)):
-			_draw_star(rect.position + Vector2(22.0 * k, rect.size.y * 0.5), 9.0 * k, edge)
+			_draw_star(rect.position + Vector2(22.0 * k, rect.size.y * 0.5), 9.0 * k, edge, true)
+		else:
+			_draw_star(rect.position + Vector2(22.0 * k, rect.size.y * 0.5), 9.0 * k, edge, false)
 		var tag: String = ""
 		if bool(row.get("alarm", false)):
 			tag = "ALERTA"
@@ -293,10 +327,15 @@ func _initial_of(index: int) -> String:
 	return String(_rows[index]["sort_key"]).substr(0, 1)
 
 
-func _draw_star(center: Vector2, radius: float, color: Color) -> void:
+func _draw_star(center: Vector2, radius: float, color: Color, filled: bool) -> void:
 	var points := PoolVector2Array()
 	for i in range(10):
 		var a: float = -PI / 2.0 + TAU * float(i) / 10.0
 		var r: float = radius if i % 2 == 0 else radius * 0.45
 		points.append(center + Vector2(cos(a), sin(a)) * r)
-	draw_colored_polygon(points, color)
+	if filled:
+		draw_colored_polygon(points, color)
+		return
+	var outline := PoolVector2Array(points)
+	outline.append(points[0])
+	draw_polyline(outline, Color(color.r, color.g, color.b, 0.45), 1.0, true)

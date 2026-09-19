@@ -431,6 +431,18 @@ func hud_button_drag() -> Vector2:
 		return Vector2.ZERO
 	return button.drag_vector
 
+# El boton tactil del HUD avisa al apretarlo; el modo HUD lo consume en el release del hold para
+# saber que ese hold no vino del stick ni del mouse (ver HudModeOverlay._release_tab_hold).
+var _hud_touch_pending := false
+
+func note_hud_touch() -> void:
+	_hud_touch_pending = true
+
+func consume_hud_touch() -> bool:
+	var pending := _hud_touch_pending
+	_hud_touch_pending = false
+	return pending
+
 func get_reserved_overlay_margins(padding: float = 16.0) -> Dictionary:
 	var margins = {
 		"left": 0.0,

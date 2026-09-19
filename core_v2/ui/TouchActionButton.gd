@@ -110,6 +110,12 @@ func _input(event: InputEvent) -> void:
 func _press() -> void:
 	pressed = true
 	_set_action_pressed(true)
+	# El modo HUD distingue un hold del boton tactil (sin stick que volver al centro) del de mando
+	# o mouse, para que soltar sobre el hub lo confirme en touch.
+	if action_name == "hud_mode":
+		var mobile = get_node_or_null("/root/MobileUIManager")
+		if mobile != null and mobile.has_method("note_hud_touch"):
+			mobile.note_hud_touch()
 
 func _release() -> void:
 	pressed = false

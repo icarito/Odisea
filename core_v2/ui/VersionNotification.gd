@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
+
 onready var control = $Control
 onready var panel = $Control/CenterContainer/PanelContainer
 onready var modal_dim = $Control/ModalDim
@@ -22,6 +24,9 @@ func _ready():
 	panel.hide()
 	modal_dim.hide()
 	download_progress.hide()
+	# Estandar de popups: el aviso de actualizacion es un popup y tambien tiene que gatillar el
+	# cursor virtual (el panel es lo que se muestra/oculta, no el CanvasLayer).
+	VirtualMouse.attach_popup(self, panel)
 
 	# NOTA: no filtrar por OS.is_debug_build() aquí. Todo build de Android se exporta
 	# con --export-debug (ver .github/workflows/export_all.yml, único canal hoy:
@@ -188,7 +193,8 @@ func _setup_severity_ui(severity: String):
 	if not get_tree().paused:
 		_we_paused = true
 		get_tree().paused = true
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		# Nunca el cursor nativo: el popup cuelga el cursor virtual, que sigue al puntero (hidden).
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 
 	_update_action_button_text()
 

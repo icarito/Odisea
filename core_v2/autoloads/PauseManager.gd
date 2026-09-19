@@ -1,5 +1,7 @@
 extends Node
 
+const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
+
 var pause_menu_scene_path = "res://core_v2/ui/PauseMenu.tscn"
 var pause_menu_instance = null
 var _uptime_frames: int = 0
@@ -181,7 +183,9 @@ func _finish_pause() -> void:
 	if pause_menu_instance == null:
 		return
 	get_tree().paused = true
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# El cursor nativo no se muestra: el PauseMenu cuelga un VirtualMouse que aparece al mover el
+	# mouse (modo desktop) o con el stick.
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	pause_menu_instance.show()
 	if pause_menu_instance.has_method("on_show"):
 		pause_menu_instance.on_show()
@@ -195,6 +199,8 @@ func resume():
 	_menu_hidden_by_focus = false
 	get_tree().paused = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	# Recapturar apaga el cursor virtual del puntero liberado (ui_cancel en gameplay).
+	VirtualMouseScript.set_pointer_released(false)
 	if pause_menu_instance:
 		pause_menu_instance.hide()
 	_refresh_mobile_ui()

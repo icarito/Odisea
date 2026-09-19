@@ -137,6 +137,12 @@ var _legend_actions: Array = []
 var _legend_msec: int = -100000
 # Cursor virtual del arrastre con stick: arranca en el centro del slot y el stick lo desplaza.
 var _stick_cursor: Vector2 = Vector2.ZERO
+# Arrastre de una fila del drawer hacia un slot (FD-305 §3.5). Con mouse/dedo la fila se levanta
+# al superar el umbral; con un hombro sostenido se levanta la fila enfocada y la lleva el stick.
+var _drawer_press_row: int = -1
+var _drawer_press_star: bool = false
+var _drawer_drag_row: int = -1
+var _drawer_drag_active: bool = false
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -413,6 +419,12 @@ func _drive_from_stream(input) -> void:
 	_confirm_was_down = down
 
 func _input(event: InputEvent) -> void:
+	if _drawer_open() and (event is InputEventMouseMotion or event is InputEventMouseButton \
+			or event is InputEventScreenTouch or event is InputEventScreenDrag):
+		# El drawer se usa con el dedo, el mouse y el mando. No marca el evento como atendido: el
+		# cursor virtual compartido necesita ver el mismo mouse para seguir al puntero.
+		_drawer_pointer_input(event)
+		return
 	if use_virtual_mouse and event is InputEventMouseButton and event.button_index == BUTTON_RIGHT:
 		if event.pressed and is_instance_valid(_virtual_mouse):
 			_set_virtual_mouse_enabled(true)
@@ -441,15 +453,6 @@ func _input(event: InputEvent) -> void:
 			return # es un dedo: ya apunta el radial por InputEventScreenDrag, mas abajo
 		if input_provider != null and "mouse_delta_accum" in input_provider:
 			input_provider.mouse_delta_accum += event.relative
-		return
-	if _drawer_open() and (event is InputEventScreenTouch or event is InputEventMouseButton):
-		# El drawer se usa tambien con el dedo y con el mouse: tocar una fila la abre (FD-305 §3.5).
-		if not event.pressed:
-			var row: int = _drawer.row_at(event.position)
-			if row >= 0:
-				_drawer.focus_row(row)
-				_drawer.activate()
-			get_tree().set_input_as_handled()
 		return
 	if event is InputEventScreenTouch:
 		# Un dedo sobre el joystick o un boton virtual es de ellos: se sigue caminando con el dial
@@ -490,6 +493,14 @@ func _input(event: InputEvent) -> void:
 			elif _drag_from_handle:
 				_drag_from_handle = false # un toque al asa sin arrastrar no hace nada (ni cierra)
 				get_tree().set_input_as_handled()
+			elif _selector.is_open() \
+					and _selector.slice_at(_touch_start) == RadialSelectorV2.HUB_INDEX \
+					and _selector.slice_at(event.position) == RadialSelectorV2.HUB_INDEX:
+				# Dedo que empezo y solto en el "..." pero se corrio mas que el umbral del tap:
+				# sigue siendo el hub, que no es una opcion. Sin esto el drift lo dejaba en nada.
+				Haptics.confirm()
+				_select(RadialSelectorV2.HUB_INDEX)
+				get_tree().set_input_as_handled()
 			elif tapped and _selector.is_open():
 				# Como en el ascensor: tocar un sector elige ese sector; tocar en cualquier otro lado
 				# con una opcion marcada (apuntada con el boton del HUD o arrastrando) la oprime, y
@@ -528,9 +539,13 @@ func _input(event: InputEvent) -> void:
 			# Igual que touch: el click corto confirma; si se mueve antes de soltar, lleva el
 			# item del dial hasta un slot.
 			_mouse_drag_pending = true
-			_drag_option = _selector.slice_at(event.position)
-			if _drag_option == RadialSelectorV2.NONE and _selector.has_selection():
-				_drag_option = _selector.get_hovered_index()
+			# El dial se apunta, no se señala: manda el aim. Con el mouse capturado el click
+			# llega warpeado al centro (el hub), y tomar el puntero como verdad pisaba lo
+			# apuntado y hacia que soltar descartara en vez de elegir (FD-306 §1). El puntero
+			# solo decide cuando no hay nada apuntado (mouse libre sobre el item, o recien abierto).
+			_drag_option = _selector.get_hovered_index()
+			if _drag_option == RadialSelectorV2.NONE:
+				_drag_option = _selector.slice_at(event.position)
 			_drag_id = _dial_id_at(_drag_option)
 			_mouse_drag_moved = false
 			_mouse_drag_position = _selector.option_center(_drag_option)
@@ -546,8 +561,15 @@ func _input(event: InputEvent) -> void:
 				_confirm_or_dismiss()
 		elif _mouse_drag_pending:
 			_mouse_drag_pending = false
+			# El hub se confirma con un click explicito (FD-306 §1.1): _confirm_or_dismiss lo
+			# descartaria, porque soltar con el centro marcado no elige. Solo si el click cayo
+			# sobre el hub; un click en cualquier otro lado conserva la ruta de siempre.
+			var pressed_hub: bool = _drag_option == RadialSelectorV2.HUB_INDEX
 			_drag_option = -1
-			_confirm_or_dismiss()
+			if pressed_hub:
+				_selector.confirm()
+			else:
+				_confirm_or_dismiss()
 	elif event is InputEventMouseButton and event.button_index == BUTTON_LEFT and event.pressed \
 			and _is_outside_view(event.position):
 		_exit()
@@ -568,8 +590,9 @@ func _drive_option_drag(position: Vector2, require_hold: bool = true, allow_stat
 		if _drag_id.empty() \
 				or (not allow_stationary and (position - _touch_start).length() < TOUCH_MIN_DRAG):
 			return false
-		# Del dial hace falta el hold; el asa ya es para arrastrar.
-		if not _drag_from_handle and (not _selector.is_open() \
+		# Del dial hace falta el hold; el asa ya es para arrastrar; el drawer levanta la fila con
+		# el gesto que ya paso su propio umbral (mouse/dedo) o con el hombro sostenido (stick).
+		if not _drag_from_handle and not _drawer_open() and (not _selector.is_open() \
 				or (require_hold and OS.get_ticks_msec() - _touch_press_msec < DRAG_HOLD_MSEC)):
 			return false
 		Haptics.pulse(Haptics.LIFT_MSEC)
@@ -756,13 +779,21 @@ func _open_drawer() -> void:
 		_drawer.connect("favorite_toggled", self, "_on_drawer_favorited")
 	_drawer.visible = true
 	_drawer.set_rows(_drawer_rows())
+	_end_drawer_row_drag()
 	_set_virtual_mouse_enabled(false)
+	if is_instance_valid(_virtual_mouse) and _virtual_mouse.has_method("set_gamepad_cursor_enabled"):
+		_virtual_mouse.set_gamepad_cursor_enabled(false)
 
 
 func _close_drawer() -> void:
 	if is_instance_valid(_drawer):
 		_drawer.visible = false
 	_placeholder.visible = _screen_ids.empty()
+	_end_drawer_row_drag()
+	if is_instance_valid(_drag_ghost):
+		_end_option_drag()
+	if is_instance_valid(_virtual_mouse) and _virtual_mouse.has_method("set_gamepad_cursor_enabled"):
+		_virtual_mouse.set_gamepad_cursor_enabled(true)
 
 
 func _on_drawer_chose(id: String) -> void:
@@ -962,6 +993,10 @@ func _dial_screen_ids() -> Array:
 # o se sale si no habia ninguna.
 func _release_tab_hold() -> void:
 	_tab_hold_active = false
+	# El hold del boton tactil no tiene stick que volver al centro: si solto sobre el hub, lo
+	# confirma. Solo ese origen: el reflejo del stick y el mouse que vuelve al medio descartan
+	# (FD-306 §1.1, test_letting_go_on_the_hub... / test_release_in_the_dead_zone...).
+	var touch_hold: bool = _consume_touch_hud_hold()
 	if is_instance_valid(_drag_ghost):
 		# Se estaba arrastrando un widget con el stick: soltar el hombro lo suelta donde este.
 		_drop_option(_stick_cursor)
@@ -972,10 +1007,16 @@ func _release_tab_hold() -> void:
 		return
 	if not _selector.is_open():
 		return
-	# FD-304 §7.1 pedia confirmar el ultimo sector marcado al soltar "apuntando a nada". Con el
-	# hub de FD-306 §1 ese estado ya no existe: cualquier direccion cae en un sector y el centro
-	# es el hub, donde soltar cierra sin elegir a proposito (§1.1). No hace falta memoria.
+	if _selector.hub_hovered() and touch_hold:
+		_selector.confirm()
+		return
 	_confirm_or_dismiss() # con algo marcado -> _select, ya sin hold activo: la pantalla se queda
+
+# El boton tactil del HUD avisa cuando lo apretaron (MobileUIManager.note_hud_touch). Se consume
+# aca una sola vez, en el release del hold.
+func _consume_touch_hud_hold() -> bool:
+	var mobile: Node = get_node_or_null("/root/MobileUIManager")
+	return mobile != null and mobile.has_method("consume_hud_touch") and bool(mobile.consume_hud_touch())
 
 # Oprimir con algo marcado lo elige; sin nada marcado (zona muerta, o fuera del dial) lo cierra.
 func _confirm_or_dismiss() -> void:
@@ -1018,6 +1059,9 @@ func _set_virtual_mouse_enabled(enabled: bool) -> void:
 	_virtual_mouse.set_process_input(enabled)
 	if enabled:
 		_virtual_mouse.visible = true
+		if _virtual_mouse.has_method("set_gamepad_cursor_enabled"):
+			# Con el drawer abierto el mando navega la lista directo: su cursor inyectaria clicks.
+			_virtual_mouse.set_gamepad_cursor_enabled(not _drawer_open())
 	if not enabled:
 		if _virtual_mouse.has_method("set_desktop_mouse_mode"):
 			_virtual_mouse.set_desktop_mouse_mode(false)
@@ -1144,6 +1188,7 @@ func _complete_focus_swap(screen: Object = null) -> void:
 
 func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseManager
 	_end_option_drag()
+	_end_drawer_row_drag()
 	_cleanup_focus()
 	_set_virtual_mouse_enabled(false)
 	_suit_os().close_hud_mode()
@@ -1364,11 +1409,119 @@ func _draw_legend() -> void:
 
 # --- Drawer (FD-305 §3.5) ---
 
+# Puntero del drawer (mouse/dedo): la estrella favoritea, el resto de la fila abre, y una fila
+# levantada se suelta en un slot. La estrella no arrastra: solo se toca.
+func _drawer_pointer_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		# El click y el movimiento que el motor emula de cada toque no son mouse real: el dedo se
+		# resuelve por ScreenTouch/ScreenDrag y no debe prender el cursor virtual.
+		if event.device == TOUCH_MOUSE_DEVICE:
+			return
+		# El cursor nativo no se muestra nunca: al primer movimiento real se prende el cursor
+		# virtual (que sigue al puntero) y el nativo queda oculto.
+		if event.relative.length_squared() > 0.0:
+			_enable_drawer_cursor(event.position)
+		if is_instance_valid(_drag_ghost):
+			_drive_option_drag(event.position, false, true)
+		elif _drawer_drag_row >= 0 and (event.position - _touch_start).length() >= TOUCH_MIN_DRAG:
+			_start_drawer_row_drag(event.position)
+		return
+	if event is InputEventScreenDrag:
+		if is_instance_valid(_drag_ghost):
+			_drive_option_drag(event.position, false, true)
+		elif _drawer_drag_row >= 0 and (event.position - _touch_start).length() >= TOUCH_MIN_DRAG:
+			_start_drawer_row_drag(event.position)
+		return
+	if event is InputEventMouseButton:
+		if event.device == TOUCH_MOUSE_DEVICE or event.button_index != BUTTON_LEFT:
+			return
+	if event is InputEventScreenTouch or event is InputEventMouseButton:
+		if event.pressed:
+			_drawer_press_row = _drawer.row_at(event.position)
+			_drawer_press_star = _drawer_press_row >= 0 and _drawer.star_at(event.position) == _drawer_press_row
+			_drawer_drag_row = -1 if _drawer_press_star else _drawer_press_row
+			_touch_start = event.position
+			return
+		if is_instance_valid(_drag_ghost):
+			_drop_option(event.position)
+			_end_drawer_row_drag()
+			return
+		var row: int = _drawer_press_row
+		var star: bool = _drawer_press_star
+		_end_drawer_row_drag()
+		if row < 0:
+			return
+		_drawer.focus_row(row)
+		if star:
+			_drawer.toggle_favorite(_suit_os())
+		else:
+			_drawer.activate()
+		return
+
+
+func _start_drawer_row_drag(position: Vector2) -> void:
+	_drag_id = _drawer.row_id(_drawer_drag_row)
+	if _drag_id.empty():
+		return
+	_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC # el gesto ya empezo en el press
+	_drive_option_drag(position, false, true)
+
+
+func _end_drawer_row_drag() -> void:
+	_drawer_press_row = -1
+	_drawer_press_star = false
+	_drawer_drag_row = -1
+	_drawer_drag_active = false
+
+
+func _enable_drawer_cursor(position: Vector2) -> void:
+	_set_virtual_mouse_enabled(true)
+	if is_instance_valid(_virtual_mouse) and _virtual_mouse.has_method("set_desktop_mouse_mode"):
+		_virtual_mouse.set_desktop_mouse_mode(true, position)
+
+
+# El mando no usa el cursor: navega la lista directo (A/X/B + stick) y su hombro arrastra la fila
+# enfocada. Cualquier actividad de mando apaga el cursor que el mouse hubiera prendido.
+func _drawer_gamepad_active(input) -> bool:
+	return bool(input.analog_move_active) or input.move_vec.length_squared() > MOVE_GESTURE_DEADZONE_SQ \
+		or int(input.hud_nav) != 0 or int(input.hud_slot) > 0 \
+		or bool(input.crouch) or bool(input.jump) or bool(input.interact)
+
+
+func _drive_drawer_shoulder_drag(input) -> void:
+	if not _drawer_drag_active:
+		_drag_id = _drawer.focused_screen_id()
+		if _drag_id.empty():
+			return
+		_drawer_drag_active = true
+		_stick_cursor = _drawer.focused_row_center()
+		_touch_start = _stick_cursor
+		_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC
+	var move := Vector2(input.move_vec.x, input.move_vec.y)
+	if move.length_squared() > 0.0:
+		_stick_cursor += move.limit_length(1.0) * STICK_DRAG_SPEED
+		var size: Vector2 = get_viewport_rect().size
+		_stick_cursor.x = clamp(_stick_cursor.x, 0.0, size.x)
+		_stick_cursor.y = clamp(_stick_cursor.y, 0.0, size.y)
+	_drive_option_drag(_stick_cursor, false, true)
+
+
 func _drive_drawer(input, delta: float) -> void:
 	var edges: Dictionary = _face_edges(input)
 	if not is_instance_valid(_drawer):
 		return
-	_drawer.drive(-float(input.move_vec.y), int(input.hud_nav), delta)
+	if _drawer_gamepad_active(input):
+		_set_virtual_mouse_enabled(false)
+	var shoulder: int = int(input.hud_slot) - 1
+	if shoulder >= 0:
+		_drive_drawer_shoulder_drag(input)
+	elif _drawer_drag_active:
+		_drop_option(_stick_cursor)
+		_drawer_drag_active = false
+	else:
+		_drawer.drive(-float(input.move_vec.y), int(input.hud_nav), delta)
+	if _drawer_drag_active:
+		return # arrastrando: A/X/B no accionan la fila
 	if edges["a"]:
 		_drawer.activate()
 	elif edges["x"]:

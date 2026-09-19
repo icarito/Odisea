@@ -89,6 +89,19 @@ Consecuencias prácticas:
 - Si un modo necesita rotación adicional (ej: roll en zero-g), se aplica como transformación adicional sobre el basis existente del `CameraRig`, sin reemplazar el rig ni el spring arm.
 - La cámara nunca se debe mover ni cambiar de orientación al entrar o salir de un modo especial. El punto de vista del jugador es inviolable a través de transiciones.
 
+### 2.3.1 Mouse virtual (nunca el nativo)
+
+- El cursor nativo **no se muestra nunca** en UI: menú principal, pausa, modo HUD/drawer y popups usan
+  `VirtualMouse` (modo desktop: sigue al mouse real con el puntero del sistema oculto; el stick lo
+  maneja en modo gamepad). Prohibido `Input.set_mouse_mode(MOUSE_MODE_VISIBLE)` para mostrar UI.
+- El mouse arranca `MOUSE_MODE_HIDDEN` y el cursor virtual aparece recién al detectar movimiento real
+  de mouse (o al mover el stick). En gameplay el mouse sigue capturado para la cámara.
+- **Estándar de popups:** todo popup llama `VirtualMouse.attach_popup(self, requester)` en `_ready`
+  (el `requester` es el nodo que realmente se muestra/oculta si no es el popup). Si el popup libera
+  el mouse, usa `MOUSE_MODE_HIDDEN`, nunca `VISIBLE`.
+- En gameplay, liberar el puntero (`ui_cancel` / clic derecho) usa
+  `VirtualMouse.set_pointer_released(true/false)`: nunca vuelve al cursor nativo.
+
 ### 2.4 Estructura de directorios
 
 ```

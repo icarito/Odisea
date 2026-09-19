@@ -26,6 +26,9 @@ var _injecting_motion := false
 var _ignore_warp_motion := false
 var _skip_next_injected_motion := false
 var _invert_axes := Vector2.ONE
+# Con el drawer abierto el mando navega la lista directo (A/X/B + stick) y el cursor del gamepad
+# inyectaria un click por cada boton encima de la fila. El mouse real sigue dibujando su cursor.
+var gamepad_cursor_enabled := true
 # Todo lo que el cursor mide esta en pixeles del viewport de render, que encoge con
 # render_scale y se estira a la pantalla: sin compensar, en el handheld el cursor sale
 # 1/escala mas grande y 1/escala mas rapido que la UI, que si esta compensada.
@@ -62,17 +65,106 @@ static func attach_to(parent: Node, requester: Node = null) -> Control:
 	return cursor
 
 var _requesters := []
+# Puñero liberado a proposito en pleno juego (ui_cancel / clic derecho): no hay UI que pida el
+# cursor, pero el jugador espera un puntero. El nativo no se muestra: lo dibuja el virtual.
+var _released := false
 
 func add_requester(node: Node) -> void:
 	if not node in _requesters:
 		_requesters.append(node)
 
+# Estandar para popups: cuelga el cursor compartido con el popup como solicitante y lo prende en
+# modo desktop al aparecer. Asi el puntero queda oculto y lo dibuja el cursor virtual, aunque el
+# juego lo tuviera capturado. Si el popup declara un nodo que se muestra/oculta distinto de si
+# mismo (p. ej. su panel), se pasa como `requester`.
+static func attach_popup(popup: Node, requester: Node = null) -> Control:
+	var wanted: Node = requester if requester != null else popup
+	var parent: Node = popup.get_tree().root if popup.is_inside_tree() else popup
+	var cursor: Control = attach_to(parent, wanted)
+	cursor._watch_visibility(wanted)
+	return cursor
+
+func _watch_visibility(node: Node) -> void:
+	if node == self or not node is CanvasItem:
+		return
+	if not node.is_connected("visibility_changed", self, "_on_requester_visibility_changed"):
+		node.connect("visibility_changed", self, "_on_requester_visibility_changed")
+
+func _on_requester_visibility_changed() -> void:
+	if is_wanted():
+		set_desktop_mouse_mode(true, get_viewport().get_mouse_position())
+
 # Alguna UI que pidio el cursor sigue viva y visible (un Node sin dibujo, como un test, cuenta).
 func is_wanted() -> bool:
+	if _released:
+		return true
+	return _wanted_by_requester()
+
+# Una UI viva (menu, popup, pantalla) pide el cursor ahora mismo. Distinto de is_wanted(): no
+# cuenta el puntero liberado por el juego, asi que sirve para no recapturar el mouse encima de
+# un popup que lo necesita.
+static func is_ui_wanted() -> bool:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return false
+	for existing in tree.get_nodes_in_group("virtual_mouse"):
+		var cursor: Control = existing as Control
+		if is_instance_valid(cursor) and cursor._wanted_by_requester():
+			return true
+	return false
+
+func _wanted_by_requester() -> bool:
 	for node in _requesters:
 		if is_instance_valid(node) and (not node is CanvasItem or node.is_visible_in_tree()):
 			return true
 	return false
+
+# Cursor global sin UI que lo pida: lo usa el juego cuando el jugador libera el puntero. Si no
+# existe todavia, se cuelga de la raiz y se devuelve.
+static func ensure_global() -> Control:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return null
+	for existing in tree.get_nodes_in_group("virtual_mouse"):
+		if is_instance_valid(existing):
+			return existing as Control
+	var host := CanvasLayer.new()
+	host.name = "VirtualMouseLayer"
+	host.layer = LAYER
+	var cursor: Control = load("res://core_v2/ui/VirtualMouse.gd").new()
+	cursor.name = "VirtualMouse"
+	cursor.add_to_group("virtual_mouse")
+	host.add_child(cursor)
+	tree.root.add_child(host)
+	return cursor
+
+# Estandar para el juego: liberar el puntero (ui_cancel/clic derecho) sin mostrar el nativo. Al
+# soltar, el cursor queda dibujado en modo desktop; al recapturar, no queda nada colgado.
+static func set_pointer_released(released: bool) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+	var cursor: Control = null
+	for existing in tree.get_nodes_in_group("virtual_mouse"):
+		if is_instance_valid(existing):
+			cursor = existing as Control
+			break
+	if cursor == null:
+		if not released:
+			return
+		cursor = ensure_global()
+	if cursor == null:
+		return
+	# Una UI pudo haberlo apagado (modo HUD/pantalla): el puntero liberado necesita volver a
+	# escuchar el mouse real aunque el cursor ya exista.
+	cursor.set_process(true)
+	cursor.set_process_input(true)
+	cursor._released = released
+	if released:
+		cursor.set_desktop_mouse_mode(true, cursor.get_viewport().get_mouse_position())
+	elif cursor._desktop_mouse_mode:
+		cursor.set_desktop_mouse_mode(false)
+	cursor.update()
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -95,6 +187,9 @@ func _ready() -> void:
 		viewport.connect("size_changed", self, "_on_viewport_resized")
 	_on_viewport_resized()
 	set_process(true)
+	# Sin esto el cursor no recibe el mouse real: se dibuja pero queda clavado. attach_to() no lo
+	# prendia (las UIs lo apagan/prenden aparte) y el cursor global del puntero liberado nacia mudo.
+	set_process_input(true)
 
 func _on_viewport_resized() -> void:
 	_ui_scale = UIScaleCompensator.scale_for(self)
@@ -104,13 +199,17 @@ func _on_viewport_resized() -> void:
 	update()
 
 func _process(delta: float) -> void:
-	if not _active:
+	if not _active and not _desktop_mouse_mode:
 		return
 	if not is_wanted():
-		# La UI que lo pidio se cerro: no mover, no dibujar. El modo del mouse queda como esta
-		# (en juego lo maneja la camara).
+		# La UI que lo pidio se cerro: no mover, no dibujar, y devolver el modo del mouse que la
+		# UI habia guardado (en juego lo maneja la camara).
 		_active = false
+		if _desktop_mouse_mode:
+			set_desktop_mouse_mode(false)
 		update()
+		return
+	if not _active:
 		return
 	var direction := Vector2(
 		Input.get_action_strength("cursor_right") - Input.get_action_strength("cursor_left"),
@@ -165,19 +264,18 @@ func _input(event: InputEvent) -> void:
 		if _ignore_warp_motion:
 			_ignore_warp_motion = false
 			return
-		if _active:
-			if event.relative.length_squared() > 0.0:
-				_active = false
-				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-				_position = event.position
-				update()
-		else:
-			_position = event.position
-			update()
+		# El mouse real siempre toma el control: el cursor del sistema no se muestra nunca, el
+		# virtual lo reemplaza siguiendo al puntero (modo desktop). Antes se soltaba el grab y se
+		# mostraba el del sistema; eso ahora queda dentro de set_desktop_mouse_mode.
+		if not _active or event.relative.length_squared() > 0.0:
+			set_desktop_mouse_mode(true, event.position)
 		return
 	if event is InputEventJoypadMotion or event is InputEventJoypadButton:
-		_activate()
+		if gamepad_cursor_enabled:
+			_activate()
 	if not event is InputEventJoypadButton:
+		return
+	if not gamepad_cursor_enabled:
 		return
 	# Conserva el mapeo directo A/B del cursor original; no depende de que ui_accept
 	# consuma antes la accion de InputMap.
@@ -193,6 +291,8 @@ func _input(event: InputEvent) -> void:
 	get_tree().set_input_as_handled()
 
 func _activate() -> void:
+	if _desktop_mouse_mode:
+		set_desktop_mouse_mode(false)
 	if _active:
 		return
 	_active = true
@@ -200,21 +300,30 @@ func _activate() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	update()
 
+func set_gamepad_cursor_enabled(enabled: bool) -> void:
+	# Con el drawer abierto el mando navega la lista directo: el cursor del gamepad inyectaria un
+	# click por cada boton. El mouse real sigue dibujando su cursor.
+	gamepad_cursor_enabled = enabled
+
 func is_desktop_mouse_mode() -> bool:
 	return _desktop_mouse_mode
 
 func set_desktop_mouse_mode(enabled: bool, position: Vector2 = Vector2.ZERO) -> void:
-	if enabled == _desktop_mouse_mode:
-		return
-	_desktop_mouse_mode = enabled
+	# Al prender se reafirma HIDDEN y se reposiciona SIEMPRE, aunque ya estuviera en desktop: si el
+	# juego habia vuelto a capturar el mouse (o el modo quedo desincronizado), el early-return de
+	# antes dejaba el cursor dibujado pero con el puntero grabado, o sea clavado en el centro.
 	if enabled:
-		_desktop_mouse_restore_mode = Input.get_mouse_mode()
+		if not _desktop_mouse_mode:
+			_desktop_mouse_restore_mode = Input.get_mouse_mode()
+		_desktop_mouse_mode = true
 		_active = false
 		_position = position
 		visible = true
 		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
-	elif Input.get_mouse_mode() == Input.MOUSE_MODE_HIDDEN:
-		Input.set_mouse_mode(_desktop_mouse_restore_mode)
+	elif _desktop_mouse_mode:
+		_desktop_mouse_mode = false
+		if Input.get_mouse_mode() == Input.MOUSE_MODE_HIDDEN:
+			Input.set_mouse_mode(_desktop_mouse_restore_mode)
 	update()
 
 func _emit_motion(relative: Vector2) -> void:
