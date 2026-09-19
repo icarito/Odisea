@@ -127,6 +127,7 @@ Usar tres capas separadas:
 | FD-304 | Interfaz diégetica de OdiseaOS con gamepad (slots, modo pantalla, acordes, drag y radial) | Design | Large | P1 |
 | FD-305 | Drawer de apps y favoritos — el "..." del radial (lista alfabética, scroll analógico, curaduría) | Design | Medium | P1 |
 | FD-306 | Fixes estructurales del radial (hub central, orden por relevancia, iconos, escala y frescura) | Design | Medium | P1 |
+| FD-307 | Criocápsulas interactuables — cámara fija interior + holoterminal del ocupante | Design | Medium | P1 |
 
 ## Completed / Archived
 
