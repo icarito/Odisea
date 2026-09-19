@@ -12,9 +12,13 @@ export(int) var grid_resolution: int = 20 # NxN rays (Increased for better detai
 export(float) var max_distance: float = 6.0
 export(float, 0.0, 1.0) var base_opacity: float = 1.0
 # Sólo para la BlobShadow real: el caster es una esfera y su sombra mide
-# exactamente su radio, así que se agranda respecto de `radius` para que
-# cubra como la sombra legacy (que dibujaba un óvalo más ancho).
-export(float) var blob_radius_scale: float = 2.2
+# exactamente su radio. Tentador agrandarlo para igualar el óvalo ancho de la
+# sombra legacy, pero el occluder es un VOLUMEN y oscurece todo lo que tapa,
+# incluida la malla del propio actor: con 2.2 (r=1.1 para el piloto) la esfera
+# envolvía el cuerpo hasta el pecho y lo auto-sombreaba. A 1.0 llega a la
+# rodilla: sombra de piso, con las piernas apenas oscurecidas (deseable).
+# Mismo arreglo que el demo_advanced del fork (godot-box3d 8c61288).
+export(float) var blob_radius_scale: float = 1.0
 export(float) var skirt_limit: float = 5.0 # Max height for skirts before we stop drawing them (avoid giant walls)
 export(float) var vertical_offset: float = 0.02
 export(float) var snap_amount: float = 0.1 # World Grid Size (10cm matches your 0.2m floors)
@@ -63,15 +67,18 @@ func _ready() -> void:
 	if OS.get_name() == "Linux" and _detect_arm_architecture():
 		force_cheap_runtime = true
 
+	# Prefer the real blob shadows when the running engine is the fork with the
+	# backport; the legacy grid/cheap machinery stays for stock Godot.
+	# Va ANTES del disable: el tier LOW apaga las sombras falsas (quads +
+	# raycasts por prop) pero la del piloto es gameplay, y la blob es analítica
+	# (sin mesh, sin raycasts), así que es la sombra más barata que hay.
+	if _blob_shadows_supported():
+		_setup_blob_shadow()
+		return
+
 	if _disable_runtime:
 		visible = false
 		set_process(false)
-		return
-
-	# Prefer the real blob shadows when the running engine is the fork with the
-	# backport; the legacy grid/cheap machinery stays for stock Godot.
-	if _blob_shadows_supported():
-		_setup_blob_shadow()
 		return
 
 	if force_cheap_runtime:
@@ -122,6 +129,10 @@ func is_blob_mode() -> bool:
 
 func _setup_blob_shadow() -> void:
 	_blob_mode = true
+	# El disable del tier LOW apaga la malla+raycasts, no la sombra del actor:
+	# en modo blob el _process sólo mueve el caster (ODISEA_DISABLE_BLOB_SHADOW
+	# sigue devolviendo el camino legacy, que sí respeta el disable).
+	_disable_runtime = false
 	# No generated blanket mesh: the cast is analytic.
 	mesh = null
 	material_override = null
