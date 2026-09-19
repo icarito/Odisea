@@ -111,6 +111,7 @@ func test_desktop_mouse_mode_hides_the_system_pointer_and_tracks_its_motion() ->
 func test_real_mouse_motion_switches_the_gamepad_cursor_to_desktop_mode() -> void:
 	var cursor: Control = VirtualMouseScript.attach_to(self)
 	var mouse_mode: int = Input.get_mouse_mode()
+	var settable: bool = _mouse_mode_is_settable()
 	cursor._active = true
 	var motion := InputEventMouseMotion.new()
 	motion.position = Vector2(210.0, 160.0)
@@ -118,7 +119,8 @@ func test_real_mouse_motion_switches_the_gamepad_cursor_to_desktop_mode() -> voi
 	cursor._input(motion)
 	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
 	assert_bool(cursor._active).is_false()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	if settable:
+		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 	cursor.set_desktop_mouse_mode(false)
 	Input.set_mouse_mode(mouse_mode)
 	cursor.get_parent().queue_free()
@@ -130,23 +132,36 @@ func _clear_virtual_mice() -> void:
 			node.get_parent().free()
 
 
+# El binario headless de CI (Server) ignora set_mouse_mode y deja get_mouse_mode en VISIBLE:
+# los asserts del modo nativo solo corren donde el driver lo honra.
+func _mouse_mode_is_settable() -> bool:
+	var restore: int = Input.get_mouse_mode()
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	var settable: bool = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
+	Input.set_mouse_mode(restore)
+	return settable
+
+
 # El juego libera el puntero (ui_cancel / clic derecho) sin ninguna UI: el cursor global se prende
 # igual, en modo desktop, y se apaga al recapturar.
 func test_released_pointer_shows_the_virtual_cursor_with_no_ui() -> void:
 	_clear_virtual_mice()
 	var cursor: Control = VirtualMouseScript.ensure_global()
 	var mouse_mode: int = Input.get_mouse_mode()
+	var settable: bool = _mouse_mode_is_settable()
 	VirtualMouseScript.set_pointer_released(true)
 	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
 	assert_bool(cursor.is_wanted()).is_true()
 	assert_bool(cursor.is_processing_input()).is_true()
 	assert_bool(VirtualMouseScript.is_pointer_released()).is_true()
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	if settable:
+		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 	# Si el juego habia recapturado, volver a soltar reafirma HIDDEN: antes el early-return lo
 	# dejaba dibujado pero con el puntero grabado (clavado en el centro).
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	VirtualMouseScript.set_pointer_released(true)
-	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
+	if settable:
+		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 	VirtualMouseScript.set_pointer_released(false)
 	assert_bool(cursor.is_wanted()).is_false()
 	assert_bool(cursor.is_desktop_mouse_mode()).is_false()
