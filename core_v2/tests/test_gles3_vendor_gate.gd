@@ -133,6 +133,52 @@ func test_low_tier_strips_shadows_and_materials():
 	assert_bool(mat.subsurf_scatter_enabled).is_false()
 	assert_bool(mat.flags_vertex_lighting).is_true()
 
+func test_flat_mode_releases_the_material_override():
+	# El material_override le gana a los materiales por superficie: si el modo plano
+	# no lo suelta, el prop sigue dibujando el suyo (rejillas transparentes) y todo el
+	# trabajo por superficie es codigo muerto.
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	# Despues de add_child: _ready() relee ODISEA_UNSHADED del entorno y pisaria esto.
+	add_child(gate)
+	gate._unshaded_mode = "3"
+
+	var over = auto_free(SpatialMaterial.new())
+	over.flags_transparent = true
+	over.params_use_alpha_scissor = true
+	var mi = auto_free(MeshInstance.new())
+	mi.mesh = auto_free(CubeMesh.new())
+	mi.material_override = over
+	add_child(mi)
+
+	assert_object(mi.material_override).is_null()
+	assert_object(mi.get_surface_material(0)).is_not_null()
+	assert_bool(mi.get_surface_material(0) is ShaderMaterial).is_true()
+
+
+func test_flat_mode_leaves_the_pilot_shaded():
+	# Los personajes quedan fuera del modo plano: conservan su material y se ven
+	# gouraud (vertex lighting) contra un mundo plano.
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	# Despues de add_child: _ready() relee ODISEA_UNSHADED del entorno y pisaria esto.
+	add_child(gate)
+	gate._unshaded_mode = "3"
+
+	var mat = auto_free(SpatialMaterial.new())
+	mat.flags_vertex_lighting = false
+	var mesh = auto_free(CubeMesh.new())
+	mesh.material = mat
+	var mi = auto_free(MeshInstance.new())
+	mi.name = "PilotVisual"
+	mi.mesh = mesh
+	add_child(mi)
+
+	assert_object(mi.material_override).is_null()
+	assert_object(mi.get_surface_material(0)).is_null()
+	assert_bool(mat.flags_vertex_lighting).is_true()
+
+
 func test_low_tier_disables_light_shadows():
 	var gate = auto_free(GateScript.new())
 	gate.force_gate = true

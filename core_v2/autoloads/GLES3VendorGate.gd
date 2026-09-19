@@ -445,17 +445,39 @@ func _low_tier_node(node: Node) -> void:
 		var hint := _node_hint(node, mesh)
 		var h := hint.to_lower()
 		var is_screen := h.find("holo") != -1 or h.find("display") != -1 or h.find("screen") != -1 or h.find("pantalla") != -1
-		if _unshaded_mode == "1":
+		# Los personajes quedan FUERA del modo plano. FlatFake es un headlight en espacio
+		# de camara: aplana justo lo que tiene que leerse con volumen. Conservando su
+		# material, _low_tier_material le pone flags_vertex_lighting y el pilot se ve
+		# gouraud (con su naranja real) contra un mundo plano. Es una malla: no cambia el
+		# costo del frame de forma medible.
+		var is_character := h.find("pilot") != -1 or h.find("elias") != -1 \
+			or h.find("character") != -1 or h.find("suit") != -1
+		if is_character:
+			# El material puede estar por instancia, no solo en el mesh compartido (el
+			# barrido de abajo solo mira mesh.surface_get_material).
+			if node is MeshInstance and mesh != null:
+				for s in range(mesh.get_surface_count()):
+					_low_tier_material(node.get_surface_material(s))
+		elif _unshaded_mode == "1":
 			node.material_override = _unshaded_shared_material()
 		elif _unshaded_mode == "3":
 			# Por SUPERFICIE: los meshes horneados mezclan categorias (pod, baranda,
 			# piso) en un CombinedMesh con varios materiales; el color tiene que salir
 			# del material de cada superficie, no del nombre del nodo.
 			if node is MeshInstance and mesh != null:
+				# El material_override le gana a TODO material por superficie: sin
+				# soltarlo, lo que sigue es codigo muerto y el prop sigue dibujando
+				# su material original (asi las rejillas de SteelGratePlatform seguian
+				# transparentes, con su alpha scissor intacto). Se usa primero como
+				# fuente de color y recien despues se suelta.
+				var ov_src = node.material_override
+				node.material_override = null
 				for s in range(mesh.get_surface_count()):
 					var ssrc = node.get_surface_material(s)
 					if ssrc == null:
 						ssrc = mesh.surface_get_material(s)
+					if ssrc == null:
+						ssrc = ov_src
 					var shint := hint
 					if ssrc != null:
 						if "resource_path" in ssrc:

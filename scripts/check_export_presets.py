@@ -24,6 +24,7 @@ tambien a export_files.
 
 from __future__ import annotations
 
+import fnmatch
 import re
 import sys
 from pathlib import Path
@@ -109,6 +110,36 @@ def _check_orden_y_existencia(presets: Dict[str, Dict[str, object]], root: Path)
 	return errors
 
 
+def _check_locales(presets: Dict[str, Dict[str, object]], root: Path) -> List[str]:
+	"""Cada .translation de locale/ tiene que entrar en el paquete.
+
+	El bug que motiva el check: el filtro decia ``locale/**/*.translation``, y ese
+	``**`` exige un directorio intermedio, asi que no matcheaba
+	``locale/ui_strings.ko.translation``. Solo viajaban los dos locales listados a
+	mano en export_files (es, en) y el juego fallaba en runtime con "Cannot open
+	file" al cambiar de idioma -- en las 8 plataformas a la vez.
+	"""
+	errors: List[str] = []
+	locale_dir = root / "locale"
+	if not locale_dir.is_dir():
+		return errors
+	presentes = sorted(p.name for p in locale_dir.glob("*.translation"))
+	if not presentes:
+		return errors
+	for entry in presets.values():
+		patrones = [g.strip() for g in str(entry.get("include_filter") or "").split(",")]
+		roots = entry["export_files"] if isinstance(entry["export_files"], list) else []
+		for nombre in presentes:
+			ruta = "locale/" + nombre
+			if "res://" + ruta in roots:
+				continue
+			if any(fnmatch.fnmatch(ruta, pat) for pat in patrones if pat):
+				continue
+			errors.append("%s: %s no entra por include_filter ni por export_files"
+			              % (entry["name"], ruta))
+	return errors
+
+
 def _self_test() -> int:
 	def bloque(idx, name, inc, files):
 		return ('[preset.%d]\nname="%s"\ninclude_filter="%s"\nexclude_filter="docs/*"\n'
@@ -159,6 +190,7 @@ def main() -> int:
 		_check_coherencia(presets)
 		+ _check_pineados(presets)
 		+ _check_orden_y_existencia(presets, root)
+		+ _check_locales(presets, root)
 	)
 
 	if errors:

@@ -379,6 +379,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/things/CryoDiagnosticsUI.gd"
 }, {
+"base": "HUDableComponent",
+"class": "CryoPodsHUDable",
+"language": "GDScript",
+"path": "res://core_v2/things/CryoPodsHUDable.gd"
+}, {
+"base": "PanelContainer",
+"class": "CryoPodsWidget",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/CryoPodsWidget.gd"
+}, {
 "base": "Spatial",
 "class": "CryoVentBase",
 "language": "GDScript",
@@ -2090,6 +2100,11 @@ _global_script_classes=[ {
 "path": "res://core_v2/autoloads/SuitOSContextDriver.gd"
 }, {
 "base": "Control",
+"class": "SuitOSDrawer",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/SuitOSDrawer.gd"
+}, {
+"base": "Control",
 "class": "SuitOSWidgetHost",
 "language": "GDScript",
 "path": "res://core_v2/ui/hud/SuitOSWidgetHost.gd"
@@ -2419,6 +2434,8 @@ _global_script_class_icons={
 "CoolantSchematicPanel": "",
 "CoolantTank": "",
 "CryoDiagnosticsUI": "",
+"CryoPodsHUDable": "",
+"CryoPodsWidget": "",
 "CryoVentBase": "",
 "CylinderRotator": "",
 "CylindricalInteriorCollider": "",
@@ -2761,6 +2778,7 @@ _global_script_class_icons={
 "StressTestRunner": "",
 "StringFuzzer": "",
 "SuitOSContextDriver": "",
+"SuitOSDrawer": "",
 "SuitOSWidgetHost": "",
 "SuitThermalResistance": "",
 "SystemStatusScreen": "",
