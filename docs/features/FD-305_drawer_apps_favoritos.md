@@ -103,7 +103,15 @@ es lo que hace legible una lista larga sin agregar jerarquía falsa.
 - Nada de `ScrollContainer`: su scroll nativo no toma velocidad analógica. Se
   controla `rect_position.y` de un contenedor propio.
 
-**3.4 Búsqueda.** El pedido: "que solo busque si empiezas a escribir algo".
+**3.4 Búsqueda — ⏸ DIFERIDA (2026-09-19).** El pedido: "que solo busque si
+empiezas a escribir algo".
+
+**Diferido (2026-09-19).** La búsqueda queda fuera de la primera entrega. Razón:
+es la parte más cara del drawer, **solo sirve en desktop** (en gamepad no existe el
+gesto), y el agrupado por inicial ya resuelve el salto corto en una lista que hoy
+tiene menos de una docena de filas. Se implementa cuando la lista larga lo
+justifique. Lo de abajo queda como el spec acordado para cuando se retome,
+incluida la nota de determinismo.
 
 - **Desktop:** al recibir el primer carácter imprimible, aparece una **caja de
   filtro** arriba y se filtra incrementalmente por substring del título
@@ -113,12 +121,13 @@ es lo que hace legible una lista larga sin agregar jerarquía falsa.
 - **Gamepad:** **no hay búsqueda de texto.** No hay teclado en el HUD y meter uno
   en pantalla es otro sistema entero. El gamepad navega la lista alfabética
   (stick/D-pad) y el agrupado por inicial ya da el salto corto.
-- **Determinismo:** escribir texto **no pasa por el stream** (`InputDataV2` no
-  graba teclas de texto). Por lo tanto el filtro es **estado de UI no
-  determinista y excluido del replay**, explícitamente. No rompe nada porque el
-  mundo está en pausa y el drawer no decide nada de gameplay: elegir por filtro
-  desemboca en `open_screen(id)`, que sí es determinista por `id`. El replay
-  reproduce la elección, no la búsqueda.
+- **Determinismo (nota para cuando se retome, 2026-09-19):** escribir texto **no
+  pasa por el stream** (`InputDataV2` no graba teclas de texto). Por lo tanto el
+  filtro es **estado de UI no determinista y excluido del replay**, explícitamente.
+  No rompe nada porque el mundo está en pausa y el drawer no decide nada de
+  gameplay: elegir por filtro desemboca en `open_screen(id)`, que sí es
+  determinista por `id`. El replay reproduce la elección, no la búsqueda.
+  **No intentar grabar el filtro "para que el replay sea completo": es un error.**
 
 **3.5 Acciones.**
 
@@ -204,12 +213,10 @@ la fila enfocada).
 - `core_v2/autoloads/SuitOS.gd` — `favorite_screens` + `favorites_initialized` en
   `save_state()`/`restore_state()`, `is_favorite()` / `toggle_favorite()` /
   `get_favorites()`, siembra de defaults (modificar).
-- `core_v2/ui/hud/HudMenuChrome.gd` — **nuevo** (si se confirma la propuesta de
-  FD-306 §1 de extraer el chrome del modo HUD: hub, leyendas, mapeo de botones).
 - `core_v2/tests/test_suit_os.gd` — persistencia de favoritos, siembra de
   defaults, save viejo sin la clave (modificar).
-- `core_v2/tests/test_hud_drawer.gd` — **nuevo**: orden alfabético, filtro, deny
-  del 7º favorito, favorito offline.
+- `core_v2/tests/test_hud_drawer.gd` — **nuevo**: orden alfabético, deny
+  del 7º favorito, favorito offline, scroll analógico (snap/overscroll).
 - `docs/features/FEATURE_INDEX.md` — alta de FD-305 (modificar).
 
 ## Verification
@@ -225,11 +232,8 @@ la fila enfocada).
    defaults una vez.
 5. **Deny del 7º.** Con 6 favoritos, X sobre una séptima fila → deny visual, sin
    cambios en la lista.
-6. **Scroll.** El stick acelera y decae con inercia; el D-pad da pasos con
+7. **Scroll.** El stick acelera y decae con inercia; el D-pad da pasos con
    auto-repeat; los extremos rebotan; la fila se alinea sola al detenerse.
-7. **Búsqueda.** En desktop, teclear filtra incrementalmente y `Escape` limpia y
-   luego sale; con el filtro vacío no se ve caja de búsqueda. En gamepad no
-   aparece nunca.
 8. **Acciones.** A abre la app y sale del drawer; X alterna favorito con haptic y
    estrella animada; B vuelve; hold de hombro + stick arrastra la fila a un slot.
 9. **Favorito offline.** Salir del nivel que registra una app favorita: el dial la
@@ -248,6 +252,20 @@ la fila enfocada).
 2. **Agrupado por inicial** ¿siempre visible, o solo cuando la lista pasa de N
    filas (p. ej. 8)? Recomendado: solo cuando pasa de N, para que hoy no agregue
    ruido.
-3. **`HudMenuChrome.gd`** (FD-306 §1) es una propuesta de refactor para que el
-   drawer y el dial compartan el mapeo de botones. Si no se aprueba, el drawer
-   duplica ese mapeo.
+3. **Scroll analógico: ¿inercia pura o con snap obligatorio?** El spec pide snap
+   al detenerse. Si el jugador quiere pasar de largo rápido, el snap puede
+   sentirse pegajoso. Recomendado: snap solo por debajo de un umbral de velocidad.
+
+### Resueltas
+
+- **Búsqueda — diferida (2026-09-19).** Ver §3.4. Fuera de la primera entrega:
+  solo sirve en desktop y el agrupado por inicial cubre el caso de hoy.
+- **`HudMenuChrome.gd` — descartado (2026-09-19).** Ver FD-306 §7. El drawer
+  duplica el mapeo de botones a conciencia.
+- **Favoritos = el radial; slots = drag/drop (2026-09-19).** Son dos sistemas con
+  propósitos distintos. Ver §2.
+
+## Orden de implementación
+
+Ver FD-306 §8. Resumen: hub inerte + frescura → favoritos en `SuitOS` → drawer
+(sin búsqueda) → orden por relevancia → FD-304.

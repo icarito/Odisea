@@ -47,6 +47,24 @@ de eso**.
 
 ## Solution
 
+### 0. Regla de compatibilidad innegociable: el ascensor
+
+`RadialSelectorV2` **no es exclusivo del HUD**. `ElevatorFloorSelector.gd:570` lo
+alimenta con `_selector.set_options(labels)` (un `Array` de `String`) y hay dos
+tests que dependen de ese contrato (`test_radial_selector.gd:16`,
+`test_haptics.gd:55`). Por lo tanto:
+
+- El **hub nace inerte**: sin un `hub_enabled = true` explícito, el centro se
+  comporta exactamente como hoy (`dead_zone`/`hub_epsilon`, sin item). El ascensor
+  no se entera del cambio.
+- `set_options()` **sigue aceptando un `Array` de `String`** y lo envuelve
+  internamente. Ninguna firma existente cambia para el ascensor.
+- Todo lo nuevo (hub, iconos, orden) es **opt-in**: si el HUD no lo pide, no
+  ocurre.
+
+Esto es lo primero que hay que verificar tras el cambio, antes que ninguna otra
+cosa.
+
 ### 1. El hub central: de zona muerta a item
 
 `dead_zone` (dial pixels, "dentro no se marca nada") se **reemplaza** por un
@@ -106,7 +124,7 @@ order = sort(favorites, by: [-relevance(context), title_nocase])
   punto), que es el que el pulgar encuentra sin mirar. Eso es exactamente lo que
   se quiere de una sugerencia.
 
-### 3. Iconos en las opciones
+### 3. Iconos en las opciones — ⏸ DIFERIDO a fase 2
 
 `set_options(labels)` pasa a `set_options(items)`, donde cada item es
 `{ id, label, icon, enabled }`:
@@ -121,6 +139,12 @@ order = sort(favorites, by: [-relevance(context), title_nocase])
 - `option_size` sube en consecuencia solo si el icono lo pide; el hitbox por
   sector sigue siendo el arco (`slice_at()` por ángulo), así que los iconos no
   cambian la mecánica de selección.
+
+**Diferido (2026-09-19):** `hud_screen_icon` está declarado desde FD-296 y **no
+hay una sola textura asignada** en el juego. Implementar el layout de icono +
+etiqueta antes de que exista el arte es trabajo a ciegas. La primera entrega
+dibuja solo texto, como hoy. El diseño queda como spec para cuando haya arte
+(ver Open Question 2).
 
 ### 4. Escala: el dial no pagina, el drawer absorbe
 
@@ -157,15 +181,14 @@ flash de confirmación, retract de cierre). **No se duplican acá.** Este FD sol
 agrega una: el **hub respira** con el mismo pulso idle del anillo, pero a mitad de
 amplitud, para no robarle foco al arco.
 
-### 7. Chrome compartido (propuesta de refactor)
+### 7. Chrome compartido — ❌ DESCARTADO (2026-09-19)
 
-El mapeo de botones y las leyendas las necesitan el dial y el drawer (FD-305 §3.5).
-Propuesta: extraer a `core_v2/ui/hud/HudMenuChrome.gd` lo común
-(`HOLD_MSEC`, `DRAG_HOLD_MSEC`, leyenda de botones, estilo de pastilla,
-`hud_gamepad_actions()` → leyenda). **No es un refactor gratuito**: son dos vistas
-nuevas (drawer, hub) que ya justifican el punto medio, y evita que el mapeo de
-FD-304 viva duplicado en dos archivos que van a divergir. Si se descarta, el
-drawer duplica el mapeo a conciencia.
+La propuesta era extraer el mapeo de botones y las leyendas a
+`core_v2/ui/hud/HudMenuChrome.gd` para que dial y drawer no lo duplicaran. **Se
+descarta**: nació como propuesta mía de refactor, no de una necesidad de diseño,
+y con la búsqueda diferida (FD-305 §3.4) el mapeo duplicado son ~15 líneas. Un
+archivo nuevo y un punto de acoplamiento entre dos vistas no se pagan con 15
+líneas. El drawer duplica el mapeo **a conciencia**.
 
 ## Considered Options
 
@@ -203,7 +226,6 @@ drawer duplica el mapeo a conciencia.
   `screen_registered`/`screen_unregistered` (modificar).
 - `core_v2/autoloads/SuitOS.gd` — `get_favorites_ordered(context)` (modificar;
   los favoritos en sí son de FD-305).
-- `core_v2/ui/hud/HudMenuChrome.gd` — **nuevo** (§7, sujeto a aprobación).
 - `core_v2/tests/test_radial_selector.gd` — hub, iconos, bordes n = 1/2/7
   (modificar).
 - `core_v2/tests/test_hud_mode.gd` — orden por relevancia estable, lista que se
@@ -222,9 +244,11 @@ drawer duplica el mapeo a conciencia.
    entre frames.
 4. **Relevancia viva.** Con la linterna por debajo del umbral de batería, su
    opción sube al primer sector.
-5. **Iconos.** Una pantalla con `hud_screen_icon` lo muestra junto al título; sin
-   icono, el layout es el de hoy. `set_options(["a","b"])` (strings) sigue
-   funcionando → `ElevatorFloorSelector` intacto.
+5. **Ascensor intacto (regla §0).** `set_options(["1","2","3"])` (strings) sigue
+   funcionando igual, el hub **no** aparece sin pedirlo, y
+   `test_elevator_floor_selector.gd`, `test_radial_selector.gd` y
+   `test_haptics.gd` pasan sin cambios. **Este es el test que decide si el trabajo
+   está bien.** El layout de iconos queda diferido (§3).
 6. **Bordes.** n = 1 (solo hub), n = 2 (hub + 1 favorito) y n = 7 (hub + 6
    favoritos) no crashean ni dividen por cero y se leen sin solape.
 7. **Frescura.** Registrar una pantalla con el modo HUD abierto la agrega al dial
@@ -233,14 +257,30 @@ drawer duplica el mapeo a conciencia.
    (`six_three_and_twelve`, `left_half_is_not_used`, `needle_tracks_the_car`,
    `committed_pick_drops_the_focus`, etc.).
 
+### 8. Orden de implementación (importante)
+
+No es el orden de los documentos; es el orden que minimiza retrabajo:
+
+1. **Hub inerte + frescura** (§0, §1, §5) — un commit chico. Desbloquea todo y no
+   toca gameplay ni el ascensor.
+2. **Favoritos en `SuitOS`** (FD-305 §4) — persistencia sin UI, testeable sola.
+3. **Drawer** (FD-305 §3, sin búsqueda) — la UI, ya con el estado resuelto.
+4. **Orden por relevancia** (§2) — cuando el dial ya tiene favoritos que ordenar.
+5. **FD-304** (bindings y modo pantalla) — al final, es lo más mecánico.
+
 ## Open Questions
 
-1. **`HudMenuChrome.gd`** (§7): ¿se aprueba el refactor o el drawer duplica el
-   mapeo de botones? Cambia el tamaño de este FD, no su diseño.
-2. **El hub con mouse.** ¿El hub se confirma también con **clic** (no solo tap) si
+1. **El hub con mouse.** ¿El hub se confirma también con **clic** (no solo tap) si
    el puntero está encima? Recomendado que sí, para que mouse y touch se sientan
    iguales.
-3. **Iconos: ¿de dónde salen?** El campo existe pero ninguna pantalla tiene textura
-   asignada. Se pueden (a) dejar vacíos y usar iconos cuando el arte llegue,
-   (b) un set mínimo placeholder por tipo de pantalla. Recomendado (a) + un icono
-   por defecto, para no frenar el FD por arte.
+2. **Iconos: ¿de dónde salen?** ⏸ §3 está diferido, pero cuando se retome: el campo
+   existe y ninguna pantalla tiene textura asignada. Se pueden (a) dejar vacíos y
+   usar iconos cuando el arte llegue, (b) un set mínimo placeholder. Recomendado
+   (a) + un icono por defecto, para no frenar el FD por arte.
+
+### Resueltas
+
+- **`HudMenuChrome.gd` — descartado (2026-09-19).** Ver §7. El drawer duplica el
+  mapeo de botones a conciencia.
+- **Iconos del dial — diferidos (2026-09-19).** Ver §3. No hay arte; el layout de
+  icono + etiqueta se implementa cuando exista.
