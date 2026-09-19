@@ -1313,17 +1313,17 @@ func _is_hyper_low_runtime() -> bool:
 	return gate != null and gate.is_low_tier()
 
 func _configure_animation_runtime_policy() -> void:
-	# ON  = el AnimationTree avanza a mano desde step_animator (una pose por paso de
-	#       fisica; overrides de huesos en el mismo reloj que el esqueleto).
-	# OFF = el AnimationTree procesa solo en IDLE (avanza por frame de render). A 30 fps
-	#       de render con fisica a 30 Hz el paso manual puede dar judder por desfase de
-	#       fase; con IDLE cada frame dibuja una pose nueva. Contra: los overrides de
-	#       cabeza/IK se escriben en fisica y pueden quedar un frame atras.
-	_manual_animtree_step_enabled = MANUAL_ANIMTREE_STEP
+	# Politica por tier:
+	#  - Tier LOW: AnimationTree en IDLE (avanza por frame de render, fluido a 30 fps) y
+	#    head-look APAGADO (el override se escribe en fisica y con IDLE desincroniza).
+	#  - Resto (desktop/handheld rapido): paso MANUAL desde step_animator (una pose por
+	#    paso de fisica) con head-look ACTIVO: es el comportamiento original, sin wobble.
+	var low := _is_hyper_low_runtime()
+	_manual_animtree_step_enabled = not low
 	if animation_tree == null:
 		return
 	_anim_tree_param_cache.clear()
-	animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_MANUAL if MANUAL_ANIMTREE_STEP else AnimationTree.ANIMATION_PROCESS_IDLE
+	animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_IDLE if low else AnimationTree.ANIMATION_PROCESS_MANUAL
 
 func _set_anim_tree_param(path: String, value, float_epsilon := ANIM_PARAM_FLOAT_EPSILON) -> void:
 	if animation_tree == null:

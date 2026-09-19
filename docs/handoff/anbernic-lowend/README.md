@@ -144,6 +144,31 @@ Palancas descartadas con medición (no repetir): AudioStreamPlayer3D, CPUParticl
 secundarios apagados; `shader_compilation_mode.mobile=0`; atlas de reflexiones en 0; `cma=128M`; subdividir el
 piso; lightmap nativo.
 
+## Probar el tier LOW en desktop (sin el handheld)
+
+`Options -> Forzar modo low end` solo aplica el tier de **runtime** (`GLES3VendorGate`): física a
+30 Hz, sombras apagadas, materiales aplanados, dither y sombras falsas off, control remoto off.
+Los ajustes de `portmaster/lowend.cfg` (MSAA, FXAA, `framebuffer_allocation`, vertex shading,
+lambert/blinn, atlas de sombras, límite de luces, reflexiones) los lee el motor **al arrancar** y
+no se pueden cambiar en runtime, así que ese toggle por sí solo no reproduce el handheld.
+
+Para bootear en desktop el mismo build que el handheld:
+
+```bash
+tools/launch_game.sh --lowend              # headful
+tools/launch_game.sh --lowend --headless   # chequeo autónomo
+```
+
+`--lowend` instala `portmaster/lowend.cfg` como `override.cfg` del proyecto (quitando el sufijo
+`.mobile`, que en desktop no aplica porque no existe el feature tag `mobile`) y exporta
+`ODISEA_FORCE_LOW_TIER=1` para forzar el tier de runtime sin tocar `settings.cfg`. El
+`override.cfg` se borra cuando termina el script (el motor solo lo lee al arrancar), y si había
+uno previo se restaura.
+
+Ojo: resolución y render scale son preferencias del jugador (`user://settings.cfg`), no del
+override. El handheld corre a 640x480 con `render_scale=0.6`; para comparar 1:1 elegí esa
+resolución y escala en Opciones.
+
 ## Cómo medir sin engañarse
 
 - **Perfil del tick en vivo** (binario debug + `dev.sh` con `ENGINE` y el peer local):
