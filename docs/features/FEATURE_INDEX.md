@@ -125,6 +125,8 @@ Usar tres capas separadas:
 | FD-297 | Transiciones seamless hacia la pantalla en cuestión (foco de terminal vs. primera persona) | Implemented | Medium | P1 |
 | FD-298 | Pantalla de linterna (batería retro en slot + botón de encendido en el widget) | Implemented | Small | P1 |
 | FD-304 | Interfaz diégetica de OdiseaOS con gamepad (slots, modo pantalla, acordes, drag y radial) | Design | Large | P1 |
+| FD-305 | Drawer de apps y favoritos — el "..." del radial (lista alfabética, scroll analógico, curaduría) | Design | Medium | P1 |
+| FD-306 | Fixes estructurales del radial (hub central, orden por relevancia, iconos, escala y frescura) | Design | Medium | P1 |
 
 ## Completed / Archived
 
