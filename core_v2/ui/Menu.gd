@@ -30,6 +30,15 @@ func _ready():
 	# (VirtualMouse, modo desktop). Con gamepad el virtual lo maneja el stick.
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 
+	# Volver desde una partida puede dejar el modo HUD o los widgets vivos (el overlay y el
+	# SuitOSWidgetHost cuelgan de autoloads, no del nivel): se limpian al entrar al menu.
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os != null and suit_os.has_method("close_hud_mode"):
+		suit_os.close_hud_mode()
+	var host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
+	if host != null and host.has_method("refresh_visibility"):
+		host.refresh_visibility()
+
 	# FD-228: Confirm stable boot for UpdateManager
 	if get_node_or_null("/root/UpdateManager"):
 		get_node("/root/UpdateManager").confirm_boot()

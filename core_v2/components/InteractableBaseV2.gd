@@ -7,6 +7,9 @@ class_name InteractableBaseV2
 
 # --- EXPORTED TUNING ---
 export(String) var interaction_text := "Interactuar"
+# FD-310: titulo que muestra el widget de contexto del HUD cuando este prop esta en rango. Si
+# queda vacio, se usa screen_title() (si es HUDable) o el nombre del nodo humanizado.
+export(String) var interaction_title := ""
 export(float) var anim_duration := 1.0 # Seconds to complete animation
 export(bool) var starts_active := false setget set_starts_active # Initial logical state
 export(bool) var auto_interact := false # If true, automatically triggers when player is in range

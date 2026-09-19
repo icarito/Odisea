@@ -1,10 +1,31 @@
 # FD-310: Widget contextual de interactuables — del subtítulo al HUD
 
-**Status:** Design
+**Status:** Implemented (v1)
 **Priority:** Medium
 **Effort:** Medium
 **Created:** 2026-09-19
-**Completed:** -
+**Completed:** 2026-09-19
+
+## Implementación (2026-09-19)
+
+v1 genérica, sin arte por prop:
+
+- `SuitOSWidgetHost`: `show_context(snapshot) -> bool` monta un widget de contexto
+  (PanelContainer + título + acción, estilo de widget) en el **primer slot libre**;
+  `clear_context()` lo saca. No es un pin (no entra en `get_pinned_slots()`), se
+  reubica en `_relayout()` y `refresh_visibility()` lo oculta con el resto del HUD.
+- `PlayerHintManager.show_interaction_hint(text, source)`: con un interactuable en
+  rango y slot libre, muestra el **widget de contexto** y no dibuja el subtítulo;
+  sin slot libre (o sin host), cae al `PlayerHintOverlay` de siempre. El texto se
+  sigue emitiendo por `visible_hint_changed` para el control remoto.
+- `PlayerControllerV2` pasa el `best_target`; título = `screen_title()` →
+  `interaction_title` → nombre del nodo humanizado. `InteractableBaseV2` suma el
+  export opcional `interaction_title`.
+- Además: el `SuitOSWidgetHost` (autoload) se oculta en `Menu.tscn` y el menú
+  limpia el modo HUD/widgets al entrar, para que no queden dibujados al volver de
+  una partida.
+
+Pendiente: validación visual (checkpoint HUMANO) y las Open Questions.
 
 ## Problem
 

@@ -42,10 +42,12 @@ const CINEMATIC_SLIDE_DISTANCE := 180.0
 # Antes vivian en el slot HUD de OverlayUIManager (capa 115), que comparten el modo HUD y los
 # avisos y no se puede bajar solo. Tambien quedan debajo del menu de pausa (50) y del modo HUD.
 const WIDGET_LAYER := 5
-# FD-304 §9: un mapeo de mando que no se ve, no existe. Cada slot lleva la etiqueta de SU hombro,
-# del lado que le toca (1 y 2 a la izquierda = L1/L2; 3 y 4 a la derecha = R1/R2).
+# FD-304 §3: un tap sobre un slot vacio responde con este rechazo, no con un cartel de controles.
 const SHOULDER_DENY_COLOR := Color(1.0, 0.72, 0.23, 1.0)
 const DENY_MSEC := 450
+# FD-310: widget temporal del interactuable en rango. No es una pantalla registrada ni un pin:
+# vive en un slot libre mientras el jugador apunta al prop, y se va solo.
+const CONTEXT_WIDGET_NAME := "SuitOS_Context"
 
 var _active_screen_ids: Dictionary = {} # slot -> screen_id
 var _press_msec: int = 0
@@ -75,6 +77,9 @@ var _cinematic_tween: Tween = null
 var _shoulders: Control = null
 var _deny_slot_index: int = -1
 var _deny_msec: int = -100000
+# FD-310: widget de contexto (interactuable en rango) y el slot libre que ocupa.
+var _context_widget: Control = null
+var _context_slot: int = -1
 # De donde salen slots y pantallas: SuitOS en el juego, RemoteHudBackend en el control remoto (que
 # lo asigna antes de add_child). Mismo contrato; ver RemoteHudBackend.gd.
 var backend: Node = null
@@ -186,7 +191,12 @@ func refresh_visibility() -> void:
 	var touch_idle: bool = mobile != null and mobile.is_mobile() and not mobile.is_touch_active() \
 		and not in_hud_mode
 	# Mientras se arrastra hacia un slot (tambien el widget de una pantalla abierta) se ven todos.
-	var hidden: bool = _cinematic_active or (get_tree().paused and not in_hud_mode) or touch_idle \
+	# En el menu principal no hay HUD aunque el registry tenga pantallas del nivel anterior: el host
+	# vive colgado de SuitOS (autoload) y si no se oculta aca queda dibujado sobre el menu.
+	var current_scene = get_tree().current_scene
+	var in_menu: bool = current_scene != null \
+		and String(current_scene.filename).find("Menu.tscn") != -1
+	var hidden: bool = in_menu or _cinematic_active or (get_tree().paused and not in_hud_mode) or touch_idle \
 		or (screen_open and not _drop_targets_visible)
 	var has_screens: bool = suit_os != null and not suit_os.get_registered_screens().empty()
 	if not is_instance_valid(_widget_root):
@@ -203,6 +213,11 @@ func refresh_visibility() -> void:
 			var hud_active: bool = suit_os != null and suit_os.is_hud_mode_active()
 			placeholder.visible = not hidden and has_screens \
 				and (_drop_targets_visible or (hud_active and not is_instance_valid(overlay)))
+	# El widget de contexto (FD-310) no depende del registry: sale con un prop en rango aunque el
+	# nivel no tenga pantallas registradas.
+	var context = _widget_root.get_node_or_null(CONTEXT_WIDGET_NAME)
+	if is_instance_valid(context):
+		context.visible = not hidden
 
 func _on_screens_changed(_id = "") -> void:
 	refresh_visibility()
@@ -350,6 +365,79 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 			_place(label, slot)
 	# Un widget que se monta o cambia con la pausa o una pantalla abierta nace oculto.
 	refresh_visibility()
+
+# --- FD-310: widget de contexto del interactuable en rango ---
+
+# Monta (o actualiza) el widget de contexto en el primer slot libre. Devuelve false si no hay
+# slot: el llamador cae al texto de siempre. No es un pin: no entra en get_pinned_slots().
+func show_context(snapshot: Dictionary) -> bool:
+	if not is_instance_valid(get_widget_root()):
+		return false
+	var index: int = _context_free_slot()
+	if index < 0:
+		return false
+	if not is_instance_valid(_context_widget):
+		_context_widget = _build_context_widget()
+		get_widget_root().add_child(_context_widget)
+	var title = _context_widget.get_node_or_null("VBox/Title")
+	if title is Label:
+		(title as Label).text = String(snapshot.get("title", ""))
+	var action = _context_widget.get_node_or_null("VBox/Action")
+	if action is Label:
+		(action as Label).text = String(snapshot.get("action", ""))
+	_context_slot = index
+	_place_context(_context_widget, index)
+	refresh_visibility()
+	return true
+
+func clear_context() -> void:
+	if is_instance_valid(_context_widget):
+		_context_widget.queue_free()
+	_context_widget = null
+	_context_slot = -1
+	refresh_visibility()
+
+func _context_free_slot() -> int:
+	var pinned: Array = []
+	var suit_os = _backend()
+	if suit_os != null and suit_os.has_method("get_pinned_slots"):
+		pinned = suit_os.get_pinned_slots()
+	for i in range(HudSlots.COUNT):
+		var occupied: bool = i < pinned.size() and not String(pinned[i]).empty()
+		if not occupied:
+			return i
+	return -1
+
+func _build_context_widget() -> Control:
+	var panel := PanelContainer.new()
+	panel.name = CONTEXT_WIDGET_NAME
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_stylebox_override("panel", _widget_panel_style())
+	var box := VBoxContainer.new()
+	box.name = "VBox"
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(box)
+	var title := Label.new()
+	title.name = "Title"
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(title)
+	var action := Label.new()
+	action.name = "Action"
+	action.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(action)
+	return panel
+
+func _place_context(control: Control, index: int) -> void:
+	if not is_instance_valid(control) or index < 0 or index >= HudSlots.COUNT:
+		return
+	var k: float = UIScaleCompensatorScript.scale_for(self)
+	var min_size: Vector2 = control.get_combined_minimum_size()
+	var height: float = max(min_size.y, 1.0)
+	var fit: float = min(1.0, HudSlots.SLOT_ROW_HEIGHT / height)
+	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	control.rect_scale = Vector2.ONE * fit * k
+	var size: Vector2 = Vector2(max(control.rect_size.x, min_size.x), height) * fit * k
+	control.rect_position = HudSlots.slot_position(index, size, _safe_rect(), k)
 
 # Uno por slot, fijo: se muestra u oculta (refresh_visibility), nunca se crea y destruye con cada
 # cambio de widget.
@@ -544,6 +632,8 @@ func _relayout() -> void:
 		var widget = _widget_root.get_node_or_null("SuitOS_Widget_" + slot)
 		if is_instance_valid(widget) and not widget.is_queued_for_deletion():
 			_place(widget, slot)
+	if is_instance_valid(_context_widget) and _context_slot >= 0:
+		_place_context(_context_widget, _context_slot)
 
 func _remove_overlay_for_slot(slot: String) -> void:
 	var overlay_name: String = "SuitOS_Widget_" + slot

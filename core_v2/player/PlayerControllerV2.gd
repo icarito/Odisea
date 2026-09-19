@@ -2004,12 +2004,12 @@ func _get_interaction_prompt(candidate: Node) -> String:
 		parts.append(str(focus_text) if focus_text else "Enfocar")
 	return parts.join(" / ")
 
-func _show_interaction_prompt(text: String) -> void:
+func _show_interaction_prompt(text: String, source: Node = null) -> void:
 	if text.strip_edges() == "":
 		return
 	var hints = get_node_or_null("/root/PlayerHintManager")
 	if hints and hints.has_method("show_interaction_hint"):
-		hints.show_interaction_hint(text)
+		hints.show_interaction_hint(text, source)
 
 func _interaction_input_without_crouch(input: InputDataV2) -> InputDataV2:
 	# Interaction must not couple to crouch. In zero-g crouch means "descend", so we
@@ -2083,7 +2083,7 @@ func _process_interaction(input: InputDataV2):
 			_current_interactable = best_target
 			_current_interaction_prompt = text
 			emit_signal("interactable_in_range", text)
-			_show_interaction_prompt(text)
+			_show_interaction_prompt(text, best_target)
 
 			var can_auto_trigger = not best_target.get("_auto_triggered") or not best_target.get("one_off")
 			if _candidate_can_interact(best_target) and best_target.get("auto_interact") and not best_target.is_active and can_auto_trigger:
@@ -2093,7 +2093,7 @@ func _process_interaction(input: InputDataV2):
 		elif text != _current_interaction_prompt:
 			_current_interaction_prompt = text
 			emit_signal("interactable_in_range", text)
-			_show_interaction_prompt(text)
+			_show_interaction_prompt(text, best_target)
 		if input.interact and _candidate_can_interact(best_target) and best_target.has_method("interact"):
 			best_target.interact()
 		# Mecanismos de mantener presionado: el controlador solo informa si esta siendo

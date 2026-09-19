@@ -8,6 +8,13 @@ const MAX_HINT_DURATION := 30.0
 var _overlay: Node = null
 var _warned_unavailable := false
 var _interaction_text := ""
+# FD-310: el nodo del interactuable en rango. Con el, el hint de interaccion se muestra como widget
+# de contexto en el HUD (SuitOSWidgetHost) en vez del subtitulo; el texto queda de fallback y para
+# el control remoto.
+var _interaction_source: Node = null
+var _context_showing := false
+var _context_last_text := ""
+var _context_last_title := ""
 var _manual_text := ""
 var _status_text := ""
 var _manual_expires_at := 0.0
@@ -27,14 +34,16 @@ func _ready() -> void:
 	_ensure_refresh_timer()
 	_refresh_visible_hint()
 
-func show_interaction_hint(text: String) -> void:
+func show_interaction_hint(text: String, source: Node = null) -> void:
 	_interaction_text = text.strip_edges()
+	_interaction_source = source if is_instance_valid(source) else null
 	_refresh_visible_hint()
 
 func clear_interaction_hint() -> void:
-	if _interaction_text == "":
+	if _interaction_text == "" and not _context_showing:
 		return
 	_interaction_text = ""
+	_interaction_source = null
 	_refresh_visible_hint()
 
 func show_manual_hint(text: String, duration: float = MAX_HINT_DURATION) -> void:
@@ -120,7 +129,10 @@ func _refresh_visible_hint() -> void:
 	if [text, visible_mode] != _last_emitted:
 		_last_emitted = [text, visible_mode]
 		emit_signal("visible_hint_changed", text, visible_mode)
-	if text == "":
+	# FD-310: el hint de interaccion va como widget de contexto si hay slot libre; si no, cae al
+	# subtitulo de siempre. El control remoto recibe el texto por visible_hint_changed igual.
+	_update_context_widget(text, visible_mode)
+	if text == "" or _context_showing:
 		if is_instance_valid(_overlay) and _overlay.has_method("clear_hint_text"):
 			_overlay.clear_hint_text()
 		return
@@ -132,6 +144,47 @@ func _refresh_visible_hint() -> void:
 		if _overlay.has_method("set_hint_mode"):
 			_overlay.set_hint_mode(mode)
 		_overlay.set_hint_text(text)
+
+func _update_context_widget(text: String, visible_mode: String) -> void:
+	var host = _context_host()
+	var wants_context: bool = text != "" and visible_mode == "hint" \
+		and _remote_text == "" and _status_text == "" and _manual_text == "" \
+		and is_instance_valid(_interaction_source)
+	if host == null or not wants_context:
+		if _context_showing and host != null and host.has_method("clear_context"):
+			host.clear_context()
+		_context_showing = false
+		return
+	var title := _context_title(_interaction_source)
+	if _context_showing and text == _context_last_text and title == _context_last_title:
+		return
+	if host.show_context({"title": title, "action": text}):
+		_context_showing = true
+		_context_last_text = text
+		_context_last_title = title
+	else:
+		_context_showing = false # sin slot libre: el subtitulo hace de fallback
+
+func _context_host() -> Node:
+	if not get_tree():
+		return null
+	for host in get_tree().get_nodes_in_group("hud_widget_host"):
+		if is_instance_valid(host) and host.has_method("show_context"):
+			return host
+	return null
+
+func _context_title(source: Node) -> String:
+	if not is_instance_valid(source):
+		return ""
+	if source.has_method("screen_title"):
+		var screen_title := String(source.screen_title())
+		if screen_title != "":
+			return screen_title
+	if "interaction_title" in source:
+		var custom := String(source.interaction_title)
+		if custom != "":
+			return custom
+	return String(source.name).replace("_", " ")
 
 func _prune_expired_manual() -> void:
 	if _manual_text == "":
