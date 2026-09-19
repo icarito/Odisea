@@ -128,13 +128,14 @@ Usar tres capas separadas:
 | FD-305 | Drawer de apps y favoritos — el "..." del radial (lista alfabética, scroll analógico, curaduría) | Design | Medium | P1 |
 | FD-306 | Fixes estructurales del radial (hub central, orden por relevancia, iconos, escala y frescura) | Design | Medium | P1 |
 | FD-307 | Criocápsulas interactuables — cámara fija interior + holoterminal del ocupante | Design | Medium | P1 |
-| FD-308 | Portugués de Brasil (pt_BR) — tercera columna en el pipeline i18n + cableado de locale | Design | Small | P1 |
+| FD-308 | Portugués de Brasil (pt_BR) — tercera columna en el pipeline i18n + cableado de locale | Implemented | Small | P1 |
+| FD-309 | Coreano (`ko`) — columna del CSV + fallback de fuente Hangul en todos los DynamicFont (y cierra FD-308) | Implemented | Small | P1 |
 
 ### Parking lot — fuera del Acto I (idea capturada, no implementar)
 
-| Tema | Qué es | Estado | Bloqueador |
-|------|--------|--------|------------|
-| i18n coreano (`ko`) | Tercera columna en `locale/ui_strings.csv` (347 filas) tras el pipeline de FD-303 | Backlog (exploratorio, 2026-09-19) | **Fuente**: ninguna de las 8 tipografías de `assets/fonts/*.ttf` tiene un solo glifo Hangul (0 de 11 172 silabarios) → el coreano se renderiza como tofu. Añadir `ko` es trivial; conseguir Hangul legible en pixel-art es un mini-proyecto de arte tipográfico (~16 MB en Noto Sans KR y rompe la estética). Además los diálogos dinámicos de la IA Odisea no están en el CSV, así que el subsetting fallaría justo ahí. FD-303 ya dejó "más idiomas / fuentes no-latinas" fuera de scope. |
+_Vacío. El i18n coreano salió de acá en FD-309: su único bloqueador era la
+fuente, y `DungGeunMo` (dominio público, pixel, 11 172 silabarios Hangul) lo
+resolvió como fallback de `DynamicFont`._
 
 ## Completed / Archived
 

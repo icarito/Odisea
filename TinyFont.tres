@@ -1,4 +1,6 @@
-[gd_resource type="DynamicFont" load_steps=2 format=2]
+[gd_resource type="DynamicFont" load_steps=3 format=2]
+
+[ext_resource path="res://assets/fonts/DungGeunMo.ttf" type="DynamicFontData" id=1]
 
 [sub_resource type="DynamicFontData" id=1]
 font_path = "res://assets/fonts/Ac437_OlivettiThin_8x16.ttf"
@@ -6,3 +8,4 @@ font_path = "res://assets/fonts/Ac437_OlivettiThin_8x16.ttf"
 [resource]
 size = 22
 font_data = SubResource( 1 )
+fallback/0 = ExtResource( 1 )

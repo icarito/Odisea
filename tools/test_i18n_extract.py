@@ -88,34 +88,73 @@ hint_tooltip = "Regresar al menú principal"
     def test_merge_csv(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             csv_path = Path(tmp_dir) / "ui_strings.csv"
+            header = ["keys", "es", "en"]
 
             # 1. Initial write
             initial_map = {
-                "NUEVA PARTIDA": "NEW GAME",
-                "VIEJA CLAVE": "OLD KEY"
+                "NUEVA PARTIDA": ["NUEVA PARTIDA", "NUEVA PARTIDA", "NEW GAME"],
+                "VIEJA CLAVE": ["VIEJA CLAVE", "VIEJA CLAVE", "OLD KEY"],
             }
-            i18n_extract.save_csv(csv_path, initial_map)
+            i18n_extract.save_csv(csv_path, header, initial_map)
 
             # 2. Existing map load
-            existing = i18n_extract.load_existing_csv(csv_path)
-            self.assertEqual(existing["NUEVA PARTIDA"], "NEW GAME")
+            _, existing = i18n_extract.load_existing_csv(csv_path)
+            self.assertEqual(existing["NUEVA PARTIDA"][2], "NEW GAME")
 
             # 3. Simulate new scan: "NUEVA PARTIDA" present, "OPCIONES" new, "VIEJA CLAVE" orphan
             extracted = {"NUEVA PARTIDA", "OPCIONES"}
             merged = {}
             for k in extracted:
-                merged[k] = existing.get(k, "")
-            for k, val in existing.items():
+                merged[k] = existing.get(k, [k, k, ""])
+            for k, row in existing.items():
                 if k not in extracted:
-                    merged[k] = val
+                    merged[k] = row
 
-            i18n_extract.save_csv(csv_path, merged)
+            i18n_extract.save_csv(csv_path, header, merged)
 
             # Verify saved CSV
-            reloaded = i18n_extract.load_existing_csv(csv_path)
-            self.assertEqual(reloaded["NUEVA PARTIDA"], "NEW GAME")
-            self.assertEqual(reloaded["OPCIONES"], "")
-            self.assertEqual(reloaded["VIEJA CLAVE"], "OLD KEY")
+            _, reloaded = i18n_extract.load_existing_csv(csv_path)
+            self.assertEqual(reloaded["NUEVA PARTIDA"][2], "NEW GAME")
+            self.assertEqual(reloaded["OPCIONES"][2], "")
+            self.assertEqual(reloaded["VIEJA CLAVE"][2], "OLD KEY")
+
+    def test_extra_locale_columns_survive(self):
+        """A hand-written locale column must not be wiped by a re-extraction."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = Path(tmp_dir) / "ui_strings.csv"
+            csv_path.write_text(
+                "keys,es,en,ko\n"
+                "NUEVA PARTIDA,NUEVA PARTIDA,NEW GAME,\uc0c8 \uac8c\uc784\n"
+                "SALIR,SALIR,QUIT,\ub098\uac00\uae30\n",
+                encoding="utf-8",
+            )
+
+            header, existing = i18n_extract.load_existing_csv(csv_path)
+            self.assertEqual(header, ["keys", "es", "en", "ko"])
+
+            # A new key shows up; the old ones keep their Korean.
+            merged = dict(existing)
+            merged["OPCIONES"] = ["OPCIONES", "OPCIONES", "", ""]
+            i18n_extract.save_csv(csv_path, header, merged)
+
+            header2, reloaded = i18n_extract.load_existing_csv(csv_path)
+            self.assertEqual(header2, ["keys", "es", "en", "ko"])
+            self.assertEqual(reloaded["NUEVA PARTIDA"][3], "\uc0c8 \uac8c\uc784")
+            self.assertEqual(reloaded["SALIR"][3], "\ub098\uac00\uae30")
+            self.assertEqual(reloaded["OPCIONES"][3], "")
+
+    def test_three_column_output_unchanged(self):
+        """Regression guard for FD-303: a 3-column CSV round-trips byte for byte."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = Path(tmp_dir) / "ui_strings.csv"
+            original = "keys,es,en\nNUEVA PARTIDA,NUEVA PARTIDA,NEW GAME\nSALIR,SALIR,QUIT\n"
+            csv_path.write_text(original, encoding="utf-8")
+
+            header, existing = i18n_extract.load_existing_csv(csv_path)
+            i18n_extract.save_csv(csv_path, header, existing)
+
+            self.assertEqual(csv_path.read_text(encoding="utf-8"), original)
+
 
 if __name__ == "__main__":
     unittest.main()
