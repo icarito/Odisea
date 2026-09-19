@@ -47,7 +47,12 @@ if grep -qa "rockchip,rk3326" /proc/device-tree/compatible 2>/dev/null \
   # el color sale del material de cada superficie. Es la contraparte del gouraud que ya
   # aplica el tier LOW. Se puede pisar desde dev.sh (0 lo apaga, 2 = unshaded con textura).
   export ODISEA_UNSHADED="${ODISEA_UNSHADED:-3}"
-  [ -f override.cfg ] || cp lowend.cfg override.cfg
+  # Refresca el override.cfg generado por este archivo en cada arranque, para que un
+  # paquete nuevo (p.ej. el bloque [audio] de FD-299) llegue a un handheld ya instalado.
+  # Un override.cfg editado a mano (sin la marca FD-299) se respeta (linea 41).
+  if [ ! -f override.cfg ] || grep -qs "odisea-lowend-cfg\|FD-299: ajustes de arranque" override.cfg; then
+    cp lowend.cfg override.cfg
+  fi
 elif grep -qs "odisea-lowend-cfg\|FD-299: ajustes de arranque" override.cfg; then
   # Copia de este archivo o el override.cfg que traian los nightlies anteriores.
   rm -f override.cfg
