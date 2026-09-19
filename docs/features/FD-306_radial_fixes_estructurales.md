@@ -1,10 +1,10 @@
 # FD-306: Fixes estructurales del radial (hub central, orden por relevancia, iconos, escala)
 
-**Status:** Design
+**Status:** Implemented
 **Priority:** P1
 **Effort:** Medium
 **Created:** 2026-09-19
-**Completed:** -
+**Completed:** 2026-09-19
 **Parent:** FD-296 F3 (HudModeOverlay / RadialSelectorV2) · FD-304 (interfaz diégetica con gamepad) · FD-305 (drawer y favoritos)
 **Relacionadas:** FD-043 (RadialScatter — prop tool, sin relación funcional)
 
@@ -284,3 +284,38 @@ No es el orden de los documentos; es el orden que minimiza retrabajo:
   mapeo de botones a conciencia.
 - **Iconos del dial — diferidos (2026-09-19).** Ver §3. No hay arte; el layout de
   icono + etiqueta se implementa cuando exista.
+
+## Implementación (2026-09-19)
+
+Entregado en el orden de §8. Lo que quedó distinto del documento:
+
+- **El hub nace inerte y lo enciende el HUD.** `RadialSelectorV2.hub_enabled`
+  (default `false`) + `HUB_INDEX`/`HUB_RADIUS`/`HUB_HIT_RADIUS`. Con el hub
+  encendido, `dead_zone` deja de leerse: el centro tiene dueño. El ascensor
+  no pide nada, así que no ve ningún cambio (regla §0 verificada primero:
+  `test_elevator_floor_selector.gd`, `test_radial_selector.gd` y
+  `test_haptics.gd` pasan sin tocarlos).
+- **`set_options()` acepta `String` o `{ id, label, icon, enabled }`.** El
+  icono se guarda y **no se dibuja**: §3 sigue diferido hasta que haya arte.
+- **Frescura (§5):** el overlay se suscribe a
+  `screen_registered`/`screen_unregistered` y rehace la lista; el drawer
+  conserva el foco por id.
+- **Orden por relevancia (§2):** `SuitOS.get_favorites_ordered(context)`, con
+  desempate alfabético, resuelto **una vez al abrir** el dial.
+- **Bordes (§4):** n = 0 (solo hub), 1, 2 y 7 cubiertos. El hub no entra en
+  `_step()`, así que la división por `(n - 1)` nunca ve cero.
+- **Animación propia de este FD (§6):** el hub respira a mitad de amplitud
+  que el anillo.
+
+### Consecuencia que el documento no anticipó
+
+Con el hub encendido, **`_index_at()` nunca devuelve `NONE`**: toda dirección
+cae en un sector y el centro es el hub. Eso dejó sin caso alcanzable la
+memoria corta de FD-304 §7.1 (confirmar el último sector al soltar "apuntando
+a nada"), que se quitó en vez de dejarla como código muerto. La red de
+seguridad que pedía §1.1 la da el hub: soltar en el centro cierra sin elegir.
+
+Ojo con el matiz de tacto: soltar el **botón** con el stick todavía apuntando
+elige ese sector; soltar el **stick** primero devuelve el apuntado al centro
+(= hub) y entonces cerrar es lo correcto. Es la diferencia entre "elegí" y
+"me arrepentí", y cae del lado seguro.

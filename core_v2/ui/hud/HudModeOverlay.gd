@@ -1238,7 +1238,15 @@ func _drive_nav(input) -> void:
 		step = dir
 	elif now - _nav_msec >= NAV_REPEAT_MSEC and (now - _nav_msec - NAV_REPEAT_MSEC) % NAV_RATE_MSEC < 20:
 		step = dir
-	if step == 0 or not _selector.is_open() or _dial_ids.empty():
+	if step == 0:
+		return
+	if not _selector.is_open():
+		# Con una pantalla abierta la cruceta recorre SU lista, si es que tiene una (el roster de
+		# las criocapsulas). Sin contrato nuevo: se le pide "select" y las que no lo permiten ni
+		# se enteran.
+		_step_screen_selection(step)
+		return
+	if _dial_ids.empty():
 		return
 	# Arriba en pantalla es avanzar por el arco (el primer sector esta a las 6, el ultimo a las 12).
 	# Sin nada marcado, el primer paso entra SIEMPRE por el primer sector, vaya para donde vaya:
@@ -1252,6 +1260,17 @@ func _drive_nav(input) -> void:
 
 
 # --- Arrastre de un widget con el stick (FD-304 §6) ---
+
+func _step_screen_selection(step: int) -> void:
+	if not (_mount.is_showing() or is_instance_valid(_active_focused_screen)):
+		return
+	var suit_os: Node = _suit_os()
+	var id: String = suit_os.get_active_screen_id()
+	var screen: Object = suit_os.get_screen(id)
+	if screen == null or not screen.has_method("allowed_actions") or not ("select" in screen.allowed_actions()):
+		return
+	HudWidgetActionScript.perform(self, id, "select", {"delta": step})
+
 
 func _stick_drag_armed() -> bool:
 	if not _tab_hold_active or _target_slot < 0 or not _selector.is_open():

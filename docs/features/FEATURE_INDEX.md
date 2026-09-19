@@ -124,9 +124,9 @@ Usar tres capas separadas:
 | FD-296 | OdiseaOS — sistema operativo del traje (modo HUD + widgets + HUDables) | In Progress | Large | P1 |
 | FD-297 | Transiciones seamless hacia la pantalla en cuestión (foco de terminal vs. primera persona) | Implemented | Medium | P1 |
 | FD-298 | Pantalla de linterna (batería retro en slot + botón de encendido en el widget) | Implemented | Small | P1 |
-| FD-304 | Interfaz diégetica de OdiseaOS con gamepad (slots, modo pantalla, acordes, drag y radial) | Design | Large | P1 |
-| FD-305 | Drawer de apps y favoritos — el "..." del radial (lista alfabética, scroll analógico, curaduría) | Design | Medium | P1 |
-| FD-306 | Fixes estructurales del radial (hub central, orden por relevancia, iconos, escala y frescura) | Design | Medium | P1 |
+| FD-304 | Interfaz diégetica de OdiseaOS con gamepad (slots, modo pantalla, acordes, drag y radial) | Implemented | Large | P1 |
+| FD-305 | Drawer de apps y favoritos — el "..." del radial (lista alfabética, scroll analógico, curaduría) | Implemented | Medium | P1 |
+| FD-306 | Fixes estructurales del radial (hub central, orden por relevancia, iconos, escala y frescura) | Implemented | Medium | P1 |
 | FD-307 | Criocápsulas interactuables — cámara fija interior + holoterminal del ocupante | Design | Medium | P1 |
 | FD-308 | Portugués de Brasil (pt_BR) — tercera columna en el pipeline i18n + cableado de locale | Implemented | Small | P1 |
 | FD-309 | Coreano (`ko`) — columna del CSV + fallback de fuente Hangul en todos los DynamicFont (y cierra FD-308) | Implemented | Small | P1 |

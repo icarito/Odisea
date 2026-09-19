@@ -1,10 +1,10 @@
 # FD-304: Interfaz diégetica de OdiseaOS con gamepad (slots, modo pantalla, acordes, drag y radial)
 
-**Status:** Design
+**Status:** Implemented
 **Priority:** P1
 **Effort:** Large
 **Created:** 2026-09-18
-**Completed:** -
+**Completed:** 2026-09-19
 **Parent:** FD-296 (OdiseaOS) · FD-296 F3 (HudModeOverlay) · FD-296 F1.5 (SuitOSWidgetHost) · FD-298 (linterna) · FD-294 (control remoto)
 
 ## Problem
@@ -440,3 +440,56 @@ Ninguna bloqueante. Pendientes menores de implementación:
 2. ¿La leyenda de modo pantalla (§9) se muestra también con mouse/teclado, o
    solo cuando el último input fue gamepad? Recomendado: solo gamepad, para no
    ensuciar el HUD de quien juega con teclado.
+
+## Implementación (2026-09-19)
+
+Entregado al final, como pedía FD-306 §8. Todo lo de §1–§10 está, con estas
+cuatro diferencias, las cuatro por conflictos reales entre secciones:
+
+1. **§7.1 (snap al soltar) se quitó.** El hub de FD-306 §1 hace que
+   `_index_at()` nunca devuelva "nada marcado", así que la memoria corta no
+   tenía caso que atender. Ver FD-306 §Implementación.
+2. **§6 y §3 se pisaban sobre el mismo gesto.** Se resolvió por estado del
+   slot: con el hombro sostenido sobre un slot **lleno**, el stick arrastra su
+   widget y la **cruceta** (§7.2) recorre el arco para cambiarle la pantalla;
+   sobre un slot **vacío** no hay nada que arrastrar y el stick apunta el
+   dial. Cada gesto significa una sola cosa en cada momento.
+3. **El hold deshace el `_open_on_press`.** Una pantalla que es solo widget se
+   abría al oprimir la tecla del slot (no hay transición de cámara que
+   disimule la espera). Que la pulsación termine siendo un hold dice que no
+   era eso lo que se quería, así que se cierra antes de abrir el dial — si no,
+   el acorde de §5 abría justo la pantalla que promete no abrir.
+4. **La cruceta entró al stream como `hud_nav`** (−1/0/+1), igual que
+   `hud_mode` y `hud_slot` y por el mismo motivo (§11): el auto-repeat se
+   cuenta con muestras grabadas. `from_dict()` lo lee con guarda, así que los
+   replays viejos siguen cargando.
+
+### §10 Criocápsulas — alcance real
+
+`CryoPodsHUDable` es **una** pantalla por bahía (`ship:cryopods`), montada en
+`Dome_Intro` junto al `ShipSystemBus`, con widget de roster, `scan`/`select`,
+`relevance()` que sube fuerte con una cápsula en alarma y `hud_gamepad_actions()`.
+
+Dos cosas se hicieron distinto a §10.1, a propósito:
+
+- **No hay `CryoPodsView.tscn`.** §10.1 proponía reusar `CryoDiagnosticsUI`,
+  pero esa pantalla es telemetría de sala (coolant, válvulas, fugas), no ficha
+  de ocupante — lo dice el propio FD-307. La bahía queda como pantalla de solo
+  widget (patrón ya soportado: el widget ampliado es la vista). La ficha por
+  cápsula es de FD-307, que la diseñó.
+- **El roster nace sin ocupantes declarados.** El componente los soporta
+  (`pod_roster`, líneas `"id|ocupante|estado"`), pero la escena sólo declara
+  `pod_count = 28`: inventar 28 nombres de tripulación es escribir narrativa,
+  no implementar el sistema. Mientras no haya roster, el widget dice
+  "28 CÁPSULAS · NOMINAL" en vez de afirmar "0/28 OCUP", que sería falso.
+  La alerta **no se inventa**: sale del `criocoolant` del `ShipSystemBus`.
+
+`X = salir` de §10 no se declara como acción de la pantalla: salir es de la
+capa HUD (X/B), no una operación del widget, y declararla obligaría a inventar
+un `op` que no hace nada.
+
+### Descubribilidad (§9)
+
+Etiquetas `L1`/`L2`/`R1`/`R2` por slot y leyenda de botones de cara bajo la
+pantalla abierta, **las dos sólo con un mando conectado**: con teclado son
+ruido (Open Question 2, resuelta así).

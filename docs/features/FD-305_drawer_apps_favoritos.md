@@ -1,10 +1,10 @@
 # FD-305: Drawer de apps y favoritos — el "..." del radial
 
-**Status:** Design
+**Status:** Implemented
 **Priority:** P1
 **Effort:** Medium
 **Created:** 2026-09-19
-**Completed:** -
+**Completed:** 2026-09-19
 **Parent:** FD-296 (OdiseaOS) · FD-296 F3 (HudModeOverlay) · FD-304 (interfaz diégetica con gamepad)
 **Relacionadas:** FD-306 (fixes estructurales del radial)
 
@@ -270,3 +270,35 @@ la fila enfocada).
 
 Ver FD-306 §8. Resumen: hub inerte + frescura → favoritos en `SuitOS` → drawer
 (sin búsqueda) → orden por relevancia → FD-304.
+
+## Implementación (2026-09-19)
+
+- **`SuitOS`**: `favorite_screens` + `favorites_initialized` aditivos al
+  `save_state()`, `MAX_FAVORITES = 6`, `DEFAULT_FAVORITES`, `is_favorite()`,
+  `toggle_favorite()` (devuelve `false` = deny del 7º), `get_favorites()`,
+  `clear_favorites()` y `get_favorites_ordered()`.
+- **`SuitOSDrawer.gd`**: vista propia, sin `.tscn` (no tiene hijos que
+  declarar) y sin `ScrollContainer`. Scroll analógico con velocidad,
+  fricción, overscroll elástico y snap; cruceta con auto-repeat a 400 ms;
+  agrupado por inicial a partir de 8 filas. Búsqueda **no** implementada,
+  como dice §3.4.
+- **Hub → drawer** en `HudModeOverlay`: el "..." es chrome del overlay, no un
+  `HUDableComponent`, así que no puede listarse a sí mismo por construcción.
+
+### Dos decisiones que el documento dejaba abiertas
+
+1. **Un favorito que nunca se vio no entra al arco.** §4 dice que la lista se
+   filtra contra el registry *al mostrarse*. Se aplicó así: un favorito de
+   otro nivel sigue en el dial marcado offline mientras se le conozca el
+   último snapshot, pero un default de una pantalla que esta partida nunca
+   registró no ensucia el arco. La lista guardada queda intacta y el drawer
+   lo sigue listando para poder quitarlo.
+2. **Un save sin `favorite_screens` reinicia la curaduría**, no la hereda de
+   la partida anterior. Sin eso los defaults no se sembraban nunca.
+
+### Consecuencia para los tests existentes
+
+El dial dejó de mostrar el registry. `test_hud_mode.gd` es una suite de la
+mecánica del dial, no de la curaduría, así que favoritea sola lo que registra
+(un `connect` a `screen_registered` en `before_test`). La curaduría se prueba
+en `test_hud_drawer.gd`.

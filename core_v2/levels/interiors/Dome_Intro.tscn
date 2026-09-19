@@ -1,4 +1,4 @@
-[gd_scene load_steps=116 format=2]
+[gd_scene load_steps=117 format=2]
 
 [ext_resource path="res://core_v2/levels/interiors/Dome_Intro.lmbake" type="BakedLightmapData" id=1]
 [ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=7]
@@ -96,6 +96,7 @@
 [ext_resource path="res://core_v2/levels/interiors/Dome_Base.tscn" type="PackedScene" id=6000]
 [ext_resource path="res://core_v2/systems/ship/ShipSystemBus.gd" type="Script" id=6010]
 [ext_resource path="res://core_v2/things/SystemStatusScreen.gd" type="Script" id=6011]
+[ext_resource path="res://core_v2/things/CryoPodsHUDable.gd" type="Script" id=6012]
 
 [sub_resource type="BoxShape" id=539]
 extents = Vector3( 8, 5, 4 )
@@ -2340,4 +2341,9 @@ sources = {
 
 [node name="SystemStatusScreen" type="Node" parent="."]
 script = ExtResource( 6011 )
+bus_path = NodePath("../ShipSystemBus")
+
+[node name="CryoPodsHUDable" type="Node" parent="."]
+script = ExtResource( 6012 )
+pod_count = 28
 bus_path = NodePath("../ShipSystemBus")
