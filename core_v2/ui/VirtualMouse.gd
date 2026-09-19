@@ -166,6 +166,18 @@ static func set_pointer_released(released: bool) -> void:
 		cursor.set_desktop_mouse_mode(false)
 	cursor.update()
 
+# El jugador solto el puntero a proposito (ui_cancel / clic derecho). Mientras sea asi no se
+# recaptura el mouse: al recuperar el foco el grab lo volvia a meter en la ventana.
+static func is_pointer_released() -> bool:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return false
+	for existing in tree.get_nodes_in_group("virtual_mouse"):
+		var cursor: Control = existing as Control
+		if is_instance_valid(cursor) and cursor._released:
+			return true
+	return false
+
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -140,6 +140,7 @@ func test_released_pointer_shows_the_virtual_cursor_with_no_ui() -> void:
 	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
 	assert_bool(cursor.is_wanted()).is_true()
 	assert_bool(cursor.is_processing_input()).is_true()
+	assert_bool(VirtualMouseScript.is_pointer_released()).is_true()
 	assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 	# Si el juego habia recapturado, volver a soltar reafirma HIDDEN: antes el early-return lo
 	# dejaba dibujado pero con el puntero grabado (clavado en el centro).
@@ -149,6 +150,7 @@ func test_released_pointer_shows_the_virtual_cursor_with_no_ui() -> void:
 	VirtualMouseScript.set_pointer_released(false)
 	assert_bool(cursor.is_wanted()).is_false()
 	assert_bool(cursor.is_desktop_mouse_mode()).is_false()
+	assert_bool(VirtualMouseScript.is_pointer_released()).is_false()
 	Input.set_mouse_mode(mouse_mode)
 	cursor.get_parent().free()
 

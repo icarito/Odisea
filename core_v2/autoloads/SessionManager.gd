@@ -373,6 +373,10 @@ func _wants_mouse_capture() -> bool:
 	var mobile = get_node_or_null("/root/MobileUIManager")
 	if is_instance_valid(mobile) and mobile.is_mouse_capture_suspended():
 		return false
+	# Si el jugador solto el puntero a proposito (ui_cancel / clic derecho) no lo recapturamos al
+	# recuperar el foco: queria el cursor libre (virtual, nativo oculto), no el grab de vuelta.
+	if VirtualMouseScript.is_pointer_released():
+		return false
 	# Si el usuario soltó el mouse a propósito (ui_cancel -> VISIBLE) y no estamos
 	# en captura, no lo reasaltamos por un mero FOCUS_IN; sólo reafirmamos si ya
 	# estaba capturado o si es la captura inicial. Ese estado lo maneja el caller.
