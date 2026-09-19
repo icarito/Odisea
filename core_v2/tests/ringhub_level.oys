@@ -1,26 +1,27 @@
+# OYS_NODET=1
 LEVEL res://core_v2/levels/RingHub_Level.tscn
-WAIT 2.0
+
+SECTION "Elías despierta dentro de la criocápsula"
+WAIT 4.0
 GET_NODES_IN_GROUP "player" AS $players
-LOG "RingHub players=$players"
-GET_NODES_IN_GROUP "interactable" AS $interactables
-LOG "RingHub interactables=$interactables"
-SCREENSHOT "0_boot"
-FW 0.65s
-LEFT 15
-FW 0.65s
-LEFT 15
-FW 0.65s
-LEFT 15
-FW 0.65s
-LEFT 15
-SCREENSHOT "1_walk_ring"
-JUMP 0.2
-WAIT 0.8
-SCREENSHOT "2_jump"
-INTERACT Criopod_Vert/RotatingObjectV2
-WAIT 1.5
-SCREENSHOT "3_pod_mid"
-WAIT 2.0
-SCREENSHOT "4_pod_open"
+ASSERT $players == 1 "RingHub must have one player"
+SET $pods_scanned GET_NODE_PROP "Criopods" "_defer_index"
+ASSERT $pods_scanned == 40 "All Dome_Intro criopod slots must be evaluated"
+SET $wakeup_slot GET_NODE_PROP "RingHub_Level" "_selected_slot"
+ASSERT $wakeup_slot >= 0 "A valid criopod slot must be selected"
+ASSERT $wakeup_slot < 40 "The wake-up slot must belong to this RingHub level"
+SET $pilot_x GET_NODE_POS_X "Pilot"
+SET $pilot_y GET_NODE_POS_Y "Pilot"
+SET $pilot_z GET_NODE_POS_Z "Pilot"
+SET $pod_open GET_NODE_PROP "RotatingObjectV2" "is_active"
+ASSERT $pilot_x > -13.0 "Elías must begin inside a RingHub criopod"
+ASSERT $pilot_x < 13.0 "Elías must begin inside a RingHub criopod"
+ASSERT $pilot_y > 5.5 "Elías must remain above the criopod base"
+ASSERT $pilot_z > -13.0 "Elías must begin inside a RingHub criopod"
+ASSERT $pilot_z < 13.0 "Elías must begin inside a RingHub criopod"
+ASSERT $pod_open == true "The wake-up cinematic must open the criopod"
+SCREENSHOT "0_wakeup_in_pod"
+SCREENSHOT "1_pod_open"
+
 LOG "RingHub_Level OK"
 QUIT

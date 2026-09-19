@@ -655,14 +655,15 @@ rail_right = true
 rail_infill_enabled = false
 
 [node name="RadialScatter2" type="Spatial" parent="."]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -12, 0, -15 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -15 )
 script = ExtResource( 11 )
 target_scene = ExtResource( 9 )
 item_count = 32
-radius = 6.0
+radius = 9.0
 blocked_angle_ranges_deg = [ Vector2( -8, 8 ), Vector2( 82, 98 ), Vector2( 172, 188 ), Vector2( 262, 278 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
+rebuild_baked_items = true
 
 [node name="Item_1" type="MeshInstance" parent="RadialScatter2" instance=ExtResource( 9 )]
 transform = Transform( -0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, -0.19509, 5.88471, 0, 1.17054 )
@@ -833,14 +834,15 @@ mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="RadialScatter3" type="Spatial" parent="."]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, -12, 0, 15 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 15 )
 script = ExtResource( 11 )
 target_scene = ExtResource( 9 )
 item_count = 32
-radius = 6.0
+radius = 9.0
 blocked_angle_ranges_deg = [ Vector2( -8, 8 ), Vector2( 82, 98 ), Vector2( 172, 188 ), Vector2( 262, 278 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
+rebuild_baked_items = true
 
 [node name="Item_1" type="MeshInstance" parent="RadialScatter3" instance=ExtResource( 9 )]
 transform = Transform( -0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, -0.19509, 5.88471, 0, 1.17054 )
@@ -1011,14 +1013,15 @@ mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
 
 [node name="RadialScatter4" type="Spatial" parent="."]
-transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 12, 0, 15 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 15 )
 script = ExtResource( 11 )
 target_scene = ExtResource( 9 )
 item_count = 32
-radius = 6.0
+radius = 9.0
 blocked_angle_ranges_deg = [ Vector2( -8, 8 ), Vector2( 82, 98 ), Vector2( 172, 188 ), Vector2( 262, 278 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
+rebuild_baked_items = true
 
 [node name="Item_1" type="MeshInstance" parent="RadialScatter4" instance=ExtResource( 9 )]
 transform = Transform( -0.19509, 0, -0.980785, 0, 1, 0, 0.980785, 0, -0.19509, 5.88471, 0, 1.17054 )

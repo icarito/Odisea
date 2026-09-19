@@ -1,0 +1,7 @@
+SECTION "Despertar"
+CINEMATIC
+PRINT "Elías, despierta..."
+PLAY_ANIM "Confused"
+INTERACT Criopod_Vert/RotatingObjectV2
+WAIT 3.0
+INTERACTIVE

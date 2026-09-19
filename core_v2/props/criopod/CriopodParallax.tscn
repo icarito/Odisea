@@ -86,6 +86,7 @@ rings = 0
 extents = Vector3( 0.5, 1.2, 0.5 )
 
 [node name="Criopod" type="MeshInstance"]
+transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0 )
 use_in_baked_light = true
 mesh = SubResource( 220 )
 material/0 = SubResource( 221 )
