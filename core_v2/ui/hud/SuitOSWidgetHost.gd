@@ -44,8 +44,6 @@ const CINEMATIC_SLIDE_DISTANCE := 180.0
 const WIDGET_LAYER := 5
 # FD-304 §9: un mapeo de mando que no se ve, no existe. Cada slot lleva la etiqueta de SU hombro,
 # del lado que le toca (1 y 2 a la izquierda = L1/L2; 3 y 4 a la derecha = R1/R2).
-const SHOULDER_LABELS := ["L1", "L2", "R1", "R2"]
-const SHOULDER_COLOR := Color(0.0, 0.835, 1.0, 0.85)
 const SHOULDER_DENY_COLOR := Color(1.0, 0.72, 0.23, 1.0)
 const DENY_MSEC := 450
 
@@ -158,25 +156,16 @@ func deny_slot(index: int) -> void:
 		_shoulders.update()
 
 func _draw_shoulders() -> void:
-	# Con teclado la etiqueta del hombro es ruido: los slots se accionan con las teclas 1-4.
+	# El mapeo de hombros se descubre jugando: no se rotula L1/L2/R1/R2 (Sebastian 2026-09-19).
+	# La capa queda solo para el rechazo de un slot vacio (FD-304 §3), que es feedback de una
+	# accion, no un cartel de controles.
 	if Input.get_connected_joypads().empty():
 		return
-	var font: Font = get_font("font")
-	if font == null:
+	if OS.get_ticks_msec() - _deny_msec >= DENY_MSEC:
 		return
-	var k: float = UIScaleCompensatorScript.scale_for(self)
-	var denying: bool = OS.get_ticks_msec() - _deny_msec < DENY_MSEC
 	for i in range(HudSlots.COUNT):
-		var rect: Rect2 = slot_rect(i)
-		var hot: bool = denying and i == _deny_slot_index
-		var color: Color = SHOULDER_DENY_COLOR if hot else SHOULDER_COLOR
-		var text: String = SHOULDER_LABELS[i]
-		var width: float = font.get_string_size(text).x
-		var at := Vector2(rect.end.x - width - 4.0 * k, rect.position.y + 14.0 * k) if HudSlots.is_right(i) \
-			else Vector2(rect.position.x + 4.0 * k, rect.position.y + 14.0 * k)
-		_shoulders.draw_string(font, at, text, color)
-		if hot:
-			_shoulders.draw_rect(rect, color, false, 2.0)
+		if i == _deny_slot_index:
+			_shoulders.draw_rect(slot_rect(i), SHOULDER_DENY_COLOR, false, 2.0)
 
 # Cuando se ven los widgets. PauseManager avisa al pausar y reanudar; SuitOS, al abrir o cerrar
 # una pantalla del modo HUD.

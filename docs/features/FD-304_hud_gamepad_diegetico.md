@@ -255,13 +255,14 @@ no se ven pixeladas.
 
 Un mapeo de mando que no se ve, no existe. Dos elementos diégeticos:
 
-- **Etiqueta de hombro en cada widget de slot**: `L1`/`L2` a la izquierda,
-  `R1`/`R2` a la derecha, en el estilo del HUD. Se dibuja en
-  `SuitOSWidgetHost._place()` usando `HudSlots.is_right()`.
 - **Leyenda de modo pantalla**: fila de 4 pastillas abajo de la pantalla abierta,
   una por botón de cara con `label`/`icon` de `hud_gamepad_actions()`. Se oculta
   a los ~3 s y vuelve al primer input (mismo patrón que las leyendas de
   interacción existentes).
+- ~~**Etiqueta de hombro en cada widget de slot** (`L1`/`L2`/`R1`/`R2`)~~ —
+  **retirada (Sebastián, 2026-09-19): el mapeo de hombros se descubre jugando, no
+  se rotula.** `SuitOSWidgetHost._draw_shoulders()` queda solo para el rechazo de
+  un slot vacío (feedback de acción, FD-304 §3).
 
 ### 10. Criocápsulas como item huddeable (prioridad)
 
@@ -490,6 +491,9 @@ un `op` que no hace nada.
 
 ### Descubribilidad (§9)
 
-Etiquetas `L1`/`L2`/`R1`/`R2` por slot y leyenda de botones de cara bajo la
-pantalla abierta, **las dos sólo con un mando conectado**: con teclado son
-ruido (Open Question 2, resuelta así).
+Queda la leyenda de botones de cara bajo la pantalla abierta, **sólo con un mando
+conectado**: con teclado es ruido (Open Question 2, resuelta así).
+
+Las etiquetas de hombro `L1`/`L2`/`R1`/`R2` **se retiraron el 2026-09-19**
+(Sebastián): el mapeo de hombros se descubre jugando. `_draw_shoulders()` sólo
+dibuja el rechazo de un slot vacío.

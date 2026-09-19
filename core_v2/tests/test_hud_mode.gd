@@ -1037,6 +1037,32 @@ func test_a_widget_only_screen_is_dragged_from_its_view_to_a_slot_and_stays() ->
 	assert_bool(host._drop_targets_visible).is_false()
 
 
+func test_a_shoulder_and_the_stick_drag_the_open_widget_screen_to_a_slot() -> void:
+	# FD-304 §6 (modo pantalla): hombro sostenido + stick ancla la pantalla abierta a otro slot.
+	_widget_screen("test:a", "Linterna")
+	_screen("test:b", "Beta")
+	assert_bool(SuitOS.open_hud_mode(false, "test:a")).is_true()
+	var overlay = _overlay()
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	# El hombro del slot 1, sostenido hasta el hold, levanta la vista abierta.
+	_play(overlay, _slot_held(1, Gesture.HOLD_TICKS))
+	assert_bool(overlay._dragging_view).is_true()
+	assert_bool(overlay._view_drag_from_gamepad).is_true()
+	# El stick la lleva hasta el slot 3 (indice 2).
+	var target: Vector2 = host.slot_rect(2).get_center()
+	for _i in range(200):
+		var step: Vector2 = target - overlay._stick_cursor
+		if step.length() < 8.0:
+			break
+		step = step.normalized()
+		_play(overlay, [{"hud_slot": 1, "move_vec": [step.x, step.y], "analog_move_active": true}])
+	assert_int(host.slot_at(overlay._stick_cursor)).is_equal(2)
+	# Soltar el hombro la fija ahi y cierra el modo HUD.
+	_play(overlay, [{}])
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:a", ""])
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
 # --- Oprimir sin nada marcado / fuera del radial (restaurados) ---
 
 func test_click_with_nothing_marked_closes_the_radial_without_acting() -> void:

@@ -95,6 +95,8 @@ var _drag_from_handle: bool = false
 # SuitOSWidgetHost), no del dial.
 var _touch_on_widget: bool = false
 var _dragging_view: bool = false
+# El arrastre de la vista abierta que empezo con hombro+stick (gamepad), para saber cuando soltar.
+var _view_drag_from_gamepad: bool = false
 var _active_focused_screen: Object = null
 # El dial abierto por mantener TAB: mientras siga apretado es un cuasimodo (ver _release_tab_hold).
 var _tab_hold_active: bool = false
@@ -285,6 +287,14 @@ func _physics_process(_delta: float) -> void:
 		_begin_hold_radial(-1)
 	var slot_was_down: bool = _key_slot_down
 	var slot_gesture: int = _feed_slot_gesture(int(input.hud_slot) - 1)
+	# FD-304 §6: con una pantalla abierta, el hombro + stick arrastra esa pantalla a otro slot en
+	# vez de abrir el radial de ese hombro. Mientras dura el arrastre, el resto del modo HUD no
+	# corre: A/X/B no son de la pantalla y el dial no se apunta.
+	if drives_dial_with_gameplay_input and _drive_screen_view_drag(input, slot_gesture):
+		if not is_inside_tree() or is_queued_for_deletion():
+			return
+		_update_hold_feedback()
+		return
 	if _key_slot_down and not slot_was_down:
 		_open_on_press(_key_slot)
 	if slot_gesture == Gesture.TAP:
@@ -684,11 +694,51 @@ func _drive_view_drag(position: Vector2) -> bool:
 		host.show_drop_targets(true, host.slot_at(position))
 	return true
 
+# FD-304 §6 (modo pantalla, gamepad): el hombro sostenido levanta la pantalla abierta y el stick
+# la lleva a otro slot; soltar el hombro la suelta. Reusa _drive_view_drag()/_drop_view().
+# Un simple tap del hombro no arrastra: el gesto es hold (o stick) + soltar.
+func _drive_screen_view_drag(input, slot_gesture: int) -> bool:
+	var slot: int = int(input.hud_slot) - 1
+	if _view_drag_from_gamepad:
+		if slot < 0 or not _widget_screen_showing():
+			_drop_view(_stick_cursor)
+		else:
+			_move_gamepad_view_cursor(input)
+		return true
+	if slot < 0 or not _widget_screen_showing() or _opened_on_press:
+		# `_opened_on_press` = la pantalla la abrio este mismo hombro por adelantado: el hold es
+		# para el radial de ese slot (FD-304 §3), no para arrastrar la pantalla.
+		return false
+	var move := Vector2(input.move_vec.x, input.move_vec.y)
+	var stick_moved: bool = bool(input.analog_move_active) and move.length_squared() > MOVE_GESTURE_DEADZONE_SQ
+	if slot_gesture != Gesture.HOLD and not stick_moved:
+		return false
+	_view_drag_from_gamepad = true
+	_dragging_view = true
+	_view_drag_candidate = true
+	_stick_cursor = _view_screen_rect().get_center()
+	_touch_start = _stick_cursor
+	_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC # el hold ya se cumplio al abrir
+	Haptics.pulse(Haptics.LIFT_MSEC)
+	_move_gamepad_view_cursor(input)
+	return true
+
+
+func _move_gamepad_view_cursor(input) -> void:
+	var move := Vector2(input.move_vec.x, input.move_vec.y)
+	if bool(input.analog_move_active) or move.length_squared() > MOVE_GESTURE_DEADZONE_SQ:
+		_stick_cursor += move.limit_length(1.0) * STICK_DRAG_SPEED
+		var size: Vector2 = get_viewport_rect().size
+		_stick_cursor.x = clamp(_stick_cursor.x, 0.0, size.x)
+		_stick_cursor.y = clamp(_stick_cursor.y, 0.0, size.y)
+	_drive_view_drag(_stick_cursor)
+
 # Soltarlo sobre un slot lo fija ahi y cierra el modo HUD: el widget queda en su slot. En cualquier
 # otro lado vuelve a la vista ampliada.
 func _drop_view(position: Vector2) -> void:
 	_dragging_view = false
 	_view_drag_candidate = false
+	_view_drag_from_gamepad = false
 	var host = _widget_host()
 	var slot: int = host.slot_at(position) if host != null else -1
 	if host != null:
