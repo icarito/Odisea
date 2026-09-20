@@ -437,7 +437,10 @@ func test_mouse_dragging_a_radial_item_pins_it_to_a_slot():
 func test_captured_mouse_dragging_a_radial_item_pins_it_to_a_slot():
 	var home = _home_with_dial(_dial_screens())
 	var overlay = _open_dial(home)
-	var start: Vector2 = VIEW_SIZE * 0.5
+	# Con el mouse capturado el click llega warpeado al centro y manda el aim, asi que la
+	# posicion da igual; cuando el runner NO puede capturar (headless de CI) manda la posicion,
+	# y VIEW_SIZE * 0.5 caia en el HUB porque el ancho real del overlay depende de la ventana.
+	var start: Vector2 = _top_slice(overlay)
 	var drop: Vector2 = home.widget_host.slot_rect(0).get_center()
 	var mouse_mode: int = Input.get_mouse_mode()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
