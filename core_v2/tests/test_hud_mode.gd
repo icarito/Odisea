@@ -257,8 +257,13 @@ func overlay_aim_radius() -> float:
 func test_pick_while_holding_keeps_the_screen_open_on_release() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
-	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS)
-		+ [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, {"hud_mode": true, "tool_fire_primary": true}])
+	# Apuntado y disparo en tandas separadas, como llegan los ticks en el juego (uno por frame):
+	# en una sola tanda el hover no se asienta y el disparo termina confirmando el centro. Y el
+	# delta va al radio de apuntado completo, no a 60 px: el radio de acierto del hub escala con
+	# el tamanio del dial y en la ventana de CI (1066x600) es 65 px, asi que 60 caia adentro.
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]}])
+	_play(overlay, [{"hud_mode": true, "tool_fire_primary": true}])
 	# Elegida con TAB todavia apretado: se entra y se usa (mouse virtual y clic)...
 	assert_bool(SuitOS.is_hud_mode_active()).is_true()
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
