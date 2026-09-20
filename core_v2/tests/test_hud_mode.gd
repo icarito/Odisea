@@ -257,8 +257,15 @@ func overlay_aim_radius() -> float:
 func test_pick_while_holding_keeps_the_screen_open_on_release() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
-	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS)
-		+ [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, {"hud_mode": true, "tool_fire_primary": true}])
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	var sel = overlay._selector
+	var d := "sel_rect=%s sel_global=%s overlay_rect=%s ring=%s wmin=%s wmax=%s" % [
+		sel.rect_size, sel.get_global_rect(), overlay.rect_size,
+		sel._ring_size() if sel.has_method("_ring_size") else "?",
+		sel.width_min if "width_min" in sel else "?", sel.width_max if "width_max" in sel else "?"]
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}])
+	d += " | point=%s hov=%s" % [sel.rect_size * 0.5 + overlay._aim, sel.get_hovered_index()]
+	assert_str(d).is_equal("DIAG")
 	# Elegida con TAB todavia apretado: se entra y se usa (mouse virtual y clic)...
 	assert_bool(SuitOS.is_hud_mode_active()).is_true()
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
