@@ -453,6 +453,14 @@ if [ ${#ARGS[@]} -eq 0 ]; then
     ARGS=("-a" "./core_v2/tests/")
 fi
 
+# GdUnit aborta la suite en el primer test fallido ("fail fast"): en CI eso obliga a un ciclo
+# completo por cada fallo, y los casos que vienen despues quedan invisibles hasta arreglar el
+# anterior. Con -c corre el set entero y reporta todos los fallos de una. ODISEA_FAIL_FAST=1
+# vuelve al comportamiento viejo para una corrida puntual.
+if ! is_truthy "${ODISEA_FAIL_FAST:-0}"; then
+    ARGS+=("-c")
+fi
+
 # Full suite default: include determinism cases in phase 1 (--nodet).
 # Allows opt-out by exporting ODISEA_RUN_DETERMINISM=0 or OYS_NODET=0 explicitly.
 if [ $RUN_STRESS_ONLY -eq 0 ] && is_full_core_suite_target; then
