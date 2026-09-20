@@ -169,6 +169,9 @@ const ANIM_BLEND_PARAM_FLOAT_EPSILON := 0.035
 
 # --- LIFECYCLE ---
 func _ready() -> void:
+	# El modo HUD pausa el arbol: el animator tiene que seguir procesando igual, si no el piloto
+	# queda congelado en pose. Solo anima (no cambia estado de gameplay).
+	pause_mode = PAUSE_MODE_PROCESS
 	# Asignar controller de forma segura (dos niveles arriba: Pivot -> Visual -> Pilot)
 	controller = get_parent().get_parent() if get_parent() and get_parent().get_parent() else null
 	

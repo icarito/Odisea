@@ -10,6 +10,13 @@ export(String) var interaction_text := "Interactuar"
 # FD-310: titulo que muestra el widget de contexto del HUD cuando este prop esta en rango. Si
 # queda vacio, se usa screen_title() (si es HUDable) o el nombre del nodo humanizado.
 export(String) var interaction_title := ""
+# Ficha legible del prop para el widget de contexto (abajo-centro): descripcion corta, el verbo de
+# cada estado (interaction_verb_active = lo que hace si YA esta activo: "Cerrar"/"Apagar"; el otro
+# es el de partida) y el icono del cuadrado.
+export(String) var interaction_description := ""
+export(String) var interaction_verb_active := ""
+export(String) var interaction_verb_inactive := ""
+export(Texture) var interaction_icon: Texture = null
 export(float) var anim_duration := 1.0 # Seconds to complete animation
 export(bool) var starts_active := false setget set_starts_active # Initial logical state
 export(bool) var auto_interact := false # If true, automatically triggers when player is in range
@@ -111,6 +118,19 @@ func _ready():
 			_perf_monitor.register_monitored_node(self )
 
 # --- CORE API ---
+
+# Texto de la interaccion para el widget: el verbo del estado actual si esta definido, si no el
+# texto generico. Las subclases con logica propia (terminal, selector) lo sobreescriben.
+func get_interaction_prompt() -> String:
+	var parts := PoolStringArray()
+	if is_interactable:
+		var verb: String = interaction_verb_active if is_active else interaction_verb_inactive
+		if verb.strip_edges() == "":
+			verb = interaction_text
+		parts.append(verb if verb.strip_edges() != "" else "Interactuar")
+	if is_focusable:
+		parts.append(focus_text if focus_text.strip_edges() != "" else "Enfocar")
+	return parts.join(" / ")
 
 func interact() -> void:
 	"""Toggle the active state. Called by player interaction system."""

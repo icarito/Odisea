@@ -8,7 +8,7 @@ extends Control
 # vuelve al jugador; con el radial ya abierto, un tap confirma lo marcado o lo cierra si no hay nada.
 # Hold abre el radial tambien sobre una pantalla (para cambiarla), como cuasimodo: soltar elige lo
 # marcado. Elegir abre la pantalla sin fijarla: nada se autoasigna a un slot.
-# Teclas 1-4 (hud_slot): tap abre la pantalla de ese slot (o la cierra; vacio = radial) y hold
+# Teclas 1-4 / slot_1..4: tap abre la pantalla de ese slot (o la cierra si ya es la activa) y hold
 # abre el radial que fija lo elegido EN ese slot. Con una sola pantalla no hay radial.
 # El radial se apunta con un vector acumulado con zona muerta: soltar en el centro no elige nada. Tap/hold, gesto y click salen de InputDataV2
 # (patron ElevatorFloorSelector): con el mundo pausado el proveedor del jugador no avanza, asi
@@ -48,10 +48,6 @@ const FACE_FIELDS := {"a": "crouch", "b": "jump", "x": "interact"}
 # Paso de la cruceta por el arco: mismo umbral que el hold, para no inventar un tercer tempo.
 const NAV_REPEAT_MSEC := 400
 const NAV_RATE_MSEC := 110
-# Leyenda de los botones de cara: se va sola y vuelve con el primer input (patron de las leyendas
-# de interaccion). Solo con mando: no ensucia el HUD de quien juega con teclado.
-const LEGEND_VISIBLE_MSEC := 3000
-const LEGEND_PILL := Vector2(132, 26)
 # Cuanto recorre el cursor del arrastre por tick con el stick a fondo, en pixeles del viewport.
 const STICK_DRAG_SPEED := 14.0
 
@@ -95,6 +91,13 @@ var _drag_from_handle: bool = false
 # SuitOSWidgetHost), no del dial.
 var _touch_on_widget: bool = false
 var _dragging_view: bool = false
+# Pantalla con vista propia (presentador 3D): para que el asa "arrastre" hay que seguir el mesh del
+# presentador con el cursor. Se guarda su pose original para restaurarla al soltar.
+var _drag_mesh: Node = null
+# Widget fantasma que se arrastra (en vez de mover la ventana 3D) al llevar una Pantalla a un slot.
+var _drag_widget: Control = null
+var _drag_mesh_xf: Transform = Transform()
+var _drag_mesh_scale: Vector3 = Vector3.ONE
 # El arrastre de la vista abierta que empezo con hombro+stick (gamepad), para saber cuando soltar.
 var _view_drag_from_gamepad: bool = false
 var _active_focused_screen: Object = null
@@ -134,14 +137,20 @@ var _nav_msec: int = 0
 var _hold_gauge: Control = null
 var _hold_slot: int = -1
 var _hold_progress: float = 0.0
-var _legend: Control = null
-var _legend_actions: Array = []
-var _legend_msec: int = -100000
-# Cursor virtual del arrastre con stick: arranca en el centro del slot y el stick lo desplaza.
-var _stick_cursor: Vector2 = Vector2.ZERO
+# Cursor unico del modo HUD: un solo estado relativo, en pixeles de SU espacio activo. Radial,
+# drawer y arrastres lo miden en el viewport del overlay; la pantalla enfocada, en pixeles de su
+# propio Viewport. Lo mueven por delta el stick, el dedo y el mouse capturado; el mouse absoluto lo
+# fija proyectando. Un unico tope por contexto, siempre por _move_cursor().
+var _cursor: Vector2 = Vector2.ZERO
+var _cursor_moved: bool = false
+# Clic/arrastre del dial con CROUCH (revision 2026-09-19): sostenido levanta el item marcado y el
+# stick lo lleva a un slot; un tap corto confirma.
+var _crouch_drag_active: bool = false
+var _crouch_drag_moved: bool = false
 # Arrastre de una fila del drawer hacia un slot (FD-305 §3.5). Con mouse/dedo la fila se levanta
 # al superar el umbral; con un hombro sostenido se levanta la fila enfocada y la lleva el stick.
 var _drawer_press_row: int = -1
+# El drawer usa el mouse CAPTURADO: su puntero es el mismo cursor unico, movido por deltas.
 var _drawer_press_star: bool = false
 var _drawer_drag_row: int = -1
 var _drawer_drag_active: bool = false
@@ -149,7 +158,10 @@ var _drawer_drag_active: bool = false
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
 	if use_virtual_mouse:
-		_virtual_mouse = VirtualMouse.attach_to(self)
+		# El overlay se crea en runtime (OverlayUIManager): si el cursor se pide en _ready, el
+		# padre todavia esta armando hijos ("Parent node is busy setting up children"). Diferido,
+		# entra en el mismo frame y evita el add_child denegado.
+		call_deferred("_attach_virtual_mouse")
 	_selector = get_node("RadialSelector")
 	# FD-306 §1: el centro ya no es un agujero sino el hub ("..." -> el drawer), con su propio radio.
 	# Por eso no se le pone dead_zone: apuntar al medio marca el hub, y SOLTAR ahi cierra sin elegir,
@@ -189,12 +201,6 @@ func _ready() -> void:
 	_hold_gauge.set_anchors_and_margins_preset(Control.PRESET_WIDE)
 	add_child(_hold_gauge)
 	_hold_gauge.connect("draw", self, "_draw_hold_gauge")
-	_legend = Control.new()
-	_legend.name = "GamepadLegend"
-	_legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_legend.set_anchors_and_margins_preset(Control.PRESET_WIDE)
-	add_child(_legend)
-	_legend.connect("draw", self, "_draw_legend")
 	var suit_os: Node = _suit_os()
 	_mount.view_2d = suit_os.get("presents_views_in_2d") == true
 	# FD-306 §5: el overlay leia el registry una sola vez. Con el drawer eso pasa a ser un bug real,
@@ -211,6 +217,17 @@ func _ready() -> void:
 	if settings and settings.has_method("hold_full_resolution_ui"):
 		settings.hold_full_resolution_ui(self, true)
 
+func _attach_virtual_mouse() -> void:
+	if not use_virtual_mouse or is_instance_valid(_virtual_mouse) or is_queued_for_deletion() \
+			or not is_inside_tree():
+		return
+	_virtual_mouse = VirtualMouse.attach_to(self)
+	# Si en el mismo frame ya se abrio una pantalla, el estado quedo pendiente (no habia cursor):
+	# se aplica ahora para que el puntero quede liberado y clickeable.
+	if is_instance_valid(_active_focused_screen) or _mount.is_showing():
+		_set_virtual_mouse_enabled(true)
+		_release_mouse_for_screen()
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
 		_cleanup_focus()
@@ -219,6 +236,12 @@ func _exit_tree() -> void:
 	_end_option_drag()
 	_cleanup_focus()
 	_mount.close()
+	# Salir del modo HUD apaga el cursor virtual aunque el overlay se libere sin pasar por _exit()
+	# (cambio de escena, pausa). Si otra UI tambien lo pedia, sigue vivo por ese otro requester.
+	if is_instance_valid(_virtual_mouse):
+		_set_virtual_mouse_enabled(false)
+		if _virtual_mouse.has_method("remove_requester"):
+			_virtual_mouse.remove_requester(self)
 	var suit_os: Node = _suit_os()
 	if is_instance_valid(suit_os):
 		for sig in ["screen_registered", "screen_unregistered"]:
@@ -285,7 +308,6 @@ func _physics_process(_delta: float) -> void:
 			_open_radial()
 	elif gesture == Gesture.HOLD and not _selector.is_open():
 		_begin_hold_radial(-1)
-	var slot_was_down: bool = _key_slot_down
 	var slot_gesture: int = _feed_slot_gesture(int(input.hud_slot) - 1)
 	# FD-304 §6: con una pantalla abierta, el hombro + stick arrastra esa pantalla a otro slot en
 	# vez de abrir el radial de ese hombro. Mientras dura el arrastre, el resto del modo HUD no
@@ -295,8 +317,9 @@ func _physics_process(_delta: float) -> void:
 			return
 		_update_hold_feedback()
 		return
-	if _key_slot_down and not slot_was_down:
-		_open_on_press(_key_slot)
+	# Revision 2026-09-19 (Sebastian): el TAP de un hombro ejecuta la accion por default de su
+	# pantalla y solo el HOLD lleva a la pantalla (slot vacio: radial para asignarle una). La
+	# pulsacion ya no abre nada al oprimir; `_open_on_press` queda solo para el atajo de teclado.
 	if slot_gesture == Gesture.TAP:
 		if _opened_on_press:
 			_opened_on_press = false # el release de la pulsacion que la abrio
@@ -330,24 +353,18 @@ func _feed_slot_gesture(pressed_slot: int) -> int:
 	_key_slot_down = down
 	return _slot_gesture.feed(down)
 
-# Tap de la tecla de un slot. Devuelve true si salio del modo HUD.
-func _tap_slot(slot: int) -> bool:
-	var suit_os: Node = _suit_os()
-	var id: String = suit_os.slot_screen_id(slot)
-	_opened = true
-	if not suit_os.has_screen(id):
-		# FD-304 §3: un tap no abre un menu. El slot vacio responde con un deny y el radial queda
-		# para el hold, que es la accion deliberada.
-		_deny_slot(slot)
-		return false
-	if id == suit_os.get_active_screen_id() and not _selector.is_open():
-		_exit()
-		return true
-	_show_screen(id)
-	return false
+# Tap de la tecla/hombro de un slot. Devuelve true si salio del modo HUD.
+# Revision 2026-09-19 (tarde): estando en modo HUD, R1/R2/L1/L2 NO abren el widget de su slot:
+# cierran el modo HUD y vuelven a gameplay. El widget se abre desde el radial (hub/opcion) o desde
+# la accion primaria en gameplay (HudSlotGamepadV2).
+func _tap_slot(_slot: int) -> bool:
+	_exit()
+	return true
+
 
 # Una pantalla que es solo widget se abre al oprimir la tecla, sin esperar a saber si es tap o
-# hold: no hay transicion de camara que disimule esa espera. Con vista diegetica sigue al soltar.
+# hold: no hay transicion de camara que disimule esa espera. Solo el atajo de teclado 1-4 fuera del
+# modo HUD; dentro del modo HUD el tap ejecuta la accion y es el hold el que abre el radial.
 func _open_on_press(slot: int) -> void:
 	var suit_os: Node = _suit_os()
 	var id: String = suit_os.slot_screen_id(slot)
@@ -360,13 +377,14 @@ func _open_on_press(slot: int) -> void:
 	_opened_on_press = true
 	_show_screen(id)
 
+# Hold de la tecla/hombro de un slot: abre el radial fijado a ese slot y, si el slot tiene pantalla,
+# queda marcado su widget en el arco (revision 2026-09-19).
 func _begin_hold_radial(slot: int) -> void:
 	_opened = true
 	if _opened_on_press:
 		# La pulsacion ya habia abierto la pantalla del slot por adelantado (es widget puro y no
 		# hay transicion de camara que disimule la espera). Que la pulsacion termine siendo un
-		# hold dice que no era eso lo que se queria: se deshace antes de abrir el dial, o el
-		# acorde de FD-304 §5 abriria justo la pantalla que promete no abrir.
+		# hold dice que no era eso lo que se queria: se deshace antes de abrir el dial.
 		_opened_on_press = false
 		_cleanup_focus()
 		_mount.close()
@@ -405,10 +423,15 @@ func _drive_from_stream(input) -> void:
 		_point_at(_aim + gesture)
 		if gesture.length() >= MOUSE_GESTURE_DEADZONE:
 			_mouse_aim_active = true
-	# Hold de un hombro sobre un slot QUE YA TIENE pantalla: el stick no apunta el dial, levanta el
-	# widget y lo arrastra (FD-304 §6). Para cambiarle la pantalla a ese slot esta la cruceta, que
-	# recorre el arco (§7.2); el stick solo apunta el dial cuando el slot esta vacio y no hay nada
-	# que arrastrar. Asi el mismo hold hace las dos cosas sin que se pisen.
+	# CROUCH sostenido (clic del dial, revision 2026-09-19): el stick mueve el item levantado, no
+	# apunta el arco. El release lo suelta o, si no se movio, confirma lo marcado.
+	if _crouch_drag_active:
+		_drive_crouch_drag(move, input)
+		_confirm_was_down = bool(input.tool_fire_primary)
+		return
+	# Hold de un hombro sobre un slot QUE YA TIENE pantalla: el stick levanta su widget y lo
+	# arrastra (FD-304 §6). Con la revision 2026-09-19 ese arrastre vive en la capa Pantalla
+	# (_drive_screen_view_drag); dentro del radial solo queda para slots vacios.
 	if _stick_drag_armed():
 		_drive_stick_drag(move, input)
 		_confirm_was_down = bool(input.tool_fire_primary)
@@ -436,21 +459,72 @@ func _input(event: InputEvent) -> void:
 		_drawer_pointer_input(event)
 		return
 	if use_virtual_mouse and event is InputEventMouseButton and event.button_index == BUTTON_RIGHT:
-		if event.pressed and is_instance_valid(_virtual_mouse):
+		if event.pressed:
+			# Liberar de verdad: set_pointer_released marca el estado global (no solo el cursor
+			# local), asi al salir del HUD el mouse NO se vuelve a capturar.
+			VirtualMouse.set_pointer_released(true)
 			_set_virtual_mouse_enabled(true)
 			_virtual_mouse.set_desktop_mouse_mode(true, event.position)
+			_set_focus_cursor_over_surface(_screen_surface_uv(event.position).x >= 0.0)
 		get_tree().set_input_as_handled()
 		return
+	# Revision 2026-09-19: el panel del widget ampliado se arrastra desde su cuerpo con el mouse
+	# (o el dedo emulado), como los items del radial. Sin hold: el mouse levanta al instante. Un
+	# clic sobre un boton del panel no arranca drag: va a la GUI.
+	if event is InputEventMouseButton and event.button_index == BUTTON_LEFT \
+			and not _selector.is_open() and not _drawer_open():
+		if event.pressed:
+			# Asa: arrastra la pantalla (tenga panel o no) hacia un slot. Un widget ampliado tambien
+			# se arrastra desde su cuerpo.
+			if _view_handle.visible and is_on_view_handle(event.position):
+				_begin_mouse_view_drag(event.position)
+				get_tree().set_input_as_handled()
+				return
+			if _showing_widget_only() and _on_view_body(event.position):
+				_begin_mouse_view_drag(event.position)
+				get_tree().set_input_as_handled()
+				return
+		elif _dragging_view:
+			_drop_view(event.position)
+			get_tree().set_input_as_handled()
+			return
 	if is_instance_valid(_active_focused_screen) and _active_focused_screen.has_method("forward_view_input"):
 		if event is InputEventKey and not event.is_action_pressed("ui_cancel"):
 			_active_focused_screen.forward_view_input(event)
 			get_tree().set_input_as_handled()
 			return
 		if event is InputEventMouseMotion or event is InputEventMouseButton:
-			_active_focused_screen.forward_view_input(event)
+			# Un cursor a la vez: sobre la superficie dibuja el del Viewport, fuera el
+			# mouse virtual 2D. Fuera NO se consume el evento, asi el mouse virtual sigue
+			# su curso normal (antes se consumia siempre y quedaba clavado).
+			var uv: Vector2
+			var gamepad_cursor: bool = is_instance_valid(_virtual_mouse) \
+				and _virtual_mouse.relative_target_scale != Vector2.ZERO
+			var design: Vector2 = _surface_design_size()
+			if event is InputEventMouseMotion and gamepad_cursor:
+				# El cursor del stick llega como motion relativo ya escalado a pixeles de la
+				# pantalla: mueve el MISMO cursor unico, con el signo del basis real del mesh
+				# (misma autoridad que usa la proyeccion del mouse, _surface_u_flip).
+				var step: Vector2 = Vector2(event.relative.x, event.relative.y)
+				if _surface_u_flip():
+					step.x = -step.x
+				_move_cursor(step, design)
+				uv = _surface_cursor_uv()
+			else:
+				uv = _screen_surface_uv(event.position)
+				if uv.x >= 0.0:
+					_set_surface_cursor_uv(uv)
+			var over: bool = uv.x >= 0.0
+			_set_focus_cursor_over_surface(over)
+			if over:
+				_active_focused_screen.forward_view_input(event, uv)
+				get_tree().set_input_as_handled()
+				return
+	if event is InputEventMouseMotion:
+		if _dragging_view:
+			_drive_view_drag(event.position, true)
 			get_tree().set_input_as_handled()
 			return
-	if event is InputEventMouseMotion:
 		if _mouse_drag_pending and _drag_option >= 0:
 			var drag_position: Vector2 = _update_mouse_drag_position(event)
 			if _drive_option_drag(drag_position, false):
@@ -549,13 +623,24 @@ func _input(event: InputEvent) -> void:
 			# Igual que touch: el click corto confirma; si se mueve antes de soltar, lleva el
 			# item del dial hasta un slot.
 			_mouse_drag_pending = true
-			# El dial se apunta, no se señala: manda el aim. Con el mouse capturado el click
-			# llega warpeado al centro (el hub), y tomar el puntero como verdad pisaba lo
-			# apuntado y hacia que soltar descartara en vez de elegir (FD-306 §1). El puntero
-			# solo decide cuando no hay nada apuntado (mouse libre sobre el item, o recien abierto).
-			_drag_option = _selector.get_hovered_index()
-			if _drag_option == RadialSelectorV2.NONE:
+			# Con el mouse capturado el click llega warpeado al centro (el hub) y el puntero miente:
+			# manda el aim. Con el mouse liberado (HIDDEN, como en modo HUD) el puntero es real y
+			# manda la posicion; el aim solo decide si el click cae fuera del anillo.
+			if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+				_drag_option = _selector.get_hovered_index()
+				if _drag_option == RadialSelectorV2.NONE:
+					_drag_option = _selector.slice_at(event.position)
+			elif _mouse_aim_active or _target_slot < 0:
+				# El mouse ya apunto (o el radial no vino de un slot): manda la posicion.
 				_drag_option = _selector.slice_at(event.position)
+				if _drag_option == RadialSelectorV2.NONE:
+					_drag_option = _selector.get_hovered_index()
+			else:
+				# Radial abierto por el hold de un slot y sin movimiento del mouse: vale lo marcado
+				# (el widget de ese slot), no la posicion del puntero.
+				_drag_option = _selector.get_hovered_index()
+				if _drag_option == RadialSelectorV2.NONE:
+					_drag_option = _selector.slice_at(event.position)
 			_drag_id = _dial_id_at(_drag_option)
 			_mouse_drag_moved = false
 			_mouse_drag_position = _selector.option_center(_drag_option)
@@ -585,7 +670,11 @@ func _input(event: InputEvent) -> void:
 		_exit()
 	elif event.is_action_pressed("ui_cancel"):
 		_exit()
-	elif event.is_action_pressed("ui_accept") and _selector.is_open():
+	elif event.is_action_pressed("ui_accept") and _selector.is_open() \
+			and not event is InputEventJoypadButton:
+		# Solo teclado/accion: el mando (A = joy0 = crouch y ui_accept a la vez) lo resuelve el
+		# stream en _physics_process. Sin este filtro A confirmaba por evento Y arrancaba el
+		# click/arrastre, y podia abrir un item que no era el apuntado (p. ej. la Consola).
 		_selector.confirm()
 	elif event.is_action("ui_accept") and _widget_screen_showing():
 		pass # el boton lo oprime _drive_widget_screen: la GUI lo oprimiria otra vez
@@ -623,6 +712,7 @@ func _drive_option_drag(position: Vector2, require_hold: bool = true, allow_stat
 func _start_mouse_option_drag(position: Vector2) -> void:
 	if not _drive_option_drag(position, false, true):
 		return
+	VirtualMouse.set_dragging(true)
 	_restore_mouse_capture_after_drag = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
 	if _restore_mouse_capture_after_drag:
 		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
@@ -653,11 +743,17 @@ func _drop_option(position: Vector2) -> void:
 		# Soltar sobre la zona de reciclaje vacia el slot, igual que con el mouse (FD-304 §6).
 		Haptics.pulse(Haptics.DROP_MSEC)
 		_suit_os().clear_slot(_suit_os().get_pinned_slots().find(_drag_id))
+	# Soltar el item CONSUME el gesto del hold, igual que elegirlo (_select). Sin esto, tras
+	# arrastrar con A y soltar, el release del hombro caia en _confirm_or_dismiss() y ACTIVABA
+	# el item que seguia marcado: el arrastre funcionaba y ademas se abria la pantalla.
+	if _tab_hold_active:
+		_picked_during_hold = true
 	_end_option_drag()
 	if slot >= 0 and from_handle:
 		_exit()
 
 func _end_option_drag() -> void:
+	VirtualMouse.set_dragging(false)
 	if is_instance_valid(_drag_ghost):
 		_drag_ghost.queue_free()
 	_drag_ghost = null
@@ -668,7 +764,13 @@ func _end_option_drag() -> void:
 	_mouse_drag_moved = false
 	_drag_from_handle = false
 	if _restore_mouse_capture_after_drag:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		# Si el cursor virtual sigue en modo desktop (una pantalla abierta lo pide), no se puede
+		# recapturar: se queda HIDDEN.
+		if is_instance_valid(_virtual_mouse) and _virtual_mouse.has_method("is_desktop_mouse_mode") \
+				and _virtual_mouse.is_desktop_mouse_mode():
+			Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+		else:
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	_restore_mouse_capture_after_drag = false
 	var host = _widget_host()
 	if host != null:
@@ -676,13 +778,26 @@ func _end_option_drag() -> void:
 
 # El widget ampliado de una pantalla que es solo widget: pasado el hold y con el dedo en movimiento
 # se levanta, vuelve al tamaño de slot y sigue al dedo.
-func _drive_view_drag(position: Vector2) -> bool:
+func _drive_view_drag(position: Vector2, allow_stationary: bool = false) -> bool:
 	var widget: Control = _mount.get_widget()
 	if not is_instance_valid(widget):
-		return false
+		# Pantalla con vista propia (presentador 3D): el asa sigue el mesh con el cursor y muestra
+		# los destinos; al soltar ancla la pantalla al slot.
+		if not _dragging_view:
+			if not _view_drag_candidate or OS.get_ticks_msec() - _touch_press_msec < DRAG_HOLD_MSEC \
+					or (not allow_stationary and (position - _touch_start).length() < TOUCH_MIN_DRAG):
+				return false
+			_dragging_view = true
+			Haptics.pulse(Haptics.LIFT_MSEC)
+			_capture_drag_mesh()
+		_follow_drag_mesh(position)
+		var host_full = _widget_host()
+		if host_full != null:
+			host_full.show_drop_targets(true, host_full.slot_at(position))
+		return true
 	if not _dragging_view:
 		if not _view_drag_candidate or OS.get_ticks_msec() - _touch_press_msec < DRAG_HOLD_MSEC \
-				or (position - _touch_start).length() < TOUCH_MIN_DRAG:
+				or (not allow_stationary and (position - _touch_start).length() < TOUCH_MIN_DRAG):
 			return false
 		_dragging_view = true
 		Haptics.pulse(Haptics.LIFT_MSEC)
@@ -694,6 +809,24 @@ func _drive_view_drag(position: Vector2) -> bool:
 		host.show_drop_targets(true, host.slot_at(position))
 	return true
 
+
+# El cuerpo del panel (fuera de sus botones): zona de arrastre del widget ampliado.
+func _on_view_body(position: Vector2) -> bool:
+	if not _view_screen_rect().has_point(position):
+		return false
+	return not HudWidgetActionScript.pointer_on_button(_mount.get_widget(), position)
+
+
+# Mouse: levanta el panel al instante (como el radial), sin esperar el hold. Se apoya en el mismo
+# _drive_view_drag de touch/gamepad, que hace el resto.
+func _begin_mouse_view_drag(position: Vector2) -> void:
+	_view_drag_candidate = true
+	_drag_from_handle = false
+	_touch_start = position
+	_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC
+	if _drive_view_drag(position, true):
+		VirtualMouse.set_dragging(true)
+
 # FD-304 §6 (modo pantalla, gamepad): el hombro sostenido levanta la pantalla abierta y el stick
 # la lleva a otro slot; soltar el hombro la suelta. Reusa _drive_view_drag()/_drop_view().
 # Un simple tap del hombro no arrastra: el gesto es hold (o stick) + soltar.
@@ -701,7 +834,7 @@ func _drive_screen_view_drag(input, slot_gesture: int) -> bool:
 	var slot: int = int(input.hud_slot) - 1
 	if _view_drag_from_gamepad:
 		if slot < 0 or not _widget_screen_showing():
-			_drop_view(_stick_cursor)
+			_drop_view(_cursor)
 		else:
 			_move_gamepad_view_cursor(input)
 		return true
@@ -716,8 +849,8 @@ func _drive_screen_view_drag(input, slot_gesture: int) -> bool:
 	_view_drag_from_gamepad = true
 	_dragging_view = true
 	_view_drag_candidate = true
-	_stick_cursor = _view_screen_rect().get_center()
-	_touch_start = _stick_cursor
+	_set_cursor(_view_screen_rect().get_center(), get_viewport_rect().size)
+	_touch_start = _cursor
 	_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC # el hold ya se cumplio al abrir
 	Haptics.pulse(Haptics.LIFT_MSEC)
 	_move_gamepad_view_cursor(input)
@@ -727,15 +860,61 @@ func _drive_screen_view_drag(input, slot_gesture: int) -> bool:
 func _move_gamepad_view_cursor(input) -> void:
 	var move := Vector2(input.move_vec.x, input.move_vec.y)
 	if bool(input.analog_move_active) or move.length_squared() > MOVE_GESTURE_DEADZONE_SQ:
-		_stick_cursor += move.limit_length(1.0) * STICK_DRAG_SPEED
-		var size: Vector2 = get_viewport_rect().size
-		_stick_cursor.x = clamp(_stick_cursor.x, 0.0, size.x)
-		_stick_cursor.y = clamp(_stick_cursor.y, 0.0, size.y)
-	_drive_view_drag(_stick_cursor)
+		_move_cursor(move.limit_length(1.0) * STICK_DRAG_SPEED, get_viewport_rect().size)
+	_drive_view_drag(_cursor)
+
+# Mesh de la pantalla del presentador (si la hay): es lo que el asa arrastra en pantallas con vista.
+func _presenter_screen_mesh() -> Node:
+	var presenter = _mount.get_presenter()
+	if not is_instance_valid(presenter):
+		return null
+	if presenter.has_method("_get_hud_attach_target"):
+		return presenter._get_hud_attach_target()
+	return presenter.get_node_or_null("ScreenContainer/ScreenMesh")
+
+# Al arrastrar una Pantalla se levanta un WIDGET (no la ventana 3D, que se ve lenta y rara). El
+# widget sigue al cursor y hace snap/atraccion al slot bajo el cursor.
+func _capture_drag_mesh() -> void:
+	_restore_drag_mesh()
+	var panel := Panel.new()
+	panel.name = "ScreenDragWidget"
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.rect_size = Vector2(220.0, 130.0)
+	panel.rect_pivot_offset = panel.rect_size * 0.5
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.text = _screen_title(_suit_os().get_active_screen_id())
+	label.align = Label.ALIGN_CENTER
+	label.valign = Label.VALIGN_CENTER
+	label.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	panel.add_child(label)
+	add_child(panel)
+	_drag_widget = panel
+
+func _follow_drag_mesh(position: Vector2) -> void:
+	if not is_instance_valid(_drag_widget):
+		return
+	var host = _widget_host()
+	var slot: int = host.slot_at(position) if host != null else -1
+	var target: Vector2 = position
+	if slot >= 0 and host != null:
+		target = host.slot_rect(slot).get_center() # atraccion/snap al slot
+	_drag_widget.rect_position = target - _drag_widget.rect_size * 0.5
+	_drag_widget.modulate = Color(0.6, 0.9, 1.0, 0.95) if slot >= 0 else Color(1, 1, 1, 0.85)
+
+func _restore_drag_mesh() -> void:
+	if is_instance_valid(_drag_widget):
+		_drag_widget.queue_free()
+	_drag_widget = null
+	_drag_mesh = null
+	_drag_mesh_xf = Transform()
+	_drag_mesh_scale = Vector3.ONE
 
 # Soltarlo sobre un slot lo fija ahi y cierra el modo HUD: el widget queda en su slot. En cualquier
 # otro lado vuelve a la vista ampliada.
 func _drop_view(position: Vector2) -> void:
+	VirtualMouse.set_dragging(false)
+	_restore_drag_mesh()
 	_dragging_view = false
 	_view_drag_candidate = false
 	_view_drag_from_gamepad = false
@@ -751,6 +930,54 @@ func _drop_view(position: Vector2) -> void:
 		_exit()
 	elif suit_os.has_screen(id):
 		_show_screen(id)
+
+# --- Ghost de transicion del widget (slot <-> ampliado) ---
+# Visual y descartable: un panel que viaja entre dos rects y se desvanece. No toca el layout real
+# del widget ni el estado de gameplay, asi que no afecta determinismo ni tests.
+
+func _spawn_screen_transition_in(id: String) -> void:
+	if not is_inside_tree():
+		return
+	var widget: Control = _mount.get_widget()
+	if not is_instance_valid(widget) or widget.rect_size.x <= 0.0:
+		return
+	var target := Rect2(widget.rect_global_position, widget.rect_size * widget.rect_scale)
+	var from := target.grow(-min(target.size.x, target.size.y) * 0.14)
+	_spawn_transition_ghost(from, target, _screen_title(id))
+
+func _spawn_screen_transition_out() -> void:
+	if not is_inside_tree():
+		return
+	var widget: Control = _mount.get_widget()
+	if not is_instance_valid(widget) or widget.rect_size.x <= 0.0:
+		return
+	var from := Rect2(widget.rect_global_position, widget.rect_size * widget.rect_scale)
+	var to := from.grow(-min(from.size.x, from.size.y) * 0.16)
+	_spawn_transition_ghost(from, to, "")
+
+func _spawn_transition_ghost(from_rect: Rect2, to_rect: Rect2, _title: String = "") -> void:
+	if from_rect.size.x <= 0.0 or to_rect.size.x <= 0.0 or not is_inside_tree():
+		return
+	var layer := CanvasLayer.new()
+	layer.name = "ScreenTransitionGhost"
+	layer.layer = 128
+	get_tree().root.add_child(layer)
+	# Solo un tinte muy suave que viaja y se desvanece: nada que tape el widget ni que parezca un
+	# panel.
+	var ghost := ColorRect.new()
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.color = Color(0.6, 0.9, 1.0, 0.14)
+	ghost.rect_position = from_rect.position
+	ghost.rect_size = from_rect.size
+	layer.add_child(ghost)
+	var tween := Tween.new()
+	layer.add_child(tween)
+	tween.interpolate_property(ghost, "rect_position", from_rect.position, to_rect.position, 0.18, Tween.TRANS_CUBIC, Tween.EASE_OUT)
+	tween.interpolate_property(ghost, "rect_size", from_rect.size, to_rect.size, 0.18, Tween.TRANS_CUBIC, Tween.EASE_OUT)
+	tween.interpolate_property(ghost, "color:a", 0.14, 0.0, 0.22, Tween.TRANS_SINE, Tween.EASE_OUT, 0.05)
+	# La capa entera se va cuando termina (el ghost es su unico hijo ademas del Tween).
+	tween.interpolate_callback(layer, 0.30, "queue_free")
+	tween.start()
 
 func _screen_title(id: String) -> String:
 	var suit_os: Node = _suit_os()
@@ -829,6 +1056,11 @@ func _open_drawer() -> void:
 		_drawer.connect("favorite_toggled", self, "_on_drawer_favorited")
 	_drawer.visible = true
 	_drawer.set_rows(_drawer_rows())
+	# El drawer va con el mouse CAPTURADO y el cursor unico movido por deltas: con HIDDEN se
+	# movia mal.
+	_set_cursor(get_viewport_rect().size * 0.5, get_viewport_rect().size)
+	_cursor_moved = false
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	_end_drawer_row_drag()
 	_set_virtual_mouse_enabled(false)
 	if is_instance_valid(_virtual_mouse) and _virtual_mouse.has_method("set_gamepad_cursor_enabled"):
@@ -846,6 +1078,16 @@ func _close_drawer() -> void:
 		_virtual_mouse.set_gamepad_cursor_enabled(true)
 
 
+# Salida del drawer: vuelve al dial si el drawer se abrio desde el, o sale del modo HUD si se
+# entro directo. Misma ruta para B (mando) y para el clic fuera de toda fila (mouse/dedo).
+func _dismiss_drawer() -> void:
+	_close_drawer()
+	if _dial_ids.empty():
+		_exit()
+	else:
+		_open_radial(_target_slot)
+
+
 func _on_drawer_chose(id: String) -> void:
 	_close_drawer()
 	if _target_slot >= 0:
@@ -861,13 +1103,16 @@ func _on_drawer_favorited(_id: String, _is_favorite: bool) -> void:
 # --- Asa de la pantalla abierta ---
 
 # Arriba al centro de la vista (dentro si la vista toca el borde de arriba). Solo con una pantalla a
-# la vista y sin dial ni arrastre en curso.
+# la vista y sin dial ni arrastre en curso. Los widgets ampliados no llevan asa (revision
+# 2026-09-19): su propio panel es la zona de arrastre, como en los slots.
 func _update_view_handle() -> void:
 	if not is_instance_valid(_view_handle):
 		return
 	var rect: Rect2 = _view_screen_rect() if _mount.is_showing() else Rect2()
+	# El asa es solo para las Pantallas con vista propia (sin panel arrastrable). Un widget
+	# ampliado se arrastra desde su cuerpo, asi que no la lleva.
 	var show: bool = rect.size.x > 0.0 and rect.size.y > 0.0 and not _selector.is_open() \
-		and not _dragging_view and not is_instance_valid(_drag_ghost)
+		and not _dragging_view and not is_instance_valid(_drag_ghost) and not _showing_widget_only()
 	_view_handle.visible = show
 	if not show:
 		return
@@ -995,6 +1240,12 @@ func _view_screen_rect() -> Rect2:
 	return rect
 
 
+# Pantalla que es solo widget (sin vista propia): se dibuja el panel ampliado, no un presentador.
+# Su panel entero es la zona de arrastre, asi que no necesita asa (revision 2026-09-19).
+func _showing_widget_only() -> bool:
+	return _mount.is_showing() and is_instance_valid(_mount.get_widget())
+
+
 # Cuentan angulo y magnitud: dentro de AIM_DEAD_ZONE del centro el dial no marca nada.
 func _point_at(aim: Vector2) -> void:
 	_aim = aim.limit_length(AIM_RADIUS)
@@ -1007,6 +1258,7 @@ func _open_radial(slot: int = -1) -> void:
 	_target_slot = slot
 	_aim = Vector2.ZERO
 	_stick_aiming = false
+	_mouse_aim_active = false
 	_dial_ids = _dial_screen_ids()
 	if _dial_ids.size() == 1 and _screen_ids.size() <= 1:
 		# Una sola pantalla y nada mas que elegir: se abre directo, como siempre.
@@ -1025,6 +1277,22 @@ func _open_radial(slot: int = -1) -> void:
 		})
 	_selector.set_options(items)
 	_selector.open()
+	# Al entrar al radial el item del centro (hub) queda seleccionado; si el radial viene fijado a un
+	# slot (hold de hombro), se marca el widget de ese slot. Si el slot NO es un favorito, se abre
+	# el drawer con su opcion marcada.
+	if slot >= 0:
+		var id: String = _suit_os().slot_screen_id(slot)
+		var index: int = _dial_ids.find(id)
+		if index >= 0:
+			_point_at(_selector.option_center(index) - _selector.rect_size * 0.5)
+		elif not id.empty() and _suit_os().has_screen(id):
+			_open_drawer()
+			var row: int = _drawer.index_of(id)
+			if row >= 0:
+				_drawer.focus_row(row)
+			return
+	else:
+		_point_at(Vector2.ZERO) # centro = hub
 	_placeholder.visible = _dial_ids.empty() and _screen_ids.empty()
 	_set_virtual_mouse_enabled(false)
 	_view_host.visible = false
@@ -1049,7 +1317,7 @@ func _release_tab_hold() -> void:
 	var touch_hold: bool = _consume_touch_hud_hold()
 	if is_instance_valid(_drag_ghost):
 		# Se estaba arrastrando un widget con el stick: soltar el hombro lo suelta donde este.
-		_drop_option(_stick_cursor)
+		_drop_option(_cursor)
 		_picked_during_hold = false
 		return
 	if _picked_during_hold:
@@ -1057,8 +1325,11 @@ func _release_tab_hold() -> void:
 		return
 	if not _selector.is_open():
 		return
-	if _selector.hub_hovered() and touch_hold:
-		_selector.confirm()
+	if _selector.hub_hovered():
+		if touch_hold:
+			_selector.confirm()
+		else:
+			_dismiss_radial()
 		return
 	_confirm_or_dismiss() # con algo marcado -> _select, ya sin hold activo: la pantalla se queda
 
@@ -1119,6 +1390,7 @@ func _set_virtual_mouse_enabled(enabled: bool) -> void:
 
 func _show_screen(id: String) -> void:
 	_set_virtual_mouse_enabled(true)
+	_release_mouse_for_screen()
 	var suit_os: Node = _suit_os()
 	var screen: Object = suit_os.get_screen(id)
 	suit_os.open_screen(id)
@@ -1132,6 +1404,7 @@ func _show_screen(id: String) -> void:
 	if origin.get("kind", "") == "focus_rig":
 		_cleanup_focus()
 		_active_focused_screen = screen
+		_set_surface_cursor_uv(Vector2(0.5, 0.5))
 		_pending_focus_screen = screen
 		var rig = get_node_or_null(origin.get("path", NodePath("")))
 		_pending_focus_camera = rig.get_node_or_null("Camera") as Camera if is_instance_valid(rig) else null
@@ -1143,6 +1416,7 @@ func _show_screen(id: String) -> void:
 		_cleanup_focus()
 		if screen.has_method("view_requires_input") and screen.view_requires_input():
 			_active_focused_screen = screen
+			_set_surface_cursor_uv(Vector2(0.5, 0.5))
 			# El cursor compartido sigue recibiendo joystick, pero se dibuja dentro del
 			# Viewport de la pantalla enfocada.
 			if is_instance_valid(_virtual_mouse):
@@ -1153,6 +1427,9 @@ func _show_screen(id: String) -> void:
 		var snapshot: Dictionary = screen.widget_snapshot() if screen.has_method("widget_snapshot") else {"id": id}
 		_mount.show(screen, snapshot, _view_host)
 	_sync_widget_focus()
+	if _showing_widget_only():
+		# Ghost de transicion slot <-> widget ampliado (visual, no toca layout ni estado).
+		call_deferred("_spawn_screen_transition_in", id)
 
 # Un hudable sin Pantalla muestra su widget ampliado. No usa mouse: se navega entre sus botones
 # (cruceta o flechas, la navegacion de foco de la GUI) y se oprime el enfocado con el gatillo
@@ -1162,9 +1439,18 @@ func _sync_widget_focus() -> void:
 	var widget = _mount.get_widget()
 	if not is_instance_valid(widget) or _selector.is_open():
 		return
-	_set_virtual_mouse_enabled(false)
+	# Revision 2026-09-19: el panel ampliado acepta mouse (liberado) ademas del foco por mando.
+	# Sin mouse, la cruceta/flechas siguen navegando los botones y el gatillo/A los oprime.
+	_set_virtual_mouse_enabled(true)
 	_widget_click_was_down = true
 	HudWidgetActionScript.focus_first_button(widget)
+
+
+# El modo pantalla libera el puntero: HIDDEN (nunca capturado) para poder clickear y arrastrar
+# con el mouse virtual. Lo mismo que hace el clic derecho en gameplay.
+func _release_mouse_for_screen() -> void:
+	if is_instance_valid(_virtual_mouse) and _virtual_mouse.has_method("set_desktop_mouse_mode"):
+		_virtual_mouse.set_desktop_mouse_mode(true, get_viewport().get_mouse_position())
 
 func _widget_screen_showing() -> bool:
 	return is_instance_valid(_mount.get_widget()) and not _selector.is_open()
@@ -1185,7 +1471,9 @@ func _cleanup_focus() -> void:
 	_pending_focus_camera = null
 	_pending_swap_screen = null
 	if is_instance_valid(_virtual_mouse):
-		_virtual_mouse.visible = true
+		# Se apago al montar una pantalla con cursor propio (_complete_focus_swap): volver
+		# a prenderlo, no solo a mostrarlo. _exit() lo apaga otra vez enseguida.
+		_set_virtual_mouse_enabled(true)
 		_virtual_mouse.relative_target_scale = Vector2.ZERO
 	if VisualServer.is_connected("frame_post_draw", self, "_complete_focus_swap"):
 		VisualServer.disconnect("frame_post_draw", self, "_complete_focus_swap")
@@ -1195,6 +1483,104 @@ func _cleanup_focus() -> void:
 		if _active_focused_screen.has_method("exit_focus_mode"):
 			_active_focused_screen.exit_focus_mode()
 	_active_focused_screen = null
+
+# Quien dibuja el cursor: adentro de la superficie el del Viewport de la pantalla, afuera el
+# mouse virtual 2D. Nunca los dos.
+func _set_focus_cursor_over_surface(over: bool) -> void:
+	if is_instance_valid(_virtual_mouse):
+		_virtual_mouse.visible = not over
+	if is_instance_valid(_active_focused_screen) \
+			and _active_focused_screen.has_method("set_view_cursor_visible"):
+		_active_focused_screen.set_view_cursor_visible(over)
+
+# --- Cursor unico: movimiento, tope y proyeccion a la superficie ---
+
+# Mueve el cursor por delta y lo topa contra el espacio activo (viewport del overlay o Viewport
+# de la pantalla enfocada). Un solo camino para stick, dedo y mouse capturado; el signo ya viene
+# resuelto por quien llama (_surface_u_flip en la superficie).
+func _move_cursor(delta: Vector2, bounds: Vector2) -> void:
+	if delta != Vector2.ZERO:
+		_cursor_moved = true
+	_cursor += delta
+	_cursor.x = clamp(_cursor.x, 0.0, bounds.x)
+	_cursor.y = clamp(_cursor.y, 0.0, bounds.y)
+
+func _set_cursor(position: Vector2, bounds: Vector2) -> void:
+	_cursor = Vector2(clamp(position.x, 0.0, bounds.x), clamp(position.y, 0.0, bounds.y))
+
+# Espacio del cursor de la pantalla enfocada: su resolucion de diseno, no la del overlay.
+func _surface_design_size() -> Vector2:
+	if is_instance_valid(_active_focused_screen) and _active_focused_screen.has_method("view_size"):
+		var design: Vector2 = _active_focused_screen.view_size()
+		if design.x > 0.0 and design.y > 0.0:
+			return design
+	return get_viewport_rect().size
+
+func _surface_cursor_uv() -> Vector2:
+	var design: Vector2 = _surface_design_size()
+	if design.x <= 0.0 or design.y <= 0.0:
+		return Vector2(0.5, 0.5)
+	return Vector2(_cursor.x / design.x, _cursor.y / design.y)
+
+func _set_surface_cursor_uv(uv: Vector2) -> void:
+	_cursor = uv * _surface_design_size()
+	_cursor_moved = false
+
+# El signo de U del mesh no es fijo: sale del basis REAL del presentador. Se proyectan los dos
+# extremos de su eje local X y se ve para que lado cae el +X en pantalla. Un mesh que mira a la
+# camara lo tiene invertido; uno que mira al frente, no. Unica autoridad de signo: la usan tanto
+# la proyeccion del mouse (_screen_surface_uv) como el delta del stick sobre la superficie.
+func _surface_u_flip(mesh = null, cam: Camera = null) -> bool:
+	var m = mesh if is_instance_valid(mesh) else _presenter_screen_mesh()
+	var c: Camera = cam if cam != null else get_viewport().get_camera()
+	if not is_instance_valid(m) or c == null or not ("width" in m):
+		return true # sin mesh 3D (vista 2D del control remoto): se conserva el signo historico
+	var half_w: float = float(m.width) * 0.5
+	var xf: Transform = m.global_transform
+	var minus_x: float = c.unproject_position(xf.xform(Vector3(-half_w, 0.0, 0.0))).x
+	var plus_x: float = c.unproject_position(xf.xform(Vector3(half_w, 0.0, 0.0))).x
+	return plus_x < minus_x
+
+# Donde cae un punto de pantalla sobre la superficie de la pantalla enfocada, en uv [0,1].
+# (-1,-1) = fuera. Se proyectan las esquinas del mesh del presentador con la camara activa,
+# que es lo unico que sabe donde quedo dibujado. Todo se normaliza porque unproject_position
+# devuelve pixeles del viewport de RENDER y el evento viene en el espacio de GUI estirado.
+func _screen_surface_uv(point: Vector2) -> Vector2:
+	var presenter = _mount.get_presenter()
+	if not is_instance_valid(presenter):
+		return Vector2(-1.0, -1.0)
+	# OJO: en modo pegado a camara el presentador REPARENTA su ScreenMesh bajo la camara,
+	# asi que "ScreenContainer/ScreenMesh" ya no existe bajo el presentador. Se pregunta por
+	# el destino de enganche, que es como lo resuelve HudViewMount.reveal_presenter().
+	var mesh = presenter._get_hud_attach_target() if presenter.has_method("_get_hud_attach_target") else null
+	if not is_instance_valid(mesh):
+		mesh = presenter.get_node_or_null("ScreenContainer/ScreenMesh")
+	var cam: Camera = get_viewport().get_camera()
+	if not is_instance_valid(mesh) or cam == null:
+		return Vector2(-1.0, -1.0)
+	var half_w: float = float(mesh.width) * 0.5
+	var half_h: float = float(mesh.height) * 0.5
+	var xf: Transform = mesh.global_transform
+	var top_left: Vector2 = cam.unproject_position(xf.xform(Vector3(-half_w, half_h, 0.0)))
+	var bottom_right: Vector2 = cam.unproject_position(xf.xform(Vector3(half_w, -half_h, 0.0)))
+	var render_size: Vector2 = get_viewport().size
+	var gui_size: Vector2 = get_viewport_rect().size
+	if render_size.x <= 0.0 or render_size.y <= 0.0 or gui_size.x <= 0.0 or gui_size.y <= 0.0:
+		return Vector2(-1.0, -1.0)
+	var a := Vector2(top_left.x / render_size.x, top_left.y / render_size.y)
+	var b := Vector2(bottom_right.x / render_size.x, bottom_right.y / render_size.y)
+	var span := b - a
+	if abs(span.x) < 0.0001 or abs(span.y) < 0.0001:
+		return Vector2(-1.0, -1.0)
+	var p := Vector2(point.x / gui_size.x, point.y / gui_size.y)
+	var uv := Vector2((p.x - a.x) / span.x, (p.y - a.y) / span.y)
+	if uv.x < 0.0 or uv.x > 1.0 or uv.y < 0.0 or uv.y > 1.0:
+		return Vector2(-1.0, -1.0)
+	# El signo de U sale del basis real del mesh, no de un flip fijo: asi el puntero real cae
+	# donde se ve aunque el presentador cambie de orientacion.
+	if _surface_u_flip(mesh, cam):
+		uv.x = 1.0 - uv.x
+	return uv
 
 # El cursor virtual cruza el terminal en el mismo tiempo que cruza la pantalla: la resolucion
 # del Viewport del terminal sobre la del viewport de render.
@@ -1229,14 +1615,24 @@ func _complete_focus_swap(screen: Object = null) -> void:
 		return
 	_mount.reveal_presenter()
 	if screen.has_method("forward_view_input") and is_instance_valid(_virtual_mouse):
-		_virtual_mouse.visible = false # sigue generando eventos; el cursor se dibuja dentro del Viewport
-		# Y los genera en las unidades del terminal, sin warp (VirtualMouse.relative_target_scale).
-		_virtual_mouse.relative_target_scale = _focus_cursor_scale(screen)
+		# Doble puntero: la pantalla dibuja SU cursor dentro del Viewport prestado, y el
+		# mouse virtual seguia dibujando el suyo. Peor: mas arriba, _input le entrega el
+		# InputEventMouseMotion a la pantalla y marca el evento como manejado, asi que el
+		# mouse virtual nunca actualizaba su posicion y se quedaba clavado donde lo dejo
+		# _release_mouse_for_screen (el centro). Ponerlo invisible no alcanzaba: hay que
+		# apagarlo, porque set_desktop_mouse_mode() lo vuelve a mostrar.
+		# El mouse virtual sigue VIVO: es el que unifica puntero real y joypad, y su
+		# posicion es la que se proyecta sobre la superficie. Lo unico que se decide es
+		# cual de los dos cursores se dibuja.
+		_virtual_mouse.relative_target_scale = Vector2.ZERO
+		_set_focus_cursor_over_surface(_screen_surface_uv(get_viewport().get_mouse_position()).x >= 0.0)
 	if screen.has_method("set_source_view_visible"):
 		screen.set_source_view_visible(false)
 	_view_host.visible = true
 
 func _exit() -> void: # SuitOS saca el overlay y le devuelve la pausa a PauseManager
+	if _showing_widget_only():
+		_spawn_screen_transition_out() # ghost visual: sobrevive al free del overlay (cuelga de root)
 	_end_option_drag()
 	_end_drawer_row_drag()
 	_cleanup_focus()
@@ -1261,33 +1657,68 @@ func _drive_hud_buttons(input) -> bool:
 	por foco (_drive_widget_screen) no debe volver a oprimir nada."""
 	var edges: Dictionary = _face_edges(input)
 	if _selector.is_open():
+		# JUMP (b) e INTERACT (x) cierran el dial sin saltar ni interactuar: consume el flanco aca
+		# y no se reenvia a gameplay (en el control remoto tampoco llega al host).
 		if edges["x"] or edges["b"]:
+			_end_crouch_drag()
 			_dismiss_radial()
 			return false
+		# CROUCH (a) es el clic del dial: un tap confirma lo marcado; sostenido y con el stick
+		# levanta el item y lo arrastra a un slot (drag/drop con mando, FD-304 §6).
 		if edges["a"]:
-			# Acorde (§5): con el hombro sostenido sobre un slot, A ejecuta la operacion primaria
-			# de su pantalla sin abrirla. El dial NO se cierra: el slot sigue en foco.
-			if _tab_hold_active and _target_slot >= 0 and _perform_chord(_target_slot):
-				return false
-			_selector.confirm()
+			_begin_crouch_drag()
+		elif _crouch_drag_active and not bool(input.crouch):
+			_finish_crouch_drag()
 		return false
+	_end_crouch_drag()
 	return _dispatch_screen_action(edges)
 
 
-func _perform_chord(slot: int) -> bool:
-	var suit_os: Node = _suit_os()
-	var id: String = suit_os.slot_screen_id(slot)
-	var screen: Object = suit_os.get_screen(id)
-	if screen == null or not screen.has_method("hud_gamepad_actions"):
-		return false
-	for action in screen.hud_gamepad_actions():
-		if not bool(action.get("confirm", false)):
-			continue
-		HudWidgetActionScript.perform(self, id, String(action.get("op", "")), {})
-		Haptics.confirm()
-		_selector.flash_option(_dial_ids.find(id))
-		return true
-	return false
+# --- Drag/drop del dial con CROUCH + stick (revision 2026-09-19) ---
+
+func _begin_crouch_drag() -> void:
+	var index: int = _selector.get_hovered_index()
+	if index == RadialSelectorV2.NONE:
+		_selector.confirm() # sin nada marcado el clic no tiene presa: confirma el hub/nada
+		return
+	_drag_option = index
+	_drag_id = _dial_id_at(index)
+	if _drag_id.empty():
+		_selector.confirm()
+		return
+	_crouch_drag_active = true
+	_crouch_drag_moved = false
+	_set_cursor(_selector.option_center(index), get_viewport_rect().size)
+	_touch_start = _cursor
+	_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC # el click ya es una presa
+	_drive_option_drag(_cursor, false, true)
+
+
+func _finish_crouch_drag() -> void:
+	var moved: bool = _crouch_drag_moved
+	_crouch_drag_active = false
+	_crouch_drag_moved = false
+	if moved and is_instance_valid(_drag_ghost):
+		_drop_option(_cursor)
+	else:
+		# Click corto: sin arrastre, confirma lo marcado como siempre.
+		_end_option_drag()
+		_selector.confirm()
+
+
+func _end_crouch_drag() -> void:
+	if not _crouch_drag_active:
+		return
+	_crouch_drag_active = false
+	_crouch_drag_moved = false
+	_end_option_drag()
+
+
+func _drive_crouch_drag(move: Vector2, input) -> void:
+	if bool(input.analog_move_active) or move.length_squared() > MOVE_GESTURE_DEADZONE_SQ:
+		_crouch_drag_moved = true
+		_move_cursor(move.limit_length(1.0) * STICK_DRAG_SPEED, get_viewport_rect().size)
+	_drive_option_drag(_cursor, false)
 
 
 # FD-304 §4: la pantalla declara que hace cada boton de cara y el overlay lo despacha por la misma
@@ -1295,28 +1726,21 @@ func _perform_chord(slot: int) -> bool:
 # nada, se cae a la navegacion por foco de la GUI que ya existia.
 func _dispatch_screen_action(edges: Dictionary) -> bool:
 	if not (_mount.is_showing() or is_instance_valid(_active_focused_screen)):
-		_legend_actions = []
 		return false
 	var suit_os: Node = _suit_os()
 	var id: String = suit_os.get_active_screen_id()
 	var screen: Object = suit_os.get_screen(id)
 	if screen == null or not screen.has_method("hud_gamepad_actions"):
-		_legend_actions = []
 		return false
 	var actions: Array = screen.hud_gamepad_actions()
 	if actions.empty():
-		_legend_actions = []
 		return false
-	if _legend_actions.hash() != actions.hash():
-		_legend_actions = actions
-		_legend_msec = OS.get_ticks_msec()
 	for action in actions:
 		if not bool(edges.get(String(action.get("button", "")).to_lower(), false)):
 			continue
 		if not bool(action.get("enabled", true)):
 			continue
 		HudWidgetActionScript.perform(self, id, String(action.get("op", "")), {})
-		_legend_msec = OS.get_ticks_msec()
 		break
 	# Los botones de cara son de esta pantalla aunque este tick no haya coincidido ninguno: si la
 	# GUI tambien los oprimiera, el toggle de la linterna se accionaria dos veces en un toque.
@@ -1383,15 +1807,12 @@ func _drive_stick_drag(move: Vector2, input) -> void:
 	if _drag_id.empty():
 		_drag_id = _suit_os().slot_screen_id(_target_slot)
 		_drag_option = _dial_ids.find(_drag_id)
-		_stick_cursor = host.slot_rect(_target_slot).get_center()
-		_touch_start = _stick_cursor
+		_set_cursor(host.slot_rect(_target_slot).get_center(), get_viewport_rect().size)
+		_touch_start = _cursor
 		_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC # el hold ya se cumplio al abrir
 	if bool(input.analog_move_active) or move.length_squared() > MOVE_GESTURE_DEADZONE_SQ:
-		_stick_cursor += move.limit_length(1.0) * STICK_DRAG_SPEED
-		var size: Vector2 = get_viewport_rect().size
-		_stick_cursor.x = clamp(_stick_cursor.x, 0.0, size.x)
-		_stick_cursor.y = clamp(_stick_cursor.y, 0.0, size.y)
-	_drive_option_drag(_stick_cursor, false)
+		_move_cursor(move.limit_length(1.0) * STICK_DRAG_SPEED, get_viewport_rect().size)
+	_drive_option_drag(_cursor, false)
 
 
 # --- Deny del tap sobre un slot vacio (FD-304 §3) ---
@@ -1413,8 +1834,6 @@ func _update_hold_feedback() -> void:
 		_hold_progress = progress
 		if is_instance_valid(_hold_gauge):
 			_hold_gauge.update()
-	if is_instance_valid(_legend):
-		_legend.update()
 
 
 func _draw_hold_gauge() -> void:
@@ -1431,50 +1850,17 @@ func _draw_hold_gauge() -> void:
 	_hold_gauge.draw_rect(rect, color, false, 2.0)
 
 
-func _draw_legend() -> void:
-	if _legend_actions.empty() or _selector.is_open() or _drawer_open():
-		return
-	if OS.get_ticks_msec() - _legend_msec > LEGEND_VISIBLE_MSEC:
-		return
-	if Input.get_connected_joypads().empty():
-		return # con teclado y mouse la leyenda es ruido
-	var font: Font = get_font("font")
-	if font == null:
-		return
-	var k: float = UIScaleCompensator.scale_for(self)
-	var pill: Vector2 = LEGEND_PILL * k
-	var rect: Rect2 = _view_screen_rect()
-	var total: float = pill.x * _legend_actions.size() + 8.0 * k * max(0, _legend_actions.size() - 1)
-	var origin := Vector2(rect_size.x * 0.5 - total * 0.5,
-		(rect.end.y + 12.0 * k) if rect.size.y > 0.0 else rect_size.y - pill.y - 24.0 * k)
-	for i in range(_legend_actions.size()):
-		var action: Dictionary = _legend_actions[i]
-		var at := Vector2(origin.x + i * (pill.x + 8.0 * k), origin.y)
-		_legend.draw_rect(Rect2(at, pill), Color(0.02, 0.1, 0.13, 0.85))
-		_legend.draw_rect(Rect2(at, pill), Color(0.0, 0.835, 1.0, 0.8), false, 1.0)
-		_legend.draw_string(font, at + Vector2(8.0 * k, pill.y * 0.7),
-			"%s  %s" % [String(action.get("button", "")).to_upper(), String(action.get("label", ""))],
-			Color(0.0, 0.835, 1.0, 1.0))
-
-
 # --- Drawer (FD-305 §3.5) ---
 
-# Puntero del drawer (mouse/dedo): la estrella favoritea, el resto de la fila abre, y una fila
-# levantada se suelta en un slot. La estrella no arrastra: solo se toca.
+# Drawer SIN puntero: el mouse mueve la lista en relativo, como el arma del radial. La fila
+# CENTRADA es la elegida y el snap la asienta con easing; el clic acciona esa fila y el derecho
+# sale. El dedo si es puntero (arrastra filas a slots y toca la estrella).
 func _drawer_pointer_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		# El click y el movimiento que el motor emula de cada toque no son mouse real: el dedo se
-		# resuelve por ScreenTouch/ScreenDrag y no debe prender el cursor virtual.
 		if event.device == TOUCH_MOUSE_DEVICE:
 			return
-		# El cursor nativo no se muestra nunca: al primer movimiento real se prende el cursor
-		# virtual (que sigue al puntero) y el nativo queda oculto.
-		if event.relative.length_squared() > 0.0:
-			_enable_drawer_cursor(event.position)
-		if is_instance_valid(_drag_ghost):
-			_drive_option_drag(event.position, false, true)
-		elif _drawer_drag_row >= 0 and (event.position - _touch_start).length() >= TOUCH_MIN_DRAG:
-			_start_drawer_row_drag(event.position)
+		var k: float = UIScaleCompensator.scale_for(_drawer)
+		_drawer.scroll_by(event.relative.y / max(k, 0.001))
 		return
 	if event is InputEventScreenDrag:
 		if is_instance_valid(_drag_ghost):
@@ -1482,30 +1868,46 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 		elif _drawer_drag_row >= 0 and (event.position - _touch_start).length() >= TOUCH_MIN_DRAG:
 			_start_drawer_row_drag(event.position)
 		return
-	if event is InputEventMouseButton:
-		if event.device == TOUCH_MOUSE_DEVICE or event.button_index != BUTTON_LEFT:
-			return
-	if event is InputEventScreenTouch or event is InputEventMouseButton:
+	if event is InputEventMouseButton and event.device != TOUCH_MOUSE_DEVICE \
+			and (event.button_index == BUTTON_WHEEL_UP or event.button_index == BUTTON_WHEEL_DOWN):
+		# La rueda da pasos discretos por la lista, igual que la cruceta. Sin esto no hacia nada.
 		if event.pressed:
-			_drawer_press_row = _drawer.row_at(event.position)
-			_drawer_press_star = _drawer_press_row >= 0 and _drawer.star_at(event.position) == _drawer_press_row
+			_drawer.step_focus(-1 if event.button_index == BUTTON_WHEEL_UP else 1)
+		return
+	if event is InputEventMouseButton:
+		if event.device == TOUCH_MOUSE_DEVICE or not event.pressed:
+			return
+		if event.button_index == BUTTON_RIGHT:
+			_dismiss_drawer()
+		elif event.button_index == BUTTON_LEFT:
+			# Sin puntero el clic acciona la fila centrada, igual que A en el mando.
+			var focused: int = _drawer.focused_index()
+			if focused >= 0:
+				_drawer.activate_row(focused)
+		return
+	if event is InputEventScreenTouch:
+		var point: Vector2 = event.position
+		if event.pressed:
+			_drawer_press_row = _drawer.row_at(point)
+			_drawer_press_star = _drawer_press_row >= 0 and _drawer.star_at(point) == _drawer_press_row
 			_drawer_drag_row = -1 if _drawer_press_star else _drawer_press_row
-			_touch_start = event.position
+			_touch_start = point
 			return
 		if is_instance_valid(_drag_ghost):
-			_drop_option(event.position)
+			_drop_option(point)
 			_end_drawer_row_drag()
 			return
 		var row: int = _drawer_press_row
 		var star: bool = _drawer_press_star
 		_end_drawer_row_drag()
 		if row < 0:
+			# Toque fuera de toda fila: misma salida que B: vuelve al dial o sale del HUD.
+			_dismiss_drawer()
 			return
-		_drawer.focus_row(row)
 		if star:
-			_drawer.toggle_favorite(_suit_os())
+			_drawer.toggle_favorite_row(row, _suit_os())
 		else:
-			_drawer.activate()
+			_drawer.activate_row(row)
 		return
 
 
@@ -1514,10 +1916,12 @@ func _start_drawer_row_drag(position: Vector2) -> void:
 	if _drag_id.empty():
 		return
 	_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC # el gesto ya empezo en el press
-	_drive_option_drag(position, false, true)
+	if _drive_option_drag(position, false, true):
+		VirtualMouse.set_dragging(true)
 
 
 func _end_drawer_row_drag() -> void:
+	VirtualMouse.set_dragging(false)
 	_drawer_press_row = -1
 	_drawer_press_star = false
 	_drawer_drag_row = -1
@@ -1544,16 +1948,13 @@ func _drive_drawer_shoulder_drag(input) -> void:
 		if _drag_id.empty():
 			return
 		_drawer_drag_active = true
-		_stick_cursor = _drawer.focused_row_center()
-		_touch_start = _stick_cursor
+		_set_cursor(_drawer.focused_row_center(), get_viewport_rect().size)
+		_touch_start = _cursor
 		_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC
 	var move := Vector2(input.move_vec.x, input.move_vec.y)
 	if move.length_squared() > 0.0:
-		_stick_cursor += move.limit_length(1.0) * STICK_DRAG_SPEED
-		var size: Vector2 = get_viewport_rect().size
-		_stick_cursor.x = clamp(_stick_cursor.x, 0.0, size.x)
-		_stick_cursor.y = clamp(_stick_cursor.y, 0.0, size.y)
-	_drive_option_drag(_stick_cursor, false, true)
+		_move_cursor(move.limit_length(1.0) * STICK_DRAG_SPEED, get_viewport_rect().size)
+	_drive_option_drag(_cursor, false, true)
 
 
 func _drive_drawer(input, delta: float) -> void:
@@ -1566,7 +1967,7 @@ func _drive_drawer(input, delta: float) -> void:
 	if shoulder >= 0:
 		_drive_drawer_shoulder_drag(input)
 	elif _drawer_drag_active:
-		_drop_option(_stick_cursor)
+		_drop_option(_cursor)
 		_drawer_drag_active = false
 	else:
 		_drawer.drive(-float(input.move_vec.y), int(input.hud_nav), delta)
@@ -1578,11 +1979,7 @@ func _drive_drawer(input, delta: float) -> void:
 		_drawer.toggle_favorite(_suit_os())
 	elif edges["b"]:
 		# B vuelve: al dial si habia uno, o al juego si se entro directo.
-		_close_drawer()
-		if _dial_ids.empty():
-			_exit()
-		else:
-			_open_radial(_target_slot)
+		_dismiss_drawer()
 
 
 func _suit_os() -> Node:

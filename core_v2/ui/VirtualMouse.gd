@@ -61,9 +61,13 @@ static func attach_to(parent: Node, requester: Node = null) -> Control:
 	cursor.add_to_group("virtual_mouse")
 	cursor.add_requester(owner_node)
 	host.add_child(cursor)
+	# Los que lo piden desde su _ready (overlay del modo HUD, popups) lo hacen diferido: aca el
+	# padre ya termino de armarse y el add_child directo no se rechaza.
 	parent.add_child(host)
 	return cursor
 
+# Con la ventana sin foco el cursor virtual no se dibuja (ver _process/_draw).
+var _window_focused := true
 var _requesters := []
 # Puñero liberado a proposito en pleno juego (ui_cancel / clic derecho): no hay UI que pida el
 # cursor, pero el jugador espera un puntero. El nativo no se muestra: lo dibuja el virtual.
@@ -72,6 +76,10 @@ var _released := false
 func add_requester(node: Node) -> void:
 	if not node in _requesters:
 		_requesters.append(node)
+
+# Una UI que se va deja de pedir el cursor: si no queda ninguna viva y visible, _process lo apaga.
+func remove_requester(node: Node) -> void:
+	_requesters.erase(node)
 
 # Estandar para popups: cuelga el cursor compartido con el popup como solicitante y lo prende en
 # modo desktop al aparecer. Asi el puntero queda oculto y lo dibuja el cursor virtual, aunque el
@@ -83,6 +91,26 @@ static func attach_popup(popup: Node, requester: Node = null) -> Control:
 	var cursor: Control = attach_to(parent, wanted)
 	cursor._watch_visibility(wanted)
 	return cursor
+
+# Popup que pide el cursor en su propio _ready: en ese momento el padre esta armando hijos y el
+# add_child directo se rechaza ("Parent node is busy setting up children"). Se corre en el proximo
+# idle desde un puente colgado de la raiz (persistente, no puede liberarse en el medio).
+static func attach_popup_deferred(popup: Node, requester: Node = null) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+	var bridge := DeferredAttachBridge.new()
+	bridge.popup = popup
+	bridge.requester = requester
+	tree.root.call_deferred("add_child", bridge)
+
+class DeferredAttachBridge extends Node:
+	var popup: Node = null
+	var requester: Node = null
+	func _ready() -> void:
+		if is_instance_valid(popup) and popup.is_inside_tree():
+			load("res://core_v2/ui/VirtualMouse.gd").attach_popup(popup, requester)
+		queue_free()
 
 func _watch_visibility(node: Node) -> void:
 	if node == self or not node is CanvasItem:
@@ -109,9 +137,20 @@ static func is_ui_wanted() -> bool:
 		return false
 	for existing in tree.get_nodes_in_group("virtual_mouse"):
 		var cursor: Control = existing as Control
-		if is_instance_valid(cursor) and cursor._wanted_by_requester():
+		if not is_instance_valid(cursor):
+			continue
+		# Un arrastre en curso no debe recapturar el mouse (rompe el drag/drop). Fuera de un
+		# arrastre, un clic izquierdo SI recaptura aunque el puntero haya sido liberado.
+		if cursor._wanted_by_requester() or is_dragging():
 			return true
 	return false
+
+# El overlay avisa mientras hay un drag/drop con el mouse en curso.
+static func set_dragging(on: bool) -> void:
+	Engine.set_meta("virtual_mouse_dragging", on)
+
+static func is_dragging() -> bool:
+	return Engine.has_meta("virtual_mouse_dragging") and bool(Engine.get_meta("virtual_mouse_dragging"))
 
 func _wanted_by_requester() -> bool:
 	for node in _requesters:
@@ -162,9 +201,18 @@ static func set_pointer_released(released: bool) -> void:
 	cursor._released = released
 	if released:
 		cursor.set_desktop_mouse_mode(true, cursor.get_viewport().get_mouse_position())
+		# Reafirmar HIDDEN al final del frame: si algo (SessionManager/PauseManager) recapturo en el
+		# mismo evento, el boton derecho igual termina liberando de verdad y no queda el mouse
+		# relativo/clavado al centro.
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+		cursor.call_deferred("_reassert_released_hidden")
 	elif cursor._desktop_mouse_mode:
 		cursor.set_desktop_mouse_mode(false)
 	cursor.update()
+
+func _reassert_released_hidden() -> void:
+	if _released and Input.get_mouse_mode() != Input.MOUSE_MODE_HIDDEN:
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 
 # El jugador solto el puntero a proposito (ui_cancel / clic derecho). Mientras sea asi no se
 # recaptura el mouse: al recuperar el foco el grab lo volvia a meter en la ventana.
@@ -198,6 +246,7 @@ func _ready() -> void:
 	if viewport != null and not viewport.is_connected("size_changed", self, "_on_viewport_resized"):
 		viewport.connect("size_changed", self, "_on_viewport_resized")
 	_on_viewport_resized()
+	_window_focused = OS.is_window_focused()
 	set_process(true)
 	# Sin esto el cursor no recibe el mouse real: se dibuja pero queda clavado. attach_to() no lo
 	# prendia (las UIs lo apagan/prenden aparte) y el cursor global del puntero liberado nacia mudo.
@@ -211,8 +260,21 @@ func _on_viewport_resized() -> void:
 	update()
 
 func _process(delta: float) -> void:
+	# Al abandonar la ventana el cursor virtual desaparece (el nativo no se muestra nunca). Vuelve
+	# con el proximo movimiento real, no por el solo hecho de recuperar el foco.
+	var focused: bool = OS.is_window_focused()
+	if focused != _window_focused:
+		_window_focused = focused
+		update()
+	if not _window_focused:
+		return
 	if not _active and not _desktop_mouse_mode:
 		return
+	# En modo mouse virtual (desktop) el puntero nunca puede quedar CAPTURED: con la ventana en
+	# ventana, un grab activo rompe al salir de la ventana. Se reafirma HIDDEN cada frame, gane
+	# quien gane la carrera (SessionManager, PauseManager, fin de un drag del radial, etc.).
+	if _desktop_mouse_mode and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	if not is_wanted():
 		# La UI que lo pidio se cerro: no mover, no dibujar, y devolver el modo del mouse que la
 		# UI habia guardado (en juego lo maneja la camara).
@@ -277,10 +339,12 @@ func _input(event: InputEvent) -> void:
 			_ignore_warp_motion = false
 			return
 		# El mouse real siempre toma el control: el cursor del sistema no se muestra nunca, el
-		# virtual lo reemplaza siguiendo al puntero (modo desktop). Antes se soltaba el grab y se
-		# mostraba el del sistema; eso ahora queda dentro de set_desktop_mouse_mode.
-		if not _active or event.relative.length_squared() > 0.0:
-			set_desktop_mouse_mode(true, event.position)
+		# virtual lo reemplaza siguiendo al puntero (modo desktop). Un motion SIN desplazamiento
+		# (warp, cambio de modo, arranque del menu) no debe hacer aparecer el cursor: solo el
+		# movimiento real.
+		if event.relative.length_squared() <= 0.0:
+			return
+		set_desktop_mouse_mode(true, event.position)
 		return
 	if event is InputEventJoypadMotion or event is InputEventJoypadButton:
 		if gamepad_cursor_enabled:
@@ -334,7 +398,12 @@ func set_desktop_mouse_mode(enabled: bool, position: Vector2 = Vector2.ZERO) -> 
 		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	elif _desktop_mouse_mode:
 		_desktop_mouse_mode = false
-		if Input.get_mouse_mode() == Input.MOUSE_MODE_HIDDEN:
+		if _released:
+			# El jugador solto el puntero a proposito (clic derecho/Esc): no se recaptura al apagar
+			# el cursor (p. ej. al salir del modo HUD). Sigue HIDDEN hasta un clic izquierdo.
+			if Input.get_mouse_mode() != Input.MOUSE_MODE_HIDDEN:
+				Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+		elif Input.get_mouse_mode() == Input.MOUSE_MODE_HIDDEN:
 			Input.set_mouse_mode(_desktop_mouse_restore_mode)
 	update()
 
@@ -360,6 +429,8 @@ func _clear_warp_motion() -> void:
 	_ignore_warp_motion = false
 
 func _draw() -> void:
+	if not _window_focused:
+		return
 	if not _active and not _desktop_mouse_mode:
 		return
 	draw_texture_rect(CURSOR, Rect2(_position - HOTSPOT * _ui_scale, CURSOR.get_size() * _ui_scale), false)

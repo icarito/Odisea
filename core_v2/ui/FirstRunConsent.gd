@@ -46,7 +46,7 @@ func _ready() -> void:
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	# El Menu puede desaparecer mientras esta pantalla permanece sobre la carga. Conserva el
 	# cursor compartido como solicitado por esta UI, incluso despues de liberar el Menu.
-	VirtualMouse.attach_popup(self)
+	VirtualMouse.attach_popup_deferred(self)
 	_telemetry_panel.visible = false
 	_choice_box.visible = false
 	set_process(false)

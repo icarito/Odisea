@@ -74,16 +74,24 @@ func test_interaction_hint_uses_the_context_widget_and_clears_it() -> void:
 	manager.queue_free()
 
 
-func test_interaction_hint_sits_at_the_bottom_centered_with_a_bigger_font() -> void:
-	# Al pie de la pantalla (no arriba), centrado entre los controles, y en letra mas grande.
-	var overlay = load("res://core_v2/ui/overlay/PlayerHintOverlay.tscn").instance()
-	add_child(overlay)
-	overlay.set_hint_mode("hint")
-	overlay.set_hint_text("Abrir puerta")
-	var label: Label = overlay.get_node("HintLabel")
-	var viewport_size: Vector2 = overlay.get_viewport_rect().size
-	assert_int(label.align).is_equal(Label.ALIGN_CENTER)
-	assert_float(label.rect_position.y).is_greater(viewport_size.y * 0.5)
-	assert_float(label.rect_position.y + label.rect_size.y).is_less_equal(viewport_size.y)
-	assert_int((label.get_font("font") as DynamicFont).size).is_greater_equal(28)
-	overlay.free()
+func test_interaction_hint_widget_sits_at_the_bottom_centered() -> void:
+	# Ya no hay subtitulo propio: todo sale por el widget de contexto, abajo-centro.
+	for i in range(4):
+		SuitOS.clear_slot(i)
+	var manager = PlayerHintManager.new()
+	add_child(manager)
+	var source := Node.new()
+	source.name = "Caja_Herramientas"
+	add_child(source)
+	manager.show_interaction_hint("Interactuar", source)
+	var host = manager.call("_context_host")
+	if is_instance_valid(host):
+		var widget = host.get_widget_root().get_node_or_null("SuitOS_Context")
+		assert_object(widget).is_not_null()
+		var viewport_size: Vector2 = host.get_viewport_rect().size
+		assert_float(widget.rect_position.y).is_greater(viewport_size.y * 0.5)
+		assert_float(widget.rect_position.x).is_greater(viewport_size.x * 0.1)
+		assert_float(widget.rect_position.x).is_less(viewport_size.x * 0.9)
+	manager.clear_interaction_hint()
+	source.queue_free()
+	manager.queue_free()

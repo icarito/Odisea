@@ -162,6 +162,7 @@ target_scene = ExtResource( 9 )
 item_count = 40
 radius = 12.0
 start_angle_deg = 1.457
+item_offset = Vector3( 0, 0.2, 0 )
 blocked_angle_ranges_deg = [ Vector2( 231.057, 239.857 ), Vector2( 105.322, 123.922 ), Vector2( 170, 190 ), Vector2( -4.4, 4.4 ), Vector2( 131, 184 ), Vector2( 125.5, 129.5 ) ]
 rotation_y = 180.0
 rand_rotation_amount = 0.0
@@ -185,3 +186,4 @@ center_player_on_enter = true
 
 [node name="CollisionShape" type="CollisionShape" parent="Criopod_Vert/CinematicSequence"]
 shape = SubResource( 2 )
+            

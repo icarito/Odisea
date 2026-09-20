@@ -4,14 +4,29 @@ class_name RingHubWakeup
 export(NodePath) var pilot_path := NodePath("Pilot")
 export(NodePath) var criopod_path := NodePath("Criopod_Vert")
 export(NodePath) var slots_path := NodePath("Hub/Criopods")
-export(Vector3) var pilot_inside_offset := Vector3(0.000200272, 0.721707, -0.123402)
+export(Vector3) var pilot_inside_offset := Vector3(0.000200272, 0.15, -0.123402)
+# El pod funcional toma la misma pose que el item decorativo del slot. El mesh del Criopod_Vert ya
+# tiene su origen en la base, asi que no hace falta compensar en Y (un offset positivo lo dejaba
+# flotando). Ajustar solo si queda unos cm arriba/abajo.
+export(float) var pod_base_offset := 0.0
+# FD-307: la holoterminal de la capsula se abre sola al arrancar y la cinematica de
+# despertar espera a que el jugador la cierre.
+export(bool) var open_pod_terminal_on_start := true
+export(String) var pod_screen_id := "ship:cryopod:elias"
 
 var _base_blocked_ranges: Array = []
 var _selected_slot := -1
 var _wakeup_collision_released := false
+var _gated_oys_script := ""
 
 func _ready() -> void:
 	add_to_group("replay_sync")
+	var session = get_node_or_null("/root/SessionManager")
+	if session != null and session.has_method("register_oys_actor"):
+		session.register_oys_actor("RingHub", self)
+	if open_pod_terminal_on_start:
+		_gate_wakeup_sequence()
+		call_deferred("_open_pod_terminal")
 	var slots := _get_slots()
 	if slots == null:
 		return
@@ -19,10 +34,74 @@ func _ready() -> void:
 	if _selected_slot < 0:
 		_selected_slot = _pick_slot(slots)
 	_apply_wakeup_slot()
-	_set_wakeup_collision_enabled(false)
+	# Colisiones del pod ACTIVAS desde el arranque: si quedan apagadas, Elias cae/se hunde dentro
+	# de la capsula (parecia un yank y no tenia piso). La zona igual las reafirma al salir.
+	_set_wakeup_collision_enabled(true)
 	var wakeup_zone := get_node_or_null("Criopod_Vert/CinematicSequence") as Area
 	if wakeup_zone and not wakeup_zone.is_connected("body_exited", self, "_on_wakeup_zone_exited"):
 		wakeup_zone.connect("body_exited", self, "_on_wakeup_zone_exited")
+
+# La zona sigue monitoreando (el body_exited que libera las colisiones tiene que
+# seguir llegando): lo unico que se retiene es el script OYS que dispara.
+func _gate_wakeup_sequence() -> void:
+	var zone := get_node_or_null("Criopod_Vert/CinematicSequence")
+	if zone == null:
+		return
+	_gated_oys_script = String(zone.script_file)
+	zone.script_file = ""
+
+func _open_pod_terminal() -> void:
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os == null or not suit_os.has_screen(pod_screen_id):
+		_release_wakeup_sequence()
+		return
+	if not suit_os.is_connected("screen_closed", self, "_on_pod_screen_closed"):
+		suit_os.connect("screen_closed", self, "_on_pod_screen_closed")
+	if not suit_os.open_hud_mode(false, pod_screen_id):
+		_release_wakeup_sequence()
+
+# Punto de entrada del OYS (CALL RingHub "close_pod_terminal"): cerrar la holoterminal
+# es lo que suelta la cinematica de despertar.
+func close_pod_terminal() -> void:
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os != null and suit_os.is_hud_mode_active():
+		suit_os.close_hud_mode()
+	_release_wakeup_sequence()
+
+# La escotilla ya no es interactuable suelta (la opera el terminal), asi que la
+# cinematica de despertar la abre por la misma accion que el boton de la pantalla.
+func open_pod_hatch() -> void:
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os != null and suit_os.has_screen(pod_screen_id):
+		suit_os.perform_action(pod_screen_id, "toggle_hatch")
+		return
+	var hatch = get_node_or_null("Criopod_Vert/RotatingObjectV2")
+	if hatch != null and hatch.has_method("set_active"):
+		hatch.set_active(true)
+
+func _on_pod_screen_closed(id: String) -> void:
+	if id != pod_screen_id:
+		return
+	# La cinematica de despertar solo se suelta si el jugador ABRIO la capsula con el boton del
+	# terminal (ABRIR CAPSULA). Cerrar la holoterminal con TAB no debe abrir la puerta ni gatillar
+	# el OYS: eso es una accion del jugador, no del cierre de la UI.
+	if not _pod_hatch_is_open():
+		return
+	_release_wakeup_sequence()
+
+func _pod_hatch_is_open() -> bool:
+	var hatch = get_node_or_null("Criopod_Vert/RotatingObjectV2")
+	return is_instance_valid(hatch) and "is_active" in hatch and bool(hatch.is_active)
+
+func _release_wakeup_sequence() -> void:
+	if _gated_oys_script.empty():
+		return
+	var zone := get_node_or_null("Criopod_Vert/CinematicSequence")
+	if zone == null:
+		return
+	zone.script_file = _gated_oys_script
+	_gated_oys_script = ""
+	zone.call_deferred("trigger_from_script")
 
 func _get_slots() -> RadialScatter:
 	return get_node_or_null(slots_path) as RadialScatter
@@ -54,15 +133,34 @@ func _apply_wakeup_slot() -> void:
 	slots.blocked_angle_ranges_deg.append_array(_base_blocked_ranges.duplicate(true))
 	slots.blocked_angle_ranges_deg.append(Vector2(data.angle_deg - 0.01, data.angle_deg + 0.01))
 	var pod_scale := pod.scale
-	pod.global_transform.origin = slots.to_global(data.position)
-	if slots.inward:
-		pod.look_at(slots.to_global(Vector3(0.0, data.height, 0.0)), Vector3.UP)
-	slots._apply_rotation_offsets(pod, slots.rotation_x, slots.rotation_y, slots.rotation_z)
+	var item := slots.get_node_or_null("Item_%d" % _selected_slot) as Spatial
+	if item != null:
+		# Misma pose que el decorativo horneado de ese slot (posicion y orientacion), corregida en Y
+		# por la altura de la base del pod funcional.
+		pod.global_transform = Transform(item.global_transform.basis.orthonormalized(),
+			item.global_transform.origin + Vector3.UP * pod_base_offset)
+	else:
+		pod.global_transform.origin = slots.to_global(data.position) + Vector3.UP * pod_base_offset
+		if slots.inward:
+			pod.look_at(slots.to_global(Vector3(0.0, data.height, 0.0)), Vector3.UP)
+		slots._apply_rotation_offsets(pod, slots.rotation_x, slots.rotation_y, slots.rotation_z)
 	pod.scale = pod_scale
 	var pilot_transform := pod.global_transform
 	pilot_transform.basis = pilot_transform.basis.orthonormalized()
 	pilot_transform.origin = pod.to_global(pilot_inside_offset)
 	pilot.global_transform = pilot_transform
+	# Dejar al jugador en reposo DENTRO de la capsula con anticipacion: si se lo teletransporta
+	# recien al abrir la escotilla, entra con un tiron fisico.
+	call_deferred("_rest_players_inside", pilot_transform)
+
+func _rest_players_inside(inside: Transform) -> void:
+	for node in get_tree().get_nodes_in_group("player"):
+		if node == null or node == get_node_or_null(pilot_path):
+			continue
+		if node.has_method("set_external_velocity"):
+			node.set_external_velocity(Vector3.ZERO)
+		if node.has_method("teleport_to"):
+			node.teleport_to(inside)
 
 func _on_wakeup_zone_exited(body: Node) -> void:
 	if body.is_in_group("player"):
@@ -99,10 +197,15 @@ func _slot_data(slots: RadialScatter, slot: int) -> Dictionary:
 	return {"angle_deg": rad2deg(angle), "height": height, "position": position}
 
 func get_snapshot() -> Dictionary:
-	return {"selected_slot": _selected_slot, "wakeup_collision_released": _wakeup_collision_released}
+	return {
+		"selected_slot": _selected_slot,
+		"wakeup_collision_released": _wakeup_collision_released,
+		"gated_oys_script": _gated_oys_script,
+	}
 
 func restore_snapshot(data: Dictionary) -> void:
 	_selected_slot = int(data.get("selected_slot", _selected_slot))
 	_wakeup_collision_released = bool(data.get("wakeup_collision_released", false))
+	_gated_oys_script = String(data.get("gated_oys_script", ""))
 	_apply_wakeup_slot()
 	_set_wakeup_collision_enabled(_wakeup_collision_released)

@@ -27,6 +27,7 @@ const STATUS_LAG_MS := 1600
 # de ahi lo demas igual que con controles locales: curva del stick, sprint automatico,
 # flancos. hud_mode no esta a proposito: el HUD es de este dispositivo.
 const FORWARDED_ANALOG_ACTIONS := ["move_left", "move_right", "move_forward", "move_backward"]
+const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
 const FORWARDED_BUTTON_ACTIONS := ["jump", "run", "crouch", "interact", "focus",
 	"rotate_left", "rotate_right", "zero_g_roll_left", "zero_g_roll_right",
 	"tool_fire_primary", "tool_fire_secondary", "tool_next_mode", "tool_prev_mode",
@@ -40,6 +41,7 @@ var hud_backend: Node = null
 var widget_host: Control = null
 
 var _input_provider: InputProviderV2 = null
+var _slot_gamepad: Node = null
 var _remote_control_manager: Node = null
 var _raw_passthrough: bool = not OS.get_name() in ["Android", "iOS"]
 var _mouse_delta: Vector2 = Vector2.ZERO
@@ -93,6 +95,12 @@ func _ready() -> void:
 
 	_title_text = $Title.text
 	_status_waves = $StatusArt/Waves
+	# FD-304 revision 2026-09-19: hombros = slots tambien aca, con el mismo nodo y el mismo stream
+	# (las acciones hud_slot_1..4 de este dispositivo) que el host. Backend: el HUD local.
+	_slot_gamepad = preload("res://core_v2/ui/hud/HudSlotGamepadV2.gd").new()
+	_slot_gamepad.name = "HudSlotGamepad"
+	_slot_gamepad.backend = hud_backend
+	add_child(_slot_gamepad)
 	var client = _client()
 	if client:
 		_host_paused = client.host_paused
@@ -125,6 +133,10 @@ func _client() -> Node:
 func _physics_process(_delta: float) -> void:
 	_update_status_art(_delta)
 	_poll_hud_button()
+	# Hombros = slots de este dispositivo (mismo nodo que el host). En modo HUD el input es del
+	# overlay, asi que el nodo se reinicia solo.
+	if _slot_gamepad != null:
+		_slot_gamepad.tick(_input_provider.get_input())
 	var client = _client()
 	if client == null:
 		return
@@ -145,12 +157,19 @@ func _physics_process(_delta: float) -> void:
 func _send_touch_actions(client) -> void:
 	for action in FORWARDED_ANALOG_ACTIONS:
 		_send_action_if_changed(client, action, stepify(Input.get_action_strength(action), ANALOG_STRENGTH_STEP))
+	# Con el radial abierto los botones de cara son del radial (FD-304): que no lleguen al host y
+	# que el personaje no salte ni se agache mientras se elige. Se reafirma el release para que el
+	# host no se quede con una pulsacion colgada de antes de abrir el dial.
+	var dial_open: bool = _radial_is_open()
 	# El boton izquierdo (tool_fire_primary) tambien lo aprieta el puntero que el sistema
 	# emula de cada toque: arrastrar el joystick disparaba.
 	var mobile_ui = get_node_or_null("/root/MobileUIManager")
 	var from_touch: bool = mobile_ui != null and mobile_ui.has_method("is_pointer_from_touch") \
 		and mobile_ui.is_pointer_from_touch()
 	for action in FORWARDED_BUTTON_ACTIONS:
+		if dial_open and action in ["jump", "crouch", "interact"]:
+			_send_action_if_changed(client, action, 0.0)
+			continue
 		var down: bool = Input.is_action_pressed(action) if InputMap.has_action(action) else false
 		if action == "tool_fire_primary" and from_touch:
 			down = false
@@ -204,10 +223,26 @@ func _input(event: InputEvent) -> void:
 	if event.is_action("hud_mode"):
 		get_tree().set_input_as_handled()
 		return
-	# Sin boton Salir: ESC en escritorio y back en Android (PauseManager lo traduce a una accion
-	# ui_cancel). Solo teclado y esa accion: en un gamepad B tambien es ui_cancel pero es saltar,
-	# y tiene que seguir viajando al host. Se come el press y el release (ESC ya no pausa el host).
-	if (event is InputEventKey or event is InputEventAction) and event.is_action("ui_cancel"):
+	# Hombros (L1/L2/R1/R2): son los slots de ESTE dispositivo (FD-304 revision 2026-09-19). No se
+	# reenvian crudos al host; _physics_process los lee del stream local (hud_slot_N) y decide
+	# tap (accion del widget) u hold (radial). En tactil tampoco se mandan: no estan en FORWARDED.
+	for i in range(HudSlots.COUNT):
+		if event.is_action(HudSlots.action(i)):
+			get_tree().set_input_as_handled()
+			return
+	# Start del mando (JOY_START): pausa/levanta la partida del host SIN abrir su menu de pausa.
+	# Nunca se reenvia crudo al host. Con una UI local abierta se deja pasar: ahi es ui_accept.
+	if event is InputEventJoypadButton \
+			and (event as InputEventJoypadButton).button_index == JOY_START \
+			and not exit_confirm.visible and not _hud_mode_active():
+		if (event as InputEventJoypadButton).pressed:
+			_toggle_host_pause()
+		get_tree().set_input_as_handled()
+		return
+	# Sin boton Salir: ESC en escritorio, back en Android y Select del mando (ui_cancel). Select abre
+	# el menu local del control. Se come el press y el release para que no viaje al host.
+	if (event is InputEventKey or event is InputEventAction or event is InputEventJoypadButton) \
+			and event.is_action("ui_cancel"):
 		if event.is_action_pressed("ui_cancel"):
 			_on_cancel_requested()
 		get_tree().set_input_as_handled()
@@ -435,6 +470,13 @@ func perform_hud_widget_action(screen_id: String, op: String, args: Dictionary =
 	if screen_id.empty():
 		return
 	send_remote_action(screen_id, op, args)
+
+# Start del control: pausa rapida del host, sin su PauseMenu. El host responde host_paused y el
+# cartel "PARTIDA EN PAUSA" del control se actualiza solo.
+func _toggle_host_pause() -> void:
+	var client = _client()
+	if client != null:
+		client.send_ui_directive("pause_toggle", {})
 
 func _exit_tree() -> void:
 	# Al volver al menu no queda colgado el hint de la partida del otro dispositivo.

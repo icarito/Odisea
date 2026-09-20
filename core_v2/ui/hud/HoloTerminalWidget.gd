@@ -6,7 +6,21 @@ class_name HoloTerminalWidget
 onready var _title_label: Label = $Margin/VBox/Header/TitleLabel
 onready var _status_dot: ColorRect = $Margin/VBox/Header/StatusDot
 onready var _status_label: Label = $Margin/VBox/StatusLabel
-onready var _mode_label: Label = $Margin/VBox/ModeLabel
+onready var _mode_label: Label = $Margin/VBox/ActionRow/ModeLabel
+onready var _action_button: Button = $Margin/VBox/ActionRow/ActionButton
+
+const HudWidgetAction = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
+
+var _screen_id: String = ""
+
+func _ready() -> void:
+	if _action_button != null and not _action_button.is_connected("pressed", self, "_on_action_pressed"):
+		_action_button.connect("pressed", self, "_on_action_pressed")
+
+# Mismo patron que FlashlightWidget: la accion del interactuable se oprime desde el
+# widget, sin tener que ir a buscar el objeto en el mundo.
+func _on_action_pressed() -> void:
+	HudWidgetAction.perform(self, _screen_id, "toggle_focus")
 
 func update_snapshot(snapshot: Dictionary) -> void:
 	set_snapshot(snapshot)
@@ -17,8 +31,17 @@ func set_snapshot(snapshot: Dictionary) -> void:
 	var is_focused: bool = bool(snapshot.get("focused", false))
 	var status_text: String = String(snapshot.get("status_text", ""))
 	var source: String = String(snapshot.get("source", "online"))
+	var can_focus: bool = bool(snapshot.get("can_focus", false))
+	_screen_id = String(snapshot.get("id", _screen_id))
 
 	if is_inside_tree():
+		if _action_button != null:
+			_action_button.disabled = source == "offline" or not can_focus
+			if source == "offline":
+				_action_button.text = tr("OFFLINE")
+			else:
+				_action_button.text = tr("SALIR") if is_focused else tr("ABRIR")
+
 		if _title_label != null:
 			_title_label.text = title
 

@@ -55,14 +55,78 @@ func test_right_mouse_button_releases_the_mouse_but_never_pauses() -> void:
 	assert_bool(PauseManager.is_pause_request(esc)).is_true()
 
 
-func test_gamepad_start_pauses_and_no_longer_skips() -> void:
-	# Start (JOY_START) es el boton de pausa del mando; skip se corrio a X para no
-	# disparar las dos cosas en la misma pulsacion durante una cinematica.
+func test_gamepad_select_pauses_and_start_accepts() -> void:
+	# Select (JOY_SELECT) es ui_cancel y por lo tanto el boton de pausa/cancelar del mando.
+	# Start (JOY_START) esta en ui_accept, pero PauseManager lo intercepta antes: alterna la
+	# pausa en vez de confirmar en el menu (revision 2026-09-19). skip sigue en X.
+	var select := InputEventJoypadButton.new()
+	select.button_index = JOY_SELECT
+	select.pressed = true
+	assert_bool(PauseManager.is_pause_request(select)).is_true()
+
 	var start := InputEventJoypadButton.new()
 	start.button_index = JOY_START
 	start.pressed = true
-	assert_bool(PauseManager.is_pause_request(start)).is_true()
+	assert_bool(start.is_action_pressed("ui_accept")).is_true()
+	assert_bool(PauseManager.is_pause_request(start)).is_false()
 	assert_bool(start.is_action_pressed("skip")).is_false()
+
+
+func test_start_pauses_with_the_same_minimal_pausa_label_as_focus_loss() -> void:
+	# Start hace LA misma pausa que perder el foco: el PauseMenu reducido a "PAUSA".
+	# Antes era una pausa propia sin ningun aviso en pantalla.
+	var was_paused: bool = get_tree().paused
+	var previous_menu = PauseManager.pause_menu_instance
+	var menu = PauseMenuScene.instance()
+	add_child(menu)
+	PauseManager.pause_menu_instance = menu
+	get_tree().paused = false
+	PauseManager._quick_paused = false
+	PauseManager._menu_hidden_by_focus = false
+
+	PauseManager.pause_quick()
+	assert_bool(get_tree().paused).is_true()
+	assert_bool(PauseManager.is_quick_paused()).is_true()
+	# El mismo aviso que al perder el foco: solo el titulo, sin oscurecer.
+	assert_bool(menu.find_node("Title").visible).is_true()
+	assert_bool(menu.find_node("Resume").visible).is_false()
+	assert_float(menu.color.a).is_equal_approx(0.0, 0.001)
+
+	get_tree().paused = was_paused
+	PauseManager.pause_menu_instance = previous_menu
+	PauseManager._quick_paused = false
+	PauseManager._menu_hidden_by_focus = false
+	menu.queue_free()
+
+
+func test_start_again_cancels_the_pause_instead_of_entering_the_menu() -> void:
+	# Segunda pulsacion de Start: cancela, venga la pausa de Start o del menu completo.
+	var was_paused: bool = get_tree().paused
+	var previous_menu = PauseManager.pause_menu_instance
+	var menu = PauseMenuScene.instance()
+	add_child(menu)
+	PauseManager.pause_menu_instance = menu
+	get_tree().paused = false
+	PauseManager._quick_paused = false
+
+	PauseManager.pause_quick()
+	assert_bool(get_tree().paused).is_true()
+	PauseManager.toggle_quick_pause()
+	assert_bool(get_tree().paused).is_false()
+	assert_bool(PauseManager.is_quick_paused()).is_false()
+
+	# Y con el menu completo abierto (ESC) Start tampoco confirma: tambien cancela.
+	PauseManager.pause()
+	assert_bool(get_tree().paused).is_true()
+	assert_bool(PauseManager.is_quick_paused()).is_false()
+	PauseManager.toggle_quick_pause()
+	assert_bool(get_tree().paused).is_false()
+
+	get_tree().paused = was_paused
+	PauseManager.pause_menu_instance = previous_menu
+	PauseManager._quick_paused = false
+	PauseManager._menu_hidden_by_focus = false
+	menu.queue_free()
 
 
 func test_right_mouse_button_does_not_resume_from_the_full_menu() -> void:

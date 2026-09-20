@@ -41,6 +41,11 @@ const NONE := -1
 const HUB_INDEX := -2
 const HUB_RADIUS := 40.0
 const HUB_HIT_RADIUS := 34.0
+# El acierto del hub escala con el dial: con el mouse, caer en el centro de 34px era muy dificil.
+# 12% del dial, con piso 34 y techo 96, bien por debajo del radio de apuntado del stick (120) para
+# que el aim siga pudiendo salir del centro a los sectores.
+const HUB_HIT_RADIUS_RATIO := 0.12
+const HUB_HIT_RADIUS_MAX := 96.0
 # Screen-space angles (Y down). First option at 6 o'clock, last at 12, half a
 # turn apart through 3 — so the arc climbs the right-hand side, which is the half
 # the over-the-shoulder camera keeps clear. Options run anticlockwise on screen,
@@ -395,7 +400,7 @@ func slice_at(viewport_position: Vector2) -> int:
 	part of the circle no slice covers — which is where a tap means dismiss, not pick."""
 	if not _is_open:
 		return NONE
-	if hub_enabled and (viewport_position - get_global_rect().position - rect_size / 2.0).length() <= HUB_HIT_RADIUS:
+	if hub_enabled and (viewport_position - get_global_rect().position - rect_size / 2.0).length() <= _hub_hit_radius():
 		return HUB_INDEX
 	if _option_count <= 0:
 		return NONE
@@ -452,6 +457,10 @@ func cancel() -> void:
 func _ring_size() -> float:
 	return min(rect_size.x, rect_size.y)
 
+# Radio de acierto del hub, escalado al tamano del dial (ver HUB_HIT_RADIUS_RATIO).
+func _hub_hit_radius() -> float:
+	return clamp(_ring_size() * HUB_HIT_RADIUS_RATIO, HUB_HIT_RADIUS, HUB_HIT_RADIUS_MAX)
+
 
 func _index_at(position: Vector2) -> int:
 	# Direction is the whole story: once the aim is on the projection at all, some
@@ -461,7 +470,7 @@ func _index_at(position: Vector2) -> int:
 	# nothing, which reads as the dial being broken rather than strict.
 	var offset := position - rect_size / 2.0
 	if hub_enabled:
-		if offset.length() <= HUB_HIT_RADIUS:
+		if offset.length() <= _hub_hit_radius():
 			return HUB_INDEX
 	elif dead_zone > 0.0:
 		if offset.length() < dead_zone:

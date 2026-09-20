@@ -126,6 +126,10 @@ func _send_screen_list() -> void:
 					entry["widget"] = widget_scene.resource_path
 			if screen.has_method("widget_snapshot"):
 				entry["snapshot"] = screen.widget_snapshot()
+			# FD-304 §4/§5: el control necesita saber que hace el tap de un hombro sin abrir la
+			# pantalla. Va con la lista, que es lo que el proxy remoto ya consume.
+			if screen.has_method("hud_gamepad_actions"):
+				entry["gamepad_actions"] = screen.hud_gamepad_actions()
 			screens_list.append(entry)
 
 	server.send_ui_directive("screen_list", screens_list)
@@ -194,6 +198,13 @@ func _on_ui_directive_received(op: String, payload) -> void:
 					var result = suit_os.perform_action(screen_id, action_op, args)
 					if screen_id == _remote_active_screen_id:
 						_refresh_remote_active_screen()
+
+		"pause_toggle":
+			# Start del control: pausa rapida del host, sin menu. RemoteControlManager avisa
+			# host_paused al control cuando cambie get_tree().paused.
+			var pause_mgr = get_node_or_null("/root/PauseManager")
+			if pause_mgr != null and pause_mgr.has_method("toggle_quick_pause"):
+				pause_mgr.toggle_quick_pause()
 
 func set_remote_active_screen(id: String) -> void:
 	_remote_active_screen_id = id

@@ -20,7 +20,10 @@ export(bool) var hud_cfg_ui_bridge_use_system_mouse := true
 export(bool) var hud_cfg_focus_on_activate := true
 
 export(float, 0.0, 1.0) var hud_cfg_background_alpha := 0.15
-export(float, 0.0, 8.0) var hud_cfg_background_emission := 3.0
+export(float, 0.0, 24.0) var hud_cfg_background_emission := 3.0
+# Tinte del vidrio. Alfa 0 = no tocar el del material (comportamiento historico).
+export(Color) var hud_cfg_background_tint := Color(0, 0, 0, 0)
+export(float, 0.0, 16.0) var hud_cfg_background_contrast := 0.0
 export(Vector3) var hud_cfg_local_offset := Vector3.ZERO
 export(Vector3) var hud_cfg_local_rotation_deg := Vector3(0, 180, 0)
 export(NodePath) var hud_cfg_reference_node_path := NodePath("")
@@ -48,6 +51,8 @@ func _apply_hud_config() -> void:
 
 	hud_background_alpha = hud_cfg_background_alpha
 	hud_background_emission = hud_cfg_background_emission
+	hud_background_tint = hud_cfg_background_tint
+	hud_background_contrast = hud_cfg_background_contrast
 	hud_local_offset = hud_cfg_local_offset
 	hud_local_rotation_deg = hud_cfg_local_rotation_deg
 	hud_reference_node_path = hud_cfg_reference_node_path

@@ -1,12 +1,9 @@
 extends Node
 
-const PlayerHintOverlayScene = preload("res://core_v2/ui/overlay/PlayerHintOverlay.tscn")
-const OVERLAY_UI_PATH := "/root/OverlayUIManager"
-const OVERLAY_SLOT_HUD := "HUD"
+# Toda la comunicacion con el jugador sale por el widget de contexto del HUD (SuitOSWidgetHost),
+# abajo-centro. El subtitulo propio (PlayerHintOverlay) se retiro: no hay carteles aparte.
 const MAX_HINT_DURATION := 30.0
 
-var _overlay: Node = null
-var _warned_unavailable := false
 var _interaction_text := ""
 # FD-310: el nodo del interactuable en rango. Con el, el hint de interaccion se muestra como widget
 # de contexto en el HUD (SuitOSWidgetHost) en vez del subtitulo; el texto queda de fallback y para
@@ -15,6 +12,7 @@ var _interaction_source: Node = null
 var _context_showing := false
 var _context_last_text := ""
 var _context_last_title := ""
+var _context_last_description := ""
 var _manual_text := ""
 var _status_text := ""
 var _manual_expires_at := 0.0
@@ -129,41 +127,41 @@ func _refresh_visible_hint() -> void:
 	if [text, visible_mode] != _last_emitted:
 		_last_emitted = [text, visible_mode]
 		emit_signal("visible_hint_changed", text, visible_mode)
-	# FD-310: el hint de interaccion va como widget de contexto si hay slot libre; si no, cae al
-	# subtitulo de siempre. El control remoto recibe el texto por visible_hint_changed igual.
+	# Toda la comunicacion sale por el widget de contexto del HUD (abajo-centro): ya no hay
+	# subtitulo propio ni carteles sueltos. El control remoto recibe el texto por la senal.
 	_update_context_widget(text, visible_mode)
-	if text == "" or _context_showing:
-		if is_instance_valid(_overlay) and _overlay.has_method("clear_hint_text"):
-			_overlay.clear_hint_text()
-		return
-	if not _ensure_overlay():
-		_warn_unavailable_once("show_hint")
-		return
-	if _overlay and _overlay.has_method("set_hint_text"):
-		var mode := get_visible_mode()
-		if _overlay.has_method("set_hint_mode"):
-			_overlay.set_hint_mode(mode)
-		_overlay.set_hint_text(text)
 
-func _update_context_widget(text: String, visible_mode: String) -> void:
+func _update_context_widget(text: String, _visible_mode: String) -> void:
 	var host = _context_host()
-	var wants_context: bool = text != "" and visible_mode == "hint" \
-		and _remote_text == "" and _status_text == "" and _manual_text == "" \
-		and is_instance_valid(_interaction_source)
-	if host == null or not wants_context:
-		if _context_showing and host != null and host.has_method("clear_context"):
+	if host == null:
+		_context_showing = false
+		return
+	if text == "":
+		if _context_showing and host.has_method("clear_context"):
 			host.clear_context()
 		_context_showing = false
 		return
 	var title := _context_title(_interaction_source)
-	if _context_showing and text == _context_last_text and title == _context_last_title:
+	var description := ""
+	var icon: Texture = null
+	if is_instance_valid(_interaction_source):
+		if "interaction_description" in _interaction_source:
+			description = String(_interaction_source.interaction_description)
+		if "interaction_icon" in _interaction_source and _interaction_source.interaction_icon is Texture:
+			icon = _interaction_source.interaction_icon
+	if _context_showing and text == _context_last_text and title == _context_last_title \
+			and description == _context_last_description:
 		return
-	if host.show_context({"title": title, "action": text}):
+	var snapshot := {"title": title, "action": text, "description": description}
+	if icon != null:
+		snapshot["icon"] = icon
+	if host.show_context(snapshot):
 		_context_showing = true
 		_context_last_text = text
 		_context_last_title = title
+		_context_last_description = description
 	else:
-		_context_showing = false # sin slot libre: el subtitulo hace de fallback
+		_context_showing = false
 
 func _context_host() -> Node:
 	if not get_tree():
@@ -199,23 +197,6 @@ func _prune_expired_status() -> void:
 	if _now_sec() >= _status_expires_at:
 		_status_text = ""
 		_status_expires_at = 0.0
-
-func _ensure_overlay() -> bool:
-	if not is_enabled():
-		return false
-	if is_instance_valid(_overlay):
-		return true
-	if not get_tree() or not is_instance_valid(get_tree().root):
-		return false
-	var overlay_ui = get_node_or_null(OVERLAY_UI_PATH)
-	if overlay_ui and overlay_ui.has_method("ensure_overlay"):
-		_overlay = overlay_ui.ensure_overlay("PlayerHintOverlay", PlayerHintOverlayScene, OVERLAY_SLOT_HUD)
-	else:
-		_overlay = PlayerHintOverlayScene.instance()
-		if is_instance_valid(_overlay):
-			_overlay.name = "PlayerHintOverlay"
-			get_tree().root.add_child(_overlay)
-	return is_instance_valid(_overlay)
 
 func _is_runtime_interactive() -> bool:
 	if not _explicit_interactive:
@@ -257,9 +238,3 @@ func _on_refresh_timer_timeout() -> void:
 
 func _now_sec() -> float:
 	return OS.get_ticks_msec() / 1000.0
-
-func _warn_unavailable_once(context: String) -> void:
-	if _warned_unavailable:
-		return
-	_warned_unavailable = true
-	push_warning("[PlayerHintManager] unavailable in '%s'. Player hints disabled." % context)

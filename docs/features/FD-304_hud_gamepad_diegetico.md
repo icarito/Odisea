@@ -5,7 +5,92 @@
 **Effort:** Large
 **Created:** 2026-09-18
 **Completed:** 2026-09-19
+**Revised:** 2026-09-19 (tap = acción, hold = pantalla; Start/Select del control remoto)
 **Parent:** FD-296 (OdiseaOS) · FD-296 F3 (HudModeOverlay) · FD-296 F1.5 (SuitOSWidgetHost) · FD-298 (linterna) · FD-294 (control remoto)
+
+## Revisión 2026-09-19 — tap = acción, hold = radial; Start/Select
+
+Sebastián probó el vertical slice y pidió estos cambios. **Reemplazan** el
+comportamiento de §3 (tap/hold de slot), §5 (acorde) y el origen de §6 (drag con
+stick desde el radial). Esto es lo que implementa el código hoy:
+
+### Slots (gameplay y capa HUD)
+- **Decisión cambiada (2026-09-19, tarde):** los hombros son slots **siempre**, también
+  en gameplay. Ya no son zoom/run/roll/gatillos. Se implementa con
+  `HudSlotGamepadV2`, alimentado por `input.hud_slot` en `_physics_process` (misma
+  muestra determinista que el modo HUD), colgado de `SuitOS` en el host y de
+  `RemoteControlHome` en el control: **cableado idéntico**. No lee botones crudos.
+- **Acciones `slot_1..4`** (antes `hud_slot_1..4`): L1/L2/R1/R2 + teclas 1-4. En gameplay el
+  **tap** ejecuta la **operación primaria** de la pantalla de ese slot
+  (`hud_gamepad_actions()` con `confirm: true`) y **no abre nada**; el **hold** abre el
+  **radial** fijado a ese slot con su **widget ya marcado**. Slot vacío → no hace nada.
+- **En modo HUD** la `slot_N` **cambia a la pantalla de ese slot**; si ya es la activa,
+  **vuelve a gameplay** (cierra el HUD). El hold sigue abriendo el radial.
+- **Feedback del hold** (FD-304 §3.1): una barra al pie del slot, proporcional al tiempo,
+  dibujada por `SuitOSWidgetHost.set_hold_progress()` tanto en gameplay como en el control.
+- El acorde `hold hombro + A` de §5 queda **obsoleto**.
+- La capa Pantalla no cambia: tap de otro slot cambia de pantalla, tap del mismo
+  cierra, y hold + stick sigue arrastrando la pantalla abierta (§6).
+- **Bindings desplazados:** `slot_1..4` se queda con L1/L2/R1/R2 (4/6/5/7). Se
+  les quitaron esos botones a `run`, `zero_g_roll_left/right`, `tool_fire_primary` y
+  `tool_fire_secondary`. Siguen andando por sus otros bindings (run=Shift,
+  roll=Q/E, tool_fire_primary=clic izquierdo); `tool_fire_secondary` quedó sin
+  binding. Reasignar L3/R3/D-pad queda pendiente de decisión.
+
+### Radial (capa HUD)
+- **JUMP (B)** cierra el radial sin saltar; **INTERACT (X)** también cancela.
+- **CROUCH (A)** es el clic del radial: un tap corto confirma lo marcado; sostenido
+  y con el stick levanta el item marcado y lo arrastra a un slot (drag/drop con
+  mando).
+- En el control remoto táctil, con el radial abierto los botones de cara no se
+  reenvían al host: el personaje no salta ni se agacha mientras se elige.
+
+### Widgets vs Pantallas
+- Un widget ampliado (hudable **sin** Pantalla) se arrastra desde su **panel entero**, igual que
+  los widgets de los slots. **No** lleva el asa (`_view_handle`) de las Pantallas con vista propia;
+  el asa queda solo para las Pantallas.
+- **Arrastre con mouse**: el panel del widget ampliado se levanta con el clic desde su cuerpo
+  (fuera de sus botones), sin hold, y se suelta sobre un slot para fijarlo ahí (cierra el HUD). El
+  clic sobre un botón del panel sigue siendo del botón.
+- **Modo pantalla libera el mouse**: al abrir una pantalla (incluido elegir un ítem del drawer) el
+  puntero queda **HIDDEN** y movible, nunca **CAPTURED**. `VirtualMouse._process` reafirma HIDDEN
+  mientras esté en modo desktop, gane quien gane la carrera (`SessionManager`, `PauseManager`, fin
+  de un drag del radial). Es lo que evita el problema de salir de la ventana en modo ventana.
+- Al salir del modo HUD el **cursor virtual se apaga** y el overlay se saca como requester
+  (`VirtualMouse.remove_requester`), aunque la salida no pase por `_exit()`.
+
+### Start / Select
+- `project.godot`: `ui_cancel` pasa de **JOY_START (11)** a **JOY_SELECT (10)**;
+  `ui_accept` suma **JOY_START (11)**. Select cancela/retrocede (y abre el menú de
+  pausa local); Start confirma en las UI.
+- **Start = pausa rápida sin menú** (`PauseManager.toggle_quick_pause()`), local y
+  remota. En el control, Start manda `pause_toggle` al host y el host pausa sin
+  abrir su PauseMenu. Con el menú de pausa abierto, Start cae a `ui_accept` y lo
+  confirma el menú (no lo cierra).
+- En `RemoteControlHome`, **Select abre el menú local del control** y no se reenvía
+  al host; Start nunca se reenvía crudo.
+- Índices reales del engine Godot 3 (corrección sobre §1.2): `8=L3, 9=R3,
+  10=Select/Back, 11=Start`. `JOY_START`/`JOY_SELECT` son 11/10, no 9/8.
+
+### Control remoto
+El `HudModeOverlay` es el mismo, así que los hombros se comportan igual en el
+control. El host manda `gamepad_actions` en `screen_list` y
+`RemoteScreenProxy.hud_gamepad_actions()` lo expone, de modo que el tap remoto
+ejecuta la acción y la manda al host por `remote_action`.
+
+### Archivos tocados por la revisión
+- `core_v2/ui/hud/HudModeOverlay.gd` — `_tap_slot` / `_perform_screen_default_action`;
+  hold al radial con el widget marcado; click/drag del radial con CROUCH; sin asa en widgets.
+- `core_v2/autoloads/PauseManager.gd` — pausa rápida de Start sin menú.
+- `core_v2/ui/VirtualMouse.gd` — `remove_requester` para que el cursor se apague al salir del HUD.
+- `core_v2/ui/RemoteControlHome.gd` — Start = pausa del host (`pause_toggle`), Select local
+  y supresión de botones de cara con el radial abierto.
+- `core_v2/components/SuitOSRemoteBridge.gd` + `core_v2/ui/hud/RemoteHudBackend.gd`
+  — `gamepad_actions` en `screen_list` y en el proxy remoto.
+- `project.godot` §[input] — Select/Start.
+- Tests: `test_hud_mode.gd`, `test_remote_control_home_hud.gd`,
+  `test_pause_menu_minimal.gd`.
+
 
 ## Problem
 
@@ -44,7 +129,7 @@ puede usar el HUD sin soltar el mando.
 | `project.godot` §[input] | `hud_mode` = Tab + joypad botón 3. `hud_slot_1..4` = teclas 1–4 **solamente**. |
 
 Índices de gamepad en el proyecto (Godot 3): `0=A, 1=B, 2=X, 3=Y, 4=LB/L1, 5=RB/R1,
-6=LT/L2, 7=RT/R2, 8=Back, 9=Start, 10=L3, 11=R3, 12–15=D-pad`.
+6=LT/L2, 7=RT/R2, 8=L3, 9=R3, 10=Select/Back, 11=Start, 12–15=D-pad`.
 
 ## Solution
 
@@ -106,6 +191,10 @@ ya está en pausa, así que no hay coste de gameplay en dejarla abierta, y evita
 "claw" de sostener Y + hombro + stick al mismo tiempo.
 
 ### 3. Tap y hold de slot
+
+> **Superado por la Revisión 2026-09-19:** el tap ejecuta la acción primaria del
+> slot y el hold abre su pantalla. El texto de abajo queda como registro de la
+> decisión original.
 
 En la capa HUD, **tap de un hombro**:
 
@@ -175,6 +264,9 @@ Reglas:
   capa es de UI.
 
 ### 5. Acorde rápido (sin entrar a modo pantalla)
+
+> **Obsoleto por la Revisión 2026-09-19:** el tap del hombro ya ejecuta la acción
+> primaria; el acorde deja de existir. Se conserva como registro.
 
 **Hold de un hombro + tap de un botón de cara** = ejecuta la operación del widget
 **sin abrir su pantalla**.

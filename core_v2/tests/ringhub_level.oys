@@ -13,6 +13,12 @@ ASSERT $wakeup_slot < 40 "The wake-up slot must belong to this RingHub level"
 SET $pilot_x GET_NODE_POS_X "Pilot"
 SET $pilot_y GET_NODE_POS_Y "Pilot"
 SET $pilot_z GET_NODE_POS_Z "Pilot"
+# FD-307: la holoterminal de la capsula se abre sola y retiene el despertar hasta que
+# el jugador la cierra.
+SET $pod_still_closed GET_NODE_PROP "RotatingObjectV2" "is_active"
+ASSERT $pod_still_closed == false "El despertar no debe dispararse con la holoterminal abierta"
+CALL RingHub "close_pod_terminal"
+WAIT 4.0
 SET $pod_open GET_NODE_PROP "RotatingObjectV2" "is_active"
 ASSERT $pilot_x > -13.0 "Elías must begin inside a RingHub criopod"
 ASSERT $pilot_x < 13.0 "Elías must begin inside a RingHub criopod"

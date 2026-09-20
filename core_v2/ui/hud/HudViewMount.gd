@@ -84,7 +84,12 @@ func close() -> void:
 			_presenter.queue_free()
 		else:
 			_presenter.set_active(false)
-			_presenter.get_tree().create_timer(FREE_DELAY, true).connect("timeout", _presenter, "queue_free")
+			# Al cerrar el juego el presenter ya puede estar fuera del arbol: get_tree() es null
+			# y create_timer() reventaba. Sin arbol no hay transicion que esperar, se libera ya.
+			if _presenter.is_inside_tree():
+				_presenter.get_tree().create_timer(FREE_DELAY, true).connect("timeout", _presenter, "queue_free")
+			else:
+				_presenter.queue_free()
 	_presenter = null
 	_presenter_snapped = false
 
@@ -99,15 +104,29 @@ func _open_presenter(scene: PackedScene, screen: Object, snapshot: Dictionary, h
 	var shared_viewport: Viewport = screen.borrow_viewport() if share_viewport and screen.has_method("borrow_viewport") else null
 	if design.x > 0.0 and design.y > 0.0:
 		presenter.screen_resolution = design # antes del _ready: de ahi sale el tamaño del Viewport
+	# El alfa del vidrio pedido a mano por la pantalla, si lo pide: es el unico piso de
+	# opacidad que tiene HoloScreen (ALPHA = max(coverage, albedo.a)). Sin el, una pantalla
+	# enfocada contra una pared clara queda ilegible, porque la tinta compite con el mundo
+	# que se ve a traves. El default del modo pegado a camara (0.0) se conserva para las
+	# pantallas que no lo piden.
+	var explicit_background_alpha = null
 	if screen.has_method("view_hud_config"):
 		var config: Dictionary = screen.view_hud_config()
 		presenter.hud_cfg_screen_depth = float(config.get("depth", presenter.hud_cfg_screen_depth))
 		presenter.hud_cfg_screen_scale = float(config.get("scale", presenter.hud_cfg_screen_scale))
-		presenter.hud_cfg_background_alpha = float(config.get("background_alpha", presenter.hud_cfg_background_alpha))
+		presenter.hud_cfg_background_emission = float(config.get("emission", presenter.hud_cfg_background_emission))
+		if config.has("tint") and config["tint"] is Color:
+			presenter.hud_cfg_background_tint = config["tint"]
+		presenter.hud_cfg_background_contrast = float(config.get("contrast", presenter.hud_cfg_background_contrast))
+		if config.has("background_alpha"):
+			explicit_background_alpha = float(config["background_alpha"])
+			presenter.hud_cfg_background_alpha = explicit_background_alpha
+		else:
+			presenter.hud_cfg_background_alpha = float(config.get("background_alpha", presenter.hud_cfg_background_alpha))
 	if snap_to_camera:
 		presenter.hud_cfg_attach_transition_time = 0.0
 		presenter.hud_cfg_screen_depth = 1.0
-		presenter.hud_cfg_background_alpha = 0.0
+		presenter.hud_cfg_background_alpha = 0.0 if explicit_background_alpha == null else explicit_background_alpha
 		presenter.hud_cfg_ui_bridge_requires_focus = false
 		presenter.enable_ui_interaction = shared_viewport == null
 	var mesh: CSGBox = presenter.get_node("ScreenContainer/ScreenMesh")

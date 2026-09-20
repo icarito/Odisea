@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://core_v2/props/controls/PedestalButton.gd" type="Script" id=1]
 [ext_resource path="res://materials/things/StainlessSteel.tres" type="Material" id=2]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=3]
 [ext_resource path="res://assets/sfx/click.wav" type="AudioStream" id=4]
+[ext_resource path="res://core_v2/ui/icons/icon_hand.png" type="Texture" id=5]
 
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 0.2, 0.5, 0.2 )
@@ -27,6 +28,11 @@ size = Vector3( 0.2, 0.1, 0.2 )
 collision_layer = 64
 collision_mask = 0
 script = ExtResource( 1 )
+interaction_title = "Botón de ascensor"
+interaction_description = "Llamada de piso del ascensor de mantenimiento."
+interaction_verb_active = "Apagar"
+interaction_verb_inactive = "Encender"
+interaction_icon = ExtResource( 5 )
 light_mesh_path = NodePath("ButtonMesh")
 
 [node name="CollisionShape" type="CollisionShape" parent="."]

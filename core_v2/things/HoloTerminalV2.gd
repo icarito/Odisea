@@ -70,6 +70,15 @@ var hud_ui_bridge_requires_focus := true
 var hud_ui_bridge_use_system_mouse := true
 var hud_background_alpha := 0.15
 var hud_background_emission := 3.0
+# HoloScreen normaliza el ALBEDO por la cobertura (ALBEDO = texel/coverage * albedo.rgb),
+# asi que el brillo del pixel de la UI NO llega al albedo: todo el panel termina pintado
+# del mismo color, el tinte del vidrio. Por eso el fondo no se puede oscurecer desde la
+# UI y el tinte tiene que ser configurable: un tinte oscuro + emision alta da panel oscuro
+# con tinta brillante (la emision SI es proporcional al texel).
+# Alfa 0 = no tocar el rgb del material.
+var hud_background_tint := Color(0, 0, 0, 0)
+# Separacion tinta/vidrio del shader (contrast_boost). 0 = comportamiento historico.
+var hud_background_contrast := 0.0
 var hud_focus_on_activate := true
 var hud_local_offset := Vector3.ZERO
 var hud_local_rotation_deg := Vector3(0, 180, 0)
@@ -269,9 +278,14 @@ func _apply_hud_screen_material_overrides() -> void:
 	var albedo = shader_mat.get_shader_param("albedo")
 	if typeof(albedo) == TYPE_COLOR:
 		var color: Color = albedo
+		if hud_background_tint.a > 0.0:
+			color.r = hud_background_tint.r
+			color.g = hud_background_tint.g
+			color.b = hud_background_tint.b
 		color.a = clamp(hud_background_alpha, 0.0, 1.0)
 		shader_mat.set_shader_param("albedo", color)
 	shader_mat.set_shader_param("emission_energy", max(0.0, hud_background_emission))
+	shader_mat.set_shader_param("contrast_boost", max(0.0, hud_background_contrast))
 
 
 func interact() -> void:
@@ -594,7 +608,7 @@ func _update_ui_mode() -> void:
 			interaction_text = "Soltar pantalla"
 		else:
 			interaction_text = "Alternar pantalla"
-		set_process_input(is_active and enable_ui_interaction)
+		set_process_input(_input_enabled_by_ui(is_active and enable_ui_interaction))
 		return
 	
 	# UI should be interactive if:
@@ -620,7 +634,16 @@ func _update_ui_mode() -> void:
 		interaction_text = "Accionar terminal"
 	
 	# Enable/disable input processing based on UI mode (either zone interaction or focus)
-	set_process_input(base_interactive)
+	set_process_input(_input_enabled_by_ui(base_interactive))
+
+# Con el HUD dueno del Viewport (modo Pantalla) el terminal NO procesa input por el engine: el
+# overlay le reenvia las teclas y el mouse absoluto por forward_view_input. Si no, las teclas se
+# duplican y el mouse relativo compite con el cursor absoluto.
+func _input_enabled_by_ui(wanted: bool) -> bool:
+	if _viewport_input and _viewport_input.has_method("forces_relative_cursor") \
+			and _viewport_input.forces_relative_cursor():
+		return false
+	return wanted
 
 
 func is_ui_interactive() -> bool:
@@ -726,21 +749,21 @@ func _input(event):
 	# Forward mouse motion to viewport input bridge.
 	if event is InputEventMouseMotion:
 		if _viewport_input and _viewport_input.has_method("process_mouse_motion"):
-			var use_system_mouse = Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
+			var use_system_mouse = _wants_system_mouse()
 			if use_system_mouse and _viewport_input.has_method("process_system_mouse_motion"):
 				_viewport_input.process_system_mouse_motion(event.position, event.global_position, event.relative, get_viewport().size)
 			else:
-				_viewport_input.process_mouse_motion(event.relative)
+				_viewport_input.process_mouse_motion(event.relative * _hud_pointer_sign())
 			get_tree().set_input_as_handled()
 			return
 		if _terminal_ui and _terminal_ui.has_method("process_mouse_motion"):
-			_terminal_ui.process_mouse_motion(event.relative)
+			_terminal_ui.process_mouse_motion(event.relative * _hud_pointer_sign())
 		get_tree().set_input_as_handled()
 	
 	# Forward mouse clicks to viewport input bridge.
 	elif event is InputEventMouseButton:
 		if _viewport_input and _viewport_input.has_method("process_mouse_click"):
-			var use_system_mouse = Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
+			var use_system_mouse = _wants_system_mouse()
 			if use_system_mouse and _viewport_input.has_method("process_system_mouse_button"):
 				_viewport_input.process_system_mouse_button(event.button_index, event.pressed, event.doubleclick, event.position, event.global_position, get_viewport().size)
 			else:
@@ -750,6 +773,37 @@ func _input(event):
 		if event.button_index == BUTTON_LEFT and event.pressed and _terminal_ui and _terminal_ui.has_method("process_mouse_click"):
 			_terminal_ui.process_mouse_click()
 			get_tree().set_input_as_handled()
+
+
+# Mapeo absoluto (puntero del sistema) o cursor propio del Viewport movido por delta.
+# Por defecto se deduce del modo del mouse, como siempre; el unico que puede forzar el
+# relativo es el bridge, cuando el HUD tiene prestado el Viewport (ver
+# HoloTerminalViewportInput.set_hud_relative_cursor).
+func _wants_system_mouse() -> bool:
+	if _viewport_input and _viewport_input.has_method("forces_relative_cursor") \
+			and _viewport_input.forces_relative_cursor():
+		return false
+	return Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED
+
+
+# El cursor del Viewport se dibuja DENTRO de la textura; si el mesh la muestra espejada, el
+# delta del mouse (que con el puntero capturado es lo unico que llega) tiene que entrar espejado
+# igual o el cursor se mueve al reves. Un holograma pegado a la camara nace girado 180 sobre Y
+# (hud_local_rotation_deg), asi que su +X local cae a la izquierda de la pantalla. El signo sale
+# del basis REAL del mesh, no de un flip fijo: si el mesh mira al frente, el delta entra tal cual.
+func _hud_pointer_sign() -> Vector2:
+	if not attach_to_active_camera:
+		return Vector2.ONE
+	var mesh = _get_hud_attach_target()
+	var viewport = get_viewport()
+	var cam: Camera = viewport.get_camera() if viewport != null else null
+	if not is_instance_valid(mesh) or cam == null or not ("width" in mesh):
+		return Vector2.ONE
+	var half_w: float = float(mesh.width) * 0.5
+	var xf: Transform = mesh.global_transform
+	var minus_x: float = cam.unproject_position(xf.xform(Vector3(-half_w, 0.0, 0.0))).x
+	var plus_x: float = cam.unproject_position(xf.xform(Vector3(half_w, 0.0, 0.0))).x
+	return Vector2(-1.0 if plus_x < minus_x else 1.0, 1.0)
 
 
 func _enter_focus_mode():

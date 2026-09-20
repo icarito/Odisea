@@ -257,14 +257,16 @@ func _read_live_input() -> InputDataV2:
 		d.hud_mode = _action_pressed("hud_mode")
 		d.hud_slot = 0
 		for n in range(1, 5): # HudSlots.COUNT; la primera sostenida gana
-			if _action_pressed("hud_slot_%d" % n):
+			if _action_pressed("slot_%d" % n):
 				d.hud_slot = n
 				break
 		# La cruceta, que en modo HUD no es camara: pasos por la lista del dial y del drawer.
+		# Las flechas (ui_up/ui_down, built-in) son el equivalente de teclado de la cruceta:
+		# ya viven en el InputMap y ningun otro sistema de gameplay las lee.
 		d.hud_nav = 0
-		if _action_pressed("camera_up"):
+		if _action_pressed("camera_up") or _action_pressed("ui_up"):
 			d.hud_nav = -1
-		elif _action_pressed("camera_down"):
+		elif _action_pressed("camera_down") or _action_pressed("ui_down"):
 			d.hud_nav = 1
 
 		# --- JOYSTICK SPRINT (Physical) ---

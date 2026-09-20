@@ -116,6 +116,9 @@ func screen_id() -> String:
 
 	return "holoterminal:" + path
 
+func default_screen_title() -> String:
+	return tr("Terminal")
+
 func widget_snapshot() -> Dictionary:
 	var terminal = _get_terminal()
 	var is_active_val: bool = false
@@ -188,6 +191,12 @@ func view_scene() -> PackedScene:
 func view_is_source() -> bool:
 	return view_scene() == null
 
+# El overlay tiene que tomar el input de la pantalla del terminal: el puntero real se proyecta a
+# la superficie (surface_uv) y mueve el cursor del Viewport en ABSOLUTO. Sin esto el terminal
+# manejaba el mouse por su cuenta con deltas relativos, que en la superficie se ve invertido.
+func view_requires_input() -> bool:
+	return is_instance_valid(_get_terminal())
+
 # Resolucion de diseño de la vista: la del Viewport del terminal (1280x816 en el
 # HangingDisplay). El overlay la instancia a ese tamaño y la escala entera; estirada al
 # espacio de UI del juego (stretch viewport, ~1067x600) los diales se salen de sus paneles.
@@ -205,23 +214,60 @@ func borrow_viewport() -> Viewport:
 		_shared_viewport = viewport
 		_shared_viewport_update_mode = viewport.render_target_update_mode
 		viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+		if viewport.has_method("set_hud_relative_cursor"):
+			viewport.set_hud_relative_cursor(true)
+		# Mientras el HUD es dueno del Viewport, el mouse lo maneja el overlay con la posicion
+		# ABSOLUTA del puntero real proyectada a la superficie (process_surface_motion). Se apaga el
+		# _input del terminal para que su camino relativo no compita (cursor invertido/saltando).
+		if is_instance_valid(terminal):
+			terminal.set_process_input(false)
 	return _shared_viewport
 
 func release_viewport() -> void:
 	if is_instance_valid(_shared_viewport):
 		_shared_viewport.render_target_update_mode = _shared_viewport_update_mode
+		if _shared_viewport.has_method("set_hud_relative_cursor"):
+			_shared_viewport.set_hud_relative_cursor(false)
 	_shared_viewport = null
+	var terminal = _get_terminal()
+	if is_instance_valid(terminal) and terminal.has_method("_update_ui_mode"):
+		terminal.call("_update_ui_mode")
 
-func forward_view_input(event: InputEvent) -> void:
+# surface_uv >= 0 = el overlay ya resolvio DONDE cae el puntero real sobre la superficie
+# de la pantalla. Ese camino no pasa por terminal._input(), que deduce el mapeo del modo
+# del mouse y escala la ventana entera al Viewport (mal: la pantalla no ocupa la ventana).
+func forward_view_input(event: InputEvent, surface_uv: Vector2 = Vector2(-1.0, -1.0)) -> void:
 	if not is_instance_valid(_shared_viewport):
 		return
-	if _shared_viewport.has_method("set_use_system_mouse"):
-		_shared_viewport.set_use_system_mouse(Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED)
+	if surface_uv.x >= 0.0:
+		if event is InputEventMouseMotion and _shared_viewport.has_method("process_surface_motion"):
+			_shared_viewport.process_surface_motion(surface_uv)
+			return
+		if event is InputEventMouseButton and _shared_viewport.has_method("process_surface_click"):
+			_shared_viewport.process_surface_click(surface_uv, event.button_index, event.pressed, event.doubleclick)
+			return
+	# Mouse del sistema NO: en el modo Pantalla del HUD lo que se ve no es el Viewport
+	# ocupando la ventana entera, es el mesh del presentador pegado a la camara. El mapeo
+	# absoluto (process_system_mouse_*) escala la posicion del puntero de la ventana
+	# completa al Viewport, asi que el clic caia lejos del boton que se estaba apuntando.
+	# Aca el cursor correcto es el del propio Viewport, movido por delta: para eso el
+	# overlay esconde el cursor virtual y le pone relative_target_scale.
+	#
+	# La condicion vieja miraba el modo del mouse, pero el overlay SIEMPRE lo libera al
+	# abrir la pantalla (_release_mouse_for_screen), asi que daba true siempre.
+	if _shared_viewport.has_method("set_hud_relative_cursor"):
+		_shared_viewport.set_hud_relative_cursor(true)
 	var terminal = _get_terminal()
 	if is_instance_valid(terminal) and terminal.has_method("_input"):
 		terminal._input(event)
 
 # FD-297: Devuelve la camara de foco del terminal si este permite modo foco y el rig existe.
+# El puntero entro o salio de la superficie: adentro manda el cursor del Viewport, afuera
+# el mouse virtual 2D del overlay.
+func set_view_cursor_visible(visible: bool) -> void:
+	if is_instance_valid(_shared_viewport) and _shared_viewport.has_method("set_surface_hover"):
+		_shared_viewport.set_surface_hover(visible)
+
 func view_transition_origin() -> Dictionary:
 	var terminal = _get_terminal()
 	if is_instance_valid(terminal):

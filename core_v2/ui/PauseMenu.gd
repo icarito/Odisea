@@ -11,10 +11,15 @@ onready var version_label = find_node("VersionLabel")
 onready var options_menu = get_node_or_null("OptionsMenu")
 
 var _minimal: bool = false
+var _cursor: Control = null
 
 func _ready():
 	# El cursor cuelga de la raiz pero solo vive mientras este menu esta visible.
-	VirtualMouse.attach_to(get_tree().root, self)
+	_cursor = VirtualMouse.attach_to(get_tree().root, self)
+	# El menu se navega con d-pad + ui_accept sobre el foco: el cursor de gamepad inyectaria
+	# clicks de A/B y se comeria la navegacion. El mouse real sigue funcionando.
+	if is_instance_valid(_cursor) and _cursor.has_method("set_gamepad_cursor_enabled"):
+		_cursor.set_gamepad_cursor_enabled(false)
 	_connect_signals()
 	_update_version_label()
 	# Ni HTML5 ni iOS deben mostrar "salir": en la web no hay a donde salir, y en iOS
@@ -91,6 +96,10 @@ func _on_main_menu_pressed():
 
 func _on_quit_pressed():
 	get_tree().quit()
+
+func _exit_tree():
+	if is_instance_valid(_cursor) and _cursor.has_method("set_gamepad_cursor_enabled"):
+		_cursor.set_gamepad_cursor_enabled(true)
 
 func on_show():
 	# on_show() can run before _ready() (e.g. PauseManager opens the menu in the same

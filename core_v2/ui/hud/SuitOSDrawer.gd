@@ -22,7 +22,7 @@ signal favorite_toggled(id, is_favorite)
 signal closed()
 
 const ROW_HEIGHT := 56.0
-const ROW_WIDTH := 560.0
+const ROW_WIDTH := 420.0
 # El stick da velocidad, no posicion: acelera mientras se empuja y decae al soltar.
 const ACCEL := 2800.0
 const FRICTION := 7.0
@@ -198,26 +198,44 @@ func step_focus(direction: int) -> void:
 	update()
 
 
+# Scroll relativo del mouse/dedo: mueve la lista unos pixeles y el snap de drive() la asienta sola
+# en la fila mas cercana. Sin puntero: la fila CENTRADA es la elegida, como el arma del radial.
+func scroll_by(pixels: float) -> void:
+	if _rows.empty() or pixels == 0.0:
+		return
+	_scroll = clamp(_scroll + pixels, 0.0, _max_scroll())
+	_velocity = 0.0
+	update()
+
+
 # --- Acciones ---
 
 func activate() -> void:
-	var id: String = focused_screen_id()
+	activate_row(focused_index())
+
+
+# Acciona la fila indicada sin tocar el scroll: es el camino del mouse, que elige donde apunta.
+func activate_row(index: int) -> void:
+	var id: String = row_id(index)
 	if not id.empty():
 		emit_signal("screen_chosen", id)
 
 
 # X sobre la fila enfocada. El deny del 7mo favorito se pinta aca; quien decide es SuitOS.
 func toggle_favorite(suit_os: Node) -> void:
-	var i: int = focused_index()
-	if i < 0 or suit_os == null or not suit_os.has_method("toggle_favorite"):
+	toggle_favorite_row(focused_index(), suit_os)
+
+
+func toggle_favorite_row(index: int, suit_os: Node) -> void:
+	if index < 0 or index >= _rows.size() or suit_os == null or not suit_os.has_method("toggle_favorite"):
 		return
-	var id: String = String(_rows[i]["id"])
+	var id: String = String(_rows[index]["id"])
 	if suit_os.toggle_favorite(id):
-		_rows[i]["favorite"] = suit_os.is_favorite(id)
+		_rows[index]["favorite"] = suit_os.is_favorite(id)
 		Haptics.confirm()
-		emit_signal("favorite_toggled", id, bool(_rows[i]["favorite"]))
+		emit_signal("favorite_toggled", id, bool(_rows[index]["favorite"]))
 	else:
-		_deny(i)
+		_deny(index)
 	update()
 
 

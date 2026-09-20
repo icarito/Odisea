@@ -9,6 +9,13 @@ var _menu_hidden_by_focus: bool = false
 # FD-296 F3: el mundo esta pausado por el modo HUD, no por el menu. Mientras dure,
 # ui_cancel (ESC/back) es del overlay del modo HUD y no abre ni cierra la pausa.
 var _hud_mode_paused: bool = false
+# Modo de mouse que habia antes de abrir el HUD. En modo HUD el puntero se OCULTA (HIDDEN), nunca
+# se captura/centra: con el mundo pausado no hay mouse-look y dejar el grab rompe al salir de la
+# ventana. Se restaura al cerrar.
+var _mouse_mode_before_hud: int = -1
+# Pausa rapida de Start (JOY_START): congela el mundo sin abrir el PauseMenu. Start de nuevo la
+# levanta; Select sigue abriendo el menu completo.
+var _quick_paused: bool = false
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
@@ -132,6 +139,18 @@ func _input(event):
 			_apply_menu_visibility()
 		get_tree().set_input_as_handled()
 		return
+	# Start (JOY_START) alterna LA pausa, siempre: la misma que al perder el foco de la
+	# ventana (el menu reducido a "PAUSA"). Oprimirlo de nuevo la cancela, venga de donde
+	# venga la pausa; nunca entra al menu ni confirma en el.
+	#
+	# Antes el gate era (_quick_paused or not get_tree().paused): con el mundo ya pausado
+	# por el menu, Start caia hasta ui_accept y el menu lo confirmaba.
+	if event is InputEventJoypadButton and (event as InputEventJoypadButton).button_index == JOY_START \
+			and (event as InputEventJoypadButton).pressed \
+			and _can_pause_in_current_scene():
+		call_deferred("toggle_quick_pause")
+		get_tree().set_input_as_handled()
+		return
 	if not is_pause_request(event):
 		return
 	if not _can_pause_in_current_scene():
@@ -161,6 +180,7 @@ func _toggle_pause() -> void:
 		pause()
 
 func pause():
+	_quick_paused = false # el menu completo reemplaza la pausa rapida
 	if pause_menu_instance == null:
 		var scene = load(pause_menu_scene_path)
 		if scene:
@@ -197,6 +217,7 @@ func _finish_pause() -> void:
 
 func resume():
 	_menu_hidden_by_focus = false
+	_quick_paused = false
 	get_tree().paused = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	# Recapturar apaga el cursor virtual del puntero liberado (ui_cancel en gameplay).
@@ -208,6 +229,46 @@ func resume():
 	if audio_mgr and audio_mgr.has_method("set_music_paused_by_menu"):
 		audio_mgr.set_music_paused_by_menu(false)
 
+# Start del mando: la MISMA pausa que al perder el foco de la ventana, o sea el PauseMenu
+# reducido a la etiqueta "PAUSA" (revision 2026-09-19, Sebastian). Antes era una pausa
+# invisible propia, sin ningun aviso en pantalla.
+# Start de nuevo la cancela, este reducida o expandida: Start nunca entra al menu.
+func toggle_quick_pause() -> void:
+	if _hud_mode_paused:
+		return
+	# Cancelar no depende de la escena: si el mundo esta pausado, Start lo despausa y punto.
+	# El chequeo de escena es para no PAUSAR en el menu principal ni en el boot, y ahi no
+	# hay nada pausado que cancelar.
+	if get_tree().paused:
+		resume()
+		return
+	if not _can_pause_in_current_scene():
+		return
+	pause_quick()
+
+func pause_quick() -> void:
+	if get_tree().paused:
+		return
+	# El mismo camino que _pause_on_focus_loss: menu reducido a "PAUSA", sin oscurecer.
+	_menu_hidden_by_focus = true
+	pause()
+	# pause() limpia _quick_paused (el menu completo lo reemplaza). Aca la pausa ES de
+	# Start, asi que se vuelve a marcar despues.
+	_quick_paused = true
+
+func resume_quick() -> void:
+	if not _quick_paused:
+		return
+	resume()
+
+func is_quick_paused() -> bool:
+	return _quick_paused
+
+# El jugador solto el puntero (clic derecho/Esc): al salir del HUD no hay que recapturar.
+func _virtual_mouse_released() -> bool:
+	var script = preload("res://core_v2/ui/VirtualMouse.gd")
+	return script != null and script.is_pointer_released()
+
 # FD-296 F3: pausa del modo HUD. Congela el mundo como pause(), pero sin PauseMenu y
 # sin tocar el mouse: el radial lee el gesto con el mouse capturado. Devuelve false si
 # no se puede pausar (menu/boot, o el juego ya estaba pausado por otra cosa).
@@ -216,6 +277,12 @@ func pause_hud_mode() -> bool:
 		return false
 	_hud_mode_paused = true
 	get_tree().paused = true
+	# Solo ocultar el puntero: nada de capturarlo/centrarlo. El radial se apunta con el stick o el
+	# mouse (que ahora sigue moviendose) y las pantallas usan el cursor virtual.
+	if _mouse_mode_before_hud < 0:
+		_mouse_mode_before_hud = Input.get_mouse_mode()
+	if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	_refresh_mobile_ui()
 	_set_music_paused_by_menu(true)
 	return true
@@ -225,6 +292,15 @@ func resume_hud_mode() -> void:
 		return
 	_hud_mode_paused = false
 	get_tree().paused = false
+	if _mouse_mode_before_hud >= 0:
+		var restore: int = _mouse_mode_before_hud
+		_mouse_mode_before_hud = -1
+		# Si el jugador solto el puntero (clic derecho/Esc), NO se recaptura al salir del HUD.
+		if _virtual_mouse_released():
+			Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+		else:
+			# Nunca volver a VISIBLE: el cursor nativo no se muestra en gameplay.
+			Input.set_mouse_mode(restore if restore != Input.MOUSE_MODE_VISIBLE else Input.MOUSE_MODE_CAPTURED)
 	_refresh_mobile_ui()
 	_set_music_paused_by_menu(false)
 

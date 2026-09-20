@@ -55,10 +55,18 @@ var _last_snapshots_cache: Dictionary = {}
 
 var _context_driver: Node = null
 var _widget_host: Node = null
+# FD-304 revision 2026-09-19: hombros = slots tambien en gameplay, con el mismo stream
+# determinista (input.hud_slot) que usa el modo HUD. Se alimenta por tick en _physics_process.
+var _hud_slot_gamepad: Node = null
+var _hud_slot_player: Node = null
 
 func _ready() -> void:
 	add_to_group("replay_sync")
 	_ensure_runtime_subsystems()
+	_hud_slot_gamepad = preload("res://core_v2/ui/hud/HudSlotGamepadV2.gd").new()
+	_hud_slot_gamepad.name = "HudSlotGamepad"
+	_hud_slot_gamepad.backend = self
+	add_child(_hud_slot_gamepad)
 
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager and not scene_manager.is_connected("pre_scene_swap", self, "_on_pre_scene_swap"):
@@ -229,6 +237,12 @@ func set_hud_mode_active(active: bool) -> void:
 func is_hud_mode_active() -> bool:
 	return _hud_mode_active
 
+# Host de widgets visible (el de gameplay). HudSlotGamepadV2 lo usa para el feedback del hold.
+func get_widget_host() -> Node:
+	if not is_instance_valid(_widget_host):
+		_ensure_runtime_subsystems()
+	return _widget_host
+
 # FD-296 F3 — modo HUD local. Vive aca porque SuitOS ya es el dueño de hud_mode_changed y
 # del estado del modo; la pausa se le pide a PauseManager y la presentacion a
 # OverlayUIManager (SLOT_MODAL), asi que no nace un segundo sistema de ninguna de las dos.
@@ -238,15 +252,29 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("hud_mode") and open_hud_mode():
 		get_tree().set_input_as_handled()
 		return
-	# FD-304 §0/Opcion A: los hombros SOLO significan "slot" dentro de la capa HUD. Fuera de ella
-	# siguen siendo zoom/run/roll/modo del multi-tool, asi que un boton del mando nunca abre el
-	# modo HUD por si mismo (lo abre Y, hud_mode). Las teclas 1-4 si, como siempre.
-	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+	# FD-304 revision 2026-09-19: los hombros (y las teclas 1-4) ya no abren el modo HUD por evento:
+	# son slots en gameplay y los resuelve _physics_process con el stream determinista
+	# (HudSlotGamepadV2: tap = accion del widget, hold = radial). Aca solo queda hud_mode.
+
+
+func _physics_process(_delta: float) -> void:
+	if _hud_slot_gamepad == null:
 		return
-	for i in range(HudSlots.COUNT):
-		if event.is_action_pressed(HudSlots.action(i)) and open_hud_mode(false, "", i):
-			get_tree().set_input_as_handled()
-			return
+	if _hud_mode_active:
+		_hud_slot_gamepad.reset() # en modo HUD el input es del overlay
+		return
+	if not is_instance_valid(_hud_slot_player):
+		var players: Array = get_tree().get_nodes_in_group("player")
+		_hud_slot_player = players[0] if not players.empty() else null
+	if not is_instance_valid(_hud_slot_player):
+		return
+	var provider = _hud_slot_player.get("input_provider")
+	if provider == null or not is_instance_valid(provider):
+		return
+	# En replay no se abren menus ni se disparan acciones de UI.
+	if bool(_hud_slot_player.get("is_replay_mode")):
+		return
+	_hud_slot_gamepad.tick(provider.peek_input())
 
 # radial / screen_id: abrir directo en el selector o en una pantalla (hold y tap sobre el
 # widget del slot, que no pasan por el stream). Con TAB el overlay decide tap/hold solo,

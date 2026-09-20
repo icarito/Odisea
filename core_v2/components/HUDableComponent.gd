@@ -28,10 +28,22 @@ func screen_id() -> String:
 		return hud_screen_id
 	return get_name()
 
+# El widget muestra esto: screen_id() (o el nombre del nodo) no es un titulo, es una
+# clave de registro. Sin titulo declarado se le pregunta al objeto, y si tampoco lo
+# tiene queda un generico antes que "CryoPodTerminal" o "holoterminal:res://...".
 func screen_title() -> String:
 	if not hud_screen_title.empty():
 		return hud_screen_title
-	return screen_id()
+	var parent = get_parent()
+	if is_instance_valid(parent) and parent.has_method("get_hud_screen_title"):
+		var parent_title: String = String(parent.get_hud_screen_title())
+		if not parent_title.empty():
+			return parent_title
+	return default_screen_title()
+
+# Lo que se lee cuando nadie declaro un titulo. Cada HUDable concreto lo afina.
+func default_screen_title() -> String:
+	return tr("Pantalla")
 
 func screen_icon() -> Texture:
 	return hud_screen_icon

@@ -58,6 +58,9 @@ func test_injected_click_keeps_the_cursor_coordinates() -> void:
 	# el flag al inicio y nadie lo consume.
 	Input.parse_input_event(InputEventKey.new())
 	Input.flush_buffered_events()
+	# El flush puede entregar clicks que quedaron encolados por el arranque/UI previa: este test
+	# mide SOLO el click inyectado, asi que se descarta lo acumulado hasta aca.
+	spy.seen.clear()
 	cursor._emit_event(click)
 
 	assert_int(spy.seen.size()).is_equal(1)
@@ -172,6 +175,28 @@ func test_released_pointer_shows_the_virtual_cursor_with_no_ui() -> void:
 
 # Estandar de popups: al mostrarse, el popup prende el cursor virtual (modo desktop) sin depender
 # de que el juego ya tuviera uno; al ocultarse, lo suelta.
+func test_attach_popup_deferred_attaches_on_the_next_idle() -> void:
+	# El popup pide el cursor en su _ready, cuando el padre esta armando hijos: el puente diferido
+	# lo cuelga recien en el proximo idle, sin "Parent node is busy setting up children".
+	_clear_virtual_mice()
+	var mouse_mode: int = Input.get_mouse_mode()
+	var popup := Control.new()
+	add_child(popup)
+	popup.visible = true
+	VirtualMouseScript.attach_popup_deferred(popup)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	var cursors: Array = get_tree().get_nodes_in_group("virtual_mouse")
+	assert_int(cursors.size()).is_equal(1)
+	assert_bool((cursors[0] as Control).is_wanted()).is_true()
+	popup.free()
+	_clear_virtual_mice()
+	Input.set_mouse_mode(mouse_mode)
+	# El modo desktop pudo encolar clicks sinteticos: se drenan aca para no contaminar al test
+	# siguiente (que cuenta clicks inyectados).
+	Input.flush_buffered_events()
+
+
 func test_popup_standard_shows_the_virtual_cursor_on_show() -> void:
 	_clear_virtual_mice()
 	var popup := Control.new()

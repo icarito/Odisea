@@ -21,6 +21,9 @@ onready var _input: LineEdit = $VBox/CommandRow/CommandInput
 onready var _status: Label = $VBox/Status
 
 func _ready() -> void:
+	# El shell se usa tambien con el modo HUD abierto (mundo pausado): que procese igual para que
+	# el LineEdit reciba las teclas y los comandos corran.
+	pause_mode = PAUSE_MODE_PROCESS
 	_ensure_console_singleton()
 	_connect_console()
 	_init_font_scaling()

@@ -10,6 +10,14 @@ var _cursor_layer: CanvasLayer = null
 var _cursor_visual: Sprite = null
 var _mouse_button_mask := 0
 var _use_system_mouse := false
+# El HUD presta este Viewport para dibujarlo en el mesh del presentador, que NO ocupa la
+# ventana: ahi el mapeo absoluto del puntero del sistema (process_system_mouse_*) cae
+# donde no es, y con el puntero quieto el cursor queda clavado donde lo dejaron. Mientras
+# dure el prestamo el cursor es este, movido por delta.
+var _hud_relative_cursor := false
+# El puntero esta sobre la superficie de la pantalla. Fuera de ella el cursor de este
+# Viewport no se dibuja: el que manda es el mouse virtual 2D del overlay. Nunca los dos.
+var _surface_hover := true
 # Ultimo evento de teclado inyectado, por id de instancia.
 var _last_key_event_id := 0
 
@@ -27,7 +35,61 @@ func set_ui_mode(active: bool) -> void:
 		_cursor_visual.visible = active and not _use_system_mouse
 	_update_cursor_visual()
 
+func set_hud_relative_cursor(enabled: bool) -> void:
+	_hud_relative_cursor = enabled
+	if enabled:
+		_use_system_mouse = false
+	_ensure_cursor_visual()
+	if _cursor_visual:
+		_cursor_visual.visible = _ui_mode_active and not _use_system_mouse
+	_update_cursor_visual()
+
+func set_surface_hover(enabled: bool) -> void:
+	_surface_hover = enabled
+	_ensure_cursor_visual()
+	_update_cursor_visual()
+
+# Punto absoluto sobre la superficie, en uv [0,1]. Es el camino del modo Pantalla del HUD:
+# el overlay proyecta el mesh del presentador y traduce la posicion REAL del mouse (o la
+# del cursor del joypad) a esta uv, asi que no hay deriva ni mapeo de ventana completa.
+func process_surface_motion(uv: Vector2) -> void:
+	if not _ui_mode_active:
+		return
+	_ensure_cursor_visual()
+	var size = get_visible_rect().size
+	_cursor_position = Vector2(clamp(uv.x, 0.0, 1.0) * size.x, clamp(uv.y, 0.0, 1.0) * size.y)
+	var evt = InputEventMouseMotion.new()
+	evt.position = _cursor_position
+	evt.global_position = _cursor_position
+	evt.button_mask = _mouse_button_mask
+	input(evt)
+	_update_cursor_visual()
+
+func process_surface_click(uv: Vector2, button_index: int, pressed: bool, is_doubleclick: bool) -> void:
+	if not _ui_mode_active:
+		return
+	process_surface_motion(uv)
+	var evt = InputEventMouseButton.new()
+	evt.button_index = button_index
+	evt.pressed = pressed
+	evt.doubleclick = is_doubleclick and pressed
+	evt.position = _cursor_position
+	evt.global_position = _cursor_position
+	var bit = int(1 << (button_index - 1))
+	if pressed:
+		_mouse_button_mask |= bit
+	else:
+		_mouse_button_mask &= ~bit
+	evt.button_mask = _mouse_button_mask
+	input(evt)
+	_update_cursor_visual()
+
+func forces_relative_cursor() -> bool:
+	return _hud_relative_cursor
+
 func set_use_system_mouse(enabled: bool) -> void:
+	if _hud_relative_cursor:
+		enabled = false
 	_use_system_mouse = enabled
 	_ensure_cursor_visual()
 	if _cursor_visual:
@@ -197,7 +259,7 @@ func _ensure_cursor_visual() -> void:
 func _update_cursor_visual() -> void:
 	if not _cursor_visual or not is_instance_valid(_cursor_visual):
 		return
-	_cursor_visual.visible = _ui_mode_active and not _use_system_mouse
+	_cursor_visual.visible = _ui_mode_active and not _use_system_mouse and _surface_hover
 	_cursor_visual.position = _cursor_position
 
 func _map_root_to_viewport(pos: Vector2, root_size: Vector2) -> Vector2:

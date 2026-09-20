@@ -6,8 +6,8 @@ extends Node
 # cumple su contrato: senales widget_changed/screen_registered/screen_unregistered/screen_opened/
 # screen_closed/hud_mode_changed; slots (get_slot_snapshot, get_pinned_slots, slot_screen_id,
 # pin_to_slot, move_slot, clear_slot, clear_slots); pantallas (get_registered_screens, has_screen,
-# get_screen -> objeto con screen_title/widget_scene/view_scene/view_size/widget_snapshot y la
-# senal state_changed); modo HUD (is_hud_mode_active, get_active_screen_id, open_hud_mode,
+# get_screen -> objeto con screen_title/widget_scene/view_scene/view_size/widget_snapshot/
+# hud_gamepad_actions y la senal state_changed); modo HUD (is_hud_mode_active, get_active_screen_id, open_hud_mode,
 # close_hud_mode, open_screen) y perform_action. En el juego ese backend es SuitOS; aca, esto.
 #
 # Las pantallas viven en el host y llegan por el canal (screen_list, screen_data, screen_active).
@@ -75,6 +75,11 @@ class RemoteScreenProxy extends Reference:
 
 	func widget_snapshot() -> Dictionary:
 		return backend.snapshot_for(id)
+
+	# FD-304 §4/§5: las acciones de los botones de cara viajan desde el host. Sin esto el control
+	# no sabria que hace el tap de un hombro y caeria siempre a abrir la pantalla.
+	func hud_gamepad_actions() -> Array:
+		return backend.screen_gamepad_actions(id)
 
 
 func _ready() -> void:
@@ -229,6 +234,19 @@ func screen_field(screen_id: String, key: String) -> String:
 		if typeof(item) == TYPE_DICTIONARY and String(item.get("id", "")) == screen_id:
 			return String(item.get(key, ""))
 	return ""
+
+# Las acciones de botones de cara que declara la pantalla en el host (vacio = ninguna).
+func screen_gamepad_actions(screen_id: String) -> Array:
+	for item in screen_list:
+		if typeof(item) == TYPE_DICTIONARY and String(item.get("id", "")) == screen_id:
+			var actions = item.get("gamepad_actions")
+			if typeof(actions) == TYPE_ARRAY:
+				return (actions as Array).duplicate(true)
+	return []
+
+# El host de widgets montado en este dispositivo (lo usa HudSlotGamepadV2 para el feedback del hold).
+func get_widget_host() -> Node:
+	return home.widget_host if home != null and "widget_host" in home else null
 
 # La escena del widget: la del SuitOS local si la pantalla existe aca (no pasa en un telefono), la
 # ruta que mando el host, o la de las terminales holograficas.

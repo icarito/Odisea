@@ -251,8 +251,9 @@ func test_a_tap_on_the_hub_hits_the_hub_and_one_next_to_it_does_not() -> void:
 	var selector = _make_with_hub(["1", "2", "3"])
 	var origin: Vector2 = selector.get_global_rect().position
 	assert_int(selector.slice_at(origin + CENTER)).is_equal(selector.HUB_INDEX)
-	# Justo afuera del hitbox del hub, todavia en el hueco del anillo: ahi no hay nada que tocar.
-	assert_int(selector.slice_at(origin + CENTER + Vector2(selector.HUB_HIT_RADIUS + 8.0, 0.0))) \
+	# Justo afuera del hitbox del hub (que escala con el dial), todavia en el hueco del anillo:
+	# ahi no hay nada que tocar.
+	assert_int(selector.slice_at(origin + CENTER + Vector2(selector._hub_hit_radius() + 8.0, 0.0))) \
 		.is_equal(RadialSelectorV2.NONE)
 
 

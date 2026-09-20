@@ -19,7 +19,7 @@ static func index_of(slot: String) -> int:
 	return -1
 
 static func action(index: int) -> String:
-	return "hud_slot_%d" % (index + 1)
+	return "slot_%d" % (index + 1)
 
 # 1 y 2 a la izquierda, 3 y 4 a la derecha.
 static func is_right(index: int) -> bool:

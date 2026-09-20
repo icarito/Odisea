@@ -48,6 +48,7 @@ const DENY_MSEC := 450
 # FD-310: widget temporal del interactuable en rango. No es una pantalla registrada ni un pin:
 # vive en un slot libre mientras el jugador apunta al prop, y se va solo.
 const CONTEXT_WIDGET_NAME := "SuitOS_Context"
+const CONTEXT_ICON_SIZE := Vector2(44, 44)
 
 var _active_screen_ids: Dictionary = {} # slot -> screen_id
 var _press_msec: int = 0
@@ -77,9 +78,12 @@ var _cinematic_tween: Tween = null
 var _shoulders: Control = null
 var _deny_slot_index: int = -1
 var _deny_msec: int = -100000
+# FD-304 revision 2026-09-19: relleno de hold de un slot, para que el hold no sea invisible.
+# Lo maneja HudSlotGamepadV2 (gameplay) por set_hold_progress; el modo HUD dibuja su propio gauge.
+var _hold_slot: int = -1
+var _hold_progress: float = 0.0
 # FD-310: widget de contexto (interactuable en rango) y el slot libre que ocupa.
 var _context_widget: Control = null
-var _context_slot: int = -1
 # De donde salen slots y pantallas: SuitOS en el juego, RemoteHudBackend en el control remoto (que
 # lo asigna antes de add_child). Mismo contrato; ver RemoteHudBackend.gd.
 var backend: Node = null
@@ -160,7 +164,23 @@ func deny_slot(index: int) -> void:
 	if is_instance_valid(_shoulders):
 		_shoulders.update()
 
+# Progreso 0..1 del hold del slot (el hold abre el radial). slot < 0 lo apaga. Lo llama
+# HudSlotGamepadV2 cada tick de fisica con HudTabGesture.progress().
+func set_hold_progress(slot: int, progress: float) -> void:
+	var value: float = clamp(progress, 0.0, 1.0)
+	if slot == _hold_slot and abs(value - _hold_progress) < 0.001:
+		return
+	_hold_slot = slot
+	_hold_progress = value if slot >= 0 else 0.0
+	_ensure_shoulders()
+	if is_instance_valid(_shoulders):
+		_shoulders.update()
+
 func _draw_shoulders() -> void:
+	# FD-304 revision 2026-09-19: el hold se ve como una barra al pie del slot, proporcional al
+	# tiempo. No depende de que haya joypad: tambien cubre las teclas 1-4.
+	if _hold_slot >= 0 and _hold_progress > 0.0:
+		_draw_hold_bar(_hold_slot, _hold_progress)
 	# El mapeo de hombros se descubre jugando: no se rotula L1/L2/R1/R2 (Sebastian 2026-09-19).
 	# La capa queda solo para el rechazo de un slot vacio (FD-304 §3), que es feedback de una
 	# accion, no un cartel de controles.
@@ -171,6 +191,15 @@ func _draw_shoulders() -> void:
 	for i in range(HudSlots.COUNT):
 		if i == _deny_slot_index:
 			_shoulders.draw_rect(slot_rect(i), SHOULDER_DENY_COLOR, false, 2.0)
+
+func _draw_hold_bar(slot: int, progress: float) -> void:
+	var rect: Rect2 = slot_rect(slot)
+	var bar_h: float = max(3.0, rect.size.y * 0.06)
+	var bar := Rect2(Vector2(rect.position.x, rect.position.y + rect.size.y - bar_h),
+		Vector2(rect.size.x, bar_h))
+	var color := Color(0.0, 0.835, 1.0, 0.9)
+	_shoulders.draw_rect(bar, Color(color.r, color.g, color.b, 0.15))
+	_shoulders.draw_rect(Rect2(bar.position, Vector2(bar.size.x * progress, bar.size.y)), color)
 
 # Cuando se ven los widgets. PauseManager avisa al pausar y reanudar; SuitOS, al abrir o cerrar
 # una pantalla del modo HUD.
@@ -368,25 +397,30 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 
 # --- FD-310: widget de contexto del interactuable en rango ---
 
-# Monta (o actualiza) el widget de contexto en el primer slot libre. Devuelve false si no hay
-# slot: el llamador cae al texto de siempre. No es un pin: no entra en get_pinned_slots().
+# Monta (o actualiza) el widget de contexto abajo-centro. Es la unica via de comunicacion con el
+# jugador (interactuable en rango, avisos de turno): no ocupa slot ni se pinnea.
 func show_context(snapshot: Dictionary) -> bool:
 	if not is_instance_valid(get_widget_root()):
-		return false
-	var index: int = _context_free_slot()
-	if index < 0:
 		return false
 	if not is_instance_valid(_context_widget):
 		_context_widget = _build_context_widget()
 		get_widget_root().add_child(_context_widget)
-	var title = _context_widget.get_node_or_null("VBox/Title")
+	var title = _context_widget.get_node_or_null("Row/VBox/Title")
 	if title is Label:
 		(title as Label).text = String(snapshot.get("title", ""))
-	var action = _context_widget.get_node_or_null("VBox/Action")
+	var description = _context_widget.get_node_or_null("Row/VBox/Description")
+	if description is Label:
+		var dtext := String(snapshot.get("description", ""))
+		(description as Label).text = dtext
+		(description as Label).visible = not dtext.empty()
+	var icon = _context_widget.get_node_or_null("Row/Icon/Texture")
+	if icon is TextureRect:
+		var texture = snapshot.get("icon", null)
+		(icon as TextureRect).texture = texture if texture is Texture else null
+	var action = _context_widget.get_node_or_null("Row/VBox/Action")
 	if action is Label:
 		(action as Label).text = String(snapshot.get("action", ""))
-	_context_slot = index
-	_place_context(_context_widget, index)
+	_place_context(_context_widget)
 	refresh_visibility()
 	return true
 
@@ -394,41 +428,54 @@ func clear_context() -> void:
 	if is_instance_valid(_context_widget):
 		_context_widget.queue_free()
 	_context_widget = null
-	_context_slot = -1
 	refresh_visibility()
-
-func _context_free_slot() -> int:
-	var pinned: Array = []
-	var suit_os = _backend()
-	if suit_os != null and suit_os.has_method("get_pinned_slots"):
-		pinned = suit_os.get_pinned_slots()
-	for i in range(HudSlots.COUNT):
-		var occupied: bool = i < pinned.size() and not String(pinned[i]).empty()
-		if not occupied:
-			return i
-	return -1
 
 func _build_context_widget() -> Control:
 	var panel := PanelContainer.new()
 	panel.name = CONTEXT_WIDGET_NAME
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_stylebox_override("panel", _widget_panel_style())
+	var row := HBoxContainer.new()
+	row.name = "Row"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_constant_override("separation", 8)
+	panel.add_child(row)
+	# Cuadrado del icono: 44x44 con marco. Si el prop no trae textura queda el marco vacio.
+	var icon_frame := Panel.new()
+	icon_frame.name = "Icon"
+	icon_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_frame.rect_min_size = CONTEXT_ICON_SIZE
+	icon_frame.add_stylebox_override("panel", _context_icon_style())
+	row.add_child(icon_frame)
+	var icon := TextureRect.new()
+	icon.name = "Texture"
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.expand = true
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	icon_frame.add_child(icon)
 	var box := VBoxContainer.new()
 	box.name = "VBox"
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(box)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(box)
 	var title := Label.new()
 	title.name = "Title"
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(title)
+	var description := Label.new()
+	description.name = "Description"
+	description.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	description.visible = false
+	box.add_child(description)
 	var action := Label.new()
 	action.name = "Action"
 	action.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(action)
 	return panel
 
-func _place_context(control: Control, index: int) -> void:
-	if not is_instance_valid(control) or index < 0 or index >= HudSlots.COUNT:
+func _place_context(control: Control) -> void:
+	if not is_instance_valid(control):
 		return
 	var k: float = UIScaleCompensatorScript.scale_for(self)
 	var min_size: Vector2 = control.get_combined_minimum_size()
@@ -437,7 +484,11 @@ func _place_context(control: Control, index: int) -> void:
 	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	control.rect_scale = Vector2.ONE * fit * k
 	var size: Vector2 = Vector2(max(control.rect_size.x, min_size.x), height) * fit * k
-	control.rect_position = HudSlots.slot_position(index, size, _safe_rect(), k)
+	# Abajo-centro del area segura: centrado entre los controles tactiles, pegado al pie.
+	var safe: Rect2 = _safe_rect()
+	control.rect_position = Vector2(
+		safe.position.x + (safe.size.x - size.x) * 0.5,
+		safe.position.y + safe.size.y - size.y - 24.0 * k)
 
 # Uno por slot, fijo: se muestra u oculta (refresh_visibility), nunca se crea y destruye con cada
 # cambio de widget.
@@ -515,6 +566,14 @@ func _draw_recycle() -> void:
 			tip_base + radial * head * 0.8,
 			tip_base - radial * head * 0.8,
 		]), color)
+
+func _context_icon_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.0, 0.05, 0.08, 0.55)
+	style.border_color = Color(0.0, 0.835, 1.0, 0.55)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	return style
 
 func _widget_panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -632,8 +691,8 @@ func _relayout() -> void:
 		var widget = _widget_root.get_node_or_null("SuitOS_Widget_" + slot)
 		if is_instance_valid(widget) and not widget.is_queued_for_deletion():
 			_place(widget, slot)
-	if is_instance_valid(_context_widget) and _context_slot >= 0:
-		_place_context(_context_widget, _context_slot)
+	if is_instance_valid(_context_widget):
+		_place_context(_context_widget)
 
 func _remove_overlay_for_slot(slot: String) -> void:
 	var overlay_name: String = "SuitOS_Widget_" + slot

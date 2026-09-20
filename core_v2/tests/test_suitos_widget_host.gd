@@ -37,8 +37,9 @@ func test_suitos_auto_mounts_driver_and_widget_host() -> void:
 	assert_object(SuitOS.get_node_or_null("SuitOSWidgetHost")).is_not_null()
 
 
-func test_context_widget_uses_a_free_slot_and_leaves_with_clear() -> void:
-	# FD-310: el widget del interactuable ocupa un slot libre, no se fija, y se va con clear_context.
+func test_context_widget_sits_at_the_bottom_centered_and_leaves_with_clear() -> void:
+	# El widget del interactuable va abajo-centro y NO depende de un slot libre: es efimero, no se
+	# fija, y se va con clear_context. Aunque todos los slots esten ocupados, se muestra.
 	for i in range(HudSlots.COUNT):
 		SuitOS.clear_slot(i)
 	var slot_hud = _widget_host.get_widget_root()
@@ -46,11 +47,13 @@ func test_context_widget_uses_a_free_slot_and_leaves_with_clear() -> void:
 	var context = slot_hud.get_node_or_null("SuitOS_Context")
 	assert_object(context).is_not_null()
 	assert_bool(context.visible).is_true()
-	assert_str((context.get_node("VBox/Title") as Label).text).is_equal("Caja")
-	# Sin ningun slot libre no hay donde ponerlo: el llamador cae al texto.
+	assert_str((context.get_node("Row/VBox/Title") as Label).text).is_equal("Caja")
+	var view: Vector2 = _widget_host.get_viewport_rect().size
+	assert_float(context.rect_position.y).is_greater(view.y * 0.5)
 	for i in range(HudSlots.COUNT):
 		SuitOS.pin_to_slot(i, "test:x%d" % i)
-	assert_bool(_widget_host.show_context({"title": "Otra", "action": "x"})).is_false()
+	# Con todos los slots ocupados igual se muestra: no compite por un slot.
+	assert_bool(_widget_host.show_context({"title": "Otra", "action": "x"})).is_true()
 	_widget_host.clear_context()
 	var gone = slot_hud.get_node_or_null("SuitOS_Context")
 	assert_bool(gone == null or gone.is_queued_for_deletion()).is_true()

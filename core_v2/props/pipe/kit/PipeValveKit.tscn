@@ -1,10 +1,11 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://core_v2/props/pipe/PipeValve.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=7]
 [ext_resource path="res://assets/sfx/metal2.wav" type="AudioStream" id=8]
 [ext_resource path="res://core_v2/props/pipe/kit/PipeValveKit_body.mesh" type="ArrayMesh" id=9]
 [ext_resource path="res://core_v2/props/pipe/kit/PipeValveKit_wheel.mesh" type="ArrayMesh" id=10]
+[ext_resource path="res://core_v2/ui/icons/icon_arrow_rotate.png" type="Texture" id=11]
 
 [sub_resource type="CylinderShape" id=5]
 height = 0.22
@@ -24,6 +25,11 @@ radius = 0.45
 [node name="PipeValve" type="Spatial"]
 script = ExtResource( 1 )
 interaction_text = "Girar válvula"
+interaction_title = "Válvula"
+interaction_description = "Válvula de paso del circuito de refrigerante."
+interaction_verb_active = "Cerrar"
+interaction_verb_inactive = "Abrir"
+interaction_icon = ExtResource( 11 )
 anim_duration = 0.5
 starts_active = true
 

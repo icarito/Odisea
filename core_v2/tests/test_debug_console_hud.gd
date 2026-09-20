@@ -1,5 +1,22 @@
 extends GdUnitTestSuite
 
+const DebugConsoleHUDScene = preload("res://core_v2/props/decor/DebugConsoleHUD.tscn")
+
+
+func test_backtick_console_mirrors_the_mouse_delta_with_its_mesh() -> void:
+	# El holograma del backtick va pegado a la camara y nace girado 180 sobre Y: su textura se
+	# ve espejada en X. El unico input es el delta del mouse capturado, asi que el delta tiene
+	# que entrar espejado o el cursor se mueve al reves.
+	var cam: Camera = Camera.new()
+	auto_free(cam)
+	add_child(cam)
+	cam.global_transform = Transform(Basis(), Vector3(0.0, 0.0, 3.0))
+	cam.current = true
+	var hud = auto_free(DebugConsoleHUDScene.instance())
+	add_child(hud)
+	hud.set_active(true)
+	assert_vector2(hud._hud_pointer_sign()).is_equal(Vector2(-1.0, 1.0))
+
 func test_debug_console_is_a_hud_screen_with_its_statusbar_text() -> void:
 	yield(get_tree(), "idle_frame")
 	var screen = get_node_or_null("/root/DebugConsoleManager")

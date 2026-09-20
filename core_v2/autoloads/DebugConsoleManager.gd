@@ -31,6 +31,9 @@ func _ensure_viewport() -> void:
 	_viewport.size = view_size()
 	_viewport.transparent_bg = true
 	_viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+	# El input lo maneja el overlay (surface_uv, absoluto). Sin esto el Viewport procesaba el mouse
+	# real por su cuenta ademas del cursor de la superficie (mismo estandar que HoloTerminalV2).
+	_viewport.gui_disable_input = true
 	add_child(_viewport)
 	var shell: Control = OYSShellScene.instance()
 	shell.font_size = SHELL_FONT_SIZE
@@ -96,17 +99,30 @@ func exit_focus_mode() -> void:
 	if is_instance_valid(_viewport):
 		_viewport.set_ui_mode(false)
 
-func forward_view_input(event: InputEvent) -> void:
+# surface_uv >= 0: el overlay resolvio donde cae el puntero real sobre la superficie de la
+# pantalla (modo Pantalla del HUD). Sin uv se mantiene el camino relativo de siempre.
+func forward_view_input(event: InputEvent, surface_uv: Vector2 = Vector2(-1.0, -1.0)) -> void:
 	if not is_instance_valid(_viewport):
 		return
 	if event is InputEventKey:
 		_viewport.process_key_event(event)
 		return
 	_viewport.set_use_system_mouse(false)
+	if surface_uv.x >= 0.0:
+		if event is InputEventMouseMotion:
+			_viewport.process_surface_motion(surface_uv)
+			return
+		if event is InputEventMouseButton:
+			_viewport.process_surface_click(surface_uv, event.button_index, event.pressed, event.doubleclick)
+			return
 	if event is InputEventMouseMotion:
 		_viewport.process_mouse_motion(event.relative)
 	elif event is InputEventMouseButton:
 		_viewport.process_mouse_click(event.button_index, event.pressed, event.doubleclick)
+
+func set_view_cursor_visible(visible: bool) -> void:
+	if is_instance_valid(_viewport) and _viewport.has_method("set_surface_hover"):
+		_viewport.set_surface_hover(visible)
 
 func widget_snapshot() -> Dictionary:
 	return {

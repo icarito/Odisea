@@ -29,6 +29,15 @@ uniform float hologram_alpha : hint_range(0.0, 1.0) = 1.0;
 // Brillo a partir del cual un pixel se considera tinta plena y se pinta opaco. Mas bajo =
 // mas cosas de la UI se vuelven solidas.
 uniform float ink_level : hint_range(0.05, 1.0) = 0.45;
+// Separacion tinta/vidrio. MEDIDO (2026-09-19): con render_mode unshaded la EMISSION NO
+// llega a la salida en este renderer —emission_energy 0 y 14 dan la misma imagen—, asi que
+// el comentario de arriba sobre "en unshaded la EMISSION se suma aparte del ALBEDO" es
+// falso. Y como el ALBEDO sale normalizado por la cobertura, el brillo del pixel de la UI
+// se pierde: todo el panel termina del mismo color y solo el ALFA distingue tinta de
+// vidrio. Contra un fondo claro eso es ilegible.
+// Este factor devuelve esa separacion al ALBEDO, que si se dibuja. 0.0 = exactamente el
+// comportamiento historico, que es el default para no tocar ninguna pantalla existente.
+uniform float contrast_boost : hint_range(0.0, 16.0) = 0.0;
 uniform bool flip_h = false;
 uniform bool flip_v = true;
 uniform bool back_flip_h = false;
@@ -67,7 +76,7 @@ void fragment() {
     float coverage = clamp(luma / ink_level, 0.0, 1.0);
     // Como el RGB viene premultiplicado, se des-premultiplica con esa misma cobertura o el
     // texto saldria lavado, con el color a medio camino del fondo.
-    ALBEDO = (tex_color.rgb / max(coverage, 0.02)) * albedo.rgb;
+    ALBEDO = (tex_color.rgb / max(coverage, 0.02)) * albedo.rgb * (1.0 + contrast_boost * coverage);
     // El atenuador solo baja el piso de vidrio; la tinta conserva su opacidad.
     ALPHA = max(coverage, albedo.a * hologram_alpha);
     EMISSION = ALBEDO * emission_energy * coverage;

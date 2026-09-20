@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=2]
+[gd_scene load_steps=23 format=2]
 
 [ext_resource path="res://assets/DisplayCase_2/decor/DisplayCase_2_mrao_decor.png" type="Texture" id=1]
 [ext_resource path="res://assets/DisplayCase_2/decor/DisplayCase_2_normal_decor.png" type="Texture" id=2]
@@ -8,6 +8,7 @@
 [ext_resource path="res://assets/sfx/steam hiss.wav" type="AudioStream" id=7]
 [ext_resource path="res://core_v2/props/emitters/LeakEmitter.tscn" type="PackedScene" id=8]
 [ext_resource path="res://core_v2/props/emitters/SparkEmitterV2.tscn" type="PackedScene" id=9]
+[ext_resource path="res://core_v2/props/criopod/CryoPodTerminal.tscn" type="PackedScene" id=10]
 
 [sub_resource type="SpatialMaterial" id=29]
 resource_name = "DisplayCase_2_mat"
@@ -114,6 +115,8 @@ transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-
 collision_layer = 96
 collision_mask = 255
 script = ExtResource( 4 )
+interaction_text = "Revisar criocápsula"
+is_interactable = false
 anim_duration = 3.0
 rotation_amount = -120.0
 
@@ -147,6 +150,11 @@ autoplay = true
 max_distance = 30.0
 script = ExtResource( 6 )
 trigger_mode = "Interact"
+
+; Holoterminal del ocupante (FD-307). Cuelga de la escotilla para que acompañe al vidrio,
+; y SU cuerpo es el interactuable de toda la capsula: la escotilla se abre desde su UI.
+[node name="CryoPodTerminal" parent="RotatingObjectV2" instance=ExtResource( 10 )]
+transform = Transform( 1, 0, 0, 0, -1, 0, 0, 0, -1, 0, 1.98495, 0.386552 )
 
 [node name="Smoke" parent="." instance=ExtResource( 8 )]
 transform = Transform( 3, 0, 8.31764e-09, 0, 2.90486, 0, 8.31702e-09, 0, 2.90486, 0.0232027, 1.07434, 1.46156 )

@@ -7,7 +7,18 @@ const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 var _homes := []
 
 func before_test() -> void:
+	# Suites anteriores pueden dejar acciones de Input sostenidas (movimiento/click): el dial se
+	# abriria apuntando a un sector en vez del hub y el test se volvia dependiente del orden.
+	_reset_input_actions()
 	_hide_virtual_controls()
+
+func _reset_input_actions() -> void:
+	for action in ["move_left", "move_right", "move_forward", "move_backward",
+			"crouch", "jump", "interact", "hud_mode", "hud_nav", "tool_fire_primary",
+			"cursor_left", "cursor_right", "cursor_up", "cursor_down", "ui_accept", "ui_cancel"]:
+		if InputMap.has_action(action):
+			Input.action_release(action)
+	Input.flush_buffered_events()
 
 func after_test() -> void:
 	for home in _homes:
@@ -102,6 +113,12 @@ func _top_slice(overlay) -> Vector2:
 	var center: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
 	var mid: float = (sqrt(sel.width_min) + sqrt(sel.width_max)) / 4.0 * sel._ring_size()
 	return center + Vector2(0.0, -mid)
+
+# Muestra determinista de la accion slot_N para HudSlotGamepadV2 (n=0 = sin slot).
+func _hud_slot(n: int) -> InputDataV2:
+	var d := InputDataV2.new()
+	d.hud_slot = n
+	return d
 func _slot_widget(home, index: int) -> Control:
 	return home.widget_host.get_widget_root().get_node_or_null("SuitOS_Widget_slot_%d" % (index + 1)) as Control
 
@@ -223,9 +240,10 @@ func test_radial_ui_cancel_closes_dial_not_session():
 
 	home.queue_free()
 
-func test_open_dial_keeps_the_touch_stream_flowing():
-	# En tactil los controles virtuales no se apagan nunca: con el dial abierto el
-	# joystick sigue manejando al host (el dial solo toma el dedo que apunta).
+func test_open_dial_blocks_face_buttons_on_touch_but_keeps_movement():
+	# Revision 2026-09-19: con el dial abierto los botones de cara son del radial (JUMP cierra sin
+	# saltar, CROUCH hace de clic): no deben llegar al host. El movimiento si sigue fluyendo: es
+	# del jugador, no del dial.
 	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = false
 	var client = home._client()
@@ -233,9 +251,17 @@ func test_open_dial_keeps_the_touch_stream_flowing():
 	_open_dial(home)
 	client.inputs.clear()
 	Input.action_press("crouch")
+	Input.action_press("jump")
 	home._physics_process(0.016)
+	assert_array(_acts(client, "crouch")).is_empty()
+	assert_array(_acts(client, "jump")).is_empty()
+
+	Input.action_press("move_forward")
+	home._physics_process(0.016)
+	assert_array(_acts(client, "move_forward")).is_equal([true])
+	Input.action_release("move_forward")
 	Input.action_release("crouch")
-	assert_array(_acts(client, "crouch")).is_equal([true])
+	Input.action_release("jump")
 
 	home.queue_free()
 
@@ -310,8 +336,10 @@ func _tab_tap(home) -> void:
 	Input.action_release("hud_mode")
 	_tick(home)
 func _tab_hold(home) -> void:
-	Input.action_press("hud_mode")
+	# Reafirmar la accion en cada tick: si un evento encolado de otra suite la suelta, el gesto
+	# veria un HOLD_RELEASE espurio y el dial se cerraria/elegiria solo.
 	for _i in range(TabGestureScript.HOLD_TICKS + 1):
+		Input.action_press("hud_mode")
 		_tick(home)
 
 func _tab_release(home) -> void:
@@ -391,11 +419,14 @@ func test_mouse_dragging_a_radial_item_pins_it_to_a_slot():
 	var overlay = _open_dial(home)
 	var item: Vector2 = _top_slice(overlay)
 	var drop: Vector2 = home.widget_host.slot_rect(0).get_center()
+	var previous_mode: int = Input.get_mouse_mode()
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN) # puntero real (no capturado): manda la posicion
 
 	overlay._input(_click(item))
 	overlay._input(_motion(drop, drop - item))
 	overlay._input(_release_click(drop))
 
+	Input.set_mouse_mode(previous_mode)
 	assert_str(home.hud_backend.slot_screen_id(0)).is_equal("screen_a")
 	home.queue_free()
 
@@ -407,7 +438,7 @@ func test_captured_mouse_dragging_a_radial_item_pins_it_to_a_slot():
 	var mouse_mode: int = Input.get_mouse_mode()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	var captured: bool = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
-	overlay._point_at(Vector2(0.0, -80.0))
+	overlay._point_at(Vector2(0.0, -overlay.AIM_RADIUS))
 	overlay._input(_click(start))
 	assert_object(overlay._drag_ghost).is_not_null()
 	if captured:
@@ -792,7 +823,8 @@ func test_emulated_mouse_from_touch_does_not_drive_the_dial():
 
 	overlay._input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -80.0)))
 	_tick(home)
-	assert_int(overlay._selector.get_hovered_index()).is_equal(-1)
+	# Al abrir queda marcado el hub (centro); el mouse emulado del toque no lo mueve a un sector.
+	assert_int(overlay._selector.get_hovered_index()).is_equal(-2)
 	var click := _click(VIEW_SIZE * 0.5)
 	click.device = -1
 	overlay._input(click)
@@ -935,7 +967,8 @@ func test_stick_does_not_aim_the_dial_on_touch():
 	Input.action_press("move_forward", 1.0)
 	_tick(home)
 	Input.action_release("move_forward")
-	assert_int(overlay._selector.get_hovered_index()).is_equal(-1)
+	# El stick no mueve la marca del hub (centro) a un sector.
+	assert_int(overlay._selector.get_hovered_index()).is_equal(-2)
 	home.queue_free()
 
 # --- Slots como en el host: arriba a la izquierda y tocables en el celular ---
@@ -1109,6 +1142,74 @@ func test_escape_asks_to_leave_when_no_screen_is_open():
 	for entry in client.inputs:
 		assert_str(String(entry["type"])).is_not_equal("event")
 	home.exit_confirm.hide()
+	home.queue_free()
+
+func test_gamepad_start_quick_pauses_the_host_without_opening_the_menu():
+	# Revision 2026-09-19: Start (JOY_START) pausa/levanta la partida del host SIN su menu de
+	# pausa. Select es el que abre el menu local del control.
+	var home = _home_with_dial(_dial_screens())
+	home._raw_passthrough = true
+	var client = home._client()
+	client.inputs.clear()
+	client.ui_directives.clear()
+	var start := InputEventJoypadButton.new()
+	start.button_index = JOY_START
+	start.pressed = true
+
+	home._input(start)
+
+	assert_bool(home.exit_confirm.visible).is_false()
+	var sent: Array = client.ui_directives
+	assert_int(sent.size()).is_equal(1)
+	assert_str(String(sent[0]["op"])).is_equal("pause_toggle")
+	for entry in client.inputs:
+		assert_str(String(entry["type"])).is_not_equal("event")
+	home.queue_free()
+
+func test_gamepad_select_cancels_locally_and_does_not_reach_the_host():
+	# Select (JOY_SELECT) es ui_cancel: cancela/abre el menu local, no pausa la partida del host.
+	var home = _home_with_dial(_dial_screens())
+	home._raw_passthrough = true
+	var client = home._client()
+	client.inputs.clear()
+	var select := InputEventJoypadButton.new()
+	select.button_index = JOY_SELECT
+	select.pressed = true
+
+	home._input(select)
+
+	assert_bool(home.exit_confirm.visible).is_true()
+	for entry in client.inputs:
+		assert_str(String(entry["type"])).is_not_equal("event")
+	home.exit_confirm.hide()
+	home.queue_free()
+
+func test_tap_a_shoulder_remotely_sends_the_primary_action_instead_of_opening():
+	# Revision 2026-09-19: en gameplay el tap del hombro ejecuta la accion primaria del slot, igual
+	# que en el host. Aca la resuelve el mismo HudSlotGamepadV2 colgado de RemoteControlHome; la
+	# pantalla vive en el host, asi que la accion viaja por remote_action. No abre el HUD.
+	var home = _home_with_dial([{"id": "player:flashlight", "title": "Linterna",
+		"relevance": 0.9, "widget": "res://core_v2/ui/hud/FlashlightWidget.tscn",
+		"gamepad_actions": [{"button": "a", "op": "toggle", "label": "Encender", "confirm": true}],
+		"snapshot": {"proto": 1, "id": "player:flashlight", "title": "Linterna",
+			"on": false, "battery": 90.0, "battery_max": 100.0, "source": "online"}}])
+	home._raw_passthrough = true
+	home.hud_backend.clear_slots()
+	home.hud_backend.pin_to_slot(2, "player:flashlight")
+	home._client().ui_directives.clear()
+	assert_bool(home._hud_mode_active()).is_false()
+
+	# El hombro del slot 3 (indice 2): press + release corto = tap.
+	var node = home._slot_gamepad
+	node.tick(_hud_slot(3))
+	node.tick(_hud_slot(0))
+
+	var sent: Array = home._client().ui_directives
+	assert_int(sent.size()).is_equal(1)
+	assert_str(String(sent[0]["op"])).is_equal("remote_action")
+	assert_str(String(sent[0]["payload"]["screen_id"])).is_equal("player:flashlight")
+	assert_str(String(sent[0]["payload"]["op"])).is_equal("toggle")
+	assert_bool(home._hud_mode_active()).is_false()
 	home.queue_free()
 
 func test_android_back_closes_the_open_screen_first():

@@ -26,7 +26,7 @@ func _ready():
 	download_progress.hide()
 	# Estandar de popups: el aviso de actualizacion es un popup y tambien tiene que gatillar el
 	# cursor virtual (el panel es lo que se muestra/oculta, no el CanvasLayer).
-	VirtualMouse.attach_popup(self, panel)
+	VirtualMouse.attach_popup_deferred(self, panel)
 
 	# NOTA: no filtrar por OS.is_debug_build() aquí. Todo build de Android se exporta
 	# con --export-debug (ver .github/workflows/export_all.yml, único canal hoy:

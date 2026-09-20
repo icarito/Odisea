@@ -103,6 +103,16 @@ func _open_and_play(frames: Array) -> Node:
 	return overlay
 
 
+# Abre con TAB y descarta ese gesto de apertura (como hace show_for_slot): asi la muestra inicial
+# del stream no se lee como tap de TAB y se puede probar solo el stream del hombro.
+func _open_and_play_slot(frames: Array) -> Node:
+	SuitOS._input(_action("hud_mode"))
+	var overlay = _overlay()
+	overlay._gesture.consume()
+	_play(overlay, frames)
+	return overlay
+
+
 func _play(overlay: Node, frames: Array) -> void:
 	var provider := InputProviderV2.new()
 	var buffer: Array = []
@@ -325,10 +335,16 @@ func _touch(pressed: bool, at: Vector2 = Vector2.ZERO) -> InputEventScreenTouch:
 	return ev
 
 
-func _mouse_click(pressed: bool, at: Vector2 = Vector2.ZERO) -> InputEventMouseButton:
+func _mouse_click(pressed: bool, at: Vector2 = Vector2.ZERO, button: int = BUTTON_LEFT) -> InputEventMouseButton:
 	var ev := InputEventMouseButton.new()
-	ev.button_index = BUTTON_LEFT
+	ev.button_index = button
 	ev.pressed = pressed
+	ev.position = at
+	return ev
+
+
+func _screen_drag(at: Vector2) -> InputEventScreenDrag:
+	var ev := InputEventScreenDrag.new()
 	ev.position = at
 	return ev
 
@@ -337,6 +353,13 @@ func _mouse_motion(at: Vector2, relative: Vector2) -> InputEventMouseMotion:
 	var ev := InputEventMouseMotion.new()
 	ev.position = at
 	ev.relative = relative
+	return ev
+
+
+func _wheel(button: int) -> InputEventMouseButton:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = button
+	ev.pressed = true
 	return ev
 
 
@@ -634,11 +657,12 @@ func test_gamepad_and_tab_open_the_radial_without_the_virtual_mouse() -> void:
 	assert_bool(cursor.is_processing()).is_false()        # el stick no lo mueve
 	assert_bool(cursor.visible).is_false()
 
-	# Elegida una pantalla sin Pantalla propia (widget ampliado) sigue apagado: esa se navega
-	# entre sus botones, sin mouse (test_widget_screen_uses_button_focus...).
+	# Elegida una pantalla sin Pantalla propia (widget ampliado): desde la revision 2026-09-19 usa
+	# mouse (click y arrastre a slots), asi que el cursor queda prendido y liberado.
 	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, UP])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
-	assert_bool(cursor.is_processing_input()).is_false()
+	assert_bool(cursor.is_processing_input()).is_true()
+	assert_bool(cursor.visible).is_true()
 
 
 
@@ -649,8 +673,9 @@ func _widget_screen(id: String, title: String) -> Node:
 
 
 func test_widget_screen_uses_button_focus_and_trigger_jump_crouch_as_click() -> void:
-	# Un hudable sin Pantalla (la linterna) no usa mouse: foco en su boton y el clic sale del
-	# gatillo derecho, jump o crouch (en el host el modo HUD pausa: no hacen otra cosa).
+	# Un hudable sin Pantalla (la linterna) deja el foco en su boton y el mando puede oprimirlo con
+	# el gatillo derecho, jump o crouch (en el host el modo HUD pausa: no hacen otra cosa). Ademas
+	# el mouse queda disponible (revision 2026-09-19) para clickear y arrastrar el panel.
 	_widget_screen("test:a", "Linterna")
 	_screen("test:b", "Beta")
 	var overlay = _open_screen_and_play("test:a", [UP])
@@ -658,7 +683,7 @@ func test_widget_screen_uses_button_focus_and_trigger_jump_crouch_as_click() -> 
 	assert_bool(is_instance_valid(widget)).is_true()
 	var toggle = widget.get_node("Margin/VBox/StatusRow/ToggleButton")
 	assert_bool(toggle.has_focus()).is_true()
-	assert_bool(overlay._virtual_mouse.is_processing_input()).is_false() # sin mouse virtual
+	assert_bool(overlay._virtual_mouse.is_processing_input()).is_true()
 	var presses := PressCounter.new()
 	toggle.connect("pressed", presses, "on_pressed")
 
@@ -692,6 +717,27 @@ func test_focus_cursor_scale_crosses_the_terminal_like_the_screen() -> void:
 class TerminalSizedScreen extends Reference:
 	func view_size() -> Vector2:
 		return Vector2(1280.0, 816.0)
+
+
+func test_the_surface_sign_comes_from_the_real_mesh_basis() -> void:
+	# El signo de U ya no es un flip fijo: sale de proyectar el eje local X del mesh. Un mesh
+	# que mira al frente deja su +X a la derecha; girado 180 (mirando a la camara) lo deja a la
+	# izquierda y ahi si hay que invertir. Misma autoridad para mouse y stick.
+	var overlay = auto_free(load("res://core_v2/ui/hud/HudModeOverlay.gd").new())
+	var mesh = auto_free(CSGBox.new())
+	mesh.width = 2.0
+	mesh.height = 1.0
+	var cam = auto_free(Camera.new())
+	add_child(mesh)
+	add_child(cam)
+	cam.global_transform = Transform(Basis(), Vector3(0.0, 0.0, 3.0))
+	cam.current = true
+	mesh.global_transform = Transform(Basis(), Vector3.ZERO)
+	assert_bool(overlay._surface_u_flip(mesh, cam)).is_false()
+	mesh.global_transform = Transform(Basis(Vector3.UP, PI), Vector3.ZERO)
+	assert_bool(overlay._surface_u_flip(mesh, cam)).is_true()
+	# Sin mesh 3D (vista 2D del control remoto) se conserva el signo historico.
+	assert_bool(overlay._surface_u_flip(null, cam)).is_true()
 
 
 # Hereda de la constante y no de la ruta entre comillas: el runner del CI extrae nombres de clase
@@ -759,7 +805,9 @@ func test_hud_widgets_hide_while_a_screen_is_open_but_not_with_only_the_dial() -
 
 # Abre con la tecla del slot (1..4) y reproduce frames con esa tecla en el stream.
 func _open_slot_and_play(slot_number: int, frames: Array) -> Node:
-	SuitOS._input(_action("hud_slot_%d" % slot_number))
+	# Revision 2026-09-19: las teclas 1-4 ya no abren el modo HUD por evento; entran por el stream
+	# determinista como los hombros. Para probar el resto del modo HUD se abre directo por slot.
+	SuitOS.open_hud_mode(false, "", slot_number - 1)
 	var overlay = _overlay()
 	_play(overlay, frames)
 	return overlay
@@ -772,18 +820,15 @@ func _slot_held(slot_number: int, ticks: int) -> Array:
 	return frames
 
 
-func test_slot_key_tap_opens_that_slot_and_a_second_tap_closes() -> void:
+func test_slot_key_tap_in_hud_closes_hud_mode() -> void:
+	# Revision 2026-09-19 (tarde): en modo HUD el hombro/tecla de slot NO abre su widget: cierra
+	# el modo HUD y vuelve a gameplay.
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	SuitOS.pin_to_slot(0, "test:a")
 	SuitOS.pin_to_slot(2, "test:b")
 	var overlay = _open_slot_and_play(3, [UP])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
-	# Tap de otro slot: cambia sin cerrar.
-	_play(overlay, [{"hud_slot": 1}, UP])
-	assert_bool(SuitOS.is_hud_mode_active()).is_true()
-	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
-	# Tap del mismo: cierra.
 	_play(overlay, [{"hud_slot": 1}, UP])
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 
@@ -799,26 +844,29 @@ func test_slot_key_hold_pins_the_pick_in_that_slot() -> void:
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 
 
-func test_slot_key_hold_moves_a_pinned_screen_instead_of_duplicating_it() -> void:
+# Revision 2026-09-19: el hold abre el radial fijado al slot y marca su widget. El tap es el que
+# ejecuta la accion; el hold no abre la pantalla directo.
+func test_hold_a_shoulder_opens_the_radial_with_that_widget_selected() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
-	SuitOS.pin_to_slot(0, "test:b")
-	var overlay = _open_slot_and_play(2, _slot_held(2, Gesture.HOLD_TICKS))
-	_play(overlay, [{"hud_slot": 2, "mouse_delta": [0.0, 60.0]}, UP])
+	SuitOS.pin_to_slot(1, "test:b")
+	var overlay = _open_and_play_slot(_slot_held(2, Gesture.HOLD_TICKS))
+	assert_bool(overlay._selector.is_open()).is_true()
+	assert_int(overlay._target_slot).is_equal(1)
+	assert_str(overlay._dial_id_at(overlay._selector.get_hovered_index())).is_equal("test:b")
+	assert_str(SuitOS.get_active_screen_id()).is_empty()
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "test:b", "", ""])
 
 
 # FD-304 §3: un tap NO abre un menu. El slot vacio responde con un deny y no pasa nada mas; el
 # radial fijado a ese slot es el hold, que es la accion deliberada.
-func test_slot_key_tap_on_an_empty_slot_denies_instead_of_opening_the_radial() -> void:
+func test_slot_key_tap_on_an_empty_slot_also_closes_the_hud() -> void:
+	# Revision 2026-09-19 (tarde): el tap de un hombro en modo HUD cierra el modo HUD, aunque el
+	# slot este vacio (ya no hay deny: la accion del slot es de gameplay).
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
-	var host = SuitOS.get_node("SuitOSWidgetHost")
-	host._deny_slot_index = -1
-	var overlay = _open_slot_and_play(3, [UP])
-	assert_bool(overlay._selector.is_open()).is_false()
-	assert_str(SuitOS.get_active_screen_id()).is_empty()
-	assert_int(host._deny_slot_index).is_equal(2)
+	_open_slot_and_play(3, [UP])
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", ""])
 
 
@@ -890,7 +938,8 @@ func test_slot_key_hold_released_in_the_dead_zone_leaves_nothing_open() -> void:
 	_widget_screen("test:a", "Linterna")
 	_screen("test:b", "Beta")
 	SuitOS.pin_to_slot(0, "test:a")
-	var overlay = _open_slot_and_play(1, _slot_held(1, Gesture.HOLD_TICKS))
+	# Slot 3 vacio: el hold abre el radial; soltar sin marcar nada cierra sin abrir pantalla.
+	var overlay = _open_slot_and_play(3, _slot_held(3, Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
 	_play(overlay, [UP])
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
@@ -1051,12 +1100,12 @@ func test_a_shoulder_and_the_stick_drag_the_open_widget_screen_to_a_slot() -> vo
 	# El stick la lleva hasta el slot 3 (indice 2).
 	var target: Vector2 = host.slot_rect(2).get_center()
 	for _i in range(200):
-		var step: Vector2 = target - overlay._stick_cursor
+		var step: Vector2 = target - overlay._cursor
 		if step.length() < 8.0:
 			break
 		step = step.normalized()
 		_play(overlay, [{"hud_slot": 1, "move_vec": [step.x, step.y], "analog_move_active": true}])
-	assert_int(host.slot_at(overlay._stick_cursor)).is_equal(2)
+	assert_int(host.slot_at(overlay._cursor)).is_equal(2)
 	# Soltar el hombro la fija ahi y cierra el modo HUD.
 	_play(overlay, [{}])
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:a", ""])
@@ -1178,26 +1227,49 @@ func test_touch_tap_with_a_marked_option_presses_it_like_the_elevator() -> void:
 
 # --- Asa de la pantalla abierta ---
 
-func test_dragging_the_handle_of_an_open_screen_anchors_it_to_a_slot() -> void:
+func test_a_widget_only_screen_has_no_drag_handle_and_drags_from_its_panel() -> void:
+	# El asa es solo para las Pantallas con vista propia. El widget ampliado se arrastra desde su
+	# panel entero, asi que no la lleva.
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	var overlay = _open_screen_and_play("test:b", [UP])
 	var host = SuitOS.get_node("SuitOSWidgetHost")
-	assert_bool(overlay._view_handle.visible).is_true()
-	var handle: Vector2 = overlay._view_handle.get_global_rect().position + overlay._view_handle.rect_size * 0.5
-	# Tocar el asa sin arrastrar no cierra la pantalla (esta fuera de la vista).
-	overlay._input(_touch(true, handle))
-	overlay._input(_touch(false, handle))
-	assert_bool(SuitOS.is_hud_mode_active()).is_true()
-	# Arrastrarla (sin hold: es un asa) hasta el slot 2 la ancla ahi y cierra el modo HUD.
-	overlay._input(_touch(true, handle))
-	var slot_2: Rect2 = host.slot_rect(1)
-	var drag := InputEventScreenDrag.new()
-	drag.position = slot_2.position + slot_2.size * 0.5
-	overlay._input(drag)
-	assert_object(overlay._drag_ghost).is_not_null()
-	assert_str(overlay._drag_ghost.text).is_equal("Beta")
-	overlay._input(_touch(false, drag.position))
+	assert_bool(overlay._view_handle.visible).is_false()
+	# Arrastrarlo desde el cuerpo de su panel hasta el slot 2 lo ancla ahi y cierra el modo HUD.
+	_drag_enlarged_widget(overlay, host.slot_rect(1).get_center())
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "test:b", "", ""])
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+func test_an_enlarged_widget_panel_drags_to_a_slot_with_the_mouse() -> void:
+	# Revision 2026-09-19: el panel del widget ampliado se arrastra con el mouse desde su cuerpo
+	# (como un item del radial), sin hold: el mouse levanta al instante.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_screen_and_play("test:b", [UP])
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	# Modo pantalla: el puntero se libera (HIDDEN, no capturado).
+	assert_bool(overlay._virtual_mouse.is_desktop_mouse_mode()).is_true()
+	var rect: Rect2 = overlay._view_screen_rect()
+	var on_body := Vector2(rect.position.x + 6.0, rect.position.y + 6.0)
+
+	var down := InputEventMouseButton.new()
+	down.button_index = BUTTON_LEFT
+	down.pressed = true
+	down.position = on_body
+	overlay._input(down)
+	assert_bool(overlay._dragging_view).is_true()
+
+	var target: Vector2 = host.slot_rect(1).get_center()
+	var motion := InputEventMouseMotion.new()
+	motion.position = target
+	overlay._input(motion)
+	var up := InputEventMouseButton.new()
+	up.button_index = BUTTON_LEFT
+	up.pressed = false
+	up.position = target
+	overlay._input(up)
+
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "test:b", "", ""])
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 
@@ -1359,7 +1431,7 @@ func _gamepad_screen(id: String, title: String) -> Node:
 func test_the_shoulders_feed_the_slot_actions_of_the_hud_layer() -> void:
 	# FD-304 §1.1: 1 y 2 a la izquierda (L1/L2), 3 y 4 a la derecha (R1/R2), para que el hombro
 	# del lado sea el slot del lado. Con deadzone 0.5, como hud_mode.
-	var expected := {"hud_slot_1": JOY_L, "hud_slot_2": JOY_L2, "hud_slot_3": JOY_R, "hud_slot_4": JOY_R2}
+	var expected := {"slot_1": JOY_L, "slot_2": JOY_L2, "slot_3": JOY_R, "slot_4": JOY_R2}
 	for action in expected.keys():
 		var found := false
 		for event in InputMap.get_action_list(action):
@@ -1370,18 +1442,19 @@ func test_the_shoulders_feed_the_slot_actions_of_the_hud_layer() -> void:
 		assert_float(InputMap.action_get_deadzone(action)).is_equal_approx(0.5, 0.001)
 
 
-func test_a_shoulder_never_opens_the_hud_mode_by_itself() -> void:
-	# Opcion A de la FD: los hombros solo significan "slot" DENTRO de la capa HUD. Fuera de ella
-	# siguen siendo zoom/run/roll/modo del multi-tool y no pueden abrir nada.
+func test_a_shoulder_event_does_not_open_the_hud_mode() -> void:
+	# Revision 2026-09-19: los hombros son slots en gameplay y los resuelve el stream determinista
+	# (HudSlotGamepadV2.tick en _physics_process), no el _input del autoload. Un evento crudo no
+	# abre nada aca.
 	_screen("test:a", "Alpha")
 	var event := InputEventJoypadButton.new()
 	event.button_index = JOY_R
 	event.pressed = true
 	SuitOS._input(event)
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
-	# La tecla 1-4 si abre, como siempre.
-	SuitOS._input(_action("hud_slot_3"))
+	assert_bool(SuitOS.open_hud_mode(false, "", 2)).is_true() # el radial si lo abre, por su ruta
 	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+	SuitOS.close_hud_mode()
 
 
 func test_the_slot_frame_fills_while_the_shoulder_is_held_and_empties_if_let_go() -> void:
@@ -1394,9 +1467,9 @@ func test_the_slot_frame_fills_while_the_shoulder_is_held_and_empties_if_let_go(
 	assert_float(early).is_less(1.0)
 	_play(overlay, _slot_held(3, 6))
 	assert_float(overlay._hold_progress).is_greater(early) # proporcional al tiempo
-	# Soltado antes del umbral: se vacia y no abre nada.
+	# Soltado antes del umbral: es un tap, que en modo HUD cierra el modo HUD.
 	_play(overlay, [UP])
-	assert_float(overlay._hold_progress).is_equal_approx(0.0, 0.001)
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 
 
 func test_a_declares_its_screen_action_and_the_gui_does_not_press_it_twice() -> void:
@@ -1413,17 +1486,66 @@ func test_a_declares_its_screen_action_and_the_gui_does_not_press_it_twice() -> 
 	assert_int(screen.toggled).is_equal(2)
 
 
-func test_hold_a_shoulder_and_tap_a_performs_the_action_without_opening_the_screen() -> void:
-	# El acorde de §5: hold R1 (slot 3) + A alterna sin abrir su pantalla, y el dial no se cierra.
-	var screen = _gamepad_screen("test:a", "Linterna")
+func test_tap_a_shoulder_in_hud_closes_the_hud() -> void:
+	# Revision 2026-09-19 (tarde): en modo HUD la slot action NO abre el widget de su slot: cierra
+	# el modo HUD. La accion primaria es de gameplay (otro nodo).
+	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	SuitOS.pin_to_slot(2, "test:a")
-	var overlay = _open_slot_and_play(3, _slot_held(3, Gesture.HOLD_TICKS))
-	assert_bool(overlay._selector.is_open()).is_true()
-	_play(overlay, [{"hud_slot": 3, "crouch": true}])
-	assert_int(screen.toggled).is_equal(1)
-	assert_str(SuitOS.get_active_screen_id()).is_empty() # no se abrio la pantalla
-	assert_bool(overlay._selector.is_open()).is_true() # el slot sigue en foco para encadenar
+	_open_and_play_slot([{"hud_slot": 3}, {}]) # tap del slot 3
+	assert_bool(SuitOS.is_hud_mode_active()).is_false()
+
+
+func test_hold_on_a_slot_that_is_not_a_favorite_opens_the_drawer_on_that_row() -> void:
+	# El hold de un hombro abre el radial con el widget del slot si es favorito. Si NO lo es, abre
+	# el drawer con esa opcion marcada.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	SuitOS.pin_to_slot(1, "test:b")
+	if SuitOS.is_favorite("test:b"):
+		SuitOS.toggle_favorite("test:b")
+	assert_bool(SuitOS.is_favorite("test:b")).is_false()
+	var overlay = _open_and_play_slot(_slot_held(2, Gesture.HOLD_TICKS))
+	assert_bool(overlay._selector.is_open()).is_false()
+	assert_bool(overlay._drawer_open()).is_true()
+	assert_str(overlay._drawer.focused_screen_id()).is_equal("test:b")
+
+
+func test_confirm_after_a_slot_hold_selects_that_slot_screen() -> void:
+	# El hold de un hombro abre el radial con su widget marcado; confirmar (A/clic) activa ESE
+	# item, no el centro.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	SuitOS.pin_to_slot(1, "test:b")
+	var overlay = _open_and_play_slot(_slot_held(2, Gesture.HOLD_TICKS))
+	assert_int(overlay._selector.get_hovered_index()).is_equal(overlay._dial_ids.find("test:b"))
+	_play(overlay, [{"crouch": true}, {}])
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
+
+
+func test_mouse_click_without_moving_on_a_slot_hold_radial_selects_the_slot_item() -> void:
+	# Un clic sin haber movido el mouse activa lo marcado (el widget del slot que abrio el radial),
+	# no el centro por posicion.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	SuitOS.pin_to_slot(1, "test:b")
+	var overlay = _open_and_play_slot(_slot_held(2, Gesture.HOLD_TICKS))
+	var center: Vector2 = overlay._selector.get_global_rect().position + overlay._selector.rect_size * 0.5
+	overlay._input(_mouse_click(true, center))
+	overlay._input(_mouse_click(false, center))
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
+
+
+func test_crouch_click_on_the_dial_selects_the_aimed_item_like_the_mouse() -> void:
+	# Revision 2026-09-19: A (crouch / right action) en el dial selecciona el item apuntado, igual
+	# que un clic del mouse. Antes el evento ui_accept ademas confirmaba por su cuenta.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	overlay._point_at(Vector2(0.0, -overlay.AIM_RADIUS))
+	assert_int(overlay._selector.get_hovered_index()).is_equal(1)
+	_play(overlay, [{"crouch": true}, {}]) # tap de A
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 
 
 func test_x_and_b_cancel_the_dial() -> void:
@@ -1442,8 +1564,9 @@ func test_the_dpad_steps_through_the_arc() -> void:
 	_screen("test:c", "Charlie")
 	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
-	assert_int(overlay._selector.get_hovered_index()).is_equal(RadialSelectorV2.NONE)
-	# Sin nada marcado, el primer paso entra por el primer sector (a las 6), vaya donde vaya.
+	# Al entrar, el item del centro (hub) queda marcado.
+	assert_int(overlay._selector.get_hovered_index()).is_equal(RadialSelectorV2.HUB_INDEX)
+	# Desde el hub, el primer paso entra por el primer sector (a las 6), vaya donde vaya.
 	_play(overlay, [{"hud_mode": true, "hud_nav": -1}])
 	assert_int(overlay._selector.get_hovered_index()).is_equal(0)
 	# Sostenida no repite hasta pasar el umbral: un paso por pulsacion.
@@ -1546,8 +1669,11 @@ func test_mouse_click_with_the_aim_on_a_sector_picks_it_not_the_hub() -> void:
 	overlay._point_at(Vector2(0.0, 100.0)) # Alpha, a las 6
 	assert_int(sel.get_hovered_index()).is_equal(0)
 	var center: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
+	var previous_mode: int = Input.get_mouse_mode()
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED) # con el grab, el click llega warpeado al centro
 	overlay._input(_mouse_click(true, center))
 	overlay._input(_mouse_click(false, center))
+	Input.set_mouse_mode(previous_mode)
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
 	assert_bool(sel.is_open()).is_false()
 
@@ -1564,20 +1690,82 @@ func _drawer_overlay() -> Node:
 	return overlay
 
 
-func test_drawer_mouse_motion_replaces_the_native_cursor_with_the_virtual_one() -> void:
+func test_drawer_mouse_has_no_pointer_and_scrolls_relatively() -> void:
+	# Sin puntero: el mouse mueve la lista en relativo, como el arma del radial. No hay fila
+	# bajo el cursor que re-resolver, asi que no puede correr a un extremo.
 	var overlay = _drawer_overlay()
-	var mouse_mode: int = Input.get_mouse_mode()
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	var captured: bool = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
-	overlay._input(_mouse_motion(Vector2(400.0, 300.0), Vector2(12.0, 0.0)))
-	assert_bool(overlay._virtual_mouse.is_desktop_mouse_mode()).is_true()
-	if captured:
-		# El cursor nativo queda oculto: el virtual es el que se dibuja.
-		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
-	Input.set_mouse_mode(mouse_mode)
+	var drawer = overlay._drawer
+	var before: float = drawer._scroll
+	overlay._input(_mouse_motion(Vector2(400.0, 300.0), Vector2(0.0, 20.0)))
+	assert_float(drawer._scroll).is_greater(before)
 
 
-func test_drawer_star_click_toggles_favorite_and_row_click_opens() -> void:
+func test_mouse_scroll_settles_on_a_centred_row_without_runaway() -> void:
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	for i in range(4):
+		overlay._input(_mouse_motion(Vector2(400.0, 300.0), Vector2(0.0, 14.0)))
+	assert_float(drawer._scroll).is_equal_approx(56.0, 0.01) # clamp a max_scroll (2 filas)
+	for i in range(120):
+		drawer.drive(0.0, 0, 1.0 / 60.0)
+	assert_int(drawer.focused_index()).is_equal(1)
+	assert_float(drawer._scroll).is_equal_approx(56.0, 0.5)
+
+
+func test_drawer_wheel_steps_the_list_like_the_dpad() -> void:
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(0)
+	overlay._input(_wheel(BUTTON_WHEEL_DOWN))
+	assert_int(drawer.focused_index()).is_equal(1)
+	overlay._input(_wheel(BUTTON_WHEEL_UP))
+	assert_int(drawer.focused_index()).is_equal(0)
+
+
+func test_mouse_right_click_leaves_the_drawer() -> void:
+	# Sin puntero el click izquierdo acciona la fila centrada; el derecho sale. Vuelve al dial
+	# si el drawer salio de el, o al juego si se entro directo.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	overlay._select(RadialSelectorV2.HUB_INDEX)
+	assert_bool(overlay._drawer_open()).is_true()
+	overlay._input(_mouse_click(true, Vector2(400.0, 300.0), BUTTON_RIGHT))
+	assert_bool(overlay._drawer_open()).is_false()
+	assert_bool(overlay._selector.is_open()).is_true()
+
+
+func test_hud_nav_reads_the_arrow_keys_like_the_dpad() -> void:
+	var provider := InputProviderV2.new()
+	Input.action_press("ui_down")
+	var down = provider.get_input()
+	Input.action_release("ui_down")
+	assert_int(int(down.hud_nav)).is_equal(1)
+	Input.action_press("ui_up")
+	var up = provider.get_input()
+	Input.action_release("ui_up")
+	assert_int(int(up.hud_nav)).is_equal(-1)
+
+
+func test_ui_accept_no_longer_fires_on_space() -> void:
+	# Espacio es jump (B/cancelar en el HUD). Si ademas fuera ui_accept, con el dial abierto
+	# confirmaba y cancelaba en el mismo frame. Enter/A/Start siguen confirmando.
+	var has_space: bool = false
+	var has_enter: bool = false
+	for ev in InputMap.get_action_list("ui_accept"):
+		if ev is InputEventKey and not ev.echo:
+			if ev.scancode == KEY_SPACE:
+				has_space = true
+			elif ev.scancode == KEY_ENTER:
+				has_enter = true
+	assert_bool(has_space).is_false()
+	assert_bool(has_enter).is_true()
+	for ev in InputMap.get_action_list("ui_select"):
+		if ev is InputEventKey:
+			assert_int(ev.scancode).is_not_equal(KEY_SPACE)
+
+
+func test_drawer_touch_star_toggles_favorite_and_row_tap_opens() -> void:
 	var overlay = _drawer_overlay()
 	var drawer = overlay._drawer
 	drawer.focus_row(0)
@@ -1585,14 +1773,14 @@ func test_drawer_star_click_toggles_favorite_and_row_click_opens() -> void:
 	var was_favorite: bool = SuitOS.is_favorite(id)
 	# La estrella alterna favorito sin abrir la pantalla.
 	var star: Vector2 = drawer.favorite_center(0)
-	overlay._input(_mouse_click(true, star))
-	overlay._input(_mouse_click(false, star))
+	overlay._input(_touch(true, star))
+	overlay._input(_touch(false, star))
 	assert_int(int(SuitOS.is_favorite(id))).is_not_equal(int(was_favorite))
 	assert_str(SuitOS.get_active_screen_id()).is_not_equal(id)
 	# El resto de la fila si la abre (la pantalla queda abierta).
 	var center: Vector2 = drawer.focused_row_center()
-	overlay._input(_mouse_click(true, center))
-	overlay._input(_mouse_click(false, center))
+	overlay._input(_touch(true, center))
+	overlay._input(_touch(false, center))
 	assert_str(SuitOS.get_active_screen_id()).is_equal(id)
 
 
@@ -1606,18 +1794,17 @@ func test_dragging_a_drawer_row_onto_a_slot_pins_it_there() -> void:
 	var host = SuitOS.get_node("SuitOSWidgetHost")
 	var slot: Rect2 = host.slot_rect(2)
 	var drop: Vector2 = slot.position + slot.size * 0.5
-	var mouse_mode: int = Input.get_mouse_mode()
-	overlay._input(_mouse_click(true, start))
-	overlay._input(_mouse_motion(drop, drop - start))
+	# El dedo si es puntero: toca la fila, la arrastra al slot y la suelta.
+	overlay._input(_touch(true, start))
+	overlay._input(_screen_drag(drop))
 	assert_object(overlay._drag_ghost).is_not_null()
 	assert_str(overlay._drag_ghost.text).is_equal("Beta")
 	assert_bool(host._drop_targets_visible).is_true()
-	overlay._input(_mouse_click(false, drop))
+	overlay._input(_touch(false, drop))
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:b", ""])
 	# El drawer sigue abierto para seguir asignando, y los destinos se apagan.
 	assert_bool(overlay._drawer_open()).is_true()
 	assert_bool(host._drop_targets_visible).is_false()
-	Input.set_mouse_mode(mouse_mode)
 
 
 func test_the_arc_is_ordered_by_relevance_when_it_opens() -> void:	# FD-306 §2: relevancia alta al primer sector (a las 6), que es el que el pulgar encuentra.
@@ -1659,31 +1846,65 @@ func test_the_gamepad_script_replays_the_same_way_it_played() -> void:
 	assert_array(SuitOS.get_pinned_slots()).is_equal(first[1])
 
 
-func test_hold_a_shoulder_and_push_the_stick_drags_that_widget_to_another_slot() -> void:
-	# FD-304 §6: el stick sustituye al puntero, no a la logica del arrastre. Con el hombro de un
-	# slot QUE YA TIENE pantalla, el stick levanta su widget en vez de apuntar el dial (para
-	# cambiarle la pantalla a ese slot esta la cruceta, §7.2).
+func test_crouch_drags_a_dial_item_onto_a_slot_with_the_stick() -> void:
+	# Revision 2026-09-19: CROUCH es el clic del dial. Sostenido y con el stick levanta el item
+	# marcado y lo lleva a un slot; soltar lo fija ahi (drag/drop con mando).
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
-	SuitOS.pin_to_slot(2, "test:a")
+	assert_bool(SuitOS.open_hud_mode(true)).is_true()
+	var overlay = _overlay()
 	var host = SuitOS.get_node("SuitOSWidgetHost")
-	# El hombro del slot 3 (indice 2), sostenido hasta que abre su dial fijado a ese slot.
-	var overlay = _open_slot_and_play(3, _slot_held(3, Gesture.HOLD_TICKS))
-	assert_bool(overlay._selector.is_open()).is_true()
-	assert_int(overlay._target_slot).is_equal(2)
-	assert_bool(overlay._stick_drag_armed()).is_true()
+	# La segunda opcion (Beta) esta arriba del centro; apuntando ahi el dial la marca.
+	overlay._point_at(Vector2(0.0, -overlay.AIM_RADIUS))
+	assert_int(overlay._selector.get_hovered_index()).is_equal(1)
+	_play(overlay, [{}]) # un frame neutro suelta los flancos de cara que arrancan en "apretados"
+	_play(overlay, [{"crouch": true}])
+	assert_bool(overlay._crouch_drag_active).is_true()
+	assert_object(overlay._drag_ghost).is_not_null()
+	assert_str(overlay._drag_ghost.text).is_equal("Beta")
 
-	# Stick a la izquierda: el widget se levanta y el cursor cruza hasta el slot 1 (indice 0).
-	var push := {"hud_slot": 3, "move_vec": [-1.0, 0.0], "analog_move_active": true}
-	for _i in range(90):
+	# Stick hacia el slot 3: el cursor cruza y el fantasma lo sigue.
+	var target: Vector2 = host.slot_rect(2).get_center()
+	var push := {"crouch": true, "move_vec": [0.0, 0.0], "analog_move_active": true}
+	for _i in range(160):
+		var dir: Vector2 = (target - overlay._cursor).normalized()
+		push["move_vec"] = [dir.x, dir.y]
 		_play(overlay, [push])
-		if host.slot_at(overlay._stick_cursor) == 0:
+		if host.slot_at(overlay._cursor) == 2:
 			break
-	assert_bool(is_instance_valid(overlay._drag_ghost)) \
-		.override_failure_message("el stick no levanto el widget").is_true()
-	assert_int(host.slot_at(overlay._stick_cursor)).is_equal(0)
+	assert_int(host.slot_at(overlay._cursor)).is_equal(2)
 
-	# Soltar el hombro lo suelta donde este: queda re-pinneado ahi y no duplicado.
-	_play(overlay, [{"move_vec": [-1.0, 0.0], "analog_move_active": true}])
-	assert_array(SuitOS.get_pinned_slots()).is_equal(["test:a", "", "", ""])
-	assert_bool(is_instance_valid(overlay._drag_ghost)).is_false()
+	# Soltar CROUCH (sin mover mas) suelta el item ahi; el dial sigue abierto para seguir asignando.
+	_play(overlay, [{}])
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:b", ""])
+
+func test_dropping_with_the_stick_does_not_also_activate_the_item_on_hold_release() -> void:
+	# El gesto real sostiene el boton del HUD mientras arrastra. Al soltarlo, _release_tab_hold
+	# caia en _confirm_or_dismiss() y ABRIA el item recien soltado: se arrastraba Y se activaba.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	assert_bool(SuitOS.open_hud_mode(true)).is_true()
+	var overlay = _overlay()
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	overlay._tab_hold_active = true # el boton del HUD sigue apretado, como en el gesto real
+	overlay._point_at(Vector2(0.0, -overlay.AIM_RADIUS))
+	_play(overlay, [{}])
+	_play(overlay, [{"crouch": true}])
+	assert_bool(overlay._crouch_drag_active).is_true()
+
+	var target: Vector2 = host.slot_rect(2).get_center()
+	var push := {"crouch": true, "move_vec": [0.0, 0.0], "analog_move_active": true}
+	for _i in range(160):
+		var dir: Vector2 = (target - overlay._cursor).normalized()
+		push["move_vec"] = [dir.x, dir.y]
+		_play(overlay, [push])
+		if host.slot_at(overlay._cursor) == 2:
+			break
+	_play(overlay, [{}]) # soltar A: suelta el item en el slot
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:b", ""])
+
+	# Y ahora el release del boton del HUD: no debe activar nada.
+	overlay._release_tab_hold()
+	assert_str(SuitOS.get_active_screen_id()).is_equal("")
+	assert_bool(overlay._crouch_drag_active).is_false()
+	assert_bool(overlay._selector.is_open()).is_true()

@@ -48,6 +48,9 @@ var _active_interpreters := []
 var _vfs_cwd := "/root"
 
 func _ready() -> void:
+	# La consola se usa tambien con el modo HUD abierto (mundo pausado): tiene que seguir
+	# procesando input y comandos igual.
+	pause_mode = PAUSE_MODE_PROCESS
 	set_process(true)
 	set_process_unhandled_input(true)
 	_register_builtin_commands()
