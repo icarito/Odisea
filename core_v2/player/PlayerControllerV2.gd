@@ -2629,6 +2629,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _pm_fino:
 		_pm_perfil.perfil_fin("PC.control")
 		_pm_perfil.perfil_inicio("PC.move")
+		_pm_perfil.perfil_inicio("PC.move.pre")
 	var move_vec = input.move_vec
 	# Calculate World Direction based on Control Mode (or Latch)
 	# Logic delegated to CinematicManager (FSM)
@@ -2674,15 +2675,20 @@ func step(dt: float, input: InputDataV2) -> void:
 	_apply_crouch_collision_state(is_crouching)
 	var effective_sprint = input.sprint and not is_crouching
 
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.movement")
 	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching)
-	
+	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.movement")
+
 	var h_vel = movement_logic.get_horizontal_velocity()
 	velocity.x = h_vel.x
 	velocity.z = h_vel.z
 	if physics_grounded:
 		velocity.y = h_vel.y
 
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.push")
 	_apply_push_constraint(dt)
+	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.push")
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.jump")
 
 	# --- ACROBATIC JUMP CHECK (before normal jump) ---
 	if is_acrobatic_ready and physics_grounded and jump_logic.jump_buffer_timer > 0 and not CinematicManager.latch_active:
@@ -2730,6 +2736,8 @@ func step(dt: float, input: InputDataV2) -> void:
 					motivo = "sin_jump_buffer"
 				print("[ACRO] rama=NORMAL force=%.1f snap_age=%d motivo=%s" % [jump_logic.jump_force, frames_since_last_snap, motivo])
 			emit_signal("jumped")
+	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.jump")
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.other")
 
 	# --- EXTERNAL VELOCITY ---
 	var external_vel = Vector3.ZERO
@@ -2752,10 +2760,13 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _standing_on_moving_terrace():
 		_effective_snap = max(_effective_snap, moving_floor_snap_length)
 	var snap_vec = Vector3.DOWN * _effective_snap if (velocity.y <= 0 and not input.jump) else Vector3.ZERO
-	
+	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.other")
+
 	if enable_step_up and (not _rl_fast_controller) and is_on_floor() and velocity.y <= 0:
+		if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.stepup")
 		var step_motion = movement_logic.wish_direction if movement_logic.wish_direction.length() > 0.1 else velocity
 		var step_result = _try_step_up(step_motion)
+		if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.stepup")
 		if step_result.stepped:
 			global_transform.origin = step_result.position
 			_just_stepped = true
@@ -2763,7 +2774,13 @@ func step(dt: float, input: InputDataV2) -> void:
 			if debug_stair_state:
 				print("[STAIR] step_up success: pos=", step_result.position, " vy=", velocity.y)
 	
+	if _pm_fino:
+		_pm_perfil.perfil_fin("PC.move.pre")
+		_pm_perfil.perfil_inicio("PC.move.slide")
 	velocity = move_and_slide_with_snap(velocity, snap_vec, UP, true, 4, deg2rad(45), false)
+	if _pm_fino:
+		_pm_perfil.perfil_fin("PC.move.slide")
+		_pm_perfil.perfil_inicio("PC.move.post")
 
 	_update_floor_info()
 	if _rl_fast_controller and _rl_skip_platform_tracking:
@@ -2809,6 +2826,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if prof_enabled:
 		prof_t_move = OS.get_ticks_usec()
 	if _pm_fino:
+		_pm_perfil.perfil_fin("PC.move.post")
 		_pm_perfil.perfil_fin("PC.move")
 		_pm_perfil.perfil_inicio("PC.post")
 

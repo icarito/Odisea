@@ -718,6 +718,39 @@ aparece junto al resto del desglose en `replay_perf.json`. Mismo replay, dos har
 El orden se **invierte**: en desktop `post` (animación/cámara) es la fase más cara; en el Anbernic
 es `move` (la física del propio personaje — sweep de colisión, chequeo de escalón, resolución de
 push), casi 2x más cara que en desktop en proporción al total. No es algo que se pudiera haber
-adivinado midiendo solo en desktop. Próximo paso: sub-perfilar `move` (candidatos: los ~8
-`intersect_ray` propios de `PlayerControllerV2`, `move_and_slide`, `_apply_push_constraint`) con el
-mismo método de apagar-y-remedir.
+adivinado midiendo solo en desktop.
+
+### `move` sub-perfilado: `_try_step_up` es el candidato concreto
+
+Se bajó un nivel más, cortando `move` en `pre` (todo antes de `move_and_slide`) / `slide` (la llamada
+nativa) / `post` (floor info, tracking de plataformas, push de rigidbodies), y `pre` otra vez en sus
+piezas (`movement`, `push`, `jump`, `stepup`, `other` = velocidad externa + cálculo de snap +
+`_standing_on_moving_terrace`). Medido en el Anbernic, mismo replay, jerarquía completa (ms/tick):
+
+```
+SM.player_step            3.75
+├─ PC.control              1.08  (sin abrir mas — FSM de traversal, deteccion acrobatica)
+├─ PC.move                 1.69
+│  ├─ PC.move.pre          0.83
+│  │  ├─ (cabecera sin marcar: _get_move_direction, snap 180°, crouch)  ~0.38  <- candidato nuevo
+│  │  ├─ stepup            0.23  <- el sub-item mas caro identificado, corre en 1427/1655 ticks (86%)
+│  │  ├─ other             0.09
+│  │  ├─ movement          0.06
+│  │  ├─ jump              0.04
+│  │  └─ push               0.02
+│  ├─ PC.move.slide        0.47  (move_and_slide_with_snap, motor nativo)
+│  └─ PC.move.post         0.28
+└─ PC.post                 0.71  (sin abrir mas — animator, camara, multi_tool)
+```
+
+**`_try_step_up` (línea ~3146) es el sub-ítem individual más caro ya aislado.** Corre en el 86% de
+los ticks — el gate es `enable_step_up and not _rl_fast_controller and is_on_floor() and velocity.y
+<= 0`, o sea CUALQUIER tick caminando (no solo cuando hay un escalón real cerca) hace su propio sondeo
+de colisión (`move_and_collide` hacia adelante + hacia abajo, ver el cuerpo de la función). Candidato
+concreto para la próxima vuelta: gatear el sondeo por algo más barato primero (¿hay geometría
+adelante en absoluto?) antes de pagar el `move_and_collide`, o subirle el costo de oportunidad
+(cachear el resultado un par de ticks si la velocidad no cambió de dirección).
+
+La cabecera sin marcar de `pre` (~0.38 ms, la pieza más grande sin nombre que queda) es el siguiente
+paso de instrumentación si se retoma esta vuelta — candidato principal: `_get_move_direction()`,
+delega en el FSM de `CinematicManager` y no se sabe cuánto cuesta esa delegación sin medirla aparte.
