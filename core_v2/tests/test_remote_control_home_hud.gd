@@ -403,8 +403,12 @@ func test_pick_while_holding_tab_keeps_the_screen_open_on_release():
 	var overlay = home.hud_backend.get_overlay()
 	overlay._input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -80.0)))
 	_tick(home)
-	overlay._input(_click(VIEW_SIZE * 0.5))
-	overlay._input(_release_click(VIEW_SIZE * 0.5))
+	# Sobre el sector apuntado, no sobre VIEW_SIZE * 0.5: con stretch "viewport" el ancho real
+	# del overlay depende del aspecto de la ventana (1066 en CI, no 1024), asi que ese punto caia
+	# en el HUB y el click confirmaba el hub (FD-306 §1.1) en vez de la opcion marcada.
+	var slice: Vector2 = _top_slice(overlay)
+	overlay._input(_click(slice))
+	overlay._input(_release_click(slice))
 	assert_array(_screen_selects(home)).is_equal(["screen_a"])
 
 	# Soltar HUD no cancela la pantalla mientras entra su transicion.
