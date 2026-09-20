@@ -8,7 +8,7 @@ uniform float deform_factor : hint_range(0.0, 2.0) = 1.0;
 uniform float uv_scale : hint_range(0.1, 5.0) = 1.0;
 uniform float hardness : hint_range(0.0, 1.0) = 0.5;
 uniform float texture_rotation : hint_range(0.0, 6.28) = 0.0;
-uniform vec2 uv_offset = vec2(0.0);
+uniform vec2 uv_offset = vec2(0.0);\nuniform float opacity : hint_range(0.0, 1.0) = 1.0;
 
 void fragment() {
 	// Center UV
@@ -51,7 +51,7 @@ void fragment() {
 	float alpha = 1.0 - smoothstep(0.25 - edge_width, 0.25, dist_sq);
 	
 	ALBEDO = vec3(0.0, 0.0, 0.0);
-	ALPHA = alpha * COLOR.a; 
+	ALPHA = alpha * COLOR.a * opacity; 
 }
 "
 
@@ -62,3 +62,4 @@ shader_param/uv_scale = 1.0
 shader_param/hardness = 0.5
 shader_param/texture_rotation = 0.0
 shader_param/uv_offset = Vector2( 0, 0 )
+shader_param/opacity = 1.0

@@ -24,6 +24,10 @@ export(float) var vertical_offset: float = 0.02
 export(float) var snap_amount: float = 0.1 # World Grid Size (10cm matches your 0.2m floors)
 export(float) var smooth_speed: float = 10.0 # Lerp speed
 export(int, 1, 8) var update_every_n_frames: int = 3
+# Ajuste del look en cheap mode (quad plano): uv_scale >1 achica el blobl, opacity <1
+# lo aclara. Valores elegidos para parecerse a lo que daba la grilla en el handheld.
+export(float, 0.5, 3.0) var cheap_uv_scale: float = 1.35
+export(float, 0.1, 1.0) var cheap_opacity: float = 0.55
 export(float) var movement_epsilon: float = 0.02
 export(float) var rotation_epsilon_deg: float = 1.0
 export(bool) var anchor_to_root_body: bool = true
@@ -433,7 +437,11 @@ func _refresh_cheap_shadow(center_pos: Vector3, parent_rot_y: float) -> void:
 
 	if material_override:
 		material_override.set_shader_param("hardness", hardness)
-		material_override.set_shader_param("uv_scale", 1.0)
+		# El quad pelado (PlaneMesh, COLOR.a=1) cae en la variante mas grande y opaca
+		# del shader: en grid el uv_scale salia ~0.7 y el alpha por celda era <1. Se
+		# achica (uv_scale >1) y se aclara (opacity <1) para igualar el look de grid.
+		material_override.set_shader_param("uv_scale", cheap_uv_scale)
+		material_override.set_shader_param("opacity", cheap_opacity)
 		material_override.set_shader_param("texture_rotation", -parent_rot_y)
 
 	if mesh is PlaneMesh:

@@ -3,17 +3,34 @@
 # runtest.sh - Ejecuta tests de GdUnit3 para Odisea
 # Uso:
 #   ./runtest.sh -a ./core_v2/tests/           # Ejecutar todos los tests (headless)
-#   ./runtest.sh --show -a ./core_v2/tests/    # Con ventana visible
+#   ./runtest.sh -a ./core_v2/tests/test_x.gd  # Una sola suite (headless)
 #   ./runtest.sh --oys test_salto_vertical     # Ejecutar test OYS específico
+#   ./runtest.sh --ci                          # Reproducir el job core de CI
+#   ./runtest.sh --filter cryopod              # Nodos pytest que matcheen (pytest -k)
+#   ./runtest.sh --list                        # Listar suites/OYS/nodos disponibles
+#   ./runtest.sh --print-command -a <suite>    # Mostrar el comando resuelto y salir
+#   ./runtest.sh --show -a ./core_v2/tests/    # Con ventana visible (X11, solo mirar)
 #
 # Opciones:
-#   --show    Mostrar ventana de Godot (por defecto es headless)
+#   --show    Mostrar ventana de Godot (X11). Por defecto es SIEMPRE Server headless.
 #   --oys     Ejecutar un test OYS específico por nombre
+#   --ci      Perfil de paridad con CI: gdunit en un proceso, sin determinismo,
+#             timeout de pared 420s (igual que el job "Run Tests (core)")
+#   --filter  Expresión -k de pytest para correr nodos puntuales (fuerza el delegate)
+#   --list    Lista suites GdUnit, casos OYS y cómo descubrir nodos pytest; sale 0
+#   --print-command  Imprime el comando headless resuelto y sale (no ejecuta Godot)
 #   --stress  Ejecutar perfil de stress (pytest marker odisea_stress)
 #   --nodet   Saltar PASS 2 de determinismo (ejecuta solo fase 1)
 #   --debug   Mostrar output completo sin filtrar logs de debug
 #   --runner  Selecciona backend: auto|gdunit|pytest (default: pytest)
 #   --workers Cantidad de workers para pytest-xdist (numero o "auto")
+#
+# CONTRATO DE BACKEND (paridad con CI):
+#   El default es el driver Server (--headless --no-window) AUNQUE haya display. CI
+#   corre en un runner sin X11 y usa ese backend; un run local con X11 oculto
+#   (--no-window solo) NO valida CI porque cambia el driver de ventana/input y el mouse
+#   virtual y Box3D pueden dar resultados distintos. --show es la unica via grafica y
+#   sirve para mirar, no para validar. tests/test_runtest_runner_contract.py vigila esto.
 #
 # NOTA PARA AGENTES IA:
 #   El output siempre se guarda en ./reports/gdunit_runner.log
@@ -26,18 +43,19 @@ if [ -z "$GODOT_BIN" ]; then
     GODOT_BIN="$(sh "$(dirname "$0")/tools/godot_bin.sh")"
 fi
 
-# Por defecto: en sesión gráfica usar solo --no-window; sin DISPLAY forzar headless.
-if [ -n "${DISPLAY:-}" ]; then
-    HEADLESS="--no-window"
-else
-    HEADLESS="--headless --no-window"
-fi
+# Backend de display: SIEMPRE Server (--headless --no-window), igual que CI, aunque
+# exista un display local. --show es la unica via grafica y no valida CI. No volver a
+# bifurcar por display: tests/test_runtest_runner_contract.py lo detecta.
+HEADLESS="--headless --no-window"
 DEBUG_OUTPUT=0
 RUNNER_MODE="${ODISEA_SHELL_RUNNER:-pytest}"
 PYTEST_WORKERS="${ODISEA_PYTEST_WORKERS:-3}"
 PYTEST_FAIL_FAST="${ODISEA_PYTEST_FAIL_FAST:-0}"
 PYTEST_BIN=""
 RUN_STRESS_ONLY=0
+PRINT_COMMAND=0
+CI_PROFILE=0
+PYTEST_FILTER=""
 
 is_truthy() {
     case "${1,,}" in
@@ -67,6 +85,12 @@ fi
 if [ -n "$HEADLESS" ] && [ -z "${OYS_RENDER_DISABLED+x}" ]; then
     export OYS_RENDER_DISABLED=1
 fi
+
+# Paridad con CI: defaults del job "Run Tests (core)". Todo overrideable por env.
+#   ANNA_V2_NO_CENTRAL=1   -> los tests no mandan telemetria al dashboard (CI lo fija a nivel job)
+#   ODISEA_TEST_TIMEOUT_SEC=180 -> cada nodo pytest muere a los 180s en vez de colgarse (CI lo fija asi)
+export ANNA_V2_NO_CENTRAL="${ANNA_V2_NO_CENTRAL:-1}"
+export ODISEA_TEST_TIMEOUT_SEC="${ODISEA_TEST_TIMEOUT_SEC:-180}"
 
 # Configuración de logging - Generar nombre único para soporte concurrente
 LOG_DIR="./reports"
@@ -134,6 +158,27 @@ list_oys_tests() {
         | sort
 }
 
+list_test_targets() {
+    local f base
+    echo "GdUnit suites (usar con -a):"
+    for f in ./core_v2/tests/*.gd; do
+        [ -f "$f" ] || continue
+        grep -q "GdUnitTestSuite" "$f" 2>/dev/null || continue
+        base="$(basename "$f")"
+        if [ "$base" = "test_determinism_v2.gd" ]; then
+            echo "  $f  (determinismo: --runner gdunit -a $f)"
+        else
+            echo "  $f"
+        fi
+    done
+    echo ""
+    echo "OYS / determinismo (usar con --oys):"
+    list_oys_tests | sed 's/^/  /'
+    echo ""
+    echo "Nodos pytest (usar con --filter o pytest -k):"
+    echo "  ./.venv/bin/pytest tests/test_odisea_runner.py --collect-only -q -k <substring>"
+}
+
 resolve_oys_file() {
     local oys_name="$1"
     local direct="./core_v2/tests/${oys_name}.oys"
@@ -153,6 +198,10 @@ resolve_oys_file() {
 
 run_and_capture() {
     local cmd=("$@")
+    # Paridad con CI: el job core envuelve la corrida con `timeout 420s`. --ci lo activa.
+    if [ -n "${ODISEA_RUN_TIMEOUT_SEC:-}" ]; then
+        cmd=(timeout "${ODISEA_RUN_TIMEOUT_SEC}s" "${cmd[@]}")
+    fi
     if [ $DEBUG_OUTPUT -eq 1 ]; then
         "${cmd[@]}" 2>&1 | tee "$LOG_FILE"
     else

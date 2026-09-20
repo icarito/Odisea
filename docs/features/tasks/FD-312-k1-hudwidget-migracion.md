@@ -137,7 +137,7 @@ grep -n "Color(" core_v2/ui/hud/{Cargol,MultiTool,SystemStatus,HoloTerminal,Cryo
 grep -n "extends\|func update_snapshot" core_v2/ui/hud/{Cargol,MultiTool,SystemStatus,HoloTerminal,CryoPods}Widget.gd
 ```
 
-El total de los 5 archivos tiene que **bajar** de 474 líneas. Si sube, algo se hizo mal.
+El total de los 5 archivos tiene que **bajar** de 374 líneas (65+44+67+129+69). Si sube, algo se hizo mal.
 
 ## PROCEDIMIENTO
 
