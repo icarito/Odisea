@@ -4,7 +4,7 @@ class_name RingHubWakeup
 export(NodePath) var pilot_path := NodePath("Pilot")
 export(NodePath) var criopod_path := NodePath("Criopod_Vert")
 export(NodePath) var slots_path := NodePath("Hub/Criopods")
-export(Vector3) var pilot_inside_offset := Vector3(0.000200272, 3.45, -0.123402)
+export(Vector3) var pilot_inside_offset := Vector3(0.000200272, 0.72, -0.123402)
 # El pod funcional toma la misma pose que el item decorativo del slot. El mesh del Criopod_Vert ya
 # tiene su origen en la base, asi que no hace falta compensar en Y (un offset positivo lo dejaba
 # flotando). Ajustar solo si queda unos cm arriba/abajo.
@@ -27,6 +27,12 @@ func _ready() -> void:
 	if open_pod_terminal_on_start:
 		_gate_wakeup_sequence()
 		call_deferred("_open_pod_terminal")
+	var hatch := get_node_or_null("Criopod_Vert/RotatingObjectV2")
+	if hatch != null:
+		hatch.set_meta("platform_tracking_excluded", true)
+	var terminal := get_node_or_null("Criopod_Vert/RotatingObjectV2/CryoPodTerminal")
+	if terminal != null:
+		terminal.set_meta("platform_tracking_excluded", true)
 	var slots := _get_slots()
 	if slots == null:
 		return
