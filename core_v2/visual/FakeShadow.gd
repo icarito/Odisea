@@ -63,8 +63,10 @@ func _ready() -> void:
 	_disable_runtime = disable_env in ["1", "true", "yes", "on"]
 	var force_cheap_runtime := false
 
-	# Auto-detect ARM architecture for cheap shadow fallback
-	if OS.get_name() == "Linux" and _detect_arm_architecture():
+	# Auto-detect ARM architecture for cheap shadow fallback. FRT (handhelds) reporta
+	# OS.get_name() == "Unix", no "Linux": sin eso el camino ARM nunca se activaba en
+	# el Anbernic y el piloto quedaba en grid (malla con snap => escalonada al caminar).
+	if (OS.get_name() == "Linux" or OS.get_name() == "Unix") and _detect_arm_architecture():
 		force_cheap_runtime = true
 
 	# Prefer the real blob shadows when the running engine is the fork with the
@@ -90,7 +92,10 @@ func _ready() -> void:
 
 	if force_cheap_runtime:
 		shadow_mode = "cheap"
-		update_every_n_frames = max(update_every_n_frames, 6)
+		# La sombra del piloto es gameplay y en cheap mode es UN quad + UN raycast:
+		# refrescar cada frame la mantiene pegada al piso (el raycast da la altura) y
+		# sin escalonar. Los props conservan el intervalo alto (en LOW estan apagados).
+		update_every_n_frames = 1 if _is_pilot_owner() else max(update_every_n_frames, 6)
 		grid_resolution = min(grid_resolution, 8)
 	elif OS.get_name() == "Android":
 		# FD-290 (a): en ARM movil el modo grid baja de 8x8 a 6x6 en vez de saltar a
@@ -217,6 +222,11 @@ func _process_blob_shadow() -> void:
 	_blob_caster.global_transform.origin = center_pos
 
 func _detect_arm_architecture() -> bool:
+	# FRT (handhelds PortMaster) corre en ARM y su /proc/cpuinfo puede venir VACIO
+	# dentro del sandbox (medido en el RG351V: file_exists=true pero 0 bytes), asi que
+	# ahi OS.get_name()=="Unix" es la señal fiable. En desktop Linux se mira cpuinfo.
+	if OS.get_name() == "Unix":
+		return true
 	var file = File.new()
 	if file.file_exists("/proc/cpuinfo"):
 		if file.open("/proc/cpuinfo", File.READ) == OK:
@@ -268,14 +278,16 @@ func _process(_delta: float) -> void:
 	# Grid mode benefits from snapping + UV slide.
 	# Cheap mode skips this to reduce per-frame cost.
 	if shadow_mode == "grid" and snap_amount > 0.0:
-		# Solo la Y conserva el snap: es la que asentaba la sombra en el piso. X/Z
-		# siguen al player continuas — snapearlas movia la sombra en saltos de
-		# snap_amount al caminar (el "yanky"). Sin snap horizontal el uv_offset no
-		# hace falta: la textura queda centrada en el quad y no se corre.
 		var snapped_pos = center_pos.snapped(Vector3(snap_amount, snap_amount, snap_amount))
-		global_transform.origin = Vector3(center_pos.x, snapped_pos.y, center_pos.z)
+		global_transform.origin = snapped_pos
+		var diff = center_pos - snapped_pos
 		if material_override:
-			material_override.set_shader_param("uv_offset", Vector2.ZERO)
+			var step = snap_amount
+			if step <= 0.001:
+				step = 0.1
+			var grid_width = max(0.001, step * (grid_resolution - 1))
+			var uv_off = Vector2(diff.x, diff.z) / grid_width
+			material_override.set_shader_param("uv_offset", uv_off)
 	else:
 		global_transform.origin = center_pos
 		
@@ -433,15 +445,27 @@ func _refresh_cheap_shadow(center_pos: Vector3, parent_rot_y: float) -> void:
 	global_transform.origin = p
 
 func _get_anchor_center_pos(parent: Node) -> Vector3:
-	var center_pos: Vector3 = (parent as Spatial).global_transform.origin
+	# Transform INTERPOLADA: con physics_interpolation activa (lowend.cfg) el player
+	# se DIBUJA interpolado entre ticks de fisica, pero global_transform devuelve la
+	# posicion cruda del ultimo tick. Leer la cruda hacia que la sombra quedara hasta
+	# un tick (33 ms) atras del cuerpo. `get_global_transform_interpolated()` (fork)
+	# devuelve la misma que ve el render.
+	var center_pos: Vector3 = _interpolated_origin(parent as Spatial)
 	if anchor_to_root_body:
 		var p: Node = parent
 		while p:
 			if p is PhysicsBody:
-				center_pos = (p as Spatial).global_transform.origin
+				center_pos = _interpolated_origin(p as Spatial)
 				break
 			p = p.get_parent()
 	return center_pos + anchor_offset
+
+func _interpolated_origin(node: Spatial) -> Vector3:
+	if node == null:
+		return Vector3.ZERO
+	if node.has_method("get_global_transform_interpolated"):
+		return node.get_global_transform_interpolated().origin
+	return node.global_transform.origin
 
 func _handle_exclusions() -> void:
 	if _actor_excluded: return
