@@ -51,6 +51,11 @@ func set_snapshot(snapshot: Dictionary) -> void:
 	if _screen_id.empty():
 		_screen_id = default_screen_id()
 	if _title_label != null:
+		# Sin tr() a proposito: en Godot 3 Label.set_text ya pasa por el TranslationServer
+		# al dibujar (es de lo que vive el retrofit de i18n, FD-303 §17). Un tr() explicito
+		# aca traduciria dos veces. Los titulos viajan en espaniol dentro de la lectura y se
+		# traducen en el dispositivo que dibuja, que es lo que necesita el terminal auxiliar
+		# cuando esta en otro idioma que el host (Manual §8).
 		_title_label.text = String(snapshot.get("title", default_title()))
 	if is_offline(snapshot):
 		_set_dot(OdiseaOSTheme.STATE_OFFLINE)
