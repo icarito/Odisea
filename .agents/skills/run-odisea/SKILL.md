@@ -312,9 +312,9 @@ Discover a GdUnit/OYS pytest node first when needed:
 ./runtest.sh --list          # suites GdUnit, OYS cases, how to discover pytest nodes
 ```
 
-**Backend contract — Server headless, same as CI.** `runtest.sh` and the pytest delegate
-always run with `--headless --no-window` (Server driver), even on a machine with `DISPLAY`.
-CI has no X11 and uses that backend; a local X11-hidden run (`--no-window` only) does **not**
+**Backend contract — Server headless, same as CI.** `runtest.sh` selects the fork's pinned
+`platform=server` binary and passes `--headless --no-window`, even with `DISPLAY`. Those flags
+do not turn Godot 3's X11 editor into Server. CI uses that pinned binary; an X11-hidden run does **not**
 validate CI: the window/input driver changes and VirtualMouse and Box3D can differ (asserts
 that pass locally and fail in CI, or vice versa). `--show` is the only graphical path and is
 for looking, not validating. `tests/test_runtest_runner_contract.py` runs in CI and catches a

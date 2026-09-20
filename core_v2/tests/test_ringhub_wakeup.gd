@@ -3,35 +3,44 @@ extends GdUnitTestSuite
 const RingHubScene = preload("res://core_v2/levels/RingHub_Level.tscn")
 
 
+func _wait_until_pilot_settles(pilot: Spatial) -> void:
+	var stable_frames: int = 0
+	for _i in range(180):
+		yield(get_tree(), "physics_frame")
+		var speed: float = (pilot.velocity as Vector3).length() if "velocity" in pilot else 0.0
+		stable_frames = stable_frames + 1 if speed < 0.05 else 0
+		if stable_frames >= 5:
+			return
+
+
+func _disable_pilot_input(pilot: Spatial) -> void:
+	if "input_provider" in pilot and pilot.input_provider != null:
+		pilot.input_provider.hardware_input_enabled = false
+
+
 func test_opening_cryo_pod_does_not_move_pilot() -> void:
 	var level = auto_free(RingHubScene.instance())
 	level.open_pod_terminal_on_start = false
 	add_child(level)
 	var pilot: Spatial = level.get_node("Pilot")
+	_disable_pilot_input(pilot)
 	yield(get_tree(), "idle_frame")
 
+	var pod: Spatial = level.get_node("Criopod_Vert")
 	var hatch: Node = level.get_node("Criopod_Vert/RotatingObjectV2")
-	# El spawn queda unos centimetros sobre WakeupFloor y la fisica lo asienta. Un conteo fijo
-	# de frames asume un asentamiento a velocidad constante; en CI (proceso unico, huerfanos y
-	# carga de decenas de suites previas) el solver tarda una cantidad de pasos variable, asi
-	# que se espera a que la velocidad este realmente cerca de cero en vez de adivinar cuantos
-	# physics_frame alcanzan.
-	var settle_speed: float = 0.05
-	for _i in range(180):
-		if "velocity" in pilot and (pilot.velocity as Vector3).length() < settle_speed:
-			break
-		yield(get_tree(), "physics_frame")
-	var before: Transform = pilot.global_transform
+	# No mirar velocity antes del primer paso: el Pilot nace en cero aunque todavia no haya
+	# resuelto el piso. Exigimos varios frames estables antes de medir el efecto de la puerta.
+	yield(_wait_until_pilot_settles(pilot), "completed")
+	var before: Transform = pod.global_transform.affine_inverse() * pilot.global_transform
 
 	hatch.set_active(true)
 	for _i in range(210):
 		yield(get_tree(), "physics_frame")
 
 	assert_bool(bool(hatch.is_active)).is_true()
-	# Margen sobre el asentamiento real bajo carga de CI (visto entre ~0.02 y ~0.26 segun la
-	# congestion del proceso), no sobre lo que se ve en una corrida local aislada.
-	assert_float(pilot.global_transform.origin.distance_to(before.origin)).is_less(0.3)
-	assert_bool(pilot.global_transform.basis.is_equal_approx(before.basis)).is_true()
+	var after: Transform = pod.global_transform.affine_inverse() * pilot.global_transform
+	assert_float(after.origin.distance_to(before.origin)).is_less(0.05)
+	assert_bool(after.basis.is_equal_approx(before.basis)).is_true()
 
 
 func test_ringhub_cryopod_ui_button_opens_hatch() -> void:
@@ -89,11 +98,11 @@ func test_pilot_capsule_starts_inside_pod_without_collision_overlap() -> void:
 	level.open_pod_terminal_on_start = false
 	add_child(level)
 	var pilot: KinematicBody = level.get_node("Pilot")
+	_disable_pilot_input(pilot)
 	yield(get_tree(), "idle_frame")
 
 	var pilot_shape: CollisionShape = pilot.get_node("CollisionShape")
-	for _i in range(30):
-		yield(get_tree(), "physics_frame")
+	yield(_wait_until_pilot_settles(pilot), "completed")
 	var pod: Spatial = level.get_node("Criopod_Vert")
 	var local_origin: Vector3 = pod.to_local(pilot.global_transform.origin)
 	# Ver comentario en test_opening_cryo_pod_does_not_move_pilot: margen sobre lo observado
@@ -131,6 +140,7 @@ func test_pod_body_blocks_camera_with_environment_layer() -> void:
 	yield(get_tree(), "physics_frame")
 
 	var pilot: KinematicBody = level.get_node("Pilot")
+	_disable_pilot_input(pilot)
 	var spring_arm: Spatial = pilot.get_node("CameraRig/Yaw/Pitch/OTS_Offset/SpringArm")
 	var from: Vector3 = spring_arm.global_transform.origin
 	var direction: Vector3 = spring_arm.global_transform.basis.z.normalized()
@@ -148,6 +158,7 @@ func test_open_hatch_leaves_exit_corridor_clear() -> void:
 	yield(get_tree(), "physics_frame")
 
 	var pilot: KinematicBody = level.get_node("Pilot")
+	_disable_pilot_input(pilot)
 	var pod: Spatial = level.get_node("Criopod_Vert")
 	var hatch: Node = level.get_node("Criopod_Vert/RotatingObjectV2")
 	hatch.set_active(true)

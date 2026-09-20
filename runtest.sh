@@ -415,6 +415,11 @@ for _arg in "$@"; do
 done
 
 if [ -z "$GODOT_BIN" ]; then
+	# No basta pasar --headless al editor X11 de Godot 3: sigue usando su backend X11.
+	# Pedir el flavor Server pinneado descarga exactamente el runtime que usa CI.
+	if [ -n "$HEADLESS" ]; then
+		export ODISEA_GODOT_FLAVOR=headless
+	fi
     GODOT_BIN="$(sh "$(dirname "$0")/tools/godot_bin.sh")"
 fi
 

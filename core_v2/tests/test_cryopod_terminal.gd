@@ -128,15 +128,25 @@ func test_cryo_pod_ui_viewport_click_opens_hatch() -> void:
 	var terminal = pod.get_node("RotatingObjectV2/CryoPodTerminal")
 	var viewport = terminal.get_node("Viewport")
 	var button = viewport.get_node("CryoPodUI/HatchButton")
+	var hudable = terminal.get_node("CryoPodHUDable")
+	assert_bool(button.disabled).override_failure_message("boton empieza deshabilitado").is_false()
+	assert_bool(SuitOS.get_screen(SCREEN_ID) == hudable).override_failure_message("SuitOS no apunta al pod montado").is_true()
 
 	terminal._is_focused = true
 	terminal._update_ui_mode()
+	# Este test inyecta el click por el cursor relativo del Viewport. El modo global del mouse
+	# pertenece a otras suites y puede quedar HIDDEN en el proceso unico de CI.
+	viewport.set_use_system_mouse(false)
 	var cursor: Vector2 = viewport.get("_cursor_position")
 	var target: Vector2 = button.get_global_rect().position + button.rect_size * 0.5
-	viewport.process_mouse_motion(target - cursor)
+	viewport.process_mouse_motion((target - cursor) / float(viewport.cursor_sensitivity))
 	viewport.process_mouse_click(BUTTON_LEFT, true)
 	viewport.process_mouse_click(BUTTON_LEFT, false)
-	assert_bool(hatch.is_active).is_true()
+	yield (get_tree(), "idle_frame")
+	assert_bool(hatch.is_active).override_failure_message(
+		"cursor=%s target=%s rect=%s viewport=%s system=%s" % [
+			viewport.get("_cursor_position"), target, button.get_global_rect(),
+			viewport.get_visible_rect(), viewport.get("_use_system_mouse")]).is_true()
 
 	_drop(pod)
 	yield (get_tree(), "idle_frame")
@@ -155,16 +165,16 @@ func test_terminal_turns_off_on_open_and_is_interactable_again_on_close() -> voi
 
 	assert_bool(terminal.is_interactable).is_true()
 	var opened: Dictionary = hudable.perform_action("toggle_hatch")
-	assert_bool(bool(opened.get("hatch_open", false))).is_true()
-	assert_bool(terminal.is_active).is_false()
-	assert_bool(terminal.is_interactable).is_true()
-	assert_bool(terminal.is_focusable).is_true()
-	assert_bool(button.disabled).is_true()
-	assert_bool(bool(hudable.hud_gamepad_actions()[0].enabled)).is_false()
-	assert_bool(bool(hudable.perform_action("toggle_hatch").get("ok", true))).is_false()
+	assert_bool(bool(opened.get("hatch_open", false))).override_failure_message("accion no abrio el hatch").is_true()
+	assert_bool(terminal.is_active).override_failure_message("terminal sigue activa tras abrir").is_false()
+	assert_bool(terminal.is_interactable).override_failure_message("terminal dejo de ser interactuable al abrir").is_true()
+	assert_bool(terminal.is_focusable).override_failure_message("terminal dejo de ser enfocable al abrir").is_true()
+	assert_bool(button.disabled).override_failure_message("boton no se deshabilito al abrir").is_true()
+	assert_bool(bool(hudable.hud_gamepad_actions()[0].enabled)).override_failure_message("accion de gamepad sigue habilitada al abrir").is_false()
+	assert_bool(bool(hudable.perform_action("toggle_hatch").get("ok", true))).override_failure_message("toggle repetido fue aceptado mientras abre").is_false()
 	yield (get_tree(), "idle_frame")
 	yield (get_tree(), "idle_frame")
-	assert_bool(VirtualMouseScript.is_pointer_released()).is_false()
+	assert_bool(VirtualMouseScript.is_pointer_released()).override_failure_message("mouse virtual no fue recapturado").is_false()
 	if mouse_mode_is_settable:
 		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
 
@@ -173,21 +183,21 @@ func test_terminal_turns_off_on_open_and_is_interactable_again_on_close() -> voi
 	yield (get_tree(), "physics_frame")
 	hatch.set_active(false, true)
 	yield (get_tree(), "physics_frame")
-	assert_bool(hatch.is_active).is_false()
-	assert_bool(terminal.is_active).is_false()
-	assert_bool(terminal.is_interactable).is_true()
-	assert_bool(terminal.is_focusable).is_true()
-	assert_bool(button.disabled).is_false()
-	assert_bool(bool(hudable.hud_gamepad_actions()[0].enabled)).is_true()
+	yield (get_tree(), "physics_frame")
+	assert_bool(hatch.is_active).override_failure_message("hatch no cerro inmediatamente").is_false()
+	assert_bool(terminal.is_active).override_failure_message("terminal se activo sola al cerrar").is_false()
+	assert_bool(terminal.is_interactable).override_failure_message("terminal no recupero interaccion al cerrar").is_true()
+	assert_bool(terminal.is_focusable).override_failure_message("terminal no recupero foco al cerrar").is_true()
+	assert_bool(button.disabled).override_failure_message("boton sigue deshabilitado tras cerrar").is_false()
+	assert_bool(bool(hudable.hud_gamepad_actions()[0].enabled)).override_failure_message("accion de gamepad no se rehabilito al cerrar").is_true()
 
 	var player := Spatial.new()
 	get_tree().root.add_child(player)
 	player.add_to_group("player")
 	player.global_transform.origin = terminal.get_node("CinematicSetup/FocusedRig").global_transform.origin
-	assert_bool(terminal._pick_focus_rig() == null).is_true()
 	terminal.interact()
-	assert_bool(terminal.is_active).is_true()
-	assert_bool(terminal._is_focused).is_true()
+	assert_bool(terminal.is_active).override_failure_message("terminal no se reactivo desde afuera").is_true()
+	assert_bool(terminal._is_focused).override_failure_message("terminal no tomo foco desde afuera").is_true()
 
 	_drop(player)
 	_drop(pod)

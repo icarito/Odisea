@@ -74,9 +74,9 @@ Consecuencias prácticas:
 - Usar `_nombre` para miembros de uso interno (no hay private/protected).
 
 > [!IMPORTANT] BINARIO DE GODOT
-> Todos los scripts del repo (`runtest.sh`, `godot_import_smoke.sh`, `test_prop.sh`, etc.) resuelven
-> el binario vía `tools/godot_bin.sh`, que devuelve **el último editor compilado de nuestro fork**
-> (`godot3-box3d/godot/bin/godot.x11.opt.tools.64`) — el único que conoce Box3D y los settings propios.
+> Todos los scripts del repo resuelven el binario vía `tools/godot_bin.sh`. Las herramientas
+> gráficas usan el último editor compilado del fork; `runtest.sh` pide el binario **headless
+> `platform=server` del release pinneado en `.github/box3d_release`**, exactamente el de CI.
 > El 3.6.2 upstream no los conoce y puede pisar `project.godot` al guardar: no usar nunca para tests,
 > imports ni edición. Override manual: `ODISEA_GODOT_BIN=...` (o `GODOT_BIN=...` en los scripts).
 > El comando `godot` puede apuntar a Godot 4 y causará errores de sintaxis (`yield` vs `await`).
@@ -245,8 +245,9 @@ Usar `--collect-only` para encontrar el nodo pytest correspondiente antes de eje
 La suite completa queda a cargo de CI. `runtest.sh` sigue disponible para invocaciones directas o cuando la tarea pida su salida específica.
 
 > [!IMPORTANT] BACKEND DE TESTS = CI (Server headless)
-> `runtest.sh` corre **siempre** con `--headless --no-window` (driver Server), aunque haya
-> `DISPLAY`. CI corre en un runner sin X11 con ese backend; un run local con X11 oculto
+> `runtest.sh` selecciona **siempre el binario `platform=server` del release pinneado** y le
+> pasa `--headless --no-window`, aunque haya `DISPLAY`. Pasar `--headless` al editor X11 de
+> Godot 3 no lo convierte en Server. CI corre sin X11 con ese binario; un run local X11 oculto
 > (`--no-window` solo) **no valida CI**: cambia el driver de ventana/input y el mouse virtual
 > y Box3D pueden dar resultados distintos (asserts que pasan local y fallan en CI, o al
 > revés). `--show` es la única vía gráfica: sirve para mirar, no para validar.

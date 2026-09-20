@@ -36,8 +36,9 @@ Descubrir el nodo de un test GdUnit/OYS antes de correrlo:
 
 ### Backend de tests: Server headless, igual que CI (contrato)
 
-`runtest.sh` corre **siempre** con el driver Server (`--headless --no-window`), aunque la
-máquina tenga `DISPLAY`. CI corre en un runner sin X11 y usa ese backend: un run local con
+`runtest.sh` selecciona **siempre el binario `platform=server` del release pinneado del fork**
+y lo corre con `--headless --no-window`, aunque la máquina tenga `DISPLAY`. Pasar esas flags
+al editor X11 de Godot 3 no cambia su backend. CI usa el Server pinneado: un run local con
 X11 oculto (`--no-window` solo) **no valida CI**, porque cambia el driver de ventana/input y
 el mouse virtual y Box3D pueden dar resultados distintos (asserts que pasan local y fallan
 en CI, o al revés). `--show` es la única vía gráfica y sirve para mirar, no para validar.

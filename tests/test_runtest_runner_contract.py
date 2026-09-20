@@ -72,3 +72,5 @@ def test_no_display_bifurcation_in_source():
     # No debe existir un default grafico que dependa de un display.
     assert not re.search(r'HEADLESS\s*=\s*"--no-window"', text)
     assert not re.search(r'\[\s*-n\s+"\$\{?DISPLAY', text)
+    # --headless sobre el editor X11 de Godot 3 no lo convierte en platform=server.
+    assert "ODISEA_GODOT_FLAVOR=headless" in text
