@@ -18,6 +18,23 @@ func _disable_pilot_input(pilot: Spatial) -> void:
 		pilot.input_provider.hardware_input_enabled = false
 
 
+# Cuanto se corre el piloto respecto del pod en N ticks, sin que pase nada. Es el control
+# del A/B: _wait_until_pilot_settles() acepta hasta 0.05 m/s como "quieto", asi que en una
+# maquina lenta el piloto sigue reptando varios centimetros por su cuenta durante la ventana
+# que dura la puerta. Medir eso aparte es la unica forma de afirmar que la puerta no lo
+# empujo, en vez de afirmar un numero absoluto que depende de la maquina.
+func _drift_over(pilot: Spatial, pod: Spatial, frames: int) -> float:
+	var start: Vector3 = (pod.global_transform.affine_inverse() * pilot.global_transform).origin
+	for _i in range(frames):
+		yield(get_tree(), "physics_frame")
+	var end: Vector3 = (pod.global_transform.affine_inverse() * pilot.global_transform).origin
+	return start.distance_to(end)
+
+
+func _hatch_window(hatch: Node) -> int:
+	return int(ceil(float(hatch.anim_duration) * Engine.iterations_per_second)) + 30
+
+
 func _wait_until_hatch_stops(hatch: Node) -> void:
 	var max_frames: int = int(ceil(float(hatch.anim_duration) * Engine.iterations_per_second)) + 30
 	for _i in range(max_frames):
@@ -39,14 +56,23 @@ func test_opening_cryo_pod_does_not_move_pilot() -> void:
 	# No mirar velocity antes del primer paso: el Pilot nace en cero aunque todavia no haya
 	# resuelto el piso. Exigimos varios frames estables antes de medir el efecto de la puerta.
 	yield(_wait_until_pilot_settles(pilot), "completed")
-	var before: Transform = pod.global_transform.affine_inverse() * pilot.global_transform
 
+	# A/B: primero cuanto deriva el piloto SOLO, en la misma ventana que va a durar la puerta.
+	var window: int = _hatch_window(hatch)
+	var baseline = yield(_drift_over(pilot, pod, window), "completed")
+
+	var before: Transform = pod.global_transform.affine_inverse() * pilot.global_transform
 	hatch.set_active(true)
 	yield(_wait_until_hatch_stops(hatch), "completed")
 
 	assert_bool(bool(hatch.is_active)).is_true()
 	var after: Transform = pod.global_transform.affine_inverse() * pilot.global_transform
-	assert_float(after.origin.distance_to(before.origin)).is_less(0.05)
+	var moved: float = after.origin.distance_to(before.origin)
+	# Lo que se afirma es que la PUERTA no lo empuja, no que el piloto este congelado: se le
+	# permite la misma deriva que ya tenia sin que pasara nada, mas un margen.
+	assert_float(moved).override_failure_message(
+		"la puerta movio al piloto %.4f m, con una deriva propia de %.4f m" % [moved, baseline]
+	).is_less(baseline + 0.05)
 	assert_bool(after.basis.is_equal_approx(before.basis)).is_true()
 
 
