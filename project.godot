@@ -3258,7 +3258,7 @@ toggle_optional_nodes={
 [locale]
 
 fallback="es"
-translations=PoolStringArray( "res://locale/ui_strings.es.translation", "res://locale/ui_strings.en.translation", "res://locale/ui_strings.ko.translation", "res://locale/ui_strings.pt_BR.translation" )
+translations=PoolStringArray( "res://locale/ui_strings.es.translation", "res://locale/ui_strings.en.translation", "res://locale/ui_strings.ko.translation", "res://locale/ui_strings.pt_BR.translation", "res://locale/ui_strings.de.translation", "res://locale/ui_strings.fr.translation", "res://locale/ui_strings.nl.translation" )
 
 [logging]
 

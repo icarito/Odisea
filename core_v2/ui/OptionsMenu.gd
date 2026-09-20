@@ -101,6 +101,9 @@ func _setup_options():
 		language_option.add_item("English")
 		language_option.add_item("한국어")
 		language_option.add_item("Português (Brasil)")
+		language_option.add_item("Deutsch")
+		language_option.add_item("Français")
+		language_option.add_item("Nederlands")
 
 	fullscreen_option.clear()
 	fullscreen_option.add_item("Ventana")
@@ -163,6 +166,9 @@ func _load_ui_values():
 			"en": language_option.selected = 2
 			"ko": language_option.selected = 3
 			"pt_BR": language_option.selected = 4
+			"de": language_option.selected = 5
+			"fr": language_option.selected = 6
+			"nl": language_option.selected = 7
 			_: language_option.selected = 0
 
 	fullscreen_option.selected = 1 if sm.fullscreen else 0
@@ -210,6 +216,12 @@ func _on_language_selected(index: int) -> void:
 			lang = "ko"
 		elif index == 4:
 			lang = "pt_BR"
+		elif index == 5:
+			lang = "de"
+		elif index == 6:
+			lang = "fr"
+		elif index == 7:
+			lang = "nl"
 		sm.ui_language = lang
 		sm.apply_locale_settings()
 		sm.save_settings()

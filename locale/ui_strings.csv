@@ -1,239 +1,278 @@
-keys,es,en,ko,pt_BR
-   CLOSE   ,   CLOSE   ,   CLOSE,   닫기   ,   FECHAR   
-   NEXT   ,   NEXT   ,   NEXT,   다음   ,   PRÓXIMO   
-%02d:%02d,%02d:%02d,%02d:%02d,%02d:%02d,%02d:%02d
-%d CÁPSULAS,%d CÁPSULAS,%d PODS,캡슐 %d개,%d CÁPSULAS
-%d suggestions,%d suggestions,%d suggestions,제안 %d개,%d sugestões
-%d/%d OCUP,%d/%d OCUP,%d/%d OCC,%d/%d 사용 중,%d/%d OCUP
+keys,es,en,ko,pt_BR,de,fr,nl
+   CLOSE   ,   CLOSE   ,   CLOSE,   닫기   ,   FECHAR   ,   SCHLIESSEN   ,   FERMER   ,   SLUITEN   
+   NEXT   ,   NEXT   ,   NEXT,   다음   ,   PRÓXIMO   ,   WEITER   ,   SUIVANT   ,   VOLGENDE   
+%02d:%02d,%02d:%02d,%02d:%02d,%02d:%02d,%02d:%02d,%02d:%02d,%02d:%02d,%02d:%02d
+%d CÁPSULAS,%d CÁPSULAS,%d PODS,캡슐 %d개,%d CÁPSULAS,%d KAPSELN,%d CAPSULES,%d CAPSULES
+%d suggestions,%d suggestions,%d suggestions,제안 %d개,%d sugestões,%d Vorschläge,%d suggestions,%d suggesties
+%d/%d OCUP,%d/%d OCUP,%d/%d OCC,%d/%d 사용 중,%d/%d OCUP,%d/%d BELEGT,%d/%d OCCUPÉ,%d/%d BEZET
 "%s
 %.1fms  N:%d  M:%d  L:%d  P:%d","%s
 %.1fms  N:%d  M:%d  L:%d  P:%d","%s
 %.1fms  N:%d  M:%d  L:%d  P:%d","%s
 %.1fms  N:%d  M:%d  L:%d  P:%d","%s
+%.1fms  N:%d  M:%d  L:%d  P:%d","%s
+%.1fms  N:%d  M:%d  L:%d  P:%d","%s
+%.1fms  N:%d  M:%d  L:%d  P:%d","%s
 %.1fms  N:%d  M:%d  L:%d  P:%d"
-%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: 페이지   |   T: 정렬 ),%s     ( PgUp / PgDn: página   |   T: ordenar )
-%s Volviendo al menú...,%s Volviendo al menú...,%s Returning to menu...,%s 메뉴로 돌아갑니다...,%s Voltando ao menu...
-%s · %d ALERTA,%s · %d ALERTA,%s · %d ALERT,%s · 경보 %d,%s · %d ALERTA
-%s · NOMINAL,%s · NOMINAL,%s · NOMINAL,%s · 정상,%s · NOMINAL
-%s: %s,%s: %s,%s: %s,%s: %s,%s: %s
-0/28 OCUP · NOMINAL,0/28 OCUP · NOMINAL,0/28 OCC · NOMINAL,0/28 사용 중 · 정상,0/28 OCUP · NOMINAL
-2 cube,2 cube,2 cube,2 cube,2 cube
-<- Back,<- Back,<- Back,<- 뒤로,<- Voltar
-AIRLOCK A,AIRLOCK A,AIRLOCK A,에어록 A,COMPORTA A
-AIRLOCK-01,AIRLOCK-01,AIRLOCK-01,에어록-01,COMPORTA-01
-ALERTA,ALERTA,ALERT,경보,ALERTA
-APAGADA,APAGADA,OFF,꺼짐,DESLIGADA
-APAGAR,APAGAR,TURN OFF,끄기,DESLIGAR
+%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: page   |   T: sort ),%s     ( PgUp / PgDn: 페이지   |   T: 정렬 ),%s     ( PgUp / PgDn: página   |   T: ordenar ),%s     ( PgUp / PgDn: Seite   |   T: sortieren ),%s     ( PgUp / PgDn: page   |   T: trier ),%s     ( PgUp / PgDn: pagina   |   T: sorteren )
+%s Volviendo al menú...,%s Volviendo al menú...,%s Returning to menu...,%s 메뉴로 돌아갑니다...,%s Voltando ao menu...,%s Zurück zum Menü...,%s Retour au menu...,%s Terug naar menu...
+%s · %d ALERTA,%s · %d ALERTA,%s · %d ALERT,%s · 경보 %d,%s · %d ALERTA,%s · %d ALARM,%s · %d ALERTE,%s · %d ALARM
+%s · NOMINAL,%s · NOMINAL,%s · NOMINAL,%s · 정상,%s · NOMINAL,%s · NOMINAL,%s · NOMINAL,%s · NOMINAL
+%s: %s,%s: %s,%s: %s,%s: %s,%s: %s,%s: %s,%s: %s,%s: %s
+0/28 OCUP · NOMINAL,0/28 OCUP · NOMINAL,0/28 OCC · NOMINAL,0/28 사용 중 · 정상,0/28 OCUP · NOMINAL,0/28 BELEGT · NOMINAL,0/28 OCCUPÉ · NOMINAL,0/28 BEZET · NOMINAL
+2 cube,2 cube,2 cube,2 cube,2 cube,2 cube,2 cube,2 cube
+<- Back,<- Back,<- Back,<- 뒤로,<- Voltar,<- Zurück,<- Retour,<- Terug
+AIRLOCK A,AIRLOCK A,AIRLOCK A,에어록 A,COMPORTA A,SCHLEUSE A,SAS A,LUCHTSLUIS A
+AIRLOCK-01,AIRLOCK-01,AIRLOCK-01,에어록-01,COMPORTA-01,SCHLEUSE-01,SAS-01,LUCHTSLUIS-01
+ALERTA,ALERTA,ALERT,경보,ALERTA,ALARM,ALERTE,ALARM
+APAGADA,APAGADA,OFF,꺼짐,DESLIGADA,AUS,ÉTEINTE,UIT
+APAGAR,APAGAR,TURN OFF,끄기,DESLIGAR,AUSSCHALTEN,ÉTEINDRE,UITSCHAKELEN
 "ASCENSOR
 N1","ASCENSOR
 N1","ELEVATOR
 L1","엘리베이터
 1층","ELEVADOR
+N1","AUFZUG
+E1","ASCENSEUR
+N1","LIFT
 N1"
 "ASCENSOR
 N2","ASCENSOR
 N2","ELEVATOR
 L2","엘리베이터
 2층","ELEVADOR
+N2","AUFZUG
+E2","ASCENSEUR
+N2","LIFT
 N2"
 "ASCENSOR
 N3","ASCENSOR
 N3","ELEVATOR
 L3","엘리베이터
 3층","ELEVADOR
+N3","AUFZUG
+E3","ASCENSEUR
+N3","LIFT
 N3"
 "ASCENSOR
 N4","ASCENSOR
 N4","ELEVATOR
 L4","엘리베이터
 4층","ELEVADOR
+N4","AUFZUG
+E4","ASCENSEUR
+N4","LIFT
 N4"
 "ASCENSOR
 N5","ASCENSOR
 N5","ELEVATOR
 L5","엘리베이터
 5층","ELEVADOR
+N5","AUFZUG
+E5","ASCENSEUR
+N5","LIFT
 N5"
 "ASCENSOR
 N6","ASCENSOR
 N6","ELEVATOR
 L6","엘리베이터
 6층","ELEVADOR
+N6","AUFZUG
+E6","ASCENSEUR
+N6","LIFT
 N6"
-ATMÓSFERA: --,ATMÓSFERA: --,ATMOSPHERE: --,대기: --,ATMOSFERA: --
-AUTO,AUTO,AUTO,자동,AUTO
-AVISO DE PRIVACIDAD,AVISO DE PRIVACIDAD,PRIVACY NOTICE,개인정보 고지,AVISO DE PRIVACIDADE
-Abrir instalador,Abrir instalador,Open installer,설치 프로그램 열기,Abrir instalador
-Accionar,Accionar,Operate,작동,Acionar
-Accionar terminal,Accionar terminal,Operate terminal,단말기 작동,Acionar terminal
-Activar,Activar,Activate,활성화,Ativar
-Actualización disponible,Actualización disponible,Update available,업데이트 있음,Atualização disponível
-Actualizar ahora,Actualizar ahora,Update now,지금 업데이트,Atualizar agora
-Actualizar y reiniciar,Actualizar y reiniciar,Update and restart,업데이트 후 재시작,Atualizar e reiniciar
-Alternar pantalla,Alternar pantalla,Toggle screen,화면 전환,Alternar tela
-Autocomplete: ,Autocomplete: ,Autocomplete:,자동완성: ,Autocompletar: 
-BAT. BAJA,BAT. BAJA,LOW BAT.,배터리 부족,BAT. FRACA
-BAT: [----------],BAT: [----------],BAT: [----------],BAT: [----------],BAT: [----------]
-BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||]
-Bombear,Bombear,Pump,펌프 작동,Bombear
-Build: unknown | Platform: unknown | Date: unknown,Build: unknown | Platform: unknown | Date: unknown,Build: unknown | Platform: unknown | Date: unknown,빌드: 알 수 없음 | 플랫폼: 알 수 없음 | 날짜: 알 수 없음,Build: desconhecido | Plataforma: desconhecida | Data: desconhecida
-Buscando partidas...,Buscando partidas...,Searching for games...,게임 검색 중...,Procurando partidas...
-Buscar de nuevo,Buscar de nuevo,Search again,다시 검색,Procurar de novo
-CAM: ,CAM: ,CAM:,카메라: ,CAM: 
-CARGA: --,CARGA: --,CHARGE: --,충전: --,CARGA: --
-CARGANDO EMP,CARGANDO EMP,CHARGING EMP,EMP 충전 중,CARREGANDO EMP
-CARGOL,CARGOL,CARGOL,CARGOL,CARGOL
-CARGOL CAÍDO,CARGOL CAÍDO,CARGOL DOWN,CARGOL 정지,CARGOL CAÍDO
-CIRCUITO DE FRIO,CIRCUITO DE FRIO,COOLING CIRCUIT,냉각 회로,CIRCUITO DE FRIO
-CONTINUAR,CONTINUAR,CONTINUE,이어하기,CONTINUAR
-CONTROL REMOTO,CONTROL REMOTO,REMOTE CONTROL,원격 제어,CONTROLE REMOTO
+ATMÓSFERA: --,ATMÓSFERA: --,ATMOSPHERE: --,대기: --,ATMOSFERA: --,ATMOSPHÄRE: --,ATMOSPHÈRE : --,ATMOSFEER: --
+AUTO,AUTO,AUTO,자동,AUTO,AUTO,AUTO,AUTO
+AVISO DE PRIVACIDAD,AVISO DE PRIVACIDAD,PRIVACY NOTICE,개인정보 고지,AVISO DE PRIVACIDADE,DATENSCHUTZHINWEIS,AVIS DE CONFIDENTIALITÉ,PRIVACYVERKLARING
+Abrir instalador,Abrir instalador,Open installer,설치 프로그램 열기,Abrir instalador,Installer öffnen,Ouvrir l'installateur,Installatieprogramma openen
+Accionar,Accionar,Operate,작동,Acionar,Bedienen,Actionner,Bedienen
+Accionar terminal,Accionar terminal,Operate terminal,단말기 작동,Acionar terminal,Terminal bedienen,Actionner le terminal,Terminal bedienen
+Activar,Activar,Activate,활성화,Ativar,Aktivieren,Activer,Activeren
+Actualización disponible,Actualización disponible,Update available,업데이트 있음,Atualização disponível,Update verfügbar,Mise à jour disponible,Update beschikbaar
+Actualizar ahora,Actualizar ahora,Update now,지금 업데이트,Atualizar agora,Jetzt aktualisieren,Mettre à jour maintenant,Nu bijwerken
+Actualizar y reiniciar,Actualizar y reiniciar,Update and restart,업데이트 후 재시작,Atualizar e reiniciar,Aktualisieren und neu starten,Mettre à jour et redémarrer,Bijwerken en opnieuw opstarten
+Alternar pantalla,Alternar pantalla,Toggle screen,화면 전환,Alternar tela,Bildschirm umschalten,Basculer l'écran,Scherm wisselen
+Autocomplete: ,Autocomplete: ,Autocomplete:,자동완성: ,Autocompletar: ,Autovervollständigung: ,Autocomplétion : ,Automatisch aanvullen: 
+BAT. BAJA,BAT. BAJA,LOW BAT.,배터리 부족,BAT. FRACA,AKKU SCHWACH,BAT. FAIBLE,BAT. LAAG
+BAT: [----------],BAT: [----------],BAT: [----------],BAT: [----------],BAT: [----------],BAT: [----------],BAT: [----------],BAT: [----------]
+BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||],BAT: [||||||||||]
+Bombear,Bombear,Pump,펌프 작동,Bombear,Pumpen,Pomper,Pompen
+Build: unknown | Platform: unknown | Date: unknown,Build: unknown | Platform: unknown | Date: unknown,Build: unknown | Platform: unknown | Date: unknown,빌드: 알 수 없음 | 플랫폼: 알 수 없음 | 날짜: 알 수 없음,Build: desconhecido | Plataforma: desconhecida | Data: desconhecida,Build: unknown | Platform: unknown | Date: unknown,Build: unknown | Platform: unknown | Date: unknown,Build: unknown | Platform: unknown | Date: unknown
+Buscando partidas...,Buscando partidas...,Searching for games...,게임 검색 중...,Procurando partidas...,Suche nach Spielen...,Recherche de parties...,Zoeken naar spellen...
+Buscar de nuevo,Buscar de nuevo,Search again,다시 검색,Procurar de novo,Erneut suchen,Rechercher à nouveau,Opnieuw zoeken
+CAM: ,CAM: ,CAM:,카메라: ,CAM: ,KAM: ,CAM : ,CAM: 
+CARGA: --,CARGA: --,CHARGE: --,충전: --,CARGA: --,LADUNG: --,CHARGE : --,LADING: --
+CARGANDO EMP,CARGANDO EMP,CHARGING EMP,EMP 충전 중,CARREGANDO EMP,EMP LÄDT,CHARGEMENT EMP,EMP LADEN
+CARGOL,CARGOL,CARGOL,CARGOL,CARGOL,CARGOL,CARGOL,CARGOL
+CARGOL CAÍDO,CARGOL CAÍDO,CARGOL DOWN,CARGOL 정지,CARGOL CAÍDO,CARGOL AUSGEFALLEN,CARGOL HORS SERVICE,CARGOL UIT
+CIRCUITO DE FRIO,CIRCUITO DE FRIO,COOLING CIRCUIT,냉각 회로,CIRCUITO DE FRIO,KÜHLKREISLAUF,CIRCUIT DE REFROIDISSEMENT,KOELCIRCUIT
+CONTINUAR,CONTINUAR,CONTINUE,이어하기,CONTINUAR,FORTSETZEN,CONTINUER,DOORGAAN
+CONTROL REMOTO,CONTROL REMOTO,REMOTE CONTROL,원격 제어,CONTROLE REMOTO,FERNSTEUERUNG,TÉLÉCOMMANDE,AFSTANDSBEDIENING
 "CRIO
 AISLAR","CRIO
 AISLAR","CRYO
 ISOLATE","냉동
 격리","CRIO
-ISOLAR"
-CRIO // C-02,CRIO // C-02,CRYO // C-02,냉동 // C-02,CRIO // C-02
-CRIO // C-03,CRIO // C-03,CRYO // C-03,냉동 // C-03,CRIO // C-03
-CRIOCOOLANT: --,CRIOCOOLANT: --,CRIOCOOLANT: --,냉각제: --,CRIOCOOLANT: --
-Calentando... %.1fs,Calentando... %.1fs,Heating... %.1fs,가열 중... %.1fs,Aquecendo... %.1fs
-Canal: release | Tipo: delta | Tamaño: 0 MB,Canal: release | Tipo: delta | Tamaño: 0 MB,Channel: release | Type: delta | Size: 0 MB,채널: release | 종류: delta | 크기: 0 MB,Canal: release | Tipo: delta | Tamanho: 0 MB
-Cancelar,Cancelar,Cancel,취소,Cancelar
+ISOLAR","KRYO
+ISOLIEREN","CRYO
+ISOLER","CRYO
+ISOLEREN"
+CRIO // C-02,CRIO // C-02,CRYO // C-02,냉동 // C-02,CRIO // C-02,KRYO // C-02,CRYO // C-02,CRYO // C-02
+CRIO // C-03,CRIO // C-03,CRYO // C-03,냉동 // C-03,CRIO // C-03,KRYO // C-03,CRYO // C-03,CRYO // C-03
+CRIOCOOLANT: --,CRIOCOOLANT: --,CRIOCOOLANT: --,냉각제: --,CRIOCOOLANT: --,CRIOCOOLANT: --,CRIOCOOLANT: --,CRIOCOOLANT: --
+Calentando... %.1fs,Calentando... %.1fs,Heating... %.1fs,가열 중... %.1fs,Aquecendo... %.1fs,Aufheizen... %.1fs,Chauffage... %.1fs,Opwarmen... %.1fs
+Canal: release | Tipo: delta | Tamaño: 0 MB,Canal: release | Tipo: delta | Tamaño: 0 MB,Channel: release | Type: delta | Size: 0 MB,채널: release | 종류: delta | 크기: 0 MB,Canal: release | Tipo: delta | Tamanho: 0 MB,Kanal: release | Typ: delta | Größe: 0 MB,Canal : release | Type : delta | Taille : 0 MB,Kanaal: release | Type: delta | Grootte: 0 MB
+Cancelar,Cancelar,Cancel,취소,Cancelar,Abbrechen,Annuler,Annuleren
 "Capturado: %s | Duración: %.1fs
 Build: %s | Plataforma: %s | Tripulante: %s","Capturado: %s | Duración: %.1fs
 Build: %s | Plataforma: %s | Tripulante: %s","Captured: %s | Duration: %.1fs
 Build: %s | Platform: %s | Crew member: %s","캡처: %s | 길이: %.1fs
 빌드: %s | 플랫폼: %s | 승무원: %s","Capturado: %s | Duração: %.1fs
-Build: %s | Plataforma: %s | Tripulante: %s"
-Cargando...,Cargando...,Loading...,불러오는 중...,Carregando...
-Cerrar,Cerrar,Close,닫기,Fechar
-Cerrar el overlay de log (tambien apaga la opcion),Cerrar el overlay de log (tambien apaga la opcion),Close log overlay (also disables option),로그 오버레이 닫기 (해당 옵션도 꺼집니다),Fechar a sobreposição de log (também desliga a opção)
-Colapsar/expandir controles,Colapsar/expandir controles,Collapse/expand controls,컨트롤 접기/펼치기,Recolher/expandir controles
-Color,Color,Color,색상,Cor
-Compartir telemetría anónima,Compartir telemetría anónima,Share anonymous telemetry,익명 사용 정보 공유,Compartilhar telemetria anônima
-Conectando con %s...,Conectando con %s...,Connecting to %s...,%s에 연결 중...,Conectando com %s...
-Conectar,Conectar,Connect,연결,Conectar
-Conexión cancelada. Elija una partida o pulse Buscar de nuevo.,Conexión cancelada. Elija una partida o pulse Buscar de nuevo.,Connection cancelled. Select a game or press Search again.,연결이 취소되었습니다. 게임을 선택하거나 다시 검색을 누르십시오.,Conexão cancelada. Escolha uma partida ou toque em Procurar de novo.
-Confirme la conexión con %s.,Confirme la conexión con %s.,Confirm connection with %s.,%s와의 연결을 확인하십시오.,Confirme a conexão com %s.
-Console not found,Console not found,Console not found,Console not found,Console not found
-Control remoto,Control remoto,Remote control,원격 제어,Controle remoto
-Control remoto: hay una partida en la red,Control remoto: hay una partida en la red,Remote control: a game is available on the network,원격 제어: 네트워크에 게임이 있습니다,Controle remoto: há uma partida na rede
-Control remoto: no se detectan partidas en la red,Control remoto: no se detectan partidas en la red,Remote control: no games detected on the network,원격 제어: 네트워크에서 게임을 찾지 못했습니다,Controle remoto: nenhuma partida detectada na rede
-Criocápsulas,Criocápsulas,Cryopods,냉동 캡슐,Criocápsulas
-Cuerpo de texto...,Cuerpo de texto...,Body text...,본문 텍스트...,Corpo do texto...
-DIRT,DIRT,DIRT,흙,TERRA
-DISPARANDO EMP,DISPARANDO EMP,FIRING EMP,EMP 발사 중,DISPARANDO EMP
-Dejar de enfocar cámara del piloto,Dejar de enfocar cámara del piloto,Unfocus pilot camera,파일럿 카메라 초점 해제,Parar de focar a câmera do piloto
-Descargando captura...,Descargando captura...,Downloading recording...,녹화 내려받는 중...,Baixando a gravação...
-Domo,Domo,Dome,돔,Domo
-EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA
-EMP ACTIVADO,EMP ACTIVADO,EMP ACTIVATED,EMP 작동,EMP ATIVADO
-EMP LISTO,EMP LISTO,EMP READY,EMP 준비,EMP PRONTO
-EN ESPERA,EN ESPERA,STANDBY,대기 중,EM ESPERA
-ENCENDER,ENCENDER,TURN ON,켜기,LIGAR
-ENCENDIDA,ENCENDIDA,ON,켜짐,LIGADA
-ENERGÍA: --,ENERGÍA: --,POWER: --,전력: --,ENERGIA: --
-ENTER  —  OMITIR PRÓLOGO,ENTER  —  OMITIR PRÓLOGO,ENTER  —  SKIP PROLOGUE,ENTER  —  프롤로그 건너뛰기,ENTER  —  PULAR PRÓLOGO
-ERROR: ,ERROR: ,ERROR:,오류: ,ERRO: 
-ESCANEAR,ESCANEAR,SCAN,스캔,ESCANEAR
-ESTADO COOLANT,ESTADO COOLANT,COOLANT STATUS,냉각제 상태,ESTADO DO COOLANT
-ESTADO COOLANT | OESTE: %s | ESTE: %s,ESTADO COOLANT | OESTE: %s | ESTE: %s,COOLANT STATUS | WEST: %s | EAST: %s,냉각제 상태 | 서쪽: %s | 동쪽: %s,ESTADO DO COOLANT | OESTE: %s | LESTE: %s
+Build: %s | Plataforma: %s | Tripulante: %s","Erfasst: %s | Dauer: %.1fs
+Build: %s | Plattform: %s | Besatzungsmitglied: %s","Capturé : %s | Durée : %.1fs
+Build : %s | Plateforme : %s | Membre d'équipage : %s","Vastgelegd: %s | Duur: %.1fs
+Build: %s | Platform: %s | Bemanningslid: %s"
+Cargando...,Cargando...,Loading...,불러오는 중...,Carregando...,Lädt...,Chargement...,Laden...
+Cerrar,Cerrar,Close,닫기,Fechar,Schließen,Fermer,Sluiten
+Cerrar el overlay de log (tambien apaga la opcion),Cerrar el overlay de log (tambien apaga la opcion),Close log overlay (also disables option),로그 오버레이 닫기 (해당 옵션도 꺼집니다),Fechar a sobreposição de log (também desliga a opção),Log-Overlay schließen (deaktiviert auch die Option),Fermer l'overlay de log (désactive aussi l'option),Log-overlay sluiten (schakelt ook de optie uit)
+Colapsar/expandir controles,Colapsar/expandir controles,Collapse/expand controls,컨트롤 접기/펼치기,Recolher/expandir controles,Steuerung ein-/ausklappen,Réduire/développer les commandes,Besturing in-/uitklappen
+Color,Color,Color,색상,Cor,Farbe,Couleur,Kleur
+Compartir telemetría anónima,Compartir telemetría anónima,Share anonymous telemetry,익명 사용 정보 공유,Compartilhar telemetria anônima,Anonyme Telemetrie teilen,Partager la télémétrie anonyme,Anonieme telemetrie delen
+Conectando con %s...,Conectando con %s...,Connecting to %s...,%s에 연결 중...,Conectando com %s...,Verbindung mit %s...,Connexion à %s...,Verbinden met %s...
+Conectar,Conectar,Connect,연결,Conectar,Verbinden,Connecter,Verbinden
+Conexión cancelada. Elija una partida o pulse Buscar de nuevo.,Conexión cancelada. Elija una partida o pulse Buscar de nuevo.,Connection cancelled. Select a game or press Search again.,연결이 취소되었습니다. 게임을 선택하거나 다시 검색을 누르십시오.,Conexão cancelada. Escolha uma partida ou toque em Procurar de novo.,Verbindung abgebrochen. Wählen Sie ein Spiel oder drücken Sie erneut Suchen.,Connexion annulée. Choisissez une partie ou appuyez sur Rechercher à nouveau.,Verbinding geannuleerd. Kies een spel of druk op Opnieuw zoeken.
+Confirme la conexión con %s.,Confirme la conexión con %s.,Confirm connection with %s.,%s와의 연결을 확인하십시오.,Confirme a conexão com %s.,Bestätigen Sie die Verbindung mit %s.,Confirmez la connexion avec %s.,Bevestig de verbinding met %s.
+Console not found,Console not found,Console not found,Console not found,Console not found,Console not found,Console not found,Console not found
+Control remoto,Control remoto,Remote control,원격 제어,Controle remoto,Fernsteuerung,Télécommande,Afstandsbediening
+Control remoto: hay una partida en la red,Control remoto: hay una partida en la red,Remote control: a game is available on the network,원격 제어: 네트워크에 게임이 있습니다,Controle remoto: há uma partida na rede,Fernsteuerung: Ein Spiel ist im Netzwerk verfügbar,Télécommande : une partie est disponible sur le réseau,Afstandsbediening: er is een spel op het netwerk
+Control remoto: no se detectan partidas en la red,Control remoto: no se detectan partidas en la red,Remote control: no games detected on the network,원격 제어: 네트워크에서 게임을 찾지 못했습니다,Controle remoto: nenhuma partida detectada na rede,Fernsteuerung: Keine Spiele im Netzwerk erkannt,Télécommande : aucune partie détectée sur le réseau,Afstandsbediening: geen spellen gedetecteerd op het netwerk
+Criocápsulas,Criocápsulas,Cryopods,냉동 캡슐,Criocápsulas,Kryokapseln,Cryocapsules,Cryocapsules
+Cuerpo de texto...,Cuerpo de texto...,Body text...,본문 텍스트...,Corpo do texto...,Fließtext...,Corps du texte...,Bodytekst...
+DIRT,DIRT,DIRT,흙,TERRA,ERDE,TERRE,AARDE
+DISPARANDO EMP,DISPARANDO EMP,FIRING EMP,EMP 발사 중,DISPARANDO EMP,EMP FEUERT,TIR EMP,EMP VUREN
+Dejar de enfocar cámara del piloto,Dejar de enfocar cámara del piloto,Unfocus pilot camera,파일럿 카메라 초점 해제,Parar de focar a câmera do piloto,Pilotkamera loslassen,Relâcher la caméra du pilote,Pilootcamera loslaten
+Descargando captura...,Descargando captura...,Downloading recording...,녹화 내려받는 중...,Baixando a gravação...,Aufzeichnung wird heruntergeladen...,Téléchargement de la capture...,Opname downloaden...
+Domo,Domo,Dome,돔,Domo,Kuppel,Dôme,Koepel
+EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA,EL ARCA SILENCIOSA
+EMP ACTIVADO,EMP ACTIVADO,EMP ACTIVATED,EMP 작동,EMP ATIVADO,EMP AKTIVIERT,EMP ACTIVÉ,EMP GEACTIVEERD
+EMP LISTO,EMP LISTO,EMP READY,EMP 준비,EMP PRONTO,EMP BEREIT,EMP PRÊT,EMP GEREED
+EN ESPERA,EN ESPERA,STANDBY,대기 중,EM ESPERA,BEREITSCHAFT,EN ATTENTE,STAND-BY
+ENCENDER,ENCENDER,TURN ON,켜기,LIGAR,EINSCHALTEN,ALLUMER,INSCHAKELEN
+ENCENDIDA,ENCENDIDA,ON,켜짐,LIGADA,EIN,ALLUMÉE,AAN
+ENERGÍA: --,ENERGÍA: --,POWER: --,전력: --,ENERGIA: --,ENERGIE: --,ÉNERGIE : --,ENERGIE: --
+ENTER  —  OMITIR PRÓLOGO,ENTER  —  OMITIR PRÓLOGO,ENTER  —  SKIP PROLOGUE,ENTER  —  프롤로그 건너뛰기,ENTER  —  PULAR PRÓLOGO,ENTER  —  PROLOG ÜBERSPRINGEN,ENTRÉE  —  IGNORER LE PROLOGUE,ENTER  —  PROLOOG OVERSLAAN
+ERROR: ,ERROR: ,ERROR:,오류: ,ERRO: ,FEHLER: ,ERREUR : ,FOUT: 
+ESCANEAR,ESCANEAR,SCAN,스캔,ESCANEAR,SCANNEN,SCANNER,SCANNEN
+ESTADO COOLANT,ESTADO COOLANT,COOLANT STATUS,냉각제 상태,ESTADO DO COOLANT,KÜHLMITTELSTATUS,ÉTAT DU LIQUIDE DE REFROIDISSEMENT,KOELVLOEISTOFSTATUS
+ESTADO COOLANT | OESTE: %s | ESTE: %s,ESTADO COOLANT | OESTE: %s | ESTE: %s,COOLANT STATUS | WEST: %s | EAST: %s,냉각제 상태 | 서쪽: %s | 동쪽: %s,ESTADO DO COOLANT | OESTE: %s | LESTE: %s,KÜHLMITTELSTATUS | WEST: %s | OST: %s,ÉTAT DU LIQUIDE DE REFROIDISSEMENT | OUEST : %s | EST : %s,KOELVLOEISTOFSTATUS | WEST: %s | OOST: %s
 "ESTE
 SALIDA","ESTE
 SALIDA","EAST
 EXIT","동쪽
 출구","LESTE
-SAÍDA"
-"En %s apareció una solicitud. Si muestra este mismo PIN, pulse Permitir.","En %s apareció una solicitud. Si muestra este mismo PIN, pulse Permitir.","A request appeared on %s. If it shows this same PIN, press Allow.",%s에 요청이 표시되었습니다. 같은 PIN이 보이면 허용을 누르십시오.,"Uma solicitação apareceu em %s. Se mostrar este mesmo PIN, toque em Permitir."
-Enfocar cámara del piloto,Enfocar cámara del piloto,Focus pilot camera,파일럿 카메라 초점,Focar a câmera do piloto
-Enviar reportes de error,Enviar reportes de error,Send error reports,오류 보고서 보내기,Enviar relatórios de erro
-Envía métricas técnicas de rendimiento y uso para ayudar a mejorar el juego.,Envía métricas técnicas de rendimiento y uso para ayudar a mejorar el juego.,Sends technical performance and usage metrics to help improve the game.,게임 개선을 위해 성능과 사용에 관한 기술 정보를 보냅니다.,Envia métricas técnicas de desempenho e uso para ajudar a melhorar o jogo.
-Error de actualización: %s,Error de actualización: %s,Update error: %s,업데이트 오류: %s,Erro de atualização: %s
-Escala de render,Escala de render,Render scale,렌더 배율,Escala de renderização
-Escena: %s | Disparador: %s | FPS mín: %.1f | FPS med: %.1f,Escena: %s | Disparador: %s | FPS mín: %.1f | FPS med: %.1f,Scene: %s | Trigger: %s | Min FPS: %.1f | Avg FPS: %.1f,장면: %s | 트리거: %s | 최소 FPS: %.1f | 평균 FPS: %.1f,Cena: %s | Gatilho: %s | FPS mín: %.1f | FPS méd: %.1f
-FPS: ,FPS: ,FPS:,FPS: ,FPS: 
-FPS:000,FPS:000,FPS:000,FPS:000,FPS:000
-Forzar modo low end,Forzar modo low end,Force low-end mode,저사양 모드 강제,Forçar modo low end
-Frame %d/%d — T: %.1fs / %.1fs,Frame %d/%d — T: %.1fs / %.1fs,Frame %d/%d — T: %.1fs / %.1fs,프레임 %d/%d — T: %.1fs / %.1fs,Quadro %d/%d — T: %.1fs / %.1fs
-Frame: 0/0,Frame: 0/0,Frame: 0/0,프레임: 0/0,Quadro: 0/0
-GLOO ACTIVO: %d / %d,GLOO ACTIVO: %d / %d,ACTIVE GLOO: %d / %d,GLOO 활성: %d / %d,GLOO ATIVO: %d / %d
-GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d
-GLOO: 0/6,GLOO: 0/6,GLOO: 0/6,GLOO: 0/6,GLOO: 0/6
-GRASS,GRASS,GRASS,풀,GRAMA
-Global Position: ,Global Position: ,Global Position:,전역 좌표: ,Posição global: 
-Global Position: N/A,Global Position: N/A,Global Position: N/A,전역 좌표: N/A,Posição global: N/A
-Glow postprocessing,Glow postprocessing,Glow post-processing,글로우 후처리,Pós-processamento de glow
-HOTZONE PLAYER,HOTZONE PLAYER,HOTZONE PLAYER,핫존 플레이어,HOTZONE PLAYER
-Hay %d partidas en su red. Elija cuál quiere controlar:,Hay %d partidas en su red. Elija cuál quiere controlar:,There are %d games on your network. Choose which one to control:,네트워크에 게임이 %d개 있습니다. 제어할 게임을 선택하십시오:,Há %d partidas na sua rede. Escolha qual quer controlar:
-HoloTerminal,HoloTerminal,HoloTerminal,홀로터미널,HoloTerminal
-Idioma,Idioma,Language,언어,Idioma
-Information,Information,Information,정보,Informação
-Interactuar,Interactuar,Interact,상호작용,Interagir
-Invertir X,Invertir X,Invert X,X축 반전,Inverter X
-Invertir Y,Invertir Y,Invert Y,Y축 반전,Inverter Y
-Invierte los ejes analógicos horizontales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés.,Invierte los ejes analógicos horizontales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés.,Inverts the horizontal analog axes (movement and camera). Turn it on if the stick is reversed on your device.,아날로그 좌우 축(이동과 카메라)을 반전합니다. 기기에서 스틱이 반대로 움직이면 켜십시오.,Inverte os eixos analógicos horizontais (movimento e câmera). Ative se no seu aparelho o direcional estiver ao contrário.
-Invierte los ejes analógicos verticales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés.,Invierte los ejes analógicos verticales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés.,Inverts the vertical analog axes (movement and camera). Turn it on if the stick is reversed on your device.,아날로그 상하 축(이동과 카메라)을 반전합니다. 기기에서 스틱이 반대로 움직이면 켜십시오.,Inverte os eixos analógicos verticais (movimento e câmera). Ative se no seu aparelho o direcional estiver ao contrário.
-LA PARTIDA TERMINÓ,LA PARTIDA TERMINÓ,GAME OVER,게임 오버,FIM DE JOGO
-LASER: LISTO,LASER: LISTO,LASER: READY,레이저: 준비,LASER: PRONTO
-LISTO,LISTO,READY,준비,PRONTO
-LOG,LOG,LOG,로그,LOG
-LOG  %s  lineas=%d,LOG  %s  lineas=%d,LOG  %s  lines=%d,로그  %s  줄=%d,LOG  %s  linhas=%d
-Linterna,Linterna,Flashlight,손전등,Lanterna
-Los objetos que tapan al personaje se vuelven translúcidos. Se aplica al recargar la escena.,Los objetos que tapan al personaje se vuelven translúcidos. Se aplica al recargar la escena.,Objects obscuring the character become translucent. Applied on scene reload.,캐릭터를 가리는 물체가 반투명해집니다. 장면을 다시 불러올 때 적용됩니다.,Os objetos que cobrem o personagem ficam translúcidos. Aplica-se ao recarregar a cena.
-MANUAL,MANUAL,MANUAL,수동,MANUAL
-MENÚ PRINCIPAL,MENÚ PRINCIPAL,MAIN MENU,메인 메뉴,MENU PRINCIPAL
-METAL (Default),METAL (Default),METAL (Default),금속 (기본),METAL (Padrão)
-MODE: GLOO,MODE: GLOO,MODE: GLOO,모드: GLOO,MODO: GLOO
-MODE: LASER,MODE: LASER,MODE: LASER,모드: 레이저,MODO: LASER
-MODO: %s,MODO: %s,MODE: %s,모드: %s,MODO: %s
-MODO: LASER,MODO: LASER,MODE: LASER,모드: 레이저,MODO: LASER
-MODO: OFFLINE,MODO: OFFLINE,MODE: OFFLINE,모드: 오프라인,MODO: OFFLINE
-MULTI-TOOL,MULTI-TOOL,MULTI-TOOL,멀티툴,MULTI-TOOL
-"Manda al servidor las líneas de error del log al cerrar la sesión, para poder diagnosticar fallas que solo pasan en su dispositivo.","Manda al servidor las líneas de error del log al cerrar la sesión, para poder diagnosticar fallas que solo pasan en su dispositivo.",Sends log error lines to the server upon closing the session to diagnose issues specific to your device.,세션을 닫을 때 로그의 오류 줄을 서버로 보냅니다. 사용자의 기기에서만 생기는 문제를 진단하는 데 씁니다.,"Envia ao servidor as linhas de erro do log ao encerrar a sessão, para diagnosticar falhas que só acontecem no seu aparelho."
-Mantén TAB para cambiar de pantalla,Mantén TAB para cambiar de pantalla,Hold TAB to switch screen,TAB을 누르고 있으면 화면이 바뀝니다,Segure TAB para trocar de tela
-Modo Pantalla,Modo Pantalla,Screen Mode,화면 모드,Modo de Tela
-Mostrar pantalla,Mostrar pantalla,Show screen,화면 표시,Mostrar tela
-"Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola.","Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola.","Displays the tail of the engine log on screen, useful for debugging on devices without a console.",엔진 로그의 마지막 부분을 화면에 표시합니다. 콘솔이 없는 기기에서 디버깅할 때 유용합니다.,"Mostra o final do log do motor sobre a tela, útil para depurar em aparelhos sem console."
-Música,Música,Music,음악,Música
-NO ENVIAR,NO ENVIAR,DO NOT SEND,보내지 않음,NÃO ENVIAR
-NOMINAL,NOMINAL,NOMINAL,정상,NOMINAL
+SAÍDA","OST
+AUSGANG","EST
+SORTIE","OOST
+UITGANG"
+"En %s apareció una solicitud. Si muestra este mismo PIN, pulse Permitir.","En %s apareció una solicitud. Si muestra este mismo PIN, pulse Permitir.","A request appeared on %s. If it shows this same PIN, press Allow.",%s에 요청이 표시되었습니다. 같은 PIN이 보이면 허용을 누르십시오.,"Uma solicitação apareceu em %s. Se mostrar este mesmo PIN, toque em Permitir.","Auf %s ist eine Anfrage erschienen. Wenn derselbe PIN angezeigt wird, drücken Sie Zulassen.","Une demande est apparue sur %s. Si ce même PIN s'affiche, appuyez sur Autoriser.","Er verscheen een verzoek op %s. Als dezelfde PIN wordt getoond, druk op Toestaan."
+Enfocar cámara del piloto,Enfocar cámara del piloto,Focus pilot camera,파일럿 카메라 초점,Focar a câmera do piloto,Pilotkamera fokussieren,Focaliser la caméra du pilote,Pilootcamera focussen
+Enviar reportes de error,Enviar reportes de error,Send error reports,오류 보고서 보내기,Enviar relatórios de erro,Fehlerberichte senden,Envoyer les rapports d'erreur,Foutrapporten verzenden
+Envía métricas técnicas de rendimiento y uso para ayudar a mejorar el juego.,Envía métricas técnicas de rendimiento y uso para ayudar a mejorar el juego.,Sends technical performance and usage metrics to help improve the game.,게임 개선을 위해 성능과 사용에 관한 기술 정보를 보냅니다.,Envia métricas técnicas de desempenho e uso para ajudar a melhorar o jogo.,Sendet technische Leistungs- und Nutzungsdaten zur Verbesserung des Spiels.,Envoie des métriques techniques de performance et d'utilisation pour aider à améliorer le jeu.,Verzendt technische prestatie- en gebruiksmetrieken om het spel te verbeteren.
+Error de actualización: %s,Error de actualización: %s,Update error: %s,업데이트 오류: %s,Erro de atualização: %s,Update-Fehler: %s,Erreur de mise à jour : %s,Update-fout: %s
+Escala de render,Escala de render,Render scale,렌더 배율,Escala de renderização,Render-Skalierung,Échelle de rendu,Render-schaal
+Escena: %s | Disparador: %s | FPS mín: %.1f | FPS med: %.1f,Escena: %s | Disparador: %s | FPS mín: %.1f | FPS med: %.1f,Scene: %s | Trigger: %s | Min FPS: %.1f | Avg FPS: %.1f,장면: %s | 트리거: %s | 최소 FPS: %.1f | 평균 FPS: %.1f,Cena: %s | Gatilho: %s | FPS mín: %.1f | FPS méd: %.1f,Szene: %s | Auslöser: %s | Min. FPS: %.1f | Ø FPS: %.1f,Scène : %s | Déclencheur : %s | FPS min : %.1f | FPS moy : %.1f,Scène: %s | Trigger: %s | Min FPS: %.1f | Gem. FPS: %.1f
+FPS: ,FPS: ,FPS:,FPS: ,FPS: ,FPS:,FPS:,FPS:
+FPS:000,FPS:000,FPS:000,FPS:000,FPS:000,FPS:000,FPS:000,FPS:000
+Forzar modo low end,Forzar modo low end,Force low-end mode,저사양 모드 강제,Forçar modo low end,Low-End-Modus erzwingen,Forcer le mode bas de gamme,Low-end-modus forceren
+Frame %d/%d — T: %.1fs / %.1fs,Frame %d/%d — T: %.1fs / %.1fs,Frame %d/%d — T: %.1fs / %.1fs,프레임 %d/%d — T: %.1fs / %.1fs,Quadro %d/%d — T: %.1fs / %.1fs,Frame %d/%d — T: %.1fs / %.1fs,Image %d/%d — T : %.1fs / %.1fs,Frame %d/%d — T: %.1fs / %.1fs
+Frame: 0/0,Frame: 0/0,Frame: 0/0,프레임: 0/0,Quadro: 0/0,Frame: 0/0,Image : 0/0,Frame: 0/0
+GLOO ACTIVO: %d / %d,GLOO ACTIVO: %d / %d,ACTIVE GLOO: %d / %d,GLOO 활성: %d / %d,GLOO ATIVO: %d / %d,GLOO AKTIV: %d / %d,GLOO ACTIF : %d / %d,GLOO ACTIEF: %d / %d
+GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d,GLOO: %d/%d
+GLOO: 0/6,GLOO: 0/6,GLOO: 0/6,GLOO: 0/6,GLOO: 0/6,GLOO: 0/6,GLOO: 0/6,GLOO: 0/6
+GRASS,GRASS,GRASS,풀,GRAMA,GRAS,HERBE,GRAS
+Global Position: ,Global Position: ,Global Position:,전역 좌표: ,Posição global: ,Globale Position: ,Position globale : ,Globale positie: 
+Global Position: N/A,Global Position: N/A,Global Position: N/A,전역 좌표: N/A,Posição global: N/A,Globale Position: N/A,Position globale : N/A,Globale positie: N/A
+Glow postprocessing,Glow postprocessing,Glow post-processing,글로우 후처리,Pós-processamento de glow,Glow-Nachbearbeitung,Post-traitement du glow,Glow-nabewerking
+HOTZONE PLAYER,HOTZONE PLAYER,HOTZONE PLAYER,핫존 플레이어,HOTZONE PLAYER,HOTZONE PLAYER,HOTZONE PLAYER,HOTZONE PLAYER
+Hay %d partidas en su red. Elija cuál quiere controlar:,Hay %d partidas en su red. Elija cuál quiere controlar:,There are %d games on your network. Choose which one to control:,네트워크에 게임이 %d개 있습니다. 제어할 게임을 선택하십시오:,Há %d partidas na sua rede. Escolha qual quer controlar:,"Es gibt %d Spiele in Ihrem Netzwerk. Wählen Sie, welches Sie steuern möchten:",Il y a %d parties sur votre réseau. Choisissez celle à contrôler :,Er zijn %d spellen op uw netwerk. Kies welke u wilt besturen:
+HoloTerminal,HoloTerminal,HoloTerminal,홀로터미널,HoloTerminal,HoloTerminal,HoloTerminal,HoloTerminal
+Idioma,Idioma,Language,언어,Idioma,Sprache,Langue,Taal
+Information,Information,Information,정보,Informação,Information,Information,Informatie
+Interactuar,Interactuar,Interact,상호작용,Interagir,Interagieren,Interagir,Interacteren
+Invertir X,Invertir X,Invert X,X축 반전,Inverter X,X invertieren,Inverser X,X omkeren
+Invertir Y,Invertir Y,Invert Y,Y축 반전,Inverter Y,Y invertieren,Inverser Y,Y omkeren
+Invierte los ejes analógicos horizontales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés.,Invierte los ejes analógicos horizontales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés.,Inverts the horizontal analog axes (movement and camera). Turn it on if the stick is reversed on your device.,아날로그 좌우 축(이동과 카메라)을 반전합니다. 기기에서 스틱이 반대로 움직이면 켜십시오.,Inverte os eixos analógicos horizontais (movimento e câmera). Ative se no seu aparelho o direcional estiver ao contrário.,"Invertiert die horizontalen analogen Achsen (Bewegung und Kamera). Einschalten, wenn der Stick auf Ihrem Gerät umgekehrt reagiert.",Inverse les axes analogiques horizontaux (déplacement et caméra). Activez-le si le stick est inversé sur votre appareil.,Keert de horizontale analoge assen om (beweging en camera). Schakel in als de stick op uw apparaat omgekeerd werkt.
+Invierte los ejes analógicos verticales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés.,Invierte los ejes analógicos verticales (movimiento y cámara). Activalo si en tu dispositivo el stick va al revés.,Inverts the vertical analog axes (movement and camera). Turn it on if the stick is reversed on your device.,아날로그 상하 축(이동과 카메라)을 반전합니다. 기기에서 스틱이 반대로 움직이면 켜십시오.,Inverte os eixos analógicos verticais (movimento e câmera). Ative se no seu aparelho o direcional estiver ao contrário.,"Invertiert die vertikalen analogen Achsen (Bewegung und Kamera). Einschalten, wenn der Stick auf Ihrem Gerät umgekehrt reagiert.",Inverse les axes analogiques verticaux (déplacement et caméra). Activez-le si le stick est inversé sur votre appareil.,Keert de verticale analoge assen om (beweging en camera). Schakel in als de stick op uw apparaat omgekeerd werkt.
+LA PARTIDA TERMINÓ,LA PARTIDA TERMINÓ,GAME OVER,게임 오버,FIM DE JOGO,SPIEL VORBEI,PARTIE TERMINÉE,SPEL VOORBIJ
+LASER: LISTO,LASER: LISTO,LASER: READY,레이저: 준비,LASER: PRONTO,LASER: BEREIT,LASER : PRÊT,LASER: GEREED
+LISTO,LISTO,READY,준비,PRONTO,BEREIT,PRÊT,GEREED
+LOG,LOG,LOG,로그,LOG,LOG,LOG,LOG
+LOG  %s  lineas=%d,LOG  %s  lineas=%d,LOG  %s  lines=%d,로그  %s  줄=%d,LOG  %s  linhas=%d,LOG  %s  Zeilen=%d,LOG  %s  lignes=%d,LOG  %s  regels=%d
+Linterna,Linterna,Flashlight,손전등,Lanterna,Taschenlampe,Lampe torche,Zaklamp
+Los objetos que tapan al personaje se vuelven translúcidos. Se aplica al recargar la escena.,Los objetos que tapan al personaje se vuelven translúcidos. Se aplica al recargar la escena.,Objects obscuring the character become translucent. Applied on scene reload.,캐릭터를 가리는 물체가 반투명해집니다. 장면을 다시 불러올 때 적용됩니다.,Os objetos que cobrem o personagem ficam translúcidos. Aplica-se ao recarregar a cena.,"Objekte, die die Figur verdecken, werden durchscheinend. Wird beim Neuladen der Szene angewendet.",Les objets masquant le personnage deviennent translucides. Appliqué au rechargement de la scène.,Objecten die het personage bedekken worden doorschijnend. Wordt toegepast bij het herladen van de scène.
+MANUAL,MANUAL,MANUAL,수동,MANUAL,MANUAL,MANUAL,MANUAL
+MENÚ PRINCIPAL,MENÚ PRINCIPAL,MAIN MENU,메인 메뉴,MENU PRINCIPAL,HAUPTMENÜ,MENU PRINCIPAL,HOOFDMENU
+METAL (Default),METAL (Default),METAL (Default),금속 (기본),METAL (Padrão),METALL (Standard),MÉTAL (Par défaut),METAAL (Standaard)
+MODE: GLOO,MODE: GLOO,MODE: GLOO,모드: GLOO,MODO: GLOO,MODUS: GLOO,MODE : GLOO,MODUS: GLOO
+MODE: LASER,MODE: LASER,MODE: LASER,모드: 레이저,MODO: LASER,MODUS: LASER,MODE : LASER,MODUS: LASER
+MODO: %s,MODO: %s,MODE: %s,모드: %s,MODO: %s,MODUS: %s,MODE : %s,MODUS: %s
+MODO: LASER,MODO: LASER,MODE: LASER,모드: 레이저,MODO: LASER,MODUS: LASER,MODE : LASER,MODUS: LASER
+MODO: OFFLINE,MODO: OFFLINE,MODE: OFFLINE,모드: 오프라인,MODO: OFFLINE,MODUS: OFFLINE,MODE : HORS LIGNE,MODUS: OFFLINE
+MULTI-TOOL,MULTI-TOOL,MULTI-TOOL,멀티툴,MULTI-TOOL,MULTI-TOOL,MULTI-TOOL,MULTI-TOOL
+"Manda al servidor las líneas de error del log al cerrar la sesión, para poder diagnosticar fallas que solo pasan en su dispositivo.","Manda al servidor las líneas de error del log al cerrar la sesión, para poder diagnosticar fallas que solo pasan en su dispositivo.",Sends log error lines to the server upon closing the session to diagnose issues specific to your device.,세션을 닫을 때 로그의 오류 줄을 서버로 보냅니다. 사용자의 기기에서만 생기는 문제를 진단하는 데 씁니다.,"Envia ao servidor as linhas de erro do log ao encerrar a sessão, para diagnosticar falhas que só acontecem no seu aparelho.","Sendet beim Beenden der Sitzung Fehlerzeilen aus dem Log an den Server, um Probleme zu diagnostizieren, die nur auf Ihrem Gerät auftreten.",Envoie au serveur les lignes d'erreur du journal à la fermeture de la session afin de diagnostiquer les problèmes propres à votre appareil.,Verzendt bij het sluiten van de sessie foutregels uit het log naar de server om problemen te diagnosticeren die alleen op uw apparaat voorkomen.
+Mantén TAB para cambiar de pantalla,Mantén TAB para cambiar de pantalla,Hold TAB to switch screen,TAB을 누르고 있으면 화면이 바뀝니다,Segure TAB para trocar de tela,"TAB halten, um den Bildschirm zu wechseln",Maintenir TAB pour changer d'écran,Houd TAB ingedrukt om van scherm te wisselen
+Modo Pantalla,Modo Pantalla,Screen Mode,화면 모드,Modo de Tela,Bildschirmmodus,Mode écran,Schermmodus
+Mostrar pantalla,Mostrar pantalla,Show screen,화면 표시,Mostrar tela,Bildschirm anzeigen,Afficher l'écran,Scherm tonen
+"Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola.","Muestra el final del log del motor sobre la pantalla, útil para depurar en dispositivos sin consola.","Displays the tail of the engine log on screen, useful for debugging on devices without a console.",엔진 로그의 마지막 부분을 화면에 표시합니다. 콘솔이 없는 기기에서 디버깅할 때 유용합니다.,"Mostra o final do log do motor sobre a tela, útil para depurar em aparelhos sem console.","Zeigt das Ende des Engine-Logs auf dem Bildschirm an, nützlich zum Debuggen auf Geräten ohne Konsole.","Affiche la fin du journal du moteur à l'écran, utile pour déboguer sur les appareils sans console.","Toont het einde van het engine-log op het scherm, handig voor debuggen op apparaten zonder console."
+Música,Música,Music,음악,Música,Musik,Musique,Muziek
+NO ENVIAR,NO ENVIAR,DO NOT SEND,보내지 않음,NÃO ENVIAR,NICHT SENDEN,NE PAS ENVOYER,NIET VERZENDEN
+NOMINAL,NOMINAL,NOMINAL,정상,NOMINAL,NOMINAL,NOMINAL,NOMINAL
 "NORTE
 SALIDA","NORTE
 SALIDA","NORTH
 EXIT","북쪽
 출구","NORTE
-SAÍDA"
-NUEVA PARTIDA,NUEVA PARTIDA,NEW GAME,새 게임,NOVO JOGO
-No se pudo descargar (%s). Probá de nuevo.,No se pudo descargar (%s). Probá de nuevo.,Failed to download (%s). Try again.,내려받지 못했습니다 (%s). 다시 시도하십시오.,Não foi possível baixar (%s). Tente de novo.
+SAÍDA","NORD
+AUSGANG","NORD
+SORTIE","NOORD
+UITGANG"
+NUEVA PARTIDA,NUEVA PARTIDA,NEW GAME,새 게임,NOVO JOGO,NEUES SPIEL,NOUVELLE PARTIE,NIEUW SPEL
+No se pudo descargar (%s). Probá de nuevo.,No se pudo descargar (%s). Probá de nuevo.,Failed to download (%s). Try again.,내려받지 못했습니다 (%s). 다시 시도하십시오.,Não foi possível baixar (%s). Tente de novo.,Download fehlgeschlagen (%s). Versuchen Sie es erneut.,Échec du téléchargement (%s). Réessayez.,Downloaden mislukt (%s). Probeer opnieuw.
 "No se pudo emparejar: %s.
 Pulse Buscar de nuevo para reintentar.","No se pudo emparejar: %s.
 Pulse Buscar de nuevo para reintentar.","Failed to pair: %s.
 Press Search again to retry.","연결하지 못했습니다: %s.
 다시 검색을 눌러 재시도하십시오.","Não foi possível parear: %s.
-Toque em Procurar de novo para tentar outra vez."
-No se pudo escuchar en el puerto %d. Cierre cualquier otra instancia de Odisea en este dispositivo y pulse Buscar de nuevo.,No se pudo escuchar en el puerto %d. Cierre cualquier otra instancia de Odisea en este dispositivo y pulse Buscar de nuevo.,Could not listen on port %d. Close any other instances of Odisea on this device and press Search again.,포트 %d에서 대기할 수 없습니다. 이 기기에서 실행 중인 다른 Odisea를 닫고 다시 검색을 누르십시오.,Não foi possível escutar na porta %d. Feche qualquer outra instância de Odisea neste aparelho e toque em Procurar de novo.
-No suggestions,No suggestions,No suggestions,제안 없음,Sem sugestões
-Node Invalid,Node Invalid,Node Invalid,노드 무효,Nó inválido
-OD-02 RESPALDO,OD-02 RESPALDO,OD-02 BACKUP,OD-02 백업,OD-02 RESERVA
-OD-OS v4.21 | SURVEILLANCE,OD-OS v4.21 | SURVEILLANCE,OD-OS v4.21 | SURVEILLANCE,OD-OS v4.21 | 감시,OD-OS v4.21 | VIGILÂNCIA
-ODISEA,ODISEA,ODISEA,ODISEA,ODISEA
-ODISEA OS,ODISEA OS,ODISEA OS,ODISEA OS,ODISEA OS
-ODISEAOS,ODISEAOS,ODISEAOS,ODISEAOS,ODISEAOS
+Toque em Procurar de novo para tentar outra vez.","Pairing fehlgeschlagen: %s.
+Drücken Sie erneut Suchen, um es erneut zu versuchen.","Échec de l'appairage : %s.
+Appuyez sur Rechercher à nouveau pour réessayer.","Koppelen mislukt: %s.
+Druk op Opnieuw zoeken om het opnieuw te proberen."
+No se pudo escuchar en el puerto %d. Cierre cualquier otra instancia de Odisea en este dispositivo y pulse Buscar de nuevo.,No se pudo escuchar en el puerto %d. Cierre cualquier otra instancia de Odisea en este dispositivo y pulse Buscar de nuevo.,Could not listen on port %d. Close any other instances of Odisea on this device and press Search again.,포트 %d에서 대기할 수 없습니다. 이 기기에서 실행 중인 다른 Odisea를 닫고 다시 검색을 누르십시오.,Não foi possível escutar na porta %d. Feche qualquer outra instância de Odisea neste aparelho e toque em Procurar de novo.,Konnte nicht auf Port %d lauschen. Schließen Sie alle anderen Odisea-Instanzen auf diesem Gerät und drücken Sie erneut Suchen.,Impossible d'écouter sur le port %d. Fermez toute autre instance d'Odisea sur cet appareil et appuyez sur Rechercher à nouveau.,Kon niet luisteren op poort %d. Sluit alle andere Odisea-instanties op dit apparaat en druk op Opnieuw zoeken.
+No suggestions,No suggestions,No suggestions,제안 없음,Sem sugestões,Keine Vorschläge,Aucune suggestion,Geen suggesties
+Node Invalid,Node Invalid,Node Invalid,노드 무효,Nó inválido,Knoten ungültig,Nœud invalide,Node ongeldig
+OD-02 RESPALDO,OD-02 RESPALDO,OD-02 BACKUP,OD-02 백업,OD-02 RESERVA,OD-02 RESERVE,OD-02 SECOURS,OD-02 BACK-UP
+OD-OS v4.21 | SURVEILLANCE,OD-OS v4.21 | SURVEILLANCE,OD-OS v4.21 | SURVEILLANCE,OD-OS v4.21 | 감시,OD-OS v4.21 | VIGILÂNCIA,OD-OS v4.21 | ÜBERWACHUNG,OD-OS v4.21 | SURVEILLANCE,OD-OS v4.21 | BEWAKING
+ODISEA,ODISEA,ODISEA,ODISEA,ODISEA,ODISEA,ODISEA,ODISEA
+ODISEA OS,ODISEA OS,ODISEA OS,ODISEA OS,ODISEA OS,ODISEA OS,ODISEA OS,ODISEA OS
+ODISEAOS,ODISEAOS,ODISEAOS,ODISEAOS,ODISEAOS,ODISEAOS,ODISEAOS,ODISEAOS
 "OESTE
 CRIO","OESTE
 CRIO","WEST
 CRYO","서쪽
 냉동","OESTE
-CRIO"
-OFF,OFF,OFF,OFF,OFF
-OFFLINE,OFFLINE,OFFLINE,오프라인,OFFLINE
-OK,OK,OK,확인,OK
-OPCIONES,OPCIONES,OPTIONS,설정,OPÇÕES
-OPERATIVO,OPERATIVO,OPERATIONAL,정상 작동,OPERACIONAL
-OXYGEN: ,OXYGEN: ,OXYGEN:,산소: ,OXIGÊNIO: 
-OYSTrigger Example,OYSTrigger Example,OYSTrigger Example,OYSTrigger Example,OYSTrigger Example
-Ocultar registro,Ocultar registro,Hide log,로그 숨기기,Ocultar registro
-Odisea,Odisea,Odisea,Odisea,Odisea
+CRIO","WEST
+KRYO","OUEST
+CRYO","WEST
+CRYO"
+OFF,OFF,OFF,OFF,OFF,OFF,OFF,OFF
+OFFLINE,OFFLINE,OFFLINE,오프라인,OFFLINE,OFFLINE,OFFLINE,OFFLINE
+OK,OK,OK,확인,OK,OK,OK,OK
+OPCIONES,OPCIONES,OPTIONS,설정,OPÇÕES,OPTIONEN,OPTIONS,OPTIES
+OPERATIVO,OPERATIVO,OPERATIONAL,정상 작동,OPERACIONAL,BETRIEBSBEREIT,OPÉRATIONNEL,OPERATIONEEL
+OXYGEN: ,OXYGEN: ,OXYGEN:,산소: ,OXIGÊNIO: ,SAUERSTOFF: ,OXYGÈNE : ,ZUURSTOF: 
+OYSTrigger Example,OYSTrigger Example,OYSTrigger Example,OYSTrigger Example,OYSTrigger Example,OYSTrigger Example,OYSTrigger Example,OYSTrigger Example
+Ocultar registro,Ocultar registro,Hide log,로그 숨기기,Ocultar registro,Log ausblenden,Masquer le journal,Log verbergen
+Odisea,Odisea,Odisea,Odisea,Odisea,Odisea,Odisea,Odisea
 "OdiseaOS Workbench
 Godot 3.6 Retro UI
 
@@ -249,142 +288,157 @@ Godot 3.6 레트로 UI
 Core_v2용 가상 단말기와 런타임 도구.","OdiseaOS Workbench
 Godot 3.6 Retro UI
 
-Terminais virtuais e ferramentas de runtime para o Core_v2."
-Overlay de log en pantalla,Overlay de log en pantalla,On-screen log overlay,화면 로그 오버레이,Sobreposição de log na tela
-PARTIDA EN PAUSA,PARTIDA EN PAUSA,GAME PAUSED,게임 일시 정지,JOGO PAUSADO
-PAUSA,PAUSA,PAUSE,일시 정지,PAUSA
-PAUSE,PAUSE,PAUSE,일시 정지,PAUSA
-PIN DE EMPAREJAMIENTO: ------,PIN DE EMPAREJAMIENTO: ------,PAIRING PIN: ------,페어링 PIN: ------,PIN DE PAREAMENTO: ------
-PIN: %s,PIN: %s,PIN: %s,PIN: %s,PIN: %s
-PIN: ------,PIN: ------,PIN: ------,PIN: ------,PIN: ------
-PLASMA: --,PLASMA: --,PLASMA: --,플라즈마: --,PLASMA: --
-PRESION SECTOR 04,PRESION SECTOR 04,PRESSURE SECTOR 04,04 구역 압력,PRESSÃO SETOR 04
-PRESSURE: ,PRESSURE: ,PRESSURE:,압력: ,PRESSÃO: 
-PRESURIZANDO,PRESURIZANDO,PRESSURIZING,가압 중,PRESSURIZANDO
-PROTOCOL TITLE,PROTOCOL TITLE,PROTOCOL TITLE,프로토콜 제목,TÍTULO DO PROTOCOLO
-PROTOCOLO DE ABORDAJE,PROTOCOLO DE ABORDAJE,BOARDING PROTOCOL,승선 프로토콜,PROTOCOLO DE ABORDAGEM
-Pausado,Pausado,Paused,일시 정지됨,Pausado
-Permitir,Permitir,Allow,허용,Permitir
-Pod_01  VACÍA  NOMINAL,Pod_01  VACÍA  NOMINAL,Pod_01  EMPTY  NOMINAL,Pod_01  비어 있음  정상,Pod_01  VAZIA  NOMINAL
-Preparando el primer nivel…,Preparando el primer nivel…,Preparing first level…,첫 레벨을 준비하는 중…,Preparando o primeiro nível…
-Presiona %s o ESC para cerrar,Presiona %s o ESC para cerrar,Press %s or ESC to close,%s 또는 ESC를 누르면 닫힙니다,Pressione %s ou ESC para fechar
-Presiona E o ESC para cerrar,Presiona E o ESC para cerrar,Press E or ESC to close,E 또는 ESC를 누르면 닫힙니다,Pressione E ou ESC para fechar
-Prop Name,Prop Name,Prop Name,소품 이름,Nome do objeto
-Protocol body text goes here. This can be multiple lines.,Protocol body text goes here. This can be multiple lines.,Protocol body text goes here. This can be multiple lines.,프로토콜 본문이 여기에 들어갑니다. 여러 줄이 될 수 있습니다.,O corpo do protocolo vai aqui. Pode ter várias linhas.
-Puedes cambiar esta decisión cuando quieras desde Opciones.,Puedes cambiar esta decisión cuando quieras desde Opciones.,You can change this decision anytime in Options.,이 선택은 설정에서 언제든지 바꿀 수 있습니다.,Você pode mudar essa decisão quando quiser em Opções.
-Pulsar botón,Pulsar botón,Press button,버튼 누르기,Apertar botão
-RADIAL LLENO,RADIAL LLENO,RADIAL FULL,라디얼 가득 참,RADIAL CHEIO
-REACTOR: ,REACTOR: ,REACTOR:,원자로: ,REATOR: 
-READY,READY,READY,준비,PRONTO
-READY  FONT:%d,READY  FONT:%d,READY  FONT:%d,준비  FONT:%d,PRONTO  FONT:%d
-REANUDAR,REANUDAR,RESUME,재개,RETOMAR
-RECARGANDO EMP,RECARGANDO EMP,RELOADING EMP,EMP 재장전 중,RECARREGANDO EMP
-REGISTRO COMPLETADO — Pausado,REGISTRO COMPLETADO — Pausado,RECORDING COMPLETE — Paused,녹화 완료 — 일시 정지됨,GRAVAÇÃO CONCLUÍDA — Pausado
-REINICIAR NIVEL,REINICIAR NIVEL,RESTART LEVEL,레벨 다시 시작,REINICIAR NÍVEL
-RESTART,RESTART,RESTART,다시 시작,REINICIAR
-RESUME,RESUME,RESUME,재개,RETOMAR
-RETORNANDO,RETORNANDO,RETURNING,복귀 중,RETORNANDO
-ROL ►,ROL ►,ROLL ►,롤 ►,ROLL ►
-Rechazar,Rechazar,Deny,거부,Recusar
-Reduce la resolución interna para mejorar el rendimiento.,Reduce la resolución interna para mejorar el rendimiento.,Reduces internal resolution to improve performance.,내부 해상도를 낮춰 성능을 높입니다.,Reduz a resolução interna para melhorar o desempenho.
-Refresh,Refresh,Refresh,새로 고침,Atualizar
-Render conservador para dispositivos débiles: sin post-process del environment y con lightmap manual. Se aplica al recargar la escena.,Render conservador para dispositivos débiles: sin post-process del environment y con lightmap manual. Se aplica al recargar la escena.,Conservative rendering for low-end devices: disables environment post-processing and uses manual lightmap. Applied on scene reload.,저사양 기기를 위한 보수적 렌더링: 환경 후처리를 끄고 수동 라이트맵을 씁니다. 장면을 다시 불러올 때 적용됩니다.,Renderização conservadora para aparelhos fracos: sem pós-processamento do environment e com lightmap manual. Aplica-se ao recarregar a cena.
-Reproduciendo...,Reproduciendo...,Playing...,재생 중...,Reproduzindo...
-Resolución interna,Resolución interna,Internal resolution,내부 해상도,Resolução interna
-Retomando la sesión anterior...,Retomando la sesión anterior...,Resuming previous session...,이전 세션을 이어가는 중...,Retomando a sessão anterior...
-SALIDA,SALIDA,EXIT,출구,SAÍDA
-SALIR,SALIR,QUIT,종료,SAIR
-SALTAR,SALTAR,SKIP,건너뛰기,PULAR
-SELECCIONE NIVEL,SELECCIONE NIVEL,SELECT LEVEL,레벨 선택,SELECIONE O NÍVEL
-SEÑUELO ACTIVO,SEÑUELO ACTIVO,DECOY ACTIVE,미끼 작동 중,ISCA ATIVA
-SFX,SFX,SFX,효과음,SFX
-SIN CONEXIÓN · %d s,SIN CONEXIÓN · %d s,OFFLINE · %d s,연결 없음 · %d초,SEM CONEXÃO · %d s
-SIN PANTALLAS,SIN PANTALLAS,NO SCREENS,화면 없음,SEM TELAS
-SISTEMA DE TRÁNSITO,SISTEMA DE TRÁNSITO,TRANSIT SYSTEM,운송 시스템,SISTEMA DE TRÂNSITO
-SISTEMA ESTABILIZADO,SISTEMA ESTABILIZADO,SYSTEM STABILIZED,시스템 안정화됨,SISTEMA ESTABILIZADO
-STONE,STONE,STONE,돌,PEDRA
+Terminais virtuais e ferramentas de runtime para o Core_v2.","OdiseaOS Workbench
+Godot 3.6 Retro-UI
+
+Virtuelle Terminals und Laufzeitwerkzeuge für Core_v2.","OdiseaOS Workbench
+Interface rétro Godot 3.6
+
+Terminaux virtuels et outils d'exécution pour Core_v2.","OdiseaOS Workbench
+Godot 3.6 Retro-UI
+
+Virtuele terminals en runtime-tools voor Core_v2."
+Overlay de log en pantalla,Overlay de log en pantalla,On-screen log overlay,화면 로그 오버레이,Sobreposição de log na tela,Log-Overlay auf dem Bildschirm,Overlay de log à l'écran,Log-overlay op het scherm
+PARTIDA EN PAUSA,PARTIDA EN PAUSA,GAME PAUSED,게임 일시 정지,JOGO PAUSADO,SPIEL PAUSIERT,PARTIE EN PAUSE,SPEL GEPAUZEERD
+PAUSA,PAUSA,PAUSE,일시 정지,PAUSA,PAUSE,PAUSE,PAUZE
+PAUSE,PAUSE,PAUSE,일시 정지,PAUSA,PAUSE,PAUSE,PAUZE
+PIN DE EMPAREJAMIENTO: ------,PIN DE EMPAREJAMIENTO: ------,PAIRING PIN: ------,페어링 PIN: ------,PIN DE PAREAMENTO: ------,KOPPLUNGS-PIN: ------,PIN D'APPAIRAGE : ------,KOPPEL-PIN: ------
+PIN: %s,PIN: %s,PIN: %s,PIN: %s,PIN: %s,PIN: %s,PIN: %s,PIN: %s
+PIN: ------,PIN: ------,PIN: ------,PIN: ------,PIN: ------,PIN: ------,PIN: ------,PIN: ------
+PLASMA: --,PLASMA: --,PLASMA: --,플라즈마: --,PLASMA: --,PLASMA: --,PLASMA: --,PLASMA: --
+PRESION SECTOR 04,PRESION SECTOR 04,PRESSURE SECTOR 04,04 구역 압력,PRESSÃO SETOR 04,DRUCK SEKTOR 04,PRESSION SECTEUR 04,DRUK SECTOR 04
+PRESSURE: ,PRESSURE: ,PRESSURE:,압력: ,PRESSÃO: ,DRUCK: ,PRESSION : ,DRUK: 
+PRESURIZANDO,PRESURIZANDO,PRESSURIZING,가압 중,PRESSURIZANDO,DRUCKAUFBAU,PRESSURISATION,DRUK OPBOUWEN
+PROTOCOL TITLE,PROTOCOL TITLE,PROTOCOL TITLE,프로토콜 제목,TÍTULO DO PROTOCOLO,PROTOKOLLTITEL,TITRE DU PROTOCOLE,PROTOCOLTITEL
+PROTOCOLO DE ABORDAJE,PROTOCOLO DE ABORDAJE,BOARDING PROTOCOL,승선 프로토콜,PROTOCOLO DE ABORDAGEM,ENTERPROTOKOLL,PROTOCOLE D'ABORDAGE,INSTAPPROTOCOL
+Pausado,Pausado,Paused,일시 정지됨,Pausado,Pausiert,En pause,Gepauzeerd
+Permitir,Permitir,Allow,허용,Permitir,Zulassen,Autoriser,Toestaan
+Pod_01  VACÍA  NOMINAL,Pod_01  VACÍA  NOMINAL,Pod_01  EMPTY  NOMINAL,Pod_01  비어 있음  정상,Pod_01  VAZIA  NOMINAL,Pod_01  LEER  NOMINAL,Pod_01  VIDE  NOMINAL,Pod_01  LEEG  NOMINAL
+Preparando el primer nivel…,Preparando el primer nivel…,Preparing first level…,첫 레벨을 준비하는 중…,Preparando o primeiro nível…,Erstes Level wird vorbereitet…,Préparation du premier niveau…,Eerste level wordt voorbereid…
+Presiona %s o ESC para cerrar,Presiona %s o ESC para cerrar,Press %s or ESC to close,%s 또는 ESC를 누르면 닫힙니다,Pressione %s ou ESC para fechar,%s oder ESC drücken zum Schließen,Appuyez sur %s ou ESC pour fermer,Druk op %s of ESC om te sluiten
+Presiona E o ESC para cerrar,Presiona E o ESC para cerrar,Press E or ESC to close,E 또는 ESC를 누르면 닫힙니다,Pressione E ou ESC para fechar,E oder ESC drücken zum Schließen,Appuyez sur E ou ESC pour fermer,Druk op E of ESC om te sluiten
+Prop Name,Prop Name,Prop Name,소품 이름,Nome do objeto,Objektname,Nom de l'objet,Objectnaam
+Protocol body text goes here. This can be multiple lines.,Protocol body text goes here. This can be multiple lines.,Protocol body text goes here. This can be multiple lines.,프로토콜 본문이 여기에 들어갑니다. 여러 줄이 될 수 있습니다.,O corpo do protocolo vai aqui. Pode ter várias linhas.,Protokolltext steht hier. Dies kann mehrere Zeilen umfassen.,Le corps du protocole va ici. Cela peut contenir plusieurs lignes.,Protocoltekst komt hier. Dit kan meerdere regels zijn.
+Puedes cambiar esta decisión cuando quieras desde Opciones.,Puedes cambiar esta decisión cuando quieras desde Opciones.,You can change this decision anytime in Options.,이 선택은 설정에서 언제든지 바꿀 수 있습니다.,Você pode mudar essa decisão quando quiser em Opções.,Sie können diese Entscheidung jederzeit in den Optionen ändern.,Vous pouvez changer cette décision à tout moment dans les Options.,U kunt deze keuze altijd wijzigen in Opties.
+Pulsar botón,Pulsar botón,Press button,버튼 누르기,Apertar botão,Taste drücken,Appuyer sur le bouton,Knop indrukken
+RADIAL LLENO,RADIAL LLENO,RADIAL FULL,라디얼 가득 참,RADIAL CHEIO,RADIAL VOLL,RADIAL PLEIN,RADIAAL VOL
+REACTOR: ,REACTOR: ,REACTOR:,원자로: ,REATOR: ,REAKTOR: ,RÉACTEUR : ,REACTOR: 
+READY,READY,READY,준비,PRONTO,BEREIT,PRÊT,GEREED
+READY  FONT:%d,READY  FONT:%d,READY  FONT:%d,준비  FONT:%d,PRONTO  FONT:%d,BEREIT  FONT:%d,PRÊT  FONT:%d,GEREED  FONT:%d
+REANUDAR,REANUDAR,RESUME,재개,RETOMAR,FORTSETZEN,REPRENDRE,HERVATTEN
+RECARGANDO EMP,RECARGANDO EMP,RELOADING EMP,EMP 재장전 중,RECARREGANDO EMP,EMP LÄDT NACH,RECHARGEMENT EMP,EMP HERLADEN
+REGISTRO COMPLETADO — Pausado,REGISTRO COMPLETADO — Pausado,RECORDING COMPLETE — Paused,녹화 완료 — 일시 정지됨,GRAVAÇÃO CONCLUÍDA — Pausado,AUFZEICHNUNG ABGESCHLOSSEN — Pausiert,ENREGISTREMENT TERMINÉ — En pause,OPNAME VOLTOOID — Gepauzeerd
+REINICIAR NIVEL,REINICIAR NIVEL,RESTART LEVEL,레벨 다시 시작,REINICIAR NÍVEL,LEVEL NEU STARTEN,RECOMMENCER LE NIVEAU,LEVEL HERSTARTEN
+RESTART,RESTART,RESTART,다시 시작,REINICIAR,NEU STARTEN,RECOMMENCER,HERSTARTEN
+RESUME,RESUME,RESUME,재개,RETOMAR,FORTSETZEN,REPRENDRE,HERVATTEN
+RETORNANDO,RETORNANDO,RETURNING,복귀 중,RETORNANDO,KEHRE ZURÜCK,RETOUR,TERUGKEREN
+ROL ►,ROL ►,ROLL ►,롤 ►,ROLL ►,ROLLEN ►,ROULIS ►,ROLLEN ►
+Rechazar,Rechazar,Deny,거부,Recusar,Ablehnen,Refuser,Weigeren
+Reduce la resolución interna para mejorar el rendimiento.,Reduce la resolución interna para mejorar el rendimiento.,Reduces internal resolution to improve performance.,내부 해상도를 낮춰 성능을 높입니다.,Reduz a resolução interna para melhorar o desempenho.,Reduziert die interne Auflösung zur Verbesserung der Leistung.,Réduit la résolution interne pour améliorer les performances.,Verlaagt de interne resolutie om de prestaties te verbeteren.
+Refresh,Refresh,Refresh,새로 고침,Atualizar,Aktualisieren,Actualiser,Vernieuwen
+Render conservador para dispositivos débiles: sin post-process del environment y con lightmap manual. Se aplica al recargar la escena.,Render conservador para dispositivos débiles: sin post-process del environment y con lightmap manual. Se aplica al recargar la escena.,Conservative rendering for low-end devices: disables environment post-processing and uses manual lightmap. Applied on scene reload.,저사양 기기를 위한 보수적 렌더링: 환경 후처리를 끄고 수동 라이트맵을 씁니다. 장면을 다시 불러올 때 적용됩니다.,Renderização conservadora para aparelhos fracos: sem pós-processamento do environment e com lightmap manual. Aplica-se ao recarregar a cena.,Konservatives Rendering für schwache Geräte: deaktiviert die Environment-Nachbearbeitung und nutzt manuelles Lightmap. Wird beim Neuladen der Szene angewendet.,Rendu conservateur pour appareils faibles : désactive le post-traitement de l'environnement et utilise un lightmap manuel. Appliqué au rechargement de la scène.,Conservatief renderen voor zwakke apparaten: schakelt environment-nabewerking uit en gebruikt handmatige lightmap. Wordt toegepast bij het herladen van de scène.
+Reproduciendo...,Reproduciendo...,Playing...,재생 중...,Reproduzindo...,Wiedergabe...,Lecture...,Afspelen...
+Resolución interna,Resolución interna,Internal resolution,내부 해상도,Resolução interna,Interne Auflösung,Résolution interne,Interne resolutie
+Retomando la sesión anterior...,Retomando la sesión anterior...,Resuming previous session...,이전 세션을 이어가는 중...,Retomando a sessão anterior...,Vorherige Sitzung wird fortgesetzt...,Reprise de la session précédente...,Vorige sessie wordt hervat...
+SALIDA,SALIDA,EXIT,출구,SAÍDA,AUSGANG,SORTIE,UITGANG
+SALIR,SALIR,QUIT,종료,SAIR,BEENDEN,QUITTER,AFSLUITEN
+SALTAR,SALTAR,SKIP,건너뛰기,PULAR,ÜBERSPRINGEN,IGNORER,OVERSLAAN
+SELECCIONE NIVEL,SELECCIONE NIVEL,SELECT LEVEL,레벨 선택,SELECIONE O NÍVEL,LEVEL WÄHLEN,CHOISIR LE NIVEAU,KIES LEVEL
+SEÑUELO ACTIVO,SEÑUELO ACTIVO,DECOY ACTIVE,미끼 작동 중,ISCA ATIVA,KÖDER AKTIV,LEURRE ACTIF,LOKAAS ACTIEF
+SFX,SFX,SFX,효과음,SFX,SFX,SFX,SFX
+SIN CONEXIÓN · %d s,SIN CONEXIÓN · %d s,OFFLINE · %d s,연결 없음 · %d초,SEM CONEXÃO · %d s,OFFLINE · %d s,HORS LIGNE · %d s,OFFLINE · %d s
+SIN PANTALLAS,SIN PANTALLAS,NO SCREENS,화면 없음,SEM TELAS,KEINE BILDSCHIRME,AUCUN ÉCRAN,GEEN SCHERMEN
+SISTEMA DE TRÁNSITO,SISTEMA DE TRÁNSITO,TRANSIT SYSTEM,운송 시스템,SISTEMA DE TRÂNSITO,TRANSITSYSTEM,SYSTÈME DE TRANSIT,TRANSITSYSTEEM
+SISTEMA ESTABILIZADO,SISTEMA ESTABILIZADO,SYSTEM STABILIZED,시스템 안정화됨,SISTEMA ESTABILIZADO,SYSTEM STABILISIERT,SYSTÈME STABILISÉ,SYSTEEM GESTABILISEERD
+STONE,STONE,STONE,돌,PEDRA,STEIN,PIERRE,STEEN
 "SUR
 SALIDA","SUR
 SALIDA","SOUTH
 EXIT","남쪽
 출구","SUL
-SAÍDA"
-SURVEILLANCE,SURVEILLANCE,SURVEILLANCE,감시,VIGILÂNCIA
-SURVEILLANCE | BROWSE,SURVEILLANCE | BROWSE,SURVEILLANCE | BROWSE,감시 | 탐색,VIGILÂNCIA | NAVEGAR
-SURVEILLANCE | LIVE,SURVEILLANCE | LIVE,SURVEILLANCE | LIVE,감시 | 실시간,VIGILÂNCIA | AO VIVO
-SYSTEM,SYSTEM,SYSTEM,시스템,SISTEMA
-SYSTEM ERROR,SYSTEM ERROR,SYSTEM ERROR,시스템 오류,ERRO DE SISTEMA
-Salir,Salir,Quit,종료,Sair
-Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,장면: Unknown | 트리거: auto | 최소 FPS: 0.0 | 평균 FPS: 0.0,Cena: Unknown | Gatilho: auto | FPS mín: 0.0 | FPS méd: 0.0
-Se rechaza sola en %d s.,Se rechaza sola en %d s.,Auto-rejects in %d s.,%d초 후 자동으로 거부됩니다.,Recusa sozinha em %d s.
-Se rechaza sola en 30 s.,Se rechaza sola en 30 s.,Auto-rejects in 30 s.,30초 후 자동으로 거부됩니다.,Recusa sozinha em 30 s.
-Seleccionar nivel,Seleccionar nivel,Select level,레벨 선택,Selecionar nível
-Sintonizar,Sintonizar,Tune,주파수 맞추기,Sintonizar
-Slope Test (15°),Slope Test (15°),Slope Test (15°),경사 테스트 (15°),Teste de rampa (15°)
-Solicitar Cápsula,Solicitar Cápsula,Request Pod,캡슐 호출,Solicitar Cápsula
-Soltar pantalla,Soltar pantalla,Unfocus screen,화면 놓기,Soltar tela
-"Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse","Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse","Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse","Space: 재생/정지 | 방향키: 한 단계 | 1, 2, 4: 속도 | R: 다시 시작 | Esc: 마우스 해제","Space: Reproduzir/Pausar | Setas: Passo | 1, 2, 4: Velocidade | R: Reiniciar | Esc: Liberar mouse"
-Speed: %dx,Speed: %dx,Speed: %dx,속도: %dx,Velocidade: %dx
-Speed: 1x,Speed: 1x,Speed: 1x,속도: 1x,Velocidade: 1x
-Stair Test (0.2m steps),Stair Test (0.2m steps),Stair Test (0.2m steps),계단 테스트 (0.2m 단차),"Teste de escada (degraus de 0,2 m)"
-Steep Slope (30°),Steep Slope (30°),Steep Slope (30°),급경사 (30°),Rampa íngreme (30°)
-"SÍ, ACEPTO","SÍ, ACEPTO","YES, I AGREE","예, 동의합니다","SIM, ACEITO"
-T-01,T-01,T-01,T-01,T-01
-TEMP %s  PRES %s  TOX %s,TEMP %s  PRES %s  TOX %s,TEMP %s  PRES %s  TOX %s,온도 %s  압력 %s  독성 %s,TEMP %s  PRES %s  TOX %s
-TEMP: ,TEMP: ,TEMP:,온도: ,TEMP: 
-TERRACE A,TERRACE A,TERRACE A,테라스 A,TERRAÇO A
-TITULO DEL PANEL,TITULO DEL PANEL,PANEL TITLE,패널 제목,TÍTULO DO PAINEL
-Test Scene,Test Scene,Test Scene,테스트 장면,Cena de teste
-Tiempo restante: 30 s,Tiempo restante: 30 s,Time remaining: 30 s,남은 시간: 30초,Tempo restante: 30 s
-Usar terminal,Usar terminal,Use terminal,단말기 사용,Usar terminal
-V-Sync,V-Sync,V-Sync,수직 동기화,V-Sync
-VACÍA,VACÍA,EMPTY,비어 있음,VAZIA
-VOLVER,VOLVER,BACK,뒤로,VOLTAR
-Ver Política de Privacidad completa,Ver Política de Privacidad completa,View full Privacy Policy,개인정보 처리방침 전문 보기,Ver a Política de Privacidade completa
-Ver a través de los objetos,Ver a través de los objetos,See through objects,물체 투시,Ver através dos objetos
-Ver actualización disponible,Ver actualización disponible,View available update,사용 가능한 업데이트 보기,Ver atualização disponível
-Ver en App Store,Ver en App Store,View on App Store,App Store에서 보기,Ver na App Store
-Ver notas de la versión,Ver notas de la versión,View release notes,릴리스 노트 보기,Ver notas da versão
-Ver registro,Ver registro,View log,로그 보기,Ver registro
-Vibración,Vibración,Vibration,진동,Vibração
-Volumen General,Volumen General,Master Volume,전체 음량,Volume Geral
-Volver,Volver,Back,뒤로,Voltar
-WOOD,WOOD,WOOD,나무,MADEIRA
-Window,Window,Window,창 모드,Janela
-X Close,X Close,X Close,X 닫기,X Fechar
-[DISPONIBLE],[DISPONIBLE],[AVAILABLE],[사용 가능],[DISPONÍVEL]
-[EN FOCO],[EN FOCO],[FOCUSED],[초점],[EM FOCO]
-[INACTIVO],[INACTIVO],[INACTIVE],[비활성],[INATIVO]
-[SIN CONEXION],[SIN CONEXION],[OFFLINE],[연결 없음],[SEM CONEXAO]
-corto,corto,short,짧게,curto
-cubemap camera,cubemap camera,cubemap camera,cubemap camera,cubemap camera
-debug,debug,debug,debug,debug
-debug_audio_texure,debug_audio_texure,debug_audio_texure,debug_audio_texure,debug_audio_texure
-debug_depth,debug_depth,debug_depth,debug_depth,debug_depth
-debug_material_id,debug_material_id,debug_material_id,debug_material_id,debug_material_id
-debug_scr_texture,debug_scr_texture,debug_scr_texture,debug_scr_texture,debug_scr_texture
-floor,floor,floor,floor,floor
-floor on cubemap,floor on cubemap,floor on cubemap,floor on cubemap,floor on cubemap
+SAÍDA","SÜD
+AUSGANG","SUD
+SORTIE","ZUID
+UITGANG"
+SURVEILLANCE,SURVEILLANCE,SURVEILLANCE,감시,VIGILÂNCIA,ÜBERWACHUNG,SURVEILLANCE,BEWAKING
+SURVEILLANCE | BROWSE,SURVEILLANCE | BROWSE,SURVEILLANCE | BROWSE,감시 | 탐색,VIGILÂNCIA | NAVEGAR,ÜBERWACHUNG | DURCHSUCHEN,SURVEILLANCE | PARCOURIR,BEWAKING | BLADEREN
+SURVEILLANCE | LIVE,SURVEILLANCE | LIVE,SURVEILLANCE | LIVE,감시 | 실시간,VIGILÂNCIA | AO VIVO,ÜBERWACHUNG | LIVE,SURVEILLANCE | DIRECT,BEWAKING | LIVE
+SYSTEM,SYSTEM,SYSTEM,시스템,SISTEMA,SYSTEM,SYSTÈME,SYSTEEM
+SYSTEM ERROR,SYSTEM ERROR,SYSTEM ERROR,시스템 오류,ERRO DE SISTEMA,SYSTEMFEHLER,ERREUR SYSTÈME,SYSTEEMFOUT
+Salir,Salir,Quit,종료,Sair,Beenden,Quitter,Afsluiten
+Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,장면: Unknown | 트리거: auto | 최소 FPS: 0.0 | 평균 FPS: 0.0,Cena: Unknown | Gatilho: auto | FPS mín: 0.0 | FPS méd: 0.0,Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0,Scene: Unknown | Trigger: auto | Min FPS: 0.0 | Avg FPS: 0.0
+Se rechaza sola en %d s.,Se rechaza sola en %d s.,Auto-rejects in %d s.,%d초 후 자동으로 거부됩니다.,Recusa sozinha em %d s.,Wird in %d s automatisch abgelehnt.,Rejet automatique dans %d s.,Wordt automatisch geweigerd in %d s.
+Se rechaza sola en 30 s.,Se rechaza sola en 30 s.,Auto-rejects in 30 s.,30초 후 자동으로 거부됩니다.,Recusa sozinha em 30 s.,Wird in 30 s automatisch abgelehnt.,Rejet automatique dans 30 s.,Wordt automatisch geweigerd in 30 s.
+Seleccionar nivel,Seleccionar nivel,Select level,레벨 선택,Selecionar nível,Level auswählen,Choisir le niveau,Level selecteren
+Sintonizar,Sintonizar,Tune,주파수 맞추기,Sintonizar,Abstimmen,Syntoniser,Afstemmen
+Slope Test (15°),Slope Test (15°),Slope Test (15°),경사 테스트 (15°),Teste de rampa (15°),Neigungstest (15°),Test de pente (15°),Hellingtest (15°)
+Solicitar Cápsula,Solicitar Cápsula,Request Pod,캡슐 호출,Solicitar Cápsula,Kapsel anfordern,Demander une capsule,Capsule aanvragen
+Soltar pantalla,Soltar pantalla,Unfocus screen,화면 놓기,Soltar tela,Bildschirm loslassen,Relâcher l'écran,Scherm loslaten
+"Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse","Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse","Space: Play/Pause | Arrows: Step | 1, 2, 4: Speed | R: Restart | Esc: Release Mouse","Space: 재생/정지 | 방향키: 한 단계 | 1, 2, 4: 속도 | R: 다시 시작 | Esc: 마우스 해제","Space: Reproduzir/Pausar | Setas: Passo | 1, 2, 4: Velocidade | R: Reiniciar | Esc: Liberar mouse","Leertaste: Wiedergabe/Pause | Pfeile: Schritt | 1, 2, 4: Geschwindigkeit | R: Neustart | Esc: Maus freigeben","Espace : Lecture/Pause | Flèches : Pas | 1, 2, 4 : Vitesse | R : Recommencer | Échap : Libérer la souris","Spatie: Afspelen/Pauzeren | Pijlen: Stap | 1, 2, 4: Snelheid | R: Herstarten | Esc: Muis vrijgeven"
+Speed: %dx,Speed: %dx,Speed: %dx,속도: %dx,Velocidade: %dx,Geschwindigkeit: %dx,Vitesse : %dx,Snelheid: %dx
+Speed: 1x,Speed: 1x,Speed: 1x,속도: 1x,Velocidade: 1x,Geschwindigkeit: 1x,Vitesse : 1x,Snelheid: 1x
+Stair Test (0.2m steps),Stair Test (0.2m steps),Stair Test (0.2m steps),계단 테스트 (0.2m 단차),"Teste de escada (degraus de 0,2 m)","Treppentest (0,2 m Stufen)","Test d'escalier (marches de 0,2 m)","Traptest (stappen van 0,2 m)"
+Steep Slope (30°),Steep Slope (30°),Steep Slope (30°),급경사 (30°),Rampa íngreme (30°),Steile Neigung (30°),Pente raide (30°),Steile helling (30°)
+"SÍ, ACEPTO","SÍ, ACEPTO","YES, I AGREE","예, 동의합니다","SIM, ACEITO","JA, ICH STIMME ZU","OUI, J'ACCEPTE","JA, IK GA AKKOORD"
+T-01,T-01,T-01,T-01,T-01,T-01,T-01,T-01
+TEMP %s  PRES %s  TOX %s,TEMP %s  PRES %s  TOX %s,TEMP %s  PRES %s  TOX %s,온도 %s  압력 %s  독성 %s,TEMP %s  PRES %s  TOX %s,TEMP %s  DRUCK %s  TOX %s,TEMP %s  PRESS %s  TOX %s,TEMP %s  DRUK %s  TOX %s
+TEMP: ,TEMP: ,TEMP:,온도: ,TEMP: ,TEMP: ,TEMP : ,TEMP: 
+TERRACE A,TERRACE A,TERRACE A,테라스 A,TERRAÇO A,TERRASSE A,TERRASSE A,TERRAS A
+TITULO DEL PANEL,TITULO DEL PANEL,PANEL TITLE,패널 제목,TÍTULO DO PAINEL,PANELTITEL,TITRE DU PANNEAU,PANEELTITEL
+Test Scene,Test Scene,Test Scene,테스트 장면,Cena de teste,Testszene,Scène de test,Testscène
+Tiempo restante: 30 s,Tiempo restante: 30 s,Time remaining: 30 s,남은 시간: 30초,Tempo restante: 30 s,Verbleibende Zeit: 30 s,Temps restant : 30 s,Resterende tijd: 30 s
+Usar terminal,Usar terminal,Use terminal,단말기 사용,Usar terminal,Terminal benutzen,Utiliser le terminal,Terminal gebruiken
+V-Sync,V-Sync,V-Sync,수직 동기화,V-Sync,V-Sync,V-Sync,V-Sync
+VACÍA,VACÍA,EMPTY,비어 있음,VAZIA,LEER,VIDE,LEEG
+VOLVER,VOLVER,BACK,뒤로,VOLTAR,ZURÜCK,RETOUR,TERUG
+Ver Política de Privacidad completa,Ver Política de Privacidad completa,View full Privacy Policy,개인정보 처리방침 전문 보기,Ver a Política de Privacidade completa,Vollständige Datenschutzrichtlinie anzeigen,Voir la politique de confidentialité complète,Volledig privacybeleid bekijken
+Ver a través de los objetos,Ver a través de los objetos,See through objects,물체 투시,Ver através dos objetos,Durch Objekte sehen,Voir à travers les objets,Door objecten heen kijken
+Ver actualización disponible,Ver actualización disponible,View available update,사용 가능한 업데이트 보기,Ver atualização disponível,Verfügbares Update anzeigen,Voir la mise à jour disponible,Beschikbare update bekijken
+Ver en App Store,Ver en App Store,View on App Store,App Store에서 보기,Ver na App Store,Im App Store anzeigen,Voir sur l'App Store,Bekijk in de App Store
+Ver notas de la versión,Ver notas de la versión,View release notes,릴리스 노트 보기,Ver notas da versão,Versionshinweise anzeigen,Voir les notes de version,Release-opmerkingen bekijken
+Ver registro,Ver registro,View log,로그 보기,Ver registro,Log anzeigen,Voir le journal,Log bekijken
+Vibración,Vibración,Vibration,진동,Vibração,Vibration,Vibration,Trilling
+Volumen General,Volumen General,Master Volume,전체 음량,Volume Geral,Gesamtlautstärke,Volume général,Algemeen volume
+Volver,Volver,Back,뒤로,Voltar,Zurück,Retour,Terug
+WOOD,WOOD,WOOD,나무,MADEIRA,HOLZ,BOIS,HOUT
+Window,Window,Window,창 모드,Janela,Fenster,Fenêtre,Venster
+X Close,X Close,X Close,X 닫기,X Fechar,X Schließen,X Fermer,X Sluiten
+[DISPONIBLE],[DISPONIBLE],[AVAILABLE],[사용 가능],[DISPONÍVEL],[VERFÜGBAR],[DISPONIBLE],[BESCHIKBAAR]
+[EN FOCO],[EN FOCO],[FOCUSED],[초점],[EM FOCO],[FOKUSSIERT],[EN FOCUS],[GEFOCUST]
+[INACTIVO],[INACTIVO],[INACTIVE],[비활성],[INATIVO],[INAKTIV],[INACTIF],[INACTIEF]
+[SIN CONEXION],[SIN CONEXION],[OFFLINE],[연결 없음],[SEM CONEXAO],[OFFLINE],[HORS LIGNE],[OFFLINE]
+corto,corto,short,짧게,curto,kurz,court,kort
+cubemap camera,cubemap camera,cubemap camera,cubemap camera,cubemap camera,cubemap camera,cubemap camera,cubemap camera
+debug,debug,debug,debug,debug,debug,debug,debug
+debug_audio_texure,debug_audio_texure,debug_audio_texure,debug_audio_texure,debug_audio_texure,debug_audio_texure,debug_audio_texure,debug_audio_texure
+debug_depth,debug_depth,debug_depth,debug_depth,debug_depth,debug_depth,debug_depth,debug_depth
+debug_material_id,debug_material_id,debug_material_id,debug_material_id,debug_material_id,debug_material_id,debug_material_id,debug_material_id
+debug_scr_texture,debug_scr_texture,debug_scr_texture,debug_scr_texture,debug_scr_texture,debug_scr_texture,debug_scr_texture,debug_scr_texture
+floor,floor,floor,floor,floor,floor,floor,floor
+floor on cubemap,floor on cubemap,floor on cubemap,floor on cubemap,floor on cubemap,floor on cubemap,floor on cubemap,floor on cubemap
 "icarito
 odisea.educa.juegos","icarito
 odisea.educa.juegos","icarito
 odisea.educa.juegos","icarito
 odisea.educa.juegos","icarito
+odisea.educa.juegos","icarito
+odisea.educa.juegos","icarito
+odisea.educa.juegos","icarito
 odisea.educa.juegos"
-light color,light color,light color,light color,light color
-materialID viewport render scale,materialID viewport render scale,materialID viewport render scale,materialID viewport render scale,materialID viewport render scale
-more obj,more obj,more obj,more obj,more obj
-objects,objects,objects,objects,objects
-on,on,on,on,on
-resolution,resolution,resolution,resolution,resolution
-samples,samples,samples,samples,samples
-turn off,turn off,turn off,turn off,turn off
-un texto bastante mas largo que el anterior,un texto bastante mas largo que el anterior,a significantly longer text than the previous one,앞의 것보다 훨씬 긴 텍스트,um texto bem mais longo que o anterior
-update camera,update camera,update camera,update camera,update camera
-v0.0.0,v0.0.0,v0.0.0,v0.0.0,v0.0.0
-widget,widget,widget,widget,widget
-«%s» quiere controlar esta partida. Permita solo si muestra este mismo PIN:,«%s» quiere controlar esta partida. Permita solo si muestra este mismo PIN:,«%s» wants to control this game. Only allow if it shows this same PIN:,«%s»이(가) 이 게임을 제어하려고 합니다. 같은 PIN이 보일 때만 허용하십시오:,«%s» quer controlar esta partida. Permita só se mostrar este mesmo PIN:
-¿Aceptas enviar telemetría?,¿Aceptas enviar telemetría?,Do you agree to send telemetry?,사용 정보 전송에 동의하십니까?,Você aceita enviar telemetria?
+light color,light color,light color,light color,light color,light color,light color,light color
+materialID viewport render scale,materialID viewport render scale,materialID viewport render scale,materialID viewport render scale,materialID viewport render scale,materialID viewport render scale,materialID viewport render scale,materialID viewport render scale
+more obj,more obj,more obj,more obj,more obj,more obj,more obj,more obj
+objects,objects,objects,objects,objects,objects,objects,objects
+on,on,on,on,on,on,on,on
+resolution,resolution,resolution,resolution,resolution,resolution,resolution,resolution
+samples,samples,samples,samples,samples,samples,samples,samples
+turn off,turn off,turn off,turn off,turn off,turn off,turn off,turn off
+un texto bastante mas largo que el anterior,un texto bastante mas largo que el anterior,a significantly longer text than the previous one,앞의 것보다 훨씬 긴 텍스트,um texto bem mais longo que o anterior,ein deutlich längerer Text als der vorherige,un texte nettement plus long que le précédent,een aanzienlijk langere tekst dan de vorige
+update camera,update camera,update camera,update camera,update camera,update camera,update camera,update camera
+v0.0.0,v0.0.0,v0.0.0,v0.0.0,v0.0.0,v0.0.0,v0.0.0,v0.0.0
+widget,widget,widget,widget,widget,widget,widget,widget
+«%s» quiere controlar esta partida. Permita solo si muestra este mismo PIN:,«%s» quiere controlar esta partida. Permita solo si muestra este mismo PIN:,«%s» wants to control this game. Only allow if it shows this same PIN:,«%s»이(가) 이 게임을 제어하려고 합니다. 같은 PIN이 보일 때만 허용하십시오:,«%s» quer controlar esta partida. Permita só se mostrar este mesmo PIN:,"«%s» möchte dieses Spiel steuern. Nur zulassen, wenn derselbe PIN angezeigt wird:",«%s» veut contrôler cette partie. N'autorisez que si ce même PIN s'affiche :,«%s» wil dit spel besturen. Sta alleen toe als dezelfde PIN wordt getoond:
+¿Aceptas enviar telemetría?,¿Aceptas enviar telemetría?,Do you agree to send telemetry?,사용 정보 전송에 동의하십니까?,Você aceita enviar telemetria?,Stimmen Sie dem Senden von Telemetrie zu?,Acceptez-vous d'envoyer la télémétrie ?,Gaat u akkoord met het verzenden van telemetrie?
 "¿Controlar esta partida?
 
 %s
@@ -405,16 +459,28 @@ On that screen, permission will need to be granted using a PIN.","이 게임을 
 
 %s
 
-Naquela tela vão precisar permitir com um PIN."
-¿Permitir control remoto desde dispositivo?,¿Permitir control remoto desde dispositivo?,Allow remote control from device?,기기에서 오는 원격 제어를 허용하시겠습니까?,Permitir controle remoto do aparelho?
-¿Volver al menú y desconectar el control remoto?,¿Volver al menú y desconectar el control remoto?,Return to menu and disconnect remote control?,메뉴로 돌아가고 원격 제어를 끊으시겠습니까?,Voltar ao menu e desconectar o controle remoto?
-▸ PRESIONE PARA LEER,▸ PRESIONE PARA LEER,▸ PRESS TO READ,▸ 눌러서 읽기,▸ TOQUE PARA LER
-◄ ROL,◄ ROL,◄ ROLL,◄ 롤,◄ ROLL
-Primer acceso registrado en esta terminal.,Primer acceso registrado en esta terminal.,First access logged on this terminal.,이 터미널에 최초 접속이 기록되었습니다.,Primeiro acesso registrado neste terminal.
-"Antes de asignarte una cápsula, el Arca necesita que leas el aviso que sigue y respondas una pregunta. Léelo con calma: solo se te preguntará esta vez.","Antes de asignarte una cápsula, el Arca necesita que leas el aviso que sigue y respondas una pregunta. Léelo con calma: solo se te preguntará esta vez.","Before you are assigned a pod, the Ark needs you to read the notice below and answer one question. Read it carefully: you will only be asked this once.","캡슐이 배정되기 전에, 아르카는 아래 고지를 읽고 한 가지 질문에 답하기를 요구합니다. 천천히 읽어 주십시오. 이 질문은 이번 한 번만 드립니다.","Antes de designar sua cápsula, a Arca precisa que você leia o aviso a seguir e responda a uma pergunta. Leia com calma: isto só será perguntado uma vez."
-"Mientras juegas, Odisea puede enviarnos datos técnicos anónimos: los cuadros por segundo que alcanza tu equipo, la memoria que usa, en qué escena y en qué punto del mapa te encuentras, hacia dónde miras y el detalle de cualquier error.","Mientras juegas, Odisea puede enviarnos datos técnicos anónimos: los cuadros por segundo que alcanza tu equipo, la memoria que usa, en qué escena y en qué punto del mapa te encuentras, hacia dónde miras y el detalle de cualquier error.","While you play, Odisea may send us anonymous technical data: the frames per second your machine reaches, the memory it uses, which scene and map point you are at, where you are looking, and the details of any error.","플레이하는 동안 오디세아는 익명의 기술 데이터를 보낼 수 있습니다. 사용 중인 기기가 도달하는 초당 프레임 수, 사용하는 메모리, 현재 어떤 장면과 지도의 어느 지점에 있는지, 어디를 바라보는지, 그리고 발생한 오류의 세부 내용입니다.","Enquanto você joga, a Odisea pode nos enviar dados técnicos anônimos: os quadros por segundo que seu equipamento alcança, a memória que usa, em que cena e em que ponto do mapa você está, para onde olha e o detalhe de qualquer erro."
-"Si el rendimiento cae durante varios segundos seguidos, se guarda además un fragmento breve de ese tramo —los controles que usaste y tu recorrido— para poder reproducirlo después y encontrar la causa.","Si el rendimiento cae durante varios segundos seguidos, se guarda además un fragmento breve de ese tramo —los controles que usaste y tu recorrido— para poder reproducirlo después y encontrar la causa.","If performance drops for several seconds in a row, a short fragment of that stretch is also saved — the controls you used and your route — so it can be replayed later to find the cause.","성능이 여러 초 동안 연속으로 떨어지면, 그 구간의 짧은 일부 —사용한 조작과 이동 경로— 가 추가로 저장되어, 나중에 재현해 원인을 찾을 수 있습니다.","Se o desempenho cair por vários segundos seguidos, também é guardado um trecho breve desse intervalo — os controles que você usou e seu percurso — para poder reproduzi-lo depois e encontrar a causa."
-"El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto.","El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto.","The game does not send your physical location. However, as with any Internet connection, our server sees your IP address and infers an approximate city from it; the IP is not stored as such. We never ask for or keep your name, email, or any contact data.","게임은 당신의 실제 위치를 전송하지 않습니다. 다만 인터넷 연결과 마찬가지로, 저희 서버는 당신의 IP 주소를 보고 그로부터 대략적인 도시를 추정합니다. IP 자체는 저장되지 않습니다. 저희는 당신의 이름, 이메일 또는 어떤 연락처 정보도 요구하거나 보관하지 않습니다.","O jogo não envia sua localização física. Porém, como em qualquer conexão de Internet, nosso servidor vê seu endereço IP e dele deduz uma cidade aproximada; o IP não é armazenado como tal. Nunca pedimos nem guardamos seu nome, seu e-mail ou qualquer dado de contato."
-ABRIR,ABRIR,OPEN,열기,ABRIR
-ABRIR CÁPSULA,ABRIR CÁPSULA,OPEN POD,캡슐 열기,ABRIR CÁPSULA
-ESTABLE,ESTABLE,STABLE,안정,ESTÁVEL
+Naquela tela vão precisar permitir com um PIN.","Dieses Spiel steuern?
+
+%s
+
+Auf diesem Bildschirm muss es mit einem PIN erlaubt werden.","Contrôler cette partie ?
+
+%s
+
+Sur cet écran, il faudra l'autoriser avec un PIN.","Dit spel besturen?
+
+%s
+
+Op dat scherm moet het met een PIN worden toegestaan."
+¿Permitir control remoto desde dispositivo?,¿Permitir control remoto desde dispositivo?,Allow remote control from device?,기기에서 오는 원격 제어를 허용하시겠습니까?,Permitir controle remoto do aparelho?,Fernsteuerung vom Gerät zulassen?,Autoriser la télécommande depuis l'appareil ?,Afstandsbediening vanaf apparaat toestaan?
+¿Volver al menú y desconectar el control remoto?,¿Volver al menú y desconectar el control remoto?,Return to menu and disconnect remote control?,메뉴로 돌아가고 원격 제어를 끊으시겠습니까?,Voltar ao menu e desconectar o controle remoto?,Zum Menü zurückkehren und Fernsteuerung trennen?,Revenir au menu et déconnecter la télécommande ?,Terug naar menu en afstandsbediening verbreken?
+▸ PRESIONE PARA LEER,▸ PRESIONE PARA LEER,▸ PRESS TO READ,▸ 눌러서 읽기,▸ TOQUE PARA LER,▸ ZUM LESEN DRÜCKEN,▸ APPUYEZ POUR LIRE,▸ DRUK OM TE LEZEN
+◄ ROL,◄ ROL,◄ ROLL,◄ 롤,◄ ROLL,◄ ROLLEN,◄ ROULIS,◄ ROLLEN
+Primer acceso registrado en esta terminal.,Primer acceso registrado en esta terminal.,First access logged on this terminal.,이 터미널에 최초 접속이 기록되었습니다.,Primeiro acesso registrado neste terminal.,Erster Zugriff auf diesem Terminal registriert.,Premier accès enregistré sur ce terminal.,Eerste toegang geregistreerd op deze terminal.
+"Antes de asignarte una cápsula, el Arca necesita que leas el aviso que sigue y respondas una pregunta. Léelo con calma: solo se te preguntará esta vez.","Antes de asignarte una cápsula, el Arca necesita que leas el aviso que sigue y respondas una pregunta. Léelo con calma: solo se te preguntará esta vez.","Before you are assigned a pod, the Ark needs you to read the notice below and answer one question. Read it carefully: you will only be asked this once.","캡슐이 배정되기 전에, 아르카는 아래 고지를 읽고 한 가지 질문에 답하기를 요구합니다. 천천히 읽어 주십시오. 이 질문은 이번 한 번만 드립니다.","Antes de designar sua cápsula, a Arca precisa que você leia o aviso a seguir e responda a uma pergunta. Leia com calma: isto só será perguntado uma vez.","Bevor Ihnen eine Kapsel zugewiesen wird, verlangt die Arche, dass Sie den folgenden Hinweis lesen und eine Frage beantworten. Lesen Sie ihn sorgfältig: Sie werden nur dieses eine Mal gefragt.","Avant qu'une capsule vous soit attribuée, l'Arche exige que vous lisiez l'avis ci-dessous et répondiez à une question. Lisez-le attentivement : cela ne vous sera demandé qu'une seule fois.","Voordat u een capsule krijgt toegewezen, wil de Ark dat u de onderstaande kennisgeving leest en één vraag beantwoordt. Lees deze aandachtig: dit wordt u slechts één keer gevraagd."
+"Mientras juegas, Odisea puede enviarnos datos técnicos anónimos: los cuadros por segundo que alcanza tu equipo, la memoria que usa, en qué escena y en qué punto del mapa te encuentras, hacia dónde miras y el detalle de cualquier error.","Mientras juegas, Odisea puede enviarnos datos técnicos anónimos: los cuadros por segundo que alcanza tu equipo, la memoria que usa, en qué escena y en qué punto del mapa te encuentras, hacia dónde miras y el detalle de cualquier error.","While you play, Odisea may send us anonymous technical data: the frames per second your machine reaches, the memory it uses, which scene and map point you are at, where you are looking, and the details of any error.","플레이하는 동안 오디세아는 익명의 기술 데이터를 보낼 수 있습니다. 사용 중인 기기가 도달하는 초당 프레임 수, 사용하는 메모리, 현재 어떤 장면과 지도의 어느 지점에 있는지, 어디를 바라보는지, 그리고 발생한 오류의 세부 내용입니다.","Enquanto você joga, a Odisea pode nos enviar dados técnicos anônimos: os quadros por segundo que seu equipamento alcança, a memória que usa, em que cena e em que ponto do mapa você está, para onde olha e o detalhe de qualquer erro.","Während Sie spielen, kann Odisea uns anonyme technische Daten senden: die Bildrate, die Ihr Gerät erreicht, den verwendeten Speicher, in welcher Szene und an welchem Kartenpunkt Sie sich befinden, wohin Sie schauen und die Details etwaiger Fehler.","Pendant que vous jouez, Odisea peut nous envoyer des données techniques anonymes : les images par seconde atteintes par votre machine, la mémoire utilisée, la scène et le point de la carte où vous vous trouvez, où vous regardez et le détail de toute erreur.","Terwijl u speelt, kan Odisea ons anonieme technische gegevens sturen: de frames per seconde die uw apparaat haalt, het gebruikte geheugen, in welke scène en op welk punt van de kaart u zich bevindt, waar u kijkt en de details van eventuele fouten."
+"Si el rendimiento cae durante varios segundos seguidos, se guarda además un fragmento breve de ese tramo —los controles que usaste y tu recorrido— para poder reproducirlo después y encontrar la causa.","Si el rendimiento cae durante varios segundos seguidos, se guarda además un fragmento breve de ese tramo —los controles que usaste y tu recorrido— para poder reproducirlo después y encontrar la causa.","If performance drops for several seconds in a row, a short fragment of that stretch is also saved — the controls you used and your route — so it can be replayed later to find the cause.","성능이 여러 초 동안 연속으로 떨어지면, 그 구간의 짧은 일부 —사용한 조작과 이동 경로— 가 추가로 저장되어, 나중에 재현해 원인을 찾을 수 있습니다.","Se o desempenho cair por vários segundos seguidos, também é guardado um trecho breve desse intervalo — os controles que você usou e seu percurso — para poder reproduzi-lo depois e encontrar a causa.","Wenn die Leistung mehrere Sekunden in Folge abfällt, wird zusätzlich ein kurzer Ausschnitt dieses Abschnitts gespeichert — die verwendeten Steuerungen und Ihre Route —, damit er später zur Ursachenfindung wiedergegeben werden kann.","Si les performances chutent pendant plusieurs secondes d'affilée, un court fragment de ce passage est également enregistré — les commandes utilisées et votre parcours — afin de pouvoir le rejouer plus tard pour en trouver la cause.","Als de prestaties meerdere seconden achter elkaar dalen, wordt ook een kort fragment van dat stuk opgeslagen — de gebruikte bediening en uw route — zodat het later kan worden afgespeeld om de oorzaak te vinden."
+"El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto.","El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto.","The game does not send your physical location. However, as with any Internet connection, our server sees your IP address and infers an approximate city from it; the IP is not stored as such. We never ask for or keep your name, email, or any contact data.","게임은 당신의 실제 위치를 전송하지 않습니다. 다만 인터넷 연결과 마찬가지로, 저희 서버는 당신의 IP 주소를 보고 그로부터 대략적인 도시를 추정합니다. IP 자체는 저장되지 않습니다. 저희는 당신의 이름, 이메일 또는 어떤 연락처 정보도 요구하거나 보관하지 않습니다.","O jogo não envia sua localização física. Porém, como em qualquer conexão de Internet, nosso servidor vê seu endereço IP e dele deduz uma cidade aproximada; o IP não é armazenado como tal. Nunca pedimos nem guardamos seu nome, seu e-mail ou qualquer dado de contato.","Das Spiel sendet nicht Ihren physischen Standort. Wie bei jeder Internetverbindung sieht unser Server jedoch Ihre IP-Adresse und leitet daraus eine ungefähre Stadt ab; die IP wird nicht als solche gespeichert. Wir fragen niemals nach Ihrem Namen, Ihrer E-Mail oder Kontaktdaten und speichern diese nicht.","Le jeu n'envoie pas votre position physique. Toutefois, comme pour toute connexion Internet, notre serveur voit votre adresse IP et en déduit une ville approximative ; l'IP n'est pas stockée en tant que telle. Nous ne demandons ni ne conservons jamais votre nom, votre e-mail ni aucune donnée de contact.","Het spel verzendt uw fysieke locatie niet. Zoals bij elke internetverbinding ziet onze server echter uw IP-adres en leidt daaruit een benaderende stad af; het IP wordt niet als zodanig opgeslagen. Wij vragen nooit om uw naam, e-mail of contactgegevens en bewaren deze niet."
+ABRIR,ABRIR,OPEN,열기,ABRIR,ÖFFNEN,OUVRIR,OPENEN
+ABRIR CÁPSULA,ABRIR CÁPSULA,OPEN POD,캡슐 열기,ABRIR CÁPSULA,KAPSEL ÖFFNEN,OUVRIR LA CAPSULE,CAPSULE OPENEN
+ESTABLE,ESTABLE,STABLE,안정,ESTÁVEL,STABIL,STABLE,STABIEL

@@ -146,7 +146,7 @@ func apply_all_settings():
 # Un locale por columna de locale/ui_strings.csv. El "es" esta incluido: el
 # importer lo genera igual que a los demas (la clave ES el texto en español, asi
 # que la traduccion es la identidad) y ya no hace falta fabricarlo a mano.
-const UI_LOCALES = ["es", "en", "ko", "pt_BR"]
+const UI_LOCALES = ["es", "en", "ko", "pt_BR", "de", "fr", "nl"]
 
 func resolve_effective_language() -> String:
 	if ui_language == "auto":

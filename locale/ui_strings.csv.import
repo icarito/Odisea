@@ -5,10 +5,10 @@ type="Translation"
 
 [deps]
 
-files=[ "res://locale/ui_strings.es.translation", "res://locale/ui_strings.en.translation", "res://locale/ui_strings.ko.translation", "res://locale/ui_strings.pt_BR.translation" ]
+files=[ "res://locale/ui_strings.es.translation", "res://locale/ui_strings.en.translation", "res://locale/ui_strings.ko.translation", "res://locale/ui_strings.pt_BR.translation", "res://locale/ui_strings.de.translation", "res://locale/ui_strings.fr.translation", "res://locale/ui_strings.nl.translation" ]
 
 source_file="res://locale/ui_strings.csv"
-dest_files=[ "res://locale/ui_strings.es.translation", "res://locale/ui_strings.en.translation", "res://locale/ui_strings.ko.translation", "res://locale/ui_strings.pt_BR.translation" ]
+dest_files=[ "res://locale/ui_strings.es.translation", "res://locale/ui_strings.en.translation", "res://locale/ui_strings.ko.translation", "res://locale/ui_strings.pt_BR.translation", "res://locale/ui_strings.de.translation", "res://locale/ui_strings.fr.translation", "res://locale/ui_strings.nl.translation" ]
 
 [params]
 
