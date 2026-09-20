@@ -11,10 +11,13 @@ const SCREEN_ID := "ship:cryopod:elias"
 
 var _mounted_nodes: Array = []
 var _previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
+var _previous_tree_paused: bool = false
 
 func before_test() -> void:
 	_mounted_nodes.clear()
 	_previous_mouse_mode = Input.get_mouse_mode()
+	_previous_tree_paused = get_tree().paused
+	get_tree().paused = false
 	SuitOS.close_hud_mode()
 	SuitOS.unregister_screen(SCREEN_ID)
 	VirtualMouseScript.set_pointer_released(false)
@@ -30,6 +33,7 @@ func after_test() -> void:
 	VirtualMouseScript.set_pointer_released(false)
 	_clear_virtual_mice()
 	Input.set_mouse_mode(_previous_mouse_mode)
+	get_tree().paused = _previous_tree_paused
 
 func _mount(scene: PackedScene) -> Node:
 	var node = scene.instance()
@@ -181,9 +185,19 @@ func test_terminal_turns_off_on_open_and_is_interactable_again_on_close() -> voi
 	# El cierre real puede ocurrir mucho despues; aca comprobamos el contrato de estado,
 	# no un timeout dependiente de cuantos frames alcance a procesar CI.
 	yield (get_tree(), "physics_frame")
+	yield (get_tree(), "physics_frame")
 	hatch.set_active(false, true)
 	yield (get_tree(), "physics_frame")
 	yield (get_tree(), "physics_frame")
+	# El boton lo rehabilita CryoPodHUDable._physics_process al NOTAR que la escotilla cerro:
+	# es un poll, no una senal, asi que hay una latencia de al menos un tick. Dos frames fijos
+	# alcanzaban casi siempre y fallaban ~1 de cada 8 corridas en CI ("boton sigue
+	# deshabilitado tras cerrar"). Se espera a que el estado se asiente, con tope: sigue siendo
+	# una asercion, no un timeout que tape un cuelgue.
+	for _i in range(30):
+		if not button.disabled:
+			break
+		yield (get_tree(), "physics_frame")
 	assert_bool(hatch.is_active).override_failure_message("hatch no cerro inmediatamente").is_false()
 	assert_bool(terminal.is_active).override_failure_message("terminal se activo sola al cerrar").is_false()
 	assert_bool(terminal.is_interactable).override_failure_message("terminal no recupero interaccion al cerrar").is_true()

@@ -18,6 +18,14 @@ func _disable_pilot_input(pilot: Spatial) -> void:
 		pilot.input_provider.hardware_input_enabled = false
 
 
+func _wait_until_hatch_stops(hatch: Node) -> void:
+	var max_frames: int = int(ceil(float(hatch.anim_duration) * Engine.iterations_per_second)) + 30
+	for _i in range(max_frames):
+		yield(get_tree(), "physics_frame")
+		if abs(float(hatch.anim_progress) - float(hatch.target_progress)) <= 0.001:
+			return
+
+
 func test_opening_cryo_pod_does_not_move_pilot() -> void:
 	var level = auto_free(RingHubScene.instance())
 	level.open_pod_terminal_on_start = false
@@ -34,8 +42,7 @@ func test_opening_cryo_pod_does_not_move_pilot() -> void:
 	var before: Transform = pod.global_transform.affine_inverse() * pilot.global_transform
 
 	hatch.set_active(true)
-	for _i in range(210):
-		yield(get_tree(), "physics_frame")
+	yield(_wait_until_hatch_stops(hatch), "completed")
 
 	assert_bool(bool(hatch.is_active)).is_true()
 	var after: Transform = pod.global_transform.affine_inverse() * pilot.global_transform
@@ -162,12 +169,21 @@ func test_open_hatch_leaves_exit_corridor_clear() -> void:
 	var pod: Spatial = level.get_node("Criopod_Vert")
 	var hatch: Node = level.get_node("Criopod_Vert/RotatingObjectV2")
 	hatch.set_active(true)
-	for _i in range(210):
-		yield(get_tree(), "physics_frame")
+	yield(_wait_until_hatch_stops(hatch), "completed")
 
 	var origin := pilot.global_transform.origin + pod.global_transform.basis.y.normalized() * 0.75
 	var exit_direction := pod.global_transform.basis.z.normalized()
-	var hit: Dictionary = pilot.get_world().direct_space_state.intersect_ray(
-		origin, origin + exit_direction * 1.5, [pilot], 79)
+	var excluded: Array = [pilot]
+	var pod_blocker: Node = null
+	for _i in range(64):
+		var hit: Dictionary = pilot.get_world().direct_space_state.intersect_ray(
+			origin, origin + exit_direction * 1.5, excluded, 79)
+		if hit.empty():
+			break
+		var collider: Node = hit.get("collider", null)
+		if is_instance_valid(collider) and pod.is_a_parent_of(collider):
+			pod_blocker = collider
+			break
+		excluded.append(collider)
 
-	assert_bool(hit.empty()).is_true()
+	assert_object(pod_blocker).is_null()

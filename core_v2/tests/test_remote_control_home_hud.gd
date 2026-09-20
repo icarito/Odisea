@@ -26,6 +26,12 @@ func after_test() -> void:
 			home.free()
 	_homes.clear()
 	_hide_virtual_controls()
+	# El telefono monta el mismo overlay que el juego, asi que tambien puede dejar el modo HUD
+	# abierto (y el arbol en pausa) para la suite siguiente. CI corre todo en un proceso.
+	var suit_os = get_tree().root.get_node_or_null("SuitOS")
+	if suit_os != null and suit_os.has_method("close_hud_mode"):
+		suit_os.close_hud_mode()
+	get_tree().paused = false
 
 func test_remote_home_instantiates_slot_widgets():
 	# Los slots del telefono son suyos: la linterna en el 1 por defecto, y la lista del host no
