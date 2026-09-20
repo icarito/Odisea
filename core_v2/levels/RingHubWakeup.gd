@@ -4,7 +4,7 @@ class_name RingHubWakeup
 export(NodePath) var pilot_path := NodePath("Pilot")
 export(NodePath) var criopod_path := NodePath("Criopod_Vert")
 export(NodePath) var slots_path := NodePath("Hub/Criopods")
-export(Vector3) var pilot_inside_offset := Vector3(0.000200272, 1.175, -0.123402)
+export(Vector3) var pilot_inside_offset := Vector3(0.000200272, 3.45, -0.123402)
 # El pod funcional toma la misma pose que el item decorativo del slot. El mesh del Criopod_Vert ya
 # tiene su origen en la base, asi que no hace falta compensar en Y (un offset positivo lo dejaba
 # flotando). Ajustar solo si queda unos cm arriba/abajo.
@@ -37,6 +37,10 @@ func _ready() -> void:
 	# Mientras Elias esta dentro, solo el piso debe sostenerlo. El casco cerrado no puede
 	# resolver una colision empujandolo hacia arriba; se reactiva al salir de la zona.
 	_set_wakeup_collision_enabled(false, false)
+	# El casco queda cerrado y sin colisionar mientras Elias esta dentro, pero el
+	# terminal debe seguir siendo detectable para abrirlo desde su pantalla.
+	_set_collision_shapes_enabled(
+		get_node_or_null("Criopod_Vert/RotatingObjectV2/CryoPodTerminal"), true, false)
 	var wakeup_zone := get_node_or_null("Criopod_Vert/CinematicSequence") as Area
 	if wakeup_zone and not wakeup_zone.is_connected("body_exited", self, "_on_wakeup_zone_exited"):
 		wakeup_zone.connect("body_exited", self, "_on_wakeup_zone_exited")
@@ -52,6 +56,9 @@ func _gate_wakeup_sequence() -> void:
 
 func _open_pod_terminal() -> void:
 	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os != null and not suit_os.has_screen(pod_screen_id):
+		yield(get_tree(), "idle_frame")
+		suit_os = get_node_or_null("/root/SuitOS")
 	if suit_os == null or not suit_os.has_screen(pod_screen_id):
 		_release_wakeup_sequence()
 		return
@@ -138,11 +145,22 @@ func _apply_wakeup_slot() -> void:
 		# mas pequeno que el criopod decorativo que ocupa ese mismo lugar.
 		pod.global_transform = Transform(item.global_transform.basis,
 			item.global_transform.origin + Vector3.UP * pod_base_offset)
+		# Los Item_N estan horneados en la escena: bloquear el angulo solo evita que el
+		# scatter genere uno nuevo, no borra el que ya esta serializado. Sin esto el pod
+		# decorativo queda dentro del funcional y su silueta (PersonCard2) encima de Elias.
+		# Se oculta en vez de liberarse: es el que define la pose, y _apply_wakeup_slot
+		# vuelve a correr en cada rest del replay.
+		item.visible = false
+		_set_collision_shapes_enabled(item, false, false)
 	else:
 		pod.global_transform.origin = slots.to_global(data.position) + Vector3.UP * pod_base_offset
 		if slots.inward:
 			pod.look_at(slots.to_global(Vector3(0.0, data.height, 0.0)), Vector3.UP)
 		slots._apply_rotation_offsets(pod, slots.rotation_x, slots.rotation_y, slots.rotation_z)
+	var terminal := get_node_or_null("Criopod_Vert/RotatingObjectV2/CryoPodTerminal")
+	var cinematic_setup := terminal.get_node_or_null("CinematicSetup") as Spatial if terminal != null else null
+	if cinematic_setup != null and cinematic_setup.is_set_as_toplevel():
+		cinematic_setup.global_transform = terminal.global_transform
 	var pilot_transform := pod.global_transform
 	pilot_transform.basis = pilot_transform.basis.orthonormalized().scaled(pilot.scale)
 	pilot_transform.origin = pod.to_global(pilot_inside_offset)
