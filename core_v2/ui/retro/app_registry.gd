@@ -29,5 +29,11 @@ const APPS = {
 		"window_title": "NODE-SCAN",
 		"script": "res://core_v2/ui/retro/NodeScan.gd",
 		"icon": null
+	},
+	"TRANSIT": {
+		"name": "Transit",
+		"window_title": "TRANSIT",
+		"script": "res://core_v2/ui/retro/OysTransit.gd",
+		"icon": null
 	}
 }

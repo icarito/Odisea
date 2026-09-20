@@ -669,19 +669,21 @@ func _cmd_quit(_argv: Array, _raw: String) -> Dictionary:
 	emit_signal("quit_requested")
 	return {"ok": true}
 
+# calc y nodescan llamaban a _open_calc/_open_nodescan, que no existen en ninguna parte:
+# los dos comandos devolvian {"ok": false} siempre. El desktop abre apps por su id del
+# AppRegistry, y CALC y NODESCAN ya estaban registradas.
 func _cmd_calc(_argv: Array, _raw: String) -> Dictionary:
-	var desktop = _find_debug_overlay()
-	if desktop and desktop.has_method("_open_calc"):
-		desktop.call("_open_calc")
-		return {"ok": true}
-	return {"ok": false, "message": "DebugOverlay with _open_calc not found"}
+	return _open_desktop_app("CALC")
 
 func _cmd_nodescan(_argv: Array, _raw: String) -> Dictionary:
+	return _open_desktop_app("NODESCAN")
+
+func _open_desktop_app(app_id: String) -> Dictionary:
 	var desktop = _find_debug_overlay()
-	if desktop and desktop.has_method("_open_nodescan"):
-		desktop.call("_open_nodescan")
-		return {"ok": true}
-	return {"ok": false, "message": "DebugOverlay with _open_nodescan not found"}
+	if desktop == null or not desktop.has_method("_open_app"):
+		return {"ok": false, "message": "No hay un escritorio de OdiseaOS a la vista"}
+	desktop.call("_open_app", app_id)
+	return {"ok": true}
 
 func _cmd_joy_debug(_argv: Array, _raw: String) -> Dictionary:
 	add_log("SYS", "Joystick Debug Active. Press any button...")
