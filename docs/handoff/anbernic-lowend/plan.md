@@ -558,18 +558,46 @@ completo antes de tocar el dispositivo (confirmado con `git diff` limpio, sin ra
 **Lo que reveló la investigación (captura headless, `docs/handoff/anbernic-lowend/ringhub_floor_top.png`
 y `ringhub_floor_iso.png`):** "CombinedCollision" no es solo el piso — es un batch que combina
 **tres sistemas estructurales distintos** en una sola malla de colisión, por eficiencia de draw calls:
-1. El piso octogonal caminable (anillo, radio interior ~6.4, exterior ~14.1, Y≈0.1-0.27) — esto sí es
-   un anillo octogonal limpio, candidato real a 8 cajas trapezoidales.
-2. Una baranda/reja perimetral fina (las bandas de vértices en Y≈0.68-0.82 y Y≈1.23-1.37).
-3. Patas de soporte que bajan ~4.5 m hasta un piso/plataforma inferior (la banda de vértices en
-   Y=-4.5, confirmada visible en la captura isométrica: la plataforma del hub está elevada sobre
+1. El piso octogonal caminable (anillo, radio interior ~6.4, exterior ~14.1, Y≈0.1-0.27).
+2. Una baranda/reja perimetral fina, interior Y exterior (las bandas de vértices en Y≈0.68-0.82 y
+   Y≈1.23-1.37 — dos barras de la misma baranda, no dos sistemas distintos).
+3. 8 patas de soporte que bajan ~4.5 m hasta el piso inferior, una por cada vértice exterior del
+   octógono (confirmado visible en la captura isométrica: la plataforma del hub está elevada sobre
    pilares).
 
-Separar estos tres en primitivas de forma segura requiere clasificar cada triángulo por a cuál de los
-tres pertenece (no es automático con las herramientas disponibles sin editor) y validar cada pieza
-visualmente — la baranda en particular es fácil de arruinar (un hueco ahí deja caer al jugador fuera
-de la plataforma). **No se tocó el archivo.** Candidato real para una sesión con el editor abierto:
-las capturas ya dejan claro qué es cada banda de altura, así que el próximo intento no parte de cero.
+**Intento 2 (aplicado): reconstrucción exacta por clustering angular.** En vez de VHACD, clasifiqué
+los 1626 vértices únicos del trimesh por banda de Y (piso/baranda/patas) y agrupé por sector angular
+(8 sectores de 45°) tomando el vértice de radio máximo/mínimo por sector — así se recuperan las
+esquinas reales del octógono sin asumir simetría perfecta. Con esas esquinas: 8 prismas trapezoidales
+para el piso (`ConvexPolygonShape`, 8 puntos c/u), 16 paredes delgadas para la baranda interior y
+exterior, y 8 `BoxShape` para las patas — **32 piezas primitivas exactas**, verificadas visualmente
+superponiendo `Shape.get_debug_mesh()` contra el mesh visual (capturas
+`docs/handoff/anbernic-lowend/ringhub_coll_*.png` en el historial de la sesión) antes de tocar el
+dispositivo. Bounding box resultante: coincide con el mesh original (a diferencia del intento VHACD).
+
+**Generalizado en `tools/bake_ring_collider_primitives.gd`** (no quedó como script de un solo uso):
+toma cualquier `StaticBody`/`CollisionShape` con un `ConcavePolygonShape` de un anillo N-gonal
+(piso + baranda opcional + patas opcionales), con los umbrales de banda Y y N de segmentos como
+parámetros de entorno, y escribe el resultado con un splice de texto seguro sobre el `.tscn` (nunca
+`PackedScene.pack()` de la escena completa — ver advertencia de memoria del proyecto sobre corrupción
+de nodos). Sirve para cualquier otro anillo del mismo patrón — Dome_Intro's `ScaffoldHubRing` genera
+la MISMA convención `CombinedMesh/CombinedCollision` en sus 5 pisos (ver
+`tools/bake_dome_intro_hub_floors.gd`), así que es candidato directo para la próxima vuelta ahí.
+Modo `ODISEA_BAKE_DRY_RUN=1` para revisar el bounding box antes de escribir.
+
+**Resultado medido en el Anbernic real, mismo replay, drift 0.109 m en las tres corridas (original,
+manual, generado por el tool) — geometría equivalente confirmada end-to-end:**
+
+| | trimesh original (3786 tris) | 32 primitivas |
+|---|---|---|
+| ms_physics mediana | 15.7 | 15.3-16.0 |
+| ms_physics p90 | 22.7 | 21.6-23.7 |
+| draw_calls | 59/95 | 59/95 (sin cambio, esperado) |
+
+**Es un empate en tiempo por frame** — el BVH de Box3D para el trimesh ya resolvía razonablemente
+bien los ~8 raycasts por tick de `PlayerControllerV2`. Se mantiene igual porque: (a) el `.tscn` bajó
+~20% (1.2 MB → 976 KB, menos para cargar/parsear al entrar al nivel) y (b) ahora hay una herramienta
+de bake reutilizable en el repo en vez de una malla de 3786 triángulos horneada a mano.
 
 ### Experimento de config: `physics/3d/box3d_substeps`
 
@@ -637,5 +665,38 @@ collider del piso (3786 triángulos, ver arriba) o picos puntuales de carga de a
 **Conclusión de esta vuelta:** con los tres bugs del sistema de replay resueltos (snapshot de raíz de
 escena, pausa por HUD, mismatch de tick 60↔30 Hz) más `box3d_substeps=1`, el margen de física en el
 Anbernic pasó de "70% del presupuesto, jugador cae al vacío a mitad de nivel" a "47% del presupuesto,
-nivel completo navegable". La cola de picos (p99 57 ms) y la geometría del collider del piso quedan
-como el trabajo pendiente de mayor impacto potencial para la próxima vuelta.
+nivel completo navegable".
+
+### El desglose por sistema ya existía y apunta a otro lado: `SessionManager.player.step()`, no el collider
+
+`PerformanceMonitor` ya vuelca un desglose por sistema en la clave `"perfiles"` de
+`replay_perf.json` (perfil por corrida, `ODISEA_REPLAY_PERF=1`) — no hacía falta instrumentar nada
+nuevo, solo mirarlo. Corrida final en el Anbernic (32 primitivas + fixes de tick-rate, 1654-1655
+llamadas ≈ el largo completo del replay):
+
+| sistema | total | por llamada |
+|---|---|---|
+| **· scripts del tick** (todo el GDScript del paso de física) | 14162 ms | **8.56 ms** |
+| **SessionManager** | 8681 ms | **5.25 ms** |
+| — de eso, **SM.player_step** (`player.step(FIXED_DT, input)`, o sea todo `PlayerControllerV2.step()`) | 5650 ms | **3.41 ms** |
+| SM.sync_nodes | 1244 ms | 0.75 ms |
+| Interactables | 999 ms | 0.29 ms |
+| SM.bookkeeping | 856 ms | 0.52 ms |
+| KinematicArm3D | 855 ms | 0.52 ms |
+| Sync.HoloTerminalV2.gd | 575 ms | 0.35 ms |
+| OverTheShoulder | 522 ms | 0.32 ms |
+| (resto: Audio/LookAt/Checkpoint/RotatingObjectV2/cinematic) | — | <0.2 ms c/u |
+
+`scripts del tick` (8.56 ms) es más de la mitad del `ms_physics` total medido (~15.3-16 ms) — el
+**resto** (~7 ms) es el servidor nativo de Box3D (broadphase/narrowphase/integración), que la vuelta
+del collider ya demostró que no es sensible a la complejidad de la malla del piso. De ese 8.56 ms de
+GDScript, **`PlayerControllerV2.step()` solo (vía `SM.player_step`) es 3.41 ms — el ítem individual
+más caro de todo el desglose**, casi el 40% de todo el costo de scripts del tick y ~10% del
+presupuesto completo de un tick a 30 Hz. Tiene sentido con lo que ya se sabía: `PlayerControllerV2`
+es una máquina de estados de traversal grande (ledge/mantle/ladder/zero-g) con ~8 sitios de
+`intersect_ray` propios — pero ahora hay un número real, no una sospecha.
+
+**Candidato de mayor impacto para la próxima vuelta: `PlayerControllerV2.step()` (core_v2/player/PlayerControllerV2.gd:2399),
+no la geometría de colisión.** Perfilar los raycasts y las ramas de la máquina de estados de
+traversal por separado (apagar cada uno y remedir con el mismo replay, como ya se hizo para Dome_Intro
+en la bisección de arriba) es el siguiente paso lógico, no otro intento de simplificar mallas.

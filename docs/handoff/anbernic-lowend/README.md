@@ -11,7 +11,7 @@ El diseño de los tiers está en [FD-299](../../features/FD-299_render_tier_lowe
 |---|---|---|
 | Dome_Default | 17-19 fps | **28 fps** |
 | Dome_Intro (entrando por el menú) | 4 fps, un tercio de la pantalla sin dibujar | **12 fps**, pantalla completa, 0 faults |
-| RingHub_Level (replay de gameplay real, nivel completo) | ms_physics 70% del presupuesto de física, jugador caía al vacío a mitad de nivel (bug de tick-rate) | **ms_physics 47% del presupuesto** (mediana 15.7 ms de 33.3 ms), nivel completo navegable, draw_calls 59-95. Física sigue siendo el techo, no el render. Ver [plan.md → RingHub_Level](plan.md#ringhub_level-replay-de-gameplay-real-física-domina-sobre-render-2026-09-20) |
+| RingHub_Level (replay de gameplay real, nivel completo) | ms_physics 70% del presupuesto de física, jugador caía al vacío a mitad de nivel (bug de tick-rate) | **ms_physics 47% del presupuesto** (mediana ~16 ms de 33.3 ms), nivel completo navegable, draw_calls 59-95. El desglose por sistema (ya lo vuelca `PerformanceMonitor`, solo había que mirarlo) apunta a `PlayerControllerV2.step()` como el ítem más caro (3.4 ms/tick, ~40% de todo el GDScript del tick) — no la geometría de colisión del piso (colliders a primitivas: mismo costo, se mantuvo solo por tamaño de escena). Ver [plan.md → RingHub_Level](plan.md#ringhub_level-replay-de-gameplay-real-física-domina-sobre-render-2026-09-20) |
 
 Dos causas independientes, las dos resueltas:
 
