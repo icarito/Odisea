@@ -779,7 +779,23 @@ Deriva del replay: 0.109089 (baseline) vs 0.109076 (con cache) — la misma. El 
 deriva ~0.109 siempre (misma familia que la deriva preexistente de `test_push_clipping`), no es de
 este cambio.
 
-Pendiente: medir en el Anbernic con el mismo replay (ventana de ticks fija 100→400, como la
-bisección de arriba) y el pck que incluya el cambio. Esperado: `stepup` de ~0.23 a ~0.09-0.12
-ms/tick con el resto igual; si la deriva del replay cambia, el cache movió la detección.
+Medido en el Anbernic (mismo replay, pck con el cambio, engine de release):
+
+| clave | baseline | con cache | Δ |
+|---|---|---|---|
+| PC.move.pre.stepup | 0.233669 ms/llamada (333.4 ms) | 0.095972 ms/llamada (137.0 ms) | **-58.9%** |
+| PC.move.pre | 0.831202 | 0.716798 | -13.8% |
+| PC.move | 1.691581 | 1.607073 | -5.0% |
+| SM.player_step | 3.751263 | 3.670720 | -2.1% |
+| PC.control / PC.post | 1.081442 / 0.707024 | 1.086454 / 0.695605 | ±1% |
+
+Deriva del replay en device: 0.109102 (misma familia que la de desktop). `PC.move.slide` subió
++7.8% (0.466 → 0.503), pero es `move_and_slide` nativo y el cambio no lo toca: repetir 2-3 veces
+antes de darlo por real (ruido térmico del dispositivo).
+
+Siguiente vuelta, con el perfil ya sin el sondeo repetido (ms/tick en device): `PC.control` 1.09
+(escaneos de interacción/zonas en cada tick — espaciarlos en LOW es el roadmap #1 y ahora el
+ítem más caro), el header sin instrumentar de `pre` 0.40 (`_get_move_direction` / delegación al
+FSM de `CinematicManager`), `PC.post` 0.70, `SM.sync_nodes` 0.71, `KinematicArm3D` 0.53,
+`PC.move.slide` 0.50 (probar `box3d_substeps=1`).
 
