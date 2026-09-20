@@ -21,7 +21,16 @@ var fullscreen = true
 # game renders to this base size and is stretched to fill the window. Lower
 # values give the retro/CRT look and cost much less to render, independent of
 # window size or fullscreen.
-var render_resolution = Vector2(800, 600)
+# El perfil low-end (Anbernic y compania: el mismo que dispara el modo plano) arranca en
+# 640x480 en vez de 800x600. Es solo el DEFAULT: si el jugador ya eligio una resolucion,
+# manda la guardada. Se resuelve en apply_render_resolution() y no aca, porque
+# GLES3VendorGate es un autoload posterior y en este punto todavia no existe.
+const LOW_END_RENDER_RESOLUTION := Vector2(640, 480)
+const DEFAULT_RENDER_RESOLUTION := Vector2(800, 600)
+var render_resolution = DEFAULT_RENDER_RESOLUTION
+# El jugador ya fijo una resolucion (estaba en settings.cfg o la guardo desde Opciones):
+# a partir de ahi el perfil no la pisa.
+var _render_resolution_user_set := false
 var render_scale: float = 1.0
 var vsync = true
 var telemetry_enabled: bool = false
@@ -75,7 +84,8 @@ func load_settings():
 	vibration = _config.get_value("input", "vibration", true)
 
 	fullscreen = _config.get_value("display", "fullscreen", true)
-	render_resolution = _config.get_value("display", "render_resolution", Vector2(800, 600))
+	_render_resolution_user_set = _config.has_section_key("display", "render_resolution")
+	render_resolution = _config.get_value("display", "render_resolution", default_render_resolution())
 	var default_render_scale: float = 1.0
 	render_scale = float(_config.get_value(
 		"display",
@@ -107,6 +117,8 @@ func save_settings():
 
 	_config.set_value("display", "fullscreen", fullscreen)
 	_config.set_value("display", "render_resolution", render_resolution)
+	# Lo guardado es la eleccion del jugador: el perfil ya no la pisa.
+	_render_resolution_user_set = true
 	_config.set_value("display", "render_scale", render_scale)
 	_config.set_value("display", "vsync", vsync)
 	_config.set_value("network", "remote_control_enabled", remote_control_enabled)
@@ -223,10 +235,24 @@ func effective_render_scale() -> float:
 # Apply the internal render resolution. With stretch mode "viewport" the game
 # renders to render_resolution and the engine stretches it to the window, so
 # this works the same in fullscreen, windowed, web and Android.
+func default_render_resolution() -> Vector2:
+	return LOW_END_RENDER_RESOLUTION if is_low_end_profile() else DEFAULT_RENDER_RESOLUTION
+
+# Mismo criterio que el modo plano: la palanca del jugador o lo que detecte el gate
+# (vendor, ODISEA_FORCE_LOW_TIER). El gate se consulta por nodo porque puede no existir
+# todavia cuando este autoload arranca.
+func is_low_end_profile() -> bool:
+	if low_end_forced:
+		return true
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.has_method("is_low_tier") and bool(gate.is_low_tier())
+
 func apply_render_resolution():
 	var tree = get_tree()
 	if tree == null:
 		return
+	if not _render_resolution_user_set:
+		render_resolution = default_render_resolution()
 	var effective_resolution: Vector2 = render_resolution * effective_render_scale()
 	tree.set_screen_stretch(
 		SceneTree.STRETCH_MODE_VIEWPORT,

@@ -303,3 +303,38 @@ func test_low_tier_sets_fake_shadow_off_env():
 	assert_str(OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW")).is_equal("1")
 
 	OS.set_environment("ODISEA_DISABLE_FAKE_SHADOW", prev)
+
+# FD: en el perfil low-end (el mismo que enciende el modo plano) el juego arranca a 640x480
+# en vez de 800x600. Es el DEFAULT, no una imposicion: una resolucion ya elegida por el
+# jugador (presente en settings.cfg, o guardada desde Opciones) sobrevive intacta.
+func test_low_end_profile_defaults_to_640x480():
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm == null or not sm.has_method("default_render_resolution"):
+		return
+	sm.set("low_end_forced", false)
+	assert_vector2(sm.default_render_resolution()).is_equal(sm.DEFAULT_RENDER_RESOLUTION)
+
+	sm.set("low_end_forced", true)
+	assert_vector2(sm.default_render_resolution()).is_equal(Vector2(640, 480))
+
+func test_a_resolution_chosen_by_the_player_survives_the_low_end_profile():
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm == null or not sm.has_method("apply_render_resolution"):
+		return
+	var saved_resolution = sm.get("render_resolution")
+	var saved_user_set = sm.get("_render_resolution_user_set")
+
+	sm.set("low_end_forced", true)
+	sm.set("render_resolution", Vector2(1280, 720))
+	sm.set("_render_resolution_user_set", true)
+	sm.apply_render_resolution()
+	assert_vector2(sm.get("render_resolution")).is_equal(Vector2(1280, 720))
+
+	# Sin eleccion previa, el perfil manda.
+	sm.set("_render_resolution_user_set", false)
+	sm.apply_render_resolution()
+	assert_vector2(sm.get("render_resolution")).is_equal(Vector2(640, 480))
+
+	sm.set("render_resolution", saved_resolution)
+	sm.set("_render_resolution_user_set", saved_user_set)
+	sm.apply_render_resolution()
