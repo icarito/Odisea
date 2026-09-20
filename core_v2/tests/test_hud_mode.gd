@@ -11,6 +11,7 @@ const HoloTerminalWidgetScript = preload("res://core_v2/ui/hud/HoloTerminalWidge
 const HangingDisplayScene = preload("res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsDisplay.tscn")
 const RadialSelectorScene = preload("res://core_v2/ui/radial/RadialSelectorV2.tscn")
 const Gesture = preload("res://core_v2/ui/hud/HudTabGesture.gd")
+const HudOverlayScript = preload("res://core_v2/ui/hud/HudModeOverlay.gd")
 const CRYO_UI_PATH := "res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsUI.tscn"
 
 var _overlay_mgr = null
@@ -247,6 +248,10 @@ func test_tap_with_a_single_screen_opens_it_directly() -> void:
 # dial pone la primera a las 6 y la segunda a las 12, y soltar elige lo marcado.
 func _hold_and_pick_second() -> Array:
 	return _held(Gesture.HOLD_TICKS) + [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, UP]
+
+
+func overlay_aim_radius() -> float:
+	return HudOverlayScript.AIM_RADIUS
 
 
 func test_pick_while_holding_keeps_the_screen_open_on_release() -> void:
