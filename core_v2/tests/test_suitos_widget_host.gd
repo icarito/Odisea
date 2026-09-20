@@ -23,6 +23,7 @@ class FakeInteractable extends Node:
 
 var _widget_host: Node = null
 var _overlay_mgr = null
+var _owns_overlay_mgr := false
 
 func before() -> void:
 	if has_node("/root/ANNAV2"):
@@ -35,16 +36,23 @@ func before_test() -> void:
 		_overlay_mgr = OverlayUIManager.new()
 		_overlay_mgr.name = "OverlayUIManager"
 		root.add_child(_overlay_mgr)
+		_owns_overlay_mgr = true
 
 	# Sin la ultima posicion del puntero de otra suite (decide si un toque es de un boton del widget).
 	SuitOS.get_node("SuitOSWidgetHost")._last_pointer_position = Vector2(-10000, -10000)
-	_widget_host = SuitOSWidgetHostScript.new()
+	_widget_host = auto_free(SuitOSWidgetHostScript.new())
 	_widget_host.name = "SuitOSWidgetHost"
 	root.add_child(_widget_host)
 
 func after_test() -> void:
 	if is_instance_valid(_widget_host):
 		_widget_host.free()
+	if _owns_overlay_mgr and is_instance_valid(_overlay_mgr):
+		_overlay_mgr.free()
+	_widget_host = null
+	_overlay_mgr = null
+	_owns_overlay_mgr = false
+	yield(await_idle_frame(), "completed")
 
 func test_suitos_auto_mounts_driver_and_widget_host() -> void:
 	assert_object(SuitOS.get_node_or_null("SuitOSContextDriver")).is_not_null()

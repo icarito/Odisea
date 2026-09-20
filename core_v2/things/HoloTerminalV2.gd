@@ -843,18 +843,23 @@ func _enter_focus_mode():
 		return
 	_is_focused = true
 	_set_player_input_blocked(true)
-	print("[HoloTerminalV2] Entering focus mode, activating FocusedRig")
+	# rig null = se enfoca la pantalla sin pedir camara; _request_focus_camera_rig lo ignora
+	# y al salir _release_focus_camera_request() no tiene nada que soltar.
 	var rig = _pick_focus_rig()
-	_set_screen_flipped(rig != _focused_rig)
+	print("[HoloTerminalV2] Entering focus mode, rig=", rig)
+	_set_screen_flipped(rig != null and rig != _focused_rig)
 	_request_focus_camera_rig(rig)
 	
 	# Ensure UI state is updated (showing cursor, etc)
 	_update_ui_mode()
 
 
-# Una terminal puede tener un segundo rig "FocusedRigInside" para cuando el jugador mira
-# la pantalla desde el otro lado (dentro de la criocapsula, FD-307). El lado se mide contra
-# el plano de la pantalla: el FocusedRig de siempre define cual es el lado "de afuera".
+# Una terminal puede tener un segundo rig "FocusedRigInside" para cuando el jugador mira la
+# pantalla desde el otro lado (dentro de la criocapsula, FD-307). Donde existe ese rig, el de
+# afuera NO se usa: desde afuera la terminal se opera sin tocar la camara (null), que es lo
+# que evita que la vista quede atrapada en la capsula cuando se abre. El lado se mide contra
+# el plano de la pantalla; el FocusedRig de siempre solo sirve de referencia de que lado es
+# "afuera".
 func _pick_focus_rig() -> Node:
 	var inside_rig := get_node_or_null("CinematicSetup/FocusedRigInside") as Spatial
 	var screen := get_node_or_null("ScreenContainer/ScreenMesh") as Spatial
@@ -864,7 +869,7 @@ func _pick_focus_rig() -> Node:
 	var xf: Transform = screen.global_transform
 	var outside_side: float = xf.basis.z.dot(_focused_rig.global_transform.origin - xf.origin)
 	var player_side: float = xf.basis.z.dot(player.global_transform.origin - xf.origin)
-	return inside_rig if player_side * outside_side < 0.0 else _focused_rig
+	return inside_rig if player_side * outside_side < 0.0 else null
 
 
 func _set_screen_flipped(flipped: bool) -> void:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://core_v2/props/controls/WallTerminal.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/criopod/CryoPodUI.tscn" type="PackedScene" id=2]
@@ -8,25 +8,24 @@
 [sub_resource type="BoxShape" id=1]
 extents = Vector3( 0.55, 1.2, 0.55 )
 
-; Holoterminal empotrada en el vidrio de una criocapsula (FD-307).
-; Se monta en la escotilla (RotatingObjectV2): la pantalla acompaña al vidrio cuando
-; el pod se abre. Su InteractableEntity cubre la capsula entera, asi que tambien gira.
-; Convencion heredada de WallTerminal: la pantalla queda en (0, 1.7, 0) local y el
-; espectador en +Z local. Montar el nodo con rotacion Y de 180 grados sobre el
-; vidrio para que ese +Z apunte al interior del pod.
+[sub_resource type="BoxShape" id=2]
+extents = Vector3( 1.5, 2, 1.5 )
+
 [node name="CryoPodTerminal" instance=ExtResource( 1 )]
 is_interactable = true
-interaction_text = "Revisar criocápsula"
-focus_text = "Revisar criocápsula"
+is_focusable = true
 screen_resolution = Vector2( 1280, 800 )
-starts_active = true
-static_content = true
-use_cinematic_zone = true
+; Sin zona cinematica: el jugador nace DENTRO de ella (es la capsula), asi que activaba el
+; dolly exterior (CinematicPathRig/PathFollow/Camera, make_current) y esa vista se robaba la
+; camara desde el arranque. La capsula se mira desde adentro con FocusedRigInside al enfocar;
+; el resto del tiempo manda la camara del jugador.
+use_cinematic_zone = false
+enable_ui_interaction = true
 allow_focus_mode = true
 release_cinematic_zone_on_focus_exit = true
 cinematic_setup_top_level = true
 inside_screen_depth_offset = 0.03
-enable_ui_interaction = true
+static_content = true
 
 [node name="CollisionShape" parent="." index="0"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0.44 )
@@ -52,29 +51,43 @@ width = 0.72
 height = 0.45
 depth = 0.004
 
-[node name="CryoPodUI" parent="Viewport" index="1" instance=ExtResource( 2 )]
+[node name="Viewport" parent="." index="4"]
+size = Vector2( 1280, 800 )
+render_target_update_mode = 1
+
+[node name="CryoPodUI" parent="Viewport" index="0" instance=ExtResource( 2 )]
 
 [node name="CollisionShape" parent="InteractableEntity" index="0"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0.44 )
 shape = SubResource( 1 )
 
-[node name="FocusedRig" parent="CinematicSetup" index="2"]
-transform = Transform( -1, 0, 8.74228e-08, 0, 1, 0, -8.74228e-08, 0, -1, 0, 1.7, -0.15 )
-transition_time = 1.3
+[node name="CameraZone" parent="CinematicSetup" index="0"]
+control_mode = 0
 
+[node name="CollisionShape" parent="CinematicSetup/CameraZone" index="2"]
+shape = SubResource( 2 )
+
+[node name="PathFollow" parent="CinematicSetup/CinematicPathRig" index="0"]
+transform = Transform( 5.56355e-14, 1.49157e-07, 0.999992, 3.72999e-07, 1, -1.49156e-07, -0.999999, 3.73e-07, 0, 0.625122, 0.19433, 0.639461 )
+
+[node name="Camera" parent="CinematicSetup/CinematicPathRig/PathFollow" index="0"]
+current = false
+
+[node name="LookAt" parent="CinematicSetup/CinematicPathRig/PathFollow/Camera" index="0"]
+transform = Transform( 0.933801, -0.00673025, -0.357728, -2.72645e-07, 0.999823, -0.0188113, 0.357791, 0.0175661, 0.933637, 0, 0, 0 )
+
+; El rig de afuera no se usa en la criocapsula: la pantalla se mira desde adentro. Su camara
+; quedaba con current = true y atrapaba la vista al abrir la capsula, asi que se apaga aca y
+; HoloTerminalV2._pick_focus_rig no la elige mientras exista el rig interior.
 [node name="Camera" parent="CinematicSetup/FocusedRig" index="0"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.45 )
-fov = 50.0
+current = false
 
-; Segundo angulo: cuando Elias esta DENTRO de la capsula se mira la pantalla desde el
-; lado opuesto del vidrio. HoloTerminalV2._pick_focus_rig elige entre los dos rigs segun
-; de que lado del plano de la pantalla esta el jugador.
-[node name="FocusedRigInside" type="Spatial" parent="CinematicSetup" groups=["cinematic_rigs"]]
+[node name="FocusedRigInside" type="Spatial" parent="CinematicSetup" index="3" groups=["cinematic_rigs"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0.15 )
 script = ExtResource( 4 )
 transition_time = 1.3
 
-[node name="Camera" type="Camera" parent="CinematicSetup/FocusedRigInside"]
+[node name="Camera" type="Camera" parent="CinematicSetup/FocusedRigInside" index="0"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.45 )
 fov = 50.0
 near = 0.1
