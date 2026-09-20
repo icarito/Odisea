@@ -1695,11 +1695,16 @@ func test_mouse_click_with_the_aim_on_a_sector_picks_it_not_the_hub() -> void:
 	var center: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
 	var previous_mode: int = Input.get_mouse_mode()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED) # con el grab, el click llega warpeado al centro
+	# Sin ventana (el headless de CI) el grab no prospera y el click se resuelve por posicion,
+	# que en el centro es el hub: ahi esta premisa no se cumple y no hay nada que afirmar. Mismo
+	# resguardo que test_captured_mouse_dragging_a_radial_item_pins_it_to_a_slot.
+	var captured: bool = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
 	overlay._input(_mouse_click(true, center))
 	overlay._input(_mouse_click(false, center))
 	Input.set_mouse_mode(previous_mode)
-	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
-	assert_bool(sel.is_open()).is_false()
+	if captured:
+		assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
+		assert_bool(sel.is_open()).is_false()
 
 
 # Abre el drawer directo (sin pasar por el hub) y le da un tamaño de pantalla a mano: la escena de
