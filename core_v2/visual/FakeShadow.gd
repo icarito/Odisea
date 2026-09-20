@@ -90,11 +90,7 @@ func _ready() -> void:
 
 	if force_cheap_runtime:
 		shadow_mode = "cheap"
-		# La sombra del piloto es gameplay y en cheap mode es UN quad + UN raycast:
-		# refrescar cada frame evita el escalonado ("yanky") al moverse, que con
-		# update_every_n_frames>=6 se nota mucho a 30-35 fps. Los props conservan el
-		# intervalo alto (en tier LOW igual estan apagados por el disable del gate).
-		update_every_n_frames = 1 if _is_pilot_owner() else max(update_every_n_frames, 6)
+		update_every_n_frames = max(update_every_n_frames, 6)
 		grid_resolution = min(grid_resolution, 8)
 	elif OS.get_name() == "Android":
 		# FD-290 (a): en ARM movil el modo grid baja de 8x8 a 6x6 en vez de saltar a
