@@ -46,7 +46,7 @@ func _ready() -> void:
 	# El casco queda cerrado y sin colisionar mientras Elias esta dentro, pero el
 	# terminal debe seguir siendo detectable para abrirlo desde su pantalla.
 	_set_collision_shapes_enabled(
-		get_node_or_null("Criopod_Vert/RotatingObjectV2/CryoPodTerminal"), true, false)
+		get_node_or_null("Criopod_Vert/RotatingObjectV2/CryoPodTerminal/InteractableEntity"), true, false)
 	var wakeup_zone := get_node_or_null("Criopod_Vert/CinematicSequence") as Area
 	if wakeup_zone and not wakeup_zone.is_connected("body_exited", self, "_on_wakeup_zone_exited"):
 		wakeup_zone.connect("body_exited", self, "_on_wakeup_zone_exited")

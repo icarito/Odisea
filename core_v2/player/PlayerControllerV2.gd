@@ -3115,6 +3115,8 @@ func _is_carried_by_parent() -> bool:
 func _is_trackable_platform_collider(collider: Object) -> bool:
 	if not collider is Spatial:
 		return false
+	if collider.has_meta("platform_tracking_excluded") and bool(collider.get_meta("platform_tracking_excluded")):
+		return false
 	if collider is StaticBody:
 		return collider.has_meta("world_rotator_collision")
 	return true
