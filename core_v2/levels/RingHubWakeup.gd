@@ -24,6 +24,8 @@ func _ready() -> void:
 	var session = get_node_or_null("/root/SessionManager")
 	if session != null and session.has_method("register_oys_actor"):
 		session.register_oys_actor("RingHub", self)
+		if session.has_signal("oys_registry_reset") and not session.is_connected("oys_registry_reset", self, "_on_oys_registry_reset"):
+			session.connect("oys_registry_reset", self, "_on_oys_registry_reset")
 	if open_pod_terminal_on_start:
 		_gate_wakeup_sequence()
 		call_deferred("_open_pod_terminal")
@@ -40,8 +42,8 @@ func _ready() -> void:
 	if _selected_slot < 0:
 		_selected_slot = _pick_slot(slots)
 	_apply_wakeup_slot()
-	# El vidrio debe bloquear el cuerpo incluso mientras Elias esta dentro. Solo el piso
-	# temporal queda apagado para no resolver una colision inicial empujandolo hacia arriba.
+	# El piloto nace embebido en el casco: se suspenden los colliders del vidrio solo durante
+	# el arranque y se reactivan al liberar la secuencia.
 	_set_wakeup_collision_enabled(false, false)
 	# El piloto ya nace dentro del casco: no resolver ese solapamiento moviendolo. Los shapes
 	# siguen declarados y se reactivan al liberar la secuencia, antes de que pueda caminar fuera.
@@ -52,6 +54,11 @@ func _ready() -> void:
 	var wakeup_zone := get_node_or_null("Criopod_Vert/CinematicSequence") as Area
 	if wakeup_zone and not wakeup_zone.is_connected("body_exited", self, "_on_wakeup_zone_exited"):
 		wakeup_zone.connect("body_exited", self, "_on_wakeup_zone_exited")
+
+func _on_oys_registry_reset() -> void:
+	var session = get_node_or_null("/root/SessionManager")
+	if session != null and session.has_method("register_oys_actor"):
+		session.register_oys_actor("RingHub", self)
 
 # La zona sigue monitoreando (el body_exited que libera las colisiones tiene que
 # seguir llegando): lo unico que se retiene es el script OYS que dispara.
