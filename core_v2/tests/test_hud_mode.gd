@@ -246,8 +246,14 @@ func test_tap_with_a_single_screen_opens_it_directly() -> void:
 
 # Mantener TAB, apuntar hacia arriba (mouse_delta +Y = arriba) y soltar: con dos pantallas el
 # dial pone la primera a las 6 y la segunda a las 12, y soltar elige lo marcado.
-func _hold_and_pick_second() -> Array:
-	return _held(Gesture.HOLD_TICKS) + [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, UP]
+# En tandas separadas (un tick por frame, como en el juego): en una sola tanda el hover no se
+# asienta y el release termina eligiendo el centro. El delta va al radio de apuntado completo,
+# no a 60 px: el radio de acierto del hub escala con el dial y en la ventana de CI es 65 px.
+func _open_and_pick_second():
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]}])
+	_play(overlay, [UP])
+	return overlay
 
 
 func overlay_aim_radius() -> float:
@@ -296,7 +302,7 @@ func test_gesture_reports_the_release_that_ends_a_hold() -> void:
 func test_tab_radial_pick_opens_the_screen_without_pinning_it() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
-	_open_and_play(_hold_and_pick_second())
+	_open_and_pick_second()
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 	# Nada se autoasigna: elegir con TAB no llena un slot.
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", ""])
@@ -306,13 +312,13 @@ func test_tab_radial_pick_opens_the_screen_without_pinning_it() -> void:
 func test_replaying_the_same_stream_gives_the_same_result() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
-	_open_and_play(_hold_and_pick_second())
+	_open_and_pick_second()
 	var first: Array = [SuitOS.get_pinned_slots(), SuitOS.get_active_screen_id()]
 	SuitOS.close_hud_mode()
 	SuitOS.clear_slots()
 	yield(_await_overlay_freed(), "completed")
 
-	_open_and_play(_hold_and_pick_second())
+	_open_and_pick_second()
 	assert_array([SuitOS.get_pinned_slots(), SuitOS.get_active_screen_id()]).is_equal(first)
 
 
@@ -896,7 +902,7 @@ func test_tab_pick_with_no_empty_slot_opens_without_pinning() -> void:
 	_screen("test:b", "Beta")
 	for i in range(4):
 		SuitOS.pin_to_slot(i, "other:%d" % i)
-	_open_and_play(_hold_and_pick_second())
+	_open_and_pick_second()
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["other:0", "other:1", "other:2", "other:3"])
 
@@ -905,7 +911,7 @@ func test_tab_pick_of_a_pinned_screen_does_not_move_it() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	SuitOS.pin_to_slot(3, "test:b")
-	_open_and_play(_hold_and_pick_second())
+	_open_and_pick_second()
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", "test:b"])
 
 
