@@ -95,7 +95,10 @@ jobs:
       - name: Select the Box3D physics backend
         run: |
           set -euo pipefail
-          printf '[physics]\n\n3d/physics_engine="Box3D"\n' > override.cfg
+          # 3d/box3d_workers=1: los replays son deterministas solo con el solver
+          # serial. Box3D arranca en cores/2 cuando no hay setting; aca se fuerza 1
+          # para que la comparacion PASS 1 vs PASS 2 no dependa del paralelismo.
+          printf '[physics]\n\n3d/physics_engine="Box3D"\n3d/box3d_workers=1\n' > override.cfg
           cat override.cfg
 
       - name: Set up Python
