@@ -95,8 +95,9 @@ func close_pod_terminal() -> void:
 func open_pod_hatch() -> void:
 	var suit_os = get_node_or_null("/root/SuitOS")
 	if suit_os != null and suit_os.has_screen(pod_screen_id):
-		suit_os.perform_action(pod_screen_id, "toggle_hatch")
-		return
+		var result: Dictionary = suit_os.perform_action(pod_screen_id, "toggle_hatch")
+		if bool(result.get("ok", false)):
+			return
 	var hatch = get_node_or_null("Criopod_Vert/RotatingObjectV2")
 	if hatch != null and hatch.has_method("set_active"):
 		hatch.set_active(true)
