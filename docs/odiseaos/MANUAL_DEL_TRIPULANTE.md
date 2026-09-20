@@ -115,10 +115,12 @@ ordenados por urgencia: lo que está fallando sube.
 En el centro hay un **hub**, marcado `…`. Apuntar al centro no es un error ni una zona
 muerta: es apuntar al hub. Soltar ahí cierra sin elegir nada. Confirmarlo abre el cajón.
 
-Con menos de dos pantallas registradas el dial no se abre — no hay nada que elegir.
+Si usted tiene una sola pantalla, el dial no aparece: se abre esa. No se le va a pedir
+que elija entre una cosa.
 
 > *Contrato:* `core_v2/ui/radial/RadialSelectorV2.gd` (`HUB_INDEX := -2`,
-> `HUB_RADIUS := 40.0`), tope de seis en `SuitOS.gd:47` (`MAX_FAVORITES`).
+> `HUB_RADIUS := 40.0`), tope de seis en `SuitOS.gd:47` (`MAX_FAVORITES`), atajo de una
+> sola pantalla en `HudModeOverlay._open_radial():1318-1320`.
 
 ---
 
@@ -240,6 +242,7 @@ se rediseña hasta que se pueda explicar.
 | 7 | **El sistema tiene cuatro nombres, y uno está mal usado.** `OdiseaOS`, `ODISEA OS`, `ODISEAOS`, `SuitOS`, más `OdiseaOS Workbench`. Y `OYS` **no es un sistema operativo**: es *OdysseyScript*, el lenguaje de guiones de a bordo. Llamar "capa OYS" a la consola confunde dos cosas distintas. | `locale/ui_strings.csv:271-273`; `core_v2/systems/OYS_Interpreter.gd` | Un nombre en ficción (**OdiseaOS**), uno en código (`SuitOS`), y la consola deja de llamarse OYS. |
 | 8 | **Los iconos de pantalla no existen.** `hud_screen_icon` está declarado desde FD-296 y no se usa en una sola línea. Este manual no pudo ilustrar ninguna pantalla. | FD-306 §3 | O se dibujan, o se borra el campo. |
 | 9 | **Hay tres formas de ser una pantalla**, y una invierte las capas: la vista registra en el modelo (`SuitOSWidgetHost.gd:780`). Invisible para quien lee el manual; decisivo para quien agrega una pantalla nueva. | §2.3 del mapa | Un solo contrato. |
+| 11 | **Sostener un slot tiene tres resultados distintos según qué haya adentro**, y dos son invisibles: si la pantalla del slot es favorita, el dial abre con ella marcada; si **no** es favorita, se abre el **cajón** con su fila marcada; si el slot está vacío, el dial abre sin nada marcado. Tres destinos para un mismo gesto. | `HudModeOverlay._open_radial():1336-1345` | Elegir uno. El manual describe el verbo 6 como si tuviera un solo destino, porque un verbo con tres no se puede enseñar. |
 | 10 | **Sostener se mide con tres relojes distintos.** Dos usan el reloj de pared (`HudModeOverlay.gd:36`, `SuitOSWidgetHost.gd:24`), uno cuenta muestras del stream (`HudTabGesture.gd:12`). Los dos primeros **no se pueden reproducir en un replay**. | comentario `# ponytail:` en `SuitOSWidgetHost.gd` | Un solo reloj, el determinista. |
 
 **Nueve páginas describen ocho verbos. El código implementa doce lazos de entrada

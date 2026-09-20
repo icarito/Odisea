@@ -6,6 +6,16 @@
 **Created:** 2026-09-11
 **Completed:** -
 
+> **Referencia de interfaz: `docs/odiseaos/MANUAL_DEL_TRIPULANTE.md`.**
+> Este FD sigue siendo el documento de la feature (arquitectura, fases, decisiones),
+> pero **la spec de lo que el jugador hace y ve es el Manual**. Donde este FD y el
+> Manual se contradigan, manda el Manual.
+>
+> En particular, el Manual §3.3 **deroga** el modelo "Slot A automático por relevancia +
+> Slot B fijado" que todavía aparece en las secciones viejas de este documento: son
+> **4 slots que solo llena el jugador**, y `relevance()` ordena el dial sin asignar nada
+> (drift #1 del mapa de la GUI, cerrado el 2026-09-20).
+
 ## Problem
 
 La información de los sistemas de la nave, la Multi-tool y las HoloTerminals
