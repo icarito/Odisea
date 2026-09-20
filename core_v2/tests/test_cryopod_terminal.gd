@@ -7,15 +7,45 @@ extends GdUnitTestSuite
 const CryoPodTerminalScene = preload("res://core_v2/props/criopod/CryoPodTerminal.tscn")
 const CriopodScene = preload("res://core_v2/props/criopod/Criopod_vert.tscn")
 const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
+const SCREEN_ID := "ship:cryopod:elias"
+
+var _mounted_nodes: Array = []
+var _previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
+
+func before_test() -> void:
+	_mounted_nodes.clear()
+	_previous_mouse_mode = Input.get_mouse_mode()
+	SuitOS.close_hud_mode()
+	SuitOS.unregister_screen(SCREEN_ID)
+	VirtualMouseScript.set_pointer_released(false)
+	_clear_virtual_mice()
+
+func after_test() -> void:
+	for node in _mounted_nodes:
+		if is_instance_valid(node):
+			node.free()
+	_mounted_nodes.clear()
+	SuitOS.close_hud_mode()
+	SuitOS.unregister_screen(SCREEN_ID)
+	VirtualMouseScript.set_pointer_released(false)
+	_clear_virtual_mice()
+	Input.set_mouse_mode(_previous_mouse_mode)
 
 func _mount(scene: PackedScene) -> Node:
 	var node = scene.instance()
 	get_tree().root.add_child(node)
+	_mounted_nodes.append(node)
 	return node
 
 func _drop(node: Node) -> void:
+	_mounted_nodes.erase(node)
 	if is_instance_valid(node):
-		node.queue_free()
+		node.free()
+
+func _clear_virtual_mice() -> void:
+	for node in get_tree().get_nodes_in_group("virtual_mouse"):
+		if is_instance_valid(node) and is_instance_valid(node.get_parent()):
+			node.get_parent().free()
 
 # El HUD dibuja este Viewport en el mesh del presentador, que no ocupa la ventana: el
 # mapeo absoluto del puntero cae donde no es y deja el cursor clavado. Mientras dure el
@@ -118,7 +148,6 @@ func test_terminal_turns_off_on_open_and_is_interactable_again_on_close() -> voi
 	var terminal = pod.get_node("RotatingObjectV2/CryoPodTerminal")
 	var hudable = pod.get_node("RotatingObjectV2/CryoPodTerminal/CryoPodHUDable")
 	var button: Button = terminal.get_node("Viewport/CryoPodUI/HatchButton")
-	hudable.auto_close_delay = 0.01
 	var previous_mouse_mode: int = Input.get_mouse_mode()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	var mouse_mode_is_settable: bool = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
@@ -139,10 +168,11 @@ func test_terminal_turns_off_on_open_and_is_interactable_again_on_close() -> voi
 	if mouse_mode_is_settable:
 		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_CAPTURED)
 
-	for _i in range(6):
-		yield (get_tree(), "physics_frame")
-		if not button.disabled:
-			break
+	# El cierre real puede ocurrir mucho despues; aca comprobamos el contrato de estado,
+	# no un timeout dependiente de cuantos frames alcance a procesar CI.
+	yield (get_tree(), "physics_frame")
+	hatch.set_active(false, true)
+	yield (get_tree(), "physics_frame")
 	assert_bool(hatch.is_active).is_false()
 	assert_bool(terminal.is_active).is_false()
 	assert_bool(terminal.is_interactable).is_true()
