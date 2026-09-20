@@ -359,34 +359,43 @@ func test_tab_tap_opens_the_radial_and_taps_again_to_close():
 
 	home.queue_free()
 
-func test_tab_hold_opens_the_radial():
+func test_tab_hold_opens_the_drawer():
+	# Decision de Sebastian 2026-09-20 (Manual, Apendice A punto 1): tap = el dial (tus
+	# favoritos), hold = el cajon (todo). El telefono monta el mismo overlay, asi que el
+	# verbo es el mismo que en el juego.
 	var home = _home_with_dial(_dial_screens())
 	home._client().ui_directives.clear()
 
 	_tab_hold(home)
 
-	# El hold saca el dial, y no eligio ninguna pantalla por su cuenta.
-	assert_bool(home._radial_is_open()).is_true()
+	var overlay = home.hud_backend.get_overlay()
+	assert_bool(overlay._drawer_open()).is_true()
+	assert_bool(home._radial_is_open()).is_false()
 	assert_array(home._client().ui_directives).is_empty()
 
-	# Soltar sin nada marcado: el dial no se queda abierto.
+	# Soltar no elige nada: el cajon se queda, que es lo que se pidio.
 	_tab_release(home)
-	assert_bool(home._radial_is_open()).is_false()
+	assert_bool(overlay._drawer_open()).is_true()
 	assert_array(home._client().ui_directives).is_empty()
 
 	home.queue_free()
 
-func test_releasing_tab_picks_what_the_dial_has_marked():
+func test_clicking_the_marked_slice_picks_it():
+	# Soltar el boton del HUD ya no elige (sostenerlo abre el cajon): el dial se abre con un
+	# tap y se confirma aparte, con el clic sobre el sector marcado.
 	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true
-	_tab_hold(home)
+	_tab_tap(home)
 	home._client().ui_directives.clear()
 
-	# Apunta hacia arriba (screen_a) con TAB todavia apretado, y suelta: queda elegida.
 	var overlay = home.hud_backend.get_overlay()
 	overlay._input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -80.0)))
 	_tick(home)
-	_tab_release(home)
+	# Sobre el sector apuntado, no sobre VIEW_SIZE * 0.5: con stretch "viewport" ese punto cae
+	# en el HUB segun el aspecto de la ventana y confirmaria el hub.
+	var slice: Vector2 = _top_slice(overlay)
+	overlay._input(_click(slice))
+	overlay._input(_release_click(slice))
 
 	assert_bool(home._radial_is_open()).is_false()
 	assert_array(_screen_selects(home)).is_equal(["screen_a"])

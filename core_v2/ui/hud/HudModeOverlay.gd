@@ -154,6 +154,9 @@ var _crouch_drag_active: bool = false
 var _crouch_drag_moved: bool = false
 # Arrastre de una fila del drawer hacia un slot (FD-305 §3.5). Con mouse/dedo la fila se levanta
 # al superar el umbral; con un hombro sostenido se levanta la fila enfocada y la lleva el stick.
+# El cajon se abrio directo (sostener el boton del HUD), sin pasar por el dial. Decide a
+# donde vuelve el retroceso: al juego, no a un dial que el jugador nunca abrio.
+var _drawer_entered_direct: bool = false
 var _drawer_press_row: int = -1
 # El drawer usa el mouse CAPTURADO: su puntero es el mismo cursor unico, movido por deltas.
 var _drawer_press_star: bool = false
@@ -317,7 +320,14 @@ func _physics_process(_delta: float) -> void:
 			_opened = true
 			_open_radial()
 	elif gesture == Gesture.HOLD and not _selector.is_open():
-		_begin_hold_radial(-1)
+		# Decision de Sebastian, 2026-09-20 (Manual, Apendice A punto 1): sostener abre el
+		# CAJON. Antes tap y hold abrian los dos el dial: el hold no tenia significado
+		# propio, y el "hint de descubrimiento" que pide FD-296:89-92 habria ensenado una
+		# diferencia que no existia. Ahora hay dos verbos distintos y enseniables:
+		# tap = tus favoritos (el dial), hold = todo (el cajon).
+		_opened = true
+		_target_slot = -1
+		_open_drawer_direct()
 	var slot_gesture: int = _feed_slot_gesture(int(input.hud_slot) - 1)
 	# FD-304 §6: con una pantalla abierta, el hombro + stick arrastra esa pantalla a otro slot en
 	# vez de abrir el radial de ese hombro. Mientras dura el arrastre, el resto del modo HUD no
@@ -363,12 +373,33 @@ func _feed_slot_gesture(pressed_slot: int) -> int:
 	_key_slot_down = down
 	return _slot_gesture.feed(down)
 
-# Tap de la tecla/hombro de un slot. Devuelve true si salio del modo HUD.
-# Revision 2026-09-19 (tarde): estando en modo HUD, R1/R2/L1/L2 NO abren el widget de su slot:
-# cierran el modo HUD y vuelven a gameplay. El widget se abre desde el radial (hub/opcion) o desde
-# la accion primaria en gameplay (HudSlotGamepadV2).
-func _tap_slot(_slot: int) -> bool:
-	_exit()
+# Tap de la tecla/hombro de un slot, ya dentro del modo HUD. Devuelve true si consumio el
+# frame (abrio, cerro o salio).
+#
+# Decision de Sebastian, 2026-09-20 (Manual, Apendice A punto 2): el boton de un slot
+# ABRE la pantalla de ese slot, y si ya estamos en ella, la cierra. Un boton, un destino.
+#
+# Antes esta funcion descartaba su argumento y llamaba _exit() y nada mas: dentro del modo
+# HUD, cualquier tecla de slot u hombro cerraba el HUD sin importar cual se hubiera
+# apretado. Los cuatro botones hacian lo mismo, y no era lo que decia ningun documento.
+func _tap_slot(slot: int) -> bool:
+	if slot < 0:
+		_exit()
+		return true
+	var suit_os: Node = _suit_os()
+	var id: String = String(suit_os.slot_screen_id(slot))
+	if id.empty() or not suit_os.has_screen(id):
+		# Slot vacio: el dial fijado a ese slot, que es como se llena. Ofrecer el dial es mas
+		# util que no hacer nada, y es lo mismo que ya hacia el hold.
+		_open_radial(slot)
+		_opened = true
+		return true
+	if id == String(suit_os.get_active_screen_id()):
+		# Ya estamos en ella: el mismo boton la cierra (Manual §5, verbo 2).
+		_exit()
+		return true
+	_opened = true
+	_show_screen(id)
 	return true
 
 
@@ -1122,6 +1153,17 @@ func _open_drawer() -> void:
 		_virtual_mouse.set_gamepad_cursor_enabled(false)
 
 
+# Sostener el boton del HUD desde el juego o desde una pantalla: el cajon entra sin dial
+# detras. Cierra lo que estuviera mostrandose para que no quede una vista abajo.
+func _open_drawer_direct() -> void:
+	_drawer_entered_direct = true
+	if _mount.is_showing() or is_instance_valid(_active_focused_screen):
+		_cleanup_focus()
+		_mount.close()
+		_suit_os().close_screen()
+	_open_drawer()
+
+
 func _close_drawer() -> void:
 	if is_instance_valid(_drawer):
 		_drawer.visible = false
@@ -1137,7 +1179,10 @@ func _close_drawer() -> void:
 # entro directo. Misma ruta para B (mando) y para el clic fuera de toda fila (mouse/dedo).
 func _dismiss_drawer() -> void:
 	_close_drawer()
-	if _dial_ids.empty():
+	# Se entro directo (hold): el retroceso vuelve al juego. Abrir un dial que el jugador
+	# nunca abrio seria aparecerle una pantalla que no pidio.
+	if _drawer_entered_direct or _dial_ids.empty():
+		_drawer_entered_direct = false
 		_exit()
 	else:
 		_open_radial(_target_slot)
@@ -1145,6 +1190,7 @@ func _dismiss_drawer() -> void:
 
 func _on_drawer_chose(id: String) -> void:
 	_close_drawer()
+	_drawer_entered_direct = false
 	if _target_slot >= 0:
 		_suit_os().pin_to_slot(_target_slot, id)
 	_show_screen(id)
