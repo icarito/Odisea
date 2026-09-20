@@ -26,7 +26,7 @@ export(float) var smooth_speed: float = 10.0 # Lerp speed
 export(int, 1, 8) var update_every_n_frames: int = 3
 # Ajuste del look en cheap mode (quad plano): uv_scale >1 achica el blobl, opacity <1
 # lo aclara. Valores elegidos para parecerse a lo que daba la grilla en el handheld.
-export(float, 0.5, 3.0) var cheap_uv_scale: float = 1.35
+export(float, 0.5, 3.0) var cheap_uv_scale: float = 1.55
 export(float, 0.1, 1.0) var cheap_opacity: float = 0.55
 export(float) var movement_epsilon: float = 0.02
 export(float) var rotation_epsilon_deg: float = 1.0

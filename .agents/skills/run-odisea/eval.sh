@@ -23,6 +23,8 @@
 # Notes:
 #   - "ERROR: NO GRAB" and a one-frame "LAG SPIKE" line are harmless headless noise.
 #   - Filter your own output with a tag, e.g. print("[x] ...") then grep '\[x\]'.
+#   - Corre con driver Server (--headless --no-window), igual que CI, aunque haya DISPLAY:
+#     un X11 oculto cambia el driver de input/ventana y puede divergir de CI.
 set -euo pipefail
 
 GODOT_BIN="${GODOT_BIN:-$(sh "$(dirname "$0")/../../../tools/godot_bin.sh")}"
@@ -64,9 +66,9 @@ cd "$PROJECT_DIR"
 # Filter the known headless boot/teardown noise so only your prints (and real
 # errors) remain. Use EVAL_RAW=1 to see everything.
 if [ -n "${EVAL_RAW:-}" ]; then
-  timeout "${EVAL_TIMEOUT:-90}" "$GODOT_BIN" --no-window -s "$REL" 2>&1
+  timeout "${EVAL_TIMEOUT:-90}" "$GODOT_BIN" --headless --no-window -s "$REL" 2>&1
 else
-  timeout "${EVAL_TIMEOUT:-90}" "$GODOT_BIN" --no-window -s "$REL" 2>&1 | grep -viE \
+  timeout "${EVAL_TIMEOUT:-90}" "$GODOT_BIN" --headless --no-window -s "$REL" 2>&1 | grep -viE \
     "NO GRAB|set_mouse_mode|LAG SPIKE|performance_log|Mesa|OpenGL ES|Godot Engine v|\
 \[AudioManager\]|\[SessionManager\]|\[PerformanceMonitor\]|\[ANNAV2\]|\
 instances leaked|still in use at exit|MemoryPool allocs|_first != nullptr|self_list|\

@@ -376,13 +376,16 @@ func _keeps_own_material(node: Node, src) -> bool:
 			or n.find("smoke") != -1 or n.find("steam") != -1 \
 			or n.find("vapor") != -1 or n.find("vapour") != -1 \
 			or n.find("leak") != -1 or n.find("mist") != -1 \
-			or n.find("haze") != -1 or n.find("fog") != -1:
+			or n.find("haze") != -1 or n.find("fog") != -1 \
+			or n.find("flashlight") != -1 or n.find("linterna") != -1 \
+			or n.find("volumetric") != -1 or n.find("lightcone") != -1 \
+			or n.find("lightbeam") != -1 or n.find("lightshaft") != -1:
 		return true
 	if src is ShaderMaterial:
 		var sh := src as ShaderMaterial
 		if sh.shader != null:
 			var sp := str(sh.shader.resource_path).to_lower()
-			for tok in ["holoscreen", "hologlass", "fakeshadow", "shadow", "smoke", "steam", "vapor", "leak", "mist"]:
+			for tok in ["holoscreen", "hologlass", "fakeshadow", "shadow", "smoke", "steam", "vapor", "leak", "mist", "volumetric", "flashlight", "lightbeam", "lightshaft"]:
 				if sp.find(tok) != -1:
 					return true
 	return false

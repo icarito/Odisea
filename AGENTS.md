@@ -244,6 +244,29 @@ Usar `--collect-only` para encontrar el nodo pytest correspondiente antes de eje
 
 La suite completa queda a cargo de CI. `runtest.sh` sigue disponible para invocaciones directas o cuando la tarea pida su salida específica.
 
+> [!IMPORTANT] BACKEND DE TESTS = CI (Server headless)
+> `runtest.sh` corre **siempre** con `--headless --no-window` (driver Server), aunque haya
+> `DISPLAY`. CI corre en un runner sin X11 con ese backend; un run local con X11 oculto
+> (`--no-window` solo) **no valida CI**: cambia el driver de ventana/input y el mouse virtual
+> y Box3D pueden dar resultados distintos (asserts que pasan local y fallan en CI, o al
+> revés). `--show` es la única vía gráfica: sirve para mirar, no para validar.
+> `tests/test_runtest_runner_contract.py` corre en CI y detecta si se reintroduce la
+> bifurcación por display.
+>
+> Paridad con CI: `ANNA_V2_NO_CENTRAL=1` y `ODISEA_TEST_TIMEOUT_SEC=180` son el default
+> local. `./runtest.sh --ci` reproduce el job core tal cual (un proceso gdunit sobre toda la
+> suite, sin determinismo, timeout de pared 420s); el default local (delegate pytest, un
+> Godot por suite) cambia el orden y la orfandad acumulada, así que no sirve para
+> reproducir un fallo de CI. `--filter <substring>` corre nodos pytest puntuales y
+> `--list` lista suites/casos/nodos.
+
+```shell
+./runtest.sh --ci                         # reproducción fiel del job core de CI
+./runtest.sh --filter cryopod             # nodos pytest que matcheen
+./runtest.sh --list                       # suites GdUnit, casos OYS, nodos pytest
+./runtest.sh --print-command -a <suite>   # comando headless resuelto, sin ejecutar Godot
+```
+
 Tests principales:
 - `./runtest.sh -a ./core_v2/tests/test_gravity_modes.gd` — modos de gravedad y zero-g
 - `./runtest.sh -a ./core_v2/tests/test_determinism_v2.gd` — determinismo del Core

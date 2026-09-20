@@ -309,15 +309,35 @@ Discover a GdUnit/OYS pytest node first when needed:
 
 ```bash
 ./.venv/bin/pytest tests/test_odisea_runner.py --collect-only -q -k <relevant>
+./runtest.sh --list          # suites GdUnit, OYS cases, how to discover pytest nodes
 ```
+
+**Backend contract — Server headless, same as CI.** `runtest.sh` and the pytest delegate
+always run with `--headless --no-window` (Server driver), even on a machine with `DISPLAY`.
+CI has no X11 and uses that backend; a local X11-hidden run (`--no-window` only) does **not**
+validate CI: the window/input driver changes and VirtualMouse and Box3D can differ (asserts
+that pass locally and fail in CI, or vice versa). `--show` is the only graphical path and is
+for looking, not validating. `tests/test_runtest_runner_contract.py` runs in CI and catches a
+reintroduced display branch.
+
+CI parity, all overridable by env:
+
+- `ANNA_V2_NO_CENTRAL=1` and `ODISEA_TEST_TIMEOUT_SEC=180` are the local defaults (same as CI).
+- `./runtest.sh --ci` reproduces the core CI job exactly: one gdunit process over the whole
+  suite, no determinism, preflight already done, 420s wall timeout. Use it to reproduce a CI
+  failure; the local default (pytest delegate, one Godot per suite) changes the order and the
+  accumulated orphan state.
+- `./runtest.sh --filter <substring>` runs matching pytest nodes (forces the delegate).
 
 ## Run All GdUnit3 Tests (CI only)
 
 ```bash
+./runtest.sh --ci        # reproduccion fiel del job core de CI
 ./runtest.sh -a ./core_v2/tests/
 ```
 
-Do not use this locally as a default; use a selected pytest node instead.
+Do not use the full suite locally as a default; use a selected pytest node instead. If you
+must reproduce a CI failure, use `--ci`, not the plain full-suite invocation.
 
 ## ANNA V2 Telemetry Capture (local, bridge-independent)
 
@@ -411,6 +431,7 @@ Expected: OYS tests print `PASSED` and exit 0. Full suite prints `✅ Todos los 
 - **`--runner` flag is not valid for GdUnit3** — `runtest.sh --oys` routes internally through GdUnit3's `GdUnitCmdTool.gd`. The `--runner` flag only applies to the outer pytest wrapper for full-suite runs, not `--oys` runs.
 - **Delta assertions may warn but not fail** — `test_prop.sh` uses a 2% pixel-delta threshold. If a prop has subtle animation, you may see "DELTA ASSERTION FAILED" even when screenshots are visually different. The exit code is the final authority.
 - **`ERROR: NO GRAB`** — This is harmless; it appears when Godot runs headless (`--no-window`) and tries to grab mouse focus. All tests pass despite it.
+- **Never run tests with X11 hidden (`--no-window` only)** — it is not CI parity. `runtest.sh` and `eval.sh` force the Server driver (`--headless --no-window`); keep it that way. A display-dependent backend makes VirtualMouse/Box3D asserts diverge from CI. `tests/test_runtest_runner_contract.py` guards this.
 - **Audio is muted automatically** — `ODISEA_FORCE_MUTE_AUDIO=1` is set in all test scripts to silence audio in headless mode.
 - **OYS test replay takes ~80s** — Each `--oys` test runs two phases: record + replay. This is normal.
 - **`run/main_scene`** in `project.godot` is `res://core_v2/bootstrap/Boot.tscn`, not the Menu scene listed in some older docs.

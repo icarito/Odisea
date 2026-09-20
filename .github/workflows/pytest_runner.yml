@@ -201,6 +201,14 @@ jobs:
             --import-mode auto \
             --allow-smoke-retry 1
 
+      - name: Validate runner backend contract
+        run: |
+          set -euo pipefail
+          # runtest.sh debe resolver SIEMPRE el driver Server (--headless --no-window),
+          # aunque exista DISPLAY, para que un run local no diverja de CI. Un X11 oculto
+          # (--no-window solo) cambia el driver de input/ventana y rompe la paridad.
+          ./.venv/bin/pytest tests/test_runtest_runner_contract.py -q
+
       - name: Run Core Tests
         env:
           GODOT_BIN: /usr/local/bin/godot

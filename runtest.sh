@@ -39,9 +39,8 @@
 #   O para ver el resumen:
 #     grep -E "(PASSED|FAILED|ERROR|Total|Exit code)" ./reports/gdunit_runner.log
 
-if [ -z "$GODOT_BIN" ]; then
-    GODOT_BIN="$(sh "$(dirname "$0")/tools/godot_bin.sh")"
-fi
+# El binario se resuelve mas abajo (justo antes del parseo), para que --list no
+# dispare la build del fork solo por listar targets.
 
 # Backend de display: SIEMPRE Server (--headless --no-window), igual que CI, aunque
 # exista un display local. --show es la unica via grafica y no valida CI. No volver a
@@ -279,12 +278,14 @@ has_pytest_runner() {
     if [ ! -f "./tests/test_odisea_runner.py" ]; then
         return 1
     fi
-    if command -v pytest >/dev/null 2>&1; then
-        PYTEST_BIN="$(command -v pytest)"
-        return 0
-    fi
+    # Preferir el venv del repo: CI usa ./.venv/bin/pytest y trae xdist/plugins; el
+    # pytest del PATH puede ser otro Python y no tener xdist, lo que cambia el paralelismo.
     if [ -x "./.venv/bin/pytest" ]; then
         PYTEST_BIN="./.venv/bin/pytest"
+        return 0
+    fi
+    if command -v pytest >/dev/null 2>&1; then
+        PYTEST_BIN="$(command -v pytest)"
         return 0
     fi
     return 1
@@ -350,6 +351,9 @@ run_pytest_delegate() {
     echo "🐍 Delegando ejecución a pytest..."
     echo "📋 Output guardado en: $LOG_FILE"
     echo "Comando: ${cmd[*]}"
+    if is_full_core_suite_target && [ $CI_PROFILE -eq 0 ]; then
+        echo "ℹ️  Paridad CI: ./runtest.sh --ci reproduce el job core (gdunit en un solo proceso, sin determinismo)."
+    fi
     echo "---"
 
     "${cmd[@]}" 2>&1 | tee "$LOG_FILE"
@@ -401,6 +405,19 @@ normalize_orphan_exit_code() {
     return $code
 }
 
+# --list es descubrimiento puro: no necesita el binario de Godot. Se atiende antes de
+# resolverlo para no disparar una build del fork (godot_bin.sh) solo por listar.
+for _arg in "$@"; do
+    if [ "$_arg" = "--list" ]; then
+        list_test_targets
+        exit 0
+    fi
+done
+
+if [ -z "$GODOT_BIN" ]; then
+    GODOT_BIN="$(sh "$(dirname "$0")/tools/godot_bin.sh")"
+fi
+
 # Parse arguments
 ARGS=()
 while [[ $# -gt 0 ]]; do
@@ -416,10 +433,6 @@ while [[ $# -gt 0 ]]; do
         --print-command)
             PRINT_COMMAND=1
             shift
-            ;;
-        --list)
-            list_test_targets
-            exit 0
             ;;
         -k|--filter)
             PYTEST_FILTER="$2"
@@ -538,7 +551,9 @@ fi
 if [ $CI_PROFILE -eq 1 ]; then
     export ODISEA_INCLUDE_DETERMINISM=0
     export ODISEA_RUN_DETERMINISM=0
-    export ODISEA_SKIP_PREFLIGHT=1
+    # CI ya corrio import+smoke antes de los tests y por eso salta el preflight; en un
+    # checkout limpio exportar ODISEA_SKIP_PREFLIGHT=0 para forzarlo.
+    export ODISEA_SKIP_PREFLIGHT="${ODISEA_SKIP_PREFLIGHT:-1}"
     export ODISEA_TEST_TIMEOUT_SEC=180
     export ODISEA_RUN_TIMEOUT_SEC="${ODISEA_RUN_TIMEOUT_SEC:-420}"
     RUNNER_MODE="gdunit"
