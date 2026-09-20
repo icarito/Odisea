@@ -362,21 +362,29 @@ func _node_hint(node: Node, mesh: Mesh) -> String:
 		parts.append(str(mesh.resource_path))
 	return parts.join(" ")
 
-# Pantallas holograficas (terminales, projectores): su material es un ShaderMaterial que
-# dibuja la ViewportTexture con cull_disabled/unshaded/blend. Aplanarlas las rompe. Se
-# detectan por el material (HoloScreen/HoloGlass) o por el nombre del nodo; el nombre se
-# mira solo en el nodo, no en la ruta del mesh, para no atrapar muebles tipo "DisplayCase".
-func _is_holo_screen(node: Node, src) -> bool:
+# Materiales que deben conservar el suyo en tier LOW porque son transparencia por
+# diseno: pantallas holograficas, la sombra falsa del piloto y humo/vapor/leak.
+# Aplanarlos los vuelve un panel opaco (FlatFake no tiene blend) y en el modo 3 el
+# gate ademas suelta el material_override. Se detectan por el nombre del nodo (solo el
+# nodo, no la ruta del mesh, para no atrapar muebles tipo "DisplayCase") o por la ruta
+# del shader del material fuente.
+func _keeps_own_material(node: Node, src) -> bool:
 	var n := str(node.name).to_lower()
 	if n.find("holo") != -1 or n.find("screen") != -1 \
-			or n.find("pantalla") != -1 or n.find("display") != -1:
+			or n.find("pantalla") != -1 or n.find("display") != -1 \
+			or n.find("shadow") != -1 or n.find("fakeshadow") != -1 \
+			or n.find("smoke") != -1 or n.find("steam") != -1 \
+			or n.find("vapor") != -1 or n.find("vapour") != -1 \
+			or n.find("leak") != -1 or n.find("mist") != -1 \
+			or n.find("haze") != -1 or n.find("fog") != -1:
 		return true
 	if src is ShaderMaterial:
 		var sh := src as ShaderMaterial
 		if sh.shader != null:
 			var sp := str(sh.shader.resource_path).to_lower()
-			if sp.find("holoscreen") != -1 or sp.find("hologlass") != -1:
-				return true
+			for tok in ["holoscreen", "hologlass", "fakeshadow", "shadow", "smoke", "steam", "vapor", "leak", "mist"]:
+				if sp.find(tok) != -1:
+					return true
 	return false
 
 # Color plano del material original: albedo_color (SpatialMaterial) o los uniforms mas
@@ -514,11 +522,11 @@ func _low_tier_node(node: Node) -> void:
 			src = node.get("material")
 		var hint := _node_hint(node, mesh)
 		var h := hint.to_lower()
-		# Pantallas holograficas: conservan su ShaderMaterial (HoloScreen/HoloGlass) con la
-		# ViewportTexture. El aplanado las deja invisibles: FlatFake es cull_back y los
-		# ScreenMesh van con invert_faces=true, asi que el frente queda culled; en las que
-		# no, el material opaco tapa la UI del viewport. Solo se les apaga la sombra.
-		if _is_holo_screen(node, src):
+		# Materiales transparentes por diseño (holo, sombra, humo/vapor/leak): el
+		# aplanado los vuelve opacos — y en el modo 3 ademas suelta el material_override
+		# y aplana por superficie — asi que conservan su ShaderMaterial. Solo se les
+		# apaga la sombra (arriba).
+		if _keeps_own_material(node, src):
 			return
 		# Los personajes quedan FUERA del modo plano. FlatFake es un headlight en espacio
 		# de camara: aplana justo lo que tiene que leerse con volumen. Conservando su
