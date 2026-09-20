@@ -932,9 +932,13 @@ func test_release_in_the_dead_zone_picks_nothing() -> void:
 func test_pulling_the_mouse_back_to_the_middle_clears_the_selection() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
-	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS) + [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}])
+	# Con el radio completo, no con 60 px: en la ventana de CI el hub llega a 65 px y el aim
+	# nunca salia del centro, asi que la primera afirmacion (hay algo marcado) no se cumplia.
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS))
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]}])
 	assert_int(overlay._selector.get_hovered_index()).is_equal(1)
-	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, -60.0]}])
+	# Volver al centro: el mouse suma, asi que el delta opuesto deja el aim en cero.
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, -overlay_aim_radius()]}])
 	assert_bool(overlay._selector.has_selection()).is_false()
 
 
