@@ -135,7 +135,9 @@ func _set_world_paused(paused: bool) -> void:
 		mobile.refresh_for_pause()
 
 func _set_widget_host_cinematic(enabled: bool) -> void:
-	var widget_host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
+	# Por SuitOS, no por path: el path se rompe en silencio si el nodo se renombra.
+	var suit_os = get_node_or_null("/root/SuitOS")
+	var widget_host = suit_os.get_widget_host() if suit_os != null and suit_os.has_method("get_widget_host") else null
 	if widget_host and widget_host.has_method("set_cinematic_active"):
 		widget_host.set_cinematic_active(enabled)
 

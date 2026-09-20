@@ -319,6 +319,15 @@ func _refresh_mobile_ui() -> void:
 	if mobile and mobile.has_method("refresh_for_pause"):
 		mobile.refresh_for_pause()
 	# Lo mismo para los widgets del HUD de SuitOS (capa 115, encima del menu de pausa).
-	var widget_host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
+	# Se le pide el host a SuitOS en vez de buscarlo por path: el path se rompe en silencio
+	# si el nodo se renombra, y SuitOS ya es el duenio del host.
+	var widget_host = _suit_os_widget_host()
 	if widget_host and widget_host.has_method("refresh_visibility"):
 		widget_host.refresh_visibility()
+
+# El host de widgets de SuitOS, sin hardcodear su path en el arbol.
+func _suit_os_widget_host() -> Node:
+	var suit_os = get_node_or_null("/root/SuitOS")
+	if suit_os == null or not suit_os.has_method("get_widget_host"):
+		return null
+	return suit_os.get_widget_host()

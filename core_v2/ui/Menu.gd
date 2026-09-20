@@ -40,7 +40,8 @@ func _ready():
 	var suit_os = get_node_or_null("/root/SuitOS")
 	if suit_os != null and suit_os.has_method("close_hud_mode"):
 		suit_os.close_hud_mode()
-	var host = get_node_or_null("/root/SuitOS/SuitOSWidgetHost")
+	# Por SuitOS, no por path: el path se rompe en silencio si el nodo se renombra.
+	var host = suit_os.get_widget_host() if suit_os != null and suit_os.has_method("get_widget_host") else null
 	if host != null and host.has_method("refresh_visibility"):
 		host.refresh_visibility()
 
