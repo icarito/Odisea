@@ -10,6 +10,9 @@ var mode = Mode.LIVE
 var playback_buffer := []
 var playback_index := 0
 var mouse_delta_accum := Vector2()
+# El HUD latea aca el slot cuyo widget se acciono; se consume y limpia por frame para que quede
+# grabado en el stream (y el replay lo reproduzca).
+var hud_widget_activate_slot := -1
 var zoom_delta_accum := 0.0
 # Latch del auto-sprint analogico (histeresis 0.85/0.7): evita el flicker de sprint
 # cuando la deflexion del stick virtual ronda el umbral.
@@ -268,6 +271,8 @@ func _read_live_input() -> InputDataV2:
 			d.hud_nav = -1
 		elif _action_pressed("camera_down") or _action_pressed("ui_down"):
 			d.hud_nav = 1
+		d.hud_widget_activate_slot = hud_widget_activate_slot
+		hud_widget_activate_slot = -1
 
 		# --- JOYSTICK SPRINT (Physical) ---
 		var joy_move_x = _joy_axis(JOY_AXIS_0) * axis_inv.x

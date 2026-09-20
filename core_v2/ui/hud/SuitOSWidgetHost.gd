@@ -1,6 +1,10 @@
 extends Control
 class_name SuitOSWidgetHost
 
+# Un tap sobre un widget de interactuable fijado pide accionarlo. El overlay lo latea al stream
+# (hud_widget_activate_slot) para que quede grabado; sin overlay, se acciona directo.
+signal interactable_activate_requested(slot_index)
+
 # SuitOSWidgetHost.gd - Widget Host component for OdiseaOS (FD-296 F1.5)
 # Listens to SuitOS.widget_changed(slot, snapshot) and mounts/updates widget overlays in its
 # own CanvasLayer (WIDGET_LAYER), below the touch controls and below any open HUD screen.
@@ -9,6 +13,8 @@ const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
 const ZoomRulerScript = preload("res://core_v2/ui/hud/ZoomRuler.gd")
+const InteractableSlotScreenScript = preload("res://core_v2/ui/hud/InteractableSlotScreen.gd")
+const InteractableSlotWidgetScript = preload("res://core_v2/ui/hud/InteractableSlotWidget.gd")
 const Haptics = preload("res://core_v2/ui/Haptics.gd")
 
 # Cada slot tiene su lugar FIJO (HudSlots.slot_position): 1 y 2 arriba a la izquierda, 3 y 4
@@ -49,6 +55,8 @@ const DENY_MSEC := 450
 # vive en un slot libre mientras el jugador apunta al prop, y se va solo.
 const CONTEXT_WIDGET_NAME := "SuitOS_Context"
 const CONTEXT_ICON_SIZE := Vector2(44, 44)
+# Slot logico del widget del pie: comparte el arrastre de los widgets de slot sin ser uno.
+const CONTEXT_SLOT := "__context__"
 
 var _active_screen_ids: Dictionary = {} # slot -> screen_id
 var _press_msec: int = 0
@@ -84,6 +92,7 @@ var _hold_slot: int = -1
 var _hold_progress: float = 0.0
 # FD-310: widget de contexto (interactuable en rango) y el slot libre que ocupa.
 var _context_widget: Control = null
+var _context_target: Node = null
 # De donde salen slots y pantallas: SuitOS en el juego, RemoteHudBackend en el control remoto (que
 # lo asigna antes de add_child). Mismo contrato; ver RemoteHudBackend.gd.
 var backend: Node = null
@@ -314,6 +323,7 @@ func _on_cinematic_tween_completed(hide_widgets: bool) -> void:
 	if hide_widgets and _cinematic_active:
 		refresh_visibility()
 	elif not hide_widgets and not _cinematic_active:
+		_relayout()
 		refresh_visibility()
 	_cinematic_tween = null
 
@@ -358,7 +368,14 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 			# Solo se actualiza en su lugar si sigue siendo lo mismo: un slot fijado antes de que su
 			# pantalla exista (la linterna por defecto, desde el menu) nace como rotulo de reserva, y
 			# cuando la pantalla aparece hay que cambiarlo por el widget de verdad.
-			var same_kind: bool = (existing is Label) == (widget_scene == null)
+			var wants_interactable: bool = screen_id.begins_with("interactable:")
+			var same_kind: bool = false
+			if wants_interactable:
+				same_kind = existing is InteractableSlotWidget
+			elif widget_scene == null:
+				same_kind = existing is Label
+			else:
+				same_kind = not (existing is Label) and not (existing is InteractableSlotWidget)
 			if is_instance_valid(existing) and not existing.is_queued_for_deletion() and same_kind:
 				if existing.has_method("update_snapshot"):
 					existing.update_snapshot(snapshot)
@@ -372,8 +389,8 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 
 	_active_screen_ids[slot] = screen_id
 
-	if widget_scene != null:
-		var overlay = widget_scene.instance()
+	if widget_scene != null or screen_id.begins_with("interactable:"):
+		var overlay = widget_scene.instance() if widget_scene != null else InteractableSlotWidgetScript.new()
 		overlay.name = overlay_name
 		get_widget_root().add_child(overlay)
 		if is_instance_valid(overlay):
@@ -405,6 +422,8 @@ func show_context(snapshot: Dictionary) -> bool:
 	if not is_instance_valid(_context_widget):
 		_context_widget = _build_context_widget()
 		get_widget_root().add_child(_context_widget)
+		_make_context_tappable(_context_widget)
+	_context_target = snapshot.get("interactable", null) if is_instance_valid(snapshot.get("interactable", null)) else null
 	var title = _context_widget.get_node_or_null("Row/VBox/Title")
 	if title is Label:
 		(title as Label).text = String(snapshot.get("title", ""))
@@ -736,6 +755,84 @@ func _ignore_mouse(node: Node) -> void:
 	for child in node.get_children():
 		_ignore_mouse(child)
 
+# El widget del pie tambien se agarra: arrastrarlo a un slot fija un "interactable screen" con su
+# ficha y su accion. Engancha al mismo pipeline que los widgets de slot, con CONTEXT_SLOT.
+func _make_context_tappable(control: Control) -> void:
+	control.mouse_filter = Control.MOUSE_FILTER_STOP
+	control.add_to_group("touch_control")
+	_ignore_mouse(control)
+	if not control.is_connected("gui_input", self, "_on_widget_gui_input"):
+		control.connect("gui_input", self, "_on_widget_gui_input", [control, CONTEXT_SLOT])
+
+# Registra (si hace falta) el adaptador-pantalla del interactuable que hoy esta en el pie.
+func _context_adapter():
+	if not is_instance_valid(_context_target):
+		return null
+	var suit_os = _backend()
+	if suit_os == null:
+		return null
+	var id: String = "interactable:%s" % String(_context_target.get_path())
+	var existing = suit_os.get_screen(id) if suit_os.has_method("get_screen") else null
+	if existing != null:
+		return existing
+	var adapter = InteractableSlotScreenScript.new()
+	adapter.bind(_context_target)
+	suit_os.register_screen(adapter)
+	return adapter
+
+# --- Acorde de Interactuar: arrastrar el widget del interactuable activo, desde el stream ---
+# Lo maneja el overlay con interact_held + mouse_delta/move_vec (campos ya grabados), asi el
+# arrastre entra al replay sin campos nuevos.
+
+var _context_grabbing: bool = false
+
+func context_widget_active() -> bool:
+	return is_instance_valid(_context_widget) and is_instance_valid(_context_target) \
+		and _context_widget.visible
+
+func begin_context_grab() -> bool:
+	if not context_widget_active():
+		return false
+	_context_grabbing = true
+	_context_widget.modulate.a = DRAG_ALPHA
+	get_widget_root().move_child(_context_widget, get_widget_root().get_child_count() - 1)
+	_last_pointer_position = _context_widget.rect_position + _context_widget.rect_size * 0.5
+	show_drop_targets(true, slot_at(_last_pointer_position))
+	return true
+
+func drive_context_grab(delta: Vector2) -> void:
+	if not _context_grabbing or not is_instance_valid(_context_widget):
+		return
+	_context_widget.rect_position += delta
+	_last_pointer_position = _context_widget.rect_position + _context_widget.rect_size * 0.5
+	show_drop_targets(true, slot_at(_last_pointer_position))
+
+func end_context_grab() -> void:
+	if not _context_grabbing:
+		return
+	_context_grabbing = false
+	if is_instance_valid(_context_widget):
+		_last_pointer_position = _context_widget.rect_position + _context_widget.rect_size * 0.5
+		_end_context_drag(_context_widget)
+
+func _end_context_drag(control: Control) -> void:
+	_dragging = false
+	show_drop_targets(false)
+	_show_recycle(false)
+	if is_instance_valid(control):
+		control.modulate.a = 1.0
+	var target: int = slot_at(_last_pointer_position)
+	var suit_os = _backend()
+	if target >= 0 and suit_os != null and is_instance_valid(_context_target):
+		var adapter = _context_adapter()
+		if adapter != null:
+			Haptics.pulse(Haptics.DROP_MSEC)
+			suit_os.pin_to_slot(target, adapter.screen_id())
+	else:
+		Haptics.tick()
+	if is_instance_valid(_context_widget):
+		_place_context(_context_widget)
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch or event is InputEventMouseButton:
 		_last_pointer_position = event.position
@@ -763,6 +860,9 @@ func _drive_drag(control: Control) -> void:
 # Soltar un widget arrastrado: sobre el reciclaje se quita; en otro slot se intercambian; fuera de
 # todo slot, un swipe hacia afuera lo vacia y cualquier otra cosa lo devuelve a su lugar.
 func _end_drag(control: Control, slot: String) -> void:
+	if slot == CONTEXT_SLOT:
+		_end_context_drag(control)
+		return
 	_dragging = false
 	show_drop_targets(false)
 	var over_recycle: bool = recycle_rect().has_point(_last_pointer_position)
@@ -882,11 +982,21 @@ func _on_widget_gui_input(event: InputEvent, control: Control, slot: String) -> 
 	if _dragging:
 		_end_drag(control, slot)
 		return
+	if slot == CONTEXT_SLOT:
+		return # toque seco al widget del pie: no abre nada (solo se agarró para arrastrar)
 	var suit_os = _backend()
 	if suit_os == null:
 		return
-	var index: int = HudSlots.index_of(slot)
 	var screen_id: String = String(_active_screen_ids.get(slot, ""))
+	# Un interactuable fijado a un slot se ACCIONA al tocarlo, no abre una pantalla (no la tiene).
+	# En modo HUD el overlay lo latea al stream para que entre al replay; sin overlay, directo.
+	if screen_id.begins_with("interactable:"):
+		if get_signal_connection_list("interactable_activate_requested").size() > 0:
+			emit_signal("interactable_activate_requested", HudSlots.index_of(slot))
+		elif bool(suit_os.perform_action(screen_id, "interact").get("ok", false)):
+			Haptics.confirm()
+		return
+	var index: int = HudSlots.index_of(slot)
 	var swipe_min: float = SWIPE_MIN * UIScaleCompensatorScript.scale_for(self)
 	if HudSlots.outward_swipe(index, _last_pointer_position - _press_position, swipe_min):
 		Haptics.pulse(Haptics.DROP_MSEC)

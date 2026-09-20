@@ -50,6 +50,8 @@ const NAV_REPEAT_MSEC := 400
 const NAV_RATE_MSEC := 110
 # Cuanto recorre el cursor del arrastre por tick con el stick a fondo, en pixeles del viewport.
 const STICK_DRAG_SPEED := 14.0
+# Cuanto aporta el stick por tick al arrastre del widget del interactuable (acorde de Interactuar).
+const CONTEXT_GRAB_SPEED := 10.0
 
 var input_provider = null # InputProviderV2; LIVE salvo que un test inyecte uno en REPLAY
 # De donde salen las pantallas y los slots: SuitOS en el juego; RemoteHudBackend en el control
@@ -143,6 +145,9 @@ var _hold_progress: float = 0.0
 # fija proyectando. Un unico tope por contexto, siempre por _move_cursor().
 var _cursor: Vector2 = Vector2.ZERO
 var _cursor_moved: bool = false
+# Acorde de Interactuar sobre el widget del interactuable activo. Sale del stream (interact_held +
+# mouse_delta/move_vec), asi que el replay lo reproduce igual.
+var _context_grabbing: bool = false
 # Clic/arrastre del dial con CROUCH (revision 2026-09-19): sostenido levanta el item marcado y el
 # stick lo lleva a un slot; un tap corto confirma.
 var _crouch_drag_active: bool = false
@@ -278,6 +283,11 @@ func _physics_process(_delta: float) -> void:
 	var input = _frame_input()
 	if input == null:
 		return
+	if not _selector.is_open() and not _drawer_open():
+		_drive_context_grab(input)
+	_ensure_widget_host_signals()
+	if int(input.hud_widget_activate_slot) >= 0:
+		_activate_pinned_interactable(int(input.hud_widget_activate_slot))
 	var gesture: int = _gesture.feed(bool(input.hud_mode))
 	if _drawer_open():
 		# El drawer es una vista: Y sale del modo HUD (no vuelve al dial), como dice FD-305 §3.5.
@@ -411,6 +421,49 @@ func _aim_with_hud_button(tab_down: bool) -> void:
 		_begin_hold_radial(-1)
 	if _selector.is_open():
 		_point_at(drag)
+
+# Acorde de Interactuar (stream): sostener Interactuar agarra el widget del interactuable activo y
+# el movimiento (mouse/stick) lo lleva a un slot; al soltar se fija. Todo sale de campos ya
+# grabados (interact_held, mouse_delta, move_vec/analog), asi que el replay lo reproduce igual.
+func _drive_context_grab(input) -> void:
+	var host = _widget_host()
+	if host == null or not host.has_method("context_widget_active"):
+		return
+	if bool(input.interact_held) and host.context_widget_active():
+		if not _context_grabbing:
+			_context_grabbing = true
+			if not host.begin_context_grab():
+				_context_grabbing = false
+				return
+		var delta := Vector2(input.mouse_delta.x, -input.mouse_delta.y)
+		delta += Vector2(input.move_vec.x, input.move_vec.y) * CONTEXT_GRAB_SPEED
+		host.drive_context_grab(delta)
+	elif _context_grabbing:
+		_context_grabbing = false
+		host.end_context_grab()
+
+
+# El host avisa que se toco un widget de interactuable fijado; se latea al stream para que la
+# accion quede grabada y el replay la reproduzca.
+func _ensure_widget_host_signals() -> void:
+	var host = _widget_host()
+	if host == null or not host.has_signal("interactable_activate_requested"):
+		return
+	if not host.is_connected("interactable_activate_requested", self, "_on_interactable_activate_requested"):
+		host.connect("interactable_activate_requested", self, "_on_interactable_activate_requested")
+
+func _on_interactable_activate_requested(slot_index: int) -> void:
+	if input_provider != null and "hud_widget_activate_slot" in input_provider:
+		input_provider.hud_widget_activate_slot = slot_index
+
+func _activate_pinned_interactable(slot_index: int) -> void:
+	var suit_os: Node = _suit_os()
+	if suit_os == null:
+		return
+	var id: String = suit_os.slot_screen_id(slot_index)
+	if id.begins_with("interactable:") and bool(suit_os.perform_action(id, "interact").get("ok", false)):
+		Haptics.confirm()
+
 
 func _drive_from_stream(input) -> void:
 	if not _selector.is_open():

@@ -1,12 +1,17 @@
 extends Control
 
 const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
-const FIRST_GAME_SCENE := "res://core_v2/levels/interiors/Dome_Intro.tscn"
+const FIRST_GAME_SCENE := "res://core_v2/levels/RingHub_Level.tscn"
 const MENU_BGM := "Tin Cosmos"
-# Debe coincidir con el bgm_stream de BGMZoneV2 en Dome_Intro.tscn (mismo path
-# res://assets/music/<nombre>) para que el crossfade arrancado aqui empalme sin corte
-# cuando la zona real se registre al terminar de cargar el nivel.
+# RingHub no tiene BGMZoneV2, asi que este crossfade es la unica musica del arranque: queda
+# sonando la entrada al nivel en vez de cortarse.
 const FIRST_GAME_BGM := "Elias... wake"
+# Warmup de shaders por escena: el cache a usar si la escena de arranque tiene uno horneado.
+# RingHub ya lo tiene, asi que en Android/HTML5 se precalienta en el Menu.
+const FIRST_GAME_SHADER_CACHE := {
+	"res://core_v2/levels/interiors/Dome_Intro.tscn": "res://core_v2/levels/shader_cache/DomeIntroShaderCache.tscn",
+	"res://core_v2/levels/RingHub_Level.tscn": "res://core_v2/levels/shader_cache/RingHubShaderCache.tscn",
+}
 
 onready var fade_rect: ColorRect = $CanvasLayer/ColorRect
 onready var tween: Tween = $Tween
@@ -71,6 +76,10 @@ func _ready():
 func _on_fade_in_complete() -> void:
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_focus_default_button()
+	# Recien con el Menu asentado arranca el warmup de shaders de la escena de entrada. Antes
+	# nadie llamaba a begin_shader_warmup() y el trigger quedaba armado para siempre. El
+	# cursor pasa a reloj de arena mientras compila (ShaderWarmupTrigger).
+	begin_shader_warmup()
 
 func _focus_default_button() -> void:
 	if continue_button.visible and not continue_button.disabled:
@@ -93,9 +102,12 @@ func _spawn_shader_warmup():
 	# de Dome_Intro paga ~90 programas GLES3 de a uno.
 	if not OS.get_name() in ["HTML5", "Android"]:
 		return
+	var cache_path: String = String(FIRST_GAME_SHADER_CACHE.get(FIRST_GAME_SCENE, ""))
+	if cache_path == "":
+		return # la escena de arranque no tiene cache horneado: no compilar la de otra
 	var trigger := preload("res://core_v2/levels/ShaderWarmupTrigger.gd").new()
 	trigger.name = "DomeIntroShaderWarmup"
-	trigger.shader_cache_scene_path = "res://core_v2/levels/shader_cache/DomeIntroShaderCache.tscn"
+	trigger.shader_cache_scene_path = cache_path
 	trigger.wait_for_startup_gate = true
 	trigger.wait_preload_conflict = true
 	# Armado, no arrancado. Compilar traba el hilo principal de a lotes, y hacerlo con

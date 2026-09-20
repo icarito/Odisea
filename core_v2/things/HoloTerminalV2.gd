@@ -42,10 +42,24 @@ export(bool) var use_cinematic_zone := true
 export(bool) var close_on_exit_zone := true
 export(bool) var enable_ui_interaction := true
 export(bool) var allow_focus_mode := true # If true, interaction mode can transition to FocusedRig.
+# Algunos terminales viven dentro de una zona que solo sirve para entrar al foco; al salir,
+# dejarla activa vuelve a reclamar la camara cinematica en el siguiente frame.
+export(bool) var release_cinematic_zone_on_focus_exit := false
+# Terminales montadas en un cuerpo movil (por ejemplo, el vidrio del criopod) no deben
+# arrastrar su camara cinematica cuando ese cuerpo anima.
+export(bool) var cinematic_setup_top_level := false
+# Con el rig interior (FocusedRigInside) se mira la pantalla por detras, asi que se ve
+# espejada: mientras dure ese foco el ScreenContainer se gira 180 grados sobre Y. El offset
+# la empuja en +Z local para que quede DENTRO del vidrio y no flotando por fuera.
+export(float) var inside_screen_depth_offset := 0.0
 # Para paneles tipo dashboard (ver CoolantSystemStatusUI) cuyo contenido solo cambia por
 # evento, no por frame: UPDATE_WHEN_VISIBLE redibuja 60 veces por segundo algo que se
 # queda quieto la inmensa mayoria del tiempo. Con esto en true el viewport descansa en
 # UPDATE_DISABLED y solo se dispara un UPDATE_ONCE cuando algo llama a request_redraw().
+# OJO: no es solo una optimizacion. HoloTerminalHUDable.view_scene() la usa para decidir
+# que monta el HUD: en true instancia una copia de la UI del Viewport (vista completa), en
+# false devuelve null y el HUD presta el Viewport (view_is_source). Apagarla en una terminal
+# con HUDable cambia lo que se ve al abrir la pantalla.
 export(bool) var static_content := false
 var _pending_redraw := false
 var _static_content_initialized := false
@@ -88,6 +102,7 @@ var hud_reference_node_path := NodePath("")
 var _camera_zone: Area = null
 var _cinematic_rig = null # CinematicPathRig reference
 var _focused_rig = null # FocusedRig reference for focus mode
+var _screen_flipped := false # La pantalla esta dada vuelta para el rig interior.
 var _terminal_ui = null # TerminalUIV2 reference
 var _viewport_input = null # Viewport input bridge
 var _player_in_zone := false
@@ -202,6 +217,11 @@ func _setup_cinematic_camera() -> void:
 	Signal connections are defined in the .tscn file for editor visibility."""
 	if Engine.editor_hint:
 		return # Don't run in editor
+	var cinematic_setup := get_node_or_null("CinematicSetup") as Spatial
+	if cinematic_setup_top_level and cinematic_setup != null:
+		var setup_transform := cinematic_setup.global_transform
+		cinematic_setup.set_as_toplevel(true)
+		cinematic_setup.global_transform = setup_transform
 	
 	# Find child nodes
 	_camera_zone = get_node_or_null("CinematicSetup/CameraZone")
@@ -250,9 +270,10 @@ func _deactivate_terminal_cameras() -> void:
 	var path_cam = get_node_or_null("CinematicSetup/CinematicPathRig/PathFollow/Camera")
 	if path_cam and path_cam is Camera:
 		(path_cam as Camera).current = false
-	var focus_cam = get_node_or_null("CinematicSetup/FocusedRig/Camera")
-	if focus_cam and focus_cam is Camera:
-		(focus_cam as Camera).current = false
+	for rig_name in ["FocusedRig", "FocusedRigInside"]:
+		var focus_cam = get_node_or_null("CinematicSetup/" + rig_name + "/Camera")
+		if focus_cam and focus_cam is Camera:
+			(focus_cam as Camera).current = false
 
 
 func _setup_viewport_texture() -> void:
@@ -823,16 +844,48 @@ func _enter_focus_mode():
 	_is_focused = true
 	_set_player_input_blocked(true)
 	print("[HoloTerminalV2] Entering focus mode, activating FocusedRig")
-	_request_focus_camera_rig(_focused_rig)
+	var rig = _pick_focus_rig()
+	_set_screen_flipped(rig != _focused_rig)
+	_request_focus_camera_rig(rig)
 	
 	# Ensure UI state is updated (showing cursor, etc)
 	_update_ui_mode()
+
+
+# Una terminal puede tener un segundo rig "FocusedRigInside" para cuando el jugador mira
+# la pantalla desde el otro lado (dentro de la criocapsula, FD-307). El lado se mide contra
+# el plano de la pantalla: el FocusedRig de siempre define cual es el lado "de afuera".
+func _pick_focus_rig() -> Node:
+	var inside_rig := get_node_or_null("CinematicSetup/FocusedRigInside") as Spatial
+	var screen := get_node_or_null("ScreenContainer/ScreenMesh") as Spatial
+	var player := _find_player() as Spatial
+	if inside_rig == null or screen == null or player == null or not (_focused_rig is Spatial):
+		return _focused_rig
+	var xf: Transform = screen.global_transform
+	var outside_side: float = xf.basis.z.dot(_focused_rig.global_transform.origin - xf.origin)
+	var player_side: float = xf.basis.z.dot(player.global_transform.origin - xf.origin)
+	return inside_rig if player_side * outside_side < 0.0 else _focused_rig
+
+
+func _set_screen_flipped(flipped: bool) -> void:
+	if flipped == _screen_flipped:
+		return
+	var container := get_node_or_null("ScreenContainer") as Spatial
+	if container == null:
+		return
+	# Delta, no snapshot: _update_visuals escribe translation.y y scale del container en
+	# cada frame de la animacion de apertura y una transform guardada los pisaria al salir.
+	container.rotate_y(PI)
+	container.translation.z += inside_screen_depth_offset if flipped else -inside_screen_depth_offset
+	_screen_flipped = flipped
 
 
 func _exit_focus_mode():
 	"""Return to CinematicPathRig camera or regular player camera."""
 	if not _is_focused:
 		return
+
+	_set_screen_flipped(false)
 
 	if attach_to_active_camera:
 		_is_focused = false
@@ -843,6 +896,8 @@ func _exit_focus_mode():
 	_is_focused = false
 	_set_player_input_blocked(false)
 	_release_focus_camera_request()
+	if release_cinematic_zone_on_focus_exit and _camera_zone and "is_zone_active" in _camera_zone:
+		_camera_zone.is_zone_active = false
 	
 	if not use_cinematic_zone:
 		print("[HoloTerminalV2] Exiting focus mode, returning to regular camera")

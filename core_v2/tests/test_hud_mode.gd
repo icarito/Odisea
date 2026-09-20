@@ -1747,6 +1747,15 @@ func test_hud_nav_reads_the_arrow_keys_like_the_dpad() -> void:
 	assert_int(int(up.hud_nav)).is_equal(-1)
 
 
+func test_hud_widget_activate_slot_travels_in_the_stream() -> void:
+	# El tap de un widget de interactuable fijado viaja como campo del stream: el replay lo repite.
+	var frame := InputDataV2.new()
+	frame.hud_widget_activate_slot = 2
+	var round_trip := InputDataV2.new()
+	round_trip.from_dict(frame.to_dict())
+	assert_int(round_trip.hud_widget_activate_slot).is_equal(2)
+
+
 func test_ui_accept_no_longer_fires_on_space() -> void:
 	# Espacio es jump (B/cancelar en el HUD). Si ademas fuera ui_accept, con el dial abierto
 	# confirmaba y cancelaba en el mismo frame. Enter/A/Start siguen confirmando.

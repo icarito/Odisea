@@ -7,6 +7,10 @@ const SPEED := 650.0
 const DEADZONE := 0.02
 const CURSOR := preload("res://assets/cursor_none.svg")
 const HOTSPOT := Vector2(7, 10)
+# Reloj de arena para esperas (compilacion de shaders): se pide por contador, no por booleano,
+# porque puede haber mas de una espera superpuesta.
+const CURSOR_HOURGLASS := preload("res://assets/cursor_busy_hourglass.png")
+const HOTSPOT_HOURGLASS := Vector2(32, 32)
 const EXPONENTIAL_CURVE := preload("res://Curves/Exponential.tres")
 const InputProviderV2 := preload("res://core_v2/input/InputProviderV2.gd")
 const UIScaleCompensator := preload("res://core_v2/ui/UIScaleCompensator.gd")
@@ -433,4 +437,38 @@ func _draw() -> void:
 		return
 	if not _active and not _desktop_mouse_mode:
 		return
+	if _busy_count > 0:
+		draw_texture_rect(CURSOR_HOURGLASS, Rect2(_position - HOTSPOT_HOURGLASS * _ui_scale, CURSOR_HOURGLASS.get_size() * _ui_scale), false)
+		return
 	draw_texture_rect(CURSOR, Rect2(_position - HOTSPOT * _ui_scale, CURSOR.get_size() * _ui_scale), false)
+
+# Espera visible (hoy: compilacion de shaders). Contador: varias esperas pueden solaparse.
+var _busy_count := 0
+
+func push_busy() -> void:
+	_busy_count += 1
+	if _busy_count == 1:
+		update()
+
+func pop_busy() -> void:
+	_busy_count = max(0, _busy_count - 1)
+	if _busy_count == 0:
+		update()
+
+static func push_busy_global() -> void:
+	_set_busy_global(true)
+
+static func pop_busy_global() -> void:
+	_set_busy_global(false)
+
+static func _set_busy_global(on: bool) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+	for existing in tree.get_nodes_in_group("virtual_mouse"):
+		if not is_instance_valid(existing):
+			continue
+		if on:
+			existing.push_busy()
+		else:
+			existing.pop_busy()

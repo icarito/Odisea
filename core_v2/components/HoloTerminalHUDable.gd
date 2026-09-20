@@ -278,7 +278,11 @@ func view_transition_origin() -> Dictionary:
 			allow_focus = bool(terminal.get("allow_focus_mode"))
 
 		if allow_focus:
-			var focused_rig = terminal.get_node_or_null("CinematicSetup/FocusedRig")
+			var focused_rig = terminal.call("_pick_focus_rig") if terminal.has_method("_pick_focus_rig") else null
+			# El terminal puede no tener un rig elegido todavia (el nodo se armó despues del
+			# _ready, o no hay jugador que decida adentro/afuera): se cae al rig de la escena.
+			if not is_instance_valid(focused_rig):
+				focused_rig = terminal.get_node_or_null("CinematicSetup/FocusedRig")
 			if is_instance_valid(focused_rig) and focused_rig.is_inside_tree():
 				return {
 					"kind": "focus_rig",

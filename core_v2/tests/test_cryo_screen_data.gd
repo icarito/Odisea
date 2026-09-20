@@ -299,7 +299,7 @@ func test_widget_renders_cryo_summary() -> void:
 	})
 
 	var status_label: Label = widget.get_node("Margin/VBox/StatusLabel")
-	var mode_label: Label = widget.get_node("Margin/VBox/ModeLabel")
+	var mode_label: Label = widget.get_node("Margin/VBox/ActionRow/ModeLabel")
 	assert_str(status_label.text).contains("TEMP")
 	assert_str(status_label.text).contains("-12.0°C")
 	assert_str(status_label.text).contains("25%")

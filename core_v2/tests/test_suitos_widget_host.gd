@@ -7,6 +7,20 @@ const SuitOSWidgetHostScript = preload("res://core_v2/ui/hud/SuitOSWidgetHost.gd
 const HoloTerminalWidgetScript = preload("res://core_v2/ui/hud/HoloTerminalWidget.gd")
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
 
+class FakeInteractable extends Node:
+	var interaction_title := "Válvula"
+	var interaction_description := "Circuito de refrigerante"
+	var interaction_verb_active := "Cerrar"
+	var interaction_verb_inactive := "Abrir"
+	var interaction_icon: Texture = null
+	var is_active := true
+	var interacted := 0
+	func get_interaction_prompt() -> String:
+		return interaction_verb_active if is_active else interaction_verb_inactive
+	func interact() -> void:
+		interacted += 1
+		is_active = not is_active
+
 var _widget_host: Node = null
 var _overlay_mgr = null
 
@@ -59,6 +73,56 @@ func test_context_widget_sits_at_the_bottom_centered_and_leaves_with_clear() -> 
 	assert_bool(gone == null or gone.is_queued_for_deletion()).is_true()
 	for i in range(HudSlots.COUNT):
 		SuitOS.clear_slot(i)
+
+
+func test_context_widget_can_be_pinned_to_a_slot_and_actuated() -> void:
+	for i in range(HudSlots.COUNT):
+		SuitOS.clear_slot(i)
+	var target := FakeInteractable.new()
+	target.name = "ValveWestFloor1"
+	add_child(target)
+	_widget_host.show_context({"title": "Válvula", "action": "Cerrar", "interactable": target})
+	var context: Control = _widget_host.get_widget_root().get_node_or_null("SuitOS_Context")
+	assert_object(context).is_not_null()
+	var expected := "interactable:%s" % String(target.get_path())
+	# Agarrar el widget del pie (press + hold + mover) y soltarlo en el slot 2.
+	_widget_host._last_pointer_position = context.rect_position + context.rect_size * 0.5
+	_widget_host._on_widget_gui_input(_pointer(true, _widget_host._last_pointer_position), context, _widget_host.CONTEXT_SLOT)
+	_widget_host._press_msec = OS.get_ticks_msec() - 500
+	var slot_center: Vector2 = _widget_host.slot_rect(1).get_center()
+	_widget_host._last_pointer_position = slot_center
+	_widget_host._drive_drag(context)
+	assert_bool(_widget_host._dragging).is_true()
+	_widget_host._on_widget_gui_input(_pointer(false, slot_center), context, _widget_host.CONTEXT_SLOT)
+	assert_bool(SuitOS.has_screen(expected)).is_true()
+	assert_str(String(SuitOS.get_pinned_slots()[1])).is_equal(expected)
+	# Tocar el widget fijado ACCIONA el interactuable (no abre pantalla, no la tiene).
+	var widget: Control = _widget_host.get_widget_root().get_node_or_null("SuitOS_Widget_slot_2")
+	assert_object(widget).is_not_null()
+	_widget_host._on_widget_gui_input(_pointer(true, slot_center), widget, "slot_2")
+	_widget_host._on_widget_gui_input(_pointer(false, slot_center), widget, "slot_2")
+	assert_int(target.interacted).is_equal(1)
+	target.queue_free()
+	SuitOS.clear_slot(1)
+
+
+func test_context_widget_grab_pins_to_the_slot_under_it() -> void:
+	# El acorde de Interactuar mueve el widget del pie con deltas del stream y lo fija al soltar.
+	for i in range(HudSlots.COUNT):
+		SuitOS.clear_slot(i)
+	var target := FakeInteractable.new()
+	target.name = "Button_Deck"
+	add_child(target)
+	_widget_host.show_context({"title": "Botón", "action": "Encender", "interactable": target})
+	assert_bool(_widget_host.context_widget_active()).is_true()
+	assert_bool(_widget_host.begin_context_grab()).is_true()
+	var context: Control = _widget_host.get_widget_root().get_node("SuitOS_Context")
+	var slot_center: Vector2 = _widget_host.slot_rect(0).get_center()
+	_widget_host.drive_context_grab(slot_center - (context.rect_position + context.rect_size * 0.5))
+	_widget_host.end_context_grab()
+	assert_str(String(SuitOS.get_pinned_slots()[0])).is_equal("interactable:%s" % String(target.get_path()))
+	target.queue_free()
+	SuitOS.clear_slot(0)
 
 func test_widget_changed_mounts_and_unmounts_overlay() -> void:
 	var dummy_screen = auto_free(HUDableComponentScript.new())

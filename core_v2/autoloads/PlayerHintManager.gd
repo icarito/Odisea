@@ -9,6 +9,7 @@ var _interaction_text := ""
 # de contexto en el HUD (SuitOSWidgetHost) en vez del subtitulo; el texto queda de fallback y para
 # el control remoto.
 var _interaction_source: Node = null
+var _source_signals: Array = []
 var _context_showing := false
 var _context_last_text := ""
 var _context_last_title := ""
@@ -34,14 +35,41 @@ func _ready() -> void:
 
 func show_interaction_hint(text: String, source: Node = null) -> void:
 	_interaction_text = text.strip_edges()
-	_interaction_source = source if is_instance_valid(source) else null
+	_set_interaction_source(source if is_instance_valid(source) else null)
 	_refresh_visible_hint()
 
 func clear_interaction_hint() -> void:
 	if _interaction_text == "" and not _context_showing:
 		return
 	_interaction_text = ""
-	_interaction_source = null
+	_set_interaction_source(null)
+	_refresh_visible_hint()
+
+# El widget del pie es reactivo: cuando el prop cambia de estado (Abrir <-> Cerrar) se rehace la
+# ficha aunque el jugador no vuelva a pedir el prompt. Se desconecta al cambiar de fuente.
+func _set_interaction_source(source: Node) -> void:
+	if source == _interaction_source:
+		return
+	_disconnect_source_state()
+	_interaction_source = source
+	if not is_instance_valid(source):
+		return
+	for sig in ["activated", "deactivated"]:
+		if source.has_signal(sig) and not source.is_connected(sig, self, "_on_source_state_changed"):
+			source.connect(sig, self, "_on_source_state_changed")
+			_source_signals.append(sig)
+
+func _disconnect_source_state() -> void:
+	if is_instance_valid(_interaction_source):
+		for sig in _source_signals:
+			if _interaction_source.is_connected(sig, self, "_on_source_state_changed"):
+				_interaction_source.disconnect(sig, self, "_on_source_state_changed")
+	_source_signals = []
+
+func _on_source_state_changed() -> void:
+	if is_instance_valid(_interaction_source) and _interaction_source.has_method("get_interaction_prompt"):
+		_interaction_text = String(_interaction_source.call("get_interaction_prompt")).strip_edges()
+	_last_emitted = []
 	_refresh_visible_hint()
 
 func show_manual_hint(text: String, duration: float = MAX_HINT_DURATION) -> void:
@@ -155,6 +183,10 @@ func _update_context_widget(text: String, _visible_mode: String) -> void:
 	var snapshot := {"title": title, "action": text, "description": description}
 	if icon != null:
 		snapshot["icon"] = icon
+	if is_instance_valid(_interaction_source):
+		# El widget del pie se puede arrastrar a un slot: ahi viaja el nodo para que el host monte
+		# un "interactable screen" y lo fije.
+		snapshot["interactable"] = _interaction_source
 	if host.show_context(snapshot):
 		_context_showing = true
 		_context_last_text = text

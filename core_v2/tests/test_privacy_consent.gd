@@ -56,6 +56,9 @@ func test_consent_keeps_the_shared_virtual_mouse_after_menu_hides():
 	get_tree().root.add_child(host)
 	var screen = load("res://core_v2/ui/FirstRunConsent.tscn").instance()
 	host.add_child(screen)
+	# attach_popup_deferred no puede add_child en el _ready del popup: cuelga un puente y se
+	# engancha en el proximo idle. Sin esperar ese frame, la pantalla todavia no es requester.
+	yield(get_tree(), "idle_frame")
 	menu.hide()
 	assert_bool(cursor.is_wanted()).is_true()
 	host.free()

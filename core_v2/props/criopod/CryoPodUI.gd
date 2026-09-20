@@ -90,6 +90,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	alarm = bool(snapshot.get("alarm", alarm))
 	_refresh_hatch_button()
 	update()
+	_request_redraw()
 
 # Lo propio del pod que el componente mete en el snapshot (widget y control remoto).
 func pod_state() -> Dictionary:
@@ -108,9 +109,30 @@ func _refresh_hatch_button() -> void:
 	_hatch_button.disabled = _hatch_busy
 	_hatch_button.text = tr("CERRAR CÁPSULA") if _hatch_open else tr("ABRIR CÁPSULA")
 
+# El ECG es funcion de _time, asi que podria redibujarse cada frame; a 60 Hz eso obliga al
+# Viewport de la terminal a re-renderizar 60 veces por segundo en aparatos flacos. A 10 Hz el
+# trazo sigue leyendose vivo. El terminal esta en static_content: no redibuja solo, hay que
+# pedirselo (mismo patron que CoolantSchematicPanel).
+const REDRAW_HZ := 10.0
+var _redraw_accum := 0.0
+
 func _process(delta: float) -> void:
 	_time += delta
+	_redraw_accum += delta
+	if _redraw_accum < 1.0 / REDRAW_HZ:
+		return
+	_redraw_accum -= 1.0 / REDRAW_HZ
 	update()
+	_request_redraw()
+
+
+func _request_redraw() -> void:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("request_redraw"):
+			node.request_redraw()
+			return
+		node = node.get_parent()
 
 func _accent() -> Color:
 	return WARN if alarm else CYAN

@@ -55,9 +55,12 @@ align = 1
 
 [node name="Text" type="Label" parent="IntroPanel/Panel/VBox"]
 rect_min_size = Vector2( 520, 0 )
-text = "Primer acceso registrado en esta terminal.
+text = "Primer acceso registrado en esta terminal."
+autowrap = true
 
-Antes de asignarte una cápsula, el Arca necesita que leas el aviso que sigue y respondas una pregunta. Léelo con calma: solo se te preguntará esta vez."
+[node name="Text2" type="Label" parent="IntroPanel/Panel/VBox"]
+rect_min_size = Vector2( 520, 0 )
+text = "Antes de asignarte una cápsula, el Arca necesita que leas el aviso que sigue y respondas una pregunta. Léelo con calma: solo se te preguntará esta vez."
 autowrap = true
 
 [node name="OkButton" type="Button" parent="IntroPanel/Panel/VBox"]
@@ -87,11 +90,15 @@ align = 1
 
 [node name="Body" type="Label" parent="TelemetryPanel/TextArea/VBox"]
 size_flags_vertical = 3
-text = "Mientras juegas, Odisea puede enviarnos datos técnicos anónimos: los cuadros por segundo que alcanza tu equipo, la memoria que usa, en qué escena y en qué punto del mapa te encuentras, hacia dónde miras y el detalle de cualquier error.
+text = "Mientras juegas, Odisea puede enviarnos datos técnicos anónimos: los cuadros por segundo que alcanza tu equipo, la memoria que usa, en qué escena y en qué punto del mapa te encuentras, hacia dónde miras y el detalle de cualquier error."
+autowrap = true
 
-Si el rendimiento cae durante varios segundos seguidos, se guarda además un fragmento breve de ese tramo —los controles que usaste y tu recorrido— para poder reproducirlo después y encontrar la causa.
+[node name="Body2" type="Label" parent="TelemetryPanel/TextArea/VBox"]
+text = "Si el rendimiento cae durante varios segundos seguidos, se guarda además un fragmento breve de ese tramo —los controles que usaste y tu recorrido— para poder reproducirlo después y encontrar la causa."
+autowrap = true
 
-El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto."
+[node name="Body3" type="Label" parent="TelemetryPanel/TextArea/VBox"]
+text = "El juego no envía tu ubicación física. Sin embargo, al igual que con cualquier conexión en Internet, nuestro servidor ve tu dirección IP y de ella deduce una ciudad aproximada; la IP no se almacena tal cual. Nunca te pedimos ni guardamos tu nombre, tu correo ni ningún dato de contacto."
 autowrap = true
 
 [node name="Foot" type="VBoxContainer" parent="TelemetryPanel"]

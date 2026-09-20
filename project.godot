@@ -1259,6 +1259,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/components/shared/InteractableEntity.gd"
 }, {
+"base": "Reference",
+"class": "InteractableSlotScreen",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/InteractableSlotScreen.gd"
+}, {
+"base": "PanelContainer",
+"class": "InteractableSlotWidget",
+"language": "GDScript",
+"path": "res://core_v2/ui/hud/InteractableSlotWidget.gd"
+}, {
 "base": "InteractableBaseV2",
 "class": "IrisDoorV2",
 "language": "GDScript",
@@ -2630,6 +2640,8 @@ _global_script_class_icons={
 "InteractableBaseV2": "",
 "InteractableBridge": "",
 "InteractableEntity": "",
+"InteractableSlotScreen": "",
+"InteractableSlotWidget": "",
 "IrisDoorV2": "",
 "JUnitXmlReport": "",
 "KillZoneV2": "",

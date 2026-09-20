@@ -15,7 +15,13 @@ const PodWidgetScene = preload("res://core_v2/ui/hud/CryoPodWidget.tscn")
 # pantalla acompañe al vidrio.
 export(NodePath) var hatch_path: NodePath = NodePath("..")
 
+# La capsula abierta no necesita su holoterminal: se apaga y deja de ser interactuable
+# mientras dure la apertura, y se cierra sola pasado este tiempo (la escotilla abierta no
+# tiene otra forma de volver: la terminal que la manda esta apagada).
+export(float) var auto_close_delay := 30.0
+
 var _last_hatch_open: bool = false
+var _auto_close_left: float = 0.0
 
 func _ready() -> void:
 	._ready()
@@ -49,16 +55,34 @@ func widget_scene() -> PackedScene:
 func _physics_process(delta: float) -> void:
 	._physics_process(delta)
 	var hatch := _get_hatch()
-	var open_now: bool = bool(hatch.is_active) if is_instance_valid(hatch) else false
+	var open_now: bool = is_instance_valid(hatch) and "is_active" in hatch and bool(hatch.is_active)
 	if open_now != _last_hatch_open:
 		_last_hatch_open = open_now
+		# Aca y no en perform_action: la escotilla tambien se abre desde la secuencia de
+		# despertar y desde el mundo, y todas esas aperturas deben apagar la terminal.
+		_set_terminal_enabled(not open_now)
+		_auto_close_left = auto_close_delay if open_now else 0.0
 		_push_to_source_ui()
 		notify_state_changed()
+	elif open_now and _auto_close_left > 0.0:
+		_auto_close_left -= delta
+		if _auto_close_left <= 0.0 and is_instance_valid(hatch) and hatch.has_method("set_active"):
+			hatch.set_active(false)
+
+
+func _set_terminal_enabled(enabled: bool) -> void:
+	var terminal = _get_terminal()
+	if not is_instance_valid(terminal):
+		return
+	if terminal.has_method("set_is_interactable"):
+		terminal.set_is_interactable(enabled)
+	if terminal.has_method("set_active"):
+		terminal.set_active(enabled)
 
 func widget_snapshot() -> Dictionary:
 	var snap: Dictionary = .widget_snapshot()
 	var hatch := _get_hatch()
-	snap["hatch_open"] = bool(hatch.is_active) if is_instance_valid(hatch) else false
+	snap["hatch_open"] = is_instance_valid(hatch) and "is_active" in hatch and bool(hatch.is_active)
 	snap["hatch_busy"] = false
 	if is_instance_valid(hatch) and "anim_progress" in hatch and "target_progress" in hatch:
 		snap["hatch_busy"] = abs(float(hatch.anim_progress) - float(hatch.target_progress)) > 0.001
@@ -95,6 +119,10 @@ func perform_action(op: String, args: Dictionary = {}) -> Dictionary:
 	if not is_instance_valid(hatch) or not hatch.has_method("set_active"):
 		return {"ok": false, "error": "Sin escotilla"}
 	hatch.set_active(not bool(hatch.is_active))
+	if bool(hatch.is_active):
+		# La pantalla puede estar enfocada mientras el HUD pausa el mundo; liberar aqui
+		# evita dejar camara e input del jugador atrapados hasta el siguiente tick.
+		_set_terminal_enabled(false)
 	_push_to_source_ui()
 	notify_state_changed()
 	# La capsula abierta ya no necesita la holoterminal: se desactiva sola en vez de quedar la

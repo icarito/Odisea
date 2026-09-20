@@ -1,5 +1,20 @@
 extends GdUnitTestSuite
 
+class FakeReactive extends Node:
+	signal activated()
+	signal deactivated()
+	var is_active := true
+	func get_interaction_prompt() -> String:
+		return "Cerrar" if is_active else "Abrir"
+	func interact() -> void:
+		set_active(not is_active)
+	func set_active(value: bool) -> void:
+		is_active = value
+		if value:
+			emit_signal("activated")
+		else:
+			emit_signal("deactivated")
+
 const PlayerHintManager = preload("res://core_v2/autoloads/PlayerHintManager.gd")
 
 func before_test() -> void:
@@ -92,6 +107,26 @@ func test_interaction_hint_widget_sits_at_the_bottom_centered() -> void:
 		assert_float(widget.rect_position.y).is_greater(viewport_size.y * 0.5)
 		assert_float(widget.rect_position.x).is_greater(viewport_size.x * 0.1)
 		assert_float(widget.rect_position.x).is_less(viewport_size.x * 0.9)
+	manager.clear_interaction_hint()
+	source.queue_free()
+	manager.queue_free()
+
+
+func test_context_widget_is_reactive_to_the_source_state() -> void:
+	# El verbo del pie cambia solo cuando el prop cambia de estado (Abrir <-> Cerrar).
+	for i in range(4):
+		SuitOS.clear_slot(i)
+	var manager = PlayerHintManager.new()
+	add_child(manager)
+	var source := FakeReactive.new()
+	source.name = "Valve"
+	add_child(source)
+	manager.show_interaction_hint("Cerrar", source)
+	assert_str(manager.get_visible_text()).is_equal("Cerrar")
+	source.set_active(false)
+	assert_str(manager.get_visible_text()).is_equal("Abrir")
+	source.set_active(true)
+	assert_str(manager.get_visible_text()).is_equal("Cerrar")
 	manager.clear_interaction_hint()
 	source.queue_free()
 	manager.queue_free()

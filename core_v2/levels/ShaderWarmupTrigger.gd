@@ -19,6 +19,26 @@ export(int, 0, 3600) var preload_wait_max_frames := 1200
 export(bool) var autostart := true
 
 var _started := false
+# Reloj de arena del cursor mientras compila: se pide al empezar y se suelta al terminar. El
+# flag evita doble pop (compiled + _exit_tree).
+var _busy_pushed := false
+
+const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
+
+func _push_busy() -> void:
+	if _busy_pushed:
+		return
+	_busy_pushed = true
+	VirtualMouseScript.push_busy_global()
+
+func _pop_busy() -> void:
+	if not _busy_pushed:
+		return
+	_busy_pushed = false
+	VirtualMouseScript.pop_busy_global()
+
+func _exit_tree() -> void:
+	_pop_busy()
 
 func _ready() -> void:
 	if Engine.editor_hint:
@@ -138,11 +158,13 @@ func _start_shader_warmup() -> void:
 	if not manager.is_connected("compiled", self, "_on_shader_cache_compiled"):
 		manager.connect("compiled", self, "_on_shader_cache_compiled")
 
+	_push_busy()
 	manager.load_and_compile(shader_cache_scene_path)
 
 func _on_shader_cache_compiled(cache_path: String) -> void:
 	if cache_path != shader_cache_scene_path:
 		return
+	_pop_busy()
 	var startup_trace = get_node_or_null("/root/StartupTrace")
 	if startup_trace and startup_trace.has_method("mark"):
 		startup_trace.mark("shader_warmup_compiled", {

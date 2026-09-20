@@ -40,6 +40,9 @@ var hud_slot := 0
 # En modo HUD la cruceta no es camara (InputProviderV2.digital_camera_enabled = false), asi que
 # no se pisa con nada.
 var hud_nav := 0
+# Slot del HUD cuyo widget de interactuable se acciona este frame (-1 = ninguno). El tap de un
+# widget fijado se latea aca para que viaje en el stream y el replay lo reproduzca igual.
+var hud_widget_activate_slot := -1
 
 func _canonical_float(v: float) -> float:
 	# Avoid noisy JSON diffs from signed zero (-0.0 vs 0.0).
@@ -71,7 +74,8 @@ func to_dict() -> Dictionary:
 		"analog_move_active": analog_move_active,
 		"hud_mode": hud_mode,
 		"hud_slot": hud_slot,
-		"hud_nav": hud_nav
+		"hud_nav": hud_nav,
+		"hud_widget_activate_slot": hud_widget_activate_slot
 	}
 
 func is_equal_to(other) -> bool:
@@ -122,6 +126,8 @@ func is_equal_to(other) -> bool:
 	if hud_slot != other.hud_slot:
 		return false
 	if hud_nav != other.hud_nav:
+		return false
+	if hud_widget_activate_slot != other.hud_widget_activate_slot:
 		return false
 	return true
 
@@ -175,3 +181,5 @@ func from_dict(d: Dictionary) -> void:
 		hud_slot = int(d["hud_slot"])
 	if d.has("hud_nav"):
 		hud_nav = int(d["hud_nav"])
+	if d.has("hud_widget_activate_slot"):
+		hud_widget_activate_slot = int(d["hud_widget_activate_slot"])
