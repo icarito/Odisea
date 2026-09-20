@@ -493,10 +493,12 @@ func _input(event: InputEvent) -> void:
 			_active_focused_screen.forward_view_input(event)
 			get_tree().set_input_as_handled()
 			return
-		if event is InputEventMouseMotion or event is InputEventMouseButton:
+		if (event is InputEventMouseMotion or event is InputEventMouseButton) and not _dragging_view:
 			# Un cursor a la vez: sobre la superficie dibuja el del Viewport, fuera el
 			# mouse virtual 2D. Fuera NO se consume el evento, asi el mouse virtual sigue
 			# su curso normal (antes se consumia siempre y quedaba clavado).
+			# Con un arrastre de asa en curso el motion NO se manda a la pantalla: si no, el
+			# panel levantado se queda clavado y la pantalla se mueve su cursor interno.
 			var uv: Vector2
 			var gamepad_cursor: bool = is_instance_valid(_virtual_mouse) \
 				and _virtual_mouse.relative_target_scale != Vector2.ZERO
