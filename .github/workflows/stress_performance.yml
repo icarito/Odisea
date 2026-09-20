@@ -210,6 +210,16 @@ jobs:
           if baseline:
               with open(baseline) as src, open("performance_baseline.json", "w") as dst:
                   dst.write(src.read())
+          # Baseline del benchmark de Box3D workers (mismo mecanismo de artifacts).
+          def box3d_candidates(name):
+              return sorted(
+                  (os.path.join(root, f) for root, _, files in os.walk(prev) for f in files if f == name),
+                  key=os.path.getmtime)
+          boxes = box3d_candidates("box3d_workers_baseline.json") or box3d_candidates("box3d_workers_current.json")
+          if boxes:
+              import shutil
+              shutil.copyfile(boxes[-1], "box3d_workers_baseline.json")
+              print("box3d baseline:", boxes[-1])
           print(f"history entries: {len(history)}, baseline: {baseline}")
           PY
 
@@ -240,6 +250,26 @@ jobs:
           fi
           mv ~/.local/share/godot/app_userdata/Odisea/performance_snapshots.json performance_current.json
 
+      - name: Box3D Workers Benchmark
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          # physics/3d/box3d_workers se lee al crear el world (arranque del motor),
+          # asi que se fija por override.cfg (gitignored): un run headless por valor.
+          # Se compara serial (1) contra ~mitad de los cores, que es el optimo medido.
+          cores="$(nproc)"
+          half="$(( cores / 2 ))"
+          [ "$half" -lt 1 ] && half=1
+          for w in 1 "$half"; do
+            printf '[physics]\n3d/box3d_workers=%s\n' "$w" > override.cfg
+            BOX3D_BENCH_OUT="reports/box3d_workers_$w.json" \
+              timeout 300 xvfb-run godot --headless --no-window --audio-driver Dummy \
+              --path . --script res://core_v2/tests/stress/box3d_workers_bench.gd 2>&1 \
+              | tee "reports/box3d_workers_$w.log"
+          done
+          rm -f override.cfg
+          python3 scripts/box3d_workers_report.py
+
       - name: Check for Regressions
         env:
           ODISEA_SIMULATE_REGRESSION: ${{ env.SIMULATE_REGRESSION }}
@@ -256,6 +286,7 @@ jobs:
         if: github.ref == 'refs/heads/main' && env.SIMULATE_REGRESSION != 'true'
         run: |
           cp performance_current.json performance_baseline.json
+          cp box3d_workers_current.json box3d_workers_baseline.json || true
 
       - name: Upload Artifacts
         if: always()
@@ -267,3 +298,5 @@ jobs:
             performance_history.json
             performance_baseline.json
             performance_host_info.json
+            box3d_workers_current.json
+            box3d_workers_baseline.json
