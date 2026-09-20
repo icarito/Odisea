@@ -754,3 +754,32 @@ adelante en absoluto?) antes de pagar el `move_and_collide`, o subirle el costo 
 La cabecera sin marcar de `pre` (~0.38 ms, la pieza más grande sin nombre que queda) es el siguiente
 paso de instrumentación si se retoma esta vuelta — candidato principal: `_get_move_direction()`,
 delega en el FSM de `CinematicManager` y no se sabe cuánto cuesta esa delegación sin medirla aparte.
+
+### `_try_step_up`: cache del sondeo en piso plano (2026-09-20)
+
+Implementado el candidato del cierre anterior, sin tocar la rama de escalón real. El primer
+sondeo de `_try_step_up` certifica que el tramo hacia adelante (≈`step_depth`, 0.6 m) está libre y,
+como la geometría es estática y la dirección se mantiene, el sondeo (y el swap de `collision_mask`)
+se saltea mientras el jugador siga dentro de ese tramo. Se re-sondea al cambiar de dirección
+(>~10°), al consumirse el tramo (margen 0.25 m), al subir un escalón o al quedar el jugador en el
+aire. La detección del escalón sigue siendo proactiva: cuando toca sondear, `move_and_collide`
+barre los mismos 0.6 m de siempre, así que la subida no se retrasa más allá de la ventana.
+
+Verificación con el replay determinista `user://replay_1789939830.json` (RingHub_Level, 714 frames,
+desktop, binario del fork headless, `ODISEA_REPLAY_PERF=1`):
+
+| clave | baseline | con cache | Δ |
+|---|---|---|---|
+| PC.move.pre.stepup | 0.033764 ms/llamada (48.2 ms) | 0.013747 ms/llamada (19.6 ms) | **-59%** |
+| PC.move.pre | 0.143285 | 0.121379 | -15% |
+| PC.move | 0.257249 | 0.241195 | -6% |
+| SM.player_step | 1.136927 | 1.099708 | -3% |
+
+Deriva del replay: 0.109089 (baseline) vs 0.109076 (con cache) — la misma. El replay en desktop
+deriva ~0.109 siempre (misma familia que la deriva preexistente de `test_push_clipping`), no es de
+este cambio.
+
+Pendiente: medir en el Anbernic con el mismo replay (ventana de ticks fija 100→400, como la
+bisección de arriba) y el pck que incluya el cambio. Esperado: `stepup` de ~0.23 a ~0.09-0.12
+ms/tick con el resto igual; si la deriva del replay cambia, el cache movió la detección.
+

@@ -77,6 +77,15 @@ export(float, 0.3, 1.0) var crouch_camera_zoom_ratio := 0.8
 
 var _step_grounded_timer := 0.0
 var _just_stepped := false
+# Cache del primer sondeo de _try_step_up. Ese sondeo certifica que el tramo hacia
+# adelante (hasta step_depth) esta libre; como la geometria es estatica y la direccion
+# se mantiene, no hace falta repetirlo en cada tick de piso plano (corria en ~86% de
+# los ticks, 0.23 ms/tick en el Anbernic). Se re-sondea al cambiar de direccion o al
+# consumirse el tramo certificado.
+const STEP_CLEAR_REPROBE_MARGIN := 0.25
+var _step_clear_origin := Vector3.ZERO
+var _step_clear_dir := Vector3.ZERO
+var _step_clear_dist := 0.0
 var _ground_contact_grace_timer := 0.0
 var _last_debug_effective_grounded := true
 var _last_debug_on_floor := true
@@ -2773,6 +2782,9 @@ func step(dt: float, input: InputDataV2) -> void:
 			_step_grounded_timer = step_grounded_grace
 			if debug_stair_state:
 				print("[STAIR] step_up success: pos=", step_result.position, " vy=", velocity.y)
+	else:
+		# Sin gate (aire, salto o step-up apagado): el tramo certificado deja de valer.
+		_step_clear_dist = 0.0
 	
 	if _pm_fino:
 		_pm_perfil.perfil_fin("PC.move.pre")
@@ -3180,29 +3192,40 @@ func _get_platform_tracking_key(collider: Object) -> String:
 	return key
 
 func _try_step_up(motion: Vector3) -> Dictionary:
+	var result = {"stepped": false, "position": global_transform.origin}
+	var origin := global_transform.origin
+	var horizontal_motion := Vector3(motion.x, 0, motion.z)
+	if horizontal_motion.length_squared() < 0.0001:
+		return result
+	var move_dir := horizontal_motion.normalized()
+	var probe_distance := clamp(motion.length(), 0.05, step_depth)
+
+	# Tramo ya certificado libre: geometria estatica + misma direccion no puede tener un
+	# escalon nuevo, asi que se evita el sondeo (y el swap de collision_mask) mientras el
+	# jugador siga dentro del tramo. El margen deja que el proximo sondeo llegue antes que
+	# el obstaculo, para detectarlo al avanzar desde atras sin toparlo primero.
+	if _step_clear_dist > 0.0 and move_dir.dot(_step_clear_dir) > 0.985:
+		var traveled := Vector3(origin.x - _step_clear_origin.x, 0.0, origin.z - _step_clear_origin.z).length()
+		var margin: float = min(STEP_CLEAR_REPROBE_MARGIN, _step_clear_dist * 0.5)
+		if traveled < _step_clear_dist - margin:
+			return result
+
 	var old_mask = collision_mask
 	collision_mask = _get_step_support_collision_mask()
-	
-	var result = {"stepped": false, "position": global_transform.origin}
-	var can_try_step := motion.length_squared() >= 0.0001
-	var horizontal_motion := Vector3.ZERO
-	var move_dir := Vector3.ZERO
-	var origin := global_transform.origin
-	var probe_distance := 0.0
+	var can_try_step := true
 	var advanced_x := Vector3.ZERO
 	var check_pos := origin
 
-	if can_try_step:
-		horizontal_motion = Vector3(motion.x, 0, motion.z)
-		if horizontal_motion.length_squared() < 0.0001:
-			can_try_step = false
-
-	if can_try_step:
-		move_dir = horizontal_motion.normalized()
-		probe_distance = clamp(motion.length(), 0.05, step_depth)
-		var foot_collision = move_and_collide(move_dir * probe_distance, true, true, true)
-		if foot_collision == null or foot_collision.normal.y > 0.7:
-			can_try_step = false
+	var foot_collision = move_and_collide(move_dir * probe_distance, true, true, true)
+	if foot_collision == null or foot_collision.normal.y > 0.7:
+		# Libre (o rampa caminable): certificar el tramo para no volver a sondearlo.
+		_step_clear_origin = origin
+		_step_clear_dir = move_dir
+		_step_clear_dist = probe_distance
+		can_try_step = false
+	else:
+		# Hay obstaculo: el tramo deja de estar certificado hasta resolverlo.
+		_step_clear_dist = 0.0
 
 	if can_try_step:
 		var head_collision = move_and_collide(Vector3.UP * step_height, true, true, true)
