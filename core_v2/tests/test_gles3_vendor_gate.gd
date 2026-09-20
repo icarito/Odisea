@@ -103,6 +103,28 @@ func test_physics_rate_follows_low_tier():
 	assert_int(Engine.iterations_per_second).is_equal(int(ProjectSettings.get_setting("physics/common/physics_fps")))
 	Engine.iterations_per_second = before
 
+# Un replay graba 1 frame de buffer = 1 tick de fisica; si el tier LOW se queda tickeando a
+# 30 Hz durante la reproduccion, todo lo que no se stepea a mano (RigidBody/Area nativos)
+# desincroniza contra el paso manual del jugador (FIXED_DT fijo a 1/60) y descarrila la
+# trayectoria. set_replay_active debe forzar el rate del proyecto pese al tier LOW, y
+# devolver el tier al terminar.
+func test_replay_active_overrides_low_tier_physics_rate():
+	var before: int = Engine.iterations_per_second
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	gate.sync_physics_rate()
+	assert_int(Engine.iterations_per_second).is_equal(GateScript.LOW_TIER_PHYSICS_FPS)
+
+	gate.set_replay_active(true)
+	assert_int(Engine.iterations_per_second).is_equal(int(ProjectSettings.get_setting("physics/common/physics_fps")))
+
+	gate.set_replay_active(false)
+	assert_int(Engine.iterations_per_second).is_equal(GateScript.LOW_TIER_PHYSICS_FPS)
+
+	gate.force_gate = false
+	gate.sync_physics_rate()
+	Engine.iterations_per_second = before
+
 func test_low_tier_strips_shadows_and_materials():
 	var gate = auto_free(GateScript.new())
 	gate.force_gate = true

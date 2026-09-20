@@ -51,6 +51,22 @@ var _mutation_suspended := false
 # paso del jugador se deriva de Engine.iterations_per_second, asi que no hay camara lenta.
 const LOW_TIER_PHYSICS_FPS := 30
 
+# Un replay mapea 1 frame de buffer -> 1 tick de fisica, sin importar el Hz real: el paso
+# del jugador (SessionManager.FIXED_DT) esta fijo a 1/60 a proposito, pero todo lo que NO se
+# stepea a mano (RigidBody, Area, _physics_process nativo de props sueltos) sigue el Hz real
+# del motor. Si ese Hz es 30 (tier LOW) en vez de los 60 con que se grabo, esos nodos avanzan
+# el DOBLE de tiempo simulado por el mismo numero de frames consumidos -> deriva catastrofica
+# (medido: drift de ~2833 m en un replay de escritorio reproducido en el Anbernic). Mientras
+# haya una grabacion o reproduccion activa, se fuerza el rate del proyecto sin importar el
+# tier; SessionManager llama a set_replay_active en los bordes de is_recording/is_replaying.
+var _replay_active := false
+
+func set_replay_active(active: bool) -> void:
+	if _replay_active == active:
+		return
+	_replay_active = active
+	sync_physics_rate()
+
 func _ready() -> void:
 	_env_forced_low_tier = _read_env_forced_low_tier()
 	_unshaded_mode = OS.get_environment("ODISEA_UNSHADED").strip_edges()
@@ -82,7 +98,7 @@ func _sync_low_tier_env_hints() -> void:
 # Fuera del tier vuelve al valor del proyecto: desktop, CI y replays siguen a 60 Hz. Se llama
 # tambien al cambiar la opcion "low end" en el menu.
 func sync_physics_rate() -> void:
-	var target: int = LOW_TIER_PHYSICS_FPS if is_low_tier() else int(ProjectSettings.get_setting("physics/common/physics_fps"))
+	var target: int = LOW_TIER_PHYSICS_FPS if (is_low_tier() and not _replay_active) else int(ProjectSettings.get_setting("physics/common/physics_fps"))
 	# A/B de rate de fisica sin recompilar: a fps bajos el motor corre varios pasos por
 	# frame (catch-up), asi que el rate define cuanto trabajo de fisica entra por frame.
 	var override := OS.get_environment("ODISEA_PHYSICS_FPS").strip_edges()

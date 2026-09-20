@@ -460,3 +460,163 @@ fallback se libera y queda el lightmap del motor. Ya **no sale magenta** (el blo
 unidad), cobertura buena (hub 76%, casquete 94%, 0 faults), pero **peor en todo lo demás**: 7.9 fps contra 10.7 del
 manual (debug, cámara del jugador), MemAvailable 132 MB contra ~250 MB, y el **piso del domo pierde su lightmap**
 (casi negro; el vínculo de BakedLightmapData con la malla local_to_scene). Se queda el camino manual.
+
+## RingHub_Level: replay de gameplay real, física domina sobre render (2026-09-20)
+
+Primera bisección con un replay grabado **jugando** (no cámara con jitter): `--replay` con un JSON
+grabado en desktop, reproducido en el Anbernic vía `dev.sh` (mismo método que L-Dome_Intro más
+arriba), release, `ODISEA_REPLAY_PERF=1` volcando `user://replay_perf.json` (fps/ms_process/
+ms_physics/draw_calls/posición por frame).
+
+### Dos bugs de determinismo del sistema de replay, encontrados y arreglados
+
+Antes de poder confiar en cualquier medición hubo que arreglar el propio mecanismo de replay — un
+replay grabado en `RingHub_Level` no reproducía la posición del jugador ni abría el criopod:
+
+1. **`SessionManager._get_replay_sync_nodes()` (línea ~215) excluía el nodo raíz de la escena de su
+   propio snapshot.** Filtraba con `active_scene.is_a_parent_of(node)`, que da `false` para el propio
+   nodo (no es padre de sí mismo). Cualquier script de nivel pegado a la raíz de su escena (como
+   `RingHubWakeup.gd` en `RingHub_Level`) queda fuera de `get_snapshot()`/`restore_snapshot()` pese a
+   estar en el grupo `replay_sync` y definir ambos métodos — su estado (qué criopod sorteó
+   `run_seed`) nunca se restauraba. Fix: `active_scene == node or active_scene.is_a_parent_of(node)`.
+   Con esto, el propio nivel también puede sincronizar estado sin que cada script tenga que envolverse
+   en un nodo hijo dummy. Regresión cubierta en `test_replay_prop_snapshots.gd`.
+2. **El modo HUD pausaba el mundo.** `PauseManager.pause_hud_mode()` ponía `get_tree().paused = true`
+   al abrir cualquier pantalla/terminal (FD-296 F3). Como `RingHubWakeup` abre la holoterminal del
+   criopod automáticamente al arrancar (`open_pod_terminal_on_start`), el replay quedaba congelado en
+   el frame 0 esperando indefinidamente (nunca llegaba el input de cierre porque el buffer replay no
+   corre mientras el árbol está pausado). **Decisión de producto, no solo fix de testing:** el modo
+   HUD ya NO pausa el mundo nunca — es una overlay, el nivel sigue simulando detrás. Test
+   `test_hud_mode.gd` actualizado (`test_tab_opens_without_pausing_and_ui_cancel_exits`).
+
+Efecto medido en desktop, mismo replay, antes/después de los dos fixes: drift final de posición
+**8.92 m → 0.11 m** (el jugador ahora sale del criopod, camina el nivel entero y llega cerca del
+punto esperado).
+
+### Bug de reporting del script de debug (no del motor)
+
+`tools/dbg_replay_run.gd` contaba `data["buffer"].size()` del JSON crudo para reportar el "total" de
+frames, pero ese array está comprimido por RLE (`compress_buffer`/`expand_buffer` en
+`SessionManager.gd`, runs de input idéntico colapsan a `{"hold": N}`). Un replay con 714 entradas
+comprimidas eran en realidad 1647 frames reales — el script reportaba "TERMINÓ en frame 1647 de 714"
+dando la falsa impresión de que el `SessionManager` tardaba ~900 frames de más en cerrar (coincidía
+con `REPLAY_WATCHDOG_STALL_FRAMES=900` por casualidad, no por causa). El watchdog nunca se disparó
+en esta corrida; `_finish_and_validate()` se llama apenas se agota el buffer real. Fix: contar sobre
+`expand_buffer(...)`. Test de regresión agregado.
+
+### Mismatch de tick de física 60→30 Hz entre grabación y reproducción (en curso)
+
+Un replay grabado en desktop (física a 60 Hz) reproducido en el Anbernic (tier LOW fuerza 30 Hz, ver
+`GLES3VendorGate.sync_physics_rate()`) hace que el jugador termine cayendo al vacío a mitad de
+reproducción (drift de miles de metros) aunque el mecanismo de replay en sí esté sano — el buffer de
+input no se remapea al Hz de física real del dispositivo. Bajo investigación en paralelo; hasta que
+se resuelva, cualquier replay grabado en desktop y corrido en el Anbernic solo es fiable hasta que
+la trayectoria diverge (en la corrida usada para este informe, el primer ~48% de los frames, hasta
+que el jugador cae por debajo de y=-50).
+
+### Medición: física, no render, es el techo en el Anbernic (release, `RingHub_Level`)
+
+Segmento de gameplay real (antes de que la trayectoria divergiera por el mismatch de Hz de arriba),
+792 de 1655 frames, física fija a 30 Hz (confirmado en log: `[GLES3VendorGate] render: target_fps=0
+physics=30`), presupuesto de 33.3 ms por paso:
+
+| | mediana | p90 | máx |
+|---|---|---|---|
+| ms_process (frame completo) | 31.7 | 40.1 | 53.1 |
+| **ms_physics** | **23.5** | 29.5 | **59.1** |
+| draw_calls | 54 | 60 | 82 |
+
+`ms_physics` mediana ya es el **70% del presupuesto de 33.3 ms** de un tick a 30 Hz, y el máximo
+(59.1 ms) lo excede casi 2×. Comparado con lo medido en su momento en un Redmi Note 9 Pro (física
+servidor 7.81 ms de 16.6 ms de presupuesto a 60 Hz, ver `reference_perfil_tick_fisica`), el
+Anbernic tiene proporcionalmente mucho menos margen — consistente con Box3D corriendo con 1 solo
+worker (el multihilo regresiona en este hardware, ver arriba) sobre un Cortex-A35 cuádruple.
+Draw calls (54-82) no es el problema: `Dome_Intro` (mucho más denso) llega a 439-788 en este mismo
+dispositivo.
+
+Segmento "vacío" (cayendo, tras el bug de arriba): ms_process 26.2, ms_physics 12.2, draw_calls 3 —
+sirve de piso de referencia (costo fijo de VM/engine sin escena real que renderizar).
+
+MemAvailable durante la corrida: 683 MB libres de 1 GB — memoria no es el limitante hoy.
+GPU faults: 0 (confirma que la actualización de ROCKNIX de L13 sigue sosteniendo la cobertura).
+
+### Candidato a probar: geometría de colisión del piso
+
+El único collider grande de `RingHub_Level` es un `ConcavePolygonShape` (id=230, el piso del hub en
+forma de anillo con bisel) de **3786 triángulos**. Es contra esta malla que corren los ~8 sitios de
+`intersect_ray` de `PlayerControllerV2` (chequeo de suelo, mantle, apuntado de herramienta, soporte
+de escalón) cada tick de física. Una malla de colisión de esa densidad para un piso que en esencia es
+un anillo con un bisel simple es sospechosa de traer detalle arquitectónico que no aporta nada al
+gameplay. **No se tocó esta sesión** — cambiar la geometría de colisión de un nivel sin verificación
+visual en vivo es riesgoso (agujeros, el jugador atravesando el piso); queda como el candidato de
+mayor impacto potencial para la próxima vuelta, con bake/decimación deliberada del collider (no el
+mesh visual) y validación con captura en el dispositivo antes de confiar en la medición.
+
+### Experimento de config: `physics/3d/box3d_substeps`
+
+Ver [FD-290](../../features/FD-290_box3d_backend_optimizations.md): default 2, cambiarlo reordena
+trayectorias (afecta a los `.oys` existentes) y puede ablandar la sensación de las pilas de cajas —
+por eso no es un default silencioso, es una decisión de producto pendiente de aprobar. Puesto a
+prueba en `portmaster/lowend.cfg` (`3d/box3d_substeps=1`, solo tier RK3326) el 2026-09-20.
+
+**Resultado** (mismo replay, mismo segmento "real" antes de que la trayectoria divergiera por el
+mismatch de Hz):
+
+| | substeps=2 (default) | substeps=1 |
+|---|---|---|
+| ms_physics mediana | 23.5 | **21.0** (−11%) |
+| ms_physics p90 | 29.5 | 29.4 (sin cambio) |
+| ms_physics máx | 59.1 | 62.3 (sin cambio) |
+| ms_process mediana | 31.7 | 30.7 |
+
+Mejora real pero modesta en el caso típico; **no toca la cola larga** (p90/máx), que viene de otro
+lado — candidato más probable, la malla de colisión del piso (ver arriba) o picos puntuales de
+carga/GC. Queda seteado en `lowend.cfg` para seguir midiendo junto con el fix de tick-rate de abajo,
+pendiente de decisión de Sebastián antes de dejarlo como default permanente (re-grabar `.oys`
+afectados si se confirma).
+
+### Fix del mismatch de tick 60↔30 Hz (2026-09-20, verificado en desktop)
+
+Causa raíz confirmada: `GLES3VendorGate` fuerza `Engine.iterations_per_second = 30` una sola vez en
+`_ready()` para el tier LOW, y nunca se resincroniza durante un replay. El jugador se stepea a mano
+con `SessionManager.FIXED_DT = 1/60` fijo (por diseño, el "anti-slowmo" de FD-299/PR#351) sin
+importar el Hz real del motor — pero todo lo que depende del physics server **nativo** (áreas,
+rigid bodies, cualquier `_physics_process` fuera del grupo `replay_sync`) sí corre al Hz real. Con
+el motor a 30 Hz, sobre las mismas 1647 llamadas el jugador avanza 27.45 s "a mano" pero el motor
+nativo avanza 54.9 s — el doble — y la trayectoria se descarrila por completo.
+
+Fix: `GLES3VendorGate.set_replay_active(bool)` (llamado desde `SessionManager._physics_process`
+mientras `is_recording or is_replaying`) fuerza el Hz del proyecto (60) mientras dura un
+replay/grabación, ignorando el tier LOW solo para ese lapso. `ODISEA_PHYSICS_FPS` (usado por
+`tools/perf_bisect.sh`) sigue ganando siempre. Verificado en desktop forzando
+`ODISEA_FORCE_LOW_TIER=1` con el mismo replay: drift **2833 m → 0.109 m** (igual al baseline
+normal). Test nuevo: `test_gles3_vendor_gate.gd::test_replay_active_overrides_low_tier_physics_rate`.
+**Confirmado en el Anbernic real (2026-09-20):** con el fix desplegado, el mismo replay que antes
+caía al vacío (drift 2833 m) ahora termina con drift **0.109 m** — idéntico al baseline de
+desktop — y recorre el nivel completo (1647/1647 frames, sin caída, `y` entre 0.0 y 8.37 en toda la
+corrida). Confirma la causa raíz y el fix en hardware real, no solo en la reproducción de escritorio.
+
+### Medición definitiva: nivel completo, con los dos fixes (tick-rate + `box3d_substeps=1`)
+
+Con la trayectoria ya sana, esta es la medición de referencia (reemplaza la parcial de la sección
+anterior, que solo cubría ~48% del nivel antes de que la trayectoria divergiera):
+
+| | mediana | p90 | p99/máx |
+|---|---|---|---|
+| ms_process (frame completo) | 29.9 | 34.6 | 46.1 |
+| **ms_physics** | **15.7** | 22.7 | 57.0 |
+| draw_calls | 59 | 95 | 95 |
+
+`ms_physics` mediana bajó de 23.5 ms (parcial, substeps=2, tick-rate roto) a **15.7 ms** (47% del
+presupuesto de 33.3 ms a 30 Hz) — mejora real de ambos fixes combinados sobre un recorrido que ahora
+cubre el nivel entero, incluida la interacción con el criopod. El pico de draw_calls (95, frame 983,
+`z≈23.8`) es una zona del nivel que la corrida parcial anterior nunca alcanzó — vale mirarla si se
+sigue optimizando geometría. La cola larga de `ms_physics` (p99/máx 57 ms, más del presupuesto de un
+tick) sigue sin explicarse por los fixes de esta sesión — el candidato más probable sigue siendo el
+collider del piso (3786 triángulos, ver arriba) o picos puntuales de carga de assets/GC.
+
+**Conclusión de esta vuelta:** con los tres bugs del sistema de replay resueltos (snapshot de raíz de
+escena, pausa por HUD, mismatch de tick 60↔30 Hz) más `box3d_substeps=1`, el margen de física en el
+Anbernic pasó de "70% del presupuesto, jugador cae al vacío a mitad de nivel" a "47% del presupuesto,
+nivel completo navegable". La cola de picos (p99 57 ms) y la geometría del collider del piso quedan
+como el trabajo pendiente de mayor impacto potencial para la próxima vuelta.

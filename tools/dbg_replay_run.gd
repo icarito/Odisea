@@ -20,7 +20,10 @@ func _init() -> void:
 	var data = JSON.parse(f.get_as_text()).result
 	f.close()
 	var esperado: Dictionary = data.get("final_expected_state", {})
-	var total: int = data.get("buffer", []).size()
+	# data["buffer"] esta comprimido (RLE de "hold"); expandirlo para contar los
+	# frames reales que el SessionManager va a reproducir, si no "total" miente
+	# (ver compress_buffer/expand_buffer en SessionManager.gd).
+	var total: int = sm.expand_buffer(data.get("buffer", [])).size()
 	print("[r] escena=%s  buffer=%d" % [data.get("meta", {}).get("scene", "?"), total])
 
 	sm.load_and_play(path)

@@ -269,14 +269,14 @@ func _virtual_mouse_released() -> bool:
 	var script = preload("res://core_v2/ui/VirtualMouse.gd")
 	return script != null and script.is_pointer_released()
 
-# FD-296 F3: pausa del modo HUD. Congela el mundo como pause(), pero sin PauseMenu y
-# sin tocar el mouse: el radial lee el gesto con el mouse capturado. Devuelve false si
-# no se puede pausar (menu/boot, o el juego ya estaba pausado por otra cosa).
+# FD-296 F3: modo HUD. NO congela el mundo (el nivel sigue simulando detras de la
+# pantalla, a proposito: la terminal/radial es una overlay, no una pausa) y sin tocar el
+# mouse salvo ocultarlo: el radial lee el gesto con el mouse capturado. Devuelve false si
+# no se puede abrir (menu/boot, o el juego ya esta pausado de verdad por otra cosa).
 func pause_hud_mode() -> bool:
 	if _hud_mode_paused or get_tree().paused or not _can_pause_in_current_scene():
 		return false
 	_hud_mode_paused = true
-	get_tree().paused = true
 	# Solo ocultar el puntero: nada de capturarlo/centrarlo. El radial se apunta con el stick o el
 	# mouse (que ahora sigue moviendose) y las pantallas usan el cursor virtual.
 	if _mouse_mode_before_hud < 0:
@@ -291,7 +291,6 @@ func resume_hud_mode() -> void:
 	if not _hud_mode_paused:
 		return
 	_hud_mode_paused = false
-	get_tree().paused = false
 	if _mouse_mode_before_hud >= 0:
 		var restore: int = _mouse_mode_before_hud
 		_mouse_mode_before_hud = -1

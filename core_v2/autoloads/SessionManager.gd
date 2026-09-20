@@ -212,7 +212,7 @@ func _get_replay_sync_nodes() -> Array:
 		for node in all_nodes:
 			if not is_instance_valid(node):
 				continue
-			if not is_instance_valid(active_scene) or active_scene.is_a_parent_of(node):
+			if not is_instance_valid(active_scene) or active_scene == node or active_scene.is_a_parent_of(node):
 				filtered.append(node)
 		filtered.sort_custom(self , "_sort_nodes_by_path")
 		_replay_sync_cache = filtered
@@ -1571,6 +1571,8 @@ func _process(_delta: float) -> void:
 # autoloads viven toda la sesion, asi que una resolucion basta.
 var _pm_prof = null
 var _pm_prof_buscado := false
+var _gles3_gate = null
+var _gles3_gate_buscado := false
 
 func _physics_process(_dt):
 	if not _pm_prof_buscado:
@@ -1578,6 +1580,16 @@ func _physics_process(_dt):
 		_pm_prof = get_node_or_null("/root/PerformanceMonitor")
 	var pm = _pm_prof
 	if pm and pm.has_method("profiling_start"): pm.profiling_start("SessionManager")
+
+	# El buffer de replay mapea 1 frame -> 1 tick de fisica; forzar el rate del proyecto
+	# mientras se graba/reproduce evita que el tier LOW (30 Hz en el Anbernic) desincronice
+	# RigidBody/Area nativos del paso manual del jugador (FIXED_DT fijo). set_replay_active
+	# es barato cuando no cambia (early return), asi que no hace falta cachear el estado aca.
+	if not _gles3_gate_buscado:
+		_gles3_gate_buscado = true
+		_gles3_gate = get_node_or_null("/root/GLES3VendorGate")
+	if _gles3_gate and _gles3_gate.has_method("set_replay_active"):
+		_gles3_gate.set_replay_active(is_recording or is_replaying)
 
 	# In RL lock-step runs, AnnaBridge drives the simulation and SessionManager
 	# bookkeeping becomes pure overhead.

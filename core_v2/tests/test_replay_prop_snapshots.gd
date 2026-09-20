@@ -36,6 +36,57 @@ func test_world_snapshot_includes_elevator_platform_and_criopod_door_state() -> 
 	root.queue_free()
 	yield (get_tree(), "idle_frame")
 
+func test_world_snapshot_includes_scene_root_itself_when_in_replay_sync() -> void:
+	# Regresion: _get_replay_sync_nodes() filtraba con is_a_parent_of(), que excluye al
+	# propio nodo (un nodo no es padre de si mismo). Un script de nivel pegado a la RAIZ
+	# de la escena (ej. RingHubWakeup en RingHub_Level) quedaba fuera del snapshot y su
+	# estado (que criopod eligio) nunca se restauraba en el replay.
+	# set_current_scene() exige que el nodo sea hijo directo de la raiz del arbol
+	# (Viewport), igual que una escena real montada por SceneManager.
+	var root := Spatial.new()
+	root.name = "SceneRootUnderTest"
+	root.set_script(preload("res://core_v2/tests/helpers/ReplaySyncRootStub.gd"))
+	root.add_to_group("replay_sync")
+	get_tree().get_root().add_child(root)
+	yield (get_tree(), "idle_frame")
+
+	var previous_scene = get_tree().current_scene
+	get_tree().current_scene = root
+	# Forzar recomputo del cache de replay_sync bajo el nuevo current_scene: el cache
+	# solo se invalida por señales node_added/node_removed del arbol, no por cambiar
+	# current_scene, así que otro frame de proceso ya lo puede haber recalculado bajo
+	# el active_scene viejo (dejandolo "limpio" y ocultando el bug que este test cubre).
+	SessionManager._replay_sync_cache_dirty = true
+	var snapshot = SessionManager._get_world_state_snapshot()
+	get_tree().current_scene = previous_scene
+	SessionManager._replay_sync_cache_dirty = true
+
+	assert_dict(snapshot).contains_keys([root.get_path()])
+
+	root.queue_free()
+	yield (get_tree(), "idle_frame")
+
+func test_expand_buffer_recovers_full_frame_count_from_hold_compression() -> void:
+	# Regresion: tools/dbg_replay_run.gd media el "total" de frames leyendo
+	# data["buffer"].size() directo del JSON grabado, pero ese array esta
+	# comprimido por compress_buffer() (runs de input identico colapsan a un
+	# solo {"hold": N}). Un replay de 714 frames grabados con mucho input
+	# sostenido (caminar, quieto) podia comprimir a un array mucho mas chico
+	# y el script reportaba "termino en frame 1647 de 714", dando la falsa
+	# impresion de que el SessionManager tardaba de mas en terminar cuando en
+	# realidad corrio exactamente los frames que tenia. expand_buffer() es la
+	# fuente de verdad del conteo real.
+	var same_input = {"move": Vector2(1, 0)}
+	var raw_buffer = [{"snapshot": {}}]
+	for _i in range(50):
+		raw_buffer.append({"input": same_input})
+
+	var compact = SessionManager.compress_buffer(raw_buffer)
+	assert_int(compact.size()).is_less(raw_buffer.size())
+
+	var expanded = SessionManager.expand_buffer(compact)
+	assert_int(expanded.size()).is_equal(raw_buffer.size())
+
 func test_elevator_controller_snapshot_roundtrip_preserves_runtime_state() -> void:
 	var host = _scene_host()
 	var elevator = ElevatorPropScene.instance()

@@ -164,19 +164,20 @@ const UP := {"hud_mode": false}
 const CONFIRM := {"tool_fire_primary": true}
 
 
-func test_tab_pauses_without_pause_menu_and_ui_cancel_exits() -> void:
+func test_tab_opens_without_pausing_and_ui_cancel_exits() -> void:
 	_screen("test:a", "Alpha")
 	var overlay = _open_and_play([])
 	assert_object(overlay).is_not_null()
 	assert_object(overlay.get_parent()).is_equal(_overlay_mgr.get_slot(_overlay_mgr.SLOT_MODAL))
 	assert_int(overlay.pause_mode).is_equal(Node.PAUSE_MODE_PROCESS)
-	assert_bool(get_tree().paused).is_true()
+	# El modo HUD es una overlay, no una pausa: el nivel sigue simulando detras.
+	assert_bool(get_tree().paused).is_false()
 	assert_int(CinematicManager.pause_mode).is_equal(Node.PAUSE_MODE_PROCESS)
 	assert_bool(PauseManager.is_hud_mode_paused()).is_true()
 	assert_object(PauseManager.pause_menu_instance).is_null()
 	# ESC con el modo HUD abierto no es de PauseManager: no toca la pausa ni abre el menu.
 	PauseManager._input(_action("ui_cancel"))
-	assert_bool(get_tree().paused).is_true()
+	assert_bool(get_tree().paused).is_false()
 
 	overlay._input(_action("ui_cancel"))
 	assert_object(_overlay()).is_null()
