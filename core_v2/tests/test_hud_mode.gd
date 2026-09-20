@@ -247,7 +247,8 @@ func test_tap_with_a_single_screen_opens_it_directly() -> void:
 # Mantener TAB, apuntar hacia arriba (mouse_delta +Y = arriba) y soltar: con dos pantallas el
 # dial pone la primera a las 6 y la segunda a las 12, y soltar elige lo marcado.
 func _hold_and_pick_second() -> Array:
-	return _held(Gesture.HOLD_TICKS) + [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, UP]
+	return _held(Gesture.HOLD_TICKS) \
+		+ [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]}, UP]
 
 
 func overlay_aim_radius() -> float:
@@ -258,7 +259,8 @@ func test_pick_while_holding_keeps_the_screen_open_on_release() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS)
-		+ [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, {"hud_mode": true, "tool_fire_primary": true}])
+		+ [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]},
+			{"hud_mode": true, "tool_fire_primary": true}])
 	# Elegida con TAB todavia apretado: se entra y se usa (mouse virtual y clic)...
 	assert_bool(SuitOS.is_hud_mode_active()).is_true()
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
@@ -664,7 +666,7 @@ func test_gamepad_and_tab_open_the_radial_without_the_virtual_mouse() -> void:
 
 	# Elegida una pantalla sin Pantalla propia (widget ampliado): desde la revision 2026-09-19 usa
 	# mouse (click y arrastre a slots), asi que el cursor queda prendido y liberado.
-	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, UP])
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]}, UP])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 	assert_bool(cursor.is_processing_input()).is_true()
 	assert_bool(cursor.visible).is_true()
@@ -801,7 +803,7 @@ func test_hud_widgets_hide_while_a_screen_is_open_but_not_with_only_the_dial() -
 	assert_bool(overlay._selector.is_open()).is_true()
 	assert_bool(widget.visible).is_true()
 
-	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, UP])
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]}, UP])
 	assert_str(SuitOS.get_active_screen_id()).is_not_empty()
 	assert_bool(widget.visible).is_false()
 
@@ -844,7 +846,7 @@ func test_slot_key_hold_pins_the_pick_in_that_slot() -> void:
 	SuitOS.pin_to_slot(0, "test:a")
 	var overlay = _open_slot_and_play(4, _slot_held(4, Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
-	_play(overlay, [{"hud_slot": 4, "mouse_delta": [0.0, 60.0]}, UP])
+	_play(overlay, [{"hud_slot": 4, "mouse_delta": [0.0, overlay_aim_radius()]}, UP])
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["test:a", "", "", "test:b"])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 
@@ -882,7 +884,7 @@ func test_slot_key_hold_on_an_empty_slot_opens_the_radial_for_it() -> void:
 	var overlay = _open_slot_and_play(3, _slot_held(3, Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
 	assert_int(overlay._target_slot).is_equal(2)
-	_play(overlay, [{"hud_slot": 3, "mouse_delta": [0.0, 60.0]}, UP])
+	_play(overlay, [{"hud_slot": 3, "mouse_delta": [0.0, overlay_aim_radius()]}, UP])
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:b", ""])
 
 
@@ -917,7 +919,8 @@ func test_release_in_the_dead_zone_picks_nothing() -> void:
 func test_pulling_the_mouse_back_to_the_middle_clears_the_selection() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
-	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS) + [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}])
+	var overlay = _open_and_play(_held(Gesture.HOLD_TICKS) \
+		+ [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]}])
 	assert_int(overlay._selector.get_hovered_index()).is_equal(1)
 	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, -60.0]}])
 	assert_bool(overlay._selector.has_selection()).is_false()
@@ -1214,7 +1217,7 @@ func test_touch_tap_with_a_marked_option_presses_it_like_the_elevator() -> void:
 	# Marcada la de abajo (Alpha, a las 6): un tap fuera de los sectores la oprime. Fuera del hub
 	# (FD-306 §1): el centro tiene dueño y tocarlo abre el drawer, no oprime lo marcado.
 	var hollow: Vector2 = center + Vector2(90.0, 0.0)
-	overlay._point_at(Vector2(0.0, 100.0))
+	overlay._point_at(Vector2(0.0, overlay_aim_radius()))
 	assert_int(sel.get_hovered_index()).is_equal(0)
 	overlay._input(_touch(true, hollow))
 	overlay._input(_touch(false, hollow))
@@ -1223,7 +1226,7 @@ func test_touch_tap_with_a_marked_option_presses_it_like_the_elevator() -> void:
 
 	# Con una marcada, tocar OTRO sector elige ese sector, no la marcada.
 	overlay._open_radial()
-	overlay._point_at(Vector2(0.0, 100.0))
+	overlay._point_at(Vector2(0.0, overlay_aim_radius()))
 	var top: Vector2 = center + Vector2(0.0, -mid)
 	overlay._input(_touch(true, top))
 	overlay._input(_touch(false, top))
@@ -1671,7 +1674,7 @@ func test_mouse_click_with_the_aim_on_a_sector_picks_it_not_the_hub() -> void:
 	assert_bool(SuitOS.open_hud_mode(true)).is_true()
 	var overlay = _overlay()
 	var sel = overlay._selector
-	overlay._point_at(Vector2(0.0, 100.0)) # Alpha, a las 6
+	overlay._point_at(Vector2(0.0, overlay_aim_radius())) # Alpha, a las 6
 	assert_int(sel.get_hovered_index()).is_equal(0)
 	var center: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
 	var previous_mode: int = Input.get_mouse_mode()
