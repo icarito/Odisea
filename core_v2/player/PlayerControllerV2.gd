@@ -182,6 +182,9 @@ var _restore_fov: float = -1.0
 var _exit_log_frames := 0
 var _perf_disable_interaction_scan := false
 var _perf_disable_cinematic_zone_scan := false
+# Tier LOW: paso del escaneo de interaccion/zonas (1 = cada tick, 2 = cada 2 ticks).
+var _scan_gate = null
+var _scan_tick := 0
 var _rl_mode := false
 var _rl_fast_controller := false
 var _rl_skip_animator := false
@@ -2577,9 +2580,17 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	_update_camera_orbit_state(dt, input)
 
+	# PERF (tier LOW): el escaneo de interaccion y el de zonas cinematicas corren cada 2
+	# ticks. En el handheld el tick de scripts es el cuello medido (control ~1.4 ms, de los
+	# cuales ~0.7 son estos scans). La interaccion conserva su target cacheado entre scans y
+	# cualquier input de interaccion (press/hold/focus/crouch) fuerza el scan para no perder
+	# el edge del boton. Fuera de LOW el paso es 1: desktop/CI/replay no cambian.
+	var scan_stride := _low_scan_stride()
+	_scan_tick += 1
 	if not _rl_fast_controller:
-		# PERF: responsiveness - process interaction every frame
-		_process_interaction(input)
+		if scan_stride <= 1 or _scan_tick % scan_stride == 0 \
+				or input.interact or input.interact_held or input.focus or input.crouch:
+			_process_interaction(input)
 
 	if physics_grounded and velocity.y < 0 and movement_logic.get_horizontal_velocity().y <= 0:
 		velocity.y = 0
@@ -2596,8 +2607,8 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	# --- CINEMATIC ZONE DETECTION ---
 	if not _rl_fast_controller and not _perf_disable_cinematic_zone_scan:
-		# PERF: responsiveness - detection every frame
-		_update_cinematic_zone_detection(input, dt)
+		if scan_stride <= 1 or _scan_tick % scan_stride == 0:
+			_update_cinematic_zone_detection(input, dt)
 	
 	# --- MOVEMENT ---
 	if prof_enabled:
@@ -3200,6 +3211,16 @@ func _physics_process(_delta):
 		_pm_perfil.perfil_fin("PlayerControllerV2")
 		return
 	_paso_fisica(_delta)
+
+# 2 en tier LOW (handheld), 1 en el resto. El tier puede activarse recien cuando entra un
+# nivel (el gate resuelve el adapter/opcion), asi que NO se cachea el resultado: se
+# consulta el bool del gate por tick, que es barato.
+func _low_scan_stride() -> int:
+	if _scan_gate == null or not is_instance_valid(_scan_gate):
+		_scan_gate = get_node_or_null("/root/GLES3VendorGate")
+	if _scan_gate != null and _scan_gate.has_method("is_low_tier") and _scan_gate.is_low_tier():
+		return 2
+	return 1
 
 func _paso_fisica(_delta):
 	_tick_arrival_cam_trace()

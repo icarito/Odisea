@@ -21,6 +21,10 @@ const FLAT_FAKE_SHADER = preload("res://core_v2/visual/FlatFake.shader")
 # Variante cull_disabled para materiales fuente doble-lado (rejillas CULL_DISABLED):
 # el deck horneado puede tener winding hacia abajo y con cull_back desaparece.
 const FLAT_FAKE_DOUBLE_SIDED_SHADER = preload("res://core_v2/visual/FlatFakeDoubleSided.shader")
+# Variantes transparentes: el vidrio (criopods, ventanas) conserva su transparencia en
+# vez de quedar como un panel opaco. Mismo shading falso, con blend_mix + ALPHA.
+const FLAT_FAKE_TRANSPARENT_SHADER = preload("res://core_v2/visual/FlatFakeTransparent.shader")
+const FLAT_FAKE_TRANSPARENT_DOUBLE_SIDED_SHADER = preload("res://core_v2/visual/FlatFakeTransparentDoubleSided.shader")
 # SOLO adapters verificados en device (§11.10): un adapter desconocido NO se
 # gatea — nunca dejar caer un device por culpa de otro.
 const KNOWN_CONSERVATIVE_ADAPTERS := ["mali-g31"]
@@ -386,6 +390,8 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 	# ambos lados: el quad horneado puede venir con winding invertido y con cull_back
 	# el piso caminable desaparece. El resto de los materiales queda cull_back.
 	var double_sided := false
+	# Alpha del material fuente, para no perder la transparencia del vidrio.
+	var src_alpha := 1.0
 	# Los materiales del bake marcan su categoria con emision (barandas, vidrio
 	# `mat_cyan`, warning): si hay emision, se usa el tinte del albedo sin promediar
 	# la textura (que lo apagaba a gris) y se los enciende con glow.
@@ -394,6 +400,7 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 		var sm := source as SpatialMaterial
 		double_sided = sm.params_cull_mode == SpatialMaterial.CULL_DISABLED
 		color = sm.albedo_color
+		src_alpha = color.a
 		tex = sm.albedo_texture
 		name_hint += " " + str(sm.resource_path) + " " + str(sm.resource_name)
 		if sm.emission_enabled:
@@ -408,6 +415,7 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 			var v = sh.get_shader_param(n)
 			if v is Color and v.a > 0.05:
 				color = v
+				src_alpha = v.a
 				break
 		for n in ["albedo_texture", "base_texture", "texture", "albedo", "albedo_map"]:
 			var t = sh.get_shader_param(n)
@@ -462,11 +470,21 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 	if _flat_debug and not _flat_debug_seen.has(name_hint):
 		_flat_debug_seen[name_hint] = true
 		print("[FLATDBG] '", name_hint, "' -> ", color.to_html(), " glow=", glow)
-	var key := color.to_html() + "|" + str(glow) + "|" + str(tex.get_instance_id() if tex != null else 0) + "|" + str(double_sided)
+	# Vidrio: en flat el material por defecto es opaco, asi que recupera su transparencia.
+	# Solo si el jugador no forzo color por override (ese camino manda).
+	var transparent := ov.a <= 0.0 and (ht.find("glass") != -1 or ht.find("vidrio") != -1 or ht.find("cristal") != -1)
+	var out_alpha := 1.0
+	if transparent:
+		out_alpha = clamp(src_alpha, 0.2, 0.8) if src_alpha < 0.95 else 0.45
+	var key := color.to_html() + "|" + str(glow) + "|" + str(tex.get_instance_id() if tex != null else 0) + "|" + str(double_sided) + "|" + str(out_alpha)
 	if _flat_cache.has(key):
 		return _flat_cache[key]
 	var mat := ShaderMaterial.new()
-	mat.shader = FLAT_FAKE_DOUBLE_SIDED_SHADER if double_sided else FLAT_FAKE_SHADER
+	if transparent:
+		mat.shader = FLAT_FAKE_TRANSPARENT_DOUBLE_SIDED_SHADER if double_sided else FLAT_FAKE_TRANSPARENT_SHADER
+		mat.set_shader_param("alpha", out_alpha)
+	else:
+		mat.shader = FLAT_FAKE_DOUBLE_SIDED_SHADER if double_sided else FLAT_FAKE_SHADER
 	# El uniform es vec3: pasar un Color no lo setea (queda el default gris).
 	mat.set_shader_param("albedo", Vector3(color.r, color.g, color.b))
 	mat.set_shader_param("glow", glow)

@@ -137,6 +137,7 @@ var _cached_player_material: ShaderMaterial = null
 # _update_player_screen_occlusion(): sin este margen el cono se cierra a radio 0
 # justo en el ojo de la cámara, y Elías parado ahí nunca ocluiría nada.
 export(float) var player_occlusion_body_radius := 0.4
+var _paso_oclusion_lowend = preload("res://core_v2/systems/LowTierTickStride.gd").new(self, 2)
 
 func _ready():
 	interaction_text = "Accionar terminal"
@@ -1048,7 +1049,12 @@ func _physics_process(delta: float) -> void:
 	if _hud_transition_active:
 		_step_hud_transition(delta)
 
-	_update_player_screen_occlusion(delta)
+	# FD-299: la oclusion de la pantalla del jugador es visual y puede ir a medio paso del
+	# tick en tier LOW (el stride devuelve el delta acumulado, asi que el lerp no cambia).
+	# El resto del terminal sigue por tick: el HUD pegado a la camara no se puede espaciar.
+	var occlusion_delta: float = _paso_oclusion_lowend.step(delta)
+	if occlusion_delta >= 0.0:
+		_update_player_screen_occlusion(occlusion_delta)
 
 	if not attach_to_active_camera or not is_active or _hud_attachment_suspended:
 		return
