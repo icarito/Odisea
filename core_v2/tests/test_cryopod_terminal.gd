@@ -128,6 +128,10 @@ func test_cryo_pod_ui_viewport_click_opens_hatch() -> void:
 	var terminal = pod.get_node("RotatingObjectV2/CryoPodTerminal")
 	var viewport = terminal.get_node("Viewport")
 	var button = viewport.get_node("CryoPodUI/HatchButton")
+	# En CI (proceso unico para toda la suite) el motor puede dejar residuos de otro test
+	# (anim/target progress, PerformanceMonitor); forzar el cierre inmediato garantiza el
+	# punto de partida que el test necesita, sin depender de que la instancia salga "limpia".
+	hatch.set_active(false, true)
 
 	terminal._is_focused = true
 	terminal._update_ui_mode()
@@ -148,6 +152,8 @@ func test_terminal_turns_off_on_open_and_is_interactable_again_on_close() -> voi
 	var terminal = pod.get_node("RotatingObjectV2/CryoPodTerminal")
 	var hudable = pod.get_node("RotatingObjectV2/CryoPodTerminal/CryoPodHUDable")
 	var button: Button = terminal.get_node("Viewport/CryoPodUI/HatchButton")
+	# Ver comentario en test_cryo_pod_ui_viewport_click_opens_hatch: punto de partida forzado.
+	hatch.set_active(false, true)
 	var previous_mouse_mode: int = Input.get_mouse_mode()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	var mouse_mode_is_settable: bool = Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED
