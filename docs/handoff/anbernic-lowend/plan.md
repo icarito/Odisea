@@ -542,15 +542,34 @@ GPU faults: 0 (confirma que la actualización de ROCKNIX de L13 sigue sosteniend
 
 ### Candidato a probar: geometría de colisión del piso
 
-El único collider grande de `RingHub_Level` es un `ConcavePolygonShape` (id=230, el piso del hub en
-forma de anillo con bisel) de **3786 triángulos**. Es contra esta malla que corren los ~8 sitios de
+El único collider grande de `RingHub_Level` es un `ConcavePolygonShape` (id=230, "CombinedCollision"
+en `Hub/RingFloor/StaticBody`) de **3786 triángulos**. Es contra esta malla que corren los ~8 sitios de
 `intersect_ray` de `PlayerControllerV2` (chequeo de suelo, mantle, apuntado de herramienta, soporte
-de escalón) cada tick de física. Una malla de colisión de esa densidad para un piso que en esencia es
-un anillo con un bisel simple es sospechosa de traer detalle arquitectónico que no aporta nada al
-gameplay. **No se tocó esta sesión** — cambiar la geometría de colisión de un nivel sin verificación
-visual en vivo es riesgoso (agujeros, el jugador atravesando el piso); queda como el candidato de
-mayor impacto potencial para la próxima vuelta, con bake/decimación deliberada del collider (no el
-mesh visual) y validación con captura en el dispositivo antes de confiar en la medición.
+de escalón) cada tick de física.
+
+**Intento 1 (descartado): VHACD automático.** `MeshInstance.create_multiple_convex_collisions()`
+(el mismo VHACD que usa el editor) da **67 piezas convexas** — reconstruí la malla desde
+`ConcavePolygonShape.get_faces()` con un `SurfaceTool` y corrí la descomposición headless. El
+resultado **infla el volumen muy por fuera de la geometría original** (bounding box Y de -4.58 a
++1.51, contra el piso real que va de Y=0.1 a 0.2) — problema conocido de VHACD con mallas abiertas/no
+watertight, que "cierra" el volumen extendiéndolo hacia donde no hay superficie. Se revirtió por
+completo antes de tocar el dispositivo (confirmado con `git diff` limpio, sin rastro del intento).
+
+**Lo que reveló la investigación (captura headless, `docs/handoff/anbernic-lowend/ringhub_floor_top.png`
+y `ringhub_floor_iso.png`):** "CombinedCollision" no es solo el piso — es un batch que combina
+**tres sistemas estructurales distintos** en una sola malla de colisión, por eficiencia de draw calls:
+1. El piso octogonal caminable (anillo, radio interior ~6.4, exterior ~14.1, Y≈0.1-0.27) — esto sí es
+   un anillo octogonal limpio, candidato real a 8 cajas trapezoidales.
+2. Una baranda/reja perimetral fina (las bandas de vértices en Y≈0.68-0.82 y Y≈1.23-1.37).
+3. Patas de soporte que bajan ~4.5 m hasta un piso/plataforma inferior (la banda de vértices en
+   Y=-4.5, confirmada visible en la captura isométrica: la plataforma del hub está elevada sobre
+   pilares).
+
+Separar estos tres en primitivas de forma segura requiere clasificar cada triángulo por a cuál de los
+tres pertenece (no es automático con las herramientas disponibles sin editor) y validar cada pieza
+visualmente — la baranda en particular es fácil de arruinar (un hueco ahí deja caer al jugador fuera
+de la plataforma). **No se tocó el archivo.** Candidato real para una sesión con el editor abierto:
+las capturas ya dejan claro qué es cada banda de altura, así que el próximo intento no parte de cero.
 
 ### Experimento de config: `physics/3d/box3d_substeps`
 
