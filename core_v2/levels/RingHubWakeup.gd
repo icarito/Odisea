@@ -43,8 +43,10 @@ func _ready() -> void:
 	# El vidrio debe bloquear el cuerpo incluso mientras Elias esta dentro. Solo el piso
 	# temporal queda apagado para no resolver una colision inicial empujandolo hacia arriba.
 	_set_wakeup_collision_enabled(false, false)
-	# El casco queda cerrado y sin colisionar mientras Elias esta dentro, pero el
-	# terminal debe seguir siendo detectable para abrirlo desde su pantalla.
+	# El piloto ya nace dentro del casco: no resolver ese solapamiento moviendolo. Los shapes
+	# siguen declarados y se reactivan al liberar la secuencia, antes de que pueda caminar fuera.
+	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/RotatingObjectV2"), false, false)
+	# El terminal debe seguir siendo detectable para abrirlo desde su pantalla.
 	_set_collision_shapes_enabled(
 		get_node_or_null("Criopod_Vert/RotatingObjectV2/CryoPodTerminal/InteractableEntity"), true, false)
 	var wakeup_zone := get_node_or_null("Criopod_Vert/CinematicSequence") as Area
@@ -107,6 +109,7 @@ func _pod_hatch_is_open() -> bool:
 	return is_instance_valid(hatch) and "is_active" in hatch and bool(hatch.is_active)
 
 func _release_wakeup_sequence() -> void:
+	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/RotatingObjectV2"), true)
 	if _gated_oys_script.empty():
 		return
 	var zone := get_node_or_null("Criopod_Vert/CinematicSequence")
@@ -189,6 +192,7 @@ func _on_wakeup_zone_exited(body: Node) -> void:
 
 func _set_wakeup_collision_enabled(enabled: bool, deferred: bool = true) -> void:
 	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/StaticBody2"), enabled, deferred)
+	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/StaticBody"), enabled, deferred)
 	var wakeup_floor := get_node_or_null("Criopod_Vert/WakeupFloor/CollisionShape") as CollisionShape
 	if wakeup_floor:
 		if deferred:
