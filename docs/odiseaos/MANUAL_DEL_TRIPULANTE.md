@@ -128,7 +128,9 @@ que elija entre una cosa.
 
 El dial muestra lo que usted eligió ver seguido. El cajón muestra **todo**.
 
-Se abre desde el hub `…`. Las pantallas salen en orden alfabético, ignorando acentos.
+Se abre de dos maneras: **sostenga el botón del HUD** desde donde esté, o confirme el hub
+`…` del centro del dial. La primera es la corta; la segunda es la que se descubre sola
+cuando usted ya está mirando el dial. Las pantallas salen en orden alfabético, ignorando acentos.
 Cada fila tiene una estrella: marcarla la sube al dial.
 
 **Puede tener seis favoritos.** El séptimo se rechaza: destello ámbar y *RADIAL LLENO*.
@@ -145,31 +147,32 @@ aunque la fuente ya no esté a su alcance.
 
 ## 5. Los verbos
 
-Ocho. No hay más.
+Nueve. No hay más.
 
 | # | Verbo | Teclado | Mando | Dedo / puntero |
 |---|---|---|---|---|
-| 1 | **Abrir OdiseaOS** | `Tab` | `Y` | botón del HUD |
-| 2 | **Cerrar OdiseaOS** | `Tab` o `Esc` | `Y` o `B` | botón del HUD |
-| 3 | **Apuntar el dial** | `WASD` | stick izquierdo | mover / arrastrar |
-| 4 | **Confirmar** | `Enter` | `A` | tocar el sector |
-| 5 | **Abrir el cajón** | apuntar al hub y `Enter` | hub y `A` | tocar el hub |
-| 6 | **Guardar en un slot** | sostener `1`–`4` | sostener un hombro | sostener y arrastrar |
-| 7 | **Operar una pantalla** | `Enter` sobre el botón | `A` / `B` / `X` | tocar el botón |
-| 8 | **Vaciar un slot** | arrastrar al reciclaje | arrastrar al reciclaje | arrastrar al reciclaje |
+| 1 | **Abrir el dial** — sus favoritos | `Tab` | `Y` | botón del HUD |
+| 2 | **Abrir el cajón** — todo | sostener `Tab` | sostener `Y` | sostener el botón |
+| 3 | **Cerrar OdiseaOS** | `Tab` o `Esc` | `Y` o `B` | botón del HUD |
+| 4 | **Apuntar el dial** | `WASD` | stick izquierdo | mover / arrastrar |
+| 5 | **Confirmar** | `Enter` | `A` | tocar el sector |
+| 6 | **Abrir la pantalla de un slot** | `1`–`4` | un hombro | tocar el widget |
+| 7 | **Guardar en un slot** | sostener `1`–`4` | sostener un hombro | sostener y arrastrar |
+| 8 | **Operar una pantalla** | `Enter` sobre el botón | `A` / `B` / `X` | tocar el botón |
+| 9 | **Vaciar un slot** | arrastrar al reciclaje | arrastrar al reciclaje | arrastrar al reciclaje |
+
+**Toque para lo que usa siempre, sostenga para lo demás.** Esa es toda la regla. Vale
+para el botón del HUD (dial / cajón) y para los botones de slot (abrir / reasignar).
+
+**El botón de un slot abre su pantalla, y si ya está en ella, la cierra.** Un botón, un
+destino. Un slot vacío no tiene nada que abrir: le ofrece el dial para que lo llene.
 
 **Mientras OdiseaOS está abierto, el Arca espera.** El mundo queda en pausa. Esto es
 deliberado: la consola del traje no le pide que lea mientras algo se mueve.
 
-Dos advertencias que el sistema no le da:
-
-- Con OdiseaOS abierto, **tocar cualquier tecla de slot u hombro cierra OdiseaOS**. No
-  abre la pantalla de ese slot. Para eso, sostenga.
-- Desde una pantalla abierta, `Tab`/`Y` lo devuelve al Arca. Para cambiar de pantalla
-  sin volver, **sostenga**.
-
-> *Verificado:* `HudModeOverlay._physics_process():279-358` y `_tap_slot():371`. Sobre la
-> segunda advertencia y sobre por qué son ocho y no catorce, ver Apéndice A.
+> *Verificado:* `HudModeOverlay._physics_process():279-358`, `_tap_slot()` y
+> `_open_drawer_direct()`. Nueve verbos, no ocho: el cajón dejó de ser un rincón del dial
+> y pasó a ser un verbo propio (decisión de Sebastián, 2026-09-20).
 
 ---
 
@@ -236,8 +239,8 @@ se rediseña hasta que se pueda explicar.
 
 | # | Qué no se pudo explicar | Evidencia | Propuesta |
 |---|---|---|---|
-| 1 | **Sostener `Tab`/`Y` no hace nada distinto de tocarlo.** Con nada abierto, tap y hold **abren los dos el dial**. La distinción solo existe desde una pantalla ya abierta. FD-296:89-92 pide un "hint de descubrimiento" para enseñar una diferencia que casi no hay — y ese hint nunca se implementó. | `HudModeOverlay.gd:300-318` (`TAP` → `_open_radial()`; `HOLD` → `_begin_hold_radial(-1)`) | **Cortar el hold de nivel superior.** Un gesto, un resultado. El hint deja de hacer falta. |
-| 2 | **Tocar un slot dentro de OdiseaOS cierra OdiseaOS, ignorando qué slot fue.** `_tap_slot()` descarta su argumento y llama `_exit()`. El doc de casos de uso afirma que abre la pantalla de ese slot: es falso ahí dentro. Hubo **tres revisiones de esta semántica el mismo día** (2026-09-19). | `HudModeOverlay.gd:369-373` | Decidir una y escribirla acá. Un verbo cuyo efecto cambió tres veces en un día no está diseñado. |
+| ~~1~~ | ~~**Sostener `Tab`/`Y` no hace nada distinto de tocarlo.**~~ **RESUELTO 2026-09-20 (Sebastián): sostener abre el cajón** (§5, verbo 2). Tap y hold ahora son dos verbos distintos y enseñables, y el hint de descubrimiento de `FD-296:89-92` deja de hacer falta. Lo que sigue es el diagnóstico original: Con nada abierto, tap y hold **abren los dos el dial**. La distinción solo existe desde una pantalla ya abierta. FD-296:89-92 pide un "hint de descubrimiento" para enseñar una diferencia que casi no hay — y ese hint nunca se implementó. | `HudModeOverlay.gd:300-318` (`TAP` → `_open_radial()`; `HOLD` → `_begin_hold_radial(-1)`) | **Cortar el hold de nivel superior.** Un gesto, un resultado. El hint deja de hacer falta. |
+| ~~2~~ | ~~**Tocar un slot cierra OdiseaOS, ignorando cuál fue.**~~ **RESUELTO 2026-09-20 (Sebastián): el botón de un slot abre su pantalla, y la cierra si ya está en ella** (§5, verbo 6). Diagnóstico original: `_tap_slot()` descarta su argumento y llama `_exit()`. El doc de casos de uso afirma que abre la pantalla de ese slot: es falso ahí dentro. Hubo **tres revisiones de esta semántica el mismo día** (2026-09-19). | `HudModeOverlay.gd:369-373` | Decidir una y escribirla acá. Un verbo cuyo efecto cambió tres veces en un día no está diseñado. |
 | 3 | **El acorde rápido existe solo en mando.** Sostener un hombro sobre un slot con pantalla y pulsar `A` ejecuta su operación primaria sin abrir nada. No hay equivalente con teclado ni con puntero. | `HudModeOverlay._drive_hud_buttons` | Declararlo afordancia exclusiva del mando **en el manual**, o darle paridad. Hoy no está en ninguna de las dos. |
 | 4 | **`Esc` y `B` hacen cosas distintas en el cajón.** `B` vuelve al dial; `Esc` sale de OdiseaOS entero. Y con puntero **no hay ninguna salida** del cajón salvo el botón del HUD. | casos de uso U21, hueco 5 | Una sola regla de retroceso para las tres entradas. |
 | 5 | **No hay código de color: hay 47 colores.** `core_v2/ui/hud/` tiene 47 valores distintos escritos a mano (140 sumando dial y a bordo), 11 constantes con nombre en 3 archivos, y ninguna de las 7 escenas de widget declara tema. El gris de OFFLINE está copiado 11 veces; el cian aparece como `0.83` y como `0.835`. | medición 2026-09-20 | §6 es la especificación; falta el juego de tokens que la implemente. |
@@ -245,10 +248,10 @@ se rediseña hasta que se pueda explicar.
 | 7 | **El sistema tiene cuatro nombres, y uno está mal usado.** `OdiseaOS`, `ODISEA OS`, `ODISEAOS`, `SuitOS`, más `OdiseaOS Workbench`. Y `OYS` **no es un sistema operativo**: es *OdysseyScript*, el lenguaje de guiones de a bordo. Llamar "capa OYS" a la consola confunde dos cosas distintas. | `locale/ui_strings.csv:271-273`; `core_v2/systems/OYS_Interpreter.gd` | Un nombre en ficción (**OdiseaOS**), uno en código (`SuitOS`), y la consola deja de llamarse OYS. |
 | 8 | **Los iconos de pantalla no existen.** `hud_screen_icon` está declarado desde FD-296 y no se usa en una sola línea. Este manual no pudo ilustrar ninguna pantalla. | FD-306 §3 | O se dibujan, o se borra el campo. |
 | 9 | **Hay tres formas de ser una pantalla**, y una invierte las capas: la vista registra en el modelo (`SuitOSWidgetHost.gd:780`). Invisible para quien lee el manual; decisivo para quien agrega una pantalla nueva. | §2.3 del mapa | Un solo contrato. |
-| 11 | **Sostener un slot tiene tres resultados distintos según qué haya adentro**, y dos son invisibles: si la pantalla del slot es favorita, el dial abre con ella marcada; si **no** es favorita, se abre el **cajón** con su fila marcada; si el slot está vacío, el dial abre sin nada marcado. Tres destinos para un mismo gesto. | `HudModeOverlay._open_radial():1336-1345` | Elegir uno. El manual describe el verbo 6 como si tuviera un solo destino, porque un verbo con tres no se puede enseñar. |
+| 11 | **Sostener un slot todavía tiene tres resultados distintos según qué haya adentro**, y dos son invisibles: si la pantalla del slot es favorita, el dial abre con ella marcada; si **no** es favorita, se abre el **cajón** con su fila marcada; si el slot está vacío, el dial abre sin nada marcado. Tres destinos para un mismo gesto. | `HudModeOverlay._open_radial():1336-1345` | Elegir uno. El manual describe el verbo 6 como si tuviera un solo destino, porque un verbo con tres no se puede enseñar. |
 | 10 | **Sostener se mide con tres relojes distintos.** Dos usan el reloj de pared (`HudModeOverlay.gd:36`, `SuitOSWidgetHost.gd:24`), uno cuenta muestras del stream (`HudTabGesture.gd:12`). Los dos primeros **no se pueden reproducir en un replay**. | comentario `# ponytail:` en `SuitOSWidgetHost.gd` | Un solo reloj, el determinista. |
 
-**Nueve páginas describen ocho verbos. El código implementa doce lazos de entrada
+**Nueve páginas describen nueve verbos. El código implementa doce lazos de entrada
 distintos (`_drive_*`) y lleva 24 banderas booleanas sin máquina de estados. Esa
 diferencia es el trabajo.**
 
