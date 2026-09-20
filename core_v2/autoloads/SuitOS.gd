@@ -119,15 +119,24 @@ func register_screen(screen: Object) -> void:
 
 func unregister_screen(screen_or_id) -> void:
 	var id: String = ""
+	var expected_screen: Object = null
 	if typeof(screen_or_id) == TYPE_STRING:
 		id = screen_or_id
 	elif typeof(screen_or_id) == TYPE_OBJECT and is_instance_valid(screen_or_id):
 		id = _extract_screen_id(screen_or_id)
+		expected_screen = screen_or_id
 
 	if id.empty() or not _screens.has(id):
 		return
 
 	var screen = _screens[id]
+	# Un nodo que sale del arbol (queue_free diferido) puede desregistrarse DESPUES de que
+	# otro con el mismo id (hud_screen_id fijo, ej. "ship:cryopod:elias") ya se registro: sin
+	# esta guarda, ese unregister tardio borraba el registro del reemplazo vivo. Desregistrar
+	# por id (string) sigue siendo incondicional: lo usan limpiezas explicitas de tests/managers
+	# que quieren garantizar el slot vacio sin importar quien quedo ahi.
+	if expected_screen != null and screen != expected_screen:
+		return
 	if is_instance_valid(screen) and screen.has_signal("state_changed"):
 		if screen.is_connected("state_changed", self, "_on_screen_state_changed"):
 			screen.disconnect("state_changed", self, "_on_screen_state_changed")

@@ -131,4 +131,7 @@ func _unregister_from_suit_os() -> void:
 	if has_node("/root/SuitOS"):
 		var suit_os = get_node("/root/SuitOS")
 		if suit_os.has_method("unregister_screen"):
-			suit_os.unregister_screen(screen_id())
+			# Por self, no por id: si otro nodo con el mismo hud_screen_id ya se registro
+			# (ej. un pod nuevo montado antes de que este termine de salir del arbol via
+			# queue_free), este unregister no debe pisarle el registro vivo.
+			suit_os.unregister_screen(self)
