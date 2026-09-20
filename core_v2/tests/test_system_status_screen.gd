@@ -16,12 +16,21 @@ func before_test() -> void:
 	for id in SuitOS.get_registered_screens():
 		SuitOS.unregister_screen(id)
 
-	_bus = auto_free(ShipSystemBusScript.new())
+	_bus = ShipSystemBusScript.new()
 	add_child(_bus)
 
-	_screen = auto_free(SystemStatusScreenScript.new())
+	_screen = SystemStatusScreenScript.new()
 	_screen.bus_path = _bus.get_path()
 	add_child(_screen)
+
+func after_test() -> void:
+	if is_instance_valid(_screen):
+		_screen.free()
+	if is_instance_valid(_bus):
+		_bus.free()
+	_screen = null
+	_bus = null
+	yield(await_idle_frame(), "completed")
 
 func test_registration_and_snapshot() -> void:
 	assert_bool(SuitOS.has_screen("ship:systems")).is_true()

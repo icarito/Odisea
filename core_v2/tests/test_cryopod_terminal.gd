@@ -76,6 +76,47 @@ func test_hatch_is_not_a_loose_interactable_and_opens_from_the_screen() -> void:
 	_drop(pod)
 	yield (get_tree(), "idle_frame")
 
+func test_terminal_turns_off_on_open_and_is_interactable_again_on_close() -> void:
+	var pod = _mount(CriopodScene)
+	yield (get_tree(), "idle_frame")
+	var hatch = pod.get_node("RotatingObjectV2")
+	var terminal = pod.get_node("RotatingObjectV2/CryoPodTerminal")
+	var hudable = pod.get_node("RotatingObjectV2/CryoPodTerminal/CryoPodHUDable")
+
+	assert_bool(terminal.is_interactable).is_true()
+	var opened: Dictionary = hudable.perform_action("toggle_hatch")
+	assert_bool(bool(opened.get("hatch_open", false))).is_true()
+	assert_bool(terminal.is_active).is_false()
+	assert_bool(terminal.is_interactable).is_false()
+
+	hudable.perform_action("toggle_hatch")
+	yield (get_tree(), "physics_frame")
+	assert_bool(terminal.is_active).is_true()
+	assert_bool(terminal.is_interactable).is_true()
+
+	_drop(pod)
+	yield (get_tree(), "idle_frame")
+
+func test_glass_shell_collides_with_player_layer() -> void:
+	var pod = _mount(CriopodScene)
+	yield (get_tree(), "physics_frame")
+	var hatch = pod.get_node("RotatingObjectV2")
+	var colliders: Array = []
+	for child in hatch.get_children():
+		if child is CollisionShape and child.shape != null:
+			colliders.append(child)
+
+	assert_int(hatch.collision_layer & 2).is_equal(2)
+	assert_int(colliders.size()).is_equal(6)
+	var terminal = hatch.get_node("CryoPodTerminal")
+	var from: Vector3 = hatch.to_global(Vector3(0.0, 0.72, 0.0))
+	var to: Vector3 = hatch.to_global(Vector3(0.7, 0.72, 0.0))
+	var hit: Dictionary = pod.get_world().direct_space_state.intersect_ray(from, to, [terminal], 2)
+	assert_object(hit["collider"]).is_same(hatch)
+
+	_drop(pod)
+	yield (get_tree(), "idle_frame")
+
 # El interactuable del pod es uno solo y cubre la capsula, no una caja pegada al vidrio.
 func test_pod_has_a_single_interactable_covering_the_capsule() -> void:
 	var pod = _mount(CriopodScene)

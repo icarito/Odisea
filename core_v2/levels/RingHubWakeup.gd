@@ -40,8 +40,8 @@ func _ready() -> void:
 	if _selected_slot < 0:
 		_selected_slot = _pick_slot(slots)
 	_apply_wakeup_slot()
-	# Mientras Elias esta dentro, solo el piso debe sostenerlo. El casco cerrado no puede
-	# resolver una colision empujandolo hacia arriba; se reactiva al salir de la zona.
+	# El vidrio debe bloquear el cuerpo incluso mientras Elias esta dentro. Solo el piso
+	# temporal queda apagado para no resolver una colision inicial empujandolo hacia arriba.
 	_set_wakeup_collision_enabled(false, false)
 	# El casco queda cerrado y sin colisionar mientras Elias esta dentro, pero el
 	# terminal debe seguir siendo detectable para abrirlo desde su pantalla.
@@ -189,7 +189,6 @@ func _on_wakeup_zone_exited(body: Node) -> void:
 
 func _set_wakeup_collision_enabled(enabled: bool, deferred: bool = true) -> void:
 	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/StaticBody2"), enabled, deferred)
-	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/RotatingObjectV2"), enabled, deferred)
 	var wakeup_floor := get_node_or_null("Criopod_Vert/WakeupFloor/CollisionShape") as CollisionShape
 	if wakeup_floor:
 		if deferred:

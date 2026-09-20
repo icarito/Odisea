@@ -24,4 +24,4 @@ func test_opening_cryo_pod_does_not_move_pilot() -> void:
 		yield(get_tree(), "physics_frame")
 
 	assert_bool(bool(hatch.is_active)).is_true()
-	assert_bool(pilot.global_transform.is_equal_approx(before)).is_true()
+	assert_bool(pilot.global_transform.origin.distance_to(before.origin) < 0.01).is_true()

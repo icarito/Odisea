@@ -107,7 +107,7 @@ material/0 = SubResource( 35 )
 
 [node name="RotatingObjectV2" type="KinematicBody" parent="."]
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
-collision_layer = 96
+collision_layer = 98
 collision_mask = 255
 script = ExtResource( 4 )
 interaction_text = "Revisar criocápsula"

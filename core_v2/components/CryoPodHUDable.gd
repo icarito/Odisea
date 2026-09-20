@@ -119,10 +119,9 @@ func perform_action(op: String, args: Dictionary = {}) -> Dictionary:
 	if not is_instance_valid(hatch) or not hatch.has_method("set_active"):
 		return {"ok": false, "error": "Sin escotilla"}
 	hatch.set_active(not bool(hatch.is_active))
-	if bool(hatch.is_active):
-		# La pantalla puede estar enfocada mientras el HUD pausa el mundo; liberar aqui
-		# evita dejar camara e input del jugador atrapados hasta el siguiente tick.
-		_set_terminal_enabled(false)
+	# La pantalla puede estar enfocada mientras el HUD pausa el mundo; sincronizar aqui
+	# evita dejar camara/input atrapados y devuelve la interaccion al cerrar.
+	_set_terminal_enabled(not bool(hatch.is_active))
 	_push_to_source_ui()
 	notify_state_changed()
 	# La capsula abierta ya no necesita la holoterminal: se desactiva sola en vez de quedar la
