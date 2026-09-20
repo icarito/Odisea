@@ -1,9 +1,10 @@
 # FD-298: Pantalla de linterna (batería retro + toggle en el widget)
 
-**Status:** Design
+**Status:** Implemented
 **Priority:** P1
 **Effort:** Small
 **Created:** 2026-09-11
+**Completed:** 2026-09-12 (sincronizado con FEATURE_INDEX el 2026-09-20)
 **Parent:** FD-296 (OdiseaOS) / FD-280 (linterna de casco)
 
 ## Problem

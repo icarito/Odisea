@@ -105,7 +105,8 @@ Usar tres capas separadas:
 | FD-240 | Blockout Módulo Criogenia | Planned | Medium | P0 |
 | FD-241 | Cargol V2 — Compañero Funcional | Design | Medium | P0 |
 | FD-242 | DDC Drone + Sigilo Básico | Design | Medium | P0 |
-| FD-243 | Diálogo Odisea y Lore Pickup | Planned | Large | P1 |
+| FD-243 | AgentBase PATROL fix + visual del drone | Design | Medium | P1 |
+| ~~FD-243~~ | ⚠️ *Diálogo Odisea y Lore Pickup* figuraba con este número, pero `docs/features/FD-243*.md` es otra cosa. El FD de diálogo/lore **no existe como documento**: hay que escribirlo con un número libre. | sin doc | — | P1 |
 | FD-244 | Multi-Tool — Láser + Gloo Gun | Design | Medium | P0 |
 | FD-255 | Los 4 Sistemas de la Nave (maestro) | Implemented | Medium | P0 |
 | FD-256 | Sistema Criocoolant (CryoVent) | Implemented | Small | P0 |
@@ -124,12 +125,16 @@ Usar tres capas separadas:
 | FD-296 | OdiseaOS — sistema operativo del traje (modo HUD + widgets + HUDables) | In Progress | Large | P1 |
 | FD-297 | Transiciones seamless hacia la pantalla en cuestión (foco de terminal vs. primera persona) | Implemented | Medium | P1 |
 | FD-298 | Pantalla de linterna (batería retro en slot + botón de encendido en el widget) | Implemented | Small | P1 |
+| FD-303 | i18n de la UI (extractor `tools/i18n_extract.py` + `locale/ui_strings.csv` + selector de idioma) | Implemented | Medium | P1 |
 | FD-304 | Interfaz diégetica de OdiseaOS con gamepad (slots, modo pantalla, acordes, drag y radial) | Implemented | Large | P1 |
 | FD-305 | Drawer de apps y favoritos — el "..." del radial (lista alfabética, scroll analógico, curaduría) | Implemented | Medium | P1 |
 | FD-306 | Fixes estructurales del radial (hub central, orden por relevancia, iconos, escala y frescura) | Implemented | Medium | P1 |
 | FD-307 | Criocápsulas interactuables — cámara fija interior + holoterminal del ocupante | Design | Medium | P1 |
 | FD-308 | Portugués de Brasil (pt_BR) — tercera columna en el pipeline i18n + cableado de locale | Implemented | Small | P1 |
 | FD-309 | Coreano (`ko`) — columna del CSV + fallback de fuente Hangul en todos los DynamicFont (y cierra FD-308) | Implemented | Small | P1 |
+| FD-310 | Widget contextual de interactuables — del subtítulo al HUD | Implemented (v1) | Medium | P2 |
+| ~~FD-311~~ | *libre* — nunca se usó |  |  |  |
+| FD-312 | Faltantes de la GUI de OdiseaOS — inventario priorizado | Design | - | P1 |
 
 ### Parking lot — fuera del Acto I (idea capturada, no implementar)
 

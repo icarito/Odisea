@@ -1,9 +1,10 @@
 # FD-297: Transiciones seamless hacia la pantalla en cuestión
 
-**Status:** Design
+**Status:** Implemented
 **Priority:** P1
 **Effort:** Medium
 **Created:** 2026-09-11
+**Completed:** 2026-09-12 (sincronizado con FEATURE_INDEX el 2026-09-20)
 **Parent:** FD-296 (OdiseaOS) / FD-294 (Control Remoto)
 
 ## Problem

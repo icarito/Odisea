@@ -1,10 +1,15 @@
 # FD-303: i18n UI — extracción automatizada de strings + inglés
 
-**Status:** Planned
+**Status:** Implemented
 **Priority:** High
 **Effort:** Medium
 **Created:** 2026-09-18
-**Completed:** -
+**Completed:** 2026-09-19 (estado real sincronizado el 2026-09-20)
+
+> **El doc quedó atrás de su propia implementación.** Planeaba `en` + `es` y
+> explícitamente *no* generar `.es.translation`. Hoy hay **7 locales en producción**
+> (`es en ko pt_BR de fr nl`), los siete `.translation` existen, y el pipeline es el
+> que este FD describe. Ver FD-308 (pt_BR) y FD-309 (ko).
 
 ## Problem
 
