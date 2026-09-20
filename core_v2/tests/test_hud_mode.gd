@@ -71,6 +71,13 @@ func after_test() -> void:
 	get_tree().paused = false
 	# El overlay cerrado queda en queue_free hasta fin de frame; el proximo test lo necesita libre.
 	yield(await_idle_frame(), "completed")
+	# Y despausar OTRA VEZ despues del frame: cerrar el modo HUD con el cajon abierto deja
+	# trabajo diferido (el overlay se libera en queue_free y PauseManager reaplica su estado),
+	# asi que un despause hecho solo antes del frame se perdia. Cuando se perdia, el arbol
+	# quedaba en pausa para TODAS las suites siguientes del mismo proceso y sus
+	# _physics_process no corrian: de ahi los fallos intermitentes de test_cryopod_terminal
+	# y test_ringhub_wakeup en CI, que corre la suite entera en un proceso.
+	get_tree().paused = false
 
 
 func _action(action: String) -> InputEventAction:
