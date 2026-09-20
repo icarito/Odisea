@@ -358,6 +358,23 @@ func _node_hint(node: Node, mesh: Mesh) -> String:
 		parts.append(str(mesh.resource_path))
 	return parts.join(" ")
 
+# Pantallas holograficas (terminales, projectores): su material es un ShaderMaterial que
+# dibuja la ViewportTexture con cull_disabled/unshaded/blend. Aplanarlas las rompe. Se
+# detectan por el material (HoloScreen/HoloGlass) o por el nombre del nodo; el nombre se
+# mira solo en el nodo, no en la ruta del mesh, para no atrapar muebles tipo "DisplayCase".
+func _is_holo_screen(node: Node, src) -> bool:
+	var n := str(node.name).to_lower()
+	if n.find("holo") != -1 or n.find("screen") != -1 \
+			or n.find("pantalla") != -1 or n.find("display") != -1:
+		return true
+	if src is ShaderMaterial:
+		var sh := src as ShaderMaterial
+		if sh.shader != null:
+			var sp := str(sh.shader.resource_path).to_lower()
+			if sp.find("holoscreen") != -1 or sp.find("hologlass") != -1:
+				return true
+	return false
+
 # Color plano del material original: albedo_color (SpatialMaterial) o los uniforms mas
 # comunes de los shaders del proyecto, por color dominante de la textura. `hint` (nodo +
 # mesh) alimenta la paleta de respaldo y los overrides por nombre.
@@ -473,9 +490,18 @@ func _low_tier_node(node: Node) -> void:
 			src = node.get_surface_material(0) if node is MeshInstance else null
 			if src == null:
 				src = mesh.surface_get_material(0)
+		elif "material" in node:
+			# CSG (CSGBox) y otros GeometryInstance con material propio: la pantalla
+			# holografica de los terminales es un CSGBox, no un MeshInstance.
+			src = node.get("material")
 		var hint := _node_hint(node, mesh)
 		var h := hint.to_lower()
-		var is_screen := h.find("holo") != -1 or h.find("display") != -1 or h.find("screen") != -1 or h.find("pantalla") != -1
+		# Pantallas holograficas: conservan su ShaderMaterial (HoloScreen/HoloGlass) con la
+		# ViewportTexture. El aplanado las deja invisibles: FlatFake es cull_back y los
+		# ScreenMesh van con invert_faces=true, asi que el frente queda culled; en las que
+		# no, el material opaco tapa la UI del viewport. Solo se les apaga la sombra.
+		if _is_holo_screen(node, src):
+			return
 		# Los personajes quedan FUERA del modo plano. FlatFake es un headlight en espacio
 		# de camara: aplana justo lo que tiene que leerse con volumen. Conservando su
 		# material, _low_tier_material le pone flags_vertex_lighting y el pilot se ve
@@ -518,10 +544,6 @@ func _low_tier_node(node: Node) -> void:
 					node.set_surface_material(s, _flat_material(ssrc, shint))
 			else:
 				node.material_override = _flat_material(src, hint)
-		elif is_screen:
-			# Perfil LOW sin modo plano: holopantallas y similares opacas (la
-			# transparencia apaga el early-z y cuesta fillrate).
-			node.material_override = _flat_material(src, hint)
 		if mesh != null:
 			for s in range(mesh.get_surface_count()):
 				_low_tier_material(mesh.surface_get_material(s))

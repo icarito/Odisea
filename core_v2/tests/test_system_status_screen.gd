@@ -22,12 +22,14 @@ func before_test() -> void:
 	_screen = SystemStatusScreenScript.new()
 	_screen.bus_path = _bus.get_path()
 	add_child(_screen)
+	yield(await_idle_frame(), "completed")
 
 func after_test() -> void:
 	if is_instance_valid(_screen):
-		_screen.free()
+		SuitOS.unregister_screen("ship:systems")
+		_screen.queue_free()
 	if is_instance_valid(_bus):
-		_bus.free()
+		_bus.queue_free()
 	_screen = null
 	_bus = null
 	yield(await_idle_frame(), "completed")

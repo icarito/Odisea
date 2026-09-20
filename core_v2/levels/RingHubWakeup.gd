@@ -192,9 +192,9 @@ func _set_wakeup_collision_enabled(enabled: bool, deferred: bool = true) -> void
 	var wakeup_floor := get_node_or_null("Criopod_Vert/WakeupFloor/CollisionShape") as CollisionShape
 	if wakeup_floor:
 		if deferred:
-			wakeup_floor.set_deferred("disabled", enabled)
+			wakeup_floor.set_deferred("disabled", false)
 		else:
-			wakeup_floor.disabled = enabled
+			wakeup_floor.disabled = false
 	_wakeup_collision_released = enabled
 
 func _set_collision_shapes_enabled(node: Node, enabled: bool, deferred: bool = true) -> void:

@@ -139,10 +139,16 @@ func _flat_mode_active() -> bool:
 	return gate != null and gate.has_method("is_flat_mode") and gate.is_flat_mode()
 
 # Solo la sombra del piloto es gameplay; las de props siguen el disable del tier LOW.
+# No alcanza con el grupo "player": PlayerControllerV2 lo agrega en su _ready, que corre
+# DESPUES del _ready de este hijo (Godot hace _ready de hijos a padres). En ese momento el
+# grupo todavia no existe y el piloto caia en blob mode, invisible con el mundo aplanado.
+# Por eso tambien se detecta por la API del controller, que ya esta en el script al instanciar.
 func _is_pilot_owner() -> bool:
 	var node := get_parent()
 	while node != null:
 		if node.is_in_group("player"):
+			return true
+		if node.has_method("set_external_velocity") or node.has_method("get_input_provider"):
 			return true
 		node = node.get_parent()
 	return false
