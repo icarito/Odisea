@@ -175,22 +175,25 @@ Dos advertencias que el sistema no le da:
 
 ## 6. Código de color
 
-Cuatro estados. Los mismos en las dos superficies.
+Cinco estados. Los mismos en las dos superficies.
 
 | Color | Estado | Qué debe hacer usted |
 |---|---|---|
 | **Verde** | Nominal | Nada. |
 | **Ámbar** | Atención | Anotarlo. Todavía no es su problema. |
 | **Rojo** | Alarma | Es su problema. |
-| **Gris** | Sin lectura | No es una falla del sistema. Ver §7. |
+| **Turquesa** | Activo | Algo suyo está encendido: la linterna, el gloo, un señuelo. |
+| **Gris** | Inactivo o sin lectura | No es una falla del sistema. Ver §7. |
 
 El ámbar también marca un **rechazo**: cuando usted pide algo que el sistema no puede
 dar (un séptimo favorito, un slot que no acepta lo que arrastra), destella en ámbar.
 Ámbar nunca significa avería del traje.
 
-> *Estado:* hoy estos cuatro colores están escritos a mano en cada widget, con valores
-> que no coinciden entre sí — el rojo aparece con dos opacidades distintas y
-> `CargolWidget` mantiene una escala propia de siete colores. Ver Apéndice A, punto 5.
+> *Contrato:* `core_v2/ui/OdiseaOSTheme.gd`. Si un color de la GUI no sale de ahí, o es
+> un token que falta o es un error. **Pendiente:** los widgets todavía tienen valores
+> escritos a mano que hay que reemplazar por estos tokens — el rojo aparece con dos
+> opacidades y `CargolWidget` mantiene una escala propia de siete colores que no
+> coincide con estos cinco estados. Ver Apéndice A, punto 5.
 
 ---
 

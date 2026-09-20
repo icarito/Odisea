@@ -1,72 +1,58 @@
-extends PanelContainer
+extends "res://core_v2/ui/hud/HudWidget.gd"
 class_name FlashlightWidget
 
-# FlashlightWidget.gd - Compact HUD widget for Helmet Flashlight status (FD-298)
+# FlashlightWidget.gd - Widget de slot de la linterna de casco (FD-298).
+#
+# Migrado a HudWidget: la base se ocupa del titulo, el punto de estado, la rama OFFLINE
+# (Manual §7) y el despacho de la accion. Aca queda solo lo propio de la linterna.
 
-const HudWidgetAction = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
-
-onready var _title_label: Label = get_node_or_null("Margin/VBox/Header/TitleLabel")
-onready var _status_dot: ColorRect = get_node_or_null("Margin/VBox/Header/StatusDot")
 onready var _meter_label: Label = get_node_or_null("Margin/VBox/MeterLabel")
 onready var _status_label: Label = get_node_or_null("Margin/VBox/StatusRow/StatusLabel")
 onready var _toggle_button: Button = get_node_or_null("Margin/VBox/StatusRow/ToggleButton")
 
 func _ready() -> void:
-	if _toggle_button != null:
-		if not _toggle_button.is_connected("pressed", self, "_on_toggle_pressed"):
-			_toggle_button.connect("pressed", self, "_on_toggle_pressed")
+	_bind_button(_toggle_button, "_on_toggle_pressed")
 
-func update_snapshot(snapshot: Dictionary) -> void:
-	set_snapshot(snapshot)
+func default_title() -> String:
+	return tr("Linterna")
 
-func set_snapshot(snapshot: Dictionary) -> void:
-	var title: String = String(snapshot.get("title", "Linterna"))
-	var source: String = String(snapshot.get("source", "online"))
+func default_screen_id() -> String:
+	return "player:flashlight"
+
+func _render(snapshot: Dictionary) -> void:
 	var on: bool = bool(snapshot.get("on", false))
+	var low: bool = bool(snapshot.get("low", false))
 	var battery: float = float(snapshot.get("battery", 100.0))
 	var battery_max: float = float(snapshot.get("battery_max", 100.0))
-	var low: bool = bool(snapshot.get("low", false))
-
-	if _title_label != null:
-		_title_label.text = title
-
-	if source == "offline":
-		if _status_dot != null:
-			_status_dot.color = Color(0.5, 0.5, 0.5, 0.8)
-		if _meter_label != null:
-			_meter_label.text = "BAT: [----------]"
-		if _status_label != null:
-			_status_label.text = tr("OFFLINE")
-		if _toggle_button != null:
-			_toggle_button.disabled = true
-			_toggle_button.text = tr("OFFLINE")
-		return
 
 	if _toggle_button != null:
 		_toggle_button.disabled = false
 		_toggle_button.text = tr("APAGAR") if on else tr("ENCENDER")
 
-	if _status_dot != null:
-		if on:
-			_status_dot.color = Color(0.9, 0.2, 0.2, 0.9) if low else Color(0.18, 0.88, 0.78, 0.9)
-		else:
-			_status_dot.color = Color(0.5, 0.5, 0.5, 0.8)
-
-	if _status_label != null:
-		if on:
-			_status_label.text = tr("ENCENDIDA") if not low else tr("BAT. BAJA")
-		else:
+	if on:
+		_set_dot(OdiseaOSTheme.STATE_ALARM if low else OdiseaOSTheme.STATE_ACTIVE)
+		if _status_label != null:
+			_status_label.text = tr("BAT. BAJA") if low else tr("ENCENDIDA")
+	else:
+		_set_dot(OdiseaOSTheme.STATE_OFFLINE)
+		if _status_label != null:
 			_status_label.text = tr("APAGADA")
 
 	if _meter_label != null:
 		_meter_label.text = _format_battery_bar(battery, battery_max)
-		# Solo si cambia: cada override redibuja el Label, y con la fuente con outline del tema
-		# el motor (3.6 stock) re-empaca en el atlas los glyphs sin contorno en cada dibujo.
-		var meter_color := Color(1.0, 0.35, 0.2, 1.0) if low and on else Color(0.85, 0.95, 1.0, 1.0)
-		if _meter_label.get_color("font_color") != meter_color:
-			_meter_label.add_color_override("font_color", meter_color)
+		_set_font_color(_meter_label, OdiseaOSTheme.STATE_ALARM if (low and on) else OdiseaOSTheme.INK)
 
-# ASCII: la fuente del tema no trae los bloques █/░ y la barra salia vacia ("BAT: []").
+func _render_offline() -> void:
+	if _meter_label != null:
+		_meter_label.text = "BAT: [----------]"
+	if _status_label != null:
+		_status_label.text = tr("OFFLINE")
+	if _toggle_button != null:
+		_toggle_button.disabled = true
+		_toggle_button.text = tr("OFFLINE")
+
+# ASCII: la fuente del tema no trae los bloques (blocks) y la barra salia vacia
+# ("BAT: []").
 func _format_battery_bar(val: float, max_val: float) -> String:
 	if max_val <= 0.0:
 		return "BAT: [..........]"
@@ -82,5 +68,4 @@ func _format_battery_bar(val: float, max_val: float) -> String:
 	return "BAT: [%s]" % bar
 
 func _on_toggle_pressed() -> void:
-	# Puede estar montado en el HUD local o en el control remoto: HudWidgetAction decide.
-	HudWidgetAction.perform(self, "player:flashlight", "toggle")
+	_perform("toggle")

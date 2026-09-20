@@ -1,5 +1,4 @@
 extends Reference
-class_name OdiseaOSTheme
 
 # OdiseaOSTheme.gd - El lenguaje visual de OdiseaOS, en un solo lugar.
 #

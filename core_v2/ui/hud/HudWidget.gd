@@ -1,5 +1,4 @@
 extends PanelContainer
-class_name HudWidget
 
 # HudWidget.gd - Base comun de los widgets de slot de OdiseaOS.
 #
@@ -15,8 +14,8 @@ class_name HudWidget
 # serializable. Un nodo adentro rompe el terminal auxiliar (Manual §8).
 #
 # COMO SE ESCRIBE UN WIDGET NUEVO
-#   extends HudWidget
-#   class_name MiWidget
+#   extends "res://core_v2/ui/hud/HudWidget.gd"
+#   class_name MiWidget   # solo si ya estaba registrado
 #   onready var _algo: Label = get_node_or_null("Margin/VBox/Algo")
 #   func default_title() -> String: return tr("Mi pantalla")
 #   func _render(snapshot: Dictionary) -> void:   # hay lectura
@@ -28,6 +27,10 @@ class_name HudWidget
 # NO sobrescriba update_snapshot() ni set_snapshot(): sobrescriba _render/_render_offline.
 
 const HudWidgetAction = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
+# Sin class_name a proposito: en Godot 3 registrar uno exige que el editor reescriba
+# project.godot. Los hijos hacen `extends "res://core_v2/ui/hud/HudWidget.gd"` y heredan
+# esta constante, asi que OdiseaOSTheme queda disponible en todos sin repetir el preload.
+const OdiseaOSTheme = preload("res://core_v2/ui/OdiseaOSTheme.gd")
 
 # Los tres nodos que comparten todos los widgets con escena. get_node_or_null: un widget
 # puede no tener cabecera (CryoPodWidget dibuja la suya) y eso no es un error.
@@ -45,6 +48,8 @@ func update_snapshot(snapshot: Dictionary) -> void:
 
 func set_snapshot(snapshot: Dictionary) -> void:
 	_screen_id = String(snapshot.get("id", _screen_id))
+	if _screen_id.empty():
+		_screen_id = default_screen_id()
 	if _title_label != null:
 		_title_label.text = String(snapshot.get("title", default_title()))
 	if is_offline(snapshot):
@@ -58,6 +63,11 @@ func set_snapshot(snapshot: Dictionary) -> void:
 # Lo que dice la cabecera cuando la lectura no trae titulo.
 func default_title() -> String:
 	return tr("Pantalla")
+
+# La identidad a usar si la lectura no trae "id". HUDableComponent siempre la inyecta,
+# asi que esto solo cubre widgets alimentados a mano (tests, previews).
+func default_screen_id() -> String:
+	return ""
 
 # Hay lectura. Pinte.
 func _render(_snapshot: Dictionary) -> void:
