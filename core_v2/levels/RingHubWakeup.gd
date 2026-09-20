@@ -4,7 +4,7 @@ class_name RingHubWakeup
 export(NodePath) var pilot_path := NodePath("Pilot")
 export(NodePath) var criopod_path := NodePath("Criopod_Vert")
 export(NodePath) var slots_path := NodePath("Hub/Criopods")
-export(Vector3) var pilot_inside_offset := Vector3(0.000200272, 0.15, -0.123402)
+export(Vector3) var pilot_inside_offset := Vector3(0.000200272, 1.175, -0.123402)
 # El pod funcional toma la misma pose que el item decorativo del slot. El mesh del Criopod_Vert ya
 # tiene su origen en la base, asi que no hace falta compensar en Y (un offset positivo lo dejaba
 # flotando). Ajustar solo si queda unos cm arriba/abajo.
@@ -34,9 +34,9 @@ func _ready() -> void:
 	if _selected_slot < 0:
 		_selected_slot = _pick_slot(slots)
 	_apply_wakeup_slot()
-	# Colisiones del pod ACTIVAS desde el arranque: si quedan apagadas, Elias cae/se hunde dentro
-	# de la capsula (parecia un yank y no tenia piso). La zona igual las reafirma al salir.
-	_set_wakeup_collision_enabled(true)
+	# Mientras Elias esta dentro, solo el piso debe sostenerlo. El casco cerrado no puede
+	# resolver una colision empujandolo hacia arriba; se reactiva al salir de la zona.
+	_set_wakeup_collision_enabled(false, false)
 	var wakeup_zone := get_node_or_null("Criopod_Vert/CinematicSequence") as Area
 	if wakeup_zone and not wakeup_zone.is_connected("body_exited", self, "_on_wakeup_zone_exited"):
 		wakeup_zone.connect("body_exited", self, "_on_wakeup_zone_exited")
@@ -132,26 +132,23 @@ func _apply_wakeup_slot() -> void:
 	slots.blocked_angle_ranges_deg.clear()
 	slots.blocked_angle_ranges_deg.append_array(_base_blocked_ranges.duplicate(true))
 	slots.blocked_angle_ranges_deg.append(Vector2(data.angle_deg - 0.01, data.angle_deg + 0.01))
-	var pod_scale := pod.scale
 	var item := slots.get_node_or_null("Item_%d" % _selected_slot) as Spatial
 	if item != null:
-		# Misma pose que el decorativo horneado de ese slot (posicion y orientacion), corregida en Y
-		# por la altura de la base del pod funcional.
-		pod.global_transform = Transform(item.global_transform.basis.orthonormalized(),
+		# Conservar la escala horneada del slot: normalizar la basis dejaba el pod de Elias
+		# mas pequeno que el criopod decorativo que ocupa ese mismo lugar.
+		pod.global_transform = Transform(item.global_transform.basis,
 			item.global_transform.origin + Vector3.UP * pod_base_offset)
 	else:
 		pod.global_transform.origin = slots.to_global(data.position) + Vector3.UP * pod_base_offset
 		if slots.inward:
 			pod.look_at(slots.to_global(Vector3(0.0, data.height, 0.0)), Vector3.UP)
 		slots._apply_rotation_offsets(pod, slots.rotation_x, slots.rotation_y, slots.rotation_z)
-	pod.scale = pod_scale
 	var pilot_transform := pod.global_transform
-	pilot_transform.basis = pilot_transform.basis.orthonormalized()
+	pilot_transform.basis = pilot_transform.basis.orthonormalized().scaled(pilot.scale)
 	pilot_transform.origin = pod.to_global(pilot_inside_offset)
 	pilot.global_transform = pilot_transform
-	# Dejar al jugador en reposo DENTRO de la capsula con anticipacion: si se lo teletransporta
-	# recien al abrir la escotilla, entra con un tiron fisico.
-	call_deferred("_rest_players_inside", pilot_transform)
+	if "velocity" in pilot:
+		pilot.velocity = Vector3.ZERO
 
 func _rest_players_inside(inside: Transform) -> void:
 	for node in get_tree().get_nodes_in_group("player"):
@@ -166,21 +163,27 @@ func _on_wakeup_zone_exited(body: Node) -> void:
 	if body.is_in_group("player"):
 		_set_wakeup_collision_enabled(true)
 
-func _set_wakeup_collision_enabled(enabled: bool) -> void:
-	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/StaticBody2"), enabled)
-	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/RotatingObjectV2"), enabled)
+func _set_wakeup_collision_enabled(enabled: bool, deferred: bool = true) -> void:
+	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/StaticBody2"), enabled, deferred)
+	_set_collision_shapes_enabled(get_node_or_null("Criopod_Vert/RotatingObjectV2"), enabled, deferred)
 	var wakeup_floor := get_node_or_null("Criopod_Vert/WakeupFloor/CollisionShape") as CollisionShape
 	if wakeup_floor:
-		wakeup_floor.set_deferred("disabled", enabled)
+		if deferred:
+			wakeup_floor.set_deferred("disabled", enabled)
+		else:
+			wakeup_floor.disabled = enabled
 	_wakeup_collision_released = enabled
 
-func _set_collision_shapes_enabled(node: Node, enabled: bool) -> void:
+func _set_collision_shapes_enabled(node: Node, enabled: bool, deferred: bool = true) -> void:
 	if node == null:
 		return
 	for child in node.get_children():
 		if child is CollisionShape:
-			child.set_deferred("disabled", not enabled)
-		_set_collision_shapes_enabled(child, enabled)
+			if deferred:
+				child.set_deferred("disabled", not enabled)
+			else:
+				child.disabled = not enabled
+		_set_collision_shapes_enabled(child, enabled, deferred)
 
 func _slot_data(slots: RadialScatter, slot: int) -> Dictionary:
 	var progress := slots._get_progress(slot, slots.item_count)
