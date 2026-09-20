@@ -335,6 +335,9 @@ run_pytest_delegate() {
             cmd+=("--odisea-include-determinism")
         fi
     fi
+    if [ -n "$PYTEST_FILTER" ]; then
+        cmd+=("-k" "$PYTEST_FILTER")
+    fi
     if pytest_supports_xdist; then
         cmd+=("-n" "$PYTEST_WORKERS")
     fi
@@ -406,6 +409,26 @@ while [[ $# -gt 0 ]]; do
             HEADLESS=""
             shift
             ;;
+        --ci)
+            CI_PROFILE=1
+            shift
+            ;;
+        --print-command)
+            PRINT_COMMAND=1
+            shift
+            ;;
+        --list)
+            list_test_targets
+            exit 0
+            ;;
+        -k|--filter)
+            PYTEST_FILTER="$2"
+            if [ -z "$PYTEST_FILTER" ]; then
+                echo "ERROR: --filter requiere una expresión -k (ej: --filter cryopod)"
+                exit 1
+            fi
+            shift 2
+            ;;
         --nodet)
             echo "Skipping JSON replays (--nodet flag detected)"
             export OYS_NODET=1
@@ -463,7 +486,12 @@ while [[ $# -gt 0 ]]; do
             echo "▶️ Ejecutando test OYS: $OYS_FILTER_NAME (${OYS_FILE#./core_v2/tests/}) ${HEADLESS:+(headless)}"
             echo "📋 Output guardado en: $LOG_FILE"
             echo "---"
-            
+
+            if [ $PRINT_COMMAND -eq 1 ]; then
+                echo "$GODOT_BIN $HEADLESS ${HEADLESS:+--audio-driver Dummy} -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd -a ./core_v2/tests/test_determinism_v2.gd"
+                exit 0
+            fi
+
             # Usar variable de entorno OYS_FILTER para filtrar el test
             export OYS_FILTER="${OYS_FILTER_NAME}"
             run_and_capture $GODOT_BIN $HEADLESS ${HEADLESS:+--audio-driver Dummy} -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd \
@@ -502,6 +530,21 @@ if [ ${#ARGS[@]} -eq 0 ]; then
     ARGS=("-a" "./core_v2/tests/")
 fi
 
+# Perfil --ci: reproduce el job "Run Tests (core)" de CI tal cual.
+#   CI corre un solo proceso gdunit sobre toda la suite, sin determinismo (va en su
+#   propio workflow), con preflight ya hecho y timeout de pared de 420s. Un run local
+#   con el delegate pytest arranca un Godot por suite: el estado de orfandad acumulada
+#   y el orden de ejecucion NO son los de CI, asi que no sirve para reproducir un fallo.
+if [ $CI_PROFILE -eq 1 ]; then
+    export ODISEA_INCLUDE_DETERMINISM=0
+    export ODISEA_RUN_DETERMINISM=0
+    export ODISEA_SKIP_PREFLIGHT=1
+    export ODISEA_TEST_TIMEOUT_SEC=180
+    export ODISEA_RUN_TIMEOUT_SEC="${ODISEA_RUN_TIMEOUT_SEC:-420}"
+    RUNNER_MODE="gdunit"
+    echo "🎯 Perfil --ci: gdunit en un solo proceso, sin determinismo, timeout de pared ${ODISEA_RUN_TIMEOUT_SEC}s."
+fi
+
 # GdUnit aborta la suite en el primer test fallido ("fail fast"): en CI eso obliga a un ciclo
 # completo por cada fallo, y los casos que vienen despues quedan invisibles hasta arreglar el
 # anterior. Con -c corre el set entero y reporta todos los fallos de una. ODISEA_FAIL_FAST=1
@@ -523,8 +566,17 @@ if [ $RUN_STRESS_ONLY -eq 0 ] && is_full_core_suite_target; then
     fi
 fi
 
-# Try pytest delegation for full-suite runs and stress profile.
-if [ $RUN_STRESS_ONLY -eq 1 ] || is_full_core_suite_target; then
+# --print-command: muestra el comando headless resuelto y sale sin tocar Godot.
+# Lo usa tests/test_runtest_runner_contract.py para blindar el backend Server.
+if [ $PRINT_COMMAND -eq 1 ]; then
+    PRINT_AUDIO_ARGS=""
+    [ -n "$HEADLESS" ] && PRINT_AUDIO_ARGS="--audio-driver Dummy"
+    echo "$GODOT_BIN $HEADLESS $PRINT_AUDIO_ARGS -s ./addons/gdUnit3/bin/GdUnitCmdTool.gd ${ARGS[*]}"
+    exit 0
+fi
+
+# Try pytest delegation for full-suite runs, stress profile and filtered node runs.
+if [ $RUN_STRESS_ONLY -eq 1 ] || is_full_core_suite_target || [ -n "$PYTEST_FILTER" ]; then
     if ! should_skip_preflight; then
         run_import_preflight || exit $?
     fi
@@ -563,9 +615,6 @@ else
     echo "Modo salida: debug completo"
 fi
 echo "---"
-
-# Desactivar ANNAV2 telemetry en tests para no enviar datos al dashboard
-export ANNA_V2_NO_CENTRAL=1
 
 if ! should_skip_preflight; then
     run_import_preflight || exit $?
