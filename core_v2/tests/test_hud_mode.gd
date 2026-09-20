@@ -675,7 +675,8 @@ func test_gamepad_and_tab_open_the_radial_without_the_virtual_mouse() -> void:
 
 	# Elegida una pantalla sin Pantalla propia (widget ampliado): desde la revision 2026-09-19 usa
 	# mouse (click y arrastre a slots), asi que el cursor queda prendido y liberado.
-	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, UP])
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]}])
+	_play(overlay, [UP])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 	assert_bool(cursor.is_processing_input()).is_true()
 	assert_bool(cursor.visible).is_true()
@@ -812,7 +813,8 @@ func test_hud_widgets_hide_while_a_screen_is_open_but_not_with_only_the_dial() -
 	assert_bool(overlay._selector.is_open()).is_true()
 	assert_bool(widget.visible).is_true()
 
-	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, 60.0]}, UP])
+	_play(overlay, [{"hud_mode": true, "mouse_delta": [0.0, overlay_aim_radius()]}])
+	_play(overlay, [UP])
 	assert_str(SuitOS.get_active_screen_id()).is_not_empty()
 	assert_bool(widget.visible).is_false()
 
@@ -855,7 +857,8 @@ func test_slot_key_hold_pins_the_pick_in_that_slot() -> void:
 	SuitOS.pin_to_slot(0, "test:a")
 	var overlay = _open_slot_and_play(4, _slot_held(4, Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
-	_play(overlay, [{"hud_slot": 4, "mouse_delta": [0.0, 60.0]}, UP])
+	_play(overlay, [{"hud_slot": 4, "mouse_delta": [0.0, overlay_aim_radius()]}])
+	_play(overlay, [UP])
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["test:a", "", "", "test:b"])
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 
@@ -893,7 +896,8 @@ func test_slot_key_hold_on_an_empty_slot_opens_the_radial_for_it() -> void:
 	var overlay = _open_slot_and_play(3, _slot_held(3, Gesture.HOLD_TICKS))
 	assert_bool(overlay._selector.is_open()).is_true()
 	assert_int(overlay._target_slot).is_equal(2)
-	_play(overlay, [{"hud_slot": 3, "mouse_delta": [0.0, 60.0]}, UP])
+	_play(overlay, [{"hud_slot": 3, "mouse_delta": [0.0, overlay_aim_radius()]}])
+	_play(overlay, [UP])
 	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:b", ""])
 
 
