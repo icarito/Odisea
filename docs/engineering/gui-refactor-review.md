@@ -92,9 +92,18 @@ manual, no por constante compartida) y una corrección en un lado no llega al ot
 - `HudModeOverlay._ignores_widget_taps()` (:622) compara `Engine.get_idle_frames()`
   **exactamente** con `_hud_state_frame`; cualquier frame extra rompe el filtrado.
   Es un hotfix, no una solución.
-- Rama muerta en `HudModeOverlay:451` (`elif event.is_action("ui_accept") … : pass`).
-- `_cmd_calc`/`_cmd_nodescan` (`OYS_Console.gd:670–683`) llaman a métodos inexistentes
-  (`_open_calc`/`_open_nodescan`) → siempre fallan. `OysTransit` huérfana.
+- ~~Rama muerta en `HudModeOverlay:451`~~ — **FALSO POSITIVO, verificado 2026-09-20.**
+  El `elif event.is_action("ui_accept") and _widget_screen_showing(): pass` (hoy `:733`)
+  **no es código muerto**: cae a propósito en el `set_input_as_handled()` del final para
+  que la navegación por foco de la GUI no oprima el mismo botón dos veces en el mismo
+  toque. Borrarlo lo mandaría al `else: return` y cambiaría el comportamiento. Lo mismo
+  el `pass` de `_on_drawer_favorited` (`:1156`), que es un no-op documentado.
+- ~~`_cmd_calc`/`_cmd_nodescan` fallan siempre~~ — **cierto, y ya está arreglado**
+  (2026-09-20): llamaban a `_open_calc`/`_open_nodescan`, que no existen; ahora usan
+  `_open_app("CALC")`/`_open_app("NODESCAN")` del `AppRegistry`.
+- ~~`OysTransit` huérfana~~ — **estaba completa y funcional**, solo faltaba registrarla.
+  Con la capa de a bordo promovida a diegética, se registró como `TRANSIT` en vez de
+  borrarla. `TouchButton.gd` ya no existe en el árbol.
 - `HudViewMount`/`HudModeOverlay` no exponen señales propias: el host no puede saber si
   la GUI consumió un toque sin volver a picar el grupo.
 
@@ -173,8 +182,10 @@ timing de frame.
 ### Fase 5 (opcional) — Sacar el VFS de `OYS_Console` y limpiar muertos
 
 - `OYS_Vfs.gd` con lo de `OYS_Console.gd:878–1261`.
-- Borrar `_cmd_calc`/`_cmd_nodescan` (o implementar `_open_calc`/`_open_nodescan`),
-  `OysTransit` (o integrarla a `AppRegistry`), `TouchButton.gd`.
+- ~~Borrar `_cmd_calc`/`_cmd_nodescan`, `OysTransit`, `TouchButton.gd`~~ — **hecho el
+  2026-09-20, pero al revés de como decía acá:** los comandos se implementaron y
+  `OysTransit` se registró. Ver S4. Verificar antes de borrar: de los cuatro "muertos"
+  de este review, uno era funcional, dos eran arreglables y el cuarto ya no existía.
 - **Esta fase es separable** y de menor prioridad: es deuda de debug, no de gameplay.
 
 ---
