@@ -79,6 +79,20 @@ func test_attach_to_reuses_the_existing_cursor() -> void:
 
 	first.get_parent().queue_free()
 
+func test_first_gamepad_input_centers_cursor_when_no_mouse_was_used() -> void:
+	var cursor: Control = VirtualMouseScript.attach_to(self)
+	var mouse_mode: int = Input.get_mouse_mode()
+	cursor.set_desktop_mouse_mode(true, Vector2.ZERO)
+
+	var motion := InputEventJoypadMotion.new()
+	motion.axis = JOY_AXIS_0
+	motion.axis_value = 0.5
+	cursor._input(motion)
+
+	assert_vector2(cursor._position).is_equal(cursor.get_viewport_rect().size * 0.5)
+	Input.set_mouse_mode(mouse_mode)
+	cursor.get_parent().queue_free()
+
 # Colgado de la raiz por un menu, el cursor solo vive mientras ese menu esta visible: en juego no
 # debe mover la camara con el stick ni convertir A/B en clicks.
 func test_cursor_is_inert_while_its_requester_is_hidden() -> void:

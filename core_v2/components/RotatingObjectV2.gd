@@ -40,28 +40,6 @@ func set_rotation_amount(d: float):
 	if Engine.editor_hint and _initialized:
 		_update_visuals()
 
-func set_active(value: bool, immediate: bool = false) -> void:
-	var changed := is_active != value or immediate
-	.set_active(value, immediate)
-	if not changed:
-		return
-	# El vidrio es sólido en reposo, pero no puede empujar al piloto mientras la escotilla
-	# gira alrededor de él. Al cerrar, _on_animation_completed lo vuelve a habilitar.
-	_set_glass_collision_enabled(not value and immediate)
-
-func _on_animation_completed() -> void:
-	._on_animation_completed()
-	if not is_active:
-		_set_glass_collision_enabled(true)
-
-func _set_glass_collision_enabled(enabled: bool, immediate: bool = false) -> void:
-	for child in get_children():
-		if child is CollisionShape:
-			if immediate:
-				child.disabled = not enabled
-			else:
-				child.set_deferred("disabled", not enabled)
-
 func _update_visuals() -> void:
 	"""Interpolate rotation based on animation progress."""
 	if not _initialized:

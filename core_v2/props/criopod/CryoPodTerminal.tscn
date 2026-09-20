@@ -12,6 +12,8 @@ extents = Vector3( 0.55, 1.2, 0.55 )
 extents = Vector3( 1.5, 2, 1.5 )
 
 [node name="CryoPodTerminal" instance=ExtResource( 1 )]
+collision_layer = 0
+collision_mask = 0
 is_interactable = true
 is_focusable = true
 screen_resolution = Vector2( 1280, 800 )

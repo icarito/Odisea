@@ -366,7 +366,7 @@ is_focusable = true
 focus_text = "Usar terminal"
 
 [node name="WakeupFloor" type="StaticBody" parent="Criopod_Vert"]
-collision_layer = 64
+collision_layer = 1
 
 [node name="CollisionShape" type="CollisionShape" parent="Criopod_Vert/WakeupFloor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.531079, -0.123402 )
@@ -378,7 +378,7 @@ script = ExtResource( 11 )
 debug_render = false
 zone_extents = Vector3( 1, 1.4, 1 )
 script_file = "res://core_v2/levels/ringhub_wakeup.oys"
-center_player_on_enter = true
+center_player_on_enter = false
 
 [node name="CollisionShape" type="CollisionShape" parent="Criopod_Vert/CinematicSequence"]
 shape = SubResource( 237 )

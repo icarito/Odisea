@@ -25,7 +25,7 @@ FILE_EXTENSIONS_PATTERN = re.compile(
 
 # Properties to extract in .gd
 GD_PROP_PATTERN = re.compile(
-    r'(?:\.\b|\b)(text|dialog_text|bbcode_text|placeholder_text|hint_tooltip|interaction_text)\s*=\s*("(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\')'
+    r'(?:\.\b|\b)(text|dialog_text|bbcode_text|placeholder_text|hint_tooltip|interaction_text|window_title)\s*=\s*("(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\')'
 )
 
 # Functions to extract in .gd (tr(...) / TranslationServer.tr(...))
@@ -35,7 +35,7 @@ GD_TR_PATTERN = re.compile(
 
 # Line-anchored properties in .tscn
 TSCN_PROP_PATTERN = re.compile(
-    r'^\s*(text|placeholder_text|hint_tooltip|bbcode_text|dialog_text)\s*=\s*"((?:[^"\\]|\\.)*)"'
+    r'^\s*(text|placeholder_text|hint_tooltip|bbcode_text|dialog_text|window_title)\s*=\s*"((?:[^"\\]|\\.)*)"'
 )
 
 # Exclusions regexes for GDScript lines

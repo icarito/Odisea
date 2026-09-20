@@ -26,6 +26,7 @@ var _position := Vector2.ZERO
 var _active := false
 var _desktop_mouse_mode := false
 var _desktop_mouse_restore_mode := Input.MOUSE_MODE_VISIBLE
+var _has_real_mouse_position := false
 var _injecting_motion := false
 var _ignore_warp_motion := false
 var _skip_next_injected_motion := false
@@ -348,6 +349,7 @@ func _input(event: InputEvent) -> void:
 		# movimiento real.
 		if event.relative.length_squared() <= 0.0:
 			return
+		_has_real_mouse_position = true
 		set_desktop_mouse_mode(true, event.position)
 		return
 	if event is InputEventJoypadMotion or event is InputEventJoypadButton:
@@ -375,6 +377,10 @@ func _activate() -> void:
 		set_desktop_mouse_mode(false)
 	if _active:
 		return
+	# En equipos sin mouse, abrir una UI deja la posicion nativa en (0, 0). El primer
+	# input de joypad debe arrancar en un lugar util, igual para todas las pantallas.
+	if not _has_real_mouse_position:
+		_position = get_viewport_rect().size * 0.5
 	_active = true
 	visible = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)

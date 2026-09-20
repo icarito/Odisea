@@ -1,7 +1,7 @@
 SECTION "Despertar"
 CINEMATIC
 PRINT "Elías, despierta..."
-PLAY_ANIM "Confused"
+# PLAY_ANIM "Confused"
 CALL RingHub "open_pod_hatch"
-WAIT 3.0
+# WAIT 3.0
 INTERACTIVE

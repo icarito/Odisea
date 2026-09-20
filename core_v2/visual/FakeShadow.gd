@@ -268,16 +268,14 @@ func _process(_delta: float) -> void:
 	# Grid mode benefits from snapping + UV slide.
 	# Cheap mode skips this to reduce per-frame cost.
 	if shadow_mode == "grid" and snap_amount > 0.0:
+		# Solo la Y conserva el snap: es la que asentaba la sombra en el piso. X/Z
+		# siguen al player continuas — snapearlas movia la sombra en saltos de
+		# snap_amount al caminar (el "yanky"). Sin snap horizontal el uv_offset no
+		# hace falta: la textura queda centrada en el quad y no se corre.
 		var snapped_pos = center_pos.snapped(Vector3(snap_amount, snap_amount, snap_amount))
-		global_transform.origin = snapped_pos
-		var diff = center_pos - snapped_pos
+		global_transform.origin = Vector3(center_pos.x, snapped_pos.y, center_pos.z)
 		if material_override:
-			var step = snap_amount
-			if step <= 0.001:
-				step = 0.1
-			var grid_width = max(0.001, step * (grid_resolution - 1))
-			var uv_off = Vector2(diff.x, diff.z) / grid_width
-			material_override.set_shader_param("uv_offset", uv_off)
+			material_override.set_shader_param("uv_offset", Vector2.ZERO)
 	else:
 		global_transform.origin = center_pos
 		

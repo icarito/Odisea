@@ -26,7 +26,8 @@ const PANEL := Color(0.05, 0.12, 0.15)
 const OK := Color(0.42, 1.0, 0.65)
 const WARN := Color(1.0, 0.76, 0.32)
 
-export(String) var pod_label := "CRIOCÁPSULA 07"
+# El rotulo es plantilla + numero: como texto libre no habia forma de traducirlo.
+export(int) var pod_number := 7
 export(String) var occupant_name := "ELÍAS VEGA"
 export(String) var occupant_role := "PILOTO"
 export(String) var occupant_status := "ESTABLE"
@@ -40,7 +41,7 @@ export(int) var hibernation_days := 4212
 
 var _time := 0.0
 var _big_font: DynamicFont = null
-var _screen_id := ""
+var _screen_id := "ship:cryopod:elias"
 var _hatch_open := false
 var _hatch_busy := false
 
@@ -169,7 +170,7 @@ func _draw() -> void:
 	draw_rect(Rect2(0, 0, w, h), Color(0.02, 0.06, 0.08, 0.85))  # oscuro = vidrio (ver nota de color)
 
 	# cabecera
-	draw_string(HeadingFont, Vector2(28, 56), pod_label, accent)
+	draw_string(HeadingFont, Vector2(28, 56), tr("CRIOCÁPSULA %02d") % pod_number, accent)
 	draw_line(Vector2(28, 78), Vector2(w - 28, 78), DIM, 2.0)
 
 	var split := w * 0.46
@@ -188,11 +189,11 @@ func _draw_occupant(x: float, y: float, col_w: float) -> void:
 
 	var tx := x + 136
 	draw_string(BodyFont, Vector2(tx, y + 28), occupant_name, accent)
-	draw_string(BodyFont, Vector2(tx, y + 58), occupant_role, CYAN)
+	draw_string(BodyFont, Vector2(tx, y + 58), tr(occupant_role), CYAN)
 	var status_col := WARN if alarm else OK
 	draw_rect(Rect2(tx, y + 76, 12, 12), status_col)
-	draw_string(BodyFont, Vector2(tx + 22, y + 88), occupant_status, status_col)
-	draw_string(BodyFont, Vector2(tx, y + 128), "T+%d d" % hibernation_days, CYAN)
+	draw_string(BodyFont, Vector2(tx + 22, y + 88), tr(occupant_status), status_col)
+	draw_string(BodyFont, Vector2(tx, y + 128), tr("T+%d d") % hibernation_days, CYAN)
 
 	# barras de estado
 	var by := y + 190
@@ -204,7 +205,7 @@ func _draw_occupant(x: float, y: float, col_w: float) -> void:
 func _draw_bar(x: float, y: float, w: float, label: String, value: float, text: String, low_is_bad: bool = true) -> void:
 	var v := clamp(value, 0.0, 1.0)
 	var col := WARN if (low_is_bad and v < 0.25) else _accent()
-	draw_string(BodyFont, Vector2(x, y), label, CYAN)
+	draw_string(BodyFont, Vector2(x, y), tr(label), CYAN)
 	var text_w := BodyFont.get_string_size(text).x
 	draw_string(BodyFont, Vector2(x + w - text_w, y), text, col)
 	var track := Rect2(x, y + 10, w, 10)
@@ -222,7 +223,7 @@ func _draw_vitals(x: float, y: float, w: float, h: float) -> void:
 	_draw_heart(Vector2(x + 34, y + 34), 26.0 * pulse, accent)
 
 	draw_string(_big_font, Vector2(x + 80, y + 50), "%d" % int(round(bpm)), accent)
-	draw_string(BodyFont, Vector2(x + 80 + _big_font.get_string_size("%d" % int(round(bpm))).x + 10, y + 50), "BPM", CYAN)
+	draw_string(BodyFont, Vector2(x + 80 + _big_font.get_string_size("%d" % int(round(bpm))).x + 10, y + 50), tr("BPM"), CYAN)
 
 	# trazo
 	var plot := Rect2(x, y + 90, w, h - 130)
@@ -247,7 +248,7 @@ func _draw_vitals(x: float, y: float, w: float, h: float) -> void:
 	# cabeza del barrido
 	draw_circle(pts[pts.size() - 1], 4.0, accent)
 
-	draw_string(BodyFont, Vector2(x, plot.end.y + 26), "HIBERNACIÓN NOMINAL" if not alarm else "ALERTA",
+	draw_string(BodyFont, Vector2(x, plot.end.y + 26), tr("HIBERNACIÓN NOMINAL") if not alarm else tr("ALERTA"),
 		CYAN if not alarm else WARN)
 
 func _draw_heart(c: Vector2, s: float, col: Color) -> void:
