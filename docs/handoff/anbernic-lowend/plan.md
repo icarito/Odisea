@@ -700,3 +700,24 @@ es una máquina de estados de traversal grande (ledge/mantle/ladder/zero-g) con 
 no la geometría de colisión.** Perfilar los raycasts y las ramas de la máquina de estados de
 traversal por separado (apagar cada uno y remedir con el mismo replay, como ya se hizo para Dome_Intro
 en la bisección de arriba) es el siguiente paso lógico, no otro intento de simplificar mallas.
+
+### Instrumentado `step()` en tres fases — el orden se invierte entre desktop y Anbernic
+
+`step()` ya tenía cortes internos control/move/post para el profiler de RL (`_rl_step_profile_*`,
+gateado por `ANNA_RL_MODE` — no se pudo reusar tal cual porque ese modo probablemente pisa el control
+del replay). Se agregó el mismo corte contra `PerformanceMonitor.perfil_inicio/fin` (gateado por
+`_perfil_corrida_on`, cero costo fuera de una corrida con traza) en los mismos tres puntos, así
+aparece junto al resto del desglose en `replay_perf.json`. Mismo replay, dos hardwares:
+
+| fase | desktop | Anbernic |
+|---|---|---|
+| PC.control (input, traversal FSM, cinemática) | 0.19 ms | 1.08 ms |
+| **PC.move** (move_and_slide/collide, step de escalón, push de rigidbodies) | 0.14 ms | **1.37 ms** |
+| PC.post (animator, cámara, multi_tool) | **0.36 ms** ← la más cara ahí | 0.71 ms |
+
+El orden se **invierte**: en desktop `post` (animación/cámara) es la fase más cara; en el Anbernic
+es `move` (la física del propio personaje — sweep de colisión, chequeo de escalón, resolución de
+push), casi 2x más cara que en desktop en proporción al total. No es algo que se pudiera haber
+adivinado midiendo solo en desktop. Próximo paso: sub-perfilar `move` (candidatos: los ~8
+`intersect_ray` propios de `PlayerControllerV2`, `move_and_slide`, `_apply_push_constraint`) con el
+mismo método de apagar-y-remedir.

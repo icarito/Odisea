@@ -2533,6 +2533,19 @@ func step(dt: float, input: InputDataV2) -> void:
 	if prof_enabled:
 		prof_t0 = OS.get_ticks_usec()
 
+	# Perfil por corrida (FD perf Anbernic 2026-09-20): step() no pasa por
+	# _physics_process durante un replay (SessionManager lo desactiva y llama step()
+	# a mano), asi que el envoltorio de _physics_process de mas abajo nunca corre en
+	# esa condicion. Mismos cortes control/move/post que el profiler de RL de arriba,
+	# pero contra PerformanceMonitor para que aparezca en replay_perf.json junto al
+	# resto del desglose (SM.player_step ya mostraba el total; esto lo abre en tres).
+	if not _pm_perfil_buscado:
+		_pm_perfil_buscado = true
+		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
+	var _pm_fino: bool = _pm_perfil != null and _pm_perfil._perfil_corrida_on
+	if _pm_fino:
+		_pm_perfil.perfil_inicio("PC.control")
+
 	if _rl_fast_controller and _rl_skip_rigidbody_push:
 		_was_pushing = is_pushing
 		is_pushing = false
@@ -2613,6 +2626,9 @@ func step(dt: float, input: InputDataV2) -> void:
 	# --- MOVEMENT ---
 	if prof_enabled:
 		prof_t_control = OS.get_ticks_usec()
+	if _pm_fino:
+		_pm_perfil.perfil_fin("PC.control")
+		_pm_perfil.perfil_inicio("PC.move")
 	var move_vec = input.move_vec
 	# Calculate World Direction based on Control Mode (or Latch)
 	# Logic delegated to CinematicManager (FSM)
@@ -2792,6 +2808,9 @@ func step(dt: float, input: InputDataV2) -> void:
 	_was_touching_rigid = touched_rigid
 	if prof_enabled:
 		prof_t_move = OS.get_ticks_usec()
+	if _pm_fino:
+		_pm_perfil.perfil_fin("PC.move")
+		_pm_perfil.perfil_inicio("PC.post")
 
 	var should_step_animator := true
 	var animator_dt := dt
@@ -2826,6 +2845,8 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	if prof_enabled:
 		_rl_step_profile_add(prof_t0, prof_t_control, prof_t_move, OS.get_ticks_usec())
+	if _pm_fino:
+		_pm_perfil.perfil_fin("PC.post")
 	_update_input_edge_state(input)
 
 func _rl_step_profile_add(t0: int, t_control: int, t_move: int, t_end: int) -> void:
