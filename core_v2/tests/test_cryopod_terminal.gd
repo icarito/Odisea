@@ -102,6 +102,9 @@ func test_hatch_is_not_a_loose_interactable_and_opens_from_the_screen() -> void:
 	assert_bool(hatch.is_interactable).is_false()
 	assert_bool(hatch.is_in_group("interactable")).is_false()
 	assert_bool(hatch.is_active).is_false()
+	# El terminal viaja con la tapa: su Area conserva la interacción, pero su cuerpo
+	# Kinematic no puede convertirse en una pared móvil dentro de la cápsula.
+	assert_bool(pod.get_node("RotatingObjectV2/CryoPodTerminal/CollisionShape").disabled).is_true()
 
 	var result: Dictionary = hudable.perform_action("toggle_hatch")
 	assert_bool(bool(result.get("ok", false))).is_true()
@@ -234,7 +237,7 @@ func test_glass_shell_collides_with_player_layer() -> void:
 		assert_bool(collider.shape is BoxShape).is_true()
 	var terminal = hatch.get_node("CryoPodTerminal")
 	var from: Vector3 = hatch.to_global(Vector3(0.0, 0.72, 0.0))
-	var to: Vector3 = hatch.to_global(Vector3(0.7, 0.72, 0.0))
+	var to: Vector3 = hatch.to_global(Vector3(1.2, 0.72, 0.0))
 	var hit: Dictionary = pod.get_world().direct_space_state.intersect_ray(from, to, [terminal], 64)
 	assert_object(hit["collider"]).is_same(hatch)
 
@@ -290,8 +293,31 @@ func test_elias_pod_keeps_ringhub_slot_scale() -> void:
 	var pod = _mount(CriopodScene)
 	yield (get_tree(), "idle_frame")
 	var mesh: MeshInstance = pod as MeshInstance
+	var body: StaticBody = pod.get_node("DisplayCaseBody")
+	var hatch = pod.get_node("RotatingObjectV2")
+	var glass: MeshInstance = hatch.get_node("Glass")
+	var left_glass: CollisionShape = hatch.get_node("GlassLeft")
+	var right_glass: CollisionShape = hatch.get_node("GlassRight")
+	var glass_width: float = right_glass.translation.x - right_glass.shape.extents.x - left_glass.translation.x - left_glass.shape.extents.x
 
-	assert_vector3(mesh.scale).is_equal(Vector3.ONE * 1.5)
+	assert_float(mesh.scale.x).is_greater(1.5 - 0.001)
+	assert_int(body.get_child_count()).is_equal(3)
+	var back_wall: CollisionShape = body.get_node("Back")
+	var bottom: CollisionShape = body.get_node("Bottom")
+	var top: CollisionShape = body.get_node("Top")
+	assert_float(back_wall.translation.z).is_equal_approx(-0.4843, 0.0001)
+	assert_float(back_wall.shape.extents.x).is_equal_approx(0.4843, 0.0001)
+	assert_float(bottom.translation.y + bottom.shape.extents.y).is_equal_approx(0.7263, 0.0001)
+	assert_float(top.translation.y - top.shape.extents.y).is_equal_approx(2.1251, 0.0001)
+	assert_int(glass.layers).is_equal(64)
+	assert_float(glass_width * mesh.scale.x).is_greater(1.5 - 0.001)
+	var space = pod.get_world().direct_space_state
+	var bottom_hit: Dictionary = space.intersect_ray(
+		pod.to_global(Vector3(0.0, 0.3, 0.0)), pod.to_global(Vector3(0.0, -0.3, 0.0)), [], 1)
+	var top_hit: Dictionary = space.intersect_ray(
+		pod.to_global(Vector3(0.0, 2.0, 0.0)), pod.to_global(Vector3(0.0, 3.0, 0.0)), [], 1)
+	assert_bool(not bottom_hit.empty()).is_true()
+	assert_bool(not top_hit.empty()).is_true()
 
 	_drop(pod)
 	yield (get_tree(), "idle_frame")

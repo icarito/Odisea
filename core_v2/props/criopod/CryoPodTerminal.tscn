@@ -13,15 +13,10 @@ extents = Vector3( 1.5, 2, 1.5 )
 
 [node name="CryoPodTerminal" instance=ExtResource( 1 )]
 collision_layer = 0
-collision_mask = 0
+collision_mask = 2
 is_interactable = true
 is_focusable = true
 screen_resolution = Vector2( 1280, 800 )
-; Sin zona cinematica: el jugador nace DENTRO de ella (es la capsula), asi que activaba el
-; dolly exterior (CinematicPathRig/PathFollow/Camera, make_current) y esa vista se robaba la
-; camara desde el arranque. La capsula se mira desde adentro con FocusedRigInside al enfocar;
-; el resto del tiempo manda la camara del jugador.
-use_cinematic_zone = false
 enable_ui_interaction = true
 allow_focus_mode = true
 release_cinematic_zone_on_focus_exit = true
@@ -32,6 +27,7 @@ static_content = true
 [node name="CollisionShape" parent="." index="0"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0.44 )
 shape = SubResource( 1 )
+disabled = true
 
 [node name="BaseMesh" parent="." index="1"]
 visible = false
@@ -78,11 +74,8 @@ current = false
 [node name="LookAt" parent="CinematicSetup/CinematicPathRig/PathFollow/Camera" index="0"]
 transform = Transform( 0.933801, -0.00673025, -0.357728, -2.72645e-07, 0.999823, -0.0188113, 0.357791, 0.0175661, 0.933637, 0, 0, 0 )
 
-; El rig de afuera no se usa en la criocapsula: la pantalla se mira desde adentro. Su camara
-; quedaba con current = true y atrapaba la vista al abrir la capsula, asi que se apaga aca y
-; HoloTerminalV2._pick_focus_rig no la elige mientras exista el rig interior.
 [node name="Camera" parent="CinematicSetup/FocusedRig" index="0"]
-current = false
+current = true
 
 [node name="FocusedRigInside" type="Spatial" parent="CinematicSetup" index="3" groups=["cinematic_rigs"]]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0.15 )

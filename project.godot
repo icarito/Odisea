@@ -374,6 +374,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/pipe/CoolantTank.gd"
 }, {
+"base": "Spatial",
+"class": "CriopodRingCollisionV2",
+"language": "GDScript",
+"path": "res://core_v2/levels/chunks/ringhub/CriopodRingCollisionV2.gd"
+}, {
+"base": "Spatial",
+"class": "CriopodRingVisualV2",
+"language": "GDScript",
+"path": "res://core_v2/levels/chunks/ringhub/CriopodRingVisualV2.gd"
+}, {
 "base": "Control",
 "class": "CryoDiagnosticsUI",
 "language": "GDScript",
@@ -2114,6 +2124,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://core_v2/props/decor/SteelPlate.gd"
 }, {
+"base": "Spatial",
+"class": "StreamedSceneChunkV2",
+"language": "GDScript",
+"path": "res://core_v2/levels/chunks/StreamedSceneChunkV2.gd"
+}, {
 "base": "Node",
 "class": "StressTestRunner",
 "language": "GDScript",
@@ -2463,6 +2478,8 @@ _global_script_class_icons={
 "CoolantLeak": "",
 "CoolantSchematicPanel": "",
 "CoolantTank": "",
+"CriopodRingCollisionV2": "",
+"CriopodRingVisualV2": "",
 "CryoDiagnosticsUI": "",
 "CryoPodHUDable": "",
 "CryoPodUI": "",
@@ -2811,6 +2828,7 @@ _global_script_class_icons={
 "SpiralPlateAttachment": "",
 "SteelGratePlatform": "",
 "SteelPlate": "",
+"StreamedSceneChunkV2": "",
 "StressTestRunner": "",
 "StringFuzzer": "",
 "SuitOSContextDriver": "",

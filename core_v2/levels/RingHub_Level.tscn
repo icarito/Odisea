@@ -267,9 +267,6 @@ ao_texture = ExtResource( 13 )
 ao_on_uv2 = false
 ao_texture_channel = 2
 
-[sub_resource type="BoxShape" id=229]
-extents = Vector3( 0.4, 0.04, 0.4 )
-
 [sub_resource type="BoxShape" id=237]
 extents = Vector3( 1, 1.4, 1 )
 
@@ -561,13 +558,6 @@ transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-
 interaction_text = "Accionar terminal"
 is_focusable = true
 focus_text = "Usar terminal"
-
-[node name="WakeupFloor" type="StaticBody" parent="Criopod_Vert"]
-collision_layer = 1
-
-[node name="CollisionShape" type="CollisionShape" parent="Criopod_Vert/WakeupFloor"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.531079, -0.123402 )
-shape = SubResource( 229 )
 
 [node name="CinematicSequence" type="Area" parent="Criopod_Vert"]
 transform = Transform( 0.666667, 0, 2.84217e-14, 0, 0.666667, 0, -2.84217e-14, 0, 0.666667, 2.14577e-06, 0.823144, -0.12323 )

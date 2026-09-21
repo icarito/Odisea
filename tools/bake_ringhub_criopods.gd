@@ -12,7 +12,6 @@ extends SceneTree
 # Salida:
 #   core_v2/levels/interiors/RingHub_Criopod_{shell,glass,cards}.mesh   (1 pod por capa)
 #   core_v2/levels/interiors/RingHub_Criopod_{shell,glass}.material
-#   core_v2/levels/interiors/RingHub_Criopod_box.shape
 #   core_v2/levels/chunks/ringhub/RingHub_Criopods_visual.tscn
 #   core_v2/levels/chunks/ringhub/RingHub_Criopods_body.tscn
 #
@@ -22,8 +21,6 @@ const DEFAULT_SOURCE_PATH := "res://core_v2/levels/interiors/RingHub_CriopodsSou
 const OUT_DIR := "res://core_v2/levels/interiors/"
 const CHUNK_DIR := "res://core_v2/levels/chunks/ringhub/"
 const PREFIX := "RingHub"
-const VISUAL_PATH := CHUNK_DIR + "RingHub_Criopods_visual.tscn"
-const BODY_PATH := CHUNK_DIR + "RingHub_Criopods_body.tscn"
 const VISUAL_SCRIPT := "res://core_v2/levels/chunks/ringhub/CriopodRingVisualV2.gd"
 const BODY_SCRIPT := "res://core_v2/levels/chunks/ringhub/CriopodRingCollisionV2.gd"
 const SLOT_PROVIDER_PATH := NodePath("../../Criopods_Visual")
@@ -34,7 +31,9 @@ const LAYER_CARDS := {"path": "PersonCard2", "name": "cards", "node": "PersonCar
 const LAYERS := [LAYER_SHELL, LAYER_GLASS, LAYER_CARDS]
 
 var _shared_materials := {}
-var _box_shape_path := ""
+var _ring_name := "Criopods1"
+var _output_suffix := ""
+var _output_ring_name := ""
 
 func _init() -> void:
 	call_deferred("_run")
@@ -52,6 +51,13 @@ func _run() -> void:
 	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
 	if source_path.empty():
 		source_path = DEFAULT_SOURCE_PATH
+	_ring_name = OS.get_environment("ODISEA_BAKE_RING")
+	if _ring_name.empty():
+		_ring_name = "Criopods1"
+	_output_suffix = OS.get_environment("ODISEA_BAKE_SUFFIX")
+	_output_ring_name = OS.get_environment("ODISEA_BAKE_OUTPUT_RING")
+	if _output_ring_name.empty():
+		_output_ring_name = _ring_name
 	var packed: PackedScene = load(source_path)
 	if packed == null:
 		push_error("[bake_ringhub_criopods] no pude cargar %s" % source_path)
@@ -59,9 +65,9 @@ func _run() -> void:
 		return
 	var root: Node = packed.instance()
 	get_root().add_child(root)
-	var ring: Spatial = root.get_node_or_null("Spatial/Criopods1") as Spatial
+	var ring: Spatial = root.get_node_or_null("Spatial/" + _ring_name) as Spatial
 	if ring == null:
-		push_error("[bake_ringhub_criopods] no encuentro Spatial/Criopods1 en %s" % source_path)
+		push_error("[bake_ringhub_criopods] no encuentro Spatial/%s en %s" % [_ring_name, source_path])
 		quit(1)
 		return
 
@@ -91,7 +97,7 @@ func _bake_visual(ring: Spatial, items: Array, to_ring: Transform, slot_to_index
 	visual.name = "CriopodRingVisual"
 	visual.set_script(load(VISUAL_SCRIPT))
 	var ring_node := Spatial.new()
-	ring_node.name = ring.name
+	ring_node.name = _output_ring_name
 	ring_node.transform = ring.transform
 	visual.add_child(ring_node)
 	ring_node.owner = visual
@@ -140,8 +146,9 @@ func _bake_visual(ring: Spatial, items: Array, to_ring: Transform, slot_to_index
 	if packed.pack(visual) != OK:
 		push_error("[bake_ringhub_criopods] no pude empacar el visual")
 		return false
-	if ResourceSaver.save(VISUAL_PATH, packed) != OK:
-		push_error("[bake_ringhub_criopods] no pude guardar %s" % VISUAL_PATH)
+	var visual_path := _output_path("visual")
+	if ResourceSaver.save(visual_path, packed) != OK:
+		push_error("[bake_ringhub_criopods] no pude guardar %s" % visual_path)
 		return false
 	return true
 
@@ -151,9 +158,10 @@ func _bake_collision(ring: Spatial, items: Array, to_ring: Transform, slot_to_in
 	collision_root.name = "CriopodRingCollision"
 	collision_root.set_script(load(BODY_SCRIPT))
 	collision_root.set("slot_provider_path", SLOT_PROVIDER_PATH)
+	collision_root.set("body_path", _output_ring_name + "/StaticBody")
 	collision_root.set("slot_to_pod", slot_to_index)
 	var ring_node := Spatial.new()
-	ring_node.name = ring.name
+	ring_node.name = _output_ring_name
 	ring_node.transform = ring.transform
 	collision_root.add_child(ring_node)
 	ring_node.owner = collision_root
@@ -166,30 +174,21 @@ func _bake_collision(ring: Spatial, items: Array, to_ring: Transform, slot_to_in
 
 	var shapes: Array = []
 	for item in items:
-		for child in item.get_children():
-			if not (child is StaticBody):
-				continue
-			for cs in child.get_children():
-				if cs is CollisionShape and cs.shape != null:
-					shapes.append(cs)
-					break
+		var source_shape: CollisionShape = item.get_node_or_null("StaticBody/CollisionShape")
+		if source_shape == null or source_shape.shape == null:
+			push_error("[bake_ringhub_criopods] cada pod requiere una caja")
+			return false
+		shapes.append(source_shape)
 	if shapes.empty():
 		push_error("[bake_ringhub_criopods] ningun pod aporto colision")
 		return false
 
-	if _box_shape_path == "":
-		var path: String = OUT_DIR + PREFIX + "_Criopod_box.shape"
-		if ResourceSaver.save(path, shapes[0].shape) != OK:
-			push_error("[bake_ringhub_criopods] no pude guardar %s" % path)
-			return false
-		_box_shape_path = path
-	var box: Shape = load(_box_shape_path)
-
-	for i in range(shapes.size()):
+	for pod_index in range(shapes.size()):
+		var source_shape: CollisionShape = shapes[pod_index]
 		var cs := CollisionShape.new()
-		cs.name = "Pod_%02d" % i
-		cs.transform = to_ring * (shapes[i] as CollisionShape).global_transform
-		cs.shape = box
+		cs.name = "Pod_%02d" % pod_index
+		cs.transform = to_ring * source_shape.global_transform
+		cs.shape = source_shape.shape
 		body.add_child(cs)
 		cs.owner = collision_root
 
@@ -197,10 +196,15 @@ func _bake_collision(ring: Spatial, items: Array, to_ring: Transform, slot_to_in
 	if packed.pack(collision_root) != OK:
 		push_error("[bake_ringhub_criopods] no pude empacar la colision")
 		return false
-	if ResourceSaver.save(BODY_PATH, packed) != OK:
-		push_error("[bake_ringhub_criopods] no pude guardar %s" % BODY_PATH)
+	var body_path := _output_path("body")
+	if ResourceSaver.save(body_path, packed) != OK:
+		push_error("[bake_ringhub_criopods] no pude guardar %s" % body_path)
 		return false
 	return true
+
+
+func _output_path(kind: String) -> String:
+	return CHUNK_DIR + "RingHub_Criopods%s_%s.tscn" % [_output_suffix, kind]
 
 
 # Slot del RadialScatter (Item_N) -> indice de instancia/caja. Los slots sin pod

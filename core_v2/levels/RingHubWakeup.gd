@@ -9,7 +9,7 @@ export(NodePath) var slots_path := NodePath("Hub/Criopods")
 # el chunk) para no dejar un pod decorativo encima del de Elias.
 export(NodePath) var criopod_visual_path := NodePath("ScaffoldStreamRoot/Criopods_Visual")
 # Centro del pod: con el Pilot a escala 1 (el offset viejo era para el Pilot a 0.667)
-# un desplazamiento en -Z lo pegaba contra la pared trasera (Criopod_Vert/StaticBody).
+# un desplazamiento en -Z lo pegaba contra la pared trasera (Criopod_Vert/DisplayCaseBody).
 export(Vector3) var pilot_inside_offset := Vector3(0.0, 0.8, 0.0)
 # FD-314: slot fijo de despertar. Con -1 se elige por run_seed (comportamiento viejo).
 # El pod funcional a 2.6 sobresale del deck de Floor_2, asi que Floor_2 tiene que
@@ -26,9 +26,6 @@ export(String) var pod_screen_id := "ship:cryopod:elias"
 
 var _base_blocked_ranges: Array = []
 var _selected_slot := -1
-# El hatch/terminal del pod viven en la capa 64, que el Pilot tiene en su mask.
-# Dentro del pod eso lo empujaba al abrir la escotilla; se restaura al soltar la cinematica.
-var _pilot_mask_before_wakeup := 0
 var _selected_item_transform := Transform()
 var _has_selected_item_transform := false
 var _gated_oys_script := ""
@@ -135,20 +132,7 @@ func _release_wakeup_sequence() -> void:
 	var pilot := get_node_or_null("Pilot")
 	if pilot != null and pilot.has_method("set_traversal_entry_suppressed"):
 		pilot.set_traversal_entry_suppressed(false)
-	var hatch := get_node_or_null("Criopod_Vert/RotatingObjectV2")
-	if hatch != null and hatch.has_signal("activated") \
-			and not hatch.is_connected("activated", self, "_restore_pilot_hatch_collision"):
-		hatch.connect("activated", self, "_restore_pilot_hatch_collision", [], CONNECT_ONESHOT)
-	if hatch == null or (bool(hatch.is_active) and float(hatch.anim_progress) >= 0.999):
-		_restore_pilot_hatch_collision()
 	zone.call_deferred("trigger_from_script")
-
-
-func _restore_pilot_hatch_collision() -> void:
-	var pilot := get_node_or_null("Pilot")
-	if pilot is PhysicsBody and _pilot_mask_before_wakeup != 0:
-		(pilot as PhysicsBody).collision_mask = _pilot_mask_before_wakeup
-		_pilot_mask_before_wakeup = 0
 
 # El slot decorativo viene con una inclinacion (~1 grado) para lucir la capsula.
 # El pod funcional, en cambio, tiene que quedar a plomo: con el piso inclinado el
@@ -237,9 +221,6 @@ func _apply_wakeup_slot() -> void:
 	# Suprimir el auto-hang/auto-ladder mientras el Pilot esta dentro del pod.
 	if pilot.has_method("set_traversal_entry_suppressed"):
 		pilot.set_traversal_entry_suppressed(true)
-	if pilot is PhysicsBody and _pilot_mask_before_wakeup == 0:
-		_pilot_mask_before_wakeup = (pilot as PhysicsBody).collision_mask
-		(pilot as PhysicsBody).collision_mask = _pilot_mask_before_wakeup & ~64
 	if "velocity" in pilot:
 		pilot.velocity = Vector3.ZERO
 
@@ -267,3 +248,43 @@ func restore_snapshot(data: Dictionary) -> void:
 	_selected_slot = int(data.get("selected_slot", _selected_slot))
 	_gated_oys_script = String(data.get("gated_oys_script", ""))
 	_apply_wakeup_slot()
+
+
+# ============================================================================
+# TEMP DIAG (quitar): registra en user://eject.txt cada salto del Pilot
+# (>0.15 m) con la mask y los colliders que toca en ese frame.
+# ============================================================================
+var _diag_last := Vector3()
+var _diag_ready := false
+
+func _physics_process(_delta: float) -> void:
+	var pilot := get_node_or_null(pilot_path) as Spatial
+	if pilot == null:
+		return
+	var pos: Vector3 = pilot.global_transform.origin
+	if not _diag_ready:
+		_diag_ready = true
+		_diag_last = pos
+		return
+	var d: float = _diag_last.distance_to(pos)
+	if d > 0.05:
+		var pod := get_node_or_null(criopod_path) as Spatial
+		var f := File.new()
+		if f.open("user://eject.txt", File.READ_WRITE) == OK:
+			f.seek_end()
+			f.store_string("SALTO %.3f  world=%s  pod_local=%s  mask=%d\n" % [
+				d, str(pos), str(pod.to_local(pos)) if pod != null else "-",
+				(pilot as PhysicsBody).collision_mask if pilot is PhysicsBody else -1])
+			var cs: CollisionShape = pilot.get_node_or_null("CollisionShape")
+			if cs != null:
+				var pr := PhysicsShapeQueryParameters.new()
+				pr.set_shape(cs.shape)
+				pr.transform = cs.global_transform
+				pr.collision_mask = 1048575
+				pr.exclude = [pilot]
+				for h in pilot.get_world().direct_space_state.intersect_shape(pr, 32):
+					var c = h.get("collider", null)
+					if c != null:
+						f.store_string("    toca %s layer=%d\n" % [String(c.get_path()), c.collision_layer])
+			f.close()
+	_diag_last = pos

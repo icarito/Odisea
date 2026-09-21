@@ -9,10 +9,13 @@ class_name CriopodRingCollisionV2
 
 export(NodePath) var slot_provider_path := NodePath("")
 export(String) var body_path := "Criopods1/StaticBody"
-# slot del RadialScatter -> indice de caja (`Pod_%02d`); -1 si no tiene pod.
+# slot del RadialScatter -> indice de pod (`Pod_%02d`); -1 si no tiene pod.
 export(Array, int) var slot_to_pod := []
 
 func _ready() -> void:
+	call_deferred("_free_blocked_slot")
+
+func _free_blocked_slot() -> void:
 	var slot := _provider_blocked_slot()
 	if slot >= 0:
 		free_slot(slot)
@@ -26,10 +29,12 @@ func free_slot(slot: int) -> int:
 	var body := get_node_or_null(body_path)
 	if body == null:
 		return -1
-	var shape := body.get_node_or_null("Pod_%02d" % pod)
+	var shape: CollisionShape = body.get_node_or_null("Pod_%02d" % pod)
 	if shape == null:
 		return -1
-	shape.queue_free()
+	shape.disabled = true
+	body.remove_child(shape)
+	shape.free()
 	return pod
 
 func _provider_blocked_slot() -> int:

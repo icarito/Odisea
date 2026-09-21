@@ -126,21 +126,17 @@ func test_initial_screen_close_releases_wakeup_once_without_open_button() -> voi
 	assert_str(String(zone.script_file)).is_empty()
 
 
-func test_wakeup_keeps_hatch_collision_excluded_until_open() -> void:
+func test_wakeup_keeps_pilot_collision_mask() -> void:
 	var level = auto_free(RingHubScene.instance())
 	level.open_pod_terminal_on_start = false
 	add_child(level)
 	yield(get_tree(), "idle_frame")
 
 	var pilot: PhysicsBody = level.get_node("Pilot")
-	var hatch: Node = level.get_node("Criopod_Vert/RotatingObjectV2")
-	var restored_mask: int = level._pilot_mask_before_wakeup
+	var initial_mask: int = pilot.collision_mask
 	level._gate_wakeup_sequence()
 	level._release_wakeup_sequence()
-	assert_int(pilot.collision_mask & 64).is_equal(0)
-	hatch.set_active(true)
-	yield(_wait_until_hatch_stops(hatch), "completed")
-	assert_int(pilot.collision_mask).is_equal(restored_mask)
+	assert_int(pilot.collision_mask).is_equal(initial_mask)
 
 
 func test_pilot_capsule_starts_inside_pod_without_collision_overlap() -> void:
@@ -162,21 +158,18 @@ func test_pilot_capsule_starts_inside_pod_without_collision_overlap() -> void:
 	var params := PhysicsShapeQueryParameters.new()
 	params.set_shape(pilot_shape.shape)
 	params.transform = pilot_shape.global_transform
-	# El despertar excluye del mask del Pilot la capa 64 (hatch/terminal del pod) para
-	# que la escotilla no lo empuje al abrirse. El chequeo usa el mask efectivo.
+	# El chequeo usa el mask real del Pilot; RingHubWakeup no puede alterarlo.
 	params.collision_mask = pilot.collision_mask
 	params.exclude = [pilot]
 	var hits: Array = pilot.get_world().direct_space_state.intersect_shape(params, 32)
 
 	for hit in hits:
 		var collider = hit.get("collider", null)
-		if collider != null and pod.is_a_parent_of(collider) \
-				and collider != level.get_node("Criopod_Vert/WakeupFloor"):
-			assert_bool(false).is_true()
+		if collider != null and pod.is_a_parent_of(collider):
+			assert_bool(false).override_failure_message(
+				"Pilot solapa %s" % String(collider.get_path())).is_true()
 
-	assert_int(level.get_node("Criopod_Vert/StaticBody").collision_layer & 1).is_equal(1)
-	assert_int(level.get_node("Criopod_Vert/StaticBody2").collision_layer & 1).is_equal(1)
-	assert_int(level.get_node("Criopod_Vert/WakeupFloor").collision_layer & 1).is_equal(1)
+	assert_int(level.get_node("Criopod_Vert/DisplayCaseBody").collision_layer & 1).is_equal(1)
 	var glass_shapes: Array = []
 	for child in level.get_node("Criopod_Vert/RotatingObjectV2").get_children():
 		if child is CollisionShape:
@@ -185,7 +178,7 @@ func test_pilot_capsule_starts_inside_pod_without_collision_overlap() -> void:
 	for glass_shape in glass_shapes:
 		assert_bool(glass_shape.shape is BoxShape).is_true()
 
-	for path in ["StaticBody", "StaticBody2", "RotatingObjectV2"]:
+	for path in ["DisplayCaseBody", "RotatingObjectV2"]:
 		var body: Node = level.get_node("Criopod_Vert/" + path)
 		for child in body.get_children():
 			if child is CollisionShape:
@@ -210,7 +203,23 @@ func test_wakeup_slot_has_no_decorative_criopod_collision() -> void:
 	var pod_index: int = int(ring_collision.slot_to_pod[level._selected_slot])
 	assert_int(pod_index).is_greater(-1)
 	var decorative_body: Node = ring_collision.get_node(ring_collision.body_path)
+	var expected_shape_count := 0
+	for mapped_pod in ring_collision.slot_to_pod:
+		if int(mapped_pod) >= 0:
+			expected_shape_count += 1
+	assert_int(decorative_body.get_child_count()).is_equal(expected_shape_count - 1)
 	assert_object(decorative_body.get_node_or_null("Pod_%02d" % pod_index)).is_null()
+	var visual: Node = level.get_node("ScaffoldStreamRoot/Criopods_Visual")
+	var visual_index: int = visual.instance_for_slot(level._selected_slot)
+	assert_int(visual.hidden_instance_count()).is_equal(1)
+	for layer in visual._layers:
+		assert_float(layer.multimesh.get_instance_transform(visual_index).origin.y).is_equal(-10000.0)
+	assert_object(level.get_node_or_null("Hub/Criopods/Item_%d" % level._selected_slot)).is_null()
+	var shape: CollisionShape = decorative_body.get_child(0)
+	assert_bool(shape.shape is BoxShape).is_true()
+	var up: Vector3 = shape.global_transform.basis.y.normalized()
+	var space = level.get_world().direct_space_state
+	assert_bool(not space.intersect_ray(shape.global_transform.origin + up * 3.0, shape.global_transform.origin - up * 3.0, [], 64).empty()).is_true()
 
 
 func test_pod_body_blocks_camera_with_environment_layer() -> void:
@@ -222,10 +231,11 @@ func test_pod_body_blocks_camera_with_environment_layer() -> void:
 	var pilot: KinematicBody = level.get_node("Pilot")
 	_disable_pilot_input(pilot)
 	var spring_arm: Spatial = pilot.get_node("CameraRig/Yaw/Pitch/OTS_Offset/SpringArm")
-	var from: Vector3 = spring_arm.global_transform.origin
-	var direction: Vector3 = spring_arm.global_transform.basis.z.normalized()
+	var pod: Spatial = level.get_node("Criopod_Vert")
+	var from: Vector3 = pod.to_global(Vector3(0.0, 1.5, -2.0))
+	var to: Vector3 = pod.to_global(Vector3(0.0, 1.5, 0.0))
 	var hit: Dictionary = pilot.get_world().direct_space_state.intersect_ray(
-		from, from + direction * 3.0, [pilot], 1)
+		from, to, [pilot], 1)
 
 	assert_int(spring_arm.collision_mask & 1).is_equal(1)
 	assert_bool(not hit.empty()).is_true()

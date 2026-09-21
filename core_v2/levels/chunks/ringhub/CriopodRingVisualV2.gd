@@ -31,6 +31,8 @@ func _ready() -> void:
 			_layers.append(node)
 		for child in node.get_children():
 			pending.append(child)
+	if blocked_slot >= 0:
+		block_slot(blocked_slot)
 
 func block_slot(slot: int) -> void:
 	var index := instance_for_slot(slot)
@@ -39,7 +41,7 @@ func block_slot(slot: int) -> void:
 	blocked_slot = slot
 	_hidden[index] = true
 	for layer in _layers:
-		layer.multimesh.set_instance_transform(index, Transform(Basis(), HIDDEN_ORIGIN))
+		layer.multimesh.set_instance_transform(index, Transform(Basis.IDENTITY, HIDDEN_ORIGIN))
 
 func get_blocked_slot() -> int:
 	return blocked_slot
