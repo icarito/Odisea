@@ -3112,6 +3112,12 @@ func is_effectively_grounded() -> bool:
 	# During post-teleport snap frames, force grounded to prevent animation state flicker.
 	if _post_teleport_snap_frames > 0:
 		return true
+	# Camino rapido: sobre el piso el resultado ya es true. El sondeo hacia abajo solo
+	# hace falta para sostener "grounded" un frame al perder contacto (escalon o
+	# aterrizaje). Sin esto el raycast corre en cada tick de piso (0.26 ms/tick medido
+	# en el Anbernic) y su resultado queda tapado por el OR de abajo.
+	if is_on_floor():
+		return true
 	# Stair stepping can lose floor contact for one frame; keep grounded briefly to avoid air-state flicker.
 	var jump_in_progress := false
 	if is_instance_valid(jump_logic):

@@ -87,6 +87,9 @@ var _shake_base_roll_degrees := 0.0
 # --- VCamera System ---
 var _vcam_brain: Node = null
 var _vcam_active_camera: Node = null
+# /root/CameraTransition es autoload: resolver el path en cada llamada costaba en el
+# handheld y get_active_camera corre varias veces por tick.
+var _camera_transition_node: Node = null
 var _vcam_blend_duration: float = 1.0
 var _vcam_blend_elapsed: float = 0.0
 var _vcam_source: String = "vcamera"
@@ -458,8 +461,13 @@ func _search_camera(node: Node) -> Camera:
 			return cam
 	return null
 
+func _get_camera_transition() -> Node:
+	if _camera_transition_node == null or not is_instance_valid(_camera_transition_node):
+		_camera_transition_node = get_node_or_null("/root/CameraTransition")
+	return _camera_transition_node
+
 func get_active_camera() -> Camera:
-	var cam_transition = get_node_or_null("/root/CameraTransition")
+	var cam_transition = _get_camera_transition()
 	if _transition_active and cam_transition and is_instance_valid(cam_transition.camera3D):
 		return cam_transition.camera3D
 
