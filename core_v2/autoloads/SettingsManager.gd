@@ -45,6 +45,8 @@ var log_overlay_enabled: bool = false
 # (core_v2/telemetry/ErrorLogReporter.gd). Va junto a telemetry_enabled porque es el
 # mismo trato con el jugador: datos de diagnostico, no de juego.
 var error_reports_enabled: bool = false
+# Discord Rich Presence habilitado (opt-out propio, default ON con consentimiento)
+var discord_presence_enabled: bool = true
 # Control remoto habilitado
 var remote_control_enabled: bool = true
 # Agujero de dither: los props que tapan al jugador se vuelven translucidos
@@ -96,6 +98,7 @@ func load_settings():
 	remote_control_enabled = _config.get_value("network", "remote_control_enabled", true)
 	telemetry_enabled = _config.get_value("privacy", "telemetry_enabled", false)
 	error_reports_enabled = _config.get_value("privacy", "error_reports_enabled", false)
+	discord_presence_enabled = _config.get_value("privacy", "discord_presence", true)
 	# El default es true a proposito, y solo aplica cuando el archivo YA existe: una
 	# instalacion vieja tiene su preferencia guardada de antes y no se le vuelve a
 	# preguntar ni se le cambia nada. Una instalacion nueva no llega hasta aca (el
@@ -124,6 +127,7 @@ func save_settings():
 	_config.set_value("network", "remote_control_enabled", remote_control_enabled)
 	_config.set_value("privacy", "telemetry_enabled", telemetry_enabled)
 	_config.set_value("privacy", "error_reports_enabled", error_reports_enabled)
+	_config.set_value("privacy", "discord_presence", discord_presence_enabled)
 	_config.set_value("privacy", "consent_asked", consent_asked)
 	_config.set_value("display", "prop_dither_enabled", prop_dither_enabled)
 	_config.set_value("display", "prop_dither_user_set", prop_dither_user_set)

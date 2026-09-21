@@ -2929,6 +2929,7 @@ GLES3VendorGate="*res://core_v2/autoloads/GLES3VendorGate.gd"
 DebugConsoleManager="*res://core_v2/autoloads/DebugConsoleManager.gd"
 RemoteControlManager="*res://core_v2/net/RemoteControlManager.gd"
 SuitOS="*res://core_v2/autoloads/SuitOS.gd"
+DiscordPresence="*res://core_v2/autoloads/DiscordPresence.gd"
 
 [debug]
 
