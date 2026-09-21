@@ -70,6 +70,19 @@ var ui_language: String = "auto"
 func _ready():
 	load_settings()
 	apply_all_settings()
+	# Diferido: GLES3VendorGate (autoload) todavia no existe durante _ready, y el default
+	# de escala del perfil LOW depende de is_low_end_profile(). Se aplica UNA vez, sin
+	# pisar una eleccion del jugador ni reaplicarse en cada apply_render_resolution().
+	call_deferred("_apply_profile_render_scale_default")
+
+# Default de escala del perfil: 0.75 en LOW (legible), 1.0 en el resto. Una sola vez.
+func _apply_profile_render_scale_default() -> void:
+	if _render_scale_user_set:
+		return
+	var wanted := default_render_scale()
+	if abs(render_scale - wanted) > 0.001:
+		render_scale = clamp(wanted, 0.5, 1.0)
+		apply_render_resolution()
 
 func load_settings():
 	var err = _config.load(SETTINGS_PATH)
@@ -271,9 +284,6 @@ func apply_render_resolution():
 		return
 	if not _render_resolution_user_set:
 		render_resolution = default_render_resolution()
-	# El perfil LOW default a 0.75 (0.6 dejaba ilegible el texto de UI sin resolucion completa).
-	if not _render_scale_user_set:
-		render_scale = default_render_scale()
 	var effective_resolution: Vector2 = render_resolution * effective_render_scale()
 	tree.set_screen_stretch(
 		SceneTree.STRETCH_MODE_VIEWPORT,

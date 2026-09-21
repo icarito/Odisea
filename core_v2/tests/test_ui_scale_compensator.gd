@@ -66,13 +66,14 @@ func test_low_end_default_render_scale_is_075() -> void:
 	SettingsManager.low_end_forced = true
 	SettingsManager._render_scale_user_set = false
 	SettingsManager.render_scale = 1.0
-	SettingsManager.apply_render_resolution()
+	SettingsManager._apply_profile_render_scale_default()
 	assert_float(SettingsManager.render_scale).is_equal_approx(0.75, 0.001)
 
-	# Elegir a mano (Opciones) queda como la del jugador, aunque sea mas bajo.
+	# Elegir a mano (Opciones) queda como la del jugador, aunque sea mas bajo: el default
+	# del perfil no lo vuelve a pisar.
 	SettingsManager.set_render_scale(0.6)
 	assert_bool(SettingsManager._render_scale_user_set).is_true()
-	SettingsManager.apply_render_resolution()
+	SettingsManager._apply_profile_render_scale_default()
 	assert_float(SettingsManager.render_scale).is_equal_approx(0.6, 0.001)
 
 	SettingsManager.low_end_forced = before_forced
