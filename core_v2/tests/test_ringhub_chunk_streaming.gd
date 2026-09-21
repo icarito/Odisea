@@ -147,3 +147,32 @@ func test_criopod_blocking_hides_instance_and_drops_its_box() -> void:
 	assert_int(static_body.get_child_count()).is_equal(28)
 	assert_object(static_body.get_node_or_null("Pod_00")).is_null()
 	assert_object(static_body.get_node_or_null("Pod_01")).is_not_null()
+
+
+func test_criopod_block_is_per_instance_and_reversible() -> void:
+	var a = auto_free(CriopodVisual.instance())
+	var b = auto_free(CriopodVisual.instance())
+	add_child(a)
+	add_child(b)
+	yield(get_tree(), "idle_frame")
+
+	# Los MultiMesh del .tscn vienen compartidos entre instancias de la escena;
+	# el visual los duplica al entrar para aislar el bloqueo.
+	assert_bool(a._layers[0].multimesh == b._layers[0].multimesh).is_false()
+
+	a.block_slot(1)
+	assert_int(a.hidden_instance_count()).is_equal(1)
+	assert_int(b.hidden_instance_count()).is_equal(0)
+	assert_int(b.get_blocked_slot()).is_equal(-1)
+
+	a.unblock_slot(1)
+	assert_int(a.hidden_instance_count()).is_equal(0)
+	assert_int(a.get_blocked_slot()).is_equal(-1)
+
+	# Cambiar de slot no deja el anterior oculto.
+	a.block_slot(1)
+	a.block_slot(2)
+	assert_int(a.hidden_instance_count()).is_equal(1)
+	assert_int(a.get_blocked_slot()).is_equal(2)
+	assert_bool(a._hidden.has(a.instance_for_slot(2))).is_true()
+	assert_bool(a._hidden.has(a.instance_for_slot(1))).is_false()

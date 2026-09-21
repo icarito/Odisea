@@ -1,6 +1,7 @@
 extends GdUnitTestSuite
 
 const RingHubScene = preload("res://core_v2/levels/RingHub_Level.tscn")
+const CriopodScene = preload("res://core_v2/props/criopod/Criopod_vert.tscn")
 
 
 func _wait_until_pilot_settles(pilot: Spatial) -> void:
@@ -211,9 +212,14 @@ func test_wakeup_slot_has_no_decorative_criopod_collision() -> void:
 	assert_object(decorative_body.get_node_or_null("Pod_%02d" % pod_index)).is_null()
 	var visual: Node = level.get_node("ScaffoldStreamRoot/Criopods_Visual")
 	var visual_index: int = visual.instance_for_slot(level._selected_slot)
+	assert_int(visual_index).is_greater(-1)
 	assert_int(visual.hidden_instance_count()).is_equal(1)
-	for layer in visual._layers:
-		assert_float(layer.multimesh.get_instance_transform(visual_index).origin.y).is_equal(-10000.0)
+	# El estado autoritativo del bloqueo es el indice oculto, no la transform del
+	# MultiMesh: el backend `platform=server` (CI, headless) descarta los
+	# transform_array por instancia y get_instance_transform() siempre devuelve
+	# identidad. Verificado en GL (editor/X11): set_instance_transform() mueve las
+	# tres capas a HIDDEN_ORIGIN. La verificacion visual queda para OYS/screenshot.
+	assert_bool(visual._hidden.has(visual_index)).is_true()
 	assert_object(level.get_node_or_null("Hub/Criopods/Item_%d" % level._selected_slot)).is_null()
 	var shape: CollisionShape = decorative_body.get_child(0)
 	assert_bool(shape.shape is BoxShape).is_true()
@@ -270,3 +276,20 @@ func test_open_hatch_leaves_exit_corridor_clear() -> void:
 		excluded.append(collider)
 
 	assert_object(pod_blocker).is_null()
+
+
+# El shell/techo del criopod tiene que caer en el dither de props como el vidrio:
+# el collider del DisplayCaseBody va en Entorno+Prop (65) para que PropDitherManager
+# lo detecte y convierta la malla del shell, sin perder el bloqueo de camara (bit 1).
+func test_criopod_shell_is_occlusion_prop() -> void:
+	var pod = auto_free(CriopodScene.instance())
+	add_child(pod)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+
+	var shell := pod as MeshInstance
+	assert_int(shell.layers).is_equal(64)
+	assert_int(pod.get_node("DisplayCaseBody").collision_layer & 64).is_equal(64)
+	assert_int(pod.get_node("DisplayCaseBody").collision_layer & 1).is_equal(1)
+	assert_bool(shell.get_active_material(0) is ShaderMaterial).is_true()
+
