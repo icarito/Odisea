@@ -323,10 +323,15 @@ reintroduced display branch.
 CI parity, all overridable by env:
 
 - `ANNA_V2_NO_CENTRAL=1` and `ODISEA_TEST_TIMEOUT_SEC=180` are the local defaults (same as CI).
-- `./runtest.sh --ci` reproduces the core CI job exactly: one gdunit process over the whole
-  suite, no determinism, preflight already done, 420s wall timeout. Use it to reproduce a CI
-  failure; the local default (pytest delegate, one Godot per suite) changes the order and the
-  accumulated orphan state.
+- `./runtest.sh --ci` reproduces the core CI job exactly: gdunit in **8 sequential shards**
+  (fresh Godot processes; alphabetical suite order = deterministic membership), no determinism,
+  preflight already done, 540s wall timeout. Use it to reproduce a CI failure; the local
+  default (pytest delegate, one Godot per suite) changes the order and the accumulated
+  orphan state. The single gdunit process is gone from CI: the aged SceneTree made late
+  physics-sensitive suites (`test_ringhub_wakeup` ~148/150) flake with the same commit.
+- `ODISEA_RETRY_ISOLATED=1` is set only by the CI job: after a failed sharded run, each
+  failed suite is re-run isolated; green with a visible `::warning` if it passes isolated
+  (flake), real red if it fails again. `--ci` does not rescue, it reproduces failures.
 - `./runtest.sh --filter <substring>` runs matching pytest nodes (forces the delegate).
 
 ## Run All GdUnit3 Tests (CI only)

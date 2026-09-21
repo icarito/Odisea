@@ -216,20 +216,28 @@ jobs:
           ODISEA_RUN_DETERMINISM: "0"
           ODISEA_TEST_TIMEOUT_SEC: "180"
           ODISEA_SKIP_PREFLIGHT: "1"
+          # Rescue del release gate: una suite flaker de la corrida larga se
+          # re-corre aislada en proceso fresco; verde solo si pasa aislada (con
+          # ::warning visible). Un bug real sigue rojo.
+          ODISEA_RETRY_ISOLATED: "1"
         run: |
           set -euo pipefail
           mkdir -p reports
-          # GdUnit can execute all suites in one SceneTree. The pytest delegate
-          # starts one Godot per suite; under xdist that caused CPU thrash and
-          # flaky frame- and benchmark-sensitive tests. Keep replay cases in the
-          # dedicated determinism workflow, where fresh processes are intentional.
+          # El proceso unico de gdunit envejece el SceneTree (orphans acumulados,
+          # estado de autoloads): las suites fisico-sensibles de fin de corrida
+          # (test_ringhub_wakeup ~148/150) flakeaban con el MISMO commit. El core
+          # corre en --shards 8: procesos Godot frescos SECUENCIALES (sin CPU
+          # thrash), membresia alfabetica determinista (independiente del readdir
+          # del filesystem del runner). El delegate pytest sigue siendo una
+          # corrida por suite y no es el gate; replay cases van al workflow de
+          # determinism.
           set +e
-          timeout 420s ./runtest.sh --runner gdunit \
+          timeout 540s ./runtest.sh --runner gdunit --shards 8 \
             -a ./core_v2/tests/ 2>&1 | tee reports/core_tests.log
           test_rc="${PIPESTATUS[0]}"
           set -e
           if [ "$test_rc" -eq 124 ]; then
-            echo "Core tests timed out after 420s."
+            echo "Core tests timed out after 540s."
             exit 124
           fi
           exit "$test_rc"

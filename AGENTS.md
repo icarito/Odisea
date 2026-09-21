@@ -255,14 +255,21 @@ La suite completa queda a cargo de CI. `runtest.sh` sigue disponible para invoca
 > bifurcación por display.
 >
 > Paridad con CI: `ANNA_V2_NO_CENTRAL=1` y `ODISEA_TEST_TIMEOUT_SEC=180` son el default
-> local. `./runtest.sh --ci` reproduce el job core tal cual (un proceso gdunit sobre toda la
-> suite, sin determinismo, timeout de pared 420s); el default local (delegate pytest, un
-> Godot por suite) cambia el orden y la orfandad acumulada, así que no sirve para
-> reproducir un fallo de CI. `--filter <substring>` corre nodos pytest puntuales y
-> `--list` lista suites/casos/nodos.
+> local. `./runtest.sh --ci` reproduce el job core tal cual (gdunit en **8 shards
+> secuenciales** de procesos Godot frescos, suites en orden alfabético = membresía
+> determinista, sin determinismo, timeout de pared 540s); el default local (delegate
+> pytest, un Godot por suite) cambia el orden y la orfandad acumulada, así que no sirve
+> para reproducir un fallo de CI. El **proceso único gdunit ya no existe en CI**: envejecía
+> el SceneTree y las suites físico-sensibles de fin de corrida (`test_ringhub_wakeup`
+> ~148/150) flakeaban con el mismo commit. Si el run sharded falla, el job de CI fija
+> `ODISEA_RETRY_ISOLATED=1`: cada suite fallida se re-corre aislada; verde con
+> `::warning` si pasa aislada (flake), rojo real si vuelve a fallar. `--ci` NO rescata:
+> reproduce fallos. `--filter <substring>` corre nodos pytest puntuales y `--list` lista
+> suites/casos/nodos.
 
 ```shell
-./runtest.sh --ci                         # reproducción fiel del job core de CI
+./runtest.sh --ci                         # reproducción fiel del job core de CI (8 shards)
+./runtest.sh --shards 4 -a ./core_v2/tests/   # sharding manual (solo runner gdunit)
 ./runtest.sh --filter cryopod             # nodos pytest que matcheen
 ./runtest.sh --list                       # suites GdUnit, casos OYS, nodos pytest
 ./runtest.sh --print-command -a <suite>   # comando headless resuelto, sin ejecutar Godot

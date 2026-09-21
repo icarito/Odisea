@@ -48,15 +48,28 @@ bifurcación por display.
 Paridad con CI, todo overrideable por env:
 
 - `ANNA_V2_NO_CENTRAL=1` y `ODISEA_TEST_TIMEOUT_SEC=180` son el default local (igual que CI).
-- `--ci` reproduce el job core tal cual: un solo proceso gdunit sobre toda la suite, sin
-  determinismo, preflight ya hecho y `timeout` de pared de 420s. Usarlo para reproducir un
-  fallo de CI; el default local (delegate pytest, un Godot por suite) cambia el orden y la
-  orfandad acumulada.
+- `--ci` reproduce el job core tal cual: gdunit en **8 shards secuenciales** (procesos Godot
+  frescos, suites en orden alfabetico = membresia determinista), sin determinismo, preflight
+  ya hecho y `timeout` de pared de 540s. Usarlo para reproducir un fallo de CI; el default
+  local (delegate pytest, un Godot por suite) cambia el orden y la orfandad acumulada.
+- `ODISEA_RETRY_ISOLATED=1` (solo lo fija el job de CI): si el run sharded termina con fallos
+  de tests, cada suite fallida se re-corre **aislada** en un proceso fresco. Si pasa aislada
+  el gate sale verde con un `::warning` visible (flake de corrida larga); si sigue fallando,
+  es un bug real y el gate queda rojo. `--ci` NO lo activa: reproduce fallos, no los rescata.
 - `--filter <substring>` corre nodos pytest puntuales (fuerza el delegate) y `--list` lista
   los targets disponibles.
 
+Por qué shards: el proceso único de gdunit envejecía el SceneTree (orphans acumulados,
+estado de autoloads) y las suites físico-sensibles de fin de corrida
+(`test_ringhub_wakeup` corría en posición ~148/150) flakeaban **con el mismo commit**
+(fallos distintos por intento, verde al reintentar). Cada shard arranca con árbol fresco,
+así que la contaminación solo puede venir de las ~19 suites del propio shard.
+`tests/test_runtest_runner_contract.py` blinda cobertura exacta (`--shards`), rescate
+y backend en CI.
+
 ```bash
-./runtest.sh --ci                         # reproducción fiel del job core de CI
+./runtest.sh --ci                         # reproducción fiel del job core de CI (8 shards)
+./runtest.sh --shards 4 -a ./core_v2/tests/   # sharding manual (solo runner gdunit)
 ./runtest.sh --filter cryopod             # nodos pytest que matcheen
 ./runtest.sh --print-command -a <suite>   # comando headless resuelto, sin ejecutar Godot
 ```

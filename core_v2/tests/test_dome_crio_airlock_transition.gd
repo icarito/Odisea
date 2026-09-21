@@ -55,7 +55,18 @@ func test_walking_the_dome_crio_north_airlock_triggers_exterior_transition_state
 		fx.set("_transition_fired", true)
 
 	var samples := _walk_player_through_trigger(zone, player)
+	# El trigger encola call_deferred("_run_transition"), que durante el yield dispara un
+	# goto_scene REAL hacia OdiseaExterior via SceneManager y arma AirlockManager
+	# (_pending_transition + loader en background). Ese estado en autoloads sobrevive al
+	# test y contamina a las suites siguientes del MISMO proceso (elevator floor dial,
+	# fire_system, ringhub wakeup): con la transicion viva el resto de la corrida pelea
+	# contra un loader que al completar libera la escena activa. Desarmar el target antes
+	# del yield deja el _run_transition en su printerr temprano: nada se arma, y el
+	# valor se restaura para que los asserts de target_scene sigan probando la escena.
+	var saved_target: String = String(zone.target_scene)
+	zone.target_scene = ""
 	yield(get_tree(), "idle_frame")
+	zone.target_scene = saved_target
 
 	assert_int(samples.size()).is_equal(4)
 	assert_float(samples[0]).is_less(samples[1])
