@@ -135,6 +135,7 @@ Usar tres capas separadas:
 | FD-310 | Widget contextual de interactuables — del subtítulo al HUD | Implemented (v1) | Medium | P2 |
 | ~~FD-311~~ | *libre* — nunca se usó |  |  |  |
 | FD-312 | Faltantes de la GUI de OdiseaOS — inventario priorizado | Design | - | P1 |
+| FD-313 | Fixes de ergonomía del HUD, determinismo y paridad del Control Remoto | Planned | Medium | P1 |
 
 ### Parking lot — fuera del Acto I (idea capturada, no implementar)
 

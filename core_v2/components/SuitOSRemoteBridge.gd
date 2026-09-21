@@ -57,6 +57,8 @@ func _connect_suitos_signals() -> void:
 		suit_os.connect("widget_changed", self, "_on_widget_changed")
 	if not suit_os.is_connected("haptic", self, "_on_suitos_haptic"):
 		suit_os.connect("haptic", self, "_on_suitos_haptic")
+	if suit_os.has_signal("favorites_changed") and not suit_os.is_connected("favorites_changed", self, "_on_favorites_changed"):
+		suit_os.connect("favorites_changed", self, "_on_favorites_changed")
 
 func _connect_server_signals() -> void:
 	var server = _get_server()
@@ -82,17 +84,31 @@ func _get_server() -> Node:
 func _on_client_connected(_device_name: String) -> void:
 	_sent_location = ""
 	_send_screen_list()
-	# El control arranca con los slots de la partida y desde ahi son suyos (RemoteHudBackend).
 	var suit_os = get_node_or_null("/root/SuitOS")
 	var server = _get_server()
 	if suit_os != null and server != null and _has_paired_client():
 		server.send_ui_directive("slots", {"pinned": suit_os.get_pinned_slots()})
+		if suit_os.has_method("get_favorites"):
+			server.send_ui_directive("favorites", {
+				"favorite_screens": suit_os.get_favorites(),
+				"initialized": bool(suit_os.get("_favorites_initialized"))
+			})
 	var hints = get_node_or_null("/root/PlayerHintManager")
 	if hints != null and hints.has_method("get_visible_text"):
 		var text: String = hints.get_visible_text()
 		_on_visible_hint_changed(text, hints.get_visible_mode() if text != "" else "")
 	if not _remote_active_screen_id.empty():
 		_refresh_remote_active_screen()
+
+func _on_favorites_changed(favorites: Array) -> void:
+	var server = _get_server()
+	if server != null and _has_paired_client():
+		var suit_os = get_node_or_null("/root/SuitOS")
+		var init: bool = bool(suit_os.get("_favorites_initialized")) if suit_os != null else true
+		server.send_ui_directive("favorites", {
+			"favorite_screens": favorites.duplicate(),
+			"initialized": init
+		})
 
 func _send_screen_list() -> void:
 	var server = _get_server()
@@ -116,18 +132,16 @@ func _send_screen_list() -> void:
 				"title": title,
 				"relevance": rel
 			}
-			# El control remoto no tiene estas pantallas registradas (no corre el mundo),
-			# asi que no puede resolver ni su widget ni sus datos: sin esto mostraba la
-			# ruta cruda como nombre y "EN ESPERA" como estado. Los dos lados corren el
-			# mismo build, asi que la ruta de la escena le sirve tal cual.
+			if screen.has_method("screen_icon"):
+				var icon_raw = screen.screen_icon()
+				if typeof(icon_raw) == TYPE_STRING and not String(icon_raw).empty():
+					entry["icon"] = String(icon_raw)
 			if screen.has_method("widget_scene"):
 				var widget_scene = screen.widget_scene()
 				if widget_scene != null:
 					entry["widget"] = widget_scene.resource_path
 			if screen.has_method("widget_snapshot"):
 				entry["snapshot"] = screen.widget_snapshot()
-			# FD-304 §4/§5: el control necesita saber que hace el tap de un hombro sin abrir la
-			# pantalla. Va con la lista, que es lo que el proxy remoto ya consume.
 			if screen.has_method("hud_gamepad_actions"):
 				entry["gamepad_actions"] = screen.hud_gamepad_actions()
 			screens_list.append(entry)
@@ -146,8 +160,8 @@ func location_name() -> String:
 	if scene == null or scene.filename.empty():
 		return ""
 	var registry = get_node_or_null("/root/DomeRegistry")
-	var name: String = registry.display_name_for_scene(scene.filename) if registry != null else ""
-	return name if not name.empty() else scene.filename.get_file().get_basename().replace("_", " ")
+	var loc_name: String = registry.display_name_for_scene(scene.filename) if registry != null else ""
+	return loc_name if not loc_name.empty() else scene.filename.get_file().get_basename().replace("_", " ")
 
 func _on_screen_registered(_id: String) -> void:
 	_send_screen_list()

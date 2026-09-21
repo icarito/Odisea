@@ -115,6 +115,8 @@ func _ready() -> void:
 			_on_ui_directive("hint", client.last_hint)
 		if client.get("last_slots") != null:
 			_on_ui_directive("slots", client.last_slots)
+		if client.get("last_favorites") != null:
+			_on_ui_directive("favorites", client.last_favorites)
 		if client.get("last_location") != null:
 			_on_ui_directive("location", client.last_location)
 
@@ -378,6 +380,10 @@ func _on_ui_directive(op: String, payload) -> void:
 		"slots":
 			if typeof(payload) == TYPE_DICTIONARY and typeof((payload as Dictionary).get("pinned")) == TYPE_ARRAY:
 				hud_backend.adopt_host_pins((payload as Dictionary)["pinned"])
+
+		"favorites":
+			if typeof(payload) == TYPE_DICTIONARY:
+				hud_backend.apply_favorites(payload)
 
 		"location":
 			# Arriba, el sistema del traje y el mapa donde anda el jugador en el host.

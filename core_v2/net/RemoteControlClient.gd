@@ -70,6 +70,7 @@ var last_screen_active = null
 var last_hint = null
 var last_location = null
 var last_slots = null
+var last_favorites = null
 
 func _ready():
 	_ws_client.connect("connection_established", self, "_on_ws_connected")
@@ -116,6 +117,7 @@ func pair_with(p_ip: String, p_ws_port: int, p_sensor_port: int, p_device_name: 
 	last_hint = null
 	last_location = null
 	last_slots = null
+	last_favorites = null
 	if not _is_connected or _host_ip != p_ip or _ws_port != p_ws_port:
 		if _ws_client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 			_ws_client.disconnect_from_host()
@@ -380,6 +382,8 @@ func _handle_message(dict: Dictionary) -> void:
 				last_location = payload
 			elif op == "slots":
 				last_slots = payload
+			elif op == "favorites":
+				last_favorites = payload
 			emit_signal("ui_directive_received", op, payload)
 		"ping":
 			_send(RemoteProtocol.create_pong())

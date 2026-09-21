@@ -49,6 +49,8 @@ var _selected_id := ""
 # Los slots del host se copian una sola vez: si el canal se corta y retoma, lo que se acomodo en el
 # telefono se queda.
 var _adopted_host_pins := false
+var _favorites: Array = []
+var _favorites_initialized: bool = false
 
 
 # Lo que el HUD compartido le pide a una pantalla, armado con lo que mando el host.
@@ -63,6 +65,9 @@ class RemoteScreenProxy extends Reference:
 	func screen_title() -> String:
 		var title: String = backend.screen_field(id, "title")
 		return title if not title.empty() else id
+
+	func screen_icon() -> String:
+		return backend.screen_field(id, "icon")
 
 	func widget_scene() -> PackedScene:
 		return backend.resolve_widget_scene(id)
@@ -140,6 +145,43 @@ func apply_screen_active(payload: Dictionary) -> void:
 	if is_hud_mode_active() and current == _selected_id and not _overlay._selector.is_open() \
 			and resolve_view_scene(current) != null:
 		_overlay.show_screen_id(current)
+
+func apply_favorites(payload: Dictionary) -> void:
+	if typeof(payload) == TYPE_DICTIONARY and payload.has("favorite_screens") and typeof(payload["favorite_screens"]) == TYPE_ARRAY:
+		_favorites = (payload["favorite_screens"] as Array).duplicate()
+		_favorites_initialized = bool(payload.get("initialized", true))
+
+func get_favorites() -> Array:
+	if _favorites_initialized or not _favorites.empty():
+		return _favorites.duplicate()
+	return get_registered_screens()
+
+func is_favorite(id: String) -> bool:
+	if not _favorites_initialized and _favorites.empty():
+		return has_screen(id)
+	return get_favorites().has(id)
+
+func toggle_favorite(id: String) -> bool:
+	if id.empty():
+		return false
+	var favs := get_favorites()
+	if favs.has(id):
+		favs.erase(id)
+	elif favs.size() < 6:
+		favs.append(id)
+	else:
+		return false
+	_favorites = favs
+	_favorites_initialized = true
+	return true
+
+func get_favorites_ordered(_context: Dictionary = {}) -> Array:
+	var favs := get_favorites()
+	var ordered: Array = []
+	for sid in favs:
+		if has_screen(sid):
+			ordered.append(String(sid))
+	return ordered
 
 func add_zoom(delta: float) -> void:
 	zoom_level = clamp(zoom_level + delta, 0.5, 50.0)

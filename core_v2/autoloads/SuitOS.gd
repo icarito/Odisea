@@ -23,6 +23,7 @@ signal screen_opened(id)
 signal screen_closed(id)
 signal widget_changed(slot, snapshot)
 signal hud_mode_changed(active)
+signal favorites_changed(favorites)
 signal haptic(kind, intensity, duration)
 
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
@@ -59,6 +60,9 @@ var _widget_host: Node = null
 # determinista (input.hud_slot) que usa el modo HUD. Se alimenta por tick en _physics_process.
 var _hud_slot_gamepad: Node = null
 var _hud_slot_player: Node = null
+# El HUD sigue dejando vivo al mundo; solo le quita el hardware al jugador. El overlay
+# usa su propio proveedor, asi que conserva los mismos controles para navegar la UI.
+var _hud_input_providers: Array = []
 
 func _ready() -> void:
 	add_to_group("replay_sync")
@@ -179,16 +183,19 @@ func toggle_favorite(id: String) -> bool:
 		return false
 	if _favorites.has(id):
 		_favorites.erase(id)
+		emit_signal("favorites_changed", get_favorites())
 		return true
 	if _favorites.size() >= MAX_FAVORITES:
 		return false
 	_favorites.append(id)
+	emit_signal("favorites_changed", get_favorites())
 	return true
 
 # Vacia la curaduria SIN volver a sembrar los defaults: "el jugador los borro a proposito".
 func clear_favorites() -> void:
 	_favorites = []
 	_favorites_initialized = true
+	emit_signal("favorites_changed", get_favorites())
 
 func favorites_are_full() -> bool:
 	_seed_favorites_if_new()
@@ -305,12 +312,12 @@ func open_hud_mode(radial: bool = false, screen_id: String = "", slot: int = -1)
 	if not pause_mgr.pause_hud_mode():
 		return false
 	# null = el overlay anterior sigue en queue_free (TAB repetido en un mismo frame).
-	# Nunca dejar el mundo pausado sin UI que lo despause.
 	var overlay: Node = overlay_mgr.ensure_overlay(HUD_MODE_OVERLAY, HudModeOverlayScene, overlay_mgr.SLOT_MODAL)
 	if overlay == null:
 		pause_mgr.resume_hud_mode()
 		return false
 	set_hud_mode_active(true)
+	_set_player_hud_input_blocked(true)
 	if radial:
 		overlay.show_radial(slot)
 	elif has_screen(screen_id):
@@ -329,7 +336,23 @@ func close_hud_mode() -> void:
 	var pause_mgr = get_node_or_null("/root/PauseManager")
 	if pause_mgr != null:
 		pause_mgr.resume_hud_mode()
+	_set_player_hud_input_blocked(false)
 	set_hud_mode_active(false)
+
+func _set_player_hud_input_blocked(blocked: bool) -> void:
+	if not blocked:
+		for entry in _hud_input_providers:
+			var provider = entry.get("provider", null)
+			if is_instance_valid(provider):
+				provider.hardware_input_enabled = bool(entry.get("enabled", true))
+		_hud_input_providers.clear()
+		return
+	_hud_input_providers.clear()
+	for player in get_tree().get_nodes_in_group("player"):
+		var provider = player.get("input_provider")
+		if is_instance_valid(provider):
+			_hud_input_providers.append({"provider": provider, "enabled": provider.hardware_input_enabled})
+			provider.hardware_input_enabled = false
 
 func open_screen(id: String) -> bool:
 	if not has_screen(id):

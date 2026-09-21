@@ -1494,6 +1494,11 @@ func _show_screen(id: String) -> void:
 	_release_mouse_for_screen()
 	var suit_os: Node = _suit_os()
 	var screen: Object = suit_os.get_screen(id)
+	# Los favoritos pueden conservar el ultimo snapshot de una pantalla que ya salio de
+	# escena. No hay nodo ni Viewport que montar hasta que vuelva a registrarse.
+	if not is_instance_valid(screen):
+		_refresh_screens()
+		return
 	suit_os.open_screen(id)
 	_selector.close()
 	_view_host.visible = true
@@ -1981,10 +1986,18 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 		if event.button_index == BUTTON_RIGHT:
 			_dismiss_drawer()
 		elif event.button_index == BUTTON_LEFT:
-			# Sin puntero el clic acciona la fila centrada, igual que A en el mando.
-			var focused: int = _drawer.focused_index()
-			if focused >= 0:
-				_drawer.activate_row(focused)
+			var point: Vector2 = event.position
+			var star_row: int = _drawer.star_at(point)
+			if star_row >= 0:
+				_drawer.toggle_favorite_row(star_row, _suit_os())
+			else:
+				var clicked_row: int = _drawer.row_at(point)
+				if clicked_row >= 0:
+					_drawer.activate_row(clicked_row)
+				else:
+					var focused: int = _drawer.focused_index()
+					if focused >= 0:
+						_drawer.activate_row(focused)
 		return
 	if event is InputEventScreenTouch:
 		var point: Vector2 = event.position
