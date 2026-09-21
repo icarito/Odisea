@@ -273,7 +273,7 @@ generic_fallback_profile = ExtResource( 55 )
 stride_length_run = 2.2
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0 )
+transform = Transform( -1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 1, 0 )
 shape = SubResource( 48 )
 
 [node name="AudioListener" type="Listener" parent="."]

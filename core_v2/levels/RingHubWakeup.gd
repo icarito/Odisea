@@ -26,9 +26,8 @@ export(String) var pod_screen_id := "ship:cryopod:elias"
 
 var _base_blocked_ranges: Array = []
 var _selected_slot := -1
-# FD-314: el hatch/terminal del pod viven en la capa 64, que el Pilot tiene en su
-# mask. Dentro del pod eso lo empujaba al abrir la escotilla. Se excluye esa capa
-# mientras dura el despertar y se restaura al soltar la cinematica.
+# El hatch/terminal del pod viven en la capa 64, que el Pilot tiene en su mask.
+# Dentro del pod eso lo empujaba al abrir la escotilla; se restaura al soltar la cinematica.
 var _pilot_mask_before_wakeup := 0
 var _selected_item_transform := Transform()
 var _has_selected_item_transform := false
@@ -146,7 +145,7 @@ func _release_wakeup_sequence() -> void:
 # Pilot se resbalaba y terminaba afuera. Solo se conserva el yaw del slot.
 func _upright_basis(slot_basis: Basis) -> Basis:
 	var flat := slot_basis.orthonormalized()
-	return Basis(Vector3.UP, atan2(flat.x.z, flat.x.x))
+	return Basis(Vector3.UP, atan2(flat.z.x, flat.z.z))
 
 
 func _get_slots() -> RadialScatter:

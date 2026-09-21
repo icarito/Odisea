@@ -268,7 +268,7 @@ ao_on_uv2 = false
 ao_texture_channel = 2
 
 [sub_resource type="BoxShape" id=229]
-extents = Vector3( 0.5, 0.2, 0.5 )
+extents = Vector3( 0.4, 0.04, 0.4 )
 
 [sub_resource type="BoxShape" id=237]
 extents = Vector3( 1, 1.4, 1 )
@@ -304,6 +304,7 @@ inner_radius = 6.0
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 231.058, 239.856 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/RingFloor"]
@@ -774,6 +775,7 @@ inner_radius = 6.0
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 284.945, 293.743 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rebuild_baked_items = true
 
 [node name="Floor_3" parent="Hub" instance=ExtResource( 2 )]
@@ -783,6 +785,7 @@ inner_radius = 6.0
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 338.772, 347.57 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rebuild_baked_items = true
 
 [node name="Floor_4" parent="Hub" instance=ExtResource( 2 )]
@@ -792,6 +795,7 @@ inner_radius = 6.0
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 32.5033, 41.3007 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rebuild_baked_items = true
 
 [node name="Floor_5" parent="Hub" instance=ExtResource( 2 )]
@@ -801,4 +805,5 @@ inner_radius = 6.0
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 90, 123 ) ]
 outer_opening_docks = [ 0.0 ]
+rail_color = Color( 1, 0.56, 0.06, 1 )
 rebuild_baked_items = true

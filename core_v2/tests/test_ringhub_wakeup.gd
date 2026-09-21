@@ -140,14 +140,13 @@ func test_pilot_capsule_starts_inside_pod_without_collision_overlap() -> void:
 	var local_origin: Vector3 = pod.to_local(pilot.global_transform.origin)
 	# Ver comentario en test_opening_cryo_pod_does_not_move_pilot: margen sobre lo observado
 	# en CI (~0.68), no sobre el asentamiento de una corrida local aislada.
-	assert_float(abs(local_origin.x)).is_less(0.9)
-	assert_float(abs(local_origin.z)).is_less(0.9)
+	assert_float(abs(local_origin.x)).is_less(0.1)
+	assert_float(abs(local_origin.z)).is_less(0.1)
 	var params := PhysicsShapeQueryParameters.new()
 	params.set_shape(pilot_shape.shape)
 	params.transform = pilot_shape.global_transform
 	# El despertar excluye del mask del Pilot la capa 64 (hatch/terminal del pod) para
-	# que la escotilla no lo empuje al abrirse (ver RingHubWakeup). El chequeo usa el
-	# mask efectivo: el resto del pod (capa 1) sigue teniendo que quedar libre.
+	# que la escotilla no lo empuje al abrirse. El chequeo usa el mask efectivo.
 	params.collision_mask = pilot.collision_mask
 	params.exclude = [pilot]
 	var hits: Array = pilot.get_world().direct_space_state.intersect_shape(params, 32)
