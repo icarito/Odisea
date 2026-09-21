@@ -262,6 +262,8 @@ var input_locked := false setget set_input_locked
 # alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
 var _pm_perfil = null
 var _pm_perfil_buscado := false
+# Miembro (no local de step()) para que los helpers de camara puedan perfilar tambien.
+var _pm_fino := false
 # Cache del ControllerManager para step(): evita get_node_or_null por tick.
 var _cm_cache = null
 # Cache FD-290: mismo patron para SessionManager en modo replay (resuelto una sola vez).
@@ -1268,6 +1270,7 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 	else:
 		var active_zone_mode = CinematicManager.get_control_mode()
 		if active_zone_mode == CinematicManager.ControlMode.FREE:
+			if _pm_fino: _pm_perfil.perfil_inicio("PC.control.camera.tank")
 			if input:
 				var orbit_move_vec = input.move_vec if allow_move_turn_input else Vector2.ZERO
 				if _traversal_strafe_latch_active:
@@ -1294,6 +1297,7 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 							var target_yaw = atan2(wish_dir.x, wish_dir.z)
 							yaw = lerp_angle(yaw, target_yaw, auto_align_speed * dt)
 			pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
+			if _pm_fino: _pm_perfil.perfil_fin("PC.control.camera.tank")
 
 		var active_cam = CinematicManager.get_active_camera()
 		var can_zoom_cinematic = enable_cinematic_zoom and active_cam and is_instance_valid(active_cam) and active_cam != _cached_cam
@@ -1319,9 +1323,11 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 		if input.fov_override > 0.0:
 			base_fov = input.fov_override
 
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.camera.rig")
 	if camera_rig:
 		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.force_update_transform()
+	if _pm_fino: _pm_perfil.perfil_fin("PC.control.camera.rig")
 
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
@@ -2565,7 +2571,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if not _pm_perfil_buscado:
 		_pm_perfil_buscado = true
 		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
-	var _pm_fino: bool = _pm_perfil != null and _pm_perfil._perfil_corrida_on
+	_pm_fino = _pm_perfil != null and _pm_perfil._perfil_corrida_on
 	if _pm_fino:
 		_pm_perfil.perfil_inicio("PC.control")
 
@@ -2884,17 +2890,24 @@ func step(dt: float, input: InputDataV2) -> void:
 		else:
 			should_step_animator = false
 
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.animator")
 	if should_step_animator and (not _rl_skip_animator) and animator and animator.has_method("step_animator"):
 		var anim_vel = velocity
 		if not movement_logic.external_source_is_static:
 			anim_vel = velocity - movement_logic.external_velocity
 		animator.step_animator(animator_dt, anim_vel)
+	if _pm_fino: _pm_perfil.perfil_fin("PC.post.animator")
 		
 	movement_logic.external_source_is_static = true
 
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.cam_mask")
 	_update_camera_collision_mask_state(dt)
+	if _pm_fino: _pm_perfil.perfil_fin("PC.post.cam_mask")
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.cam_view")
 	_update_camera_view(dt)
+	if _pm_fino: _pm_perfil.perfil_fin("PC.post.cam_view")
 
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.multitool")
 	if multi_tool and is_instance_valid(multi_tool):
 		_sync_multi_tool_action_transform()
 		multi_tool.step(dt, input)
@@ -2904,12 +2917,14 @@ func step(dt: float, input: InputDataV2) -> void:
 			elif multi_tool.has_method("_fire_gloo"):
 				multi_tool.call("_fire_gloo")
 		_tool_secondary_was_pressed = input.tool_fire_secondary
+	if _pm_fino: _pm_perfil.perfil_fin("PC.post.multitool")
 
 	if prof_enabled:
 		_rl_step_profile_add(prof_t0, prof_t_control, prof_t_move, OS.get_ticks_usec())
-	if _pm_fino:
-		_pm_perfil.perfil_fin("PC.post")
+	if _pm_fino: _pm_perfil.perfil_fin("PC.post")
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.input_edge")
 	_update_input_edge_state(input)
+	if _pm_fino: _pm_perfil.perfil_fin("PC.post.input_edge")
 
 func _rl_step_profile_add(t0: int, t_control: int, t_move: int, t_end: int) -> void:
 	if t0 <= 0:
