@@ -274,8 +274,11 @@ func _on_resolution_selected(index):
 func _on_render_scale_selected(index: int) -> void:
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm:
-		sm.render_scale = render_scales[index]
-		sm.apply_render_resolution()
+		if sm.has_method("set_render_scale"):
+			sm.set_render_scale(render_scales[index])
+		else:
+			sm.render_scale = render_scales[index]
+			sm.apply_render_resolution()
 
 func _on_vsync_selected(index):
 	var sm = get_node_or_null("/root/SettingsManager")

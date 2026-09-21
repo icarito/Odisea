@@ -32,6 +32,11 @@ var render_resolution = DEFAULT_RENDER_RESOLUTION
 # a partir de ahi el perfil no la pisa.
 var _render_resolution_user_set := false
 var render_scale: float = 1.0
+# Default de escala para el perfil LOW (flat): 0.75. A 0.6 el texto de UI que NO sostiene
+# resolucion completa (menus) es ilegible en 640x480, y 0.75 es el piso legible. El jugador
+# lo puede bajar desde Opciones; a partir de ahi manda su eleccion.
+const LOW_END_DEFAULT_RENDER_SCALE := 0.75
+var _render_scale_user_set := false
 var vsync = true
 var telemetry_enabled: bool = false
 var consent_asked: bool = false
@@ -87,6 +92,8 @@ func load_settings():
 	_render_resolution_user_set = _config.has_section_key("display", "render_resolution")
 	render_resolution = _config.get_value("display", "render_resolution", default_render_resolution())
 	var default_render_scale: float = 1.0
+	_render_scale_user_set = _config.has_section_key("display", "render_scale") \
+		or _config.has_section_key("display", "android_render_scale")
 	render_scale = float(_config.get_value(
 		"display",
 		"render_scale",
@@ -120,6 +127,7 @@ func save_settings():
 	# Lo guardado es la eleccion del jugador: el perfil ya no la pisa.
 	_render_resolution_user_set = true
 	_config.set_value("display", "render_scale", render_scale)
+	_render_scale_user_set = true
 	_config.set_value("display", "vsync", vsync)
 	_config.set_value("network", "remote_control_enabled", remote_control_enabled)
 	_config.set_value("privacy", "telemetry_enabled", telemetry_enabled)
@@ -238,6 +246,16 @@ func effective_render_scale() -> float:
 func default_render_resolution() -> Vector2:
 	return LOW_END_RENDER_RESOLUTION if is_low_end_profile() else DEFAULT_RENDER_RESOLUTION
 
+# Default de escala por perfil: en el tier LOW (flat) arranca en 0.75; en el resto, 1.0.
+func default_render_scale() -> float:
+	return LOW_END_DEFAULT_RENDER_SCALE if is_low_end_profile() else 1.0
+
+# Eleccion de escala desde Opciones: queda como la del jugador y no la pisa el perfil.
+func set_render_scale(value: float) -> void:
+	render_scale = clamp(value, 0.5, 1.0)
+	_render_scale_user_set = true
+	apply_render_resolution()
+
 # Mismo criterio que el modo plano: la palanca del jugador o lo que detecte el gate
 # (vendor, ODISEA_FORCE_LOW_TIER). El gate se consulta por nodo porque puede no existir
 # todavia cuando este autoload arranca.
@@ -253,6 +271,9 @@ func apply_render_resolution():
 		return
 	if not _render_resolution_user_set:
 		render_resolution = default_render_resolution()
+	# El perfil LOW default a 0.75 (0.6 dejaba ilegible el texto de UI sin resolucion completa).
+	if not _render_scale_user_set:
+		render_scale = default_render_scale()
 	var effective_resolution: Vector2 = render_resolution * effective_render_scale()
 	tree.set_screen_stretch(
 		SceneTree.STRETCH_MODE_VIEWPORT,

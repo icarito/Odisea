@@ -74,6 +74,16 @@ func _ready():
 	call_deferred("_request_first_scene_preload")
 	call_deferred("_spawn_shader_warmup")
 
+	# El menu principal se dibuja a resolucion completa: a render_scale < 1 (default 0.75 del
+	# tier LOW) el texto queda ilegible en 640x480. Mismo mecanismo que Opciones/modo HUD.
+	connect("visibility_changed", self, "_hold_full_resolution")
+	_hold_full_resolution()
+
+func _hold_full_resolution() -> void:
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm and sm.has_method("hold_full_resolution_ui"):
+		sm.hold_full_resolution_ui(self, is_visible_in_tree())
+
 func _on_fade_in_complete() -> void:
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_focus_default_button()
@@ -180,6 +190,10 @@ func _exit_tree() -> void:
 	var rcm = get_node_or_null("/root/RemoteControlManager")
 	if rcm and rcm.discovery:
 		rcm.discovery.stop_discovery()
+	# Suelta la resolucion completa del menu: en el nivel vuelve la escala de render.
+	var sm = get_node_or_null("/root/SettingsManager")
+	if sm and sm.has_method("hold_full_resolution_ui"):
+		sm.hold_full_resolution_ui(self, false)
 
 func _on_remote_sessions_updated(sessions: Dictionary) -> void:
 	_set_remote_host_found(not sessions.empty())

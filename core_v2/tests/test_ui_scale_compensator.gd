@@ -54,3 +54,28 @@ func test_full_resolution_hold_while_any_screen_is_open() -> void:
 	SettingsManager.render_scale = before_scale
 	SettingsManager.apply_render_resolution()
 	probe.free()
+
+
+# El perfil LOW (flat) default a 0.75: a 0.6 el texto de UI sin resolucion completa no se
+# lee en 640x480. La eleccion explicita del jugador (Opciones) pisa el default.
+func test_low_end_default_render_scale_is_075() -> void:
+	var before_scale: float = SettingsManager.render_scale
+	var before_user: bool = SettingsManager._render_scale_user_set
+	var before_forced: bool = SettingsManager.low_end_forced
+
+	SettingsManager.low_end_forced = true
+	SettingsManager._render_scale_user_set = false
+	SettingsManager.render_scale = 1.0
+	SettingsManager.apply_render_resolution()
+	assert_float(SettingsManager.render_scale).is_equal_approx(0.75, 0.001)
+
+	# Elegir a mano (Opciones) queda como la del jugador, aunque sea mas bajo.
+	SettingsManager.set_render_scale(0.6)
+	assert_bool(SettingsManager._render_scale_user_set).is_true()
+	SettingsManager.apply_render_resolution()
+	assert_float(SettingsManager.render_scale).is_equal_approx(0.6, 0.001)
+
+	SettingsManager.low_end_forced = before_forced
+	SettingsManager._render_scale_user_set = before_user
+	SettingsManager.render_scale = before_scale
+	SettingsManager.apply_render_resolution()

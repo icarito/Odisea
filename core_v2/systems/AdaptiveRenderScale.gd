@@ -39,6 +39,9 @@ const BOOT_MS_META := "odisea_boot_ms"
 # De mejor a peor. El piso es 0.5 porque es el clamp de SettingsManager, y mas abajo el texto
 # de los menus deja de leerse.
 const ESCALAS := [1.0, 0.85, 0.75, 0.6, 0.5]
+# Piso de legibilidad del tier LOW: por debajo de 0.75 el texto de UI que no sostiene
+# resolucion completa (menus) no se lee en 640x480. Ver SettingsManager.LOW_END_DEFAULT_RENDER_SCALE.
+const LOW_TIER_MIN_SCALE := 0.75
 
 export(bool) var enabled := true
 export(bool) var only_on_mobile := true
@@ -81,6 +84,9 @@ export(float, 0.0, 30000.0, 100.0) var boot_ms_a_060 := 8000.0
 # dispositivo sufre, y se puede volver hasta ahi, pero nunca por encima.
 var _techo := 1.0
 var _indice := 0
+# Indice de la escala mas baja permitida (menor escala = mayor indice). En LOW queda en
+# 0.75 salvo que el jugador haya elegido algo mas bajo.
+var _max_indice := ESCALAS.size() - 1
 var _bajo := 0.0
 var _alto := 0.0
 var _espera := 0.0
@@ -109,8 +115,19 @@ func _tomar_techo() -> void:
 		set_process(false)
 		return
 	_techo = float(_ajustes.render_scale)
+	# Piso de legibilidad del tier LOW: no bajar de 0.75. No pisa una eleccion mas baja
+	# del jugador: el piso efectivo es min(techo, 0.75).
+	var low := _es_low_tier()
+	var piso: float = ESCALAS[ESCALAS.size() - 1]
+	if low:
+		piso = max(piso, LOW_TIER_MIN_SCALE)
+	_max_indice = _indice_mas_cercano(min(_techo, piso))
 	_indice = _indice_mas_cercano(_techo)
 	_gracia = gracia_al_iniciar
+	# En LOW arranca directo en el piso (0.75) en vez de 1.0 y bajar: el primer tramo ya
+	# corre a la escala estable y legible.
+	if low and _indice < _max_indice:
+		_aplicar(_max_indice)
 	_arrancar_segun_boot()
 	var cm := get_node_or_null("/root/CinematicManager")
 	if cm != null:
@@ -193,6 +210,11 @@ func _es_movil() -> bool:
 	return gate != null and gate.is_low_tier()
 
 
+func _es_low_tier() -> bool:
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	return gate != null and gate.has_method("is_low_tier") and bool(gate.is_low_tier())
+
+
 func _process(delta: float) -> void:
 	if not enabled or _ajustes == null:
 		return
@@ -248,7 +270,7 @@ func _en_replay() -> bool:
 
 
 func _aplicar(indice: int) -> void:
-	indice = int(clamp(indice, 0, ESCALAS.size() - 1))
+	indice = int(clamp(indice, 0, _max_indice))
 	if indice == _indice or _ajustes == null:
 		return
 	_indice = indice
