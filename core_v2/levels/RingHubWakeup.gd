@@ -135,10 +135,20 @@ func _release_wakeup_sequence() -> void:
 	var pilot := get_node_or_null("Pilot")
 	if pilot != null and pilot.has_method("set_traversal_entry_suppressed"):
 		pilot.set_traversal_entry_suppressed(false)
+	var hatch := get_node_or_null("Criopod_Vert/RotatingObjectV2")
+	if hatch != null and hatch.has_signal("activated") \
+			and not hatch.is_connected("activated", self, "_restore_pilot_hatch_collision"):
+		hatch.connect("activated", self, "_restore_pilot_hatch_collision", [], CONNECT_ONESHOT)
+	if hatch == null or (bool(hatch.is_active) and float(hatch.anim_progress) >= 0.999):
+		_restore_pilot_hatch_collision()
+	zone.call_deferred("trigger_from_script")
+
+
+func _restore_pilot_hatch_collision() -> void:
+	var pilot := get_node_or_null("Pilot")
 	if pilot is PhysicsBody and _pilot_mask_before_wakeup != 0:
 		(pilot as PhysicsBody).collision_mask = _pilot_mask_before_wakeup
 		_pilot_mask_before_wakeup = 0
-	zone.call_deferred("trigger_from_script")
 
 # El slot decorativo viene con una inclinacion (~1 grado) para lucir la capsula.
 # El pod funcional, en cambio, tiene que quedar a plomo: con el piso inclinado el

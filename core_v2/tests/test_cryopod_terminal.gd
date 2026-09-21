@@ -229,7 +229,9 @@ func test_glass_shell_collides_with_player_layer() -> void:
 			colliders.append(child)
 
 	assert_int(hatch.collision_layer & 64).is_equal(64)
-	assert_int(colliders.size()).is_equal(6)
+	assert_int(colliders.size()).is_equal(3)
+	for collider in colliders:
+		assert_bool(collider.shape is BoxShape).is_true()
 	var terminal = hatch.get_node("CryoPodTerminal")
 	var from: Vector3 = hatch.to_global(Vector3(0.0, 0.72, 0.0))
 	var to: Vector3 = hatch.to_global(Vector3(0.7, 0.72, 0.0))

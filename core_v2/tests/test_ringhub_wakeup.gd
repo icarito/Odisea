@@ -126,6 +126,23 @@ func test_initial_screen_close_releases_wakeup_once_without_open_button() -> voi
 	assert_str(String(zone.script_file)).is_empty()
 
 
+func test_wakeup_keeps_hatch_collision_excluded_until_open() -> void:
+	var level = auto_free(RingHubScene.instance())
+	level.open_pod_terminal_on_start = false
+	add_child(level)
+	yield(get_tree(), "idle_frame")
+
+	var pilot: PhysicsBody = level.get_node("Pilot")
+	var hatch: Node = level.get_node("Criopod_Vert/RotatingObjectV2")
+	var restored_mask: int = level._pilot_mask_before_wakeup
+	level._gate_wakeup_sequence()
+	level._release_wakeup_sequence()
+	assert_int(pilot.collision_mask & 64).is_equal(0)
+	hatch.set_active(true)
+	yield(_wait_until_hatch_stops(hatch), "completed")
+	assert_int(pilot.collision_mask).is_equal(restored_mask)
+
+
 func test_pilot_capsule_starts_inside_pod_without_collision_overlap() -> void:
 	var level = auto_free(RingHubScene.instance())
 	level.open_pod_terminal_on_start = false
@@ -160,12 +177,40 @@ func test_pilot_capsule_starts_inside_pod_without_collision_overlap() -> void:
 	assert_int(level.get_node("Criopod_Vert/StaticBody").collision_layer & 1).is_equal(1)
 	assert_int(level.get_node("Criopod_Vert/StaticBody2").collision_layer & 1).is_equal(1)
 	assert_int(level.get_node("Criopod_Vert/WakeupFloor").collision_layer & 1).is_equal(1)
+	var glass_shapes: Array = []
+	for child in level.get_node("Criopod_Vert/RotatingObjectV2").get_children():
+		if child is CollisionShape:
+			glass_shapes.append(child)
+	assert_int(glass_shapes.size()).is_equal(3)
+	for glass_shape in glass_shapes:
+		assert_bool(glass_shape.shape is BoxShape).is_true()
 
 	for path in ["StaticBody", "StaticBody2", "RotatingObjectV2"]:
 		var body: Node = level.get_node("Criopod_Vert/" + path)
 		for child in body.get_children():
 			if child is CollisionShape:
 				assert_bool(child.disabled).is_false()
+
+
+func test_wakeup_slot_has_no_decorative_criopod_collision() -> void:
+	var level = auto_free(RingHubScene.instance())
+	level.open_pod_terminal_on_start = false
+	add_child(level)
+	var pilot: Spatial = level.get_node("Pilot")
+	_disable_pilot_input(pilot)
+	var chunk: Node = level.get_node("ScaffoldStreamRoot/Chunk_Criopods")
+	for _i in range(180):
+		if chunk.is_chunk_loaded():
+			break
+		yield(get_tree(), "physics_frame")
+
+	assert_bool(chunk.is_chunk_loaded()).is_true()
+	var ring_collision: Node = chunk.get_node_or_null("CriopodRingCollision")
+	assert_object(ring_collision).is_not_null()
+	var pod_index: int = int(ring_collision.slot_to_pod[level._selected_slot])
+	assert_int(pod_index).is_greater(-1)
+	var decorative_body: Node = ring_collision.get_node(ring_collision.body_path)
+	assert_object(decorative_body.get_node_or_null("Pod_%02d" % pod_index)).is_null()
 
 
 func test_pod_body_blocks_camera_with_environment_layer() -> void:

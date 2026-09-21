@@ -111,6 +111,12 @@ extents = Vector3(0.675, 0.85, 0.05)
 [sub_resource type="BoxShape" id=51]
 extents = Vector3(0.675, 0.05, 0.675)
 
+[sub_resource type="BoxShape" id=52]
+extents = Vector3(0.03, 0.665, 0.30)
+
+[sub_resource type="BoxShape" id=53]
+extents = Vector3(0.35, 0.665, 0.03)
+
 [node name="Criopod" type="MeshInstance"]
 transform = Transform( 1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0 )
 use_in_baked_light = true
@@ -133,23 +139,17 @@ mesh = SubResource( 32 )
 skeleton = NodePath("../..")
 material/0 = SubResource( 36 )
 
-[node name="CollisionShape6" type="CollisionShape" parent="RotatingObjectV2"]
-shape = SubResource( 41 )
+[node name="GlassLeft" type="CollisionShape" parent="RotatingObjectV2"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -0.34, 0.665, 0 )
+shape = SubResource( 52 )
 
-[node name="CollisionShape5" type="CollisionShape" parent="RotatingObjectV2"]
-shape = SubResource( 42 )
+[node name="GlassRight" type="CollisionShape" parent="RotatingObjectV2"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.34, 0.665, 0 )
+shape = SubResource( 52 )
 
-[node name="CollisionShape4" type="CollisionShape" parent="RotatingObjectV2"]
-shape = SubResource( 43 )
-
-[node name="CollisionShape3" type="CollisionShape" parent="RotatingObjectV2"]
-shape = SubResource( 44 )
-
-[node name="CollisionShape2" type="CollisionShape" parent="RotatingObjectV2"]
-shape = SubResource( 45 )
-
-[node name="CollisionShape" type="CollisionShape" parent="RotatingObjectV2"]
-shape = SubResource( 46 )
+[node name="GlassFront" type="CollisionShape" parent="RotatingObjectV2"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.665, 0.29 )
+shape = SubResource( 53 )
 
 [node name="SFX Open sound" type="AudioStreamPlayer3D" parent="RotatingObjectV2"]
 stream = ExtResource( 7 )
