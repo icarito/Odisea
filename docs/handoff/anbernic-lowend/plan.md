@@ -833,4 +833,28 @@ Próximos: `PC.control.camera` sigue siendo lo más caro de control (0.248; aden
 `PC.control.push` 0.132, `PC.post` 0.674 (sin abrir), `PC.move.pre.dir` 0.15 tras el cache, y
 `SM.sync_nodes` / `KinematicArm3D`.
 
+### Resumen para release (2026-09-21)
+
+Optimizaciones de tick que quedan en el build, verificadas con el replay determinista y A/B en
+el RG351V:
+
+| cambio | archivo | efecto medido (device) |
+|---|---|---|
+| Cache del sondeo de `_try_step_up` en piso plano | PlayerControllerV2 | stepup -58.9% (0.234 → 0.096 ms/llamada) |
+| `is_effectively_grounded()`: fast path si `is_on_floor()` | PlayerControllerV2 | grounded -84.2% (0.262 → 0.041) |
+| `CinematicManager.get_active_camera()` cachea CameraTransition | CinematicManager | camera -18.5%, dir -23.8% |
+| Throttle del re-escaneo de interacción sin target (LOW) | PlayerControllerV2 | sin regresión; recorta el query de overlaps |
+| Stride de scans de control en LOW (previo, `126fac21`) | PlayerControllerV2 | ya presente |
+
+Efecto combinado en el tick del jugador: `SM.player_step` ~-12% (4.11 → 3.62 ms/tick
+instrumentado). El tick de scripts ronda 8.7 ms a 30 Hz; el resto del frame es render/física.
+
+La instrumentación fina que se agregó para ubicar estos costos se **removió**: solo quedan los
+marcadores gruesos de `PerformanceMonitor` (`PC.control` / `PC.move` / `PC.move.pre.*` / `PC.post`),
+que no ejecutan nada si `ODISEA_REPLAY_PERF` no está en 1. Release sin overhead de profiling.
+
+Device: `dev.sh` vacío (sin `--replay`); el paquete no incluye `dev.sh` y no hay autostart de
+replay. Verificado: boot normal sin `load_and_play`.
+
+
 

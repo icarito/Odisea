@@ -262,8 +262,6 @@ var input_locked := false setget set_input_locked
 # alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
 var _pm_perfil = null
 var _pm_perfil_buscado := false
-# Miembro (no local de step()) para que los helpers de camara puedan perfilar tambien.
-var _pm_fino := false
 # Cache del ControllerManager para step(): evita get_node_or_null por tick.
 var _cm_cache = null
 # Cache FD-290: mismo patron para SessionManager en modo replay (resuelto una sola vez).
@@ -1270,7 +1268,6 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 	else:
 		var active_zone_mode = CinematicManager.get_control_mode()
 		if active_zone_mode == CinematicManager.ControlMode.FREE:
-			if _pm_fino: _pm_perfil.perfil_inicio("PC.control.camera.tank")
 			if input:
 				var orbit_move_vec = input.move_vec if allow_move_turn_input else Vector2.ZERO
 				if _traversal_strafe_latch_active:
@@ -1297,7 +1294,6 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 							var target_yaw = atan2(wish_dir.x, wish_dir.z)
 							yaw = lerp_angle(yaw, target_yaw, auto_align_speed * dt)
 			pitch = clamp(pitch, deg2rad(min_pitch), deg2rad(max_pitch))
-			if _pm_fino: _pm_perfil.perfil_fin("PC.control.camera.tank")
 
 		var active_cam = CinematicManager.get_active_camera()
 		var can_zoom_cinematic = enable_cinematic_zoom and active_cam and is_instance_valid(active_cam) and active_cam != _cached_cam
@@ -1323,11 +1319,9 @@ func _update_camera_orbit_state(dt: float, input: InputDataV2, allow_auto_align:
 		if input.fov_override > 0.0:
 			base_fov = input.fov_override
 
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.camera.rig")
 	if camera_rig:
 		camera_rig.transform.basis = camera_basis_prefix * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch)
 		camera_rig.force_update_transform()
-	if _pm_fino: _pm_perfil.perfil_fin("PC.control.camera.rig")
 
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
@@ -2571,11 +2565,10 @@ func step(dt: float, input: InputDataV2) -> void:
 	if not _pm_perfil_buscado:
 		_pm_perfil_buscado = true
 		_pm_perfil = get_node_or_null("/root/PerformanceMonitor")
-	_pm_fino = _pm_perfil != null and _pm_perfil._perfil_corrida_on
+	var _pm_fino: bool = _pm_perfil != null and _pm_perfil._perfil_corrida_on
 	if _pm_fino:
 		_pm_perfil.perfil_inicio("PC.control")
 
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.push")
 	if _rl_fast_controller and _rl_skip_rigidbody_push:
 		_was_pushing = is_pushing
 		is_pushing = false
@@ -2584,10 +2577,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		_push_target = null
 	else:
 		_update_push_state(dt, input)
-	if _pm_fino: _pm_perfil.perfil_fin("PC.control.push")
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.grounded")
 	var motion_grounded := is_effectively_grounded()
-	if _pm_fino: _pm_perfil.perfil_fin("PC.control.grounded")
 	if _rl_fast_controller:
 		motion_grounded = is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
 	var physics_grounded := is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
@@ -2610,7 +2600,6 @@ func step(dt: float, input: InputDataV2) -> void:
 		# var cam_name = cam.name if cam else "null"
 		# var cam_basis_z = cam.global_transform.basis.z if cam else Vector3.ZERO
 		# print("[PlayerController] step: move_vec=%s yaw=%.4f actual_cam=%s basis.z=%s mode=%d" % [input.move_vec, yaw, cam_name, cam_basis_z, mode])
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.input")
 	if is_instance_valid(movement_logic) and input_provider:
 		input_provider.move_response_curve = movement_logic.move_response_curve
 		input_provider.camera_response_curve = movement_logic.camera_response_curve
@@ -2624,11 +2613,8 @@ func step(dt: float, input: InputDataV2) -> void:
 		input.move_vec = Vector2.ZERO
 		input.jump = false
 		input.sprint = false
-	if _pm_fino: _pm_perfil.perfil_fin("PC.control.input")
 
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.camera")
 	_update_camera_orbit_state(dt, input)
-	if _pm_fino: _pm_perfil.perfil_fin("PC.control.camera")
 
 	# PERF (tier LOW): el escaneo de interaccion y el de zonas cinematicas corren cada 2
 	# ticks. En el handheld el tick de scripts es el cuello medido (control ~1.4 ms, de los
@@ -2640,9 +2626,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if not _rl_fast_controller:
 		if scan_stride <= 1 or _scan_tick % scan_stride == 0 \
 				or input.interact or input.interact_held or input.focus or input.crouch:
-			if _pm_fino: _pm_perfil.perfil_inicio("PC.control.interaction")
 			_process_interaction(input)
-			if _pm_fino: _pm_perfil.perfil_fin("PC.control.interaction")
 
 	if physics_grounded and velocity.y < 0 and movement_logic.get_horizontal_velocity().y <= 0:
 		velocity.y = 0
@@ -2660,9 +2644,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	# --- CINEMATIC ZONE DETECTION ---
 	if not _rl_fast_controller and not _perf_disable_cinematic_zone_scan:
 		if scan_stride <= 1 or _scan_tick % scan_stride == 0:
-			if _pm_fino: _pm_perfil.perfil_inicio("PC.control.cinezone")
 			_update_cinematic_zone_detection(input, dt)
-			if _pm_fino: _pm_perfil.perfil_fin("PC.control.cinezone")
 	
 	# --- MOVEMENT ---
 	if prof_enabled:
@@ -2674,15 +2656,12 @@ func step(dt: float, input: InputDataV2) -> void:
 	var move_vec = input.move_vec
 	# Calculate World Direction based on Control Mode (or Latch)
 	# Logic delegated to CinematicManager (FSM)
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.dir")
 	var world_dir: Vector3 = _get_move_direction(move_vec)
 	if _rl_fast_controller:
 		world_dir = _get_move_direction_rl_fast(move_vec)
-	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.dir")
 
 	# --- ACROBATIC SNAP DETECTION (Legacy) ---
 	# Uses input.move_vec directly to capture raw intent before processing
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.snap")
 	var current_input_3d = Vector3(input.move_vec.x, 0, input.move_vec.y).normalized()
 	if current_input_3d.length() > 0.1 and last_input_vector.length() > 0.1:
 		var dot_product = current_input_3d.dot(last_input_vector)
@@ -2704,7 +2683,6 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	if current_input_3d.length() > 0.1:
 		last_input_vector = current_input_3d
-	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.snap")
 	
 	var basis = Basis.IDENTITY
 	
@@ -2715,12 +2693,10 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Simplify input to just "forward" magnitude for the logic
 		move_vec = Vector2(0, -world_dir.length())
 	
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.crouch")
 	var wants_crouch = input.crouch and physics_grounded
 	is_crouching = _resolve_crouch_state(wants_crouch)
 	_apply_crouch_collision_state(is_crouching)
 	var effective_sprint = input.sprint and not is_crouching
-	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.crouch")
 
 	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.movement")
 	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching)
@@ -2890,24 +2866,17 @@ func step(dt: float, input: InputDataV2) -> void:
 		else:
 			should_step_animator = false
 
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.animator")
 	if should_step_animator and (not _rl_skip_animator) and animator and animator.has_method("step_animator"):
 		var anim_vel = velocity
 		if not movement_logic.external_source_is_static:
 			anim_vel = velocity - movement_logic.external_velocity
 		animator.step_animator(animator_dt, anim_vel)
-	if _pm_fino: _pm_perfil.perfil_fin("PC.post.animator")
 		
 	movement_logic.external_source_is_static = true
 
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.cam_mask")
 	_update_camera_collision_mask_state(dt)
-	if _pm_fino: _pm_perfil.perfil_fin("PC.post.cam_mask")
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.cam_view")
 	_update_camera_view(dt)
-	if _pm_fino: _pm_perfil.perfil_fin("PC.post.cam_view")
 
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.multitool")
 	if multi_tool and is_instance_valid(multi_tool):
 		_sync_multi_tool_action_transform()
 		multi_tool.step(dt, input)
@@ -2917,14 +2886,11 @@ func step(dt: float, input: InputDataV2) -> void:
 			elif multi_tool.has_method("_fire_gloo"):
 				multi_tool.call("_fire_gloo")
 		_tool_secondary_was_pressed = input.tool_fire_secondary
-	if _pm_fino: _pm_perfil.perfil_fin("PC.post.multitool")
 
 	if prof_enabled:
 		_rl_step_profile_add(prof_t0, prof_t_control, prof_t_move, OS.get_ticks_usec())
 	if _pm_fino: _pm_perfil.perfil_fin("PC.post")
-	if _pm_fino: _pm_perfil.perfil_inicio("PC.post.input_edge")
 	_update_input_edge_state(input)
-	if _pm_fino: _pm_perfil.perfil_fin("PC.post.input_edge")
 
 func _rl_step_profile_add(t0: int, t_control: int, t_move: int, t_end: int) -> void:
 	if t0 <= 0:
