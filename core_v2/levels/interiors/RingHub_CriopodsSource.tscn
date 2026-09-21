@@ -1,0 +1,61 @@
+[gd_scene load_steps=3 format=2]
+
+; Fuente EDITABLE de los anillos de criopods de RingHub para los pisos 2-5.
+; Copia de la autoria de Dome (mismos params por anillo) con un bloqueo extra en
+; Criopods3: el pod funcional de despertar (slot 37, angulo 334.46) sobresale del
+; deck de Floor_2 y ese anillo tenia un pod decorativo justo en 334.3.
+
+[ext_resource path="res://core_v2/tools/RadialScatter.gd" type="Script" id=1]
+[ext_resource path="res://core_v2/props/criopod/CriopodParallax.tscn" type="PackedScene" id=2]
+
+[node name="RingHubCriopodsSource" type="Spatial"]
+
+[node name="Spatial" type="Spatial" parent="."]
+
+[node name="Criopods3" type="Spatial" parent="Spatial"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0 )
+script = ExtResource( 1 )
+target_scene = ExtResource( 2 )
+item_count = 40
+radius = 12.0
+start_angle_deg = 1.344
+blocked_angle_ranges_deg = [ Vector2( 284.944, 293.744 ), Vector2( 105.322, 123.922 ), Vector2( 170, 190 ), Vector2( -4.4, 4.4 ), Vector2( 131, 229 ), Vector2( 125.3, 129.3 ), Vector2( 333.4, 335.5 ) ]
+rotation_y = 180.0
+rand_rotation_amount = 0.0
+rebuild_baked_items = true
+
+[node name="Criopods4" type="Spatial" parent="Spatial"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.5, 0 )
+script = ExtResource( 1 )
+target_scene = ExtResource( 2 )
+item_count = 40
+radius = 12.0
+start_angle_deg = 1.171
+blocked_angle_ranges_deg = [ Vector2( 338.771, 347.571 ), Vector2( 105.322, 123.922 ), Vector2( 170, 190 ), Vector2( -4.4, 4.4 ), Vector2( 221, 274 ), Vector2( 350.2, 354.2 ) ]
+rotation_y = 180.0
+rand_rotation_amount = 0.0
+rebuild_baked_items = true
+
+[node name="Criopods5" type="Spatial" parent="Spatial"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 18, 0 )
+script = ExtResource( 1 )
+target_scene = ExtResource( 2 )
+item_count = 40
+radius = 12.0
+start_angle_deg = 0.902
+blocked_angle_ranges_deg = [ Vector2( 32.502, 41.302 ), Vector2( 105.322, 123.922 ), Vector2( 170, 185 ), Vector2( -4.4, 4.4 ), Vector2( 221, 319 ) ]
+rotation_y = 180.0
+rand_rotation_amount = 0.0
+rebuild_baked_items = true
+
+[node name="Criopods6" type="Spatial" parent="Spatial"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.5, 0 )
+script = ExtResource( 1 )
+target_scene = ExtResource( 2 )
+item_count = 40
+radius = 12.0
+start_angle_deg = 0.421
+blocked_angle_ranges_deg = [ Vector2( 86.021, 123.922 ), Vector2( 170, 185 ), Vector2( -4.4, 4.4 ), Vector2( 311, 364 ) ]
+rotation_y = 180.0
+rand_rotation_amount = 0.0
+rebuild_baked_items = true

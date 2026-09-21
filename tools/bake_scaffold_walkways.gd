@@ -34,6 +34,12 @@ const OUT_DIR := "res://core_v2/levels/interiors/"
 # ODISEA_BAKE_SOURCE, que elige la escena fuente.
 const DEFAULT_OUT_PREFIX := "DomeIntro"
 var _prefix := DEFAULT_OUT_PREFIX
+# FD-314: ademas de la colision por grupo (`<prefijo>_<Grupo>_body.tscn`, consumida
+# por Dome_Intro), emite una sub-escena de colision POR SECTOR y un manifiesto de
+# anclas para que RingHub pueda streamear la superestructura por sector. Apagado
+# por defecto: `make bake-dome-geometry` sigue produciendo exactamente lo mismo.
+var _sector_bodies := false
+const SECTOR_MANIFEST_SUFFIX := "_scaffold_sectors.json"
 const SECTOR_COUNT := 8
 const LIGHTMAP_TEXEL_SIZE := 0.2
 const FOOTSTEP_SURFACE_SCRIPT := "res://core_v2/systems/footsteps/footstep_surface.gd"
@@ -41,6 +47,8 @@ const FOOTSTEP_PROFILE_METAL := "res://core_v2/audio/footsteps/footstep_profile_
 
 # Cache de firmas de textura por instancia (ver _texture_key).
 var _texture_keys := {}
+# FD-314: entradas del manifiesto por sector (grupo, sector, mesh, body, ancla, conteos).
+var _sector_manifest := []
 
 func _init() -> void:
 	call_deferred("_run")
@@ -49,6 +57,7 @@ func _run() -> void:
 	_prefix = OS.get_environment("ODISEA_BAKE_PREFIX")
 	if _prefix.empty():
 		_prefix = DEFAULT_OUT_PREFIX
+	_sector_bodies = OS.get_environment("ODISEA_BAKE_SECTOR_BODIES") == "1"
 	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
 	if source_path.empty():
 		source_path = DEFAULT_SOURCE_PATH
@@ -92,6 +101,9 @@ func _run() -> void:
 		if not selected_group.empty() and group_name != selected_group:
 			continue
 		_bake_group(root, group_name)
+
+	if _sector_bodies:
+		_write_sector_manifest()
 
 	quit(0)
 
@@ -227,7 +239,8 @@ func _bake_group(root: Node, group_name: String) -> void:
 	if ResourceSaver.save(out_mesh_path, combined) != OK:
 		push_error("[bake_walkways] failed to save %s" % out_mesh_path)
 		return
-	if not _save_visual_sectors(group_name, combined):
+	var sector_aabbs := {}
+	if not _save_visual_sectors(group_name, combined, sector_aabbs):
 		return
 
 	# Pack the StaticBody + all its CollisionShapes (dozens of small convex/
@@ -264,6 +277,9 @@ func _bake_group(root: Node, group_name: String) -> void:
 		push_error("[bake_walkways] failed to save %s" % out_body_path)
 		return
 
+	if _sector_bodies:
+		_emit_sector_bodies(group_name, collision_shapes, sector_aabbs, group.global_transform)
+
 	var vcount := 0
 	for i in range(combined.get_surface_count()):
 		vcount += (combined.surface_get_arrays(i)[Mesh.ARRAY_VERTEX] as PoolVector3Array).size()
@@ -282,7 +298,7 @@ func _save_shared_material(group_name: String, index: int, mat: Material) -> Mat
 	var loaded: Material = load(path)
 	return loaded if loaded != null else mat
 
-func _save_visual_sectors(group_name: String, combined: ArrayMesh) -> bool:
+func _save_visual_sectors(group_name: String, combined: ArrayMesh, out_aabbs: Dictionary = {}) -> bool:
 	var sector_tools: Array = []
 	var sector_vertex_counts: Array = []
 	for sector_index in range(SECTOR_COUNT):
@@ -341,6 +357,9 @@ func _save_visual_sectors(group_name: String, combined: ArrayMesh) -> bool:
 			st.commit(sector_mesh)
 		if sector_mesh.get_surface_count() == 0:
 			continue
+		# FD-314: el centro del AABB del sector es el ancla natural del chunk de
+		# streaming (el mesh vive en el espacio del grupo, que esta en el origen).
+		out_aabbs[sector_index] = sector_mesh.get_aabb().get_center()
 		var sector_path: String = OUT_DIR + _prefix + "_%s_sector_%02d.mesh" % [group_name, sector_index]
 		if not _generate_lightmap_uv2(sector_mesh, sector_path):
 			return false
@@ -501,3 +520,108 @@ func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, tangents, source_index: int
 			handedness *= -1.0
 		st.add_tangent(Plane(tangent, handedness))
 	st.add_vertex(xform.xform(v))
+
+
+# FD-314: reparte las colisiones ya recolectadas por sector angular (misma regla que
+# _save_visual_sectors) y guarda una sub-escena de colision por sector. La colision
+# por grupo sigue existiendo para Dome_Intro; esto es aditivo y solo se emite con
+# ODISEA_BAKE_SECTOR_BODIES=1.
+func _emit_sector_bodies(group_name: String, collision_shapes: Array, sector_aabbs: Dictionary, group_xform: Transform) -> void:
+	var by_sector := {}
+	for pair in collision_shapes:
+		var shape_xform: Transform = pair[1]
+		var sector: int = _sector_for(shape_xform.origin)
+		if not by_sector.has(sector):
+			by_sector[sector] = []
+		by_sector[sector].append(pair)
+
+	for sector_index in range(SECTOR_COUNT):
+		if not sector_aabbs.has(sector_index) and not by_sector.has(sector_index):
+			continue
+		var entry := {
+			"group": group_name,
+			"sector": sector_index,
+			"mesh": OUT_DIR + _prefix + "_%s_sector_%02d.mesh" % [group_name, sector_index],
+			"body": "",
+			"anchor": [0.0, 0.0, 0.0],
+			"shapes": 0,
+			# La malla y las cajas viven en el espacio del GRUPO (el baker aplica
+			# group_xform_inv). El ensamblador del shell tiene que colgarlas de un
+			# nodo con este transform para que caigan donde corresponde.
+			"group_transform": _transform_floats(group_xform),
+		}
+		if sector_aabbs.has(sector_index):
+			var anchor: Vector3 = sector_aabbs[sector_index]
+			entry["anchor"] = [anchor.x, anchor.y, anchor.z]
+		var shapes: Array = by_sector.get(sector_index, [])
+		if not shapes.empty():
+			var body_path := _write_sector_body(group_name, sector_index, shapes)
+			if body_path != "":
+				entry["body"] = body_path
+				entry["shapes"] = shapes.size()
+		_sector_manifest.append(entry)
+	print("[bake_walkways] %s: %d sectores con colision propia" % [group_name, by_sector.size()])
+
+
+func _write_sector_body(group_name: String, sector_index: int, shapes: Array) -> String:
+	var body := StaticBody.new()
+	body.name = "StaticBody"
+	body.collision_layer = 64
+	body.collision_mask = 255
+	body.set_meta("footstep_profile", load(FOOTSTEP_PROFILE_METAL))
+	for i in range(shapes.size()):
+		var pair = shapes[i]
+		var cs := CollisionShape.new()
+		cs.name = "Collision_%d" % i
+		cs.shape = pair[0]
+		cs.transform = pair[1]
+		body.add_child(cs)
+		cs.owner = body
+	var footstep := Spatial.new()
+	footstep.name = "FootstepSurface"
+	footstep.set_script(load(FOOTSTEP_SURFACE_SCRIPT))
+	footstep.set("footstep_profile", load(FOOTSTEP_PROFILE_METAL))
+	body.add_child(footstep)
+	footstep.owner = body
+
+	var packed := PackedScene.new()
+	if packed.pack(body) != OK:
+		push_error("[bake_walkways] no pude empacar %s sector %02d" % [group_name, sector_index])
+		return ""
+	var path: String = OUT_DIR + _prefix + "_%s_sector_%02d_body.tscn" % [group_name, sector_index]
+	if ResourceSaver.save(path, packed) != OK:
+		push_error("[bake_walkways] no pude guardar %s" % path)
+		return ""
+	return path
+
+
+func _sector_for(point: Vector3) -> int:
+	var angle: float = fposmod(atan2(point.z, point.x) + PI * 2.0, PI * 2.0)
+	var sector: int = min(int(floor(angle / (PI * 2.0) * SECTOR_COUNT)), SECTOR_COUNT - 1)
+	return sector
+
+
+# Orden de Transform(...) en .tscn: basis por columnas + origen.
+func _transform_floats(t: Transform) -> Array:
+	var b: Basis = t.basis
+	return [
+		_f(b.x.x), _f(b.y.x), _f(b.z.x),
+		_f(b.x.y), _f(b.y.y), _f(b.z.y),
+		_f(b.x.z), _f(b.y.z), _f(b.z.z),
+		_f(t.origin.x), _f(t.origin.y), _f(t.origin.z),
+	]
+
+
+func _f(v: float) -> float:
+	return stepify(v, 0.000001)
+
+
+func _write_sector_manifest() -> void:
+	var path: String = OUT_DIR + _prefix + SECTOR_MANIFEST_SUFFIX
+	var f := File.new()
+	if f.open(path, File.WRITE) != OK:
+		push_error("[bake_walkways] no pude escribir %s" % path)
+		return
+	f.store_string(to_json(_sector_manifest))
+	f.close()
+	print("[bake_walkways] manifiesto de sectores -> %s (%d entradas)" % [path, _sector_manifest.size()])

@@ -145,7 +145,10 @@ func test_pilot_capsule_starts_inside_pod_without_collision_overlap() -> void:
 	var params := PhysicsShapeQueryParameters.new()
 	params.set_shape(pilot_shape.shape)
 	params.transform = pilot_shape.global_transform
-	params.collision_mask = 255
+	# El despertar excluye del mask del Pilot la capa 64 (hatch/terminal del pod) para
+	# que la escotilla no lo empuje al abrirse (ver RingHubWakeup). El chequeo usa el
+	# mask efectivo: el resto del pod (capa 1) sigue teniendo que quedar libre.
+	params.collision_mask = pilot.collision_mask
 	params.exclude = [pilot]
 	var hits: Array = pilot.get_world().direct_space_state.intersect_shape(params, 32)
 

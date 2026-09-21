@@ -60,6 +60,9 @@ const LAYERS := [
 var _shared_materials := {}  # firma de contenido -> ruta del .material en disco
 var _box_shape_path := ""
 var _fragment := PoolStringArray()
+# FD-314: escala aplicada a CADA pod alrededor de su propio origen, sin moverlo de
+# su radio. Default 1.0 = comportamiento historico de Dome_Intro.
+var _item_scale := 1.0
 var _ext_resources := []  # rutas en orden de aparicion, para el splicer
 
 
@@ -72,6 +75,9 @@ func _run() -> void:
 	if _prefix.empty():
 		_prefix = DEFAULT_OUT_PREFIX
 	_fragment_path = OUT_DIR + _prefix + "_Criopods.nodes"
+	var scale_env := OS.get_environment("ODISEA_BAKE_ITEM_SCALE")
+	if not scale_env.empty():
+		_item_scale = float(scale_env)
 	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
 	if source_path.empty():
 		source_path = DEFAULT_SOURCE_PATH
@@ -124,6 +130,18 @@ func _run() -> void:
 	quit(0)
 
 
+# FD-314: transform de un nodo del pod en el espacio del anillo, escalando el pod
+# alrededor de SU origen (no del anillo). Con _item_scale == 1 es la identidad.
+func _pod_xform(item: Spatial, node_xform: Transform) -> Transform:
+	if is_equal_approx(_item_scale, 1.0):
+		return node_xform
+	var local: Transform = item.global_transform.affine_inverse() * node_xform
+	var scaled_item := Transform(
+		item.global_transform.basis.scaled(Vector3(_item_scale, _item_scale, _item_scale)),
+		item.global_transform.origin)
+	return scaled_item * local
+
+
 func _bake_ring(ring: Spatial) -> bool:
 	var items := []
 	for child in ring.get_children():
@@ -162,7 +180,7 @@ func _bake_ring(ring: Spatial) -> bool:
 				# importan: card_parallax.shader calcula el parallax en espacio tangente
 				# (TANGENT/BINORMAL/NORMAL), asi que una tangente mal rotada le cambia la
 				# direccion de la profundidad a la tarjeta del piloto.
-				st.append_from(mi.mesh, surface_index, to_ring * mi.global_transform)
+				st.append_from(mi.mesh, surface_index, to_ring * _pod_xform(item, mi.global_transform))
 				aportes += 1
 			if aportes == 0:
 				continue
@@ -238,7 +256,7 @@ func _bake_collision(ring: Spatial, items: Array, to_ring: Transform) -> int:
 				if not (cs is CollisionShape) or cs.shape == null:
 					continue
 				formas.append({
-					"xform": to_ring * cs.global_transform,
+					"xform": to_ring * _pod_xform(item, cs.global_transform),
 					"shape": cs.shape,
 					"layer": body.collision_layer,
 					"mask": body.collision_mask,

@@ -4,7 +4,17 @@ class_name RingHubWakeup
 export(NodePath) var pilot_path := NodePath("Pilot")
 export(NodePath) var criopod_path := NodePath("Criopod_Vert")
 export(NodePath) var slots_path := NodePath("Hub/Criopods")
-export(Vector3) var pilot_inside_offset := Vector3(0.000200272, 0.735, -0.123402)
+# FD-314: el anillo decorativo horneado vive como MultiMesh en el shell. El slot
+# elegido para el pod funcional se oculta ahi (y su caja de colision se libera en
+# el chunk) para no dejar un pod decorativo encima del de Elias.
+export(NodePath) var criopod_visual_path := NodePath("ScaffoldStreamRoot/Criopods_Visual")
+# Centro del pod: con el Pilot a escala 1 (el offset viejo era para el Pilot a 0.667)
+# un desplazamiento en -Z lo pegaba contra la pared trasera (Criopod_Vert/StaticBody).
+export(Vector3) var pilot_inside_offset := Vector3(0.0, 0.8, 0.0)
+# FD-314: slot fijo de despertar. Con -1 se elige por run_seed (comportamiento viejo).
+# El pod funcional a 2.6 sobresale del deck de Floor_2, asi que Floor_2 tiene que
+# tener una abertura justo en este angulo: fijar el slot es lo que la hace posible.
+export(int) var forced_slot := -1
 # El pod funcional toma la misma pose que el item decorativo del slot. El mesh del Criopod_Vert ya
 # tiene su origen en la base, asi que no hace falta compensar en Y (un offset positivo lo dejaba
 # flotando). Ajustar solo si queda unos cm arriba/abajo.
@@ -16,6 +26,10 @@ export(String) var pod_screen_id := "ship:cryopod:elias"
 
 var _base_blocked_ranges: Array = []
 var _selected_slot := -1
+# FD-314: el hatch/terminal del pod viven en la capa 64, que el Pilot tiene en su
+# mask. Dentro del pod eso lo empujaba al abrir la escotilla. Se excluye esa capa
+# mientras dura el despertar y se restaura al soltar la cinematica.
+var _pilot_mask_before_wakeup := 0
 var _selected_item_transform := Transform()
 var _has_selected_item_transform := false
 var _gated_oys_script := ""
@@ -36,6 +50,15 @@ func _ready() -> void:
 	var terminal := get_node_or_null("Criopod_Vert/RotatingObjectV2/CryoPodTerminal")
 	if terminal != null:
 		terminal.set_meta("platform_tracking_excluded", true)
+	# El Pilot nace DENTRO del area del trigger OYS. Si el area queda monitoreando, el
+	# `body_entered` dispara la cinematica en el frame 2: el OYS graba el snapshot
+	# inicial y lo reproduce, y como el slot de despertar sale de run_seed el replay
+	# lo manda a la posicion de OTRA corrida (aparecia fuera del pod, en otro piso).
+	# Este trigger es solo por script: `_release_wakeup_sequence` llama
+	# `trigger_from_script`, que no depende del area.
+	var cinematic_zone := get_node_or_null("Criopod_Vert/CinematicSequence")
+	if cinematic_zone != null:
+		cinematic_zone.monitoring = false
 	var slots := _get_slots()
 	if slots == null:
 		return
@@ -110,12 +133,39 @@ func _release_wakeup_sequence() -> void:
 		return
 	zone.script_file = _gated_oys_script
 	_gated_oys_script = ""
+	var pilot := get_node_or_null("Pilot")
+	if pilot != null and pilot.has_method("set_traversal_entry_suppressed"):
+		pilot.set_traversal_entry_suppressed(false)
+	if pilot is PhysicsBody and _pilot_mask_before_wakeup != 0:
+		(pilot as PhysicsBody).collision_mask = _pilot_mask_before_wakeup
+		_pilot_mask_before_wakeup = 0
 	zone.call_deferred("trigger_from_script")
+
+# El slot decorativo viene con una inclinacion (~1 grado) para lucir la capsula.
+# El pod funcional, en cambio, tiene que quedar a plomo: con el piso inclinado el
+# Pilot se resbalaba y terminaba afuera. Solo se conserva el yaw del slot.
+func _upright_basis(slot_basis: Basis) -> Basis:
+	var flat := slot_basis.orthonormalized()
+	return Basis(Vector3.UP, atan2(flat.x.z, flat.x.x))
+
 
 func _get_slots() -> RadialScatter:
 	return get_node_or_null(slots_path) as RadialScatter
 
+
+# El visual horneado del anillo dibuja un pod en todos los slots con geometria.
+# El que ocupa el pod funcional se manda lejos; la colision de ese mismo slot la
+# libera CriopodRingCollisionV2 al cargar el chunk, leyendo `get_blocked_slot()`.
+func _block_wakeup_slot() -> void:
+	if _selected_slot < 0:
+		return
+	var visual := get_node_or_null(criopod_visual_path)
+	if visual != null and visual.has_method("block_slot"):
+		visual.block_slot(_selected_slot)
+
 func _pick_slot(slots: RadialScatter) -> int:
+	if forced_slot >= 0:
+		return forced_slot
 	var valid_slots := []
 	for slot in range(slots.item_count):
 		var data := _slot_data(slots, slot)
@@ -129,6 +179,7 @@ func _pick_slot(slots: RadialScatter) -> int:
 	return int(valid_slots[int(rng.randi() % valid_slots.size())])
 
 func _apply_wakeup_slot() -> void:
+	_block_wakeup_slot()
 	var slots := _get_slots()
 	var pod := get_node_or_null(criopod_path) as Spatial
 	var pilot := get_node_or_null(pilot_path) as Spatial
@@ -141,17 +192,25 @@ func _apply_wakeup_slot() -> void:
 	slots.blocked_angle_ranges_deg.clear()
 	slots.blocked_angle_ranges_deg.append_array(_base_blocked_ranges.duplicate(true))
 	slots.blocked_angle_ranges_deg.append(Vector2(data.angle_deg - 0.01, data.angle_deg + 0.01))
+	# La raiz del prop Criopod_Vert ES el nodo que trae su escala (1.75). La
+	# colocacion no debe pisarla: se conserva la escala y solo se reemplaza la
+	# rotacion por el yaw del slot (a plomo).
+	var prop_scale: Vector3 = pod.scale
 	var item := slots.get_node_or_null("Item_%d" % _selected_slot) as Spatial
 	if item != null:
-		# Conservar la escala horneada del slot: normalizar la basis dejaba el pod de Elias
-		# mas pequeno que el criopod decorativo que ocupa ese mismo lugar.
+		# La basis horneada del slot trae rotacion y escala. La escala hace falta: el
+		# prop trae su raiz a 1.5 pero el interior de colision resultante (1.2 m) no
+		# contiene la camara ni la capsula de 2 m del Pilot. Con la escala del slot el
+		# pod queda a 2.25 y ambos entran (ver trade-off en el reporte).
 		_selected_item_transform = item.global_transform
 		_has_selected_item_transform = true
 		item.free()
-		pod.global_transform = Transform(_selected_item_transform.basis,
+		var pod_basis: Basis = _upright_basis(_selected_item_transform.basis).scaled(prop_scale)
+		pod.global_transform = Transform(pod_basis,
 			_selected_item_transform.origin + Vector3.UP * pod_base_offset)
 	elif _has_selected_item_transform:
-		pod.global_transform = Transform(_selected_item_transform.basis,
+		var restored_basis: Basis = _upright_basis(_selected_item_transform.basis).scaled(prop_scale)
+		pod.global_transform = Transform(restored_basis,
 			_selected_item_transform.origin + Vector3.UP * pod_base_offset)
 	else:
 		pod.global_transform.origin = slots.to_global(data.position) + Vector3.UP * pod_base_offset
@@ -166,6 +225,12 @@ func _apply_wakeup_slot() -> void:
 	pilot_transform.basis = pilot_transform.basis.orthonormalized().scaled(pilot.scale)
 	pilot_transform.origin = pod.to_global(pilot_inside_offset)
 	pilot.global_transform = pilot_transform
+	# Suprimir el auto-hang/auto-ladder mientras el Pilot esta dentro del pod.
+	if pilot.has_method("set_traversal_entry_suppressed"):
+		pilot.set_traversal_entry_suppressed(true)
+	if pilot is PhysicsBody and _pilot_mask_before_wakeup == 0:
+		_pilot_mask_before_wakeup = (pilot as PhysicsBody).collision_mask
+		(pilot as PhysicsBody).collision_mask = _pilot_mask_before_wakeup & ~64
 	if "velocity" in pilot:
 		pilot.velocity = Vector3.ZERO
 

@@ -166,6 +166,11 @@ var _jump_was_pressed := false
 var _crouch_was_pressed := false
 var _camera_collision_grace_left := 0.0
 var _traversal_strafe_latch_active := false
+# FD-314: durante el despertar el Pilot nace dentro de la capsula, cuyo interior
+# tiene targets de tipo ledge/ladder; el auto-hang lo colgaba y lo sacaba del pod
+# (hang_body_down_offset + hang_body_back_offset = 1.24 m) en el frame 2.
+# RingHubWakeup lo suprime mientras dure la cinematica de despertar.
+var _traversal_entry_suppressed := false
 var _traversal_strafe_release_coyote_left := 0.0
 var _traversal_exit_yaw_target := 0.0
 var _traversal_exit_yaw_target_active := false
@@ -2136,7 +2141,7 @@ func _process_interaction(input: InputDataV2):
 		# Traversal Entry Logic
 		var ladder_forward_entry = best_target.is_in_group("ladder") and input.move_vec.y < -0.1 and _can_auto_enter_ladder(best_target)
 		var ladder_crouch_entry = best_target.is_in_group("ladder") and input.crouch and best_target == crouch_ladder_target
-		if best_target.is_in_group("ladder") and traversal_logic and _ladder_regrab_cooldown <= 0.0 and (ladder_forward_entry or ladder_crouch_entry):
+		if best_target.is_in_group("ladder") and traversal_logic and not _traversal_entry_suppressed and _ladder_regrab_cooldown <= 0.0 and (ladder_forward_entry or ladder_crouch_entry):
 			var anchor = best_target.get_climb_anchor() if best_target.has_method("get_climb_anchor") else best_target.global_transform.origin
 			var normal = -best_target.global_transform.basis.z # Assuming -Z is ladder forward
 			var is_1d = best_target.get("is_1d_ladder") if "is_1d_ladder" in best_target else true
@@ -2145,7 +2150,7 @@ func _process_interaction(input: InputDataV2):
 			_sync_movement_state_after_traversal()
 			if jump_logic:
 				jump_logic.set_internal_velocity(0.0)
-		elif best_target.is_in_group("ledge") and traversal_logic and ((_should_auto_hang_ledge(best_target, input) and input.move_vec.y <= 0.2) or (input.crouch and best_target == crouch_ledge_target)):
+		elif best_target.is_in_group("ledge") and traversal_logic and not _traversal_entry_suppressed and ((_should_auto_hang_ledge(best_target, input) and input.move_vec.y <= 0.2) or (input.crouch and best_target == crouch_ledge_target)):
 			var anchor = best_target.global_transform.origin
 			var normal = -best_target.global_transform.basis.z
 			var half_width = best_target.get_hang_half_width() if best_target.has_method("get_hang_half_width") else 0.85
@@ -3373,6 +3378,10 @@ func _get_move_direction_rl_fast(input_vector: Vector2) -> Vector3:
 	else:
 		right = Vector3.RIGHT
 	return right * input_vector.x + forward * (-input_vector.y)
+
+func set_traversal_entry_suppressed(value: bool) -> void:
+	_traversal_entry_suppressed = value
+
 
 func teleport_to(target_transform: Transform) -> void:
 	end_ragdoll()

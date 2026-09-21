@@ -15,6 +15,37 @@
 [ext_resource path="res://assets/DisplayCase_2/MRAO_DisplayCase_2.png" type="Texture" id=13]
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=14]
 
+[ext_resource path="res://core_v2/levels/chunks/StreamedSceneChunkV2.gd" type="Script" id=15]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods_visual.tscn" type="PackedScene" id=16]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods_body.tscn" type="PackedScene" id=17]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods3_visual.tscn" type="PackedScene" id=18]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods4_visual.tscn" type="PackedScene" id=19]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods5_visual.tscn" type="PackedScene" id=20]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods6_visual.tscn" type="PackedScene" id=21]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods3_body.tscn" type="PackedScene" id=22]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods4_body.tscn" type="PackedScene" id=23]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods5_body.tscn" type="PackedScene" id=24]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods6_body.tscn" type="PackedScene" id=25]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_baked.mesh" type="ArrayMesh" id=26]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_baked.mesh" type="ArrayMesh" id=27]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_baked.mesh" type="ArrayMesh" id=28]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_00_body.tscn" type="PackedScene" id=29]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_01_body.tscn" type="PackedScene" id=30]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_02_body.tscn" type="PackedScene" id=31]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_03_body.tscn" type="PackedScene" id=32]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_04_body.tscn" type="PackedScene" id=33]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_05_body.tscn" type="PackedScene" id=34]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_07_body.tscn" type="PackedScene" id=35]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_sector_00_body.tscn" type="PackedScene" id=36]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_sector_05_body.tscn" type="PackedScene" id=37]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_sector_06_body.tscn" type="PackedScene" id=38]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_sector_07_body.tscn" type="PackedScene" id=39]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_00_body.tscn" type="PackedScene" id=40]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_01_body.tscn" type="PackedScene" id=41]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_02_body.tscn" type="PackedScene" id=42]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_03_body.tscn" type="PackedScene" id=43]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_04_body.tscn" type="PackedScene" id=44]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_05_body.tscn" type="PackedScene" id=45]
 [sub_resource type="ConvexPolygonShape" id=337]
 points = PoolVector3Array( 14.14110, 0.10000, 0.07000, 14.14110, 0.26660, 0.07000, 10.01980, 0.10000, 10.01980, 10.01980, 0.26660, 10.01980, 6.42440, 0.10000, 0.00000, 6.42440, 0.26660, 0.00000, 4.53560, 0.10000, 4.55110, 4.53560, 0.26660, 4.55110 )
 
@@ -244,6 +275,7 @@ extents = Vector3( 1, 1.4, 1 )
 
 [node name="RingHub_Level" type="Spatial"]
 script = ExtResource( 10 )
+forced_slot = 37
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 4 )
@@ -253,7 +285,7 @@ transform = Transform( 0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.
 light_energy = 1.5
 
 [node name="Pilot" parent="." instance=ExtResource( 1 )]
-transform = Transform( 0.666667, 0, 0, 0, 0.666667, 0, 0, 0, 0.666667, 0, 1.175, -0.123402 )
+transform = Transform(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.175, -0.123402)
 
 [node name="Hub" type="Spatial" parent="."]
 
@@ -403,150 +435,121 @@ blocked_angle_ranges_deg = [ Vector2( 231.057, 239.857 ), Vector2( 105.322, 123.
 rotation_y = 180.0
 rand_rotation_amount = 0.0
 
-[node name="Item_1" parent="Hub/Criopods" instance=ExtResource( 9 )]
+[node name="Item_1" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -0.272246, -0.0245813, -1.47488, 2.18526e-09, 1.49979, -0.0249965, 1.47509, -0.0045368, -0.272208, 11.8007, 0.2, 2.17797 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_2" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_2" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -0.499649, -0.023569, -1.41414, 2.18526e-09, 1.49979, -0.0249965, 1.41434, -0.00832632, -0.499579, 11.3147, 0.2, 3.99719 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_3" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_3" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -0.714748, -0.0219763, -1.31858, 2.18526e-09, 1.49979, -0.0249965, 1.31876, -0.0119108, -0.714649, 10.5501, 0.2, 5.71799 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_4" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_4" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -0.912249, -0.0198425, -1.19055, 2.18526e-09, 1.49979, -0.0249965, 1.19072, -0.015202, -0.912122, 9.52572, 0.2, 7.29799 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_5" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_5" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -1.08729, -0.0172201, -1.0332, 2.18526e-09, 1.49979, -0.0249965, 1.03335, -0.0181189, -1.08714, 8.26678, 0.2, 8.69829 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_6" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_6" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -1.23555, -0.0141736, -0.850419, 2.18526e-09, 1.49979, -0.0249965, 0.850537, -0.0205896, -1.23538, 6.8043, 0.2, 9.88441 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_7" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_7" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -1.35339, -0.0107782, -0.646693, 2.18526e-09, 1.49979, -0.0249965, 0.646783, -0.0225534, -1.3532, 5.17426, 0.2, 10.8271 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_8" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_8" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -1.43791, -0.00711738, -0.427043, 2.18526e-09, 1.49979, -0.0249965, 0.427102, -0.0239618, -1.43771, 3.41682, 0.2, 11.5033 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_9" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_9" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -1.48702, -0.0032813, -0.196878, 2.18526e-09, 1.49979, -0.0249965, 0.196905, -0.0247802, -1.48681, 1.57524, 0.2, 11.8962 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_10" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_10" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -1.49952, 0.000635579, 0.0381346, 2.18526e-09, 1.49979, -0.0249965, -0.0381399, -0.0249884, -1.49931, -0.30512, 0.2, 11.9961 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_11" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_11" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( -1.47509, 0.0045368, 0.272208, 2.18526e-09, 1.49979, -0.0249965, -0.272246, -0.0245813, -1.47488, -2.17797, 0.2, 11.8007 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_21" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_21" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 0.272246, 0.0245813, 1.47488, 2.18526e-09, 1.49979, -0.0249965, -1.47509, 0.0045368, 0.272208, -11.8007, 0.2, -2.17797 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_22" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_22" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 0.499649, 0.023569, 1.41414, 2.18526e-09, 1.49979, -0.0249965, -1.41434, 0.00832632, 0.499579, -11.3147, 0.2, -3.99719 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_23" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_23" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 0.714748, 0.0219763, 1.31858, 2.18526e-09, 1.49979, -0.0249965, -1.31876, 0.0119108, 0.714649, -10.5501, 0.2, -5.71799 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_24" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_24" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 0.912249, 0.0198425, 1.19055, 2.18526e-09, 1.49979, -0.0249965, -1.19072, 0.015202, 0.912122, -9.52572, 0.2, -7.29799 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_25" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_25" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.08729, 0.0172201, 1.0332, 2.18526e-09, 1.49979, -0.0249965, -1.03335, 0.0181189, 1.08714, -8.26678, 0.2, -8.69829 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_27" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_27" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.35339, 0.0107782, 0.646693, 2.18526e-09, 1.49979, -0.0249965, -0.646783, 0.0225534, 1.3532, -5.17426, 0.2, -10.8271 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_28" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_28" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.43791, 0.00711738, 0.427043, 2.18526e-09, 1.49979, -0.0249965, -0.427102, 0.0239618, 1.43771, -3.41682, 0.2, -11.5033 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_29" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_29" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.48702, 0.0032813, 0.196878, 2.18526e-09, 1.49979, -0.0249965, -0.196905, 0.0247802, 1.48681, -1.57524, 0.2, -11.8962 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_30" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_30" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.49952, -0.000635578, -0.0381346, 2.18526e-09, 1.49979, -0.0249965, 0.0381399, 0.0249884, 1.49931, 0.30512, 0.2, -11.9961 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_31" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_31" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.47509, -0.0045368, -0.272208, 2.18526e-09, 1.49979, -0.0249965, 0.272246, 0.0245813, 1.47488, 2.17797, 0.2, -11.8007 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_32" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_32" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.41434, -0.00832632, -0.49958, 2.18526e-09, 1.49979, -0.0249965, 0.499649, 0.023569, 1.41414, 3.99719, 0.2, -11.3147 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_33" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_33" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.31876, -0.0119108, -0.714649, 2.18526e-09, 1.49979, -0.0249965, 0.714748, 0.0219763, 1.31858, 5.71799, 0.2, -10.5501 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_34" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_34" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.19072, -0.015202, -0.912122, 2.18526e-09, 1.49979, -0.0249965, 0.912249, 0.0198425, 1.19055, 7.29799, 0.2, -9.52572 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_35" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_35" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 1.03335, -0.0181189, -1.08714, 2.18526e-09, 1.49979, -0.0249965, 1.08729, 0.0172201, 1.0332, 8.69829, 0.2, -8.26678 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_36" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_36" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 0.850537, -0.0205896, -1.23538, 2.18526e-09, 1.49979, -0.0249965, 1.23555, 0.0141736, 0.850419, 9.88441, 0.2, -6.8043 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_37" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_37" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 0.646783, -0.0225534, -1.3532, 2.18526e-09, 1.49979, -0.0249965, 1.35339, 0.0107782, 0.646693, 10.8271, 0.2, -5.17426 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_38" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_38" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 0.427102, -0.0239618, -1.43771, 2.18526e-09, 1.49979, -0.0249965, 1.43791, 0.00711738, 0.427043, 11.5033, 0.2, -3.41682 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
 
-[node name="Item_39" parent="Hub/Criopods" instance=ExtResource( 9 )]
+
+[node name="Item_39" type="Spatial" parent="Hub/Criopods"]
 transform = Transform( 0.196905, -0.0247802, -1.48681, 2.18526e-09, 1.49979, -0.0249965, 1.48702, 0.0032813, 0.196878, 11.8962, 0.2, -1.57524 )
-mesh = SubResource( 220 )
-material/0 = SubResource( 221 )
+
 
 [node name="Criopod_Vert" parent="." instance=ExtResource( 3 )]
 
@@ -577,3 +580,225 @@ center_player_on_enter = false
 shape = SubResource( 237 )
 
 [editable path="Criopod_Vert"]
+
+[node name="ScaffoldStreamRoot" type="Spatial" parent="."]
+
+[node name="Group_SpiralStairs" type="Spatial" parent="ScaffoldStreamRoot"]
+transform = Transform( -0.965926, 0.0, 0.258819, 0.0, 1.0, 0.0, -0.258819, 0.0, -0.965926, 0.0, 0.0, 0.0 )
+
+[node name="Visual" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+layers = 64
+mesh = ExtResource( 26 )
+
+[node name="Chunk_00" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 29 )
+trigger_center = Vector3( 24.72908, 2.94725, 6.589203 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_01" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 30 )
+trigger_center = Vector3( 10.217997, 5.197145, 23.311253 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_02" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 31 )
+trigger_center = Vector3( -13.027401, 7.447186, 20.843887 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_03" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 32 )
+trigger_center = Vector3( -20.017052, 9.232715, 7.741757 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_04" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 33 )
+trigger_center = Vector3( -15.977479, 11.322646, -7.507284 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_05" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 34 )
+trigger_center = Vector3( -12.907327, 11.947251, -15.429546 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_07" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 35 )
+trigger_center = Vector3( 26.000046, 0.69725, -0.031788 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Group_HubSpokes" type="Spatial" parent="ScaffoldStreamRoot"]
+
+[node name="Visual" type="MeshInstance" parent="ScaffoldStreamRoot/Group_HubSpokes"]
+layers = 64
+mesh = ExtResource( 27 )
+
+[node name="Chunk_00" type="Spatial" parent="ScaffoldStreamRoot/Group_HubSpokes"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 36 )
+trigger_center = Vector3( 12.623749, 9.697251, 9.221956 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_05" type="Spatial" parent="ScaffoldStreamRoot/Group_HubSpokes"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 37 )
+trigger_center = Vector3( -10.031387, 2.94725, -14.723127 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_06" type="Spatial" parent="ScaffoldStreamRoot/Group_HubSpokes"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 38 )
+trigger_center = Vector3( 5.742996, 5.19725, -16.355888 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_07" type="Spatial" parent="ScaffoldStreamRoot/Group_HubSpokes"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 39 )
+trigger_center = Vector3( 15.831647, 7.44725, -4.843801 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Group_SpiralWalkways" type="Spatial" parent="ScaffoldStreamRoot"]
+transform = Transform( -0.965926, 0.0, 0.258819, 0.0, 1.0, 0.0, -0.258819, 0.0, -0.965926, 0.0, 0.0, 0.0 )
+
+[node name="Visual" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 28 )
+
+[node name="Chunk_00" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 40 )
+trigger_center = Vector3( 20.772783, 2.94725, 16.790152 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_01" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 41 )
+trigger_center = Vector3( 9.850971, 5.197249, 19.351629 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_02" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 42 )
+trigger_center = Vector3( -7.469987, 7.44725, 21.554623 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_03" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 43 )
+trigger_center = Vector3( -20.01754, 7.44725, 12.75667 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_04" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 44 )
+trigger_center = Vector3( -19.390434, 9.697251, -8.355305 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Chunk_05" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 45 )
+trigger_center = Vector3( -4.905675, 11.947251, -16.290276 )
+trigger_radius = 15.0
+release_margin = 6.0
+
+[node name="Criopods_Visual" parent="ScaffoldStreamRoot" instance=ExtResource( 16 )]
+
+[node name="Chunk_Criopods" type="Spatial" parent="ScaffoldStreamRoot"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 17 )
+trigger_center = Vector3( 0, 4.5, 0 )
+trigger_radius = 16.0
+release_margin = 6.0
+
+[node name="Criopods_Visual_Criopods3" parent="ScaffoldStreamRoot" instance=ExtResource( 18 )]
+
+[node name="Chunk_Criopods3" type="Spatial" parent="ScaffoldStreamRoot"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 22 )
+trigger_center = Vector3( 0, 9, 0 )
+trigger_radius = 16.0
+release_margin = 6.0
+
+[node name="Criopods_Visual_Criopods4" parent="ScaffoldStreamRoot" instance=ExtResource( 19 )]
+
+[node name="Chunk_Criopods4" type="Spatial" parent="ScaffoldStreamRoot"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 23 )
+trigger_center = Vector3( 0, 13.5, 0 )
+trigger_radius = 16.0
+release_margin = 6.0
+
+[node name="Criopods_Visual_Criopods5" parent="ScaffoldStreamRoot" instance=ExtResource( 20 )]
+
+[node name="Chunk_Criopods5" type="Spatial" parent="ScaffoldStreamRoot"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 24 )
+trigger_center = Vector3( 0, 18, 0 )
+trigger_radius = 16.0
+release_margin = 6.0
+
+[node name="Criopods_Visual_Criopods6" parent="ScaffoldStreamRoot" instance=ExtResource( 21 )]
+
+[node name="Chunk_Criopods6" type="Spatial" parent="ScaffoldStreamRoot"]
+script = ExtResource( 15 )
+chunk_scene = ExtResource( 25 )
+trigger_center = Vector3( 0, 22.5, 0 )
+trigger_radius = 16.0
+release_margin = 6.0
+
+[node name="Floor_2" parent="Hub" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0 )
+outer_radius = 13.0
+inner_radius = 6.0
+support_base_local_y = -4.5
+outer_openings_deg = [ Vector2( 284.945, 293.743 ), Vector2( 106.048, 123.196 ) ]
+outer_opening_docks = [ 0.0, 0.45 ]
+rebuild_baked_items = true
+
+[node name="Floor_3" parent="Hub" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.5, 0 )
+outer_radius = 13.0
+inner_radius = 6.0
+support_base_local_y = -4.5
+outer_openings_deg = [ Vector2( 338.772, 347.57 ), Vector2( 106.048, 123.196 ) ]
+outer_opening_docks = [ 0.0, 0.45 ]
+rebuild_baked_items = true
+
+[node name="Floor_4" parent="Hub" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 18, 0 )
+outer_radius = 13.0
+inner_radius = 6.0
+support_base_local_y = -4.5
+outer_openings_deg = [ Vector2( 32.5033, 41.3007 ), Vector2( 106.048, 123.196 ) ]
+outer_opening_docks = [ 0.0, 0.45 ]
+rebuild_baked_items = true
+
+[node name="Floor_5" parent="Hub" instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.5, 0 )
+outer_radius = 13.0
+inner_radius = 6.0
+support_base_local_y = -4.5
+outer_openings_deg = [ Vector2( 90, 123 ) ]
+outer_opening_docks = [ 0.0 ]
+rebuild_baked_items = true
