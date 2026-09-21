@@ -136,6 +136,7 @@ Usar tres capas separadas:
 | ~~FD-311~~ | *libre* — nunca se usó |  |  |  |
 | FD-312 | Faltantes de la GUI de OdiseaOS — inventario priorizado | Design | - | P1 |
 | FD-313 | Fixes de ergonomía del HUD, determinismo y paridad del Control Remoto | Planned | Medium | P1 |
+| FD-314 | Streaming de superestructura de scaffold en RingHub (MultiMesh + colisiones por chunk) | Planned | Large | P1 |
 
 ### Parking lot — fuera del Acto I (idea capturada, no implementar)
 
