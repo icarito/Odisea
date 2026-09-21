@@ -799,3 +799,38 @@ Siguiente vuelta, con el perfil ya sin el sondeo repetido (ms/tick en device): `
 FSM de `CinematicManager`), `PC.post` 0.70, `SM.sync_nodes` 0.71, `KinematicArm3D` 0.53,
 `PC.move.slide` 0.50 (probar `box3d_substeps=1`).
 
+### PC.control y header de `pre`: grounding y CameraTransition (2026-09-21)
+
+El stride de scans de LOW ya estaba (`126fac21`), así que se instrumentó fino el resto de
+`PC.control` y el header de `pre` (`PC.control.*`, `PC.move.pre.*`) y se atacaron los dos
+hallazgos:
+
+- `is_effectively_grounded()`: camino rápido `if is_on_floor(): return true`. El OR final ya
+  devolvía true, pero el raycast hacia abajo corría en cada tick de piso.
+- `CinematicManager.get_active_camera()`: cachea `/root/CameraTransition` (autoload) en vez de
+  `get_node_or_null` por llamada; corre ~3 veces por tick vía `get_movement_basis` y
+  `_update_camera_orbit_state`.
+- Tier LOW: el re-escaneo de interacción sin target cacheado pasa de cada tick a cada 4
+  (cooldown). En el perfil por llamada no se nota (`PC.control.interaction` +1%, ruido); el
+  conteo ya venía a la mitad por el stride externo. Se deja porque el query de overlaps
+  `get_overlapping_bodies/areas` no es gratis y el caso "sin target" es el mayoritario.
+
+A/B en device con la misma instrumentación y el mismo replay:
+
+| clave | antes | después | Δ |
+|---|---|---|---|
+| PC.control.grounded | 0.26212 | 0.04138 | -84.2% |
+| PC.control.camera | 0.30463 | 0.24838 | -18.5% |
+| PC.move.pre.dir | 0.19677 | 0.14992 | -23.8% |
+| PC.control | 1.27295 | 0.97247 | -23.6% |
+| PC.move.pre | 0.87799 | 0.79292 | -9.7% |
+| SM.player_step | 4.11153 | 3.62145 | -11.9% |
+
+`PC.post` bajó -9.4% sin tocarlo (ruido térmico). Drift del replay desktop sin cambios.
+
+Próximos: `PC.control.camera` sigue siendo lo más caro de control (0.248; adentro pesa
+`camera_rig.force_update_transform()`), `PC.control.interaction` 0.382/llamada a mitad de tasa,
+`PC.control.push` 0.132, `PC.post` 0.674 (sin abrir), `PC.move.pre.dir` 0.15 tras el cache, y
+`SM.sync_nodes` / `KinematicArm3D`.
+
+
