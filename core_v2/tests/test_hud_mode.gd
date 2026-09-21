@@ -17,6 +17,10 @@ const CRYO_UI_PATH := "res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsUI
 var _overlay_mgr = null
 var _fake_scene: Node = null
 
+class PlayerInputStub:
+	extends Node
+	var input_provider = InputProviderV2.new()
+
 
 func before() -> void:
 	if has_node("/root/ANNAV2"):
@@ -183,6 +187,27 @@ func test_tab_opens_without_pausing_and_ui_cancel_exits() -> void:
 	assert_object(_overlay()).is_null()
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 	assert_bool(get_tree().paused).is_false()
+
+
+func test_hud_blocks_player_hardware_input_without_pausing_the_world() -> void:
+	var player = PlayerInputStub.new()
+	auto_free(player)
+	player.add_to_group("player")
+	add_child(player)
+	_screen("test:a", "Alpha")
+	assert_bool(SuitOS.open_hud_mode()).is_true()
+	assert_bool(player.input_provider.hardware_input_enabled).is_false()
+	assert_bool(get_tree().paused).is_false()
+	SuitOS.close_hud_mode()
+	assert_bool(player.input_provider.hardware_input_enabled).is_true()
+
+
+func test_selecting_an_offline_favorite_does_not_try_to_mount_a_nil_screen() -> void:
+	SuitOS._last_snapshots_cache["gone:screen"] = {"proto": 1, "id": "gone:screen", "title": "Gone"}
+	SuitOS.toggle_favorite("gone:screen")
+	assert_bool(SuitOS.open_hud_mode(false, "gone:screen")).is_true()
+	var overlay = _overlay()
+	assert_bool(overlay._mount.is_showing()).is_false()
 
 
 func test_tap_opens_the_radial_even_with_a_pinned_screen() -> void:

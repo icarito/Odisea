@@ -8,7 +8,8 @@ uniform float deform_factor : hint_range(0.0, 2.0) = 1.0;
 uniform float uv_scale : hint_range(0.1, 5.0) = 1.0;
 uniform float hardness : hint_range(0.0, 1.0) = 0.5;
 uniform float texture_rotation : hint_range(0.0, 6.28) = 0.0;
-uniform vec2 uv_offset = vec2(0.0);\nuniform float opacity : hint_range(0.0, 1.0) = 1.0;
+uniform vec2 uv_offset = vec2(0.0);
+uniform float opacity : hint_range(0.0, 1.0) = 1.0;
 
 void fragment() {
 	// Center UV

@@ -2345,5 +2345,4 @@ bus_path = NodePath("../ShipSystemBus")
 
 [node name="CryoPodsHUDable" type="Node" parent="."]
 script = ExtResource( 6012 )
-pod_count = 28
 bus_path = NodePath("../ShipSystemBus")
