@@ -194,6 +194,8 @@ var _perf_disable_cinematic_zone_scan := false
 # Tier LOW: paso del escaneo de interaccion/zonas (1 = cada tick, 2 = cada 2 ticks).
 var _scan_gate = null
 var _scan_tick := 0
+# Tier LOW: cooldown del re-escaneo de interaccion cuando no hay target cacheado.
+var _interaction_null_scan_cooldown := 0
 var _rl_mode := false
 var _rl_fast_controller := false
 var _rl_skip_animator := false
@@ -2059,7 +2061,18 @@ func _process_interaction(input: InputDataV2):
 		_crouch_ledge_target_cached = null
 	if not is_instance_valid(_crouch_ladder_target_cached):
 		_crouch_ladder_target_cached = null
-	if Engine.get_physics_frames() % 8 == 0 or _best_interaction_target_cached == null:
+	# PERF (tier LOW): el `or cached == null` original disparaba el query de overlaps en
+	# CADA tick mientras no hubiera target — y los tramos sin interactuables son la
+	# mayoria. En LOW se limita a uno cada 4 ticks; fuera de LOW se conserva el
+	# comportamiento exacto para no tocar replay/CI. El prompt aparece igual dentro de
+	# ~0.13 s y perder el target es inmediato (la invalidacion de arriba limpia el cache).
+	if _interaction_null_scan_cooldown > 0:
+		_interaction_null_scan_cooldown -= 1
+	var has_cached_target := is_instance_valid(_best_interaction_target_cached)
+	var should_scan_interaction := Engine.get_physics_frames() % 8 == 0
+	if not should_scan_interaction and not has_cached_target:
+		should_scan_interaction = _low_scan_stride() <= 1 or _interaction_null_scan_cooldown <= 0
+	if should_scan_interaction:
 		var bodies = _get_interaction_overlaps()
 		var best_target = null
 		var crouch_ledge_target = null
@@ -2084,6 +2097,7 @@ func _process_interaction(input: InputDataV2):
 		_best_interaction_target_cached = best_target
 		_crouch_ledge_target_cached = crouch_ledge_target
 		_crouch_ladder_target_cached = crouch_ladder_target
+		_interaction_null_scan_cooldown = 0 if best_target != null else 3
 
 	var best_target = _best_interaction_target_cached
 	var crouch_ledge_target = _crouch_ledge_target_cached
@@ -2555,6 +2569,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	if _pm_fino:
 		_pm_perfil.perfil_inicio("PC.control")
 
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.push")
 	if _rl_fast_controller and _rl_skip_rigidbody_push:
 		_was_pushing = is_pushing
 		is_pushing = false
@@ -2563,7 +2578,10 @@ func step(dt: float, input: InputDataV2) -> void:
 		_push_target = null
 	else:
 		_update_push_state(dt, input)
+	if _pm_fino: _pm_perfil.perfil_fin("PC.control.push")
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.grounded")
 	var motion_grounded := is_effectively_grounded()
+	if _pm_fino: _pm_perfil.perfil_fin("PC.control.grounded")
 	if _rl_fast_controller:
 		motion_grounded = is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
 	var physics_grounded := is_on_floor() or _just_stepped or _step_grounded_timer > 0.0
@@ -2586,6 +2604,7 @@ func step(dt: float, input: InputDataV2) -> void:
 		# var cam_name = cam.name if cam else "null"
 		# var cam_basis_z = cam.global_transform.basis.z if cam else Vector3.ZERO
 		# print("[PlayerController] step: move_vec=%s yaw=%.4f actual_cam=%s basis.z=%s mode=%d" % [input.move_vec, yaw, cam_name, cam_basis_z, mode])
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.input")
 	if is_instance_valid(movement_logic) and input_provider:
 		input_provider.move_response_curve = movement_logic.move_response_curve
 		input_provider.camera_response_curve = movement_logic.camera_response_curve
@@ -2599,8 +2618,11 @@ func step(dt: float, input: InputDataV2) -> void:
 		input.move_vec = Vector2.ZERO
 		input.jump = false
 		input.sprint = false
+	if _pm_fino: _pm_perfil.perfil_fin("PC.control.input")
 
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.control.camera")
 	_update_camera_orbit_state(dt, input)
+	if _pm_fino: _pm_perfil.perfil_fin("PC.control.camera")
 
 	# PERF (tier LOW): el escaneo de interaccion y el de zonas cinematicas corren cada 2
 	# ticks. En el handheld el tick de scripts es el cuello medido (control ~1.4 ms, de los
@@ -2612,7 +2634,9 @@ func step(dt: float, input: InputDataV2) -> void:
 	if not _rl_fast_controller:
 		if scan_stride <= 1 or _scan_tick % scan_stride == 0 \
 				or input.interact or input.interact_held or input.focus or input.crouch:
+			if _pm_fino: _pm_perfil.perfil_inicio("PC.control.interaction")
 			_process_interaction(input)
+			if _pm_fino: _pm_perfil.perfil_fin("PC.control.interaction")
 
 	if physics_grounded and velocity.y < 0 and movement_logic.get_horizontal_velocity().y <= 0:
 		velocity.y = 0
@@ -2630,7 +2654,9 @@ func step(dt: float, input: InputDataV2) -> void:
 	# --- CINEMATIC ZONE DETECTION ---
 	if not _rl_fast_controller and not _perf_disable_cinematic_zone_scan:
 		if scan_stride <= 1 or _scan_tick % scan_stride == 0:
+			if _pm_fino: _pm_perfil.perfil_inicio("PC.control.cinezone")
 			_update_cinematic_zone_detection(input, dt)
+			if _pm_fino: _pm_perfil.perfil_fin("PC.control.cinezone")
 	
 	# --- MOVEMENT ---
 	if prof_enabled:
@@ -2642,12 +2668,15 @@ func step(dt: float, input: InputDataV2) -> void:
 	var move_vec = input.move_vec
 	# Calculate World Direction based on Control Mode (or Latch)
 	# Logic delegated to CinematicManager (FSM)
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.dir")
 	var world_dir: Vector3 = _get_move_direction(move_vec)
 	if _rl_fast_controller:
 		world_dir = _get_move_direction_rl_fast(move_vec)
+	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.dir")
 
 	# --- ACROBATIC SNAP DETECTION (Legacy) ---
 	# Uses input.move_vec directly to capture raw intent before processing
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.snap")
 	var current_input_3d = Vector3(input.move_vec.x, 0, input.move_vec.y).normalized()
 	if current_input_3d.length() > 0.1 and last_input_vector.length() > 0.1:
 		var dot_product = current_input_3d.dot(last_input_vector)
@@ -2669,6 +2698,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	
 	if current_input_3d.length() > 0.1:
 		last_input_vector = current_input_3d
+	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.snap")
 	
 	var basis = Basis.IDENTITY
 	
@@ -2679,10 +2709,12 @@ func step(dt: float, input: InputDataV2) -> void:
 		# Simplify input to just "forward" magnitude for the logic
 		move_vec = Vector2(0, -world_dir.length())
 	
+	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.crouch")
 	var wants_crouch = input.crouch and physics_grounded
 	is_crouching = _resolve_crouch_state(wants_crouch)
 	_apply_crouch_collision_state(is_crouching)
 	var effective_sprint = input.sprint and not is_crouching
+	if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.crouch")
 
 	if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.movement")
 	movement_logic.process_movement(dt, move_vec, basis, effective_sprint, physics_grounded, is_crouching)
