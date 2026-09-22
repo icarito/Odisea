@@ -34,6 +34,12 @@ var _shared_materials := {}
 var _ring_name := "Criopods1"
 var _output_suffix := ""
 var _output_ring_name := ""
+# ODISEA_BAKE_RING_Y_OFFSET: cuanto levantar el anillo horneado sobre el piso de
+# origen de la fuente. El deck caminable de un ScaffoldHubRing esta a 0.2 en local
+# (platform_height), asi que un anillo cuyos items quedan a y=0 clipa 20 cm el piso.
+# Los anillos superiores de RingHub se hornean con 0.2; el del piso de despertar
+# (Criopods1) ya trae el offset en la fuente y va con 0.
+var _ring_y_offset := 0.0
 
 func _init() -> void:
 	call_deferred("_run")
@@ -56,6 +62,9 @@ func _run() -> void:
 		_ring_name = "Criopods1"
 	_output_suffix = OS.get_environment("ODISEA_BAKE_SUFFIX")
 	_output_ring_name = OS.get_environment("ODISEA_BAKE_OUTPUT_RING")
+	var offset_env := OS.get_environment("ODISEA_BAKE_RING_Y_OFFSET").strip_edges()
+	if offset_env.is_valid_float():
+		_ring_y_offset = float(offset_env)
 	if _output_ring_name.empty():
 		_output_ring_name = _ring_name
 	var packed: PackedScene = load(source_path)
@@ -98,7 +107,7 @@ func _bake_visual(ring: Spatial, items: Array, to_ring: Transform, slot_to_index
 	visual.set_script(load(VISUAL_SCRIPT))
 	var ring_node := Spatial.new()
 	ring_node.name = _output_ring_name
-	ring_node.transform = ring.transform
+	ring_node.transform = _output_ring_transform(ring)
 	visual.add_child(ring_node)
 	ring_node.owner = visual
 
@@ -162,7 +171,7 @@ func _bake_collision(ring: Spatial, items: Array, to_ring: Transform, slot_to_in
 	collision_root.set("slot_to_pod", slot_to_index)
 	var ring_node := Spatial.new()
 	ring_node.name = _output_ring_name
-	ring_node.transform = ring.transform
+	ring_node.transform = _output_ring_transform(ring)
 	collision_root.add_child(ring_node)
 	ring_node.owner = collision_root
 	var body := StaticBody.new()
@@ -205,6 +214,14 @@ func _bake_collision(ring: Spatial, items: Array, to_ring: Transform, slot_to_in
 
 func _output_path(kind: String) -> String:
 	return CHUNK_DIR + "RingHub_Criopods%s_%s.tscn" % [_output_suffix, kind]
+
+
+# Transform del anillo horneado: el de la fuente mas el offset de deck (ver
+# _ring_y_offset). El offset mueve visual y colision por igual.
+func _output_ring_transform(ring: Spatial) -> Transform:
+	var t: Transform = ring.transform
+	t.origin.y += _ring_y_offset
+	return t
 
 
 # Slot del RadialScatter (Item_N) -> indice de instancia/caja. Los slots sin pod

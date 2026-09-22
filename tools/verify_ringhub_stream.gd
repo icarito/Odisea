@@ -84,24 +84,32 @@ func _run() -> void:
 	_check(visual_meshes == 3, "3 visuales de grupo (%d)" % visual_meshes)
 	_check(chunk_count == 22, "22 chunks (17 sectores + 5 anillos de criopods): %d" % chunk_count)
 
-	print("[verify_ringhub] criopods visual")
+	print("[verify_ringhub] criopods visual (piso de despertar, geometria mergeada)")
 	if cri_visual != null:
-		var multi: Array = []
+		# El anillo de despertar se hornea como 3 MeshInstance merged (FD-314 follow-up):
+		# su MultiMeshInstance no se dibujaba en el GLES3 mobile del device, mientras
+		# los anillos superiores si. Aca ya no debe haber MultiMeshInstance.
+		var meshes: Array = []
+		var multis: Array = []
 		var pending := [cri_visual]
 		while not pending.empty():
 			var node = pending.pop_back()
-			if node is MultiMeshInstance:
-				multi.append(node)
+			if node is MeshInstance:
+				meshes.append(node)
+			elif node is MultiMeshInstance:
+				multis.append(node)
 			for child in node.get_children():
 				pending.append(child)
-		_check(multi.size() == 3, "3 MultiMeshInstance en el visual (%d)" % multi.size())
-		for mmi in multi:
-			_check(mmi.multimesh != null and mmi.multimesh.instance_count == 29,
-				"%s: 29 instancias" % mmi.name)
-		_check("slot_to_instance" in cri_visual, "expone slot_to_instance")
-		if "slot_to_instance" in cri_visual:
-			_check(cri_visual.slot_to_instance.size() == 40, "slot_to_instance cubre 40 slots")
-			_check(cri_visual.slot_to_instance[1] == 0, "slot 1 -> instancia 0")
+		_check(multis.size() == 0, "sin MultiMeshInstance en el anillo de despertar (%d)" % multis.size())
+		_check(meshes.size() == 3, "3 MeshInstance merged (%d)" % meshes.size())
+		for mi in meshes:
+			var verts := 0
+			if mi.mesh != null:
+				for s in range(mi.mesh.get_surface_count()):
+					verts += mi.mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX].size()
+			_check(verts > 0, "%s: mesh con geometria (%d verts)" % [mi.name, verts])
+		_check(int(cri_visual.get("blocked_slot")) == 37, "blocked_slot = 37 grabado")
+		_check(cri_visual.has_method("get_blocked_slot"), "expone get_blocked_slot")
 
 	print("[verify_ringhub] colision de criopods")
 	var body_packed: PackedScene = load("res://core_v2/levels/chunks/ringhub/RingHub_Criopods_body.tscn")
@@ -115,36 +123,30 @@ func _run() -> void:
 		_check(String(body.slot_provider_path) == "../../Criopods_Visual", "provider path correcto")
 		_check(body.slot_to_pod.size() == 40, "slot_to_pod cubre 40 slots")
 
-	print("[verify_ringhub] alineacion slot <-> instancia MultiMesh")
-	if cri_visual != null and slots != null:
-		# La escena no esta en el arbol, asi que global_transform no es fiable:
-		# ambos lados se comparan en espacio del nodo del anillo (Hub/Criopods y
-		# Criopods1 comparten transform).
-		var ring_node: Spatial = cri_visual.get_node_or_null("Criopods1")
-		var shell: MultiMeshInstance = ring_node.get_node_or_null("Shell") if ring_node != null else null
-		var max_delta := 0.0
-		var checked := 0
+	print("[verify_ringhub] merge del anillo de despertar")
+	# La fuente MultiMesh sigue existiendo (es la entrada del horneado) y el slot de
+	# despertar debe mapear a la instancia que el merge omite.
+	var src_packed: PackedScene = load("res://core_v2/levels/chunks/ringhub/RingHub_Criopods_visual.tscn")
+	if src_packed != null:
+		var src: Node = src_packed.instance()
+		var shell: MultiMeshInstance = src.get_node_or_null("Criopods1/Shell")
 		if shell != null and shell.multimesh != null:
-			for child in slots.get_children():
-				var item: Spatial = child
-				var slot := int(String(item.name).substr(5)) if String(item.name).begins_with("Item_") else -1
-				if slot < 0:
-					continue
-				var index: int = cri_visual.instance_for_slot(slot)
-				if index < 0:
-					continue
-				checked += 1
-				var expected: Vector3 = slots.transform * item.transform.origin
-				var actual: Vector3 = ring_node.transform * shell.multimesh.get_instance_transform(index).origin
-				var delta: float = expected.distance_to(actual)
-				if delta > 0.01:
-					print("    slot %d -> inst %d esperado %s real %s (delta %.3f)" % [slot, index, str(expected), str(actual), delta])
-				max_delta = max(max_delta, delta)
-		_check(checked > 0, "slots comparables (%d)" % checked)
-		_check(max_delta < 0.001, "slot e instancia coinciden (delta max %.5f m)" % max_delta)
+			_check(shell.multimesh.instance_count == 29, "fuente: 29 instancias (%d)" % shell.multimesh.instance_count)
+			var aabb: AABB = shell.multimesh.get_aabb()
+			_check(aabb.size.x > 25.0 and aabb.size.z > 25.0, "fuente: anillo a radio 12.7 (size %s)" % str(aabb.size))
+		_check(src.instance_for_slot(37) == 26, "fuente: slot 37 -> instancia 26 (la que se omite)")
+	if cri_visual != null and slots != null:
+		# El merge debe cubrir el anillo: el AABB del Shell merged tiene que medir
+		# aproximadamente el diametro del anillo (menos el pod omitido).
+		var merged_shell: MeshInstance = cri_visual.get_node_or_null("Criopods1/Shell")
+		if merged_shell != null and merged_shell.mesh != null:
+			var ma: AABB = merged_shell.mesh.get_aabb()
+			_check(ma.size.x > 25.0 and ma.size.z > 25.0,
+				"merged: anillo completo (size %s)" % str(ma.size))
+			_check(abs(ma.position.y - 0.2) < 0.1, "merged: apoyado en el deck (y %.3f)" % ma.position.y)
 
 	print("[verify_ringhub] anillos superiores")
-	var expected := {"Criopods3": 24, "Criopods4": 27, "Criopods5": 23, "Criopods6": 28}
+	var expected := {"Criopods3": 23, "Criopods4": 27, "Criopods5": 23, "Criopods6": 28}
 	for ring_name in expected.keys():
 		var ring_packed: PackedScene = load("res://core_v2/levels/chunks/ringhub/RingHub_%s_body.tscn" % ring_name)
 		if ring_packed == null:

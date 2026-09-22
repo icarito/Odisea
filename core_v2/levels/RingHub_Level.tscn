@@ -16,7 +16,7 @@
 [ext_resource path="res://assets/DisplayCase_2/NORMAL_DisplayCase_2.png" type="Texture" id=14]
 
 [ext_resource path="res://core_v2/levels/chunks/StreamedSceneChunkV2.gd" type="Script" id=15]
-[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods_visual.tscn" type="PackedScene" id=16]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods1_visual.tscn" type="PackedScene" id=16]
 [ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods_body.tscn" type="PackedScene" id=17]
 [ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods3_visual.tscn" type="PackedScene" id=18]
 [ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods4_visual.tscn" type="PackedScene" id=19]

@@ -1,6 +1,6 @@
 # FD-314: Streaming de superestructura de scaffold en RingHub (MultiMesh + colisiones por chunk)
 
-**Status:** Planned
+**Status:** Implemented (validado en device 2026-09-22; ver follow-ups en §9)
 **Priority:** P1
 **Effort:** Large
 **Created:** 2026-09-21
@@ -288,3 +288,37 @@ D–E con revisión por chunks; merge solo con OK explícito de Sebastián.
 `[build:none]` en el mensaje del commit — un FD no dispara build. Regla: antes de
 pushear, verificar que no haya un build en progreso en `main` (Odisea o engine);
 si lo hay, esperar a que termine para no interrumpirlo.
+
+---
+
+## 9. Implementación y hallazgos (2026-09-22)
+
+FD implementado en `RingHub_Level.tscn`: superestructura de scaffold (spokes,
+espiral, walkways) con visual horneado en el shell y **colisiones streamed** por
+chunk (`StreamedSceneChunkV2`, radio 15-16 m + margen de liberación 6 m), más 5
+anillos de criopods decorativos con colisión por anillo y 4 pisos superiores del
+hub.
+
+Validación en Anbernic RG351V y arreglos posteriores, con detalle y evidencia en
+**`docs/engineering/RingHub_Criopods_Device_Notes.md`**:
+
+- **Anillo de despertar**: su `MultiMeshInstance` no se dibujaba en el GLES3
+  mobile del device (datos, AABB, materiales y culling verificados correctos; no
+  reproduce en local ni con el perfil LOW forzado). Se hornea con geometría
+  mergeada (`RingHub_Criopods1_visual.tscn` +
+  `tools/bake_ringhub_criopods1_merged.gd`), omitiendo el slot de despertar. Los
+  anillos superiores siguen en MultiMesh.
+- **Decorativos 20 cm bajo el deck**: `platform_height = 0.2`; +0.2 en los 4
+  anillos superiores y `ODISEA_BAKE_RING_Y_OFFSET` en el baker.
+- **`rebuild_baked_items = true` es load-bearing**: regenera mesh y trimesh en
+  runtime y descarta las primitivas horneadas. Cambiarlo a `false` rompe el
+  replay de referencia (drift 29 m) → cualquier cambio de colisión exige
+  re-grabar replays.
+- **Rendimiento**: Box3D step ≈ 0.25 ms (no es el cuello); el techo es el frame
+  (`ms_process` ≈ 29 ms + GDScript ≈ 12 ms/tick). Los 5 anillos del hub todavía
+  se regeneran en runtime (~16 ms/anillo) y siguen pendientes de bake, lo que
+  requiere re-grabar el replay de referencia.
+- **Tests**: `test_ringhub_wakeup.gd` y `test_ringhub_chunk_streaming.gd` siguen
+  verdes sin cambios (el merge conserva `slot_to_instance` y el estado
+  autoritativo del slot bloqueado); `tools/verify_ringhub_stream.gd` actualizado
+  al diseño nuevo.

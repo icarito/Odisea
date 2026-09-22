@@ -22,6 +22,11 @@ Dos causas independientes, las dos resueltas:
 2. **Fps bajo = costo del tick de física**, no el render. Con ~18 ms de GDScript por tick a 60 Hz cada frame
    arrastraba 8 ticks (tope fijo del motor) y el juego corría al 54% del tiempo real.
 
+> **RingHub / FD-314 (2026-09-22):** anillo de criopods del piso de despertar que no
+> se dibujaba en el device, offset de 20 cm de los decorativos, y el contrato de
+> colisión/replay. Detalle y herramientas en
+> [`docs/engineering/RingHub_Criopods_Device_Notes.md`](../../engineering/RingHub_Criopods_Device_Notes.md).
+
 ## Qué se activa y dónde
 
 Regla: **ningún ajuste de rendimiento toca desktop, Android, iOS, web ni handhelds rápidos.** Todo depende

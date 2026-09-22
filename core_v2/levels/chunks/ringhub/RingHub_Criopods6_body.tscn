@@ -12,7 +12,7 @@ body_path = "Criopods6/StaticBody"
 slot_to_pod = [ -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, -1, -1, -1, -1, 9, 10, 11, 12, 13, -1, -1, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27 ]
 
 [node name="Criopods6" type="Spatial" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.7, 0 )
 
 [node name="StaticBody" type="StaticBody" parent="Criopods6"]
 collision_layer = 64
