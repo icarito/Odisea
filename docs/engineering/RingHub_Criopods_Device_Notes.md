@@ -174,11 +174,15 @@ engine viejo y hubo que arreglarlos:
    tiene que llevar `${{ hashFiles('.github/box3d_release') }}` y **sin** prefijo
    truncado (determinism_tests.yml ya lo hacia asi).
 2. **Libs de Android.** El APK no usa templates descargados: linkea
-   `android/build/libs/{debug,release}/godot-lib.*.aar`, que estan **commiteados**
-   (ver `android/.build_version`). Al subir el pin hay que reemplazarlos por los de
-   `android_source.zip` de la release nueva. Sintoma: el APK arranca pero los chunks
-   de scaffold no tienen colision (el script del body no parsea y no crea la shape);
-   en desktop/Anbernic no se ve porque ahi si se usa el engine pineado.
+   `android/build/libs/{debug,release}/godot-lib.*.aar`. **Desde este fix el CI los
+   refresca solo**: el job de Android baja el `android_source.zip` de la release
+   pineada (cache keyed por el hash del pin, sin restore-keys) y con un canary que
+   exige el modulo Box3D; los aar commiteados quedan como fallback para builds
+   locales. El sintoma que motivo esto: al subir el pin, el APK salia con el engine
+   viejo, el script del body compound no parseaba y los chunks de scaffold quedaban
+   sin colision en device (reproducido en Redmi Note 9 Pro; en desktop/Anbernic no
+   porque ahi si se usa el engine pineado). Para un build local de Android, el paso
+   manual sigue siendo el de abajo.
 
 ```bash
 # 1. bajar y extraer el zip de la release nueva

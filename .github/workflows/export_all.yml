@@ -548,12 +548,64 @@ jobs:
 
           echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
 
-      # Android runs Godot's Custom Build: the engine inside the APK is the
-      # godot-lib.*.aar committed in android/build/libs/, which the repo
-      # carries from the matching godot-box3d-3 release's android_source.zip
-      # (see android/.build_version). No template download is needed here;
-      # flipping BOX3D_ACTIVE makes the backend selection below apply to the
-      # exported pck too, matching the engine that will run it.
+      # El APK no usa templates descargados: linkea los godot-lib.*.aar. Antes se
+      # commiteaban a mano y al subir el pin del engine quedaban viejos (nightly15:
+      # el APK salio sin Box3DCompoundShape, el script de los bodies compound no
+      # parseaba y los chunks de scaffold quedaban sin colision en device). Ahora el
+      # CI baja el android_source.zip de la release pineada y usa SUS libs, igual que
+      # los demas targets usan sus templates. Los aar commiteados quedan como
+      # fallback para builds locales de Android.
+      - name: Cache Android Box3D source
+        if: matrix.platform == 'android'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/odisea-box3d
+          # Clave con el hash del pin y SIN restore-keys: subir de release tiene que
+          # bajar el zip nuevo, no restaurar el anterior (misma leccion que el cache
+          # del binario de tests).
+          key: ${{ runner.os }}-box3d-android-source-${{ hashFiles('.github/box3d_release') }}
+
+      - name: Refresh the Android engine libs from the pinned Box3D release
+        if: matrix.platform == 'android'
+        run: |
+          set -e
+          BOX3D_RELEASE="$(cat .github/box3d_release)"
+          ZIP="$HOME/.cache/odisea-box3d/$BOX3D_RELEASE/android_source.zip"
+          if [ ! -f "$ZIP" ]; then
+            mkdir -p "$(dirname "$ZIP")"
+            curl -fSL -o "$ZIP.part" \
+              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/android_source.zip"
+            mv "$ZIP.part" "$ZIP"
+          fi
+          python3 - "$ZIP" "$BOX3D_RELEASE" <<'PY'
+          import os
+          import shutil
+          import sys
+          import zipfile
+
+          zip_path, release = sys.argv[1], sys.argv[2]
+          with zipfile.ZipFile(zip_path) as z:
+              names = z.namelist()
+              for kind in ("debug", "release"):
+                  member = "libs/%s/godot-lib.%s.aar" % (kind, kind)
+                  if member not in names:
+                      sys.exit("::error::%s no trae %s" % (release, member))
+                  dest = "android/build/libs/%s/godot-lib.%s.aar" % (kind, kind)
+                  with z.open(member) as src, open(dest, "wb") as out:
+                      shutil.copyfileobj(src, out)
+                  # Canary: el engine del APK tiene que traer el modulo fisico que el
+                  # juego selecciona (si no, cae a Bullet en silencio).
+                  with zipfile.ZipFile(dest) as aar:
+                      data = aar.read("jni/arm64-v8a/libgodot_android.so")
+                  if b"Box3DPhysicsServer" not in data:
+                      sys.exit("::error::%s sin modulo Box3D en %s" % (dest, release))
+                  print("Android %s <- %s (%d bytes)" % (kind, member, os.path.getsize(dest)))
+              build_version = open("android/.build_version").read().strip()
+          print("Android libs de %s listas (build_version=%s)" % (release, build_version))
+          PY
+
+      # Android runs Godot's Custom Build: flipping BOX3D_ACTIVE makes the backend
+      # selection below apply to the exported pck too, matching the engine above.
       - name: Select the Box3D backend for Android
         if: matrix.platform == 'android'
         run: echo "BOX3D_ACTIVE=1" >> "$GITHUB_ENV"
