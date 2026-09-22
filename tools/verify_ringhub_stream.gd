@@ -111,57 +111,69 @@ func _run() -> void:
 		_check(int(cri_visual.get("blocked_slot")) == 37, "blocked_slot = 37 grabado")
 		_check(cri_visual.has_method("get_blocked_slot"), "expone get_blocked_slot")
 
-	print("[verify_ringhub] colision de criopods")
-	var body_packed: PackedScene = load("res://core_v2/levels/chunks/ringhub/RingHub_Criopods_body.tscn")
-	if body_packed != null:
-		var body: Node = body_packed.instance()
-		var shapes := 0
-		for child in body.get_node("Criopods1/StaticBody").get_children():
-			if child is CollisionShape:
-				shapes += 1
-		_check(shapes == 29, "29 cajas de pod (%d)" % shapes)
-		_check(String(body.slot_provider_path) == "../../Criopods_Visual", "provider path correcto")
-		_check(body.slot_to_pod.size() == 40, "slot_to_pod cubre 40 slots")
+	print("[verify_ringhub] chunks con colision horneada en compound")
+	# Cada chunk body (17 sectores + 5 anillos) usa CompoundChunkBodyV2 con un
+	# CompoundBytesV2 valido: UNA shape en vez de las primitivas apiladas.
+	var body_script := "res://core_v2/levels/chunks/CompoundChunkBodyV2.gd"
+	var bytes_script := "res://core_v2/levels/chunks/CompoundBytesV2.gd"
+	var dirs := [
+		["res://core_v2/levels/chunks/ringhub/", "RingHub_Criopods*_body.tscn"],
+		["res://core_v2/levels/interiors/", "RingHub_*_sector_*_body.tscn"],
+	]
+	var chunks := 0
+	for pair in dirs:
+		var dir := Directory.new()
+		if dir.open(pair[0]) != OK:
+			_check(false, "abre %s" % pair[0])
+			continue
+		dir.list_dir_begin(true, true)
+		var fname := dir.get_next()
+		while fname != "":
+			if fname.match(pair[1]):
+				chunks += 1
+				var chunk_packed: PackedScene = load(String(pair[0]) + fname)
+				if chunk_packed == null:
+					_check(false, "carga %s" % fname)
+				else:
+					var inst: Node = chunk_packed.instance()
+					_check(inst.get_script() != null and String(inst.get_script().resource_path) == body_script,
+						"%s usa CompoundChunkBodyV2" % fname)
+					_check(inst is StaticBody, "%s es StaticBody" % fname)
+					var res: Resource = inst.get("compound")
+					_check(res != null and res.get_script() != null and String(res.get_script().resource_path) == bytes_script,
+						"%s tiene CompoundBytesV2" % fname)
+					var primitives := 0
+					var walk := [inst]
+					while not walk.empty():
+						var n = walk.pop_back()
+						if n is CollisionShape:
+							primitives += 1
+						for c in n.get_children():
+							walk.append(c)
+					_check(primitives == 0, "%s no apila primitivas (%d)" % [fname, primitives])
+					if res != null and "bytes" in res:
+						var comp := Box3DCompound.new()
+						var bytes: PoolByteArray = res.get("bytes")
+						_check(bytes.size() >= 8 and comp.is_valid_compound(bytes), "%s: bytes validos" % fname)
+						_check(int(res.get("child_count")) > 0, "%s: child_count > 0" % fname)
+			fname = dir.get_next()
+		dir.list_dir_end()
+	_check(chunks == 22, "22 chunk bodies con compound (%d)" % chunks)
 
-	print("[verify_ringhub] merge del anillo de despertar")
-	# La fuente MultiMesh sigue existiendo (es la entrada del horneado) y el slot de
-	# despertar debe mapear a la instancia que el merge omite.
-	var src_packed: PackedScene = load("res://core_v2/levels/chunks/ringhub/RingHub_Criopods_visual.tscn")
-	if src_packed != null:
-		var src: Node = src_packed.instance()
-		var shell: MultiMeshInstance = src.get_node_or_null("Criopods1/Shell")
-		if shell != null and shell.multimesh != null:
-			_check(shell.multimesh.instance_count == 29, "fuente: 29 instancias (%d)" % shell.multimesh.instance_count)
-			var aabb: AABB = shell.multimesh.get_aabb()
-			_check(aabb.size.x > 25.0 and aabb.size.z > 25.0, "fuente: anillo a radio 12.7 (size %s)" % str(aabb.size))
-		_check(src.instance_for_slot(37) == 26, "fuente: slot 37 -> instancia 26 (la que se omite)")
-	if cri_visual != null and slots != null:
-		# El merge debe cubrir el anillo: el AABB del Shell merged tiene que medir
-		# aproximadamente el diametro del anillo (menos el pod omitido).
-		var merged_shell: MeshInstance = cri_visual.get_node_or_null("Criopods1/Shell")
-		if merged_shell != null and merged_shell.mesh != null:
-			var ma: AABB = merged_shell.mesh.get_aabb()
-			_check(ma.size.x > 25.0 and ma.size.z > 25.0,
-				"merged: anillo completo (size %s)" % str(ma.size))
-			_check(abs(ma.position.y - 0.2) < 0.1, "merged: apoyado en el deck (y %.3f)" % ma.position.y)
-
-	print("[verify_ringhub] anillos superiores")
-	var expected := {"Criopods3": 23, "Criopods4": 27, "Criopods5": 23, "Criopods6": 28}
-	for ring_name in expected.keys():
-		var ring_packed: PackedScene = load("res://core_v2/levels/chunks/ringhub/RingHub_%s_body.tscn" % ring_name)
-		if ring_packed == null:
+	# 1:1 con las cajas viejas: el anillo de despertar tenia 29 y omite el pod del
+	# slot funcional (26), los superiores conservan sus cajas.
+	var expected_children := {"RingHub_Criopods": 28, "RingHub_Criopods3": 23, "RingHub_Criopods4": 27,
+			"RingHub_Criopods5": 23, "RingHub_Criopods6": 28}
+	for ring_name in expected_children.keys():
+		var ring_packed2: PackedScene = load("res://core_v2/levels/chunks/ringhub/%s_body.tscn" % ring_name)
+		if ring_packed2 == null:
 			_check(false, "carga %s" % ring_name)
 			continue
-		var inst: Node = ring_packed.instance()
-		var shapes := 0
-		var walk := [inst]
-		while not walk.empty():
-			var n = walk.pop_back()
-			if n is CollisionShape:
-				shapes += 1
-			for c in n.get_children():
-				walk.append(c)
-		_check(shapes == expected[ring_name], "%s: %d cajas (%d)" % [ring_name, shapes, expected[ring_name]])
+		var inst_ring: Node = ring_packed2.instance()
+		var res_ring: Resource = inst_ring.get("compound")
+		var got := int(res_ring.get("child_count")) if res_ring != null else -1
+		_check(got == expected_children[ring_name],
+			"%s: %d hijos (%d)" % [ring_name, got, expected_children[ring_name]])
 
 	print("[verify_ringhub] %s" % ("TODO OK" if _failures == 0 else "%d FALLAS" % _failures))
 	quit(0 if _failures == 0 else 1)

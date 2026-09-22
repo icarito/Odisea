@@ -115,3 +115,47 @@ fuente.
   `dev.sh` (`GODOT_OPTS="$GODOT_OPTS -- --replay user://replay_....json"`).
   El runtime no-debug es `odisea.frt.aarch64` en el paquete; no hace falta el
   engine debug para medir fps ni para ver el nivel.
+
+---
+
+## 6. Chunks con colision horneada en compounds de Box3D
+
+Los 22 chunk bodies de RingHub (17 sectores de scaffold + 5 anillos de criopods)
+pasaron de apilar primitivas a **una sola shape compound** por chunk:
+**118 CollisionShape -> 22** (cada body crea 1 `CollisionShape` con un
+`Box3DCompoundShape` en `_ready`). Es el mecanismo para que el mapa crezca: los
+tiles se hornean offline a bytes planos y el engine los usa sin copiar.
+
+- Fuentes con primitivas: `core_v2/levels/chunks/compound_body_src/` (las escenas
+  originales; el horneado reescribe los bodies finales, asi que la fuente no puede
+  ser el destino).
+- Gen: `tools/bake_chunk_compounds.gd` (idempotente). Guarda
+  `<body>_compound.res` (`CompoundBytesV2`) y reescribe el body con
+  `CompoundChunkBodyV2` (+ `FootstepSurface` en los sectores).
+- API del engine: `Box3DCompound` / `Box3DCompoundShape` (fork
+  `v0.4.6-nightly15`).
+- Tipos convertidos: `BoxShape` -> hull de 8 esquinas con el transform **completo**;
+  `CylinderShape` -> hull del prisma de 24 lados con el transform completo;
+  `ConvexPolygonShape` -> hull (con engrosado +-2*slop para placas planas, igual
+  que el modulo); `ConcavePolygonShape` -> mesh de doble cara.
+- El anillo de despertar omite `Pod_26` al hornear (ahi va el pod funcional), asi
+  que su compound tiene 28 hijos de los 29 originales.
+
+**Verificacion** (todo en device salvo lo indicado):
+- `tools/verify_ringhub_stream.gd`: 22/22 chunks con `CompoundBytesV2` valido, sin
+  primitivas apiladas, y child counts 1:1 con las cajas viejas.
+- Diff geometrico 1:1 (raycasts en grilla, compound vs original copiado de HEAD):
+  **max |dy| = 0.000 y los mismos hits en las 22 escenas**; las 2 diferencias del
+  anillo de despertar son el `Pod_26` omitido a proposito.
+- Replay de referencia: **drift 0.000184** en device (0.000275 con las primitivas),
+  pasa posicional y rotacional.
+- Tests: `ringhub_wakeup`, `ringhub_chunk_streaming`, determinismos, criopods,
+  vendor gate y menu en verde.
+
+Gotchas aprendidas (costaron 3 iteraciones):
+- El transform de un CollisionShape hay que hornearlo **relativo al root del body**,
+  no al StaticBody que lo contiene: en los criopods el offset del piso (y=9.2) vive
+  en el nodo padre.
+- `rot*scale` no alcanza para los props: sus bases traen shear. Se hornean los
+  puntos con el transform completo.
+- El baker no puede leer del body final (es el destino): fuentes separadas.

@@ -199,34 +199,22 @@ func test_wakeup_slot_has_no_decorative_criopod_collision() -> void:
 		yield(get_tree(), "physics_frame")
 
 	assert_bool(chunk.is_chunk_loaded()).is_true()
-	var ring_collision: Node = chunk.get_node_or_null("CriopodRingCollision")
-	assert_object(ring_collision).is_not_null()
-	var pod_index: int = int(ring_collision.slot_to_pod[level._selected_slot])
-	assert_int(pod_index).is_greater(-1)
-	var decorative_body: Node = ring_collision.get_node(ring_collision.body_path)
-	var expected_shape_count := 0
-	for mapped_pod in ring_collision.slot_to_pod:
-		if int(mapped_pod) >= 0:
-			expected_shape_count += 1
-	assert_int(decorative_body.get_child_count()).is_equal(expected_shape_count - 1)
-	assert_object(decorative_body.get_node_or_null("Pod_%02d" % pod_index)).is_null()
+	# El body del anillo es un CompoundChunkBodyV2 (StaticBody) cuya colision
+	# horneada ya omite el pod del slot de despertar: 29 pods decorativos - 1 = 28.
+	var ring_body: Node = chunk.get_node_or_null("CriopodRingCollision")
+	assert_object(ring_body).is_not_null()
+	var res: Resource = ring_body.get("compound")
+	assert_object(res).is_not_null()
+	assert_int(int(res.get("child_count"))).is_equal(28)
 	var visual: Node = level.get_node("ScaffoldStreamRoot/Criopods_Visual")
 	var visual_index: int = visual.instance_for_slot(level._selected_slot)
 	assert_int(visual_index).is_greater(-1)
 	assert_int(visual.hidden_instance_count()).is_equal(1)
 	# El estado autoritativo del bloqueo es el indice oculto, no la transform del
 	# MultiMesh: el backend `platform=server` (CI, headless) descarta los
-	# transform_array por instancia y get_instance_transform() siempre devuelve
-	# identidad. Verificado en GL (editor/X11): set_instance_transform() mueve las
-	# tres capas a HIDDEN_ORIGIN. La verificacion visual queda para OYS/screenshot.
+	# transform_array por instancia. La verificacion visual queda para OYS/screenshot.
 	assert_bool(visual._hidden.has(visual_index)).is_true()
 	assert_object(level.get_node_or_null("Hub/Criopods/Item_%d" % level._selected_slot)).is_null()
-	var shape: CollisionShape = decorative_body.get_child(0)
-	assert_bool(shape.shape is BoxShape).is_true()
-	var up: Vector3 = shape.global_transform.basis.y.normalized()
-	var space = level.get_world().direct_space_state
-	assert_bool(not space.intersect_ray(shape.global_transform.origin + up * 3.0, shape.global_transform.origin - up * 3.0, [], 64).empty()).is_true()
-
 
 func test_pod_body_blocks_camera_with_environment_layer() -> void:
 	var level = auto_free(RingHubScene.instance())

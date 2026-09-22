@@ -140,13 +140,18 @@ func test_criopod_blocking_hides_instance_and_drops_its_box() -> void:
 	var body = auto_free(CriopodBody.instance())
 	add_child(body)
 	yield(get_tree(), "idle_frame")
-	var static_body: Node = body.get_node("Criopods1/StaticBody")
-	assert_int(static_body.get_child_count()).is_equal(29)
-	assert_int(body.free_slot(1)).is_equal(0)
-	yield(get_tree(), "idle_frame")
-	assert_int(static_body.get_child_count()).is_equal(28)
-	assert_object(static_body.get_node_or_null("Pod_00")).is_null()
-	assert_object(static_body.get_node_or_null("Pod_01")).is_not_null()
+	# La colision del anillo va horneada en UN compound que ya omite el pod del
+	# slot funcional (29 cajas -> 28 hijos): no hay primitivas que liberar en
+	# runtime, el compound es inmutable.
+	var res: Resource = body.get("compound")
+	assert_object(res).is_not_null()
+	assert_int(int(res.get("child_count"))).is_equal(28)
+	var shapes := 0
+	for child in body.get_children():
+		if child is CollisionShape:
+			shapes += 1
+			assert_object(child.shape).is_not_null()
+	assert_int(shapes).is_equal(1)
 
 
 func test_criopod_block_is_per_instance_and_reversible() -> void:
