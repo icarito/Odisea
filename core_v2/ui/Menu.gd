@@ -137,11 +137,11 @@ func _spawn_shader_warmup():
 # ubershader no cubre nada y solo cuesta: medido en un Redmi Note 9 Pro, 26
 # ubershaders a ~0.8 s cada uno antes de que el menu llegue a aparecer. Con el async
 # dormido ese mismo arranque son 1.4 s.
-# En modo sincrono (shader_compilation_mode 0) no hay cola async que encender: el fork
-# lee config.async_compilation_max_simultaneous, que SOLO se inicializa cuando el modo
-# es >= 1. En nativo ese entero sin inicializar sale 0 y no se nota; en el heap de wasm
-# sale basura y la cola de compilacion indexa fuera de rango -- "index out of bounds" en
-# el main loop, justo al arrancar la partida, que es cuando se llama a esto.
+# En modo sincrono (shader_compilation_mode 0) no hay cola async que encender, y pedirlo
+# leia un entero sin inicializar: config.async_compilation_max_simultaneous sale de
+# initialize() SOLO cuando el modo es >= 1. No era la causa del "index out of bounds" del
+# web (se probo: con este guard puesto el trap persiste), pero es UB igual y el arreglo de
+# fondo esta en el fork desde godot-box3d-3 73b056d.
 func enable_async_shader_compilation() -> void:
 	if int(ProjectSettings.get_setting("rendering/gles3/shaders/shader_compilation_mode")) < 1:
 		return
