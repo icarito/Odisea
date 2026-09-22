@@ -137,7 +137,14 @@ func _spawn_shader_warmup():
 # ubershader no cubre nada y solo cuesta: medido en un Redmi Note 9 Pro, 26
 # ubershaders a ~0.8 s cada uno antes de que el menu llegue a aparecer. Con el async
 # dormido ese mismo arranque son 1.4 s.
+# En modo sincrono (shader_compilation_mode 0) no hay cola async que encender: el fork
+# lee config.async_compilation_max_simultaneous, que SOLO se inicializa cuando el modo
+# es >= 1. En nativo ese entero sin inicializar sale 0 y no se nota; en el heap de wasm
+# sale basura y la cola de compilacion indexa fuera de rango -- "index out of bounds" en
+# el main loop, justo al arrancar la partida, que es cuando se llama a esto.
 func enable_async_shader_compilation() -> void:
+	if int(ProjectSettings.get_setting("rendering/gles3/shaders/shader_compilation_mode")) < 1:
+		return
 	if VisualServer.has_method("set_shader_async_compilation_enabled"):
 		VisualServer.set_shader_async_compilation_enabled(true)
 
