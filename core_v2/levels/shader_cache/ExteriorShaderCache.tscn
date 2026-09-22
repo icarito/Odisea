@@ -1,106 +1,11 @@
-[gd_scene load_steps=17 format=2]
+[gd_scene load_steps=2 format=2]
 
 [ext_resource path="res://addons/gd-shader-cache/src/ShaderCache.gd" type="Script" id=1]
-[ext_resource path="res://models/Pilot/Pilot_Mesh_0001.mesh" type="ArrayMesh" id=2]
-[ext_resource path="res://models/Pilot/Material_0_001.material" type="Material" id=3]
-[ext_resource path="res://core_v2/player/shaders/pilot_damage.shader" type="Shader" id=4]
-[ext_resource path="res://core_v2/visual/volumetric_cone.shader" type="Shader" id=5]
-[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_nor_gl_1k.png" type="Texture" id=6]
-[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_rough_1k.png" type="Texture" id=7]
-[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_diff_1k.png" type="Texture" id=8]
-[ext_resource path="res://assets/textures/Fabric Leather 02/1k/textures/fabric_leather_02_ao_1k.png" type="Texture" id=9]
-[ext_resource path="res://core_v2/props/lights/HelmetFlashlightMask.png" type="Texture" id=10]
-
-[sub_resource type="SpatialMaterial" id=4]
-albedo_color = Color( 0.7, 0.15, 0.15, 1 )
-metallic = 0.7
-roughness = 0.3
-
-[sub_resource type="QuadMesh" id=122]
-
-[sub_resource type="ShaderMaterial" id=121]
-shader = ExtResource( 4 )
-shader_param/normal_scale = 1.0
-shader_param/base_color = Color( 1, 1, 1, 1 )
-shader_param/frost_color = Color( 0.96, 0.98, 1, 1 )
-shader_param/crack_color = Color( 1, 1, 1, 1 )
-shader_param/base_metallic = 0.22
-shader_param/base_roughness = 0.9
-shader_param/damage_amount = 0.0
-shader_param/pulse = 0.0
-shader_param/crack_density = 11.0
-shader_param/freeze_min_y = -1.05
-shader_param/freeze_max_y = 1.25
-shader_param/freeze_front_softness = 0.14
-shader_param/self_illum = 0.5
-shader_param/holo_dither_amount = 0.0
-shader_param/albedo_texture = ExtResource( 8 )
-shader_param/normal_texture = ExtResource( 6 )
-shader_param/roughness_texture = ExtResource( 7 )
-shader_param/ao_texture = ExtResource( 9 )
-
-[sub_resource type="SpatialMaterial" id=123]
-flags_unshaded = true
-flags_no_depth_test = true
-albedo_color = Color( 1, 0, 1, 1 )
-
-[sub_resource type="SpatialMaterial" id=3]
-albedo_color = Color( 0.09, 0.11, 0.13, 1 )
-metallic = 0.85
-metallic_specular = 0.6
-roughness = 0.3
-emission_enabled = true
-emission = Color( 0.85, 0.95, 1, 1 )
-emission_energy = 3.5
-emission_operator = 0
-emission_on_uv2 = false
-
-[sub_resource type="ShaderMaterial" id=124]
-shader = ExtResource( 5 )
-shader_param/color = Color( 0.85, 0.95, 1, 1 )
-shader_param/alpha_multiplier = 0.4
-shader_param/falloff_exponent = 2.6
-shader_param/use_mask = false
-shader_param/mask_scroll = 0.0
-shader_param/mask_tiling = Vector2( 1, 4 )
-shader_param/uv_length_scale = 2.0
-shader_param/edge_softness = 0.55
-shader_param/mask = ExtResource( 10 )
 
 [node name="ExteriorShaderCache" type="Spatial"]
-visible = false
 script = ExtResource( 1 )
 active = false
 scene_path = "res://core_v2/levels/OdiseaExterior.tscn"
 cache_packed_scene_recusively = true
 cache_material_in_animation_player = true
 active_frame_count = 4
-materials_per_frame = 6
-
-[node name="Materials" type="Spatial" parent="."]
-
-[node name="BladeGeo1" type="MeshInstance" parent="Materials"]
-material_override = SubResource( 4 )
-mesh = SubResource( 122 )
-
-[node name="Mesh_0001" type="MeshInstance" parent="Materials"]
-material_override = SubResource( 121 )
-mesh = ExtResource( 2 )
-
-[node name="@Mesh_0001@499" type="MeshInstance" parent="Materials"]
-material_override = ExtResource( 3 )
-mesh = ExtResource( 2 )
-
-[node name="492" type="MeshInstance" parent="Materials"]
-material_override = SubResource( 123 )
-mesh = SubResource( 122 )
-
-[node name="Emitter" type="MeshInstance" parent="Materials"]
-material_override = SubResource( 3 )
-cast_shadow = 0
-mesh = SubResource( 122 )
-
-[node name="VolumetricCone" type="MeshInstance" parent="Materials"]
-material_override = SubResource( 124 )
-cast_shadow = 0
-mesh = SubResource( 122 )

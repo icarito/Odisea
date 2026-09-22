@@ -9,12 +9,16 @@ import pathlib
 
 import pytest
 
-CACHES = sorted((pathlib.Path(__file__).resolve().parents[1] /
-                 "core_v2" / "levels" / "shader_cache").glob("*ShaderCache.tscn"))
+# Solo los caches que el build carga hoy. Hornear el de un nivel inalcanzable lo
+# vuelve dependencia real del export (peso muerto en el pck), asi que el resto
+# queda a proposito sin hornear. Ver tools/bake_shader_cache.gd.
+EN_USO = ["RingHubShaderCache.tscn"]
+CACHES = [pathlib.Path(__file__).resolve().parents[1] /
+          "core_v2" / "levels" / "shader_cache" / n for n in EN_USO]
 
 
 def test_hay_escenas_de_cache():
-    assert CACHES, "no se encontro ninguna *ShaderCache.tscn"
+    assert CACHES and all(c.exists() for c in CACHES)
 
 
 @pytest.mark.parametrize("scene", CACHES, ids=lambda p: p.name)

@@ -9,11 +9,13 @@
 # Uso: tools/godot --path . -s tools/bake_shader_cache.gd
 extends SceneTree
 
+# Solo los caches de escenas que el build realmente carga. Hornear uno de un nivel
+# al que hoy no se llega no acelera nada y ademas lo vuelve dependencia REAL del
+# export (114 ext_resource de Dome_Intro): peso muerto en el pck que despues no se
+# puede podar. Al reconectar un nivel, agregarlo aca y rehornear.
+#   parqueados: DomeIntroShaderCache, DomeCrioShaderCache, ExteriorShaderCache
 const CACHES := [
 	"res://core_v2/levels/shader_cache/RingHubShaderCache.tscn",
-	"res://core_v2/levels/shader_cache/DomeIntroShaderCache.tscn",
-	"res://core_v2/levels/shader_cache/DomeCrioShaderCache.tscn",
-	"res://core_v2/levels/shader_cache/ExteriorShaderCache.tscn",
 ]
 
 func _init():
