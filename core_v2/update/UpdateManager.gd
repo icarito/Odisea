@@ -67,8 +67,7 @@ const BOOT_SMOKE_RESOURCES := [
 	"res://core_v2/things/FlashlightScreen.gd",
 	"res://core_v2/things/FlashlightScreen.tscn",
 	"res://core_v2/props/lights/HelmetFlashlight.tscn",
-	"res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsDisplay.tscn",
-	"res://core_v2/levels/interiors/Dome_Intro.tscn"
+	"res://core_v2/levels/RingHub_Level.tscn"
 ]
 
 func _ready():

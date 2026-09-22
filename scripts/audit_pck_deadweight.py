@@ -26,6 +26,32 @@ QUOTED = re.compile(r'["\'](res://[^"\']+)["\']')
 BARE = re.compile(r'res://[^"\'\)\s\],]+')
 TEXTY = {".tscn", ".tres", ".gd", ".material", ".godot", ".cfg", ".shader", ".escn"}
 
+# export_presets.cfg lista TODO path del proyecto (include/exclude/export_files).
+# Es config de build, no un recurso: caminarlo mete al cierre cada ruta que nombra,
+# incluido el keystore de Android, y contamina cualquier analisis de alcanzabilidad.
+IGNORAR_REFS = {"res://export_presets.cfg"}
+
+# Arboles que no viajan en el pck por decision (dev/tests/docs/salidas). El auditor
+# general los deja entrar (conservador), pero el guard de CI mide "que se lleva el
+# build", asi que para eso un archivo alcanzable solo a traves de un test no cuenta.
+DEV_ROOTS = (
+    "res://addons/gdUnit3/",
+    "res://addons/godot_rl_agents/",
+    "res://core_v2/tests/",
+    "res://tests/",
+    "res://test_output/",
+    "res://docs/",
+    "res://agents/",
+    "res://dashboard/",
+    "res://reports/",
+    "res://ports/",
+    "res://portmaster/",
+    "res://android/",
+    "res://native/",
+    "res://.venv/",
+    "res://.mono/",
+)
+
 # Desde donde arranca el juego. Al reconectar un nivel, agregarlo aca.
 RAICES = [
     "res://project.godot",
@@ -39,27 +65,66 @@ def _disk(res_path):
     return os.path.join(ROOT, res_path[len("res://"):])
 
 
+# Los recursos BINARIOS tambien llevan rutas adentro: un .mesh horneado guarda el
+# res:// de cada .material que usa. Godot las escribe como cadenas planas, asi que un
+# regex sobre los bytes alcanza. Sin esto, todo material (y su textura) que solo se
+# alcanza desde una malla horneada queda invisible -- la escena .tscn fuente esta
+# excluida a proposito, porque lo que vive es el .mesh.
+BIN_REF = re.compile(rb"res://[ -~]+")
+# Rutas armadas por concatenacion (AudioManager: "res://assets/music/" + nombre) no se
+# pueden resolver estaticamente. El prefijo entre comillas seguido de `+` es la firma
+# de una carga dinamica; un literal de directorio suelto (listas de bases en un tool
+# de dev, un directorio de salida) NO se enumera, o el cierre se traga el arbol entero.
+DIR_PREFIX = re.compile(r'["\'](res://[^"\']*/)["\']\s*\+')
+
+
 def _refs(res_path):
-    f = _disk(res_path)
-    if os.path.splitext(f)[1].lower() not in TEXTY or not os.path.isfile(f):
+    if res_path in IGNORAR_REFS:
         return []
-    txt = open(f, encoding="utf-8", errors="ignore").read()
-    return QUOTED.findall(txt) + [r.rstrip(".,") for r in BARE.findall(txt)]
+    f = _disk(res_path)
+    if not os.path.isfile(f):
+        return []
+    raw = open(f, "rb").read()
+    # La extension no alcanza para decidir texto vs binario: hay .material y .tres
+    # guardados en formato binario de Godot (magic RSRC). Si se leen como texto, el
+    # regex de rutas sueltas se traga el blob entero y pierde las rutas embebidas.
+    es_texto = os.path.splitext(f)[1].lower() in TEXTY and b"\x00" not in raw[:64]
+    out = []
+    if es_texto:
+        txt = raw.decode("utf-8", "ignore")
+        out += QUOTED.findall(txt)
+        out += [r.rstrip(".,") for r in BARE.findall(txt)]
+        for d in DIR_PREFIX.findall(txt):
+            if _en_skip(d, DEV_ROOTS):
+                continue
+            dd = _disk(d)
+            if os.path.isdir(dd):
+                out += [d + n for n in sorted(os.listdir(dd))]
+    else:
+        for m in BIN_REF.findall(raw):
+            out.append(m.decode("utf-8", "ignore").rstrip(".,"))
+    return out
 
 
-def cierre_vivo():
+def _en_skip(res_path, skip):
+    return any(res_path.startswith(s) for s in skip)
+
+
+def cierre_vivo(skip=()):
+    """Recursos alcanzables desde el arranque. ``skip`` poda subarboles enteros
+    (el guard de CI pasa DEV_ROOTS para medir solo lo que viaja de verdad)."""
     gd = open(os.path.join(ROOT, "project.godot"), encoding="utf-8").read()
     raices = set(RAICES)
     if "[autoload]" in gd:
         raices |= set(re.findall(r'res://[^"]+', gd.split("[autoload]")[1].split("\n[")[0]))
-    visto, cola = set(), collections.deque(raices)
+    visto, cola = set(), collections.deque(r for r in raices if not _en_skip(r, skip))
     while cola:
         p = cola.popleft()
         if p in visto:
             continue
         visto.add(p)
         for r in _refs(p):
-            if r not in visto and os.path.exists(_disk(r)):
+            if r not in visto and not _en_skip(r, skip) and os.path.exists(_disk(r)):
                 cola.append(r)
     return visto
 

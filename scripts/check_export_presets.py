@@ -20,11 +20,20 @@ export_files. Entra igual por los globs de include_filter, pero los globs NO
 caminan dependencias -- solo las raices lo hacen -- asi que se empaqueta la
 escena sin parte de lo que necesita. Si agregas una escena jugable, agregala
 tambien a export_files.
+
+Y revisa la podredumbre mas cara: un ``exclude_filter`` que tapa un archivo
+alcanzable. El cierre de dependencias lo calcula
+``scripts/audit_pck_deadweight.py`` (incluye los ``.mesh`` binarios que guardan
+la ruta de sus materiales y las cargas por concatenacion como
+``"res://assets/music/" + nombre``); aca solo se cruza ese cierre contra cada
+patron. Un exclude que mate un archivo vivo es un build roto que nadie ve hasta
+que un jugador abre la escena.
 """
 
 from __future__ import annotations
 
 import fnmatch
+import importlib.util
 import re
 import sys
 from pathlib import Path
@@ -140,6 +149,70 @@ def _check_locales(presets: Dict[str, Dict[str, object]], root: Path) -> List[st
 	return errors
 
 
+def _audit_module():
+	"""Carga scripts/audit_pck_deadweight.py (mismo dir) sin depender del cwd."""
+	path = Path(__file__).resolve().parent / "audit_pck_deadweight.py"
+	spec = importlib.util.spec_from_file_location("audit_pck_deadweight", str(path))
+	mod = importlib.util.module_from_spec(spec)
+	spec.loader.exec_module(mod)
+	return mod
+
+
+def _godot_glob_re(pat: str) -> "re.Pattern[str]":
+	"""Traduce un filtro de export a regex, con la semantica de String::matchn:
+	case-insensitive, `*` cruza `/` (por eso `core_v2/**/*.tscn` exige un
+	directorio intermedio: son dos `*` y una barra literal) y `?` no matchea `.`.
+	"""
+	out: List[str] = []
+	for ch in pat:
+		if ch == "*":
+			out.append(".*")
+		elif ch == "?":
+			out.append("[^.]")
+		else:
+			out.append(re.escape(ch))
+	return re.compile("^" + "".join(out) + "$", re.IGNORECASE)
+
+
+def _conflictos_exclude(vivo: List[str], patrones: List[str]):
+	"""Pares (patron, paths vivos) para todo patron que tape algo alcanzable."""
+	out = []
+	for pat in patrones:
+		rx = _godot_glob_re(pat)
+		hits = sorted(f for f in vivo if rx.match(f))
+		if hits:
+			out.append((pat, hits))
+	return out
+
+
+def _check_exclude_no_mata_vivo(presets: Dict[str, Dict[str, object]],
+                                vivo: List[str] = None) -> List[str]:
+	"""Un exclude que tapa un archivo vivo se lo lleva sin avisar: el build sale
+	sin el asset y el jugador se topa con una escena rota. El cierre del auditor
+	(``cierre_vivo``) resuelve dependencias de recursos -- incluidos los .mesh
+	binarios que guardan la ruta de sus materiales y las cargas por concatenacion
+	(AudioManager) -- asi que alcanza con cruzarlo contra los patrones.
+
+	``vivo`` se inyecta en el self-test; en produccion se calcula aca una sola vez.
+	"""
+	if vivo is None:
+		mod = _audit_module()
+		# Los arboles dev/test salen a proposito: un archivo alcanzable solo desde
+		# un test no tiene por que viajar en el build.
+		vivo = sorted(p[len("res://"):] for p in mod.cierre_vivo(skip=mod.DEV_ROOTS)
+		              if p.startswith("res://"))
+	patrones = sorted({p.strip()
+	                   for entry in presets.values()
+	                   for p in str(entry.get("exclude_filter") or "").split(",")
+	                   if p.strip()})
+	errors: List[str] = []
+	for pat, hits in _conflictos_exclude(vivo, patrones):
+		muestra = ", ".join(hits[:4]) + (" ..." if len(hits) > 4 else "")
+		errors.append("exclude_filter tapa %d archivo(s) vivo(s): %s (%s)"
+		              % (len(hits), pat, muestra))
+	return errors
+
+
 def _self_test() -> int:
 	def bloque(idx, name, inc, files):
 		return ('[preset.%d]\nname="%s"\ninclude_filter="%s"\nexclude_filter="docs/*"\n'
@@ -166,6 +239,21 @@ def _self_test() -> int:
 	assert any("ordenado" in e for e in errs), errs
 	assert any("inexistente" in e for e in errs), errs
 
+	# glob con la semantica de String::matchn
+	assert _godot_glob_re("assets/music/*").match("assets/music/Tin Cosmos.mp3")
+	assert _godot_glob_re("assets/music/*").match("assets/music/sub/x.mp3")
+	assert not _godot_glob_re("assets/music/*").match("assets/musical/x.mp3")
+	assert _godot_glob_re("core_v2/**/*.tscn").match("core_v2/a/b.tscn")
+	assert not _godot_glob_re("core_v2/**/*.tscn").match("core_v2/a.tscn")
+	assert _godot_glob_re("*.gd").match("core_v2/deep/foo.gd")
+	assert not _godot_glob_re("a?.gd").match("a..gd")
+
+	# cruce exclude vs cierre vivo
+	choca = _conflictos_exclude(
+		["assets/music/Tin Cosmos.mp3", "core_v2/props/exhaust/plasma.shader"],
+		["assets/music/*", "*.gd", "core_v2/levels/*"])
+	assert choca == [("assets/music/*", ["assets/music/Tin Cosmos.mp3"])], choca
+
 	print("[export-presets] self-test OK")
 	return 0
 
@@ -191,6 +279,7 @@ def main() -> int:
 		+ _check_pineados(presets)
 		+ _check_orden_y_existencia(presets, root)
 		+ _check_locales(presets, root)
+		+ _check_exclude_no_mata_vivo(presets)
 	)
 
 	if errors:
