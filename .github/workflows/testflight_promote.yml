@@ -1,11 +1,16 @@
 name: Promote approved TestFlight builds
 
-# La revisión de Apple (Beta App Review) puede tardar más que la ventana del
-# job que sube el build (ver export_all.yml -> testflight-external). Ese job
-# ya no espera a que Apple apruebe: pide la revisión y no toca los grupos
-# externos hasta que el build esté aprobado, para no dejar sin build utilizable
-# a los testers mientras tanto. Este cron retoma la promoción apenas Apple
-# aprueba, sin esperar al próximo nightly.
+# Único camino de distribución a TestFlight. El export solo SUBE el build (IPA
+# desde la pata iOS, .pkg desde upload-macos); pedir la revisión y mover el build
+# a los grupos externos pasa acá. Antes eso era un job del export
+# (testflight-external) que esperaba hasta 60 min a que Apple procesara el build
+# y dejaba el run entero abierto mientras tanto, para un trabajo que igual tenía
+# que retomar este cron: la Beta App Review tarda horas, no minutos.
+#
+# `--promote` recorre los builds VALID más nuevos por plataforma, contesta el
+# cuestionario de exportación si falta, pide la revisión del más nuevo y publica
+# al grupo externo el aprobado más nuevo. Es idempotente: correrlo cada 30 min no
+# duplica nada y toma el build recién subido en la corrida siguiente.
 on:
   schedule:
     - cron: "*/30 * * * *"

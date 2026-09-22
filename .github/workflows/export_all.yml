@@ -1,16 +1,13 @@
 name: Release Multiplataforma
 
-# Releases are gated on a green test run: this workflow only fires after
-# "Odyssey Pytest Runner" completes on main/release, and prep aborts unless
-# that run concluded with success. This prevents broken commits (e.g. a
-# GDScript syntax error merged to main) from triggering a multiplatform
-# export or publishing a release. `workflow_dispatch` still allows manual
-# builds, which bypass the gate intentionally.
+# Lo dispara "Odyssey Pytest Runner" con `gh workflow run` cuando los tests
+# pasan en main (ver pytest_runner.yml -> "Dispatch multiplatform export").
+# Ya NO se usa `workflow_run`: ese trigger dispara SIEMPRE, y un commit con
+# `[build:none]` entraba al mismo grupo de concurrency que un build real y le
+# cancelaba el run en curso. Ahora el gate `[build:X]` vive en el dispatcher:
+# un `[build:none]` simplemente no dispara nada, y un `[build:macos]` llega
+# como target_platform y queda en su propio grupo de concurrency.
 on:
-  workflow_run:
-    workflows: [ "Odyssey Pytest Runner" ]
-    types: [ completed ]
-    branches: [ "main", "release" ]
   workflow_dispatch:
     inputs:
       target_platform:
@@ -37,27 +34,27 @@ on:
         description: 'Version tag override (optional, e.g. v1.0.0-preview)'
         required: false
         type: string
+      head_sha:
+        description: 'Commit to build (lo pasa el dispatcher automático; vacío = HEAD de la rama)'
+        required: false
+        type: string
 
 permissions:
   contents: write
   issues: write
   pull-requests: write
 
-# Solo el export más reciente por rama debe correr: si entra un run nuevo (push a
-# main vía workflow_run, o un dispatch) mientras hay uno en curso de la misma rama,
-# se cancela el viejo. Se agrupa por la rama del CÓDIGO buildeado: bajo workflow_run
-# github.ref apunta al archivo del workflow (default branch), así que usamos
-# head_branch del run que disparó; bajo dispatch, github.ref_name.
+# Solo el export más reciente por rama y plataforma debe correr: si entra un run
+# nuevo mientras hay uno en curso del mismo grupo, se cancela el viejo. El grupo
+# incluye target_platform, así que un build de una sola plataforma nunca cancela
+# al multiplataforma en curso.
 concurrency:
-  group: export-all-${{ github.event.workflow_run.head_branch || github.ref_name }}-${{ github.event.inputs.target_platform || 'all' }}
+  group: export-all-${{ github.ref_name }}-${{ github.event.inputs.target_platform || 'all' }}
   cancel-in-progress: true
 
 jobs:
   prep:
     runs-on: ubuntu-latest
-    # Only run when the triggering test run succeeded. Manual dispatches have
-    # no workflow_run payload, so the conclusion check passes through.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     outputs:
       version: ${{ steps.meta.outputs.version }}
       base_version: ${{ steps.meta.outputs.base_version }}
@@ -79,9 +76,8 @@ jobs:
       # creciente (un build viejo con run_id mayor bloqueaba uno nuevo). Usamos
       # run_number: entero monotónico simple, el mismo que el versionCode del APK.
       build_seq: ${{ steps.meta.outputs.build_seq }}
-      # Branch and full SHA, normalized across workflow_run and workflow_dispatch
-      # so downstream jobs never have to read github.ref / github.event_name,
-      # which mean different things under workflow_run.
+      # Branch and full SHA resueltos una sola vez acá, para que ningún job de
+      # abajo tenga que volver a mirar github.ref / inputs.head_sha.
       ref_name: ${{ steps.meta.outputs.ref_name }}
       head_sha: ${{ steps.meta.outputs.head_sha }}
       is_dispatch: ${{ steps.meta.outputs.is_dispatch }}
@@ -91,18 +87,11 @@ jobs:
     steps:
       - id: ctx
         run: |
-          # Resolve the branch and commit being built. Under workflow_run these
-          # come from the triggering run; under workflow_dispatch from the ref
-          # the workflow was launched against.
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            REF_NAME="${{ github.event.workflow_run.head_branch }}"
-            HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
-          else
-            REF_NAME="${{ github.ref_name }}"
-            HEAD_SHA="${{ github.sha }}"
-          fi
-          echo "ref_name=$REF_NAME" >> $GITHUB_OUTPUT
-          echo "head_sha=$HEAD_SHA" >> $GITHUB_OUTPUT
+          # El dispatcher automático pasa el SHA exacto que pasó los tests (el
+          # tip de la rama puede haber avanzado mientras corrían). Un dispatch a
+          # mano no lo pasa y construye el HEAD de la rama elegida.
+          echo "ref_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "head_sha=${{ github.event.inputs.head_sha || github.sha }}" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v7
         with:
           ref: ${{ steps.ctx.outputs.head_sha }}
@@ -122,26 +111,18 @@ jobs:
           echo "ref_name=$REF_NAME" >> $GITHUB_OUTPUT
           echo "head_sha=$HEAD_SHA" >> $GITHUB_OUTPUT
 
-          IS_DISPATCH=false
-          [ "${{ github.event_name }}" = "workflow_dispatch" ] && IS_DISPATCH=true
+          # is_dispatch distingue "lo pidio una persona" de "lo disparo el
+          # runner de tests": el dispatcher automatico siempre pasa head_sha, un
+          # dispatch a mano no. De eso dependen los gates de deploy y de nightly.
+          IS_DISPATCH=true
+          [ -n "${{ github.event.inputs.head_sha }}" ] && IS_DISPATCH=false
           echo "is_dispatch=$IS_DISPATCH" >> $GITHUB_OUTPUT
           echo "publish_prerelease=${{ github.event.inputs.publish_prerelease }}" >> $GITHUB_OUTPUT
 
-          TARGET_PLATFORM="all"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TARGET_PLATFORM="${{ github.event.inputs.target_platform }}"
-            [ -n "$TARGET_PLATFORM" ] || TARGET_PLATFORM="all"
-          else
-            # Automatic workflow_run builds may select one platform from the
-            # triggering commit message, e.g. "Fix mac signing [build:macos]".
-            # With no directive, preserve the normal multiplatform build.
-            # `[build:none]` skips the export entirely: for commits that touch
-            # nothing the game binaries ship (dashboard, central, docs, CI).
-            COMMIT_MESSAGE=$(git log -1 --format=%B "$HEAD_SHA")
-            COMMIT_TARGET=$(printf '%s\n' "$COMMIT_MESSAGE" | sed -nE \
-              's/.*\[build:(all|none|wayland|linux_x64|linux_x64_wayland|linux_arm64|windows|macos|ios|android|html5)\].*/\1/p' | tail -n 1)
-            [ -z "$COMMIT_TARGET" ] || TARGET_PLATFORM="$COMMIT_TARGET"
-          fi
+          # El gate `[build:X]` del commit ya lo resolvio el dispatcher (y un
+          # `[build:none]` ni dispara este workflow): aca solo llega el target.
+          TARGET_PLATFORM="${{ github.event.inputs.target_platform }}"
+          [ -n "$TARGET_PLATFORM" ] || TARGET_PLATFORM="all"
           # `wayland` es el alias corto de `linux_x64_wayland`, para no rebuildear
           # todo el nightly mientras se itera sobre el runtime FRT/SDL2.
           if [ "$TARGET_PLATFORM" = "wayland" ]; then
@@ -157,19 +138,21 @@ jobs:
             {"platform":"android","os":"ubuntu-latest","preset":"Android","artifact_name":"Odisea-Tech-Demo-Android","container":"barichello/godot-ci:3.6.2"},
             {"platform":"html5","os":"ubuntu-latest","preset":"HTML5 Threads","artifact_name":"Odisea-Tech-Demo-Web"}
           ]'
+          # macos, ios y html5 salen de la matriz y tienen job propio (ver abajo):
+          # asi su consumidor (firma de macOS, TestFlight, deploy web) arranca en
+          # cuanto termina ESA plataforma y no cuando termina la matriz entera.
+          SOLO_JOB='["macos","ios","html5"]'
           case "$TARGET_PLATFORM" in
             all)
-              PLATFORMS=$(printf '%s' "$ALL_PLATFORMS" | jq -c .)
+              PLATFORMS=$(printf '%s' "$ALL_PLATFORMS" | jq -c --argjson solo "$SOLO_JOB" \
+                '[.[] | select(.platform as $p | ($solo | index($p)) == null)]')
               ;;
-            none)
-              # Empty matrix; the export job is also gated off via `if` below, and
-              # every downstream job already requires target_platform == 'all'.
-              PLATFORMS='[]'
-              echo "::notice::[build:none] en el commit: se omite el export multiplataforma."
-              ;;
-            linux_x64|linux_x64_wayland|linux_arm64|windows|macos|ios|android|html5)
+            linux_x64|linux_x64_wayland|linux_arm64|windows|android)
               PLATFORMS=$(printf '%s' "$ALL_PLATFORMS" | jq -c --arg platform "$TARGET_PLATFORM" \
                 '[.[] | select(.platform == $platform)]')
+              ;;
+            macos|ios|html5)
+              PLATFORMS='[]'
               ;;
             *)
               echo "::error::Unknown target platform: $TARGET_PLATFORM"
@@ -244,1462 +227,109 @@ jobs:
           # misma fuente que el versionCode del APK.
           echo "build_seq=${{ github.run_number }}" >> $GITHUB_OUTPUT
 
+  # Un job por plataforma, todos sobre el mismo cuerpo reutilizable
+  # (export_platform.yml). macOS, iOS y html5 salen de la matriz porque tienen un
+  # consumidor propio que antes esperaba a las 8 patas: la firma de App Store
+  # (upload-macos) solo necesita el zip de macOS, y el deploy web solo el html5.
   export:
     needs: prep
-    # `[build:none]` deja la matriz vacía; el gate explícito evita depender de cómo
-    # Actions resuelve un `include: []`.
-    if: needs.prep.outputs.target_platform != 'none'
+    # Sin plataformas en la matriz (un build de solo macos/ios/html5) no hay nada
+    # que correr aca; el gate explicito evita depender de como Actions resuelve
+    # un `include: []`.
+    if: needs.prep.outputs.platforms != '[]'
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.prep.outputs.platforms) }}
-
-    runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.prep.outputs.head_sha }}
-
-      # `secrets` and `matrix` can't be used in a job-level `if`, so gate iOS at
-      # the step level instead: detect missing certs here and skip the iOS-only
-      # steps below when they're absent.
-      - name: Check iOS signing availability
-        id: ios_gate
-        env:
-          IOS_CERT_P12_B64: ${{ secrets.IOS_CERT_P12_B64 }}
-          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
-          IOS_PROVISION_B64: ${{ secrets.IOS_PROVISION_B64 }}
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
-        run: |
-          if [ "${{ matrix.platform }}" = "ios" ] && { [ -z "$IOS_CERT_P12_B64" ] || [ -z "$IOS_CERT_PASSWORD" ] || [ -z "$IOS_PROVISION_B64" ]; }; then
-            echo "iOS signing secrets missing — skipping iOS export."
-            echo "skip_ios=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip_ios=false" >> "$GITHUB_OUTPUT"
-          fi
-          if [ "${{ matrix.platform }}" = "ios" ] && [ "${{ needs.prep.outputs.ref_name }}" = "main" ] && \
-             [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_API_KEY_P8" ]; then
-            echo "upload_testflight=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "upload_testflight=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Ensure Python (Android container)
-        if: matrix.platform == 'android'
-        run: |
-          if command -v python3 >/dev/null 2>&1; then
-            python3 --version
-            exit 0
-          fi
-          SUDO=""
-          if [ "$(id -u)" -ne 0 ]; then
-            if command -v sudo >/dev/null 2>&1; then
-              SUDO="sudo"
-            else
-              echo "::error::python3 not found and package install requires root or sudo"
-              exit 1
-            fi
-          fi
-          if command -v apt-get >/dev/null 2>&1; then
-            $SUDO apt-get update
-            $SUDO apt-get install -y python3
-          elif command -v apk >/dev/null 2>&1; then
-            $SUDO apk add --no-cache python3
-          else
-            echo "::error::python3 not found and no supported package manager is available"
-            exit 1
-          fi
-          python3 --version
-
-      - name: Ensure curl (Android container)
-        if: matrix.platform == 'android'
-        run: |
-          if command -v curl >/dev/null 2>&1; then
-            curl --version | head -1
-            exit 0
-          fi
-          SUDO=""
-          if [ "$(id -u)" -ne 0 ]; then
-            if command -v sudo >/dev/null 2>&1; then
-              SUDO="sudo"
-            else
-              echo "::error::curl not found and package install requires root or sudo"
-              exit 1
-            fi
-          fi
-          if command -v apt-get >/dev/null 2>&1; then
-            $SUDO apt-get update
-            $SUDO apt-get install -y curl
-          elif command -v apk >/dev/null 2>&1; then
-            $SUDO apk add --no-cache curl
-          else
-            echo "::error::curl not found and no supported package manager is available"
-            exit 1
-          fi
-          curl --version | head -1
-
-      - name: Disable editor plugins
-        run: python3 scripts/disable_plugins.py
-
-      - name: Inject build metadata
-        env:
-          VERSION: ${{ needs.prep.outputs.version }}
-        run: |
-          # FD-234: Inject version + hash + date into project.godot
-          sed -i -E "s/^(application\/)?config\/version=\".*\"/config\/version=\"$VERSION\"/" project.godot
-          # Variante de runtime para el updater: el build Wayland (FRT/SDL2) se
-          # identifica con variant=wayland para consultar su propio manifest.
-          VARIANT=""
-          if [ "${{ matrix.platform }}" = "linux_x64_wayland" ]; then
-            VARIANT="wayland"
-          fi
-          python3 scripts/inject_build_meta.py \
-            --token "${{ secrets.ODISEA_CENTRAL_INGEST_TOKEN }}" \
-            --commit "${{ needs.prep.outputs.head_sha }}" \
-            --build-id "${{ needs.prep.outputs.build_seq }}" \
-            --channel "${{ needs.prep.outputs.channel }}" \
-            --version "${{ needs.prep.outputs.version }}" \
-            --official-host "odisea.educa.juegos" \
-            --variant "$VARIANT" \
-            --out-js "build_meta.js" \
-            --out-json "build_meta.json"
-          python3 - <<'PY'
-          import json
-          import sys
-          meta = json.load(open("build_meta.json", "r", encoding="utf-8"))
-          token = str(meta.get("token", "")).strip()
-          if not token or token == "ODISEA_TOKEN_CANARY_MISSING" or "canary" in token.lower():
-              print("::error::ODISEA_CENTRAL_INGEST_TOKEN is missing; refusing to export a canary telemetry build")
-              sys.exit(1)
-          print("Build metadata OK: token present, channel=%s, build_id=%s" % (
-              meta.get("channel", ""),
-              meta.get("build_id", ""),
-          ))
-          PY
-
-      # Cache de templates/config de Godot (igual para todas las plataformas).
-      # OJO: el .import/ NO va acá: cada plataforma genera variantes VRAM distintas
-      # (tras "Limit texture import formats"), así que su cache se hace por separado
-      # y DESPUÉS de ese step, para no cruzar formatos entre plataformas (antes las
-      # 6 plataformas Linux compartían la misma key y podían leer un .import ajeno).
-      - name: Cache Godot
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cache/godot
-            ~/.config/godot
-            ~/.local/share/godot
-            ~/Library/Application Support/Godot/templates
-            .godot/
-          key: ${{ runner.os }}-godot-all-${{ hashFiles('**/project.godot') }}-${{ hashFiles('**/*.import') }}
-          restore-keys: |
-            ${{ runner.os }}-godot-all-${{ hashFiles('**/project.godot') }}-
-            ${{ runner.os }}-godot-all-
-
-      # Todas las plataformas Linux exportan con el binario del fork, no solo Android.
-      # Android nunca pudo usar el exportador stock (el plugin de custom build aborta si
-      # android/.build_version no coincide con la version del binario), pero desktop y
-      # web lo venian usando, con dos consecuencias: el stock no declara las settings
-      # del fork y las BORRA de project.godot al abrir el proyecto, asi que esos builds
-      # salian sin ellas; y el cache .import quedaba hecho por otro motor.
-      - name: Install Godot (Linux, Box3D)
-        if: runner.os == 'Linux'
-        run: |
-          # Sin pipefail: el job de Android corre en el contenedor godot-ci, cuyo
-          # shell por defecto es sh (dash), y ahi "set -o pipefail" es ilegal.
-          set -eu
-          BOX3D_RELEASE="$(cat .github/box3d_release)"
-          echo "BOX3D_RELEASE=$BOX3D_RELEASE" >> "$GITHUB_ENV"
-          GODOT_DIR="$HOME/.local/bin"
-          mkdir -p "$GODOT_DIR"
-          if [ ! -x "$GODOT_DIR/godot-box3d-headless" ]; then
-            curl -fSL -o /tmp/godot-box3d \
-              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.linux.x86_64.headless"
-            chmod +x /tmp/godot-box3d
-            # Keep the binary out of the workspace so import caches and Godot's
-            # filesystem scans never see it.
-            mv /tmp/godot-box3d "$GODOT_DIR/godot-box3d-headless"
-          fi
-          "$GODOT_DIR/godot-box3d-headless" --version
-          echo "GODOT_BIN=$GODOT_DIR/godot-box3d-headless" >> "$GITHUB_ENV"
-
-      - name: Install Godot (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          GODOT_DIR="$HOME/.local/bin"
-          mkdir -p "$GODOT_DIR"
-          echo "$GODOT_DIR" >> "$GITHUB_PATH"
-          if [ ! -x "$GODOT_DIR/Godot.app/Contents/MacOS/Godot" ]; then
-            curl -fSL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_osx.universal.zip"
-            rm -rf /tmp/godot_extract "$GODOT_DIR/Godot.app"
-            mkdir -p /tmp/godot_extract
-            unzip -o /tmp/godot.zip -d /tmp/godot_extract
-            mv /tmp/godot_extract/Godot.app "$GODOT_DIR/Godot.app"
-          fi
-          GODOT_MAC="$GODOT_DIR/Godot.app/Contents/MacOS/Godot"
-          chmod +x "$GODOT_MAC"
-          # Re-sign after extraction so macOS 26 does not terminate this older
-          # Godot bundle with SIGKILL before the process can print an error.
-          codesign --force --deep --sign - "$GODOT_DIR/Godot.app"
-          codesign --verify --deep --strict "$GODOT_DIR/Godot.app"
-          "$GODOT_MAC" --version
-          file "$GODOT_MAC"
-          echo "GODOT_BIN=$GODOT_MAC" >> "$GITHUB_ENV"
-
-      - name: Install Templates
-        if: matrix.platform != 'android'
-        run: |
-          # Linux lo exporta el paso de instalacion; macOS, que no tiene binario del
-          # fork, lo lee del mismo archivo.
-          BOX3D_RELEASE="${BOX3D_RELEASE:-$(cat .github/box3d_release)}"
-          # Godot busca las plantillas en templates/<major.minor.patch.status> de SU
-          # PROPIA version. El exportador de Linux es el binario del fork (3.6.4.rc) y
-          # el de macOS sigue siendo el stock (3.6.2.stable): la carpeta sale del
-          # binario, no se escribe a mano. Con 3.6.2.stable fijo, el exportador del
-          # fork no encontraba ninguna plantilla y el export salia sin artefacto.
-          # Solo el patron de version: el Godot stock de macOS imprime una segunda
-          # linea ("0: <ruta del binario>") y ese salto de linea, colado en TPL_DIR,
-          # rompia el GITHUB_ENV. Tambien cubre versiones sin patch ("3.6.stable").
-          TPL_VERSION="$("$GODOT_BIN" --version 2>/dev/null | grep -Eo '^[0-9]+\.[0-9]+(\.[0-9]+)?\.[a-z0-9]+' | head -n 1)"
-          if [ -z "$TPL_VERSION" ]; then
-            echo "::error::No pude leer la version de $GODOT_BIN:"; "$GODOT_BIN" --version || true
-            exit 1
-          fi
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            TPL_DIR="$HOME/Library/Application Support/Godot/templates/$TPL_VERSION"
-          else
-            TPL_DIR="$HOME/.local/share/godot/templates/$TPL_VERSION"
-          fi
-          echo "Plantillas en: $TPL_DIR"
-
-          case "${{ matrix.platform }}" in
-            macos) REQUIRED_TEMPLATE="$TPL_DIR/osx.zip" ;;
-            ios) REQUIRED_TEMPLATE="$TPL_DIR/iphone.zip" ;;
-            windows) REQUIRED_TEMPLATE="$TPL_DIR/windows_64_release.exe" ;;
-            html5) REQUIRED_TEMPLATE="$TPL_DIR/webassembly_release.zip" ;;
-            linux_arm64) REQUIRED_TEMPLATE="$TPL_DIR/linux_x11_arm64_release" ;;
-            *) REQUIRED_TEMPLATE="$TPL_DIR/linux_x11_64_release" ;;
-          esac
-
-          if [ ! -f "$REQUIRED_TEMPLATE" ]; then
-            mkdir -p "$TPL_DIR"
-            curl -fSL -o /tmp/tpz.zip "https://github.com/godotengine/godot/releases/download/3.6.2-stable/Godot_v3.6.2-stable_export_templates.tpz"
-            rm -rf /tmp/tpz_extract
-            unzip -o /tmp/tpz.zip -d /tmp/tpz_extract/
-            if [ -d /tmp/tpz_extract/templates ]; then
-              cp -a /tmp/tpz_extract/templates/* "$TPL_DIR/"
-            fi
-          fi
-          test -f "$REQUIRED_TEMPLATE" || { echo "::error::Missing export template: $REQUIRED_TEMPLATE"; exit 1; }
-
-          # The web template used to be rebuilt here for one reason: the
-          # DirectionalLightData std140 fix in drivers/gles3/shaders/scene.glsl.
-          # The Box3D builds carry that same patch (godot-box3d-3/patches/), so
-          # the override below covers it and this no longer has to be a separate
-          # artifact. See docs/agents/web_gles3_directional_light.md for what the
-          # symptom looked like: the pilot suit, pipes, tanks and airlocks
-          # disappearing because WebGL2 rejected every draw binding the block.
-
-          # The stock .tpz is installed first so every slot exists, then this
-          # platform's slot is overwritten with the Box3D build -- the same
-          # arrangement the web template used, a stock exporter driving a custom
-          # template, which is why the exporter binary is left alone.
-          case "${{ matrix.platform }}" in
-            linux_x64)   BOX3D_FILES="linux_x11_64_release linux_x11_64_debug" ;;
-            linux_x64_wayland) BOX3D_FILES="" ;;  # rama FRT de abajo
-            linux_arm64) BOX3D_FILES="linux_x11_arm64_release linux_x11_arm64_debug" ;;
-            windows)     BOX3D_FILES="windows_64_release.exe windows_64_debug.exe" ;;
-            macos)       BOX3D_FILES="osx.zip" ;;
-            ios)         BOX3D_FILES="iphone.zip" ;;
-            html5)       BOX3D_FILES="webassembly_threads_release.zip webassembly_threads_debug.zip webassembly_release.zip webassembly_debug.zip" ;;
-            *)           BOX3D_FILES="" ;;
-          esac
-
-          # Slots are published loose alongside the .tpz precisely so a job can
-          # take its own without downloading half a gigabyte of platforms it
-          # will never export to.
-          #
-          # El build wayland x86_64 usa el runtime FRT/SDL2 del fork (desktop GL
-          # 3.3 core), que se publica con su propio nombre y no como slot x11: el
-          # exporter stock de Linux/X11 embebe el .pck sobre el template del slot,
-          # asi que se lo baja renombrado a linux_x11_64_release/debug.
-          if [ "${{ matrix.platform }}" = "linux_x64_wayland" ]; then
-            curl -fSL -o "$TPL_DIR/linux_x11_64_release" \
-              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.frt.x86_64.release"
-            curl -fSL -o "$TPL_DIR/linux_x11_64_debug" \
-              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/godot.box3d.frt.x86_64.debug"
-            chmod +x "$TPL_DIR/linux_x11_64_release" "$TPL_DIR/linux_x11_64_debug" || true
-            echo "Box3D FRT x86_64 (Wayland) instalado como slots Linux: linux_x11_64_release linux_x11_64_debug"
-            echo "BOX3D_ACTIVE=1" >> "$GITHUB_ENV"
-          elif [ -n "$BOX3D_FILES" ]; then
-            for f in $BOX3D_FILES; do
-              curl -fSL -o "$TPL_DIR/$f" \
-                "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/$f"
-              chmod +x "$TPL_DIR/$f" || true
-            done
-            echo "Box3D templates installed: $BOX3D_FILES"
-            echo "BOX3D_ACTIVE=1" >> "$GITHUB_ENV"
-          fi
-
-          echo "TPL_DIR=$TPL_DIR" >> "$GITHUB_ENV"
-
-      # El APK no usa templates descargados: linkea los godot-lib.*.aar. Antes se
-      # commiteaban a mano y al subir el pin del engine quedaban viejos (nightly15:
-      # el APK salio sin Box3DCompoundShape, el script de los bodies compound no
-      # parseaba y los chunks de scaffold quedaban sin colision en device). Ahora el
-      # CI baja el android_source.zip de la release pineada y usa SUS libs, igual que
-      # los demas targets usan sus templates. Los aar commiteados quedan como
-      # fallback para builds locales de Android.
-      - name: Cache Android Box3D source
-        if: matrix.platform == 'android'
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/odisea-box3d
-          # Clave con el hash del pin y SIN restore-keys: subir de release tiene que
-          # bajar el zip nuevo, no restaurar el anterior (misma leccion que el cache
-          # del binario de tests).
-          key: ${{ runner.os }}-box3d-android-source-${{ hashFiles('.github/box3d_release') }}
-
-      - name: Refresh the Android engine libs from the pinned Box3D release
-        if: matrix.platform == 'android'
-        run: |
-          set -e
-          BOX3D_RELEASE="$(cat .github/box3d_release)"
-          ZIP="$HOME/.cache/odisea-box3d/$BOX3D_RELEASE/android_source.zip"
-          if [ ! -f "$ZIP" ]; then
-            mkdir -p "$(dirname "$ZIP")"
-            curl -fSL -o "$ZIP.part" \
-              "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE}/android_source.zip"
-            mv "$ZIP.part" "$ZIP"
-          fi
-          python3 - "$ZIP" "$BOX3D_RELEASE" <<'PY'
-          import os
-          import shutil
-          import sys
-          import zipfile
-
-          zip_path, release = sys.argv[1], sys.argv[2]
-          with zipfile.ZipFile(zip_path) as z:
-              names = z.namelist()
-              for kind in ("debug", "release"):
-                  member = "libs/%s/godot-lib.%s.aar" % (kind, kind)
-                  if member not in names:
-                      sys.exit("::error::%s no trae %s" % (release, member))
-                  dest = "android/build/libs/%s/godot-lib.%s.aar" % (kind, kind)
-                  with z.open(member) as src, open(dest, "wb") as out:
-                      shutil.copyfileobj(src, out)
-                  # Canary: el engine del APK tiene que traer el modulo fisico que el
-                  # juego selecciona (si no, cae a Bullet en silencio).
-                  with zipfile.ZipFile(dest) as aar:
-                      data = aar.read("jni/arm64-v8a/libgodot_android.so")
-                  if b"Box3DPhysicsServer" not in data:
-                      sys.exit("::error::%s sin modulo Box3D en %s" % (dest, release))
-                  print("Android %s <- %s (%d bytes)" % (kind, member, os.path.getsize(dest)))
-              build_version = open("android/.build_version").read().strip()
-          print("Android libs de %s listas (build_version=%s)" % (release, build_version))
-          PY
-
-      # Android runs Godot's Custom Build: flipping BOX3D_ACTIVE makes the backend
-      # selection below apply to the exported pck too, matching the engine above.
-      - name: Select the Box3D backend for Android
-        if: matrix.platform == 'android'
-        run: echo "BOX3D_ACTIVE=1" >> "$GITHUB_ENV"
-
-      # Only where a Box3D template was installed. An exported game reads the
-      # backend from project.godot, and a stock template falls back to Bullet in
-      # silence. Written at build time instead of committing it, so the presets
-      # stay honest about which binaries can run Box3D.
-      - name: Select the Box3D physics backend
-        if: env.BOX3D_ACTIVE == '1'
-        run: |
-          # set -eu, NO -o pipefail: desde que Android entra por aca, este paso
-          # corre dentro del contenedor del matrix, que no trae bash. Actions cae
-          # entonces a "sh -e {0}" y dash aborta con "Illegal option -o pipefail".
-          # No hay ninguna tuberia en estas dos lineas, asi que no se pierde nada.
-          set -eu
-          printf '\n[physics]\n\n3d/physics_engine="Box3D"\n' >> project.godot
-          tail -4 project.godot
-
-      # Apple exige MinimumOSVersion >= 15.0 para todas las apps iOS a partir de
-      # la primavera de 2027. Godot 3.6 no expone la version minima como opcion de
-      # export: el iphone.zip trae IPHONEOS_DEPLOYMENT_TARGET = 12.0 hardcodeado en
-      # godot_ios.xcodeproj/project.pbxproj, y de ahi xcodebuild deriva la clave
-      # MinimumOSVersion del Info.plist del IPA. Reescribimos esa entrada del zip
-      # dejando el resto byte a byte igual (permisos, timestamps, compresion).
-      # Es idempotente, asi que un TPL_DIR cacheado o ya parcheado no molesta.
-      - name: Patch iOS minimum OS version
-        if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
-        env:
-          MIN_IOS_VERSION: "15.0"
-        run: |
-          set -euo pipefail
-          IOS_TEMPLATE="$TPL_DIR/iphone.zip" python3 - <<'PY'
-          import os
-          import re
-          import shutil
-          import zipfile
-
-          template = os.environ["IOS_TEMPLATE"]
-          target = os.environ["MIN_IOS_VERSION"]
-          member = "godot_ios.xcodeproj/project.pbxproj"
-          patched_path = template + ".patched"
-
-          with zipfile.ZipFile(template) as src:
-              if member not in src.namelist():
-                  raise SystemExit("iphone.zip has no " + member)
-              pbxproj = src.read(member).decode("utf-8")
-              # Dos formas de plantilla. La stock de 3.6.2 traia el valor ya
-              # escrito; la de Box3D (3.6.4-rc) trae el placeholder
-              # $os_deployment_target, que el exportador sustituye al exportar.
-              # Sustituirlo aca fija el minimo antes de que el exportador elija.
-              setting = "IPHONEOS_DEPLOYMENT_TARGET = %s;" % target
-              hits = pbxproj.count("IPHONEOS_DEPLOYMENT_TARGET = ")
-              placeholders = pbxproj.count("$os_deployment_target")
-              if hits:
-                  patched = re.sub(r"IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;", setting, pbxproj)
-                  how = "%d valores reescritos" % hits
-              elif placeholders:
-                  patched = pbxproj.replace("$os_deployment_target", setting)
-                  how = "%d placeholders sustituidos" % placeholders
-              else:
-                  raise SystemExit(
-                      "Ni IPHONEOS_DEPLOYMENT_TARGET ni $os_deployment_target en " + member)
-              with zipfile.ZipFile(patched_path, "w") as dst:
-                  for info in src.infolist():
-                      data = patched.encode("utf-8") if info.filename == member else src.read(info)
-                      dst.writestr(info, data, compress_type=info.compress_type)
-
-          shutil.move(patched_path, template)
-          print("iOS deployment target set to %s (%s)" % (target, how))
-          PY
-
-      - name: iOS Certificates Setup
-        if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
-        uses: apple-actions/import-codesign-certs@v7
-        with:
-          p12-file-base64: ${{ secrets.IOS_CERT_P12_B64 }}
-          p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
-
-      - name: iOS Provisioning Setup
-        if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
-        env:
-          IOS_PROVISION_B64: ${{ secrets.IOS_PROVISION_B64 }}
-          IOS_MARKETING_VERSION: ${{ needs.prep.outputs.base_version }}
-          IOS_BUILD_NUMBER: ${{ needs.prep.outputs.build_seq }}
-        run: |
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          PROFILE="$HOME/Library/MobileDevice/Provisioning Profiles/odisea.mobileprovision"
-          echo "$IOS_PROVISION_B64" | base64 --decode > "$PROFILE"
-
-          security cms -D -i "$PROFILE" > /tmp/odisea-profile.plist
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' /tmp/odisea-profile.plist)
-          TEAM_ID=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' /tmp/odisea-profile.plist)
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' /tmp/odisea-profile.plist)
-          test -n "$PROFILE_UUID" && test -n "$TEAM_ID"
-          mv "$PROFILE" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
-
-          IOS_TEAM_ID="$TEAM_ID" IOS_PROFILE_UUID="$PROFILE_UUID" python3 - <<'PY'
-          import os
-          import re
-
-          path = "export_presets.cfg"
-          lines = open(path, encoding="utf-8").read().splitlines()
-          start = lines.index("[preset.7.options]")
-          end = next((i for i in range(start + 1, len(lines))
-                      if re.match(r"^\[preset\.\d+", lines[i])), len(lines))
-          values = {
-              "application/app_store_team_id": os.environ["IOS_TEAM_ID"],
-              "application/identifier": "juegos.educa.odisea",
-              "application/provisioning_profile_uuid_release": os.environ["IOS_PROFILE_UUID"],
-              "application/code_sign_identity_release": "Apple Distribution",
-              "application/export_method_release": "0",
-              "application/short_version": os.environ["IOS_MARKETING_VERSION"],
-              "application/version": os.environ["IOS_BUILD_NUMBER"],
-          }
-          found = set()
-          for i in range(start + 1, end):
-              key = lines[i].split("=", 1)[0].strip()
-              if key in values:
-                  value = values[key]
-                  lines[i] = f'{key} = {value}' if key == "application/export_method_release" else f'{key} = "{value}"'
-                  found.add(key)
-          additions = []
-          for key, value in values.items():
-              if key not in found:
-                  additions.append(f'{key} = {value}' if key == "application/export_method_release" else f'{key} = "{value}"')
-          lines[end:end] = additions
-          open(path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
-          PY
-
-          echo "Installed provisioning profile: $PROFILE_NAME ($PROFILE_UUID)"
-          echo "Configured Apple Team ID: $TEAM_ID"
-          echo "Configured iOS version: $IOS_MARKETING_VERSION ($IOS_BUILD_NUMBER)"
-
-      - name: Android Keystore Setup
-        if: matrix.platform == 'android'
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          set -e
-          mkdir -p android
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/update.keystore
-            echo "Using persistent Android update signing certificate."
-          else
-            echo "::error::ANDROID_KEYSTORE_BASE64 is required for installable Android updates. A new certificate would make existing installs impossible to update."
-            exit 1
-          fi
-          # Godot's debug preset expects these fixed credentials for the intermediate
-          # export. The published APK is re-signed below with update.keystore.
-          rm -f android/debug.keystore
-          keytool -genkey -v -keystore android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-
-      - name: Android Templates Setup
-        if: matrix.platform == 'android'
-        run: |
-          set -e
-          DEST_NEW="$HOME/.local/share/godot/export_templates/3.6.2.stable"
-          DEST_OLD="$HOME/.local/share/godot/templates/3.6.2.stable"
-          mkdir -p "$DEST_NEW" "$DEST_OLD"
-          SRC=""
-          for c in /root/.local/share/godot/export_templates/3.6.2.stable \
-                   /root/.local/share/godot/templates/3.6.2.stable; do
-            [ -d "$c" ] && SRC="$c" && break
-          done
-          if [ -z "$SRC" ]; then echo "::error::No export templates found"; exit 1; fi
-          cp -a "$SRC"/. "$DEST_NEW"/
-          cp -a "$SRC"/. "$DEST_OLD"/
-
-      - name: Android SDK Setup
-        if: matrix.platform == 'android'
-        run: |
-          set -e
-          echo "=== Java version ==="
-          java -version 2>&1 || true
-          javac -version 2>&1 || true
-          echo "JAVA_HOME=${JAVA_HOME:-not set}"
-
-          echo "=== Android SDK components ==="
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls "$ANDROID_HOME/ndk" 2>/dev/null || echo "No NDK installed"
-          ls "$ANDROID_HOME/build-tools" 2>/dev/null || echo "No build-tools"
-          ls "$ANDROID_HOME/platforms" 2>/dev/null || echo "No platforms"
-
-          # Install missing SDK components required by android/build/config.gradle:
-          #   ndkVersion 29.0.14206865, buildTools 36.1.0, compileSdk/targetSdk 36
-          # (android/build now carries the Box3D 3.6.4.rc template,
-          # which moved past the 3.6.2 stock values.)
-          SDKMANAGER=""
-          for p in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-                   "$ANDROID_HOME/tools/bin/sdkmanager"; do
-            [ -f "$p" ] && SDKMANAGER="$p" && break
-          done
-          if [ -n "$SDKMANAGER" ]; then
-            echo "Using sdkmanager: $SDKMANAGER"
-            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-            # Install only what's missing (idempotent)
-            "$SDKMANAGER" "ndk;29.0.14206865" "build-tools;36.1.0" "platforms;android-36" 2>&1 | tail -5 || true
-          else
-            echo "::warning::sdkmanager not found; skipping SDK component install"
-          fi
-          echo "=== NDK after setup ==="
-          ls "$ANDROID_HOME/ndk" 2>/dev/null || true
-
-      - name: Android Editor Settings
-        if: matrix.platform == 'android'
-        run: |
-          # config.gradle requires Java 17; search for it explicitly before falling back.
-          # Checking java-17 BEFORE java-11 is critical: if both are installed the old
-          # logic accidentally handed Java 11 to Gradle, which then failed validateJavaVersion.
-          JDK_PATH=""
-          for p in /usr/lib/jvm/java-17-openjdk-amd64 \
-                   /usr/lib/jvm/java-17-openjdk \
-                   /usr/lib/jvm/temurin-17 \
-                   /usr/local/lib/jvm/openjdk17; do
-            [ -d "$p" ] && JDK_PATH="$p" && break
-          done
-          if [ -z "$JDK_PATH" ]; then
-            JDK_PATH="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
-          fi
-          echo "Using JDK path: $JDK_PATH"
-          "$JDK_PATH/bin/java" -version 2>&1 || true
-          mkdir -p "$HOME/.config/godot"
-          {
-            echo '[gd_resource type="EditorSettings" format=2]'
-            echo
-            echo '[resource]'
-            echo "export/android/android_sdk_path = \"$ANDROID_HOME\""
-            echo "export/android/java_sdk_path = \"$JDK_PATH\""
-          } > "$HOME/.config/godot/editor_settings-3.tres"
-
-      - name: Android Version Stamp
-        if: matrix.platform == 'android'
-        env:
-          ANDROID_VERSION_CODE: ${{ needs.prep.outputs.android_version_code }}
-          ANDROID_VERSION_NAME: ${{ needs.prep.outputs.android_version_name }}
-        run: |
-          set -e
-          # Stamp a monotonic versionCode (+ human versionName) into the Android
-          # preset so the built APK installs over a previous one without an
-          # uninstall. These keys live only in the Android preset block.
-          echo "Android versionCode=$ANDROID_VERSION_CODE versionName=$ANDROID_VERSION_NAME"
-          # Godot 3 writes these keys without spaces around '='. The previous
-          # `version/code = ` pattern never matched, so the APK kept 999999999.
-          python3 - "$ANDROID_VERSION_CODE" "$ANDROID_VERSION_NAME" <<'PY'
-          import re, sys
-          code, name = sys.argv[1], sys.argv[2]
-          path = "export_presets.cfg"
-          text = open(path).read()
-          text2, n_code = re.subn(r'(?m)^version/code\s*=\s*.*$', 'version/code=%s' % code, text, count=1)
-          text2, n_name = re.subn(r'(?m)^version/name\s*=\s*.*$', 'version/name="%s"' % name.replace('\\', '\\\\').replace('"', '\\"'), text2, count=1)
-          if n_code != 1 or n_name != 1:
-              sys.stderr.write("::error::Failed to stamp Android version (code=%s name=%s)\n" % (n_code, n_name))
-              sys.exit(1)
-          open(path, 'w').write(text2)
-          PY
-          grep -E '^version/(code|name)=' export_presets.cfg
-          # Godot 3.6.2 can mis-detect the checked-in custom build during its
-          # headless filesystem scan. In that state, explicit SDK overrides make
-          # preset validation abort before Gradle starts. The Android template's
-          # config.gradle already supplies these values, so omit only the overrides.
-          sed -i -E '/^custom_build\/(min_sdk|target_sdk)[[:space:]]*=/d' export_presets.cfg
-
-      # El Gradle wrapper y su distribución se cachean en los pasos
-      # "Cache Gradle wrapper" y "Pre-cache Gradle distribution" más abajo,
-      # justo antes de "Android Gradle Diagnostic". El cuello principal del
-      # export de Android sigue siendo el IMPORT de Godot — eso se arregla con
-      # "Stable project hash for import cache" más abajo.
-
-      - name: Limit texture import formats per platform
-        # En Python: portable entre Linux (las 6 plataformas) y macOS (iOS corre en
-        # macos-latest, donde BSD sed difiere de GNU sed y rompía el script anterior).
-        run: |
-          python3 - "${{ matrix.platform }}" <<'PY'
-          import sys, re
-          platform = sys.argv[1]
-
-          # El step de import (godot --editor --quit) genera una variante VRAM por
-          # cada formato habilitado, para CADA textura. Generar formatos que la
-          # plataforma no usa hacía el import ~14min (vs ~1-3min con lo justo).
-          # El proyecto es GLES3: desktop usa S3TC; móvil/web usa ETC2; iOS conserva
-          # PVRTC. ETC1 solo corresponde al fallback GLES2, que no se usa en ningun
-          # lado: el paquete PortMaster (el .pck de linux_arm64) tambien arranca
-          # siempre en GLES3 (--video-driver GLES3 en portmaster/Odisea.sh).
-          # True = importar. s3tc TIENE que estar en el dict: lo que no se nombra aca no
-          # se escribe en project.godot y el motor lo deja en su default (true), asi que
-          # el pase de import del step Export lo regenera y limit_vram_import_formats.py
-          # no puede quitarlo. Ninguna GPU ARM soporta S3TC: en linux_arm64 eran 100 MB
-          # de .stex que el handheld nunca abre (medido en el .pck del nightly).
-          fmts = {
-              "linux_x64":   dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
-              "linux_x64_wayland": dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
-              "windows":     dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
-              "macos":       dict(s3tc=True,  bptc=False, etc=False, etc2=False, pvrtc=False),
-              "linux_arm64": dict(s3tc=False, bptc=False, etc=False, etc2=True,  pvrtc=False),
-              "android":     dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=False),
-              "html5":       dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=False),
-              "ios":         dict(s3tc=True,  bptc=False, etc=False, etc2=True,  pvrtc=True),
-          }[platform]
-
-          # 1) project.godot: ajustar vram_compression/import_* dentro de [rendering].
-          path = "project.godot"
-          lines = open(path, encoding="utf-8").read().splitlines()
-          out, in_rendering, seen = [], False, set()
-          def kv(k, v):
-              return f"vram_compression/import_{k}={'true' if v else 'false'}"
-          for line in lines:
-              if re.match(r"^\[.*\]\s*$", line):
-                  # Al salir de [rendering], agregar las claves que faltaban.
-                  if in_rendering:
-                      for k, v in fmts.items():
-                          if k not in seen:
-                              out.append(kv(k, v))
-                  in_rendering = line.strip() == "[rendering]"
-                  out.append(line)
-                  continue
-              m = re.match(r"^vram_compression/import_(\w+)=", line)
-              if in_rendering and m and m.group(1) in fmts:
-                  k = m.group(1)
-                  out.append(kv(k, fmts[k]))
-                  seen.add(k)
-              else:
-                  out.append(line)
-          if in_rendering:  # [rendering] era la última sección
-              for k, v in fmts.items():
-                  if k not in seen:
-                      out.append(kv(k, v))
-          open(path, "w", encoding="utf-8").write("\n".join(out) + "\n")
-          print(f"VRAM import formats for {platform}:")
-          for ln in out:
-              if ln.startswith("vram_compression/"):
-                  print("  " + ln)
-
-          # 2) Si BPTC no se importa, el preset desktop no debe pedir exportarlo.
-          preset_for = {"linux_x64": "1", "windows": "5", "macos": "6"}
-          if not fmts["bptc"] and platform in preset_for:
-              idx = preset_for[platform]
-              cfg = "export_presets.cfg"
-              txt = open(cfg, encoding="utf-8").read().splitlines()
-              res, in_block = [], False
-              for line in txt:
-                  if re.match(r"^\[preset\.\d+\.options\]\s*$", line):
-                      in_block = (line.strip() == f"[preset.{idx}.options]")
-                  elif re.match(r"^\[preset\.", line):
-                      in_block = False
-                  if in_block and line.strip() == "texture_format/bptc = true":
-                      line = "texture_format/bptc = false"
-                  res.append(line)
-              open(cfg, "w", encoding="utf-8").write("\n".join(res) + "\n")
-              print(f"Disabled texture_format/bptc in preset.{idx} for {platform}")
-          PY
-
-      # Cache del .import/ POR PLATAFORMA, después de fijar los formatos VRAM.
-      # La key incluye matrix.platform y el hash del project.godot ya modificado,
-      # así cada plataforma reusa su propio .import sin cruzarse con otra (linux=S3TC,
-      # android=ETC2, ...). En el primer run de cada plataforma es MISS y el import
-      # genera; a partir de ahí, cache hit -> import casi instantáneo.
-      # Hash ESTABLE para la key del cache .import: incluye solamente los formatos
-      # VRAM que cambian los artefactos por plataforma. Cambios de gameplay, input,
-      # MSAA o vertex lighting no deben invalidar todas las texturas. La key también
-      # incluye los FUENTES importables: el contenido
-      # de un .import no cambia cuando cambia su PNG/JPG/GLTF, y Actions no actualiza
-      # un cache que ya existe bajo la misma key. Sin este hash, cada run restauraba
-      # para siempre el artefacto viejo y Godot repetía esos imports.
-      - name: Stable project hash for import cache
-        id: pghash
-        run: |
-          # Android imports with the Box3D 3.6.4 binary (Install Godot
-          # (Android, Box3D)); every other platform keeps the stock 3.6.2.
-          if [ "${{ matrix.platform }}" = "android" ]; then
-            GODOT_KEY="godot=3.6.4.rc.box3d"
-          else
-            GODOT_KEY="godot=3.6.2"
-          fi
-          H=$({
-            echo "$GODOT_KEY"
-            grep -E '^vram_compression/import_(s3tc|bptc|etc|etc2|pvrtc)=' project.godot | sort
-          } | sha256sum | cut -d' ' -f1)
-          echo "hash=$H" >> "$GITHUB_OUTPUT"
-
-      - name: Cache .import (per platform)
-        uses: actions/cache@v6
-        with:
-          # Godot reescribe también estos sidecars con imported_formats por plataforma.
-          # Restaurar solo .import/ mezcla binarios ETC con manifests S3TC del checkout
-          # y fuerza una reimportación completa aunque la caché haya sido un hit exacto.
-          path: |
-            .import/
-            **/*.png.import
-            **/*.jpg.import
-            **/*.jpeg.import
-            **/*.tga.import
-            **/*.svg.import
-          key: ${{ runner.os }}-import-v2-${{ matrix.platform }}-${{ steps.pghash.outputs.hash }}-${{ hashFiles('**/*.import', '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.tga', '**/*.svg', '**/*.gltf', '**/*.glb', '**/*.dae', '**/*.obj', '**/*.mtl', '**/*.ogg', '**/*.mp3', '**/*.wav', '**/*.ttf', '**/*.otf') }}
-
-      # The exporter packages every texture destination named by a cached .import
-      # manifest. Normalize this disposable CI checkout so stale ETC/PVRTC outputs
-      # from another platform cannot inflate a desktop PCK.
-      # El cache de .import/ trae la variante "de escritorio" de cada textura en BPTC
-      # (el proyecto importa con import_bptc=true). Ningun navegador soporta BPTC y Godot
-      # elige ese slot en cuanto el driver anuncia S3TC, que es lo que hace WebGL2: la
-      # textura no sube ("image->is_compressed()" en rasterizer_storage_gles3.cpp) y el
-      # material se dibuja sin ella. El trim de formatos de arriba ya puso bptc=False para
-      # html5, pero Godot no reimporta una textura cuyo fuente no cambio; hay que borrarle
-      # el artefacto para que la regenere como DXT. Solo borra lo que de verdad es BPTC,
-      # asi que en cuanto el cache tiene DXT esto queda en no-op.
-      - name: Drop BPTC texture artifacts (web needs DXT)
-        if: matrix.platform == 'html5'
-        run: python3 scripts/drop_bptc_web_artifacts.py
-
-      - name: Limit cached VRAM texture variants
-        run: python3 scripts/limit_vram_import_formats.py "${{ matrix.platform }}"
-
-      # Compila la lib GDNative de bspatch (delta binario del update) para la plataforma
-      # actual ANTES del export: el exporter de Godot copia la .so/.dll junto al binario
-      # solo si existe en disco en la ruta del .gdnlib. Sin lib, el cliente cae a full
-      # (is_delta_eligible -> false), así que las plataformas sin toolchain aquí siguen
-      # funcionando, solo sin deltas.
-      - name: Build native bspatch lib
-        if: matrix.platform == 'linux_x64' || matrix.platform == 'linux_arm64' || matrix.platform == 'windows'
-        run: |
-          set -e
-          # godot-headers NO está en el repo (gitignored, 5.6M de headers externos). Lo
-          # bajamos del tag godot-3.6-stable. Usamos el tarball (no requiere git ni clonar
-          # el .git interno). Layout: godot-headers-godot-3.6-stable/ -> aplanar al dir.
-          HDR_DIR="native/godot-headers"
-          if [ ! -f "$HDR_DIR/gdnative_api_struct.gen.h" ]; then
-            echo "Fetching godot-headers (godot-3.6-stable)…"
-            mkdir -p "$HDR_DIR"
-            HDR_ARCHIVE="$(mktemp)"
-            curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 20 \
-              -o "$HDR_ARCHIVE" "https://github.com/godotengine/godot-headers/archive/refs/tags/godot-3.6-stable.tar.gz"
-            tar -xzf "$HDR_ARCHIVE" -C "$HDR_DIR" --strip-components=1
-            rm -f "$HDR_ARCHIVE"
-          fi
-          test -f "$HDR_DIR/gdnative_api_struct.gen.h" || { echo "::error::godot-headers missing"; exit 1; }
-
-          # apt-get necesita root; en ubuntu-latest (no container) usar sudo.
-          SUDO=""
-          if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
-            SUDO="sudo"
-          fi
-
-          SRC="native/bsdiff/odisea_bspatch_gdnative.c native/bsdiff/bspatch.c"
-          INC="-I native/godot-headers"
-          case "${{ matrix.platform }}" in
-            linux_x64)
-              OUTDIR="core_v2/update/native/bin/linux_x64"
-              mkdir -p "$OUTDIR"
-              gcc -O2 -fPIC -shared $INC $SRC -o "$OUTDIR/libodisea_bspatch.so"
-              ;;
-            linux_arm64)
-              OUTDIR="core_v2/update/native/bin/linux_arm64"
-              mkdir -p "$OUTDIR"
-              # cross-compiler para arm64 (el .gdnlib referencia esta ruta para X11.arm64)
-              $SUDO apt-get update && $SUDO apt-get install -y gcc-aarch64-linux-gnu
-              aarch64-linux-gnu-gcc -O2 -fPIC -shared $INC $SRC -o "$OUTDIR/libodisea_bspatch.so"
-              ;;
-            windows)
-              OUTDIR="core_v2/update/native/bin/windows"
-              mkdir -p "$OUTDIR"
-              $SUDO apt-get update && $SUDO apt-get install -y gcc-mingw-w64-x86-64
-              x86_64-w64-mingw32-gcc -O2 -shared $INC $SRC -o "$OUTDIR/libodisea_bspatch.dll" -static-libgcc
-              ;;
-          esac
-          ls -la "$OUTDIR"
-
-      - name: Cache Gradle wrapper
-        if: matrix.platform == 'android'
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.gradle/wrapper/dists
-            ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-8.11-${{ hashFiles('android/build/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-8.11-
-
-      - name: Pre-cache Gradle distribution
-        if: matrix.platform == 'android'
-        run: |
-          GRADLE_HOME="$HOME/.gradle"
-          mkdir -p "$GRADLE_HOME/wrapper/dists"
-          GRADLE_DIST_DIR="$GRADLE_HOME/wrapper/dists/gradle-8.11.1-bin"
-          # Skip download if already extracted (cache hit or previous step)
-          if find "$GRADLE_DIST_DIR" -name "gradle-8.11.1" -type d 2>/dev/null | grep -q .; then
-            echo "Gradle 8.11.1 already extracted, skipping download."
-          else
-            GRADLE_ZIP="/tmp/gradle-8.11.1-bin.zip"
-            if [ ! -f "$GRADLE_ZIP" ]; then
-              echo "Downloading Gradle 8.11.1..."
-              for i in 1 2 3; do
-                curl -fSL -o "$GRADLE_ZIP" \
-                  "https://services.gradle.org/distributions/gradle-8.11.1-bin.zip" \
-                  --max-time 300 && break
-                echo "Attempt $i failed, retrying in 5s..."
-                sleep 5
-              done
-            fi
-            echo "Extracting Gradle to $GRADLE_HOME..."
-            unzip -q "$GRADLE_ZIP" -d "$GRADLE_HOME"
-            echo "Gradle extracted: $(du -sh "$GRADLE_HOME/gradle-8.11.1" 2>/dev/null || echo 'unknown')"
-          fi
-
-      - name: Android Gradle Diagnostic
-        if: matrix.platform == 'android'
-        run: |
-          # Run Gradle directly to capture any build errors before Godot does.
-          # Godot does NOT forward Gradle's stdout/stderr, so failures are silent.
-          # This step runs the same tasks Godot would run (assembleDebug) and shows
-          # the full error if Gradle fails. NOT using || true so failures are visible.
-          set -e
-          cd android/build
-          echo "=== Gradle wrapper version ==="
-          ./gradlew --version 2>&1
-          echo "=== Java env ==="
-          echo "JAVA_HOME=${JAVA_HOME:-not set}"
-          java -version 2>&1 || true
-          echo "=== Gradle assembleDebug (must succeed) ==="
-          ./gradlew assembleDebug \
-            -PANDROID_HOME="$ANDROID_HOME" \
-            -Pexport_version_code="${{ needs.prep.outputs.android_version_code }}" \
-            -Pexport_version_name="${{ needs.prep.outputs.android_version_name }}" \
-            --stacktrace \
-            2>&1
-          echo "=== APKs produced by assembleDebug ==="
-          find . -name "*.apk" 2>/dev/null | head -20 || echo "None"
-          cd "$GITHUB_WORKSPACE"
-
-      - name: Export
-        if: steps.ios_gate.outputs.skip_ios != 'true'
-        run: |
-          # Use 'godot' if 'godot3-server' is not set (container environment)
-          G_BIN="${GODOT_BIN:-godot}"
-
-          # android runs this step inside a container (barichello/godot-ci), which has
-          # its own git with no safe.directory entry for the checked-out workspace.
-          # actions/checkout only configures that for the HOST's git, not the
-          # container's, so any git call from here (including the ones
-          # check_import_artifacts_present.py shells out to below) fails with "detected
-          # dubious ownership" (exit 128) -- discovered the hard way when that made the
-          # verify step below crash on every attempt, burning all 3 retries x 1200s
-          # regardless of whether the import had actually finished (run 33008546386).
-          # No-op on the other platforms' bare runners, where it's already trusted.
-          git config --global --add safe.directory "$(pwd)"
-
-          # Complete platform-specific imports before packaging. The restored
-          # .import cache can be partial or come from an older commit, and a
-          # single texture changing ANYWHERE invalidates this platform's whole
-          # cache (see "Cache .import (per platform)" above), forcing a full
-          # reimport. `--quit` kills EditorFileSystem's async import thread
-          # after the first main-loop iteration (per --help) — before it
-          # finishes writing a new/large asset's artifact — so a single quiet
-          # pass can silently leave assets unimported (godot exits 0 either
-          # way, which is why this used to be `|| true`). scripts/godot_import_smoke.sh
-          # hit exactly this and works around it by dropping --quit and giving
-          # the async import real time.
-          #
-          # Without --quit godot never exits on its own -- it just sits there as an
-          # idle editor once done, so waiting for a fixed timeout means EVERY run pays
-          # the full timeout even on a cache hit with nothing to import (measured: a
-          # cold Android/ETC2 reimport that actually finished in well under 1200s still
-          # cost the full 1200s, run 33013255678, because nothing polled for "done" —
-          # it just waited to be killed). Poll the artifact check instead and stop as
-          # soon as it's satisfied; IMPORT_TIMEOUT_SEC is only the safety-net ceiling
-          # for a genuinely stuck import, not the expected duration.
-          IMPORT_TIMEOUT_SEC=1200
-          IMPORT_POLL_SEC=20
-          IMPORT_SETTLE_SEC=15
-          IMPORT_MAX_ATTEMPTS=3
-          import_clean=0
-          for attempt in $(seq 1 "$IMPORT_MAX_ATTEMPTS"); do
-            echo "=== Import attempt ${attempt}/${IMPORT_MAX_ATTEMPTS} (polling every ${IMPORT_POLL_SEC}s, ceiling ${IMPORT_TIMEOUT_SEC}s) ==="
-            "$G_BIN" -e --headless --no-window --audio-driver Dummy &
-            godot_pid=$!
-            waited=0
-            attempt_clean=0
-            while kill -0 "$godot_pid" 2>/dev/null; do
-              if python3 scripts/check_import_artifacts_present.py --mode all --strict --fail-on-missing-textures >/dev/null 2>&1; then
-                echo "Artifacts complete after ~${waited}s; letting in-flight writes settle ${IMPORT_SETTLE_SEC}s before stopping the import early."
-                sleep "$IMPORT_SETTLE_SEC"
-                attempt_clean=1
-                break
-              fi
-              if [ "$waited" -ge "$IMPORT_TIMEOUT_SEC" ]; then
-                echo "Still incomplete after ${IMPORT_TIMEOUT_SEC}s; giving up on this attempt."
-                break
-              fi
-              sleep "$IMPORT_POLL_SEC"
-              waited=$((waited + IMPORT_POLL_SEC))
-            done
-            if kill -0 "$godot_pid" 2>/dev/null; then
-              kill "$godot_pid" 2>/dev/null || true
-            fi
-            wait "$godot_pid" 2>/dev/null || true
-            if [ "$attempt_clean" -eq 1 ]; then
-              import_clean=1
-              break
-            fi
-            # The process may also have exited on its own (unexpected without --quit,
-            # but don't loop forever on it either way) -- re-check once before retrying.
-            if python3 scripts/check_import_artifacts_present.py --mode all --strict --fail-on-missing-textures; then
-              import_clean=1
-              break
-            fi
-            echo "Import pass ${attempt} left artifacts missing; retrying with a warmed cache..."
-          done
-
-          if [ "$import_clean" -ne 1 ]; then
-            echo "::error::Import never finished after ${IMPORT_MAX_ATTEMPTS} attempts — some assets still have no artifact on disk (see [import-artifacts] list above). Shipping now would silently omit them from the build."
-            exit 1
-          fi
-
-          case "${{ matrix.platform }}" in
-            linux_x64) OUT="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
-            linux_x64_wayland) OUT="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
-            linux_arm64) OUT="build/linux_arm64/Odisea-Tech-Demo.arm64" ;;
-            windows) OUT="build/windows/Odisea-Tech-Demo.exe" ;;
-            macos) OUT="build/macos/Odisea-Tech-Demo.zip" ;;
-            ios) OUT="build/ios/Odisea-Tech-Demo.ipa" ;;
-            android) OUT="build/android/Odisea-Tech-Demo.apk" ;;
-            html5) OUT="build/html5/index.html" ;;
-          esac
-
-          mkdir -p $(dirname "$OUT")
-
-          # Godot 3.6 headless --export returns a non-zero exit even on benign
-          # import warnings, so don't let it abort the step; verify success by
-          # checking the artifact was actually written instead.
-          # Use --export-debug for Android
-          if [ "${{ matrix.platform }}" = "android" ]; then
-            echo "=== Godot binary: $G_BIN ==="
-            "$G_BIN" --version 2>&1 || true
-            echo "=== Running Godot --export-debug Android ==="
-            # Capture full output via tee so we can see everything (not just tail)
-            "$G_BIN" --no-window --export-debug "${{ matrix.preset }}" "$OUT" --headless 2>&1 | tee /tmp/godot_android.log || true
-            echo "=== build/android/ after Godot export ==="
-            ls -la "$(dirname "$OUT")/" 2>/dev/null || echo "Directory absent"
-            # If APK wasn't placed at expected location, run Gradle explicitly with
-            # absolute paths. Godot may pass relative paths to Gradle which causes
-            # copyAndRenameDebugApk to copy to the wrong directory.
-            if [ ! -f "$OUT" ]; then
-              echo "=== APK missing after Godot export — running Gradle manually ==="
-              echo "=== android/build/assets/ contents ==="
-              ls android/build/assets/ 2>/dev/null | head -20 || echo "No assets directory (Godot may not have run)"
-              cd android/build
-              ./gradlew assembleDebug copyAndRenameDebugApk \
-                -PANDROID_HOME="$ANDROID_HOME" \
-                -Pexport_version_code="${{ needs.prep.outputs.android_version_code }}" \
-                -Pexport_version_name="${{ needs.prep.outputs.android_version_name }}" \
-                -Pexport_path="$GITHUB_WORKSPACE/$(dirname "$OUT")" \
-                -Pexport_filename="$(basename "$OUT")" \
-                --stacktrace 2>&1 | tail -100 || true
-              cd "$GITHUB_WORKSPACE"
-              echo "=== build/android/ after explicit Gradle ==="
-              ls -la "$(dirname "$OUT")/" 2>/dev/null || echo "Directory absent"
-              # Final fallback: direct copy from known Gradle output path
-              GRADLE_APK="android/build/build/outputs/apk/debug/android_debug.apk"
-              if [ ! -f "$OUT" ] && [ -f "$GRADLE_APK" ]; then
-                echo "=== Copying APK from Gradle output to expected location ==="
-                cp "$GRADLE_APK" "$OUT"
-              fi
-            fi
-            echo "=== Gradle debug APK location check ==="
-            find android/build/build/outputs/apk/debug/ -name "*.apk" 2>/dev/null || echo "None in android/build/build/outputs/apk/debug/"
-          elif [ "${{ matrix.platform }}" = "ios" ]; then
-            echo "=== Godot binary: $G_BIN ==="
-            "$G_BIN" --version
-            echo "=== Available Apple Distribution identities ==="
-            security find-identity -v -p codesigning | sed -E 's/(\"Apple Distribution:[^\"]*\").*/\1/'
-            # iOS va SIEMPRE en release: con el template debug, xcodebuild no puede
-            # archivar para distribucion ("** ARCHIVE FAILED **", run 32807160302).
-            # Como ANNAV2 bloquea los comandos remotos en release, el diagnostico en el
-            # dispositivo se hace con el overlay de LogOverlay.gd, no por telemetria.
-            echo "=== Running signed iOS export ==="
-            "$G_BIN" --no-window --export "${{ matrix.preset }}" "$OUT" --headless 2>&1 | tee /tmp/godot_ios.log || true
-          else
-            "$G_BIN" --no-window --export "${{ matrix.preset }}" "$OUT" --headless || true
-          fi
-
-          # Godot passes the output directory to xcodebuild, which can name the
-          # exported IPA from the product instead of the requested CLI path.
-          # Normalize that successful output for the downstream artifact steps.
-          if [ "${{ matrix.platform }}" = "ios" ] && [ ! -s "$OUT" ]; then
-            echo "=== iOS export directory ==="
-            find "$(dirname "$OUT")" -maxdepth 1 -type f -print
-            ACTUAL_IPA=$(find "$(dirname "$OUT")" -maxdepth 1 -type f -name '*.ipa' -print -quit)
-            if [ -n "$ACTUAL_IPA" ]; then
-              mv "$ACTUAL_IPA" "$OUT"
-              echo "Normalized IPA: $ACTUAL_IPA -> $OUT"
-            fi
-          fi
-
-          if [ ! -s "$OUT" ]; then
-            echo "::error::Export failed — no artifact produced at $OUT"
-            exit 1
-          fi
-          echo "Export OK: $OUT ($(du -h "$OUT" | cut -f1))"
-
-      - name: Audit isolated iOS PCK resources
-        if: matrix.platform == 'ios' && steps.ios_gate.outputs.skip_ios != 'true'
-        env:
-          MIN_IOS_VERSION: "15.0"
-        run: |
-          set -euo pipefail
-          IPA="build/ios/Odisea-Tech-Demo.ipa"
-          AUDIT_DIR="$RUNNER_TEMP/odisea-ios-pck-audit"
-          mkdir -p "$AUDIT_DIR"
-
-          # El patch del template solo sirve si llega hasta el IPA: verificarlo aca
-          # falla el build antes de gastar una subida a TestFlight rechazada.
-          APP_PLIST=$(unzip -Z1 "$IPA" | grep -E '^Payload/[^/]+\.app/Info\.plist$' | head -n 1)
-          test -n "$APP_PLIST" || { echo "::error::No Info.plist found inside $IPA"; exit 1; }
-          unzip -p "$IPA" "$APP_PLIST" > "$AUDIT_DIR/Info.plist"
-          FOUND_MIN_OS=$(/usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$AUDIT_DIR/Info.plist")
-          if [ "$FOUND_MIN_OS" != "$MIN_IOS_VERSION" ]; then
-            echo "::error::IPA MinimumOSVersion is $FOUND_MIN_OS, expected $MIN_IOS_VERSION"
-            exit 1
-          fi
-          echo "IPA MinimumOSVersion OK: $FOUND_MIN_OS"
-
-          # Audit the packaged PCK, never the checkout: the latter can hide a
-          # missing export dependency by satisfying res:// from the source tree.
-          PCK_MEMBER=$(unzip -Z1 "$IPA" | grep -E '^Payload/[^/]+\.app/[^/]+\.pck$' | head -n 1)
-          test -n "$PCK_MEMBER" || { echo "::error::No PCK found inside $IPA"; exit 1; }
-          unzip -p "$IPA" "$PCK_MEMBER" > "$AUDIT_DIR/game.pck"
-          test -s "$AUDIT_DIR/game.pck" || { echo "::error::Extracted iOS PCK is empty"; exit 1; }
-          strings -a "$AUDIT_DIR/game.pck" > "$AUDIT_DIR/resources.txt"
-
-          REQUIRED_RESOURCES=(
-            "res://core_v2/levels/interiors/Dome_Intro.tscn"
-            "res://core_v2/levels/interiors/DomeTerrace_baked.mesh"
-            "res://core_v2/levels/interiors/DomeTerrace_baked.shape"
-            # Dome_Intro lightmap textures (bake(dome)/Rebake lights): the exact
-            # regression this audit exists to catch — a texture missing its .stex
-            # doesn't crash the scene, it just ships with no lightmap, silently.
-            "res://.import/Sector_003.png-b941f2d090ba19e9fb929e758807bcbc.stex"
-            "res://.import/Sector_053.png-de5bccc5cd2f2d1ff05680ffc62627cf.stex"
-            "res://.import/Sector_062.png-e79e1433d20a2f6d3b3e82d7c33ecb71.stex"
-            "res://.import/Sector_072.png-d92fc45b5227f03316d4ba03be516944.stex"
-          )
-          for resource in "${REQUIRED_RESOURCES[@]}"; do
-            if ! grep -Fqx "$resource" "$AUDIT_DIR/resources.txt"; then
-              echo "::error::Missing required resource in isolated iOS PCK: $resource"
-              exit 1
-            fi
-            echo "PCK contains: $resource"
-          done
-          echo "Isolated iOS PCK audit OK ($(du -h "$AUDIT_DIR/game.pck" | cut -f1))"
-
-      - name: Upload iOS build to TestFlight
-        if: matrix.platform == 'ios' && steps.ios_gate.outputs.upload_testflight == 'true'
-        env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
-        run: |
-          set -euo pipefail
-          IPA="build/ios/Odisea-Tech-Demo.ipa"
-          KEY_DIR="$HOME/.appstoreconnect/private_keys"
-          KEY_FILE="$KEY_DIR/AuthKey_${ASC_KEY_ID}.p8"
-          test -s "$IPA" || { echo "::error::No signed IPA available for TestFlight"; exit 1; }
-          mkdir -p "$KEY_DIR"
-          printf '%s\n' "$ASC_API_KEY_P8" > "$KEY_FILE"
-          chmod 600 "$KEY_FILE"
-          trap 'rm -f "$KEY_FILE"' EXIT
-
-          echo "=== Validating IPA with App Store Connect ==="
-          xcrun altool --validate-app --type ios --file "$IPA" \
-            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
-          echo "=== Uploading IPA to TestFlight ==="
-          xcrun altool --upload-app --type ios --file "$IPA" \
-            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
-          echo "TestFlight upload accepted; Apple will now process build ${{ needs.prep.outputs.build_seq }}."
-
-      - name: Android Sign and Validate
-        if: matrix.platform == 'android'
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          EXPECTED_ANDROID_VERSION_CODE: ${{ needs.prep.outputs.android_version_code }}
-        run: |
-          set -e
-          APK="build/android/Odisea-Tech-Demo.apk"
-          test -s "$APK" || { echo "::error::No APK to sign"; exit 1; }
-          UNSIGNED="build/android/Odisea-Tech-Demo-unsigned.apk"
-          ALIGNED="build/android/Odisea-Tech-Demo-aligned.apk"
-          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
-            echo "::error::ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD are required"
-            exit 1
-          fi
-          mv "$APK" "$UNSIGNED"
-          "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
-          "$BUILD_TOOLS/apksigner" sign --ks android/update.keystore --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" --key-pass "pass:$ANDROID_KEY_PASSWORD" --out "$APK" "$ALIGNED"
-          rm -f "$UNSIGNED" "$ALIGNED"
-          "$BUILD_TOOLS/apksigner" verify "$APK"
-          ACTUAL_VERSION_CODE=$("$BUILD_TOOLS/aapt" dump badging "$APK" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" | head -n 1)
-          echo "Android APK versionCode=$ACTUAL_VERSION_CODE expected=$EXPECTED_ANDROID_VERSION_CODE"
-          test "$ACTUAL_VERSION_CODE" = "$EXPECTED_ANDROID_VERSION_CODE" || {
-            echo "::error::APK versionCode mismatch; refusing to publish a non-upgradable APK"
-            exit 1
-          }
-
-      - name: HTML5 Post-process
-        if: matrix.platform == 'html5'
-        run: |
-          python3 scripts/minimize_html_export.py build/html5/
-          cp build_meta.js build/html5/build_meta.js
-
-      - name: HTML5 Stage Netlify
-        if: matrix.platform == 'html5'
-        run: |
-          mkdir -p build/netlify
-          cp -a build/html5/* build/netlify/
-          rm -f build/netlify/*.pck build/netlify/*.pck.gz build/netlify/*.wasm build/netlify/*.wasm.gz
-          [ -f build/_headers ] && cp build/_headers build/netlify/_headers
-          PCK_BYTES=$(stat -c%s build/html5/index.pck)
-          WASM_BYTES=$(stat -c%s build/html5/index.wasm)
-          TOTAL=$((PCK_BYTES + WASM_BYTES))
-          sed -i "s/\$ODISEA_TOTAL_BYTES/${TOTAL}/g" build/netlify/index.html
-
-      - name: HTML5 Stage Pages
-        if: matrix.platform == 'html5'
-        run: |
-          mkdir -p build/pages/threads
-          cp build/html5/index.pck build/html5/index.pck.gz build/pages/
-          cp build/html5/index.wasm build/html5/index.wasm.gz build/pages/threads/
-
-      - name: HTML5 Stage TheGates
-        if: matrix.platform == 'html5'
-        run: |
-          # TheGates (https://thegates.io), browser 3D, carga cada gate desde
-          # una URL: un .gate cuyos campos se resuelven relativos a su propio
-          # directorio (Url.join) mas el resource_pack. world.gate vive en la
-          # raiz de Pages, junto al index.pck que ESTE MISMO nightly publica,
-          # asi el launcher resuelve resource_pack same-origin sin duplicar
-          # el pack. godot_version="3.6" hace que el launcher pida al backend
-          # el renderer 3.6 (el que publica el nightly de icarito/godot-box3d-3
-          # como asset linux-3.6). Con la URL del gate bastan dos formas:
-          #   https://icarito.github.io/Odisea/world.gate
-          #   https://icarito.github.io/Odisea  (fix_gate_url agrega world.gate)
-          # El pck es el del preset HTML5 Threads, pero es portable: mismos
-          # filtros que los presets desktop y scripts fuente (export_mode 0),
-          # y Box3D viaja en el binario del renderer, no en el pack.
-          # Netlify y Vercel no tienen el index.pck crudo (Netlify lo toma de
-          # Pages; Vercel solo sube el .gz por su limite de 1 GiB por archivo),
-          # asi que su world.gate apunta con URLs absolutas al pack de Pages.
-          GATE_VERSION="${{ needs.prep.outputs.version }}"
-          PAGES_URL="https://icarito.github.io/Odisea/"
-          write_gate() { # write_gate <dir> <prefijo de URL de los assets>
-            mkdir -p "$1"
-            cat > "$1/world.gate" <<GATE
-          [gate]
-
-          title = "Odisea: El Arca Silenciosa"
-          description = "Alfa jugable ${GATE_VERSION}"
-          icon = "$2thegates-icon.png"
-          image = "$2thegates-image.png"
-          resource_pack = "$2index.pck"
-          godot_version = "3.6"
-          discoverable = false
-          GATE
-            test -s "$1/world.gate" || { echo "::error::$1/world.gate no generado"; exit 1; }
-          }
-          write_gate build/pages ""
-          write_gate build/netlify "$PAGES_URL"
-          write_gate build/vercel "$PAGES_URL"
-          # El icono es el del proyecto (el favicon del shell web) y la imagen, el splash.
-          cp assets/odisea_icon.png build/pages/thegates-icon.png
-          cp assets/splash_HI-RES.png build/pages/thegates-image.png
-
-      - name: HTML5 Stage Vercel
-        if: matrix.platform == 'html5'
-        run: |
-          # Vercel deploy for Safari/iOS: serves EVERYTHING same-origin (html, js,
-          # threaded wasm, pck) with COEP require-corp (set in vercel.json), so the
-          # page is cross-origin isolated and SharedArrayBuffer is available — which
-          # the threaded engine needs and which Safari does NOT get under the main
-          # site's COEP credentialless. Because assets are same-origin here, the
-          # shell's GitHub Pages fetch interceptor must be neutralized: under
-          # require-corp a cross-origin fetch to Pages (which sends no CORP) would be
-          # blocked. We disable it by forcing the interceptor to pass through.
-          mkdir -p build/vercel
-          cp -a build/html5/* build/vercel/
-          # Solo va el .pck.gz, nunca el crudo: el loader parcheado por
-          # minimize_html_export.py pide siempre el .gz primero y solo cae al crudo si
-          # falta DecompressionStream, que Safari tiene desde 16.4 — y este mirror
-          # existe justamente para Safari/iOS. Subir el crudo era además lo que
-          # reventaba el límite de 1 GiB por archivo de Vercel cuando el pck pesaba
-          # 1024 MB (ver el recorte de include_filter en export_presets.cfg).
-          rm -f build/vercel/index.pck
-          cp vercel.json build/vercel/vercel.json
-          # Neutralize the Pages interceptor: inject an early pass-through at the top
-          # of the window.fetch override so every asset resolves to its original
-          # same-origin URL instead of being rewritten to GitHub Pages.
-          sed -i 's#window.fetch = function(resource, init) {#window.fetch = function(resource, init) {\n\t\t\t\treturn originalFetch(resource, init); /* ODISEA_VERCEL_SAME_ORIGIN */#' build/vercel/index.html
-          grep -q "ODISEA_VERCEL_SAME_ORIGIN" build/vercel/index.html || { echo "::error::Failed to neutralize Pages interceptor for Vercel build"; exit 1; }
-          PCK_BYTES=$(stat -c%s build/html5/index.pck)
-          WASM_BYTES=$(stat -c%s build/html5/index.wasm)
-          TOTAL=$((PCK_BYTES + WASM_BYTES))
-          sed -i "s/\$ODISEA_TOTAL_BYTES/${TOTAL}/g" build/vercel/index.html
-          echo "Vercel stage: $(du -sh build/vercel | cut -f1)"
-
-      - name: Upload Vercel artifact
-        if: matrix.platform == 'html5'
-        uses: actions/upload-artifact@v7
-        with:
-          name: vercel-build
-          path: build/vercel/
-          retention-days: 1
-
-      - name: Package Artifact
-        if: steps.ios_gate.outputs.skip_ios != 'true'
-        run: |
-          # version_slug (sin espacios/paréntesis) para que el nombre del asset
-          # coincida con la URL del manifest y no lo sanitice GitHub. Para nightly el
-          # slug ya incluye el sha (0.1.0-nightly+<sha>), así que NO se agrega -$SHA
-          # otra vez (antes salía duplicado: ...+0e504e1-0e504e1).
-          VERSION="${{ needs.prep.outputs.version_slug }}"
-          PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION.zip"
-          mkdir -p dist
-
-          # build_meta.json NO se copia suelto al paquete: ya va EMBEBIDO en el .pck
-          # (está en el include_filter de todos los presets), y el runtime lo lee de
-          # res://build_meta.json primero (UpdateManager/ANNAV2). Web usa build_meta.js
-          # aparte. La copia suelta era redundante (macOS ya no la copiaba y andaba).
-
-          if [ "${{ matrix.platform }}" = "html5" ]; then
-            cd build/html5 && zip -r "../../$PACKAGE" . -x "_headers"
-          elif [ "${{ matrix.platform }}" = "android" ]; then
-            # APK se sube sin comprimir (ya es un zip firmado)
-            if [ -f build/android/Odisea-Tech-Demo.apk ]; then
-              PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION.apk"
-              cp build/android/Odisea-Tech-Demo.apk "$PACKAGE"
-            else
-              echo "No APK to package — skipping."
-            fi
-          elif [ "${{ matrix.platform }}" = "ios" ]; then
-            # El IPA ya es un contenedor ZIP firmado. Publicar solo ese archivo;
-            # comprimir todo build/ios incluía además xcarchive/xcodeproj (~120 MB).
-            PACKAGE="dist/${{ matrix.artifact_name }}-$VERSION.ipa"
-            cp build/ios/Odisea-Tech-Demo.ipa "$PACKAGE"
-          elif [ "${{ matrix.platform }}" = "macos" ]; then
-             cp build/macos/Odisea-Tech-Demo.zip "$PACKAGE"
-          else
-            cd build && zip -r "../$PACKAGE" . -x "_headers" -x "netlify/*" -x "pages/*" -x "html5/*" -x "android/*" -x "ios/*"
-          fi
-
-      - name: Stage standalone .pck for in-app update (desktop)
-        if: matrix.platform == 'linux_x64' || matrix.platform == 'linux_x64_wayland' || matrix.platform == 'linux_arm64' || matrix.platform == 'windows'
-        run: |
-          # El export desktop usa embed_pck=false, así que junto al ejecutable queda
-          # un .pck suelto. El update in-app hace hot-swap de ESE .pck (chunkeable y
-          # diffeable a futuro), NO del .zip (que es para instalación manual y cambia
-          # entero con cualquier byte). Lo publicamos como asset aparte del release.
-          VERSION="${{ needs.prep.outputs.version_slug }}"
-          case "${{ matrix.platform }}" in
-            linux_x64)   SRC="build/linux_x86_64" ;;
-            linux_x64_wayland) SRC="build/linux_x86_64" ;;
-            linux_arm64) SRC="build/linux_arm64" ;;
-            windows)     SRC="build/windows" ;;
-          esac
-          PCK=$(find "$SRC" -maxdepth 1 -name "*.pck" | head -n 1)
-          if [ -z "$PCK" ]; then
-            echo "::error::No standalone .pck found in $SRC (embed_pck debería ser false)"
-            ls -la "$SRC" || true
-            exit 1
-          fi
-          if [ "${{ matrix.platform }}" = "linux_x64" ] || [ "${{ matrix.platform }}" = "linux_x64_wayland" ] || [ "${{ matrix.platform }}" = "windows" ]; then
-            python3 tools/audit_export_pck.py "$PCK" --desktop
-          else
-            python3 tools/audit_export_pck.py "$PCK"
-          fi
-          mkdir -p dist
-          OUT="dist/${{ matrix.artifact_name }}-$VERSION.pck"
-          cp "$PCK" "$OUT"
-          # Publicar TAMBIÉN el .pck comprimido para el update in-app: el .pck no está
-          # comprimido internamente (gzip ahorra ~71%, 123MB->36MB) y gzip+Range son
-          # incompatibles, así que servimos un .gz pre-comprimido que el cliente baja
-          # por chunks y descomprime. -n: no guardar nombre/mtime (gzip determinista).
-          gzip -9 -n -c "$PCK" > "$OUT.gz"
-          echo "Staged update .pck: $OUT ($(du -h "$OUT" | cut -f1)) + .gz ($(du -h "$OUT.gz" | cut -f1))"
-
-      - name: Stage runtime binary for in-app update (desktop)
-        if: matrix.platform == 'linux_x64' || matrix.platform == 'linux_x64_wayland' || matrix.platform == 'linux_arm64' || matrix.platform == 'windows'
-        run: |
-          # El runtime (binario del fork: Box3D x11 o FRT/SDL2) cambia cuando se
-          # actualiza Box3D/FRT. El update in-app tiene que poder reemplazarlo ademas
-          # del .pck, o un build nuevo arranca con runtime viejo y se rompe. Se
-          # publica suelto y con la version en el nombre (como el .pck) para no pisar
-          # builds viejos; el hash queda en binary_full_artifact del manifest.
-          VERSION="${{ needs.prep.outputs.version_slug }}"
-          case "${{ matrix.platform }}" in
-            linux_x64)         SRC="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
-            linux_x64_wayland) SRC="build/linux_x86_64/Odisea-Tech-Demo.x86_64" ;;
-            linux_arm64)       SRC="build/linux_arm64/Odisea-Tech-Demo.arm64" ;;
-            windows)           SRC="build/windows/Odisea-Tech-Demo.exe" ;;
-          esac
-          test -f "$SRC" || { echo "::error::runtime no encontrado: $SRC"; ls -la "$(dirname "$SRC")" || true; exit 1; }
-          mkdir -p dist
-          OUT="dist/runtime-${{ matrix.platform }}-$VERSION"
-          cp "$SRC" "$OUT"
-          chmod +x "$OUT" || true
-          echo "Staged runtime: $OUT ($(du -h "$OUT" | cut -f1))"
-
-      # Paquete PortMaster para handhelds Linux/ARM (Anbernic y companiia). Lleva el
-      # FRT arm64 del fork (con Box3D): el runtime frt_3.6 de PortMaster es Godot
-      # stock y cae a Bullet en silencio. Sale a dist_portmaster/ y NO a dist/ para
-      # que no entre en el artifact de ARM64: el job 'manifests' le pasa ese
-      # directorio entero a update_manifest.py, que tomaria este .zip como el archivo
-      # de la plataforma.
-      - name: Package PortMaster port (ARM64)
-        if: matrix.platform == 'linux_arm64'
-        env:
-          PORT_VERSION: ${{ needs.prep.outputs.version_slug }}
-          PORT_BUILD: ${{ needs.prep.outputs.build_seq }}
-        run: |
-          set -euo pipefail
-          PCK=$(find build/linux_arm64 -maxdepth 1 -name "*.pck" | head -n 1)
-          FRT="$RUNNER_TEMP/odisea.frt.aarch64"
-          curl -fSL -o "$FRT" \
-            "https://github.com/icarito/godot-box3d-3/releases/download/$(cat .github/box3d_release)/godot.box3d.frt.arm64.release"
-          mkdir -p dist_portmaster
-          tools/build_portmaster.sh "$PCK" \
-            "dist_portmaster/Odisea-PortMaster-$PORT_VERSION.zip" "$FRT"
-
-      - name: Upload PortMaster Artifact
-        if: matrix.platform == 'linux_arm64'
-        uses: actions/upload-artifact@v7
-        with:
-          name: Odisea-PortMaster-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
-          path: dist_portmaster/*.zip
-          if-no-files-found: error
-
-      - name: Upload Artifact
-        if: steps.ios_gate.outputs.skip_ios != 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.artifact_name }}-${{ needs.prep.outputs.version }}-${{ needs.prep.outputs.sha }}
-          path: |
-            dist/*.zip
-            dist/*.apk
-            dist/*.ipa
-            dist/*.pck.gz
-            dist/runtime-*
-          # Cada matrix export que llega aquí debe haber producido su paquete.
-          # Fallar evita un run verde que publique un nightly incompleto.
-          if-no-files-found: error
-
-      - name: Upload Netlify artifact
-        if: matrix.platform == 'html5'
-        uses: actions/upload-artifact@v7
-        with:
-          name: netlify-build
-          path: build/netlify/
-          retention-days: 1
-
-      - name: Upload Pages artifact
-        if: matrix.platform == 'html5'
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: build/pages
-
-      - name: Build Failure Notification
-        if: failure()
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const sha = context.sha;
-            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: sha });
-            if (prs.data.length > 0) {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prs.data[0].number,
-                body: `❌ Build failed for platform **${{ matrix.platform }}** (${{ matrix.os }}) on commit ${sha}.`
-              });
-            } else if (context.payload.issue) {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: context.payload.issue.number,
-                body: `❌ Build failed for platform **${{ matrix.platform }}** (${{ matrix.os }}).`
-              });
-            }
+    uses: ./.github/workflows/export_platform.yml
+    with:
+      platform: ${{ matrix.platform }}
+      os: ${{ matrix.os }}
+      preset: ${{ matrix.preset }}
+      artifact_name: ${{ matrix.artifact_name }}
+      version: ${{ needs.prep.outputs.version }}
+      version_slug: ${{ needs.prep.outputs.version_slug }}
+      base_version: ${{ needs.prep.outputs.base_version }}
+      sha: ${{ needs.prep.outputs.sha }}
+      head_sha: ${{ needs.prep.outputs.head_sha }}
+      channel: ${{ needs.prep.outputs.channel }}
+      ref_name: ${{ needs.prep.outputs.ref_name }}
+      build_seq: ${{ needs.prep.outputs.build_seq }}
+      android_version_code: ${{ needs.prep.outputs.android_version_code }}
+      android_version_name: ${{ needs.prep.outputs.android_version_name }}
+      container: ${{ matrix.container }}
+    secrets: inherit
+
+  export-macos:
+    needs: prep
+    if: needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'macos'
+    uses: ./.github/workflows/export_platform.yml
+    with:
+      platform: macos
+      os: ubuntu-latest
+      preset: macOS Universal
+      artifact_name: Odisea-Tech-Demo-macOS
+      version: ${{ needs.prep.outputs.version }}
+      version_slug: ${{ needs.prep.outputs.version_slug }}
+      base_version: ${{ needs.prep.outputs.base_version }}
+      sha: ${{ needs.prep.outputs.sha }}
+      head_sha: ${{ needs.prep.outputs.head_sha }}
+      channel: ${{ needs.prep.outputs.channel }}
+      ref_name: ${{ needs.prep.outputs.ref_name }}
+      build_seq: ${{ needs.prep.outputs.build_seq }}
+      android_version_code: ${{ needs.prep.outputs.android_version_code }}
+      android_version_name: ${{ needs.prep.outputs.android_version_name }}
+    secrets: inherit
+
+  export-ios:
+    needs: prep
+    if: needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'ios'
+    uses: ./.github/workflows/export_platform.yml
+    with:
+      platform: ios
+      os: macos-latest
+      preset: iOS
+      artifact_name: Odisea-Tech-Demo-iOS
+      version: ${{ needs.prep.outputs.version }}
+      version_slug: ${{ needs.prep.outputs.version_slug }}
+      base_version: ${{ needs.prep.outputs.base_version }}
+      sha: ${{ needs.prep.outputs.sha }}
+      head_sha: ${{ needs.prep.outputs.head_sha }}
+      channel: ${{ needs.prep.outputs.channel }}
+      ref_name: ${{ needs.prep.outputs.ref_name }}
+      build_seq: ${{ needs.prep.outputs.build_seq }}
+      android_version_code: ${{ needs.prep.outputs.android_version_code }}
+      android_version_name: ${{ needs.prep.outputs.android_version_name }}
+    secrets: inherit
+
+  export-web:
+    needs: prep
+    if: needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'html5'
+    uses: ./.github/workflows/export_platform.yml
+    with:
+      platform: html5
+      os: ubuntu-latest
+      preset: HTML5 Threads
+      artifact_name: Odisea-Tech-Demo-Web
+      version: ${{ needs.prep.outputs.version }}
+      version_slug: ${{ needs.prep.outputs.version_slug }}
+      base_version: ${{ needs.prep.outputs.base_version }}
+      sha: ${{ needs.prep.outputs.sha }}
+      head_sha: ${{ needs.prep.outputs.head_sha }}
+      channel: ${{ needs.prep.outputs.channel }}
+      ref_name: ${{ needs.prep.outputs.ref_name }}
+      build_seq: ${{ needs.prep.outputs.build_seq }}
+      android_version_code: ${{ needs.prep.outputs.android_version_code }}
+      android_version_name: ${{ needs.prep.outputs.android_version_name }}
+    secrets: inherit
 
   # The universal macOS export stays on Ubuntu (the Apple runner OOMs while
   # exporting it). A small follow-up job downloads that ZIP and uses the macOS
-  # signing tools only for the App Store package and upload.
+  # signing tools only for the App Store package and upload. Depende solo de
+  # export-macos: antes esperaba la matriz entera (Android, iOS...) para firmar
+  # un zip que ya estaba listo.
   upload-macos:
-    needs: [prep, export]
+    needs: [prep, export-macos]
     runs-on: macos-latest
     if: ${{ needs.prep.outputs.ref_name == 'main' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'macos') }}
     steps:
@@ -1829,55 +459,18 @@ jobs:
             --sign "$INSTALLER_IDENTITY" --keychain "$KEYCHAIN" "$PKG"
           pkgutil --check-signature "$PKG"
 
-          xcrun altool --validate-app --type macos --file "$PKG" \
-            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          # Sin --validate-app: sube el .pkg entero dos veces para revisar lo
+          # mismo que --upload-app revisa antes de aceptar el build.
           xcrun altool --upload-app --type macos --file "$PKG" \
             --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
           echo "macOS TestFlight upload accepted; Apple will now process build $MAC_BUILD_NUMBER."
 
-  # altool sube el IPA (y el .pkg de macOS) pero los deja solo para testers
-  # internos; mover el build al grupo externo era el último paso manual. Va en
-  # ubuntu (no en el runner macOS) porque hay que esperar ~15-30 min a que Apple
-  # procese el build y los minutos de macOS cuestan 10x. Si una plataforma no
-  # subió nada, el script la descarta a los 10 min y sigue con la otra.
-  #
-  # always() + los result explícitos: upload-macos se saltea cuando el run es
-  # solo-iOS, y una dependencia salteada arrastraría a este job al skip.
-  # Tampoco se le exige éxito: si la pata macOS falla, iOS igual se distribuye.
-  testflight-external:
-    needs: [prep, export, upload-macos]
-    runs-on: ubuntu-latest
-    if: ${{ always() && needs.prep.result == 'success' && needs.export.result == 'success' && needs.prep.outputs.ref_name == 'main' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'ios' || needs.prep.outputs.target_platform == 'macos') && github.repository == 'icarito/Odisea' }}
-    timeout-minutes: 60
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.prep.outputs.head_sha }}
-
-      - name: Distribute build to external TestFlight groups
-        env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
-          BUNDLE_ID: juegos.educa.odisea
-          BUILD_NUMBER: ${{ needs.prep.outputs.build_seq }}
-          # iOS y macOS son la misma app en App Store Connect y comparten número
-          # de build: el script las separa por plataforma del preReleaseVersion.
-          PLATFORMS: ${{ needs.prep.outputs.target_platform == 'ios' && 'IOS' || needs.prep.outputs.target_platform == 'macos' && 'MAC_OS' || 'IOS,MAC_OS' }}
-        run: |
-          set -euo pipefail
-          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_API_KEY_P8" ]; then
-            echo "App Store Connect secrets missing — skipping TestFlight distribution."
-            exit 0
-          fi
-          pip install --quiet "pyjwt[crypto]"
-          python3 scripts/testflight_distribute.py
-
+  # Publica la web en cuanto termina la pata html5, sin esperar al resto del
+  # build ni al release de GitHub.
   deploy-web:
-    needs: [prep, export]
+    needs: [prep, export-web]
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.prep.result == 'success' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'html5') && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
+    if: ${{ always() && needs.prep.result == 'success' && needs['export-web'].result == 'success' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'html5') && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
     permissions:
       contents: read
       deployments: write
@@ -1922,12 +515,12 @@ jobs:
         uses: actions/deploy-pages@v5
 
   deploy-vercel:
-    needs: [prep, export]
+    needs: [prep, export-web]
     runs-on: ubuntu-latest
     # Es un mirror web opcional: sus fallos no deben volver rojo ni bloquear el
     # nightly, que publica únicamente desde prep + export + manifests.
     continue-on-error: true
-    if: ${{ always() && needs.prep.result == 'success' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'html5') && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
+    if: ${{ always() && needs.prep.result == 'success' && needs['export-web'].result == 'success' && (needs.prep.outputs.target_platform == 'all' || needs.prep.outputs.target_platform == 'html5') && (needs.prep.outputs.ref_name == 'main' || needs.prep.outputs.is_dispatch == 'true') }}
     permissions:
       contents: read
       deployments: write
@@ -2002,7 +595,7 @@ jobs:
   # Si algo falla (no hay release previo, etc.) el job no rompe el pipeline: sin delta,
   # el cliente baja el full.
   deltas:
-    needs: [prep, export]
+    needs: [prep, export, export-macos, export-ios, export-web]
     runs-on: ubuntu-latest
     # DESACTIVADO (2026-09-07): no producía nada útil hace meses — los últimos
     # .patch.gz publicados son de los builds 244 y 400 y ya vamos por 522. El job
@@ -2124,7 +717,7 @@ jobs:
           if-no-files-found: ignore
 
   manifests:
-    needs: [prep, export]
+    needs: [prep, export, export-macos, export-ios, export-web]
     runs-on: ubuntu-latest
     # Generate signed manifests only for main (nightly) or release branches.
     # Forks don't have access to the signing secret and shouldn't publish manifests.
@@ -2272,7 +865,7 @@ jobs:
             *.pub.pem
 
   release:
-    needs: [prep, export, manifests]
+    needs: [prep, export, export-macos, export-ios, export-web, manifests]
     runs-on: ubuntu-latest
     # Solo libera un release estable desde la rama 'release'. Un workflow_dispatch
     # NO publica release (publicaba un 0.1.0 indeseado); usar publish_prerelease=true
@@ -2300,7 +893,7 @@ jobs:
   nightly:
     # Deliberadamente independiente de deploy-vercel: el mirror iOS no participa
     # en la publicación de binarios/manifests del updater.
-    needs: [prep, export, manifests]
+    needs: [prep, export, export-macos, export-ios, export-web, manifests]
     runs-on: ubuntu-latest
     if: needs.prep.outputs.target_platform == 'all' && (needs.prep.outputs.ref_name == 'main' || (needs.prep.outputs.is_dispatch == 'true' && needs.prep.outputs.publish_prerelease == 'true'))
     # La fase de publicación NO debe ser cancelada a mitad por un run más nuevo
@@ -2309,7 +902,7 @@ jobs:
     # vieja termine) en vez de cortarse a la mitad. El orden binarios->manifest ya
     # la hace segura aunque se corte, pero encolar evita estados intermedios.
     concurrency:
-      group: nightly-publish-${{ github.event.workflow_run.head_branch || github.ref_name }}
+      group: nightly-publish-${{ github.ref_name }}
       cancel-in-progress: false
     steps:
       - name: Checkout

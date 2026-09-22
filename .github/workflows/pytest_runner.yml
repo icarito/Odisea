@@ -356,6 +356,10 @@ jobs:
     needs: [pytest-core]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Para lanzar "Release Multiplataforma" con `gh workflow run`.
+      actions: write
     outputs:
       success: ${{ steps.check.outputs.success }}
     steps:
@@ -370,3 +374,34 @@ jobs:
           echo "✅ Core tests passed!"
           echo ""
           echo "Note: Determinism tests run in parallel and don't block this check."
+
+      # El export vive en su propio workflow y antes se colgaba de `workflow_run`,
+      # que dispara SIEMPRE que este workflow termina. Un commit con `[build:none]`
+      # arrancaba igual un run que, por compartir grupo de concurrency, cancelaba
+      # el build multiplataforma en curso antes de saltearse solo. Disparándolo
+      # desde acá, el gate del mensaje de commit decide si hay run o no.
+      - name: Checkout
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        uses: actions/checkout@v7
+
+      - name: Dispatch multiplatform export
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Un commit puede elegir una sola plataforma ("Fix mac signing
+          # [build:macos]"), o ninguna con `[build:none]` cuando no toca nada que
+          # el juego empaquete (dashboard, central, docs, CI). Sin directiva, el
+          # build multiplataforma normal.
+          TARGET=$(git log -1 --format=%B "${{ github.sha }}" | sed -nE \
+            's/.*\[build:(all|none|wayland|linux_x64|linux_x64_wayland|linux_arm64|windows|macos|ios|android|html5)\].*/\1/p' | tail -n 1)
+          [ -n "$TARGET" ] || TARGET=all
+          if [ "$TARGET" = "none" ]; then
+            echo "::notice::[build:none] en el commit: no se dispara el export multiplataforma."
+            exit 0
+          fi
+          gh workflow run export_all.yml --ref main \
+            -f target_platform="$TARGET" \
+            -f head_sha="${{ github.sha }}"
+          echo "Export multiplataforma disparado (target_platform=$TARGET)."
