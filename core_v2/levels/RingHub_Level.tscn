@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=2]
+[gd_scene load_steps=29 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=2]
@@ -46,6 +46,8 @@
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_03_body.tscn" type="PackedScene" id=43]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_04_body.tscn" type="PackedScene" id=44]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_05_body.tscn" type="PackedScene" id=45]
+[ext_resource path="res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.mesh" type="ArrayMesh" id=46]
+[ext_resource path="res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.shape" type="Shape" id=47]
 [sub_resource type="ConvexPolygonShape" id=337]
 points = PoolVector3Array( 14.14110, 0.10000, 0.07000, 14.14110, 0.26660, 0.07000, 10.01980, 0.10000, 10.01980, 10.01980, 0.26660, 10.01980, 6.42440, 0.10000, 0.00000, 6.42440, 0.26660, 0.00000, 4.53560, 0.10000, 4.55110, 4.53560, 0.26660, 4.55110 )
 
@@ -293,6 +295,16 @@ width = 50.0
 height = 0.6
 depth = 50.0
 material = ExtResource( 5 )
+
+[node name="DomeInteriorLowPoly" type="StaticBody" parent="Hub"]
+collision_layer = 1
+collision_mask = 255
+
+[node name="DomeMesh" type="MeshInstance" parent="Hub/DomeInteriorLowPoly"]
+mesh = ExtResource( 46 )
+
+[node name="WorldCollision" type="CollisionShape" parent="Hub/DomeInteriorLowPoly"]
+shape = ExtResource( 47 )
 
 [node name="RingFloor" parent="Hub" instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0 )
