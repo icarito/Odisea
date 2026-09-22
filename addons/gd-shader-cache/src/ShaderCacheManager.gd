@@ -53,6 +53,13 @@ func compile(cache_packed_scene):
 	_prepare_cache_scene(cache_scene, cache_path)
 
 func _prepare_cache_scene(cache_scene, cache_path: String) -> void:
+	# Horneada (tools/bake_shader_cache.gd): las quads ya estan en el .tscn. Rehacerlas
+	# aca cuesta un frame entero bloqueado -- cache_scene() instancia el nivel completo
+	# dentro de un SceneTree virtual y le corre _ready() a todo (1.1 s en desktop
+	# nativo para RingHub; en HTML5 es el cuelgue del navegador en el Menu).
+	if cache_scene.has_method("has_baked_materials") and cache_scene.has_baked_materials():
+		_on_cache_scene_built(cache_scene, cache_path)
+		return
 	if cache_scene.has_method("cache_scene"):
 		var state = cache_scene.cache_scene()
 		if state is GDScriptFunctionState:

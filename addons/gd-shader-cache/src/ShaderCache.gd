@@ -86,6 +86,11 @@ func emit_particles():
 			particles.emitting = true
 
 func cache_scene(value=true):
+	# Botones del inspector: el setter tambien corre cuando el .tscn se INSTANCIA y
+	# Godot aplica la propiedad serializada. En una escena horneada eso significaba
+	# un clear_cache() que borraba las quads recien cargadas. Solo el apretado vale.
+	if not value:
+		return
 	clear_cache()
 	_virtual_tree = SceneTree.new()
 	_virtual_tree.init()
@@ -113,6 +118,8 @@ func cache_scene(value=true):
 	_particles_materials.clear()
 
 func clear_cache(value=true):
+	if not value:
+		return
 	_materials.clear()
 	_particles_materials.clear()
 	_meshes.clear()
@@ -332,6 +339,10 @@ func set_active(v):
 	set_process(active)
 	if active:
 		_frame_countdown = active_frame_count
+		# Escena horneada (ver tools/bake_shader_cache.gd): las quads vienen en el
+		# .tscn y nadie paso por _cache_material, asi que la cola se arma aca.
+		if _pending_reveal.empty():
+			_collect_baked_reveal()
 		# La cola ya quedo armada por cache_scene(); este es el tamaño contra el que
 		# se mide el avance, y se fija aca porque a partir de ahora solo se vacia.
 		_reveal_total = _pending_reveal.size()
@@ -344,6 +355,32 @@ func set_active(v):
 			emit_particles()
 	else:
 		_pending_reveal.clear()
+
+# True si el .tscn ya trae las quads horneadas: entonces cache_scene() en runtime
+# es puro costo (instancia el nivel entero y le corre _ready() a todo) y se saltea.
+func has_baked_materials() -> bool:
+	for container in _reveal_containers():
+		if container.get_child_count() > 0:
+			return true
+	return false
+
+func _reveal_containers() -> Array:
+	var out := []
+	for name in ["LocalToSceneMaterials", "Materials", "ParticlesMaterials"]:
+		var node = get_node_or_null(name)
+		if node != null:
+			out.append(node)
+	return out
+
+func _collect_baked_reveal() -> void:
+	if materials_per_frame <= 0:
+		return
+	for container in _reveal_containers():
+		for child in container.get_children():
+			child.visible = false
+			if child is Particles:
+				child.emitting = false
+			_pending_reveal.append(child)
 
 func get_local_to_scene_materials_node(create_if_null=false):
 	if not is_instance_valid(local_to_scene_materials_node):

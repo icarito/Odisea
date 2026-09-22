@@ -12,6 +12,12 @@ export-web-threads:
 	python3 scripts/minimize_html_export.py build/
 	@echo "Export complete: build/"
 
+# Rehornear las escenas de warmup de shaders. Correr cada vez que cambie la
+# geometria/materiales de RingHub, Dome_Intro, Dome_Crio o el exterior: si no,
+# el cache queda viejo y el nivel paga la compilacion en su primer frame.
+bake-shader-cache:
+	$(GODOT) --path . -s tools/bake_shader_cache.gd
+
 deploy-netlify: export-web-threads
 	@[ -n "$(NETLIFY_AUTH_TOKEN)" ] || (echo "ERROR: NETLIFY_AUTH_TOKEN not set. Check .env" && exit 1)
 	@[ -n "$(NETLIFY_SITE_ID)" ] || (echo "ERROR: NETLIFY_SITE_ID not set. Check .env" && exit 1)
@@ -461,4 +467,4 @@ android-install-release: android-release-signed
 	adb install -r "$(ANDROID_RELEASE_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all bake bake-dome-geometry dome-variant-sources bake-dome-variant preview-dome-variant bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export portmaster portmaster-install export-web-threads deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
+.PHONY: all bake bake-dome-geometry dome-variant-sources bake-dome-variant preview-dome-variant bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export portmaster portmaster-install export-web-threads bake-shader-cache deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
