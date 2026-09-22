@@ -159,3 +159,40 @@ Gotchas aprendidas (costaron 3 iteraciones):
 - `rot*scale` no alcanza para los props: sus bases traen shear. Se hornean los
   puntos con el transform completo.
 - El baker no puede leer del body final (es el destino): fuentes separadas.
+
+---
+
+## 7. Al subir el pin del engine (v0.4.6-nightlyNN): que no se quede viejo
+
+Subir `.github/box3d_release` no alcanza por si solo. Dos lugares quedaron con el
+engine viejo y hubo que arreglarlos:
+
+1. **Cache del binario de tests.** `pytest_runner.yml` tenia un `restore-keys`
+   demasiado amplio (`Linux-godot-box3d-` sin el hash del pin): al subir de release
+   el cache primario fallaba y el fallback restauraba el binario anterior. Sintoma:
+   `Box3DCompoundShape isnt declared` en los tests que usan compounds. La clave
+   tiene que llevar `${{ hashFiles('.github/box3d_release') }}` y **sin** prefijo
+   truncado (determinism_tests.yml ya lo hacia asi).
+2. **Libs de Android.** El APK no usa templates descargados: linkea
+   `android/build/libs/{debug,release}/godot-lib.*.aar`, que estan **commiteados**
+   (ver `android/.build_version`). Al subir el pin hay que reemplazarlos por los de
+   `android_source.zip` de la release nueva. Sintoma: el APK arranca pero los chunks
+   de scaffold no tienen colision (el script del body no parsea y no crea la shape);
+   en desktop/Anbernic no se ve porque ahi si se usa el engine pineado.
+
+```bash
+# 1. bajar y extraer el zip de la release nueva
+gh release download v0.4.6-nightlyNN -R icarito/godot-box3d-3 -p android_source.zip
+unzip -o android_source.zip -d /tmp/andsrc
+# 2. reemplazar los aar del repo (verificar que .build_version siga coincidiendo)
+cp /tmp/andsrc/libs/debug/godot-lib.debug.aar     android/build/libs/debug/
+cp /tmp/andsrc/libs/release/godot-lib.release.aar android/build/libs/release/
+# 3. comprobar que el lib trae lo nuevo
+unzip -p android/build/libs/release/godot-lib.release.aar \
+  jni/arm64-v8a/libgodot_android.so | strings | grep -c Box3DCompoundShape
+```
+
+Nota 32-bit: los bytes de un compound los hornea el engine que corre el baker
+(64-bit). Un device Android que caiga a **armeabi-v7a** recibe bytes horneados en
+64-bit; `b3ConvertBytesToCompound` los rechaza (version/offsets) y el body queda sin
+colision con un error en consola. Si aparece un device asi, hay que hornear por ABI.
