@@ -46,10 +46,16 @@ var _env_forced_low_tier := false
 # andamios al rehornear en 57ae5b2d. El bake pide esto antes de instanciar.
 var _mutation_suspended := false
 
-# FD-299: en tier LOW la fisica corre a 30 Hz. Medido en el Anbernic: con ~18 ms de GDScript
-# por tick, a 60 Hz cada frame arrastraba 8 ticks y el juego iba al 54% del tiempo real. El
-# paso del jugador se deriva de Engine.iterations_per_second, asi que no hay camara lenta.
-const LOW_TIER_PHYSICS_FPS := 30
+# FD-299: en tier LOW la fisica corre a 20 Hz. Medido en el Anbernic (2026-09-22, release,
+# FRT_PERF, mismas 3 corridas intercaladas por tasa, escena RingHub en el spawn):
+#   30 Hz: frame 46.9 ms, fps 21.3, 1.42 pasos/frame, 20.8 ms de scripts por frame
+#   20 Hz: frame 40.9 ms, fps 24.5 (+15%), 0.82 pasos/frame, 13.1 ms
+# El paso del jugador se deriva de Engine.iterations_per_second, asi que no hay camara lenta.
+# El perfil LOW ya trae physics_interpolation=true: el transform del player/camara se muestrea
+# por frame de render, asi que bajar la tasa no escalona la camara (la logica de OTS/spring arm
+# si corre al ritmo del tick). Los replays fuerzan el rate del proyecto, asi que la validacion
+# de determinismo en CI no cambia. Para volver atras: 30.
+const LOW_TIER_PHYSICS_FPS := 20
 
 # Un replay mapea 1 frame de buffer -> 1 tick de fisica, sin importar el Hz real: el paso
 # del jugador (SessionManager.FIXED_DT) esta fijo a 1/60 a proposito, pero todo lo que NO se

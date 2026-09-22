@@ -62,6 +62,96 @@ func _ready() -> void:
 	if _selected_slot < 0:
 		_selected_slot = _pick_slot(slots)
 	_apply_wakeup_slot()
+	_dev_apply_isolation()
+
+# ---------------------------------------------------------------------------
+# Toolbox dev (env-gated; inerte sin las envs). Vive en el NIVEL y no en el Menu
+# porque el Menu se libera al cambiar de escena y se comeria el coroutine.
+# Atribuye costo de tick/frame en device con FRT_PERF:
+#   ODISEA_DEV_NO_STREAMER / _HIDE_ALL / _NO_TICK_SCRIPTS / _NO_FRAME_SCRIPTS
+#   _NO_AREAS / _NO_PHYSICS / _NO_CHUNKS / _HIDE_GROUPS / _HIDE_RINGS
+#   _HIDE_FLOORS / _PRINT_GROUPS
+# ---------------------------------------------------------------------------
+func _dev_apply_isolation() -> void:
+	if OS.get_environment("ODISEA_DEV_NO_STREAMER") != "":
+		var st := get_node_or_null("ShaftVisibility")
+		if st != null:
+			st.set_physics_process(false)
+	if OS.get_environment("ODISEA_DEV_HIDE_ALL") != "":
+		visible = false
+	if OS.get_environment("ODISEA_DEV_NO_TICK_SCRIPTS") != "":
+		_disable_physics_process(self)
+	if OS.get_environment("ODISEA_DEV_NO_AREAS") != "":
+		_disable_areas(self)
+	if OS.get_environment("ODISEA_DEV_NO_FRAME_SCRIPTS") != "":
+		_disable_idle_process(self)
+	if OS.get_environment("ODISEA_DEV_NO_PHYSICS") != "":
+		PhysicsServer.set_active(false)
+	var sr := get_node_or_null("ScaffoldStreamRoot")
+	if OS.get_environment("ODISEA_DEV_HIDE_GROUPS") != "":
+		_hide_prefix(sr, "Group_")
+	if OS.get_environment("ODISEA_DEV_HIDE_RINGS") != "":
+		_hide_prefix(sr, "Criopods_Visual")
+	if OS.get_environment("ODISEA_DEV_HIDE_FLOORS") != "":
+		_hide_prefix(get_node_or_null("Hub"), "Floor_")
+	if OS.get_environment("ODISEA_DEV_PRINT_GROUPS") != "":
+		print("[DEV_GROUPS] physics_process=%d internal=%d nodes=%d" % [
+			get_tree().get_nodes_in_group("physics_process").size(),
+			get_tree().get_nodes_in_group("physics_process_internal").size(),
+			get_tree().get_node_count()])
+	if OS.get_environment("ODISEA_DEV_NO_CHUNKS") != "":
+		_disable_dev_chunks()
+
+func _disable_dev_chunks() -> void:
+	var timer := get_tree().create_timer(2.0)
+	yield(timer, "timeout")
+	var stack := [self]
+	while not stack.empty():
+		var n = stack.pop_back()
+		var sc = n.get_script()
+		if sc != null and String(sc.resource_path).ends_with("StreamedSceneChunkV2.gd"):
+			n.set_physics_process(false)
+		for c in n.get_children():
+			stack.append(c)
+
+func _disable_physics_process(node: Node) -> void:
+	var stack := [node]
+	while not stack.empty():
+		var n = stack.pop_back()
+		if n.is_physics_processing():
+			n.set_physics_process(false)
+		for c in n.get_children():
+			stack.append(c)
+	var sm := get_node_or_null("/root/SessionManager")
+	if sm != null:
+		sm.set_physics_process(false)
+
+func _disable_idle_process(node: Node) -> void:
+	var stack := [node]
+	while not stack.empty():
+		var n = stack.pop_back()
+		if n.is_processing():
+			n.set_process(false)
+		for c in n.get_children():
+			stack.append(c)
+
+func _disable_areas(node: Node) -> void:
+	var stack := [node]
+	while not stack.empty():
+		var n = stack.pop_back()
+		if n is Area:
+			var a := n as Area
+			a.monitoring = false
+			a.monitorable = false
+		for c in n.get_children():
+			stack.append(c)
+
+func _hide_prefix(parent: Node, prefix: String) -> void:
+	if parent == null:
+		return
+	for c in parent.get_children():
+		if c is Spatial and String(c.name).begins_with(prefix):
+			(c as Spatial).visible = false
 
 func _on_oys_registry_reset() -> void:
 	var session = get_node_or_null("/root/SessionManager")

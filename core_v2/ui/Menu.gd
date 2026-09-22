@@ -49,6 +49,12 @@ func _ready():
 	if get_node_or_null("/root/UpdateManager"):
 		get_node("/root/UpdateManager").confirm_boot()
 
+	# Dev on-device: entrar directo al nivel sin input. Permite medir el frame de
+	# gameplay real en un build release (sin replay y sin engine debug), que es lo
+	# que necesita el plan low-end para comparar tasas de fisica con FRT_PERF.
+	if OS.get_environment("ODISEA_AUTOSTART_GAME") != "":
+		call_deferred("_start_game", FIRST_GAME_SCENE)
+
 	_check_save_game()
 	_connect_signals()
 	_setup_remote_control()
