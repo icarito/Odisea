@@ -11,13 +11,6 @@ signal transition_failed(path, reason)
 export(int, 1, 20) var poll_budget_ms := 6
 export(int, 1, 40) var weak_poll_budget_ms := 10
 export(int, 1, 80) var hyper_low_poll_budget_ms := 14
-# Los presupuestos de arriba existen para no robarle frames al JUEGO mientras algo
-# carga de fondo. Durante una transicion no hay juego: la escena vieja ya se solto y
-# la nueva todavia no existe, asi que lo unico que se anima es la barra. Cobrar 6 ms
-# de cada 16.7 tira dos tercios del tiempo esperando vsync -- medido en HTML5, el
-# tramo goto_scene -> instancing del Menu fueron 19.25 s de reloj. Con 100 ms el
-# navegador sigue respondiendo (la barra va a ~10 fps) y se aprovecha el 85%.
-export(int, 16, 400) var transition_poll_budget_ms := 100
 export(float, 0.0, 3.0) var default_fade_out := 0.35
 export(float, 0.0, 3.0) var default_fade_in := 0.35
 export(float, 0.0, 3.0) var default_audio_fade_out := 0.35
@@ -104,14 +97,12 @@ var _loader_mutex: Mutex = null
 var _loader_thread_running := false
 var _probe_value := 0
 
-# Perfil del loader. poll() es ATOMICO: carga un sub-recurso entero, asi que el
-# presupuesto por frame lo limita a no EMPEZAR uno nuevo, no a cortar el que ya
-# arranco. Un solo recurso pesado bloquea el frame igual. Esto separa las dos
-# causas: "muchos polls estirados por el presupuesto" vs "un poll larguisimo".
+# Perfil del tramo de carga. Existe porque el sintoma que importa en HTML5 no se ve
+# en ninguna otra marca: entre que el loader termina y que se instancia, UN solo
+# frame puede irse en compilar shaders (medido: 15-18 s). Sin esto, el tramo es un
+# hueco mudo entre dos [SceneStartup] y se atribuye mal (loader, texturas, _ready).
 var _poll_work_ms := 0
 var _poll_count := 0
-var _poll_deps: PoolStringArray = PoolStringArray()
-const SLOW_POLL_MS := 80
 
 func _ready() -> void:
 	_use_loader_thread = threaded_resource_loading and _probe_thread_support()
@@ -232,9 +223,6 @@ func goto_scene(path: String, params: Dictionary = {}):
 			_start_loader(_next_scene_path)
 			var wait_frames := 0
 			var wait_started_ms := OS.get_ticks_msec()
-			var tex_before := Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0
-			var vram_before := Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0
-			var objs_before := VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME)
 			var slowest_frame_ms := 0
 			var last_frame_ms := OS.get_ticks_msec()
 			while _is_loading:
@@ -243,11 +231,9 @@ func goto_scene(path: String, params: Dictionary = {}):
 				var now_ms := OS.get_ticks_msec()
 				slowest_frame_ms = int(max(slowest_frame_ms, now_ms - last_frame_ms))
 				last_frame_ms = now_ms
-			print("[LoaderProfile] espera del loader: %d frames en %d ms (frame mas lento %d ms) texmb %.1f->%.1f vram %.1f->%.1f objs %d->%d" % [
-				wait_frames, OS.get_ticks_msec() - wait_started_ms, slowest_frame_ms,
-				tex_before, Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0,
-				vram_before, Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
-				objs_before, VisualServer.get_render_info(VisualServer.INFO_OBJECTS_IN_FRAME)])
+			print("[LoaderProfile] %s carga=%d ms en %d polls | espera post-carga=%d ms en %d frames (frame mas lento %d ms)" % [
+				_next_scene_path, _poll_work_ms, _poll_count,
+				OS.get_ticks_msec() - wait_started_ms, wait_frames, slowest_frame_ms])
 
 	if _last_transition_abort_reason != "":
 		return false
@@ -256,7 +242,6 @@ func goto_scene(path: String, params: Dictionary = {}):
 		_finalize_failed_transition(_load_error)
 		return false
 
-	print("[LoaderProfile] pre-swap: %d ms desde goto_scene" % (OS.get_ticks_msec() - _transition_started_ms))
 	var set_state = _set_new_scene(_loaded_scene)
 	if set_state is GDScriptFunctionState:
 		yield(set_state, "completed")
@@ -301,9 +286,6 @@ func _start_loader(path: String) -> void:
 	_unlock()
 	_poll_work_ms = 0
 	_poll_count = 0
-	# El stage del loader avanza con las dependencias externas en orden, asi que
-	# sirve para ponerle nombre al poll lento sin instrumentar el motor.
-	_poll_deps = ResourceLoader.get_dependencies(path)
 	_emit_load_progress(0.0)
 
 func _lock() -> void:
@@ -424,20 +406,12 @@ func _poll_loader() -> void:
 		return
 
 	var start_ms := OS.get_ticks_msec()
-	# max() y no a secas: los tiers de hardware debil ya piden MAS presupuesto.
-	var budget_ms := int(max(_get_effective_poll_budget_ms(), transition_poll_budget_ms))
+	var budget_ms := _get_effective_poll_budget_ms()
 	while _is_loading and (OS.get_ticks_msec() - start_ms) < budget_ms:
 		var poll_started_ms := OS.get_ticks_msec()
-		var polled_stage = _loader.get_stage()
 		var err = _loader.poll()
-		var poll_ms := OS.get_ticks_msec() - poll_started_ms
-		_poll_work_ms += poll_ms
+		_poll_work_ms += OS.get_ticks_msec() - poll_started_ms
 		_poll_count += 1
-		if poll_ms >= SLOW_POLL_MS:
-			var who := ""
-			if polled_stage >= 0 and polled_stage < _poll_deps.size():
-				who = String(_poll_deps[polled_stage]).split("::")[0]
-			print("[LoaderProfile] poll lento %d ms  stage=%d  %s" % [poll_ms, polled_stage, who])
 		if err == OK:
 			var stage_count = max(1, _loader.get_stage_count())
 			var stage = _loader.get_stage()
@@ -448,9 +422,6 @@ func _poll_loader() -> void:
 		elif err == ERR_FILE_EOF:
 			var resource = _loader.get_resource()
 			_loader_last_progress_ms = OS.get_ticks_msec()
-			print("[LoaderProfile] %s  polls=%d  trabajo_real=%d ms  reloj=%d ms  presupuesto=%d ms/frame" % [
-				_next_scene_path, _poll_count, _poll_work_ms,
-				max(0, OS.get_ticks_msec() - _transition_started_ms), budget_ms])
 			if resource and resource is PackedScene:
 				_loaded_scene = resource
 				_emit_load_progress(1.0)
@@ -520,7 +491,7 @@ func _poll_scene_preload() -> void:
 	# frame son N frames de reloj para N sub-recursos, con el hilo principal ocioso
 	# el resto de cada frame. Ahi se cobra el mismo presupuesto que el loader normal.
 	var urgent: bool = _is_transitioning and path == _next_scene_path
-	var budget_ms: int = int(max(_get_effective_poll_budget_ms(), transition_poll_budget_ms))
+	var budget_ms: int = _get_effective_poll_budget_ms()
 	var start_ms := OS.get_ticks_msec()
 	while true:
 		var err = loader.poll()
