@@ -52,6 +52,30 @@ func test_gate_strips_heavy_passes_when_known_adapter():
 	assert_bool(env.ss_reflections_enabled).is_false()
 	assert_int(env.tonemap_mode).is_equal(Environment.TONE_MAPPER_LINEAR)
 
+# ODISEA_KEEP_FOG=1 (perf_bisect.sh): la niebla vive en el scene shader (UBO SceneData),
+# no es un pase full-screen caro como glow/SSAO/SSR, asi que se puede conservar sola.
+# El gate lee el env en _ready(), asi que hay que setearlo ANTES de add_child.
+func test_gate_keeps_fog_with_keep_fog_env():
+	var prev := OS.get_environment(GateScript.KEEP_FOG_ENV)
+	OS.set_environment(GateScript.KEEP_FOG_ENV, "1")
+
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+
+	var env = auto_free(Environment.new())
+	env.fog_enabled = true
+	env.glow_enabled = true
+
+	var we = auto_free(WorldEnvironment.new())
+	we.environment = env
+	add_child(we)
+
+	assert_bool(env.fog_enabled).is_true()
+	assert_bool(env.glow_enabled).is_false()
+
+	OS.set_environment(GateScript.KEEP_FOG_ENV, prev)
+
 func test_gate_leaves_environment_untouched_without_mali():
 	var gate = auto_free(GateScript.new())
 	gate.force_gate = false

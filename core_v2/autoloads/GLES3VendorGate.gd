@@ -37,8 +37,15 @@ export var force_gate := false
 # override.cfg que el handheld arma desde portmaster/lowend.cfg.
 const FORCE_LOW_TIER_ENV := "ODISEA_FORCE_LOW_TIER"
 
+# Escape para el A/B de niebla (perf_bisect.sh): fog_enabled cayo junto con los pases
+# full-screen caros, pero en GLES3 la niebla se computa DENTRO del scene shader (UBO
+# SceneData: fog_depth_enabled/begin/end en scene.glsl del fork), no es un pase aparte.
+# En un GPU tile-based es barata y es lo que mas profundidad da por lo que cuesta.
+const KEEP_FOG_ENV := "ODISEA_KEEP_FOG"
+
 var _gated_active := false
 var _env_forced_low_tier := false
+var _env_keep_fog := false
 # Los tools de horneado (tools/bake_*.gd) instancian la escena fuente y guardan
 # los materiales recolectados. Si el gate corre en tier LOW, _low_tier_material
 # muta esos recursos COMPARTIDOS en memoria y el bake los persiste sin
@@ -75,6 +82,7 @@ func set_replay_active(active: bool) -> void:
 
 func _ready() -> void:
 	_env_forced_low_tier = _read_env_forced_low_tier()
+	_env_keep_fog = OS.get_environment(KEEP_FOG_ENV).to_lower() in ["1", "true", "yes", "on"]
 	_unshaded_mode = OS.get_environment("ODISEA_UNSHADED").strip_edges()
 	_flat_debug = OS.get_environment("ODISEA_FLAT_DEBUG") in ["1", "true", "yes", "on"]
 	if _unshaded_mode == "3":
@@ -638,7 +646,8 @@ func _sync_manual_lightmap(gated: bool) -> void:
 func strip_environment(env: Environment) -> void:
 	if env == null:
 		return
-	env.fog_enabled = false
+	if not _env_keep_fog:
+		env.fog_enabled = false
 	env.glow_enabled = false
 	# SSAO/SSR son los dos pases full-screen mas caros del G31 (leen depth y corren a
 	# media resolucion) y se colaban por el gate: Environment_RingHub y los
