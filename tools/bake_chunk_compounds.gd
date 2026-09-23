@@ -260,6 +260,30 @@ func _bake_one(cfg: Dictionary) -> Dictionary:
 
 	if bytes.size() <= 0 or children != shapes:
 		return {"path": cfg["path"], "error": "bake incompleto: hijos=%d shapes=%d unsupported=%s" % [children, shapes, str(unsupported)]}
+	# `children != shapes` NO alcanza para detectar colision perdida: una shape que
+	# se partio en dos aporta un hijo de mas y tapa a otra que aporto cero. Asi
+	# quedaron SpiralWalkways 05 y 06 con shapes=9 hijos=9 y el deck sin colision.
+	# Las shapes que box3d rechaza se cuentan aparte.
+	var perdidas := 0
+	for entry in unsupported:
+		if String(entry).begins_with("no se pudo hornear"):
+			perdidas += 1
+	if perdidas > 0:
+		# Antes que perder colision, este chunk se queda SIN compound: se copia la
+		# fuente tal cual (primitivas sueltas). Cuesta mas por frame que una sola
+		# shape, pero se puede caminar encima, que es lo que importa.
+		var src_file := File.new()
+		if src_file.open(cfg["src"], File.READ) != OK:
+			return {"path": cfg["path"], "error": "no pude leer la fuente para el fallback"}
+		var src_text := src_file.get_as_text()
+		src_file.close()
+		var dst_file := File.new()
+		if dst_file.open(cfg["path"], File.WRITE) != OK:
+			return {"path": cfg["path"], "error": "no pude escribir el fallback sin compound"}
+		dst_file.store_string(src_text)
+		dst_file.close()
+		return {"path": cfg["path"], "shapes": shapes, "children": children, "bytes": 0,
+			"fallback": perdidas, "unsupported": unsupported}
 	if root_transform != Transform():
 		return {"path": cfg["path"], "error": "el root tiene transform (%s): el horneado asume identidad" % str(root_transform)}
 
@@ -309,6 +333,9 @@ func _run() -> void:
 		if r.has("error"):
 			errors += 1
 			print("  ERROR %s: %s" % [r["path"].get_file(), r["error"]])
+		elif r.has("fallback"):
+			print("  %-52s SIN COMPOUND: box3d rechazo %d shape(s), se deja con primitivas sueltas %s" % [
+				r["path"].get_file(), r["fallback"], str(r["unsupported"])])
 		else:
 			print("  %-52s shapes=%2d hijos=%2d bytes=%6d -> %s%s" % [
 				r["path"].get_file(), r["shapes"], r["children"], r["bytes"],

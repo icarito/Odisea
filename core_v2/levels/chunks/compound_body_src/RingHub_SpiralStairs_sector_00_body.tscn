@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres" type="Resource" id=1]
 [ext_resource path="res://core_v2/systems/footsteps/footstep_surface.gd" type="Script" id=2]
@@ -12,6 +12,10 @@ radius = 0.0805
 
 [sub_resource type="CylinderShape" id=3]
 height = 4.63
+radius = 0.0805
+
+[sub_resource type="CylinderShape" id=4]
+height = 0.13
 radius = 0.0805
 
 [sub_resource type="CylinderShape" id=5]
@@ -52,22 +56,26 @@ transform = Transform( -0.971824, 0, 0.235708, 0, 1, 0, -0.235708, 0, -0.971824,
 shape = SubResource( 3 )
 
 [node name="Collision_3" type="CollisionShape" parent="."]
+transform = Transform( -0.971824, 0, 0.235708, 0, 1, 0, -0.235708, 0, -0.971824, 23.07, 0.065, -5.72205e-06 )
+shape = SubResource( 4 )
+
+[node name="Collision_4" type="CollisionShape" parent="."]
 transform = Transform( -0.971824, 0, 0.235708, 0, 1, 0, -0.235708, 0, -0.971824, 28.93, 0.065, 2.86102e-06 )
 shape = SubResource( 5 )
 
-[node name="Collision_4" type="CollisionShape" parent="."]
+[node name="Collision_5" type="CollisionShape" parent="."]
 transform = Transform( -0.971824, 0, 0.235708, 0, 1, 0, -0.235708, 0, -0.971824, 21.7983, 1.19108, 5.22276 )
 shape = SubResource( 6 )
 
-[node name="Collision_5" type="CollisionShape" parent="."]
+[node name="Collision_6" type="CollisionShape" parent="."]
 transform = Transform( -0.971824, 0, 0.235708, 0, 1, 0, -0.235708, 0, -0.971824, 27.3389, 1.18866, 6.56659 )
 shape = SubResource( 7 )
 
-[node name="Collision_6" type="CollisionShape" parent="."]
+[node name="Collision_7" type="CollisionShape" parent="."]
 transform = Transform( -0.971824, 0, 0.235708, 0, 1, 0, -0.235708, 0, -0.971824, 24.5694, 0, 5.89488 )
 shape = SubResource( 8 )
 
-[node name="Collision_7" type="CollisionShape" parent="."]
+[node name="Collision_8" type="CollisionShape" parent="."]
 transform = Transform( -0.971824, 0, 0.235708, 0, 1, 0, -0.235708, 0, -0.971824, 24.5694, 0, 5.89488 )
 shape = SubResource( 9 )
 

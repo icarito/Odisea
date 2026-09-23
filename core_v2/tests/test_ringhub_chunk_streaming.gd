@@ -210,15 +210,17 @@ func test_trigger_radius_cubre_la_geometria_del_chunk() -> void:
 	while not pending.empty():
 		var current = pending.pop_back()
 		if current.get_script() != null and current.has_method("request_load"):
-			var extent := _chunk_extent(current)
+			# Se mide PRIMERO en la escena fuente: el body que carga el chunk puede
+			# venir compactado a un compound de box3d, y ahi medir engana en vez de
+			# fallar — CompoundChunkBodyV2 crea su CollisionShape al entrar al arbol
+			# y el debug mesh de esa shape es el AABB de TODO el compound, que para
+			# una cuna angular envuelve muchisimo aire (daba 18-27 m donde la
+			# geometria real llega a 6-23).
+			var extent := _source_body_extent(current)
 			if extent <= 0.0:
-				# Los anillos de criopods traen su colision en UN compound de Box3D
-				# (CompoundChunkBodyV2), que no expone CollisionShape: medirlos por
-				# shapes daba 0 y el chunk pasaba siempre. Se miden contra el visual
-				# que les corresponde, que es el sintoma real — se ve y se atraviesa.
-				extent = _sibling_visual_extent(current)
+				extent = _chunk_extent(current)
 			if extent <= 0.0:
-				cortos.append("%s: no se pudo medir ni por colision ni por visual" % current.name)
+				cortos.append("%s: no se pudo medir la geometria del chunk" % current.name)
 			elif float(current.get("trigger_radius")) < extent:
 				cortos.append("%s: r=%.1f < geometria %.1f" % [
 					current.name, current.get("trigger_radius"), extent])
@@ -235,7 +237,16 @@ func _chunk_extent(chunk: Node) -> float:
 		return 0.0
 	var instance: Node = packed.instance()
 	chunk.add_child(instance)
-	var center: Vector3 = chunk.get("trigger_center")
+	var extent := _measure_shapes(instance, chunk, chunk.get("trigger_center"))
+	chunk.remove_child(instance)
+	instance.queue_free()
+	return extent
+
+
+# Distancia del punto mas lejano de las CollisionShape de `instance` a `center`,
+# en el espacio del chunk. Por shape, no por AABB del conjunto: el AABB de una
+# cuna angular envuelve muchisimo aire y daria un alcance inflado.
+func _measure_shapes(instance: Node, chunk: Node, center: Vector3) -> float:
 	var to_local: Transform = chunk.global_transform.affine_inverse()
 	var worst := 0.0
 	var pending := [instance]
@@ -248,8 +259,6 @@ func _chunk_extent(chunk: Node) -> float:
 				worst = max(worst, (xform.xform(box.get_endpoint(corner)) - center).length())
 		for child in current.get_children():
 			pending.append(child)
-	chunk.remove_child(instance)
-	instance.queue_free()
 	return worst
 
 
@@ -281,39 +290,26 @@ func test_todo_visual_tiene_chunk_de_colision() -> void:
 	assert_array(huerfanos).is_empty()
 
 
-# Alcance del visual que acompania a un chunk, desde su trigger_center. Para los
-# anillos de criopods el visual es un hermano "Criopods_Visual*" del mismo nombre;
-# para los sectores de scaffold es el "Visual_NN" dentro del grupo.
-func _sibling_visual_extent(chunk: Node) -> float:
-	var parent: Node = chunk.get_parent()
-	if parent == null:
+# Alcance de la colision de un chunk medido en su escena FUENTE. El body que
+# carga el chunk puede venir compactado a un compound de box3d, que no expone
+# shapes; compound_body_src guarda la misma geometria como primitivas sueltas.
+# Medir ahi es exacto: el AABB del visual del sector sobreestima muchisimo,
+# porque una cuna angular delgada tiene una caja envolvente enorme.
+const COMPOUND_SOURCE_DIR := "res://core_v2/levels/chunks/compound_body_src/"
+
+func _source_body_extent(chunk: Node) -> float:
+	var packed: PackedScene = chunk.get("chunk_scene")
+	if packed == null:
 		return 0.0
-	var chunk_name := String(chunk.name)
-	var visual: Node = null
-	if chunk_name.begins_with("Chunk_Criopods"):
-		var suffix := chunk_name.substr(6, chunk_name.length() - 6)
-		visual = parent.get_node_or_null("Criopods_Visual_%s" % suffix)
-		if visual == null and suffix == "Criopods":
-			visual = parent.get_node_or_null("Criopods_Visual")
-	else:
-		visual = parent.get_node_or_null("Visual_%s" % chunk_name.substr(6, chunk_name.length() - 6))
-	if visual == null:
+	var source_path := COMPOUND_SOURCE_DIR + String(packed.resource_path).get_file()
+	if not ResourceLoader.exists(source_path):
 		return 0.0
-	var center: Vector3 = chunk.to_global(chunk.get("trigger_center"))
-	var box := AABB()
-	var first := true
-	var pending := [visual]
-	while not pending.empty():
-		var current = pending.pop_back()
-		if current is VisualInstance:
-			var a: AABB = (current as VisualInstance).get_transformed_aabb()
-			box = a if first else box.merge(a)
-			first = false
-		for child in current.get_children():
-			pending.append(child)
-	if first:
+	var source: PackedScene = load(source_path) as PackedScene
+	if source == null:
 		return 0.0
-	var worst := 0.0
-	for corner in range(8):
-		worst = max(worst, (box.get_endpoint(corner) - center).length())
-	return worst
+	var instance: Node = source.instance()
+	chunk.add_child(instance)
+	var extent := _measure_shapes(instance, chunk, chunk.get("trigger_center"))
+	chunk.remove_child(instance)
+	instance.queue_free()
+	return extent

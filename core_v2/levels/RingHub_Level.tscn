@@ -855,7 +855,7 @@ release_margin = 6.0
 script = ExtResource( 15 )
 chunk_scene = ExtResource( 17 )
 trigger_center = Vector3( 0, 4.5, 0 )
-trigger_radius = 23.0
+trigger_radius = 18.0
 release_margin = 6.0
 
 [node name="Criopods_Visual_Criopods3" parent="ScaffoldStreamRoot" instance=ExtResource( 18 )]
@@ -864,7 +864,7 @@ release_margin = 6.0
 script = ExtResource( 15 )
 chunk_scene = ExtResource( 22 )
 trigger_center = Vector3( 0, 9, 0 )
-trigger_radius = 23.0
+trigger_radius = 18.0
 release_margin = 6.0
 
 [node name="Criopods_Visual_Criopods4" parent="ScaffoldStreamRoot" instance=ExtResource( 19 )]
@@ -873,7 +873,7 @@ release_margin = 6.0
 script = ExtResource( 15 )
 chunk_scene = ExtResource( 23 )
 trigger_center = Vector3( 0, 13.5, 0 )
-trigger_radius = 23.0
+trigger_radius = 18.0
 release_margin = 6.0
 
 [node name="Criopods_Visual_Criopods5" parent="ScaffoldStreamRoot" instance=ExtResource( 20 )]
@@ -882,7 +882,7 @@ release_margin = 6.0
 script = ExtResource( 15 )
 chunk_scene = ExtResource( 24 )
 trigger_center = Vector3( 0, 18, 0 )
-trigger_radius = 23.0
+trigger_radius = 18.0
 release_margin = 6.0
 
 [node name="Criopods_Visual_Criopods6" parent="ScaffoldStreamRoot" instance=ExtResource( 21 )]
@@ -891,7 +891,7 @@ release_margin = 6.0
 script = ExtResource( 15 )
 chunk_scene = ExtResource( 25 )
 trigger_center = Vector3( 0, 22.5, 0 )
-trigger_radius = 23.0
+trigger_radius = 18.0
 release_margin = 6.0
 
 [node name="Floor_2" parent="Hub" instance=ExtResource( 2 )]
