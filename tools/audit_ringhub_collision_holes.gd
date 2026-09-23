@@ -19,20 +19,25 @@ extends SceneTree
 # La mascara es 65 (capa 1 del suelo/domo + capa 64 del scaffold). Con solo 64
 # los puntos que se apoyan en el piso del domo salen como falsos agujeros.
 #
-# Lo que se sabe de los 13 que quedan (sondeando la escena FUENTE,
-# DomeIntro_ScaffoldSource, que tiene sus 118 CollisionShape vivas):
-#   - (-19.73, 4.7, -17.77) y (2.73, 9.2, -25.96) SI colisionan en la fuente:
-#     esos los perdio el horneado por sector y se arreglan en el baker.
-#   - (13.94, 9.2, -21.47) y (-4.70, 22.69, 17.39) NO colisionan ni en la fuente:
-#     esa geometria nunca tuvo piso, y es autoria del nivel, no del baker.
-# Ojo al mapear un punto global a su sector: _sector_for trabaja en el espacio del
-# GRUPO, y Group_SpiralStairs va rotado ~165 grados.
+# De donde vienen los 13 que quedan: NO del pipeline. Medido con este auditor
+# sobre el mismo nivel, cambiando solo la colision:
+#   por grupo, sin repartir (RingHub_<Grupo>_body, la que usa Dome_Intro)  -> 15
+#   por sector + compound (lo que RingHub carga hoy)                       -> 13
+#   por sector con primitivas sueltas                                      -> 15
+# El reparto por sector no pierde nada y el compound tapa dos (el hull aproxima
+# un pelo por fuera). Los agujeros estan en la geometria de colision de origen:
+# esos triangulos se dibujan como piso y nunca tuvieron shape debajo. Se arregla
+# en la escena fuente del scaffold, no en el baker.
 #
-# Lo que NO los causa, ya descartado con este mismo auditor:
-#   - Compactar a compound: con primitivas sueltas salen 15 y con compound 13. El
-#     hull aproxima un pelo por fuera y tapa dos, asi que el compound ayuda.
-#   - Colision horneada que la escena no carga: las 18 entradas del manifiesto
-#     tienen su Chunk_NN en RingHub_Level, ninguna queda huerfana.
+# Tambien descartado: colision horneada que la escena no cargue. Las 18 entradas
+# del manifiesto tienen su Chunk_NN en RingHub_Level, ninguna queda huerfana.
+#
+# Ojo con dos trampas al investigar esto:
+#   - Sondear DomeIntro_ScaffoldSource viva NO sirve como referencia: ahi hay
+#     otros nodos con colision propia que tapan puntos que el scaffold no cubre,
+#     y da la falsa impresion de que el horneado perdio geometria.
+#   - _sector_for trabaja en el espacio del GRUPO, y Group_SpiralStairs va rotado
+#     ~165 grados: un punto global no se mapea a su sector sin des-rotarlo.
 #
 # Run: tools/godot --no-window --audio-driver Dummy --path . \
 #        -s res://tools/audit_ringhub_collision_holes.gd
