@@ -27,7 +27,7 @@ func _count_static_bodies(node: Node) -> int:
 	return total
 
 
-func test_shell_has_no_scaffold_collision_and_has_group_visuals() -> void:
+func test_shell_has_no_scaffold_collision_and_has_sector_visuals() -> void:
 	var level = auto_free(RingHubScene.instance())
 	add_child(level)
 	yield(get_tree(), "idle_frame")
@@ -49,11 +49,19 @@ func test_shell_has_no_scaffold_collision_and_has_group_visuals() -> void:
 			chunks += 1
 		for child in current.get_children():
 			pending.append(child)
+	# El visual del scaffold es uno POR SECTOR (Visual_NN) y vive siempre en el shell:
+	# la malla de grupo abarcaba los 360 grados y el frustum no la podia descartar.
+	# No va adentro del chunk: ese streamea por distancia (trigger_radius 15) y en un
+	# domo donde se ve hasta 35 m eso borra el andamiaje del otro lado del anillo.
 	for group_name in ["SpiralStairs", "HubSpokes", "SpiralWalkways"]:
-		var visual = stream.get_node_or_null("Group_%s/Visual" % group_name)
-		if visual is MeshInstance and (visual as MeshInstance).mesh != null:
-			visuals += 1
-	assert_int(visuals).is_equal(3)
+		var group = stream.get_node_or_null("Group_%s" % group_name)
+		if group == null:
+			continue
+		for child in group.get_children():
+			if child is MeshInstance and (child as MeshInstance).mesh != null \
+					and String(child.name).begins_with("Visual_"):
+				visuals += 1
+	assert_int(visuals).is_equal(18)
 	# 17 sectores del scaffold + 5 anillos de criopods (piso 1 + pisos 2-5).
 	assert_int(chunks).is_equal(22)
 	# Los pisos 2-5 tambien llevan su anillo de criopods decorativos.
