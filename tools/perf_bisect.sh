@@ -55,7 +55,7 @@ while time.time() - start < 240:
     p = st()
     if (p.get("tick") or 0) >= t0: break
     time.sleep(1)
-ts = ks = None; fps = []; dc = []
+ts = ks = None; fps = []; dc = []; vtx = []
 while time.time() - start < 700:
     p = st() or {}
     tick = p.get("tick") or 0
@@ -63,14 +63,18 @@ while time.time() - start < 700:
     perf = p.get("perf") or {}
     if p.get("fps"): fps.append(p["fps"])
     if perf.get("dc"): dc.append(perf["dc"])
+    # vtx sale del mismo heartbeat que dc: con las mallas combinadas del anillo el
+    # cuello candidato son los vertices, y sin esta columna no se ve en el barrido.
+    if perf.get("vtx"): vtx.append(perf["vtx"])
     if tick >= t1: break
     time.sleep(0.5)
 if ts is None or not tick or tick <= ks:
     print("  sin progreso (scene=%s tick=%s)" % (p.get("scene"), p.get("tick"))); sys.exit(1)
-print("  ticks/s=%.2f fps_med=%s dc_med=%s" % (
+print("  ticks/s=%.2f fps_med=%s dc_med=%s vtx_med=%s" % (
     (tick - ks) / (time.time() - ts),
     statistics.median(fps) if fps else "-",
-    statistics.median(dc) if dc else "-"))
+    statistics.median(dc) if dc else "-",
+    statistics.median(vtx) if vtx else "-"))
 PY
 }
 
