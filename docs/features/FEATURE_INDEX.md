@@ -157,6 +157,7 @@ resolvió como fallback de `DynamicFont`._
 | FD-234 | Version Display | 2026-06-22 | Versión en boot y menú. |
 | FD-235 | Performance Pass | 2026-06-22 | LOD + instrumentación. |
 | FD-238 | FD System Improvements | 2026-06-22 | Skills docs, CHANGELOG, fd-close. |
+| FD-311 | UI Consistency & Accessibility | 2026-09-23 | Capa 10000 VirtualMouse, centrado (0,0), rate limit Web, paridad de foco en HUDables. |
 | FD-023 | WindZone | 2026-03-02 | archive/ |
 | FD-024 | Guardrail Platform | 2026-03-02 | archive/ |
 
