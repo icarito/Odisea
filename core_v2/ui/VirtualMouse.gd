@@ -421,7 +421,10 @@ func set_desktop_mouse_mode(enabled: bool, position: Vector2 = Vector2.ZERO) -> 
 			_desktop_mouse_restore_mode = Input.get_mouse_mode()
 		_desktop_mouse_mode = true
 		_active = false
-		_position = position
+		if position != Vector2.ZERO:
+			_position = position
+		elif not _has_real_mouse_position or _position == Vector2.ZERO:
+			_position = get_viewport_rect().size * 0.5
 		visible = true
 		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	elif _desktop_mouse_mode:
