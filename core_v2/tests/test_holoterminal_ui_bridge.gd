@@ -52,6 +52,36 @@ func test_holoterminal_can_be_focus_only_when_not_interactable() -> void:
 
 	yield (_teardown_scene_root(scene), "completed")
 
+func test_terminal_no_toma_el_mouse_con_una_ui_de_sistema_encima() -> void:
+	var scene = _setup_scene_root()
+	var holo = HoloTerminalScene.instance()
+	holo.allow_focus_mode = true
+	holo.enable_ui_interaction = true
+	scene.add_child(holo)
+	yield (get_tree(), "idle_frame")
+
+	assert_bool(holo.can_focus()).is_true()
+
+	# Un popup visible pide el cursor virtual (aviso de privacidad, pausa, dialogos...):
+	# el terminal no debe arrebatarlo ni entrar en foco por detras de esa UI.
+	var popup := Control.new()
+	popup.name = "FakeSystemPopup"
+	popup.anchor_right = 1.0
+	popup.anchor_bottom = 1.0
+	scene.add_child(popup)
+	var VirtualMouse = load("res://core_v2/ui/VirtualMouse.gd")
+	var cursor = VirtualMouse.attach_to(popup)
+	yield (get_tree(), "idle_frame")
+
+	assert_bool(VirtualMouse.is_ui_wanted()).is_true()
+	assert_bool(holo.can_focus()).is_false()
+	holo.call("_enter_focus_mode")
+	assert_bool(holo.get("_is_focused")).is_false()
+
+	cursor.remove_requester(popup)
+	cursor.set_desktop_mouse_mode(false)
+	yield (_teardown_scene_root(scene), "completed")
+
 func test_fastfetch_command_prints_odisea_summary() -> void:
 	var scene = _setup_scene_root()
 	var console = OYSConsole.new()

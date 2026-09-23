@@ -83,6 +83,7 @@ Se establece una norma estricta de capas para todo el proyecto:
 ### 3.5 Aislamiento de Gameplay y Overlays de Sistema (v2)
 - **Invariante**: ningún overlay de sistema (`FirstRunConsentLayer`, popups de sistema) convive con gameplay activo debajo. La carga del nivel se pide recién cuando la decisión está tomada.
 - `FirstRunConsent.gd`: `_on_ok_pressed` muestra el aviso y la pregunta **sin** pedir la carga; `_on_choice` (aceptar/rechazar) emite `loading_requested` y la pantalla pasa a hacer de cartel de carga hasta que el nivel está listo (`_release_when_loaded` libera el `CanvasLayer`).
+- **Defensa en profundidad**: `HoloTerminalV2` no entra en foco ni se auto-activa (`auto_interact`) cuando una UI de sistema pide el cursor (`VirtualMouse.is_ui_wanted()`). La excepción es el modo HUD, donde la UI que pide el cursor es el propio terminal (`PauseManager.is_hud_mode_paused()`). Así el terminal no arrebata el mouse por detrás de un popup aunque el nivel esté vivo.
 - El título del aviso usa la misma tipografía que la pregunta de consentimiento (`SubResource(3)`, tamaño 21), para que la jerarquía del aviso sea consistente con la decisión.
 
 ---
@@ -93,6 +94,8 @@ Se establece una norma estricta de capas para todo el proyecto:
 - [FirstRunConsent.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/ui/FirstRunConsent.gd): Acoplamiento directo de `VirtualMouse.attach_popup(self)` en `_ready()`; v2: la carga del nivel se pide en `_on_choice`, no en `_on_ok_pressed`.
 - [FirstRunConsent.tscn](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/ui/FirstRunConsent.tscn): Título del aviso con la tipografía de la pregunta (`SubResource(3)`).
 - [test_privacy_consent.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/tests/test_privacy_consent.gd): Verifica que la pregunta aparece sin arrancar el nivel y que la decisión es la que dispara la carga.
+- [HoloTerminalV2.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/things/HoloTerminalV2.gd): v2: no entra en foco ni auto-activa si una UI de sistema pide el cursor (`_system_ui_owns_pointer`), salvo modo HUD.
+- [test_holoterminal_ui_bridge.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/tests/test_holoterminal_ui_bridge.gd): cubre el guard del terminal contra una UI de sistema visible.
 - [Menu.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/ui/Menu.gd): Invocación a `hideNativeNotice()` al arrancar la partida y limpieza de orden de capas.
 - [ShaderWarmupTrigger.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/levels/ShaderWarmupTrigger.gd): Liberación de ratón en HTML5 durante compilación.
 - [SceneManager.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/autoloads/SceneManager.gd): Liberación de ratón en HTML5 durante `pre_load_hook`.

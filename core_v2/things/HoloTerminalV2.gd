@@ -8,6 +8,7 @@ class_name HoloTerminalV2
 
 const TerminalCameraRigScript = preload("res://core_v2/components/TerminalCameraRig.gd")
 const TerminalHUDBridgeScript = preload("res://core_v2/components/TerminalHUDBridge.gd")
+const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 
 const DebugOverlayScene = preload("res://core_v2/ui/retro/DebugOverlay.tscn")
 const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
@@ -334,7 +335,21 @@ func interact() -> void:
 		if not attach_to_active_camera and not use_cinematic_zone and allow_focus_mode:
 			_enter_focus_mode()
 
+# Una UI de sistema (popup, aviso de privacidad, pausa, dialogos) esta pidiendo el cursor
+# ahora mismo: el terminal no debe arrebatarlo ni entrar en foco, aunque tenga auto_interact
+# o este el jugador cerca. El modo HUD no cuenta: ahi la UI que pide el cursor es este mismo
+# terminal (SuitOS/HudModeOverlay), que es el caso en el que SI tiene que tomar el mouse.
+func _system_ui_owns_pointer() -> bool:
+	if not VirtualMouseScript.is_ui_wanted():
+		return false
+	var pause_mgr = get_node_or_null("/root/PauseManager")
+	if pause_mgr and pause_mgr.has_method("is_hud_mode_paused") and pause_mgr.is_hud_mode_paused():
+		return false
+	return true
+
 func can_focus() -> bool:
+	if _system_ui_owns_pointer():
+		return false
 	return allow_focus_mode and enable_ui_interaction
 
 func focus() -> void:
@@ -404,7 +419,7 @@ func _on_camera_zone_body_entered(body: Node) -> void:
 		_camera_zone.is_zone_active = true
 	
 	# Auto-interact: activate terminal automatically on entry
-	if auto_interact and not is_active:
+	if auto_interact and not is_active and not _system_ui_owns_pointer():
 		print("[HoloTerminalV2] Auto-activating terminal on zone entry")
 		set_active(true)
 		
@@ -831,6 +846,10 @@ func _hud_pointer_sign() -> Vector2:
 func _enter_focus_mode():
 	"""Switch to FocusedRig camera for close-up terminal interaction."""
 	if _is_focused:
+		return
+	# Un popup/aviso de sistema tiene el puntero: no entrar en foco ni bloquear al jugador
+	# por detras de esa UI. `focus()` ya lo chequea, pero hay llamadas directas.
+	if _system_ui_owns_pointer():
 		return
 
 	if attach_to_active_camera:
