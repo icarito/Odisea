@@ -1,13 +1,68 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=10 format=2]
 
-[ext_resource path="res://core_v2/levels/chunks/CompoundChunkBodyV2.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_sector_07_body_compound.res" type="Resource" id=2]
-[ext_resource path="res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres" type="Resource" id=3]
+[ext_resource path="res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres" type="Resource" id=1]
+[ext_resource path="res://core_v2/systems/footsteps/footstep_surface.gd" type="Script" id=2]
+
+[sub_resource type="ConvexPolygonShape" id=15]
+points = PoolVector3Array( -1, 13.7, -3.67063, 1, 13.7, -3.47204, -1, 13.7, 3.67684, 1, 13.7, 3.46584, -1, 13.6, -3.67063, 1, 13.6, -3.47204, -1, 13.6, 3.67684, 1, 13.6, 3.46584 )
+
+[sub_resource type="CylinderShape" id=16]
+height = 13.63
+radius = 0.0805
+
+[sub_resource type="CylinderShape" id=17]
+height = 13.63
+radius = 0.0805
+
+[sub_resource type="CylinderShape" id=18]
+height = 13.63
+radius = 0.0805
+
+[sub_resource type="CylinderShape" id=19]
+height = 13.63
+radius = 0.0805
+
+[sub_resource type="ConvexPolygonShape" id=20]
+points = PoolVector3Array( -0.8495, 13.7, -3.59368, -0.8495, 13.7, 3.59945, -0.8495, 14.8, -3.59368, -0.8495, 14.8, 3.59945, -1.0105, 13.7, -3.59368, -1.0105, 13.7, 3.59945, -1.0105, 14.8, -3.59368, -1.0105, 14.8, 3.59945 )
+
+[sub_resource type="ConvexPolygonShape" id=21]
+points = PoolVector3Array( 1.0105, 13.7, -3.40899, 1.0105, 13.7, 3.40322, 1.0105, 14.8, -3.40899, 1.0105, 14.8, 3.40322, 0.8495, 13.7, -3.40899, 0.8495, 13.7, 3.40322, 0.8495, 14.8, -3.40899, 0.8495, 14.8, 3.40322 )
 
 [node name="StaticBody" type="StaticBody"]
 collision_layer = 64
 collision_mask = 255
-script = ExtResource( 1 )
-compound = ExtResource( 2 )
-with_footstep_surface = true
-footstep_profile = ExtResource( 3 )
+__meta__ = {
+"footstep_profile": ExtResource( 1 )
+}
+
+[node name="Collision_0" type="CollisionShape" parent="."]
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 15.9228, 0, -4.81623 )
+shape = SubResource( 15 )
+
+[node name="Collision_1" type="CollisionShape" parent="."]
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 12.2138, 6.815, -4.66596 )
+shape = SubResource( 16 )
+
+[node name="Collision_2" type="CollisionShape" parent="."]
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 12.9291, 6.815, -2.93909 )
+shape = SubResource( 17 )
+
+[node name="Collision_3" type="CollisionShape" parent="."]
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 19.0988, 6.815, -6.74851 )
+shape = SubResource( 18 )
+
+[node name="Collision_4" type="CollisionShape" parent="."]
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 19.4495, 6.815, -4.91136 )
+shape = SubResource( 19 )
+
+[node name="Collision_5" type="CollisionShape" parent="."]
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 15.9228, 0, -4.81623 )
+shape = SubResource( 20 )
+
+[node name="Collision_6" type="CollisionShape" parent="."]
+transform = Transform( 0.289519, 0, 0.957172, 0, 1, 0, 0.957172, 0, -0.289519, 15.9228, 0, -4.81623 )
+shape = SubResource( 21 )
+
+[node name="FootstepSurface" type="Spatial" parent="."]
+script = ExtResource( 2 )
+footstep_profile = ExtResource( 1 )

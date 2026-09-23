@@ -17,6 +17,22 @@ class_name StreamedSceneChunkV2
 # chunk jamas produce un frame con colision sin malla debajo.
 
 export(PackedScene) var chunk_scene
+# Colision SIN streaming: se carga entera al abrir el gate y no se libera nunca.
+#
+# El streaming por distancia de colision estatica resulto un mal negocio. El
+# trigger es una esfera alrededor del CENTROIDE del chunk, asi que con geometria
+# que se extiende mas alla del radio quedan coronas donde se pisa la malla y el
+# chunk todavia no cargo — se atraviesa el piso estando encima. Calibrar el radio
+# por chunk tapa el sintoma pero no la clase de bug.
+#
+# Y no hacia falta: Box3D guarda los estaticos en su PROPIO b3DynamicTree, saltea
+# los pares estatico-estatico y resuelve las consultas en k*log(n), asi que unos
+# cientos de shapes estaticas no le pesan. Medido en el Anbernic con A/B/A sobre
+# el mismo replay (ms_physics mediana / p90):
+#     streaming  18.63 / 29.76      todo cargado  18.48 / 26.16      streaming  19.73 / 33.99
+# Cargar todo no cuesta mas, y el p90 hasta mejora: desaparecen los picos de
+# instanciar y liberar chunks mientras se juega.
+export(bool) var stream_by_distance := true
 export(Vector3) var trigger_center := Vector3.ZERO
 export(float) var trigger_radius := 15.0
 export(float) var release_margin := 6.0
@@ -52,6 +68,11 @@ func _arm_when_ready() -> void:
 	if not is_instance_valid(self):
 		return
 	_mark_trace("streamed_chunk_armed")
+	if not stream_by_distance:
+		# Nada que vigilar: se carga una vez y el _physics_process no se enciende,
+		# asi que no se paga una distancia por tick y por chunk para siempre.
+		request_load()
+		return
 	set_physics_process(true)
 
 func _physics_process(_delta: float) -> void:

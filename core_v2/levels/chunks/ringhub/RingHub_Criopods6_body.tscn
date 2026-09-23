@@ -1,10 +1,131 @@
 [gd_scene load_steps=3 format=2]
 
-[ext_resource path="res://core_v2/levels/chunks/CompoundChunkBodyV2.gd" type="Script" id=1]
-[ext_resource path="res://core_v2/levels/chunks/ringhub/RingHub_Criopods6_body_compound.res" type="Resource" id=2]
+[ext_resource path="res://core_v2/levels/chunks/ringhub/CriopodRingCollisionV2.gd" type="Script" id=1]
 
-[node name="CriopodRingCollision" type="StaticBody"]
+[sub_resource type="BoxShape" id=342]
+extents = Vector3( 0.5, 1.2, 0.5 )
+
+[node name="CriopodRingCollision" type="Spatial"]
+script = ExtResource( 1 )
+slot_provider_path = NodePath("../../Criopods_Visual")
+body_path = "Criopods6/StaticBody"
+slot_to_pod = [ -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, -1, -1, -1, -1, 9, 10, 11, 12, 13, -1, -1, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27 ]
+
+[node name="Criopods6" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.7, 0 )
+
+[node name="StaticBody" type="StaticBody" parent="Criopods6"]
 collision_layer = 64
 collision_mask = 255
-script = ExtResource( 1 )
-compound = ExtResource( 2 )
+
+[node name="Pod_00" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -0.2619, 0, -1.57842, 0, 1.6, 0, 1.57842, 0, -0.2619, 11.8381, 1.92, 1.96425 )
+shape = SubResource( 342 )
+
+[node name="Pod_01" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -0.505595, 0, -1.51802, 0, 1.6, 0, 1.51802, 0, -0.505595, 11.3851, 1.92, 3.79196 )
+shape = SubResource( 342 )
+
+[node name="Pod_02" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -0.73684, 0, -1.42023, 0, 1.6, 0, 1.42023, 0, -0.73684, 10.6518, 1.92, 5.5263 )
+shape = SubResource( 342 )
+
+[node name="Pod_03" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -0.949942, 0, -1.28748, 0, 1.6, 0, 1.28748, 0, -0.949942, 9.65611, 1.92, 7.12457 )
+shape = SubResource( 342 )
+
+[node name="Pod_04" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -1.13965, 0, -1.12303, 0, 1.6, 0, 1.12303, 0, -1.13965, 8.4227, 1.92, 8.5474 )
+shape = SubResource( 342 )
+
+[node name="Pod_05" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -1.3013, 0, -0.93092, 0, 1.6, 0, 0.93092, 0, -1.3013, 6.9819, 1.92, 9.75977 )
+shape = SubResource( 342 )
+
+[node name="Pod_06" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -1.43091, 0, -0.71589, 0, 1.6, 0, 0.71589, 0, -1.43091, 5.36918, 1.92, 10.7318 )
+shape = SubResource( 342 )
+
+[node name="Pod_07" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -1.52528, 0, -0.483233, 0, 1.6, 0, 0.483233, 0, -1.52528, 3.62425, 1.92, 11.4396 )
+shape = SubResource( 342 )
+
+[node name="Pod_08" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -1.5821, 0, -0.238677, 0, 1.6, 0, 0.238677, 0, -1.5821, 1.79008, 1.92, 11.8657 )
+shape = SubResource( 342 )
+
+[node name="Pod_09" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -1.28748, 0, 0.949942, 0, 1.6, 0, -0.949942, 0, -1.28748, -7.12457, 1.92, 9.65611 )
+shape = SubResource( 342 )
+
+[node name="Pod_10" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -1.12303, 0, 1.13965, 0, 1.6, 0, -1.13965, 0, -1.12303, -8.5474, 1.92, 8.4227 )
+shape = SubResource( 342 )
+
+[node name="Pod_11" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -0.93092, 0, 1.3013, 0, 1.6, 0, -1.3013, 0, -0.93092, -9.75977, 1.92, 6.9819 )
+shape = SubResource( 342 )
+
+[node name="Pod_12" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -0.71589, 0, 1.43091, 0, 1.6, 0, -1.43091, 0, -0.71589, -10.7318, 1.92, 5.36918 )
+shape = SubResource( 342 )
+
+[node name="Pod_13" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( -0.483233, 0, 1.52528, 0, 1.6, 0, -1.52528, 0, -0.483233, -11.4396, 1.92, 3.62425 )
+shape = SubResource( 342 )
+
+[node name="Pod_14" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 0.2619, 0, 1.57842, 0, 1.6, 0, -1.57842, 0, 0.2619, -11.8381, 1.92, -1.96425 )
+shape = SubResource( 342 )
+
+[node name="Pod_15" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 0.505595, 0, 1.51802, 0, 1.6, 0, -1.51802, 0, 0.505595, -11.3851, 1.92, -3.79196 )
+shape = SubResource( 342 )
+
+[node name="Pod_16" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 0.73684, 0, 1.42023, 0, 1.6, 0, -1.42023, 0, 0.73684, -10.6518, 1.92, -5.5263 )
+shape = SubResource( 342 )
+
+[node name="Pod_17" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 0.949942, 0, 1.28748, 0, 1.6, 0, -1.28748, 0, 0.949942, -9.65611, 1.92, -7.12457 )
+shape = SubResource( 342 )
+
+[node name="Pod_18" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.13965, 0, 1.12303, 0, 1.6, 0, -1.12303, 0, 1.13965, -8.4227, 1.92, -8.5474 )
+shape = SubResource( 342 )
+
+[node name="Pod_19" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.3013, 0, 0.93092, 0, 1.6, 0, -0.93092, 0, 1.3013, -6.9819, 1.92, -9.75977 )
+shape = SubResource( 342 )
+
+[node name="Pod_20" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.43091, 0, 0.71589, 0, 1.6, 0, -0.71589, 0, 1.43091, -5.36918, 1.92, -10.7318 )
+shape = SubResource( 342 )
+
+[node name="Pod_21" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.52528, 0, 0.483233, 0, 1.6, 0, -0.483233, 0, 1.52528, -3.62425, 1.92, -11.4396 )
+shape = SubResource( 342 )
+
+[node name="Pod_22" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.5821, 0, 0.238677, 0, 1.6, 0, -0.238677, 0, 1.5821, -1.79008, 1.92, -11.8657 )
+shape = SubResource( 342 )
+
+[node name="Pod_23" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.59996, 0, -0.0117561, 0, 1.6, 0, 0.0117561, 0, 1.59996, 0.0881732, 1.92, -11.9997 )
+shape = SubResource( 342 )
+
+[node name="Pod_24" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.57842, 0, -0.2619, 0, 1.6, 0, 0.2619, 0, 1.57842, 1.96425, 1.92, -11.8381 )
+shape = SubResource( 342 )
+
+[node name="Pod_25" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.51802, 0, -0.505595, 0, 1.6, 0, 0.505595, 0, 1.51802, 3.79196, 1.92, -11.3851 )
+shape = SubResource( 342 )
+
+[node name="Pod_26" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.42023, 0, -0.73684, 0, 1.6, 0, 0.73684, 0, 1.42023, 5.5263, 1.92, -10.6518 )
+shape = SubResource( 342 )
+
+[node name="Pod_27" type="CollisionShape" parent="Criopods6/StaticBody"]
+transform = Transform( 1.28748, 0, -0.949942, 0, 1.6, 0, 0.949942, 0, 1.28748, 7.12457, 1.92, -9.65611 )
+shape = SubResource( 342 )
