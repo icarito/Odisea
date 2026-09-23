@@ -18,11 +18,6 @@ extends SceneTree
 #
 # Los bytes van a <escena>_compound.res (CompoundBytesV2) y la escena del body se
 # reescribe manteniendo el nombre del root y sus capas de colision.
-#
-# FD-314 (visual por sector): si la fuente trae un MeshInstance "Visual" hijo del
-# StaticBody (el bake de scaffold ahora lo agrega junto a la colision, una sola
-# fuente de verdad para que StreamedSceneChunkV2 cargue/libere ambos juntos), se
-# preserva tal cual en la escena reescrita.
 
 const SECTOR_DIR := "res://core_v2/levels/interiors/"
 const CHUNK_DIR := "res://core_v2/levels/chunks/ringhub/"
@@ -243,14 +238,7 @@ func _bake_one(cfg: Dictionary) -> Dictionary:
 	var comp := Box3DCompound.new()
 	var unsupported := []
 	var shapes := 0
-	var visual_mesh_path := ""
-	var visual_layers := 64
 	for child in body.get_children():
-		if child is MeshInstance and String(child.name) == "Visual":
-			var mesh: Mesh = (child as MeshInstance).mesh
-			visual_mesh_path = mesh.resource_path if mesh != null else ""
-			visual_layers = (child as MeshInstance).layers
-			continue
 		if not (child is CollisionShape) or (child as CollisionShape).shape == null:
 			continue
 		if String(child.name) in cfg["skip"]:
@@ -263,79 +251,45 @@ func _bake_one(cfg: Dictionary) -> Dictionary:
 		shapes += 1
 
 	var children: int = comp.get_child_count()
-	# FD-314: un sector puede ser puramente decorativo (visual sin colision propia,
-	# p.ej. un tramo entre dos plataformas con piso). No hornear un compound vacio;
-	# el body queda sin script/compound, solo StaticBody + Visual (+ footstep).
-	var has_collision: bool = shapes > 0
-	var bytes: PoolByteArray = comp.bake() if has_collision else PoolByteArray()
+	var bytes: PoolByteArray = comp.bake()
 	var root_transform: Transform = root.transform
 	var root_name: String = String(root.name)
 	var layer: int = int(body.get("collision_layer"))
 	var mask: int = int(body.get("collision_mask"))
 	root.free()
 
-	if has_collision and (bytes.size() <= 0 or children != shapes):
+	if bytes.size() <= 0 or children != shapes:
 		return {"path": cfg["path"], "error": "bake incompleto: hijos=%d shapes=%d unsupported=%s" % [children, shapes, str(unsupported)]}
-	if not has_collision and visual_mesh_path == "":
-		return {"path": cfg["path"], "error": "sin colision y sin visual: sector vacio no deberia hornearse"}
 	if root_transform != Transform():
 		return {"path": cfg["path"], "error": "el root tiene transform (%s): el horneado asume identidad" % str(root_transform)}
 
-	var res_path := ""
-	if has_collision:
-		var res: Resource = load(BYTES_SCRIPT).new()
-		res.bytes = bytes
-		res.child_count = children
-		res.source_scene = cfg["path"]
-		res.unsupported_shapes = unsupported
-		res_path = String(cfg["path"]).get_basename() + "_compound.res"
-		var err := ResourceSaver.save(res_path, res)
-		if err != OK:
-			return {"path": cfg["path"], "error": "no pude guardar %s (err %d)" % [res_path, err]}
+	var res: Resource = load(BYTES_SCRIPT).new()
+	res.bytes = bytes
+	res.child_count = children
+	res.source_scene = cfg["path"]
+	res.unsupported_shapes = unsupported
+	var res_path: String = String(cfg["path"]).get_basename() + "_compound.res"
+	var err := ResourceSaver.save(res_path, res)
+	if err != OK:
+		return {"path": cfg["path"], "error": "no pude guardar %s (err %d)" % [res_path, err]}
 
 	# Reescribir la escena del body como texto (evita PackedScene.pack y overrides).
-	# ids de ext_resource asignados en orden segun lo que aplique a este body.
-	var ext_lines := []
-	var next_id := 1
-	var script_id := 0
-	var compound_id := 0
-	var footstep_id := 0
-	var mesh_id := 0
-	if has_collision:
-		script_id = next_id; next_id += 1
-		ext_lines.append("[ext_resource path=\"%s\" type=\"Script\" id=%d]" % [BODY_SCRIPT, script_id])
-		compound_id = next_id; next_id += 1
-		ext_lines.append("[ext_resource path=\"%s\" type=\"Resource\" id=%d]" % [res_path, compound_id])
-	# with_footstep_surface vive en CompoundChunkBodyV2 y su _ready() exige un
-	# compound valido: sin colision (sector puramente visual) no hay superficie
-	# donde pisar, asi que se omite aunque cfg["footstep"] este pedido.
-	if cfg["footstep"] and has_collision:
-		footstep_id = next_id; next_id += 1
-		ext_lines.append("[ext_resource path=\"%s\" type=\"Resource\" id=%d]" % [FOOTSTEP_PROFILE, footstep_id])
-	if visual_mesh_path != "":
-		mesh_id = next_id; next_id += 1
-		ext_lines.append("[ext_resource path=\"%s\" type=\"ArrayMesh\" id=%d]" % [visual_mesh_path, mesh_id])
-
 	var lines := []
-	lines.append("[gd_scene load_steps=%d format=2]" % (ext_lines.size() + 1))
+	lines.append("[gd_scene load_steps=%d format=2]" % (4 if cfg["footstep"] else 3))
 	lines.append("")
-	for l in ext_lines:
-		lines.append(l)
+	lines.append("[ext_resource path=\"%s\" type=\"Script\" id=1]" % BODY_SCRIPT)
+	lines.append("[ext_resource path=\"%s\" type=\"Resource\" id=2]" % res_path)
+	if cfg["footstep"]:
+		lines.append("[ext_resource path=\"%s\" type=\"Resource\" id=3]" % FOOTSTEP_PROFILE)
 	lines.append("")
 	lines.append("[node name=\"%s\" type=\"StaticBody\"]" % root_name)
 	lines.append("collision_layer = %d" % int(layer))
 	lines.append("collision_mask = %d" % int(mask))
-	if has_collision:
-		lines.append("script = ExtResource( %d )" % script_id)
-		lines.append("compound = ExtResource( %d )" % compound_id)
-	if cfg["footstep"] and has_collision:
+	lines.append("script = ExtResource( 1 )")
+	lines.append("compound = ExtResource( 2 )")
+	if cfg["footstep"]:
 		lines.append("with_footstep_surface = true")
-		lines.append("footstep_profile = ExtResource( %d )" % footstep_id)
-	if visual_mesh_path != "":
-		lines.append("")
-		lines.append("[node name=\"Visual\" type=\"MeshInstance\" parent=\".\"]")
-		lines.append("layers = %d" % int(visual_layers))
-		lines.append("mesh = ExtResource( %d )" % mesh_id)
+		lines.append("footstep_profile = ExtResource( 3 )")
 	lines.append("")
 	var f := File.new()
 	if f.open(cfg["path"], File.WRITE) != OK:

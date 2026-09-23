@@ -45,7 +45,24 @@
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_05_body.tscn" type="PackedScene" id=45]
 [ext_resource path="res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.mesh" type="ArrayMesh" id=46]
 [ext_resource path="res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.shape" type="Shape" id=47]
-[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_06_body.tscn" type="PackedScene" id=48]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_00.mesh" type="ArrayMesh" id=48]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_01.mesh" type="ArrayMesh" id=49]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_02.mesh" type="ArrayMesh" id=50]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_03.mesh" type="ArrayMesh" id=51]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_04.mesh" type="ArrayMesh" id=52]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_05.mesh" type="ArrayMesh" id=53]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_07.mesh" type="ArrayMesh" id=54]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_sector_00.mesh" type="ArrayMesh" id=55]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_sector_05.mesh" type="ArrayMesh" id=56]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_sector_06.mesh" type="ArrayMesh" id=57]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_HubSpokes_sector_07.mesh" type="ArrayMesh" id=58]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_00.mesh" type="ArrayMesh" id=59]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_01.mesh" type="ArrayMesh" id=60]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_02.mesh" type="ArrayMesh" id=61]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_03.mesh" type="ArrayMesh" id=62]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_04.mesh" type="ArrayMesh" id=63]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_05.mesh" type="ArrayMesh" id=64]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_06.mesh" type="ArrayMesh" id=65]
 [sub_resource type="BoxShape" id=400]
 extents = Vector3( 35, 0.3, 35 )
 
@@ -595,6 +612,34 @@ shape = SubResource( 237 )
 [node name="Group_SpiralStairs" type="Spatial" parent="ScaffoldStreamRoot"]
 transform = Transform( -0.965926, 0.0, 0.258819, 0.0, 1.0, 0.0, -0.258819, 0.0, -0.965926, 0.0, 0.0, 0.0 )
 
+[node name="Visual_00" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+layers = 64
+mesh = ExtResource( 48 )
+
+[node name="Visual_01" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+layers = 64
+mesh = ExtResource( 49 )
+
+[node name="Visual_02" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+layers = 64
+mesh = ExtResource( 50 )
+
+[node name="Visual_03" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+layers = 64
+mesh = ExtResource( 51 )
+
+[node name="Visual_04" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+layers = 64
+mesh = ExtResource( 52 )
+
+[node name="Visual_05" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+layers = 64
+mesh = ExtResource( 53 )
+
+[node name="Visual_07" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
+layers = 64
+mesh = ExtResource( 54 )
+
 [node name="Chunk_00" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
 script = ExtResource( 15 )
 chunk_scene = ExtResource( 29 )
@@ -646,6 +691,22 @@ release_margin = 6.0
 
 [node name="Group_HubSpokes" type="Spatial" parent="ScaffoldStreamRoot"]
 
+[node name="Visual_00" type="MeshInstance" parent="ScaffoldStreamRoot/Group_HubSpokes"]
+layers = 64
+mesh = ExtResource( 55 )
+
+[node name="Visual_05" type="MeshInstance" parent="ScaffoldStreamRoot/Group_HubSpokes"]
+layers = 64
+mesh = ExtResource( 56 )
+
+[node name="Visual_06" type="MeshInstance" parent="ScaffoldStreamRoot/Group_HubSpokes"]
+layers = 64
+mesh = ExtResource( 57 )
+
+[node name="Visual_07" type="MeshInstance" parent="ScaffoldStreamRoot/Group_HubSpokes"]
+layers = 64
+mesh = ExtResource( 58 )
+
 [node name="Chunk_00" type="Spatial" parent="ScaffoldStreamRoot/Group_HubSpokes"]
 script = ExtResource( 15 )
 chunk_scene = ExtResource( 36 )
@@ -676,6 +737,34 @@ release_margin = 6.0
 
 [node name="Group_SpiralWalkways" type="Spatial" parent="ScaffoldStreamRoot"]
 transform = Transform( -0.965926, 0.0, 0.258819, 0.0, 1.0, 0.0, -0.258819, 0.0, -0.965926, 0.0, 0.0, 0.0 )
+
+[node name="Visual_00" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 59 )
+
+[node name="Visual_01" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 60 )
+
+[node name="Visual_02" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 61 )
+
+[node name="Visual_03" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 62 )
+
+[node name="Visual_04" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 63 )
+
+[node name="Visual_05" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 64 )
+
+[node name="Visual_06" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
+layers = 64
+mesh = ExtResource( 65 )
 
 [node name="Chunk_00" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
 script = ExtResource( 15 )
@@ -716,13 +805,6 @@ release_margin = 6.0
 script = ExtResource( 15 )
 chunk_scene = ExtResource( 45 )
 trigger_center = Vector3( -4.905675, 11.947251, -16.290276 )
-trigger_radius = 15.0
-release_margin = 6.0
-
-[node name="Chunk_06" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
-script = ExtResource( 15 )
-chunk_scene = ExtResource( 48 )
-trigger_center = Vector3( 0.030439, 11.947251, -16.290276 )
 trigger_radius = 15.0
 release_margin = 6.0
 

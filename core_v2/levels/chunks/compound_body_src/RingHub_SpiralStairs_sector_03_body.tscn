@@ -1,8 +1,7 @@
-[gd_scene load_steps=13 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres" type="Resource" id=1]
 [ext_resource path="res://core_v2/systems/footsteps/footstep_surface.gd" type="Script" id=2]
-[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralStairs_sector_03.mesh" type="ArrayMesh" id=3]
 
 [sub_resource type="CylinderShape" id=20]
 height = 13.63
@@ -83,7 +82,3 @@ shape = SubResource( 36 )
 [node name="FootstepSurface" type="Spatial" parent="."]
 script = ExtResource( 2 )
 footstep_profile = ExtResource( 1 )
-
-[node name="Visual" type="MeshInstance" parent="."]
-layers = 64
-mesh = ExtResource( 3 )

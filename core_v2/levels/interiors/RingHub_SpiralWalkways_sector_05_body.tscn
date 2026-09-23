@@ -1,9 +1,8 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://core_v2/levels/chunks/CompoundChunkBodyV2.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_05_body_compound.res" type="Resource" id=2]
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres" type="Resource" id=3]
-[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_05.mesh" type="ArrayMesh" id=4]
 
 [node name="StaticBody" type="StaticBody"]
 collision_layer = 64
@@ -12,7 +11,3 @@ script = ExtResource( 1 )
 compound = ExtResource( 2 )
 with_footstep_surface = true
 footstep_profile = ExtResource( 3 )
-
-[node name="Visual" type="MeshInstance" parent="."]
-layers = 64
-mesh = ExtResource( 4 )

@@ -538,11 +538,10 @@ func _emit_sector_bodies(group_name: String, collision_shapes: Array, sector_aab
 	for sector_index in range(SECTOR_COUNT):
 		if not sector_aabbs.has(sector_index) and not by_sector.has(sector_index):
 			continue
-		var mesh_path: String = OUT_DIR + _prefix + "_%s_sector_%02d.mesh" % [group_name, sector_index]
 		var entry := {
 			"group": group_name,
 			"sector": sector_index,
-			"mesh": mesh_path,
+			"mesh": OUT_DIR + _prefix + "_%s_sector_%02d.mesh" % [group_name, sector_index],
 			"body": "",
 			"anchor": [0.0, 0.0, 0.0],
 			"shapes": 0,
@@ -551,20 +550,12 @@ func _emit_sector_bodies(group_name: String, collision_shapes: Array, sector_aab
 			# nodo con este transform para que caigan donde corresponde.
 			"group_transform": _transform_floats(group_xform),
 		}
-		var has_visual := sector_aabbs.has(sector_index)
-		if has_visual:
+		if sector_aabbs.has(sector_index):
 			var anchor: Vector3 = sector_aabbs[sector_index]
 			entry["anchor"] = [anchor.x, anchor.y, anchor.z]
 		var shapes: Array = by_sector.get(sector_index, [])
-		# FD-314 (streaming por sector): el visual viaja SIEMPRE dentro de la
-		# sub-escena del sector, aunque no tenga colision propia (p.ej. un tramo
-		# puramente decorativo entre dos plataformas con piso). Antes esos
-		# sectores quedaban sin body -> el shell los saltea y su malla nunca se
-		# ve. Escribimos el body si hay shapes O si hay visual, para que la
-		# colision y el visual carguen/descarguen juntos por una sola fuente
-		# de verdad (el chunk).
-		if not shapes.empty() or has_visual:
-			var body_path := _write_sector_body(group_name, sector_index, shapes, mesh_path if has_visual else "")
+		if not shapes.empty():
+			var body_path := _write_sector_body(group_name, sector_index, shapes)
 			if body_path != "":
 				entry["body"] = body_path
 				entry["shapes"] = shapes.size()
@@ -572,7 +563,7 @@ func _emit_sector_bodies(group_name: String, collision_shapes: Array, sector_aab
 	print("[bake_walkways] %s: %d sectores con colision propia" % [group_name, by_sector.size()])
 
 
-func _write_sector_body(group_name: String, sector_index: int, shapes: Array, mesh_path: String) -> String:
+func _write_sector_body(group_name: String, sector_index: int, shapes: Array) -> String:
 	var body := StaticBody.new()
 	body.name = "StaticBody"
 	body.collision_layer = 64
@@ -592,19 +583,6 @@ func _write_sector_body(group_name: String, sector_index: int, shapes: Array, me
 	footstep.set("footstep_profile", load(FOOTSTEP_PROFILE_METAL))
 	body.add_child(footstep)
 	footstep.owner = body
-	# FD-314: el visual del sector cuelga del mismo StaticBody que su colision,
-	# asi que StreamedSceneChunkV2 instancia/libera ambos juntos (una sola
-	# fuente de verdad en vez de un MeshInstance de grupo aparte que el
-	# frustum nunca puede descartar).
-	if mesh_path != "":
-		var sector_mesh: Mesh = load(mesh_path)
-		if sector_mesh != null:
-			var visual := MeshInstance.new()
-			visual.name = "Visual"
-			visual.mesh = sector_mesh
-			visual.layers = 64
-			body.add_child(visual)
-			visual.owner = body
 
 	var packed := PackedScene.new()
 	if packed.pack(body) != OK:

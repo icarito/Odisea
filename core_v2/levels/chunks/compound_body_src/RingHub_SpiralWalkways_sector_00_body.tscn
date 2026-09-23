@@ -1,8 +1,7 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres" type="Resource" id=1]
 [ext_resource path="res://core_v2/systems/footsteps/footstep_surface.gd" type="Script" id=2]
-[ext_resource path="res://core_v2/levels/interiors/RingHub_SpiralWalkways_sector_00.mesh" type="ArrayMesh" id=3]
 
 [sub_resource type="ConvexPolygonShape" id=1]
 points = PoolVector3Array( -2.9053, 4.7, -5.31403, 2.91335, 4.7, -6.77805, -2.92857, 4.7, 5.37746, 2.92054, 4.7, 6.71462, -2.9053, 4.6, -5.31403, 2.91335, 4.6, -6.77805, -2.92857, 4.6, 5.37746, 2.92054, 4.6, 6.71462 )
@@ -74,7 +73,3 @@ shape = SubResource( 10 )
 [node name="FootstepSurface" type="Spatial" parent="."]
 script = ExtResource( 2 )
 footstep_profile = ExtResource( 1 )
-
-[node name="Visual" type="MeshInstance" parent="."]
-layers = 64
-mesh = ExtResource( 3 )
