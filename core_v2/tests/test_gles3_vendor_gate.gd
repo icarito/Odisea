@@ -34,6 +34,8 @@ func test_gate_strips_heavy_passes_when_known_adapter():
 	env.dof_blur_far_enabled = true
 	env.dof_blur_near_enabled = true
 	env.adjustment_enabled = true
+	env.ssao_enabled = true
+	env.ss_reflections_enabled = true
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 
 	var we = auto_free(WorldEnvironment.new())
@@ -46,6 +48,8 @@ func test_gate_strips_heavy_passes_when_known_adapter():
 	assert_bool(env.dof_blur_far_enabled).is_false()
 	assert_bool(env.dof_blur_near_enabled).is_false()
 	assert_bool(env.adjustment_enabled).is_false()
+	assert_bool(env.ssao_enabled).is_false()
+	assert_bool(env.ss_reflections_enabled).is_false()
 	assert_int(env.tonemap_mode).is_equal(Environment.TONE_MAPPER_LINEAR)
 
 func test_gate_leaves_environment_untouched_without_mali():

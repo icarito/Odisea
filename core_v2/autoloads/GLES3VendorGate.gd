@@ -640,6 +640,11 @@ func strip_environment(env: Environment) -> void:
 		return
 	env.fog_enabled = false
 	env.glow_enabled = false
+	# SSAO/SSR son los dos pases full-screen mas caros del G31 (leen depth y corren a
+	# media resolucion) y se colaban por el gate: Environment_RingHub y los
+	# Interior* traen ssao_enabled = true.
+	env.ssao_enabled = false
+	env.ss_reflections_enabled = false
 	env.dof_blur_far_enabled = false
 	env.dof_blur_near_enabled = false
 	env.adjustment_enabled = false
