@@ -1,6 +1,6 @@
 # FD-311: Consistencia de Capas, Navegación y Accesibilidad de UI en OdiseaOS y Módulos HUDdables
 
-**Status:** Implemented (v1)  
+**Status:** Implemented (v1 + v2 gating)  
 **Priority:** High  
 **Effort:** Medium  
 **Created:** 2026-09-23  
@@ -43,6 +43,10 @@ Diferentes componentes de UI utilizaban números de capa arbitrarios (`50`, `60`
 ### 2.5 Frecuencia y Descarte del Aviso de Versión Nativa (HTML5 Shell)
 - El banner de sugerencia de app nativa en `odisea_shell.html` reaparecía constantemente y requería descarte manual explícito incluso tras haber iniciado partida.
 
+### 2.6 Gameplay Activo Debajo del Aviso de Privacidad (raíz del síntoma del ratón)
+- El consentimiento first-run mostraba el aviso de privacidad **mientras el primer nivel se cargaba de verdad detrás**, para que la espera se aprovechara leyendo. El costo no se veía en pantalla: el nivel arrancaba con su gameplay vivo, y su terminal holográfica entraba en modo foco y tomaba el mouse (entrada relativa/capturada) antes de que el jugador pudiera responder.
+- Subir `VirtualMouseLayer` a `10000` (arreglo de v1) **no alcanza**: el síntoma no era orden de dibujo sino que había gameplay activo debajo de un overlay de sistema. La corrección sostenible es de ciclo de vida: el nivel no debe arrancar hasta que el consentimiento esté resuelto.
+
 ---
 
 ## 3. Solution (Solución e Integración Realizada)
@@ -76,12 +80,19 @@ Se establece una norma estricta de capas para todo el proyecto:
 - **Safe Focus**: Los módulos HUDdables (`CryoPodHUDable`, `PantallaLinterna`, HoloTerminals) garantizan `grab_focus()` en su control principal apenas el módulo se torna visible.
 - **Resiliencia de Foco**: Si el control enfocado es inhabilitado por lógica del juego, el foco migra automáticamente al siguiente control interactivo libre.
 
+### 3.5 Aislamiento de Gameplay y Overlays de Sistema (v2)
+- **Invariante**: ningún overlay de sistema (`FirstRunConsentLayer`, popups de sistema) convive con gameplay activo debajo. La carga del nivel se pide recién cuando la decisión está tomada.
+- `FirstRunConsent.gd`: `_on_ok_pressed` muestra el aviso y la pregunta **sin** pedir la carga; `_on_choice` (aceptar/rechazar) emite `loading_requested` y la pantalla pasa a hacer de cartel de carga hasta que el nivel está listo (`_release_when_loaded` libera el `CanvasLayer`).
+- El título del aviso usa la misma tipografía que la pregunta de consentimiento (`SubResource(3)`, tamaño 21), para que la jerarquía del aviso sea consistente con la decisión.
+
 ---
 
 ## 4. Archivos Modificados e Integrados
 
 - [VirtualMouse.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/ui/VirtualMouse.gd): Montaje en `root` en capa `10000`, centrado automático si la posición es `Vector2.ZERO`.
-- [FirstRunConsent.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/ui/FirstRunConsent.gd): Acoplamiento directo de `VirtualMouse.attach_popup(self)` en `_ready()`.
+- [FirstRunConsent.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/ui/FirstRunConsent.gd): Acoplamiento directo de `VirtualMouse.attach_popup(self)` en `_ready()`; v2: la carga del nivel se pide en `_on_choice`, no en `_on_ok_pressed`.
+- [FirstRunConsent.tscn](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/ui/FirstRunConsent.tscn): Título del aviso con la tipografía de la pregunta (`SubResource(3)`).
+- [test_privacy_consent.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/tests/test_privacy_consent.gd): Verifica que la pregunta aparece sin arrancar el nivel y que la decisión es la que dispara la carga.
 - [Menu.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/ui/Menu.gd): Invocación a `hideNativeNotice()` al arrancar la partida y limpieza de orden de capas.
 - [ShaderWarmupTrigger.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/levels/ShaderWarmupTrigger.gd): Liberación de ratón en HTML5 durante compilación.
 - [SceneManager.gd](file:///run/media/icarito/DATA/icarito/Proyectos/Odisea_Game/src/core_v2/autoloads/SceneManager.gd): Liberación de ratón en HTML5 durante `pre_load_hook`.
@@ -101,3 +112,8 @@ Se establece una norma estricta de capas para todo el proyecto:
    - `VirtualMouseLayer` se mantiene en capa `10000` sobre `FirstRunConsentLayer` (`2000`).
    - El puntero virtual es visible y clickeable desde la primera pantalla de *"Protocolo de abordaje"* (`IntroPanel`).
    - En compilación Web, la sugerencia de descarga nativa desaparece al iniciar la partida y no reaparece durante el mismo día.
+
+3. **Verificación de Gating (v2)** — reproducido en vivo vía peer `:4999`:
+   - `Menu._start_game()` → aparece `FirstRunConsentLayer`, `IntroPanel` visible, `get_tree().get_nodes_in_group("player").size() == 0` (nivel sin arrancar).
+   - `_on_ok_pressed()` → `TelemetryPanel` visible, `ChoiceBox` visible, `Loading` oculto, `players == 0` (el nivel sigue sin arrancar; la terminal holográfica no puede tomar el mouse).
+   - `_on_choice(true)` → `loading_requested` emitido, `Loading` visible; al completar la transición el `CanvasLayer` se libera y el nivel queda a la vista (`players == 1`).

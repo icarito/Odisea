@@ -2,20 +2,23 @@ extends ColorRect
 
 const VirtualMouse = preload("res://core_v2/ui/VirtualMouse.gd")
 
-# FD-292 / FD-290. Pantalla de primera partida: pide el consentimiento de telemetria
-# mientras el primer nivel se carga de verdad.
+# FD-292 / FD-290. Pantalla de primera partida: protocolo, aviso de privacidad y la
+# pregunta de consentimiento. El nivel NO arranca hasta que el jugador responde.
+#
+# Antes la carga del nivel empezaba al tocar CONTINUAR, detras del aviso. Eso tenia un
+# costo que no se veia en la pantalla: el nivel cargaba con su gameplay vivo, y su
+# terminal holografica entraba en modo foco y tomaba el mouse antes de que el jugador
+# pudiera responder. El aviso es una pantalla propia y la carga recien arranca con la
+# decision (aceptar o rechazar); a partir de ahi esta pantalla hace de cartel de carga.
 #
 # La barra sale de SceneManager.transition_progress, o sea de la carga real de la
-# escena. Un intento anterior media el warmup de shaders en vez de eso, y el jugador
-# terminaba esperando dos veces: la barra llegaba al final, aceptaba, y recien ahi el
-# nivel empezaba su propia carga de casi cuarenta segundos. El warmup compila los
-# ubershaders, pero lo que tarda al entrar son las variantes reales, que se compilan
-# igual. Ahora la espera es una sola y es la que importa.
+# escena. El warmup compila los ubershaders, pero lo que tarda al entrar son las
+# variantes reales, que se compilan igual: la espera es una sola y es la que importa.
 #
 # Esta pantalla sobrevive al cambio de escena: cuelga de un CanvasLayer propio en la
 # raiz, no del Menu, porque el Menu se libera a mitad de la carga.
 #
-# Los dos botones aparecen JUNTOS y recien al final. Ninguno viene preseleccionado.
+# Los dos botones aparecen JUNTOS. Ninguno viene preseleccionado.
 
 signal consent_completed(accepted)
 # Pedido de arrancar la carga del nivel: lo atiende el Menu, que es quien sabe como
@@ -39,10 +42,11 @@ onready var _choice_box: Control = find_node("ChoiceBox")
 
 var _progress_01 := 0.0
 var _transition_done := false
-var _ready_announced := false
+var _screen_released := false
 
 func _ready() -> void:
-	# Sigue procesando con el arbol pausado: es quien tiene que despausarlo.
+	# La carga del nivel puede correr con el arbol pausado por otros sistemas: esta
+	# pantalla es el cartel de carga y tiene que seguir procesando igual.
 	pause_mode = Node.PAUSE_MODE_PROCESS
 	# El Menu puede desaparecer mientras esta pantalla permanece sobre la carga. Conserva el
 	# cursor compartido como solicitado por esta UI, incluso despues de liberar el Menu.
@@ -69,14 +73,14 @@ func _ready() -> void:
 func _on_ok_pressed() -> void:
 	_intro_panel.visible = false
 	_telemetry_panel.visible = true
-	_progress.value = 0.0
 	_ok_button.disabled = true
-	# Recien ahora arranca la carga del nivel. Antes de este punto el Menu esta a la
-	# vista y compilar shaders se veria como un tiron; a partir de aca esta pantalla
-	# lo tapa entero.
-	emit_signal("loading_requested")
-	set_process(true)
-	_refresh_progress()
+	# El aviso y la pregunta son una pantalla propia: el nivel NO arranca aca. Si
+	# arrancara detras, su gameplay (la terminal holografica, la camara) tomaria el
+	# mouse antes de que el jugador pudiera responder. La carga empieza recien con
+	# la decision, en _on_choice.
+	_progress.get_parent().visible = false
+	_choice_box.visible = true
+	_arm_choice()
 
 func _process(_delta: float) -> void:
 	_refresh_progress()
@@ -84,8 +88,8 @@ func _process(_delta: float) -> void:
 func _refresh_progress() -> void:
 	var shown: float = 1.0 if _transition_done else _progress_01
 	_progress.value = clamp(shown, 0.0, 1.0) * 100.0
-	if _transition_done and not _ready_announced:
-		_announce_ready()
+	if _transition_done and not _screen_released:
+		_release_when_loaded()
 
 func _on_transition_progress(path, progress) -> void:
 	if target_scene_path != "" and String(path) != target_scene_path:
@@ -99,34 +103,24 @@ func _on_transition_completed(path, _scene, _params) -> void:
 		return
 	_transition_done = true
 
-func _announce_ready() -> void:
-	_ready_announced = true
+func _release_when_loaded() -> void:
+	_screen_released = true
 	set_process(false)
-	# La barra y su rotulo desaparecen en vez de anunciar "Listo": ya no hay nada que
-	# esperar, y dejarlos ahi compite con la pregunta, que es lo unico que queda por
-	# hacer en la pantalla.
-	# El contenedor entero: vacio pero visible, el Foot le seguiria reservando la separacion.
-	_progress.get_parent().visible = false
-	_choice_box.visible = true
-	# Los botones aparecen inertes y se arman medio segundo despues. Medido en el
-	# Redmi: sin esta ventana, la decision se registraba sola en el mismo instante en
-	# que aparecian -- el nivel corre detras de esta pantalla y algun evento suyo
-	# alcanzaba al boton recien enfocado. Una eleccion de privacidad que se contesta
-	# sin que nadie la conteste no vale nada, asi que el foco llega despues.
-	_accept_button.disabled = true
-	_decline_button.disabled = true
-	# El nivel ya termino de cargar, asi que a partir de aca puede pausarse sin
-	# frenar nada: la cola de shaders sigue drenando porque la avanza el rasterizador,
-	# no el arbol. Pausar es lo que impide que el juego conteste por el jugador --
-	# corriendo detras, alguna de sus entradas alcanzaba al boton enfocado y la
-	# decision se registraba sola (medido en el Redmi, dos veces seguidas). De paso
-	# MobileUIManager esconde los controles tactiles cuando el arbol esta pausado.
-	var tree := get_tree()
-	if tree:
-		tree.paused = true
-	_arm_choice()
+	# El nivel ya termino de cargar y dibuja detras: se libera el CanvasLayer entero,
+	# no solo esta pantalla. A partir de aca el nivel es lo unico que queda a la vista.
+	var host := get_parent()
+	if host is CanvasLayer:
+		host.queue_free()
+	else:
+		queue_free()
 
 func _arm_choice() -> void:
+	# Los botones nacen inertes y se arman medio segundo despues. Sin esta ventana, la
+	# decision se registraba sola en el mismo instante en que aparecian: el clic que
+	# acababa de responder el aviso alcanzaba al boton recien enfocado. Una eleccion de
+	# privacidad que se contesta sin que nadie la conteste no vale nada.
+	_accept_button.disabled = true
+	_decline_button.disabled = true
 	var tree := get_tree()
 	if tree:
 		yield(tree.create_timer(0.5), "timeout")
@@ -147,17 +141,15 @@ func _on_choice(accepted: bool) -> void:
 		sm.consent_asked = true
 		sm.save_settings()
 		sm.apply_privacy_settings()
-	var tree := get_tree()
-	if tree:
-		tree.paused = false
 	emit_signal("consent_completed", accepted)
-	# Liberar el CanvasLayer entero, no solo esta pantalla: al descubrirla, el nivel
-	# ya esta cargado y dibujando detras.
-	var host := get_parent()
-	if host is CanvasLayer:
-		host.queue_free()
-	else:
-		queue_free()
+	# Recien ahora arranca la carga del nivel: la decision de privacidad ya esta tomada.
+	# Esta pantalla se queda como cartel de carga (opaca) hasta que el nivel este listo;
+	# ahi _release_when_loaded libera el CanvasLayer entero.
+	_choice_box.visible = false
+	_progress.value = 0.0
+	_progress.get_parent().visible = true
+	set_process(true)
+	emit_signal("loading_requested")
 
 func _on_privacy_link_pressed() -> void:
 	OS.shell_open(PRIVACY_URL)

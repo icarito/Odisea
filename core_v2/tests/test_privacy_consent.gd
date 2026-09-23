@@ -18,18 +18,31 @@ func test_settings_manager_expone_el_gate():
 	assert_bool(SettingsManager != null).is_true()
 	assert_bool(SettingsManager.has_method("needs_privacy_consent")).is_true()
 
-func test_los_botones_estan_ocultos_hasta_el_100():
+func test_la_pregunta_aparece_sin_arrancar_el_nivel():
 	var screen = _make_screen()
 	assert_bool(screen._choice_box.visible).is_false()
 	screen._on_ok_pressed()
 	assert_bool(screen._telemetry_panel.visible).is_true()
-	# Con la carga a medias no debe poder elegirse todavia.
-	screen._on_transition_progress(screen.target_scene_path, 0.4)
-	screen._refresh_progress()
-	assert_bool(screen._choice_box.visible).is_false()
-	screen._on_transition_completed(screen.target_scene_path, null, {})
-	screen._refresh_progress()
+	# El aviso es su propia pantalla: la pregunta esta disponible de inmediato y el
+	# nivel todavia NO arranco. Si arrancara detras, su gameplay (la terminal
+	# holografica) tomaria el mouse antes de que el jugador pudiera responder.
 	assert_bool(screen._choice_box.visible).is_true()
+	assert_bool(screen._progress.get_parent().visible).is_false()
+
+func test_la_decision_arranca_la_carga():
+	var screen = _make_screen()
+	var requested := [false]
+	screen.connect("loading_requested", self, "_on_loading_requested", [requested])
+	screen._on_ok_pressed()
+	screen._on_choice(true)
+	# Recien con la decision tomada se pide la carga del nivel, y la pantalla pasa a
+	# hacer de cartel de carga hasta que el nivel este listo.
+	assert_bool(requested[0]).is_true()
+	assert_bool(screen._choice_box.visible).is_false()
+	assert_bool(screen._progress.get_parent().visible).is_true()
+
+func _on_loading_requested(flag: Array) -> void:
+	flag[0] = true
 
 func test_aceptar_prende_la_telemetria():
 	var screen = _make_screen()

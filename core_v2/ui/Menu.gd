@@ -344,7 +344,7 @@ func _show_first_run_consent(scene_path) -> void:
 	get_tree().root.add_child(host)
 	screen.connect("loading_requested", self, "_on_first_run_loading_requested", [scene_path], CONNECT_ONESHOT)
 
-# El jugador leyo la primera pantalla y toco CONTINUAR: recien ahora se carga el nivel, con
+# El jugador respondio el aviso (aceptar o rechazar): recien ahora se carga el nivel, con
 # el panel de telemetria ("Preparando el primer nivel...") cubriendo el trabajo. El warmup de
 # shaders corre ahi adentro, como pre_load_hook de goto_scene, asi no se paga dos veces ni se
 # bloquea ninguna pantalla interactiva.
@@ -408,8 +408,7 @@ func _on_fade_out_complete(_object, _key, scene_path):
 		# El warmup de shaders corre como pre_load_hook: SceneManager ya mostro la
 		# pantalla de carga, la escena todavia no se intercambio (el Menu sigue vivo y
 		# con camara), y ninguna UI interactiva aparecio aun. Solo para la escena de
-		# arranque, que es la unica con cache horneado. En el camino de consentimiento
-		# es un no-op: ya corrio detras del popup, que espero a que terminara.
+		# arranque, que es la unica con cache horneado.
 		if scene_path == FIRST_GAME_SCENE:
 			params["pre_load_hook"] = funcref(self, "_wait_shader_warmup")
 			# El fade-out/in automatico de SceneManager cortaria o reiniciaria el

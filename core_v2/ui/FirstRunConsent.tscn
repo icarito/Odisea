@@ -85,6 +85,7 @@ custom_constants/margin_left = 8
 custom_constants/separation = 14
 
 [node name="Title" type="Label" parent="TelemetryPanel/TextArea/VBox"]
+custom_fonts/font = SubResource( 3 )
 text = "AVISO DE PRIVACIDAD"
 align = 1
 
