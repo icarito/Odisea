@@ -106,8 +106,12 @@ static func attach_popup(popup: Node, requester: Node = null) -> Control:
 	var parent: Node = popup.get_tree().root if popup.is_inside_tree() else popup
 	var cursor: Control = attach_to(parent, wanted)
 	cursor._watch_visibility(wanted)
-	if not wanted is CanvasItem or wanted.is_visible_in_tree():
-		cursor.set_desktop_mouse_mode(true, cursor.get_viewport().get_mouse_position())
+	# Siempre activar el modo desktop al colgar un popup: la guarda anterior
+	# (`is_visible_in_tree()`) fallaba cuando el popup se colgaba en _ready(), antes
+	# de que su host CanvasLayer estuviera en el arbol visible. _watch_visibility
+	# solo dispara en cambios posteriores, no en el add_to_tree inicial, asi que el
+	# cursor nunca se prendia (ej: Boarding Protocol en FirstRunConsent).
+	cursor.set_desktop_mouse_mode(true, cursor.get_viewport().get_mouse_position())
 	return cursor
 
 # Popup que pide el cursor en su propio _ready: en ese momento el padre esta armando hijos y el
@@ -187,7 +191,7 @@ static func ensure_global() -> Control:
 			return existing as Control
 	var host := CanvasLayer.new()
 	host.name = "VirtualMouseLayer"
-	host.layer = LAYER
+	host.layer = 10000
 	var cursor: Control = load("res://core_v2/ui/VirtualMouse.gd").new()
 	cursor.name = "VirtualMouse"
 	cursor.add_to_group("virtual_mouse")
