@@ -50,7 +50,11 @@ if grep -qa "rockchip,rk3326" /proc/device-tree/compatible 2>/dev/null \
   # Refresca el override.cfg generado por este archivo en cada arranque, para que un
   # paquete nuevo (p.ej. el bloque [audio] de FD-299) llegue a un handheld ya instalado.
   # Un override.cfg editado a mano (sin la marca FD-299) se respeta (linea 41).
-  if [ ! -f override.cfg ] || grep -qs "odisea-lowend-cfg\|FD-299: ajustes de arranque" override.cfg; then
+  # -s, no -f: un override.cfg de 0 bytes (lo deja una sesion de debug interrumpida)
+  # no lleva la marca, asi que con -f se respetaba como "editado a mano" y el
+  # dispositivo arrancaba sin el bloque [audio] — mezclando a 44100 contra un grafo
+  # PipeWire de 48000, que es el chirrido. Vacio cuenta como ausente.
+  if [ ! -s override.cfg ] || grep -qs "odisea-lowend-cfg\|FD-299: ajustes de arranque" override.cfg; then
     cp lowend.cfg override.cfg
   fi
 elif grep -qs "odisea-lowend-cfg\|FD-299: ajustes de arranque" override.cfg; then
