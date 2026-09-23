@@ -9,11 +9,12 @@ Hace tres cosas:
      StaticBody) en Spatial vacios con solo el transform. Siguen siendo los
      slots que lee RingHubWakeup y evitan que RadialScatter regenere el anillo;
      la geometria decorativa pasa al MultiMesh horneado.
-  2. Agrega ScaffoldStreamRoot con el visual horneado de cada grupo de scaffold
-     (una MeshInstance por grupo, la malla fusionada) y el visual MultiMesh de
-     criopods.
-  3. Agrega un StreamedSceneChunkV2 por sector con colision, mas el del anillo de
-     criopods, apuntando a las sub-escenas de colision por sector.
+  2. Agrega ScaffoldStreamRoot con un StreamedSceneChunkV2 por sector de scaffold
+     (colision + su propio MeshInstance visual, ambos dentro de la misma
+     sub-escena `_body.tscn` horneada — ver tools/bake_scaffold_walkways.gd) mas
+     el visual MultiMesh de criopods.
+  3. Cada chunk apunta a la sub-escena de sector que trae colision y visual
+     juntos, mas el del anillo de criopods.
 
 Los sectores viven en el espacio del grupo (el baker aplica group_xform_inv), asi
 que cada grupo cuelga de un nodo con el transform del grupo y las anclas del
@@ -149,7 +150,6 @@ def main():
         r["ring"]: ext_id("res://core_v2/levels/chunks/ringhub/RingHub_%s_body.tscn" % r["ring"], "PackedScene")
         for r in UPPER_CRIO_RINGS
     }
-    group_mesh_ids = {g: ext_id("res://core_v2/levels/interiors/RingHub_%s_baked.mesh" % g, "ArrayMesh") for g in GROUPS}
     body_ids = {}
     for e in entries:
         if e["body"]:
@@ -162,10 +162,11 @@ def main():
         if gx != [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]:
             lines.append(transform_line(gx))
         lines.append("")
-        lines.append('[node name="Visual" type="MeshInstance" parent="ScaffoldStreamRoot/Group_%s"]' % group)
-        lines.append("layers = 64")
-        lines.append("mesh = ExtResource( %d )" % group_mesh_ids[group])
-        lines.append("")
+        # FD-314 follow-up: el visual del sector viaja DENTRO de `e["body"]` (el
+        # baker ahora agrega un MeshInstance "Visual" junto a la colision, ver
+        # tools/bake_scaffold_walkways.gd _write_sector_body). Ya no hay un
+        # MeshInstance de grupo con la malla del anillo completo: esa malla unica
+        # es justo lo que el frustum nunca podia descartar.
         for e in sorted([x for x in entries if x["group"] == group], key=lambda x: x["sector"]):
             if not e["body"]:
                 continue
