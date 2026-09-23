@@ -28,6 +28,12 @@ extends SceneTree
 # Ojo al mapear un punto global a su sector: _sector_for trabaja en el espacio del
 # GRUPO, y Group_SpiralStairs va rotado ~165 grados.
 #
+# Lo que NO los causa, ya descartado con este mismo auditor:
+#   - Compactar a compound: con primitivas sueltas salen 15 y con compound 13. El
+#     hull aproxima un pelo por fuera y tapa dos, asi que el compound ayuda.
+#   - Colision horneada que la escena no carga: las 18 entradas del manifiesto
+#     tienen su Chunk_NN en RingHub_Level, ninguna queda huerfana.
+#
 # Run: tools/godot --no-window --audio-driver Dummy --path . \
 #        -s res://tools/audit_ringhub_collision_holes.gd
 # Escribe el detalle en user://ringhub_collision_holes.txt y un resumen por stdout.
