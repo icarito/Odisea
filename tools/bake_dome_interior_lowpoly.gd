@@ -22,6 +22,12 @@ extends SceneTree
 #   core_v2/levels/interiors/DomeInteriorLowPoly_baked.mesh (RingHub_Level)
 #   core_v2/levels/interiors/DomeInteriorLowPoly_baked.shape (RingHub_Level)
 
+# El hemisferio del GLB sale de Blender con radio 16.5 m; RingHub_Level es una
+# torre cuya geometria real llega a r=32.13 (medido sobre vertices), asi que la
+# cascara se hornea escalada a TARGET_RADIUS para envolverla en vez de cortarla.
+const SRC_RADIUS := 16.5
+const TARGET_RADIUS := 35.0
+
 const SRC_GLB := "res://assets/models/dome_interior_lowpoly/DomeInteriorLowPoly.glb"
 const OUT_MESH := "res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.mesh"
 const OUT_SHAPE := "res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.shape"
@@ -58,7 +64,8 @@ func _run() -> void:
 	var nodes := 0
 	for mi in _all_meshes(root):
 		nodes += 1
-		var xf: Transform = _relative_transform(mi, root)
+		var k := TARGET_RADIUS / SRC_RADIUS
+		var xf: Transform = Transform.IDENTITY.scaled(Vector3(k, k, k)) * _relative_transform(mi, root)
 		for s in range(mi.mesh.get_surface_count()):
 			var material: Material = mi.mesh.surface_get_material(s)
 			if material == null:

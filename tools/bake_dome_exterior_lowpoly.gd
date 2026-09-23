@@ -20,6 +20,11 @@ extends SceneTree
 #   core_v2/levels/exteriors/DomeExteriorLowPoly_baked.mesh
 #   core_v2/levels/exteriors/DomeExteriorLowPoly_baked.shape
 
+# Mismo escalado que el gemelo interior: la cascara se hornea a TARGET_RADIUS
+# para que ambos domos sigan siendo el mismo objeto visto de los dos lados.
+const SRC_RADIUS := 16.5
+const TARGET_RADIUS := 35.0
+
 const SRC_GLB := "res://assets/models/dome_exterior_lowpoly/DomeExteriorLowPoly.glb"
 const OUT_MESH := "res://core_v2/levels/exteriors/DomeExteriorLowPoly_baked.mesh"
 const OUT_SHAPE := "res://core_v2/levels/exteriors/DomeExteriorLowPoly_baked.shape"
@@ -54,7 +59,8 @@ func _run() -> void:
 	var nodes := 0
 	for mi in _all_meshes(root):
 		nodes += 1
-		var xf: Transform = _relative_transform(mi, root)
+		var k := TARGET_RADIUS / SRC_RADIUS
+		var xf: Transform = Transform.IDENTITY.scaled(Vector3(k, k, k)) * _relative_transform(mi, root)
 		for s in range(mi.mesh.get_surface_count()):
 			var material: Material = mi.mesh.surface_get_material(s)
 			if material == null:
