@@ -54,7 +54,9 @@ var relative_target_scale := Vector2.ZERO
 # mouse — la camara seguia al stick — y A/B se volvian clicks consumidos.
 static func attach_to(parent: Node, requester: Node = null) -> Control:
 	var owner_node: Node = requester if requester != null else parent
-	for existing in parent.get_tree().get_nodes_in_group("virtual_mouse"):
+	var tree := parent.get_tree() if parent.is_inside_tree() else Engine.get_main_loop() as SceneTree
+	var root: Node = tree.root if tree != null else parent
+	for existing in tree.get_nodes_in_group("virtual_mouse"):
 		if is_instance_valid(existing):
 			existing.add_requester(owner_node)
 			# El cursor es compartido: la UI anterior pudo dejarlo apagado o sin joypad.
@@ -63,20 +65,21 @@ static func attach_to(parent: Node, requester: Node = null) -> Control:
 			existing.set_gamepad_cursor_enabled(true)
 			existing.visible = true
 			var host_layer = existing.get_parent()
-			if host_layer is CanvasLayer and host_layer.layer < 3000:
-				host_layer.layer = 3000
+			if host_layer is CanvasLayer:
+				host_layer.layer = 10000
+				if host_layer.get_parent() != root:
+					host_layer.get_parent().remove_child(host_layer)
+					root.add_child(host_layer)
 			return existing as Control
 	var host := CanvasLayer.new()
 	host.name = "VirtualMouseLayer"
-	host.layer = 3000
+	host.layer = 10000
 	var cursor: Control = load("res://core_v2/ui/VirtualMouse.gd").new()
 	cursor.name = "VirtualMouse"
 	cursor.add_to_group("virtual_mouse")
 	cursor.add_requester(owner_node)
 	host.add_child(cursor)
-	# Los que lo piden desde su _ready (overlay del modo HUD, popups) lo hacen diferido: aca el
-	# padre ya termino de armarse y el add_child directo no se rechaza.
-	parent.add_child(host)
+	root.add_child(host)
 	return cursor
 
 # Con la ventana sin foco el cursor virtual no se dibuja (ver _process/_draw).
