@@ -308,6 +308,8 @@ func _on_Quit_pressed():
 	get_tree().quit()
 
 func _start_game(scene_path):
+	if OS.has_feature("JavaScript") and Engine.has_singleton("JavaScript"):
+		JavaScript.eval("window.OdiseaShell && window.OdiseaShell.hideNativeNotice && window.OdiseaShell.hideNativeNotice();", true)
 	# FD-292: la primera vez, el consentimiento va ANTES del fundido, no al abrir el
 	# menu. Dos razones. Una, se pregunta cuando el jugador ya decidio jugar, que es
 	# cuando la pregunta viene al caso. Dos, el arranque en frio del primer nivel

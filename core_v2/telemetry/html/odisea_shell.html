@@ -703,7 +703,12 @@ $GODOT_HEAD_INCLUDE
 					pendingMetrics = [];
 				}
 			},
-			pendingRunbin: null
+			pendingRunbin: null,
+			hideNativeNotice: function() {
+				if (typeof window.hideNativeNotice === "function") {
+					window.hideNativeNotice();
+				}
+			}
 		};
 
 		// --- Corner toast (slow-load hint / real error) ----------------
@@ -1169,9 +1174,36 @@ $GODOT_HEAD_INCLUDE
 				nativeEl.classList.add("visible");
 			}
 
+			var NATIVE_NOTICE_KEY = "odisea_native_notice_last_date";
+
+			function isShownToday() {
+				try {
+					var today = new Date().toISOString().slice(0, 10);
+					var lastDate = localStorage.getItem(NATIVE_NOTICE_KEY);
+					return lastDate === today;
+				} catch (e) {
+					return false;
+				}
+			}
+
+			function markShownToday() {
+				try {
+					var today = new Date().toISOString().slice(0, 10);
+					localStorage.setItem(NATIVE_NOTICE_KEY, today);
+				} catch (e) {}
+			}
+
+			function hideNativeNotice() {
+				if (nativeEl) {
+					nativeEl.classList.remove("visible");
+				}
+			}
+
 			document.getElementById("odisea-native-close").addEventListener("click", function() {
-				nativeEl.classList.remove("visible");
+				hideNativeNotice();
 			});
+
+			window.hideNativeNotice = hideNativeNotice;
 
 			var platform = detectPlatform();
 			var fallbackUrl = (platform === "ios") ? TESTFLIGHT_URL : RELEASES_PAGE;
@@ -1179,8 +1211,9 @@ $GODOT_HEAD_INCLUDE
 			var shown = false;
 
 			function show() {
-				if (shown) return;
+				if (shown || isShownToday()) return;
 				shown = true;
+				markShownToday();
 				showCard(platform, finalUrl || fallbackUrl);
 			}
 
