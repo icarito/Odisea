@@ -1159,6 +1159,14 @@ func _should_show_loading(mode: String) -> bool:
 		return bool(_transition_params.get("show_loading", false))
 	return mode == "loading"
 
+# Mantiene viva una transicion que espera trabajo previo a la carga (hoy: el
+# pre_load_hook de Menu, que corre el warmup de shaders con la pantalla de carga ya
+# arriba). Sin esto el watchdog cuenta desde transition_started, resetea la carga a
+# mitad y el jugador queda mirando "Preparando el primer nivel..." para siempre.
+func keep_transition_alive() -> void:
+	if _is_transitioning:
+		_loader_last_progress_ms = OS.get_ticks_msec()
+
 func _check_transition_timeout() -> void:
 	if not _is_transitioning:
 		return

@@ -161,8 +161,14 @@ func _wait_shader_warmup() -> void:
 	if trigger != null and trigger.has_method("begin"):
 		trigger.begin()
 		# Mientras corre, el trigger pide el cursor en reloj de arena (push_busy_global).
-		while is_instance_valid(trigger) and not trigger.is_finished():
-			yield(get_tree(), "idle_frame")
+	# Y se le avisa al SceneManager que la transicion sigue viva: el watchdog cuenta
+	# desde que arranco y sin esto resetea la carga (quedaba en "Preparando el primer
+	# nivel..." para siempre). keep_transition_alive() es no-op fuera de una transicion.
+	while is_instance_valid(trigger) and not trigger.is_finished():
+		var scene_manager = get_node_or_null("/root/SceneManager")
+		if scene_manager and scene_manager.has_method("keep_transition_alive"):
+			scene_manager.keep_transition_alive()
+		yield(get_tree(), "idle_frame")
 	# Cede un frame siempre, incluso sin trigger (desktop): asi la funcion es corrutina
 	# en todos los caminos y quien hace yield(_wait_shader_warmup(), "completed") nunca
 	# cae en yield(null, ...).

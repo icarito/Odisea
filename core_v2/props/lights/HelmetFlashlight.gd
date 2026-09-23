@@ -77,6 +77,39 @@ func _ready() -> void:
 	_apply_light_params()
 	_update_cone_transform()
 	set_enabled(enabled)
+	# La linterna nace apagada y la escena nunca compila su variante con spot ni el
+	# material del cono hasta el primer "L". En WebGL eso es un freeze medido de ~3.4 s
+	# (compilacion sincronica del primer draw). Se precalienta detras de la pantalla de
+	# carga, que ya esta arriba cuando esta escena se instancia.
+	if not enabled:
+		call_deferred("_preheat_flashlight_shader")
+
+
+# Enciende la linterna un par de frames (detras de la pantalla de carga) para forzar la
+# compilacion de la variante de escena con spot, y dibuja el material del cono sobre un
+# quad pegado a la camara para forzar la del shader del cono. Despues vuelve a apagarla.
+func _preheat_flashlight_shader() -> void:
+	if enabled or not is_inside_tree():
+		return
+	set_enabled(true)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	var cam := get_viewport().get_camera() if is_inside_tree() else null
+	var quad: MeshInstance = null
+	if cam != null and _volumetric_cone != null:
+		var src = _volumetric_cone.get_surface_material(0)
+		if src != null:
+			quad = MeshInstance.new()
+			quad.mesh = QuadMesh.new()
+			quad.material_override = src
+			cam.add_child(quad)
+			quad.translation = Vector3(0.0, 0.0, -0.5)
+	yield(VisualServer, "frame_post_draw")
+	yield(VisualServer, "frame_post_draw")
+	if is_instance_valid(quad):
+		quad.queue_free()
+	if is_instance_valid(self):
+		set_enabled(false)
 
 
 func get_battery() -> float:
