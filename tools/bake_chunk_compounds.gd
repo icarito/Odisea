@@ -19,6 +19,20 @@ extends SceneTree
 # Los bytes van a <escena>_compound.res (CompoundBytesV2) y la escena del body se
 # reescribe manteniendo el nombre del root y sus capas de colision.
 
+# OJO: RingHub ya NO consume la salida de este baker. Los compounds de Box3D no
+# colisionan en arm64 (FRT del handheld): medido con el mismo replay en el mismo
+# dispositivo, primitivas sueltas dan drift 0.0007 m y el compound 10.45 m — el
+# jugador atraviesa el piso y termina en el suelo. En x86-64 el mismo blob anda.
+# No hay ningun error: se valida, se adjunta y no colisiona.
+#
+# Descartado ya: la version del formato (XOR de constantes fijas), el layout de
+# b3TreeNode (32 bytes en ambas arquitecturas) y la alineacion del buffer
+# (B3_ALIGNMENT es 16, pero PAD_ALIGN de Godot tambien es 16 y malloc ya alinea a
+# 16, asi que el PoolVector cumple). La causa sigue sin identificar, en el fork.
+#
+# Mientras tanto la colision de RingHub va con primitivas sueltas. Esta
+# herramienta se deja para cuando el fork lo arregle.
+
 const SECTOR_DIR := "res://core_v2/levels/interiors/"
 const CHUNK_DIR := "res://core_v2/levels/chunks/ringhub/"
 # Escenas fuente (originales con primitivas). El horneado reescribe los bodies
