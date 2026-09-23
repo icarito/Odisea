@@ -64,9 +64,15 @@ func _run() -> void:
 			_check(group != null, "Group_%s existe" % group_name)
 			if group == null:
 				continue
-			var visual: Node = group.get_node_or_null("Visual")
-			if visual is MeshInstance and (visual as MeshInstance).mesh != null:
-				visual_meshes += 1
+			# El visual del scaffold es uno POR SECTOR (Visual_NN) y vive siempre en el
+			# shell: el descarte que se busca es el del frustum, no uno por distancia.
+			# Atarlo al chunk (trigger_radius 15) borraria el andamiaje del otro lado
+			# del anillo, y ademas romperia el invariante de StreamedSceneChunkV2 de
+			# que nunca hay colision sin malla debajo.
+			for child in group.get_children():
+				if child is MeshInstance and (child as MeshInstance).mesh != null \
+						and String(child.name).begins_with("Visual_"):
+					visual_meshes += 1
 
 		cri_visual = stream.get_node_or_null("Criopods_Visual")
 		_check(stream.get_node_or_null("Chunk_Criopods") != null, "Chunk_Criopods existe")
@@ -81,7 +87,7 @@ func _run() -> void:
 				upper_rings += 1
 		_check(upper_rings == 4, "4 anillos de criopods superiores (%d)" % upper_rings)
 
-	_check(visual_meshes == 3, "3 visuales de grupo (%d)" % visual_meshes)
+	_check(visual_meshes == 18, "18 visuales de sector (%d)" % visual_meshes)
 	_check(chunk_count == 22, "22 chunks (17 sectores + 5 anillos de criopods): %d" % chunk_count)
 
 	print("[verify_ringhub] criopods visual (piso de despertar, geometria mergeada)")

@@ -149,7 +149,13 @@ def main():
         r["ring"]: ext_id("res://core_v2/levels/chunks/ringhub/RingHub_%s_body.tscn" % r["ring"], "PackedScene")
         for r in UPPER_CRIO_RINGS
     }
-    group_mesh_ids = {g: ext_id("res://core_v2/levels/interiors/RingHub_%s_baked.mesh" % g, "ArrayMesh") for g in GROUPS}
+    # Un visual POR SECTOR, siempre presente en el shell: la malla de grupo
+    # abarca los 360 grados y el frustum no la puede descartar nunca. El visual
+    # NO va adentro del chunk: ese streamea por distancia (trigger_radius 15) y
+    # en un domo donde se ve hasta 35 m eso borraria el andamiaje del otro lado
+    # del anillo. StreamedSceneChunkV2 documenta ese invariante: el visual vive
+    # en el shell para que nunca haya colision sin malla debajo.
+    sector_mesh_ids = {(e["group"], e["sector"]): ext_id(e["mesh"], "ArrayMesh") for e in entries}
     body_ids = {}
     for e in entries:
         if e["body"]:
@@ -162,10 +168,11 @@ def main():
         if gx != [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]:
             lines.append(transform_line(gx))
         lines.append("")
-        lines.append('[node name="Visual" type="MeshInstance" parent="ScaffoldStreamRoot/Group_%s"]' % group)
-        lines.append("layers = 64")
-        lines.append("mesh = ExtResource( %d )" % group_mesh_ids[group])
-        lines.append("")
+        for e in sorted([x for x in entries if x["group"] == group], key=lambda x: x["sector"]):
+            lines.append('[node name="Visual_%02d" type="MeshInstance" parent="ScaffoldStreamRoot/Group_%s"]' % (e["sector"], group))
+            lines.append("layers = 64")
+            lines.append("mesh = ExtResource( %d )" % sector_mesh_ids[(group, e["sector"])])
+            lines.append("")
         for e in sorted([x for x in entries if x["group"] == group], key=lambda x: x["sector"]):
             if not e["body"]:
                 continue
