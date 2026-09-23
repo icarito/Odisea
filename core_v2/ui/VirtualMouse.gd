@@ -100,6 +100,8 @@ static func attach_popup(popup: Node, requester: Node = null) -> Control:
 	var parent: Node = popup.get_tree().root if popup.is_inside_tree() else popup
 	var cursor: Control = attach_to(parent, wanted)
 	cursor._watch_visibility(wanted)
+	if not wanted is CanvasItem or wanted.is_visible_in_tree():
+		cursor.set_desktop_mouse_mode(true, cursor.get_viewport().get_mouse_position())
 	return cursor
 
 # Popup que pide el cursor en su propio _ready: en ese momento el padre esta armando hijos y el

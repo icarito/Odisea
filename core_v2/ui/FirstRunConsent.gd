@@ -40,22 +40,6 @@ onready var _choice_box: Control = find_node("ChoiceBox")
 var _progress_01 := 0.0
 var _transition_done := false
 var _ready_announced := false
-# El boton CONTINUAR nace inactivo cuando el Menu todavia esta esperando el warmup de
-# shaders: asi el primer popup no se puede contestar mientras la compilacion traba el
-# hilo. El Menu lo activa con set_intro_ready(true) al terminar.
-var _intro_ready := true
-
-func set_intro_ready(ready: bool) -> void:
-	_intro_ready = ready
-	if is_inside_tree():
-		_apply_intro_ready()
-
-func _apply_intro_ready() -> void:
-	if _ok_button == null:
-		return
-	_ok_button.disabled = not _intro_ready
-	if _intro_ready:
-		_ok_button.grab_focus()
 
 func _ready() -> void:
 	# Sigue procesando con el arbol pausado: es quien tiene que despausarlo.
@@ -80,7 +64,7 @@ func _ready() -> void:
 		if sm.has_signal("transition_completed"):
 			sm.connect("transition_completed", self, "_on_transition_completed")
 
-	_apply_intro_ready()
+	_ok_button.grab_focus()
 
 func _on_ok_pressed() -> void:
 	_intro_panel.visible = false

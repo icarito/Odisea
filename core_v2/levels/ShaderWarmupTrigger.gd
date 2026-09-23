@@ -38,6 +38,8 @@ func _push_busy() -> void:
 		return
 	_busy_pushed = true
 	VirtualMouseScript.push_busy_global()
+	if OS.get_name() == "HTML5":
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 func _pop_busy() -> void:
 	if not _busy_pushed:

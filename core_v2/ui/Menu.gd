@@ -343,22 +343,11 @@ func _show_first_run_consent(scene_path) -> void:
 		host.add_child(cursor_layer)
 	get_tree().root.add_child(host)
 	screen.connect("loading_requested", self, "_on_first_run_loading_requested", [scene_path], CONNECT_ONESHOT)
-	# El warmup de la escena de arranque corre detras de esta pantalla, que es opaca y ya
-	# tapa el Menu. El boton CONTINUAR nace inactivo y recien se pinta activo cuando la
-	# compilacion termina: si el primer popup aparece con el warmup a medias, el jugador
-	# no puede entrar a un estado congelado.
-	screen.set_intro_ready(false)
-	_arm_consent_after_warmup(screen)
 
-func _arm_consent_after_warmup(screen) -> void:
-	yield(_wait_shader_warmup(), "completed")
-	if is_instance_valid(screen):
-		screen.set_intro_ready(true)
-
-# El jugador leyo la primera pantalla y toco ENTENDIDO: recien ahora se carga el
-# nivel, con la pantalla de consentimiento cubriendo el trabajo. El warmup ya corrio
-# detras de la pantalla (ver _arm_consent_after_warmup), asi que la carga real no lo
-# espera dos veces.
+# El jugador leyo la primera pantalla y toco CONTINUAR: recien ahora se carga el nivel, con
+# el panel de telemetria ("Preparando el primer nivel...") cubriendo el trabajo. El warmup de
+# shaders corre ahi adentro, como pre_load_hook de goto_scene, asi no se paga dos veces ni se
+# bloquea ninguna pantalla interactiva.
 func _on_first_run_loading_requested(scene_path) -> void:
 	enable_async_shader_compilation()
 	_begin_start_game(scene_path)

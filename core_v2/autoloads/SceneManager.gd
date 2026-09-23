@@ -212,6 +212,8 @@ func goto_scene(path: String, params: Dictionary = {}):
 	# el Menu y su camara todavia existen. Si el hook no es una corrutina, sigue de largo.
 	var pre_load_hook = _transition_params.get("pre_load_hook", null)
 	if pre_load_hook is FuncRef and pre_load_hook.is_valid():
+		if OS.get_name() == "HTML5":
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		var hook_state = pre_load_hook.call_func()
 		if hook_state is GDScriptFunctionState:
 			yield(hook_state, "completed")
