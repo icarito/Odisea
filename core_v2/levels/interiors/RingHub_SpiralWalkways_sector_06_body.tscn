@@ -1,18 +1,10 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://core_v2/audio/footsteps/footstep_profile_scaffold_metal.tres" type="Resource" id=1]
 [ext_resource path="res://core_v2/systems/footsteps/footstep_surface.gd" type="Script" id=2]
 
 [sub_resource type="ConvexPolygonShape" id=39]
 points = PoolVector3Array( -2.58993, 22.7, -2.80763, 2.7209, 22.7, -5.5996, -3.06523, 22.7, 4.24191, 2.93428, 22.7, 4.16532, -2.58993, 22.6, -2.80763, 2.7209, 22.6, -5.5996, -3.06523, 22.6, 4.24191, 2.93428, 22.6, 4.16532 )
-
-[sub_resource type="CylinderShape" id=40]
-height = 22.63
-radius = 0.0805
-
-[sub_resource type="CylinderShape" id=41]
-height = 22.63
-radius = 0.0805
 
 [sub_resource type="CylinderShape" id=42]
 height = 22.63
@@ -24,9 +16,6 @@ radius = 0.0805
 
 [sub_resource type="ConvexPolygonShape" id=44]
 points = PoolVector3Array( -2.93, 22.7, 4.05362, 2.93, 22.7, 4.05362, -2.93, 23.8, 4.05362, 2.93, 23.8, 4.05362, -2.93, 22.7, 4.21462, 2.93, 22.7, 4.21462, -2.93, 23.8, 4.21462, 2.93, 23.8, 4.21462 )
-
-[sub_resource type="ConvexPolygonShape" id=45]
-points = PoolVector3Array( -2.44765, 22.7, -2.8349, -2.67129, 22.7, 0.554344, -2.44765, 23.8, -2.8349, -2.67129, 23.8, 0.554344, -2.6083, 22.7, -2.84551, -2.83194, 22.7, 0.543743, -2.6083, 23.8, -2.84551, -2.83194, 23.8, 0.543743 )
 
 [sub_resource type="ConvexPolygonShape" id=46]
 points = PoolVector3Array( -3.07574, 22.7, 4.24101, -3.07574, 22.7, 4.24101, -3.07574, 23.8, 4.24101, -3.07574, 23.8, 4.24101, -2.91474, 22.7, 4.24101, -2.91474, 22.7, 4.24101, -2.91474, 23.8, 4.24101, -2.91474, 23.8, 4.24101 )
@@ -46,34 +35,22 @@ transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652,
 shape = SubResource( 39 )
 
 [node name="Collision_1" type="CollisionShape" parent="."]
-transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -7.07468, 11.315, -13.8848 )
-shape = SubResource( 40 )
-
-[node name="Collision_2" type="CollisionShape" parent="."]
-transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -9.73506, 11.315, -19.1061 )
-shape = SubResource( 41 )
-
-[node name="Collision_3" type="CollisionShape" parent="."]
 transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -4.76837e-07, 11.315, -13.3272 )
 shape = SubResource( 42 )
 
-[node name="Collision_4" type="CollisionShape" parent="."]
+[node name="Collision_2" type="CollisionShape" parent="."]
 transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -4.76837e-07, 11.315, -19.1872 )
 shape = SubResource( 43 )
 
-[node name="Collision_5" type="CollisionShape" parent="."]
+[node name="Collision_3" type="CollisionShape" parent="."]
 transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -4.20243, 0, -16.3763 )
 shape = SubResource( 44 )
 
-[node name="Collision_6" type="CollisionShape" parent="."]
-transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -4.20243, 0, -16.3763 )
-shape = SubResource( 45 )
-
-[node name="Collision_7" type="CollisionShape" parent="."]
+[node name="Collision_4" type="CollisionShape" parent="."]
 transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -4.20243, 0, -16.3763 )
 shape = SubResource( 46 )
 
-[node name="Collision_8" type="CollisionShape" parent="."]
+[node name="Collision_5" type="CollisionShape" parent="."]
 transform = Transform( 0.0127652, 0, 0.999918, 0, 1, 0, -0.999918, 0, 0.0127652, -4.20243, 0, -16.3763 )
 shape = SubResource( 47 )
 

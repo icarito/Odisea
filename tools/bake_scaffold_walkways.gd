@@ -529,11 +529,18 @@ func _add_vertex(st: SurfaceTool, v: Vector3, n, uv, tangents, source_index: int
 func _emit_sector_bodies(group_name: String, collision_shapes: Array, sector_aabbs: Dictionary, group_xform: Transform) -> void:
 	var by_sector := {}
 	for pair in collision_shapes:
-		var shape_xform: Transform = pair[1]
-		var sector: int = _sector_for(shape_xform.origin)
-		if not by_sector.has(sector):
-			by_sector[sector] = []
-		by_sector[sector].append(pair)
+		# Cada shape va a TODOS los sectores que ocupa, no solo al de su origen.
+		# El visual se reparte por triangulo, asi que una pasarela que cruza el
+		# limite deja malla en dos sectores; mandando su caja al del origen, el
+		# otro sector quedaba con geometria visible y sin colision — hasta con
+		# `body: ""` cuando ningun origen caia ahi (SpiralWalkways sector 6). Se
+		# atravesaba el piso estando encima, a cualquier distancia.
+		# La shape se duplica en el borde: una caja repetida por sector es mucho
+		# mas barato que un agujero, y el chunk vecino la libera por su cuenta.
+		for sector in _sectors_for_shape(pair[0], pair[1]):
+			if not by_sector.has(sector):
+				by_sector[sector] = []
+			by_sector[sector].append(pair)
 
 	for sector_index in range(SECTOR_COUNT):
 		if not sector_aabbs.has(sector_index) and not by_sector.has(sector_index):
@@ -593,6 +600,28 @@ func _write_sector_body(group_name: String, sector_index: int, shapes: Array) ->
 		push_error("[bake_walkways] no pude guardar %s" % path)
 		return ""
 	return path
+
+
+# Sectores que ocupa una shape. El sector es angular, asi que no alcanza con las 8
+# esquinas de la caja: una pasarela larga puede cruzar un sector entero sin que
+# ninguna esquina caiga adentro. Se muestrea la caja en una grilla, que para las
+# cajas de deck y los cilindros de las patas cubre el arco sin inventar geometria.
+const SHAPE_SAMPLE_STEPS := 4
+
+func _sectors_for_shape(shape: Shape, shape_xform: Transform) -> Array:
+	var box: AABB = shape.get_debug_mesh().get_aabb()
+	var seen := {}
+	for ix in range(SHAPE_SAMPLE_STEPS + 1):
+		for iy in range(SHAPE_SAMPLE_STEPS + 1):
+			for iz in range(SHAPE_SAMPLE_STEPS + 1):
+				var local := Vector3(
+					box.position.x + box.size.x * float(ix) / float(SHAPE_SAMPLE_STEPS),
+					box.position.y + box.size.y * float(iy) / float(SHAPE_SAMPLE_STEPS),
+					box.position.z + box.size.z * float(iz) / float(SHAPE_SAMPLE_STEPS))
+				seen[_sector_for(shape_xform.xform(local))] = true
+	if seen.empty():
+		seen[_sector_for(shape_xform.origin)] = true
+	return seen.keys()
 
 
 func _sector_for(point: Vector3) -> int:

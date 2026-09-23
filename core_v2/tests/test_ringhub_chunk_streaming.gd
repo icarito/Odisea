@@ -62,8 +62,11 @@ func test_shell_has_no_scaffold_collision_and_has_sector_visuals() -> void:
 					and String(child.name).begins_with("Visual_"):
 				visuals += 1
 	assert_int(visuals).is_equal(18)
-	# 17 sectores del scaffold + 5 anillos de criopods (piso 1 + pisos 2-5).
-	assert_int(chunks).is_equal(22)
+	# 18 sectores del scaffold + 5 anillos de criopods (piso 1 + pisos 2-5).
+	# 18, no 17: SpiralWalkways sector 6 tenia malla visible y ningun cuerpo de
+	# colision porque el baker repartia las shapes por el origen de cada una y
+	# ninguna nacia en ese sector. Ver test_todo_visual_tiene_chunk_de_colision.
+	assert_int(chunks).is_equal(23)
 	# Los pisos 2-5 tambien llevan su anillo de criopods decorativos.
 	for ring_name in ["Criopods3", "Criopods4", "Criopods5", "Criopods6"]:
 		assert_object(stream.get_node_or_null("Criopods_Visual_%s" % ring_name)).is_not_null()
@@ -189,3 +192,128 @@ func test_criopod_block_is_per_instance_and_reversible() -> void:
 	assert_int(a.get_blocked_slot()).is_equal(2)
 	assert_bool(a._hidden.has(a.instance_for_slot(2))).is_true()
 	assert_bool(a._hidden.has(a.instance_for_slot(1))).is_false()
+
+
+# El trigger es una esfera alrededor del CENTROIDE del chunk, pero su geometria se
+# extiende mucho mas: con trigger_radius 15 y pasarelas que llegan a 27 m quedaba una
+# corona donde el jugador pisa la malla y el chunk todavia no cargo — se atravesaba el
+# piso estando encima. El radio tiene que cubrir la geometria que el chunk trae, asi
+# que se compara contra ella y no contra un numero fijo: un re-bake que agrande un
+# sector sin subir su radio vuelve a abrir el agujero, y en silencio.
+func test_trigger_radius_cubre_la_geometria_del_chunk() -> void:
+	var level = auto_free(RingHubScene.instance())
+	add_child(level)
+	yield(get_tree(), "idle_frame")
+
+	var cortos := []
+	var pending := [level]
+	while not pending.empty():
+		var current = pending.pop_back()
+		if current.get_script() != null and current.has_method("request_load"):
+			var extent := _chunk_extent(current)
+			if extent <= 0.0:
+				# Los anillos de criopods traen su colision en UN compound de Box3D
+				# (CompoundChunkBodyV2), que no expone CollisionShape: medirlos por
+				# shapes daba 0 y el chunk pasaba siempre. Se miden contra el visual
+				# que les corresponde, que es el sintoma real — se ve y se atraviesa.
+				extent = _sibling_visual_extent(current)
+			if extent <= 0.0:
+				cortos.append("%s: no se pudo medir ni por colision ni por visual" % current.name)
+			elif float(current.get("trigger_radius")) < extent:
+				cortos.append("%s: r=%.1f < geometria %.1f" % [
+					current.name, current.get("trigger_radius"), extent])
+		for child in current.get_children():
+			pending.append(child)
+	assert_array(cortos).is_empty()
+
+
+# Radio que envuelve la colision del chunk, medido desde trigger_center en el espacio
+# del propio chunk: el mismo en el que _physics_process compara la distancia.
+func _chunk_extent(chunk: Node) -> float:
+	var packed: PackedScene = chunk.get("chunk_scene")
+	if packed == null:
+		return 0.0
+	var instance: Node = packed.instance()
+	chunk.add_child(instance)
+	var center: Vector3 = chunk.get("trigger_center")
+	var to_local: Transform = chunk.global_transform.affine_inverse()
+	var worst := 0.0
+	var pending := [instance]
+	while not pending.empty():
+		var current = pending.pop_back()
+		if current is CollisionShape and (current as CollisionShape).shape != null:
+			var box: AABB = (current as CollisionShape).shape.get_debug_mesh().get_aabb()
+			var xform: Transform = to_local * (current as CollisionShape).global_transform
+			for corner in range(8):
+				worst = max(worst, (xform.xform(box.get_endpoint(corner)) - center).length())
+		for child in current.get_children():
+			pending.append(child)
+	chunk.remove_child(instance)
+	instance.queue_free()
+	return worst
+
+
+# Cada sector que se DIBUJA tiene que tener su chunk de colision. El visual vive
+# fijo en el shell y la colision streamea, asi que un sector con Visual_NN y sin
+# Chunk_NN es geometria que se ve y nunca colisiona, a ninguna distancia — se
+# atraviesa el piso estando encima. Asi estuvo SpiralWalkways/06, y el conteo
+# global de chunks no lo delataba porque cuadraba con el total equivocado.
+func test_todo_visual_tiene_chunk_de_colision() -> void:
+	var level = auto_free(RingHubScene.instance())
+	add_child(level)
+	yield(get_tree(), "idle_frame")
+
+	var stream: Node = level.get_node_or_null("ScaffoldStreamRoot")
+	assert_object(stream).is_not_null()
+	var huerfanos := []
+	for group in stream.get_children():
+		if not String(group.name).begins_with("Group_"):
+			continue
+		for child in group.get_children():
+			var child_name := String(child.name)
+			if not child_name.begins_with("Visual_"):
+				continue
+			if not (child is MeshInstance) or (child as MeshInstance).mesh == null:
+				continue
+			var sector := child_name.substr(7, child_name.length() - 7)
+			if group.get_node_or_null("Chunk_%s" % sector) == null:
+				huerfanos.append("%s/%s sin Chunk_%s" % [group.name, child_name, sector])
+	assert_array(huerfanos).is_empty()
+
+
+# Alcance del visual que acompania a un chunk, desde su trigger_center. Para los
+# anillos de criopods el visual es un hermano "Criopods_Visual*" del mismo nombre;
+# para los sectores de scaffold es el "Visual_NN" dentro del grupo.
+func _sibling_visual_extent(chunk: Node) -> float:
+	var parent: Node = chunk.get_parent()
+	if parent == null:
+		return 0.0
+	var chunk_name := String(chunk.name)
+	var visual: Node = null
+	if chunk_name.begins_with("Chunk_Criopods"):
+		var suffix := chunk_name.substr(6, chunk_name.length() - 6)
+		visual = parent.get_node_or_null("Criopods_Visual_%s" % suffix)
+		if visual == null and suffix == "Criopods":
+			visual = parent.get_node_or_null("Criopods_Visual")
+	else:
+		visual = parent.get_node_or_null("Visual_%s" % chunk_name.substr(6, chunk_name.length() - 6))
+	if visual == null:
+		return 0.0
+	var center: Vector3 = chunk.to_global(chunk.get("trigger_center"))
+	var box := AABB()
+	var first := true
+	var pending := [visual]
+	while not pending.empty():
+		var current = pending.pop_back()
+		if current is VisualInstance:
+			var a: AABB = (current as VisualInstance).get_transformed_aabb()
+			box = a if first else box.merge(a)
+			first = false
+		for child in current.get_children():
+			pending.append(child)
+	if first:
+		return 0.0
+	var worst := 0.0
+	for corner in range(8):
+		worst = max(worst, (box.get_endpoint(corner) - center).length())
+	return worst
