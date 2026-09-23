@@ -206,6 +206,16 @@ func goto_scene(path: String, params: Dictionary = {}):
 			if bool(_transition_params.get("wait_for_fade_out", false)) and fade_out_duration > 0.0:
 				yield(get_tree().create_timer(fade_out_duration), "timeout")
 
+	# Trabajo que debe terminar antes de empezar a cargar la escena, ya con la pantalla
+	# de carga (o el popup que la reemplaza) arriba. Hoy lo usa Menu para el warmup de
+	# shaders: la escena vieja sigue siendo current_scene hasta _set_new_scene, asi que
+	# el Menu y su camara todavia existen. Si el hook no es una corrutina, sigue de largo.
+	var pre_load_hook = _transition_params.get("pre_load_hook", null)
+	if pre_load_hook is FuncRef and pre_load_hook.is_valid():
+		var hook_state = pre_load_hook.call_func()
+		if hook_state is GDScriptFunctionState:
+			yield(hook_state, "completed")
+
 	if supplied_preloaded_scene and supplied_preloaded_scene is PackedScene:
 		_loaded_scene = supplied_preloaded_scene
 		_emit_load_progress(1.0)

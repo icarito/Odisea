@@ -72,10 +72,18 @@ func test_injected_click_keeps_the_cursor_coordinates() -> void:
 
 func test_attach_to_reuses_the_existing_cursor() -> void:
 	var first: Control = VirtualMouseScript.attach_to(self)
+	first.set_process(false)
+	first.set_process_input(false)
+	first.set_gamepad_cursor_enabled(false)
+	first.visible = false
 	var second: Control = VirtualMouseScript.attach_to(self)
 
 	assert_object(second).is_same(first)
 	assert_int(get_tree().get_nodes_in_group("virtual_mouse").size()).is_equal(1)
+	assert_bool(second.is_processing()).is_true()
+	assert_bool(second.is_processing_input()).is_true()
+	assert_bool(second.gamepad_cursor_enabled).is_true()
+	assert_bool(second.visible).is_true()
 
 	first.get_parent().queue_free()
 
@@ -140,6 +148,22 @@ func test_real_mouse_motion_switches_the_gamepad_cursor_to_desktop_mode() -> voi
 		assert_int(Input.get_mouse_mode()).is_equal(Input.MOUSE_MODE_HIDDEN)
 	cursor.set_desktop_mouse_mode(false)
 	Input.set_mouse_mode(mouse_mode)
+	cursor.get_parent().queue_free()
+
+
+func test_real_mouse_keeps_cursor_position_when_leaving_gamepad_mode() -> void:
+	var cursor: Control = VirtualMouseScript.attach_to(self)
+	var expected := Vector2(123.0, 77.0)
+	cursor._active = true
+	cursor._position = expected
+	var motion := InputEventMouseMotion.new()
+	# En modo capturado esta posicion es el centro, no la posicion absoluta del mouse.
+	motion.position = cursor.get_viewport_rect().size * 0.5
+	motion.relative = Vector2(4.0, 0.0)
+	cursor._input(motion)
+
+	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
+	assert_vector2(cursor._position).is_equal(expected)
 	cursor.get_parent().queue_free()
 
 

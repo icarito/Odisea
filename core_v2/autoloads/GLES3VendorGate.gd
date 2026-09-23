@@ -21,6 +21,11 @@ const FLAT_FAKE_SHADER = preload("res://core_v2/visual/FlatFake.shader")
 # Variante cull_disabled para materiales fuente doble-lado (rejillas CULL_DISABLED):
 # el deck horneado puede tener winding hacia abajo y con cull_back desaparece.
 const FLAT_FAKE_DOUBLE_SIDED_SHADER = preload("res://core_v2/visual/FlatFakeDoubleSided.shader")
+# Prototipo de "luces apagadas": misma base que FlatFake pero con linterna.
+# Se activa con ODISEA_FLASHLIGHT=1 y se calibra con ODISEA_WORLD_LIGHT /
+# ODISEA_GLOW_FLOOR, para poder comparar variantes sin recompilar.
+const FLAT_FAKE_FLASHLIGHT_SHADER = preload("res://core_v2/visual/FlatFakeFlashlight.shader")
+const FLAT_FAKE_FLASHLIGHT_DS_SHADER = preload("res://core_v2/visual/FlatFakeFlashlightDoubleSided.shader")
 # Variantes transparentes: el vidrio (criopods, ventanas) conserva su transparencia en
 # vez de quedar como un panel opaco. Mismo shading falso, con blend_mix + ALPHA.
 const FLAT_FAKE_TRANSPARENT_SHADER = preload("res://core_v2/visual/FlatFakeTransparent.shader")
@@ -43,9 +48,16 @@ const FORCE_LOW_TIER_ENV := "ODISEA_FORCE_LOW_TIER"
 # En un GPU tile-based es barata y es lo que mas profundidad da por lo que cuesta.
 const KEEP_FOG_ENV := "ODISEA_KEEP_FOG"
 
+# Escape para MEDIR el glow, igual que el de la niebla. El glow cayo con el resto
+# de los pases full-screen por §11.10 (el mundo se veia blanco/cian lavado en
+# Mali), pero eso se midio en 2026-09-14 y el motor cambio bastante desde
+# entonces. ODISEA_KEEP_GLOW=1 lo deja pasar para ver que cuesta y si sigue roto.
+const KEEP_GLOW_ENV := "ODISEA_KEEP_GLOW"
+
 var _gated_active := false
 var _env_forced_low_tier := false
 var _env_keep_fog := false
+var _env_keep_glow := false
 # Los tools de horneado (tools/bake_*.gd) instancian la escena fuente y guardan
 # los materiales recolectados. Si el gate corre en tier LOW, _low_tier_material
 # muta esos recursos COMPARTIDOS en memoria y el bake los persiste sin
@@ -83,14 +95,36 @@ func set_replay_active(active: bool) -> void:
 func _ready() -> void:
 	_env_forced_low_tier = _read_env_forced_low_tier()
 	_env_keep_fog = OS.get_environment(KEEP_FOG_ENV).to_lower() in ["1", "true", "yes", "on"]
+	_env_keep_glow = OS.get_environment(KEEP_GLOW_ENV).to_lower() in ["1", "true", "yes", "on"]
 	_unshaded_mode = OS.get_environment("ODISEA_UNSHADED").strip_edges()
 	_flat_debug = OS.get_environment("ODISEA_FLAT_DEBUG") in ["1", "true", "yes", "on"]
+	var amb_env := OS.get_environment("ODISEA_FLAT_AMBIENT").strip_edges()
+	if amb_env.is_valid_float():
+		_flat_ambient = float(amb_env)
+	# La linterna del perfil plano va atada al MODO PLANO, que es el flag conocido
+	# del tier bajo: si los materiales son unshaded, ninguna luz real los toca y
+	# esta es la unica forma de tener linterna. ODISEA_FLASHLIGHT=0 la apaga para
+	# poder comparar contra el FlatFake pelado.
+	_flashlight_mode = _unshaded_mode == "3"
+	var fl_env := OS.get_environment("ODISEA_FLASHLIGHT").strip_edges()
+	if fl_env != "":
+		_flashlight_mode = fl_env in ["1", "true", "yes", "on"]
+	# Valor elegido mirando las tres variantes en el device (opcion 1): oscuridad
+	# casi total, el cono es lo unico que ilumina.
+	_world_light = 0.02
+	var wl := OS.get_environment("ODISEA_WORLD_LIGHT").strip_edges()
+	if wl.is_valid_float():
+		_world_light = float(wl)
+	_glow_floor = 0.15
+	var gf := OS.get_environment("ODISEA_GLOW_FLOOR").strip_edges()
+	if gf.is_valid_float():
+		_glow_floor = float(gf)
 	if _unshaded_mode == "3":
 		# El lightmap manual pisaria nuestros materiales por superficie.
 		OS.set_environment("ODISEA_MANUAL_LIGHTMAP", "")
 		_load_flat_overrides()
 	_pilot_billboard = OS.get_environment("ODISEA_PILOT_BILLBOARD") in ["1", "true", "yes", "on"]
-	if _pilot_billboard:
+	if _pilot_billboard or _flashlight_mode:
 		set_process(true)
 	_detect_gate()
 	sync_physics_rate()
@@ -179,6 +213,18 @@ var _flat_avg_cache := {}
 var _flat_overrides := {}
 # ODISEA_FLAT_DEBUG=1: loguea una vez por hint (nodo+mesh+material) el color elegido.
 var _flat_debug := false
+# < 0 = no tocar (el shader usa su default). ODISEA_FLAT_AMBIENT lo pisa.
+var _flat_ambient := -1.0
+var _flashlight_mode := false
+# Materiales que llevan el shader de linterna: hay que sincronizarles la posicion
+# y la direccion de la SpotLight. Son POCOS (uno por color/glow, no uno por nodo,
+# gracias al cache de _flat_material), asi que actualizarlos sale barato.
+var _flashlight_materials := []
+var _flashlight_node: Spatial = null
+var _flashlight_spot: Spatial = null
+var _flashlight_accum := 0.0
+var _world_light := 0.05
+var _glow_floor := 0.35
 var _flat_debug_seen := {}
 # "1" = un solo material plano gris para todo (techo de ganancia, rompe el look).
 # "2" = solo SpatialMaterial pasa a unshaded conservando albedo color/textura (los
@@ -210,9 +256,12 @@ func _hide_pilot_visual_for_billboard(pilot: Node) -> void:
 
 # El nombre del nodo del player cambia segun como lo instancie la escena; en vez de
 # matchear por nombre, se espera a que SessionManager tenga player y se oculta su Visual.
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if _flashlight_mode:
+		_sync_flashlight(delta)
 	if not _pilot_billboard:
-		set_process(false)
+		if not _flashlight_mode:
+			set_process(false)
 		return
 	var players := get_tree().get_nodes_in_group("player") if get_tree() != null else []
 	if players.empty():
@@ -388,6 +437,67 @@ const FLAT_OVERRIDE_DEFAULTS := [
 	["industrial_wall_lamp_glass", "ffeac0"],
 	["industrial_wall_lamp", "16181c"],
 ]
+
+# Pasa al shader plano donde esta la linterna y si esta encendida. Se hace por
+# codigo porque Godot 3 no tiene uniforms globales: cada material del cache
+# necesita su copia. Va a 20 Hz, no por frame: el cono se mueve con la cabeza de
+# Elias y a esa tasa no se nota, y aca la CPU es el recurso escaso.
+const FLASHLIGHT_SYNC_INTERVAL := 0.05
+
+func _sync_flashlight(delta: float) -> void:
+	if _flashlight_materials.empty():
+		return
+	_flashlight_accum += delta
+	if _flashlight_accum < FLASHLIGHT_SYNC_INTERVAL:
+		return
+	_flashlight_accum = 0.0
+	if not is_instance_valid(_flashlight_spot):
+		_resolve_flashlight()
+		if not is_instance_valid(_flashlight_spot):
+			return
+	var xform: Transform = _flashlight_spot.global_transform
+	# El haz de una SpotLight apunta por su -Z, igual que una camara.
+	var dir: Vector3 = -xform.basis.z.normalized()
+	var on := 0.0
+	if is_instance_valid(_flashlight_node):
+		if bool(_flashlight_node.get("enabled")) and _flashlight_spot.visible:
+			on = 1.0
+	elif _flashlight_spot.visible:
+		on = 1.0
+	# El cono del shader se DERIVA de la luz, no se fija a mano: si no, el haz
+	# analitico y el VolumetricCone (que es geometria y se ve igual en modo plano)
+	# quedan con radios distintos y se nota el borde donde uno termina y el otro no.
+	# spot_angle en Godot es el SEMI-angulo, del eje al borde.
+	var cos_outer := 1.0
+	var cos_inner := 1.0
+	var reach := 14.0
+	if _flashlight_spot is SpotLight:
+		var spot := _flashlight_spot as SpotLight
+		cos_outer = cos(deg2rad(clamp(spot.spot_angle, 1.0, 89.0)))
+		# El borde interno cierra a ~60% del angulo: da un degrade corto en vez de
+		# un corte duro, parecido a la atenuacion angular de la SpotLight.
+		cos_inner = cos(deg2rad(clamp(spot.spot_angle * 0.6, 0.5, 89.0)))
+		reach = spot.spot_range
+	for mat in _flashlight_materials:
+		if not is_instance_valid(mat):
+			continue
+		mat.set_shader_param("flashlight_pos", xform.origin)
+		mat.set_shader_param("flashlight_dir", dir)
+		mat.set_shader_param("flashlight_on", on)
+		mat.set_shader_param("cone_cos_outer", cos_outer)
+		mat.set_shader_param("cone_cos_inner", cos_inner)
+		mat.set_shader_param("flashlight_range", reach)
+
+func _resolve_flashlight() -> void:
+	var players: Array = get_tree().get_nodes_in_group("player")
+	if players.empty():
+		return
+	var found = (players[0] as Node).find_node("HelmetFlashlight", true, false)
+	if found == null:
+		return
+	_flashlight_node = found as Spatial
+	var spot = found.get_node_or_null("SpotLight")
+	_flashlight_spot = spot as Spatial if spot != null else _flashlight_node
 
 func _load_flat_overrides() -> void:
 	_flat_overrides.clear()
@@ -566,10 +676,28 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 		mat.shader = FLAT_FAKE_TRANSPARENT_DOUBLE_SIDED_SHADER if double_sided else FLAT_FAKE_TRANSPARENT_SHADER
 		mat.set_shader_param("alpha", out_alpha)
 	else:
-		mat.shader = FLAT_FAKE_DOUBLE_SIDED_SHADER if double_sided else FLAT_FAKE_SHADER
+		if _flashlight_mode:
+			mat.shader = FLAT_FAKE_FLASHLIGHT_DS_SHADER if double_sided else FLAT_FAKE_FLASHLIGHT_SHADER
+			mat.set_shader_param("world_light", _world_light)
+			mat.set_shader_param("glow_floor", _glow_floor)
+			_flashlight_materials.append(mat)
+		else:
+			mat.shader = FLAT_FAKE_DOUBLE_SIDED_SHADER if double_sided else FLAT_FAKE_SHADER
 	# El uniform es vec3: pasar un Color no lo setea (queda el default gris).
 	mat.set_shader_param("albedo", Vector3(color.r, color.g, color.b))
 	mat.set_shader_param("glow", glow)
+	# Prototipo de "luces apagadas" en el perfil plano: los materiales unshaded
+	# ignoran el ambiente del Environment, asi que bajar ambient_light_energy no
+	# oscurece nada en el handheld. Esta palanca baja el ambiente DEL SHADER.
+	# glow=1 (lamparas, vidrios) no se ve afectado: ese mix va despues.
+	if _flat_ambient >= 0.0:
+		# Ojo: bajar SOLO `ambient` no apaga nada. En FlatFake la luz sale del
+		# headlight `ndl` y el ambient apenas levanta las zonas en sombra:
+		#   shaded = albedo * (ambient + (1-ambient)*ndl) * ao * exposure
+		# Lo que apaga de verdad es `exposure`, que multiplica todo. Se bajan los
+		# dos a la vez para que la escena quede a oscuras de verdad.
+		mat.set_shader_param("ambient", _flat_ambient)
+		mat.set_shader_param("exposure", clamp(_flat_ambient * 3.0, 0.02, 0.88))
 	_flat_cache[key] = mat
 	return mat
 
@@ -588,6 +716,12 @@ func _low_tier_node(node: Node) -> void:
 		var src = null
 		if mesh != null and mesh.get_surface_count() > 0:
 			src = node.get_surface_material(0) if node is MeshInstance else null
+			# Un MultiMeshInstance lleva su color en material_override, no en el
+			# mesh: el mesh horneado de los criopods trae un gris casi blanco
+			# (0.906) y el color de verdad esta en el override. Mirando solo el
+			# mesh, los anillos de pisos superiores salian BLANCOS, sin su color.
+			if src == null and node is MultiMeshInstance:
+				src = node.material_override
 			if src == null:
 				src = mesh.surface_get_material(0)
 		elif "material" in node:
@@ -699,7 +833,8 @@ func strip_environment(env: Environment) -> void:
 		return
 	if not _env_keep_fog:
 		env.fog_enabled = false
-	env.glow_enabled = false
+	if not _env_keep_glow:
+		env.glow_enabled = false
 	# SSAO/SSR son los dos pases full-screen mas caros del G31 (leen depth y corren a
 	# media resolucion) y se colaban por el gate: Environment_RingHub y los
 	# Interior* traen ssao_enabled = true.

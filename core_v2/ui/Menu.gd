@@ -93,10 +93,10 @@ func _hold_full_resolution() -> void:
 func _on_fade_in_complete() -> void:
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_focus_default_button()
-	# Recien con el Menu asentado arranca el warmup de shaders de la escena de entrada. Antes
-	# nadie llamaba a begin_shader_warmup() y el trigger quedaba armado para siempre. El
-	# cursor pasa a reloj de arena mientras compila (ShaderWarmupTrigger).
-	begin_shader_warmup()
+	# El warmup de shaders NO arranca aca: compilar traba el hilo principal de a lotes y
+	# con el Menu interactivo a la vista se lee como un cuelgue. Lo dispara el arranque
+	# de partida, ya con una pantalla opaca encima: el consentimiento de primera vez, o
+	# el fundido de salida (ver _wait_shader_warmup).
 
 func _focus_default_button() -> void:
 	if continue_button.visible and not continue_button.disabled:
@@ -149,15 +149,24 @@ func enable_async_shader_compilation() -> void:
 		VisualServer.set_shader_async_compilation_enabled(true)
 
 # El warmup va aparte porque tiene un requisito que el encendido no tiene: ShaderCache
-# cuelga su escena de la camara activa (spawn_cache), asi que solo funciona mientras el
-# Menu sigue en pie. Llamarlo al terminar el fundido devolvia "Failed to instance cache
-# scene": para entonces la escena ya se esta intercambiando y no hay camara. Por eso lo
-# dispara la pantalla de consentimiento, que corre con el Menu todavia vivo detras.
-func begin_shader_warmup() -> void:
+# cuelga su escena de la camara activa, asi que solo funciona mientras el Menu sigue en
+# pie. Por eso lo dispara quien ya tenga una pantalla opaca encima y todavia no haya
+# cambiado de escena: la pantalla de consentimiento (que espera a que termine antes de
+# activar su boton CONTINUAR) o el fundido de salida, en _on_fade_out_complete.
+# Idempotente: si el warmup ya termino (o el trigger se libero) vuelve en el acto, asi que
+# los dos llamadores pueden pedirlo sin coordinarse.
+func _wait_shader_warmup() -> void:
 	enable_async_shader_compilation()
 	var trigger = get_node_or_null("DomeIntroShaderWarmup")
-	if trigger and trigger.has_method("begin"):
+	if trigger != null and trigger.has_method("begin"):
 		trigger.begin()
+		# Mientras corre, el trigger pide el cursor en reloj de arena (push_busy_global).
+		while is_instance_valid(trigger) and not trigger.is_finished():
+			yield(get_tree(), "idle_frame")
+	# Cede un frame siempre, incluso sin trigger (desktop): asi la funcion es corrutina
+	# en todos los caminos y quien hace yield(_wait_shader_warmup(), "completed") nunca
+	# cae en yield(null, ...).
+	yield(get_tree(), "idle_frame")
 
 func _request_first_scene_preload() -> void:
 	yield(get_tree(), "idle_frame")
@@ -334,12 +343,22 @@ func _show_first_run_consent(scene_path) -> void:
 		host.add_child(cursor_layer)
 	get_tree().root.add_child(host)
 	screen.connect("loading_requested", self, "_on_first_run_loading_requested", [scene_path], CONNECT_ONESHOT)
+	# El warmup de la escena de arranque corre detras de esta pantalla, que es opaca y ya
+	# tapa el Menu. El boton CONTINUAR nace inactivo y recien se pinta activo cuando la
+	# compilacion termina: si el primer popup aparece con el warmup a medias, el jugador
+	# no puede entrar a un estado congelado.
+	screen.set_intro_ready(false)
+	_arm_consent_after_warmup(screen)
+
+func _arm_consent_after_warmup(screen) -> void:
+	yield(_wait_shader_warmup(), "completed")
+	if is_instance_valid(screen):
+		screen.set_intro_ready(true)
 
 # El jugador leyo la primera pantalla y toco ENTENDIDO: recien ahora se carga el
-# nivel, con la pantalla de consentimiento cubriendo el trabajo. No se dispara el
-# warmup de shaders: compila ubershaders que la carga real vuelve a no aprovechar, y
-# el jugador terminaba esperando dos veces (medido: barra al 100%, y despues 37 s mas
-# hasta el primer frame de Dome_Intro).
+# nivel, con la pantalla de consentimiento cubriendo el trabajo. El warmup ya corrio
+# detras de la pantalla (ver _arm_consent_after_warmup), asi que la carga real no lo
+# espera dos veces.
 func _on_first_run_loading_requested(scene_path) -> void:
 	enable_async_shader_compilation()
 	_begin_start_game(scene_path)
@@ -380,9 +399,6 @@ func _start_first_game_bgm() -> void:
 		audio_mgr.crossfade_to_song(FIRST_GAME_BGM, 2.0, 0.0, false)
 
 func _on_fade_out_complete(_object, _key, scene_path):
-	# Pantalla ya cubierta: desde aca compilar no se ve como un tiron. Solo el
-	# encendido -- el warmup necesita la camara del Menu, que a esta altura ya no esta.
-	enable_async_shader_compilation()
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if scene_manager and scene_manager.has_method("goto_scene"):
 		# Gameplay scenes are heavy to load. Show the same loading
@@ -400,11 +416,21 @@ func _on_fade_out_complete(_object, _key, scene_path):
 			"fade_out": 0.0,
 			"fade_in": 0.0 if covered else 3.0
 		}
+		# El warmup de shaders corre como pre_load_hook: SceneManager ya mostro la
+		# pantalla de carga, la escena todavia no se intercambio (el Menu sigue vivo y
+		# con camara), y ninguna UI interactiva aparecio aun. Solo para la escena de
+		# arranque, que es la unica con cache horneado. En el camino de consentimiento
+		# es un no-op: ya corrio detras del popup, que espero a que terminara.
 		if scene_path == FIRST_GAME_SCENE:
+			params["pre_load_hook"] = funcref(self, "_wait_shader_warmup")
 			# El fade-out/in automatico de SceneManager cortaria o reiniciaria el
 			# crossfade a FIRST_GAME_BGM que ya arrancamos en _start_game(); dejarlo
 			# vivir solo, la BGMZoneV2 del nivel lo toma sin corte al registrarse.
 			params["skip_audio_fade"] = true
 		scene_manager.goto_scene(scene_path, params)
 	else:
+		# Sin SceneManager no hay donde colgar el hook: se espera aca, con el fundido
+		# ya terminado.
+		if scene_path == FIRST_GAME_SCENE:
+			yield(_wait_shader_warmup(), "completed")
 		get_tree().change_scene(scene_path)

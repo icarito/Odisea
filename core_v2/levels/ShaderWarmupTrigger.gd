@@ -22,6 +22,14 @@ var _started := false
 # Reloj de arena del cursor mientras compila: se pide al empezar y se suelta al terminar. El
 # flag evita doble pop (compiled + _exit_tree).
 var _busy_pushed := false
+# El warmup termina por varios caminos (compilado, escena ya activa, timeout de precarga,
+# manager ausente). Quien espera -- el Menu, para habilitar el boton del consentimiento --
+# consulta is_finished() en vez de una senal: el trigger se libera solo al terminar y una
+# senal emitida en plena liberacion se perderia.
+var _finished := false
+
+func is_finished() -> bool:
+	return _finished
 
 const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 
@@ -38,12 +46,14 @@ func _pop_busy() -> void:
 	VirtualMouseScript.pop_busy_global()
 
 func _exit_tree() -> void:
+	_finished = true
 	_pop_busy()
 
 func _ready() -> void:
 	if Engine.editor_hint:
 		return
 	if _is_disabled_in_runtime():
+		_finished = true
 		queue_free()
 		return
 	if not run_in_tests and _is_test_suite():
@@ -114,6 +124,7 @@ func _start_shader_warmup() -> void:
 				"target": target_scene_path,
 				"reason": "current_scene"
 			})
+		_finished = true
 		queue_free()
 		return
 	if preloading and wait_preload_conflict:
@@ -141,6 +152,7 @@ func _start_shader_warmup() -> void:
 					"path": shader_cache_scene_path,
 					"target": target_scene_path
 				})
+			_finished = true
 			queue_free()
 			return
 
@@ -153,6 +165,7 @@ func _start_shader_warmup() -> void:
 	var manager := get_node_or_null("/root/ShaderCacheManager")
 	if manager == null:
 		printerr("[ShaderWarmupTrigger] ShaderCacheManager autoload not found.")
+		_finished = true
 		return
 
 	if not manager.is_connected("compiled", self, "_on_shader_cache_compiled"):
@@ -164,6 +177,7 @@ func _start_shader_warmup() -> void:
 func _on_shader_cache_compiled(cache_path: String) -> void:
 	if cache_path != shader_cache_scene_path:
 		return
+	_finished = true
 	_pop_busy()
 	var startup_trace = get_node_or_null("/root/StartupTrace")
 	if startup_trace and startup_trace.has_method("mark"):

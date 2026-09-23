@@ -57,6 +57,11 @@ static func attach_to(parent: Node, requester: Node = null) -> Control:
 	for existing in parent.get_tree().get_nodes_in_group("virtual_mouse"):
 		if is_instance_valid(existing):
 			existing.add_requester(owner_node)
+			# El cursor es compartido: la UI anterior pudo dejarlo apagado o sin joypad.
+			existing.set_process(true)
+			existing.set_process_input(true)
+			existing.set_gamepad_cursor_enabled(true)
+			existing.visible = true
 			return existing as Control
 	var host := CanvasLayer.new()
 	host.name = "VirtualMouseLayer"
@@ -349,8 +354,16 @@ func _input(event: InputEvent) -> void:
 		# movimiento real.
 		if event.relative.length_squared() <= 0.0:
 			return
+		# Capturado, Godot reporta el centro como `position`: conservar la posicion del
+		# cursor de gamepad y desde este punto volver al movimiento absoluto del SO.
+		var was_gamepad_cursor: bool = _active
+		var absolute_position: Vector2 = _position if was_gamepad_cursor else event.position
 		_has_real_mouse_position = true
-		set_desktop_mouse_mode(true, event.position)
+		set_desktop_mouse_mode(true, absolute_position)
+		if was_gamepad_cursor:
+			_ignore_warp_motion = true
+			get_viewport().warp_mouse(_position)
+			call_deferred("_clear_warp_motion")
 		return
 	if event is InputEventJoypadMotion or event is InputEventJoypadButton:
 		if gamepad_cursor_enabled:
