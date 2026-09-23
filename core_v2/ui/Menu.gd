@@ -345,8 +345,8 @@ func _show_first_run_consent(scene_path) -> void:
 	var cursor_layer: CanvasLayer = get_node_or_null("VirtualMouseLayer")
 	if cursor_layer:
 		remove_child(cursor_layer)
-		cursor_layer.layer = host.layer + 1
-		host.add_child(cursor_layer)
+		cursor_layer.layer = 3000
+		get_tree().root.add_child(cursor_layer)
 	get_tree().root.add_child(host)
 	screen.connect("loading_requested", self, "_on_first_run_loading_requested", [scene_path], CONNECT_ONESHOT)
 

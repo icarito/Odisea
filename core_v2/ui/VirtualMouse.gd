@@ -62,10 +62,13 @@ static func attach_to(parent: Node, requester: Node = null) -> Control:
 			existing.set_process_input(true)
 			existing.set_gamepad_cursor_enabled(true)
 			existing.visible = true
+			var host_layer = existing.get_parent()
+			if host_layer is CanvasLayer and host_layer.layer < 3000:
+				host_layer.layer = 3000
 			return existing as Control
 	var host := CanvasLayer.new()
 	host.name = "VirtualMouseLayer"
-	host.layer = LAYER
+	host.layer = 3000
 	var cursor: Control = load("res://core_v2/ui/VirtualMouse.gd").new()
 	cursor.name = "VirtualMouse"
 	cursor.add_to_group("virtual_mouse")
