@@ -350,11 +350,52 @@ func _palette_color(text: String) -> Color:
 # Overrides de color editables sin recompilar: user://flat_albedo.json con
 # {"clave": "#rrggbb"} o [{"match":"clave","color":"#rrggbb"}]. La clave matchea
 # (substring) contra resource_path, resource_name o nombre del nodo, en minusculas.
+# Aplana un MultiMeshInstance superficie por superficie. Duplica mesh y multimesh
+# (el .tres es compartido entre instancias) y marca el nodo para no rehacerlo si el
+# gate vuelve a pasar por el.
+const FLAT_MM_META := "odisea_flat_multimesh"
+
+func _flatten_multimesh_surfaces(node: MultiMeshInstance, mesh: Mesh, hint: String) -> void:
+	if node.has_meta(FLAT_MM_META):
+		return
+	var dup := mesh.duplicate() as Mesh
+	if dup == null:
+		node.material_override = _flat_material(mesh.surface_get_material(0), hint)
+		return
+	for s in range(dup.get_surface_count()):
+		var ssrc = dup.surface_get_material(s)
+		var shint := hint
+		if ssrc != null:
+			if "resource_path" in ssrc:
+				shint += " " + str(ssrc.resource_path)
+			if "resource_name" in ssrc:
+				shint += " " + str(ssrc.resource_name)
+		dup.surface_set_material(s, _flat_material(ssrc, shint))
+	var mm := node.multimesh.duplicate() as MultiMesh
+	mm.mesh = dup
+	node.multimesh = mm
+	node.material_override = null
+	node.set_meta(FLAT_MM_META, true)
+
+# Overrides que VIAJAN en el build. user://flat_albedo.json es una herramienta de
+# tuneo local del escritorio: no esta en el paquete, asi que un handheld nunca los
+# recibia y ahi es justo donde corre el modo plano. El JSON sigue mandando (misma
+# clave lo pisa, y puede agregar otras).
+# El orden importa: _override_color devuelve el PRIMER match por substring, asi que
+# la clave mas especifica va primero. El vidrio de la lampara tiene que ganarle al
+# cuerpo, porque "industrial_wall_lamp" tambien matchea "industrial_wall_lamp_glass".
+const FLAT_OVERRIDE_DEFAULTS := [
+	["industrial_wall_lamp_glass", "ffeac0"],
+	["industrial_wall_lamp", "16181c"],
+]
+
 func _load_flat_overrides() -> void:
 	_flat_overrides.clear()
+	for pair in FLAT_OVERRIDE_DEFAULTS:
+		_flat_overrides[str(pair[0]).to_lower()] = str(pair[1])
 	var f := File.new()
 	if f.open("user://flat_albedo.json", File.READ) != OK:
-		print("[GLES3VendorGate] flat albedo: sin overrides (user://flat_albedo.json)")
+		print("[GLES3VendorGate] flat albedo: %d overrides por defecto" % _flat_overrides.size())
 		return
 	var parsed = JSON.parse(f.get_as_text())
 	f.close()
@@ -601,6 +642,16 @@ func _low_tier_node(node: Node) -> void:
 						if "resource_name" in ssrc:
 							shint += " " + str(ssrc.resource_name)
 					node.set_surface_material(s, _flat_material(ssrc, shint))
+			elif node is MultiMeshInstance and mesh != null and mesh.get_surface_count() > 1:
+				# Un MultiMeshInstance no tiene material por instancia: su unica palanca
+				# es material_override, que pinta TODAS las superficies con el color de
+				# la 0. Una lampara (cuerpo metalico + vidrio emisivo) salia entonces
+				# entera del color del cuerpo — blanco sobre blanco, sin contraste.
+				# Los materiales por superficie viven en el mesh, que es compartido, asi
+				# que se duplica para no aplanarselo a las demas instancias. Solo cuando
+				# hay mas de una superficie: el MultiMesh de una sola (criopods, markers)
+				# ya sale bien por material_override y no paga la copia.
+				_flatten_multimesh_surfaces(node, mesh, hint)
 			else:
 				node.material_override = _flat_material(src, hint)
 		if mesh != null:
