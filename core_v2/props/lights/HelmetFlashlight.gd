@@ -57,6 +57,11 @@ var _mount_bone_idx: int = -1
 var _visual_pivot: Spatial = null
 var _aim_smoothed := Vector3.FORWARD
 var _aim_initialized := false
+# Precalentamiento del shader (ver _start_flashlight_preheat): un Timer y el quad
+# temporal colgado de la camara.
+const FLASHLIGHT_PREHEAT_SECONDS := 0.3
+var _preheat_timer: Timer = null
+var _preheat_quad: MeshInstance = null
 
 
 func _ready() -> void:
@@ -80,36 +85,72 @@ func _ready() -> void:
 	# La linterna nace apagada y la escena nunca compila su variante con spot ni el
 	# material del cono hasta el primer "L". En WebGL eso es un freeze medido de ~3.4 s
 	# (compilacion sincronica del primer draw). Se precalienta detras de la pantalla de
-	# carga, que ya esta arriba cuando esta escena se instancia.
-	if not enabled:
-		call_deferred("_preheat_flashlight_shader")
+	# carga: solo durante una transicion de escena, que es cuando el nivel se monta con
+	# esa pantalla arriba. En otros contextos (instanciar la escena suelta, tests) no se
+	# toca la visibilidad, que es parte del contrato de la linterna.
+	if not enabled and _can_preheat_flashlight():
+		_start_flashlight_preheat()
 
 
-# Enciende la linterna un par de frames (detras de la pantalla de carga) para forzar la
+# Solo precalienta si SceneManager esta en medio de una transicion: ahi el nivel se esta
+# montando detras de la pantalla de carga. Fuera de eso no hay pantalla que tape el
+# encendido temporal ni hace falta el warmup.
+func _can_preheat_flashlight() -> bool:
+	var sm = get_node_or_null("/root/SceneManager")
+	return sm != null and sm.has_method("is_transitioning") and sm.is_transitioning()
+
+
+# Enciende la linterna unos 0.3 s (con la pantalla de carga arriba) para forzar la
 # compilacion de la variante de escena con spot, y dibuja el material del cono sobre un
-# quad pegado a la camara para forzar la del shader del cono. Despues vuelve a apagarla.
-func _preheat_flashlight_shader() -> void:
-	if enabled or not is_inside_tree():
+# quad pegado a la camara para forzar la del shader del cono. Un Timer, no una
+# corrutina: si la escena se libera en el medio no queda una funcion reanudando sobre un
+# nodo muerto (los tests instancian y liberan la escena en el acto).
+func _start_flashlight_preheat() -> void:
+	if _preheat_timer != null:
 		return
 	set_enabled(true)
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-	var cam := get_viewport().get_camera() if is_inside_tree() else null
-	var quad: MeshInstance = null
-	if cam != null and _volumetric_cone != null:
-		var src = _volumetric_cone.get_surface_material(0)
-		if src != null:
-			quad = MeshInstance.new()
-			quad.mesh = QuadMesh.new()
-			quad.material_override = src
-			cam.add_child(quad)
-			quad.translation = Vector3(0.0, 0.0, -0.5)
-	yield(VisualServer, "frame_post_draw")
-	yield(VisualServer, "frame_post_draw")
-	if is_instance_valid(quad):
-		quad.queue_free()
-	if is_instance_valid(self):
-		set_enabled(false)
+	call_deferred("_add_flashlight_preheat_quad")
+	_preheat_timer = Timer.new()
+	_preheat_timer.one_shot = true
+	_preheat_timer.wait_time = FLASHLIGHT_PREHEAT_SECONDS
+	_preheat_timer.connect("timeout", self, "_finish_flashlight_preheat")
+	add_child(_preheat_timer)
+	_preheat_timer.start()
+
+
+func _add_flashlight_preheat_quad() -> void:
+	if not is_inside_tree() or _volumetric_cone == null or _preheat_quad != null:
+		return
+	var vp := get_viewport()
+	var cam := vp.get_camera() if vp != null else null
+	if cam == null:
+		return
+	var src = _volumetric_cone.get_surface_material(0)
+	if src == null:
+		return
+	_preheat_quad = MeshInstance.new()
+	_preheat_quad.mesh = QuadMesh.new()
+	_preheat_quad.material_override = src
+	cam.add_child(_preheat_quad)
+	_preheat_quad.translation = Vector3(0.0, 0.0, -0.5)
+
+
+func _finish_flashlight_preheat() -> void:
+	if _preheat_quad != null and is_instance_valid(_preheat_quad):
+		_preheat_quad.queue_free()
+	_preheat_quad = null
+	if _preheat_timer != null:
+		_preheat_timer.queue_free()
+	_preheat_timer = null
+	set_enabled(false)
+
+
+func _exit_tree() -> void:
+	# El quad vive colgado de la camara, no de este nodo: si la escena se libera antes
+	# del timeout, se lo lleva el _exit_tree.
+	if _preheat_quad != null and is_instance_valid(_preheat_quad):
+		_preheat_quad.queue_free()
+	_preheat_quad = null
 
 
 func get_battery() -> float:
