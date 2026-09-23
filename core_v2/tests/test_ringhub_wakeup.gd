@@ -199,13 +199,22 @@ func test_wakeup_slot_has_no_decorative_criopod_collision() -> void:
 		yield(get_tree(), "physics_frame")
 
 	assert_bool(chunk.is_chunk_loaded()).is_true()
-	# El body del anillo es un CompoundChunkBodyV2 (StaticBody) cuya colision
-	# horneada ya omite el pod del slot de despertar: 29 pods decorativos - 1 = 28.
+	# Lo que importa es que el pod del slot de despertar NO aporte colision: el
+	# jugador arranca dentro de el. Se comprueba eso y no como esta representada
+	# la colision — el anillo dejo de hornearse a un compound (que omitia el pod
+	# en el bake) y ahora son primitivas sueltas que CriopodRingCollisionV2 suelta
+	# en runtime. La garantia tiene que valer igual en las dos.
 	var ring_body: Node = chunk.get_node_or_null("CriopodRingCollision")
 	assert_object(ring_body).is_not_null()
-	var res: Resource = ring_body.get("compound")
-	assert_object(res).is_not_null()
-	assert_int(int(res.get("child_count"))).is_equal(28)
+	var slot_map: Array = ring_body.get("slot_to_pod")
+	assert_int(slot_map.size()).is_greater(level._selected_slot)
+	var wakeup_pod: int = int(slot_map[level._selected_slot])
+	assert_int(wakeup_pod).is_greater(-1)
+	assert_object(_find_pod_shape(ring_body, wakeup_pod)).is_null()
+	# Y que el resto del anillo SI colisione: sin esto el assert de arriba pasaria
+	# igual con un anillo entero sin cajas, o con un helper que no encuentra nada.
+	var other_pod: int = wakeup_pod + 1 if wakeup_pod + 1 < slot_map.size() else 0
+	assert_object(_find_pod_shape(ring_body, other_pod)).is_not_null()
 	var visual: Node = level.get_node("ScaffoldStreamRoot/Criopods_Visual")
 	var visual_index: int = visual.instance_for_slot(level._selected_slot)
 	assert_int(visual_index).is_greater(-1)
@@ -281,3 +290,16 @@ func test_criopod_shell_is_occlusion_prop() -> void:
 	assert_int(pod.get_node("DisplayCaseBody").collision_layer & 1).is_equal(1)
 	assert_bool(shell.get_active_material(0) is ShaderMaterial).is_true()
 
+
+
+# La caja de un pod decorativo concreto bajo el cuerpo del anillo, si sigue viva.
+func _find_pod_shape(body: Node, pod: int):
+	var wanted := "Pod_%02d" % pod
+	var pending := [body]
+	while not pending.empty():
+		var current = pending.pop_back()
+		if current is CollisionShape and String(current.name) == wanted:
+			return current
+		for child in current.get_children():
+			pending.append(child)
+	return null

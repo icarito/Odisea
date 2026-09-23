@@ -151,18 +151,17 @@ func test_criopod_blocking_hides_instance_and_drops_its_box() -> void:
 	var body = auto_free(CriopodBody.instance())
 	add_child(body)
 	yield(get_tree(), "idle_frame")
-	# La colision del anillo va horneada en UN compound que ya omite el pod del
-	# slot funcional (29 cajas -> 28 hijos): no hay primitivas que liberar en
-	# runtime, el compound es inmutable.
-	var res: Resource = body.get("compound")
-	assert_object(res).is_not_null()
-	assert_int(int(res.get("child_count"))).is_equal(28)
-	var shapes := 0
-	for child in body.get_children():
-		if child is CollisionShape:
-			shapes += 1
-			assert_object(child.shape).is_not_null()
-	assert_int(shapes).is_equal(1)
+	# La garantia es que el pod del slot funcional no aporte colision: el jugador
+	# despierta justo ahi dentro. Se comprueba el COMPORTAMIENTO, no como esta
+	# representada la colision — el anillo dejo de hornearse a un compound (que
+	# omitia el pod en el bake) y ahora son primitivas sueltas que el body suelta
+	# en runtime, y la garantia tiene que valer igual en las dos.
+	var before := _count_pod_shapes(body)
+	assert_int(before).is_greater(0)
+	var pod: int = int(body.free_slot(1))
+	assert_int(pod).is_greater(-1)
+	assert_int(_count_pod_shapes(body)).is_equal(before - 1)
+	assert_object(_find_pod_shape(body, pod)).is_null()
 
 
 func test_criopod_block_is_per_instance_and_reversible() -> void:
@@ -313,3 +312,28 @@ func _source_body_extent(chunk: Node) -> float:
 	chunk.remove_child(instance)
 	instance.queue_free()
 	return extent
+
+
+# Cajas de pod (Pod_NN) vivas bajo un cuerpo de anillo de criopods.
+func _count_pod_shapes(body: Node) -> int:
+	var count := 0
+	var pending := [body]
+	while not pending.empty():
+		var current = pending.pop_back()
+		if current is CollisionShape and String(current.name).begins_with("Pod_"):
+			count += 1
+		for child in current.get_children():
+			pending.append(child)
+	return count
+
+
+func _find_pod_shape(body: Node, pod: int):
+	var wanted := "Pod_%02d" % pod
+	var pending := [body]
+	while not pending.empty():
+		var current = pending.pop_back()
+		if current is CollisionShape and String(current.name) == wanted:
+			return current
+		for child in current.get_children():
+			pending.append(child)
+	return null
