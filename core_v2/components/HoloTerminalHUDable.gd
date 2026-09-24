@@ -240,6 +240,14 @@ func forward_view_input(event: InputEvent, surface_uv: Vector2 = Vector2(-1.0, -
 	if not is_instance_valid(_shared_viewport):
 		return
 	if surface_uv.x >= 0.0:
+		# El dedo directo tambien opera la pantalla: el mouse emulado no es la unica via (y en
+		# device no siempre llega). Se traduce el toque a la misma superficie uv del mouse.
+		if event is InputEventScreenTouch and _shared_viewport.has_method("process_surface_click"):
+			_shared_viewport.process_surface_click(surface_uv, BUTTON_LEFT, event.pressed, false)
+			return
+		if event is InputEventScreenDrag and _shared_viewport.has_method("process_surface_motion"):
+			_shared_viewport.process_surface_motion(surface_uv)
+			return
 		if event is InputEventMouseMotion and _shared_viewport.has_method("process_surface_motion"):
 			# El cursor se dibuja DENTRO del Viewport: si el terminal quedo en static_content
 			# (UPDATE_ONCE/DISABLED) el puntero se moveria a los saltos. Mientras el HUD lo

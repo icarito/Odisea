@@ -23,6 +23,23 @@ const PASSIVE_MENU_AUTOHIDE_SEC := 3.0
 # Resume diferido: la orbita pasiva devuelve la camara a su vista determinista ANTES de
 # despausar la fisica, para que el primer step no reescriba el rig desde otro lugar.
 var _orbit_resume_pending: bool = false
+# Pausa pasiva por inactividad (O5): 60 s sin input ni movimiento del jugador. Timer propio,
+# independiente del auto-hide de 3 s (que solo corre con el menu visible) y de MobileUIManager.
+# Al cumplirse, la musica baja en ~4 s y RECIEN despues entra la pausa pasiva de Start: si se
+# pausara antes, el tween del fade quedaria congelado por el arbol pausado y no habria fade.
+const INACTIVITY_PAUSE_SEC := 60.0
+const INACTIVITY_MUSIC_FADE_SEC := 4.0
+const INACTIVITY_MOVE_EPSILON := 0.05
+var _inactivity_timer: float = 0.0
+var _inactivity_fade_pending: bool = false
+var _inactivity_fade_remaining: float = 0.0
+# Doble tap tactil en la pausa pasiva: ventana de 300 ms y 40 px. El primer tap sigue
+# revelando el menu; el segundo, si cae en la ventana, reanuda directo.
+const TOUCH_DOUBLE_TAP_WINDOW_MSEC := 300
+const TOUCH_DOUBLE_TAP_MAX_DISTANCE := 40.0
+var _last_touch_tap_msec: int = -100000
+var _last_touch_tap_pos: Vector2 = Vector2.ZERO
+var _touch_tap_was_passive: bool = false
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
@@ -32,6 +49,8 @@ func _process(delta: float) -> void:
 	if _uptime_frames < 120:
 		_uptime_frames += 1
 	_process_passive_menu_timeout(delta)
+	if _can_run_inactivity_watchdog():
+		_process_inactivity(delta)
 
 func _notification(what: int) -> void:
 	# En Android el botón "back" envía WM_GO_BACK_REQUEST (sin evento de tecla). Se
@@ -132,6 +151,63 @@ func _process_passive_menu_timeout(delta: float) -> void:
 		_apply_menu_visibility()
 		_start_passive_orbit()
 
+# El watchdog de inactividad no corre en corridas automatizadas (capturas, replay, CI): ahi
+# "60 s sin input" no significa que el jugador se fue. Los tests llaman a _process_inactivity()
+# directo, salteando este gate de entorno.
+func _can_run_inactivity_watchdog() -> bool:
+	return not _is_automated_run() and not _is_replay_playback()
+
+func _process_inactivity(delta: float) -> void:
+	# Solo en gameplay pausable, sin menu de pausa abierto, sin cinematica y sin HUD mode.
+	if _hud_mode_paused or get_tree().paused or not _can_pause_in_current_scene() or _cinematic_active():
+		_reset_inactivity_timer()
+		return
+	# Con el jugador moviendose hay actividad aunque no llegue ningun evento de input.
+	if _player_is_active():
+		_reset_inactivity_timer()
+		return
+	if _inactivity_fade_pending:
+		_inactivity_fade_remaining = max(0.0, _inactivity_fade_remaining - delta)
+		if _inactivity_fade_remaining <= 0.0:
+			_inactivity_fade_pending = false
+			toggle_quick_pause()
+		return
+	_inactivity_timer += delta
+	if _inactivity_timer >= INACTIVITY_PAUSE_SEC:
+		_inactivity_timer = 0.0
+		_begin_inactivity_fade()
+
+# Arranca el fade de musica; la pausa pasiva entra recien cuando termina (ver _process_inactivity).
+# Asi el fade suena de verdad: con el arbol pausado el tween de AudioManager no avanzaria.
+func _begin_inactivity_fade() -> void:
+	_inactivity_fade_pending = true
+	_inactivity_fade_remaining = INACTIVITY_MUSIC_FADE_SEC
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr and audio_mgr.has_method("fade_out_current_bgm"):
+		audio_mgr.fade_out_current_bgm(INACTIVITY_MUSIC_FADE_SEC)
+
+# Cualquier input/actividad corta el fade pendiente y devuelve la BGM de las zonas activas.
+func _reset_inactivity_timer() -> void:
+	_inactivity_timer = 0.0
+	if not _inactivity_fade_pending:
+		return
+	_inactivity_fade_pending = false
+	_inactivity_fade_remaining = 0.0
+	var audio_mgr = get_node_or_null("/root/AudioManager")
+	if audio_mgr and audio_mgr.has_method("refresh_bgm_from_zones"):
+		audio_mgr.refresh_bgm_from_zones()
+
+func _player_is_active() -> bool:
+	var player = _get_player()
+	if player == null or not is_instance_valid(player) or not ("velocity" in player):
+		return false
+	var v: Vector3 = player.velocity
+	return v.length() > INACTIVITY_MOVE_EPSILON
+
+func _cinematic_active() -> bool:
+	var cm = get_node_or_null("/root/CinematicManager")
+	return cm != null and cm.has_method("is_active") and cm.is_active()
+
 func _get_player() -> Node:
 	var players = get_tree().get_nodes_in_group("player")
 	if players.empty():
@@ -220,6 +296,24 @@ func _restores_menu(event: InputEvent) -> bool:
 		return event.pressed
 	return false
 
+# Registra el tap y devuelve true si es el segundo de un doble tap iniciado en pausa pasiva
+# (entonces reanuda). El primer tap no consume: cae a la rama que revela el menu.
+func _handle_passive_touch_double_tap(touch: InputEventScreenTouch) -> bool:
+	var now_msec := OS.get_ticks_msec()
+	var is_double := _touch_tap_was_passive \
+		and now_msec - _last_touch_tap_msec <= TOUCH_DOUBLE_TAP_WINDOW_MSEC \
+		and touch.position.distance_to(_last_touch_tap_pos) <= TOUCH_DOUBLE_TAP_MAX_DISTANCE
+	var was_passive := _menu_hidden_by_focus
+	_last_touch_tap_msec = now_msec
+	_last_touch_tap_pos = touch.position
+	_touch_tap_was_passive = was_passive
+	if not is_double:
+		return false
+	_touch_tap_was_passive = false
+	_last_touch_tap_msec = -100000
+	resume()
+	return true
+
 func _is_automated_run() -> bool:
 	if OS.has_feature("Server"):
 		return true
@@ -245,6 +339,8 @@ func _input(event):
 	# abria el menu en vez de rechazar la solicitud.
 	if _pairing_prompt_open():
 		return
+	# Cualquier input cuenta como actividad para el watchdog de inactividad.
+	_reset_inactivity_timer()
 	# Start (JOY_START): SOLO alterna la pausa pasiva. Si el mundo esta pausado despausa
 	# (cualquier pausa); si no, pausa pasiva. Nunca abre ni activa el menu completo. Va
 	# primero y se consume siempre para que nada mas lo intercepte (ni la GUI con ui_accept).
@@ -256,12 +352,15 @@ func _input(event):
 	# Cualquier input con el menu visible reinicia el temporizador de auto-hide.
 	if get_tree().paused and not _menu_hidden_by_focus:
 		_menu_idle_timer = 0.0
-	# Select: alterna el puntero (libera/recaptura). Nunca pausa, nunca despausa, nunca revela el
-	# menu; se consume siempre para que no llegue a la GUI ni a SessionManager.
+	# Select: en gameplay alterna el puntero (libera/recaptura); con la pausa pasiva (menu oculto)
+	# revela el menu. Nunca pausa ni despausa. Se consume siempre para que no llegue a la GUI ni a
+	# SessionManager.
 	if event is InputEventJoypadButton \
 			and (event as InputEventJoypadButton).button_index == JOY_SELECT \
 			and (event as InputEventJoypadButton).pressed:
-		if not get_tree().paused and not _hud_mode_paused and _can_pause_in_current_scene():
+		if get_tree().paused and _menu_hidden_by_focus:
+			_reveal_passive_menu()
+		elif not get_tree().paused and not _hud_mode_paused and _can_pause_in_current_scene():
 			_toggle_select_control()
 		get_tree().set_input_as_handled()
 		return
@@ -272,6 +371,14 @@ func _input(event):
 		resume()
 		get_tree().set_input_as_handled()
 		return
+	# Pantallas tactiles: un DOUBLE TAP en la pausa pasiva reanuda directo, igual que el clic
+	# izquierdo de escritorio, en vez de revelar el menu. El primer tap revela (rama de abajo);
+	# el segundo, si cae en la ventana de 300 ms/40 px y el primero fue en pausa pasiva, reanuda.
+	if get_tree().paused and event is InputEventScreenTouch \
+			and (event as InputEventScreenTouch).pressed:
+		if _handle_passive_touch_double_tap(event as InputEventScreenTouch):
+			get_tree().set_input_as_handled()
+			return
 	# Pausa pasiva (menu oculto): mover mouse/stick o tocar el mando revela el menu y corta
 	# la orbita. Start se maneja mas abajo (con el menu oculto reanuda, no revela).
 	if get_tree().paused and _menu_hidden_by_focus and _is_menu_reveal_event(event):
@@ -279,9 +386,11 @@ func _input(event):
 		get_tree().set_input_as_handled()
 		return
 	# Primer input tras recuperar el foco. Un clic sobre el juego en pausa es "volver a jugar":
-	# reanuda. Cualquier otra entrada devuelve el menu completo, sin actuar.
+	# reanuda. Cualquier otra entrada devuelve el menu completo, sin actuar. El clic emulado de
+	# un toque tactil no cuenta como clic de mouse: en touch el resume es el doble tap de arriba.
 	if _menu_hidden_by_focus and get_tree().paused and _restores_menu(event):
-		if event is InputEventMouseButton and event.button_index == BUTTON_LEFT:
+		if event is InputEventMouseButton and event.button_index == BUTTON_LEFT \
+				and not InputProviderV2.pointer_is_from_touch():
 			resume()
 		else:
 			_reveal_passive_menu()
@@ -302,7 +411,8 @@ func _input(event):
 # Pausar es ESC, el back de Android o el gamepad. El boton derecho del mouse tambien es
 # ui_cancel en el InputMap, pero es "soltar el mouse" (lo hace SessionManager), no pausar.
 # Select (JOY_SELECT) tambien es ui_cancel, pero en juego alterna el puntero (libera/recaptura) e
-# inhibe el control del jugador: no pausa. Durante la pausa no hace nada (a lo sumo revela el menu).
+# inhibe el control del jugador: no pausa. Con la pausa pasiva (menu oculto) revela el menu; con el
+# menu completo visible no hace nada.
 static func is_pause_request(event: InputEvent) -> bool:
 	if event is InputEventJoypadButton and (event as InputEventJoypadButton).button_index == JOY_SELECT:
 		return false

@@ -15,6 +15,16 @@ const EXPONENTIAL_CURVE := preload("res://Curves/Exponential.tres")
 const InputProviderV2 := preload("res://core_v2/input/InputProviderV2.gd")
 const UIScaleCompensator := preload("res://core_v2/ui/UIScaleCompensator.gd")
 
+# Godot marca asi el mouse que emula a partir del touch (InputEvent.DEVICE_ID_TOUCH_MOUSE). Ese
+# evento SIEMPRE existe por cada dedo (emulate_mouse_from_touch, en true por defecto), aunque el
+# ScreenTouch lo haya consumido un control: es la senal de touch mas robusta que hay.
+const TOUCH_MOUSE_DEVICE := -1
+# Ventana propia de gracia. El fantasma de device 0 (el X server tambien mueve un puntero real por
+# cada toque, y ese no delata su origen) llega pegado al evento tactil, pero MobileUIManager no
+# siempre lo ve: en modo HUD un control puede consumir el ScreenTouch, y con el arbol pausado su
+# _input ni corre. Mientras la ventana este viva, un motion no puede "limpiar" el touch.
+const TOUCH_INPUT_GRACE_MSEC := 350
+
 # El cursor tiene que dibujarse sobre CUALQUIER UI clickeable: OverlayUIManager (115),
 # ProtocolManager (120), MobileUIManager (100), y los Popup del arbol. Como hijo directo
 # de un Control quedaba en la capa 0 y lo tapaba cualquiera de esas; move_child() no
@@ -84,6 +94,15 @@ static func attach_to(parent: Node, requester: Node = null) -> Control:
 
 # Con la ventana sin foco el cursor virtual no se dibuja (ver _process/_draw).
 var _window_focused := true
+# O11: ultimo input fue TOUCH (dedo o su mouse fantasma): el cursor virtual se oculta, lo opera el
+# dedo. Excepcion "mouse libre": con el puntero liberado (_released) el jugador usa el joypad
+# virtual y necesita verlo. Un input de joypad o un mouse real lo vuelven a mostrar. Interpretacion
+# por defecto, aislada a proposito: si se cambia, se toca solo este flag y su gate en _draw.
+var _touch_input := false
+# Hasta cuando (ticks) el ultimo touch se considera vivo. Lo renueva cada evento tactil y cada
+# motion que delate touch; un motion dentro de la ventana no limpia _touch_input (ver
+# _is_touch_pointer_event). Limpiarlo con un input de joypad o un mouse real (fuera de la ventana).
+var _touch_input_until := 0
 var _requesters := []
 # Puñero liberado a proposito en pleno juego (ui_cancel / clic derecho): no hay UI que pida el
 # cursor, pero el jugador espera un puntero. El nativo no se muestra: lo dibuja el virtual.
@@ -345,8 +364,22 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not is_wanted():
 		return
+	# O11: el toque directo (y su drag) delata el input tactil y oculta el cursor.
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		_set_touch_input(true)
+		return
 	if event is InputEventMouseMotion:
+		# El touch emulado en escritorio entra como motion de mouse REAL (ver
+		# MobileUIManager.is_pointer_from_touch): no debe arrastrar el cursor ni mostrarlo.
+		if _is_touch_pointer_event(event):
+			_set_touch_input(true)
+			return
+		# Fantasma de device 0 dentro de la ventana propia: ni limpia el estado ni la renueva (si
+		# la renovara, un mouse real moviendose dentro de ella la estiraria para siempre).
+		if OS.get_ticks_msec() < _touch_input_until:
+			return
 		if _desktop_mouse_mode:
+			_set_touch_input(false)
 			_position = event.position
 			update()
 			return
@@ -371,6 +404,7 @@ func _input(event: InputEvent) -> void:
 		var was_gamepad_cursor: bool = _active
 		var absolute_position: Vector2 = _position if was_gamepad_cursor else event.position
 		_has_real_mouse_position = true
+		_set_touch_input(false)
 		set_desktop_mouse_mode(true, absolute_position)
 		if was_gamepad_cursor:
 			_ignore_warp_motion = true
@@ -378,6 +412,8 @@ func _input(event: InputEvent) -> void:
 			call_deferred("_clear_warp_motion")
 		return
 	if event is InputEventJoypadMotion or event is InputEventJoypadButton:
+		# Un input de joypad saca al cursor del modo tactil: el jugador lo esta operando.
+		_set_touch_input(false)
 		if gamepad_cursor_enabled:
 			_activate()
 	if not event is InputEventJoypadButton:
@@ -387,6 +423,10 @@ func _input(event: InputEvent) -> void:
 	# Conserva el mapeo directo A/B del cursor original; no depende de que ui_accept
 	# consuma antes la accion de InputMap.
 	var button := BUTTON_LEFT if event.button_index == JOY_BUTTON_0 else BUTTON_RIGHT if event.button_index == JOY_BUTTON_1 else 0
+	# O4: el boton de interactuar (accion `interact`, F / JOY_BUTTON_2) hace de click izquierdo: el
+	# mando no tiene boton "mouse" y las pantallas HUD ya traen el cursor habilitado.
+	if button == 0 and event.is_action("interact"):
+		button = BUTTON_LEFT
 	if button == 0:
 		return
 	var click := InputEventMouseButton.new()
@@ -466,10 +506,35 @@ func _emit_event(event: InputEvent) -> void:
 func _clear_warp_motion() -> void:
 	_ignore_warp_motion = false
 
-func _draw() -> void:
-	if not _window_focused:
+func _set_touch_input(from_touch: bool) -> void:
+	if from_touch:
+		_touch_input_until = OS.get_ticks_msec() + TOUCH_INPUT_GRACE_MSEC
+	else:
+		_touch_input_until = 0
+	if _touch_input == from_touch:
 		return
-	if not _active and not _desktop_mouse_mode:
+	_touch_input = from_touch
+	update()
+
+# El evento delata touch por si mismo: el mouse que Godot emula por cada dedo (device -1) o la
+# ventana de MobileUIManager, que ve el dedo salvo que un control consuma el ScreenTouch. El
+# fantasma de device 0 no lo delata: ese lo cubre la ventana propia (ver _input).
+func _is_touch_pointer_event(event: InputEvent) -> bool:
+	if event is InputEventMouseMotion and event.device == TOUCH_MOUSE_DEVICE:
+		return true
+	return InputProviderV2.pointer_is_from_touch()
+
+# Gate unico de dibujo: ventana con foco, modo activo (gamepad o desktop) y no ocultado por touch
+# (salvo puntero liberado, ver _touch_input).
+func is_cursor_visible() -> bool:
+	if not _window_focused:
+		return false
+	if _touch_input and not _released:
+		return false
+	return _active or _desktop_mouse_mode
+
+func _draw() -> void:
+	if not is_cursor_visible():
 		return
 	if _busy_count > 0:
 		draw_texture_rect(CURSOR_HOURGLASS, Rect2(_position - HOTSPOT_HOURGLASS * _ui_scale, CURSOR_HOURGLASS.get_size() * _ui_scale), false)

@@ -18,6 +18,13 @@ class PositionSpy:
 		if event is InputEventMouseButton:
 			seen.append(event.position)
 
+class ClickSpy:
+	extends Node
+	var seen := []
+	func _input(event: InputEvent) -> void:
+		if event is InputEventMouseButton:
+			seen.append(event)
+
 var _restore_stretch := false
 
 func after() -> void:
@@ -253,3 +260,154 @@ func test_popup_standard_shows_the_virtual_cursor_on_show() -> void:
 	Input.set_mouse_mode(mouse_mode)
 	popup.free()
 	cursor.get_parent().free()
+
+
+# O4: el boton de interactuar (JOY_BUTTON_2 / accion `interact`) clickea izquierdo, sin tocar el
+# mapeo directo A/B.
+func test_interact_button_emits_a_left_click() -> void:
+	var spy := ClickSpy.new()
+	add_child(spy)
+	var cursor: Control = VirtualMouseScript.attach_to(self)
+	var mouse_mode: int = Input.get_mouse_mode()
+	cursor._active = true
+	cursor._position = Vector2(210.0, 160.0)
+	# Mismo drenado que el test de posicion: input_handled puede venir en true de suites previas.
+	Input.parse_input_event(InputEventKey.new())
+	Input.flush_buffered_events()
+	spy.seen.clear()
+
+	var press := InputEventJoypadButton.new()
+	press.button_index = JOY_BUTTON_2
+	press.pressed = true
+	cursor._input(press)
+
+	assert_int(spy.seen.size()).is_equal(1)
+	assert_int((spy.seen[0] as InputEventMouseButton).button_index).is_equal(BUTTON_LEFT)
+	assert_bool((spy.seen[0] as InputEventMouseButton).pressed).is_true()
+
+	# El boton 1 (B) sigue siendo click derecho: no se rompio el mapeo A/B.
+	var right := InputEventJoypadButton.new()
+	right.button_index = JOY_BUTTON_1
+	right.pressed = true
+	Input.parse_input_event(InputEventKey.new())
+	Input.flush_buffered_events()
+	spy.seen.clear()
+	cursor._input(right)
+	assert_int(spy.seen.size()).is_equal(1)
+	assert_int((spy.seen[0] as InputEventMouseButton).button_index).is_equal(BUTTON_RIGHT)
+
+	Input.parse_input_event(InputEventKey.new())
+	Input.flush_buffered_events()
+	Input.set_mouse_mode(mouse_mode)
+	cursor.get_parent().queue_free()
+	spy.queue_free()
+
+
+# O11: con input touch el cursor no se dibuja; el puntero liberado ("mouse libre") y el stick lo
+# vuelven a mostrar.
+func test_touch_input_hides_the_cursor_but_released_and_stick_show_it() -> void:
+	var cursor: Control = VirtualMouseScript.attach_to(self)
+	var mouse_mode: int = Input.get_mouse_mode()
+	cursor.set_desktop_mouse_mode(true, Vector2(120.0, 90.0))
+	assert_bool(cursor.is_cursor_visible()).is_true()
+
+	var touch := InputEventScreenTouch.new()
+	touch.pressed = true
+	touch.position = Vector2(120.0, 90.0)
+	cursor._input(touch)
+	assert_bool(cursor._touch_input).is_true()
+	assert_bool(cursor.is_cursor_visible()).is_false()
+
+	# Excepcion "mouse libre": el puntero liberado se opera con joypad y debe verse.
+	cursor._released = true
+	assert_bool(cursor.is_cursor_visible()).is_true()
+	cursor._released = false
+	assert_bool(cursor.is_cursor_visible()).is_false()
+
+	# Un movimiento de stick lo vuelve a mostrar.
+	var motion := InputEventJoypadMotion.new()
+	motion.axis = JOY_AXIS_0
+	motion.axis_value = 0.5
+	cursor._input(motion)
+	assert_bool(cursor._touch_input).is_false()
+	assert_bool(cursor.is_cursor_visible()).is_true()
+
+	Input.set_mouse_mode(mouse_mode)
+	cursor.get_parent().queue_free()
+
+
+# O11: el touch emulado en escritorio llega como motion de mouse REAL; no debe arrastrar el cursor
+# ni mostrarlo.
+func test_touch_emulated_mouse_motion_keeps_the_cursor_hidden() -> void:
+	var cursor: Control = VirtualMouseScript.attach_to(self)
+	cursor.set_desktop_mouse_mode(true, Vector2(80.0, 80.0))
+	MobileUIManager._touch_pointer_until = OS.get_ticks_msec() + 10000
+
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(200.0, 200.0)
+	motion.relative = Vector2(10.0, 0.0)
+	cursor._input(motion)
+
+	assert_bool(cursor._touch_input).is_true()
+	assert_bool(cursor.is_cursor_visible()).is_false()
+	assert_vector2(cursor._position).is_not_equal(motion.position)
+
+	MobileUIManager._touch_pointer_until = 0
+	cursor.get_parent().queue_free()
+
+
+# O11r: el device -1 (mouse que Godot emula por cada dedo) delata el touch aunque MobileUIManager
+# no lo haya visto (en modo HUD un control puede consumir el ScreenTouch): el cursor queda oculto.
+func test_touch_device_mouse_motion_hides_without_the_mobile_manager_window() -> void:
+	var cursor: Control = VirtualMouseScript.attach_to(self)
+	var mouse_mode: int = Input.get_mouse_mode()
+	cursor.set_desktop_mouse_mode(true, Vector2(80.0, 80.0))
+	MobileUIManager._touch_pointer_until = 0
+
+	var motion := InputEventMouseMotion.new()
+	motion.device = -1
+	motion.position = Vector2(200.0, 200.0)
+	motion.relative = Vector2(10.0, 0.0)
+	cursor._input(motion)
+
+	assert_bool(cursor._touch_input).is_true()
+	assert_bool(cursor.is_cursor_visible()).is_false()
+
+	Input.set_mouse_mode(mouse_mode)
+	cursor.get_parent().queue_free()
+
+
+# O11r: el fantasma de device 0 (el X server tambien mueve un puntero real por cada toque) llega
+# pegado al evento tactil. Mientras dura la ventana propia no puede limpiar el estado ni mostrar el
+# cursor; pasado el plazo, un mouse real vuelve a mandar.
+func test_a_phantom_mouse_motion_after_touch_does_not_show_the_cursor() -> void:
+	var cursor: Control = VirtualMouseScript.attach_to(self)
+	var mouse_mode: int = Input.get_mouse_mode()
+	cursor.set_desktop_mouse_mode(true, Vector2(80.0, 80.0))
+	MobileUIManager._touch_pointer_until = 0
+
+	var drag := InputEventScreenDrag.new()
+	drag.position = Vector2(150.0, 120.0)
+	cursor._input(drag)
+	assert_bool(cursor._touch_input).is_true()
+
+	# El motion del fantasma cae dentro de la ventana propia: no muestra ni mueve el cursor.
+	var phantom := InputEventMouseMotion.new()
+	phantom.device = 0
+	phantom.position = Vector2(400.0, 400.0)
+	phantom.relative = Vector2(20.0, 0.0)
+	cursor._input(phantom)
+	assert_bool(cursor._touch_input).is_true()
+	assert_bool(cursor.is_cursor_visible()).is_false()
+	assert_vector2(cursor._position).is_not_equal(phantom.position)
+
+	# Vencida la ventana (sin eventos tactiles que la renueven), el mouse real manda de nuevo.
+	cursor._touch_input_until = OS.get_ticks_msec() - 1
+	cursor._input(phantom)
+	assert_bool(cursor._touch_input).is_false()
+	assert_bool(cursor.is_cursor_visible()).is_true()
+	assert_vector2(cursor._position).is_equal(phantom.position)
+
+	Input.set_mouse_mode(mouse_mode)
+	cursor.get_parent().queue_free()
+

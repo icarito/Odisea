@@ -23,6 +23,12 @@ workflows generales. Las integraciones especificas de agente pueden envolverlos.
 
 Ciclo completo de una feature: `/fd-new` → `/enrich` → `/deliver` → `/fd-verify` → `/fd-close`.
 
+## Pulido iterativo
+
+| Comando/skill | Canonico | Claude | Kilo | Proposito |
+| --- | --- | --- | --- | --- |
+| `iterative-list-hacking` | `.agents/skills/iterative-list-hacking/SKILL.md` | - | `.kilo/command/polish.md` | Observaciones de a una → plan anclado a archivos → despacho por clusters → build/deploy Anbernic → doc de sesion. |
+
 ## Odisea runtime y validacion
 
 | Comando/skill | Canonico | Claude | Kilo | Proposito |

@@ -74,6 +74,9 @@ func test_mobile_ui_manager_idle_timeout() -> void:
 
 	mgr._process(1.5)
 	assert_bool(mgr.is_touch_active()).is_false()
+	# El fade out arranca con la UI todavía visible; se completa al avanzar su duración.
+	assert_bool(mgr._mobile_ui.visible).is_true()
+	mgr._process(MobileUIManagerScript.UI_FADE_OUT_TIME)
 	assert_bool(mgr._mobile_ui.visible).is_false()
 
 	# Touch screen again to wake up
@@ -87,6 +90,71 @@ func test_mobile_ui_manager_idle_timeout() -> void:
 	assert_bool(mgr._mobile_ui.visible).is_true()
 
 	mgr.queue_free()
+
+
+func test_mobile_ui_fades_out_and_in() -> void:
+	var mgr = MobileUIManagerScript.new()
+	get_tree().root.add_child(mgr)
+	mgr._is_mobile = true
+	mgr._is_touch_active = true
+	mgr._spawn_mobile_ui()
+	mgr._refresh_mobile_ui_visibility()
+	# La primera aparición también entra con fade: se completa al avanzar su duración.
+	assert_bool(mgr._mobile_ui.visible).is_true()
+	assert_float(mgr._ui_alpha).is_less(1.0)
+	mgr._process(MobileUIManagerScript.UI_FADE_IN_TIME)
+	assert_float(mgr._ui_alpha).is_equal(1.0)
+
+	mgr._deactivate_touch()
+	# Recién arranca el fade out: la UI sigue visible y opaca.
+	assert_bool(mgr._mobile_ui.visible).is_true()
+	assert_float(mgr._ui_alpha).is_equal(1.0)
+
+	mgr._process(MobileUIManagerScript.UI_FADE_OUT_TIME * 0.5)
+	assert_bool(mgr._mobile_ui.visible).is_true()
+	assert_float(mgr._ui_alpha).is_greater(0.0)
+	assert_float(mgr._ui_alpha).is_less(1.0)
+
+	mgr._process(MobileUIManagerScript.UI_FADE_OUT_TIME * 0.5)
+	assert_bool(mgr._mobile_ui.visible).is_false()
+	assert_float(mgr._ui_alpha).is_equal(0.0)
+
+	# Mostrar de nuevo: fade in, tampoco instantáneo.
+	mgr._activate_touch()
+	assert_bool(mgr._mobile_ui.visible).is_true()
+	assert_float(mgr._ui_alpha).is_less(1.0)
+	mgr._process(MobileUIManagerScript.UI_FADE_IN_TIME)
+	assert_float(mgr._ui_alpha).is_equal(1.0)
+
+	mgr.queue_free()
+
+
+func test_mobile_ui_no_fade_in_low_tier() -> void:
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	assert_object(gate).is_not_null()
+	var previous: bool = gate.force_gate
+	gate.force_gate = true
+
+	var mgr = MobileUIManagerScript.new()
+	get_tree().root.add_child(mgr)
+	mgr._is_mobile = true
+	mgr._is_touch_active = true
+	mgr._spawn_mobile_ui()
+	mgr._refresh_mobile_ui_visibility()
+	assert_float(mgr._ui_alpha).is_equal(1.0)
+
+	# Tier LOW: el apagado es instantáneo, sin alpha intermedio.
+	mgr._deactivate_touch()
+	assert_bool(mgr._mobile_ui.visible).is_false()
+	assert_float(mgr._ui_alpha).is_equal(0.0)
+
+	# Y el encendido también.
+	mgr._activate_touch()
+	assert_bool(mgr._mobile_ui.visible).is_true()
+	assert_float(mgr._ui_alpha).is_equal(1.0)
+
+	mgr.queue_free()
+	gate.force_gate = previous
 
 
 func test_using_a_hidden_virtual_joystick_makes_the_touch_ui_visible() -> void:

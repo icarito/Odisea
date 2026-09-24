@@ -1997,3 +1997,237 @@ func test_dropping_with_the_stick_does_not_also_activate_the_item_on_hold_releas
 	assert_str(SuitOS.get_active_screen_id()).is_equal("")
 	assert_bool(overlay._crouch_drag_active).is_false()
 	assert_bool(overlay._selector.is_open()).is_true()
+
+
+# --- O3: drag del drawer al radial = favorito, y radial al instante ---
+
+func test_dragging_a_drawer_row_off_a_slot_toggles_favorite() -> void:
+	# Soltar una fila fuera de todo slot (hub/arco o zona muerta) alterna favorito, sin
+	# estrellitas. El drop sobre un slot sigue fijando el pin
+	# (test_dragging_a_drawer_row_onto_a_slot_pins_it_there).
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(1)
+	var id: String = drawer.row_id(1)
+	assert_str(id).is_equal("test:b")
+	assert_bool(SuitOS.is_favorite(id)).is_true() # _auto_favorite lo dejo curado
+	var start: Vector2 = drawer.focused_row_center()
+	var outside := Vector2(5.0, 5.0)
+	assert_int(SuitOS.get_node("SuitOSWidgetHost").slot_at(outside)).is_equal(-1)
+	overlay._input(_touch(true, start))
+	overlay._input(_screen_drag(outside))
+	assert_object(overlay._drag_ghost).is_not_null()
+	assert_str(overlay._drag_ghost.text).is_equal("Beta")
+	overlay._input(_touch(false, outside))
+	assert_bool(SuitOS.is_favorite(id)).is_false()
+	assert_bool(overlay._dial_ids.has(id)).is_false()
+	# Y al reves: la misma fila vuelve al arco al arrastrarla otra vez fuera de un slot.
+	overlay._input(_touch(true, start))
+	overlay._input(_screen_drag(outside))
+	overlay._input(_touch(false, outside))
+	assert_bool(SuitOS.is_favorite(id)).is_true()
+	assert_bool(overlay._dial_ids.has(id)).is_true()
+
+
+func test_toggling_the_star_updates_the_radial_at_once() -> void:
+	# El boton de favorito (estrella) se refleja en el arco sin esperar a reabrirlo: el ítem
+	# aparece/desaparece del radial (favoritos ordenados) en el mismo gesto.
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(0)
+	var id: String = drawer.row_id(0)
+	assert_bool(SuitOS.is_favorite(id)).is_true()
+	assert_bool(overlay._dial_ids.has(id)).is_true()
+	var star: Vector2 = drawer.favorite_center(0)
+	overlay._input(_touch(true, star))
+	overlay._input(_touch(false, star))
+	assert_bool(SuitOS.is_favorite(id)).is_false()
+	assert_bool(overlay._dial_ids.has(id)).is_false()
+	overlay._input(_touch(true, star))
+	overlay._input(_touch(false, star))
+	assert_bool(SuitOS.is_favorite(id)).is_true()
+	assert_bool(overlay._dial_ids.has(id)).is_true()
+
+
+# --- O13: arrastre del drawer en touch ---
+
+func test_a_drawer_touch_release_the_drawer_never_saw_does_not_dismiss_it() -> void:
+	# El dedo que abrio el cajon con el hold del boton tactil sigue apoyado cuando el cajon
+	# aparece. Su release no puede cerrarlo: antes lo cerraba y no quedaba cajon que arrastrar.
+	var overlay = _drawer_overlay()
+	overlay._input(_touch(false, Vector2(5.0, 5.0)))
+	assert_bool(overlay._drawer_open()).is_true()
+
+
+func test_touch_drag_lifts_the_row_label_and_pins_it_with_small_steps() -> void:
+	# El dedo levanta la fila con pasos chicos de ScreenDrag (como en device), no con un unico
+	# salto, y arrastra solo el Label hasta el slot.
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(1)
+	var start: Vector2 = drawer.focused_row_center()
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	var drop: Vector2 = host.slot_rect(2).get_center()
+	overlay._input(_touch(true, start))
+	overlay._input(_screen_drag(start + Vector2(4.0, 0.0)))
+	assert_object(overlay._drag_ghost).is_null() # todavia por debajo del umbral
+	overlay._input(_screen_drag(start + Vector2(20.0, 0.0)))
+	assert_object(overlay._drag_ghost).is_not_null()
+	assert_bool(overlay._drag_ghost is Label).is_true()
+	assert_str(overlay._drag_ghost.text).is_equal("Beta")
+	overlay._input(_screen_drag(drop))
+	overlay._input(_touch(false, drop))
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:b", ""])
+	assert_object(overlay._drag_ghost).is_null()
+
+
+func test_a_second_finger_does_not_steal_the_drawer_drag() -> void:
+	# Solo el dedo que apoyo la fila la levanta: el ScreenDrag de otro indice se ignora.
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(1)
+	var start: Vector2 = drawer.focused_row_center()
+	overlay._input(_touch(true, start)) # indice 0
+	var other := _screen_drag(start + Vector2(40.0, 0.0))
+	other.index = 1
+	overlay._input(other)
+	assert_object(overlay._drag_ghost).is_null()
+	# Y el dedo que si la apoyo la levanta igual.
+	overlay._input(_screen_drag(start + Vector2(20.0, 0.0)))
+	assert_object(overlay._drag_ghost).is_not_null()
+	overlay._end_option_drag()
+
+
+# --- O14: el asa arrastra un Label, no el protowidget azul ---
+
+func test_the_screen_drag_ghost_is_a_label_not_a_blue_panel() -> void:
+	# El asa de una Pantalla con vista propia levanta el mismo ghost Label del drawer/radial.
+	_screen("test:a", "Alpha")
+	var overlay = _open_and_play([UP]) # una sola pantalla: se abre directo
+	assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
+	overlay._capture_drag_mesh()
+	assert_object(overlay._drag_widget).is_not_null()
+	assert_bool(overlay._drag_widget is Label).is_true()
+	assert_str(overlay._drag_widget.text).is_equal("Alpha")
+	# El snap al slot mantiene el fantasma centrado en el destino.
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	var center: Vector2 = host.slot_rect(2).get_center()
+	overlay._follow_drag_mesh(center)
+	var half: Vector2 = overlay._drag_widget.get_combined_minimum_size() * 0.5
+	assert_float(overlay._drag_widget.rect_position.x).is_equal_approx(center.x - half.x, 0.5)
+	assert_float(overlay._drag_widget.rect_position.y).is_equal_approx(center.y - half.y, 0.5)
+	overlay._restore_drag_mesh()
+	assert_object(overlay._drag_widget).is_null()
+
+
+class ButtonSpy:
+	extends Node
+	var count: int = 0
+	func _on_pressed() -> void:
+		count += 1
+
+
+# Invierte la proyeccion del overlay (_screen_surface_uv) para mandar un toque a un uv exacto de
+# la superficie de la pantalla enfocada.
+func _screen_point_for_uv(overlay: Node, uv: Vector2) -> Vector2:
+	var presenter = overlay._mount.get_presenter()
+	var mesh = presenter._get_hud_attach_target() if presenter.has_method("_get_hud_attach_target") else presenter.get_node_or_null("ScreenContainer/ScreenMesh")
+	var cam: Camera = overlay.get_viewport().get_camera()
+	var half_w: float = float(mesh.width) * 0.5
+	var half_h: float = float(mesh.height) * 0.5
+	var u: float = uv.x
+	if overlay._surface_u_flip(mesh, cam):
+		u = 1.0 - u
+	var local := Vector3((u - 0.5) * 2.0 * half_w, (0.5 - uv.y) * 2.0 * half_h, 0.0)
+	var render_pos: Vector2 = cam.unproject_position(mesh.global_transform.xform(local))
+	var render_size: Vector2 = overlay.get_viewport().size
+	var gui_size: Vector2 = overlay.get_viewport_rect().size
+	return Vector2(render_pos.x / render_size.x * gui_size.x, render_pos.y / render_size.y * gui_size.y)
+
+
+func _focused_criopod(overlay_holder: Array) -> Dictionary:
+	var pod = auto_free(preload("res://core_v2/props/criopod/Criopod_vert.tscn").instance())
+	add_child(pod)
+	yield(await_idle_frame(), "completed")
+	yield(await_idle_frame(), "completed")
+	var overlay = _open_and_play([UP])
+	var rig_cam: Camera = pod.get_node("RotatingObjectV2/CryoPodTerminal/CinematicSetup/FocusedRig/Camera")
+	rig_cam.current = true
+	overlay._physics_process(1.0 / 60.0)
+	overlay._complete_focus_swap()
+	overlay_holder.append(overlay)
+	return {"pod": pod, "overlay": overlay}
+
+
+func test_a_raw_touch_operates_the_focused_holoterminal_screen() -> void:
+	# En touch no hay un mouse real detras: la pantalla del HUD no puede depender solo del mouse
+	# que el engine emula por cada toque (un control puede consumirlo). El toque crudo opera el
+	# boton de la holoterminal y el modo HUD no se cierra de costado.
+	var holder: Array = []
+	var ctx = yield(_focused_criopod(holder), "completed")
+	var pod: Node = ctx["pod"]
+	var overlay: Node = ctx["overlay"]
+	var viewport: Viewport = pod.get_node("RotatingObjectV2/CryoPodTerminal/Viewport")
+	var button: Button = viewport.get_node("CryoPodUI/HatchButton")
+	var hatch = pod.get_node("RotatingObjectV2")
+	var spy := ButtonSpy.new()
+	add_child(spy)
+	button.connect("pressed", spy, "_on_pressed")
+	assert_bool(button.disabled).is_false()
+	var uv: Vector2 = button.get_global_rect().get_center() / viewport.size
+	var point: Vector2 = _screen_point_for_uv(overlay, uv)
+
+	var press := InputEventScreenTouch.new()
+	press.pressed = true
+	press.position = point
+	overlay._input(press)
+	var release := InputEventScreenTouch.new()
+	release.pressed = false
+	release.position = point
+	overlay._input(release)
+
+	assert_int(spy.count).is_equal(1)
+	assert_bool(hatch.is_active).is_true()
+	assert_bool(SuitOS.is_hud_mode_active()).is_true()
+
+
+func test_the_emulated_mouse_of_a_touch_does_not_fire_the_screen_twice() -> void:
+	# El engine emula un mouse por cada dedo (device -1): si ademas del toque crudo se reenvia el
+	# mouse, el boton de la pantalla recibiria el click dos veces.
+	var holder: Array = []
+	var ctx = yield(_focused_criopod(holder), "completed")
+	var pod: Node = ctx["pod"]
+	var overlay: Node = ctx["overlay"]
+	var viewport: Viewport = pod.get_node("RotatingObjectV2/CryoPodTerminal/Viewport")
+	var button: Button = viewport.get_node("CryoPodUI/HatchButton")
+	var spy := ButtonSpy.new()
+	add_child(spy)
+	button.connect("pressed", spy, "_on_pressed")
+	var uv: Vector2 = button.get_global_rect().get_center() / viewport.size
+	var point: Vector2 = _screen_point_for_uv(overlay, uv)
+
+	var touch_press := InputEventScreenTouch.new()
+	touch_press.pressed = true
+	touch_press.position = point
+	overlay._input(touch_press)
+	var mouse_press := InputEventMouseButton.new()
+	mouse_press.button_index = BUTTON_LEFT
+	mouse_press.pressed = true
+	mouse_press.position = point
+	mouse_press.global_position = point
+	mouse_press.device = -1
+	overlay._input(mouse_press)
+	var touch_release := InputEventScreenTouch.new()
+	touch_release.pressed = false
+	touch_release.position = point
+	overlay._input(touch_release)
+	var mouse_release := InputEventMouseButton.new()
+	mouse_release.button_index = BUTTON_LEFT
+	mouse_release.pressed = false
+	mouse_release.position = point
+	mouse_release.global_position = point
+	mouse_release.device = -1
+	overlay._input(mouse_release)
+
+	assert_int(spy.count).is_equal(1)
+	assert_bool(is_instance_valid(overlay)).is_true()

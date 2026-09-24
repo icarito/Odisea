@@ -171,6 +171,12 @@ var _drawer_drag_from_stick: bool = false
 # El click primario (A/crouch) del drawer: arma el arrastre con el stick y, al soltarse sin
 # arrastrar, acciona la fila enfocada. Antes la activacion era el edge "a" (press).
 var _drawer_click_down: bool = false
+# El dedo que el drawer vio apoyar sobre una fila: solo ese indice mueve el fantasma. El release
+# de un dedo que el drawer no vio (el que abrio el cajon con el hold) no lo cierra ni lo mueve.
+var _drawer_touch_index: int = -1
+# El arrastre que empezo en una fila del drawer. A diferencia del radial, soltarlo FUERA de un slot
+# (hub/arco o cualquier zona muerta) alterna favorito en vez de descartar (O3).
+var _drag_from_drawer: bool = false
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -588,15 +594,35 @@ func _input(event: InputEvent) -> void:
 			_active_focused_screen.forward_view_input(event)
 			get_tree().set_input_as_handled()
 			return
+		if (event is InputEventScreenTouch or event is InputEventScreenDrag) and not _dragging_view:
+			# El dedo tambien opera la pantalla enfocada, no solo el mouse que el engine emula por
+			# cada toque: cuando ese click lo consume la GUI (o el engine no lo emula) la pantalla
+			# quedaba inoperable y el unico gesto que respondia era salir. Se reenvia el toque
+			# crudo, sin consumirlo, para que MobileUIManager siga viendo el dedo.
+			var touch_uv: Vector2 = _screen_surface_uv(event.position)
+			if touch_uv.x >= 0.0:
+				if _focus_cursor_awaiting_motion:
+					_focus_cursor_awaiting_motion = false
+				_set_surface_cursor_uv(touch_uv)
+				_set_focus_cursor_over_surface(true)
+				_active_focused_screen.forward_view_input(event, touch_uv)
+				if event is InputEventScreenTouch and not event.pressed and event.index == _touch_index:
+					_touch_index = -1
+				return
 		if (event is InputEventMouseMotion or event is InputEventMouseButton) and not _dragging_view:
+			# El cursor del stick llega como motion de mouse, pero no es un dedo: no se descarta.
+			var gamepad_cursor: bool = is_instance_valid(_virtual_mouse) \
+				and _virtual_mouse.relative_target_scale != Vector2.ZERO
+			# El dedo ya se reenvio arriba como ScreenTouch/ScreenDrag: el mouse que el sistema
+			# emula (device -1 y el fantasma de device 0) no puede contar dos veces el mismo toque.
+			if not gamepad_cursor and (event.device == TOUCH_MOUSE_DEVICE or InputProviderV2.pointer_is_from_touch()):
+				return
 			# Un cursor a la vez: sobre la superficie dibuja el del Viewport, fuera el
 			# mouse virtual 2D. Fuera NO se consume el evento, asi el mouse virtual sigue
 			# su curso normal (antes se consumia siempre y quedaba clavado).
 			# Con un arrastre de asa en curso el motion NO se manda a la pantalla: si no, el
 			# panel levantado se queda clavado y la pantalla se mueve su cursor interno.
 			var uv: Vector2
-			var gamepad_cursor: bool = is_instance_valid(_virtual_mouse) \
-				and _virtual_mouse.relative_target_scale != Vector2.ZERO
 			var design: Vector2 = _surface_design_size()
 			if event is InputEventMouseMotion and gamepad_cursor:
 				# El cursor del stick llega como motion relativo ya escalado a pixeles de la
@@ -845,6 +871,11 @@ func _drop_option(position: Vector2) -> void:
 	if slot >= 0:
 		Haptics.pulse(Haptics.DROP_MSEC)
 		_suit_os().pin_to_slot(slot, _drag_id)
+	elif _drag_from_drawer and not _drag_id.empty():
+		# O3: una fila del drawer soltada fuera de un slot (hub/arco o zona muerta) alterna
+		# favorito. Es el mismo verbo que la estrella, sin agregar estrellitas ni particulas.
+		Haptics.pulse(Haptics.DROP_MSEC)
+		_toggle_favorite_by_id(_drag_id)
 	elif recycled:
 		# Soltar sobre la zona de reciclaje vacia el slot, igual que con el mouse (FD-304 §6).
 		Haptics.pulse(Haptics.DROP_MSEC)
@@ -869,6 +900,7 @@ func _end_option_drag() -> void:
 	_mouse_drag_position = Vector2.ZERO
 	_mouse_drag_moved = false
 	_drag_from_handle = false
+	_drag_from_drawer = false
 	if _restore_mouse_capture_after_drag:
 		# Si el cursor virtual sigue en modo desktop (una pantalla abierta lo pide), no se puede
 		# recapturar: se queda HIDDEN.
@@ -998,23 +1030,19 @@ func _presenter_screen_mesh() -> Node:
 	return presenter.get_node_or_null("ScreenContainer/ScreenMesh")
 
 # Al arrastrar una Pantalla se levanta un WIDGET (no la ventana 3D, que se ve lenta y rara). El
-# widget sigue al cursor y hace snap/atraccion al slot bajo el cursor.
+# fantasma es el MISMO Label que usan el drawer y el radial (O14): texto, fuente y color de opcion,
+# sin panel ni protowidget azul. Sigue al cursor y hace snap/atraccion al slot bajo el cursor.
 func _capture_drag_mesh() -> void:
 	_restore_drag_mesh()
-	var panel := Panel.new()
-	panel.name = "ScreenDragWidget"
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.rect_size = Vector2(220.0, 130.0)
-	panel.rect_pivot_offset = panel.rect_size * 0.5
-	var label := Label.new()
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.text = _screen_title(_suit_os().get_active_screen_id())
-	label.align = Label.ALIGN_CENTER
-	label.valign = Label.VALIGN_CENTER
-	label.set_anchors_and_margins_preset(Control.PRESET_WIDE)
-	panel.add_child(label)
-	add_child(panel)
-	_drag_widget = panel
+	var ghost := Label.new()
+	ghost.name = "ScreenDragGhost"
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.text = _screen_title(_suit_os().get_active_screen_id())
+	if _selector.option_font is Font:
+		ghost.add_font_override("font", _selector.option_font)
+	ghost.add_color_override("font_color", _selector.color_fg)
+	add_child(ghost)
+	_drag_widget = ghost
 
 func _follow_drag_mesh(position: Vector2) -> void:
 	if not is_instance_valid(_drag_widget):
@@ -1024,8 +1052,7 @@ func _follow_drag_mesh(position: Vector2) -> void:
 	var target: Vector2 = position
 	if slot >= 0 and host != null:
 		target = host.slot_rect(slot).get_center() # atraccion/snap al slot
-	_drag_widget.rect_position = target - _drag_widget.rect_size * 0.5
-	_drag_widget.modulate = Color(0.6, 0.9, 1.0, 0.95) if slot >= 0 else Color(1, 1, 1, 0.85)
+	_drag_widget.rect_position = target - _drag_widget.get_combined_minimum_size() * 0.5
 
 func _restore_drag_mesh() -> void:
 	if is_instance_valid(_drag_widget):
@@ -1236,9 +1263,27 @@ func _on_drawer_chose(id: String) -> void:
 
 
 func _on_drawer_favorited(_id: String, _is_favorite: bool) -> void:
-	# El arco se rehace la proxima vez que se abra: reordenarlo mientras el drawer esta encima
-	# solo serviria para que cambie a espaldas del jugador.
-	pass
+	# O3: el arco se rehace AL INSTANTE con el boton (o el drag al hub): marcar/desmarcar tiene que
+	# verse en el radial sin esperar a reabrirlo. set_options() es barato y no toca el estado del
+	# jugador; si el dial esta cerrado queda listo para cuando vuelva.
+	_sync_radial_options()
+
+
+# Alterna favorito por id sin depender de que la fila este a la vista. El camino normal pasa por
+# el drawer (que pinta el deny del septimo favorito); el fallback cubre un id que ya no esta en la
+# lista pero si en el registry.
+func _toggle_favorite_by_id(id: String) -> void:
+	var suit_os: Node = _suit_os()
+	if suit_os == null or not suit_os.has_method("toggle_favorite"):
+		return
+	if is_instance_valid(_drawer):
+		var row: int = _drawer.index_of(id)
+		if row >= 0:
+			_drawer.toggle_favorite_row(row, suit_os)
+			return
+	if suit_os.toggle_favorite(id):
+		Haptics.confirm()
+		_sync_radial_options()
 
 # --- Asa de la pantalla abierta ---
 
@@ -1347,7 +1392,15 @@ func _is_outside_view(pos: Vector2) -> bool:
 			or _is_on_camera_focus_button(pos):
 		return false
 	var rect: Rect2 = _view_screen_rect()
-	return rect.size.x > 0.0 and rect.size.y > 0.0 and not rect.has_point(pos)
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return false
+	# Si la vista quedo fuera del viewport (el presentador existe pero la camara activa no lo
+	# muestra), ningun punto esta "fuera de la vista": cerrar por un clic ahi dejaba al jugador
+	# sin poder operar la pantalla, saliendo con cualquier clic.
+	var screen_rect := Rect2(Vector2.ZERO, get_viewport_rect().size)
+	if not screen_rect.intersects(rect):
+		return false
+	return not rect.has_point(pos)
 
 
 # El area que ocupa la vista en pantalla: el widget ampliado (2D) o, lo habitual, el cuadro del
@@ -1404,18 +1457,7 @@ func _open_radial(slot: int = -1) -> void:
 		# Una sola pantalla y nada mas que elegir: se abre directo, como siempre.
 		_select(0)
 		return
-	var suit_os: Node = _suit_os()
-	var items: Array = []
-	for id in _dial_ids:
-		var screen: Object = suit_os.get_screen(id)
-		var title: String = String(screen.screen_title()) if screen != null and screen.has_method("screen_title") \
-			else _screen_title(id)
-		items.append({
-			"id": id, "label": title,
-			"icon": screen.screen_icon() if screen != null and screen.has_method("screen_icon") else null,
-			"enabled": true
-		})
-	_selector.set_options(items)
+	_selector.set_options(_radial_items())
 	_selector.open()
 	# Al entrar al radial el item del centro (hub) queda seleccionado; si el radial viene fijado a un
 	# slot (hold de hombro), se marca el widget de ese slot. Si el slot NO es un favorito, se abre
@@ -1445,6 +1487,30 @@ func _dial_screen_ids() -> Array:
 	if suit_os != null and suit_os.has_method("get_favorites_ordered"):
 		return suit_os.get_favorites_ordered()
 	return _screen_ids.duplicate()
+
+
+# Items del arco a partir de _dial_ids. Un solo lugar para abrir y para refrescar en vivo.
+func _radial_items() -> Array:
+	var suit_os: Node = _suit_os()
+	var items: Array = []
+	for id in _dial_ids:
+		var screen: Object = suit_os.get_screen(id)
+		var title: String = String(screen.screen_title()) if screen != null and screen.has_method("screen_title") \
+			else _screen_title(id)
+		items.append({
+			"id": id, "label": title,
+			"icon": screen.screen_icon() if screen != null and screen.has_method("screen_icon") else null,
+			"enabled": true
+		})
+	return items
+
+
+# Refresca el arco con los favoritos vigentes (ordenados). Lo llama el toggle de favorito para que
+# el radial refleje el cambio al instante, este abierto o no.
+func _sync_radial_options() -> void:
+	_dial_ids = _dial_screen_ids()
+	if is_instance_valid(_selector):
+		_selector.set_options(_radial_items())
 
 # Soltar TAB tras el hold conserva una pantalla ya elegida. Si el dial sigue abierto, lo marcado
 # queda elegido (el dial no se queda abierto); sin nada marcado se vuelve a la pantalla que habia,
@@ -2040,6 +2106,10 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 		_drawer.scroll_by(event.relative.y / max(k, 0.001))
 		return
 	if event is InputEventScreenDrag:
+		# Solo el dedo que apoyo una fila la levanta: el resto (multitouch, o el dedo que abrio
+		# el cajon) no mueve el fantasma.
+		if event.index != _drawer_touch_index:
+			return
 		if is_instance_valid(_drag_ghost):
 			_drive_option_drag(event.position, false, true)
 		elif _drawer_drag_row >= 0 and (event.position - _touch_start).length() >= TOUCH_MIN_DRAG:
@@ -2089,11 +2159,18 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var point: Vector2 = event.position
 		if event.pressed:
+			_drawer_touch_index = event.index
 			_drawer_press_row = _drawer.row_at(point)
 			_drawer_press_star = _drawer_press_row >= 0 and _drawer.star_at(point) == _drawer_press_row
 			_drawer_drag_row = -1 if _drawer_press_star else _drawer_press_row
 			_touch_start = point
 			return
+		if event.index != _drawer_touch_index:
+			# Un dedo que el drawer no vio apoyar (p. ej. el que abrio el cajon con el hold del
+			# boton tactil): su release no decide nada. Antes cerraba el cajon apenas se levantaba
+			# ese dedo, y con el cajon cerrado no habia arrastre posible.
+			return
+		_drawer_touch_index = -1
 		if is_instance_valid(_drag_ghost):
 			_drop_option(point)
 			_end_drawer_row_drag()
@@ -2116,6 +2193,7 @@ func _start_drawer_row_drag(position: Vector2) -> void:
 	_drag_id = _drawer.row_id(_drawer_drag_row)
 	if _drag_id.empty():
 		return
+	_drag_from_drawer = true
 	_touch_press_msec = OS.get_ticks_msec() - DRAG_HOLD_MSEC # el gesto ya empezo en el press
 	if _drive_option_drag(position, false, true):
 		VirtualMouse.set_dragging(true)
@@ -2128,6 +2206,8 @@ func _end_drawer_row_drag() -> void:
 	_drawer_drag_row = -1
 	_drawer_drag_active = false
 	_drawer_drag_from_stick = false
+	_drawer_touch_index = -1
+	_drag_from_drawer = false
 
 
 func _enable_drawer_cursor(position: Vector2) -> void:

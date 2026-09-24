@@ -20,6 +20,11 @@ const MOUSE_WAKE_PIXELS := 2.0
 # que el tap de interactuar de PlayerControllerV2.
 const CLEAR_TAP_MAX_MSEC := 350
 const CLEAR_TAP_MAX_DISTANCE := 24.0
+# Fade de la UI tactil: apagado lento (el jugador despeja la pantalla), encendido
+# rapido (responder al toque sin latencia percibida). Se anima modulate.a del
+# Container; en tier LOW es instantaneo (ver _is_ui_fade_enabled).
+const UI_FADE_IN_TIME := 0.15
+const UI_FADE_OUT_TIME := 0.5
 
 var _mobile_ui: CanvasLayer = null
 var _touch_camera: TouchCameraControls = null
@@ -37,6 +42,10 @@ var _clear_tap_index := -1
 var _clear_tap_start := Vector2.ZERO
 var _clear_tap_msec := 0
 var _clear_tap_was_active := false
+# Estado del fade del Container: alpha actual, destino y velocidad (1/seg).
+var _ui_alpha := 1.0
+var _ui_fade_target := 1.0
+var _ui_fade_speed := 0.0
 
 func _ready() -> void:
 	layer = 100
@@ -201,6 +210,9 @@ func _spawn_mobile_ui() -> void:
 	
 	_mobile_ui = MobileUI.instance()
 	add_child(_mobile_ui)
+	# El root del .tscn nace visible=true; la visibilidad real la decide el refresh.
+	_mobile_ui.visible = false
+	_snap_ui_alpha(0.0)
 	_touch_trackers.clear()
 	_collect_touch_trackers(_mobile_ui)
 	
@@ -248,23 +260,89 @@ func _refresh_mobile_ui_visibility() -> void:
 	# player can skip. Camera-zone-only cinematics keep the full UI (handled below).
 	if show_skip:
 		_mobile_ui.visible = true
+		_snap_ui_alpha(1.0)
 		_mobile_ui.set_skip_visible(true)
 		_mobile_ui.set_zero_g_mode(false)
 		_set_gameplay_controls_visible(false)
 		_reset_move_joystick()
 		return
-	var was_visible := _mobile_ui.visible
-	_mobile_ui.visible = _is_touch_active and not _is_cinematic_active and not non_playable and not paused
-	if _mobile_ui.visible:
+	var should_show := _is_touch_active and not _is_cinematic_active and not non_playable and not paused
+	# Pausa, cinemática o escena no jugable sacan la UI del medio YA: queda encima del
+	# PauseMenu y no puede interceptar sus toques. El fade es solo para el apagado
+	# normal del modo táctil (timeout, clear tap, mouse real).
+	var instant := paused or _is_cinematic_active or non_playable
+	_apply_mobile_ui_visibility(should_show, instant)
+	if should_show:
 		_mobile_ui.set_skip_visible(false)
 		_mobile_ui.set_zero_g_mode(_is_zero_g)
 		_set_gameplay_controls_visible(true)
-	elif was_visible:
-		# The tree can pause (or a cinematic can take over) mid-drag: the joystick's
-		# _input freezes under PAUSE_MODE_STOP before it ever sees the touch-release,
-		# leaving it visually stuck and its move_* actions held down. Reset it directly
-		# here — direct calls still run on a paused node, only _input/_process don't.
+
+# Aplica el estado deseado respetando el fade. `instant` (y el tier LOW) saltan la
+# animación: el alpha va directo al destino y el visible se fija de una.
+func _apply_mobile_ui_visibility(should_show: bool, instant: bool) -> void:
+	if not is_instance_valid(_mobile_ui):
+		return
+	if should_show:
+		_mobile_ui.visible = true
+		if instant or not _is_ui_fade_enabled():
+			_snap_ui_alpha(1.0)
+		elif _ui_fade_target != 1.0:
+			_ui_fade_target = 1.0
+			_ui_fade_speed = 1.0 / UI_FADE_IN_TIME
+		return
+	if not _mobile_ui.visible:
+		return
+	# Empieza el ocultado: el joystick puede haber quedado con el dedo apoyado (el
+	# árbol se pausa o una cinemática toma el control en medio del arrastre), así que
+	# se resetea una sola vez, en la transición.
+	var was_hiding := _ui_fade_target == 0.0
+	if instant or not _is_ui_fade_enabled():
+		_snap_ui_alpha(0.0)
+		_mobile_ui.visible = false
+	else:
+		_ui_fade_target = 0.0
+		_ui_fade_speed = 1.0 / UI_FADE_OUT_TIME
+	if not was_hiding:
 		_reset_move_joystick()
+
+# El fade de la UI tactil es cosmético: en tier LOW (Mali/flat) se salta para no
+# pagar el blend por frame. El gate ausente (tests aislados) deja el fade activo.
+func _is_ui_fade_enabled() -> bool:
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate == null:
+		return true
+	return not bool(gate.is_low_tier())
+
+func _mobile_ui_container() -> Control:
+	if not is_instance_valid(_mobile_ui):
+		return null
+	return _mobile_ui.get_node_or_null("Container") as Control
+
+func _set_ui_alpha(alpha: float) -> void:
+	var container := _mobile_ui_container()
+	if container != null:
+		container.modulate.a = alpha
+
+# Fija el alpha sin animar (fin de fade, tier LOW, spawn, replay).
+func _snap_ui_alpha(alpha: float) -> void:
+	_ui_alpha = clamp(alpha, 0.0, 1.0)
+	_ui_fade_target = _ui_alpha
+	_ui_fade_speed = 0.0
+	_set_ui_alpha(_ui_alpha)
+
+func _step_mobile_ui_fade(delta: float) -> void:
+	if _ui_alpha == _ui_fade_target:
+		return
+	var step := _ui_fade_speed * delta
+	if _ui_alpha < _ui_fade_target:
+		_ui_alpha = min(_ui_alpha + step, _ui_fade_target)
+	else:
+		_ui_alpha = max(_ui_alpha - step, _ui_fade_target)
+	_set_ui_alpha(_ui_alpha)
+	# Terminado el fade out, recién ahí se deja de dibujar (y de interceptar toques).
+	if _ui_alpha == _ui_fade_target and _ui_fade_target == 0.0 and is_instance_valid(_mobile_ui):
+		_mobile_ui.visible = false
+
 
 func _reset_move_joystick() -> void:
 	if not is_instance_valid(_mobile_ui):
@@ -300,11 +378,14 @@ func _is_non_playable_scene() -> bool:
 # player calls this directly when it takes over.
 func set_replay_mode(active: bool) -> void:
 	if active and is_instance_valid(_mobile_ui):
+		# El replay pausa el árbol: no corre _process, así que no hay fade posible.
+		_snap_ui_alpha(0.0)
 		_mobile_ui.visible = false
 	else:
 		_refresh_mobile_ui_visibility()
 
 func _process(delta: float) -> void:
+	_step_mobile_ui_fade(delta)
 	# Los controles tactiles se COMEN el evento: set_input_as_handled() corta el grupo _input
 	# (SceneTree::_call_input_pause sale del bucle) y este autoload es el PADRE de todos ellos,
 	# o sea el ultimo en la fila. Arrastrando el joystick, _input() de aca no ve un solo touch:

@@ -29,6 +29,32 @@ Si el usuario dice "modo planear", NO toques código: devolvé plan + decisiones
 7. **Documentar**: actualizar el doc de sesión (`docs/agents/sessions/`) con hechos, estado y pasos
    exactos para retomar.
 
+## Loop vivo mientras corren los agentes (no dormirse)
+El usuario **no ve** a los subagentes: el chat es la única ventana. Delegar no es soltar y esperar;
+es seguir conduciendo. Mientras corren:
+
+- **Comentá en el chat** qué va haciendo/descubriendo cada agente, en updates cortos (qué archivo,
+  qué hallazgo, qué blocker). No narres cada tool call ni repitas estado sin cambios.
+- **Seguí recibiendo items**: cada observación nueva se captura, se ancla (`archivo:línea`) y se
+  suma al plan sin cortar la tanda en curso. Re-evaluá el ownership map: si el item toca un archivo
+  ya asignado, va al **mismo** agente o se serializa; si es archivo nuevo, cluster nuevo.
+- **No bloquees el turno esperando**: los subagentes son background; avanzá con anchoring, con los
+  items nuevos o con otro cluster mientras corren.
+- **Reportá hitos**: agente terminó, test verde/rojo, descubrimiento que cambia el plan, blocker.
+  Ajustá el plan y avisá; un blocker de un agente no frena a los demás (resolvelo o repartilo).
+- Al cerrar la tanda: integrá diffs, corré los tests cruzados y contá qué quedó y qué falta.
+
+## Devolución: lista breve de qué probar
+Cada vez que cerrás una tanda, **cerrá con una lista corta y accionable de qué probar**. No es un
+resumen del diff: es qué hacer con las manos y qué debería pasar. Formato sugerido, un ítem por
+observación, con el estado en que se prueba:
+
+- **Qué**: la acción concreta (p. ej. "START en pausa pasiva y dejar orbitar").
+- **Dónde**: device (Anbernic/touch), mando, desktop; y en qué tier (flat/low-end vs normal).
+- **Esperado**: el comportamiento observable que confirma el fix.
+- Marcá lo que **no** se puede validar headless (visual, feel, touch real, mando) para que el usuario
+  lo pruebe él. Separalo por plataforma cuando aplique.
+
 ## Convenciones de input (Odisea)
 - `START` = pausa pasiva on/off (nunca abre/activa el menú completo).
 - `SELECT` = libera el mouse; si ya está liberado, lo **recaptura** (nunca pausa/despausa).

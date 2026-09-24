@@ -78,6 +78,18 @@ export(bool) var enable_head_look = true
 export(float) var head_look_yaw_limit_deg = 55.0
 export(float) var head_look_pitch_limit_deg = 35.0
 export(float) var head_look_lerp_speed = 8.0
+# --- ORBIT HEAD LOOK (pausa pasiva) ---
+# La orbita mira a la camara, pero mas sutil y suave que el head-look de gameplay:
+# - Tope de PITCH propio y conservador: mirar la camara de cerca no debe doblar el cuello.
+#   El yaw sigue usando head_look_yaw_limit_deg (no cambia el maximo original).
+# - Cruce de hemisferio continuo: en vez de saltar entre "mirar a la camara" y la pose
+#   congelada, se mezclan segun aim.dot(fwd) (ver ORBIT_HEAD_LOOK_BLEND_DOT_MIN/MAX).
+# - Lerp mas lento (ORBIT_HEAD_LOOK_LERP_SPEED_FACTOR) para que el giro no sea brusco.
+# Valores tuneables a ojo en device.
+const ORBIT_HEAD_LOOK_PITCH_LIMIT_DEG := 20.0
+const ORBIT_HEAD_LOOK_LERP_SPEED_FACTOR := 0.5
+const ORBIT_HEAD_LOOK_BLEND_DOT_MIN := -0.15
+const ORBIT_HEAD_LOOK_BLEND_DOT_MAX := 0.35
 # Duración en segundos durante la cual consideramos que el salto acaba de iniciarse (buffer)
 export var jump_buffer_duration: float = 0.18
 export var debug_push_gizmo: bool = false
@@ -96,6 +108,11 @@ var _skeleton: Skeleton = null
 var _head_look_yaw := 0.0
 var _head_look_pitch := 0.0
 var _head_look_active := false
+# Orbita (pausa pasiva): congelamos la pose de cabeza del momento de pausar y solo
+# miramos la camara cuando esta en el hemisferio frontal.
+var _orbit_pose_captured := false
+var _orbit_frozen_yaw := 0.0
+var _orbit_frozen_pitch := 0.0
 # Acumulo el sprint sostenido para el debounce del neutral (ver step_animator).
 var _sprint_neutral_hold := 0.0
 var _skeleton_base_translation := Vector3.ZERO
@@ -845,7 +862,7 @@ static func tank_turn_head_yaw(move_vec: Vector2, is_tank_turn_mode: bool, yaw_l
 		return 0.0
 	return -sign(move_vec.x) * deg2rad(yaw_limit_deg)
 
-func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_turn_yaw_target: float = 0.0) -> void:
+func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_turn_yaw_target: float = 0.0, orbit_look: bool = false) -> void:
 	if not _skeleton:
 		return
 	var head_idx = _skeleton.find_bone("DEF-head")
@@ -861,6 +878,10 @@ func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_t
 			_head_look_pitch = 0.0
 		return
 
+	# Fuera de orbita reiniciamos la captura: la proxima pausa congela su propia pose.
+	if not orbit_look:
+		_orbit_pose_captured = false
+
 	# Marco del cuerpo en espacio del esqueleto. El modelo mira hacia +Z del pivot
 	# (misma convencion que _get_multi_tool_forward en PlayerControllerV2).
 	var skel_basis_inv: Basis = _skeleton.global_transform.basis.inverse()
@@ -868,19 +889,43 @@ func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_t
 	var up: Vector3 = (skel_basis_inv * global_transform.basis.y).normalized()
 	var right: Vector3 = up.cross(fwd).normalized()
 
-	var aim: Vector3 = (skel_basis_inv * -camera.global_transform.basis.z).normalized()
+	# En orbita apuntamos a la POSICION de la camara (no a su forward).
+	var aim: Vector3
+	if orbit_look:
+		var head_world: Vector3 = _skeleton.global_transform * _skeleton.get_bone_global_pose_no_override(head_idx).origin
+		aim = (skel_basis_inv * (camera.global_transform.origin - head_world)).normalized()
+	else:
+		aim = (skel_basis_inv * -camera.global_transform.basis.z).normalized()
 	var target_yaw := 0.0
 	var target_pitch := 0.0
 	# Con la camara detras, atan2 salta entre +PI y -PI y el clamp haria que la cabeza
-	# se tire de un limite al otro. En ese caso la devolvemos a neutro.
+	# se tire de un limite al otro. En gameplay la devolvemos a neutro; en orbita, a la
+	# pose congelada del momento de pausar.
 	if abs(tank_turn_yaw_target) > 0.0001:
 		target_yaw = tank_turn_yaw_target
+	elif orbit_look:
+		# Congelamos la pose del momento de pausar en la primera llamada de orbita.
+		if not _orbit_pose_captured:
+			_orbit_pose_captured = true
+			_orbit_frozen_yaw = _head_look_yaw
+			_orbit_frozen_pitch = _head_look_pitch
+		# Gate continuo: en vez de saltar entre "mirar a la camara" y "pose congelada" al
+		# cruzar el hemisferio (aim.dot(fwd) = 0), mezclamos ambas segun aim.dot(fwd). El
+		# factor llega a 0 en cuanto la camara pasa detras, asi que no hay salto de angulo.
+		var orbit_blend: float = smoothstep(ORBIT_HEAD_LOOK_BLEND_DOT_MIN, ORBIT_HEAD_LOOK_BLEND_DOT_MAX, aim.dot(fwd))
+		# Tope de pitch propio de orbita (mas conservador): la camara cerca doblaba el cuello.
+		var camera_yaw: float = clamp(atan2(aim.dot(right), aim.dot(fwd)), -deg2rad(head_look_yaw_limit_deg), deg2rad(head_look_yaw_limit_deg))
+		var camera_pitch: float = clamp(asin(clamp(aim.dot(up), -1.0, 1.0)), -deg2rad(ORBIT_HEAD_LOOK_PITCH_LIMIT_DEG), deg2rad(ORBIT_HEAD_LOOK_PITCH_LIMIT_DEG))
+		target_yaw = lerp(_orbit_frozen_yaw, camera_yaw, orbit_blend)
+		target_pitch = lerp(_orbit_frozen_pitch, camera_pitch, orbit_blend)
 	elif not return_to_neutral and aim.dot(fwd) > 0.0:
 		target_yaw = clamp(atan2(aim.dot(right), aim.dot(fwd)), -deg2rad(head_look_yaw_limit_deg), deg2rad(head_look_yaw_limit_deg))
 		target_pitch = clamp(asin(clamp(aim.dot(up), -1.0, 1.0)), -deg2rad(head_look_pitch_limit_deg), deg2rad(head_look_pitch_limit_deg))
 
 	# 1 - exp(-k*dt): identico a cualquier dt, a diferencia de clamp(k*dt).
-	var t: float = 1.0 - exp(-head_look_lerp_speed * _last_anim_dt)
+	# En orbita el giro es mas lento (factor < 1) para que la cabeza no sea brusca.
+	var lerp_speed: float = head_look_lerp_speed * (ORBIT_HEAD_LOOK_LERP_SPEED_FACTOR if orbit_look else 1.0)
+	var t: float = 1.0 - exp(-lerp_speed * _last_anim_dt)
 	_head_look_yaw = lerp(_head_look_yaw, target_yaw, t)
 	_head_look_pitch = lerp(_head_look_pitch, target_pitch, t)
 
@@ -899,13 +944,30 @@ func get_head_look() -> Vector2:
 	return Vector2(_head_look_yaw, _head_look_pitch) if _head_look_active else Vector2.ZERO
 
 # Solo la cabeza, sin avanzar el resto de la animacion: la pausa pasiva congela el
-# AnimationTree, pero la cabeza debe seguir a la camara de la orbita. Mismos limites que el
-# head-look normal (head_look_yaw_limit_deg / head_look_pitch_limit_deg). No-low-end.
+# AnimationTree, pero la cabeza debe seguir a la camara de la orbita. Usa el yaw maximo del
+# head-look normal, un pitch propio mas conservador (ORBIT_HEAD_LOOK_PITCH_LIMIT_DEG), un
+# cruce de hemisferio continuo y un lerp mas lento. Corre TAMBIEN en tier LOW: ahi el
+# head-look de gameplay se apaga por el desfase IDLE/fisica, pero la orbita no tiene ese
+# desfase porque la pose esta congelada (ver _ensure_anim_tree_frozen_for_orbit).
 func update_head_look_for_orbit(dt: float) -> void:
-	if _is_hyper_low_runtime() or not enable_head_look:
+	if not enable_head_look:
 		return
+	_ensure_anim_tree_frozen_for_orbit()
 	_last_anim_dt = max(dt, 0.0)
-	_update_head_look(false, false, 0.0)
+	_update_head_look(false, false, 0.0, true)
+
+# Resuelve el desincronismo que en tier LOW apaga el head-look de gameplay: ahi el
+# AnimationTree corre en IDLE (una pose por frame de render) y el override de cabeza se
+# escribe en fisica, dos relojes sobre la misma pose. En la orbita no hay tal desfase porque
+# el juego esta pausado y la pose esta quieta, pero _process recien congela el arbol cuando
+# detecta la pausa; forzarlo aca (idempotente, solo pausado) cierra la ventana de un frame
+# para que el primer override de orbita no compita con un paso de IDLE. No se restaura aca:
+# al despausar _process vuelve a llamar _configure_animation_runtime_policy() (IDLE en LOW).
+func _ensure_anim_tree_frozen_for_orbit() -> void:
+	if animation_tree == null:
+		return
+	if get_tree() != null and get_tree().paused and animation_tree.process_mode != AnimationTree.ANIMATION_PROCESS_MANUAL:
+		animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_MANUAL
 
 func _clear_bone_override(bone_idx: int) -> void:
 	if bone_idx < 0:
@@ -1343,7 +1405,9 @@ func _is_hyper_low_runtime() -> bool:
 func _configure_animation_runtime_policy() -> void:
 	# Politica por tier:
 	#  - Tier LOW: AnimationTree en IDLE (avanza por frame de render, fluido a 30 fps) y
-	#    head-look APAGADO (el override se escribe en fisica y con IDLE desincroniza).
+	#    head-look de GAMEPLAY APAGADO (el override se escribe en fisica y con IDLE
+	#    desincroniza). El head-look de la orbita pasiva si corre: la pausa congela el
+	#    arbol (ver _ensure_anim_tree_frozen_for_orbit), asi que no hay dos relojes.
 	#  - Resto (desktop/handheld rapido): paso MANUAL desde step_animator (una pose por
 	#    paso de fisica) con head-look ACTIVO: es el comportamiento original, sin wobble.
 	var low := _is_hyper_low_runtime()
