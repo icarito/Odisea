@@ -43,7 +43,9 @@ height = 0.01
 depth = 0.02
 
 [node name="HoloParticles" parent="ProjectorMesh" index="0"]
-emitting = false
+amount = 5
+emission_box_extents = Vector3( 0.3, 0, 0.004 )
+initial_velocity = 0.18
 
 [node name="ScreenMesh" parent="ScreenContainer" index="0"]
 width = 0.72

@@ -168,6 +168,9 @@ var _drawer_drag_active: bool = false
 # El arrastre de fila armado por el STICK (boton del HUD sostenido) se suelta al soltar el boton, no
 # al detener el stick. Distinto del hombro, que suelta al soltar el hombro.
 var _drawer_drag_from_stick: bool = false
+# El click primario (A/crouch) del drawer: arma el arrastre con el stick y, al soltarse sin
+# arrastrar, acciona la fila enfocada. Antes la activacion era el edge "a" (press).
+var _drawer_click_down: bool = false
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -929,6 +932,14 @@ func _unified_cursor_position(event_position: Vector2) -> Vector2:
 			return _virtual_mouse._position
 		if VirtualMouse.is_pointer_released() and _virtual_mouse.is_desktop_mouse_mode():
 			return _virtual_mouse._position
+	return event_position
+
+# En el drawer la posicion del evento solo se pisa con el cursor del MANDO (que llega warpeado al
+# centro por el mouse capturado). Con mouse real (capturado o suelto) event.position ya es la
+# punteria correcta, y pisarla con el cursor virtual rompia el click.
+func _drawer_cursor_point(event_position: Vector2) -> Vector2:
+	if is_instance_valid(_virtual_mouse) and _virtual_mouse._active:
+		return _virtual_mouse._position
 	return event_position
 
 # Mouse: levanta el panel al instante (como el radial), sin esperar el hold. Se apoya en el mismo
@@ -2016,6 +2027,15 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if event.device == TOUCH_MOUSE_DEVICE:
 			return
+		# Con una fila apoyada, el movimiento la levanta (mismo gesto que el radial: click +
+		# mover). Si no hay nada apoyado, el mouse desplaza la lista.
+		if _drawer_drag_row >= 0 or is_instance_valid(_drag_ghost):
+			var dpoint: Vector2 = _drawer_cursor_point(event.position)
+			if is_instance_valid(_drag_ghost):
+				_drive_option_drag(dpoint, false, true)
+			elif (dpoint - _touch_start).length() >= TOUCH_MIN_DRAG:
+				_start_drawer_row_drag(dpoint)
+			return
 		var k: float = UIScaleCompensator.scale_for(_drawer)
 		_drawer.scroll_by(event.relative.y / max(k, 0.001))
 		return
@@ -2032,23 +2052,39 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 			_drawer.step_focus(-1 if event.button_index == BUTTON_WHEEL_UP else 1)
 		return
 	if event is InputEventMouseButton:
-		if event.device == TOUCH_MOUSE_DEVICE or not event.pressed:
+		if event.device == TOUCH_MOUSE_DEVICE:
 			return
 		if event.button_index == BUTTON_RIGHT:
-			_dismiss_drawer()
-		elif event.button_index == BUTTON_LEFT:
-			var point: Vector2 = event.position
-			var star_row: int = _drawer.star_at(point)
-			if star_row >= 0:
-				_drawer.toggle_favorite_row(star_row, _suit_os())
+			if event.pressed:
+				_dismiss_drawer()
+			return
+		if event.button_index == BUTTON_LEFT:
+			# Mismo gesto que el radial y que el toque: el click primario apoya la fila y, si el
+			# cursor se mueve, la levanta para soltarla en un slot. Al soltar sin movimiento,
+			# acciona la fila apoyada (o la enfocada si el click cayo fuera de las filas).
+			var point: Vector2 = _drawer_cursor_point(event.position)
+			if event.pressed:
+				_drawer_press_row = _drawer.row_at(point)
+				_drawer_press_star = _drawer_press_row >= 0 and _drawer.star_at(point) == _drawer_press_row
+				_drawer_drag_row = -1 if _drawer_press_star else _drawer_press_row
+				_touch_start = point
+				return
+			if is_instance_valid(_drag_ghost):
+				_drop_option(point)
+				_end_drawer_row_drag()
+				return
+			var mrow: int = _drawer_press_row
+			var mstar: bool = _drawer_press_star
+			_end_drawer_row_drag()
+			if mrow < 0:
+				var focused: int = _drawer.focused_index()
+				if focused >= 0:
+					_drawer.activate_row(focused)
+				return
+			if mstar:
+				_drawer.toggle_favorite_row(mrow, _suit_os())
 			else:
-				var clicked_row: int = _drawer.row_at(point)
-				if clicked_row >= 0:
-					_drawer.activate_row(clicked_row)
-				else:
-					var focused: int = _drawer.focused_index()
-					if focused >= 0:
-						_drawer.activate_row(focused)
+				_drawer.activate_row(mrow)
 		return
 	if event is InputEventScreenTouch:
 		var point: Vector2 = event.position
@@ -2127,7 +2163,10 @@ func _drive_drawer_shoulder_drag(input) -> void:
 # stick, en movimiento, levanta la fila enfocada. Sin el boton sostenido el stick sigue siendo
 # scroll de la lista (navegacion por foco), y por eso el arma exige movimiento.
 func _drawer_stick_drag_armed(input) -> bool:
-	if not bool(input.hud_mode):
+	# El gesto lo arma el CLICK primario (mismo boton que el radial: el click del mouse virtual,
+	# el mismo que crouch), no el boton del HUD. Solo con el stick en movimiento.
+	var click_down: bool = bool(input.tool_fire_primary) or bool(input.crouch)
+	if not click_down:
 		return false
 	var move := Vector2(input.move_vec.x, input.move_vec.y)
 	return bool(input.analog_move_active) or move.length_squared() > MOVE_GESTURE_DEADZONE_SQ
@@ -2145,29 +2184,38 @@ func _drive_drawer(input, delta: float) -> void:
 		return
 	if _drawer_gamepad_active(input):
 		_set_virtual_mouse_enabled(false)
+	# Click primario = mismo boton que el radial / crouch. Arma el arrastre de la fila enfocada.
+	var click_down: bool = bool(input.tool_fire_primary) or bool(input.crouch)
+	var dropped := false
 	var shoulder: int = int(input.hud_slot) - 1
 	if shoulder >= 0:
 		_drawer_drag_from_stick = false
 		_drive_drawer_shoulder_drag(input)
 	elif _drawer_drag_from_stick:
-		# Arrastre armado por el stick: vive mientras el boton del HUD este sostenido; soltarlo
+		# Arrastre armado por el click + stick: vive mientras el click este sostenido; soltarlo
 		# suelta la fila, aunque el stick haya vuelto al centro.
-		if bool(input.hud_mode):
+		if click_down:
 			_drive_drawer_shoulder_drag(input)
 		else:
 			_drop_drawer_drag()
+			dropped = true
 	elif _drawer_drag_active:
 		_drop_drawer_drag()
+		dropped = true
 	elif _drawer_stick_drag_armed(input):
 		_drive_drawer_shoulder_drag(input)
 		_drawer_drag_from_stick = _drawer_drag_active
 	else:
 		_drawer.drive(-float(input.move_vec.y), int(input.hud_nav), delta)
+	# Soltar el click SIN haber arrastrado acciona la fila enfocada (antes era el edge "a").
+	if not _drawer_drag_active and not dropped and _drawer_click_down and not click_down:
+		var focused: int = _drawer.focused_index()
+		if focused >= 0:
+			_drawer.activate_row(focused)
+	_drawer_click_down = click_down
 	if _drawer_drag_active:
-		return # arrastrando: A/X/B no accionan la fila
-	if edges["a"]:
-		_drawer.activate()
-	elif edges["x"]:
+		return # arrastrando: X/B no accionan la fila
+	if edges["x"]:
 		_drawer.toggle_favorite(_suit_os())
 	elif edges["b"]:
 		# B vuelve: al dial si habia uno, o al juego si se entro directo.

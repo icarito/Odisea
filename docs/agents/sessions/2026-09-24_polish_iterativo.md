@@ -103,6 +103,27 @@ Ownership disjunto; no commitean; corren tests puntuales y reportan. IDs de sesi
 Al retomar: `git status`/`git diff`, revisar los diffs de cada agente contra este ownership map,
 correr los tests de cada sistema, y recién ahí commit/push + build/deploy.
 
+## Entrega ronda 2 (2026-09-24)
+- **Commit**: `bd5f9d7c` (35 archivos) pusheado a `main` → CI/nightly en cocción.
+- **Tests de integración**: 22 suites cruzadas → **22 passed** (pause, hud_mode, virtual_mouse,
+  criopod, holoterminal, elevator, replay, flashlight/gate, widgets, etc.).
+- **PCK ARM64**: `build/linux_arm64/odisea.pck`, `316314960` B, md5 `7aff64d92e63378e99550ad48c051206`.
+- **Deploy Anbernic**: copiado a `root@angel.local:/storage/roms/ports/odisea/odisea.pck`; md5 remoto ==
+  local. Backup del anterior en `odisea.pck.prev`. Juego detenido; listo para lanzar desde Ports.
+
+### A probar en device (ronda 2)
+1. **Haz del holograma** (pirámide) en terminales y en low-end/flat.
+2. **Widgets**: semi-transparencia, fuentes (Silkscreen/Ac437), auto-hide lento en gameplay.
+3. **Input**: SELECT alterna release/recaptura; START no libera el cursor en pausa pasiva; Jump/B = back
+   en UI (probar que cierre el menú de pausa y el HUD).
+4. **Drag**: asa de la Pantalla con cursor virtual; drag del Drawer con stick (ver incertidumbre del
+   arming: se arma manteniendo el botón HUD/TAB, como el radial).
+5. **Criopod**: interactuar en cualquier parte del pod abre su Pantalla; botón "Abrir" del widget con
+   transición de cámara.
+6. **Linterna** en low-end/flat: el mesh del hombro ya no queda negro.
+7. Ronda 2 anotada sin implementar: **C1** vidrios claros en flat, **C2** PersonCard ausente en low-end,
+   **C3** traje emisivo de Elías según ambiente.
+
 ### Resultados
 - **F (B4) — ✅ hecho.** `SuitOSWidgetHost.gd` (+`_idle_*`, `set_process(true)`, hooks `_note_activity`)
   y nuevo `test_widget_idle_fade.gd`. Timeout dinámico desde `MobileUIManager.touch_idle_timeout`

@@ -245,6 +245,14 @@ func _input(event):
 	# abria el menu en vez de rechazar la solicitud.
 	if _pairing_prompt_open():
 		return
+	# Start (JOY_START): SOLO alterna la pausa pasiva. Si el mundo esta pausado despausa
+	# (cualquier pausa); si no, pausa pasiva. Nunca abre ni activa el menu completo. Va
+	# primero y se consume siempre para que nada mas lo intercepte (ni la GUI con ui_accept).
+	if event is InputEventJoypadButton and (event as InputEventJoypadButton).button_index == JOY_START \
+			and (event as InputEventJoypadButton).pressed:
+		call_deferred("toggle_quick_pause")
+		get_tree().set_input_as_handled()
+		return
 	# Cualquier input con el menu visible reinicia el temporizador de auto-hide.
 	if get_tree().paused and not _menu_hidden_by_focus:
 		_menu_idle_timer = 0.0
@@ -279,16 +287,7 @@ func _input(event):
 			_reveal_passive_menu()
 		get_tree().set_input_as_handled()
 		return
-	# Start (JOY_START): SOLO pausa/despausa la pausa pasiva. Nunca abre ni activa el menu
-	# completo (con el menu visible se consume sin hacer nada). Se consume siempre para que
-	# no caiga a ui_accept.
-	if event is InputEventJoypadButton and (event as InputEventJoypadButton).button_index == JOY_START \
-			and (event as InputEventJoypadButton).pressed \
-			and _can_pause_in_current_scene():
-		if (not get_tree().paused) or _menu_hidden_by_focus:
-			call_deferred("toggle_quick_pause")
-		get_tree().set_input_as_handled()
-		return
+	# Start (JOY_START) se maneja arriba, antes de todo.
 	if not is_pause_request(event):
 		return
 	if not _can_pause_in_current_scene():

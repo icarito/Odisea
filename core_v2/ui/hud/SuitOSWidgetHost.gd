@@ -694,7 +694,13 @@ func _context_icon_style() -> StyleBoxFlat:
 
 func _widget_panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = WIDGET_BG
+	# B3a: alfa de panel segun tier (LOW = opaco por overdraw). Inline para no crear un
+	# preload ciclico con HudViewMount.
+	var alpha: float = 0.7
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate != null and gate.has_method("is_low_tier") and gate.is_low_tier():
+		alpha = 1.0
+	style.bg_color = Color(WIDGET_BG.r, WIDGET_BG.g, WIDGET_BG.b, alpha)
 	style.border_color = WIDGET_BORDER
 	style.set_border_width_all(1)
 	style.content_margin_left = 7.0

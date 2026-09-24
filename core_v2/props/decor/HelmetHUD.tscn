@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=2]
+[gd_scene load_steps=23 format=2]
 
 [ext_resource path="res://core_v2/components/CameraZone.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/components/SFXComponentV2.gd" type="Script" id=2]
@@ -10,7 +10,6 @@
 [ext_resource path="res://assets/sfx/electronic-buzzing-sound-29464.mp3" type="AudioStream" id=9]
 [ext_resource path="res://core_v2/visual/CinematicPathRig.gd" type="Script" id=11]
 [ext_resource path="res://core_v2/things/HoloTerminalViewportInput.gd" type="Script" id=12]
-[ext_resource path="res://core_v2/props/controls/HoloProjectorBeam.tscn" type="PackedScene" id=13]
 
 [sub_resource type="BoxShape" id=18]
 extents = Vector3( 0.15, 0.15, 0.175 )
@@ -114,9 +113,22 @@ height = 0.3
 depth = 0.35
 material = SubResource( 6 )
 
-[node name="HoloParticles" parent="." instance=ExtResource( 13 )]
+[node name="HoloParticles" type="CPUParticles" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0 )
 emitting = false
+amount = 12
+randomness = 1.0
+lifetime_randomness = 1.0
+mesh = SubResource( 10 )
+emission_shape = 2
+emission_box_extents = Vector3( 0.5, 0, 0.005 )
+direction = Vector3( 0, 1, 0 )
+spread = 0.0
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 0.5
+radial_accel = 1.0
+scale_amount = 0.5
+color = Color( 0, 1, 1, 0.501961 )
 
 [node name="ProjectorMesh" type="CSGBox" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0 )
