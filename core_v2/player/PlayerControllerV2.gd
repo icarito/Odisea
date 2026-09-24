@@ -28,6 +28,13 @@ export(float) var mouse_sensitivity := 0.005
 export(bool) var invert_mouse_y := false
 export(float) var joy_look_sensitivity := 15.0
 export(float) var joy_move_sensitivity := 1.0
+# D-pad como camara: velocidad maxima (multiplicador), paso de rampa por tick y curva de
+# aceleracion (calibrable en el editor). La rampa sube mientras se sostiene el D-pad y se
+# resetea al soltar; no toca la sensibilidad del stick.
+const DEFAULT_DIGITAL_CAMERA_CURVE = preload("res://data/curves/Digital_Camera_Accel.tres")
+export(float) var digital_camera_max_scale := 2.5
+export(float) var digital_camera_ramp_per_tick := 0.03
+export(Curve) var digital_camera_accel_curve: Curve = DEFAULT_DIGITAL_CAMERA_CURVE
 export(float) var snap_length := 0.25
 # Floor snap used while standing on a WorldRotator-driven moving terrace (e.g.
 # OdiseaExterior). The whole world rotates around the player and the floor StaticBody
@@ -1143,6 +1150,29 @@ func restore_camera_view(view: Dictionary) -> void:
 		_cached_cam.fov = base_fov
 	yaw_deg = rad2deg(yaw)
 	pitch_deg = rad2deg(pitch)
+
+# Zoom visual de la orbita pasiva (T5): mueve solo el spring arm. No toca la vista guardada;
+# restore_camera_view la devuelve al reanudar. El arm tiene que procesar en pausa (ver
+# set_idle_orbit_camera_active) para que spring_length mueva current_length.
+func set_idle_orbit_zoom(spring_length: float) -> void:
+	if spring_length <= 0.0:
+		return
+	if _cached_spring_arm == null:
+		_cached_spring_arm = _find_spring_arm(camera_rig)
+	if _cached_spring_arm == null:
+		return
+	current_spring_length = spring_length
+	_cached_spring_arm.spring_length = spring_length
+
+# El KinematicArm3D corre en _physics_process y por defecto queda pausado con el arbol: en la
+# orbita pasiva tiene que seguir procesando para que el zoom (spring_length -> current_length)
+# y la colision de camara funcionen. Solo durante la orbita; al salir vuelve a INHERIT.
+func set_idle_orbit_camera_active(active: bool) -> void:
+	if _cached_spring_arm == null:
+		_cached_spring_arm = _find_spring_arm(camera_rig)
+	if _cached_spring_arm == null:
+		return
+	_cached_spring_arm.pause_mode = Node.PAUSE_MODE_PROCESS if active else Node.PAUSE_MODE_INHERIT
 
 func align_exit_from_cinematic(target_cam: Camera) -> void:
 	"""
@@ -2610,6 +2640,9 @@ func step(dt: float, input: InputDataV2) -> void:
 		input_provider.camera_response_curve = movement_logic.camera_response_curve
 		input_provider.joy_look_sensitivity = joy_look_sensitivity
 		input_provider.joy_move_sensitivity = joy_move_sensitivity
+		input_provider.digital_camera_max_scale = digital_camera_max_scale
+		input_provider.digital_camera_ramp_per_tick = digital_camera_ramp_per_tick
+		input_provider.digital_camera_accel_curve = digital_camera_accel_curve
 		# hardware_look_sensitivity can be 1.0 or tied to mouse_sensitivity if needed
 
 	if camera_input_locked and input_provider:

@@ -82,6 +82,10 @@ func _ready() -> void:
 	_apply_light_params()
 	_update_cone_transform()
 	set_enabled(enabled)
+	# El nodo nace en el origen del rig: montarlo apenas hay arbol/camara evita el salto
+	# visible del origen al hombro antes del primer paso de fisica.
+	if enabled:
+		call_deferred("_update_mount", 0.0)
 	# La linterna nace apagada y la escena nunca compila su variante con spot ni el
 	# material del cono hasta el primer "L". En WebGL eso es un freeze medido de ~3.4 s
 	# (compilacion sincronica del primer draw). Se precalienta detras de la pantalla de
@@ -258,6 +262,11 @@ func set_enabled(val: bool) -> void:
 		val = false
 	enabled = val
 	if is_inside_tree():
+		if enabled:
+			# Encender no debe teletransportar la linterna del origen del rig al hombro: se
+			# monta ANTES de hacerse visible, asi el primer frame ya sale en su lugar.
+			_aim_initialized = false
+			_update_mount(0.0)
 		if _spot_light:
 			_spot_light.visible = enabled
 		if _volumetric_cone:

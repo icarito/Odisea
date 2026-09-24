@@ -318,7 +318,7 @@ initial_velocity_random = 0.6
 color = Color( 0.172549, 0.607843, 0.615686, 1 )
 
 [node name="HelmetFlashlight" parent="." instance=ExtResource( 72 )]
-spot_angle = 22.0
+spot_angle = 32.0
 shadow_enabled = true
 
 [node name="GroundRay" type="RayCast" parent="."]

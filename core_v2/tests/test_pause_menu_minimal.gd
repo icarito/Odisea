@@ -55,14 +55,20 @@ func test_right_mouse_button_releases_the_mouse_but_never_pauses() -> void:
 	assert_bool(PauseManager.is_pause_request(esc)).is_true()
 
 
-func test_gamepad_select_pauses_and_start_accepts() -> void:
-	# Select (JOY_SELECT) es ui_cancel y por lo tanto el boton de pausa/cancelar del mando.
-	# Start (JOY_START) esta en ui_accept, pero PauseManager lo intercepta antes: alterna la
-	# pausa en vez de confirmar en el menu (revision 2026-09-19). skip sigue en X.
+func test_gamepad_select_does_not_pause_and_start_accepts() -> void:
+	# T6 (2026-09-24): Select (JOY_SELECT) ya NO es pausa. En juego libera el puntero e inhibe
+	# el control del jugador sin congelar el mundo; durante la pausa no hace nada. Pausar es
+	# ESC/back. Start (JOY_START) sigue en ui_accept y PauseManager lo intercepta solo con el
+	# menu oculto (con el menu visible cae a ui_accept y activa el item enfocado).
 	var select := InputEventJoypadButton.new()
 	select.button_index = JOY_SELECT
 	select.pressed = true
-	assert_bool(PauseManager.is_pause_request(select)).is_true()
+	assert_bool(PauseManager.is_pause_request(select)).is_false()
+
+	var esc := InputEventKey.new()
+	esc.scancode = KEY_ESCAPE
+	esc.pressed = true
+	assert_bool(PauseManager.is_pause_request(esc)).is_true()
 
 	var start := InputEventJoypadButton.new()
 	start.button_index = JOY_START

@@ -35,6 +35,30 @@ func _ready() -> void:
 func default_screen_title() -> String:
 	return tr("Criocápsula")
 
+# FD-297: abrir la Criocapsula desde el HUD pide la camara de foco del terminal, igual que el
+# HangingDisplay. La base delega en terminal.focus(), pero desde afuera _pick_focus_rig()
+# devuelve null a proposito (asi la camara del jugador no queda atrapada al operar la escotilla
+# en gameplay, FD-307) y entonces no se pide ningun rig: la transicion no ocurre. Aca, si el
+# terminal no eligio rig, se pide explicitamente el FocusedRig exterior, el mismo que
+# view_transition_origin() devuelve como origen de la transicion. Salir lo libera por el camino
+# normal (_exit_focus_mode -> _release_focus_camera_request) con restore_view_on_exit, sin
+# duplicar CinematicManager. Solo actua desde el HUD: si el terminal esta enfocado, el rig de
+# afuera ya existia y la pantalla se monta como con cualquier HoloTerminal.
+func enter_focus_mode() -> void:
+	var terminal = _get_terminal()
+	if not is_instance_valid(terminal):
+		.enter_focus_mode()
+		return
+	var picked_rig = terminal.call("_pick_focus_rig") if terminal.has_method("_pick_focus_rig") else null
+	.enter_focus_mode()
+	if is_instance_valid(picked_rig):
+		return
+	if not (terminal.has_method("is_focused") and terminal.is_focused()):
+		return
+	var rig = terminal.get_node_or_null("CinematicSetup/FocusedRig")
+	if is_instance_valid(rig) and rig.is_inside_tree() and terminal.has_method("_request_focus_camera_rig"):
+		terminal.call("_request_focus_camera_rig", rig)
+
 # La capsula se mira desde adentro, contra la pared clara del domo: sin piso de vidrio la
 # ficha compite con el mundo que se ve a traves y no se lee.
 # HoloScreen: EMISSION = texel * albedo.rgb * emission_energy, o sea la emision es

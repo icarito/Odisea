@@ -52,7 +52,7 @@ light_color = Color( 0.85, 0.95, 1, 1 )
 light_energy = 7.0
 spot_range = 5.9
 spot_attenuation = 0.5
-spot_angle = 22.0
+spot_angle = 32.0
 spot_angle_attenuation = 2.14355
 
 [node name="FillLight" type="OmniLight" parent="."]

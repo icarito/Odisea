@@ -1523,11 +1523,13 @@ func _show_screen(id: String) -> void:
 		if screen.has_method("view_requires_input") and screen.view_requires_input():
 			_active_focused_screen = screen
 			_set_surface_cursor_uv(Vector2(0.5, 0.5))
-			# El cursor compartido sigue recibiendo joystick, pero se dibuja dentro del
-			# Viewport de la pantalla enfocada.
+			# Cursor ABSOLUTO sobre la superficie, igual que las pantallas con foco: el
+			# overlay proyecta el puntero real (o el del mando) con _screen_surface_uv.
+			# El camino relativo (_focus_cursor_scale + delta) hacia que el cursor de la
+			# Consola derivara y no cayera bajo el puntero.
 			if is_instance_valid(_virtual_mouse):
-				_virtual_mouse.visible = false
-				_virtual_mouse.relative_target_scale = _focus_cursor_scale(screen)
+				_virtual_mouse.relative_target_scale = Vector2.ZERO
+			_set_focus_cursor_over_surface(false)
 			if screen.has_method("enter_focus_mode"):
 				screen.enter_focus_mode()
 		var snapshot: Dictionary = screen.widget_snapshot() if screen.has_method("widget_snapshot") else {"id": id}

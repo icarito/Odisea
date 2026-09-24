@@ -30,9 +30,45 @@ var touch_camera_sensitivity := 0.003
 const JOY_DEADZONE := 0.2
 const DIGITAL_ZOOM_SENSITIVITY := 0.1
 
+# D-pad: aceleracion progresiva hasta un tope. La rampa avanza por tick consumido
+# (determinista, nunca por frames dibujados) y vuelve a 1.0 al soltar. El tope, el paso y
+# la curva de aceleracion se configuran desde PlayerControllerV2. Solo afecta a la rama
+# digital (D-pad).
+var digital_camera_max_scale := 2.5
+var digital_camera_ramp_per_tick := 0.03
+var digital_camera_accel_curve: Curve
+var _digital_camera_ramp := 0.0
+
 var _touch_camera_drag := Vector2.ZERO
 var _touch_camera_zoom := 0.0
 var _axis_profile_resolved := false
+var _cursor_node_cache = null
+
+# Puntero liberado por el juego (no por una UI): el juego prendio el cursor virtual para
+# navegar sin controlar al personaje. Distinto de una UI que pide el cursor (menu, HUD,
+# popup): ahi _wanted_by_requester() es true y el input debe seguir llegando.
+func _gameplay_pointer_release_suppressed() -> bool:
+	var tree = Engine.get_main_loop() as SceneTree
+	if tree == null or tree.paused:
+		return false
+	# El modo HUD es una UI: su provider debe seguir leyendo el hardware.
+	var suit = tree.root.get_node_or_null("SuitOS")
+	if suit != null and suit.has_method("is_hud_mode_active") and suit.is_hud_mode_active():
+		return false
+	var cursor = _cursor_node_cache
+	if cursor == null or not is_instance_valid(cursor):
+		cursor = null
+		var group = tree.get_nodes_in_group("virtual_mouse")
+		if not group.empty():
+			cursor = group[0]
+		_cursor_node_cache = cursor
+	if cursor == null:
+		return false
+	if not bool(cursor.get("_released")):
+		return false
+	if cursor.has_method("_wanted_by_requester") and bool(cursor.call("_wanted_by_requester")):
+		return false
+	return true
 var _touch_ui_hint_resolved := false
 var _touch_ui_hint := false
 # Espejo de la preferencia del jugador (Opciones -> Invertir X / Invertir Y), solo
@@ -340,7 +376,15 @@ func _read_live_input() -> InputDataV2:
 			# click del stick y el D-pad, asi que con el stick de movimiento activo no inclina.
 			if joy_move.length() > 0.4:
 				digital_look.y = 0.0
-			mouse_d += digital_look * joy_look_sensitivity
+			if digital_look.length_squared() > 0.001:
+				_digital_camera_ramp = min(_digital_camera_ramp + digital_camera_ramp_per_tick, 1.0)
+			else:
+				_digital_camera_ramp = 0.0
+			var ramp: float = _digital_camera_ramp
+			if digital_camera_accel_curve:
+				ramp = clamp(digital_camera_accel_curve.interpolate(_digital_camera_ramp), 0.0, 1.0)
+			var digital_scale: float = lerp(1.0, digital_camera_max_scale, ramp)
+			mouse_d += digital_look * joy_look_sensitivity * digital_scale
 
 		# --- TOUCH CAMERA (from TouchCameraControls) ---
 		if _touch_camera_drag.length_squared() > 0.001:
@@ -366,7 +410,39 @@ func _read_live_input() -> InputDataV2:
 	mouse_delta_accum = Vector2()
 	zoom_delta_accum = 0.0
 
+	# Gate global: puntero liberado por el juego en gameplay (no HUD, no pausa, sin UI que lo
+	# pida). Se anulan SOLO los intents de gameplay, para que el hardware no llegue a ningun
+	# control (jugador, Cargol, herramientas). El cursor virtual se mueve por las acciones
+	# cursor_* fuera de este proveedor, y los campos de HUD (hud_nav/hud_slot/hud_mode) se
+	# conservan porque no son control de personaje. Recapturar (clic izquierdo) lo levanta solo.
+	if _gameplay_pointer_release_suppressed():
+		_zero_gameplay_intents(d)
+
 	return d
+
+# Neutraliza el control de personaje/herramientas sin tocar los campos de HUD.
+func _zero_gameplay_intents(d: InputDataV2) -> void:
+	d.move_vec = Vector2.ZERO
+	d.analog_move_active = false
+	d.jump = false
+	d.sprint = false
+	d.crouch = false
+	d.interact = false
+	d.interact_held = false
+	d.focus = false
+	d.rotate_left = false
+	d.rotate_right = false
+	d.roll_left = false
+	d.roll_right = false
+	d.tool_fire_primary = false
+	d.tool_fire_secondary = false
+	d.tool_next_mode = false
+	d.tool_prev_mode = false
+	d.cargol_ability = false
+	d.mouse_delta = Vector2.ZERO
+	d.zoom_delta = 0.0
+	d.fov_override = -1.0
+	d.hardware_mouse_active = false
 
 
 func set_replay_data(data: Array):

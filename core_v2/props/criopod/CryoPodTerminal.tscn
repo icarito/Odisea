@@ -74,6 +74,9 @@ current = false
 [node name="LookAt" parent="CinematicSetup/CinematicPathRig/PathFollow/Camera" index="0"]
 transform = Transform( 0.933801, -0.00673025, -0.357728, -2.72645e-07, 0.999823, -0.0188113, 0.357791, 0.0175661, 0.933637, 0, 0, 0 )
 
+[node name="FocusedRig" parent="CinematicSetup" index="2"]
+transition_time = 1.3
+
 [node name="Camera" parent="CinematicSetup/FocusedRig" index="0"]
 current = true
 

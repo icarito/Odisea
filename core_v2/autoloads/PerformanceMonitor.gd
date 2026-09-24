@@ -117,6 +117,16 @@ func _process(_delta):
 			profiling_end("PerformanceMonitor")
 		return
 
+	# Una ventana sin foco/tapada la limita el OS: la caida de FPS no es una regresion
+	# real, asi que no muestreamos ni avisamos. Resetear el baseline evita que el primer
+	# frame al recuperar foco parezca un gap gigante.
+	if not _suppress_runtime_logs and not OS.is_window_focused():
+		_last_process_tick_usec = 0
+		_last_fps = Performance.get_monitor(Performance.TIME_FPS)
+		if _profiling_enabled:
+			profiling_end("PerformanceMonitor")
+		return
+
 	# Optimization for HTML5/Mobile: throttle metric gathering to 10Hz
 	if OS.get_name() == "HTML5" or OS.has_touchscreen_ui_hint():
 		if Engine.get_idle_frames() % 6 != 0:

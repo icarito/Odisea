@@ -84,6 +84,29 @@ var _shake_base_h_offset := 0.0
 var _shake_base_v_offset := 0.0
 var _shake_base_roll_degrees := 0.0
 
+# --- Idle orbit (pausa pasiva) ---
+# Orbita automatica de camara alrededor del jugador mientras el mundo esta pausado y el
+# menu de pausa esta oculto. Es VISUAL PURA: escribe solo el basis del CameraRig, nunca
+# yaw/pitch del controller ni el stream de input. Al reanudar se devuelve la vista
+# determinista con una transicion corta antes de despausar.
+const IDLE_ORBIT_YAW_RATE := 0.30
+const IDLE_ORBIT_PITCH_RATE := 0.45
+const IDLE_ORBIT_PITCH_AMP := 0.16
+const IDLE_ORBIT_ZOOM_AMP := 0.40
+const IDLE_ORBIT_MAX_PITCH_DEG := 60.0
+const IDLE_ORBIT_RETURN_DURATION := 0.35
+
+signal idle_orbit_return_finished
+
+var _idle_orbit_active := false
+var _idle_orbit_paused := false
+var _idle_orbit_player = null
+var _idle_orbit_elapsed := 0.0
+var _idle_orbit_base_view: Dictionary = {}
+var _idle_orbit_return_active := false
+var _idle_orbit_return_elapsed := 0.0
+var _idle_orbit_return_from := Basis.IDENTITY
+
 # --- VCamera System ---
 var _vcam_brain: Node = null
 var _vcam_active_camera: Node = null
@@ -489,7 +512,142 @@ func get_control_mode() -> int:
 	return current_control_mode
 
 func is_active() -> bool:
-	return active_rig != null or not _active_requests.empty() or _transition_active or _shake_active or _vcam_active_camera != null
+	return active_rig != null or not _active_requests.empty() or _transition_active or _shake_active or _vcam_active_camera != null \
+		or _idle_orbit_active or _idle_orbit_return_active
+
+func is_idle_orbit_active() -> bool:
+	return _idle_orbit_active
+
+func is_idle_orbit_return_active() -> bool:
+	return _idle_orbit_return_active
+
+# Arranca la orbita pasiva sobre el jugador. Guarda la vista determinista para restaurarla.
+func begin_idle_orbit(player) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	if _idle_orbit_active:
+		_idle_orbit_paused = false
+		return true
+	if _idle_orbit_return_active:
+		_finish_idle_orbit_return()
+	if not player.has_method("capture_camera_view") or not player.has_method("restore_camera_view"):
+		return false
+	if player.get("camera_rig") == null:
+		return false
+	_idle_orbit_player = player
+	_idle_orbit_elapsed = 0.0
+	_idle_orbit_base_view = player.capture_camera_view()
+	_idle_orbit_active = true
+	_idle_orbit_paused = false
+	_idle_orbit_return_active = false
+	if player.has_method("set_idle_orbit_camera_active"):
+		player.set_idle_orbit_camera_active(true)
+	return true
+
+# Congela la orbita en la pose actual (p. ej. al mostrarse el menu de pausa) sin devolver la
+# camara: al ocultarse el menu se retoma desde donde estaba.
+func pause_idle_orbit() -> void:
+	if _idle_orbit_active:
+		_idle_orbit_paused = true
+
+func resume_idle_orbit() -> void:
+	if _idle_orbit_active:
+		_idle_orbit_paused = false
+
+func is_idle_orbit_paused() -> bool:
+	return _idle_orbit_paused
+
+# Corta la orbita y devuelve la vista determinista de inmediato (sin transicion).
+func cancel_idle_orbit_immediate() -> void:
+	if not _idle_orbit_active:
+		return
+	_idle_orbit_active = false
+	_idle_orbit_paused = false
+	_restore_idle_orbit_view()
+	_release_idle_orbit_camera()
+	_idle_orbit_player = null
+
+# Inicia el tween de vuelta a la vista determinista. El llamador debe esperar la senal
+# idle_orbit_return_finished antes de despausar la fisica.
+func start_idle_orbit_return() -> void:
+	if not _idle_orbit_active:
+		emit_signal("idle_orbit_return_finished")
+		return
+	_idle_orbit_active = false
+	_idle_orbit_paused = false
+	var player = _idle_orbit_player
+	if player == null or not is_instance_valid(player) or player.get("camera_rig") == null:
+		_restore_idle_orbit_view()
+		_idle_orbit_player = null
+		emit_signal("idle_orbit_return_finished")
+		return
+	_idle_orbit_return_from = (player.get("camera_rig") as Spatial).transform.basis
+	_idle_orbit_return_elapsed = 0.0
+	_idle_orbit_return_active = true
+
+func _idle_orbit_target_basis(player) -> Basis:
+	return player.camera_basis_prefix * Basis(Vector3.UP, player.yaw) * Basis(Vector3.RIGHT, player.pitch)
+
+func _restore_idle_orbit_view() -> void:
+	var player = _idle_orbit_player
+	if player != null and is_instance_valid(player) and player.has_method("restore_camera_view"):
+		player.restore_camera_view(_idle_orbit_base_view)
+
+func _finish_idle_orbit_return() -> void:
+	_idle_orbit_return_active = false
+	_idle_orbit_paused = false
+	_restore_idle_orbit_view()
+	_release_idle_orbit_camera()
+	_idle_orbit_player = null
+	emit_signal("idle_orbit_return_finished")
+
+func _release_idle_orbit_camera() -> void:
+	var player = _idle_orbit_player
+	if player != null and is_instance_valid(player) and player.has_method("set_idle_orbit_camera_active"):
+		player.set_idle_orbit_camera_active(false)
+
+func _update_idle_orbit(dt: float) -> void:
+	if _idle_orbit_return_active:
+		var player = _idle_orbit_player
+		var rig = player.get("camera_rig") if player != null and is_instance_valid(player) else null
+		if player == null or not is_instance_valid(player) or rig == null:
+			_finish_idle_orbit_return()
+			return
+		_idle_orbit_return_elapsed += max(0.0, dt)
+		var t: float = clamp(_idle_orbit_return_elapsed / max(0.001, IDLE_ORBIT_RETURN_DURATION), 0.0, 1.0)
+		t = -0.5 * (cos(PI * t) - 1.0)
+		rig.transform.basis = _idle_orbit_return_from.slerp(_idle_orbit_target_basis(player), t)
+		rig.force_update_transform()
+		if _idle_orbit_return_elapsed >= IDLE_ORBIT_RETURN_DURATION:
+			_finish_idle_orbit_return()
+		return
+
+	if not _idle_orbit_active:
+		return
+	var player = _idle_orbit_player
+	var rig = player.get("camera_rig") if player != null and is_instance_valid(player) else null
+	if player == null or not is_instance_valid(player) or rig == null or not get_tree().paused:
+		cancel_idle_orbit_immediate()
+		return
+	if _idle_orbit_paused:
+		return
+	_idle_orbit_elapsed += max(0.0, dt)
+	var base_yaw: float = float(_idle_orbit_base_view.get("yaw", player.yaw))
+	var base_pitch: float = float(_idle_orbit_base_view.get("pitch", player.pitch))
+	var angle: float = _idle_orbit_elapsed * IDLE_ORBIT_YAW_RATE
+	var orbit_yaw: float = base_yaw + angle
+	var orbit_pitch: float = base_pitch + sin(_idle_orbit_elapsed * IDLE_ORBIT_PITCH_RATE) * IDLE_ORBIT_PITCH_AMP
+	var max_pitch: float = deg2rad(IDLE_ORBIT_MAX_PITCH_DEG)
+	orbit_pitch = clamp(orbit_pitch, -max_pitch, max_pitch)
+	rig.transform.basis = player.camera_basis_prefix * Basis(Vector3.UP, orbit_yaw) * Basis(Vector3.RIGHT, orbit_pitch)
+	# Zoom tweenado proporcional al angulo: la distancia del spring arm respira con la orbita,
+	# lo que da la lectura eliptica. Solo visual; restore_camera_view la devuelve al reanudar.
+	if player.has_method("set_idle_orbit_zoom"):
+		var base_spring: float = float(_idle_orbit_base_view.get("spring", 0.0))
+		if base_spring > 0.0:
+			player.set_idle_orbit_zoom(base_spring * (1.0 + cos(angle) * IDLE_ORBIT_ZOOM_AMP))
+	rig.force_update_transform()
+
 
 # Compatibility for PlayerController or other systems calling step/force_finish
 func force_finish_transition():
@@ -743,6 +901,7 @@ func step(dt: float):
 	# 3. Update Input FSM (Latch Timer)
 	_update_input_fsm(dt)
 	_update_camera_shake(dt)
+	_update_idle_orbit(dt)
 
 func _evaluate_requests() -> CameraRequest:
 	if _active_requests.empty():

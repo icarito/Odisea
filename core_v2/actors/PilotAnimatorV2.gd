@@ -167,6 +167,22 @@ const MANUAL_ANIMTREE_STEP_INTERVAL := 1.0 / 60.0
 const ANIM_PARAM_FLOAT_EPSILON := 0.0005
 const ANIM_BLEND_PARAM_FLOAT_EPSILON := 0.035
 
+# El animator sigue en PAUSE_MODE_PROCESS para no quedar mudo en el modo HUD (que NO pausa el
+# arbol), pero con el arbol pausado la animacion debe congelarse en la pose actual.
+var _anim_frozen_for_pause := false
+
+func _process(_delta: float) -> void:
+	if animation_tree == null:
+		return
+	var paused := get_tree().paused
+	if paused and not _anim_frozen_for_pause:
+		_anim_frozen_for_pause = true
+		_manual_animtree_step_accum = 0.0
+		animation_tree.process_mode = AnimationTree.ANIMATION_PROCESS_MANUAL
+	elif not paused and _anim_frozen_for_pause:
+		_anim_frozen_for_pause = false
+		_configure_animation_runtime_policy()
+
 # --- LIFECYCLE ---
 func _ready() -> void:
 	# El modo HUD pausa el arbol: el animator tiene que seguir procesando igual, si no el piloto

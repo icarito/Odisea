@@ -107,6 +107,26 @@ func _input(event):
 	var options_open: bool = is_instance_valid(options_menu) and options_menu.visible
 	if visible and not options_open and not _minimal:
 		# El boton derecho tambien es ui_cancel, pero solo suelta el mouse: no reanuda.
-		if event.is_action_pressed("ui_cancel") and not event is InputEventMouseButton:
+		# Select (JOY_SELECT) tampoco reanuda: solo libera el mouse, nunca despausa.
+		if event.is_action_pressed("ui_cancel") and not event is InputEventMouseButton \
+				and not (event is InputEventJoypadButton and event.button_index == JOY_SELECT):
 			_on_resume_pressed()
 			get_tree().set_input_as_handled()
+			return
+		# Clic IZQUIERDO fuera del panel: no elige nada, vuelve a la pausa pasiva.
+		if event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_LEFT \
+				and not _is_point_inside_menu(event.position):
+			var pm = get_node_or_null("/root/PauseManager")
+			if pm and pm.has_method("enter_passive_pause_menu_hidden"):
+				pm.enter_passive_pause_menu_hidden()
+			get_tree().set_input_as_handled()
+
+# El panel del menu es el contenedor del titulo; fuera de su rect el clic es "afuera".
+func _is_point_inside_menu(pos: Vector2) -> bool:
+	var title = find_node("Title")
+	if title == null:
+		return true
+	var panel = title.get_parent()
+	if not (panel is Control):
+		return true
+	return (panel as Control).get_global_rect().has_point(pos)

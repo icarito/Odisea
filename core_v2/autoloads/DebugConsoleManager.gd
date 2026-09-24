@@ -87,6 +87,15 @@ func view_requires_input() -> bool:
 
 func borrow_viewport() -> Viewport:
 	_ensure_viewport()
+	# Mismo contrato que HoloTerminalHUDable.borrow_viewport: mientras el HUD es dueno del
+	# Viewport, el mouse lo maneja el overlay con la posicion ABSOLUTA proyectada a la
+	# superficie. Se fuerza el cursor relativo del Viewport (bloquea set_use_system_mouse(true))
+	# y se apaga el input propio de la pantalla para que su camino no compita con el de la
+	# superficie (cursor invertido/saltando).
+	if _viewport.has_method("set_hud_relative_cursor"):
+		_viewport.set_hud_relative_cursor(true)
+	if has_method("set_process_input"):
+		set_process_input(false)
 	return _viewport
 
 func enter_focus_mode() -> void:
