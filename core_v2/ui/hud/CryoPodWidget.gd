@@ -7,7 +7,7 @@ class_name CryoPodWidget
 
 const CryoPodUI = preload("res://core_v2/props/criopod/CryoPodUI.gd")
 const HudWidgetAction = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
-const BodyFont = preload("res://assets/fonts/SyneMono_Prologue_20.tres")
+const HudViewMount = preload("res://core_v2/ui/hud/HudViewMount.gd")
 
 onready var _vitals: Control = $Margin/VBox/Vitals
 onready var _status_label: Label = $Margin/VBox/ActionRow/StatusLabel
@@ -19,17 +19,21 @@ var _time: float = 0.0
 var _font: DynamicFont = null
 
 func _ready() -> void:
-	_font = BodyFont.duplicate()
-	_font.size = 14
-	if _action_button != null and not _action_button.is_connected("pressed", self, "_on_action_pressed"):
-		_action_button.connect("pressed", self, "_on_action_pressed")
+	_font = CryoPodUI.small_font(14)
+	if _action_button != null:
+		_action_button.add_font_override("font", _font)
+		if not _action_button.is_connected("pressed", self, "_on_action_pressed"):
+			_action_button.connect("pressed", self, "_on_action_pressed")
+	if _status_label != null:
+		_status_label.add_font_override("font", _font)
 	if _vitals != null and not _vitals.is_connected("draw", self, "_draw_vitals"):
 		_vitals.connect("draw", self, "_draw_vitals")
 	set_panel_style()
 
 func set_panel_style() -> void:
 	var box := StyleBoxFlat.new()
-	box.bg_color = Color(0.02, 0.07, 0.09, 0.92)
+	# B3a: panel semi-transparente (alfa ~0.7); en tier LOW queda opaco como antes.
+	box.bg_color = Color(0.02, 0.07, 0.09, min(0.92, HudViewMount.widget_alpha()))
 	box.border_color = CryoPodUI.DIM
 	box.set_border_width_all(1)
 	box.set_corner_radius_all(3)

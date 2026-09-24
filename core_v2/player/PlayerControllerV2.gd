@@ -1164,6 +1164,12 @@ func set_idle_orbit_zoom(spring_length: float) -> void:
 	current_spring_length = spring_length
 	_cached_spring_arm.spring_length = spring_length
 
+# Cabeza siguiendo a la camara de la orbita (no-low-end): reenvia al animator solo el
+# head-look, sin avanzar el resto de la animacion congelada.
+func step_idle_orbit_head_look(dt: float) -> void:
+	if animator and is_instance_valid(animator) and animator.has_method("update_head_look_for_orbit"):
+		animator.update_head_look_for_orbit(dt)
+
 # El KinematicArm3D corre en _physics_process y por defecto queda pausado con el arbol: en la
 # orbita pasiva tiene que seguir procesando para que el zoom (spring_length -> current_length)
 # y la colision de camara funcionen. Solo durante la orbita; al salir vuelve a INHERIT.

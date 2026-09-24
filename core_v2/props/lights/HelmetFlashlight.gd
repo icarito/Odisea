@@ -57,6 +57,12 @@ var _mount_bone_idx: int = -1
 var _visual_pivot: Spatial = null
 var _aim_smoothed := Vector3.FORWARD
 var _aim_initialized := false
+# Encender no debe mostrar la linterna en el origen del rig mientras el esqueleto/camara
+# todavia no permiten montarla en el hombro: queda invisible hasta que _physics_process lo
+# logre (o se agoten los intentos, para no dejarla invisible para siempre).
+var _mount_pending_visible := false
+var _mount_attempts := 0
+const MOUNT_MAX_ATTEMPTS := 30
 # Precalentamiento del shader (ver _start_flashlight_preheat): un Timer y el quad
 # temporal colgado de la camara.
 const FLASHLIGHT_PREHEAT_SECONDS := 0.3
@@ -82,10 +88,6 @@ func _ready() -> void:
 	_apply_light_params()
 	_update_cone_transform()
 	set_enabled(enabled)
-	# El nodo nace en el origen del rig: montarlo apenas hay arbol/camara evita el salto
-	# visible del origen al hombro antes del primer paso de fisica.
-	if enabled:
-		call_deferred("_update_mount", 0.0)
 	# La linterna nace apagada y la escena nunca compila su variante con spot ni el
 	# material del cono hasta el primer "L". En WebGL eso es un freeze medido de ~3.4 s
 	# (compilacion sincronica del primer draw). Se precalienta detras de la pantalla de
@@ -113,6 +115,9 @@ func _start_flashlight_preheat() -> void:
 	if _preheat_timer != null:
 		return
 	set_enabled(true)
+	# El precalentamiento necesita la variante visible dibujandose: saltea la espera de montaje.
+	_mount_pending_visible = false
+	_apply_light_visibility()
 	call_deferred("_add_flashlight_preheat_quad")
 	_preheat_timer = Timer.new()
 	_preheat_timer.one_shot = true
@@ -202,15 +207,22 @@ func _process(delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	if not enabled:
 		return
+	if _mount_pending_visible:
+		_mount_attempts += 1
+		if _update_mount(delta) or not _can_mount() or _mount_attempts >= MOUNT_MAX_ATTEMPTS:
+			_mount_pending_visible = false
+			_apply_light_visibility()
+		return
 	_update_mount(delta)
 
 
-func _update_mount(delta: float) -> void:
+func _update_mount(delta: float) -> bool:
 	if _skeleton == null or _mount_bone_idx < 0:
-		return
-	var camera := get_viewport().get_camera()
+		return false
+	var vp := get_viewport()
+	var camera := vp.get_camera() if vp != null else null
 	if camera == null:
-		return
+		return false
 
 	# El modelo mira hacia +Z del pivot (misma convencion que _get_multi_tool_forward).
 	var body_forward: Vector3 = -global_transform.basis.z.normalized()
@@ -234,6 +246,7 @@ func _update_mount(delta: float) -> void:
 
 	var xf := Transform(global_transform.basis, origin)
 	global_transform = xf.looking_at(origin + _aim_smoothed, Vector3.UP)
+	return true
 
 
 # Direccion objetivo de la linterna, con la misma forma que el head-look del animator:
@@ -261,22 +274,55 @@ func set_enabled(val: bool) -> void:
 	if val and battery <= 0.0:
 		val = false
 	enabled = val
-	if is_inside_tree():
-		if enabled:
-			# Encender no debe teletransportar la linterna del origen del rig al hombro: se
-			# monta ANTES de hacerse visible, asi el primer frame ya sale en su lugar.
-			_aim_initialized = false
-			_update_mount(0.0)
-		if _spot_light:
-			_spot_light.visible = enabled
-		if _volumetric_cone:
-			_volumetric_cone.visible = enabled
-		if _emitter:
-			_emitter.visible = enabled
-		if _fill_light:
-			_fill_light.visible = enabled and fill_energy > 0.0
-		set_process(enabled)
-		set_physics_process(enabled)
+	if not is_inside_tree():
+		return
+	if not enabled:
+		_mount_pending_visible = false
+		_mount_attempts = 0
+		_apply_light_visibility()
+		set_process(false)
+		set_physics_process(false)
+		return
+	# Encender no debe teletransportar la linterna del origen del rig al hombro: se monta
+	# ANTES de hacerse visible. Si el esqueleto/camara todavia no estan listos (perfil low
+	# end al arrancar), queda invisible hasta que _physics_process logre montarla.
+	_aim_initialized = false
+	_mount_attempts = 0
+	if not _can_mount():
+		# Sin hueso de montura no hay a donde ir: se muestra igual (comportamiento previo).
+		_mount_pending_visible = false
+		_apply_light_visibility()
+	elif _update_mount(0.0):
+		_mount_pending_visible = false
+		_apply_light_visibility()
+	else:
+		_mount_pending_visible = true
+		_hide_light_visibility()
+	set_process(true)
+	set_physics_process(true)
+
+func _can_mount() -> bool:
+	return _skeleton != null and _mount_bone_idx >= 0
+
+func _apply_light_visibility() -> void:
+	if _spot_light:
+		_spot_light.visible = enabled
+	if _volumetric_cone:
+		_volumetric_cone.visible = enabled
+	if _emitter:
+		_emitter.visible = enabled
+	if _fill_light:
+		_fill_light.visible = enabled and fill_energy > 0.0 and not _mount_pending_visible
+
+func _hide_light_visibility() -> void:
+	if _spot_light:
+		_spot_light.visible = false
+	if _volumetric_cone:
+		_volumetric_cone.visible = false
+	if _emitter:
+		_emitter.visible = false
+	if _fill_light:
+		_fill_light.visible = false
 
 
 func set_spot_range(val: float) -> void:

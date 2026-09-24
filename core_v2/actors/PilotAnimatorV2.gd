@@ -898,6 +898,15 @@ func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_t
 func get_head_look() -> Vector2:
 	return Vector2(_head_look_yaw, _head_look_pitch) if _head_look_active else Vector2.ZERO
 
+# Solo la cabeza, sin avanzar el resto de la animacion: la pausa pasiva congela el
+# AnimationTree, pero la cabeza debe seguir a la camara de la orbita. Mismos limites que el
+# head-look normal (head_look_yaw_limit_deg / head_look_pitch_limit_deg). No-low-end.
+func update_head_look_for_orbit(dt: float) -> void:
+	if _is_hyper_low_runtime() or not enable_head_look:
+		return
+	_last_anim_dt = max(dt, 0.0)
+	_update_head_look(false, false, 0.0)
+
 func _clear_bone_override(bone_idx: int) -> void:
 	if bone_idx < 0:
 		return

@@ -14,6 +14,7 @@ export(float) var duration: float = 0.1
 var _time_alive: float = 0.0
 var _burst_timer: float = 0.0
 var _is_bursting: bool = false
+var _one_shot: bool = false
 onready var _audio: AudioStreamPlayer3D = get_node_or_null("SparkSound")
 
 var particles: CPUParticles
@@ -91,7 +92,13 @@ func _process(delta):
 					live_particles.emitting = false
 				if live_audio and live_audio.playing:
 					live_audio.stop()
-				_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
+				if _one_shot:
+					# Burst unico: se apaga solo en vez de reprogramar el interval.
+					_one_shot = false
+					is_active = false
+					_burst_timer = 0.01
+				else:
+					_burst_timer = max(0.01, interval + rand_range(-interval_random, interval_random))
 
 func update_color():
 	var r: float = min(spark_color.r * brightness, 1.0)
@@ -134,6 +141,21 @@ func set_active(value: bool):
 
 func activate():
 	set_active(true)
+
+# Un burst inmediato y UNICO, para eventos discretos (interaccion con la GUI). No espera al
+# interval y no deja el emisor encendido: al terminar la duracion se apaga solo.
+func burst_once() -> void:
+	_one_shot = true
+	is_active = true
+	_time_alive = 0.0
+	_is_bursting = true
+	_burst_timer = max(0.01, duration)
+	var p = _get_particles()
+	if p:
+		p.emitting = true
+	var a = _get_audio()
+	if a and not a.playing:
+		a.play()
 
 func deactivate():
 	set_active(false)

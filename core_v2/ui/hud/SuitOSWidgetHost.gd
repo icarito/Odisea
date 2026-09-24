@@ -57,6 +57,14 @@ const CONTEXT_WIDGET_NAME := "SuitOS_Context"
 const CONTEXT_ICON_SIZE := Vector2(44, 44)
 # Slot logico del widget del pie: comparte el arrastre de los widgets de slot sin ser uno.
 const CONTEXT_SLOT := "__context__"
+# B4: en gameplay, sin actividad durante la misma inactividad que usa MobileUI, los widgets
+# (contexto + slots) se apagan MUY lento y vuelven con la proxima actividad. Solo cosmetico:
+# no toca estado de gameplay ni entra al replay.
+const IDLE_FADE_OUT_SECONDS := 3.5
+const IDLE_FADE_IN_SECONDS := 0.25
+# Velocidad minima del jugador para contar movimiento (m/s).
+const IDLE_MOVE_EPSILON := 0.05
+const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 
 var _active_screen_ids: Dictionary = {} # slot -> screen_id
 var _press_msec: int = 0
@@ -93,6 +101,9 @@ var _hold_progress: float = 0.0
 # FD-310: widget de contexto (interactuable en rango) y el slot libre que ocupa.
 var _context_widget: Control = null
 var _context_target: Node = null
+# B4: inactividad acumulada (segundos) y alpha actual del fade del root de widgets.
+var _idle_seconds: float = 0.0
+var _idle_alpha: float = 1.0
 # De donde salen slots y pantallas: SuitOS en el juego, RemoteHudBackend en el control remoto (que
 # lo asigna antes de add_child). Mismo contrato; ver RemoteHudBackend.gd.
 var backend: Node = null
@@ -122,6 +133,8 @@ func get_widget_root() -> Control:
 func _ready() -> void:
 	# Solo para _input: el toque sobre un widget tambien cuenta con el modo HUD en pausa.
 	pause_mode = PAUSE_MODE_PROCESS
+	# B4: el fade por inactividad se acumula cuadro a cuadro.
+	set_process(true)
 	# MobileUIManager pregunta a todos los hosts si un toque cae sobre un widget.
 	add_to_group("hud_widget_host")
 	var suit_os = _backend()
@@ -176,6 +189,8 @@ func deny_slot(index: int) -> void:
 # Progreso 0..1 del hold del slot (el hold abre el radial). slot < 0 lo apaga. Lo llama
 # HudSlotGamepadV2 cada tick de fisica con HudTabGesture.progress().
 func set_hold_progress(slot: int, progress: float) -> void:
+	if slot >= 0:
+		_note_activity()
 	var value: float = clamp(progress, 0.0, 1.0)
 	if slot == _hold_slot and abs(value - _hold_progress) < 0.001:
 		return
@@ -256,6 +271,88 @@ func refresh_visibility() -> void:
 	var context = _widget_root.get_node_or_null(CONTEXT_WIDGET_NAME)
 	if is_instance_valid(context):
 		context.visible = not hidden
+
+# --- B4: auto-hide de widgets en gameplay por inactividad ---
+
+# La misma inactividad que usa MobileUI para soltar sus controles. Se lee del manager en vez de
+# hardcodear el 15: si ahi se cambia, aca cambia solo. Sin manager, el fade no corre.
+func _idle_timeout_seconds() -> float:
+	var mobile = get_node_or_null("/root/MobileUIManager")
+	if mobile == null:
+		return -1.0
+	var timeout = mobile.get("touch_idle_timeout")
+	if typeof(timeout) != TYPE_REAL and typeof(timeout) != TYPE_INT:
+		return -1.0
+	return float(timeout)
+
+# Solo en gameplay: ni pausa/modo HUD, ni cinematica, ni una UI que pida el cursor (popup o
+# puntero liberado), ni menu/boot.
+func _idle_fade_enabled() -> bool:
+	if _idle_timeout_seconds() <= 0.0:
+		return false
+	if get_tree().paused or _cinematic_active:
+		return false
+	if VirtualMouseScript.is_ui_wanted():
+		return false
+	var pause_mgr = get_node_or_null("/root/PauseManager")
+	if pause_mgr != null and pause_mgr.has_method("is_hud_mode_paused") and pause_mgr.is_hud_mode_paused():
+		return false
+	var suit_os = _backend()
+	if suit_os != null and suit_os.has_method("is_hud_mode_active") and suit_os.is_hud_mode_active():
+		return false
+	var current_scene = get_tree().current_scene
+	if current_scene != null:
+		var filename: String = String(current_scene.filename)
+		if filename.find("Menu.tscn") != -1 or filename.find("Boot.tscn") != -1:
+			return false
+	return true
+
+# Actividad = el jugador se mueve, o llego un evento de input/HUD. Los gestos que no pasan por
+# _input (hold de slot con el stick) llaman a este metodo directo.
+func _note_activity() -> void:
+	_idle_seconds = 0.0
+
+func _activity_detected() -> bool:
+	var session = get_node_or_null("/root/SessionManager")
+	if session != null and is_instance_valid(session.player) and ("velocity" in session.player):
+		var vel = session.player.velocity
+		if typeof(vel) == TYPE_VECTOR3 and vel.length() > IDLE_MOVE_EPSILON:
+			return true
+	return false
+
+func _process(delta: float) -> void:
+	_tick_idle_fade(delta)
+
+func _tick_idle_fade(delta: float) -> void:
+	if not _idle_fade_enabled():
+		# Fuera de gameplay no hay fade: se restaura de una.
+		_idle_seconds = 0.0
+		_idle_alpha = 1.0
+		_apply_idle_alpha(1.0)
+		return
+	if _activity_detected():
+		_idle_seconds = 0.0
+	else:
+		_idle_seconds += delta
+	var idle: bool = _idle_seconds >= _idle_timeout_seconds()
+	var target: float = 0.0 if idle else 1.0
+	var duration: float = IDLE_FADE_OUT_SECONDS if idle else IDLE_FADE_IN_SECONDS
+	var step: float = delta / max(duration, 0.001)
+	if target > _idle_alpha:
+		_idle_alpha = min(target, _idle_alpha + step)
+	else:
+		_idle_alpha = max(target, _idle_alpha - step)
+	_apply_idle_alpha(_idle_alpha)
+
+func _apply_idle_alpha(value: float) -> void:
+	if not is_instance_valid(_widget_root):
+		return
+	var a: float = clamp(value, 0.0, 1.0)
+	if abs(_widget_root.modulate.a - a) < 0.0005:
+		return
+	var color: Color = _widget_root.modulate
+	color.a = a
+	_widget_root.modulate = color
 
 func _on_screens_changed(_id = "") -> void:
 	refresh_visibility()
@@ -419,6 +516,7 @@ func _on_widget_changed(slot: String, snapshot: Dictionary) -> void:
 func show_context(snapshot: Dictionary) -> bool:
 	if not is_instance_valid(get_widget_root()):
 		return false
+	_note_activity()
 	if not is_instance_valid(_context_widget):
 		_context_widget = _build_context_widget()
 		get_widget_root().add_child(_context_widget)
@@ -793,6 +891,7 @@ func context_widget_active() -> bool:
 func begin_context_grab() -> bool:
 	if not context_widget_active():
 		return false
+	_note_activity()
 	_context_grabbing = true
 	_context_widget.modulate.a = DRAG_ALPHA
 	get_widget_root().move_child(_context_widget, get_widget_root().get_child_count() - 1)
@@ -834,6 +933,11 @@ func _end_context_drag(control: Control) -> void:
 		_place_context(_context_widget)
 
 func _input(event: InputEvent) -> void:
+	# B4: cualquier input (mouse, dedo, tecla, joypad) cuenta como actividad y despierta los widgets.
+	if event is InputEventScreenTouch or event is InputEventScreenDrag \
+			or event is InputEventMouseButton or event is InputEventMouseMotion \
+			or event is InputEventKey or event is InputEventJoypadButton or event is InputEventJoypadMotion:
+		_note_activity()
 	if event is InputEventScreenTouch or event is InputEventMouseButton:
 		_last_pointer_position = event.position
 	elif (event is InputEventScreenDrag or event is InputEventMouseMotion) and is_instance_valid(_pressed_control):

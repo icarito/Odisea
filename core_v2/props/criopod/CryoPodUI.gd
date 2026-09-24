@@ -7,7 +7,17 @@ class_name CryoPodUI
 
 const HudWidgetAction = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 const HeadingFont = preload("res://assets/fonts/Heading_Font.tres")
-const BodyFont = preload("res://assets/fonts/SyneMono_Prologue_20.tres")
+# B3b: cuerpo chico en Silkscreen (pixel font, mas legible en tamanos chicos que SyneMono).
+# Se arma en codigo duplicando SyneMono_Prologue_20: de ahi sale el fallback DungGeunMo que
+# ya cubre acentos y Hangul (mismo patron que TinyFont.tres).
+const SmallFontTemplate = preload("res://assets/fonts/SyneMono_Prologue_20.tres")
+const SmallFontData = preload("res://assets/fonts/Silkscreen-Regular.ttf")
+
+static func small_font(size: int) -> DynamicFont:
+	var font: DynamicFont = (SmallFontTemplate as DynamicFont).duplicate() as DynamicFont
+	font.font_data = SmallFontData
+	font.size = size
+	return font
 
 # HoloTerminalV2 redimensiona su Viewport (escala de movil/web): dibujar en pixeles
 # absolutos hacia el borde de abajo desarmaba el layout. Todo se dibuja en este espacio
@@ -41,6 +51,7 @@ export(int) var hibernation_days := 4212
 
 var _time := 0.0
 var _big_font: DynamicFont = null
+var _body_font: DynamicFont = null
 var _screen_id := "ship:cryopod:elias"
 var _hatch_open := false
 var _hatch_busy := false
@@ -49,8 +60,8 @@ onready var _hatch_button: Button = get_node_or_null("HatchButton")
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS  # el modo HUD pausa el arbol; el pulso sigue vivo
-	_big_font = BodyFont.duplicate()
-	_big_font.size = 56
+	_body_font = small_font(20)
+	_big_font = small_font(56)
 	if _hatch_button != null and not _hatch_button.is_connected("pressed", self, "_on_hatch_pressed"):
 		_hatch_button.connect("pressed", self, "_on_hatch_pressed")
 		_style_hatch_button()
@@ -70,7 +81,7 @@ func _style_hatch_button() -> void:
 		box.content_margin_top = 8.0
 		box.content_margin_bottom = 8.0
 		_hatch_button.add_stylebox_override(state, box)
-	_hatch_button.add_font_override("font", BodyFont)
+	_hatch_button.add_font_override("font", _body_font)
 	for state in ["font_color", "font_color_hover", "font_color_pressed", "font_color_focus"]:
 		_hatch_button.add_color_override(state, CYAN)
 	_hatch_button.add_color_override("font_color_disabled", DIM)
@@ -188,12 +199,12 @@ func _draw_occupant(x: float, y: float, col_w: float) -> void:
 	draw_line(Vector2(frame.end.x, frame.position.y), Vector2(frame.position.x, frame.end.y), DIM, 2.0)
 
 	var tx := x + 136
-	draw_string(BodyFont, Vector2(tx, y + 28), occupant_name, accent)
-	draw_string(BodyFont, Vector2(tx, y + 58), tr(occupant_role), CYAN)
+	draw_string(_body_font, Vector2(tx, y + 28), occupant_name, accent)
+	draw_string(_body_font, Vector2(tx, y + 58), tr(occupant_role), CYAN)
 	var status_col := WARN if alarm else OK
 	draw_rect(Rect2(tx, y + 76, 12, 12), status_col)
-	draw_string(BodyFont, Vector2(tx + 22, y + 88), tr(occupant_status), status_col)
-	draw_string(BodyFont, Vector2(tx, y + 128), tr("T+%d d") % hibernation_days, CYAN)
+	draw_string(_body_font, Vector2(tx + 22, y + 88), tr(occupant_status), status_col)
+	draw_string(_body_font, Vector2(tx, y + 128), tr("T+%d d") % hibernation_days, CYAN)
 
 	# barras de estado
 	var by := y + 190
@@ -205,9 +216,9 @@ func _draw_occupant(x: float, y: float, col_w: float) -> void:
 func _draw_bar(x: float, y: float, w: float, label: String, value: float, text: String, low_is_bad: bool = true) -> void:
 	var v := clamp(value, 0.0, 1.0)
 	var col := WARN if (low_is_bad and v < 0.25) else _accent()
-	draw_string(BodyFont, Vector2(x, y), tr(label), CYAN)
-	var text_w := BodyFont.get_string_size(text).x
-	draw_string(BodyFont, Vector2(x + w - text_w, y), text, col)
+	draw_string(_body_font, Vector2(x, y), tr(label), CYAN)
+	var text_w := _body_font.get_string_size(text).x
+	draw_string(_body_font, Vector2(x + w - text_w, y), text, col)
 	var track := Rect2(x, y + 10, w, 10)
 	draw_rect(track, PANEL)
 	draw_rect(Rect2(x, y + 10, w * v, 10), col)
@@ -223,7 +234,7 @@ func _draw_vitals(x: float, y: float, w: float, h: float) -> void:
 	_draw_heart(Vector2(x + 34, y + 34), 26.0 * pulse, accent)
 
 	draw_string(_big_font, Vector2(x + 80, y + 50), "%d" % int(round(bpm)), accent)
-	draw_string(BodyFont, Vector2(x + 80 + _big_font.get_string_size("%d" % int(round(bpm))).x + 10, y + 50), tr("BPM"), CYAN)
+	draw_string(_body_font, Vector2(x + 80 + _big_font.get_string_size("%d" % int(round(bpm))).x + 10, y + 50), tr("BPM"), CYAN)
 
 	# trazo
 	var plot := Rect2(x, y + 90, w, h - 130)
@@ -248,7 +259,7 @@ func _draw_vitals(x: float, y: float, w: float, h: float) -> void:
 	# cabeza del barrido
 	draw_circle(pts[pts.size() - 1], 4.0, accent)
 
-	draw_string(BodyFont, Vector2(x, plot.end.y + 26), tr("HIBERNACIÓN NOMINAL") if not alarm else tr("ALERTA"),
+	draw_string(_body_font, Vector2(x, plot.end.y + 26), tr("HIBERNACIÓN NOMINAL") if not alarm else tr("ALERTA"),
 		CYAN if not alarm else WARN)
 
 func _draw_heart(c: Vector2, s: float, col: Color) -> void:

@@ -175,6 +175,9 @@ func _reveal_passive_menu() -> void:
 		return
 	_menu_hidden_by_focus = false
 	_apply_menu_visibility()
+	# El menu expandido si pide el cursor: recien ahora se libera/muestra. Entrar en pausa pasiva
+	# con Start no lo hace (el menu minimal no es solicitante del cursor).
+	VirtualMouseScript.set_pointer_released(true)
 
 # Volver a la pausa pasiva desde el menu visible (clic fuera del panel): oculta el menu y
 # retoma la orbita.
@@ -200,11 +203,16 @@ func _is_menu_reveal_event(event: InputEvent) -> bool:
 		return jb.pressed and jb.button_index != JOY_START
 	return false
 
-# Select: SOLO libera el mouse. Nunca pausa, nunca despausa. La inhibicion del control del
-# jugador la aplica el gate global de InputProviderV2 (puntero liberado en gameplay); al
-# recapturar con clic izquierdo se levanta sola.
-func _release_select_control() -> void:
-	VirtualMouseScript.set_pointer_released(true)
+# Select: alterna el puntero. Si esta liberado, lo RECAPTURA (captura el mouse y apaga el cursor
+# virtual); si esta capturado, lo libera (cursor virtual, nunca el nativo). Nunca pausa ni
+# despausa: la inhibicion del control del jugador la aplica el gate global de InputProviderV2
+# (puntero liberado en gameplay) y al recapturar se levanta sola.
+func _toggle_select_control() -> void:
+	if VirtualMouseScript.is_pointer_released():
+		VirtualMouseScript.set_pointer_released(false)
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	else:
+		VirtualMouseScript.set_pointer_released(true)
 
 func _restores_menu(event: InputEvent) -> bool:
 	if event is InputEventKey or event is InputEventMouseButton \
@@ -240,13 +248,13 @@ func _input(event):
 	# Cualquier input con el menu visible reinicia el temporizador de auto-hide.
 	if get_tree().paused and not _menu_hidden_by_focus:
 		_menu_idle_timer = 0.0
-	# Select: SOLO libera el mouse. Nunca pausa, nunca despausa, nunca revela el menu; se
-	# consume siempre para que no llegue a la GUI ni a SessionManager.
+	# Select: alterna el puntero (libera/recaptura). Nunca pausa, nunca despausa, nunca revela el
+	# menu; se consume siempre para que no llegue a la GUI ni a SessionManager.
 	if event is InputEventJoypadButton \
 			and (event as InputEventJoypadButton).button_index == JOY_SELECT \
 			and (event as InputEventJoypadButton).pressed:
 		if not get_tree().paused and not _hud_mode_paused and _can_pause_in_current_scene():
-			_release_select_control()
+			_toggle_select_control()
 		get_tree().set_input_as_handled()
 		return
 	# Boton derecho en pausa pasiva (menu oculto): despausa. Es el gesto de escritorio de
@@ -294,8 +302,8 @@ func _input(event):
 
 # Pausar es ESC, el back de Android o el gamepad. El boton derecho del mouse tambien es
 # ui_cancel en el InputMap, pero es "soltar el mouse" (lo hace SessionManager), no pausar.
-# Select (JOY_SELECT) tambien es ui_cancel, pero en juego libera el puntero e inhibe el
-# control del jugador: no pausa. Durante la pausa no hace nada (a lo sumo revela el menu).
+# Select (JOY_SELECT) tambien es ui_cancel, pero en juego alterna el puntero (libera/recaptura) e
+# inhibe el control del jugador: no pausa. Durante la pausa no hace nada (a lo sumo revela el menu).
 static func is_pause_request(event: InputEvent) -> bool:
 	if event is InputEventJoypadButton and (event as InputEventJoypadButton).button_index == JOY_SELECT:
 		return false

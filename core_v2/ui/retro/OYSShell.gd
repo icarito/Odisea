@@ -3,6 +3,10 @@ class_name OYSShell
 
 const MAX_RENDER_LINES := 5000
 const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
+# B3.deriv: la consola usa Ac437_OlivettiThin_8x16 (TinyFont) en vez del font del tema
+# (Workbench). TinyFont ya trae el fallback DungGeunMo para acentos/Hangul, y al duplicar la
+# DynamicFont entera se conserva (no se copia solo font_data).
+const ConsoleFont = preload("res://TinyFont.tres")
 const FONT_SIZE_MIN := 12
 const FONT_SIZE_MAX := 34
 
@@ -10,9 +14,10 @@ var _console = null
 var _history_index := -1
 var _font_size := 16
 var _font_data: DynamicFontData = null
+var _base_font: DynamicFont = null
 var _scroll_line_cursor := 0
 
-# 0 = keep the theme font size; >0 overrides it (used by the debug console HUD).
+# 0 = keep the base font size (TinyFont, ~22); >0 overrides it (used by the debug console HUD).
 export(int, 0, 64) var font_size := 0
 
 onready var _output: RichTextLabel = $VBox/Output
@@ -279,15 +284,10 @@ func _is_zoom_out_key(key: InputEventKey) -> bool:
 	return key.scancode == KEY_KP_SUBTRACT or key.scancode == KEY_MINUS
 
 func _init_font_scaling() -> void:
-	var base_font: Font = null
-	if _input:
-		base_font = _input.get_font("font")
-	if base_font == null and _status:
-		base_font = _status.get_font("font")
-	if base_font is DynamicFont:
-		var dyn = base_font as DynamicFont
-		_font_size = int(dyn.size)
-		_font_data = dyn.font_data
+	_base_font = (ConsoleFont as DynamicFont).duplicate() as DynamicFont
+	if _base_font != null:
+		_font_data = _base_font.font_data
+		_font_size = int(_base_font.size)
 	if font_size > 0:
 		_font_size = font_size
 	_apply_font_overrides()
@@ -298,16 +298,21 @@ func _change_font_size(delta: int) -> void:
 	_set_status("OK  FONT:%d" % _font_size)
 
 func _apply_font_overrides() -> void:
-	if _font_data == null:
+	if _base_font == null and _font_data == null:
 		return
-	var f_label := DynamicFont.new()
-	f_label.font_data = _font_data
+	var f_label: DynamicFont = null
+	var f_output: DynamicFont = null
+	if _base_font != null:
+		f_label = _base_font.duplicate() as DynamicFont
+		f_output = _base_font.duplicate() as DynamicFont
+	else:
+		f_label = DynamicFont.new()
+		f_label.font_data = _font_data
+		f_output = DynamicFont.new()
+		f_output.font_data = _font_data
 	f_label.size = _font_size
 	f_label.use_filter = false
 	f_label.use_mipmaps = false
-
-	var f_output := DynamicFont.new()
-	f_output.font_data = _font_data
 	f_output.size = max(FONT_SIZE_MIN, _font_size - 1)
 	f_output.use_filter = false
 	f_output.use_mipmaps = false

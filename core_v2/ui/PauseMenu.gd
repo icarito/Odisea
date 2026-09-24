@@ -34,6 +34,9 @@ func _apply_platform_visibility():
 # poder tomar capturas limpias. PauseManager lo restaura con el primer input.
 func set_minimal(on: bool) -> void:
 	_minimal = on
+	# Mientras esta reducido a "PAUSA" no pide el cursor: entrar en pausa pasiva con Start no
+	# debe liberar ni mostrar el mouse. Vuelve a pedirlo al expandirse (movimiento de mouse/stick).
+	_set_cursor_requester(not on)
 	var title = find_node("Title")
 	if title == null:
 		return
@@ -44,6 +47,16 @@ func set_minimal(on: bool) -> void:
 	if not on:
 		_apply_platform_visibility()
 	color.a = 0.0 if on else 0.588235
+
+# El cursor compartido solo vive mientras alguna UI visible lo pide. El menu minimal no cuenta:
+# asi el Start de la pausa pasiva no lo libera ni lo muestra antes de que haya movimiento.
+func _set_cursor_requester(wanted: bool) -> void:
+	if not is_instance_valid(_cursor):
+		return
+	if wanted:
+		_cursor.add_requester(self)
+	else:
+		_cursor.remove_requester(self)
 
 func _update_version_label():
 	if version_label:
@@ -106,10 +119,7 @@ func on_show():
 func _input(event):
 	var options_open: bool = is_instance_valid(options_menu) and options_menu.visible
 	if visible and not options_open and not _minimal:
-		# El boton derecho tambien es ui_cancel, pero solo suelta el mouse: no reanuda.
-		# Select (JOY_SELECT) tampoco reanuda: solo libera el mouse, nunca despausa.
-		if event.is_action_pressed("ui_cancel") and not event is InputEventMouseButton \
-				and not (event is InputEventJoypadButton and event.button_index == JOY_SELECT):
+		if _is_back_event(event):
 			_on_resume_pressed()
 			get_tree().set_input_as_handled()
 			return
@@ -120,6 +130,17 @@ func _input(event):
 			if pm and pm.has_method("enter_passive_pause_menu_hidden"):
 				pm.enter_passive_pause_menu_hidden()
 			get_tree().set_input_as_handled()
+
+# "Back" del menu: ui_cancel (Esc, back de Android, boton derecho) o el boton de cara Jump (B),
+# que en las UI hace de volver. Select (JOY_SELECT) tambien es ui_cancel pero NO reanuda (alterna
+# el puntero) y el boton derecho solo suelta el mouse. "jump" es el boton B en project.godot y no
+# choca con ui_cancel ni con ui_accept.
+func _is_back_event(event: InputEvent) -> bool:
+	if event is InputEventJoypadButton:
+		if (event as InputEventJoypadButton).button_index == JOY_SELECT:
+			return false
+		return event.is_action_pressed("ui_cancel") or event.is_action_pressed("jump")
+	return event.is_action_pressed("ui_cancel") and not event is InputEventMouseButton
 
 # El panel del menu es el contenedor del titulo; fuera de su rect el clic es "afuera".
 func _is_point_inside_menu(pos: Vector2) -> bool:

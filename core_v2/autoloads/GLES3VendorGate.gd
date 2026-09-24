@@ -551,6 +551,12 @@ func _node_hint(node: Node, mesh: Mesh) -> String:
 # del shader del material fuente.
 func _keeps_own_material(node: Node, src) -> bool:
 	var n := str(node.name).to_lower()
+	# Los hijos de un dueño conocido heredan la excepcion: el mesh emisivo de la linterna
+	# se llama "Emitter" y su padre es "HelmetFlashlight"; sin esto el aplanado lo dejaba
+	# NEGRO en low-end (perdia la emision).
+	var parent := node.get_parent()
+	if parent != null:
+		n += " " + str(parent.name).to_lower()
 	if n.find("holo") != -1 or n.find("screen") != -1 \
 			or n.find("pantalla") != -1 or n.find("display") != -1 \
 			or n.find("shadow") != -1 or n.find("fakeshadow") != -1 \

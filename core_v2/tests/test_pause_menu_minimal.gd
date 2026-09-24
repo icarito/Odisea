@@ -1,6 +1,12 @@
 extends GdUnitTestSuite
 
 const PauseMenuScene = preload("res://core_v2/ui/PauseMenu.tscn")
+const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
+
+
+func after_test() -> void:
+	# El puntero liberado es estado global del cursor compartido: no debe filtrarse entre tests.
+	VirtualMouseScript.set_pointer_released(false)
 
 
 func test_set_minimal_leaves_only_the_pausa_label() -> void:
@@ -175,4 +181,80 @@ func test_left_click_on_the_focus_paused_game_resumes_it() -> void:
 
 	get_tree().paused = false
 	PauseManager.pause_menu_instance = previous_menu
+	menu.queue_free()
+
+
+func test_select_toggles_the_pointer_between_release_and_recapture() -> void:
+	# T7 (2026-09-24): Select alterna. Primero libera el puntero (cursor virtual, nunca el nativo);
+	# con el puntero ya liberado, lo recaptura. Nunca pausa ni despausa.
+	var select := InputEventJoypadButton.new()
+	select.button_index = JOY_SELECT
+	select.pressed = true
+	assert_bool(PauseManager.is_pause_request(select)).is_false()
+
+	VirtualMouseScript.set_pointer_released(false)
+	PauseManager._toggle_select_control()
+	assert_bool(VirtualMouseScript.is_pointer_released()).is_true()
+
+	PauseManager._toggle_select_control()
+	assert_bool(VirtualMouseScript.is_pointer_released()).is_false()
+
+
+func test_start_passive_pause_does_not_release_or_request_the_cursor() -> void:
+	# T8 (2026-09-24): Start entra en pausa pasiva sin liberar ni mostrar el cursor. El menu
+	# minimal no cuenta como solicitante del cursor virtual; recien el movimiento lo revela y lo
+	# pide (libera/muestra).
+	VirtualMouseScript.set_pointer_released(false)
+	var was_paused: bool = get_tree().paused
+	var previous_menu = PauseManager.pause_menu_instance
+	var menu = PauseMenuScene.instance()
+	add_child(menu)
+	PauseManager.pause_menu_instance = menu
+	get_tree().paused = false
+	PauseManager._quick_paused = false
+	PauseManager._menu_hidden_by_focus = false
+
+	PauseManager.pause_quick()
+	assert_bool(get_tree().paused).is_true()
+	assert_bool(VirtualMouseScript.is_pointer_released()).is_false()
+	assert_bool(menu._minimal).is_true()
+	# El menu minimal no pide el cursor: no figura entre los requesters del cursor compartido.
+	assert_bool(menu._cursor._requesters.has(menu)).is_false()
+
+	# Al revelarse (movimiento de mouse/stick) vuelve a pedirlo y recien ahi lo libera/muestra.
+	PauseManager._reveal_passive_menu()
+	assert_bool(menu._minimal).is_false()
+	assert_bool(menu._cursor._requesters.has(menu)).is_true()
+	assert_bool(VirtualMouseScript.is_pointer_released()).is_true()
+
+	get_tree().paused = was_paused
+	PauseManager.pause_menu_instance = previous_menu
+	PauseManager._quick_paused = false
+	PauseManager._menu_hidden_by_focus = false
+	menu.queue_free()
+
+
+func test_jump_button_is_back_but_select_and_right_click_are_not() -> void:
+	# B6 (2026-09-24): el boton de cara Jump (B) hace de "volver" como ui_cancel. Select y el clic
+	# derecho tambien son ui_cancel pero no reanudan (Select alterna el puntero, el derecho lo suelta).
+	var menu = PauseMenuScene.instance()
+	add_child(menu)
+
+	var jump := InputEventJoypadButton.new()
+	jump.button_index = JOY_BUTTON_1
+	jump.pressed = true
+	assert_bool(menu._is_back_event(jump)).is_true()
+
+	var select := InputEventJoypadButton.new()
+	select.button_index = JOY_SELECT
+	select.pressed = true
+	assert_bool(menu._is_back_event(select)).is_false()
+
+	var esc := InputEventKey.new()
+	esc.scancode = KEY_ESCAPE
+	esc.pressed = true
+	assert_bool(menu._is_back_event(esc)).is_true()
+
+	assert_bool(menu._is_back_event(_mouse(BUTTON_RIGHT))).is_false()
+
 	menu.queue_free()

@@ -16,6 +16,10 @@ const WIDGET_ZOOM := 1.8
 const FRONT_DISTANCE := 1.5
 # Tiempo para que el presentador se encoja (anim_duration del casco) antes de liberarlo.
 const FREE_DELAY := 0.6
+# B3a: los paneles de widget y el vidrio del presentador van semi-transparentes (alfa ~0.7).
+# En tier LOW (Mali) se quedan como vengan: paneles translucidos sobre el mundo son overdraw
+# puro en un GPU tile-based, justo lo que el gate evita.
+const WIDGET_PANEL_ALPHA := 0.7
 
 var _presenter: Spatial = null
 var _widget: Control = null
@@ -27,6 +31,36 @@ var _widget_screen: Object = null
 var view_2d: bool = false
 var _view_frame: Control = null
 var _view_node: Control = null
+
+# B3a helper unico: alfa de panel/vidrio segun tier. LOW = 1.0 (opaco), resto = 0.7.
+static func widget_alpha() -> float:
+	var loop := Engine.get_main_loop()
+	if loop is SceneTree:
+		var gate = (loop as SceneTree).root.get_node_or_null("GLES3VendorGate")
+		if gate != null and gate.has_method("is_low_tier") and gate.is_low_tier():
+			return 1.0
+	return WIDGET_PANEL_ALPHA
+
+# Baja el alfa del StyleBoxFlat "panel" de un Control y de sus hijos. Duplica el stylebox
+# antes de tocarlo (el del tema es compartido) y usa min(): nunca sube la opacidad, asi un
+# panel del tema (0.62) no queda mas tapado que antes. En tier LOW no hace nada.
+static func apply_widget_panel_alpha(node: Node, alpha: float = -1.0) -> void:
+	if not is_instance_valid(node):
+		return
+	var a: float = widget_alpha() if alpha < 0.0 else alpha
+	if a >= 1.0:
+		return
+	if node is Control:
+		var ctrl := node as Control
+		var box: StyleBox = ctrl.get_stylebox("panel")
+		if box is StyleBoxFlat:
+			var flat: StyleBoxFlat = (box as StyleBoxFlat).duplicate() as StyleBoxFlat
+			var bg: Color = flat.bg_color
+			bg.a = min(bg.a, a)
+			flat.bg_color = bg
+			ctrl.add_stylebox_override("panel", flat)
+	for child in node.get_children():
+		apply_widget_panel_alpha(child, a)
 
 func is_showing() -> bool:
 	return is_instance_valid(_presenter) or is_instance_valid(_widget) or is_instance_valid(_view_frame)
@@ -129,6 +163,8 @@ func _open_presenter(scene: PackedScene, screen: Object, snapshot: Dictionary, h
 		presenter.hud_cfg_background_alpha = 0.0 if explicit_background_alpha == null else explicit_background_alpha
 		presenter.hud_cfg_ui_bridge_requires_focus = false
 		presenter.enable_ui_interaction = shared_viewport == null
+	# B3a: el vidrio del presentador no pasa de ~0.7 (en tier LOW queda como venga).
+	presenter.hud_cfg_background_alpha = min(presenter.hud_cfg_background_alpha, widget_alpha())
 	var mesh: CSGBox = presenter.get_node("ScreenContainer/ScreenMesh")
 	mesh.width = mesh.height * presenter.screen_resolution.x / presenter.screen_resolution.y
 	world.add_child(presenter)
@@ -266,6 +302,8 @@ func _open_widget(screen: Object, snapshot: Dictionary, host: Control) -> void:
 		(widget as Label).text = String(snapshot.get("title", snapshot.get("id", "")))
 	widget.name = "WidgetFallback"
 	host.add_child(widget)
+	# B3a: el panel del widget ampliado tambien va semi-transparente (opaco en tier LOW).
+	apply_widget_panel_alpha(widget)
 	if widget.has_method("update_snapshot"):
 		widget.update_snapshot(snapshot)
 	widget.set_anchors_and_margins_preset(Control.PRESET_CENTER)

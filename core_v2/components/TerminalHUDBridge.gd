@@ -299,6 +299,9 @@ func _update_hud_particle_flow() -> void:
 	var target = _get_hud_attach_target()
 	if not particles or not target or not particles.emitting:
 		return
+	# El haz (HoloProjectorBeamV2) se orienta solo: este flujo es de los CPUParticles viejos.
+	if not (particles is CPUParticles):
+		return
 	particles.local_coords = false
 	var from = particles.global_transform.origin
 	var to = target.global_transform.origin

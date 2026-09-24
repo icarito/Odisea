@@ -100,7 +100,7 @@ var _selector: Control = null
 var _viewport: Viewport = null
 var _elevator: Node = null
 var _screen_container: Spatial = null
-var _particles: CPUParticles = null
+var _particles = null
 var _is_open := false
 var _confirm_armed := false
 # Elegido un destino, el dial queda inerte hasta que el carro llega: mirar a otro lado ya no lo
@@ -141,7 +141,7 @@ func _ready() -> void:
 	# Cached before the base _ready, which calls _update_visuals() straight away.
 	_viewport = get_node_or_null("Viewport") as Viewport
 	_screen_container = get_node_or_null("ScreenContainer") as Spatial
-	_particles = get_node_or_null("ProjectorMesh/HoloParticles") as CPUParticles
+	_particles = get_node_or_null("ProjectorMesh/HoloParticles")
 	_selector = get_node_or_null("Viewport/RadialSelector") as Control
 	anim_duration = 1.0 / max(0.1, open_speed)
 	if _viewport and screen_resolution.x > 0 and screen_resolution.y > 0:
@@ -807,7 +807,7 @@ func _update_visuals() -> void:
 		_screen_container.scale = lerp(Vector3.ZERO, Vector3.ONE, progress)
 		_screen_container.visible = progress > 0.01
 
-	if _particles:
+	if _particles and "emitting" in _particles:
 		_particles.emitting = is_active
 
 	if _viewport:

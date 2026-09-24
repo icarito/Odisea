@@ -241,6 +241,11 @@ func forward_view_input(event: InputEvent, surface_uv: Vector2 = Vector2(-1.0, -
 		return
 	if surface_uv.x >= 0.0:
 		if event is InputEventMouseMotion and _shared_viewport.has_method("process_surface_motion"):
+			# El cursor se dibuja DENTRO del Viewport: si el terminal quedo en static_content
+			# (UPDATE_ONCE/DISABLED) el puntero se moveria a los saltos. Mientras el HUD lo
+			# presta, se mantiene ALWAYS para que siga al mouse suave.
+			if _shared_viewport.render_target_update_mode != Viewport.UPDATE_ALWAYS:
+				_shared_viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
 			_shared_viewport.process_surface_motion(surface_uv)
 			return
 		if event is InputEventMouseButton and _shared_viewport.has_method("process_surface_click"):

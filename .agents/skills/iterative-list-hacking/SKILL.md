@@ -1,0 +1,76 @@
+---
+name: iterative-list-hacking
+description: Workflow de pulido iterativo de Odisea cuando Sebastián va soltando observaciones/items de a uno y no quiere listas largas. Usar cuando el pedido llegue como una lista incremental de observaciones ("otra cosa...", "una observación...", "sigamos con el polish"), cuando haya que planear antes de tocar código, o cuando haya que despachar varios items en paralelo a subagentes y desplegar al Anbernic. Cubre: consolidar el plan, preguntar solo lo que bloquea, anclar cada item a archivos reales, repartir por clusters sin solape, commit/push para nightly, build del PCK ARM64 y deploy a root@angel.local, y documentar el estado para retomar con contexto fresco.
+---
+
+# Iterative list hacking (Odisea)
+
+Workflow para las sesiones de pulido en las que el usuario **no da una spec**: suelta observaciones
+de a una, espera que las ordenes en un plan, que preguntes lo mínimo, y que ejecutes en tandas que
+él prueba **local y en el Anbernic**. El usuario puede volver con **contexto fresco**, así que el
+estado tiene que quedar documentado en disco, no en el chat.
+
+## Regla de oro
+Cada respuesta del usuario puede traer 1..N items nuevos **sin relación**. No implementes al bote:
+**consolidá en un plan numerado (A, B1..Bn), anclá cada item a archivos reales, y recién ahí ejecutá.**
+Si el usuario dice "modo planear", NO toques código: devolvé plan + decisiones abiertas.
+
+## Ciclo
+1. **Capturar**: transcribí cada observación como item con su síntoma/pedido, sin inferir la solución.
+2. **Anclar**: `rg`/`read` para ubicar archivos, nodos, uniforms, funciones y tests reales. Nunca
+   propongas cambios sin citar `archivo:línea`.
+3. **Planear**: numerá (A, B1..), agrupá por afinidad de archivo y proponé enfoque + riesgo.
+   Marcá las decisiones que **bloquean** y preguntalas (una sola pasada, con opciones).
+4. **Repartir**: asigná cada cluster a un subagente **con archivos disjuntos**. Los items que tocan
+   el mismo archivo van al mismo agente o se serializan. Documentá el ownership map.
+5. **Verificar**: cada subagente corre solo sus tests puntuales (pytest delegate) y reporta
+   archivos/diff/test/blocker. No commitear.
+6. **Entregar**: commit + push (dispara nightly), rebuild PCK ARM64, deploy al Anbernic, verificar md5.
+7. **Documentar**: actualizar el doc de sesión (`docs/agents/sessions/`) con hechos, estado y pasos
+   exactos para retomar.
+
+## Convenciones de input (Odisea)
+- `START` = pausa pasiva on/off (nunca abre/activa el menú completo).
+- `SELECT` = libera el mouse; si ya está liberado, lo **recaptura** (nunca pausa/despausa).
+- `Jump` (B) = "back" en las UI.
+- La pausa pasiva **no** libera ni muestra el cursor hasta que hay movimiento.
+- Gate global: puntero liberado en gameplay → `InputProviderV2` anula intents de control.
+- Determinismo: física en `_physics_process`; nada de `randf`/`frames_drawn` en gameplay.
+
+## Tests (local, puntual)
+```shell
+./.venv/bin/pytest tests/test_odisea_runner.py --collect-only -q -k <substr>   # encontrar nodo
+./.venv/bin/pytest tests/test_odisea_runner.py -q -k "<a> or <b>"             # correr puntual
+```
+`./runtest.sh -a <suite>` para suites directas. No correr la suite completa (es de CI).
+Salidas en `./reports/gdunit_runner.log`. Un `SCRIPT ERROR: Parse Error` de OTRO archivo tumba la
+corrida entera: leé el log y separá el error ajeno del propio.
+
+## Build + deploy al Anbernic
+```shell
+# 1) PCK ARM64 (el target de make no re-ejecuta si ya existe: forzar)
+rm -f build/linux_arm64/odisea.pck
+make build/linux_arm64/odisea.pck
+# 2) Copiar SOLO el pck (fréná el juego en el device antes)
+ssh root@angel.local 'pgrep -f odisea.frt | xargs -r kill'
+scp build/linux_arm64/odisea.pck root@angel.local:/storage/roms/ports/odisea/odisea.pck
+# 3) Verificar
+ssh root@angel.local 'md5sum /storage/roms/ports/odisea/odisea.pck'
+md5sum build/linux_arm64/odisea.pck
+```
+Ojo: `pgrep -f odisea.frt` desde un `ssh 'comando'` se auto-matchea el propio shell — usá un patrón
+que no esté en el comando, o `pgrep -x odisea.frt.aarch64`.
+
+## Pitfalls aprendidos (Godot 3)
+- `var x := <export/float>` falla: GDScript 1.x no infiere tipo desde un export. Usá `: float`/`: int`.
+- Los `.tscn` tienen overrides heredados (`[node name="X" parent=... index="0"]`): si cambiás el tipo
+  del nodo en la escena base, hay que **limpiar las props de las hijas** o el setter tira error.
+- Componentes que exponen `emitting` (setget) mantienen compat con consumidores que hacían
+  `node.emitting = ...` (ej. CPUParticles → haz).
+- Al reemplazar un `CPUParticles` por un `Spatial`, guardá los flujos que setean props de partículas
+  (`local_coords`, `randomness`, `spread`, `restart()`), p. ej. `if not (node is CPUParticles): return`.
+
+## Docs
+- Sesión: `docs/agents/sessions/YYYY-MM-DD_<tema>.md` (estado, hechos, decisiones, próximos pasos).
+- Herramientas: `docs/agents/tooling.md`, `docs/agents/agent-map.md`, skill `run-odisea`,
+  skill `odisea-telemetry`.

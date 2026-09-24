@@ -111,6 +111,9 @@ var _widget_click_was_down: bool = true
 var _picked_during_hold: bool = false
 var _pending_focus_screen: Object = null
 var _pending_focus_camera: Camera = null
+# Cursor oculto durante la transicion a una pantalla con foco y hasta que el jugador mueve
+# mouse/stick: aparece recien cuando hay movimiento, no al abrirse la pantalla.
+var _focus_cursor_awaiting_motion: bool = false
 var _pending_swap_screen: Object = null
 # Slot que abrio el radial (tecla o widget): lo elegido se fija ahi. -1 = lo abrio TAB.
 var _target_slot: int = -1
@@ -162,6 +165,9 @@ var _drawer_press_row: int = -1
 var _drawer_press_star: bool = false
 var _drawer_drag_row: int = -1
 var _drawer_drag_active: bool = false
+# El arrastre de fila armado por el STICK (boton del HUD sostenido) se suelta al soltar el boton, no
+# al detener el stick. Distinto del hombro, que suelta al soltar el hombro.
+var _drawer_drag_from_stick: bool = false
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS
@@ -559,17 +565,19 @@ func _input(event: InputEvent) -> void:
 			and not _selector.is_open() and not _drawer_open():
 		if event.pressed:
 			# Asa: arrastra la pantalla (tenga panel o no) hacia un slot. Un widget ampliado tambien
-			# se arrastra desde su cuerpo.
-			if _view_handle.visible and is_on_view_handle(event.position):
-				_begin_mouse_view_drag(event.position)
+			# se arrastra desde su cuerpo. Punteria con el cursor unificado: con el mando el evento
+			# llega warpeado al centro y el asa quedaba inagarrrable.
+			var at: Vector2 = _unified_cursor_position(event.position)
+			if _view_handle.visible and is_on_view_handle(at):
+				_begin_mouse_view_drag(at)
 				get_tree().set_input_as_handled()
 				return
-			if _showing_widget_only() and _on_view_body(event.position):
-				_begin_mouse_view_drag(event.position)
+			if _showing_widget_only() and _on_view_body(at):
+				_begin_mouse_view_drag(at)
 				get_tree().set_input_as_handled()
 				return
 		elif _dragging_view:
-			_drop_view(event.position)
+			_drop_view(_unified_cursor_position(event.position))
 			get_tree().set_input_as_handled()
 			return
 	if is_instance_valid(_active_focused_screen) and _active_focused_screen.has_method("forward_view_input"):
@@ -601,14 +609,17 @@ func _input(event: InputEvent) -> void:
 				if uv.x >= 0.0:
 					_set_surface_cursor_uv(uv)
 			var over: bool = uv.x >= 0.0
-			_set_focus_cursor_over_surface(over)
+			if _focus_cursor_awaiting_motion and event is InputEventMouseMotion:
+				_focus_cursor_awaiting_motion = false
+			if not _focus_cursor_awaiting_motion:
+				_set_focus_cursor_over_surface(over)
 			if over:
 				_active_focused_screen.forward_view_input(event, uv)
 				get_tree().set_input_as_handled()
 				return
 	if event is InputEventMouseMotion:
 		if _dragging_view:
-			_drive_view_drag(event.position, true)
+			_drive_view_drag(_unified_cursor_position(event.position), true)
 			get_tree().set_input_as_handled()
 			return
 		if _mouse_drag_pending and _drag_option >= 0:
@@ -756,6 +767,12 @@ func _input(event: InputEvent) -> void:
 		_exit()
 	elif event.is_action_pressed("ui_cancel"):
 		_exit()
+	elif event.is_action_pressed("jump") and not _selector.is_open() and not _drawer_open() \
+			and not _widget_screen_showing():
+		# B / Espacio (jump) es el "back" de la UI, igual que ui_cancel. El dial, el cajon y el
+		# widget ampliado ya usan el flanco de B del stream (cerrar, oprimir su boton): solo sale
+		# cuando ninguno de ellos se lo queda.
+		_exit()
 	elif event.is_action_pressed("ui_accept") and _selector.is_open() \
 			and not event is InputEventJoypadButton:
 		# Solo teclado/accion: el mando (A = joy0 = crouch y ui_accept a la vez) lo resuelve el
@@ -902,6 +919,17 @@ func _on_view_body(position: Vector2) -> bool:
 		return false
 	return not HudWidgetActionScript.pointer_on_button(_mount.get_widget(), position)
 
+
+# Cursor unificado del modo HUD: el que el jugador ve. Con el mando (`_active`) o con el puntero
+# liberado manda el cursor virtual; con el mouse real capturado el evento reporta el centro, asi que
+# tambien manda el cursor. Sin cursor virtual (control remoto), manda la posicion del evento.
+func _unified_cursor_position(event_position: Vector2) -> Vector2:
+	if is_instance_valid(_virtual_mouse):
+		if _virtual_mouse._active:
+			return _virtual_mouse._position
+		if VirtualMouse.is_pointer_released() and _virtual_mouse.is_desktop_mouse_mode():
+			return _virtual_mouse._position
+	return event_position
 
 # Mouse: levanta el panel al instante (como el radial), sin esperar el hold. Se apoya en el mismo
 # _drive_view_drag de touch/gamepad, que hace el resto.
@@ -1490,6 +1518,7 @@ func _set_virtual_mouse_enabled(enabled: bool) -> void:
 		_virtual_mouse.visible = false
 
 func _show_screen(id: String) -> void:
+	_focus_cursor_awaiting_motion = false
 	_set_virtual_mouse_enabled(true)
 	_release_mouse_for_screen()
 	var suit_os: Node = _suit_os()
@@ -1515,6 +1544,8 @@ func _show_screen(id: String) -> void:
 		var rig = get_node_or_null(origin.get("path", NodePath("")))
 		_pending_focus_camera = rig.get_node_or_null("Camera") as Camera if is_instance_valid(rig) else null
 		_view_host.visible = false
+		# Sin puntero durante la transicion de camara.
+		_hide_focus_cursors_until_motion()
 		if screen.has_method("enter_focus_mode"):
 			screen.enter_focus_mode()
 		_mount_focused_screen_if_ready()
@@ -1600,6 +1631,17 @@ func _set_focus_cursor_over_surface(over: bool) -> void:
 	if is_instance_valid(_active_focused_screen) \
 			and _active_focused_screen.has_method("set_view_cursor_visible"):
 		_active_focused_screen.set_view_cursor_visible(over)
+
+# Oculta AMBOS cursores y espera movimiento: la pantalla con foco no muestra puntero durante
+# la transicion ni en el primer frame abierto. El primer motion llama a
+# _set_focus_cursor_over_surface y elige el cursor que corresponde.
+func _hide_focus_cursors_until_motion() -> void:
+	_focus_cursor_awaiting_motion = true
+	if is_instance_valid(_virtual_mouse):
+		_virtual_mouse.visible = false
+	if is_instance_valid(_active_focused_screen) \
+			and _active_focused_screen.has_method("set_view_cursor_visible"):
+		_active_focused_screen.set_view_cursor_visible(false)
 
 # --- Cursor unico: movimiento, tope y proyeccion a la superficie ---
 
@@ -1733,7 +1775,7 @@ func _complete_focus_swap(screen: Object = null) -> void:
 		# posicion es la que se proyecta sobre la superficie. Lo unico que se decide es
 		# cual de los dos cursores se dibuja.
 		_virtual_mouse.relative_target_scale = Vector2.ZERO
-		_set_focus_cursor_over_surface(_screen_surface_uv(get_viewport().get_mouse_position()).x >= 0.0)
+		_hide_focus_cursors_until_motion()
 	if screen.has_method("set_source_view_visible"):
 		screen.set_source_view_visible(false)
 	_view_host.visible = true
@@ -1779,7 +1821,14 @@ func _drive_hud_buttons(input) -> bool:
 			_finish_crouch_drag()
 		return false
 	_end_crouch_drag()
-	return _dispatch_screen_action(edges)
+	if _dispatch_screen_action(edges):
+		return true
+	# Con una pantalla CON FOCO, B (jump) vuelve igual que ui_cancel. En un widget ampliado no:
+	# ahi B oprime su boton enfocado (_drive_widget_screen), que es el comportamiento de siempre.
+	if edges["b"] and is_instance_valid(_active_focused_screen) and not _widget_screen_showing():
+		_exit()
+		return true
+	return false
 
 
 # --- Drag/drop del dial con CROUCH + stick (revision 2026-09-19) ---
@@ -2042,6 +2091,7 @@ func _end_drawer_row_drag() -> void:
 	_drawer_press_star = false
 	_drawer_drag_row = -1
 	_drawer_drag_active = false
+	_drawer_drag_from_stick = false
 
 
 func _enable_drawer_cursor(position: Vector2) -> void:
@@ -2073,6 +2123,22 @@ func _drive_drawer_shoulder_drag(input) -> void:
 	_drive_option_drag(_cursor, false, true)
 
 
+# Mismo arma que el radial (`_stick_drag_armed`): el boton del HUD sostenido hace de hold y el
+# stick, en movimiento, levanta la fila enfocada. Sin el boton sostenido el stick sigue siendo
+# scroll de la lista (navegacion por foco), y por eso el arma exige movimiento.
+func _drawer_stick_drag_armed(input) -> bool:
+	if not bool(input.hud_mode):
+		return false
+	var move := Vector2(input.move_vec.x, input.move_vec.y)
+	return bool(input.analog_move_active) or move.length_squared() > MOVE_GESTURE_DEADZONE_SQ
+
+
+func _drop_drawer_drag() -> void:
+	_drop_option(_cursor)
+	_drawer_drag_active = false
+	_drawer_drag_from_stick = false
+
+
 func _drive_drawer(input, delta: float) -> void:
 	var edges: Dictionary = _face_edges(input)
 	if not is_instance_valid(_drawer):
@@ -2081,10 +2147,20 @@ func _drive_drawer(input, delta: float) -> void:
 		_set_virtual_mouse_enabled(false)
 	var shoulder: int = int(input.hud_slot) - 1
 	if shoulder >= 0:
+		_drawer_drag_from_stick = false
 		_drive_drawer_shoulder_drag(input)
+	elif _drawer_drag_from_stick:
+		# Arrastre armado por el stick: vive mientras el boton del HUD este sostenido; soltarlo
+		# suelta la fila, aunque el stick haya vuelto al centro.
+		if bool(input.hud_mode):
+			_drive_drawer_shoulder_drag(input)
+		else:
+			_drop_drawer_drag()
 	elif _drawer_drag_active:
-		_drop_option(_cursor)
-		_drawer_drag_active = false
+		_drop_drawer_drag()
+	elif _drawer_stick_drag_armed(input):
+		_drive_drawer_shoulder_drag(input)
+		_drawer_drag_from_stick = _drawer_drag_active
 	else:
 		_drawer.drive(-float(input.move_vec.y), int(input.hud_nav), delta)
 	if _drawer_drag_active:

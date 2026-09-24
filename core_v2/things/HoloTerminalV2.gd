@@ -466,6 +466,10 @@ func _update_visuals() -> void:
 
 	# 3. Update UI State (Optimization)
 	var viewport = get_node_or_null("Viewport")
+	# Mientras el HUD presta el Viewport (cursor relativo), el overlay manda el modo: lo deja
+	# en UPDATE_ALWAYS para que el cursor se mueva suave. No pisarlo con el ahorro de Hz.
+	if viewport and viewport.has_method("forces_relative_cursor") and viewport.forces_relative_cursor():
+		return
 	if viewport:
 		# Only render the viewport if the screen is at least partially visible
 		var mode = Viewport.UPDATE_WHEN_VISIBLE if anim_progress > 0 else Viewport.UPDATE_DISABLED
@@ -1312,6 +1316,9 @@ func _update_hud_particle_flow() -> void:
 	var particles = get_node_or_null("HoloParticles")
 	var target = _get_hud_attach_target()
 	if not particles or not target or not particles.emitting:
+		return
+	# El haz (HoloProjectorBeamV2) se orienta solo: este flujo es de los CPUParticles viejos.
+	if not (particles is CPUParticles):
 		return
 	particles.local_coords = false
 	var from = particles.global_transform.origin

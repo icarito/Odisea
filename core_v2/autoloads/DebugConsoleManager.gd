@@ -5,7 +5,9 @@ extends Node
 const OYSShellScene = preload("res://core_v2/ui/retro/OYSShell.tscn")
 const WidgetScene = preload("res://core_v2/ui/hud/HoloTerminalWidget.tscn")
 const ViewportInputScript = preload("res://core_v2/things/HoloTerminalViewportInput.gd")
-const SHELL_FONT_SIZE := 28
+# B3.deriv: con Ac437_OlivettiThin_8x16 (fuente del shell, ver OYSShell) el tamano legible
+# es el nativo de TinyFont (~22). Los 28 eran para DungGeunMo. A/B: 22 vs 26 vs 28.
+const SHELL_FONT_SIZE := 22
 
 signal state_changed()
 

@@ -647,6 +647,9 @@ func _update_idle_orbit(dt: float) -> void:
 		if base_spring > 0.0:
 			player.set_idle_orbit_zoom(base_spring * (1.0 + cos(angle) * IDLE_ORBIT_ZOOM_AMP))
 	rig.force_update_transform()
+	# Cabeza hacia la camara de la orbita (el animator lo salta en tier LOW).
+	if player.has_method("step_idle_orbit_head_look"):
+		player.step_idle_orbit_head_look(dt)
 
 
 # Compatibility for PlayerController or other systems calling step/force_finish
