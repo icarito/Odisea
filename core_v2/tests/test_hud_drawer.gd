@@ -8,6 +8,7 @@ extends GdUnitTestSuite
 
 const DrawerScript = preload("res://core_v2/ui/hud/SuitOSDrawer.gd")
 const HUDableComponentScript = preload("res://core_v2/components/HUDableComponent.gd")
+const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
 
 const DT := 1.0 / 60.0
 
@@ -219,6 +220,71 @@ func test_the_dpad_steps_one_row_and_only_repeats_after_the_hold_threshold() -> 
 		drawer.drive(0.0, 0, DT)
 		drawer.drive(0.0, 1, DT)
 	assert_int(drawer.focused_index()).is_equal(3)
+
+
+# --- Sin estrella (O13r) ---
+
+func test_the_rows_have_no_star_zone_and_the_left_margin_is_part_of_the_row() -> void:
+	# O13r: la estrella de favorito se elimino de la UI del drawer. Favoritear queda para el
+	# arrastre al radial y para el boton X del mando, asi que no queda ninguna zona aparte.
+	var drawer = _drawer(_rows_from_titles(["Alpha", "Bravo"]))
+	assert_bool(drawer.has_method("star_at")).is_false()
+	assert_bool(drawer.has_method("_draw_star")).is_false()
+	assert_bool(drawer.has_method("favorite_center")).is_false()
+	# El margen izquierdo de la fila es fila, no una zona de estrella.
+	var k: float = UIScaleCompensatorScript.scale_for(drawer)
+	var rect: Rect2 = drawer._row_rect(0, k)
+	var left_margin: Vector2 = rect.position + Vector2(4.0 * k, rect.size.y * 0.5)
+	assert_int(drawer.row_at(left_margin)).is_equal(0)
+
+
+# --- Rueda del mouse (O13r) ---
+
+func test_the_wheel_moves_less_than_a_row_per_notch_and_settles_on_the_next() -> void:
+	# O13r: la rueda ya no salta una fila entera de golpe. Cada notch avanza una fraccion (menos
+	# de una fila) y el resto lo desliza drive() hasta la fila siguiente, sin volver atras.
+	var drawer = _drawer(_rows_from_titles(["A", "B", "C", "D"]))
+	drawer.focus_row(0)
+	var before: float = drawer._scroll
+	drawer.wheel_step(1)
+	var delta: float = drawer._scroll - before
+	assert_float(delta).is_greater(0.0)
+	assert_float(delta).is_less(drawer.ROW_HEIGHT)
+	# Todavia queda recorrido: no fue un salto instantaneo sino un deslizamiento.
+	assert_float(abs(drawer._scroll - drawer._wheel_target)).is_greater(0.5)
+	for _i in range(180):
+		drawer.drive(0.0, 0, DT)
+	assert_int(drawer.focused_index()).is_equal(1)
+	assert_float(drawer._scroll).is_equal_approx(drawer.ROW_HEIGHT, 0.5)
+
+
+func test_the_wheel_walks_up_without_snapping_back_to_the_same_row() -> void:
+	var drawer = _drawer(_rows_from_titles(["A", "B", "C", "D"]))
+	drawer.focus_row(2)
+	drawer.wheel_step(-1)
+	for _i in range(180):
+		drawer.drive(0.0, 0, DT)
+	assert_int(drawer.focused_index()).is_equal(1)
+
+
+func test_two_wheel_notches_advance_two_rows() -> void:
+	# El rumbo se calcula desde el destino pendiente: dos notches seguidos no se pisan ni vuelven.
+	var drawer = _drawer(_rows_from_titles(["A", "B", "C", "D"]))
+	drawer.focus_row(0)
+	drawer.wheel_step(1)
+	drawer.wheel_step(1)
+	for _i in range(240):
+		drawer.drive(0.0, 0, DT)
+	assert_int(drawer.focused_index()).is_equal(2)
+
+
+func test_the_stick_cancels_a_pending_wheel_glide() -> void:
+	# La rueda no pelea con el snap: si el stick toma el mando, el destino pendiente se descarta.
+	var drawer = _drawer(_rows_from_titles(["A", "B", "C", "D"]))
+	drawer.focus_row(0)
+	drawer.wheel_step(1)
+	drawer.drive(1.0, 0, DT)
+	assert_float(drawer._wheel_target).is_equal(-1.0)
 
 
 # --- Frescura (FD-305 §5) ---

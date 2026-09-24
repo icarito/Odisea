@@ -34,6 +34,10 @@ const AIM_DEAD_ZONE := 40.0
 # Mantener un item del radial y mover el dedo lo levanta para soltarlo sobre un slot (lo fija ahi).
 # Mismo umbral que el hold de TAB y del widget.
 const DRAG_HOLD_MSEC := 400
+# Al arrastrar una fila del drawer, entrar en la zona del radial ofrece soltar ahi para agregarla a
+# favoritos (O13r): el radial reaparece con su animacion de apertura y el drawer se desvanece hasta
+# este alpha para que se lea el destino. Modelo: la zona de reciclaje del widget host.
+const DRAWER_RADIAL_FADE := 0.12
 # Godot marca asi el mouse que emula a partir del touch (InputEvent.DEVICE_ID_TOUCH_MOUSE).
 const TOUCH_MOUSE_DEVICE := -1
 # Asa de la pantalla abierta: arrastrarla hasta un slot la ancla ahi. Pixeles nominales.
@@ -162,15 +166,21 @@ var _crouch_drag_moved: bool = false
 var _drawer_entered_direct: bool = false
 var _drawer_press_row: int = -1
 # El drawer usa el mouse CAPTURADO: su puntero es el mismo cursor unico, movido por deltas.
-var _drawer_press_star: bool = false
 var _drawer_drag_row: int = -1
 var _drawer_drag_active: bool = false
+# El radial se muestra porque el fantasma del drawer entro en su zona (O13r, soltar ahi = favorito):
+# hay que apagarlo y devolver el drawer a su modulate normal cuando el gesto termine.
+var _drawer_radial_preview: bool = false
 # El arrastre de fila armado por el STICK (boton del HUD sostenido) se suelta al soltar el boton, no
 # al detener el stick. Distinto del hombro, que suelta al soltar el hombro.
 var _drawer_drag_from_stick: bool = false
 # El click primario (A/crouch) del drawer: arma el arrastre con el stick y, al soltarse sin
 # arrastrar, acciona la fila enfocada. Antes la activacion era el edge "a" (press).
 var _drawer_click_down: bool = false
+# O18: la pulsacion que ABRIO el drawer (A/crouch sobre el hub del radial) no puede accionar la
+# fila enfocada al soltarse: en el device la misma pulsacion abria el cajon y elegia Consola. Se
+# consume una vez, como _picked_during_hold en el radial; un segundo press/release si acciona.
+var _drawer_open_press: bool = false
 # El dedo que el drawer vio apoyar sobre una fila: solo ese indice mueve el fantasma. El release
 # de un dedo que el drawer no vio (el que abrio el cajon con el hold) no lo cierra ni lo mueve.
 var _drawer_touch_index: int = -1
@@ -557,6 +567,14 @@ func _input(event: InputEvent) -> void:
 		# cursor virtual compartido necesita ver el mismo mouse para seguir al puntero.
 		_drawer_pointer_input(event)
 		return
+	if _drawer_open() and event.is_action_pressed("ui_accept") \
+			and not event is InputEventJoypadButton:
+		# O17: ENTER/KP_ENTER (ui_accept) elige la fila enfocada del cajon. El mando (A = joy0 =
+		# ui_accept y crouch a la vez) lo resuelve el stream en _drive_drawer: sin este filtro A
+		# activaria dos veces. El radial ya tenia su rama de ui_accept; el cajon no.
+		_drawer.activate()
+		get_tree().set_input_as_handled()
+		return
 	if use_virtual_mouse and event is InputEventMouseButton and event.button_index == BUTTON_RIGHT:
 		if event.pressed:
 			# Liberar de verdad: set_pointer_released marca el estado global (no solo el cursor
@@ -836,10 +854,77 @@ func _drive_option_drag(position: Vector2, require_hold: bool = true, allow_stat
 		_drag_ghost.add_color_override("font_color", _selector.color_fg)
 		add_child(_drag_ghost)
 	_drag_ghost.rect_position = position - _drag_ghost.get_combined_minimum_size() * 0.5
+	_update_drawer_radial_preview(position)
 	var host = _widget_host()
 	if host != null:
 		host.show_drop_targets(true, host.slot_at(position))
 	return true
+
+
+# Zona centrada en el radial donde soltar una fila del drawer la agrega a favoritos (O13r). Se usa
+# el centro del propio dial; si todavia no tiene rect (layout diferido), el del viewport.
+func _radial_drop_center() -> Vector2:
+	if is_instance_valid(_selector) and _selector.rect_size.x > 0.0:
+		return _selector.rect_position + _selector.rect_size * 0.5
+	return get_viewport_rect().size * 0.5
+
+
+func _radial_drop_zone_has_point(point: Vector2) -> bool:
+	if not is_instance_valid(_selector):
+		return false
+	return (point - _radial_drop_center()).length() <= _selector.drop_zone_radius()
+
+
+# Mientras una fila del drawer se arrastra, entrar en la zona del radial la ofrece como favorito:
+# el arco reaparece con su animacion de apertura y el drawer se desvanece. Al salir, todo vuelve.
+# Fuera de la zona y de un slot no hay destino: soltar no hace nada.
+func _update_drawer_radial_preview(position: Vector2) -> void:
+	if not _drag_from_drawer or not is_instance_valid(_drag_ghost):
+		return
+	var inside: bool = _radial_drop_zone_has_point(position)
+	if inside == _drawer_radial_preview:
+		return
+	_drawer_radial_preview = inside
+	if inside:
+		_selector.open()
+		Haptics.tick()
+	else:
+		_selector.close()
+	_set_drawer_fade(inside)
+
+
+func _set_drawer_fade(faded: bool) -> void:
+	if not is_instance_valid(_drawer):
+		return
+	_drawer.modulate = Color(1, 1, 1, DRAWER_RADIAL_FADE if faded else 1.0)
+
+
+# Al terminar el arrastre, el preview vuelve a su lugar: el drawer recupera su opacidad y el radial
+# se retrae (su animacion de cierre es la confirmacion breve del destino).
+func _cancel_drawer_radial_preview() -> void:
+	if not _drawer_radial_preview:
+		return
+	_drawer_radial_preview = false
+	_set_drawer_fade(false)
+	if is_instance_valid(_selector) and _selector.is_open():
+		_selector.close_animated()
+
+
+# El fantasma vuela hacia el centro del radial y se desvanece: confirma sin sacar el drawer de
+# pantalla que la fila se agrego a favoritos (O13r).
+func _fly_drag_ghost_to(target: Vector2) -> void:
+	if not is_instance_valid(_drag_ghost):
+		return
+	var ghost: Label = _drag_ghost
+	_drag_ghost = null
+	var tween := Tween.new()
+	add_child(tween)
+	tween.interpolate_property(ghost, "rect_position", ghost.rect_position,
+		target - ghost.get_combined_minimum_size() * 0.5, 0.20, Tween.TRANS_CUBIC, Tween.EASE_IN)
+	tween.interpolate_property(ghost, "modulate:a", 1.0, 0.0, 0.22, Tween.TRANS_SINE, Tween.EASE_OUT, 0.02)
+	tween.interpolate_callback(ghost, 0.26, "queue_free")
+	tween.interpolate_callback(tween, 0.28, "queue_free")
+	tween.start()
 
 func _start_mouse_option_drag(position: Vector2) -> void:
 	if not _drive_option_drag(position, false, true):
@@ -860,22 +945,26 @@ func _update_mouse_drag_position(event: InputEventMouseMotion) -> Vector2:
 	_mouse_drag_position.y = clamp(_mouse_drag_position.y, 0.0, size.y)
 	return _mouse_drag_position
 
-# Soltar el item levantado: sobre un slot lo fija ahi; en cualquier otro lado no pasa nada. Desde el
-# dial, el dial queda abierto para seguir asignando; desde el asa de una pantalla, anclarla cierra
-# el modo HUD para que se vea el widget en su slot.
+# Soltar el item levantado: sobre un slot lo fija ahi; una fila del drawer sobre el radial la
+# agrega a favoritos (O13r); en cualquier otro lado no pasa nada. Desde el dial, el dial queda
+# abierto para seguir asignando; desde el asa de una pantalla, anclarla cierra el modo HUD para que
+# se vea el widget en su slot.
 func _drop_option(position: Vector2) -> void:
 	var host = _widget_host()
 	var slot: int = host.slot_at(position) if host != null else -1
 	var from_handle: bool = _drag_from_handle
 	var recycled: bool = host != null and host.recycle_rect().has_point(position)
+	var onto_radial: bool = _drag_from_drawer and not _drag_id.empty() \
+		and _radial_drop_zone_has_point(position)
 	if slot >= 0:
 		Haptics.pulse(Haptics.DROP_MSEC)
 		_suit_os().pin_to_slot(slot, _drag_id)
-	elif _drag_from_drawer and not _drag_id.empty():
-		# O3: una fila del drawer soltada fuera de un slot (hub/arco o zona muerta) alterna
-		# favorito. Es el mismo verbo que la estrella, sin agregar estrellitas ni particulas.
-		Haptics.pulse(Haptics.DROP_MSEC)
+	elif onto_radial:
+		# O13r: el radio es el unico drop que cura favoritos con el arrastre (el boton X del mando
+		# sigue cubriendo el caso sin puntero). La fila se queda en el drawer: no se saca de pantalla.
+		Haptics.confirm()
 		_toggle_favorite_by_id(_drag_id)
+		_fly_drag_ghost_to(_radial_drop_center())
 	elif recycled:
 		# Soltar sobre la zona de reciclaje vacia el slot, igual que con el mouse (FD-304 §6).
 		Haptics.pulse(Haptics.DROP_MSEC)
@@ -901,6 +990,7 @@ func _end_option_drag() -> void:
 	_mouse_drag_moved = false
 	_drag_from_handle = false
 	_drag_from_drawer = false
+	_cancel_drawer_radial_preview()
 	if _restore_mouse_capture_after_drag:
 		# Si el cursor virtual sigue en modo desktop (una pantalla abierta lo pide), no se puede
 		# recapturar: se queda HIDDEN.
@@ -1207,6 +1297,8 @@ func _open_drawer() -> void:
 		_drawer.connect("screen_chosen", self, "_on_drawer_chose")
 		_drawer.connect("favorite_toggled", self, "_on_drawer_favorited")
 	_drawer.visible = true
+	_drawer.modulate = Color(1, 1, 1, 1)
+	_drawer_radial_preview = false
 	_drawer.set_rows(_drawer_rows())
 	# El drawer va con el mouse CAPTURADO y el cursor unico movido por deltas: con HIDDEN se
 	# movia mal.
@@ -1214,6 +1306,10 @@ func _open_drawer() -> void:
 	_cursor_moved = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	_end_drawer_row_drag()
+	# O18: el gesto que abrio el cajon queda por consumir; la primera pulsacion observada decide si
+	# sigue sostenida (gamepad) o ya se solto (mouse/touch).
+	_drawer_open_press = true
+	_drawer_click_down = false
 	_set_virtual_mouse_enabled(false)
 	if is_instance_valid(_virtual_mouse) and _virtual_mouse.has_method("set_gamepad_cursor_enabled"):
 		_virtual_mouse.set_gamepad_cursor_enabled(false)
@@ -1233,6 +1329,9 @@ func _open_drawer_direct() -> void:
 func _close_drawer() -> void:
 	if is_instance_valid(_drawer):
 		_drawer.visible = false
+	_cancel_drawer_radial_preview()
+	if is_instance_valid(_drawer):
+		_drawer.modulate = Color(1, 1, 1, 1)
 	_placeholder.visible = _screen_ids.empty()
 	_end_drawer_row_drag()
 	if is_instance_valid(_drag_ghost):
@@ -2088,7 +2187,7 @@ func _draw_hold_gauge() -> void:
 
 # Drawer SIN puntero: el mouse mueve la lista en relativo, como el arma del radial. La fila
 # CENTRADA es la elegida y el snap la asienta con easing; el clic acciona esa fila y el derecho
-# sale. El dedo si es puntero (arrastra filas a slots y toca la estrella).
+# sale. El dedo si es puntero: arrastra filas a slots o al radial (favorito).
 func _drawer_pointer_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		if event.device == TOUCH_MOUSE_DEVICE:
@@ -2117,9 +2216,10 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.device != TOUCH_MOUSE_DEVICE \
 			and (event.button_index == BUTTON_WHEEL_UP or event.button_index == BUTTON_WHEEL_DOWN):
-		# La rueda da pasos discretos por la lista, igual que la cruceta. Sin esto no hacia nada.
+		# La rueda desliza la lista hacia la fila siguiente con easing y menos de una fila por
+		# notch (O13r), en vez del salto seco que se sentia como resistencia.
 		if event.pressed:
-			_drawer.step_focus(-1 if event.button_index == BUTTON_WHEEL_UP else 1)
+			_drawer.wheel_step(-1 if event.button_index == BUTTON_WHEEL_UP else 1)
 		return
 	if event is InputEventMouseButton:
 		if event.device == TOUCH_MOUSE_DEVICE:
@@ -2135,8 +2235,7 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 			var point: Vector2 = _drawer_cursor_point(event.position)
 			if event.pressed:
 				_drawer_press_row = _drawer.row_at(point)
-				_drawer_press_star = _drawer_press_row >= 0 and _drawer.star_at(point) == _drawer_press_row
-				_drawer_drag_row = -1 if _drawer_press_star else _drawer_press_row
+				_drawer_drag_row = _drawer_press_row
 				_touch_start = point
 				return
 			if is_instance_valid(_drag_ghost):
@@ -2144,25 +2243,26 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 				_end_drawer_row_drag()
 				return
 			var mrow: int = _drawer_press_row
-			var mstar: bool = _drawer_press_star
 			_end_drawer_row_drag()
+			if _drawer_open_press:
+				# O18: si el release pertenece al gesto que abrio el cajon, no acciona ninguna
+				# fila; se consume una vez. Sin esto, el click que abria el cajon elegia Consola.
+				_drawer_open_press = false
+				_drawer_click_down = false
+				return
 			if mrow < 0:
 				var focused: int = _drawer.focused_index()
 				if focused >= 0:
 					_drawer.activate_row(focused)
 				return
-			if mstar:
-				_drawer.toggle_favorite_row(mrow, _suit_os())
-			else:
-				_drawer.activate_row(mrow)
+			_drawer.activate_row(mrow)
 		return
 	if event is InputEventScreenTouch:
 		var point: Vector2 = event.position
 		if event.pressed:
 			_drawer_touch_index = event.index
 			_drawer_press_row = _drawer.row_at(point)
-			_drawer_press_star = _drawer_press_row >= 0 and _drawer.star_at(point) == _drawer_press_row
-			_drawer_drag_row = -1 if _drawer_press_star else _drawer_press_row
+			_drawer_drag_row = _drawer_press_row
 			_touch_start = point
 			return
 		if event.index != _drawer_touch_index:
@@ -2176,16 +2276,12 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 			_end_drawer_row_drag()
 			return
 		var row: int = _drawer_press_row
-		var star: bool = _drawer_press_star
 		_end_drawer_row_drag()
 		if row < 0:
 			# Toque fuera de toda fila: misma salida que B: vuelve al dial o sale del HUD.
 			_dismiss_drawer()
 			return
-		if star:
-			_drawer.toggle_favorite_row(row, _suit_os())
-		else:
-			_drawer.activate_row(row)
+		_drawer.activate_row(row)
 		return
 
 
@@ -2202,7 +2298,6 @@ func _start_drawer_row_drag(position: Vector2) -> void:
 func _end_drawer_row_drag() -> void:
 	VirtualMouse.set_dragging(false)
 	_drawer_press_row = -1
-	_drawer_press_star = false
 	_drawer_drag_row = -1
 	_drawer_drag_active = false
 	_drawer_drag_from_stick = false
@@ -2266,6 +2361,11 @@ func _drive_drawer(input, delta: float) -> void:
 		_set_virtual_mouse_enabled(false)
 	# Click primario = mismo boton que el radial / crouch. Arma el arrastre de la fila enfocada.
 	var click_down: bool = bool(input.tool_fire_primary) or bool(input.crouch)
+	if _drawer_open_press and not _drawer_click_down:
+		# Primer frame con el cajon abierto: si el click ya viene sostenido es el gesto que lo
+		# abrio (A/crouch sobre el hub); su release no acciona (O18). Si ya esta suelto no hay
+		# nada que consumir y la proxima pulsacion acciona.
+		_drawer_open_press = click_down
 	var dropped := false
 	var shoulder: int = int(input.hud_slot) - 1
 	if shoulder >= 0:
@@ -2289,10 +2389,16 @@ func _drive_drawer(input, delta: float) -> void:
 		_drawer.drive(-float(input.move_vec.y), int(input.hud_nav), delta)
 	# Soltar el click SIN haber arrastrado acciona la fila enfocada (antes era el edge "a").
 	if not _drawer_drag_active and not dropped and _drawer_click_down and not click_down:
-		var focused: int = _drawer.focused_index()
-		if focused >= 0:
-			_drawer.activate_row(focused)
+		if _drawer_open_press:
+			# O18: la pulsacion que abrio el cajon se consume; una segunda pulsacion si acciona.
+			_drawer_open_press = false
+		else:
+			var focused: int = _drawer.focused_index()
+			if focused >= 0:
+				_drawer.activate_row(focused)
 	_drawer_click_down = click_down
+	if not click_down:
+		_drawer_open_press = false
 	if _drawer_drag_active:
 		return # arrastrando: X/B no accionan la fila
 	if edges["x"]:

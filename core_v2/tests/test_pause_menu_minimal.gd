@@ -4,6 +4,14 @@ const PauseMenuScene = preload("res://core_v2/ui/PauseMenu.tscn")
 const VirtualMouseScript = preload("res://core_v2/ui/VirtualMouse.gd")
 
 
+# Fake del plugin Android OdiseaDisplay: registra las llamadas a set_gameplay_active.
+class FakeDisplayPlugin:
+	var calls: Array = []
+
+	func set_gameplay_active(active: bool) -> void:
+		calls.append(active)
+
+
 func after_test() -> void:
 	# El puntero liberado es estado global del cursor compartido: no debe filtrarse entre tests.
 	VirtualMouseScript.set_pointer_released(false)
@@ -11,6 +19,9 @@ func after_test() -> void:
 	PauseManager._touch_tap_was_passive = false
 	PauseManager._last_touch_tap_msec = -100000
 	PauseManager._reset_inactivity_timer()
+	# La inyeccion del plugin de pantalla no debe filtrarse entre tests.
+	PauseManager._display_plugin_override = null
+	PauseManager._gameplay_display_active = true
 
 
 func test_set_minimal_leaves_only_the_pausa_label() -> void:
@@ -423,6 +434,77 @@ func test_inactivity_watchdog_fades_music_then_enters_the_passive_pause() -> voi
 	PauseManager._menu_hidden_by_focus = false
 	PauseManager._reset_inactivity_timer()
 	fake_scene.queue_free()
+	menu.queue_free()
+
+
+func test_pause_releases_the_display_and_resume_reacquires_it() -> void:
+	# O12: en gameplay la pantalla queda encendida + piso de brillo; en pausa se sueltan
+	# ambos para permitir el power saving. El plugin Android se inyecta como fake.
+	var previous_override = PauseManager._display_plugin_override
+	var previous_menu = PauseManager.pause_menu_instance
+	var fake := FakeDisplayPlugin.new()
+	PauseManager._display_plugin_override = fake
+	var menu = PauseMenuScene.instance()
+	add_child(menu)
+	PauseManager.pause_menu_instance = menu
+	get_tree().paused = false
+	PauseManager._quick_paused = false
+	PauseManager._menu_hidden_by_focus = false
+	fake.calls.clear()
+
+	PauseManager.pause()
+	assert_bool(get_tree().paused).is_true()
+	assert_bool(fake.calls.has(false)).is_true()
+
+	PauseManager.resume()
+	assert_bool(get_tree().paused).is_false()
+	assert_bool(fake.calls.has(true)).is_true()
+
+	get_tree().paused = false
+	PauseManager.pause_menu_instance = previous_menu
+	PauseManager._quick_paused = false
+	PauseManager._menu_hidden_by_focus = false
+	PauseManager._display_plugin_override = previous_override
+	menu.queue_free()
+
+
+func test_display_hook_is_a_safe_noop_without_the_plugin() -> void:
+	# Sin override y fuera de Android no hay plugin: el hook no debe crashear ni llamar nada.
+	PauseManager._display_plugin_override = null
+	assert_object(PauseManager._get_display_plugin()).is_null()
+	PauseManager.set_gameplay_display_active(false)
+	assert_bool(PauseManager._gameplay_display_active).is_false()
+	PauseManager.set_gameplay_display_active(true)
+	assert_bool(PauseManager._gameplay_display_active).is_true()
+
+
+func test_quick_pause_and_inactivity_pause_also_release_the_display() -> void:
+	# Toda pausa real (Start/inactividad pasan por pause()) suelta la pantalla.
+	var previous_override = PauseManager._display_plugin_override
+	var previous_menu = PauseManager.pause_menu_instance
+	var fake := FakeDisplayPlugin.new()
+	PauseManager._display_plugin_override = fake
+	var menu = PauseMenuScene.instance()
+	add_child(menu)
+	PauseManager.pause_menu_instance = menu
+	get_tree().paused = false
+	PauseManager._quick_paused = false
+	PauseManager._menu_hidden_by_focus = false
+	fake.calls.clear()
+
+	PauseManager.pause_quick()
+	assert_bool(get_tree().paused).is_true()
+	assert_bool(fake.calls.has(false)).is_true()
+
+	PauseManager.resume()
+	assert_bool(get_tree().paused).is_false()
+	assert_bool(fake.calls.has(true)).is_true()
+
+	get_tree().paused = false
+	PauseManager.pause_menu_instance = previous_menu
+	PauseManager._quick_paused = false
+	PauseManager._menu_hidden_by_focus = false
+	PauseManager._display_plugin_override = previous_override
 	menu.queue_free()
 
 

@@ -33,6 +33,12 @@ const OVERSCROLL_RETURN := 9.0
 # Se alinea sola cuando ya casi no se mueve. Puro tacto; la decision final es de playtest.
 const SNAP_SPEED := 10.0
 const SNAP_VELOCITY := 60.0
+# Rueda del mouse (O13r): en vez del salto seco de una fila entera, cada notch avanza una fraccion
+# de fila al instante y el resto lo asienta drive() con easing. El destino sigue siendo una fila
+# exacta, asi que no pelea con el snap; y como el rumbo se calcula desde el destino pendiente, el
+# notch no vuelve a la fila de la que salio.
+const WHEEL_STEP_FRACTION := 0.5
+const WHEEL_SNAP_SPEED := 14.0
 const STICK_DEADZONE := 0.2
 # Mismo umbral que el hold del HUD, para no inventar un tercer tempo.
 const REPEAT_MSEC := 400
@@ -40,9 +46,9 @@ const REPEAT_RATE_MSEC := 90
 # Con menos filas que esto el agrupado por inicial es ruido y no ayuda a saltar.
 const GROUPING_MIN_ROWS := 8
 const DENY_MSEC := 600
-# La estrella de favorito vive en el margen izquierdo de la fila. Este ancho (nominal, escalado)
-# es su zona clickeable: ahi el clic alterna favorito; en el resto de la fila abre la pantalla.
-const STAR_HIT_WIDTH := 44.0
+# Margen izquierdo del titulo dentro de la fila. Antes era el ancho de la estrella de favorito
+# (O13r: la estrella se elimino); sin ella, ese hueco quedaria como un margen muerto.
+const TITLE_PAD_LEFT := 14.0
 
 const COLOR_DIM := Color(0.42, 0.68, 0.76, 1.0)
 const COLOR_HOT := Color(0.0, 0.835, 1.0, 1.0)
@@ -54,6 +60,8 @@ const COLOR_PANEL_HOT := Color(0.0, 0.55, 0.7, 0.4)
 var _rows: Array = []
 var _scroll: float = 0.0
 var _velocity: float = 0.0
+# Destino pendiente de la rueda del mouse, en pixeles. -1 = sin gesto de rueda en curso.
+var _wheel_target: float = -1.0
 var _stick: float = 0.0
 var _step_down: int = 0 # -1 arriba, +1 abajo, 0 nada (cruceta)
 var _step_msec: int = 0
@@ -80,6 +88,7 @@ func set_rows(rows: Array) -> void:
 		entry["sort_key"] = _sort_key(String(entry.get("title", entry.get("id", ""))))
 		_rows.append(entry)
 	_rows.sort_custom(self, "_compare_rows")
+	_wheel_target = -1.0
 	if not focused_id.empty():
 		var again: int = index_of(focused_id)
 		if again >= 0:
@@ -136,13 +145,6 @@ func focused_row_center() -> Vector2:
 	return _row_rect(i, k).get_center() if i >= 0 else rect_size * 0.5
 
 
-# Centro de la estrella de favorito de una fila.
-func favorite_center(index: int) -> Vector2:
-	var k: float = UIScaleCompensator.scale_for(self)
-	var rect: Rect2 = _row_rect(index, k)
-	return rect.position + Vector2(22.0 * k, rect.size.y * 0.5)
-
-
 # --- Navegacion ---
 
 # El stick: velocidad, no posicion. Se llama una vez por tick con el eje crudo.
@@ -151,6 +153,18 @@ func drive(axis: float, dpad: int, delta: float) -> void:
 		return
 	_stick = axis if abs(axis) > STICK_DEADZONE else 0.0
 	_feed_dpad(dpad)
+	if _wheel_target >= 0.0:
+		if _stick != 0.0 or dpad != 0:
+			# El stick o la cruceta toman el mando: la rueda suelta su destino y no pelea.
+			_wheel_target = -1.0
+		else:
+			_velocity = 0.0
+			_scroll = lerp(_scroll, _wheel_target, min(1.0, WHEEL_SNAP_SPEED * delta))
+			if abs(_scroll - _wheel_target) <= 0.5:
+				_scroll = _wheel_target
+				_wheel_target = -1.0
+			update()
+			return
 	if _stick != 0.0:
 		_velocity = clamp(_velocity + _stick * ACCEL * delta, -MAX_SCROLL_SPEED, MAX_SCROLL_SPEED)
 	_scroll += _velocity * delta
@@ -189,6 +203,7 @@ func _feed_dpad(dpad: int) -> void:
 func step_focus(direction: int) -> void:
 	if _rows.empty():
 		return
+	_wheel_target = -1.0
 	var target: int = int(clamp(focused_index() + direction, 0, _rows.size() - 1))
 	if target * ROW_HEIGHT == _scroll:
 		return
@@ -198,11 +213,28 @@ func step_focus(direction: int) -> void:
 	update()
 
 
+# Rueda del mouse (O13r): no salta una fila entera, se desliza hacia la siguiente. El primer tramo
+# entra en el evento (una fraccion de fila, menos de una fila por notch) y drive() completa el resto
+# con easing hasta la fila destino. El rumbo se calcula desde el destino pendiente para que dos
+# notches seguidos avancen dos filas y ninguno sienta resistencia ni vuelva atras.
+func wheel_step(direction: int) -> void:
+	if _rows.empty() or direction == 0:
+		return
+	var base: float = _wheel_target if _wheel_target >= 0.0 else _scroll
+	var current: int = int(clamp(round(base / ROW_HEIGHT), 0.0, float(_rows.size() - 1)))
+	var target: int = int(clamp(current + direction, 0, _rows.size() - 1))
+	_wheel_target = float(target) * ROW_HEIGHT
+	_velocity = 0.0
+	_scroll = clamp(_scroll + direction * ROW_HEIGHT * WHEEL_STEP_FRACTION, 0.0, _max_scroll())
+	update()
+
+
 # Scroll relativo del mouse/dedo: mueve la lista unos pixeles y el snap de drive() la asienta sola
 # en la fila mas cercana. Sin puntero: la fila CENTRADA es la elegida, como el arma del radial.
 func scroll_by(pixels: float) -> void:
 	if _rows.empty() or pixels == 0.0:
 		return
+	_wheel_target = -1.0
 	_scroll = clamp(_scroll + pixels, 0.0, _max_scroll())
 	_velocity = 0.0
 	update()
@@ -250,7 +282,8 @@ func is_denying() -> bool:
 
 
 # Un punto (pantalla) sobre una fila: devuelve su indice, o -1. Con el mouse y el dedo la fila se
-# elige tocandola, sin pasar por el foco.
+# elige tocandola, sin pasar por el foco. Toda la fila es fila: la estrella de favorito se elimino
+# (O13r), asi que el margen izquierdo ya no es una zona aparte.
 func row_at(point: Vector2) -> int:
 	var k: float = UIScaleCompensator.scale_for(self)
 	for i in range(_rows.size()):
@@ -259,20 +292,10 @@ func row_at(point: Vector2) -> int:
 	return -1
 
 
-# La fila cuya estrella de favorito cae bajo el punto, o -1. La estrella se dibuja siempre (llena
-# si es favorito, contorno si no): el clic sobre ella alterna, el resto de la fila abre.
-func star_at(point: Vector2) -> int:
-	var k: float = UIScaleCompensator.scale_for(self)
-	for i in range(_rows.size()):
-		var rect: Rect2 = _row_rect(i, k)
-		if Rect2(rect.position, Vector2(STAR_HIT_WIDTH * k, rect.size.y)).has_point(point):
-			return i
-	return -1
-
-
 func focus_row(index: int) -> void:
 	if index < 0 or index >= _rows.size():
 		return
+	_wheel_target = -1.0
 	_scroll = index * ROW_HEIGHT
 	_velocity = 0.0
 	update()
@@ -322,12 +345,8 @@ func _draw_drawer() -> void:
 		var text_color: Color = COLOR_AMBER if denied else (COLOR_HOT if hot else COLOR_DIM)
 		if String(row.get("source", "online")) == "offline":
 			text_color = Color(text_color.r, text_color.g, text_color.b, 0.55)
-		draw_string(font, rect.position + Vector2(44.0 * k, rect.size.y * 0.68),
+		draw_string(font, rect.position + Vector2(TITLE_PAD_LEFT * k, rect.size.y * 0.68),
 			String(row.get("title", row.get("id", ""))), text_color)
-		if bool(row.get("favorite", false)):
-			_draw_star(rect.position + Vector2(22.0 * k, rect.size.y * 0.5), 9.0 * k, edge, true)
-		else:
-			_draw_star(rect.position + Vector2(22.0 * k, rect.size.y * 0.5), 9.0 * k, edge, false)
 		var tag: String = ""
 		if bool(row.get("alarm", false)):
 			tag = "ALERTA"
@@ -343,17 +362,3 @@ func _draw_drawer() -> void:
 
 func _initial_of(index: int) -> String:
 	return String(_rows[index]["sort_key"]).substr(0, 1)
-
-
-func _draw_star(center: Vector2, radius: float, color: Color, filled: bool) -> void:
-	var points := PoolVector2Array()
-	for i in range(10):
-		var a: float = -PI / 2.0 + TAU * float(i) / 10.0
-		var r: float = radius if i % 2 == 0 else radius * 0.45
-		points.append(center + Vector2(cos(a), sin(a)) * r)
-	if filled:
-		draw_colored_polygon(points, color)
-		return
-	var outline := PoolVector2Array(points)
-	outline.append(points[0])
-	draw_polyline(outline, Color(color.r, color.g, color.b, 0.45), 1.0, true)

@@ -46,6 +46,10 @@ const HUB_HIT_RADIUS := 34.0
 # que el aim siga pudiendo salir del centro a los sectores.
 const HUB_HIT_RADIUS_RATIO := 0.12
 const HUB_HIT_RADIUS_MAX := 96.0
+# Radio de la zona de aterrizaje de un arrastre, como fraccion del lado corto del dial (O13r). El
+# drawer ofrece soltar ahi una fila para agregarla a favoritos: cubre el hub y el anillo con margen
+# para que soltar "sobre el radial" no exija punteria.
+const DROP_ZONE_RADIUS_RATIO := 0.42
 # Screen-space angles (Y down). First option at 6 o'clock, last at 12, half a
 # turn apart through 3 — so the arc climbs the right-hand side, which is the half
 # the over-the-shoulder camera keeps clear. Options run anticlockwise on screen,
@@ -433,6 +437,17 @@ func clear_pointer() -> void:
 	# Looking away is also how a rider releases the hold left by a committed pick.
 	_focus_suppressed = false
 	_apply_hover(NONE, false)
+
+
+func drop_zone_radius() -> float:
+	"""Radio, en pixeles del dial, de la zona donde soltar un arrastre significa "sobre el
+	radial": cubre el hub y el anillo con margen, centrada en el dial. Sirve al drawer (O13r) para
+	saber si una fila arrastrada puede agregarse a favoritos. No depende de que haya opciones."""
+	var ring: float = _ring_size()
+	if ring <= 0.0:
+		var viewport_size: Vector2 = get_viewport_rect().size
+		ring = min(viewport_size.x, viewport_size.y)
+	return ring * DROP_ZONE_RADIUS_RATIO
 
 
 func confirm() -> void:

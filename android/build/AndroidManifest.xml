@@ -48,6 +48,13 @@
             android:name="org.godotengine.plugin.v1.OdiseaUpdater"
             android:value="com.godot.game.OdiseaUpdater" />
 
+        <!-- Registers the in-tree OdiseaDisplay GodotPlugin (screen power policy):
+             gameplay keeps the screen on + brightness floor, pause drops both.
+             Accessible from GDScript via Engine.get_singleton("OdiseaDisplay"). -->
+        <meta-data
+            android:name="org.godotengine.plugin.v1.OdiseaDisplay"
+            android:value="com.godot.game.OdiseaDisplay" />
+
         <!-- Android 12+ game mode: prefer the performance profile while playing. -->
         <meta-data
             android:name="android.app.game_mode_config"

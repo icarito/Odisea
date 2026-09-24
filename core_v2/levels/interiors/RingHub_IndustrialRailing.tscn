@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=2]
+
+; FD-314 / O10: variante RingHub de la baranda de los tramos generados por
+; RadialScatter. Es identica a DomeIntro_IndustrialRailing.tscn salvo el
+; rail_color, que pasa de naranja (1, 0.56, 0.06) al amarillo que ya usan las
+; escaleras y los spokes del hub (1, 0.82, 0.12). Dome_Intro conserva su fuente
+; naranja: RingHub_ScaffoldSource.tscn apunta SpiralWalkways a esta escena.
+[ext_resource path="res://core_v2/props/scaffold/ScaffoldRailing.tscn" type="PackedScene" id=1]
+[ext_resource path="res://materials/diamondPlateAluminum/seam_road_lines_pbr.tres" type="Material" id=2]
+
+[node name="RingHubIndustrialRailing" instance=ExtResource( 1 )]
+rail_color = Color( 1, 0.82, 0.12, 1 )
+hazard_strip_material = ExtResource( 2 )

@@ -1,0 +1,14 @@
+[gd_resource type="SpatialMaterial" load_steps=1 format=2]
+
+; O7: material propio de la cascara del domo de RingHub. El shell horneado
+; (DomeInteriorLowPoly_baked.mesh, M_DomeInteriorLowPoly) traia un gris casi
+; identico al piso (M_RingHubFloor, albedo 0.32/0.335/0.35), asi que pared y piso
+; no se distinguian. Este override conserva el resto del look del shell
+; (metallic 0, roughness 0.9, cull disabled para verse desde adentro) y le da un
+; tono frio oscuro claramente distinto del piso. El mesh horneado no se toca.
+[resource]
+resource_name = "M_RingHubDomeShell"
+params_cull_mode = 2
+albedo_color = Color( 0.1, 0.16, 0.19, 1 )
+metallic = 0.0
+roughness = 0.9

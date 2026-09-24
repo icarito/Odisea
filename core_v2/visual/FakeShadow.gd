@@ -67,10 +67,14 @@ func _ready() -> void:
 	_disable_runtime = disable_env in ["1", "true", "yes", "on"]
 	var force_cheap_runtime := false
 
-	# Auto-detect ARM architecture for cheap shadow fallback. FRT (handhelds) reporta
-	# OS.get_name() == "Unix", no "Linux": sin eso el camino ARM nunca se activaba en
-	# el Anbernic y el piloto quedaba en grid (malla con snap => escalonada al caminar).
-	if (OS.get_name() == "Linux" or OS.get_name() == "Unix") and _detect_arm_architecture():
+	# O8: el fallback "cheap" ya no se decide por arquitectura. Antes se forzaba con
+	# OS.get_name()=="Linux"/"Unix" + /proc/cpuinfo conteniendo "arm", lo que ademas
+	# elegia cheap en cualquier ARM (incluso desktop) y nunca en un low-end no-ARM.
+	# Se gatea por el flag de tier bajo del proyecto (GLES3VendorGate.is_low_tier():
+	# adapter verificado + opcion de usuario + ODISEA_FORCE_LOW_TIER). Desktop y ARM
+	# sin low-end conservan el camino grid.
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate != null and gate.has_method("is_low_tier") and gate.is_low_tier():
 		force_cheap_runtime = true
 
 	# Prefer the real blob shadows when the running engine is the fork with the
@@ -224,20 +228,6 @@ func _process_blob_shadow() -> void:
 	var center_pos = _get_anchor_center_pos(parent)
 	center_pos.y += max(0.02, vertical_offset)
 	_blob_caster.global_transform.origin = center_pos
-
-func _detect_arm_architecture() -> bool:
-	# FRT (handhelds PortMaster) corre en ARM y su /proc/cpuinfo puede venir VACIO
-	# dentro del sandbox (medido en el RG351V: file_exists=true pero 0 bytes), asi que
-	# ahi OS.get_name()=="Unix" es la señal fiable. En desktop Linux se mira cpuinfo.
-	if OS.get_name() == "Unix":
-		return true
-	var file = File.new()
-	if file.file_exists("/proc/cpuinfo"):
-		if file.open("/proc/cpuinfo", File.READ) == OK:
-			var content = file.get_as_text().to_lower()
-			file.close()
-			return "arm" in content or "aarch64" in content
-	return false
 
 func _create_rays() -> void:
 	# (FD-290) Ya no se crean nodos RayCast para la grilla: los offsets se arman bajo

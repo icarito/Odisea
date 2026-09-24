@@ -10,6 +10,11 @@ uniform float hardness : hint_range(0.0, 1.0) = 0.5;
 uniform float texture_rotation : hint_range(0.0, 6.28) = 0.0;
 uniform vec2 uv_offset = vec2(0.0);
 uniform float opacity : hint_range(0.0, 1.0) = 1.0;
+// O8: rim/halo claro alrededor del blob. Hace legible la sombra sobre pisos
+// oscuros (el nucleo negro no se ve ahi) sin ensuciar los claros, donde el
+// nucleo sigue mandando. rim_strength=0 recupera el look legacy (solo negro).
+uniform float rim_strength : hint_range(0.0, 1.0) = 0.5;
+uniform vec3 rim_color = vec3(0.75, 0.80, 0.88);
 
 void fragment() {
 	// Center UV
@@ -49,10 +54,17 @@ void fragment() {
 	// Hardness 1.0 = Sharp. Hardness 0.0 = Very Blurred.
 	// We map hardness to a delta.
 	float edge_width = (1.0 - hardness) * 0.2; // Max blur width 0.2
-	float alpha = 1.0 - smoothstep(0.25 - edge_width, 0.25, dist_sq);
+	float core = 1.0 - smoothstep(0.25 - edge_width, 0.25, dist_sq);
 	
-	ALBEDO = vec3(0.0, 0.0, 0.0);
-	ALPHA = alpha * COLOR.a * opacity; 
+	// Rim: banda clara pegada al borde del nucleo. Un solo pase, sin geometria
+	// extra (sigue siendo low-end friendly).
+	float rim = smoothstep(0.25 - edge_width * 0.9, 0.25, dist_sq)
+		* (1.0 - smoothstep(0.25, 0.25 + edge_width * 0.9, dist_sq));
+	
+	float a_core = core * COLOR.a * opacity;
+	float a_rim = rim * COLOR.a * opacity * rim_strength;
+	ALBEDO = mix(vec3(0.0, 0.0, 0.0), rim_color, a_rim / max(a_core + a_rim, 0.0001));
+	ALPHA = clamp(a_core + a_rim, 0.0, 1.0); 
 }
 "
 
@@ -64,3 +76,5 @@ shader_param/hardness = 0.5
 shader_param/texture_rotation = 0.0
 shader_param/uv_offset = Vector2( 0, 0 )
 shader_param/opacity = 1.0
+shader_param/rim_strength = 0.5
+shader_param/rim_color = Vector3( 0.75, 0.8, 0.88 )

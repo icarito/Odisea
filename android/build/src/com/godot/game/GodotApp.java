@@ -32,6 +32,7 @@ package com.godot.game;
 
 import org.godotengine.godot.FullScreenGodotApp;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -50,10 +51,11 @@ public class GodotApp extends FullScreenGodotApp {
 	// constructor; onNewIntent (app already running) feeds the plugin directly.
 	private static String sPendingDeepLink = "";
 
-	// Brightness floor for the game window. Long scene loads (menu -> dome) left
-	// the screen untouched long enough for power management to dim it, even with
-	// the engine's keep-screen-on flag (battery-saver / adaptive dimming ignore
-	// FLAG_KEEP_SCREEN_ON on some OEMs). Tuned up from 0.6 if still dim.
+	// Brightness floor for the game window while gameplay is active. Long scene
+	// loads (menu -> dome) left the screen untouched long enough for power
+	// management to dim it, even with the engine's keep-screen-on flag
+	// (battery-saver / adaptive dimming ignore FLAG_KEEP_SCREEN_ON on some OEMs).
+	// PauseManager (via the OdiseaDisplay plugin) drops this on pause.
 	private static final float BRIGHTNESS_FLOOR = 0.6f;
 
 	// On 90/120 Hz panels, rendering at the panel's full refresh only adds heat
@@ -80,19 +82,38 @@ public class GodotApp extends FullScreenGodotApp {
 	}
 
 	/**
-	 * Keeps the screen on and pins a brightness floor while the game is the
-	 * visible window. FLAG_KEEP_SCREEN_ON stops the idle timeout; the window
-	 * screenBrightness attribute stops OEM battery-saver / adaptive dimming,
-	 * which ignore that flag. Never lowers brightness below the user's setting.
+	 * Initial safe state at boot: the app starts on the menu/scene before any
+	 * GDScript runs, so keep the screen on. From then on PauseManager owns the
+	 * gameplay/pause transitions through the OdiseaDisplay plugin.
 	 */
 	private void keepScreenAwakeAndBright() {
-		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-		int systemBrightness = Settings.System.getInt(
-				getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, 128);
-		float floor = Math.max(systemBrightness / 255.0f, BRIGHTNESS_FLOOR);
-		WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
-		layoutParams.screenBrightness = floor;
-		getWindow().setAttributes(layoutParams);
+		applyGameplayDisplayState(this, true);
+	}
+
+	/**
+	 * Shared gameplay/pause screen power policy. Called by GodotApp for the boot
+	 * state and by the OdiseaDisplay plugin for every PauseManager transition.
+	 *
+	 * active = true keeps the screen on and pins a brightness floor (never below
+	 * the user's setting); active = false drops both so the system can dim/sleep
+	 * while paused.
+	 */
+	static void applyGameplayDisplayState(Activity activity, boolean active) {
+		if (activity == null || activity.getWindow() == null) {
+			return;
+		}
+		WindowManager.LayoutParams layoutParams = activity.getWindow().getAttributes();
+		if (active) {
+			activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+			int systemBrightness = Settings.System.getInt(
+					activity.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, 128);
+			layoutParams.screenBrightness = Math.max(systemBrightness / 255.0f, BRIGHTNESS_FLOOR);
+		} else {
+			activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+			// -1 = BRIGHTNESS_OVERRIDE_NONE: follow the system brightness.
+			layoutParams.screenBrightness = -1.0f;
+		}
+		activity.getWindow().setAttributes(layoutParams);
 	}
 
 	/**

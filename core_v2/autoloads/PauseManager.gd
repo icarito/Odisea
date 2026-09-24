@@ -40,10 +40,36 @@ const TOUCH_DOUBLE_TAP_MAX_DISTANCE := 40.0
 var _last_touch_tap_msec: int = -100000
 var _last_touch_tap_pos: Vector2 = Vector2.ZERO
 var _touch_tap_was_passive: bool = false
+# O12: politica de pantalla gameplay/pausa. En gameplay el plugin Android
+# OdiseaDisplay mantiene la pantalla encendida + piso de brillo; en pausa suelta
+# ambos para que el sistema pueda atenuar/dormir. En desktop/no-Android es no-op.
+# _display_plugin_override permite inyectar un fake en tests.
+var _display_plugin_override = null
+var _gameplay_display_active: bool = true
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
 	get_tree().set_quit_on_go_back(false)
+	# Estado inicial seguro: el juego arranca sin pausa (menu/escena). El plugin de
+	# Android lo reaplica igual que GodotApp; en desktop es no-op.
+	set_gameplay_display_active(true)
+
+# Devuelve el plugin Android OdiseaDisplay (o el fake inyectado en tests), o null
+# cuando no aplica (desktop, tests, builds sin el plugin).
+func _get_display_plugin() -> Object:
+	if _display_plugin_override != null:
+		return _display_plugin_override
+	if OS.get_name() == "Android" and Engine.has_singleton("OdiseaDisplay"):
+		return Engine.get_singleton("OdiseaDisplay")
+	return null
+
+# Notifica al plugin el estado de pantalla: true en gameplay, false en pausa.
+# Nunca crashea sin plugin ni fuera de Android.
+func set_gameplay_display_active(active: bool) -> void:
+	_gameplay_display_active = active
+	var plugin = _get_display_plugin()
+	if plugin != null and plugin.has_method("set_gameplay_active"):
+		plugin.set_gameplay_active(active)
 
 func _process(delta: float) -> void:
 	if _uptime_frames < 120:
@@ -467,6 +493,8 @@ func _finish_pause() -> void:
 		audio_mgr.set_music_paused_by_menu(true)
 	_menu_idle_timer = 0.0
 	_start_passive_orbit()
+	# O12: en pausa se suelta el piso de brillo y se permite el power saving.
+	set_gameplay_display_active(false)
 
 func resume():
 	_menu_hidden_by_focus = false
@@ -492,6 +520,8 @@ func _on_idle_orbit_return_finished() -> void:
 
 func _apply_resume() -> void:
 	get_tree().paused = false
+	# O12: al reanudar se recupera pantalla encendida + piso de brillo.
+	set_gameplay_display_active(true)
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	# Recapturar apaga el cursor virtual del puntero liberado (ui_cancel en gameplay).
 	VirtualMouseScript.set_pointer_released(false)

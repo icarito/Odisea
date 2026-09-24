@@ -285,7 +285,7 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.99232, 0 )
 [node name="Yaw" type="Spatial" parent="CameraRig"]
 
 [node name="Pitch" type="Spatial" parent="CameraRig/Yaw"]
-transform = Transform( 1, 0, 0, 0, 0.996866, -0.0791029, 0, 0.0791029, 0.996866, 0, 0.309255, 0 )
+transform = Transform( 1, 0, 0, 0, 0.986178, -0.165677, 0, 0.165677, 0.986178, 0, 0.309255, 0 )
 
 [node name="OTS_Offset" type="Spatial" parent="CameraRig/Yaw/Pitch"]
 

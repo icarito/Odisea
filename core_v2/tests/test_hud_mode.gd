@@ -12,10 +12,17 @@ const HangingDisplayScene = preload("res://core_v2/levels/interiors/DomeIntroCry
 const RadialSelectorScene = preload("res://core_v2/ui/radial/RadialSelectorV2.tscn")
 const Gesture = preload("res://core_v2/ui/hud/HudTabGesture.gd")
 const HudOverlayScript = preload("res://core_v2/ui/hud/HudModeOverlay.gd")
+const UIScaleCompensator = preload("res://core_v2/ui/UIScaleCompensator.gd")
 const CRYO_UI_PATH := "res://core_v2/levels/interiors/DomeIntroCryoDiagnosticsUI.tscn"
 
 var _overlay_mgr = null
 var _fake_scene: Node = null
+var _drawer_chosen_count: int = 0
+
+
+func _count_drawer_chosen(_id: String) -> void:
+	_drawer_chosen_count += 1
+
 
 class PlayerInputStub:
 	extends Node
@@ -1758,6 +1765,89 @@ func test_mouse_click_with_the_aim_on_a_sector_picks_it_not_the_hub() -> void:
 		assert_bool(sel.is_open()).is_false()
 
 
+# --- O18: la pulsacion que abre el drawer no acciona la fila; O17: ENTER activa ---
+
+func test_the_gamepad_press_that_opens_the_drawer_does_not_activate_the_focused_row() -> void:
+	# Device (Anbernic): A (crouch) sobre el hub abre el cajon; esa misma pulsacion, al soltarse,
+	# accionaba la fila enfocada (Consola). El gesto de apertura se consume una vez.
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play([UP])
+	_play(overlay, [
+		{"hud_mode": true, "move_vec": [0.0, -1.0], "analog_move_active": true},
+		{"hud_mode": true, "move_vec": [0.0, 0.0], "analog_move_active": true}])
+	assert_bool(overlay._selector.hub_hovered()).is_true()
+	# A sostenida abre el cajon y sigue apretada, como en el device.
+	_play(overlay, [{"hud_mode": true, "crouch": true}])
+	assert_bool(overlay._drawer_open()).is_true()
+	assert_bool(overlay._selector.is_open()).is_false()
+	assert_str(SuitOS.get_active_screen_id()).is_empty()
+	# Un frame mas con A sostenida: el stream ve la pulsacion antes de soltarla, como en device.
+	_play(overlay, [{"hud_mode": true, "crouch": true}])
+	assert_str(SuitOS.get_active_screen_id()).is_empty()
+	# Soltarla NO acciona la fila enfocada (O18).
+	_play(overlay, [{"hud_mode": true}])
+	assert_bool(overlay._drawer_open()).is_true()
+	assert_str(SuitOS.get_active_screen_id()).is_empty()
+	# Un segundo press/release SI acciona.
+	_play(overlay, [{"hud_mode": true, "crouch": true}])
+	assert_bool(overlay._drawer_open()).is_true()
+	_play(overlay, [{"hud_mode": true}])
+	assert_str(SuitOS.get_active_screen_id()).is_not_empty()
+
+
+func test_the_mouse_release_that_opens_the_drawer_does_not_activate_a_row() -> void:
+	# El release del gesto de apertura se consume tambien en el camino del mouse
+	# (_drawer_pointer_input): el cajon entra con el gesto pendiente y no elige nada.
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(1)
+	var id: String = drawer.row_id(1)
+	assert_bool(overlay._drawer_open_press).is_true() # el cajon acaba de abrirse
+	var center: Vector2 = drawer.focused_row_center()
+	overlay._input(_mouse_click(true, center))
+	overlay._input(_mouse_click(false, center))
+	assert_bool(overlay._drawer_open()).is_true()
+	assert_str(SuitOS.get_active_screen_id()).is_empty()
+	assert_bool(overlay._drawer_open_press).is_false() # el gesto de apertura se consumio
+	# La segunda pulsacion SI acciona la fila apoyada.
+	overlay._input(_mouse_click(true, center))
+	overlay._input(_mouse_click(false, center))
+	assert_str(SuitOS.get_active_screen_id()).is_equal(id)
+
+
+func test_enter_activates_the_focused_drawer_row() -> void:
+	# O17: ENTER/KP_ENTER (ui_accept) elige la fila enfocada del cajon, como el radial.
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(1)
+	var id: String = drawer.row_id(1)
+	assert_str(id).is_equal("test:b")
+	overlay._input(_action("ui_accept"))
+	assert_str(SuitOS.get_active_screen_id()).is_equal(id)
+	assert_bool(overlay._drawer_open()).is_false()
+
+
+func test_the_gamepad_a_activates_the_focused_row_without_the_event_double_firing() -> void:
+	# A del mando es crouch (stream) y ui_accept (evento) a la vez. El cajon activa UNA sola vez:
+	# el evento de joypad se ignora (O17) y decide el stream en _drive_drawer.
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(1)
+	var id: String = drawer.row_id(1)
+	_drawer_chosen_count = 0
+	drawer.connect("screen_chosen", self, "_count_drawer_chosen")
+	_play(overlay, [{}]) # click suelto: no hay gesto de apertura pendiente
+	var press := InputEventJoypadButton.new()
+	press.button_index = 0 # A
+	press.pressed = true
+	overlay._input(press)
+	assert_str(SuitOS.get_active_screen_id()).is_empty() # el evento no activa por su cuenta
+	_play(overlay, [{"crouch": true}, {}])
+	assert_int(_drawer_chosen_count).is_equal(1)
+	assert_str(SuitOS.get_active_screen_id()).is_equal(id)
+
+
 # Abre el drawer directo (sin pasar por el hub) y le da un tamaño de pantalla a mano: la escena de
 # test no corre layout, y sin rect las filas no tienen geometria con la que hacer hit-test.
 func _drawer_overlay() -> Node:
@@ -1792,13 +1882,23 @@ func test_mouse_scroll_settles_on_a_centred_row_without_runaway() -> void:
 	assert_float(drawer._scroll).is_equal_approx(56.0, 0.5)
 
 
-func test_drawer_wheel_steps_the_list_like_the_dpad() -> void:
+func test_drawer_wheel_glides_less_than_a_row_and_settles_on_the_next() -> void:
+	# (b) O13r: la rueda no salta una fila entera: menos de una fila por notch y el resto se
+	# desliza hasta la fila siguiente, sin volver a la de origen.
 	var overlay = _drawer_overlay()
 	var drawer = overlay._drawer
 	drawer.focus_row(0)
+	var before: float = drawer._scroll
 	overlay._input(_wheel(BUTTON_WHEEL_DOWN))
+	var delta: float = drawer._scroll - before
+	assert_float(delta).is_greater(0.0)
+	assert_float(delta).is_less(drawer.ROW_HEIGHT)
+	for _i in range(180):
+		drawer.drive(0.0, 0, 1.0 / 60.0)
 	assert_int(drawer.focused_index()).is_equal(1)
 	overlay._input(_wheel(BUTTON_WHEEL_UP))
+	for _i in range(180):
+		drawer.drive(0.0, 0, 1.0 / 60.0)
 	assert_int(drawer.focused_index()).is_equal(0)
 
 
@@ -1854,23 +1954,21 @@ func test_ui_accept_no_longer_fires_on_space() -> void:
 			assert_int(ev.scancode).is_not_equal(KEY_SPACE)
 
 
-func test_drawer_touch_star_toggles_favorite_and_row_tap_opens() -> void:
+func test_drawer_row_tap_opens_from_the_left_margin_too() -> void:
+	# (a) O13r: sin estrella, el margen izquierdo de la fila es fila: tocarlo abre la pantalla,
+	# no alterna favorito.
 	var overlay = _drawer_overlay()
 	var drawer = overlay._drawer
 	drawer.focus_row(0)
 	var id: String = drawer.row_id(0)
+	var rect: Rect2 = drawer._row_rect(0, UIScaleCompensator.scale_for(drawer))
+	var left: Vector2 = rect.position + Vector2(6.0, rect.size.y * 0.5)
+	assert_int(drawer.row_at(left)).is_equal(0)
 	var was_favorite: bool = SuitOS.is_favorite(id)
-	# La estrella alterna favorito sin abrir la pantalla.
-	var star: Vector2 = drawer.favorite_center(0)
-	overlay._input(_touch(true, star))
-	overlay._input(_touch(false, star))
-	assert_int(int(SuitOS.is_favorite(id))).is_not_equal(int(was_favorite))
-	assert_str(SuitOS.get_active_screen_id()).is_not_equal(id)
-	# El resto de la fila si la abre (la pantalla queda abierta).
-	var center: Vector2 = drawer.focused_row_center()
-	overlay._input(_touch(true, center))
-	overlay._input(_touch(false, center))
+	overlay._input(_touch(true, left))
+	overlay._input(_touch(false, left))
 	assert_str(SuitOS.get_active_screen_id()).is_equal(id)
+	assert_int(int(SuitOS.is_favorite(id))).is_equal(int(was_favorite))
 
 
 func test_dragging_a_drawer_row_onto_a_slot_pins_it_there() -> void:
@@ -1999,54 +2097,55 @@ func test_dropping_with_the_stick_does_not_also_activate_the_item_on_hold_releas
 	assert_bool(overlay._selector.is_open()).is_true()
 
 
-# --- O3: drag del drawer al radial = favorito, y radial al instante ---
+# --- O13r: drag del drawer al radial = favorito, y radial al instante ---
 
-func test_dragging_a_drawer_row_off_a_slot_toggles_favorite() -> void:
-	# Soltar una fila fuera de todo slot (hub/arco o zona muerta) alterna favorito, sin
-	# estrellitas. El drop sobre un slot sigue fijando el pin
-	# (test_dragging_a_drawer_row_onto_a_slot_pins_it_there).
+func test_dropping_a_drawer_row_on_the_radial_toggles_favorite_and_keeps_the_drawer() -> void:
+	# (c) O13r: arrastrar una fila a la zona del radial (el arco/hub) agrega a favoritos. Mientras
+	# el puntero esta ahi el radial reaparece con su animacion de apertura y el drawer se desvanece;
+	# soltar ahi no saca el drawer de pantalla y el arco se rehace al instante.
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(0)
+	var id: String = drawer.row_id(0)
+	assert_bool(SuitOS.is_favorite(id)).is_true() # _auto_favorite lo dejo curado
+	assert_bool(overlay._dial_ids.has(id)).is_true()
+	var start: Vector2 = drawer.focused_row_center()
+	var drop: Vector2 = overlay._radial_drop_center() + Vector2(40.0, 0.0)
+	overlay._input(_touch(true, start))
+	overlay._input(_screen_drag(drop))
+	assert_object(overlay._drag_ghost).is_not_null()
+	assert_bool(overlay._selector.is_open()).is_true() # el radial vuelve a aparecer
+	assert_float(drawer.modulate.a).is_less(1.0) # el drawer se desvanece
+	overlay._input(_touch(false, drop))
+	assert_bool(SuitOS.is_favorite(id)).is_false()
+	assert_bool(overlay._drawer_open()).is_true() # la pantalla del drawer sigue
+	assert_bool(overlay._dial_ids.has(id)).is_false() # el arco se rehace al instante
+	for _i in range(30):
+		drawer.drive(0.0, 0, 1.0 / 60.0)
+	assert_float(drawer.modulate.a).is_equal_approx(1.0, 0.01) # el drawer vuelve a normal
+
+
+func test_dropping_a_drawer_row_off_the_radial_and_slots_does_nothing() -> void:
+	# (c) O13r: fuera del radial y de todo slot no hay destino: soltar no cambia nada. El drawer
+	# vuelve a la normalidad y el radial queda cerrado.
 	var overlay = _drawer_overlay()
 	var drawer = overlay._drawer
 	drawer.focus_row(1)
 	var id: String = drawer.row_id(1)
 	assert_str(id).is_equal("test:b")
-	assert_bool(SuitOS.is_favorite(id)).is_true() # _auto_favorite lo dejo curado
+	var was_favorite: bool = SuitOS.is_favorite(id)
 	var start: Vector2 = drawer.focused_row_center()
 	var outside := Vector2(5.0, 5.0)
 	assert_int(SuitOS.get_node("SuitOSWidgetHost").slot_at(outside)).is_equal(-1)
+	assert_bool(overlay._radial_drop_zone_has_point(outside)).is_false()
 	overlay._input(_touch(true, start))
 	overlay._input(_screen_drag(outside))
 	assert_object(overlay._drag_ghost).is_not_null()
-	assert_str(overlay._drag_ghost.text).is_equal("Beta")
 	overlay._input(_touch(false, outside))
-	assert_bool(SuitOS.is_favorite(id)).is_false()
-	assert_bool(overlay._dial_ids.has(id)).is_false()
-	# Y al reves: la misma fila vuelve al arco al arrastrarla otra vez fuera de un slot.
-	overlay._input(_touch(true, start))
-	overlay._input(_screen_drag(outside))
-	overlay._input(_touch(false, outside))
-	assert_bool(SuitOS.is_favorite(id)).is_true()
-	assert_bool(overlay._dial_ids.has(id)).is_true()
-
-
-func test_toggling_the_star_updates_the_radial_at_once() -> void:
-	# El boton de favorito (estrella) se refleja en el arco sin esperar a reabrirlo: el ítem
-	# aparece/desaparece del radial (favoritos ordenados) en el mismo gesto.
-	var overlay = _drawer_overlay()
-	var drawer = overlay._drawer
-	drawer.focus_row(0)
-	var id: String = drawer.row_id(0)
-	assert_bool(SuitOS.is_favorite(id)).is_true()
-	assert_bool(overlay._dial_ids.has(id)).is_true()
-	var star: Vector2 = drawer.favorite_center(0)
-	overlay._input(_touch(true, star))
-	overlay._input(_touch(false, star))
-	assert_bool(SuitOS.is_favorite(id)).is_false()
-	assert_bool(overlay._dial_ids.has(id)).is_false()
-	overlay._input(_touch(true, star))
-	overlay._input(_touch(false, star))
-	assert_bool(SuitOS.is_favorite(id)).is_true()
-	assert_bool(overlay._dial_ids.has(id)).is_true()
+	assert_int(int(SuitOS.is_favorite(id))).is_equal(int(was_favorite))
+	assert_bool(overlay._drawer_open()).is_true()
+	assert_bool(overlay._selector.is_open()).is_false()
+	assert_float(drawer.modulate.a).is_equal_approx(1.0, 0.01)
 
 
 # --- O13: arrastre del drawer en touch ---
