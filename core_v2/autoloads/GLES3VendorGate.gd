@@ -207,6 +207,37 @@ func suspend_node_mutation() -> void:
 func is_flat_mode() -> bool:
 	return _unshaded_mode != ""
 
+# Palancas en vivo del tier plano: el Environment no ilumina materiales unshaded,
+# asi que el dueño de un evento de iluminacion (RingHubLightState) mueve estos
+# uniforms del FlatFake. El setter actualiza el valor y lo re-aplica a TODOS los
+# materiales planos ya creados (el cache los devuelve hechos); los que se creen
+# despues ya leen los valores nuevos. world_light/glow_floor solo existen en la
+# variante con linterna, por eso se recorren aparte.
+func set_flat_ambient(value: float) -> void:
+	_flat_ambient = value
+	_apply_flat_light()
+
+func set_flat_world_light(value: float) -> void:
+	_world_light = value
+	_apply_flat_light()
+
+func set_flat_glow_floor(value: float) -> void:
+	_glow_floor = value
+	_apply_flat_light()
+
+func _apply_flat_light() -> void:
+	for mat in _flat_materials:
+		if not is_instance_valid(mat):
+			continue
+		if _flat_ambient >= 0.0:
+			mat.set_shader_param("ambient", _flat_ambient)
+			mat.set_shader_param("exposure", clamp(_flat_ambient * 3.0, 0.02, 0.88))
+	for mat in _flashlight_materials:
+		if not is_instance_valid(mat):
+			continue
+		mat.set_shader_param("world_light", _world_light)
+		mat.set_shader_param("glow_floor", _glow_floor)
+
 var _unshaded_mat: SpatialMaterial = null
 var _flat_cache := {}
 var _flat_avg_cache := {}
@@ -220,6 +251,9 @@ var _flashlight_mode := false
 # y la direccion de la SpotLight. Son POCOS (uno por color/glow, no uno por nodo,
 # gracias al cache de _flat_material), asi que actualizarlos sale barato.
 var _flashlight_materials := []
+# Todos los ShaderMaterial planos creados, para poder re-aplicar las palancas de
+# ambiente en vivo (set_flat_ambient/_world_light/_glow_floor).
+var _flat_materials := []
 var _flashlight_node: Spatial = null
 var _flashlight_spot: Spatial = null
 var _flashlight_accum := 0.0
@@ -705,6 +739,7 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 		mat.set_shader_param("ambient", _flat_ambient)
 		mat.set_shader_param("exposure", clamp(_flat_ambient * 3.0, 0.02, 0.88))
 	_flat_cache[key] = mat
+	_flat_materials.append(mat)
 	return mat
 
 func _low_tier_node(node: Node) -> void:

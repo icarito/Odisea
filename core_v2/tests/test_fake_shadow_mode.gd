@@ -84,3 +84,63 @@ func test_without_low_tier_arm_does_not_force_cheap() -> void:
 	# La deteccion por arquitectura se elimino por completo (O8).
 	assert_bool(fs.has_method("_detect_arm_architecture")).is_false()
 	fs.free()
+
+
+# --- O8b: look y seguimiento del camino cheap (Anbernic / tier LOW) ---
+
+func test_cheap_look_defaults_are_smaller_and_denser() -> void:
+	# El blob cheap se achico (uv_scale sube) y se hizo mas opaco (opacity sube).
+	# Se lockean los defaults tuneables: la unica verificacion posible en headless
+	# (el shader GLSL no compila aca; el look final se valida en device).
+	var fs: MeshInstance = FakeShadowScript.new()
+	assert_float(fs.cheap_uv_scale).is_greater_equal(2.0)
+	assert_float(fs.cheap_opacity).is_greater_equal(0.7)
+	# Rim: filo fino (rim_width chico) y denso, desactivable con rim_strength=0.
+	assert_float(fs.rim_width).is_greater(0.0)
+	assert_float(fs.rim_width).is_less(0.1)
+	assert_float(fs.rim_strength).is_greater(0.0)
+	# O8r: el filo ya no es blanco ni intenso. Gris suave (canales bajos y parejos)
+	# y fuerza discreta, ambos tuneables por export en device.
+	assert_float(fs.rim_strength).is_less_equal(0.5)
+	assert_bool(fs.rim_color.r <= 0.6 and fs.rim_color.g <= 0.6 and fs.rim_color.b <= 0.6).is_true()
+	assert_float(abs(fs.rim_color.r - fs.rim_color.b)).is_less(0.1)
+	fs.free()
+
+
+func test_shader_has_thin_rim_params() -> void:
+	# El shader GLSL no se carga/compila en headless (rasterizer dummy: Shader.code
+	# vuelve vacio), asi que lockeamos el texto del .tres: el uniform del filo y su
+	# default tuneable en device.
+	var f := File.new()
+	assert_int(f.open("res://materials/shadow/FakeShadowShader.tres", File.READ)).is_equal(OK)
+	var code: String = f.get_as_text()
+	f.close()
+	assert_bool(code.find("uniform float rim_strength") != -1).is_true()
+	assert_bool(code.find("uniform float rim_width") != -1).is_true()
+	assert_bool(code.find("uniform vec3 rim_color") != -1).is_true()
+	assert_bool(code.find("shader_param/rim_width") != -1).is_true()
+	# O8r: defaults del material = gris suave y fuerza discreta (no blanco/vistoso).
+	assert_bool(code.find("shader_param/rim_strength = 0.35") != -1).is_true()
+	assert_bool(code.find("shader_param/rim_color = Vector3( 0.42, 0.44, 0.47 )") != -1).is_true()
+
+
+func test_cheap_actor_follows_every_frame() -> void:
+	_set_low_tier(true)
+	var fs := _make_shadow()
+	# Cheap: el actor (piloto) no tiene cadence de 3-6 frames; los props si.
+	assert_int(fs._cheap_frame_interval(true)).is_equal(1)
+	assert_int(fs._cheap_frame_interval(false)).is_greater_equal(3)
+	# El nodo de test no es pilot owner => conserva el intervalo alto.
+	assert_int(fs.update_every_n_frames).is_greater_equal(3)
+	fs.free()
+
+
+func test_cheap_shadow_disables_physics_interpolation() -> void:
+	if not ClassDB.class_has_method("Node", "set_physics_interpolation_mode"):
+		return
+	_set_low_tier(true)
+	var fs := _make_shadow()
+	# OFF (1): el shadow se posiciona a mano con la transform ya interpolada del actor;
+	# dejarlo interpolado lo dibujaba varios frames atras.
+	assert_int(fs.get_physics_interpolation_mode()).is_equal(1)
+	fs.free()

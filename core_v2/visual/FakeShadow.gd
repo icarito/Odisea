@@ -22,18 +22,39 @@ export(float) var blob_radius_scale: float = 1.0
 export(float) var skirt_limit: float = 5.0 # Max height for skirts before we stop drawing them (avoid giant walls)
 export(float) var vertical_offset: float = 0.02
 export(float) var snap_amount: float = 0.1 # World Grid Size (10cm matches your 0.2m floors)
-export(float) var smooth_speed: float = 10.0 # Lerp speed
+# Cheap: el quad sigue al actor por frame. smooth_speed alto + clamp a 1 deja el
+# seguimiento casi instantaneo (t=1 en el handheld ~24-30 fps); bajarlo suaviza a
+# costa de latencia. No aplica a grid (el grid sigue con snap + cadence).
+export(float) var smooth_speed: float = 60.0 # Cheap follow speed (clamped lerp)
 export(int, 1, 8) var update_every_n_frames: int = 3
-# Ajuste del look en cheap mode (quad plano): uv_scale >1 achica el blobl, opacity <1
-# lo aclara. Valores elegidos para parecerse a lo que daba la grilla en el handheld.
-export(float, 0.5, 3.0) var cheap_uv_scale: float = 1.55
-export(float, 0.1, 1.0) var cheap_opacity: float = 0.55
+# Ajuste del look en cheap mode (quad plano): uv_scale >1 achica el blob, opacity <1
+# lo aclara. O8b: mas chico (2.4 vs 1.55) y mas opaco (0.78 vs 0.55) porque en el
+# Anbernic el blob se veia demasiado grande y lavado. uv_scale <~2.1 recortaba el
+# ovalo contra el borde del quad de 1 m; 2.4 lo deja entero.
+export(float, 0.5, 4.0) var cheap_uv_scale: float = 2.4
+export(float, 0.1, 1.0) var cheap_opacity: float = 0.78
+# O8b/O8r rim: filo fino pegado al contorno. rim_strength=0 lo desactiva
+# (vuelve al negro legacy); rim_width chico = filo, grande = banda ancha. Son
+# params de shader (sin geometria extra), tuneables en device.
+# O8r: el dueno lo vio "blanco, demasiado vistoso" en el Anbernic; se baja a un
+# gris suave (rim_color) y una intensidad discreta (rim_strength) para que el filo
+# se lea como contorno tenue, no como un halo claro.
+export(float, 0.0, 1.0) var rim_strength: float = 0.35
+export(float, 0.0, 0.3) var rim_width: float = 0.05
+export(Color) var rim_color: Color = Color(0.42, 0.44, 0.47)
+# El shadow se reposiciona en _process leyendo la transform YA interpolada del actor:
+# si el motor lo vuelve a interpolar, se dibuja 1+ tick atras (lag de varios frames).
+export(bool) var disable_shadow_interpolation: bool = true
 export(float) var movement_epsilon: float = 0.02
 export(float) var rotation_epsilon_deg: float = 1.0
 export(bool) var anchor_to_root_body: bool = true
 export(Vector3) var anchor_offset: Vector3 = Vector3(0, 0, 0)
 # Include Entorno (1), NPC-Friendly (3, legacy), and Prop (7) so moving platforms/elevators receive the shadow.
 export(int) var ground_collision_mask: int = 69
+
+# Node.PHYSICS_INTERPOLATION_MODE_OFF == 1 en el fork de Godot 3.6. Se usa el valor
+# entero + guard has_method para que el script siga parseando en Godot stock.
+const INTERPOLATION_MODE_OFF := 1
 
 var _rays: Array = [] # Legacy: ya sin nodos RayCast de grilla (FD-290); queda vacío
 # FD-290: la grilla ya no son 64 nodos RayCast con force_raycast_update por celda; es una
@@ -103,7 +124,7 @@ func _ready() -> void:
 		# La sombra del piloto es gameplay y en cheap mode es UN quad + UN raycast:
 		# refrescar cada frame la mantiene pegada al piso (el raycast da la altura) y
 		# sin escalonar. Los props conservan el intervalo alto (en LOW estan apagados).
-		update_every_n_frames = 1 if _is_pilot_owner() else max(update_every_n_frames, 6)
+		update_every_n_frames = _cheap_frame_interval(_is_pilot_owner())
 		grid_resolution = min(grid_resolution, 8)
 	elif OS.get_name() == "Android":
 		# FD-290 (a): en ARM movil el modo grid baja de 8x8 a 6x6 en vez de saltar a
@@ -119,6 +140,12 @@ func _ready() -> void:
 	material_override.render_priority = -1
 	if shadow_texture:
 		material_override.set_shader_param("texture_albedo", shadow_texture)
+	# O8b/O8r rim: filo fino (rim_strength=0 lo apaga), gris suave y discreto. Se fija
+	# una vez; aunque el material es compartido, en un tier dado solo corre un modo
+	# (cheap o grid).
+	material_override.set_shader_param("rim_strength", rim_strength)
+	material_override.set_shader_param("rim_width", rim_width)
+	material_override.set_shader_param("rim_color", rim_color)
 
 	if shadow_mode == "grid":
 		_create_rays()
@@ -136,6 +163,19 @@ func _ready() -> void:
 	
 	cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	set_as_toplevel(true)
+	_configure_interpolation()
+
+func _cheap_frame_interval(is_pilot: bool) -> int:
+	# Cheap: el actor sigue por frame (cadence 1), sin el hueco de 3-6 frames que se
+	# leia como lag. Los props conservan un intervalo alto (menos raycasts en LOW).
+	return 1 if is_pilot else max(update_every_n_frames, 6)
+
+func _configure_interpolation() -> void:
+	# El shadow se reposiciona a mano en _process con la transform ya interpolada del
+	# actor; si el motor lo interpola otra vez, se dibuja 1+ tick atras. Apagarlo en el
+	# propio nodo deja la posicion exacta por frame. Guard has_method para stock Godot.
+	if disable_shadow_interpolation and has_method("set_physics_interpolation_mode"):
+		set_physics_interpolation_mode(INTERPOLATION_MODE_OFF)
 
 func _blob_shadows_supported() -> bool:
 	# Opt-out for A/B and for forcing the legacy path on the fork.
@@ -282,8 +322,15 @@ func _process(_delta: float) -> void:
 			var grid_width = max(0.001, step * (grid_resolution - 1))
 			var uv_off = Vector2(diff.x, diff.z) / grid_width
 			material_override.set_shader_param("uv_offset", uv_off)
-	else:
+	elif shadow_mode == "grid":
 		global_transform.origin = center_pos
+	else:
+		# Cheap: sigue al actor cada frame, casi sin latencia. El clamp a 1 evita
+		# overshoot/jitter si el delta se dispara; con smooth_speed alto t ~= 1 (instant).
+		var cur := global_transform.origin
+		var t: float = clamp(_delta * smooth_speed, 0.0, 1.0)
+		global_transform.origin = Vector3(
+			lerp(cur.x, center_pos.x, t), cur.y, lerp(cur.z, center_pos.z, t))
 		
 	_handle_exclusions()
 

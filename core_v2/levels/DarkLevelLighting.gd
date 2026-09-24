@@ -22,6 +22,42 @@ export(float, 0.0, 120.0, 0.5) var fog_end := 26.0
 export(Color) var fog_color := Color(0.02, 0.03, 0.05)
 export(float, 0.0, 4.0, 0.05) var sun_energy := 0.02
 
+# O20: este nodo prepara UNA vez el Environment apagado (duplicado, glow map,
+# niebla) y queda como el dueno del recurso; RingHubLightState mueve el ambiente
+# DARK/LIT a traves de estos setters sin duplicar nada. Si el Environment todavia
+# no se aplico (su _apply es deferred), el valor queda pendiente y se aplica al
+# final de _apply, asi el orden de _ready de los dos nodos no importa.
+var _env: Environment = null
+var _world: WorldEnvironment = null
+var _pending_ambient := -1.0
+var _pending_background := false
+var _pending_background_color := Color()
+
+func get_environment() -> Environment:
+	return _env
+
+func set_ambient_energy(value: float) -> void:
+	_pending_ambient = value
+	if _env != null:
+		_env.ambient_light_energy = value
+
+func set_background_color(value: Color) -> void:
+	_pending_background = true
+	_pending_background_color = value
+	if _env != null:
+		_env.background_color = value
+
+func set_sun_energy(value: float) -> void:
+	sun_energy = value
+	_apply_sun(value)
+
+func _apply_sun(value: float) -> void:
+	if _world == null:
+		return
+	for child in _world.get_children():
+		if child is DirectionalLight:
+			(child as DirectionalLight).light_energy = value
+
 # Lens dirt sobre el glow. Es una perilla MUY sensible: a 0.9 la textura deja de
 # ensuciar el halo y empieza a inventar lamparas donde solo habia un reflejo.
 # 0.25 ensucia sin mentir, que es el efecto que se busca.
@@ -63,20 +99,34 @@ func _apply() -> void:
 		env.glow_map = map
 		env.glow_map_strength = glow_map_strength
 	world.environment = env
-	for child in world.get_children():
-		if child is DirectionalLight:
-			(child as DirectionalLight).light_energy = sun_energy
+	_env = env
+	_world = world
+	# Valores que RingHubLightState dejo antes de que el Environment existiera.
+	if _pending_ambient >= 0.0:
+		env.ambient_light_energy = _pending_ambient
+	if _pending_background:
+		env.background_color = _pending_background_color
+	_apply_sun(sun_energy)
 	if disable_flashlight_shadow:
 		_disable_own_flashlight_shadow()
 
 func _find_world_environment() -> WorldEnvironment:
-	var pending := [get_tree().current_scene if get_tree().current_scene != null else get_parent()]
-	while not pending.empty():
-		var current = pending.pop_back()
-		if current is WorldEnvironment:
-			return current as WorldEnvironment
-		for child in current.get_children():
-			pending.append(child)
+	var roots := []
+	var current_scene = get_tree().current_scene if get_tree() != null else null
+	roots.append(current_scene if current_scene != null else get_parent())
+	# En tests el nivel cuelga del arbol del runner, no de current_scene: un
+	# segundo barrido desde la raiz garantiza encontrar su WorldEnvironment.
+	roots.append(get_tree().root if get_tree() != null else null)
+	for root in roots:
+		if root == null:
+			continue
+		var pending := [root]
+		while not pending.empty():
+			var current = pending.pop_back()
+			if current is WorldEnvironment:
+				return current as WorldEnvironment
+			for child in current.get_children():
+				pending.append(child)
 	return null
 
 

@@ -1929,6 +1929,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://addons/gdUnit3/src/ui/parts/RichTextLabelExt.gd"
 }, {
+"base": "Node",
+"class": "RingHubLightState",
+"language": "GDScript",
+"path": "res://core_v2/levels/RingHubLightState.gd"
+}, {
 "base": "Spatial",
 "class": "RingHubWakeup",
 "language": "GDScript",
@@ -2794,6 +2799,7 @@ _global_script_class_icons={
 "RetroWindow": "",
 "RichTextEffectBackground": "",
 "RichTextLabelExt": "",
+"RingHubLightState": "",
 "RingHubWakeup": "",
 "Room3D": "",
 "Room3DLab": "",

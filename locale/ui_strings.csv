@@ -226,7 +226,7 @@ LOG  %s  lineas=%d,LOG  %s  lineas=%d,LOG  %s  lines=%d,로그  %s  줄=%d,LOG  
 Linterna,Linterna,Flashlight,손전등,Lanterna,Taschenlampe,Lampe torche,Zaklamp
 Los objetos que tapan al personaje se vuelven translúcidos. Se aplica al recargar la escena.,Los objetos que tapan al personaje se vuelven translúcidos. Se aplica al recargar la escena.,Objects obscuring the character become translucent. Applied on scene reload.,캐릭터를 가리는 물체가 반투명해집니다. 장면을 다시 불러올 때 적용됩니다.,Os objetos que cobrem o personagem ficam translúcidos. Aplica-se ao recarregar a cena.,"Objekte, die die Figur verdecken, werden durchscheinend. Wird beim Neuladen der Szene angewendet.",Les objets masquant le personnage deviennent translucides. Appliqué au rechargement de la scène.,Objecten die het personage bedekken worden doorschijnend. Wordt toegepast bij het herladen van de scène.
 MANUAL,MANUAL,MANUAL,수동,MANUAL,MANUAL,MANUAL,MANUAL
-MENÚ PRINCIPAL,MENÚ PRINCIPAL,MAIN MENU,메인 메뉴,MENU PRINCIPAL,HAUPTMENÜ,MENU PRINCIPAL,HOOFDMENU
+MAIN_MENU,MENÚ PRINCIPAL,MAIN MENU,메인 메뉴,MENU PRINCIPAL,HAUPTMENÜ,MENU PRINCIPAL,HOOFDMENU
 METAL (Default),METAL (Default),METAL (Default),금속 (기본),METAL (Padrão),METALL (Standard),MÉTAL (Par défaut),METAAL (Standaard)
 MODE: GLOO,MODE: GLOO,MODE: GLOO,모드: GLOO,MODO: GLOO,MODUS: GLOO,MODE : GLOO,MODUS: GLOO
 MODE: LASER,MODE: LASER,MODE: LASER,모드: 레이저,MODO: LASER,MODUS: LASER,MODE : LASER,MODUS: LASER

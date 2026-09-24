@@ -43,7 +43,10 @@ func _run() -> void:
 	material.roughness = 0.6
 	# Con el ambient de RingHub (energy 1.2) el gris del terrace lee casi blanco:
 	# bajado a un gris medio-oscuro, mas cerca del piso de Dome_Intro.
-	material.albedo_color = Color(0.32, 0.335, 0.35)
+	# O20: subido un punto (0.32 -> 0.40) junto con el andamiaje: el dueño pidio el
+	# piso un poco mas gris, no tan negro, conservando el contraste con la pared
+	# (RingHub_DomeShell, albedo 0.1/0.16/0.19).
+	material.albedo_color = Color(0.40, 0.42, 0.44)
 
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)

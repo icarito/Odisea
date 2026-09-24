@@ -159,7 +159,7 @@ func test_every_csv_key_exists_in_every_compiled_translation() -> void:
 
 func test_pause_menu_main_menu_key_resolves_in_every_locale() -> void:
 	# O16: la clave de la escena PauseMenu.tscn (nodo MainMenu) debe resolver en cada idioma.
-	var key := "MENÚ PRINCIPAL"
+	var key := "MAIN_MENU"
 	for code in UI_STRINGS_LOCALES:
 		var trans = load("res://locale/ui_strings.%s.translation" % code) as Translation
 		assert_object(trans).is_not_null()

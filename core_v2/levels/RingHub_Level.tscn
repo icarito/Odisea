@@ -1,4 +1,4 @@
-[gd_scene load_steps=113 format=2]
+[gd_scene load_steps=116 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=2]
@@ -70,6 +70,9 @@
 [ext_resource path="res://core_v2/levels/DarkLevelLighting.gd" type="Script" id=71]
 [ext_resource path="res://core_v2/visual/LensDirtGlowMap.png" type="Texture" id=72]
 [ext_resource path="res://core_v2/levels/interiors/RingHub_DomeShell.tres" type="Material" id=73]
+[ext_resource path="res://core_v2/levels/RingHubLightState.gd" type="Script" id=74]
+[ext_resource path="res://core_v2/props/controls/PedestalButton.tscn" type="PackedScene" id=75]
+[ext_resource path="res://assets/sfx/sfx100v2_switch_01.ogg" type="AudioStream" id=76]
 [sub_resource type="BoxShape" id=400]
 extents = Vector3( 35, 0.3, 35 )
 
@@ -305,6 +308,15 @@ forced_slot = 37
 script = ExtResource( 71 )
 glow_map = ExtResource( 72 )
 
+[node name="LightState" type="Node" parent="."]
+script = ExtResource( 74 )
+start_lit = false
+dark_lighting_path = NodePath("../DarkLevelLighting")
+wall_lights_path = NodePath("../Hub/WallLights")
+fixture_batch_path = NodePath("../Hub/WallLights/FixtureBatch_00")
+button_path = NodePath("../Hub/PedestalLight")
+switch_sound = ExtResource( 76 )
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 4 )
 
@@ -316,6 +328,15 @@ light_energy = 1.5
 transform = Transform(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.175, -0.123402)
 
 [node name="Hub" type="Spatial" parent="."]
+
+[node name="PedestalLight" parent="Hub" instance=ExtResource( 75 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 32.5, 0, 0 )
+momentary = true
+interaction_text = "Accionar"
+interaction_title = "Iluminación del domo"
+interaction_description = "Enciende o apaga las luces del domo."
+interaction_verb_active = "Apagar luces"
+interaction_verb_inactive = "Encender luces"
 
 [node name="WallLights" type="Spatial" parent="Hub" groups=["light_budget_aggressive"]]
 script = ExtResource( 66 )
@@ -373,6 +394,8 @@ shape = ExtResource( 47 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0 )
 outer_radius = 13.0
 inner_radius = 6.0
+grate_color = Color( 0.56, 0.6, 0.64, 1 )
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 231.058, 239.856 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
@@ -929,6 +952,8 @@ release_margin = 6.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0 )
 outer_radius = 13.0
 inner_radius = 6.0
+grate_color = Color( 0.56, 0.6, 0.64, 1 )
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 284.945, 293.743 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
@@ -940,6 +965,8 @@ rebuild_baked_items = true
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.5, 0 )
 outer_radius = 13.0
 inner_radius = 6.0
+grate_color = Color( 0.56, 0.6, 0.64, 1 )
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 338.772, 347.57 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
@@ -951,6 +978,8 @@ rebuild_baked_items = true
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 18, 0 )
 outer_radius = 13.0
 inner_radius = 6.0
+grate_color = Color( 0.56, 0.6, 0.64, 1 )
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 32.5033, 41.3007 ), Vector2( 106.048, 123.196 ) ]
 outer_opening_docks = [ 0.0, 0.45 ]
@@ -962,6 +991,8 @@ rebuild_baked_items = true
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22.5, 0 )
 outer_radius = 13.0
 inner_radius = 6.0
+grate_color = Color( 0.56, 0.6, 0.64, 1 )
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 support_base_local_y = -4.5
 outer_openings_deg = [ Vector2( 90, 123 ) ]
 outer_opening_docks = [ 0.0 ]
