@@ -1,0 +1,30 @@
+[gd_resource type="SpatialMaterial" load_steps=1 format=2]
+
+; Piso de RingHub — juntas emisivas (capa fina sobre el piso).
+;
+; Referencia visual del piso cuando el ambiente esta a oscuras (estado DARK del
+; domo, O20) y en el camino plano/low-end, donde no hay luces reales. La geometria
+; vive en RingHub_Floor_joints_baked.mesh: lineas de 6 cm sobre las juntas del
+; patron del grid (Rusty Metal Grid, repeticion cada 8 m, juntas a 1/6, 1/2 y 5/6
+; del tile), alineadas con la textura difusa para que en LIT se lean como las
+; mismas juntas del panelado.
+;
+; La emision es DELIBERADAMENTE baja: en el camino plano el gate (GLES3VendorGate)
+; convierte un SpatialMaterial emisivo a su FlatFake con glow = clamp(max(em)*4,
+; 0.25, 1) y sin promediar textura (ver _flat_material, "tinte emisivo del bake").
+; Con max(em)=0.13 => glow 0.52. En flat el glow se atenua con world_light/glow_floor
+; del estado: DARK (0.02/0.05) deja la junta tenue pero legible sobre el piso casi
+; negro; LIT (0.9/0.35) la sostiene apenas por encima del piso, sin neon. En modo
+; unshaded (ODISEA_UNSHADED=2) la emision se ignora pero el albedo se mantiene, asi
+; que la linea sigue visible. El albedo es un gris-azul frio y CLARO respecto al
+; piso: aun sin luz (unshaded) se lee la junta sobre el piso texturado, y en flat
+; LIT/FlatFake queda por encima del color promedio del piso.
+[resource]
+resource_name = "M_RingHubFloor_joints"
+albedo_color = Color( 0.52, 0.6, 0.68, 1 )
+emission_enabled = true
+emission = Color( 0.05, 0.1, 0.13, 1 )
+emission_energy = 1.0
+metallic = 0.0
+roughness = 0.8
+params_cull_mode = 2

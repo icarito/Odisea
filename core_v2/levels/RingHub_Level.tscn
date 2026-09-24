@@ -1,4 +1,4 @@
-[gd_scene load_steps=116 format=2]
+[gd_scene load_steps=117 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=2]
@@ -73,6 +73,7 @@
 [ext_resource path="res://core_v2/levels/RingHubLightState.gd" type="Script" id=74]
 [ext_resource path="res://core_v2/props/controls/PedestalButton.tscn" type="PackedScene" id=75]
 [ext_resource path="res://assets/sfx/sfx100v2_switch_01.ogg" type="AudioStream" id=76]
+[ext_resource path="res://core_v2/levels/RingHubFloorMaterial.gd" type="Script" id=77]
 [sub_resource type="BoxShape" id=400]
 extents = Vector3( 35, 0.3, 35 )
 
@@ -332,11 +333,19 @@ transform = Transform(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.175, -0.123402)
 [node name="PedestalLight" parent="Hub" instance=ExtResource( 75 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 32.5, 0, 0 )
 momentary = true
+light_path = NodePath("ButtonLight")
 interaction_text = "Accionar"
 interaction_title = "Iluminación del domo"
 interaction_description = "Enciende o apaga las luces del domo."
 interaction_verb_active = "Apagar luces"
 interaction_verb_inactive = "Encender luces"
+
+[node name="ButtonLight" type="OmniLight" parent="Hub/PedestalLight"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0 )
+light_color = Color( 1, 0, 0, 1 )
+light_energy = 0.8
+omni_range = 3.0
+shadow_enabled = false
 
 [node name="WallLights" type="Spatial" parent="Hub" groups=["light_budget_aggressive"]]
 script = ExtResource( 66 )
@@ -374,6 +383,7 @@ collision_mask = 255
 cast_shadow = 0
 use_in_baked_light = true
 mesh = ExtResource( 5 )
+script = ExtResource( 77 )
 
 [node name="CollisionShape" type="CollisionShape" parent="Hub/GroundFloor"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.3, 0 )

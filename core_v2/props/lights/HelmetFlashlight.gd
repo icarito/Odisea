@@ -8,7 +8,11 @@ export(float, 0.5, 5.9) var spot_range := 5.9 setget set_spot_range
 # excluye la iluminacion, no el casteo de sombra), asi que se resuelve con geometria.
 export(float, 10.0, 90.0) var spot_angle := 32.0 setget set_spot_angle
 export(Color) var light_color := Color(0.85, 0.95, 1.0, 1.0) setget set_light_color
-export(float, 0.0, 16.0) var light_energy := 7.0 setget set_light_energy
+# 7.0 -> 6.0: con el cono de 32 el spot cercano clipeaba la difusa del piso de
+# RingHub a blanco y tapaba su PBR. El default de aca es la fuente de runtime
+# (HelmetFlashlight.tscn lo espeja); spot_range/spot_range<6 y MobileLightBudget
+# quedan intactos.
+export(float, 0.0, 16.0) var light_energy := 6.0 setget set_light_energy
 export(bool) var scan_mode := false setget set_scan_mode
 export(float, 0.1, 10.0) var scan_speed := 2.0
 export(bool) var shadow_enabled := false setget set_shadow_enabled

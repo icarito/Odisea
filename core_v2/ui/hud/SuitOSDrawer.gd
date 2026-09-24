@@ -346,7 +346,7 @@ func _draw_drawer() -> void:
 		if String(row.get("source", "online")) == "offline":
 			text_color = Color(text_color.r, text_color.g, text_color.b, 0.55)
 		draw_string(font, rect.position + Vector2(TITLE_PAD_LEFT * k, rect.size.y * 0.68),
-			String(row.get("title", row.get("id", ""))), text_color)
+			tr(String(row.get("title", row.get("id", "")))), text_color)
 		var tag: String = ""
 		if bool(row.get("alarm", false)):
 			tag = "ALERTA"

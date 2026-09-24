@@ -10,6 +10,9 @@ extends SceneTree
 #  - Un solo material (M_DomeInteriorLowPoly); no hay split piso/carcasa ni
 #    lightmap: RingHub usa iluminación en tiempo real (Environment + Sun).
 #  - La carcasa se ve desde adentro, así que el material va con cull disabled.
+#  - El GLB no trae UVs utiles (todas en cero), asi que el bake genera UV1
+#    cilindricas: u = azimut/TAU (0..1, vuelta completa) y v = y/TARGET_RADIUS
+#    (0..1, base a apex). RingHub_DomeShell.tres las reescala con uv1_scale.
 #  - La colisión sale del mismo GLB (create_trimesh_shape): la cáscara del domo
 #    ES un caso estándar de trimesh cóncavo (barato, 240 tris), igual que los
 #    domos Dome_Default / Dome_Base ya existentes.
@@ -156,13 +159,15 @@ func _append_surface(st: SurfaceTool, mesh: ArrayMesh, surface: int, xf: Transfo
 	var normals: PoolVector3Array = PoolVector3Array()
 	if arrays[Mesh.ARRAY_NORMAL] != null:
 		normals = arrays[Mesh.ARRAY_NORMAL]
-	var uvs: PoolVector2Array = PoolVector2Array()
-	if arrays[Mesh.ARRAY_TEX_UV] != null:
-		uvs = arrays[Mesh.ARRAY_TEX_UV]
 	var indices: PoolIntArray = arrays[Mesh.ARRAY_INDEX]
 	for i in range(indices.size()):
 		var idx := indices[i]
-		st.add_uv(uvs[idx] if idx < uvs.size() else Vector2.ZERO)
+		var wp: Vector3 = xf.xform(verts[idx])
+		# UV1 cilindrica: la fuente no trae UVs usables (todas en cero). El azimut
+		# se mide sobre -Z para que la costura del wrap caiga detras del jugador.
+		var u: float = atan2(wp.x, -wp.z) / TAU + 0.5
+		var v: float = wp.y / TARGET_RADIUS
+		st.add_uv(Vector2(u, v))
 		if idx < normals.size():
 			st.add_normal(xf.basis.xform(normals[idx]).normalized())
-		st.add_vertex(xf.xform(verts[idx]))
+		st.add_vertex(wp)

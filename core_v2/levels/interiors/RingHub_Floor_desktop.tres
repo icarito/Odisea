@@ -1,0 +1,43 @@
+[gd_resource type="SpatialMaterial" load_steps=5 format=2]
+
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_diff_1k.png" type="Texture" id=1]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_nor_gl_1k.png" type="Texture" id=2]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_rough_1k.png" type="Texture" id=3]
+[ext_resource path="res://assets/textures/Rusty Metal Grid/1k/textures/rusty_metal_grid_ao_1k.png" type="Texture" id=4]
+
+; Piso de RingHub — variante DESKTOP (PBR completo).
+; Textura de paneles de acero (Rusty Metal Grid) sobre las UV1 planares del bake
+; (tiling cada 4 m). uv1_scale 0.5 -> cada repeticion cubre 8 m, los paneles del
+; grid quedan del orden de 2 m, referencia de escala para caminar. El tinte
+; albedo_color apaga el verde saturado de la textura a un gris-deck frio, mas
+; claro que la pared (RingHub_DomeShell) para que piso y cascara se distingan.
+;
+; PBR bajo la linterna (feedback desktop): con los defaults (normal_scale 0.8,
+; ao_light_affect 0.0, metallic 0.2, roughness 0.65) el spot cercano y rasante
+; del casco (HelmetFlashlight: energy 7, range 5.9, cono 32) llenaba la difusa
+; hasta clipear y el piso se veia plano: el normal apenas inclinaba la luz, el AO
+; solo tocaba el ambiente (que en DARK es ~0) y el specular azulado del metallic
+; lavaba las juntas. Ajustes, pensados para que el relieve y las juntas se lean
+; SIN tocar el look flat/mobile (esa variante no lleva estos mapas) ni las juntas
+; emisivas (material aparte):
+;   normal_scale   0.8 -> 1.6   (relieve mas marcado bajo incidencia rasante)
+;   ao_light_affect 0.0 -> 0.8  (el AO tambien oscurece las juntas bajo luz directa)
+;   metallic       0.2 -> 0.05  (recorta el specular azulado que lavaba el panel)
+;   roughness      0.65 -> 0.78 (specular mas ancho y tenue, sin hotspot "mojado")
+; albedo_color y uv1_scale sin cambios: se preserva el tono y la escala del bake.
+[resource]
+resource_name = "M_RingHubFloor_desktop"
+albedo_color = Color( 0.72, 0.76, 0.8, 1 )
+albedo_texture = ExtResource( 1 )
+metallic = 0.05
+roughness = 0.78
+roughness_texture = ExtResource( 3 )
+normal_enabled = true
+normal_scale = 1.6
+normal_texture = ExtResource( 2 )
+ao_enabled = true
+ao_light_affect = 0.8
+ao_texture = ExtResource( 4 )
+ao_on_uv2 = false
+ao_texture_channel = 0
+uv1_scale = Vector3( 0.5, 0.5, 0.5 )

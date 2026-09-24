@@ -9,6 +9,12 @@ tool
 export(Color) var color_active = Color(0.0, 1.0, 0.0) # Green
 export(Color) var color_inactive = Color(1.0, 0.0, 0.0) # Red
 export(NodePath) var light_mesh_path
+# Optional indicator light (OmniLight/SpotLight) that mirrors the emissive state.
+# Kept off the base scene: the level that needs the button readable from afar
+# adds the light as a child override and points light_path at it.
+export(NodePath) var light_path
+export(float) var light_energy_inactive := 0.8
+export(float) var light_energy_active := 1.4
 export(bool) var momentary = false
 export(float) var momentary_duration = 0.5
 
@@ -20,6 +26,9 @@ onready var light_mesh = get_node_or_null(light_mesh_path)
 # up together. resource_local_to_scene does not help: the flag survives the
 # duplicate, it just stops being true of the instance.
 var _owns_light_material := false
+
+var _indicator_light: Light = null
+var _indicator_light_resolved := false
 
 func _ready():
 	# Ensure visual state matches initial logic state
@@ -50,7 +59,7 @@ func _update_visuals():
 	if not is_inside_tree():
 		return
 
-	var color = color_active if is_active else color_inactive
+	var color: Color = color_active if is_active else color_inactive
 
 	if light_mesh:
 		var mat = _own_light_material()
@@ -59,6 +68,20 @@ func _update_visuals():
 			mat.emission_enabled = true
 			mat.emission = color
 			mat.emission_energy = 1.0 if is_active else 0.2
+
+	_update_indicator_light(color)
+
+
+# Mirrors the button state on the optional indicator light. Lazily resolved so an
+# instance without light_path (elevators, transit, Dome_Crio) costs nothing.
+func _update_indicator_light(color: Color) -> void:
+	if not _indicator_light_resolved:
+		_indicator_light_resolved = true
+		if light_path != null and not light_path.is_empty():
+			_indicator_light = get_node_or_null(light_path) as Light
+	if is_instance_valid(_indicator_light):
+		_indicator_light.light_color = color
+		_indicator_light.light_energy = light_energy_active if is_active else light_energy_inactive
 
 
 # Returns this button's private indicator material, making one on first use.

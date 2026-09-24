@@ -290,6 +290,9 @@ func enter_passive_pause_menu_hidden() -> void:
 		return
 	_menu_hidden_by_focus = true
 	_menu_idle_timer = 0.0
+	# El menu minimal no pide el cursor: si veniamos del menu expandido (puntero liberado), hay que
+	# soltarlo para que el mouse virtual desaparezca en la pausa pasiva.
+	VirtualMouseScript.set_pointer_released(false)
 	_apply_menu_visibility()
 	_start_passive_orbit()
 
