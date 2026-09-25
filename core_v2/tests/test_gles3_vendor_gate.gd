@@ -271,6 +271,12 @@ func test_flat_mode_keeps_double_sided_decks():
 	assert_str((flat_frame as ShaderMaterial).shader.resource_path.get_file()).is_equal("FlatFake.shader")
 
 
+func test_unshaded_zero_uses_native_lighting():
+	var gate = auto_free(GateScript.new())
+	gate._unshaded_mode = "0"
+	assert_bool(gate.is_flat_mode()).is_false()
+
+
 func test_flat_mode_leaves_the_pilot_shaded():
 	# Los personajes quedan fuera del modo plano: conservan su material y se ven
 	# gouraud (vertex lighting) contra un mundo plano.

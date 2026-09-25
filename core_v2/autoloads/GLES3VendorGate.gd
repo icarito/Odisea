@@ -218,7 +218,7 @@ func suspend_node_mutation() -> void:
 # saltean el pase de luz, asi que la blob shadow analitica (light.blob_shadow_*)
 # no los oscurece. FakeShadow lo consulta para usar el quad legacy en vez de la blob.
 func is_flat_mode() -> bool:
-	return _unshaded_mode != ""
+	return _unshaded_mode in ["1", "2", "3"]
 
 # Palancas en vivo del tier plano: el Environment no ilumina materiales unshaded,
 # asi que el dueño de un evento de iluminacion (RingHubLightState) mueve estos
