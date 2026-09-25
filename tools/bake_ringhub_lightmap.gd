@@ -125,9 +125,10 @@ func _enable_bake_shadows(n: Node) -> void:
 			var mi := c as MeshInstance
 			var p := String(c.get_path())
 			var name := String(mi.name)
-			if (p.find("ScaffoldStreamRoot") != -1 or p.find("DomeInteriorLowPoly/DomeMesh") != -1 \
-			or p.find("CombinedMesh") != -1 or p.find("Criopod") != -1) \
-			and name.find("Glass") == -1 and name.find("PersonCard") == -1:
+			var is_struct: bool = p.find("ScaffoldStreamRoot") != -1 or p.find("DomeInteriorLowPoly/DomeMesh") != -1
+			is_struct = is_struct or p.find("CombinedMesh") != -1 or p.find("Criopod") != -1
+			var skip: bool = name.find("Glass") != -1 or name.find("PersonCard") != -1
+			if is_struct and not skip:
 				mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
 		_enable_bake_shadows(c)
 
@@ -135,14 +136,15 @@ func _apply_bake_hints(n: Node) -> void:
 	for c in n.get_children():
 		if c is MeshInstance and (c as MeshInstance).mesh != null:
 			var p := String(c.get_path())
-			if p.find("DomeInteriorLowPoly/DomeMesh") != -1 \
-			or p.find("/RingFloor/CombinedMesh") != -1 \
-			or p.find("/Floor_2/CombinedMesh") != -1 or p.find("/Floor_3/CombinedMesh") != -1 \
-			or p.find("/Floor_4/CombinedMesh") != -1 or p.find("/Floor_5/CombinedMesh") != -1:
-				var m = (c as MeshInstance).mesh
-				if "lightmap_size_hint" in m:
-					m.set("lightmap_size_hint", Vector2(256, 256) if _fast else Vector2(2048, 2048))
-					print("bake:   hint -> ", p)
+			var m = (c as MeshInstance).mesh
+			if "lightmap_size_hint" in m and p.find("Criopod") != -1:
+				m.set("lightmap_size_hint", Vector2(128, 128) if not _fast else Vector2(32, 32))
+			var is_big: bool = p.find("DomeInteriorLowPoly/DomeMesh") != -1 or p.find("/RingFloor/CombinedMesh") != -1
+			is_big = is_big or p.find("/Floor_2/CombinedMesh") != -1 or p.find("/Floor_3/CombinedMesh") != -1
+			is_big = is_big or p.find("/Floor_4/CombinedMesh") != -1 or p.find("/Floor_5/CombinedMesh") != -1
+			if is_big and "lightmap_size_hint" in m:
+				m.set("lightmap_size_hint", Vector2(256, 256) if _fast else Vector2(2048, 2048))
+				print("bake:   hint -> ", p)
 		_apply_bake_hints(c)
 
 func _is_dynamic_light(path: String) -> bool:

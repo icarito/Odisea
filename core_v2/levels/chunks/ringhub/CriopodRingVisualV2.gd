@@ -68,10 +68,11 @@ func _ready() -> void:
 			pending.append(child)
 	if blocked_slot >= 0:
 		block_slot(blocked_slot)
-	# Gateable: Godot 3 NO puede hornear MultiMeshInstance, asi que los anillos con
-	# env var se cambian por pods instanciados (MeshInstance, bakeables). Apagado por
-	# default: si cuesta draw calls en la Anbernic, se saca del dev.sh.
-	if OS.get_environment("ODISEA_CRIOPOD_RING_INSTANCED") in ["1", "true", "yes", "on"]:
+	# Godot 3 NO puede hornear MultiMeshInstance, asi que por default los anillos se
+	# cambian por pods instanciados (MeshInstance, bakeables y con lightmap). Si en
+	# la Anbernic sale caro, se apaga con ODISEA_CRIOPOD_RING_INSTANCED=0.
+	var ring_env := OS.get_environment("ODISEA_CRIOPOD_RING_INSTANCED").to_lower()
+	if ring_env != "0" and ring_env != "false" and ring_env != "no" and ring_env != "off":
 		_instance_bakeable_pods()
 	if OS.get_environment("ODISEA_CRIO_DIAG") != "":
 		_diag_dump("ready")
