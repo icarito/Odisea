@@ -105,6 +105,12 @@ var _proximity_scale := 1.0     # 1 = full offset, proximity_clamp_floor = pegad
 var _player: KinematicBody = null
 var _spring_arm = null
 var _ots_offset_parent: Spatial = null
+# PERF: ControllerManager y CinematicManager se buscaban por path en _paso_fisica() en
+# cada tick; son nodos/autoloads estables, se resuelven una vez.
+var _controller_manager: Node = null
+var _controller_manager_resolved := false
+var _cinematic_manager: Node = null
+var _cinematic_manager_resolved := false
 
 # Cache del perfilador: buscar el autoload por path en cada tick cuesta, y ese costo
 # alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
@@ -145,20 +151,23 @@ func _paso_fisica(delta: float):
 	if not _player or not _spring_arm:
 		return
 
-	var cm = _player.get_node_or_null("ControllerManager")
+	var cm = _get_controller_manager()
 	if cm and "current_mode" in cm and "Mode" in cm and cm.current_mode == cm.Mode.ZERO_GRAVITY:
 		_reset_offset_immediate()
 		return
 
 	# Safety check: Only apply OTS in FREE control mode (standard third person)
-	var cinematic_manager = get_node_or_null("/root/CinematicManager")
+	var cinematic_manager = _get_cinematic_manager()
 	if cinematic_manager and cinematic_manager.get_control_mode() != cinematic_manager.ControlMode.FREE:
 		_reset_offset(delta)
 		return
 
 	# 1. OTS zoom curve. Manual zoom and collision-shortened zoom both feed
 	# the same curve; collision is not a separate shoulder mode.
-	var effective_len := _get_effective_arm_length()
+	# PERF: se calcula target_length una vez y se comparte con _get_effective_arm_length()
+	# (antes se pedia dos veces, cada una con hasta 3 get() dinamicos).
+	var target_len_ref := _get_target_arm_length()
+	var effective_len := _get_effective_arm_length(target_len_ref)
 	var raw_weight := _compute_ots_weight(effective_len)
 	var ots_weight := pow(raw_weight, curve_power)
 	var zoom_blend_speed: float = distance_blend_speed if ots_weight >= _distance_weight else distance_unblend_speed
@@ -166,7 +175,6 @@ func _paso_fisica(delta: float):
 	# 1b. Centering — slides camera toward center as arm compresses into a narrow passage.
 	# Proportional to compression ratio, fully smooth, no binary trigger.
 	# Starts early (centering_start_ratio) so the player sees it coming, not as a snap.
-	var target_len_ref := _get_target_arm_length()
 	var compression_ratio := effective_len / max(target_len_ref, 0.001)
 	var centering_target := 0.0
 	if _has_active_arm_collision():
@@ -249,8 +257,8 @@ func _reset_offset_immediate() -> void:
 func _blend_alpha(speed: float, delta: float) -> float:
 	return 1.0 - exp(-max(speed, 0.0) * max(delta, 0.0))
 
-func _get_effective_arm_length() -> float:
-	var target_len := _get_target_arm_length()
+func _get_effective_arm_length(cached_target: float = -1.0) -> float:
+	var target_len := cached_target if cached_target >= 0.0 else _get_target_arm_length()
 	var current_len = _spring_arm.get("current_length")
 	if current_len == null:
 		current_len = _player.get("current_spring_length")
@@ -292,8 +300,24 @@ func _has_active_arm_collision() -> bool:
 	if _spring_arm.has_method("is_zoom_out_blocked"):
 		return _spring_arm.is_zoom_out_blocked()
 	var target_len := _get_target_arm_length()
-	var current_len := _get_effective_arm_length()
+	var current_len := _get_effective_arm_length(target_len)
 	return current_len < target_len - 0.02
+
+func _get_controller_manager() -> Node:
+	if not _controller_manager_resolved:
+		_controller_manager_resolved = true
+		_controller_manager = _player.get_node_or_null("ControllerManager") if _player else null
+	elif _controller_manager != null and not is_instance_valid(_controller_manager):
+		_controller_manager = _player.get_node_or_null("ControllerManager") if _player else null
+	return _controller_manager
+
+func _get_cinematic_manager() -> Node:
+	if not _cinematic_manager_resolved:
+		_cinematic_manager_resolved = true
+		_cinematic_manager = get_node_or_null("/root/CinematicManager")
+	elif _cinematic_manager != null and not is_instance_valid(_cinematic_manager):
+		_cinematic_manager = get_node_or_null("/root/CinematicManager")
+	return _cinematic_manager
 
 func _apply_arm_offset(offset: Vector3) -> void:
 	if _spring_arm and _spring_arm.has_method("set_camera_local_offset"):

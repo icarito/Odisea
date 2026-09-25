@@ -93,6 +93,10 @@ const STEP_CLEAR_REPROBE_MARGIN := 0.25
 var _step_clear_origin := Vector3.ZERO
 var _step_clear_dir := Vector3.ZERO
 var _step_clear_dist := 0.0
+# PERF: _try_step_up corre hasta ~500 veces por corrida (~80% de los ticks de piso) y
+# devolvia un Dictionary nuevo por llamada. Se reusa este (solo lo consume el caller y el
+# test de regresion de forma inmediata) para no asignar en el camino caliente.
+var _step_up_result := {"stepped": false, "position": Vector3.ZERO}
 var _ground_contact_grace_timer := 0.0
 var _last_debug_effective_grounded := true
 var _last_debug_on_floor := true
@@ -111,6 +115,10 @@ var _platform_last_transform: Transform = Transform.IDENTITY
 var _platform_velocity: Vector3 = Vector3.ZERO
 var _was_on_platform := false
 var _platform_tracking_key := ""
+# PERF: _update_platform_tracking ya recorre los slide contacts por tick; de ahi se cachea
+# si el piso es una terraza WorldRotator y _standing_on_moving_terrace() evita su propio
+# escaneo (antes habia 3 recorridas de get_slide_collision por tick).
+var _floor_moving_terrace_cached := false
 
 # Camera State
 var base_fov := 75.0
@@ -249,6 +257,9 @@ var _tool_secondary_was_pressed := false
 var _multi_tool_mount: Spatial = null
 var _multi_tool_skeleton: Skeleton = null
 var _multi_tool_hand_bone_idx := -1
+# PERF: el Pivot visual es estatico; resolverlo una vez evita un get_node_or_null() por
+# tick en _get_multi_tool_forward() (lo usa el aim del multi-tool).
+var _multi_tool_visual_pivot: Spatial = null
 
 var _current_interactable: Node = null
 var _current_interaction_prompt := ""
@@ -1879,8 +1890,11 @@ func _get_multi_tool_hand_origin() -> Vector3:
 	return global_transform.origin + Vector3(0.32, 1.05, -0.28)
 
 func _get_multi_tool_forward() -> Vector3:
-	var visual_pivot = get_node_or_null("Visual/Pivot")
-	if visual_pivot and is_instance_valid(visual_pivot):
+	# PERF: cachear el Pivot visual (nodo estatico) en vez de get_node_or_null por tick.
+	if _multi_tool_visual_pivot == null or not is_instance_valid(_multi_tool_visual_pivot):
+		_multi_tool_visual_pivot = get_node_or_null("Visual/Pivot") as Spatial
+	var visual_pivot := _multi_tool_visual_pivot
+	if visual_pivot:
 		return visual_pivot.global_transform.basis.z.normalized()
 	return -global_transform.basis.z.normalized()
 
@@ -2909,15 +2923,24 @@ func step(dt: float, input: InputDataV2) -> void:
 
 	if enable_step_up and (not _rl_fast_controller) and is_on_floor() and velocity.y <= 0:
 		if _pm_fino: _pm_perfil.perfil_inicio("PC.move.pre.stepup")
-		var step_motion = movement_logic.wish_direction if movement_logic.wish_direction.length() > 0.1 else velocity
-		var step_result = _try_step_up(step_motion)
-		if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.stepup")
-		if step_result.stepped:
-			global_transform.origin = step_result.position
-			_just_stepped = true
-			_step_grounded_timer = step_grounded_grace
-			if debug_stair_state:
-				print("[STAIR] step_up success: pos=", step_result.position, " vy=", velocity.y)
+		var wish_dir := movement_logic.wish_direction
+		var step_motion = wish_dir if wish_dir.length() > 0.1 else velocity
+		# PERF: el early-out interno solo cubre <0.01 m/s, pero igual se pagaba el call,
+		# el Dictionary y el global_transform por tick quieto/frenando. Con menos de
+		# ~0.04 m/s de intencion horizontal no hay escalon posible, asi que se saltea el
+		# sondeo (el gate no cambia la fisica de escalones: subirlos exige movimiento).
+		if Vector3(step_motion.x, 0.0, step_motion.z).length_squared() > 0.0016:
+			var step_result = _try_step_up(step_motion)
+			if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.stepup")
+			if step_result.stepped:
+				global_transform.origin = step_result.position
+				_just_stepped = true
+				_step_grounded_timer = step_grounded_grace
+				if debug_stair_state:
+					print("[STAIR] step_up success: pos=", step_result.position, " vy=", velocity.y)
+		else:
+			_step_clear_dist = 0.0
+			if _pm_fino: _pm_perfil.perfil_fin("PC.move.pre.stepup")
 	else:
 		# Sin gate (aire, salto o step-up apagado): el tramo certificado deja de valer.
 		_step_clear_dist = 0.0
@@ -2933,6 +2956,7 @@ func step(dt: float, input: InputDataV2) -> void:
 	_update_floor_info()
 	if _rl_fast_controller and _rl_skip_platform_tracking:
 		_platform_velocity = Vector3.ZERO
+		_floor_moving_terrace_cached = false
 	else:
 		_update_platform_tracking(dt)
 
@@ -3252,18 +3276,28 @@ func _update_platform_tracking(dt: float) -> void:
 		_platform_collider = null
 		_platform_tracking_key = ""
 		_platform_velocity = Vector3.ZERO
+		_floor_moving_terrace_cached = false
 		return
 	var new_platform: Spatial = null
 	var new_platform_key := ""
+	var floor_moving_terrace := false
 	if is_on_floor():
 		for i in get_slide_count():
-			var collision = get_slide_collision(i)
-			if collision.normal.y > 0.7:
+			var collision: KinematicCollision = get_slide_collision(i)
+			if collision == null:
+				continue
+			var normal_y := collision.normal.y
+			# Mismo escaneo que _standing_on_moving_terrace(): se evita repetir el loop.
+			# Solo se lee el collider en contactos de piso (normal alta), no en paredes.
+			if normal_y > 0.5:
 				var collider = collision.collider
-				if _is_trackable_platform_collider(collider):
+				if collider != null and (collider.has_meta("canonical_tx") or collider.has_meta("world_rotator_collision")):
+					floor_moving_terrace = true
+				if normal_y > 0.7 and _is_trackable_platform_collider(collider):
 					new_platform = collider
 					new_platform_key = _get_platform_tracking_key(collider)
 					break
+	_floor_moving_terrace_cached = floor_moving_terrace
 	
 	if new_platform != _platform_collider or new_platform_key != _platform_tracking_key:
 		if _platform_collider != null and new_platform == null:
@@ -3294,19 +3328,11 @@ func _update_platform_tracking(dt: float) -> void:
 # True when the player is currently grounded on a WorldRotator-driven terrace plate.
 # Those StaticBody colliders carry a "canonical_tx" meta (set by the pool/active-body
 # assignment) — a reliable, exclusive marker for the moving exterior floor.
+# PERF: el resultado se calcula en _update_platform_tracking (que ya recorre los slide
+# contacts); antes se repetia el escaneo aca. El dato cacheado es del post-slide del
+# tick anterior, que es exactamente lo que este scan pre-slide veia igual.
 func _standing_on_moving_terrace() -> bool:
-	if not is_on_floor():
-		return false
-	for i in get_slide_count():
-		var collision = get_slide_collision(i)
-		if collision == null:
-			continue
-		if collision.normal.y <= 0.5:
-			continue
-		var collider = collision.collider
-		if collider != null and (collider.has_meta("canonical_tx") or collider.has_meta("world_rotator_collision")):
-			return true
-	return false
+	return is_on_floor() and _floor_moving_terrace_cached
 
 # True when an ancestor node has reparented us to carry us directly (it is in the
 # "player_carrier" group). While carried, scene-graph transform inheritance moves
@@ -3337,8 +3363,11 @@ func _get_platform_tracking_key(collider: Object) -> String:
 	return key
 
 func _try_step_up(motion: Vector3) -> Dictionary:
-	var result = {"stepped": false, "position": global_transform.origin}
+	# PERF: se escribe sobre un Dictionary reusado en vez de instanciar uno por llamada.
+	var result := _step_up_result
+	result["stepped"] = false
 	var origin := global_transform.origin
+	result["position"] = origin
 	var horizontal_motion := Vector3(motion.x, 0, motion.z)
 	if horizontal_motion.length_squared() < 0.0001:
 		return result

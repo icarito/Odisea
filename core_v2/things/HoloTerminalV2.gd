@@ -64,6 +64,10 @@ export(float) var inside_screen_depth_offset := 0.0
 export(bool) var static_content := false
 var _pending_redraw := false
 var _static_content_initialized := false
+# PERF: _find_player() llama get_tree().get_nodes_in_group("player"), que asigna un Array
+# nuevo en cada llamada y se invocaba hasta 3 veces por tick (visuals, radius, occlusion).
+# El jugador persiste, asi que se cachea y solo se re-consulta si el nodo dejo de existir.
+var _cached_player: Node = null
 enum CinematicCameraBehavior {
 	CAMERA_FIXED,
 	CAMERA_FOLLOW_PLAYER,
@@ -972,11 +976,10 @@ func _find_player() -> Node:
 	# before _ready()) - is_inside_tree() avoids ever triggering that call.
 	if not is_inside_tree():
 		return null
-	var tree = get_tree()
-	var players = tree.get_nodes_in_group("player")
-	if players.size() > 0:
-		return players[0]
-	return null
+	if _cached_player == null or not is_instance_valid(_cached_player):
+		var players = get_tree().get_nodes_in_group("player")
+		_cached_player = players[0] if players.size() > 0 else null
+	return _cached_player
 
 func _find_player_ui_settings() -> Node:
 	var player = _find_player()

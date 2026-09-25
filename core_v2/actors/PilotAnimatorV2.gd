@@ -172,6 +172,18 @@ var _climb_direction_blend := 1.0
 var _last_anim_dt := 0.0
 var _climb_pose_blend := 0.0
 var _was_climbing_anim_last_frame := false
+# PERF (perfil RingHub): paso_animator es ~0.7 ms/tick en desktop y el 90% de PC.post.
+# - _head_bone_idx evita un find_bone() de string por tick en _update_head_look (-2 sin resolver).
+# - _climb_visual_at_rest evita el slerp de Quat sobre el Skeleton cada tick cuando no se trepa.
+# - _climb_pose_corrections_applied evita 11 find_bone() + overrides por tick cuando ya no hay correccion.
+# - _controller_manager / _low_tier_gate cachean get_node_or_null() por path que corrian hasta 3 veces por tick.
+var _head_bone_idx := -2
+var _climb_visual_at_rest := false
+var _climb_pose_corrections_applied := false
+var _controller_manager: Node = null
+var _controller_manager_resolved := false
+var _low_tier_gate: Node = null
+var _low_tier_gate_resolved := false
 const FOOTSTEP_STOP_GRACE_SEC := 0.18
 # true = el AnimationTree avanza a mano desde step_animator (una pose por paso de
 # fisica). false = procesa solo en IDLE (por frame de render). Se dejo como switch
@@ -873,7 +885,12 @@ static func head_look_angles(aim: Vector3, fwd: Vector3, up: Vector3, right: Vec
 func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_turn_yaw_target: float = 0.0, orbit_look: bool = false) -> void:
 	if not _skeleton:
 		return
-	var head_idx = _skeleton.find_bone("DEF-head")
+	# PERF: el indice del hueso de cabeza es estable; resolverlo una sola vez evita un
+	# find_bone() por nombre en cada tick (corria incluso en LOW, donde el head-look esta
+	# suprimido y solo lo usa para limpiar el override).
+	if _head_bone_idx == -2:
+		_head_bone_idx = _skeleton.find_bone("DEF-head")
+	var head_idx := _head_bone_idx
 	if head_idx == -1:
 		return
 
@@ -1240,6 +1257,7 @@ func _update_climb_visual_state(dt: float) -> void:
 	var target_skeleton_basis := _skeleton_base_basis
 	var target_direction_blend := _climb_direction_blend
 	if traversal.is_climbing:
+		_climb_visual_at_rest = false
 		var is_climbing_moving: bool = bool(traversal._ladder_attach_active) or float(traversal.climb_motion_amount) > climb_idle_motion_threshold
 		if is_climbing_moving:
 			var climb_dir := float(traversal.climb_motion_direction)
@@ -1287,6 +1305,10 @@ func _restore_climb_visual_state(dt: float) -> void:
 	_set_anim_tree_param(PARAM_CLIMBING_DIRECTION_BLEND, 1.0, 0.0)
 	if not _skeleton:
 		return
+	# PERF: una vez que el Skeleton volvio a su pose base no hay nada que interpolar; el
+	# slerp de Quat por tick era lo mas caro de este camino cuando el jugador no trepa.
+	if _climb_visual_at_rest:
+		return
 	if dt > 0.0:
 		_skeleton.translation = _skeleton.translation.linear_interpolate(
 			_skeleton_base_translation,
@@ -1299,11 +1321,22 @@ func _restore_climb_visual_state(dt: float) -> void:
 	else:
 		_skeleton.translation = _skeleton_base_translation
 		_skeleton.transform.basis = _skeleton_base_basis
+	# Marcar reposo cuando ya coinciden (evita el slerp de ahi en mas).
+	var cur_basis := _skeleton.transform.basis
+	if _skeleton.translation.distance_squared_to(_skeleton_base_translation) < 0.000001 \
+			and (cur_basis.x - _skeleton_base_basis.x).length_squared() < 0.00000001 \
+			and (cur_basis.y - _skeleton_base_basis.y).length_squared() < 0.00000001 \
+			and (cur_basis.z - _skeleton_base_basis.z).length_squared() < 0.00000001:
+		_skeleton.translation = _skeleton_base_translation
+		_skeleton.transform.basis = _skeleton_base_basis
+		_climb_visual_at_rest = true
 
 func _update_climb_pose_correction(dt: float) -> void:
 	if not _skeleton or not controller or not controller.get("traversal_logic"):
 		_climb_pose_blend = 0.0
-		_clear_climb_pose_corrections()
+		if _climb_pose_corrections_applied:
+			_climb_pose_corrections_applied = false
+			_clear_climb_pose_corrections()
 		return
 	var traversal = controller.get("traversal_logic")
 	var target_blend := 1.0 if traversal and traversal.is_climbing else 0.0
@@ -1312,7 +1345,11 @@ func _update_climb_pose_correction(dt: float) -> void:
 	else:
 		_climb_pose_blend = target_blend
 	if _climb_pose_blend <= 0.001:
-		_clear_climb_pose_corrections()
+		# PERF: limpiar de nuevo cuando ya no hay overrides es tirar 11 find_bone() + sets
+		# de hueso por tick; alcanza con hacerlo una vez, en la transicion a blend 0.
+		if _climb_pose_corrections_applied:
+			_climb_pose_corrections_applied = false
+			_clear_climb_pose_corrections()
 		return
 	_apply_climb_pose_correction_to_bone("DEF-spine001", 0.0, 0.0, climb_spine_pitch_deg_1)
 	_apply_climb_pose_correction_to_bone("DEF-spine002", 0.0, 0.0, climb_spine_pitch_deg_2)
@@ -1325,6 +1362,7 @@ func _update_climb_pose_correction(dt: float) -> void:
 	_apply_climb_pose_correction_to_bone("DEF-shoulderR", climb_clavicle_out_deg_right, 0.0, 0.0)
 	_apply_climb_pose_correction_to_bone("DEF-upper_armL", climb_upper_arm_out_deg_left, climb_upper_arm_back_deg, 0.0)
 	_apply_climb_pose_correction_to_bone("DEF-upper_armR", climb_upper_arm_out_deg_right, climb_upper_arm_back_deg, 0.0)
+	_climb_pose_corrections_applied = true
 
 func _apply_climb_pose_correction_to_bone(bone_name: String, out_deg: float, back_deg: float, pitch_deg: float) -> void:
 	var bone_idx = _skeleton.find_bone(bone_name)
@@ -1418,8 +1456,10 @@ func _play_footstep():
 # Tier LOW del gate (handheld lento detectado u opcion "low end"), no un string de dispositivo:
 # un handheld rapido no tiene por que animar a 12 Hz.
 func _is_hyper_low_runtime() -> bool:
-	var gate = get_node_or_null("/root/GLES3VendorGate")
-	return gate != null and gate.is_low_tier()
+	if not _low_tier_gate_resolved or not is_instance_valid(_low_tier_gate):
+		_low_tier_gate_resolved = true
+		_low_tier_gate = get_node_or_null("/root/GLES3VendorGate")
+	return _low_tier_gate != null and _low_tier_gate.is_low_tier()
 
 func _configure_animation_runtime_policy() -> void:
 	# Politica por tier:
@@ -1484,7 +1524,10 @@ func _has_locomotion_intent() -> bool:
 
 func _is_zero_g() -> bool:
 	if controller:
-		var cm = controller.get_node_or_null("ControllerManager")
+		if not _controller_manager_resolved or not is_instance_valid(_controller_manager):
+			_controller_manager_resolved = true
+			_controller_manager = controller.get_node_or_null("ControllerManager")
+		var cm = _controller_manager
 		if cm and cm.get("current_mode") == cm.Mode.ZERO_GRAVITY:
 			return true
 	return false
