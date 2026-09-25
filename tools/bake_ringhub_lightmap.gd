@@ -26,6 +26,7 @@ const RIG := "RingHubBakeLights"
 # bien claro sin tocar la escena ni las luces del rig. Default 1.0 = identico.
 #   ODISEA_BAKE_LIGHT_MULT=3 tools/godot --path . --no-window -s tools/bake_ringhub_lightmap.gd
 var _light_mult := 1.0
+var _fast := false
 
 func _init():
 	var mult_env := OS.get_environment("ODISEA_BAKE_LIGHT_MULT").strip_edges()
@@ -35,6 +36,9 @@ func _init():
 	# pods instanciados (bakeables) cuando el script ve esta env. El runtime la
 	# necesita igual para que existan los pods y reciban el lightmap.
 	OS.set_environment("ODISEA_CRIOPOD_RING_INSTANCED", "1")
+	# Iteracion rapida: ODISEA_BAKE_FAST=1 baja calidad y resoluciones (solo para
+	# verificar membresia/estructura; el bake de produccion va a HIGH).
+	_fast = OS.get_environment("ODISEA_BAKE_FAST") in ["1", "true", "yes", "on"]
 	var ps: PackedScene = load(SCENE)
 	if ps == null:
 		print("bake: no pude cargar ", SCENE)
@@ -80,7 +84,7 @@ func _init():
 		ResourceSaver.save(OUT, data)
 		lm.light_data = load(OUT)
 	lm.capture_enabled = false
-	lm.quality = BakedLightmap.BAKE_QUALITY_HIGH
+	lm.quality = BakedLightmap.BAKE_QUALITY_LOW if _fast else BakedLightmap.BAKE_QUALITY_HIGH
 	lm.set("atlas_generate", false)
 	lm.use_denoiser = true
 	lm.use_hdr = false
@@ -88,6 +92,14 @@ func _init():
 	print("bake: start -> ", OUT)
 	var err: int = lm.bake(root, OUT)
 	print("bake: result=", err)
+	if lm.light_data != null:
+		var ring := 0
+		for i in range(lm.light_data.get_user_count()):
+			var up := String(lm.light_data.get_user_path(i))
+			if up.find("Criopods_Visual") != -1:
+				ring += 1
+				print("bake:   ring user ", up)
+		print("bake: usuarios ring=", ring, " total=", lm.light_data.get_user_count())
 	quit(0 if err == BakedLightmap.BAKE_ERROR_OK else 2)
 
 func _disable_light_pool() -> void:
@@ -115,8 +127,8 @@ func _apply_bake_hints(n: Node) -> void:
 			or p.find("/Floor_4/CombinedMesh") != -1 or p.find("/Floor_5/CombinedMesh") != -1:
 				var m = (c as MeshInstance).mesh
 				if "lightmap_size_hint" in m:
-					m.set("lightmap_size_hint", Vector2(2048, 2048))
-					print("bake:   hint 2048 -> ", p)
+					m.set("lightmap_size_hint", Vector2(256, 256) if _fast else Vector2(2048, 2048))
+					print("bake:   hint -> ", p)
 		_apply_bake_hints(c)
 
 func _is_dynamic_light(path: String) -> bool:

@@ -99,6 +99,12 @@ func _instance_bakeable_pods() -> void:
 		var pod = pod_scene.instance()
 		add_child(pod)
 		pod.global_transform = xf
+		# El BakedLightmap._find_meshes_and_lights saltea hijos con owner==null
+		# ("maybe a helper"): sin owner, los pods instanciados no se hornean. En el
+		# bake no hay current_scene, asi que se usa la raiz real del arbol del nivel.
+		var scene_root = _scene_root()
+		if scene_root != null and pod.owner == null:
+			pod.owner = scene_root
 		# Visual-only: sin colision propia (el anillo MultiMesh tampoco la tenia).
 		for c in pod.get_children():
 			if c is StaticBody or c is KinematicBody:
@@ -107,6 +113,15 @@ func _instance_bakeable_pods() -> void:
 		layer.visible = false
 	set_meta("ring_instanced_bake", true)
 	print("[criopods] ", get_path(), " instanced pods=", count, " (layers=", _layers.size(), ")")
+
+
+func _scene_root() -> Node:
+	var n: Node = self
+	while n.get_parent() != null and is_instance_valid(n.get_parent()) and n.get_parent() != get_tree().root:
+		n = n.get_parent()
+	if n == get_tree().root:
+		return null
+	return n
 
 
 func block_slot(slot: int) -> void:
