@@ -1,6 +1,11 @@
 extends Spatial
 class_name CriopodRingVisualV2
 
+# El manager de LOD se preloadea por path: evita depender del orden de registro de
+# class_name al parsear y no hay ciclo (el manager referencia a este script por
+# class_name, no por preload).
+const CriopodRingLodV2Script = preload("res://core_v2/levels/chunks/ringhub/CriopodRingLodV2.gd")
+
 # FD-314 - Visual barato del anillo de criopods decorativos de RingHub.
 #
 # Los anillos se resuelven con MultiMesh (shell / glass / cards) en vez de las ~29
@@ -43,6 +48,20 @@ var _hidden := {}
 var _saved := {}
 var _pending_pods := []
 
+# LOD por camara de las capas MultiMesh (env ODISEA_CRIOPOD_RING_LOD=1). Null y
+# completamente inerte por default: sin esto el comportamiento es el actual.
+var _lod = null
+# _lod_base[layer_idx][pod_idx] = Transform original pre-LOD.
+var _lod_base := []
+
+# Params del LOD (espejo de los dome_lod_* de OdiseaExterior). Solo se leen si el
+# LOD esta activo; el default de la env es OFF.
+export(int, 0, 64) var criopod_lod_max_instances := 16
+export(float, 0.0, 180.0) var criopod_lod_frustum_half_fov_deg := 80.0
+export(float, 1.0, 32.0) var criopod_lod_backface_penalty := 8.0
+export(float, 1.0, 90.0) var criopod_lod_camera_angle_threshold := 20.0
+export(float, 0.0, 32.0) var criopod_lod_camera_move_threshold := 2.0
+
 func _enter_tree() -> void:
 	# En _enter_tree (no _ready): los pods tienen que existir ANTES del _ready del
 	# BakedLightmap y de RingHubLightState, que llaman _assign_lightmaps/_clear_lightmaps
@@ -70,6 +89,10 @@ func _enter_tree() -> void:
 			_layers.append(node)
 		for child in node.get_children():
 			pending.append(child)
+	# Snapshot PRE-bloqueo: el transform original de cada capa, base del LOD. Se
+	# toma antes de block_slot para que desocultar restaure el pod, no su colapso.
+	if _criopod_ring_lod_enabled():
+		_lod_base = _capture_base_transforms()
 	if blocked_slot >= 0:
 		block_slot(blocked_slot)
 	# Godot 3 NO puede hornear MultiMeshInstance, asi que por default los anillos se
@@ -78,6 +101,17 @@ func _enter_tree() -> void:
 	var ring_env := OS.get_environment("ODISEA_CRIOPOD_RING_INSTANCED").to_lower()
 	if ring_env != "0" and ring_env != "false" and ring_env != "no" and ring_env != "off":
 		_instance_bakeable_pods()
+	# El LOD MultiMesh solo tiene sentido si las capas MultiMesh son la
+	# representacion activa: con pods instanciados quedan ocultas y el culling por
+	# nodo ya funciona. En ese caso no se crea el manager.
+	if not _lod_base.empty() and not has_meta("ring_instanced_bake"):
+		_lod = CriopodRingLodV2Script.new()
+		_lod.setup(_layers, _lod_base, _hidden, _layer_instance_count())
+		_lod.max_instances = criopod_lod_max_instances
+		_lod.frustum_half_fov_deg = criopod_lod_frustum_half_fov_deg
+		_lod.backface_penalty = criopod_lod_backface_penalty
+		_lod.camera_angle_threshold = criopod_lod_camera_angle_threshold
+		_lod.camera_move_threshold = criopod_lod_camera_move_threshold
 
 
 func _ready() -> void:
@@ -92,6 +126,49 @@ func _ready() -> void:
 	if OS.get_environment("ODISEA_CRIO_DIAG") != "":
 		_diag_dump("ready")
 		_diag_later()
+
+
+# Visual-only (no estado de gameplay): el manager re-evalua el LOD solo cuando la
+# camara giro/s e movio lo suficiente, asi que esto es barato por frame.
+func _process(_delta: float) -> void:
+	if _lod == null:
+		return
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	_lod.tick(viewport.get_camera())
+
+
+func _criopod_ring_lod_enabled() -> bool:
+	var value := OS.get_environment("ODISEA_CRIOPOD_RING_LOD").to_lower()
+	if value == "" or value == "0" or value == "false" or value == "no" or value == "off":
+		return false
+	return true
+
+
+func _capture_base_transforms() -> Array:
+	var base := []
+	for layer in _layers:
+		var transforms := []
+		var mm: MultiMesh = layer.multimesh
+		if mm != null:
+			for i in range(mm.instance_count):
+				transforms.append(mm.get_instance_transform(i))
+		base.append(transforms)
+	return base
+
+
+func _layer_instance_count() -> int:
+	if _layers.empty() or _layers[0].multimesh == null:
+		return 0
+	return _layers[0].multimesh.instance_count
+
+
+# Slot del buffer donde vive el pod `index` (identidad si el LOD esta apagado).
+func _slot_for(index: int) -> int:
+	if _lod == null:
+		return index
+	return _lod.slot_for(index)
 
 
 # Cambia las capas MultiMesh (no bakeables en Godot 3) por pods CriopodParallax
@@ -160,12 +237,17 @@ func block_slot(slot: int) -> void:
 	if _layers.empty():
 		_saved[index] = []
 		return
+	# Con LOD activo el buffer puede estar reordenado: se escribe en el slot donde
+	# el manager tiene a este pod, no en `index`.
+	var at := _slot_for(index)
 	var saved := []
 	for layer in _layers:
-		var original: Transform = layer.multimesh.get_instance_transform(index)
+		var original: Transform = layer.multimesh.get_instance_transform(at)
 		saved.append(original)
-		layer.multimesh.set_instance_transform(index, _hidden_transform(original.origin))
+		layer.multimesh.set_instance_transform(at, _hidden_transform(original.origin))
 	_saved[index] = saved
+	if _lod != null:
+		_lod.mark_dirty()
 
 func unblock_slot(slot: int) -> void:
 	var index := instance_for_slot(slot)
@@ -182,9 +264,12 @@ func _unblock_index(index: int) -> void:
 	_saved.erase(index)
 	if saved == null:
 		return
+	var at := _slot_for(index)
 	for i in range(_layers.size()):
 		if i < saved.size():
-			_layers[i].multimesh.set_instance_transform(index, saved[i])
+			_layers[i].multimesh.set_instance_transform(at, saved[i])
+	if _lod != null:
+		_lod.mark_dirty()
 
 func get_blocked_slot() -> int:
 	return blocked_slot
@@ -212,12 +297,14 @@ func _diag_dump(tag: String) -> void:
 	if f.open("user://crio_diag.txt", File.READ_WRITE) != OK and f.open("user://crio_diag.txt", File.WRITE) != OK:
 		return
 	f.seek_end()
-	f.store_string("=== %s %s visible=%s in_tree=%s\n" % [
-		tag, String(get_path()), str(visible), str(is_visible_in_tree())])
+	f.store_string("=== %s %s visible=%s in_tree=%s lod=%s\n" % [
+		tag, String(get_path()), str(visible), str(is_visible_in_tree()),
+		str(_lod.get_visible_count()) if _lod != null else "off"])
 	for layer in _layers:
 		var mm: MultiMesh = layer.multimesh
-		f.store_string("  %s layers=%d cull=%.1f count=%d fmt=%d/%d/%d visible=%s aabb=%s\n" % [
+		f.store_string("  %s layers=%d cull=%.1f count=%d vis=%d fmt=%d/%d/%d visible=%s aabb=%s\n" % [
 			layer.name, layer.layers, layer.extra_cull_margin, mm.instance_count,
+			mm.visible_instance_count,
 			mm.transform_format, mm.color_format, mm.custom_data_format,
 			str(layer.is_visible_in_tree()), str(mm.get_aabb())])
 		f.store_string("    t0=%s mat=%s\n" % [
