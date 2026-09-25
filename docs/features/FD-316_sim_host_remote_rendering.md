@@ -49,9 +49,18 @@ Detalle del flujo (control remoto = teléfono emparejado vía FD-294):
 4. **Host low-end → render-esclavo**: recibe snapshots, interpola (buffer de 1
    tick) y renderiza solo lo gráfico. Su simulación de física está **apagada**
    (no instancia física ni Core V2); su CPU queda libre para el render.
-5. **Determinismo (Core V2)**: trivial — una sola autoridad (el control remoto).
-   Replay/checkpoints se graban en el control remoto, igual que hoy (el input es
-   el gamepad/touch virtual local). El render-esclavo no necesita ser
+5. **Input inverso (control remoto inverso)**: el host low-end **sigue teniendo
+   botones físicos** (gamepad del handheld). Aunque su física esté apagada, su
+   input local debe llegar a la simulación offloaded. El host low-end captura su
+   input y lo transmite al control remoto por el mismo transporte (mensaje
+   `sim_input`, con número de tick del snapshot más reciente aplicado para
+   alinear el timing). El control remoto lo inyecta en su simulador headless.
+   Resultado: **dos fuentes de input hacia la simulación** — el touch/input
+   local del teléfono (control remoto) y el gamepad del handheld (host low-end).
+6. **Determinismo (Core V2)**: trivial — una sola autoridad (el control remoto).
+   Replay/checkpoints se graban en el control remoto, igual que hoy; el input
+   llega por dos canales (local + `sim_input` remoto) pero **converge en una sola
+   cola determinista** ordenada por tick. El render-esclavo no necesita ser
    determinista: solo interpola.
 
 ### Considered Options
@@ -65,8 +74,7 @@ Detalle del flujo (control remoto = teléfono emparejado vía FD-294):
   en el propio control remoto). Contras: solo aplica cuando el host es débil;
   GPU del host sigue siendo el techo (si es draw-bound no sube FPS); LAN local
   (RTT de snapshots).
-- **Option C — Sim host + predicción de input en el device**: no aplica aquí
-  (el input se procesa localmente en el control remoto, no hay que predecirlo).
+- **Option C — Sim host + predicción de input en el device**: no aplica aquí.
   Queda **backlog**.
 
 **Alcance de esta FD**: Option B, LAN local, solo para el caso host = low-end-flat.
@@ -88,12 +96,16 @@ Basado en `feature/FD-294-control-remoto` (infraestructura de red ya existe:
 `RemoteAnnouncer.gd`, `RemoteDiscovery.gd`, `RemoteControlManager.gd`):
 
 - `core_v2/net/RemoteProtocol.gd` (modify) — mensajes nuevos: `sim_hello`,
-  `sim_snapshot`, `sim_config` (tick rate, interpolación, escena base).
+  `sim_snapshot`, `sim_config` (tick rate, interpolación, escena base) y
+  `sim_input` (input del handheld → simulador, con `tick` del snapshot aplicado).
 - `core_v2/net/RemoteSimHost.gd` (new) — lado **control remoto**: simulación
-  headless (Box3D + Core V2) a 60 Hz, captura y emite snapshots por tick.
+  headless (Box3D + Core V2) a 60 Hz, captura y emite snapshots por tick, y
+  **recibe `sim_input`** del host low-end para inyectarlo en la cola de input
+  determinista (junto con su propio input local).
 - `core_v2/net/RemoteSimClient.gd` (new) — lado **host low-end**: recibe
   snapshots, bufferiza (1 tick), interpola transforms/animación/luces/cámara y
-  renderiza; **desactiva** la simulación local de física.
+  renderiza; **desactiva** la simulación local de física; **captura y envía** su
+  input local (`sim_input`) al control remoto.
 - `core_v2/net/RemoteControlManager.gd` (modify) — detecta el gatillo
   (host = tier LOW + pairing activo) y asigna roles `sim_host` (control remoto) /
   `render_slave` (host low-end) sin tocar el flujo normal de los demás casos.
@@ -107,16 +119,21 @@ alcanza en LAN).
 ## Verification
 
 1. **Tests automatizados** (`bin/jules-cli` corre la suite):
-   - `test_remote_sim.gd` cubre: encode/decode de `sim_snapshot` y `sim_config`;
-     buffer de interpolación (1 tick) sin huecos ni saltos; rol `render_slave`
-     NO instancia física ni Core V2; el gatillo solo se activa con host en tier
-     LOW (el resto de combinaciones siguen el flujo normal).
+   - `test_remote_sim.gd` cubre: encode/decode de `sim_snapshot`, `sim_config` y
+     `sim_input`; buffer de interpolación (1 tick) sin huecos ni saltos; rol
+     `render_slave` NO instancia física ni Core V2; el input del handheld se
+     empaqueta con `tick` correcto y el simulador lo inyecta en orden; el gatillo
+     solo se activa con host en tier LOW (el resto de combinaciones siguen el
+     flujo normal).
    - La suite existente (`test_remote_control.gd`, determinismo) sigue verde.
 2. **Prueba manual en LAN (host low-end-flat + control remoto)**:
    - El control remoto simula a 60 Hz headless; el host low-end renderiza
      interpolado. Verificar CPU del host notablemente más baja que con sim local.
    - Input desde el control remoto: el personaje responde sin lag perceptible
      (el input se procesa localmente en el control remoto).
+   - **Input inverso**: pulsar los botones físicos del handheld (host low-end)
+     y verificar que el personaje responde en la simulación offloaded (el input
+     viaja handheld → control remoto y se inyecta).
    - Verificar que con un **host capaz** el control remoto sigue funcionando
      igual que antes (regresión del caso normal).
 3. **Determinismo**: grabar una partida con input del control remoto; replay
@@ -133,6 +150,11 @@ alcanza en LAN).
 - Reusar el transporte existente de FD-294. Snapshots de sim por **UDP**
   (tolerante a pérdida, la interpolación cubre huecos); control (pairing/config)
   por WS.
+- **Input inverso obligatorio**: el host low-end envía su input de gamepad/touch
+  al control remoto como mensaje `sim_input` (con `tick` del último snapshot
+  aplicado) por UDP. El control remoto lo inyecta en su cola de input junto con
+  su propio input local, ordenando por tick para preservar el determinismo. No
+  asumir que el handheld no tiene botones: tiene gamepad físico y debe funcionar.
 - El render-esclavo NO toca `core_v2/` de simulación: solo un nodo receptor que
   interpola y aplica transforms a la escena base recibida.
 - El control remoto simula headless con el mismo binario; no se recompila el
