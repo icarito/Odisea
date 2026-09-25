@@ -693,7 +693,7 @@ radial_rail_pass_throughs = [ Vector2( 180, 12 ) ]
 frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
-grate_emission_energy = 0.25
+grate_emission_energy = 0.0
 rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/RingFloor"]
@@ -823,7 +823,7 @@ skipped_sides = [ 3, 4 ]
 frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
-grate_emission_energy = 0.25
+grate_emission_energy = 0.0
 rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_2"]
@@ -854,7 +854,7 @@ skipped_sides = [ 5 ]
 frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
-grate_emission_energy = 0.25
+grate_emission_energy = 0.0
 rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_3"]
@@ -885,7 +885,7 @@ skipped_sides = [ 5, 6 ]
 frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
-grate_emission_energy = 0.25
+grate_emission_energy = 0.0
 rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_4"]
@@ -917,7 +917,7 @@ radial_rail_pass_throughs = [ Vector2( 0, 12 ) ]
 frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
-grate_emission_energy = 0.25
+grate_emission_energy = 0.0
 rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_5"]

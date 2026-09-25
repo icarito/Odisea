@@ -31,13 +31,6 @@ var _cinematic_listener: Listener = null
 var _cinematic_listener_engaged := false
 var _mobile_web_audio_guard_enabled := false
 
-# Perfil low-end (handheld de un solo parlante): la mezcla sale monofonica. Godot 3.6
-# no expone canales de salida (no existe set_speaker_mode), asi que se baja a mono con
-# el efecto que el motor recomienda para eso: StereoEnhance con pan_pullout=0 hace
-# l=r=(l+r)/2. Se aplica al bus Master (Music/SFX le mandan) de forma idempotente y
-# reversible; el estado real del bus manda, no un flag en memoria.
-const LOW_END_MONO_EFFECT_NAME := "LowEndMonoDownmix"
-
 export(bool) var follow_active_camera_for_spatial_sfx := true
 export(bool) var follow_active_camera_only_during_cinematics := true
 
@@ -49,13 +42,6 @@ const MOBILE_WEB_MASTER_GAIN_DB := -6.0
 # alcanza para que un replay pierda pasos de fisica y derive. Se resuelve una vez.
 var _pm_perfil = null
 var _pm_perfil_buscado := false
-
-# Autoloads para resolver el perfil low-end, cacheados: el chequeo corre cada tick de
-# fisica y get_node_or_null por nombre no es gratis. Ambos son autoloads posteriores a
-# AudioManager, por eso la primera aplicacion se difiere desde _ready.
-var _profile_sm = null
-var _profile_gate = null
-var _profile_nodes_resolved := false
 
 func _ready():
 	_configure_runtime_audio_safeguards()
@@ -79,9 +65,6 @@ func _ready():
 	# Try to find Mixing Desk Music in the scene tree (usually autoload or root child)
 	# Since autoloads are children of root, we can check siblings or children of root
 	call_deferred("_find_mixing_desk")
-	# SettingsManager y GLES3VendorGate son autoloads posteriores: se resuelve el perfil
-	# cuando ya existen.
-	call_deferred("_apply_low_end_mono_audio")
 
 func _notification(what):
 	# En movil el par FOCUS_OUT/FOCUS_IN no es simetrico: iOS y Android avisan que la
@@ -147,45 +130,6 @@ func _ensure_master_limiter(bus_idx: int) -> void:
 		if effect and effect.get_class() == "AudioEffectLimiter":
 			return
 	AudioServer.add_bus_effect(bus_idx, AudioEffectLimiter.new(), 0)
-
-# --- Perfil low-end: salida monofonica ----------------------------------------------
-
-# Reconcilia el bus Master con el perfil actual. Solo toca el bus en transiciones
-# (idempotente), asi que llamarlo cada tick es barato.
-func _apply_low_end_mono_audio() -> void:
-	var master_idx := _get_master_bus_index()
-	var present_idx := _find_low_end_mono_effect(master_idx)
-	var desired := _is_low_end_profile_now()
-	if desired and present_idx == -1:
-		var effect := AudioEffectStereoEnhance.new()
-		# pan_pullout=0 => l=r=(l+r)/2. time_pullout/surround a 0 para no colorear.
-		effect.pan_pullout = 0.0
-		effect.time_pullout_ms = 0.0
-		effect.surround = 0.0
-		effect.resource_name = LOW_END_MONO_EFFECT_NAME
-		AudioServer.add_bus_effect(master_idx, effect, 0)
-	elif not desired and present_idx != -1:
-		AudioServer.remove_bus_effect(master_idx, present_idx)
-
-func _find_low_end_mono_effect(bus_idx: int) -> int:
-	for effect_idx in range(AudioServer.get_bus_effect_count(bus_idx)):
-		var effect = AudioServer.get_bus_effect(bus_idx, effect_idx)
-		if effect and effect.get_class() == "AudioEffectStereoEnhance" \
-				and effect.resource_name == LOW_END_MONO_EFFECT_NAME:
-			return effect_idx
-	return -1
-
-# Mismo criterio que SettingsManager.is_low_end_profile(): la palanca del jugador o lo
-# que detecte el gate (vendor, ODISEA_FORCE_LOW_TIER).
-func _is_low_end_profile_now() -> bool:
-	if not _profile_nodes_resolved:
-		_profile_nodes_resolved = true
-		_profile_sm = get_node_or_null("/root/SettingsManager")
-		_profile_gate = get_node_or_null("/root/GLES3VendorGate")
-	if _profile_sm != null and bool(_profile_sm.get("low_end_forced")):
-		return true
-	return _profile_gate != null and _profile_gate.has_method("is_low_tier") \
-		and bool(_profile_gate.is_low_tier())
 
 func _on_tree_node_added(node: Node) -> void:
 	if not _mobile_web_audio_guard_enabled:
@@ -312,7 +256,6 @@ func _physics_process(_delta):
 	_paso_fisica(_delta)
 
 func _paso_fisica(_delta):
-	_apply_low_end_mono_audio()
 	_update_spatial_listener_for_cinematics()
 
 func register_zone(zone):

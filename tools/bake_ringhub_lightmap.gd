@@ -73,6 +73,8 @@ func _init():
 	# ScaffoldStreamRoot y el streamer los oculta/no-marca hasta acercarse. Para el
 	# bake los queremos todos visibles y marcados.
 	_force_criopod_visuals(root)
+	# Andamios/domo/piso/pods proyectan sombra entre si en el bake (halos definidos).
+	_enable_bake_shadows(root)
 
 	var lm := _find_lm(root)
 	if lm == null:
@@ -117,6 +119,18 @@ func _force_criopod_visuals(n: Node) -> void:
 				print("bake:   visual anillo ", c.get_path())
 		_force_criopod_visuals(c)
 
+func _enable_bake_shadows(n: Node) -> void:
+	for c in n.get_children():
+		if c is MeshInstance:
+			var mi := c as MeshInstance
+			var p := String(c.get_path())
+			var name := String(mi.name)
+			if (p.find("ScaffoldStreamRoot") != -1 or p.find("DomeInteriorLowPoly/DomeMesh") != -1 \
+			or p.find("CombinedMesh") != -1 or p.find("Criopod") != -1) \
+			and name.find("Glass") == -1 and name.find("PersonCard") == -1:
+				mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
+		_enable_bake_shadows(c)
+
 func _apply_bake_hints(n: Node) -> void:
 	for c in n.get_children():
 		if c is MeshInstance and (c as MeshInstance).mesh != null:
@@ -149,6 +163,7 @@ func _enable_all_lights(n: Node) -> int:
 			else:
 				l.visible = true
 				l.light_bake_mode = Light.BAKE_ALL
+				l.shadow_enabled = true
 				l.light_energy *= _light_mult
 				print("bake:   luz ", l.get_path(), " energy=", l.light_energy)
 				count += 1
