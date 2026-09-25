@@ -54,6 +54,13 @@ on:
       android_version_name:
         required: true
         type: string
+      # Release del fork Box3D a usar. Vacío = pin .github/box3d_release.
+      # El nightly de Odisea pasa acá el último release/nightly del fork (por fecha),
+      # resuelto por scripts/resolve_box3d_release.sh.
+      box3d_release:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   export:
@@ -216,7 +223,8 @@ jobs:
           # Sin pipefail: el job de Android corre en el contenedor godot-ci, cuyo
           # shell por defecto es sh (dash), y ahi "set -o pipefail" es ilegal.
           set -eu
-          BOX3D_RELEASE="$(cat .github/box3d_release)"
+          BOX3D_RELEASE="${{ inputs.box3d_release }}"
+          [ -n "$BOX3D_RELEASE" ] || BOX3D_RELEASE="$(cat .github/box3d_release)"
           echo "BOX3D_RELEASE=$BOX3D_RELEASE" >> "$GITHUB_ENV"
           GODOT_DIR="$HOME/.local/bin"
           mkdir -p "$GODOT_DIR"
@@ -366,13 +374,13 @@ jobs:
           # Clave con el hash del pin y SIN restore-keys: subir de release tiene que
           # bajar el zip nuevo, no restaurar el anterior (misma leccion que el cache
           # del binario de tests).
-          key: ${{ runner.os }}-box3d-android-source-${{ hashFiles('.github/box3d_release') }}
+          key: ${{ runner.os }}-box3d-android-source-${{ inputs.box3d_release }}-${{ hashFiles('.github/box3d_release') }}
 
       - name: Refresh the Android engine libs from the pinned Box3D release
         if: inputs.platform == 'android'
         run: |
           set -e
-          BOX3D_RELEASE="$(cat .github/box3d_release)"
+          BOX3D_RELEASE="${BOX3D_RELEASE:-$(cat .github/box3d_release)}"
           ZIP="$HOME/.cache/odisea-box3d/$BOX3D_RELEASE/android_source.zip"
           if [ ! -f "$ZIP" ]; then
             mkdir -p "$(dirname "$ZIP")"
@@ -1431,7 +1439,7 @@ jobs:
           PCK=$(find build/linux_arm64 -maxdepth 1 -name "*.pck" | head -n 1)
           FRT="$RUNNER_TEMP/odisea.frt.aarch64"
           curl -fSL -o "$FRT" \
-            "https://github.com/icarito/godot-box3d-3/releases/download/$(cat .github/box3d_release)/godot.box3d.frt.arm64.release"
+            "https://github.com/icarito/godot-box3d-3/releases/download/${BOX3D_RELEASE:-$(cat .github/box3d_release)}/godot.box3d.frt.arm64.release"
           mkdir -p dist_portmaster
           tools/build_portmaster.sh "$PCK" \
             "dist_portmaster/Odisea-PortMaster-$PORT_VERSION.zip" "$FRT"

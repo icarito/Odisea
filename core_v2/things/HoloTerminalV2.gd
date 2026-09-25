@@ -468,7 +468,7 @@ func _update_visuals() -> void:
 	var viewport = get_node_or_null("Viewport")
 	# Mientras el HUD presta el Viewport (cursor relativo), el overlay manda el modo: lo deja
 	# en UPDATE_ALWAYS para que el cursor se mueva suave. No pisarlo con el ahorro de Hz.
-	if viewport and viewport.has_method("forces_relative_cursor") and viewport.forces_relative_cursor():
+	if not Engine.is_editor_hint() and viewport and viewport.has_method("forces_relative_cursor") and viewport.forces_relative_cursor():
 		return
 	if viewport:
 		# Only render the viewport if the screen is at least partially visible
@@ -681,7 +681,7 @@ func _update_ui_mode() -> void:
 # overlay le reenvia las teclas y el mouse absoluto por forward_view_input. Si no, las teclas se
 # duplican y el mouse relativo compite con el cursor absoluto.
 func _input_enabled_by_ui(wanted: bool) -> bool:
-	if _viewport_input and _viewport_input.has_method("forces_relative_cursor") \
+	if not Engine.is_editor_hint() and _viewport_input and _viewport_input.has_method("forces_relative_cursor") \
 			and _viewport_input.forces_relative_cursor():
 		return false
 	return wanted
@@ -821,7 +821,7 @@ func _input(event):
 # relativo es el bridge, cuando el HUD tiene prestado el Viewport (ver
 # HoloTerminalViewportInput.set_hud_relative_cursor).
 func _wants_system_mouse() -> bool:
-	if _viewport_input and _viewport_input.has_method("forces_relative_cursor") \
+	if not Engine.is_editor_hint() and _viewport_input and _viewport_input.has_method("forces_relative_cursor") \
 			and _viewport_input.forces_relative_cursor():
 		return false
 	return Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED

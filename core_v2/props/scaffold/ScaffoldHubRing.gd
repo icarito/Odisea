@@ -80,6 +80,12 @@ export(Color) var frame_color := Color(0.18, 0.19, 0.21, 1.0) setget set_frame_c
 export(Color) var rail_color := Color(0.18, 0.19, 0.21, 1.0) setget set_rail_color
 export(Color) var grate_color := Color(0.42, 0.46, 0.50, 1.0) setget set_grate_color
 export(float, 0.15, 2.0, 0.01) var grate_brightness := 0.72 setget set_grate_brightness
+# Emision tenue del deck-top de la rejilla, mismo contrato que
+# SteelGratePlatform.grate_emission_energy. 0.0 = no-op: Dome_Intro y cualquier
+# otro ring del hub quedan como acero puramente lit. Solo la carcasa del deck-top
+# (la malla es alpha-scissor) emite: en DARK la reticula se lee como superficie
+# solida sobre el piso negro. Caras laterales, vigas y barandas no la reciben.
+export(float, 0.0, 1.0, 0.01) var grate_emission_energy := 0.0 setget set_grate_emission_energy
 export(float, -45.0, 45.0, 0.5) var grate_pattern_angle_degrees := 0.0 setget set_grate_pattern_angle_degrees
 
 export(bool) var auto_build := true setget set_auto_build
@@ -233,6 +239,10 @@ func set_grate_color(value: Color) -> void:
 
 func set_grate_brightness(value: float) -> void:
 	grate_brightness = value
+	_queue_build()
+
+func set_grate_emission_energy(value: float) -> void:
+	grate_emission_energy = value
 	_queue_build()
 
 func set_grate_pattern_angle_degrees(value: float) -> void:
@@ -568,6 +578,12 @@ func _grate_deck_material() -> Material:
 		g.metallic = clamp(g.metallic, 0.45, 0.6)
 		g.roughness = clamp(g.roughness, 0.2, 0.35)
 		g.metallic_specular = 0.9
+		# Mismo criterio que SteelGratePlatform: la emision va sobre el albedo ya
+		# tintado, asi que la reticula conserva el color del deck y solo sube de
+		# brillo. Default 0.0 deja el material intacto (Dome_Intro).
+		if grate_emission_energy > 0.0:
+			g.emission_enabled = true
+			g.emission = g.albedo_color * grate_emission_energy
 	return material
 
 func _compact_material(color: Color, brightness: float, is_rail: bool = false) -> SpatialMaterial:

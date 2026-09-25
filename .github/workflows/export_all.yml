@@ -227,6 +227,17 @@ jobs:
           # misma fuente que el versionCode del APK.
           echo "build_seq=${{ github.run_number }}" >> $GITHUB_OUTPUT
 
+          # Engine del fork Box3D: el canal nightly apunta al release/nightly MAS
+          # NUEVO del fork (por fecha de publicacion), resuelto por
+          # scripts/resolve_box3d_release.sh. Release/CI usan el pin
+          # .github/box3d_release (reproducibilidad).
+          BOX3D_RELEASE="$(cat .github/box3d_release)"
+          if [ "$CHANNEL" = "nightly" ]; then
+            RESOLVED="$(scripts/resolve_box3d_release.sh 2>/dev/null || true)"
+            [ -n "$RESOLVED" ] && BOX3D_RELEASE="$RESOLVED"
+          fi
+          echo "box3d_release=$BOX3D_RELEASE" >> $GITHUB_OUTPUT
+
   # Un job por plataforma, todos sobre el mismo cuerpo reutilizable
   # (export_platform.yml). macOS, iOS y html5 salen de la matriz porque tienen un
   # consumidor propio que antes esperaba a las 8 patas: la firma de App Store
@@ -257,6 +268,7 @@ jobs:
       build_seq: ${{ needs.prep.outputs.build_seq }}
       android_version_code: ${{ needs.prep.outputs.android_version_code }}
       android_version_name: ${{ needs.prep.outputs.android_version_name }}
+      box3d_release: ${{ needs.prep.outputs.box3d_release }}
       container: ${{ matrix.container }}
     secrets: inherit
 
@@ -279,6 +291,7 @@ jobs:
       build_seq: ${{ needs.prep.outputs.build_seq }}
       android_version_code: ${{ needs.prep.outputs.android_version_code }}
       android_version_name: ${{ needs.prep.outputs.android_version_name }}
+      box3d_release: ${{ needs.prep.outputs.box3d_release }}
     secrets: inherit
 
   export-ios:
@@ -300,6 +313,7 @@ jobs:
       build_seq: ${{ needs.prep.outputs.build_seq }}
       android_version_code: ${{ needs.prep.outputs.android_version_code }}
       android_version_name: ${{ needs.prep.outputs.android_version_name }}
+      box3d_release: ${{ needs.prep.outputs.box3d_release }}
     secrets: inherit
 
   export-web:
@@ -321,6 +335,7 @@ jobs:
       build_seq: ${{ needs.prep.outputs.build_seq }}
       android_version_code: ${{ needs.prep.outputs.android_version_code }}
       android_version_name: ${{ needs.prep.outputs.android_version_name }}
+      box3d_release: ${{ needs.prep.outputs.box3d_release }}
     secrets: inherit
 
   # The universal macOS export stays on Ubuntu (the Apple runner OOMs while
