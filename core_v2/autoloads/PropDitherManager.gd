@@ -46,6 +46,8 @@ var _processed_meshes: Dictionary = {}  # MeshInstance -> true (avoid double-pro
 
 var _player_node: Spatial = null
 var _camera_node: Camera = null
+var _flat_cull_enabled := false
+var _flat_hidden: Spatial = null
 
 # Historicamente la conversion a dither apagaba cast_shadow en todo lo que tocaba
 # (perf / evitar shadow del ALPHA_SCISSOR cambiando de frame a frame). Eso le
@@ -116,10 +118,56 @@ func _start() -> void:
 	var setting_enabled: bool = sm == null or sm.prop_dither_enabled
 	var user_set: bool = sm != null and bool(sm.get("prop_dither_user_set"))
 	if not _resolve_occlusion_dither(OS.get_environment(ENV_FLAG), setting_enabled, _is_low_tier(), user_set):
+		var gate = get_node_or_null("/root/GLES3VendorGate")
+		_flat_cull_enabled = _is_low_tier() and gate != null and gate.has_method("is_flat_mode") and gate.is_flat_mode()
 		set_process(false)
+		set_physics_process(_flat_cull_enabled)
 		return
+	set_physics_process(false)
 	_scan_scene_tree()
 	get_tree().connect("node_added", self, "_on_node_added")
+
+
+func _physics_process(_delta: float) -> void:
+	if not _flat_cull_enabled:
+		return
+	if is_instance_valid(_flat_hidden):
+		_flat_hidden.visible = true
+	_flat_hidden = null
+	if not is_instance_valid(_player_node) and is_instance_valid(SessionManager.player):
+		_player_node = SessionManager.player
+	_camera_node = get_viewport().get_camera()
+	if not is_instance_valid(_player_node) or not is_instance_valid(_camera_node):
+		return
+	var exclude: Array = [_player_node.get_rid()] if _player_node is CollisionObject else []
+	var world := get_viewport().find_world() if get_viewport() else null
+	if world == null:
+		return
+	var hit: Dictionary = world.direct_space_state.intersect_ray(
+		_camera_node.global_transform.origin,
+		_player_node.global_transform.origin + Vector3(0.0, 1.2, 0.0),
+		exclude,
+		PROP_LAYER_BIT
+	)
+	if hit.empty():
+		return
+	_flat_hidden = _find_flat_cull_root(hit.get("collider"))
+	if is_instance_valid(_flat_hidden):
+		_flat_hidden.visible = false
+
+
+func _exit_tree() -> void:
+	if is_instance_valid(_flat_hidden):
+		_flat_hidden.visible = true
+
+
+func _find_flat_cull_root(node: Node) -> Spatial:
+	var current: Node = node
+	while current != null and not (current is Viewport):
+		if current.is_in_group("camera_flat_cull") and current is Spatial:
+			return current as Spatial
+		current = current.get_parent()
+	return null
 
 
 func _process(_delta: float) -> void:

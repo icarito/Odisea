@@ -1,5 +1,7 @@
 extends Spatial
 
+const SpringMath = preload("res://core_v2/camera/SpringMath.gd")
+
 export(bool) var enabled := true setget set_enabled
 export(float, 0.5, 5.9) var spot_range := 5.9 setget set_spot_range
 # Cono angosto a proposito: con la lampara a ~20cm del cuerpo, un cono ancho mete el
@@ -291,11 +293,11 @@ func _update_mount(delta: float) -> bool:
 		var dt: float = delta
 
 		var yaw_goal: float = _aim_yaw + wrapf(target_yaw - _aim_yaw, -PI, PI)
-		var yaw_step: Vector2 = critical_spring_step(_aim_yaw, _aim_yaw_vel, yaw_goal, aim_half_life, dt)
+		var yaw_step: Vector2 = SpringMath.critical_spring_step(_aim_yaw, _aim_yaw_vel, yaw_goal, aim_half_life, dt)
 		_aim_yaw = wrapf(yaw_step.x, -PI, PI)
 		_aim_yaw_vel = yaw_step.y
 
-		var pitch_step: Vector2 = critical_spring_step(_aim_pitch, _aim_pitch_vel, target_pitch, aim_half_life, dt)
+		var pitch_step: Vector2 = SpringMath.critical_spring_step(_aim_pitch, _aim_pitch_vel, target_pitch, aim_half_life, dt)
 		_aim_pitch = pitch_step.x
 		_aim_pitch_vel = pitch_step.y
 
@@ -334,12 +336,15 @@ func _update_mount(delta: float) -> bool:
 		var camera_yaw: float = atan2(camera_forward.x, camera_forward.z)
 		var camera_yaw_rate: float = wrapf(camera_yaw - _prev_camera_yaw, -PI, PI) / dt
 		_prev_camera_yaw = camera_yaw
-		var lead_goal: float = _turn_lead_goal(camera_yaw_rate, walking)
-		var lead_step: Vector2 = critical_spring_step(_turn_lead_offset, _turn_lead_vel, lead_goal, turn_lead_half_life, dt)
+		var base_dir := Vector3(sin(_aim_yaw) * cos(_aim_pitch), sin(_aim_pitch), cos(_aim_yaw) * cos(_aim_pitch)).normalized()
+		var used_angle: float = acos(clamp(base_dir.dot(body_forward), -1.0, 1.0))
+		var lead_limit: float = min(deg2rad(max_turn_lead_deg), max(0.0, deg2rad(aim_limit_deg) - used_angle))
+		var lead_goal: float = _turn_lead_goal(camera_yaw_rate, walking, lead_limit)
+		var lead_step: Vector2 = SpringMath.critical_spring_step(_turn_lead_offset, _turn_lead_vel, lead_goal, turn_lead_half_life, dt)
 		_turn_lead_offset = lead_step.x
 		_turn_lead_vel = lead_step.y
 		var walk_goal: float = -deg2rad(walk_lower_deg) if walking else 0.0
-		var walk_step: Vector2 = critical_spring_step(_walk_pitch_offset, _walk_pitch_vel, walk_goal, walk_lower_half_life, dt)
+		var walk_step: Vector2 = SpringMath.critical_spring_step(_walk_pitch_offset, _walk_pitch_vel, walk_goal, walk_lower_half_life, dt)
 		_walk_pitch_offset = walk_step.x
 		_walk_pitch_vel = walk_step.y
 	if walking and delta > 0.0:
@@ -359,43 +364,32 @@ func _update_mount(delta: float) -> bool:
 	return true
 
 
-func _turn_lead_goal(camera_yaw_rate: float, walking: bool) -> float:
+func _turn_lead_goal(camera_yaw_rate: float, walking: bool, limit: float = -1.0) -> float:
+	if limit < 0.0:
+		limit = deg2rad(max_turn_lead_deg)
 	if abs(camera_yaw_rate) < 0.01:
-		return 0.0 if walking else _turn_lead_offset
-	return predictive_lead(camera_yaw_rate, aim_half_life, turn_lead_seconds, deg2rad(max_turn_lead_deg))
+		return 0.0 if walking else clamp(_turn_lead_offset, -limit, limit)
+	return SpringMath.predictive_lead(camera_yaw_rate, aim_half_life, turn_lead_seconds, limit)
 
 
-# Reutilizables: mover a core_v2/camera/SpringMath.gd cuando aparezca un segundo consumidor.
-# Devuelve Vector2(valor, velocidad) para un spring critico exacto parametrizado por half-life.
-static func critical_spring_step(value: float, velocity: float, goal: float, half_life: float, delta: float) -> Vector2:
-	var y: float = (2.0 * log(2.0)) / max(half_life, 0.00001)
-	var j0: float = value - goal
-	var j1: float = velocity + j0 * y
-	var decay: float = exp(-y * delta)
-	return Vector2(decay * (j0 + j1 * delta) + goal, decay * (velocity - j1 * y * delta))
-
-
-# Compensa el lag conocido del spring y agrega un adelanto deliberado, ambos con limite.
-static func predictive_lead(rate: float, half_life: float, extra_seconds: float, max_offset: float) -> float:
-	var prediction: float = half_life / log(2.0) + extra_seconds
-	return clamp(rate * prediction, -max_offset, max_offset)
-
-
-# Direccion objetivo de la linterna, con la misma forma que el head-look del animator:
-# dentro del limite sigue a la camara; pasado el limite queda en el borde del cono; y si
-# la camara se va por detras, vuelve al frente. Sin ese ultimo tramo la linterna se tira
-# de un hombro al otro al cruzar por atras (el borde del cono cambia de lado).
+# Direccion objetivo de la linterna: dentro del limite sigue a la camara y pasado el
+# limite permanece en el borde. No volver al frente a 90 grados: ese salto era visible
+# cuando el adelanto y la mirada alcanzaban juntos ese angulo.
 func _resolve_aim(dir: Vector3, axis: Vector3) -> Vector3:
 	var max_angle: float = deg2rad(aim_limit_deg)
 	var angle: float = acos(clamp(dir.dot(axis), -1.0, 1.0))
 	if angle <= max_angle:
 		return dir
-	if angle >= PI * 0.5:
-		return axis
 	var rot_axis: Vector3 = axis.cross(dir)
 	if rot_axis.length_squared() < 0.000001:
-		return axis # camara exactamente en linea con el cuerpo: no hay eje de giro
+		rot_axis = axis.cross(_aim_smoothed)
+		if rot_axis.length_squared() < 0.000001:
+			return axis # sin direccion previa no hay lado estable que preservar
 	return axis.rotated(rot_axis.normalized(), max_angle).normalized()
+
+
+func get_aim_direction() -> Vector3:
+	return _aim_smoothed
 
 
 func toggle() -> void:

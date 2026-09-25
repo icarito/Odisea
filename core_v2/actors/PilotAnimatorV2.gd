@@ -108,6 +108,7 @@ var _skeleton: Skeleton = null
 var _head_look_yaw := 0.0
 var _head_look_pitch := 0.0
 var _head_look_active := false
+var _helmet_flashlight: Spatial = null
 # Orbita (pausa pasiva): congelamos la pose de cabeza del momento de pausar y solo
 # miramos la camara cuando esta en el hemisferio frontal.
 var _orbit_pose_captured := false
@@ -216,6 +217,7 @@ func _ready() -> void:
 		push_error("PilotAnimatorV2 debe ser hijo de un PlayerControllerV2 válido.")
 		set_process(false)
 		return
+	_helmet_flashlight = controller.get_node_or_null("HelmetFlashlight") as Spatial
 		 
 	if not animation_tree:
 		push_error("No se encontró un nodo AnimationTree como hijo del Pivot.")
@@ -862,6 +864,12 @@ static func tank_turn_head_yaw(move_vec: Vector2, is_tank_turn_mode: bool, yaw_l
 		return 0.0
 	return -sign(move_vec.x) * deg2rad(yaw_limit_deg)
 
+static func head_look_angles(aim: Vector3, fwd: Vector3, up: Vector3, right: Vector3, yaw_limit_deg: float, pitch_limit_deg: float) -> Vector2:
+	return Vector2(
+		clamp(atan2(aim.dot(right), aim.dot(fwd)), -deg2rad(yaw_limit_deg), deg2rad(yaw_limit_deg)),
+		clamp(asin(clamp(aim.dot(up), -1.0, 1.0)), -deg2rad(pitch_limit_deg), deg2rad(pitch_limit_deg))
+	)
+
 func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_turn_yaw_target: float = 0.0, orbit_look: bool = false) -> void:
 	if not _skeleton:
 		return
@@ -889,11 +897,16 @@ func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_t
 	var up: Vector3 = (skel_basis_inv * global_transform.basis.y).normalized()
 	var right: Vector3 = up.cross(fwd).normalized()
 
-	# En orbita apuntamos a la POSICION de la camara (no a su forward).
+	# En gameplay, si la linterna esta encendida, la cabeza sigue el haz final. Asi
+	# comparte su limite suave y nunca vuelve al frente mientras el haz queda al borde.
 	var aim: Vector3
+	var follows_flashlight := false
 	if orbit_look:
 		var head_world: Vector3 = _skeleton.global_transform * _skeleton.get_bone_global_pose_no_override(head_idx).origin
 		aim = (skel_basis_inv * (camera.global_transform.origin - head_world)).normalized()
+	elif _helmet_flashlight != null and is_instance_valid(_helmet_flashlight) and _helmet_flashlight.get("enabled") and _helmet_flashlight.has_method("get_aim_direction"):
+		aim = (skel_basis_inv * _helmet_flashlight.get_aim_direction()).normalized()
+		follows_flashlight = true
 	else:
 		aim = (skel_basis_inv * -camera.global_transform.basis.z).normalized()
 	var target_yaw := 0.0
@@ -901,7 +914,12 @@ func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_t
 	# Con la camara detras, atan2 salta entre +PI y -PI y el clamp haria que la cabeza
 	# se tire de un limite al otro. En gameplay la devolvemos a neutro; en orbita, a la
 	# pose congelada del momento de pausar.
-	if abs(tank_turn_yaw_target) > 0.0001:
+	if follows_flashlight:
+		var flashlight_yaw_limit: float = float(_helmet_flashlight.get("aim_limit_deg"))
+		var flashlight_angles: Vector2 = head_look_angles(aim, fwd, up, right, flashlight_yaw_limit, head_look_pitch_limit_deg)
+		target_yaw = flashlight_angles.x
+		target_pitch = flashlight_angles.y
+	elif abs(tank_turn_yaw_target) > 0.0001:
 		target_yaw = tank_turn_yaw_target
 	elif orbit_look:
 		# Congelamos la pose del momento de pausar en la primera llamada de orbita.
@@ -919,8 +937,9 @@ func _update_head_look(suppressed: bool, return_to_neutral: bool = false, tank_t
 		target_yaw = lerp(_orbit_frozen_yaw, camera_yaw, orbit_blend)
 		target_pitch = lerp(_orbit_frozen_pitch, camera_pitch, orbit_blend)
 	elif not return_to_neutral and aim.dot(fwd) > 0.0:
-		target_yaw = clamp(atan2(aim.dot(right), aim.dot(fwd)), -deg2rad(head_look_yaw_limit_deg), deg2rad(head_look_yaw_limit_deg))
-		target_pitch = clamp(asin(clamp(aim.dot(up), -1.0, 1.0)), -deg2rad(head_look_pitch_limit_deg), deg2rad(head_look_pitch_limit_deg))
+		var camera_angles: Vector2 = head_look_angles(aim, fwd, up, right, head_look_yaw_limit_deg, head_look_pitch_limit_deg)
+		target_yaw = camera_angles.x
+		target_pitch = camera_angles.y
 
 	# 1 - exp(-k*dt): identico a cualquier dt, a diferencia de clamp(k*dt).
 	# En orbita el giro es mas lento (factor < 1) para que la cabeza no sea brusca.

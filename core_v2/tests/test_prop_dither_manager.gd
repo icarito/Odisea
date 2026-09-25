@@ -24,6 +24,18 @@ func test_helper_collision_without_mesh_uses_parent_prop_root() -> void:
 	assert_object(manager._get_occlusion_root_for_collision_object(body)).is_same(prop_root)
 
 
+func test_low_flat_cull_finds_tagged_scaffold_ancestor() -> void:
+	var manager: Node = auto_free(PropDitherManagerScript.new())
+	var flat_root := Spatial.new()
+	flat_root.add_to_group("camera_flat_cull")
+	var body := StaticBody.new()
+	flat_root.add_child(body)
+	add_child(flat_root)
+
+	assert_object(manager._find_flat_cull_root(body)).is_same(flat_root)
+	flat_root.queue_free()
+
+
 func test_collision_object_with_multimesh_descendant_is_occlusion_root() -> void:
 	var manager: Node = auto_free(PropDitherManagerScript.new())
 	var body: StaticBody = auto_free(StaticBody.new())

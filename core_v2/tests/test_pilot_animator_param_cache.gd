@@ -49,3 +49,15 @@ func test_stationary_tank_turn_head_looks_into_turn() -> void:
 	assert_float(PilotAnimatorScript.tank_turn_head_yaw(Vector2(1.0, 0.1), true, yaw_limit, 0.15)).is_equal_approx(-deg2rad(yaw_limit), 0.0001)
 	assert_float(PilotAnimatorScript.tank_turn_head_yaw(Vector2(1.0, -1.0), true, yaw_limit, 0.15)).is_equal_approx(0.0, 0.0001)
 	assert_float(PilotAnimatorScript.tank_turn_head_yaw(Vector2.RIGHT, false, yaw_limit, 0.15)).is_equal_approx(0.0, 0.0001)
+
+
+func test_head_look_can_follow_flashlight_to_its_edge() -> void:
+	var angles: Vector2 = PilotAnimatorScript.head_look_angles(
+		Vector3.RIGHT,
+		Vector3.FORWARD,
+		Vector3.UP,
+		Vector3.RIGHT,
+		75.0,
+		35.0
+	)
+	assert_float(rad2deg(angles.x)).is_equal_approx(75.0, 0.001)

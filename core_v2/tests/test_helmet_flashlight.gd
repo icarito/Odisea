@@ -1,5 +1,7 @@
 extends GdUnitTestSuite
 
+const SpringMath = preload("res://core_v2/camera/SpringMath.gd")
+
 
 func test_helmet_flashlight_instantiation_and_defaults():
 	var packed: PackedScene = load("res://core_v2/props/lights/HelmetFlashlight.tscn")
@@ -135,18 +137,25 @@ func test_helmet_flashlight_exact_spring_and_turn_lead():
 	flashlight._aim_pitch_vel = 0.0
 
 	# El spring exacto da el mismo resultado con dos particiones del mismo tiempo.
-	var one_step: Vector2 = flashlight.critical_spring_step(0.0, 0.0, 0.3, flashlight.aim_half_life, 1.0 / 30.0)
-	var two_steps: Vector2 = flashlight.critical_spring_step(0.0, 0.0, 0.3, flashlight.aim_half_life, 1.0 / 60.0)
-	two_steps = flashlight.critical_spring_step(two_steps.x, two_steps.y, 0.3, flashlight.aim_half_life, 1.0 / 60.0)
+	var one_step: Vector2 = SpringMath.critical_spring_step(0.0, 0.0, 0.3, flashlight.aim_half_life, 1.0 / 30.0)
+	var two_steps: Vector2 = SpringMath.critical_spring_step(0.0, 0.0, 0.3, flashlight.aim_half_life, 1.0 / 60.0)
+	two_steps = SpringMath.critical_spring_step(two_steps.x, two_steps.y, 0.3, flashlight.aim_half_life, 1.0 / 60.0)
 	assert_float(one_step.x).is_equal_approx(two_steps.x, 0.0001)
 	assert_float(one_step.y).is_equal_approx(two_steps.y, 0.0001)
-	assert_float(flashlight.predictive_lead(10.0, 0.08, 0.12, deg2rad(45.0))).is_equal_approx(deg2rad(45.0), 0.0001)
+	var soft_lead: float = SpringMath.predictive_lead(10.0, 0.08, 0.12, deg2rad(45.0))
+	assert_float(soft_lead).is_greater(deg2rad(44.0))
+	assert_float(soft_lead).is_less(deg2rad(45.0))
 
-	# Girando adelanta hasta 45 grados; quieto conserva el offset salvo al caminar.
-	assert_float(flashlight._turn_lead_goal(10.0, false)).is_equal_approx(deg2rad(45.0), 0.0001)
+	# El limite disponible evita que el adelanto choque con el limite total de apunte.
+	assert_float(flashlight._turn_lead_goal(10.0, false, deg2rad(30.0))).is_less(deg2rad(30.0))
 	flashlight._turn_lead_offset = 0.12
 	assert_float(flashlight._turn_lead_goal(0.0, false)).is_equal_approx(0.12, 0.0001)
+	assert_float(flashlight._turn_lead_goal(0.0, false, 0.05)).is_equal_approx(0.05, 0.0001)
 	assert_float(flashlight._turn_lead_goal(0.0, true)).is_equal(0.0)
+
+	# Llegar a 90 grados se queda en el borde, no salta al frente.
+	var edge: Vector3 = flashlight._resolve_aim(Vector3.RIGHT, Vector3.FORWARD)
+	assert_float(rad2deg(acos(edge.dot(Vector3.FORWARD)))).is_equal_approx(flashlight.aim_limit_deg, 0.001)
 
 
 func test_helmet_flashlight_sway_and_bob():
@@ -162,7 +171,7 @@ func test_helmet_flashlight_sway_and_bob():
 	# 1. Caminar solo baja el haz: no agrega yaw segun la direccion de marcha.
 	dummy_owner.velocity = Vector3(5.0, 0.0, 0.0)
 	var delta := 0.016
-	var walk_step: Vector2 = flashlight.critical_spring_step(0.0, 0.0, -deg2rad(flashlight.walk_lower_deg), flashlight.walk_lower_half_life, delta)
+	var walk_step: Vector2 = SpringMath.critical_spring_step(0.0, 0.0, -deg2rad(flashlight.walk_lower_deg), flashlight.walk_lower_half_life, delta)
 	assert_float(walk_step.x).is_less(0.0)
 
 	# 2. Test salto y dip de aterrizaje
