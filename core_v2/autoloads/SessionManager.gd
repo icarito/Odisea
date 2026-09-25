@@ -1598,6 +1598,19 @@ var _video_exporter_buscado := false
 var _record_toggle_enabled := false
 var _record_toggle_buscado := false
 
+# Banco de perfiles: un replay a un Hz de fisica distinto de 60 (tier LOW = 20 Hz)
+# necesita que el paso manual del jugador siga ESE Hz. Si no, el jugador avanza 1/60
+# por tick mientras la fisica nativa avanza 1/20 -> deriva catastrofica y el path
+# medido no es el real. El determinismo de CI no cambia: inerte salvo que el env
+# este seteado (solo lo usan las corridas de perf y el replay resampleado).
+const REPLAY_PHYSICS_DT_ENV := "ODISEA_REPLAY_PHYSICS_DT"
+
+func _replay_step_dt() -> float:
+	if OS.get_environment(REPLAY_PHYSICS_DT_ENV).to_lower() in ["1", "true", "yes", "on"]:
+		if Engine.iterations_per_second > 0:
+			return 1.0 / float(Engine.iterations_per_second)
+	return FIXED_DT
+
 func _physics_process(_dt):
 	if not _pm_prof_buscado:
 		_pm_prof_buscado = true
@@ -1847,9 +1860,10 @@ func _physics_process(_dt):
 
 		# Step player con el input si es válido
 		if _perf_fino: pm.perfil_fin("SM.bookkeeping")
+		var step_dt := _replay_step_dt()
 		if is_instance_valid(player) and player.has_method("step"):
 			if _perf_fino: pm.perfil_inicio("SM.player_step")
-			player.step(FIXED_DT, input)
+			player.step(step_dt, input)
 			if _perf_fino: pm.perfil_fin("SM.player_step")
 
 		# Step plataformas
@@ -1862,16 +1876,16 @@ func _physics_process(_dt):
 					# sin instrumentar cada script. Cache por instancia.
 					var clave: String = _sync_step_clave(node)
 					pm.perfil_inicio(clave)
-					node.step(FIXED_DT)
+					node.step(step_dt)
 					pm.perfil_fin(clave)
 				else:
-					node.step(FIXED_DT)
+					node.step(step_dt)
 		if _perf_fino: pm.perfil_fin("SM.sync_nodes")
 
 		# Step CinematicManager if active
 		if is_instance_valid(CinematicManager) and CinematicManager.has_method("is_active") and CinematicManager.is_active():
 			if _perf_fino: pm.perfil_inicio("SM.cinematic")
-			CinematicManager.step(FIXED_DT)
+			CinematicManager.step(step_dt)
 			if _perf_fino: pm.perfil_fin("SM.cinematic")
 
 		_replay_frame += 1
@@ -2696,7 +2710,13 @@ func play_buffer(input_buffer: Array, replay_data: Dictionary):
 	# Capar el render al rate de fisica durante la reproduccion: la trayectoria grabada
 	# vive a 60 ticks/s y sin interpolacion un monitor a 120/144Hz muestrea ese ritmo con
 	# frames duplicados (camara "yanky") y el playback corre mas rapido que la grabacion.
-	Engine.target_fps = int(round(Engine.iterations_per_second)) if Engine.iterations_per_second > 0 else 60
+	# ODISEA_REPLAY_UNCAPPED=1 salta el cap para MEDIR el techo real de render: en
+	# gameplay el juego corre con target_fps=0, asi que el cap es solo un artefacto de
+	# la reproduccion y escondería el headroom que buscamos.
+	if OS.get_environment("ODISEA_REPLAY_UNCAPPED").to_lower() in ["1", "true", "yes", "on"]:
+		Engine.target_fps = 0
+	else:
+		Engine.target_fps = int(round(Engine.iterations_per_second)) if Engine.iterations_per_second > 0 else 60
 
 	print("▶️ Reproduciendo replay desde buffer...")
 
@@ -2906,6 +2926,10 @@ func _finish_and_validate():
 		var exporter = get_node_or_null("/root/VideoExporter")
 		if exporter and exporter.is_exporting:
 			print("[SessionManager] Deferring CLI exit to VideoExporter")
+		elif OS.get_environment("ODISEA_REPLAY_NO_QUIT").to_lower() in ["1", "true", "yes", "on"]:
+			# Banco de perfiles: dejar el juego vivo al terminar el replay para poder
+			# inspeccionar/togglear el mundo en vivo por el peer (eval/inspect_node).
+			print("[SessionManager] ODISEA_REPLAY_NO_QUIT=1: replay terminado, juego queda vivo")
 		else:
 			print("[SessionManager] Exiting CLI mode")
 			get_tree().quit(0 if success else 1)

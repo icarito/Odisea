@@ -118,6 +118,10 @@ func _ready() -> void:
 	var fl_env := OS.get_environment("ODISEA_FLASHLIGHT").strip_edges()
 	if fl_env != "":
 		_flashlight_mode = fl_env in ["1", "true", "yes", "on"]
+	# Per-pixel por default en LOW; ODISEA_LOW_VERTEX_LIGHTING=1 recupera el Gouraud
+	# historico para medir el A/B sin recompilar.
+	var vlight_env := OS.get_environment("ODISEA_LOW_VERTEX_LIGHTING").strip_edges()
+	_low_vertex_lighting = vlight_env.to_lower() in ["1", "true", "yes", "on"]
 	# Valor elegido mirando las tres variantes en el device (opcion 1): oscuridad
 	# casi total, el cono es lo unico que ilumina.
 	_world_light = 0.02
@@ -260,6 +264,12 @@ var _flat_debug := false
 # < 0 = no tocar (el shader usa su default). ODISEA_FLAT_AMBIENT lo pisa.
 var _flat_ambient := -1.0
 var _flashlight_mode := false
+# Iluminacion per-pixel en LOW. false = se BORRA flags_vertex_lighting de los
+# materiales (default): las luces dinamicas —la SpotLight del casco, sobre todo—
+# se evaluan por pixel y el cono de la linterna se ve sobre el piso/andamios en vez
+# de un brillo gouraud pegado a los vertices de mallas grandes. true = comportamiento
+# historico (Gouraud en todo el tier LOW). ODISEA_LOW_VERTEX_LIGHTING=1 lo fuerza.
+var _low_vertex_lighting := false
 # Materiales que llevan el shader de linterna: hay que sincronizarles la posicion
 # y la direccion de la SpotLight. Son POCOS (uno por color/glow, no uno por nodo,
 # gracias al cache de _flat_material), asi que actualizarlos sale barato.
@@ -894,7 +904,7 @@ func _low_tier_material(mat) -> void:
 	if "params_use_alpha_scissor" in mat:
 		mat.set("params_use_alpha_scissor", false)
 	if "flags_vertex_lighting" in mat:
-		mat.set("flags_vertex_lighting", true)
+		mat.set("flags_vertex_lighting", _low_vertex_lighting)
 	if _unshaded_mode == "2" and "flags_unshaded" in mat:
 		mat.set("flags_unshaded", true)
 

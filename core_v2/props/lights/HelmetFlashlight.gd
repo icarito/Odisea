@@ -117,6 +117,11 @@ func _ready() -> void:
 			_mount_bone_idx = skel.find_bone(mount_bone)
 		_visual_pivot = owner_node.get_node_or_null(visual_pivot_path) as Spatial
 
+	# Palanca de calibracion en device (A/B de saturacion del cono con luz per-pixel):
+	# si el env esta seteado pisa el default del export sin recompilar.
+	var energy_env := OS.get_environment("ODISEA_FLASHLIGHT_ENERGY").strip_edges()
+	if energy_env.is_valid_float():
+		light_energy = float(energy_env)
 	_apply_light_params()
 	_update_cone_transform()
 	set_enabled(enabled)
