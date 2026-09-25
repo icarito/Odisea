@@ -64,6 +64,9 @@ var target_progress := 0.0 # Goal state (1.0 or 0.0)
 # Derived from anim_duration
 var anim_speed := 1.0 # Progress increment per second
 var _perf_monitor = null
+# PERF FD-...: _perf_monitor._detailed_node_profiling_enabled es fijo tras el _ready del
+# autoload; cachearlo evita 2 has_method("measure_*") por cada step().
+var _perf_detailed := false
 
 # --- HIGHLIGHT SYSTEM ---
 var _highlight_meshes: Array = []
@@ -116,6 +119,7 @@ func _ready():
 		_perf_monitor = get_node("/root/PerformanceMonitor")
 		if _perf_monitor and _perf_monitor.has_method("register_monitored_node"):
 			_perf_monitor.register_monitored_node(self )
+		_perf_detailed = _perf_monitor != null and _perf_monitor.has_method("measure_start") and bool(_perf_monitor._detailed_node_profiling_enabled)
 
 # --- CORE API ---
 
@@ -189,7 +193,7 @@ func set_active(value: bool, immediate: bool = false) -> void:
 		print("[%s] set_active(%s) -> target=%s" % [name, is_active, target_progress])
 
 func step(dt: float) -> void:
-	if _perf_monitor and _perf_monitor.has_method("measure_start"):
+	if _perf_detailed:
 		_perf_monitor.measure_start(self , "step")
 
 	"""Called during fixed physics step. Updates animation progress."""
@@ -206,7 +210,7 @@ func step(dt: float) -> void:
 			set_physics_process(false)
 			return
 		_update_visuals()
-		if _perf_monitor and _perf_monitor.has_method("measure_end"):
+		if _perf_detailed:
 			_perf_monitor.measure_end(self , "step")
 		return
 	
@@ -224,7 +228,7 @@ func step(dt: float) -> void:
 	
 	_update_visuals()
 
-	if _perf_monitor and _perf_monitor.has_method("measure_end"):
+	if _perf_detailed:
 		_perf_monitor.measure_end(self , "step")
 
 func _on_animation_completed() -> void:

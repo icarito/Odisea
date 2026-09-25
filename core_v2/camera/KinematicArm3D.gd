@@ -104,6 +104,9 @@ var _collision_miss_timer := 0.0
 var _ceiling_latch_active := false
 var _ceiling_latch_hold_timer := 0.0
 var _excluded_objects: Array = []
+# PERF FD-...: una sola instancia reutilizada para los casts; se reasignan shape,
+# transform, collision_mask y exclude en cada uso (no hay uso anidado que la pise).
+var _query_params := PhysicsShapeQueryParameters.new()
 var _zoom_out_blocked := false
 # DIAG temporal FD-290: ODISEA_ARM_DEBUG=1 imprime el collider que bloquea el cast.
 var _arm_debug := false
@@ -410,7 +413,7 @@ func _cast_shape_safe_fraction(arm_origin: Vector3, direction: Vector3, probe_le
 	if probe_length <= 0.0001:
 		return 1.0
 
-	var params := PhysicsShapeQueryParameters.new()
+	var params := _query_params
 	params.set_shape(collider_shape)
 	params.transform = Transform(global_transform.basis, arm_origin)
 	params.collision_mask = collision_mask
@@ -623,7 +626,7 @@ func _resolve_safe_motion_offset(origin: Vector3, desired_offset: Vector3) -> Ve
 	if space_state == null or collider_shape == null:
 		return desired_offset
 
-	var params := PhysicsShapeQueryParameters.new()
+	var params := _query_params
 	params.set_shape(collider_shape)
 	params.transform = Transform(global_transform.basis, origin)
 	params.collision_mask = collision_mask
@@ -664,7 +667,7 @@ func _is_target_position_clear(target: Vector3) -> bool:
 	if space_state == null or collider_shape == null:
 		return true
 
-	var params := PhysicsShapeQueryParameters.new()
+	var params := _query_params
 	params.set_shape(collider_shape)
 	params.transform = Transform(global_transform.basis, target)
 	params.collision_mask = collision_mask

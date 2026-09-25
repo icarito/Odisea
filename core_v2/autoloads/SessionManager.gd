@@ -70,6 +70,9 @@ var ghost_manager = null
 # Optimization: Cache for replay_sync group
 var _replay_sync_cache := []
 var _replay_sync_cache_dirty := true
+# FD-...: sub-lista de nodos con step() para el tick, reconstruida junto al cache
+# principal (mismo _replay_sync_cache_dirty). Evita has_method("step") por nodo y tick.
+var _replay_sync_step_cache := []
 
 # Optimization: Cache for node lookups
 var _node_cache := {}
@@ -216,6 +219,11 @@ func _get_replay_sync_nodes() -> Array:
 				filtered.append(node)
 		filtered.sort_custom(self , "_sort_nodes_by_path")
 		_replay_sync_cache = filtered
+		var step_nodes := []
+		for node in filtered:
+			if node.has_method("step"):
+				step_nodes.append(node)
+		_replay_sync_step_cache = step_nodes
 		_replay_sync_cache_dirty = false
 	return _replay_sync_cache
 
@@ -251,10 +259,14 @@ func _on_node_removed(node: Node):
 
 # True mientras SceneManager esta cargando/cambiando de escena.
 func _is_scene_transitioning() -> bool:
-	var sm = get_node_or_null("/root/SceneManager")
+	if not _scene_manager_buscado:
+		_scene_manager_buscado = true
+		_scene_manager_cache = get_node_or_null("/root/SceneManager")
+		_scene_manager_has_transition = _scene_manager_cache != null and _scene_manager_cache.has_method("is_transitioning")
+	var sm = _scene_manager_cache
 	if sm == null:
 		return false
-	return sm.has_method("is_transitioning") and sm.is_transitioning()
+	return _scene_manager_has_transition and sm.is_transitioning()
 
 
 func _find_player():
@@ -1573,6 +1585,18 @@ var _pm_prof = null
 var _pm_prof_buscado := false
 var _gles3_gate = null
 var _gles3_gate_buscado := false
+# FD-...: SceneManager/VideoExporter son autoloads (viven toda la sesion); resolverlos
+# por path en cada tick se paga en cada replay. Mismo patron que _pm_prof. Se cachea
+# tambien si SceneManager tiene is_transitioning para no debilitar el guard original.
+var _scene_manager_cache = null
+var _scene_manager_buscado := false
+var _scene_manager_has_transition := false
+var _video_exporter_cache = null
+var _video_exporter_buscado := false
+# FD-...: el toggle de grabacion (Ctrl+Cmd+R) es una tecla de desarrollo/export en vivo;
+# en gameplay normal (release, sin export) no hay que sondearla cada tick.
+var _record_toggle_enabled := false
+var _record_toggle_buscado := false
 
 func _physics_process(_dt):
 	if not _pm_prof_buscado:
@@ -1615,7 +1639,10 @@ func _physics_process(_dt):
 					if is_instance_valid(CinematicManager) and CinematicManager.has_method("force_finish_transition"):
 						CinematicManager.force_finish_transition()
 
-	if Input.is_action_just_pressed("record-toggle"):
+	if not _record_toggle_buscado:
+		_record_toggle_buscado = true
+		_record_toggle_enabled = _live_export_on_exit or _video_export_mode or OS.is_debug_build() or OS.has_feature("editor")
+	if _record_toggle_enabled and Input.is_action_just_pressed("record-toggle"):
 		if _live_export_launch_in_progress:
 			_log_live_export_status("Export launch already in progress. Ignoring toggle.")
 			return
@@ -1721,9 +1748,9 @@ func _physics_process(_dt):
 		_recording_frame += 1
 		
 		# Step plataformas TAMBIÉN durante grabación para determinismo
-		var sync_nodes = _get_replay_sync_nodes()
-		for node in sync_nodes:
-			if node != player and (not is_instance_valid(player) or not player.is_a_parent_of(node)) and node.has_method("step"):
+		_get_replay_sync_nodes()
+		for node in _replay_sync_step_cache:
+			if node != player and (not is_instance_valid(player) or not player.is_a_parent_of(node)):
 				node.step(step_dt)
 		
 		# Step CinematicManager if active
@@ -1827,9 +1854,9 @@ func _physics_process(_dt):
 
 		# Step plataformas
 		if _perf_fino: pm.perfil_inicio("SM.sync_nodes")
-		var sync_nodes = _get_replay_sync_nodes()
-		for node in sync_nodes:
-			if node != player and (not is_instance_valid(player) or not player.is_a_parent_of(node)) and node.has_method("step"):
+		_get_replay_sync_nodes()
+		for node in _replay_sync_step_cache:
+			if node != player and (not is_instance_valid(player) or not player.is_a_parent_of(node)):
 				if _perf_fino:
 					# Clave por script: reparte el costo de step() entre tipos de nodo
 					# sin instrumentar cada script. Cache por instancia.
@@ -1867,7 +1894,10 @@ func _physics_process(_dt):
 			ghost_manager.step(FIXED_DT)
 
 	# Capture explicit global physics step if live exporting or exporting!
-	var __ext_exporter = get_node_or_null("/root/VideoExporter")
+	if not _video_exporter_buscado:
+		_video_exporter_buscado = true
+		_video_exporter_cache = get_node_or_null("/root/VideoExporter")
+	var __ext_exporter = _video_exporter_cache
 	if __ext_exporter != null and __ext_exporter.is_exporting:
 		__ext_exporter.capture_frame(get_viewport())
 
