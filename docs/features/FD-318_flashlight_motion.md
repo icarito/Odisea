@@ -25,7 +25,7 @@ Sebastián quiere:
 
 ## Solution
 
-Dos mecanismos **aditivos** sobre el apunte actual, sin tocar la geometría de montaje
+Tres mecanismos **aditivos** sobre el apunte actual, sin tocar la geometría de montaje
 (el origen sigue en el hombro `DEF-upper_armR`):
 
 ### 1. Inercia de apunte (spring de 2º orden)
@@ -56,6 +56,27 @@ Offset aditivo (yaw/pitch) aplicado **después** del spring y **antes** del clam
   ascender, dip al aterrizar. Acoplado a `is_effectively_grounded()` y `velocity.y`.
 - **Bob (opcional)** por fase acumulada ∝ distancia recorrida (periódico en
   `horizontal_speed`, no en reloj de pared).
+
+### 3. Rotación acoplada al cuerpo en maniobras (backflip)
+
+Durante el backflip Elías rota el cuerpo completo (animación `Backflip001` vía
+AnimationTree, con `PilotAnimatorV2.is_rotation_locked` congelando el yaw del pivot),
+pero la linterna deriva su apunte de la cámara y no del cuerpo: el haz queda "pegado a
+la cámara" mientras el cuerpo gira debajo. El haz debe **rotar con el cuerpo** a lo
+largo del flip.
+
+- **Fuente de estado:** suscribirse a `controller.acrobatic_jumped` (señal de
+  `PlayerControllerV2`, línea 235/2801) para armar un latch `_acrobatic_active = true`;
+  limpiarlo al aterrizar (`controller.is_effectively_grounded()`). El controller es
+  `get_parent()` (KinematicBody con `PlayerControllerV2.gd`), que ya expone la señal.
+- **Frame de referencia del cuerpo:** mientras `_acrobatic_active`, el `body_forward` de
+  `_resolve_aim()` se deriva del **basis global del hueso de montura**
+  (`_skeleton.get_bone_global_pose(_mount_bone_idx).basis`, misma convención +Z que el
+  origen, que ya rota con el flip) en vez del basis del pivot (que queda congelado). El
+  cono de clamp (75°) rota entonces con el cuerpo y el haz barre con el flip; al
+  aterrizar vuelve al seguimiento de cámara normal.
+- **Determinismo:** la señal + el estado grounded + la pose del hueso son todos
+  replay-deterministas (mismo estado reproducible).
 
 Amplitudes/frecuencias/stiffness como `export` con defaults **conservadores** (que se
 sientan pero no marean), tuneables en editor. Los valores finales se validan en
@@ -103,9 +124,11 @@ y `is_on_floor()`. La cámara se obtiene como hoy: `get_viewport().get_camera()`
 3. **Saltar**: leve pitch al ascender y dip al aterrizar.
 4. **Replay determinista**: reproducir un segmento con la linterna encendida dos veces;
    el apunte debe ser idéntico frame a frame.
-5. Correr los tests existentes de la linterna (`core_v2/tests/test_helmet_flashlight.gd`,
+5. **Backflip:** el haz rota con el cuerpo a lo largo del flip (no queda apuntando a la
+   cámara) y recupera el seguimiento normal al aterrizar.
+6. Correr los tests existentes de la linterna (`core_v2/tests/test_helmet_flashlight.gd`,
    `test_flashlight_screen.gd`) — deben seguir verdes.
-6. Sin linterna encendida: comportamiento inalterado (no consume CPU extra).
+7. Sin linterna encendida: comportamiento inalterado (no consume CPU extra).
 
 ## Out of scope
 
