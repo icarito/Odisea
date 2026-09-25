@@ -11,14 +11,21 @@ var RemoteControlServer = load("res://core_v2/net/RemoteControlServer.gd")
 var RemoteControlClient = load("res://core_v2/net/RemoteControlClient.gd")
 var RemoteProtocol = load("res://core_v2/net/RemoteProtocol.gd")
 var SuitOSRemoteBridge = load("res://core_v2/components/SuitOSRemoteBridge.gd")
+var RemoteSimHost = load("res://core_v2/net/RemoteSimHost.gd")
+var RemoteSimClient = load("res://core_v2/net/RemoteSimClient.gd")
 
 var announcer: Node = null
 var discovery: Node = null
 var server: Node = null
 var client: Node = null
 var bridge: Node = null
+var sim_host: Node = null
+var sim_client: Node = null
 
 var is_host_active: bool = false
+var allow_low_tier_offload: bool = false
+var is_sim_host_active: bool = false
+var is_render_slave_active: bool = false
 var remote_control_enabled: bool = true
 var _paused_for_pairing: bool = false
 var _mouse_mode_before_pairing: int = Input.MOUSE_MODE_VISIBLE
@@ -68,11 +75,24 @@ func _ready():
 	client.name = "RemoteControlClient"
 	add_child(client)
 
+	if client != null:
+		client.connect("ui_directive_received", self, "_on_client_ui_directive")
+
 	if SuitOSRemoteBridge != null and not low_tier:
 		bridge = SuitOSRemoteBridge.new()
 		bridge.name = "SuitOSRemoteBridge"
 		bridge.pause_mode = Node.PAUSE_MODE_PROCESS
 		add_child(bridge)
+
+	if RemoteSimHost != null:
+		sim_host = RemoteSimHost.new()
+		sim_host.name = "RemoteSimHost"
+		add_child(sim_host)
+
+	if RemoteSimClient != null:
+		sim_client = RemoteSimClient.new()
+		sim_client.name = "RemoteSimClient"
+		add_child(sim_client)
 
 	if low_tier:
 		# _process solo sincroniza el host (escena y pausa): sin host no tiene nada que hacer.
@@ -91,6 +111,69 @@ func _ready():
 func _process(_delta: float) -> void:
 	_sync_host_for_scene()
 	_sync_pause_to_controls()
+	update_offload_roles()
+
+func enable_low_tier_offload() -> void:
+	allow_low_tier_offload = true
+	if announcer == null and RemoteAnnouncer != null:
+		announcer = RemoteAnnouncer.new()
+		announcer.name = "RemoteAnnouncer"
+		add_child(announcer)
+	if server == null and RemoteControlServer != null:
+		server = RemoteControlServer.new()
+		server.name = "RemoteControlServer"
+		server.pause_mode = Node.PAUSE_MODE_PROCESS
+		add_child(server)
+		server.connect("client_pair_requested", self, "_on_server_pair_requested")
+		server.connect("input_received", self, "_on_server_input_received")
+		server.connect("client_disconnected", self, "_on_server_client_disconnected")
+		server.connect("client_stalled", self, "_on_server_client_disconnected")
+		server.connect("client_connected", self, "_on_server_client_connected")
+	if bridge == null and SuitOSRemoteBridge != null:
+		bridge = SuitOSRemoteBridge.new()
+		bridge.name = "SuitOSRemoteBridge"
+		bridge.pause_mode = Node.PAUSE_MODE_PROCESS
+		add_child(bridge)
+	set_process(true)
+	_sync_host_for_scene()
+
+func update_offload_roles() -> void:
+	var is_low_host: bool = _is_low_tier()
+	var has_paired: bool = (server != null and server.has_paired_client())
+
+	if is_low_host and has_paired:
+		if not is_render_slave_active:
+			_start_render_slave_role()
+	else:
+		if is_render_slave_active:
+			_stop_render_slave_role()
+
+func _start_render_slave_role() -> void:
+	is_render_slave_active = true
+	if sim_client != null:
+		var port = server.sensor_udp_port if server != null else 10444
+		sim_client.start_render_slave(port)
+	if server != null:
+		server.send_ui_directive("start_sim_host", {"target_port": server.sensor_udp_port if server != null else 10444})
+
+func _stop_render_slave_role() -> void:
+	is_render_slave_active = false
+	if sim_client != null:
+		sim_client.stop_render_slave()
+	if server != null:
+		server.send_ui_directive("stop_sim_host", {})
+
+func _on_client_ui_directive(op: String, payload) -> void:
+	if op == "start_sim_host":
+		var port = int(payload.get("target_port", 10444)) if payload is Dictionary else 10444
+		var target_ip = client._host_ip if client != null and client._host_ip != "" else "127.0.0.1"
+		is_sim_host_active = true
+		if sim_host != null:
+			sim_host.start_simulation(target_ip, port)
+	elif op == "stop_sim_host":
+		is_sim_host_active = false
+		if sim_host != null:
+			sim_host.stop_simulation()
 
 # El control remoto muestra cuando la partida esta en pausa aca (menu de pausa, perdida
 # de foco, dialogo de emparejamiento). Solo se manda al cambiar, y de nuevo a cada
@@ -151,7 +234,9 @@ func _is_low_tier() -> bool:
 	return gate != null and gate.has_method("is_low_tier") and gate.is_low_tier()
 
 func start_host_services(session_name: String = "") -> void:
-	if not remote_control_enabled or server == null or _is_automated_session() or _is_low_tier():
+	if not remote_control_enabled or server == null or _is_automated_session():
+		return
+	if _is_low_tier() and not allow_low_tier_offload:
 		return
 	if is_host_active:
 		return

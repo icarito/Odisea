@@ -246,3 +246,60 @@ static func create_ping() -> Dictionary:
 
 static func create_pong() -> Dictionary:
 	return {"type": "pong"}
+
+# FD-316 Remote Simulation (Offload invertido) protocol helpers
+
+static func create_sim_hello(scene_path: String, sim_fps: int = 60, token: String = "") -> Dictionary:
+	return {
+		"type": "sim_hello",
+		"scene": scene_path,
+		"sim_fps": sim_fps,
+		"token": token
+	}
+
+static func create_sim_config(tick_rate: int = 60, interp_buffer_ticks: int = 1, token: String = "") -> Dictionary:
+	return {
+		"type": "sim_config",
+		"tick_rate": tick_rate,
+		"interp_buffer_ticks": interp_buffer_ticks,
+		"token": token
+	}
+
+static func create_sim_snapshot(tick: int, timestamp_msec: int, entities: Dictionary, globals: Dictionary = {}, token: String = "") -> Dictionary:
+	return {
+		"type": "sim_snapshot",
+		"tick": tick,
+		"ts": timestamp_msec,
+		"entities": entities,
+		"globals": globals,
+		"token": token
+	}
+
+static func create_sim_input(axes: Dictionary, buttons: Dictionary, last_applied_tick: int, token: String = "") -> Dictionary:
+	return {
+		"type": "sim_input",
+		"axes": axes,
+		"buttons": buttons,
+		"last_tick": last_applied_tick,
+		"token": token
+	}
+
+static func encode_transform(t: Transform) -> Dictionary:
+	return {
+		"p": [t.origin.x, t.origin.y, t.origin.z],
+		"b": [
+			t.basis.x.x, t.basis.x.y, t.basis.x.z,
+			t.basis.y.x, t.basis.y.y, t.basis.y.z,
+			t.basis.z.x, t.basis.z.y, t.basis.z.z
+		]
+	}
+
+static func decode_transform(d: Dictionary) -> Transform:
+	var t = Transform.IDENTITY
+	if d.has("p") and d["p"] is Array and d["p"].size() >= 3:
+		t.origin = Vector3(d["p"][0], d["p"][1], d["p"][2])
+	if d.has("b") and d["b"] is Array and d["b"].size() >= 9:
+		t.basis.x = Vector3(d["b"][0], d["b"][1], d["b"][2])
+		t.basis.y = Vector3(d["b"][3], d["b"][4], d["b"][5])
+		t.basis.z = Vector3(d["b"][6], d["b"][7], d["b"][8])
+	return t
