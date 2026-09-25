@@ -61,6 +61,22 @@ export(float, 0.5, 8.0) var dither_scale: float = 1.5
 # tier LOW el piloto ya usa el quad legacy, no hace falta).
 export(float, 0.0, 1.0) var blob_cue_strength: float = 0.25
 export(float, 0.5, 8.0) var blob_cue_scale: float = 2.0
+# O8t2b: el cue de DARK (y el quad en general) debe girar con el mesh del actor,
+# como el fakeshadow legacy. Antes el BlobCue era toplevel con basis IDENTITY => su
+# ovalo quedaba clavado al mundo. Con esto la basis del quad copia el yaw del actor
+# (mismo origen que grid/cheap: el body ancla si anchor_to_root_body, si no el
+# padre), asi el footprint acompana la orientacion del personaje. La reticula Bayer
+# sigue en espacio de pantalla (FRAGCOORD): la FORMA/orientacion rota con el mesh,
+# el patron queda pixel-stable (sin nadar ni moire con la camara) y determinista.
+# blob_cue_rotate_with_actor = false recupera el look fijo al mundo.
+export(bool) var blob_cue_rotate_with_actor: bool = true
+# Sentido del giro. El camino cheap/grid rota la TEXTURA con texture_rotation = -yaw
+# (y el shader la vuelve a invertir), asi que el sentido visual del ovalo legacy es
+# el opuesto al signo crudo del yaw. El default 1.0 sigue el yaw del actor; en device,
+# si el barrido se ve espejado respecto del fakeshadow, pasar a -1.0 (sin recompilar).
+export(float, -1.0, 1.0) var blob_cue_yaw_sign: float = 1.0
+# Offset fino de yaw (grados) para alinear el ovalo del cue con el mesh en device.
+export(float) var blob_cue_yaw_offset_deg: float = 0.0
 # El shadow se reposiciona en _process leyendo la transform YA interpolada del actor:
 # si el motor lo vuelve a interpolar, se dibuja 1+ tick atras (lag de varios frames).
 export(bool) var disable_shadow_interpolation: bool = true
@@ -298,7 +314,7 @@ func _process_blob_shadow() -> void:
 	var center_pos = _get_anchor_center_pos(parent)
 	center_pos.y += max(0.02, vertical_offset)
 	_blob_caster.global_transform.origin = center_pos
-	_update_blob_cue(center_pos)
+	_update_blob_cue(center_pos, _get_anchor_yaw(parent))
 
 func _setup_blob_cue() -> void:
 	# blob_cue_strength = 0.0 => sin cue (look de solo blob). El cue es un quad unshaded
@@ -342,7 +358,7 @@ func _setup_blob_cue() -> void:
 	add_child(_blob_cue_ray)
 	_handle_exclusions()
 
-func _update_blob_cue(center_pos: Vector3) -> void:
+func _update_blob_cue(center_pos: Vector3, actor_yaw: float = 0.0) -> void:
 	if _blob_cue == null or not is_instance_valid(_blob_cue):
 		return
 	var ground_y := center_pos.y - max_distance + vertical_offset
@@ -352,8 +368,15 @@ func _update_blob_cue(center_pos: Vector3) -> void:
 		_blob_cue_ray.force_raycast_update()
 		if _blob_cue_ray.is_colliding():
 			ground_y = _blob_cue_ray.get_collision_point().y + vertical_offset
+	# O8t2b: la forma/orientacion del cue sigue al actor. Rotamos la basis del quad
+	# por el yaw (yaw alrededor de UP mantiene el plano horizontal); el ovalo del
+	# shader (angosto en X, alargado en Z) gira con el mesh. Basis.IDENTITY si se
+	# desactiva.
+	var cue_basis := Basis.IDENTITY
+	if blob_cue_rotate_with_actor:
+		cue_basis = Basis(Vector3.UP, blob_cue_yaw_sign * actor_yaw + deg2rad(blob_cue_yaw_offset_deg))
 	# Offset minimo extra sobre el piso para no pelear profundidad con la blob.
-	_blob_cue.global_transform = Transform(Basis.IDENTITY, Vector3(center_pos.x, ground_y + 0.004, center_pos.z))
+	_blob_cue.global_transform = Transform(cue_basis, Vector3(center_pos.x, ground_y + 0.004, center_pos.z))
 
 func _create_rays() -> void:
 	# (FD-290) Ya no se crean nodos RayCast para la grilla: los offsets se arman bajo
@@ -590,6 +613,23 @@ func _get_anchor_center_pos(parent: Node) -> Vector3:
 				break
 			p = p.get_parent()
 	return center_pos + anchor_offset
+
+# O8t2b: yaw horizontal del actor para orientar el cue/quad. Usa el mismo ancla que
+# _get_anchor_center_pos (el PhysicsBody raiz si anchor_to_root_body) para que la
+# sombra siga la rotacion del cuerpo y no la de un pivote intermedio. Sin ancla
+# valida devuelve 0 (basis IDENTITY = look fijo al mundo, comportamiento legacy).
+func _get_anchor_yaw(parent: Node) -> float:
+	var node: Spatial = parent as Spatial if parent is Spatial else null
+	if anchor_to_root_body:
+		var p: Node = parent
+		while p:
+			if p is PhysicsBody:
+				node = p as Spatial
+				break
+			p = p.get_parent()
+	if node == null:
+		return 0.0
+	return node.global_transform.basis.get_euler().y
 
 func _interpolated_origin(node: Spatial) -> Vector3:
 	if node == null:

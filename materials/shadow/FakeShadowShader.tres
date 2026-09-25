@@ -32,6 +32,10 @@ uniform float dither_scale : hint_range(0.5, 8.0) = 1.5;
 // Lo usa el cue que se superpone a la BlobShadow analitica de desktop en piso DARK:
 // aporta la reticula de legibilidad sin duplicar el oscurecido ni ensuciar el piso
 // claro. 0.0 = quad legacy normal (nucleo + filo).
+// O8t2b: la ORIENTACION (yaw) la aplica GDScript rotando la basis del quad, no el
+// shader: el ovalo/aro gira con el mesh del actor. El patron Bayer se queda en
+// FRAGCOORD (espacio de pantalla) a proposito: celda pixel-stable, sin nadar ni
+// moire con la camara, y determinista. No hay uniform de yaw: no hace falta.
 uniform float cue_only : hint_range(0.0, 1.0) = 0.0;
 
 // Bayer 4x4 fijo (mismo que prop_dither_occlusion): ~pocas ALU, sin textura, y

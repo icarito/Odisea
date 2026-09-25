@@ -63,6 +63,10 @@ rail_back = false
 rail_left = true
 rail_right = true
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_front = true
 hazard_strip_back = true
 
@@ -89,6 +93,10 @@ rail_back = false
 rail_left = true
 rail_right = true
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_front = true
 hazard_strip_back = true
 
@@ -115,6 +123,10 @@ rail_back = false
 rail_left = true
 rail_right = true
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_front = true
 hazard_strip_back = true
 
@@ -141,6 +153,10 @@ rail_back = false
 rail_left = true
 rail_right = true
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_front = true
 hazard_strip_back = true
 
@@ -167,6 +183,10 @@ rail_back = false
 rail_left = true
 rail_right = true
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_front = true
 hazard_strip_back = true
 
@@ -184,6 +204,10 @@ platform_height = 4.7
 support_base_local_y = 0.0
 rail_left_opening_width = 0.0
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_back = true
 
 [node name="Spoke_2" parent="HubSpokes" instance=ExtResource( 8 )]
@@ -198,6 +222,10 @@ platform_height = 9.2
 support_base_local_y = 0.0
 rail_left_opening_width = 0.0
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_back = true
 
 [node name="Spoke_3" parent="HubSpokes" instance=ExtResource( 8 )]
@@ -212,6 +240,10 @@ platform_height = 13.7
 support_base_local_y = 0.0
 rail_left_opening_width = 0.0
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_back = true
 
 [node name="Spoke_4" parent="HubSpokes" instance=ExtResource( 8 )]
@@ -226,6 +258,10 @@ platform_height = 18.2
 support_base_local_y = 0.0
 rail_left_opening_width = 0.0
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_back = true
 
 [node name="SpiralWalkways" type="Spatial" parent="."]

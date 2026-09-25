@@ -242,3 +242,103 @@ func test_cheap_shadow_disables_physics_interpolation() -> void:
 	# dejarlo interpolado lo dibujaba varios frames atras.
 	assert_int(fs.get_physics_interpolation_mode()).is_equal(1)
 	fs.free()
+
+
+# --- O8t2b: la sombra de DARK (cue dithered) gira con el mesh del actor ---
+
+func test_blob_cue_rotation_defaults_on_and_tunable() -> void:
+	# Por defecto el cue copia el yaw del actor (era la devolucion del dueno); el
+	# offset fino de alineacion arranca en 0 y es tuneable en device.
+	var fs: MeshInstance = FakeShadowScript.new()
+	assert_bool(fs.blob_cue_rotate_with_actor).is_true()
+	assert_float(fs.blob_cue_yaw_sign).is_equal(1.0)
+	assert_float(fs.blob_cue_yaw_offset_deg).is_equal(0.0)
+	fs.free()
+
+
+func test_blob_cue_yaw_sign_flips_without_recompile() -> void:
+	# El sentido es tuneable en device: sign=-1 espeja el barrido respecto del
+	# fakeshadow legacy (que rota la textura con texture_rotation = -yaw).
+	_set_low_tier(false)
+	var fs: MeshInstance = FakeShadowScript.new()
+	add_child(fs)
+	fs.blob_cue_yaw_sign = -1.0
+	fs._setup_blob_cue()
+	fs._update_blob_cue(Vector3.ZERO, PI * 0.5)
+	assert_float(abs(wrapf(fs._blob_cue.global_transform.basis.get_euler().y + PI * 0.5, -PI, PI))).is_less(0.001)
+	fs.free()
+
+
+func test_blob_cue_basis_follows_actor_yaw() -> void:
+	# El BlobCue se creaba toplevel con basis IDENTITY => ovalo fijo al mundo. La
+	# aceptacion pide que su basis/rotacion siga al actor, como el fakeshadow legacy.
+	_set_low_tier(false)
+	var fs: MeshInstance = FakeShadowScript.new()
+	add_child(fs)
+	fs._setup_blob_cue()
+	assert_bool(fs._blob_cue != null).is_true()
+	var yaw := PI * 0.5
+	fs._update_blob_cue(Vector3(1.0, 0.5, 2.0), yaw)
+	var basis: Basis = fs._blob_cue.global_transform.basis
+	assert_float(abs(wrapf(basis.get_euler().y - yaw, -PI, PI))).is_less(0.001)
+	# El yaw no debe inclinar el quad: sigue horizontal (sin pitch/roll).
+	assert_float(abs(basis.get_euler().x)).is_less(0.001)
+	assert_float(abs(basis.get_euler().z)).is_less(0.001)
+	# El origen conserva el XZ del centro y se pega al piso en Y.
+	var origin: Vector3 = fs._blob_cue.global_transform.origin
+	assert_float(abs(origin.x - 1.0)).is_less(0.001)
+	assert_float(abs(origin.z - 2.0)).is_less(0.001)
+	assert_float(origin.y).is_less(0.5)
+	fs.free()
+
+
+func test_blob_cue_rotation_can_be_disabled() -> void:
+	# blob_cue_rotate_with_actor = false recupera el look fijo al mundo (legacy).
+	_set_low_tier(false)
+	var fs: MeshInstance = FakeShadowScript.new()
+	add_child(fs)
+	fs.blob_cue_rotate_with_actor = false
+	fs._setup_blob_cue()
+	fs._update_blob_cue(Vector3.ZERO, PI * 0.5)
+	assert_float(abs(fs._blob_cue.global_transform.basis.get_euler().y)).is_less(0.001)
+	fs.free()
+
+
+func test_blob_cue_yaw_offset_aligns_with_mesh() -> void:
+	# Con el actor en yaw 0, un offset de 90 grados orienta el ovalo a PI/2.
+	_set_low_tier(false)
+	var fs: MeshInstance = FakeShadowScript.new()
+	add_child(fs)
+	fs.blob_cue_yaw_offset_deg = 90.0
+	fs._setup_blob_cue()
+	fs._update_blob_cue(Vector3.ZERO, 0.0)
+	assert_float(abs(wrapf(fs._blob_cue.global_transform.basis.get_euler().y - PI * 0.5, -PI, PI))).is_less(0.001)
+	fs.free()
+
+
+func test_anchor_yaw_reads_parent_rotation() -> void:
+	# Sin body raiz, el yaw sale del padre directo (mismo origen que grid/cheap).
+	var holder := Spatial.new()
+	add_child(holder)
+	holder.rotation.y = 0.7
+	var fs: MeshInstance = FakeShadowScript.new()
+	fs.anchor_to_root_body = false
+	holder.add_child(fs)
+	assert_float(abs(wrapf(fs._get_anchor_yaw(fs.get_parent()) - 0.7, -PI, PI))).is_less(0.001)
+	holder.free()
+
+
+func test_anchor_yaw_prefers_root_body() -> void:
+	# Con anchor_to_root_body, la rotacion es la del PhysicsBody raiz, no la de un
+	# pivote intermedio (asi la sombra sigue al cuerpo real).
+	var body := KinematicBody.new()
+	add_child(body)
+	body.rotation.y = 1.1
+	var holder := Spatial.new()
+	holder.rotation.y = -0.4
+	body.add_child(holder)
+	var fs: MeshInstance = FakeShadowScript.new()
+	fs.anchor_to_root_body = true
+	holder.add_child(fs)
+	assert_float(abs(wrapf(fs._get_anchor_yaw(fs.get_parent()) - 1.1, -PI, PI))).is_less(0.001)
+	body.free()

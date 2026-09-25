@@ -5,9 +5,20 @@
 ; rail_color, que pasa de naranja (1, 0.56, 0.06) al amarillo que ya usan las
 ; escaleras y los spokes del hub (1, 0.82, 0.12). Dome_Intro conserva su fuente
 ; naranja: RingHub_ScaffoldSource.tscn apunta SpiralWalkways a esta escena.
+;
+; O27: ademas lleva los valores de deck/estructura de RingHub (los mismos que
+; fija RingHub_ScaffoldSource para las escaleras y spokes, y que ya usan los
+; anillos del hub) y la emision tenue de las barras de la rejilla para que el
+; deck se lea sobre el piso casi negro en DARK. Dome_Intro no referencia esta
+; escena, asi que su grilla sigue puramente lit.
+
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldRailing.tscn" type="PackedScene" id=1]
 [ext_resource path="res://materials/diamondPlateAluminum/seam_road_lines_pbr.tres" type="Material" id=2]
 
 [node name="RingHubIndustrialRailing" instance=ExtResource( 1 )]
 rail_color = Color( 1, 0.82, 0.12, 1 )
+grate_color = Color( 0.4, 0.42, 0.44, 1 )
+grate_brightness = 1.0
+grate_emission_energy = 0.25
+frame_color = Color( 0.24, 0.26, 0.29, 1 )
 hazard_strip_material = ExtResource( 2 )

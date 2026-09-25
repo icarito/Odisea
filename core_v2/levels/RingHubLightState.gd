@@ -24,6 +24,10 @@ class_name RingHubLightState
 # La emision de las lamparas vive en el material de la superficie de vidrio del
 # MultiMesh horneado. Se duplica mesh + multimesh para no mutar el recurso
 # compartido (IndustrialWallLampLOD.mesh lo usan tambien otros domos).
+#
+# O28: ademas mueve la ENERGIA del BakedLightmap (LIT=1, DARK=0) para que el look
+# horneado, estilo Dome_Intro, siga los dos estados con un solo bake. Ver los
+# exports de "Lightmap horneado" y _apply_lightmap().
 
 export(bool) var start_lit := false
 
@@ -54,6 +58,15 @@ export(float, 0.0, 8.0, 0.05) var lamp_on_emission := 0.9
 export(Color) var lamp_off_albedo := Color(0.08, 0.10, 0.13)
 export(Color) var lamp_on_albedo := Color(0.72, 0.84, 1.0)
 
+# --- Lightmap horneado (O28) ---
+# RingHub tiene UN solo bake: los dos estados se logran moviendo la ENERGIA del
+# BakedLightmapData (LIT=1, DARK=0) en vez de intercambiar recursos .lmbake. El
+# recurso se duplica en _resolve_nodes para no mutar un light_data compartido
+# (asi el .lmbake de Dome_Intro nunca se toca, aunque hoy RingHub tenga el suyo).
+export(NodePath) var lightmap_path := NodePath("../BakedLightmap")
+export(float, 0.0, 16.0, 0.01) var lightmap_energy_dark := 0.0
+export(float, 0.0, 16.0, 0.01) var lightmap_energy_lit := 1.0
+
 # --- Luminarias simplificadas (una OmniLight por lampara de pared) ---
 # El pool de LightPathV2 persigue al jugador, asi que en LIT solo se ve el tramo
 # cercano. Estas 16 luces se crean por codigo en las posiciones horneadas de
@@ -62,7 +75,13 @@ export(Color) var lamp_on_albedo := Color(0.72, 0.84, 1.0)
 # Son parte del estado: _apply_level les mueve la energia igual que al resto.
 # En tier bajo/plano no se crean (los materiales unshaded no reciben luz real y
 # el MobileLightBudget apretaria su alcance): ahi ilumina el pool y _apply_flat.
+#
+# O28: cuando el domo tiene un BakedLightmap horneado, las 16 luminarias son
+# REDUNDANTES — el bake ya reparte la luz de las lamparas y sumar las runtime
+# duplica el brillo. `lamp_lights_enabled=false` en RingHub_Level.tscn las
+# desactiva; el lever queda por si hay que comparar A/B o volver atras.
 export(NodePath) var lamp_markers_path := NodePath("../Hub/WallLights/Markers")
+export(bool) var lamp_lights_enabled := true
 export(float, 0.0, 8.0, 0.05) var lamp_light_energy := 1.4
 export(float, 0.5, 60.0, 0.5) var lamp_light_range := 20.0
 export(Color) var lamp_light_color := Color(0.72, 0.84, 1.0)
@@ -97,6 +116,7 @@ var _fixtures: MultiMeshInstance = null
 var _fixture_materials := []
 var _pool_lights := []
 var _luminaries := []
+var _lightmap: BakedLightmap = null
 var _pool_base_energy := 0.8
 var _sound_player: AudioStreamPlayer = null
 
@@ -187,6 +207,7 @@ func _apply_level(level: float) -> void:
 	_apply_environment(_level)
 	_apply_flat(_level)
 	_apply_lamps(_level)
+	_apply_lightmap(_level)
 	_apply_pool(_level)
 	_apply_luminaries(_level)
 
@@ -225,6 +246,18 @@ func _apply_lamps(level: float) -> void:
 		glass.emission = albedo
 		glass.emission_energy = energy
 
+# Mueve la energia del bake horneado junto con el resto del estado. Un solo bake
+# cubre DARK y LIT: no hay swap de recursos ni segunda pasada de horneado. Si la
+# escena no tiene light_data (todavia sin hornear) es un no-op y el resto de los
+# levers siguen funcionando.
+func _apply_lightmap(level: float) -> void:
+	if _lightmap == null or _lightmap.light_data == null:
+		return
+	var data := _lightmap.light_data as BakedLightmapData
+	if data == null:
+		return
+	data.energy = lerp(lightmap_energy_dark, lightmap_energy_lit, level)
+
 func _apply_pool(level: float) -> void:
 	_collect_pool_lights()
 	var energy: float = _pool_base_energy * level
@@ -261,6 +294,14 @@ func _resolve_nodes() -> void:
 		var base = _wall_lights.get("light_energy")
 		if base != null and (typeof(base) == TYPE_REAL or typeof(base) == TYPE_INT):
 			_pool_base_energy = float(base)
+	_lightmap = get_node_or_null(lightmap_path) as BakedLightmap
+	if _lightmap != null and _lightmap.light_data != null:
+		# Copia local: el .lmbake es un recurso compartido en disco y el estado le
+		# mueve la energia a cada tick del flicker. Nunca mutar el recurso de la
+		# escena (ni, menos, el de Dome_Intro).
+		var copy := _lightmap.light_data.duplicate() as BakedLightmapData
+		if copy != null:
+			_lightmap.light_data = copy
 
 func _collect_pool_lights() -> void:
 	_pool_lights = []
@@ -276,6 +317,10 @@ func _collect_pool_lights() -> void:
 # el porque de no crearlas en tier bajo/plano.
 func _build_luminaries() -> void:
 	_luminaries = []
+	# O28: con lightmap horneado, las luminarias runtime son brillo doble. La
+	# escena apaga el lever; el chequeo de tier de abajo queda solo para el A/B.
+	if not lamp_lights_enabled:
+		return
 	var gate = get_node_or_null("/root/GLES3VendorGate")
 	if gate != null:
 		if gate.has_method("is_flat_mode") and bool(gate.is_flat_mode()):

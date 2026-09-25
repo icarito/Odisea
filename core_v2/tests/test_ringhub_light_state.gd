@@ -198,11 +198,29 @@ func test_relit_same_target_does_not_restart_flicker_or_replay() -> void:
 	assert_int(state._switch_sounds_played).is_equal(1)
 
 
-func test_luminaries_light_the_whole_dome_in_lit() -> void:
+func test_luminaries_replaced_by_baked_lightmap() -> void:
 	var level := _boot_level()
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
 	var state = level.get_node_or_null("LightState")
+	# O28: RingHub_Level trae BakedLightmap y el lever de luminarias apagado. El
+	# bake ya reparte la luz de las lamparas de pared, asi que crear las 16
+	# OmniLight runtime seria brillo doble.
+	assert_object(level.get_node_or_null("BakedLightmap")).is_not_null()
+	assert_bool(state.lamp_lights_enabled).is_false()
+	assert_array(state._luminaries).is_empty()
+
+
+func test_luminaries_build_with_the_lever_on_and_follow_state() -> void:
+	# A/B: con el lever encendido (antes del _ready) se crean las 16 luminarias de
+	# O24 y responden a DARK/LIT igual que antes.
+	var level: Spatial = auto_free(RingHubScene.instance())
+	level.open_pod_terminal_on_start = false
+	var state = level.get_node("LightState")
+	state.lamp_lights_enabled = true
+	add_child(level)
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
 	var gate = get_node_or_null("/root/GLES3VendorGate")
 	if gate != null and (bool(gate.is_flat_mode()) or bool(gate.is_low_tier())):
 		# En tier bajo/plano no se crean: la iluminancia la da _apply_flat.
@@ -228,6 +246,34 @@ func test_luminaries_light_the_whole_dome_in_lit() -> void:
 	for light in state._luminaries:
 		assert_bool(light.visible).is_false()
 		assert_float(light.light_energy).is_equal(0.0)
+
+
+const RINGHUB_LMBAKE := "res://core_v2/levels/RingHub.lmbake"
+
+
+func test_lightmap_energy_follows_dark_lit_and_does_not_mutate_the_file() -> void:
+	var level := _boot_level()
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	var state = level.get_node_or_null("LightState")
+	var baked = level.get_node_or_null("BakedLightmap")
+	assert_object(baked).is_not_null()
+	assert_object(baked.light_data).is_not_null()
+	# El estado duplica el light_data: la energia que mueve el flicker nunca toca
+	# el recurso en disco (ni el .lmbake de otra escena).
+	assert_object(baked.light_data).is_not_same(load(RINGHUB_LMBAKE))
+	var shared: BakedLightmapData = load(RINGHUB_LMBAKE)
+	var shared_energy: float = shared.energy
+
+	# DARK: la energia del bake va a 0.
+	assert_float(baked.light_data.energy).is_equal(0.0)
+	state.set_lit(true)
+	yield(_wait_flicker(state), "completed")
+	assert_float(baked.light_data.energy).is_equal_approx(state.lightmap_energy_lit, 0.0001)
+	state.set_lit(false)
+	yield(_wait_flicker(state), "completed")
+	assert_float(baked.light_data.energy).is_equal(0.0)
+	assert_float(shared.energy).is_equal(shared_energy)
 
 
 func test_gles3_gate_exposes_flat_light_setters() -> void:

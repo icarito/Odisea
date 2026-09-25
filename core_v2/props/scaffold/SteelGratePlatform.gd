@@ -38,6 +38,11 @@ export(float, 0.04, 2.0, 0.01) var deck_frame_thickness := 0.10 setget set_deck_
 export(float, 0.05, 0.95, 0.01) var grate_alpha_threshold := 0.46 setget set_grate_alpha_threshold
 export(Color) var grate_color := Color(0.42, 0.46, 0.50, 1.0) setget set_grate_color
 export(float, 0.15, 2.0, 0.01) var grate_brightness := 0.72 setget set_grate_brightness
+# Emision propia de las barras de la rejilla. 0 = acero puramente lit (Dome_Intro y
+# cualquier scaffold fuera de RingHub). En RingHub se sube un poco para que la
+# grilla se lea sobre el piso casi negro del domo en DARK, sin volverse neon: la
+# malla es alpha-scissor, asi que solo emiten las barras, no los huecos.
+export(float, 0.0, 1.0, 0.01) var grate_emission_energy := 0.0 setget set_grate_emission_energy
 export(float, -45.0, 45.0, 0.5) var grate_pattern_angle_degrees := 0.0 setget set_grate_pattern_angle_degrees
 export(float, -0.35, 0.35, 0.01) var grate_pattern_shear := 0.0 setget set_grate_pattern_shear
 export(float, 1.0, 20.0, 0.1) var support_spacing := 5.0 setget set_support_spacing
@@ -201,6 +206,10 @@ func set_grate_color(value: Color) -> void:
 
 func set_grate_brightness(value: float) -> void:
 	grate_brightness = value
+	_queue_rebuild()
+
+func set_grate_emission_energy(value: float) -> void:
+	grate_emission_energy = value
 	_queue_rebuild()
 
 func set_grate_pattern_angle_degrees(value: float) -> void:
@@ -455,6 +464,15 @@ func _build_materials() -> void:
 		g.metallic = clamp(g.metallic, 0.45, 0.6)
 		g.roughness = clamp(g.roughness, 0.2, 0.35)
 		g.metallic_specular = 0.9
+		# Referencia visual de la grilla en DARK (RingHub): sin luces reales el
+		# albedo del acero no aporta y la rejilla se pierde contra el piso negro.
+		# Una emision tenue sobre las barras conserva la lectura de profundidad y
+		# en tier flat el gate la mapea a glow = clamp(max(em)*4, 0.25, 1), igual
+		# que las juntas emisivas del piso de RingHub. Dome_Intro deja el default
+		# (0.0) y no cambia.
+		if grate_emission_energy > 0.0:
+			g.emission_enabled = true
+			g.emission = g.albedo_color * grate_emission_energy
 
 	_fence_material = load("res://textures/trenchbroom/metal_fence_panel.tres").duplicate()
 	if not _fence_material:

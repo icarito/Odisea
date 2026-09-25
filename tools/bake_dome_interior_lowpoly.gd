@@ -7,12 +7,15 @@ extends SceneTree
 #  - Fuente: GLB minimalista (16 radiales x 8 anillos = 240 tris, radio 16.5 m,
 #    base a z=0, ápex a z=16.5). Nada de bores, piso ni ribs: el facetado lo
 #    pinta la textura albedo en Godot.
-#  - Un solo material (M_DomeInteriorLowPoly); no hay split piso/carcasa ni
-#    lightmap: RingHub usa iluminación en tiempo real (Environment + Sun).
+#  - Un solo material (M_DomeInteriorLowPoly); no hay split piso/carcasa.
 #  - La carcasa se ve desde adentro, así que el material va con cull disabled.
 #  - El GLB no trae UVs utiles (todas en cero), asi que el bake genera UV1
 #    cilindricas: u = azimut/TAU (0..1, vuelta completa) y v = y/TARGET_RADIUS
 #    (0..1, base a apex). RingHub_DomeShell.tres las reescala con uv1_scale.
+#  - O28: ademas genera UV2 (lightmap_unwrap) para que el cascaron entre en el
+#    BakedLightmap de RingHub con use_in_baked_light=true. Sin UV2 el
+#    BakedLightmap ignora la malla: el domo no recibe la luz cocinada ni
+#    proyecta sombra sobre el piso.
 #  - La colisión sale del mismo GLB (create_trimesh_shape): la cáscara del domo
 #    ES un caso estándar de trimesh cóncavo (barato, 240 tris), igual que los
 #    domos Dome_Default / Dome_Base ya existentes.
@@ -34,6 +37,9 @@ const TARGET_RADIUS := 35.0
 const SRC_GLB := "res://assets/models/dome_interior_lowpoly/DomeInteriorLowPoly.glb"
 const OUT_MESH := "res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.mesh"
 const OUT_SHAPE := "res://core_v2/levels/interiors/DomeInteriorLowPoly_baked.shape"
+# Texels por unidad del unwrap UV2 (O28). Mismo valor que los demas bakers del
+# hub (bake_scaffold_walkways.gd / bake_dome_intro_hub_floors.gd).
+const LIGHTMAP_TEXEL_SIZE := 0.2
 
 
 # El material del GLB llega como SpatialMaterial. Forzamos cull disabled para
@@ -99,6 +105,13 @@ func _run() -> void:
 
 	var aabb: AABB = out.get_aabb()
 	print("[bake_dome_lp] aabb pos=%s size=%s" % [aabb.position, aabb.size])
+
+	# O28: UV2 para el BakedLightmap de RingHub. Se genera sobre la malla ya
+	# escalada a TARGET_RADIUS, para que el texel density sea el del mundo real.
+	if out.lightmap_unwrap(Transform.IDENTITY, LIGHTMAP_TEXEL_SIZE) != OK:
+		push_error("[bake_dome_lp] fallo lightmap_unwrap (UV2)")
+		quit(1)
+		return
 
 	out.take_over_path(OUT_MESH)
 	var err := ResourceSaver.save(OUT_MESH, out)

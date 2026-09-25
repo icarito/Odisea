@@ -21,6 +21,9 @@ const OUT_SCENE := "res://core_v2/levels/chunks/ringhub/RingHub_Criopods1_visual
 const MESH_DIR := "res://core_v2/levels/interiors/"
 const SCRIPT_PATH := "res://core_v2/levels/chunks/ringhub/CriopodRingVisualV2.gd"
 const WAKEUP_SLOT := 37
+# O28: texels por unidad del unwrap UV2 del anillo mergeado, para que entre en el
+# BakedLightmap de RingHub (use_in_baked_light=true en las tres capas).
+const LIGHTMAP_TEXEL_SIZE := 0.2
 const LAYERS := [
 	{"node": "Shell", "mesh": "RingHub_Criopods1_shell"},
 	{"node": "Glass", "mesh": "RingHub_Criopods1_glass"},
@@ -79,6 +82,12 @@ func _run() -> void:
 			quit(1)
 			return
 		var merged: ArrayMesh = _merge_layer(mmi, skip, mmi.material_override)
+		# O28: UV2 sobre la geometria ya mergeada (misma malla que se guarda).
+		if merged.get_surface_count() > 0 \
+				and merged.lightmap_unwrap(Transform.IDENTITY, LIGHTMAP_TEXEL_SIZE) != OK:
+			print("BAKE_CRIO1: fallo lightmap_unwrap en ", layer["node"])
+			quit(1)
+			return
 		var mesh_path: String = MESH_DIR + String(layer["mesh"]) + ".mesh"
 		var err := ResourceSaver.save(mesh_path, merged)
 		if err != OK:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=117 format=2]
+[gd_scene load_steps=119 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=2]
@@ -74,6 +74,8 @@
 [ext_resource path="res://core_v2/props/controls/PedestalButton.tscn" type="PackedScene" id=75]
 [ext_resource path="res://assets/sfx/sfx100v2_switch_01.ogg" type="AudioStream" id=76]
 [ext_resource path="res://core_v2/levels/RingHubFloorMaterial.gd" type="Script" id=77]
+[ext_resource path="res://core_v2/levels/RingHub.lmbake" type="BakedLightmapData" id=78]
+[ext_resource path="res://core_v2/levels/interiors/DomeIntroBakeLightsPlaceholder.gd" type="Script" id=79]
 [sub_resource type="BoxShape" id=400]
 extents = Vector3( 35, 0.3, 35 )
 
@@ -317,6 +319,10 @@ wall_lights_path = NodePath("../Hub/WallLights")
 fixture_batch_path = NodePath("../Hub/WallLights/FixtureBatch_00")
 button_path = NodePath("../Hub/PedestalLight")
 switch_sound = ExtResource( 76 )
+lightmap_path = NodePath("../BakedLightmap")
+lightmap_energy_dark = 0.0
+lightmap_energy_lit = 1.0
+lamp_lights_enabled = false
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 4 )
@@ -324,6 +330,19 @@ environment = ExtResource( 4 )
 [node name="Sun" type="DirectionalLight" parent="WorldEnvironment"]
 transform = Transform( 0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 14, 0 )
 light_energy = 1.5
+
+[node name="BakedLightmap" type="BakedLightmap" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17, 0 )
+layers = 1023
+extents = Vector3( 36, 19, 36 )
+bounce_indirect_energy = 0.67
+use_hdr = false
+atlas_generate = false
+environment_mode = 1
+light_data = ExtResource( 78 )
+
+[node name="RingHubBakeLights" parent="." instance_placeholder="res://core_v2/levels/RingHub_BakeLights.tscn"]
+script = ExtResource( 79 )
 
 [node name="Pilot" parent="." instance=ExtResource( 1 )]
 transform = Transform(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.175, -0.123402)
@@ -394,6 +413,7 @@ collision_layer = 1
 collision_mask = 255
 
 [node name="DomeMesh" type="MeshInstance" parent="Hub/DomeInteriorLowPoly"]
+use_in_baked_light = true
 mesh = ExtResource( 46 )
 material_override = ExtResource( 73 )
 
@@ -660,9 +680,13 @@ transform = Transform( 0.196905, -0.0247802, -1.48681, 2.18526e-09, 1.49979, -0.
 
 
 [node name="Criopod_Vert" parent="." instance=ExtResource( 3 )]
+use_in_baked_light = false
 
 [node name="RotatingObjectV2" parent="Criopod_Vert" index="0"]
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
+
+[node name="Glass" parent="Criopod_Vert/RotatingObjectV2" index="0"]
+use_in_baked_light = false
 
 [node name="CryoPodTerminal" parent="Criopod_Vert/RotatingObjectV2" index="8"]
 interaction_text = "Accionar terminal"
@@ -689,30 +713,37 @@ transform = Transform( -0.965926, 0.0, 0.258819, 0.0, 1.0, 0.0, -0.258819, 0.0, 
 
 [node name="Visual_00" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 48 )
 
 [node name="Visual_01" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 49 )
 
 [node name="Visual_02" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 50 )
 
 [node name="Visual_03" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 51 )
 
 [node name="Visual_04" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 52 )
 
 [node name="Visual_05" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 53 )
 
 [node name="Visual_07" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 54 )
 
 [node name="Chunk_00" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralStairs"]
@@ -775,18 +806,22 @@ release_margin = 6.0
 
 [node name="Visual_00" type="MeshInstance" parent="ScaffoldStreamRoot/Group_HubSpokes"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 55 )
 
 [node name="Visual_05" type="MeshInstance" parent="ScaffoldStreamRoot/Group_HubSpokes"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 56 )
 
 [node name="Visual_06" type="MeshInstance" parent="ScaffoldStreamRoot/Group_HubSpokes"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 57 )
 
 [node name="Visual_07" type="MeshInstance" parent="ScaffoldStreamRoot/Group_HubSpokes"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 58 )
 
 [node name="Chunk_00" type="Spatial" parent="ScaffoldStreamRoot/Group_HubSpokes"]
@@ -826,30 +861,37 @@ transform = Transform( -0.965926, 0.0, 0.258819, 0.0, 1.0, 0.0, -0.258819, 0.0, 
 
 [node name="Visual_00" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 59 )
 
 [node name="Visual_01" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 60 )
 
 [node name="Visual_02" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 61 )
 
 [node name="Visual_03" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 62 )
 
 [node name="Visual_04" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 63 )
 
 [node name="Visual_05" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 64 )
 
 [node name="Visual_06" type="MeshInstance" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
 layers = 64
+use_in_baked_light = true
 mesh = ExtResource( 65 )
 
 [node name="Chunk_00" type="Spatial" parent="ScaffoldStreamRoot/Group_SpiralWalkways"]
