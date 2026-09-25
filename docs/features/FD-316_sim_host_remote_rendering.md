@@ -6,6 +6,13 @@
 **Created:** 2026-09-25
 **Completed:** -
 
+## Objetivos
+
+1. **Liberar CPU** en el device low-end-flat: sacar simulación (física + lógica) a un host y dejar al device solo renderizando.
+2. **Stress-testear el engine**: ejercitar el fork Box3D + Core V2 con la simulación corriendo a 60 Hz bajo input remoto (gamepad virtual con tick), validando determinismo y replay en una topología host/esclavo.
+
+**No es objetivo**: subir FPS. El RG351V ya está limitado por draws/driver, no por el tick (medido en `c9bc04bf`: proc/tick 30→28 ms, phys/tick 35→30 ms, FPS sin cambio). El render-esclavo libera CPU pero no moverá el FPS de un device draw-bound.
+
 ## Problem
 
 El perfil **low-end-flat** (device débil, GLES2) hoy corre la simulación completa
@@ -96,6 +103,11 @@ binario solo si el perfil lo exige).
    - Telemetría: el host broadcastea y la sesión aparece con datos.
 3. **Determinismo**: grabar una partida con input remoto; replay reproduce igual
    que una partida local (mismo checkpoint, mismo resultado).
+4. **Stress-test del engine (objetivo principal)**: correr el host con simulación a
+   60 Hz bajo input remoto sostenido y medir: tick rate estable (sin hitches),
+   determinismo de replay bajo carga, y CPU del host. Ejercitar el fork Box3D +
+   Core V2 en topología host/esclavo y reportar dónde se rompe primero (física,
+   serialización de snapshots, red). El resultado es un informe, no solo verde/rojo.
 
 ## Notas de implementación para Jules
 
