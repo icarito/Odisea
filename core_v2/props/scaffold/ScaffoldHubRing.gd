@@ -376,15 +376,13 @@ func _build_compact_ring() -> void:
 	# (el baker saltea mallas sin UV2) + resolucion grande (el spotlight facetaba).
 	visual.use_in_baked_light = true
 	if mesh is ArrayMesh:
-		var am := mesh as ArrayMesh
-		var has_uv2 := false
-		for s in range(am.get_surface_count()):
-			if am.surface_get_format(s) & Mesh.ARRAY_FORMAT_TEX_UV2:
-				has_uv2 = true
-				break
-		if not has_uv2:
-			am.lightmap_unwrap(Transform(), 4.0)
+		# UV2 ANALITICA (no lightmap_unwrap): en el build release no existe
+		# array_mesh_lightmap_unwrap_callback, asi que el unwrap fallaba y el piso
+		# quedaba sin UV2 en runtime. La proyeccion planar XZ es determinista e
+		# identica en bake y runtime.
+		var am := _ensure_lightmap_uv2(mesh as ArrayMesh)
 		am.lightmap_size_hint = Vector2(2048, 2048)
+		visual.mesh = am
 	add_child(visual)
 	var body := StaticBody.new()
 	body.name = "StaticBody"
@@ -571,6 +569,26 @@ func _add_prism_between(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Ve
 # Deck top: the authored steel-grate .tres with alpha scissor, tinted by this ring's
 # grate_color/brightness — same treatment SteelGratePlatform gives it, so a hub floor
 # and a standalone platform read as the same material.
+func _ensure_lightmap_uv2(mesh: ArrayMesh) -> ArrayMesh:
+	var aabb := mesh.get_aabb()
+	var out := ArrayMesh.new()
+	var sx: float = aabb.size.x if aabb.size.x > 0.001 else 1.0
+	var sz: float = aabb.size.z if aabb.size.z > 0.001 else 1.0
+	for s in range(mesh.get_surface_count()):
+		var arr: Array = mesh.surface_get_arrays(s)
+		if not (mesh.surface_get_format(s) & Mesh.ARRAY_FORMAT_TEX_UV2):
+			var verts: PoolVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var uv2 := PoolVector2Array()
+			uv2.resize(verts.size())
+			for i in range(verts.size()):
+				var v: Vector3 = verts[i]
+				uv2[i] = Vector2((v.x - aabb.position.x) / sx, (v.z - aabb.position.z) / sz)
+			arr[Mesh.ARRAY_TEX_UV2] = uv2
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		out.surface_set_material(s, mesh.surface_get_material(s))
+	return out
+
+
 func _grate_deck_material() -> Material:
 	var material = load(GRATE_MATERIAL_PATH)
 	if material == null:

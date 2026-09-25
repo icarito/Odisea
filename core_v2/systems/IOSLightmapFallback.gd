@@ -96,6 +96,9 @@ func _apply() -> void:
 				var sh := source as ShaderMaterial
 				sh.set_shader_param("lightmap_tex", tex)
 				sh.set_shader_param("lightmap_energy", energy)
+				# Los shaders FlatFake usan lightmap_mix para activar el muestreo; en
+				# los demas es un uniform inexistente (no-op).
+				sh.set_shader_param("lightmap_mix", 1.0)
 				applied += 1
 			elif source is SpatialMaterial:
 				mi.set_surface_material(s, _build(source, tex, energy))

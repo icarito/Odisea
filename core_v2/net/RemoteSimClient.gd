@@ -17,6 +17,11 @@ var _target_port: int = 10444
 var _buffer: Array = [] # Sorted list of snapshots by tick
 var _latest_applied_tick: int = -1
 var _physics_was_active: bool = true
+# FD-316: el player puede no existir cuando arranca el rol (pairing en un menu o
+# justo antes de que SceneManager lo instancie). Si eso pasa, el flag de autoridad
+# nunca se aplica y el prompt no vuelve. Se reintenta hasta resolverlo.
+var _interaction_authority_applied: bool = false
+var _interaction_authority_player: Node = null
 
 func _ready() -> void:
 	set_process(false)
@@ -61,6 +66,16 @@ func _set_player_interaction_authoritative(on: bool) -> void:
 	var player = _get_player()
 	if player != null and is_instance_valid(player) and player.has_method("set_remote_interaction_authoritative"):
 		player.call("set_remote_interaction_authoritative", on)
+		_interaction_authority_applied = on
+		_interaction_authority_player = player
+	elif not on:
+		_interaction_authority_applied = false
+		_interaction_authority_player = null
+
+# El rol debe volver a aplicarse si el player anterior desaparecio (cambio de escena):
+# si no, la instancia nueva sigue con el scan local y sin prompt.
+func _interaction_authority_is_current() -> bool:
+	return _interaction_authority_applied and is_instance_valid(_interaction_authority_player)
 
 func _apply_player_interaction(prompt: String, target_path: String) -> void:
 	var player = _get_player()
@@ -103,6 +118,11 @@ func _process(_delta: float) -> void:
 		return
 
 	_poll_udp()
+
+	# El player pudo cambiar de escena (o no existir al arrancar el rol): reintentar
+	# hasta que la autoridad de interaccion quede aplicada en la instancia actual.
+	if not _interaction_authority_is_current():
+		_set_player_interaction_authoritative(true)
 
 	if _buffer.size() < interp_buffer_ticks + 1:
 		# Wait until buffer has enough ticks to interpolate
@@ -175,6 +195,12 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 				node.visible = bool(state["v"])
 			if state.has("l_energy") and node is Light:
 				node.light_energy = float(state["l_energy"])
+			# FD-316: el render-esclavo no simula; la velocidad/piso reales vienen de
+			# la autoridad para que el animator elija walk/run/aire en vez de idle.
+			if state.has("vel") and node.has_method("set_remote_anim_state"):
+				var v_arr = state["vel"]
+				if v_arr is Array and v_arr.size() >= 3:
+					node.call("set_remote_anim_state", Vector3(v_arr[0], v_arr[1], v_arr[2]), bool(state.get("g", false)))
 
 	var globals: Dictionary = snapshot.get("globals", {})
 	# FD-316: interaccion resuelta por la autoridad (prompt + path del interactuable).

@@ -256,6 +256,13 @@ var _current_interaction_prompt := ""
 # asi que su scan por Area no se actualiza y el prompt titila. La autoridad (control
 # remoto) resuelve la interaccion y la manda en el snapshot; aca solo se muestra.
 var _remote_interaction_authoritative := false
+# FD-316: la simulacion vive en la autoridad. El render-esclavo solo interpola el
+# transform, asi que su `velocity` local queda en cero y el animator reproducia idle
+# mientras el personaje se desplazaba. La velocidad/grounded reales viajan en el
+# snapshot y el animator las usa mientras este rol este activo.
+var _remote_anim_velocity := Vector3.ZERO
+var _remote_anim_grounded := false
+var _remote_anim_valid := false
 onready var interact_config = get_node_or_null("Logic/Interact")
 
 
@@ -2090,10 +2097,27 @@ func set_remote_interaction_authoritative(on: bool) -> void:
 	if _remote_interaction_authoritative == on:
 		return
 	_remote_interaction_authoritative = on
+	_remote_anim_valid = false
 	if on:
 		# El scan local no corre en render-esclavo: arrancamos limpio y el primer
 		# snapshot de la autoridad trae (o no) el prompt.
 		_clear_interactable()
+
+# FD-316: el render-esclavo no simula, pero su animator necesita la velocidad y el
+# estado de piso reales para elegir idle/walk/run/aire. Llegan en cada snapshot.
+func set_remote_anim_state(p_velocity: Vector3, p_grounded: bool) -> void:
+	_remote_anim_velocity = p_velocity
+	_remote_anim_grounded = p_grounded
+	_remote_anim_valid = true
+
+func is_remote_render_slave() -> bool:
+	return _remote_interaction_authoritative
+
+# Velocidad que consume el animator: en render-esclavo la real es la de la autoridad.
+func _get_animator_velocity() -> Vector3:
+	if _remote_interaction_authoritative and _remote_anim_valid:
+		return _remote_anim_velocity
+	return velocity
 
 # Lo que lee RemoteSimHost.capture_snapshot() del lado autoridad.
 func get_interaction_state() -> Dictionary:
@@ -2640,7 +2664,7 @@ func step(dt: float, input: InputDataV2) -> void:
 
 		# Update animator with traversal state
 		if animator and animator.has_method("step_animator"):
-			animator.step_animator(dt, velocity)
+			animator.step_animator(dt, _get_animator_velocity())
 		_update_camera_view(dt)
 		_update_input_edge_state(input)
 		return
@@ -2965,8 +2989,8 @@ func step(dt: float, input: InputDataV2) -> void:
 			should_step_animator = false
 
 	if should_step_animator and (not _rl_skip_animator) and animator and animator.has_method("step_animator"):
-		var anim_vel = velocity
-		if not movement_logic.external_source_is_static:
+		var anim_vel = _get_animator_velocity()
+		if not _remote_anim_valid and not movement_logic.external_source_is_static:
 			anim_vel = velocity - movement_logic.external_velocity
 		animator.step_animator(animator_dt, anim_vel)
 		
@@ -3191,6 +3215,10 @@ func is_effectively_grounded() -> bool:
 	# During post-teleport snap frames, force grounded to prevent animation state flicker.
 	if _post_teleport_snap_frames > 0:
 		return true
+	# FD-316 render-esclavo: el piso real lo resolvio la autoridad; el sondeo local
+	# corre sobre un broadphase que ya no se actualiza, asi que se usa su estado.
+	if _remote_interaction_authoritative and _remote_anim_valid:
+		return _remote_anim_grounded
 	# Camino rapido: sobre el piso el resultado ya es true. El sondeo hacia abajo solo
 	# hace falta para sostener "grounded" un frame al perder contacto (escalon o
 	# aterrizaje). Sin esto el raycast corre en cada tick de piso (0.26 ms/tick medido

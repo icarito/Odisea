@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 const RemoteProtocolScript = preload("res://core_v2/net/RemoteProtocol.gd")
 const RemoteSimHostScript = preload("res://core_v2/net/RemoteSimHost.gd")
 const RemoteSimClientScript = preload("res://core_v2/net/RemoteSimClient.gd")
+const PlayerScript = preload("res://core_v2/player/PlayerControllerV2.gd")
 
 func test_protocol_sim_messages_encode_decode():
 	var hello = RemoteProtocolScript.create_sim_hello("res://scenes/TestScene.tscn", 60, "tok123")
@@ -96,6 +97,55 @@ func test_sim_input_encode_decode():
 	assert_float(sim_input["axes"]["move_x"]).is_equal(1.0)
 	assert_bool(sim_input["buttons"]["jump"]).is_true()
 	assert_int(sim_input["last_tick"]).is_equal(42)
+
+class FakePlayer extends Spatial:
+	var velocity := Vector3(0, 0, 3)
+	func is_effectively_grounded() -> bool:
+		return true
+
+
+# FD-316: el snapshot lleva velocidad/grounded del jugador para que el render-esclavo
+# elija la animacion correcta (alla no hay simulacion local).
+func test_sim_snapshot_carries_player_motion():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	var fake = auto_free(FakePlayer.new())
+	fake.name = "FakePlayer"
+	add_child(fake)
+	fake.add_to_group("player")
+	fake.add_to_group("replay_sync")
+
+	var snap = host.capture_snapshot()
+	var found := false
+	for path_str in snap["entities"]:
+		if String(path_str).find("FakePlayer") != -1:
+			var state: Dictionary = snap["entities"][path_str]
+			assert_bool(state.has("vel")).is_true()
+			assert_bool(state.has("g")).is_true()
+			assert_bool(state["g"]).is_true()
+			assert_float(state["vel"][2]).is_equal_approx(3.0, 0.001)
+			found = true
+	assert_bool(found).is_true()
+
+
+# FD-316: en render-esclavo el animator consume la velocidad de la autoridad, no la
+# local (que queda en cero porque PhysicsServer esta apagado).
+func test_player_remote_anim_state_overrides_local_velocity():
+	var player = PlayerScript.new() # sin arbol: no corre _ready ni sus onready
+	player.velocity = Vector3.ZERO
+	player.set_remote_interaction_authoritative(true)
+	player.set_remote_anim_state(Vector3(0, 0, 4.0), true)
+
+	assert_bool(player.is_remote_render_slave()).is_true()
+	assert_vector3(player._get_animator_velocity()).is_equal_approx(Vector3(0, 0, 4.0), Vector3.ONE * 0.001)
+	assert_bool(player.is_effectively_grounded()).is_true()
+
+	# Sin rol de render-esclavo vuelve a usar la velocidad local.
+	player.set_remote_interaction_authoritative(false)
+	assert_vector3(player._get_animator_velocity()).is_equal_approx(Vector3.ZERO, Vector3.ONE * 0.001)
+	player.free()
+
 
 func test_sim_host_input_queue_ordering_and_parallel_sources():
 	var host = auto_free(RemoteSimHostScript.new())

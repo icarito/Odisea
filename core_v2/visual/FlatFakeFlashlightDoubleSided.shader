@@ -23,6 +23,10 @@ uniform float ambient = 0.14;
 uniform float vertical_ao = 0.35;
 uniform float exposure = 0.88;
 uniform float glow = 0.0;
+// Lightmap horneado opcional (IOSLightmapFallback setea lightmap_mix=1).
+uniform sampler2D lightmap_tex;
+uniform float lightmap_energy = 1.0;
+uniform float lightmap_mix = 0.0;
 
 // --- Linterna ---------------------------------------------------------------
 uniform float flashlight_range = 14.0;
@@ -79,5 +83,7 @@ void fragment() {
 	// El glow se atenua con la escena pero nunca baja del piso: una lampara
 	// encendida tiene que seguir leyendose con todo apagado.
 	float glow_mix = glow * mix(glow_floor, 1.0, clamp(world_light, 0.0, 1.0));
-	ALBEDO = mix(world, albedo * max(glow_mix, world_light), glow_mix);
+		vec3 lm_mul = vec3(1.0);
+	if (lightmap_mix > 0.001) { lm_mul = mix(vec3(1.0), texture(lightmap_tex, UV2).rgb * lightmap_energy, lightmap_mix); }
+ALBEDO = mix(world, albedo * max(glow_mix, world_light), glow_mix) * lm_mul;
 }

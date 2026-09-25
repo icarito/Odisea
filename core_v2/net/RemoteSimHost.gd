@@ -134,6 +134,13 @@ func capture_snapshot() -> Dictionary:
 			}
 			if node is Light:
 				state["l_energy"] = node.light_energy
+			# FD-316: la velocidad y el piso del jugador viajan para que el
+			# render-esclavo anime walk/run/aire: alla no hay simulacion local.
+			if node.is_in_group("player"):
+				var node_velocity = node.get("velocity")
+				if node_velocity is Vector3:
+					state["vel"] = [node_velocity.x, node_velocity.y, node_velocity.z]
+					state["g"] = bool(node.call("is_effectively_grounded")) if node.has_method("is_effectively_grounded") else false
 			entities[path_str] = state
 
 	var globals: Dictionary = {

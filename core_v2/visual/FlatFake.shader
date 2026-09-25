@@ -12,6 +12,11 @@ uniform float vertical_ao = 0.35;
 uniform float exposure = 0.88;
 // glow=1 => el color no se sombrea (vidrios/luces/holo "emiten" plano).
 uniform float glow = 0.0;
+// Lightmap horneado (opcional). IOSLightmapFallback setea lightmap_tex/energy y
+// lightmap_mix=1; con mix=0 (default) es no-op y el flat queda igual que antes.
+uniform sampler2D lightmap_tex;
+uniform float lightmap_energy = 1.0;
+uniform float lightmap_mix = 0.0;
 
 varying float v_world_y;
 
@@ -25,5 +30,9 @@ void fragment() {
 	ndl = pow(ndl, 1.4);
 	float ao = 1.0 - vertical_ao * clamp(0.5 - v_world_y * 0.04, 0.0, 1.0);
 	vec3 shaded = albedo * (ambient + (1.0 - ambient) * ndl) * ao * exposure;
+	if (lightmap_mix > 0.001) {
+		vec3 lm = texture(lightmap_tex, UV2).rgb * lightmap_energy;
+		shaded *= mix(vec3(1.0), lm, lightmap_mix);
+	}
 	ALBEDO = mix(shaded, albedo, glow);
 }

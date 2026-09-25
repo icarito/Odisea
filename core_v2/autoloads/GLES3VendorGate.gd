@@ -129,7 +129,9 @@ func _ready() -> void:
 	if gf.is_valid_float():
 		_glow_floor = float(gf)
 	if _unshaded_mode == "3":
-		# El lightmap manual pisaria nuestros materiales por superficie.
+		# Flat = materiales unshaded: el lightmap nativo del motor no se samplea.
+		# En Mali el nativo YA funciona (driver nuevo), asi que para tener lightmaps
+		# en low-end se usa el perfil nativo (ODISEA_UNSHADED=0), no flat.
 		OS.set_environment("ODISEA_MANUAL_LIGHTMAP", "")
 		_load_flat_overrides()
 	_pilot_billboard = OS.get_environment("ODISEA_PILOT_BILLBOARD") in ["1", "true", "yes", "on"]

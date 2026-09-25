@@ -43,10 +43,11 @@ export LD_LIBRARY_PATH="/usr/lib:$GAMEDIR/lib:$LD_LIBRARY_PATH"
 if grep -qa "rockchip,rk3326" /proc/device-tree/compatible 2>/dev/null \
    || grep -qs "Mali-G31" /sys/class/misc/mali0/device/gpuinfo; then
   export ODISEA_EARLY_WEAK_HARDWARE=1
-  # Modo plano (albedo unshaded por superficie, FlatFake.shader): sin PBR ni lightmap,
-  # el color sale del material de cada superficie. Es la contraparte del gouraud que ya
-  # aplica el tier LOW. Se puede pisar desde dev.sh (0 lo apaga, 2 = unshaded con textura).
-  export ODISEA_UNSHADED="${ODISEA_UNSHADED:-3}"
+  # Modo plano (albedo unshaded por superficie, FlatFake.shader): sin PBR ni lightmap.
+  # El driver nuevo del fork ya soporta el lightmap NATIVO en Mali, asi que el default
+  # pasa a 0 (nativo, con bake) para que el low-end tenga lightmaps. Pisable a 3 si el
+  # PBR sale caro en device: ODISEA_UNSHADED=3.
+  export ODISEA_UNSHADED="${ODISEA_UNSHADED:-0}"
   # Test de costo/efecto del glow en Mali (§11.10 lo apagaba por el lavado del
   # post-proceso). Con esto el gate lo deja pasar; el cuerpo del mundo lo iluminan
   # el pool + el bake. Pisable desde dev.sh: ODISEA_KEEP_GLOW=0.

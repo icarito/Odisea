@@ -136,6 +136,18 @@ func _ready() -> void:
 	# Deferred para correr despues del _apply() de DarkLevelLighting, pero sus
 	# setters guardan pendiente igual, asi que el orden no es critico.
 	call_deferred("_apply_initial")
+	# El piso (ScaffoldHubRing) y los pods de criopods se generan en su _ready, DESPUES
+	# del NOTIFICATION_READY del BakedLightmap: su _assign_lightmaps no los encuentra
+	# ("Node not found"). Se re-asigna diferido, cuando ya existen.
+	call_deferred("_reassign_lightmaps_after_ready")
+
+func _reassign_lightmaps_after_ready() -> void:
+	# Re-asignar via el setter bound de light_data (call("_assign_lightmaps") no existe
+	# en el build headless/server, solo en el editor/device: rompe los tests GdUnit).
+	if _lightmap != null and _lightmap.light_data != null:
+		var data = _lightmap.light_data
+		_lightmap.light_data = null
+		_lightmap.light_data = data
 
 func _apply_initial() -> void:
 	lit = start_lit

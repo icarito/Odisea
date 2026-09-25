@@ -41,8 +41,12 @@ var _layers := []
 var _hidden := {}
 # Transform original de cada indice oculto, alineado con _layers, para desocultar.
 var _saved := {}
+var _pending_pods := []
 
-func _ready() -> void:
+func _enter_tree() -> void:
+	# En _enter_tree (no _ready): los pods tienen que existir ANTES del _ready del
+	# BakedLightmap y de RingHubLightState, que llaman _assign_lightmaps/_clear_lightmaps
+	# y si no los encuentran loguean "Node not found" (que GdUnit cuenta como error).
 	# Las capas cuelgan de Criopods1 (el nodo con el transform del anillo), no del
 	# root; hay que recorrer el subarbol.
 	var pending := [self]
@@ -74,6 +78,17 @@ func _ready() -> void:
 	var ring_env := OS.get_environment("ODISEA_CRIOPOD_RING_INSTANCED").to_lower()
 	if ring_env != "0" and ring_env != "false" and ring_env != "no" and ring_env != "off":
 		_instance_bakeable_pods()
+
+
+func _ready() -> void:
+	# Los pods ya existen (creados en _enter_tree); ahora que el arbol tiene transforms
+	# validos, se los posiciona.
+	for e in _pending_pods:
+		var pod = e[0]
+		var layer = e[1]
+		var idx = e[2]
+		if is_instance_valid(pod) and is_instance_valid(layer):
+			pod.global_transform = layer.global_transform * layer.multimesh.get_instance_transform(idx)
 	if OS.get_environment("ODISEA_CRIO_DIAG") != "":
 		_diag_dump("ready")
 		_diag_later()
@@ -96,10 +111,15 @@ func _instance_bakeable_pods() -> void:
 	for i in range(count):
 		if _hidden.has(i):
 			continue
-		var xf: Transform = shell_layer.global_transform * shell_layer.multimesh.get_instance_transform(i)
 		var pod = pod_scene.instance()
+		# Nombre DETERMINISTA: con el autorename (@Criopod@N) el path del lightmap no
+		# coincide entre el bake y el runtime, y _assign_lightmaps falla ("Node not
+		# found"). El nombre tiene que ser igual en ambos.
+		pod.name = "Pod_%s_%02d" % [String(name).replace("Criopods_Visual_", ""), i]
 		add_child(pod)
-		pod.global_transform = xf
+		# En runtime visual-only; la posicion se aplica en _ready (en _enter_tree el
+		# global_transform todavia no es valido).
+		_pending_pods.append([pod, shell_layer, i])
 		# El BakedLightmap._find_meshes_and_lights saltea hijos con owner==null
 		# ("maybe a helper"): sin owner, los pods instanciados no se hornean. En el
 		# bake no hay current_scene, asi que se usa la raiz real del arbol del nivel.
