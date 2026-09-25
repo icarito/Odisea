@@ -127,6 +127,12 @@ bake-ringhub-hub:
 	ODISEA_BAKE_PREFIX=RingHub ODISEA_BAKE_VISUAL_CHUNKS=3 \
 		$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_dome_intro_hub_floors.gd
 
+# Valida el producto de bake-ringhub-hub tal como lo consume RingHub_Level.tscn
+# (tres tercios con AABB propio/UV2, una colisión por piso). Ver
+# docs/agents/dome_source_mapping.md.
+verify-ringhub-hub:
+	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_ringhub_hub_chunks.gd
+
 # --- Variantes del modulo de criogenia -------------------------------------
 #
 # Una variante es un juego propio de escenas fuente y de mallas horneadas, con su
@@ -477,4 +483,4 @@ android-install-release: android-release-signed
 	adb install -r "$(ANDROID_RELEASE_APK)"
 	adb shell am start -n $(ANDROID_PACKAGE)/com.godot.game.GodotApp
 
-.PHONY: all bake bake-dome-geometry dome-variant-sources bake-dome-variant preview-dome-variant bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export portmaster portmaster-install export-web-threads bake-shader-cache deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release
+.PHONY: all bake bake-dome-geometry bake-ringhub-hub verify-ringhub-hub dome-variant-sources bake-dome-variant preview-dome-variant bake-lightmap-postprocess reimport-split-stream-meshes export-linux-arm64 export-pck export portmaster portmaster-install export-web-threads bake-shader-cache deploy-netlify web dashboard-dev-central deploy-dashboard android-debug-signed android-install android-clean-asset-copies android-release-signed android-install-release

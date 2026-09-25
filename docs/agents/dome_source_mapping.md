@@ -222,3 +222,33 @@ de `Transform` explicitos, ilegibles en un diff e imposibles de editar a mano �
 eso hubo que manipularlas con `fit_pipes_to_criopods.py` y
 `generate_pipe_serpentine.py`. Con rutas, los cinco anillos y la serpentina son
 unas diez listas de puntos.
+
+## RingHub — split del hub en tercios (mismo contrato)
+
+`RingHub_Level.tscn` aplica el mismo contrato fuente → baker → producto, con una
+diferencia: los pisos del hub siguen siendo `MeshInstance` (no MultiMesh) porque
+`BakedLightmap` no cubre MultiMesh. Para que el frustum pueda descartarlos, cada
+piso se parte en tres tercios con AABB propio.
+
+| Fuente (`core_v2/levels/interiors/`) | Baker (`tools/`) | Producto |
+|---|---|---|
+| `RingHub_HubTowerSource.tscn` | `bake_dome_intro_hub_floors.gd` con `ODISEA_BAKE_VISUAL_CHUNKS=3` (`make bake-ringhub-hub`) | `RingHub_Floor_<N>_third_{0,1,2}.mesh`, `RingHub_Floor_<N>_baked.shape` (una colisión por piso), `RingHub_HubRing_mat_NN.material` |
+
+Contrato de consumo en `RingHub_Level.tscn`:
+
+- `Hub/{RingFloor,Floor_2..Floor_5}` es un `ScaffoldHubRing` con
+  `rebuild_baked_items = false` (no regenera geometría en runtime) y tres
+  `MeshInstance`: `CombinedMesh` (tercio 0, conserva el nombre histórico para los
+  consumidores que ya lo buscan), `CombinedMesh_Third_1` y `CombinedMesh_Third_2`.
+- Cada tercio lleva `use_in_baked_light = true` y UV2; la colisión es
+  `RingHub_Floor_<N>_baked.shape`, una sola por piso.
+- Verificación: `make verify-ringhub-hub` (`tools/verify_ringhub_hub_chunks.gd`)
+  falla si el nivel vuelve a una malla por piso, si un tercio pierde UV2/lightmap,
+  si los tercios no reparten la geometría, o si la colisión deja de ser una por piso.
+
+Lightmap: `tools/bake_ringhub_lightmap.gd` hornea `RingHub.lmbake` con
+`BAKE_QUALITY_MEDIUM` por default (`ODISEA_BAKE_QUALITY=low|medium|high`). El
+`lightmap_size_hint` de los meshes grandes (domo + los 5 pisos) es 512
+(`ODISEA_BAKE_LM_HINT_BIG`), no 2048: 2048 reservaba cientos de MB y volteaba la
+máquina de desarrollo. El bake fuerza `ODISEA_CRIOPOD_RING_INSTANCED=1` porque
+Godot 3 no hornea MultiMesh.
