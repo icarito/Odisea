@@ -102,6 +102,10 @@ func _ready() -> void:
 	_env_keep_fog = OS.get_environment(KEEP_FOG_ENV).to_lower() in ["1", "true", "yes", "on"]
 	_env_keep_glow = OS.get_environment(KEEP_GLOW_ENV).to_lower() in ["1", "true", "yes", "on"]
 	_unshaded_mode = OS.get_environment("ODISEA_UNSHADED").strip_edges()
+	# El driver del fork ya resolvio el conflicto de unidad de Mali (§11.10): el
+	# lightmap NATIVO funciona en la Anbernic (y sigue LIT/DARK por el motor). El
+	# camino manual de IOSLightmapFallback queda opt-in para diagnostico/A-B.
+	_manual_lightmap_optin = OS.get_environment("ODISEA_MANUAL_LIGHTMAP").to_lower() in ["1", "true", "yes", "on"]
 	_flat_debug = OS.get_environment("ODISEA_FLAT_DEBUG") in ["1", "true", "yes", "on"]
 	var amb_env := OS.get_environment("ODISEA_FLAT_AMBIENT").strip_edges()
 	if amb_env.is_valid_float():
@@ -173,6 +177,7 @@ func _detect_gate() -> void:
 		print("[GLES3VendorGate] %s: ambiente conservador + lightmap manual" % adapter)
 
 var _manual_lightmap_synced := false
+var _manual_lightmap_optin := false
 
 func _on_node_added(node: Node) -> void:
 	if _mutation_suspended:
@@ -189,7 +194,8 @@ func _on_node_added(node: Node) -> void:
 		# (Mali-G31 verificado): es un shader del camino GLES2 y en Adreno
 		# GLES3 muestrea 0 → nivel negro. El force del usuario no lo activa.
 		# En modo plano (3) no se activa: pisaria los materiales planos por superficie.
-		_sync_manual_lightmap(_gated_active and _unshaded_mode != "3")
+		# Manual solo si se pide explicitamente (driver nuevo = nativo OK en Mali).
+		_sync_manual_lightmap(_manual_lightmap_optin and _unshaded_mode != "3")
 		if gated:
 			strip_environment(node.environment)
 	elif is_low_tier():
