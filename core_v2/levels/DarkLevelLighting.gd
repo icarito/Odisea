@@ -17,6 +17,9 @@ class_name DarkLevelLighting
 
 export(bool) var enabled := true
 export(float, 0.0, 1.0, 0.01) var ambient_energy := 0.03
+# RingHub mide ~70 m de diametro: con fog_end chico (26) toda la cascara queda
+# mas alla del fog y se ve a color de fog plano. Apagable por nivel.
+export(bool) var fog_enabled := true
 export(float, 0.0, 60.0, 0.5) var fog_begin := 3.0
 export(float, 0.0, 120.0, 0.5) var fog_end := 26.0
 export(Color) var fog_color := Color(0.02, 0.03, 0.05)
@@ -85,7 +88,7 @@ func _apply() -> void:
 	# Se duplica: el .tres del Environment lo comparten otros niveles.
 	var env: Environment = world.environment.duplicate()
 	env.ambient_light_energy = ambient_energy
-	env.fog_enabled = true
+	env.fog_enabled = fog_enabled
 	env.fog_color = fog_color
 	env.fog_depth_begin = fog_begin
 	env.fog_depth_end = fog_end

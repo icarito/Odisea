@@ -29,6 +29,7 @@ transform_array = PoolVector3Array( -0.287292, -1.2132e-07, 1.1018, -2.41594e-07
 [node name="CriopodRingVisual" type="Spatial"]
 script = ExtResource( 3 )
 slot_to_instance = [ -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 11, 12, 13, 14, 15, 16, -1, 17, 18, 19, 20, -1, 21, 22 ]
+blocked_slot = -1
 
 [node name="Criopods3" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.2, 0 )

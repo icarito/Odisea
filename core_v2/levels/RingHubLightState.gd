@@ -44,6 +44,11 @@ export(Color) var lit_background := Color(0.040, 0.055, 0.080)
 export(float, 0.0, 8.0, 0.05) var dark_sun_energy := 0.0
 export(float, 0.0, 8.0, 0.05) var lit_sun_energy := 1.5
 
+# Escala del pool de LightPathV2 (las 2 OmniLight que persiguen al jugador). Con el
+# bake iluminando el nivel, el pool solo agrega un "omnilight sobre Elias" que
+# aplana el domo; 0 = sin pool (el bake se encarga). Default 1 = comportamiento viejo.
+export(float, 0.0, 4.0, 0.01) var pool_energy_scale := 1.0
+
 # --- Ambiente de tier bajo / plano (uniformes del FlatFake) ---
 export(float, 0.0, 2.0, 0.01) var dark_flat_ambient := 0.05
 export(float, 0.0, 2.0, 0.01) var lit_flat_ambient := 0.5
@@ -260,7 +265,17 @@ func _apply_lightmap(level: float) -> void:
 
 func _apply_pool(level: float) -> void:
 	_collect_pool_lights()
-	var energy: float = _pool_base_energy * level
+	# En handheld (low/flat) el pool es la unica luz que sigue al jugador: ahi el
+	# scale no aplica (las luminarias no se crean en ese tier). Solo en desktop el
+	# bake + luminarias reemplazan al pool.
+	var scale: float = pool_energy_scale
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate != null:
+		var flat: bool = gate.has_method("is_flat_mode") and bool(gate.is_flat_mode())
+		var low: bool = gate.has_method("is_low_tier") and bool(gate.is_low_tier())
+		if flat or low:
+			scale = 1.0
+	var energy: float = _pool_base_energy * level * scale
 	# LightPathV2 crea sus 2 OmniLight de forma perezosa (~0.25 s) leyendo este
 	# export, asi que hay que moverlo tambien: si no, un DARK inicial dejaria las
 	# luces naciendo encendidas y no habria ningun tick posterior que las apague.

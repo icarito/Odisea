@@ -575,28 +575,32 @@ forced_slot = 37
 
 [node name="DarkLevelLighting" type="Node" parent="."]
 script = ExtResource( 71 )
+fog_enabled = false
 glow_map = ExtResource( 72 )
 
 [node name="LightState" type="Node" parent="."]
 script = ExtResource( 74 )
-lightmap_energy_dark = 3.0
-lightmap_energy_lit = 3.0
+lit_ambient_energy = 1.8
+lit_sun_energy = 0.3
+lamp_on_emission = 1.6
 lamp_lights_enabled = false
+lightmap_energy_dark = 0.5
+lightmap_energy_lit = 6.0
 switch_sound = ExtResource( 76 )
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource( 4 )
 
 [node name="Sun" type="DirectionalLight" parent="WorldEnvironment"]
-transform = Transform( 0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 14, 0 )
+transform = Transform( 1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 14, 0 )
 light_energy = 1.5
 
 [node name="BakedLightmap" type="BakedLightmap" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17, 0 )
 layers = 1023
 extents = Vector3( 36, 19, 36 )
+quality = 2
 bounce_indirect_energy = 0.67
-use_hdr = false
 atlas_generate = false
 environment_mode = 1
 light_data = ExtResource( 78 )
@@ -670,6 +674,7 @@ collision_mask = 255
 
 [node name="DomeMesh" type="MeshInstance" parent="Hub/DomeInteriorLowPoly"]
 material_override = ExtResource( 73 )
+lightmap_size_hint = Vector2( 2048, 2048 )
 use_in_baked_light = true
 mesh = ExtResource( 46 )
 
@@ -693,6 +698,8 @@ rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/RingFloor"]
 layers = 64
+lightmap_size_hint = Vector2( 2048, 2048 )
+use_in_baked_light = true
 mesh = SubResource( 407 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/RingFloor"]
@@ -821,6 +828,8 @@ rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_2"]
 layers = 64
+lightmap_size_hint = Vector2( 2048, 2048 )
+use_in_baked_light = true
 mesh = SubResource( 414 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/Floor_2"]
@@ -850,6 +859,8 @@ rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_3"]
 layers = 64
+lightmap_size_hint = Vector2( 2048, 2048 )
+use_in_baked_light = true
 mesh = SubResource( 421 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/Floor_3"]
@@ -879,6 +890,8 @@ rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_4"]
 layers = 64
+lightmap_size_hint = Vector2( 2048, 2048 )
+use_in_baked_light = true
 mesh = SubResource( 428 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/Floor_4"]
@@ -909,6 +922,8 @@ rebuild_baked_items = true
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_5"]
 layers = 64
+lightmap_size_hint = Vector2( 2048, 2048 )
+use_in_baked_light = true
 mesh = SubResource( 435 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/Floor_5"]
@@ -923,13 +938,13 @@ script = ExtResource( 7 )
 footstep_profile = ExtResource( 6 )
 
 [node name="Criopod_Vert" parent="." instance=ExtResource( 3 )]
-use_in_baked_light = false
+use_in_baked_light = true
 
 [node name="RotatingObjectV2" parent="Criopod_Vert" index="0"]
 transform = Transform( -1, 1.50996e-07, 8.74228e-08, -1.50996e-07, -1, 8.74228e-08, 8.74228e-08, 8.74228e-08, 1, 0, 2.08495, 0.053448 )
 
 [node name="Glass" parent="Criopod_Vert/RotatingObjectV2" index="0"]
-use_in_baked_light = false
+use_in_baked_light = true
 
 [node name="CinematicSequence" type="Area" parent="Criopod_Vert"]
 transform = Transform( 0.666667, 0, 2.84217e-14, 0, 0.666667, 0, -2.84217e-14, 0, 0.666667, 2.14577e-06, 0.823144, -0.12323 )

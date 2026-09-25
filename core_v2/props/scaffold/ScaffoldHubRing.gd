@@ -97,6 +97,8 @@ export(bool) var rebuild_baked_items := false
 var _build_queued := false
 
 func _ready() -> void:
+	if not Engine.editor_hint:
+		add_to_group("camera_flat_cull")
 	if Engine.editor_hint:
 		# Mismo criterio que en runtime: si la escena ya trae los hijos horneados y
 		# nadie pidio rebuild, NO reconstruir. Sin esto cualquier apertura de la
@@ -369,6 +371,20 @@ func _build_compact_ring() -> void:
 	visual.layers = 64
 	visual.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_ON
 	visual.mesh = mesh
+	# El piso tambien debe hornearse: el decorador lo regenera en runtime, asi que
+	# el use_in_baked_light de la escena se pierde. Se marca aca y se asegura UV2
+	# (el baker saltea mallas sin UV2) + resolucion grande (el spotlight facetaba).
+	visual.use_in_baked_light = true
+	if mesh is ArrayMesh:
+		var am := mesh as ArrayMesh
+		var has_uv2 := false
+		for s in range(am.get_surface_count()):
+			if am.surface_get_format(s) & Mesh.ARRAY_FORMAT_TEX_UV2:
+				has_uv2 = true
+				break
+		if not has_uv2:
+			am.lightmap_unwrap(Transform(), 4.0)
+		am.lightmap_size_hint = Vector2(2048, 2048)
 	add_child(visual)
 	var body := StaticBody.new()
 	body.name = "StaticBody"

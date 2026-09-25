@@ -22,8 +22,19 @@ extends SceneTree
 const SCENE := "res://core_v2/levels/RingHub_Level.tscn"
 const OUT := "res://core_v2/levels/RingHub.lmbake"
 const RIG := "RingHubBakeLights"
+# Multiplicador de energia SOLO para el bake ("full light"): previsualizar el domo
+# bien claro sin tocar la escena ni las luces del rig. Default 1.0 = identico.
+#   ODISEA_BAKE_LIGHT_MULT=3 tools/godot --path . --no-window -s tools/bake_ringhub_lightmap.gd
+var _light_mult := 1.0
 
 func _init():
+	var mult_env := OS.get_environment("ODISEA_BAKE_LIGHT_MULT").strip_edges()
+	if mult_env.is_valid_float() and float(mult_env) > 0.0:
+		_light_mult = float(mult_env)
+	# Godot 3 no puede hornear MultiMeshInstance: los anillos superiores cambian a
+	# pods instanciados (bakeables) cuando el script ve esta env. El runtime la
+	# necesita igual para que existan los pods y reciban el lightmap.
+	OS.set_environment("ODISEA_CRIOPOD_RING_INSTANCED", "1")
 	var ps: PackedScene = load(SCENE)
 	if ps == null:
 		print("bake: no pude cargar ", SCENE)
@@ -43,19 +54,21 @@ func _init():
 	if "bake_rig_enabled" in rig:
 		rig.set("bake_rig_enabled", true)
 
-	var lights := 0
-	for c in rig.get_children():
-		if c is Light:
-			var l := c as Light
-			l.visible = true
-			l.light_bake_mode = Light.BAKE_ALL
-			lights += 1
-	print("bake: rig lights encendidas=", lights)
-
-	var dir := _find_dir(root)
-	if dir != null:
-		dir.visible = true
-		dir.light_bake_mode = Light.BAKE_ALL
+	# El pool de luces runtime (MobileLightBudget) apaga luces fuera de presupuesto;
+	# en el bake las queremos TODAS encendidas a la vez.
+	_disable_light_pool()
+	# Todas las luces del nivel encendidas para el bake, salvo las dinamicas del
+	# jugador (linterna/fill): hornearlas dejaria un foco frito en el spawn.
+	var lights := _enable_all_lights(root)
+	print("bake: luces encendidas=", lights, " mult=", _light_mult)
+	# lightmap_size_hint vive en el MESH (no en el MeshInstance). Se aplica aca a
+	# las piezas grandes de bajo poligonaje para que el gradiente horneado sea mas
+	# suave (el spotlight mostraba facetas sobre sus triangulos).
+	_apply_bake_hints(root)
+	# Los anillos de criopods superiores son MultiMeshInstance bajo
+	# ScaffoldStreamRoot y el streamer los oculta/no-marca hasta acercarse. Para el
+	# bake los queremos todos visibles y marcados.
+	_force_criopod_visuals(root)
 
 	var lm := _find_lm(root)
 	if lm == null:
@@ -67,7 +80,7 @@ func _init():
 		ResourceSaver.save(OUT, data)
 		lm.light_data = load(OUT)
 	lm.capture_enabled = false
-	lm.quality = BakedLightmap.BAKE_QUALITY_MEDIUM
+	lm.quality = BakedLightmap.BAKE_QUALITY_HIGH
 	lm.set("atlas_generate", false)
 	lm.use_denoiser = true
 	lm.use_hdr = false
@@ -76,6 +89,59 @@ func _init():
 	var err: int = lm.bake(root, OUT)
 	print("bake: result=", err)
 	quit(0 if err == BakedLightmap.BAKE_ERROR_OK else 2)
+
+func _disable_light_pool() -> void:
+	var budget = get_root().get_node_or_null("MobileLightBudget")
+	if budget != null and budget.has_method("set_budget_enabled"):
+		budget.call("set_budget_enabled", false)
+		print("bake: pool de luces (MobileLightBudget) desactivado")
+
+func _force_criopod_visuals(n: Node) -> void:
+	for c in n.get_children():
+		if c is Spatial and String(c.get_path()).find("Criopods_Visual") != -1:
+			(c as Spatial).visible = true
+			if c is MultiMeshInstance:
+				(c as MultiMeshInstance).use_in_baked_light = true
+				print("bake:   visual anillo ", c.get_path())
+		_force_criopod_visuals(c)
+
+func _apply_bake_hints(n: Node) -> void:
+	for c in n.get_children():
+		if c is MeshInstance and (c as MeshInstance).mesh != null:
+			var p := String(c.get_path())
+			if p.find("DomeInteriorLowPoly/DomeMesh") != -1 \
+			or p.find("/RingFloor/CombinedMesh") != -1 \
+			or p.find("/Floor_2/CombinedMesh") != -1 or p.find("/Floor_3/CombinedMesh") != -1 \
+			or p.find("/Floor_4/CombinedMesh") != -1 or p.find("/Floor_5/CombinedMesh") != -1:
+				var m = (c as MeshInstance).mesh
+				if "lightmap_size_hint" in m:
+					m.set("lightmap_size_hint", Vector2(2048, 2048))
+					print("bake:   hint 2048 -> ", p)
+		_apply_bake_hints(c)
+
+func _is_dynamic_light(path: String) -> bool:
+	# Luces que NO deben hornearearse: linterna/fill del jugador e indicador del
+	# pedestal (dinamicos, cambian en runtime).
+	return path.find("/Pilot/") != -1 or path.find("/PedestalLight/") != -1
+
+func _enable_all_lights(n: Node) -> int:
+	var count := 0
+	for c in n.get_children():
+		if c is Light:
+			var l := c as Light
+			if _is_dynamic_light(String(l.get_path())):
+				# Luces dinamicas (jugador e indicadores del pedestal): fuera del bake.
+				l.visible = false
+				l.light_bake_mode = Light.BAKE_DISABLED
+				print("bake:   (excluida) ", l.get_path())
+			else:
+				l.visible = true
+				l.light_bake_mode = Light.BAKE_ALL
+				l.light_energy *= _light_mult
+				print("bake:   luz ", l.get_path(), " energy=", l.light_energy)
+				count += 1
+		count += _enable_all_lights(c)
+	return count
 
 func _find_dir(n: Node) -> DirectionalLight:
 	for c in n.get_children():

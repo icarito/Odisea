@@ -68,9 +68,45 @@ func _ready() -> void:
 			pending.append(child)
 	if blocked_slot >= 0:
 		block_slot(blocked_slot)
+	# Gateable: Godot 3 NO puede hornear MultiMeshInstance, asi que los anillos con
+	# env var se cambian por pods instanciados (MeshInstance, bakeables). Apagado por
+	# default: si cuesta draw calls en la Anbernic, se saca del dev.sh.
+	if OS.get_environment("ODISEA_CRIOPOD_RING_INSTANCED") in ["1", "true", "yes", "on"]:
+		_instance_bakeable_pods()
 	if OS.get_environment("ODISEA_CRIO_DIAG") != "":
 		_diag_dump("ready")
 		_diag_later()
+
+
+# Cambia las capas MultiMesh (no bakeables en Godot 3) por pods CriopodParallax
+# instanciados, que sí son MeshInstance con UV2 y reciben el lightmap.
+func _instance_bakeable_pods() -> void:
+	var shell_layer: MultiMeshInstance = null
+	for layer in _layers:
+		if String(layer.name) == "Shell":
+			shell_layer = layer
+			break
+	if shell_layer == null:
+		return
+	var pod_scene: PackedScene = load("res://core_v2/props/criopod/CriopodParallax.tscn")
+	if pod_scene == null:
+		return
+	var count: int = shell_layer.multimesh.instance_count
+	for i in range(count):
+		if _hidden.has(i):
+			continue
+		var xf: Transform = shell_layer.global_transform * shell_layer.multimesh.get_instance_transform(i)
+		var pod = pod_scene.instance()
+		add_child(pod)
+		pod.global_transform = xf
+		# Visual-only: sin colision propia (el anillo MultiMesh tampoco la tenia).
+		for c in pod.get_children():
+			if c is StaticBody or c is KinematicBody:
+				c.queue_free()
+	for layer in _layers:
+		layer.visible = false
+	set_meta("ring_instanced_bake", true)
+	print("[criopods] ", get_path(), " instanced pods=", count, " (layers=", _layers.size(), ")")
 
 
 func block_slot(slot: int) -> void:
