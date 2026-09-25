@@ -12,6 +12,8 @@ export var interp_buffer_ticks: int = 1
 
 var _udp = PacketPeerUDP.new()
 var _listening_port: int = 0
+var _target_ip: String = ""
+var _target_port: int = 10444
 var _buffer: Array = [] # Sorted list of snapshots by tick
 var _latest_applied_tick: int = -1
 var _physics_was_active: bool = true
@@ -19,8 +21,10 @@ var _physics_was_active: bool = true
 func _ready() -> void:
 	set_process(false)
 
-func start_render_slave(p_port: int = 10444) -> bool:
+func start_render_slave(p_port: int = 10444, p_target_ip: String = "", p_target_port: int = 10444) -> bool:
 	_listening_port = p_port
+	_target_ip = p_target_ip
+	_target_port = p_target_port
 	if _listening_port > 0:
 		var err = _udp.listen(_listening_port)
 		if err != OK:
@@ -85,6 +89,7 @@ func _process(_delta: float) -> void:
 		# Wait until buffer has enough ticks to interpolate
 		if not _buffer.empty():
 			_apply_snapshot(_buffer[0])
+		_send_local_input()
 		return
 
 	# Interpolate between snapshot[0] and snapshot[1]
@@ -95,15 +100,37 @@ func _process(_delta: float) -> void:
 	_apply_snapshot(snap_b)
 	_latest_applied_tick = int(snap_b["tick"])
 	_buffer.pop_front()
+	_send_local_input()
+
+func _send_local_input() -> void:
+	if _target_ip == "" or _target_port <= 0:
+		return
+
+	var axes = {
+		"move_x": Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
+		"move_y": Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
+	}
+	var buttons = {
+		"jump": Input.is_action_pressed("jump"),
+		"interact": Input.is_action_pressed("interact")
+	}
+
+	var sim_input = RemoteProtocol.create_sim_input(axes, buttons, _latest_applied_tick)
+	var bytes = RemoteProtocol.encode_json(sim_input).to_utf8()
+	_udp.set_dest_address(_target_ip, _target_port)
+	_udp.put_packet(bytes)
 
 func _poll_udp() -> void:
 	if _listening_port <= 0:
 		return
 	while _udp.get_available_packet_count() > 0:
+		var packet_ip = _udp.get_packet_ip()
 		var pkt = _udp.get_packet()
 		var pkt_str = pkt.get_string_from_utf8()
 		var dict = RemoteProtocol.decode_json(pkt_str)
 		if dict.get("type", "") == "sim_snapshot":
+			if packet_ip != "":
+				_target_ip = packet_ip
 			receive_snapshot(dict)
 
 func _apply_snapshot(snapshot: Dictionary) -> void:

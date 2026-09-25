@@ -75,3 +75,40 @@ func test_sim_host_captures_snapshot():
 	var snap = host.capture_snapshot()
 	assert_str(snap["type"]).is_equal("sim_snapshot")
 	assert_bool(snap.has("entities")).is_true()
+
+func test_sim_input_encode_decode():
+	var axes = {"move_x": 1.0, "move_y": 0.0}
+	var buttons = {"jump": true, "interact": false}
+	var sim_input = RemoteProtocolScript.create_sim_input(axes, buttons, 42, "tok_test")
+
+	assert_str(sim_input["type"]).is_equal("sim_input")
+	assert_float(sim_input["axes"]["move_x"]).is_equal(1.0)
+	assert_bool(sim_input["buttons"]["jump"]).is_true()
+	assert_int(sim_input["last_tick"]).is_equal(42)
+
+func test_sim_host_input_queue_ordering_and_parallel_sources():
+	var host = auto_free(RemoteSimHostScript.new())
+	add_child(host)
+
+	var in_client_t10 = RemoteProtocolScript.create_sim_input({"move_x": 0.5}, {"jump": true}, 10)
+	var in_local_t5 = RemoteProtocolScript.create_sim_input({"move_x": -0.5}, {"jump": false}, 5)
+
+	# Out of order insertion
+	host.receive_sim_input(in_client_t10, "client")
+	host.receive_sim_input(in_local_t5, "remote_local")
+
+	assert_int(host._input_queue.size()).is_equal(2)
+	assert_int(host._input_queue[0]["tick"]).is_equal(5)
+	assert_str(host._input_queue[0]["source"]).is_equal("remote_local")
+	assert_int(host._input_queue[1]["tick"]).is_equal(10)
+	assert_str(host._input_queue[1]["source"]).is_equal("client")
+
+	# Process tick 5
+	host._process_input_queue_for_tick(5)
+	assert_int(host._input_queue.size()).is_equal(1)
+	assert_int(host._input_queue[0]["tick"]).is_equal(10)
+
+	# Process tick 10
+	host._process_input_queue_for_tick(10)
+	assert_int(host._input_queue.size()).is_equal(0)
+	assert_float(host._client_input_state["axes"]["move_x"]).is_equal(0.5)

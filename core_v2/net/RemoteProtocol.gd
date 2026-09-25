@@ -275,6 +275,15 @@ static func create_sim_snapshot(tick: int, timestamp_msec: int, entities: Dictio
 		"token": token
 	}
 
+static func create_sim_input(axes: Dictionary, buttons: Dictionary, last_applied_tick: int, token: String = "") -> Dictionary:
+	return {
+		"type": "sim_input",
+		"axes": axes,
+		"buttons": buttons,
+		"last_tick": last_applied_tick,
+		"token": token
+	}
+
 static func encode_transform(t: Transform) -> Dictionary:
 	return {
 		"p": [t.origin.x, t.origin.y, t.origin.z],
