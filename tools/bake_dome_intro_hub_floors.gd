@@ -50,6 +50,7 @@ const OUT_DIR := "res://core_v2/levels/interiors/"
 # ODISEA_BAKE_SOURCE, que elige la escena fuente.
 const DEFAULT_OUT_PREFIX := "Dome_Intro"
 var _prefix := DEFAULT_OUT_PREFIX
+var _visual_chunks := 1
 const LIGHTMAP_TEXEL_SIZE := 0.2
 # Todos los pisos del hub, no solo el 5: comparten la geometria de deck de
 # ScaffoldHubRing, asi que cualquier cambio ahi hay que re-hornearlo en los cinco.
@@ -62,6 +63,7 @@ func _run() -> void:
 	_prefix = OS.get_environment("ODISEA_BAKE_PREFIX")
 	if _prefix.empty():
 		_prefix = DEFAULT_OUT_PREFIX
+	_visual_chunks = max(1, int(OS.get_environment("ODISEA_BAKE_VISUAL_CHUNKS")))
 	var source_path: String = OS.get_environment("ODISEA_BAKE_SOURCE")
 	if source_path.empty():
 		source_path = DEFAULT_SOURCE_PATH
@@ -157,11 +159,15 @@ func _bake_floor(root: Node, floor_name: String) -> bool:
 	# Sin UV2 el BakedLightmap ignora la geometria: los pisos del hub no proyectan
 	# sombra sobre la terraza ni reciben la luz cocinada. Se genera sobre la malla
 	# completa (todas las surfaces), igual que en bake_scaffold_walkways.gd.
-	if not _generate_lightmap_uv2(visual.mesh, out_mesh):
-		return false
-	if ResourceSaver.save(out_mesh, visual.mesh) != OK:
-		push_error("[bake_floors] no pude guardar %s" % out_mesh)
-		return false
+	if _visual_chunks == 1:
+		if not _save_visual(visual.mesh, out_mesh):
+			return false
+	else:
+		var chunks: Array = _split_mesh_angular(visual.mesh, _visual_chunks)
+		for chunk_index in range(chunks.size()):
+			var chunk_path: String = OUT_DIR + _prefix + "_%s_third_%d.mesh" % [floor_name, chunk_index]
+			if not _save_visual(chunks[chunk_index], chunk_path):
+				return false
 	if ResourceSaver.save(out_shape, collision.shape) != OK:
 		push_error("[bake_floors] no pude guardar %s" % out_shape)
 		return false
@@ -169,10 +175,87 @@ func _bake_floor(root: Node, floor_name: String) -> bool:
 	var verts := 0
 	for i in range(visual.mesh.get_surface_count()):
 		verts += visual.mesh.surface_get_array_len(i)
-	print("[bake_floors] %s: %d superficies, %d verts, openings=%s docks=%s -> %s" % [
+	print("[bake_floors] %s: %d superficies, %d verts, %d chunks, openings=%s docks=%s" % [
 		floor_name, visual.mesh.get_surface_count(), verts,
-		str(ring.outer_openings_deg), str(ring.outer_opening_docks), out_mesh.get_file()])
+		_visual_chunks, str(ring.outer_openings_deg), str(ring.outer_opening_docks)])
 	return true
+
+
+func _save_visual(mesh: ArrayMesh, path: String) -> bool:
+	if not _generate_lightmap_uv2(mesh, path):
+		return false
+	if ResourceSaver.save(path, mesh) != OK:
+		push_error("[bake_floors] no pude guardar %s" % path)
+		return false
+	return true
+
+
+# Parte triangulos completos por el angulo de su centroide. No corta geometria:
+# cada producto tiene un AABB propio para que el frustum culling de Godot pueda
+# descartar dos tercios sin agregar un culler de runtime.
+func _split_mesh_angular(mesh: ArrayMesh, chunk_count: int) -> Array:
+	var chunks := []
+	for _i in range(chunk_count):
+		chunks.append(ArrayMesh.new())
+	for surface in range(mesh.get_surface_count()):
+		var source: Array = mesh.surface_get_arrays(surface)
+		var vertices: PoolVector3Array = source[Mesh.ARRAY_VERTEX]
+		var indices := PoolIntArray()
+		if source[Mesh.ARRAY_INDEX] != null:
+			indices = source[Mesh.ARRAY_INDEX]
+		var triangle_values := []
+		for _i in range(chunk_count):
+			var values: Array = source.duplicate()
+			for channel in range(Mesh.ARRAY_MAX):
+				if channel == Mesh.ARRAY_INDEX or values[channel] == null:
+					continue
+				values[channel] = _empty_mesh_array(channel)
+			values[Mesh.ARRAY_INDEX] = null
+			triangle_values.append(values)
+		var triangle_index_count: int = indices.size() if not indices.empty() else vertices.size()
+		for triangle in range(0, triangle_index_count, 3):
+			var a: int = indices[triangle] if not indices.empty() else triangle
+			var b: int = indices[triangle + 1] if not indices.empty() else triangle + 1
+			var c: int = indices[triangle + 2] if not indices.empty() else triangle + 2
+			var center: Vector3 = (vertices[a] + vertices[b] + vertices[c]) / 3.0
+			var angle: float = fposmod(atan2(center.z, center.x), TAU)
+			var target: int = min(int(angle * float(chunk_count) / TAU), chunk_count - 1)
+			for vertex_index in [a, b, c]:
+				_copy_vertex(source, triangle_values[target], vertex_index)
+		for chunk_index in range(chunk_count):
+			var chunk: ArrayMesh = chunks[chunk_index]
+			var values: Array = triangle_values[chunk_index]
+			if values[Mesh.ARRAY_VERTEX].empty():
+				continue
+			chunk.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, values)
+			chunk.surface_set_material(chunk.get_surface_count() - 1, mesh.surface_get_material(surface))
+	return chunks
+
+
+func _copy_vertex(source: Array, target: Array, vertex_index: int) -> void:
+	for channel in range(Mesh.ARRAY_MAX):
+		if channel == Mesh.ARRAY_INDEX or source[channel] == null:
+			continue
+		var stride: int = 4 if channel in [Mesh.ARRAY_TANGENT, Mesh.ARRAY_BONES, Mesh.ARRAY_WEIGHTS] else 1
+		var values = target[channel]
+		for component in range(stride):
+			values.append(source[channel][vertex_index * stride + component])
+		target[channel] = values
+
+
+func _empty_mesh_array(channel: int):
+	match channel:
+		Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL:
+			return PoolVector3Array()
+		Mesh.ARRAY_TANGENT, Mesh.ARRAY_WEIGHTS:
+			return PoolRealArray()
+		Mesh.ARRAY_COLOR:
+			return PoolColorArray()
+		Mesh.ARRAY_TEX_UV, Mesh.ARRAY_TEX_UV2:
+			return PoolVector2Array()
+		Mesh.ARRAY_BONES:
+			return PoolIntArray()
+	return null
 
 
 func _generate_lightmap_uv2(mesh: ArrayMesh, mesh_path: String) -> bool:

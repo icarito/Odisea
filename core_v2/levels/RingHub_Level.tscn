@@ -1,4 +1,4 @@
-[gd_scene load_steps=111 format=2]
+[gd_scene load_steps=131 format=2]
 
 [ext_resource path="res://core_v2/actors/Pilot_v2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://core_v2/props/scaffold/ScaffoldHubRing.tscn" type="PackedScene" id=2]
@@ -73,6 +73,26 @@
 [ext_resource path="res://core_v2/levels/RingHub.lmbake" type="BakedLightmapData" id=78]
 [ext_resource path="res://core_v2/levels/interiors/DomeIntroBakeLightsPlaceholder.gd" type="Script" id=79]
 [ext_resource path="res://materials/diamondPlateAluminum/seam_road_lines_pbr.tres" type="Material" id=80]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_1_third_0.mesh" type="ArrayMesh" id=81]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_1_third_1.mesh" type="ArrayMesh" id=82]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_1_third_2.mesh" type="ArrayMesh" id=83]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_2_third_0.mesh" type="ArrayMesh" id=84]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_2_third_1.mesh" type="ArrayMesh" id=85]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_2_third_2.mesh" type="ArrayMesh" id=86]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_3_third_0.mesh" type="ArrayMesh" id=87]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_3_third_1.mesh" type="ArrayMesh" id=88]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_3_third_2.mesh" type="ArrayMesh" id=89]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_4_third_0.mesh" type="ArrayMesh" id=90]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_4_third_1.mesh" type="ArrayMesh" id=91]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_4_third_2.mesh" type="ArrayMesh" id=92]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_5_third_0.mesh" type="ArrayMesh" id=93]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_5_third_1.mesh" type="ArrayMesh" id=94]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_5_third_2.mesh" type="ArrayMesh" id=95]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_1_baked.shape" type="Shape" id=96]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_2_baked.shape" type="Shape" id=97]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_3_baked.shape" type="Shape" id=98]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_4_baked.shape" type="Shape" id=99]
+[ext_resource path="res://core_v2/levels/interiors/RingHub_Floor_5_baked.shape" type="Shape" id=100]
 
 [sub_resource type="BoxShape" id=400]
 extents = Vector3( 35, 0.3, 35 )
@@ -698,20 +718,30 @@ frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
 grate_emission_energy = 0.0
-rebuild_baked_items = true
+rebuild_baked_items = false
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/RingFloor"]
 layers = 64
 lightmap_size_hint = Vector2( 2048, 2048 )
 use_in_baked_light = true
-mesh = SubResource( 407 )
+mesh = ExtResource( 81 )
+
+[node name="CombinedMesh_Third_1" type="MeshInstance" parent="Hub/RingFloor"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 82 )
+
+[node name="CombinedMesh_Third_2" type="MeshInstance" parent="Hub/RingFloor"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 83 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/RingFloor"]
 collision_layer = 64
 collision_mask = 255
 
 [node name="CombinedCollision" type="CollisionShape" parent="Hub/RingFloor/StaticBody"]
-shape = SubResource( 401 )
+shape = ExtResource( 96 )
 
 [node name="FootstepSurface" type="Spatial" parent="Hub/RingFloor/StaticBody"]
 script = ExtResource( 7 )
@@ -831,20 +861,30 @@ frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
 grate_emission_energy = 0.0
-rebuild_baked_items = true
+rebuild_baked_items = false
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_2"]
 layers = 64
 lightmap_size_hint = Vector2( 2048, 2048 )
 use_in_baked_light = true
-mesh = SubResource( 414 )
+mesh = ExtResource( 84 )
+
+[node name="CombinedMesh_Third_1" type="MeshInstance" parent="Hub/Floor_2"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 85 )
+
+[node name="CombinedMesh_Third_2" type="MeshInstance" parent="Hub/Floor_2"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 86 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/Floor_2"]
 collision_layer = 64
 collision_mask = 255
 
 [node name="CombinedCollision" type="CollisionShape" parent="Hub/Floor_2/StaticBody"]
-shape = SubResource( 408 )
+shape = ExtResource( 97 )
 
 [node name="FootstepSurface" type="Spatial" parent="Hub/Floor_2/StaticBody"]
 script = ExtResource( 7 )
@@ -865,20 +905,30 @@ frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
 grate_emission_energy = 0.0
-rebuild_baked_items = true
+rebuild_baked_items = false
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_3"]
 layers = 64
 lightmap_size_hint = Vector2( 2048, 2048 )
 use_in_baked_light = true
-mesh = SubResource( 421 )
+mesh = ExtResource( 87 )
+
+[node name="CombinedMesh_Third_1" type="MeshInstance" parent="Hub/Floor_3"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 88 )
+
+[node name="CombinedMesh_Third_2" type="MeshInstance" parent="Hub/Floor_3"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 89 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/Floor_3"]
 collision_layer = 64
 collision_mask = 255
 
 [node name="CombinedCollision" type="CollisionShape" parent="Hub/Floor_3/StaticBody"]
-shape = SubResource( 415 )
+shape = ExtResource( 98 )
 
 [node name="FootstepSurface" type="Spatial" parent="Hub/Floor_3/StaticBody"]
 script = ExtResource( 7 )
@@ -899,20 +949,30 @@ frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
 grate_emission_energy = 0.0
-rebuild_baked_items = true
+rebuild_baked_items = false
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_4"]
 layers = 64
 lightmap_size_hint = Vector2( 2048, 2048 )
 use_in_baked_light = true
-mesh = SubResource( 428 )
+mesh = ExtResource( 90 )
+
+[node name="CombinedMesh_Third_1" type="MeshInstance" parent="Hub/Floor_4"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 91 )
+
+[node name="CombinedMesh_Third_2" type="MeshInstance" parent="Hub/Floor_4"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 92 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/Floor_4"]
 collision_layer = 64
 collision_mask = 255
 
 [node name="CombinedCollision" type="CollisionShape" parent="Hub/Floor_4/StaticBody"]
-shape = SubResource( 422 )
+shape = ExtResource( 99 )
 
 [node name="FootstepSurface" type="Spatial" parent="Hub/Floor_4/StaticBody"]
 script = ExtResource( 7 )
@@ -934,20 +994,30 @@ frame_color = Color( 0.24, 0.26, 0.29, 1 )
 rail_color = Color( 1, 0.82, 0.12, 1 )
 grate_color = Color( 0.56, 0.6, 0.64, 1 )
 grate_emission_energy = 0.0
-rebuild_baked_items = true
+rebuild_baked_items = false
 
 [node name="CombinedMesh" type="MeshInstance" parent="Hub/Floor_5"]
 layers = 64
 lightmap_size_hint = Vector2( 2048, 2048 )
 use_in_baked_light = true
-mesh = SubResource( 435 )
+mesh = ExtResource( 93 )
+
+[node name="CombinedMesh_Third_1" type="MeshInstance" parent="Hub/Floor_5"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 94 )
+
+[node name="CombinedMesh_Third_2" type="MeshInstance" parent="Hub/Floor_5"]
+layers = 64
+use_in_baked_light = true
+mesh = ExtResource( 95 )
 
 [node name="StaticBody" type="StaticBody" parent="Hub/Floor_5"]
 collision_layer = 64
 collision_mask = 255
 
 [node name="CombinedCollision" type="CollisionShape" parent="Hub/Floor_5/StaticBody"]
-shape = SubResource( 429 )
+shape = ExtResource( 100 )
 
 [node name="FootstepSurface" type="Spatial" parent="Hub/Floor_5/StaticBody"]
 script = ExtResource( 7 )

@@ -120,6 +120,13 @@ bake-dome-geometry:
 	$(GODOT) --path . $(EXPORT_FLAGS) -s tools/verify_dome_intro_contract.gd
 	python3 scripts/check_tracked_imports.py
 
+# RingHub conserva MeshInstance (BakedLightmap no cubre MultiMesh) pero parte cada
+# piso en tres AABB visuales para que el frustum pueda descartarlos por separado.
+bake-ringhub-hub:
+	ODISEA_BAKE_SOURCE=res://core_v2/levels/interiors/RingHub_HubTowerSource.tscn \
+	ODISEA_BAKE_PREFIX=RingHub ODISEA_BAKE_VISUAL_CHUNKS=3 \
+		$(GODOT) --path . $(EXPORT_FLAGS) -s tools/bake_dome_intro_hub_floors.gd
+
 # --- Variantes del modulo de criogenia -------------------------------------
 #
 # Una variante es un juego propio de escenas fuente y de mallas horneadas, con su

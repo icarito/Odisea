@@ -27,6 +27,15 @@ const RIG := "RingHubBakeLights"
 #   ODISEA_BAKE_LIGHT_MULT=3 tools/godot --path . --no-window -s tools/bake_ringhub_lightmap.gd
 var _light_mult := 1.0
 var _fast := false
+# Calidad del bake. El EditorScript de RingHub usa MEDIUM (penumbra de plataformas
+# sin pagar el costo de HIGH); el headless estaba en HIGH por error. ODISEA_BAKE_QUALITY
+# = low|medium|high lo explicita; el default alinea con el EditorScript.
+var _quality := BakedLightmap.BAKE_QUALITY_MEDIUM
+# Resolucion de lightmap. 2048 en los meshes grandes (domo + los 5 pisos) hacia que
+# el bake reservara cientos de MB y volteaba la maquina; default 512. Los pods de
+# criopods usan un hint chico. ODISEA_BAKE_LM_HINT_BIG / _POD lo suben/bajan.
+var _hint_big := 512
+var _hint_pod := 64
 
 func _init():
 	var mult_env := OS.get_environment("ODISEA_BAKE_LIGHT_MULT").strip_edges()
@@ -37,8 +46,24 @@ func _init():
 	# necesita igual para que existan los pods y reciban el lightmap.
 	OS.set_environment("ODISEA_CRIOPOD_RING_INSTANCED", "1")
 	# Iteracion rapida: ODISEA_BAKE_FAST=1 baja calidad y resoluciones (solo para
-	# verificar membresia/estructura; el bake de produccion va a HIGH).
+	# verificar membresia/estructura; el bake de produccion va a MEDIUM).
 	_fast = OS.get_environment("ODISEA_BAKE_FAST") in ["1", "true", "yes", "on"]
+	var q_env := OS.get_environment("ODISEA_BAKE_QUALITY").strip_edges().to_lower()
+	if q_env == "low":
+		_quality = BakedLightmap.BAKE_QUALITY_LOW
+	elif q_env == "high":
+		_quality = BakedLightmap.BAKE_QUALITY_HIGH
+	elif q_env == "medium":
+		_quality = BakedLightmap.BAKE_QUALITY_MEDIUM
+	elif _fast:
+		_quality = BakedLightmap.BAKE_QUALITY_LOW
+	var hb_env := OS.get_environment("ODISEA_BAKE_LM_HINT_BIG").strip_edges()
+	if hb_env.is_valid_integer() and int(hb_env) >= 32:
+		_hint_big = int(hb_env)
+	var hp_env := OS.get_environment("ODISEA_BAKE_LM_HINT_POD").strip_edges()
+	if hp_env.is_valid_integer() and int(hp_env) >= 16:
+		_hint_pod = int(hp_env)
+	print("bake: calidad=", _quality, " fast=", _fast, " hint_big=", _hint_big, " hint_pod=", _hint_pod)
 	var ps: PackedScene = load(SCENE)
 	if ps == null:
 		print("bake: no pude cargar ", SCENE)
@@ -86,7 +111,7 @@ func _init():
 		ResourceSaver.save(OUT, data)
 		lm.light_data = load(OUT)
 	lm.capture_enabled = false
-	lm.quality = BakedLightmap.BAKE_QUALITY_LOW if _fast else BakedLightmap.BAKE_QUALITY_HIGH
+	lm.quality = _quality
 	lm.set("atlas_generate", false)
 	lm.use_denoiser = true
 	lm.use_hdr = false
@@ -138,13 +163,15 @@ func _apply_bake_hints(n: Node) -> void:
 			var p := String(c.get_path())
 			var m = (c as MeshInstance).mesh
 			if "lightmap_size_hint" in m and p.find("Criopod") != -1:
-				m.set("lightmap_size_hint", Vector2(128, 128) if not _fast else Vector2(32, 32))
+				var pod_hint := int(max(16, _hint_pod / 2)) if _fast else _hint_pod
+				m.set("lightmap_size_hint", Vector2(pod_hint, pod_hint))
 			var is_big: bool = p.find("DomeInteriorLowPoly/DomeMesh") != -1 or p.find("/RingFloor/CombinedMesh") != -1
 			is_big = is_big or p.find("/Floor_2/CombinedMesh") != -1 or p.find("/Floor_3/CombinedMesh") != -1
 			is_big = is_big or p.find("/Floor_4/CombinedMesh") != -1 or p.find("/Floor_5/CombinedMesh") != -1
 			if is_big and "lightmap_size_hint" in m:
-				m.set("lightmap_size_hint", Vector2(256, 256) if _fast else Vector2(2048, 2048))
-				print("bake:   hint -> ", p)
+				var big_hint := int(max(32, _hint_big / 4)) if _fast else _hint_big
+				m.set("lightmap_size_hint", Vector2(big_hint, big_hint))
+				print("bake:   hint -> ", p, " ", big_hint)
 		_apply_bake_hints(c)
 
 func _is_dynamic_light(path: String) -> bool:
