@@ -8,9 +8,7 @@ extends SceneTree
 #    base a z=0, ápex a z=16.5). Nada de bores, piso ni ribs: el facetado lo
 #    pinta la textura albedo en Godot.
 #  - Un solo material (M_DomeInteriorLowPoly); no hay split piso/carcasa.
-#  - La carcasa se ve desde adentro: el GLB llega con normales/winding hacia
-#    afuera, y este bake los invierte (indices en orden inverso + normal negada).
-#    El material igual va con cull disabled por compatibilidad.
+#  - La carcasa se ve desde adentro, así que el material va con cull disabled.
 #  - El GLB no trae UVs utiles (todas en cero), asi que el bake genera UV1
 #    cilindricas: u = azimut/TAU (0..1, vuelta completa) y v = y/TARGET_RADIUS
 #    (0..1, base a apex). RingHub_DomeShell.tres las reescala con uv1_scale.
@@ -22,11 +20,9 @@ extends SceneTree
 #    ES un caso estándar de trimesh cóncavo (barato, 240 tris), igual que los
 #    domos Dome_Default / Dome_Base ya existentes.
 #
-# Fuente: Blender, 16x8 -> 240 triángulos. El GLB trackeado es la fuente de
-# verdad; el script de escena del pipeline Blender (scene_dome_lp.py) NO esta en
-# el repo (desaparecio), asi que este baker normaliza la orientacion inward en
-# vez de depender de regenerar el GLB. Si algun dia hay que tocar el GLB, ver
-# docs/skills/blender-bpy.md.
+# Fuente: Blender, 16x8 -> 240 triángulos. Regenerar:
+#   X_CAM=ext blender --background --python <render.py> -- --scene <scene_dome_lp.py>
+#   (usa el GLB de la vista "ext": cáscara limpia, sin emisión/luces de preview)
 # Run: tools/godot --path . --no-window -s tools/bake_dome_interior_lowpoly.gd
 # Output:
 #   core_v2/levels/interiors/DomeInteriorLowPoly_baked.mesh (RingHub_Level)
@@ -177,13 +173,8 @@ func _append_surface(st: SurfaceTool, mesh: ArrayMesh, surface: int, xf: Transfo
 	if arrays[Mesh.ARRAY_NORMAL] != null:
 		normals = arrays[Mesh.ARRAY_NORMAL]
 	var indices: PoolIntArray = arrays[Mesh.ARRAY_INDEX]
-	# La cascara se ve desde adentro. El GLB trae normales hacia afuera y winding
-	# outward, asi que emitimos los indices en orden inverso (winding invertido:
-	# la cara interior pasa a ser la frontal) y negamos la normal. Con eso el
-	# sombreado dinamico y, sobre todo, el BakedLightmap usan normales que miran
-	# al interior sin depender del flip de backface del shader.
 	for i in range(indices.size()):
-		var idx := indices[indices.size() - 1 - i]
+		var idx := indices[i]
 		var wp: Vector3 = xf.xform(verts[idx])
 		# UV1 cilindrica: la fuente no trae UVs usables (todas en cero). El azimut
 		# se mide sobre -Z para que la costura del wrap caiga detras del jugador.
@@ -191,5 +182,5 @@ func _append_surface(st: SurfaceTool, mesh: ArrayMesh, surface: int, xf: Transfo
 		var v: float = wp.y / TARGET_RADIUS
 		st.add_uv(Vector2(u, v))
 		if idx < normals.size():
-			st.add_normal(-xf.basis.xform(normals[idx]).normalized())
+			st.add_normal(xf.basis.xform(normals[idx]).normalized())
 		st.add_vertex(wp)
