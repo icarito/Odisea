@@ -1,4 +1,4 @@
-# FD-316: Sim Host Remoto — el perfil low-end-flat como render-esclavo (físicas a 60Hz en el host)
+# FD-316: CPU offload al control remoto — render-esclavo para host low-end-flat
 
 **Status:** Planned (delegada a Jules)
 **Priority:** P1
@@ -8,116 +8,135 @@
 
 ## Objetivos
 
-1. **Liberar CPU** en el device low-end-flat: sacar simulación (física + lógica) a un host y dejar al device solo renderizando.
-2. **Stress-testear el engine**: ejercitar el fork Box3D + Core V2 con la simulación corriendo a 60 Hz bajo input remoto (gamepad virtual con tick), validando determinismo y replay en una topología host/esclavo.
+1. **Liberar CPU** en devices muy débiles (perfil `low-end-flat`, GLES2): el device
+   apaga su propia simulación de física y solo renderiza.
+2. **Stress-testear el engine**: ejercitar el fork Box3D + Core V2 con la simulación
+   corriendo a 60 Hz bajo input local, validando determinismo y replay en una
+   topología invertida (control remoto simula headless, host débil renderiza).
 
-**No es objetivo**: subir FPS. El RG351V ya está limitado por draws/driver, no por el tick (medido en `c9bc04bf`: proc/tick 30→28 ms, phys/tick 35→30 ms, FPS sin cambio). El render-esclavo libera CPU pero no moverá el FPS de un device draw-bound.
+**No es objetivo**: subir FPS. El RG351V ya está limitado por draws/driver, no por
+el tick (medido en `c9bc04bf`: proc/tick 30→28 ms, phys/tick 35→30 ms, FPS sin
+cambio). Esto libera CPU, no mueve el FPS de un device draw-bound.
 
 ## Problem
 
-El perfil **low-end-flat** (device débil, GLES2) hoy corre la simulación completa
-(física Box3D + lógica) y además broadcastea telemetría — y por performance,
-el broadcast fue **desactivado** (decisión 2026-09-24). Eso deja a ese device
-tirando CPU de simulación + render al mismo tiempo, y sin telemetría para
-sesiones con usuarios reales.
+El perfil `low-end-flat` corre la simulación completa (física Box3D + lógica) y
+además renderiza — su CPU queda saturada, y por eso el broadcast del control
+remoto fue desactivado en tier LOW (`c9bc04bf`).
 
-Con el **Control Remoto** (FD-294) ya existente (discovery UDP + pairing + WS),
-hay una vía mucho mejor: que el **host simule** (físicas a 60 Hz, lógica, Core V2
-completo) y el low-end-flat **solo renderice** el estado que recibe. El device
-se convierte en un **render-esclavo** (thin client): su CPU queda casi libre,
-y el host puede broadcastear telemetría por él.
+## Solution — CPU offload invertido, SOLO para host débil
 
-## Solution
+El **caso de uso es uno y solo uno**:
 
-Extender el Control Remoto (FD-294) con un **canal de estado de simulación**:
+> Cuando el **host** de la sesión es un device **low-end-flat**, el pairing de
+> control remoto gatilla que **el device control remoto** (el teléfono, más
+> potente) corra la simulación **sin mostrarla** (headless), y le transmita al
+> host low-end el estado de la escena para que este renderice **únicamente** la
+> parte gráfica con su propia simulación de física **apagada**.
 
-- **Host** (quien tiene la sesión autoritativa, PC o device capaz): corre la sim
-  completa a 60 ticks/s y **emite snapshots** del mundo (transform + animación +
-  luces + cámara) a los clientes emparejados.
-- **Render-esclavo** (low-end-flat): recibe snapshots, **interpola** con buffer
-  de 1 tick y renderiza. **No simula nada**: sin física, sin lógica, sin Core V2.
-  Su CPU queda libre; la GPU sigue siendo el único límite.
-- **Input**: el control remoto ya envía `input{touch,accel,gyro}` (FD-294 F1).
-  En modo render-esclavo, esos inputs se inyectan como **input virtual** con
-  `tick number` — el host los aplica en el tick correspondiente. Sin segundo sim,
-  **no hay desync posible**.
-- **Determinismo (Core V2)**: se vuelve trivial. La autoridad es única (el host).
-  Replay/checkpoints se graban igual que hoy (la fuente de input es un gamepad
-  virtual). El render-esclavo no necesita ser determinista: solo interpola.
-- **Telemetría**: el host la broadcastea (ya no depende del device débil).
-  Para la demo con usuarios (FD-303/308 en curso), el low-end-flat deja de estar
-  mudo.
+Detalle del flujo (control remoto = teléfono emparejado vía FD-294):
+
+1. **Gatillo**: pairing de control remoto establecido Y host en tier LOW. En
+   cualquier otra combinación (host capaz, o cualquier cliente), el control
+   remoto funciona **exactamente como hoy** — este camino no lo toca.
+2. **Control remoto → simulador headless**: corre física (Box3D, 60 Hz) + lógica
+   + Core V2 completos, pero **sin renderizar** la escena. Procesa los inputs
+   **localmente** (el input nace en el propio teléfono, así que no hay RTT de
+   input). Es la **autoridad única**.
+3. **Control remoto → host low-end**: transmite el **estado de la escena**
+   (snapshots por tick: transforms, animación, luces, cámara) por el transporte
+   de FD-294 (UDP para snapshots de alto ritmo, WS para control/pairing).
+4. **Host low-end → render-esclavo**: recibe snapshots, interpola (buffer de 1
+   tick) y renderiza solo lo gráfico. Su simulación de física está **apagada**
+   (no instancia física ni Core V2); su CPU queda libre para el render.
+5. **Determinismo (Core V2)**: trivial — una sola autoridad (el control remoto).
+   Replay/checkpoints se graban en el control remoto, igual que hoy (el input es
+   el gamepad/touch virtual local). El render-esclavo no necesita ser
+   determinista: solo interpola.
 
 ### Considered Options
 
-- **Option A — Sim local en el device + broadcast telemetría (estado actual)**: el
-  device simula y renderiza; telemetría desactivada por performance.
-  Pros: cero latencia de sim. Contras: CPU del device saturada, sin telemetría.
-- **Option B — Sim host + render-esclavo por snapshots interpolados (elegida)**:
-  Pros: CPU del device casi libre, telemetría centralizada, determinismo trivial
-  (autoridad única), Core V2 intacto en el host. Contras: +1 RTT por frame de
-  input; **solo viable en LAN local** (RTT bajo); GPU del device sigue siendo el
-  techo real (si el bottleneck es GPU, no se gana nada).
-- **Option C — Sim host + input prediction en el device**: elimina la latencia
-  percibida de input, pero agrega un predictor que puede desviarse del estado
-  autoritativo (requiere reconciliación). Contras: complejidad alta, no aporta
-  al objetivo (60 Hz físicas + CPU libre); **backlog**.
+- **Option A — Sim local en el host débil (estado actual)**: el host simula y
+  renderiza; broadcast desactivado por performance. Contras: CPU saturada, sin
+  margen para telemetría.
+- **Option B — CPU offload al control remoto (elegida)**: el control remoto
+  simula headless y el host débil solo renderiza. Pros: CPU del host casi libre,
+  determinismo trivial (autoridad única), sin RTT de input (el input se procesa
+  en el propio control remoto). Contras: solo aplica cuando el host es débil;
+  GPU del host sigue siendo el techo (si es draw-bound no sube FPS); LAN local
+  (RTT de snapshots).
+- **Option C — Sim host + predicción de input en el device**: no aplica aquí
+  (el input se procesa localmente en el control remoto, no hay que predecirlo).
+  Queda **backlog**.
 
-**Alcance de esta FD**: Option B, LAN local, sin predicción de input.
+**Alcance de esta FD**: Option B, LAN local, solo para el caso host = low-end-flat.
+
+## Off limits
+
+- **El sistema de control remoto como funciona hoy para el resto de
+  combinaciones** (host capaz + control remoto, cualquier cliente). No se cambia
+  su comportamiento, pairing, UI ni protocolo para esos casos.
+- Core V2 / replay / determinismo: no se altera el contrato. El control remoto
+  sigue siendo el binario normal; el modo headless-sim es un modo de arranque del
+  mismo binario.
+- Predicción de input, compresión binaria de snapshots, WAN: **backlog**.
 
 ## Files to Modify
 
-Basado en `feature/FD-294-control-remoto` (ya existe la infraestructura de red:
+Basado en `feature/FD-294-control-remoto` (infraestructura de red ya existe:
 `core_v2/net/RemoteProtocol.gd`, `RemoteControlServer.gd`, `RemoteControlClient.gd`,
 `RemoteAnnouncer.gd`, `RemoteDiscovery.gd`, `RemoteControlManager.gd`):
 
 - `core_v2/net/RemoteProtocol.gd` (modify) — mensajes nuevos: `sim_hello`,
   `sim_snapshot`, `sim_config` (tick rate, interpolación, escena base).
-- `core_v2/net/RemoteSimHost.gd` (new) — autoload/manager del lado host:
-  captura snapshots por tick (60 Hz), serializa, emite a clientes emparejados.
-- `core_v2/net/RemoteSimClient.gd` (new) — lado render-esclavo: recibe, bufferiza
-  (1 tick), interpola transforms/animación/luces/cámara, inyecta input con tick.
-- `core_v2/net/RemoteControlManager.gd` (modify) — orquesta host/client según el
-  rol de la sesión (rol explícito en el pairing: `host` vs `render_slave`).
+- `core_v2/net/RemoteSimHost.gd` (new) — lado **control remoto**: simulación
+  headless (Box3D + Core V2) a 60 Hz, captura y emite snapshots por tick.
+- `core_v2/net/RemoteSimClient.gd` (new) — lado **host low-end**: recibe
+  snapshots, bufferiza (1 tick), interpola transforms/animación/luces/cámara y
+  renderiza; **desactiva** la simulación local de física.
+- `core_v2/net/RemoteControlManager.gd` (modify) — detecta el gatillo
+  (host = tier LOW + pairing activo) y asigna roles `sim_host` (control remoto) /
+  `render_slave` (host low-end) sin tocar el flujo normal de los demás casos.
 - `core_v2/tests/test_remote_sim.gd` (new) — tests del protocolo y de la
   interpolación.
 - `docs/features/FEATURE_INDEX.md` (modify) — entrada FD-316.
 
-**Fuera de alcance (backlog)**: predicción de input (Option C), render-esclavo
-por internet (WAN), compresión binaria de snapshots (JSON v1 alcanza en LAN;
-binario solo si el perfil lo exige).
+**Fuera de alcance (backlog)**: predicción, WAN, compresión binaria (JSON v1
+alcanza en LAN).
 
 ## Verification
 
 1. **Tests automatizados** (`bin/jules-cli` corre la suite):
    - `test_remote_sim.gd` cubre: encode/decode de `sim_snapshot` y `sim_config`;
-     buffer de interpolación (1 tick) sin huecos ni saltos; inyección de input
-     con tick correcto; rol `render_slave` NO instancia física ni Core V2.
+     buffer de interpolación (1 tick) sin huecos ni saltos; rol `render_slave`
+     NO instancia física ni Core V2; el gatillo solo se activa con host en tier
+     LOW (el resto de combinaciones siguen el flujo normal).
    - La suite existente (`test_remote_control.gd`, determinismo) sigue verde.
-2. **Prueba manual en LAN (2 devices, mismo WiFi)**:
-   - Host simula a 60 Hz; render-esclavo (perfil low-end-flat) renderiza
-     interpola-do. Verificar FPS del esclavo >= 30 y CPU notablemente más baja
-     que con sim local.
-   - Input desde el esclavo: el personaje responde con lag imperceptible (<50 ms
-     en LAN).
-   - Telemetría: el host broadcastea y la sesión aparece con datos.
-3. **Determinismo**: grabar una partida con input remoto; replay reproduce igual
-   que una partida local (mismo checkpoint, mismo resultado).
-4. **Stress-test del engine (objetivo principal)**: correr el host con simulación a
-   60 Hz bajo input remoto sostenido y medir: tick rate estable (sin hitches),
-   determinismo de replay bajo carga, y CPU del host. Ejercitar el fork Box3D +
-   Core V2 en topología host/esclavo y reportar dónde se rompe primero (física,
-   serialización de snapshots, red). El resultado es un informe, no solo verde/rojo.
+2. **Prueba manual en LAN (host low-end-flat + control remoto)**:
+   - El control remoto simula a 60 Hz headless; el host low-end renderiza
+     interpolado. Verificar CPU del host notablemente más baja que con sim local.
+   - Input desde el control remoto: el personaje responde sin lag perceptible
+     (el input se procesa localmente en el control remoto).
+   - Verificar que con un **host capaz** el control remoto sigue funcionando
+     igual que antes (regresión del caso normal).
+3. **Determinismo**: grabar una partida con input del control remoto; replay
+   reproduce igual que una partida local (mismo checkpoint, mismo resultado).
+4. **Stress-test del engine (objetivo principal)**: correr el control remoto con
+   simulación a 60 Hz headless bajo input sostenido y medir: tick rate estable
+   (sin hitches), determinismo de replay bajo carga, y CPU del host. Ejercitar
+   el fork Box3D + Core V2 en topología invertida y reportar dónde se rompe
+   primero (física, serialización de snapshots, red). El resultado es un informe,
+   no solo verde/rojo.
 
 ## Notas de implementación para Jules
 
-- Reusar el transporte existente de FD-294 (WebSocket para control, UDP para
-  alto ritmo). Los snapshots de sim van por **UDP** (tolerante a pérdida,
-  interpolación cubre huecos); el control (pairing, config) por WS.
+- Reusar el transporte existente de FD-294. Snapshots de sim por **UDP**
+  (tolerante a pérdida, la interpolación cubre huecos); control (pairing/config)
+  por WS.
 - El render-esclavo NO toca `core_v2/` de simulación: solo un nodo receptor que
-  interpola y un `RemoteTransform`-like aplicado a la escena base recibida.
-- No cambiar el Core V2 ni el contrato de replay. El host sigue siendo el
-  binario normal; el modo render-esclavo es un modo de arranque del mismo binario
-  (export móvil ya existe, FD-294).
-- La física del host corre con el fork Box3D (`godot-box3d-3`), sin cambios.
+  interpola y aplica transforms a la escena base recibida.
+- El control remoto simula headless con el mismo binario; no se recompila el
+  fork ni se cambia Box3D.
 - No implementar predicción, compresión binaria ni WAN en esta FD.
+- **Cuidado con el off limits**: el gatillo solo debe activarse cuando el host es
+  tier LOW. No alterar el comportamiento del control remoto en los demás casos.
