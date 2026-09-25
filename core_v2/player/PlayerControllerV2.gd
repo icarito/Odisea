@@ -252,6 +252,10 @@ var _multi_tool_hand_bone_idx := -1
 
 var _current_interactable: Node = null
 var _current_interaction_prompt := ""
+# FD-316: en rol render-esclavo el host no simula fisica (PhysicsServer activo=false),
+# asi que su scan por Area no se actualiza y el prompt titila. La autoridad (control
+# remoto) resuelve la interaccion y la manda en el snapshot; aca solo se muestra.
+var _remote_interaction_authoritative := false
 onready var interact_config = get_node_or_null("Logic/Interact")
 
 
@@ -2081,7 +2085,47 @@ func _interaction_input_without_crouch(input: InputDataV2) -> InputDataV2:
 	stripped.fov_override = input.fov_override
 	return stripped
 
+# --- FD-316: interaccion resuelta por la autoridad remota ---
+func set_remote_interaction_authoritative(on: bool) -> void:
+	if _remote_interaction_authoritative == on:
+		return
+	_remote_interaction_authoritative = on
+	if on:
+		# El scan local no corre en render-esclavo: arrancamos limpio y el primer
+		# snapshot de la autoridad trae (o no) el prompt.
+		_clear_interactable()
+
+# Lo que lee RemoteSimHost.capture_snapshot() del lado autoridad.
+func get_interaction_state() -> Dictionary:
+	var path := ""
+	if is_instance_valid(_current_interactable):
+		path = String(_current_interactable.get_path())
+	return {"prompt": _current_interaction_prompt, "path": path}
+
+# Lo que aplica RemoteSimClient del lado render-esclavo. El path viene de OTRA
+# instancia: si no resuelve directo, se busca desde la escena actual (mismo nivel).
+func apply_remote_interaction_state(prompt: String, target_path: String) -> void:
+	if not _remote_interaction_authoritative:
+		return
+	if prompt == "":
+		_clear_interactable()
+		return
+	if prompt == _current_interaction_prompt and is_instance_valid(_current_interactable):
+		return
+	var target: Node = null
+	if target_path != "":
+		target = get_node_or_null(NodePath(target_path))
+		if target == null and is_inside_tree() and get_tree().current_scene != null:
+			target = get_tree().current_scene.get_node_or_null(NodePath(target_path))
+	_current_interactable = target
+	_current_interaction_prompt = prompt
+	emit_signal("interactable_in_range", prompt)
+	_show_interaction_prompt(prompt, target)
+
 func _process_interaction(input: InputDataV2):
+	if _remote_interaction_authoritative:
+		# La autoridad ya resolvio la interaccion; el host solo renderiza.
+		return
 	if _perf_disable_interaction_scan:
 		_clear_interactable()
 		return

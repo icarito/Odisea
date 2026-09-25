@@ -21,6 +21,10 @@ export var client_stall_timeout: float = 3.0
 # Sin ningun peer no hay input ni handshake que despachar cada frame. 20 Hz conserva una
 # conexion nueva con hasta 50 ms de demora y evita sondear dos sockets inactivos 60 veces/s.
 export var idle_poll_interval: float = 0.05
+# Con varias instancias de Odisea en la misma maquina (dev: editor + juego + otro
+# juego) los puertos por defecto suelen estar tomados. En vez de quedarnos sin host
+# (y sin announce), probamos los siguientes puertos y anunciamos el REAL.
+const PORT_RETRIES := 10
 
 var _ws_server = WebSocketServer.new()
 var _sensor_udp = PacketPeerUDP.new()
@@ -47,21 +51,37 @@ func _ready() -> void:
 	_ws_server.connect("data_received", self, "_on_ws_data_received")
 
 func start_server(p_ws_port: int = 10443, p_sensor_port: int = 10444) -> bool:
-	ws_port = p_ws_port
-	sensor_udp_port = p_sensor_port
-
-	var err = _ws_server.listen(ws_port)
-	if err != OK:
-		printerr("[RemoteControlServer] WebSocketServer failed to listen on port ", ws_port, " err=", err)
+	var found_ws := _listen_first_free_ws(p_ws_port)
+	if found_ws < 0:
+		printerr("[RemoteControlServer] WebSocketServer: sin puerto libre desde ", p_ws_port)
 		return false
-
-	var udp_err = _sensor_udp.listen(sensor_udp_port)
-	if udp_err != OK:
-		printerr("[RemoteControlServer] Sensor UDP failed to listen on port ", sensor_udp_port, " err=", udp_err)
-
+	var found_udp := _listen_first_free_udp(p_sensor_port)
+	if found_udp < 0:
+		printerr("[RemoteControlServer] Sensor UDP: sin puerto libre desde ", p_sensor_port)
+		_ws_server.stop()
+		return false
+	# Los puertos REALES (pueden no ser los pedidos): el announcer y el control
+	# anuncian/conectan a estos.
+	ws_port = found_ws
+	sensor_udp_port = found_udp
+	if ws_port != p_ws_port or sensor_udp_port != p_sensor_port:
+		print("[RemoteControlServer] puertos ocupados: ws ", p_ws_port, "->", ws_port,
+			", sensor ", p_sensor_port, "->", sensor_udp_port)
 	_server_started = true
 	_idle_poll_timer = idle_poll_interval
 	return true
+
+func _listen_first_free_ws(first: int) -> int:
+	for i in range(PORT_RETRIES):
+		if _ws_server.listen(first + i) == OK:
+			return first + i
+	return -1
+
+func _listen_first_free_udp(first: int) -> int:
+	for i in range(PORT_RETRIES):
+		if _sensor_udp.listen(first + i) == OK:
+			return first + i
+	return -1
 
 func stop_server() -> void:
 	if not _server_started:
