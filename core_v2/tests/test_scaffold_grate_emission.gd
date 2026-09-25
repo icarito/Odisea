@@ -117,9 +117,11 @@ func test_hub_ring_grate_emission_energy_lifts_deck_subtly() -> void:
 	assert_bool((side as SpatialMaterial).emission_enabled).is_false()
 
 
-func test_ringhub_level_ring_floors_are_emissive() -> void:
-	# Los decks del hub (RingFloor y Floor_2..5) llevan la misma emision tenue que
-	# los walkways, o en DARK el piso sigue negro y sin reticula de referencia.
+func test_ringhub_level_ring_floors_follow_lit_dark() -> void:
+	# acabcc9d saco la emision constante 0.25 de los decks del hub (RingFloor y
+	# Floor_2..5): ahora son acero puramente lit, para que sigan LIT/DARK y el bake
+	# les proyecte sombra. El brillo de DARK lo maneja el light state, no una
+	# emision fija en el material (ver test_hub_ring_grate_emission_*).
 	var level: Spatial = auto_free(load(RINGHUB_LEVEL).instance())
 	level.open_pod_terminal_on_start = false
 	add_child(level)
@@ -129,13 +131,10 @@ func test_ringhub_level_ring_floors_are_emissive() -> void:
 	for floor_name in ["RingFloor", "Floor_2", "Floor_3", "Floor_4", "Floor_5"]:
 		var ring: Spatial = level.get_node_or_null("Hub/%s" % floor_name)
 		assert_object(ring).is_not_null()
-		assert_float(ring.grate_emission_energy).is_equal(0.25)
+		assert_float(ring.grate_emission_energy).is_equal(0.0)
 		var grate := _ring_deck_surface(ring)
 		assert_object(grate).is_not_null()
-		assert_bool(grate.emission_enabled).is_true()
-		var peak: float = max(grate.emission.r, max(grate.emission.g, grate.emission.b))
-		assert_bool(peak > 0.04).is_true()
-		assert_bool(peak <= MAX_SUBTLE_PEAK).is_true()
+		assert_bool(grate.emission_enabled).is_false()
 
 
 func test_dome_intro_hub_ring_stays_lit_only() -> void:

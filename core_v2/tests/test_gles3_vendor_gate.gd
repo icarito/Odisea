@@ -181,6 +181,28 @@ func test_low_tier_strips_shadows_and_materials():
 	assert_bool(mat.ao_enabled).is_false()
 	assert_bool(mat.depth_enabled).is_false()
 	assert_bool(mat.subsurf_scatter_enabled).is_false()
+	# LOW evalua la luz por pixel por default (fix del cono de la linterna): el
+	# material NO conserva flags_vertex_lighting. ODISEA_LOW_VERTEX_LIGHTING=1 lo
+	# reactiva (ver test_low_tier_vertex_lighting_opt_in_restores_gouraud).
+	assert_bool(mat.flags_vertex_lighting).is_false()
+
+
+# El per-pixel se puede volver a Gouraud con el env, para A/B en device sin
+# recompilar (la linterna se ve peor pero cuesta menos fill).
+func test_low_tier_vertex_lighting_opt_in_restores_gouraud():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._low_vertex_lighting = true
+
+	var mat = auto_free(SpatialMaterial.new())
+	mat.flags_vertex_lighting = false
+	var mesh = auto_free(CubeMesh.new())
+	mesh.material = mat
+	var mi = auto_free(MeshInstance.new())
+	mi.mesh = mesh
+	add_child(mi)
+
 	assert_bool(mat.flags_vertex_lighting).is_true()
 
 # Los tools de horneado (tools/bake_*.gd) llaman suspend_node_mutation() antes de
@@ -297,7 +319,10 @@ func test_flat_mode_leaves_the_pilot_shaded():
 
 	assert_object(mi.material_override).is_null()
 	assert_object(mi.get_surface_material(0)).is_null()
-	assert_bool(mat.flags_vertex_lighting).is_true()
+	# Conserva SU material (no unshaded => se ve sombreado, no aplanado). LOW ahora
+	# evalua la luz por pixel, asi que el piloto ya no queda gouraud.
+	assert_bool(mat.flags_vertex_lighting).is_false()
+	assert_bool(mat.flags_unshaded).is_false()
 
 
 func test_low_tier_disables_light_shadows():
