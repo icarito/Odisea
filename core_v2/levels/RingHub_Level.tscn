@@ -93,6 +93,11 @@ albedo_texture = SubResource( 402 )
 metallic = 0.45
 metallic_specular = 0.9
 roughness = 0.35
+emission_enabled = true
+emission = Color( 0.1008, 0.108, 0.1152, 0.25 )
+emission_energy = 1.0
+emission_operator = 0
+emission_on_uv2 = false
 uv1_scale = Vector3( 3.5, 3.5, 3.5 )
 
 [sub_resource type="SpatialMaterial" id=404]
@@ -186,6 +191,11 @@ albedo_texture = SubResource( 409 )
 metallic = 0.45
 metallic_specular = 0.9
 roughness = 0.35
+emission_enabled = true
+emission = Color( 0.1008, 0.108, 0.1152, 0.25 )
+emission_energy = 1.0
+emission_operator = 0
+emission_on_uv2 = false
 uv1_scale = Vector3( 3.5, 3.5, 3.5 )
 
 [sub_resource type="SpatialMaterial" id=411]
@@ -279,6 +289,11 @@ albedo_texture = SubResource( 416 )
 metallic = 0.45
 metallic_specular = 0.9
 roughness = 0.35
+emission_enabled = true
+emission = Color( 0.1008, 0.108, 0.1152, 0.25 )
+emission_energy = 1.0
+emission_operator = 0
+emission_on_uv2 = false
 uv1_scale = Vector3( 3.5, 3.5, 3.5 )
 
 [sub_resource type="SpatialMaterial" id=418]
@@ -372,6 +387,11 @@ albedo_texture = SubResource( 423 )
 metallic = 0.45
 metallic_specular = 0.9
 roughness = 0.35
+emission_enabled = true
+emission = Color( 0.1008, 0.108, 0.1152, 0.25 )
+emission_energy = 1.0
+emission_operator = 0
+emission_on_uv2 = false
 uv1_scale = Vector3( 3.5, 3.5, 3.5 )
 
 [sub_resource type="SpatialMaterial" id=425]
@@ -465,6 +485,11 @@ albedo_texture = SubResource( 430 )
 metallic = 0.45
 metallic_specular = 0.9
 roughness = 0.35
+emission_enabled = true
+emission = Color( 0.1008, 0.108, 0.1152, 0.25 )
+emission_energy = 1.0
+emission_operator = 0
+emission_on_uv2 = false
 uv1_scale = Vector3( 3.5, 3.5, 3.5 )
 
 [sub_resource type="SpatialMaterial" id=432]
@@ -554,6 +579,8 @@ glow_map = ExtResource( 72 )
 
 [node name="LightState" type="Node" parent="."]
 script = ExtResource( 74 )
+lightmap_energy_dark = 3.0
+lightmap_energy_lit = 3.0
 lamp_lights_enabled = false
 switch_sound = ExtResource( 76 )
 
