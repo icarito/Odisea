@@ -109,3 +109,124 @@ func test_volumetric_cone_shader_backwards_compatibility():
 # criterio que test_ice_level.gd / test_leak_fissure_visual.gd.
 func _exposes_shader_param(material, param: String) -> bool:
 	return material != null and material.get_shader_param(param) != null
+
+
+class DummyOwner extends Spatial:
+	var velocity := Vector3.ZERO
+	var _grounded := true
+	func is_effectively_grounded() -> bool:
+		return _grounded
+
+
+func test_helmet_flashlight_spring_inertia():
+	var packed: PackedScene = load("res://core_v2/props/lights/HelmetFlashlight.tscn")
+	var flashlight = auto_free(packed.instance())
+	var dummy_owner = auto_free(DummyOwner.new())
+	dummy_owner.add_child(flashlight)
+	add_child(dummy_owner)
+	yield(get_tree(), "idle_frame")
+
+	# Simular activacion de la linterna y paso de apunte inicial
+	flashlight.set_enabled(true)
+	flashlight._aim_initialized = true
+	flashlight._aim_yaw = 0.0
+	flashlight._aim_pitch = 0.0
+	flashlight._aim_yaw_vel = 0.0
+	flashlight._aim_pitch_vel = 0.0
+
+	# Cambio repentino en el objetivo de yaw (camara girando a la derecha)
+	var target_yaw := 0.3 # rad (~17 deg)
+	var target_pitch := 0.0
+
+	# Step 1: en el primer dt (0.016s), el spring arranca con lag (yaw se mueve poco, vel sube)
+	var dt := 0.016
+	var yaw_acc: float = flashlight.spring_stiffness * flashlight.spring_stiffness * (target_yaw - flashlight._aim_yaw) - 2.0 * flashlight.spring_damping * flashlight.spring_stiffness * flashlight._aim_yaw_vel
+	flashlight._aim_yaw_vel += yaw_acc * dt
+	flashlight._aim_yaw += flashlight._aim_yaw_vel * dt
+
+	assert_float(flashlight._aim_yaw).is_less(target_yaw)
+	assert_float(flashlight._aim_yaw_vel).is_greater(0.0)
+
+	# Simular multiples pasos hasta alcanzar el overshoot
+	var max_yaw := 0.0
+	for i in range(20):
+		yaw_acc = flashlight.spring_stiffness * flashlight.spring_stiffness * (target_yaw - flashlight._aim_yaw) - 2.0 * flashlight.spring_damping * flashlight.spring_stiffness * flashlight._aim_yaw_vel
+		flashlight._aim_yaw_vel += yaw_acc * dt
+		flashlight._aim_yaw += flashlight._aim_yaw_vel * dt
+		if flashlight._aim_yaw > max_yaw:
+			max_yaw = flashlight._aim_yaw
+
+	# Con damping=0.6 < 1.0 (subamortiguado), el yaw maximo debe haber superado levemente el target (overshoot)
+	assert_float(max_yaw).is_greater(target_yaw)
+
+
+func test_helmet_flashlight_sway_and_bob():
+	var packed: PackedScene = load("res://core_v2/props/lights/HelmetFlashlight.tscn")
+	var flashlight = auto_free(packed.instance())
+	var dummy_owner = auto_free(DummyOwner.new())
+	dummy_owner.add_child(flashlight)
+	add_child(dummy_owner)
+	yield(get_tree(), "idle_frame")
+
+	flashlight.set_enabled(true)
+
+	# 1. Test Sway Lateral al acelerar hacia la derecha
+	dummy_owner.velocity = Vector3(5.0, 0.0, 0.0) # strafe derecha
+	flashlight._prev_lat_speed = 0.0
+	var delta := 0.016
+	var lat_speed: float = dummy_owner.velocity.dot(flashlight.global_transform.basis.orthonormalized().x)
+	var lat_accel: float = (lat_speed - flashlight._prev_lat_speed) / delta
+	var sway_yaw: float = -lat_accel * flashlight.sway_lateral_gain
+
+	assert_float(lat_accel).is_greater(0.0)
+	assert_float(sway_yaw).is_less(0.0) # se inclina opuesto a la aceleracion por inercia
+
+	# 2. Test salto y dip de aterrizaje
+	dummy_owner._grounded = false
+	dummy_owner.velocity = Vector3(0.0, -8.0, 0.0) # cayendo rapido
+	flashlight._was_grounded = false
+	flashlight._prev_vel_y = -8.0
+
+	# Aterriza
+	dummy_owner._grounded = true
+	var landing_dip: float = clamp(-flashlight._prev_vel_y * flashlight.sway_landing_gain, 0.0, 0.25)
+	assert_float(landing_dip).is_greater(0.0)
+
+	# 3. Test Bob de caminata
+	dummy_owner.velocity = Vector3(0.0, 0.0, 3.0) # movimiento hacia adelante
+	var initial_phase: float = flashlight._bob_phase
+	var h_speed: float = Vector2(dummy_owner.velocity.x, dummy_owner.velocity.z).length()
+	if dummy_owner._grounded and h_speed > 0.1:
+		flashlight._bob_phase += h_speed * flashlight.bob_frequency * delta
+
+	assert_float(flashlight._bob_phase).is_greater(initial_phase)
+
+
+func test_helmet_flashlight_determinism_and_reset():
+	var packed: PackedScene = load("res://core_v2/props/lights/HelmetFlashlight.tscn")
+	var flashlight = auto_free(packed.instance())
+	add_child(flashlight)
+	yield(get_tree(), "idle_frame")
+
+	flashlight.set_enabled(true)
+
+	# Alterar estado de resortes y movimiento
+	flashlight._aim_yaw_vel = 12.5
+	flashlight._aim_pitch_vel = -4.2
+	flashlight._bob_phase = 3.14
+	flashlight._landing_dip = 0.15
+	flashlight._prev_lat_speed = 2.0
+
+	# Apagar y volver a encender
+	flashlight.set_enabled(false)
+	assert_bool(flashlight.enabled).is_false()
+
+	flashlight.set_enabled(true)
+	assert_bool(flashlight.enabled).is_true()
+
+	# Todos los contadores y velocidades del resorte deben haber vuelto a 0 / defaults
+	assert_float(flashlight._aim_yaw_vel).is_equal(0.0)
+	assert_float(flashlight._aim_pitch_vel).is_equal(0.0)
+	assert_float(flashlight._bob_phase).is_equal(0.0)
+	assert_float(flashlight._landing_dip).is_equal(0.0)
+	assert_float(flashlight._prev_lat_speed).is_equal(0.0)
