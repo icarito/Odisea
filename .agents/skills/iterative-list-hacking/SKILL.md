@@ -29,6 +29,21 @@ Si el usuario dice "modo planear", NO toques código: devolvé plan + decisiones
 7. **Documentar**: actualizar el doc de sesión (`docs/agents/sessions/`) con hechos, estado y pasos
    exactos para retomar.
 
+## Cuándo delegar (y cuándo no)
+Delegar tiene costo (arranque en frío del subagente, más contexto, más ida y vuelta). **Hacelo vos**
+cuando:
+- es un **one-liner** o un fix de parámetro (p. ej. el `loop` de un `.ogg`, un umbral, un tinte);
+- toca **1 archivo** y lo resolvés en un par de tool calls;
+- es una edición puntual que ya sabés dónde va (no requiere anclaje/investigación).
+
+**Delegá** cuando el item:
+- toca **varios archivos/subsistemas** (o requiere el skill de bake);
+- es **paralelizable** con otros (clusters con archivos disjuntos);
+- necesita **investigación** o verificación extensa, o es un cambio grande con tests propios.
+
+Regla: el subagente se justifica por aislamiento de contexto y paralelismo, **no por cada minucia**.
+Y no dupliques: si ya lo asignaste a un agente, no lo hagas en paralelo.
+
 ## Loop vivo mientras corren los agentes (no dormirse)
 El usuario **no ve** a los subagentes: el chat es la única ventana. Delegar no es soltar y esperar;
 es seguir conduciendo. Mientras corren:
@@ -77,13 +92,17 @@ corrida entera: leé el log y separá el error ajeno del propio.
 # 1) PCK ARM64 (el target de make no re-ejecuta si ya existe: forzar)
 rm -f build/linux_arm64/odisea.pck
 make build/linux_arm64/odisea.pck
-# 2) Copiar SOLO el pck (fréná el juego en el device antes)
+# 2) Copiar SOLO el pck (rsync: reanudable, mejor que scp; fréná el juego antes)
 ssh root@angel.local 'pgrep -f odisea.frt | xargs -r kill'
-scp build/linux_arm64/odisea.pck root@angel.local:/storage/roms/ports/odisea/odisea.pck
+rsync -a --no-owner --no-group --inplace --partial --progress \
+  build/linux_arm64/odisea.pck root@angel.local:/storage/roms/ports/odisea/odisea.pck
 # 3) Verificar
 ssh root@angel.local 'md5sum /storage/roms/ports/odisea/odisea.pck'
 md5sum build/linux_arm64/odisea.pck
 ```
+Usá **rsync, no scp**: si el transfer se corta (p. ej. al vencer el timeout del comando), `--partial`
+retoma en vez de dejar el pck a medias en el device. `--no-owner --no-group` evita el warning
+`chown ... Operation not permitted` (inofensivo: solo permisos, el contenido queda bien).
 Ojo: `pgrep -f odisea.frt` desde un `ssh 'comando'` se auto-matchea el propio shell — usá un patrón
 que no esté en el comando, o `pgrep -x odisea.frt.aarch64`.
 

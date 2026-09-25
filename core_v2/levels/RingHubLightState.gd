@@ -34,9 +34,9 @@ export(NodePath) var button_path := NodePath("../Hub/PedestalLight")
 
 # --- Ambiente de escritorio (Environment duplicado por DarkLevelLighting) ---
 export(float, 0.0, 4.0, 0.01) var dark_ambient_energy := 0.02
-export(float, 0.0, 4.0, 0.01) var lit_ambient_energy := 1.2
+export(float, 0.0, 4.0, 0.01) var lit_ambient_energy := 1.5
 export(Color) var dark_background := Color(0.010, 0.014, 0.020)
-export(Color) var lit_background := Color(0.030, 0.040, 0.060)
+export(Color) var lit_background := Color(0.040, 0.055, 0.080)
 export(float, 0.0, 8.0, 0.05) var dark_sun_energy := 0.0
 export(float, 0.0, 8.0, 0.05) var lit_sun_energy := 1.5
 
@@ -53,6 +53,23 @@ export(float, 0.0, 8.0, 0.05) var lamp_off_emission := 0.0
 export(float, 0.0, 8.0, 0.05) var lamp_on_emission := 0.9
 export(Color) var lamp_off_albedo := Color(0.08, 0.10, 0.13)
 export(Color) var lamp_on_albedo := Color(0.72, 0.84, 1.0)
+
+# --- Luminarias simplificadas (una OmniLight por lampara de pared) ---
+# El pool de LightPathV2 persigue al jugador, asi que en LIT solo se ve el tramo
+# cercano. Estas 16 luces se crean por codigo en las posiciones horneadas de
+# "Markers" (una por lampara, sin geometria ni sombras) y le dan al domo una
+# iluminacion repartida: en LIT todo el anillo lee iluminado, no solo el pool.
+# Son parte del estado: _apply_level les mueve la energia igual que al resto.
+# En tier bajo/plano no se crean (los materiales unshaded no reciben luz real y
+# el MobileLightBudget apretaria su alcance): ahi ilumina el pool y _apply_flat.
+export(NodePath) var lamp_markers_path := NodePath("../Hub/WallLights/Markers")
+export(float, 0.0, 8.0, 0.05) var lamp_light_energy := 1.4
+export(float, 0.5, 60.0, 0.5) var lamp_light_range := 20.0
+export(Color) var lamp_light_color := Color(0.72, 0.84, 1.0)
+# La lampara esta montada contra la pared; correr la luz hacia el eje del domo
+# evita que su volumen se coma la pared y manda el aporte hacia adentro.
+export(float, -5.0, 5.0, 0.1) var lamp_inward_offset := 0.75
+export(bool) var lamp_lights_cast_shadow := false
 
 # --- Flicker ---
 # Tabla fija (0 = DARK, 1 = LIT) muestreada cada flicker_step_time. El patron de
@@ -79,6 +96,7 @@ var _wall_lights: Node = null
 var _fixtures: MultiMeshInstance = null
 var _fixture_materials := []
 var _pool_lights := []
+var _luminaries := []
 var _pool_base_energy := 0.8
 var _sound_player: AudioStreamPlayer = null
 
@@ -86,6 +104,7 @@ func _ready() -> void:
 	add_to_group("replay_sync")
 	_resolve_nodes()
 	_build_sound_player()
+	_build_luminaries()
 	_prepare_fixture_emission()
 	_connect_button()
 	set_process(false)
@@ -111,7 +130,11 @@ func toggle() -> void:
 	set_lit(not lit)
 
 func set_lit(value: bool) -> void:
-	if value == lit and not _flicker_active:
+	# Solo se reinicia si el target cambia. Hoy `lit` se fija al pedir el cambio,
+	# asi que una re-entrada con el mismo valor (dos `activated` seguidos, un
+	# restore, un consumidor que re-aplica el estado) no debe reiniciar el flicker
+	# ni volver a sonar.
+	if value == lit and (not _flicker_active or value == _flicker_target):
 		return
 	lit = value
 	_start_flicker(value)
@@ -165,6 +188,7 @@ func _apply_level(level: float) -> void:
 	_apply_flat(_level)
 	_apply_lamps(_level)
 	_apply_pool(_level)
+	_apply_luminaries(_level)
 
 func _apply_environment(level: float) -> void:
 	if _dark_lighting == null:
@@ -213,6 +237,21 @@ func _apply_pool(level: float) -> void:
 		if is_instance_valid(light):
 			light.light_energy = energy
 
+func _apply_luminaries(level: float) -> void:
+	if _luminaries.empty():
+		return
+	var energy: float = lamp_light_energy * level
+	# Apagadas del todo en reposo (0): una luz con energia 0 igual cuesta fillrate,
+	# asi que se ocultan. Durante el flicker el nivel intermedio solo baja energia,
+	# sin cambiar la cantidad de luces encendidas (eso evita recompilar variantes
+	# de shader a cada paso del patron).
+	var on: bool = energy > 0.01
+	for light in _luminaries:
+		if not is_instance_valid(light):
+			continue
+		light.light_energy = energy
+		light.visible = on
+
 # --- Resolucion de nodos / materiales --------------------------------------
 
 func _resolve_nodes() -> void:
@@ -230,6 +269,47 @@ func _collect_pool_lights() -> void:
 	for child in _wall_lights.get_children():
 		if child is OmniLight:
 			_pool_lights.append(child as OmniLight)
+
+# Crea una OmniLight por cada una de las 16 lamparas de pared, en las posiciones
+# horneadas de "Markers" (el mismo MultiMesh que usa el pool para colocarse). No
+# toca la escena: el nodo contenedor es runtime-only. Ver los exports arriba para
+# el porque de no crearlas en tier bajo/plano.
+func _build_luminaries() -> void:
+	_luminaries = []
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate != null:
+		if gate.has_method("is_flat_mode") and bool(gate.is_flat_mode()):
+			return
+		if gate.has_method("is_low_tier") and bool(gate.is_low_tier()):
+			return
+	# Movil: 16 luces reales son fillrate puro y el MobileLightBudget igual les
+	# recortaria el alcance, dejando un efecto debil. Se deja solo el pool (+ el
+	# ambiente). ODISEA_FORCE_MOBILE_PROFILE=1 reproduce esta ruta desde desktop.
+	var mobile_env := OS.get_environment("ODISEA_FORCE_MOBILE_PROFILE")
+	if OS.get_name() in ["Android", "iOS"] or mobile_env in ["1", "true", "yes", "on"]:
+		return
+	var markers := get_node_or_null(lamp_markers_path) as MultiMeshInstance
+	if markers == null or markers.multimesh == null:
+		return
+	var holder := Spatial.new()
+	holder.name = "Luminaries"
+	add_child(holder)
+	for index in range(markers.multimesh.instance_count):
+		var local: Vector3 = markers.multimesh.get_instance_transform(index).origin
+		var world: Vector3 = markers.global_transform.xform(local)
+		var inward := Vector3(-world.x, 0.0, -world.z)
+		if inward.length_squared() > 0.0001:
+			world += inward.normalized() * lamp_inward_offset
+		var light := OmniLight.new()
+		light.name = "Luminary_%02d" % index
+		light.light_color = lamp_light_color
+		light.light_energy = 0.0
+		light.omni_range = lamp_light_range
+		light.shadow_enabled = lamp_lights_cast_shadow
+		light.visible = false
+		holder.add_child(light)
+		light.global_transform = Transform(Basis(), world)
+		_luminaries.append(light)
 
 # Duplica mesh y multimesh del batch de fixtures y guarda el material de la
 # superficie de vidrio para poder animar su emision/albedo. No muta el recurso
@@ -284,7 +364,15 @@ func _build_sound_player() -> void:
 		return
 	_sound_player = AudioStreamPlayer.new()
 	_sound_player.name = "SwitchSound"
-	_sound_player.stream = switch_sound
+	# El .ogg esta importado con loop=true porque las wall lights de Dome_Intro lo
+	# usan como zumbido continuo. Aca es un efecto one-shot: se duplica el recurso
+	# (NO se muta el compartido) y se apaga el loop solo en la copia del player.
+	var stream: AudioStream = switch_sound
+	var copy: Resource = switch_sound.duplicate()
+	if copy != null and "loop" in copy:
+		copy.set("loop", false)
+		stream = copy as AudioStream
+	_sound_player.stream = stream
 	_sound_player.volume_db = switch_sound_db
 	add_child(_sound_player)
 

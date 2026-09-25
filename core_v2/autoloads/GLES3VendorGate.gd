@@ -15,6 +15,11 @@ extends Node
 # no por escena: los levels siguen compartiendo sus .tres en desktop/iOS.
 
 const VENDOR_TAG := "mali"
+# Piso de luminancia del modo plano: se aplica al canal MAS ALTO del albedo,
+# escalando el resto para conservar la proporcion entre canales. Recortar canal
+# por canal (el viejo max(0.14, c)) igualaba r=g=b y volvia gris cualquier tinte
+# oscuro. Ver _flat_material.
+const FLAT_FLOOR_MIN := 0.14
 # Modo plano unshaded: un shader de "shading falso" (lambert de una direccion en
 # espacio de camara + AO vertical) para que las formas se lean sin costo de PBR.
 const FLAT_FAKE_SHADER = preload("res://core_v2/visual/FlatFake.shader")
@@ -260,6 +265,10 @@ var _flashlight_accum := 0.0
 var _world_light := 0.05
 var _glow_floor := 0.35
 var _flat_debug_seen := {}
+# Test seam: ultimo albedo plano calculado por _flat_material (ya con el piso de
+# luminancia). En headless el rasterizer dummy no compila shaders y
+# get_shader_param devuelve null, asi que los tests leen el color desde aca.
+var _last_flat_color := Color(0, 0, 0, 0)
 # "1" = un solo material plano gris para todo (techo de ganancia, rompe el look).
 # "2" = solo SpatialMaterial pasa a unshaded conservando albedo color/textura (los
 #       ShaderMaterial del proyecto quedan sombreados, asi no se rompen).
@@ -611,6 +620,18 @@ func _keeps_own_material(node: Node, src) -> bool:
 					return true
 	return false
 
+# Un material ya aplanado (FlatFake*) no debe usarse como fuente de color: si un
+# nodo se reprocesa (reparent), el unico material visible es el plano y extraerle
+# el color daria negro -> paleta por nombre, perdiendo el tinte real. Con esto el
+# override solo manda cuando es un material de verdad, no una huella del gate.
+func _is_flat_material(mat) -> bool:
+	if not (mat is ShaderMaterial):
+		return false
+	var sh := mat as ShaderMaterial
+	if sh.shader == null:
+		return false
+	return str(sh.shader.resource_path).find("FlatFake") != -1
+
 # Color plano del material original: albedo_color (SpatialMaterial) o los uniforms mas
 # comunes de los shaders del proyecto, por color dominante de la textura. `hint` (nodo +
 # mesh) alimenta la paleta de respaldo y los overrides por nombre.
@@ -673,8 +694,17 @@ func _flat_material(source, hint: String = "") -> ShaderMaterial:
 		# Sin luz, un albedo promedio suele quedar apagado: leve levantada.
 		color = color.lightened(0.04)
 
-	# Sin luz, un plano muy oscuro se pierde: piso de 0.14 por canal.
-	color = Color(max(0.14, color.r), max(0.14, color.g), max(0.14, color.b), 1.0)
+	# Sin luz, un plano muy oscuro se pierde: piso de FLAT_FLOOR_MIN en el canal
+	# MAS ALTO, escalando el resto para conservar la proporcion. El clamp por canal
+	# igualaba r=g=b y convertia cualquier tinte oscuro en un gris neutro (pared
+	# azulada del domo, fondos); escalar mantiene el tono con el mismo brillo
+	# maximo que tenia el piso anterior. Un color ya por encima del piso no se toca
+	# (barandas, vidrios, pisos claros: sin cambios).
+	var peak := max(color.r, max(color.g, color.b))
+	if peak > 0.0 and peak < FLAT_FLOOR_MIN:
+		var k := FLAT_FLOOR_MIN / peak
+		color = Color(color.r * k, color.g * k, color.b * k, 1.0)
+	_last_flat_color = color
 	# Emisivos: vidrios de criopods, holos, luces. No se sombrean (quedan "encendidos").
 	var ht := name_hint.to_lower()
 	var glow := 0.0
@@ -797,19 +827,26 @@ func _low_tier_node(node: Node) -> void:
 			# piso) en un CombinedMesh con varios materiales; el color tiene que salir
 			# del material de cada superficie, no del nombre del nodo.
 			if node is MeshInstance and mesh != null:
-				# El material_override le gana a TODO material por superficie: sin
-				# soltarlo, lo que sigue es codigo muerto y el prop sigue dibujando
-				# su material original (asi las rejillas de SteelGratePlatform seguian
-				# transparentes, con su alpha scissor intacto). Se usa primero como
-				# fuente de color y recien despues se suelta.
+				# El material_override le gana a TODO material por superficie y es lo
+				# que se ve en desktop: tiene que ser la fuente de color PRINCIPAL, no
+				# el ultimo fallback. El shell del domo de RingHub lo prueba: su malla
+				# (`DomeInteriorLowPoly_baked.mesh`) trae embebido un gris claro
+				# (M_DomeInteriorLowPoly) y el tinte azulado oscuro vive en el override
+				# (`RingHub_DomeShell.tres`). Con surface-first el flat tomaba el gris
+				# embebido y la pared salia "gris clarito" sin el azulado de desktop.
+				# Se sigue soltando el override para que los planos por superficie se
+				# apliquen (rejillas, alpha scissor).
 				var ov_src = node.material_override
 				node.material_override = null
+				var ov_covers: bool = ov_src != null and not _is_flat_material(ov_src)
 				for s in range(mesh.get_surface_count()):
-					var ssrc = node.get_surface_material(s)
+					var ssrc = null
+					if ov_covers:
+						ssrc = ov_src
+					else:
+						ssrc = node.get_surface_material(s)
 					if ssrc == null:
 						ssrc = mesh.surface_get_material(s)
-					if ssrc == null:
-						ssrc = ov_src
 					var shint := hint
 					if ssrc != null:
 						if "resource_path" in ssrc:

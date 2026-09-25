@@ -157,6 +157,12 @@ func _pairing_prompt_open() -> bool:
 func _apply_menu_visibility() -> void:
 	if pause_menu_instance and pause_menu_instance.has_method("set_minimal"):
 		pause_menu_instance.set_minimal(_menu_hidden_by_focus)
+	# El menu minimal (pausa pasiva) no pide el cursor. Si venimos del menu expandido el puntero
+	# quedo liberado; hay que soltarlo SIEMPRE que el menu se oculta (timeout, clic fuera, etc.),
+	# o el mouse virtual sigue visible en la pausa pasiva. Cantralizado aca: todos los caminos
+	# que ocultan el menu pasan por esta funcion.
+	if _menu_hidden_by_focus:
+		VirtualMouseScript.set_pointer_released(false)
 
 func _on_window_focus_gained() -> void:
 	if get_tree().paused and _menu_hidden_by_focus:
@@ -290,9 +296,6 @@ func enter_passive_pause_menu_hidden() -> void:
 		return
 	_menu_hidden_by_focus = true
 	_menu_idle_timer = 0.0
-	# El menu minimal no pide el cursor: si veniamos del menu expandido (puntero liberado), hay que
-	# soltarlo para que el mouse virtual desaparezca en la pausa pasiva.
-	VirtualMouseScript.set_pointer_released(false)
 	_apply_menu_visibility()
 	_start_passive_orbit()
 

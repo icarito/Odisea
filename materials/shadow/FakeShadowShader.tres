@@ -19,6 +19,32 @@ uniform float opacity : hint_range(0.0, 1.0) = 1.0;
 uniform float rim_strength : hint_range(0.0, 1.0) = 0.35;
 uniform float rim_width : hint_range(0.0, 0.3) = 0.05;
 uniform vec3 rim_color = vec3(0.42, 0.44, 0.47);
+// Dither (retícula halftone procedural, sin textura). En modo DARK el núcleo
+// negro del blob no contrasta sobre un piso casi negro y la sombra deja de
+// leerse; un patrón ordenado de puntos levemente claros sobre el área del blob
+// le devuelve el contraste al ojo sin pases extra. dither_strength = intensidad
+// del velo claro (0.0 = look legacy, sin dither); dither_scale = tamaño en
+// píxeles de la celda del patrón (más chico = retícula más fina). El patrón es
+// función de FRAGCOORD (espacio de pantalla), no del tiempo ni de rand: determinista.
+uniform float dither_strength : hint_range(0.0, 1.0) = 0.15;
+uniform float dither_scale : hint_range(0.5, 8.0) = 1.5;
+// cue_only = 1.0 dibuja SOLO el aro dithered (apaga nucleo negro y filo solidos).
+// Lo usa el cue que se superpone a la BlobShadow analitica de desktop en piso DARK:
+// aporta la reticula de legibilidad sin duplicar el oscurecido ni ensuciar el piso
+// claro. 0.0 = quad legacy normal (nucleo + filo).
+uniform float cue_only : hint_range(0.0, 1.0) = 0.0;
+
+// Bayer 4x4 fijo (mismo que prop_dither_occlusion): ~pocas ALU, sin textura, y
+// con mod() queda en [0,4) así que no sufre la pérdida de precisión mediump de
+// FRAGCOORD grande (las diagonales que arruinaban el IGN en Android GLES2).
+float bayer4(vec2 p) {
+	float x = mod(floor(p.x), 4.0);
+	float y = mod(floor(p.y), 4.0);
+	if (y < 1.0) return (x < 1.0 ? 0.0 : (x < 2.0 ? 8.0 : (x < 3.0 ? 2.0 : 10.0))) / 16.0;
+	if (y < 2.0) return (x < 1.0 ? 12.0 : (x < 2.0 ? 4.0 : (x < 3.0 ? 14.0 : 6.0))) / 16.0;
+	if (y < 3.0) return (x < 1.0 ? 3.0 : (x < 2.0 ? 11.0 : (x < 3.0 ? 1.0 : 9.0))) / 16.0;
+	return (x < 1.0 ? 15.0 : (x < 2.0 ? 7.0 : (x < 3.0 ? 13.0 : 5.0))) / 16.0;
+}
 
 void fragment() {
 	// Center UV
@@ -67,10 +93,22 @@ void fragment() {
 	float rim = smoothstep(rim_in, 0.25, dist_sq)
 		* (1.0 - smoothstep(0.25, max(rim_out, 0.2501), dist_sq));
 	
-	float a_core = core * COLOR.a * opacity;
-	float a_rim = rim * COLOR.a * opacity * rim_strength;
-	ALBEDO = mix(vec3(0.0, 0.0, 0.0), rim_color, a_rim / max(a_core + a_rim, 0.0001));
-	ALPHA = clamp(a_core + a_rim, 0.0, 1.0); 
+	float a_core = core * COLOR.a * opacity * (1.0 - cue_only);
+	float a_rim = rim * COLOR.a * opacity * rim_strength * (1.0 - cue_only);
+	// Halftone dithered: Bayer 4x4 en espacio de pantalla (FRAGCOORD), ~50% de
+	// los píxeles del blob reciben un velo claro tenue. Sólo dentro de la forma
+	// (core) y proporcional a dither_strength (0.0 = legacy, sin dither). En piso
+	// claro el núcleo negro (a_core) sigue mandando; en piso DARK el velo da la
+	// retícula que el ojo detecta aunque el piso esté negro. Con cue_only=1 el velo
+	// se aplica sobre el contorno (rim) y no sobre el núcleo, para superponerse a la
+	// blob sin oscurecer.
+	float dither_mask = mix(core, rim, cue_only);
+	float bayer = bayer4(FRAGCOORD.xy / max(dither_scale, 0.5));
+	float dither = step(bayer, 0.5);
+	float a_dither = dither * dither_mask * COLOR.a * opacity * dither_strength;
+	float a_light = a_rim + a_dither;
+	ALBEDO = mix(vec3(0.0, 0.0, 0.0), rim_color, a_light / max(a_core + a_light, 0.0001));
+	ALPHA = clamp(a_core + a_light, 0.0, 1.0); 
 }
 "
 
@@ -85,3 +123,6 @@ shader_param/opacity = 1.0
 shader_param/rim_strength = 0.35
 shader_param/rim_width = 0.05
 shader_param/rim_color = Vector3( 0.42, 0.44, 0.47 )
+shader_param/dither_strength = 0.15
+shader_param/dither_scale = 1.5
+shader_param/cue_only = 0.0

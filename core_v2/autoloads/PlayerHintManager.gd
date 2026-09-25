@@ -145,9 +145,14 @@ func get_visible_text() -> String:
 		return _status_text
 	if _manual_text != "":
 		return _manual_text
+	# Fuente liberada (streaming en LOW, cambio de escena): el texto de interaccion ya no
+	# representa nada vigente y no debe quedar como hint pegado.
+	if _interaction_source != null and not is_instance_valid(_interaction_source):
+		return ""
 	return _interaction_text
 
 func _refresh_visible_hint() -> void:
+	_prune_invalid_interaction_source()
 	_prune_expired_manual()
 	_prune_expired_status()
 	var text := get_visible_text()
@@ -215,6 +220,15 @@ func _context_title(source: Node) -> String:
 		if custom != "":
 			return custom
 	return String(source.name).replace("_", " ")
+
+# El prop en rango puede liberarse (streaming en LOW, cambio de escena) sin que nadie llame
+# clear_interaction_hint. Se suelta la fuente muerta para que el widget no quede pegado. Con
+# fuente nula (hints de interaccion sin nodo, p. ej. SignagePanel) no se toca el texto.
+func _prune_invalid_interaction_source() -> void:
+	if _interaction_source != null and not is_instance_valid(_interaction_source):
+		_disconnect_source_state()
+		_interaction_source = null
+		_interaction_text = ""
 
 func _prune_expired_manual() -> void:
 	if _manual_text == "":

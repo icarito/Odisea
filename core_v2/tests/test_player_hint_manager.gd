@@ -112,6 +112,37 @@ func test_interaction_hint_widget_sits_at_the_bottom_centered() -> void:
 	manager.queue_free()
 
 
+func test_freed_interaction_source_drops_the_context_widget() -> void:
+	# En low-tier el prop puede salir del stream y liberarse con el jugador todavia en rango:
+	# el hint no debe quedar pegado mostrando una fuente muerta.
+	for i in range(4):
+		SuitOS.clear_slot(i)
+	var manager = PlayerHintManager.new()
+	add_child(manager)
+	var source := Node.new()
+	source.name = "Caja_Herramientas"
+	add_child(source)
+	manager.show_interaction_hint("Interactuar", source)
+	assert_bool(bool(manager.get("_context_showing"))).is_true()
+	source.free()
+	manager.call("_refresh_visible_hint")
+	assert_str(manager.get_visible_text()).is_equal("")
+	assert_bool(bool(manager.get("_context_showing"))).is_false()
+	manager.queue_free()
+
+
+func test_interaction_hint_without_source_still_shows() -> void:
+	# El hint de interaccion sin nodo (p. ej. SignagePanel) no debe confundirse con
+	# una fuente liberada: su texto sigue vigente.
+	var manager = PlayerHintManager.new()
+	add_child(manager)
+	manager.show_interaction_hint("Leer cartel")
+	assert_str(manager.get_visible_text()).is_equal("Leer cartel")
+	manager.call("_refresh_visible_hint")
+	assert_str(manager.get_visible_text()).is_equal("Leer cartel")
+	manager.queue_free()
+
+
 func test_context_widget_is_reactive_to_the_source_state() -> void:
 	# El verbo del pie cambia solo cuando el prop cambia de estado (Abrir <-> Cerrar).
 	for i in range(4):

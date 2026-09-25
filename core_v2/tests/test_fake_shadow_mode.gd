@@ -124,6 +124,104 @@ func test_shader_has_thin_rim_params() -> void:
 	assert_bool(code.find("shader_param/rim_color = Vector3( 0.42, 0.44, 0.47 )") != -1).is_true()
 
 
+# --- O8d: dither halftone para que el blob se lea sobre piso oscuro (DARK) ---
+
+func test_dither_defaults_and_zero_is_legacy() -> void:
+	# Defaults tuneables en device. dither_strength=0 debe ser el look legacy
+	# (sin dither), por eso el default es > 0 pero bajo (cue sutil, no neon).
+	var fs: MeshInstance = FakeShadowScript.new()
+	assert_float(fs.dither_strength).is_greater(0.0)
+	assert_float(fs.dither_strength).is_less_equal(0.5)
+	assert_float(fs.dither_scale).is_greater_equal(0.5)
+	assert_float(fs.dither_scale).is_less_equal(8.0)
+	# El shader lee 0.0 como apagado (a_dither = 0).
+	assert_float(fs.dither_strength).is_not_equal(0.0)
+	fs.free()
+
+
+func test_shader_has_procedural_dither() -> void:
+	# Sin compilar GLSL en headless, lockeamos el texto del .tres: los uniforms,
+	# sus defaults y el patron Bayer procedural (sin textura nueva ni TIME/rand).
+	var f := File.new()
+	assert_int(f.open("res://materials/shadow/FakeShadowShader.tres", File.READ)).is_equal(OK)
+	var code: String = f.get_as_text()
+	f.close()
+	assert_bool(code.find("uniform float dither_strength") != -1).is_true()
+	assert_bool(code.find("uniform float dither_scale") != -1).is_true()
+	assert_bool(code.find("shader_param/dither_strength = 0.15") != -1).is_true()
+	assert_bool(code.find("shader_param/dither_scale = 1.5") != -1).is_true()
+	# Patron procedural ordenado por posicion de pantalla (determinista).
+	assert_bool(code.find("bayer4(") != -1).is_true()
+	assert_bool(code.find("FRAGCOORD") != -1).is_true()
+	assert_bool(code.find("a_dither") != -1).is_true()
+	# No debe depender de TIME ni de aleatoriedad (determinismo).
+	assert_bool(code.find("TIME") == -1).is_true()
+	assert_bool(code.find("rand(") == -1).is_true()
+
+
+# --- O8t: cue dithered para el camino BlobShadow (desktop/DARK) ---
+
+func test_blob_cue_defaults_are_subtle_and_zero_is_off() -> void:
+	# El cue es tenue (se superpone a la blob) y tuneable: 0.0 = sin cue.
+	var fs: MeshInstance = FakeShadowScript.new()
+	assert_float(fs.blob_cue_strength).is_greater(0.0)
+	assert_float(fs.blob_cue_strength).is_less_equal(0.5)
+	assert_float(fs.blob_cue_scale).is_greater_equal(0.5)
+	assert_float(fs.blob_cue_scale).is_less_equal(8.0)
+	fs.free()
+
+
+func test_blob_cue_gated_off_on_low_tier_and_strength_zero() -> void:
+	# tier LOW: no se agrega cue (el piloto ya usa el quad legacy, sin coste extra).
+	_set_low_tier(true)
+	var fs: MeshInstance = FakeShadowScript.new()
+	add_child(fs)
+	fs._setup_blob_cue()
+	assert_bool(fs._blob_cue == null).is_true()
+	fs.free()
+	# blob_cue_strength = 0.0 tambien lo apaga en desktop.
+	_set_low_tier(false)
+	var fs2: MeshInstance = FakeShadowScript.new()
+	fs2.blob_cue_strength = 0.0
+	add_child(fs2)
+	fs2._setup_blob_cue()
+	assert_bool(fs2._blob_cue == null).is_true()
+	fs2.free()
+
+
+func test_blob_cue_created_on_desktop_with_own_material() -> void:
+	# Desktop (no low tier): el cue existe, es un quad unshaded con material propio
+	# (no toca el .tres compartido del camino grid/cheap) y su rayo de piso.
+	_set_low_tier(false)
+	var fs: MeshInstance = FakeShadowScript.new()
+	add_child(fs)
+	fs._setup_blob_cue()
+	assert_bool(fs._blob_cue != null).is_true()
+	assert_bool(fs._blob_cue.mesh is PlaneMesh).is_true()
+	assert_bool(fs._blob_cue.material_override != null).is_true()
+	assert_bool(fs._blob_cue_ray != null).is_true()
+	# El material del cue es una copia, no el recurso compartido por grid/cheap.
+	var shared: ShaderMaterial = load("res://materials/shadow/FakeShadowShader.tres")
+	assert_bool(fs._blob_cue.material_override != shared).is_true()
+	fs.free()
+
+
+func test_shader_has_cue_only_mode() -> void:
+	# Sin compilar GLSL en headless, lockeamos el texto del .tres: el uniform
+	# cue_only, su default y su uso (apaga nucleo/filo y aplica el dither al aro).
+	var f := File.new()
+	assert_int(f.open("res://materials/shadow/FakeShadowShader.tres", File.READ)).is_equal(OK)
+	var code: String = f.get_as_text()
+	f.close()
+	assert_bool(code.find("uniform float cue_only") != -1).is_true()
+	assert_bool(code.find("shader_param/cue_only = 0.0") != -1).is_true()
+	assert_bool(code.find("1.0 - cue_only") != -1).is_true()
+	assert_bool(code.find("mix(core, rim, cue_only)") != -1).is_true()
+	# Determinismo: reusa el Bayer por FRAGCOORD, sin TIME/rand.
+	assert_bool(code.find("TIME") == -1).is_true()
+	assert_bool(code.find("rand(") == -1).is_true()
+
+
 func test_cheap_actor_follows_every_frame() -> void:
 	_set_low_tier(true)
 	var fs := _make_shadow()

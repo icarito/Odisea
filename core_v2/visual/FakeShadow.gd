@@ -42,6 +42,25 @@ export(float, 0.1, 1.0) var cheap_opacity: float = 0.78
 export(float, 0.0, 1.0) var rim_strength: float = 0.35
 export(float, 0.0, 0.3) var rim_width: float = 0.05
 export(Color) var rim_color: Color = Color(0.42, 0.44, 0.47)
+# Dither (retícula halftone procedural en el shader, Bayer 4x4 sin textura): en
+# modo DARK el núcleo negro no contrasta sobre el piso oscuro y el blob deja de
+# leerse. Un velo claro dithered (~50% de píxeles) le devuelve el contraste al
+# ojo, barato (unas pocas ALU, sin pases ni texturas). dither_strength = 0.0
+# recupera el look legacy (sin dither); dither_scale = tamaño en píxeles de la
+# celda del patrón (más chico = retícula más fina). Ambos tuneables en device.
+export(float, 0.0, 1.0) var dither_strength: float = 0.15
+export(float, 0.5, 8.0) var dither_scale: float = 1.5
+# Cue dithered para el camino BlobShadow (desktop con el fork): la blob analítica es
+# la mejor sombra y NO dibuja el quad, asi que sobre piso DARK (nivel sin luz) el
+# nucleo negro no se lee y la sombra desaparece. Este cue agrega UN quad extra (sin
+# raycasts extra: reusa un unico rayo de piso) con el mismo shader y un
+# dither_strength bajo, dibujando un aro halftone tenue sobre el contorno del
+# footprint. No oscurece (cue_only apaga nucleo y filo) para no competir con la blob
+# en piso claro. blob_cue_strength = 0.0 lo apaga (vuelve al look de solo blob);
+# blob_cue_scale = celda del patron Bayer. Solo se agrega al piloto en desktop (en
+# tier LOW el piloto ya usa el quad legacy, no hace falta).
+export(float, 0.0, 1.0) var blob_cue_strength: float = 0.25
+export(float, 0.5, 8.0) var blob_cue_scale: float = 2.0
 # El shadow se reposiciona en _process leyendo la transform YA interpolada del actor:
 # si el motor lo vuelve a interpolar, se dibuja 1+ tick atras (lag de varios frames).
 export(bool) var disable_shadow_interpolation: bool = true
@@ -82,6 +101,10 @@ var _cheap_ground_y := 0.0
 var _blob_mode := false
 var _blob_caster: Node = null
 var _blob_rig: Node = null
+# Cue dithered de legibilidad para DARK en el camino blob (desktop). Es un quad hijo
+# independiente del caster analitico; null = cue apagado (strength 0 o no-piloto).
+var _blob_cue: MeshInstance = null
+var _blob_cue_ray: RayCast = null
 
 func _ready() -> void:
 	var disable_env := OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW").to_lower()
@@ -146,6 +169,9 @@ func _ready() -> void:
 	material_override.set_shader_param("rim_strength", rim_strength)
 	material_override.set_shader_param("rim_width", rim_width)
 	material_override.set_shader_param("rim_color", rim_color)
+	# Dither (0.0 = legacy): velo halftone que hace legible el blob en DARK.
+	material_override.set_shader_param("dither_strength", dither_strength)
+	material_override.set_shader_param("dither_scale", dither_scale)
 
 	if shadow_mode == "grid":
 		_create_rays()
@@ -233,6 +259,10 @@ func _setup_blob_shadow() -> void:
 	if _blob_rig.has_method("set_light_param"):
 		_blob_rig.call("set_light_param", 2, clamp(base_opacity, 0.0, 1.0)) # INTENSITY
 		_blob_rig.call("set_light_param", 0, clamp(hardness, 0.0, 1.0)) # RANGE_HARDNESS
+	# Cue de legibilidad DARK: solo para el piloto (gameplay) sobre la blob analitica.
+	# En tier LOW el piloto va por el quad legacy (flat) o queda sin costo extra.
+	if _is_pilot_owner():
+		_setup_blob_cue()
 	print("[FakeShadow] usando BlobShadow real (radius=", radius, ")")
 
 func _get_or_create_blob_rig() -> Node:
@@ -268,6 +298,62 @@ func _process_blob_shadow() -> void:
 	var center_pos = _get_anchor_center_pos(parent)
 	center_pos.y += max(0.02, vertical_offset)
 	_blob_caster.global_transform.origin = center_pos
+	_update_blob_cue(center_pos)
+
+func _setup_blob_cue() -> void:
+	# blob_cue_strength = 0.0 => sin cue (look de solo blob). El cue es un quad unshaded
+	# con el mismo shader; cue_only apaga nucleo/filo solidos y deja solo el aro
+	# dithered, asi que no oscurece ni ensucia el piso claro.
+	if blob_cue_strength <= 0.0:
+		return
+	# En tier LOW no se agrega (el piloto ya usa el quad legacy; la blob es la sombra
+	# barata). Mantiene el gate por is_low_tier() sin agregar coste en low-end.
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate != null and gate.has_method("is_low_tier") and gate.is_low_tier():
+		return
+	var mat: ShaderMaterial = preload("res://materials/shadow/FakeShadowShader.tres").duplicate()
+	# Material propio: no toca el .tres compartido por el camino grid/cheap.
+	mat.render_priority = -1
+	mat.set_shader_param("hardness", hardness)
+	mat.set_shader_param("uv_scale", cheap_uv_scale)
+	mat.set_shader_param("opacity", cheap_opacity)
+	mat.set_shader_param("rim_width", rim_width)
+	mat.set_shader_param("rim_strength", 0.0) # solo dither, sin filo solido
+	mat.set_shader_param("cue_only", 1.0)
+	mat.set_shader_param("dither_strength", blob_cue_strength)
+	mat.set_shader_param("dither_scale", blob_cue_scale)
+
+	_blob_cue = MeshInstance.new()
+	_blob_cue.name = "BlobCue"
+	_blob_cue.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	var plane = PlaneMesh.new()
+	plane.size = Vector2(max(0.05, radius * 2.0), max(0.05, radius * 2.0))
+	_blob_cue.mesh = plane
+	_blob_cue.material_override = mat
+	_blob_cue.set_as_toplevel(true)
+	add_child(_blob_cue)
+
+	# Un unico rayo para pegar el cue al piso (mismo costo que el piloto en cheap).
+	_blob_cue_ray = RayCast.new()
+	_blob_cue_ray.name = "BlobCueRay"
+	_blob_cue_ray.enabled = true
+	_blob_cue_ray.collision_mask = ground_collision_mask
+	_blob_cue_ray.cast_to = Vector3(0, -max_distance - 1.0, 0)
+	add_child(_blob_cue_ray)
+	_handle_exclusions()
+
+func _update_blob_cue(center_pos: Vector3) -> void:
+	if _blob_cue == null or not is_instance_valid(_blob_cue):
+		return
+	var ground_y := center_pos.y - max_distance + vertical_offset
+	if _blob_cue_ray != null:
+		_blob_cue_ray.global_transform.origin = center_pos + Vector3(0, 1.0, 0)
+		_blob_cue_ray.cast_to = Vector3(0, -max_distance - 1.0, 0)
+		_blob_cue_ray.force_raycast_update()
+		if _blob_cue_ray.is_colliding():
+			ground_y = _blob_cue_ray.get_collision_point().y + vertical_offset
+	# Offset minimo extra sobre el piso para no pelear profundidad con la blob.
+	_blob_cue.global_transform = Transform(Basis.IDENTITY, Vector3(center_pos.x, ground_y + 0.004, center_pos.z))
 
 func _create_rays() -> void:
 	# (FD-290) Ya no se crean nodos RayCast para la grilla: los offsets se arman bajo
@@ -531,6 +617,8 @@ func _handle_exclusions() -> void:
 		_exclude_list.append(actor)
 		if _cheap_ray:
 			_cheap_ray.add_exception(actor)
+		if _blob_cue_ray:
+			_blob_cue_ray.add_exception(actor)
 		_actor_excluded = true
 
 func _generate_mesh() -> void:

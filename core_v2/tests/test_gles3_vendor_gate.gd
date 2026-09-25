@@ -367,6 +367,132 @@ func test_low_end_profile_defaults_to_640x480():
 	sm.set("low_end_forced", true)
 	assert_vector2(sm.default_render_resolution()).is_equal(Vector2(640, 480))
 
+# --- Modo plano: color del shell del domo de RingHub (pared "gris clarito") ---------------
+#
+# La malla horneada (DomeInteriorLowPoly_baked.mesh) trae embebido un gris claro
+# (M_DomeInteriorLowPoly, albedo ~0.38) y el tinte azulado oscuro de desktop vive en el
+# material_override del nodo (RingHub_DomeShell.tres). El modo plano soltaba el override y
+# tomaba el material por superficie ANTES que el override, asi que la pared salia del gris
+# embebido. Estos tests fijan el color plano resultante (seam _last_flat_color: en headless
+# el rasterizer dummy no compila shaders y get_shader_param devuelve null).
+
+# Textura solida para no depender del .stex importado (en headless llega un placeholder
+# negro de 8x8). El valor es el color representativo real del diff de hormigon (0.199,
+# 0.186, 0.175), medido sobre hangar_concrete_floor_diff_1k.png.
+func _solid_texture(c: Color) -> ImageTexture:
+	var img := Image.new()
+	img.create(4, 4, false, Image.FORMAT_RGBA8)
+	img.fill(c)
+	var t := ImageTexture.new()
+	t.create_from_image(img, 0)
+	return t
+
+func test_flat_dome_shell_keeps_desktop_blue_tint():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._unshaded_mode = "3"
+
+	var concrete = auto_free(_solid_texture(Color(0.199, 0.186, 0.175, 1.0)))
+	var dome = auto_free(SpatialMaterial.new())
+	dome.resource_name = "M_RingHubDomeShell"
+	dome.albedo_color = Color(0.62, 0.74, 0.88, 1.0)
+	dome.albedo_texture = concrete
+
+	# Material embebido de la malla horneada: gris claro, sin textura.
+	var baked = auto_free(SpatialMaterial.new())
+	baked.resource_name = "M_DomeInteriorLowPoly"
+	baked.albedo_color = Color(0.373427, 0.395881, 0.423583, 1.0)
+	var mesh = auto_free(CubeMesh.new())
+	mesh.surface_set_material(0, baked)
+
+	var mi = auto_free(MeshInstance.new())
+	mi.name = "DomeMesh"
+	mi.mesh = mesh
+	mi.material_override = dome
+	add_child(mi)
+
+	var flat: Color = gate._last_flat_color
+	# El color esperado es el mismo que arma el pipeline: albedo del override * hormigon,
+	# con la leve levantada; el piso no lo toca porque el canal maximo (b) supera 0.14.
+	var expected := Color(0.62 * 0.199, 0.74 * 0.186, 0.88 * 0.175, 1.0).lightened(0.04)
+	assert_vector3(Vector3(flat.r, flat.g, flat.b)).is_equal_approx(
+			Vector3(expected.r, expected.g, expected.b), Vector3(0.002, 0.002, 0.002))
+	# Azulado y oscuro: comparable a desktop, no el gris claro embebido (0.38-0.42).
+	assert_float(flat.b).is_greater(flat.r)
+	assert_float(flat.b).is_greater(flat.g)
+	assert_float(flat.r).is_less(0.20)
+
+func test_flat_dome_shell_falls_back_to_override_when_mesh_is_gray():
+	# Control del caso anterior: sin el override, el gris embebido se aplanaba CLARO y
+	# neutro (asi se veia el bug). Sirve de contraste antes/despues en el reporte.
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._unshaded_mode = "3"
+
+	var baked = auto_free(SpatialMaterial.new())
+	baked.resource_name = "M_DomeInteriorLowPoly"
+	baked.albedo_color = Color(0.373427, 0.395881, 0.423583, 1.0)
+	var mesh = auto_free(CubeMesh.new())
+	mesh.surface_set_material(0, baked)
+	var mi = auto_free(MeshInstance.new())
+	mi.name = "DomeMesh"
+	mi.mesh = mesh
+	add_child(mi)
+
+	var flat: Color = gate._last_flat_color
+	assert_float(flat.r).is_greater(0.30)
+	# El gris es practicamente neutro: los canales quedan casi igualados.
+	assert_float(abs(flat.b - flat.r)).is_less(0.08)
+
+# El piso de luminancia se aplica al canal MAS ALTO escalando el resto: un tinte oscuro
+# conserva la proporcion entre canales en vez de colapsar a gris neutro.
+func test_flat_floor_preserves_hue_of_dark_materials():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._unshaded_mode = "3"
+
+	var dark = auto_free(SpatialMaterial.new())
+	dark.resource_name = "some_dark_prop"
+	dark.albedo_color = Color(0.09, 0.06, 0.03, 1.0)
+	var mi = auto_free(MeshInstance.new())
+	mi.name = "SomeProp"
+	mi.mesh = auto_free(CubeMesh.new())
+	mi.material_override = dark
+	add_child(mi)
+
+	var flat: Color = gate._last_flat_color
+	assert_float(flat.r).is_equal_approx(GateScript.FLAT_FLOOR_MIN, 0.002)
+	# Orden y proporcion de canales preservados (r>g>b como el original 0.09>0.06>0.03).
+	assert_float(flat.r).is_greater(flat.g)
+	assert_float(flat.g).is_greater(flat.b)
+	var lit: Color = dark.albedo_color.lightened(0.04)
+	assert_float(flat.g / flat.r).is_equal_approx(lit.g / lit.r, 0.01)
+
+# Un color ya por encima del piso NO se escala ni se recorta: los props claros (barandas,
+# vidrios, pisos) quedan igual que antes del cambio.
+func test_flat_floor_leaves_colors_above_floor_untouched():
+	var gate = auto_free(GateScript.new())
+	gate.force_gate = true
+	add_child(gate)
+	gate._unshaded_mode = "3"
+
+	var rail = auto_free(SpatialMaterial.new())
+	rail.resource_name = "some_rail"
+	rail.albedo_color = Color(0.88, 0.70, 0.15, 1.0)
+	var mi = auto_free(MeshInstance.new())
+	mi.name = "RailProp"
+	mi.mesh = auto_free(CubeMesh.new())
+	mi.material_override = rail
+	add_child(mi)
+
+	var flat: Color = gate._last_flat_color
+	var expected: Color = rail.albedo_color.lightened(0.04)
+	assert_vector3(Vector3(flat.r, flat.g, flat.b)).is_equal_approx(
+			Vector3(expected.r, expected.g, expected.b), Vector3(0.002, 0.002, 0.002))
+
 func test_a_resolution_chosen_by_the_player_survives_the_low_end_profile():
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm == null or not sm.has_method("apply_render_resolution"):

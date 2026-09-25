@@ -14,6 +14,11 @@
 ; las UV1 cilindricas que genera tools/bake_dome_interior_lowpoly.gd. El UV1
 ; recorre la vuelta completa en u (0..1) y la altura en v (0..1); uv1_scale
 ; (38, 6) deja paneles de ~5.8 m, cuadrados contra la circunferencia.
+;
+; Modo plano (low-end): el gate GLES3VendorGate deriva el color plano de ESTE
+; material (material_override del nodo DomeMesh), no del gris claro embebido en
+; la malla. albedo_color * promedio de la textura da el azulado oscuro que se ve
+; en desktop. Si se cambia albedo_color aca, cambia tambien el flat/mobile.
 [resource]
 resource_name = "M_RingHubDomeShell"
 params_cull_mode = 2

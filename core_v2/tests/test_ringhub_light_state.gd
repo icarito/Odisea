@@ -122,6 +122,8 @@ func test_flat_path_drives_gate_levers() -> void:
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
 	var state = level.get_node_or_null("LightState")
+	# En modo plano no se crean luminarias: los materiales unshaded no reciben luz.
+	assert_array(state._luminaries).is_empty()
 	# DARK baja las palancas del FlatFake...
 	assert_float(gate._flat_ambient).is_equal_approx(state.dark_flat_ambient, 0.0001)
 	# ...y LIT las sube (el Environment no ilumina unshaded).
@@ -161,6 +163,71 @@ func test_dark_zeroes_pool_and_lit_restores_it() -> void:
 	assert_float(float(wall.light_energy)).is_greater(0.1)
 	for light in lights:
 		assert_float(light.light_energy).is_greater(0.1)
+
+
+func test_switch_sound_is_one_shot_and_leaves_shared_resource_alone() -> void:
+	var level := _boot_level()
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	var state = level.get_node_or_null("LightState")
+	assert_object(state._sound_player).is_not_null()
+	# El player usa una copia sin loop...
+	assert_bool(bool(state._sound_player.stream.loop)).is_false()
+	# ...y el recurso importado compartido (wall lights de Dome_Intro) sigue en loop.
+	assert_bool(bool(state.switch_sound.loop)).is_true()
+
+
+func test_relit_same_target_does_not_restart_flicker_or_replay() -> void:
+	var level := _boot_level()
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	var state = level.get_node_or_null("LightState")
+
+	state.set_lit(true)
+	for _i in range(3):
+		yield(get_tree(), "physics_frame")
+	var clock: float = state._flicker_clock
+	var sounds: int = state._switch_sounds_played
+	assert_bool(state._flicker_active).is_true()
+	# Re-entrada con el mismo target: no reinicia el reloj ni vuelve a sonar.
+	state.set_lit(true)
+	assert_float(state._flicker_clock).is_equal(clock)
+	assert_int(state._switch_sounds_played).is_equal(sounds)
+	yield(_wait_flicker(state), "completed")
+	assert_float(state._level).is_equal(1.0)
+	assert_int(state._switch_sounds_played).is_equal(1)
+
+
+func test_luminaries_light_the_whole_dome_in_lit() -> void:
+	var level := _boot_level()
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	var state = level.get_node_or_null("LightState")
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	if gate != null and (bool(gate.is_flat_mode()) or bool(gate.is_low_tier())):
+		# En tier bajo/plano no se crean: la iluminancia la da _apply_flat.
+		assert_array(state._luminaries).is_empty()
+		return
+	if OS.get_name() in ["Android", "iOS"] or OS.get_environment("ODISEA_FORCE_MOBILE_PROFILE") in ["1", "true", "yes", "on"]:
+		# En movil tampoco: 16 luces reales son fillrate puro.
+		assert_array(state._luminaries).is_empty()
+		return
+	# Una luminaria por cada una de las 16 lamparas de pared, repartidas por todo
+	# el anillo: DARK apagadas, LIT encendidas mas alla del pool que sigue al player.
+	assert_int(state._luminaries.size()).is_equal(16)
+	for light in state._luminaries:
+		assert_bool(light.visible).is_false()
+		assert_float(light.light_energy).is_equal(0.0)
+	state.set_lit(true)
+	yield(_wait_flicker(state), "completed")
+	for light in state._luminaries:
+		assert_bool(light.visible).is_true()
+		assert_float(light.light_energy).is_greater(0.1)
+	state.set_lit(false)
+	yield(_wait_flicker(state), "completed")
+	for light in state._luminaries:
+		assert_bool(light.visible).is_false()
+		assert_float(light.light_energy).is_equal(0.0)
 
 
 func test_gles3_gate_exposes_flat_light_setters() -> void:

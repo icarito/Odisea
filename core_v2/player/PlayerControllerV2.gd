@@ -2090,7 +2090,11 @@ func _process_interaction(input: InputDataV2):
 		# passes null straight through when there's no input this frame. Treat that as
 		# "nothing pressed" instead of crashing every physics frame on input.crouch below.
 		input = InputDataV2.new()
-	if not _interact_area: return
+	if not _interact_area:
+		# Sin area no hay forma de resolver un target: el prompt que hubiera quedado de un
+		# frame anterior tiene que bajar (no se puede quedar pegado por un camino salteado).
+		_clear_interactable()
+		return
 	_aim_interact_area()
 
 	# PERF: Throttle heavy physics/search scans
@@ -2206,16 +2210,22 @@ func _get_interaction_overlaps() -> Array:
 	return overlaps
 
 func _clear_interactable():
-	if _current_interactable != null and is_instance_valid(_current_interactable):
+	if _current_interactable == null:
+		return
+	if is_instance_valid(_current_interactable):
 		if "_auto_triggered" in _current_interactable and not _current_interactable.get("one_off"):
 			_current_interactable._auto_triggered = false
-
-		_current_interactable = null
-		_current_interaction_prompt = ""
-		emit_signal("interactable_out_of_range")
-		var hints = get_node_or_null("/root/PlayerHintManager")
-		if hints and hints.has_method("clear_interaction_hint"):
-			hints.clear_interaction_hint()
+	# El prompt baja aunque el prop ya se haya liberado (streaming en LOW, cambio de escena,
+	# one-off que se destruye): antes el clear quedaba encerrado en el if de validez y una
+	# referencia liberada dejaba el widget de interaccion pegado en pantalla.
+	_current_interactable = null
+	_current_interaction_prompt = ""
+	emit_signal("interactable_out_of_range")
+	if not is_inside_tree():
+		return
+	var hints = get_node_or_null("/root/PlayerHintManager")
+	if hints and hints.has_method("clear_interaction_hint"):
+		hints.clear_interaction_hint()
 
 func _is_over_touch_control(screen_position: Vector2) -> bool:
 	var tree = get_tree()
