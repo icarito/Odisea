@@ -89,11 +89,14 @@ portmaster-install: portmaster
 	# override.cfg lo genera Odisea.sh en el dispositivo (o se edita a mano): no viene en el paquete.
 	# Dos rsync: --delete va solo sobre odisea/ (borra odisea.gptk viejo), nunca sobre
 	# la raiz /roms/ports, donde vive el resto de los ports.
-	rsync -av --delete --no-owner --no-group \
+	# -z: comprime al vuelo (util sobre WiFi; el .pck no es todo incompresible).
+	# --partial --append-verify no: el .pck cambia entero en cada build, asi que el
+	#   delta de rsync no ahorra ancho; --partial si evita re-hacer todo si se corta.
+	rsync -avz --partial --delete --no-owner --no-group \
 		--exclude conf/ --exclude dev.sh --exclude log.txt --exclude override.cfg \
 		--exclude godot.box3d.frt.arm64.debug --exclude odisea.frt.aarch64.release \
 		ports/odisea/ "$(PORTMASTER_HOST):$(PORTMASTER_DEST)/odisea/"
-	rsync -av --no-owner --no-group \
+	rsync -avz --partial --no-owner --no-group \
 		ports/Odisea.sh "$(PORTMASTER_HOST):$(PORTMASTER_DEST)/"
 	@echo "Instalado en $(PORTMASTER_HOST):$(PORTMASTER_DEST)/odisea"
 

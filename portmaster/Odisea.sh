@@ -47,6 +47,10 @@ if grep -qa "rockchip,rk3326" /proc/device-tree/compatible 2>/dev/null \
   # el color sale del material de cada superficie. Es la contraparte del gouraud que ya
   # aplica el tier LOW. Se puede pisar desde dev.sh (0 lo apaga, 2 = unshaded con textura).
   export ODISEA_UNSHADED="${ODISEA_UNSHADED:-3}"
+  # Test de costo/efecto del glow en Mali (§11.10 lo apagaba por el lavado del
+  # post-proceso). Con esto el gate lo deja pasar; el cuerpo del mundo lo iluminan
+  # el pool + el bake. Pisable desde dev.sh: ODISEA_KEEP_GLOW=0.
+  export ODISEA_KEEP_GLOW="${ODISEA_KEEP_GLOW:-1}"
   # Refresca el override.cfg generado por este archivo en cada arranque, para que un
   # paquete nuevo (p.ej. el bloque [audio] de FD-299) llegue a un handheld ya instalado.
   # Un override.cfg editado a mano (sin la marca FD-299) se respeta (linea 41).
