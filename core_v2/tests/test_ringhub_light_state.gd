@@ -265,14 +265,16 @@ func test_lightmap_energy_follows_dark_lit_and_does_not_mutate_the_file() -> voi
 	var shared: BakedLightmapData = load(RINGHUB_LMBAKE)
 	var shared_energy: float = shared.energy
 
-	# DARK: la energia del bake va a 0.
-	assert_float(baked.light_data.energy).is_equal(0.0)
+	# El estado mueve la energia del bake entre los exports del nivel, no a un 0 fijo:
+	# un solo bake cubre DARK y LIT (RingHub dejo de apagar el domo horneado en DARK).
+	var dark_energy: float = state.lightmap_energy_dark
+	assert_float(baked.light_data.energy).is_equal_approx(dark_energy, 0.0001)
 	state.set_lit(true)
 	yield(_wait_flicker(state), "completed")
 	assert_float(baked.light_data.energy).is_equal_approx(state.lightmap_energy_lit, 0.0001)
 	state.set_lit(false)
 	yield(_wait_flicker(state), "completed")
-	assert_float(baked.light_data.energy).is_equal(0.0)
+	assert_float(baked.light_data.energy).is_equal_approx(dark_energy, 0.0001)
 	assert_float(shared.energy).is_equal(shared_energy)
 
 

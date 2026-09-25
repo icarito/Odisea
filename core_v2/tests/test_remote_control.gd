@@ -606,9 +606,11 @@ func test_remote_activity_resumes_the_pause_menu_but_not_hud_mode():
 	menu.free()
 
 
-# Tier LOW: se cae el host, no el cliente. El handheld sigue sirviendo de mando para una
-# partida que corre en otra maquina.
-func test_low_tier_does_not_host_remote_control():
+# Tier LOW: el handheld sigue siendo cliente, pero FD-316 ya no apaga el host entero:
+# con el control remoto habilitado anuncia y levanta server/bridge para poder portar la
+# simulacion (offload). Lo que sigue vedado es quedar como host ACTIVO en una corrida
+# automatizada (GdUnit).
+func test_low_tier_only_hosts_for_offload():
 	var gate = get_node_or_null("/root/GLES3VendorGate")
 	var prev_gate = false
 	if gate:
@@ -616,8 +618,11 @@ func test_low_tier_does_not_host_remote_control():
 		gate.force_gate = true
 	var manager = auto_free(RemoteControlManager.new())
 	add_child(manager)
-	assert_object(manager.server).is_null()
-	assert_object(manager.announcer).is_null()
+	# Offload habilitado: announcer + server + bridge existen para recibir al control.
+	assert_bool(manager.allow_low_tier_offload).is_true()
+	assert_object(manager.server).is_not_null()
+	assert_object(manager.announcer).is_not_null()
+	# Pero no se hostea durante la suite: nadie abre puertos ni anuncia de verdad.
 	assert_bool(manager.is_host_active).is_false()
 	# El cliente y el descubrimiento siguen en pie: el handheld puede conectarse a un host.
 	assert_object(manager.client).is_not_null()
