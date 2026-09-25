@@ -52,6 +52,7 @@ Opciones activada.
 | Perfil gráfico bajo desde el arranque (`ODISEA_GRAPHICS_PROFILE=low`, sin scatter, sin warmup) | `SessionManager._detect_weak_hardware_early()` | `ODISEA_EARLY_WEAK_HARDWARE=1` o huella ARM con ≤1 GB o SoC conocido |
 | Ajustes de arranque de render (MSAA off, sombras 1024, vertex shading, 4 luces) | `portmaster/lowend.cfg`, que `Odisea.sh` copia a `override.cfg` | PortMaster en la generación RK3326 (device tree `rockchip,rk3326` o GPU Mali-G31) |
 | Audio alineado al grafo de PipeWire: `mix_rate` 48000 (evita el resampleo 44100→48000), `output_latency` 40 ms y `mute_on_silence`/`mute_on_pause` (PR #63458) | `portmaster/lowend.cfg` (`[audio]`) | PortMaster en la generación RK3326 |
+| Salida monofónica (downmix L/R, un solo parlante) | `AudioManager._apply_low_end_mono_audio()` (`AudioEffectStereoEnhance` con `pan_pullout=0` en el bus Master); reversible al apagar el perfil | tier LOW |
 | Modo plano: albedo unshaded por superficie (`FlatFake.shader`), sin PBR ni lightmap | `ODISEA_UNSHADED=3` que exporta `Odisea.sh`; lo aplica `GLES3VendorGate._low_tier_node()` | PortMaster en la generación RK3326; `dev.sh` puede pisarlo (`0` apaga, `2` = unshaded con textura) |
 | Inversión de ejes del stick | `GameControllerDB` (FRT abre `SDL_GameController`) | automático por GUID si el dispositivo está en el DB; *Invertir X/Y* en Opciones queda de fallback manual |
 
