@@ -7,15 +7,10 @@ class_name CryoPodUI
 
 const HudWidgetAction = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
 const HeadingFont = preload("res://assets/fonts/Heading_Font.tres")
-# B3b: cuerpo chico en Silkscreen (pixel font, mas legible en tamanos chicos que SyneMono).
-# Se arma en codigo duplicando SyneMono_Prologue_20: de ahi sale el fallback DungGeunMo que
-# ya cubre acentos y Hangul (mismo patron que TinyFont.tres).
-const SmallFontTemplate = preload("res://assets/fonts/SyneMono_Prologue_20.tres")
-const SmallFontData = preload("res://assets/fonts/Silkscreen-Regular.ttf")
+const SmallFontTemplate = preload("res://assets/fonts/Silkscreen_Regular_20.tres")
 
 static func small_font(size: int) -> DynamicFont:
 	var font: DynamicFont = (SmallFontTemplate as DynamicFont).duplicate() as DynamicFont
-	font.font_data = SmallFontData
 	font.size = size
 	return font
 

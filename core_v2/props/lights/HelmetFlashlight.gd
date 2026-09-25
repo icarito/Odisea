@@ -40,13 +40,15 @@ export(float, 10.0, 170.0) var aim_limit_deg := 75.0
 # Suavizado del giro. Se aplica como 1 - exp(-k*dt), que es independiente del frame rate.
 export(float, 0.5, 40.0) var aim_lerp_speed := 9.0
 
-# Inercia de apunte (spring 2º orden) y sway/bob procedimental (FD-318)
-export(float, 1.0, 50.0) var spring_stiffness := 15.0
-export(float, 0.1, 2.0) var spring_damping := 0.6
-export(float, 0.0, 0.1) var sway_lateral_gain := 0.015
+# Springs criticos exactos y sway/bob procedimental (FD-318)
+export(float, 0.01, 1.0) var aim_half_life := 0.08
+export(float, 0.0, 0.3) var turn_lead_seconds := 0.12
+export(float, 0.0, 60.0) var max_turn_lead_deg := 45.0
+export(float, 0.01, 1.0) var turn_lead_half_life := 0.04
+export(float, 0.0, 15.0) var walk_lower_deg := 4.0
+export(float, 0.01, 1.0) var walk_lower_half_life := 0.12
 export(float, 0.0, 0.05) var sway_jump_gain := 0.008
 export(float, 0.0, 0.1) var sway_landing_gain := 0.03
-export(float, 0.0, 0.1) var bob_yaw_amplitude := 0.008
 export(float, 0.0, 0.1) var bob_pitch_amplitude := 0.005
 export(float, 0.1, 10.0) var bob_frequency := 1.8
 
@@ -75,7 +77,11 @@ var _aim_yaw: float = 0.0
 var _aim_pitch: float = 0.0
 var _aim_yaw_vel: float = 0.0
 var _aim_pitch_vel: float = 0.0
-var _prev_lat_speed: float = 0.0
+var _prev_camera_yaw: float = 0.0
+var _turn_lead_offset: float = 0.0
+var _turn_lead_vel: float = 0.0
+var _walk_pitch_offset: float = 0.0
+var _walk_pitch_vel: float = 0.0
 var _prev_vel_y: float = 0.0
 var _was_grounded: bool = true
 var _landing_dip: float = 0.0
@@ -258,36 +264,40 @@ func _update_mount(delta: float) -> bool:
 	var origin: Vector3 = (_skeleton.global_transform * _skeleton.get_bone_global_pose(_mount_bone_idx)).origin
 	origin += body_basis.orthonormalized().xform(mount_offset)
 
-	var target: Vector3 = _resolve_aim(-camera.global_transform.basis.z.normalized(), body_forward)
+	var camera_forward: Vector3 = -camera.global_transform.basis.z.normalized()
+	var target: Vector3 = _resolve_aim(camera_forward, body_forward)
 
-	# Convert target vector to local yaw/pitch in body_basis space
-	var local_target: Vector3 = body_basis.orthonormalized().xform_inv(target)
-	var target_yaw: float = atan2(local_target.x, local_target.z)
-	var target_pitch: float = asin(clamp(local_target.y, -1.0, 1.0))
+	# Suavizar en mundo: si el cuerpo gira hacia la direccion de marcha pero la camara
+	# no cambia, el haz tampoco debe ser arrastrado por ese giro.
+	var target_yaw: float = atan2(target.x, target.z)
+	var target_pitch: float = asin(clamp(target.y, -1.0, 1.0))
 
 	if not _aim_initialized:
 		_aim_yaw = target_yaw
 		_aim_pitch = target_pitch
 		_aim_yaw_vel = 0.0
 		_aim_pitch_vel = 0.0
-		_prev_lat_speed = 0.0
+		_prev_camera_yaw = atan2(camera_forward.x, camera_forward.z)
+		_turn_lead_offset = 0.0
+		_turn_lead_vel = 0.0
+		_walk_pitch_offset = 0.0
+		_walk_pitch_vel = 0.0
 		_prev_vel_y = 0.0
 		_was_grounded = true
 		_landing_dip = 0.0
 		_bob_phase = 0.0
 		_aim_initialized = true
 	elif delta > 0.0:
-		var dt: float = min(delta, 0.05)
+		var dt: float = delta
 
-		# 2nd order spring simulation for pitch and yaw (with shortest-path angle wrapping)
-		var yaw_diff: float = wrapf(target_yaw - _aim_yaw, -PI, PI)
-		var yaw_acc: float = spring_stiffness * spring_stiffness * yaw_diff - 2.0 * spring_damping * spring_stiffness * _aim_yaw_vel
-		_aim_yaw_vel += yaw_acc * dt
-		_aim_yaw = wrapf(_aim_yaw + _aim_yaw_vel * dt, -PI, PI)
+		var yaw_goal: float = _aim_yaw + wrapf(target_yaw - _aim_yaw, -PI, PI)
+		var yaw_step: Vector2 = critical_spring_step(_aim_yaw, _aim_yaw_vel, yaw_goal, aim_half_life, dt)
+		_aim_yaw = wrapf(yaw_step.x, -PI, PI)
+		_aim_yaw_vel = yaw_step.y
 
-		var pitch_acc: float = spring_stiffness * spring_stiffness * (target_pitch - _aim_pitch) - 2.0 * spring_damping * spring_stiffness * _aim_pitch_vel
-		_aim_pitch_vel += pitch_acc * dt
-		_aim_pitch += _aim_pitch_vel * dt
+		var pitch_step: Vector2 = critical_spring_step(_aim_pitch, _aim_pitch_vel, target_pitch, aim_half_life, dt)
+		_aim_pitch = pitch_step.x
+		_aim_pitch_vel = pitch_step.y
 
 	# Retrieve body velocity and grounded state from owner/parent node
 	var owner_node := get_parent()
@@ -301,16 +311,7 @@ func _update_mount(delta: float) -> bool:
 		elif owner_node.has_method("is_on_floor"):
 			grounded = owner_node.is_on_floor()
 
-	# 1. Lateral sway (yaw) from body lateral acceleration
-	var sway_yaw: float = 0.0
-	var body_right: Vector3 = body_basis.orthonormalized().x
-	var lat_speed: float = vel.dot(body_right)
-	if delta > 0.0:
-		var lat_accel: float = (lat_speed - _prev_lat_speed) / delta
-		sway_yaw -= lat_accel * sway_lateral_gain
-	_prev_lat_speed = lat_speed
-
-	# 2. Pitch jump / airborne & landing dip
+	# Pitch jump / airborne & landing dip
 	var sway_pitch: float = 0.0
 	if not grounded:
 		sway_pitch += vel.y * sway_jump_gain
@@ -324,20 +325,31 @@ func _update_mount(delta: float) -> bool:
 		sway_pitch -= _landing_dip
 	_prev_vel_y = vel.y
 
-	# 3. Grounded movement bob (yaw/pitch)
+	# Grounded movement: al arrancar baja suavemente el haz. La direccion de marcha no
+	# interviene en yaw, para que mirar y caminar hacia lados distintos no produzca yank.
 	var h_speed: float = Vector2(vel.x, vel.z).length()
-	if grounded and h_speed > 0.1 and delta > 0.0:
+	var walking: bool = grounded and h_speed > 0.1
+	if delta > 0.0:
+		var dt: float = delta
+		var camera_yaw: float = atan2(camera_forward.x, camera_forward.z)
+		var camera_yaw_rate: float = wrapf(camera_yaw - _prev_camera_yaw, -PI, PI) / dt
+		_prev_camera_yaw = camera_yaw
+		var lead_goal: float = _turn_lead_goal(camera_yaw_rate, walking)
+		var lead_step: Vector2 = critical_spring_step(_turn_lead_offset, _turn_lead_vel, lead_goal, turn_lead_half_life, dt)
+		_turn_lead_offset = lead_step.x
+		_turn_lead_vel = lead_step.y
+		var walk_goal: float = -deg2rad(walk_lower_deg) if walking else 0.0
+		var walk_step: Vector2 = critical_spring_step(_walk_pitch_offset, _walk_pitch_vel, walk_goal, walk_lower_half_life, dt)
+		_walk_pitch_offset = walk_step.x
+		_walk_pitch_vel = walk_step.y
+	if walking and delta > 0.0:
 		_bob_phase += h_speed * bob_frequency * delta
-		sway_yaw += sin(_bob_phase) * bob_yaw_amplitude
 		sway_pitch += sin(_bob_phase * 2.0) * bob_pitch_amplitude
 
-	# Combine spring angles and sway/bob offsets
-	var final_yaw: float = _aim_yaw + sway_yaw
-	var final_pitch: float = _aim_pitch + sway_pitch
+	var final_yaw: float = _aim_yaw + _turn_lead_offset
+	var final_pitch: float = _aim_pitch + _walk_pitch_offset + sway_pitch
 
-	# Reconstruct local unit vector and transform to world direction
-	var local_final := Vector3(sin(final_yaw) * cos(final_pitch), sin(final_pitch), cos(final_yaw) * cos(final_pitch)).normalized()
-	var final_dir := body_basis.orthonormalized().xform(local_final).normalized()
+	var final_dir := Vector3(sin(final_yaw) * cos(final_pitch), sin(final_pitch), cos(final_yaw) * cos(final_pitch)).normalized()
 
 	# Clamp against body_forward with aim_limit_deg limit
 	_aim_smoothed = _resolve_aim(final_dir, body_forward)
@@ -345,6 +357,28 @@ func _update_mount(delta: float) -> bool:
 	var xf := Transform(global_transform.basis, origin)
 	global_transform = xf.looking_at(origin + _aim_smoothed, Vector3.UP)
 	return true
+
+
+func _turn_lead_goal(camera_yaw_rate: float, walking: bool) -> float:
+	if abs(camera_yaw_rate) < 0.01:
+		return 0.0 if walking else _turn_lead_offset
+	return predictive_lead(camera_yaw_rate, aim_half_life, turn_lead_seconds, deg2rad(max_turn_lead_deg))
+
+
+# Reutilizables: mover a core_v2/camera/SpringMath.gd cuando aparezca un segundo consumidor.
+# Devuelve Vector2(valor, velocidad) para un spring critico exacto parametrizado por half-life.
+static func critical_spring_step(value: float, velocity: float, goal: float, half_life: float, delta: float) -> Vector2:
+	var y: float = (2.0 * log(2.0)) / max(half_life, 0.00001)
+	var j0: float = value - goal
+	var j1: float = velocity + j0 * y
+	var decay: float = exp(-y * delta)
+	return Vector2(decay * (j0 + j1 * delta) + goal, decay * (velocity - j1 * y * delta))
+
+
+# Compensa el lag conocido del spring y agrega un adelanto deliberado, ambos con limite.
+static func predictive_lead(rate: float, half_life: float, extra_seconds: float, max_offset: float) -> float:
+	var prediction: float = half_life / log(2.0) + extra_seconds
+	return clamp(rate * prediction, -max_offset, max_offset)
 
 
 # Direccion objetivo de la linterna, con la misma forma que el head-look del animator:
@@ -387,7 +421,11 @@ func set_enabled(val: bool) -> void:
 	_aim_initialized = false
 	_aim_yaw_vel = 0.0
 	_aim_pitch_vel = 0.0
-	_prev_lat_speed = 0.0
+	_prev_camera_yaw = 0.0
+	_turn_lead_offset = 0.0
+	_turn_lead_vel = 0.0
+	_walk_pitch_offset = 0.0
+	_walk_pitch_vel = 0.0
 	_prev_vel_y = 0.0
 	_was_grounded = true
 	_landing_dip = 0.0

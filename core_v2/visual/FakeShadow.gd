@@ -126,6 +126,11 @@ func _ready() -> void:
 	var disable_env := OS.get_environment("ODISEA_DISABLE_FAKE_SHADOW").to_lower()
 	_disable_runtime = disable_env in ["1", "true", "yes", "on"]
 	var force_cheap_runtime := false
+	var flat_pilot := _flat_mode_active() and _is_pilot_owner()
+	# La sombra del piloto es gameplay: en flat debe sobrevivir al disable cosmetico
+	# incluso si el build no trae BlobShadow (o se desactivo para un A/B).
+	if flat_pilot:
+		_disable_runtime = false
 
 	# O8: el fallback "cheap" ya no se decide por arquitectura. Antes se forzaba con
 	# OS.get_name()=="Linux"/"Unix" + /proc/cpuinfo conteniendo "arm", lo que ademas
@@ -146,12 +151,9 @@ func _ready() -> void:
 	# saltean el pase de luz, así que el piso no la recibe. La sombra del piloto es
 	# gameplay, así que ahí se usa el quad legacy (transparente sobre el piso plano);
 	# el resto de los actores sigue con la blob y en tier LOW queda como estaba.
-	if _blob_shadows_supported():
-		if _flat_mode_active() and _is_pilot_owner():
-			_disable_runtime = false
-		else:
-			_setup_blob_shadow()
-			return
+	if _blob_shadows_supported() and not flat_pilot:
+		_setup_blob_shadow()
+		return
 
 	if _disable_runtime:
 		visible = false
@@ -614,22 +616,13 @@ func _get_anchor_center_pos(parent: Node) -> Vector3:
 			p = p.get_parent()
 	return center_pos + anchor_offset
 
-# O8t2b: yaw horizontal del actor para orientar el cue/quad. Usa el mismo ancla que
-# _get_anchor_center_pos (el PhysicsBody raiz si anchor_to_root_body) para que la
-# sombra siga la rotacion del cuerpo y no la de un pivote intermedio. Sin ancla
-# valida devuelve 0 (basis IDENTITY = look fijo al mundo, comportamiento legacy).
+# O8t2b: yaw horizontal del mesh para orientar el cue/quad. El Pilot rota
+# Visual/Pivot, no su KinematicBody; el padre directo es tambien la fuente que usan
+# grid/cheap para texture_rotation.
 func _get_anchor_yaw(parent: Node) -> float:
-	var node: Spatial = parent as Spatial if parent is Spatial else null
-	if anchor_to_root_body:
-		var p: Node = parent
-		while p:
-			if p is PhysicsBody:
-				node = p as Spatial
-				break
-			p = p.get_parent()
-	if node == null:
+	if not parent is Spatial:
 		return 0.0
-	return node.global_transform.basis.get_euler().y
+	return (parent as Spatial).global_transform.basis.get_euler().y
 
 func _interpolated_origin(node: Spatial) -> Vector3:
 	if node == null:

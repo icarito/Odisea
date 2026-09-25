@@ -21,6 +21,7 @@ func before() -> void:
 			"force_gate": gate.force_gate,
 			"gated": gate._gated_active,
 			"env": gate._env_forced_low_tier,
+			"unshaded": gate._unshaded_mode,
 		}
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm and "low_end_forced" in sm:
@@ -39,6 +40,7 @@ func after() -> void:
 		gate.force_gate = _gate_prev["force_gate"]
 		gate._gated_active = _gate_prev["gated"]
 		gate._env_forced_low_tier = _gate_prev["env"]
+		gate._unshaded_mode = _gate_prev["unshaded"]
 	var sm = get_node_or_null("/root/SettingsManager")
 	if sm and "low_end_forced" in sm:
 		sm.set("low_end_forced", _settings_prev)
@@ -84,6 +86,26 @@ func test_without_low_tier_arm_does_not_force_cheap() -> void:
 	# La deteccion por arquitectura se elimino por completo (O8).
 	assert_bool(fs.has_method("_detect_arm_architecture")).is_false()
 	fs.free()
+
+
+func test_flat_low_tier_keeps_pilot_shadow_without_blob_support() -> void:
+	_set_low_tier(true)
+	var gate = get_node_or_null("/root/GLES3VendorGate")
+	gate._unshaded_mode = "3"
+	OS.set_environment("ODISEA_DISABLE_FAKE_SHADOW", "1")
+	var pilot := KinematicBody.new()
+	pilot.add_to_group("player", true)
+	add_child(pilot)
+	var fs: MeshInstance = FakeShadowScript.new()
+	fs.shadow_mode = "grid"
+	pilot.add_child(fs)
+	OS.set_environment("ODISEA_DISABLE_FAKE_SHADOW", "")
+	gate._unshaded_mode = ""
+	assert_bool(fs.visible).is_true()
+	assert_bool(fs.is_processing()).is_true()
+	assert_str(String(fs.shadow_mode)).is_equal("cheap")
+	assert_bool(fs.mesh is PlaneMesh).is_true()
+	pilot.free()
 
 
 # --- O8b: look y seguimiento del camino cheap (Anbernic / tier LOW) ---
@@ -328,9 +350,9 @@ func test_anchor_yaw_reads_parent_rotation() -> void:
 	holder.free()
 
 
-func test_anchor_yaw_prefers_root_body() -> void:
-	# Con anchor_to_root_body, la rotacion es la del PhysicsBody raiz, no la de un
-	# pivote intermedio (asi la sombra sigue al cuerpo real).
+func test_anchor_yaw_follows_visual_pivot_inside_root_body() -> void:
+	# El Pilot mantiene recto el KinematicBody y gira Visual/Pivot: el cue debe usar
+	# ese pivote, igual que los caminos grid/cheap.
 	var body := KinematicBody.new()
 	add_child(body)
 	body.rotation.y = 1.1
@@ -340,5 +362,5 @@ func test_anchor_yaw_prefers_root_body() -> void:
 	var fs: MeshInstance = FakeShadowScript.new()
 	fs.anchor_to_root_body = true
 	holder.add_child(fs)
-	assert_float(abs(wrapf(fs._get_anchor_yaw(fs.get_parent()) - 1.1, -PI, PI))).is_less(0.001)
+	assert_float(abs(wrapf(fs._get_anchor_yaw(fs.get_parent()) - 0.7, -PI, PI))).is_less(0.001)
 	body.free()

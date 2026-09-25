@@ -2,15 +2,15 @@
 
 [ext_resource path="res://core_v2/ui/hud/HudModeOverlay.gd" type="Script" id=1]
 [ext_resource path="res://core_v2/ui/radial/RadialSelectorV2.tscn" type="PackedScene" id=2]
-[ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=3]
-[ext_resource path="res://assets/fonts/SixtyFour-Regular-FontData.tres" type="DynamicFontData" id=4]
+[ext_resource path="res://assets/themes/hud_terminal.tres" type="Theme" id=3]
 [ext_resource path="res://assets/fonts/DungGeunMo.ttf" type="DynamicFontData" id=5]
+[ext_resource path="res://assets/fonts/Silkscreen-Regular.ttf" type="DynamicFontData" id=6]
 
 [sub_resource type="DynamicFont" id=2]
 size = 22
 outline_size = 2
 outline_color = Color( 0, 0.203922, 0.270588, 0.705882 )
-font_data = ExtResource( 4 )
+font_data = ExtResource( 6 )
 fallback/0 = ExtResource( 5 )
 
 [node name="HudModeOverlay" type="Control"]

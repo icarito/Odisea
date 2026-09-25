@@ -118,7 +118,7 @@ class DummyOwner extends Spatial:
 		return _grounded
 
 
-func test_helmet_flashlight_spring_inertia():
+func test_helmet_flashlight_exact_spring_and_turn_lead():
 	var packed: PackedScene = load("res://core_v2/props/lights/HelmetFlashlight.tscn")
 	var flashlight = auto_free(packed.instance())
 	var dummy_owner = auto_free(DummyOwner.new())
@@ -134,30 +134,19 @@ func test_helmet_flashlight_spring_inertia():
 	flashlight._aim_yaw_vel = 0.0
 	flashlight._aim_pitch_vel = 0.0
 
-	# Cambio repentino en el objetivo de yaw (camara girando a la derecha)
-	var target_yaw := 0.3 # rad (~17 deg)
-	var target_pitch := 0.0
+	# El spring exacto da el mismo resultado con dos particiones del mismo tiempo.
+	var one_step: Vector2 = flashlight.critical_spring_step(0.0, 0.0, 0.3, flashlight.aim_half_life, 1.0 / 30.0)
+	var two_steps: Vector2 = flashlight.critical_spring_step(0.0, 0.0, 0.3, flashlight.aim_half_life, 1.0 / 60.0)
+	two_steps = flashlight.critical_spring_step(two_steps.x, two_steps.y, 0.3, flashlight.aim_half_life, 1.0 / 60.0)
+	assert_float(one_step.x).is_equal_approx(two_steps.x, 0.0001)
+	assert_float(one_step.y).is_equal_approx(two_steps.y, 0.0001)
+	assert_float(flashlight.predictive_lead(10.0, 0.08, 0.12, deg2rad(45.0))).is_equal_approx(deg2rad(45.0), 0.0001)
 
-	# Step 1: en el primer dt (0.016s), el spring arranca con lag (yaw se mueve poco, vel sube)
-	var dt := 0.016
-	var yaw_acc: float = flashlight.spring_stiffness * flashlight.spring_stiffness * (target_yaw - flashlight._aim_yaw) - 2.0 * flashlight.spring_damping * flashlight.spring_stiffness * flashlight._aim_yaw_vel
-	flashlight._aim_yaw_vel += yaw_acc * dt
-	flashlight._aim_yaw += flashlight._aim_yaw_vel * dt
-
-	assert_float(flashlight._aim_yaw).is_less(target_yaw)
-	assert_float(flashlight._aim_yaw_vel).is_greater(0.0)
-
-	# Simular multiples pasos hasta alcanzar el overshoot
-	var max_yaw := 0.0
-	for i in range(20):
-		yaw_acc = flashlight.spring_stiffness * flashlight.spring_stiffness * (target_yaw - flashlight._aim_yaw) - 2.0 * flashlight.spring_damping * flashlight.spring_stiffness * flashlight._aim_yaw_vel
-		flashlight._aim_yaw_vel += yaw_acc * dt
-		flashlight._aim_yaw += flashlight._aim_yaw_vel * dt
-		if flashlight._aim_yaw > max_yaw:
-			max_yaw = flashlight._aim_yaw
-
-	# Con damping=0.6 < 1.0 (subamortiguado), el yaw maximo debe haber superado levemente el target (overshoot)
-	assert_float(max_yaw).is_greater(target_yaw)
+	# Girando adelanta hasta 45 grados; quieto conserva el offset salvo al caminar.
+	assert_float(flashlight._turn_lead_goal(10.0, false)).is_equal_approx(deg2rad(45.0), 0.0001)
+	flashlight._turn_lead_offset = 0.12
+	assert_float(flashlight._turn_lead_goal(0.0, false)).is_equal_approx(0.12, 0.0001)
+	assert_float(flashlight._turn_lead_goal(0.0, true)).is_equal(0.0)
 
 
 func test_helmet_flashlight_sway_and_bob():
@@ -170,16 +159,11 @@ func test_helmet_flashlight_sway_and_bob():
 
 	flashlight.set_enabled(true)
 
-	# 1. Test Sway Lateral al acelerar hacia la derecha
-	dummy_owner.velocity = Vector3(5.0, 0.0, 0.0) # strafe derecha
-	flashlight._prev_lat_speed = 0.0
+	# 1. Caminar solo baja el haz: no agrega yaw segun la direccion de marcha.
+	dummy_owner.velocity = Vector3(5.0, 0.0, 0.0)
 	var delta := 0.016
-	var lat_speed: float = dummy_owner.velocity.dot(flashlight.global_transform.basis.orthonormalized().x)
-	var lat_accel: float = (lat_speed - flashlight._prev_lat_speed) / delta
-	var sway_yaw: float = -lat_accel * flashlight.sway_lateral_gain
-
-	assert_float(lat_accel).is_greater(0.0)
-	assert_float(sway_yaw).is_less(0.0) # se inclina opuesto a la aceleracion por inercia
+	var walk_step: Vector2 = flashlight.critical_spring_step(0.0, 0.0, -deg2rad(flashlight.walk_lower_deg), flashlight.walk_lower_half_life, delta)
+	assert_float(walk_step.x).is_less(0.0)
 
 	# 2. Test salto y dip de aterrizaje
 	dummy_owner._grounded = false
@@ -213,9 +197,13 @@ func test_helmet_flashlight_determinism_and_reset():
 	# Alterar estado de resortes y movimiento
 	flashlight._aim_yaw_vel = 12.5
 	flashlight._aim_pitch_vel = -4.2
+	flashlight._prev_camera_yaw = 1.0
+	flashlight._turn_lead_offset = 0.2
+	flashlight._turn_lead_vel = 1.0
+	flashlight._walk_pitch_offset = -0.1
+	flashlight._walk_pitch_vel = -0.5
 	flashlight._bob_phase = 3.14
 	flashlight._landing_dip = 0.15
-	flashlight._prev_lat_speed = 2.0
 
 	# Apagar y volver a encender
 	flashlight.set_enabled(false)
@@ -227,6 +215,10 @@ func test_helmet_flashlight_determinism_and_reset():
 	# Todos los contadores y velocidades del resorte deben haber vuelto a 0 / defaults
 	assert_float(flashlight._aim_yaw_vel).is_equal(0.0)
 	assert_float(flashlight._aim_pitch_vel).is_equal(0.0)
+	assert_float(flashlight._prev_camera_yaw).is_equal(0.0)
+	assert_float(flashlight._turn_lead_offset).is_equal(0.0)
+	assert_float(flashlight._turn_lead_vel).is_equal(0.0)
+	assert_float(flashlight._walk_pitch_offset).is_equal(0.0)
+	assert_float(flashlight._walk_pitch_vel).is_equal(0.0)
 	assert_float(flashlight._bob_phase).is_equal(0.0)
 	assert_float(flashlight._landing_dip).is_equal(0.0)
-	assert_float(flashlight._prev_lat_speed).is_equal(0.0)

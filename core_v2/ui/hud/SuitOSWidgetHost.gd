@@ -11,6 +11,7 @@ signal interactable_activate_requested(slot_index)
 
 const UIScaleCompensatorScript = preload("res://core_v2/ui/UIScaleCompensator.gd")
 const HudWidgetActionScript = preload("res://core_v2/ui/hud/HudWidgetAction.gd")
+const WidgetTheme = preload("res://assets/themes/hud_terminal.tres")
 const HudSlots = preload("res://core_v2/ui/hud/HudSlots.gd")
 const ZoomRulerScript = preload("res://core_v2/ui/hud/ZoomRuler.gd")
 const InteractableSlotScreenScript = preload("res://core_v2/ui/hud/InteractableSlotScreen.gd")
@@ -121,6 +122,7 @@ func get_widget_root() -> Control:
 		_widget_root = Control.new()
 		_widget_root.name = "Widgets"
 		_widget_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_widget_root.theme = WidgetTheme
 		layer.add_child(_widget_root)
 		_widget_root.set_anchors_and_margins_preset(Control.PRESET_WIDE)
 		# Las rallitas del zoom viven en la misma capa del HUD, abajo al centro.

@@ -33,13 +33,9 @@ const INACTIVITY_MOVE_EPSILON := 0.05
 var _inactivity_timer: float = 0.0
 var _inactivity_fade_pending: bool = false
 var _inactivity_fade_remaining: float = 0.0
-# Doble tap tactil en la pausa pasiva: ventana de 300 ms y 40 px. El primer tap sigue
-# revelando el menu; el segundo, si cae en la ventana, reanuda directo.
-const TOUCH_DOUBLE_TAP_WINDOW_MSEC := 300
-const TOUCH_DOUBLE_TAP_MAX_DISTANCE := 40.0
-var _last_touch_tap_msec: int = -100000
-var _last_touch_tap_pos: Vector2 = Vector2.ZERO
-var _touch_tap_was_passive: bool = false
+# O19 (2026-09-25): en la pausa pasiva CUALQUIER pulsacion (tecla, boton de mando, clic de
+# mouse o tap tactil) reanuda el juego directo; el movimiento de mouse/stick NO reanuda, solo
+# revela el menu para poder verlo sin salir. El clic izquierdo llega por la accion `interact`.
 # O12: politica de pantalla gameplay/pausa. En gameplay el plugin Android
 # OdiseaDisplay mantiene la pantalla encendida + piso de brillo; en pausa suelta
 # ambos para que el sistema pueda atenuar/dormir. En desktop/no-Android es no-op.
@@ -299,16 +295,29 @@ func enter_passive_pause_menu_hidden() -> void:
 	_apply_menu_visibility()
 	_start_passive_orbit()
 
-# El menu oculto se revela con movimiento de mouse/stick o con cualquier boton del mando
-# salvo Start (Start con el menu oculto reanuda, no revela).
+# Con la pausa pasiva el movimiento (mouse/stick) REVELA el menu; las pulsaciones reanudan
+# (ver _is_passive_resume_press). Mover no es "oprimir": dejar ver la orbita sin salir.
 func _is_menu_reveal_event(event: InputEvent) -> bool:
 	if event is InputEventMouseMotion:
 		return true
+	# En touch movil el arrastre llega como ScreenDrag (no MouseMotion): tambien revela.
+	if event is InputEventScreenDrag:
+		return true
 	if event is InputEventJoypadMotion:
 		return abs((event as InputEventJoypadMotion).axis_value) > 0.5
+	return false
+
+# O19: cualquier pulsacion cancela la pausa pasiva y arranca el juego. Incluye teclas, botones
+# de mando, clic de mouse y tap tactil. Excluye el eco de teclas sostenidas y los releases.
+func _is_passive_resume_press(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		return (event as InputEventKey).pressed and not (event as InputEventKey).echo
+	if event is InputEventMouseButton:
+		return (event as InputEventMouseButton).pressed
 	if event is InputEventJoypadButton:
-		var jb := event as InputEventJoypadButton
-		return jb.pressed and jb.button_index != JOY_START
+		return (event as InputEventJoypadButton).pressed
+	if event is InputEventScreenTouch:
+		return (event as InputEventScreenTouch).pressed
 	return false
 
 # Select: alterna el puntero. Si esta liberado, lo RECAPTURA (captura el mouse y apaga el cursor
@@ -322,30 +331,8 @@ func _toggle_select_control() -> void:
 	else:
 		VirtualMouseScript.set_pointer_released(true)
 
-func _restores_menu(event: InputEvent) -> bool:
-	if event is InputEventKey or event is InputEventMouseButton \
-			or event is InputEventJoypadButton or event is InputEventScreenTouch:
-		return event.pressed
-	return false
-
-# Registra el tap y devuelve true si es el segundo de un doble tap iniciado en pausa pasiva
-# (entonces reanuda). El primer tap no consume: cae a la rama que revela el menu.
-func _handle_passive_touch_double_tap(touch: InputEventScreenTouch) -> bool:
-	var now_msec := OS.get_ticks_msec()
-	var is_double := _touch_tap_was_passive \
-		and now_msec - _last_touch_tap_msec <= TOUCH_DOUBLE_TAP_WINDOW_MSEC \
-		and touch.position.distance_to(_last_touch_tap_pos) <= TOUCH_DOUBLE_TAP_MAX_DISTANCE
-	var was_passive := _menu_hidden_by_focus
-	_last_touch_tap_msec = now_msec
-	_last_touch_tap_pos = touch.position
-	_touch_tap_was_passive = was_passive
-	if not is_double:
-		return false
-	_touch_tap_was_passive = false
-	_last_touch_tap_msec = -100000
-	resume()
-	return true
-
+# El menu oculto se revela con movimiento de mouse/stick. Las pulsaciones reanudan (ver
+# _is_passive_resume_press).
 func _is_automated_run() -> bool:
 	if OS.has_feature("Server"):
 		return true
@@ -384,48 +371,27 @@ func _input(event):
 	# Cualquier input con el menu visible reinicia el temporizador de auto-hide.
 	if get_tree().paused and not _menu_hidden_by_focus:
 		_menu_idle_timer = 0.0
-	# Select: en gameplay alterna el puntero (libera/recaptura); con la pausa pasiva (menu oculto)
-	# revela el menu. Nunca pausa ni despausa. Se consume siempre para que no llegue a la GUI ni a
-	# SessionManager.
+	# O19: pausa pasiva (menu oculto). Cualquier PULSACION (tecla, boton de mando, clic de
+	# mouse o tap tactil) reanuda el juego directo, incluido Select y el clic izquierdo (que
+	# ahora tambien es `interact`). Mover el mouse/stick NO reanuda: revela el menu para poder
+	# verlo sin salir. Start se maneja arriba y ya reanuda.
+	if get_tree().paused and _menu_hidden_by_focus:
+		if _is_menu_reveal_event(event):
+			_reveal_passive_menu()
+			get_tree().set_input_as_handled()
+			return
+		if _is_passive_resume_press(event):
+			resume()
+			get_tree().set_input_as_handled()
+			return
+	# Select: en gameplay alterna el puntero (libera/recaptura); nunca pausa ni despausa; con el
+	# menu completo visible no hace nada. La pausa pasiva ya se resolvio arriba (Select reanuda
+	# como cualquier pulsacion). Se consume siempre para que no llegue a la GUI ni a SessionManager.
 	if event is InputEventJoypadButton \
 			and (event as InputEventJoypadButton).button_index == JOY_SELECT \
 			and (event as InputEventJoypadButton).pressed:
-		if get_tree().paused and _menu_hidden_by_focus:
-			_reveal_passive_menu()
-		elif not get_tree().paused and not _hud_mode_paused and _can_pause_in_current_scene():
+		if not get_tree().paused and not _hud_mode_paused and _can_pause_in_current_scene():
 			_toggle_select_control()
-		get_tree().set_input_as_handled()
-		return
-	# Boton derecho en pausa pasiva (menu oculto): despausa. Es el gesto de escritorio de
-	# "volver al juego"; el clic izquierdo sigue su camino de siempre.
-	if get_tree().paused and _menu_hidden_by_focus \
-			and event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_RIGHT:
-		resume()
-		get_tree().set_input_as_handled()
-		return
-	# Pantallas tactiles: un DOUBLE TAP en la pausa pasiva reanuda directo, igual que el clic
-	# izquierdo de escritorio, en vez de revelar el menu. El primer tap revela (rama de abajo);
-	# el segundo, si cae en la ventana de 300 ms/40 px y el primero fue en pausa pasiva, reanuda.
-	if get_tree().paused and event is InputEventScreenTouch \
-			and (event as InputEventScreenTouch).pressed:
-		if _handle_passive_touch_double_tap(event as InputEventScreenTouch):
-			get_tree().set_input_as_handled()
-			return
-	# Pausa pasiva (menu oculto): mover mouse/stick o tocar el mando revela el menu y corta
-	# la orbita. Start se maneja mas abajo (con el menu oculto reanuda, no revela).
-	if get_tree().paused and _menu_hidden_by_focus and _is_menu_reveal_event(event):
-		_reveal_passive_menu()
-		get_tree().set_input_as_handled()
-		return
-	# Primer input tras recuperar el foco. Un clic sobre el juego en pausa es "volver a jugar":
-	# reanuda. Cualquier otra entrada devuelve el menu completo, sin actuar. El clic emulado de
-	# un toque tactil no cuenta como clic de mouse: en touch el resume es el doble tap de arriba.
-	if _menu_hidden_by_focus and get_tree().paused and _restores_menu(event):
-		if event is InputEventMouseButton and event.button_index == BUTTON_LEFT \
-				and not InputProviderV2.pointer_is_from_touch():
-			resume()
-		else:
-			_reveal_passive_menu()
 		get_tree().set_input_as_handled()
 		return
 	# Start (JOY_START) se maneja arriba, antes de todo.
@@ -443,8 +409,8 @@ func _input(event):
 # Pausar es ESC, el back de Android o el gamepad. El boton derecho del mouse tambien es
 # ui_cancel en el InputMap, pero es "soltar el mouse" (lo hace SessionManager), no pausar.
 # Select (JOY_SELECT) tambien es ui_cancel, pero en juego alterna el puntero (libera/recaptura) e
-# inhibe el control del jugador: no pausa. Con la pausa pasiva (menu oculto) revela el menu; con el
-# menu completo visible no hace nada.
+# inhibe el control del jugador: no pausa. En la pausa pasiva (menu oculto) reanuda como cualquier
+# pulsacion; con el menu completo visible no hace nada.
 static func is_pause_request(event: InputEvent) -> bool:
 	if event is InputEventJoypadButton and (event as InputEventJoypadButton).button_index == JOY_SELECT:
 		return false

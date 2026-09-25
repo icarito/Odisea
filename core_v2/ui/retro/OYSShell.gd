@@ -3,10 +3,7 @@ class_name OYSShell
 
 const MAX_RENDER_LINES := 5000
 const OYSConsoleScript = preload("res://core_v2/ui/retro/OYS_Console.gd")
-# B3.deriv: la consola usa Ac437_OlivettiThin_8x16 (TinyFont) en vez del font del tema
-# (Workbench). TinyFont ya trae el fallback DungGeunMo para acentos/Hangul, y al duplicar la
-# DynamicFont entera se conserva (no se copia solo font_data).
-const ConsoleFont = preload("res://TinyFont.tres")
+const ConsoleFont = preload("res://assets/fonts/Silkscreen_Regular_20.tres")
 const FONT_SIZE_MIN := 12
 const FONT_SIZE_MAX := 34
 

@@ -1,7 +1,8 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=8 format=2]
 
 [ext_resource path="res://core_v2/ui/radial/RadialSelectorV2.gd" type="Script" id=1]
 [ext_resource path="res://assets/fonts/DungGeunMo.ttf" type="DynamicFontData" id=2]
+[ext_resource path="res://assets/fonts/Silkscreen-Regular.ttf" type="DynamicFontData" id=3]
 
 [sub_resource type="DynamicFontData" id=1]
 font_path = "res://assets/fonts/SyneMono-Regular.ttf"
@@ -11,7 +12,7 @@ size = 104
 outline_size = 2
 outline_color = Color( 0, 0.203922, 0.270588, 0.705882 )
 use_filter = true
-font_data = SubResource( 1 )
+font_data = ExtResource( 3 )
 fallback/0 = ExtResource( 2 )
 
 [sub_resource type="DynamicFont" id=3]
@@ -25,7 +26,7 @@ fallback/0 = ExtResource( 2 )
 [sub_resource type="DynamicFont" id=4]
 size = 56
 use_filter = true
-font_data = SubResource( 1 )
+font_data = ExtResource( 3 )
 fallback/0 = ExtResource( 2 )
 
 [node name="RadialSelector" type="Control"]

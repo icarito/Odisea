@@ -15,9 +15,7 @@ class FakeDisplayPlugin:
 func after_test() -> void:
 	# El puntero liberado es estado global del cursor compartido: no debe filtrarse entre tests.
 	VirtualMouseScript.set_pointer_released(false)
-	# El doble tap y el watchdog de inactividad son estado del autoload: tampoco debe filtrarse.
-	PauseManager._touch_tap_was_passive = false
-	PauseManager._last_touch_tap_msec = -100000
+	# El watchdog de inactividad es estado del autoload: tampoco debe filtrarse.
 	PauseManager._reset_inactivity_timer()
 	# La inyeccion del plugin de pantalla no debe filtrarse entre tests.
 	PauseManager._display_plugin_override = null
@@ -64,6 +62,20 @@ func _mouse(button: int) -> InputEventMouseButton:
 	var ev := InputEventMouseButton.new()
 	ev.button_index = button
 	ev.pressed = true
+	return ev
+
+
+func _key(scancode: int) -> InputEventKey:
+	var ev := InputEventKey.new()
+	ev.scancode = scancode
+	ev.pressed = true
+	return ev
+
+
+func _motion(relative: Vector2) -> InputEventMouseMotion:
+	var ev := InputEventMouseMotion.new()
+	ev.relative = relative
+	ev.position = Vector2(200.0, 200.0)
 	return ev
 
 
@@ -186,38 +198,43 @@ func test_right_mouse_button_does_not_resume_from_the_full_menu() -> void:
 	menu.queue_free()
 
 
-func test_left_click_on_the_focus_paused_game_resumes_it() -> void:
-	# Pausa por perder el foco (solo la etiqueta PAUSA): el clic es "volver a jugar", no traer
-	# el menu completo.
+func test_any_press_resumes_the_passive_pause_but_motion_only_reveals() -> void:
+	# O19 (2026-09-25): en pausa pasiva cualquier pulsacion reanuda el juego directo; el
+	# movimiento de mouse/stick solo revela el menu, para poder verlo sin salir.
 	var previous_menu = PauseManager.pause_menu_instance
 	var menu = PauseMenuScene.instance()
 	add_child(menu)
 	PauseManager.pause_menu_instance = menu
+
+	# Clic izquierdo: reanuda.
 	PauseManager._menu_hidden_by_focus = true
 	get_tree().paused = true
-
 	PauseManager._input(_mouse(BUTTON_LEFT))
 	assert_bool(get_tree().paused).is_false()
 	assert_bool(menu.visible).is_false()
 
-	# Cualquier otra entrada sigue trayendo el menu completo, sin reanudar.
+	# Tecla: reanuda.
 	PauseManager._menu_hidden_by_focus = true
 	get_tree().paused = true
-	var key := InputEventKey.new()
-	key.scancode = KEY_W
-	key.pressed = true
-	PauseManager._input(key)
+	PauseManager._input(_key(KEY_W))
+	assert_bool(get_tree().paused).is_false()
+
+	# Movimiento de mouse: revela el menu, NO reanuda.
+	PauseManager._menu_hidden_by_focus = true
+	get_tree().paused = true
+	PauseManager._input(_motion(Vector2(4.0, 0.0)))
 	assert_bool(get_tree().paused).is_true()
 	assert_bool(PauseManager._menu_hidden_by_focus).is_false()
 
 	get_tree().paused = false
 	PauseManager.pause_menu_instance = previous_menu
+	PauseManager._menu_hidden_by_focus = false
 	menu.queue_free()
 
 
-func test_double_tap_on_touch_resumes_the_passive_pause() -> void:
-	# O2 (2026-09-24): en pantalla tactil no habia forma de salir de la pausa pasiva. Un solo
-	# tap revela el menu (sigue igual); un DOBLE tap dentro de 300 ms/40 px reanuda directo.
+func test_a_single_tap_resumes_the_passive_pause() -> void:
+	# O19 (2026-09-25): un solo tap en la pausa pasiva ya reanuda directo (antes hacia falta
+	# doble tap). El arrastre tactil sigue revelando el menu.
 	var previous_menu = PauseManager.pause_menu_instance
 	var menu = PauseMenuScene.instance()
 	add_child(menu)
@@ -228,11 +245,6 @@ func test_double_tap_on_touch_resumes_the_passive_pause() -> void:
 	get_tree().paused = true
 
 	PauseManager._input(_touch(0, Vector2(100.0, 100.0)))
-	# El primer tap revela el menu, todavia no reanuda.
-	assert_bool(get_tree().paused).is_true()
-	assert_bool(PauseManager._menu_hidden_by_focus).is_false()
-
-	PauseManager._input(_touch(0, Vector2(104.0, 103.0)))
 	assert_bool(get_tree().paused).is_false()
 	assert_bool(menu.visible).is_false()
 
@@ -243,8 +255,9 @@ func test_double_tap_on_touch_resumes_the_passive_pause() -> void:
 	menu.queue_free()
 
 
-func test_a_single_tap_does_not_resume_and_a_far_second_tap_does_not_either() -> void:
-	# El doble tap exige distancia <= 40 px: dos taps lejanos son dos toques distintos.
+func test_a_touch_drag_reveals_the_passive_menu_without_resuming() -> void:
+	# O19: el arrastre tactil (InputEventScreenDrag) es movimiento, no pulsacion: revela el
+	# menu y mantiene la pausa.
 	var previous_menu = PauseManager.pause_menu_instance
 	var menu = PauseMenuScene.instance()
 	add_child(menu)
@@ -254,11 +267,12 @@ func test_a_single_tap_does_not_resume_and_a_far_second_tap_does_not_either() ->
 	PauseManager._quick_paused = false
 	get_tree().paused = true
 
-	PauseManager._input(_touch(0, Vector2(100.0, 100.0)))
-	# Tras el primer tap el menu queda visible: el segundo tap lejano no reanuda.
-	assert_bool(PauseManager._menu_hidden_by_focus).is_false()
-	PauseManager._input(_touch(0, Vector2(300.0, 300.0)))
+	var drag := InputEventScreenDrag.new()
+	drag.position = Vector2(120.0, 120.0)
+	drag.relative = Vector2(6.0, 0.0)
+	PauseManager._input(drag)
 	assert_bool(get_tree().paused).is_true()
+	assert_bool(PauseManager._menu_hidden_by_focus).is_false()
 
 	get_tree().paused = false
 	PauseManager.pause_menu_instance = previous_menu
@@ -283,10 +297,10 @@ func test_select_toggles_the_pointer_between_release_and_recapture() -> void:
 	assert_bool(VirtualMouseScript.is_pointer_released()).is_false()
 
 
-func test_select_reveals_the_passive_menu_and_toggles_the_pointer_in_gameplay() -> void:
-	# O15 (2026-09-24): con la pausa pasiva (menu oculto) Select revela el menu en vez de
-	# consumirse sin hacer nada. En gameplay sigue alternando el puntero y no pausa. Con el
-	# menu completo visible no cambia nada.
+func test_select_toggles_the_pointer_in_gameplay_and_resumes_the_passive_pause() -> void:
+	# O19 (2026-09-25): con la pausa pasiva (menu oculto) Select reanuda como cualquier
+	# pulsacion (antes revelaba el menu). En gameplay sigue alternando el puntero y no pausa.
+	# Con el menu completo visible no cambia nada.
 	var previous_menu = PauseManager.pause_menu_instance
 	var previous_scene = get_tree().current_scene
 	var fake_scene = _install_fake_game_scene()
@@ -303,16 +317,17 @@ func test_select_reveals_the_passive_menu_and_toggles_the_pointer_in_gameplay() 
 	assert_bool(get_tree().paused).is_false()
 	assert_bool(VirtualMouseScript.is_pointer_released()).is_true()
 
-	# Pausa pasiva: Select revela el menu, no reanuda.
+	# Pausa pasiva: Select reanuda.
 	PauseManager._menu_hidden_by_focus = true
 	menu.set_minimal(true)
 	get_tree().paused = true
 	PauseManager._input(_select())
-	assert_bool(get_tree().paused).is_true()
-	assert_bool(PauseManager._menu_hidden_by_focus).is_false()
-	assert_bool(menu._minimal).is_false()
+	assert_bool(get_tree().paused).is_false()
 
 	# Menu completo visible: Select no hace nada.
+	PauseManager._menu_hidden_by_focus = false
+	menu.set_minimal(false)
+	get_tree().paused = true
 	var released_before: bool = VirtualMouseScript.is_pointer_released()
 	PauseManager._input(_select())
 	assert_bool(get_tree().paused).is_true()

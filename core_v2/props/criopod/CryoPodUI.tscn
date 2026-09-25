@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=2]
 
 [ext_resource path="res://core_v2/props/criopod/CryoPodUI.gd" type="Script" id=1]
-[ext_resource path="res://assets/themes/retro_scifi.tres" type="Theme" id=2]
+[ext_resource path="res://assets/themes/hud_terminal.tres" type="Theme" id=2]
 
 [node name="CryoPodUI" type="Control"]
 anchor_right = 1.0
