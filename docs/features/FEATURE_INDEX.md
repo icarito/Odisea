@@ -137,6 +137,7 @@ Usar tres capas separadas:
 | FD-312 | Faltantes de la GUI de OdiseaOS — inventario priorizado | Design | - | P1 |
 | FD-313 | Fixes de ergonomía del HUD, determinismo y paridad del Control Remoto | Planned | Medium | P1 |
 | FD-314 | Streaming de superestructura de scaffold en RingHub (MultiMesh + colisiones por chunk) | Planned | Large | P1 |
+| FD-316 | Sim Host Remoto — render-esclavo low-end-flat (físicas 60Hz en el host) | Planned | Large | P1 |
 
 ### Parking lot — fuera del Acto I (idea capturada, no implementar)
 
