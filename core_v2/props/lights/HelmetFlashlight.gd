@@ -40,6 +40,16 @@ export(float, 10.0, 170.0) var aim_limit_deg := 75.0
 # Suavizado del giro. Se aplica como 1 - exp(-k*dt), que es independiente del frame rate.
 export(float, 0.5, 40.0) var aim_lerp_speed := 9.0
 
+# Inercia de apunte (spring 2º orden) y sway/bob procedimental (FD-318)
+export(float, 1.0, 50.0) var spring_stiffness := 15.0
+export(float, 0.1, 2.0) var spring_damping := 0.6
+export(float, 0.0, 0.1) var sway_lateral_gain := 0.015
+export(float, 0.0, 0.05) var sway_jump_gain := 0.008
+export(float, 0.0, 0.1) var sway_landing_gain := 0.03
+export(float, 0.0, 0.1) var bob_yaw_amplitude := 0.008
+export(float, 0.0, 0.1) var bob_pitch_amplitude := 0.005
+export(float, 0.1, 10.0) var bob_frequency := 1.8
+
 export(float) var battery_max := 100.0
 export(float) var battery_drain_per_second := 0.4
 export(float) var battery_low_threshold := 20.0
@@ -61,6 +71,16 @@ var _mount_bone_idx: int = -1
 var _visual_pivot: Spatial = null
 var _aim_smoothed := Vector3.FORWARD
 var _aim_initialized := false
+var _aim_yaw: float = 0.0
+var _aim_pitch: float = 0.0
+var _aim_yaw_vel: float = 0.0
+var _aim_pitch_vel: float = 0.0
+var _prev_lat_speed: float = 0.0
+var _prev_vel_y: float = 0.0
+var _was_grounded: bool = true
+var _landing_dip: float = 0.0
+var _bob_phase: float = 0.0
+
 # Encender no debe mostrar la linterna en el origen del rig mientras el esqueleto/camara
 # todavia no permiten montarla en el hombro: queda invisible hasta que _physics_process lo
 # logre (o se agoten los intentos, para no dejarla invisible para siempre).
@@ -239,14 +259,88 @@ func _update_mount(delta: float) -> bool:
 	origin += body_basis.orthonormalized().xform(mount_offset)
 
 	var target: Vector3 = _resolve_aim(-camera.global_transform.basis.z.normalized(), body_forward)
+
+	# Convert target vector to local yaw/pitch in body_basis space
+	var local_target: Vector3 = body_basis.orthonormalized().xform_inv(target)
+	var target_yaw: float = atan2(local_target.x, local_target.z)
+	var target_pitch: float = asin(clamp(local_target.y, -1.0, 1.0))
+
 	if not _aim_initialized:
-		_aim_smoothed = target
+		_aim_yaw = target_yaw
+		_aim_pitch = target_pitch
+		_aim_yaw_vel = 0.0
+		_aim_pitch_vel = 0.0
+		_prev_lat_speed = 0.0
+		_prev_vel_y = 0.0
+		_was_grounded = true
+		_landing_dip = 0.0
+		_bob_phase = 0.0
 		_aim_initialized = true
+	elif delta > 0.0:
+		var dt: float = min(delta, 0.05)
+
+		# 2nd order spring simulation for pitch and yaw (with shortest-path angle wrapping)
+		var yaw_diff: float = wrapf(target_yaw - _aim_yaw, -PI, PI)
+		var yaw_acc: float = spring_stiffness * spring_stiffness * yaw_diff - 2.0 * spring_damping * spring_stiffness * _aim_yaw_vel
+		_aim_yaw_vel += yaw_acc * dt
+		_aim_yaw = wrapf(_aim_yaw + _aim_yaw_vel * dt, -PI, PI)
+
+		var pitch_acc: float = spring_stiffness * spring_stiffness * (target_pitch - _aim_pitch) - 2.0 * spring_damping * spring_stiffness * _aim_pitch_vel
+		_aim_pitch_vel += pitch_acc * dt
+		_aim_pitch += _aim_pitch_vel * dt
+
+	# Retrieve body velocity and grounded state from owner/parent node
+	var owner_node := get_parent()
+	var vel := Vector3.ZERO
+	var grounded := true
+	if owner_node != null:
+		if "velocity" in owner_node:
+			vel = owner_node.velocity
+		if owner_node.has_method("is_effectively_grounded"):
+			grounded = owner_node.is_effectively_grounded()
+		elif owner_node.has_method("is_on_floor"):
+			grounded = owner_node.is_on_floor()
+
+	# 1. Lateral sway (yaw) from body lateral acceleration
+	var sway_yaw: float = 0.0
+	var body_right: Vector3 = body_basis.orthonormalized().x
+	var lat_speed: float = vel.dot(body_right)
+	if delta > 0.0:
+		var lat_accel: float = (lat_speed - _prev_lat_speed) / delta
+		sway_yaw -= lat_accel * sway_lateral_gain
+	_prev_lat_speed = lat_speed
+
+	# 2. Pitch jump / airborne & landing dip
+	var sway_pitch: float = 0.0
+	if not grounded:
+		sway_pitch += vel.y * sway_jump_gain
+		_was_grounded = false
 	else:
-		# 1 - exp(-k*dt) en vez de k*dt: mismo resultado con cualquier dt, y frena al
-		# acercarse al objetivo (easing) en vez de cortar de golpe contra el limite.
-		var t: float = 1.0 - exp(-aim_lerp_speed * delta)
-		_aim_smoothed = _aim_smoothed.linear_interpolate(target, t).normalized()
+		if not _was_grounded:
+			_landing_dip = clamp(-_prev_vel_y * sway_landing_gain, 0.0, 0.25)
+			_was_grounded = true
+		if delta > 0.0:
+			_landing_dip = lerp(_landing_dip, 0.0, min(1.0, 10.0 * delta))
+		sway_pitch -= _landing_dip
+	_prev_vel_y = vel.y
+
+	# 3. Grounded movement bob (yaw/pitch)
+	var h_speed: float = Vector2(vel.x, vel.z).length()
+	if grounded and h_speed > 0.1 and delta > 0.0:
+		_bob_phase += h_speed * bob_frequency * delta
+		sway_yaw += sin(_bob_phase) * bob_yaw_amplitude
+		sway_pitch += sin(_bob_phase * 2.0) * bob_pitch_amplitude
+
+	# Combine spring angles and sway/bob offsets
+	var final_yaw: float = _aim_yaw + sway_yaw
+	var final_pitch: float = _aim_pitch + sway_pitch
+
+	# Reconstruct local unit vector and transform to world direction
+	var local_final := Vector3(sin(final_yaw) * cos(final_pitch), sin(final_pitch), cos(final_yaw) * cos(final_pitch)).normalized()
+	var final_dir := body_basis.orthonormalized().xform(local_final).normalized()
+
+	# Clamp against body_forward with aim_limit_deg limit
+	_aim_smoothed = _resolve_aim(final_dir, body_forward)
 
 	var xf := Transform(global_transform.basis, origin)
 	global_transform = xf.looking_at(origin + _aim_smoothed, Vector3.UP)
@@ -291,6 +385,13 @@ func set_enabled(val: bool) -> void:
 	# ANTES de hacerse visible. Si el esqueleto/camara todavia no estan listos (perfil low
 	# end al arrancar), queda invisible hasta que _physics_process logre montarla.
 	_aim_initialized = false
+	_aim_yaw_vel = 0.0
+	_aim_pitch_vel = 0.0
+	_prev_lat_speed = 0.0
+	_prev_vel_y = 0.0
+	_was_grounded = true
+	_landing_dip = 0.0
+	_bob_phase = 0.0
 	_mount_attempts = 0
 	if not _can_mount():
 		# Sin hueso de montura no hay a donde ir: se muestra igual (comportamiento previo).
