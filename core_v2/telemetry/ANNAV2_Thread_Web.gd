@@ -34,6 +34,8 @@ var _force_heartbeat := false
 var _last_heartbeat := 0
 var _last_reconnect := 0
 var _reconnect_attempts := 0
+# navigator.userAgent, leido una vez: el dashboard deriva navegador y OS de aca.
+var _user_agent = null
 const MAX_RECONNECT_INTERVAL_MS := 5000
 
 func set_scheme(scheme: String):
@@ -271,6 +273,15 @@ func _eval_float(js_code: String) -> float:
 		return float(res)
 	return -1.0
 
+func _get_user_agent() -> String:
+	if _user_agent == null:
+		_user_agent = ""
+		if Engine.has_singleton("JavaScript"):
+			var res = Engine.get_singleton("JavaScript").eval("navigator.userAgent")
+			if typeof(res) == TYPE_STRING:
+				_user_agent = res
+	return _user_agent
+
 func _send_json(msg: Dictionary):
 	if _is_connected:
 		var json_str = JSON.print(msg)
@@ -357,7 +368,8 @@ func _send_heartbeat(tier: int):
 		"paused": player_data.get("paused", false),
 		"phase": player_data.get("phase", "play"),
 		"platform": platform_name,
-		"transition": player_data.get("transition", {})
+		"transition": player_data.get("transition", {}),
+		"render_diag": {"user_agent": _get_user_agent()}
 	}
 
 	msg["player"] = player_msg
