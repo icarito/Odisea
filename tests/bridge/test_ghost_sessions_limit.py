@@ -26,6 +26,7 @@ def db(tmp_path, monkeypatch):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             player_id TEXT, session_id TEXT, timestamp REAL, scene TEXT,
             platform TEXT, fps REAL, memory_mb REAL, focused INTEGER DEFAULT 1,
+            phase TEXT, paused INTEGER,
             game_version TEXT, git_commit TEXT, build_channel TEXT,
             official_build INTEGER, intake_mode TEXT
         )"""
@@ -37,11 +38,11 @@ def db(tmp_path, monkeypatch):
         start = now - s * 3600
         for k in range(2):
             rows.append(("p%d" % s, "s%d" % s, start + k, "Dome_Intro", "Android",
-                         60.0, 200.0, 1, "1.0", "abc", "nightly", 1, "ingest"))
+                         60.0, 200.0, 1, "play", 0, "1.0", "abc", "nightly", 1, "ingest"))
     conn.executemany(
         "INSERT INTO heartbeats(player_id, session_id, timestamp, scene, platform, fps,"
-        " memory_mb, focused, game_version, git_commit, build_channel, official_build,"
-        " intake_mode) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+        " memory_mb, focused, phase, paused, game_version, git_commit, build_channel,"
+        " official_build, intake_mode) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
     conn.commit()
     conn.close()
     monkeypatch.setattr(odisea_central, "SQLITE_DB", str(path))
