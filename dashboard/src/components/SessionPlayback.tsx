@@ -9,6 +9,7 @@ import { RetroCard } from './retro';
 import { Viewport3D } from './Viewport3D';
 import { WARMUP_SECONDS, hasMemReport } from '../lib/filters';
 import { getSessionEvents } from '../api';
+import { EVENT_COLORS, describeTelemetryEvent, eventTimeMs, normalizeEventType } from './EventTimeline';
 
 interface Heartbeat {
   timestamp: number;
@@ -51,16 +52,18 @@ const fmtClock = (s: number) => {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 };
 
-// El central puede mandar los eventos en ms (contrato v2) o en segundos.
-const eventTimeMs = (value: unknown): number => {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return n < 1e12 ? n * 1000 : n;
-};
+// El central puede mandar los eventos en ms (contrato v2) o en segundos;
+// `eventTimeMs` (compartido con EventTimeline) normaliza a ms.
 
 interface SessionEventMarker {
-  type: string;
+  type: string; // normalizado (scene_enter -> scene_change)
+  rawType: string;
   time: number; // segundos desde el inicio de la sesion
+  ms: number; // timestamp absoluto en ms, 0 si no vino
+  scene: string;
+  loadMs: number | null;
+  cause: string;
+  pos: [number, number, number] | null;
 }
 
 export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, session }) => {
@@ -80,10 +83,26 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
         if (cancelled) return;
         const start = Number(session?.start_time) || startTime;
         const list = (Array.isArray(rows) ? rows : [])
-          .map((ev): SessionEventMarker => ({
-            type: String(ev?.type || ''),
-            time: start > 0 ? eventTimeMs(ev?.timestamp ?? ev?.t) / 1000 - start : Number(ev?.time) || 0,
-          }))
+          .map((ev): SessionEventMarker => {
+            const data = (ev?.data || {}) as Record<string, any>;
+            const rawType = String(ev?.type || '');
+            const ms = eventTimeMs(ev?.timestamp ?? ev?.t);
+            const load = Number(data.load_ms);
+            const rawPos = Array.isArray(data.pos) ? data.pos : null;
+            const pos = rawPos && rawPos.length >= 3
+              ? ([Number(rawPos[0]) || 0, Number(rawPos[1]) || 0, Number(rawPos[2]) || 0] as [number, number, number])
+              : null;
+            return {
+              type: normalizeEventType(rawType),
+              rawType,
+              time: start > 0 && ms > 0 ? ms / 1000 - start : Number(ev?.time) || 0,
+              ms,
+              scene: String(data.to || ev?.scene || ''),
+              loadMs: Number.isFinite(load) ? load : null,
+              cause: data.cause ? String(data.cause) : '',
+              pos,
+            };
+          })
           .filter((ev) => Number.isFinite(ev.time) && ev.type);
         setSessionEvents(list);
       })
@@ -178,6 +197,23 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
     return seen;
   }, [segments]);
 
+  // Bandas pause->resume: se sombrean en ambos graficos para ubicar la pausa.
+  const pauseBands = useMemo(() => {
+    const sorted = sessionEvents.slice().sort((a, b) => a.time - b.time);
+    const bands: { start: number; end: number }[] = [];
+    let open: number | null = null;
+    for (const ev of sorted) {
+      if (ev.rawType === 'pause') {
+        open = ev.time;
+      } else if (ev.rawType === 'resume' && open != null) {
+        bands.push({ start: open, end: ev.time });
+        open = null;
+      }
+    }
+    if (open != null) bands.push({ start: open, end: totalTime });
+    return bands.filter((b) => b.end > b.start && b.end > 0);
+  }, [sessionEvents, totalTime]);
+
   // Derived session stats. Warmup (first WARMUP_SECONDS) is excluded from the
   // aggregates so the load spike doesn't skew avg/min FPS or memory — but the
   // full timeline stays scrubbable (a gray band marks the warmup window).
@@ -243,31 +279,75 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
     <ReferenceLine x={Math.round(cursor * 10) / 10} stroke="#f85149" strokeWidth={1.5} />
   );
 
-  // Marcadores dentro del rango visible: cambios de escena (acento) y muertes
-  // (rojo punteado).
+  // Bandas pause->resume (ambar) sobre ambos graficos.
+  const pauseBandMarkers = pauseBands.map((band, i) => (
+    <ReferenceArea
+      key={`pause-${i}`}
+      x1={Math.round(band.start * 10) / 10}
+      x2={Math.round(band.end * 10) / 10}
+      fill={EVENT_COLORS.pause}
+      fillOpacity={0.14}
+      stroke={EVENT_COLORS.pause}
+      strokeOpacity={0.25}
+    />
+  ));
+
+  // Marcadores dentro del rango visible: cambios de escena (azul) y muertes
+  // (rojo punteado), con label de escena destino + load_ms / posicion.
   const visibleEvents = sessionEvents.filter((ev) => ev.time >= 0 && ev.time <= totalTime);
   const sceneChangeMarkers = visibleEvents
-    .filter((ev) => ev.type === 'scene_enter' || ev.type === 'scene_change')
-    .map((ev, i) => (
-      <ReferenceLine
-        key={`scene-${i}`}
-        x={Math.round(ev.time * 10) / 10}
-        stroke="#7fd1ff"
-        strokeWidth={1}
-        strokeDasharray="3 3"
-      />
-    ));
+    .filter((ev) => ev.type === 'scene_change')
+    .map((ev, i) => {
+      const parts = [ev.scene, ev.loadMs != null ? `${Math.round(ev.loadMs)} ms` : ''].filter(Boolean);
+      return (
+        <ReferenceLine
+          key={`scene-${i}`}
+          x={Math.round(ev.time * 10) / 10}
+          stroke={EVENT_COLORS.scene_change}
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          label={parts.length ? { value: parts.join(' · '), position: 'top', fill: EVENT_COLORS.scene_change, fontSize: 8 } : undefined}
+        />
+      );
+    });
   const deathMarkers = visibleEvents
     .filter((ev) => ev.type === 'death')
-    .map((ev, i) => (
-      <ReferenceLine
-        key={`death-${i}`}
-        x={Math.round(ev.time * 10) / 10}
-        stroke="#f85149"
-        strokeWidth={1.5}
-        strokeDasharray="4 2"
-      />
-    ));
+    .map((ev, i) => {
+      const coords = ev.pos ? ev.pos.map((n) => n.toFixed(1)).join(',') : '';
+      const value = coords ? `☠ ${coords}` : (ev.cause ? `☠ ${ev.cause}` : '☠');
+      return (
+        <ReferenceLine
+          key={`death-${i}`}
+          x={Math.round(ev.time * 10) / 10}
+          stroke={EVENT_COLORS.death}
+          strokeWidth={1.5}
+          strokeDasharray="4 2"
+          label={{ value, position: 'top', fill: EVENT_COLORS.death, fontSize: 8 }}
+        />
+      );
+    });
+
+  // Lista de eventos de la sesion; clic = salta el cursor a ese instante.
+  const eventList = sessionEvents.slice().sort((a, b) => a.time - b.time).map((ev, i) => {
+    const { icon: Icon, color, message } = describeTelemetryEvent({
+      type: ev.rawType,
+      scene: ev.scene,
+      timestamp: ev.ms,
+      data: { to: ev.scene, load_ms: ev.loadMs, cause: ev.cause, pos: ev.pos },
+    });
+    return (
+      <button
+        key={`${ev.ms}-${i}`}
+        type="button"
+        onClick={() => { setCursor(Math.max(0, ev.time)); setPlaying(false); }}
+        className="flex w-full items-center gap-2 border-l-2 border-black/10 py-1 pl-2 text-left hover:bg-accent/10"
+      >
+        <span className="w-12 shrink-0 font-mono text-[0.5625rem] tabular-nums text-text-muted">{fmtClock(Math.max(0, ev.time))}</span>
+        <span className="shrink-0" style={{ color }}><Icon size={12} /></span>
+        <span className="min-w-0 flex-1 truncate text-[0.5625rem] text-text-muted">{message}</span>
+      </button>
+    );
+  });
 
   // Click a chart to seek.
   const onChartClick = (e: any) => {
@@ -392,14 +472,20 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
         </span>
         {sceneChangeMarkers.length > 0 && (
           <span className="flex items-center gap-1.5 text-[0.625rem] font-mono uppercase text-text-muted">
-            <span className="w-3 h-0.5 bg-[#7fd1ff]" />
+            <span className="w-3 h-0.5" style={{ backgroundColor: EVENT_COLORS.scene_change }} />
             cambios ({sceneChangeMarkers.length})
           </span>
         )}
         {deathMarkers.length > 0 && (
           <span className="flex items-center gap-1.5 text-[0.625rem] font-mono uppercase text-text-muted">
-            <span className="w-3 h-0.5 bg-[#f85149]" />
+            <span className="w-3 h-0.5" style={{ backgroundColor: EVENT_COLORS.death }} />
             muertes ({deathMarkers.length})
+          </span>
+        )}
+        {pauseBands.length > 0 && (
+          <span className="flex items-center gap-1.5 text-[0.625rem] font-mono uppercase text-text-muted">
+            <span className="w-3 h-3" style={{ backgroundColor: EVENT_COLORS.pause, opacity: 0.4 }} />
+            pausas ({pauseBands.length})
           </span>
         )}
       </div>
@@ -420,6 +506,7 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
               <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
               {sceneBands}
               {warmupBand}
+              {pauseBandMarkers}
               {sceneChangeMarkers}
               {deathMarkers}
               {cursorLine}
@@ -447,6 +534,7 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
                 <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
                 {sceneBands}
                 {warmupBand}
+                {pauseBandMarkers}
                 {sceneChangeMarkers}
                 {deathMarkers}
                 {cursorLine}
@@ -463,6 +551,14 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
           )}
         </div>
       </RetroCard>
+
+      {sessionEvents.length > 0 && (
+        <div className="lg:col-span-2">
+          <RetroCard title={`Eventos (${sessionEvents.length})`}>
+            <div className="flex flex-col gap-0.5">{eventList}</div>
+          </RetroCard>
+        </div>
+      )}
     </div>
   );
 };

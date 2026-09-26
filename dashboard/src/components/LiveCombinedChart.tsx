@@ -1,18 +1,39 @@
 import { useMemo } from 'react';
 import {
-  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
 } from 'recharts';
 import { hasMemReport } from '../lib/filters';
+import { EVENT_COLORS, eventTimeMs, normalizeEventType } from './EventTimeline';
+import type { TelemetryEvent } from '../types';
 
 interface PlayerHistory {
   fps: number[];
   memory: number[];
 }
 
+interface LiveCombinedChartProps {
+  history?: PlayerHistory | null;
+  // Marcadores de eventos en vivo (misma paleta/estilo que SessionPlayback).
+  // El eje X es un indice de muestra sin timestamp, asi que el evento mas
+  // reciente se ancla a la ultima muestra y el resto se separa por timestamp.
+  events?: TelemetryEvent[];
+  sampleIntervalMs?: number;
+}
+
+const markerLabel = (type: string, data: Record<string, any>): string => {
+  if (type === 'scene_change') {
+    const scene = String(data.to || '');
+    const load = Number(data.load_ms);
+    return [scene, Number.isFinite(load) && load > 0 ? `${Math.round(load)}ms` : ''].filter(Boolean).join(' · ');
+  }
+  if (type === 'death') return '☠';
+  return '';
+};
+
 // Combined FPS + Memory chart on a shared time axis with dual Y-axes: FPS as a
 // line (left axis, 0..70), memory as an area (right axis, auto). Driven by the
 // ring buffers useTelemetry keeps in history[pid]. Fills its parent's height.
-export const LiveCombinedChart = ({ history }: { history?: PlayerHistory | null }) => {
+export const LiveCombinedChart = ({ history, events, sampleIntervalMs = 100 }: LiveCombinedChartProps) => {
   const data = useMemo(() => {
     const fps = history?.fps || [];
     const mem = history?.memory || [];
@@ -25,6 +46,28 @@ export const LiveCombinedChart = ({ history }: { history?: PlayerHistory | null 
   }, [history?.fps, history?.memory]);
 
   const hasMem = data.some((d) => d.mem != null);
+
+  const markers = useMemo(() => {
+    const n = data.length;
+    if (n === 0) return [];
+    const evs = (events || [])
+      .map((ev) => ({
+        type: normalizeEventType(String(ev.type || '')),
+        ms: eventTimeMs(ev.timestamp),
+        data: (ev.data || {}) as Record<string, any>,
+      }))
+      .filter((ev) => ev.ms > 0)
+      .sort((a, b) => a.ms - b.ms);
+    if (evs.length === 0) return [];
+    const newest = evs[evs.length - 1].ms;
+    const interval = Math.max(1, sampleIntervalMs);
+    return evs
+      .map((ev) => {
+        const index = (n - 1) - Math.round((newest - ev.ms) / interval);
+        return { ms: ev.ms, index, color: EVENT_COLORS[ev.type] || '#8b949e', label: markerLabel(ev.type, ev.data) };
+      })
+      .filter((m) => m.index >= 0 && m.index < n);
+  }, [events, data, sampleIntervalMs]);
 
   if (data.length === 0) {
     return (
@@ -76,6 +119,17 @@ export const LiveCombinedChart = ({ history }: { history?: PlayerHistory | null 
           iconType="plainline"
           wrapperStyle={{ fontSize: '0.5625rem', textTransform: 'uppercase', fontFamily: 'monospace' }}
         />
+        {markers.map((m) => (
+          <ReferenceLine
+            key={`${m.ms}-${m.index}`}
+            x={m.index}
+            yAxisId="fps"
+            stroke={m.color}
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            label={m.label ? { value: m.label, position: 'top', fill: m.color, fontSize: 8 } : undefined}
+          />
+        ))}
         {hasMem && (
           <Area
             yAxisId="mem"

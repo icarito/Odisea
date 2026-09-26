@@ -1,3 +1,5 @@
+import type { LoadTimesResponse } from "./types";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 const getAuthToken = () => localStorage.getItem("odisea_token");
@@ -67,6 +69,13 @@ export async function getSessionEvents(sessionId: string) {
   const response = await apiFetch(`/ghosts/sessions/${encodeURIComponent(sessionId)}/events`);
   const json = await response.json();
   return Array.isArray(json) ? json : (json.data || []);
+}
+
+// Tiempos de carga agregados (n/p50/p90 por escena destino + boot_ms) de los
+// ultimos `days` dias. Alimenta LoadTimesPanel.
+export async function getLoadTimes(days: number = 7): Promise<LoadTimesResponse> {
+  const response = await apiFetch(`/ghosts/load_times?days=${encodeURIComponent(String(days))}`);
+  return response.json();
 }
 
 export async function getActiveGhosts() {

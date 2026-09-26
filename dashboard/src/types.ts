@@ -118,3 +118,19 @@ export interface Tag {
   category?: string;
   color?: string;
 }
+
+// GET /ghosts/load_times?days=N (solo lectura): percentiles de load_ms por
+// escena destino (eventos scene_enter) + boot_ms de session_start. p50/p90
+// pueden ser null cuando no hay muestras para esa escena.
+export interface LoadTimeStat {
+  scene: string;
+  n: number;
+  p50: number | null;
+  p90: number | null;
+}
+
+export interface LoadTimesResponse {
+  days: number;
+  scenes: LoadTimeStat[];
+  boot: { n: number; p50: number | null; p90: number | null };
+}

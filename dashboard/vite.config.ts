@@ -92,6 +92,7 @@ export default defineConfig(({ mode }) => {
         '/telemetry': apiProxy,
         '/command': apiProxy,
         '/api': apiProxy,
+        '/ghosts': apiProxy,
         '/ws': {
           target: wsTarget,
           changeOrigin: true,
