@@ -143,6 +143,41 @@ export const formatLivePerfLabel = (player: any): string => {
   return formatFpsLabel(player?.fps);
 };
 
+// Formatea un tiempo en milisegundos como segundos con 1 decimal ("51.5 s"),
+// mas legible que ms crudos (load_ms, boot_ms, p50/p90, latencia). '—' si no
+// es un numero finito.
+export const formatSeconds = (ms: unknown): string => {
+  const value = Number(ms);
+  if (!Number.isFinite(value)) return '—';
+  return `${(value / 1000).toFixed(1)} s`;
+};
+
+// Navegador y OS a partir de render_diag.user_agent (solo builds web con
+// feat(telemetry) user_agent; ausente en heartbeats viejos o no-web).
+// Regex simple, sin dependencias: el orden importa porque Chrome/Edge
+// incluyen "Safari" en su UA, y Edge incluye "Chrome".
+export const parseUserAgent = (userAgent: unknown): { browser: string; os: string } | null => {
+  if (typeof userAgent !== 'string' || !userAgent.trim()) return null;
+  const ua = userAgent;
+  let browser = 'Desconocido';
+  if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/OPR\//.test(ua)) browser = 'Opera';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Chromium\//.test(ua)) browser = 'Chromium';
+  else if (/Chrome\//.test(ua)) browser = 'Chrome';
+  else if (/Safari\//.test(ua)) browser = 'Safari';
+
+  let os = 'Desconocido';
+  if (/Android/.test(ua)) os = 'Android';
+  else if (/iPhone|iPad|iPod/.test(ua)) os = 'iOS';
+  else if (/CrOS/.test(ua)) os = 'ChromeOS';
+  else if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Macintosh|Mac OS X/.test(ua)) os = 'macOS';
+  else if (/Linux/.test(ua)) os = 'Linux';
+
+  return { browser, os };
+};
+
 // Drop heartbeats within WARMUP_SECONDS of the session's first sample. Rows must
 // carry a numeric `timestamp` (seconds). If stripping would empty the set (very
 // short session), the original rows are returned unchanged.

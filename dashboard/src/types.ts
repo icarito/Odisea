@@ -34,6 +34,12 @@ export interface PlayerState {
     vtx: number;
     nodes: number;
   };
+  // Diagnostico de render en web (ANNAV2_Thread_Web.gd); user_agent solo
+  // presente en builds posteriores a feat(telemetry) user_agent.
+  render_diag?: {
+    user_agent?: string;
+    [key: string]: any;
+  };
 }
 
 // Eventos discretos de telemetria v2. El juego los encola con seq monotono por

@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertCircle, Skull, LogIn, MapPin, Pause, Play, RotateCcw } from 'lucide-react';
 import type { TelemetryEvent } from '../types';
+import { formatSeconds } from '../lib/filters';
 
 interface EventTimelineProps {
   events: TelemetryEvent[];
@@ -59,7 +60,7 @@ export const describeTelemetryEvent = (event: TelemetryEvent): EventDisplay => {
     case 'scene_change': {
       const from = data.from ? `${data.from} → ` : '';
       const load = Number(data.load_ms);
-      const loadText = Number.isFinite(load) && load > 0 ? ` · ${Math.round(load)} ms` : '';
+      const loadText = Number.isFinite(load) && load > 0 ? ` · ${formatSeconds(load)}` : '';
       return { icon, color, message: `${from}${scene || '?'}${loadText}` };
     }
     default:

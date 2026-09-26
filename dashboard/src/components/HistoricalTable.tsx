@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Tag, Download, Play, X } from 'lucide-react';
 import { PLATFORM_META } from './PlatformFilter';
-import { getPlatform } from '../lib/filters';
-import { buildLabel } from '../lib/buildLabels';
+import { getPlatform, formatSeconds } from '../lib/filters';
+import { buildVersionInfo } from '../lib/buildLabels';
 
 // One key/value cell used inside the expanded session-detail grid.
 const SessionMeta = ({ label, value }: { label: string; value: ReactNode }) => (
@@ -170,7 +170,7 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
             const scenesVisited = sceneCount(s.scenes_visited);
             const isSelected = selectedSessionId && s.session_id === selectedSessionId;
             const official = s.official_build === 1 || s.intake_mode === 'admin' || s.intake_mode === 'ingest';
-            const versionLabel = buildLabel(s);
+            const version = buildVersionInfo(s);
             const label = s.display_name || '';
             const location = [s.city, s.country_code || s.country].filter(Boolean).join(', ');
             const sessionHotzones = (s.session_id && hotzonesBySession?.[s.session_id]) || [];
@@ -248,7 +248,7 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                   {s.avg_load_ms != null && (
                     <>
                       <span className="text-text-muted/60">·</span>
-                      <span>{Math.round(Number(s.avg_load_ms) || 0)} ms carga</span>
+                      <span>{formatSeconds(s.avg_load_ms)} carga</span>
                     </>
                   )}
                   {location && (
@@ -259,10 +259,13 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                   )}
                   <span className="text-text-muted/60">·</span>
                   <span className={official ? 'text-success' : 'text-warning'}>{official ? 'official' : 'canary'}</span>
-                  {versionLabel && (
+                  {version && (
                     <>
                       <span className="text-text-muted/60">·</span>
-                      <span>{versionLabel}</span>
+                      <span title={version.hash ? `commit ${version.hash}` : undefined}>
+                        <span className="uppercase">{version.channel}</span>
+                        {version.version ? ` ${version.version}` : ''}
+                      </span>
                     </>
                   )}
                   {s.player_id && (
@@ -336,11 +339,16 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                     />
                     <SessionMeta label="Inicio" value={formatDate(Number(s.start_time) || 0)} />
                     <SessionMeta label="Canal" value={official ? 'official' : 'canary'} />
-                    {versionLabel && <SessionMeta label="Versión" value={versionLabel} />}
+                    {version && (
+                      <SessionMeta
+                        label="Build"
+                        value={`${version.channel}${version.version ? ` ${version.version}` : ''}${version.hash ? ` (${version.hash})` : ''}`}
+                      />
+                    )}
                     {location && <SessionMeta label="Ubicación" value={location} />}
                     {s.deaths != null && <SessionMeta label="Muertes" value={String(Number(s.deaths) || 0)} />}
                     {s.scene_changes != null && <SessionMeta label="Cambios de escena" value={String(Number(s.scene_changes) || 0)} />}
-                    {s.avg_load_ms != null && <SessionMeta label="Carga promedio" value={`${Math.round(Number(s.avg_load_ms) || 0)} ms`} />}
+                    {s.avg_load_ms != null && <SessionMeta label="Carga promedio" value={formatSeconds(s.avg_load_ms)} />}
                     {s.player_id && <SessionMeta label="Player ID" value={s.player_id} />}
                     {s.session_id && <SessionMeta label="Sesión" value={String(s.session_id).slice(0, 12)} />}
                     {sessionHotzones.length > 0 && <SessionMeta label="Hotzones" value={sessionHotzones.length} />}

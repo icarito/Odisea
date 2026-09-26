@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { History } from 'lucide-react';
 import { RetroBadge } from './retro';
-import { formatLivePerfLabel, formatPhaseLabel } from '../lib/filters';
+import { formatLivePerfLabel, formatPhaseLabel, formatSeconds } from '../lib/filters';
 
 interface PlayerBottomSheetProps {
   open: boolean;
@@ -157,7 +157,7 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
                       {p.focused === false && (
                         <span className="text-text-muted/80 uppercase" title="Ventana en segundo plano — telemetría reducida">segundo plano</span>
                       )}
-                      <span>hace {stale.toFixed(1)}s</span>
+                      <span>hace {formatSeconds(stale * 1000)}</span>
                     </div>
                   </div>
                   <RetroBadge color={fpsColor(fps)}>{formatLivePerfLabel(p)}</RetroBadge>

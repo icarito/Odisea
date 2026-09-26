@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Activity, Map, Clock, Users, LogOut, Globe, Settings, Loader2, ExternalLink } from 'lucide-react';
 import { RetroTabs } from './retro';
-import { buildLabel } from '../lib/buildLabels';
+import { buildVersionInfo } from '../lib/buildLabels';
 
 // In-flight GitHub Actions run, surfaced in the header "PUBLICANDO" indicator.
 export interface RunningAction {
@@ -168,7 +168,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   secondaryNav,
   runningActions = [],
 }) => {
-  const publishedLabel = buildLabel(latestPublished);
+  const published = buildVersionInfo(latestPublished);
   const fmtDate = (sec?: number | null) => (
     sec ? new Date(sec * 1000).toLocaleString('es', {
       day: '2-digit',
@@ -201,8 +201,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </button>
           <span className="ml-2 align-middle text-[0.5rem] font-bold not-italic tracking-normal text-text-muted">
             dash {dashboardVersion || 'dev'}{dashDate ? ` (${dashDate})` : ''}
-            {publishedLabel ? (
-              <> · pub {publishedLabel}{publishedDate ? ` (${publishedDate})` : ''}</>
+            {published ? (
+              <span title={published.hash ? `commit ${published.hash}` : undefined}>
+                {' · pub '}
+                <span className="uppercase">{published.channel}</span>
+                {published.version ? ` ${published.version}` : ''}
+                {publishedDate ? ` (${publishedDate})` : ''}
+              </span>
             ) : null}
           </span>
         </h1>

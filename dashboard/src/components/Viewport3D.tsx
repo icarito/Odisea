@@ -4,7 +4,7 @@ import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF, Html } from '@re
 import * as THREE from 'three';
 import { SceneGeometry } from './SceneGeometry';
 import { useSceneGeometryStream } from '../hooks/useSceneGeometry';
-import { formatLivePerfLabel } from '../lib/filters';
+import { formatLivePerfLabel, formatSeconds } from '../lib/filters';
 
 // Inline heatmap overlay rendered as a group so it can nest inside this Canvas.
 // (The standalone Heatmap3D component owns its own Canvas and is used in the heatmap tab.)
@@ -66,6 +66,8 @@ interface Viewport3DProps {
     displayName?: string;
     sessionId?: string;
     platform?: string;
+    // Navegador/OS derivados de render_diag.user_agent (solo web).
+    browserOs?: { browser: string; os: string } | null;
     memoryMb?: number;
     mode?: string;
     tick?: number;
@@ -337,7 +339,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             <span className="text-text-muted">Sesión</span>
             <span className="truncate">{hud.sessionId?.slice(0, 10) || '-'}</span>
             <span className="text-text-muted">Plataforma</span>
-            <span className="uppercase">{hud.platform || '-'}</span>
+            <span className="uppercase truncate">
+              {hud.platform || '-'}
+              {hud.browserOs ? ` · ${hud.browserOs.browser}/${hud.browserOs.os}` : ''}
+            </span>
             <span className="text-text-muted">Modo</span>
             <span className="truncate">{hud.mode || '-'}</span>
             <span className="text-text-muted">Memoria</span>
@@ -347,7 +352,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             <span className="text-text-muted">Tick</span>
             <span>{hud.tick ?? '-'}</span>
             <span className="text-text-muted">Latencia</span>
-            <span>{hud.staleAge != null ? `${hud.staleAge.toFixed(1)}s` : '-'}</span>
+            <span>{hud.staleAge != null ? formatSeconds(hud.staleAge * 1000) : '-'}</span>
             <span className="text-text-muted">Posición</span>
             <span className="truncate">{position.map(n => n.toFixed(1)).join(', ')}</span>
           </div>

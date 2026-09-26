@@ -7,7 +7,7 @@ import { Play, Pause, Square } from 'lucide-react';
 import { sceneColor } from '../sceneColors';
 import { RetroCard } from './retro';
 import { Viewport3D } from './Viewport3D';
-import { WARMUP_SECONDS, hasMemReport } from '../lib/filters';
+import { WARMUP_SECONDS, hasMemReport, formatSeconds } from '../lib/filters';
 import { getSessionEvents } from '../api';
 import { EVENT_COLORS, describeTelemetryEvent, eventTimeMs, normalizeEventType } from './EventTimeline';
 
@@ -298,7 +298,7 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
   const sceneChangeMarkers = visibleEvents
     .filter((ev) => ev.type === 'scene_change')
     .map((ev, i) => {
-      const parts = [ev.scene, ev.loadMs != null ? `${Math.round(ev.loadMs)} ms` : ''].filter(Boolean);
+      const parts = [ev.scene, ev.loadMs != null ? formatSeconds(ev.loadMs) : ''].filter(Boolean);
       return (
         <ReferenceLine
           key={`scene-${i}`}

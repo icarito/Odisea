@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
 } from 'recharts';
-import { hasMemReport } from '../lib/filters';
+import { hasMemReport, formatSeconds } from '../lib/filters';
 import { EVENT_COLORS, eventTimeMs, normalizeEventType } from './EventTimeline';
 import type { TelemetryEvent } from '../types';
 
@@ -24,7 +24,7 @@ const markerLabel = (type: string, data: Record<string, any>): string => {
   if (type === 'scene_change') {
     const scene = String(data.to || '');
     const load = Number(data.load_ms);
-    return [scene, Number.isFinite(load) && load > 0 ? `${Math.round(load)}ms` : ''].filter(Boolean).join(' · ');
+    return [scene, Number.isFinite(load) && load > 0 ? formatSeconds(load) : ''].filter(Boolean).join(' · ');
   }
   if (type === 'death') return '☠';
   return '';

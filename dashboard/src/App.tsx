@@ -44,6 +44,8 @@ import {
   isUsefulSceneName,
   formatLivePerfLabel,
   formatPhaseLabel,
+  parseUserAgent,
+  formatSeconds,
 } from './lib/filters';
 import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play, Tag, ChevronDown, ChevronRight, Map as MapIcon } from 'lucide-react';
 import type { Tab } from './types';
@@ -2202,6 +2204,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           displayName: activeHb.display_name,
           sessionId: activeHb.session_id,
           platform: getPlatform(activeHb) || undefined,
+          browserOs: parseUserAgent(activeHb.player?.render_diag?.user_agent),
           memoryMb: activeHb.player?.memory_mb,
           mode: activeHb.player?.mode,
           tick: activeHb.player?.tick,
@@ -2590,7 +2593,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                       <Info label="Escena" value={activeHb?.player?.scene || '-'} />
                       <Info label="Plataforma" value={getPlatform(activeHb) || '-'} />
                       <Info label="Pares" value={otherPeerCount} />
-                      <Info label="Latencia" value={`${staleAge.toFixed(1)}s`} />
+                      <Info label="Latencia" value={formatSeconds(staleAge * 1000)} />
                     </div>
                     <div className="h-40 px-2 pb-2 pt-1">
                       <LiveCombinedChart history={activeHistory} events={activeEvents} />
