@@ -60,6 +60,10 @@ escribe briefs y revisa. Solo hace él lo trivial (one-liners). Escalera de ejec
 - **Sin tests mientras se mueve todo**: el objetivo de la sesión es avanzar muchos temas; no se corren
   tests por item. Cuando un tema queda **más o menos estable**, despachar un agente aparte (Sonnet)
   que lo deje listo para CI: correr sus tests puntuales, alinear/crear tests, y reportar.
+- Gotchas de `kilo run`: (a) lanzar varios en el mismo segundo rompe su DB local (espaciar ~10 s);
+  (b) en modo no interactivo rechaza leer fuera del repo y la corrida se corta: no referenciar
+  archivos del scratchpad en el brief (copiar lo necesario dentro del repo o describirlo en el doc);
+  (c) para retomar: `kilo run --session <id> "<seguimiento>"` (id en la primera línea del jsonl).
 - Archivos disjuntos entre agentes concurrentes sigue siendo obligatorio (Kilo y subagentes comparten
   el árbol).
 

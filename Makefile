@@ -308,6 +308,10 @@ deploy-dashboard:
 		'    ok = src.execute("PRAGMA integrity_check").fetchone()' \
 		'    src.close()' \
 		'    if not ok or ok[0] != "ok": raise RuntimeError("integrity_check failed: %r" % (ok,))' \
+		'    keep = int(os.environ.get("DEPLOY_BACKUP_KEEP", "3"))' \
+		'    old = sorted(f for f in os.listdir(backup_dir) if f.startswith("ghosts_") and f.endswith(".db"))' \
+		'    for stale in old[:-keep] if len(old) > keep else []:' \
+		'        os.remove(os.path.join(backup_dir, stale)); print("Backup pruned:", stale)' \
 		'    print("SQLite backup OK:", bpath)' \
 		'else:' \
 		'    print("SQLite no existe aún; el central lo creará al iniciar:", db)' \
