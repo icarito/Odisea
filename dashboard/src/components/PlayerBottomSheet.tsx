@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { RetroBadge } from './retro';
-import { formatFpsLabel } from '../lib/filters';
+import { formatLivePerfLabel, formatPhaseLabel } from '../lib/filters';
 
 interface PlayerBottomSheetProps {
   open: boolean;
@@ -154,12 +154,12 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
                       <span>{stale.toFixed(1)}s ago</span>
                     </div>
                   </div>
-                  <RetroBadge color={fpsColor(fps)}>{formatFpsLabel(fps)}</RetroBadge>
+                  <RetroBadge color={fpsColor(fps)}>{formatLivePerfLabel(p)}</RetroBadge>
                 </div>
 
                 {/* Live metrics with mini sparklines. */}
                 <div className="grid grid-cols-3 gap-1.5">
-                  <MetricCell label="FPS" value={formatFpsLabel(fps).replace(' FPS', '')} spark={fpsSpark} color="#7fd1ff" />
+                  <MetricCell label={formatPhaseLabel(p.phase) ? 'Fase' : 'FPS'} value={formatLivePerfLabel(p).replace(' FPS', '')} spark={fpsSpark} color="#7fd1ff" />
                   <MetricCell label="RAM" value={`${mem.toFixed(0)} MB`} spark={memSpark.length ? memSpark : undefined} color="#3fb950" />
                   <MetricCell label="Vel" value={`${spd.toFixed(1)} m/s`} color="#d29922" />
                 </div>

@@ -16,6 +16,8 @@ export interface StoredHeartbeatSample {
   memory_mb: number;
   position: [number, number, number];
   tick: number;
+  // Fase del heartbeat (v2). Ausente en muestras viejas.
+  phase?: string;
 }
 
 export interface StoredSceneGeometryChunk<T = unknown> {

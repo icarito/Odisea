@@ -4,6 +4,8 @@
 // Centralizing them here keeps the `server`-platform exclusion, scene parsing,
 // and warmup stripping consistent for every consumer.
 
+import type { PlayerState } from '../types';
+
 export const KNOWN_PLATFORMS = ['server', 'android', 'ios', 'linux', 'windows', 'macos', 'web'];
 
 // First seconds of every session (scene load, GC, chunk streaming) skew FPS and
@@ -46,6 +48,9 @@ export const isDashboardSession = (session: any): boolean => {
   // dropping them here would make them vanish from the live globe. The
   // useful-scene gate only excludes historical/bootup-only sessions.
   if (session?.live) return true;
+  // Sesiones v2: el central agrega play_seconds (tiempo en phase play). Una
+  // sesion que nunca salio de boot/menu no es util, sin depender del nombre.
+  if (typeof session?.play_seconds === 'number') return session.play_seconds > 0;
   const scenes = sessionScenes(session).filter((scene) => {
     const normalized = scene.trim().toLowerCase();
     return isUsefulSceneName(scene) && normalized !== 'boot';
@@ -94,6 +99,48 @@ export const formatFpsLabel = (value: unknown): string => {
   const fps = Number(value) || 0;
   const rounded = Math.round(fps);
   return isLikelyUncappedFps(fps) ? `${rounded} FPS uncapped` : `${rounded} FPS`;
+};
+
+// True para la fase normal de juego (o sin fase, en heartbeats viejos). El
+// resto (loading/boot/menu/paused) no debe contar para stats de rendimiento.
+export const isPlayPhase = (phase: unknown): boolean => (
+  phase == null || phase === '' || String(phase).trim().toLowerCase() === 'play'
+);
+
+// Nombre corto de escena a partir de un path res://.../Nombre.tscn.
+const sceneBasename = (path: unknown): string => {
+  if (typeof path !== 'string' || path === '') return '';
+  return path.split('/').pop()?.replace(/\.tscn$/i, '') || '';
+};
+
+// Etiqueta de fase para el badge en vivo. Devuelve null cuando la fase es play
+// o desconocida, para que el caller muestre el FPS normal. `transition` (solo
+// relevante en loading) trae el progreso 0..1 de SceneManager (SWAP_STAGE_PROGRESS).
+export const formatPhaseLabel = (phase: unknown, transition?: PlayerState['transition']): string | null => {
+  if (typeof phase !== 'string') return null;
+  switch (phase.trim().toLowerCase()) {
+    case 'loading': {
+      const scene = sceneBasename(transition?.path);
+      const progress = Number(transition?.progress);
+      const pct = Number.isFinite(progress) && progress >= 0 ? Math.round(progress * 100) : null;
+      if (scene && pct != null) return `Cargando ${scene} ${pct}%`;
+      if (scene) return `Cargando ${scene}`;
+      return 'Cargando…';
+    }
+    case 'boot': return 'Boot';
+    case 'menu': return 'Menú';
+    case 'paused': return 'Pausa';
+    default: return null;
+  }
+};
+
+// Etiqueta unica para el indicador de rendimiento en vivo: la fase cuando no se
+// esta jugando, el FPS cuando si. Evita etiquetar muestras de menu/boot/pausa
+// como si fueran FPS de gameplay.
+export const formatLivePerfLabel = (player: any): string => {
+  const phaseLabel = formatPhaseLabel(player?.phase, player?.transition);
+  if (phaseLabel) return phaseLabel;
+  return formatFpsLabel(player?.fps);
 };
 
 // Drop heartbeats within WARMUP_SECONDS of the session's first sample. Rows must

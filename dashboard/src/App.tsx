@@ -22,6 +22,7 @@ import { DashboardLayout } from './components/DashboardLayout';
 import { PlayerBottomSheet } from './components/PlayerBottomSheet';
 import { FiltersDrawer, FiltersSidebar, type SceneFilterOption, type CountryFilterOption } from './components/FiltersDrawer';
 import { LiveCombinedChart } from './components/LiveCombinedChart';
+import { EventTimeline } from './components/EventTimeline';
 import { RetroCard, RetroButton, CollapsibleCard } from './components/retro';
 import { PlayerFocus } from './components/PlayerFocus';
 import { PlayerTagEditor } from './components/PlayerTagEditor';
@@ -40,7 +41,8 @@ import {
   sessionScenes,
   sessionDuration,
   isUsefulSceneName,
-  formatFpsLabel,
+  formatLivePerfLabel,
+  formatPhaseLabel,
 } from './lib/filters';
 import { Maximize2, X, SlidersHorizontal, RotateCcw, WifiOff, Download, Trash2, Play, Tag, ChevronDown, ChevronRight, Map as MapIcon } from 'lucide-react';
 import type { Tab } from './types';
@@ -1009,7 +1011,7 @@ const LiveWaitTicker = ({ items }: { items: { label: string; value: string }[] }
 };
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
-  const { heartbeats, isConnected, alerts, history, health, lastMessage } = useTelemetry();
+  const { heartbeats, isConnected, alerts, history, health, lastMessage, events } = useTelemetry();
   const { layout, updateLayout } = useLayoutPersistence();
   
   const activeTab = layout.activeTab as Tab;
@@ -2018,6 +2020,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const activeHb = heartbeats[activeId] || filteredHeartbeats[activeId];
   const activeLabel = activeHb?.display_name || activeId;
   const activeHistory = history[activeId];
+  // Eventos discretos (death, scene_enter, session_start...) del player
+  // seguido. Se filtra ademas por session_id cuando el evento la trae, para
+  // no arrastrar historial de una sesion anterior del mismo player_id.
+  const activeEvents = useMemo(() => (
+    events
+      .filter((ev) => ev.player_id === activeId && (!ev.session_id || !activeHb?.session_id || ev.session_id === activeHb.session_id))
+      .slice(-20)
+      .reverse()
+  ), [events, activeId, activeHb?.session_id]);
   const focusedGeo = useMemo(() => (
     focusPlayerId ? geoPlayers.find((player) => player.player_id === focusPlayerId) : undefined
   ), [focusPlayerId, geoPlayers]);
@@ -2102,6 +2113,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         color={activeHb?.color || undefined}
         hud={activeHb ? {
           fps: activeHb.player?.fps,
+          phase: activeHb.player?.phase,
           scene: activeHb.player?.scene,
           playerId: activeId,
           displayName: activeHb.display_name,
@@ -2184,7 +2196,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <span className="max-w-[90px] truncate text-accent">{activeHb.player?.scene || '—'}</span>
             <span className="text-text-muted/60">·</span>
             <span style={{ color: fpsColor(Number(activeHb.player?.fps) || 0) }}>
-              {formatFpsLabel(activeHb.player?.fps)}
+              {formatLivePerfLabel(activeHb.player)}
             </span>
             {activeHb.player?.memory_mb != null && (
               <>
@@ -2476,7 +2488,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 {showLiveCharts && (
                   <div className="shrink-0 border-t-2 border-black bg-bg-card/80">
                     <div className="grid grid-cols-2 gap-2 px-3 pt-2 text-[0.625rem] font-mono sm:grid-cols-4 lg:grid-cols-6">
-                      <Info label="FPS" value={`${formatFpsLabel(activeHb?.player?.fps).replace(' FPS', '')}${activeHb?.player?.focused === false ? ' (bg)' : ''}`} />
+                      <Info label={formatPhaseLabel(activeHb?.player?.phase) ? 'Fase' : 'FPS'} value={`${formatLivePerfLabel(activeHb?.player).replace(' FPS', '')}${activeHb?.player?.focused === false ? ' (bg)' : ''}`} />
                       <Info label="RAM" value={activeHb?.player?.memory_mb != null ? `${Math.round(activeHb.player.memory_mb)} MB` : '—'} />
                       <Info label="Scene" value={activeHb?.player?.scene || '-'} />
                       <Info label="Platform" value={getPlatform(activeHb) || '-'} />
@@ -2485,6 +2497,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     </div>
                     <div className="h-40 px-2 pb-2 pt-1">
                       <LiveCombinedChart history={activeHistory} />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto px-3 pb-2">
+                      <EventTimeline events={activeEvents} />
                     </div>
                   </div>
                 )}

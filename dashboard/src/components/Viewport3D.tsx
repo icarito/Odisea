@@ -4,7 +4,7 @@ import { OrbitControls, Grid, Line, PerspectiveCamera, useGLTF, Html } from '@re
 import * as THREE from 'three';
 import { SceneGeometry } from './SceneGeometry';
 import { useSceneGeometryStream } from '../hooks/useSceneGeometry';
-import { formatFpsLabel } from '../lib/filters';
+import { formatLivePerfLabel } from '../lib/filters';
 import type { Tab } from '../types';
 
 // Inline heatmap overlay rendered as a group so it can nest inside this Canvas.
@@ -60,6 +60,8 @@ interface Viewport3DProps {
   // full-space mobile/fullscreen view so the data doesn't steal canvas space.
   hud?: {
     fps?: number;
+    // Fase v2; si no es play el HUD muestra el badge de fase en vez del FPS.
+    phase?: string;
     scene?: string;
     playerId?: string;
     displayName?: string;
@@ -334,7 +336,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           <div className="mb-1 flex items-center justify-between gap-2 border-b border-white/15 pb-1">
             <span className="truncate text-accent font-bold">{hud.displayName || hud.playerId?.slice(0, 8) || 'PLAYER'}</span>
             <span className={(hud.fps ?? 0) < 30 ? 'text-danger' : (hud.fps ?? 0) < 45 ? 'text-warning' : 'text-success'}>
-              {formatFpsLabel(hud.fps ?? 0)}
+              {formatLivePerfLabel(hud)}
             </span>
           </div>
           <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-2 gap-y-0.5">

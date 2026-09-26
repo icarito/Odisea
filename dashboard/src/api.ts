@@ -61,6 +61,14 @@ export async function getHistoricalSessions() {
   return response.json();
 }
 
+// Eventos discretos de una sesion (death, scene_enter, session_start, pause...)
+// ordenados por seq. Alimenta los marcadores del playback.
+export async function getSessionEvents(sessionId: string) {
+  const response = await apiFetch(`/ghosts/sessions/${encodeURIComponent(sessionId)}/events`);
+  const json = await response.json();
+  return Array.isArray(json) ? json : (json.data || []);
+}
+
 export async function getActiveGhosts() {
   const response = await apiFetch("/ghosts/active");
   return response.json();

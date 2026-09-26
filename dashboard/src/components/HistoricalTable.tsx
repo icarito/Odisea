@@ -212,6 +212,24 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                     )}
                     <span className="text-text-muted/60">·</span>
                     <span>{scenesVisited} scenes</span>
+                    {s.deaths != null && (
+                      <>
+                        <span className="text-text-muted/60">·</span>
+                        <span>{Number(s.deaths) || 0} muertes</span>
+                      </>
+                    )}
+                    {s.scene_changes != null && (
+                      <>
+                        <span className="text-text-muted/60">·</span>
+                        <span>{Number(s.scene_changes) || 0} cambios</span>
+                      </>
+                    )}
+                    {s.avg_load_ms != null && (
+                      <>
+                        <span className="text-text-muted/60">·</span>
+                        <span>{Math.round(Number(s.avg_load_ms) || 0)} ms carga</span>
+                      </>
+                    )}
                     {location && (
                       <>
                         <span className="text-text-muted/60">·</span>
@@ -305,6 +323,9 @@ export const HistoricalTable = ({ sessions, onSelectSession, selectedSessionId, 
                     <SessionMeta label="Build" value={official ? 'official' : 'canary'} />
                     {versionLabel && <SessionMeta label="Versión" value={versionLabel} />}
                     {location && <SessionMeta label="Ubicación" value={location} />}
+                    {s.deaths != null && <SessionMeta label="Muertes" value={String(Number(s.deaths) || 0)} />}
+                    {s.scene_changes != null && <SessionMeta label="Cambios de escena" value={String(Number(s.scene_changes) || 0)} />}
+                    {s.avg_load_ms != null && <SessionMeta label="Load promedio" value={`${Math.round(Number(s.avg_load_ms) || 0)} ms`} />}
                     {s.player_id && <SessionMeta label="Player ID" value={s.player_id} />}
                     {s.session_id && <SessionMeta label="Sesión" value={String(s.session_id).slice(0, 12)} />}
                     {sessionHotzones.length > 0 && <SessionMeta label="Hotzones" value={sessionHotzones.length} />}

@@ -14,6 +14,10 @@ interface HistorySession {
   display_name?: string;
   city?: string;
   country?: string;
+  // Nuevas metricas de session_events (contrato telemetria v2).
+  deaths?: number;
+  scene_changes?: number;
+  avg_load_ms?: number;
 }
 
 interface SessionDetail {
@@ -228,6 +232,11 @@ export const SessionHistory: React.FC = () => {
           <div className="text-text-muted truncate mb-2">{s.session_id}</div>
           <div className="flex justify-between items-center">
             <span className="text-text-muted">{Math.round(s.duration)}s | {s.avg_fps ? Math.round(s.avg_fps) : "?"} FPS</span>
+            <span className="text-text-muted">
+              {s.deaths != null && `${Number(s.deaths) || 0} muertes`}
+              {s.scene_changes != null && ` · ${Number(s.scene_changes) || 0} cambios`}
+              {s.avg_load_ms != null && ` · ${Math.round(Number(s.avg_load_ms) || 0)} ms carga`}
+            </span>
             <span className="text-accent opacity-0 group-hover:opacity-100 transition-opacity">VER DETALLE →</span>
           </div>
         </div>

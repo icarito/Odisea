@@ -8,6 +8,7 @@ import { sceneColor } from '../sceneColors';
 import { RetroCard } from './retro';
 import { Viewport3D } from './Viewport3D';
 import { WARMUP_SECONDS, hasMemReport } from '../lib/filters';
+import { getSessionEvents } from '../api';
 
 interface Heartbeat {
   timestamp: number;
@@ -50,10 +51,45 @@ const fmtClock = (s: number) => {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 };
 
+// El central puede mandar los eventos en ms (contrato v2) o en segundos.
+const eventTimeMs = (value: unknown): number => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n < 1e12 ? n * 1000 : n;
+};
+
+interface SessionEventMarker {
+  type: string;
+  time: number; // segundos desde el inicio de la sesion
+}
+
 export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, session }) => {
   const data = Array.isArray(heartbeats) ? heartbeats : [];
 
   const startTime = data[0]?.timestamp || 0;
+
+  // Marcadores de eventos (muerte / cambio de escena) sobre la linea de tiempo.
+  const [sessionEvents, setSessionEvents] = useState<SessionEventMarker[]>([]);
+
+  useEffect(() => {
+    const sid = session?.session_id;
+    if (!sid) { setSessionEvents([]); return; }
+    let cancelled = false;
+    getSessionEvents(sid)
+      .then((rows: any[]) => {
+        if (cancelled) return;
+        const start = Number(session?.start_time) || startTime;
+        const list = (Array.isArray(rows) ? rows : [])
+          .map((ev): SessionEventMarker => ({
+            type: String(ev?.type || ''),
+            time: start > 0 ? eventTimeMs(ev?.timestamp ?? ev?.t) / 1000 - start : Number(ev?.time) || 0,
+          }))
+          .filter((ev) => Number.isFinite(ev.time) && ev.type);
+        setSessionEvents(list);
+      })
+      .catch(() => { if (!cancelled) setSessionEvents([]); });
+    return () => { cancelled = true; };
+  }, [session?.session_id, session?.start_time, startTime]);
 
   const chartData = useMemo(
     () => data.map((h, i) => ({
@@ -207,6 +243,32 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
     <ReferenceLine x={Math.round(cursor * 10) / 10} stroke="#f85149" strokeWidth={1.5} />
   );
 
+  // Marcadores dentro del rango visible: cambios de escena (acento) y muertes
+  // (rojo punteado).
+  const visibleEvents = sessionEvents.filter((ev) => ev.time >= 0 && ev.time <= totalTime);
+  const sceneChangeMarkers = visibleEvents
+    .filter((ev) => ev.type === 'scene_enter' || ev.type === 'scene_change')
+    .map((ev, i) => (
+      <ReferenceLine
+        key={`scene-${i}`}
+        x={Math.round(ev.time * 10) / 10}
+        stroke="#7fd1ff"
+        strokeWidth={1}
+        strokeDasharray="3 3"
+      />
+    ));
+  const deathMarkers = visibleEvents
+    .filter((ev) => ev.type === 'death')
+    .map((ev, i) => (
+      <ReferenceLine
+        key={`death-${i}`}
+        x={Math.round(ev.time * 10) / 10}
+        stroke="#f85149"
+        strokeWidth={1.5}
+        strokeDasharray="4 2"
+      />
+    ));
+
   // Click a chart to seek.
   const onChartClick = (e: any) => {
     const t = e?.activeLabel;
@@ -328,6 +390,18 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
           <span className="w-3 h-3 border-2 border-black bg-[#6b7280]/40" />
           warmup ({WARMUP_SECONDS}s, excl. stats)
         </span>
+        {sceneChangeMarkers.length > 0 && (
+          <span className="flex items-center gap-1.5 text-[0.625rem] font-mono uppercase text-text-muted">
+            <span className="w-3 h-0.5 bg-[#7fd1ff]" />
+            cambios ({sceneChangeMarkers.length})
+          </span>
+        )}
+        {deathMarkers.length > 0 && (
+          <span className="flex items-center gap-1.5 text-[0.625rem] font-mono uppercase text-text-muted">
+            <span className="w-3 h-0.5 bg-[#f85149]" />
+            muertes ({deathMarkers.length})
+          </span>
+        )}
       </div>
 
       <RetroCard title={
@@ -346,6 +420,8 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
               <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
               {sceneBands}
               {warmupBand}
+              {sceneChangeMarkers}
+              {deathMarkers}
               {cursorLine}
               <XAxis dataKey="time" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} />
               <YAxis stroke="#666" fontSize={10} domain={[0, 'auto']} />
@@ -371,6 +447,8 @@ export const SessionPlayback: React.FC<SessionPlaybackProps> = ({ heartbeats, se
                 <CartesianGrid strokeDasharray="3 3" stroke="#232833" />
                 {sceneBands}
                 {warmupBand}
+                {sceneChangeMarkers}
+                {deathMarkers}
                 {cursorLine}
                 <XAxis dataKey="time" stroke="#666" fontSize={10} type="number" domain={['dataMin', 'dataMax']} />
                 <YAxis stroke="#666" fontSize={10} domain={[0, 'auto']} />

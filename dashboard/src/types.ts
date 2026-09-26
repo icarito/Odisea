@@ -13,12 +13,50 @@ export interface PlayerState {
   // False when the game window is backgrounded; telemetry is throttled and
   // FPS/perf alerts are suppressed for these samples.
   focused?: boolean;
+  // Fase del juego reportada en cada heartbeat: loading | boot | menu | paused
+  // | play. Solo `play` cuenta para stats de rendimiento. Ausente en
+  // heartbeats viejos (se trata como play).
+  phase?: string;
+  paused?: boolean;
+  // Progreso de la transicion de SceneManager en curso (solo presente durante
+  // phase == "loading"). path/current_scene son res://... completos.
+  transition?: {
+    stage?: string;
+    path?: string;
+    current_scene?: string;
+    elapsed_ms?: number;
+    progress?: number;
+    error?: string;
+  };
   perf?: {
     dc: number;
     obj: number;
     vtx: number;
     nodes: number;
   };
+}
+
+// Eventos discretos de telemetria v2. El juego los encola con seq monotono por
+// sesion; el central los difunde por el WS /events y los persiste en
+// session_events. `t`/`timestamp` puede venir en ms o en segundos segun el
+// emisor, por eso los consumidores normalizan.
+export type TelemetryEventType =
+  | 'session_start'
+  | 'scene_enter'
+  | 'scene_change'
+  | 'death'
+  | 'respawn'
+  | 'pause'
+  | 'resume';
+
+export interface TelemetryEvent {
+  type: TelemetryEventType | string;
+  player_id?: string;
+  session_id?: string;
+  scene?: string;
+  timestamp: number;
+  seq?: number;
+  data?: Record<string, any>;
 }
 
 export interface Heartbeat {
@@ -39,6 +77,8 @@ export interface Heartbeat {
   notes?: string;
   player: PlayerState;
   timestamp: number;
+  // Cola de eventos discretos pendientes, drenada en cada heartbeat v2.
+  events?: TelemetryEvent[];
 }
 
 export type HeartbeatMap = Record<string, Heartbeat>;

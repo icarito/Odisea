@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getStatus, getHealth } from '../api';
-import type { Heartbeat, HeartbeatMap, Alert } from '../types';
+import type { Heartbeat, HeartbeatMap, Alert, TelemetryEvent } from '../types';
+import { isPlayPhase } from '../lib/filters';
 import {
   saveSnapshot,
   getSnapshot,
@@ -80,6 +81,19 @@ const isAlertMessage = (msg: unknown): msg is AlertMessage => {
   return (msg as { type?: string }).type === 'alert';
 };
 
+// El central difunde cada evento de session_events por el mismo WS /events,
+// con shape {type, player_id, session_id, scene, timestamp, data}. No trae
+// `player`, asi que no colisiona con isHeartbeatMessage.
+const LIVE_EVENT_TYPES = new Set([
+  'session_start', 'scene_enter', 'scene_change', 'death', 'respawn', 'pause', 'resume',
+]);
+
+const isTelemetryEvent = (msg: unknown): msg is TelemetryEvent => {
+  if (!msg || typeof msg !== 'object') return false;
+  const type = (msg as { type?: unknown }).type;
+  return typeof type === 'string' && LIVE_EVENT_TYPES.has(type);
+};
+
 export const useTelemetry = () => {
   const [heartbeats, setHeartbeats] = useState<HeartbeatMap>({});
   const [peersConnected, setPeersConnected] = useState<number | string>('?');
@@ -89,6 +103,9 @@ export const useTelemetry = () => {
   const [lastMessage, setLastMessage] = useState<any>(null);
   const [health, setHealth] = useState<HealthPayload>({});
   const [history, setHistory] = useState<PlayerHistoryMap>({});
+  // Eventos discretos en vivo (death, scene_change, session_start, pause...),
+  // en orden de llegada; acotados para no crecer sin limite.
+  const [events, setEvents] = useState<TelemetryEvent[]>([]);
   const disconnectedPids = useRef<Set<string>>(new Set());
   const playerLabels = useRef<Record<string, string>>({});
   // Wall-clock ms of the last heartbeat seen per player, for the stale sweep.
@@ -117,8 +134,11 @@ export const useTelemetry = () => {
     const hist = ensureHistory(sample.player_id, sample.timestamp * 1000);
     hist.lastTick = Number(sample.tick ?? hist.lastTick ?? 0);
 
-    hist.fps = [...hist.fps, sample.fps ?? 0].slice(-300);
-    hist.memory = [...hist.memory, sample.memory_mb ?? 0].slice(-300);
+    // Solo la fase play alimenta los buffers de FPS/memoria del grafico.
+    if (isPlayPhase(sample.phase)) {
+      hist.fps = [...hist.fps, sample.fps ?? 0].slice(-300);
+      hist.memory = [...hist.memory, sample.memory_mb ?? 0].slice(-300);
+    }
 
     const lastEvent = hist.events[hist.events.length - 1];
     if (!lastEvent || lastEvent.scene !== sample.scene || lastEvent.zone !== sample.zone || lastEvent.mode !== sample.mode) {
@@ -157,6 +177,7 @@ export const useTelemetry = () => {
       memory_mb: Number(hb.player?.memory_mb ?? 0),
       position: [Number(rawPos[0]), Number(rawPos[1]), Number(rawPos[2])],
       tick,
+      phase: hb.player?.phase,
     };
   }, []);
 
@@ -180,13 +201,20 @@ export const useTelemetry = () => {
     // grafico se quedaba en "Esperando datos en vivo..." aunque los heartbeats llegaran
     // (los otros paneles leen `heartbeats`, no `history`, por eso parecia que solo
     // fallaba el grafico). Solo se llenaba al recargar, desde lo que hubiera en IndexedDB.
-    hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
-    hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
+    //
+    // Excepcion: Boot/Menu/pausa/carga no son rendimiento de gameplay. Se sigue
+    // trackeando posicion/escena/trail, pero no se ensucian los buffers de FPS/memoria.
+    const playing = isPlayPhase(hb.player?.phase);
+    if (playing) {
+      hist.fps = [...hist.fps, hb.player?.fps ?? 0].slice(-300);
+      hist.memory = [...hist.memory, hb.player?.memory_mb ?? 0].slice(-300);
+    }
 
     // Persistir es otra cosa y mantiene su propio ritmo: sirve para rehidratar el
-    // grafico al recargar la pagina, no para dibujarlo ahora.
+    // grafico al recargar la pagina, no para dibujarlo ahora. Igual que los buffers,
+    // solo se persisten muestras en fase play para no rehidratar con menu/boot.
     ghostTick.current[pid] = (ghostTick.current[pid] || 0) + 1;
-    if (ghostTick.current[pid] % GHOST_STORE_EVERY === 0) {
+    if (playing && ghostTick.current[pid] % GHOST_STORE_EVERY === 0) {
       const sample = heartbeatToSample(pid, hb);
       if (sample) saveHeartbeatSamples([sample]).catch(() => {});
     }
@@ -281,6 +309,8 @@ export const useTelemetry = () => {
         try { msg = JSON.parse(event.data) as unknown; } catch { return; }
         if (isAlertMessage(msg)) {
           setLastMessage(msg);
+        } else if (isTelemetryEvent(msg)) {
+          setEvents((prev) => [...prev, msg].slice(-200));
         } else if (isHeartbeatMessage(msg)) {
           ingestHeartbeat(msg.player_id, msg);
           setHeartbeats((prev) => {
@@ -372,5 +402,5 @@ export const useTelemetry = () => {
     return () => clearInterval(id);
   }, []);
 
-  return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history, health, lastMessage };
+  return { heartbeats, peersConnected, heartbeatRate, isConnected, alerts, history, health, lastMessage, events };
 };
