@@ -328,6 +328,9 @@ class OdiseaPeer:
             except Exception:
                 pass
         elif mtype == "heartbeat":
+            # Relay intacto: el heartbeat viaja completo al buffer local, al
+            # fanout SSE y al central (incluye player.phase y events; contrato
+            # telemetria v2). No filtrar campos aca sin actualizar ese contrato.
             player_id = data.get("player_id")
             if not player_id:
                 return

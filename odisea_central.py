@@ -118,6 +118,15 @@ _NOT_SERVER = "LOWER(COALESCE(platform,'')) != 'server'"
 # `focused` column default to 1, so historical data is unaffected.
 _FOCUSED_ONLY = "COALESCE(focused, 1) = 1"
 
+# SQL fragment: keep only phase="play" samples (contrato telemetria v2). Boot,
+# menu, pausa y loading bajan FPS legitimamente y no cuentan para stats de
+# rendimiento. Filas previas a la columna `phase` caen al fallback por
+# scene/paused ('x' = fuera), asi el historico viejo no entra a los promedios.
+_PLAY_ONLY = (
+    "COALESCE(phase, CASE WHEN scene IN ('Boot','Menu') OR COALESCE(paused,0)=1"
+    " THEN 'x' ELSE 'play' END) = 'play'"
+)
+
 # SQL fragment: exclude automated test telemetry by default. Test runners do
 # not consistently report platform=server, so use the persisted identifiers and
 # scene metadata that survives JSONL imports into SQLite.
@@ -334,7 +343,7 @@ class MilestoneDetector:
                 self.max_concurrent = max_c
                 
                 # Last low FPS (focused samples only — backgrounded games drop FPS legitimately)
-                cursor.execute(f"SELECT MAX(timestamp) FROM heartbeats WHERE fps < 15 AND {_FOCUSED_ONLY} AND {visible_sql}")
+                cursor.execute(f"SELECT MAX(timestamp) FROM heartbeats WHERE fps < 15 AND {_FOCUSED_ONLY} AND {_PLAY_ONLY} AND {visible_sql}")
                 row = cursor.fetchone()
                 if row and row[0]:
                     self.last_low_fps_at = row[0]
@@ -1439,9 +1448,9 @@ class OdiseaCentral:
             AVG(vertices) as avg_vertices,
             AVG(nodes) as avg_nodes
         FROM heartbeats
-        WHERE scene = ? AND {visible} AND {past_warmup} AND {focused}
+        WHERE scene = ? AND {visible} AND {past_warmup} AND {focused} AND {play}
         GROUP BY grid_x, grid_z
-        """.format(visible=self._visibility_sql(include_server, include_tests), past_warmup=_PAST_WARMUP, focused=_FOCUSED_ONLY)
+        """.format(visible=self._visibility_sql(include_server, include_tests), past_warmup=_PAST_WARMUP, focused=_FOCUSED_ONLY, play=_PLAY_ONLY)
         params = (res, res, res, res, low_fps_threshold, scene)
 
         try:
@@ -1979,11 +1988,16 @@ class OdiseaCentral:
             MAX(timestamp) as end_time,
             MAX(timestamp) - MIN(timestamp) as duration,
             GROUP_CONCAT(DISTINCT scene) as scenes_visited,
-            -- FPS stats only over focused samples so a backgrounded stretch
-            -- doesn't drag the session's avg_fps down or inflate low_fps_pct.
-            AVG(CASE WHEN COALESCE(focused, 1) = 1 THEN fps END) as avg_fps,
-            SUM(CASE WHEN COALESCE(focused, 1) = 1 AND fps < 30 THEN 1 ELSE 0 END) * 100.0
-                / NULLIF(SUM(CASE WHEN COALESCE(focused, 1) = 1 THEN 1 ELSE 0 END), 0) as low_fps_pct,
+            -- FPS stats only over focused play-phase samples so a backgrounded
+            -- stretch (or boot/menu/pause) doesn't drag the session's avg_fps
+            -- down or inflate low_fps_pct.
+            AVG(CASE WHEN {focused} AND {play} THEN fps END) as avg_fps,
+            SUM(CASE WHEN {focused} AND {play} AND fps < 30 THEN 1 ELSE 0 END) * 100.0
+                / NULLIF(SUM(CASE WHEN {focused} AND {play} THEN 1 ELSE 0 END), 0) as low_fps_pct,
+            -- Tiempo en juego (contrato telemetria v2): duracion por la fraccion
+            -- de muestras en phase play, independiente de la cadencia de guardado.
+            1.0 * (MAX(timestamp) - MIN(timestamp)) * SUM(CASE WHEN {play} THEN 1 ELSE 0 END)
+                / COUNT(*) as play_seconds,
             AVG(memory_mb) as avg_mem,
             COALESCE(NULLIF(MAX(game_version), ''), 'unknown') as game_version,
             COALESCE(NULLIF(MAX(git_commit), ''), '') as git_commit,
@@ -2003,7 +2017,11 @@ class OdiseaCentral:
         GROUP BY player_id, session_id
         ORDER BY start_time DESC
         LIMIT ? OFFSET ?
-        """.format(visible=self._visibility_sql(include_server, include_tests))
+        """.format(
+            visible=self._visibility_sql(include_server, include_tests),
+            focused=_FOCUSED_ONLY,
+            play=_PLAY_ONLY,
+        )
 
         try:
             def fetch():
@@ -2023,10 +2041,70 @@ class OdiseaCentral:
                     r["city"] = loc.get("city")
                     r["country"] = loc.get("country")
                     r["country_code"] = loc.get("country_code")
+            # Agregados de session_events (muertes, cambios de escena, load promedio):
+            # query separada por session_id para no escanear heartbeats.
+            aggregates = await self._run_query(
+                self._session_events_aggregates,
+                [r.get("session_id") for r in rows],
+            )
+            for r in rows:
+                agg = aggregates.get(r.get("session_id")) or {}
+                r["deaths"] = agg.get("deaths", 0)
+                r["scene_changes"] = agg.get("scene_changes", 0)
+                r["avg_load_ms"] = agg.get("avg_load_ms")
             return web.json_response(rows)
         except Exception as e:
             logger.warning(f"{request.path}: query failed, returning [] ({e})")
             return web.json_response([])
+
+    def _session_events_aggregates(self, session_ids: List[str]) -> dict:
+        """Agregados de session_events por sesion: deaths, scene_changes y
+        avg_load_ms (del campo load_ms de los scene_enter). Chunked IN() para
+        quedarse bajo el limite de variables de SQLite, apoyado en
+        idx_session_events_session."""
+        out: Dict[str, dict] = {}
+        if not session_ids:
+            return out
+        conn = self._get_db()
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.cursor()
+            for i in range(0, len(session_ids), 400):
+                chunk = [s for s in session_ids[i:i + 400] if s]
+                if not chunk:
+                    continue
+                placeholders = ",".join("?" * len(chunk))
+                cursor.execute(
+                    f"SELECT session_id, type, data FROM session_events "
+                    f"WHERE session_id IN ({placeholders})",
+                    chunk,
+                )
+                for row in cursor.fetchall():
+                    agg = out.setdefault(
+                        row["session_id"], {"deaths": 0, "scene_changes": 0, "load_ms": []}
+                    )
+                    if row["type"] == "death":
+                        agg["deaths"] += 1
+                    elif row["type"] == "scene_enter":
+                        agg["scene_changes"] += 1
+                        try:
+                            ms = (json.loads(row["data"] or "{}") or {}).get("load_ms")
+                        except (TypeError, ValueError):
+                            ms = None
+                        if isinstance(ms, (int, float)):
+                            agg["load_ms"].append(float(ms))
+        except sqlite3.Error as e:
+            logger.warning(f"session_events aggregates failed: {e}")
+        finally:
+            conn.close()
+        return {
+            sid: {
+                "deaths": a["deaths"],
+                "scene_changes": a["scene_changes"],
+                "avg_load_ms": round(sum(a["load_ms"]) / len(a["load_ms"]), 1) if a["load_ms"] else None,
+            }
+            for sid, a in out.items()
+        }
 
     def _geo_by_player_id(self) -> dict:
         """Map player_id -> {city, country, country_code} from the geo DB so the
@@ -2057,6 +2135,109 @@ class OdiseaCentral:
             return {}
         finally:
             conn.close()
+
+    async def handle_ghosts_session_events(self, request):
+        """Eventos discretos de una sesion, ordenados por seq."""
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        session_id = request.match_info.get("session_id")
+
+        def fetch():
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT player_id, session_id, seq, timestamp, type, scene, data "
+                "FROM session_events WHERE session_id = ? ORDER BY seq ASC",
+                (session_id,),
+            )
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return rows
+
+        try:
+            rows = await self._run_query(fetch)
+            for r in rows:
+                try:
+                    r["data"] = json.loads(r.get("data") or "{}")
+                except (TypeError, ValueError):
+                    r["data"] = {}
+            return web.json_response(rows)
+        except Exception as e:
+            logger.warning(f"{request.path}: query failed, returning [] ({e})")
+            return web.json_response([])
+
+    async def handle_ghosts_load_times(self, request):
+        """Load times por escena destino (scene_enter.load_ms) + boot_ms de los
+        session_start. Percentiles calculados en Python para no depender de la
+        extension JSON1 de SQLite."""
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        try:
+            days = min(max(float(request.query.get("days", 7)), 0.04), 365)
+        except ValueError:
+            days = 7
+        since = time.time() - days * 86400
+
+        def fetch():
+            # type IN + rango de timestamp usan idx_session_events_type.
+            conn = self._get_db()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT type, scene, data FROM session_events "
+                "WHERE timestamp >= ? AND type IN ('scene_enter', 'session_start')",
+                (since,),
+            )
+            rows = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return rows
+
+        try:
+            rows = await self._run_query(fetch)
+        except Exception as e:
+            logger.warning(f"{request.path}: query failed, returning [] ({e})")
+            return web.json_response({"scenes": [], "boot": {"n": 0}})
+
+        loads: Dict[str, List[float]] = {}
+        boots: List[float] = []
+        for r in rows:
+            try:
+                payload = json.loads(r.get("data") or "{}")
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            if r.get("type") == "scene_enter":
+                scene = str(payload.get("to") or r.get("scene") or "")
+                ms = payload.get("load_ms")
+                if scene and isinstance(ms, (int, float)):
+                    loads.setdefault(scene, []).append(float(ms))
+            elif r.get("type") == "session_start":
+                ms = payload.get("boot_ms")
+                if isinstance(ms, (int, float)):
+                    boots.append(float(ms))
+
+        def pct(values: List[float], p: float):
+            if not values:
+                return None
+            ordered = sorted(values)
+            idx = min(len(ordered) - 1, max(0, int(round(p / 100.0 * (len(ordered) - 1)))))
+            return round(ordered[idx], 1)
+
+        scenes = [
+            {"scene": scene, "n": len(vals), "p50": pct(vals, 50), "p90": pct(vals, 90)}
+            for scene, vals in sorted(loads.items())
+        ]
+        return web.json_response({
+            "days": days,
+            "scenes": scenes,
+            "boot": {"n": len(boots), "p50": pct(boots, 50), "p90": pct(boots, 90)},
+        })
 
     async def handle_milestones(self, request):
         guard = self._auth_guard(request)
@@ -2887,6 +3068,13 @@ class OdiseaCentral:
         tag = {}
         player_label = player_id[:8]
 
+        # Eventos discretos: se procesan ANTES del rate-limit de 50 ms para no
+        # perderlos cuando el heartbeat cae en la ventana (una muerte puede viajar
+        # sola en un heartbeat que se descarta por rate limit).
+        events = data.get("events")
+        if isinstance(events, list) and events:
+            await self._process_session_events(player_id, session_id, data, events)
+
         now = time.time()
         last_time = self.session_rate_limit.get(session_id, 0)
         if now - last_time < 0.05:
@@ -2912,8 +3100,14 @@ class OdiseaCentral:
         # FPS — don't raise low-FPS alerts for it. `focused` defaults to True so
         # older clients that don't send the flag behave exactly as before.
         is_unfocused = p_data.get("focused", True) is False
+        # Igual criterio para la phase (contrato telemetria v2): boot, menu, pausa
+        # y loading bajan FPS legitimamente, no generan alertas ni incidentes.
+        # Clientes viejos no mandan phase; se infiere igual que en _PLAY_ONLY.
+        phase = p_data.get("phase") or (
+            "x" if (p_data.get("scene") in ("Boot", "Menu") or p_data.get("paused")) else "play"
+        )
 
-        if platform == "server" or is_test_telemetry or is_unfocused:
+        if platform == "server" or is_test_telemetry or is_unfocused or phase != "play":
             self.low_fps_timers.pop(player_id, None)
             self.low_fps_sessions.pop(session_id, None)
         elif fps < 15:
@@ -3035,6 +3229,71 @@ class OdiseaCentral:
                     await sub.send_json(data)
                 except Exception:
                     pass
+
+    async def _process_session_events(self, player_id: str, session_id: str, data: dict, events: list):
+        """Valida, persiste y broadcastea los eventos discretos del heartbeat
+        (ANNAV2.emit_event). Cada evento: {"seq", "t" (unix_ms), "type", "scene",
+        "data"}. seq es monotonico por sesion; UNIQUE(session_id, seq) hace
+        idempotente un reenvio."""
+        p_data = data.get("player")
+        hb_scene = p_data.get("scene") if isinstance(p_data, dict) else ""
+        rows = []
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            ev_type = str(ev.get("type") or "")
+            try:
+                seq = int(ev.get("seq"))
+            except (TypeError, ValueError):
+                continue
+            if not ev_type or seq < 1:
+                continue
+            try:
+                timestamp = float(ev.get("t") or 0) / 1000.0
+            except (TypeError, ValueError):
+                timestamp = 0.0
+            if timestamp <= 0:
+                timestamp = time.time()
+            payload = ev.get("data")
+            if not isinstance(payload, dict):
+                payload = {}
+            ev_scene = str(ev.get("scene") or hb_scene or "")
+            rows.append((player_id, session_id, seq, timestamp, ev_type, ev_scene,
+                         json.dumps(payload, separators=(",", ":"), sort_keys=True)))
+            # Broadcast al dashboard (mismo mecanismo que disconnect/low_fps).
+            broadcast = {
+                "type": ev_type,
+                "player_id": player_id,
+                "session_id": session_id,
+                "scene": ev_scene,
+                "timestamp": timestamp,
+                "data": payload,
+            }
+            for sub in self.event_subscribers:
+                try:
+                    await sub.send_json(broadcast)
+                except Exception:
+                    pass
+        if rows:
+            await self._run_query(self._store_session_events, rows)
+
+    def _store_session_events(self, rows: list):
+        """INSERT OR IGNORE de eventos discretos; UNIQUE(session_id, seq) deduplica."""
+        conn = self._get_db()
+        try:
+            cursor = conn.cursor()
+            cursor.executemany(
+                """INSERT OR IGNORE INTO session_events
+                     (player_id, session_id, seq, timestamp, type, scene, data)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                rows,
+            )
+            conn.commit()
+        except sqlite3.Error as e:
+            self.metrics.record_error()
+            logger.error(f"session_events insert failed: {e}")
+        finally:
+            conn.close()
 
     async def handle_events_ws(self, request):
         # Allow token in query param for WebSockets as browser API doesn't support headers
@@ -3239,6 +3498,8 @@ class OdiseaCentral:
                 intake_mode TEXT,
                 peer_id TEXT,
                 focused INTEGER DEFAULT 1,
+                phase TEXT,
+                paused INTEGER,
                 draw_calls REAL,
                 objects REAL,
                 vertices REAL,
@@ -3281,6 +3542,8 @@ class OdiseaCentral:
             ("transition_overlay_visible", "INTEGER"),
             ("transition_overlay_alpha", "REAL"),
             ("transition_error", "TEXT"),
+            ("phase", "TEXT"),
+            ("paused", "INTEGER"),
         ):
             try:
                 cursor.execute(f"ALTER TABLE heartbeats ADD COLUMN {column} {coltype};")
@@ -3298,7 +3561,26 @@ class OdiseaCentral:
         # esto: empieza por player_id pero el planner igual recorre la tabla al filtrar
         # por platform.
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_player ON heartbeats(player_id);")
-        
+
+        # Eventos discretos por sesion (contrato telemetria v2): muertes,
+        # transiciones de escena, pausas, etc. Los endpoints y agregados del
+        # dashboard consultan por session_id, asi que los indices evitan tocar
+        # heartbeats (1.16M filas en prod). UNIQUE(session_id, seq) deduplica.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS session_events (
+                player_id TEXT,
+                session_id TEXT,
+                seq INTEGER,
+                timestamp REAL,
+                type TEXT,
+                scene TEXT,
+                data TEXT,
+                UNIQUE(session_id, seq)
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_session_events_session ON session_events(session_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_session_events_type ON session_events(type, timestamp);")
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS player_tags (
                 player_id TEXT PRIMARY KEY,
@@ -3392,13 +3674,14 @@ class OdiseaCentral:
                             engine_version, game_version, git_commit, build_id,
                             build_channel, official_host, official_build,
                             intake_mode, peer_id, focused,
+                            phase, paused,
                             draw_calls, objects, vertices, nodes,
                             render_diag,
                             transition_stage, transition_path, transition_current_scene,
                             transition_elapsed_ms, transition_progress, transition_loader_stage,
                             transition_preloading, transition_overlay_visible,
                             transition_overlay_alpha, transition_error
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         data.get("player_id"),
                         data.get("session_id"),
@@ -3418,6 +3701,8 @@ class OdiseaCentral:
                         data.get("intake_mode", "telemetry"),
                         data.get("peer_id"),
                         0 if player_data.get("focused", True) is False else 1,
+                        player_data.get("phase"),
+                        1 if player_data.get("paused") else 0,
                         perf.get("dc"),
                         perf.get("obj"),
                         perf.get("vtx"),
@@ -4130,8 +4415,10 @@ class OdiseaCentral:
             web.get('/ghosts', self.handle_ghosts),
             web.get('/ghosts/heatmap', self.handle_ghosts_heatmap),
             web.get('/ghosts/sessions', self.handle_ghosts_sessions),
+            web.get('/ghosts/sessions/{session_id}/events', self.handle_ghosts_session_events),
             web.get('/ghosts/active', self.handle_ghosts_active),
             web.get('/ghosts/stats', self.handle_ghosts_stats),
+            web.get('/ghosts/load_times', self.handle_ghosts_load_times),
             web.get('/scenes', self.handle_scenes),
 
             # Incident endpoints (v1 dashboard redesign)
