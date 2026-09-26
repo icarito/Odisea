@@ -94,6 +94,90 @@ Tipos:
 | K3 dashboard | `dashboard/src/**` | Kilo DeepSeek 4.1 Flash |
 | lead | `scripts/import_ghosts_to_sqlite.py` (hecho), Makefile (pendiente decisión) | — |
 
+### T4 — Dashboard: navegación live↔histórico coherente + eventos en la línea de tiempo
+Pedido: mejorar visibilidad; que pasar de en vivo a histórico sea coherente; que los eventos
+(muerte, cambio de escena con carga, nueva sesión, pausa) se vean bien en la línea de tiempo.
+Incluye mostrar `/ghosts/load_times`.
+
+Mapa UX (Sonnet, 2026-09-26) — hallazgos clave:
+- Estado en `App.tsx` `Dashboard()` (~l.1012): `activeTab` (URL `?tab=` vía
+  `hooks/useUrlNavigation.ts`), `liveView` (l.1056, sin URL ni persistencia), `selectedPlayerId`
+  (l.1027, a quién sigo; sin URL) vs `focusPlayerId` (l.1035, tags/notificación; en `?player=`),
+  `selectedSession`/`playbackData` (l.1130, nunca se limpia → no hay "volver" en desktop).
+- "Go to History" (`Viewport3D.tsx:280-303`) sobre sesión en curso → "FAILED TO LOAD SESSION DATA"
+  (reproducido contra prod).
+- No hay camino jugador en vivo → sus sesiones pasadas (sin filtro por player en HistoricalTable).
+- EventTimeline solo en liveView 3d, en un cajón max-h-40.
+- SessionPlayback (l.249-270): sin pause/resume, marcadores sin tooltip (no muestra load_ms).
+- `/ghosts/load_times` no se consume. LiveCombinedChart sin marcadores de eventos.
+- 19 componentes huérfanos (NavigationRail, BreadcrumbNav, DashboardTabs, Replays*, Cockpit*...).
+- Capturas: fila de sesión del historial rota (columna angosta, nombre truncado "E."), etiquetas
+  mezcla inglés/español, panel "Session History" en 3D en realidad muestra hotzones.
+- vite.config.ts: proxy no cubre `/ghosts/*` (dev local necesita VITE_API_URL).
+
+Plan T4 (ownership disjunto):
+- **D1 navegación** (Kilo GLM 5.3) — dueño de `App.tsx`, `hooks/useUrlNavigation.ts`,
+  `hooks/useLayoutPersistence*`, `Viewport3D.tsx`, `HistoricalTable.tsx`, `SessionHistory.tsx`,
+  `PlayerCard.tsx`, `PlayerBottomSheet.tsx`, `ActivePlayersGrid.tsx`.
+  1. Modelo de navegación único en URL: `?tab=live|mapa|heatmap|history`, `&view=dashboard|birdseye|3d`,
+     `&player=<id>` (= a quién sigo; unificar selectedPlayerId/focusPlayerId: el editor de tags
+     pasa a ser un estado de UI aparte que no viaja en la URL), `&session=<id>` en history.
+     Back del navegador recorre esos estados (respetar la guarda PWA existente).
+  2. Sesión seleccionada deseleccionable (botón volver a la lista) y deep-link.
+  3. Jugador → historial: acción "Sesiones" en PlayerCard/BottomSheet/panel 3D que lleva a
+     history filtrado por player_id (filtro visible y quitable en HistoricalTable). Sesión en curso
+     en la lista de historial → abre live 3D siguiendo a ese jugador (no el playback).
+     Reemplazar "Go to History" de Viewport3D por esa misma acción; el panel de hotzones se llama
+     por lo que es.
+  4. EventTimeline visible en las tres liveView para el jugador seguido (no solo 3d), con más alto.
+  5. Montar `<LoadTimesPanel />` (lo crea D2) en History.
+  6. Arreglar el layout de la fila de sesión en History (captura 03) y unificar etiquetas al
+     español neutro en los archivos propios.
+- **D2 línea de tiempo** (Kilo DeepSeek 4.1) — dueño de `SessionPlayback.tsx`,
+  `EventTimeline.tsx`, `LiveCombinedChart.tsx`, `api.ts`, nuevo `components/LoadTimesPanel.tsx`.
+  1. SessionPlayback: banda semitransparente pause→resume; tooltip/label en marcadores (escena
+     destino + load_ms; muerte con posición); lista de eventos bajo el gráfico, clic = saltar el
+     cursor del playback a ese instante.
+  2. LiveCombinedChart: prop opcional `events` → mismos marcadores sobre el gráfico en vivo.
+  3. EventTimeline: agrupar por sesión, hora relativa, ícono+color coherente con los marcadores.
+  4. `getLoadTimes(days)` en api.ts + `LoadTimesPanel` (tabla chica: escena, n, p50, p90; fila de
+     arranque boot_ms), sin props obligatorias.
+- D3 HECHO (sin commit): 10 huérfanos borrados + proxy `/ghosts`. PERO el criterio correcto es
+  alcanzabilidad desde `src/main.tsx` (sw.ts y globe-preview.tsx son entradas propias): quedan
+  ~32 archivos inalcanzables, incluidos PlayerCard, SessionHistory, ActivePlayersGrid (editados por
+  K3 en vano), AppShell/NavigationRail/BreadcrumbNav, SceneDetail/ScenesIndex, Hotzone*, Tag*,
+  hooks/useWebSocket. Rehacer el análisis de alcance cuando D1/D2 terminen y borrar lo que siga
+  inalcanzable (script de alcance: seguir imports relativos desde main.tsx).
+- **D3 limpieza** (Sonnet) — borrar los componentes huérfanos confirmando 0 imports;
+  `vite.config.ts` proxy para `/ghosts`.
+
+### T5 — Versión como "nightly #749" en vez del hash
+El heartbeat ya trae `build_id: '749'`, `build_channel: 'nightly'`, `game_version:
+'0.5.0-nightly.749+ad11b29 (2026-09-26)'` (verificado en /status de prod). Solo dashboard: mostrar
+canal como tag y `#<build_id>` como versión; hash solo en detalle/tooltip.
+
+### T6 — Web: navegador y OS
+Juego: `render_diag.user_agent` en ANNAV2_Thread_Web.gd (commit feat(telemetry) user_agent). El
+central ya persiste render_diag (odisea_central.py:3666). Dashboard: derivar "Firefox/Chromium/
+Safari · Linux/Windows/macOS/Android/iOS" del UA (regex simple, sin dependencias).
+
+### T7 — ¿Funciona etiquetar IDs? — investigar (player_tags en central; TagPicker/
+TaggableEntityEditor figuraban como inalcanzables desde main.tsx).
+
+### T8 — Tiempos en segundos, no ms, en todo el dashboard (load_ms, boot_ms, p50/p90, latency).
+
+Los cuatro tocan App.tsx → esperan a que D1 termine; un solo agente.
+
+### T4-T8 — HECHO y desplegado (2026-09-26)
+Commits 95f754e1 (línea de tiempo + load times), 388b3d8a (navegación en URL), 211032a3 (versión
+canal #build, UA navegador/OS, segundos, borra 33 inalcanzables). `make deploy-dashboard` x2 OK
+(central prod == HEAD b3092697). T7: tags funcionan (probado POST/DELETE en prod); el editor real es
+PlayerTagEditor; TagPicker & co. eran un prototipo nunca montado (borrado).
+Pendientes/ideas: historial dominado por canal dev (181/200 en 36 h) → ¿default nightly+release?;
+/ghosts/sessions tarda 5.2 s (agente gateway); load times prod: RingHub_Level p50 51 s / p90 204 s,
+boot p50 12.9 s; build_id y user_agent no están en las filas de /ghosts/sessions (MAX(build_id) en
+la query si hace falta); marcadores del gráfico en vivo aproximados (PlayerHistory sin timestamps).
+
 ## Estado
 - Mapeo y health check: hechos.
 - T1+T2 HECHO y commiteado: 12f29935 (juego), b3092697 (central), 8691ea09 (dashboard),
