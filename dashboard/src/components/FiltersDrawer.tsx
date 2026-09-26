@@ -6,6 +6,14 @@ import { PLATFORM_META } from './PlatformFilter';
 // WARMUP_SECONDS so "13s" drops sessions that are essentially only bootup.
 const MIN_DURATION_PRESETS = [0, 13, 30, 60];
 
+// Canales de build para el filtro de History (chips). Mismo orden que se
+// espera ver: los builds "serios" primero, dev al final.
+const CHANNEL_OPTIONS: { value: string; label: string }[] = [
+  { value: 'nightly', label: 'Nightly' },
+  { value: 'release', label: 'Release' },
+  { value: 'dev', label: 'Dev' },
+];
+
 export interface SceneFilterOption {
   scene: string;
   sessions: number;
@@ -31,6 +39,8 @@ interface FiltersContentProps {
   onSelectCountry: (code: string) => void;
   minDuration: number;
   onSetMinDuration: (seconds: number) => void;
+  selectedChannels: Set<string>;
+  onToggleChannel: (channel: string) => void;
   onReset: () => void;
 }
 
@@ -40,7 +50,7 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
   platforms, selectedPlatforms, onTogglePlatform, platformCounts,
   scenes, selectedScene, onSelectScene,
   countries, selectedCountry, onSelectCountry,
-  minDuration, onSetMinDuration, onReset,
+  minDuration, onSetMinDuration, selectedChannels, onToggleChannel, onReset,
 }) => {
   // `platforms` arrives pre-sorted by popularity from App.tsx; render it as-is.
   const visiblePlatforms = platforms;
@@ -132,6 +142,28 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
             </div>
           </div>
         )}
+
+        {/* Channel filter (History) — nightly/release/dev, chips compactos. */}
+        <div className="flex flex-col gap-2">
+          <span className="text-[0.625rem] font-black uppercase tracking-widest text-text-muted">
+            Canal (History)
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {CHANNEL_OPTIONS.map(({ value, label }) => {
+              const active = selectedChannels.has(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onToggleChannel(value)}
+                  className={`border-2 border-black px-2.5 py-1.5 text-[0.625rem] font-black uppercase transition-colors ${active ? 'bg-accent text-black' : 'bg-bg-primary text-text-muted hover:bg-accent/10'}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* History min-duration filter — excludes very short sessions (mostly
             bootup noise) from the History list and aggregate charts. */}

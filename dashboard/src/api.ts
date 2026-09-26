@@ -58,8 +58,9 @@ export async function getHeatmap(scene: string, resolution: number = 5) {
   return response.json();
 }
 
-export async function getHistoricalSessions() {
-  const response = await apiFetch("/ghosts/sessions");
+export async function getHistoricalSessions(channels?: string[]) {
+  const qs = channels?.length ? `?channels=${encodeURIComponent(channels.join(','))}` : '';
+  const response = await apiFetch(`/ghosts/sessions${qs}`);
   return response.json();
 }
 

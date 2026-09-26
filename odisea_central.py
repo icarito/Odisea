@@ -143,6 +143,16 @@ NOT (
 )
 """
 
+# Canales de build conocidos por el dashboard (T5: nightly #build_id). Una fila
+# con build_channel vacio/NULL es de un build viejo sin ese campo y cuenta como
+# 'dev' para el filtro (mismo criterio en SQL y en Python, ver _channels_sql).
+_KNOWN_CHANNELS = frozenset(("nightly", "release", "dev"))
+
+
+def _normalize_channel(raw) -> str:
+    channel = (raw or "").strip().lower()
+    return channel if channel else "dev"
+
 # SQL fragment: exclude warmup heartbeats — keep only rows at least
 # WARMUP_SECONDS after their session's first sample. Correlated subquery keyed
 # on (player_id, session_id); fine for the bounded LIMIT reads below.
@@ -1958,27 +1968,94 @@ class OdiseaCentral:
             })
         return web.Response(status=404, text="Session not found")
 
-    async def handle_ghosts_sessions(self, request):
-        """Historical session list from SQLite."""
-        guard = self._auth_guard(request)
-        if guard is not None:
-            return guard
+    def _parse_channels(self, raw: Optional[str]) -> Optional[Set[str]]:
+        """CSV de canales (`?channels=nightly,release`). Ausente/vacio o solo
+        valores invalidos = None, que significa "todos" (compat)."""
+        if not raw:
+            return None
+        channels = {c.strip().lower() for c in raw.split(",") if c.strip()} & _KNOWN_CHANNELS
+        return channels or None
 
-        include_server = self._include_flag(request, "include_server")
-        include_tests = self._include_flag(request, "include_tests")
-        # El limite era 200 fijo y el parametro `limit` ni se leia, asi que el dashboard
-        # solo podia ver las 200 sesiones mas nuevas -- y cuanto mas trafico, menos dias
-        # cubrian esas 200. Parece que el historico se hubiera rotado, pero los datos
-        # viejos siguen enteros (se consultan por /ghosts con since/until).
-        try:
-            limit = min(max(int(request.query.get("limit", 200)), 1), 5000)
-        except ValueError:
-            limit = 200
-        try:
-            offset = max(int(request.query.get("offset", 0)), 0)
-        except ValueError:
-            offset = 0
+    def _channels_sql(self, channels: Optional[Set[str]]):
+        """SQL fragment + params para filtrar por build_channel. Mismo criterio
+        que _normalize_channel: vacio/NULL cuenta como 'dev'."""
+        if not channels:
+            return "1 = 1", []
+        placeholders = ",".join("?" * len(channels))
+        return (
+            f"LOWER(COALESCE(NULLIF(TRIM(build_channel), ''), 'dev')) IN ({placeholders})",
+            list(channels),
+        )
 
+    def _gather_recent_sessions(self, conn, channels: Optional[Set[str]], target: int,
+                                 buffer_factor: float = 1.3, min_buffer: int = 40,
+                                 exhaustive: bool = False):
+        """Recorre heartbeats por timestamp DESC (usa idx_heartbeats_timestamp,
+        sin ORDER BY adicional) juntando session_id hasta tener margen de sobra
+        para la pagina pedida, y se detiene ahi -- no toca el resto de la tabla
+        (1.16M filas y creciendo). Solo filtra por canal (chequeo simple); la
+        visibilidad real (test/server) se aplica despues, en SQL, sobre el
+        conjunto ya chico de candidatas.
+
+        Sin filtro de canal esto es barato porque casi cualquier fila
+        reciente sirve de candidata (rara vez hay que bajar mucho en el
+        tiempo). Con canales (p.ej. nightly+release, ~12% de las sesiones) el
+        recorrido por timestamp tendria que bajar demasiado para juntar el
+        margen -- en ese caso se usa una via directa: MIN(timestamp) agrupado
+        SOLO sobre las filas del canal pedido (usa idx_heartbeats_session,
+        pero filtra por canal primero asi el GROUP BY agrega muchas menos
+        filas), ordenado y limitado ahi mismo. Ambas vias devuelven
+        (candidatas, cutoff_ts) con la misma garantia: cualquier sesion que
+        pase el filtro de canal y NO este en las candidatas tiene su
+        start_time <= cutoff_ts.
+        """
+        buffer_target = int(target * buffer_factor) + min_buffer
+
+        if channels is not None and not exhaustive:
+            placeholders = ",".join("?" * len(channels))
+            channel_sql = f"LOWER(COALESCE(NULLIF(TRIM(build_channel), ''), 'dev')) IN ({placeholders})"
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT session_id, MIN(timestamp) as start_time
+                FROM heartbeats
+                WHERE {channel_sql}
+                GROUP BY session_id
+                ORDER BY start_time DESC
+                LIMIT ?
+                """,
+                list(channels) + [buffer_target],
+            )
+            rows = cursor.fetchall()
+            cursor.close()
+            order = [r[0] for r in rows]
+            cutoff_ts = rows[-1][1] if rows else None
+            return order, cutoff_ts
+
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT session_id, build_channel, timestamp FROM heartbeats ORDER BY timestamp DESC"
+        )
+        seen: Set[str] = set()
+        order: List[str] = []
+        cutoff_ts = None
+        for session_id, build_channel, ts in cursor:
+            cutoff_ts = ts
+            if session_id not in seen and (channels is None or _normalize_channel(build_channel) in channels):
+                seen.add(session_id)
+                order.append(session_id)
+                if not exhaustive and len(order) >= buffer_target:
+                    break
+        cursor.close()
+        return order, cutoff_ts
+
+    def _aggregate_sessions(self, conn, candidates: List[str], include_server: bool,
+                             include_tests: bool, channels: Optional[Set[str]]) -> List[dict]:
+        """Agrega heartbeats SOLO de las session_id candidatas (usa
+        idx_heartbeats_session), no la tabla entera."""
+        if not candidates:
+            return []
+        channel_sql, channel_params = self._channels_sql(channels)
         query = """
         SELECT
             player_id,
@@ -2002,6 +2079,7 @@ class OdiseaCentral:
             COALESCE(NULLIF(MAX(game_version), ''), 'unknown') as game_version,
             COALESCE(NULLIF(MAX(git_commit), ''), '') as git_commit,
             COALESCE(NULLIF(MAX(build_channel), ''), '') as build_channel,
+            COALESCE(NULLIF(MAX(build_id), ''), '') as build_id,
             MAX(COALESCE(official_build, 0)) as official_build,
             -- Prefer an official mode if ANY heartbeat in the session carried one.
             -- Plain MAX(intake_mode) is lexicographic ('telemetry' > 'ingest' > 'admin'),
@@ -2013,27 +2091,80 @@ class OdiseaCentral:
                 ELSE 'telemetry'
             END as intake_mode
         FROM heartbeats
-        WHERE {visible}
+        WHERE session_id IN ({placeholders}) AND {visible} AND {channel_sql}
         GROUP BY player_id, session_id
-        ORDER BY start_time DESC
-        LIMIT ? OFFSET ?
         """.format(
+            placeholders=",".join("?" * len(candidates)),
             visible=self._visibility_sql(include_server, include_tests),
+            channel_sql=channel_sql,
             focused=_FOCUSED_ONLY,
             play=_PLAY_ONLY,
         )
+        cursor = conn.cursor()
+        cursor.execute(query, candidates + channel_params)
+        rows = [dict(row) for row in cursor.fetchall()]
+        cursor.close()
+        return rows
+
+    def _fetch_session_page(self, include_server: bool, include_tests: bool,
+                             channels: Optional[Set[str]], limit: int, offset: int) -> List[dict]:
+        """Pagina de /ghosts/sessions sin agregar heartbeats entero.
+
+        Antes: GROUP BY player_id,session_id sobre TODA la tabla (1.16M filas
+        y creciendo) y recien despues ORDER BY + LIMIT/OFFSET -- ~5s en prod.
+        Ahora: primero se eligen las session_id candidatas recorriendo el
+        indice de timestamp desde lo mas nuevo con margen de sobra
+        (_gather_recent_sessions), y solo esas se agregan.
+        """
+        conn = self._get_db()
+        conn.row_factory = sqlite3.Row
+        try:
+            target = offset + limit
+            candidates, cutoff_ts = self._gather_recent_sessions(conn, channels, target)
+            rows = self._aggregate_sessions(conn, candidates, include_server, include_tests, channels)
+            rows.sort(key=lambda r: r["start_time"], reverse=True)
+            page = rows[offset:offset + limit]
+            if cutoff_ts is not None and not all(r["start_time"] > cutoff_ts for r in page):
+                # Borde raro: la pagina pedida se mete en zona donde no hay
+                # garantia (offset grande, o muchas sesiones fuera del filtro
+                # entremezcladas). Reintenta exhaustivo -- mismo costo que la
+                # query vieja, pero solo en este caso infrecuente.
+                candidates, cutoff_ts = self._gather_recent_sessions(
+                    conn, channels, target, exhaustive=True,
+                )
+                rows = self._aggregate_sessions(conn, candidates, include_server, include_tests, channels)
+                rows.sort(key=lambda r: r["start_time"], reverse=True)
+                page = rows[offset:offset + limit]
+            return page
+        finally:
+            conn.close()
+
+    async def handle_ghosts_sessions(self, request):
+        """Historical session list from SQLite."""
+        guard = self._auth_guard(request)
+        if guard is not None:
+            return guard
+
+        include_server = self._include_flag(request, "include_server")
+        include_tests = self._include_flag(request, "include_tests")
+        # El limite era 200 fijo y el parametro `limit` ni se leia, asi que el dashboard
+        # solo podia ver las 200 sesiones mas nuevas -- y cuanto mas trafico, menos dias
+        # cubrian esas 200. Parece que el historico se hubiera rotado, pero los datos
+        # viejos siguen enteros (se consultan por /ghosts con since/until).
+        try:
+            limit = min(max(int(request.query.get("limit", 200)), 1), 5000)
+        except ValueError:
+            limit = 200
+        try:
+            offset = max(int(request.query.get("offset", 0)), 0)
+        except ValueError:
+            offset = 0
+        channels = self._parse_channels(request.query.get("channels"))
 
         try:
-            def fetch():
-                conn = self._get_db()
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                cursor.execute(query, (limit, offset))
-                rows = [dict(row) for row in cursor.fetchall()]
-                conn.close()
-                return rows
-
-            rows = await self._run_query(fetch)
+            rows = await self._run_query(
+                self._fetch_session_page, include_server, include_tests, channels, limit, offset,
+            )
             geo = await self._run_query(self._geo_by_player_id)
             for r in rows:
                 loc = geo.get(r.get("player_id"))
@@ -3561,6 +3692,14 @@ class OdiseaCentral:
         # esto: empieza por player_id pero el planner igual recorre la tabla al filtrar
         # por platform.
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_player ON heartbeats(player_id);")
+        # /ghosts/sessions con filtro por canal (T5+T-canal): sin este indice el
+        # GROUP BY session_id restringido por canal igual recorre heartbeats entera
+        # antes de agrupar. La expresion es la misma que usa el filtro (build_channel
+        # vacio/NULL cuenta como 'dev'), asi el planner la reconoce tal cual.
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_heartbeats_channel_norm_ts ON heartbeats("
+            "LOWER(COALESCE(NULLIF(TRIM(build_channel), ''), 'dev')), timestamp);"
+        )
 
         # Eventos discretos por sesion (contrato telemetria v2): muertes,
         # transiciones de escena, pausas, etc. Los endpoints y agregados del

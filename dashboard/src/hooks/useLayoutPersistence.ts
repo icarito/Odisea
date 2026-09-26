@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'odisea_dashboard_layout';
-const LAYOUT_VERSION = 2;
+const LAYOUT_VERSION = 3;
 const DEFAULT_MIN_DURATION = 13;
+// El historial estaba tapado por sesiones dev (181/200 en 36h); nightly+release
+// por defecto, dev queda un click de distancia.
+const DEFAULT_HISTORY_CHANNELS = ['nightly', 'release'];
 
 export interface LayoutState {
   version: number;
@@ -14,6 +17,8 @@ export interface LayoutState {
   filtersCollapsed: boolean;
   // History min-duration filter (seconds); excludes shorter sessions.
   historyMinDuration: number;
+  // Canales de build visibles en History (chips Nightly/Release/Dev).
+  historyChannels: string[];
 }
 
 const DEFAULT_STATE: LayoutState = {
@@ -24,6 +29,7 @@ const DEFAULT_STATE: LayoutState = {
   accelerometerEnabled: false,
   filtersCollapsed: false,
   historyMinDuration: DEFAULT_MIN_DURATION,
+  historyChannels: DEFAULT_HISTORY_CHANNELS,
 };
 
 export function useLayoutPersistence() {
@@ -36,6 +42,7 @@ export function useLayoutPersistence() {
         if ((parsed.version || 1) < LAYOUT_VERSION) {
           next.version = LAYOUT_VERSION;
           next.historyMinDuration = DEFAULT_MIN_DURATION;
+          next.historyChannels = DEFAULT_HISTORY_CHANNELS;
         }
         return next;
       } catch (e) {

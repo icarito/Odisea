@@ -115,8 +115,8 @@ class SessionEventsPersistenceTest(unittest.IsolatedAsyncioTestCase):
 COLUMNS = (
     "player_id TEXT, session_id TEXT, timestamp REAL, scene TEXT, platform TEXT,"
     " fps REAL, memory_mb REAL, focused INTEGER DEFAULT 1, phase TEXT, paused INTEGER,"
-    " game_version TEXT, git_commit TEXT, build_channel TEXT, official_build INTEGER,"
-    " intake_mode TEXT"
+    " game_version TEXT, git_commit TEXT, build_channel TEXT, build_id TEXT,"
+    " official_build INTEGER, intake_mode TEXT"
 )
 
 
@@ -137,7 +137,7 @@ def sessions_db(tmp_path, monkeypatch):
 
     def hb(pid, sid, ts, scene, fps, phase=None, paused=0):
         return (pid, sid, ts, scene, "Android", fps, 300.0, 1, phase, paused,
-                "1.0", "abc", "nightly", 1, "ingest")
+                "1.0", "abc", "nightly", "1", 1, "ingest")
 
     rows = [
         # sesion "s1": 3 muestras play a 60fps + ruido menu/boot/paused/viejo-Boot

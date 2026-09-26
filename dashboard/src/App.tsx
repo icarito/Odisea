@@ -35,6 +35,7 @@ import { useUrlNavigation, type UrlNavState } from './hooks/useUrlNavigation';
 import LoadTimesPanel from './components/LoadTimesPanel';
 import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone, getHotzoneDownloadLink } from './api';
 import { idbGet, idbSet, CACHE_KEYS } from './lib/idbCache';
+import { buildVersionInfo } from './lib/buildLabels';
 import {
   KNOWN_PLATFORMS,
   getPlatform,
@@ -70,6 +71,7 @@ const DASHBOARD_BUILD_VERSION = (
   || ''
 ).slice(0, 12);
 const DEFAULT_HISTORY_MIN_DURATION = 13;
+const DEFAULT_HISTORY_CHANNELS = ['nightly', 'release'];
 const DASHBOARD_UPDATED_FLAG = 'odisea_dashboard_updated';
 
 const loadViewport3D = () => import('./components/Viewport3D').then((module) => ({ default: module.Viewport3D }));
@@ -1050,6 +1052,17 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const minDuration = layout.historyMinDuration;
   const setMinDuration = (seconds: number) => updateLayout({ historyMinDuration: seconds });
 
+  // Canales de build visibles en History (chips Nightly/Release/Dev). El
+  // historial estaba tapado por sesiones dev (181/200 en 36h); default
+  // nightly+release, persistido igual que el resto de layout.
+  const selectedChannels = useMemo(() => new Set(layout.historyChannels), [layout.historyChannels]);
+  const toggleChannel = (channel: string) => {
+    const next = new Set(layout.historyChannels);
+    if (next.has(channel)) next.delete(channel);
+    else next.add(channel);
+    updateLayout({ historyChannels: Array.from(next) });
+  };
+
   // Player seguido ("a quién sigo"): única fuente de verdad para la selección,
   // unifica el viejo selectedPlayerId y focusPlayerId. Viaja en la URL (?player=).
   const [player, setPlayer] = useState<string | null>(null);
@@ -1208,6 +1221,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     setSelectedSceneFilter('all');
     setSelectedCountry('all');
     setMinDuration(DEFAULT_HISTORY_MIN_DURATION);
+    updateLayout({ historyChannels: DEFAULT_HISTORY_CHANNELS });
   };
   const [lastLivePlayerCount, setLastLivePlayerCount] = useState(0);
   const alertToastTimes = useRef<Map<string, number>>(new Map());
@@ -1426,7 +1440,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // flight are injected from heartbeats in liveHistoricalSessions below.)
   useEffect(() => {
     const loadSessions = () => {
-      getHistoricalSessions()
+      getHistoricalSessions(layout.historyChannels)
         .then((d) => {
           const list = Array.isArray(d) ? d : [];
           sessionsHydratedRef.current = true;
@@ -1444,7 +1458,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     loadSessions();
     const interval = setInterval(loadSessions, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [layout.historyChannels]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1814,6 +1828,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     return itemScenes.length === 0 || itemScenes.includes(selectedSceneFilter);
   };
 
+  // Chips Nightly/Release/Dev en History. El backend ya filtra por canal antes
+  // del limite (getHistoricalSessions), pero las sesiones vivas todavia sin
+  // fila persistida (liveSessionRows sin `past`) nunca pasaron por esa query,
+  // asi que se re-chequean aca con el mismo criterio (vacio/NULL = dev).
+  const channelAllowed = (session: any) => (
+    selectedChannels.has(buildVersionInfo(session)?.channel || 'dev')
+  );
+
   const filteredHeartbeats = useMemo(() => (
     Object.fromEntries(Object.entries(heartbeats).filter(([, hb]) => platformAllowed(hb) && sceneAllowed(hb)))
   ), [heartbeats, selectedPlatforms, selectedSceneFilter]);
@@ -1855,6 +1877,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           color: hb.color,
           session_id: hb.session_id,
           platform: getPlatform(hb) || 'unknown',
+          build_channel: hb.build_channel,
           start_time: start,
           duration: 0,
           scenes_visited: p.scene ? [p.scene] : [],
@@ -1952,10 +1975,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     return merged.filter((session) => (
       platformAllowed(session)
       && sceneAllowed(session)
+      && channelAllowed(session)
       && (selectedCountry === 'all' || countryCodeForSession(session) === selectedCountry)
       && (session.live || minDuration <= 0 || sessionDuration(session) >= minDuration)
     ));
-  }, [historicalSessions, liveSessionRows, selectedPlatforms, selectedSceneFilter, selectedCountry, geoByPlayer, minDuration]);
+  }, [historicalSessions, liveSessionRows, selectedPlatforms, selectedSceneFilter, selectedChannels, selectedCountry, geoByPlayer, minDuration]);
 
   const sceneFilterOptions = useMemo<SceneFilterOption[]>(() => {
     return availableSceneFilters
@@ -2424,6 +2448,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         onSelectCountry={setSelectedCountry}
         minDuration={minDuration}
         onSetMinDuration={setMinDuration}
+        selectedChannels={selectedChannels}
+        onToggleChannel={toggleChannel}
         onReset={resetFilters}
       />
 
@@ -3040,6 +3066,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           onSelectCountry={setSelectedCountry}
           minDuration={minDuration}
           onSetMinDuration={setMinDuration}
+          selectedChannels={selectedChannels}
+          onToggleChannel={toggleChannel}
           onReset={resetFilters}
         />
       </div>
