@@ -1988,61 +1988,49 @@ class OdiseaCentral:
         )
 
     def _gather_recent_sessions(self, conn, channels: Optional[Set[str]], target: int,
-                                 buffer_factor: float = 1.3, min_buffer: int = 40,
+                                 buffer_factor: float = 1.1, min_buffer: int = 20,
                                  exhaustive: bool = False):
         """Recorre heartbeats por timestamp DESC (usa idx_heartbeats_timestamp,
         sin ORDER BY adicional) juntando session_id hasta tener margen de sobra
         para la pagina pedida, y se detiene ahi -- no toca el resto de la tabla
-        (1.16M filas y creciendo). Solo filtra por canal (chequeo simple); la
-        visibilidad real (test/server) se aplica despues, en SQL, sobre el
-        conjunto ya chico de candidatas.
+        (1.16M filas y creciendo). Solo filtra por canal (chequeo simple, en
+        Python); la visibilidad real (test/server) se aplica despues, en SQL,
+        sobre el conjunto ya chico de candidatas.
 
-        Sin filtro de canal esto es barato porque casi cualquier fila
-        reciente sirve de candidata (rara vez hay que bajar mucho en el
-        tiempo). Con canales (p.ej. nightly+release, ~12% de las sesiones) el
-        recorrido por timestamp tendria que bajar demasiado para juntar el
-        margen -- en ese caso se usa una via directa: MIN(timestamp) agrupado
-        SOLO sobre las filas del canal pedido (usa idx_heartbeats_session,
-        pero filtra por canal primero asi el GROUP BY agrega muchas menos
-        filas), ordenado y limitado ahi mismo. Ambas vias devuelven
-        (candidatas, cutoff_ts) con la misma garantia: cualquier sesion que
+        (Se probo una via alternativa con GROUP BY restringido por canal via un
+        indice de expresion, pensando que un canal filtrado seria una fraccion
+        chica de la tabla -- pero en prod nightly ES la mayoria del historico,
+        asi que ese GROUP BY igual agregaba casi todo. El streaming por
+        timestamp no le importa cuanto pese el canal: corta apenas junta el
+        margen, sin agregar nada.)
+
+        Devuelve (candidatas, cutoff_ts). Invariante: cualquier sesion que
         pase el filtro de canal y NO este en las candidatas tiene su
-        start_time <= cutoff_ts.
+        start_time <= cutoff_ts (nunca se le vio una fila mas nueva que el
+        corte), porque se recorre CADA fila hasta cutoff_ts sin excepcion.
         """
         buffer_target = int(target * buffer_factor) + min_buffer
-
-        if channels is not None and not exhaustive:
-            placeholders = ",".join("?" * len(channels))
-            channel_sql = f"LOWER(COALESCE(NULLIF(TRIM(build_channel), ''), 'dev')) IN ({placeholders})"
-            cursor = conn.cursor()
-            cursor.execute(
-                f"""
-                SELECT session_id, MIN(timestamp) as start_time
-                FROM heartbeats
-                WHERE {channel_sql}
-                GROUP BY session_id
-                ORDER BY start_time DESC
-                LIMIT ?
-                """,
-                list(channels) + [buffer_target],
-            )
-            rows = cursor.fetchall()
-            cursor.close()
-            order = [r[0] for r in rows]
-            cutoff_ts = rows[-1][1] if rows else None
-            return order, cutoff_ts
 
         cursor = conn.cursor()
         cursor.execute(
             "SELECT session_id, build_channel, timestamp FROM heartbeats ORDER BY timestamp DESC"
         )
-        seen: Set[str] = set()
+        # `touched` guarda CUALQUIER session_id ya resuelto (matchee o no el
+        # canal), para no re-normalizar build_channel en cada una de sus filas.
+        # Sin esto, una sesion del canal mayoritario (p.ej. 'dev' en volumen de
+        # filas) nunca entra a `order` y paga el chequeo de canal en CADA fila
+        # suya, no solo la primera -- con canales activos eso fue el cuello de
+        # botella real (189k filas para juntar 200 candidatas nightly+release
+        # en prod, la mayoria filas de sesiones dev ya descartadas antes).
+        touched: Set[str] = set()
         order: List[str] = []
         cutoff_ts = None
         for session_id, build_channel, ts in cursor:
             cutoff_ts = ts
-            if session_id not in seen and (channels is None or _normalize_channel(build_channel) in channels):
-                seen.add(session_id)
+            if session_id in touched:
+                continue
+            touched.add(session_id)
+            if channels is None or _normalize_channel(build_channel) in channels:
                 order.append(session_id)
                 if not exhaustive and len(order) >= buffer_target:
                     break
@@ -2120,22 +2108,30 @@ class OdiseaCentral:
         conn.row_factory = sqlite3.Row
         try:
             target = offset + limit
-            candidates, cutoff_ts = self._gather_recent_sessions(conn, channels, target)
-            rows = self._aggregate_sessions(conn, candidates, include_server, include_tests, channels)
-            rows.sort(key=lambda r: r["start_time"], reverse=True)
-            page = rows[offset:offset + limit]
-            if cutoff_ts is not None and not all(r["start_time"] > cutoff_ts for r in page):
-                # Borde raro: la pagina pedida se mete en zona donde no hay
-                # garantia (offset grande, o muchas sesiones fuera del filtro
-                # entremezcladas). Reintenta exhaustivo -- mismo costo que la
-                # query vieja, pero solo en este caso infrecuente.
+            # El margen chico (buffer_factor default) alcanza casi siempre --
+            # pero cuanto pierde el filtro de visibilidad (test/server) varia
+            # con el trafico reciente (una racha de tests hace que el margen
+            # global de ~3% no sirva para la ventana que se esta mirando).
+            # Reintenta con margen creciente (no exhaustivo) antes de rendirse
+            # al escaneo completo, para no pagar el peor caso todo el tiempo.
+            for buffer_factor in (1.1, 1.5, 3.0):
                 candidates, cutoff_ts = self._gather_recent_sessions(
-                    conn, channels, target, exhaustive=True,
+                    conn, channels, target, buffer_factor=buffer_factor,
                 )
                 rows = self._aggregate_sessions(conn, candidates, include_server, include_tests, channels)
                 rows.sort(key=lambda r: r["start_time"], reverse=True)
                 page = rows[offset:offset + limit]
-            return page
+                if cutoff_ts is None or all(r["start_time"] > cutoff_ts for r in page):
+                    return page
+            # Borde raro: ni el margen mas generoso alcanzo (offset enorme, o
+            # un canal casi vacio entremezclado). Reintenta exhaustivo -- mismo
+            # costo que la query vieja, pero solo en este caso infrecuente.
+            candidates, cutoff_ts = self._gather_recent_sessions(
+                conn, channels, target, exhaustive=True,
+            )
+            rows = self._aggregate_sessions(conn, candidates, include_server, include_tests, channels)
+            rows.sort(key=lambda r: r["start_time"], reverse=True)
+            return rows[offset:offset + limit]
         finally:
             conn.close()
 
@@ -3692,14 +3688,6 @@ class OdiseaCentral:
         # esto: empieza por player_id pero el planner igual recorre la tabla al filtrar
         # por platform.
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_heartbeats_player ON heartbeats(player_id);")
-        # /ghosts/sessions con filtro por canal (T5+T-canal): sin este indice el
-        # GROUP BY session_id restringido por canal igual recorre heartbeats entera
-        # antes de agrupar. La expresion es la misma que usa el filtro (build_channel
-        # vacio/NULL cuenta como 'dev'), asi el planner la reconoce tal cual.
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_heartbeats_channel_norm_ts ON heartbeats("
-            "LOWER(COALESCE(NULLIF(TRIM(build_channel), ''), 'dev')), timestamp);"
-        )
 
         # Eventos discretos por sesion (contrato telemetria v2): muertes,
         # transiciones de escena, pausas, etc. Los endpoints y agregados del
