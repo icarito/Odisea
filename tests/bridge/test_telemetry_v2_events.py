@@ -47,6 +47,9 @@ class SessionEventsPersistenceTest(unittest.IsolatedAsyncioTestCase):
         self.central = OdiseaCentral()
         self._patch = mock.patch.object(odisea_central, "SQLITE_DB", self.db_path)
         self._patch.start()
+        # _store_ghost escribe .jsonl en GHOSTS_DIR: sin esto ensucia data/ghosts del repo.
+        self._ghosts_patch = mock.patch.object(odisea_central, "GHOSTS_DIR", self._tmp.name)
+        self._ghosts_patch.start()
         # El schema de session_events lo crea _db_worker al arrancar (sync, antes
         # de bloquear en queue.get()); se lanza como task y se cancela apenas
         # alcanza a correr un tick del loop, dejando la tabla lista sin duplicar
@@ -62,6 +65,7 @@ class SessionEventsPersistenceTest(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         self._patch.stop()
+        self._ghosts_patch.stop()
         self._tmp.cleanup()
 
     def _rows(self):

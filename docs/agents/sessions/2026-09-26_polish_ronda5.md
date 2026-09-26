@@ -96,6 +96,11 @@ Tipos:
 
 ## Estado
 - Mapeo y health check: hechos.
-- K1/K2/K3 lanzados en Kilo (logs en el scratchpad de la sesión, `kilo session list`).
+- T1+T2 HECHO y commiteado: 12f29935 (juego), b3092697 (central), 8691ea09 (dashboard),
+  0b6ade17 (tests bridge: 41 ok; test_auth/test_ratelimit necesitan central vivo, preexistentes).
+  tests/bridge NO corre en ningún workflow de CI. Falta deploy central+dashboard (bloqueado por
+  decisión de backups/disco).
+- Gotcha K2: si falta una columna, /ghosts/sessions traga la excepción y devuelve [] en silencio.
+- (histórico) K1/K2/K3 lanzados en Kilo (logs en el scratchpad de la sesión, `kilo session list`).
   Gotcha: lanzar varios `kilo run` en el mismo segundo rompe la DB de Kilo (credential update);
   espaciarlos unos segundos.
