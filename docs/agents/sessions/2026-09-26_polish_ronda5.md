@@ -178,6 +178,15 @@ Pendientes/ideas: historial dominado por canal dev (181/200 en 36 h) → ¿defau
 boot p50 12.9 s; build_id y user_agent no están en las filas de /ghosts/sessions (MAX(build_id) en
 la query si hace falta); marcadores del gráfico en vivo aproximados (PlayerHistory sin timestamps).
 
+### T9 — Historial: canal + velocidad de /ghosts/sessions — HECHO y desplegado
+99602e2b + fc665e5a. Dos pasos (recorrido streaming por idx_heartbeats_timestamp → agregar solo
+candidatas), param `channels` antes del límite (vacío=dev), build_id por fila, chips
+Nightly/Release/Dev (default nightly+release). Local (copia prod): ~300 ms / nightly+release
+460-650 ms, exacto vs query vieja. **Prod medido: 1.1-1.6 s sin filtro, 1.3-3.4 s con filtro**
+(antes 5.2 s / 6 s): prod es ~3x más lento que local. Siguiente escalón si hace falta: tabla
+resumen `sessions` mantenida por _db_worker (coordinar con scripts/aggregate_and_prune_heartbeats.py
+del otro agente).
+
 ## Estado
 - Mapeo y health check: hechos.
 - T1+T2 HECHO y commiteado: 12f29935 (juego), b3092697 (central), 8691ea09 (dashboard),
