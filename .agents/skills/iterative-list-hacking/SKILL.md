@@ -44,6 +44,25 @@ cuando:
 Regla: el subagente se justifica por aislamiento de contexto y paralelismo, **no por cada minucia**.
 Y no dupliques: si ya lo asignaste a un agente, no lo hagas en paralelo.
 
+## Modo despachador (preferencia de Sebastián, 2026-09-26)
+Cuando la sesión arranca en este modo, el lead (Claude Opus) **casi no implementa**: planea, ancla,
+escribe briefs y revisa. Solo hace él lo trivial (one-liners). Escalera de ejecutores:
+
+| Dificultad | Ejecutor | Cómo |
+|---|---|---|
+| Simple / mecánico | subagente Sonnet | `Agent` con `subagent_type: executor` (o `model: sonnet`), en background |
+| Normal, con plan claro | DeepSeek 4.1 Flash vía Kilo | `kilo run -m kilo/deepseek/deepseek-v4.1-flash --format json "<brief>"` |
+| Difícil | GLM 5.3 Flash vía Kilo | `kilo run -m kilo/z-ai/glm-5.3-flash --format json "<brief>"` |
+
+- A Kilo se le da un **buen plan**: archivos:línea, enfoque, lo ya descartado, criterio de hecho, y
+  "no correr tests ni commitear". No pipear su salida por `tail`; que `kilo run` retorne no significa
+  que terminó (la sesión sigue viva). Correrlo en background.
+- **Sin tests mientras se mueve todo**: el objetivo de la sesión es avanzar muchos temas; no se corren
+  tests por item. Cuando un tema queda **más o menos estable**, despachar un agente aparte (Sonnet)
+  que lo deje listo para CI: correr sus tests puntuales, alinear/crear tests, y reportar.
+- Archivos disjuntos entre agentes concurrentes sigue siendo obligatorio (Kilo y subagentes comparten
+  el árbol).
+
 ## Loop vivo mientras corren los agentes (no dormirse)
 El usuario **no ve** a los subagentes: el chat es la única ventana. Delegar no es soltar y esperar;
 es seguir conduciendo. Mientras corren:
