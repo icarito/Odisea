@@ -76,7 +76,10 @@ def import_ghosts():
         return
 
     os.makedirs(os.path.dirname(SQLITE_DB), exist_ok=True)
-    conn = sqlite3.connect(SQLITE_DB)
+    # Mismo busy_timeout que odisea_central.py: sin él, este import compite por el lock
+    # de escritura y el central tira "database is locked" (~3000 en 2 días, sep 2026).
+    conn = sqlite3.connect(SQLITE_DB, timeout=8.0)
+    conn.execute("PRAGMA journal_mode=WAL")
     init_db(conn)
     cursor = conn.cursor()
 

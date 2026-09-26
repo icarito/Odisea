@@ -65,6 +65,8 @@ var _load_error := ""
 var _is_loading := false
 var _is_transitioning := false
 var _next_scene_path := ""
+# Escena de origen de la transicion en curso; la usa el evento scene_enter.
+var _transition_from_scene := ""
 var _transition_params: Dictionary = {}
 var _captured_player_state: Dictionary = {}
 var _input_restore_state: Dictionary = {}
@@ -160,6 +162,11 @@ func goto_scene(path: String, params: Dictionary = {}):
 	_is_transitioning = true
 	_transition_started_ms = OS.get_ticks_msec()
 	_next_scene_path = target_path
+	_transition_from_scene = ""
+	if get_tree() and get_tree().current_scene:
+		_transition_from_scene = get_tree().current_scene.filename.get_file().get_basename()
+		if _transition_from_scene == "":
+			_transition_from_scene = get_tree().current_scene.name
 	var supplied_preloaded_scene = params.get("_preloaded_scene", null)
 	var sanitized_params = params.duplicate(false)
 	sanitized_params.erase("_preloaded_scene")
@@ -1069,6 +1076,7 @@ func _reset_runtime_state() -> void:
 	_loader_last_stage = -1
 	_next_scene_path = ""
 	_transition_params.clear()
+	_transition_from_scene = ""
 	_captured_player_state.clear()
 	_input_restore_state.clear()
 
@@ -1137,6 +1145,16 @@ func _report_transition(stage: String, error: String = "", progress: float = -1.
 		"overlay_alpha": overlay_alpha,
 		"error": error
 	})
+	# Evento discreto al cerrar la transicion; from/to en basename como el resto de la telemetria.
+	if stage == "completed" and telemetry.has_method("emit_event"):
+		var to_scene = _next_scene_path.get_file().get_basename()
+		if to_scene == "":
+			to_scene = _next_scene_path
+		telemetry.emit_event("scene_enter", {
+			"from": _transition_from_scene,
+			"to": to_scene,
+			"load_ms": elapsed_ms
+		})
 
 func _get_transition_layer() -> Node:
 	return get_node_or_null("/root/TransitionLayer")

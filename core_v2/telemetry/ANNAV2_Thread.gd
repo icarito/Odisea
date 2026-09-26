@@ -47,6 +47,8 @@ var official_host := ""
 var official_build := false
 
 var _last_telemetry := {}
+# Eventos discretos drenados del main thread; se vacian en cada heartbeat enviado.
+var _pending_events := []
 var _heartbeat_counter := 0
 var _heartbeat_interval_ms := 100
 var _throttle_tier := 3
@@ -179,6 +181,10 @@ func stop():
 func update_telemetry(data: Dictionary):
 	_mutex.lock()
 	_last_telemetry = data
+	var events = data.get("events", [])
+	if typeof(events) == TYPE_ARRAY:
+		for event in events:
+			_pending_events.append(event)
 	_mutex.unlock()
 
 func _thread_func(_userdata):
@@ -460,6 +466,8 @@ func _send_handshake():
 func _send_heartbeat(tier: int):
 	_mutex.lock()
 	var player_data = _last_telemetry.get("player", {})
+	var events = _pending_events
+	_pending_events = []
 	_mutex.unlock()
 
 	_heartbeat_counter += 1
@@ -509,6 +517,7 @@ func _send_heartbeat(tier: int):
 		"velocity": player_data.get("velocity", [0, 0, 0]),
 		"focused": player_data.get("focused", true),
 		"paused": player_data.get("paused", false),
+		"phase": player_data.get("phase", "play"),
 		"platform": platform_name,
 		"perf": player_data.get("perf", {}),
 		"render_diag": {
@@ -525,6 +534,7 @@ func _send_heartbeat(tier: int):
 	}
 	
 	msg["player"] = player_msg
+	msg["events"] = events
 	_send_json(msg)
 
 func _send_json(msg: Dictionary):

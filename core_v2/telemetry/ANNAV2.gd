@@ -48,6 +48,11 @@ var _window_focused := true
 var _telemetry_idle := false
 var _automated_run := false
 var _last_telemetry_ms := 0
+# Cola de eventos discretos (death, scene_enter, pause...) drenada por heartbeat.
+var _event_queue := []
+var _event_seq := 0
+var _session_start_emitted := false
+var _was_paused := false
 var _perf_monitor: Node = null
 var _perf_profiling_enabled := false
 # Replay sessions (HotzonePlayer) must not emit telemetry: they would show up on
@@ -233,6 +238,15 @@ func _process(_delta):
 	if _replay_mode or not _telemetry_enabled:
 		return
 
+	# pause/resume discretos: solo fuera de Boot/Menu, donde la pausa no describe
+	# gameplay. Se detecta antes del bloque idle para que el heartbeat final los lleve.
+	var paused = _is_tree_paused()
+	if paused != _was_paused:
+		_was_paused = paused
+		var pause_scene = _current_scene_name()
+		if pause_scene != "Boot" and pause_scene != "Menu":
+			emit_event("pause" if paused else "resume", {})
+
 	if _perf_profiling_enabled:
 		_perf_monitor.profiling_start("ANNAV2")
 
@@ -396,6 +410,42 @@ func debug_list_processing_scripts() -> Dictionary:
 			stack.push_back(child)
 	return counts
 
+# Encola un evento discreto para el proximo heartbeat (contrato telemetria v2).
+# Los eventos van con seq monotono por sesion y la escena activa al emitirse.
+func emit_event(type: String, data: Dictionary = {}) -> void:
+	if _replay_mode or not _telemetry_enabled:
+		return
+	_event_seq += 1
+	_event_queue.append({
+		"seq": _event_seq,
+		"t": OS.get_system_time_msecs(),
+		"type": type,
+		"scene": _current_scene_name(),
+		"data": data
+	})
+
+func _current_scene_name() -> String:
+	var tree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return ""
+	var scene_name = tree.current_scene.filename.get_file().get_basename()
+	if scene_name == "":
+		scene_name = tree.current_scene.name
+	return scene_name
+
+# Prioridad del contrato: loading > boot > menu > paused > play.
+func _compute_phase(scene_name: String) -> String:
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.has_method("is_transitioning") and scene_manager.is_transitioning():
+		return "loading"
+	if scene_name == "Boot":
+		return "boot"
+	if scene_name == "Menu":
+		return "menu"
+	if _is_tree_paused():
+		return "paused"
+	return "play"
+
 func _update_telemetry():
 	var fps = Performance.get_monitor(Performance.TIME_FPS)
 	
@@ -442,6 +492,8 @@ func _update_telemetry():
 		if get_tree().current_scene.has_meta("zone"):
 			player_data["zone"] = get_tree().current_scene.get_meta("zone")
 
+	player_data["phase"] = _compute_phase(player_data["scene"])
+
 	player_data["tick"] = Engine.get_idle_frames() # Or physics frames if preferred
 
 	var proc_counts = _get_proc_counts()
@@ -458,7 +510,15 @@ func _update_telemetry():
 	for k in _custom_points:
 		player_data[k] = _custom_points[k]
 
-	_net_thread.update_telemetry({"player": player_data})
+	# session_start va en el primer heartbeat del proceso (boot_ms = ticks hasta aca).
+	if not _session_start_emitted:
+		_session_start_emitted = true
+		emit_event("session_start", {"boot_ms": OS.get_ticks_msec()})
+
+	# Drenar la cola aca; el thread la acumula y la adjunta al proximo heartbeat.
+	var pending_events = _event_queue
+	_event_queue = []
+	_net_thread.update_telemetry({"player": player_data, "events": pending_events})
 
 	if _capture_enabled:
 		var frame = player_data.duplicate(true)

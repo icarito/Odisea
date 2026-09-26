@@ -370,6 +370,14 @@ func _on_player_killed():
 		if is_instance_valid(pilot):
 			player_controller = pilot
 
+	# Evento discreto de muerte con la posicion al momento de morir.
+	var telemetry = get_node_or_null("/root/ANNAV2")
+	if telemetry and telemetry.has_method("emit_event"):
+		var death_pos: Vector3 = Vector3.ZERO
+		if is_instance_valid(player_controller):
+			death_pos = player_controller.global_transform.origin
+		telemetry.emit_event("death", {"pos": [death_pos.x, death_pos.y, death_pos.z]})
+
 	if is_instance_valid(player_controller) and player_controller.has_method("begin_ragdoll"):
 		player_controller.begin_ragdoll()
 
@@ -654,6 +662,10 @@ func _clear_respawn_flag():
 	if sm:
 		sm.is_respawning = false
 		print("[TeleportSystem] Flag is_respawning desactivado")
+		# Fin del respawn: evento discreto para el dashboard.
+		var telemetry = get_node_or_null("/root/ANNAV2")
+		if telemetry and telemetry.has_method("emit_event"):
+			telemetry.emit_event("respawn", {})
 
 func _force_player_camera_current(pilot: Node) -> void:
 	if not is_instance_valid(pilot):
