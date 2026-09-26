@@ -13,7 +13,7 @@ export const ActivePlayersGrid: React.FC<ActivePlayersGridProps> = ({
   selectedPlayerId 
 }) => {
   const playersByScene = players.reduce((acc, p) => {
-    const scene = p.scene || 'Unknown';
+    const scene = p.scene || 'Desconocida';
     if (!acc[scene]) acc[scene] = [];
     acc[scene].push(p);
     return acc;

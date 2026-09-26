@@ -5,7 +5,6 @@ import * as THREE from 'three';
 import { SceneGeometry } from './SceneGeometry';
 import { useSceneGeometryStream } from '../hooks/useSceneGeometry';
 import { formatLivePerfLabel } from '../lib/filters';
-import type { Tab } from '../types';
 
 // Inline heatmap overlay rendered as a group so it can nest inside this Canvas.
 // (The standalone Heatmap3D component owns its own Canvas and is used in the heatmap tab.)
@@ -78,11 +77,11 @@ interface Viewport3DProps {
   activeId?: string | null;
   heartbeats?: any;
   hotzones?: any[];
-  sessions?: any[];
-  onSelectSession?: (session: any) => void;
+  // Jugador → historial: abre History con la lista filtrada por este player
+  // (reemplaza al viejo "Go to History", que fallaba sobre la sesión en curso).
+  onPlayerSessions?: (playerId: string | null) => void;
   onDownloadHotzone?: (id: string, label: string) => void;
   onPlayHotzone?: (id: string) => void;
-  setActiveTab?: (tab: Tab) => void;
 }
 
 const SceneModel: React.FC<{ sceneName: string; wireframe: boolean }> = ({ sceneName, wireframe }) => {
@@ -165,7 +164,7 @@ const PlayerMarker: React.FC<{ position: [number, number, number], yaw: number, 
 export const Viewport3D: React.FC<Viewport3DProps> = ({
   position, yaw, pitch, roll, trail, follow, wireframe, sceneName, staleAge,
   heatmapData, liveGhosts, label, color, hud, onUserInteract,
-  activeId, heartbeats, hotzones, sessions, onSelectSession, onDownloadHotzone, onPlayHotzone, setActiveTab
+  activeId, heartbeats, hotzones, onPlayerSessions, onDownloadHotzone, onPlayHotzone
 }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const controlsRef = useRef<any>(null);
@@ -173,10 +172,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   const geometrySummary = geometry
     ? `${geometry.points?.length ?? 0}/${geometry.stream?.total_points ?? geometry.metadata?.point_count ?? 0} pts · r${geometry.stream?.radius ?? 0}`
     : geometryLoading
-      ? 'loading geometry'
+      ? 'cargando geometría'
       : geometryError
-        ? 'geometry unavailable'
-        : 'no geometry';
+        ? 'geometría no disponible'
+        : 'sin geometría';
 
   const resetView = () => {
     if (cameraRef.current && controlsRef.current) {
@@ -260,7 +259,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
       <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
         <div className="bg-bg-card/90 px-3 py-1.5 rounded text-[0.625rem] border border-border-custom pointer-events-auto">
-            SCENE: <span className="text-accent font-bold">{sceneName || 'NONE'}</span>
+            ESCENA: <span className="text-accent font-bold">{sceneName || '—'}</span>
         </div>
         <div
           className={`bg-bg-card/90 px-3 py-1.5 rounded text-[0.625rem] border pointer-events-auto ${
@@ -274,28 +273,21 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             onClick={resetView}
             className="bg-bg-card/90 px-3 py-1.5 rounded text-[0.625rem] border border-border-custom hover:bg-bg-primary pointer-events-auto text-left"
         >
-            RESET VIEW (CENITAL)
+            CENTRAR VISTA
         </button>
       </div>
 
-      {/* Session Hotzones Overlay */}
-      {activeId && heartbeats?.[activeId] && hotzones && sessions && setActiveTab && onSelectSession && (
+      {/* Hotzones de la sesión en curso (panel honesto: muestra capturas, no historial). */}
+      {activeId && heartbeats?.[activeId] && hotzones && onPlayerSessions && (
         <div className="absolute top-4 right-4 z-10 w-72 max-w-[40vw] flex flex-col gap-2 pointer-events-auto">
           <div className="bg-bg-card/90 border-2 border-black p-3 shadow-[2px_2px_0px_0px_black]">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[0.625rem] font-black uppercase text-accent">Session History</span>
+              <span className="text-[0.625rem] font-black uppercase text-accent">Hotzones de la sesión</span>
               <button
-                onClick={() => {
-                  const hb = heartbeats[activeId];
-                  const session = sessions.find(s => s.session_id === hb.session_id);
-                  if (session) {
-                    onSelectSession(session);
-                    setActiveTab('history');
-                  }
-                }}
+                onClick={() => onPlayerSessions(activeId)}
                 className="text-[0.5rem] font-black uppercase bg-accent text-black px-1.5 py-0.5 hover:bg-white"
               >
-                Go to History
+                Sesiones
               </button>
             </div>
 
@@ -304,7 +296,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
                 const hb = heartbeats[activeId];
                 const sessionHotzones = hotzones.filter(hz => hz.session_id === hb.session_id);
                 if (sessionHotzones.length === 0) {
-                  return <div className="text-[0.5rem] italic text-text-muted">No hotzones for this session</div>;
+                  return <div className="text-[0.5rem] italic text-text-muted">Sin hotzones en esta sesión</div>;
                 }
                 return sessionHotzones.map(hz => (
                   <div key={hz.id} className="flex items-center justify-between gap-1 border border-black bg-bg-primary px-2 py-1 text-[0.5rem]">
@@ -316,10 +308,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
                     </div>
                     <div className="flex gap-1 shrink-0">
                       {onPlayHotzone && (
-                        <button onClick={() => onPlayHotzone(hz.id)} className="text-success hover:scale-110">Play</button>
+                        <button onClick={() => onPlayHotzone(hz.id)} className="text-success hover:scale-110">Ver</button>
                       )}
                       {onDownloadHotzone && (
-                        <button onClick={() => onDownloadHotzone(hz.id, label || activeId)} className="text-accent hover:scale-110">DL</button>
+                        <button onClick={() => onDownloadHotzone(hz.id, label || activeId)} className="text-accent hover:scale-110">Bajar</button>
                       )}
                     </div>
                   </div>
@@ -334,29 +326,29 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       {hud && (
         <div className="absolute bottom-3 right-3 pointer-events-none w-56 bg-black/65 px-3 py-2 rounded text-[10px] font-mono leading-tight text-white">
           <div className="mb-1 flex items-center justify-between gap-2 border-b border-white/15 pb-1">
-            <span className="truncate text-accent font-bold">{hud.displayName || hud.playerId?.slice(0, 8) || 'PLAYER'}</span>
+            <span className="truncate text-accent font-bold">{hud.displayName || hud.playerId?.slice(0, 8) || 'JUGADOR'}</span>
             <span className={(hud.fps ?? 0) < 30 ? 'text-danger' : (hud.fps ?? 0) < 45 ? 'text-warning' : 'text-success'}>
               {formatLivePerfLabel(hud)}
             </span>
           </div>
           <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-2 gap-y-0.5">
-            <span className="text-text-muted">Scene</span>
+            <span className="text-text-muted">Escena</span>
             <span className="truncate text-accent">{hud.scene || sceneName || '-'}</span>
-            <span className="text-text-muted">Session</span>
+            <span className="text-text-muted">Sesión</span>
             <span className="truncate">{hud.sessionId?.slice(0, 10) || '-'}</span>
-            <span className="text-text-muted">Platform</span>
+            <span className="text-text-muted">Plataforma</span>
             <span className="uppercase">{hud.platform || '-'}</span>
-            <span className="text-text-muted">Mode</span>
+            <span className="text-text-muted">Modo</span>
             <span className="truncate">{hud.mode || '-'}</span>
-            <span className="text-text-muted">Memory</span>
+            <span className="text-text-muted">Memoria</span>
             <span>{hud.memoryMb != null ? `${hud.memoryMb.toFixed(0)} MB` : '-'}</span>
-            <span className="text-text-muted">Peers</span>
+            <span className="text-text-muted">Pares</span>
             <span>{hud.peers ?? 0}</span>
             <span className="text-text-muted">Tick</span>
             <span>{hud.tick ?? '-'}</span>
-            <span className="text-text-muted">Stale</span>
+            <span className="text-text-muted">Latencia</span>
             <span>{hud.staleAge != null ? `${hud.staleAge.toFixed(1)}s` : '-'}</span>
-            <span className="text-text-muted">Position</span>
+            <span className="text-text-muted">Posición</span>
             <span className="truncate">{position.map(n => n.toFixed(1)).join(', ')}</span>
           </div>
         </div>

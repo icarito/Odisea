@@ -145,7 +145,7 @@ export const SessionHistory: React.FC = () => {
         a.click();
         a.remove();
     } catch (e) {
-        alert("Failed to download session file");
+        alert("No se pudo descargar la sesión");
     }
   };
 
@@ -169,16 +169,16 @@ export const SessionHistory: React.FC = () => {
                             <div className="text-text-primary">{detail.stats.duration}s</div>
                         </div>
                         <div>
-                            <div className="text-text-muted">AVG FPS</div>
+                            <div className="text-text-muted">FPS PROM.</div>
                             <div className="text-text-primary">{detail.stats.avgFps}</div>
                         </div>
                         <div>
-                            <div className="text-text-muted">PEAK MEM</div>
+                            <div className="text-text-muted">MEM PICO</div>
                             <div className="text-text-primary">{detail.stats.peakMem}MB</div>
                         </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <span className="text-text-muted uppercase font-bold">Timeline</span>
+                        <span className="text-text-muted uppercase font-bold">Línea de tiempo</span>
                         <SessionTimeline events={detail.events} />
                     </div>
 

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { History } from 'lucide-react';
 import { RetroBadge } from './retro';
 import { formatLivePerfLabel, formatPhaseLabel } from '../lib/filters';
 
@@ -10,6 +11,8 @@ interface PlayerBottomSheetProps {
   history?: Record<string, { fps?: number[]; memory?: number[] }>;
   activeId?: string | null;
   onSelect: (playerId: string) => void;
+  // Jugador → historial: abre la lista de sesiones filtrada por este player.
+  onViewSessions?: (playerId: string) => void;
 }
 
 // "City, Country" when known; gracefully drops missing halves.
@@ -62,7 +65,7 @@ const MetricCell: React.FC<{ label: string; value: string; spark?: number[]; col
 // scroll, a drag handle, and drag-down-to-close. Compact rows: FPS, scene,
 // time since last seen.
 export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
-  open, onClose, players, geoByPlayer, history, activeId, onSelect,
+  open, onClose, players, geoByPlayer, history, activeId, onSelect, onViewSessions,
 }) => {
   const [dragY, setDragY] = useState(0);
   const startY = useRef<number | null>(null);
@@ -100,13 +103,13 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
         >
           <div className="w-10 h-1.5 rounded-full bg-text-muted/60" />
           <span className="mt-2 text-[0.625rem] uppercase font-black tracking-widest text-text-muted">
-            {players.length} {players.length === 1 ? 'Player' : 'Players'}
+            {players.length} {players.length === 1 ? 'Jugador' : 'Jugadores'}
           </span>
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-4 flex flex-col gap-2">
           {players.length === 0 && (
-            <div className="text-center text-text-muted italic text-xs py-6">No active players</div>
+            <div className="text-center text-text-muted italic text-xs py-6">Sin jugadores activos</div>
           )}
           {players.map((hb) => {
             const p = hb.player || {};
@@ -125,10 +128,13 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
             const label = hb.display_name || location || hb.player_id;
             const showId = !hb.display_name && !location;
             return (
-              <button
+              <div
                 key={hb.player_id}
+                role="button"
+                tabIndex={0}
                 onClick={() => { onSelect(hb.player_id); onClose(); }}
-                className={`text-left p-3 border-2 flex flex-col gap-2 transition-colors
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(hb.player_id); onClose(); } }}
+                className={`text-left p-3 border-2 flex flex-col gap-2 cursor-pointer transition-colors
                   ${isActive ? 'border-accent bg-accent/10' : 'border-black bg-bg-primary'}`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -146,12 +152,12 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
                       <div className="text-[0.5625rem] text-text-muted truncate font-mono">{hb.player_id}</div>
                     )}
                     <div className="text-[0.625rem] text-text-muted flex flex-wrap gap-x-3 mt-0.5">
-                      <span className="text-accent truncate max-w-[110px]">{p.scene || 'unknown'}</span>
+                      <span className="text-accent truncate max-w-[110px]">{p.scene || 'desconocida'}</span>
                       <span className={official ? 'text-success' : 'text-warning'}>{official ? 'official' : 'canary'}</span>
                       {p.focused === false && (
-                        <span className="text-text-muted/80 uppercase" title="Ventana en segundo plano — telemetría reducida">unfocused</span>
+                        <span className="text-text-muted/80 uppercase" title="Ventana en segundo plano — telemetría reducida">segundo plano</span>
                       )}
-                      <span>{stale.toFixed(1)}s ago</span>
+                      <span>hace {stale.toFixed(1)}s</span>
                     </div>
                   </div>
                   <RetroBadge color={fpsColor(fps)}>{formatLivePerfLabel(p)}</RetroBadge>
@@ -163,7 +169,19 @@ export const PlayerBottomSheet: React.FC<PlayerBottomSheetProps> = ({
                   <MetricCell label="RAM" value={`${mem.toFixed(0)} MB`} spark={memSpark.length ? memSpark : undefined} color="#3fb950" />
                   <MetricCell label="Vel" value={`${spd.toFixed(1)} m/s`} color="#d29922" />
                 </div>
-              </button>
+
+                {onViewSessions && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onViewSessions(hb.player_id); onClose(); }}
+                    className="inline-flex w-fit items-center gap-1 border-2 border-black bg-bg-card px-1.5 py-0.5 text-[0.5rem] font-black uppercase text-text-muted hover:bg-accent hover:text-black"
+                    title={`Sesiones de ${label}`}
+                  >
+                    <History size={10} />
+                    Sesiones
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>

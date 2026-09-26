@@ -31,7 +31,8 @@ import { DeploymentHistory, type WorkflowRun } from './components/DeploymentHist
 import { ClientLogs } from './components/ClientLogs';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useLayoutPersistence } from './hooks/useLayoutPersistence';
-import { useUrlNavigation } from './hooks/useUrlNavigation';
+import { useUrlNavigation, type UrlNavState } from './hooks/useUrlNavigation';
+import LoadTimesPanel from './components/LoadTimesPanel';
 import { getGeoPlayers, getHeatmap, getHistoricalSessions, getGhostData, getScenes, getGhostStats, getHotzones, downloadHotzone, deleteHotzone, getHotzoneDownloadLink } from './api';
 import { idbGet, idbSet, CACHE_KEYS } from './lib/idbCache';
 import {
@@ -133,7 +134,7 @@ const updateDashboardWhenCached = async () => {
 };
 
 const formatDateTime = (timestampSeconds: number) => {
-  if (!timestampSeconds) return 'No data';
+  if (!timestampSeconds) return 'Sin datos';
   const parts = new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -181,7 +182,7 @@ const SessionsPerDayChart = ({ sessions }: { sessions: any[] }) => {
     return (
       <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
         <div className="font-black text-accent">{d.date}</div>
-        <div>Sessions: {d.count}</div>
+        <div>Sesiones: {d.count}</div>
       </div>
     );
   };
@@ -189,7 +190,7 @@ const SessionsPerDayChart = ({ sessions }: { sessions: any[] }) => {
   if (sessionsByDay.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-xs italic text-text-muted">
-        No session history yet
+        Sin historial de sesiones
       </div>
     );
   }
@@ -469,6 +470,10 @@ const HistoryOverview = ({ sessions, statsSessions, hotzones, commits, workflowR
         </div>
       </RetroCard>
 
+      {/* Tiempos de carga por escena (/ghosts/load_times): p50/p90 de carga y
+          arranque. El panel se autofetch, sin props. */}
+      <LoadTimesPanel />
+
       {/* Git versions — commit messages + CI badges, each version annotated with
           the FILTERED session stats; plus a compact "what's live now" strip. */}
       <RetroCard title="Versiones">
@@ -524,7 +529,7 @@ const CommitsFpsChart = ({ sessions, commits }: { sessions: any[]; commits: GitC
     return (
       <div className="border-2 border-black bg-bg-primary px-3 py-2 text-[0.625rem] font-mono shadow-[2px_2px_0px_0px_black]">
         <div className="font-black text-accent">{d.label}</div>
-        <div>Avg FPS: {d.avg_fps.toFixed(1)}</div>
+        <div>FPS prom.: {d.avg_fps.toFixed(1)}</div>
       </div>
     );
   };
@@ -649,7 +654,7 @@ const CommitsFpsChart = ({ sessions, commits }: { sessions: any[]; commits: GitC
   if (fpsSeries.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-xs italic text-text-muted">
-        No session history yet
+        Sin historial de sesiones
       </div>
     );
   }
@@ -697,7 +702,7 @@ const CommitsFpsChart = ({ sessions, commits }: { sessions: any[]; commits: GitC
           className="absolute right-2 top-2 z-10 border-2 border-black bg-bg-card/90 px-2 py-0.5 text-[0.5625rem] font-black uppercase text-text-muted shadow-[2px_2px_0px_0px_black] hover:bg-accent hover:text-black"
           title="Restablecer zoom"
         >
-          Reset zoom
+          Reiniciar zoom
         </button>
       )}
 
@@ -818,12 +823,12 @@ const HomeStats = ({ sessions, serverStats }: { sessions: any[]; serverStats?: G
   // own "Players" section below (see PlayerStatCard).
   const num = (v: any): v is number => typeof v === 'number' && Number.isFinite(v);
   const statCells: Array<{ label: string; value: string; color?: string }> = [
-    { label: 'Avg FPS', value: stats.avgFps.toFixed(1), color: fpsColor(stats.avgFps) },
-    { label: 'Avg Memory', value: stats.avgMem > 0 ? `${stats.avgMem.toFixed(0)} MB` : '—' },
-    { label: 'Sessions', value: cleanSessions.length.toString() },
-    { label: 'Play Time', value: formatPlayTime(stats.totalDuration) },
-    { label: '% Low FPS', value: `${stats.lowPct.toFixed(1)}%`, color: fpsColor(100 - stats.lowPct) },
-    { label: 'Scenes', value: new Set(cleanSessions.flatMap(sessionScenes)).size.toString() },
+    { label: 'FPS prom.', value: stats.avgFps.toFixed(1), color: fpsColor(stats.avgFps) },
+    { label: 'Memoria prom.', value: stats.avgMem > 0 ? `${stats.avgMem.toFixed(0)} MB` : '—' },
+    { label: 'Sesiones', value: cleanSessions.length.toString() },
+    { label: 'Tiempo jugado', value: formatPlayTime(stats.totalDuration) },
+    { label: '% FPS bajo', value: `${stats.lowPct.toFixed(1)}%`, color: fpsColor(100 - stats.lowPct) },
+    { label: 'Escenas', value: new Set(cleanSessions.flatMap(sessionScenes)).size.toString() },
   ];
 
   // Show the Players section only when the server reported player metrics (the
@@ -858,7 +863,7 @@ const HomeStats = ({ sessions, serverStats }: { sessions: any[]; serverStats?: G
       {/* Players section: time-windowed unique-player cards with trend + spark. */}
       {hasPlayerStats && (
         <div className="flex flex-col gap-2">
-          <div className="text-[0.625rem] font-black uppercase tracking-widest text-accent">Players</div>
+          <div className="text-[0.625rem] font-black uppercase tracking-widest text-accent">Jugadores</div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <PlayerStatCard
               label="24h"
@@ -932,8 +937,8 @@ const SceneIndex = ({
     return (
       <div className="border-2 border-black bg-bg-primary px-2 py-1 text-[0.5625rem] font-mono shadow-[2px_2px_0px_0px_black]">
         <div className="font-black text-accent">{d.label}</div>
-        <div className="text-text-muted">Range: sessions over time</div>
-        <div>Avg FPS: {d.avg_fps.toFixed(1)}</div>
+        <div className="text-text-muted">Sesiones en el tiempo</div>
+        <div>FPS prom.: {d.avg_fps.toFixed(1)}</div>
       </div>
     );
   };
@@ -953,14 +958,14 @@ const SceneIndex = ({
               <div className="min-w-0">
                 <div className="truncate text-xs font-black text-accent">{stat.scene}</div>
                 <div className="mt-1 text-[0.625rem] font-black uppercase text-text-muted">
-                  {stat.sessions} sessions · {stat.lowPct.toFixed(1)}% low
+                  {stat.sessions} sesiones · {stat.lowPct.toFixed(1)}% bajo
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-lg font-black" style={{ color: fpsColor(stat.avgFps) }}>
                   {stat.avgFps.toFixed(1)}
                 </div>
-                <div className="text-[0.5rem] font-black uppercase text-text-muted">avg fps</div>
+                <div className="text-[0.5rem] font-black uppercase text-text-muted">fps prom.</div>
               </div>
             </div>
             <div className="mt-3 h-12">
@@ -1010,6 +1015,25 @@ const LiveWaitTicker = ({ items }: { items: { label: string; value: string }[] }
   );
 };
 
+// Normalizes a heartbeat to the flat shape the playback charts use.
+// /api/ghosts returns flat SQLite rows (hb.fps, hb.pos_x, ...), while the
+// runtime/JSONL format nests them under hb.player. Support both.
+const normalizeHeartbeat = (hb: any) => {
+  const p = hb.player || {};
+  const pos = p.position;
+  return {
+    timestamp: hb.timestamp ?? 0,
+    fps: hb.fps ?? p.fps ?? 0,
+    memory_mb: hb.memory_mb ?? p.memory_mb ?? 0,
+    pos_x: hb.pos_x ?? pos?.[0] ?? 0,
+    pos_y: hb.pos_y ?? hb.player?.position?.[1] ?? pos?.[1] ?? 0,
+    pos_z: hb.pos_z ?? pos?.[2] ?? 0,
+    scene: hb.scene ?? p.scene ?? "?",
+    platform: hb.platform ?? p.platform ?? "?",
+    engine_version: hb.engine_version ?? hb.godot_version ?? p.engine_version ?? "?",
+  };
+};
+
 function Dashboard({ onLogout }: { onLogout: () => void }) {
   const { heartbeats, isConnected, alerts, history, health, lastMessage, events } = useTelemetry();
   const { layout, updateLayout } = useLayoutPersistence();
@@ -1024,35 +1048,41 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const minDuration = layout.historyMinDuration;
   const setMinDuration = (seconds: number) => updateLayout({ historyMinDuration: seconds });
 
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  // Player seguido ("a quién sigo"): única fuente de verdad para la selección,
+  // unifica el viejo selectedPlayerId y focusPlayerId. Viaja en la URL (?player=).
+  const [player, setPlayer] = useState<string | null>(null);
+  // Editor de tags: estado de UI aparte, NO viaja en la URL. Editar el tag de un
+  // player desde el historial no cambia a quién se sigue.
+  const [tagEditorPlayerId, setTagEditorPlayerId] = useState<string | null>(null);
   const [heatmapData, setHeatmapData] = useState<any[] | undefined>();
   const [showLiveGhosts, setShowLiveGhosts] = useState(true);
   // Embedded hotzone player: the web-shell URL to load in the iframe modal, or
   // null when closed. Used on desktop instead of opening a new tab.
   const [hotzonePlayerSrc, setHotzonePlayerSrc] = useState<string | null>(null);
 
-  // Notification deep-link: focus on a specific player from URL params
-  const [focusPlayerId, setFocusPlayerId] = useState<string | null>(null);
-  const [showTagEditor, setShowTagEditor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Keep the active tab + focused player in sync with the browser URL/history
-  // so the back/forward buttons navigate between views (and deep links to
-  // ?tab=/?player= still work). On a back/forward press we restore both pieces
-  // of state from the URL.
-  const onUrlPopState = useCallback((state: { tab: Tab; player: string | null }) => {
+  // Keep the active tab + live view + followed player + selected session in
+  // sync with the browser URL/history so the back/forward buttons walk through
+  // those states (and deep links like ?tab=history&session=<id> still work).
+  const onUrlPopState = useCallback((state: UrlNavState) => {
     setActiveTab(state.tab);
-    setFocusPlayerId(state.player);
-    // Closing the selection on back should also drop any selection-scoped UI.
-    if (!state.player) {
-      setSelectedPlayerId(null);
-      setShowTagEditor(false);
+    setLiveView(state.view || 'dashboard');
+    setPlayer(state.player);
+    // El editor de tags es UI local: nunca se restaura desde la URL.
+    setTagEditorPlayerId(null);
+    if (!state.player) setFollowPlayer(false);
+    if (state.tab === 'history' && state.session) {
+      setPendingSessionId(state.session);
+    } else {
+      setSelectedSession(null);
+      setPlaybackData([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useUrlNavigation({ tab: activeTab, player: focusPlayerId }, onUrlPopState);
 
   // Live tab view toggle: dashboard, 2D birdseye map, or 3D perspective.
+  // Viaja en la URL como &view= (solo con tab=live).
   const [liveView, setLiveView] = useState<'dashboard' | 'birdseye' | '3d'>('dashboard');
   // CSS overlay fullscreen for the 3D canvas (NOT the browser Fullscreen API,
   // which is unreliable on mobile).
@@ -1072,6 +1102,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   // Playback loading flag (history -> playback fetch).
   const [playbackLoading, setPlaybackLoading] = useState(false);
+  // Sesión seleccionada en history (deep-link ?session=<id>). null = lista.
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  // Filtro de player en la lista de historial (visible y quitable en la tabla).
+  const [historyPlayerFilter, setHistoryPlayerFilter] = useState<string | null>(null);
 
   // Play a hotzone. On Android, try to hand the signed capture URL to the
   // installed native build via the odisea://replay deep link; if that app
@@ -1129,6 +1163,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const sessionsHydratedRef = useRef(false);
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [playbackData, setPlaybackData] = useState<any[]>([]);
+
+  // Único modelo de navegación en URL: tab, vista de live, player seguido y
+  // sesión seleccionada. Back/forward del navegador recorre estos estados.
+  useUrlNavigation(
+    {
+      tab: activeTab,
+      view: activeTab === 'live' ? liveView : null,
+      player,
+      session: selectedSession?.session_id ?? null,
+    },
+    onUrlPopState,
+  );
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [serverStats, setServerStats] = useState<GhostStats>({});
@@ -1232,7 +1278,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       const ctxFps = lastMessage.fps ?? lastMessage.player?.fps ?? liveHb?.player?.fps;
       const ctxMem = lastMessage.memory_mb ?? lastMessage.player?.memory_mb ?? liveHb?.player?.memory_mb;
       const ctxParts = [
-        ctxScene ? `scene ${ctxScene}` : null,
+        ctxScene ? `escena ${ctxScene}` : null,
         ctxPlatform ? ctxPlatform : null,
         typeof ctxFps === 'number' ? `${Math.round(ctxFps)} fps` : null,
         typeof ctxMem === 'number' && ctxMem > 0 ? `${ctxMem.toFixed(0)} MB` : null,
@@ -1267,8 +1313,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     <button
                       type="button"
                       onClick={() => {
-                        setFocusPlayerId(playerId);
-                        setShowTagEditor(true);
+                        setTagEditorPlayerId(playerId);
                         toast.dismiss(t.id);
                       }}
                       className="border-2 border-black bg-accent px-2 py-1 text-[0.625rem] font-black uppercase text-black"
@@ -1281,7 +1326,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedPlayerId(playerId);
+                      setPlayer(playerId);
                       setActiveTab('live');
                       setLiveView('3d');
                       setFollowPlayer(true);
@@ -1297,7 +1342,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   onClick={() => toast.dismiss(t.id)}
                   className="border-2 border-black bg-bg-primary px-2 py-1 text-[0.625rem] font-black uppercase"
                 >
-                  Dismiss
+                  Cerrar
                 </button>
               </div>
             </div>
@@ -1583,25 +1628,6 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     } catch { /* ignore */ }
   }, []);
 
-  // Normalizes a heartbeat to the flat shape the playback charts use.
-  // /api/ghosts returns flat SQLite rows (hb.fps, hb.pos_x, ...), while the
-  // runtime/JSONL format nests them under hb.player. Support both.
-  const normalizeHeartbeat = (hb: any) => {
-    const p = hb.player || {};
-    const pos = p.position;
-    return {
-      timestamp: hb.timestamp ?? 0,
-      fps: hb.fps ?? p.fps ?? 0,
-      memory_mb: hb.memory_mb ?? p.memory_mb ?? 0,
-      pos_x: hb.pos_x ?? pos?.[0] ?? 0,
-      pos_y: hb.pos_y ?? hb.player?.position?.[1] ?? pos?.[1] ?? 0,
-      pos_z: hb.pos_z ?? pos?.[2] ?? 0,
-      scene: hb.scene ?? p.scene ?? "?",
-      platform: hb.platform ?? p.platform ?? "?",
-      engine_version: hb.engine_version ?? hb.godot_version ?? p.engine_version ?? "?",
-    };
-  };
-
   // session_id -> its hotzone ghosts (most recent first), so the History table
   // can show a download affordance on sessions that produced one.
   const hotzonesBySession = useMemo(() => {
@@ -1657,9 +1683,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historicalSessions]);
 
-  const handleSelectHistorySession = async (session: any) => {
-    setSelectedSession(session);
-    setHistoryMobileView('player');
+  // Fetch del replay de una sesión persistida. En error deselecciona: quedarse
+  // con la sesión abierta y vacía solo muestra un replay roto.
+  const fetchPlayback = useCallback(async (session: any) => {
     setPlaybackData([]);
     setPlaybackLoading(true);
     try {
@@ -1671,13 +1697,58 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         rows = data.split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
       }
       setPlaybackData(rows.map(normalizeHeartbeat));
-    } catch (e) {
-      notify.error("Failed to load session data");
-      setPlaybackData([]);
+    } catch {
+      notify.error('No se pudo cargar la sesión');
+      setSelectedSession(null);
+      setHistoryMobileView('list');
     } finally {
       setPlaybackLoading(false);
     }
-  };
+  }, []);
+
+  // Abre una sesión desde la lista del historial (o un deep-link). Una sesión
+  // en curso no tiene replay persistido: abre el live 3D siguiendo a ese
+  // jugador en lugar de intentar un playback que va a fallar.
+  const handleSelectHistorySession = useCallback((session: any) => {
+    const liveHb = session.session_id
+      ? Object.values(heartbeats).find((hb: any) => hb.session_id === session.session_id)
+      : undefined;
+    if (session.live || liveHb) {
+      const pid = (liveHb as any)?.player_id || session.player_id;
+      if (pid) {
+        setPlayer(pid);
+        setActiveTab('live');
+        setLiveView('3d');
+        setFollowPlayer(true);
+      }
+      setSelectedSession(null);
+      setPlaybackData([]);
+      return;
+    }
+    setSelectedSession(session);
+    setActiveTab('history');
+    setHistoryMobileView('player');
+    void fetchPlayback(session);
+  }, [heartbeats, fetchPlayback]);
+
+  // Volver de la reproducción a la lista de sesiones (deselección explícita;
+  // el back del navegador hace lo mismo vía ?session=).
+  const clearSessionSelection = useCallback(() => {
+    setSelectedSession(null);
+    setPlaybackData([]);
+    setHistoryMobileView('list');
+  }, []);
+
+  // Jugador → historial: lleva a History con la lista filtrada por ese player
+  // (filtro visible y quitable en HistoricalTable).
+  const openPlayerSessions = useCallback((pid: string | null) => {
+    if (!pid) return;
+    setHistoryPlayerFilter(pid);
+    setSelectedSession(null);
+    setPlaybackData([]);
+    setHistoryMobileView('list');
+    setActiveTab('history');
+  }, []);
 
   const [followPlayer, setFollowPlayer] = useState(true);
 
@@ -1799,6 +1870,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         };
       })
   ), [heartbeats, sessionStartById]);
+
+  // Deep-link ?tab=history&session=<id> (y back/forward): resuelve el id contra
+  // la lista persistida + las filas vivas cuando ya cargaron. Si la lista ya
+  // hidrató y la sesión no existe, el deep-link se descarta en silencio.
+  useEffect(() => {
+    if (!pendingSessionId) return;
+    const pool = [...historicalSessions, ...liveSessionRows];
+    const found = pool.find((s) => s.session_id === pendingSessionId);
+    if (found) {
+      setPendingSessionId(null);
+      handleSelectHistorySession(found);
+    } else if (sessionsHydratedRef.current) {
+      setPendingSessionId(null);
+    }
+  }, [pendingSessionId, historicalSessions, liveSessionRows, handleSelectHistorySession]);
 
   // player_id -> geo, joined from geoPlayers. Used both to enrich session rows
   // for display and to resolve a session's country for the country filter.
@@ -1949,7 +2035,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     if (viewport3DPreloaded.current) return;
-    if (activeTab !== 'live' && !selectedPlayerId && Object.keys(heartbeats).length === 0) return;
+    if (activeTab !== 'live' && !player && Object.keys(heartbeats).length === 0) return;
     viewport3DPreloaded.current = true;
     const preload = () => { loadViewport3D().catch(() => { viewport3DPreloaded.current = false; }); };
     const idle = window.requestIdleCallback?.(preload, { timeout: 2500 });
@@ -1958,7 +2044,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       return () => window.clearTimeout(timer);
     }
     return () => window.cancelIdleCallback?.(idle);
-  }, [activeTab, selectedPlayerId, heartbeats]);
+  }, [activeTab, player, heartbeats]);
 
   useEffect(() => {
     if (activeTab === 'heatmap' && heatmapTargetScene) {
@@ -1988,7 +2074,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const pids = Object.keys(filteredHeartbeats);
   const hasLive = pids.length > 0;
-  const canShowSpatialLiveView = hasLive || !!selectedPlayerId;
+  const canShowSpatialLiveView = hasLive || !!player;
   // Peers = other live players besides the active one. Drives the PEERS toggle's
   // enabled state (no peers → nothing to show, so the button reads disabled).
   const otherPeerCount = Math.max(0, pids.length - 1);
@@ -2004,10 +2090,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     (minDuration !== DEFAULT_HISTORY_MIN_DURATION ? 1 : 0);
 
   const playerCountLabel = pids.length > 0
-    ? `${pids.length} ${pids.length === 1 ? 'player' : 'players'}`
+    ? `${pids.length} ${pids.length === 1 ? 'jugador' : 'jugadores'}`
     : lastLivePlayerCount > 0
-      ? `${lastLivePlayerCount} last live`
-      : `${filteredDashboardSessions.length} sessions`;
+      ? `${lastLivePlayerCount} últimos en vivo`
+      : `${filteredDashboardSessions.length} sesiones`;
 
   // A player the user explicitly selected/follows is resolved against the
   // unfiltered heartbeat map, not filteredHeartbeats: scene/platform list filters
@@ -2015,7 +2101,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   // client can briefly report a scene (or a platform string) the active filters
   // exclude — resolving against filteredHeartbeats here made activeHb go
   // undefined and bounced the 3D view back to the home/wait screen.
-  const explicitActiveId = selectedPlayerId && heartbeats[selectedPlayerId] ? selectedPlayerId : null;
+  const explicitActiveId = player && heartbeats[player] ? player : null;
   const activeId = explicitActiveId || pids[0];
   const activeHb = heartbeats[activeId] || filteredHeartbeats[activeId];
   const activeLabel = activeHb?.display_name || activeId;
@@ -2030,8 +2116,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       .reverse()
   ), [events, activeId, activeHb?.session_id]);
   const focusedGeo = useMemo(() => (
-    focusPlayerId ? geoPlayers.find((player) => player.player_id === focusPlayerId) : undefined
-  ), [focusPlayerId, geoPlayers]);
+    player ? geoPlayers.find((g) => g.player_id === player) : undefined
+  ), [player, geoPlayers]);
   // player_id -> {city, country} so player lists can show location instead of
   // the raw id. Geo data only lives on geoPlayers, not on the heartbeat.
   // History sessions enriched with geo (city/country) and tags (display_name,
@@ -2078,12 +2164,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     : [];
 
   const clearPlayerSelection = () => {
-    // Dropping focusPlayerId lets useUrlNavigation strip ?player= from the URL
+    // Dropping `player` lets useUrlNavigation strip ?player= from the URL
     // (and push a history entry), so we don't touch history here directly.
-    setSelectedPlayerId(null);
-    setFocusPlayerId(null);
+    setPlayer(null);
     setFollowPlayer(false);
-    setShowTagEditor(false);
+    setTagEditorPlayerId(null);
     setBirdseyeDetailId(null);
   };
 
@@ -2094,11 +2179,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         activeId={activeId}
         heartbeats={heartbeats}
         hotzones={hotzones}
-        sessions={historySessionsWithGeo}
-        onSelectSession={handleSelectHistorySession}
+        onPlayerSessions={openPlayerSessions}
         onDownloadHotzone={handleDownloadHotzone}
         onPlayHotzone={handlePlayHotzone}
-        setActiveTab={setActiveTab}
         position={activeHb ? safePos(activeHb.player.position) : [0, 0, 0]}
         yaw={activeHb ? Number(activeHb.player.yaw) || 0 : 0}
         pitch={activeHb ? Number(activeHb.player.pitch) || 0 : 0}
@@ -2146,24 +2229,24 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     <div className="h-full overflow-y-auto bg-bg-primary p-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
-          <div className="text-[0.625rem] font-black uppercase text-text-muted">Sessions</div>
+          <div className="text-[0.625rem] font-black uppercase text-text-muted">Sesiones</div>
           <div className="text-2xl font-black text-accent">{heatmapSummary.totalSessions}</div>
           {heatmapSummary.livePlayers > 0 && (
-            <div className="text-[0.625rem] font-black uppercase text-success">{heatmapSummary.livePlayers} live</div>
+            <div className="text-[0.625rem] font-black uppercase text-success">{heatmapSummary.livePlayers} en vivo</div>
           )}
         </div>
         <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
-          <div className="text-[0.625rem] font-black uppercase text-text-muted">Play time</div>
+          <div className="text-[0.625rem] font-black uppercase text-text-muted">Tiempo jugado</div>
           <div className="text-2xl font-black text-text-primary">{formatPlayTime(heatmapSummary.totalPlaySeconds)}</div>
         </div>
         <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
-          <div className="text-[0.625rem] font-black uppercase text-text-muted">Avg FPS</div>
+          <div className="text-[0.625rem] font-black uppercase text-text-muted">FPS prom.</div>
           <div className="text-2xl font-black" style={{ color: fpsColor(heatmapSummary.avgFps) }}>
             {heatmapSummary.avgFps.toFixed(1)}
           </div>
         </div>
         <div className="border-2 border-black bg-bg-card p-3 shadow-[2px_2px_0px_0px_black]">
-          <div className="text-[0.625rem] font-black uppercase text-text-muted">Scenes</div>
+          <div className="text-[0.625rem] font-black uppercase text-text-muted">Escenas</div>
           <div className="text-2xl font-black text-text-primary">{heatmapSummary.sceneCount}</div>
         </div>
       </div>
@@ -2210,7 +2293,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </button>
           <button
             type="button"
-            onClick={() => { setFocusPlayerId(activeId); setShowTagEditor(true); }}
+            onClick={() => setTagEditorPlayerId(activeId ?? null)}
             title="Etiquetar player"
             aria-label="Etiquetar player"
             className="shrink-0 text-text-muted hover:text-accent"
@@ -2238,14 +2321,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
       }
       playerFocus={
-        focusPlayerId ? (
+        player ? (
           <PlayerFocus
-            playerId={focusPlayerId}
-            displayName={filteredHeartbeats[focusPlayerId]?.display_name || focusedGeo?.display_name}
+            playerId={player}
+            displayName={filteredHeartbeats[player]?.display_name || focusedGeo?.display_name}
             country={focusedGeo?.country}
             countryCode={focusedGeo?.country_code}
             onClear={clearPlayerSelection}
-            onTagClick={() => setShowTagEditor(!showTagEditor)}
+            onTagClick={() => setTagEditorPlayerId((cur) => (cur === player ? null : player))}
           />
         ) : undefined
       }
@@ -2312,13 +2395,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       {/* Global tag editor — lets you tag a player from any tab (e.g. History).
           The mapa tab renders its own inline instance, so skip it there to avoid
           a duplicate. onSaved refreshes geoPlayers, which flows into the history
-          rows' display_name/color immediately. */}
-      {showTagEditor && focusPlayerId && activeTab !== 'mapa' && (
+          rows' display_name/color immediately. Estado de UI: no viaja en la URL. */}
+      {tagEditorPlayerId && activeTab !== 'mapa' && (
         <div className="fixed right-4 top-16 z-[8000] w-80 max-w-[90vw]">
           <PlayerTagEditor
-            playerId={focusPlayerId}
+            playerId={tagEditorPlayerId}
             onSaved={loadGeoPlayers}
-            onClose={() => { setShowTagEditor(false); setFocusPlayerId(null); }}
+            onClose={() => setTagEditorPlayerId(null)}
           />
         </div>
       )}
@@ -2349,12 +2432,13 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         history={history}
         activeId={explicitActiveId}
         onSelect={(pid) => {
-          setSelectedPlayerId(pid);
+          setPlayer(pid);
           setActiveTab('live');
           setLiveView('3d');
           setFollowPlayer(true);
           setShowPlayerSheet(false);
         }}
+        onViewSessions={openPlayerSessions}
       />
 
       {/* CSS fullscreen overlay for the 3D canvas (works on mobile). */}
@@ -2363,7 +2447,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <button
             onClick={() => setFs3d(false)}
             className="absolute top-3 right-3 z-10 p-2 border-2 border-white/40 bg-black/60 text-white"
-            aria-label="Close fullscreen"
+            aria-label="Cerrar pantalla completa"
           >
             <X size={24} />
           </button>
@@ -2371,7 +2455,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             {viewport3D}
             {showLiveCharts && activeHistory && (
               <div className="absolute top-3 left-3 z-10 h-28 w-72 max-w-[60vw] border-2 border-black bg-bg-card/90 p-2 shadow-[3px_3px_0px_0px_black]">
-                <LiveCombinedChart history={activeHistory} />
+                <LiveCombinedChart history={activeHistory} events={activeEvents} />
               </div>
             )}
           </div>
@@ -2383,7 +2467,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <button
             onClick={() => setFsBirdseye(false)}
             className="absolute top-3 right-3 z-10 p-2 border-2 border-white/40 bg-black/60 text-white"
-            aria-label="Close fullscreen map"
+            aria-label="Cerrar mapa a pantalla completa"
           >
             <X size={24} />
           </button>
@@ -2407,7 +2491,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <div className="flex h-full min-h-0 flex-col">
                 {/* Top stripe: live combined FPS/Memory chart, else Sessions/day */}
                 <CollapsibleCard
-                  title="Performance Charts"
+                  title="Gráficos"
                   storageKey="live_charts_collapsed"
                   defaultOpen={true}
                   resizable={true}
@@ -2434,7 +2518,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     </div>
                     <div className="min-h-0 flex-1 p-3">
                       {activeHistory && dashStripeTab === 'live' ? (
-                        <LiveCombinedChart history={activeHistory} />
+                        <LiveCombinedChart history={activeHistory} events={activeEvents} />
                       ) : dashStripeTab === 'logs' ? (
                         <ClientLogs />
                       ) : dashStripeTab === 'versions' ? (
@@ -2443,6 +2527,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                         <SessionsPerDayChart sessions={filteredDashboardSessions} />
                       )}
                     </div>
+                  </div>
+                </CollapsibleCard>
+                {/* Actividad del player seguido: timeline de eventos discretos
+                    (muerte, cambio de escena, pausa...) visible en las tres
+                    vistas de live, no solo en 3D. */}
+                <CollapsibleCard
+                  title="Actividad"
+                  storageKey="live_events_collapsed"
+                  defaultOpen={true}
+                  className="shrink-0 border-x-0 border-t-0"
+                >
+                  <div className="max-h-56 overflow-y-auto bg-bg-card/40 px-3 py-2">
+                    <EventTimeline events={activeEvents} />
                   </div>
                 </CollapsibleCard>
                 {/* Bottom stripe: info cards (historical summary) */}
@@ -2466,18 +2563,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <div className="flex h-full min-h-0 flex-col">
                 {/* 3D-only control bar */}
                 <div className="shrink-0 flex flex-wrap items-center gap-1 p-2 border-b-2 border-black bg-bg-card/60">
-                  <RetroButton variant={followPlayer ? 'primary' : 'secondary'} onClick={() => setFollowPlayer(!followPlayer)} className="py-1 px-2 text-[0.625rem]">FOLLOW</RetroButton>
+                  <RetroButton variant={followPlayer ? 'primary' : 'secondary'} onClick={() => setFollowPlayer(!followPlayer)} className="py-1 px-2 text-[0.625rem]">SEGUIR</RetroButton>
                   <RetroButton
                     variant={showLiveGhosts && otherPeerCount > 0 ? 'primary' : 'secondary'}
                     onClick={() => otherPeerCount > 0 && setShowLiveGhosts(!showLiveGhosts)}
                     disabled={otherPeerCount === 0}
-                    title={otherPeerCount === 0 ? 'No other peers online' : `${otherPeerCount} peer(s) online`}
+                    title={otherPeerCount === 0 ? 'Sin otros pares en línea' : `${otherPeerCount} par(es) en línea`}
                     className={`py-1 px-2 text-[0.625rem] ${otherPeerCount === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
                   >
-                    PEERS{otherPeerCount > 0 ? ` ${otherPeerCount}` : ''}
+                    PARES{otherPeerCount > 0 ? ` ${otherPeerCount}` : ''}
                   </RetroButton>
-                  <RetroButton variant={showLiveCharts ? 'primary' : 'secondary'} onClick={() => setShowLiveCharts(!showLiveCharts)} className="py-1 px-2 text-[0.625rem]">CHARTS</RetroButton>
-                  <RetroButton variant="secondary" onClick={() => setFs3d(true)} className="py-1 px-2" title="Fullscreen 3D"><Maximize2 size={14} /></RetroButton>
+                  <RetroButton variant={showLiveCharts ? 'primary' : 'secondary'} onClick={() => setShowLiveCharts(!showLiveCharts)} className="py-1 px-2 text-[0.625rem]">GRÁFICOS</RetroButton>
+                  <RetroButton variant="secondary" onClick={() => setFs3d(true)} className="py-1 px-2" title="Pantalla completa 3D"><Maximize2 size={14} /></RetroButton>
                 </div>
                 <div className="relative flex-1 min-h-0">
                   {viewport3D}
@@ -2490,15 +2587,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     <div className="grid grid-cols-2 gap-2 px-3 pt-2 text-[0.625rem] font-mono sm:grid-cols-4 lg:grid-cols-6">
                       <Info label={formatPhaseLabel(activeHb?.player?.phase) ? 'Fase' : 'FPS'} value={`${formatLivePerfLabel(activeHb?.player).replace(' FPS', '')}${activeHb?.player?.focused === false ? ' (bg)' : ''}`} />
                       <Info label="RAM" value={activeHb?.player?.memory_mb != null ? `${Math.round(activeHb.player.memory_mb)} MB` : '—'} />
-                      <Info label="Scene" value={activeHb?.player?.scene || '-'} />
-                      <Info label="Platform" value={getPlatform(activeHb) || '-'} />
-                      <Info label="Peers" value={otherPeerCount} />
-                      <Info label="Latency" value={`${staleAge.toFixed(1)}s`} />
+                      <Info label="Escena" value={activeHb?.player?.scene || '-'} />
+                      <Info label="Plataforma" value={getPlatform(activeHb) || '-'} />
+                      <Info label="Pares" value={otherPeerCount} />
+                      <Info label="Latencia" value={`${staleAge.toFixed(1)}s`} />
                     </div>
                     <div className="h-40 px-2 pb-2 pt-1">
-                      <LiveCombinedChart history={activeHistory} />
+                      <LiveCombinedChart history={activeHistory} events={activeEvents} />
                     </div>
-                    <div className="max-h-40 overflow-y-auto px-3 pb-2">
+                    <div className="max-h-60 overflow-y-auto px-3 pb-2">
                       <EventTimeline events={activeEvents} />
                     </div>
                   </div>
@@ -2512,8 +2609,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   type="button"
                   onClick={() => setFsBirdseye(true)}
                   className="absolute right-3 top-3 z-10 border-2 border-black bg-bg-card/90 p-2 hover:bg-accent hover:text-black"
-                  title="Fullscreen map"
-                  aria-label="Fullscreen map"
+                  title="Mapa a pantalla completa"
+                  aria-label="Mapa a pantalla completa"
                 >
                   <Maximize2 size={16} />
                 </button>
@@ -2525,8 +2622,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   <div className="absolute top-3 left-3 z-10 h-28 w-60 max-w-[55vw] border-2 border-black bg-bg-card/90 p-2 shadow-[3px_3px_0px_0px_black] backdrop-blur-sm">
                     <div className="mb-1 truncate text-[0.5625rem] font-black uppercase text-accent">{activeLabel || activeId?.slice(0, 12)}</div>
                     <div className="h-[calc(100%-1rem)]">
-                      <LiveCombinedChart history={activeHistory} />
+                      <LiveCombinedChart history={activeHistory} events={activeEvents} />
                     </div>
+                  </div>
+                )}
+
+                {/* Actividad del player seguido, también en birdseye. */}
+                {activeEvents.length > 0 && !birdseyeDetailId && (
+                  <div className="absolute bottom-3 left-3 z-10 max-h-48 w-60 max-w-[55vw] overflow-y-auto border-2 border-black bg-bg-card/95 p-2 shadow-[3px_3px_0px_0px_black] backdrop-blur-sm">
+                    <EventTimeline events={activeEvents} />
                   </div>
                 )}
 
@@ -2539,12 +2643,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                         <div className="min-w-0">
                           <div className="truncate text-xs font-black text-accent">{hb?.display_name || birdseyeDetailId.slice(0, 12)}</div>
                           {hb?.display_name && <div className="truncate text-[0.5625rem] text-text-muted">{birdseyeDetailId.slice(0, 12)}</div>}
-                          <div className="truncate text-[0.625rem] text-text-muted">{hb?.player?.scene || 'scene —'}</div>
+                          <div className="truncate text-[0.625rem] text-text-muted">{hb?.player?.scene || 'escena —'}</div>
                         </div>
                         <button
                           onClick={() => setBirdseyeDetailId(null)}
                           className="shrink-0 border-2 border-black bg-bg-primary px-1.5 py-0.5 text-[0.625rem] font-black hover:bg-danger hover:text-black"
-                          aria-label="Close"
+                          aria-label="Cerrar"
                         >
                           <X size={12} />
                         </button>
@@ -2566,14 +2670,14 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                         )}
                         onDownloadHotzone={handleDownloadHotzone}
                         onPlayHotzone={handlePlayHotzone}
-                        onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+                        onTagPlayer={(pid) => setTagEditorPlayerId(pid)}
                         compact
                       />
                       <div className="mt-2 flex gap-2">
                         <RetroButton
                           variant="primary"
                           onClick={() => {
-                            setSelectedPlayerId(birdseyeDetailId);
+                            setPlayer(birdseyeDetailId);
                             setBirdseyeDetailId(null);
                             setLiveView('3d');
                             setFollowPlayer(true);
@@ -2586,10 +2690,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                           variant="secondary"
                           onClick={() => {
                             const session = historySessionsWithGeo.find(s => s.session_id === hb.session_id);
-                            if (session) {
-                              handleSelectHistorySession(session);
-                              setActiveTab('history');
-                            }
+                            if (session) handleSelectHistorySession(session);
                           }}
                           className="flex-1 py-1 text-[0.625rem]"
                         >
@@ -2607,19 +2708,18 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       {activeTab === 'mapa' && (
         <div className="flex h-full flex-col">
-          {focusPlayerId && showTagEditor && (
+          {tagEditorPlayerId && (
             <PlayerTagEditor
-              playerId={focusPlayerId}
+              playerId={tagEditorPlayerId}
               onSaved={loadGeoPlayers}
-              onClose={() => setShowTagEditor(false)}
+              onClose={() => setTagEditorPlayerId(null)}
             />
           )}
           <Suspense fallback={<LazyPanelFallback label="Cargando mapa…" />}>
             <GlobeView
               players={filteredGeoPlayers}
               onSelectPlayer={(playerId) => {
-                setFocusPlayerId(playerId);
-                setShowTagEditor(true);
+                setTagEditorPlayerId(playerId);
               }}
             />
           </Suspense>
@@ -2658,7 +2758,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
 
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[360px_minmax(0,1fr)]">
-          <RetroCard title="Scenes" className={`min-h-0 overflow-hidden ${heatmapView !== 'scenes' ? 'hidden xl:block' : ''}`}>
+          <RetroCard title="Escenas" className={`min-h-0 overflow-hidden ${heatmapView !== 'scenes' ? 'hidden xl:block' : ''}`}>
             <SceneIndex
               sessions={filteredDashboardSessions}
               scenes={availableSceneFilters}
@@ -2719,10 +2819,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 text-[0.5rem] font-bold uppercase">
-                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-green-500" /> Low</div>
-                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-yellow-500" /> Med</div>
-                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-orange-500" /> High</div>
-                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-red-500" /> Crit</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-green-500" /> Bajo</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-yellow-500" /> Medio</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-orange-500" /> Alto</div>
+                    <div className="flex items-center gap-1.5"><div className="h-2 w-2 bg-red-500" /> Crítico</div>
                   </div>
                 </div>
               )}
@@ -2846,7 +2946,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   sessions={historySessionsWithGeo}
                   onSelectSession={handleSelectHistorySession}
                   selectedSessionId={selectedSession?.session_id}
-                  onEditTag={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+                  playerFilter={historyPlayerFilter}
+                  onClearPlayerFilter={() => setHistoryPlayerFilter(null)}
+                  onEditTag={(pid) => setTagEditorPlayerId(pid)}
                   hotzonesBySession={hotzonesBySession}
                   onDownloadHotzone={handleDownloadHotzone}
                   onPlayHotzone={handlePlayHotzone}
@@ -2863,7 +2965,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   onDownloadHotzone={handleDownloadHotzone}
                   onDeleteHotzone={handleDeleteHotzone}
                   onPlayHotzone={handlePlayHotzone}
-                  onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }}
+                  onTagPlayer={(pid) => setTagEditorPlayerId(pid)}
                   onShowOnMap={handleShowHotzoneOnMap}
                 />
               </div>
@@ -2888,19 +2990,31 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className={`min-h-0 overflow-y-auto ${historyMobileView !== 'player' ? 'hidden xl:block' : ''}`}>
               {!selectedSession ? (
                 <div className="min-h-full p-1">
-                  <HistoryOverview sessions={historySessionsWithGeo} statsSessions={filteredDashboardSessions} hotzones={hotzones} commits={commits} workflowRuns={workflowRuns} latestPublished={health?.latest_published} dashboardVersion={DASHBOARD_BUILD_VERSION || health?.dashboard_version} dashboardDeployedAt={health?.dashboard_deployed_at} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} onTagPlayer={(pid) => { setFocusPlayerId(pid); setShowTagEditor(true); }} onShowOnMap={handleShowHotzoneOnMap} />
+                  <HistoryOverview sessions={historySessionsWithGeo} statsSessions={filteredDashboardSessions} hotzones={hotzones} commits={commits} workflowRuns={workflowRuns} latestPublished={health?.latest_published} dashboardVersion={DASHBOARD_BUILD_VERSION || health?.dashboard_version} dashboardDeployedAt={health?.dashboard_deployed_at} onDownloadHotzone={handleDownloadHotzone} onDeleteHotzone={handleDeleteHotzone} onPlayHotzone={handlePlayHotzone} onTagPlayer={(pid) => setTagEditorPlayerId(pid)} onShowOnMap={handleShowHotzoneOnMap} />
                 </div>
               ) : playbackLoading ? (
                 <div className="flex h-full items-center justify-center">
                   <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-text-muted">
                     <span className="h-4 w-4 animate-spin border-2 border-text-muted border-t-accent rounded-full" />
-                    Loading session…
+                    Cargando sesión…
                   </div>
                 </div>
               ) : (
-                <Suspense fallback={<LazyPanelFallback label="Cargando replay…" />}>
-                  <SessionPlayback heartbeats={playbackData} session={selectedSession} />
-                </Suspense>
+                <div className="flex min-h-full flex-col">
+                  <div className="shrink-0 px-1 pb-2">
+                    <button
+                      type="button"
+                      onClick={clearSessionSelection}
+                      className="border-2 border-black bg-bg-card px-2 py-1 text-[0.5625rem] font-black uppercase text-text-muted shadow-[2px_2px_0px_0px_black] hover:bg-accent hover:text-black"
+                      title="Volver a la lista de sesiones"
+                    >
+                      ‹ Volver a la lista
+                    </button>
+                  </div>
+                  <Suspense fallback={<LazyPanelFallback label="Cargando replay…" />}>
+                    <SessionPlayback heartbeats={playbackData} session={selectedSession} />
+                  </Suspense>
+                </div>
               )}
             </div>
           </div>
