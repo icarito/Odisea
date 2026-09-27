@@ -121,13 +121,23 @@ func test_debug_hud_screen_registers_and_snapshots() -> void:
 	if hud.metrics == null:
 		return # DebugHud deshabilitado (release sin opt-in): nada que probar
 
+	var screen = hud.get_node_or_null("DebugHudScreen")
+	assert_object(screen).is_not_null()
+
+	# Sin jugador (menú principal) no se registra: si no, enciende el overlay de SuitOS.
+	if get_tree().get_nodes_in_group("player").empty():
+		screen._sync_registration()
+		assert_bool(SuitOS.has_screen("system:performance")).is_false()
+
+	# Con un jugador en la escena sí.
+	var fake_player := Node.new()
+	fake_player.add_to_group("player")
+	add_child(fake_player)
+	screen._sync_registration()
 	assert_bool(SuitOS.has_screen("system:performance")).is_true()
 
 	hud.metrics.sample()
 	hud.metrics.sample()
-
-	var screen = hud.get_node_or_null("DebugHudScreen")
-	assert_object(screen).is_not_null()
 	var snap: Dictionary = screen.widget_snapshot()
 
 	assert_dict(snap).contains_keys(["proto", "id", "title", "source",
@@ -140,3 +150,7 @@ func test_debug_hud_screen_registers_and_snapshots() -> void:
 	var json_text := JSON.print(snap)
 	assert_int(JSON.parse(json_text).error).is_equal(OK)
 	assert_bool(json_text.length() < 2000).is_true()
+
+	remove_child(fake_player)
+	fake_player.free()
+	screen._sync_registration()

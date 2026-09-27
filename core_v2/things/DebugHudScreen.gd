@@ -36,6 +36,43 @@ func _init() -> void:
 	default_relevance = 0.05 # baja: es una pantalla de diagnostico, no de gameplay
 
 
+var _registered := false
+
+
+# Sólo registrada durante una partida (hay un nodo en el grupo "player"): esta pantalla
+# vive en un autoload, y registrada en el menú principal encendía el overlay de widgets de
+# SuitOS (SuitOSWidgetHost muestra el overlay si hay CUALQUIER pantalla), que mostraba ahí
+# los slots guardados (p.ej. la Linterna) sin jugador.
+# GDScript 3 corre también los _enter_tree/_ready de HUDableComponent (que registran):
+# deshacer ese registro y aplicar la política de arriba.
+func _enter_tree() -> void:
+	_unregister_from_suit_os()
+	_registered = false
+	_sync_registration()
+
+
+func _ready() -> void:
+	_unregister_from_suit_os()
+	_registered = false
+	_sync_registration()
+
+
+func _exit_tree() -> void:
+	if _registered:
+		_unregister_from_suit_os()
+		_registered = false
+
+
+func _sync_registration() -> void:
+	var in_game: bool = is_inside_tree() and not get_tree().get_nodes_in_group("player").empty()
+	if in_game and not _registered:
+		_register_to_suit_os()
+		_registered = true
+	elif not in_game and _registered:
+		_unregister_from_suit_os()
+		_registered = false
+
+
 func _process(delta: float) -> void:
 	if hud == null:
 		return
@@ -43,7 +80,9 @@ func _process(delta: float) -> void:
 	if _accum < RESAMPLE_INTERVAL:
 		return
 	_accum -= RESAMPLE_INTERVAL
-	notify_state_changed()
+	_sync_registration()
+	if _registered:
+		notify_state_changed()
 
 
 func widget_snapshot() -> Dictionary:

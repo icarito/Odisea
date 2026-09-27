@@ -336,6 +336,15 @@ var _cursor_tex: ImageTexture = null
 # hermano suyo durante el propio _ready() del contenido, que corre ANTES que el nuestro
 # (orden bottom-up). Se re-chequea aca, en el primer tick real, por si algun contenido lo
 # agrega mas tarde.
+# El contenido lo pide al entrar al arbol (ver CryoPodImGui._announce_shader_cursor):
+# no depender del sondeo de un solo tick, que llegaba antes que el contenido diferido.
+func enable_shader_cursor() -> void:
+	shader_cursor = true
+	_shader_cursor_probed = true
+	if _viewport_input and _viewport_input.has_method("set_uses_shader_cursor"):
+		_viewport_input.set_uses_shader_cursor(true)
+
+
 func _probe_shader_cursor_content() -> void:
 	_shader_cursor_probed = true
 	if shader_cursor or _viewport_input == null:

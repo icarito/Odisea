@@ -299,9 +299,12 @@ func _ensure_cursor_visual() -> void:
 func _update_cursor_visual() -> void:
 	if not _cursor_visual or not is_instance_valid(_cursor_visual):
 		return
-	# Con cursor por shader el cursor viejo (Sprite dentro de la textura) nunca se dibuja:
-	# lo pinta HoloScreen.shader desde cursor_uv, a la tasa del juego.
-	_cursor_visual.visible = _ui_mode_active and not _use_system_mouse and _surface_hover and not shader_cursor
+	# Con cursor por shader el cursor viejo (Sprite dentro de la textura) no se dibuja en el
+	# mundo: lo pinta HoloScreen.shader desde cursor_uv, a la tasa del juego. Pero en modo
+	# Pantalla del HUD (cursor relativo) la textura se muestra en 2D sin ese shader y
+	# HoloTerminalV2 apaga cursor_uv: ahi el cursor tiene que ser este Sprite.
+	_cursor_visual.visible = _ui_mode_active and not _use_system_mouse and _surface_hover \
+			and (not shader_cursor or _hud_relative_cursor)
 	_cursor_visual.position = _cursor_position
 
 func _map_root_to_viewport(pos: Vector2, root_size: Vector2) -> Vector2:

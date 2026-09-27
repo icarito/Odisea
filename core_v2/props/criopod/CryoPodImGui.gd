@@ -34,6 +34,11 @@ var _scale := Vector2.ONE
 
 
 func _ready() -> void:
+	# Avisar a la terminal que la contiene (subiendo por los ancestros, igual que
+	# CryoPodUI._request_redraw) que el cursor va por shader: este nodo entra al arbol
+	# diferido, despues del primer tick en que HoloTerminalV2 sondeaba a su contenido, y
+	# sin el aviso el cursor viejo quedaba tapado por este canvas y no se veia ninguno.
+	call_deferred("_announce_shader_cursor")
 	pause_mode = Node.PAUSE_MODE_PROCESS  # el pulso del ECG sigue vivo con el arbol pausado
 	set_update_hz(10.0)
 	set_input_hz(30.0)
@@ -60,6 +65,15 @@ func _process(delta: float) -> void:
 # cursor_uv). HoloTerminalV2 lo detecta con esto y deja de forzar UPDATE_ALWAYS con foco.
 func uses_shader_cursor() -> bool:
 	return true
+
+
+func _announce_shader_cursor() -> void:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("enable_shader_cursor"):
+			node.enable_shader_cursor()
+			return
+		node = node.get_parent()
 
 
 # El contenido cambio (ImGuiCanvas armo un frame de verdad): un solo UPDATE_ONCE al

@@ -111,16 +111,19 @@ func _draw_mini(m) -> void:
 		same_line()
 		text("mem %.0f MB" % mem)
 		text("draws %.0f  verts %.0f" % [draws, verts])
-		var spark = m.series.get("TIME_PROCESS")
+		# FPS: TIME_PROCESS casi siempre vale 0 en este motor (se actualiza bajo una guarda
+		# interna) y la linea quedaba plana en el borde, invisible.
+		var spark = m.series.get("TIME_FPS")
 		if spark != null and spark.size() > 1:
 			if has_implot:
 				var plot_flags := IMPLOT_FLAGS_CANVAS_ONLY | IMPLOT_FLAGS_NO_INPUTS
 				if implot_begin_plot("##spark", Vector2(w - 14.0, h - 50.0), plot_flags):
-					implot_setup_axes("", "", IMPLOT_AXIS_NO_DECORATIONS, IMPLOT_AXIS_NO_DECORATIONS)
+					implot_setup_axes("", "", IMPLOT_AXIS_NO_DECORATIONS | IMPLOT_AXIS_AUTOFIT, IMPLOT_AXIS_NO_DECORATIONS | IMPLOT_AXIS_AUTOFIT)
 					implot_plot_line("##ft", _index_pool(spark.size()), _pool(spark))
 					implot_end_plot()
 			else:
-				plot_lines("##spark", _pool(spark), "", 0.0, 0.0, Vector2(w - 14.0, h - 50.0))
+				# Sin min/max: los defaults son autoescala (0.0, 0.0 fijaba un rango vacio).
+				plot_lines("##spark", _pool(spark), "")
 		if is_item_hovered() and is_mouse_clicked(0):
 			hud.visible = true
 	end()
