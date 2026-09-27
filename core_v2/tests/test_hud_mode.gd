@@ -209,6 +209,15 @@ func test_hud_blocks_player_hardware_input_without_pausing_the_world() -> void:
 	assert_bool(player.input_provider.hardware_input_enabled).is_true()
 
 
+func test_closing_hud_hides_the_queued_overlay_in_the_same_frame() -> void:
+	_screen("test:a", "Alpha")
+	assert_bool(SuitOS.open_hud_mode(true)).is_true()
+	var overlay = _overlay()
+	assert_bool(overlay.visible).is_true()
+	SuitOS.close_hud_mode()
+	assert_bool(overlay.visible).is_false()
+
+
 func test_selecting_an_offline_favorite_does_not_try_to_mount_a_nil_screen() -> void:
 	SuitOS._last_snapshots_cache["gone:screen"] = {"proto": 1, "id": "gone:screen", "title": "Gone"}
 	SuitOS.toggle_favorite("gone:screen")
@@ -1455,6 +1464,25 @@ func test_with_the_dial_open_a_widget_can_be_dragged_to_another_slot() -> void:
 	assert_bool(overlay._selector.is_open()).is_true() # el dial sigue a la vista
 
 
+func test_mouse_dragging_a_widget_to_a_slot_does_not_open_its_screen() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var parts: Array = _dial_with_widget("test:a", 0)
+	var overlay = parts[0]
+	var host = parts[1]
+	var widget: Control = parts[2]
+	var from: Vector2 = widget.get_global_transform_with_canvas().origin + Vector2(4, 4)
+	overlay._input(_mouse_click(true, from))
+	host._press_msec = OS.get_ticks_msec() - 500
+	var target: Vector2 = host.slot_rect(3).get_center()
+	overlay._input(_mouse_motion(target, target - from))
+	assert_bool(host._dragging).is_true()
+	overlay._input(_mouse_click(false, target))
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "", "test:a"])
+	assert_str(SuitOS.get_active_screen_id()).is_empty()
+	assert_bool(overlay._selector.is_open()).is_true()
+
+
 class ToggleScreen extends HUDableComponent:
 	var on := false
 	func widget_snapshot() -> Dictionary:
@@ -1521,6 +1549,14 @@ func test_the_shoulders_feed_the_slot_actions_of_the_hud_layer() -> void:
 		assert_bool(found) \
 			.override_failure_message("%s sin su boton de hombro" % action).is_true()
 		assert_float(InputMap.action_get_deadzone(action)).is_equal_approx(0.5, 0.001)
+
+
+func test_middle_mouse_is_mapped_to_hud_mode() -> void:
+	var found: bool = false
+	for event in InputMap.get_action_list("hud_mode"):
+		if event is InputEventMouseButton and event.button_index == BUTTON_MIDDLE:
+			found = true
+	assert_bool(found).is_true()
 
 
 func test_a_shoulder_event_does_not_open_the_hud_mode() -> void:
@@ -1630,12 +1666,12 @@ func test_crouch_click_on_the_dial_selects_the_aimed_item_like_the_mouse() -> vo
 	assert_str(SuitOS.get_active_screen_id()).is_equal("test:b")
 
 
-func test_x_and_b_cancel_the_dial() -> void:
+func test_b_cancels_the_dial() -> void:
 	_screen("test:a", "Alpha")
 	_screen("test:b", "Beta")
 	var overlay = _open_and_play([UP])
 	assert_bool(overlay._selector.is_open()).is_true()
-	_play(overlay, [{"hud_mode": true, "interact": true}])
+	_play(overlay, [{"hud_mode": true, "jump": true}])
 	assert_bool(SuitOS.is_hud_mode_active()).is_false()
 
 
@@ -1724,6 +1760,15 @@ func test_a_on_the_hub_opens_the_drawer_which_never_lists_itself() -> void:
 	assert_int(overlay._drawer.row_count()).is_equal(2)
 
 
+func test_interact_on_the_hub_opens_the_drawer() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	var overlay = _open_and_play([UP])
+	_play(overlay, [{"hud_mode": true, "interact": true}])
+	assert_bool(overlay._drawer_open()).is_true()
+	assert_bool(overlay._selector.is_open()).is_false()
+
+
 func test_mouse_click_on_the_hub_opens_the_drawer() -> void:
 	# FD-306 §1.1 / Open Question 1: el hub se confirma con A o con un click, no solo con touch.
 	# Nada apuntado todavia: el click cae sobre el "..." dibujado en el centro y debe abrir el
@@ -1763,6 +1808,22 @@ func test_mouse_click_with_the_aim_on_a_sector_picks_it_not_the_hub() -> void:
 	if captured:
 		assert_str(SuitOS.get_active_screen_id()).is_equal("test:a")
 		assert_bool(sel.is_open()).is_false()
+
+
+func test_desktop_mouse_click_on_the_hub_uses_its_absolute_position() -> void:
+	_screen("test:a", "Alpha")
+	_screen("test:b", "Beta")
+	assert_bool(SuitOS.open_hud_mode(true)).is_true()
+	var overlay = _overlay()
+	var sel = overlay._selector
+	overlay._point_at(Vector2(0.0, 100.0)) # un aim relativo previo no manda en escritorio
+	var center: Vector2 = sel.get_global_rect().position + sel.rect_size * 0.5
+	var previous_mode: int = Input.get_mouse_mode()
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+	overlay._input(_mouse_click(true, center))
+	overlay._input(_mouse_click(false, center))
+	Input.set_mouse_mode(previous_mode)
+	assert_bool(overlay._drawer_open()).is_true()
 
 
 # --- O18: la pulsacion que abre el drawer no acciona la fila; O17: ENTER activa ---
@@ -1992,6 +2053,26 @@ func test_dragging_a_drawer_row_onto_a_slot_pins_it_there() -> void:
 	# El drawer sigue abierto para seguir asignando, y los destinos se apagan.
 	assert_bool(overlay._drawer_open()).is_true()
 	assert_bool(host._drop_targets_visible).is_false()
+
+
+func test_mouse_dragging_a_drawer_row_uses_relative_motion() -> void:
+	var overlay = _drawer_overlay()
+	var drawer = overlay._drawer
+	drawer.focus_row(1)
+	var start: Vector2 = drawer.focused_row_center()
+	var host = SuitOS.get_node("SuitOSWidgetHost")
+	var slot: Rect2 = host.slot_rect(2)
+	var drop: Vector2 = slot.position + slot.size * 0.5
+
+	overlay._input(_mouse_click(true, start))
+	assert_int(overlay._drawer_drag_row).is_equal(1)
+	# En captura la posicion se queda fija; solo relative mueve el cursor del arrastre.
+	overlay._input(_mouse_motion(start, drop - start))
+	assert_vector2(overlay._cursor).is_equal(drop)
+	assert_object(overlay._drag_ghost).is_not_null()
+	overlay._input(_mouse_click(false, start))
+
+	assert_array(SuitOS.get_pinned_slots()).is_equal(["", "", "test:b", ""])
 
 
 func test_the_arc_is_ordered_by_relevance_when_it_opens() -> void:	# FD-306 §2: relevancia alta al primer sector (a las 6), que es el que el pulgar encuentra.

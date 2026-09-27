@@ -1517,7 +1517,8 @@ func _unhandled_input(event):
 		if event.is_action_pressed("ui_cancel"):
 			# Soltar el puntero no muestra el nativo: se prende el cursor virtual. El jugador que
 			# aprieta Esc/clic derecho no es un mouse crudo, es la misma UI de siempre.
-			VirtualMouseScript.set_pointer_released(true)
+			var pointer_position: Vector2 = event.position if event is InputEventMouseButton else Vector2.ZERO
+			VirtualMouseScript.set_pointer_released(true, pointer_position)
 		# Re-capturar al hacer click en la pantalla, solo si el cursor está liberado.
 		# Que el clic haya llegado hasta aquí implica que la ventana tiene foco,
 		# pero lo verificamos igual para mantener una sola fuente de verdad.

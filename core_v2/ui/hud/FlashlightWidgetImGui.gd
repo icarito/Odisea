@@ -20,10 +20,14 @@ const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
 
 const PANEL_SIZE := Vector2(210.0, 80.0)
 
+# Bloque util: 186x52 dentro del panel. No nace en (0,0), que lo deja visualmente
+# pegado a la esquina aunque el PanelContainer este bien centrado en su slot.
+const CONTENT_OFFSET := Vector2(12.0, 13.0)
+
 # Rect del boton ENCENDER/APAGAR en coordenadas de la ventana ImGui (la ventana va
 # anclada al origen del canvas): el host del HUD lo consulta via widget.imgui_button_hit_rects()
 # para atribuir el toque al boton y no abrir la pantalla (HudWidgetAction.pointer_on_button).
-const BUTTON_RECT := Rect2(112.0, 32.0, 74.0, 20.0)
+const BUTTON_RECT := Rect2(124.0, 45.0, 74.0, 20.0)
 
 var widget: Node = null # FlashlightWidget.gd, fuente de snapshot()/toggle_action()
 
@@ -119,7 +123,7 @@ func _on_imgui_frame() -> void:
 
 	var flags := WINDOW_NO_DECORATION | WINDOW_NO_MOVE | WINDOW_NO_SAVED_SETTINGS | WINDOW_NO_BRING_TO_FRONT_ON_FOCUS
 	if begin("##flashlight_widget", flags):
-		set_cursor_pos(Vector2(0, 0))
+		set_cursor_pos(CONTENT_OFFSET)
 		image(_white_tex, Vector2(8, 8), dot)
 		# same_line() mide el offset desde el INICIO de la linea, no desde el cursor: el
 		# punto ocupa x en [0,8], asi que el offset tiene que superar 8 (medido en la
@@ -129,13 +133,13 @@ func _on_imgui_frame() -> void:
 		text_colored(OdiseaOSTheme.INK, title)
 		pop_font()
 
-		set_cursor_pos(Vector2(0, 18))
+		set_cursor_pos(CONTENT_OFFSET + Vector2(0, 18))
 		text_colored(meter_color, meter)
 
-		set_cursor_pos(Vector2(0, 34))
+		set_cursor_pos(CONTENT_OFFSET + Vector2(0, 34))
 		text_colored(OdiseaOSTheme.INK if not offline else OdiseaOSTheme.STATE_OFFLINE, status)
 
-		set_cursor_pos(Vector2(112, 32))
+		set_cursor_pos(BUTTON_RECT.position)
 		if offline:
 			push_style_color(COL_BUTTON, Color(0.1, 0.1, 0.1, 1.0))
 			push_style_color(COL_TEXT, OdiseaOSTheme.STATE_OFFLINE)

@@ -43,6 +43,9 @@ func remove_overlay(node_name: String, slot_name: String = SLOT_PASSIVE) -> void
 		return
 	var overlay = slot.get_node_or_null(node_name)
 	if is_instance_valid(overlay):
+		# queue_free ocurre al final del frame: sin ocultarlo, el HUD saliente llega a
+		# dibujarse encima del Menu durante el cambio de escena.
+		overlay.hide()
 		overlay.queue_free()
 
 func get_safe_margins(extra_padding: float = 0.0) -> Dictionary:

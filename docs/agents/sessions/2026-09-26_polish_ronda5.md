@@ -217,6 +217,52 @@ el origen y RingHubWakeup lo mueve al slot 37 (forced_slot, ~12 m y 65°): light
 lugar (y posible sombra fantasma en el centro del hub). Transform fijado a la pose final.
 **Pendiente: rehornear RingHub_Level (skill dome-bake / editor).**
 
+### T12 — Mouse en slots/widgets, radial y salida de ventana — HECHO local
+- `SuitOSWidgetHost.gd`: el puente que el overlay usaba solo para `ScreenTouch` ahora recibe también
+  click izquierdo; así un widget visible bajo el radial conserva su acción y no cae en el dial.
+- `HudModeOverlay.gd`: una vez que el mouse relativo marcó un sector, el click confirma ese sector
+  como el Drawer, sin reinterpretar la posición absoluta (que puede ser el centro estando capturado).
+- `VirtualMouse.gd` + `SessionManager.gd`: el click derecho entrega su posición real al liberar el
+  puntero. No nace un cursor virtual en el centro por el último mouse relativo/capturado.
+- Prueba puntual: `pytest ... -k 'test_gd__core_v2_tests_test_virtual_mouse_click_position_gd or
+  test_gd__core_v2_tests_test_remote_control_home_hud_gd'` → 2 passed. Falta prueba visual desktop
+  windowed con mouse físico; headless no puede comprobar cursores ni el handoff de foco.
+
+### T13 — Arrastre mouse y botón central HUD — HECHO local
+- El radial ya acumulaba `event.relative` durante el drag; su regresión de mouse capturado sigue
+  cubriendo que se fija al slot correcto.
+- El Drawer ahora también acumula ese delta mientras el click izquierdo está apoyado: la posición
+  capturada permanece en el centro, pero el cursor interno alcanza el slot de destino y suelta ahí.
+- `project.godot`: botón central (`BUTTON_MIDDLE`) se suma a `hud_mode`; abre y sostiene exactamente
+  como TAB, por tanto pasa por el mismo `InputProviderV2`/stream determinista.
+- `test_hud_mode.gd` verde completo (114 casos), incluido mapping y drawer drag relativo.
+
+### T14 — Interactuar sobre el hub — HECHO local
+- `INTERACT` confirma el dial: en el centro abre el Drawer y en un sector abre su pantalla. `JUMP`
+  conserva volver/cerrar; el retorno a gameplay sigue siendo el gesto/acción `HUD`.
+
+### T15 — Hub desktop y doble cursor al salir de ventana — HECHO local
+- Con el mouse capturado el radial conserva aim relativo; con mouse de escritorio, un click usa la
+  posición absoluta y por tanto el centro vuelve a abrir el Drawer.
+- El cursor virtual se apaga al salir físicamente de la ventana; el cursor nativo exterior ya no
+  queda acompañado por uno virtual rezagado dentro del juego.
+
+### T16 — Frame de HUD al entrar al menú — HECHO local
+- `OverlayUIManager.remove_overlay()` oculta el overlay en el mismo frame antes de `queue_free()`;
+  el HUD saliente no puede dibujarse una vez sobre el menú principal.
+
+### T17 — Drop de widget con mouse — HECHO local
+- El puente del radial reenvía también `MouseMotion` al widget ya agarrado: soltarlo en un slot
+  completa el drag/drop y no se degrada a un tap que abre su pantalla.
+
+### T18 — Centrado de widgets ImGui — HECHO local
+- Los widgets ImGui declaran el centrado dentro de la caja fija del slot; los widgets normales
+  conservan el anclaje a su borde para no mover el HUD existente.
+
+### T19 — Contenido interno de widgets ImGui — HECHO local
+- Linterna y Sistemas centran su bloque de contenido dentro de su panel ImGui, en vez de dibujarlo
+  desde la esquina superior izquierda.
+
 ## Estado
 - Mapeo y health check: hechos.
 - T1+T2 HECHO y commiteado: 12f29935 (juego), b3092697 (central), 8691ea09 (dashboard),
@@ -224,6 +270,8 @@ lugar (y posible sombra fantasma en el centro del hub). Transform fijado a la po
   tests/bridge NO corre en ningún workflow de CI. Falta deploy central+dashboard (bloqueado por
   decisión de backups/disco).
 - Gotcha K2: si falta una columna, /ghosts/sessions traga la excepción y devuelve [] en silencio.
+- T12 mouse: cambio local sin commit; no se tocaron los imports/meshes sucios ni el bloque ajeno de
+  `SessionManager.gd` para `--replay-url`.
 - (histórico) K1/K2/K3 lanzados en Kilo (logs en el scratchpad de la sesión, `kilo session list`).
   Gotcha: lanzar varios `kilo run` en el mismo segundo rompe la DB de Kilo (credential update);
   espaciarlos unos segundos.

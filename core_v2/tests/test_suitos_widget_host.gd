@@ -439,6 +439,20 @@ func test_a_right_slot_widget_that_grows_stays_against_its_edge() -> void:
 	widget.free()
 
 
+func test_imgui_widget_is_centered_in_its_slot() -> void:
+	var widget := PanelContainer.new()
+	widget.rect_min_size = Vector2(210.0, 72.0)
+	widget.set_meta("hud_slot_centered", true)
+	_widget_host.get_widget_root().add_child(widget)
+	_widget_host._place(widget, "slot_4")
+	var k: float = widget.rect_scale.x
+	var slot_size := Vector2(200.0, HudSlots.SLOT_ROW_HEIGHT) * k
+	var slot := Rect2(HudSlots.slot_position(3, slot_size, _widget_host._safe_rect(), k), slot_size)
+	assert_vector2(widget.rect_global_position + widget.rect_size * widget.rect_scale * 0.5) \
+		.is_equal(slot.get_center())
+	widget.free()
+
+
 func func_right_edge(control: Control) -> float:
 	return control.rect_position.x + control.rect_size.x * control.rect_scale.x
 

@@ -12,6 +12,9 @@ const ImGuiOdiseaFonts = preload("res://core_v2/ui/hud/ImGuiOdiseaFonts.gd")
 const ImGuiOdiseaTheme = preload("res://core_v2/ui/hud/ImGuiOdiseaTheme.gd")
 
 const PANEL_SIZE := Vector2(210.0, 72.0)
+# El panel tiene 186x64 de contenido: dejarlo en (0,0) lo hacia verse pegado al borde
+# aunque el Control padre ya estuviera centrado dentro de su slot.
+const CONTENT_OFFSET := Vector2(12.0, 4.0)
 
 var widget: Node = null # DebugHudWidget.gd
 
@@ -66,21 +69,21 @@ func _on_imgui_frame() -> void:
 
 	var flags := WINDOW_NO_DECORATION | WINDOW_NO_MOVE | WINDOW_NO_SAVED_SETTINGS | WINDOW_NO_BRING_TO_FRONT_ON_FOCUS
 	if begin("##debughud_widget", flags):
-		set_cursor_pos(Vector2(0, 0))
+		set_cursor_pos(CONTENT_OFFSET)
 		push_font(title_font)
 		text_colored(accent, "SISTEMAS")
 		pop_font()
 
 		if offline:
-			set_cursor_pos(Vector2(0, 18))
+			set_cursor_pos(CONTENT_OFFSET + Vector2(0, 18))
 			text_colored(OdiseaOSTheme.STATE_OFFLINE, tr("OFFLINE"))
 		else:
-			set_cursor_pos(Vector2(0, 18))
+			set_cursor_pos(CONTENT_OFFSET + Vector2(0, 18))
 			text_colored(OdiseaOSTheme.INK, "%.0f FPS  %.1f ms" % [fps, frame_ms])
-			set_cursor_pos(Vector2(0, 34))
+			set_cursor_pos(CONTENT_OFFSET + Vector2(0, 34))
 			text_colored(OdiseaOSTheme.SUIT_DIM, "DRAWS %.0f" % draw_calls)
 
-			set_cursor_pos(Vector2(112, 4))
+			set_cursor_pos(CONTENT_OFFSET + Vector2(112, 4))
 			if not fps_series.empty():
 				var xs := PoolRealArray()
 				var ys := PoolRealArray()

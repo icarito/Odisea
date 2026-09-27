@@ -408,6 +408,24 @@ func test_clicking_the_marked_slice_picks_it():
 
 	home.queue_free()
 
+
+func test_relative_mouse_aim_confirms_the_marked_slice_away_from_it():
+	var home = _home_with_dial(_dial_screens())
+	home._raw_passthrough = true
+	_tab_tap(home)
+	home._client().ui_directives.clear()
+
+	var overlay = home.hud_backend.get_overlay()
+	overlay._input(_motion(VIEW_SIZE * 0.5, Vector2(0.0, -80.0)))
+	_tick(home)
+	# El cursor del SO puede estar en el hub mientras el mouse relativo marco el sector de arriba.
+	overlay._input(_click(VIEW_SIZE * 0.5))
+	overlay._input(_release_click(VIEW_SIZE * 0.5))
+
+	assert_bool(home._radial_is_open()).is_false()
+	assert_array(_screen_selects(home)).is_equal(["screen_a"])
+	home.queue_free()
+
 func test_pick_while_holding_tab_keeps_the_screen_open_on_release():
 	var home = _home_with_dial(_dial_screens())
 	home._raw_passthrough = true
@@ -1436,6 +1454,29 @@ func test_tapping_the_button_inside_a_widget_does_not_open_its_screen():
 	host._on_widget_gui_input(_touch(0, on_body, false), widget, "slot_1")
 	assert_array(_screen_selects(home)).is_equal(["player:flashlight"])
 
+	home.queue_free()
+
+
+func test_mouse_click_on_a_widget_is_forwarded_above_the_radial():
+	var home = _home_with_dial([
+		{"id": "player:flashlight", "title": "Linterna", "relevance": 0.9,
+			"widget": "res://core_v2/ui/hud/FlashlightWidget.tscn",
+			"snapshot": {"proto": 1, "id": "player:flashlight", "title": "Linterna", "on": false,
+				"battery": 90.0, "battery_max": 100.0, "source": "online"}},
+		{"id": "screen_b", "title": "Screen B", "relevance": 0.1}
+	])
+	yield(await_idle_frame(), "completed")
+	var widget: Control = _slot_widget(home, 0)
+	var xf: Transform2D = widget.get_global_transform_with_canvas()
+	var on_body: Vector2 = xf.origin + Vector2(4.0, 4.0) * xf.get_scale()
+	var overlay = _open_dial(home)
+	yield(await_idle_frame(), "completed") # el click que abre el modo HUD se ignora a proposito
+	home._client().ui_directives.clear()
+
+	overlay._input(_click(on_body))
+	overlay._input(_release_click(on_body))
+
+	assert_array(_screen_selects(home)).is_equal(["player:flashlight"])
 	home.queue_free()
 
 # --- Hints de interactuables tambien en el control ---

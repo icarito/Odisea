@@ -218,6 +218,29 @@ func test_released_pointer_shows_the_virtual_cursor_with_no_ui() -> void:
 	cursor.get_parent().free()
 
 
+func test_releasing_a_real_mouse_keeps_its_absolute_position() -> void:
+	_clear_virtual_mice()
+	var cursor: Control = VirtualMouseScript.ensure_global()
+	var expected := Vector2(213.0, 147.0)
+	VirtualMouseScript.set_pointer_released(true, expected)
+
+	assert_bool(cursor.is_desktop_mouse_mode()).is_true()
+	assert_vector2(cursor._position).is_equal(expected)
+	VirtualMouseScript.set_pointer_released(false)
+	cursor.get_parent().free()
+
+
+func test_virtual_cursor_hides_when_the_real_mouse_leaves_the_window() -> void:
+	_clear_virtual_mice()
+	var cursor: Control = VirtualMouseScript.ensure_global()
+	cursor.set_desktop_mouse_mode(true, Vector2(213.0, 147.0))
+	cursor._on_mouse_exited()
+	assert_bool(cursor.is_cursor_visible()).is_false()
+	cursor._on_mouse_entered()
+	assert_bool(cursor.is_cursor_visible()).is_true()
+	cursor.get_parent().free()
+
+
 # Estandar de popups: al mostrarse, el popup prende el cursor virtual (modo desktop) sin depender
 # de que el juego ya tuviera uno; al ocultarse, lo suelta.
 func test_attach_popup_deferred_attaches_on_the_next_idle() -> void:
@@ -410,4 +433,3 @@ func test_a_phantom_mouse_motion_after_touch_does_not_show_the_cursor() -> void:
 
 	Input.set_mouse_mode(mouse_mode)
 	cursor.get_parent().queue_free()
-

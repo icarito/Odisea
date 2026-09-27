@@ -40,6 +40,7 @@ func _build_imgui_widget() -> void:
 	# dejo el primer layout con Controls visibles era mas alto y el host re-ubica el
 	# widget al escuchar resized.
 	rect_size = canvas.panel_size()
+	set_meta("hud_slot_centered", true)
 	_imgui_widget = canvas
 
 func snapshot() -> Dictionary:

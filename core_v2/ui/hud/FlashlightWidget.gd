@@ -49,6 +49,7 @@ func _build_imgui_widget() -> void:
 	# Controls visibles era mas alto y el host re-ubica el widget en el slot al
 	# escuchar resized (con el size viejo el fit del slot encogia el widget de mas).
 	rect_size = canvas.panel_size()
+	set_meta("hud_slot_centered", true)
 	_imgui_widget = canvas
 
 # Snapshot leido por FlashlightWidgetImGui en cada imgui_frame.

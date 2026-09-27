@@ -774,7 +774,12 @@ func _place(widget: Node, slot: String) -> void:
 	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	control.rect_scale = Vector2.ONE * fit * k
 	var size: Vector2 = Vector2(max(control.rect_size.x, min_size.x), height) * fit * k
-	control.rect_position = HudSlots.slot_position(index, size, _safe_rect(), k)
+	if control.has_meta("hud_slot_centered"):
+		var slot_size := Vector2(PLACEHOLDER_SIZE.x, HudSlots.SLOT_ROW_HEIGHT) * k
+		var slot_position := HudSlots.slot_position(index, slot_size, _safe_rect(), k)
+		control.rect_position = slot_position + (slot_size - size) * 0.5
+	else:
+		control.rect_position = HudSlots.slot_position(index, size, _safe_rect(), k)
 	if control.name.begins_with("SuitOS_Placeholder_"):
 		return
 	# Un widget cambia de tamaño al llegarle datos (textos mas largos): sin volver a ubicarlo, el de
@@ -1045,7 +1050,16 @@ func _widget_hit(point: Vector2) -> Array:
 # o su boton si el toque cae ahi.
 var _forwarded: Array = []
 
-func forward_touch(event: InputEventScreenTouch) -> bool:
+func forward_pointer(event: InputEvent) -> bool:
+	if event is InputEventMouseMotion:
+		if _forwarded.empty():
+			return false
+		_last_pointer_position = event.position
+		_drive_drag(_forwarded[0])
+		return true
+	if not (event is InputEventScreenTouch \
+			or (event is InputEventMouseButton and event.button_index == BUTTON_LEFT)):
+		return false
 	if event.pressed:
 		_forwarded = _widget_hit(event.position)
 	if _forwarded.empty():
@@ -1061,6 +1075,10 @@ func forward_touch(event: InputEventScreenTouch) -> bool:
 		_press_position = event.position
 	_on_widget_gui_input(event, target[0], target[1])
 	return true
+
+
+func forward_touch(event: InputEventScreenTouch) -> bool:
+	return forward_pointer(event)
 
 # ponytail: el hold se mide con el reloj, no con el stream — el widget no aprieta ninguna
 # accion y no hay muestra grabada que contar. Si el modo HUD entra al replay, el tap tendria

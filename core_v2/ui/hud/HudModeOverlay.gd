@@ -665,6 +665,13 @@ func _input(event: InputEvent) -> void:
 				get_tree().set_input_as_handled()
 				return
 	if event is InputEventMouseMotion:
+		# El overlay queda encima de los widgets con el dial abierto. Si el mouse ya agarro
+		# uno, su movimiento es del widget; sin este puente el release parecia un tap y abria
+		# la pantalla justo despues de fijarla en un slot.
+		var widget_host = _widget_host()
+		if _selector.is_open() and widget_host != null and widget_host.forward_pointer(event):
+			get_tree().set_input_as_handled()
+			return
 		if _dragging_view:
 			_drive_view_drag(_unified_cursor_position(event.position), true)
 			get_tree().set_input_as_handled()
@@ -763,6 +770,12 @@ func _input(event: InputEvent) -> void:
 			# Y sigue de largo a la GUI: si el dedo cayo sobre un widget de slot, ese clic es el
 			# que lo oprime. Marcarlo como atendido dejaba al widget sin su toque.
 			return
+		# El overlay vive arriba de los widgets y la GUI no les entrega este click. El mismo
+		# puente que ya usa el dedo evita que el mouse caiga despues en el dial.
+		var host = _widget_host()
+		if host != null and host.forward_pointer(event):
+			get_tree().set_input_as_handled()
+			return
 		if event.pressed:
 			# Igual que touch: el click corto confirma; si se mueve antes de soltar, lleva el
 			# item del dial hasta un slot.
@@ -774,8 +787,9 @@ func _input(event: InputEvent) -> void:
 				_drag_option = _selector.get_hovered_index()
 				if _drag_option == RadialSelectorV2.NONE:
 					_drag_option = _selector.slice_at(event.position)
-			elif _mouse_aim_active or _target_slot < 0:
-				# El mouse ya apunto (o el radial no vino de un slot): manda la posicion.
+			elif _target_slot < 0:
+				# Fuera de captura hay mouse de escritorio: su posicion real manda. Esto permite
+				# volver al hub con el cursor absoluto, sin arrastrar el aim relativo anterior.
 				_drag_option = _selector.slice_at(event.position)
 				if _drag_option == RadialSelectorV2.NONE:
 					_drag_option = _selector.get_hovered_index()
@@ -1983,9 +1997,13 @@ func _drive_hud_buttons(input) -> bool:
 	por foco (_drive_widget_screen) no debe volver a oprimir nada."""
 	var edges: Dictionary = _face_edges(input)
 	if _selector.is_open():
-		# JUMP (b) e INTERACT (x) cierran el dial sin saltar ni interactuar: consume el flanco aca
-		# y no se reenvia a gameplay (en el control remoto tampoco llega al host).
-		if edges["x"] or edges["b"]:
+		# INTERACT confirma el dial: sobre el hub abre el drawer, sobre un sector abre su pantalla.
+		# Solo JUMP conserva el rol de volver/cerrar.
+		if edges["x"]:
+			_end_crouch_drag()
+			_selector.confirm()
+			return false
+		if edges["b"]:
 			_end_crouch_drag()
 			_dismiss_radial()
 			return false
@@ -2195,7 +2213,10 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 		# Con una fila apoyada, el movimiento la levanta (mismo gesto que el radial: click +
 		# mover). Si no hay nada apoyado, el mouse desplaza la lista.
 		if _drawer_drag_row >= 0 or is_instance_valid(_drag_ghost):
-			var dpoint: Vector2 = _drawer_cursor_point(event.position)
+			# El drawer captura el mouse: position queda en el centro. Su cursor interno,
+			# igual que el del radial, acumula el delta para que el arrastre pueda despegar.
+			_move_cursor(event.relative, get_viewport_rect().size)
+			var dpoint: Vector2 = _cursor
 			if is_instance_valid(_drag_ghost):
 				_drive_option_drag(dpoint, false, true)
 			elif (dpoint - _touch_start).length() >= TOUCH_MIN_DRAG:
@@ -2234,12 +2255,13 @@ func _drawer_pointer_input(event: InputEvent) -> void:
 			# acciona la fila apoyada (o la enfocada si el click cayo fuera de las filas).
 			var point: Vector2 = _drawer_cursor_point(event.position)
 			if event.pressed:
+				_set_cursor(point, get_viewport_rect().size)
 				_drawer_press_row = _drawer.row_at(point)
 				_drawer_drag_row = _drawer_press_row
 				_touch_start = point
 				return
 			if is_instance_valid(_drag_ghost):
-				_drop_option(point)
+				_drop_option(_cursor)
 				_end_drawer_row_drag()
 				return
 			var mrow: int = _drawer_press_row

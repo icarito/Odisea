@@ -94,6 +94,7 @@ static func attach_to(parent: Node, requester: Node = null) -> Control:
 
 # Con la ventana sin foco el cursor virtual no se dibuja (ver _process/_draw).
 var _window_focused := true
+var _mouse_inside_window := true
 # O11: ultimo input fue TOUCH (dedo o su mouse fantasma): el cursor virtual se oculta, lo opera el
 # dedo. Excepcion "mouse libre": con el puntero liberado (_released) el jugador usa el joypad
 # virtual y necesita verlo. Un input de joypad o un mouse real lo vuelven a mostrar. Interpretacion
@@ -220,7 +221,7 @@ static func ensure_global() -> Control:
 
 # Estandar para el juego: liberar el puntero (ui_cancel/clic derecho) sin mostrar el nativo. Al
 # soltar, el cursor queda dibujado en modo desktop; al recapturar, no queda nada colgado.
-static func set_pointer_released(released: bool) -> void:
+static func set_pointer_released(released: bool, position: Vector2 = Vector2.ZERO) -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree == null:
 		return
@@ -241,7 +242,7 @@ static func set_pointer_released(released: bool) -> void:
 	cursor.set_process_input(true)
 	cursor._released = released
 	if released:
-		cursor.set_desktop_mouse_mode(true, cursor.get_viewport().get_mouse_position())
+		cursor.set_desktop_mouse_mode(true, position if position != Vector2.ZERO else cursor.get_viewport().get_mouse_position())
 		# Reafirmar HIDDEN al final del frame: si algo (SessionManager/PauseManager) recapturo en el
 		# mismo evento, el boton derecho igual termina liberando de verdad y no queda el mouse
 		# relativo/clavado al centro.
@@ -299,6 +300,20 @@ func _on_viewport_resized() -> void:
 	_position.x = clamp(_position.x, 0.0, bounds.x)
 	_position.y = clamp(_position.y, 0.0, bounds.y)
 	update()
+
+func _on_mouse_entered() -> void:
+	_mouse_inside_window = true
+	update()
+
+func _on_mouse_exited() -> void:
+	_mouse_inside_window = false
+	update()
+
+func _notification(what: int) -> void:
+	if what == MainLoop.NOTIFICATION_WM_MOUSE_ENTER:
+		_on_mouse_entered()
+	elif what == MainLoop.NOTIFICATION_WM_MOUSE_EXIT:
+		_on_mouse_exited()
 
 func _process(delta: float) -> void:
 	# Al abandonar la ventana el cursor virtual desaparece (el nativo no se muestra nunca). Vuelve
@@ -369,6 +384,7 @@ func _input(event: InputEvent) -> void:
 		_set_touch_input(true)
 		return
 	if event is InputEventMouseMotion:
+		_mouse_inside_window = true
 		# El touch emulado en escritorio entra como motion de mouse REAL (ver
 		# MobileUIManager.is_pointer_from_touch): no debe arrastrar el cursor ni mostrarlo.
 		if _is_touch_pointer_event(event):
@@ -527,7 +543,7 @@ func _is_touch_pointer_event(event: InputEvent) -> bool:
 # Gate unico de dibujo: ventana con foco, modo activo (gamepad o desktop) y no ocultado por touch
 # (salvo puntero liberado, ver _touch_input).
 func is_cursor_visible() -> bool:
-	if not _window_focused:
+	if not _window_focused or not _mouse_inside_window:
 		return false
 	if _touch_input and not _released:
 		return false
