@@ -51,16 +51,61 @@ var _screen_id := "ship:cryopod:elias"
 var _hatch_open := false
 var _hatch_busy := false
 
+# Paso 12: con ImGuiCanvas disponible en el motor, la pantalla se dibuja con
+# CryoPodImGui.gd (ImGui/ImPlot) en vez de en este _draw(). Sin el modulo (release
+# pinneado v0.5.3), _imgui_screen queda null y todo sigue exactamente como antes: este
+# Control sigue siendo la unica fuente de widget_snapshot()/pod_state() en los dos casos.
+# CryoPodImGui.gd usa `extends ImGuiCanvas`: precompilarlo con preload() rompia el arbol
+# en el binario sin el modulo (GDScript resuelve el extends al compilar el .gd, aunque el
+# _build_imgui_screen() de abajo nunca llegue a llamarse) — medido: hacia fallar
+# test_pod_has_a_single_interactable_covering_the_capsule por corrupcion silenciosa del
+# arbol de escena. load() diferido evita compilarlo salvo que el modulo ya este.
+const CryoPodImGuiPath := "res://core_v2/props/criopod/CryoPodImGui.gd"
+var _imgui_screen = null
+
 onready var _hatch_button: Button = get_node_or_null("HatchButton")
 
 func _ready() -> void:
 	pause_mode = PAUSE_MODE_PROCESS  # el modo HUD pausa el arbol; el pulso sigue vivo
 	_body_font = small_font(20)
 	_big_font = small_font(56)
+	if ClassDB.class_exists("ImGuiCanvas"):
+		_build_imgui_screen()
 	if _hatch_button != null and not _hatch_button.is_connected("pressed", self, "_on_hatch_pressed"):
 		_hatch_button.connect("pressed", self, "_on_hatch_pressed")
 		_style_hatch_button()
+	if _imgui_screen != null and _hatch_button != null:
+		# ImGui dibuja su propio boton (misma accion, _on_hatch_pressed): el chip viejo se
+		# esconde para no duplicarlo encima del contenido ImGui.
+		_hatch_button.visible = false
 	_refresh_hatch_button()
+
+# Instancia CryoPodImGui.gd como hermano de este Control, adentro del mismo Viewport. El
+# estado sigue viviendo aca: CryoPodImGui solo lee estos exports en cada imgui_frame.
+func _build_imgui_screen() -> void:
+	var canvas_script = load(CryoPodImGuiPath)
+	if canvas_script == null:
+		return
+	var canvas = canvas_script.new()
+	canvas.name = "CryoPodImGui"
+	canvas.screen_ui = self
+	var parent := get_parent()
+	if parent == null:
+		return
+	# add_child() directo aca (dentro del propio _ready() de este Control, que a su vez
+	# corre durante la propagacion de "ready" del Viewport que lo contiene) medido: deja al
+	# hijo con is_inside_tree() == false pese a que add_child() ya "volvio" - reentrancia
+	# del motor con el enter_tree todavia en curso mas arriba en la pila. Diferido, entra
+	# limpio al terminar el frame (HoloTerminalV2 lo encuentra en su primer physics tick,
+	# via _probe_shader_cursor_content()).
+	parent.call_deferred("add_child", canvas)
+	_imgui_screen = canvas
+
+func is_hatch_open() -> bool:
+	return _hatch_open
+
+func is_hatch_busy() -> bool:
+	return _hatch_busy
 
 # El tema por defecto deja el boton en gris oscuro, y oscuro en este shader es vidrio: el
 # boton desaparecia. Un chip con relleno claro y borde del acento.
@@ -124,6 +169,10 @@ const REDRAW_HZ := 10.0
 var _redraw_accum := 0.0
 
 func _process(delta: float) -> void:
+	if _imgui_screen != null:
+		# CryoPodImGui.gd pide su propio redibujado (ImGuiCanvas.update_hz + redrawn ->
+		# request_redraw()); este _draw() nunca corre en ese modo.
+		return
 	_time += delta
 	_redraw_accum += delta
 	if _redraw_accum < 1.0 / REDRAW_HZ:
@@ -166,6 +215,8 @@ static func _ecg(p: float) -> float:
 	return 0.0
 
 func _draw() -> void:
+	if _imgui_screen != null:
+		return
 	if rect_size.x <= 0.0 or rect_size.y <= 0.0:
 		return
 	draw_set_transform(Vector2.ZERO, 0.0, rect_size / DESIGN)

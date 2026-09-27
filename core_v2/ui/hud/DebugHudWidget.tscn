@@ -1,0 +1,59 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://core_v2/ui/hud/DebugHudWidget.gd" type="Script" id=1]
+
+[node name="DebugHudWidget" type="PanelContainer"]
+margin_right = 210.0
+margin_bottom = 72.0
+rect_min_size = Vector2( 210, 72 )
+script = ExtResource( 1 )
+
+[node name="Margin" type="MarginContainer" parent="."]
+margin_left = 7.0
+margin_top = 7.0
+margin_right = 203.0
+margin_bottom = 65.0
+custom_constants/margin_right = 6
+custom_constants/margin_top = 4
+custom_constants/margin_left = 6
+custom_constants/margin_bottom = 4
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+margin_left = 6.0
+margin_top = 4.0
+margin_right = 190.0
+margin_bottom = 54.0
+custom_constants/separation = 2
+
+[node name="Header" type="HBoxContainer" parent="Margin/VBox"]
+margin_right = 184.0
+margin_bottom = 14.0
+
+[node name="StatusDot" type="ColorRect" parent="Margin/VBox/Header"]
+margin_top = 3.0
+margin_right = 8.0
+margin_bottom = 11.0
+rect_min_size = Vector2( 8, 8 )
+color = Color( 0.18, 0.88, 0.78, 0.9 )
+
+[node name="TitleLabel" type="Label" parent="Margin/VBox/Header"]
+margin_left = 12.0
+margin_right = 184.0
+margin_bottom = 14.0
+size_flags_horizontal = 3
+text = "Rendimiento"
+clip_text = true
+
+[node name="MetricsLabel" type="Label" parent="Margin/VBox"]
+margin_top = 16.0
+margin_right = 184.0
+margin_bottom = 30.0
+text = "60 FPS  16.6 ms"
+clip_text = true
+
+[node name="ExtraLabel" type="Label" parent="Margin/VBox"]
+margin_top = 32.0
+margin_right = 184.0
+margin_bottom = 46.0
+text = "draws 0  mem 0 MB"
+clip_text = true

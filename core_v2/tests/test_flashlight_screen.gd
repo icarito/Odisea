@@ -5,6 +5,8 @@ extends GdUnitTestSuite
 const HelmetFlashlightScript = preload("res://core_v2/props/lights/HelmetFlashlight.gd")
 const FlashlightScreenScript = preload("res://core_v2/things/FlashlightScreen.gd")
 const FlashlightWidgetScript = preload("res://core_v2/ui/hud/FlashlightWidget.gd")
+const FlashlightWidgetScene = preload("res://core_v2/ui/hud/FlashlightWidget.tscn")
+const FlashlightScreenViewScene = preload("res://core_v2/ui/hud/FlashlightScreenView.tscn")
 
 var _flashlight = null
 var _screen = null
@@ -139,3 +141,55 @@ func test_flashlight_widget_ui_snapshot() -> void:
 	assert_str(btn.text).is_equal(tr("ENCENDER"))
 	assert_str(status_lbl.text).is_equal(tr("APAGADA"))
 	assert_str(meter_lbl.text).is_equal("BAT: [..........]")
+
+# Paso "Linterna en ImGui": con el modulo, la pantalla de casco existe (hud_view_scene +
+# view_size 480x300); sin el modulo, view_scene() vuelve a devolver null como antes de
+# este paso (HudViewMount cae al widget ampliado, sin regresion).
+func test_flashlight_screen_view_gated_by_imgui() -> void:
+	if ClassDB.class_exists("ImGuiCanvas"):
+		assert_object(_screen.view_scene()).override_failure_message(
+			"con ImGuiCanvas disponible FlashlightScreen deberia declarar su vista de casco").is_not_null()
+	else:
+		assert_object(_screen.view_scene()).override_failure_message(
+			"sin ImGuiCanvas no deberia haber vista propia: cae al widget ampliado").is_null()
+	assert_vector2(_screen.view_size()).is_equal(Vector2(480.0, 300.0))
+	assert_float(_screen.view_hud_config().get("contrast", -1.0)).is_equal(1.0)
+
+# El widget de slot agrega FlashlightWidgetImGui solo si el modulo esta disponible, y en
+# ese caso esconde los Controls viejos (Margin) para no duplicar contenido.
+func test_flashlight_widget_imgui_child_gated_by_module() -> void:
+	var widget = FlashlightWidgetScene.instance()
+	add_child(widget)
+	auto_free(widget)
+	yield(get_tree(), "idle_frame")
+
+	var imgui_child = widget.get_node_or_null("FlashlightWidgetImGui")
+	if ClassDB.class_exists("ImGuiCanvas"):
+		assert_object(imgui_child).override_failure_message(
+			"con ImGuiCanvas disponible el widget deberia montar FlashlightWidgetImGui").is_not_null()
+		var margin = widget.get_node_or_null("Margin")
+		assert_bool(margin.visible).override_failure_message(
+			"los Controls viejos deberian esconderse en modo ImGui").is_false()
+	else:
+		assert_object(imgui_child).override_failure_message(
+			"sin ImGuiCanvas no deberia existir FlashlightWidgetImGui: cae a los Controls").is_null()
+
+	widget.update_snapshot({"title": "Linterna", "on": true, "battery": 40.0,
+		"battery_max": 100.0, "low": false, "source": "online"})
+	assert_dict(widget.snapshot()).contains_keys(["on", "battery"])
+	assert_bool(bool(widget.snapshot().get("on", false))).is_true()
+
+# El boton de la pantalla ImGui de casco (o, sin ImGui, el toggle del widget ampliado) despacha
+# la MISMA accion "toggle" que el widget de slot: FlashlightScreenView.toggle() -> HudWidgetAction
+# -> SuitOS.perform_action, sin simular clicks de ImGui.
+func test_flashlight_screen_view_toggle_dispatches_same_action() -> void:
+	var view = FlashlightScreenViewScene.instance()
+	add_child(view)
+	auto_free(view)
+	yield(get_tree(), "idle_frame")
+
+	view.update_snapshot(_screen.widget_snapshot())
+	assert_bool(_flashlight.enabled).is_false()
+	view.toggle()
+	assert_bool(_flashlight.enabled).override_failure_message(
+		"FlashlightScreenView.toggle() deberia encender la linterna via SuitOS").is_true()

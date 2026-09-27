@@ -64,6 +64,13 @@ export(float) var inside_screen_depth_offset := 0.0
 export(bool) var static_content := false
 var _pending_redraw := false
 var _static_content_initialized := false
+# Paso 12: el contenido (p.ej. CryoPodImGui con ImGuiCanvas) dibuja su propio cursor en
+# HoloScreen.shader (cursor_uv) en vez de adentro de la textura del Viewport. Con esto en
+# true, con foco NO se fuerza UPDATE_ALWAYS (el contenido sigue en static_content/
+# UPDATE_ONCE via redrawn/request_redraw): el cursor se actualiza aparte, cada fisica
+# tick, escribiendo cursor_uv en el material. Sin esto (default) nada cambia.
+export(bool) var shader_cursor := false
+var _shader_cursor_probed := false
 # PERF: _find_player() llama get_tree().get_nodes_in_group("player"), que asigna un Array
 # nuevo en cada llamada y se invocaba hasta 3 veces por tick (visuals, radius, occlusion).
 # El jugador persiste, asi que se cachea y solo se re-consulta si el nodo dejo de existir.
@@ -194,6 +201,8 @@ func _ready():
 			_hud_attach_target = default_target as Spatial
 	
 	_viewport_input = get_node_or_null("Viewport")
+	if _viewport_input and _viewport_input.has_method("set_uses_shader_cursor"):
+		_viewport_input.set_uses_shader_cursor(shader_cursor)
 	if static_content:
 		# Un terminal de contenido fijo (dashboard tipo CoolantSystemStatusUI) no necesita
 		# la consola interactiva por defecto en absoluto: dejarla viva solo-oculta
@@ -313,6 +322,135 @@ func _apply_hud_screen_material_overrides() -> void:
 		shader_mat.set_shader_param("albedo", color)
 	shader_mat.set_shader_param("emission_energy", max(0.0, hud_background_emission))
 	shader_mat.set_shader_param("contrast_boost", max(0.0, hud_background_contrast))
+
+
+# --- Paso 12: cursor fluido dibujado por HoloScreen.shader (cursor_uv) ------------------
+# Se llama cada _physics_process (tasa del juego) mientras shader_cursor = true, sin
+# importar a que Hz redibuje el contenido del Viewport (static_content + redrawn/
+# UPDATE_ONCE). Portado de demo_holoterminal/holoterminal.gd (gdtk, Paso 12 validado).
+const CURSOR_SIZE_PX := Vector2(20.0, 20.0)
+var _cursor_tex: ImageTexture = null
+
+# El Viewport se llena en _ready() por instanciacion top-down; sus hijos ya existen ahi,
+# pero el contenido (ej. CryoPodUI._build_imgui_screen) recien agrega su CryoPodImGui como
+# hermano suyo durante el propio _ready() del contenido, que corre ANTES que el nuestro
+# (orden bottom-up). Se re-chequea aca, en el primer tick real, por si algun contenido lo
+# agrega mas tarde.
+# El contenido lo pide al entrar al arbol (ver CryoPodImGui._announce_shader_cursor):
+# no depender del sondeo de un solo tick, que llegaba antes que el contenido diferido.
+func enable_shader_cursor() -> void:
+	shader_cursor = true
+	_shader_cursor_probed = true
+	if _viewport_input and _viewport_input.has_method("set_uses_shader_cursor"):
+		_viewport_input.set_uses_shader_cursor(true)
+
+
+func _probe_shader_cursor_content() -> void:
+	_shader_cursor_probed = true
+	if shader_cursor or _viewport_input == null:
+		return
+	for child in _viewport_input.get_children():
+		if child.has_method("uses_shader_cursor") and child.uses_shader_cursor():
+			shader_cursor = true
+			if _viewport_input.has_method("set_uses_shader_cursor"):
+				_viewport_input.set_uses_shader_cursor(true)
+			return
+
+
+func _update_shader_cursor() -> void:
+	var screen_mesh = get_node_or_null("ScreenContainer/ScreenMesh")
+	if not screen_mesh:
+		return
+	var mat = screen_mesh.material
+	if not (mat is ShaderMaterial):
+		return
+	var shader_mat: ShaderMaterial = mat
+
+	var hidden: bool = _viewport_input == null or not is_active or not _is_focused
+	if not hidden and _viewport_input.has_method("forces_relative_cursor") and _viewport_input.forces_relative_cursor():
+		# El HUD presta el Viewport (modo Pantalla): su propio overlay dibuja el cursor.
+		hidden = true
+	if not hidden and _viewport_input.has_method("has_surface_hover") and not _viewport_input.has_surface_hover():
+		hidden = true
+	if hidden:
+		shader_mat.set_shader_param("cursor_uv", Vector2(-1.0, -1.0))
+		return
+
+	var size: Vector2 = _viewport_input.get_visible_rect().size
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+	var pos_px: Vector2 = _viewport_input.get_cursor_position()
+	var uv := _apply_shader_cursor_flips(pos_px / size, shader_mat)
+	shader_mat.set_shader_param("cursor_uv", uv)
+	shader_mat.set_shader_param("cursor_size_uv", CURSOR_SIZE_PX / size)
+	if shader_mat.get_shader_param("cursor_tex") == null:
+		shader_mat.set_shader_param("cursor_tex", _get_shader_cursor_texture())
+
+
+# Replica los flips que HoloScreen.shader aplica a `uv` antes de muestrear texture_albedo
+# (caso FRONT_FACING + aligned), para que cursor_uv caiga en el mismo espacio que compara
+# el shader.
+# ponytail: no cubre back_flip_h/v ni flip_h/v_when_viewed_from_back (visto de atras / rig
+# interior espejado, HoloTerminalV2._screen_flipped): el cursor puede desalinearse ahi.
+# Subir si algun terminal con shader_cursor = true usa ese rig.
+func _apply_shader_cursor_flips(uv: Vector2, mat: ShaderMaterial) -> Vector2:
+	if _shader_bool_param(mat, "flip_h", false):
+		uv.x = 1.0 - uv.x
+	if _shader_bool_param(mat, "flip_v", true):
+		uv.y = 1.0 - uv.y
+	if _shader_bool_param(mat, "aligned_flip_h", false):
+		uv.x = 1.0 - uv.x
+	if _shader_bool_param(mat, "aligned_flip_v", true):
+		uv.y = 1.0 - uv.y
+	return uv
+
+
+# ShaderMaterial.get_shader_param() devuelve null cuando nadie llamo set_shader_param()
+# para ese uniform (no el default declarado en el shader) - hay que dar el default a mano.
+func _shader_bool_param(mat: ShaderMaterial, name: String, default: bool) -> bool:
+	var value = mat.get_shader_param(name)
+	if value == null:
+		return default
+	return bool(value)
+
+
+const _CURSOR_MASK := [
+	"X...............",
+	"XX..............",
+	"X.X.............",
+	"X..X............",
+	"X...X...........",
+	"X....X..........",
+	"X.....X.........",
+	"X......X........",
+	"X.......X.......",
+	"X........X......",
+	"X.....XXXXX.....",
+	"X....XX...X.....",
+	"X...X.X....X....",
+	"XX.X..X.........",
+	".XX....X........",
+	"........X.......",
+]
+
+func _get_shader_cursor_texture() -> ImageTexture:
+	if _cursor_tex != null:
+		return _cursor_tex
+	var MASK := _CURSOR_MASK
+	var size: int = MASK.size()
+	var image := Image.new()
+	image.create(size, size, false, Image.FORMAT_RGBA8)
+	image.lock()
+	for y in range(size):
+		for x in range(size):
+			if MASK[y][x] == "X":
+				image.set_pixel(x, y, Color(1, 1, 1, 1))
+			else:
+				image.set_pixel(x, y, Color(0, 0, 0, 0))
+	image.unlock()
+	_cursor_tex = ImageTexture.new()
+	_cursor_tex.create_from_image(image, Texture.FLAG_FILTER)
+	return _cursor_tex
 
 
 func interact() -> void:
@@ -509,8 +647,10 @@ func _update_visuals() -> void:
 				# pisar el pedido antes de que el render pass lo viera.
 				mode = viewport.render_target_update_mode
 
-		# If focused, always update
-		if _is_focused:
+		# If focused, always update — salvo que el cursor lo dibuje el shader: ahi el
+		# contenido se queda en static_content/UPDATE_ONCE (el cursor se mueve aparte, en
+		# cursor_uv, sin pedirle 60 renders/s al Viewport solo por eso).
+		if _is_focused and not (shader_cursor and static_content):
 			mode = Viewport.UPDATE_ALWAYS
 
 		# UPDATE_ONCE es un flag de un solo disparo: una vez consumido, el getter de
@@ -1071,6 +1211,11 @@ func _exit_tree() -> void:
 
 func _physics_process(delta: float) -> void:
 	._physics_process(delta)
+
+	if not _shader_cursor_probed:
+		_probe_shader_cursor_content()
+	if shader_cursor:
+		_update_shader_cursor()
 
 	if _hud_transition_active:
 		_step_hud_transition(delta)

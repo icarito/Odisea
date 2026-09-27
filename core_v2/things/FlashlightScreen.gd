@@ -2,8 +2,16 @@ extends HUDableComponent
 class_name FlashlightScreen
 
 # FlashlightScreen.gd - HUDable screen source for Helmet Flashlight (FD-298)
+#
+# Paso "Linterna en ImGui": ademas del widget de slot, esta pantalla ahora declara su
+# propia vista de casco (view_scene()/view_size()) cuando el motor trae el modulo ImGui
+# (ClassDB.class_exists("ImGuiCanvas")). Sin el modulo, view_scene() devuelve null, igual
+# que antes de este paso: HudViewMount.show() cae directo a _open_widget() (el widget de
+# arriba, ampliado 1.8x) — no hay regresion, es el comportamiento previo intacto.
 
 const WidgetScene = preload("res://core_v2/ui/hud/FlashlightWidget.tscn")
+const HelmetViewScene = preload("res://core_v2/ui/hud/FlashlightScreenView.tscn")
+const VIEW_SIZE := Vector2(480.0, 300.0)
 
 export(NodePath) var flashlight_path: NodePath = NodePath("")
 
@@ -13,6 +21,20 @@ func _init() -> void:
 	hud_widget_scene = WidgetScene
 	default_relevance = 0.1
 	allowed_actions_list = ["toggle"]
+
+func view_scene() -> PackedScene:
+	if ClassDB.class_exists("ImGuiCanvas"):
+		return HelmetViewScene
+	return null
+
+func view_size() -> Vector2:
+	return VIEW_SIZE
+
+# El rojo de STATE_ALARM se satura con el contrast_boost alto que usa la Criopod (8.0,
+# CryoPodHUDable.view_hud_config): medido en la pantalla de casco de la Linterna, un
+# contraste mas bajo (1.0) mantiene el rojo legible sin quemarlo.
+func view_hud_config() -> Dictionary:
+	return {"contrast": 1.0}
 
 func _ready() -> void:
 	call_deferred("_bind_flashlight")
