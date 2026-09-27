@@ -47,6 +47,15 @@ uniform bool aligned_flip_v = true;
 uniform bool flip_h_when_viewed_from_back = false;
 uniform bool flip_v_when_viewed_from_back = true;
 
+// Cursor fluido dibujado por el shader (Paso 12 / ImGuiCanvas), no dentro de la textura
+// del Viewport: asi se mueve a la tasa del juego aunque el contenido re-renderice a
+// update_hz mas bajo. cursor_uv es la esquina superior-izquierda del cursor en el mismo
+// espacio UV ya volteado que usa texture_albedo (ver `uv` mas abajo). cursor_uv.x < 0 =
+// sin cursor: sin el, el shader da exactamente el mismo resultado que antes de este paso.
+uniform vec2 cursor_uv = vec2(-1.0, -1.0);
+uniform vec2 cursor_size_uv = vec2(0.0);
+uniform sampler2D cursor_tex;
+
 void fragment() {
     vec2 uv = UV;
     
@@ -69,7 +78,17 @@ void fragment() {
     if (aligned_flip_v) uv.y = 1.0 - uv.y;
 
     vec4 tex_color = texture(texture_albedo, uv);
-    
+
+    // El cursor es "tinta" como el resto: se mezcla ANTES del calculo de luma/cobertura
+    // para que la reconstruccion de opacidad lo trate igual que el contenido.
+    if (cursor_uv.x >= 0.0 && cursor_size_uv.x > 0.0 && cursor_size_uv.y > 0.0) {
+        vec2 cursor_local = (uv - cursor_uv) / cursor_size_uv;
+        if (cursor_local.x >= 0.0 && cursor_local.x <= 1.0 && cursor_local.y >= 0.0 && cursor_local.y <= 1.0) {
+            vec4 cursor_color = texture(cursor_tex, cursor_local);
+            tex_color = mix(tex_color, vec4(cursor_color.rgb, 1.0), cursor_color.a);
+        }
+    }
+
     // Cobertura reconstruida: la tinta (clara) llega a 1 y se pinta OPACA; el fondo del
     // panel (oscuro) cae a 0 y se ve a traves.
     float luma = dot(tex_color.rgb, vec3(0.299, 0.587, 0.114));
